@@ -76,14 +76,24 @@ test("the toolbar's buttons don't move with the sidebar: the hidden sidebar's to
   assert.deepEqual([g.sidebarButton, g.back, g.forward, g.reload], [21, 56, 92, 127]);
 });
 
-test("the sidebar's own button (address bar in the sidebar) always fits; back, forward and reload as there's room", () => {
-  assert.equal(dm.navButtonsFitting(160).count, 1);
+test("the sidebar's own button (address bar in the sidebar) always fits; back, reload and forward as there's room, never overlapping", () => {
+  assert.deepEqual(dm.navButtonsFitting(160).buttons, ["back"]);
   const narrow = dm.navButtonsFitting(190);
-  assert.equal(narrow.count, 3, "the default width keeps reload");
-  assert.ok(narrow.step >= dm.HEADER_MIN_STEP && narrow.step < 35, "closed up, not crowded");
-  assert.deepEqual(dm.navButtonsFitting(224.75), { count: 3, step: 35 });
-  assert.deepEqual(dm.navButtonsFitting(400), { count: 3, step: 35 });
-  assert.equal(dm.navButtonsFitting(100).count, 0);
+  assert.deepEqual(narrow.buttons, ["back", "reload"], "the default width keeps reload; forward gives way first");
+  assert.equal(narrow.step, 35, "Dia's pitch");
+  const closing = dm.navButtonsFitting(220);
+  assert.deepEqual(closing.buttons, ["back", "forward", "reload"]);
+  assert.ok(closing.step >= 30 + dm.HEADER_MIN_GAP && closing.step < 35, "closed up, plates apart");
+  assert.deepEqual(dm.navButtonsFitting(224.75), { buttons: ["back", "forward", "reload"], step: 35 });
+  assert.deepEqual(dm.navButtonsFitting(400), { buttons: ["back", "forward", "reload"], step: 35 });
+  assert.equal(dm.navButtonsFitting(100).buttons.length, 0);
+  // No two plates closer than the gap, the sidebar button's included, at any width.
+  for (let w = 150; w <= 400; w += 0.5) {
+    const { buttons, step } = dm.navButtonsFitting(w);
+    const last = w - dm.HEADER_TOOLS.edge - 15;
+    const centres = [dm.HEADER_TOOLS.toggleX, ...buttons.map((_, i) => last - (buttons.length - 1 - i) * step)];
+    for (let i = 1; i < centres.length; i++) assert.ok(centres[i] - centres[i - 1] >= 30 + dm.HEADER_MIN_GAP - 1e-9, `${w}: ${centres}`);
+  }
 });
 
 test("hidden or shown is each window's own, and survives a quit and relaunch; new windows open with it shown", () => {

@@ -1,66 +1,109 @@
 import { useRef } from "react";
 import { FadeLabel } from "@arcadia/shell";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View, type ViewStyle } from "react-native";
 import { layout, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { useActiveTabId, useTabLive, useWindowId } from "../../store/hooks";
 import { usePageProgress } from "../../store/pageProgress";
 import { splitOf } from "../../store/splits";
-import { ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
+import { extensionsFitting, ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { useHistoryAvailability } from "../layout/history";
 import { toolbarPalette, type ToolbarPalette } from "../layout/toolbarColors";
-import { ToolbarButton } from "../layout/controls";
+import { ToolbarButton, type ButtonHit } from "../layout/controls";
 import { addressBarInSidebar, setUrlAnchor, SIDEBAR_FIELD } from "../layout/windowLayout";
 import { focusHeroBar } from "../omnibox/barState";
 import { GlassFill, liquidGlass } from "../glass";
 import { useHover } from "../primitives";
-import { HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../Toolbar";
-import { HEADER_TOOLS, navButtonsFitting } from "../layout/dockMotion";
+import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../Toolbar";
+import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../layout/dockMotion";
 
 const BUTTON = layout.toolbarButton;
-const { toggleX: TOGGLE_X, edge: EDGE } = HEADER_TOOLS;
+const { toggleX: TOGGLE_X, edge: EDGE, lightsRight: LIGHTS_RIGHT } = HEADER_TOOLS;
 // Dia: lights y26.75pt, x70.75pt; 5pt gap, 7pt inset.
 const LIGHTS_Y = 26.75;
+// The buttons take the header's whole height down to the field and the row past the traffic lights, edge to edge
+// (each to the midpoint between its plate and the next): presses near a button are its, not the title bar's (the
+// owner's recording 2026-10-11: clicks a few points above or left of the sidebar button double-clicked the header,
+// which zoomed the window).
+const HIT_TOP = 0;
+const HIT_BOTTOM = SIDEBAR_FIELD.top - 2;
+
+type Slot = { center: number; left: number; right: number };
+// Each button's press area from its centre and its neighbours': split at the midpoints, from just past the lights to
+// just short of the sidebar's edge.
+function slots(centers: number[], width: number): Slot[] {
+  return centers.map((center, i) => ({
+    center,
+    left: i ? (centers[i - 1]! + center) / 2 : LIGHTS_RIGHT + 1,
+    right: i < centers.length - 1 ? (center + centers[i + 1]!) / 2 : width - 2,
+  }));
+}
 
 export function SidebarHeaderTools({ width }: { width: number }) {
   const windowId = useWindowId();
   const tab = useToolbarTab(useActiveTabId());
   const palette = toolbarPalette(useTheme(), null);
-  const top = LIGHTS_Y - BUTTON / 2;
-  const fitting = navButtonsFitting(width, BUTTON);
+  const { buttons, step } = navButtonsFitting(width, BUTTON);
+  const shown = tab ? buttons : [];
+  const last = width - EDGE - BUTTON / 2;
+  const at = slots([TOGGLE_X, ...shown.map((_, i) => last - (shown.length - 1 - i) * step)], width);
+  const place = (s: Slot) => ({
+    style: { position: "absolute" as const, top: HIT_TOP, left: s.left },
+    hit: { width: s.right - s.left, height: HIT_BOTTOM - HIT_TOP, plateX: s.center - BUTTON / 2 - s.left, plateY: LIGHTS_Y - BUTTON / 2 - HIT_TOP },
+  });
   return (
     <>
       <ToolbarButton
-        style={{ position: "absolute", top, left: TOGGLE_X - BUTTON / 2 }}
+        {...place(at[0]!)}
         palette={palette}
         icon="sidebar.left"
+        size={GLYPH}
         onPress={() => useBrowser.getState().toggleSidebar(windowId)}
         tooltip="Auto-Hide Tabs (⌘S)"
       />
-      <View style={{ position: "absolute", top, right: EDGE, flexDirection: "row" }}>
-        {tab && fitting.count ? <NavigationButtons tab={tab} palette={palette} {...fitting} /> : null}
-      </View>
+      {tab ? <NavigationButtons tab={tab} palette={palette} buttons={shown} slots={at.slice(1).map(place)} /> : null}
     </>
   );
 }
 
 const alreadyFocused = () => {};
 
-function NavigationButtons({ tab, palette, count, step }: { tab: NonNullable<ReturnType<typeof useToolbarTab>>; palette: ToolbarPalette; count: number; step: number }) {
+function NavigationButtons({
+  tab,
+  palette,
+  buttons,
+  slots,
+}: {
+  tab: NonNullable<ReturnType<typeof useToolbarTab>>;
+  palette: ToolbarPalette;
+  buttons: HeaderButton[];
+  slots: { style: ViewStyle; hit: ButtonHit }[];
+}) {
   const loading = useTabLive(tab.id, (l) => l.isLoading);
   const history = useHistoryAvailability(tab.id);
-  // Closed up in a narrow sidebar, the buttons' boxes overlap a little; their glyphs don't.
-  const next = { marginLeft: step - BUTTON };
   return (
     <>
-      <HistoryButton tabId={tab.id} windowId={tab.windowId} direction={-1} disabled={!history.back} palette={palette} onFocus={alreadyFocused} />
-      {count > 1 && <HistoryButton style={next} tabId={tab.id} windowId={tab.windowId} direction={1} disabled={!history.forward} palette={palette} onFocus={alreadyFocused} />}
-      {count > 2 && <ReloadButton style={next} tab={tab} loading={loading} palette={palette} onFocus={alreadyFocused} />}
+      {buttons.map((b, i) =>
+        b === "reload" ? (
+          <ReloadButton key={b} {...slots[i]!} tab={tab} loading={loading} palette={palette} onFocus={alreadyFocused} />
+        ) : (
+          <HistoryButton
+            key={b}
+            {...slots[i]!}
+            tabId={tab.id}
+            windowId={tab.windowId}
+            direction={b === "back" ? -1 : 1}
+            disabled={b === "back" ? !history.back : !history.forward}
+            palette={palette}
+            onFocus={alreadyFocused}
+          />
+        ),
+      )}
     </>
   );
 }
 
-export function SidebarAddressRow() {
+export function SidebarAddressRow({ width }: { width: number }) {
   const windowId = useWindowId();
   const tab = useToolbarTab(useActiveTabId());
   const field = useRef<View>(null);
@@ -75,18 +118,23 @@ export function SidebarAddressRow() {
       onLayout={anchor}
       style={{ position: "absolute", left: layout.sidebarInset, right: layout.sidebarInset, top: SIDEBAR_FIELD.top, height: SIDEBAR_FIELD.height }}
     >
-      {tab?.url ? <PageField tab={tab} windowId={windowId} /> : <EmptyField windowId={windowId} />}
+      {tab?.url ? <PageField tab={tab} windowId={windowId} width={width - 2 * layout.sidebarInset} /> : <EmptyField windowId={windowId} />}
     </View>
   );
 }
 
-function PageField({ tab, windowId }: { tab: NonNullable<ReturnType<typeof useToolbarTab>>; windowId: string }) {
+// The field keeps this much for the host ("example.com") before an extension button gives way to the overflow button.
+const HOST_ROOM = 84;
+
+function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeof useToolbarTab>>; windowId: string; width: number }) {
   const palette = toolbarPalette(useTheme(), null);
   const loading = useTabLive(tab.id, (l) => l.isLoading);
   const loaded = usePageProgress(tab.id);
   const progress = loading ? loaded : null;
   const inSplit = useBrowser((s) => !!splitOf(s, tab.id));
-  const extensionsWidth = useToolbarExtensionsWidth(windowId);
+  // The text's left padding (10) and the trailing one (3).
+  const limit = extensionsFitting(width - 10 - 3 - HOST_ROOM);
+  const extensionsWidth = useToolbarExtensionsWidth(windowId, limit);
   return (
     <UrlField
       tab={tab}
@@ -99,7 +147,7 @@ function PageField({ tab, windowId }: { tab: NonNullable<ReturnType<typeof useTo
         progress,
         accessory: extensionsWidth ? (
           <View style={{ width: extensionsWidth - 6, height: 28 }}>
-            <ToolbarExtensions tabId={tab.id} windowId={windowId} palette={palette} top={0} right={0} />
+            <ToolbarExtensions tabId={tab.id} windowId={windowId} palette={palette} top={0} right={0} limit={limit} />
           </View>
         ) : null,
       }}

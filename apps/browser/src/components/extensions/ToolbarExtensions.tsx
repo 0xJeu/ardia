@@ -21,18 +21,31 @@ import {
   type Anchor,
 } from "./state";
 
+// Dia 1.52 (owner's recording, 2026-10-09): only the pinned extensions, icons 16 pt with centres 30.25 pt apart, a
+// disabled action dimmed as here; no extensions button (the rest are in the menu bar's Extensions menu, as ours). Ours
+// shows its overflow button only when the pinned ones don't all fit (`limit`).
 const BUTTON = 28;
+const GAP = 2;
+const PITCH = BUTTON + GAP;
 
-function useToolbarExtensions(windowId: string) {
+function useToolbarExtensions(windowId: string, limit: number) {
   const shown = useWindowExtensions(windowId);
-  return useMemo(() => ({ pinned: shown.filter((x) => x.pinned), overflow: shown.some((x) => !x.pinned) }), [shown]);
+  const casting = useCastRoutes(windowId).length > 0;
+  return useMemo(() => {
+    const all = shown.filter((x) => x.pinned);
+    const room = Math.max(0, limit - (casting ? 1 : 0));
+    const overflow = all.length > room;
+    return { pinned: overflow ? all.slice(0, Math.max(0, room - 1)) : all, overflow, casting };
+  }, [shown, casting, limit]);
 }
 
-export function useToolbarExtensionsWidth(windowId: string): number {
-  const { pinned, overflow } = useToolbarExtensions(windowId);
-  const casting = useCastRoutes(windowId).length > 0;
+/** How many extension buttons fit in `room` points (the cast button, pinned extensions and the overflow button). */
+export const extensionsFitting = (room: number) => Math.max(1, Math.floor((room + GAP) / PITCH));
+
+export function useToolbarExtensionsWidth(windowId: string, limit = Infinity): number {
+  const { pinned, overflow, casting } = useToolbarExtensions(windowId, limit);
   const count = pinned.length + (overflow ? 1 : 0) + (casting ? 1 : 0);
-  return count ? count * BUTTON + 6 : 0;
+  return count ? count * PITCH - GAP + 6 : 0;
 }
 
 // Memoized: the toolbar re-renders with its page (title, loading), and these props rarely change.
@@ -42,14 +55,16 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
   palette,
   top,
   right,
+  limit = Infinity,
 }: {
   tabId: string;
   windowId: string;
   palette: ToolbarPalette;
   top: number;
   right: number;
+  limit?: number;
 }) {
-  const { pinned, overflow } = useToolbarExtensions(windowId);
+  const { pinned, overflow } = useToolbarExtensions(windowId, limit);
   const routes = useCastRoutes(windowId);
   const browserId = usePages((p) => {
     for (const [id, tab] of Object.entries(p.browsers)) if (tab === tabId) return Number(id);
@@ -57,7 +72,7 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
   });
   if (!pinned.length && !overflow && !routes.length) return null;
   return (
-    <View style={{ position: "absolute", top, right, flexDirection: "row" }}>
+    <View style={{ position: "absolute", top, right, flexDirection: "row", gap: GAP }}>
       {routes.length ? <CastButton windowId={windowId} routes={routes} palette={palette} /> : null}
       {pinned.map((ext) => (
         <ExtensionButton key={ext.id} ext={ext} windowId={windowId} browserId={browserId} palette={palette} />

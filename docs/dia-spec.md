@@ -93,6 +93,14 @@ Measured materials (our own non-activating panels over solid backdrops; sRGB; ac
 - Height 41. Icon centers from the card's left edge: 21, 56, 92, 127 (sidebar.left, chevron.left,
   chevron.right, arrow.clockwise). Glyphs are about 15pt, regular weight.
 - Button hover: a ~30pt rounded square (radius 7) at white 10%.
+- **Dia 1.52 (owner's 2× recording, 2026-10-09, x.com, 191 pt sidebar), measured:** glyph centres 21, 55, 92, 126 from
+  the card's edge (34–37 apart), on y 27.2 from the window's top. Ink at 2× (half-peak threshold): `sidebar.left` 30 × 23
+  px, chevrons 12 × 22, `arrow.clockwise` 22 × 26, i.e. SF Symbols at **13 pt** regular (15 / 14 pt draw 35 × 27,
+  13 × 24, 24 × 29). Forward, disabled, peaks at about half the others' brightness.
+- **Extensions (same capture):** only the pinned ones, at the card toolbar's right end before Chat: icons 16 pt, centres
+  **30.25** pt apart (nine of them), no extensions (puzzle-piece) button; the rest are in the menu bar's Extensions menu.
+  A disabled action (React DevTools on x.com) is drawn dimmed, its translucent backdrop square (12, 11, 20) over the
+  black toolbar. The binary has an "Overflow extensions button" in `PinnedExtensionsView`, for pinned ones that don't fit.
 - Breadcrumb at x 153: `host` (primary, medium) + ` / ` + the full page title (secondary, 50%).
   The title is not split on `·`, `|` or `—`. **1.50.1: web pages show the host alone**, see "URL bar (1.50.1)".
 - URL hover: the breadcrumb morphs into a pill (white ~8%, radius 8) showing the full URL, with

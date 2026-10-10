@@ -10,7 +10,7 @@ import { useIsBookmarked, useSettings, useTabLive } from "../store/hooks";
 import { bookmarkProfileId } from "../store/model";
 import { usePageProgress } from "../store/pageProgress";
 import type { Tab } from "../store/types";
-import { ToolbarButton, type ClickModifiers } from "./layout/controls";
+import { ToolbarButton, type ButtonHit, type ClickModifiers } from "./layout/controls";
 import { type ToolbarGeometry } from "./layout/geometry";
 import { setPopover, usePage, usePages, type PageState } from "./layout/pageState";
 import { closeHistoryMenu, goBack, goForward, historyItems, openHistoryMenu, useHistoryAvailability, useHistoryMenu } from "./layout/history";
@@ -36,6 +36,9 @@ export const useToolbarTab = (tabId: string | undefined) => useBrowser(useShallo
 
 // The URL field's place in a pane's toolbar, which the command bar opens over (CommandPanel.tsx).
 export const URL_FIELD = { top: 21.2 - 15, height: 30 } as const;
+// The toolbar's glyphs (sidebar, back, forward, reload): Dia 1.52's ink at 2x is 30 × 23, 12 × 22 and 22 × 26 px
+// (owner's recording, 2026-10-09), which SF Symbols draw at 13 pt regular.
+export const GLYPH = 13;
 export const urlFieldRight = (inSplit: boolean, extensionsWidth: number) => (inSplit ? 12 + 2 * 28 : 12) + extensionsWidth;
 // Where the field's text starts: after the warning lock on a page that isn't secure.
 const LOCK = { left: 7, width: 18, gap: 3 } as const;
@@ -103,6 +106,7 @@ export function Toolbar({
             style={at.sidebarButton}
             palette={palette}
             icon="sidebar.left"
+            size={GLYPH}
             onPress={() => useBrowser.getState().toggleSidebar(windowId)}
             tooltip="Auto-Hide Tabs (⌘S)"
           />
@@ -133,12 +137,14 @@ export const ReloadButton = memo(function ReloadButton({
   loading,
   palette,
   style,
+  hit,
   onFocus,
 }: {
   tab: Pick<Tab, "id" | "url" | "windowId">;
   loading: boolean;
   palette: ToolbarPalette;
   style?: ViewStyle;
+  hit?: ButtonHit;
   onFocus: () => void;
 }) {
   const web = () => webviews.get(tab.id);
@@ -147,7 +153,8 @@ export const ReloadButton = memo(function ReloadButton({
       style={style}
       palette={palette}
       icon={loading ? "xmark" : "arrow.clockwise"}
-      size={14}
+      size={GLYPH}
+      hit={hit}
       disabled={!tab.url}
       onPress={(m) => {
         onFocus();
@@ -196,6 +203,7 @@ export const HistoryButton = memo(function HistoryButton({
   disabled,
   palette,
   style,
+  hit,
   onFocus,
 }: {
   tabId: string;
@@ -204,6 +212,7 @@ export const HistoryButton = memo(function HistoryButton({
   disabled: boolean;
   palette: ToolbarPalette;
   style?: object;
+  hit?: ButtonHit;
   onFocus: () => void;
 }) {
   const openMenu = () => {
@@ -225,7 +234,8 @@ export const HistoryButton = memo(function HistoryButton({
       <ToolbarButton
         palette={palette}
         icon={direction < 0 ? "chevron.left" : "chevron.right"}
-        size={14}
+        size={GLYPH}
+        hit={hit}
         disabled={disabled}
         onPress={onPress}
         onLongPress={openMenu}

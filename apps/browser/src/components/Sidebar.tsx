@@ -151,7 +151,7 @@ export function Sidebar({ width }: { width: number }) {
             {addressBar ? (
               <>
                 <SidebarHeaderTools width={width} />
-                <SidebarAddressRow />
+                <SidebarAddressRow width={width} />
               </>
             ) : (
               // Box-none: the header's empty space is the drag region's (it moves the window), not the row's.

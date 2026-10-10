@@ -25,6 +25,7 @@ export function ToolbarButton({
   palette,
   color,
   style,
+  hit,
 }: {
   icon: string;
   onPress?: (modifiers: ClickModifiers) => void;
@@ -39,37 +40,50 @@ export function ToolbarButton({
   palette: Pick<ToolbarPalette, "icon" | "iconDisabled" | "hover" | "pressed">;
   color?: string;
   style?: ViewStyle;
+  /** A press area larger than the plate (the plate's top-left at `plateX`, `plateY` in it): the button takes the
+   *  presses around its plate, so a near miss in a title-bar strip doesn't land on the strip (a double-click there
+   *  zooms the window). */
+  hit?: ButtonHit;
 }) {
   const { hovered, hoverProps } = useHover();
+  const plate = (pressed: boolean) => (
+    <View
+      style={{
+        position: hit ? "absolute" : "relative",
+        left: hit?.plateX,
+        top: hit?.plateY,
+        width: box,
+        height: box,
+        borderRadius: radius,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: disabled ? undefined : pressed ? palette.pressed : hovered ? palette.hover : undefined,
+      }}
+    >
+      <Symbol name={icon} size={size} weight={weight} color={color ?? (disabled ? palette.iconDisabled : palette.icon)} style={{ width: box, height: box }} />
+    </View>
+  );
   const button = (
     <Pressable
       onPress={(e) => onPress?.(modifiersOf(e))}
       onLongPress={onLongPress}
       delayLongPress={450}
       disabled={disabled}
+      style={hit ? { width: hit.width, height: hit.height } : undefined}
     >
-      {({ pressed }) => (
-        <View
-          style={{
-            width: box,
-            height: box,
-            borderRadius: radius,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: disabled ? undefined : pressed ? palette.pressed : hovered ? palette.hover : undefined,
-          }}
-        >
-          <Symbol name={icon} size={size} weight={weight} color={color ?? (disabled ? palette.iconDisabled : palette.icon)} style={{ width: box, height: box }} />
-        </View>
-      )}
+      {({ pressed }) => plate(pressed)}
     </Pressable>
   );
+  // mouseDownCanMoveWindow={false}: a press on a button, disabled or not, is never the title bar's (a drag of the
+  // window, or its double-click action).
   return (
-    <View tooltip={tooltip} style={style} {...hoverProps}>
+    <View tooltip={tooltip} style={style} mouseDownCanMoveWindow={false} {...hoverProps}>
       {onContextMenu && !disabled ? <ContextMenuArea onContextMenu={onContextMenu}>{button}</ContextMenuArea> : button}
     </View>
   );
 }
+
+export type ButtonHit = { width: number; height: number; plateX: number; plateY: number };
 
 // One grid for every panel that opens from the address field and the toolbar (Site Controls, the site's prompts, zoom,
 // history, Cast, screen sharing, the device chooser, downloads). Everything sits `inset` from each edge: the first icon

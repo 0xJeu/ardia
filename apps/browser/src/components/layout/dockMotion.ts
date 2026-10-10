@@ -88,22 +88,27 @@ export const peekShown = (windowId: string) => peeking.has(windowId);
 /** Development: each window's peek, for the dev harness (acLayout.peek[windowId].show()). */
 export const devPeeks: Record<string, { show(): void; hide(): void }> = {};
 
-// The sidebar's own button with the address bar in the sidebar (Arc's header, sidebar/AddressBar.tsx): after the traffic
-// lights (Dia's 70.75 + 27), back, forward and reload right-aligned 7 pt from the edge, 5 pt apart.
-export const HEADER_TOOLS = { toggleX: 70.75 + 27, gap: 5, edge: 7 } as const;
+// The sidebar's own button with the address bar in the sidebar (Arc's header, sidebar/AddressBar.tsx): 27 pt after the
+// last traffic light's centre (Arc's, and Dia's 6 pt after the window buttons for a 30 pt plate), then back, forward and
+// reload right-aligned 7 pt from the edge on Dia's toolbar pitch (centres 34-37 apart in Dia 1.52: 35).
+export const HEADER_TOOLS = { toggleX: 70.75 + 27, pitch: 35, edge: 7, lightsRight: 70.75 + 7 } as const;
 
-/** Closest the header's buttons get, centre to centre, before one gives way: a 14 pt glyph keeps 9 pt of air. */
-export const HEADER_MIN_STEP = 23;
+/** Least air between two plates (Dia's sidebar header stack spacing): closer, a button gives way instead. */
+export const HEADER_MIN_GAP = 2;
+
+export type HeaderButton = "back" | "forward" | "reload";
 
 /**
- * How many of back, forward and reload fit after the sidebar button in a sidebar `width` wide (buttons `button` wide),
- * and how far apart their centres are. The button always shows: it was dropped below 225 pt, so the default 190 pt
- * sidebar had no way to hide itself but ⌘S. They close up (down to HEADER_MIN_STEP) before one goes, so the default
- * width keeps all three; then reload goes first, then forward (⌘R and ⌘] still work).
+ * Which of back, forward and reload fit after the sidebar button in a sidebar `width` wide (plates `button` wide), and
+ * how far apart their centres are. Plates never overlap: overlapping, two of them lit at once under the pointer (both
+ * tracked it) and they read as clutter (owner's report 2026-10-11). The sidebar button always shows. Forward gives way
+ * first (⌘], a swipe and back's history menu still reach it), so the default 190 pt sidebar keeps reload (owner's
+ * report 2026-10-07), then reload.
  */
-export function navButtonsFitting(width: number, button = 30): { count: number; step: number } {
-  const { toggleX, gap, edge } = HEADER_TOOLS;
+export function navButtonsFitting(width: number, button = 30): { buttons: HeaderButton[]; step: number } {
+  const { toggleX, pitch, edge } = HEADER_TOOLS;
   const span = width - edge - button / 2 - toggleX; // the sidebar button's centre to the last button's
-  const count = Math.max(0, Math.min(3, Math.floor(span / HEADER_MIN_STEP)));
-  return { count, step: count ? Math.min(button + gap, span / count) : button + gap };
+  const count = Math.max(0, Math.min(3, Math.floor(span / (button + HEADER_MIN_GAP))));
+  const buttons: HeaderButton[] = count === 3 ? ["back", "forward", "reload"] : count === 2 ? ["back", "reload"] : count === 1 ? ["back"] : [];
+  return { buttons, step: count ? Math.min(pitch, span / count) : pitch };
 }
