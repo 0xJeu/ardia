@@ -2,7 +2,7 @@
 // sheet; a mailto to themselves where there's none), then Share, Copy link and Email it to me. X's iOS browser
 // refuses the clipboard (docs/growth.md), so a failed copy points at Email instead. The other download CTAs ([data-download]: header, menu) scroll to
 // the page's panel, or go to the home page's when the page has none. The device class comes from
-// components/Visitor.astro; data-inapp="x" marks X's iOS browser.
+// components/Device.astro; data-inapp="x" marks X's iOS browser.
 // Tracks send_to_mac_clicked { location, method: "email" | "share" | "copy" | "panel", outcome?, via?: "main" | "link", inapp? }.
 import { track } from "./track";
 

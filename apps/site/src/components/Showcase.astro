@@ -1,22 +1,23 @@
 ---
 import Shot from "./Shot.astro";
 import DownloadButton from "./DownloadButton.astro";
-import office from "../assets/shots/office.webp";
+import windowShot from "../assets/shots/window.webp";
 ---
 
-<section class="office" aria-label="The app" data-shot="office">
+{/* data-shot="office" stays: it names this section in the section_viewed analytics. */}
+<section class="showcase" aria-label="The app" data-shot="office">
   <div class="wrap">
-    <figure class="office-figure">
+    <figure class="showcase-figure">
       <div class="tilt">
         <Shot
-          src={office}
+          src={windowShot}
           alt="The Arcadia window in light mode: three pinned tiles and six tabs in the sidebar, Wikipedia’s article on Chromium open on the right."
           sizes="(max-width: 1440px) 94vw, 1360px"
           focus={{ x: 0, y: 0, zoom: 1.9, ratio: 0.8 }}
         />
       </div>
       <figcaption class="label">
-        <span>Fig. 2 — In office</span>
+        <span>Fig. 2. Pinned tabs up top, the rest down the side</span>
         <span>A screenshot, not a mockup.</span>
       </figcaption>
     </figure>
@@ -51,10 +52,10 @@ import office from "../assets/shots/office.webp";
 </script>
 
 <style>
-  .office {
+  .showcase {
     padding-top: clamp(24px, 4vw, 64px);
   }
-  .office-figure {
+  .showcase-figure {
     margin: 0;
     perspective: 1600px;
   }
@@ -98,7 +99,7 @@ import office from "../assets/shots/office.webp";
     line-height: 0.9;
   }
   .band-line span {
-    color: var(--tie);
+    color: var(--accent);
   }
   @media (prefers-reduced-motion: no-preference) {
     .band {

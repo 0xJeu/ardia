@@ -1,26 +1,27 @@
 ---
 import Shot from "./Shot.astro";
-import { alsoPassed, pledges } from "../data/pledges";
+import { extras, features } from "../data/features";
 const pad = (n: number) => String(n).padStart(2, "0");
 ---
 
-<section class="platform" id="platform" aria-label="Pledges">
+{/* data-shot="pledge-…" and "also" stay: they name these sections in the section_viewed analytics. */}
+<section class="features" id="features" aria-label="Features">
   <div class="wrap">
-    <ol class="pledges">
+    <ol class="feature-list">
       {
-        pledges.map((p, i) => (
-          <li class="pledge" id={p.id} data-shot={`pledge-${p.id}`}>
-            <div class="pledge-text" data-reveal>
+        features.map((p, i) => (
+          <li class="feature" id={p.id} data-shot={`pledge-${p.id}`}>
+            <div class="feature-text" data-reveal>
               <p class="label num">
-                Pledge <span>No. {pad(i + 1)}</span>
+                <span>No. {pad(i + 1)}</span>
               </p>
               <h3>{p.title}</h3>
               <p class="body">{p.body}</p>
             </div>
-            <figure class="pledge-figure" data-reveal style="--i: 1">
+            <figure class="feature-figure" data-reveal style="--i: 1">
               <Shot src={p.shots} alt={p.alt} panel={p.panel} focus={p.focus} loop={p.loop} sizes="(max-width: 900px) 100vw, 58vw" />
               <figcaption class="label">
-                Fig. {i + 3} — {p.caption}
+                Fig. {i + 3}. {p.caption}
               </figcaption>
             </figure>
           </li>
@@ -29,13 +30,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
     </ol>
 
     <div class="also" data-shot="also">
-      <p class="label also-head">Also passed, no photo op</p>
-      <ol class="also-list" start={pledges.length + 1}>
+      <p class="label also-head">Also in there, no screenshot needed</p>
+      <ol class="also-list" start={features.length + 1}>
         {
-          alsoPassed.map((a, i) => (
+          extras.map((a, i) => (
             <li data-reveal style={`--i: ${i}`}>
               <p class="label num">
-                Pledge <span>No. {pad(pledges.length + i + 1)}</span>
+                <span>No. {pad(features.length + i + 1)}</span>
               </p>
               <h3 class="also-title">{a.title}</h3>
               <p class="also-body">{a.body}</p>
@@ -48,16 +49,16 @@ const pad = (n: number) => String(n).padStart(2, "0");
 </section>
 
 <style>
-  .platform {
+  .features {
     padding-top: var(--section);
   }
 
-  .pledges {
+  .feature-list {
     list-style: none;
     margin: 0;
     padding: 0;
   }
-  .pledge {
+  .feature {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: var(--gutter);
@@ -66,18 +67,18 @@ const pad = (n: number) => String(n).padStart(2, "0");
     padding: clamp(56px, 9vh, 112px) 0;
     border-bottom: 1px solid var(--rule);
   }
-  .pledge:last-child {
+  .feature:last-child {
     border-bottom: 0;
   }
-  .pledge-text {
+  .feature-text {
     grid-column: 1 / span 4;
     grid-row: 1;
   }
   /* Alternate sides, so the column of screenshots reads as a sequence, not a list. */
-  .pledge:nth-child(even) .pledge-text {
+  .feature:nth-child(even) .feature-text {
     grid-column: 9 / -1;
   }
-  .pledge:nth-child(even) .pledge-figure {
+  .feature:nth-child(even) .feature-figure {
     grid-column: 1 / span 7;
   }
   .num {
@@ -102,12 +103,12 @@ const pad = (n: number) => String(n).padStart(2, "0");
     color: var(--ink-2);
     max-width: 26em;
   }
-  .pledge-figure {
+  .feature-figure {
     grid-column: 6 / -1;
     grid-row: 1;
     margin: 0;
   }
-  .pledge-figure figcaption {
+  .feature-figure figcaption {
     margin-top: 16px;
     color: var(--ink-3);
   }
@@ -155,17 +156,17 @@ const pad = (n: number) => String(n).padStart(2, "0");
   }
 
   @media (max-width: 900px) {
-    .pledge {
+    .feature {
       display: block;
       min-height: 0;
       padding: 56px 0 64px;
     }
-    .pledge-text,
-    .pledge-figure {
+    .feature-text,
+    .feature-figure {
       position: static;
       padding: 0;
     }
-    .pledge-figure {
+    .feature-figure {
       margin-top: 32px;
     }
   }

@@ -35,7 +35,7 @@ Shipped (site only, not yet deployed):
 - **Download band experiment** on Macs (below).
 - PostHog: `capture_dead_clicks: true`.
 
-How visitors are sorted: `apps/site/src/components/Visitor.astro`, before first paint, sets
+How visitors are sorted: `apps/site/src/components/Device.astro`, before first paint, sets
 `<html data-device="phone|mac|other">`. Phone = mobile UA, iPadOS, or touch plus a coarse pointer at 1024px
 or narrower.
 

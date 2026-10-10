@@ -247,16 +247,18 @@ size=$(gh release view v<version> -R mantrakp04/arcadia --json assets -q '.asset
 
 **Bring the landing page's claims up to date.** The home page makes specific promises; a release can make
 one of them stale or earn a new one. Read the new notes against:
-- `apps/site/src/data/pledges.ts`: the pledges with screenshots, and "Also passed" (one line each);
-- `apps/site/src/components/Record.astro`: the ballot of what's in and what isn't yet;
-- `Press.astro` (Q&A), `Hero.astro` and `Closing.astro` (the fine print: macOS version, Apple Silicon,
+- `apps/site/src/data/features.ts`: the features with screenshots (`features`), and the ones without (`extras`, one
+  line each);
+- `apps/site/src/components/Engine.astro`: the checklist of what's in and what isn't yet;
+- `Faq.astro` (Q&A), `Hero.astro` and `Closing.astro` (the fine print: macOS version, Apple Silicon,
   Notarized), and `Footer.astro`.
 
 Then:
-- **Something the page says "not yet" or "partly" to is now done:** flip the ballot row.
+- **Something the page says "not yet" or "partly" to is now done:** flip its row in the checklist.
 - **Something the page claims changed** (a new import source, a new requirement): fix the line.
-- **A headline feature isn't on the page:** add an "Also passed" line in the page's voice. It should be
-  short, dry, political theatre, and literally true. The pledge count updates itself.
+- **A headline feature isn't on the page:** add an `extras` line in the page's voice: short, plain, dry, and
+  literally true. A light outdoor touch is fine where it lands; most lines need none. The numbering updates
+  itself.
 - **Bug fixes and small changes:** leave the page alone.
 - **Never claim anything the release doesn't do.** Anything unverified or behind a setting says so.
 
@@ -266,9 +268,9 @@ app (listed in `apps/site/README.md` › Screenshots):
 
 | Asset | Shows |
 |---|---|
-| `src/assets/shots/office.webp` | the whole window: sidebar, pinned tiles, tabs, a page ("Fig. 2 — In office") |
-| `shots/address-{toolbar,sidebar}.webp` | the address bar pledge's before and after |
-| `shots/profile-*.webp` | the profiles pledge, one window per profile |
+| `src/assets/shots/window.webp` | the whole window: sidebar, pinned tiles, tabs, a page (Fig. 2, `Showcase.astro`) |
+| `shots/address-{toolbar,sidebar}.webp` | the address bar feature's before and after |
+| `shots/profile-*.webp` | the profiles feature, one window per profile |
 | `shots/split.webp`, `extensions.webp`, `privacy.webp` | split view, the Web Store, Settings › Privacy & Security |
 | `src/assets/app-icon.png` | the header, the favicon source |
 | `src/assets/game/crowd.webp` | the offline game; its hotspot is in `Game.astro` |
@@ -276,8 +278,8 @@ app (listed in `apps/site/README.md` › Screenshots):
 
 - **When:** if the release visibly changes something a shot shows (the sidebar, the tiles, the New Tab page,
   the logo or mark, the icon, a Settings pane, the window chrome), retake the affected shots from **this
-  release's export** (`dist/<version>/export/Arcadia.app`). A new page or feature that earned a pledge
-  may also need a new shot.
+  release's export** (`dist/<version>/export/Arcadia.app`). A new page or feature that earned a place
+  in `features` may also need a new shot.
 - **How:** use a hidden instance with the smoke test's rules (`ARCADIA_BACKGROUND=1`, a throwaway
   `ARCADIA_DATA_DIR`, never plain `open`, never `/Applications`).
   - Set up the same state as the old shot (the same sites, profiles, light or dark).
@@ -285,7 +287,7 @@ app (listed in `apps/site/README.md` › Screenshots):
 - **Screen locked:** WindowServer captures fail. Leave the old shot, and tell the user which shots are stale.
   An in-process snapshot is not a substitute: it drops glass and Metal views.
 - **Replace in place:** save the new capture over the file with the same name, since Astro makes the sizes.
-  Update the shot's `alt` text if what it shows changed, and check its phone crop (`focus` in `data/pledges.ts`).
+  Update the shot's `alt` text if what it shows changed, and check its phone crop (`focus` in `data/features.ts`).
 - **Don't touch the rest:** leave the painted logo (`arcadia-mark.png`, from `docs/brand/arcadia`) alone unless
   the brand changed.
 

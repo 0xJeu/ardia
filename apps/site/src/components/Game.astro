@@ -1,7 +1,7 @@
 ---
 import { Image, Picture } from "astro:assets";
 import crowd from "../assets/game/crowd.webp";
-import wanted from "../assets/game/wanted.webp";
+import lost from "../assets/game/lost.webp";
 
 // Where she is in this particular screenshot (fractions of the image).
 const spot = { x: 0.193, y: 0.388, r: 0.04 };
@@ -10,8 +10,8 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
 <section class="game" id="game" aria-labelledby="game-title" data-shot="game">
   <div class="wrap">
     <div class="game-head">
-      <div class="wanted">
-        <Image src={wanted} alt="A painted notice nailed to a fence post: LOST, over a portrait of a black-faced lamb with a yellow bell." width={120} height={120} densities={[1, 2]} />
+      <div class="lost">
+        <Image src={lost} alt="A painted notice nailed to a fence post: LOST, over a portrait of a black-faced lamb with a yellow bell." width={120} height={120} densities={[1, 2]} />
         <p class="label">Answers to<br />a yellow bell</p>
       </div>
       <div class="game-title">
@@ -49,7 +49,7 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
         <p class="toast label" role="status" aria-live="polite" data-toast></p>
       </div>
       <figcaption class="label">
-        <span>Fig. 8 — Level 1, 100 in the flock</span>
+        <span>Fig. 9. Level 1, 100 in the flock</span>
         <span class="swipe">Swipe the flock. She’s in there.</span>
         <span>Online too, at arcadia://game</span>
       </figcaption>
@@ -64,14 +64,14 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
   .game-head {
     display: grid;
     grid-template-columns: auto 1fr;
-    grid-template-areas: "wanted title" "wanted copy";
+    grid-template-areas: "lost title" "lost copy";
     column-gap: clamp(20px, 3vw, 40px);
     row-gap: 24px;
     align-items: end;
     margin-bottom: clamp(32px, 5vw, 56px);
   }
-  .wanted {
-    grid-area: wanted;
+  .lost {
+    grid-area: lost;
     align-self: start;
     text-align: center;
     border: 2px solid var(--ink);
@@ -80,11 +80,11 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
     transform: rotate(-3deg);
     width: clamp(96px, 12vw, 148px);
   }
-  .wanted :global(img) {
+  .lost :global(img) {
     width: 100%;
     height: auto;
   }
-  .wanted p {
+  .lost p {
     margin-top: 6px;
     font-size: 0.6rem;
     line-height: 1.3;
@@ -174,7 +174,7 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
   @media (max-width: 700px) {
     .game-head {
       grid-template-columns: 1fr auto;
-      grid-template-areas: "title wanted" "copy copy";
+      grid-template-areas: "title lost" "copy copy";
     }
     /* On a phone the whole meadow is too small to search: show it big and let the flock pan. */
     .pan {

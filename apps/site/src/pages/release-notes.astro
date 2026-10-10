@@ -1,5 +1,5 @@
 ---
-// Release notes, as the incumbent's official gazette: one entry per version, newest first, each
+// Release notes, set as a field journal: one entry per version, newest first, each
 // anchored at its version (/release-notes#0.1.4). The app opens that anchor after it updates.
 // The entries are the repo's docs/release-notes/<version>.md (src/content.config.ts).
 import { getCollection } from "astro:content";
@@ -38,11 +38,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
 <Base
-  title="Release notes — Arcadia"
-  description="Every Arcadia release on the record: what’s new, what’s fixed, what got smaller."
+  title="Release notes · Arcadia"
+  description="Every Arcadia release: what’s new, what’s fixed, what got smaller."
 >
   <Header home={`${base}/`} />
-  <main class="gazette">
+  <main class="journal">
     <header class="wrap nameplate">
       <p class="label ears">
         <span>Arcadia release notes</span>
@@ -50,18 +50,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       </p>
       <h1 class="poster title">
         <span class="visually-hidden">Arcadia release notes: </span>
-        <span class="word"><span>Official</span></span>{" "}
-        <span class="word"><span>Gazette</span></span>
+        <span class="word"><span>Field</span></span>{" "}
+        <span class="word"><span>Notes</span></span>
       </h1>
       <p class="label dateline">
-        <span>Every release, on the record</span>
-        <span class="optional">Published whenever the incumbent ships</span>
+        <span>Every release, newest first</span>
+        <span class="optional">Written as each one ships</span>
       </p>
     </header>
 
     <div class="wrap layout">
       <nav class="index" aria-label="Releases">
-        <p class="label index-head">In this record</p>
+        <p class="label index-head">In these notes</p>
         <ol>
           {
             releases.map((r) => (
@@ -98,7 +98,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
                 </h2>
                 {i === 0 && (
                   <p class="stamp" aria-hidden="true">
-                    <span>Incumbent</span>
+                    <span>In season</span>
                   </p>
                 )}
               </header>
@@ -108,7 +108,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         }
 
         <footer class="end">
-          <p class="poster end-title">End of record.</p>
+          <p class="poster end-title">That’s all of them.</p>
           <p class="end-line">Nothing before 0.1.0 was ever written down. Reading this in another browser? That can be arranged.</p>
           <DownloadButton location="release_notes" class="not-phone" />
           <SendToMac location="release_notes" main />
@@ -120,11 +120,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 </Base>
 
 <style>
-  .gazette {
+  .journal {
     padding-bottom: clamp(24px, 4vw, 48px);
   }
 
-  /* Nameplate: a newspaper's, set in the campaign's poster type. */
+  /* Nameplate: a newspaper's, set in the poster type. */
   .nameplate {
     padding-top: clamp(28px, 5vw, 64px);
   }
@@ -219,7 +219,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     line-height: 1.15;
   }
   .index a[aria-current="true"] .index-version {
-    color: var(--tie);
+    color: var(--accent);
   }
   .index-headline {
     font-size: var(--t-small);
@@ -294,7 +294,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     box-decoration-break: clone;
   }
 
-  /* The newest release is the one in office. */
+  /* The newest release is the one in season. */
   .stamp {
     position: absolute;
     right: 0;
@@ -328,7 +328,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     order: -1;
     flex-basis: 100%;
     margin-bottom: 4px;
-    color: var(--tie);
+    color: var(--accent);
     font-weight: 560;
   }
   .meta > .here::before {
@@ -337,7 +337,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     color: inherit;
   }
   .entry:target .version {
-    color: var(--tie);
+    color: var(--accent);
   }
   .entry:target .headline a {
     background-image: linear-gradient(rgb(33 80 217 / 0.16), rgb(33 80 217 / 0.16));

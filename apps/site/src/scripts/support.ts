@@ -1,4 +1,4 @@
-// "Write to the office" (components/Footer.astro): PostHog's support chat. posthog-js loads only when the button is
+// "Write to us" (components/Footer.astro): PostHog's support chat. posthog-js loads only when the button is
 // clicked, through nginx's /relay, and only for the chat: it captures nothing else (no pageviews, clicks,
 // replays, errors, vitals, logs, surveys or flags). The chat needs PostHog's remote config, which stays on.
 // The button shows on netnyahoo.com, where the chat is allowed (PostHog's widget domains), as it did when

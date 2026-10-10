@@ -5,7 +5,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 <footer class="foot" data-shot="footer">
   <div class="wrap">
-    <p class="poster paid" aria-label="Paid for by nobody.">Paid for by nobody.</p>
+    <p class="poster sign-off">Sign-up <span>not included.</span></p>
     <div class="cols">
       <nav class="col" aria-label="Project">
         <p class="label h">Project</p>
@@ -30,7 +30,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
           data-track-location="footer">Report a bug</a
         >
         {/* PostHog's support chat, loaded on click (scripts/support.ts). Shown on netnyahoo.com. */}
-        <button class="link" type="button" data-support="footer" hidden>Write to the office</button>
+        <button class="link" type="button" data-support="footer" hidden>Write to us</button>
       </nav>
       <div class="col">
         <p class="label h">Disclaimer</p>
@@ -58,10 +58,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     padding: clamp(64px, 9vw, 128px) 0 clamp(40px, 5vw, 64px);
     margin-top: clamp(64px, 8vw, 120px);
   }
-  .paid {
+  .sign-off {
     font-size: clamp(3rem, 0.6rem + 10.4vw, 11.4rem);
     line-height: 0.84;
     margin-left: -0.04em;
+  }
+  /* When it wraps, it wraps before "not". */
+  .sign-off span {
+    white-space: nowrap;
   }
   .cols {
     display: grid;
@@ -104,6 +108,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     display: none;
   }
   @media (max-width: 800px) {
+    /* Two lines, "SIGN-UP" over "NOT INCLUDED." (~5.3em), edge to edge. */
+    .sign-off {
+      font-size: calc((100vw - 2 * var(--gutter)) / 5.45);
+    }
     .col {
       grid-column: 1 / -1;
     }

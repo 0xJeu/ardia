@@ -2,18 +2,18 @@
 import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
 import Hero from "../components/Hero.astro";
-import InOffice from "../components/InOffice.astro";
-import Platform from "../components/Platform.astro";
-import Record from "../components/Record.astro";
+import Showcase from "../components/Showcase.astro";
+import Features from "../components/Features.astro";
+import Engine from "../components/Engine.astro";
 import Game from "../components/Game.astro";
-import Press from "../components/Press.astro";
+import Faq from "../components/Faq.astro";
 import Closing from "../components/Closing.astro";
 import Footer from "../components/Footer.astro";
 import { DMG, DMG_SIZE, MIN_MACOS, REPO, VERSION } from "../data/release";
 
 const home = new URL(import.meta.env.BASE_URL, Astro.site).href;
 const description =
-  "Real Chromium for the Mac, open source: Arc's sidebar and Dia's polish, with no account. Immune to ads, trackers and prosecution.";
+  "A Mac browser with Arc's sidebar and Dia's polish, built on real Chromium. Open source, notarized by Apple, and no account to make.";
 const jsonLd = [
   {
     "@context": "https://schema.org",
@@ -36,18 +36,18 @@ const jsonLd = [
 ---
 
 <Base
-  title="Arcadia — full immunity · Chromium browser for Mac"
+  title="Arcadia · the sidebar browser for Mac, on real Chromium"
   description={description}
   jsonLd={jsonLd}
 >
   <Header />
   <main>
     <Hero />
-    <InOffice />
-    <Platform />
-    <Record />
+    <Showcase />
+    <Features />
+    <Engine />
     <Game />
-    <Press />
+    <Faq />
     <Closing />
   </main>
   <Footer />

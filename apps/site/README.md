@@ -30,16 +30,16 @@ Pages without a custom domain).
   inject it is in its header), set up from a `session()` fixture (`scripts/lib/instance.mjs`) at 1440 × 900 pt
   (`address-*` 1360 × 860), light appearance except `split` and `extensions` (dark, sidebar 232 pt). The PNGs'
   Display P3 values go into the WebP as they are (`cwebp -q 85 -m 6 -alpha_q 100`), no colour conversion, like
-  the older shots. The profiles are Personal (plum), Work (blue) and Side project (orange). `office.webp` is a 0.2.9
+  the older shots. The profiles are Personal (plum), Work (blue) and Side project (orange). `window.webp` is a 0.2.9
   capture with the Liquid Glass pinned tiles and `privacy.webp` is from 0.1.0 (the app's own offscreen render of
   that Settings pane, no window frame). `pip.webp` is 0.2.13 (the export, re-signed to inject the draw-active dylib): the window on Wikipedia with
   the Picture in Picture window where Chrome opened it (window-relative 1085, 692 pt), its real shadow from
   `screencapture -l`; `pip-loop.{mp4,webm}` is that rectangle over 7 s of SCK captures of the PiP window, laid
-  over the still by `Shot.astro` (`loop` in `data/pledges.ts`; `scripts/loops.ts` plays it, never with reduced
+  over the still by `Shot.astro` (`loop` in `data/features.ts`; `scripts/loops.ts` plays it, never with reduced
   motion or Save-Data). SCK captures of the main window show macOS's "being shared" capsule in place of the
   traffic lights, so its pixels come from `screencapture`. `game/crowd.webp` is a work-in-progress capture of the offline game; its hotspot coordinates are in
   `Game.astro`. Replace a file with a new capture of the same name; Astro makes the AVIF/WebP sizes. On phones
-  a shot shows only its `focus` region (see `Shot.astro` and `data/pledges.ts`), so check the crop after
+  a shot shows only its `focus` region (see `Shot.astro` and `data/features.ts`), so check the crop after
   replacing one.
 - **the logo:** `src/assets/arcadia-mark.png` is the painted hills and sun (the brand's `mark-trim.png`, from
   `output/brand/arcadia/final/` in the main checkout), shown in the hero and the closing section; Astro makes the
@@ -55,7 +55,7 @@ Pages without a custom domain).
 netnyahoo.com counts its own visitors: `src/scripts/telemetry/` posts events to `/otel/v1/logs` on the same
 origin (OTLP/HTTP JSON; netnyahoo.com's nginx hands them to our OpenTelemetry Collector, which writes
 ClickHouse) and rrweb session replays to `/otel/replay/<session>/<seq>.json[.gz]` (SeaweedFS, kept 30 days).
-The one third-party script is PostHog's support chat ("Write to the office", `src/scripts/support.ts`): posthog-js
+The one third-party script is PostHog's support chat ("Write to us", `src/scripts/support.ts`): posthog-js
 loads through nginx's `/relay` only when someone clicks the button, with everything but the chat switched off.
 Event and property names are PostHog's (`$pageview`, `$pageleave`, `$autocapture`,
 `$rageclick`, `$dead_click`, `$dead_swipe`, `$exception`, `$web_vitals`, `$feature_flag_called`, `$browser`,
@@ -66,9 +66,9 @@ minimum session length, flags) are in `src/data/telemetry.ts`. The named events 
 `src/scripts/analytics.ts`; tag a link with `data-track="event"` and `data-track-<prop>="value"`, or call
 `track()` from `src/scripts/track.ts`.
 
-Visitors are sorted before the first paint (`src/components/Visitor.astro`): phones and tablets get
+Visitors are sorted before the first paint (`src/components/Device.astro`): phones and tablets get
 "Send to my Mac" instead of Download (`src/scripts/send-to-mac.ts`), Windows and Linux get a "Mac only for now"
-line, and only Macs evaluate the `download-band` experiment (`src/components/InOffice.astro`). On localhost,
+line, and only Macs evaluate the `download-band` experiment (`src/components/Showcase.astro`). On localhost,
 `?nndevice=phone|mac|other` and `?nnflag=band|control` force them. The experiment log is `docs/growth.md`.
 
 Only netnyahoo.com reports. `pnpm dev`, `pnpm preview` and any other host stay silent unless you opt in from

@@ -11,10 +11,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 <section class="closing" aria-labelledby="closing-title" data-shot="closing">
   <div class="wrap closing-grid">
     <div class="closing-copy">
-      <p class="label kicker">Election day is today</p>
-      <h2 class="poster" id="closing-title" data-reveal>Impeach<br />Chrome.</h2>
+      <p class="label kicker">Same engine as Chrome</p>
+      <h2 class="poster" id="closing-title" data-reveal>Better<br />view.</h2>
       <p class="lede" data-reveal style="--i: 1">
-        Make Arcadia your default. {DMG_SIZE}, no envelope required.
+        Make Arcadia your default. It’s {DMG_SIZE}, and one drag into Applications.
       </p>
       <SendToMac location="closing" />
       <div class="cta" data-reveal style="--i: 2">
@@ -36,7 +36,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         loading="lazy"
         decoding="async"
       />
-      <p class="victory label">Polls close at sunset</p>
+      <p class="sun label">Sun’s out</p>
     </div>
   </div>
 </section>
@@ -61,8 +61,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     color: var(--ink-2);
     margin-bottom: 20px;
   }
+  /* "BETTER" is the wide line, ~2.82em. */
   h2 {
-    font-size: clamp(3.6rem, 1rem + 11vw, 12rem);
+    font-size: clamp(3.6rem, 1rem + 14vw, 15rem);
     line-height: 0.82;
   }
   .lede {
@@ -99,7 +100,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     height: auto;
     filter: drop-shadow(0 18px 22px rgb(32 63 50 / 0.16));
   }
-  .victory {
+  .sun {
     position: absolute;
     right: 0;
     bottom: -28px;
@@ -107,6 +108,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     color: var(--ink-3);
   }
   @media (max-width: 900px) {
+    h2 {
+      font-size: min(calc((100vw - 2 * var(--gutter)) / 2.9), 15rem);
+    }
     .closing-copy,
     .closing-stage {
       grid-column: 1 / -1;

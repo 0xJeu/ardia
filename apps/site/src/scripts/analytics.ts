@@ -14,7 +14,7 @@
 //   support_opened { location }                  the footer's support chat (scripts/support.ts)
 //   release_notes_viewed { version, latest, trigger }   pages/release-notes.astro
 //   game_solved { seconds, misses }              the lamb found in the game's screenshot (components/Game.astro)
-// Experiment: flag "download-band", Macs only (components/InOffice.astro, docs/growth.md).
+// Experiment: flag "download-band", Macs only (components/Showcase.astro, docs/growth.md).
 import { track, type Props } from "./track";
 import "./support";
 
@@ -60,7 +60,7 @@ if (sentRef === "mac" || sentRef === "share" || sentRef === "email") {
   if (!seen) track("mac_link_visit", { ref: sentRef, device: document.documentElement.dataset.device ?? null });
 }
 
-// Windows and Linux can't run it yet (components/Visitor.astro sorts visitors); count them once per session.
+// Windows and Linux can't run it yet (components/Device.astro sorts visitors); count them once per session.
 const { device, os } = document.documentElement.dataset;
 if (device === "other") {
   let seen = false;

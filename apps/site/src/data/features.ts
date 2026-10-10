@@ -16,7 +16,7 @@ import pipWebm from "../assets/shots/pip-loop.webm";
 // Every image here is a real capture of Arcadia (see apps/site/README.md). Window shots are
 // ScreenCaptureKit captures of the window; `panel` shots are the app's own render of one view
 // (no window frame), used where a window capture wasn't possible.
-export interface Pledge {
+export interface Feature {
   id: string;
   title: string;
   /** One line. If it needs two, cut it. */
@@ -32,11 +32,11 @@ export interface Pledge {
   loop?: Loop;
 }
 
-export const pledges: Pledge[] = [
+export const features: Feature[] = [
   {
     id: "address-bar",
-    title: "Dissolves the toolbar.",
-    body: "Put the address bar in the sidebar. The page gets the whole window.",
+    title: "Lose the toolbar.",
+    body: "Move the address bar into the sidebar and the page runs to the top of the window.",
     shots: [addressToolbar, addressSidebar],
     alt: "Two Arcadia windows on the same Wikipedia page: behind, the address bar in a toolbar above the page; in front, the address bar in the sidebar under the traffic lights and the page running to the top of the window.",
     caption: "Before and after",
@@ -44,7 +44,7 @@ export const pledges: Pledge[] = [
   },
   {
     id: "split",
-    title: "Two pages. No coalition talks.",
+    title: "Two pages, one window.",
     body: "Drag a tab onto the page. Up to three panes.",
     shots: [split],
     alt: "Arcadia in split view: MDN on the left, Wikipedia on the right, both in one window.",
@@ -54,7 +54,7 @@ export const pledges: Pledge[] = [
   {
     id: "mini-player",
     title: "Refuses to leave the picture.",
-    body: "Switch tabs mid-video and it floats along in the corner. Go back, and it steps down quietly.",
+    body: "Switch tabs mid-video and it floats along in the corner. Go back to its tab and it slips back into the page.",
     shots: [pip],
     alt: "Arcadia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right. Its tab, muted, is in the sidebar, with a player at the foot of the sidebar.",
     caption: "Picture in Picture, still playing",
@@ -64,8 +64,8 @@ export const pledges: Pledge[] = [
   },
   {
     id: "profiles",
-    title: "Separate profiles for separate lives.",
-    body: "Each its own window. Swipe between them. Plausible deniability comes standard.",
+    title: "Work stays at work.",
+    body: "Each profile keeps its own logins, history and colour. Swipe the sidebar to switch.",
     shots: [sideProject, work, personal],
     alt: "Three Arcadia windows, one per profile, each tinted in its colour with its name next to the window buttons: Side project in orange, Work in blue, Personal in plum.",
     caption: "Three profiles",
@@ -73,7 +73,7 @@ export const pledges: Pledge[] = [
   },
   {
     id: "extensions",
-    title: "Forms a coalition with any extension.",
+    title: "Your extensions come along.",
     body: "The Chrome Web Store, with a button that says Add to Arcadia.",
     shots: [extensions],
     alt: "Dark Reader’s page on the Chrome Web Store, open in Arcadia, with an Add to Arcadia button.",
@@ -82,7 +82,7 @@ export const pledges: Pledge[] = [
   },
   {
     id: "privacy",
-    title: "Tracks nothing you didn’t sign for. Unusual, for a man in his position.",
+    title: "Leave no trace.",
     body: "uBlock Origin Lite is built in. Google’s pings are compiled out. Crash reports are opt-in: no sites, no searches.",
     shots: [privacy],
     panel: true,
@@ -92,13 +92,13 @@ export const pledges: Pledge[] = [
   },
 ];
 
-/** Passed without a screenshot. */
-export const alsoPassed: { title: string; body: string }[] = [
-  { title: "Annexation, but consensual", body: "Imports from Chrome, Brave, Helium, Safari, Dia and Arc." },
-  { title: "Keeps secrets", body: "Passwords, passkeys and strong new ones, per profile. Better than his cabinet." },
-  { title: "Records travel under diplomatic seal", body: "Sync, end to end encrypted, through your own iCloud Drive. No account." },
-  { title: "Now in bulletproof glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
-  { title: "A broad coalition of shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
-  { title: "Updates itself", body: "Quietly, in the background. No press conference." },
-  { title: "Austerity budget", body: "Idles under half a percent of CPU with a tab open." },
+/** In the app, without a screenshot. */
+export const extras: { title: string; body: string }[] = [
+  { title: "Brings your things", body: "Bookmarks, history, passwords and logins from Chrome, Safari, Firefox, Arc, Dia and five more." },
+  { title: "Keeps secrets", body: "Passwords and passkeys per profile, and a strong new password when you sign up somewhere." },
+  { title: "Syncs without signing in", body: "End to end encrypted, through a folder in your own iCloud Drive. No account, no server." },
+  { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
+  { title: "Knows your shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
+  { title: "Updates itself", body: "In the background, then shows you what changed." },
+  { title: "Sits still", body: "Idles under half a percent of CPU with a tab open." },
 ];

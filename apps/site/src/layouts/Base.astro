@@ -8,7 +8,7 @@ import archivoLatin from "../assets/fonts/archivo-core.woff2?url";
 import newsreaderLatin from "../assets/fonts/newsreader-core.woff2?url";
 import martianLatin from "../assets/fonts/martian-mono-core.woff2?url";
 import "../styles/global.css";
-import Visitor from "../components/Visitor.astro";
+import Device from "../components/Device.astro";
 
 interface Props {
   title: string;
@@ -24,7 +24,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogVersion = createHash("sha256").update(readFileSync(`${process.cwd()}/public/og.png`)).digest("hex").slice(0, 10);
 const og = new URL(`${base}/og.png?v=${ogVersion}`, Astro.site);
 const OG_ALT =
-  "Full immunity. The Arcadia logo, two painted green hills under a yellow sun stamped “Landslide”, next to the words; arcadia, a free Chromium browser for the Mac.";
+  "Touch grass. The Arcadia logo, two painted green hills under a yellow sun, stamped “No account”, next to the words. Arcadia, a free Chromium browser for the Mac.";
 ---
 
 <!doctype html>
@@ -58,7 +58,7 @@ const OG_ALT =
     <link rel="preload" href={newsreaderLatin} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={martianLatin} as="font" type="font/woff2" crossorigin />
     <script is:inline>document.documentElement.classList.add("js");</script>
-    <Visitor />
+    <Device />
   </head>
   <body>
     <slot />

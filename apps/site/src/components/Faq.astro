@@ -1,27 +1,28 @@
-<section class="press" id="press" aria-labelledby="press-title" data-shot="press">
-  <div class="wrap press-grid">
-    <header class="press-head">
-      <p class="label kicker">Press conference</p>
-      <h2 class="poster" id="press-title" data-reveal>Questions from the press.</h2>
-      <p class="sub" data-reveal style="--i: 1">Unlike some, we answer them.</p>
+{/* data-shot="press" stays: it names this section in the section_viewed analytics. */}
+<section class="faq" id="faq" aria-labelledby="faq-title" data-shot="press">
+  <div class="wrap faq-grid">
+    <header class="faq-head">
+      <p class="label kicker">FAQ</p>
+      <h2 class="poster" id="faq-title" data-reveal>Fair questions.</h2>
+      <p class="sub" data-reveal style="--i: 1">Short answers, all of them true.</p>
     </header>
 
     <dl class="qa">
       <div class="item">
-        <dt>Is this a joke?</dt>
-        <dd>The name is. The browser isn’t.</dd>
+        <dt>What does it cost?</dt>
+        <dd>Nothing. It’s open source under Apache 2.0, with no account and no paid tier.</dd>
       </div>
       <div class="item" id="install">
         <dt>Is it safe to open?</dt>
-        <dd>Signed and notarized by Apple. Unlike some, it passes its background checks.</dd>
+        <dd>Signed and notarized by Apple, so macOS opens it without a fuss. The source is on GitHub if you’d rather check yourself.</dd>
       </div>
       <div class="item">
         <dt>What does it collect?</dt>
-        <dd>Update checks are counted by version and day, and whether it’s a new copy’s first. Each launch also reads one small file, the same for everyone, so we can switch off a speed-up that misbehaves. Nothing else, unless you tick the box. Then crash reports and counts, never your sites or searches. Unlike some, we ask first.</dd>
+        <dd>Update checks are counted by version and day, and whether it’s a new copy’s first. Each launch also reads one small file, the same for everyone, so we can switch off a speed-up that misbehaves. Nothing else, unless you tick the box. Then crash reports and counts, never your sites or searches.</dd>
       </div>
       <div class="item">
         <dt>And this website?</dt>
-        <dd>It counts its own visitors on its own servers, replays included, typing masked, gone after 30 days. No third party does the counting. Our only poll, and nobody massages the numbers.</dd>
+        <dd>It counts its own visitors on its own servers, replays included, typing masked, gone after 30 days. No third party does the counting.</dd>
       </div>
       <div class="item">
         <dt>Is this Dia?</dt>
@@ -29,23 +30,23 @@
       </div>
       <div class="item">
         <dt>Why “Arcadia”?</dt>
-        <dd>A browser should leave when asked. Some offices could take notes.</dd>
+        <dd>Arc plus Dia. It’s also the old name for a quiet stretch of open country, which is how a browser should feel.</dd>
       </div>
     </dl>
   </div>
 </section>
 
 <style>
-  .press {
+  .faq {
     padding-top: var(--section);
   }
-  .press-grid {
+  .faq-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: var(--gutter);
     row-gap: 48px;
   }
-  .press-head {
+  .faq-head {
     grid-column: 1 / span 5;
     align-self: start;
     position: sticky;
@@ -114,7 +115,7 @@
     color: var(--ink);
   }
   @media (max-width: 960px) {
-    .press-head,
+    .faq-head,
     .qa {
       grid-column: 1 / -1;
       position: static;

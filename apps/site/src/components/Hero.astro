@@ -12,11 +12,11 @@ import { STARS } from "../data/github";
   <div class="wrap hero-grid">
     <div class="hero-text">
       <h1 class="poster hero-title">
-        <span class="line"><span>Full</span></span>{" "}
-        <span class="line"><span>immunity.</span></span>
+        <span class="line"><span>Touch</span></span>{" "}
+        <span class="line"><span>grass.</span></span>
       </h1>
       <p class="lede" data-reveal style="--i: 2">
-        Real Chromium for the Mac. Immune to ads, trackers and prosecution.
+        Arc’s sidebar and Dia’s polish on real Chromium. No account to make. Ads and trackers stay out.
       </p>
       {/* A visit from a link sent from a phone (?ref=mac|share|email): say so, on the computer only. */}
       <p class="label welcome not-phone" data-welcome hidden>Sent from your phone. Here it is.</p>
@@ -56,10 +56,10 @@ import { STARS } from "../data/github";
           loading="eager"
           fetchpriority="high"
         />
-        <p class="stamp" aria-hidden="true"><span>Landslide</span></p>
+        <p class="stamp" aria-hidden="true"><span>No account</span></p>
       </div>
       <figcaption class="label stage-caption">
-        <span>Fig. 1 — the logo, oil on canvas</span>
+        <span>Fig. 1. The logo, oil on canvas</span>
         <span class="hint">Two hills, one sun</span>
       </figcaption>
     </figure>
@@ -86,8 +86,9 @@ import { STARS } from "../data/github";
     position: relative;
     z-index: 3;
   }
+  /* "grass." is the wide line, ~2.68em: two short words can set larger than a long one did. */
   .hero-title {
-    font-size: clamp(3.2rem, min(12.5vw, 22vh), 13rem);
+    font-size: clamp(3.2rem, min(15vw, 25vh), 14.5rem);
     line-height: 0.85;
     margin-left: -0.045em;
     white-space: nowrap;
@@ -143,7 +144,7 @@ import { STARS } from "../data/github";
   }
   .welcome {
     margin-top: 18px;
-    color: var(--tie);
+    color: var(--accent);
   }
   .welcome[hidden] {
     display: none;
@@ -247,8 +248,8 @@ import { STARS } from "../data/github";
       align-items: stretch;
     }
     .hero-title {
-      /* "IMMUNITY." is ~3.95em wide: fill the column edge to edge. */
-      font-size: min(calc((100vw - 2 * var(--gutter)) / 3.95), 11rem);
+      /* "grass." is ~2.68em wide: fill the column edge to edge. */
+      font-size: min(calc((100vw - 2 * var(--gutter)) / 2.72), 11rem);
       line-height: 0.84;
     }
     .lede {
