@@ -90,10 +90,11 @@ export const appEnv = (app, env) => {
   const legacy = Object.fromEntries(Object.entries(env).filter(([k]) => k.startsWith("ARCADIA_")).map(([k, v]) => [`NETNYAHOO_${k.slice(8)}`, v]));
   return { ...env, ...legacy };
 };
-/** The app's windows on screen (CoreGraphics' numbers, layer 0), for screencapture -l. */
+/** The app's windows on screen (CoreGraphics' numbers), for screencapture -l. A background instance's sit below the
+ * normal level (ArcadiaCoreActivation.mm, "Behind the owner's windows"), an older build's at 0. */
 export const onScreenWindows = (pid) => JSON.parse(execFileSync("osascript", ["-l", "JavaScript", "-e",
   `ObjC.import("CoreGraphics"); JSON.stringify(ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0)))
-     .filter((w) => w.kCGWindowOwnerPID === ${pid} && w.kCGWindowLayer === 0).map((w) => w.kCGWindowNumber))`], { timeout: 20000 }).toString());
+     .filter((w) => w.kCGWindowOwnerPID === ${pid} && w.kCGWindowLayer <= 0 && w.kCGWindowLayer > -2000000).map((w) => w.kCGWindowNumber))`], { timeout: 20000 }).toString());
 
 // MARK: Fixtures
 

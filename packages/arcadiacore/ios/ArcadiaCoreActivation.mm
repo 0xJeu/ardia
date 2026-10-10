@@ -230,6 +230,76 @@ void FakeKeyWindows() {
   });
 }
 
+// MARK: Behind the owner's windows
+
+// An inactive app's window ordered front still goes to the front of its level, over the owner's windows; so does any
+// window of an app that tries to activate (the window server brings it forward even when activation is refused), and
+// AppKit reorders windows on its own (a child window's group, re-placed against a window gone off screen). A test
+// instance's windows therefore live below the normal level, where nothing the app or AppKit does can lift them over
+// another app's window: each window's level is set a band lower (normal at -1000000, floating at -999997…), so they
+// keep production's order among themselves (a floating window over normal ones) and stay above the desktop. -level
+// answers the level asked for. AppKit, Chrome, CDP and captures (screencapture -l, in-process snapshots) work the same
+// on a covered window, occlusion is acted out (isOccluded, occlusionState), and Mission Control leaves them out.
+constexpr NSWindowLevel kLevelBand = 1000000;
+NSWindowLevel (*gAppKitLevel)(id, SEL);
+void (*gAppKitSetLevel)(id, SEL, NSWindowLevel);
+const void *kAskedLevelKey = &kAskedLevelKey;
+// While AppKit's own setLevel: runs, -level answers the real level: AppKit reads it back to tell the window server.
+bool gSettingLevel = false;
+
+NSWindowLevel Lowered(NSWindowLevel level) {
+  return level < 0 ? level : level < kLevelBand ? level - kLevelBand : -1;
+}
+
+// A window that came to have a level of 0 or more (every new window has 0) takes its lowered one.
+void KeepLowered(NSWindow *window) {
+  if (gAppKitLevel(window, @selector(level)) >= 0) window.level = window.level;
+}
+
+void KeepBehindOwnerWindows() {
+  gAppKitLevel = (decltype(gAppKitLevel))method_getImplementation(class_getInstanceMethod(NSWindow.class, @selector(level)));
+  gAppKitSetLevel = (decltype(gAppKitSetLevel))method_getImplementation(class_getInstanceMethod(NSWindow.class, @selector(setLevel:)));
+  Swizzle(NSWindow.class, @selector(setLevel:), ^(NSWindow *window, NSWindowLevel level) {
+    const NSWindowLevel real = Lowered(level);
+    objc_setAssociatedObject(window, kAskedLevelKey, real != level ? @(level) : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    const bool setting = gSettingLevel;
+    gSettingLevel = true;
+    gAppKitSetLevel(window, @selector(setLevel:), real);
+    gSettingLevel = setting;
+  });
+  Swizzle(NSWindow.class, @selector(level), ^NSWindowLevel(NSWindow *window) {
+    NSNumber *asked = gSettingLevel ? nil : objc_getAssociatedObject(window, kAskedLevelKey);
+    return asked ? asked.integerValue : gAppKitLevel(window, @selector(level));
+  });
+  // Lowered from birth, and again whenever one is ordered in (orderFront:, makeKeyAndOrderFront:, sheets, child windows
+  // and Chrome's widgets all come through -orderWindow:relativeTo:; orderFrontRegardless: InstallActivationGuardsEarly).
+  {
+    SEL selector = @selector(initWithContentRect:styleMask:backing:defer:);
+    auto original = (id (*)(id, SEL, NSRect, NSWindowStyleMask, NSBackingStoreType, BOOL))method_getImplementation(
+        class_getInstanceMethod(NSWindow.class, selector));
+    Swizzle(NSWindow.class, selector, ^id(NSWindow *window, NSRect rect, NSWindowStyleMask style, NSBackingStoreType backing, BOOL defer) {
+      if ((window = original(window, selector, rect, style, backing, defer))) KeepLowered(window);
+      return window;
+    });
+  }
+  {
+    SEL selector = @selector(initWithContentRect:styleMask:backing:defer:screen:);
+    auto original = (id (*)(id, SEL, NSRect, NSWindowStyleMask, NSBackingStoreType, BOOL, NSScreen *))method_getImplementation(
+        class_getInstanceMethod(NSWindow.class, selector));
+    Swizzle(NSWindow.class, selector, ^id(NSWindow *window, NSRect rect, NSWindowStyleMask style, NSBackingStoreType backing, BOOL defer,
+                                          NSScreen *screen) {
+      if ((window = original(window, selector, rect, style, backing, defer, screen))) KeepLowered(window);
+      return window;
+    });
+  }
+  auto order = (void (*)(id, SEL, NSWindowOrderingMode, NSInteger))method_getImplementation(
+      class_getInstanceMethod(NSWindow.class, @selector(orderWindow:relativeTo:)));
+  Swizzle(NSWindow.class, @selector(orderWindow:relativeTo:), ^(NSWindow *window, NSWindowOrderingMode place, NSInteger other) {
+    if (place != NSWindowOut) KeepLowered(window);
+    order(window, @selector(orderWindow:relativeTo:), place, other);
+  });
+}
+
 }  // namespace
 
 // As AppKit tells an app it comes and goes: will, the key window, did.
@@ -278,6 +348,7 @@ void InstallActivationGuardsEarly() {
 
   if (!Background()) return;
   FakeKeyWindows();
+  KeepBehindOwnerWindows();
   auto note = [](NSString *name, NSWindow *window) {
     LogLater([NSString stringWithFormat:@"%@ on %@ #%ld \"%@\"%@", name, window.className, (long)window.windowNumber,
                                         window.title, gAppActive ? @"" : @" (app inactive)"],
@@ -304,11 +375,22 @@ void InstallActivationGuardsEarly() {
     note(@"makeKeyWindow", window);
     MakeKey(window);
   });
+  // Chrome activates the app before it shows a window as active (NativeWidgetNSWindowBridge::SetVisibilityState: the
+  // "has been added" bubble, a profile's window). Refused or not, it tells the window server this process is in front,
+  // and that brings its windows over the owner's. The key window is faked here anyway (FakeKeyWindows).
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  for (SEL selector : {@selector(activateIgnoringOtherApps:), @selector(activate)})
+    Swizzle(NSApplication.class, selector, ^(NSApplication *) {
+      LogLater([@"blocked " stringByAppendingString:NSStringFromSelector(selector)], NSThread.callStackReturnAddresses);
+    });
+#pragma clang diagnostic pop
   {
     SEL selector = @selector(orderFrontRegardless);
     auto original = (void (*)(id, SEL))method_getImplementation(class_getInstanceMethod(NSWindow.class, selector));
     Swizzle(NSWindow.class, selector, ^(NSWindow *window) {
       note(@"orderFrontRegardless", window);
+      KeepLowered(window);  // AppKit's own goes past -orderWindow:relativeTo:
       if (!aboveParent(window)) original(window, selector);
     });
   }

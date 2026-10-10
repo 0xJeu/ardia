@@ -101,7 +101,10 @@ const media = JSON.parse(
 );
 check("H.264, AAC and WebGL2", media.every(Boolean), JSON.stringify(media));
 
-const appWindows = () => windows().filter((w) => w.layer === 0 && w.w > 400 && w.h > 300);
+// A window's level as the app asked for it: a test instance sets each a band below normal so it stays behind the owner's
+// windows (ArcadiaCoreActivation.mm, "Behind the owner's windows"); older builds at the level itself.
+const level = (w) => (w.layer <= -1000000 + 2000 && w.layer > -2000000 ? w.layer + 1000000 : w.layer);
+const appWindows = () => windows().filter((w) => level(w) === 0 && w.w > 400 && w.h > 300);
 const [appWindow] = appWindows().filter((w) => w.alpha > 0);
 const hidden = appWindows().filter((w) => w.alpha === 0);
 check("no hidden full-size Chrome window (the app window is Chrome's own)", !!appWindow && hidden.length === 0,
@@ -159,7 +162,7 @@ for (let i = 0, last = ""; i < 12; i++) {
 const dialog = list.find((w) => /passkey/i.test(w.title));
 check("passkey dialog shows", !!dialog, dialog?.title ?? "no passkey window");
 if (dialog) {
-  const owner = list.slice(list.indexOf(dialog) + 1).find((w) => w.layer === 0 && w.w > 400 && w.h > 300);
+  const owner = list.slice(list.indexOf(dialog) + 1).find((w) => level(w) === 0 && w.w > 400 && w.h > 300);
   const inside = owner && dialog.x >= owner.x && dialog.x + dialog.w <= owner.x + owner.w && dialog.y >= owner.y && dialog.y + dialog.h <= owner.y + owner.h;
   const ok = list[0]?.id === dialog.id && owner?.alpha > 0 && !!inside;
   checkUnlocked("…in front, directly over the visible app window it belongs to", ok,
@@ -254,7 +257,7 @@ const menuLog = () => {
 let logged, menu;
 for (const start = Date.now(); !logged && !menu && Date.now() - start < 3000; ) {
   logged = menuLog();
-  menu = logged ? undefined : windows().find((w) => w.layer === 101);
+  menu = logged ? undefined : windows().find((w) => level(w) === 101);
 }
 check(
   "right-click shows the context menu",

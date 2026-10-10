@@ -80,7 +80,12 @@ make an instance a test instance; the rest are hooks for one test.
   itself: `devWindow(n, "fakeActiveClicks")` lets them through, as in the active app. `devWindow(n,
   "responderChanges")` lists the first-responder changes since the last call with their stacks (who took a field's
   focus).
-- **Windows:** full screen is acted out (no new Space); windows answer NO to `-[NSWindow isOccluded]`, so a covered
+- **Windows:** they stay behind every other app's windows: each window's level is set a band below normal (normal at
+  CoreGraphics layer -1000000, floating at -999997…; `-level` answers the one asked for), so no ordering, activation
+  attempt or AppKit reshuffle lifts one over the owner's, the app's own keep production's order, and Mission Control
+  leaves them out (`ArcadiaCoreActivation.mm`). `[NSApp activateIgnoringOtherApps:]` and `activate` are refused and
+  logged. With `ARCADIA_ALLOW_OCCLUSION=1` a window the owner's cover is really occluded.
+  Full screen is acted out (no new Space); windows answer NO to `-[NSWindow isOccluded]`, so a covered
   window shows a tab at once instead of after Chrome's 1 s delay, with `--disable-backgrounding-occluded-windows`;
   PiP windows stay at alpha 0 and click-through; the drag preview stays above its own window only.
 - **Media:** `--mute-audio`, no intro music, `--use-fake-device-for-media-stream` with the microphone kept on a fake

@@ -130,7 +130,10 @@ Engine files are in `engine/arcadiacore/src/arcadia/core`, app files in `package
     frontmost once its windows appear (this stole the user's keystrokes). With it the process is
     BackgroundOnly and every activation path is guarded (`packages/arcadiacore/ios/ArcadiaCoreActivation.mm`); each
     attempt is logged to `$ARCADIA_DATA_DIR/activation.log`. `lsappinfo front` must never show
-    your pid.
+    your pid. Its windows never come up over the owner's: every window (Chrome's bubbles and popups, panels, PiP,
+    Little Arcadia, sheets) has its level set a band below normal (normal at layer -1000000, floating at -999997), so
+    it sits behind every other app's window, above the desktop, in production's order among its own and out of Mission
+    Control (same file, "Behind the owner's windows"; `-level` still answers the level asked for).
   - Any standalone test program or prototype window you create must be unable to take focus
     (NSApplicationActivationPolicyProhibited/accessory, non-activating panels).
   - Don't use computer-use / screen-control tools on the user's apps. Never click or type in
@@ -209,8 +212,8 @@ Engine files are in `engine/arcadiacore/src/arcadia/core`, app files in `package
     (`http://localhost:<port>/json`, `Runtime.evaluate`, `Page.captureScreenshot`). A `ARCADIA_BACKGROUND` instance's windows answer NO to
     `-[NSWindow isOccluded]` (`ArcadiaCoreHost.mm`), so a covered window shows a tab at once instead of after Chrome's 1 s
     occlusion delay; set `ARCADIA_ALLOW_OCCLUSION=1` to test occlusion itself.
-  - Native UI: `screencapture -l <windowID>` while nothing covers the window (find the id with CGWindowList by owner
-    PID). Wrap every capture in `timeout 20`: with the screen locked they can hang instead of failing.
+  - Native UI: `screencapture -l <windowID> -o` (find the id with CGWindowList by owner PID; a test window's layer is negative). It captures the
+    window's own content even while the owner's windows cover it, which a test window's always may. Wrap every capture in `timeout 20`: with the screen locked they can hang instead of failing.
     For the New Tab intro, launch with `ARCADIA_SHADERS_FORCE_KEY=1` (it only plays in a key window).
   - The user's screen may be locked: screen captures then fail or deliver no frames. Fall back to
     `ac.shell.devSnapshotWindow(windowId, path)` (`false` means it failed; the window's layers at 2x; Metal views
