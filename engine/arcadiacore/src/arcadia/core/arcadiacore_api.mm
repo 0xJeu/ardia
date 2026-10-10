@@ -2047,6 +2047,23 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   return _pageBackgroundColor;
 }
 
+- (NSString*)pageColor {
+  if (!_contents) {
+    return nil;
+  }
+  auto* channel = arcadiacore::PageChannel::FromWebContents(_contents);
+  return channel && !channel->page_color().empty()
+             ? base::SysUTF8ToNSString(channel->page_color())
+             : nil;
+}
+
+- (void)setPageColor:(NSString*)color {
+  if (_contents) {
+    arcadiacore::PageChannel::GetOrCreate(_contents)->SetPageColor(
+        color ? base::SysNSStringToUTF8(color) : std::string());
+  }
+}
+
 - (void)setPageBackgroundColor:(NSColor*)color {
   _pageBackgroundColor = color;
   if (!_contents) {

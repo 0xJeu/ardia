@@ -157,6 +157,9 @@ export type WebViewProps = ViewProps & {
   visible?: boolean;
   warm?: boolean;
   pageBackgroundColor?: string;
+  /** The tab's profile colour ("plum", "incognito"…): the offline game page (arcadia://game, Chrome's offline
+   *  error page) paints itself in it, and follows a change. Web pages never see it. */
+  pageColor?: string;
   autoPictureInPicture?: boolean;
   onNavigationChange?: (state: NavigationState) => void;
   onProgress?: (progress: number) => void;

@@ -9,6 +9,155 @@
   const theme = params.get("theme");
   if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
 
+  // The profile's colour (apps/browser/src/lib/theme.ts PROFILE_COLORS). ArcadiaCore sets
+  // window.arcadiaPageColor before this runs and fires "arcadiapagecolor" when it changes; ?color= stands in
+  // elsewhere. Green is the painting as painted and game.css as written; incognito is neutral, and dark.
+  const SWATCHES = {
+    plum: "#C07A98", blue: "#4691C3", purple: "#7873AF", pink: "#D37B8B", red: "#C1575C",
+    orange: "#D87249", yellow: "#E3AC38", neutral: "#8E8E93",
+  };
+  // docs/brand/arcadia/build.py SUNS: where the gold sun would vanish into the hills.
+  const SUNS = { orange: "#FFD873", yellow: "#FFF1CF" };
+  const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const css = (c, a) => (a === undefined ? `rgb(${c.join(" ")})` : `rgb(${c.join(" ")} / ${a})`);
+  const BLACK = [0, 0, 0];
+  const PAPER = [247, 245, 238];
+  const GREEN_PAINT = {
+    scrim: [16, 30, 24],
+    petals: ["#E6BC62", "#F2F0DF", "#D3DEB5", "#71955A", "#E6BC62"],
+    spine: "rgba(32, 63, 50, 0.22)",
+  };
+  let paint = GREEN_PAINT;
+  let pageColor = "green";
+  let painted = false; // the backgrounds are loaded (boot)
+
+  // The page chrome in colour c, built as game.css builds it from the logo's palette.
+  function chromeVars(c) {
+    const L = { bg: mix(c, PAPER, 0.88), card: mix(c, [252, 251, 247], 0.93), card2: mix(c, PAPER, 0.76),
+      text: mix(c, BLACK, 0.8), ink: mix(c, BLACK, 0.66), accent: mix(c, BLACK, 0.22) };
+    const D = { bg: mix(c, BLACK, 0.82), card: mix(c, BLACK, 0.78), card2: mix(c, BLACK, 0.74),
+      text: mix(c, PAPER, 0.9), ink: mix(c, PAPER, 0.6), accent: mix(c, PAPER, 0.3) };
+    const ld = (a, b) => `light-dark(${a}, ${b})`;
+    return {
+      "--bg": ld(css(L.bg), css(D.bg)),
+      "--card": ld(css(L.card), css(D.card)),
+      "--card-2": ld(css(L.card2), css(D.card2)),
+      "--text": ld(css(L.text), css(D.text)),
+      "--text-2": ld(css(L.text, 0.68), css(D.text, 0.68)),
+      "--text-3": ld(css(L.text, 0.46), css(D.text, 0.45)),
+      "--border": ld(css(L.ink, 0.14), css(D.text, 0.12)),
+      "--divider": ld(css(L.ink, 0.1), css(D.text, 0.08)),
+      "--accent": ld(css(L.accent), css(D.accent)),
+      "--primary": ld(css(L.ink), css(D.ink)),
+      "--primary-hover": ld(css(mix(c, BLACK, 0.6)), css(mix(c, PAPER, 0.7))),
+      "--primary-press": ld(css(mix(c, BLACK, 0.72)), css(mix(c, PAPER, 0.5))),
+      "--primary-text": ld(css(L.bg), css(D.bg)),
+      "--quiet": ld(css(L.ink, 0.06), css(D.text, 0.07)),
+      "--quiet-hover": ld(css(L.ink, 0.1), css(D.text, 0.12)),
+      "--good": css(L.accent),
+      "--shadow-near": ld(css(L.text, 0.08), "rgb(0 0 0 / 0.35)"),
+      "--shadow-far": ld(css(L.text, 0.1), "rgb(0 0 0 / 0.3)"),
+      "--scrim": ld(css(L.bg, 0.72), css(D.bg, 0.7)),
+      "--toast": css(D.bg, 0.9),
+      "--toast-text": css(L.bg),
+      "--portrait-shadow": css(L.text, 0.25),
+    };
+  }
+
+  function colourOf(name) {
+    if (name === "incognito") name = "neutral";
+    const hex = SWATCHES[name];
+    if (!hex) return null;
+    const c = rgbOf(hex);
+    // As the New Tab mark: neutral is the swatch's luminance, without its blue cast.
+    if (name !== "neutral") return c;
+    const y = Math.round(c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722);
+    return [y, y, y];
+  }
+
+  function applyPageColor(name) {
+    name = String(name || "green");
+    if (name === pageColor) return;
+    pageColor = name;
+    const root = document.documentElement;
+    if (theme !== "dark" && theme !== "light") {
+      if (name === "incognito") root.dataset.theme = "dark";
+      else delete root.dataset.theme;
+    }
+    const c = colourOf(name);
+    for (const prop of Object.keys(chromeVars([0, 0, 0]))) root.style.removeProperty(prop);
+    if (c) for (const [prop, value] of Object.entries(chromeVars(c))) root.style.setProperty(prop, value);
+    paint = !c ? GREEN_PAINT : {
+      scrim: mix(c, BLACK, 0.86),
+      petals: ["#E6BC62", css(mix(c, PAPER, 0.88)), css(mix(c, PAPER, 0.6)), css(mix(c, BLACK, 0.22)), "#E6BC62"],
+      spine: css(mix(c, BLACK, 0.66), 0.22),
+    };
+    if (painted) {
+      tintBackgrounds();
+      readStageColor();
+    }
+  }
+
+  // The New Tab mark's recolour (docs/brand/arcadia/build.py `tinted_marks`, offline-game-pipeline/tint_maps.py):
+  // luminance, stretched to the scene's range, runs colour × 0.4 → × 0.78 → + (1 − colour) × 0.6; the sun's gold
+  // (the map's red) stays, or takes the profile's own sun.
+  function tintBackground(bg, c, sunHex) {
+    const { w, h } = bg;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const g = canvas.getContext("2d", { willReadFrequently: true });
+    g.imageSmoothingQuality = "high";
+    g.drawImage(bg.map, 0, 0, w, h);
+    const sun = g.getImageData(0, 0, w, h).data;
+    g.drawImage(bg.paint, 0, 0, w, h);
+    const image = g.getImageData(0, 0, w, h);
+    const d = image.data;
+    const { lo, hi, sun: sunLum } = bg.tint;
+    const stops = [[0, c.map((v) => v * 0.4)], [0.55, c.map((v) => v * 0.78)], [1, c.map((v) => v + (255 - v) * 0.6)]];
+    const ramp = new Uint8ClampedArray(256 * 3);
+    const sunRamp = sunHex ? new Uint8ClampedArray(256 * 3) : null;
+    const sunRgb = sunHex ? rgbOf(sunHex) : null;
+    for (let l = 0; l < 256; l++) {
+      const t = clamp((l / 255 - lo) / (hi - lo), 0, 1);
+      const j = t <= 0.55 ? 0 : 1;
+      const k = (t - stops[j][0]) / (stops[j + 1][0] - stops[j][0]);
+      for (let ch = 0; ch < 3; ch++) {
+        ramp[l * 3 + ch] = stops[j][1][ch] + (stops[j + 1][1][ch] - stops[j][1][ch]) * k;
+        if (sunRamp) sunRamp[l * 3 + ch] = sunRgb[ch] * (l / 255 / sunLum);
+      }
+    }
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], gr = d[i + 1], b = d[i + 2];
+      const l = ((r * 13933 + gr * 46871 + b * 4732) >> 16) * 3;
+      const s = sun[i];
+      if (s === 0) {
+        d[i] = ramp[l]; d[i + 1] = ramp[l + 1]; d[i + 2] = ramp[l + 2];
+      } else {
+        const a = s / 255, keep = 1 - a;
+        const sr = sunRamp ? sunRamp[l] : r, sg = sunRamp ? sunRamp[l + 1] : gr, sb = sunRamp ? sunRamp[l + 2] : b;
+        d[i] = ramp[l] * keep + sr * a;
+        d[i + 1] = ramp[l + 1] * keep + sg * a;
+        d[i + 2] = ramp[l + 2] * keep + sb * a;
+      }
+    }
+    g.putImageData(image, 0, 0);
+    return canvas;
+  }
+
+  function tintBackgrounds() {
+    const c = colourOf(pageColor);
+    const name = pageColor === "incognito" ? "neutral" : pageColor;
+    for (const bg of backgrounds) {
+      bg.img = c && bg.map && bg.tint ? tintBackground(bg, c, SUNS[name]) : bg.paint;
+    }
+    dirty = true;
+  }
+
+  applyPageColor(window.arcadiaPageColor || params.get("color"));
+  addEventListener("arcadiapagecolor", () => applyPageColor(window.arcadiaPageColor));
+
   const injected = window.GAME_ERROR || {};
   const errorCode = injected.code || params.get("code");
   const failedUrl = injected.url || params.get("url");
@@ -154,7 +303,10 @@
       }));
     }
     for (const b of MANIFEST.backgrounds) {
-      jobs.push(loadImage(`assets/bg/${b.id}.webp`).then((img) => backgrounds.push({ ...b, img })));
+      jobs.push(Promise.all([
+        loadImage(`assets/bg/${b.id}.webp`),
+        b.tint ? loadImage(`assets/bg-map/${b.id}.webp`) : null,
+      ]).then(([img, map]) => backgrounds.push({ ...b, img, paint: img, map })));
     }
     await Promise.all(jobs);
     for (const k of Object.keys(sprites)) sprites[k].sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -416,7 +568,7 @@
       ctx.beginPath();
       ctx.rect(0, 0, vw, vh);
       ctx.arc(c.x, c.y, r, 0, Math.PI * 2, true);
-      ctx.fillStyle = `rgba(16, 30, 24, ${0.62 * Math.min(1, k * 3)})`;
+      ctx.fillStyle = css(paint.scrim, 0.62 * Math.min(1, k * 3));
       ctx.fill("evenodd");
       const pulse = 0.5 + 0.5 * Math.sin(now / 180);
       ctx.beginPath();
@@ -447,7 +599,7 @@
       const t = (now - reveal.start) / 1000;
       const Y = L.lamb;
       if (state === "found") {
-        ctx.fillStyle = `rgba(16, 30, 24, ${0.55 * Math.min(1, t * 3)})`;
+        ctx.fillStyle = css(paint.scrim, 0.55 * Math.min(1, t * 3));
         ctx.fillRect(0, 0, vw, vh);
         const pop = reduceMotion ? 1 : ease.outElastic(clamp(t / 1.1, 0, 1));
         const scale = 1 + 0.32 * pop;
@@ -469,7 +621,7 @@
         ctx.beginPath();
         ctx.rect(0, 0, vw, vh);
         ctx.arc(c.x, c.y, Y.h * cam.k * 0.62, 0, Math.PI * 2, true);
-        ctx.fillStyle = "rgba(16, 30, 24, 0.55)";
+        ctx.fillStyle = css(paint.scrim, 0.55);
         ctx.fill("evenodd");
         ctx.beginPath();
         ctx.arc(c.x, c.y, Y.h * cam.k * 0.62, 0, Math.PI * 2);
@@ -495,7 +647,7 @@
         ctx.beginPath();
         ctx.ellipse(0, 0, 10, 5, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "rgba(32, 63, 50, 0.22)";
+        ctx.strokeStyle = paint.spine;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(-7, 0); ctx.lineTo(7, 0);
@@ -507,7 +659,7 @@
 
   function burstPetals(sx, sy) {
     if (reduceMotion) return;
-    const colors = ["#E6BC62", "#F2F0DF", "#D3DEB5", "#71955A", "#E6BC62"];
+    const colors = paint.petals;
     for (let i = 0; i < 38; i++) {
       const a = -Math.PI / 2 + (rng() - 0.5) * 2.2;
       const v = 260 + rng() * 360;
@@ -861,6 +1013,8 @@
       console.error(err);
       return;
     }
+    painted = true;
+    tintBackgrounds();
     const face = sprites.lamb[0];
     if (face) {
       $("wanted").src = face.img.src;

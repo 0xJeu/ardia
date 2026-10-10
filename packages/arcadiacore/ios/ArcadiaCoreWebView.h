@@ -22,6 +22,8 @@ NS_ASSUME_NONNULL_BEGIN
 // "popup" or "sidePanel": an extension's page in Chrome's own extension view, bound to this window (implies standalone).
 @property (nonatomic, copy, nullable) NSString *extensionHost;
 @property (nonatomic, strong, nullable) NSColor *pageBackgroundColor;
+// The tab's profile colour ("plum", "incognito"…), which the offline game page takes (-[ArcadiaCoreTab pageColor]).
+@property (nonatomic, copy, nullable) NSString *pageColor;
 @property (nonatomic) BOOL visible;
 @property (nonatomic) BOOL warm;
 @property (nonatomic) BOOL autoPictureInPicture;

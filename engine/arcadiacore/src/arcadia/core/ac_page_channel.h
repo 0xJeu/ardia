@@ -76,11 +76,18 @@ class PageChannel : public content::WebContentsObserver,
 
   static std::string FrameId(content::RenderFrameHost* frame);
 
+  // The app's colour for the tab (-[ArcadiaCoreTab pageColor]): every main frame gets it as it is
+  // created (ahead of its first commit), and again when it changes. Anything but lowercase letters
+  // clears it.
+  void SetPageColor(const std::string& color);
+  const std::string& page_color() const { return page_color_; }
+
   // mojom::ACPageHost:
   void Post(const std::string& kind, const std::string& json) override;
 
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
+  void RenderFrameCreated(content::RenderFrameHost* frame) override;
 
  private:
   friend class content::WebContentsUserData<PageChannel>;
@@ -92,6 +99,7 @@ class PageChannel : public content::WebContentsObserver,
   content::RenderFrameHostReceiverSet<mojom::ACPageHost> receivers_;
   mojo::AssociatedRemote<mojom::ACPage> main_page_;
   content::GlobalRenderFrameHostId main_page_frame_;
+  std::string page_color_;
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
 

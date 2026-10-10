@@ -3,8 +3,8 @@
 Usage: python3 inline.py <out.html>
 
 The engine serves the result in place of Chrome's dino page
-(engine/patches/chromium-neterror-mascot.patch), and step 5 of the CEF
-build regenerates it, so ../offline-game stays the source: CSS, scripts and
+(engine/patches/chromium-neterror-game.patch), and game-resource.sh
+regenerates it before each build, so ../offline-game stays the source: CSS, scripts and
 the manifest go inline, every WebP becomes a data: URL in window.GAME_ASSETS
 (read by game.js), and the CSP allows exactly those inline blocks by hash.
 

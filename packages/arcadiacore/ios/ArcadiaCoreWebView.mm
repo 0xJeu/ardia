@@ -928,6 +928,7 @@ static BOOL HeldSelector(SEL selector) {
   [self applyPainting];
   if (_muted && [tab respondsToSelector:@selector(setMuted:)]) tab.muted = YES;
   if (_pageBackgroundColor && [tab respondsToSelector:@selector(setPageBackgroundColor:)]) tab.pageBackgroundColor = _pageBackgroundColor;
+  if (_pageColor && [tab respondsToSelector:@selector(setPageColor:)]) tab.pageColor = _pageColor;
   if (_pendingURL) {
     [self loadNow:_pendingURL userInitiated:_pendingUserInitiated];
     _pendingURL = nil;
@@ -1308,6 +1309,11 @@ static BOOL HeldSelector(SEL selector) {
 - (void)setPageBackgroundColor:(NSColor *)color {
   _pageBackgroundColor = color;
   if ([_tab respondsToSelector:@selector(setPageBackgroundColor:)]) _tab.pageBackgroundColor = color;
+}
+
+- (void)setPageColor:(NSString *)color {
+  _pageColor = [color copy];
+  if ([_tab respondsToSelector:@selector(setPageColor:)]) _tab.pageColor = color;
 }
 
 // MARK: Events

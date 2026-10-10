@@ -1,5 +1,6 @@
 #include "arcadia/core/renderer/ac_content_renderer_client.h"
 
+#include <algorithm>
 #include <map>
 #include <optional>
 #include <string>
@@ -26,6 +27,7 @@
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
+#include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_script_source.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
@@ -71,7 +73,14 @@ class ACPageObserver : public content::RenderFrameObserver,
 
   void DidCreateScriptContext(v8::Local<v8::Context> context,
                               int32_t world_id) override {
-    if (world_id != content::ISOLATED_WORLD_ID_GLOBAL || PageScript().empty()) {
+    if (world_id != content::ISOLATED_WORLD_ID_GLOBAL) {
+      return;
+    }
+    if (ShowsPageColor()) {
+      render_frame()->GetWebFrame()->ExecuteScript(
+          Source(PageColorScript(), "arcadia://page-color"));
+    }
+    if (PageScript().empty()) {
       return;
     }
     blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
@@ -178,7 +187,41 @@ class ACPageObserver : public content::RenderFrameObserver,
     }
   }
 
+  void SetPageColor(const std::string& color) override {
+    const bool valid = color.size() <= 16 &&
+                       std::all_of(color.begin(), color.end(), [](char c) {
+                         return c >= 'a' && c <= 'z';
+                       });
+    const std::string next = valid ? color : std::string();
+    if (next == page_color_) {
+      return;
+    }
+    page_color_ = next;
+    // A page already showing gets the change (a new one sets it in DidCreateScriptContext).
+    if (ShowsPageColor()) {
+      render_frame()->GetWebFrame()->ExecuteScript(
+          Source(PageColorScript(), "arcadia://page-color"));
+    }
+  }
+
  private:
+  // Only Chrome's error pages in a main frame (the offline game) see the tab's colour; a web
+  // page never does.
+  bool ShowsPageColor() {
+    if (page_color_.empty() || !render_frame()->IsMainFrame()) {
+      return false;
+    }
+    blink::WebDocumentLoader* loader =
+        render_frame()->GetWebFrame()->GetDocumentLoader();
+    return loader && loader->HasUnreachableURL();
+  }
+
+  // page_color_ is lowercase letters only, so it needs no escaping.
+  std::string PageColorScript() const {
+    return "window.arcadiaPageColor = \"" + page_color_ +
+           "\"; window.dispatchEvent(new Event(\"arcadiapagecolor\"));";
+  }
+
   // As CEF's EvaluateWithGesture: a transient activation, as a click would give.
   void NotifyUserActivation() {
     render_frame()->GetWebFrame()->NotifyUserActivation(
@@ -246,6 +289,7 @@ class ACPageObserver : public content::RenderFrameObserver,
   v8::Global<v8::Context> receive_context_;
   std::map<int, EvaluateCallback> evaluations_;
   int last_evaluation_ = 0;
+  std::string page_color_;
   base::WeakPtrFactory<ACPageObserver> weak_factory_{this};
 };
 

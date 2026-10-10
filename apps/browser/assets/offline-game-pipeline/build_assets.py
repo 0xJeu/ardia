@@ -5,7 +5,8 @@ Usage (from this folder):
   uv run --with numpy --with scipy --with pillow build_assets.py <raw-dir> <cutout-bin>
 
 <raw-dir> holds the codex outputs (gen.sh): sheet1..N.png, decoys.png, lamb.png, bg-*.png.
-Writes ../offline-game/assets/{crowd,bg}/*.webp and ../offline-game/assets/manifest.js.
+Writes ../offline-game/assets/{crowd,bg}/*.webp and ../offline-game/assets/manifest.js, then the
+backgrounds' recolour maps (tint_maps.py: assets/bg-map/*.webp, each background's "tint").
 The engine ships the folder packed into one file by inline.py (the CEF build runs it).
 """
 
@@ -17,6 +18,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+
+import tint_maps
 
 HERE = Path(__file__).resolve().parent
 GAME = HERE.parent / "offline-game" / "assets"
@@ -149,6 +152,7 @@ def main():
     )
     counts = {k: sum(1 for s in sprites if s["kind"] == k) for k in ("crowd", "decoy", "lamb")}
     print("sprites", counts, "backgrounds", len(bgs))
+    tint_maps.main()
 
 
 if __name__ == "__main__":

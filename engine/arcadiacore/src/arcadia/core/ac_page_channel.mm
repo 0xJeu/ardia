@@ -2,6 +2,7 @@
 
 #import <Foundation/Foundation.h>
 
+#include <algorithm>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -17,6 +18,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
+#include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -171,6 +173,40 @@ void PageChannel::PrimaryPageChanged(content::Page& page) {
   // The old document's pending evaluations get no answer (it may sit in the back/forward
   // cache, timers frozen, and answer much later otherwise).
   main_page_.reset();
+  // A frame created before the colour was set reaches its page late, not never.
+  if (!page_color_.empty()) {
+    if (auto remote = PageOf(&page.GetMainDocument())) {
+      remote->SetPageColor(page_color_);
+    }
+  }
+}
+
+void PageChannel::RenderFrameCreated(content::RenderFrameHost* frame) {
+  // Before the frame's first commit: an error page there has the colour from its first script.
+  if (!page_color_.empty() && !frame->GetParentOrOuterDocument()) {
+    if (auto remote = PageOf(frame)) {
+      remote->SetPageColor(page_color_);
+    }
+  }
+}
+
+void PageChannel::SetPageColor(const std::string& color) {
+  const bool valid = !color.empty() && color.size() <= 16 &&
+                     std::all_of(color.begin(), color.end(), [](char c) {
+                       return c >= 'a' && c <= 'z';
+                     });
+  const std::string next = valid ? color : std::string();
+  if (next == page_color_) {
+    return;
+  }
+  page_color_ = next;
+  GetWebContents().ForEachRenderFrameHost([&](content::RenderFrameHost* frame) {
+    if (!frame->GetParentOrOuterDocument()) {
+      if (auto remote = PageOf(frame)) {
+        remote->SetPageColor(page_color_);
+      }
+    }
+  });
 }
 
 PageChannel::~PageChannel() = default;

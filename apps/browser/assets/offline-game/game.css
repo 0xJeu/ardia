@@ -1,6 +1,7 @@
 /* Where's the lamb? — Arcadia's offline page, in the logo's palette:
    forest #203F32, parchment #F2F0DF, sage #71955A, meadow #D3DEB5, sun #E6BC62, night #182D24.
-   Light or dark follows the system; ?theme=light|dark (data-theme) pins one. */
+   Light or dark follows the system; ?theme=light|dark (data-theme) pins one.
+   Another profile colour overrides these variables from game.js (chromeVars). */
 :root {
   color-scheme: light dark;
   --bg: light-dark(#f2f0df, #182d24);
@@ -25,6 +26,9 @@
   --shadow-far: light-dark(rgba(24, 45, 36, 0.1), rgba(0, 0, 0, 0.3));
   --shadow: 0 1px 2px var(--shadow-near), 0 8px 28px var(--shadow-far);
   --scrim: light-dark(rgba(242, 240, 223, 0.72), rgba(24, 45, 36, 0.7));
+  --toast: rgba(24, 45, 36, 0.9);
+  --toast-text: #f2f0df;
+  --portrait-shadow: rgba(24, 45, 36, 0.25);
   --serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
 }
 :root[data-theme="light"] { color-scheme: light; }
@@ -176,8 +180,8 @@ canvas.grabbing { cursor: grabbing; }
   transform: translate(-50%, 8px);
   padding: 7px 12px;
   border-radius: 999px;
-  background: rgba(24, 45, 36, 0.9);
-  color: #f2f0df;
+  background: var(--toast);
+  color: var(--toast-text);
   font-weight: 500;
   opacity: 0;
   pointer-events: none;
@@ -220,7 +224,7 @@ canvas.grabbing { cursor: grabbing; }
   object-position: 50% 0;
   margin: -4px auto 6px;
   display: block;
-  filter: drop-shadow(0 6px 10px rgba(24, 45, 36, 0.25));
+  filter: drop-shadow(0 6px 10px var(--portrait-shadow));
 }
 .card-portrait:not([src]) { visibility: hidden; }
 .card-title { margin: 0 0 6px; font: 600 21px/1.2 var(--serif); letter-spacing: -0.01em; }

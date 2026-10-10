@@ -92,13 +92,19 @@ reading mode hooks read); apply.sh's other hooks are set next to the code they s
 Wherever Chrome would start the dino (`LocalizedError::IsOfflineError`: `ERR_INTERNET_DISCONNECTED`, or a DNS
 probe that ends in `DNS_PROBE_FINISHED_NO_INTERNET`; main frames only; not with `--disable-dinosaur-easter-egg`),
 `NetErrorHelper` serves `IDR_ARCADIA_GAME_HTML` instead of `neterror.html`: the game from
-`apps/browser/assets/offline-game`, one self-contained document (2.5 MB, brotli in `resources.pak`: CSS, scripts and
+`apps/browser/assets/offline-game`, one self-contained document (3.8 MB, brotli in `resources.pak`: CSS, scripts and
 manifest inline, every WebP a `data:` URL, a CSP that allows exactly those inline blocks by hash). Its
 `<script type="application/json" id="game-error">` block gets `{code, url}` of the failed load, which the game reads as
 `window.GAME_ERROR`. Every other error keeps Chrome's page. A DNS probe that turns the page offline after it loaded
 swaps the game's document in (`document.write`), where Chrome's page would start the dino. The page runs as Chrome's
 error page, so Retry is `errorPageController.reloadButtonClick()` and the best score is Chrome's easter-egg high
 score (`trackEasterEgg` / `updateEasterEggHighScore`).
+
+The page paints itself in the tab's profile colour: the app sets `-[ArcadiaCoreTab pageColor]` (WebView `pageColor`),
+ArcadiaCore sends it to each main frame as it is created (`ACPage.SetPageColor`, before the frame's first commit) and
+again on change, and the renderer sets `window.arcadiaPageColor` (and fires `arcadiapagecolor`) in error pages only,
+before their own scripts; web pages never see it. game.js recolours the backgrounds on a canvas as the New Tab mark is
+recoloured, from `offline-game-pipeline/tint_maps.py`'s maps (`assets/bg-map`, 35 KB) and per-scene statistics.
 
 `chrome://game` (the app's `arcadia://game`) is an alias of `chrome://dino`: a simulated `ERR_INTERNET_DISCONNECTED`
 whose page plays the game on its own, without the offline header. Tabs, popups and side panels share the renderer, so

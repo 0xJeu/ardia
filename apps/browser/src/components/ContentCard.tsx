@@ -15,7 +15,7 @@ import { useBrowser } from "../store/browser";
 import { setPageProgress } from "../store/pageProgress";
 import { shallowEqual, useStoreWhile, useTabValue } from "../store/tabWatch";
 import { useActiveTabId, useWindowId } from "../store/hooks";
-import { activeTabId, engineProfile, navigationTo, wake } from "../store/model";
+import { activeTabId, engineProfile, isIncognitoProfile, navigationTo, wake } from "../store/model";
 import { removeTabs } from "../store/tabs";
 import { splitOf } from "../store/splits";
 import type { SplitView, Tab } from "../store/types";
@@ -427,6 +427,8 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
   const store = () => useBrowser.getState();
   const ref = useMemo(() => webviewRef(tabId), [tabId]);
   const autoPictureInPicture = useAutoPictureInPicture(tabId, visible);
+  // The offline game paints itself in it (WebView pageColor).
+  const pageColor = useBrowser((s) => (isIncognitoProfile(profileId) ? "incognito" : (s.profiles[profileId]?.color ?? "plum")));
 
   const lastPage = useRef<string | null>(null);
   const pending = useRef<string | null>(navigation?.url ?? (adoptId ? (tab()?.url ?? null) : null));
@@ -485,6 +487,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       visible={visible}
       warm={warm}
       autoPictureInPicture={autoPictureInPicture}
+      pageColor={pageColor}
       // No pageBackgroundColor: a page that paints no background gets Chrome's canvas (white, or dark when its
       // color-scheme says so), as in Chrome and Dia. A transparent base showed the app's card through it instead, so a
       // light page's dark text sat on the dark card (workspace.google.com, 0.2.30).

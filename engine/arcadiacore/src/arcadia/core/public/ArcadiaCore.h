@@ -601,6 +601,10 @@ ARCADIACORE_EXPORT
 - (void)resolveUnresponsive:(BOOL)terminate;
 // The page's base background (before it paints its own), e.g. the app's theme; nil: Chrome's.
 @property(nonatomic, nullable) NSColor* pageBackgroundColor;
+// The app's colour for the tab ("plum", "incognito"…: lowercase letters; nil: none). An error page
+// in its main frame (the offline game) reads it as window.arcadiaPageColor from its first script on,
+// and gets an "arcadiapagecolor" event when it changes. Web pages never see it.
+@property(nonatomic, copy, nullable) NSString* pageColor;
 // Extensions. Runs the extension's action as a click on its toolbar button would (grants
 // activeTab): "none", "popup" (show it: -openActionPopupForExtension:anchor:) or "sidePanel".
 - (NSString*)executeExtensionAction:(NSString*)extensionId;

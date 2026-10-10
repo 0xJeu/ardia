@@ -225,6 +225,7 @@ public class CefModule: Module {
       Prop("visible") { (view: CefWebView, visible: Bool?) in view.browser.visible = visible ?? true }
       Prop("warm") { (view: CefWebView, warm: Bool?) in view.browser.warm = warm ?? false }
       Prop("pageBackgroundColor") { (view: CefWebView, color: NSColor?) in view.browser.pageBackgroundColor = color }
+      Prop("pageColor") { (view: CefWebView, color: String?) in view.browser.pageColor = color }
       Prop("autoPictureInPicture") { (view: CefWebView, enabled: Bool?) in
         view.browser.autoPictureInPicture = enabled ?? false
       }
