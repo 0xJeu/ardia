@@ -1,5 +1,5 @@
 import { ContextMenuArea, Surface, Symbol, VisualEffect, type SymbolProps } from "@arcadia/shell";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type ViewStyle } from "react-native";
 import { hex, useTheme } from "../../lib/theme";
 import { useHover } from "../primitives";
@@ -71,6 +71,129 @@ export function ToolbarButton({
   );
 }
 
+// One grid for every panel that opens from the address field and the toolbar (Site Controls, the site's prompts, zoom,
+// history, Cast, screen sharing, the device chooser, downloads). Everything sits `inset` from each edge: the first icon
+// is as far from the top as from the left, and row icons, separators, accessories and the last row line up with it.
+// A row's hover fill reaches `rowInset` from the edge and its contents start `rowPadding` further in, on the inset.
+const INSET = 16;
+const ROW_INSET = 6;
+const RADIUS = 12;
+const ROW_HEIGHT = 32;
+const ICON_SLOT = 20;
+const ICON_GAP = 10;
+export const PANEL = {
+  radius: RADIUS,
+  inset: INSET,
+  rowInset: ROW_INSET,
+  rowPadding: INSET - ROW_INSET,
+  /** Concentric with the panel's corner. */
+  rowRadius: RADIUS - ROW_INSET,
+  rowHeight: ROW_HEIGHT,
+  /** Row icons and the header's favicon are centred in this box, so the icon column is one line. */
+  iconSlot: ICON_SLOT,
+  iconSize: 13,
+  iconGap: ICON_GAP,
+  /** Where row titles start, from the panel's edge. */
+  textColumn: INSET + ICON_SLOT + ICON_GAP,
+  /** Above the first row and below the last: their icon slots land on the inset. */
+  listPadding: INSET - (ROW_HEIGHT - ICON_SLOT) / 2,
+  /** Between a header and what follows it. */
+  headerGap: 8,
+  separatorGap: 5,
+  titleSize: 13,
+  titleLine: 16,
+  subtitleSize: 11,
+  subtitleLine: 14,
+  valueSize: 12,
+} as const;
+
+/** A panel's title row: its icon's box `inset` from the top and the left, the title (and a one-line subtitle) centred on
+ *  it. Text taller than the icon reaches above it, so the icon, not the text, decides the top inset. */
+export function PanelHeader({
+  icon,
+  iconSize = PANEL.iconSlot,
+  title,
+  subtitle,
+  subtitleLines = 1,
+  large,
+  accessory,
+}: {
+  icon: ReactNode;
+  iconSize?: number;
+  title: string;
+  subtitle?: string | null;
+  subtitleLines?: number;
+  large?: boolean;
+  accessory?: ReactNode;
+}) {
+  const theme = useTheme();
+  const titleLine = large ? PANEL.titleLine + 1 : PANEL.titleLine;
+  // Measured once laid out (a subtitle may wrap); the estimate is exact for one line each.
+  const [textHeight, setTextHeight] = useState(titleLine + (subtitle ? PANEL.subtitleLine : 0));
+  const overhang = Math.max(0, (textHeight - iconSize) / 2);
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: PANEL.iconGap,
+        paddingHorizontal: PANEL.inset,
+        paddingTop: PANEL.inset - overhang,
+        paddingBottom: PANEL.headerGap,
+      }}
+    >
+      <View style={{ width: iconSize, height: iconSize, alignItems: "center", justifyContent: "center" }}>{icon}</View>
+      <View style={{ flex: 1 }} onLayout={(e) => setTextHeight(e.nativeEvent.layout.height)}>
+        <Text numberOfLines={1} style={{ fontSize: large ? 14 : PANEL.titleSize, lineHeight: titleLine, fontWeight: "600", color: theme.textPrimary }}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text numberOfLines={subtitleLines} style={{ fontSize: large ? 11.5 : PANEL.subtitleSize, lineHeight: PANEL.subtitleLine, color: theme.textSecondary }}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {accessory}
+    </View>
+  );
+}
+
+/** A row's value that opens a menu ("Ask ⌃⌄"): its glyph ends on the inset, its hover box reaching past it. */
+export function PopoverValue({ title, onPress, chevron = "chevron.up.chevron.down", tooltip }: { title: string; onPress: () => void; chevron?: string; tooltip?: string }) {
+  const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+  return (
+    <View {...hoverProps} tooltip={tooltip} style={{ marginRight: -VALUE_PAD }}>
+      <Pressable onPress={onPress}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, height: 22, paddingLeft: 8, paddingRight: VALUE_PAD, borderRadius: 6, backgroundColor: hovered ? theme.toolbarHover : undefined }}>
+          <Text style={{ fontSize: PANEL.valueSize, color: theme.textSecondary }}>{title}</Text>
+          <Symbol name={chevron} size={9} weight={chevron === "chevron.down" ? "semibold" : undefined} color={theme.textSecondary} style={{ width: 8, height: 14 }} />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+const VALUE_PAD = 6;
+
+/** A prompt's ✕: its glyph's corner on the inset. */
+export function PanelCloseButton({ onPress, tooltip = "Dismiss" }: { onPress: () => void; tooltip?: string }) {
+  const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+  const offset = PANEL.inset - (CLOSE_BOX - CLOSE_GLYPH) / 2;
+  return (
+    <View {...hoverProps} style={{ position: "absolute", top: offset, right: offset }} tooltip={tooltip}>
+      <Pressable onPress={onPress}>
+        <View style={{ width: CLOSE_BOX, height: CLOSE_BOX, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: hovered ? theme.toolbarHover : undefined }}>
+          <Symbol name="xmark" size={9} weight="semibold" color={theme.textSecondary} style={{ width: 14, height: 14 }} />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+const CLOSE_BOX = 22;
+// xmark at 9 pt, semibold, is about 7 pt across.
+const CLOSE_GLYPH = 7;
+
 export function Popover({
   width,
   top,
@@ -114,7 +237,7 @@ export function Popover({
       >
         <Surface
           fill={hex(theme.dark ? "rgba(38,36,37,0.94)" : "rgba(252,251,252,0.96)")}
-          cornerRadius={12}
+          cornerRadius={PANEL.radius}
           borderColor={hex(theme.dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)")}
           borderWidth={0.5}
           shadowColor="#000000"
@@ -122,8 +245,8 @@ export function Popover({
           shadowRadius={18}
           shadowOffset={[0, 8]}
         >
-          <VisualEffect material="menu" cornerRadius={12} style={StyleSheet.absoluteFill} />
-          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: 12, backgroundColor: theme.dark ? "rgba(38,36,37,0.72)" : "rgba(252,251,252,0.7)" }} />
+          <VisualEffect material="menu" cornerRadius={PANEL.radius} style={StyleSheet.absoluteFill} />
+          <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: PANEL.radius, backgroundColor: theme.dark ? "rgba(38,36,37,0.72)" : "rgba(252,251,252,0.7)" }} />
           {children}
         </Surface>
       </Animated.View>
@@ -133,6 +256,7 @@ export function Popover({
 
 export function PopoverRow({
   icon,
+  leading,
   iconColor,
   title,
   detail,
@@ -142,6 +266,8 @@ export function PopoverRow({
   destructive,
 }: {
   icon?: string;
+  /** Drawn in the icon's slot instead of a symbol (a favicon). */
+  leading?: ReactNode;
   iconColor?: string;
   title: string;
   detail?: string;
@@ -156,24 +282,28 @@ export function PopoverRow({
   const content = (pressed: boolean) => (
     <View
       style={{
-        minHeight: 32,
-        marginHorizontal: 5,
-        paddingHorizontal: 8,
-        borderRadius: 7,
+        minHeight: PANEL.rowHeight,
+        marginHorizontal: PANEL.rowInset,
+        paddingHorizontal: PANEL.rowPadding,
+        borderRadius: PANEL.rowRadius,
         flexDirection: "row",
         alignItems: "center",
-        gap: 9,
+        gap: PANEL.iconGap,
         opacity: disabled ? 0.45 : 1,
         backgroundColor: onPress && !disabled && (pressed || hovered) ? (theme.dark ? `rgba(255,255,255,${pressed ? 0.12 : 0.07})` : `rgba(0,0,0,${pressed ? 0.1 : 0.06})`) : undefined,
       }}
     >
-      {icon ? <Symbol name={icon} size={13} color={iconColor ?? (destructive ? tint : theme.icon)} style={{ width: 18, height: 18 }} /> : null}
+      {leading ? (
+        <View style={{ width: PANEL.iconSlot, height: PANEL.iconSlot, alignItems: "center", justifyContent: "center" }}>{leading}</View>
+      ) : icon ? (
+        <Symbol name={icon} size={PANEL.iconSize} color={iconColor ?? (destructive ? tint : theme.icon)} style={{ width: PANEL.iconSlot, height: PANEL.iconSlot }} />
+      ) : null}
       <View style={{ flex: 1, paddingVertical: 6 }}>
-        <Text numberOfLines={1} style={{ fontSize: 13, color: tint }}>
+        <Text numberOfLines={1} style={{ fontSize: PANEL.titleSize, color: tint }}>
           {title}
         </Text>
         {detail ? (
-          <Text numberOfLines={2} style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
+          <Text numberOfLines={2} style={{ fontSize: PANEL.subtitleSize, color: theme.textSecondary, marginTop: 1 }}>
             {detail}
           </Text>
         ) : null}
@@ -193,7 +323,7 @@ export function PopoverRow({
 
 export function PopoverSeparator() {
   const theme = useTheme();
-  return <View style={{ height: StyleSheet.hairlineWidth, marginVertical: 5, marginHorizontal: 13, backgroundColor: theme.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />;
+  return <View style={{ height: StyleSheet.hairlineWidth, marginVertical: PANEL.separatorGap, marginHorizontal: PANEL.inset, backgroundColor: theme.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />;
 }
 
 export function PromptButton({ title, onPress, primary, flex }: { title: string; onPress: () => void; primary?: boolean; flex?: boolean }) {

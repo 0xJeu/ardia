@@ -12,14 +12,14 @@ import {
 import { cleanUrl, displayHost } from "@arcadia/core";
 import { confirm, copyText, showMenu, Symbol } from "@arcadia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { useSettings, useTab } from "../../store/hooks";
 import { engineProfile, tabLabel } from "../../store/model";
-import { Favicon, useHover } from "../primitives";
-import { Popover, PopoverRow, PopoverSeparator, Toggle } from "../layout/controls";
+import { Favicon } from "../primitives";
+import { PANEL, PanelHeader, Popover, PopoverRow, PopoverSeparator, PopoverValue, Toggle } from "../layout/controls";
 import { patchPage, setPopover, usePage } from "../layout/pageState";
 import { showToast } from "../layout/splitActions";
 import { toggleCastPicker } from "../media/cast";
@@ -133,20 +133,12 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
 
   return (
     <Popover width={306} top={top} right={right} left={left} onDismiss={close}>
-      <View style={{ paddingVertical: 6 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 13, paddingTop: 6, paddingBottom: 8 }}>
-          <Favicon url={url} favicon={tab.favicon} size={20} profileId={tab.profileId} />
-          <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>
-              {host ? displayHost(host) : tabLabel(tab)}
-            </Text>
-            {tab.title ? (
-              <Text numberOfLines={1} style={{ fontSize: 11, color: theme.textSecondary }}>
-                {tab.title}
-              </Text>
-            ) : null}
-          </View>
-        </View>
+      <View style={{ paddingBottom: PANEL.listPadding }}>
+        <PanelHeader
+          icon={<Favicon url={url} favicon={tab.favicon} size={PANEL.iconSlot} profileId={tab.profileId} />}
+          title={host ? displayHost(host) : tabLabel(tab)}
+          subtitle={tab.title}
+        />
 
         <ConnectionRow security={security} open={certOpen} onToggle={() => setCertOpen((o) => !o)} />
         {certOpen && security?.certificate ? <CertificateDetails security={security} /> : null}
@@ -202,7 +194,7 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
                 key={p.type}
                 icon={p.icon}
                 title={p.title}
-                accessory={<ValueButton title={settings ? choiceTitle(p.type, settings[p.type]?.value ?? "ask") : "…"} onPress={() => void pickPermission(p.type, p.choices)} />}
+                accessory={<PopoverValue title={settings ? choiceTitle(p.type, settings[p.type]?.value ?? "ask") : "…"} onPress={() => void pickPermission(p.type, p.choices)} />}
               />
             ))}
             <PopoverSeparator />
@@ -248,7 +240,7 @@ function ConnectionRow({ security, open, onToggle }: { security: SecurityInfo | 
       title={title}
       detail={detail}
       onPress={security?.certificate ? onToggle : undefined}
-      accessory={security?.certificate ? <Symbol name={open ? "chevron.up" : "chevron.down"} size={10} color={theme.textSecondary} style={{ width: 14, height: 14 }} /> : null}
+      accessory={security?.certificate ? <Symbol name={open ? "chevron.up" : "chevron.down"} size={10} color={theme.textSecondary} style={{ width: 10, height: 14 }} /> : null}
     />
   );
 }
@@ -264,10 +256,10 @@ function CertificateDetails({ security }: { security: SecurityInfo }) {
     ["Valid from", date(cert.validFrom)],
     ["Expires", date(cert.validUntil)],
     ...(security.protocol ? [["Protocol", security.protocol] as [string, string]] : []),
-    ...(cert.sha256 ? [["SHA-256", cert.sha256.replace(/(.{2})(?!$)/g, "$1 ").slice(0, 47) + "…"] as [string, string]] : []),
+    ...(cert.sha256 ? [["SHA-256", cert.sha256.replace(/[^0-9a-f]/gi, "").replace(/(.{2})(?!$)/g, "$1 ").slice(0, 47) + "…"] as [string, string]] : []),
   ];
   return (
-    <View style={{ marginHorizontal: 13, marginTop: 2, marginBottom: 4, padding: 9, borderRadius: 8, backgroundColor: theme.dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", gap: 3 }}>
+    <View style={{ marginHorizontal: PANEL.inset, marginTop: 2, marginBottom: 4, padding: PANEL.rowPadding, borderRadius: 8, backgroundColor: theme.dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", gap: 3 }}>
       {rows.map(([k, v]) => (
         <View key={k} style={{ flexDirection: "row", gap: 8 }}>
           <Text style={{ width: 82, fontSize: 11, color: theme.textSecondary }}>{k}</Text>
@@ -282,19 +274,4 @@ function CertificateDetails({ security }: { security: SecurityInfo }) {
 
 function ZoomRow({ tabId, zoom }: { tabId: string; zoom: number }) {
   return <PopoverRow icon="plus.magnifyingglass" title="Zoom" accessory={<ZoomStepper tabId={tabId} zoom={zoom} />} />;
-}
-
-function ValueButton({ title, onPress }: { title: string; onPress: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, height: 22, paddingLeft: 8, paddingRight: 5, borderRadius: 6, backgroundColor: hovered ? theme.toolbarHover : undefined }}>
-          <Text style={{ fontSize: 12, color: theme.textSecondary }}>{title}</Text>
-          <Symbol name="chevron.up.chevron.down" size={9} color={theme.textSecondary} style={{ width: 12, height: 14 }} />
-        </View>
-      </Pressable>
-    </View>
-  );
 }

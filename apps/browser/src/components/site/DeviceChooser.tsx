@@ -12,7 +12,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 import { create } from "zustand";
 import { useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
-import { Popover, PromptButton } from "../layout/controls";
+import { PANEL, Popover, PromptButton } from "../layout/controls";
 import { tabForBrowser } from "../layout/pageState";
 import { useHover } from "../primitives";
 
@@ -66,12 +66,12 @@ function OptionRow({ name, detail, signal, selected, onSelect, onChoose }: { nam
       <Pressable onPress={onSelect}>
         <View
           style={{
-            height: 32,
-            borderRadius: 7,
-            paddingHorizontal: 9,
+            height: PANEL.rowHeight,
+            borderRadius: PANEL.rowRadius,
+            paddingHorizontal: PANEL.rowPadding,
             flexDirection: "row",
             alignItems: "center",
-            gap: 9,
+            gap: PANEL.iconGap,
             backgroundColor: selected ? (theme.dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.08)") : hovered ? theme.rowHover : undefined,
           }}
         >
@@ -120,7 +120,8 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
   } else {
     body = (
       <>
-        <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ gap: 2 }}>
+        {/* Rows reach out to the rows' inset, their contents back on the panel's. */}
+        <ScrollView style={{ maxHeight: 200, marginHorizontal: PANEL.rowInset - PANEL.inset }} contentContainerStyle={{ gap: 2 }}>
           {chooser.options.map((o, i) => (
             <OptionRow
               key={`${i}:${o.name}`}
@@ -133,7 +134,7 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
             />
           ))}
         </ScrollView>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 7, minHeight: 22, paddingHorizontal: 2 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 7, minHeight: 22 }}>
           {chooser.refreshing ? (
             <>
               <ActivityIndicator size="small" style={{ transform: [{ scale: 0.6 }], width: 14, height: 14 }} />
@@ -157,7 +158,7 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
         enableFocusRing={false}
         keyDownEvents={[{ key: "Escape" }, { key: "Enter" }]}
         onKeyDown={(e) => (e.nativeEvent.key === "Escape" ? cancel() : valid && !blocked && choose())}
-        style={{ padding: 14, gap: 10 }}
+        style={{ padding: PANEL.inset, gap: 10 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
           <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}>
@@ -180,7 +181,7 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
 function Notice({ icon, text, link, onLink }: { icon: string; text: string; link?: string; onLink?: () => void }) {
   const theme = useTheme();
   return (
-    <View style={{ flexDirection: "row", gap: 9, paddingVertical: 6, paddingHorizontal: 2 }}>
+    <View style={{ flexDirection: "row", gap: 9, paddingVertical: 6 }}>
       <Symbol name={icon} size={13} color={theme.textSecondary} style={{ width: 18, height: 18 }} />
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={{ fontSize: 12.5, color: theme.textSecondary }}>{text}</Text>

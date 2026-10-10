@@ -113,6 +113,25 @@ Measured materials (our own non-activating panels over solid backdrops; sRGB; ac
 - Bottom row (53 tall): outlined chip "+ Add tabs or files" (1px white 15%, fully rounded, 28
   tall), a mic (30%), then "Go ↩" pill (lavender `#DCCBD8`-ish, dark text, ~92×29).
 
+## Panels from the address field (Site Controls and its kin)
+
+Not captured from Dia: on 2026-10-11 Dia wasn't running, and opening its site settings panel takes a click in Dia,
+which is off-limits. The grid follows the owner's ask instead (2026-10-11, on Site Controls: "make the left spacing
+the same as top"), so if a Dia capture ever differs, the owner's equal insets win.
+
+- Owner's capture of our 0.2.32 Site Controls (2x): the header favicon 13.5 pt from the left edge, 17 pt from the top;
+  row glyphs 16.5–19.5 pt in, separators 13.5 pt in. Rows were 5 + 8 in, the header 13 in, so nothing shared a line.
+- Now one grid for every panel there (`PANEL` in `apps/browser/src/components/layout/controls.tsx`): content inset
+  **16** from every edge; corner radius 12; rows 32 tall, hover fill 6 in (radius 6, concentric), contents 10 further in;
+  a 20 pt icon slot (13 pt glyphs, the header's 20 pt favicon), 10 to the text, so titles start at 46; separators 16
+  in, 5 above and below; the first and last rows' icon slots 16 from the top and bottom (list padding 10); a header's
+  icon box 16 from the top and left with its title and subtitle centred on it (13/16 and 11/14 pt), 8 below it; a
+  row's value ("Ask ⌃⌄") and a prompt's ✕ end their glyphs on the inset.
+- Measured in the 2x snapshots, border pixel to first content pixel (pt, incl. the 0.5 border): Site Controls' favicon
+  14.5 left / 18 top before → 17.5 / 17.5 after; the prompts (permission, password, autofill, external app, device
+  chooser) 14.5 → 16.5 on all four sides; blocked pop-ups 13.5 → 16.5; history 13.5 → 16.5 (its favicons 18 in, a 16 pt
+  favicon centred in the slot); Cast 14 → 16; Downloads' header caps and rows 16 / 16.
+
 ## Sidebar
 
 - Header 46: traffic lights, and a downloads button (`arrow.down.circle`) centered at x 166, y 26.

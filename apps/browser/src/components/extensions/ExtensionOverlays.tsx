@@ -7,7 +7,7 @@ import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { useWindowId } from "../../store/hooks";
 import { openFromPage, pageProfileId } from "../layout/openFromPage";
-import { PromptButton } from "../layout/controls";
+import { PANEL, PromptButton } from "../layout/controls";
 import { Checkbox } from "../settings/controls";
 import {
   cancelInstall,
@@ -133,7 +133,7 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
       >
         <Surface
           fill={hex(theme.panel)}
-          cornerRadius={10}
+          cornerRadius={PANEL.radius}
           borderColor={hex(theme.dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.14)")}
           borderWidth={0.5}
           shadowColor="#000000"
@@ -142,7 +142,7 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
           shadowOffset={[0, 6]}
           style={{ width, height }}
         >
-          <View style={{ flex: 1, borderRadius: 10, overflow: "hidden" }}>
+          <View style={{ flex: 1, borderRadius: PANEL.radius, overflow: "hidden" }}>
             <WebView
               ref={web}
               style={StyleSheet.absoluteFill}

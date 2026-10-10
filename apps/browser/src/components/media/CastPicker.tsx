@@ -3,7 +3,7 @@ import { openExternalURL, showMenu, Symbol } from "@arcadia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
-import { Popover, PromptButton } from "../layout/controls";
+import { PANEL, PanelHeader, Popover, PopoverValue, PromptButton } from "../layout/controls";
 import { useHover } from "../primitives";
 import { closeCastPicker, useCast } from "./cast";
 
@@ -28,14 +28,12 @@ export function CastPicker({ tabId, paneWidth }: { tabId: string; paneWidth: num
 
   return (
     <Popover key={dialog.id} width={width} top={4} right={8} onDismiss={close}>
-      <View style={{ paddingTop: 14, paddingBottom: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 14 }}>
-          <Symbol name="tv.and.mediabox" size={14} color={theme.icon} style={{ width: 20, height: 20 }} />
-          <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>
-            {screen ? "Cast screen" : dialog.header || "Cast tab"}
-          </Text>
-          {canScreen ? <SourceButton screen={screen} onChange={setScreen} /> : null}
-        </View>
+      <View style={{ paddingBottom: PANEL.inset }}>
+        <PanelHeader
+          icon={<Symbol name="tv.and.mediabox" size={14} color={theme.icon} style={{ width: PANEL.iconSlot, height: PANEL.iconSlot }} />}
+          title={screen ? "Cast screen" : dialog.header || "Cast tab"}
+          accessory={canScreen ? <SourceButton screen={screen} onChange={setScreen} /> : null}
+        />
 
         {dialog.permissionRejected ? (
           <Message
@@ -44,13 +42,13 @@ export function CastPicker({ tabId, paneWidth }: { tabId: string; paneWidth: num
             onLink={() => void openExternalURL("x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork")}
           />
         ) : available.length ? (
-          <ScrollView style={{ maxHeight: 280, marginTop: 8 }} contentContainerStyle={{ paddingHorizontal: 6, gap: 2 }}>
+          <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={{ paddingHorizontal: PANEL.rowInset, gap: 2 }}>
             {available.map((sink) => (
               <SinkRow key={sink.id} sink={sink} onCast={() => cast(sink)} onStop={() => void stopCasting(dialog.id, sink.routeId)} />
             ))}
           </ScrollView>
         ) : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: PANEL.inset, paddingTop: 4, paddingBottom: 4 }}>
             <ActivityIndicator size="small" style={{ transform: [{ scale: 0.6 }], width: 14, height: 14 }} />
             <Text style={{ flex: 1, fontSize: 12, color: theme.textSecondary }}>
               Looking for devices… Cast devices need to be on the same Wi‑Fi network as this Mac.
@@ -58,7 +56,7 @@ export function CastPicker({ tabId, paneWidth }: { tabId: string; paneWidth: num
           </View>
         )}
 
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 14, marginTop: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: PANEL.inset, marginTop: 10 }}>
           <PromptButton title="Done" onPress={close} />
         </View>
       </View>
@@ -74,7 +72,7 @@ function SinkRow({ sink, onCast, onStop }: { sink: CastSink; onCast(): void; onS
   return (
     <View {...hoverProps}>
       <Pressable onPress={active || busy ? undefined : onCast}>
-        <View style={{ minHeight: 42, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: hovered && !active ? theme.rowHover : undefined }}>
+        <View style={{ minHeight: 42, borderRadius: PANEL.rowRadius, flexDirection: "row", alignItems: "center", gap: PANEL.iconGap, paddingHorizontal: PANEL.rowPadding, paddingVertical: 5, backgroundColor: hovered && !active ? theme.rowHover : undefined }}>
           <View style={{ width: 28, height: 28, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: active ? theme.accent : theme.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }}>
             <Symbol name={SINK_ICON[sink.icon] ?? "tv"} size={13} color={active ? "#FFFFFF" : theme.icon} style={{ width: 20, height: 20 }} />
           </View>
@@ -97,8 +95,6 @@ function SinkRow({ sink, onCast, onStop }: { sink: CastSink; onCast(): void; onS
 }
 
 function SourceButton({ screen, onChange }: { screen: boolean; onChange: (screen: boolean) => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
   const pick = async () => {
     const choice = await showMenu([
       { id: "tab", title: "Cast Tab", checked: !screen },
@@ -106,23 +102,14 @@ function SourceButton({ screen, onChange }: { screen: boolean; onChange: (screen
     ]);
     if (choice) onChange(choice === "screen");
   };
-  return (
-    <View {...hoverProps} tooltip="Source">
-      <Pressable onPress={() => void pick()}>
-        <View style={{ height: 24, borderRadius: 6, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, backgroundColor: hovered ? theme.toolbarHover : undefined }}>
-          <Text style={{ fontSize: 12, color: theme.textSecondary }}>Sources</Text>
-          <Symbol name="chevron.down" size={8} weight="semibold" color={theme.textSecondary} style={{ width: 10, height: 10 }} />
-        </View>
-      </Pressable>
-    </View>
-  );
+  return <PopoverValue title="Sources" chevron="chevron.down" tooltip="Source" onPress={() => void pick()} />;
 }
 
 function Message({ text, link, onLink }: { text: string; link: string; onLink: () => void }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   return (
-    <View style={{ paddingHorizontal: 14, paddingTop: 12, gap: 5 }}>
+    <View style={{ paddingHorizontal: PANEL.inset, paddingTop: 4, gap: 5 }}>
       <Text style={{ fontSize: 12.5, color: theme.textSecondary }}>{text}</Text>
       <View {...hoverProps}>
         <Pressable onPress={onLink}>

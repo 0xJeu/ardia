@@ -12,6 +12,7 @@ import { PROFILE_DOTS_HEIGHT } from "./profiles/ProfileDots";
 import { openInternalPage } from "./pages/urls";
 import { useSidebarWidth } from "./sidebar/tokens";
 import { HoverSlot } from "./HoverSlot";
+import { PANEL } from "./layout/controls";
 import { IconButton, useHover } from "./primitives";
 
 // MARK: Formatting
@@ -125,6 +126,11 @@ export const FileIcon = memo(function FileIcon({ path, size = 28 }: { path: stri
 
 // MARK: Popover
 
+// The header's 28 pt row puts its small caps (about 8 pt tall) on the panel's inset; Clear's text ends on it.
+const HEADER = 28;
+const CAPS = 8;
+const TEXT_BUTTON_PAD = 7;
+
 const progressTrack = (dark: boolean) => (dark ? "#717782" : "#CED7E7");
 
 export function DownloadsPopover() {
@@ -159,31 +165,31 @@ export function DownloadsPopover() {
       >
         <Surface
           fill={hex(theme.panel)}
-          cornerRadius={14}
+          cornerRadius={PANEL.radius}
           borderColor={hex(theme.panelBorder)}
           borderWidth={0.5}
           shadowColor="#000000"
           shadowOpacity={theme.panelShadowOpacity}
           shadowRadius={20}
           shadowOffset={[0, 8]}
-          style={{ width: 340, paddingTop: 6, paddingBottom: 6 }}
+          style={{ width: 340, paddingTop: PANEL.inset - (HEADER - CAPS) / 2, paddingBottom: PANEL.listPadding }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: 14, paddingRight: 8, height: 28 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: PANEL.inset, paddingRight: PANEL.inset - TEXT_BUTTON_PAD, height: HEADER }}>
             <Text style={{ flex: 1, fontSize: 11, fontWeight: "600", letterSpacing: 0.4, color: theme.dark ? "rgba(247,245,255,0.6)" : "rgba(0,0,0,0.6)" }}>
               RECENT DOWNLOADS
             </Text>
             {clearable && <TextButton title="Clear" onPress={() => useBrowser.getState().clearDownloads(windowId)} />}
           </View>
           {ids.length === 0 ? (
-            <Text style={{ paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: theme.textTertiary }}>No downloads yet</Text>
+            <Text style={{ paddingHorizontal: PANEL.inset, paddingVertical: 12, fontSize: 13, color: theme.textTertiary }}>No downloads yet</Text>
           ) : (
-            <ScrollView style={{ maxHeight: 8 * 52 }} contentContainerStyle={{ paddingHorizontal: 6 }}>
+            <ScrollView style={{ maxHeight: 8 * 52 }} contentContainerStyle={{ paddingHorizontal: PANEL.rowInset }}>
               {ids.map((id) => (
                 <DownloadRowItem key={id} id={id} windowId={windowId} />
               ))}
             </ScrollView>
           )}
-          <View style={{ height: 0.5, marginHorizontal: 12, marginTop: 6, marginBottom: 4, backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }} />
+          <View style={{ height: 0.5, marginHorizontal: PANEL.inset, marginTop: 6, marginBottom: 4, backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }} />
           <FooterButton
             title="View all downloads"
             onPress={() => {
@@ -203,7 +209,7 @@ function TextButton({ title, onPress }: { title: string; onPress: () => void }) 
   return (
     <View {...hoverProps}>
       <Pressable onPress={onPress}>
-        <View style={{ height: 22, paddingHorizontal: 7, borderRadius: 6, justifyContent: "center", backgroundColor: hovered ? theme.toolbarHover : undefined }}>
+        <View style={{ height: 22, paddingHorizontal: TEXT_BUTTON_PAD, borderRadius: 6, justifyContent: "center", backgroundColor: hovered ? theme.toolbarHover : undefined }}>
           <Text style={{ fontSize: 12, color: theme.textSecondary }}>{title}</Text>
         </View>
       </Pressable>
@@ -215,9 +221,9 @@ function FooterButton({ title, onPress }: { title: string; onPress: () => void }
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   return (
-    <View {...hoverProps} style={{ paddingHorizontal: 6 }}>
+    <View {...hoverProps} style={{ paddingHorizontal: PANEL.rowInset }}>
       <Pressable onPress={onPress}>
-        <View style={{ height: 30, paddingHorizontal: 8, borderRadius: 8, flexDirection: "row", alignItems: "center", backgroundColor: hovered ? theme.rowHover : undefined }}>
+        <View style={{ height: PANEL.rowHeight, paddingHorizontal: PANEL.rowPadding, borderRadius: PANEL.rowRadius, flexDirection: "row", alignItems: "center", backgroundColor: hovered ? theme.rowHover : undefined }}>
           <Text style={{ flex: 1, fontSize: 13, color: hovered ? theme.textPrimary : theme.textSecondary }}>{title}</Text>
           <Symbol name="chevron.right" size={9} weight="semibold" color={theme.textTertiary} style={{ width: 12, height: 12 }} />
         </View>
@@ -262,10 +268,10 @@ function DownloadRow({ d, windowId }: { d: Download; windowId: string }) {
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                gap: 10,
-                paddingHorizontal: 8,
+                gap: PANEL.iconGap,
+                paddingHorizontal: PANEL.rowPadding,
                 height: 52,
-                borderRadius: 10,
+                borderRadius: PANEL.rowRadius,
                 backgroundColor: hovered ? theme.rowHover : undefined,
               }}
             >

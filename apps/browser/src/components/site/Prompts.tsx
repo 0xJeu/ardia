@@ -7,7 +7,7 @@ import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { engineProfile } from "../../store/model";
 import { useHover } from "../primitives";
-import { Popover, PopoverRow, PopoverSeparator, PromptButton } from "../layout/controls";
+import { PANEL, PanelCloseButton, Popover, PopoverRow, PopoverSeparator, PromptButton } from "../layout/controls";
 import { Checkbox } from "../settings/controls";
 import { patchPage, pageOf, setPopover, usePage } from "../layout/pageState";
 import { answerPermission, describePermission } from "./permissions";
@@ -37,7 +37,7 @@ function PromptBody({
 }) {
   const theme = useTheme();
   return (
-    <View style={{ padding: 14, gap: 10 }}>
+    <View style={{ padding: PANEL.inset, gap: 10 }}>
       <View style={{ flexDirection: "row", gap: 6 }}>
         {image ? <Image source={{ uri: image }} style={{ width: 32, height: 32, marginLeft: -1, marginVertical: -1 }} /> : null}
         {icons.map((icon) => (
@@ -57,7 +57,6 @@ function PromptBody({
 }
 
 export function PermissionPrompt({ tabId, left, top }: { tabId: string; left: number; top: number }) {
-  const theme = useTheme();
   const request = usePage(tabId, (p) => p.permission);
   if (!request) return null;
   const { icons, question } = describePermission(request);
@@ -68,23 +67,9 @@ export function PermissionPrompt({ tabId, left, top }: { tabId: string; left: nu
           <PromptButton title="Don't Allow" onPress={() => answerPermission(tabId, request.id, "deny")} />
           <PromptButton title="Allow" primary onPress={() => answerPermission(tabId, request.id, "accept")} />
         </PromptBody>
-        <CloseButton onPress={() => answerPermission(tabId, request.id, "dismiss")} color={theme.textSecondary} />
+        <PanelCloseButton onPress={() => answerPermission(tabId, request.id, "dismiss")} />
       </View>
     </Popover>
-  );
-}
-
-function CloseButton({ onPress, color }: { onPress: () => void; color: string }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps} style={{ position: "absolute", top: 8, right: 8 }} tooltip="Dismiss">
-      <Pressable onPress={onPress}>
-        <View style={{ width: 22, height: 22, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: hovered ? theme.toolbarHover : undefined }}>
-          <Symbol name="xmark" size={9} weight="semibold" color={color} style={{ width: 14, height: 14 }} />
-        </View>
-      </Pressable>
-    </View>
   );
 }
 
@@ -103,7 +88,7 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
   const profile = () => engineProfile(useBrowser.getState().tabs[tabId]?.profileId ?? "");
   return (
     <Popover width={360} top={top} right={right} left={left} onDismiss={close}>
-      <View style={{ paddingBottom: 6 }}>
+      <View style={{ paddingBottom: PANEL.listPadding }}>
         <PromptBody
           icons={["macwindow.badge.plus"]}
           title={`Always allow pop-ups from ${site}?`}
@@ -146,7 +131,7 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
             }}
           />
         ))}
-        {popups.length > 5 ? <Text style={{ fontSize: 11, color: theme.textSecondary, paddingHorizontal: 18, paddingTop: 2 }}>{`and ${popups.length - 5} more`}</Text> : null}
+        {popups.length > 5 ? <Text style={{ fontSize: 11, color: theme.textSecondary, paddingLeft: PANEL.textColumn, paddingTop: 2 }}>{`and ${popups.length - 5} more`}</Text> : null}
       </View>
     </Popover>
   );
@@ -212,7 +197,7 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
           <PromptButton title="Not Now" onPress={() => answer(update ? "nope" : "dismiss")} />
           <PromptButton title={update ? "Update" : "Save"} primary onPress={() => answer(update ? "update" : "save")} />
         </PromptBody>
-        <CloseButton color={theme.textSecondary} onPress={() => answer("dismiss")} />
+        <PanelCloseButton onPress={() => answer("dismiss")} />
       </View>
     </Popover>
   );
@@ -269,7 +254,7 @@ export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: nu
           <PromptButton title={prompt.decline} onPress={() => answer("decline")} />
           <PromptButton title={prompt.accept} primary onPress={() => answer("accept")} />
         </PromptBody>
-        <CloseButton color={theme.textSecondary} onPress={() => answer("dismiss")} />
+        <PanelCloseButton onPress={() => answer("dismiss")} />
       </View>
     </Popover>
   );
@@ -313,7 +298,7 @@ export function ExternalAppPrompt({ tabId, left, top }: { tabId: string; left: n
             <PromptButton title="OK" primary onPress={() => answer(false)} />
           )}
         </PromptBody>
-        <CloseButton color={theme.textSecondary} onPress={() => answer(false)} />
+        <PanelCloseButton onPress={() => answer(false)} />
       </View>
     </Popover>
   );

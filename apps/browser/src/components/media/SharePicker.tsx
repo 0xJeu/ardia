@@ -6,7 +6,7 @@ import { useTheme } from "../../lib/theme";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { engineProfile } from "../../store/model";
-import { Popover, PromptButton } from "../layout/controls";
+import { PANEL, PanelHeader, Popover, PromptButton } from "../layout/controls";
 import { usePages } from "../layout/pageState";
 import { Favicon, useHover } from "../primitives";
 import { noteTabShare } from "./ShareBar";
@@ -129,24 +129,25 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
 
   return (
     <Popover key={request.id} width={width} top={4} left={(paneWidth - width) / 2} onDismiss={cancel}>
-      <View style={{ paddingTop: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16 }}>
-          <View style={{ width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: theme.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }}>
-            <Symbol name="rectangle.inset.filled.and.person.filled" size={15} color={theme.icon} style={{ width: 22, height: 22 }} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "600", color: theme.textPrimary }}>
-              Share your screen with {hostOf(request.origin)}
-            </Text>
-            <Text numberOfLines={2} style={{ fontSize: 11.5, color: theme.textSecondary, marginTop: 1 }}>
-              {!request.audio
-                ? "The site will see what you choose."
-                : isTab(selected)
-                  ? "The site will see and hear the tab you choose."
-                  : "The site will see what you choose. Only tabs share their audio."}
-            </Text>
-          </View>
-        </View>
+      <View style={{ paddingBottom: PANEL.inset }}>
+        <PanelHeader
+          large
+          iconSize={32}
+          icon={
+            <View style={{ width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: theme.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }}>
+              <Symbol name="rectangle.inset.filled.and.person.filled" size={15} color={theme.icon} style={{ width: 22, height: 22 }} />
+            </View>
+          }
+          title={`Share your screen with ${hostOf(request.origin)}`}
+          subtitle={
+            !request.audio
+              ? "The site will see what you choose."
+              : isTab(selected)
+                ? "The site will see and hear the tab you choose."
+                : "The site will see what you choose. Only tabs share their audio."
+          }
+          subtitleLines={2}
+        />
 
         <ScrollView
           ref={list}
@@ -154,8 +155,8 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
           enableFocusRing={false}
           keyDownEvents={[{ key: "Escape" }, { key: "Enter" }]}
           onKeyDown={(e) => (e.nativeEvent.key === "Escape" ? cancel() : share())}
-          style={{ maxHeight: 340, marginTop: 12 }}
-          contentContainerStyle={{ paddingHorizontal: 10 }}
+          style={{ maxHeight: 340, marginTop: 4 }}
+          contentContainerStyle={{ paddingHorizontal: PANEL.rowInset }}
         >
           {tabs.length ? (
             <>
@@ -176,9 +177,9 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
           {screens.length ? (
             <>
               <SectionTitle title={screens.length === 1 ? "Screen" : "Screens"} />
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 6 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {screens.map((s) => (
-                  <ScreenTile key={s.id} source={s} width={(width - 20 - 12 - 8) / 2} selected={s.id === selected} onSelect={() => setSelected(s.id)} onShare={() => share(s.id)} />
+                  <ScreenTile key={s.id} source={s} width={(width - 2 * PANEL.rowInset - 8) / 2} selected={s.id === selected} onSelect={() => setSelected(s.id)} onShare={() => share(s.id)} />
                 ))}
               </View>
             </>
@@ -194,7 +195,7 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
           {!sources.length && !tabs.length ? <Text style={{ fontSize: 12, color: theme.textSecondary, padding: 12, textAlign: "center" }}>Nothing can be shared right now.</Text> : null}
         </ScrollView>
 
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, paddingHorizontal: 16, marginTop: 12 }}>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, paddingHorizontal: PANEL.inset, marginTop: 12 }}>
           <PromptButton title="Cancel" onPress={cancel} />
           <View pointerEvents={valid ? "auto" : "none"} style={{ opacity: valid ? 1 : 0.4 }}>
             <PromptButton title="Share" primary onPress={() => share()} />
@@ -207,7 +208,7 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
 
 function SectionTitle({ title }: { title: string }) {
   const theme = useTheme();
-  return <Text style={{ fontSize: 11, fontWeight: "600", color: theme.textSecondary, paddingHorizontal: 8, marginTop: 6, marginBottom: 6 }}>{title}</Text>;
+  return <Text style={{ fontSize: 11, fontWeight: "600", color: theme.textSecondary, paddingHorizontal: PANEL.rowPadding, marginTop: 6, marginBottom: 6 }}>{title}</Text>;
 }
 
 const selectedFill = (dark: boolean) => (dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.08)");
@@ -255,8 +256,10 @@ function TabRow({ title, url, current, selected, onSelect, onShare }: { title: s
   return (
     <View {...hoverProps} onDoubleClick={onShare}>
       <Pressable onPress={onSelect}>
-        <View style={{ height: 34, borderRadius: 7, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 8, backgroundColor: selected ? selectedFill(theme.dark) : hovered ? theme.rowHover : undefined }}>
-          <Favicon url={url} />
+        <View style={{ height: 34, borderRadius: PANEL.rowRadius, flexDirection: "row", alignItems: "center", gap: PANEL.iconGap, paddingHorizontal: PANEL.rowPadding, backgroundColor: selected ? selectedFill(theme.dark) : hovered ? theme.rowHover : undefined }}>
+          <View style={{ width: PANEL.iconSlot, alignItems: "center" }}>
+            <Favicon url={url} />
+          </View>
           <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, color: theme.textPrimary }}>
             {title}
           </Text>
@@ -281,7 +284,7 @@ function WindowRow({ source, icon, selected, onSelect, onShare }: { source: Disp
   return (
     <View {...hoverProps} onDoubleClick={onShare}>
       <Pressable onPress={onSelect}>
-        <View style={{ height: 34, borderRadius: 7, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 8, backgroundColor: selected ? selectedFill(theme.dark) : hovered ? theme.rowHover : undefined }}>
+        <View style={{ height: 34, borderRadius: PANEL.rowRadius, flexDirection: "row", alignItems: "center", gap: PANEL.iconGap, paddingHorizontal: PANEL.rowPadding, backgroundColor: selected ? selectedFill(theme.dark) : hovered ? theme.rowHover : undefined }}>
           {icon ? <Image source={{ uri: icon }} style={{ width: 20, height: 20 }} /> : <Symbol name="macwindow" size={14} color={theme.textSecondary} style={{ width: 20, height: 20 }} />}
           <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, color: theme.textPrimary }}>
             {title}

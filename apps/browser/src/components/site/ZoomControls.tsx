@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
 import { webviews } from "../../lib/webviews";
 import { useTab } from "../../store/hooks";
-import { Popover, PromptButton, ToolbarButton } from "../layout/controls";
+import { PANEL, Popover, PromptButton, ToolbarButton } from "../layout/controls";
 import { setPopover, usePages } from "../layout/pageState";
 import { type ToolbarPalette } from "../layout/toolbarColors";
 import { useHover } from "../primitives";
@@ -33,7 +33,8 @@ export function ZoomPopover({ tabId, right, left, top }: { tabId: string; right?
   const zoom = useTab(tabId)?.zoom ?? 1;
   return (
     <Popover width={236} top={top} right={right} left={left} onDismiss={() => setPopover(tabId, null)}>
-      <View style={{ flexDirection: "row", alignItems: "center", height: 48, paddingLeft: 16, paddingRight: 10, gap: 8 }}>
+      {/* One row: the label on the inset, Reset (28 tall) as far from the right edge as from the top and bottom. */}
+      <View style={{ flexDirection: "row", alignItems: "center", height: ZOOM_BAR, paddingLeft: PANEL.inset, paddingRight: (ZOOM_BAR - 28) / 2, gap: 8 }}>
         <Text style={{ flex: 1, fontSize: 13, fontVariant: ["tabular-nums"], color: theme.textPrimary }}>{`Zoom: ${Math.round(zoom * 100)}%`}</Text>
         <ZoomStepper tabId={tabId} zoom={zoom} percent={false} />
         <PromptButton title="Reset" onPress={() => void webviews.get(tabId)?.zoomStep(0)} />
@@ -41,6 +42,8 @@ export function ZoomPopover({ tabId, right, left, top }: { tabId: string; right?
     </Popover>
   );
 }
+
+const ZOOM_BAR = 48;
 
 export function ZoomStepper({ tabId, zoom, percent = true }: { tabId: string; zoom: number; percent?: boolean }) {
   const theme = useTheme();

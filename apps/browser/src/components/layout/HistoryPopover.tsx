@@ -6,10 +6,12 @@ import { useBrowser } from "../../store/browser";
 import { openModeFor, openUrl } from "../bookmarks/actions";
 import { openInternalPage } from "../pages/urls";
 import { Favicon, NewTabIcon, useHover } from "../primitives";
-import { modifiersOf, Popover, PopoverSeparator } from "./controls";
+import { modifiersOf, PANEL, Popover, PopoverSeparator } from "./controls";
 import { closeHistoryMenu, goToHistoryItem, useHistoryMenu, type HistoryItem } from "./history";
 
 const WIDTH = 300;
+// A row's 16 pt favicon, centred in the icon slot, from the panel's edge: it sits 2 pt left of the button it opened from.
+const FAVICON_X = PANEL.inset + (PANEL.iconSlot - 16) / 2;
 
 export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; windowId: string; anchors: { back: number; forward: number } }) {
   const menu = useHistoryMenu((s) => (s.menu?.tabId === tabId ? s.menu : null));
@@ -34,8 +36,8 @@ export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; wi
   };
 
   return (
-    <Popover width={WIDTH} top={2} left={Math.max(6, (menu.direction < 0 ? anchors.back : anchors.forward) - 15)} onDismiss={closeHistoryMenu}>
-      <View style={{ paddingVertical: 5 }}>
+    <Popover width={WIDTH} top={2} left={Math.max(6, (menu.direction < 0 ? anchors.back : anchors.forward) - FAVICON_X - 2)} onDismiss={closeHistoryMenu}>
+      <View style={{ paddingVertical: PANEL.listPadding }}>
         {menu.items.map((item) => (
           <Row key={item.key} item={item} favicon={favicons.get(item.url) ?? null} onOpen={(e) => open(item, e)} />
         ))}
@@ -58,13 +60,13 @@ function RowFrame({ children, hovered, pressed }: { children: React.ReactNode; h
   return (
     <View
       style={{
-        height: 30,
-        marginHorizontal: 5,
-        paddingHorizontal: 8,
-        borderRadius: 7,
+        height: PANEL.rowHeight,
+        marginHorizontal: PANEL.rowInset,
+        paddingHorizontal: PANEL.rowPadding,
+        borderRadius: PANEL.rowRadius,
         flexDirection: "row",
         alignItems: "center",
-        gap: 9,
+        gap: PANEL.iconGap,
         backgroundColor: pressed || hovered ? (theme.dark ? `rgba(255,255,255,${pressed ? 0.12 : 0.07})` : `rgba(0,0,0,${pressed ? 0.1 : 0.06})`) : undefined,
       }}
     >
@@ -90,7 +92,7 @@ function Row({
         <Pressable onPress={(e) => onOpen(modifiersOf(e))}>
           {({ pressed }) => (
             <RowFrame hovered={hovered} pressed={pressed}>
-              {item.offset === "newTab" ? <NewTabIcon size={16} /> : <Favicon url={item.url} favicon={favicon} size={16} />}
+              <View style={{ width: PANEL.iconSlot, alignItems: "center" }}>{item.offset === "newTab" ? <NewTabIcon size={16} /> : <Favicon url={item.url} favicon={favicon} size={16} />}</View>
               <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
                 {item.title}
               </Text>
@@ -110,7 +112,7 @@ function ActionRow({ icon, title, onPress }: { icon: string; title: string; onPr
       <Pressable onPress={onPress}>
         {({ pressed }) => (
           <RowFrame hovered={hovered} pressed={pressed}>
-            <Symbol name={icon} size={13} color={theme.icon} style={{ width: 16, height: 16 }} />
+            <Symbol name={icon} size={PANEL.iconSize} color={theme.icon} style={{ width: PANEL.iconSlot, height: PANEL.iconSlot }} />
             <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
               {title}
             </Text>
