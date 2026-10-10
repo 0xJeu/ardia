@@ -76,7 +76,7 @@ class ACPageObserver : public content::RenderFrameObserver,
     if (world_id != content::ISOLATED_WORLD_ID_GLOBAL) {
       return;
     }
-    if (ShowsPageColor()) {
+    if (!page_color_.empty() && IsMainErrorDocument()) {
       render_frame()->GetWebFrame()->ExecuteScript(
           Source(PageColorScript(), "arcadia://page-color"));
     }
@@ -197,8 +197,9 @@ class ACPageObserver : public content::RenderFrameObserver,
       return;
     }
     page_color_ = next;
-    // A page already showing gets the change (a new one sets it in DidCreateScriptContext).
-    if (ShowsPageColor()) {
+    // A page already showing gets the change, a cleared colour included (a new one sets it in
+    // DidCreateScriptContext).
+    if (IsMainErrorDocument()) {
       render_frame()->GetWebFrame()->ExecuteScript(
           Source(PageColorScript(), "arcadia://page-color"));
     }
@@ -207,8 +208,8 @@ class ACPageObserver : public content::RenderFrameObserver,
  private:
   // Only Chrome's error pages in a main frame (the offline game) see the tab's colour; a web
   // page never does.
-  bool ShowsPageColor() {
-    if (page_color_.empty() || !render_frame()->IsMainFrame()) {
+  bool IsMainErrorDocument() {
+    if (!render_frame()->IsMainFrame()) {
       return false;
     }
     blink::WebDocumentLoader* loader =
@@ -216,10 +217,14 @@ class ACPageObserver : public content::RenderFrameObserver,
     return loader && loader->HasUnreachableURL();
   }
 
-  // page_color_ is lowercase letters only, so it needs no escaping.
+  // page_color_ is lowercase letters only, so it needs no escaping. Empty: none (the game's
+  // green).
   std::string PageColorScript() const {
-    return "window.arcadiaPageColor = \"" + page_color_ +
-           "\"; window.dispatchEvent(new Event(\"arcadiapagecolor\"));";
+    const std::string set =
+        page_color_.empty()
+            ? std::string("delete window.arcadiaPageColor;")
+            : "window.arcadiaPageColor = \"" + page_color_ + "\";";
+    return set + " window.dispatchEvent(new Event(\"arcadiapagecolor\"));";
   }
 
   // As CEF's EvaluateWithGesture: a transient activation, as a click would give.

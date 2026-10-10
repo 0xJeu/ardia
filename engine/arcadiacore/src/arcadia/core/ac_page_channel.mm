@@ -173,9 +173,20 @@ void PageChannel::PrimaryPageChanged(content::Page& page) {
   // The old document's pending evaluations get no answer (it may sit in the back/forward
   // cache, timers frozen, and answer much later otherwise).
   main_page_.reset();
-  // A frame created before the colour was set reaches its page late, not never.
-  if (!page_color_.empty()) {
-    if (auto remote = PageOf(&page.GetMainDocument())) {
+  // The committed page ends up with the current colour (a cleared one too), whatever changed
+  // between ReadyToCommitNavigation and the commit, where SetPageColor can't reach its frame.
+  if (auto remote = PageOf(&page.GetMainDocument())) {
+    remote->SetPageColor(page_color_);
+  }
+}
+
+void PageChannel::ReadyToCommitNavigation(
+    content::NavigationHandle* navigation) {
+  // Ahead of the commit, on the frame that will commit (speculative or not): an error page
+  // there has the current colour from its first script.
+  content::RenderFrameHost* frame = navigation->GetRenderFrameHost();
+  if (frame && !frame->GetParentOrOuterDocument()) {
+    if (auto remote = PageOf(frame)) {
       remote->SetPageColor(page_color_);
     }
   }

@@ -77,8 +77,8 @@ class PageChannel : public content::WebContentsObserver,
   static std::string FrameId(content::RenderFrameHost* frame);
 
   // The app's colour for the tab (-[ArcadiaCoreTab pageColor]): every main frame gets it as it is
-  // created (ahead of its first commit), and again when it changes. Anything but lowercase letters
-  // clears it.
+  // created, as a navigation is about to commit in it and once it has, and the live ones again when
+  // it changes. Anything but lowercase letters clears it.
   void SetPageColor(const std::string& color);
   const std::string& page_color() const { return page_color_; }
 
@@ -87,6 +87,7 @@ class PageChannel : public content::WebContentsObserver,
 
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
+  void ReadyToCommitNavigation(content::NavigationHandle* navigation) override;
   void RenderFrameCreated(content::RenderFrameHost* frame) override;
 
  private:

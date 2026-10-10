@@ -29,8 +29,9 @@ interface ACPage {
   // post("result", json) answers. Null: no answer (no script context, an exception, the
   // frame went first).
   Evaluate(string code, bool user_gesture) => (string? json);
-  // The app's colour for the tab ("plum"…; empty: none), sent to a main frame when it is created
-  // and on change. An error page here (the offline game) reads it as window.arcadiaPageColor,
-  // set before its own scripts, and gets an "arcadiapagecolor" event when it changes.
+  // The app's colour for the tab ("plum"…; empty: none), sent to a main frame when it is created,
+  // before and after each commit, and on change. An error page here (the offline game) reads it as
+  // window.arcadiaPageColor, set before its own scripts (deleted when cleared), and gets an
+  // "arcadiapagecolor" event when it changes.
   SetPageColor(string color);
 };
