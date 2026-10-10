@@ -9,24 +9,32 @@ import { Omnibox } from "./Omnibox";
 
 const REBRAND = true;
 const BAR_HEIGHT = 112;
-// The painted hills in each profile colour, as Dia paints its mark per colour; green is the brand painting.
+// The painted hills in each profile colour, as Dia paints its mark per colour; green is the brand painting. Three layers
+// (back hill, front hill, sun; docs/brand/arcadia/build.py) that make the painting at rest and rise one after another.
 const MARKS = {
-  green: require("../../assets/ntp-mark.png"),
-  plum: require("../../assets/ntp-mark-plum.png"),
-  blue: require("../../assets/ntp-mark-blue.png"),
-  purple: require("../../assets/ntp-mark-purple.png"),
-  pink: require("../../assets/ntp-mark-pink.png"),
-  red: require("../../assets/ntp-mark-red.png"),
-  orange: require("../../assets/ntp-mark-orange.png"),
-  yellow: require("../../assets/ntp-mark-yellow.png"),
-  neutral: require("../../assets/ntp-mark-neutral.png"),
-  incognito: require("../../assets/ntp-mark-neutral.png"),
+  green: { back: require("../../assets/ntp-mark-back.png"), front: require("../../assets/ntp-mark-front.png"), sun: require("../../assets/ntp-mark-sun.png") },
+  plum: { back: require("../../assets/ntp-mark-plum-back.png"), front: require("../../assets/ntp-mark-plum-front.png"), sun: require("../../assets/ntp-mark-plum-sun.png") },
+  blue: { back: require("../../assets/ntp-mark-blue-back.png"), front: require("../../assets/ntp-mark-blue-front.png"), sun: require("../../assets/ntp-mark-blue-sun.png") },
+  purple: { back: require("../../assets/ntp-mark-purple-back.png"), front: require("../../assets/ntp-mark-purple-front.png"), sun: require("../../assets/ntp-mark-purple-sun.png") },
+  pink: { back: require("../../assets/ntp-mark-pink-back.png"), front: require("../../assets/ntp-mark-pink-front.png"), sun: require("../../assets/ntp-mark-pink-sun.png") },
+  red: { back: require("../../assets/ntp-mark-red-back.png"), front: require("../../assets/ntp-mark-red-front.png"), sun: require("../../assets/ntp-mark-red-sun.png") },
+  orange: { back: require("../../assets/ntp-mark-orange-back.png"), front: require("../../assets/ntp-mark-orange-front.png"), sun: require("../../assets/ntp-mark-orange-sun.png") },
+  yellow: { back: require("../../assets/ntp-mark-yellow-back.png"), front: require("../../assets/ntp-mark-yellow-front.png"), sun: require("../../assets/ntp-mark-yellow-sun.png") },
+  neutral: { back: require("../../assets/ntp-mark-neutral-back.png"), front: require("../../assets/ntp-mark-neutral-front.png"), sun: require("../../assets/ntp-mark-neutral-sun.png") },
 };
 const MARK_SIZE = 100;
 const MARK_ABOVE_BAR = 84.1;
-const MARK_HIDDEN = 86;
-const MARK_SPRING = springParams(0.34, 0.7);
-const MARK_DELAY_MS = 80;
+// The intro. Each layer starts `hidden` pt down, just under the bar's top edge, and springs up: the front hill first, the
+// far hill from behind it, then the sun from behind both, drifting a little left as it climbs. The back hill trails the
+// front one all the way, so the paint under the front hill never shows. Settled by about 0.8 s. Drawn back to front.
+const SUN_DELAY = 250;
+const MARK_LAYERS = [
+  { name: "sun", hidden: 56, delay: SUN_DELAY, spring: springParams(0.56, 0.9) },
+  { name: "back", hidden: 40.5, delay: 170, spring: springParams(0.46, 0.84) },
+  { name: "front", hidden: 34, delay: 80, spring: springParams(0.42, 0.76) },
+] as const;
+const SUN_DRIFT = 6;
+const SUN_DRIFT_SPRING = springParams(0.6, 1);
 const DIA_OFFSET = 1;
 const NEGATE_ANGLE = true;
 
@@ -73,14 +81,24 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
   };
   const [panelHeight, setPanelHeight] = useState(BAR_HEIGHT);
   const [playIntro] = useState(() => !introPlayed.has(tabId));
-  const [rise] = useState(() => new Animated.Value(playIntro && !reduceMotion ? MARK_HIDDEN : 0));
+  const [rise] = useState(() => {
+    const intro = playIntro && !reduceMotion;
+    const layers = MARK_LAYERS.map((l) => ({ ...l, y: new Animated.Value(intro ? l.hidden : 0) }));
+    return { layers, drift: new Animated.Value(intro ? SUN_DRIFT : 0) };
+  });
   useEffect(() => {
     introPlayed.add(tabId);
   }, [tabId]);
   useEffect(() => {
     if (!playIntro || reduceMotion) return;
-    const timer = setTimeout(() => Animated.spring(rise, { toValue: 0, ...MARK_SPRING, useNativeDriver: true }).start(), MARK_DELAY_MS);
-    return () => clearTimeout(timer);
+    const spring = (value: Animated.Value, delay: number, params: ReturnType<typeof springParams>) =>
+      Animated.spring(value, { toValue: 0, delay, ...params, useNativeDriver: true });
+    const intro = Animated.parallel([
+      ...rise.layers.map((l) => spring(l.y, l.delay, l.spring)),
+      spring(rise.drift, SUN_DELAY, SUN_DRIFT_SPRING),
+    ]);
+    intro.start();
+    return () => intro.stop();
   }, [playIntro, rise]);
 
   if (!size) return <View style={{ flex: 1 }} onLayout={(e) => setSize(e.nativeEvent.layout)} />;
@@ -136,19 +154,18 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
           overflow: "hidden",
         }}
       >
-        <Animated.Image
-          source={MARKS[theme.profileColor] ?? MARKS.green}
-          style={{
-            width: MARK_SIZE,
-            height: MARK_SIZE,
-            transform: [
-              { translateY: rise },
-              { translateY: MARK_SIZE / 2 },
-              { rotate: rise.interpolate({ inputRange: [-4, 0, MARK_HIDDEN], outputRange: ["-3deg", "0deg", "0deg"], extrapolate: "clamp" }) },
-              { translateY: -MARK_SIZE / 2 },
-            ],
-          }}
-        />
+        {rise.layers.map((l) => (
+          <Animated.Image
+            key={l.name}
+            source={(MARKS[theme.profileColor === "incognito" ? "neutral" : theme.profileColor] ?? MARKS.green)[l.name]}
+            style={{
+              position: "absolute",
+              width: MARK_SIZE,
+              height: MARK_SIZE,
+              transform: [{ translateX: l.name === "sun" ? rise.drift : 0 }, { translateY: l.y }],
+            }}
+          />
+        ))}
       </View>
       <View onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)} style={{ position: "absolute", left: x, top, width }}>
         {REBRAND && (
