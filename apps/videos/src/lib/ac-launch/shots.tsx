@@ -297,7 +297,7 @@ function Tabs() {
 
 const RUN_1 = [
   { label: "toWork", commit: 0.75, drag: 0.6 },
-  { label: "toCampaign", commit: 2.25, drag: 0.6 },
+  { label: "toTravel", commit: 2.25, drag: 0.6 },
   { label: "toSide", commit: 3.75, drag: 0.6 },
 ];
 
@@ -349,7 +349,7 @@ function Split() {
   const pointer = b > DIVIDER.start - 0.4 && b < DIVIDER.end + 0.3
     ? { x: paneLeft + (1 - paneLeft) * share, y: 0.5, kind: "arrow" as const, press: b > DIVIDER.start && b < DIVIDER.end ? 1 : 0 }
     : null;
-  // The hills peek up over the bottom edge on the pop, and the sun springs up over them for "NO COALITION TALKS.".
+  // The hills peek up over the bottom edge on the pop, and the sun springs up over them for "ONE WINDOW.".
   const markOn = springAt(b, 5, { stiffness: 230, damping: 14 }) * (1 - seg(b, 7.4, 0.6, easeIn));
   return (
     <Paper>
@@ -418,7 +418,7 @@ const BIG_ID = CUTS.launch.shots.find((s) => s.kind === "swipeBig")?.window?.id 
 const RUN_2 = [
   { label: "toWeekend", commit: 0, drag: 0.7, dir: -1, onBeat: true },
   { label: "backToSide", commit: 1.5, drag: 0.55, dir: 1 },
-  { label: "backToCampaign", commit: 3, drag: 0.5, dir: 1 },
+  { label: "backToTravel", commit: 3, drag: 0.5, dir: 1 },
   { label: "backToWork", commit: 4.5, drag: 0.5, dir: 1 },
   { label: "backToPersonal", commit: 6, drag: 0.5, dir: 1 },
 ];
@@ -551,7 +551,7 @@ function Icons() {
 }
 
 // Similar luminance card to card (ink, red, blue, ink): no dark/light alternation, so no flashing (fix 13).
-const NO_TONES = [color.ink, color.stamp, color.tie, color.ink];
+const NO_TONES = [color.ink, color.stamp, color.blue, color.ink];
 
 function Nos() {
   const b = useBeat();
@@ -565,11 +565,14 @@ function Nos() {
   );
 }
 
-// The netnyahoo.com frames were captured before the site traded its mascot for the painted logo (apps/site Hero.astro).
-// They are brought up to date in place, on the page's own paper: the hero figure becomes the painting with its
-// "LANDSLIDE" stamp and caption, laid out as the site lays them out at this width, and the header icon and the tab's
-// favicon become the painted app icon. Everything is placed in window points (1440 × 900) and scaled to the window.
+// The netnyahoo.com frames were captured (2026-10-03) while the site still had its old mascot and copy. They are brought
+// up to date in place, on the page's own paper, as apps/site lays the page out at this width: the hero figure becomes
+// the painting with its "NO ACCOUNT" stamp and caption, the headline and lede become today's ("TOUCH GRASS." is what
+// the dive lands on), the header's wordmark, icon and section links and the tab's title and favicon follow. Everything
+// is placed in window points (1440 × 900) and scaled to the window. Recapturing `typing` makes this unnecessary.
 const SITE_PAPER = "rgb(240,235,229)";
+const ROW = "rgb(249,243,245)";
+const SITE_NAV = ["Features", "Chromium", "Game", "FAQ", "Notes", "GitHub"];
 function SiteLogo({ width }: { width: number }) {
   const s = width / 1440;
   const at = (x: number, y: number, w: number, h: number): CSSProperties => ({ position: "absolute", left: x * s, top: y * s, width: w * s, height: h * s });
@@ -577,6 +580,7 @@ function SiteLogo({ width }: { width: number }) {
     fontFamily: font.mono, fontWeight: 460, fontStretch: "87.5%", letterSpacing: "0.06em", textTransform: "uppercase",
     fontSize: 11.04 * s, lineHeight: 1.5, margin: 0, whiteSpace: "nowrap",
   };
+  const clear = (x: number, y: number, w: number, h: number, bg = SITE_PAPER) => <div style={{ ...at(x, y, w, h), backgroundColor: bg }} />;
   // The site's app icon is Apple's template (an 824 px tile in 1024): sized so its tile fills the old icon's square.
   const icon = (x: number, y: number, tile: number) => {
     const box = tile / (824 / 1024);
@@ -585,8 +589,8 @@ function SiteLogo({ width }: { width: number }) {
   return (
     <>
       {/* The old figure and its caption, cleared (the rule between them stays: the site still draws it). */}
-      <div style={{ ...at(924, 216, 476, 474), backgroundColor: SITE_PAPER }} />
-      <div style={{ ...at(924, 702, 476, 40), backgroundColor: SITE_PAPER }} />
+      {clear(924, 216, 476, 474)}
+      {clear(924, 702, 476, 40)}
       {/* The painting: the figure's width less 2% a side, standing 14 px above the caption's rule. */}
       <Img src={staticFile("brand/mark.png")} style={{ ...at(941, 346, 443, 334), filter: `drop-shadow(0 ${18 * s}px ${22 * s}px rgba(32,63,50,0.16))` }} />
       {/* The stamp, pinned by its top-right corner to the figure's, turned -9° about it. */}
@@ -604,16 +608,55 @@ function SiteLogo({ width }: { width: number }) {
             fontSize: 17.4 * s, lineHeight: 1.2,
           }}
         >
-          Landslide
+          No account
         </span>
       </div>
-      <p style={{ ...label, ...at(932, 703, 300, 20), height: "auto", color: color.ink2 }}>Fig. 1 — the logo, oil on canvas</p>
+      <p style={{ ...label, ...at(932, 703, 300, 20), height: "auto", color: color.ink2 }}>Fig. 1. The logo, oil on canvas</p>
       <p style={{ ...label, ...at(1093, 703, 300, 20), height: "auto", color: "#6E685F", textAlign: "right" }}>Two hills, one sun</p>
-      {/* The header's icon, on the page's paper; the tab's favicon, on the selected row. */}
-      <div style={{ ...at(229, 61, 32, 32), backgroundColor: SITE_PAPER }} />
+      {/* The headline and the lede, cleared and set again in the site's type. */}
+      {clear(222, 262, 690, 362)}
+      <p
+        style={{
+          ...at(225, 270, 690, 270), margin: 0, fontFamily: font.poster, fontWeight: 860, fontStretch: "62%", textTransform: "uppercase",
+          letterSpacing: "-0.005em", fontSize: 155.3 * s, lineHeight: 0.85, color: color.ink, whiteSpace: "pre",
+        }}
+      >
+        {"Touch\ngrass."}
+      </p>
+      <p style={{ ...at(230, 555.5, 569, 70), margin: 0, fontFamily: font.serif, fontSize: 23.7 * s, lineHeight: 1.36, color: color.ink }}>
+        Arc’s sidebar and Dia’s polish on real Chromium. No account to make. Ads and trackers stay out.
+      </p>
+      {/* The header's wordmark and section links. */}
+      {clear(264, 58, 160, 36)}
+      <p
+        style={{
+          ...at(271, 63, 150, 28), margin: 0, fontFamily: font.poster, fontWeight: 880, fontStretch: "112%", letterSpacing: "-0.035em",
+          fontSize: 20.8 * s, lineHeight: `${28 * s}px`, color: color.ink,
+        }}
+      >
+        arcadia
+      </p>
+      {clear(840, 64, 432, 26)}
+      <div style={{ ...at(840, 64, 424.5, 26), display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 26 * s }}>
+        {SITE_NAV.map((name) => (
+          <span key={name} style={{ ...label, fontSize: 11.52 * s, letterSpacing: "0.05em", color: color.ink2 }}>{name}</span>
+        ))}
+      </div>
+      {/* The header's icon, on the page's paper; the tab's favicon and title, on the selected row. */}
+      {clear(229, 61, 32, 32)}
       {icon(231.5, 63, 27)}
-      <div style={{ ...at(14, 284, 18, 18), backgroundColor: "rgb(255,249,251)" }} />
+      {clear(14, 284, 18, 18, ROW)}
       {icon(15.5, 285.5, 15)}
+      {clear(36, 282, 148, 24, ROW)}
+      <p
+        style={{
+          ...at(38, 282, 145, 24), margin: 0, fontFamily: "-apple-system, BlinkMacSystemFont, system-ui, sans-serif", fontSize: 13 * s,
+          fontWeight: 400, lineHeight: `${24 * s}px`, color: color.ink, whiteSpace: "nowrap", overflow: "hidden",
+          maskImage: "linear-gradient(90deg, #000 80%, transparent)", WebkitMaskImage: "linear-gradient(90deg, #000 80%, transparent)",
+        }}
+      >
+        Arcadia · the sidebar browser for Mac
+      </p>
     </>
   );
 }

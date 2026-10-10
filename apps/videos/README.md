@@ -33,21 +33,21 @@ glinting as "ASKS FOR NOTHING." is stamped. (The sun has already peeked over the
 
 The product follows, live:
 - clicking down the tabs and scrolling a page;
-- the profile swipe (Personal → Work → Campaign → Side Project), each profile's name and colour switching on the
-  frame its page changes;
+- the profile swipe (Personal → Work → Travel → Side Project), each profile's name and colour switching on the
+  frame its page changes, then "WORK NEVER SEES YOUR WEEKEND.";
 - split view with the divider dragged, the hills peeking up over the bottom edge and the sun springing up for
-  "NO COALITION TALKS.";
-- the built-in blocker switched off and on, its count climbing;
+  "ONE WINDOW.";
+- the built-in blocker switched off and on, its count climbing ("BLOCKS ADS AND TRACKERS.");
 - "IT'S ACTUALLY CHROMIUM.".
 
 The window waits on the stock's colour, two fingers settle on a trackpad, the first drag starts inside a beat of
 true silence, and the page change *is* drop B: five profiles in eight beats, each named on the frame it lands, the
 paper taking each profile's colour. Then:
 - "ANY CHROME EXTENSION." with "NO THANKS." stamped on Chrome's own prompt;
-- "SEVEN APP ICONS. ONE LANDSLIDE." (the seven painted icon variants, from Settings › Appearance);
+- "SEVEN APP ICONS. ONE DOCK." (the seven painted icon variants, from Settings › Appearance);
 - four "NO" cards;
-- netnyahoo.com typed into the address bar, the camera diving into the site's "Full immunity.";
-- the end card: the icon, the name, DOWNLOAD FOR MAC / NETNYAHOO.COM and the GitHub address, beside the painted mark:
+- netnyahoo.com typed into the address bar, the camera diving into the site's "Touch grass.";
+- "TOUCH GRASS." on the end hit, then the end card: the icon, the name, DOWNLOAD FOR MAC / NETNYAHOO.COM and the GitHub address, beside the painted mark:
   the sun rises over the hills on the hit, hops on the three march taps and leaps on the last brass button, glowing.
 
 The film uses about 80 words on screen. The type is the site's poster system on warm stock: Archivo, Newsreader and
@@ -105,7 +105,7 @@ session has five profiles, each with real sites, in light appearance with the ad
 profile's name sits next to the traffic lights in its colour:
 - Personal (plum)
 - Work (blue)
-- Campaign (orange)
+- Travel (orange)
 - Side Project (green)
 - Weekend (yellow)
 
@@ -145,18 +145,23 @@ is captured in-process, frame by frame:
     repainted) are skipped.
   - The traffic lights are AppKit's own buttons, drawn offscreen as an active window (`lights.swift`). The
     pointer is AppKit's `NSCursor` artwork (`cursor.swift`).
-- **The netnyahoo.com frames** were captured (2026-10-03) while the site still showed the old mascot. The film brings
-  them up to date in place (`SiteLogo` in `shots.tsx`): the hero figure becomes the painted logo with its "LANDSLIDE"
-  stamp and caption, laid out as `apps/site/src/components/Hero.astro` lays them out, and the header icon and the
-  tab's favicon become the painted app icon. Recapturing `typing` once the new site is live makes this unnecessary.
+- **The netnyahoo.com frames** were captured (2026-10-03) while the site still showed the old mascot and copy. The
+  film brings them up to date in place (`SiteLogo` in `shots.tsx`), laid out as `apps/site` lays the page out at
+  that width: the hero figure becomes the painted logo with its "NO ACCOUNT" stamp and caption, the headline and
+  lede become "Touch grass." and today's lede, and the header's wordmark, icon and section links and the tab's title
+  and favicon follow. Recapturing `typing` once the new site is live makes this unnecessary.
+- **Stale footage until the next capture** (2026-10-11): `swipe` was captured with the orange profile named
+  "Campaign" on political Wikipedia pages, and `block` with the dictionary page on "immunity". `session.mjs` and
+  `sites/lexicon.example` now set up "Travel" and "meadow"; rerun `run-all.sh … swipe block` (and `warm` first) to
+  bring the window's own profile name, its tabs and the page in line with the "TRAVEL." plates.
 - **The app icons** (`windows`, label "appearance", and the end card's cycle) were recaptured on 2026-10-10 from the
   Debug build with the painted logo.
 - **Not captured:** the sidebar's translucency over the desktop. It needs a WindowServer capture.
 
 ## Music and sound
 
-`scripts/music/score.py` is a sampler. It plays recorded instruments on the film's beat grid: a campaign-rally
-anthem in F minor at 128.57 BPM, with brass stabs, a march-snare roll, two drops, a break that cuts to silence, an
+`scripts/music/score.py` is a sampler. It plays recorded instruments on the film's beat grid: a brass anthem
+in F minor at 128.57 BPM, with brass stabs, a march-snare roll, two drops, a break that cuts to silence, an
 end hit, march taps and a final brass button.
 
 - **The main stab** is a designed hybrid: unison saws with a filter envelope, a short noise transient and the sampled

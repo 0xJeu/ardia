@@ -539,12 +539,12 @@
       }
     },
     {
-      "id": "swipe-campaign",
+      "id": "swipe-travel",
       "definition": "type",
-      "label": "swipe · CAMPAIGN.",
+      "label": "swipe · TRAVEL.",
       "parentId": null,
       "values": {
-        "text": "CAMPAIGN.",
+        "text": "TRAVEL.",
         "size": 150,
         "color": "#F1ECE2",
         "fill": "#D87249",
@@ -573,12 +573,12 @@
       }
     },
     {
-      "id": "swipe-deniability",
+      "id": "swipe-weekend",
       "definition": "type",
-      "label": "swipe · PLAUSIBLE DENIABILITY COMES ",
+      "label": "swipe · WORK NEVER SEES YOUR WEEKEND",
       "parentId": null,
       "values": {
-        "text": "PLAUSIBLE DENIABILITY COMES STANDARD.",
+        "text": "WORK NEVER SEES YOUR WEEKEND.",
         "size": 72,
         "color": "#16130F",
         "fill": "#00000000",
@@ -633,12 +633,12 @@
       }
     },
     {
-      "id": "split-coalition",
+      "id": "split-one",
       "definition": "type",
-      "label": "split · NO COALITION TALKS.",
+      "label": "split · ONE WINDOW.",
       "parentId": null,
       "values": {
-        "text": "NO COALITION TALKS.",
+        "text": "ONE WINDOW.",
         "size": 140,
         "color": "#F1ECE2",
         "fill": "#C3371F",
@@ -663,12 +663,12 @@
       }
     },
     {
-      "id": "block-immune",
+      "id": "block-blocks",
       "definition": "type",
-      "label": "block · IMMUNE TO ADS AND TRACKERS.",
+      "label": "block · BLOCKS ADS AND TRACKERS.",
       "parentId": null,
       "values": {
-        "text": "IMMUNE TO ADS\nAND TRACKERS.",
+        "text": "BLOCKS ADS\nAND TRACKERS.",
         "size": 150,
         "color": "#F1ECE2",
         "fill": "#C3371F",
@@ -757,12 +757,12 @@
       }
     },
     {
-      "id": "big-campaign",
+      "id": "big-travel",
       "definition": "type",
-      "label": "swipe-big · CAMPAIGN.",
+      "label": "swipe-big · TRAVEL.",
       "parentId": null,
       "values": {
-        "text": "CAMPAIGN.",
+        "text": "TRAVEL.",
         "size": 150,
         "color": "#F1ECE2",
         "fill": "#D87249",
@@ -885,12 +885,12 @@
       }
     },
     {
-      "id": "icons-one",
+      "id": "icons-dock",
       "definition": "type",
-      "label": "icons · ONE LANDSLIDE.",
+      "label": "icons · ONE DOCK.",
       "parentId": null,
       "values": {
-        "text": "ONE LANDSLIDE.",
+        "text": "ONE DOCK.",
         "size": 140,
         "color": "#F1ECE2",
         "fill": "#C3371F",
@@ -1009,12 +1009,12 @@
       }
     },
     {
-      "id": "end-immunity",
+      "id": "end-grass",
       "definition": "type",
-      "label": "end · FULL IMMUNITY.",
+      "label": "end · TOUCH GRASS.",
       "parentId": null,
       "values": {
-        "text": "FULL\nIMMUNITY.",
+        "text": "TOUCH\nGRASS.",
         "size": 360,
         "color": "#16130F",
         "fill": "#00000000",

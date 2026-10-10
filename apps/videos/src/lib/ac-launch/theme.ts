@@ -1,13 +1,13 @@
 import { continueRender, delayRender, staticFile } from "remotion";
 
-// The site's campaign-poster system (apps/site/src/styles/global.css): warm stock, ink, the tie's blue, the stamp's red.
+// The site's poster system (apps/site/src/styles/global.css): warm stock, ink, the accent blue, the stamp's red.
 export const color = {
   paper: "#F1ECE2",
   paperDeep: "#E6DFD1",
   ink: "#16130F",
   ink2: "#57524A",
   rule: "rgba(22, 19, 15, 0.16)",
-  tie: "#2150D9",
+  blue: "#2150D9",
   stamp: "#C3371F",
   night: "#15120F",
   night2: "#221E1A",

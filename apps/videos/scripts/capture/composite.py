@@ -165,7 +165,7 @@ def composite(snap_path, page_items, color, dark, tint=None, slide=None):
     return img.convert("RGB")
 
 
-ORDER = ["default", "work", "campaign", "side", "weekend"]
+ORDER = ["default", "work", "travel", "side", "weekend"]
 
 
 def main():

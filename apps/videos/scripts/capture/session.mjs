@@ -18,12 +18,12 @@ const tabs = [
   T("work", "https://www.chromium.org/Home/"),
   T("work", "https://stackoverflow.com/questions"),
   T("work", "https://developer.apple.com/documentation/swiftui"),
-  T("campaign", "https://en.wikipedia.org/wiki/Political_campaign"),
-  T("campaign", "https://en.wikipedia.org/wiki/Campaign_button"),
-  T("campaign", "https://en.wikipedia.org/wiki/Opinion_poll"),
-  T("campaign", "https://en.wikipedia.org/wiki/Stump_speech"),
-  T("campaign", "https://en.wikipedia.org/wiki/Bumper_sticker"),
-  T("campaign", "https://en.wikipedia.org/wiki/Lawn_sign"),
+  T("travel", "https://en.wikipedia.org/wiki/Lake_District"),
+  T("travel", "https://en.wikipedia.org/wiki/Arcadia"),
+  T("travel", "https://en.wikipedia.org/wiki/Hiking"),
+  T("travel", "https://en.wikipedia.org/wiki/Youth_hostel"),
+  T("travel", "https://en.wikipedia.org/wiki/Ordnance_Survey"),
+  T("travel", "https://en.wikipedia.org/wiki/Picnic"),
   T("side", "https://excalidraw.com/"),
   T("side", "https://tailwindcss.com/"),
   T("side", "https://www.typescriptlang.org/docs/handbook/intro.html"),
@@ -38,7 +38,7 @@ const s = session({
   profiles: [
     { id: "default", name: "Personal", color: "plum" },
     { id: "work", name: "Work", color: "blue" },
-    { id: "campaign", name: "Campaign", color: "orange" },
+    { id: "travel", name: "Travel", color: "orange" },
     { id: "side", name: "Side Project", color: "green" },
     { id: "weekend", name: "Weekend", color: "yellow" },
   ],
@@ -46,7 +46,7 @@ const s = session({
   tabs,
 });
 s.windows[0].tabIds = tabs.map((t) => t.id);
-s.windows[0].activeTabIds = { default: "t1", work: "t7", campaign: "t14", side: "t21", weekend: "t23" };
+s.windows[0].activeTabIds = { default: "t1", work: "t7", travel: "t14", side: "t21", weekend: "t23" };
 // APPEARANCE / ADDRESS_BAR override for a test run: node session.mjs out.json light toolbar
 const [, , , appearance = "light", addressBar = "toolbar"] = process.argv;
 s.settings = { addressBar, appearance, searchSuggestions: false, warnBeforeQuitting: false };

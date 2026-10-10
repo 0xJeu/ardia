@@ -6,7 +6,7 @@ A one-page brief for a composer replacing or re-producing the score. The edit is
 
 - **Tempo: 128.57143 BPM, 4/4.** One beat = 14 frames at 30 fps = 0.466667 s = 22,400 samples at 48 kHz. One bar = 56 frames. The tempo never changes.
 - **Key: F minor.** Progression used so far: Fm, Db, Ab, Eb (one chord a bar).
-- **Feel: a campaign-rally anthem.** Big brass stabs as the hook, a marching snare, drum-machine drops, a hard stop before the second drop, a huge end hit. It accompanies a satirical product film, so it should feel triumphant and a little over the top, never menacing.
+- **Feel: a brass anthem.** Big brass stabs as the hook, a marching snare, drum-machine drops, a hard stop before the second drop, a huge end hit. It accompanies a dry, playful product film, so it should feel triumphant and a little over the top, never menacing.
 
 ## Launch: 96 beats (24 bars, 0:44.80, 1344 frames)
 

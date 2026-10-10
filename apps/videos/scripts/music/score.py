@@ -1,6 +1,6 @@
 """The launch film's score: a sampler that plays real recorded instruments on the film's beat grid.
 
-A campaign-rally anthem in F minor at 128.57 BPM (a beat is exactly 14 frames at 30 fps, 22400 samples at 48 kHz).
+A brass anthem in F minor at 128.57 BPM (a beat is exactly 14 frames at 30 fps, 22400 samples at 48 kHz).
 Brass sections (trumpets, horns, trombones, tuba), timpani, a concert bass drum and cymbals from VSCO 2 CE; a
 rope-tension march snare, hand claps, a tom, a slapstick and a woodblock from VCSL; a 909 kick, clap and hats
 recorded from a TR-8 (MckSamplePacks). Everything is CC0; scripts/music/samples.md lists every file and

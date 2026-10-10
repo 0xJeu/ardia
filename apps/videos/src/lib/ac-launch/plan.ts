@@ -139,26 +139,26 @@ const swipe: Shot = {
     // Docked at the top-left, beside the profile's own name in the window, switching on the frame the page changes.
     T("swipe-name", "SWIPE BETWEEN LIVES.", 0, "slam", 72, DOCK.land, DOCK.port, { out: 5, color: paper, fill: ink, portSize: 64 }),
     T("swipe-work", "WORK.", 0.75 - LAND, "slam", 150, PLATE.land, PLATE.port, { out: 2.25 - LAND, color: paper, fill: P.work }),
-    T("swipe-campaign", "CAMPAIGN.", 2.25 - LAND, "slam", 150, PLATE.land, PLATE.port, { out: 3.75 - LAND, color: paper, fill: P.orange }),
+    T("swipe-travel", "TRAVEL.", 2.25 - LAND, "slam", 150, PLATE.land, PLATE.port, { out: 3.75 - LAND, color: paper, fill: P.orange }),
     T("swipe-side", "SIDE PROJECT.", 3.75 - LAND, "slam", 150, PLATE.land, PLATE.port, { out: 5, color: paper, fill: P.green }),
-    T("swipe-deniability", "PLAUSIBLE DENIABILITY COMES STANDARD.", 5, "slam", 72, DOCK.land, [60, 230, 880, 220], { portText: "PLAUSIBLE\nDENIABILITY\nCOMES STANDARD.", portSize: 96 }),
+    T("swipe-weekend", "WORK NEVER SEES YOUR WEEKEND.", 5, "slam", 72, DOCK.land, [60, 230, 880, 220], { portText: "WORK NEVER\nSEES YOUR\nWEEKEND.", portSize: 96 }),
   ],
 };
 
 const split: Shot = {
   id: "split", kind: "split", at: 26, beats: 8, window: win("split-window"),
-  // The hills and sun peek up over the bottom edge for "NO COALITION TALKS.".
+  // The hills and sun peek up over the bottom edge for "ONE WINDOW.".
   extra: [PLACED("split-mark", [1360, 770, 500, 400], [520, 1150, 420, 340])],
   type: [
     T("split-two", "TWO PAGES.", 0, "slam", 140, TOP.land, TOP.port, { out: 5, color: paper, fill: ink }),
-    T("split-coalition", "NO COALITION TALKS.", 5, "slam", 140, TOP.land, TOP.port, { color: paper, fill: P.red, portText: "NO COALITION\nTALKS." }),
+    T("split-one", "ONE WINDOW.", 5, "slam", 140, TOP.land, TOP.port, { color: paper, fill: P.red }),
   ],
 };
 
 const block: Shot = {
   id: "block", kind: "block", at: 34, beats: 6, window: win("block-window"),
   type: [
-    T("block-immune", "IMMUNE TO ADS\nAND TRACKERS.", 0.5, "slam", 150, [80, 640, 860, 380], [60, 230, 880, 320], { color: paper, fill: P.red, portSize: 140 }),
+    T("block-blocks", "BLOCKS ADS\nAND TRACKERS.", 0.5, "slam", 150, [80, 640, 860, 380], [60, 230, 880, 320], { color: paper, fill: P.red, portSize: 140 }),
   ],
 };
 
@@ -179,7 +179,7 @@ const swipeBig: Shot = {
   type: [
     BIG_PLATE("big-weekend", "WEEKEND.", 0, 1.5 - LAND, P.yellow, ink),
     BIG_PLATE("big-side", "SIDE PROJECT.", 1.5 - LAND, 3 - LAND, P.green),
-    BIG_PLATE("big-campaign", "CAMPAIGN.", 3 - LAND, 4.5 - LAND, P.orange),
+    BIG_PLATE("big-travel", "TRAVEL.", 3 - LAND, 4.5 - LAND, P.orange),
     BIG_PLATE("big-work", "WORK.", 4.5 - LAND, 6 - LAND, P.work),
     BIG_PLATE("big-personal", "PERSONAL.", 6 - LAND, 7.6, P.plum),
   ],
@@ -197,7 +197,7 @@ const icons: Shot = {
   id: "icons", kind: "icons", at: 64, beats: 4, window: win("icons-window", { land: [394, 120, 1132, 884], port: [40, 700, 1500, 1171] }),
   type: [
     T("icons-seven", "SEVEN APP ICONS.", 1, "slam", 140, [80, 860, 1760, 170], [60, 1190, 880, 280], { out: 2.5, color: paper, fill: ink, portText: "SEVEN\nAPP ICONS." }),
-    T("icons-one", "ONE LANDSLIDE.", 2.5, "slam", 140, [80, 860, 1760, 170], [60, 1190, 880, 280], { color: paper, fill: P.red, portText: "ONE\nLANDSLIDE." }),
+    T("icons-dock", "ONE DOCK.", 2.5, "slam", 140, [80, 860, 1760, 170], [60, 1190, 880, 280], { color: paper, fill: P.red, portText: "ONE\nDOCK." }),
   ],
 };
 
@@ -213,7 +213,7 @@ const nos: Shot = {
 
 const typing: Shot = { id: "typing", kind: "typing", at: 72, beats: 8, window: win("typing-window"), type: [] };
 
-/** The end: "FULL IMMUNITY." on the hit as the sun rises over the hills, then the lockup (icon, name, download, URL,
+/** The end: "TOUCH GRASS." on the hit as the sun rises over the hills, then the lockup (icon, name, download, URL,
  * source) with the sun hopping on the march taps and leaping on the button. */
 const endShot = (at: number, beats: number, lockup: number, button: number): Shot => ({
   id: "end", kind: "end", at, beats, marks: { lockup, button },
@@ -222,7 +222,7 @@ const endShot = (at: number, beats: number, lockup: number, button: number): Sho
     { id: "end-icon", box: { land: [80, 220, 180, 180], port: [60, 240, 150, 150] } },
   ],
   type: [
-    T("end-immunity", "FULL\nIMMUNITY.", 0, "slam", 360, [80, 120, 1080, 800], [60, 230, 880, 640], { out: lockup }),
+    T("end-grass", "TOUCH\nGRASS.", 0, "slam", 360, [80, 120, 1080, 800], [60, 230, 880, 640], { out: lockup }),
     T("end-name", "ARCADIA", lockup, "slam", 190, [290, 220, 870, 180], [230, 240, 710, 150], { portSize: 150 }),
     T("end-mac", "THE SIDEBAR BROWSER FOR MAC", lockup + 0.5, "slam", 60, [84, 420, 1076, 70], [60, 410, 880, 120], { color: P.blue, portText: "THE SIDEBAR\nBROWSER FOR MAC" }),
     T("end-download", "DOWNLOAD", lockup + 1, "slam", 96, [84, 520, 1076, 110], [60, 550, 880, 100]),

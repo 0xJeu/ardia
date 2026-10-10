@@ -492,12 +492,12 @@
       }
     },
     {
-      "id": "big-campaign",
+      "id": "big-travel",
       "definition": "type",
-      "label": "swipe-big · CAMPAIGN.",
+      "label": "swipe-big · TRAVEL.",
       "parentId": null,
       "values": {
-        "text": "CAMPAIGN.",
+        "text": "TRAVEL.",
         "size": 150,
         "color": "#F1ECE2",
         "fill": "#D87249",
@@ -637,12 +637,12 @@
       }
     },
     {
-      "id": "end-immunity",
+      "id": "end-grass",
       "definition": "type",
-      "label": "end · FULL IMMUNITY.",
+      "label": "end · TOUCH GRASS.",
       "parentId": null,
       "values": {
-        "text": "FULL\nIMMUNITY.",
+        "text": "TOUCH\nGRASS.",
         "size": 360,
         "color": "#16130F",
         "fill": "#00000000",
