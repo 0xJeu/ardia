@@ -407,7 +407,10 @@ public class ShellModule: Module {
       DispatchQueue.main.async { promise.resolve(target.chosen) }
     }.runOnQueue(.main)
 
-    View(WindowDragRegion.self) {}
+    View(WindowDragRegion.self) {
+      Events("onRegionDoubleClick")
+      Prop("titleBarDoubleClick") { (view: WindowDragRegion, on: Bool) in view.titleBarDoubleClick = on }
+    }
   }
 
   private func observeForSidebar() {
@@ -688,8 +691,11 @@ public class SymbolModule: Module {
 // strip it lands on the tabs' scroll view, which covers the whole strip: pressing the empty strip right of "+" moved
 // the window only in its top 32 pt and a double-click did nothing (the owner's 0.2.25 report). So the region watches
 // the window's presses itself: one inside it whose view is the region or the empty part of a scroll view laid over it
-// (no tab, button or field: those are hit instead) is the title bar's.
+// (no tab, button or field: those are hit instead) is the title bar's. With `titleBarDoubleClick` off (the sidebar's
+// empty body, where a double-click opens a tab), a double-click is `onRegionDoubleClick` instead.
 final class WindowDragRegion: ExpoView {
+  let onRegionDoubleClick = EventDispatcher()
+  var titleBarDoubleClick = true
   private var monitor: Any?
   // The second press of a double-click it claimed: the action runs on its release, as on a title bar.
   private var doubleClickDown = false
@@ -710,7 +716,7 @@ final class WindowDragRegion: ExpoView {
       if event.type == .leftMouseUp {
         guard self.doubleClickDown, event.window === self.window else { return event }
         self.doubleClickDown = false
-        if event.clickCount == 2, let window = self.window { Self.doubleClick(window, event.modifierFlags) }
+        if event.clickCount == 2 { self.doubleClick(event) }
         return nil
       }
       self.doubleClickDown = false  // its release went elsewhere
@@ -756,10 +762,15 @@ final class WindowDragRegion: ExpoView {
     while let k = key, k !== window { key = k.parent }
     if key == nil, window.canBecomeKey, !event.modifierFlags.contains(.command) { window.makeKeyAndOrderFront(nil) }
     if event.clickCount == 2 {
-      if releaseFollows { doubleClickDown = true } else { Self.doubleClick(window, event.modifierFlags) }
+      if releaseFollows { doubleClickDown = true } else { doubleClick(event) }
       return
     }
     window.performDrag(with: event)
+  }
+
+  private func doubleClick(_ event: NSEvent) {
+    guard let window else { return }
+    if titleBarDoubleClick { Self.doubleClick(window, event.modifierFlags) } else { onRegionDoubleClick([:]) }
   }
 
   // AppKit's own title-bar double-click (-[NSTitledFrame _handlePossibleDoubleClickWithModifiers:], which acts on the

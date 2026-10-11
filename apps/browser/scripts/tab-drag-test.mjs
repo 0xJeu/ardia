@@ -465,6 +465,26 @@ try {
     assert.equal(out.landed?.key, `t:${row.id}`, JSON.stringify(out));
     assert.ok(Math.abs(out.landed.x - out.row.x) < 0.5 && Math.abs(out.landed.y - out.row.y) < 0.5, JSON.stringify(out));
   });
+
+  // Only the sidebar's header moved the window; the empty room under the rows did nothing.
+  await check("sidebar: the empty room under the rows moves the window, and a double-click there still opens a tab", async () => {
+    const x = 120, y = (await run(`return st().windows.w1.frame[3];`)) - 140;
+    const result = await run(`
+      return win("w1").then((n) => {
+        const frame = () => C.chromeWindows().then((ws) => ws.find((w) => w.window === n).frame);
+        const click = (count) => C.devWindow(n, "mouse:down:${x},${y}," + count).then(() => settle(30)).then(() => C.devWindow(n, "mouse:up:${x},${y}," + count)).then(() => settle(60));
+        const out = { tabs: st().windows.w1.tabIds.length };
+        return C.devWindow(n, "hit:${x},${y}").then((h) => { out.hit = h; return C.devWindow(n, "windowDrags"); })
+          .then(() => click(1)).then(() => settle(300))
+          .then(() => C.devWindow(n, "windowDrags")).then((d) => { out.drags = Number(d.split("\\n")[0]); return frame(); })
+          .then((f) => { out.before = f; return click(1).then(() => click(2)); }).then(() => settle(900)).then(frame)
+          .then((f) => { out.after = f; out.opened = st().windows.w1.tabIds.length - out.tabs; return out; });
+      });`);
+    assert.match(result.hit, /WindowDragRegion/, "the empty sidebar is the drag region's");
+    assert.equal(result.drags, 1, "a press there drags the window");
+    assert.equal(result.opened, 1, "a double-click opens a tab");
+    assert.equal(result.after, result.before, "and doesn't zoom the window");
+  });
 } finally {
   await app?.quit();
   if (!keep) rmSync(data, { recursive: true, force: true });

@@ -322,7 +322,9 @@ export const onAppEvent = (listener: (e: AppEvent) => void) => Shell.addListener
 export const onOpenURLs = (listener: (urls: string[]) => void) =>
   Shell.addListener("onOpenURLs", ({ urls }) => listener(urls));
 
-export const WindowDragRegion = requireNativeViewManager<ViewProps>("ArdiaShell");
+/** Moves the window: a press on it (or on an empty scroll view over it) is the title bar's. A double-click runs the
+ * title bar's action (System Settings' Fill / Zoom / Minimize), or with `titleBarDoubleClick={false}` is `onRegionDoubleClick`. */
+export const WindowDragRegion = requireNativeViewManager<ViewProps & { titleBarDoubleClick?: boolean; onRegionDoubleClick?: () => void }>("ArdiaShell");
 
 /** A popover's area: `onOutsidePress` hears a press anywhere else in its window (the press still does its own thing). */
 export const OutsidePressArea = requireNativeViewManager<ViewProps & { onOutsidePress?: () => void }>("ArdiaOutsidePressArea");
