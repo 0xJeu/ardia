@@ -72,9 +72,14 @@ export function hostLabel(url: string): string {
   return m ? displayHost(m[1]!.toLowerCase()).replace(/^www\./, "") : url;
 }
 
+export const queryWords = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean);
+
+/** What a query's words are looked for in: the fields, lowercased, with punycode hosts also in Unicode. */
+export const searchText = (...fields: string[]) => fields.map((f) => (/xn--/i.test(f) ? `${f} ${urlForDisplay(f)}` : f)).join(" ").toLowerCase();
+
 export function matchesQuery(query: string, ...fields: string[]): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = queryWords(query);
   if (!words.length) return true;
-  const hay = fields.map((f) => (/xn--/i.test(f) ? `${f} ${urlForDisplay(f)}` : f)).join(" ").toLowerCase();
+  const hay = searchText(...fields);
   return words.every((w) => hay.includes(w));
 }
