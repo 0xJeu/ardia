@@ -4,7 +4,7 @@ import mark from "../assets/arcadia-mark.png";
 import DownloadButton from "./DownloadButton.astro";
 import MacOnlyNote from "./MacOnlyNote.astro";
 import SendToMac from "./SendToMac.astro";
-import { DMG_SIZE, REPO, VERSION } from "../data/release";
+import { REPO } from "../data/release";
 import { STARS } from "../data/github";
 ---
 
@@ -36,11 +36,6 @@ import { STARS } from "../data/github";
         >
       </div>
       <MacOnlyNote location="hero" />
-      <p class="label fine not-phone" data-reveal style="--i: 4">
-        <span>Open source</span><span>Notarized by Apple</span><span>{DMG_SIZE}</span><span
-          >v{VERSION}</span
-        ><span>macOS 14+</span>
-      </p>
     </div>
 
     <figure class="hero-figure">
@@ -72,7 +67,7 @@ import { STARS } from "../data/github";
     padding-top: clamp(24px, 5vh, 72px);
     padding-bottom: clamp(48px, 8vh, 96px);
   }
-  /* One text block (headline, lede, download, fine print) bottom-aligned with the painting's caption,
+  /* One text block (headline, lede, download) bottom-aligned with the painting's caption,
      so the headline sits on the lede like a poster instead of floating above an empty row. */
   .hero-grid {
     display: grid;
@@ -148,22 +143,6 @@ import { STARS } from "../data/github";
   }
   .welcome[hidden] {
     display: none;
-  }
-  .fine {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 0;
-    margin-top: 18px;
-    color: var(--ink-3);
-  }
-  /* The trust half (open source, notarized, size) reads darker than the specs. */
-  .fine span:nth-child(-n + 3) {
-    color: var(--ink-2);
-  }
-  .fine span + span::before {
-    content: "/";
-    margin: 0 10px;
-    color: var(--rule);
   }
 
   .hero-figure {
@@ -260,17 +239,9 @@ import { STARS } from "../data/github";
       margin-top: 24px;
       gap: 4px 24px;
     }
-    .fine {
-      margin-top: 10px;
-      gap: 4px 18px;
-    }
     /* Phones: the panel is the call to action; "Read the source" follows it quietly. */
     :global(:root[data-device="phone"]) .cta-row {
       margin-top: 14px;
-    }
-    /* Wrapped slashes read as typos on a phone; plain spacing wraps cleanly. */
-    .fine span + span::before {
-      content: none;
     }
     .hero-figure {
       width: 100%;
