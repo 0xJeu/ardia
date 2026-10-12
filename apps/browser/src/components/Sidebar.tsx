@@ -106,7 +106,6 @@ export function Sidebar({ width }: { width: number }) {
                 resting={!!page.resting}
                 docked={docked}
                 glowRoom={glowRoom}
-                ghost={ghost}
                 rows={page.id === current ? undefined : Math.ceil(available / ROW_PITCH) + 1}
                 geometry={page.id === current ? geometry : undefined}
                 onListHeight={onListHeight}
@@ -187,7 +186,6 @@ type PageProps = {
   resting: boolean;
   docked: boolean;
   glowRoom: number;
-  ghost: Ghost | null;
   rows: number | undefined;
   /** The current page's: where its regions and viewport are, for revealing tabs. */
   geometry: RefObject<SidebarGeometry> | undefined;
@@ -196,7 +194,7 @@ type PageProps = {
   onScrollY: (y: number) => void;
 };
 
-function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoom, ghost, rows, geometry, onListHeight, onScrollView, onScrollY }: PageProps) {
+function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoom, rows, geometry, onListHeight, onScrollView, onScrollY }: PageProps) {
   const windowId = useWindowId();
   const topGap = listTopGap(useAddressBarInSidebar());
   const pageStyle = usePageStyle(windowId, slot, width);

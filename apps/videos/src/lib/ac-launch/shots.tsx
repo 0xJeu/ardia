@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { AbsoluteFill, Img, interpolateColors, random, staticFile } from "remotion";
+import { AbsoluteFill, Img, random, staticFile } from "remotion";
 import { useStudioObject } from "../studio-objects-v6";
 import {
   type Cam, type CamKey, camAt, clamp, easeIn, easeInOut, easeOut, Fingers, frameOf, Grain, kick, mix, Paper, pointerAt, REST, SCENES,

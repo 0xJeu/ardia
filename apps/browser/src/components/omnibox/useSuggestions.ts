@@ -10,7 +10,7 @@ import {
 } from "@ardia/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bookmarksByUrl } from "../../store/bookmarks";
-import { useBrowser, type BrowserState } from "../../store/browser";
+import { useBrowser } from "../../store/browser";
 import { bookmarkProfileId } from "../../store/model";
 import { defaultSearchEngine, searchEngines } from "../../store/settings";
 import type { Bookmarks, HistoryEntry } from "../../store/types";

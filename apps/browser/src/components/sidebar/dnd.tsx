@@ -81,8 +81,7 @@ class DragController {
   private pointer = { x: 0, y: 0 };
   private ghost: Ghost | null = null;
   private gapKey: string | null = null;
-  // The room open at gapKey, and the collapsed group the drop goes into.
-  private pitch = 0;
+  // The collapsed group the drop goes into.
   private into: string | null = null;
   private dropKey = "";
   private drop: Drop = { type: "none" };
@@ -376,7 +375,6 @@ class DragController {
       const next = gapKey && this.items.get(gapKey);
       if (next) spring(next.gap, pitch).start();
       this.gapKey = gapKey;
-      this.pitch = pitch;
     }
   }
 }

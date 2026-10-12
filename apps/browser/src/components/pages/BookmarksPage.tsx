@@ -202,7 +202,6 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
                   {indicator === index && <DropLine color={colors.accent} />}
                   <BookmarkRow
                     id={id}
-                    index={index}
                     windowId={windowId}
                     profileId={profileId}
                     showPath={searching}
@@ -249,7 +248,6 @@ function DropLine({ color }: { color: string }) {
 
 function BookmarkRow({
   id,
-  index,
   windowId,
   profileId,
   showPath,
@@ -264,7 +262,6 @@ function BookmarkRow({
   onDragEnd,
 }: {
   id: string;
-  index: number;
   windowId: string;
   profileId: string;
   showPath: boolean;

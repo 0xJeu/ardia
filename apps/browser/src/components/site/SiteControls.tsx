@@ -50,7 +50,6 @@ function originOf(url: string): string | null {
 }
 
 export function SiteControls({ tabId, right, left, top }: { tabId: string; right?: number; left?: number; top: number }) {
-  const theme = useTheme();
   const tab = useTab(tabId);
   const security = usePage(tabId, (p) => p.security);
   const blocked = usePage(tabId, (p) => p.blocked);
