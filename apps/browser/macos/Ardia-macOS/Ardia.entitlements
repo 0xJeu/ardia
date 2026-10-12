@@ -24,7 +24,7 @@
 	<key>com.apple.security.personal-information.location</key>
 	<true/>
 	<!-- Chromium's keychain groups (chrome_version.h MAC_TEAM_IDENTIFIER_STRING "." MAC_BUNDLE_IDENTIFIER_STRING,
-	     set by our CEF build's BRANDING): Chrome-profile passkeys (Touch ID), Device Bound Session Credentials,
+	     set by our build's BRANDING): Chrome-profile passkeys (Touch ID), Device Bound Session Credentials,
 	     Secure Payment Confirmation. Needs a provisioning profile, so ad-hoc builds sign without this file
 	     (macos/AdHoc.xcconfig). -->
 	<key>keychain-access-groups</key>

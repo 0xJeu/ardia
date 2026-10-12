@@ -44,12 +44,6 @@ public final class SecretBytes: @unchecked Sendable, Equatable {
     return SecretBytes(copying: UnsafeRawBufferPointer(start: buffer + range.lowerBound, count: range.count))
   }
 
-  /// Shrinks the visible length (the tail stays allocated and gets wiped with the rest).
-  func truncate(to newCount: Int) {
-    precondition(newCount >= 0 && newCount <= count)
-    count = newCount
-  }
-
   public func wipe() {
     _ = memset_s(buffer, capacity, 0, capacity)
   }
@@ -108,14 +102,6 @@ final class SecretWriter {
   func append(_ text: String) {
     var text = text
     text.withUTF8 { append(UnsafeRawBufferPointer($0)) }
-  }
-
-  func truncate(to n: Int) {
-    precondition(n <= count)
-    storage.withUnsafeMutableBytes { dst in
-      if count > n { _ = memset_s(dst.baseAddress! + n, count - n, 0, count - n) }
-    }
-    count = n
   }
 
   /// Hands over the bytes as a right-sized SecretBytes and wipes the working buffer.

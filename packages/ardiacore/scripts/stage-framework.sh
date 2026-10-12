@@ -57,7 +57,7 @@ fill_cache() {
     printf "%s %s" "$1" "$(stat -f "%m %z" "$1/Versions/Current/$3")" | shasum -a 256 | cut -c1-16 >"$2/.key"
     cp -cR "$1" "$2/"' _ "$src" "$tmp" "$name" >&2 || return 1
   key=$(cat "$tmp/.key") || return 1
-  # Ad hoc, without the hardened runtime (a development build; release signing is docs/ardiacore-spike.md's).
+  # Ad hoc, without the hardened runtime (a development build; release signing is docs/releasing.md's).
   sign() { codesign --force --timestamp=none --sign - "$@"; }
   fwv=$(cd "$tmp/$name.framework/Versions/Current" && pwd -P) || return 1
   for lib in "$fwv"/Libraries/*.dylib; do

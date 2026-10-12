@@ -19,7 +19,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* Ardia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ardia.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E0CAE61008516DE07A12694 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = ../PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4F6F34DACD396890604E4F3F /* Ardia.sdef */ = {isa = PBXFileReference; includeInIndex = 1; path = Ardia.sdef; sourceTree = "<group>"; };
 		514201492437B4B30078DB4F /* Ardia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ardia.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -34,7 +33,6 @@
 		DE21821D6B4527B7E023B602 /* main.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		E9A15241E979C9B4F4BB79D8 /* DisableFusebox.mm */ = {isa = PBXFileReference; includeInIndex = 1; path = DisableFusebox.mm; sourceTree = "<group>"; };
 		ECCA23360FAE34CDF7FD998D /* BrowserWindow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowserWindow.swift; sourceTree = "<group>"; };
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,7 +68,6 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				C1D4F94ED9B4A4D62FC468D0 /* libPods-Ardia-macOS.a */,
 			);
 			name = Frameworks;
@@ -100,18 +97,10 @@
 			name = "Ardia-macOS";
 			sourceTree = "<group>";
 		};
-		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Libraries;
-			sourceTree = "<group>";
-		};
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
 				5142014A2437B4B30078DB4F /* Ardia-macOS */,
-				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				11FF021B77ACE608B6D2428B /* Pods */,
@@ -125,7 +114,6 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* Ardia.app */,
 				514201492437B4B30078DB4F /* Ardia.app */,
 			);
 			name = Products;
@@ -166,9 +154,6 @@
 			attributes = {
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
-					13B07F861A680F5B00A75B9A = {
-						LastSwiftMigration = 1120;
-					};
 					514201482437B4B30078DB4F = {
 						CreatedOnToolsVersion = 11.4;
 						DevelopmentTeam = U5L5T3NGVV;

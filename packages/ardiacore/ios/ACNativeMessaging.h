@@ -13,7 +13,7 @@
 namespace ac::nativemessaging {
 
 // Brings <userDataDir>/NativeMessagingHosts up to date. Cheap (a few stats and small files);
-// call it before CefInitialize, and again whenever an app may have been installed.
+// call it before the engine starts, and again whenever an app may have been installed.
 void SyncHosts(NSString *userDataDir);
 
 }  // namespace ac::nativemessaging

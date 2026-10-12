@@ -512,7 +512,7 @@ static void StartLaunchTab() {
 
 + (void)deleteProfileData:(NSString *)profile completion:(void (^)(NSArray<NSString *> *))completion {
   // The default profile can't go (it backs private windows): as packages/cef, its data is cleared through Chrome's
-  // own stores instead; that sequence lives in packages/cef's ProfileData for now.
+  // own stores instead (ArdiaCoreProfileData.swift, which CefModule calls for it).
   if (ardiacore_host::IsIncognito(profile)) return completion(@[]);
   ArdiaCoreEngine *engine = ArdiaCoreEngine.sharedEngine;
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
@@ -713,7 +713,6 @@ static void StartLaunchTab() {
   return @{
     @"pid" : @(NSProcessInfo.processInfo.processIdentifier),
     @"dataDirectory" : gDataDirectory ?: @"",
-    @"cefVersion" : @"ardiacore",
     @"engine" : @"ardiacore",
     @"chromiumVersion" : engine.chromiumVersion ?: @"",
     @"liveBrowsers" : @0,
