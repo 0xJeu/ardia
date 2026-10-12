@@ -17,7 +17,8 @@
     },
     "shaders:check": {
       "inputs": [
-        "ios/**/*.metal"
+        "ios/**/*.swift",
+        "scripts/check-shaders.mjs"
       ]
     },
     "dev": {
