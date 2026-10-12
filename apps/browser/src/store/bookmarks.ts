@@ -24,7 +24,7 @@ export type BookmarkDraft = { title: string; url?: string; addedAt?: number; chi
 
 export type RemovedBookmarks = { nodes: BookmarkNode[]; places: { id: string; parentId: string; index: number }[] };
 
-export const EMPTY_BOOKMARKS: Bookmarks = { nodes: {}, roots: {} };
+const EMPTY_BOOKMARKS: Bookmarks = { nodes: {}, roots: {} };
 
 // Bookmarks are Chrome's (BookmarkModel; lib/bookmarks.ts keeps Chrome's tree and this one alike). A node's id is
 // its Chrome UUID, so sync and chrome.bookmarks name it the same way; Chrome's two permanent folders are each

@@ -2,7 +2,7 @@ import { useBrowser } from "../../store/browser";
 import { activeTabId, viewTabIds } from "../../store/model";
 import type { HistoryEntry } from "../../store/types";
 
-export type PinnableSite = { id: string; title: string; url: string };
+type PinnableSite = { id: string; title: string; url: string };
 
 export const PINNABLE_SITES: PinnableSite[] = [
   { id: "gmail", title: "Gmail", url: "https://mail.google.com/" },

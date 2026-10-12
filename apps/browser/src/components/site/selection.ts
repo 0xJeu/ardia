@@ -67,7 +67,7 @@ const SELECTION_CONTEXT = `(() => {
   }));
 })()`;
 
-export async function linkToSelection(tabId: string): Promise<string | null> {
+async function linkToSelection(tabId: string): Promise<string | null> {
   const url = store().tabs[tabId]?.url;
   const web = webviews.get(tabId);
   if (!url || !/^https?:/.test(url) || !web) return null;
@@ -145,7 +145,7 @@ export function jumpToSelection(tabId: string): Promise<boolean | { error: strin
   return webviews.get(tabId)?.evaluate<boolean>(JUMP_TO_SELECTION) ?? Promise.resolve(null);
 }
 
-export type ReplaceResult = { field: boolean; count: number };
+type ReplaceResult = { field: boolean; count: number };
 
 const REPLACE = `(query, replacement, all) => {
   ${FOCUSED}

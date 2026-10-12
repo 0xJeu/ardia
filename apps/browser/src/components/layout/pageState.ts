@@ -24,7 +24,7 @@ export type PageState = {
   newTabShown: { url: string; title: string; favicon: string | null } | null;
 };
 
-export const IDLE_PAGE: PageState = {
+const IDLE_PAGE: PageState = {
   status: "",
   crashed: null,
   unresponsive: false,

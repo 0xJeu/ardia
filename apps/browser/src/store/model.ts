@@ -40,7 +40,7 @@ export const engineProfile = (profileId: string): string => {
 export const privateSession = (profileId: string): string | null =>
   isIncognitoProfile(profileId) ? engineProfile(incognitoOriginal(profileId)) : null;
 
-export const INCOGNITO_PROFILE: Profile = { id: "incognito", name: "Incognito", color: "neutral", icon: null, createdAt: 0 };
+const INCOGNITO_PROFILE: Profile = { id: "incognito", name: "Incognito", color: "neutral", icon: null, createdAt: 0 };
 
 export const IDLE_LIVE: TabLive = {
   isLoading: false,

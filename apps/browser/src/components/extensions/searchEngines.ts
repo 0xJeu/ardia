@@ -18,7 +18,7 @@ export function startExtensionSearchEngines() {
   });
 }
 
-export async function refreshExtensionSearchEngines(profile: string) {
+async function refreshExtensionSearchEngines(profile: string) {
   let list: unknown;
   try {
     list = await searchEngineList(profile);

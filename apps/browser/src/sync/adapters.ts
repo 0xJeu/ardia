@@ -214,7 +214,7 @@ export function bookmarksAdapter(profileId: string): Adapter {
   };
 }
 
-export const HISTORY_WINDOW_MS = 90 * 86_400_000;
+const HISTORY_WINDOW_MS = 90 * 86_400_000;
 
 type HistoryValue = { t: string; n: number; vt: number[] };
 const lastVisitOf = (v: HistoryValue) => Math.max(0, ...v.vt);

@@ -12,7 +12,7 @@ import { splitOf } from "../store/splits";
 import { applyHeldReports } from "./nativeEvents";
 import { webviews } from "./webviews";
 
-export const POLICY = {
+const POLICY = {
   protectedRecent: 10,
   idleMs: 30 * 60_000,
   profileIdleMs: 10 * 60_000,
@@ -70,7 +70,7 @@ function shownTabIds(s: BrowserState): Set<string> {
 
 const loadedTabIds = () => [...webviews.keys()].filter((id) => !useLifecycle.getState().discarded[id]);
 
-export function keepAliveReason(s: BrowserState, id: string): string | null {
+function keepAliveReason(s: BrowserState, id: string): string | null {
   const tab = s.tabs[id];
   if (!tab?.url || isInternalTab(tab)) return "no page";
   const live = s.live[id];
@@ -260,7 +260,7 @@ function thawAll() {
 
 let freezing = false;
 
-export async function freezeBusyTabs(overrides: Partial<typeof POLICY> = {}): Promise<string[]> {
+async function freezeBusyTabs(overrides: Partial<typeof POLICY> = {}): Promise<string[]> {
   if (freezing) return [];
   freezing = true;
   const frozen: string[] = [];
@@ -306,7 +306,7 @@ export async function freezeTab(id: string): Promise<boolean> {
 
 // MARK: Launch
 
-export function reloadRecentTabs(sys: SystemState) {
+function reloadRecentTabs(sys: SystemState) {
   const gb = sys.physicalMemory / 2 ** 30;
   const busy = sys.onBattery || sys.lowPowerMode || sys.memoryPressure !== "normal";
   const count = busy ? 0 : gb >= 32 ? 4 : gb >= 16 ? 3 : gb >= 8 ? 1 : 0;

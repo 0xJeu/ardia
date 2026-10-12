@@ -31,7 +31,7 @@ const KEY_NAMES: Record<string, string> = {
   "": "⇟",
 };
 
-export function formatShortcut({ key, modifiers }: Combo): string {
+function formatShortcut({ key, modifiers }: Combo): string {
   if (!key) return "";
   const mods = MOD_ORDER.filter((m) => modifiers.includes(m)).map((m) => MOD_GLYPH[m]).join("");
   const code = key.charCodeAt(0);

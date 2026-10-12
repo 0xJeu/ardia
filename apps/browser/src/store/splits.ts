@@ -35,7 +35,7 @@ export type OpenPaneResult = { ok: true; tabId: string; splitId: string } | { ok
 
 export const MAX_SPLIT_PANES = 3;
 
-export type SplitSlot = string[];
+type SplitSlot = string[];
 
 export function slotsOf(split: Pick<SplitView, "tabIds" | "stack">): SplitSlot[] {
   const slots: SplitSlot[] = [];

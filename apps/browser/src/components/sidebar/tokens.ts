@@ -49,7 +49,7 @@ const LIGHT: typeof DARK = {
   newTabIcon: "#00000042",
 };
 
-export type SidebarTokens = typeof DARK;
+type SidebarTokens = typeof DARK;
 
 export function useSidebarTokens(): SidebarTokens {
   return useTheme().dark ? DARK : LIGHT;

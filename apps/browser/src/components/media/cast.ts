@@ -21,7 +21,7 @@ type CastStore = {
 export const useCast = create<CastStore>()(() => ({ dialogs: {}, routes: {} }));
 if (__DEV__) (globalThis as { acCast?: unknown }).acCast = { useCast };
 
-export function castProfile(s: BrowserState, windowId: string): string {
+function castProfile(s: BrowserState, windowId: string): string {
   const w = s.windows[windowId];
   return !w ? "" : engineProfile(w.profileId);
 }

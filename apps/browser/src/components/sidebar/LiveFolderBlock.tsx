@@ -29,7 +29,7 @@ const PAD = 2;
 const EMPTY: LiveItem[] = [];
 const NONE: string[] = [];
 
-export const liveRowKey = (folderId: string, itemId: string) => `live|${folderId}|${itemId}`;
+const liveRowKey = (folderId: string, itemId: string) => `live|${folderId}|${itemId}`;
 
 // Memoized: the sidebar page re-renders whenever a tab opens or closes.
 export const LiveFolders = memo(function LiveFolders({ windowId, spaced }: { windowId: string; spaced: boolean }) {

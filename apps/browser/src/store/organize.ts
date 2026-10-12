@@ -42,10 +42,10 @@ export type OrganizeSlice = {
   closeAbandonedNewTabs(): void;
 };
 
-export const CLEAN_UP_AFTER_MS = 12 * 60 * 60 * 1000;
+const CLEAN_UP_AFTER_MS = 12 * 60 * 60 * 1000;
 const MAX_CLEANED = 100;
 const MAX_CLOSED_GROUPS = 20;
-export const DELETED_GROUP_MS = 7 * 86_400_000;
+const DELETED_GROUP_MS = 7 * 86_400_000;
 export const keptDeletedGroups = (list: ClosedGroup[], now = Date.now()) => list.filter((c) => now - c.closedAt < DELETED_GROUP_MS);
 
 export const groupOf = (s: Pick<BrowserState, "groups">, tabId: string | undefined): TabGroup | undefined =>
@@ -92,7 +92,7 @@ export function groupLabel(s: Pick<BrowserState, "tabs">, g: TabGroup): string {
   return label;
 }
 
-export function isSiteMuted(s: Pick<BrowserState, "settings" | "privateSiteMutes">, tab: Pick<Tab, "windowId" | "profileId">, host: string): boolean {
+function isSiteMuted(s: Pick<BrowserState, "settings" | "privateSiteMutes">, tab: Pick<Tab, "windowId" | "profileId">, host: string): boolean {
   const own = isIncognitoProfile(tab.profileId) ? s.privateSiteMutes[tab.windowId]?.[host] : undefined;
   return own ?? (s.settings.mutedSites ?? []).includes(host);
 }
@@ -325,7 +325,7 @@ export function cleanUpCandidates(s: BrowserState, windowId: string, inactiveFor
   return view.filter((id) => out.has(id));
 }
 
-export function abandonedNewTabs(s: BrowserState, windowId: string): string[] {
+function abandonedNewTabs(s: BrowserState, windowId: string): string[] {
   const w = s.windows[windowId];
   if (!w) return [];
   const selected = new Set(Object.values(w.activeTabIds));

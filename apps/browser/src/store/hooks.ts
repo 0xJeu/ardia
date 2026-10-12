@@ -13,7 +13,7 @@ export function useWindowId(): string {
   return useContext(WindowContext) ?? useBrowser.getState().ui.focusedWindowId ?? "";
 }
 
-export function useWindowField<T>(select: (w: BrowserWindow) => T, fallback: T): T {
+function useWindowField<T>(select: (w: BrowserWindow) => T, fallback: T): T {
   const id = useWindowId();
   return useBrowser((s) => {
     const w = s.windows[id];

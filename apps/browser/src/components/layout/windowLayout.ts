@@ -35,7 +35,7 @@ export function listTopGap(addressBar: boolean): number {
 
 export const SIDEBAR_HEADER_WITH_FIELD = SIDEBAR_FIELD.top + SIDEBAR_FIELD.height;
 
-export type UrlAnchor = { left: number; top: number; width: number; sidebar?: { height: number } };
+type UrlAnchor = { left: number; top: number; width: number; sidebar?: { height: number } };
 
 export const useUrlAnchors = create<Record<string, UrlAnchor>>()(() => ({}));
 

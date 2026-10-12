@@ -12,7 +12,7 @@ import { launchEnvironment, readDocument, writeDocument } from "@ardia/shell";
 // value that arrives from the network is saved for the next launch, and applied now only to a `live` switch, which is
 // read where it is used, never held in state.
 
-export type SwitchDef = {
+type SwitchDef = {
   /** What it turns off, in a line. */
   about: string;
   /** Who answers for it (an area, not a person), and who removes it. */
@@ -71,12 +71,12 @@ export const SWITCHES = {
   },
 } as const satisfies Record<string, SwitchDef>;
 
-export type SwitchName = keyof typeof SWITCHES;
+type SwitchName = keyof typeof SWITCHES;
 
 const CACHE_DOC = "switches-cache.json";
-export const SWITCHES_URL = "https://ardia.dev/switches.json";
+const SWITCHES_URL = "https://ardia.dev/switches.json";
 /** ARDIA_SWITCHES="name=off,other=on": a launch's own values, over everything else (benches, tests, support). */
-export const SWITCHES_ENV = "ARDIA_SWITCHES";
+const SWITCHES_ENV = "ARDIA_SWITCHES";
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_BYTES = 4096;
 
@@ -85,7 +85,7 @@ type Values = Partial<Record<SwitchName, boolean>>;
 const known = (name: string): name is SwitchName => Object.hasOwn(SWITCHES, name);
 
 /** The booleans in `{ "switches": { name: boolean } }` for switches this build knows; anything else is ignored. */
-export function parseSwitches(json: string | null | undefined): Values {
+function parseSwitches(json: string | null | undefined): Values {
   const out: Values = {};
   try {
     const switches = (JSON.parse(json ?? "") as { switches?: Record<string, unknown> } | null)?.switches;
@@ -137,7 +137,7 @@ export function reloadSwitches() {
 
 let fetchedThisLaunch = false;
 
-export type RefreshResult = "updated" | "failed" | "already";
+type RefreshResult = "updated" | "failed" | "already";
 
 /**
  * Asks ardia.dev for the switches, once per launch, and saves the answer for the next launch (and, for a `live`

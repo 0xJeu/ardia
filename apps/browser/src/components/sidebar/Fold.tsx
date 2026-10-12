@@ -5,7 +5,7 @@ import { Animated, Easing, View } from "react-native";
 const FOLD_MS = 150;
 const FOLD_EASING = Easing.bezier(0.2, 0.9, 0.3, 1);
 
-export type FoldState = { open: Animated.Value; moving: boolean };
+type FoldState = { open: Animated.Value; moving: boolean };
 
 /** `open` runs to 0 (collapsed) or 1; `moving` until the latest change has finished (an interrupted one never settles). */
 export function useFold(collapsed: boolean): FoldState {

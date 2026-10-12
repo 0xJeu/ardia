@@ -13,7 +13,7 @@ import { suppressHover } from "./hover";
 type Frame = { x: number; y: number; w: number; h: number };
 type Section = "tiles" | "pinnedGroups" | "list";
 
-export type ItemSpec = {
+type ItemSpec = {
   kind: "tile" | "row" | "group" | "split" | "tail";
   tabIds: string[];
   section: Section;

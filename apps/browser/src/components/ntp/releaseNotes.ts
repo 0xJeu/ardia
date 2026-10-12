@@ -9,7 +9,7 @@ export type ReleaseNotes = {
   items: { title: string; body: string }[];
 };
 
-export const RELEASE_NOTES: ReleaseNotes[] = [
+const RELEASE_NOTES: ReleaseNotes[] = [
   {
     version: "1.0",
     date: "September 2026",
@@ -26,7 +26,7 @@ export const RELEASE_NOTES: ReleaseNotes[] = [
   },
 ];
 
-export const POSTCARD_SECONDS = 86_400;
+const POSTCARD_SECONDS = 86_400;
 
 const DOC = "release-notes.json";
 type Saved = { version: 1; lastVersion: string; pending: { version: string; since: number } | null };
@@ -48,7 +48,7 @@ function save(saved: Omit<Saved, "version">) {
   }
 }
 
-export const notesFor = (version: string) => RELEASE_NOTES.find((n) => n.version === version) ?? null;
+const notesFor = (version: string) => RELEASE_NOTES.find((n) => n.version === version) ?? null;
 
 type State = {
   pending: Saved["pending"];
@@ -98,7 +98,7 @@ export function retireReleaseNotes() {
   save({ lastVersion: readSaved()?.lastVersion ?? systemInfo().appVersion, pending: null });
 }
 
-export function queueReleaseNotes(version = systemInfo().appVersion) {
+function queueReleaseNotes(version = systemInfo().appVersion) {
   const pending = notesFor(version) ? { version, since: Date.now() } : null;
   useReleaseNotes.setState({ pending });
   save({ lastVersion: systemInfo().appVersion, pending });

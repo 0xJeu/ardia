@@ -6,7 +6,7 @@ const focusedWindowFirstOn = () => switchOn("focusedWindowFirst");
 
 /** How the app opens a window it doesn't have yet: made key, or placed behind another window once that one's content
  *  is on screen (WindowManager's `behind`). */
-export type WindowOpen = { id: string; focus: boolean; behind?: string };
+type WindowOpen = { id: string; focus: boolean; behind?: string };
 
 /**
  * The order the windows the store has open in. The focused window first, so its content is the first the app builds

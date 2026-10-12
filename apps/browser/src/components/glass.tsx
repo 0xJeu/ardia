@@ -6,7 +6,7 @@ export const liquidGlass = isLiquidGlass();
 
 const PROFILE_SHARE = 0.15;
 
-export function glassTint(theme: Theme, fill: string, raised = false, dark = theme.dark): string {
+function glassTint(theme: Theme, fill: string, raised = false, dark = theme.dark): string {
   const [r, g, b, a] = rgba(fill);
   const [pr, pg, pb] = rgba(theme.backdrop.tintColor);
   const lightening = r + g + b > 3 * 127;

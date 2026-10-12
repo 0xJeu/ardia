@@ -78,7 +78,7 @@ function frameFunction(name: string | undefined): string {
   return /^[\w$.<>\[\]# :-]{1,100}$/.test(fn) ? fn : "<anonymous>";
 }
 
-export function frameFile(location: string | undefined): string {
+function frameFile(location: string | undefined): string {
   const raw = (location ?? "").replace(/^address at /, "").trim();
   if (!raw || raw === "native") return raw || "<unknown>";
   // Metro puts bundle options after "//&".
@@ -152,7 +152,7 @@ const SYSTEM_NAME = /^[A-Z][A-Z0-9_ ()]{1,40}$/;
 // Framework-prefixed constants only (NSRangeException, CALayerInvalidGeometry, RCTFatalException).
 const EXCEPTION_NAME = /^[A-Z]{2,4}[A-Z][a-z][A-Za-z0-9]{1,60}$/;
 
-export type NativeCrash = {
+type NativeCrash = {
   exceptionType?: string;
   signal?: string;
   exceptionName?: string;
@@ -172,7 +172,7 @@ export function nativeCrashExceptions(report: NativeCrash) {
   return { name, signal, exceptions: [thrown, crash] };
 }
 
-export type PropertyValue = string | number | boolean | null;
+type PropertyValue = string | number | boolean | null;
 
 export function cleanProperties(props: Record<string, unknown>): Record<string, PropertyValue> {
   const out: Record<string, PropertyValue> = {};

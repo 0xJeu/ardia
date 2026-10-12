@@ -3,7 +3,7 @@ import { useBrowser, type BrowserState } from "../../store/browser";
 import { activeTabId, viewTabIds } from "../../store/model";
 import { splitIndex, stableList } from "../../store/structure";
 
-export type SidebarEntries = { tiles: string[]; pinnedGroups: string[]; list: string[] };
+type SidebarEntries = { tiles: string[]; pinnedGroups: string[]; list: string[] };
 
 const memo = new Map<string, { inputs: unknown[]; result: SidebarEntries }>();
 

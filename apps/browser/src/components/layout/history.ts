@@ -47,7 +47,7 @@ function showNewTab(tabId: string, keep?: { url: string; title: string }) {
   store().updateTab(tabId, { url: "", title: "", favicon: null, ...(internal ? { navigation: null } : {}) });
 }
 
-export function goBackToNewTab(tabId: string, offset: number, first: { url: string; title: string }) {
+function goBackToNewTab(tabId: string, offset: number, first: { url: string; title: string }) {
   if (!pageOf(tabId).backToNewTab || pageOf(tabId).newTabShown) return;
   if (offset) void webviews.get(tabId)?.goToOffset(offset);
   showNewTab(tabId, offset ? first : undefined);
@@ -121,7 +121,7 @@ export async function goToHistoryItem(tabId: string, item: HistoryItem) {
   if (item.offset) void webviews.get(tabId)?.goToOffset(item.offset);
 }
 
-export type HistoryMenu = { tabId: string; direction: -1 | 1; items: HistoryItem[] };
+type HistoryMenu = { tabId: string; direction: -1 | 1; items: HistoryItem[] };
 export const useHistoryMenu = create<{ menu: HistoryMenu | null }>(() => ({ menu: null }));
 
 export async function openHistoryMenu(tabId: string, direction: -1 | 1) {

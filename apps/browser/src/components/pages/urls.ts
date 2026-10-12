@@ -3,7 +3,7 @@ import { useBrowser } from "../../store/browser";
 import { activeTabId, resolveWindowId, viewTabIds } from "../../store/model";
 import type { Tab } from "../../store/types";
 
-export type InternalPageId = "history" | "bookmarks" | "downloads";
+type InternalPageId = "history" | "bookmarks" | "downloads";
 
 export const INTERNAL_PAGES: Record<InternalPageId, { title: string }> = {
   history: { title: "History" },
@@ -13,7 +13,7 @@ export const INTERNAL_PAGES: Record<InternalPageId, { title: string }> = {
 
 const SCHEME = "ardia://";
 
-export const internalUrl = (page: InternalPageId, query?: string) => `${SCHEME}${page}${query ? `?q=${encodeURIComponent(query)}` : ""}`;
+const internalUrl = (page: InternalPageId, query?: string) => `${SCHEME}${page}${query ? `?q=${encodeURIComponent(query)}` : ""}`;
 
 export function internalPageOf(url: string | null | undefined): InternalPageId | null {
   if (!url?.toLowerCase().startsWith(SCHEME)) return null;

@@ -183,7 +183,7 @@ function scheduleFlush(delay: number) {
   flushTimer = setTimeout(() => void flush(), due - Date.now());
 }
 
-export type RequestLogEntry = {
+type RequestLogEntry = {
   at: string;
   kind: "events" | "logs";
   url: string;
@@ -307,7 +307,7 @@ export async function flush() {
 
 // MARK: The user's choice
 
-export type SharingSource = "settings" | "onboarding" | "ask";
+type SharingSource = "settings" | "onboarding" | "ask";
 
 export function setSharing(on: boolean, source: SharingSource) {
   const now = Date.now();
@@ -339,7 +339,7 @@ export const dismissAsk = () => save({ askDoneAt: Date.now() });
 
 // MARK: Lifecycle
 
-export type PreviousSession = "clean" | "unclean" | "none";
+type PreviousSession = "clean" | "unclean" | "none";
 
 let loaded = false;
 
@@ -350,7 +350,7 @@ export function loadChoice() {
   useTelemetry.setState({ sharing: saved.sharing, decided: saved.decidedAt !== null, askDone: saved.askDoneAt !== null });
 }
 
-export type ClientSession = {
+type ClientSession = {
   previous: PreviousSession;
   updatedFrom: string | null;
   lastLaunchAt: number | null;
@@ -403,7 +403,7 @@ function variant() {
   return (8 + Math.floor(Math.random() * 4)).toString(16);
 }
 
-export function uuidv4() {
+function uuidv4() {
   const h = hex(29);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(12, 15)}-${variant()}${h.slice(15, 18)}-${h.slice(18, 29)}${hex(1)}`;
 }

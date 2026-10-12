@@ -59,7 +59,7 @@ export function useToolbarMode(tabId: string, windowId: string, enabled: boolean
   return toolbarMode({ enabled, hasPage, scrolledDown, peek, needsBar: appNeedsBar || popover || historyMenu });
 }
 
-export type ToolbarMotion = {
+type ToolbarMotion = {
   // 0: the full bar's band and controls, 1: the strip.
   bar: Animated.Value;
   // The controls' fade (0 shown), apart from the band so Reduce Motion can fade without moving anything.

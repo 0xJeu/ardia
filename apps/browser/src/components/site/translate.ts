@@ -7,7 +7,7 @@ import { incognitoOriginal, isIncognitoProfile } from "../../store/model";
 import { hideKeyedToast, showToast } from "../layout/splitActions";
 import { translatorCall, type Passage } from "./pageTranslator";
 
-export type TranslateState = {
+type TranslateState = {
   source: string | null;
   status: "idle" | "translating" | "translated";
   target: string | null;
@@ -27,7 +27,7 @@ const FOLLOW_MS = 600;
 const PROGRESS_AFTER_MS = 1200;
 const PROGRESS_TOAST = "translate-progress";
 
-export function baseLanguage(language: string): string {
+function baseLanguage(language: string): string {
   const [lang = "", second] = language.split(/[-_]/);
   if (lang.toLowerCase() === "zh") return second && /^(hant|tw|hk|mo)$/i.test(second) ? "zh-Hant" : "zh-Hans";
   return lang.toLowerCase();

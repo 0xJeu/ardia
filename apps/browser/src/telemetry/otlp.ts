@@ -1,7 +1,7 @@
 // OTLP/HTTP JSON log records for ardia.dev/otel/v1/logs.
 // Events keep their PostHog names so old and new data query the same.
 
-export type OtlpValue = { stringValue: string } | { intValue: string } | { doubleValue: number } | { boolValue: boolean };
+type OtlpValue = { stringValue: string } | { intValue: string } | { doubleValue: number } | { boolValue: boolean };
 export type OtlpAttribute = { key: string; value: OtlpValue };
 export type OtlpLogRecord = {
   timeUnixNano: string;
@@ -17,7 +17,7 @@ export const EVENTS_SCOPE = "ardia.analytics";
 export const LOGS_SCOPE = "ardia.app";
 
 // OTLP JSON has no nested values here: objects and arrays go as JSON text, int64 as a decimal string.
-export function otlpValue(value: unknown): OtlpValue | null {
+function otlpValue(value: unknown): OtlpValue | null {
   switch (typeof value) {
     case "string":
       return { stringValue: value };
@@ -33,7 +33,7 @@ export function otlpValue(value: unknown): OtlpValue | null {
   }
 }
 
-export function otlpAttributes(values: Record<string, unknown>): OtlpAttribute[] {
+function otlpAttributes(values: Record<string, unknown>): OtlpAttribute[] {
   const out: OtlpAttribute[] = [];
   for (const [key, v] of Object.entries(values)) {
     const value = otlpValue(v);

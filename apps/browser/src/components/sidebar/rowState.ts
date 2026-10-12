@@ -11,7 +11,7 @@ export const SELECTED = 2;
 export const PLAYING = 4;
 export const LOADING = 8;
 
-export function rowFlags(s: BrowserState, windowId: string, tabId: string): number {
+function rowFlags(s: BrowserState, windowId: string, tabId: string): number {
   const tab = s.tabs[tabId];
   const live = s.live[tabId];
   let flags = 0;

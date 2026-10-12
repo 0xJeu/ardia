@@ -23,7 +23,7 @@ export type HistorySlice = {
 export const MAX_HISTORY = 5000;
 export const MAX_VISIT_TIMES = 50;
 
-export function withoutVisitsSince(entry: HistoryEntry, since: number): HistoryEntry | null {
+function withoutVisitsSince(entry: HistoryEntry, since: number): HistoryEntry | null {
   if (entry.lastVisit < since) return entry;
   const times = entry.visitTimes?.length ? entry.visitTimes : [entry.lastVisit];
   const kept = times.filter((t) => t < since);

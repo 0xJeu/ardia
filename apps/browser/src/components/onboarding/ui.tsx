@@ -5,7 +5,7 @@ import { useTheme } from "../../lib/theme";
 import { useHover } from "../primitives";
 import { STEPS, useOnboarding, type OnboardingStep } from "./state";
 
-export function onboardingColors(dark: boolean) {
+function onboardingColors(dark: boolean) {
   return dark
     ? {
         background: "#000000",

@@ -38,7 +38,7 @@ export function importBookmarks(profileId: string, root: ImportedNode | undefine
   return linkCount([...toolbar, ...other]);
 }
 
-export function importSafariBookmarks(profileId: string, root: ImportedNode | undefined): number {
+function importSafariBookmarks(profileId: string, root: ImportedNode | undefined): number {
   return importBookmarks(profileId, root, "Safari");
 }
 
@@ -48,7 +48,7 @@ export function importHistory(profileId: string, entries: { url: string; title: 
   return (useBrowser.getState().history[profileId]?.length ?? 0) - before;
 }
 
-export async function importPasswords(profileId: string, credentials: Credential[]): Promise<number> {
+async function importPasswords(profileId: string, credentials: Credential[]): Promise<number> {
   let saved = 0;
   for (const c of credentials) {
     const origin = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)/i.exec(c.realm?.startsWith("http") ? c.realm : c.url)?.[1];

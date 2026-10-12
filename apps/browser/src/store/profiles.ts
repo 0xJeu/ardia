@@ -29,7 +29,7 @@ export const unusedProfileColor = (profiles: Record<string, Profile>): ProfileCo
 
 // MARK: Shared data
 
-export const dataIdOf = (profile: Profile) => profile.dataId ?? profile.id;
+const dataIdOf = (profile: Profile) => profile.dataId ?? profile.id;
 // The engine's profile id, as model.engineProfile maps it: the original profile's data is Chrome's default profile.
 export const engineIdOf = (profile: Profile) => (dataIdOf(profile) === DEFAULT_PROFILE_ID ? "" : dataIdOf(profile));
 

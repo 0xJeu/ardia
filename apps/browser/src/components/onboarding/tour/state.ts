@@ -16,7 +16,7 @@ export type TourStop = {
   pad?: number;
 };
 
-export const TOUR_STOPS: TourStop[] = [
+const TOUR_STOPS: TourStop[] = [
   {
     id: "commandBar",
     title: "Search or go anywhere",

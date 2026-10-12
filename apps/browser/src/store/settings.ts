@@ -134,7 +134,7 @@ export function searchUrlPrefix(settings: Settings): string {
   return defaultSearchEngine(settings).url;
 }
 
-export function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?: string): string | null {
+function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?: string): string | null {
   return validateEngine(input, searchEngines(settings), ignoreId);
 }
 

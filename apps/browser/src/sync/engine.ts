@@ -35,7 +35,7 @@ import {
   type ProfileRecord,
 } from "./adapters";
 
-export type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "settings";
+type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "settings";
 
 export const DATA_TYPES: { id: DataType; title: string; description: string }[] = [
   { id: "bookmarks", title: "Bookmarks", description: "Each synced profile’s bookmarks bar and other bookmarks." },
@@ -92,9 +92,9 @@ const emptyDoc = (): SyncDoc => ({
 
 export type SyncStatus = "off" | "starting" | "updating" | "updated" | "stalled" | "offline" | "locked" | "reset" | "unavailable";
 
-export type SyncedDevice = { id: string; name: string; lastSeen: number | null; current: boolean };
+type SyncedDevice = { id: string; name: string; lastSeen: number | null; current: boolean };
 export type RemoteTabs = { deviceId: string; name: string; tabs: { url: string; title: string }[] };
-export type RemoteProfile = { syncId: string; name: string; color: Profile["color"]; icon: string | null };
+type RemoteProfile = { syncId: string; name: string; color: Profile["color"]; icon: string | null };
 
 type SyncUi = {
   status: SyncStatus;
@@ -284,7 +284,7 @@ function profileAdapters(profileId: string, retiring: boolean): Adapter[] {
 
 // MARK: The cycle
 
-export function scheduleSync(delay = AFTER_EDIT_MS) {
+function scheduleSync(delay = AFTER_EDIT_MS) {
   if (!doc.enabled) return;
   clearTimeout(timer);
   timer = setTimeout(() => void runCycle(), delay);
@@ -434,7 +434,7 @@ export async function folderInfo(path?: string | null): Promise<FolderInfo | nul
   return (await SyncNative?.folderInfo(path ?? doc.folder ?? null)) ?? null;
 }
 
-export function setSyncFolder(path: string) {
+function setSyncFolder(path: string) {
   if (doc.enabled) return;
   doc.folder = path;
   save();

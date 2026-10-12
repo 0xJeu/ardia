@@ -4,7 +4,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, type St
 import { hex, useTheme, type Theme } from "../../lib/theme";
 import { useHover } from "../primitives";
 
-export function formColors(theme: Theme) {
+function formColors(theme: Theme) {
   return theme.dark
     ? {
         group: "rgba(255,255,255,0.045)",

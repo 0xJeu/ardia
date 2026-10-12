@@ -4,12 +4,12 @@ import type { SplitView } from "../../store/types";
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
-export const PANE_GAP = 7;
-export const MIN_PANE = 220;
+const PANE_GAP = 7;
+const MIN_PANE = 220;
 
 export type Divider = { kind: "root"; index: number; rect: Rect; vertical: boolean } | { kind: "stack"; rect: Rect; vertical: boolean };
 
-export type SplitGeometry = { panes: Record<string, Rect>; dividers: Divider[] };
+type SplitGeometry = { panes: Record<string, Rect>; dividers: Divider[] };
 
 function cut(total: number, sizes: number[], gap: number): { start: number; size: number }[] {
   const free = Math.max(0, total - gap * (sizes.length - 1));

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { perfProbeEnabled } from "../../lib/perfProbe";
 
-export type OmniboxDriver = {
+type OmniboxDriver = {
   type(text: string): void;
   clear(): void;
   key(key: string, mods?: { metaKey?: boolean; altKey?: boolean; shiftKey?: boolean; ctrlKey?: boolean }): void;
@@ -14,7 +14,7 @@ export type OmniboxDriver = {
 
 const drivers = new Map<string, OmniboxDriver>();
 
-export type OmniboxTrace = { bar: string; typed: string; heard: number; committed: number };
+type OmniboxTrace = { bar: string; typed: string; heard: number; committed: number };
 let trace: OmniboxTrace[] | null = null;
 
 export function traceOmnibox(entry: OmniboxTrace) {

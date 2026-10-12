@@ -8,9 +8,9 @@ export const DEFAULT_BROWSER_OFFER = "default-browser-offer.json";
 
 type Offer = { version: 1; askedAt: number | null };
 
-export type OfferOutcome = "none" | "testInstance" | "onboarding" | "alreadyDefault" | "asked";
+type OfferOutcome = "none" | "testInstance" | "onboarding" | "alreadyDefault" | "asked";
 
-export type OfferDeps = {
+type OfferDeps = {
   read(name: string): string | null;
   /** Resolves once it's on disk; rejects when it can't be written (then it never asks). */
   save(name: string, contents: string): Promise<void>;

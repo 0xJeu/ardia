@@ -138,7 +138,7 @@ export function playerTabFor(m: Pick<Store, "sessions" | "dismissed">, tabIds: s
 // page is in PiP, and a request for the video's would close the page's window.
 const PIP_STATE = 'post("result", JSON.stringify(!!document.pictureInPictureElement || !!window.documentPictureInPicture?.window))';
 
-export async function inPictureInPicture(tabId: string): Promise<boolean> {
+async function inPictureInPicture(tabId: string): Promise<boolean> {
   return (await webviews.get(tabId)?.evaluate<boolean>(PIP_STATE)) === true;
 }
 
@@ -150,7 +150,7 @@ export function exitPictureInPicture(tabId: string) {
   setPip(tabId, null);
 }
 
-export async function togglePictureInPicture(tabId: string): Promise<boolean> {
+async function togglePictureInPicture(tabId: string): Promise<boolean> {
   const view = webviews.get(tabId);
   if (!view) return false;
   if (useMedia.getState().pipOpen[tabId] || (await inPictureInPicture(tabId))) {
@@ -162,7 +162,7 @@ export async function togglePictureInPicture(tabId: string): Promise<boolean> {
   return ok;
 }
 
-export function setPip(tabId: string, kind: Store["pip"][string] | null) {
+function setPip(tabId: string, kind: Store["pip"][string] | null) {
   useMedia.setState((s) => {
     if ((s.pip[tabId] ?? null) === kind) return s;
     const pip = { ...s.pip };

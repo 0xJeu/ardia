@@ -33,7 +33,7 @@ const emptyFlat = (): Flat => ({ nodes: new Map(), children: new Map() });
 const cloneFlat = (f: Flat): Flat => ({ nodes: new Map(f.nodes), children: new Map([...f.children].map(([id, c]) => [id, [...c]])) });
 
 /** The store's tree under an engine profile's roots. A node reachable twice (a broken tree) counts once. */
-export function flatFromStore(b: Bookmarks, engine: string): Flat {
+function flatFromStore(b: Bookmarks, engine: string): Flat {
   const roots = rootIdsFor(engine);
   const flat = emptyFlat();
   const walk = (id: string, parent: string | null) => {
@@ -155,7 +155,7 @@ const keepsUrl = (url: string) => /^[a-z][a-z0-9+.-]*:./i.test(url);
  * `ops` applied to a tree as Chrome applies them (ac_bookmarks_apply): in order, stopping at the first that can't
  * apply. For merging the app's edits into a tree read from Chrome meanwhile.
  */
-export function applyOps(tree: Flat, ops: BookmarkOp[], engine: string): Flat {
+function applyOps(tree: Flat, ops: BookmarkOp[], engine: string): Flat {
   const flat = cloneFlat(tree);
   const detach = (id: string) => {
     const parent = flat.nodes.get(id)?.parent;

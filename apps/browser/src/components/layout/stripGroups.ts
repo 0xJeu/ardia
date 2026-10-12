@@ -12,14 +12,14 @@ export const GROUP_MARGIN_LEFT = 3.5;
 export const GROUP_MARGIN_RIGHT = 4;
 // Chip → first member, and the room after the last member: 4.5 collapsed, divider + close button expanded.
 export const MEMBERS_INSET = 6.5;
-export const TAIL_COLLAPSED = 4.5;
+const TAIL_COLLAPSED = 4.5;
 export const TAIL_EXPANDED = 30.25;
 // Both ways, the members and the container move on one spring: response 0.30 s, damping 0.82 (1 % overshoot,
 // settled in ~0.3 s). A tab tucked back into the group fades out in ~0.12 s.
 export const GROUP_SPRING = springParams(0.3, 0.82);
 export const TUCK_FADE_MS = 120;
 
-export type GroupLayout = { offsets: number[]; width: number };
+type GroupLayout = { offsets: number[]; width: number };
 
 /**
  * Member offsets from the first member's slot when expanded, and the container width. Collapsed, the shown

@@ -11,7 +11,7 @@ import { pageOf, usePages } from "../layout/pageState";
 import { useMedia, type TabShare } from "./state";
 import { CAPTURE_RED } from "./tokens";
 
-export const SHARE_BAR_HEIGHT = 38;
+const SHARE_BAR_HEIGHT = 38;
 
 const hostOf = (origin: string) => {
   try {

@@ -45,7 +45,7 @@ export function runSidebarCommand(command: BrowserCommand, arg: string | null, w
   return false;
 }
 
-export const SIDEBAR_WINDOW_COMMANDS = [
+const SIDEBAR_WINDOW_COMMANDS = [
   "newTabInGroup", "newGroupWithTabs", "cleanUpTabs", "searchTabs", "renameTab", "changeTabIcon", "returnToPinnedUrl", "tabSwitcher",
 ];
 

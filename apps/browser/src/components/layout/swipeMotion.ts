@@ -1,10 +1,10 @@
 
 // Dia: 72→82pt capsule, 14pt inset, 38pt rows.
-export const SWIPE_UNIT = 75;
+const SWIPE_UNIT = 75;
 export const CAPSULE_SIZE = 72;
 export const CAPSULE_SIZE_CONFIRMED = 82;
 export const CAPSULE_INSET = 14;
-export const RUBBER_COEFFICIENT = 0.15;
+const RUBBER_COEFFICIENT = 0.15;
 
 export function rubberBand(value: number, limit: number, dimension: number, c = RUBBER_COEFFICIENT) {
   if (value <= limit) return value;

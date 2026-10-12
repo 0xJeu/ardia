@@ -26,7 +26,7 @@ const PANES: Record<string, SettingsPane> = {
   advanced: "advanced",
 };
 
-export function settingsPaneOf(url: string): SettingsPane | "root" | null {
+function settingsPaneOf(url: string): SettingsPane | "root" | null {
   const route = appUrlRoute(url);
   if (route?.kind !== "settings") return null;
   return route.section === null ? "root" : (PANES[route.section.toLowerCase()] ?? null);

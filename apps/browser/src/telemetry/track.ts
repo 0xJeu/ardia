@@ -5,7 +5,7 @@ export type SuggestionType = "history" | "bookmark" | "tab" | "url" | "search" |
 
 type SuggestionLike = { kind: string; tabId?: string; bookmarked?: boolean; visited?: boolean } | undefined;
 
-export function suggestionType(s: SuggestionLike): SuggestionType {
+function suggestionType(s: SuggestionLike): SuggestionType {
   if (!s) return "typed";
   switch (s.kind) {
     case "page":

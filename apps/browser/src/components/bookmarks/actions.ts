@@ -6,7 +6,7 @@ import { useBrowser } from "../../store/browser";
 import { activeTabId, bookmarkProfileId, resolveWindowId, viewTabIds } from "../../store/model";
 import { originalProfile } from "../../store/small";
 
-export type OpenMode = "current" | "background" | "foreground" | "window" | "incognito" | "split";
+type OpenMode = "current" | "background" | "foreground" | "window" | "incognito" | "split";
 
 export function openModeFor(e: { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean; middle?: boolean }): OpenMode {
   if (e.metaKey || e.middle) return e.shiftKey ? "foreground" : "background";

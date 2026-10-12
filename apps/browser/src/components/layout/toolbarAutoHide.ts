@@ -9,7 +9,6 @@ import { DEFAULT_WINDOW_UI } from "../../store/ui";
 // The collapsed strip's height; the page gets the rest of the toolbar's back.
 export const STRIP_HEIGHT = 20;
 
-export type PageScroll = "down" | "up" | "top";
 export type ToolbarMode = "shown" | "collapsed" | "peek";
 
 type Store = {
@@ -56,7 +55,7 @@ export function setToolbarPeek(tabId: string, on: boolean) {
   });
 }
 
-export type ToolbarModeInput = {
+type ToolbarModeInput = {
   // The setting and a toolbar to hide (not the sidebar's address bar, Little Ardia or fullscreen).
   enabled: boolean;
   // A page with an address: the New Tab page and the app's own pages keep the bar.

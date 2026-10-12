@@ -6,7 +6,7 @@ const PAUSE_MS = 1500;
 const FADE = 12;
 const FADE_STEPS = 8;
 
-export type MarqueeGroup = {
+type MarqueeGroup = {
   progress: Animated.Value;
   report(key: string, overflow: number): void;
 };

@@ -25,7 +25,7 @@ const store = () => useBrowser.getState();
 
 // The pages the app's History, command bar and sync show: Chrome also keeps extension pages (a hidden helper's
 // chrome-extension:// page among them), which the app never listed.
-export const shownInHistory = (url: string) => /^(https?|file):/i.test(url);
+const shownInHistory = (url: string) => /^(https?|file):/i.test(url);
 
 const toEntry = (e: EngineHistoryEntry): HistoryEntry => ({
   url: e.url,

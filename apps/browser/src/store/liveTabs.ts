@@ -175,7 +175,7 @@ function withLook(s: BrowserState, id: string, look: StripGroup | undefined): Br
   return { ...s, groups: { ...s.groups, [id]: { ...g, name: look.title, color, collapsed: look.collapsed } } };
 }
 
-export type GroupStep = {
+type GroupStep = {
   keys: string[];
   group: string | null;
   title?: string;
@@ -315,7 +315,7 @@ function show(s: BrowserState, key: string): BrowserState {
   return next;
 }
 
-export type StripPlan = { keys: string[]; pinned: number; active: string | null };
+type StripPlan = { keys: string[]; pinned: number; active: string | null };
 
 /** What the store wants Chrome's strip to be: the store's tabs in it in the window's order, pinned ones first, and
  *  the tab the window shows for the profile in it. Null when none of its tabs is the store's. */

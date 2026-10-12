@@ -17,7 +17,7 @@ import { IconButton, useHover } from "./primitives";
 
 // MARK: Formatting
 
-export function formatBytes(n: number) {
+function formatBytes(n: number) {
   if (n < 0) return "";
   const units = ["B", "KB", "MB", "GB", "TB"];
   let i = 0;
@@ -57,7 +57,7 @@ g.__nnDownloadsWatch = useBrowser.subscribe((s, prev) => {
   }
 });
 
-export function toggleOpenWhenDone(id: string) {
+function toggleOpenWhenDone(id: string) {
   if (openWhenDone.has(id)) openWhenDone.delete(id);
   else openWhenDone.add(id);
 }
@@ -96,7 +96,7 @@ export async function downloadMenu(d: Download, windowId: string) {
   if (choice === "remove") useBrowser.getState().removeDownload(d.id);
 }
 
-export async function trashDownload(d: Download) {
+async function trashDownload(d: Download) {
   if (await moveToTrash(d.path)) useBrowser.getState().removeDownload(d.id);
 }
 
