@@ -1,5 +1,5 @@
 import { createContext, type CSSProperties, type ReactNode, useContext } from "react";
-import { AbsoluteFill, Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { useStudioObject } from "../studio-objects-v6";
 import footage from "./footage.json";
 import { type Aspect, BEAT, type Shot, type TypeLayer } from "./plan";
@@ -474,6 +474,3 @@ export function useShake(hits: number[], amount = 14) {
   }
   return { transform: `translate(${x}px, ${y}px)` };
 }
-
-export const interp = (b: number, input: number[], output: number[]) =>
-  interpolate(b, input, output, { extrapolateLeft: "clamp", extrapolateRight: "clamp" });

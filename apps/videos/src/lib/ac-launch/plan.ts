@@ -3,7 +3,6 @@
 // This file has no imports: scripts/studio-docs.mts reads it with Node's type stripping to write each video's
 // studio.json (the Remocn Studio document with every editable text and window).
 
-export const FPS = 30;
 export const BEAT = 14;
 export const f = (beat: number) => Math.round(beat * BEAT);
 
