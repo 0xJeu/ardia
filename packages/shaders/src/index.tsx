@@ -7,36 +7,6 @@ export type Rect = { x: number; y: number; width: number; height: number };
 
 export type AreaLightPalette = "blue" | "red" | "pink" | "orange" | "yellow" | "green" | "purple";
 
-export type AreaLightProps = ViewProps & {
-  source: Rect | null;
-  cornerRadius?: number;
-  palette?: AreaLightPalette | string[];
-  lift?: number;
-  intensity?: number;
-  falloff?: number;
-  tilt?: [number, number];
-  noiseSeed?: number;
-  introDelay?: number;
-  introDuration?: number;
-  replayKey?: number;
-};
-
-type NativeAreaLightProps = Omit<AreaLightProps, "source" | "palette"> & { shapeFrame: number[]; palette?: string[] };
-
-const NativeAreaLight = requireNativeViewManager<NativeAreaLightProps>("ArdiaAreaLight");
-
-export function AreaLight({ source, palette = "pink", ...props }: AreaLightProps) {
-  const shapeFrame = source ? [source.x, source.y, source.width, source.height] : [0, 0, 0, 0];
-  return (
-    <NativeAreaLight
-      pointerEvents="none"
-      {...props}
-      palette={typeof palette === "string" ? [palette] : palette}
-      shapeFrame={shapeFrame}
-    />
-  );
-}
-
 export type WindowBackdropProps = ViewProps & {
   colors: [string, string];
   vibrancy?: boolean;
@@ -54,43 +24,7 @@ export function WindowBackdrop({ angle = 180, grainOpacity = 0.09, grainScale = 
   return <NativeBackdrop pointerEvents="none" angle={angle} grainOpacity={grainOpacity} grainScale={grainScale} {...props} />;
 }
 
-export type EdgeLightProps = ViewProps & {
-  rectFrame: Rect;
-  cornerRadius?: number;
-  lightStart: { x: number; y: number };
-  lightEnd: { x: number; y: number };
-  lightColor?: string;
-  logoFrame?: Rect | null;
-  animationDuration?: number;
-  animationDelay?: number;
-};
-
-type NativeEdgeLightProps = ViewProps & {
-  rectFrame: number[];
-  cornerRadius?: number;
-  lightStart: number[];
-  lightEnd: number[];
-  lightColor?: string;
-  logoFrame?: number[];
-  animationDuration?: number;
-  animationDelay?: number;
-};
-
-const NativeEdgeLight = requireNativeViewManager<NativeEdgeLightProps>("ArdiaEdgeLight");
 const rect = (r: Rect) => [r.x, r.y, r.width, r.height];
-
-export function EdgeLight({ rectFrame, lightStart, lightEnd, logoFrame, ...props }: EdgeLightProps) {
-  return (
-    <NativeEdgeLight
-      pointerEvents="none"
-      {...props}
-      rectFrame={rect(rectFrame)}
-      lightStart={[lightStart.x, lightStart.y]}
-      lightEnd={[lightEnd.x, lightEnd.y]}
-      logoFrame={logoFrame ? rect(logoFrame) : [0, 0, 0, 0]}
-    />
-  );
-}
 
 export type PowerUpProps = ViewProps & {
   palette?: AreaLightPalette | string[];

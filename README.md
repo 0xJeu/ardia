@@ -64,12 +64,12 @@ Shortcuts: ⌘T new tab, ⌘L command bar, ⌘W close, ⇧⌘T reopen, ⌘S side
 
 Dia 1.50 turns this light off along with its rebrand (a painted mark, a single-colour power-up band
 and a halo around the bar; `docs/dia-spec.md` › "1.50 Sunglow"), and so does Ardia. The
-reconstruction stays in the tree.
+reconstruction left the tree with it: `git show f2c0e251:packages/shaders/ios/AreaLightView.swift`.
 
 These findings come from disassembling the Metal libraries in `Dia.app` (v1.49.1) with
 `xcrun metal-objdump`. `BoostBrowser_PowerUp.bundle/default.metallib` contains
 `breathingAreaLightFragment`, which the Swift class `NewTabPage.NewTabAreaLightView` hosts. The
-reconstruction is in `packages/shaders/ios/AreaLightView.swift`.
+reconstruction was `AreaLightView.swift` (above).
 
 - **The command bar is a light source.** Dia models the bar as a rounded-rectangle area light floating
   `lift` points above the page. Each pixel receives the closed-form irradiance of that rectangle: the

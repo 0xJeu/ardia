@@ -1,10 +1,9 @@
 import ExpoModulesCore
 
+// The Metal views' debug calls (docs/agent-brief.md), under the name of the area light the module first hosted.
 public class AreaLightModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaAreaLight")
-
-    Function("debugState") { AreaLightView.lastState }
 
     AsyncFunction("debugSetWindowActive") { (value: Bool?) in WindowActivity.override = value }.runOnQueue(.main)
     AsyncFunction("debugSetReduceMotion") { (value: Bool?) in WindowActivity.reduceMotionOverride = value }.runOnQueue(.main)
@@ -23,28 +22,6 @@ public class AreaLightModule: Module {
         ]
       }
     }.runOnQueue(.main)
-
-    View(AreaLightView.self) {
-      Prop("shapeFrame") { (view: AreaLightView, frame: [Double]) in
-        guard frame.count == 4 else { return }
-        view.params.shapeFrame = SIMD4(frame.map(Float.init))
-      }
-      Prop("cornerRadius") { (view: AreaLightView, v: Double) in view.params.cornerRadius = Float(v) }
-      Prop("palette") { (view: AreaLightView, value: [String]) in view.setPalette(value) }
-      Prop("lift") { (view: AreaLightView, v: Double) in view.params.lift = Float(v) }
-      Prop("intensity") { (view: AreaLightView, v: Double) in view.params.intensity = Float(v) }
-      Prop("falloff") { (view: AreaLightView, v: Double) in view.params.falloff = Float(v) }
-      Prop("tilt") { (view: AreaLightView, deg: [Double]) in
-        guard deg.count == 2 else { return }
-        view.params.tilt = SIMD2(Float(deg[0]), Float(deg[1])) * .pi / 180
-      }
-      Prop("noiseSeed") { (view: AreaLightView, v: Double) in view.params.noiseSeed = Float(v) }
-      Prop("introDelay") { (view: AreaLightView, v: Double) in view.params.introDelay = v }
-      Prop("introDuration") { (view: AreaLightView, v: Double) in view.params.introDuration = v }
-      Prop("replayKey") { (view: AreaLightView, _: Double) in view.replayIntro() }
-      OnViewDidUpdateProps { (view: AreaLightView) in view.redraw() }
-    }
-
   }
 }
 
@@ -65,24 +42,6 @@ public class WindowBackdropModule: Module {
       Prop("angle") { (view: WindowBackdropView, deg: Double) in view.setAngle(deg) }
       Prop("grainOpacity") { (view: WindowBackdropView, v: Double) in view.set(\.grainOpacity, Float(v)) }
       Prop("grainScale") { (view: WindowBackdropView, v: Double) in view.set(\.grainScale, Float(v)) }
-    }
-  }
-}
-
-public class EdgeLightModule: Module {
-  public func definition() -> ModuleDefinition {
-    Name("ArdiaEdgeLight")
-
-    View(EdgeLightView.self) {
-      Prop("rectFrame") { (view: EdgeLightView, v: [Double]) in if v.count == 4 { view.rectFrame = SIMD4(v.map(Float.init)) } }
-      Prop("cornerRadius") { (view: EdgeLightView, v: Double) in view.cornerRadius = Float(v) }
-      Prop("lightStart") { (view: EdgeLightView, v: [Double]) in if v.count == 2 { view.lightStart = SIMD2(v.map(Float.init)) } }
-      Prop("lightEnd") { (view: EdgeLightView, v: [Double]) in if v.count == 2 { view.lightEnd = SIMD2(v.map(Float.init)) } }
-      Prop("lightColor") { (view: EdgeLightView, hex: String) in if let c = SIMD4<Float>(hex: hex) { view.lightColor = c } }
-      Prop("logoFrame") { (view: EdgeLightView, v: [Double]) in if v.count == 4 { view.logoFrame = SIMD4(v.map(Float.init)) } }
-      Prop("animationDuration") { (view: EdgeLightView, v: Double) in view.animationDuration = Float(v) }
-      Prop("animationDelay") { (view: EdgeLightView, v: Double) in view.animationDelay = Float(v) }
-      OnViewDidUpdateProps { (view: EdgeLightView) in view.redraw() }
     }
   }
 }
