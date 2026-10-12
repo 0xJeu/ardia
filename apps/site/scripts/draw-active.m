@@ -1,9 +1,12 @@
-// The site's window captures (README › Screenshots): injected into a re-signed copy of a Debug Ardia.app, every
-// window draws as the active key window (coloured traffic lights, active materials) while the hidden instance stays
-// BackgroundOnly and never activates, and a session's 1440 × 900 pt frame isn't cut down to the screen's visible frame.
+// The site's window captures (README › Screenshots): injected into a re-signed copy of Ardia.app (Debug or a release
+// export), every window draws as the active key window (coloured traffic lights, active materials) while the hidden
+// instance stays BackgroundOnly and never activates, and a session's 1440 × 900 pt frame isn't cut down to the
+// screen's visible frame.
 //   clang -dynamiclib -fobjc-arc -framework AppKit -o draw-active.dylib draw-active.m && codesign -s - -f draw-active.dylib
 //   copy the app, add com.apple.security.cs.allow-dyld-environment-variables and …disable-library-validation to its
-//   entitlements, re-sign the bundle, then: scripts/agent/ac launch <copy> … --env DYLD_INSERT_LIBRARIES=<dylib>
+//   entitlements, re-sign the bundle (an export: its own Developer ID identity, --options runtime --timestamp=none),
+//   then, from its /private/tmp path (not /tmp, or `ac launch` can't match the pid):
+//   scripts/agent/ac launch <copy> … --env DYLD_INSERT_LIBRARIES=<dylib>
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 #include <string.h>

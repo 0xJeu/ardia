@@ -67,7 +67,7 @@ export const features: Feature[] = [
     title: "Work stays at work.",
     body: "Each profile keeps its own logins, history and colour. Swipe the sidebar to switch.",
     shots: [sideProject, work, personal],
-    alt: "Three Ardia windows, one per profile, each tinted in its colour with its name next to the window buttons: Side project in orange, Work in blue, Personal in plum.",
+    alt: "Three Ardia windows, one per profile, each tinted in its colour with its name next to the window buttons: Side project in orange, Work in blue and, in front, Personal in plum, its New Tab page showing the painted hills in plum.",
     caption: "Three profiles",
     focus: { x: 0, y: 0, zoom: 2.4, ratio: 0.8 },
   },
@@ -100,5 +100,6 @@ export const extras: { title: string; body: string }[] = [
   { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
   { title: "Knows your shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
   { title: "Updates itself", body: "In the background, then shows you what changed." },
+  { title: "Formerly Netnyahoo", body: "Same app, new name. The update brings your tabs, passwords and the rest along." },
   { title: "Sits still", body: "Idles under half a percent of CPU with a tab open." },
 ];
