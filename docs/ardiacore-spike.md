@@ -1,7 +1,8 @@
 # ArdiaCore spike: our own Chromium layer instead of CEF
 
-Spike for recommendation 5 of `docs/architecture-review.md` (sections B, C and G), run 2026-10-01 on the Chromium 154
-tree we build CEF from (`~/chromium-build`, branch 8037).
+Spike for the 2026-10-01 architecture review's recommendation 5 (in git history: `git show 2713787d:docs/architecture-review.md`),
+run 2026-10-01 on the Chromium 154 tree we then built CEF from (`~/chromium-build`, branch 8037). It shipped: the app
+runs on ArdiaCore since 0.2.22, and CEF left the tree in 0.2.31. Today's architecture is in `docs/agent-brief.md`.
 
 **Verdict: GO-WITH-CHANGES.** ArdiaCore works. Chrome's framework with a small layer of ours (about 3,200 lines)
 runs a plain AppKit app: two profiles in one window, popups that arrive as our own tabs with POST bodies intact,

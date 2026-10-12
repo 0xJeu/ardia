@@ -51,8 +51,7 @@ Removed, all in git history:
 - 2026-10-08: our 18 `cef-*.patch` to CEF's own tree (the CEF runtime's API the app used before ArdiaCore, `CEF_AC_*`).
 - After 0.2.19: `chromium-zz-extensions-page-uninstall.patch` (chrome://extensions uninstalled without Chrome's
   dialog), with the hidden chrome:// pages it served.
-- 0.2.0: `chromium-context-menu-hosted.patch`, with the hidden "ghost" Browser windows
-  (`docs/research/chrome-hosted-window.md`).
+- 0.2.0: `chromium-context-menu-hosted.patch`, with the hidden "ghost" Browser windows.
 
 ## Using it
 
@@ -151,7 +150,7 @@ Run `apply.sh` again after anything that resets these files (steps 1–4); `appl
 
 ## Our own code in the tree: `chrome/browser/ardia`
 
-New engine code is plain Chromium code in new files (`docs/architecture-review.md`, rec. 4). It lives in
+New engine code is plain Chromium code in new files. It lives in
 `//chrome/browser/ardia`, calls Chrome's services directly (`PasswordStoreInterface`, `PersonalDataManager`,
 `ExtensionRegistrar`, `HostZoomMap`, `TemplateURLService`, `HistoryService`…) and is exported as plain C from Chrome's
 framework.
