@@ -5,6 +5,7 @@ import { hex, useTheme } from "../lib/theme";
 import { useBrowser } from "../store/browser";
 import { useWindowId, useWindowUi } from "../store/hooks";
 import { activeTabId } from "../store/model";
+import { useStoreWhile } from "../store/tabWatch";
 import { usePage } from "./layout/pageState";
 import { useUrlAnchors } from "./layout/windowLayout";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
@@ -45,7 +46,8 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const { panel } = useWindowUi();
   // The active tab's id, and only while the panel is open: a closed panel doesn't re-render on tab switches.
   const activeId = useBrowser((s) => (panel.open ? activeTabId(s, windowId) : undefined));
-  const hasField = useBrowser((s) => !!(activeId && s.tabs[activeId]?.url));
+  // Only while the panel is open, as the line above: a closed panel's selector ran on every store update.
+  const hasField = useStoreWhile(useBrowser, panel.open, (s) => !!(activeId && s.tabs[activeId]?.url));
   const insecure = usePage(activeId, (p) => !!insecureLevel(p));
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
   if (!panel.open || !activeId || !anchor) return null;
