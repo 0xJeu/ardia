@@ -65,7 +65,7 @@ check("a web page loads", (await evaluate("document.title")) === "Example Domain
 
 // What became of the ad script's request while `run` ran, judged by the network: "blocked" when uBlock failed it
 // (ERR_BLOCKED_BY_CLIENT, as on CEF) or redirected it to its no-op stand-in inside the extension (uBOL's optimal mode
-// on ArcadiaCore: the stand-in loads, so the page's onload fires, but nothing left the browser), "loaded" when the ad
+// on ArdiaCore: the stand-in loads, so the page's onload fires, but nothing left the browser), "loaded" when the ad
 // server answered.
 const adScript = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
 async function adFate(run) {
@@ -102,7 +102,7 @@ const media = JSON.parse(
 check("H.264, AAC and WebGL2", media.every(Boolean), JSON.stringify(media));
 
 // A window's level as the app asked for it: a test instance sets each a band below normal so it stays behind the owner's
-// windows (ArcadiaCoreActivation.mm, "Behind the owner's windows"); older builds at the level itself.
+// windows (ArdiaCoreActivation.mm, "Behind the owner's windows"); older builds at the level itself.
 const level = (w) => (w.layer <= -1000000 + 2000 && w.layer > -2000000 ? w.layer + 1000000 : w.layer);
 const appWindows = () => windows().filter((w) => level(w) === 0 && w.w > 400 && w.h > 300);
 const [appWindow] = appWindows().filter((w) => w.alpha > 0);
@@ -265,7 +265,7 @@ check(
   logged ? `logged: ${logged.slice(0, 80)}` : menu ? `layer ${menu.layer}` : "no menu",
 );
 
-// smoke.sh launches with ARCADIA_PIP_SELFTEST=close: the app clicks Chrome's own close button (X) on the first
+// smoke.sh launches with ARDIA_PIP_SELFTEST=close: the app clicks Chrome's own close button (X) on the first
 // Picture in Picture window. Closing the mini player must leave the video playing (Chrome paused it).
 await go(`${pages}/video.html`);
 await send("Runtime.evaluate", { expression: "v.play().then(() => v.requestPictureInPicture())", awaitPromise: true, userGesture: true });
@@ -336,7 +336,7 @@ check("a page that stops responding is reported (Page Unresponsive)", !!hang, ha
 
 // ⌘T makes the new tab's page ahead, on about:blank under the New Tab page (lib/preload.ts), so Enter only navigates it.
 // That blank page must not stay in the tab's history: Back from the first page opened there has nowhere to go
-// (arcadiacore_api.mm loadURL replaces the blank entry). Before that fix Back landed on a raw about:blank.
+// (ardiacore_api.mm loadURL replaces the blank entry). Before that fix Back landed on a raw about:blank.
 const newTabId = await (async () => {
   const before = await instance.eval(`return ac.store.getState().tabs ? Object.keys(ac.store.getState().tabs) : [];`).catch(() => []);
   execFileSync(process.env.SMOKE_KEYS, [pid, "17", "c"]); // ⌘T
@@ -363,9 +363,9 @@ check("the first page opened from ⌘T has no Back (the prewarmed about:blank is
   newTabId ? `${newTabHistory ? newTabHistory.map((e) => e.url.replace(/^.*\//, "")).join(" → ") : "page never loaded"}; canGoBack ${newTabBack}` : "⌘T made no tab");
 if (newTabId) await instance.eval(`ac.store.getState().closeTab(${JSON.stringify(newTabId)}); return true;`).catch(() => null);
 
-// A link from another app (Discord, Mail; the app is the default browser) opens in Little Arcadia: a real GURL Apple Event
+// A link from another app (Discord, Mail; the app is the default browser) opens in Little Ardia: a real GURL Apple Event
 // to this instance's pid, as Launch Services sends it. 0.2.22 and 0.2.23 dropped every one (AppKit installed no GURL
-// handler: ArcadiaCoreHost.mm's bootstrap delegate came after -finishLaunching registered them).
+// handler: ArdiaCoreHost.mm's bootstrap delegate came after -finishLaunching registered them).
 const linkUrl = `${pages}/form.html?from-another-app`;
 const linkWindow = `const s = ac.store.getState();
   return Object.values(s.windows).find((w) => w.kind === "small" && s.tabs[w.tabIds[0]]?.url === ${JSON.stringify(linkUrl)})?.id ?? null;`;
@@ -380,8 +380,8 @@ try {
 } catch (error) {
   console.log(`note: ${error.message}`);
 }
-check("a link from another app (a GURL Apple Event) opens in Little Arcadia", !!linked && linkedPage,
-  linked ? `${linked}${linkedPage ? "" : ", but no page loaded"}` : "no Little Arcadia within 10 s");
+check("a link from another app (a GURL Apple Event) opens in Little Ardia", !!linked && linkedPage,
+  linked ? `${linked}${linkedPage ? "" : ", but no page loaded"}` : "no Little Ardia within 10 s");
 
 const failed = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

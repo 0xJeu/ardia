@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # Smoke test of a release build before publishing it.
 # usage: smoke.sh <version> <previous-version> [--rc]
-#   Tests dist/<version>/ (dist/<version>-rc/ with --rc). SMOKE_APP=<path to Arcadia.app> tests that build instead
+#   Tests dist/<version>/ (dist/<version>-rc/ with --rc). SMOKE_APP=<path to Ardia.app> tests that build instead
 #   (an engine change before it ships, say): the version arguments still drive the release-notes check, and the
 #   checks of the release's files (zip, DMG, appcast) are skipped.
 #
-# First what an update from <previous> depends on (dist/<previous>/export/Arcadia.app):
-# - the engine is ArcadiaCore (Chrome's framework, no CEF);
+# First what an update from <previous> depends on (dist/<previous>/export/Ardia.app):
+# - the engine is ArdiaCore (Chrome's framework, no CEF);
 # - Sparkle on <previous> would install it in place: same bundle id, executable, feed and EdDSA key, it satisfies
 #   <previous>'s designated requirement (Sparkle's code-signing check, and what the keychain and TCC trust), a higher
 #   build number, and the appcast's signature of the zip verifies with that key. Across the rename (<previous> is
-#   still com.netnyahoo.browser) the bundle id and executable change on purpose: then the feed and EdDSA key must stay,
+#   still com.netnyahoo.browser) the bundle id, executable and feed (netnyahoo.com → ardia.dev) change on purpose: then the EdDSA key must stay, both feeds must lead to the same appcast,
 #   the designated requirement must hold under the new id (same team and certificate), and Sparkle accepts the new
 #   identity on the unchanged key (update-test.sh shows it does);
 # - Gatekeeper accepts the app and the DMG as notarized and stapled;
 # - update-test.sh: <previous>'s Sparkle really updates a copy to this build (test copies, a local feed);
 # - carryover.sh: <previous>'s data, where an installed copy keeps it, opens in this build with nothing converted.
-# Then it launches the build hidden (ARCADIA_BACKGROUND=1: no Dock icon, never takes focus) with a throwaway data
-# dir that says <previous> ran last, so the after-update release-notes tab opens (ARCADIA_RELEASE_NOTES=1), and
+# Then it launches the build hidden (ARDIA_BACKGROUND=1: no Dock icon, never takes focus) with a throwaway data
+# dir that says <previous> ran last, so the after-update release-notes tab opens (ARDIA_RELEASE_NOTES=1), and
 # whose session has a window left on its second profile (each profile a Chrome window of its own: the window restores
 # as the Work profile's, Personal's made ahead off screen; Work shows its pinned tab). Runs smoke.mjs over CDP, checks
 # the browser's child processes are the bundle's own helpers, quits the app as ⌘Q and updates do and checks it exits
@@ -30,14 +30,14 @@ previous="${2:?usage: smoke.sh <version> <previous-version> [--rc]}"
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 here="$(cd "$(dirname "$0")" && pwd)"
 if [ "${3:-}" = --rc ]; then dist="$root/dist/$version-rc"; else dist="$root/dist/$version"; fi
-app="${SMOKE_APP:-$dist/export/Arcadia.app}"
+app="${SMOKE_APP:-$dist/export/Ardia.app}"
 # <previous>'s export, whatever it was called (0.2.32 and earlier: Netnyahoo.app).
 old="$(ls -d "$root/dist/$previous/export"/*.app 2>/dev/null | head -1)"
-old="${old:-$root/dist/$previous/export/Arcadia.app}"
+old="${old:-$root/dist/$previous/export/Ardia.app}"
 port="${SMOKE_CDP_PORT:-9398}"
 pages_port="${SMOKE_PAGES_PORT:-8798}"
 [ -d "$app" ] || { echo "error: no $app (run scripts/release.sh $version first)" >&2; exit 1; }
-[ "$(cd "$app" && pwd -P)" != /Applications/Arcadia.app ] || { echo "error: never the installed app (/Applications/Arcadia.app)" >&2; exit 1; }
+[ "$(cd "$app" && pwd -P)" != /Applications/Ardia.app ] || { echo "error: never the installed app (/Applications/Ardia.app)" >&2; exit 1; }
 for p in "$port" "$pages_port"; do
   if nc -z -G 2 127.0.0.1 "$p" 2>/dev/null; then
     echo "error: something already listens on port $p (SMOKE_CDP_PORT, SMOKE_PAGES_PORT)" >&2
@@ -65,7 +65,7 @@ cdhash() { codesign -dvvv "$1" 2>&1 | sed -n 's/^CDHash=//p'; }
 
 fw="$app/Contents/Frameworks"
 [ -d "$fw/Chromium Framework.framework" ] && [ ! -e "$fw/Chromium Embedded Framework.framework" ] && ok=1 || ok=0
-check "the engine is ArcadiaCore (Chrome's framework, no CEF)" $ok \
+check "the engine is ArdiaCore (Chrome's framework, no CEF)" $ok \
   "$(plutil -extract CFBundleShortVersionString raw "$fw/Chromium Framework.framework/Resources/Info.plist" 2>/dev/null)"
 if [ -d "$old" ]; then
   legacy_id="$(sed -n 's/^ *public static let bundleId = "\(.*\)"$/\1/p' "$root/packages/sync/ios/Core/LegacyMigration.swift")"
@@ -74,7 +74,8 @@ if [ -d "$old" ]; then
   [ -n "$legacy_id" ] && [ "$old_id" = "$legacy_id" ] && [ "$new_id" != "$legacy_id" ] && renamed=1
   if [ "$renamed" = 1 ]; then
     echo "      renamed: $old_id → $new_id, $(info "$old" CFBundleExecutable) → $(info "$app" CFBundleExecutable)"
-    keys="SUFeedURL SUPublicEDKey" what="same feed and update key as $previous (the rename keeps them)"
+    # The feed moves with the domain (netnyahoo.com → ardia.dev): both must lead to the same appcast, below.
+    keys="SUPublicEDKey" what="same update key as $previous (the rename keeps it)"
   else
     keys="CFBundleIdentifier CFBundleExecutable SUFeedURL SUPublicEDKey" what="same bundle id, executable, feed and update key as $previous"
   fi
@@ -83,6 +84,15 @@ if [ -d "$old" ]; then
     [ "$(info "$app" $key)" = "$(info "$old" $key)" ] || { same=0; echo "      $key: $(info "$old" $key) → $(info "$app" $key)"; }
   done
   check "$what" $same
+  if [ "$renamed" = 1 ]; then
+    # Copies still on <previous> ask its feed for good; this build asks its own. Both hosts serve the same nginx
+    # (infra/site/nginx.conf), which redirects to the latest release's appcast.
+    old_feed="$(info "$old" SUFeedURL)" new_feed="$(info "$app" SUFeedURL)"
+    to_old="$(curl -s -o /dev/null -m 15 -w '%{redirect_url}' "$old_feed" || true)"
+    to_new="$(curl -s -o /dev/null -m 15 -w '%{redirect_url}' "$new_feed" || true)"
+    [ -n "$to_new" ] && [ "$to_new" = "$to_old" ] && ok=1 || ok=0
+    check "$previous's feed and this build's lead to the same appcast" $ok "$old_feed → ${to_old:-nothing}; $new_feed → ${to_new:-nothing}"
+  fi
   old_dr="$(codesign -d -r- "$old" 2>&1 | sed -n 's/^designated => //p')"
   if [ "$renamed" = 1 ]; then
     # The keychain and TCC see a new app; what carries over is the team and certificate, under the new id.
@@ -98,8 +108,8 @@ if [ -d "$old" ]; then
 else
   check "$previous's export to compare with" 0 "no $old"
 fi
-zip="$dist/Arcadia-$version.zip"
-dmg="$dist/Arcadia-$version.dmg"
+zip="$dist/Ardia-$version.zip"
+dmg="$dist/Ardia-$version.dmg"
 if [ -z "${SMOKE_APP:-}" ]; then
   # What Sparkle downloads: the zip in the appcast, signed with the update key, holding this very app.
   for f in "$zip" "$dmg" "$dist/appcast.xml"; do [ -f "$f" ] || check "the release has $(basename "$f")" 0; done
@@ -178,7 +188,7 @@ codesign --verify --deep --strict "$app"
 # (a process-list diff once picked theirs and killed it at the end). It records the instance in data/instance.json,
 # which smoke.mjs attaches to; its own bundle's JS (--js none), as a release runs.
 launched="$("$root/scripts/agent/ac" launch "$app" --data "$work/data" --port "$port" --js none --no-wait \
-  --env ARCADIA_RELEASE_NOTES=1 --env ARCADIA_PIP_SELFTEST=close --switch --disable-backgrounding-occluded-windows)" \
+  --env ARDIA_RELEASE_NOTES=1 --env ARDIA_PIP_SELFTEST=close --switch --disable-backgrounding-occluded-windows)" \
   || { echo "error: the app didn't start" >&2; exit 1; }
 pid="$(sed -n 's/^pid \([0-9]*\) .*/\1/p' <<<"$launched")"
 [ -n "$pid" ] || { echo "error: the app didn't start ($launched)" >&2; exit 1; }
@@ -197,7 +207,7 @@ check "the browser's child processes are the bundle's own helpers (a renderer am
 
 # Quit it as ⌘Q and Sparkle's update do (the quit Apple event, to this instance only; SIGTERM skips
 # the app's own shutdown): it must be gone within 15 s, exit 0 and leave no crash report. 0.2.6 and
-# 0.2.7 crashed on every quit, so every update ended in "Arcadia quit unexpectedly".
+# 0.2.7 crashed on every quit, so every update ended in "Ardia quit unexpectedly".
 log stream --style compact --predicate "process == \"runningboardd\" AND eventMessage CONTAINS \":$pid]\" AND eventMessage CONTAINS \"termination reported\"" \
   > "$work/exit.log" 2>/dev/null &
 logger=$!
@@ -220,7 +230,7 @@ else
     exited="$(grep -o ">:$pid\] termination reported by launchd ([0-9, ]*)" "$work/exit.log" | head -1 | sed 's/.*launchd //' || true)"
     # Only reports written after the quit: pids get reused, and an old report can share this one's.
     report="$(find ~/Library/Logs/DiagnosticReports ~/Library/Logs/DiagnosticReports/Retired -maxdepth 1 \
-      -name 'Arcadia-*.ips' -newer "$work/quit-marker" -exec grep -l "\"pid\" : $pid," {} + 2>/dev/null | head -1 || true)"
+      -name 'Ardia-*.ips' -newer "$work/quit-marker" -exec grep -l "\"pid\" : $pid," {} + 2>/dev/null | head -1 || true)"
     [ -n "$report" ] && break
     [ "$exited" = "(0, 0, 0)" ] && break
   done
@@ -239,7 +249,7 @@ pid=""
 # Extension popups on this build's own bundle (a second hidden instance, a fixture extension): chrome.action.openPopup
 # from a service worker with no user gesture (1Password's call once its Mac app unlocks; 0.2.26 said "Browser window
 # has no toolbar."), and the popup's size following its page.
-node "$root/packages/arcadiacore/scripts/popup-check.mjs" "$app" "$work/popup-check" || status=1
+node "$root/packages/ardiacore/scripts/popup-check.mjs" "$app" "$work/popup-check" || status=1
 codesign --verify --deep --strict "$app" && echo "PASS  bundle still sealed after running" || { echo "FAIL  running the app changed its bundle"; status=1; }
 # The feed in this build's Info.plist answers (after publishing, feed.sh <version> checks it lists it).
 "$here/feed.sh" "$version" --before-publish "$app" || status=1
