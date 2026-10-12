@@ -18,10 +18,11 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   cause to fix (a lock, a wait, a hang), not just a restart. Send new feedback to the agent that owns
   that area (SendMessage) instead of starting a new one, and batch finished fixes into the next release.
 - **Ask Codex for a second opinion** on risky logic (races, lifetimes, security, migrations, sync) and reviews,
-  before and after the change. Use the CLI bundled with ChatGPT.app (Homebrew's rejects this model); stdin must be
-  `/dev/null` or it hangs; give it a deadline (`timeout 1500`) and run it in the background:
-  `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex exec -m gpt-6.1-sol -c model_reasoning_effort='"high"' -c service_tier='"priority"' -s read-only -o <out.md> "<what to check>" < /dev/null`.
-  It reads more than it runs: reproduce each finding before fixing it.
+  before and after the change. Ask a Codex subagent, not the CLI: T3's `delegate_task` with
+  `target: {providerInstanceId: "codex", model: "gpt-6.1-sol", options: {reasoningEffort: "high", serviceTier: "priority"}}`,
+  `role: "review"`, `mode: "async"`, and a new `clientRequestId` per round. Tell it to review only and edit
+  nothing, and give it the full brief each round (it doesn't share your context). It reads more than it runs:
+  reproduce each finding before fixing it.
 - **No git worktrees, ever.** Everyone works in this checkout.
 - **Commit straight to `main`.** Stage only your own hunks (`git add -p` or explicit paths), never
   someone else's work in progress. Never stage with `git apply --unidiff-zero`: it drops hunks into the wrong
