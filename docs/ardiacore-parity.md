@@ -213,8 +213,8 @@ counts its calls) on the media copy.
 | extension-window-focus | `chrome.windows.update(B, { focused: true })` asks AppKit to focus B and Chrome follows; back to A the same; `focused: false` changes nothing (Chrome on macOS) |
 | quiet-commands | Save Page on the split's unfocused pane (the call): no `tabs.onActivated`, Chrome's selection unchanged; DevTools docked there (Chrome selects the inspected tab itself, as in Chrome): the call stays put |
 
-The engine's own run (`spikes/ardiacore-host/acceptance.mjs`, 96 checks at 66a7e266) covers what the app's can't
-reach: beforeunload cancelling a close and a quit, Dock/logout quits, IME wiring, tab capture with "Share this tab
+The engine's own run (`spikes/ardiacore-host/acceptance.mjs`, 96 checks at 66a7e266; the host was deleted in e360995a,
+when it stopped compiling) covered what the app's can't reach: beforeunload cancelling a close and a quit, Dock/logout quits, IME wiring, tab capture with "Share this tab
 instead" and Stop sharing (`--auto-select-tab-capture-source-by-title`), the context menu's item click path,
 `closeNow` recording the closed tab.
 

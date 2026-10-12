@@ -2,7 +2,10 @@
 
 Spike for the 2026-10-01 architecture review's recommendation 5 (in git history: `git show 2713787d:docs/architecture-review.md`),
 run 2026-10-01 on the Chromium 154 tree we then built CEF from (`~/chromium-build`, branch 8037). It shipped: the app
-runs on ArdiaCore since 0.2.22, and CEF left the tree in 0.2.31. Today's architecture is in `docs/agent-brief.md`.
+runs on ArdiaCore since 0.2.22, and CEF left the tree in 0.2.31. Today's architecture is in `docs/agent-brief.md`. The
+spike's host app and its acceptance run are gone (e360995a; read them with `git show e360995a^:spikes/ardiacore-host/<file>`):
+the app's acceptance run (`packages/ardiacore/scripts/acceptance.mjs`) covers the engine. Only its test extension,
+`spikes/ardiacore-host/fixtures/ext`, stays.
 
 **Verdict: GO-WITH-CHANGES.** ArdiaCore works. Chrome's framework with a small layer of ours (about 3,200 lines)
 runs a plain AppKit app: two profiles in one window, popups that arrive as our own tabs with POST bodies intact,
@@ -269,9 +272,8 @@ scripts/agent/engine-build
 cd ~/chromium-build/chromium_git/chromium/src && PATH=$HOME/chromium-build/depot_tools:$PATH DEPOT_TOOLS_UPDATE=0 \
   ~/Documents/ardia/scripts/agent/locked chromium -- autoninja -C out/Release_GN_arm64 chrome_framework
 
-# Host app, signed, and the acceptance run:
-spikes/ardiacore-host/build.sh /tmp/ardiacore-host
-node spikes/ardiacore-host/acceptance.mjs /tmp/ardiacore-host/ACHost.app /tmp/ardiacore-acceptance
+# The app's acceptance run (the spike's host and its run were deleted in e360995a):
+node packages/ardiacore/scripts/acceptance.mjs <Debug app> <scratch dir> [check…]
 ```
 
 `apply.sh` must run again after anything resets the tree (steps 1–4 of `docs/engine-build.md`). (While CEF was in
