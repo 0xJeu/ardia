@@ -8,7 +8,7 @@ import { useIsActiveTab, usePageProfileId, useTab, useWindowId } from "../../sto
 import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "./actions";
-import { useDragItem } from "./dnd";
+import { useDragItem, useDropOnto } from "./dnd";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
 import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
@@ -36,14 +36,16 @@ export const TabRowItem = memo(function TabRowItem({
   const windowId = useWindowId();
   const selection = useSelection(windowId);
   const { wrapper, handle } = useDragItem(`t:${tabId}`, { kind: "row", tabIds: [tabId], section, parentGroup }, selection);
+  const onto = useDropOnto(`t:${tabId}`);
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <TabRow tabId={tabId} />
+      <TabRow tabId={tabId} onto={onto} />
     </Animated.View>
   );
 });
 
-export function TabRow({ tabId }: { tabId: string }) {
+// `onto`: a dragged tab would make a group with it.
+export function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const windowId = useWindowId();
@@ -80,7 +82,7 @@ export function TabRow({ tabId }: { tabId: string }) {
           >
             {({ pressed }) => (
               <Surface
-                fill={hex(!active && pressed ? theme.tabPressed : fill)}
+                fill={hex(onto || (!active && pressed) ? theme.tabPressed : fill)}
                 cornerRadius={10}
                 borderWidth={border}
                 borderColor={selected && !active ? hex(tokens.multiSelectedStroke) : undefined}

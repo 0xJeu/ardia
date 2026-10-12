@@ -35,6 +35,8 @@ type Item = ItemSpec & {
 type Drop =
   | { type: "tabs"; placement: TabPlacement }
   | { type: "group"; placement: { pinned: boolean; beforeId?: string | null } }
+  // Onto an ungrouped tab in the list: a new group of the two.
+  | { type: "onto"; targetId: string }
   | { type: "none" };
 
 // `landing`: let go, it settles into the item's place while the item stays hidden.
@@ -54,8 +56,8 @@ const measure = (view: View | null): Promise<Frame | null> =>
     ? new Promise((resolve) => view.measureInWindow((x, y, w, h) => resolve(w || h ? { x, y, w, h } : null)))
     : Promise.resolve(null);
 
-type Marks = { sources: Set<string>; dropInto: string | null; landing: string | null; pins: boolean };
-const NO_MARKS: Marks = { sources: new Set(), dropInto: null, landing: null, pins: false };
+type Marks = { sources: Set<string>; dropInto: string | null; onto: string | null; landing: string | null; pins: boolean };
+const NO_MARKS: Marks = { sources: new Set(), dropInto: null, onto: null, landing: null, pins: false };
 const noMarks = create<Marks>()(() => NO_MARKS);
 
 class DragController {
@@ -69,7 +71,6 @@ class DragController {
   // re-renders the items it hides or shows, not the whole list.
   marks = create<Marks>()(() => NO_MARKS);
   setSources = (sources: Set<string>) => this.marks.setState({ sources });
-  setDropInto = (dropInto: string | null) => this.marks.setState({ dropInto });
   setLanding = (landing: string | null) => this.marks.setState({ landing });
 
   private sources: Item[] = [];
@@ -81,6 +82,8 @@ class DragController {
   private pointer = { x: 0, y: 0 };
   private ghost: Ghost | null = null;
   private gapKey: string | null = null;
+  // The room open at gapKey.
+  private pitch = 0;
   // The collapsed group the drop goes into.
   private into: string | null = null;
   private dropKey = "";
@@ -183,7 +186,7 @@ class DragController {
     // layout before it): the room the list made for it, or its own place. A selection, a tile, or a drop into a
     // collapsed group or the pinned grid just shows in its place.
     const spot =
-      !splitDrop && this.measured && ghost && sources.length === 1 && sources[0]!.kind !== "tile" && !this.into
+      !splitDrop && this.measured && ghost && sources.length === 1 && sources[0]!.kind !== "tile" && !this.into && drop.type !== "onto"
         ? this.landingSpot(commit ? drop : { type: "none" })
         : null;
     if (commit && !splitDrop && this.measured && sources.length) {
@@ -191,6 +194,7 @@ class DragController {
       const ids = sources.flatMap((i) => i.tabIds);
       if (drop.type === "tabs") s.placeTabs(ids, drop.placement);
       else if (drop.type === "group" && sources[0]!.groupId) s.moveGroup(sources[0]!.groupId, drop.placement);
+      else if (drop.type === "onto") s.groupOnto(ids, drop.targetId);
     }
     // The gaps close as the store moves the items into them, in the same commit: nothing moves on screen.
     for (const i of this.items.values()) {
@@ -200,6 +204,7 @@ class DragController {
     for (const i of sources) i.size.stopAnimation();
     this.sources = [];
     this.gapKey = null;
+    this.pitch = 0;
     this.dropKey = "";
     this.drop = { type: "none" };
     this.into = null;
@@ -207,8 +212,7 @@ class DragController {
     this.measured = false;
     suppressHover(false);
     this.setSources(new Set());
-    this.setDropInto(null);
-    this.marks.setState({ pins: false });
+    this.marks.setState({ dropInto: null, onto: null, pins: false });
     if (!spot || !ghost) {
       this.token = null;
       this.setLanding(null);
@@ -308,6 +312,7 @@ class DragController {
     let gapKey: string | null = null;
     let pitch = rowPitch;
     let into: string | null = null;
+    let onto: string | null = null;
 
     const sidebar = this.viewport ?? this.rootFrame;
     const tiles = this.at(this.regionFrames.get("tiles") ?? null);
@@ -330,7 +335,7 @@ class DragController {
             const f = this.at(g.frame)!;
             const header = this.at(g.headerFrame);
             if (g.collapsed) return !!header && inside(header, x, y) && Math.abs(y - (header.y + header.h / 2)) < header.h / 3;
-            return inside(f, x, y) && (!header || y > header.y + header.h * 0.75);
+            return inside(f, x, y) && (!header || y > header.y + header.h / 2);
           })
         : undefined;
       if (box?.collapsed) {
@@ -341,6 +346,12 @@ class DragController {
         const before = members.find((m) => cy(m) > y);
         drop = { type: "tabs", placement: { pinned: false, groupId: box.groupId!, beforeId: firstTab(before) } };
         gapKey = before?.key ?? `tail:group:${box.groupId}`;
+      } else if ((onto = tabsDrag && this.dropKey ? this.ontoTarget(live, y) : null)) {
+        // The list stays as it is (the room it made doesn't move): the tab under the pointer lights up. Not as the drag
+        // begins: the room for it opens at its own place then, so the rows after it don't move.
+        drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
+        gapKey = this.gapKey;
+        pitch = this.pitch;
       } else {
         const list = this.at(this.regionFrames.get("list") ?? null);
         const pinned = source.kind === "group" && !!list && y < list.y;
@@ -360,6 +371,7 @@ class DragController {
       gapKey = null;
       into = null;
     }
+    if (drop.type !== "onto") onto = null;
 
     const key = JSON.stringify(drop);
     if (key === this.dropKey && gapKey === this.gapKey) return;
@@ -367,15 +379,30 @@ class DragController {
     this.dropKey = key;
     this.drop = drop;
     this.into = into;
-    this.setDropInto(into);
-    this.marks.setState({ pins: drop.type === "tabs" && drop.placement.pinned });
+    this.marks.setState({ dropInto: into, onto, pins: drop.type === "tabs" && drop.placement.pinned });
     if (gapKey !== this.gapKey) {
       const prev = this.gapKey && this.items.get(this.gapKey);
       if (prev) spring(prev.gap, 0).start();
       const next = gapKey && this.items.get(gapKey);
       if (next) spring(next.gap, pitch).start();
       this.gapKey = gapKey;
+      this.pitch = pitch;
     }
+  }
+
+  // The ungrouped tab in the list whose middle half is under the pointer where it shows now: moved up by the dragged
+  // rows that closed above it, down by the room open above it.
+  private ontoTarget(live: Item[], y: number): string | null {
+    const gap = this.gapKey ? this.items.get(this.gapKey) : undefined;
+    const pushes = gap?.frame && gap.section !== "tiles" ? gap.frame.y : Infinity;
+    for (const i of live) {
+      if (i.kind !== "row" || i.parentGroup || i.section !== "list") continue;
+      const f = this.at(i.frame)!;
+      let top = f.y + (pushes <= i.frame!.y ? this.pitch : 0);
+      for (const s of this.sources) if (s.kind !== "tile" && s.frame && s.frame.y < i.frame!.y) top -= s.frame.h + (s.parentGroup ? 0 : ROW_GAP);
+      if (y > top + f.h * 0.25 && y < top + f.h * 0.75) return i.key;
+    }
+    return null;
   }
 }
 
@@ -430,6 +457,8 @@ export function DragScope({ enabled, children }: { enabled: boolean; children: R
 
 export const useDragController = () => useContext(DragContext) ?? undefined;
 export const useDropInto = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.dropInto);
+/** The drop would group the dragged tabs with this item's tab. */
+export const useDropOnto = (key: string) => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.onto === key);
 /** The drop would pin the dragged tabs. */
 export const useDropPins = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.pins);
 

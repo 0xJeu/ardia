@@ -194,6 +194,11 @@ export function groupStep(s: BrowserState, strip: StripState, bound: GroupBindin
   const tabs = strip.tabs.filter((t): t is Keyed => known(s, t) && !t.pinned && !s.tabs[t.key]!.pinned);
   const looks = new Map((strip.groups ?? []).map((g) => [g.id, g]));
   const tokenOf = (id: string) => [...bound].find(([token, g]) => g === id && looks.has(token))?.[0];
+  // Tabs in a Chrome group that isn't their store group's leave it first: grouping others into that Chrome group
+  // while it still holds one would keep the wrong tab in it (Chrome ungroups tabs an arrange moves away from their
+  // group but the last, so a group can end up holding only a tab that left it).
+  const strays = tabs.filter((t) => t.group && t.group !== (groupOf(s, t.key) ? tokenOf(groupOf(s, t.key)!.id) : undefined));
+  if (strays.length) return { keys: strays.map((t) => t.key), group: null };
   const storeGroups = [...new Set(tabs.map((t) => groupOf(s, t.key)).filter((g) => !!g))];
   for (const g of storeGroups) {
     const keys = tabs.filter((t) => groupOf(s, t.key)?.id === g!.id).map((t) => t.key);
@@ -205,8 +210,7 @@ export function groupStep(s: BrowserState, strip: StripState, bound: GroupBindin
     const now = looks.get(token)!;
     if (now.title !== look.title || now.color !== look.color || now.collapsed !== look.collapsed) return { keys, group: token, ...look };
   }
-  const strays = tabs.filter((t) => t.group && t.group !== (groupOf(s, t.key) ? tokenOf(groupOf(s, t.key)!.id) : undefined));
-  return strays.length ? { keys: strays.map((t) => t.key), group: null } : null;
+  return null;
 }
 
 // The workspace window a strip belongs to: the one the engine names, else its tabs that stayed, else any tab of a

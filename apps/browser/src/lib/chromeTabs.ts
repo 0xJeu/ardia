@@ -115,7 +115,9 @@ function receive(tx: TabStripTransaction) {
         siblings,
         groups,
         pending: {
-          arranged: new Set(waiting?.kind === "arrange" ? waiting.keys : []),
+          // A group command moves its tabs too (Chrome puts a group's tabs together, an ungrouped tab after its old
+          // group), and the engine reports that as Chrome's own change: the store's places stand.
+          arranged: new Set(waiting?.kind === "arrange" || waiting?.kind === "group" ? waiting.keys : []),
           grouped: new Set(waiting?.kind === "group" ? waiting.keys : []),
           // The store's successor for a tab that closed gives way to a tab Chrome activated explicitly meanwhile
           // (an extension closing and activating in one go), as in Chrome.
@@ -154,26 +156,34 @@ function project(s: BrowserState) {
     const made = madeInFront.get(strip.strip);
     const unadopted = !!made && plan.active === made.over && strip.tabs.some((t) => t.browser === made.browser && t.active && !t.key);
     if (made && !unadopted) madeInFront.delete(strip.strip);
+    const step = groupStep(s, strip, groups);
+    const group = () => {
+      const { makes, ...rest } = step!;
+      send(strip.strip, "group", JSON.stringify(step), { op: "group", strip: strip.strip, ...rest }, makes);
+    };
     if (plan.active && plan.active !== actual.active && !unadopted) {
       // Chrome's active tab is gone from the store (it closed): the store's pick is a successor.
       const successor = !!actual.active && !s.tabs[actual.active];
       send(strip.strip, "activate", plan.active, { op: "activate", strip: strip.strip, key: plan.active }, undefined, successor);
+    } else if (step?.group === null && !sentAlready(strip.strip, "group", JSON.stringify(step))) {
+      // Tabs that left their group leave Chrome's before anything moves: Chrome keeps a group's tabs together, so a
+      // tab arranged between two of its tabs joins it (TabStripModel's group contiguity) and the arrange never lands.
+      // Tried already (Chrome refused), the arrange goes ahead.
+      group();
     } else if (order !== `${actual.keys.join(",")}|${actual.pinned}`) {
       send(strip.strip, "arrange", order, { op: "arrange", strip: strip.strip, keys: plan.keys, pinned: plan.pinned });
-    } else {
-      const step = groupStep(s, strip, groups);
-      if (step) {
-        const { makes, ...rest } = step;
-        send(strip.strip, "group", JSON.stringify(step), { op: "group", strip: strip.strip, ...rest }, makes);
-      }
-    }
+    } else if (step) group();
   }
 }
 
-function send(strip: number, kind: Kind, sig: string, command: TabStripCommand, makes?: string, successor?: boolean) {
-  const since = changedAt.get(strip) ?? 0;
+// The same command was sent since Chrome last changed the strip on its own: sending it again would change nothing.
+function sentAlready(strip: number, kind: Kind, sig: string) {
   const last = tried.get(`${strip}:${kind}`);
-  if (last?.sig === sig && last.since === since) return;
-  tried.set(`${strip}:${kind}`, { sig, since });
+  return last?.sig === sig && last.since === (changedAt.get(strip) ?? 0);
+}
+
+function send(strip: number, kind: Kind, sig: string, command: TabStripCommand, makes?: string, successor?: boolean) {
+  if (sentAlready(strip, kind, sig)) return;
+  tried.set(`${strip}:${kind}`, { sig, since: changedAt.get(strip) ?? 0 });
   inflight.set(strip, { kind, cmd: sendTabStripCommand(command), ...(command.op !== "activate" ? { keys: command.keys } : {}), makes, successor });
 }

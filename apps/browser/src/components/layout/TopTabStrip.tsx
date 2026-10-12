@@ -27,6 +27,7 @@ import {
   GROUP_MARGIN_RIGHT,
   GROUP_SPRING,
   groupLayout,
+  leaveIndex,
   MEMBERS_INSET,
   memberInteractive,
   moveIndex,
@@ -516,17 +517,18 @@ function useStripDrag(item: StripDrag) {
           const { local, drop, from, range, geometry } = latest.current;
           owns.current = false;
           // Over the page or out of the window: tabDrag.ts (a split, another window or a new one).
-          if ((!local && (endTabDrag() || lifted)) || from < 0) return reset();
+          if ((!local && (endTabDrag() || lifted)) || (from < 0 && !drop)) return reset();
           const travelled = range ? Math.max(range[0], Math.min(range[1], g.dx)) : g.dx;
           const ids = drag.current.ids;
           // Into or out of the pinned dock (its own drop), or a selection whose other tabs move too: its place isn't
           // along this row, so the store moves it now and it's simply there.
           if (!local) {
             const store = useBrowser.getState();
-            const moved = drop?.(travelled, ids) || (ids.length > 1 && reorder(ids, latest.current, g.dx));
+            const moved = drop?.(travelled, ids) || (from >= 0 && ids.length > 1 && reorder(ids, latest.current, g.dx));
             if (moved && useBrowser.getState() !== store) settleRoom(geometry);
             if (moved) return reset();
           }
+          if (from < 0) return reset();
           // PanResponder resets its gesture state after this handler: the drop's travel, kept for the landing.
           const at = g.dx;
           const to = dropIndex(geometry, from, at);
@@ -592,12 +594,39 @@ function withSelection(tabId: string): string[] {
   return s.windows[tab!.windowId]!.tabIds.filter((id) => selection.includes(id) && !!s.tabs[id]?.pinned === tab!.pinned);
 }
 
-function DraggableChip({ tabId, width, geometry, from, group, tuck }: { tabId: string; width: number; geometry: DragGeometry; from: number; group: string | null; tuck?: () => void }) {
+// A group's member in the strip: its group's slot among the strip's items (`top`), its chip's width, and the member's
+// left edge at rest, in `top`'s lefts.
+type GroupOut = { top: DragGeometry; slot: number; chip: number; expanded: boolean; left: number };
+
+function DraggableChip({
+  tabId,
+  width,
+  geometry,
+  from,
+  group,
+  tuck,
+  out,
+}: {
+  tabId: string;
+  width: number;
+  geometry: DragGeometry;
+  from: number;
+  group: string | null;
+  tuck?: () => void;
+  out?: GroupOut;
+}) {
   const active = useIsActiveTab(tabId);
   const strip = useContext(DockContext);
   // A tab outside groups may go on into the pinned dock, and is pinned there.
   const dock = !group && from >= 0 ? (strip?.dock ?? null) : null;
-  const range: [number, number] | undefined = dock ? [dock.left - geometry.lefts[from]!, dragRange(geometry, from)[1]] : undefined;
+  // A group's member may go on past its group, half a tab beyond the strip's ends, and leaves the group there.
+  const member = group && out && out.slot >= 0 ? out : null;
+  const stripEnd = member ? member.top.lefts.at(-1)! + member.top.slots.at(-1)!.width : 0;
+  const range: [number, number] | undefined = dock
+    ? [dock.left - geometry.lefts[from]!, dragRange(geometry, from)[1]]
+    : member
+      ? [member.top.lefts[0]! - member.left - width / 2, stripEnd - member.left - width / 2]
+      : undefined;
   const drag = useStripDrag({
     tabId,
     ids: () => withSelection(tabId),
@@ -609,6 +638,14 @@ function DraggableChip({ tabId, width, geometry, from, group, tuck }: { tabId: s
     gap: GAP,
     range,
     drop: (dx, ids) => {
+      if (member) {
+        const at = leaveIndex(member.top, member.slot, member.chip, member.expanded, member.left + dx, width);
+        if (at === null) return false;
+        // Before the first tab after its place that isn't moving along; none, the end.
+        const beforeId = member.top.slots.slice(at).flatMap((slot) => slot.tabIds).find((id) => !ids.includes(id)) ?? null;
+        useBrowser.getState().placeTabs(ids, { pinned: false, beforeId, groupId: null });
+        return true;
+      }
       if (!dock) return false;
       // Its leading edge decides, as along the strip (a tab is wider than the dock): past the last pinned tab's middle.
       const left = geometry.lefts[from]! + dx;
@@ -1027,6 +1064,7 @@ function StripGroup({
           // A collapsed group's shown tab has no neighbours to trade places with.
           from={expanded ? i : -1}
           tuck={tuckable && i === shown ? tuck : undefined}
+          out={{ top: geometry, slot: from, chip: chipSize, expanded, left: (geometry.lefts[from] ?? 0) + chipSize + MEMBERS_INSET + (expanded ? offsets[i]! : 0) }}
         />
       ))}
       <Animated.View pointerEvents={expanded ? "box-none" : "none"} mouseDownCanMoveWindow={false} style={{ position: "absolute", top: ITEM_TOP, height: ITEM_HEIGHT, left: tail, flexDirection: "row", alignItems: "center", opacity: fade }}>
@@ -1068,6 +1106,7 @@ function GroupMember({
   geometry,
   from,
   tuck,
+  out,
 }: {
   member: Member;
   width: number;
@@ -1079,6 +1118,7 @@ function GroupMember({
   geometry: DragGeometry;
   from: number;
   tuck?: () => void;
+  out: GroupOut;
 }) {
   // The shown member (the window's active tab while collapsed) fades in and out on its own: Dia's "–" fades the
   // tab back into the group while the tabs after it close the gap.
@@ -1102,7 +1142,7 @@ function GroupMember({
       {member.kind === "split" ? (
         <SplitChip tabIds={member.tabIds} width={width} geometry={geometry} from={from} group={member.group} />
       ) : (
-        <DraggableChip tabId={member.id} width={width} geometry={geometry} from={from} group={member.group} tuck={tuck} />
+        <DraggableChip tabId={member.id} width={width} geometry={geometry} from={from} group={member.group} tuck={tuck} out={out} />
       )}
     </Animated.View>
   );

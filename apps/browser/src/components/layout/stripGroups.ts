@@ -125,6 +125,29 @@ export function moveIndex(section: string[], tabId: string, slots: DragSlot[], f
   return to < others.length ? at : at + 1;
 }
 
+/**
+ * A group's member dragged along the strip (`left`: its left edge, in the strip's `lefts`) leaves the group once its
+ * leading edge passes the chip's centre, or the close button's (collapsed: the container's end). Returns the top
+ * slot it lands before (`slots.length`: the end), by its leading edge as along the strip; null while it stays in.
+ */
+export function leaveIndex({ slots, lefts }: DragGeometry, slot: number, chip: number, expanded: boolean, left: number, width: number): number | null {
+  const start = lefts[slot]!;
+  const end = start + slots[slot]!.width;
+  const right = left + width;
+  const centre = (i: number) => lefts[i]! + slots[i]!.width / 2;
+  if (left < start + chip / 2) {
+    let at = slot;
+    while (at > 0 && centre(at - 1) > left) at--;
+    return at;
+  }
+  if (right > (expanded ? end - TAIL_EXPANDED / 2 : end + MEMBERS_INSET)) {
+    let at = slot + 1;
+    while (at < slots.length && centre(at) < right) at++;
+    return at;
+  }
+  return null;
+}
+
 /** A member takes clicks when it's the tab shown after a collapsed group's chip, or once an open group has settled. */
 export function memberInteractive(shown: boolean, expanded: boolean, moving: boolean): boolean {
   return shown || (expanded && !moving);

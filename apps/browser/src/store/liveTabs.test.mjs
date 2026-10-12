@@ -190,12 +190,35 @@ class FakeChrome {
         if (command.title !== undefined) Object.assign(s.groups.get(token), { title: command.title, color: command.color });
         if (command.collapsed !== undefined) s.groups.get(token).collapsed = command.collapsed;
         this.regroup(s, keys, token);
-      } else for (const t of s.tabs) if (keys.includes(t.key)) t.group = null;
+      } else
+        for (const t of s.tabs.filter((t) => keys.includes(t.key) && t.group)) {
+          // Chrome's RemoveFromGroup: the tab goes out past its group's last tab.
+          const rest = s.tabs.filter((x) => x !== t);
+          const last = rest.findLastIndex((x) => x.group === t.group);
+          t.group = null;
+          if (last >= 0) (s.tabs = rest).splice(last + 1, 0, t);
+        }
+      // ac_tabs_group runs outside the command, so the engine reports its moves as Chrome's own first.
+      this.emit(command.strip, null);
       this.emit(command.strip, id);
     } else if (command.op === "arrange" && command.keys.some(has)) {
+      // One tab at a time, as the engine places them (MoveWebContentsAt): a tab put between two tabs of a group joins
+      // it, and a grouped tab moved away from its group leaves it unless it's the last (GetGroupToAssign).
       const listed = command.keys.filter(has).map((key) => s.tabs.find((t) => t.key === key));
-      listed.forEach((t, i) => (t.pinned = i < command.pinned));
-      s.tabs = [...listed, ...s.tabs.filter((t) => !listed.includes(t))];
+      listed.forEach((t, i) => {
+        t.pinned = i < command.pinned;
+        const from = s.tabs.indexOf(t);
+        if (from === i) return;
+        const [left, right] = (i > from ? [s.tabs[i], s.tabs[i + 1]] : [s.tabs[i - 1], s.tabs[i]]).map((x) => x?.group ?? null);
+        let group = t.group ?? null;
+        if (group !== left && group !== right) {
+          if (left && left === right) group = left;
+          else if (group && s.tabs.filter((x) => x.group === group).length > 1) group = null;
+        }
+        s.tabs.splice(from, 1);
+        s.tabs.splice(i, 0, t);
+        t.group = group;
+      });
       this.emit(command.strip, id);
     } else {
       this.outbox.push({ rev: ++this.rev, cmd: id, strips: [], rejected: true });
@@ -501,4 +524,72 @@ test("a switch while Chrome's new tab waits for the app wins; a parked tab Chrom
   S().activate(a);
   await settle();
   assert.equal(chromeShown(win.strip), "a");
+});
+
+test("a tab dropped onto a tab groups the two; a member dragged out leaves only its group, in Chrome too", async () => {
+  const win = windowWith("a", "b", "c", "d", "e");
+  const id = (u) => S().windows[win.w].tabIds.find((t) => urlOf(t) === u);
+  for (const u of ["a", "b", "c", "d", "e"]) S().activate(id(u));
+  await settle(win);
+  const chromeGroups = () => {
+    const strip = chrome.strips.get(win.strip);
+    const out = {};
+    for (const t of strip.tabs) if (t.group) (out[t.group] ??= []).push(urlOf(t.key));
+    return Object.values(out).sort();
+  };
+  const groups = () => Object.values(S().groups).map((g) => g.tabIds.map(urlOf)).sort();
+  // a onto d: a new group of d and a, in d's place.
+  const g = S().groupOnto([id("a")], id("d"));
+  await settle(win);
+  assert.deepEqual(order(win.w), ["b", "c", "d", "a", "e"]);
+  assert.deepEqual(groups(), [["d", "a"]]);
+  assert.equal(S().groups[g].pinned, false);
+  assert.deepEqual(chromeGroups(), [["d", "a"]]);
+  // A grouped tab, or one inside a group, isn't a target; neither is a pinned one.
+  assert.equal(S().groupOnto([id("b")], id("a")), "");
+  // b onto c, then a out of its group onto c's: a leaves d's group, which keeps d.
+  S().groupOnto([id("b")], id("c"));
+  await settle(win);
+  assert.deepEqual(groups(), [["c", "b"], ["d", "a"]]);
+  S().placeTabs([id("a")], { pinned: false, beforeId: null });
+  await settle(win);
+  assert.deepEqual(order(win.w), ["c", "b", "d", "e", "a"]);
+  assert.deepEqual(groups(), [["c", "b"], ["d"]]);
+  assert.deepEqual(chromeGroups(), [["c", "b"], ["d"]]);
+  // Its last member dragged out, the group is gone, in Chrome too; a group member dropped onto a tab leaves its group.
+  S().placeTabs([id("d")], { pinned: false, beforeId: id("c") });
+  S().groupOnto([id("b")], id("e"));
+  await settle(win);
+  assert.deepEqual(order(win.w), ["d", "c", "e", "b", "a"]);
+  assert.deepEqual(groups(), [["c"], ["e", "b"]]);
+  assert.deepEqual(chromeGroups(), [["c"], ["e", "b"]]);
+  assert.deepEqual(chromeOrder(win.strip), order(win.w));
+});
+
+test("a member dragged out of a pinned group, or onto a tab, reaches Chrome without the strip going round in circles", async () => {
+  const win = windowWith("a", "b", "g1", "g2", "g3");
+  const id = (u) => S().windows[win.w].tabIds.find((t) => urlOf(t) === u);
+  for (const u of ["a", "b", "g1", "g2", "g3"]) S().activate(id(u));
+  // New Group with Tabs makes a pinned group: it goes first.
+  S().groupTabs([id("g1"), id("g2"), id("g3")]);
+  await settle(win);
+  const groups = () => Object.values(S().groups).map((g) => g.tabIds.map(urlOf)).sort();
+  const chromeGroups = () => {
+    const out = {};
+    for (const t of chrome.strips.get(win.strip).tabs) if (t.group) (out[t.group] ??= []).push(urlOf(t.key));
+    return Object.values(out).sort();
+  };
+  assert.deepEqual(chromeOrder(win.strip), ["g1", "g2", "g3", "a", "b"]);
+  // g2 dropped between a and b: Chrome would put a between two of the group's tabs, where it joins the group.
+  S().placeTabs([id("g2")], { pinned: false, beforeId: id("b") });
+  await settle(win);
+  assert.deepEqual(order(win.w), ["g1", "g3", "a", "g2", "b"]);
+  assert.deepEqual(chromeOrder(win.strip), order(win.w));
+  assert.deepEqual(chromeGroups(), groups());
+  // g1 dropped onto a: a new group of a and g1; the pinned group keeps g3.
+  S().groupOnto([id("g1")], id("a"));
+  await settle(win);
+  assert.deepEqual(groups(), [["a", "g1"], ["g3"]]);
+  assert.deepEqual(chromeOrder(win.strip), order(win.w));
+  assert.deepEqual(chromeGroups(), groups());
 });

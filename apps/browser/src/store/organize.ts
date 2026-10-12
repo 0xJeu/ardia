@@ -32,6 +32,8 @@ export type OrganizeSlice = {
   setSiteMuted(tabId: string, muted: boolean): void;
 
   groupTabs(ids: string[], options?: { pinned?: boolean; name?: string }): string;
+  /** Tabs dropped onto an ungrouped tab in the list: a new group of that tab and them, in its place. */
+  groupOnto(ids: string[], targetId: string): string;
   moveGroup(groupId: string, placement: GroupPlacement): void;
   duplicateGroup(groupId: string): string;
   newTabInGroup(groupId: string): string;
@@ -481,6 +483,20 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
   groupTabs(ids, { pinned = true, name } = {}) {
     const [next, id] = withGroup(get(), ids, { pinned, name });
     if (id) set({ ...next, selection: { ...next.selection, [next.groups[id]!.windowId]: [] } });
+    return id;
+  },
+
+  groupOnto(ids, targetId) {
+    const s = get();
+    const target = s.tabs[targetId];
+    const w = target && s.windows[target.windowId];
+    if (!w || target.pinned || groupOf(s, targetId)) return "";
+    const moving = ids.filter((id) => id !== targetId && s.tabs[id]?.windowId === w.id && s.tabs[id]?.profileId === target.profileId);
+    if (!moving.length) return "";
+    // Right after the target, out of their own groups and pins, then grouped with it: one update.
+    const after = w.tabIds.slice(w.tabIds.indexOf(targetId) + 1).find((id) => !moving.includes(id)) ?? null;
+    const [next, id] = withGroup(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
+    if (id) set({ ...next, selection: { ...next.selection, [w.id]: [] } });
     return id;
   },
 
