@@ -51,7 +51,6 @@ import { STARS } from "../data/github";
           loading="eager"
           fetchpriority="high"
         />
-        <p class="stamp" aria-hidden="true"><span>No account</span></p>
       </div>
       <figcaption class="label stage-caption">
         <span>Fig. 1. The logo, oil on canvas</span>
@@ -154,7 +153,7 @@ import { STARS } from "../data/github";
     z-index: 2;
     width: min(100%, 560px);
   }
-  /* The painted logo, standing on the caption's rule. Room above it for the stamp. */
+  /* The painted logo, standing on the caption's rule. */
   .stage {
     position: relative;
     display: flex;
@@ -170,32 +169,6 @@ import { STARS } from "../data/github";
     object-fit: contain;
     object-position: 50% 100%;
     filter: drop-shadow(0 18px 22px rgb(32 63 50 / 0.16));
-  }
-  .stamp {
-    position: absolute;
-    right: 0;
-    top: clamp(8px, 2vh, 24px);
-    margin: 0;
-    transform: rotate(-9deg);
-    pointer-events: none;
-    font-family: var(--poster);
-    font-weight: 850;
-    font-stretch: 75%;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-size: clamp(0.85rem, 0.7rem + 0.5vw, 1.2rem);
-    color: var(--stamp);
-    border: 2.5px solid currentColor;
-    padding: 3px;
-    border-radius: 4px;
-    mix-blend-mode: multiply;
-    opacity: 0.9;
-  }
-  .stamp span {
-    display: block;
-    border: 1px solid currentColor;
-    padding: 5px 12px 4px;
-    border-radius: 2px;
   }
   .stage-caption {
     display: flex;
@@ -252,9 +225,6 @@ import { STARS } from "../data/github";
     }
     .stage-art {
       max-height: 46svh;
-    }
-    .stamp {
-      top: 6px;
     }
     .hint {
       display: none;
