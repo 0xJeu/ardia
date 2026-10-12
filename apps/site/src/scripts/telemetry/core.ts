@@ -16,7 +16,7 @@ import { parseUserAgent } from "./ua";
 
 export type Value = string | number | boolean | null | undefined | object;
 export type Props = Record<string, Value>;
-export interface CaptureOptions {
+interface CaptureOptions {
   /** Post now, with sendBeacon, because the page is about to go (an outbound link). */
   send_instantly?: boolean;
   /** When it happened (ms epoch), if not now. */
@@ -40,7 +40,7 @@ export function write(key: string, value: string, store: "local" | "session" = "
     (store === "local" ? localStorage : sessionStorage).setItem(key, value);
   } catch {}
 }
-export function readJSON<T>(key: string): T | null {
+function readJSON<T>(key: string): T | null {
   try {
     return JSON.parse(read(key) ?? "null") as T | null;
   } catch {
@@ -60,7 +60,7 @@ const environment = production ? "production" : "development";
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
 /** A UUIDv7: 48 bits of ms time, then random; sorts by time. */
-export function uuidv7(ms = Date.now()): string {
+function uuidv7(ms = Date.now()): string {
   const b = crypto.getRandomValues(new Uint8Array(16));
   for (let i = 5, t = ms; i >= 0; i--, t = Math.floor(t / 256)) b[i] = t % 256;
   b[6] = (b[6] & 0x0f) | 0x70;
@@ -362,7 +362,7 @@ function post(items: Queued[], beacon: boolean) {
 }
 
 /** Posts everything queued, in bodies small enough for a beacon. */
-export function flush(beacon = false) {
+function flush(beacon = false) {
   clearTimeout(timer);
   timer = 0;
   while (queue.length) {

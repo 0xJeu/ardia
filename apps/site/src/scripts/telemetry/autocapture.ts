@@ -38,7 +38,7 @@ function elementText(el: Element): string {
 const quote = (s: string) => s.replace(/"|\\"/g, '\\"');
 
 /** PostHog's elements_chain: `tag.class1.class2:attr="v"…;parent…`, attributes sorted, up to <body>. */
-export function elementsChain(target: Element): string {
+function elementsChain(target: Element): string {
   const parts: string[] = [];
   for (let el: Element | null = target; el && el !== document.documentElement; el = el.parentElement) {
     const tag = el.tagName.toLowerCase();

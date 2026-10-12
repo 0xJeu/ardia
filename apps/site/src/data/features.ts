@@ -16,7 +16,7 @@ import pipWebm from "../assets/shots/pip-loop.webm";
 // Every image here is a real capture of Ardia (see apps/site/README.md). Window shots are
 // ScreenCaptureKit captures of the window; `panel` shots are the app's own render of one view
 // (no window frame), used where a window capture wasn't possible.
-export interface Feature {
+interface Feature {
   id: string;
   title: string;
   /** One line. If it needs two, cut it. */

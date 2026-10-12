@@ -16,7 +16,7 @@ async function hash(key: string, id: string, salt: string): Promise<bigint> {
 }
 
 /** The variant PostHog would give this id, or null outside the rollout. */
-export async function bucket(key: FlagKey, id: string): Promise<string | null> {
+async function bucket(key: FlagKey, id: string): Promise<string | null> {
   const flag = FLAGS[key];
   if (flag.rollout < 100 && (await hash(key, id, "")) * 100n > BigInt(flag.rollout) * SCALE) return null;
   const h = (await hash(key, id, "variant")) * 100n;
@@ -29,7 +29,7 @@ export async function bucket(key: FlagKey, id: string): Promise<string | null> {
 }
 
 /** This visitor's variant, or null when there's none (silent build, no Web Crypto, outside the rollout). */
-export async function flagVariant(key: FlagKey): Promise<string | null> {
+async function flagVariant(key: FlagKey): Promise<string | null> {
   if (!enabled || !crypto?.subtle) return null;
   try {
     return await bucket(key, distinctId);

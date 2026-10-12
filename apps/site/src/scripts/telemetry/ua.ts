@@ -1,7 +1,7 @@
 // Browser, OS and device from the user agent, with PostHog's names and values ($browser "Mobile Safari",
 // $os "Mac OS X", $device_type "Desktop" …), so old and new events group the same way.
 
-export interface Device {
+interface Device {
   $browser: string;
   $browser_version: number | null;
   $os: string;

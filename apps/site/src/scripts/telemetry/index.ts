@@ -16,5 +16,5 @@ if (enabled) {
   startReplay();
 }
 
-export { capture, enabled, flush, type CaptureOptions, type Props } from "./core";
+export { capture } from "./core";
 export { getFeatureFlag } from "./flags";
