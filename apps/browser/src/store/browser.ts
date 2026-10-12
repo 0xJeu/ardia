@@ -104,7 +104,9 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       ...(data.profileOrder ?? []).filter((id) => profiles[id]),
       ...Object.keys(profiles).filter((id) => !data.profileOrder?.includes(id)),
     ];
-    const settings = { ...DEFAULT_SETTINGS, ...data.settings };
+    // What the session had is this Mac's say; what defaults fill in isn't (a session from before `chosen`: all it saved).
+    const saved = data.settings;
+    const settings = { ...DEFAULT_SETTINGS, ...saved, chosen: saved ? (saved.chosen ?? Object.keys(saved)) : [] };
     if (!profiles[settings.defaultProfileId]) settings.defaultProfileId = profileOrder[0]!;
 
     const rawWindows = data.windows ?? {};

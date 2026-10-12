@@ -58,6 +58,10 @@ export type Settings = {
 
   openLinksInLittleArdia: boolean;
   littleArdiaSize: [number, number];
+
+  // The settings this Mac has a say on: set here (not by sync), or saved in its session. Sync publishes only these
+  // (sync/adapters.ts): one filled in with its default at launch is no opinion.
+  chosen?: string[];
 };
 
 export const DEFAULT_PROFILE_ID = "default";
@@ -138,9 +142,17 @@ function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?:
   return validateEngine(input, searchEngines(settings), ignoreId);
 }
 
+/** `settings` with `patch` applied as a choice made on this Mac (`Settings.chosen`), for writes outside updateSettings. */
+export function choose(settings: Settings, patch: Partial<Settings>): Settings {
+  const chosen = settings.chosen ?? [];
+  const added = Object.keys(patch).filter((k) => k !== "chosen" && !chosen.includes(k));
+  return { ...settings, ...patch, ...(added.length ? { chosen: [...chosen, ...added] } : {}) };
+}
+
 export type SettingsSlice = {
   settings: Settings;
-  updateSettings(patch: Partial<Settings>): void;
+  /** `fromSync`: another Mac's choice, which doesn't make it this Mac's (`Settings.chosen`). */
+  updateSettings(patch: Partial<Settings>, options?: { fromSync?: boolean }): void;
   setSearchEngine(id: string): void;
   addCustomEngine(input: EngineInput): { id: string } | { error: string };
   updateCustomEngine(id: string, input: EngineInput): string | null;
@@ -152,8 +164,8 @@ const newEngineId = () => `engine-${Date.now().toString(36)}-${(++engineCounter)
 
 export const createSettingsSlice: StateCreator<BrowserState, [], [], SettingsSlice> = (set, get) => ({
   settings: DEFAULT_SETTINGS,
-  updateSettings(patch) {
-    set((s) => ({ settings: { ...s.settings, ...patch } }));
+  updateSettings(patch, { fromSync = false } = {}) {
+    set((s) => ({ settings: fromSync ? { ...s.settings, ...patch } : choose(s.settings, patch) }));
   },
 
   setSearchEngine(id) {

@@ -48,16 +48,18 @@ export const settingsAdapter: Adapter = {
   adoptRemoteOnJoin: true,
   extract: () => {
     const settings = store().settings;
-    // A setting this Mac holds no value for abstains: no record (it would read as an edit of the last one), and no
-    // deletion either, so another Mac's choice stands. Null is a value only where it is the setting's own.
+    // Only what this Mac has a say on goes out (Settings.chosen): a setting it holds no value for, or one filled in
+    // with its default at launch, would read as an edit of the last record and beat another Mac's choice. Null is a
+    // value only where it is the setting's own. Nothing is ever deleted: a key left out, or one this version doesn't
+    // know (a newer Mac's setting), keeps its record.
+    const chosen = new Set(settings.chosen ?? []);
     const values = new Map<string, unknown>();
-    const abstained = new Set<string>();
     for (const name of SYNCED_SETTINGS) {
       const value = settings[name] as unknown;
-      if (value === undefined || (value === null && DEFAULT_SETTINGS[name] !== null)) abstained.add(`set:${name}`);
-      else values.set(`set:${name}`, { v: value });
+      if (!chosen.has(name) || value === undefined || (value === null && DEFAULT_SETTINGS[name] !== null)) continue;
+      values.set(`set:${name}`, { v: value });
     }
-    return { values, ignore: (key) => abstained.has(key) };
+    return { values, ignore: (key) => !values.has(key) };
   },
   apply: (visible, changed) => {
     const patch: Record<string, unknown> = {};
@@ -71,7 +73,7 @@ export const settingsAdapter: Adapter = {
       if (value === undefined || (value === null && DEFAULT_SETTINGS[name as keyof Settings] !== null)) continue;
       patch[name] = value;
     }
-    if (Object.keys(patch).length) store().updateSettings(patch as Partial<Settings>);
+    if (Object.keys(patch).length) store().updateSettings(patch as Partial<Settings>, { fromSync: true });
   },
 };
 

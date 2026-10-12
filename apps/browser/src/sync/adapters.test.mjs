@@ -106,19 +106,27 @@ function assertTreeWhole(device) {
   });
 }
 
-test("settings: a Mac without a setting (nothing or null sent) leaves it as it is; a real null still applies", async () => {
+// A session saved by a build without these settings: hydrate fills them in with defaults, which are no say of this Mac's.
+const OLD_SESSION = (() => {
+  const { cmdClickCreatesTabGroup: _c, tabReorderHaptics: _t, chosen: _x, ...rest } = S().settings;
+  return { ...rest, cleanUpInactiveTabsAfterHours: null };
+})();
+const relaunch = (device, settings) =>
+  device.with(() => {
+    S().hydrate({ settings });
+    useBrowser.setState({ historyReady: { default: true }, bookmarksReady: { default: true } });
+  });
+
+test("settings: what a Mac only has by default isn't sent; nulls from another Mac are no say; Never and an explicit off apply", async () => {
   const folder = new Folder();
   const a = new Device("A", folder);
   const b = new Device("B", folder);
   b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true, tabReorderHaptics: true, cleanUpInactiveTabsAfterHours: 12 }));
-  // A build that predates them (or never had them set): its store holds no value for these.
-  a.with(() => {
-    const { cmdClickCreatesTabGroup: _c, tabReorderHaptics: _t, ...rest } = S().settings;
-    useBrowser.setState({ settings: { ...rest, cleanUpInactiveTabsAfterHours: null } });
-  });
+  relaunch(a, OLD_SESSION);
+  assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), true, "filled in at launch");
   const extraction = a.with(() => adapters.settingsAdapter.extract());
-  assert.ok(!extraction.values.has("set:cmdClickCreatesTabGroup") && extraction.ignore("set:cmdClickCreatesTabGroup"), "a missing boolean abstains");
-  assert.deepEqual(extraction.values.get("set:cleanUpInactiveTabsAfterHours"), { v: null }, "Never goes out");
+  assert.ok(!extraction.values.has("set:cmdClickCreatesTabGroup") && extraction.ignore("set:cmdClickCreatesTabGroup"), "a default filled in abstains");
+  assert.deepEqual(extraction.values.get("set:cleanUpInactiveTabsAfterHours"), { v: null }, "Never, saved, goes out");
   // What an older Mac's record says: null, or no value at all.
   const visible = new Map([...extraction.values, ["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}]]);
   b.with(() => adapters.settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
@@ -127,37 +135,61 @@ test("settings: a Mac without a setting (nothing or null sent) leaves it as it i
     assert.equal(S().settings.tabReorderHaptics, true);
     assert.equal(S().settings.cleanUpInactiveTabsAfterHours, null, "Never is a value of its own");
   });
-  // An explicit off from another Mac is still taken.
   b.with(() => adapters.settingsAdapter.apply(new Map([["set:cmdClickCreatesTabGroup", { v: false }]]), ["set:cmdClickCreatesTabGroup"]));
-  b.with(() => assert.equal(S().settings.cmdClickCreatesTabGroup, false));
+  b.with(() => assert.equal(S().settings.cmdClickCreatesTabGroup, false, "an explicit off is taken"));
 });
 
-test("settings: a joined Mac with no value (a legacy null baseline) doesn't overwrite another Mac's choice when it returns", async () => {
+test("settings: a joined Mac relaunched with a setting it never had doesn't overwrite another Mac's choice; its own reset does", async () => {
   const folder = new Folder();
   const a = new Device("A", folder);
   const b = new Device("B", folder);
   await syncAll([a, b]);
-  // A: an older build's store without the setting, and the null record it published then as its baseline.
-  a.with(() => {
-    const { cmdClickCreatesTabGroup: _c, ...rest } = S().settings;
-    useBrowser.setState({ settings: rest });
-  });
+  // A quits on an older build (no such setting; it published null then) and comes back on this one.
   a.scopes.app.base["set:cmdClickCreatesTabGroup"] = JSON.stringify({ v: null });
-  // While A is away, B turns it off on purpose.
+  relaunch(a, OLD_SESSION);
+  // Meanwhile B turns it off on purpose.
   b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: false }));
   await b.sync();
   await new Promise((r) => setTimeout(r, 20));
-  // A comes back later: it publishes before it pulls.
+  // A reconnects later: it publishes before it pulls.
   await syncAll([a, b]);
   assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), false);
   assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), false);
+  // A's user turns it back on (the default): a choice, sent.
+  await new Promise((r) => setTimeout(r, 20));
+  a.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true }));
+  await syncAll([a, b]);
+  assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), true);
   // Never (a real null) still round-trips.
   a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: 12 }));
-  b.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: 12 }));
   await syncAll([a, b]);
   a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: null }));
   await syncAll([a, b]);
   assert.equal(b.with(() => S().settings.cleanUpInactiveTabsAfterHours), null);
+});
+
+test("settings: a setting from a newer version survives an older Mac's syncs (no deletion)", async () => {
+  const folder = new Folder();
+  const a = new Device("A", folder);
+  const b = new Device("B", folder);
+  await syncAll([a, b]);
+  // B is newer: it has a setting A doesn't know.
+  const newer = {
+    ...adapters.settingsAdapter,
+    extract: () => {
+      const e = adapters.settingsAdapter.extract();
+      e.values.set("set:futureBool", { v: false });
+      return { values: e.values, ignore: (k) => !e.values.has(k) };
+    },
+  };
+  stub.current.device = "B";
+  useBrowser.setState(b.browser, true);
+  await syncScope({ scope: "app", state: b.scopes.app, transport: folder.transport(), adapters: [newer], clock: b.clock, device: "B" });
+  b.browser = S();
+  for (let i = 0; i < 3; i++) await a.sync();
+  assert.deepEqual(a.scopes.app.records["set:futureBool"]?.v, { v: false }, "A keeps it");
+  const tombstones = [...folder.files.values()].flatMap((f) => JSON.stringify(f.payload).match(/futureBool[^}]*null/g) ?? []);
+  assert.deepEqual(tombstones, [], "and never deletes it");
 });
 
 test("bookmarks: a folder deleted on one Mac while the other adds to it keeps the new bookmark", async () => {
