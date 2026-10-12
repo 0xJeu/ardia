@@ -17,7 +17,7 @@ import { closeHistoryMenu, goBack, goForward, historyItems, openHistoryMenu, use
 import { openModeFor, openUrl } from "./bookmarks/actions";
 import { closePane, openSplitPane, showSplitMenu } from "./layout/splitActions";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "./layout/toolbarColors";
-import { SIDEBAR_FIELD } from "./layout/windowLayout";
+import { setToolbarExtensionsWidth, SIDEBAR_FIELD } from "./layout/windowLayout";
 import { showUrlBarMenu } from "./omnibox/paste";
 import { useHover } from "./primitives";
 import { ToolbarExtensions, useToolbarExtensionsWidth } from "./extensions/ToolbarExtensions";
@@ -74,6 +74,8 @@ export function Toolbar({
   const band = useEasedColor(bare ? null : palette.background);
   const history = useHistoryAvailability(tabId);
   const extensionsWidth = useToolbarExtensionsWidth(windowId);
+  // The card's URL anchor (the command bar's frame) takes it from here (layout/windowLayout.ts).
+  useEffect(() => setToolbarExtensionsWidth(windowId, extensionsWidth), [windowId, extensionsWidth]);
   const dim = useRef(new Animated.Value(focused ? 1 : 0.5)).current;
   const dimmedFor = useRef(focused);
   useEffect(() => {

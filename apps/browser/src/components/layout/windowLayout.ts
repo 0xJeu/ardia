@@ -45,3 +45,12 @@ export function setUrlAnchor(windowId: string, anchor: UrlAnchor) {
   useUrlAnchors.setState({ [windowId]: anchor });
 }
 
+// The toolbar extensions' width in each window (all its toolbars lay out the same), as the toolbars publish it: the card
+// places the URL anchor from it without its own hooks on the stores it comes from, which ran a selector each on every
+// store update and re-rendered the card as extensions loaded.
+export const useToolbarExtensionsWidths = create<Record<string, number>>()(() => ({}));
+
+export function setToolbarExtensionsWidth(windowId: string, width: number) {
+  if (useToolbarExtensionsWidths.getState()[windowId] === width) return;
+  useToolbarExtensionsWidths.setState({ [windowId]: width });
+}

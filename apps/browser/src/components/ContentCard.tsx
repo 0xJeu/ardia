@@ -31,7 +31,7 @@ import { SplitEmptyState } from "./layout/SplitEmptyState";
 import { pagerFor } from "./layout/profilePager";
 import { openFromPage } from "./layout/openFromPage";
 import { dockMoving, useDockMotion } from "./layout/dockMotion";
-import { setUrlAnchor, useAddressBarInSidebar, useTabLayout } from "./layout/windowLayout";
+import { setUrlAnchor, useAddressBarInSidebar, useTabLayout, useToolbarExtensionsWidths } from "./layout/windowLayout";
 import { NewTabPage } from "./NewTabPage";
 import { InternalPage } from "./pages";
 import { AutofillPrompt, BlockedPopupsPrompt, ExternalAppPrompt, PasswordPrompt, PermissionPrompt, answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "./site/Prompts";
@@ -46,7 +46,6 @@ import { CastPicker } from "./media/CastPicker";
 import { DeviceChooser } from "./site/DeviceChooser";
 import { setNowPlaying, setPictureInPictureState } from "./media/state";
 import { Toolbar, urlFieldRight } from "./Toolbar";
-import { useToolbarExtensionsWidth } from "./extensions/ToolbarExtensions";
 import { AutoHideToolbar, useToolbarMode, useToolbarMotion } from "./AutoHideToolbar";
 import { noteScroll, revealToolbar } from "./layout/toolbarAutoHide";
 import { NavigationOverlays } from "./layout/SwipeOverlay";
@@ -203,14 +202,23 @@ export function ContentCard() {
   };
 
   const focusedRect = activeId ? panes[activeId] : undefined;
-  // The field's own width (the extensions and split buttons sit past it): the command bar covers all of it.
-  const extensionsWidth = useToolbarExtensionsWidth(windowId);
-  const fieldRight = urlFieldRight(!!split, extensionsWidth);
   useEffect(() => {
     if (!origin || !focusedRect || addressInSidebar || small) return;
     const g = geometryFor(focusedRect);
-    setUrlAnchor(windowId, { left: origin.x + focusedRect.x + g.urlLeft, top: origin.y + focusedRect.y, width: focusedRect.width - g.urlLeft - fieldRight });
-  }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, fieldRight]);
+    // The field's own width (the extensions and split buttons sit past it): the command bar covers all of it. The
+    // extensions' width as the toolbars publish it, read here and not through a hook: it changes as they load, which
+    // would re-render the card.
+    const place = (extensionsWidth = 0) =>
+      setUrlAnchor(windowId, {
+        left: origin.x + focusedRect.x + g.urlLeft,
+        top: origin.y + focusedRect.y,
+        width: focusedRect.width - g.urlLeft - urlFieldRight(!!split, extensionsWidth),
+      });
+    place(useToolbarExtensionsWidths.getState()[windowId]);
+    return useToolbarExtensionsWidths.subscribe((w, prev) => {
+      if (w[windowId] !== prev[windowId]) place(w[windowId]);
+    });
+  }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split]);
 
   // While the sidebar slides, the card's size changes every frame: a pane filling the card follows it by itself (flex),
   // and the card's own size (split rects, hidden panes, the URL bar's anchor) is taken once the motion ends, so the
