@@ -48,9 +48,9 @@ export function downloadStatus(d: Download, exists = true) {
 
 const openWhenDone = new Set<string>();
 
-const g = globalThis as { __nnDownloadsWatch?: () => void };
-g.__nnDownloadsWatch?.();
-g.__nnDownloadsWatch = useBrowser.subscribe((s, prev) => {
+const g = globalThis as { __acDownloadsWatch?: () => void };
+g.__acDownloadsWatch?.();
+g.__acDownloadsWatch = useBrowser.subscribe((s, prev) => {
   if (s.downloads === prev.downloads || !openWhenDone.size) return;
   for (const d of s.downloads) {
     if (d.state !== "downloading" && openWhenDone.delete(d.id) && d.state === "finished") void openFile(d.path);

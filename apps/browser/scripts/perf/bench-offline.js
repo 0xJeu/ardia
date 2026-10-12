@@ -17,4 +17,4 @@ if (readDocument("bench-offline") !== null) {
   };
 }
 
-globalThis.__nnBlockedFetches = () => blocked.slice();
+globalThis.__acBlockedFetches = () => blocked.slice();

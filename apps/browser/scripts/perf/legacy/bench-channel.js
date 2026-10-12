@@ -20,7 +20,7 @@ const ac = {
   webviews,
   shell,
   now: () => Date.now(),
-  blockedFetches: () => globalThis.__nnBlockedFetches?.() ?? [],
+  blockedFetches: () => globalThis.__acBlockedFetches?.() ?? [],
   pause(ms) {
     pausedUntil = Date.now() + ms;
   },

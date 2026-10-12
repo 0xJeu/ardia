@@ -76,8 +76,8 @@
 // Sections (MARK:)
 //   Probes          nnperf() runs nnperf.swift (rusage, waitwindow, newwindow, quit); markerLibrary() builds nnmark.m;
 //                   usage(), usageDelta(), footprint(): CPU, wakeups and phys_footprint per process kind
-//   Test pages      PAGE_SCRIPT (window.__nn: fcp, frame, visibility, shown), staticPage, animPage, the local server
-//   CDP             Cdp: page targets and their window.__nn
+//   Test pages      PAGE_SCRIPT (window.__ac: fcp, frame, visibility, shown), staticPage, animPage, the local server
+//   CDP             Cdp: page targets and their window.__ac
 //   App instances   prepareApp (copy, bundle, marker entitlements, re-sign), buildBundle, Instance (hidden `open -g -n`
 //                   launch, the bench-cmd.js → bench-result.json channel of bench-channel.js, marks(), quit)
 //   Phases          makeTemplate (the seeded data folder each run copies), launchRun, sessionRun, windowsRun, newWindow,
@@ -274,20 +274,20 @@ const footprint = (snap) => {
 // MARK: Test pages
 
 const PAGE_SCRIPT = `
-window.__nn = { vis: [[Date.now(), document.visibilityState]], shown: [], fcp: null, frame: null, ticks: 0, raf: 0, fast: 0 };
+window.__ac = { vis: [[Date.now(), document.visibilityState]], shown: [], fcp: null, frame: null, ticks: 0, raf: 0, fast: 0 };
 // The page's first frame (its first animation frame starts): the same event in every build. First contentful paint
 // isn't: CEF (0.2.21) stamps it with that frame's start, Chrome (ArdiaCore) with the frame on screen, ~a frame later.
-requestAnimationFrame(() => (__nn.frame = Date.now()));
+requestAnimationFrame(() => (__ac.frame = Date.now()));
 new PerformanceObserver((list) => {
-  for (const e of list.getEntries()) if (e.name === "first-contentful-paint") __nn.fcp = performance.timeOrigin + e.startTime;
+  for (const e of list.getEntries()) if (e.name === "first-contentful-paint") __ac.fcp = performance.timeOrigin + e.startTime;
 }).observe({ type: "paint", buffered: true });
 document.addEventListener("visibilitychange", () => {
   const t = Date.now();
-  __nn.vis.push([t, document.visibilityState]);
+  __ac.vis.push([t, document.visibilityState]);
   if (document.visibilityState === "visible")
-    requestAnimationFrame(() => requestAnimationFrame(() => __nn.shown.push([t, Date.now()])));
+    requestAnimationFrame(() => requestAnimationFrame(() => __ac.shown.push([t, Date.now()])));
 });
-setInterval(() => __nn.ticks++, 1000);
+setInterval(() => __ac.ticks++, 1000);
 `;
 
 function staticPage(id) {
@@ -306,8 +306,8 @@ function animPage(id) {
   return `<!doctype html><meta charset=utf-8><title>Anim ${id}</title>
 <style>@keyframes s{to{transform:rotate(360deg)}}.s{width:80px;height:80px;background:#c35;animation:s 1s linear infinite;margin:40px}</style>
 <h1>Anim ${id}</h1><div class=s></div><script>${PAGE_SCRIPT}
-(function f(){ __nn.raf++; requestAnimationFrame(f); })();
-setInterval(() => __nn.fast++, 16);</script>`;
+(function f(){ __ac.raf++; requestAnimationFrame(f); })();
+setInterval(() => __ac.fast++, 16);</script>`;
 }
 
 function startServer() {
@@ -364,7 +364,7 @@ class Cdp {
   }
   async state(target) {
     const r = await this.send(target, "Runtime.evaluate", {
-      expression: "JSON.stringify(Object.assign({}, window.__nn, { visibility: document.visibilityState }))",
+      expression: "JSON.stringify(Object.assign({}, window.__ac, { visibility: document.visibilityState }))",
       returnByValue: true,
     }).catch(() => null);
     try {

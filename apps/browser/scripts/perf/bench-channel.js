@@ -23,7 +23,7 @@ const ac = {
   // The field timing's own view (telemetry/journeys.ts): pending journeys, the steps it has timed, the native marks.
   journeys: devJourneys,
   telemetry: telemetryState,
-  blockedFetches: () => globalThis.__nnBlockedFetches?.() ?? [],
+  blockedFetches: () => globalThis.__acBlockedFetches?.() ?? [],
   // The New Tab page's prewarm (src/lib/preload.ts).
   get preload() {
     return require("../../src/lib/preload");

@@ -148,14 +148,14 @@ export function afterHeldReports(emitter: Emitter, { flush, batch }: Hold) {
 
 // Installed once per JS context (a Fast Refresh evaluates this module again): the flush lives on the global.
 const g = globalThis as unknown as {
-  __nnApplyHeldReports?: () => void;
+  __acApplyHeldReports?: () => void;
   __fbBatchedBridge?: Bridge;
   expo?: { EventEmitter?: { prototype: Emitter } };
   ErrorUtils?: { reportFatalError(error: unknown): void };
 };
 const bridge = g.__fbBatchedBridge;
 const emitter = g.expo?.EventEmitter?.prototype;
-if (!g.__nnApplyHeldReports && bridge && emitter && typeof bridge.__callFunction === "function" && typeof bridge.__invokeCallback === "function") {
+if (!g.__acApplyHeldReports && bridge && emitter && typeof bridge.__callFunction === "function" && typeof bridge.__invokeCallback === "function") {
   // Required here, not imported: tests load this module without React Native.
   const batch = (update: () => void) => (require("react-native") as typeof import("react-native")).unstable_batchedUpdates(update);
   // A 0 ms timer runs at once on the JS thread (RCTTiming), so its call queues behind the ones already waiting.
@@ -163,11 +163,11 @@ if (!g.__nnApplyHeldReports && bridge && emitter && typeof bridge.__callFunction
   const held = createHold({ batch, transaction, schedule: (callback) => setTimeout(callback, 0), report: (error) => g.ErrorUtils?.reportFatalError(error) });
   holdPageReports(bridge, held);
   afterHeldReports(emitter, held);
-  g.__nnApplyHeldReports = held.flush;
+  g.__acApplyHeldReports = held.flush;
 }
 
 /**
  * Applies held page reports now. JSI settles native promises without passing the bridge, so code that decides from
  * a page's live state after awaiting the engine (may this tab sleep? close it?) calls this first.
  */
-export const applyHeldReports = () => g.__nnApplyHeldReports?.();
+export const applyHeldReports = () => g.__acApplyHeldReports?.();

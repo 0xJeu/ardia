@@ -524,7 +524,7 @@ function writePopupExtension({ welcome = false } = {}) {
     }),
     "popup.html": `<!doctype html><title>Popup fixture</title><body style="width: 200px; height: 80px">popup</body>`,
     "options.html": `<!doctype html><title>Popup fixture options</title><body>options</body>`,
-    "standin.js": "window.__nnStandIn = true;",
+    "standin.js": "window.__acStandIn = true;",
     "worker.js": welcome ? `chrome.runtime.onInstalled.addListener((d) => { if (d.reason === "install") chrome.tabs.create({ url: "${base}/e?installed" }); });` : "",
     "rules.json": JSON.stringify([
       { id: 1, priority: 1, action: { type: "block" }, condition: { urlFilter: "nnblock-", resourceTypes: ["image", "script", "xmlhttprequest"] } },
@@ -578,10 +578,10 @@ const browserOf = (tabId) => evalApp(`return ac.pageState.getState().browsers ? 
 async function pageFor(tabId, urlPart) {
   const candidates = (await targets()).filter((t) => t.type === "page" && t.url.includes(urlPart));
   if (candidates.length <= 1) return candidates[0];
-  await evalApp(`return ac.webviews.get(${JSON.stringify(tabId)})?.executeJavaScript(${JSON.stringify(`window.__nnTab = ${JSON.stringify(tabId)}`)})`);
+  await evalApp(`return ac.webviews.get(${JSON.stringify(tabId)})?.executeJavaScript(${JSON.stringify(`window.__acTab = ${JSON.stringify(tabId)}`)})`);
   await sleep(200);
   for (const t of candidates) {
-    const r = await cdp(t, "Runtime.evaluate", { expression: "String(window.__nnTab)", returnByValue: true }).catch(() => null);
+    const r = await cdp(t, "Runtime.evaluate", { expression: "String(window.__acTab)", returnByValue: true }).catch(() => null);
     if (r?.result?.value === tabId) return t;
   }
   return candidates[0];
@@ -1207,16 +1207,16 @@ try {
   await check("bluetooth-chooser", async () => {
     // A Bluetooth chooser's device list in the app's sheet: the app's Scan again (refreshDeviceChooser) asks Chrome to
     // rescan and the list comes back; its pick (selectDevice) answers the page's side with that device.
-    await evalApp(`globalThis.__nnChooser = []; globalThis.__nnChooserSub?.remove();
-      globalThis.__nnChooserSub = globalThis.expo.modules.ArdiaChromeUI.addListener("onDeviceChooser", (e) => globalThis.__nnChooser.push(e)); return true`);
+    await evalApp(`globalThis.__acChooser = []; globalThis.__acChooserSub?.remove();
+      globalThis.__acChooserSub = globalThis.expo.modules.ArdiaChromeUI.addListener("onDeviceChooser", (e) => globalThis.__acChooser.push(e)); return true`);
     try {
       const before = (await chooserEvents()).length;
       const chooser = await bluetoothChooser(false);
-      const sent = (await evalApp(`return globalThis.__nnChooser`)).length;
+      const sent = (await evalApp(`return globalThis.__acChooser`)).length;
       await chromeUI(`refreshDeviceChooser(${chooser.id}).then(() => true)`);
       const rescan = await until("Chrome's rescan", async () => (await chooserEvents()).slice(before).find((e) => e.event === "rescan") ?? null, 5000);
       const refreshed = await until("the list sent again", async () => {
-        const list = await evalApp(`return globalThis.__nnChooser`);
+        const list = await evalApp(`return globalThis.__acChooser`);
         return list.slice(sent).find((c) => c.open && c.options?.length && !c.refreshing) ?? null;
       }, 5000);
       await chromeUI(`selectDevice(${chooser.id}, 0).then(() => true)`);
@@ -1225,7 +1225,7 @@ try {
       if (selected.device !== "ac-test-device") throw new Error(`picked ${selected.device}`);
       return { title: chooser.title, options: refreshed.options.map((o) => o.name), rescan: !!rescan, selected: selected.device };
     } finally {
-      await evalApp(`globalThis.__nnChooserSub?.remove(); return true`).catch(() => null);
+      await evalApp(`globalThis.__acChooserSub?.remove(); return true`).catch(() => null);
       const c = await chooserOf(first.id).catch(() => null);
       if (c) await chromeUI(`cancelDeviceChooser(${c.id}).then(() => true)`).catch(() => null);
     }
@@ -1671,11 +1671,11 @@ try {
         // Two tabs, so the app asks; its dialog (an AppKit sheet) answers Close All Tabs.
         await evalApp(`ac.store.getState().newTab("${w}", { url: "${base}/c?r2", background: true }); ac.store.getState().updateSettings({ warnBeforeClosingWindow: true }); return true`);
         await sleep(300);
-        await evalApp(`globalThis.__nnConfirm = ${shell}.confirm; ${shell}.confirm = (o) => { globalThis.__nnAsked = o.title; return Promise.resolve({ confirmed: true, suppressed: false }); }; return true`);
+        await evalApp(`globalThis.__acConfirm = ${shell}.confirm; ${shell}.confirm = (o) => { globalThis.__acAsked = o.title; return Promise.resolve({ confirmed: true, suppressed: false }); }; return true`);
         await closeButton(tabId);
-        await until("the close warning", () => evalApp(`return globalThis.__nnAsked ?? null`), 5000);
+        await until("the close warning", () => evalApp(`return globalThis.__acAsked ?? null`), 5000);
       });
-      await evalApp(`${shell}.confirm = globalThis.__nnConfirm; return true`);
+      await evalApp(`${shell}.confirm = globalThis.__acConfirm; return true`);
       results.nativeClose = await windowCase("r3", async (w, tabId) => {
         await evalApp(`ac.store.getState().updateSettings({ warnBeforeClosingWindow: false }); return true`);
         await sleep(300);
@@ -1732,7 +1732,7 @@ try {
         }
       })();
     } finally {
-      await evalApp(`if (globalThis.__nnConfirm) ${shell}.confirm = globalThis.__nnConfirm; ac.store.getState().updateSettings({ warnBeforeClosingWindow: ${warn} }); ac.actions.switchToTab("${first.id}"); return true`).catch(() => null);
+      await evalApp(`if (globalThis.__acConfirm) ${shell}.confirm = globalThis.__acConfirm; ac.store.getState().updateSettings({ warnBeforeClosingWindow: ${warn} }); ac.actions.switchToTab("${first.id}"); return true`).catch(() => null);
     }
     const failed = Object.entries(results).filter(([, r]) => !r.canGoBack || !r.back?.startsWith("/a?"));
     if (failed.length) throw new Error(`no Back to A after: ${failed.map(([k, r]) => `${k} ${JSON.stringify(r)}`).join(", ")}`);
@@ -1827,7 +1827,7 @@ try {
   await check("permission-dismissed", async () => {
     // A prompt Chrome drops on its own (its tab closes before the app answers): the app hears so
     // (onPermissionDismissed). A navigation doesn't show it: the app answers "dismiss" itself then.
-    await evalApp(`globalThis.__nnDismissed = []; globalThis.__nnDismissSub?.remove(); globalThis.__nnDismissSub = globalThis.expo.modules.ArdiaCEF.addListener("onPermissionDismissed", (e) => globalThis.__nnDismissed.push(e)); return true`);
+    await evalApp(`globalThis.__acDismissed = []; globalThis.__acDismissSub?.remove(); globalThis.__acDismissSub = globalThis.expo.modules.ArdiaCEF.addListener("onPermissionDismissed", (e) => globalThis.__acDismissed.push(e)); return true`);
     const asker = await openTab(`${base}/c?asker`, "Page C");
     try {
       const t = await pageFor(asker.id, `${base}/c?asker`);
@@ -1835,12 +1835,12 @@ try {
       const request = await until("the prompt", async () => evalApp(`return ac.pageState.getState().pages["${asker.id}"]?.permission ?? null`), 10000);
       await closeTab(asker.id);
       const dismissed = await until("onPermissionDismissed", async () => {
-        const list = await evalApp(`return globalThis.__nnDismissed`);
+        const list = await evalApp(`return globalThis.__acDismissed`);
         return list.find((x) => x.id === request.id) ?? null;
-      }, 10000).catch(async (e) => { throw new Error(`${e.message}; request ${request.id}; got ${JSON.stringify(await evalApp(`return globalThis.__nnDismissed`))}`); });
+      }, 10000).catch(async (e) => { throw new Error(`${e.message}; request ${request.id}; got ${JSON.stringify(await evalApp(`return globalThis.__acDismissed`))}`); });
       return { request: request.id, dismissed };
     } finally {
-      await evalApp(`globalThis.__nnDismissSub?.remove(); return true`);
+      await evalApp(`globalThis.__acDismissSub?.remove(); return true`);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     }
   });
@@ -1865,9 +1865,9 @@ try {
   await check("module-events", async () => {
     // Events with no WebView: the blocker's state (onContentBlocker), extensions changing (onChanged); and the
     // screen-share picker's sources (displayMediaSources: screens and windows, no macOS prompt).
-    await evalApp(`globalThis.__nnEvents = []; globalThis.__nnSubs?.forEach((x) => x.remove());
-      globalThis.__nnSubs = [globalThis.expo.modules.ArdiaCEF.addListener("onContentBlocker", (e) => globalThis.__nnEvents.push(["blocker", e])),
-        globalThis.expo.modules.ArdiaExtensions.addListener("onChanged", (e) => globalThis.__nnEvents.push(["extensions", e]))]; return true`);
+    await evalApp(`globalThis.__acEvents = []; globalThis.__acSubs?.forEach((x) => x.remove());
+      globalThis.__acSubs = [globalThis.expo.modules.ArdiaCEF.addListener("onContentBlocker", (e) => globalThis.__acEvents.push(["blocker", e])),
+        globalThis.expo.modules.ArdiaExtensions.addListener("onChanged", (e) => globalThis.__acEvents.push(["extensions", e]))]; return true`);
     try {
       await evalApp(`return globalThis.expo.modules.ArdiaCEF.setContentBlockerEnabled(false)`);
       await evalApp(`return globalThis.expo.modules.ArdiaCEF.setContentBlockerEnabled(true)`);
@@ -1876,14 +1876,14 @@ try {
       if (configured?.error) throw new Error(`configure: ${configured.error}`);
       await exts(`uninstall("${installed.id}", "")`);
       const events = await until("both events", async () => {
-        const list = await evalApp(`return globalThis.__nnEvents`);
+        const list = await evalApp(`return globalThis.__acEvents`);
         return list.some((x) => x[0] === "blocker") && list.filter((x) => x[0] === "extensions").length >= 2 ? list : null;
-      }, 15000).catch(async (e) => { throw new Error(`${e.message}; got ${JSON.stringify(await evalApp(`return globalThis.__nnEvents`)).slice(0, 300)}`); });
+      }, 15000).catch(async (e) => { throw new Error(`${e.message}; got ${JSON.stringify(await evalApp(`return globalThis.__acEvents`)).slice(0, 300)}`); });
       const sources = await evalApp(`return globalThis.expo.modules.ArdiaCEF.displayMediaSources()`);
       if (!sources.some((x) => x.kind === "screen")) throw new Error("no screen among the display media sources");
       return { blocker: events.filter((x) => x[0] === "blocker").length, extensions: events.filter((x) => x[0] === "extensions").map((x) => x[1].event), configured: true, sources: sources.length };
     } finally {
-      await evalApp(`globalThis.__nnSubs?.forEach((x) => x.remove()); return true`);
+      await evalApp(`globalThis.__acSubs?.forEach((x) => x.remove()); return true`);
     }
   });
 
@@ -2017,14 +2017,14 @@ try {
         .catch(async () => { throw new Error(`the popup kept its size: ${JSON.stringify(grown)} → ${JSON.stringify(await pageSize(popupTarget))}`); });
       // chrome.action.openPopup() from its worker opens it afresh over the active tab, as 1Password does once its Mac
       // app unlocks (it failed with "Browser window has no toolbar" before).
-      await cdp(popupTarget, "Runtime.evaluate", { expression: "window.__nnOld = 1" });
+      await cdp(popupTarget, "Runtime.evaluate", { expression: "window.__acOld = 1" });
       const worker = await until("the extension's worker", async () =>
         (await targets()).find((t) => t.type === "service_worker" && t.url.includes(`${installed.id}/worker.js`)) ?? null, 10000);
       const opened = (await cdp(worker, "Runtime.evaluate", { expression: "chrome.action.openPopup().then(() => 'ok', (e) => e.message)", awaitPromise: true, returnByValue: true })).result.value;
       if (opened !== "ok") throw new Error(`chrome.action.openPopup(): ${opened}`);
       await until("the popup reopened", async () => {
         const t = (await targets()).find((x) => x.type === "page" && x.url.includes(`${installed.id}/popup.html`));
-        return t && (await cdp(t, "Runtime.evaluate", { expression: "window.__nnOld === undefined", returnByValue: true })).result.value ? t : null;
+        return t && (await cdp(t, "Runtime.evaluate", { expression: "window.__acOld === undefined", returnByValue: true })).result.value ? t : null;
       }, 8000);
       await evalApp(`ac.extensions.closeExtensionPopup(); return true`);
       await until("the popup gone", async () => !(await targets()).some((t) => t.url.includes(`${installed.id}/popup.html`)), 8000);
@@ -2258,8 +2258,8 @@ try {
         await closeTab(tab.id);
       }
     };
-    await evalApp(`globalThis.__nnCfg = []; globalThis.__nnCfgSub?.remove();
-      globalThis.__nnCfgSub = globalThis.expo.modules.ArdiaExtensions.addListener("onChanged", (e) => globalThis.__nnCfg.push(e)); return true`);
+    await evalApp(`globalThis.__acCfg = []; globalThis.__acCfgSub?.remove();
+      globalThis.__acCfgSub = globalThis.expo.modules.ArdiaExtensions.addListener("onChanged", (e) => globalThis.__acCfg.push(e)); return true`);
     try {
       const before = await until("the extension listed", info);
       if (!before.siteAccess) throw new Error("the fixture has no site access to change");
@@ -2284,10 +2284,10 @@ try {
       const ranAgain = await scriptRan("allsites");
       if (!ranAgain) throw new Error("the content script didn't run again on all sites");
       const configured = await until("onChanged configured", async () => {
-        const list = await evalApp(`return globalThis.__nnCfg`);
+        const list = await evalApp(`return globalThis.__acCfg`);
         const mine = list.filter((x) => x.event === "configured" && x.id === id);
         return mine.length >= 5 ? mine : null;
-      }, 10000).catch(async (e) => { throw new Error(`${e.message}; got ${JSON.stringify(await evalApp(`return globalThis.__nnCfg`)).slice(0, 300)}`); });
+      }, 10000).catch(async (e) => { throw new Error(`${e.message}; got ${JSON.stringify(await evalApp(`return globalThis.__acCfg`)).slice(0, 300)}`); });
       // Back as it was (pinning and incognito are profile prefs that would outlive an uninstall-free run).
       await configure({ pinned: before.pinned, incognito: before.incognito, fileAccess: before.fileAccess });
       return {
@@ -2297,7 +2297,7 @@ try {
         configuredEvents: configured.length,
       };
     } finally {
-      await evalApp(`globalThis.__nnCfgSub?.remove(); return true`).catch(() => null);
+      await evalApp(`globalThis.__acCfgSub?.remove(); return true`).catch(() => null);
       await exts(`uninstall("${id}", "")`).catch(() => null);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`).catch(() => null);
     }
@@ -2480,7 +2480,7 @@ try {
       const tab = await freshTab(`${base}/ac-ads`);
       try {
         const target = await until("the page", () => pageTarget("/ac-ads"));
-        const standIn = (await cdp(target, "Runtime.evaluate", { expression: "window.__nnStandIn === true", returnByValue: true })).result.value;
+        const standIn = (await cdp(target, "Runtime.evaluate", { expression: "window.__acStandIn === true", returnByValue: true })).result.value;
         if (!standIn) throw new Error("the script wasn't sent to the stand-in");
         const blocked = await until("the count", async () => {
           const n = await evalApp(`return ac.pageState.getState().pages[${JSON.stringify(tab)}]?.blocked ?? 0`);
@@ -2549,15 +2549,15 @@ try {
       return { id, native };
     };
     const install = async (closeFirst) => {
-      await evalApp(`ac.extensions.cancelInstall(); globalThis.__nnCrx = null;
-        globalThis.expo.modules.ArdiaExtensions.installCrx(${JSON.stringify(crxPath)}, ${JSON.stringify(profile)}).then((r) => (globalThis.__nnCrx = r)); return true`);
+      await evalApp(`ac.extensions.cancelInstall(); globalThis.__acCrx = null;
+        globalThis.expo.modules.ArdiaExtensions.installCrx(${JSON.stringify(crxPath)}, ${JSON.stringify(profile)}).then((r) => (globalThis.__acCrx = r)); return true`);
       const prompt = await until("the install prompt", async () => {
         const p = await evalApp(`return ac.extensions.useExtensions.getState().install?.prompt ?? null`);
         return p?.name === "ArdiaCore crx fixture" ? p : null;
       }, 15000);
       if (closeFirst) await closeFirst();
       await exts(`resolveInstallPrompt(${JSON.stringify(prompt.requestId)}, true)`);
-      const result = await until("the install", () => evalApp(`return globalThis.__nnCrx`), 15000);
+      const result = await until("the install", () => evalApp(`return globalThis.__acCrx`), 15000);
       if (!result.id) throw new Error(`install: ${JSON.stringify(result)}`);
       return result.id;
     };
@@ -4962,8 +4962,8 @@ try {
     const windowId = await until("a window", async () => (await state()).windowId, 30000);
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
-    await evalApp(`globalThis.__nnTabs = []; globalThis.__nnTabsSub?.remove();
-      globalThis.__nnTabsSub = globalThis.expo.modules.ArdiaExtensions.addListener("onTabs", (e) => globalThis.__nnTabs.push(e)); return true`);
+    await evalApp(`globalThis.__acTabs = []; globalThis.__acTabsSub?.remove();
+      globalThis.__acTabsSub = globalThis.expo.modules.ArdiaExtensions.addListener("onTabs", (e) => globalThis.__acTabs.push(e)); return true`);
     try {
       const worker = await until("the extension's worker", async () => {
         for (const t of (await targets()).filter((t) => t.type === "service_worker" && t.url.includes(installed.id))) {
@@ -5031,18 +5031,18 @@ try {
         out.loads !== 1 && "the page loaded more than once",
       ].filter(Boolean);
       if (wrong.length) throw new Error(`${wrong.join("; ")}: ${JSON.stringify(out)}`);
-      const event = (await evalApp(`return globalThis.__nnTabs`)).some((e) => e.url?.includes("e?empty-window"));
+      const event = (await evalApp(`return globalThis.__acTabs`)).some((e) => e.url?.includes("e?empty-window"));
       // Every window closed.
       await evalApp(`const s = ac.store.getState(); Object.keys(s.windows).forEach((id) => s.closeWindow(id)); return true`);
       await until("no app windows", async () => ((await evalApp(`return Object.keys(ac.store.getState().windows).length`)) === 0 ? true : null), 10000);
       await sleep(1000);
       const noWindow = await create(`${base}/e?no-window`);
       await sleep(1500);
-      const noWindowEvent = (await evalApp(`return globalThis.__nnTabs`)).some((e) => e.url?.includes("e?no-window"));
+      const noWindowEvent = (await evalApp(`return globalThis.__acTabs`)).some((e) => e.url?.includes("e?no-window"));
       return { placeholderTabs: empty.tabs.length, tabsCreate: created, appTab: opened.id, ...out, route: event ? "onTabs" : "openWindow",
         noWindow: { tabsCreate: noWindow, onTabs: noWindowEvent } };
     } finally {
-      await evalApp(`globalThis.__nnTabsSub?.remove(); return true`).catch(() => null);
+      await evalApp(`globalThis.__acTabsSub?.remove(); return true`).catch(() => null);
       await exts(`uninstall("${installed.id}", "")`).catch(() => null);
     }
   });
