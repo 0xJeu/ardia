@@ -7,7 +7,7 @@ import {
 import { useBrowser } from "../store/browser";
 import { sendFeedback } from "./appIntegration";
 
-const CHECK_IN_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+export const CHECK_IN_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const CHECK_IN_COPY = { title: "How are you liking Ardia?", action: "Leave us feedback" } as const;
 
@@ -15,11 +15,11 @@ type CheckIn = { trialStartedAt: number | null; doneAt: number | null };
 
 const useCheckIn = create<CheckIn>(() => ({ trialStartedAt: defaultBrowserTrialStartedAt(), doneAt: defaultBrowserCheckInDoneAt() }));
 
-function checkInDue({ trialStartedAt, doneAt }: CheckIn, now = Date.now()): boolean {
+export function checkInDue({ trialStartedAt, doneAt }: CheckIn, now = Date.now()): boolean {
   return trialStartedAt !== null && doneAt === null && now - trialStartedAt >= CHECK_IN_AFTER_MS;
 }
 
-function dismissDefaultBrowserCheckIn() {
+export function dismissDefaultBrowserCheckIn() {
   recordDefaultBrowserCheckInDone();
   useCheckIn.setState({ doneAt: Date.now() });
 }
