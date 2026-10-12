@@ -209,7 +209,6 @@ ARDIACORE_EXPORT
 // LoadComponentExtension). Loading one already running from `path` is a no-op returning its
 // id. nil on failure.
 - (nullable NSString*)loadComponentExtension:(NSString*)path;
-- (void)unloadComponentExtension:(NSString*)extensionId;
 // Holds this profile's web navigations (its off-the-record profiles' too) until the
 // declarativeNetRequest rulesets of `extensionId`, an extension about to load into it, are in
 // force: a content blocker's rules then apply from the profile's first page. Chrome reads them
@@ -220,10 +219,6 @@ ARDIACORE_EXPORT
 - (void)releaseNavigationHold:(NSString*)reason;
 // Reports this profile's Cast routes to engine:castRoutes:profile: (now and on change).
 - (void)watchCastRoutes;
-// chrome.management-style install of an unpacked extension (MV3 fine).
-- (void)loadUnpackedExtension:(NSString*)path
-                   completion:(void (^)(NSString* _Nullable extensionId,
-                                        NSString* _Nullable error))completion;
 // {id, name, version, enabled, actionPopupURL}
 @property(readonly) NSArray<NSDictionary<NSString*, id>*>* extensions;
 // Stage 2. Profile prefs the host owns: credentials_enable_service, autofill.profile_enabled,
@@ -237,9 +232,6 @@ ARDIACORE_EXPORT
 - (void)clearBrowsingData:(NSArray<NSString*>*)types
                     since:(nullable NSDate*)since
                completion:(nullable void (^)(void))completion;
-// Chrome's password store, for checks: [{origin, username, passwordLength, blocked (a site
-// set to never save), federation}]
-- (void)fetchSavedLogins:(void (^)(NSArray<NSDictionary<NSString*, id>*>* logins))completion;
 @end
 
 @interface ArdiaCoreProfile (Icons)
@@ -364,8 +356,6 @@ ARDIACORE_EXPORT
 - (void)close;
 
 // Stage 1 additions.
-// The ArdiaCoreWindow whose NSWindow this is (nil for other windows).
-+ (nullable ArdiaCoreWindow*)windowForNSWindow:(NSWindow*)window;
 // Creates the profile's Browser in this window now (paging between profiles stays a view swap).
 - (void)prepareProfile:(ArdiaCoreProfile*)profile;
 // Moves a live tab (with its WebContents, history and opener) into this window's Browser for
@@ -521,9 +511,6 @@ ARDIACORE_EXPORT
 - (void)devToolsLayoutForSize:(NSSize)size
                      devTools:(NSRect*)devToolsFrame
                          page:(NSRect*)pageFrame;
-// Answers a passwordSavePromptForTab: callback.
-- (void)savePendingPassword;
-- (void)dismissPendingPassword;
 // What Chrome's password bubble would show now (window:passwordPrompt:forTab:), or nil.
 @property(readonly, nullable) NSDictionary<NSString*, id>* passwordPrompt;
 // Answers it, as Chrome's bubble: "save" or "update" (username/password: the host's edits;
@@ -537,9 +524,6 @@ ARDIACORE_EXPORT
 // Answers offer `promptId` as Chrome's bubble: "accept" (save or update), "decline" ("No
 // thanks"), "dismiss" (closed without a decision). A stale id is ignored.
 - (void)resolveAutofillPrompt:(NSInteger)promptId action:(NSString*)action;
-// Opens the extension's action popup (Chrome's ExtensionViewHost) in a panel attached to
-// the tab's window, under `anchor` (window coordinates). Returns NO if it has no popup.
-- (BOOL)openActionPopupForExtension:(NSString*)extensionId anchor:(NSRect)anchor;
 
 // Stage 1 additions.
 @property(readonly, nullable) NSString* faviconURL;  // the favicon's own URL
@@ -606,7 +590,7 @@ ARDIACORE_EXPORT
 // and gets an "ardiapagecolor" event when it changes. Web pages never see it.
 @property(nonatomic, copy, nullable) NSString* pageColor;
 // Extensions. Runs the extension's action as a click on its toolbar button would (grants
-// activeTab): "none", "popup" (show it: -openActionPopupForExtension:anchor:) or "sidePanel".
+// activeTab): "none", "popup" (the host shows the action's popup page) or "sidePanel".
 - (NSString*)executeExtensionAction:(NSString*)extensionId;
 // {extensionId: JS ActionState {title, badgeText, badgeColor, badgeTextColor, popup, enabled,
 // icon (a PNG data: URL)}} for this tab.
@@ -672,8 +656,6 @@ ARDIACORE_EXPORT
 // unauthorized (Bluetooth access off), or one device, "Ardia Test Device". NO without
 // the switch.
 - (BOOL)devShowBluetoothChooser:(BOOL)unauthorized;
-// Whether the page's focused element takes text now (Esc in a text field is the page's).
-@property(readonly) BOOL focusedEditable;
 // A popup a page opened (window.open with a size or position: disposition "popup"): what it
 // asked for, in screen points from the top-left of the primary screen, {x, y, width, height}
 // (each only if given; width and height are the page's). nil for other tabs.

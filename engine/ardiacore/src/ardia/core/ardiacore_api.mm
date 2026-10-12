@@ -41,14 +41,9 @@
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 #include "chrome/browser/printing/print_preview_dialog_controller.h"
 #endif
-#include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/extension_view.h"
-#include "chrome/browser/extensions/extension_view_host.h"
-#include "chrome/browser/extensions/extension_view_host_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
-#include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
@@ -68,13 +63,8 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
-#include "chrome/browser/ui/passwords/passwords_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
-#include "components/keyed_service/core/service_access_type.h"
-#include "components/password_manager/core/browser/password_form.h"
-#include "components/password_manager/core/browser/password_store/password_store_consumer.h"
-#include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/navigation_controller.h"
@@ -86,7 +76,6 @@
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/unpacked_installer.h"
 #include "extensions/common/extension.h"
 #include "ardia/core/ac_autofill_prompt.h"
 #include "ardia/core/ac_browser.h"
@@ -234,44 +223,6 @@ std::map<Profile*, ArdiaCoreProfile*>& ProfileWrappers() {
   return *wrappers;
 }
 
-// Collects a profile's logins once and deletes itself.
-class LoginsFetcher : public password_manager::PasswordStoreConsumer {
- public:
-  explicit LoginsFetcher(
-      void (^completion)(NSArray<NSDictionary<NSString*, id>*>*))
-      : completion_(completion) {}
-
-  void OnGetPasswordStoreResultsOrErrorFrom(
-      password_manager::PasswordStoreInterface* store,
-      password_manager::LoginsResultOrError results_or_error) override {
-    NSMutableArray* logins = [NSMutableArray array];
-    if (auto* results =
-            std::get_if<password_manager::LoginsResult>(&results_or_error)) {
-      for (const auto& login : *results) {
-        [logins addObject:@{
-          @"origin" : NS(login.signon_realm),
-          @"username" : NS(login.username_value),
-          @"passwordLength" : @(login.password_value.size()),
-          @"blocked" : @(login.blocked_by_user),
-          @"federation" : login.federation_origin.IsValid()
-              ? NS(login.federation_origin.Serialize())
-              : @"",
-        }];
-      }
-    }
-    completion_(logins);
-    delete this;
-  }
-
-  base::WeakPtr<PasswordStoreConsumer> GetWeakPtr() {
-    return weak_factory_.GetWeakPtr();
-  }
-
- private:
-  void (^completion_)(NSArray<NSDictionary<NSString*, id>*>*);
-  base::WeakPtrFactory<LoginsFetcher> weak_factory_{this};
-};
-
 // Tells a profile's wrapper when its Profile goes.
 class ProfileGoneObserver : public ProfileObserver {
  public:
@@ -396,93 +347,6 @@ class BrowsingDataDone : public content::BrowsingDataRemover::Observer {
                           content::BrowsingDataRemover::Observer>
       observation_{this};
 };
-
-class ActionPopup;
-std::unique_ptr<ActionPopup>& CurrentPopup();
-
-// An extension's action popup: Chrome's ExtensionViewHost (the popup page, its
-// extension process and APIs) shown in a panel attached to our window, as Dia shows
-// its own. Chrome's ExtensionPopup is a bubble anchored to its toolbar, which we lack.
-class ActionPopup : public extensions::ExtensionView {
- public:
-  ActionPopup(std::unique_ptr<extensions::ExtensionViewHost> host,
-              NSWindow* parent,
-              NSRect anchor)
-      : host_(std::move(host)), parent_(parent), anchor_(anchor) {
-    host_->set_view(this);
-    NSView* view = host_->host_contents()->GetNativeView().GetNativeNSView();
-    panel_ = [[NSPanel alloc]
-        initWithContentRect:NSMakeRect(0, 0, 200, 100)
-                  styleMask:NSWindowStyleMaskBorderless |
-                            NSWindowStyleMaskNonactivatingPanel
-                    backing:NSBackingStoreBuffered
-                      defer:NO];
-    panel_.releasedWhenClosed = NO;
-    panel_.hasShadow = YES;
-    panel_.contentView = view;
-    // window.close() in the popup (and Chrome closing it) ends it, as Chrome's popup.
-    host_->SetCloseHandler(base::BindOnce([](extensions::ExtensionHost*) {
-      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce([] { CurrentPopup().reset(); }));
-    }));
-    host_->CreateRendererSoon();
-  }
-
-  ~ActionPopup() override {
-    [parent_ removeChildWindow:panel_];
-    [panel_ orderOut:nil];
-  }
-
-  NSPanel* panel() const { return panel_; }
-  extensions::ExtensionViewHost* host() const { return host_.get(); }
-
-  // extensions::ExtensionView:
-  gfx::NativeView GetNativeView() override {
-    return host_->host_contents()->GetNativeView();
-  }
-  void ResizeDueToAutoResize(content::WebContents* web_contents,
-                             const gfx::Size& new_size) override {
-    size_ = NSMakeSize(new_size.width(), new_size.height());
-    Place();
-  }
-  void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override {
-    // As Chrome's popup: the page sizes the panel, within these limits.
-    if (auto* rwhv = host_->host_contents()->GetRenderWidgetHostView()) {
-      rwhv->EnableAutoResize(gfx::Size(25, 25), gfx::Size(800, 600));
-    }
-  }
-  bool HandleKeyboardEvent(content::WebContents* source,
-                           const input::NativeWebKeyboardEvent& event) override {
-    return false;
-  }
-  void OnLoaded() override {
-    shown_ = true;
-    Place();
-    [parent_ addChildWindow:panel_ ordered:NSWindowAbove];
-  }
-
- private:
-  void Place() {
-    // Under the anchor, right-aligned to it (window coordinates, bottom-left origin).
-    NSRect anchor = [parent_ convertRectToScreen:anchor_];
-    NSRect frame = NSMakeRect(NSMaxX(anchor) - size_.width,
-                              NSMinY(anchor) - size_.height, size_.width,
-                              size_.height);
-    [panel_ setFrame:frame display:shown_];
-  }
-
-  std::unique_ptr<extensions::ExtensionViewHost> host_;
-  NSWindow* __strong parent_;
-  NSRect anchor_;
-  NSSize size_ = NSMakeSize(200, 100);
-  NSPanel* __strong panel_;
-  bool shown_ = false;
-};
-
-std::unique_ptr<ActionPopup>& CurrentPopup() {
-  static base::NoDestructor<std::unique_ptr<ActionPopup>> popup;
-  return *popup;
-}
 
 }  // namespace
 
@@ -823,9 +687,6 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
         [g_delegate engineDidStart];
       }),
       .shutting_down = base::BindOnce([] {
-        // Before Chrome tears profiles down: a popup's host keeps its extension's
-        // renderer alive.
-        CurrentPopup().reset();
         ardiacore::CloseAllExtensionViews();
         if ([g_delegate respondsToSelector:@selector(engineWillShutDown)]) {
           [g_delegate engineWillShutDown];
@@ -1286,29 +1147,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   return _path;
 }
 
-- (void)loadUnpackedExtension:(NSString*)path
-                   completion:(void (^)(NSString*, NSString*))completion {
-  if (!_profile) {
-    completion(nil, @"profile destroyed");
-    return;
-  }
-  // Chrome keeps unpacked extensions disabled unless the profile is in developer mode
-  // (DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION); loading one is that mode's flow.
-  extensions::util::SetDeveloperModeForProfile(_profile.get(), true);
-  scoped_refptr<extensions::UnpackedInstaller> installer =
-      extensions::UnpackedInstaller::Create(_profile.get());
-  installer->set_be_noisy_on_failure(false);
-  installer->set_completion_callback(base::BindOnce(
-      [](void (^completion)(NSString*, NSString*),
-         const extensions::Extension* extension, const base::FilePath&,
-         const std::u16string& error) {
-        completion(extension ? NS(extension->id()) : nil,
-                   error.empty() ? nil : NS(error));
-      },
-      completion));
-  installer->Load(base::FilePath(base::SysNSStringToUTF8(path)));
-}
-
 - (NSNumber*)boolPreference:(NSString*)name {
   const std::string key = base::SysNSStringToUTF8(name);
   if (!_profile || !IsHostPreference(key)) {
@@ -1392,15 +1230,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   }
 }
 
-- (void)unloadComponentExtension:(NSString*)extensionId {
-  if (!_profile) {
-    return;
-  }
-  if (extensions::ComponentLoader* loader = extensions::ComponentLoader::Get(_profile.get())) {
-    loader->Remove(extensions::ExtensionId(base::SysNSStringToUTF8(extensionId)));
-  }
-}
-
 - (void)watchCastRoutes {
   ardiacore::WatchCastRoutes(_profile.get());
 }
@@ -1431,23 +1260,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     }];
   }
   return list;
-}
-
-- (void)fetchSavedLogins:
-    (void (^)(NSArray<NSDictionary<NSString*, id>*>*))completion {
-  if (!_profile) {
-    completion(@[]);
-    return;
-  }
-  scoped_refptr<password_manager::PasswordStoreInterface> store =
-      ProfilePasswordStoreFactory::GetForProfile(
-          _profile.get(), ServiceAccessType::EXPLICIT_ACCESS);
-  if (!store) {
-    completion(@[]);
-    return;
-  }
-  auto* fetcher = new LoginsFetcher(completion);
-  store->GetAllLogins(fetcher->GetWeakPtr());
 }
 
 @end
@@ -1748,11 +1560,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   model->InsertWebContentsAt(model->count(), std::move(copy),
                              foreground ? AddTabTypes::ADD_ACTIVE : AddTabTypes::ADD_NONE);
   return ardiacore::TabBridge::GetOrCreate(raw)->tab();
-}
-
-+ (ArdiaCoreWindow*)windowForNSWindow:(NSWindow*)window {
-  ardiacore::WindowHost* host = ardiacore::WindowHost::ForNSWindow(window);
-  return host ? host->owner() : nil;
 }
 
 - (void)prepareProfile:(ArdiaCoreProfile*)profile {
@@ -2402,10 +2209,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   return ardiacore::ShowTestBluetoothChooser(_contents, unauthorized);
 }
 
-- (BOOL)focusedEditable {
-  return _contents && _contents->IsFocusedElementEditable();
-}
-
 - (NSSize)preferredSize {
   const gfx::Size size =
       _contents ? ardiacore::ExtensionPopupPreferredSize(_contents) : gfx::Size();
@@ -2748,30 +2551,6 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   }
 }
 
-- (void)savePendingPassword {
-  if (!_contents) {
-    return;
-  }
-  base::WeakPtr<PasswordsModelDelegate> model =
-      PasswordsModelDelegateFromWebContents(_contents);
-  if (model &&
-      model->GetState() == password_manager::ui::PENDING_PASSWORD_STATE) {
-    const password_manager::PasswordForm& form = model->GetPendingPassword();
-    model->SavePassword(form.username_value, form.password_value);
-  }
-}
-
-- (void)dismissPendingPassword {
-  if (!_contents) {
-    return;
-  }
-  base::WeakPtr<PasswordsModelDelegate> model =
-      PasswordsModelDelegateFromWebContents(_contents);
-  if (model) {
-    model->OnBubbleHidden();
-  }
-}
-
 - (NSDictionary<NSString*, id>*)passwordPrompt {
   return ardiacore::PasswordPrompt(_contents);
 }
@@ -2788,40 +2567,6 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
 
 - (void)resolveAutofillPrompt:(NSInteger)promptId action:(NSString*)action {
   ardiacore::ResolveAutofillPrompt(_contents, promptId, action);
-}
-
-- (BOOL)openActionPopupForExtension:(NSString*)extensionId anchor:(NSRect)anchor {
-  if (!_contents) {
-    return NO;
-  }
-  BrowserWindowInterface* browser =
-      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(_contents);
-  Profile* profile = Profile::FromBrowserContext(_contents->GetBrowserContext());
-  const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(profile)->enabled_extensions().GetByID(
-          base::SysNSStringToUTF8(extensionId));
-  if (!browser || !extension) {
-    return NO;
-  }
-  extensions::ExtensionAction* action =
-      extensions::ExtensionActionManager::Get(profile)->GetExtensionAction(
-          *extension);
-  if (!action) {
-    return NO;
-  }
-  GURL popup_url = action->GetPopupUrl(self.tabId);
-  if (popup_url.is_empty()) {
-    return NO;
-  }
-  std::unique_ptr<extensions::ExtensionViewHost> host =
-      extensions::ExtensionViewHostFactory::CreatePopupHost(*extension,
-                                                            popup_url, browser);
-  if (!host) {
-    return NO;
-  }
-  NSWindow* parent = _contents->GetTopLevelNativeWindow().GetNativeNSWindow();
-  CurrentPopup() = std::make_unique<ActionPopup>(std::move(host), parent, anchor);
-  return YES;
 }
 
 @end

@@ -138,7 +138,7 @@ class DownloadsState : public ProfileState {
   explicit DownloadsState(Profile* profile) : ProfileState(profile) {
     // As CEF's engine: straight to the folder, never a save panel. The
     // ungoogled patches default "Ask where to save each file" to on; only
-    // that default changes (ac_prefs_set can turn it back on).
+    // that default changes.
     PrefService* prefs = profile->GetPrefs();
     if (const PrefService::Preference* prompt =
             prefs->FindPreference(prefs::kPromptForDownload);

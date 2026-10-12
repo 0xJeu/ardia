@@ -382,7 +382,6 @@ Plain Chromium code over Chrome's services (`engine/chromium/src/chrome/browser/
 | `ac_downloads_*` (list, cancel, pause, resume, keep, remove; events `downloads.changed`/`removed`) | `onDownload` and the download functions |
 | `ac_site_settings_*`, `ac_site_data_clear` | the site-settings functions, both `clearSiteData`s |
 | `ac_external_apps_allowances`, `_remove` | `getExternalAppAllowances`, `removeExternalAppAllowance` |
-| `ac_prefs_get`, `_set` (allow-listed) | password and autofill switches |
 | `ac_tasks_list`, `_kill`, `ac_components_list` | `listTasks`, `killTask`, `components` |
 | `ac_history_*`, `ac_favicons_*`, `ac_bookmarks_*` | `history.ts`, `favicons.ts`, `bookmarks.ts` (through `engineCall`) |
 | `ac_tab_restore_tag`, `_take`, `_load` | native: the WebView's attach (and close) and `restore:` |
