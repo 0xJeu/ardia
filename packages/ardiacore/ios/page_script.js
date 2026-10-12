@@ -385,7 +385,7 @@
 // Wait a microtask so Blink installs Notification before page scripts.
   const installNotifications = () => {
     const NativeNotification = window.Notification;
-    if (!NativeNotification || NativeNotification.__nn) return !!NativeNotification;
+    if (!NativeNotification || NativeNotification.__ac) return !!NativeNotification;
     const live = new Map();
     let seq = 0;
     const show = (title, options, fire) => {
@@ -449,7 +449,7 @@
       static get maxActions() { return NativeNotification.maxActions || 0; }
     }
     Object.defineProperty(PageNotification, "name", { value: "Notification" });
-    Object.defineProperty(PageNotification, "__nn", { value: true });
+    Object.defineProperty(PageNotification, "__ac", { value: true });
     window.Notification = PageNotification;
     const Registration = window.ServiceWorkerRegistration;
     if (Registration && Registration.prototype.showNotification) {
@@ -481,7 +481,7 @@
   const installDisplayMedia = () => {
     const devices = navigator.mediaDevices;
     const proto = devices && Object.getPrototypeOf(devices);
-    if (!proto || !proto.getDisplayMedia || proto.getDisplayMedia.__nn) return;
+    if (!proto || !proto.getDisplayMedia || proto.getDisplayMedia.__ac) return;
     const getUserMedia = proto.getUserMedia;
     const getDisplayMedia = function getDisplayMedia(constraints) {
       const self = this;
@@ -491,7 +491,7 @@
         send("displayMedia", { id, audio: !!(constraints && constraints.audio) });
       });
     };
-    Object.defineProperty(getDisplayMedia, "__nn", { value: true });
+    Object.defineProperty(getDisplayMedia, "__ac", { value: true });
     proto.getDisplayMedia = getDisplayMedia;
     handlers.displayMedia = ({ id, sourceId }) => {
       const request = displayRequests.get(id);
