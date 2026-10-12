@@ -11,11 +11,11 @@ All of them are in `apps/browser/scripts/perf/`.
 | File | Bench | What it is |
 |---|---|---|
 | `native-bench.mjs` | native | Launch, idle CPU and wakeups, memory, tab and window latency, throttling, on a Release app in hidden instances. Its header maps every section and output row to the function that measures it. |
-| `nnperf.swift` | native | Process probes (rusage, phys_footprint, window on screen, quit) and `postkeys` (real key events posted to one pid with `CGEventPostToPid`), built on demand with swiftc. |
-| `nnmark.m` | native | Injected into the bench's copy of the app: marks when a window's React content commits, and (`AC_BENCH_KEYLOG=1`) every key down the app's event loop sees. |
-| `nnframes.m`, `frames-phase.mjs`, `frames-phase.test.mjs` | native | The frame rig (`native-bench.mjs --only frames`, `framecounts`): `nnframes.m` is injected like `nnmark.m` and records display-link ticks, main- and JS-thread run-loop busy time and layout counters; `frames-phase.mjs` drives the interactions and reads them; the test checks the window arithmetic. Rows: [What the frame rows measure](#what-the-frame-rows-measure). |
+| `acperf.swift` | native | Process probes (rusage, phys_footprint, window on screen, quit) and `postkeys` (real key events posted to one pid with `CGEventPostToPid`), built on demand with swiftc. |
+| `acmark.m` | native | Injected into the bench's copy of the app: marks when a window's React content commits, and (`AC_BENCH_KEYLOG=1`) every key down the app's event loop sees. |
+| `acframes.m`, `frames-phase.mjs`, `frames-phase.test.mjs` | native | The frame rig (`native-bench.mjs --only frames`, `framecounts`): `acframes.m` is injected like `acmark.m` and records display-link ticks, main- and JS-thread run-loop busy time and layout counters; `frames-phase.mjs` drives the interactions and reads them; the test checks the window arithmetic. Rows: [What the frame rows measure](#what-the-frame-rows-measure). |
 | `launch-trace.mjs` | native | Where the engine's start goes, two sides compared: Chrome's startup traces (`native-bench.mjs --only launch --trace-startup <categories>`), milestones from the process's creation (ChromeMain, BrowserMain, each process's first event) and the browser main thread's slices by name. |
-| `nnsample.c`, `launch-samples.mjs` | native | The stretch the trace doesn't cover (ChromeMain → BrowserMain, ~100 ms): `nnsample.c`, injected with `--env DYLD_INSERT_LIBRARIES`, samples the main thread every ~1 ms from before `main`; `launch-samples.mjs` symbolizes the samples against the unstripped framework (`dist/<v>/symbols`) and compares the functions in a window of two sides. How to run: its header. It found 0.2.31's +20 ms: the platform policy loader waiting on `/usr/bin/profiles`. |
+| `acsample.c`, `launch-samples.mjs` | native | The stretch the trace doesn't cover (ChromeMain → BrowserMain, ~100 ms): `acsample.c`, injected with `--env DYLD_INSERT_LIBRARIES`, samples the main thread every ~1 ms from before `main`; `launch-samples.mjs` symbolizes the samples against the unstripped framework (`dist/<v>/symbols`) and compares the functions in a window of two sides. How to run: its header. It found 0.2.31's +20 ms: the platform policy loader waiting on `/usr/bin/profiles`. |
 | `bench-entry.js`, `bench-channel.js`, `bench-offline.js` | native | The JS entry of the bench bundle: the app's `index.js` plus the command channel (`ac.journeys()` is the field timing's own view). `bench-offline.js` answers every non-local `fetch` itself when the data folder holds a `bench-offline` file, so nothing is uploaded while sharing is on. |
 | `js-bench.mjs` | JS | React commits, renders, store updates and JS tasks per interaction, on a production bundle. |
 | `bench-app.js` | JS, render | The scenarios js-bench and render-bench run inside the app. **Not** part of native-bench. |
@@ -36,7 +36,7 @@ Each bench drives the app through files in the instance's `ARDIA_DATA_DIR`:
 |---|---|---|
 | `bench-cmd.js` → `bench-result.json` | native-bench | bench-channel.js (first line `// <id>`; the result carries the same id) |
 | `bench-boot.json` | native-bench | bench-channel.js as it loads (the "JS running" mark) |
-| `bench-marks.jsonl` | native-bench | nnmark.m (`content`/`committed` epoch ms per window; `keydown`/`made`/`window`/`char` per key with `AC_BENCH_KEYLOG`) |
+| `bench-marks.jsonl` | native-bench | acmark.m (`content`/`committed` epoch ms per window; `keydown`/`made`/`window`/`char` per key with `AC_BENCH_KEYLOG`) |
 | `telemetry.json`, `bench-offline` | native-bench `newtabkey`, `navigate` | the phase: diagnostics sharing on (the app times journeys only then) and the file that makes `bench-offline.js` guard `fetch` |
 | `dev-eval.js` → `dev-eval-result.json` | js-bench, render-bench | the dev harness (`src/lib/devHarness.ts`) |
 | `perf-probe` | js-bench, render-bench | the seed. Its contents turn on the probe's options: `selectors`, `renders`, `listeners` |
@@ -117,8 +117,8 @@ If you need a new measurement, add it as a phase and commit it.
 `scripts/release-compare-0.2.17.sh <rc app> <out dir>` ran the comparison those notes' "Faster" tables came from, with
 `scripts/release-compare-table.mjs` making the table; both are in git history (`git show 2713787d:<path>`).
 0.2.17 is CEF-era: it has no native API version check, no field timing and no perf probe or dev harness in a release
-bundle, so `--control-bundle` is a bundle built from 0.2.17's own tree with the legacy command channel
-(`apps/browser/scripts/perf/legacy-bundle.mjs`, entry and channel in `scripts/perf/legacy/`). Comparable rows: launch (to
+bundle, so `--control-bundle` was a bundle built from 0.2.17's own tree with the legacy command channel
+(`apps/browser/scripts/perf/legacy-bundle.mjs` and `scripts/perf/legacy/`, in git history: `git show f4c816d5^:<path>`). Comparable rows: launch (to
 window with its content, to first page painted), first launch after an install (`--fresh-copy`), tab switch, new tab,
 new window, idle CPU and wakeups at 1 and 20 tabs, memory. Not on 0.2.17 (kept in the table as "–"): the J2 and J4 journeys
 (`newtabkey`, `navigate`), the frame rig, the js-bench and ratchet counts.
@@ -328,7 +328,7 @@ command starts.
 | Row | Measures |
 |---|---|
 | launch → window shown | The first on-screen window of at least 300×200 with alpha > 0 (CGWindowList) |
-| launch → window shown with its content | The later of that and the commit of the Core Animation transaction carrying the first React content (nnmark) |
+| launch → window shown with its content | The later of that and the commit of the Core Animation transaction carrying the first React content (acmark) |
 | launch → JS running | The bench channel loading, after the app's `index.js` and its imports |
 | launch → first page painted | The restored tab's first-contentful-paint |
 | launch → first page's first frame | The restored tab's first `requestAnimationFrame` |
@@ -340,9 +340,9 @@ command starts.
 | tab switch → shown | `switchToTab` → the page turns visible and has drawn 2 frames (median of 16 among 20 tabs) |
 | new tab → first paint / first frame | Store `newTab` → the page's FCP / first frame (median of 5) |
 | new window → on screen / with its content / first paint / first frame | `openWindow` → the window on screen (2 ms polls) / the later of that and its content commit / its page's FCP / first frame |
-| J2 ⌘T key → JS has the new tab / command bar committed / on screen / typeable | A real ⌘T posted to the instance's pid (nnperf `postkeys`), from the key down's own timestamp (what the field journeys start from) to the app's field-timing marks: the store has the new tab, its command bar's layout effect, that commit's Core Animation transaction committed, its field focused and on screen. The last is the J2 total. Sharing is on in the instance's data folder and nothing is uploaded (`bench-offline.js`). |
+| J2 ⌘T key → JS has the new tab / command bar committed / on screen / typeable | A real ⌘T posted to the instance's pid (acperf `postkeys`), from the key down's own timestamp (what the field journeys start from) to the app's field-timing marks: the store has the new tab, its command bar's layout effect, that commit's Core Animation transaction committed, its field focused and on screen. The last is the J2 total. Sharing is on in the instance's data folder and nothing is uploaded (`bench-offline.js`). |
 | J2 keystroke → its suggestions on screen | One real key into the typeable bar → the commit with its suggestions on screen (the mark `suggest`) |
-| J2 ⌘T key made → the app's event loop saw it | The key's timestamp → nnmark.m's key monitor. Part of every J2 and J4 row. `nnperf hands ⌘T over → the event's timestamp` is the poster's own lead (not in any row) |
+| J2 ⌘T key made → the app's event loop saw it | The key's timestamp → acmark.m's key monitor. Part of every J2 and J4 row. `acperf hands ⌘T over → the event's timestamp` is the poster's own lead (not in any row) |
 | J4 Enter → engine asked to load / Chrome started / committed / first contentful paint | A URL of the bench's local page typed with real keys (25 ms apart) into a new tab's bar (⌘T) or a page's panel (⌘L), then a real Enter: the app's marks `request` (our side), `start`, `commit`, `fcp`. The page's own first contentful paint over CDP is the same number. `request → fcp` is the engine's and the network's share (a local server here) |
 | journeys: iterations lost, load average | Iterations where a key never arrived (CGEventPostToPid sometimes drops a key; the app's key log catches it and the key is made again), a bar or panel never opened, or a page never painted; the 1-minute load average at each run's start and end |
 
@@ -351,10 +351,10 @@ command starts.
 `--only frames` (timings, run under the perflab lock) and `--only framecounts` (counts, no lock) run the app's own UI
 interactions on the big seed (200 tabs in two profiles) and ask, per interaction, how many frames the main thread
 delivered. `--frames-n` repetitions (default 8; `framecounts` at most 3) per run, `--runs` runs per app, interleaved
-with `--control`. They need the display on: `nnperf display` is checked before and after, a run on an asleep or
+with `--control`. They need the display on: `acperf display` is checked before and after, a run on an asleep or
 locked display is left out ("runs skipped"), because macOS stops giving windows display-link frames then.
 
-The probe (`nnframes.m`, loaded with `AC_BENCH_FRAMES=1`) links a `CADisplayLink` of the window's screen, asked for the
+The probe (`acframes.m`, loaded with `AC_BENCH_FRAMES=1`) links a `CADisplayLink` of the window's screen, asked for the
 screen's maximum rate (`NSScreen.maximumFramesPerSecond`: 120 on a ProMotion built-in display, 60 on an external
 one; the "screen ..., maximum refresh rate" row says which). A tick is the main thread getting to a vsync. Each
 interaction's window starts at the interaction (a real key event for the command bar, the store call otherwise; the

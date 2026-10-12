@@ -1,9 +1,9 @@
-// Compares where two apps' main threads spend a launch, from nnsample.c's samples, between two stack marks (by default
+// Compares where two apps' main threads spend a launch, from acsample.c's samples, between two stack marks (by default
 // ChromeMain's entry and BrowserMain: the stretch Chrome's startup trace doesn't cover).
 //
-//   clang -O2 -dynamiclib -arch arm64 nnsample.c -o <tools>/nnsample.dylib && codesign -fs - <tools>/nnsample.dylib
-//   node native-bench.mjs … --only launch --env AC_SAMPLE_MS=300 --env DYLD_INSERT_LIBRARIES=<tools>/nnsample.dylib
-//   rm <out>/*/template/nnsample.txt        (the seeding launch's; AC_SAMPLE_MS must end before a launch quits)
+//   clang -O2 -dynamiclib -arch arm64 acsample.c -o <tools>/acsample.dylib && codesign -fs - <tools>/acsample.dylib
+//   node native-bench.mjs … --only launch --env AC_SAMPLE_MS=300 --env DYLD_INSERT_LIBRARIES=<tools>/acsample.dylib
+//   rm <out>/*/template/acsample.txt        (the seeding launch's; AC_SAMPLE_MS must end before a launch quits)
 //   node launch-samples.mjs <out> <labelA>=<unstripped framework A> <labelB>=<unstripped framework B> [--from re] [--to re] [--top n] [--leaf]
 //
 // The unstripped framework is dist/<version>/symbols/Chromium Framework (release.sh keeps it; match `dwarfdump --uuid`).
@@ -29,9 +29,9 @@ const res = [];
 for (const spec of sides) {
   const [label, symbols] = spec.split("=");
   const dir = join(out, label, "data");
-  const launches = readdirSync(dir).filter((d) => existsSync(join(dir, d, "nnsample.txt")));
+  const launches = readdirSync(dir).filter((d) => existsSync(join(dir, d, "acsample.txt")));
   const parsed = launches.map((d) => {
-    const lines = readFileSync(join(dir, d, "nnsample.txt"), "utf8").split("\n");
+    const lines = readFileSync(join(dir, d, "acsample.txt"), "utf8").split("\n");
     const sym = new Map();
     const samples = [];
     for (const l of lines) {

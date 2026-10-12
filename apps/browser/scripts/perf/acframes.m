@@ -1,5 +1,5 @@
 // Frame probe for native-bench.mjs's `frames` phase. Loaded into the benchmark's copy of the app (DYLD_INSERT_LIBRARIES,
-// like nnmark.m) when AC_BENCH_FRAMES=1; it never ships. It records, as JSON lines in $ARDIA_DATA_DIR/bench-frames.jsonl
+// like acmark.m) when AC_BENCH_FRAMES=1; it never ships. It records, as JSON lines in $ARDIA_DATA_DIR/bench-frames.jsonl
 // (epoch ms, the clock native-bench's Date.now() uses):
 //
 //   {"k":"f"}       one display-link tick on the main thread (a CADisplayLink of the window's screen, asked for the screen's
@@ -409,7 +409,7 @@ __attribute__((constructor)) static void Start(void) {
   // Both kept alive by statics: ARC would release a local source at the end of this function and cancel it.
   static dispatch_queue_t q;
   static dispatch_source_t timer;
-  q = dispatch_queue_create("nnframes.writer", DISPATCH_QUEUE_SERIAL);
+  q = dispatch_queue_create("acframes.writer", DISPATCH_QUEUE_SERIAL);
   timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, q);
   dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 0), 5 * NSEC_PER_MSEC, 1 * NSEC_PER_MSEC);
   __block int n = 0;

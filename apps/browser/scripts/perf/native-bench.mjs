@@ -31,7 +31,7 @@
 //                               navigate   J4: a real Enter in the command bar with a local test page's URL → the engine
 //                                          asked to load, navigation started, committed, first contentful paint; from a new
 //                                          tab's bar (⌘T) and from a page's panel (⌘L). Same instance as newtabkey.
-//                               frames     the frame rig (frames-phase.mjs, nnframes.m): per interaction of the four journeys
+//                               frames     the frame rig (frames-phase.mjs, acframes.m): per interaction of the four journeys
 //                                          (command bar, tab switch, sidebar collapse/expand/scroll/hover, profile swipe, new
 //                                          window) on the big seed, display-link frames over 8.33/16.7 ms, worst frame, main
 //                                          and JS thread busy time. --frames-n repetitions (default 8). Needs the display on.
@@ -70,11 +70,11 @@
 //     on a loaded Mac where scripts/agent/cpu-cap pauses the instance. Timings taken meanwhile are invalid).
 //
 // Results: <out>/<label>/results.json (every sample) and a summary table (median, min–max over runs) on stdout.
-// Needs: Node 22+, swiftc (builds scripts/perf/nnperf.swift), clang (builds scripts/perf/nnmark.m, loaded into the copy
+// Needs: Node 22+, swiftc (builds scripts/perf/acperf.swift), clang (builds scripts/perf/acmark.m, loaded into the copy
 // of the app to mark when a window's content appears), the app signed with an identity in the keychain.
 //
 // Sections (MARK:)
-//   Probes          nnperf() runs nnperf.swift (rusage, waitwindow, newwindow, quit); markerLibrary() builds nnmark.m;
+//   Probes          acperf() runs acperf.swift (rusage, waitwindow, newwindow, quit); markerLibrary() builds acmark.m;
 //                   usage(), usageDelta(), footprint(): CPU, wakeups and phys_footprint per process kind
 //   Test pages      PAGE_SCRIPT (window.__ac: fcp, frame, visibility, shown), staticPage, animPage, the local server
 //   CDP             Cdp: page targets and their window.__ac
@@ -87,21 +87,21 @@
 //
 // Rows: the function that measures each, and what it waits on. Launch rows count from just before `open`; command rows
 // from Date.now() in the app's JS as the command starts (ac.now()).
-//   launch → window shown                   launchRun   nnperf waitwindow: the pid's first on-screen window ≥ 300×200
+//   launch → window shown                   launchRun   acperf waitwindow: the pid's first on-screen window ≥ 300×200
 //                                                        with alpha > 0 (CEF builds show it empty, ArdiaCore with content)
-//   launch → window shown with its content  launchRun   the later of that and nnmark's commit of the Core Animation
+//   launch → window shown with its content  launchRun   the later of that and acmark's commit of the Core Animation
 //                                                        transaction carrying the first React root's content
 //   launch → JS running                     launchRun   bench-boot.json, written as bench-channel.js loads (after the
 //                                                        app's index.js and its imports)
 //   launch → first page painted             launchRun   the seed tab's first-contentful-paint (PerformanceObserver)
 //   launch → first page's first frame       launchRun   the seed tab's first requestAnimationFrame callback
-//   idle CPU / idle wakeups/s (…)           sessionRun  idle: idleWindow(), nnperf rusage over the process tree --idle
+//   idle CPU / idle wakeups/s (…)           sessionRun  idle: idleWindow(), acperf rusage over the process tree --idle
 //                                                        secs apart with the channel paused, at 1 tab and at 20
 //   memory (phys_footprint), …              sessionRun  memory: footprint() of the tree at 1 tab (30 s after launch,
 //                                                        after the idle window), 10 tabs (+10 s), 20 tabs (+15 s), and
 //                                                        closed back to 1 (+30 s); "browser process" rows: that process
 //   after an idle minute: command answered  sessionRun  idle: the first command after the 1-tab idle (App Nap check)
-//   idle windows: someone used the Mac      sessionRun  idle: nnperf input over each idle window: seconds of mouse,
+//   idle windows: someone used the Mac      sessionRun  idle: acperf input over each idle window: seconds of mouse,
 //                                                        trackpad or keyboard input (HIDIdleTime), and of the pointer
 //                                                        moving over the instance's window. Nonzero means the idle rows
 //                                                        of that run measured the owner's input too
@@ -109,11 +109,11 @@
 //   tab switch → shown                      sessionRun  switch: ac.actions.switchToTab → the page's visibilitychange to
 //                                                        visible + 2 rAFs (16 per run, among 20 tabs)
 //   new tab → first paint / first frame     sessionRun  newtab: store newTab → the new page's FCP / first rAF (5 per run)
-//   new window → on screen                  newWindow   ac.actions.openWindow → nnperf newwindow (2 ms polls; ≥ 300×200,
+//   new window → on screen                  newWindow   ac.actions.openWindow → acperf newwindow (2 ms polls; ≥ 300×200,
 //                                                        alpha > 0). 3 per session run (newwindow), 8 per windows run
-//   new window → on screen with its content newWindow   the later of that and nnmark's commit for that window
+//   new window → on screen with its content newWindow   the later of that and acmark's commit for that window
 //   new window → first paint / first frame  newWindow   the window's page's FCP / first rAF
-//   ⌘T → …, keystroke → suggestions         journeyRun  newtabkey: nnperf postkeys (CGEventPostToPid into this pid) → the app's field timing
+//   ⌘T → …, keystroke → suggestions         journeyRun  newtabkey: acperf postkeys (CGEventPostToPid into this pid) → the app's field timing
 //                                                        (journeys.ts + ArdiaCoreFieldTiming.mm; sharing on in the bench's data folder,
 //                                                        every non-local fetch answered by bench-offline.js so nothing is uploaded)
 //   Enter → engine asked / started / committed / first contentful paint
@@ -183,9 +183,9 @@ const median = (xs) => {
 // MARK: Probes
 
 const toolDir = join(opt.out, ".tools");
-function nnperf(...args) {
-  const bin = join(toolDir, "nnperf");
-  const src = join(here, "nnperf.swift");
+function acperf(...args) {
+  const bin = join(toolDir, "acperf");
+  const src = join(here, "acperf.swift");
   if (!existsSync(bin) || readFileSync(src, "utf8") !== (existsSync(bin + ".src") ? readFileSync(bin + ".src", "utf8") : "")) {
     mkdirSync(toolDir, { recursive: true });
     execFileSync("swiftc", ["-O", src, "-o", bin], { stdio: "inherit" });
@@ -195,10 +195,10 @@ function nnperf(...args) {
   return { code: r.status, out: r.stdout.trim() };
 }
 
-// The content marker (nnmark.m), loaded into the benchmark's copy of the app.
+// The content marker (acmark.m), loaded into the benchmark's copy of the app.
 function markerLibrary() {
-  const lib = join(toolDir, "nnmark.dylib");
-  const src = join(here, "nnmark.m");
+  const lib = join(toolDir, "acmark.dylib");
+  const src = join(here, "acmark.m");
   if (!existsSync(lib) || readFileSync(src, "utf8") !== (existsSync(lib + ".src") ? readFileSync(lib + ".src", "utf8") : "")) {
     mkdirSync(toolDir, { recursive: true });
     execFileSync("clang", ["-dynamiclib", "-fobjc-arc", "-framework", "AppKit", "-framework", "QuartzCore", "-arch", "arm64", src, "-o", lib], { stdio: "inherit" });
@@ -236,7 +236,7 @@ function kindOf(command) {
 function usage(root) {
   const procs = processTree(root);
   const byPid = new Map(procs.map((p) => [p.pid, p.kind]));
-  const lines = procs.length ? nnperf("rusage", ...procs.map((p) => String(p.pid))).out.split("\n").filter(Boolean) : [];
+  const lines = procs.length ? acperf("rusage", ...procs.map((p) => String(p.pid))).out.split("\n").filter(Boolean) : [];
   return lines.map((l) => JSON.parse(l)).map((u) => ({ ...u, kind: byPid.get(u.pid) }));
 }
 
@@ -394,7 +394,7 @@ function prepareApp(app, out, bundle) {
   const info = spawnSync("codesign", ["-dvv", app], { encoding: "utf8" }).stderr;
   const identity = info.match(/^Authority=(.+)$/m)?.[1] ?? "-";
   const entitlements = join(out, "entitlements.plist");
-  // The copy loads the content marker (nnmark.m): DYLD_INSERT_LIBRARIES, an ad-hoc signed library.
+  // The copy loads the content marker (acmark.m): DYLD_INSERT_LIBRARIES, an ad-hoc signed library.
   const granted = execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", app], { encoding: "utf8" });
   const marker = ["com.apple.security.cs.allow-dyld-environment-variables", "com.apple.security.cs.disable-library-validation"]
     .filter((key) => !granted.includes(`<key>${key}</key>`)).map((key) => `<key>${key}</key><true/>`).join("");
@@ -474,13 +474,13 @@ class Instance {
     }
     if (!this.pid) throw new Error("the app didn't start");
     live.add(this);
-    const w = nnperf("waitwindow", String(this.pid), "60");
+    const w = acperf("waitwindow", String(this.pid), "60");
     this.windowAt = w.code === 0 ? +w.out : NaN;
     const boot = await this.waitFile("bench-boot.json", 60_000);
     this.jsStart = boot?.jsStart ?? NaN;
     return this;
   }
-  // The content marker's marks (nnmark.m): {content|committed: epoch ms, window}.
+  // The content marker's marks (acmark.m): {content|committed: epoch ms, window}.
   marks() {
     try {
       return readFileSync(join(this.dataDir, "bench-marks.jsonl"), "utf8").split("\n").filter(Boolean).flatMap((l) => {
@@ -547,7 +547,7 @@ class Instance {
     this.cdp.close();
     live.delete(this);
     if (!this.pid || !this.alive()) return;
-    nnperf("quit", String(this.pid));
+    acperf("quit", String(this.pid));
     for (let i = 0; i < 100 && this.alive(); i++) await sleep(100);
     if (this.alive()) process.kill(this.pid, "SIGKILL");
     const helpers = () => spawnSync("pgrep", ["-f", this.app], { encoding: "utf8" }).stdout.trim();
@@ -665,7 +665,7 @@ async function launchRun(side, i) {
 async function idleWindow(app, secs) {
   await app.run(`ac.pause(${secs * 1000 + 1500}); return true;`);
   // Someone using the Mac meanwhile (the window is on screen, usually in front): its pointer over the window wakes the app.
-  const probe = spawn(join(toolDir, "nnperf"), ["input", String(app.pid), String(secs)], { stdio: ["ignore", "pipe", "ignore"] });
+  const probe = spawn(join(toolDir, "acperf"), ["input", String(app.pid), String(secs)], { stdio: ["ignore", "pipe", "ignore"] });
   let said = "";
   probe.stdout.on("data", (d) => (said += d));
   const probed = new Promise((done) => (probe.on("close", done), probe.on("error", done)));
@@ -717,7 +717,7 @@ async function tabIds(app) {
 // transaction carrying its React content committed: 0.2.21 showed a window empty and its content after, 0.2.22 keeps it
 // transparent until then), and → its page's first paint.
 async function newWindow(app, id) {
-  const watcher = spawn(join(toolDir, "nnperf"), ["newwindow", String(app.pid), "20"], { stdio: ["ignore", "pipe", "ignore"] });
+  const watcher = spawn(join(toolDir, "acperf"), ["newwindow", String(app.pid), "20"], { stdio: ["ignore", "pipe", "ignore"] });
   let said = "";
   watcher.stdout.on("data", (d) => (said += d));
   const exited = new Promise((done) => watcher.on("exit", done));
@@ -759,7 +759,7 @@ async function windowsRun(side, i) {
 
 // The app times a journey only while the user shares diagnostics (telemetry/journeys.ts), so these runs turn sharing
 // on in their data folder, with a `bench-offline` file that makes bench-offline.js answer every non-local fetch itself:
-// the Release bundle would otherwise send the events to our collector. Input is real: nnperf postkeys posts key events
+// the Release bundle would otherwise send the events to our collector. Input is real: acperf postkeys posts key events
 // to this one pid (CGEventPostToPid), which reach the app as a keyboard's do (NSApp.sendEvent, the menu bar's ⌘T, the
 // focused field). Every row starts at the key down's own timestamp (epoch ms, the clock the app's marks use): the instant the app's field timing starts a journey from.
 const TELEMETRY_ON = { version: 1, sharing: true, decidedAt: 1, askDoneAt: 1, installId: "00000000-0000-4000-8000-0000000000b0", lastVersion: null, sessionOpen: false };
@@ -774,14 +774,14 @@ async function recover(app) {
 }
 
 function postKeys(app, gap, ...specs) {
-  const r = nnperf("postkeys", String(app.pid), String(gap), ...specs);
-  if (r.code !== 0) throw new Error(`nnperf postkeys ${specs.join(" ")} failed (${r.code}): ${r.out}`);
+  const r = acperf("postkeys", String(app.pid), String(gap), ...specs);
+  if (r.code !== 0) throw new Error(`acperf postkeys ${specs.join(" ")} failed (${r.code}): ${r.out}`);
   return r.out.split("\n").filter(Boolean).map((l) => JSON.parse(l));
 }
 
-// CGEventPostToPid sometimes drops an event (about one in ten here); the app's key log (nnmark.m) says whether this one
+// CGEventPostToPid sometimes drops an event (about one in ten here); the app's key log (acmark.m) says whether this one
 // arrived, and a key it never saw is made again. Returns the press that arrived: `at` is the event's own timestamp (when
-// the system made the key, the instant the app's field timing starts every journey from), `posted` the moment nnperf
+// the system made the key, the instant the app's field timing starts every journey from), `posted` the moment acperf
 // handed it over, which the event system stamps a few ms to a few tens of ms later (the row "poster → timestamp").
 async function postSeen(app, spec) {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -819,8 +819,8 @@ const markOf = (st, key, kind, from) => (st.marks[key] ?? []).filter(([k, at]) =
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
-// How long a key sat between being made (nnperf's CGEvent, the event's timestamp) and the app's event loop getting to it
-// (nnmark.m's key log), for the key nnperf made at `at`.
+// How long a key sat between being made (acperf's CGEvent, the event's timestamp) and the app's event loop getting to it
+// (acmark.m's key log), for the key acperf made at `at`.
 function delivery(app, at) {
   const keys = app.marks().filter((m) => m.keydown !== undefined && Math.abs(m.made - at) < 100);
   keys.sort((a, b) => Math.abs(a.made - at) - Math.abs(b.made - at));
@@ -860,7 +860,7 @@ async function newTabKey(app, i, k) {
   const last = (step) => (sampled(done, step) > sampled(before, step) ? done.samples[step].at(-1) : NaN);
   return {
     tab: p.key,
-    // Cumulative from the ⌘T key down (nnperf's stamp), the app's own steps in ms.
+    // Cumulative from the ⌘T key down (acperf's stamp), the app's own steps in ms.
     js: p.heard - press.at,
     commit: p.bar - press.at,
     shown: markOf(done, p.key, "bar", press.at) - press.at,
@@ -1228,7 +1228,7 @@ function summary(res) {
   pooled("J2 keystroke → its suggestions on screen", of("j2", "suggest"));
   pooled("J2 the app's own ⌘T → typeable (its t0 is the event's timestamp)", of("j2", "appTypeable"));
   pooled("J2 the app's t0 minus the key's timestamp (should be 0)", of("j2", "t0Skew"));
-  pooled("J2 nnperf hands ⌘T over → the event's timestamp (not in the rows)", of("j2", "postGap"));
+  pooled("J2 acperf hands ⌘T over → the event's timestamp (not in the rows)", of("j2", "postGap"));
   pooled("J2 ⌘T key made → the app's event loop saw it", of("j2", "delivery"));
   pooled("J2 keystroke made → the app's event loop saw it", of("j2", "suggestDelivery"));
   for (const [kind, from] of [["j4new", "new tab's bar (⌘T)"], ["j4page", "page's panel (⌘L)"]]) {
@@ -1351,7 +1351,7 @@ try {
   if (only.has("launch")) await interleaved(+opt["launch-runs"], launchRun);
   const parts = new Set(SESSION_PARTS.filter((p) => only.has("session") || only.has(p)));
   if (parts.size) await interleaved(+opt.runs, (side, i) => sessionRun(side, i, parts));
-  const framesCtx = { Instance, freshDir, nnperf, sleep, log, WINDOW, base, opt, toolDir, loadavg, out: opt.out };
+  const framesCtx = { Instance, freshDir, acperf, sleep, log, WINDOW, base, opt, toolDir, loadavg, out: opt.out };
   if (only.has("frames")) await interleaved(+opt.runs, (side, i) => framesRun(framesCtx, side, i, { counts: false }));
   if (only.has("framecounts")) await interleaved(+opt.runs, (side, i) => framesRun(framesCtx, side, i, { counts: true }));
   const journeys = new Set(JOURNEY_PHASES.filter((p) => only.has(p)));

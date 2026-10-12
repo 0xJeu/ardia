@@ -64,7 +64,7 @@ export const SWITCHES = {
     live: true,
   },
   sidebarSlideLean: {
-    about: "The sidebar's slide draws the traffic lights' moves and lays them out once they stop (ArdiaCoreChromeWindow.mm).",
+    about: "The sidebar's slide draws the traffic lights' moves and lays them out once they stop (packages/shell ChromeWindows.swift).",
     owner: "sidebar",
     removeBy: "2026-12-15",
     live: false,

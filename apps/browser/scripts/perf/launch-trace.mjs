@@ -7,7 +7,7 @@
 // ChromeMain's entry, BrowserMain, the end of BrowserMainRunnerImpl::Initialize, and each process kind's first event,
 // as medians with every launch's value. Then the slices on the browser's main thread up to BrowserMain + 400 ms, by
 // name (a task by where it was posted from), inclusive ms, biggest change first. Nothing between ChromeMain and
-// BrowserMain is traced: for that window, nnsample.c and launch-samples.mjs sample the main thread.
+// BrowserMain is traced: for that window, acsample.c and launch-samples.mjs sample the main thread.
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 

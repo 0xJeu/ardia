@@ -1,20 +1,20 @@
 // Process probes for native-bench.mjs (built on demand with swiftc; no sudo needed).
 //
-//   nnperf rusage <pid>...            one JSON line per pid: CPU time, wakeups, phys_footprint
-//   nnperf waitwindow <pid> <secs>    prints the epoch ms at which the pid first has an on-screen window ≥ 300×200
-//   nnperf windows <pid>              JSON array of the pid's on-screen windows
-//   nnperf newwindow <pid> <secs>     prints "ready" once it knows the pid's windows, then {"at": epoch ms, "id": window
+//   acperf rusage <pid>...            one JSON line per pid: CPU time, wakeups, phys_footprint
+//   acperf waitwindow <pid> <secs>    prints the epoch ms at which the pid first has an on-screen window ≥ 300×200
+//   acperf windows <pid>              JSON array of the pid's on-screen windows
+//   acperf newwindow <pid> <secs>     prints "ready" once it knows the pid's windows, then {"at": epoch ms, "id": window
 //                                     number} when a new one is on screen (≥ 300×200, alpha > 0), polling every 2 ms
-//   nnperf quit <pid>                 asks that one process to quit (a quit Apple event, as ⌘Q would)
-//   nnperf postkeys <pid> <gap ms> <spec>...
+//   acperf quit <pid>                 asks that one process to quit (a quit Apple event, as ⌘Q would)
+//   acperf postkeys <pid> <gap ms> <spec>...
 //                                     real key events posted to that one process (CGEventPostToPid: the window server's
 //                                     event path into the app's queue, as a keyboard's are). A spec is a chord (`cmd+t`,
 //                                     `enter`, `esc`) or `text:<chars>` (US layout, a key down and up per character,
 //                                     <gap ms> apart). Prints {"spec", "at"} per spec: epoch ms when its first key down
 //                                     was created, the instant the press starts for the journey rows
-//   nnperf display                    {"asleep", "locked"}: whether the main display is off and whether the login session's
+//   acperf display                    {"asleep", "locked"}: whether the main display is off and whether the login session's
 //                                     screen is locked (macOS gives windows no display-link frames then)
-//   nnperf input <pid> <secs>         {"inputSecs", "overWindowSecs"}: how long, polling every 250 ms, someone used the
+//   acperf input <pid> <secs>         {"inputSecs", "overWindowSecs"}: how long, polling every 250 ms, someone used the
 //                                     mouse, trackpad or keyboard (HIDIdleTime), and how much of that with the pointer
 //                                     moving over one of the pid's windows
 import AppKit
@@ -145,7 +145,7 @@ case "input":
   printJSON(["inputSecs": Double(input) * tick, "overWindowSecs": Double(over) * tick])
 case "postkeys":
   guard args.count >= 5, let pid = pid_t(args[2]), pid > 1, let gap = Double(args[3]) else {
-    FileHandle.standardError.write("usage: nnperf postkeys <pid> <gap ms> <spec>...\n".data(using: .utf8)!)
+    FileHandle.standardError.write("usage: acperf postkeys <pid> <gap ms> <spec>...\n".data(using: .utf8)!)
     exit(64)
   }
   // US ANSI virtual key codes; `shifted` are the characters typed with shift on the same key.
@@ -176,7 +176,7 @@ case "postkeys":
         let shift = shifted[ch] != nil || (ch.isUppercase)
         let base = shifted[ch] ?? Character(ch.lowercased())
         guard let code = codes[base] else {
-          FileHandle.standardError.write("nnperf postkeys: no key for \(ch)\n".data(using: .utf8)!)
+          FileHandle.standardError.write("acperf postkeys: no key for \(ch)\n".data(using: .utf8)!)
           exit(64)
         }
         let at = press(code, shift ? .maskShift : [], String(ch))
@@ -196,7 +196,7 @@ case "postkeys":
         }
       }
       guard let code = named[key] ?? key.first.flatMap({ key.count == 1 ? codes[$0] : nil }) else {
-        FileHandle.standardError.write("nnperf postkeys: no key for \(spec)\n".data(using: .utf8)!)
+        FileHandle.standardError.write("acperf postkeys: no key for \(spec)\n".data(using: .utf8)!)
         exit(64)
       }
       first = press(code, flags, flags.isEmpty && key.count == 1 ? key : nil)
@@ -205,6 +205,6 @@ case "postkeys":
     fflush(stdout)
   }
 default:
-  FileHandle.standardError.write("usage: nnperf rusage <pid>... | windows <pid> | quit <pid> | waitwindow <pid> <secs> | newwindow <pid> <secs> | input <pid> <secs> | postkeys <pid> <gap ms> <spec>...\n".data(using: .utf8)!)
+  FileHandle.standardError.write("usage: acperf rusage <pid>... | windows <pid> | quit <pid> | waitwindow <pid> <secs> | newwindow <pid> <secs> | input <pid> <secs> | postkeys <pid> <gap ms> <spec>...\n".data(using: .utf8)!)
   exit(64)
 }

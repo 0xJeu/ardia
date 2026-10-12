@@ -1,6 +1,6 @@
 // native-bench.mjs's `frames` and `framecounts` phases: the frame rig for the app's own UI (not web pages).
 //
-// `frames` runs one hidden instance of the big seed (200 tabs, two profiles) with nnframes.m loaded (a CADisplayLink of the
+// `frames` runs one hidden instance of the big seed (200 tabs, two profiles) with acframes.m loaded (a CADisplayLink of the
 // window's screen at its maximum rate, main-thread and JS-thread run-loop busy time, layout passes). It drives each
 // interaction of the four journeys N times and, for each, reads what the probe recorded between the interaction's start
 // and the end of its window. Timings: run under the perflab lock.
@@ -54,10 +54,10 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-// The probe library (nnframes.m), built like the marker library.
+// The probe library (acframes.m), built like the marker library.
 export function framesLibrary(toolDir, here) {
-  const lib = join(toolDir, "nnframes.dylib");
-  const src = join(here, "nnframes.m");
+  const lib = join(toolDir, "acframes.dylib");
+  const src = join(here, "acframes.m");
   if (!existsSync(lib) || readFileSync(src, "utf8") !== (existsSync(lib + ".src") ? readFileSync(lib + ".src", "utf8") : "")) {
     execFileSync("clang", ["-dynamiclib", "-fobjc-arc", "-framework", "AppKit", "-framework", "QuartzCore", "-arch", "arm64", src, "-o", lib], { stdio: "inherit" });
     execFileSync("codesign", ["--force", "--sign", "-", lib]);
@@ -210,8 +210,8 @@ function interactions(c) {
 }
 
 export async function framesRun(c, side, i, { counts }) {
-  const { Instance, freshDir, nnperf, sleep, log, WINDOW, base, opt, toolDir } = c;
-  const display = JSON.parse(nnperf("display").out || "{}");
+  const { Instance, freshDir, acperf, sleep, log, WINDOW, base, opt, toolDir } = c;
+  const display = JSON.parse(acperf("display").out || "{}");
   if (display.asleep || display.locked) {
     log(`${side.tag}frames ${i}: the display is ${display.asleep ? "asleep" : "locked"}; macOS gives no frames then, skipped`);
     side.results.frames.push({ skipped: display.asleep ? "display asleep" : "screen locked", counts });
@@ -225,7 +225,7 @@ export async function framesRun(c, side, i, { counts }) {
   const rec = new Records(join(dir, "bench-frames.jsonl"));
   const run = (code) => app.run(code);
   let seq = 0;
-  // A probe command (nnframes.m): answered when done; a driver (scroll, hover) answers when its last tick has run, and
+  // A probe command (acframes.m): answered when done; a driver (scroll, hover) answers when its last tick has run, and
   // wait = false returns as soon as the command is written (the window is read after the interaction's length).
   const probe = async (op, args = {}, wait = true) => {
     const id = `f${++seq}-${Date.now()}`;
@@ -239,7 +239,7 @@ export async function framesRun(c, side, i, { counts }) {
   // A real key event; retried until the app's event loop saw it (CGEventPostToPid drops about one in ten).
   const key = async (spec) => {
     for (let attempt = 0; attempt < 4; attempt++) {
-      const r = nnperf("postkeys", String(app.pid), "0", spec);
+      const r = acperf("postkeys", String(app.pid), "0", spec);
       const press = JSON.parse(r.out.split("\n").filter(Boolean)[0]);
       for (const end = Date.now() + 1000; Date.now() < end; await sleep(15)) {
         const seen = rec.read().keys.find((x) => x.made >= press.at - 5 && x.made < press.at + 400);
@@ -338,7 +338,7 @@ export async function framesRun(c, side, i, { counts }) {
       out.interactions[it.name] = rows;
       log(`${side.tag}frames ${i} ${it.name}: ${rows.length} reps, frames ${median(rows.map((r) => r.frames))}, >8.33 ${median(rows.map((r) => r.over8))}, worst ${median(rows.map((r) => r.worst)).toFixed?.(1)} ms, main worst ${median(rows.map((r) => r.mainWorst)).toFixed?.(1)} ms`);
     }
-    const after = JSON.parse(nnperf("display").out || "{}");
+    const after = JSON.parse(acperf("display").out || "{}");
     out.displayAfter = after;
     out.cpuCap.pauses = capPauses(capFrom, app.app, app.pid);
     out.cpuCap.running ||= capRunning();
