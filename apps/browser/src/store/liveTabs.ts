@@ -23,7 +23,7 @@ const madeByChrome = (s: BrowserState, key: string) => !!s.tabs[key]?.adoptId?.s
 /** What a command of the app's own, already on its way to the strip, will set anyway (Chrome's change came first,
  *  the command commits after it and wins): the order and pins of the tabs an `arrange` lists, the groups of the
  *  tabs a `group` lists, the active tab. */
-export type Pending = { arranged: ReadonlySet<string>; grouped?: ReadonlySet<string>; active: boolean };
+export type Pending = { arranged: ReadonlySet<string>; grouped?: ReadonlySet<string>; regrouped?: ReadonlySet<string>; active: boolean };
 const NOTHING_PENDING: Pending = { arranged: new Set(), active: false };
 
 /** Chrome's group ids → the store's: bound when the app makes a Chrome group for a store group, or takes in one an
@@ -56,7 +56,12 @@ export function chromeChanged(
   const followed = now.filter((t) => (stayed(t) || taken.has(t.key)) && !pending.arranged.has(t.key));
   const weight = (t: Keyed) => (groupOf(s, t.key) ? 2 : 1);
   // Tabs an arrange on its way lists don't move here, but they're where the app put them: others can sit by them.
-  const kept = new Set([...keptOrder(followed.filter(stayed), (t) => was.get(t.browser)!.index, weight).map((t) => t.key), ...pending.arranged]);
+  // Tabs a group command on its way moves stay where the store has them too, but a pin Chrome made is still Chrome's.
+  const kept = new Set([
+    ...keptOrder(followed.filter(stayed), (t) => was.get(t.browser)!.index, weight).map((t) => t.key),
+    ...pending.arranged,
+    ...(pending.regrouped ?? []),
+  ]);
   const settled = new Set(kept);
   // Where the engine reports groups, a moved tab keeps the store group of the Chrome group it's in (a group moved
   // as a whole stays one); otherwise its new neighbours decide.

@@ -330,10 +330,12 @@ class DragController {
       pitch = (cells[0]?.frame?.w ?? source.frame?.w ?? 50) + TILE_GAP;
     } else {
       const groups = live.filter((i) => i.kind === "group");
+      // Where the groups show now: a row dragged out from above one moves it up, as the room the list made moves it.
       const box = tabsDrag
         ? groups.find((g) => {
-            const f = this.at(g.frame)!;
-            const header = this.at(g.headerFrame);
+            const f = this.shown(g);
+            const start = this.at(g.headerFrame);
+            const header = start && { ...start, y: start.y + f.y - this.at(g.frame)!.y };
             if (g.collapsed) return !!header && inside(header, x, y) && Math.abs(y - (header.y + header.h / 2)) < header.h / 3;
             return inside(f, x, y) && (!header || y > header.y + header.h / 2);
           })
@@ -390,17 +392,33 @@ class DragController {
     }
   }
 
-  // The ungrouped tab in the list whose middle half is under the pointer where it shows now: moved up by the dragged
-  // rows that closed above it, down by the room open above it.
-  private ontoTarget(live: Item[], y: number): string | null {
+  // An item's frame where it shows now: moved up by the dragged rows that closed above it, down by the room open
+  // above it; a group's also shorter or taller by what closed or opened inside it.
+  private shown(i: Item): Frame {
+    const f = this.at(i.frame)!;
+    const [top, bottom] = [i.frame!.y, i.frame!.y + i.frame!.h];
+    let dy = 0;
+    let dh = 0;
     const gap = this.gapKey ? this.items.get(this.gapKey) : undefined;
-    const pushes = gap?.frame && gap.section !== "tiles" ? gap.frame.y : Infinity;
+    if (gap?.frame && gap.section !== "tiles") {
+      if (gap.frame.y <= top) dy += this.pitch;
+      else if (gap.frame.y < bottom) dh += this.pitch;
+    }
+    for (const s of this.sources) {
+      if (s.kind === "tile" || !s.frame || s === i) continue;
+      const closed = s.frame.h + (s.parentGroup ? 0 : ROW_GAP);
+      if (s.frame.y < top) dy -= closed;
+      else if (s.frame.y < bottom) dh -= closed;
+    }
+    return { ...f, y: f.y + dy, h: f.h + dh };
+  }
+
+  // The ungrouped tab in the list whose middle half is under the pointer where it shows now.
+  private ontoTarget(live: Item[], y: number): string | null {
     for (const i of live) {
       if (i.kind !== "row" || i.parentGroup || i.section !== "list") continue;
-      const f = this.at(i.frame)!;
-      let top = f.y + (pushes <= i.frame!.y ? this.pitch : 0);
-      for (const s of this.sources) if (s.kind !== "tile" && s.frame && s.frame.y < i.frame!.y) top -= s.frame.h + (s.parentGroup ? 0 : ROW_GAP);
-      if (y > top + f.h * 0.25 && y < top + f.h * 0.75) return i.key;
+      const f = this.shown(i);
+      if (y > f.y + f.h * 0.25 && y < f.y + f.h * 0.75) return i.key;
     }
     return null;
   }

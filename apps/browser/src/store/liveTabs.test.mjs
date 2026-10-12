@@ -593,3 +593,23 @@ test("a member dragged out of a pinned group, or onto a tab, reaches Chrome with
   assert.deepEqual(chromeOrder(win.strip), order(win.w));
   assert.deepEqual(chromeGroups(), groups());
 });
+
+test("Chrome's own pin or move of a group's tab while a rename of the group is on its way stands", async () => {
+  for (const change of ["move", "pin"]) {
+    const win = windowWith("x", "a", "b");
+    const id = (u) => S().windows[win.w].tabIds.find((t) => urlOf(t) === u);
+    for (const u of ["x", "a", "b"]) S().activate(id(u));
+    const g = S().groupTabs([id("a"), id("b")], { pinned: false, name: "G" });
+    await settle(win);
+    S().updateGroup(g, { name: "Renamed" });
+    await tick();
+    assert.ok(chrome.commands.some((c) => c.command.op === "group"), "the rename is on its way");
+    if (change === "pin") chrome.pin(id("b"), true);
+    else chrome.reorder(win.strip, [id("x"), id("b"), id("a")]);
+    await settle(win);
+    if (change === "pin") assert.equal(S().tabs[id("b")].pinned, true, "Chrome's pin stands");
+    else assert.deepEqual(order(win.w), ["x", "b", "a"], "Chrome's move stands");
+    assert.deepEqual(chromeOrder(win.strip), order(win.w));
+    assert.equal(chrome.strips.get(win.strip).groups.get([...chrome.strips.get(win.strip).groups.keys()].at(-1)).title, "Renamed");
+  }
+});

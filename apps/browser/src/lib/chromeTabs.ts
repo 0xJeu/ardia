@@ -29,7 +29,8 @@ const seen = new Set<string>();
 // The command each strip is waiting for (an arrange or group with the tabs it lists; the store group a new Chrome
 // group is made for).
 type Kind = "arrange" | "activate" | "group";
-const inflight = new Map<number, { kind: Kind; cmd: number; keys?: string[]; makes?: string; successor?: boolean }>();
+// `moves`: a group command that moves its tabs (joining, a new group, leaving one); a rename or recolour moves nothing.
+const inflight = new Map<number, { kind: Kind; cmd: number; keys?: string[]; makes?: string; successor?: boolean; moves?: boolean }>();
 // Chrome's group ids → the store's.
 const groups: GroupBindings = new Map();
 // What was last sent to each strip, against which of its states: a plan Chrome couldn't reach isn't sent again
@@ -115,9 +116,10 @@ function receive(tx: TabStripTransaction) {
         siblings,
         groups,
         pending: {
-          // A group command moves its tabs too (Chrome puts a group's tabs together, an ungrouped tab after its old
-          // group), and the engine reports that as Chrome's own change: the store's places stand.
-          arranged: new Set(waiting?.kind === "arrange" || waiting?.kind === "group" ? waiting.keys : []),
+          arranged: new Set(waiting?.kind === "arrange" ? waiting.keys : []),
+          // A group command that moves its tabs (Chrome puts a group's tabs together, an ungrouped tab after its old
+          // group) has the engine report those moves as Chrome's own: the store's places stand. Pins aren't its.
+          regrouped: new Set(waiting?.kind === "group" && waiting.moves ? waiting.keys : []),
           grouped: new Set(waiting?.kind === "group" ? waiting.keys : []),
           // The store's successor for a tab that closed gives way to a tab Chrome activated explicitly meanwhile
           // (an extension closing and activating in one go), as in Chrome.
@@ -159,7 +161,8 @@ function project(s: BrowserState) {
     const step = groupStep(s, strip, groups);
     const group = () => {
       const { makes, ...rest } = step!;
-      send(strip.strip, "group", JSON.stringify(step), { op: "group", strip: strip.strip, ...rest }, makes);
+      const moves = step!.group === null || step!.group === "new" || step!.title === undefined;
+      send(strip.strip, "group", JSON.stringify(step), { op: "group", strip: strip.strip, ...rest }, makes, undefined, moves);
     };
     if (plan.active && plan.active !== actual.active && !unadopted) {
       // Chrome's active tab is gone from the store (it closed): the store's pick is a successor.
@@ -182,8 +185,8 @@ function sentAlready(strip: number, kind: Kind, sig: string) {
   return last?.sig === sig && last.since === (changedAt.get(strip) ?? 0);
 }
 
-function send(strip: number, kind: Kind, sig: string, command: TabStripCommand, makes?: string, successor?: boolean) {
+function send(strip: number, kind: Kind, sig: string, command: TabStripCommand, makes?: string, successor?: boolean, moves?: boolean) {
   if (sentAlready(strip, kind, sig)) return;
   tried.set(`${strip}:${kind}`, { sig, since: changedAt.get(strip) ?? 0 });
-  inflight.set(strip, { kind, cmd: sendTabStripCommand(command), ...(command.op !== "activate" ? { keys: command.keys } : {}), makes, successor });
+  inflight.set(strip, { kind, cmd: sendTabStripCommand(command), ...(command.op !== "activate" ? { keys: command.keys } : {}), makes, successor, moves });
 }
