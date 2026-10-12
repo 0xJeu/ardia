@@ -408,7 +408,8 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
   const query = raw.trim();
   if (!query) return { items: [], completion: "" };
   // Pages match by their shown address, which has no scheme: a typed one (the bar shows it while editing) is left out.
-  const bare = query.replace(/^https?:\/\/(?=\S)/i, "");
+  // Most keys don't start with "h": they skip the regexp.
+  const bare = query[0] === "h" || query[0] === "H" ? query.replace(/^https?:\/\/(?=\S)/i, "") : query;
   const q = bare.toLowerCase();
   const tokens = q.split(/\s+/).filter(Boolean);
 
