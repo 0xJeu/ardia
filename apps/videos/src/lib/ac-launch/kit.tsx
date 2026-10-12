@@ -137,7 +137,7 @@ const WINDOW_PT = 1440;
 const CORNER_PT = 21; // macOS 26's window corner, measured from apps/site's ScreenCaptureKit captures
 
 /**
- * A real Arcadia window frame (scripts/capture → public/footage) placed by its Studio object (the rest pose, which
+ * A real Ardia window frame (scripts/capture → public/footage) placed by its Studio object (the rest pose, which
  * the owner can drag on the canvas) and moved by the camera. Fast moves get a directional blur.
  */
 export function Window({

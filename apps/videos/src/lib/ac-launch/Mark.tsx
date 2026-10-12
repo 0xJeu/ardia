@@ -1,4 +1,4 @@
-// Arcadia's logo in the film: the oil-painted hills and sun (docs/brand/arcadia), as two layers cut from the same
+// Ardia's logo in the film: the oil-painted hills and sun (docs/brand/ardia), as two layers cut from the same
 // painting by scripts/prepare-assets.sh (public/brand/hills.png and sun.png, on the mark's own 931 × 702 canvas), so
 // the sun can rise from behind the hills, hop and glow while the hills rise, lean and shove. Pure in time.
 import type { CSSProperties } from "react";
@@ -9,7 +9,7 @@ import { useAspect } from "./kit";
 /** The mark's canvas, and the sun's centre and radius on it (fractions of its width and height; prepare-assets.sh). */
 const MARK = { w: 931, h: 702 };
 const SUN = { x: 0.5623, y: 0.1724, r: 0.1316 };
-/** The brand's sun (docs/brand/arcadia/README.md). */
+/** The brand's sun (docs/brand/ardia/README.md). */
 export const SUN_COLOR = "#E6BC62";
 /** How far the sun sinks to set behind the hills, in the mark's heights: its disc then sits wholly inside them. */
 const SET = 0.52;

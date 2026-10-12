@@ -109,7 +109,7 @@ const SEC = BEAT / 30; // seconds in a beat
 
 // ---------------------------------------------------------------------------------------------- the hook
 
-// Each stab cuts to a stand-in site interrupting you in a Arcadia window (scenes/asks.js, sites/*.example): the
+// Each stab cuts to a stand-in site interrupting you in a Ardia window (scenes/asks.js, sites/*.example): the
 // interruption plays in on the stab, a frame of the page per film frame, and a pointer heads for its button.
 const ASK_NAMES = ["signin", "ai", "cookies", "upgrade"];
 // The first ask's framing differs by aspect: in 16:9 the window sits low enough for the sun to peek up over its top
@@ -565,7 +565,7 @@ function Nos() {
   );
 }
 
-// The netnyahoo.com frames were captured (2026-10-03) while the site still had its old mascot and copy. They are brought
+// The site frames were captured (2026-10-03, at netnyahoo.com) while the site still had its old name, mascot and copy. They are brought
 // up to date in place, on the page's own paper, as apps/site lays the page out at this width: the hero figure becomes
 // the painting with its "NO ACCOUNT" stamp and caption, the headline and lede become today's ("TOUCH GRASS." is what
 // the dive lands on), the header's wordmark, icon and section links and the tab's title and favicon follow. Everything
@@ -634,7 +634,7 @@ function SiteLogo({ width }: { width: number }) {
           fontSize: 20.8 * s, lineHeight: `${28 * s}px`, color: color.ink,
         }}
       >
-        arcadia
+        ardia
       </p>
       {clear(840, 64, 432, 26)}
       <div style={{ ...at(840, 64, 424.5, 26), display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 26 * s }}>
@@ -655,15 +655,15 @@ function SiteLogo({ width }: { width: number }) {
           maskImage: "linear-gradient(90deg, #000 80%, transparent)", WebkitMaskImage: "linear-gradient(90deg, #000 80%, transparent)",
         }}
       >
-        Arcadia · the sidebar browser for Mac
+        Ardia · the sidebar browser for Mac
       </p>
     </>
   );
 }
 
-const TYPED = ["n", "ne", "net", "netn", "netny", "netnya", "netnyah", "netnyaho", "arcadia", "arcadia.", "arcadia.c", "arcadia.co", "netnyahoo.com"];
+const TYPED = ["a", "ar", "ard", "ardi", "ardia", "ardia.", "ardia.d", "ardia.de", "ardia.dev"];
 
-/** netnyahoo.com typed into the address bar a key at a time, completed from history; Return; the site; a dive into its headline. */
+/** ardia.dev typed into the address bar a key at a time, completed from history; Return; the site; a dive into its headline. */
 function Typing() {
   const b = useBeat();
   const port = useAspect() === "port";

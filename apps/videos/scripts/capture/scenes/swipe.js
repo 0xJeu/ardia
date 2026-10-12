@@ -5,7 +5,7 @@ const sw = globalThis.acSwipe.sidebar(W);
 const step = (steps) => Promise.resolve(sw.devSimulate(steps, { ignorePreference: true }));
 const ease = (x) => 0.5 - 0.5 * Math.cos(Math.PI * x);
 // The pager's own position (in pages) at each frame, so the film can slide the page exactly with the sidebar.
-const pos = () => { const st8 = globalThis.expo.modules.ArcadiaSwipe.pagerState(W); return st8 ? st8.position : null; };
+const pos = () => { const st8 = globalThis.expo.modules.ArdiaSwipe.pagerState(W); return st8 ? st8.position : null; };
 const swipe = (name, dir, n) => {
   let from;
   then(() => { from = pos(); return step([{ phase: "began", dx: 0 }]); });

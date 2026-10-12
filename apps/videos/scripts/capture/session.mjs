@@ -19,7 +19,7 @@ const tabs = [
   T("work", "https://stackoverflow.com/questions"),
   T("work", "https://developer.apple.com/documentation/swiftui"),
   T("travel", "https://en.wikipedia.org/wiki/Lake_District"),
-  T("travel", "https://en.wikipedia.org/wiki/Arcadia"),
+  T("travel", "https://en.wikipedia.org/wiki/Peak_District"),
   T("travel", "https://en.wikipedia.org/wiki/Hiking"),
   T("travel", "https://en.wikipedia.org/wiki/Youth_hostel"),
   T("travel", "https://en.wikipedia.org/wiki/Ordnance_Survey"),

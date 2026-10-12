@@ -413,10 +413,10 @@
     {
       "id": "title-name",
       "definition": "type",
-      "label": "title · ARCADIA",
+      "label": "title · ARDIA",
       "parentId": null,
       "values": {
-        "text": "ARCADIA",
+        "text": "ARDIA",
         "size": 230,
         "color": "#16130F",
         "fill": "#00000000",
@@ -1028,10 +1028,10 @@
     {
       "id": "end-name",
       "definition": "type",
-      "label": "end · ARCADIA",
+      "label": "end · ARDIA",
       "parentId": null,
       "values": {
-        "text": "ARCADIA",
+        "text": "ARDIA",
         "size": 190,
         "color": "#16130F",
         "fill": "#00000000",
@@ -1079,10 +1079,10 @@
     {
       "id": "end-url",
       "definition": "type",
-      "label": "end · NETNYAHOO.COM",
+      "label": "end · ARDIA.DEV",
       "parentId": null,
       "values": {
-        "text": "NETNYAHOO.COM",
+        "text": "ARDIA.DEV",
         "size": 190,
         "color": "#2150D9",
         "fill": "#00000000",
@@ -1113,10 +1113,10 @@
     {
       "id": "end-source",
       "definition": "type",
-      "label": "end · GITHUB.COM/MANTRAKP04/NETNYA",
+      "label": "end · GITHUB.COM/MANTRAKP04/ARDIA",
       "parentId": null,
       "values": {
-        "text": "GITHUB.COM/MANTRAKP04/ARCADIA",
+        "text": "GITHUB.COM/MANTRAKP04/ARDIA",
         "size": 48,
         "color": "#16130F",
         "fill": "#00000000",

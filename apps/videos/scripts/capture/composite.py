@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 RADIUS = 42  # px at 2x: the window's corner, measured from apps/site's ScreenCaptureKit window captures
-LIGHTS_AT = (16, 18)  # pt: AppKit's 18,20 close-button origin (ARCADIA_TRAFFIC_LIGHTS_LOG) less the image's 2 pt pad
+LIGHTS_AT = (16, 18)  # pt: AppKit's 18,20 close-button origin (ARDIA_TRAFFIC_LIGHTS_LOG) less the image's 2 pt pad
 
 # Opaque window tint (top, bottom) per profile colour, from apps/browser/src/lib/windowTint.ts (docs/brand/inventory.md
 # 2.3), used where a snapshot has no opaque sidebar to sample.

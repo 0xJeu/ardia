@@ -6,7 +6,7 @@ public/footage
 public/music
 # Raw captures (snapshots and page pictures) before scripts/capture/composite.py
 .capture
-# Copied from apps/site and docs/brand/arcadia by scripts/prepare-assets.sh
+# Copied from apps/site and docs/brand/ardia by scripts/prepare-assets.sh
 public/fonts
 public/brand
 # Fetched by scripts/capture/sites/fetch-images.py

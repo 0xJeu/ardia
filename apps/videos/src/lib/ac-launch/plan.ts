@@ -85,7 +85,7 @@ const DOCK: Record<Aspect, Box> = { land: [80, 950, 1760, 72], port: [60, 470, 8
 // Beside the sidebar column (which carries the swipe), never over it.
 const PLATE: Record<Aspect, Box> = { land: [560, 40, 1100, 170], port: [60, 230, 880, 200] };
 const BIG_PLATE_BOX: Record<Aspect, Box> = { land: [700, 40, 1140, 170], port: [60, 230, 880, 200] };
-/** Arcadia's painted logo (hills and sun, Mark.tsx), placed: its box is fitted to the painting, standing on the floor. */
+/** Ardia's painted logo (hills and sun, Mark.tsx), placed: its box is fitted to the painting, standing on the floor. */
 const PLACED = (id: string, land: Box, port: Box): WindowLayer => ({ id, box: { land, port } });
 
 // ---------------------------------------------------------------------------------------------- the hero cut
@@ -99,7 +99,7 @@ const nags: Shot = {
     PLACED("nags-sun", [1270, 40, 340, 400], [580, 220, 360, 420]),
   ],
   type: [
-    // Bar 1: four stabs, one ask each, over a site really asking it in a Arcadia window (scenes/asks.js).
+    // Bar 1: four stabs, one ask each, over a site really asking it in a Ardia window (scenes/asks.js).
     T("nag-sign-in", "SIGN IN.", 0, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 1, align: "center", portAlign: "left", fill: paper, portText: "SIGN\nIN." }),
     T("nag-try-ai", "TRY AI.", 1, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 2, align: "center", portAlign: "left", fill: paper, portText: "TRY\nAI." }),
     T("nag-cookies", "ACCEPT ALL.", 2, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 3, align: "center", portAlign: "left", fill: paper, portText: "ACCEPT\nALL." }),
@@ -120,7 +120,7 @@ const title: Shot = {
   id: "title", kind: "title", at: 8, beats: 4, window: win("title-window", { land: [360, 340, 1200, 750], port: [40, 760, 1500, 938] }),
   extra: [PLACED("title-mark", [1250, 560, 640, 483], [300, 1010, 560, 422])],
   type: [
-    T("title-name", "ARCADIA", 0, "slam", 230, [80, 20, 1760, 215], [60, 230, 880, 300], { align: "center", portSize: 240 }),
+    T("title-name", "ARDIA", 0, "slam", 230, [80, 20, 1760, 215], [60, 230, 880, 300], { align: "center", portSize: 240 }),
     T("title-what", "THE SIDEBAR BROWSER FOR MAC", 1, "slam", 64, [80, 250, 1760, 70], [60, 540, 880, 150], { align: "center", color: P.blue, portText: "THE SIDEBAR\nBROWSER FOR MAC" }),
     T("title-stamp", "ASKS FOR NOTHING.", 2, "stamp", 84, [420, 850, 760, 150], [60, 700, 520, 110], { rotation: -6, color: P.red, portSize: 56 }),
   ],
@@ -223,12 +223,12 @@ const endShot = (at: number, beats: number, lockup: number, button: number): Sho
   ],
   type: [
     T("end-grass", "TOUCH\nGRASS.", 0, "slam", 360, [80, 120, 1080, 800], [60, 230, 880, 640], { out: lockup }),
-    T("end-name", "ARCADIA", lockup, "slam", 190, [290, 220, 870, 180], [230, 240, 710, 150], { portSize: 150 }),
+    T("end-name", "ARDIA", lockup, "slam", 190, [290, 220, 870, 180], [230, 240, 710, 150], { portSize: 150 }),
     T("end-mac", "THE SIDEBAR BROWSER FOR MAC", lockup + 0.5, "slam", 60, [84, 420, 1076, 70], [60, 410, 880, 120], { color: P.blue, portText: "THE SIDEBAR\nBROWSER FOR MAC" }),
     T("end-download", "DOWNLOAD", lockup + 1, "slam", 96, [84, 520, 1076, 110], [60, 550, 880, 100]),
-    T("end-url", "NETNYAHOO.COM", lockup + 1, "slam", 190, [80, 630, 1080, 210], [60, 650, 880, 160], { color: P.blue }),
+    T("end-url", "ARDIA.DEV", lockup + 1, "slam", 190, [80, 630, 1080, 210], [60, 650, 880, 160], { color: P.blue }),
     T("end-fine", "OPEN SOURCE · APPLE SILICON · MACOS 14+", lockup + 2, "label", 30, [86, 960, 1076, 50], [64, 1446, 880, 34], { portSize: 26 }),
-    T("end-source", "GITHUB.COM/MANTRAKP04/ARCADIA", lockup + 1.5, "label", 48, [86, 870, 1076, 70], [64, 820, 880, 110], { portSize: 40, portText: "GITHUB.COM/MANTRAKP04/\nARCADIA" }),
+    T("end-source", "GITHUB.COM/MANTRAKP04/ARDIA", lockup + 1.5, "label", 48, [86, 870, 1076, 70], [64, 820, 880, 110], { portSize: 40, portText: "GITHUB.COM/MANTRAKP04/\nARDIA" }),
   ],
 });
 
