@@ -7,26 +7,29 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { clickhouse, hasTelemetryEnv } from "./telemetry-env.mjs";
 
-const REPO = "mantrakp04/arcadia";
+const REPO = "mantrakp04/ardia";
 
 // The queries read the two tables under telemetry.events directly: the view casts every row's property
 // map and reads with FINAL, which a unique count doesn't need (a duplicate row doesn't change it). Both
 // tables sort by (event, date), so a filter on the event skips most of each. `both` writes one SELECT per
 // table from a template: {p} is the property map, {ts} the raw timestamp column, {t} it as UTC, {e} the
 // event, {d} the distinct id, and {site}, {app}, {mac} the usual filters (.claude/skills/stats/queries.md).
+// Events from before the rename (0.2.32 and earlier, and netnyahoo.com) carry the old names; netnyahoo.com still
+// serves the site.
+const HOSTS = "'ardia.dev', 'www.ardia.dev', 'netnyahoo.com', 'www.netnyahoo.com'";
 const OTEL = {
   table: "telemetry.otel_logs",
   p: "LogAttributes", ts: "Timestamp", t: "toDateTime64(Timestamp, 6, 'UTC')", e: "Event", d: "DistinctId",
-  site: "ServiceName = 'arcadia-site' AND {p}['$lib'] IN ('web', 'arcadia-web') AND {p}['$host'] IN ('netnyahoo.com', 'www.netnyahoo.com')",
-  app: "ServiceName = 'arcadia-app' AND {p}['$lib'] = 'arcadia-telemetry'",
+  site: "ServiceName IN ('ardia-site', 'netnyahoo-site') AND {p}['$lib'] IN ('web', 'ardia-web', 'netnyahoo-web') AND {p}['$host'] IN (" + HOSTS + ")",
+  app: "ServiceName IN ('ardia-app', 'netnyahoo-app') AND {p}['$lib'] IN ('ardia-telemetry', 'netnyahoo-telemetry')",
   // What the view leaves out: the endpoints' self-tests.
   base: "Event != '' AND ResourceAttributes['service.version'] != '0.0.0-selftest'",
 };
 const POSTHOG = {
   table: "telemetry.posthog_events",
   p: "properties", ts: "timestamp", t: "timestamp", e: "event", d: "distinct_id",
-  site: "{p}['$lib'] IN ('web', 'arcadia-web') AND {p}['$host'] IN ('netnyahoo.com', 'www.netnyahoo.com')",
-  app: "{p}['$lib'] = 'arcadia-telemetry'",
+  site: "{p}['$lib'] IN ('web', 'ardia-web', 'netnyahoo-web') AND {p}['$host'] IN (" + HOSTS + ")",
+  app: "{p}['$lib'] IN ('ardia-telemetry', 'netnyahoo-telemetry')",
   base: "1",
 };
 const fill = (sql, t) =>
@@ -120,7 +123,7 @@ if (hasTelemetryEnv()) {
     }));
   });
 } else {
-  problems.push("telemetry: ~/.config/arcadia/telemetry.env is missing (docs/growth.md, Telemetry)");
+  problems.push("telemetry: ~/.config/ardia/telemetry.env is missing (docs/growth.md, Telemetry)");
 }
 
 console.log(JSON.stringify({ at: Date.now(), github: await github, ...telemetry, problems }));

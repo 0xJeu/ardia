@@ -1,24 +1,24 @@
 # Stats queries (ClickHouse)
 
-Run with `node scripts/telemetry-sql.mjs "<query>"` (read-only user from `~/.config/arcadia/telemetry.env`),
+Run with `node scripts/telemetry-sql.mjs "<query>"` (read-only user from `~/.config/ardia/telemetry.env`),
 one at a time: the server has 2 cores, a query over the PostHog history takes 5–30 s, and parallel ones
 only queue up behind each other (four at once once ran it out of open files). Put a `timestamp >` filter
 first when a query only needs recent events. For a query that runs often, read the two tables under the view
 directly and filter on the event first (both sort by event, date); unique counts don't need the view's FINAL.
 `scripts/stats-snapshot.mjs` does this: all the headline numbers in one request, about 1 s.
 Everything is in `telemetry.events`: PostHog's event and property names, one row per event, `properties`
-a `Map(String, String)` (booleans are `'true'`/`'false'`). `source` says who sent it: `arcadia-site`,
-`arcadia-app`, `arcadia-feed` (update checks) or `posthog-cloud` (history before the switch, and old app
+a `Map(String, String)` (booleans are `'true'`/`'false'`). `source` says who sent it: `ardia-site`,
+`ardia-app`, `ardia-feed` (update checks; `netnyahoo-site`, `-app` and `-feed` before the rename) or `posthog-cloud` (history before the switch, and old app
 versions that still report to PostHog Cloud until the next delta import). Times are UTC.
 
 Common filters. They are not SQL macros: paste the expression in place of the name.
 
 ```sql
 -- the site, production only (the history has localhost too)
-SITE  = (source IN ('arcadia-site', 'posthog-cloud') AND properties['$lib'] IN ('web', 'arcadia-web')
-         AND properties['$host'] IN ('netnyahoo.com', 'www.netnyahoo.com'))
+SITE  = (source IN ('ardia-site', 'netnyahoo-site', 'posthog-cloud') AND properties['$lib'] IN ('web', 'ardia-web', 'netnyahoo-web')
+         AND properties['$host'] IN ('ardia.dev', 'www.ardia.dev', 'netnyahoo.com', 'www.netnyahoo.com'))
 -- the Mac app's opted-in telemetry
-APP   = (source IN ('arcadia-app', 'posthog-cloud') AND properties['$lib'] = 'arcadia-telemetry')
+APP   = (source IN ('ardia-app', 'netnyahoo-app', 'posthog-cloud') AND properties['$lib'] IN ('ardia-telemetry', 'netnyahoo-telemetry'))
 MAC   = (properties['$os'] = 'Mac OS X' AND properties['$device_type'] = 'Desktop')
 PHONE = (properties['$device_type'] IN ('Mobile', 'Tablet'))
 ```

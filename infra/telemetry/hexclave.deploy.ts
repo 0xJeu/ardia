@@ -1,10 +1,10 @@
-// Arcadia's first-party telemetry, on Hexclave Deployments in the same project as the site
+// Ardia's first-party telemetry, on Hexclave Deployments in the same project as the site
 // (infra/site/hexclave.deploy.ts). Nothing here is public: the site's nginx is the only way in.
 //
-//   netnyahoo.com/otel/v1/logs     -> otel-collector (OTLP/HTTP logs) -> ph-clickhouse, table telemetry.otel_logs
-//   netnyahoo.com/otel/replay/...  -> ph-objects (SeaweedFS filer), replays/<day>/<session>/<seq>.json[.gz]
-//   netnyahoo.com/_ch/             -> ph-clickhouse's HTTP port, for the read-only stats user
-//   netnyahoo.com/_replays/        -> ph-objects, read-only, with a token
+//   ardia.dev/otel/v1/logs     -> otel-collector (OTLP/HTTP logs) -> ph-clickhouse, table telemetry.otel_logs
+//   ardia.dev/otel/replay/...  -> ph-objects (SeaweedFS filer), replays/<day>/<session>/<seq>.json[.gz]
+//   ardia.dev/_ch/             -> ph-clickhouse's HTTP port, for the read-only stats user
+//   ardia.dev/_replays/        -> ph-objects, read-only, with a token
 //
 // Senders, event format, tables and how to query them: docs/growth.md, "Telemetry".
 //

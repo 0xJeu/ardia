@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // Downloads → first launches → copies still running, per version, from two counts we already have:
 //   - GitHub's download counts for each release's DMG (new downloads) and zip (Sparkle updates);
-//   - `update_check` events, one per request to netnyahoo.com/appcast.xml (infra/site/nginx.conf):
+//   - `update_check` events, one per request to ardia.dev/appcast.xml (infra/site/nginx.conf):
 //     version, day, and whether it's a copy's first check. No IP, no ID. Builds after 0.2.13 only;
 //     older copies poll GitHub directly and aren't counted.
 //
 // usage: node scripts/update-checks.mjs [days=14]
 // The events come from our ClickHouse (docs/growth.md, "Telemetry"), read with the read-only user in
-// ~/.config/arcadia/telemetry.env. Without that file, only the GitHub counts print.
+// ~/.config/ardia/telemetry.env. Without that file, only the GitHub counts print.
 
 import { clickhouse, hasTelemetryEnv } from "./telemetry-env.mjs";
 
-const REPO = "mantrakp04/arcadia";
+const REPO = "mantrakp04/ardia";
 const days = Math.max(1, Number(process.argv[2] ?? 14) || 14);
 const key = hasTelemetryEnv();
 
@@ -61,7 +61,7 @@ console.log("GitHub feed: fetches of that release's appcast.xml, i.e. update che
 console.log("included) while it was the latest release.");
 
 if (!key) {
-  console.log("\nNo ~/.config/arcadia/telemetry.env: first launches and daily checks need it (docs/growth.md, Telemetry).");
+  console.log("\nNo ~/.config/ardia/telemetry.env: first launches and daily checks need it (docs/growth.md, Telemetry).");
   process.exit(0);
 }
 console.log(`\nUpdate checks per day, last ${days} days (UTC)`);

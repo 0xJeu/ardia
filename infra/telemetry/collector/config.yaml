@@ -1,4 +1,4 @@
-# The collector behind netnyahoo.com/otel/ (infra/site/nginx.conf): OTLP/HTTP logs in, ClickHouse out.
+# The collector behind ardia.dev/otel/ (infra/site/nginx.conf): OTLP/HTTP logs in, ClickHouse out.
 # Senders and the event format: docs/growth.md, "Telemetry". Only logs; there is no traces or
 # metrics pipeline.
 extensions:

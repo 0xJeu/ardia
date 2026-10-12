@@ -1,7 +1,7 @@
 <!-- Users. Passwords come from Hexclave secrets (hexclave.deploy.ts); none are in git.
      - default: admin, only from inside this server (start.sh applies schema.sql with it).
      - otel: the collector's writer. It connects over the project's private network.
-     - reader: read-only, for the stats (through netnyahoo.com/_ch/, infra/site/nginx.conf).
+     - reader: read-only, for the stats (through ardia.dev/_ch/, infra/site/nginx.conf).
      - importer: loads PostHog Cloud exports into telemetry.posthog_events (also through /_ch/). -->
 <clickhouse>
     <profiles>

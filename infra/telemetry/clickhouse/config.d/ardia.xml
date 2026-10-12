@@ -1,4 +1,4 @@
-<!-- ClickHouse for Arcadia's telemetry (hexclave.deploy.ts). Data on the service's volume, logs on the
+<!-- ClickHouse for Ardia's telemetry (hexclave.deploy.ts). Data on the service's volume, logs on the
      console (Hexclave collects them), caches and system logs sized for a small single server. -->
 <clickhouse>
     <logger>

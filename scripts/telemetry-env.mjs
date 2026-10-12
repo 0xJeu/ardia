@@ -1,11 +1,11 @@
-// Read access to Arcadia's telemetry (docs/growth.md, "Telemetry") from this Mac. Credentials live in
-// ~/.config/arcadia/telemetry.env, outside the repo: CLICKHOUSE_URL/USER/PASSWORD (the read-only
-// "reader" user, through netnyahoo.com/_ch/) and REPLAYS_URL/TOKEN (session replays, read-only).
+// Read access to Ardia's telemetry (docs/growth.md, "Telemetry") from this Mac. Credentials live in
+// ~/.config/ardia/telemetry.env, outside the repo: CLICKHOUSE_URL/USER/PASSWORD (the read-only
+// "reader" user, through ardia.dev/_ch/) and REPLAYS_URL/TOKEN (session replays, read-only).
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const FILE = join(homedir(), ".config/arcadia/telemetry.env");
+const FILE = join(homedir(), ".config/ardia/telemetry.env");
 
 export function telemetryEnv() {
   if (!existsSync(FILE)) throw new Error(`${FILE} is missing (docs/growth.md, Telemetry)`);
