@@ -30,13 +30,14 @@ const PITCH = BUTTON + GAP;
 
 function useToolbarExtensions(windowId: string, limit: number) {
   const shown = useWindowExtensions(windowId);
-  const casting = useCastRoutes(windowId).length > 0;
+  const routes = useCastRoutes(windowId);
+  const casting = routes.length > 0;
   return useMemo(() => {
     const all = shown.filter((x) => x.pinned);
     const room = Math.max(0, limit - (casting ? 1 : 0));
     const overflow = all.length > room;
-    return { pinned: overflow ? all.slice(0, Math.max(0, room - 1)) : all, overflow, casting };
-  }, [shown, casting, limit]);
+    return { pinned: overflow ? all.slice(0, Math.max(0, room - 1)) : all, overflow, casting, routes };
+  }, [shown, routes, casting, limit]);
 }
 
 /** How many extension buttons fit in `room` points (the cast button, pinned extensions and the overflow button). */
@@ -64,8 +65,7 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
   right: number;
   limit?: number;
 }) {
-  const { pinned, overflow } = useToolbarExtensions(windowId, limit);
-  const routes = useCastRoutes(windowId);
+  const { pinned, overflow, routes } = useToolbarExtensions(windowId, limit);
   const browserId = usePages((p) => {
     for (const [id, tab] of Object.entries(p.browsers)) if (tab === tabId) return Number(id);
     return 0;
