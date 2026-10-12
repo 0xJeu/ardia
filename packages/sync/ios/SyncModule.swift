@@ -261,7 +261,12 @@ public class SyncModule: Module {
   static var defaultFolder: URL {
     if let testFolder { return testFolder }
     if let dataDirectory { return dataDirectory.appendingPathComponent("Ardia Sync", isDirectory: true) }
-    return SyncFolder.iCloudDrive.appendingPathComponent("Ardia Sync", isDirectory: true)
+    let folder = SyncFolder.iCloudDrive.appendingPathComponent("Ardia Sync", isDirectory: true)
+    // Macs that turned sync on before the rename sync through the old name's folder (they keep its path): a Mac
+    // setting up now finds them there while it's the one with the data.
+    let legacy = SyncFolder.iCloudDrive.appendingPathComponent(LegacyName.syncFolderName, isDirectory: true)
+    if !FileManager.default.fileExists(atPath: folder.path), SyncFolder.hasSyncData(legacy) { return legacy }
+    return folder
   }
 
   static let keyStore: SyncKeyStore = dataDirectory.map { FileKeyStore(directory: $0) } ?? KeychainKeyStore()

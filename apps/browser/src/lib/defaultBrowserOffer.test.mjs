@@ -50,7 +50,7 @@ test("never in a test instance, and the offer stays for nothing else to take", a
 test("a marker that can't be saved never asks", async () => {
   const d = deps({ version: 1, askedAt: null }, { save: async () => { throw new Error("read-only"); } });
   await assert.rejects(offerDefaultBrowserAgain(d));
-  assert.deepEqual(d.calls, []);
+  assert.deepEqual(d.calls, ["isDefault"], "only looked, never asked");
 });
 
 test("onboarding's own step asks instead; already the default asks nothing", async () => {
@@ -61,4 +61,12 @@ test("onboarding's own step asks instead; already the default asks nothing", asy
   const already = deps({ version: 1, askedAt: null }, { isDefault: async () => true });
   assert.equal(await offerDefaultBrowserAgain(already), "alreadyDefault");
   assert.equal(typeof askedAt(already), "number");
+});
+
+test("a question that fails before it's recorded leaves the offer for the next launch", async () => {
+  const d = deps({ version: 1, askedAt: null }, { isDefault: async () => { throw new Error("LaunchServices"); } });
+  await assert.rejects(offerDefaultBrowserAgain(d));
+  assert.equal(askedAt(d), null);
+  const next = deps({ version: 1, askedAt: null });
+  assert.equal(await offerDefaultBrowserAgain(next), "asked");
 });

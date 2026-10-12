@@ -29,10 +29,12 @@ export async function offerDefaultBrowserAgain(deps: OfferDeps): Promise<OfferOu
   } catch {}
   if (!offer || offer.askedAt) return "none";
   if (deps.testInstance) return "testInstance";
-  // Recorded on disk first: whatever happens next, it never asks again.
+  // Before it's recorded: a question that fails (or a quit) here leaves the offer for the next launch.
+  const isDefault = deps.onboarding ? false : await deps.isDefault();
+  // Recorded on disk before macOS asks: whatever happens next, it never asks again.
   await deps.save(DEFAULT_BROWSER_OFFER, JSON.stringify({ ...offer, askedAt: Date.now() } satisfies Offer));
   if (deps.onboarding) return "onboarding";
-  if (await deps.isDefault()) return "alreadyDefault";
+  if (isDefault) return "alreadyDefault";
   await deps.setDefault();
   return "asked";
 }

@@ -19,6 +19,10 @@ public enum LegacyName {
   // Sync's wire format, shared with every Mac on any version: frozen (SyncCrypto.swift).
   public static let syncMagic = "NNS1"
   public static let syncSalt = "netnyahoo-sync/v1"
+  /// The default sync folder in iCloud Drive before the rename. A Mac that turned sync on there keeps its path (the
+  /// sync document stores it); one setting sync up after the rename is offered it while it's the folder with the data
+  /// (SyncModule.defaultFolder).
+  public static let syncFolderName = "Netnyahoo Sync"
 }
 
 // MARK: - What was renamed
@@ -100,9 +104,13 @@ protocol SecretStore {
 
 /// The login keychain (the file keychain Chrome and the app's SecItem calls use; no access group).
 struct LoginKeychain: SecretStore {
+  /// Tests: one throwaway keychain file instead of the user's search list.
+  var only: SecKeychain? = nil
+
   private func query(_ service: String, _ account: String?) -> [String: Any] {
     var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service]
     if let account { q[kSecAttrAccount as String] = account }
+    if let only { q[kSecMatchSearchList as String] = [only] }
     return q
   }
 
@@ -138,6 +146,8 @@ struct LoginKeychain: SecretStore {
     if status == errSecSuccess { return true }
     guard status == errSecItemNotFound else { return false }
     var add = match
+    add.removeValue(forKey: kSecMatchSearchList as String)
+    if let only { add[kSecUseKeychain as String] = only }
     add[kSecValueData as String] = data
     add[kSecAttrLabel as String] = label
     if let accessible { add[kSecAttrAccessible as String] = accessible }
@@ -331,10 +341,16 @@ struct LegacyMigrator {
     /// without the old data).
     var outcome: String?
     var files: Int?
+    /// "<new service>/<account>" (or "/*": the service couldn't be listed): "copied", "missing", "denied" or
+    /// "failed…". An item that isn't the Safe Storage key and was denied or failed is tried again at the next launches
+    /// (macOS asks again), `secretAttempts` launches in all.
     var secrets: [String: String]?
+    var secretAttempts: Int?
     /// Chrome's keychain access groups: "moved <n>", "none", or "pending" while this build isn't entitled to the old
-    /// ones or a move failed (each launch tries again until it's done).
+    /// ones or a move failed (each launch tries again until it's done). Only failures that aren't the keychain being
+    /// unavailable for now count towards giving up ("failed").
     var groups: String?
+    /// Failures that count (moveAccessGroups), not launches.
     var groupAttempts: Int?
     /// Whether the old app was the default browser when this install first ran under the new id: "offered" (the app
     /// asks once to be the default again) or "no". Missing from journals written before it was asked: such an install
@@ -342,7 +358,13 @@ struct LegacyMigrator {
     var defaultBrowser: String?
     var finishedAt: Date?
 
-    var isDone: Bool { phase == "done" && groups != "pending" && defaultBrowser != nil }
+    var isDone: Bool { phase == "done" && groups != "pending" && defaultBrowser != nil && !secretsPending }
+
+    static let secretTries = 3
+    static func retryable(_ outcome: String) -> Bool { outcome == "denied" || outcome.hasPrefix("failed") }
+    var secretsPending: Bool {
+      (secretAttempts ?? 1) < Self.secretTries && (secrets ?? [:]).values.contains(where: Self.retryable)
+    }
   }
 
   static let journalName = ".legacy-migration.json"
@@ -359,6 +381,9 @@ struct LegacyMigrator {
   init(_ context: Context) { self.context = context }
 
   var journalURL: URL { context.newData.appendingPathComponent(Self.journalName) }
+  /// The old folder where it really is: a data folder linked elsewhere (another disk) is copied from there, so the
+  /// copy is a folder of its own, never the link.
+  var oldRoot: URL { context.oldData.resolvingSymlinksInPath() }
   var stagingURL: URL { context.newData.appendingPathComponent(Self.stagingName) }
 
   func readJournal() -> Journal? {
@@ -402,22 +427,21 @@ struct LegacyMigrator {
   private func runLocked() -> Outcome {
     let journal = readJournal()
     if var done = journal, done.phase == "done" {
-      if done.defaultBrowser == nil, let answer = checkDefaultBrowser() {
-        done.defaultBrowser = answer
-        if done.groups != "pending", !writeJournal(done) { log("couldn't record the default browser offer") }
-      }
+      let before = done
+      if done.defaultBrowser == nil { done.defaultBrowser = checkDefaultBrowser() }
       if done.groups == "pending" {
-        done.groupAttempts = (done.groupAttempts ?? 1) + 1
-        done.groups = moveAccessGroups()
-        // A move that keeps failing stops costing launches.
-        if done.groups == "pending", done.groupAttempts! >= 5, context.groupMover?.entitled(to: context.accessGroups.flatMap { [$0.old, $0.new] }) == true {
-          done.groups = "failed"
-        }
-        if !writeJournal(done) { log("couldn't record the keychain groups") }
+        let (groups, counts) = moveAccessGroups()
+        done.groups = groups
+        if counts { done.groupAttempts = (done.groupAttempts ?? 0) + 1 }
+        // A move that keeps failing (not a keychain that's locked for now) stops costing launches.
+        if done.groups == "pending", (done.groupAttempts ?? 0) >= 5 { done.groups = "failed" }
       }
+      if done.secretsPending { retrySecrets(&done) }
+      if done != before, !writeJournal(done) { log("couldn't record what's left to bring across") }
       return .proceed
     }
-    // A crash while the verified copy was moving in: finish moving it, then the rest.
+    // A crash while the verified copy was moving in: finish moving it, then the rest. The old folder is only ever
+    // read: whatever happened to it since, a verified copy is never thrown away unpublished.
     if let publishing = journal, publishing.phase == "publishing" {
       return publishOrQuit() ? finish(publishing) : .quit
     }
@@ -428,7 +452,11 @@ struct LegacyMigrator {
       log("\(context.newData.path) already has data; leaving it and \(context.oldData.path) as they are")
       return finish(Journal(phase: "done", outcome: "existing"))
     }
+    // One snapshot, taken while the old app isn't running: the folder, then its keychain items. If it's opened
+    // meanwhile (another copy of it; Sparkle has replaced the updated one), the snapshot is dropped and made again
+    // once it has quit; keychain items already carried aren't asked for again.
     var files = 0
+    var secrets: [String: String] = [:]
     while true {
       while context.oldAppRunning() {
         let choice = context.ask(
@@ -439,12 +467,6 @@ struct LegacyMigrator {
       }
       do {
         files = try stage()
-        // Opened again while we copied: the copy may be torn (a database mid-write). Start over once it's quit.
-        if context.oldAppRunning() {
-          try? fm.removeItem(at: stagingURL)
-          continue
-        }
-        break
       } catch {
         log("couldn't copy \(context.oldData.path): \(error)")
         try? fm.removeItem(at: stagingURL)
@@ -456,25 +478,32 @@ struct LegacyMigrator {
         if choice == 2 { return finish(Journal(phase: "done", outcome: "fresh")) }
         return .quit
       }
-    }
-    if crash("staged") { return .quit }
+      // Opened while we copied: the copy may be torn (a database mid-write).
+      if context.oldAppRunning() {
+        try? fm.removeItem(at: stagingURL)
+        continue
+      }
+      if crash("staged") { return .quit }
 
-    var secrets: [String: String] = [:]
-    if let old = context.oldSecrets, let new = context.newSecrets {
-      for item in Renamed.keychain {
-        switch copySecrets(item, from: old, to: new) {
-        case let .copied(results): secrets.merge(results) { $1 }
-        case .quit:
-          try? fm.removeItem(at: stagingURL)
-          return .quit
-        case .startFresh:
-          // Never the copied profile without its key: Chrome would make a new one and drop every password and cookie.
-          try? fm.removeItem(at: stagingURL)
-          return finish(Journal(phase: "done", outcome: "fresh"))
+      if let old = context.oldSecrets, let new = context.newSecrets {
+        for item in Renamed.keychain {
+          switch copySecrets(item, from: old, to: new, skip: Self.accounts(of: item, in: secrets) { $0 == "copied" }) {
+          case let .copied(results): secrets.merge(results) { $1 }
+          case .quit:
+            try? fm.removeItem(at: stagingURL)
+            return .quit
+          case .startFresh:
+            // Never the copied profile without its key: Chrome would make a new one and drop every password and cookie.
+            try? fm.removeItem(at: stagingURL)
+            return finish(Journal(phase: "done", outcome: "fresh"))
+          }
         }
       }
+      if crash("secrets") { return .quit }
+      // Opened while macOS asked about the keychain: what it writes from now on wouldn't be in the snapshot.
+      guard context.oldAppRunning() else { break }
+      try? fm.removeItem(at: stagingURL)
     }
-    if crash("secrets") { return .quit }
 
     let publishing = Journal(phase: "publishing", outcome: "migrated", files: files, secrets: secrets)
     // Can't record it: the disk is in trouble. Nothing has moved; the next launch starts over.
@@ -493,8 +522,7 @@ struct LegacyMigrator {
   private func publishOrQuit() -> Bool {
     while true {
       do {
-        try publish()
-        return true
+        return try publish()
       } catch {
         log("couldn't move the data in: \(error)")
         let choice = context.ask(
@@ -512,22 +540,30 @@ struct LegacyMigrator {
   /// what changed name there, and checks every file arrived. The old folder is never written to.
   func stage() throws -> Int {
     if exists(stagingURL) { try fm.removeItem(at: stagingURL) }
-    try fm.copyItem(at: context.oldData, to: stagingURL)
+    try fm.copyItem(at: oldRoot, to: stagingURL)
+    guard !isLink(stagingURL) else { throw MigrationError("\(context.oldData.path) copied as a link") }
     // Chrome's profile lock names the old process; a stale one is harmless, but it isn't ours.
     for name in ["SingletonLock", "SingletonSocket", "SingletonCookie"] {
-      try? fm.removeItem(at: stagingURL.appendingPathComponent("Chromium/\(name)"))
+      let lock = stagingURL.appendingPathComponent("Chromium/\(name)")
+      if ownCopy(lock) { try? fm.removeItem(at: lock) }
     }
     var renamed: [String: String] = [:]
     for (old, new) in expandedRenames(in: stagingURL) {
       let from = stagingURL.appendingPathComponent(old), to = stagingURL.appendingPathComponent(new)
-      guard exists(from), !exists(to) else { continue }
+      guard exists(from), !exists(to), ownCopy(from), ownCopy(to) else { continue }
       try fm.moveItem(at: from, to: to)
       renamed[old] = new
     }
-    let rewriter = DocumentRewriter(oldData: context.oldData.path, newData: context.newData.path)
+    // Paths the app saved through the folder's real place (it was linked elsewhere) too.
+    let rewriter = DocumentRewriter(oldData: context.oldData.path, newData: context.newData.path, aliases: [oldRoot.path])
     var rewritten = Set<String>()
-    for relative in documents(in: stagingURL) where try rewriter.rewriteFile(stagingURL.appendingPathComponent(relative)) {
-      rewritten.insert(relative)
+    for relative in documents(in: stagingURL) {
+      let url = stagingURL.appendingPathComponent(relative)
+      guard ownCopy(url), !isLink(url) else {
+        log("left \(relative) as it is: it's reached through a link out of the folder")
+        continue
+      }
+      if try rewriter.rewriteFile(url) { rewritten.insert(relative) }
     }
     return try verify(renamed: renamed, rewritten: rewritten)
   }
@@ -536,8 +572,9 @@ struct LegacyMigrator {
   /// still parses). Returns how many files came across.
   func verify(renamed: [String: String], rewritten: Set<String>) throws -> Int {
     var count = 0
-    let base = context.oldData.standardizedFileURL.path
-    guard let walk = fm.enumerator(at: context.oldData, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]) else {
+    let root = oldRoot
+    let base = root.standardizedFileURL.path
+    guard let walk = fm.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]) else {
       throw MigrationError("can't list \(base)")
     }
     for case let url as URL in walk {
@@ -569,7 +606,10 @@ struct LegacyMigrator {
 
   /// Copies one kind of keychain item. The Safe Storage key has to come across (its data is encrypted with it): if it
   /// can't, the user retries, quits (the migration stays pending), or starts without the old data at all.
-  func copySecrets(_ item: Renamed.KeychainItem, from old: SecretStore, to new: SecretStore) -> SecretsResult {
+  /// `skip`: accounts (their new names) left as they are: carried already, or in the new keychain already.
+  /// `keepPresent`: one the new keychain has by the time it's written (saved while macOS asked) stays ("present").
+  func copySecrets(_ item: Renamed.KeychainItem, from old: SecretStore, to new: SecretStore, skip: Set<String> = [],
+                   keepPresent: Bool = false) -> SecretsResult {
     var results: [String: String] = [:]
     while true {
       guard let present = old.accounts(service: item.oldService) else {
@@ -583,13 +623,17 @@ struct LegacyMigrator {
         log("couldn't list \(item.oldService)")
         return .copied(results)
       }
-      let accounts = item.account.map { present.contains($0.old) ? [$0] : [] } ?? present.map { ($0, $0) }
+      let accounts = (item.account.map { present.contains($0.old) ? [$0] : [] } ?? present.map { ($0, $0) }).filter { !skip.contains($0.1) }
       var retry = false
       for (oldAccount, newAccount) in accounts {
         let key = "\(item.newService)/\(newAccount)"
         let read = old.read(service: item.oldService, account: oldAccount)
         var outcome = "\(read)"
-        if case let .found(data) = read {
+        // Listed again after macOS asked: saved meanwhile stays; can't tell, nothing is written (tried again later).
+        let presentNow = keepPresent ? new.accounts(service: item.newService).map { $0.contains(newAccount) } : false
+        if case .found = read, presentNow != false {
+          outcome = presentNow == nil ? "failed" : "present"
+        } else if case let .found(data) = read {
           let wrote = new.write(service: item.newService, account: newAccount, label: item.label(newAccount), accessible: item.accessible, data: data)
           outcome = wrote && new.read(service: item.newService, account: newAccount) == .found(data) ? "copied" : "failed"
         }
@@ -617,11 +661,48 @@ struct LegacyMigrator {
     return choice == 0 ? .copied([:]) : choice == 2 ? .startFresh : .quit
   }
 
+  /// A later launch: the items other than the Safe Storage key that were denied or failed, once more (macOS asks
+  /// again), unless the new keychain has them by now (the app saved them since: a phrase entered again, an account
+  /// connected again). Never the key: the data is already in place, with it.
+  func retrySecrets(_ journal: inout Journal) {
+    guard let old = context.oldSecrets, let new = context.newSecrets else { return }
+    var secrets = journal.secrets ?? [:]
+    for item in Renamed.keychain where !item.critical {
+      let pending = Self.accounts(of: item, in: secrets, Journal.retryable)
+      guard !pending.isEmpty else { continue }
+      // Without knowing what the new keychain has, nothing is written: another launch tries.
+      guard let present = new.accounts(service: item.newService) else { continue }
+      let done = Self.accounts(of: item, in: secrets) { !Journal.retryable($0) }
+      guard case let .copied(results) = copySecrets(item, from: old, to: new, skip: done.union(present), keepPresent: true) else { continue }
+      // The old service couldn't be listed: what was pending stays pending.
+      if results["\(item.newService)/*"] != nil {
+        secrets.merge(results) { $1 }
+        continue
+      }
+      for account in pending where results["\(item.newService)/\(account)"] == nil {
+        secrets["\(item.newService)/\(account)"] = account == "*" ? nil : present.contains(account) ? "present" : "missing"
+      }
+      secrets.merge(results) { $1 }
+    }
+    journal.secrets = secrets
+    journal.secretAttempts = (journal.secretAttempts ?? 1) + 1
+  }
+
+  /// The accounts (new names) of one item's journal entries whose outcome matches.
+  static func accounts(of item: Renamed.KeychainItem, in secrets: [String: String], _ matching: (String) -> Bool) -> Set<String> {
+    Set(secrets.compactMap { key, outcome in
+      key.hasPrefix(item.newService + "/") && matching(outcome) ? String(key.dropFirst(item.newService.count + 1)) : nil
+    })
+  }
+
   /// Moves each entry of the staging folder into the new one. Each move is atomic; a crash between them resumes here.
   /// Something already in the way (nothing the app wrote: it hasn't run on this folder) goes aside, not away.
-  func publish() throws {
+  /// False: stopped by the test hook ("moved-one": as if the process died after the first entry moved in).
+  @discardableResult
+  func publish() throws -> Bool {
     if exists(stagingURL) {
-      for name in try fm.contentsOfDirectory(atPath: stagingURL.path).sorted() {
+      for (index, name) in try fm.contentsOfDirectory(atPath: stagingURL.path).sorted().enumerated() {
+        if index == 1, crash("moved-one") { return false }
         let from = stagingURL.appendingPathComponent(name), to = context.newData.appendingPathComponent(name)
         if exists(to) {
           let aside = context.newData.appendingPathComponent(Self.asideName)
@@ -633,6 +714,7 @@ struct LegacyMigrator {
       MigrationFiles.syncFolder(context.newData)
       try fm.removeItem(at: stagingURL)
     }
+    return true
   }
 
   func copyDefaults() {
@@ -655,39 +737,50 @@ struct LegacyMigrator {
   }
 
   /// Moves Chrome's keychain items to the new access groups (their metadata secret came across in the profile's
-  /// prefs, so Chrome finds them there). nil when there's nothing to move.
-  func moveAccessGroups() -> String? {
-    guard let mover = context.groupMover, !context.accessGroups.isEmpty else { return nil }
+  /// prefs, so Chrome finds them there). nil when there's nothing to move. `counts`: a failure that may well happen
+  /// again (not a keychain that's locked or busy for now, nor a build that isn't entitled yet).
+  func moveAccessGroups() -> (state: String?, counts: Bool) {
+    guard let mover = context.groupMover, !context.accessGroups.isEmpty else { return (nil, false) }
     let all = context.accessGroups.flatMap { [$0.old, $0.new] }
     guard mover.entitled(to: all) else {
       log("not entitled to the old keychain groups; Chrome's passkeys stay there until a build is")
-      return "pending"
+      return ("pending", false)
     }
     var moved = 0
-    var failed = false
+    var failed = false, transient = false
     for (old, new) in context.accessGroups {
       let result = mover.move(from: old, to: new)
       moved += result.moved
       if let status = result.failure {
         failed = true
+        if [errSecInteractionNotAllowed, errSecNotAvailable, errSecUserCanceled].contains(status) { transient = true }
         log("moving \(old) to \(new): \(status)")
       }
     }
     // A failure (a locked keychain, say) tries again at the next launch: what moved is gone from the old groups.
-    return failed ? "pending" : moved > 0 ? "moved \(moved)" : "none"
+    // A launch where the keychain was unavailable for now doesn't count, for any group: that may be all that stopped them.
+    return (failed ? "pending" : moved > 0 ? "moved \(moved)" : "none", failed && !transient)
   }
 
   /// Chrome's disk cache and the like: copied once when the new one doesn't exist yet; failures only cost a refetch.
-  func copyExtras() {
+  /// Each is copied beside its place and renamed into it, so one under its own name is always whole (a crash leaves
+  /// only the partial copy, which the next try replaces).
+  @discardableResult
+  func copyExtras() -> Bool {
     for (old, new) in context.extras where exists(old) && !exists(new) {
+      let partial = new.deletingLastPathComponent().appendingPathComponent(".\(new.lastPathComponent).legacy-partial")
       do {
         try fm.createDirectory(at: new.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try fm.copyItem(at: old, to: new)
+        if exists(partial) { try fm.removeItem(at: partial) }
+        try fm.copyItem(at: old, to: partial)
+        if crash("extra") { return false }
+        try fm.moveItem(at: partial, to: new)
       } catch {
         log("skipped \(old.lastPathComponent): \(error)")
-        try? fm.removeItem(at: new)
+        try? fm.removeItem(at: partial)
       }
     }
+    return true
   }
 
   private func finish(_ journal: Journal) -> Outcome {
@@ -695,8 +788,10 @@ struct LegacyMigrator {
     if journal.outcome == "migrated" {
       copyDefaults()
       if crash("defaults") { return .quit }
-      copyExtras()
-      journal.groups = moveAccessGroups()
+      if !copyExtras() { return .quit }
+      let (groups, counts) = moveAccessGroups()
+      journal.groups = groups
+      if counts { journal.groupAttempts = 1 }
     }
     journal.defaultBrowser = checkDefaultBrowser()
     journal.phase = "done"
@@ -734,6 +829,22 @@ struct LegacyMigrator {
   private func exists(_ url: URL) -> Bool {
     var info = stat()
     return lstat(url.path, &info) == 0
+  }
+
+  /// In the staging folder through no link: a folder the user linked elsewhere (a profile, say) is copied as the
+  /// link, so renaming or rewriting through it would change what it points at, the old app's own data.
+  private func ownCopy(_ url: URL) -> Bool {
+    guard let base = realpath(stagingURL.path, nil) else { return false }
+    defer { free(base) }
+    guard let parent = realpath(url.deletingLastPathComponent().path, nil) else { return false }
+    defer { free(parent) }
+    let root = String(cString: base), dir = String(cString: parent)
+    return dir == root || dir.hasPrefix(root + "/")
+  }
+
+  private func isLink(_ url: URL) -> Bool {
+    var info = stat()
+    return lstat(url.path, &info) == 0 && info.st_mode & S_IFMT == S_IFLNK
   }
 
   /// Data a launch of this app made: its session or a Chrome profile.
@@ -834,6 +945,8 @@ enum MigrationFiles {
 struct DocumentRewriter {
   let oldData: String
   let newData: String
+  /// Other spellings of oldData (where it really is, when it's a link).
+  var aliases: [String] = []
 
   func string(_ s: String) -> String {
     let lower = s.lowercased()
@@ -845,7 +958,7 @@ struct DocumentRewriter {
         return String(s.prefix(prefix.count)) + new + rest
       }
     }
-    if s == oldData || s.hasPrefix(oldData + "/") { return newData + s.dropFirst(oldData.count) }
+    for old in [oldData] + aliases where s == old || s.hasPrefix(old + "/") { return newData + s.dropFirst(old.count) }
     return s
   }
 
@@ -947,10 +1060,11 @@ public enum LegacyMigration {
       accessGroups: KeychainAccessGroups.suffixes.map { ("\(team).\(LegacyName.bundleId).\($0)", "\(team).\(bundleId).\($0)") },
       groupMover: KeychainAccessGroups(),
       // Never this process: LaunchServices may still know its launch by the id the bundle had before the update.
+      // Chrome's profile lock too (a copy LaunchServices doesn't list), if its process is the old app's executable.
       oldAppRunning: {
         NSRunningApplication.runningApplications(withBundleIdentifier: LegacyName.bundleId).contains {
           !$0.isTerminated && $0.processIdentifier != getpid()
-        }
+        } || singletonOwnerAlive(support.appendingPathComponent("\(LegacyName.bundleId)/Chromium/SingletonLock"), executable: LegacyName.appName)
       },
       oldAppWasDefaultBrowser: {
         let stored = CFPreferencesCopyValue("LSHandlers" as CFString, launchServicesDomain as CFString, kCFPreferencesCurrentUser,
@@ -1021,11 +1135,16 @@ public enum LegacyMigration {
     }
   }
 
-  /// Chrome's SingletonLock is a symlink to "<host>-<pid>": is that process still running (and not us)?
-  static func singletonOwnerAlive(_ lock: URL) -> Bool {
+  /// Chrome's SingletonLock is a symlink to "<host>-<pid>": is that process still running (and not us)? With
+  /// `executable`, only if it's that program: a stale lock's pid may belong to anything by now.
+  static func singletonOwnerAlive(_ lock: URL, executable: String? = nil) -> Bool {
     guard let target = try? FileManager.default.destinationOfSymbolicLink(atPath: lock.path),
       let pid = target.split(separator: "-").last.flatMap({ pid_t($0) }), pid > 0, pid != getpid() else { return false }
-    return kill(pid, 0) == 0 || errno == EPERM
+    guard kill(pid, 0) == 0 || errno == EPERM else { return false }
+    guard let executable else { return true }
+    var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+    guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return false }
+    return String(cString: buffer).hasSuffix("/Contents/MacOS/\(executable)")
   }
 
   static func alert(_ title: String, _ message: String, _ buttons: [String]) -> Int? {
@@ -1155,9 +1274,11 @@ extension LegacyMigration {
 }
 
 extension LegacyMigrator.Context {
+  /// The usual launch's whole cost: one small read.
   static func isDone(_ newData: URL) -> Bool {
-    guard let data = try? Data(contentsOf: newData.appendingPathComponent(LegacyMigrator.journalName)),
-      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
-    return json["phase"] as? String == "done" && json["groups"] as? String != "pending" && json["defaultBrowser"] is String
+    guard let data = try? Data(contentsOf: newData.appendingPathComponent(LegacyMigrator.journalName)) else { return false }
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    return (try? decoder.decode(LegacyMigrator.Journal.self, from: data))?.isDone == true
   }
 }

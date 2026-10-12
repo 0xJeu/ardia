@@ -30,3 +30,13 @@ test("a bookmark saved before Chrome kept them gets the UUID 0.2.32 gave it, on 
   const { bookmarkUuidFor } = await import("./store/bookmarks.ts");
   assert.equal(bookmarkUuidFor("bm-1"), "de8f26f1-cf94-4896-bcf5-f260fa6f106a");
 });
+
+test("an old app URL typed or opened goes where it went (store/tabs.ts resolves it so)", async () => {
+  const { resolveInput } = await import("@ardia/core");
+  const go = (input) => resolveInput(fromLegacyUrl(input.trim()), "https://search.example/?q=");
+  assert.equal(go(` ${oldScheme}settings/sync `), "ardia://settings/sync");
+  assert.equal(go(`${oldScheme.toUpperCase()}history?q=a`), "ardia://history?q=a");
+  assert.equal(go(oldGame), "ardia://game");
+  assert.equal(go(oldChromeGame), "ardia://game");
+  assert.equal(go("https://example.com/"), "https://example.com/");
+});

@@ -1,5 +1,6 @@
 import { resolveInput } from "@ardia/core";
 import type { StateCreator } from "zustand";
+import { fromLegacyUrl } from "../legacy";
 import type { BrowserState } from "./browser";
 import { leaveGroups, syncGroupOrder } from "./groups";
 import {
@@ -255,7 +256,7 @@ export function withNewTab(s: BrowserState, windowId: string, o: NewTabOptions =
   const w = s.windows[windowId];
   if (!w) return [s, ""];
   const profileId = w.incognito ? w.profileId : o.profileId && s.profiles[o.profileId] ? o.profileId : w.profileId;
-  const url = o.url ? resolveInput(o.url, searchUrlPrefix(s.settings)) : "";
+  const url = o.url ? resolveInput(fromLegacyUrl(o.url.trim()), searchUrlPrefix(s.settings)) : "";
   const tab = makeTab(windowId, profileId, url, { ...o.snapshot, pinned: o.pinned ?? o.snapshot?.pinned ?? false });
   if (tab.navigation && !o.snapshot) tab.navigation = navigationTo(url, true);
   tab.openerId = o.openerId ?? null;
@@ -305,7 +306,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       // The Little Ardia page stays the opener, so the tabs it sends keep their order.
       return get().newTab(main, { ...options, profileId, index: undefined });
     }
-    if (options?.url && !options.adoptId && openOutsideTab(resolveInput(options.url, searchUrlPrefix(get().settings)), windowId)) return "";
+    if (options?.url && !options.adoptId && openOutsideTab(resolveInput(fromLegacyUrl(options.url.trim()), searchUrlPrefix(get().settings)), windowId)) return "";
     let [next, id] = withNewTab(get(), windowId, options);
     if (id && options?.openerId) next = groupWithOpener(next, id, options.openerId, !!options.background);
     set(next);
@@ -359,7 +360,8 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
 
   navigate(id, input, { userInitiated = true } = {}) {
     const s = get();
-    const url = resolveInput(input, searchUrlPrefix(s.settings));
+    // An app URL in the old app's name (typed from habit, pasted from a note) goes where it went: legacy.ts.
+    const url = resolveInput(fromLegacyUrl(input.trim()), searchUrlPrefix(s.settings));
     const tab = s.tabs[id];
     if (!url || !tab) return;
     if (openOutsideTab(url, tab.windowId)) {

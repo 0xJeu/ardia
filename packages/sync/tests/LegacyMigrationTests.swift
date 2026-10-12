@@ -7,12 +7,15 @@ final class FakeKeychain: SecretStore {
   var items: [String: [String: Data]] = [:]
   var denials: [String: Int] = [:]
   var reads = 0
+  /// Runs as an item is read (what happens while macOS asks about it).
+  var onRead: ((String) -> Void)?
 
   var listFails = false
   func accounts(service: String) -> [String]? { listFails ? nil : (items[service] ?? [:]).keys.sorted() }
 
   func read(service: String, account: String) -> SecretRead {
     reads += 1
+    onRead?(service)
     if let left = denials[service], left > 0 {
       denials[service] = left - 1
       return .denied
@@ -23,6 +26,17 @@ final class FakeKeychain: SecretStore {
   func write(service: String, account: String, label: String, accessible: CFString?, data: Data) -> Bool {
     items[service, default: [:]][account] = data
     return true
+  }
+}
+
+final class FailingGroups: AccessGroupMover {
+  let status: OSStatus
+  var tries = 0
+  init(_ status: OSStatus) { self.status = status }
+  func entitled(to groups: [String]) -> Bool { true }
+  func move(from old: String, to new: String) -> (moved: Int, failure: OSStatus?) {
+    tries += 1
+    return (0, status)
   }
 }
 
@@ -58,6 +72,9 @@ final class LegacyMigrationTests: XCTestCase {
   var oldRunning = false
   /// Answers for oldAppRunning, one per call, before falling back to `oldRunning`.
   var runningAnswers: [Bool] = []
+  /// Runs while a question is up (what the user does meanwhile).
+  var whileAsking: (() -> Void)?
+  var extras: [(URL, URL)] = []
 
   let safeStorageKey = Data("old safe storage key 16".utf8)
 
@@ -131,13 +148,14 @@ final class LegacyMigrationTests: XCTestCase {
 
   func context(crashAfter: String? = nil) -> LegacyMigrator.Context {
     LegacyMigrator.Context(
-      oldData: oldData, newData: newData,
+      oldData: oldData, newData: newData, extras: extras,
       oldDefaults: PreferencesDomain(id: oldPrefs.path), newDefaults: PreferencesDomain(id: newPrefs.path),
       oldSecrets: oldKeychain, newSecrets: newKeychain,
       accessGroups: [("T.\(LegacyName.bundleId).webauthn", "T.com.ardia.browser.webauthn")], groupMover: groups,
       oldAppRunning: { [unowned self] in runningAnswers.isEmpty ? oldRunning : runningAnswers.removeFirst() },
       ask: { [unowned self] title, _, _ in
         asked.append(title)
+        whileAsking?()
         return answers.isEmpty ? nil : answers.removeFirst()
       },
       crashAfter: crashAfter)
@@ -302,15 +320,7 @@ final class LegacyMigrationTests: XCTestCase {
   }
 
   func testFailedGroupMovesRetryThenStop() throws {
-    final class Failing: AccessGroupMover {
-      var tries = 0
-      func entitled(to groups: [String]) -> Bool { true }
-      func move(from old: String, to new: String) -> (moved: Int, failure: OSStatus?) {
-        tries += 1
-        return (0, errSecInteractionNotAllowed)
-      }
-    }
-    let failing = Failing()
+    let failing = FailingGroups(errSecDuplicateItem)
     var ctx = context()
     ctx.groupMover = failing
     XCTAssertEqual(LegacyMigrator(ctx).run(), .proceed)
@@ -319,6 +329,266 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(LegacyMigrator(ctx).readJournal()?.groups, "failed")
     XCTAssertEqual(failing.tries, 5)
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+  }
+
+  /// A keychain that's locked for now (or busy) isn't a reason to leave passkeys behind for good.
+  func testGroupMovesKeepTryingWhileTheKeychainIsUnavailable() throws {
+    let locked = FailingGroups(errSecInteractionNotAllowed)
+    var ctx = context()
+    ctx.groupMover = locked
+    for _ in 0..<8 { XCTAssertEqual(LegacyMigrator(ctx).run(), .proceed) }
+    XCTAssertEqual(LegacyMigrator(ctx).readJournal()?.groups, "pending")
+    XCTAssertEqual(locked.tries, 8)
+    XCTAssertFalse(LegacyMigrator.Context.isDone(newData))
+    ctx.groupMover = groups
+    XCTAssertEqual(LegacyMigrator(ctx).run(), .proceed)
+    XCTAssertEqual(LegacyMigrator(ctx).readJournal()?.groups, "moved 1")
+    XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+  }
+
+  /// Denied once (a reflex at an unexpected prompt): asked again at the next launch, and one the app has saved under
+  /// the new name since (the phrase entered again, an account connected again) is newer and stays.
+  func testDeniedAccountsAndSyncKeyAreAskedForAgain() throws {
+    oldKeychain.denials[Renamed.connectedAccounts.oldService] = 1
+    oldKeychain.denials[Renamed.syncKey.oldService] = 1
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertTrue(asked.isEmpty, "only the Safe Storage key stops the launch")
+    XCTAssertEqual(newKeychain.items["Ardia Connected Accounts"], ["google": Data("g-token".utf8)])
+    XCTAssertNil(newKeychain.items["Ardia Sync Key"])
+    XCTAssertFalse(LegacyMigrator.Context.isDone(newData))
+    newKeychain.items["Ardia Sync Key"] = ["device-1": Data("entered again".utf8)]
+
+    let reads = oldKeychain.reads
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(oldKeychain.reads, reads + 1, "only what didn't come across, never the Safe Storage key")
+    XCTAssertEqual(newKeychain.items["Ardia Connected Accounts"], ["github": Data("gh-token".utf8), "google": Data("g-token".utf8)])
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data("entered again".utf8)])
+    let journal = try XCTUnwrap(LegacyMigrator(context()).readJournal())
+    XCTAssertEqual(journal.secrets?["Ardia Connected Accounts/github"], "copied")
+    XCTAssertEqual(journal.secrets?["Ardia Sync Key/device-1"], "present")
+    XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(oldKeychain.reads, reads + 1)
+  }
+
+  func testDeniedEveryTimeStopsAskingAfterThreeLaunches() throws {
+    oldKeychain.denials[Renamed.syncKey.oldService] = 100
+    for _ in 0..<5 { XCTAssertEqual(run(), .proceed) }
+    XCTAssertEqual(oldKeychain.denials[Renamed.syncKey.oldService], 97, "three launches ask, then no more")
+    XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "denied")
+  }
+
+  /// A profile folder linked elsewhere is copied as the link: nothing is renamed or rewritten through it, so the old
+  /// app's data stays as it was, whatever happens.
+  func testNeverWritesThroughALinkIntoTheOldData() throws {
+    let profile = oldData.appendingPathComponent("Chromium/Default")
+    let elsewhere = root.appendingPathComponent("elsewhere/Default")
+    try FileManager.default.createDirectory(at: elsewhere.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.moveItem(at: profile, to: elsewhere)
+    try FileManager.default.createSymbolicLink(at: profile, withDestinationURL: elsewhere)
+    let before = snapshot(elsewhere.deletingLastPathComponent()), oldBefore = snapshot(oldData)
+    oldKeychain.denials[Renamed.safeStorage.oldService] = 1
+    answers = [1]
+    XCTAssertEqual(run(), .quit)
+    XCTAssertEqual(snapshot(elsewhere.deletingLastPathComponent()), before)
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(snapshot(elsewhere.deletingLastPathComponent()), before)
+    XCTAssertEqual(snapshot(oldData), oldBefore)
+    XCTAssertEqual(try json("session.json")["version"] as? Int, 2)
+  }
+
+  /// The whole data folder linked elsewhere (another disk, say): copied from where it really is, never through the link.
+  func testALinkedDataFolderIsNeverWrittenThrough() throws {
+    let real = root.appendingPathComponent("elsewhere/\(LegacyName.bundleId)")
+    try FileManager.default.createDirectory(at: real.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.moveItem(at: oldData, to: real)
+    try FileManager.default.createSymbolicLink(at: oldData, withDestinationURL: real)
+    let before = snapshot(real)
+    oldKeychain.denials[Renamed.safeStorage.oldService] = 1
+    answers = [1]
+    XCTAssertEqual(run(), .quit)
+    XCTAssertEqual(snapshot(real), before)
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(snapshot(real), before)
+    try assertMigrated()
+  }
+
+  /// A retry while the new keychain can't be listed waits: it can't tell what the app has saved since.
+  func testARetryNeverOverwritesWhatItCantSee() throws {
+    oldKeychain.denials[Renamed.syncKey.oldService] = 1
+    XCTAssertEqual(run(), .proceed)
+    newKeychain.items["Ardia Sync Key"] = ["device-1": Data("entered again".utf8)]
+    newKeychain.listFails = true
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data("entered again".utf8)])
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "denied")
+    newKeychain.listFails = false
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data("entered again".utf8)])
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "present")
+  }
+
+  /// One group that can't move for good doesn't end the tries of another whose keychain is only locked for now.
+  func testAPermanentGroupFailureLeavesTransientOnesTrying() throws {
+    final class Mixed: AccessGroupMover {
+      var lockedLaunches = 6
+      var moved: [String] = []
+      func entitled(to groups: [String]) -> Bool { true }
+      func move(from old: String, to new: String) -> (moved: Int, failure: OSStatus?) {
+        if old.hasSuffix(".dup") { return (0, errSecDuplicateItem) }
+        if lockedLaunches > 0 { lockedLaunches -= 1; return (0, errSecInteractionNotAllowed) }
+        moved.append(old)
+        return (1, nil)
+      }
+    }
+    let mixed = Mixed()
+    var ctx = context()
+    ctx.groupMover = mixed
+    ctx.accessGroups = [("T.old.dup", "T.new.dup"), ("T.old.webauthn", "T.new.webauthn")]
+    for _ in 0..<7 { XCTAssertEqual(LegacyMigrator(ctx).run(), .proceed) }
+    XCTAssertEqual(mixed.moved, ["T.old.webauthn"])
+    for _ in 0..<6 { _ = LegacyMigrator(ctx).run() }
+    XCTAssertEqual(LegacyMigrator(ctx).readJournal()?.groups, "failed")
+  }
+
+  /// A crash after part of the copy moved in, then the old app used again: the rest still moves in, nothing is lost.
+  func testAResumeAfterPartOfThePublishFinishesIt() throws {
+    XCTAssertEqual(run(crashAfter: "moved-one"), .quit)
+    try write(#"{"version":2,"tabs":[],"note":"used again"}"#, "session.json")
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.outcome, "migrated")
+    XCTAssertTrue(FileManager.default.fileExists(atPath: newData.appendingPathComponent("Chromium/Local State").path))
+    XCTAssertEqual(try json("session.json")["version"] as? Int, 2)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent(LegacyMigrator.stagingName).path))
+  }
+
+  /// A path the app saved through the folder's real place (the data folder linked elsewhere) points at the copy too.
+  func testPathsThroughALinkedDataFolderPointAtTheCopy() throws {
+    let real = root.appendingPathComponent("elsewhere/\(LegacyName.bundleId)")
+    try FileManager.default.createDirectory(at: real.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.moveItem(at: oldData, to: real)
+    try FileManager.default.createSymbolicLink(at: oldData, withDestinationURL: real)
+    let physical = real.resolvingSymlinksInPath().path
+    try write(#"{"version":2,"tabs":[],"folder":"PATH/Ardia Sync"}"#.replacingOccurrences(of: "PATH", with: physical), "sync.json")
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(try json("sync.json")["folder"] as? String, newData.appendingPathComponent("Ardia Sync").path)
+  }
+
+  /// The old app opened (another copy of it) while macOS asked about the keychain, making a sync identity and its
+  /// key: the snapshot is dropped, it waits for the app to quit, copies the folder again, and carries the new key
+  /// without asking again for those it has.
+  func testOldAppOpenedDuringTheKeychainStepIsWaitedForAndCopiedAgain() throws {
+    oldKeychain.onRead = { [unowned self] service in
+      guard service == Renamed.syncKey.oldService else { return }
+      oldKeychain.onRead = nil
+      oldKeychain.items[Renamed.syncKey.oldService]?["device-2"] = Data(repeating: 2, count: 32)
+      try? write(#"{"version":2,"deviceId":"device-2","tabs":[]}"#, "session.json")
+    }
+    // Before the copy, after it, after the keychain (open), when asked (open), then gone.
+    runningAnswers = [false, false, true, true]
+    answers = [0]
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(asked, ["Quit \(LegacyName.appName) to continue"])
+    XCTAssertEqual(try json("session.json")["deviceId"] as? String, "device-2")
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data(repeating: 1, count: 32), "device-2": Data(repeating: 2, count: 32)])
+    XCTAssertEqual(oldKeychain.reads, 4 + 1, "each item read once; only the new one after the second copy")
+    XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+  }
+
+  /// No Safe Storage key at first (the old app hadn't made it), made while the old app was open during the keychain
+  /// step: the second snapshot carries it.
+  func testAKeyMadeDuringTheKeychainStepComesAcross() throws {
+    oldKeychain.items[Renamed.safeStorage.oldService] = nil
+    oldKeychain.onRead = { [unowned self] service in
+      guard service == Renamed.syncKey.oldService else { return }
+      oldKeychain.onRead = nil
+      oldKeychain.items[Renamed.safeStorage.oldService] = [Renamed.safeStorage.account!.old: safeStorageKey]
+    }
+    runningAnswers = [false, false, true, true]
+    answers = [0]
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(newKeychain.items["Ardia Safe Storage"], ["Ardia": safeStorageKey])
+  }
+
+  /// A resumed run publishes its verified copy, whatever happened to the old folder since (used again, or gone).
+  func testAResumePublishesTheVerifiedCopy() throws {
+    for change in ["used again", "gone"] {
+      try FileManager.default.removeItem(at: root)
+      oldKeychain = FakeKeychain()
+      newKeychain = FakeKeychain()
+      try seedOldInstall()
+      XCTAssertEqual(run(crashAfter: "journal"), .quit, change)
+      if change == "gone" {
+        try FileManager.default.removeItem(at: oldData)
+      } else {
+        try write(#"{"version":2,"tabs":[],"note":"used again"}"#, "session.json")
+      }
+      XCTAssertEqual(run(), .proceed, change)
+      XCTAssertNil(try json("session.json")["note"], change)
+      XCTAssertEqual(LegacyMigrator(context()).readJournal()?.outcome, "migrated", change)
+      XCTAssertTrue(FileManager.default.fileExists(atPath: newData.appendingPathComponent("Chromium/Local State").path), change)
+      XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent(LegacyMigrator.stagingName).path), change)
+    }
+  }
+
+  /// A later launch that can't list the old items leaves what was pending pending; the next one copies it.
+  func testARetryThatCantListTheOldItemsKeepsThemPending() throws {
+    oldKeychain.denials[Renamed.connectedAccounts.oldService] = 1
+    XCTAssertEqual(run(), .proceed)
+    oldKeychain.listFails = true
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Connected Accounts/github"], "denied")
+    XCTAssertFalse(LegacyMigrator.Context.isDone(newData))
+    oldKeychain.listFails = false
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(newKeychain.items["Ardia Connected Accounts"]?["github"], Data("gh-token".utf8))
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Connected Accounts/github"], "copied")
+    XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+  }
+
+  /// Saved under the new name while macOS asked about the old item (another running copy of the app): it stays.
+  func testARetryKeepsWhatWasSavedWhileItAsked() throws {
+    oldKeychain.denials[Renamed.syncKey.oldService] = 1
+    XCTAssertEqual(run(), .proceed)
+    oldKeychain.onRead = { [unowned self] service in
+      guard service == Renamed.syncKey.oldService else { return }
+      newKeychain.items["Ardia Sync Key", default: [:]]["device-1"] = Data("saved meanwhile".utf8)
+    }
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data("saved meanwhile".utf8)])
+    XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "present")
+  }
+
+  /// The new keychain can't be listed again after macOS asked: nothing is written, and it's tried again.
+  func testARetryThatCantCheckTheNewKeychainTriesAgain() throws {
+    oldKeychain.denials[Renamed.syncKey.oldService] = 1
+    XCTAssertEqual(run(), .proceed)
+    oldKeychain.onRead = { [unowned self] service in
+      if service == Renamed.syncKey.oldService { newKeychain.listFails = true }
+    }
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertNil(newKeychain.items["Ardia Sync Key"])
+    XCTAssertFalse(LegacyMigrator.Context.isDone(newData))
+    oldKeychain.onRead = nil
+    newKeychain.listFails = false
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data(repeating: 1, count: 32)])
+    XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
+  }
+
+  /// A crash in the middle of copying a cache leaves only the partial copy beside it; the next launch copies it whole.
+  func testInterruptedCacheCopyIsDoneAgain() throws {
+    let oldCache = root.appendingPathComponent("caches/old/Cache"), newCache = root.appendingPathComponent("caches/new/Cache")
+    try write("cached", "a", in: oldCache)
+    try write("cached too", "b/c", in: oldCache)
+    extras = [(oldCache, newCache)]
+    XCTAssertEqual(run(crashAfter: "extra"), .quit)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: newCache.path))
+    XCTAssertEqual(run(), .proceed)
+    XCTAssertEqual(try String(contentsOf: newCache.appendingPathComponent("b/c")), "cached too")
+    XCTAssertEqual(try String(contentsOf: newCache.appendingPathComponent("a")), "cached")
+    XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: newCache.deletingLastPathComponent().path), ["Cache"])
   }
 
   func testLeavesAnExistingArdiaInstallAlone() throws {
