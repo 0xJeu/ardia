@@ -13,7 +13,7 @@ import { usePrewarm } from "../lib/preload";
 import { webviewRef, webviews } from "../lib/webviews";
 import { useBrowser } from "../store/browser";
 import { setPageProgress } from "../store/pageProgress";
-import { shallowEqual, useStoreWhile, useTabValue } from "../store/tabWatch";
+import { shallowEqual, useProfilesValue, useStoreWhile, useTabValue } from "../store/tabWatch";
 import { useActiveTabId, useWindowId } from "../store/hooks";
 import { activeTabId, engineProfile, isIncognitoProfile, navigationTo, wake } from "../store/model";
 import { removeTabs } from "../store/tabs";
@@ -427,8 +427,9 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
   const store = () => useBrowser.getState();
   const ref = useMemo(() => webviewRef(tabId), [tabId]);
   const autoPictureInPicture = useAutoPictureInPicture(tabId, visible);
-  // The offline game paints itself in it (WebView pageColor).
-  const pageColor = useBrowser((s) => (isIncognitoProfile(profileId) ? "incognito" : (s.profiles[profileId]?.color ?? "plum")));
+  // The offline game paints itself in it (WebView pageColor). Kept in state off a watch of the profiles map: a store
+  // selector here ran for every mounted tab on every store update.
+  const pageColor = useProfilesValue(profileId, (profiles) => (isIncognitoProfile(profileId) ? "incognito" : (profiles[profileId]?.color ?? "plum")));
 
   const lastPage = useRef<string | null>(null);
   const pending = useRef<string | null>(navigation?.url ?? (adoptId ? (tab()?.url ?? null) : null));

@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useBrowser, type BrowserState } from "./browser";
 import type { Tab } from "./types";
 
@@ -73,6 +73,37 @@ export function useTabValue<T>(tabId: string, select: (tab: Tab | undefined) => 
 
 // Marked so the perf probe doesn't count it as a live subscription.
 const inert = Object.assign((_: () => void) => () => {}, { inert: true });
+
+// The profiles map, read the same way for every tab pane: one store listener wakes these hooks only when the map
+// changed (a profile renamed or recoloured), not on every update.
+const profileWatchers = new Set<() => void>();
+let watchingProfiles = false;
+
+function watchProfiles(listener: () => void): () => void {
+  if (!watchingProfiles) {
+    watchingProfiles = true;
+    subscribeOf(useBrowser)((s, prev) => {
+      if (s.profiles !== prev.profiles) for (const l of [...profileWatchers]) l();
+    });
+  }
+  profileWatchers.add(listener);
+  return () => profileWatchers.delete(listener);
+}
+
+/**
+ * A value read from the profiles map, kept in state: read again when the map changes or `key` does, not on every
+ * render. `select` must depend on `key` alone (besides the map).
+ */
+export function useProfilesValue<T>(key: string, select: (profiles: BrowserState["profiles"]) => T): T {
+  const read = () => select(useBrowser.getState().profiles);
+  const [value, setValue] = useState(read);
+  useEffect(() => {
+    // Read again once subscribed: a change between the render and now is not missed.
+    setValue(read());
+    return watchProfiles(() => setValue(read()));
+  }, [key]);
+  return value;
+}
 
 /** `store`'s `select`, subscribed only while `live` (see the top of this file). `select` must return a stable value. */
 export function useStoreWhile<S, T>(store: Readable<S>, live: boolean, select: (s: S) => T): T {
