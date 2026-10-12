@@ -2,7 +2,7 @@ import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { autoGroupName } from "./groupNames";
 import { leaveGroups, orderSections, placeBlock, syncGroupOrder } from "./groups";
-import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, snapshotTab, viewTabIds, without } from "./model";
+import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedGroup, ClosedTab, Tab, TabGroup } from "./types";
 
@@ -194,6 +194,7 @@ function closedEntries(s: BrowserState, ids: string[]): ClosedTab[] {
         kind: "tab" as const,
         id: newId("ct"),
         tab: snapshotTab(t),
+        tabId: t.id,
         windowId: t.windowId,
         index: s.windows[t.windowId]?.tabIds.indexOf(t.id) ?? 0,
         group: group ? { id: group.id, name: group.name, icon: group.icon, color: group.color } : null,
@@ -234,6 +235,7 @@ export function closingGroup(s: BrowserState, groupId: string, deleted = false):
     id: newId("cg"),
     group: { id: g.id, name: groupLabel(s, g), icon: g.icon, color: g.color, pinned: g.pinned },
     tabs: g.tabIds.map((id) => snapshotTab(s.tabs[id]!)),
+    tabIds: g.tabIds,
     windowId: w.id,
     index: w.tabIds.indexOf(g.tabIds[0]!),
     closedAt: Date.now(),
@@ -248,7 +250,7 @@ export function closingGroup(s: BrowserState, groupId: string, deleted = false):
 function restoreSnapshots(
   s: BrowserState,
   windowId: string,
-  entries: { tab: ClosedTab["tab"]; index?: number }[],
+  entries: { tab: ClosedTab["tab"]; tabId?: string; index?: number }[],
 ): [BrowserState, string[]] {
   const ids: string[] = [];
   const w = s.windows[windowId]!;
@@ -260,6 +262,8 @@ function restoreSnapshots(
       snapshot: e.tab,
       index: e.index,
       background: true,
+      // Its back/forward list from when it closed, loaded when it's first shown (as a reopened window's tabs).
+      wakeAdoptId: e.tabId && e.tab.url ? restoreId(e.tabId) : undefined,
     });
     s = next;
     ids.push(id);
@@ -286,7 +290,7 @@ export function restoringGroup(s: BrowserState, entry: ClosedGroup, requested?: 
   const [restored, ids] = restoreSnapshots(
     next,
     windowId,
-    entry.tabs.map((tab, i) => ({ tab: { ...tab, pinned: false }, index: index === undefined ? undefined : index + i })),
+    entry.tabs.map((tab, i) => ({ tab: { ...tab, pinned: false }, tabId: entry.tabIds?.[i], index: index === undefined ? undefined : index + i })),
   );
   next = restored;
   const [grouped, groupId] = withGroup(next, ids, { name: entry.group.name, pinned: entry.group.pinned });
@@ -576,7 +580,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       // A private tab only ever goes back to its own private window.
       const windowId = privateId ? (next.windows[privateId]?.incognito ? privateId : undefined) : restoreTarget(next, e.windowId);
       if (!windowId || (isIncognitoProfile(e.tab.profileId) && e.windowId !== windowId)) continue;
-      const [restored, [id]] = restoreSnapshots(next, windowId, [{ tab: e.tab, index: windowId === e.windowId ? e.index : undefined }]);
+      const [restored, [id]] = restoreSnapshots(next, windowId, [{ tab: e.tab, tabId: e.tabId, index: windowId === e.windowId ? e.index : undefined }]);
       next = restored;
       const g = e.group && next.groups[e.group.id];
       if (id && g && g.windowId === windowId) {

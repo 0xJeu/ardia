@@ -7,6 +7,8 @@ import type { BrowserWindow, Profile, Tab, TabLive, TabSnapshot } from "./types"
 const launch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 let counter = 0;
 export const newId = (prefix: string) => `${prefix}-${launch}-${(++counter).toString(36)}`;
+// A closed tab's back/forward list is Chrome's (TabRestoreService), which the engine finds by the closed tab's id.
+export const restoreId = (tabId: string) => `restore:${tabId}`;
 
 let navSeq = 0;
 export const navigationTo = (url: string, userInitiated = false) => ({ url, seq: ++navSeq, ...(userInitiated ? { userInitiated } : {}) });

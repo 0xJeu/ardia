@@ -11,6 +11,7 @@ import {
   newId,
   pinnedFirst,
   resolveWindowId,
+  restoreId,
   snapshotTab,
   viewTabIds,
   without,
@@ -21,9 +22,6 @@ import { settleMovedPins } from "./pinMirror";
 import { isSmall, isSmallWindow, lastActiveProfile, mainWindowFor, originalProfile } from "./small";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedTab, ClosedWindow, Frame, ParkedPins, Tab, TabGroup } from "./types";
-
-// A closed tab's back/forward list is Chrome's (TabRestoreService), which the engine finds by the closed tab's id.
-const restoreId = (tabId: string) => `restore:${tabId}`;
 
 export type CreateWindowOptions = {
   // A private window's: the regular profile it's opened from (its session's; default: the last active profile).

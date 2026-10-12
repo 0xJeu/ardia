@@ -153,6 +153,8 @@ export type ClosedGroup = {
   id: string;
   group: Pick<TabGroup, "id" | "name" | "icon" | "color" | "pinned">;
   tabs: TabSnapshot[];
+  // The tabs' ids, by `tabs`' index: reopened, each takes its back/forward list back (absent from older entries).
+  tabIds?: string[];
   windowId: string;
   index: number;
   closedAt: number;

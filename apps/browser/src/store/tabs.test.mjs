@@ -163,6 +163,32 @@ test("clean up closes duplicates and stale tabs into Recently Cleaned, and resto
   assert.ok(S().tabs[e]);
 });
 
+test("a reopened group's and cleaned tabs' tabs take their back/forward lists back", () => {
+  reset();
+  const [w, a, b, c, d] = setup("a", "b", "c", "d");
+  const g = S().createGroup([b, c], { name: "G" });
+  S().closeGroup(g);
+  S().restoreClosed(S().closedGroups.at(-1).id);
+  // The one it shows adopts now, the other when it's first shown.
+  const adopts = (id) => S().tabs[id].adoptId ?? S().tabs[id].wakeAdoptId;
+  const back = Object.values(S().groups).find((x) => x.name === "G");
+  assert.deepEqual(back.tabIds.map(adopts), [`restore:${b}`, `restore:${c}`]);
+  // An entry saved before closed groups kept their tabs' ids reopens them without one.
+  const g2 = S().createGroup([d], { name: "Old" });
+  S().closeGroup(g2);
+  const entry = S().closedGroups.at(-1);
+  useBrowser.setState({ closedGroups: [...S().closedGroups.slice(0, -1), { ...entry, tabIds: undefined }] });
+  S().restoreClosed(entry.id);
+  const old = Object.values(S().groups).find((x) => x.name === "Old");
+  assert.equal(adopts(old.tabIds[0]), undefined);
+  assert.ok(S().tabs[old.tabIds[0]].url.includes("d.com"));
+  S().updateTab(a, { lastActiveAt: Date.now() - 13 * 3600_000 });
+  assert.equal(S().cleanUpTabs(w), 1);
+  S().restoreCleaned();
+  const restored = S().windows[w].tabIds.find((id) => adopts(id) === `restore:${a}`);
+  assert.ok(restored, "the cleaned tab comes back with its list");
+});
+
 test("abandoned New Tab cleanup never closes a window or the tab it shows", () => {
   reset();
   const w = S().createWindow();
