@@ -1,6 +1,6 @@
 // ⌘-scroll zooms with a wheel mouse or a Magic Mouse and scrolls with a trackpad.
 // CDP's Input.dispatchMouseEvent reaches the renderer directly, past the app's event monitor that
-// makes this decision, so the scrolls go through AppKit's dispatch instead (ACZoom devScroll),
+// makes this decision, so the scrolls go through AppKit's dispatch instead (ArdiaCoreWebView's devScrollZoom),
 // each claiming the device it comes from.
 // usage: node zoom-scroll-test.mjs <Debug Ardia.app> [cdpPort]
 // One line per check; the details go to zoom-scroll-test.log beside the instance's data.
