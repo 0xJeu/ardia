@@ -53,7 +53,7 @@ deployed with the new entry by the time the update reaches people.
    and check it on the site: `pnpm -C apps/site build && pnpm -C apps/site preview`, then
    `http://localhost:4321/release-notes#<version>`.
 3. `scripts/release.sh <version>`. It stops right away if the notes file is missing or lacks its `date` and
-   `headline`, if the tree under `apps/browser`, `packages` or `engine` has uncommitted changes, or if the engine
+   `headline`, if the tree under `apps/browser`, `packages`, `engine` or `scripts/dmg` has uncommitted changes, or if the engine
    framework is older than the tree's ArdiaCore sources or the Chromium tree differs from `engine/ardiacore`
    (`apply.sh --check`). It writes `dist/<version>/`:
    - archives the Release configuration of `apps/browser/macos` (arm64 only), staging the engine into its own

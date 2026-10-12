@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut and ship a Ardia release end to end — write the Dia-style release notes from git log, bump the version, build/sign/package with scripts/release.sh, smoke-test the build in a hidden instance, publish the GitHub release + Sparkle appcast, and deploy ardia.dev with the release-notes entry, the new download link and the landing page's claims and screenshots brought up to date. Use this whenever the user asks to ship, release, cut/push a new version or update, publish a build, "get this to me", bump the version, or write release notes for Ardia — even if they only say "ship it" or "new release" after a batch of fixes.
+description: Cut and ship an Ardia release end to end — write the Dia-style release notes from git log, bump the version, build/sign/package with scripts/release.sh, smoke-test the build in a hidden instance, publish the GitHub release + Sparkle appcast, and deploy ardia.dev with the release-notes entry, the new download link and the landing page's claims and screenshots brought up to date. Use this whenever the user asks to ship, release, cut/push a new version or update, publish a build, "get this to me", bump the version, or write release notes for Ardia — even if they only say "ship it" or "new release" after a batch of fixes.
 ---
 
 # Releasing Ardia
@@ -20,7 +20,8 @@ deployed with the new entry — otherwise that tab opens on a page that doesn't 
   sources: rebuilding it is an incremental `chrome_framework` build under the chromium lock). Never delete or clean
   `~/chromium-build/chromium_git/chromium/src/out`, run `gclient sync` or `gn clean`: a full Chromium
   rebuild costs ~5 hours and the user has been emphatic about it.
-- **Never launch or touch `/Applications/Ardia.app`** — the user is using it. Test only the exported
+- **Never launch or touch `/Applications/Ardia.app`** (`Netnyahoo.app` until the owner updates past the rename) —
+  the user is using it. Test only the exported
   build in `dist/`, only hidden (`ARDIA_BACKGROUND=1`, throwaway `ARDIA_DATA_DIR`), never with
   plain `open`. The smoke script does this for you.
 - **Build from a clean tree.** release.sh archives the working tree, so another agent's half-finished
@@ -34,8 +35,8 @@ git status --short
 git log --oneline v<previous>..HEAD
 ```
 
-Anything modified or untracked under `apps/browser`, `packages/` or `apps/browser/macos` that isn't
-committed would end up in the build. If it belongs to a running agent, wait for it or ask; don't commit
+Anything modified or untracked under `apps/browser`, `packages/`, `engine/` or `scripts/dmg` that isn't committed
+would end up in the build (release.sh refuses to run with it). If it belongs to a running agent, wait for it or ask; don't commit
 someone else's work in progress. Untracked files under `apps/videos`, `apps/site` or `output/` don't
 affect the app.
 
@@ -135,7 +136,7 @@ and a session whose window was left on its second profile, and checks, over CDP 
   ended in "Ardia quit unexpectedly");
 - the bundle's signature is still valid after running (0.1.0 wrote into its own bundle);
 - the feed in the build's Info.plist (`SUFeedURL`, `https://ardia.dev/appcast.xml` since the rename) answers
-  with an appcast (`scripts/feed.sh --before-publish`). A 404 means ardia.dev is running a deploy without
+  with an appcast (`.claude/skills/release/scripts/feed.sh --before-publish`). A 404 means ardia.dev is running a deploy without
   the feed endpoint (`infra/site/nginx.conf`): deploy the site first, or copies of this build never update.
   0.2.14 to 0.2.32 poll `https://netnyahoo.com/appcast.xml`, which the same site serves: across the rename smoke.sh
   checks that both lead to the same appcast.
@@ -148,7 +149,7 @@ ghost's order), so a pre-0.2.0 export isn't a control for these. The window-list
 shrunken list, when the user switches Spaces or opens Mission Control during the run (the hidden instance's
 windows leave the on-screen list): run it again. A failure is either a real regression (fix it, commit, rebuild —
 don't publish) or the check itself going stale after an intended change (fix the check in
-`scripts/smoke.mjs`, and say so). When a release fixes a new class of bug that can be observed over CDP or
+`.claude/skills/release/scripts/smoke.mjs`, and say so). When a release fixes a new class of bug that can be observed over CDP or
 the window list, add a check for it to `smoke.mjs` so the next release guards it.
 
 ### 4b. Perf ratchet
