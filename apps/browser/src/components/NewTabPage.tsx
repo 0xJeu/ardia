@@ -1,13 +1,12 @@
-import { AreaLight, EdgeLight, PowerUp } from "@ardia/shaders";
+import { PowerUp } from "@ardia/shaders";
 import { useEffect, useState } from "react";
-import { Surface, VisualEffect } from "@ardia/shell";
+import { Surface } from "@ardia/shell";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../lib/theme";
 import { springParams } from "./layout/swipeMotion";
 import { NewTabExtras } from "./ntp";
 import { Omnibox } from "./Omnibox";
 
-const REBRAND = true;
 const BAR_HEIGHT = 112;
 // The painted hills in each profile colour, as Dia paints its mark per colour; green is the brand painting. Three layers
 // (back hill, front hill, sun; docs/brand/ardia/build.py) that make the painting at rest and rise one after another.
@@ -36,36 +35,14 @@ const MARK_LAYERS = [
 const SUN_DRIFT = 6;
 const SUN_DRIFT_SPRING = springParams(0.6, 1);
 const DIA_OFFSET = 1;
-const NEGATE_ANGLE = true;
 
-type Frame = { x: number; y: number; width: number; height: number };
 type Size = { width: number; height: number };
 let lastSize: Size | null = null;
 const introPlayed = new Set<string>();
-const frameStyle = (f: Frame) => ({ left: f.x, top: f.y, width: f.width, height: f.height });
 
 let reduceMotion = false;
 AccessibilityInfo.isReduceMotionEnabled().then((on) => (reduceMotion = on), () => {});
 AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => (reduceMotion = on));
-
-function EdgeLightLayer({ bar, color }: { bar: Frame; color: string }) {
-  const container = { x: bar.x - 10, y: bar.y - 10, width: bar.width + 20, height: Math.max(bar.height + 20, 480) };
-  const local = (f: Frame) => ({ x: f.x - container.x, y: f.y - container.y, width: f.width, height: f.height });
-  const rect = local(bar);
-  return (
-    <View pointerEvents="none" style={{ position: "absolute", ...frameStyle(container) }}>
-      <EdgeLight
-        style={StyleSheet.absoluteFill}
-        rectFrame={rect}
-        cornerRadius={20}
-        lightStart={{ x: rect.x + rect.width / 2, y: rect.y + rect.height + 300 }}
-        lightEnd={{ x: rect.x + rect.width / 2, y: rect.y }}
-        lightColor={color}
-        animationDuration={1}
-      />
-    </View>
-  );
-}
 
 function barWidth(viewWidth: number) {
   const content = viewWidth < 708 ? (viewWidth <= 636 ? viewWidth - 20 : 616) : viewWidth < 1700 ? 652 : 774;
@@ -109,15 +86,7 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
   const under = toolbar ? 0 : layout.toolbarHeight;
   const top = Math.max((size.height - under) / 2 - 158, 100) + 38 + DIA_OFFSET + under;
 
-  const r = (panelHeight - 112) / 240;
-  const lift = r < 1 ? 10 - 4 * Math.max(r, 0) : 6;
-  const tilt = (r < 1 ? 5 - 4 * Math.max(r, 0) : 1) * (NEGATE_ANGLE ? -0.5 : 1);
-  const source = { x: x + 8, y: top + 8, width: width - 16, height: panelHeight - 16 };
-  const lightHeight = Math.max(0.85 * size.height, 720);
   const bar = { x, y: top, width, height: panelHeight };
-  const lightPalette = REBRAND ? null : theme.lightPalette;
-  const areaLight = lightPalette !== null;
-  const edgeLight = !REBRAND;
 
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setSize(e.nativeEvent.layout)}>
@@ -125,22 +94,10 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
         <PowerUp
           style={StyleSheet.absoluteFill}
           palette={[theme.powerUpColor]}
-          speed={areaLight ? 1.25 : 1}
+          speed={1}
           origin={0.5}
           cornerRadius={20}
-          halo={areaLight ? null : bar}
-        />
-      )}
-      {lightPalette && (
-        <AreaLight
-          style={{ position: "absolute", left: 0, top: 0, width: size.width, height: lightHeight }}
-          source={source}
-          cornerRadius={22}
-          palette={lightPalette}
-          lift={lift}
-          tilt={[tilt, 0]}
-          falloff={1}
-          intensity={theme.lightIntensity}
+          halo={bar}
         />
       )}
       <View
@@ -168,15 +125,10 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
         ))}
       </View>
       <View onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)} style={{ position: "absolute", left: x, top, width }}>
-        {REBRAND && (
-          <>
-            <Surface style={StyleSheet.absoluteFill} fill="#00000000" cornerRadius={20} shadowColor="#000000" shadowOpacity={0.08} shadowRadius={2} shadowOffset={[0, 0.5]} />
-            <Surface style={StyleSheet.absoluteFill} fill="#00000000" cornerRadius={20} shadowColor="#000000" shadowOpacity={0.04} shadowRadius={1} shadowOffset={[0, 2]} />
-          </>
-        )}
-        {areaLight && <VisualEffect style={StyleSheet.absoluteFill} material="hudWindow" blendingMode="withinWindow" cornerRadius={20} />}
+        <Surface style={StyleSheet.absoluteFill} fill="#00000000" cornerRadius={20} shadowColor="#000000" shadowOpacity={0.08} shadowRadius={2} shadowOffset={[0, 0.5]} />
+        <Surface style={StyleSheet.absoluteFill} fill="#00000000" cornerRadius={20} shadowColor="#000000" shadowOpacity={0.04} shadowRadius={1} shadowOffset={[0, 2]} />
         <Surface
-          fill={hex(areaLight ? theme.ntpBar : theme.ntpBarSolid)}
+          fill={hex(theme.ntpBarSolid)}
           cornerRadius={20}
           borderColor={hex(theme.ntpBarBorder)}
           borderWidth={0.5}
@@ -184,7 +136,6 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
           <Omnibox variant="hero" tabId={tabId} />
         </Surface>
       </View>
-      {edgeLight && <EdgeLightLayer bar={bar} color={theme.edgeLight} />}
       <NewTabExtras size={size} bar={bar} />
     </View>
   );

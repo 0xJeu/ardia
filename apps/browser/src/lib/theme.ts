@@ -5,7 +5,7 @@ import { PageProfileContext, WindowContext } from "../store/hooks";
 import type { ProfileColor } from "../store/types";
 import { backdropTint, opaqueTint, tintForHue, type BackdropTint } from "./windowTint";
 
-export type Theme = typeof dark & ProfileTheme & {
+export type Theme = typeof dark & {
   profileColor: ProfileColor | "incognito";
   backdrop: BackdropTint;
   windowTint: [string, string];
@@ -60,10 +60,8 @@ const dark = {
   goButtonText: "#1A1418",
   sendIdle: "rgba(255,255,255,0.08)",
 
-  ntpBar: "rgba(24,24,24,0.8)",
   ntpBarSolid: "#2D2D2D",
   ntpBarBorder: "rgba(120,125,134,0.32)",
-  lightIntensity: 4,
   accent: "#4A77D4",
 };
 
@@ -111,10 +109,8 @@ const light: typeof dark = {
   goButtonText: "#FFFFFF",
   sendIdle: "rgba(0,0,0,0.06)",
 
-  ntpBar: "rgba(255,255,255,0.85)",
   ntpBarSolid: "#FEFFFF",
   ntpBarBorder: "rgba(0,0,0,0.07)",
-  lightIntensity: 0.5,
   accent: "#6395FC",
 };
 
@@ -126,12 +122,6 @@ export function hex(color: string): string {
   return `#${h(+r!)}${h(+g!)}${h(+b!)}${h(+a * 255)}`;
 }
 
-type ProfileTheme = {
-  lightPalette: AreaLightPalette | null;
-  // Dia: 0.5 / 0.4.
-  edgeLight: string;
-};
-
 type ProfileColorSpec = {
   name: string;
   swatch: string;
@@ -139,8 +129,6 @@ type ProfileColorSpec = {
   powerUp?: string;
   tint?: string;
   action?: string;
-  dark?: ProfileTheme;
-  light?: ProfileTheme;
 };
 
 export const PROFILE_COLORS: Record<ProfileColor, ProfileColorSpec> = {
@@ -152,8 +140,6 @@ export const PROFILE_COLORS: Record<ProfileColor, ProfileColorSpec> = {
     tint: "#B25B6B",
     action: "#DD899B",
     palette: "pink",
-    dark: { lightPalette: "pink", edgeLight: "#EBB3CB80" },
-    light: { lightPalette: "pink", edgeLight: "#D37B8B66" },
   },
   blue: { name: "Blue", swatch: "#4691C3", palette: "blue" },
   purple: { name: "Purple", swatch: "#7873AF", palette: "purple" },
@@ -162,17 +148,10 @@ export const PROFILE_COLORS: Record<ProfileColor, ProfileColorSpec> = {
   orange: { name: "Orange", swatch: "#D87249", palette: "orange" },
   yellow: { name: "Yellow", swatch: "#E3AC38", palette: "yellow" },
   green: { name: "Green", swatch: "#3EB489", palette: "green" },
-  neutral: {
-    name: "Neutral",
-    swatch: "#8E8E93",
-    palette: null,
-    dark: { lightPalette: null, edgeLight: "#FFFFFF40" },
-    light: { lightPalette: null, edgeLight: "#00000026" },
-  },
+  neutral: { name: "Neutral", swatch: "#8E8E93", palette: null },
 };
 
 const INCOGNITO_TINT = "#3A3A3C";
-const INCOGNITO: ProfileTheme = { lightPalette: null, edgeLight: "#FFFFFF33" };
 
 export function profileNameColor(color: ProfileColor, dark: boolean): string {
   const spec = PROFILE_COLORS[color] ?? PROFILE_COLORS.plum;
@@ -186,22 +165,13 @@ function mix(a: string, b: string, t: number): string {
   return `#${out.map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
 
-function profileTheme(color: ProfileColor, isDark: boolean): ProfileTheme {
-  const spec = PROFILE_COLORS[color] ?? PROFILE_COLORS.plum;
-  const explicit = isDark ? spec.dark : spec.light;
-  if (explicit) return explicit;
-  return isDark
-    ? { lightPalette: spec.palette, edgeLight: `${mix(spec.swatch, "#FFFFFF", 0.5)}80` }
-    : { lightPalette: spec.palette, edgeLight: `${spec.swatch}66` };
-}
-
 const cache = new Map<string, Theme>();
 
 export function themeFor(key: string): Theme {
   let theme = cache.get(key);
   if (!theme) {
     const [color, mode] = key.split(":") as [ProfileColor | "incognito", string];
-    const base = color === "incognito" ? { ...dark, ...INCOGNITO } : { ...(mode === "dark" ? dark : light), ...profileTheme(color, mode === "dark") };
+    const base = color === "incognito" || mode === "dark" ? dark : light;
     const spec = color === "incognito" ? null : (PROFILE_COLORS[color] ?? PROFILE_COLORS.plum);
     // Dia: neutral band 0.502 at 0.65.
     const powerUpColor = !spec ? null : spec.palette ? (spec.powerUp ?? spec.swatch) : "#808080A6";
