@@ -1950,15 +1950,17 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     });
     return hit;
   }
-  // "mouse:<down|up|dragged|moved>:<x>,<y>[,<clickCount>]": one left-button event posted to the app's queue, as the
-  // window server delivers one. A text field's mouse-down tracks the mouse until its mouse-up comes from the queue
-  // ("click:" sends both at once, which would leave it waiting), so a script sends the up when it means to.
+  // "mouse:<down|up|dragged|moved|otherdown|otherup>:<x>,<y>[,<clickCount>[,<modifier flags>]]": one event posted to
+  // the app's queue, as the window server delivers one (left button; other: the middle one). A text field's mouse-down
+  // tracks the mouse until its mouse-up comes from the queue ("click:" sends both at once, which would leave it
+  // waiting), so a script sends the up when it means to. The flags are NSEventModifierFlags (⌘-click: 1048576).
   if ([action hasPrefix:@"mouse:"]) {
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@":"];
-    if (parts.count < 3) return @"mouse:<down|up|dragged|moved>:<x>,<y>[,<clickCount>]";
+    if (parts.count < 3) return @"mouse:<down|up|dragged|moved|otherdown|otherup>:<x>,<y>[,<clickCount>[,<flags>]]";
     NSDictionary<NSString *, NSNumber *> *types = @{
       @"down" : @(NSEventTypeLeftMouseDown), @"up" : @(NSEventTypeLeftMouseUp),
       @"dragged" : @(NSEventTypeLeftMouseDragged), @"moved" : @(NSEventTypeMouseMoved),
+      @"otherdown" : @(NSEventTypeOtherMouseDown), @"otherup" : @(NSEventTypeOtherMouseUp),
     };
     NSNumber *type = types[parts[1]];
     if (!type) return @"unknown mouse event";
@@ -1969,6 +1971,13 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
                                     windowNumber:window.windowNumber context:nil eventNumber:0
                                       clickCount:n.count > 2 ? n[2].integerValue : (t == NSEventTypeMouseMoved ? 0 : 1)
                                         pressure:t == NSEventTypeLeftMouseUp || t == NSEventTypeMouseMoved ? 0 : 1];
+    const bool other = t == NSEventTypeOtherMouseDown || t == NSEventTypeOtherMouseUp;
+    if (other || n.count > 3) {
+      CGEventRef cg = event.CGEvent;
+      if (n.count > 3) CGEventSetFlags(cg, (CGEventFlags)n[3].longLongValue);
+      if (other) CGEventSetIntegerValueField(cg, kCGMouseEventButtonNumber, kCGMouseButtonCenter);
+      event = [NSEvent eventWithCGEvent:cg];
+    }
     [NSApp postEvent:event atStart:NO];
     return Describe([frameView hitTest:p]);
   }
