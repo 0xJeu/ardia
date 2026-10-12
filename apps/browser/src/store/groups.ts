@@ -53,7 +53,9 @@ export function leaveGroups(groups: Record<string, TabGroup>, ids: Set<string>):
   for (const g of Object.values(groups)) {
     const tabIds = g.tabIds.filter((id) => !ids.has(id));
     if (tabIds.length === g.tabIds.length) next[g.id] = g;
-    else if (tabIds.length > (g.autoUngroup ? 1 : 0)) next[g.id] = { ...g, tabIds };
+    // A ⌘-click group of a loose tab ends with one tab left; a pinned tab's links (pinnedOpenerId) started as a
+    // group of one and keep it to the last.
+    else if (tabIds.length > (g.autoUngroup && !g.pinnedOpenerId ? 1 : 0)) next[g.id] = { ...g, tabIds };
   }
   return next;
 }
