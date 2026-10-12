@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.summary        = 'Metal shader views'
   s.author         = ''
   s.homepage       = 'https://github.com/ardia'
-  s.license        = 'MIT'
+  s.license        = 'Apache-2.0'
   s.platforms      = { :osx => '14.0' }
   s.source         = { git: '' }
   s.static_framework = true

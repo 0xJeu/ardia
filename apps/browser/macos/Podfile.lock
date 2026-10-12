@@ -2576,10 +2576,10 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   ArdiaCore: b551e3316357a028ec07afc3ff26e46d43e3225a
-  ArdiaImport: ec5ed1543a5cab58eb3fd13b300f97855c603da9
-  ArdiaShaders: bc444989d449aa0e58e84397a7786acdb4b3ce3d
-  ArdiaShell: dc8cb30542ff2b3c083a5a99c81c971e55d52f33
-  ArdiaSync: a6d412150e17652a016f430b1402b200041b7c3b
+  ArdiaImport: 535f03b8bdc5866eb05d6d177597e9583bfe7d47
+  ArdiaShaders: d8dc0512dec3ed9d4af792579b320249ef035924
+  ArdiaShell: 4de45ace9c0e11ff56d51c81cf9ec9a2fd6bac7c
+  ArdiaSync: e86ddfd6b42b62e7d592cd2487c62d136f6a0db1
   boost: cea1d4f90a3a59537f3deb03ff5656489d7133dd
   DoubleConversion: d31b1eb37f6d6f456530c4fd9124b857d6889cab
   EXConstants: 18ac927605517285307ea8f7ffe6fe7ca538eb5d
