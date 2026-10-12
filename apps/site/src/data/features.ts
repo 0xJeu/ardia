@@ -13,7 +13,7 @@ import pipPoster from "../assets/shots/pip-loop-poster.webp";
 import pipMp4 from "../assets/shots/pip-loop.mp4";
 import pipWebm from "../assets/shots/pip-loop.webm";
 
-// Every image here is a real capture of Arcadia (see apps/site/README.md). Window shots are
+// Every image here is a real capture of Ardia (see apps/site/README.md). Window shots are
 // ScreenCaptureKit captures of the window; `panel` shots are the app's own render of one view
 // (no window frame), used where a window capture wasn't possible.
 export interface Feature {
@@ -38,7 +38,7 @@ export const features: Feature[] = [
     title: "Lose the toolbar.",
     body: "Move the address bar into the sidebar and the page runs to the top of the window.",
     shots: [addressToolbar, addressSidebar],
-    alt: "Two Arcadia windows on the same Wikipedia page: behind, the address bar in a toolbar above the page; in front, the address bar in the sidebar under the traffic lights and the page running to the top of the window.",
+    alt: "Two Ardia windows on the same Wikipedia page: behind, the address bar in a toolbar above the page; in front, the address bar in the sidebar under the traffic lights and the page running to the top of the window.",
     caption: "Before and after",
     focus: { x: 0, y: 0, zoom: 2.1, ratio: 0.8 },
   },
@@ -47,7 +47,7 @@ export const features: Feature[] = [
     title: "Two pages, one window.",
     body: "Drag a tab onto the page. Up to three panes.",
     shots: [split],
-    alt: "Arcadia in split view: MDN on the left, Wikipedia on the right, both in one window.",
+    alt: "Ardia in split view: MDN on the left, Wikipedia on the right, both in one window.",
     caption: "Split view",
     focus: { x: 0.5, y: 0, zoom: 1.3, ratio: 0.8 },
   },
@@ -56,7 +56,7 @@ export const features: Feature[] = [
     title: "Refuses to leave the picture.",
     body: "Switch tabs mid-video and it floats along in the corner. Go back to its tab and it slips back into the page.",
     shots: [pip],
-    alt: "Arcadia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right. Its tab, muted, is in the sidebar, with a player at the foot of the sidebar.",
+    alt: "Ardia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right. Its tab, muted, is in the sidebar, with a player at the foot of the sidebar.",
     caption: "Picture in Picture, still playing",
     focus: { x: 1, y: 1, zoom: 2.4, ratio: 0.8 },
     // The capture's floating window, 336 × 189 pt at 2×, where it opened over the 1440 × 900 window.
@@ -67,16 +67,16 @@ export const features: Feature[] = [
     title: "Work stays at work.",
     body: "Each profile keeps its own logins, history and colour. Swipe the sidebar to switch.",
     shots: [sideProject, work, personal],
-    alt: "Three Arcadia windows, one per profile, each tinted in its colour with its name next to the window buttons: Side project in orange, Work in blue, Personal in plum.",
+    alt: "Three Ardia windows, one per profile, each tinted in its colour with its name next to the window buttons: Side project in orange, Work in blue, Personal in plum.",
     caption: "Three profiles",
     focus: { x: 0, y: 0, zoom: 2.4, ratio: 0.8 },
   },
   {
     id: "extensions",
     title: "Your extensions come along.",
-    body: "The Chrome Web Store, with a button that says Add to Arcadia.",
+    body: "The Chrome Web Store, with a button that says Add to Ardia.",
     shots: [extensions],
-    alt: "Dark Reader’s page on the Chrome Web Store, open in Arcadia, with an Add to Arcadia button.",
+    alt: "Dark Reader’s page on the Chrome Web Store, open in Ardia, with an Add to Ardia button.",
     caption: "The Chrome Web Store, working",
     focus: { x: 1, y: 0.1, zoom: 1.19, ratio: 0.8 },
   },
@@ -86,7 +86,7 @@ export const features: Feature[] = [
     body: "uBlock Origin Lite is built in. Google’s pings are compiled out. Crash reports are opt-in: no sites, no searches.",
     shots: [privacy],
     panel: true,
-    alt: "Arcadia’s Privacy & Security settings: switches to block ads, trackers and cookie banners, and the number of filter rules loaded.",
+    alt: "Ardia’s Privacy & Security settings: switches to block ads, trackers and cookie banners, and the number of filter rules loaded.",
     caption: "Settings › Privacy & Security",
     focus: { x: 0.96, y: 0, zoom: 1.4, ratio: 0.75 },
   },

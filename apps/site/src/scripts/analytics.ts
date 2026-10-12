@@ -48,7 +48,7 @@ if (sections.length) {
   for (const s of sections) seen.observe(s);
 }
 
-// Links sent from a phone come back with ?ref=: typed netnyahoo.com/mac (pages/mac.astro), the share sheet or
+// Links sent from a phone come back with ?ref=: typed ardia.dev/mac (pages/mac.astro), the share sheet or
 // copy (share), or the email to self (email).
 const sentRef = new URLSearchParams(location.search).get("ref");
 if (sentRef === "mac" || sentRef === "share" || sentRef === "email") {

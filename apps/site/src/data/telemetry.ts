@@ -1,8 +1,9 @@
 // First-party analytics and session replay: what the site sends, where, and when (src/scripts/telemetry/).
-// The wire format is OTLP/HTTP JSON logs; netnyahoo.com's nginx forwards /otel/ to our own collector.
+// The wire format is OTLP/HTTP JSON logs; ardia.dev's nginx forwards /otel/ to our own collector.
 
-/** Only these hosts report; anywhere else stays silent unless opted in (DEV_OPT_IN). */
-export const PRODUCTION_HOSTS = ["netnyahoo.com", "www.netnyahoo.com"];
+/** Only these hosts report; anywhere else stays silent unless opted in (DEV_OPT_IN). netnyahoo.com, the name
+ * before the rename, serves the same site for good. */
+export const PRODUCTION_HOSTS = ["ardia.dev", "www.ardia.dev", "netnyahoo.com", "www.netnyahoo.com"];
 
 /** `localStorage.setItem(key, "dev")` makes any other host (localhost, a preview) report too. */
 export const DEV_OPT_IN = ["ac:telemetry", "ac:posthog"];
@@ -11,7 +12,7 @@ export const DEV_OPT_IN = ["ac:telemetry", "ac:posthog"];
 export const LOGS_PATH = "/otel/v1/logs";
 export const REPLAY_PATH = "/otel/replay";
 
-export const SERVICE_NAME = "arcadia-site";
+export const SERVICE_NAME = "ardia-site";
 
 /** PostHog's project token, only to find the visitor id posthog-js stored (ph_<token>_posthog), so a returning
  * visitor stays the same visitor across the switch. */

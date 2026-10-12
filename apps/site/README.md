@@ -1,4 +1,4 @@
-# Arcadia site
+# Ardia site
 
 The landing page. Astro, built to static files (`dist/`), deployable to GitHub Pages or Cloudflare Pages.
 
@@ -13,19 +13,19 @@ pnpm build      # → dist/
 pnpm preview    # serve dist/
 ```
 
-`SITE_URL` sets the canonical/OG origin, `SITE_BASE` the path prefix (e.g. `SITE_BASE=/arcadia` for GitHub
+`SITE_URL` sets the canonical/OG origin, `SITE_BASE` the path prefix (e.g. `SITE_BASE=/ardia` for GitHub
 Pages without a custom domain).
 
 ## Updating
 
 - **A release:** bump `VERSION` and `DMG_SIZE` in `src/data/release.ts`. The download button links to
-  `releases/latest/download/Arcadia-<version>.dmg`.
+  `releases/latest/download/Ardia-<version>.dmg`.
 - **Release notes:** `/release-notes` renders the repo's `docs/release-notes/<version>.md` (one file per version,
   `src/content.config.ts`), newest first, each at `/release-notes#<version>`. The app opens that anchor after it
   updates, so rebuild and redeploy the site when a release ships (`docs/releasing.md`).
-- **Screenshots:** `src/assets/shots/*.webp` are real window captures of Arcadia (2×, transparent outside
+- **Screenshots:** `src/assets/shots/*.webp` are real window captures of Ardia (2×, transparent outside
   the window). `address-*.webp`, `profile-*.webp`, `split.webp` and `extensions.webp` are captures of the
-  renamed Arcadia (a Debug build before 0.2.33, with the painted-hills New Tab page and glyph): `screencapture -l
+  renamed Ardia (a Debug build before 0.2.33, with the painted-hills New Tab page and glyph): `screencapture -l
   <windowID> -o` of a hidden test instance drawn as the active window by `scripts/draw-active.m` (how to build and
   inject it is in its header), set up from a `session()` fixture (`scripts/lib/instance.mjs`) at 1440 × 900 pt
   (`address-*` 1360 × 860), light appearance except `split` and `extensions` (dark, sidebar 232 pt). The PNGs'
@@ -41,8 +41,8 @@ Pages without a custom domain).
   `Game.astro`. Replace a file with a new capture of the same name; Astro makes the AVIF/WebP sizes. On phones
   a shot shows only its `focus` region (see `Shot.astro` and `data/features.ts`), so check the crop after
   replacing one.
-- **the logo:** `src/assets/arcadia-mark.png` is the painted hills and sun (the brand's `mark-trim.png`, from
-  `output/brand/arcadia/final/` in the main checkout), shown in the hero and the closing section; Astro makes the
+- **the logo:** `src/assets/ardia-mark.png` is the painted hills and sun (the brand's `mark-trim.png`, from
+  `output/brand/ardia/final/` in the main checkout), shown in the hero and the closing section; Astro makes the
   AVIF/WebP sizes. `app-icon.png` (the header) is the macOS icon cropped close to its tile; `public/favicon.png` is
   the tile, rounded, at 64 px; `public/og.png` is the share card.
 - **Fonts:** Fontsource's variable faces, with each Latin file split into the characters the site sets
@@ -52,8 +52,8 @@ Pages without a custom domain).
 
 ## Analytics
 
-netnyahoo.com counts its own visitors: `src/scripts/telemetry/` posts events to `/otel/v1/logs` on the same
-origin (OTLP/HTTP JSON; netnyahoo.com's nginx hands them to our OpenTelemetry Collector, which writes
+ardia.dev counts its own visitors: `src/scripts/telemetry/` posts events to `/otel/v1/logs` on the same
+origin (OTLP/HTTP JSON; ardia.dev's nginx hands them to our OpenTelemetry Collector, which writes
 ClickHouse) and rrweb session replays to `/otel/replay/<session>/<seq>.json[.gz]` (SeaweedFS, kept 30 days).
 The one third-party script is PostHog's support chat ("Write to us", `src/scripts/support.ts`): posthog-js
 loads through nginx's `/relay` only when someone clicks the button, with everything but the chat switched off.
@@ -71,6 +71,6 @@ Visitors are sorted before the first paint (`src/components/Device.astro`): phon
 line, and only Macs evaluate the `download-band` experiment (`src/components/Showcase.astro`). On localhost,
 `?nndevice=phone|mac|other` and `?nnflag=band|control` force them. The experiment log is `docs/growth.md`.
 
-Only netnyahoo.com reports. `pnpm dev`, `pnpm preview` and any other host stay silent unless you opt in from
+Only ardia.dev reports. `pnpm dev`, `pnpm preview` and any other host stay silent unless you opt in from
 the console with `localStorage.setItem("ac:telemetry", "dev")` (the old `"ac:posthog"` works too), and then
 events go to the same paths on that host and carry `environment: development`. Remove the item when you're done.

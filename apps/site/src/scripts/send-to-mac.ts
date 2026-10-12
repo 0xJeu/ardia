@@ -6,8 +6,8 @@
 // Tracks send_to_mac_clicked { location, method: "email" | "share" | "copy" | "panel", outcome?, via?: "main" | "link", inapp? }.
 import { track } from "./track";
 
-const LINK = "https://netnyahoo.com/?ref=share";
-const DATA: ShareData = { url: LINK, title: "Arcadia", text: "Arcadia: real Chromium for the Mac. Open this on your Mac." };
+const LINK = "https://ardia.dev/?ref=share";
+const DATA: ShareData = { url: LINK, title: "Ardia", text: "Ardia: real Chromium for the Mac. Open this on your Mac." };
 
 const root = document.documentElement;
 const inapp = root.dataset.inapp ?? null;

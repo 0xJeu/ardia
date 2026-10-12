@@ -11,7 +11,7 @@ import windowShot from "../assets/shots/window.webp";
       <div class="tilt">
         <Shot
           src={windowShot}
-          alt="The Arcadia window in light mode: three pinned tiles and six tabs in the sidebar, Wikipedia’s article on Chromium open on the right."
+          alt="The Ardia window in light mode: three pinned tiles and six tabs in the sidebar, Wikipedia’s article on Chromium open on the right."
           sizes="(max-width: 1440px) 94vw, 1360px"
           focus={{ x: 0, y: 0, zoom: 1.9, ratio: 0.8 }}
         />
@@ -33,7 +33,7 @@ import windowShot from "../assets/shots/window.webp";
   // The download-band experiment. Only Mac desktops ask for the flag, so only they count as exposures
   // (getFeatureFlag records $feature_flag_called and $experiment_exposure, once per visitor). The variant is
   // bucketed on the visitor id with PostHog's algorithm (scripts/telemetry/flags.ts), so visitors keep theirs.
-  // A silent build (not netnyahoo.com, no opt-in) or no Web Crypto: control, no band.
+  // A silent build (not ardia.dev, no opt-in) or no Web Crypto: control, no band.
   // On localhost, ?nnflag=band (or control) forces a variant.
   import { getFeatureFlag } from "../scripts/telemetry";
 

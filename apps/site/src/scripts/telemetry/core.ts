@@ -51,7 +51,7 @@ export function readJSON<T>(key: string): T | null {
 // ---------------------------------------------------------------- switch
 
 const production = PRODUCTION_HOSTS.includes(location.hostname);
-/** Only netnyahoo.com reports; anything else only after `localStorage.setItem("ac:telemetry", "dev")`. */
+/** Only the production hosts (PRODUCTION_HOSTS) report; anything else only after `localStorage.setItem("ac:telemetry", "dev")`. */
 export const enabled = production || DEV_OPT_IN.some((key) => read(key) === "dev");
 const environment = production ? "production" : "development";
 
@@ -146,7 +146,7 @@ const language = navigator.language || "";
 
 /** What every event carries about the browser; the URL parts are read when the event happens. */
 const constant: Props = {
-  $lib: "arcadia-web",
+  $lib: "ardia-web",
   $lib_version: LIB_VERSION,
   ...device,
   $raw_user_agent: navigator.userAgent,
@@ -305,7 +305,7 @@ const resource = {
 
 // ---------------------------------------------------------------- queue
 
-type Scope = "arcadia.analytics" | "arcadia.site";
+type Scope = "ardia.analytics" | "ardia.site";
 interface Queued {
   scope: Scope;
   record: LogRecord;
@@ -414,7 +414,7 @@ export function capture(event: string, props: Props = {}, options: CaptureOption
       ...props,
     };
     enqueue(
-      "arcadia.analytics",
+      "ardia.analytics",
       {
         timeUnixNano: nanos(options.timestamp ?? now),
         severityNumber: 9,
@@ -442,7 +442,7 @@ export function log(level: keyof typeof SEVERITY, message: string, props: Props 
   if (!enabled) return;
   try {
     const [severityNumber, severityText] = SEVERITY[level];
-    enqueue("arcadia.site", {
+    enqueue("ardia.site", {
       timeUnixNano: nanos(Date.now()),
       severityNumber,
       severityText,

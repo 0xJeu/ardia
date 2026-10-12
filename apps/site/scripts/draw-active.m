@@ -1,4 +1,4 @@
-// The site's window captures (README › Screenshots): injected into a re-signed copy of a Debug Arcadia.app, every
+// The site's window captures (README › Screenshots): injected into a re-signed copy of a Debug Ardia.app, every
 // window draws as the active key window (coloured traffic lights, active materials) while the hidden instance stays
 // BackgroundOnly and never activates, and a session's 1440 × 900 pt frame isn't cut down to the screen's visible frame.
 //   clang -dynamiclib -fobjc-arc -framework AppKit -o draw-active.dylib draw-active.m && codesign -s - -f draw-active.dylib
@@ -20,7 +20,7 @@ static void force(Class c, const char *name) {
 
 __attribute__((constructor)) static void drawActive(void) {
   const char *name = getprogname();
-  if (!name || strcmp(name, "Arcadia") != 0) return;  // the app's process, not Chrome's helpers
+  if (!name || strcmp(name, "Ardia") != 0) return;  // the app's process, not Chrome's helpers
   Class w = [NSWindow class];
   force(w, "_hasActiveAppearance");
   force(w, "_hasActiveAppearanceIgnoringKeyFocus");

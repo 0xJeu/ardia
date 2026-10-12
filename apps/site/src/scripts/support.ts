@@ -1,7 +1,7 @@
 // "Write to us" (components/Footer.astro): PostHog's support chat. posthog-js loads only when the button is
 // clicked, through nginx's /relay, and only for the chat: it captures nothing else (no pageviews, clicks,
 // replays, errors, vitals, logs, surveys or flags). The chat needs PostHog's remote config, which stays on.
-// The button shows on netnyahoo.com, where the chat is allowed (PostHog's widget domains), as it did when
+// The button shows on the production hosts, where the chat is allowed (PostHog's widget domains), as it did when
 // posthog-js was on every page; if the chat can't load (a blocker), the button goes away again.
 import { PRODUCTION_HOSTS } from "../data/telemetry";
 import { distinctId } from "./telemetry/core";
@@ -77,7 +77,7 @@ function open(posthog: PostHog) {
   press();
 }
 
-// On localhost, ?nnsupport=1 shows it too (PostHog only allows the chat on netnyahoo.com's domains).
+// On localhost, ?nnsupport=1 shows it too (PostHog only allows the chat on the production hosts).
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && new URLSearchParams(location.search).has("nnsupport");
 const buttons = document.querySelectorAll<HTMLButtonElement>("[data-support]");
 if (buttons.length && (PRODUCTION_HOSTS.includes(location.hostname) || local)) {

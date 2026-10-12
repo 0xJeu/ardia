@@ -14,7 +14,7 @@ function dist() {
       return statSync(path).isDirectory() ? walk(path) : [path];
     });
   return {
-    name: "arcadia:dist",
+    name: "ardia:dist",
     hooks: {
       "astro:build:done": ({ dir, logger }) => {
         let files = 0;
@@ -32,7 +32,7 @@ function dist() {
 }
 
 export default defineConfig({
-  site: process.env.SITE_URL ?? "https://netnyahoo.com",
+  site: process.env.SITE_URL ?? "https://ardia.dev",
   base: process.env.SITE_BASE ?? "/",
   output: "static",
   trailingSlash: "ignore",
