@@ -41,7 +41,7 @@ function decodeName(raw: string): string {
   }
 }
 
-export function isTrackingParam(name: string, hostname = ""): boolean {
+function isTrackingParam(name: string, hostname = ""): boolean {
   const key = name.toLowerCase();
   if (GLOBAL_PARAMS.has(key) || GLOBAL_PREFIXES.some((p) => key.startsWith(p))) return true;
   return siteRules(hostname).some((r) => r.params.includes(key) || r.prefixes?.some((p) => key.startsWith(p)));

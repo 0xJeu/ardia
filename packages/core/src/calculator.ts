@@ -212,7 +212,7 @@ export function evaluate(expression: string): number | null {
   }
 }
 
-export function formatNumber(value: number, digits = 12): string {
+function formatNumber(value: number, digits = 12): string {
   if (value === 0) return "0";
   const rounded = Number(value.toPrecision(digits));
   const abs = Math.abs(rounded);

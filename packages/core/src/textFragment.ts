@@ -70,7 +70,7 @@ export function chooseTextFragment(context: SelectionContext): TextFragment | nu
 
 const encodeTerm = (s: string) => encodeURIComponent(s).replace(/-/g, "%2D");
 
-export function textDirective({ prefix, start, end, suffix }: TextFragment): string {
+function textDirective({ prefix, start, end, suffix }: TextFragment): string {
   const parts = [prefix && `${encodeTerm(prefix)}-`, encodeTerm(start), end && encodeTerm(end), suffix && `-${encodeTerm(suffix)}`];
   return `text=${parts.filter(Boolean).join(",")}`;
 }

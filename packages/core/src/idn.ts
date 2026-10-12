@@ -21,7 +21,7 @@ function adapt(delta: number, points: number, first: boolean): number {
 const digitValue = (c: number) => (c >= 0x30 && c <= 0x39 ? c - 22 : c >= 0x41 && c <= 0x5a ? c - 0x41 : c >= 0x61 && c <= 0x7a ? c - 0x61 : BASE);
 const digitChar = (d: number) => String.fromCharCode(d < 26 ? d + 0x61 : d + 22);
 
-export function punycodeDecode(input: string): string | null {
+function punycodeDecode(input: string): string | null {
   const output: number[] = [];
   const delimiter = input.lastIndexOf("-");
   for (let j = 0; j < Math.max(delimiter, 0); j++) {
@@ -232,7 +232,7 @@ export type SpoofReason =
   | "dangerousPattern"
   | "topDomainLookalike";
 
-export function labelSpoofReason(label: string, tld: string): SpoofReason | null {
+function labelSpoofReason(label: string, tld: string): SpoofReason | null {
   const chars = Array.from(label);
   if (!chars.length) return "invalid";
   if (!chars.every(isAllowed)) return "disallowedCharacter";
@@ -306,7 +306,7 @@ function skeleton(text: string): string {
 
 let topSkeletons: Map<string, string> | null = null;
 
-export function similarTopDomain(host: string): string | null {
+function similarTopDomain(host: string): string | null {
   topSkeletons ??= new Map(TOP_DOMAINS.map((d) => [skeleton(d), d]));
   const bare = host.replace(/^www\./, "").replace(/\.$/, "");
   const labels = bare.split(".");

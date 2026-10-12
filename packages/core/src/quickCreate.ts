@@ -6,7 +6,7 @@ export type QuickCreate = {
   site: string;
 };
 
-export const QUICK_CREATE: readonly QuickCreate[] = [
+const QUICK_CREATE: readonly QuickCreate[] = [
   { id: "doc", title: "New Google Doc", url: "https://docs.new", aliases: ["doc", "docs", "document", "google doc", "gdoc"], site: "docs.google.com" },
   { id: "sheet", title: "New Google Sheet", url: "https://sheets.new", aliases: ["sheet", "sheets", "spreadsheet", "google sheet"], site: "sheets.google.com" },
   { id: "slides", title: "New Google Slides", url: "https://slides.new", aliases: ["slides", "slide", "presentation", "deck", "google slides"], site: "slides.google.com" },

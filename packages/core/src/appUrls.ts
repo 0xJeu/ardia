@@ -1,11 +1,11 @@
-export const APP_SCHEME = "ardia";
+const APP_SCHEME = "ardia";
 
 const APP_PREFIX = /^(view-source:)?ardia:(?:\/\/)?/i;
 const ENGINE_PREFIX = /^(view-source:)?chrome:(?:\/\/)?/i;
 const ABOUT_PAGE = /^about:(blank|srcdoc)([?#]|$)/i;
 const ABOUT_ALIAS = /^about:([a-z][a-z0-9-]*)/i;
 
-export const APP_PAGE_HOSTS = ["history", "bookmarks", "downloads"] as const;
+const APP_PAGE_HOSTS = ["history", "bookmarks", "downloads"] as const;
 export type AppPageHost = (typeof APP_PAGE_HOSTS)[number];
 
 function split(url: string, prefix: RegExp): { viewSource: string; host: string; rest: string } | null {
@@ -29,9 +29,9 @@ export function toEngineUrl(url: string): string {
   return parts?.host ? `${parts.viewSource}chrome://${parts.host}${parts.rest}` : url;
 }
 
-export const isAppUrl = (url: string | null | undefined) => !!url && /^ardia:\/\/[^/?#]/i.test(url);
+const isAppUrl = (url: string | null | undefined) => !!url && /^ardia:\/\/[^/?#]/i.test(url);
 
-export function appUrlParts(url: string): { host: string; path: string; query: string; hash: string } | null {
+function appUrlParts(url: string): { host: string; path: string; query: string; hash: string } | null {
   if (!isAppUrl(url)) return null;
   const parts = split(url, APP_PREFIX)!;
   const m = /^([^?#]*)(\?[^#]*)?(#.*)?$/.exec(parts.rest)!;

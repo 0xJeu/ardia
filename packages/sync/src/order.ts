@@ -2,7 +2,7 @@ const DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const BASE = DIGITS.length;
 const digit = (c: string | undefined) => (c === undefined ? 0 : DIGITS.indexOf(c));
 
-export function positionBetween(a: string, b: string | null): string {
+function positionBetween(a: string, b: string | null): string {
   if (b !== null && a >= b) throw new Error(`positionBetween: ${a} >= ${b}`);
   if (b !== null) {
     let n = 0;

@@ -3,7 +3,7 @@ import { hostOf, searchUrlFor } from "./omnibox.ts";
 
 export type SiteSearch = { host: string; name: string; url: string };
 
-export const POPULAR_SITE_SEARCHES: readonly SiteSearch[] = [
+const POPULAR_SITE_SEARCHES: readonly SiteSearch[] = [
   { host: "youtube.com", name: "YouTube", url: "https://www.youtube.com/results?search_query=%s" },
   { host: "wikipedia.org", name: "Wikipedia", url: "https://en.wikipedia.org/w/index.php?search=%s" },
   { host: "github.com", name: "GitHub", url: "https://github.com/search?q=%s" },

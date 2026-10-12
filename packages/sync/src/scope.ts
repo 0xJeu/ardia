@@ -132,7 +132,7 @@ function mergeRecord(state: ScopeState, key: string, record: SyncRecord, clock: 
   return true;
 }
 
-export function ingestLog(state: ScopeState, file: LogFile, clock: Clock, changed: Set<string>) {
+function ingestLog(state: ScopeState, file: LogFile, clock: Clock, changed: Set<string>) {
   see(state, file.device, file.at);
   if (isApplied(state, [file.device, file.seq])) return;
   for (const op of file.ops) {
@@ -177,7 +177,7 @@ export function visible(state: ScopeState, prefix: string): Map<string, unknown>
 
 const parseBase = (json: string | undefined) => (json === undefined ? undefined : (JSON.parse(json) as unknown));
 
-export async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string): Promise<Set<string>> {
+async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string): Promise<Set<string>> {
   const published = new Set<string>();
   if (adapter.adoptRemoteOnJoin && !state.joined) return published;
   const extraction = await adapter.extract((key) => parseBase(state.base[key]));
@@ -297,7 +297,7 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   return changed;
 }
 
-export async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>): Promise<boolean> {
+async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>): Promise<boolean> {
   const mine = new Set([...keys].filter((k) => k.startsWith(adapter.prefix)));
   if (!mine.size) return true;
   const view = visible(state, adapter.prefix);

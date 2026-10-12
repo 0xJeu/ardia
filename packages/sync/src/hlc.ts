@@ -3,10 +3,10 @@ export type HLC = string;
 const WALL_DIGITS = 9;
 const COUNTER_DIGITS = 4;
 
-export const formatHLC = (wall: number, counter: number, device: string): HLC =>
+const formatHLC = (wall: number, counter: number, device: string): HLC =>
   `${Math.max(0, Math.floor(wall)).toString(36).padStart(WALL_DIGITS, "0")}.${counter.toString(36).padStart(COUNTER_DIGITS, "0")}.${device}`;
 
-export function parseHLC(h: HLC): { wall: number; counter: number; device: string } {
+function parseHLC(h: HLC): { wall: number; counter: number; device: string } {
   const [wall = "0", counter = "0", ...device] = h.split(".");
   return { wall: parseInt(wall, 36), counter: parseInt(counter, 36), device: device.join(".") };
 }

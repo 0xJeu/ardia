@@ -3,14 +3,14 @@ import { cleanUrl } from "./cleanUrl.ts";
 import { displayHost } from "./idn.ts";
 import { PSL_TLDS } from "./tlds.ts";
 
-export const SEARCH_URL = "https://www.google.com/search?q=";
+const SEARCH_URL = "https://www.google.com/search?q=";
 
 // RN's URL polyfill never throws; keep parsing regex-based.
 export type ParsedUrl = { scheme: string; host: string; port: string; path: string; query: string; hash: string };
 
 const URL_PARTS = /^([a-z][a-z0-9+.-]*):\/\/(?:[^@/?#]*@)?(\[[^\]]*\]|[^:/?#]*)(?::(\d+))?([^?#]*)(\?[^#]*)?(#.*)?$/i;
 
-export function parseUrl(url: string): ParsedUrl | null {
+function parseUrl(url: string): ParsedUrl | null {
   const m = URL_PARTS.exec(url.trim());
   if (!m) return null;
   return { scheme: m[1]!.toLowerCase(), host: m[2]!.toLowerCase(), port: m[3] ?? "", path: m[4] ?? "", query: m[5] ?? "", hash: m[6] ?? "" };
