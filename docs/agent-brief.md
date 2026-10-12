@@ -148,6 +148,8 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     A JS-only change needs no build: it says so and stops (`--force` builds). A new engine framework is staged
     under the chromium lock: `--release` your chromium take first, or it uses your take (`--as`).
     `/tmp/ac-<name>.holder` says who holds a lock. Every `scripts/agent` script takes `--help`.
+    When the main session runs the build train (`scripts/agent/train serve`: one shared build of the tree), don't
+    build yourself: `train request --as <you>`, then `train wait --as <you>` prints the app to run.
   - Run: `scripts/agent/ac launch apps/browser/build-<you>/Build/Products/Debug/Ardia.app --data <scratch>/data`
     (hidden: `open -g -n`, `ARDIA_BACKGROUND=1`, its own data dir and DevTools port; prints the pid and port).
     `ac eval|page|quit|status` take that data dir (`--help`); scripts use `scripts/lib/instance.mjs` (`launch`,
