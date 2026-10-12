@@ -179,8 +179,8 @@ invalidates it, so rerun. Put the numbers in `docs/perf/<previous>-to-<version>.
 
 The notes get a `## Faster` section only when the release is measurably faster: a short table of the rows that
 moved (old, new, change) and one sentence naming the biggest win. A release that's the same within noise has no
-Faster section. The 0.2.17 comparison (`scripts/release-compare-0.2.17.sh`) was for 0.2.28 and 0.2.29; run it only
-when the owner asks.
+Faster section. (0.2.28 and 0.2.29 were also timed against 0.2.17, the last CEF release, with
+`scripts/release-compare-0.2.17.sh`, now in git history: `docs/perf/README.md`.)
 
 ## 5. Publish
 

@@ -112,9 +112,10 @@ For a question that the phases don't answer, don't fork native-bench into a prob
 
 If you need a new measurement, add it as a phase and commit it.
 
-### Against 0.2.17 (the release notes' table)
+### Against 0.2.17 (0.2.28's and 0.2.29's release notes)
 
-`scripts/release-compare-0.2.17.sh <rc app> <out dir>` runs the comparison the release notes' "Faster" table comes from.
+`scripts/release-compare-0.2.17.sh <rc app> <out dir>` ran the comparison those notes' "Faster" tables came from, with
+`scripts/release-compare-table.mjs` making the table; both are in git history (`git show 2713787d:<path>`).
 0.2.17 is CEF-era: it has no native API version check, no field timing and no perf probe or dev harness in a release
 bundle, so `--control-bundle` is a bundle built from 0.2.17's own tree with the legacy command channel
 (`apps/browser/scripts/perf/legacy-bundle.mjs`, entry and channel in `scripts/perf/legacy/`). Comparable rows: launch (to

@@ -139,7 +139,7 @@ if [ -z "${ARDIACORE_FRAMEWORK:-}" ]; then
   done
   newest="$(find "$chromium_src/ardia" "$chromium_src/chrome/browser/ardia" -type f \
     -newer "$framework_src/Versions/Current/Chromium Framework" -print -quit)"
-  [ -z "$newest" ] || die "$newest is newer than the framework: rebuild chrome_framework (docs/ardiacore-spike.md)"
+  [ -z "$newest" ] || die "$newest is newer than the framework: rebuild chrome_framework (scripts/agent/engine-build, docs/engine-build.md)"
 fi
 
 identity_name="Developer ID Application"
