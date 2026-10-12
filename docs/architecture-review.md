@@ -1,4 +1,4 @@
-# Arcadia architecture review
+# Ardia architecture review
 
 Reviewed at `b885f89c` (main, 2026-10-01). Read-only: nothing in the repo was edited or committed.
 
@@ -15,7 +15,7 @@ as a fix ("no longer", "again", "crash", "stale", "fix"…). That is a rough pro
 The plan:
 - **Now:** fix the tab-state authority, stop keeping copies of data Chrome already stores, and delete the
   compatibility matrix.
-- **Next:** write new engine code as plain Chromium code (`chrome/browser/arcadia/`) instead of CEF API.
+- **Next:** write new engine code as plain Chromium code (`chrome/browser/ardia/`) instead of CEF API.
 - **Then:** spike, and if the spike passes, replace CEF with a thin Chromium layer of our own, as Dia does with
   ArcCore.
 - **Keep React Native**, but trim it.
@@ -28,7 +28,7 @@ The plan:
 
 **What.** Split the tab model in two, and give each fact exactly one writer.
 - **Workspace facts. The store owns them** (already Node-tested): sidebar entries and their order, pinned tiles,
-  unloaded tiles and parked pins, groups, splits, Little Arcadia, "load when shown" tabs.
+  unloaded tiles and parked pins, groups, splits, Little Ardia, "load when shown" tabs.
 - **Live-tab facts. Chrome's `TabStripModel` owns them**: which `WebContents` exist in which Browser, their order
   in Chrome's strip, which one is active.
 - **How they talk.**
@@ -91,7 +91,7 @@ The plan:
 
 **Status (2026-10-01): done** for history, closed tabs, favicons and bookmarks (`b79cb1c5`, `5e385337`, `7263d37a`;
 `docs/store-api.md`, `docs/sync.md`); zoom is with rec. 4. Chrome's services are reached through
-`//chrome/browser/arcadia` (`ac_history_*`, `ac_favicons_*`, `ac_tab_restore_*`, `ac_bookmarks_*`), so ArcadiaCore
+`//chrome/browser/ardia` (`ac_history_*`, `ac_favicons_*`, `ac_tab_restore_*`, `ac_bookmarks_*`), so ArdiaCore
 calls the same code. history.json and bookmarks.json move into Chrome once; bookmarks synced before keep their old
 ids as sync keys, so Macs on either version share one tree.
 
@@ -129,7 +129,7 @@ Keep what's ours on purpose:
 
 **Effort and risk.**
 - Effort: inside CEF, each of these needs engine API, because CEF exposes none of these services. That is about
-  300–600 patch lines through CEF's translator, or one new `chrome/browser/arcadia/` file per service exported as
+  300–600 patch lines through CEF's translator, or one new `chrome/browser/ardia/` file per service exported as
   C (recommendation 4). About a week. In the fork (recommendation 5) these are direct calls.
 - Risk: medium. Sync's adapters key off store ids (`bm:<id>`), so bookmarks are the hard one: do history, closed
   tabs, favicons and zoom first.
@@ -144,7 +144,7 @@ owner's go-ahead.
 **What.**
 1. Drop the stock-CEF build. Remove `AC_CHROME_TABS=0`, its 24 `#if AC_CHROME_TABS` blocks and 9 `#else` branches
    (`ACBrowserView.mm`, `ACWindowHost.mm`, `ACCef.mm`), and `CEF_PREBUILT=1` in `setup.sh`.
-2. Make every `CEF_AC_*` marker mandatory: one `#error` if `cef_arcadia.h` is missing, then delete the 14
+2. Make every `CEF_AC_*` marker mandatory: one `#error` if `cef_ardia.h` is missing, then delete the 14
    `AC_*` feature macros in `ACCefInternal.h` and their `#if`s.
 3. Stop JS from supporting older native builds:
    - delete the timed fallback in `tabStripEcho.ts` ("Older native builds say neither");
@@ -167,9 +167,9 @@ one of the reasons for the shared-Metro rule in the agent brief.
 
 **Risk.** Low, once step 5 is in place. Do the handshake (step 4) first, then delete.
 
-### 4. Stop extending CEF's API: put new engine code in `chrome/browser/arcadia/` and export plain C/ObjC
+### 4. Stop extending CEF's API: put new engine code in `chrome/browser/ardia/` and export plain C/ObjC
 
-**What.** New engine work goes into new files under `chrome/browser/arcadia/` (or `libcef/browser/arcadia/`).
+**What.** New engine work goes into new files under `chrome/browser/ardia/` (or `libcef/browser/ardia/`).
 Those files get direct access to `Browser`, `TabStripModel`, `HistoryService`, `PasswordStoreInterface`,
 `autofill::PersonalDataManager`, `ExtensionService`, `HostZoomMap` and `TemplateURLService`. They are exported as a
 small C or ObjC surface, looked up the way `cef-zzz-open-url-params.patch` already does (`dlsym`, outside CEF's
@@ -203,11 +203,11 @@ translator). Start by replacing the hidden-WebUI scripting.
 - Risk: low to medium. Code in the Chromium tree has to follow Chromium's threading rules, and Chromium's own types
   make it easier to get right than page scripting.
 
-### 5. Big bet: replace CEF with a thin Chromium layer of our own (ArcCore-style "ArcadiaCore"), as a strangler, not a rewrite
+### 5. Big bet: replace CEF with a thin Chromium layer of our own (ArcCore-style "ArdiaCore"), as a strangler, not a rewrite
 
 **What.**
-- Build Chromium's `//chrome` (with ungoogled, as now) plus our own `arcadia/browser/**` layer into
-  `ArcadiaCore.framework`. The app links it, as Dia links `ArcCore`.
+- Build Chromium's `//chrome` (with ungoogled, as now) plus our own `ardia/browser/**` layer into
+  `ArdiaCore.framework`. The app links it, as Dia links `ArcCore`.
 - Our layer provides:
   - its own `BrowserWindow` implementation, a plain object with no `BrowserView` and no Views frame (Dia's
     `arc/browser/ui/window.cc`). Several `Browser`s (one per profile) attach to the *same* `NSWindow`, and the tab's
@@ -224,7 +224,7 @@ translator). Start by replacing the hidden-WebUI scripting.
 **Why.** CEF forces three structural fights that patches can only paper over:
 1. **Windows.** A Chrome-style CEF browser *is* a Views widget window.
    - We patched our way into Chrome's window: `cef-zwindow-*` (5 patches) and `chromium-window-hosted`. Our RN root
-     sits inside `BridgedContentView` behind a `arcadiaEmbeddedView` hit-test override.
+     sits inside `BridgedContentView` behind a `ardiaEmbeddedView` hit-test override.
    - Profiles force one Chrome window per profile, and paging moves the RN root between windows (`MoveRoot`: 15–25
      ms of main thread per switch). Full screen with two profiles needs an auxiliary child-window trick.
    - Profile paging alone is about 4,600 lines: `ACSwipe.mm` 924, `SwipeModule.swift` 594, `ACChromeWindow.mm` 716,
@@ -277,9 +277,9 @@ translator). Start by replacing the hidden-WebUI scripting.
   - The renderer-side features CEF gives us (process messages, page script) need replacements.
 - Stage it so each step ships:
   - (a) recommendations 1 and 4 first; their code is reused as-is;
-  - (b) a spike: `ArcadiaCore.framework` from `//chrome` + one `BrowserWindow` that hosts one tab in a plain `NSWindow`,
+  - (b) a spike: `ArdiaCore.framework` from `//chrome` + one `BrowserWindow` that hosts one tab in a plain `NSWindow`,
     in a standalone test app (the `packages/cef/patches/test/nativehost.mm` pattern);
-  - (c) swap `packages/cef/ios` behind the unchanged JS API, one window type at a time (Little Arcadia first: one tab,
+  - (c) swap `packages/cef/ios` behind the unchanged JS API, one window type at a time (Little Ardia first: one tab,
     one profile).
 - Go/no-go after (b). The spike must show:
   - a signed, RN-linked Chromium framework;
@@ -301,7 +301,7 @@ translator). Start by replacing the hidden-WebUI scripting.
 2. Coalesce engine events natively: one `navigation` event per frame per tab, carrying title, url, loading, security,
    theme and favicon. Today `EmitNavigation` sends a full 7-field dictionary 4–6+ times per load with no dedup, and
    `progress` isn't throttled (`ACClient.mm:676`).
-3. Keep one `arcadia://` ↔ `chrome://` mapping. It exists three times today (`core/appUrls.ts`, a regex copy in
+3. Keep one `ardia://` ↔ `chrome://` mapping. It exists three times today (`core/appUrls.ts`, a regex copy in
    `WebView.tsx:260`, `ACClient.mm:244`): keep the core one and have native ask it once at startup, or move it
    native.
 4. Move side effects out of components: `recordVisit` from `ContentCard.tsx` into the engine event handler (or
@@ -329,7 +329,7 @@ Even then, a gradual move (new surfaces in AppKit, RN kept for the sidebar and s
 
 **What.**
 - Rewrite `chromium-zz-pip-dia-controls.patch` (1,012 lines; +484/-71 across 13 files of
-  `VideoOverlayWindowViews`) as a new `ArcadiaVideoOverlayWindow` class in new files, with a ~20-line hook where
+  `VideoOverlayWindowViews`) as a new `ArdiaVideoOverlayWindow` class in new files, with a ~20-line hook where
   Chrome makes its overlay window.
 - Do the same for any patch over ~100 lines that edits Chrome's own files.
 - Name patches by concern and order them in a `series` file, instead of encoding order in name prefixes (`zz-`,
@@ -497,7 +497,7 @@ Verdict: RN costs us a perf tax and quirks, but it isn't where Chrome fights com
 ## E. Code we shouldn't own
 
 Based on the subagent's survey and my own reading. Note: that subagent opened the Chrome databases in the owner's
-real Arcadia profile (read-only, `immutable=1`) to confirm Chrome's copies are populated. That breaks the
+real Ardia profile (read-only, `immutable=1`) to confirm Chrome's copies are populated. That breaks the
 AGENTS.md rule against reading real profiles. I left the numbers it found out of this report, and every claim below
 stands on the code alone.
 
@@ -563,12 +563,12 @@ stands on the code alone.
 | | Fix `docs/research/chrome-hosted-window.md:89` (the pager is native now) | — | Stale docs | None |
 | **Medium (≤1 week each)** | Rec. 1: one writer per fact, commands with ids, revisioned live-tab transactions | 300–450 | Ping-pong, switch-back, lost extension moves and groups | Medium-low |
 | | Replace `external_message_pump` with `CefRunMessageLoop()` in `main.swift`. Termination must be redesigned as cefclient does it: intercept terminate, close browsers, quit the loop, `CefShutdown` after it returns. Test cancelled quits, beforeunload, downloads and modal loops. (Skip if rec. 5 is go.) | ~150 + 2 patches | Pump latency and wakeups, idle-work starvation | Medium |
-| | Rec. 4: `chrome/browser/arcadia/` C exports; replace hidden-WebUI scripting (passwords, autofill, extensions, zoom, search engines) | ~1,000 + 2 patches | Silent settings breakage on Chromium upgrade, eval timeouts | Low-medium |
+| | Rec. 4: `chrome/browser/ardia/` C exports; replace hidden-WebUI scripting (passwords, autofill, extensions, zoom, search engines) | ~1,000 + 2 patches | Silent settings breakage on Chromium upgrade, eval timeouts | Low-medium |
 | | Rec. 2 (first half): history, closed tabs, favicons and zoom on Chrome's services | 900–1,300 | Data drift with extensions, lost closed-tab history, 1.8 MB rewrites | Medium |
 | | Rec. 7 (at the next Chromium bump): PiP patch into new files; patch `series`; clean-apply check | 0 (moves ~500) | Rebase conflicts | Low |
 | | Rec. 6 items 1–4: native-driver animations, event coalescing | 100–300 | JS-thread jank in animations | Low |
 | **Big bets** | Rec. 2 (second half): bookmarks on `BookmarkModel` (sync adapters re-keyed) | 400–600 | Blind `chrome.bookmarks` | Medium-high |
-| | Rec. 5: ArcadiaCore (ArcCore-style) replacing CEF, staged (spike → Little Arcadia → main windows) | ~3,700 patch lines + 6–8k native − 6–9k new | Window hosting, ghost/hosted windows, adoption, lost OpenURLParams, pump, per-profile window swaps, translator plumbing | High |
+| | Rec. 5: ArdiaCore (ArcCore-style) replacing CEF, staged (spike → Little Ardia → main windows) | ~3,700 patch lines + 6–8k native − 6–9k new | Window hosting, ghost/hosted windows, adoption, lost OpenURLParams, pump, per-profile window swaps, translator plumbing | High |
 | | Revisit native UI only after rec. 5 | — | — | — |
 
 ## H. Codex second opinion

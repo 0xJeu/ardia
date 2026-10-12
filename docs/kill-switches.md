@@ -2,7 +2,7 @@
 
 A speed change people can feel ships behind a switch, so a release that turns out slow or broken on some Macs can be
 backed out without another build. `apps/browser/src/lib/killSwitches.ts` is the registry; `apps/site/public/switches.json`
-(served at `https://netnyahoo.com/switches.json`) says which are off.
+(served at `https://ardia.dev/switches.json`) says which are off.
 
 ## Rules
 
@@ -35,7 +35,7 @@ another. Disclosed in Settings › What's Sent (“Even with sharing off”) and
 
 ## For a bench or a test instance
 
-`ARCADIA_SWITCHES="newTabPrewarm=off,lazySidebarRows=off"` sets a launch's values over everything else (the app and
+`ARDIA_SWITCHES="newTabPrewarm=off,lazySidebarRows=off"` sets a launch's values over everything else (the app and
 the updater both read it). A test instance has no updater, so it never fetches.
 
 ## The switches (see `SWITCHES` for owners and dates)

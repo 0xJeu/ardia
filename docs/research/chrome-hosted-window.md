@@ -1,7 +1,7 @@
 # Chrome-hosted windows: Chrome's Browser window is the app window
 
 Status: **shipped as the default in 0.2.0** (2026-09-26). Every app window is a Chrome-hosted window; the
-`ARCADIA_CHROME_WINDOW` flag and the hidden "ghost" Browser windows are gone. Design, spike and phases 1–3a
+`ARDIA_CHROME_WINDOW` flag and the hidden "ghost" Browser windows are gone. Design, spike and phases 1–3a
 below; the flip itself in [Shipped as default](#shipped-as-default-020). Screenshots are in
 `docs/research/chrome-hosted-window/`; the test scripts (`spike/`) were removed on 2026-10-02, readable at `231625b9`. Results: [Phase 1](#phase-1-engine-done),
 [Phase 2](#phase-2-production-behind-the-flag-done), [Phase 3](#phase-3-per-profile-windows-and-the-rest-in-progress).
@@ -132,7 +132,7 @@ Two incremental patches (`docs/engine-build.md`, `CEF_AC_CLIENT_WINDOW`) replace
     open without tabs.
   - `CefBrowserView::CreateTab`: adds a tab to such a Browser even when it has none.
 - **`chromium-window-hosted.patch`** (5 Chromium files):
-  - `BridgedContentView.arcadiaEmbeddedView`: hit testing and accessibility ask it first.
+  - `BridgedContentView.ardiaEmbeddedView`: hit testing and accessibility ask it first.
   - `Browser::TabStripEmpty` / `UnloadController::TabStripEmpty` keep a client window open unless it is closing.
   - Tab-strip-less normal Browsers use the popup layout. The tabbed layout CHECKs for the tabbed toolbar's
     background (`browser_view_tabbed_layout_impl.cc:1673`) and crashed the first build that hid the tab strip.
@@ -215,7 +215,7 @@ The app side:
 - Closing the app window closes the whole group, each Browser once no tab is moving out of it.
 
 The swap (`Swap` in `ACChromeWindow.mm`) orders the new window in behind at the same frame with window
-animations off, moves the root, commits, and orders the old window out. `ARCADIA_PROFILE_SWAP` picks how the
+animations off, moves the root, commits, and orders the old window out. `ARDIA_PROFILE_SWAP` picks how the
 seam is covered:
 - **transparent (default):** the window leaving is translucent, so once the root has left it shows nothing.
 - **snapshot:** a picture of the window (`CGWindowListCreateImage`, looked up at run time because the SDK marks it
@@ -352,7 +352,7 @@ view), titled "DevTools - <url>" and placed where the profile's DevTools window 
 
 ## Phase 2 (production, behind the flag), done
 
-`ARCADIA_CHROME_WINDOW=1` is now something to run daily. Every check below is headless, on hidden instances, on
+`ARDIA_CHROME_WINDOW=1` is now something to run daily. Every check below is headless, on hidden instances, on
 a locked screen; "human" marks what needs a person at an unlocked screen.
 Scripts: `spike/p2.mjs` (steps), `spike/restore.sh`, fixtures in `spike/pages` and `spike/ext-popup`.
 
@@ -545,14 +545,14 @@ never complete there (`orderOut:` reports the window hidden, but the window serv
 | Candidate | Result |
 |---|---|
 | **Root as a subview of `BridgedContentView`** (the content view), plus a `-hitTest:` that asks our root first | **Works (spike).** Clicks reach RN and the page; typing reaches the page; the page is visible at 122 fps; resizing reflows. |
-| Root next to `BridgedContentView` in the frame view (`NSThemeFrame`) | **Fails.** The page ignores every click: `RenderWidgetHostViewCocoa -shouldIgnoreMouseEvent:` hit-tests from `window.contentView` and drops events that don't land in its own subtree (`content/app_shim_remote_cocoa/render_widget_host_view_cocoa.mm:1041-1071`). Chromium's occlusion checker also only walks `contentView` (`web_contents_view_cocoa.mm:596-638`). Measured with `ARCADIA_CHROME_WINDOW_ROOT=frame`: sidebar clicks work, page clicks are lost. |
+| Root next to `BridgedContentView` in the frame view (`NSThemeFrame`) | **Fails.** The page ignores every click: `RenderWidgetHostViewCocoa -shouldIgnoreMouseEvent:` hit-tests from `window.contentView` and drops events that don't land in its own subtree (`content/app_shim_remote_cocoa/render_widget_host_view_cocoa.mm:1041-1071`). Chromium's occlusion checker also only walks `contentView` (`web_contents_view_cocoa.mm:596-638`). Measured with `ARDIA_CHROME_WINDOW_ROOT=frame`: sidebar clicks work, page clicks are lost. |
 | Root as a subview of `BridgedContentView` with no hit-test change | Fails: `BridgedContentView -hitTest:` returns itself wherever a `views::View` is under the point (`components/remote_cocoa/app_shim/bridged_content_view.mm:289-333`), and Chrome's views cover the window. |
 | `views::NativeViewHost` inside the `CefWindow` | Chromium's own way to embed an `NSView` (`GetHitTestResult` hands `NativeViewHost` points to the `NSView`). CEF has no public API for it; it would need a new `CefView` type (a translator-regenerating CEF API change). Same result as the first row for more work. |
 | CEF overlays (`CefWindow::AddOverlayView`) | Views only. It can't hold an `NSView`. |
 
 **Decision: root inside `BridgedContentView`, with our views first for hit testing and accessibility.** The spike
 did it with a runtime override of `-hitTest:`, `-accessibilityChildren` and `-accessibilityHitTest:`. Phase 1
-replaced that with `BridgedContentView.arcadiaEmbeddedView` (`chromium-window-hosted.patch`).
+replaced that with `BridgedContentView.ardiaEmbeddedView` (`chromium-window-hosted.patch`).
 
 Keeping `BridgedContentView` as the content view matters. Chromium updates the widget's geometry from its
 `-setFrameSize:` only while it is the content view (`bridged_content_view.mm:775-795`). `NativeWidgetMacNSWindow
@@ -668,7 +668,7 @@ already, turned off, or fine at the page's top edge. If one turns up that must a
 ## 4. Events and focus
 
 - **Mouse.** With the root inside the content view, AppKit's hit test picks our views (`hit:` probes in the spike):
-  - the sidebar → `ArcadiaShell.Surface`;
+  - the sidebar → `ArdiaShell.Surface`;
   - the page → `RenderWidgetHostViewCocoa`;
   - the command bar over the page → `RCTView`.
   Chromium's `-shouldIgnoreMouseEvent:` accepts the page's events because the page is under `contentView`.
@@ -744,7 +744,7 @@ Every phase ships; the flag keeps the ghost path as the default until phase 4.
 
 | Phase | Work | Exit criteria | Time |
 |---|---|---|---|
-| 0. Spike | Done: `ARCADIA_CHROME_WINDOW=1`, this doc | 13/14 seam checks pass (`spike/spike.mjs`) | done |
+| 0. Spike | Done: `ARDIA_CHROME_WINDOW=1`, this doc | 13/14 seam checks pass (`spike/spike.mjs`) | done |
 | 1. Engine groundwork | Done 2026-09-26 (see [Phase 1](#phase-1-engine-done)) | Default path unaffected; the spike without its swizzle; zoom bubble and profile menu gone; no `about:blank` in `chrome.tabs` | done (~1 day) |
 | 2. One window type behind the flag, production quality (done 2026-09-26, see [Phase 2](#phase-2-production-behind-the-flag-done)) | `ACChromeWindow` without dynamic lookups. `WindowManager`: close warning through `CanClose`, frame autosave, traffic-light x inset, incognito windows. `rootView(of:)` for every `contentView` user (§4). Command policy reviewed against Chrome's full shortcut table. Keep the ghost for secondary profiles | A browser window with the flag passes the release smoke test (`smoke.mjs` hosted variant) and the spike checks | 1–1.5 weeks |
 | 3a. Profiles: hosted per-profile windows (done 2026-09-26 but for the measurement) | See [Phase 3 item](#phase-3-item-profiles-hosted-per-profile-windows): the transparent-window CEF patch, pre-made neighbour windows, the cut, full screen; measured with `spike/swapmeasure.sh` | 0 transient frames in 20 swaps; paging looks unchanged; secondary-profile ghosts gone | 1.5–2 weeks |
@@ -775,7 +775,7 @@ Total: about 5–7 weeks calendar, most of it phase 3's long tail.
 Code as the spike left it (the flag and `ChromeWindowSpike.swift` are gone since 0.2.0: see [Shipped as default](#shipped-as-default-020)):
 
 - `packages/cef/ios/ACChromeWindow.{h,mm}`: `ACChromeWindowHost` makes the window and embeds the root in Chrome's
-  content view (since phase 1 through `arcadiaEmbeddedView`; the spike overrode `BridgedContentView` at runtime).
+  content view (since phase 1 through `ardiaEmbeddedView`; the spike overrode `BridgedContentView` at runtime).
   It also adds DEV input actions.
   - `hit:` / `click:` / `type:` / `keys:` through `devWindow`, because test instances get no OS events and are never
     active.
@@ -789,14 +789,14 @@ Code as the spike left it (the flag and `ChromeWindowSpike.swift` are gone since
 - `packages/shell/ios/ChromeWindowSpike.swift` + `Windows.swift`: `WindowManager.open` asks for a Chrome window
   first. It embeds the root instead of setting `contentViewController`, follows the window through notifications,
   and unmounts the root on close.
-- (Spike only, removed in phase 1: `ARCADIA_CHROME_WINDOW_ROOT=frame`, the failed frame-view placement.)
+- (Spike only, removed in phase 1: `ARDIA_CHROME_WINDOW_ROOT=frame`, the failed frame-view placement.)
 
 The check scripts (`spike/*`, cited throughout this doc: `spike.mjs`, `keys.mjs`, `p2.mjs`, `p3.mjs`,
 `swapmeasure.sh`, the `pages` and `ext-popup` fixtures) drove the CEF-era build and were removed on 2026-10-02.
 Read them at `231625b9`: `git ls-tree -r --name-only 231625b9 docs/research/chrome-hosted-window/spike`, then
 `git show 231625b9:docs/research/chrome-hosted-window/spike/<file>`.
 
-Results, same build, fresh data dirs, hidden instances (`ARCADIA_BACKGROUND=1`, never frontmost):
+Results, same build, fresh data dirs, hidden instances (`ARDIA_BACKGROUND=1`, never frontmost):
 
 | Check | Chrome-hosted | Default (ghost) |
 |---|---|---|

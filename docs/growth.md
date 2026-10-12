@@ -1,6 +1,6 @@
 # Growth log
 
-A running log of what we change on netnyahoo.com to get more Mac downloads, and what happened. Newest entry
+A running log of what we change on ardia.dev (netnyahoo.com before the rename) to get more Mac downloads, and what happened. Newest entry
 at the bottom. Events live in `apps/site/src/scripts/analytics.ts`; since 2026-09-30 they go to our own
 ClickHouse (see **Telemetry** below; before that, PostHog Cloud EU, whose history was copied over).
 
@@ -72,11 +72,11 @@ A download isn't an install. What we can count without breaking the privacy prom
 takes effect with the first release after 0.2.13):
 
 - **Downloads:** GitHub's `download_count` for each release's DMG. Sparkle updates are the zip's count.
-- **Update checks:** builds after 0.2.13 poll `https://netnyahoo.com/appcast.xml` (`SUFeedURL`). nginx
+- **Update checks:** builds after 0.2.13 poll `https://netnyahoo.com/appcast.xml` (0.2.32 and earlier) or `https://ardia.dev/appcast.xml` (`SUFeedURL`). nginx
   (`infra/site/nginx.conf`) answers every request with a 302 to
-  `https://github.com/mantrakp04/arcadia/releases/latest/download/appcast.xml` and, beside it, mirrors a
+  `https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml` and, beside it, mirrors a
   telemetry event `update_check { version, first }` with the day as its timestamp. Only requests whose
-  User-Agent is the app's Sparkle (`Arcadia/<version> Sparkle/…`) count. Nothing else is passed on: no IP
+  User-Agent is the app's Sparkle (`Ardia/<version> Sparkle/…`) count. Nothing else is passed on: no IP
   (so no country), no headers, no cookie, a fixed `distinct_id` (`update-check`). The redirect never waits on
   the count; if the collector is down or slow, the update still works.
 - **First launch:** the app adds `first=1` to its first check ever (`packages/shell/ios/Updater.swift`,
@@ -85,7 +85,7 @@ takes effect with the first release after 0.2.13):
   offline isn't retried as first.
 - **Still running:** a running copy checks at launch (once 8 h have passed since the last check) and every
   8 h, so 1 to 3 checks a day. Copies running on a day are between checks/3 and checks.
-- **Test instances** (`ARCADIA_BACKGROUND=1` or `ARCADIA_DATA_DIR` set: smoke tests, agents) poll GitHub
+- **Test instances** (`ARDIA_BACKGROUND=1` or `ARDIA_DATA_DIR` set: smoke tests, agents) poll GitHub
   directly, so they aren't counted.
 - **Copies from 0.2.13 and earlier** still poll GitHub directly. They show up only as the latest release's
   `appcast.xml` download count (all versions together, no days).
@@ -94,7 +94,7 @@ Where it's disclosed: Settings › General › "Check for updates automatically"
 Settings › Privacy & Security, and the site's Q&A ("What does it collect?").
 
 **Read the counts:** `node scripts/update-checks.mjs [days]` (reads ClickHouse with the credentials in
-`~/.config/arcadia/telemetry.env`, see Telemetry). It prints, per version, DMG downloads, first launches,
+`~/.config/ardia/telemetry.env`, see Telemetry). It prints, per version, DMG downloads, first launches,
 first/DMG, update downloads and GitHub feed fetches, then checks and first launches per day and version.
 Without the env file it prints the GitHub columns. The same query with `node scripts/telemetry-sql.mjs`:
 
@@ -111,15 +111,15 @@ GROUP BY day, version ORDER BY day DESC, version
 ## Telemetry (since 2026-09-30)
 
 Site analytics, session replays, the app's opt-in telemetry and the update-check count are first-party:
-they go to netnyahoo.com and are stored on our own servers (Hexclave, same project as the site). No third
+they go to ardia.dev and are stored on our own servers (Hexclave, same project as the site). No third
 party sees them. The one exception is the footer's "Write to the office" chat, which is still PostHog's
 widget: posthog-js loads only when someone clicks it, and only the conversation goes to PostHog.
 
 ```
-browser / app ──POST──▶ netnyahoo.com/otel/v1/logs ──▶ otel-collector ──▶ ph-clickhouse  (telemetry.otel_logs)
-browser ──POST──▶ netnyahoo.com/otel/replay/<session>/<seq>.json[.gz] ──▶ ph-objects (SeaweedFS, replays/<day>/…)
-Sparkle ──GET──▶ netnyahoo.com/appcast.xml ──(nginx mirror)──▶ otel-collector
-owner's Mac ──▶ netnyahoo.com/_ch/ (read-only ClickHouse user)   netnyahoo.com/_replays/ (token)
+browser / app ──POST──▶ ardia.dev/otel/v1/logs ──▶ otel-collector ──▶ ph-clickhouse  (telemetry.otel_logs)
+browser ──POST──▶ ardia.dev/otel/replay/<session>/<seq>.json[.gz] ──▶ ph-objects (SeaweedFS, replays/<day>/…)
+Sparkle ──GET──▶ ardia.dev/appcast.xml ──(nginx mirror)──▶ otel-collector
+owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_replays/ (token)
 ```
 
 - **Where it runs:** `infra/telemetry/hexclave.deploy.ts` (ClickHouse, OpenTelemetry Collector, SeaweedFS; all
@@ -137,14 +137,14 @@ owner's Mac ──▶ netnyahoo.com/_ch/ (read-only ClickHouse user)   netnyahoo
   `otel_logs` (new data) and `posthog_events` (PostHog Cloud history, 2026-09-29 09:04 → 2026-09-30).
   `telemetry.logs` holds plain warnings/errors from the site and app (kept 90 days).
   `telemetry.replay_sessions` has one row per recorded session. Events are kept; replays 30 days.
-- **Reading it:** `~/.config/arcadia/telemetry.env` (not in git, mode 600) has the read-only ClickHouse user
+- **Reading it:** `~/.config/ardia/telemetry.env` (not in git, mode 600) has the read-only ClickHouse user
   and the replay token. Use `node scripts/telemetry-sql.mjs "<SQL>"`, `node scripts/update-checks.mjs`, and
   `node scripts/replay.mjs --list` / `<session-id>`. The stats skill's queries are in
   `.claude/skills/stats/queries.md`. Secrets are Hexclave project secrets (`TELEMETRY_*`); a backup is in
-  `~/.config/arcadia/telemetry-secrets.env`.
+  `~/.config/ardia/telemetry-secrets.env`.
   hekuto reads the same tables as `reader` through a Composio ClickHouse connection (Basic auth, base URL
-  `https://netnyahoo.com/_ch`); `/_ch/` takes Basic auth for `reader` only.
-- **Checks of the pipeline:** send with service `arcadia-selftest` (or version `0.0.0-selftest`); the views
+  `https://ardia.dev/_ch`); `/_ch/` takes Basic auth for `reader` only.
+- **Checks of the pipeline:** send with service `ardia-selftest` (or version `0.0.0-selftest`); the views
   leave those out.
 - **PostHog Cloud** (EU project 287835) is untouched. App versions released before the switch still send
   their opt-in events there. `infra/telemetry/import-posthog.py` loads a Cloud export into `posthog_events`

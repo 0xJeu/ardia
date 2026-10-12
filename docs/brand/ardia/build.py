@@ -1,11 +1,11 @@
-"""Arcadia's logo assets from the oil-painted "hills" (source/, picked 2026-10-10). Run from the repo root;
-the results go to output/brand/arcadia/final/, then to their slots (see README.md)."""
+"""Ardia's logo assets from the oil-painted "hills" (source/, picked 2026-10-10). Run from the repo root;
+the results go to output/brand/ardia/final/, then to their slots (see README.md)."""
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-SRC = Path("docs/brand/arcadia/source")
-OUT = Path("output/brand/arcadia/final")
+SRC = Path("docs/brand/ardia/source")
+OUT = Path("output/brand/ardia/final")
 OUT.mkdir(parents=True, exist_ok=True)
 LZ = Image.LANCZOS
 
@@ -259,7 +259,7 @@ print("tinted marks")
 # same recolour as the New Tab page's (midnight and daylight take neutral), installed as AppIconMark-<colour>.
 import shutil  # noqa: E402
 
-XCASSETS = Path("apps/browser/macos/Arcadia-macOS/Assets.xcassets")
+XCASSETS = Path("apps/browser/macos/Ardia-macOS/Assets.xcassets")
 IMAGESET = '{\n  "images" : [\n    {\n      "filename" : "mark.png",\n      "idiom" : "universal"\n    }\n  ],\n  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n'
 slots = {"AppIconMark": OUT / "plate-mark-1024.png"}
 for name, im in tinted_marks(Image.open(slots["AppIconMark"]), ("plum", "blue", "neutral")):

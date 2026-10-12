@@ -1,13 +1,13 @@
 # Chromium under the React Native UI: decision and plan
 
 Status: research spike, 2026-09-25. Prototypes and captures live outside the repo in
-`~/arcadia-research/owlproto/` (sources, `build.sh`, `run/*.png|log`).
+`~/ardia-research/owlproto/` (sources, `build.sh`, `run/*.png|log`).
 
 ## Decision
 
 Go with **(a) patched CEF, Chrome style**:
 
-- Every Arcadia window owns one real Chrome `Browser`, with a `TabStripModel`, profile, extensions and
+- Every Ardia window owns one real Chrome `Browser`, with a `TabStripModel`, profile, extensions and
   permissions.
 - That `Browser` lives in an **invisible "ghost" Views window**: alpha 0, ignores mouse events, and is
   kept exactly behind our RN window.
@@ -148,7 +148,7 @@ other rather than reading them as absolute photon latency.
    - This is the single choke point for the active tab and for split view (`browser_view.cc:2071`,
      `multi_contents_view.cc:264`).
    - The RWHV then keeps `BrowserCompositorMac::HasOwnCompositor`, which is the path Alloy style (and
-     Arcadia) uses today.
+     Ardia) uses today.
 3. **CEF patch/API (~150 lines, in `libcef/browser/chrome/**` and `include/`):**
    - A `CefBrowserSettings`/`CefBrowserViewDelegate` flag, `native_contents_hosting`, that sets the
      marker on every tab WebContents of that Browser. Hook `ChromeBrowserDelegate::OnWebContentsCreated`.
@@ -252,7 +252,7 @@ critical path is WP1's build turnaround.
 - **Private API.** Only what Chromium itself uses (`CALayerHost`, inside Chromium). Our own code adds
   `CABackdropLayer` as an option; `NSVisualEffectView` is enough.
 
-## Prototype index (`~/arcadia-research/owlproto`)
+## Prototype index (`~/ardia-research/owlproto`)
 
 - `cefproto.mm`: `--mode=windowed|osr|host`. Options: `PROBE=1` injects input, `EBF=1`/`CONTENTS=1`
   select OSR present paths, `TYPETEST=1` runs the input API matrix.

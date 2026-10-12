@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Arcadia is a macOS browser: Dia's polish and Arc's sidebar, built on Chrome's own framework (Chromium 154) through ArcadiaCore, our thin layer,
+Ardia is a macOS browser: Dia's polish and Arc's sidebar, built on Chrome's own framework (Chromium 154) through ArdiaCore, our thin layer,
 with no account. This file is how the owner works; follow it.
 For the architecture and the test tooling, read `docs/agent-brief.md`.
 
@@ -12,7 +12,7 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   time, interleaved with their control, because sharing the CPU skews them.
 - **Orchestrate.** The main session plans, hands implementation to Opus subagents, and verifies what they
   return (build, run, capture). Give each agent its own files, its own derived-data dir and its own
-  `ARCADIA_DATA_DIR`.
+  `ARDIA_DATA_DIR`.
 - **Watch the agents.** Every ~30 minutes the main session checks any agent it hasn't heard from (last
   transcript activity, a pending tool call, `/tmp/ac-*.holder`, its processes). A stuck agent means a root
   cause to fix (a lock, a wait, a hang), not just a restart. Send new feedback to the agent that owns
@@ -36,9 +36,9 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   and never run `gclient sync` or `gn clean`: a full rebuild costs about 5 hours. Engine changes are
   incremental builds only, holding the chromium lock (`scripts/agent/locked chromium`,
   `docs/engine-build.md`). When freeing disk space, stay out of `~/chromium-build`.
-- **Never launch or touch `/Applications/Arcadia.app`.** The owner is using it.
+- **Never launch or touch `/Applications/Ardia.app`** (`Netnyahoo.app` until the owner updates past the rename). The owner is using it.
 - **Never steal focus.** Run builds only as hidden instances:
-  `open -g -n --env ARCADIA_BACKGROUND=1 --env ARCADIA_DATA_DIR=<throwaway dir> --env ARCADIA_REMOTE_DEBUGGING_PORT=<port> <app>`.
+  `open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR=<throwaway dir> --env ARDIA_REMOTE_DEBUGGING_PORT=<port> <app>`.
   Never use plain `open`. Background mode logs context menus and file panels instead of showing them.
   Keep test data in a scratch dir, not in `~/Documents`.
 - **Dia is a read-only reference.** You may take screenshots and read its app bundle; never click or type
@@ -91,7 +91,7 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   - deploy the site with `pnpm -C apps/site run deploy`.
 
   The owner has authorized releases to go all the way through. After an update, the app opens the
-  release notes on netnyahoo.com.
+  release notes on ardia.dev.
 - **Every release gets a tweet draft**: a version line, 4–5 short, witty, simple bullets and
   the URL, under 280 characters. Add a 1600×1000 image in the site's style built from
   real captures of neutral pages (no random user posts or personal data) at `output/tweets/<version>.png`.
@@ -105,6 +105,6 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   composition; render with `pnpm -C apps/videos render <id>`.
 
 ## Repo map
-`apps/browser` is the React Native macOS app. The native Expo modules are in `packages/{arcadiacore,shell,shaders,import,sync}`; `engine/chromium` is our Chrome-services code (the `ac_*` C calls) and `engine/arcadiacore` ArcadiaCore's window and tab layer,
-and `packages/core` holds the omnibox logic and its tests. `apps/site` is netnyahoo.com and
+`apps/browser` is the React Native macOS app. The native Expo modules are in `packages/{ardiacore,shell,shaders,import,sync}`; `engine/chromium` is our Chrome-services code (the `ac_*` C calls) and `engine/ardiacore` ArdiaCore's window and tab layer,
+and `packages/core` holds the omnibox logic and its tests. `apps/site` is ardia.dev and
 `apps/videos` holds the Remotion videos. The license is Apache-2.0.

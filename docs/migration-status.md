@@ -76,7 +76,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
   - **12 Discard.** Superseded by R1 below: a sleeping tab stays in `chrome.tabs` as `discarded: true`.
   - **Split view.** Both panes are Chrome tabs at their own sizes (578 pt each) and both visible. Chrome's dialogs
     follow the focused pane (`pageInsets` 47,775,7,7).
-  - **After the switch to the real keychain** ("Arcadia Safe Storage" dist), a fresh-profile regression passed:
+  - **After the switch to the real keychain** ("Ardia Safe Storage" dist), a fresh-profile regression passed:
     items 1/2, 7, 10, 16, 17 (save) and 19 (a saved login auto-fills on revisit).
   - **Focus.** Test instances can't activate (see ACActivation.mm: prohibited policy, activation guards, log).
     `lsappinfo front` never changed over several launches, popups, dialogs and new windows.
@@ -87,7 +87,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
     same team. `codesign --verify --deep --strict` passes, and the app, renderers, GPU and utility processes run.
   - Release: `xcodebuild archive` + `-exportArchive -exportOptionsPlist macos/ExportOptions-DeveloperID.plist
     -allowProvisioningUpdates` gives a Developer ID app: every piece re-signed, timestamped, with the hardened
-    runtime and entitlements kept, plus an embedded "Mac Team Direct Provisioning Profile: com.arcadia.browser".
+    runtime and entitlements kept, plus an embedded "Mac Team Direct Provisioning Profile: com.ardia.browser".
     It launches. `spctl` says "Unnotarized Developer ID": notarization is still to do.
   - Security keys: `navigator.credentials.create` with `hints:["security-key"]` opens Chrome's "Use your security
     key with webauthn.io" dialog (448×328) centred over the page area. USB HID enumeration runs under the hardened
@@ -116,7 +116,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
     "Passkeys: use your phone or tablet" with its QR code over the page; a discoverable `get()` shows "Passkeys &
     Security Keys"; Cancel rejects both with `NotAllowedError`. webauthn.io Platform: "Create a passkey for
     webauthn.io" (Chrome profile), Continue → created ("Chromium Browser" AAGUID), Authenticate → logged in. With
-    user verification required, macOS's Touch ID sheet ("Arcadia is trying to verify your identity on
+    user verification required, macOS's Touch ID sheet ("Ardia is trying to verify your identity on
     webauthn.io") appears over the window, and the user completed register and sign-in with it. Picking a passkey:
     "Use a saved passkey for webauthn.io" lists the profile's passkeys plus "Use a phone, tablet, or security key".
     Cross-platform register: the QR sheet with Back / Cancel. A CDP virtual authenticator completes webauthn.io's
@@ -126,7 +126,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
     virtual authenticator environment for everyone, so a virtual-authenticator flow must run in one session
     (scratchpad `passkey-fix/virtflow.mjs`). Test instances behind other apps are occluded and WebAuthn then fails
     with "the page does not have focus": launch them with
-    `ARCADIA_CHROMIUM_SWITCHES=--disable-backgrounding-occluded-windows`.
+    `ARDIA_CHROMIUM_SWITCHES=--disable-backgrounding-occluded-windows`.
 - Menu commands crashed the app (bug in 0.1.0 and 0.1.1, fixed 2026-09-25, Release `build-keycrash`, data dir
   `/tmp/ac-keycrash`):
   - Symptom: ⌘T, ⌘W (and every other command item: its shortcut or a click in the menu bar) quit with
@@ -176,7 +176,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
   - **Clear Browsing Data** (`CefRequestContext::ClearBrowsingData`, Chrome's BrowsingDataRemover): a range that
     starts in the future clears nothing; "last hour" empties Chrome's history (`chrome.history.search` 4 → 0),
     the page's `localStorage` and cookies, and resolves (60 ms–1.2 s). No `.clear-site-data` marker any more.
-  - **Page menu** (ARCADIA_CONTEXT_MENU_LOG dumps the model and runs a picked item instead of showing the menu):
+  - **Page menu** (ARDIA_CONTEXT_MENU_LOG dumps the model and runs a picked item instead of showing the menu):
     on a link, one "Open Link in New Tab" / "New Window" / "Split View" / "Incognito Window", Save Link As, Copy
     Link Address; on a selection, Look Up, Copy, Copy Link to Highlight, "Search <engine> for “…”" (relabelled when
     the engine name changes); Print, the extension's item, Inspect, Speech. Picked: the extension item ran its
@@ -237,13 +237,13 @@ because it needs the user present), add it to the **Test ledger** with the exact
   - **Edit › AutoFill** (`CefShowAutofillSuggestions`). With a form field focused (CDP `focus()`), the call returns
     true and Chrome's dropdown window opens under the field (a 174×108 level-999 window for a saved address,
     148×54 for Passwords…); with the page blurred it returns false and the menu command opened Settings.
-  - **PiP extras** (`ACPictureInPicture.mm`). `ARCADIA_PIP_SELFTEST=1` on a canvas-stream video in Chrome's PiP
+  - **PiP extras** (`ACPictureInPicture.mm`). `ARDIA_PIP_SELFTEST=1` on a canvas-stream video in Chrome's PiP
     window: pill on hover with the host, stash past the right edge (28 pt peek, handle), re-stash after a Chrome
     move, handle click back on screen, stash on the left edge, drag out, Keep Window on Top toggling the level,
     Back to Tab (the app switched back to the tab from another one, PiP closed, the video still playing). All 10
     steps pass; layer snapshots show the pill, its hover state and both handles. A real pointer drag is parity
     checklist step 13.
-  - **Raycast** (`extras/raycast-arcadia`). The extension's list, focus and close scripts (with `tell current
+  - **Raycast** (`extras/raycast-ardia`). The extension's list, focus and close scripts (with `tell current
     application` in place of the bundle id) ran in the app: the list returned every tab with window id, title, URL,
     pinned and selected state; focus selected the tab; close removed it; an unknown tab id fails with AppleScript's
     -1728. Its `npm test` checks the parser against that output. Installing it in Raycast is checklist step 14.
@@ -256,7 +256,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
     other request, no console message. Start plays level 1; Retry while offline shows the game again; Retry after
     going back online loads Example Domain. The same in an extension-popup view (Alloy).
   - `ERR_NAME_NOT_RESOLVED` (`.invalid` host) and `ERR_CONNECTION_REFUSED` (127.0.0.1:59999) keep Chrome's page.
-  - `arcadia://game` typed through the store: the tab reads `arcadia://game/` "Where's the lamb?", the engine
+  - `ardia://game` typed through the store: the tab reads `ardia://game/` "Where's the lamb?", the engine
     loads `chrome://game/`, and the game runs standalone (no offline header); `chrome://dino` too. Play (clicks,
     hint key) makes no request. A best of 4200 stored through `updateEasterEggHighScore` came back after a reload.
   - The DNS-probe path's document swap (`document.open/write` of the resource, as `UpdateErrorPage` does) run by
@@ -305,7 +305,7 @@ because it needs the user present), add it to the **Test ledger** with the exact
     full-screen window asked its own window to toggle, which the forwarding sent to the full-screen one, taking it out
     of full screen.
   - **File chooser, 12 checks.** Test instances log open and save panels instead of showing them (ACActivation.mm) and
-    answer from `$ARCADIA_DATA_DIR/file-chooser.txt`: a sheet on the app window; single, multiple with the
+    answer from `$ARDIA_DATA_DIR/file-chooser.txt`: a sheet on the app window; single, multiple with the
     `accept` types (Chrome's type menu: PNG image, JPEG image, Custom Files, All Files), folders; files reach the page;
     Cancel fires `cancel`; `showOpenFilePicker` / `showSaveFilePicker`; DevTools' `setInterceptFileChooserDialog`.
   - **Passwords and autofill (ledger 17–21).** Saved login in the dropdown (read from its window's accessibility
@@ -341,8 +341,8 @@ Everything that needs the user present; `docs/dia-feature-parity.md` › "Needs 
 
 **Setup.** `packages/cef/scripts/setup.sh` puts our CEF build (the one `engine.lock` pins) in `vendor/cef`, and
 the build fails with `#error` against any other (stock CEF, or one missing a `CEF_AC_*` marker). Build with your
-derived-data folder, and launch with `ARCADIA_BACKGROUND=1 ARCADIA_DATA_DIR=/tmp/ac-<you>
-ARCADIA_REMOTE_DEBUGGING_PORT=<port>`.
+derived-data folder, and launch with `ARDIA_BACKGROUND=1 ARDIA_DATA_DIR=/tmp/ac-<you>
+ARDIA_REMOTE_DEBUGGING_PORT=<port>`.
 
 **Tools.**
 - Drive the store with scratchpad `nneval.sh '<js>'` (devHarness `ac`).
@@ -468,10 +468,10 @@ I1. **Browsers.** The importer now covers Chrome (+ Beta/Dev/Canary/Chromium), B
     "Dia"; Helium (imput's ungoogled-chromium) under `net.imput.helium`, Keychain "Helium Storage Key" /
     "Helium" (confirmed from the binary's `saltysaltHelium Storage Key` string and the Keychain item's
     attributes). Both add only a `BrowserDefinition`; discovery/parse/unlock are unchanged.
-I2. **Safari direct.** `SafariDirect` reads `~/Library/Safari` when Arcadia has Full Disk Access:
+I2. **Safari direct.** `SafariDirect` reads `~/Library/Safari` when Ardia has Full Disk Access:
     `Bookmarks.plist` (bookmarks + Reading List), `History.db` (`history_items`⋈`history_visits`,
     CFAbsoluteTime), and `LastSession.plist` (open tabs). `hasAccess()` probes without a prompt; the
-    import UI shows a "Give Arcadia Full Disk Access" step that opens System Settings
+    import UI shows a "Give Ardia Full Disk Access" step that opens System Settings
     (`x-apple.systempreferences:…Privacy_AllFiles`) and re-checks on app re-activation. The export
     `.zip` remains the fallback and the only path for Safari passwords/cards.
 I3. **Dia sidebar.** Not imported. Dia keeps its spaces / pinned tiles / folders / custom names in a
@@ -482,7 +482,7 @@ I3. **Dia sidebar.** Not imported. Dia keeps its spaces / pinned tiles / folders
     reading real browsing data (forbidden by the task's data rules), so it's left out. Dia's open tabs
     still import from its plaintext SNSS `Sessions/`.
 I4. **Chrome and Brave need Full Disk Access.** On this macOS both protect their data folders from
-    other apps: inside Arcadia, listing `Google/Chrome` or `BraveSoftware/Brave-Browser` fails with a
+    other apps: inside Ardia, listing `Google/Chrome` or `BraveSoftware/Brave-Browser` fails with a
     permission error, while Arc, Dia and Helium read fine. Discovery used to drop them silently; it now
     lists a browser whose folder exists but can't be listed (and has a `Local State`/`Default` marker,
     which can still be stat'ed) with `needsFullDiskAccess`, and the import window routes it to the same
@@ -491,7 +491,7 @@ I5. **Tests.** `swift test` (51 cases, incl. Helium/Dia import, Safari-direct an
     discovery) and `node --test src/index.test.ts` (6) pass; fixtures for Helium, Dia (two profiles,
     SNSS session) and Safari-direct (`Bookmarks.plist`/`History.db`/`LastSession.plist`) come from
     `fixtures/generate.py`. `pnpm -C apps/browser typecheck` passes.
-I6. **Real installs, verified 2026-09-25** (background instance, throwaway `ARCADIA_DATA_DIR`, counts only):
+I6. **Real installs, verified 2026-09-25** (background instance, throwaway `ARDIA_DATA_DIR`, counts only):
     discovery lists exactly Chrome (data only: the app isn't installed, so it gets the globe icon; needs
     FDA), Arc (1 profile, 2 spaces), Dia (2 profiles), Safari (no FDA → Full Disk Access step / .zip),
     Brave (needs FDA) and Helium (1 profile). A real Helium import into the throwaway profile read 8
@@ -512,7 +512,7 @@ W1. **Install from the store. Verified 2026-09-25.**
       warning list.
     - Tested with Bitwarden 2026.8.0 (3 warnings) and Dark Reader 4.9.133: each installed as a store extension,
       location FROM_STORE, update_url `https://clients2.google.com/service/update2/crx`, and the page then shows
-      "Remove from Arcadia".
+      "Remove from Ardia".
     - The store opens the extension's welcome tab, and it's adopted as our tab.
     - A Web Store link in Settings now opens the store page: there's no unpacked fallback any more when the engine
       has the hook.
@@ -523,7 +523,7 @@ W1. **Install from the store. Verified 2026-09-25.**
       - uBlock Origin Lite from the store is untested. We ship it built in, and a store copy would duplicate it.
 W2. **Uninstall. Verified at the engine level:** `ACExtensions.uninstall` removed Bitwarden, and it left
     `getExtensionsInfo`. Still to test with the user present:
-    - "Remove from Arcadia" on the store page and Settings › Extensions › Remove. Both go through our "Remove …?"
+    - "Remove from Ardia" on the store page and Settings › Extensions › Remove. Both go through our "Remove …?"
       confirmation, a native sheet that needs a key window.
     - Chrome's uninstall dialog isn't hooked; our confirmation replaces it.
 W3. **Auto-update. Verified 2026-09-25 (r2).**
@@ -533,7 +533,7 @@ W3. **Auto-update. Verified 2026-09-25 (r2).**
       `chromium-extension-updates.patch` removes the early return and points extension update checks at
       `https://clients2.google.com/service/update2/json` (the same protocol; the component updater stays cut off).
     - Test: Dark Reader installed from the store at 4.9.133; with the app quit, its on-disk manifest was set to
-      4.9.100 and the app relaunched with `ARCADIA_CHROMIUM_SWITCHES="--lang=fr --extensions-update-frequency=30"`
+      4.9.100 and the app relaunched with `ARDIA_CHROMIUM_SWITCHES="--lang=fr --extensions-update-frequency=30"`
       (a new locale makes Chrome reload the manifest from disk, so it reported 4.9.100; the manifest isn't
       content-verified).
     - Result: the net log shows `clients2.google.com/service/update2/json` and the CRX from
@@ -544,7 +544,7 @@ W3. **Auto-update. Verified 2026-09-25 (r2).**
 ### Dia 1.50 "Sunglow" visuals (WP11; needs the unlocked screen, not the patched CEF)
 
 Spec: `docs/dia-spec.md` › "1.50 Sunglow". Launch a `build-sunglow` instance with
-`ARCADIA_BACKGROUND=1 ARCADIA_SHADERS_FORCE_KEY=1` and capture with `screencapture -l`; capture Dia 1.50.1
+`ARDIA_BACKGROUND=1 ARDIA_SHADERS_FORCE_KEY=1` and capture with `screencapture -l`; capture Dia 1.50.1
 read-only (never click it).
 
 28. **Painted mark vs Dia.** For each profile colour in light and dark, a Dia 1.50.1 New Tab capture next to ours at
@@ -558,38 +558,38 @@ read-only (never click it).
 30. **Command bar shadow.** Light mode: under the bar's bottom edge, the 0.08 r2 (0, 0.5) + 0.04 r1 (0, 2) shadow
     matches Dia row by row.
 31. **Toolbar breadcrumb.** Find when Dia 1.50.1 shows only the host (seen on a trycloudflare.com page whose title
-    was "Arcadia Build Status") and match it.
-32. **Focus. Resolved.** On 2026-09-25 a `build-sunglow` instance launched with `open -g` and `ARCADIA_BACKGROUND=1`
+    was "Ardia Build Status") and match it.
+32. **Focus. Resolved.** On 2026-09-25 a `build-sunglow` instance launched with `open -g` and `ARDIA_BACKGROUND=1`
     was frontmost right after launch, twice. `ACActivation.mm` now makes such instances BackgroundOnly and guards
     every activation path (logged to `activation.log`); `lsappinfo front` hasn't shown a test instance since
     (Done › Focus).
 
-### arcadia:// URLs (core appUrls.ts, cef WebView, ACClient; see docs/store-api.md)
+### ardia:// URLs (core appUrls.ts, cef WebView, ACClient; see docs/store-api.md)
 
 Use the scratchpad `nneval.sh` to drive the store and `cdp-integration.mjs` (with your port) to read pages.
 
-33. **WebUI pages in Chrome-style tabs.** Type `arcadia://version`, `gpu`, `flags`, `net-internals`, `inspect`,
+33. **WebUI pages in Chrome-style tabs.** Type `ardia://version`, `gpu`, `flags`, `net-internals`, `inspect`,
     `extensions` and `settings/languages` in the bar. Pass if all of these hold:
     - Each renders in the tab. CDP lists the page as `chrome://…`.
-    - The store's `tab.url` and the toolbar read `arcadia://…`.
+    - The store's `tab.url` and the toolbar read `ardia://…`.
     - The page isn't blank. On stock Alloy, some WebUI hosts don't render at all, so test this on the new engine.
-34. **In-page WebUI navigation.** On `arcadia://extensions`, open "Keyboard shortcuts" and an extension's Details.
-    On `arcadia://settings/languages`, click the back arrow. Pass if the bar follows each step as `arcadia://…`
+34. **In-page WebUI navigation.** On `ardia://extensions`, open "Keyboard shortcuts" and an extension's Details.
+    On `ardia://settings/languages`, click the back arrow. Pass if the bar follows each step as `ardia://…`
     (`extensions/shortcuts`, `?id=…`), and Back / Forward and the back-list popover titles work.
-35. **Page-initiated.** On a WebUI page, run `location.href = "arcadia://version"` via CDP. It must load
+35. **Page-initiated.** On a WebUI page, run `location.href = "ardia://version"` via CDP. It must load
     chrome://version. From an https page, run the same, plus a ⌘-click and a `window.open` on a
-    `<a href="arcadia://quit">`. Pass if nothing opens, the app keeps running, and no Launch Services prompt appears.
-    If a web page's arcadia:// navigation reaches `OnProtocolExecution` instead of `OnBeforeBrowse`, move the
+    `<a href="ardia://quit">`. Pass if nothing opens, the app keeps running, and no Launch Services prompt appears.
+    If a web page's ardia:// navigation reaches `OnProtocolExecution` instead of `OnBeforeBrowse`, move the
     check there.
 36. **Chrome-made tabs.** `chrome.tabs.create({url: "chrome://version"})` from the fixture extension (and with no
-    url, which gives chrome://newtab). Pass if the sidebar tab reads `arcadia://version`. A Chrome New Tab
-    (`arcadia://newtab` in the store) should show our New Tab page; today it loads Chrome's NTP in a web view.
+    url, which gives chrome://newtab). Pass if the sidebar tab reads `ardia://version`. A Chrome New Tab
+    (`ardia://newtab` in the store) should show our New Tab page; today it loads Chrome's NTP in a web view.
     If it does, map it in lib/chromeTabs.
 37. **chrome://history reached inside the engine** (for example, a Chrome surface opening History). Pass if the tab
     switches to our React History page. Known cost: that tab's web view and its back list are dropped
     (ContentCard unmounts internal tabs).
 38. **Extensions reading URLs.** `chrome.tabs.query({})` reports `chrome://version/` for such a tab. That's
-    expected: only the app shows arcadia://. An extension calling `chrome.tabs.create({url: "arcadia://…"})` is
+    expected: only the app shows ardia://. An extension calling `chrome.tabs.create({url: "ardia://…"})` is
     blocked by ACClient; the optional Chromium patch in the scheme agent's report would fix that.
 
 ### Signing and passkeys (passkeys agent)
@@ -597,9 +597,9 @@ Use the scratchpad `nneval.sh` to drive the store and `cdp-integration.mjs` (wit
 Signing: Debug = Apple Development (automatic), Release = archive + Developer ID export. Ad-hoc fallback for machines
 without the team: `-xcconfig macos/AdHoc.xcconfig` (no hardened runtime, no keychain groups; security keys and
 phone passkeys still work). The Chromium side is in the passkeys agent's patch
-(scratchpad `passkeys-chromium.patch`): `branding_file_path` → `chrome/app/theme/arcadia/BRANDING`
-(MAC_BUNDLE_ID=com.arcadia.browser, MAC_TEAM_ID=U5L5T3NGVV), the iCloud Keychain NSWindow fallback in
-`ChromeAuthenticatorRequestDelegate::ConfigureNSWindow`, and "Arcadia Safe Storage" + `CEF_AC_SAFE_STORAGE`.
+(scratchpad `passkeys-chromium.patch`): `branding_file_path` → `chrome/app/theme/ardia/BRANDING`
+(MAC_BUNDLE_ID=com.ardia.browser, MAC_TEAM_ID=U5L5T3NGVV), the iCloud Keychain NSWindow fallback in
+`ChromeAuthenticatorRequestDelegate::ConfigureNSWindow`, and "Ardia Safe Storage" + `CEF_AC_SAFE_STORAGE`.
 
 39. **Phone (hybrid) sign-in, needs the user and a phone.** The QR sheet is verified (above). On webauthn.io Register
     → "Use a phone or tablet", scan the QR with an iPhone/Android camera. Pass if the phone connects (tunnel through
@@ -609,18 +609,18 @@ phone passkeys still work). The Chromium side is in the passkeys agent's patch
     invisible"): webauthn.io Register (Platform) offers the Chrome profile, macOS's Touch ID sheet appears when the
     site requires user verification, and the user completed register and sign-in with Touch ID. Still to see in the
     shipped app: the same on Google (checklist step 6).
-41. **Safe Storage (`CEF_AC_SAFE_STORAGE`).** In a team-signed Debug run without `ARCADIA_DATA_DIR`, pass if:
-    - A "Arcadia Safe Storage" item appears in the login keychain, with no prompt.
+41. **Safe Storage (`CEF_AC_SAFE_STORAGE`).** In a team-signed Debug run without `ARDIA_DATA_DIR`, pass if:
+    - A "Ardia Safe Storage" item appears in the login keychain, with no prompt.
     - Cookies survive a rebuild and relaunch with no prompt.
-    - With `ARCADIA_DATA_DIR` or an ad-hoc build, no item is touched (mock keychain).
+    - With `ARDIA_DATA_DIR` or an ad-hoc build, no item is touched (mock keychain).
     - One-time cost: the default profile's cookies and saved passwords, which were encrypted with the mock key,
       are lost once.
 42. **iCloud Keychain passkeys.** Only after Apple grants `com.apple.developer.web-browser.public-key-credential`.
     Enable the capability on the App ID, then set `CODE_SIGN_ENTITLEMENTS` to
-    `Arcadia-macOS/Arcadia-ICloudPasskeys.entitlements` and rebuild with `-allowProvisioningUpdates`. Pass if all
+    `Ardia-macOS/Ardia-ICloudPasskeys.entitlements` and rebuild with `-allowProvisioningUpdates`. Pass if all
     of these hold:
     - The dialog offers "iCloud Keychain".
-    - The first use raises macOS's "Allow Arcadia to use passkeys…" prompt, attached to our window (needs the
+    - The first use raises macOS's "Allow Ardia to use passkeys…" prompt, attached to our window (needs the
       NSWindow fallback in the patch).
     - A passkey created there shows in Passwords.app.
 
@@ -646,12 +646,12 @@ Verified so far: build `build-transl`, instance `/tmp/ac-transl`, captures in th
 (composited with the windows below, over our own non-activating helper windows). Inactive, dark, plum: the sidebar
 gutter reads (53, 33.5, 36) / (56, 40, 42) / (59, 48, 48) at 7 / 50 / 95 % height, identical over white and black,
 against Dia's inactive (52.6, 33.8, 35.8) / (55.7, 40.8, 41.7) / (58.7, 47.6, 48.6). Forced key
-(`ArcadiaAreaLight.debugSetWindowActive(true)`): the gutter top goes from (42.5, 27, 30) over black to (73, 58, 60.5)
+(`ArdiaAreaLight.debugSetWindowActive(true)`): the gutter top goes from (42.5, 27, 30) over black to (73, 58, 60.5)
 over white, and a bright disc behind the window's bottom-left shows through the sidebar and, at about half strength,
 the New Tab card (`comparison-sheet.png`). Light appearance renders (pink-tinted, blur under it) but has no Dia
 reference. Dia itself could only be captured inactive (it's never key while we work), where it is opaque.
 Still to run (needs the user at the screen, with Dia key):
-1. **Key window vs Dia.** Put Dia (pink profile, New Tab) and Arcadia (plum, New Tab) side by side over the same
+1. **Key window vs Dia.** Put Dia (pink profile, New Tab) and Ardia (plum, New Tab) side by side over the same
    wallpaper, each key in turn, and capture the screen (not a window-only capture: those never show the desktop).
    Pass if the sidebar gutter and the card read within 2 levels of Dia's at the top and bottom, and a bright
    wallpaper feature shows through both by the same amount.
