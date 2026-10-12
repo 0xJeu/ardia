@@ -298,8 +298,9 @@ class DragController {
     const source = this.sources[0]!;
     const sourceKeys = new Set(this.sources.map((s) => s.key));
     const live = [...this.items.values()].filter((i) => !sourceKeys.has(i.key) && i.frame);
+    // Where an item's middle (a group's header's) shows now.
     const cy = (i: Item) => {
-      const f = this.at(i.frame)!;
+      const f = this.shown(i);
       return f.y + Math.min(f.h, i.headerFrame?.h ?? f.h) / 2;
     };
     const byY = (a: Item, b: Item) => this.at(a.frame)!.y - this.at(b.frame)!.y || a.frame!.x - b.frame!.x;
@@ -348,9 +349,8 @@ class DragController {
         const before = members.find((m) => cy(m) > y);
         drop = { type: "tabs", placement: { pinned: false, groupId: box.groupId!, beforeId: firstTab(before) } };
         gapKey = before?.key ?? `tail:group:${box.groupId}`;
-      } else if ((onto = tabsDrag && this.dropKey ? this.ontoTarget(live, y) : null)) {
-        // The list stays as it is (the room it made doesn't move): the tab under the pointer lights up. Not as the drag
-        // begins: the room for it opens at its own place then, so the rows after it don't move.
+      } else if ((onto = tabsDrag ? this.ontoTarget(live, y) : null)) {
+        // The list stays as it is (the room it made doesn't move): the tab under the pointer lights up.
         drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
         gapKey = this.gapKey;
         pitch = this.pitch;
@@ -393,9 +393,11 @@ class DragController {
   }
 
   // An item's frame where it shows now: moved up by the dragged rows that closed above it, down by the room open
-  // above it; a group's also shorter or taller by what closed or opened inside it.
+  // above it; a group's also shorter or taller by what closed or opened inside it. As the drag begins, where it was:
+  // the room opens at the dragged rows' own place then.
   private shown(i: Item): Frame {
     const f = this.at(i.frame)!;
+    if (!this.dropKey) return f;
     const [top, bottom] = [i.frame!.y, i.frame!.y + i.frame!.h];
     let dy = 0;
     let dh = 0;
