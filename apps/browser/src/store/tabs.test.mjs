@@ -230,6 +230,22 @@ test("a reopened tab not shown yet keeps its back/forward list's source through 
   assert.equal(S().tabs[c4].adoptId ?? S().tabs[c4].wakeAdoptId, `restore:${c}`);
 });
 
+test("a pinned group's reopened tab, closed before it was shown, still wakes with its back/forward list", () => {
+  reset();
+  const [, , b, c] = setup("a", "b", "c");
+  const g = S().groupTabs([b, c], { name: "P" });
+  assert.equal(S().groups[g].pinned, true);
+  S().closeGroup(g);
+  S().restoreClosed(S().closedGroups.at(-1).id);
+  const [, c2] = Object.values(S().groups).find((x) => x.name === "P").tabIds;
+  assert.equal(S().tabs[c2].wakeAdoptId, `restore:${c}`);
+  // A pinned group's tab closes by unloading in place (unloadPinnedTabs): its list is still to come.
+  S().closeTab(c2);
+  assert.ok(S().tabs[c2]?.unloaded, "it keeps its row");
+  S().activate(c2);
+  assert.equal(S().tabs[c2].adoptId, `restore:${c}`);
+});
+
 test("abandoned New Tab cleanup never closes a window or the tab it shows", () => {
   reset();
   const w = S().createWindow();

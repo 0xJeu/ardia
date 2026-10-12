@@ -200,7 +200,10 @@ export function unloadPinnedTabs(s: BrowserState, ids: string[]): BrowserState {
     if (loaded && t.url) {
       closed.push({ kind: "tab", id: newId("ct"), tab: snapshotTab(t), tabId: id, windowId: t.windowId, index: w?.tabIds.indexOf(id) ?? 0, group: null, closedAt: now, pinnedTile: true });
     }
-    tabs[id] = { ...t, ...backToPin(s, t), navigation: null, adoptId: undefined, wakeAdoptId: undefined, unloaded: true };
+    const back = backToPin(s, t);
+    // A reopened tab not shown yet still wakes with its back/forward list, unless it goes back to its pinned page.
+    const pending = !back.url && pendingRestore(t) ? t.wakeAdoptId : undefined;
+    tabs[id] = { ...t, ...back, navigation: null, adoptId: undefined, wakeAdoptId: pending, unloaded: true };
     live[id] = IDLE_LIVE;
   }
   let next: BrowserState = {
