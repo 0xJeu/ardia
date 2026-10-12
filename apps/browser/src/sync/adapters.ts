@@ -46,17 +46,24 @@ export const SYNCED_SETTINGS = [
 export const settingsAdapter: Adapter = {
   prefix: "set:",
   adoptRemoteOnJoin: true,
-  extract: () => {
+  extract: (base) => {
     const settings = store().settings;
     // Only what this Mac has a say on goes out (Settings.chosen): a setting it holds no value for, or one filled in
     // with its default at launch, would read as an edit of the last record and beat another Mac's choice. Null is a
     // value only where it is the setting's own. Nothing is ever deleted: a key left out, or one this version doesn't
     // know (a newer Mac's setting), keeps its record.
     const chosen = new Set(settings.chosen ?? []);
+    const inferred = new Set(settings.inferred ?? []);
+    // A default an old session saved (inferred) where this Mac never published a value: filled in, not chosen.
+    const filledIn = (name: (typeof SYNCED_SETTINGS)[number], value: unknown) => {
+      if (!inferred.has(name) || JSON.stringify(value) !== JSON.stringify(DEFAULT_SETTINGS[name])) return false;
+      const last = base(`set:${name}`) as { v?: unknown } | undefined;
+      return last === undefined || last.v === null || last.v === undefined;
+    };
     const values = new Map<string, unknown>();
     for (const name of SYNCED_SETTINGS) {
       const value = settings[name] as unknown;
-      if (!chosen.has(name) || value === undefined || (value === null && DEFAULT_SETTINGS[name] !== null)) continue;
+      if (!chosen.has(name) || value === undefined || (value === null && DEFAULT_SETTINGS[name] !== null) || filledIn(name, value)) continue;
       values.set(`set:${name}`, { v: value });
     }
     return { values, ignore: (key) => !values.has(key) };

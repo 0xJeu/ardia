@@ -104,9 +104,11 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       ...(data.profileOrder ?? []).filter((id) => profiles[id]),
       ...Object.keys(profiles).filter((id) => !data.profileOrder?.includes(id)),
     ];
-    // What the session had is this Mac's say; what defaults fill in isn't (a session from before `chosen`: all it saved).
+    // What the session had is this Mac's say; what defaults fill in isn't. A session from before `chosen` saved every
+    // setting: all of them count, as inferred (sync tells a default it filled in from an edit by its last record).
     const saved = data.settings;
-    const settings = { ...DEFAULT_SETTINGS, ...saved, chosen: saved ? (saved.chosen ?? Object.keys(saved)) : [] };
+    const legacy = saved && !saved.chosen ? Object.keys(saved) : null;
+    const settings = { ...DEFAULT_SETTINGS, ...saved, chosen: legacy ?? saved?.chosen ?? [], inferred: legacy ?? saved?.inferred ?? [] };
     if (!profiles[settings.defaultProfileId]) settings.defaultProfileId = profileOrder[0]!;
 
     const rawWindows = data.windows ?? {};

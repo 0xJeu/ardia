@@ -62,6 +62,9 @@ export type Settings = {
   // The settings this Mac has a say on: set here (not by sync), or saved in its session. Sync publishes only these
   // (sync/adapters.ts): one filled in with its default at launch is no opinion.
   chosen?: string[];
+  // Of those, the ones only counted because a session saved before `chosen` had them: it saved every setting, defaults
+  // filled in included, so one still at its default whose last sync record is empty or none is no say (sync/adapters.ts).
+  inferred?: string[];
 };
 
 export const DEFAULT_PROFILE_ID = "default";
@@ -145,8 +148,9 @@ function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?:
 /** `settings` with `patch` applied as a choice made on this Mac (`Settings.chosen`), for writes outside updateSettings. */
 export function choose(settings: Settings, patch: Partial<Settings>): Settings {
   const chosen = settings.chosen ?? [];
-  const added = Object.keys(patch).filter((k) => k !== "chosen" && !chosen.includes(k));
-  return { ...settings, ...patch, ...(added.length ? { chosen: [...chosen, ...added] } : {}) };
+  const added = Object.keys(patch).filter((k) => k !== "chosen" && k !== "inferred" && !chosen.includes(k));
+  const inferred = settings.inferred?.filter((k) => !(k in patch));
+  return { ...settings, ...patch, ...(added.length ? { chosen: [...chosen, ...added] } : {}), ...(inferred ? { inferred } : {}) };
 }
 
 export type SettingsSlice = {

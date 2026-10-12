@@ -124,11 +124,11 @@ test("settings: what a Mac only has by default isn't sent; nulls from another Ma
   b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true, tabReorderHaptics: true, cleanUpInactiveTabsAfterHours: 12 }));
   relaunch(a, OLD_SESSION);
   assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), true, "filled in at launch");
-  const extraction = a.with(() => adapters.settingsAdapter.extract());
+  const extraction = a.with(() => adapters.settingsAdapter.extract(() => undefined));
   assert.ok(!extraction.values.has("set:cmdClickCreatesTabGroup") && extraction.ignore("set:cmdClickCreatesTabGroup"), "a default filled in abstains");
-  assert.deepEqual(extraction.values.get("set:cleanUpInactiveTabsAfterHours"), { v: null }, "Never, saved, goes out");
-  // What an older Mac's record says: null, or no value at all.
-  const visible = new Map([...extraction.values, ["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}]]);
+  assert.ok(!extraction.values.has("set:cleanUpInactiveTabsAfterHours"), "an old session's Never, its default, never published: no say either");
+  // What an older Mac's record says: null, or no value at all; another Mac's Never.
+  const visible = new Map([["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}], ["set:cleanUpInactiveTabsAfterHours", { v: null }]]);
   b.with(() => adapters.settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
   b.with(() => {
     assert.equal(S().settings.cmdClickCreatesTabGroup, true);
@@ -168,6 +168,29 @@ test("settings: a joined Mac relaunched with a setting it never had doesn't over
   assert.equal(b.with(() => S().settings.cleanUpInactiveTabsAfterHours), null);
 });
 
+test("settings: a session a pre-chosen build saved whole (defaults filled in) doesn't count those defaults as choices", async () => {
+  const folder = new Folder();
+  const a = new Device("A", folder);
+  const b = new Device("B", folder);
+  await syncAll([a, b]);
+  // A ran a build without the setting (published null), then a pre-`chosen` build that filled in its default and
+  // saved every setting while offline.
+  a.scopes.app.base["set:cmdClickCreatesTabGroup"] = JSON.stringify({ v: null });
+  const { chosen: _x, ...whole } = { ...S().settings, cmdClickCreatesTabGroup: true };
+  relaunch(a, whole);
+  b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: false }));
+  await b.sync();
+  await new Promise((r) => setTimeout(r, 20));
+  await syncAll([a, b]);
+  assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), false);
+  assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), false);
+  // A setting that session saved away from its default is A's own: it goes out.
+  await new Promise((r) => setTimeout(r, 20));
+  relaunch(a, { ...whole, cmdClickCreatesTabGroup: false, tabReorderHaptics: false });
+  await syncAll([a, b]);
+  assert.equal(b.with(() => S().settings.tabReorderHaptics), false);
+});
+
 test("settings: a setting from a newer version survives an older Mac's syncs (no deletion)", async () => {
   const folder = new Folder();
   const a = new Device("A", folder);
@@ -176,8 +199,8 @@ test("settings: a setting from a newer version survives an older Mac's syncs (no
   // B is newer: it has a setting A doesn't know.
   const newer = {
     ...adapters.settingsAdapter,
-    extract: () => {
-      const e = adapters.settingsAdapter.extract();
+    extract: (base) => {
+      const e = adapters.settingsAdapter.extract(base);
       e.values.set("set:futureBool", { v: false });
       return { values: e.values, ignore: (k) => !e.values.has(k) };
     },
