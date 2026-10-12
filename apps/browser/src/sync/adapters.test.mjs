@@ -106,6 +106,31 @@ function assertTreeWhole(device) {
   });
 }
 
+test("settings: a Mac without a setting (nothing or null sent) leaves it as it is; a real null still applies", async () => {
+  const folder = new Folder();
+  const a = new Device("A", folder);
+  const b = new Device("B", folder);
+  b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true, tabReorderHaptics: true, cleanUpInactiveTabsAfterHours: 12 }));
+  // A build that predates them (or never had them set): its store holds no value for these.
+  a.with(() => {
+    const { cmdClickCreatesTabGroup: _c, tabReorderHaptics: _t, ...rest } = S().settings;
+    useBrowser.setState({ settings: { ...rest, cleanUpInactiveTabsAfterHours: null } });
+  });
+  const published = a.with(() => adapters.settingsAdapter.extract().values);
+  assert.equal(published.get("set:cmdClickCreatesTabGroup").v, true, "a missing boolean goes out as its default, never null");
+  // What an older Mac's record says: null, or no value at all.
+  const visible = new Map([...published, ["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}]]);
+  b.with(() => adapters.settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
+  b.with(() => {
+    assert.equal(S().settings.cmdClickCreatesTabGroup, true);
+    assert.equal(S().settings.tabReorderHaptics, true);
+    assert.equal(S().settings.cleanUpInactiveTabsAfterHours, null, "Never is a value of its own");
+  });
+  // An explicit off from another Mac is still taken.
+  b.with(() => adapters.settingsAdapter.apply(new Map([["set:cmdClickCreatesTabGroup", { v: false }]]), ["set:cmdClickCreatesTabGroup"]));
+  b.with(() => assert.equal(S().settings.cmdClickCreatesTabGroup, false));
+});
+
 test("bookmarks: a folder deleted on one Mac while the other adds to it keeps the new bookmark", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);

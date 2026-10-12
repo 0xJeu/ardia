@@ -8,7 +8,7 @@ import { engineProfile, makeTab, pinnedFirst, without } from "../store/model";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
-import { DEFAULT_PROFILE_ID, type Settings } from "../store/settings";
+import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
 import type { BookmarkNode, HistoryEntry, Profile, Tab, TabGroup } from "../store/types";
 
 const store = () => useBrowser.getState();
@@ -48,14 +48,19 @@ export const settingsAdapter: Adapter = {
   adoptRemoteOnJoin: true,
   extract: () => {
     const settings = store().settings;
-    return { values: new Map(SYNCED_SETTINGS.map((name) => [`set:${name}`, { v: settings[name] ?? null }])) };
+    return { values: new Map(SYNCED_SETTINGS.map((name) => [`set:${name}`, { v: settings[name] ?? DEFAULT_SETTINGS[name] ?? null }])) };
   },
   apply: (visible, changed) => {
     const patch: Record<string, unknown> = {};
     for (const key of changed) {
       const name = key.slice(4);
       const record = visible.get(key) as { v: unknown } | undefined;
-      if (record && "v" in record && (SYNCED_SETTINGS as readonly string[]).includes(name)) patch[name] = record.v;
+      if (!record || !(SYNCED_SETTINGS as readonly string[]).includes(name)) continue;
+      // A device without the setting (a build from before it, or one that never had it set) sends nothing or null:
+      // no opinion, not off. Null is a value only where it is the setting's own (cleanUpInactiveTabsAfterHours: never).
+      const value = record.v;
+      if (value === undefined || (value === null && DEFAULT_SETTINGS[name as keyof Settings] !== null)) continue;
+      patch[name] = value;
     }
     if (Object.keys(patch).length) store().updateSettings(patch as Partial<Settings>);
   },
