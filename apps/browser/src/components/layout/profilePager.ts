@@ -1,5 +1,4 @@
-import * as cef from "@ardia/ardiacore";
-import type { NativePagerConfig, PagerStateEvent, SwipeEvent } from "@ardia/ardiacore";
+import { pagerState, selectPager, stepPager, switchPager, type NativePagerConfig, type PagerStateEvent, type SwipeEvent } from "@ardia/ardiacore";
 import { useEffect, useMemo } from "react";
 import { Animated, unstable_batchedUpdates } from "react-native";
 import { create } from "zustand";
@@ -61,7 +60,7 @@ class ProfilePager {
   readonly onNativeState = (event: PagerStateEvent) => {
     // An external selection is on its way to native; its completion commits whatever is newest.
     if (this.external) return;
-    this.commitNative(cef.pagerState(this.windowId) ?? event, event);
+    this.commitNative(pagerState(this.windowId) ?? event, event);
   };
 
   // A profile chosen outside the pager: native jumps to it, and no older native event may move the
@@ -73,9 +72,9 @@ class ProfilePager {
       if (this.external !== generation) return;
       this.external = 0;
       // The latest state, not the requested profile: a gesture after the command wins.
-      if (ok) this.commitNative(cef.pagerState(this.windowId));
+      if (ok) this.commitNative(pagerState(this.windowId));
     };
-    cef.selectPager(this.windowId, profileId, order.join("\n")).then(done, () => done(false));
+    selectPager(this.windowId, profileId, order.join("\n")).then(done, () => done(false));
   }
 
   private commitNative(snapshot: Pick<PagerStateEvent, "sequence" | "selected" | "profileId"> | null, event?: PagerStateEvent) {
@@ -131,7 +130,7 @@ class ProfilePager {
   step(delta: -1 | 1) {
     if (!this.current()) return;
     // Native steps from where it is headed when the command runs, which may be ahead of the store.
-    void cef.stepPager(this.windowId, delta, false, useBrowser.getState().profileOrder.join("\n")).then((ok) => {
+    void stepPager(this.windowId, delta, false, useBrowser.getState().profileOrder.join("\n")).then((ok) => {
       if (ok) return;
       const next = useBrowser.getState().profileOrder[this.index() + delta];
       if (this.index() >= 0 && next) useBrowser.getState().switchProfile(this.windowId, next);
@@ -143,7 +142,7 @@ class ProfilePager {
     const index = s.profileOrder.indexOf(profileId);
     if (!s.profiles[profileId] || !this.current() || index < 0) return;
     if (!this.active) return s.switchProfile(this.windowId, profileId);
-    void cef.switchPager(this.windowId, index, s.profileOrder.join("\n")).then((ok) => {
+    void switchPager(this.windowId, index, s.profileOrder.join("\n")).then((ok) => {
       if (!ok) useBrowser.getState().switchProfile(this.windowId, profileId);
     });
   }
@@ -161,7 +160,7 @@ class ProfilePager {
   }
 
   debug() {
-    return { lastEvent: this.lastEvent, snapshot: cef.pagerState(this.windowId), ack: this.state.getState().ack, surfaces: this.surfaces, warm: this.state.getState().pages };
+    return { lastEvent: this.lastEvent, snapshot: pagerState(this.windowId), ack: this.state.getState().ack, surfaces: this.surfaces, warm: this.state.getState().pages };
   }
 }
 

@@ -1,4 +1,4 @@
-import * as cef from "@ardia/ardiacore";
+import { beginTracing, endTracing, engineInfo, isTracing } from "@ardia/ardiacore";
 import {
   confirm,
   copyText,
@@ -96,7 +96,7 @@ export async function sendFeedback(windowId?: string | null) {
 
 export async function diagnostics(): Promise<string> {
   const app = systemInfo();
-  const [engine, updates] = await Promise.all([cef.engineInfo().catch(() => null), updaterState().catch(() => null)]);
+  const [engine, updates] = await Promise.all([engineInfo().catch(() => null), updaterState().catch(() => null)]);
   const s = useBrowser.getState();
   const regular = s.windowOrder.filter((id) => !s.windows[id]?.incognito);
   return [
@@ -114,15 +114,15 @@ export async function diagnostics(): Promise<string> {
 }
 
 async function recordPerformanceIssue() {
-  if (await cef.isTracing()) return;
+  if (await isTracing()) return;
   const start = await confirm({
     title: "Record a performance issue?",
     message: "Ardia records what the engine does while you reproduce the problem. The recording is saved to your Downloads folder.",
     confirmTitle: "Start Recording",
   });
-  if (!start.confirmed || !(await cef.beginTracing())) return;
+  if (!start.confirmed || !(await beginTracing())) return;
   const stop = await confirm({ title: "Recording…", message: "Reproduce the problem now, then click Stop.", confirmTitle: "Stop", cancelTitle: "Discard" });
-  const path = await cef.endTracing(stop.confirmed);
+  const path = await endTracing(stop.confirmed);
   if (path) void revealFile(path);
 }
 

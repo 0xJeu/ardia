@@ -1,5 +1,4 @@
-import * as cef from "@ardia/ardiacore";
-import { listExtensions } from "@ardia/ardiacore";
+import { listExtensions, stepPager } from "@ardia/ardiacore";
 import { confirm, focusWindow } from "@ardia/shell";
 import { pageToProfile } from "../components/layout/profilePager";
 import { profileNames, requestCreateProfile, type CreateProfilePreset } from "../components/profiles/CreateProfile";
@@ -118,7 +117,7 @@ export function switchProfile(windowId: string, profileId: string, animated = fa
 export function cycleProfile(windowId: string, delta: 1 | -1) {
   if (!cycleTarget(windowId, delta)) return;
   // The native pager steps from its own selection, so rapid presses advance past a store that lags.
-  void cef.stepPager(windowId, delta, true, store().profileOrder.join("\n")).then((ok) => ok || cycleFromStore(windowId, delta));
+  void stepPager(windowId, delta, true, store().profileOrder.join("\n")).then((ok) => ok || cycleFromStore(windowId, delta));
 }
 
 function cycleFromStore(windowId: string, delta: 1 | -1) {
