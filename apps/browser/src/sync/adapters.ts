@@ -48,7 +48,16 @@ export const settingsAdapter: Adapter = {
   adoptRemoteOnJoin: true,
   extract: () => {
     const settings = store().settings;
-    return { values: new Map(SYNCED_SETTINGS.map((name) => [`set:${name}`, { v: settings[name] ?? DEFAULT_SETTINGS[name] ?? null }])) };
+    // A setting this Mac holds no value for abstains: no record (it would read as an edit of the last one), and no
+    // deletion either, so another Mac's choice stands. Null is a value only where it is the setting's own.
+    const values = new Map<string, unknown>();
+    const abstained = new Set<string>();
+    for (const name of SYNCED_SETTINGS) {
+      const value = settings[name] as unknown;
+      if (value === undefined || (value === null && DEFAULT_SETTINGS[name] !== null)) abstained.add(`set:${name}`);
+      else values.set(`set:${name}`, { v: value });
+    }
+    return { values, ignore: (key) => abstained.has(key) };
   },
   apply: (visible, changed) => {
     const patch: Record<string, unknown> = {};

@@ -116,10 +116,11 @@ test("settings: a Mac without a setting (nothing or null sent) leaves it as it i
     const { cmdClickCreatesTabGroup: _c, tabReorderHaptics: _t, ...rest } = S().settings;
     useBrowser.setState({ settings: { ...rest, cleanUpInactiveTabsAfterHours: null } });
   });
-  const published = a.with(() => adapters.settingsAdapter.extract().values);
-  assert.equal(published.get("set:cmdClickCreatesTabGroup").v, true, "a missing boolean goes out as its default, never null");
+  const extraction = a.with(() => adapters.settingsAdapter.extract());
+  assert.ok(!extraction.values.has("set:cmdClickCreatesTabGroup") && extraction.ignore("set:cmdClickCreatesTabGroup"), "a missing boolean abstains");
+  assert.deepEqual(extraction.values.get("set:cleanUpInactiveTabsAfterHours"), { v: null }, "Never goes out");
   // What an older Mac's record says: null, or no value at all.
-  const visible = new Map([...published, ["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}]]);
+  const visible = new Map([...extraction.values, ["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}]]);
   b.with(() => adapters.settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
   b.with(() => {
     assert.equal(S().settings.cmdClickCreatesTabGroup, true);
@@ -129,6 +130,34 @@ test("settings: a Mac without a setting (nothing or null sent) leaves it as it i
   // An explicit off from another Mac is still taken.
   b.with(() => adapters.settingsAdapter.apply(new Map([["set:cmdClickCreatesTabGroup", { v: false }]]), ["set:cmdClickCreatesTabGroup"]));
   b.with(() => assert.equal(S().settings.cmdClickCreatesTabGroup, false));
+});
+
+test("settings: a joined Mac with no value (a legacy null baseline) doesn't overwrite another Mac's choice when it returns", async () => {
+  const folder = new Folder();
+  const a = new Device("A", folder);
+  const b = new Device("B", folder);
+  await syncAll([a, b]);
+  // A: an older build's store without the setting, and the null record it published then as its baseline.
+  a.with(() => {
+    const { cmdClickCreatesTabGroup: _c, ...rest } = S().settings;
+    useBrowser.setState({ settings: rest });
+  });
+  a.scopes.app.base["set:cmdClickCreatesTabGroup"] = JSON.stringify({ v: null });
+  // While A is away, B turns it off on purpose.
+  b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: false }));
+  await b.sync();
+  await new Promise((r) => setTimeout(r, 20));
+  // A comes back later: it publishes before it pulls.
+  await syncAll([a, b]);
+  assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), false);
+  assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), false);
+  // Never (a real null) still round-trips.
+  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: 12 }));
+  b.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: 12 }));
+  await syncAll([a, b]);
+  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: null }));
+  await syncAll([a, b]);
+  assert.equal(b.with(() => S().settings.cleanUpInactiveTabsAfterHours), null);
 });
 
 test("bookmarks: a folder deleted on one Mac while the other adds to it keeps the new bookmark", async () => {
