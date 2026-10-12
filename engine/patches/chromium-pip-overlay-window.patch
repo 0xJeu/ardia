@@ -4,8 +4,8 @@
        const VideoOverlayWindowViews::PlaybackState playback_state);
  
   private:
-+  // Arcadia: Dia's glyphs (chrome/browser/arcadia/pip/ac_pip_controls.h).
-+  friend class ArcadiaPlaybackButton;
++  // Ardia: Dia's glyphs (chrome/browser/ardia/pip/ac_pip_controls.h).
++  friend class ArdiaPlaybackButton;
 +
    void UpdateImageAndText();
    void UpdatePosition();
@@ -17,10 +17,10 @@
    }
  };
 +
-+// Arcadia: Dia's window, defined in //chrome/browser/arcadia (pip/). Not a
-+// GN dependency: it resolves at link time in the binary we build (ArcadiaCore's
++// Ardia: Dia's window, defined in //chrome/browser/ardia (pip/). Not a
++// GN dependency: it resolves at link time in the binary we build (ArdiaCore's
 +// chrome_dll links that target).
-+std::unique_ptr<VideoOverlayWindowViews> NewArcadiaVideoOverlayWindow(
++std::unique_ptr<VideoOverlayWindowViews> NewArdiaVideoOverlayWindow(
 +    content::VideoPictureInPictureWindowController* controller);
  
  // static
@@ -32,7 +32,7 @@
 -  auto overlay_window =
 -      base::WrapUnique(new VideoOverlayWindowViews(controller));
 +  std::unique_ptr<VideoOverlayWindowViews> overlay_window =
-+      NewArcadiaVideoOverlayWindow(controller);
++      NewArdiaVideoOverlayWindow(controller);
  
    overlay_window->SetColorModeOverride(ui::ColorProviderKey::ColorMode::kDark);
  
@@ -70,9 +70,9 @@
  
   private:
    friend class VideoPictureInPictureWindowControllerBrowserTest;
-+  // Arcadia: Dia's window (chrome/browser/arcadia/pip/ac_pip_window.h)
++  // Ardia: Dia's window (chrome/browser/ardia/pip/ac_pip_window.h)
 +  // overrides the methods made virtual here.
-+  friend class ArcadiaVideoOverlayWindow;
++  friend class ArdiaVideoOverlayWindow;
  
    // Return the work area for the nearest display the widget is on.
    gfx::Rect GetWorkAreaForWindow() const;

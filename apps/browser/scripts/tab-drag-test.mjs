@@ -1,7 +1,7 @@
 // Tab dragging in the top tab strip (and the sidebar's drag onto the page), driven through AppKit's own event path
 // (DEV `drag:`: mouseDown, mouseDragged…, mouseUp sent to the window) in a hidden instance.
 //
-//   node apps/browser/scripts/tab-drag-test.mjs <Debug Arcadia.app> [--port=<DevTools port>] [--keep-data]
+//   node apps/browser/scripts/tab-drag-test.mjs <Debug Ardia.app> [--port=<DevTools port>] [--keep-data]
 //
 // Guards the owner's 0.2.18 report: pressing a tab in the strip moved the window (the press climbed the responder
 // chain to the strip's WindowDragRegion) and nothing could be dragged. A real mouse is still needed for the feel
@@ -19,7 +19,7 @@ import { launch, reporter, session, sleep } from "../../../scripts/lib/instance.
 const args = process.argv.slice(2);
 const appArg = args.find((a) => !a.startsWith("--"));
 if (!appArg) {
-  console.error("usage: node tab-drag-test.mjs <Debug Arcadia.app> [--port=<DevTools port>] [--keep-data]");
+  console.error("usage: node tab-drag-test.mjs <Debug Ardia.app> [--port=<DevTools port>] [--keep-data]");
   process.exit(2);
 }
 const appPath = resolve(appArg);
@@ -51,7 +51,7 @@ let app = null;
 // The page's helpers: `win(id)` the native window number of a store window, `act(id, action)` a DEV window action,
 // `items(id)` the strip's items as [left, right] runs of the hit test along the strip's middle line.
 const HELPERS = `
-const C = globalThis.expo.modules.ArcadiaCEF;
+const C = globalThis.expo.modules.ArdiaCEF;
 const st = () => ac.store.getState();
 const win = (id) => C.chromeWindows().then((ws) => { const f = st().windows[id].frame; const w = ws.filter((w) => w.hasRoot).find((w) => { const r = w.frame.match(/[-\\d.]+/g).map(Number); return Math.abs(r[0] - f[0]) < 2 && Math.abs(r[2] - f[2]) < 2; }); return w && w.window; });
 const act = (id, a) => win(id).then((n) => C.devWindow(n, a));
@@ -124,7 +124,7 @@ try {
   const mid = (i) => Math.round((strip[i][0] + strip[i][1]) / 2);
 
   // The dragged tab's picture: a native panel that never takes the mouse or activates the app.
-  const PREVIEW = `const preview = () => globalThis.expo.modules.ArcadiaShell.devDragPreviewState();`;
+  const PREVIEW = `const preview = () => globalThis.expo.modules.ArdiaShell.devDragPreviewState();`;
   const watch = (w, path, ms) => run(`${PREVIEW}
     const seen = [];
     const iv = setInterval(() => preview().then((p) => seen.push(p)), 30);
@@ -152,7 +152,7 @@ try {
     // The third item (a tab) right past the fourth's middle, with plenty of moves on the way.
     const path = [[at(2), 21], [at(2) + 20, 21], [at(3), 21], [at(3) + 40, 21]];
     const seen = await run(`
-      const cef = globalThis.expo.modules.ArcadiaCEF;
+      const cef = globalThis.expo.modules.ArdiaCEF;
       const send = cef.tabStripCommand;
       const t0 = performance.now();
       const log = { commands: [], windows: [], drag: [], picture: [] };

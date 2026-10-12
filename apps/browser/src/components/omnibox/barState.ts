@@ -1,4 +1,4 @@
-import type { SearchScope } from "@arcadia/core";
+import type { SearchScope } from "@ardia/core";
 
 export type BarSnapshot = {
   typed: string;

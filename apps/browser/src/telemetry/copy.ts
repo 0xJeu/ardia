@@ -3,18 +3,18 @@ export const SHARING_COPY = {
   summary: "Crashes, errors, rough feature counts and speed. Never the sites you visit, anything you type or search, or what's in your tabs.",
   whatsSent: "What's Sent",
   footnote:
-    "Sent to netnyahoo.com with a random ID made on this Mac, and kept on our own servers. No third parties. Turning this off stops it at once and deletes anything waiting to be sent. This setting doesn't sync.",
+    "Sent to ardia.dev with a random ID made on this Mac, and kept on our own servers. No third parties. Turning this off stops it at once and deletes anything waiting to be sent. This setting doesn't sync.",
   ask: {
-    title: "Help fix Arcadia?",
+    title: "Help fix Ardia?",
     body: "Share anonymous crash reports and usage stats. No sites, searches or typing. Ever.",
     share: "Share",
     notNow: "Not now",
   },
   // Not opt-in: the update feed (infra/site/nginx.conf) counts every check, the one thing any copy sends.
-  updateChecks: "netnyahoo.com counts update checks by version and day, and whether it's this copy's first. Nothing else.",
+  updateChecks: "ardia.dev counts update checks by version and day, and whether it's this copy's first. Nothing else.",
   // Not opt-in either: lib/killSwitchesLaunch.ts reads the site's switches file once a launch, where the update check runs.
   switchFile:
-    "While update checks are on, each launch also reads netnyahoo.com/switches.json: one small file, the same for everyone, that lets us turn off a speed-up that misbehaves. It sends no ID, no cookies and nothing about you.",
+    "While update checks are on, each launch also reads ardia.dev/switches.json: one small file, the same for everyone, that lets us turn off a speed-up that misbehaves. It sends no ID, no cookies and nothing about you.",
   onboarding: {
     title: "Help us fix what breaks",
     row: "Crashes, errors, feature counts and speed. Never your sites, typing or tabs.",

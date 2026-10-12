@@ -1,7 +1,7 @@
 // Hovering moves or resizes nothing but a HoverSlot's contents, in the sidebar, the tab strip and the downloads popover.
 // Launches a hidden instance with a fixture (tabs, an open and a collapsed group, a live folder with an open item, a
 // finished download) and runs the dev harness's check (src/lib/hoverShift.ts) on each surface.
-//   node apps/browser/scripts/hover-shift-test.mjs <Debug Arcadia.app> [cdpPort]
+//   node apps/browser/scripts/hover-shift-test.mjs <Debug Ardia.app> [cdpPort]
 // One line per surface; the details go to hover-shift-test.log beside the instance's data.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,7 +10,7 @@ import { launch, reporter, session, sleep } from "../../../scripts/lib/instance.
 
 const [appArg, port] = process.argv.slice(2);
 if (!appArg) {
-  console.error("usage: node hover-shift-test.mjs <Debug Arcadia.app> [cdpPort]");
+  console.error("usage: node hover-shift-test.mjs <Debug Ardia.app> [cdpPort]");
   process.exit(2);
 }
 const scratch = mkdtempSync(join(tmpdir(), "ac-hover-shift-"));
@@ -44,7 +44,7 @@ try {
     s.updateGroup(shut, { collapsed: true });
     const { store, engine } = ac.live;
     const folder = store.createFolder("default", "pullRequests");
-    const pr = (n, extra) => ({ number: n, repo: "arcadia/app", author: "a", authorAvatar: null, draft: false, headRef: "h" + n, baseRef: "main",
+    const pr = (n, extra) => ({ number: n, repo: "ardia/app", author: "a", authorAvatar: null, draft: false, headRef: "h" + n, baseRef: "main",
       review: null, mergeable: "mergeable", checks: [], comments: 0, unresolvedThreads: 0, additions: 1, deletions: 1, changedFiles: 1, ...extra });
     const item = (n, extra) => ({ id: "pr" + n, source: "github", url: "https://example.com/pr/" + n, title: "Pull request " + n + " with a long title",
       subtitle: "", icon: null, updatedAt: Date.now() - n, section: "authored", pr: pr(n, extra) });

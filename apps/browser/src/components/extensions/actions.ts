@@ -1,4 +1,4 @@
-import { extensionActionStates } from "@arcadia/arcadiacore";
+import { extensionActionStates } from "@ardia/ardiacore";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { browserIdOf, useExtensions, windowExtensions } from "./store";

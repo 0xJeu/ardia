@@ -2,7 +2,7 @@
 // toolbar's mode are read while it's shown), and the card mounts panes from memoized lists (861b3b73): what changed while
 // a tab was hidden is on screen the moment it's shown, and the mounted panes follow tabs opening, sleeping and closing.
 //
-//   node apps/browser/scripts/hidden-pane-test.mjs <Arcadia.app> [--bundle <main.jsbundle>] [--out <dir>]
+//   node apps/browser/scripts/hidden-pane-test.mjs <Ardia.app> [--bundle <main.jsbundle>] [--out <dir>]
 //
 // A hidden instance on a small session; while tab B is hidden it gets a new page (URL and title), loading state, zoom,
 // an open find bar and a permission prompt; then B is shown and the rendered components (the perf probe's fiber lookup,
@@ -16,14 +16,14 @@ import { evaluate, launch, quit } from "./perf/js-bench.mjs";
 
 const { values: flags, positionals } = parseArgs({ allowPositionals: true, options: { bundle: { type: "string" }, out: { type: "string" }, port: { type: "string" } } });
 if (!positionals[0]) {
-  console.error("usage: node hidden-pane-test.mjs <Arcadia.app> [--bundle <main.jsbundle>] [--out <dir>]");
+  console.error("usage: node hidden-pane-test.mjs <Ardia.app> [--bundle <main.jsbundle>] [--out <dir>]");
   process.exit(2);
 }
 const out = resolve(flags.out ?? join(tmpdir(), "ac-hidden-pane"));
 mkdirSync(out, { recursive: true });
 let app = resolve(positionals[0]);
 if (flags.bundle) {
-  const clone = join(out, "app", "Arcadia.app");
+  const clone = join(out, "app", "Ardia.app");
   rmSync(dirname(clone), { recursive: true, force: true });
   mkdirSync(dirname(clone), { recursive: true });
   execFileSync("cp", ["-cR", app, clone]);

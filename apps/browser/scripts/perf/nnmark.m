@@ -1,6 +1,6 @@
 // Loaded into the benchmark's copy of the app (DYLD_INSERT_LIBRARIES; native-bench.mjs builds it with clang): when a
 // React root's content appears (React Native's RCTContentDidAppearNotification) and when the Core Animation
-// transaction carrying it has committed, as JSON lines in $ARCADIA_DATA_DIR/bench-marks.jsonl. The same marks in
+// transaction carrying it has committed, as JSON lines in $ARDIA_DATA_DIR/bench-marks.jsonl. The same marks in
 // any build, whatever it does with its windows meanwhile: 0.2.21 shows a new window empty and its content later,
 // 0.2.22 keeps it transparent until its content is in.
 #import <AppKit/AppKit.h>
@@ -18,7 +18,7 @@ static void Mark(NSString *key, NSInteger window) {
 }
 
 __attribute__((constructor)) static void Start(void) {
-  const char *dir = getenv("ARCADIA_DATA_DIR");
+  const char *dir = getenv("ARDIA_DATA_DIR");
   if (!dir) return;
   // Only the app: Chrome's helper processes inherit the environment.
   if (![NSBundle.mainBundle.bundlePath hasSuffix:@".app"] || [NSBundle.mainBundle.bundlePath containsString:@"Helper"]) return;

@@ -1,5 +1,5 @@
-import { SwipeArea, swipeHaptic, type SwipeAreaHandle, type SwipeEvent } from "@arcadia/arcadiacore";
-import { Surface, Symbol, VisualEffect } from "@arcadia/shell";
+import { SwipeArea, swipeHaptic, type SwipeAreaHandle, type SwipeEvent } from "@ardia/ardiacore";
+import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";

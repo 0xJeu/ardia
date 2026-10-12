@@ -1,5 +1,5 @@
-import { permissionWarnings, WebView, type InstalledExtension, type WebViewHandle } from "@arcadia/arcadiacore";
-import { Surface } from "@arcadia/shell";
+import { permissionWarnings, WebView, type InstalledExtension, type WebViewHandle } from "@ardia/ardiacore";
+import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { hex, useTheme } from "../../lib/theme";
@@ -53,17 +53,17 @@ const measure = () => {
   const d = document.documentElement, b = document.body;
   return { w: Math.ceil(Math.max(d.scrollWidth, b ? b.scrollWidth : 0)), h: Math.ceil(Math.max(d.scrollHeight, b ? b.scrollHeight : 0)) };
 };
-const last = window.__arcadiaSize;
+const last = window.__ardiaSize;
 const now = measure();
 if (!last || last.w !== now.w || last.h !== now.h) {
-  window.__arcadiaSize = now;
+  window.__ardiaSize = now;
   post("result", JSON.stringify(now));
 } else {
   const ro = new ResizeObserver(() => {
     const m = measure();
-    if (m.w === window.__arcadiaSize.w && m.h === window.__arcadiaSize.h) return;
+    if (m.w === window.__ardiaSize.w && m.h === window.__ardiaSize.h) return;
     ro.disconnect();
-    window.__arcadiaSize = m;
+    window.__ardiaSize = m;
     post("result", JSON.stringify(m));
   });
   ro.observe(document.documentElement);

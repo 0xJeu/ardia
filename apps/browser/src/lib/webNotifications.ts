@@ -1,4 +1,4 @@
-import type { WebNotification } from "@arcadia/arcadiacore";
+import type { WebNotification } from "@ardia/ardiacore";
 import {
   confirm,
   notificationPermission,
@@ -7,7 +7,7 @@ import {
   removeNotifications,
   requestNotificationPermission,
   type NotificationResponse,
-} from "@arcadia/shell";
+} from "@ardia/shell";
 import { useBrowser } from "../store/browser";
 import { focus, switchToTab } from "./actions";
 import { webviews } from "./webviews";
@@ -92,8 +92,8 @@ export async function ensureNotificationPermission(windowId?: string): Promise<b
   if (asked) return false;
   asked = true;
   const { confirmed } = await confirm({
-    title: "Arcadia Needs Notifications Permission",
-    message: "You need to open System Settings to give Arcadia permission to show you Notifications.",
+    title: "Ardia Needs Notifications Permission",
+    message: "You need to open System Settings to give Ardia permission to show you Notifications.",
     confirmTitle: "Open System Settings",
     cancelTitle: "Not Now",
     windowId,

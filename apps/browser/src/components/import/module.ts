@@ -1,11 +1,11 @@
-import type * as ImportApi from "@arcadia/import";
+import type * as ImportApi from "@ardia/import";
 
 let api: typeof ImportApi | null | undefined;
 
 export function importModule(): typeof ImportApi | null {
   if (api === undefined) {
     try {
-      api = require("@arcadia/import") as typeof ImportApi;
+      api = require("@ardia/import") as typeof ImportApi;
     } catch {
       api = null;
     }

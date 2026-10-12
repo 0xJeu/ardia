@@ -1,4 +1,4 @@
-import { setTrafficLightsCenter, Surface } from "@arcadia/shell";
+import { setTrafficLightsCenter, Surface } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";

@@ -1,4 +1,4 @@
-import type { OpenWindowRequest } from "@arcadia/arcadiacore";
+import type { OpenWindowRequest } from "@ardia/ardiacore";
 import { openWindow } from "../../lib/actions";
 import { useBrowser } from "../../store/browser";
 import { engineProfile } from "../../store/model";
@@ -15,7 +15,7 @@ export function openFromPage({ url, adoptId, disposition, profile }: OpenWindowR
     if (from.tabId) s.navigate(from.tabId, url, { userInitiated: false });
     return;
   }
-  // Links stay in Little Arcadia; new tabs (target=_blank, ⌘-click, split) open behind, in a main window.
+  // Links stay in Little Ardia; new tabs (target=_blank, ⌘-click, split) open behind, in a main window.
   if (isSmall(s, w.id) && disposition !== "window" && disposition !== "incognito") {
     return void s.newTab(w.id, { url, adoptId, openerId: from.tabId, profileId: from.profileId, background: true });
   }

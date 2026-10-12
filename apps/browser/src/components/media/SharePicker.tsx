@@ -1,5 +1,5 @@
-import { getDisplayMediaSources, type DisplayMediaRequest, type DisplayMediaSource } from "@arcadia/arcadiacore";
-import { runningAppIcon, Symbol } from "@arcadia/shell";
+import { getDisplayMediaSources, type DisplayMediaRequest, type DisplayMediaSource } from "@ardia/ardiacore";
+import { runningAppIcon, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
@@ -36,7 +36,7 @@ export function requestDisplayMedia(tabId: string, request: DisplayMediaRequest)
   useMedia.setState((m) => ({ displayRequests: { ...m.displayRequests, [tabId]: { ...request, pageUrl } as Pending } }));
 }
 
-// The ArcadiaCore acceptance run answers the picker as a click would.
+// The ArdiaCore acceptance run answers the picker as a click would.
 if (__DEV__)
   (globalThis as { acSharePicker?: unknown }).acSharePicker = {
     answerDisplayMedia: (tabId: string, sourceId: string | null) => answerDisplayMedia(tabId, sourceId),

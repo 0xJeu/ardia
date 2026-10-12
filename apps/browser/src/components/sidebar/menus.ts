@@ -1,4 +1,4 @@
-import { showMenu, type MenuItem } from "@arcadia/shell";
+import { showMenu, type MenuItem } from "@ardia/shell";
 import { closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";

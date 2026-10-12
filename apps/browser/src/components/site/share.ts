@@ -1,5 +1,5 @@
-import { cleanUrl } from "@arcadia/core";
-import { sharePage, sharePageVia, type ShareAnchor } from "@arcadia/shell";
+import { cleanUrl } from "@ardia/core";
+import { sharePage, sharePageVia, type ShareAnchor } from "@ardia/shell";
 import type { Tab } from "../../store/types";
 
 export const canShare = (tab: Pick<Tab, "url"> | undefined) => /^https?:/i.test(tab?.url ?? "");

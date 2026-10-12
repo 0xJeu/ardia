@@ -1,4 +1,4 @@
-import { Symbol } from "@arcadia/shell";
+import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { View } from "react-native";
 import { hex } from "../../lib/theme";

@@ -1,4 +1,4 @@
-import { deleteProfileData } from "@arcadia/arcadiacore";
+import { deleteProfileData } from "@ardia/ardiacore";
 import { useBrowser } from "../store/browser";
 
 // A deleted profile's engine data goes once its web views have closed. What can't be deleted stays queued

@@ -1,6 +1,6 @@
-import { setSearchEngineName } from "@arcadia/arcadiacore";
-import { chooseTextFragment, cleanUrl, searchUrl, withTextFragment, type SelectionContext } from "@arcadia/core";
-import { copyText } from "@arcadia/shell";
+import { setSearchEngineName } from "@ardia/ardiacore";
+import { chooseTextFragment, cleanUrl, searchUrl, withTextFragment, type SelectionContext } from "@ardia/core";
+import { copyText } from "@ardia/shell";
 import { create } from "zustand";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";

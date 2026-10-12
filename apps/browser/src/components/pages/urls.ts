@@ -11,7 +11,7 @@ export const INTERNAL_PAGES: Record<InternalPageId, { title: string }> = {
   downloads: { title: "Downloads" },
 };
 
-const SCHEME = "arcadia://";
+const SCHEME = "ardia://";
 
 export const internalUrl = (page: InternalPageId, query?: string) => `${SCHEME}${page}${query ? `?q=${encodeURIComponent(query)}` : ""}`;
 

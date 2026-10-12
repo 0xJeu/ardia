@@ -1,5 +1,5 @@
 // Opt-in probe for the JS benchmark (apps/browser/scripts/perf/js-bench.mjs). It turns on only in an
-// isolated instance (ARCADIA_DATA_DIR or ARCADIA_BACKGROUND) whose data folder holds a `perf-probe`
+// isolated instance (ARDIA_DATA_DIR or ARDIA_BACKGROUND) whose data folder holds a `perf-probe`
 // file; otherwise it installs nothing.
 // index.js imports it first, so React's renderer finds the hook below when it loads.
 //
@@ -43,13 +43,13 @@ if (!(globalThis as { expo?: unknown }).expo) {
   } catch {}
 }
 const modules = (globalThis as { expo?: { modules?: Record<string, Record<string, (...a: unknown[]) => unknown>> } }).expo?.modules;
-const shell = modules?.ArcadiaShell;
+const shell = modules?.ArdiaShell;
 
 // The file's contents name optional (slower) probes: "selectors" times every store selector by call site;
 // "renders" says why each component rendered (props, state, context, or nothing: a wasted render).
 const probeOptions = (() => {
   try {
-    const info = modules?.ArcadiaApp?.systemInfo?.() as { isolatedInstance?: boolean } | undefined;
+    const info = modules?.ArdiaApp?.systemInfo?.() as { isolatedInstance?: boolean } | undefined;
     if (!info?.isolatedInstance || typeof shell?.readDocument !== "function") return null;
     const file = shell.readDocument("perf-probe");
     return typeof file === "string" ? file : null;

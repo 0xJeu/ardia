@@ -68,7 +68,7 @@ enum ChromeWindows {
 /// Swap profiles only after the React view-update batch lands.
 public class WindowProfileModule: Module {
   public func definition() -> ModuleDefinition {
-    Name("ArcadiaWindowProfile")
+    Name("ArdiaWindowProfile")
 
     View(WindowProfileView.self) {
       Prop("profile") { (view: WindowProfileView, value: String?) in view.profile = value ?? "" }

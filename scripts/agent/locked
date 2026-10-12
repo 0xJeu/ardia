@@ -26,7 +26,7 @@
 #   - the old /tmp/ac-<name>.lock directory is still created while held, so agents on the mkdir
 #     pattern keep waiting for us. One of theirs is never removed: we wait and say so.
 # Nested calls: a command run under `locked <name>` may call `locked <name>` again (the app build runs
-# packages/arcadiacore/scripts/stage-framework.sh, which takes chromium). If an enclosing call already holds that
+# packages/ardiacore/scripts/stage-framework.sh, which takes chromium). If an enclosing call already holds that
 # lock, the inner command runs straight through. --as WHO is passed down too (AC_LOCKED_AS), so under
 # `locked xcodebuild --as pip -- …` a nested `locked chromium` uses pip's take; export AC_LOCKED_AS=pip yourself
 # for the same effect from a plain shell.
@@ -208,7 +208,7 @@ if [[ -z "${AC_LOCKED_INNER:-}" ]]; then
   done
   # 76: the inner run gave up and already said why; 77: still busy at the deadline; 75 from lockf itself: its own
   # wait ran out.
-  # A build registers its Arcadia.app with LaunchServices under the real bundle id; take it back out so
+  # A build registers its Ardia.app with LaunchServices under the real bundle id; take it back out so
   # macOS never opens a test build as the owner's browser (unregister-builds says why).
   if [[ $name == xcodebuild && -z "$take$release" ]]; then
     "$(dirname "$0")/unregister-builds" >/dev/null 2>&1 &

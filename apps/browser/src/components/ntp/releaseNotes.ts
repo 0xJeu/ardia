@@ -1,4 +1,4 @@
-import { launchEnvironment, readDocument, systemInfo, writeDocument } from "@arcadia/shell";
+import { launchEnvironment, readDocument, systemInfo, writeDocument } from "@ardia/shell";
 import { create } from "zustand";
 
 export type ReleaseNotes = {
@@ -13,7 +13,7 @@ export const RELEASE_NOTES: ReleaseNotes[] = [
   {
     version: "1.0",
     date: "September 2026",
-    title: "Hello, Arcadia",
+    title: "Hello, Ardia",
     summary: "The first release: a calm, fast browser that keeps your tabs, your pages and your focus in one place.",
     items: [
       { title: "A command bar for everything", body: "Search, type an address or jump to an open tab from the New Tab page, or from any page with ⌘L." },
@@ -64,7 +64,7 @@ export function trackAppVersion(): boolean {
   const updated = saved ? saved.lastVersion !== version : !!readDocument("session.json");
   let pending = saved?.pending ?? null;
   if (__DEV__) {
-    if (launchEnvironment("ARCADIA_WHATS_NEW") === "1") pending = { version, since: Date.now() };
+    if (launchEnvironment("ARDIA_WHATS_NEW") === "1") pending = { version, since: Date.now() };
   } else if (updated) {
     pending = notesFor(version) ? { version, since: Date.now() } : null;
   }

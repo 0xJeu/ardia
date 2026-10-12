@@ -23,7 +23,7 @@ export type AreaLightProps = ViewProps & {
 
 type NativeAreaLightProps = Omit<AreaLightProps, "source" | "palette"> & { shapeFrame: number[]; palette?: string[] };
 
-const NativeAreaLight = requireNativeViewManager<NativeAreaLightProps>("ArcadiaAreaLight");
+const NativeAreaLight = requireNativeViewManager<NativeAreaLightProps>("ArdiaAreaLight");
 
 export function AreaLight({ source, palette = "pink", ...props }: AreaLightProps) {
   const shapeFrame = source ? [source.x, source.y, source.width, source.height] : [0, 0, 0, 0];
@@ -48,7 +48,7 @@ export type WindowBackdropProps = ViewProps & {
   grainScale?: number;
 };
 
-const NativeBackdrop = requireNativeViewManager<WindowBackdropProps>("ArcadiaWindowBackdrop");
+const NativeBackdrop = requireNativeViewManager<WindowBackdropProps>("ArdiaWindowBackdrop");
 
 export function WindowBackdrop({ angle = 180, grainOpacity = 0.09, grainScale = 1, ...props }: WindowBackdropProps) {
   return <NativeBackdrop pointerEvents="none" angle={angle} grainOpacity={grainOpacity} grainScale={grainScale} {...props} />;
@@ -76,7 +76,7 @@ type NativeEdgeLightProps = ViewProps & {
   animationDelay?: number;
 };
 
-const NativeEdgeLight = requireNativeViewManager<NativeEdgeLightProps>("ArcadiaEdgeLight");
+const NativeEdgeLight = requireNativeViewManager<NativeEdgeLightProps>("ArdiaEdgeLight");
 const rect = (r: Rect) => [r.x, r.y, r.width, r.height];
 
 export function EdgeLight({ rectFrame, lightStart, lightEnd, logoFrame, ...props }: EdgeLightProps) {
@@ -102,7 +102,7 @@ export type PowerUpProps = ViewProps & {
 
 type NativePowerUpProps = Omit<PowerUpProps, "palette" | "halo"> & { palette?: string[]; haloFrame: number[] };
 
-const NativePowerUp = requireNativeViewManager<NativePowerUpProps>("ArcadiaPowerUp");
+const NativePowerUp = requireNativeViewManager<NativePowerUpProps>("ArdiaPowerUp");
 
 export function PowerUp({ palette = "pink", halo = null, ...props }: PowerUpProps) {
   return (

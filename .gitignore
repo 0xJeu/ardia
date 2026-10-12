@@ -49,8 +49,8 @@ Pods/
 .swiftpm/
 .build/
 
-# The content blocker's filter lists (packages/arcadiacore/scripts/ubol.sh)
-packages/arcadiacore/vendor/
+# The content blocker's filter lists (packages/ardiacore/scripts/ubol.sh)
+packages/ardiacore/vendor/
 
 # Generated design / video frames
 output/

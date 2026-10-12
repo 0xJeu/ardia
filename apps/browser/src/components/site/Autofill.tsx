@@ -1,5 +1,5 @@
-import { showAutofillSuggestions, type CardNetwork } from "@arcadia/arcadiacore";
-import { Symbol } from "@arcadia/shell";
+import { showAutofillSuggestions, type CardNetwork } from "@ardia/ardiacore";
+import { Symbol } from "@ardia/shell";
 import { Text, View } from "react-native";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";

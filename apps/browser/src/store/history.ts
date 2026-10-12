@@ -1,4 +1,4 @@
-import { deleteHistoryUrls, importHistoryRows } from "@arcadia/arcadiacore";
+import { deleteHistoryUrls, importHistoryRows } from "@ardia/ardiacore";
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { engineProfile, isIncognitoProfile } from "./model";

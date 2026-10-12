@@ -1,4 +1,4 @@
-import { hostOf } from "@arcadia/core";
+import { hostOf } from "@ardia/core";
 import type { BrowserState } from "../../store/browser";
 import type { HistoryEntry } from "../../store/types";
 

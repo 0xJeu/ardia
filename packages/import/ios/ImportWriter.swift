@@ -1,5 +1,5 @@
 import Foundation
-import ArcadiaCore
+import ArdiaCore
 
 // What an import read that must not reach JS (cookie values, card numbers), kept in memory until the app writes it
 // into a profile or drops it. Entries go after ten minutes; dropping the last reference wipes the secrets (SecretBytes).
@@ -102,7 +102,7 @@ enum ImportWriter {
     let data = args.withUnsafeBytes { NSMutableData(bytes: $0.baseAddress, length: $0.count) }
     args.wipe()
     let json: String = await withCheckedContinuation { done in
-      ArcadiaCoreEngineBridge.callWithSecret(name, profile: profile, args: data) { done.resume(returning: $0) }
+      ArdiaCoreEngineBridge.callWithSecret(name, profile: profile, args: data) { done.resume(returning: $0) }
     }
     let parsed = try? JSONSerialization.jsonObject(with: Data(json.utf8))
     return parsed as? [String: Any] ?? ["error": "bad reply from the engine"]

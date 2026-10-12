@@ -11,7 +11,7 @@ const folder = new Map();
 let onWrite = null;
 let ids = 0;
 globalThis.acTestNativeModules = {
-  ArcadiaSync: {
+  ArdiaSync: {
     newDeviceId: () => `dev${++ids}`,
     deviceName: () => "Test Mac",
     createPhrase: async () => true,
@@ -37,7 +37,7 @@ globalThis.acTestNativeModules = {
   },
 };
 
-const shell = await import("@arcadia/shell");
+const shell = await import("@ardia/shell");
 const { useBrowser } = await import("../store/browser.ts");
 const S = () => useBrowser.getState();
 // Bookmarks are the store's alone here (lib/bookmarks.ts, which reads Chrome's, isn't running).

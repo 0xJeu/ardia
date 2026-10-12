@@ -9,7 +9,7 @@ import {
   type EngineInput,
   type ExtensionSearchEngine,
   type SearchEngine,
-} from "@arcadia/core";
+} from "@ardia/core";
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 
@@ -56,8 +56,8 @@ export type Settings = {
 
   shortcuts: Record<string, string[]>;
 
-  openLinksInLittleArcadia: boolean;
-  littleArcadiaSize: [number, number];
+  openLinksInLittleArdia: boolean;
+  littleArdiaSize: [number, number];
 };
 
 export const DEFAULT_PROFILE_ID = "default";
@@ -96,8 +96,8 @@ export const DEFAULT_SETTINGS: Settings = {
   addressBar: "toolbar",
   defaultProfileId: DEFAULT_PROFILE_ID,
   shortcuts: {},
-  openLinksInLittleArcadia: true,
-  littleArcadiaSize: [900, 640],
+  openLinksInLittleArdia: true,
+  littleArdiaSize: [900, 640],
 };
 
 const NO_CUSTOM_ENGINES: CustomSearchEngine[] = [];

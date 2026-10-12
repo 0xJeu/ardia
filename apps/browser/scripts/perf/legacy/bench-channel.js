@@ -1,8 +1,8 @@
 // bench-channel.js for old releases: the same command channel (bench-cmd.js -> bench-result.json, bench-boot.json), with
 // only what those releases have. They have no journeys (the app's field timing) and no preload module, so the J2/J4
 // phases (newtabkey, navigate) and the frame rig don't run on them; launch, session and windows do.
-import * as shell from "@arcadia/shell";
-import { readDocument, writeDocument } from "@arcadia/shell";
+import * as shell from "@ardia/shell";
+import { readDocument, writeDocument } from "@ardia/shell";
 import * as actions from "../../src/lib/actions";
 import { runCommand } from "../../src/lib/commands";
 import { webviews } from "../../src/lib/webviews";

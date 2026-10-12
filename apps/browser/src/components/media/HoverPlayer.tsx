@@ -1,4 +1,4 @@
-import { Surface } from "@arcadia/shell";
+import { Surface } from "@ardia/shell";
 import { hex, layout, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { clickTab } from "../sidebar/actions";

@@ -5,7 +5,7 @@ import ServiceManagement
 
 public class SystemModule: Module {
   public func definition() -> ModuleDefinition {
-    Name("ArcadiaSystem")
+    Name("ArdiaSystem")
 
     // MARK: Default browser
 
@@ -164,7 +164,7 @@ final class ShortcutRecorder {
 
 public class FileDragModule: Module {
   public func definition() -> ModuleDefinition {
-    Name("ArcadiaFileDrag")
+    Name("ArdiaFileDrag")
 
     View(FileDragView.self) {
       Events("onMiddleClick")

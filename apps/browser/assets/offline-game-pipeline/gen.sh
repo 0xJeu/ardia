@@ -1,8 +1,8 @@
 #!/bin/zsh
 # Generates one raw image with the Codex CLI's built-in image tool.
 #   gen.sh <name> <raw-dir> [extra-reference-image…]
-# Reads prompts/<name>.txt and writes <raw-dir>/<name>.png. Every image gets the Arcadia logo
-# painting (docs/brand/arcadia/source/mark.png) as its style reference; extra references follow it.
+# Reads prompts/<name>.txt and writes <raw-dir>/<name>.png. Every image gets the Ardia logo
+# painting (docs/brand/ardia/source/mark.png) as its style reference; extra references follow it.
 # Generate the lamb first, then hand it to the sheets that must match it:
 #   gen.sh lamb raw
 #   gen.sh decoys raw raw/lamb.png
@@ -14,7 +14,7 @@ name=$1
 raw=${2:A}
 here=${0:A:h}
 codex=${CODEX:-/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex}
-refs=($here/../../../../docs/brand/arcadia/source/mark.png(:A) ${@[3,-1]:A})
+refs=($here/../../../../docs/brand/ardia/source/mark.png(:A) ${@[3,-1]:A})
 mkdir -p $raw
 prompt=$(<$here/prompts/$name.txt)
 # stdin must be /dev/null or codex waits on it; -i takes several files, so it comes after the prompt.

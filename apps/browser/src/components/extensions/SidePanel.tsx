@@ -1,4 +1,4 @@
-import { WebView } from "@arcadia/arcadiacore";
+import { WebView } from "@ardia/ardiacore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, PanResponder, StyleSheet, Text, View } from "react-native";
 import { layout, useTheme } from "../../lib/theme";

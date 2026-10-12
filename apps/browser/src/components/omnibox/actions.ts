@@ -1,5 +1,5 @@
-import type { CommandAction } from "@arcadia/core";
-import type { BrowserCommand } from "@arcadia/shell";
+import type { CommandAction } from "@ardia/core";
+import type { BrowserCommand } from "@ardia/shell";
 import { runCommand } from "../../lib/commands";
 import { isBookmarked } from "../../store/bookmarks";
 import { useBrowser, type BrowserState } from "../../store/browser";

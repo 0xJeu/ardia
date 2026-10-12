@@ -9,14 +9,14 @@
   const theme = params.get("theme");
   if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
 
-  // The profile's colour (apps/browser/src/lib/theme.ts PROFILE_COLORS). ArcadiaCore sets
-  // window.arcadiaPageColor before this runs and fires "arcadiapagecolor" when it changes; ?color= stands in
+  // The profile's colour (apps/browser/src/lib/theme.ts PROFILE_COLORS). ArdiaCore sets
+  // window.ardiaPageColor before this runs and fires "ardiapagecolor" when it changes; ?color= stands in
   // elsewhere. Green is the painting as painted and game.css as written; incognito is neutral, and dark.
   const SWATCHES = {
     plum: "#C07A98", blue: "#4691C3", purple: "#7873AF", pink: "#D37B8B", red: "#C1575C",
     orange: "#D87249", yellow: "#E3AC38", neutral: "#8E8E93",
   };
-  // docs/brand/arcadia/build.py SUNS: where the gold sun would vanish into the hills.
+  // docs/brand/ardia/build.py SUNS: where the gold sun would vanish into the hills.
   const SUNS = { orange: "#FFD873", yellow: "#FFF1CF" };
   const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
@@ -99,7 +99,7 @@
     }
   }
 
-  // The New Tab mark's recolour (docs/brand/arcadia/build.py `tinted_marks`, offline-game-pipeline/tint_maps.py):
+  // The New Tab mark's recolour (docs/brand/ardia/build.py `tinted_marks`, offline-game-pipeline/tint_maps.py):
   // luminance, stretched to the scene's range, runs colour × 0.4 → × 0.78 → + (1 − colour) × 0.6; the sun's gold
   // (the map's red) stays, or takes the profile's own sun.
   function tintBackground(bg, c, sunHex) {
@@ -155,8 +155,8 @@
     dirty = true;
   }
 
-  applyPageColor(window.arcadiaPageColor || params.get("color"));
-  addEventListener("arcadiapagecolor", () => applyPageColor(window.arcadiaPageColor));
+  applyPageColor(window.ardiaPageColor || params.get("color"));
+  addEventListener("ardiapagecolor", () => applyPageColor(window.ardiaPageColor));
 
   const injected = window.GAME_ERROR || {};
   const errorCode = injected.code || params.get("code");
@@ -178,7 +178,7 @@
 
   function retry() {
     try {
-      const host = window.arcadia;
+      const host = window.ardia;
       if (host && typeof host.retry === "function") return void host.retry();
       const epc = window.errorPageController;
       if (epc && typeof epc.reloadButtonClick === "function") return void epc.reloadButtonClick();
@@ -191,7 +191,7 @@
   addEventListener("online", () => { if (errorCode || failedUrl) $("online").hidden = false; });
   addEventListener("offline", () => { $("online").hidden = true; });
 
-  const BEST_KEY = "arcadia.lamb.best";
+  const BEST_KEY = "ardia.lamb.best";
   function loadBest() {
     try { return Math.max(0, parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0); } catch (_) { return 0; }
   }

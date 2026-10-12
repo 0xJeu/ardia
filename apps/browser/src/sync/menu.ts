@@ -1,4 +1,4 @@
-import type { MenuItem } from "@arcadia/shell";
+import type { MenuItem } from "@ardia/shell";
 import { useBrowser } from "../store/browser";
 import { useSync, type RemoteTabs } from "./engine";
 

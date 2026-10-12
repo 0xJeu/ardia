@@ -5,8 +5,8 @@ import {
   refreshDeviceChooser,
   selectDevice,
   type DeviceChooser as Chooser,
-} from "@arcadia/arcadiacore";
-import { Symbol } from "@arcadia/shell";
+} from "@ardia/ardiacore";
+import { Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { create } from "zustand";
@@ -108,7 +108,7 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
     body = (
       <Notice
         icon="lock"
-        text="Arcadia needs access to Bluetooth to find devices."
+        text="Ardia needs access to Bluetooth to find devices."
         link="Open Bluetooth Settings"
         onLink={() => void openBluetoothSettings(chooser.id)}
       />

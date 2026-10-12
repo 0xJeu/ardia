@@ -44,7 +44,7 @@ export function springAt(
   return 1 - Math.exp(-damping * omega * t) * (Math.cos(wd * t) + ((damping * omega) / wd) * Math.sin(wd * t));
 }
 
-/** Where AppKit puts the traffic lights (ArcadiaCore's default centre, ArcadiaCoreChromeWindow.mm), window top-left points. */
+/** Where AppKit puts the traffic lights (ArdiaCore's default centre, ArdiaCoreChromeWindow.mm), window top-left points. */
 export const LIGHTS_CENTER: readonly [number, number] = [25, 27];
 
 /** The peek panel's top-left in the window (Dia's 6/6; Arc's is 5/5): the panel holds the lights, so they sit as far in. */

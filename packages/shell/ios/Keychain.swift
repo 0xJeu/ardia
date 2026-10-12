@@ -3,10 +3,10 @@ import Foundation
 import Security
 
 public class KeychainModule: Module {
-  private static let service = "Arcadia Connected Accounts"
+  private static let service = "Ardia Connected Accounts"
 
   public func definition() -> ModuleDefinition {
-    Name("ArcadiaKeychain")
+    Name("ArdiaKeychain")
 
     AsyncFunction("get") { (account: String) -> String? in
       if let store = IsolatedSecrets.shared { return store.get(account) }
@@ -30,7 +30,7 @@ public class KeychainModule: Module {
       if status == errSecItemNotFound {
         var add = Self.query(account)
         add[kSecValueData as String] = data
-        add[kSecAttrLabel as String] = "Arcadia: \(account)"
+        add[kSecAttrLabel as String] = "Ardia: \(account)"
         status = SecItemAdd(add as CFDictionary, nil)
       } else if status != errSecSuccess {
         SecItemDelete(Self.query(account) as CFDictionary)

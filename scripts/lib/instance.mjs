@@ -1,15 +1,15 @@
-// Hidden test instances of Arcadia, for every script that drives the app (acceptance runs, *-test.mjs, e2e, smoke):
+// Hidden test instances of Ardia, for every script that drives the app (acceptance runs, *-test.mjs, e2e, smoke):
 // launch, find our own pid, evaluate in the app's JS (the dev harness) and in its pages (DevTools), quit. One copy of
 // what eleven scripts each did their own way.
 //
 //   import { launch, attach, session, reporter } from "<repo>/scripts/lib/instance.mjs";
-//   const app = await launch("apps/browser/build-me/Build/Products/Debug/Arcadia.app", { data: "/tmp/…/data" });
+//   const app = await launch("apps/browser/build-me/Build/Products/Debug/Ardia.app", { data: "/tmp/…/data" });
 //   await app.eval("return ac.store.getState().windowOrder");            // the dev harness (lib/devHarness.ts)
 //   const page = await app.page("127.0.0.1:8080/a");                       // DevTools, one socket per page
 //   await page.eval("document.title"); await page.send("Page.reload"); page.on("Page.loadEventFired", fn);
 //   await app.quit();
 //
-// - Always hidden: `open -g -n` with ARCADIA_BACKGROUND=1, its own data dir and DevTools port (AGENTS.md).
+// - Always hidden: `open -g -n` with ARDIA_BACKGROUND=1, its own data dir and DevTools port (AGENTS.md).
 // - The pid is the one process of the app's binary listening on that DevTools port, started by this launch (it
 //   didn't listen before), with its start time kept so a reused pid is never signalled. Diffing process lists picked
 //   another run's instance of the same binary and killed it (smoke.sh, 2026-09).
@@ -46,7 +46,7 @@ export function parsePort(value) {
   return n;
 }
 const pidList = (text) => [...new Set(text.split(/\s+/).filter(Boolean).map(Number))].filter((n) => Number.isInteger(n) && n > 0);
-// The main binary, not a helper (`…/Arcadia Helper.app/…/Arcadia Helper`) nor a longer name.
+// The main binary, not a helper (`…/Ardia Helper.app/…/Ardia Helper`) nor a longer name.
 export const commandIsBinary = (command, binary) => command === binary || command.startsWith(`${binary} `);
 export function listenerPids(port) {
   const r = spawnSync("lsof", ["-nP", "-t", `-iTCP:${port}`, "-sTCP:LISTEN"], { encoding: "utf8", timeout: 5000 });
@@ -83,15 +83,15 @@ export const isAlive = (pid) => { try { process.kill(pid, 0); return true; } cat
 export const binaryOf = (app) => join(app, "Contents/MacOS",
   execFileSync("plutil", ["-extract", "CFBundleExecutable", "raw", join(app, "Contents/Info.plist")]).toString().trim());
 /** Environment for `open --env`: builds from before the rename (0.2.32 and earlier, executable Netnyahoo) read every
- * ARCADIA_ variable under its old NETNYAHOO_ name, so they get both. Without them such a build starts visible, on its
+ * ARDIA_ variable under its old NETNYAHOO_ name, so they get both. Without them such a build starts visible, on its
  * real data folder. */
 export const appEnv = (app, env) => {
   if (basename(binaryOf(app)) !== "Netnyahoo") return env;
-  const legacy = Object.fromEntries(Object.entries(env).filter(([k]) => k.startsWith("ARCADIA_")).map(([k, v]) => [`NETNYAHOO_${k.slice(8)}`, v]));
+  const legacy = Object.fromEntries(Object.entries(env).filter(([k]) => k.startsWith("ARDIA_")).map(([k, v]) => [`NETNYAHOO_${k.slice("ARDIA_".length)}`, v]));
   return { ...env, ...legacy };
 };
 /** The app's windows on screen (CoreGraphics' numbers), for screencapture -l. A background instance's sit below the
- * normal level (ArcadiaCoreActivation.mm, "Behind the owner's windows"), an older build's at 0. */
+ * normal level (ArdiaCoreActivation.mm, "Behind the owner's windows"), an older build's at 0. */
 export const onScreenWindows = (pid) => JSON.parse(execFileSync("osascript", ["-l", "JavaScript", "-e",
   `ObjC.import("CoreGraphics"); JSON.stringify(ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0)))
      .filter((w) => w.kCGWindowOwnerPID === ${pid} && w.kCGWindowLayer <= 0 && w.kCGWindowLayer > -2000000).map((w) => w.kCGWindowNumber))`], { timeout: 20000 }).toString());
@@ -347,10 +347,10 @@ class Instance {
 
 /**
  * Launches `app` hidden. Options:
- *   data      ARCADIA_DATA_DIR (default a fresh dir under $TMPDIR); created, and wiped first with `fresh`
+ *   data      ARDIA_DATA_DIR (default a fresh dir under $TMPDIR); created, and wiped first with `fresh`
  *   session   a session.json to restore (an object; see session()); `files` writes any other files into the data dir
  *   onboarded true: onboarding.json says it's done (no intro); probe: true writes perf-probe (a Release build's harness)
- *   env       { NAME: value } more environment (null leaves a variable out: ARCADIA_DATA_DIR: null starts the app
+ *   env       { NAME: value } more environment (null leaves a variable out: ARDIA_DATA_DIR: null starts the app
  *             on its default data, as an installed copy; `data` is then the folder its dev harness reads);
  *             `switches` Chromium switches (string or array)
  *   args      arguments after --args (they reach Chrome's command line)
@@ -397,9 +397,9 @@ export async function launch(app, opts = {}) {
   const location = jsMode === "pinned" ? `localhost:${js.port}` : jsMode === "live" ? `localhost:${metroPort}` : jsMode === "none" ? null : jsMode;
   const switches = [opts.switches].flat().filter(Boolean).join(" ");
   const env = appEnv(app, {
-    ARCADIA_BACKGROUND: "1", ARCADIA_DATA_DIR: data, ARCADIA_REMOTE_DEBUGGING_PORT: String(port),
-    ...(location ? { ARCADIA_JS_LOCATION: location } : {}),
-    ...(switches ? { ARCADIA_CHROMIUM_SWITCHES: switches } : {}),
+    ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: data, ARDIA_REMOTE_DEBUGGING_PORT: String(port),
+    ...(location ? { ARDIA_JS_LOCATION: location } : {}),
+    ...(switches ? { ARDIA_CHROMIUM_SWITCHES: switches } : {}),
     ...opts.env,
   });
   const log = resolve(opts.log ?? join(data, "app.out.log"));
@@ -522,7 +522,7 @@ if (process.argv[1] === here) {
   const args = process.argv.slice(2);
   if (args[0] === "--metro-proxy") await metroProxyMain(args[1], Number(args[2]));
   else if (args[0] === "--self-test") {
-    const bin = "/tmp/Arcadia.app/Contents/MacOS/Arcadia";
+    const bin = "/tmp/Ardia.app/Contents/MacOS/Ardia";
     const cmd = (map) => (pid) => map[pid];
     assert.equal(parsePort("9474"), 9474);
     for (const bad of ["0", "65536", "94.5", "-1", "", "9474x", "1e3"]) assert.throws(() => parsePort(bad), /1\.\.65535/, bad);
@@ -531,7 +531,7 @@ if (process.argv[1] === here) {
     assert.ok(commandIsBinary(bin, bin));
     assert.ok(commandIsBinary(`${bin} --flag`, bin));
     assert.ok(!commandIsBinary(`${bin}2`, bin));
-    assert.ok(!commandIsBinary(`/tmp/Arcadia.app/Contents/Frameworks/Arcadia Helper.app/Contents/MacOS/Arcadia Helper`, bin));
+    assert.ok(!commandIsBinary(`/tmp/Ardia.app/Contents/Frameworks/Ardia Helper.app/Contents/MacOS/Ardia Helper`, bin));
     assert.deepEqual(parseProcessLine(`Wed Sep 30 18:44:18 2026     ${bin} --x\n`), { started: "Wed Sep 30 18:44:18 2026", command: `${bin} --x` });
     assert.equal(parseProcessLine(""), null);
     assert.equal(ownedCandidate([], new Set(), cmd({}), bin), null);

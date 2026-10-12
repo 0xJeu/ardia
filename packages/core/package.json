@@ -1,5 +1,5 @@
 {
-  "name": "@arcadia/core",
+  "name": "@ardia/core",
   "version": "0.0.0",
   "private": true,
   "main": "src/index.ts",

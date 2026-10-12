@@ -5,7 +5,7 @@
 // ms columns are not (run those under `scripts/agent/locked perflab`).
 //
 //   node js-bench.mjs bundle <dir> --profiling 1            the bundle (main.jsbundle) to run
-//   node census.mjs run --app <Release Arcadia.app> --bundle <dir>/main.jsbundle --label <name>
+//   node census.mjs run --app <Release Ardia.app> --bundle <dir>/main.jsbundle --label <name>
 //                       [--runs 3] [--tabs 20] [--probe renders|renders,selectors,listeners] [--port 47841]
 //                       [--debug-port 9640] [--out <dir>] [--only cenSwitch,cenPanel,…] [--trace 1|<frames>] [--address-bar sidebar]
 //       Clones the app with the bundle swapped in; per run launches a hidden instance on a fresh `--tabs`-tab
@@ -95,7 +95,7 @@ async function run() {
   const debugPort = Number(flags["debug-port"] ?? 9640);
   if (!app || !jsbundle || !label) throw new Error("run needs --app, --bundle and --label");
   const scenarios = flags.only ? ["cenStartup", "wake", ...flags.only.split(",")] : SCENARIOS;
-  const clone = join(out, "apps", label, "Arcadia.app");
+  const clone = join(out, "apps", label, "Ardia.app");
   rmSync(dirname(clone), { recursive: true, force: true });
   mkdirSync(dirname(clone), { recursive: true });
   execFileSync("cp", ["-cR", app, clone]);
@@ -179,7 +179,7 @@ const METRICS = [
 
 const sum = (o) => Object.values(o ?? {}).reduce((a, b) => a + (typeof b === "number" ? b : 0), 0);
 // Host wrappers render whenever their parent does; the offender tables list the app's own components.
-const HOST = /^(View|Text|Pressable|Image|ScrollView|TextInput|InternalTextInput|Animated\(.*\)|Arcadia.*|Surface|Symbol|MouseArea|ContextMenuArea|FadeLabel|VirtualizedList.*|CellRenderer.*|ScrollViewBase|TouchableOpacity|AnimatedComponent.*|OutsidePressArea|WindowDragRegion)$/;
+const HOST = /^(View|Text|Pressable|Image|ScrollView|TextInput|InternalTextInput|Animated\(.*\)|Ardia.*|Surface|Symbol|MouseArea|ContextMenuArea|FadeLabel|VirtualizedList.*|CellRenderer.*|ScrollViewBase|TouchableOpacity|AnimatedComponent.*|OutsidePressArea|WindowDragRegion)$/;
 const fmt = (v) => (v === null || v === undefined ? "–" : Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2).replace(/\.?0+$/, "") || "0");
 
 function collect(report, read) {

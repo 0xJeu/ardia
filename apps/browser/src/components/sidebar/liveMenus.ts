@@ -1,5 +1,5 @@
-import { cleanUrl, markdownLink } from "@arcadia/core";
-import { copyText, prompt, showMenu, type MenuItem } from "@arcadia/shell";
+import { cleanUrl, markdownLink } from "@ardia/core";
+import { copyText, prompt, showMenu, type MenuItem } from "@ardia/shell";
 import { closeTab } from "../../lib/actions";
 import { calendarConnected, connectCalendar, setCalendarHidden, useCalendar } from "../../live/calendar";
 import { deleteLiveFolder, newLiveFolder, openLiveItem, refreshFolder, statusText } from "../../live/engine";

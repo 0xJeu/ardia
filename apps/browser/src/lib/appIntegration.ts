@@ -1,4 +1,4 @@
-import * as cef from "@arcadia/arcadiacore";
+import * as cef from "@ardia/ardiacore";
 import {
   confirm,
   copyText,
@@ -19,7 +19,7 @@ import {
   type CommandEvent,
   type ScriptCommand,
   type ScriptState,
-} from "@arcadia/shell";
+} from "@ardia/shell";
 import { maybeStartOnboarding, openVideoTour, startOnboarding, startToolTour } from "../components/onboarding";
 import { onboardingCompletedAt, useOnboarding } from "../components/onboarding/state";
 import { trackAppVersion } from "../components/ntp/releaseNotes";
@@ -101,7 +101,7 @@ export async function diagnostics(): Promise<string> {
   const regular = s.windowOrder.filter((id) => !s.windows[id]?.incognito);
   return [
     `${app.appName} ${app.appVersion} (${app.appBuild}) — ${app.configuration}`,
-    engine ? `Engine: ArcadiaCore, Chromium ${engine.chromiumVersion}` : "Engine: unavailable",
+    engine ? `Engine: ArdiaCore, Chromium ${engine.chromiumVersion}` : "Engine: unavailable",
     `macOS ${app.osVersion} (${app.osBuild}), ${app.arch}, ${app.model}, ${Math.round(app.memoryGB)} GB`,
     `Bundle: ${app.bundleId}, locale ${app.locale}`,
     `Windows: ${regular.length} (+${s.windowOrder.length - regular.length} incognito), tabs: ${Object.keys(s.tabs).length}, profiles: ${s.profileOrder.length}`,
@@ -117,7 +117,7 @@ async function recordPerformanceIssue() {
   if (await cef.isTracing()) return;
   const start = await confirm({
     title: "Record a performance issue?",
-    message: "Arcadia records what the engine does while you reproduce the problem. The recording is saved to your Downloads folder.",
+    message: "Ardia records what the engine does while you reproduce the problem. The recording is saved to your Downloads folder.",
     confirmTitle: "Start Recording",
   });
   if (!start.confirmed || !(await cef.beginTracing())) return;

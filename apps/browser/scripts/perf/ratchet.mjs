@@ -5,12 +5,12 @@
 // ratchet.json holds a ceiling per count. The gate, the policy and the proof the counts track wall-clock:
 // docs/perf/README.md ("The ratchet").
 //
-//   node ratchet.mjs run [--app <Arcadia.app>] [--own | --bundle <main.jsbundle>] [--instr] [--skip-js] [--skip-micro] [--lib <bench-app.js>] [--out <dir>] [--port <n>]
+//   node ratchet.mjs run [--app <Ardia.app>] [--own | --bundle <main.jsbundle>] [--instr] [--skip-js] [--skip-micro] [--lib <bench-app.js>] [--out <dir>] [--port <n>]
 //       The fast local check (about 85 s, 170 s when a count needs the rerun): bundles the current tree, runs the journey scenarios once in a hidden
 //       instance of a Release app, counts the Node hot paths and checks both against ratchet.json. A count over its
 //       ceiling gets one more run, and only a count over in both fails (a real regression stays over; a stray event
 //       from a mouse over the hidden window or a window deactivating doesn't). --app defaults to the newest
-//       dist/<v>/export/Arcadia.app, which must have the tree's native API. --own runs the app's own main.jsbundle
+//       dist/<v>/export/Ardia.app, which must have the tree's native API. --own runs the app's own main.jsbundle
 //       instead of a bundle of the tree: that is how a release candidate is gated. --bundle runs a bundle js-bench.mjs
 //       built earlier. --lib <bench-app.js> swaps in another copy of the scenarios. --instr adds the instruction counter.
 //   node ratchet.mjs baseline [--runs 8] [--app …] [--bundle …] [--out <dir>] [--measure-only]
@@ -430,10 +430,10 @@ function newestApp() {
     .filter((d) => /^\d+\.\d+\.\d+(-rc)?$/.test(d))
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   for (const v of versions) {
-    const app = join(dist, v, "export/Arcadia.app");
+    const app = join(dist, v, "export/Ardia.app");
     if (existsSync(app)) return app;
   }
-  throw new Error("no dist/<version>/export/Arcadia.app: pass --app");
+  throw new Error("no dist/<version>/export/Ardia.app: pass --app");
 }
 
 // The app, the bundle and the js-bench command line for `run` and `baseline`.

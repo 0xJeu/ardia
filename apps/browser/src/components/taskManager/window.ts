@@ -1,4 +1,4 @@
-import { openWindow } from "@arcadia/shell";
+import { openWindow } from "@ardia/shell";
 
 export const TASK_MANAGER_WINDOW_ID = "task-manager";
 

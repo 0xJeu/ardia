@@ -1,8 +1,8 @@
-import { launchEnvironment, readDocument, writeDocument } from "@arcadia/shell";
+import { launchEnvironment, readDocument, writeDocument } from "@ardia/shell";
 
 // Kill switches for speed changes people can feel. A switch is ON by default and the old behaviour is what it falls back
 // to when it's turned off, so a release that turns out slow or broken on someone's Mac can be backed out without
-// shipping another build. netnyahoo.com/switches.json (apps/site/public/switches.json) says which are off.
+// shipping another build. ardia.dev/switches.json (apps/site/public/switches.json) says which are off.
 //
 // Privacy: the file is a plain static page. The request carries no cookie, no ID and no query, the answer is the same
 // for everyone, and nothing here knows which switches a copy has (docs/kill-switches.md). It is fetched at most once a
@@ -64,7 +64,7 @@ export const SWITCHES = {
     live: true,
   },
   sidebarSlideLean: {
-    about: "The sidebar's slide draws the traffic lights' moves and lays them out once they stop (ArcadiaCoreChromeWindow.mm).",
+    about: "The sidebar's slide draws the traffic lights' moves and lays them out once they stop (ArdiaCoreChromeWindow.mm).",
     owner: "sidebar",
     removeBy: "2026-12-15",
     live: false,
@@ -74,9 +74,9 @@ export const SWITCHES = {
 export type SwitchName = keyof typeof SWITCHES;
 
 const CACHE_DOC = "switches-cache.json";
-export const SWITCHES_URL = "https://netnyahoo.com/switches.json";
-/** ARCADIA_SWITCHES="name=off,other=on": a launch's own values, over everything else (benches, tests, support). */
-export const SWITCHES_ENV = "ARCADIA_SWITCHES";
+export const SWITCHES_URL = "https://ardia.dev/switches.json";
+/** ARDIA_SWITCHES="name=off,other=on": a launch's own values, over everything else (benches, tests, support). */
+export const SWITCHES_ENV = "ARDIA_SWITCHES";
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_BYTES = 4096;
 
@@ -140,7 +140,7 @@ let fetchedThisLaunch = false;
 export type RefreshResult = "updated" | "failed" | "already";
 
 /**
- * Asks netnyahoo.com for the switches, once per launch, and saves the answer for the next launch (and, for a `live`
+ * Asks ardia.dev for the switches, once per launch, and saves the answer for the next launch (and, for a `live`
  * switch, applies it now). A failed or odd answer leaves what was cached. `fetchFn` is for tests.
  */
 export async function refreshSwitches(fetchFn: typeof fetch = fetch): Promise<RefreshResult> {

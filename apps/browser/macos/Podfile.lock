@@ -1,16 +1,16 @@
 PODS:
-  - ArcadiaCore (0.0.0):
+  - ArdiaCore (0.0.0):
     - ExpoModulesCore
-  - ArcadiaImport (0.0.0):
-    - ArcadiaCore
+  - ArdiaImport (0.0.0):
+    - ArdiaCore
     - ExpoModulesCore
-  - ArcadiaShaders (0.0.0):
+  - ArdiaShaders (0.0.0):
     - ExpoModulesCore
-  - ArcadiaShell (0.0.0):
+  - ArdiaShell (0.0.0):
     - ExpoModulesCore
     - Sparkle (~> 2.9)
-  - ArcadiaSync (0.0.0):
-    - ArcadiaImport
+  - ArdiaSync (0.0.0):
+    - ArdiaImport
     - ExpoModulesCore
   - boost (1.84.0)
   - DoubleConversion (1.1.6)
@@ -2314,11 +2314,11 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
-  - ArcadiaCore (from `../../../packages/arcadiacore/ios`)
-  - ArcadiaImport (from `../../../packages/import/ios`)
-  - ArcadiaShaders (from `../../../packages/shaders/ios`)
-  - ArcadiaShell (from `../../../packages/shell/ios`)
-  - ArcadiaSync (from `../../../packages/sync/ios`)
+  - ArdiaCore (from `../../../packages/ardiacore/ios`)
+  - ArdiaImport (from `../../../packages/import/ios`)
+  - ArdiaShaders (from `../../../packages/shaders/ios`)
+  - ArdiaShell (from `../../../packages/shell/ios`)
+  - ArdiaSync (from `../../../packages/sync/ios`)
   - boost (from `../../../node_modules/react-native-macos/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../../../node_modules/react-native-macos/third-party-podspecs/DoubleConversion.podspec`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
@@ -2406,15 +2406,15 @@ SPEC REPOS:
     - Sparkle
 
 EXTERNAL SOURCES:
-  ArcadiaCore:
-    :path: "../../../packages/arcadiacore/ios"
-  ArcadiaImport:
+  ArdiaCore:
+    :path: "../../../packages/ardiacore/ios"
+  ArdiaImport:
     :path: "../../../packages/import/ios"
-  ArcadiaShaders:
+  ArdiaShaders:
     :path: "../../../packages/shaders/ios"
-  ArcadiaShell:
+  ArdiaShell:
     :path: "../../../packages/shell/ios"
-  ArcadiaSync:
+  ArdiaSync:
     :path: "../../../packages/sync/ios"
   boost:
     :podspec: "../../../node_modules/react-native-macos/third-party-podspecs/boost.podspec"
@@ -2575,11 +2575,11 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-macos/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  ArcadiaCore: 9e13c4ae0035b7d3b2556d7d6e5401ae59e0d140
-  ArcadiaImport: b64a322a47208955b90a6e83b5b89c7a2bd45d2a
-  ArcadiaShaders: 56ebedbf532b4c7203411535dd22ef2d20c8bb7f
-  ArcadiaShell: aa2e555ed2195c8801fee84af45525cf2e239313
-  ArcadiaSync: 9179f3421db8b6775bfb207880ca8e32f9031626
+  ArdiaCore: b551e3316357a028ec07afc3ff26e46d43e3225a
+  ArdiaImport: ec5ed1543a5cab58eb3fd13b300f97855c603da9
+  ArdiaShaders: bc444989d449aa0e58e84397a7786acdb4b3ce3d
+  ArdiaShell: dc8cb30542ff2b3c083a5a99c81c971e55d52f33
+  ArdiaSync: a6d412150e17652a016f430b1402b200041b7c3b
   boost: cea1d4f90a3a59537f3deb03ff5656489d7133dd
   DoubleConversion: d31b1eb37f6d6f456530c4fd9124b857d6889cab
   EXConstants: 18ac927605517285307ea8f7ffe6fe7ca538eb5d
@@ -2661,6 +2661,6 @@ SPEC CHECKSUMS:
   Sparkle: b8c9cf4ced217ffc708a1ca5f988a7ba877658db
   Yoga: a88f30ac6f89fded00f9840e7d043315e5ab4fe0
 
-PODFILE CHECKSUM: c3537e630bc5ca4d2e04263dbbbb5fbdd2e932e2
+PODFILE CHECKSUM: 6a78e33ca3d355688bfc40f01551a564ccc84a59
 
 COCOAPODS: 1.17.0

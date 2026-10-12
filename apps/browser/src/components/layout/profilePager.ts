@@ -1,5 +1,5 @@
-import * as cef from "@arcadia/arcadiacore";
-import type { NativePagerConfig, PagerStateEvent, SwipeEvent } from "@arcadia/arcadiacore";
+import * as cef from "@ardia/ardiacore";
+import type { NativePagerConfig, PagerStateEvent, SwipeEvent } from "@ardia/ardiacore";
 import { useEffect, useMemo } from "react";
 import { Animated, unstable_batchedUpdates } from "react-native";
 import { create } from "zustand";

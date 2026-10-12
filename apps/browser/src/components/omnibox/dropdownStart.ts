@@ -1,4 +1,4 @@
-import type { Suggestion } from "@arcadia/core";
+import type { Suggestion } from "@ardia/core";
 import { useMemo } from "react";
 import { useBrowser } from "../../store/browser";
 import type { HistoryEntry } from "../../store/types";

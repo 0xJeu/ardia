@@ -257,9 +257,9 @@ enum MainMenu {
       cmd("New Tab in Group", "newTabInGroup", "t", [.command, .option]),
       cmd("New Window", "newWindow", "n"),
       cmd("New Incognito Window", "newIncognitoWindow", "n", [.command, .shift]),
-      cmd("New Little Arcadia Window", "newLittleArcadia", "n", [.command, .option]),
+      cmd("New Little Ardia Window", "newLittleArdia", "n", [.command, .option]),
       // Its title says where links from other apps will go once chosen (JS sets it from the setting).
-      cmd("Open Links from Other Apps in Main Window", "toggleOpenLinksInLittleArcadia"),
+      cmd("Open Links from Other Apps in Main Window", "toggleOpenLinksInLittleArdia"),
       cmd("Reopen Closed Tab", "reopenClosedTab", "t", [.command, .shift]),
       cmd("Reopen Closed Window", "reopenClosedWindow"),
       cmd("Open File…", "openFile", "o"),
@@ -740,7 +740,7 @@ enum MainMenu {
     let incognito = CommandItem("New Incognito Window", "newIncognitoWindow")
     incognito.windowless = true
     menu.addItem(incognito)
-    let small = CommandItem("New Little Arcadia Window", "newLittleArcadia")
+    let small = CommandItem("New Little Ardia Window", "newLittleArdia")
     small.windowless = true
     menu.addItem(small)
     return menu

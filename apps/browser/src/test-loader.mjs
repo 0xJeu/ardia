@@ -3,7 +3,7 @@
 import { registerHooks } from "node:module";
 
 const stub = new URL("./test-native-stub.mjs", import.meta.url).href;
-const native = new Set(["@arcadia/shell", "@arcadia/arcadiacore", "expo-modules-core"]);
+const native = new Set(["@ardia/shell", "@ardia/ardiacore", "expo-modules-core"]);
 
 registerHooks({
   resolve(specifier, context, next) {

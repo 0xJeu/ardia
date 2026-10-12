@@ -1,5 +1,5 @@
-import { listTasks, onExtensionsChanged } from "@arcadia/arcadiacore";
-import { onAppEvent } from "@arcadia/shell";
+import { listTasks, onExtensionsChanged } from "@ardia/ardiacore";
+import { onAppEvent } from "@ardia/shell";
 import { useTranslate } from "../components/site/translate";
 import { useBrowser } from "../store/browser";
 import { useSync } from "../sync/engine";

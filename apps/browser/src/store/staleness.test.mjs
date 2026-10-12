@@ -10,9 +10,9 @@ import { mount } from "../test-hooks.mjs";
 globalThis.__DEV__ = false;
 
 // tabLifecycle's toast, Settings and internal pages pull in the whole UI: stand-ins, as tabLifecycle.test.mjs has them.
-const arcadiacore = new URL("../test-native-stub.mjs", import.meta.url).href;
+const ardiacore = new URL("../test-native-stub.mjs", import.meta.url).href;
 const stubs = {
-  "@arcadia/arcadiacore": `export * from ${JSON.stringify(arcadiacore)};
+  "@ardia/ardiacore": `export * from ${JSON.stringify(ardiacore)};
     export const listTasks = async () => [];
     export const onSystemState = () => ({ remove() {} });
     export const systemState = async () => null;

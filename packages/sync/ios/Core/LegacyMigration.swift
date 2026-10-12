@@ -1,4 +1,4 @@
-// LEGACY NAMES. Arcadia was called Netnyahoo until 0.2.32 (bundle id com.netnyahoo.browser). This is the only Swift
+// LEGACY NAMES. Ardia was called Netnyahoo until 0.2.32 (bundle id com.netnyahoo.browser). This is the only Swift
 // file that may spell the old names: everything an older build persisted under them, and the one-time migration that
 // brings an updated install's data across (run from main.swift before Chromium, React Native or Sparkle start).
 // It's in sync's Core because sync's wire format keeps two of them for good (SyncCrypto.swift), and Core is plain
@@ -11,7 +11,7 @@ public enum LegacyName {
   public static let bundleId = "com.netnyahoo.browser"
   /// The installed app's file name. Sparkle finds the new app in an update archive only under the installed bundle's
   /// name (Sparkle 2.9.6 SUInstaller.m), so the update archive's top folder keeps it (scripts/release.sh reads this
-  /// line) and Sparkle installs it there under that name; at its first launch the app renames itself to Arcadia.app
+  /// line) and Sparkle installs it there under that name; at its first launch the app renames itself to Ardia.app
   /// (LegacyMigration.moveToNewName).
   public static let appFileName = "Netnyahoo.app"
   public static let appName = "Netnyahoo"
@@ -36,38 +36,38 @@ enum Renamed {
   }
 
   static let safeStorage = KeychainItem(
-    oldService: "Netnyahoo Safe Storage", newService: "Arcadia Safe Storage", account: ("Netnyahoo", "Arcadia"),
-    label: { _ in "Arcadia Safe Storage" }, accessible: nil, critical: true)
+    oldService: "Netnyahoo Safe Storage", newService: "Ardia Safe Storage", account: ("Netnyahoo", "Ardia"),
+    label: { _ in "Ardia Safe Storage" }, accessible: nil, critical: true)
   static let connectedAccounts = KeychainItem(
-    oldService: "Netnyahoo Connected Accounts", newService: "Arcadia Connected Accounts", account: nil,
-    label: { "Arcadia: \($0)" }, accessible: nil, critical: false)
+    oldService: "Netnyahoo Connected Accounts", newService: "Ardia Connected Accounts", account: nil,
+    label: { "Ardia: \($0)" }, accessible: nil, critical: false)
   static let syncKey = KeychainItem(
-    oldService: "Netnyahoo Sync Key", newService: "Arcadia Sync Key", account: nil,
-    label: { _ in "Arcadia Sync Key" }, accessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, critical: false)
+    oldService: "Netnyahoo Sync Key", newService: "Ardia Sync Key", account: nil,
+    label: { _ in "Ardia Sync Key" }, accessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, critical: false)
   static let keychain = [safeStorage, connectedAccounts, syncKey]
 
   /// Paths in the data folder (relative to it; a "*" component is any one name) whose last component changed.
   static let paths: [(old: String, new: String)] = [
-    ("Chromium/NetnyahooPictureInPicture.plist", "Chromium/ArcadiaPictureInPicture.plist"),
-    ("Chromium/NativeMessagingHosts/.netnyahoo-managed.json", "Chromium/NativeMessagingHosts/.arcadia-managed.json"),
-    ("Chromium/*/Netnyahoo Favicons", "Chromium/*/Arcadia Favicons"),
+    ("Chromium/NetnyahooPictureInPicture.plist", "Chromium/ArdiaPictureInPicture.plist"),
+    ("Chromium/NativeMessagingHosts/.netnyahoo-managed.json", "Chromium/NativeMessagingHosts/.ardia-managed.json"),
+    ("Chromium/*/Netnyahoo Favicons", "Chromium/*/Ardia Favicons"),
   ]
 
   /// JSON object keys, wherever they are: settings (session.json, synced), settings.shortcuts' command ids, and the
   /// bookmark sync key Chrome keeps in a node's meta_info (Bookmarks).
   static let jsonKeys = [
-    "openLinksInSmallYahu": "openLinksInLittleArcadia",
-    "smallYahuSize": "littleArcadiaSize",
-    "newSmallYahu": "newLittleArcadia",
-    "toggleOpenLinksInSmallYahu": "toggleOpenLinksInLittleArcadia",
+    "openLinksInSmallYahu": "openLinksInLittleArdia",
+    "smallYahuSize": "littleArdiaSize",
+    "newSmallYahu": "newLittleArdia",
+    "toggleOpenLinksInSmallYahu": "toggleOpenLinksInLittleArdia",
     "nn_sync_key": "ac_sync_key",
   ]
 
   /// URL prefixes, matched case-insensitively at the start of a string, in order; a host must end there.
   static let urls: [(old: String, new: String)] = [
-    ("netnyahoo://yahu", "arcadia://game"),
+    ("netnyahoo://yahu", "ardia://game"),
     ("chrome://yahu", "chrome://game"),
-    ("netnyahoo://", "arcadia://"),
+    ("netnyahoo://", "ardia://"),
   ]
 
   static let defaultsKeys = [
@@ -76,9 +76,9 @@ enum Renamed {
     "NNPictureInPictureZoom": "ACPictureInPictureZoom",
     "NNUpdateFeedURL": "ACUpdateFeedURL",
   ]
-  static let defaultsKeyPrefixes = [("NSWindow Frame Netnyahoo", "NSWindow Frame Arcadia")]
+  static let defaultsKeyPrefixes = [("NSWindow Frame Netnyahoo", "NSWindow Frame Ardia")]
   /// Menu titles in NSUserKeyEquivalents (shortcuts set in System Settings › Keyboard).
-  static let menuTitleWords = [("Small Yahu", "Little Arcadia"), ("Netnyahoo", "Arcadia")]
+  static let menuTitleWords = [("Small Yahu", "Little Ardia"), ("Netnyahoo", "Ardia")]
 }
 
 // MARK: - Seams (the real Library and keychain, or a test instance's fakes)
@@ -433,7 +433,7 @@ struct LegacyMigrator {
       while context.oldAppRunning() {
         let choice = context.ask(
           "Quit \(LegacyName.appName) to continue",
-          "Arcadia is the new name of \(LegacyName.appName). Quit \(LegacyName.appName), then click Continue to bring your tabs, passwords and settings across.",
+          "Ardia is the new name of \(LegacyName.appName). Quit \(LegacyName.appName), then click Continue to bring your tabs, passwords and settings across.",
           ["Continue", "Quit"])
         if choice != 0 { return .quit }
       }
@@ -449,8 +449,8 @@ struct LegacyMigrator {
         log("couldn't copy \(context.oldData.path): \(error)")
         try? fm.removeItem(at: stagingURL)
         let choice = context.ask(
-          "Arcadia couldn't bring your data across",
-          "Copying your data from \(LegacyName.appName) failed (\(error.localizedDescription)). Nothing was changed. You can try again, quit, or start Arcadia without it; \(LegacyName.appName)'s data stays where it is.",
+          "Ardia couldn't bring your data across",
+          "Copying your data from \(LegacyName.appName) failed (\(error.localizedDescription)). Nothing was changed. You can try again, quit, or start Ardia without it; \(LegacyName.appName)'s data stays where it is.",
           ["Try Again", "Quit", "Start Without It"])
         if choice == 0 { continue }
         if choice == 2 { return finish(Journal(phase: "done", outcome: "fresh")) }
@@ -498,8 +498,8 @@ struct LegacyMigrator {
       } catch {
         log("couldn't move the data in: \(error)")
         let choice = context.ask(
-          "Arcadia couldn't finish bringing your data across",
-          "Moving your copied data into place failed (\(error.localizedDescription)). \(LegacyName.appName)'s data is untouched. Try again, or quit and Arcadia will finish the next time it opens.",
+          "Ardia couldn't finish bringing your data across",
+          "Moving your copied data into place failed (\(error.localizedDescription)). \(LegacyName.appName)'s data is untouched. Try again, or quit and Ardia will finish the next time it opens.",
           ["Try Again", "Quit"])
         if choice != 0 { return false }
       }
@@ -611,8 +611,8 @@ struct LegacyMigrator {
   private func askAboutKey(_ item: Renamed.KeychainItem, _ why: String) -> SecretsResult {
     log("\(item.oldService): \(why)")
     let choice = context.ask(
-      "Arcadia needs your passwords' key",
-      "To keep your saved passwords and website logins, allow Arcadia to use “\(item.oldService)” (the key \(LegacyName.appName) kept them with); choose Always Allow when macOS asks. Or start Arcadia without \(LegacyName.appName)'s data, which stays where it is.",
+      "Ardia needs your passwords' key",
+      "To keep your saved passwords and website logins, allow Ardia to use “\(item.oldService)” (the key \(LegacyName.appName) kept them with); choose Always Allow when macOS asks. Or start Ardia without \(LegacyName.appName)'s data, which stays where it is.",
       ["Try Again", "Quit", "Start Without It"])
     return choice == 0 ? .copied([:]) : choice == 2 ? .startFresh : .quit
   }
@@ -787,7 +787,7 @@ struct LegacyMigrator {
     return result
   }
 
-  private func log(_ message: String) { NSLog("Arcadia: migration from \(LegacyName.appName): \(message)") }
+  private func log(_ message: String) { NSLog("Ardia: migration from \(LegacyName.appName): \(message)") }
 }
 
 struct MigrationError: Error, LocalizedError {
@@ -894,18 +894,18 @@ public enum LegacyMigration {
   /// Brings an install of the old app across, once, before anything reads its data. False: the app must quit (the
   /// user chose to, and the migration stays pending for the next launch).
   ///
-  /// The installed app (no ARCADIA_DATA_DIR, a Developer ID release build) migrates ~/Library's old folders, defaults
-  /// and login keychain items. A test instance migrates only when ARCADIA_LEGACY_SOURCE names a fake home holding an
+  /// The installed app (no ARDIA_DATA_DIR, a Developer ID release build) migrates ~/Library's old folders, defaults
+  /// and login keychain items. A test instance migrates only when ARDIA_LEGACY_SOURCE names a fake home holding an
   /// old layout (Library/Application Support/<old id>, Library/Preferences/<old id>.plist, keychain.json), into its
   /// own data dir; it never touches the real Library or keychain.
   public static func runAtLaunch(bundleId: String? = Bundle.main.bundleIdentifier) -> Bool {
     let env = ProcessInfo.processInfo.environment
-    let bundleId = bundleId ?? "com.arcadia.browser"
+    let bundleId = bundleId ?? "com.ardia.browser"
     guard bundleId != LegacyName.bundleId else { return true }
     let context: LegacyMigrator.Context?
-    if let data = env["ARCADIA_DATA_DIR"], !data.isEmpty {
-      guard let source = env["ARCADIA_LEGACY_SOURCE"], !source.isEmpty else { return true }
-      context = testInstanceContext(dataDir: data, legacyHome: source, bundleId: bundleId, crashAfter: env["ARCADIA_LEGACY_CRASH_AFTER"])
+    if let data = env["ARDIA_DATA_DIR"], !data.isEmpty {
+      guard let source = env["ARDIA_LEGACY_SOURCE"], !source.isEmpty else { return true }
+      context = testInstanceContext(dataDir: data, legacyHome: source, bundleId: bundleId, crashAfter: env["ARDIA_LEGACY_CRASH_AFTER"])
     } else {
       context = installedContext(bundleId: bundleId)
     }
@@ -915,7 +915,7 @@ public enum LegacyMigration {
 
   static func installedContext(bundleId: String) -> LegacyMigrator.Context? {
     #if DEBUG
-    // A development build never opens the installed app's data (ArcadiaCoreHost refuses to start without a data dir).
+    // A development build never opens the installed app's data (ArdiaCoreHost refuses to start without a data dir).
     return nil
     #else
     // Only Developer ID builds use the installed data with the real keychain; an ad hoc one runs on the mock keychain.
@@ -977,7 +977,7 @@ public enum LegacyMigration {
     // A fake home only: never the real one or its Library, never overlapping the data dir.
     guard resolved(home) != realHome, !inside(resolved(home), realHome + "/Library"), !inside(resolved(data), resolved(home)),
       !inside(resolved(home), resolved(data)) else {
-      NSLog("Arcadia: ARCADIA_LEGACY_SOURCE must be a scratch folder apart from the data dir and your home; ignored")
+      NSLog("Ardia: ARDIA_LEGACY_SOURCE must be a scratch folder apart from the data dir and your home; ignored")
       return nil
     }
     let library = home.appendingPathComponent("Library")
@@ -986,7 +986,7 @@ public enum LegacyMigration {
     let handlers = library.appendingPathComponent("Preferences/\(launchServicesDomain).plist")
     for input in [library, oldData, library.appendingPathComponent("Preferences"), handlers, home.appendingPathComponent("keychain.json")]
     where FileManager.default.fileExists(atPath: input.path) && !inside(resolved(input), resolved(home)) {
-      NSLog("Arcadia: \(input.path) leads out of ARCADIA_LEGACY_SOURCE; ignored")
+      NSLog("Ardia: \(input.path) leads out of ARDIA_LEGACY_SOURCE; ignored")
       return nil
     }
     return LegacyMigrator.Context(
@@ -1062,11 +1062,11 @@ public enum LegacyMigration {
 extension LegacyMigration {
   /// An install updated from before the rename is still at <folder>/<old name>.app: Sparkle installs an update into the
   /// installed bundle's own path. Before anything resolves a path through the bundle (Chromium finds its framework and
-  /// helpers by path), this renames it to <folder>/Arcadia.app, registers that with LaunchServices and starts this
+  /// helpers by path), this renames it to <folder>/Ardia.app, registers that with LaunchServices and starts this
   /// process over from there (execv: the same pid, arguments and environment, a hidden test instance's included).
   ///
   /// Returns when it stays where it is: it isn't the old name, it's translocated (Gatekeeper runs a quarantined copy
-  /// from a read-only mirror), Arcadia.app is already beside it, or the folder can't be written (logged). Then it runs
+  /// from a read-only mirror), Ardia.app is already beside it, or the folder can't be written (logged). Then it runs
   /// under the old name, as before.
   ///
   /// `launched` is the executable's path when the process started (its paths are those from then on); `running` says
@@ -1085,8 +1085,8 @@ extension LegacyMigration {
     let resolvedFolder = String(cString: folder)
     free(folder)
     let new = old.deletingLastPathComponent().appendingPathComponent("\(name).app")
-    let log = { (message: String) in NSLog("Arcadia: renaming \(old.path): \(message)") }
-    // The bundle itself, never a link to it. RENAME_EXCL: never over anything already called Arcadia.app.
+    let log = { (message: String) in NSLog("Ardia: renaming \(old.path): \(message)") }
+    // The bundle itself, never a link to it. RENAME_EXCL: never over anything already called Ardia.app.
     var info = stat()
     let isIn = { (bundle: URL) in (running() ?? "").hasPrefix("\(resolvedFolder)/\(bundle.lastPathComponent)/") }
     let isBundle = lstat(old.path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR && isIn(old)
@@ -1108,7 +1108,7 @@ extension LegacyMigration {
     argv.append(nil)
     execv(path, argv)
     // Never moved back: another launch may be running from the new place by now. This process can't run on from a
-    // bundle that has moved (its paths are the old ones); the next launch starts from Arcadia.app.
+    // bundle that has moved (its paths are the old ones); the next launch starts from Ardia.app.
     log("couldn't start from \(new.lastPathComponent): \(String(cString: strerror(errno))); quitting")
     exit(EXIT_FAILURE)
   }

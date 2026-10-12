@@ -1,6 +1,6 @@
 // The benchmark's command channel (bench-entry.js loads it once the app has loaded).
-import * as shell from "@arcadia/shell";
-import { readDocument, writeDocument } from "@arcadia/shell";
+import * as shell from "@ardia/shell";
+import { readDocument, writeDocument } from "@ardia/shell";
 import * as actions from "../../src/lib/actions";
 import { runCommand } from "../../src/lib/commands";
 import { webviews } from "../../src/lib/webviews";

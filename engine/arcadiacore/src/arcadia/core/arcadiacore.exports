@@ -1,4 +1,0 @@
-# Symbols ArcadiaCore exports from Chrome's framework, on top of chrome/app/framework.exports.
-_ArcadiaCoreMain
-_OBJC_CLASS_$_ArcadiaCore*
-_OBJC_METACLASS_$_ArcadiaCore*

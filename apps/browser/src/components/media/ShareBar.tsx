@@ -1,5 +1,5 @@
-import { changeCaptureSource, stopCapture } from "@arcadia/arcadiacore";
-import { Symbol } from "@arcadia/shell";
+import { changeCaptureSource, stopCapture } from "@ardia/ardiacore";
+import { Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
@@ -75,7 +75,7 @@ async function shareInstead(capturer: string, tabId: string): Promise<boolean> {
   return true;
 }
 
-// The ArcadiaCore acceptance run presses "Share This Tab Instead" as a click would.
+// The ArdiaCore acceptance run presses "Share This Tab Instead" as a click would.
 if (__DEV__) (globalThis as { acShareBar?: unknown }).acShareBar = { shareInstead, tabShares: () => useMedia.getState().tabShares };
 
 function dismiss(capturer: string, tabId: string) {

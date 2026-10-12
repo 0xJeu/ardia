@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Native performance benchmark: launch, idle cost, memory, tab/window latency and background throttling of a
-// Release build, driven in hidden instances (ARCADIA_BACKGROUND=1, a throwaway ARCADIA_DATA_DIR each run).
+// Release build, driven in hidden instances (ARDIA_BACKGROUND=1, a throwaway ARDIA_DATA_DIR each run).
 //
 // Gate recipe, what each row means and which rows don't compare across engines: docs/perf/README.md.
 //
-//   node apps/browser/scripts/perf/native-bench.mjs --app <Arcadia.app> --out <dir> [options]
+//   node apps/browser/scripts/perf/native-bench.mjs --app <Ardia.app> --out <dir> [options]
 //     --label <name>          name of this set of results (default: the folder two levels above the app, so
-//                             dist/0.2.22/export/Arcadia.app is "0.2.22")
+//                             dist/0.2.22/export/Ardia.app is "0.2.22")
 //     --bundle <file>         Hermes bundle of scripts/perf/bench-entry.js to run (built from the working tree when
 //                             omitted). Pass the same file to a before and an after run so only native code differs.
 //                             It must match the app's NATIVE_API_VERSION, or every command fails with the skew.
@@ -15,7 +15,7 @@
 //                             candidate; each side's results land in <out>/<its label>/results.json.
 //     --control-bundle <file> the control's bundle (default: --app's bundle); --control-label <name> (default as --label)
 //     --prepared              --app (and --control) are copies this script already prepared (<out>/<label>/app/
-//                             Arcadia.app: bundle swapped in, signed for the marker): run them in place, without
+//                             Ardia.app: bundle swapped in, signed for the marker): run them in place, without
 //                             building a bundle, copying or signing. `--only prepare` makes those copies and exits.
 //     --runs <n>              session and windows runs (default 3); --launch-runs <n> cold launches (default 5)
 //     --idle <secs>           each idle window (default 60)
@@ -43,7 +43,7 @@
 //                               sample     main-thread `sample`s, idle and while switching and scrolling
 //                               prepare    prepare the app copies and exit (see --prepared)
 //     --env K=V               repeatable: extra environment for every instance (DYLD_INSERT_LIBRARIES is appended to
-//                             the marker library). Instances stay muted; don't pass ARCADIA_ALLOW_AUDIO.
+//                             the marker library). Instances stay muted; don't pass ARDIA_ALLOW_AUDIO.
 //     --frames-n <n>          repetitions of each interaction per run in frames (default 8; framecounts uses at most 3)
 //     --frames-only <regex>   frames, framecounts: only the interactions whose name matches (case-insensitive)
 //     --frames-sample         frames: `sample` the app over the first repetition of each interaction (<out>/frames-sample/*.txt)
@@ -88,7 +88,7 @@
 // Rows: the function that measures each, and what it waits on. Launch rows count from just before `open`; command rows
 // from Date.now() in the app's JS as the command starts (ac.now()).
 //   launch → window shown                   launchRun   nnperf waitwindow: the pid's first on-screen window ≥ 300×200
-//                                                        with alpha > 0 (CEF builds show it empty, ArcadiaCore with content)
+//                                                        with alpha > 0 (CEF builds show it empty, ArdiaCore with content)
 //   launch → window shown with its content  launchRun   the later of that and nnmark's commit of the Core Animation
 //                                                        transaction carrying the first React root's content
 //   launch → JS running                     launchRun   bench-boot.json, written as bench-channel.js loads (after the
@@ -114,7 +114,7 @@
 //   new window → on screen with its content newWindow   the later of that and nnmark's commit for that window
 //   new window → first paint / first frame  newWindow   the window's page's FCP / first rAF
 //   ⌘T → …, keystroke → suggestions         journeyRun  newtabkey: nnperf postkeys (CGEventPostToPid into this pid) → the app's field timing
-//                                                        (journeys.ts + ArcadiaCoreFieldTiming.mm; sharing on in the bench's data folder,
+//                                                        (journeys.ts + ArdiaCoreFieldTiming.mm; sharing on in the bench's data folder,
 //                                                        every non-local fetch answered by bench-offline.js so nothing is uploaded)
 //   Enter → engine asked / started / committed / first contentful paint
 //                                           journeyRun  navigate: the same, from a real Enter; also the page's own FCP over CDP
@@ -276,7 +276,7 @@ const footprint = (snap) => {
 const PAGE_SCRIPT = `
 window.__nn = { vis: [[Date.now(), document.visibilityState]], shown: [], fcp: null, frame: null, ticks: 0, raf: 0, fast: 0 };
 // The page's first frame (its first animation frame starts): the same event in every build. First contentful paint
-// isn't: CEF (0.2.21) stamps it with that frame's start, Chrome (ArcadiaCore) with the frame on screen, ~a frame later.
+// isn't: CEF (0.2.21) stamps it with that frame's start, Chrome (ArdiaCore) with the frame on screen, ~a frame later.
 requestAnimationFrame(() => (__nn.frame = Date.now()));
 new PerformanceObserver((list) => {
   for (const e of list.getEntries()) if (e.name === "first-contentful-paint") __nn.fcp = performance.timeOrigin + e.startTime;
@@ -386,7 +386,7 @@ class Cdp {
 // MARK: App instances
 
 function prepareApp(app, out, bundle) {
-  const copy = join(out, "Arcadia.app");
+  const copy = join(out, "Ardia.app");
   rmSync(copy, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   execFileSync("cp", ["-Rc", app, copy]);
@@ -434,7 +434,7 @@ function buildBundle(out) {
 const live = new Set();
 
 class Instance {
-  // side: the app being measured (Main); dataDir: this instance's ARCADIA_DATA_DIR.
+  // side: the app being measured (Main); dataDir: this instance's ARDIA_DATA_DIR.
   constructor(side, dataDir) {
     this.side = side;
     this.app = side.app;
@@ -453,13 +453,13 @@ class Instance {
     if (spawnSync("pgrep", ["-f", main]).status === 0) throw new Error("a bench instance is still running");
     // --env K=V; an extra DYLD_INSERT_LIBRARIES loads after the marker.
     const extra = [...opt.env, ...this.env].filter((e) => !e.startsWith("DYLD_INSERT_LIBRARIES="));
-    // --env ARCADIA_SWITCHES=…: the app's JS reads switches from its data dir in a Release build (js-bench.mjs).
-    writeSwitches(this.dataDir, extra.find((e) => e.startsWith("ARCADIA_SWITCHES="))?.slice(19));
+    // --env ARDIA_SWITCHES=…: the app's JS reads switches from its data dir in a Release build (js-bench.mjs).
+    writeSwitches(this.dataDir, extra.find((e) => e.startsWith("ARDIA_SWITCHES="))?.slice(19));
     const dyld = [markerLibrary(), ...(this.frames ? [framesLibrary(toolDir, here)] : []), ...opt.env.filter((e) => e.startsWith("DYLD_INSERT_LIBRARIES=")).map((e) => e.slice(22))].join(":");
     this.t0 = Date.now();
     const env = appEnv(this.app, {
-      ARCADIA_BACKGROUND: "1", ARCADIA_DATA_DIR: this.dataDir, ARCADIA_REMOTE_DEBUGGING_PORT: String(this.port),
-      ARCADIA_UPDATE_FEED_URL: this.feed, DYLD_INSERT_LIBRARIES: dyld,
+      ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: this.dataDir, ARDIA_REMOTE_DEBUGGING_PORT: String(this.port),
+      ARDIA_UPDATE_FEED_URL: this.feed, DYLD_INSERT_LIBRARIES: dyld,
       ...Object.fromEntries(extra.map((e) => [e.slice(0, e.indexOf("=")), e.slice(e.indexOf("=") + 1)])),
     });
     execFileSync("open", ["-g", "-n", ...Object.entries(env).flatMap(([k, v]) => ["--env", `${k}=${v}`]), this.app,
@@ -620,12 +620,12 @@ async function launchRun(side, i) {
   if (copy) {
     rmSync(copy, { recursive: true, force: true });
     mkdirSync(copy, { recursive: true });
-    execFileSync("cp", ["-Rc", side.app, join(copy, "Arcadia.app")]);
+    execFileSync("cp", ["-Rc", side.app, join(copy, "Ardia.app")]);
   }
-  const app = new Instance(copy ? { ...side, app: join(copy, "Arcadia.app") } : side, freshDir(side, `launch-${i}`));
+  const app = new Instance(copy ? { ...side, app: join(copy, "Ardia.app") } : side, freshDir(side, `launch-${i}`));
   const traceFile = join(app.dataDir, "startup-trace.json");
   if (opt["trace-startup"]) {
-    app.env.push(`ARCADIA_CHROMIUM_SWITCHES=--trace-startup=${opt["trace-startup"]} --trace-startup-file=${traceFile} --trace-startup-duration=4 --trace-startup-format=json`);
+    app.env.push(`ARDIA_CHROMIUM_SWITCHES=--trace-startup=${opt["trace-startup"]} --trace-startup-file=${traceFile} --trace-startup-duration=4 --trace-startup-format=json`);
   }
   try {
     await app.launch();
@@ -680,7 +680,7 @@ async function idleWindow(app, secs) {
   if (!Number.isFinite(input?.inputSecs)) input = null;
   await sleep(2000);
   // App Nap check: a napped app answers its first command late and stretches a 100 ms timer (the bench passes
-  // -NSAppSleepDisabled; ArcadiaCore keeps Cocoa's argument-domain switches off Chrome's command line, AppKit reads them).
+  // -NSAppSleepDisabled; ArdiaCore keeps Cocoa's argument-domain switches off Chrome's command line, AppKit reads them).
   const asked = Date.now();
   const late = await app.run(`return new Promise((r) => { const t = Date.now(); setTimeout(() => r(Date.now() - t - 100), 100); });`);
   return { ...usageDelta(a, b), input, afterIdle: { commandMs: Date.now() - asked, timerLateMs: late } };
@@ -945,7 +945,7 @@ async function journeyRun(side, i, parts) {
     await app.pageState("id=seed", 30_000, (s) => s.fcp);
     await sleep(6000);
     // Nothing may leave: the guard answers a collector URL itself, and the field timing is on with native marks.
-    r.guard = await app.run(`return fetch("https://netnyahoo.com/otel/v1/logs", { method: "POST", body: "{}" }).then((res) => {
+    r.guard = await app.run(`return fetch("https://ardia.dev/otel/v1/logs", { method: "POST", body: "{}" }).then((res) => {
       const j = ac.journeys();
       return { blocked: res.headers.get("x-bench-blocked"), on: j.on, native: j.native, sharing: ac.telemetry().saved.sharing };
     });`);
@@ -1159,7 +1159,7 @@ function summarizeSample(file) {
     samples: total,
     waiting: idleWait,
     busy: total - idleWait,
-    // Chromium's own work on the main thread: CEF's pump (0.2.21 and older) or ArcadiaCore's run loop source.
+    // Chromium's own work on the main thread: CEF's pump (0.2.21 and older) or ArdiaCore's run loop source.
     engineWork: count("CefDoMessageLoopWork|MessagePumpCFRunLoopBase::RunWorkSource"),
     metalDraw: count("MTKView draw|\\bdraw\\(in:"),
     caCommit: count("CA::Transaction::commit"),
@@ -1275,7 +1275,7 @@ const fail = (message) => {
   console.error(message);
   process.exit(64);
 };
-if (!opt.app) fail("usage: native-bench.mjs --app <Arcadia.app> [--control <app>] [--out dir] [--only phases] … (--help)");
+if (!opt.app) fail("usage: native-bench.mjs --app <Ardia.app> [--control <app>] [--out dir] [--only phases] … (--help)");
 const JOURNEY_PHASES = ["newtabkey", "navigate"];
 const FRAME_PHASES = ["frames", "framecounts"];
 const PHASES = ["launch", "session", ...SESSION_PARTS, ...JOURNEY_PHASES, ...FRAME_PHASES, "windows", "throttle", "churn", "sample", "prepare"];

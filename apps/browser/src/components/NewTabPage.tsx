@@ -1,6 +1,6 @@
-import { AreaLight, EdgeLight, PowerUp } from "@arcadia/shaders";
+import { AreaLight, EdgeLight, PowerUp } from "@ardia/shaders";
 import { useEffect, useState } from "react";
-import { Surface, VisualEffect } from "@arcadia/shell";
+import { Surface, VisualEffect } from "@ardia/shell";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../lib/theme";
 import { springParams } from "./layout/swipeMotion";
@@ -10,7 +10,7 @@ import { Omnibox } from "./Omnibox";
 const REBRAND = true;
 const BAR_HEIGHT = 112;
 // The painted hills in each profile colour, as Dia paints its mark per colour; green is the brand painting. Three layers
-// (back hill, front hill, sun; docs/brand/arcadia/build.py) that make the painting at rest and rise one after another.
+// (back hill, front hill, sun; docs/brand/ardia/build.py) that make the painting at rest and rise one after another.
 const MARKS = {
   green: { back: require("../../assets/ntp-mark-back.png"), front: require("../../assets/ntp-mark-front.png"), sun: require("../../assets/ntp-mark-sun.png") },
   plum: { back: require("../../assets/ntp-mark-plum-back.png"), front: require("../../assets/ntp-mark-plum-front.png"), sun: require("../../assets/ntp-mark-plum-sun.png") },

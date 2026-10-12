@@ -1,4 +1,4 @@
-import { setSwitcherCapture } from "@arcadia/shell";
+import { setSwitcherCapture } from "@ardia/shell";
 import { useBrowser } from "../../store/browser";
 import { recentTabIds } from "../../store/organize";
 import { setSidebarUi, sidebarUi } from "./state";

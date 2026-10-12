@@ -1,5 +1,5 @@
-import { terminateCastRoute, type ActionState, type CastRoute, type InstalledExtension } from "@arcadia/arcadiacore";
-import { ContextMenuArea, showMenu, Symbol } from "@arcadia/shell";
+import { terminateCastRoute, type ActionState, type CastRoute, type InstalledExtension } from "@ardia/ardiacore";
+import { ContextMenuArea, showMenu, Symbol } from "@ardia/shell";
 import { memo, useMemo, useRef } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";

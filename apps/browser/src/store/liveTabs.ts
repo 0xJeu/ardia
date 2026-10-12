@@ -1,4 +1,4 @@
-import type { StripGroup, StripState, StripTab } from "@arcadia/arcadiacore";
+import type { StripGroup, StripState, StripTab } from "@ardia/ardiacore";
 import type { BrowserState } from "./browser";
 import { engineProfile, pinnedFirst } from "./model";
 import { forgetOpeners, switchKeepsOpeners } from "./openers";

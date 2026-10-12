@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import ArcadiaSyncCore
+@testable import ArdiaSyncCore
 
 /// An in-memory keychain whose reads can be refused a number of times.
 final class FakeKeychain: SecretStore {
@@ -47,9 +47,9 @@ let oldDefault = { (new: String) in Renamed.defaultsKeys.first { $0.value == new
 final class LegacyMigrationTests: XCTestCase {
   var root: URL!
   var oldData: URL { root.appendingPathComponent("old/\(LegacyName.bundleId)") }
-  var newData: URL { root.appendingPathComponent("new/com.arcadia.browser") }
+  var newData: URL { root.appendingPathComponent("new/com.ardia.browser") }
   var oldPrefs: URL { root.appendingPathComponent("prefs/\(LegacyName.bundleId)") }
-  var newPrefs: URL { root.appendingPathComponent("prefs/com.arcadia.browser") }
+  var newPrefs: URL { root.appendingPathComponent("prefs/com.ardia.browser") }
   var oldKeychain = FakeKeychain()
   var newKeychain = FakeKeychain()
   var groups = FakeGroups()
@@ -82,10 +82,10 @@ final class LegacyMigrationTests: XCTestCase {
     let session: [String: Any] = [
       "version": 2,
       "settings": [
-        old("openLinksInLittleArcadia"): false,
-        old("littleArcadiaSize"): [700, 500],
-        "shortcuts": [old("newLittleArcadia"): ["cmd+opt+y"], "newTab": ["cmd+t"]],
-        "syncFolderInside": oldData.appendingPathComponent("Arcadia Sync").path,
+        old("openLinksInLittleArdia"): false,
+        old("littleArdiaSize"): [700, 500],
+        "shortcuts": [old("newLittleArdia"): ["cmd+opt+y"], "newTab": ["cmd+t"]],
+        "syncFolderInside": oldData.appendingPathComponent("Ardia Sync").path,
       ],
       "tabs": [
         ["id": "t1", "url": "\(oldScheme)history", "title": "History", "windowId": "w1"],
@@ -105,9 +105,9 @@ final class LegacyMigrationTests: XCTestCase {
     try write(#"{"roots":{"bookmark_bar":{"children":[{"type":"url","name":"Handy: OLDdownloads","url":"OLDdownloads","meta_info":{"KEY":"bm-1"}}],"type":"folder"}},"version":1,"checksum":"x"}"#
       .replacingOccurrences(of: "OLD", with: oldScheme).replacingOccurrences(of: "KEY", with: old("ac_sync_key")), "Chromium/Default/Bookmarks")
     try write(#"{"profile":{"info_cache":{"Default":{}}}}"#, "Chromium/Local State")
-    try write("<?xml version=\"1.0\"?><plist version=\"1.0\"><array><real>1</real></array></plist>", oldPath("Chromium/ArcadiaPictureInPicture.plist"))
-    try write(#"["com.1password.1password.json"]"#, oldPath("Chromium/NativeMessagingHosts/.arcadia-managed.json"))
-    try write("png", oldPath("Chromium/*/Arcadia Favicons").replacingOccurrences(of: "*", with: "Default") + "/abc.png")
+    try write("<?xml version=\"1.0\"?><plist version=\"1.0\"><array><real>1</real></array></plist>", oldPath("Chromium/ArdiaPictureInPicture.plist"))
+    try write(#"["com.1password.1password.json"]"#, oldPath("Chromium/NativeMessagingHosts/.ardia-managed.json"))
+    try write("png", oldPath("Chromium/*/Ardia Favicons").replacingOccurrences(of: "*", with: "Default") + "/abc.png")
     try Data(repeating: 7, count: 300_000).write(to: oldData.appendingPathComponent("Chromium/Default/Cookies"))
     try FileManager.default.createSymbolicLink(atPath: oldData.appendingPathComponent("Chromium/SingletonLock").path, withDestinationPath: "host-999999")
 
@@ -134,7 +134,7 @@ final class LegacyMigrationTests: XCTestCase {
       oldData: oldData, newData: newData,
       oldDefaults: PreferencesDomain(id: oldPrefs.path), newDefaults: PreferencesDomain(id: newPrefs.path),
       oldSecrets: oldKeychain, newSecrets: newKeychain,
-      accessGroups: [("T.\(LegacyName.bundleId).webauthn", "T.com.arcadia.browser.webauthn")], groupMover: groups,
+      accessGroups: [("T.\(LegacyName.bundleId).webauthn", "T.com.ardia.browser.webauthn")], groupMover: groups,
       oldAppRunning: { [unowned self] in runningAnswers.isEmpty ? oldRunning : runningAnswers.removeFirst() },
       ask: { [unowned self] title, _, _ in
         asked.append(title)
@@ -167,47 +167,47 @@ final class LegacyMigrationTests: XCTestCase {
 
     let session = try json("session.json")
     let settings = try XCTUnwrap(session["settings"] as? [String: Any])
-    XCTAssertEqual(settings["openLinksInLittleArcadia"] as? Bool, false)
-    XCTAssertNil(settings[old("openLinksInLittleArcadia")])
-    XCTAssertEqual(settings["littleArcadiaSize"] as? [Int], [700, 500])
-    XCTAssertEqual(settings["shortcuts"] as? [String: [String]], ["newLittleArcadia": ["cmd+opt+y"], "newTab": ["cmd+t"]])
-    XCTAssertEqual(settings["syncFolderInside"] as? String, newData.appendingPathComponent("Arcadia Sync").path)
+    XCTAssertEqual(settings["openLinksInLittleArdia"] as? Bool, false)
+    XCTAssertNil(settings[old("openLinksInLittleArdia")])
+    XCTAssertEqual(settings["littleArdiaSize"] as? [Int], [700, 500])
+    XCTAssertEqual(settings["shortcuts"] as? [String: [String]], ["newLittleArdia": ["cmd+opt+y"], "newTab": ["cmd+t"]])
+    XCTAssertEqual(settings["syncFolderInside"] as? String, newData.appendingPathComponent("Ardia Sync").path)
     let tabs = try XCTUnwrap(session["tabs"] as? [[String: Any]])
     XCTAssertEqual(tabs.map { $0["url"] as? String }, [
-      "arcadia://history", "chrome://game", "arcadia://game/?level=2",
+      "ardia://history", "chrome://game", "ardia://game/?level=2",
       "https://example.com/?next=\(oldScheme)history", "\(oldChromeGame)u",
     ])
     XCTAssertEqual(tabs[1]["title"] as? String, "Play \(oldGame)", "user text keeps what it says")
     XCTAssertEqual((session["groups"] as? [[String: Any]])?.first?["pinned"] as? Bool, true)
-    XCTAssertEqual((session["launchTab"] as? [String: Any])?["url"] as? String, "arcadia://history")
+    XCTAssertEqual((session["launchTab"] as? [String: Any])?["url"] as? String, "ardia://history")
     XCTAssertEqual(session["weight"] as? Double, 0.1 + 0.2)
     XCTAssertEqual(try String(contentsOf: newData.appendingPathComponent("broken.json")), "not json")
     XCTAssertEqual(try String(contentsOf: newData.appendingPathComponent("downloads.json")), #"{"version":2,"downloads":[]}"#,
                    "a document that doesn't change isn't rewritten")
 
     let bookmarks = try String(contentsOf: newData.appendingPathComponent("Chromium/Default/Bookmarks"))
-    XCTAssertTrue(bookmarks.contains(#""url":"arcadia://downloads""#))
+    XCTAssertTrue(bookmarks.contains(#""url":"ardia://downloads""#))
     XCTAssertTrue(bookmarks.contains(#""ac_sync_key":"bm-1""#))
     XCTAssertTrue(bookmarks.contains("\"name\":\"Handy: \(oldScheme)downloads\""))
 
     let fm = FileManager.default
-    XCTAssertTrue(fm.fileExists(atPath: newData.appendingPathComponent("Chromium/ArcadiaPictureInPicture.plist").path))
-    XCTAssertTrue(fm.fileExists(atPath: newData.appendingPathComponent("Chromium/NativeMessagingHosts/.arcadia-managed.json").path))
-    XCTAssertTrue(fm.fileExists(atPath: newData.appendingPathComponent("Chromium/Default/Arcadia Favicons/abc.png").path))
+    XCTAssertTrue(fm.fileExists(atPath: newData.appendingPathComponent("Chromium/ArdiaPictureInPicture.plist").path))
+    XCTAssertTrue(fm.fileExists(atPath: newData.appendingPathComponent("Chromium/NativeMessagingHosts/.ardia-managed.json").path))
+    XCTAssertTrue(fm.fileExists(atPath: newData.appendingPathComponent("Chromium/Default/Ardia Favicons/abc.png").path))
     XCTAssertEqual(try Data(contentsOf: newData.appendingPathComponent("Chromium/Default/Cookies")).count, 300_000)
     XCTAssertNil(try? fm.destinationOfSymbolicLink(atPath: newData.appendingPathComponent("Chromium/SingletonLock").path))
     XCTAssertFalse(fm.fileExists(atPath: newData.appendingPathComponent(LegacyMigrator.stagingName).path))
 
-    XCTAssertEqual(newKeychain.items["Arcadia Safe Storage"], ["Arcadia": safeStorageKey])
-    XCTAssertEqual(newKeychain.items["Arcadia Connected Accounts"], ["github": Data("gh-token".utf8), "google": Data("g-token".utf8)])
-    XCTAssertEqual(newKeychain.items["Arcadia Sync Key"], ["device-1": Data(repeating: 1, count: 32)])
+    XCTAssertEqual(newKeychain.items["Ardia Safe Storage"], ["Ardia": safeStorageKey])
+    XCTAssertEqual(newKeychain.items["Ardia Connected Accounts"], ["github": Data("gh-token".utf8), "google": Data("g-token".utf8)])
+    XCTAssertEqual(newKeychain.items["Ardia Sync Key"], ["device-1": Data(repeating: 1, count: 32)])
     XCTAssertNil(newKeychain.items["Chrome Safe Storage"])
 
     let prefs = PreferencesDomain(id: newPrefs.path).all()
     XCTAssertEqual(prefs["ACAppIcon"] as? String, "plum")
     XCTAssertNil(prefs[oldDefault("ACAppIcon")])
-    XCTAssertEqual(prefs["NSWindow Frame ArcadiaSettings"] as? String, "10 10 800 600")
-    XCTAssertEqual(prefs["NSUserKeyEquivalents"] as? [String: String], ["New Little Arcadia Window": "@~n", "Quit Arcadia": "@q"])
+    XCTAssertEqual(prefs["NSWindow Frame ArdiaSettings"] as? String, "10 10 800 600")
+    XCTAssertEqual(prefs["NSUserKeyEquivalents"] as? [String: String], ["New Little Ardia Window": "@~n", "Quit Ardia": "@q"])
     XCTAssertEqual(prefs["SUAutomaticallyUpdate"] as? Bool, false)
     XCTAssertEqual(prefs["SULastCheckTime"] as? Date, Date(timeIntervalSince1970: 1_800_000_000))
   }
@@ -276,7 +276,7 @@ final class LegacyMigrationTests: XCTestCase {
     oldKeychain.denials[Renamed.safeStorage.oldService] = 1
     answers = [2]
     XCTAssertEqual(run(), .proceed)
-    XCTAssertNil(newKeychain.items["Arcadia Safe Storage"])
+    XCTAssertNil(newKeychain.items["Ardia Safe Storage"])
     XCTAssertEqual(LegacyMigrator(context()).readJournal()?.outcome, "fresh")
     XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent("Chromium").path))
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
@@ -321,7 +321,7 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
   }
 
-  func testLeavesAnExistingArcadiaInstallAlone() throws {
+  func testLeavesAnExistingArdiaInstallAlone() throws {
     try write(#"{"version":2,"tabs":[]}"#, "session.json", in: newData)
     XCTAssertEqual(run(), .proceed)
     XCTAssertEqual(LegacyMigrator(context()).readJournal()?.outcome, "existing")
@@ -359,12 +359,12 @@ final class LegacyMigrationTests: XCTestCase {
 
   func testRewriterOnlyTouchesWhatsOurs() {
     let r = DocumentRewriter(oldData: "/old/dir", newData: "/new/dir")
-    XCTAssertEqual(r.string(oldScheme.uppercased() + "Settings/sync"), "arcadia://Settings/sync")
-    XCTAssertEqual(r.string("view-source:\(oldScheme)history"), "view-source:arcadia://history")
-    XCTAssertEqual(r.string("\(oldGame)#top"), "arcadia://game#top")
+    XCTAssertEqual(r.string(oldScheme.uppercased() + "Settings/sync"), "ardia://Settings/sync")
+    XCTAssertEqual(r.string("view-source:\(oldScheme)history"), "view-source:ardia://history")
+    XCTAssertEqual(r.string("\(oldGame)#top"), "ardia://game#top")
     XCTAssertEqual(r.string("\(oldChromeGame)/"), "chrome://game/")
     XCTAssertEqual(r.string("chrome://settings"), "chrome://settings")
-    XCTAssertEqual(r.string("/old/dir/Arcadia Sync"), "/new/dir/Arcadia Sync")
+    XCTAssertEqual(r.string("/old/dir/Ardia Sync"), "/new/dir/Ardia Sync")
     XCTAssertEqual(r.string("/old/directory"), "/old/directory")
     XCTAssertEqual(r.string("see \(oldScheme)history"), "see \(oldScheme)history")
   }

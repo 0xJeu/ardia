@@ -1,4 +1,4 @@
-import { onDownload, releaseProfile } from "@arcadia/arcadiacore";
+import { onDownload, releaseProfile } from "@ardia/ardiacore";
 import {
   closeWindow,
   isDarkAppearance,
@@ -14,7 +14,7 @@ import {
   windowIds,
   type MenuBookmark,
   type MenuState,
-} from "@arcadia/shell";
+} from "@ardia/shell";
 import { Appearance } from "react-native";
 import { folderChildren, isBookmarked } from "../store/bookmarks";
 import { useBrowser, type BrowserState } from "../store/browser";
@@ -27,8 +27,8 @@ import { isInternalTab } from "../components/pages/urls";
 import { sidebarMenuState } from "../components/sidebar/commands";
 import { openWindow as createWindow } from "./actions";
 import { windowOpens } from "./windowOpenOrder";
-import { openExternalUrls } from "../components/littleArcadia/actions";
-import { LITTLE_ARCADIA_DISABLED_COMMANDS } from "../components/littleArcadia/menu";
+import { openExternalUrls } from "../components/littleArdia/actions";
+import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
 import { runCommand } from "./commands";
 import { flushPersistence, resumePersistence } from "./persist";
 import { startWindowCloseGuard } from "./windowClose";
@@ -97,7 +97,7 @@ export function startNativeSync() {
       open.add(id);
       titles.set(id, windowTitle(s, id));
       const profile = engineProfile(w.profileId);
-      const small = w.kind === "small" ? { kind: "small" as const, size: s.settings.littleArcadiaSize } : {};
+      const small = w.kind === "small" ? { kind: "small" as const, size: s.settings.littleArdiaSize } : {};
       void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...small });
     }
     for (const id of [...open]) {
@@ -258,15 +258,15 @@ export function menuState(s: BrowserState): MenuState {
     titles.bookmarkPage = "Edit Bookmark…";
   }
 
-  if (!s.settings.openLinksInLittleArcadia) titles.toggleOpenLinksInLittleArcadia = "Open Links from Other Apps in Little Arcadia";
+  if (!s.settings.openLinksInLittleArdia) titles.toggleOpenLinksInLittleArdia = "Open Links from Other Apps in Little Ardia";
 
   const sidebar = sidebarMenuState(s, windowId);
   disabled.push(...sidebar.disabled);
   Object.assign(titles, sidebar.titles);
   if (w?.kind === "small") {
-    disabled.push(...LITTLE_ARCADIA_DISABLED_COMMANDS);
-    // ⌘O is Open File in a main window and Open in Arcadia in Little Arcadia, as in Little Arc.
-    titles.openFile = "Open in Arcadia";
+    disabled.push(...LITTLE_ARDIA_DISABLED_COMMANDS);
+    // ⌘O is Open File in a main window and Open in Ardia in Little Ardia, as in Little Arc.
+    titles.openFile = "Open in Ardia";
   }
 
   const closed = [

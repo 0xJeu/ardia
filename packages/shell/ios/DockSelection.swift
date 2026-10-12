@@ -4,7 +4,7 @@ import ExpoModulesCore
 
 public class DockSelectionModule: Module {
   public func definition() -> ModuleDefinition {
-    Name("ArcadiaDockSelection")
+    Name("ArdiaDockSelection")
 
     AsyncFunction("iconTheme") { (uri: String?, emoji: String?) -> [String: Any]? in
       guard let image = IconSource(uri: uri, emoji: emoji)?.load() else { return nil }

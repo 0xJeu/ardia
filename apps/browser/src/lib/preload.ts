@@ -1,4 +1,4 @@
-import { engineCall } from "@arcadia/arcadiacore";
+import { engineCall } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
 import { switchOn } from "./killSwitches";
 
@@ -6,7 +6,7 @@ import { switchOn } from "./killSwitches";
 
 // MARK: The engine
 
-// The prewarm needs an engine with its fixes (ArcadiaCore: the prewarmed about:blank leaves no Back entry, and nothing in
+// The prewarm needs an engine with its fixes (ArdiaCore: the prewarmed about:blank leaves no Back entry, and nothing in
 // Chrome's closed-tab list when it, its window or the app closes), which answers ac_omnibox_opened with {prewarm: 2}
 // (ac_omnibox.h). On an older engine, or an app build that doesn't let the JS call it, the prewarm stays off. Asked once, a moment after
 // launch; a profile that isn't loaded yet asks again.

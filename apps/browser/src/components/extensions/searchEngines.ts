@@ -1,5 +1,5 @@
-import { searchEngineList } from "@arcadia/arcadiacore";
-import { extensionEnginesFromChrome } from "@arcadia/core";
+import { searchEngineList } from "@ardia/ardiacore";
+import { extensionEnginesFromChrome } from "@ardia/core";
 import { useBrowser } from "../../store/browser";
 import { useExtensions } from "./state";
 

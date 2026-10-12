@@ -9,7 +9,7 @@ import {
   Symbol,
   updaterState,
   type UpdaterState,
-} from "@arcadia/shell";
+} from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { AppState, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
@@ -18,7 +18,7 @@ import { SHARING_COPY } from "../../../telemetry/copy";
 import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
 import { openImport } from "../windows";
 
-const APP = "Arcadia";
+const APP = "Ardia";
 
 export function GeneralPane() {
   const settings = useBrowser((s) => s.settings);
@@ -52,18 +52,18 @@ export function GeneralPane() {
         <Row
           title="Open links from other apps in"
           description={
-            settings.openLinksInLittleArcadia
-              ? `A link from Discord, Slack or Mail opens in Little Arcadia, a small window of its own. ⌘O moves it into ${APP}; closing it throws it away.`
+            settings.openLinksInLittleArdia
+              ? `A link from Discord, Slack or Mail opens in Little Ardia, a small window of its own. ⌘O moves it into ${APP}; closing it throws it away.`
               : `A link from Discord, Slack or Mail opens as a new tab in your ${APP} window, in the default profile.`
           }
         >
           <PopUp
-            value={settings.openLinksInLittleArcadia ? "small" : "tab"}
+            value={settings.openLinksInLittleArdia ? "small" : "tab"}
             options={[
-              { value: "small", title: "Little Arcadia" },
+              { value: "small", title: "Little Ardia" },
               { value: "tab", title: "A new tab" },
             ]}
-            onChange={(v) => update({ openLinksInLittleArcadia: v === "small" })}
+            onChange={(v) => update({ openLinksInLittleArdia: v === "small" })}
             minWidth={190}
           />
         </Row>

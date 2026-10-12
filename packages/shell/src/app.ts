@@ -142,7 +142,7 @@ type AppModule = {
 };
 
 
-const App = requireNativeModule<AppModule>("ArcadiaApp");
+const App = requireNativeModule<AppModule>("ArdiaApp");
 
 export const updaterState = () => App.updaterState();
 export const checkForUpdates = () => App.checkForUpdates();

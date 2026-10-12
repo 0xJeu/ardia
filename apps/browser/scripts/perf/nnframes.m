@@ -1,5 +1,5 @@
 // Frame probe for native-bench.mjs's `frames` phase. Loaded into the benchmark's copy of the app (DYLD_INSERT_LIBRARIES,
-// like nnmark.m) when AC_BENCH_FRAMES=1; it never ships. It records, as JSON lines in $ARCADIA_DATA_DIR/bench-frames.jsonl
+// like nnmark.m) when AC_BENCH_FRAMES=1; it never ships. It records, as JSON lines in $ARDIA_DATA_DIR/bench-frames.jsonl
 // (epoch ms, the clock native-bench's Date.now() uses):
 //
 //   {"k":"f"}       one display-link tick on the main thread (a CADisplayLink of the window's screen, asked for the screen's
@@ -14,7 +14,7 @@
 // And counters (op "counters"): layout passes, mount batches, UI blocks run, view updates and creates sent by JS.
 //
 // Drivers, run on the display link's own ticks so an interaction is stepped by frames, not by timers: the probe polls
-// $ARCADIA_DATA_DIR/bench-frames-cmd.json ({"id", "op", …}) and answers in bench-frames-result.json:
+// $ARDIA_DATA_DIR/bench-frames-cmd.json ({"id", "op", …}) and answers in bench-frames-result.json:
 //   info                                      screen, refresh rate, JS thread found
 //   counters                                  the counters above (cumulative)
 //   scroll {distance, seconds, back}          the sidebar's scroll view (the tallest NSScrollView): eased from the top to
@@ -397,7 +397,7 @@ static void FindJSThread(void) {
 @end
 
 __attribute__((constructor)) static void Start(void) {
-  const char *dir = getenv("ARCADIA_DATA_DIR");
+  const char *dir = getenv("ARDIA_DATA_DIR");
   if (!dir || !getenv("AC_BENCH_FRAMES")) return;
   // Only the app: Chrome's helper processes inherit the environment.
   if (![NSBundle.mainBundle.bundlePath hasSuffix:@".app"] || [NSBundle.mainBundle.bundlePath containsString:@"Helper"]) return;

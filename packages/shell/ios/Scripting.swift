@@ -83,10 +83,10 @@ public enum ShellScripting {
 
   static func perform(_ body: [String: Any], transform: @escaping ([String: Any]) -> Any? = { _ in nil }) -> Any? {
     #if DEBUG
-    if !Thread.isMainThread { NSLog("Arcadia: an Apple event is being handled off the main thread") }
+    if !Thread.isMainThread { NSLog("Ardia: an Apple event is being handled off the main thread") }
     #endif
     guard let send else {
-      NSScriptCommand.current()?.setError("Arcadia isn't ready yet.")
+      NSScriptCommand.current()?.setError("Ardia isn't ready yet.")
       return nil
     }
     seq += 1
@@ -100,14 +100,14 @@ public enum ShellScripting {
       if let error { command?.setError(error) }
       let value = error == nil ? transform(result as? [String: Any] ?? [:]) : nil
       if let failure = ACTryCatch({ command?.resumeExecution(withResult: value) }) {
-        NSLog("Arcadia: AppleScript reply failed: \(failure)")
+        NSLog("Ardia: AppleScript reply failed: \(failure)")
       }
     }
     var request = body
     request["id"] = id
     send(request)
     DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
-      reply(id, result: nil, error: "Arcadia didn't respond in time.")
+      reply(id, result: nil, error: "Ardia didn't respond in time.")
     }
     return nil
   }
@@ -277,7 +277,7 @@ final class ScriptCreateCommand: NSCreateCommand {
       }
       return ShellScripting.perform(body) { ($0["tabId"] as? String).flatMap { ScriptTab(id: $0).objectSpecifier } }
     default:
-      setError("Arcadia can't make a new \(createClassDescription.className).")
+      setError("Ardia can't make a new \(createClassDescription.className).")
       return nil
     }
   }

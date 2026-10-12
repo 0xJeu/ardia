@@ -7,7 +7,7 @@ import {
   resolveExtensionInstallPrompt,
   webStoreExtensionId,
   type TabsRequest,
-} from "@arcadia/arcadiacore";
+} from "@ardia/ardiacore";
 import { AppState } from "react-native";
 import { openWindow } from "../../lib/actions";
 import { webviews } from "../../lib/webviews";
@@ -95,7 +95,7 @@ function toolbarAnchor(windowId: string, extensionId: string) {
 // MARK: Toolbar actions
 
 function startActionStates() {
-  // Extensions change their action and side panel without telling the app (ArcadiaCore has no event for it): look again
+  // Extensions change their action and side panel without telling the app (ArdiaCore has no event for it): look again
   // every 1.5 s while the app is active. Everything the app itself changes asks at once, below.
   setInterval(() => {
     if (AppState.currentState !== "active") return;
@@ -169,8 +169,8 @@ function startSidePanels() {
 
 const STORE_SCRIPT = `
 const g = window;
-if (!g.__arcadiaStore) {
-  const store = (g.__arcadiaStore = { waiting: null, queued: [] });
+if (!g.__ardiaStore) {
+  const store = (g.__ardiaStore = { waiting: null, queued: [] });
   const request = (id) => {
     if (!id) return;
     if (store.waiting) { const w = store.waiting; store.waiting = null; w(id); } else store.queued.push(id);
@@ -189,14 +189,14 @@ if (!g.__arcadiaStore) {
     for (const el of document.querySelectorAll("button, button *")) {
       if (el.childElementCount) continue;
       const t = el.textContent;
-      if (t === "Add to Chrome") el.textContent = "Add to Arcadia";
-      else if (t === "Remove from Chrome") el.textContent = "Remove from Arcadia";
+      if (t === "Add to Chrome") el.textContent = "Add to Ardia";
+      else if (t === "Remove from Chrome") el.textContent = "Remove from Ardia";
     }
   };
   relabel();
   new MutationObserver(relabel).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
 }
-const store = g.__arcadiaStore;
+const store = g.__ardiaStore;
 if (store.queued.length) post("result", JSON.stringify(store.queued.shift()));
 else store.waiting = (id) => post("result", JSON.stringify(id));
 `;

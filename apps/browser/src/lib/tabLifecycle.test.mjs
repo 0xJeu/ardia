@@ -7,9 +7,9 @@ globalThis.__DEV__ = false;
 
 // The battery saver's toast and Settings, and the internal pages, pull in the whole UI: stand-ins for them, and for the
 // engine's task and system calls.
-const arcadiacore = new URL("../test-native-stub.mjs", import.meta.url).href;
+const ardiacore = new URL("../test-native-stub.mjs", import.meta.url).href;
 const stubs = {
-  "@arcadia/arcadiacore": `export * from ${JSON.stringify(arcadiacore)};
+  "@ardia/ardiacore": `export * from ${JSON.stringify(ardiacore)};
     export const listTasks = async () => [];
     export const onSystemState = () => ({ remove() {} });
     export const systemState = async () => null;

@@ -1,5 +1,5 @@
 /**
- * LEGACY NAMES. Arcadia was called Netnyahoo until 0.2.32. This is the only TypeScript file that may spell the old
+ * LEGACY NAMES. Ardia was called Netnyahoo until 0.2.32. This is the only TypeScript file that may spell the old
  * names: values other Macs (or an older build) still write under them. An updated install's own files are brought
  * across once at launch, natively (packages/sync/ios/Core/LegacyMigration.swift, which has the same tables).
  */
@@ -9,17 +9,17 @@ export const LEGACY_BOOKMARK_SEED = "netnyahoo-bookmark:";
 
 /** App URLs, at the start of a string; a host must end where the prefix does. */
 export const LEGACY_URLS: [string, string][] = [
-  ["netnyahoo://yahu", "arcadia://game"],
+  ["netnyahoo://yahu", "ardia://game"],
   ["chrome://yahu", "chrome://game"],
-  ["netnyahoo://", "arcadia://"],
+  ["netnyahoo://", "ardia://"],
 ];
 
 /** Object keys: settings, and settings.shortcuts' command ids. */
 export const LEGACY_KEYS: Record<string, string> = {
-  openLinksInSmallYahu: "openLinksInLittleArcadia",
-  smallYahuSize: "littleArcadiaSize",
-  newSmallYahu: "newLittleArcadia",
-  toggleOpenLinksInSmallYahu: "toggleOpenLinksInLittleArcadia",
+  openLinksInSmallYahu: "openLinksInLittleArdia",
+  smallYahuSize: "littleArdiaSize",
+  newSmallYahu: "newLittleArdia",
+  toggleOpenLinksInSmallYahu: "toggleOpenLinksInLittleArdia",
 };
 
 export function fromLegacyUrl(url: string): string {

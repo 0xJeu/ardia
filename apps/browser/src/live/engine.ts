@@ -1,4 +1,4 @@
-import { onWindowEvent } from "@arcadia/shell";
+import { onWindowEvent } from "@ardia/shell";
 import { useBrowser } from "../store/browser";
 import { activeTabId, viewTabIds } from "../store/model";
 import { SOURCES } from "./sources";

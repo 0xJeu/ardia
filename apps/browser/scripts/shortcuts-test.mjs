@@ -1,6 +1,6 @@
 // Every shortcut in every focus, then a few for real, in a hidden instance.
 //
-//   node apps/browser/scripts/shortcuts-test.mjs <Debug Arcadia.app> [cdpPort]
+//   node apps/browser/scripts/shortcuts-test.mjs <Debug Ardia.app> [cdpPort]
 //
 // One line per focus (the shortcuts that failed in it) and per real check; the table and the details go to
 // shortcuts-test.log beside the instance's data.
@@ -13,7 +13,7 @@ import { launch, reporter, session, sleep } from "../../../scripts/lib/instance.
 const [appArg, port] = process.argv.slice(2);
 const appPath = appArg && resolve(appArg);
 if (!appPath) {
-  console.error("usage: node shortcuts-test.mjs <Debug Arcadia.app> [cdpPort]");
+  console.error("usage: node shortcuts-test.mjs <Debug Ardia.app> [cdpPort]");
   process.exit(2);
 }
 const scratch = mkdtempSync(join(tmpdir(), "ac-shortcuts-"));
@@ -128,7 +128,7 @@ const shortcuts = [
   ["⌘S", cmd("s", 1), { command: "toggleSidebar" }, "⌘S"],
   ["⇧⌘L", cmd("L", 37, "shift"), { command: "toggleSidebar" }, "(Chrome's)"],
   ["⇧⌘F", cmd("F", 3, "shift"), { command: "toggleSidebar" }, "(Chrome's)"],
-  ["⌥⌘N", cmd("n", 45, "option"), { command: "newLittleArcadia" }, "Arc's Little Arc"],
+  ["⌥⌘N", cmd("n", 45, "option"), { command: "newLittleArdia" }, "Arc's Little Arc"],
   ["⌃⇧=", K("+", 24, "control", "shift"), { command: "openSplitPane" }, "⌃⇧="],
   ["⌃⇧]", K("}", 30, "control", "shift"), { command: "focusNextPane" }, "⌃⇧]"],
   ["⌃⇧[", K("{", 33, "control", "shift"), { command: "focusPreviousPane" }, "⌃⇧["],

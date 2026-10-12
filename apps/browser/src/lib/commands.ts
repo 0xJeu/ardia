@@ -6,8 +6,8 @@ import {
   prompt,
   setAppearance,
   type CommandEvent,
-} from "@arcadia/shell";
-import { markdownLink } from "@arcadia/core";
+} from "@ardia/shell";
+import { markdownLink } from "@ardia/core";
 import { useBrowser } from "../store/browser";
 import { activeTabId, bookmarkProfileId, resolveWindowId } from "../store/model";
 import {
@@ -40,7 +40,7 @@ import { shareTab } from "../components/site/share";
 import { openProfileMenu } from "../components/ProfileIndicator";
 import { groupOf } from "../store/organize";
 import { isSmall, mainWindowFor, originalProfile } from "../store/small";
-import { closeLittleArcadia, openInMainWindow, openLittleArcadia } from "../components/littleArcadia/actions";
+import { closeLittleArdia, openInMainWindow, openLittleArdia } from "../components/littleArdia/actions";
 
 export function runCommand({ command, arg, windowId: requested }: CommandEvent) {
   const s = useBrowser.getState();
@@ -49,7 +49,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     if (command === "closeTab") return void closeNativeWindow(requested!);
     requested = null;
   }
-  if (isSmall(s, requested) && runLittleArcadiaCommand(command, requested!)) return;
+  if (isSmall(s, requested) && runLittleArdiaCommand(command, requested!)) return;
 
   switch (command) {
     case "newWindow":
@@ -57,10 +57,10 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "newIncognitoWindow":
       // From the window it's asked in (a private one: its own regular profile), else the last active profile.
       return void openWindow({ incognito: true, profileId: originalProfile(s, s.windows[requested ?? ""]) });
-    case "newLittleArcadia":
-      return void openLittleArcadia();
-    case "toggleOpenLinksInLittleArcadia":
-      return s.updateSettings({ openLinksInLittleArcadia: !s.settings.openLinksInLittleArcadia });
+    case "newLittleArdia":
+      return void openLittleArdia();
+    case "toggleOpenLinksInLittleArdia":
+      return s.updateSettings({ openLinksInLittleArdia: !s.settings.openLinksInLittleArdia });
     case "reopenClosedWindow":
       return s.reopenClosedWindow();
     case "setAppearance":
@@ -95,8 +95,8 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     }
   }
 
-  // From Little Arcadia, tabs, windows and the sidebar's commands act on the main window.
-  if (isSmall(s, requested) && !LITTLE_ARCADIA_PAGE_COMMANDS.has(command)) {
+  // From Little Ardia, tabs, windows and the sidebar's commands act on the main window.
+  if (isSmall(s, requested) && !LITTLE_ARDIA_PAGE_COMMANDS.has(command)) {
     requested = mainWindowFor(s, s.windows[requested!]!.profileId) ?? null;
     if (requested) focus(requested);
   }
@@ -280,9 +280,9 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
   }
 }
 
-// What Little Arcadia runs on its own page; everything else goes to the main window (menuState disables the tab and
+// What Little Ardia runs on its own page; everything else goes to the main window (menuState disables the tab and
 // sidebar commands that make no sense from there).
-const LITTLE_ARCADIA_PAGE_COMMANDS = new Set<string>([
+const LITTLE_ARDIA_PAGE_COMMANDS = new Set<string>([
   "print", "printWithSystemDialog", "savePage", "caretBrowsing", "emailPageLocation", "stop", "share", "copyUrl",
   "copyUrlAsMarkdown", "findInPage", "findAndReplace", "jumpToSelection", "useSelectionForFind", "findNext", "findPrevious",
   "reload", "forceReload", "zoomIn", "zoomOut", "zoomReset", "devTools", "toggleDevTools", "inspectElements",
@@ -290,16 +290,16 @@ const LITTLE_ARCADIA_PAGE_COMMANDS = new Set<string>([
   "cast", "openExtension", "addExtension", "autofill", "reopenClosedTab", "restoreClosed", "downloads",
 ]);
 
-function runLittleArcadiaCommand(command: string, windowId: string): boolean {
+function runLittleArdiaCommand(command: string, windowId: string): boolean {
   const s = useBrowser.getState();
   const tabId = activeTabId(s, windowId);
   const tab = tabId ? s.tabs[tabId] : undefined;
   switch (command) {
     case "closeTab":
-      // A blank Little Arcadia (⌘⌥N, nothing typed yet) closes with its field open.
+      // A blank Little Ardia (⌘⌥N, nothing typed yet) closes with its field open.
       if (s.windowUi[windowId]?.panel.open && tab?.url) s.closePanel(windowId);
       else if (tabId && s.find[tabId]?.open) closeFind(tabId);
-      else closeLittleArcadia(windowId);
+      else closeLittleArdia(windowId);
       return true;
     case "focusCommandBar":
       s.openPanel(windowId, tab?.url ?? "");

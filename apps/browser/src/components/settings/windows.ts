@@ -1,4 +1,4 @@
-import { openWindow } from "@arcadia/shell";
+import { openWindow } from "@ardia/shell";
 import { create } from "zustand";
 import { TASK_MANAGER_WINDOW_ID } from "../taskManager/window";
 

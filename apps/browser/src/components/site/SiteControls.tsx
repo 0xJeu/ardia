@@ -8,9 +8,9 @@ import {
   type SiteSettingType,
   type SiteSettingValue,
   type SiteSettings,
-} from "@arcadia/arcadiacore";
-import { cleanUrl, displayHost } from "@arcadia/core";
-import { confirm, copyText, showMenu, Symbol } from "@arcadia/shell";
+} from "@ardia/ardiacore";
+import { cleanUrl, displayHost } from "@ardia/core";
+import { confirm, copyText, showMenu, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";

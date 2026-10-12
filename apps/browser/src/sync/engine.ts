@@ -1,4 +1,4 @@
-import { readDocument, saveDocument, writeDocument } from "@arcadia/shell";
+import { readDocument, saveDocument, writeDocument } from "@ardia/shell";
 import {
   Clock,
   emptyScope,
@@ -13,7 +13,7 @@ import {
   type LogFile,
   type PhraseResult,
   type ScopeState,
-} from "@arcadia/sync";
+} from "@ardia/sync";
 import { create } from "zustand";
 import { useBrowser } from "../store/browser";
 import { fromLegacy } from "../legacy";

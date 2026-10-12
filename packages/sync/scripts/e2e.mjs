@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// End to end: two, then three hidden Arcadia instances (A, B, C) syncing through one folder.
+// End to end: two, then three hidden Ardia instances (A, B, C) syncing through one folder.
 //
 //   node packages/sync/scripts/e2e.mjs [Debug app] [work dir]
 //
 // Each instance runs through scripts/lib/instance.mjs with its own data dir (<work dir>/A, B, C) and DevTools port,
-// and ARCADIA_SYNC_DEFAULT_FOLDER at <work dir>/folder. One line per check; everything else goes to
+// and ARDIA_SYNC_DEFAULT_FOLDER at <work dir>/folder. One line per check; everything else goes to
 // <work dir>/e2e.log. Exit code 1 if any check failed.
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { freePort, launch, reporter, sleep } from "../../../scripts/lib/instance.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const APP = path.resolve(process.argv[2] ?? `${repo}/apps/browser/build-sync/Build/Products/Debug/Arcadia.app`);
+const APP = path.resolve(process.argv[2] ?? `${repo}/apps/browser/build-sync/Build/Products/Debug/Ardia.app`);
 const WORK = path.resolve(process.argv[3] ?? `${process.env.TMPDIR ?? "/tmp"}/ac-sync-e2e`);
 const FOLDER = `${WORK}/folder`;
 const PORT = await freePort();
@@ -37,7 +37,7 @@ async function start(name) {
   const { dir } = DEV[name];
   const app = (apps[name] = await launch(APP, {
     data: dir,
-    env: { ARCADIA_SYNC_DEFAULT_FOLDER: FOLDER },
+    env: { ARDIA_SYNC_DEFAULT_FOLDER: FOLDER },
     ready: { timeout: 120_000, test: "return !!globalThis.acSync && Object.keys(ac.store.getState().windows).length > 0" },
   }));
   note(`${name}: pid ${app.pid}, DevTools ${app.port}, log ${app.log}`);
@@ -84,7 +84,7 @@ async function state(name) {
     const b = s.bookmarks; const roots = b.roots.default;
     const walk = (id) => { const n = b.nodes[id]; return n.kind === "url" ? n.title + " " + n.url : { [n.title]: n.children.map(walk) }; };
     const u = acSync.useSync.getState();
-    return Promise.all([acSync.native.readPasswords(""), globalThis.expo.modules.ArcadiaCEF.listPasswords("")]).then(([pw, list]) => ({
+    return Promise.all([acSync.native.readPasswords(""), globalThis.expo.modules.ArdiaCEF.listPasswords("")]).then(([pw, list]) => ({
       status: u.status, error: u.error, enabled: u.enabled, pending: u.pending,
       bookmarks: [walk(roots.bar), walk(roots.other)],
       history: (s.history.default || []).map((h) => h.url).sort(),
@@ -113,7 +113,7 @@ function bip39(entropy) {
 }
 
 const savePassword = (origin, user, password) =>
-  `const c = globalThis.expo.modules.ArcadiaCEF; return c.deletePassword("", "${origin}", "${user}").then(() => c.savePassword("", "${origin}", "${user}", "${password}"));`;
+  `const c = globalThis.expo.modules.ArdiaCEF; return c.deletePassword("", "${origin}", "${user}").then(() => c.savePassword("", "${origin}", "${user}", "${password}"));`;
 
 // MARK: Run
 
@@ -160,7 +160,7 @@ try {
   const swapped = [...words];
   [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
   const typo = [...words];
-  typo[3] = "arcadia";
+  typo[3] = "ardia";
   const wrong = {
     "a valid phrase of someone else": [bip39(crypto.randomBytes(32)), "mismatch"],
     "two words swapped": [swapped[0] === swapped[1] ? [...words].reverse().join(" ") : swapped.join(" "), "checksum"],
@@ -205,7 +205,7 @@ try {
     s.addBookmark({ profileId: "default", url: "${W}/delta.html?nne2e=bmD", title: "ACE2E Bookmark Delta from B" });
     s.removeHistory("default", ["${W}/visited.html?nne2e=hist1"]);
     s.updateSettings({ showFullUrl: true, cleanUpInactiveTabsAfterHours: 24 });
-    return globalThis.expo.modules.ArcadiaCEF.deletePassword("", "https://nne2e-shop.example", "nne2e-bob");`,
+    return globalThis.expo.modules.ArdiaCEF.deletePassword("", "https://nne2e-shop.example", "nne2e-bob");`,
   );
   await visit("B", `${W}/visited2.html?nne2e=hist2`);
   await ev("B", savePassword("https://nne2e-bank.example", "nne2e-alice", "ACE2E-changed-on-B"));

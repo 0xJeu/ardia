@@ -1,4 +1,4 @@
-import { WebView, type OpenWindowRequest } from "@arcadia/arcadiacore";
+import { WebView, type OpenWindowRequest } from "@ardia/ardiacore";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
@@ -53,7 +53,7 @@ import { NavigationOverlays } from "./layout/SwipeOverlay";
 import "./layout/devExpose";
 import { closeWebNotification, showWebNotification } from "../lib/webNotifications";
 import { isSmallWindow } from "../store/small";
-import { closeLittleArcadiaOnEscape } from "./littleArcadia/actions";
+import { closeLittleArdiaOnEscape } from "./littleArdia/actions";
 
 export function ContentCard() {
   const windowId = useWindowId();
@@ -62,7 +62,7 @@ export function ContentCard() {
   const fullscreenTab = useFullscreenTab(windowId);
   const tabLayout = useTabLayout();
   const addressInSidebar = useAddressBarInSidebar();
-  // Little Arcadia draws its own bar above the card (components/littleArcadia).
+  // Little Ardia draws its own bar above the card (components/littleArdia).
   const small = useBrowser((s) => isSmallWindow(s.windows[windowId]));
   const hideWhileScrolling = useBrowser((s) => s.settings.hideToolbarWhileScrolling);
   const barMode = useBookmarksBarMode(windowId);
@@ -599,7 +599,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       onCommand={({ command, text, modifiers }) => {
         if (command === "search") searchSelection(tabId, text, modifiers);
         else if (command === "copyLinkToHighlight") void copyLinkToSelection(tabId);
-        else if (command === "escape") closeLittleArcadiaOnEscape(tabId);
+        else if (command === "escape") closeLittleArdiaOnEscape(tabId);
       }}
       onPageMessage={(kind, data) => {
         if (kind === "selection") setPageSelection(tabId, data as PageSelection | null);

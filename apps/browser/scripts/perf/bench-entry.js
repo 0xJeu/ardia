@@ -1,7 +1,7 @@
 // JS entry for native-bench.mjs: the app's own index.js plus a small command channel, bundled in production
 // mode (no dev React, no Metro) so a Release build can be driven. Never part of a shipped bundle.
 //
-// The bench writes `bench-cmd.js` (first line `// <id>`) into ARCADIA_DATA_DIR; the body gets `ac` and its
+// The bench writes `bench-cmd.js` (first line `// <id>`) into ARDIA_DATA_DIR; the body gets `ac` and its
 // return value (or promise) lands in `bench-result.json`. Polling stops while the bench measures idle
 // (`ac.pause(ms)`), so the channel adds no wakeups to what it measures.
 // First: nothing the app sends leaves this machine (see bench-offline.js).

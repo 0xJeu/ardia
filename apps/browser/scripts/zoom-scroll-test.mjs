@@ -2,7 +2,7 @@
 // CDP's Input.dispatchMouseEvent reaches the renderer directly, past the app's event monitor that
 // makes this decision, so the scrolls go through AppKit's dispatch instead (ACZoom devScroll),
 // each claiming the device it comes from.
-// usage: node zoom-scroll-test.mjs <Debug Arcadia.app> [cdpPort]
+// usage: node zoom-scroll-test.mjs <Debug Ardia.app> [cdpPort]
 // One line per check; the details go to zoom-scroll-test.log beside the instance's data.
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -12,7 +12,7 @@ import { launch, reporter, session, sleep } from "../../../scripts/lib/instance.
 
 const [appArg, port] = process.argv.slice(2);
 if (!appArg) {
-  console.error("usage: node zoom-scroll-test.mjs <Debug Arcadia.app> [cdpPort]");
+  console.error("usage: node zoom-scroll-test.mjs <Debug Ardia.app> [cdpPort]");
   process.exit(2);
 }
 const scratch = mkdtempSync(join(tmpdir(), "ac-zoom-scroll-"));
@@ -31,7 +31,7 @@ try {
   app = await launch(resolve(appArg), {
     data, port,
     session: session({ tabs: [{ id: "t1", url, title: "tall" }] }),
-    ready: "return !!globalThis.expo.modules.ArcadiaCEF.devScrollZoom",
+    ready: "return !!globalThis.expo.modules.ArdiaCEF.devScrollZoom",
   });
   const ac = (body) => app.eval(body, { timeout: 60000 });
   for (let i = 0; i < 60 && !(await ac(`return ac.store.getState().tabs.t1?.title === "tall";`)); i++) await sleep(500);
@@ -42,7 +42,7 @@ try {
     await ac(`return ac.webviews.get("t1")?.zoomStep(0);`);
     for (let i = 0; i < 20 && (await zoom()) !== 1; i++) await sleep(200);
   };
-  const scroll = (steps) => ac(`return globalThis.expo.modules.ArcadiaCEF.devScrollZoom(${JSON.stringify(steps)});`);
+  const scroll = (steps) => ac(`return globalThis.expo.modules.ArdiaCEF.devScrollZoom(${JSON.stringify(steps)});`);
   const gesture = (trackpad) => [
     { phase: "mayBegin", dy: 0, trackpad },
     { phase: "began", dy: 12, trackpad },

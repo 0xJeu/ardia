@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
 
 // scripts/agent/cpu-cap keeps our processes on background QoS (efficiency cores) and SIGSTOPs the busiest while the Mac is
 // over its cap. Frame timings from a run it touched are invalid: its log says when it paused one of this run's processes.
-const CAP_LOG = process.env.AC_CPU_CAP_LOG ?? "/private/tmp/claude-501/-Users-barreloflube-Documents-arcadia/a6e87140-35e6-4a65-85e0-018a5c019c75/scratchpad/cpu-cap.log";
+const CAP_LOG = process.env.AC_CPU_CAP_LOG ?? "/private/tmp/claude-501/-Users-barreloflube-Documents-ardia/a6e87140-35e6-4a65-85e0-018a5c019c75/scratchpad/cpu-cap.log";
 const capRunning = () => spawnSync("pgrep", ["-f", "scripts/agent/cpu-cap"]).status === 0;
 const capSize = () => {
   try {

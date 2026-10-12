@@ -6,7 +6,7 @@ final class NotificationHub: NSObject, UNUserNotificationCenterDelegate {
 
   var onResponse: ((String, String, [String: Any]) -> Void)?
   private var pending: [(String, String, [String: Any])] = []
-  private static let dismissibleCategory = "arcadia.dismissible"
+  private static let dismissibleCategory = "ardia.dismissible"
 
   private var center: UNUserNotificationCenter { .current() }
 

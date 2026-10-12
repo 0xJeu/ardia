@@ -2,7 +2,7 @@
 // off into a new window, and a window's last tab dragged onto another window, recorded off the screen at 60 fps in a
 // hidden instance.
 //
-//   node apps/browser/scripts/windowing-test.mjs <Debug Arcadia.app> [--port=9483] [--keep-data]
+//   node apps/browser/scripts/windowing-test.mjs <Debug Ardia.app> [--port=9483] [--keep-data]
 //
 // Each frame is the instance's own windows as the screen composites them (windowing-rec.swift, built here with
 // swiftc). A frame that shows neither the state before a change nor the one after it is a glitch: the old page
@@ -27,7 +27,7 @@ import { launch, reporter, session, sleep } from "../../../scripts/lib/instance.
 const args = process.argv.slice(2);
 const appArg = args.find((a) => !a.startsWith("--"));
 if (!appArg) {
-  console.error("usage: node windowing-test.mjs <Debug Arcadia.app> [--port=<DevTools port>] [--keep-data]");
+  console.error("usage: node windowing-test.mjs <Debug Ardia.app> [--port=<DevTools port>] [--keep-data]");
   process.exit(2);
 }
 const appPath = resolve(appArg);
@@ -64,7 +64,7 @@ const fixture = () => session({
 
 let app = null;
 const HELPERS = `
-const C = globalThis.expo.modules.ArcadiaCEF;
+const C = globalThis.expo.modules.ArdiaCEF;
 const st = () => ac.store.getState();
 const win = (id) => C.chromeWindows().then((ws) => { const f = st().windows[id].frame; const w = ws.filter((w) => w.hasRoot).find((w) => { const r = w.frame.match(/[-\\d.]+/g).map(Number); return Math.abs(r[0] - f[0]) < 2 && Math.abs(r[2] - f[2]) < 2; }); return w && w.window; });
 const act = (id, a) => win(id).then((n) => C.devWindow(n, a));

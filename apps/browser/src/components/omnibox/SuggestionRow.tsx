@@ -1,5 +1,5 @@
-import { displayUrl, type Suggestion } from "@arcadia/core";
-import { Symbol } from "@arcadia/shell";
+import { displayUrl, type Suggestion } from "@ardia/core";
+import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";

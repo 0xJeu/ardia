@@ -1,5 +1,5 @@
-import { engineHost, type SearchEngine } from "@arcadia/core";
-import { Symbol } from "@arcadia/shell";
+import { engineHost, type SearchEngine } from "@ardia/core";
+import { Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
@@ -56,7 +56,7 @@ export function SearchPane() {
 
       {fromExtensions.length > 0 && (
         <>
-          <SectionHeader title="Extensions" description="Some extensions can add search engines to Arcadia." />
+          <SectionHeader title="Extensions" description="Some extensions can add search engines to Ardia." />
           <Group>
             {fromExtensions.map((e) => (
               <EngineRow key={e.id} engine={e} selected={selectedId === e.id} locked={locked} />

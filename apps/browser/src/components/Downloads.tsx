@@ -1,5 +1,5 @@
-import { cancelDownload, pauseDownload, resumeDownload, type Download } from "@arcadia/arcadiacore";
-import { ContextMenuArea, copyText, fileExists, fileIcon, MouseArea, moveToTrash, openFile, revealFile, showMenu, Surface, Symbol, type MenuItem } from "@arcadia/shell";
+import { cancelDownload, pauseDownload, resumeDownload, type Download } from "@ardia/ardiacore";
+import { ContextMenuArea, copyText, fileExists, fileIcon, MouseArea, moveToTrash, openFile, revealFile, showMenu, Surface, Symbol, type MenuItem } from "@ardia/shell";
 import { memo, useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { hex, layout, useTheme } from "../lib/theme";

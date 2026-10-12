@@ -1,4 +1,4 @@
-import { Symbol } from "@arcadia/shell";
+import { Symbol } from "@ardia/shell";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";

@@ -1,4 +1,4 @@
-import { Symbol } from "@arcadia/shell";
+import { Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTheme } from "../../lib/theme";

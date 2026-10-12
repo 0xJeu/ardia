@@ -120,7 +120,7 @@ export const removeDocument = (name) => docs.delete(name);
 export const chromeWindows = () => Promise.resolve([]);
 export const devWindowAction = () => Promise.resolve("");
 export const engineInfo = () => Promise.resolve(null);
-// //chrome/browser/arcadia's calls (packages/arcadiacore/src/engine.ts): a test installs globalThis.acTestEngineCall.
+// //chrome/browser/ardia's calls (packages/ardiacore/src/engine.ts): a test installs globalThis.acTestEngineCall.
 export const engineCall = (name, profile, args) => globalThis.acTestEngineCall?.(name, profile, args) ?? Promise.resolve({});
 export const prepareTabTransfer = () => {};
 export const releaseTabTransfer = () => {};

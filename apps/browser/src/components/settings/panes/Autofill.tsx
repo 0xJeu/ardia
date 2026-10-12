@@ -11,8 +11,8 @@ import {
   setAutofillSettings,
   type SavedAddress,
   type SavedCard,
-} from "@arcadia/arcadiacore";
-import { confirm, copyText, Symbol } from "@arcadia/shell";
+} from "@ardia/ardiacore";
+import { confirm, copyText, Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";

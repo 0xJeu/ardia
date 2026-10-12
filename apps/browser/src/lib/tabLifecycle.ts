@@ -1,5 +1,5 @@
-import { listTasks, onSystemState, releaseProfile, systemState, type SystemState, type WebViewHandle } from "@arcadia/arcadiacore";
-import { onAppEvent, onWindowEvent } from "@arcadia/shell";
+import { listTasks, onSystemState, releaseProfile, systemState, type SystemState, type WebViewHandle } from "@ardia/ardiacore";
+import { onAppEvent, onWindowEvent } from "@ardia/shell";
 import { create } from "zustand";
 import { pageOf, usePages } from "../components/layout/pageState";
 import { showToast } from "../components/layout/splitActions";

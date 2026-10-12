@@ -1,5 +1,5 @@
-import { breadcrumb, urlForDisplay } from "@arcadia/core";
-import { ContextMenuArea, FadeLabel, MouseArea, Symbol, WindowDragRegion } from "@arcadia/shell";
+import { breadcrumb, urlForDisplay } from "@ardia/core";
+import { ContextMenuArea, FadeLabel, MouseArea, Symbol, WindowDragRegion } from "@ardia/shell";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";

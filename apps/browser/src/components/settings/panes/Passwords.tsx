@@ -11,8 +11,8 @@ import {
   unlockPasswords,
   updatePassword,
   type SavedPassword,
-} from "@arcadia/arcadiacore";
-import { confirm, copyText, Symbol, systemInfo } from "@arcadia/shell";
+} from "@ardia/ardiacore";
+import { confirm, copyText, Symbol, systemInfo } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
@@ -29,8 +29,8 @@ import { closeSettingsSheet, showSettingsSheet } from "../sheet";
 function passwordManagerAppsNote() {
   const apps = "1Password, Bitwarden, KeePassXC and Proton Pass extensions connect to their Mac apps.";
   return systemInfo().inApplicationsFolder === false
-    ? `${apps} For 1Password, move Arcadia to your Applications folder and reopen it (1Password only connects to browsers there), then in the 1Password app open Settings › Browser › Add Browser and choose it.`
-    : `${apps} For 1Password, add Arcadia once: in the 1Password app, open Settings › Browser › Add Browser and choose Arcadia.`;
+    ? `${apps} For 1Password, move Ardia to your Applications folder and reopen it (1Password only connects to browsers there), then in the 1Password app open Settings › Browser › Add Browser and choose it.`
+    : `${apps} For 1Password, add Ardia once: in the 1Password app, open Settings › Browser › Add Browser and choose Ardia.`;
 }
 
 const UNLOCK_MS = 5 * 60_000;

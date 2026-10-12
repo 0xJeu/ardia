@@ -1,4 +1,4 @@
-import { FadeLabel } from "@arcadia/shell";
+import { FadeLabel } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
@@ -95,7 +95,7 @@ function SignIn({ denied }: { denied: boolean }) {
   if (denied) {
     return (
       <Text style={{ fontSize: 12.5, lineHeight: 17, color: theme.textSecondary, paddingVertical: 4 }}>
-        Allow Arcadia in System Settings › Privacy & Security › Calendars to see your meetings here.
+        Allow Ardia in System Settings › Privacy & Security › Calendars to see your meetings here.
       </Text>
     );
   }

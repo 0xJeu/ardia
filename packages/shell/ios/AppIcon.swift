@@ -7,7 +7,7 @@ enum AppIcons {
     let name: String
     let plate: (top: NSColor, bottom: NSColor)?
     let mono: Bool
-    // The hills' colour on the plate: AppIconMark-<tint> (docs/brand/arcadia/build.py); nil keeps the green painting.
+    // The hills' colour on the plate: AppIconMark-<tint> (docs/brand/ardia/build.py); nil keeps the green painting.
     var tint: String? = nil
   }
 

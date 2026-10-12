@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arcadia's changes to the Chromium tree, in the order `series` gives.
+"""Ardia's changes to the Chromium tree, in the order `series` gives.
 
   series.py apply [--phase chromium]             apply to the tree; skips what is already applied
   series.py check [--keep DIR]                   apply the whole series to a scratch copy of the base and
@@ -86,7 +86,7 @@ def layer_paths(layer):
     m = re.search(r"^owned=\(([^)]*)\)", script, re.M)
     dirs = m.group(1).split() if m else []
     for path in re.findall(r'"\$src/([A-Za-z0-9_./-]+)"', script):
-        path = path.rstrip("/")  # "$src/arcadia/" (an rsync target) is the directory "arcadia"
+        path = path.rstrip("/")  # "$src/ardia/" (an rsync target) is the directory "ardia"
         if os.path.isdir(os.path.join(layer, "src", path)):
             dirs.append(path)
         else:

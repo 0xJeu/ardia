@@ -8,7 +8,7 @@ import {
   systemCalendars,
   type CalendarAuthorization,
   type SystemCalendar,
-} from "@arcadia/shell";
+} from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import type { CalendarEvent } from "./meetings";
@@ -41,7 +41,7 @@ type Fixture = {
 
 const fixtureMode = (() => {
   try {
-    return typeof __DEV__ !== "undefined" && __DEV__ && launchEnvironment("ARCADIA_CALENDAR_FIXTURE") === "1";
+    return typeof __DEV__ !== "undefined" && __DEV__ && launchEnvironment("ARDIA_CALENDAR_FIXTURE") === "1";
   } catch {
     return false;
   }

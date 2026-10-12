@@ -2,7 +2,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-// A test instance (ARCADIA_DATA_DIR set, as an absolute path) keeps the app's own state in that directory: its
+// A test instance (ARDIA_DATA_DIR set, as an absolute path) keeps the app's own state in that directory: its
 // defaults (+[NSUserDefaults standardUserDefaults] is its <dir>/Preferences/<bundle id>.plist, for the app, Sparkle,
 // React Native and AppKit alike), its keychain items and its update checks. Nil in the owner's app, which is untouched.
 FOUNDATION_EXPORT NSString *_Nullable ACIsolatedDataDirectory(void);

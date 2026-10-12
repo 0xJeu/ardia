@@ -14,8 +14,8 @@ import {
   type ExtensionInstallPrompt,
   type ExtensionPackage,
   type InstalledExtension,
-} from "@arcadia/arcadiacore";
-import { confirm, showMenu } from "@arcadia/shell";
+} from "@ardia/ardiacore";
+import { confirm, showMenu } from "@ardia/shell";
 import { openWindow } from "../../lib/actions";
 import { webviews } from "../../lib/webviews";
 import { useBrowser, type BrowserState } from "../../store/browser";

@@ -100,15 +100,15 @@ test("cleanUrl keeps the rest of the URL exactly as it was", () => {
   assert.equal(cleanUrl("https://user:pw@example.com:8443/p?utm_term=x&k"), "https://user:pw@example.com:8443/p?k");
 });
 
-test("displayed URLs say arcadia://, never chrome://", () => {
-  assert.equal(urlForDisplay("arcadia://version/"), "arcadia://version");
-  assert.equal(urlForDisplay("chrome://version/"), "arcadia://version");
-  assert.equal(urlForDisplay("chrome://settings/languages"), "arcadia://settings/languages");
-  assert.equal(urlForDisplay("arcadia://history/?q=a"), "arcadia://history?q=a");
-  assert.equal(displayUrl("chrome://gpu/"), "arcadia://gpu");
-  assert.deepEqual(breadcrumb("arcadia://version/", "About Version"), { host: "arcadia://version", trail: ["About Version"] });
-  assert.deepEqual(breadcrumb("arcadia://history", "History"), { host: "arcadia://history", trail: [] });
-  assert.deepEqual(breadcrumb("chrome://flags/", "Experiments"), { host: "arcadia://flags", trail: ["Experiments"] });
+test("displayed URLs say ardia://, never chrome://", () => {
+  assert.equal(urlForDisplay("ardia://version/"), "ardia://version");
+  assert.equal(urlForDisplay("chrome://version/"), "ardia://version");
+  assert.equal(urlForDisplay("chrome://settings/languages"), "ardia://settings/languages");
+  assert.equal(urlForDisplay("ardia://history/?q=a"), "ardia://history?q=a");
+  assert.equal(displayUrl("chrome://gpu/"), "ardia://gpu");
+  assert.deepEqual(breadcrumb("ardia://version/", "About Version"), { host: "ardia://version", trail: ["About Version"] });
+  assert.deepEqual(breadcrumb("ardia://history", "History"), { host: "ardia://history", trail: [] });
+  assert.deepEqual(breadcrumb("chrome://flags/", "Experiments"), { host: "ardia://flags", trail: ["Experiments"] });
 });
 
 // Chrome's AutocompleteInput::Parse (components/omnibox/browser/autocomplete_input.cc): a host with a port is a URL, a

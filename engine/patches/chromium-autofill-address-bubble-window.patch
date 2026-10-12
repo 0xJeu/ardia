@@ -1,4 +1,4 @@
-Autofill's address bubbles (and the save-card bubble) show in a Browser without a BrowserView: ArcadiaCore's have
+Autofill's address bubbles (and the save-card bubble) show in a Browser without a BrowserView: ArdiaCore's have
 their own BrowserWindow. Includes CEF's chrome_autofill_bubble_3796 (no window: no bubble, instead of a CHECK
 or a null dereference), folded in when CEF left the tree.
 --- a/chrome/browser/ui/autofill/address_bubbles_controller.cc
@@ -15,8 +15,8 @@ or a null dereference), folded in when CEF left the tree.
  
  namespace {
  
-+// Arcadia: FindBrowserWindowWithWebContents finds a BrowserView only; a Browser
-+// without one (ArcadiaCore's) has its own BrowserWindow, which shows the bubbles.
++// Ardia: FindBrowserWindowWithWebContents finds a BrowserView only; a Browser
++// without one (ArdiaCore's) has its own BrowserWindow, which shows the bubbles.
 +BrowserWindow* FindBubbleWindow(content::WebContents* web_contents) {
 +  if (BrowserWindow* window =
 +          BrowserWindow::FindBrowserWindowWithWebContents(web_contents)) {

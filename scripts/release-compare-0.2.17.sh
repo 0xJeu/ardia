@@ -1,14 +1,14 @@
 #!/bin/bash
 # Release day: 0.2.17 against the release candidate, as the table the release notes carry under "## Faster".
 #
-#   scripts/release-compare-0.2.17.sh <rc Arcadia.app> <out dir>      (about 45 minutes; run it in the background)
+#   scripts/release-compare-0.2.17.sh <rc Ardia.app> <out dir>      (about 45 minutes; run it in the background)
 #
-# The RC is dist/<v>-rc/export/Arcadia.app from `scripts/release.sh <v> --rc`, built from this working tree (its bench
+# The RC is dist/<v>-rc/export/Ardia.app from `scripts/release.sh <v> --rc`, built from this working tree (its bench
 # bundle is built from the tree, so check the tree is the RC's). Prints the table (Markdown) last and leaves it in
 # <out>/table.md (<out>/perf-gate/ when <out> has no /perf-gate/ in its path); <out>/table-detail.md has every row with min–max and runs, for judging the gate.
 #
 # What it does, all under the perflab lock, nothing launched with plain `open`, the owner's /Applications app untouched:
-#   1. fetches 0.2.17's own release zip once (cached in $AC_COMPARE_CACHE, default ~/.cache/arcadia/perf-gate/0.2.17:
+#   1. fetches 0.2.17's own release zip once (cached in $AC_COMPARE_CACHE, default ~/.cache/ardia/perf-gate/0.2.17:
 #      the path has to contain /perf-gate/ so scripts/agent/cpu-cap leaves these instances at normal QoS) and builds its
 #      bench bundle from its own source (apps/browser/scripts/perf/legacy-bundle.mjs -> dist/0.2.17/bench/main.jsbundle);
 #   2. native-bench interleaved, both apps, run by run: launch x8, then session x2 (idle, memory, tab switch, new tab,
@@ -35,9 +35,9 @@ case "$(cd "$RC" && pwd -P)" in /Applications/*) echo "never the owner's /Applic
 RC=$(cd "$RC" && pwd -P); mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd -P)
 
 OLD=0.2.17
-CACHE=${AC_COMPARE_CACHE:-$HOME/.cache/arcadia/perf-gate/$OLD}
+CACHE=${AC_COMPARE_CACHE:-$HOME/.cache/ardia/perf-gate/$OLD}
 case "$CACHE" in */perf-gate/*) ;; *) echo "AC_COMPARE_CACHE must contain /perf-gate/ (cpu-cap keeps normal QoS for those paths)" >&2; exit 64 ;; esac
-# The instances run from <out>/…/app/Arcadia.app: that path needs /perf-gate/ too.
+# The instances run from <out>/…/app/Ardia.app: that path needs /perf-gate/ too.
 case "$OUT" in */perf-gate/*) ;; *) OUT=$OUT/perf-gate; mkdir -p "$OUT" ;; esac
 NEW=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$RC/Contents/Info.plist")
 [ -n "$NEW" ] || { echo "can't read the RC's version" >&2; exit 66; }
@@ -46,9 +46,9 @@ BUNDLE_OLD=$REPO/dist/$OLD/bench/main.jsbundle
 log() { echo "[compare $(date +%H:%M:%S)] $*"; }
 
 # 1. The old release: its own zip from our GitHub release, and its own bench bundle.
-if [ ! -d "$CACHE/Arcadia.app" ]; then
-  log "downloading Arcadia-$OLD.zip (our own release asset)"
-  mkdir -p "$CACHE" && (cd "$CACHE" && gh release download "v$OLD" -R mantrakp04/arcadia -p "Arcadia-$OLD.zip" --clobber && ditto -x -k "Arcadia-$OLD.zip" .) || exit 1
+if [ ! -d "$CACHE/Ardia.app" ]; then
+  log "downloading Ardia-$OLD.zip (our own release asset)"
+  mkdir -p "$CACHE" && (cd "$CACHE" && gh release download "v$OLD" -R mantrakp04/ardia -p "Ardia-$OLD.zip" --clobber && ditto -x -k "Ardia-$OLD.zip" .) || exit 1
 fi
 if [ ! -f "$BUNDLE_OLD" ]; then
   log "building $OLD's bench bundle from its own tree"
@@ -65,7 +65,7 @@ exec caffeinate -d scripts/agent/locked perflab --wait 3000 --as compare -- bash
 set -uo pipefail
 cd "$REPO"
 log() { echo "[compare $(date +%H:%M:%S)] $*"; }
-NB="node $PERF/native-bench.mjs --app $RC --label $NEW --control $CACHE/Arcadia.app --control-label $OLD --control-bundle $BUNDLE_OLD $RC_BUNDLE_FLAG --idle $IDLE"
+NB="node $PERF/native-bench.mjs --app $RC --label $NEW --control $CACHE/Ardia.app --control-label $OLD --control-bundle $BUNDLE_OLD $RC_BUNDLE_FLAG --idle $IDLE"
 log "launch, session, windows: $OLD and $NEW interleaved"
 $NB --out $OUT/nb --port 9770 --only launch,session,windows --launch-runs $LAUNCH_RUNS --runs $RUNS || exit 1
 log "tab switches, right after the tabs open (0.2.17 freezes background tabs after a minute; a full session switches late)"

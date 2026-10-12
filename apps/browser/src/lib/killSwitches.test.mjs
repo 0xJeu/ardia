@@ -52,7 +52,7 @@ test("a cached value is read synchronously; unknown names and non-booleans are i
   assert.equal(ks.switchOn("sidebarSlide"), true);
 });
 
-test("ARCADIA_SWITCHES text parses to values, and ignores what it doesn't know", () => {
+test("ARDIA_SWITCHES text parses to values, and ignores what it doesn't know", () => {
   assert.deepEqual(ks.parseOverride("sidebarSlide=off, lazySidebarRows=on,nope=off,newTabPrewarm=maybe,=1"), {
     sidebarSlide: false,
     lazySidebarRows: true,
@@ -68,7 +68,7 @@ test("a fetch asks for the plain URL (no cookies, no query), saves the answer, a
     return answer(file({ sidebarSlide: false, lazySidebarRows: false }))();
   };
   assert.equal(await ks.refreshSwitches(fetchFn), "updated");
-  assert.equal(asked.url, "https://netnyahoo.com/switches.json");
+  assert.equal(asked.url, "https://ardia.dev/switches.json");
   assert.equal(asked.init.credentials, "omit");
   assert.equal(asked.init.headers, undefined);
   assert.ok(!asked.url.includes("?"));
