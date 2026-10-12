@@ -64,6 +64,26 @@ test("session.json's hint is what the next launch claims", () => {
   assert.deepEqual(launchTab(S(), S().ui.focusedWindowId), saved.launchTab);
 });
 
+test("a reopened tab not shown yet keeps its back/forward list across a relaunch; nothing else pending does", () => {
+  const waking = (id, wakeAdoptId, profileId) => ({ ...tab(id, "w1", `https://${id}.com/`, profileId), wakeAdoptId });
+  hydrate(
+    [win("w1", ["a", "b", "c", "p"], "a")],
+    [tab("a", "w1", "https://a.com/"), waking("b", "restore:old-b"), waking("c", "tab:42"), waking("p", "restore:old-p", "incognito:w9@default")],
+    { focusedWindowId: "w1" },
+  );
+  flushPersistence();
+  const saved = Object.fromEntries(JSON.parse(stub.docs.get("session.json")).tabs.map((t) => [t.id, t.wakeAdoptId]));
+  assert.deepEqual(saved, { a: undefined, b: "restore:old-b", c: undefined, p: undefined }, "only a regular tab's restore");
+  S().hydrate(loadSession());
+  assert.equal(S().tabs.b.wakeAdoptId, "restore:old-b");
+  S().activate("b");
+  assert.equal(S().tabs.b.adoptId, "restore:old-b", "shown, it wakes with its list");
+  // A launch never starts such a tab's page afresh: no hint, no claim.
+  S().updateTab("b", { adoptId: undefined, wakeAdoptId: "restore:old-b" });
+  S().setFocusedWindow("w1");
+  assert.equal(launchTab(S(), "w1"), null);
+});
+
 test("no hint when the next launch won't restore the session", () => {
   hydrate([win("w1", ["a"], "a")], [tab("a", "w1", "https://a.com/")], { focusedWindowId: "w1" });
   S().updateSettings({ restoreSession: false });

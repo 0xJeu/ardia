@@ -2,7 +2,7 @@ import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { autoGroupName } from "./groupNames";
 import { leaveGroups, orderSections, placeBlock, syncGroupOrder } from "./groups";
-import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, restoreId, snapshotTab, viewTabIds, without } from "./model";
+import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, pendingRestore, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedGroup, ClosedTab, Tab, TabGroup } from "./types";
 
@@ -197,6 +197,7 @@ function closedEntries(s: BrowserState, ids: string[]): ClosedTab[] {
         id: newId("ct"),
         tab: snapshotTab(t),
         tabId: t.id,
+        ...(pendingRestore(t) ? { restoreFrom: pendingRestore(t) } : {}),
         windowId: t.windowId,
         index: s.windows[t.windowId]?.tabIds.indexOf(t.id) ?? 0,
         group: group ? { id: group.id, name: group.name, icon: group.icon, color: group.color } : null,
@@ -237,7 +238,7 @@ export function closingGroup(s: BrowserState, groupId: string, deleted = false):
     id: newId("cg"),
     group: { id: g.id, name: groupLabel(s, g), icon: g.icon, color: g.color, pinned: g.pinned },
     tabs: g.tabIds.map((id) => snapshotTab(s.tabs[id]!)),
-    tabIds: g.tabIds,
+    tabIds: g.tabIds.map((id) => pendingRestore(s.tabs[id]!) ?? id),
     windowId: w.id,
     index: w.tabIds.indexOf(g.tabIds[0]!),
     closedAt: Date.now(),
@@ -596,7 +597,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       // A private tab only ever goes back to its own private window.
       const windowId = privateId ? (next.windows[privateId]?.incognito ? privateId : undefined) : restoreTarget(next, e.windowId);
       if (!windowId || (isIncognitoProfile(e.tab.profileId) && e.windowId !== windowId)) continue;
-      const [restored, [id]] = restoreSnapshots(next, windowId, [{ tab: e.tab, tabId: e.tabId, index: windowId === e.windowId ? e.index : undefined }]);
+      const [restored, [id]] = restoreSnapshots(next, windowId, [{ tab: e.tab, tabId: e.restoreFrom ?? e.tabId, index: windowId === e.windowId ? e.index : undefined }]);
       next = restored;
       const g = e.group && next.groups[e.group.id];
       if (id && g && g.windowId === windowId) {

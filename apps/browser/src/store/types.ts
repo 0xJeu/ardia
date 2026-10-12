@@ -126,6 +126,8 @@ export type ClosedTab = {
   id: string;
   tab: TabSnapshot;
   tabId?: string;
+  // The id its back/forward list is under, when not tabId: a reopened tab closed again before it was shown.
+  restoreFrom?: string;
   windowId: string;
   index: number;
   group: Pick<TabGroup, "id" | "name" | "icon" | "color"> | null;
@@ -153,7 +155,8 @@ export type ClosedGroup = {
   id: string;
   group: Pick<TabGroup, "id" | "name" | "icon" | "color" | "pinned">;
   tabs: TabSnapshot[];
-  // The tabs' ids, by `tabs`' index: reopened, each takes its back/forward list back (absent from older entries).
+  // The ids each tab's back/forward list is under (its own, or a reopened tab's not shown since), by `tabs`' index;
+  // absent from older entries.
   tabIds?: string[];
   windowId: string;
   index: number;

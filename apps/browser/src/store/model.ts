@@ -9,6 +9,9 @@ let counter = 0;
 export const newId = (prefix: string) => `${prefix}-${launch}-${(++counter).toString(36)}`;
 // A closed tab's back/forward list is Chrome's (TabRestoreService), which the engine finds by the closed tab's id.
 export const restoreId = (tabId: string) => `restore:${tabId}`;
+// The id Chrome closed a tab's page under, when it isn't the tab's own: a reopened tab not shown since wakes with it.
+export const pendingRestore = (t: Pick<Tab, "wakeAdoptId">): string | undefined =>
+  t.wakeAdoptId?.startsWith("restore:") ? t.wakeAdoptId.slice("restore:".length) : undefined;
 
 let navSeq = 0;
 export const navigationTo = (url: string, userInitiated = false) => ({ url, seq: ++navSeq, ...(userInitiated ? { userInitiated } : {}) });

@@ -21,7 +21,10 @@ const serialized =
   (s: BrowserState): string =>
     JSON.stringify(serialize(s));
 
-const persistedTab = ({ navigation: _n, adoptId: _a, wakeAdoptId: _w, ...t }: Tab) => t;
+// A reopened tab not shown since keeps the back/forward list it will wake with (Chrome's TabRestoreService, on disk);
+// a private tab never has one (its closed tabs aren't kept), and no other pending adoption outlives the launch.
+const persistedTab = ({ navigation: _n, adoptId: _a, wakeAdoptId, ...t }: Tab) =>
+  wakeAdoptId?.startsWith("restore:") && !isIncognitoProfile(t.profileId) ? { ...t, wakeAdoptId } : t;
 const publicTab = (t: { profileId: string }) => !isIncognitoProfile(t.profileId);
 
 const DOCS: Doc[] = [

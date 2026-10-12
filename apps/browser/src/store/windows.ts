@@ -9,6 +9,7 @@ import {
   makeTab,
   navigationTo,
   newId,
+  pendingRestore,
   pinnedFirst,
   resolveWindowId,
   restoreId,
@@ -173,7 +174,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
         id: newId("cw"),
         window: { profileId: w.profileId, sidebarOpen: w.sidebarOpen, frame: w.frame },
         // A tab with a page keeps its id: the engine holds its back/forward list under it (NoteClosedTabState).
-        tabs: tabs.map((t) => ({ ...snapshotTab(t), active: active.has(t.id), ...(t.url && (t.navigation || t.adoptId) ? { tabId: t.id } : {}) })),
+        tabs: tabs.map((t) => ({ ...snapshotTab(t), active: active.has(t.id), ...(t.url && (t.navigation || t.adoptId) ? { tabId: t.id } : pendingRestore(t) ? { tabId: pendingRestore(t) } : {}) })),
         groups: Object.values(s.groups)
           .filter((g) => g.windowId === id && !g.pinned)
           .map(({ tabIds: members, windowId: _, ...g }) => ({ ...g, tabIndexes: members.map((t) => tabIds.indexOf(t)) })),
@@ -359,7 +360,7 @@ function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string | null
       url: entry.tab.url || undefined,
       profileId,
       snapshot: { ...entry.tab, pinned: false, profileId },
-      adoptId: entry.tabId && entry.tab.url ? restoreId(entry.tabId) : undefined,
+      adoptId: entry.tabId && entry.tab.url ? restoreId(entry.restoreFrom ?? entry.tabId) : undefined,
     })[0];
   }
   const tile = entry.pinnedTile && entry.tabId ? s.tabs[entry.tabId] : undefined;
@@ -386,7 +387,7 @@ function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string | null
     profileId,
     snapshot: entry.tab,
     index: w.id === entry.windowId ? entry.index : undefined,
-    adoptId: entry.tabId && entry.tab.url ? restoreId(entry.tabId) : undefined,
+    adoptId: entry.tabId && entry.tab.url ? restoreId(entry.restoreFrom ?? entry.tabId) : undefined,
   });
   next = withTab;
   const g = entry.group;

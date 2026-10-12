@@ -210,6 +210,26 @@ test("a reopened group's and cleaned tabs' tabs take their back/forward lists ba
   assert.ok(restored, "the cleaned tab comes back with its list");
 });
 
+test("a reopened tab not shown yet keeps its back/forward list's source through another close", () => {
+  reset();
+  const [w, , b, c] = setup("a", "b", "c");
+  const g = S().createGroup([b, c], { name: "G" });
+  S().closeGroup(g);
+  S().restoreClosed(S().closedGroups.at(-1).id);
+  const [, c2] = Object.values(S().groups).find((x) => x.name === "G").tabIds;
+  assert.equal(S().tabs[c2].wakeAdoptId, `restore:${c}`, "the second tab hasn't been shown");
+  // Closed again before it was shown: its list is still under the first id Chrome saw.
+  S().closeGroup(Object.values(S().groups).find((x) => x.name === "G").id);
+  S().restoreClosed(S().closedGroups.at(-1).id);
+  const [, c3] = Object.values(S().groups).find((x) => x.name === "G").tabIds;
+  assert.equal(S().tabs[c3].wakeAdoptId, `restore:${c}`);
+  // The same for one tab (⇧⌘T) and for a window.
+  S().closeTab(c3);
+  S().reopenClosedTab();
+  const c4 = S().windows[w].tabIds.find((id) => S().tabs[id].url.includes("c.com"));
+  assert.equal(S().tabs[c4].adoptId ?? S().tabs[c4].wakeAdoptId, `restore:${c}`);
+});
+
 test("abandoned New Tab cleanup never closes a window or the tab it shows", () => {
   reset();
   const w = S().createWindow();

@@ -25,5 +25,7 @@ export function launchTab(s: Pick<BrowserState, "windows" | "tabs" | "settings">
   if (!w || w.incognito || w.kind === "small" || s.settings.restoreSession === false) return null;
   const t = s.tabs[w.activeTabIds[w.profileId] ?? ""];
   if (!t || t.windowId !== w.id || t.profileId !== w.profileId || !WEB.test(t.url)) return null;
+  // A tab that wakes with its back/forward list loads through Chrome's restore, not afresh.
+  if (t.wakeAdoptId || t.adoptId) return null;
   return { id: t.id, url: t.url, profile: engineProfile(t.profileId) };
 }
