@@ -5,7 +5,8 @@ and writes sealed files in a folder the user picks; any service that syncs a fol
 between Macs. The default is `iCloud Drive › Ardia Sync`
 (`~/Library/Mobile Documents/com~apple~CloudDocs/Ardia Sync`: iCloud Drive syncs any folder
 under it, with no CloudKit container and no entitlement). Dropbox, a NAS or a USB drive work
-the same way.
+the same way. A Mac that turned sync on before the rename keeps `Netnyahoo Sync`, and one setting up after it is
+offered that folder while it holds the data (`SyncModule.defaultFolder`).
 
 The UX follows Dia's sync (Settings › Account › Sync in Dia 1.50.1; its strings are quoted from
 its binary below). Dia's data sits on its servers and devices pair with a 6-character code; here
@@ -45,7 +46,7 @@ Apple, Dropbox, whoever has the NAS or finds the USB drive, malware that reads c
 
 What they do see (metadata): how many profiles sync (one folder each) and how many devices; when
 and how much each writes (file count, times, sizes to 1 KiB); and that it's Ardia sync data
-(the `ACS1` magic and `.nns` extension).
+(the `NNS1` magic and `.nns` extension).
 
 What they can do: delete or withhold files (denial of service). Withheld files show as
 "waiting for N files to download". They can also replay an old file under its own name, which is
@@ -72,7 +73,8 @@ reset by email, because there's no one to email.
   are all accepted.
 - The wordlist is the standard one; a test checks its SHA-256
   (`2f5eed53…dbda`) and Trezor's reference vectors.
-- Keys: HKDF-SHA256 over the entropy, salt `ardia-sync/v1`.
+- Keys: HKDF-SHA256 over the entropy, salt `netnyahoo-sync/v1`. The magic and the salt keep the app's old name
+  for good: every Mac on any version reads the same files (`LegacyName` in `packages/sync/ios/Core/LegacyMigration.swift`).
   - `file-key` (AES-256-GCM) seals every file.
   - `name-key` (HMAC-SHA256) names folders: the chain tag is `HMAC("chain")` and a scope's tag
     is `HMAC("scope/<scope id>")`, each cut to 128 bits and written in base32.
@@ -100,8 +102,8 @@ synced data in this folder".
       <file id>.nns            128 random bits, base32
 ```
 
-A file is `"ACS1" | nonce (12) | AES-GCM ciphertext | tag (16)`.
-- AAD: `"ACS1" + "<chain>/<scope>/<file>"`.
+A file is `"NNS1" | nonce (12) | AES-GCM ciphertext | tag (16)`.
+- AAD: `"NNS1" + "<chain>/<scope>/<file>"`.
 - Plaintext: `length (u32 BE) | UTF-8 JSON | zero padding` to the next 1024 bytes.
 
 The JSON is one of:

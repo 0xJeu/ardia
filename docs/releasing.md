@@ -41,8 +41,8 @@ deployed with the new entry by the time the update reaches people.
   `xcrun notarytool store-credentials ardia --apple-id <id> --team-id U5L5T3NGVV` (it asks for an
   app-specific password). Without it, the script still builds and signs, but the release is unnotarized and
   Gatekeeper blocks the first launch.
-- The engine: ArdiaCore's `Chromium Framework.framework` built in `~/chromium-build` (`engine/ardiacore/apply.sh`, then
-  `chrome_framework`; `docs/ardiacore-spike.md`), and `pod install` in `apps/browser/macos`.
+- The engine: ArdiaCore's `Chromium Framework.framework` built in `~/chromium-build` (`scripts/agent/engine-build`;
+  `docs/engine-build.md`), and `pod install` in `apps/browser/macos`.
 
 ## Cutting a release
 
@@ -94,8 +94,8 @@ deployed with the new entry by the time the update reaches people.
 5. Deploy the site so `/release-notes` shows the new version (the updated app opens it on its first launch):
    `pnpm -C apps/site run deploy` builds `apps/site` with `SITE_URL=https://ardia.dev` and ships it
    (`infra/site/hexclave.deploy.ts`). Also bump `VERSION` and `DMG_SIZE` in `apps/site/src/data/release.ts`
-   first so the download button points at the new DMG. Deploying is the maintainer's call: an agent cutting
-   a release stops before this step unless told to do it.
+   first so the download button points at the new DMG. The owner has authorized releases to go all the way
+   through, so an agent cutting a release deploys too; a site deploy outside a release needs the owner's OK.
 
 Before publishing, run the smoke test: `.claude/skills/release/scripts/smoke.sh <version> <previous> [--rc]` (the
 `release` skill runs the whole flow). Besides the hidden launch over CDP, it checks the update itself against
@@ -143,6 +143,18 @@ are involved; the real identity and signature are what smoke.sh's other update c
 The framework and its helpers keep Chrome's names (`Chromium Framework`, `Chromium Helper (Renderer)`): they are
 compiled in from the branding file, so renaming them is a full engine rebuild. Their bundle ids and team are ours,
 and the keychain and macOS permissions belong to the app itself, so only Activity Monitor shows the names.
+
+## The rename (0.2.32 → 0.2.33)
+
+Netnyahoo became Ardia. 0.2.32 and earlier are `com.netnyahoo.browser`, executable `Netnyahoo`, polling
+`https://netnyahoo.com/appcast.xml`; 0.2.33 is `com.ardia.browser`, `Ardia` and `https://ardia.dev/appcast.xml`. What
+Sparkle still needs stays: the EdDSA key, the Developer ID team and certificate, and a higher build number. The update
+zip's top folder keeps the installed name (`Netnyahoo.app`: Sparkle finds the new app only under it), and at its first
+launch the app renames itself to `Ardia.app` and moves its data, keychain items and settings across
+(`packages/sync/ios/Core/LegacyMigration.swift`, the only Swift file that spells the old names). `smoke.sh` checks both
+feeds lead to the same appcast and the designated requirement holds under the new id; `update-test.sh` keeps the
+bundle ids apart; `carryover.mjs` drives the old build in its own names. netnyahoo.com stays attached to the site for
+good (`infra/site/hexclave.deploy.ts`).
 
 ## Unnotarized builds
 

@@ -173,7 +173,7 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
 | Visitors and sessions | PostHog ids | same ids reused (posthog-js's stored id), first-party session id | local run |
 | `download-band` experiment | PostHog flag 293364 | first-party bucketing with PostHog's hash; `$feature_flag_called` + `$experiment_exposure` | 1,318/1,318 exposures reproduce |
 | Support chat ("Write to the office") | PostHog conversations | still PostHog's widget, posthog-js loaded on click only | local run |
-| App opt-in telemetry | PostHog `/batch/`, `/i/v1/logs` | OTLP to netnyahoo.com (ships with the next app release) | Node harness against the live endpoint |
+| App opt-in telemetry | PostHog `/batch/`, `/i/v1/logs` | OTLP to ardia.dev (netnyahoo.com before the rename) | Node harness against the live endpoint |
 | Update checks | nginx → PostHog | nginx → collector | live |
 | History (2026-09-29 → switch) | PostHog Cloud | `telemetry.posthog_events`: 76,700 events received by Cloud until 2026-09-30 14:31 UTC, equal to Cloud's count | totals, per-event counts and stats numbers vs Cloud |
 | Stats | PostHog MCP / HogQL | ClickHouse SQL (`.claude/skills/stats/queries.md`) | same numbers as Cloud for the migrated window |

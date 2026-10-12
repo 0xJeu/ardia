@@ -9,7 +9,7 @@ change: `packages/ardiacore` registers the same Expo modules and view names (`Ar
 
 ## Before switching (blockers for the first ArdiaCore release)
 
-Keep this list short and shrinking; each item names its owner.
+The switch shipped in 0.2.22; this was the list it shipped against, kept for the checks each item names.
 
 1. ~~**Cutover commits**~~ done: C1, the fold (8f1074f1: one project, `Ardia-macOS`, `com.ardia.browser`),
    and C2 (6bdf66ce, 4b0d0697: `packages/cef` deleted, its JS in `packages/ardiacore/src`, the patch series in
@@ -105,15 +105,15 @@ needs.
 ## How to build and check it
 
 ```bash
-# Engine (once, and after engine/ardiacore changes): engine/ardiacore/apply.sh, then
-#   scripts/agent/locked chromium -- autoninja -C out/Release_GN_arm64 chrome_framework   (docs/ardiacore-spike.md)
+# Engine (once, and after engine/ changes): both apply.sh, then autoninja, under the chromium lock
+#   scripts/agent/engine-build --as <you>   (docs/engine-build.md)
 # App: apps/browser/macos (the only app project; pod install there after adding native files).
 scripts/agent/build-app --as <you>     # into apps/browser/build-<you>; --help
 # Acceptance, hidden (open -g -n, ARDIA_BACKGROUND=1, a scratch data dir); METRO_PORT is a Metro for this checkout.
 METRO_PORT=8081 node packages/ardiacore/scripts/acceptance.mjs apps/browser/build-<you>/Build/Products/Debug/Ardia.app <scratch dir> [check…]
 ```
 
-The app is the CEF app's (bundle id `com.ardia.browser`, Apple Development signing with the hardened runtime in
+The app (bundle id `com.ardia.browser`, Apple Development signing with the hardened runtime in
 Debug; `scripts/release.sh` signs releases with Developer ID). A Debug build refuses to start without
 `ARDIA_DATA_DIR` (it never falls back to a real profile). A test run hands it its Metro in `ARDIA_JS_LOCATION`
 (that launch's argument domain, never written); never `defaults write com.ardia.browser`, the installed app's. Its build stages a copy of the engine framework
@@ -365,14 +365,13 @@ renderer client (`ACContentRendererClient`) and a mojo interface (`engine/ardiac
 | `ExecuteJavaScript` | `executeJavaScript:` (`:frame:`, `:userGesture:`) | `WebViewHandle.executeJavaScript`, blocked-popup replay |
 | `IsAppURL` checks | A navigation throttle; a Chrome page's `ardia:` link → `tab:didRequestAppURL:userGesture:` → `onOpenWindow` `current` | The app's own pages linked from chrome:// pages |
 
-## Engine C exports (`//chrome/browser/ardia`, shared by both engines)
+## Engine C exports (`//chrome/browser/ardia`)
 
 Plain Chromium code over Chrome's services (`engine/chromium/src/chrome/browser/ardia`, rules in
-`public/ac_engine.h`), linked into CEF's framework and ArdiaCore's. Both apps call them through `dlsym` on the
-framework (`ac::engine::Call` on CEF, `ArdiaCoreEngineBridge`/`ArdiaCoreServices` on ArdiaCore). All of them are wired on
-ArdiaCore:
+`public/ac_engine.h`), linked into ArdiaCore's framework (and, until the cutover, CEF's). The app calls them through
+`dlsym` on the framework (`ArdiaCoreEngineBridge`/`ArdiaCoreServices`). All of them are wired:
 
-| Export | JS functions (`packages/cef`) |
+| Export | JS functions (`packages/ardiacore/src`) |
 |---|---|
 | `ac_engine_abi_version`, `ac_engine_set_event_sink` | `engineCall`, `onEngineEvent` |
 | `ac_passwords_*` (list, unlock, reveal, add, update, remove, exceptions, allow, export) | the password functions |
@@ -388,23 +387,6 @@ ArdiaCore:
 | `ac_history_*`, `ac_favicons_*`, `ac_bookmarks_*` | `history.ts`, `favicons.ts`, `bookmarks.ts` (through `engineCall`) |
 | `ac_tab_restore_tag`, `_take`, `_load` | native: the WebView's attach (and close) and `restore:` |
 | `ac_tabs_watch`, `ac_tabs_group` | tab groups in strip transactions |
-
-## What's left before a release-signed ArdiaCore build can sit next to the CEF build
-
-1. **Engine:** granting an app-picked desktop source to `getUserMedia` (the app's screen-share picker; pages use
-   Chrome's picker meanwhile); document PiP state; Paste and Paste and Match Style are always enabled in the page
-   menu (Chrome's clipboard check is private to its view delegate); a tracing start that fails asynchronously
-   never calls back.
-2. **Signing and packaging:** Developer ID signing with the hardened runtime and the CEF build's entitlements
-   (keychain access group for passwords, camera/mic/screen usage strings), notarization of the app with the
-   framework and its helpers, the framework's name and bundle id (still "Chromium Framework", renamed only at a
-   full engine rebuild), Sparkle and the dock tile left out on purpose until the switch.
-3. **Checks that need an unlocked screen and a visible window** (none can run hidden): the page composited under
-   the RN views; menus, choosers, Cast and bubbles drawn against the window; PiP; IME marked text; VoiceOver; the
-   hang monitor; print and save dialogs; a camera/microphone grant; a mouse text selection; extension popups and
-   side panels as Chrome's extension views in the app's own (their size, focus, the "added" bubble's place).
-4. **Side by side:** the same profile data opened by both builds (they share Chrome's prefs and stores by design)
-   with a scratch copy, a day of the owner's use on the ArdiaCore build, and the partial rows above re-checked there.
 
 ## Status
 
