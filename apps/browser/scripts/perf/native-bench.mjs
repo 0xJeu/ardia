@@ -518,7 +518,8 @@ class Instance {
   // Runs `body` (JS with `ac` in scope) in the app and returns its result.
   async run(body, timeout = +(process.env.BENCH_CMD_TIMEOUT_MS ?? 30_000)) {
     const id = `b${process.pid}-${++this.seq}-${Date.now()}`;
-    writeFileSync(join(this.dataDir, "bench-cmd.js"), `// ${id}\n${body}`);
+    // A bench bundle from before the rename (0.2.32's, as a --control-bundle) hands the body its channel as `nn`.
+    writeFileSync(join(this.dataDir, "bench-cmd.js"), `// ${id}\nvar ac = typeof ac === "undefined" ? nn : ac;\n${body}`);
     const r = await this.waitFile("bench-result.json", timeout, (v) => v.id === id);
     if (!r) throw new Error(`no result for: ${body.slice(0, 80)}`);
     if (r.error) throw new Error(`${r.error} in: ${body.slice(0, 80)}`);

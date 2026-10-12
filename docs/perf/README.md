@@ -60,6 +60,9 @@ row is the same or better.
      next gate can use it as the control. `dist/0.2.21/bench/` and `dist/0.2.22/bench/` hold the bundles from the
      0.2.22 gate.
    - js-bench runs each app's own `Contents/Resources/main.jsbundle`.
+   - 0.2.32 and earlier predate the rename: same version 8, but their native modules are `Netnyahoo*`, so the
+     candidate's bundle can't run on them. Pass `--control-bundle dist/0.2.32/bench/main.jsbundle` (built from
+     `git archive v0.2.32`). Both benches accept a pre-rename bundle's `nn`/`nnPerf` names.
 3. **Interleave the two apps.** Run both in one native-bench process with `--control`. It alternates the apps run
    by run, putting the control first on even runs, so both see the same machine. Don't run the apps as two
    separate jobs. The 0.2.22 gate ran 0.2.21 and the RC 15 minutes apart and chased a launch "regression" that

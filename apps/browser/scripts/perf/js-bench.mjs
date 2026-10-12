@@ -377,6 +377,9 @@ async function run() {
         let ready = false;
         for (let i = 0; i < 30 && !ready; i++) ready = await evaluate(dataDir, pid, "return 1;", 2000).then(() => true, (e) => (String(e).includes("exited") ? Promise.reject(e) : false));
         if (!ready) throw new Error("dev harness never answered");
+        // A bundle from before the rename (0.2.32 and earlier) names the harness's object `nn` and the probe `nnPerf`.
+        await evaluate(dataDir, pid, `if (typeof nn !== "undefined" && typeof ac === "undefined") {
+          globalThis.ac = nn; Object.defineProperty(globalThis, "acPerf", { get: () => globalThis.nnPerf, configurable: true }); } return 1;`);
         for (const lib of libs) await evaluate(dataDir, pid, lib, 60_000);
         for (const name of scenarios) {
           process.stderr.write(`[${label} ${r}] ${name}\n`);
@@ -416,7 +419,7 @@ async function run() {
 // MARK: Summary
 
 // Host wrappers render whenever their parent does; the detail lists the app's own components.
-const HOST = /^(View|Text|Pressable|Image|ScrollView|TextInput|InternalTextInput|Animated\(.*\)|Ardia.*|Surface|Symbol|MouseArea|ContextMenuArea|FadeLabel|VirtualizedList.*|CellRenderer.*)$/;
+const HOST = /^(View|Text|Pressable|Image|ScrollView|TextInput|InternalTextInput|Animated\(.*\)|(Ardia|Netnyahoo).*|Surface|Symbol|MouseArea|ContextMenuArea|FadeLabel|VirtualizedList.*|CellRenderer.*)$/;
 const appOnly = (counter) => Object.fromEntries(Object.entries(counter ?? {}).filter(([k]) => !HOST.test(k)));
 
 const top = (counter, n = 6) =>
