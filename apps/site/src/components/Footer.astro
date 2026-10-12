@@ -5,7 +5,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 <footer class="foot" data-shot="footer">
   <div class="wrap">
-    <p class="poster sign-off">Sign-up <span>not included.</span></p>
+    <p class="poster sign-off">Just a <span>browser.</span></p>
     <div class="cols">
       <nav class="col" aria-label="Project">
         <p class="label h">Project</p>
@@ -63,7 +63,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     line-height: 0.84;
     margin-left: -0.04em;
   }
-  /* When it wraps, it wraps before "not". */
+  /* When it wraps, it wraps before "browser". */
   .sign-off span {
     white-space: nowrap;
   }
@@ -108,9 +108,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     display: none;
   }
   @media (max-width: 800px) {
-    /* Two lines, "SIGN-UP" over "NOT INCLUDED." (~5.3em), edge to edge. */
+    /* Two lines, "JUST A" over "BROWSER." (~3.86em), edge to edge. */
     .sign-off {
-      font-size: calc((100vw - 2 * var(--gutter)) / 5.45);
+      font-size: calc((100vw - 2 * var(--gutter)) / 3.95);
     }
     .col {
       grid-column: 1 / -1;
