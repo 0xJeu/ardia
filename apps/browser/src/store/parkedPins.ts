@@ -1,6 +1,6 @@
 import type { BrowserState } from "./browser";
 import { orderSections, syncGroupOrder } from "./groups";
-import { IDLE_LIVE, makeTab, newId, pinnedFirst, snapshotTab, without } from "./model";
+import { IDLE_LIVE, isIncognitoProfile, makeTab, newId, pendingRestore, pinnedFirst, restoreId, snapshotTab, without } from "./model";
 import { samePage } from "./organize";
 import { pinKeyOf } from "./pinMirror";
 import type { BrowserWindow, HistoryEntry, ParkedPins, Tab, TabGroup } from "./types";
@@ -37,17 +37,23 @@ export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWin
     const groups = [...old.groups];
     const tiles: ParkedPins["tabs"] = [];
     const members: ParkedPins["tabs"] = [];
+    // A reopened tab not shown yet keeps the back/forward list it will wake with, unless it goes back to its pin.
+    const pending = (t: Tab, moved: boolean) => {
+      const from = !moved && !isIncognitoProfile(t.profileId) ? pendingRestore(t) : undefined;
+      return from ? { restoreFrom: from } : {};
+    };
     for (const t of own) {
       if (ids.has(pinKeyOf(t))) continue;
       const g = t.pinned ? undefined : groupOf.get(t.id);
       if (t.pinned) {
-        const tile = { ...snapshotTab(t), ...atPin(t, s.history[profileId] ?? []), id: pinKeyOf(t), groupId: null };
+        const back = atPin(t, s.history[profileId] ?? []);
+        const tile = { ...snapshotTab(t), ...back, ...pending(t, !!back.url), id: pinKeyOf(t), groupId: null };
         if (homes.some((h) => samePage(h, homeOf(tile)))) continue;
         homes.push(homeOf(tile));
         tiles.push(tile);
       } else if (g) {
         if (!groups.some((x) => x.id === pinKeyOf(g))) groups.push({ id: pinKeyOf(g), name: g.name, icon: g.icon, color: g.color, collapsed: g.collapsed });
-        members.push({ ...snapshotTab(t), id: pinKeyOf(t), groupId: pinKeyOf(g) });
+        members.push({ ...snapshotTab(t), ...pending(t, false), id: pinKeyOf(t), groupId: pinKeyOf(g) });
       }
     }
     const oldTiles = old.tabs.filter((p) => !p.groupId);
@@ -66,7 +72,7 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
   const homes = w.tabIds.map((id) => tabs[id]).filter((t): t is Tab => !!t?.pinned && t.profileId === profileId).map(homeOf);
   const members = new Map<string, string[]>();
   const added: string[] = [];
-  for (const { id, groupId, ...snap } of park.tabs) {
+  for (const { id, groupId, restoreFrom, ...snap } of park.tabs) {
     const home = homeOf(snap);
     if (!groupId && homes.some((h) => samePage(h, home))) continue;
     const tab: Tab = {
@@ -75,6 +81,8 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
       ...(tabs[id] ? { id: newId("tab"), pinKey: id } : { id }),
       navigation: null,
       unloaded: true,
+      // The pin's own tab wakes with its list; a copy beside it loads its page (one restore per list).
+      ...(restoreFrom && !tabs[id] ? { wakeAdoptId: restoreId(restoreFrom) } : {}),
     };
     tabs[tab.id] = tab;
     live[tab.id] = IDLE_LIVE;

@@ -246,6 +246,23 @@ test("a pinned group's reopened tab, closed before it was shown, still wakes wit
   assert.equal(S().tabs[c2].adoptId, `restore:${c}`);
 });
 
+test("a pinned group's reopened tab not shown yet keeps its back/forward list through parking in the last window's close", () => {
+  reset();
+  const [w, , b, c] = setup("a", "b", "c");
+  const g = S().groupTabs([b, c], { name: "P" });
+  S().closeGroup(g);
+  S().restoreClosed(S().closedGroups.at(-1).id);
+  const [, c2] = Object.values(S().groups).find((x) => x.name === "P").tabIds;
+  S().closeTab(c2);
+  assert.equal(S().tabs[c2].wakeAdoptId, `restore:${c}`);
+  S().closeWindow(w);
+  assert.ok(S().parkedPins.default, "the profile's pins are parked");
+  const n = S().createWindow();
+  const back = S().windows[n].tabIds.find((id) => S().tabs[id].url.includes("c.com"));
+  S().activate(back);
+  assert.equal(S().tabs[back].adoptId, `restore:${c}`);
+});
+
 test("abandoned New Tab cleanup never closes a window or the tab it shows", () => {
   reset();
   const w = S().createWindow();

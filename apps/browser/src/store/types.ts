@@ -146,7 +146,8 @@ export type ClosedWindow = {
 };
 
 export type ParkedPins = {
-  tabs: (TabSnapshot & { id: string; groupId: string | null })[];
+  // restoreFrom: a reopened tab not shown yet, the id its back/forward list is under (regular profiles only).
+  tabs: (TabSnapshot & { id: string; groupId: string | null; restoreFrom?: string })[];
   groups: Pick<TabGroup, "id" | "name" | "icon" | "color" | "collapsed">[];
 };
 
