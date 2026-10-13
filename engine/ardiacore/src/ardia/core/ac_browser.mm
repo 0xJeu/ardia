@@ -69,11 +69,9 @@
 #include "url/origin.h"
 
 namespace content {
-// RenderWidgetHostViewBase's opacity hook (engine/ardiacore/apply.sh).
 extern bool g_ardia_opacity_from_default_color;
-}  // namespace content
+}
 
-// The hook in declarativeNetRequest's ActionTracker (engine/ardiacore/apply.sh).
 extern void (*g_ardia_dnr_rule_matched)(
     content::BrowserContext* browser_context,
     int tab_id,
@@ -107,8 +105,6 @@ const char* DispositionName(WindowOpenDisposition disposition) {
   }
 }
 
-// --- WindowHost -------------------------------------------------------------------------
-
 namespace {
 
 std::vector<WindowHost*>& Hosts() {
@@ -116,9 +112,6 @@ std::vector<WindowHost*>& Hosts() {
   return *hosts;
 }
 
-// The window's client view: AppKit's close (the title bar's button, -performClose:) and
-// Views' own close requests come here first. The widget closes only once every Browser has;
-// anything else becomes the host's cancellable close.
 class HostClientView : public views::ClientView {
  public:
   HostClientView(views::Widget* widget,
@@ -139,14 +132,12 @@ class HostClientView : public views::ClientView {
   base::WeakPtr<WindowHost> host_;
 };
 
-}  // namespace
+}
 
-// static
 const std::vector<WindowHost*>& WindowHost::All() {
   return Hosts();
 }
 
-// static
 WindowHost* WindowHost::ForNSWindow(NSWindow* window) {
   for (WindowHost* host : Hosts()) {
     if (window && host->ns_window() == window) {
@@ -156,7 +147,6 @@ WindowHost* WindowHost::ForNSWindow(NSWindow* window) {
   return nullptr;
 }
 
-// static
 WindowHost* WindowHost::ForBrowser(const BrowserWindowInterface* browser) {
   return ACBrowserWindow::HostOf(browser);
 }
@@ -186,8 +176,6 @@ WindowHost::WindowHost(ArdiaCoreWindow* owner, const gfx::Rect& bounds)
   widget_->Init(std::move(params));
   widget_->AddObserver(this);
 
-  // The host's views go inside Chrome's content view (the page must stay under it:
-  // RenderWidgetHostViewCocoa hit-tests from it), and are hit-tested first.
   NSWindow* window = ns_window();
   NSView* content = window.contentView;
   host_view_ = [[NSView alloc] initWithFrame:content.bounds];
@@ -206,7 +194,6 @@ WindowHost::~WindowHost() {
   }
   for (auto& [profile, browser] : browsers_) {
     browser->GetTabStripModel()->RemoveObserver(this);
-    // A Browser outliving the widget never reads it again (AddBrowser).
     if (auto* elements = BrowserElementsViews::From(browser)) {
       elements->TearDown();
     }
@@ -221,9 +208,6 @@ WindowHost::~WindowHost() {
 
 namespace {
 
-// Chrome has one active Browser at a time (its last active, whose profile is the last used):
-// the others go inactive first, and one already flagged active is flagged again so Chrome
-// hears of it.
 void ActivateExclusively(Browser* browser) {
   if (browser->IsDeleteScheduled()) {
     return;
@@ -243,13 +227,12 @@ void ActivateExclusively(Browser* browser) {
   state->DidBecomeActive();
 }
 
-// The window that was key last, while none is.
 base::WeakPtr<WindowHost>& LastUsersWindow() {
   static base::NoDestructor<base::WeakPtr<WindowHost>> host;
   return *host;
 }
 
-}  // namespace
+}
 
 bool WindowHost::IsUsersWindow() {
   if (internal_ || !widget_) {
@@ -260,10 +243,9 @@ bool WindowHost::IsUsersWindow() {
   }
   for (WindowHost* host : Hosts()) {
     if (host->widget() && host->widget()->IsActive()) {
-      return false;  // the user's window is another one
+      return false;
     }
   }
-  // None yet (a launch): the first that asks.
   if (!LastUsersWindow()) {
     LastUsersWindow() = GetWeakPtr();
   }
@@ -286,19 +268,13 @@ void WindowHost::RequestActivation(Browser* browser) {
       ExistingBrowserFor(browser->GetProfile()) != browser) {
     return;
   }
-  // The user is in another app: nothing moves (Chrome would activate the app; its activation
-  // from Chrome's side is refused there anyway).
   if (!NSApp.isActive) {
     return;
   }
   if (IsActiveBrowser(browser)) {
-    // As the host focuses its windows: the key window then makes the Browser Chrome's active
-    // one (OnWidgetActivationChanged).
     [ns_window() makeKeyAndOrderFront:nil];
     return;
   }
-  // Another profile's Browser: the host shows its tab (the profile comes with it) and focuses
-  // the window, as for a page asking for its tab.
   content::WebContents* contents = browser->GetTabStripModel()->GetActiveWebContents();
   ArdiaCoreTab* tab = contents ? TabBridge::GetOrCreate(contents)->tab() : nil;
   id<ArdiaCoreTabDelegate> delegate = tab.delegate;
@@ -340,14 +316,12 @@ std::vector<Browser*> WindowHost::browsers() const {
 }
 
 Browser* WindowHost::BrowserFor(Profile* profile) {
-  // A profile that went (a destroyed one's wrapper hands out null) or is going: no Browser.
   if (!profile || IsProfileDying(profile)) {
     return nullptr;
   }
   if (Browser* browser = ExistingBrowserFor(profile)) {
     return browser;
   }
-  // Nor a new one for a profile being deleted (Chrome is closing the ones it has).
   if (IsProfileDeleting(profile)) {
     return nullptr;
   }
@@ -359,7 +333,7 @@ Browser* WindowHost::BrowserFor(Profile* profile) {
   }
   auto* window = new ACBrowserWindow(GetWeakPtr());
   BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_NORMAL,
-                                   *profile, /*from_user_gesture=*/true);
+                                   *profile, true);
   params.window = window;
   params.omit_from_session_restore = true;
   params.should_trigger_session_restore = false;
@@ -375,8 +349,6 @@ BrowserWindow* WindowHost::HostChromeBrowser(Browser* browser) {
       widget_close_allowed_ || ExistingBrowserFor(profile)) {
     return nullptr;
   }
-  // Ours from here (AttachBrowser records it), before Chrome asks for its
-  // WebContentsDelegate.
   auto* window = new ACBrowserWindow(GetWeakPtr());
   window->AttachBrowser(browser);
   AddBrowser(browser);
@@ -386,11 +358,6 @@ BrowserWindow* WindowHost::HostChromeBrowser(Browser* browser) {
 void WindowHost::AddBrowser(Browser* browser) {
   Profile* profile = browser->GetProfile();
   browsers_[profile] = browser;
-  // This window's widget is the Browser's primary window, as a BrowserView's is: Chrome's
-  // tab-modal dialogs (TabDialogManager: FedCM's "Sign in with", Ask before HTTP, the leaked
-  // password warning) parent to and position against it, and segfaulted without one. Chrome
-  // tears it down before the Browser's window goes (TearDownPreBrowserWindowDestruction), and the
-  // widget outlives every Browser (CloseWidget after the last).
   if (auto* elements = BrowserElements::From(browser)) {
     if (auto* views_elements = elements->AsA<BrowserElementsViewsImpl>()) {
       views_elements->Init(widget_->GetRootView());
@@ -412,10 +379,6 @@ void WindowHost::SetActiveProfile(Profile* profile) {
   if (old_browser) {
     BrowserActiveStateManager::From(old_browser)->DidBecomeInactive();
   }
-  // In the user's window, the shown profile's Browser is Chrome's last active one:
-  // chrome.windows' currentWindow, keyboard shortcuts and new tabs from Chrome go to it. A
-  // window in the background (one being made or restored, a profile prepared behind the
-  // user's) never takes that from the user's, and the host's own hidden pages never have it.
   if (Browser* browser = ExistingBrowserFor(profile)) {
     NoteHostActivated(browser);
   }
@@ -461,8 +424,6 @@ void WindowHost::ContinueCloseAttempt(int attempt) {
   ContinueClose();
 }
 
-// As BrowserCloseManager does for the quit: every Browser's beforeunload first, one Browser
-// at a time, and nothing closes until all of them said yes.
 void WindowHost::ContinueClose() {
   if (close_state_ != CloseState::kAsking) {
     return;
@@ -470,11 +431,11 @@ void WindowHost::ContinueClose() {
   asking_ = nullptr;
   for (Browser* browser : browsers()) {
     if (UnloadController::From(browser)->TryToCloseWindow(
-            /*skip_beforeunload=*/false,
+            false,
             base::BindRepeating(&WindowHost::OnBeforeUnloadAnswered,
                                 GetWeakPtr()))) {
       asking_ = browser;
-      return;  // A page is asking; OnBeforeUnloadAnswered continues.
+      return;
     }
   }
   const int downloads = DownloadsCancelledByClose();
@@ -513,7 +474,6 @@ void WindowHost::CancelClose() {
   close_state_ = CloseState::kOpen;
   asking_ = nullptr;
   ++close_attempt_;
-  // Browsers whose pages already agreed go back to normal (their unload handlers won't run).
   for (Browser* browser : browsers()) {
     UnloadController::From(browser)->ResetTryToCloseWindow();
   }
@@ -543,8 +503,6 @@ void WindowHost::CommitClose() {
     CloseWidget();
     return;
   }
-  // Each Browser runs its pages' unload handlers, closes its tabs and is destroyed by
-  // Chrome; BrowserWindowDestroyed closes the widget after the last one.
   for (Browser* browser : browsers()) {
     browser->GetWindow()->Close();
   }
@@ -559,7 +517,6 @@ void WindowHost::CloseWidget() {
     widget_->Close();
   }
   std::erase(Hosts(), this);
-  // The host may have let go of its ArdiaCoreWindow after -close; it goes after this turn.
   ArdiaCoreWindow* owner = owner_ref_;
   owner_ref_ = nil;
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -568,8 +525,6 @@ void WindowHost::CloseWidget() {
 }
 
 int WindowHost::DownloadsCancelledByClose() const {
-  // On the Mac a profile's downloads outlive its windows (the app stays up); an
-  // off-the-record profile's go with its last window.
   int count = 0;
   for (const auto& [profile, browser] : browsers_) {
     if (!profile->IsOffTheRecord()) {
@@ -596,7 +551,6 @@ int WindowHost::DownloadsCancelledByClose() const {
 void WindowHost::ConfirmCloseWithDownloads(int count,
                                            base::OnceCallback<void(bool)> callback) {
   auto answer = std::make_shared<base::OnceCallback<void(bool)>>(std::move(callback));
-  // Never synchronously: Chrome's callers set up their state after asking.
   auto reply = ^(BOOL close_anyway) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(
@@ -640,12 +594,6 @@ void WindowHost::BrowserWindowDestroyed(ACBrowserWindow* window) {
         FROM_HERE, base::BindOnce(&WindowHost::CloseWidget, GetWeakPtr()));
   } else if (was_asking && close_state_ == CloseState::kAsking &&
              !browser_shutdown::IsTryingToQuit()) {
-    // The Browser being asked closed itself (the host closed the tab it was asking: its
-    // UnloadController then closes the Browser and never answers). The close goes on with
-    // the others; without this the window stayed open, hidden, with its compositor (~40 MB
-    // in the browser process and as much in the GPU process, each window the app closed
-    // as its page loaded). A quit owns the asking once it started (its close manager's
-    // callbacks replaced ours): this close then ends with the quit, as QuitCancelled says.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&WindowHost::ContinueCloseAttempt, GetWeakPtr(),
                                   close_attempt_));
@@ -653,10 +601,8 @@ void WindowHost::BrowserWindowDestroyed(ACBrowserWindow* window) {
 }
 
 namespace {
-// Chrome is inside a tab-strip change while it tells the host (its TabStripModel CHECKs
-// against re-entrant changes): the API defers tab-strip changes made from the callbacks.
 int g_tab_strip_notifying = 0;
-}  // namespace
+}
 
 bool IsNotifyingTabStrip() {
   return g_tab_strip_notifying > 0;
@@ -675,7 +621,6 @@ bool OnlyShowedBlank(content::WebContents* contents) {
 
 void CloseBlankTabsBeforeWindowCloses(Browser* browser) {
   TabStripModel* model = browser->GetTabStripModel();
-  // Not from inside a tab-strip change (the strip can't change then).
   if (IsNotifyingTabStrip() || !model) {
     return;
   }
@@ -691,8 +636,6 @@ void WindowHost::ActiveTabChanged(Browser* browser,
   if (!contents) {
     return;
   }
-  // A page of the profile came forward: an "added" bubble waiting for one can show (not from
-  // inside Chrome's tab-strip change).
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&ShowWaitingInstalledBubbles));
   base::AutoReset<int> notifying(&g_tab_strip_notifying,
@@ -753,8 +696,6 @@ void WindowHost::OnTabStripModelChanged(
         continue;
       }
       TabBridge* bridge = TabBridge::FromWebContents(removed.contents);
-      // Closed by the page (window.close()) or by Chrome (an extension's tabs.remove),
-      // not by the host, nor by its window or the quit closing everything.
       Browser* browser = nullptr;
       for (Browser* b : browsers()) {
         if (b->GetTabStripModel() == tab_strip_model) {
@@ -841,7 +782,6 @@ gfx::NativeView WindowHost::GetHostView() const {
 }
 
 gfx::Point WindowHost::GetDialogPosition(const gfx::Size& size) {
-  // Top centre of the page that is showing (Chrome puts tab-modal dialogs there).
   NSRect page = host_view_.bounds;
   if (Browser* browser =
           active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr) {
@@ -891,8 +831,6 @@ void NotifyWindowsQuitCancelled() {
 }
 
 void WindowHost::QuitCancelled() {
-  // A close of ours the quit overtook (Chrome's close manager took its Browsers' beforeunload
-  // over): it ends with the quit, the window as it was.
   if (close_state_ == CloseState::kAsking) {
     close_state_ = CloseState::kOpen;
     asking_ = nullptr;
@@ -903,8 +841,6 @@ void WindowHost::QuitCancelled() {
   }
   NotifyCloseCancelled();
 }
-
-// --- ACWebContentsDelegate --------------------------------------------------------------
 
 ACWebContentsDelegate::ACWebContentsDelegate(
     BrowserWindowInterface* browser,
@@ -928,7 +864,6 @@ ACWebContentsDelegate::ACWebContentsDelegate(
       ours_(browser) {}
 
 ACWebContentsDelegate::~ACWebContentsDelegate() {
-  // ~Browser tears this down with its features, after its window: the Browser is no longer ours.
   ACBrowserWindow::Forget(ours_);
 }
 
@@ -942,14 +877,13 @@ bool IsNewTabDisposition(WindowOpenDisposition d) {
          d == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
          d == WindowOpenDisposition::NEW_BACKGROUND_TAB;
 }
-}  // namespace
+}
 
 content::WebContents* ACWebContentsDelegate::OpenURLFromTab(
     content::WebContents* source,
     const content::OpenURLParams& params,
     base::OnceCallback<void(content::NavigationHandle&)>
         navigation_handle_callback) {
-  // The app's own pages: never opened here. Chrome's pages ask the host (ac_page_channel.h).
   if (IsAppURL(params.url)) {
     if (source && IsWebUIURL(source->GetLastCommittedURL())) {
       ReportAppURLRequest(source, params.url, params.user_gesture);
@@ -961,9 +895,6 @@ content::WebContents* ACWebContentsDelegate::OpenURLFromTab(
     return BrowserWebContentsDelegate::OpenURLFromTab(
         source, params, std::move(navigation_handle_callback));
   }
-  // ⌘-click, shift-click, middle-click, a form with target=_blank…: Chrome creates and
-  // navigates the new contents itself (POST body, referrer and initiator included). It
-  // goes into our Browser as a tab; the host learns what was asked for.
   content::OpenURLParams tab_params(params);
   WindowHost::PendingOpen open{params.disposition,
                               source ? source->GetWeakPtr() : nullptr};
@@ -985,19 +916,15 @@ content::WebContents* ACWebContentsDelegate::AddNewContents(
     bool user_gesture,
     bool* was_blocked) {
   if (IsAppURL(target_url)) {
-    // window.open('ardia:…'): dropped, as CEF did; Chrome's pages ask the host.
     if (source && IsWebUIURL(source->GetLastCommittedURL())) {
       ReportAppURLRequest(source, target_url, user_gesture);
     }
     return nullptr;
   }
   if (host_ && new_contents) {
-    // window.open and target=_blank: the renderer already made the contents (opener
-    // relationship and all). Keep them as a tab of ours.
     TabBridge* bridge = TabBridge::GetOrCreate(new_contents.get());
     bridge->set_open(disposition, source);
     if (disposition == WindowOpenDisposition::NEW_POPUP) {
-      // The host may give a popup a window of its own, sized and placed as asked.
       NSMutableDictionary* features = [NSMutableDictionary dictionary];
       const gfx::Rect& bounds = window_features.bounds;
       if (window_features.has_x) {
@@ -1072,7 +999,6 @@ void ACWebContentsDelegate::RendererResponsive(
 
 namespace {
 
-// Chrome's media capture indicator, for every tab: what the page is capturing now.
 class MediaCaptureObserver : public MediaStreamCaptureIndicator::Observer {
  public:
   explicit MediaCaptureObserver(scoped_refptr<MediaStreamCaptureIndicator> indicator)
@@ -1120,31 +1046,24 @@ MediaCaptureObserver*& CaptureObserver() {
   return observer;
 }
 
-}  // namespace
+}
 
 void StartMediaCaptureObserver() {
   if (!CaptureObserver()) {
-    // Lives as long as the indicator (the process): never removed.
     CaptureObserver() = new MediaCaptureObserver(
         MediaCaptureDevicesDispatcher::GetInstance()->GetMediaStreamCaptureIndicator());
   }
 }
 
-// --- TabBridge --------------------------------------------------------------------------
-
 TabBridge::TabBridge(content::WebContents* contents)
     : content::WebContentsObserver(contents),
       content::WebContentsUserData<TabBridge>(*contents) {
-  // The host's page background (pageBackgroundColor) is translucent: a new document's view
-  // decides the page's opacity from the colours the host set, not from the last page's
-  // background it took over (engine/ardiacore/apply.sh).
   content::g_ardia_opacity_from_default_color = true;
   tab_ = [[ArdiaCoreTab alloc] initWithContents:contents];
 }
 
 TabBridge::~TabBridge() = default;
 
-// static
 TabBridge* TabBridge::GetOrCreate(content::WebContents* contents) {
   CreateForWebContents(contents);
   return FromWebContents(contents);
@@ -1196,7 +1115,6 @@ std::optional<WindowOpenDisposition> TabBridge::TakeOpenDisposition() {
 }
 
 void TabBridge::BeforeUnloadFired(bool proceed) {
-  // The host's close was cancelled by the page: a later close is someone else's.
   if (!proceed) {
     closed_by_host_ = false;
   }
@@ -1231,11 +1149,10 @@ const char* TerminationName(base::TerminationStatus status) {
       return "other";
   }
 }
-}  // namespace
+}
 
 void TabBridge::PrimaryMainFrameRenderProcessGone(
     base::TerminationStatus status) {
-  // A renderer that exits cleanly (the quit, an unused process) leaves no sad tab.
   if (status == base::TERMINATION_STATUS_NORMAL_TERMINATION ||
       status == base::TERMINATION_STATUS_STILL_RUNNING) {
     return;
@@ -1263,7 +1180,6 @@ void TabBridge::DidChangeVisibleSecurityState() {
 }
 
 void TabBridge::OnVisibilityChanged(content::Visibility visibility) {
-  // Showing a page unfreezes it (Chrome's rule).
   if (visibility == content::Visibility::VISIBLE) {
     frozen_ = false;
   }
@@ -1327,7 +1243,6 @@ void TabBridge::SetUnresponsive(content::RenderWidgetHost* host,
 }
 
 void TabBridge::SetResponsive(content::RenderWidgetHost* host) {
-  // Only the widget that hung (another frame's recovery isn't this one's).
   if (!unresponsive_ ||
       (host && *unresponsive_ != std::make_pair(host->GetProcess()->GetDeprecatedID(),
                                                 host->GetRoutingID()))) {
@@ -1347,13 +1262,10 @@ void TabBridge::ResolveUnresponsive(bool terminate) {
   hang_monitor_restarter_.Reset();
   if (terminate) {
     unresponsive_.reset();
-    // As Chrome's "Exit pages" (the sad tab and rendererGone follow).
     if (host && host->GetProcess()->IsInitializedAndNotDead()) {
       host->GetProcess()->Shutdown(content::RESULT_CODE_HUNG);
     }
   } else if (restarter) {
-    // "Wait": ask again if it stays hung. Still the hung widget until it answers, so its
-    // recovery reports tabBecameResponsive: (as CEF's onResponsive after a wait).
     restarter.Run();
   }
 }
@@ -1364,11 +1276,9 @@ void TabBridge::WasDiscarded() {
 }
 
 void TabBridge::DidStartNavigation(content::NavigationHandle* handle) {
-  // A new page: blocks of the old one's requests are no longer awaited.
   if (handle->IsInPrimaryMainFrame() && !handle->IsSameDocument()) {
     rule_blocked_urls_.clear();
   }
-  // A discarded tab reloads when it's next shown or navigated.
   if (discarded_ && handle->IsInPrimaryMainFrame() &&
       !web_contents()->WasDiscarded()) {
     discarded_ = false;
@@ -1378,7 +1288,6 @@ void TabBridge::DidStartNavigation(content::NavigationHandle* handle) {
 
 void TabBridge::OnWebContentsFocused(
     content::RenderWidgetHost* render_widget_host) {
-  // The page's focus, not the host's own activate or -focus.
   if (host_focusing_) {
     return;
   }
@@ -1396,8 +1305,6 @@ void TabBridge::EnsurePopupsObserved() {
 }
 
 void TabBridge::BlockedUrlAdded(int32_t popup_id, const GURL& url) {
-  // JS BlockedPopup: {id, url, origin} (the page's origin, which "always allow" applies to).
-  // On the next turn: Chrome is still adding it (the host may open it at once).
   NSDictionary* popup = @{
     @"id" : [NSString stringWithFormat:@"%d", popup_id],
     @"url" : base::SysUTF8ToNSString(url.spec()),
@@ -1453,19 +1360,17 @@ void TabBridge::LoadProgressChanged(double progress) {
 
 namespace {
 
-// A frame of the page the tab shows (not a prerendered or cached one).
 bool InPrimaryPage(content::RenderFrameHost* rfh) {
   return rfh && rfh->GetOutermostMainFrame()->IsInPrimaryMainFrame();
 }
 
-}  // namespace
+}
 
 void TabBridge::ResourceLoadComplete(
     content::RenderFrameHost* render_frame_host,
     const content::GlobalRequestID& request_id,
     const GURL& original_url,
     const blink::mojom::ResourceLoadInfo& resource_load_info) {
-  // Frame loads are navigations: DidFinishNavigation counts those.
   if (resource_load_info.net_error != net::ERR_BLOCKED_BY_CLIENT ||
       blink::IsRequestDestinationFrame(resource_load_info.request_destination) ||
       !InPrimaryPage(render_frame_host)) {
@@ -1476,8 +1381,6 @@ void TabBridge::ResourceLoadComplete(
 
 void TabBridge::NoteRuleMatched(bool block, const GURL& url) {
   if (block) {
-    // Bounded (cleared with each page): a blocked request whose failure never comes back is
-    // forgotten.
     if (rule_blocked_urls_.size() >= 4096) {
       rule_blocked_urls_.erase(rule_blocked_urls_.begin());
     }
@@ -1487,7 +1390,6 @@ void TabBridge::NoteRuleMatched(bool block, const GURL& url) {
 }
 
 void TabBridge::NoteBlockedByClient(const GURL& blocked_url, const GURL& url) {
-  // A rule saw the request as it was blocked (after any redirect).
   auto it = std::find(rule_blocked_urls_.begin(), rule_blocked_urls_.end(), blocked_url);
   if (it != rule_blocked_urls_.end()) {
     rule_blocked_urls_.erase(it);
@@ -1507,8 +1409,6 @@ void InstallRuleMatchedHook() {
             tab_id == extension_misc::kUnknownTabId) {
           return;
         }
-        // A frame's request counts for the page the tab shows, not a prerendered one; a
-        // navigation's has no frame yet.
         content::RenderFrameHost* frame =
             content::RenderFrameHost::FromID(request.global_id);
         if (frame && !InPrimaryPage(frame)) {
@@ -1516,7 +1416,7 @@ void InstallRuleMatchedHook() {
         }
         content::WebContents* contents = nullptr;
         if (!extensions::ExtensionsBrowserClient::Get()->IsValidTabId(
-                context, tab_id, /*include_incognito=*/true, &contents) ||
+                context, tab_id, true, &contents) ||
             !contents) {
           return;
         }
@@ -1551,13 +1451,11 @@ void TabBridge::ReportBlocked() {
 void TabBridge::DidFinishNavigation(content::NavigationHandle* handle) {
   EnsureFaviconObserved();
   EnsureZoomObserved();
-  // A tab made ahead has had its first page: from now on it's an ordinary tab, whatever it shows.
   if (made_ahead_ && handle->IsInPrimaryMainFrame() && handle->HasCommitted() &&
       !handle->GetURL().IsAboutBlank()) {
     made_ahead_ = false;
   }
   base::WeakPtr<TabBridge> alive = weak_factory_.GetWeakPtr();
-  // A navigation the content blocker cancelled (main frame or subframe).
   if (handle->GetNetErrorCode() == net::ERR_BLOCKED_BY_CLIENT &&
       (handle->IsInMainFrame()
            ? handle->IsInPrimaryMainFrame()
@@ -1565,7 +1463,6 @@ void TabBridge::DidFinishNavigation(content::NavigationHandle* handle) {
     NoteBlockedByClient(handle->GetURL(), handle->GetURL());
   }
   if (handle->IsInPrimaryMainFrame() && handle->IsDownload()) {
-    // The page stays; Chrome downloads the response instead (CEF's downloadNavigation).
     ArdiaCoreTab* tab = tab_;
     id<ArdiaCoreTabDelegate> delegate = tab.delegate;
     if ([delegate respondsToSelector:@selector(tab:navigationBecameDownload:)]) {
@@ -1576,7 +1473,6 @@ void TabBridge::DidFinishNavigation(content::NavigationHandle* handle) {
       return;
     }
   }
-  // A new document first: what the host knew of the last one goes before anything reports the new one.
   if (handle->IsInPrimaryMainFrame() && handle->HasCommitted() &&
       !handle->IsSameDocument()) {
     [tab_ notify:@selector(tabDidCommitDocument:)];
@@ -1592,8 +1488,6 @@ void TabBridge::DidFinishNavigation(content::NavigationHandle* handle) {
   }
   [tab_ notify:@selector(tabDidChangeURL:)];
   const int error = handle->GetNetErrorCode();
-  // ERR_ABORTED is a navigation that stopped or became a download, not a failure (CEF's
-  // adapter skipped it too).
   if (alive && handle->IsInPrimaryMainFrame() && error != net::OK &&
       error != net::ERR_ABORTED) {
     ArdiaCoreTab* tab = tab_;
@@ -1646,4 +1540,4 @@ void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(TabBridge);
 
-}  // namespace ardiacore
+}
