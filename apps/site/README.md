@@ -45,7 +45,7 @@ Pages without a custom domain).
 - **the logo:** `src/assets/ardia-mark.png` is the painted hills and sun (the brand's `mark-trim.png`, from
   `output/brand/ardia/final/` in the main checkout), shown in the hero and the closing section; Astro makes the
   AVIF/WebP sizes. `app-icon.png` (the header) is the macOS icon cropped close to its tile; `public/favicon.png` is
-  the tile, rounded, at 64 px; `public/og.png` is the share card.
+  the tile, rounded, at 64 px (and `favicon.ico`, the same at 16, 32 and 48 px, for clients that ask for `/favicon.ico`); `public/og.png` is the share card.
 - **Fonts:** Fontsource's variable faces, with each Latin file split into the characters the site sets
   (preloaded) and the rest (`src/styles/fonts.css` and `src/assets/fonts/`, both from
   `node scripts/build-fonts.mjs`). Rerun it when new copy or a release note brings in a Latin character the
