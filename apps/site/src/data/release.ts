@@ -1,5 +1,5 @@
-export const VERSION = "0.2.34";
-export const DMG_SIZE = "198 MB";
+export const VERSION = "0.2.35";
+export const DMG_SIZE = "187 MB";
 export const REPO = "https://github.com/mantrakp04/ardia";
 export const RELEASES = `${REPO}/releases/latest`;
 const DMG_NAME = VERSION.localeCompare("0.2.33", "en", { numeric: true }) < 0 ? "Netnyahoo" : "Ardia";
