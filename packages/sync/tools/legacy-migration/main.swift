@@ -1,12 +1,3 @@
-// Runs the launch migration outside the app, for scripts/legacy-migration-e2e.mjs:
-//   legacy-migration names   the old → new tables (JSON)
-//   legacy-migration run     LegacyMigration.runAtLaunch() as a test instance runs it (ARDIA_DATA_DIR and
-//                            ARDIA_LEGACY_SOURCE set); exits 0 to go on launching, 3 when the app would quit.
-//   legacy-migration move [--wait <file>]
-//                            Copied into a bundle as its executable: LegacyMigration.moveToNewName() as the app runs it
-//                            (after <file> appears, with --wait: a launch held up while another one moves the bundle).
-//                            Prints "at <the path this process was started from>|$MOVE_MARK|<arguments>" once it stays
-//                            (after an exec, the new bundle's).
 import ArdiaSyncCore
 import Foundation
 

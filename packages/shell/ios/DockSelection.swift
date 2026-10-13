@@ -317,7 +317,6 @@ final class DockSelection: ExpoView {
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     defer { CATransaction.commit() }
-    // RCTView resets backing-layer styles; draw in sublayers.
     if tile.superlayer !== layer {
       layer.insertSublayer(tile, at: 0)
       layer.insertSublayer(ring, above: tile)
@@ -373,7 +372,6 @@ final class DockSelection: ExpoView {
   }
 
   private func applyGlass(radius: CGFloat, rimWidth: CGFloat, big: CGRect) {
-    // RN views are flipped: y = 0 is the top.
     let flipped = layer?.isGeometryFlipped == true || isFlipped
     let top = CGPoint(x: 0.5, y: flipped ? 0 : 1)
     let bottom = CGPoint(x: 0.5, y: flipped ? 1 : 0)

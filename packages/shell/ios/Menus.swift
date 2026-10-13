@@ -25,8 +25,6 @@ struct MenuState {
   var recentBookmarks: [Bookmark] = []
   var bookmarksBar: [Bookmark] = []
   var otherBookmarks: [Bookmark] = []
-  // Set when the bookmark lists come separately (setMenuBookmarks), bumped each time they do; nil when every
-  // update carries them.
   var bookmarksRevision: Int?
   var recentlyClosed: [Entry] = []
   var recentlyClosedGroups: [Entry] = []
@@ -46,7 +44,6 @@ struct MenuState {
     }
   }
 
-  // The bookmark lists as setMenuBookmarks last sent them.
   private(set) static var sentBookmarks: (state: MenuState, revision: Int)?
 
   static func setBookmarks(_ d: [String: Any]) {
@@ -123,7 +120,6 @@ final class CommandItem: NSMenuItem {
     tag = Self.chromeMenuTag
   }
 
-// Chrome only leaves non-Chrome tagged `commandDispatch:` items for AppKit.
   static let chromeMenuTag = 1
 
   required init(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -226,7 +222,6 @@ enum MainMenu {
       CommandItem(title, command, arg: arg, key: key, mods)
     }
 
-    // Its services fill in as it opens (ShareMenu, Handoff.swift).
     let shareMenu = NSMenu(title: "Share")
     shareMenu.delegate = ShareMenu.shared
 
@@ -258,7 +253,6 @@ enum MainMenu {
       cmd("New Window", "newWindow", "n"),
       cmd("New Incognito Window", "newIncognitoWindow", "n", [.command, .shift]),
       cmd("New Little Ardia Window", "newLittleArdia", "n", [.command, .option]),
-      // Its title says where links from other apps will go once chosen (JS sets it from the setting).
       cmd("Open Links from Other Apps in Main Window", "toggleOpenLinksInLittleArdia"),
       cmd("Reopen Closed Tab", "reopenClosedTab", "t", [.command, .shift]),
       cmd("Reopen Closed Window", "reopenClosedWindow"),
@@ -456,7 +450,6 @@ enum MainMenu {
     let windowMenu = top("Window", [
       std("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
       minimizeAll,
-      // AppKit puts Fill, Center, Move & Resize and Full Screen Tile (and their fn-⌃ shortcuts) after Zoom.
       std("Zoom", #selector(NSWindow.performZoom(_:))),
       arrange,
       keepOnTop,
@@ -530,9 +523,6 @@ enum MainMenu {
     return image
   }
 
-  // What each rebuilt submenu was last built from: a menu state update (every 120 ms at most while the store
-  // changes) rebuilds only the submenus whose contents changed, so thousands of bookmarks aren't rebuilt for a
-  // loading spinner.
   private static var built: (profiles: [MenuState.Entry], windows: [MenuState.Entry], bookmarks: Int?,
                              extensions: [String], history: [[MenuState.Entry]])?
 
@@ -634,8 +624,6 @@ enum MainMenu {
       for entry in state.recentlyClosedGroups { history.addItem(CommandItem(entry.title, "restoreClosed", arg: entry.id)) }
     }
   }
-
-  // MARK: Keyboard Shortcuts settings
 
   private static let modifierNames: [(String, NSEvent.ModifierFlags)] = [
     ("control", .control), ("option", .option), ("shift", .shift), ("command", .command), ("function", .function),

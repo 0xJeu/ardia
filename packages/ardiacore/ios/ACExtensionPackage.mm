@@ -6,8 +6,6 @@ namespace ac::ext {
 
 namespace {
 
-// MARK: - Keys
-
 NSData *SHA256(NSData *data) {
   NSMutableData *out = [NSMutableData dataWithLength:CC_SHA256_DIGEST_LENGTH];
   CC_SHA256(data.bytes, (CC_LONG)data.length, (unsigned char *)out.mutableBytes);
@@ -22,8 +20,6 @@ NSString *IdForKeyData(NSData *key) {
   return id;
 }
 
-// MARK: - Manifest
-
 NSDictionary *LoadJSON(NSString *path) {
   NSData *data = [NSData dataWithContentsOfFile:path];
   if (!data) return nil;
@@ -31,7 +27,6 @@ NSDictionary *LoadJSON(NSString *path) {
   return [object isKindOfClass:NSDictionary.class] ? object : nil;
 }
 
-// Messages() has checked that every entry is { "message": "…" }.
 NSString *Localize(id value, NSDictionary<NSString *, NSDictionary *> *messages) {
   if (![value isKindOfClass:NSString.class]) return nil;
   NSString *s = value;
@@ -42,7 +37,6 @@ NSString *Localize(id value, NSDictionary<NSString *, NSDictionary *> *messages)
   return s;
 }
 
-// Chromium refuses a messages file with any entry that isn't { "message": string }, and so do we.
 bool ValidMessages(NSDictionary *messages) {
   for (id key in messages) {
     NSDictionary *entry = messages[key];
@@ -53,7 +47,6 @@ bool ValidMessages(NSDictionary *messages) {
   return true;
 }
 
-// The messages of the first locale that has any, or nil with |error| set if that file is malformed.
 NSDictionary *Messages(NSString *folder, NSDictionary *manifest, NSString **error) {
   NSString *locales = [folder stringByAppendingPathComponent:@"_locales"];
   NSMutableArray<NSString *> *candidates = [NSMutableArray array];

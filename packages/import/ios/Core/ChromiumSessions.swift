@@ -66,15 +66,12 @@ public enum ChromiumSessions {
         if id == markerCommand, plain.count == 1 { sawMarker = true }
         state.apply(id: id, payload: plain.dropFirst())
       }
-      // CBC can decrypt with the wrong key; the initial-state marker detects it.
       guard sawMarker else { throw ImportError.locked("Couldn't decrypt the session file with this key") }
     default:
       throw ImportError.unsupported("Unsupported session file version \(version)")
     }
     return state.session()
   }
-
-  // MARK: - Replay
 
   struct Navigation {
     var index: Int32

@@ -38,7 +38,6 @@ namespace {
 constexpr size_t kMaxCookies = 1000;
 constexpr size_t kMaxArgsBytes = 4 * 1024 * 1024;
 
-// A time argument in ms since the Unix epoch; nullopt when absent, 0 or bad.
 std::optional<base::Time> TimeArg(const base::DictValue& dict,
                                   std::string_view key) {
   std::optional<double> ms = dict.FindDouble(key);
@@ -92,8 +91,6 @@ struct Imported {
   GURL source_url;
 };
 
-// One cookie as Chrome would accept it fresh from |source_url| (public
-// suffixes, sizes, prefixes, Secure only from a secure URL), or nullopt.
 std::optional<Imported> ToCookie(const base::Value& entry, base::Time now) {
   const base::DictValue* dict = entry.GetIfDict();
   if (!dict) {
@@ -110,9 +107,6 @@ std::optional<Imported> ToCookie(const base::Value& entry, base::Time now) {
   const bool source_secure = StringArg(*dict, "sourceScheme") == "secure";
   const int source_port = PortArg(*dict);
 
-  // The URL that set it: its scheme, host and port, and the path. A domain
-  // cookie (".example.com") keeps its domain attribute; a host-only one has
-  // none.
   const bool domain_cookie = domain->starts_with('.');
   std::string_view host = *domain;
   if (domain_cookie) {
@@ -141,9 +135,6 @@ std::optional<Imported> ToCookie(const base::Value& entry, base::Time now) {
     last_access = now;
   }
 
-  // Chromium's own serialization (the reader converts other browsers' to it):
-  // an empty site is an unpartitioned cookie, anything unparseable is
-  // rejected.
   std::optional<net::CookiePartitionKey> partition_key;
   if (const base::DictValue* key = dict->FindDict("partitionKey")) {
     const std::string* site = key->FindString("topLevelSite");
@@ -157,8 +148,6 @@ std::optional<Imported> ToCookie(const base::Value& entry, base::Time now) {
     partition_key = std::move(parsed).value();
   }
 
-  // Caps the expiry from the creation date the way Chrome caps any cookie it
-  // sets.
   net::CookieInclusionStatus status;
   std::unique_ptr<net::CanonicalCookie> cookie =
       net::CanonicalCookie::CreateSanitizedCookie(
@@ -171,9 +160,6 @@ std::optional<Imported> ToCookie(const base::Value& entry, base::Time now) {
   if (!cookie || cookie->IsExpired(now)) {
     return std::nullopt;
   }
-  // The fresh-cookie rules can canonicalize a cookie into another scope (a
-  // path's "..", a public-suffix domain made host-only): import a cookie only
-  // as the source stored it.
   if (cookie->Domain() != base::ToLowerASCII(*domain) ||
       cookie->Path() != *path) {
     return std::nullopt;
@@ -192,7 +178,6 @@ network::mojom::CookieManager* CookieManagerOf(Profile* profile) {
       ->GetCookieManagerForBrowserProcess();
 }
 
-// Every write has run: flush them to disk, then reply.
 void Written(base::WeakPtr<Profile> profile,
              Counts counts,
              Reply reply,
@@ -214,7 +199,6 @@ void Written(base::WeakPtr<Profile> profile,
           std::move(reply), counts));
 }
 
-// Writes the cookies the profile doesn't have yet; never replaces one.
 void WriteNew(base::WeakPtr<Profile> profile,
               std::vector<Imported> cookies,
               Counts counts,
@@ -243,7 +227,6 @@ void WriteNew(base::WeakPtr<Profile> profile,
     if (exists) {
       ++counts.existing;
     } else {
-      // A later equivalent in the same import is a duplicate, not a change.
       fresh.push_back(&imported);
       by_domain[imported.cookie->Domain()].push_back(imported.cookie.get());
     }
@@ -265,11 +248,10 @@ void WriteNew(base::WeakPtr<Profile> profile,
   }
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_cookies_import) {
-  // Parsed here, not by Call, so this copy of the values is ours to zero.
   ardia::Call call(profile_dir, nullptr, reply, context);
   if (!call) {
     return;
@@ -288,9 +270,6 @@ AC_ENGINE_CALL(ac_cookies_import) {
     if (!args.dict()) {
       return call.TakeReply().Error("arguments are not a JSON object");
     }
-    // Call reads the private-session flag only from arguments it parsed itself:
-    // refuse it here as Call refuses it for every call that keeps no state per
-    // off-the-record profile (OffTheRecord::kRefuse).
     if (args.dict()->FindBool("offTheRecord").value_or(false)) {
       return call.TakeReply().Error("not for a private session");
     }
@@ -312,7 +291,7 @@ AC_ENGINE_CALL(ac_cookies_import) {
         ++counts.rejected;
       }
     }
-  }  // The parsed arguments are zeroed here.
+  }
 
   if (cookies.empty()) {
     return call.TakeReply().Send(base::DictValue()

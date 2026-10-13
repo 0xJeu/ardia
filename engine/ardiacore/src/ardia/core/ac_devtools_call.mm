@@ -24,15 +24,10 @@ namespace {
 void Answer(DevToolsReply reply,
             std::optional<base::DictValue> result,
             std::optional<std::string> error) {
-  // Never from inside the agent host's dispatch or teardown: the host may close the tab.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(reply), std::move(result), std::move(error)));
 }
 
-// ArdiaCore's own DevTools client of one tab, like any other client (the remote-debugging
-// port's keep working beside it): attached only while calls are pending, since a page with
-// a DevTools client attached has its hangs ignored (WebContentsImpl::
-// ShouldIgnoreUnresponsiveRenderer) and runs as debugged.
 class DevToolsCaller : public content::DevToolsAgentHostClient,
                        public content::WebContentsUserData<DevToolsCaller> {
  public:
@@ -66,19 +61,17 @@ class DevToolsCaller : public content::DevToolsAgentHostClient,
       return;
     }
     pending_[id] = std::move(reply);
-    ++generation_;  // a detach scheduled before this call stands down
+    ++generation_;
     if (timeout) {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
           FROM_HERE,
           base::BindOnce(&DevToolsCaller::TimedOut, weak_factory_.GetWeakPtr(), id),
           *timeout);
     }
-    // The agent host may answer (or close) from inside the call.
     scoped_refptr<content::DevToolsAgentHost> host = host_;
     host->DispatchProtocolMessage(this, base::as_byte_span(*json));
   }
 
-  // content::DevToolsAgentHostClient:
   void DispatchProtocolMessage(content::DevToolsAgentHost* agent_host,
                                base::span<const uint8_t> message) override {
     std::optional<base::DictValue> parsed = base::JSONReader::ReadDict(
@@ -88,7 +81,7 @@ class DevToolsCaller : public content::DevToolsAgentHostClient,
     }
     std::optional<int> id = parsed->FindInt("id");
     if (!id) {
-      return;  // an event
+      return;
     }
     auto it = pending_.find(*id);
     if (it == pending_.end()) {
@@ -112,7 +105,6 @@ class DevToolsCaller : public content::DevToolsAgentHostClient,
     FailAll("the tab's DevTools target closed");
   }
 
-  // Like the remote-debugging port's clients: not an extension's chrome.debugger.
   bool MayAttachToURL(const GURL& url, bool is_webui) override { return true; }
   bool IsTrusted() override { return true; }
   bool MayReadLocalFiles() override { return false; }
@@ -132,7 +124,6 @@ class DevToolsCaller : public content::DevToolsAgentHostClient,
     MaybeDetachSoon();
   }
 
-  // Not from inside the agent host's dispatch; a call made meanwhile keeps the client.
   void MaybeDetachSoon() {
     if (!pending_.empty()) {
       return;
@@ -171,7 +162,7 @@ class DevToolsCaller : public content::DevToolsAgentHostClient,
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(DevToolsCaller);
 
-}  // namespace
+}
 
 void CallDevTools(content::WebContents* contents,
                   const std::string& method,
@@ -187,4 +178,4 @@ void CallDevTools(content::WebContents* contents,
                                                   std::move(reply));
 }
 
-}  // namespace ardiacore
+}

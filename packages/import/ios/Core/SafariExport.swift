@@ -14,7 +14,6 @@ public struct SafariExport: Codable, Equatable, Sendable {
   public var warnings: [ImportWarning] = []
   public var vaultToken: String?
 
-  // Secrets: never encoded to JSON. Only their counts are.
   public var cookies: [Cookie] = [] { didSet { cookieCount = cookies.count } }
   public var cards: [ImportedCard] = [] { didSet { cardCount = cards.count } }
   public private(set) var cookieCount = 0
@@ -72,7 +71,6 @@ public struct SafariExport: Codable, Equatable, Sendable {
           recognised = true
         case "json":
           var data = try file.read()
-          // Card numbers must never reach JSONSerialization (it would make Strings of them).
           if data.range(of: Data("\"payment_cards\"".utf8)) != nil {
             defer { data.resetBytes(in: 0..<data.count) }
             recognised = true
@@ -107,10 +105,6 @@ public struct SafariExport: Codable, Equatable, Sendable {
     return out
   }
 
-  // PaymentCards.json: {"payment_cards":[{"card_number","card_name","cardholder_name","card_expiration_month",
-  // "card_expiration_year"}]}. card_name is the card's nickname. Numbers are plaintext in the file: they're
-  // copied from the raw bytes into SecretBytes and masked in `data` before JSONSerialization sees it, so no
-  // String ever holds one. The caller zeroes `data` afterwards.
   static func paymentCards(_ data: inout Data) throws -> [ImportedCard] {
     var numbers: [SecretBytes] = []
     data.withUnsafeMutableBytes { (buf: UnsafeMutableRawBufferPointer) in
@@ -143,7 +137,6 @@ public struct SafariExport: Codable, Equatable, Sendable {
           end += 1
         }
         end = min(end, buf.count)
-        // An escaped number (\u0034…) isn't one a real export writes: mask it all the same and skip the card.
         numbers.append(escaped ? SecretBytes(count: 0) : SecretBytes(copying: UnsafeRawBufferPointer(rebasing: buf[start..<end])))
         for k in start..<end { buf[k] = UInt8(ascii: "X") }
         i = end
@@ -152,7 +145,6 @@ public struct SafariExport: Codable, Equatable, Sendable {
     guard let top = try JSONSerialization.jsonObject(with: data) as? [String: Any],
           let rows = top["payment_cards"] as? [[String: Any]] else { return [] }
     let withNumbers = rows.filter { $0["card_number"] != nil }
-    // Every number must have gone through the mask (an escaped key would hide one from it).
     let masked = withNumbers.allSatisfy { ($0["card_number"] as? String)?.allSatisfy { $0 == "X" } ?? true }
     guard withNumbers.count == numbers.count, masked else { throw ImportError.unreadable("PaymentCards.json is malformed") }
     var out: [ImportedCard] = []

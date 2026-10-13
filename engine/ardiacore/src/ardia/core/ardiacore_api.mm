@@ -1,5 +1,3 @@
-// The ObjC API (public/ArdiaCore.h) over ArdiaCore's Chromium-side model.
-
 #import "ardia/core/public/ArdiaCore.h"
 
 #include <map>
@@ -172,8 +170,6 @@ NSString* NS(const std::string& s) {
   return base::SysUTF8ToNSString(s);
 }
 
-// A CGImage of a copied page frame (-[ArdiaCoreTab copyPicture:completion:]): its pixels copied, in
-// its colour space (sRGB if it names none). NULL for an empty or unexpected bitmap.
 CGImageRef CreatePicture(const SkBitmap& bitmap) {
   if (bitmap.drawsNothing() || bitmap.bytesPerPixel() != 4 ||
       (bitmap.colorType() != kBGRA_8888_SkColorType &&
@@ -223,7 +219,6 @@ std::map<Profile*, ArdiaCoreProfile*>& ProfileWrappers() {
   return *wrappers;
 }
 
-// Tells a profile's wrapper when its Profile goes.
 class ProfileGoneObserver : public ProfileObserver {
  public:
   ProfileGoneObserver(Profile* profile, ArdiaCoreProfile* wrapper)
@@ -233,7 +228,6 @@ class ProfileGoneObserver : public ProfileObserver {
   void OnProfileWillBeDestroyed(Profile* profile) override {
     observation_.Reset();
     ardiacore::NoteProfileDying(profile);
-    // May destroy this.
     [wrapper_ profileWillBeDestroyed];
   }
 
@@ -242,7 +236,6 @@ class ProfileGoneObserver : public ProfileObserver {
   base::ScopedObservation<Profile, ProfileObserver> observation_{this};
 };
 
-// "#rrggbb", or null for a transparent colour (ACChromeUI.mm HexColor).
 id HexColor(SkColor color) {
   if (!SkColorGetA(color)) {
     return NSNull.null;
@@ -251,24 +244,19 @@ id HexColor(SkColor color) {
                                     SkColorGetG(color), SkColorGetB(color)];
 }
 
-// A data: URL of the image's 2x PNG (the toolbar draws on Retina screens), as CEF's.
 NSString* PngDataURL(const gfx::Image& image) {
   if (image.IsEmpty()) {
     return @"";
   }
   const gfx::ImageSkiaRep& rep = image.ToImageSkia()->GetRepresentation(2.0f);
   std::optional<std::vector<uint8_t>> png = gfx::PNGCodec::EncodeBGRASkBitmap(
-      rep.GetBitmap(), /*discard_transparency=*/false);
+      rep.GetBitmap(), false);
   if (!png) {
     return @"";
   }
   return NS("data:image/png;base64," + base::Base64Encode(*png));
 }
 
-// Chrome's automatic Picture in Picture (AutoPictureInPictureTabHelper: a page that handles
-// Media Session's "enterpictureinpicture" and uses the camera or microphone, a Meet call, pops
-// out its own document PiP window on a tab switch, as in Chrome and Dia) follows the app's
-// autoPictureInPicture setting: allowed without Chrome's prompt when on, blocked when off.
 bool g_auto_picture_in_picture = true;
 
 void ApplyAutoPictureInPicture(Profile* profile) {
@@ -277,8 +265,6 @@ void ApplyAutoPictureInPicture(Profile* profile) {
       g_auto_picture_in_picture ? CONTENT_SETTING_ALLOW : CONTENT_SETTING_BLOCK);
 }
 
-// Prefs CEF set on every profile it loaded (packages/cef/ios/ACEngine.mm WhenProfileReady):
-// a new session starts on a new tab, and the download bubble doesn't open by itself.
 void PrepareProfilePrefs(Profile* profile) {
   if (!profile || profile->IsOffTheRecord()) {
     return;
@@ -299,7 +285,6 @@ class ProfilePrefsApplier : public ProfileManagerObserver {
     observation_.Observe(manager);
   }
   void OnProfileAdded(Profile* profile) override { PrepareProfilePrefs(profile); }
-  // (g_browser_process->profile_manager() is already null here: it is being destroyed.)
   void OnProfileManagerDestroying() override { observation_.Reset(); }
 
  private:
@@ -314,7 +299,6 @@ void StartApplyingProfilePrefs() {
   static base::NoDestructor<ProfilePrefsApplier> applier(manager);
 }
 
-// The prefs the host may read and write (ArdiaCoreProfile boolPreference:).
 bool IsHostPreference(const std::string& name) {
   static const char* const kAllowed[] = {
       "credentials_enable_service", "autofill.profile_enabled",
@@ -327,7 +311,6 @@ bool IsHostPreference(const std::string& name) {
   return false;
 }
 
-// One BrowsingDataRemover task; deletes itself when it reports.
 class BrowsingDataDone : public content::BrowsingDataRemover::Observer {
  public:
   BrowsingDataDone(content::BrowsingDataRemover* remover, void (^completion)(void))
@@ -348,11 +331,9 @@ class BrowsingDataDone : public content::BrowsingDataRemover::Observer {
       observation_{this};
 };
 
-}  // namespace
+}
 
-// The window-creation hook in Chrome's Browser constructor (engine/ardiacore/apply.sh).
 extern BrowserWindow* (*g_ardia_browser_window_factory)(Browser*);
-// HistoryTabHelper's eligibility hook (engine/ardiacore/apply.sh).
 extern bool (*g_ardia_history_eligible)(content::WebContents*);
 
 namespace {
@@ -372,12 +353,7 @@ const char* BrowserTypeName(BrowserWindowInterface::Type type) {
   }
 }
 
-// A Browser Chrome makes itself (chrome.windows.create, an incognito window from a Chrome
-// command, undocked DevTools, document PiP): the host may hold it in one of its windows.
 BrowserWindow* WindowForChromeBrowser(Browser* browser) {
-  // A document picture-in-picture window is always Chrome's own: Chrome reaches into its
-  // PictureInPictureBrowserFrameView (content_settings::UpdateLocationBarUiForWebContents
-  // on every commit), which a window of ours doesn't have.
   if (ardiacore::ACBrowserWindow::IsOurs(browser) ||
       browser->GetType() == BrowserWindowInterface::TYPE_PICTURE_IN_PICTURE ||
       ![g_delegate respondsToSelector:@selector
@@ -392,7 +368,7 @@ BrowserWindow* WindowForChromeBrowser(Browser* browser) {
   return host ? host->HostChromeBrowser(browser) : nullptr;
 }
 
-}  // namespace
+}
 
 namespace ardiacore {
 
@@ -401,7 +377,7 @@ std::vector<base::WeakPtr<Profile>>& DyingProfiles() {
   static base::NoDestructor<std::vector<base::WeakPtr<Profile>>> dying;
   return *dying;
 }
-}  // namespace
+}
 
 void NoteProfileDying(Profile* profile) {
   if (profile && !IsProfileDying(profile)) {
@@ -417,8 +393,6 @@ bool IsProfileDying(const Profile* profile) {
 }
 
 namespace {
-// Rides on a dying profile as its user data, so it goes with the Profile itself: then whoever
-// waited for it to be gone goes on (a turn later, out of Chrome's teardown).
 class GoneNotifier : public base::SupportsUserData::Data {
  public:
   static const void* Key() {
@@ -445,14 +419,14 @@ void WhenProfileGone(Profile* profile, base::OnceClosure done) {
   }
   notifier->Add(std::move(done));
 }
-}  // namespace
+}
 
 namespace {
 std::vector<base::WeakPtr<Profile>>& DeletingProfiles() {
   static base::NoDestructor<std::vector<base::WeakPtr<Profile>>> deleting;
   return *deleting;
 }
-}  // namespace
+}
 
 void NoteProfileDeleting(Profile* profile) {
   if (profile && !IsProfileDeleting(profile)) {
@@ -508,7 +482,7 @@ std::map<std::string, PendingInstall>& InstallPrompts() {
   return *prompts;
 }
 
-}  // namespace
+}
 
 bool HostExtensionInstallPrompt(Profile* profile,
                                 content::WebContents* parent,
@@ -532,7 +506,6 @@ bool HostExtensionInstallPrompt(Profile* profile,
                 base::Base64Encode(base::span<const uint8_t>(*png)));
     }
   }
-  // JS ExtensionInstallPrompt without browserId (the host knows the tab).
   NSDictionary* payload = @{
     @"requestId" : NS(request_id),
     @"profile" : NS(profile->GetOriginalProfile()->GetBaseName().value()),
@@ -545,7 +518,6 @@ bool HostExtensionInstallPrompt(Profile* profile,
   };
   InstallPrompts()[request_id] = {std::move(*done_callback), profile->GetWeakPtr()};
   ArdiaCoreTab* tab = parent ? TabBridge::GetOrCreate(parent)->tab() : nil;
-  // Not from inside Chrome's prompt: the host may answer at once.
   dispatch_async(dispatch_get_main_queue(), ^{
     [g_delegate engine:g_engine extensionInstallPrompt:payload tab:tab];
   });
@@ -559,7 +531,6 @@ void ResolveExtensionInstallPrompt(const std::string& request_id, bool accepted)
   }
   PendingInstall pending = std::move(it->second);
   InstallPrompts().erase(it);
-  // The profile went (shutdown, deletion): Chrome's dialog would have been cancelled.
   if (!pending.profile) {
     return;
   }
@@ -625,16 +596,13 @@ void HostPermissionRequestDismissed(NSString* request_id) {
   }
 }
 
-}  // namespace ardiacore
+}
 
-// The C entry point, for hosts that don't use the ObjC runtime to start.
 extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
     int argc,
     const char** argv) {
   return ChromeMain(argc, argv);
 }
-
-// --- ArdiaCoreEngine -----------------------------------------------------------------------
 
 @implementation ArdiaCoreEngine
 
@@ -663,10 +631,6 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
     ardiacore::WindowHost* host = browser ? ardiacore::WindowHost::ForBrowser(browser) : nullptr;
     return !host || !host->internal();
   };
-  // No Chrome Apps or web-app shims here: Chrome's platform-app shortcut manager would
-  // otherwise, when a profile is deleted, look for that profile's shims in
-  // ~/Applications/"Chromium Apps.localized", and its first lookup per run rewrites that
-  // folder's icon and localized name (in the user's home, outside the data dir).
   AppShortcutManager::SuppressShortcutsForTesting();
   ardiacore::SetLifetimeCallbacks({
       .quit_cancelled = base::BindRepeating([] {
@@ -694,10 +658,7 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
       }),
   });
 
-  // The host owns every window: Chrome opens none at startup and never restores its own.
   std::vector<const char*> args(argv, argv + argc);
-  // Chrome's discard keeps the tab's WebContents (and so its ArdiaCoreTab) instead of replacing
-  // it: WebContentsDiscard, merged into the host's own --enable-features.
   static std::string features = "--enable-features=WebContentsDiscard";
   bool merged = false;
   for (const char*& arg : args) {
@@ -732,7 +693,6 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
   ProfileManager* manager = g_browser_process->profile_manager();
   base::FilePath path =
       manager->user_data_dir().Append(base::SysNSStringToUTF8(directoryName));
-  // Never one being deleted: loading it again would keep it, or make its folder anew.
   Profile* loaded = manager->GetProfileByPath(path);
   if (IsProfileDirectoryMarkedForDeletion(path) ||
       (loaded && ardiacore::IsProfileDeleting(loaded))) {
@@ -774,11 +734,6 @@ static bool g_tracing = false;
 
 namespace {
 
-// One beginTracing: answered once. Chrome calls back only when tracing started; when the
-// tracing service fails first (TracingControllerImpl::OnTracingFailed), it drops the
-// session and keeps the callback, so the start is watched until one or the other.
-// `session` is g_tracing_session at its start: endTracing or a later start supersedes it,
-// and a superseded start never touches the newer session.
 struct TracingStart {
   void (^completion)(BOOL);
   bool answered = false;
@@ -791,7 +746,7 @@ std::weak_ptr<TracingStart>& PendingTracingStart() {
   return *pending;
 }
 
-constexpr int kTracingStartChecks = 100;  // every 100 ms: 10 s
+constexpr int kTracingStartChecks = 100;
 
 bool IsCurrent(const TracingStart& start) {
   return start.session == g_tracing_session;
@@ -822,7 +777,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     return;
   }
   if (checks_left == 0) {
-    // Never started: given up, and stopped so a later start can't leave it running.
     AnswerTracingStart(start, false);
     tracing->StopTracing(nullptr);
     return;
@@ -832,7 +786,7 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
       base::Milliseconds(100));
 }
 
-}  // namespace
+}
 
 + (void)beginTracing:(void (^)(BOOL started))completion {
   if (g_tracing) {
@@ -843,13 +797,11 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   start->completion = completion;
   start->session = ++g_tracing_session;
   PendingTracingStart() = start;
-  // Chrome's default categories, as CEF's CefBeginTracing("").
   g_tracing = content::TracingController::GetInstance()->StartTracing(
       base::trace_event::TraceConfig(),
       base::BindOnce(
           [](std::shared_ptr<TracingStart> start) {
             if (start->answered) {
-              // Started after it was given up on (answered NO): not ours any more.
               if (IsCurrent(*start) && !g_tracing) {
                 content::TracingController::GetInstance()->StopTracing(nullptr);
               }
@@ -871,13 +823,10 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     return;
   }
   g_tracing = false;
-  // A start not answered yet never started: NO, and its watcher stands down.
   ++g_tracing_session;
   if (std::shared_ptr<TracingStart> pending = PendingTracingStart().lock()) {
     AnswerTracingStart(pending, false);
   }
-  // keep: "Ardia Trace <date>.json" in Downloads (as CEF's ACDiagnostics); else a
-  // temporary file, deleted once written.
   NSDateFormatter* format = [[NSDateFormatter alloc] init];
   format.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
   format.dateFormat = @"yyyy-MM-dd 'at' HH.mm.ss.SSS";
@@ -963,10 +912,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 - (void)deleteProfile:(ArdiaCoreProfile*)profile completion:(void (^)(BOOL deleted))completion {
   Profile* chrome_profile = profile.chromeProfile;
   ProfileManager* manager = g_browser_process->profile_manager();
-  // Not the user-data-dir's initial profile ("Default"), nor an incognito, guest or system
-  // one: those aren't deleted this way. The last-used profile may be: Chrome's deletion
-  // makes another one last-used first (a window's, else any other, else a new one), as its
-  // profile picker does.
   if (!chrome_profile || !chrome_profile->IsRegularProfile() ||
       chrome_profile->GetPath() ==
           manager->user_data_dir().Append(ProfileManager::GetInitialProfileDir())) {
@@ -975,26 +920,15 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     }
     return;
   }
-  // Chrome's own deletion: its Browsers close, then its directory goes (now, or at the
-  // next start if something still holds it). No Browser for it from now on: one made after
-  // Chrome closed the others (the content blocker's hidden page in a profile that just
-  // loaded) kept the profile, and its folder, for as long as it lived.
   ardiacore::NoteProfileDeleting(chrome_profile);
   base::WeakPtr<Profile> weak = chrome_profile->GetWeakPtr();
   const base::FilePath path = chrome_profile->GetPath();
   manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(
       chrome_profile->GetPath(), base::DoNothing(),
       ProfileMetrics::DELETE_PROFILE_SETTINGS);
-  // A profile Chrome loaded is kept until its first browser window opens; the host's
-  // profiles may never have had one (loaded for its passwords, or deleted right after it
-  // loaded), and then it never unloaded, so its folder stayed until the next launch.
   if (weak) {
     manager->ClearFirstBrowserWindowKeepAlive(weak.get());
   }
-  // Chrome removes the folder once the profile is gone, but services still opening their
-  // databases as it went (a profile deleted right after it loaded) make some of their
-  // folders again afterwards (crbug.com/40594327): swept again a little later, while the
-  // folder is still marked for deletion and nothing has the profile loaded.
   for (const base::TimeDelta delay : {base::Seconds(2), base::Seconds(10)}) {
     content::GetUIThreadTaskRunner({})->PostDelayedTask(
         FROM_HERE, base::BindOnce([](const base::FilePath& dir) {
@@ -1016,13 +950,10 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 }
 
 - (void)releaseProfile:(ArdiaCoreProfile*)profile {
-  // A private profile goes for good once nothing shows it (as CEF's private contexts): its
-  // cookies, cache and downloads with it. A regular profile stays loaded.
   Profile* chrome_profile = profile.chromeProfile;
   if (!chrome_profile || !chrome_profile->IsOffTheRecord()) {
     return;
   }
-  // Every incognito window shares it: only once none is left.
   bool in_use = false;
   GlobalBrowserCollection::GetInstance()->ForEach([&](BrowserWindowInterface* browser) {
     in_use |= browser->GetProfile() == chrome_profile &&
@@ -1058,14 +989,11 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 - (void)offTheRecordProfileFor:(ArdiaCoreProfile*)profile
                     completion:(void (^)(ArdiaCoreProfile*, NSString*))completion {
   Profile* original = profile.chromeProfile;
-  // Never the original profile in place of a private one.
   if (!original || original->IsOffTheRecord()) {
     completion(nil, original ? @"not a regular profile" : @"the profile went");
     return;
   }
-  // The last private window just closed and Chrome is destroying its profile (it waits for its
-  // renderers, up to a second): a new one once it has gone.
-  Profile* current = original->GetPrimaryOTRProfile(/*create_if_needed=*/false);
+  Profile* current = original->GetPrimaryOTRProfile(false);
   if (current && ardiacore::IsProfileDying(current)) {
     ardiacore::WhenProfileGone(current, base::BindOnce(^{
                               [self offTheRecordProfileFor:profile completion:completion];
@@ -1073,7 +1001,7 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     return;
   }
   ArdiaCoreProfile* otr =
-      [ArdiaCoreProfile wrapperFor:original->GetPrimaryOTRProfile(/*create_if_needed=*/true)];
+      [ArdiaCoreProfile wrapperFor:original->GetPrimaryOTRProfile(true)];
   completion(otr, otr ? nil : @"Chrome is destroying it");
 }
 
@@ -1090,11 +1018,7 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 
 @end
 
-// --- ArdiaCoreProfile ----------------------------------------------------------------------
-
 @implementation ArdiaCoreProfile {
-  // Weak: a wrapper made after Chrome sent its destroyed notification (no observer fires
-  // again) still never hands out a freed Profile.
   base::WeakPtr<Profile> _profile;
   std::unique_ptr<ProfileGoneObserver> _observer;
   NSString* __strong _name;
@@ -1103,7 +1027,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 }
 
 + (ArdiaCoreProfile*)wrapperFor:(Profile*)profile {
-  // Never one for a profile on its way out (its destroyed notification was sent already).
   if (!profile || ardiacore::IsProfileDying(profile)) {
     return nil;
   }
@@ -1112,7 +1035,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     wrapper = [[ArdiaCoreProfile alloc] init];
     wrapper->_profile = profile->GetWeakPtr();
     wrapper->_offTheRecord = profile->IsOffTheRecord();
-    // An off-the-record profile is named after its original's directory.
     wrapper->_name = NS(profile->GetBaseName().value());
     wrapper->_path = NS(profile->GetPath().value());
     wrapper->_observer = std::make_unique<ProfileGoneObserver>(profile, wrapper);
@@ -1121,7 +1043,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 }
 
 - (void)profileWillBeDestroyed {
-  // The wrapper outlives its Profile (the host may hold it); every call is a no-op from now.
   ProfileWrappers().erase(_profile.get());
   _profile.reset();
   _observer.reset();
@@ -1167,7 +1088,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 - (void)clearBrowsingData:(NSArray<NSString*>*)types
                     since:(NSDate*)since
                completion:(void (^)(void))completion {
-  // The categories of Chrome's "Delete browsing data" dialog (as CEF's ClearBrowsingData).
   uint64_t mask = 0;
   for (NSString* type in types) {
     if ([type isEqualToString:@"history"]) {
@@ -1200,7 +1120,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     return nil;
   }
   const base::FilePath root(base::SysNSStringToUTF8(path));
-  // Already running from there: nothing to do (a reload would restart its worker).
   for (const auto& extension :
        extensions::ExtensionRegistry::Get(_profile.get())->enabled_extensions()) {
     if (extension->location() == extensions::mojom::ManifestLocation::kComponent &&
@@ -1208,8 +1127,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
       return NS(extension->id());
     }
   }
-  // Chrome's component extensions (its own built-ins): the manifest's key fixes the id;
-  // hidden from chrome://extensions and the user's list, as CEF's LoadComponentExtension.
   extensions::ComponentLoader* loader = extensions::ComponentLoader::Get(_profile.get());
   if (!loader) {
     return nil;
@@ -1242,7 +1159,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   auto* registry = extensions::ExtensionRegistry::Get(_profile.get());
   auto* actions = extensions::ExtensionActionManager::Get(_profile.get());
   for (const auto& extension : registry->enabled_extensions()) {
-    // The user's extensions: not Chrome's built-ins or the host's component ones.
     if (extensions::Manifest::IsComponentLocation(extension->location())) {
       continue;
     }
@@ -1263,8 +1179,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 }
 
 @end
-
-// --- ArdiaCoreWindow -----------------------------------------------------------------------
 
 @implementation ArdiaCoreWindow {
   std::unique_ptr<ardiacore::WindowHost> _host;
@@ -1299,16 +1213,12 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   if (!browser) {
     return nil;
   }
-  // No URL: a tab made ahead of its page (a New Tab page's prewarm), on about:blank. It stays
-  // out of Back and of Chrome's closed-tab list (ardiacore::OnlyShowedBlank).
   const bool ahead = !url.length;
   NavigateParams params(browser, GURL(ahead ? "about:blank" : base::SysNSStringToUTF8(url)),
                         ui::PAGE_TRANSITION_TYPED);
   params.disposition = foreground ? WindowOpenDisposition::NEW_FOREGROUND_TAB
                                   : WindowOpenDisposition::NEW_BACKGROUND_TAB;
   params.window_action = NavigateParams::WindowAction::kNoAction;
-  // Reported as the host asked: Chrome makes the first tab of a Browser a foreground one,
-  // and each profile has its own Browser here, so a background tab would read as shown.
   base::AutoReset<ardiacore::WindowHost::PendingOpen> pending(
       &_host->pending_open(), ardiacore::WindowHost::PendingOpen{params.disposition, nullptr});
   Navigate(&params);
@@ -1361,8 +1271,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   if (!browser) {
     return;
   }
-  // The strip's selection only: the profile the window shows is the host's own call
-  // (setActiveProfile:), so a hidden profile's strip settling never shows that profile.
   auto focusing = ardiacore::TabBridge::GetOrCreate(contents)->HostFocuses();
   _host->NoteHostActivated(static_cast<Browser*>(browser));
   TabStripModel* model = browser->GetTabStripModel();
@@ -1439,8 +1347,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   if (index == TabStripModel::kNoTab) {
     return;
   }
-  // Chrome's tab move between windows: the tab (its WebContents, history, opener) leaves
-  // one strip and enters the other; the hosts see didRemoveTab: then didInsertTab:.
   std::unique_ptr<tabs::TabModel> moved = source->DetachTabAtForInsertion(index);
   if (!moved) {
     return;
@@ -1474,12 +1380,11 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   if (model->IsTabPinned(at) != static_cast<bool>(pinned)) {
     at = model->SetTabPinned(at, pinned);
   }
-  // Chrome keeps pinned tabs first; the index is clamped to the tab's side.
   const int pinned_count = model->IndexOfFirstNonPinnedTab();
   int to = std::clamp(index, 0, model->count() - 1);
   to = pinned ? std::min(to, pinned_count - 1) : std::max(to, pinned_count);
   if (to != at) {
-    model->MoveWebContentsAt(at, to, /*select_after_move=*/false);
+    model->MoveWebContentsAt(at, to, false);
   }
 }
 
@@ -1487,10 +1392,8 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
                  profile:(ArdiaCoreProfile*)profile
               foreground:(BOOL)foreground {
   if (ardiacore::IsNotifyingTabStrip()) {
-    return nil;  // Not from inside a tab-strip callback (Chrome CHECKs re-entrant inserts).
+    return nil;
   }
-  // The format of ac_tab_restore_take and CEF's GetNavigationState: base64 of a pickle of
-  // version 1, the selected index, the count, then each SerializedNavigationEntry.
   std::optional<std::vector<uint8_t>> bytes =
       state ? base::Base64Decode(base::SysNSStringToUTF8(state)) : std::nullopt;
   Browser* browser = profile.chromeProfile ? _host->BrowserFor(profile.chromeProfile) : nullptr;
@@ -1513,7 +1416,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
     navigations.push_back(std::move(entry));
   }
   selected = std::clamp(selected, 0, count - 1);
-  // Chrome's own path for reopening a closed tab; the host's tab, reported as one it opened.
   base::AutoReset<ardiacore::WindowHost::PendingOpen> pending(
       &_host->pending_open(),
       ardiacore::WindowHost::PendingOpen{
@@ -1522,11 +1424,11 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
           nullptr});
   content::WebContents* contents = chrome::AddRestoredTab(
       browser, navigations, browser->GetTabStripModel()->count(), selected,
-      /*extension_app_id=*/std::string(), /*group=*/std::nullopt, foreground,
-      /*pin=*/false, base::TimeTicks::Now(), base::Time::Now(),
-      /*storage_namespace=*/nullptr, sessions::SerializedUserAgentOverride(),
-      /*extra_data=*/{}, /*from_session_restore=*/false,
-      /*is_active_browser=*/std::nullopt);
+      std::string(), std::nullopt, foreground,
+      false, base::TimeTicks::Now(), base::Time::Now(),
+      nullptr, sessions::SerializedUserAgentOverride(),
+      {}, false,
+      std::nullopt);
   return contents ? ardiacore::TabBridge::GetOrCreate(contents)->tab() : nil;
 }
 
@@ -1534,7 +1436,7 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
                    profile:(ArdiaCoreProfile*)profile
                 foreground:(BOOL)foreground {
   if (ardiacore::IsNotifyingTabStrip()) {
-    return nil;  // Not from inside a tab-strip callback (Chrome CHECKs re-entrant inserts).
+    return nil;
   }
   content::WebContents* contents = source.contents;
   Profile* chrome_profile = profile.chromeProfile;
@@ -1546,8 +1448,6 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   if (!browser) {
     return nil;
   }
-  // chrome::DuplicateTabAt's copy (history, scroll, form state), inserted where the host
-  // places it.
   std::unique_ptr<content::WebContents> copy = contents->Clone();
   content::WebContents* raw = copy.get();
   base::AutoReset<ardiacore::WindowHost::PendingOpen> pending(
@@ -1574,15 +1474,8 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 
 @end
 
-// --- ArdiaCoreTab --------------------------------------------------------------------------
-
 namespace {
 
-// Chrome's page commands (print, save, DevTools) aimed at `contents` itself, as Chrome's own
-// commands are at the strip's active tab, with the checks those commands make (CanPrint,
-// CanSavePage). For a tab that isn't the active one: selecting it for the command told
-// extensions (tabs.onActivated), automatic Picture in Picture and permission prompts of two
-// tab switches. nullopt: not one of these.
 std::optional<bool> RunPageCommand(content::WebContents* contents, int command) {
   Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
   PrefService* prefs = profile->GetPrefs();
@@ -1596,7 +1489,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
       const bool can_print = prefs->GetBoolean(prefs::kPrintingEnabled) && !contents->IsCrashed() &&
                              !(dialogs && dialogs->IsDialogActive()) &&
                              !(restrictions & CONTENT_RESTRICTION_PRINT);
-      // The system dialog also from the page's print preview (CanBasicPrint).
       bool preview = false;
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
       auto* previews = printing::PrintPreviewDialogController::GetInstance();
@@ -1609,7 +1501,7 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
       }
       if (command == IDC_PRINT) {
         printing::StartPrint(contents, prefs->GetBoolean(prefs::kPrintPreviewDisabled),
-                             /*has_selection=*/false);
+                             false);
       } else {
         printing::StartBasicPrint(contents);
       }
@@ -1629,7 +1521,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
       }
       base::RecordAction(base::UserMetricsAction("SavePage"));
 #if BUILDFLAG(ENABLE_PDF)
-      // As chrome::SavePage: the PDF viewer saves itself (its edits included).
       if (contents->GetContentsMimeType() == "application/pdf" &&
           chrome_pdf::features::IsOopifPdfEnabled() &&
           pdf_extension_util::MaybeDispatchSaveEvent(contents->GetPrimaryMainFrame())) {
@@ -1648,12 +1539,10 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
           DevToolsOpenedByAction::kMainMenuOrMainShortcut);
       return true;
     case IDC_DEV_TOOLS_TOGGLE: {
-      // As Chrome's toggle: docked tools close (their own beforeunload first, as
-      // DevToolsWindow::Close; still loading, they stay), undocked ones come forward, none open.
       DevToolsWindow* tools = DevToolsWindow::GetInstanceForInspectedWebContents(contents);
       if (tools && tools->IsDocked()) {
         if (content::WebContents* docked = DevToolsWindow::GetInTabWebContents(contents, nullptr)) {
-          docked->DispatchBeforeUnload(/*auto_cancel=*/false);
+          docked->DispatchBeforeUnload(false);
         }
       } else {
         DevToolsWindow::OpenDevToolsWindow(contents, DevToolsToggleAction::Show(),
@@ -1666,7 +1555,7 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   }
 }
 
-}  // namespace
+}
 
 @implementation ArdiaCoreTab {
   raw_ptr<content::WebContents> _contents;
@@ -1732,8 +1621,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
                                      ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)
                                : ui::PAGE_TRANSITION_AUTO_TOPLEVEL;
   params.has_user_gesture = userInitiated;
-  // A New Tab page's tab, made ahead on about:blank (the app's prewarm): its first page
-  // takes that entry's place, so Back never lands on the blank page.
   if (ardiacore::OnlyShowedBlank(_contents)) {
     params.should_replace_current_entry = true;
   }
@@ -1796,7 +1683,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
     return;
   }
   if (auto* zoom = zoom::ZoomController::FromWebContents(_contents)) {
-    // Chrome's per-site zoom (HostZoomMap), as its menu sets it.
     zoom->SetZoomLevel(blink::ZoomFactorToZoomLevel(zoomFactor));
   }
 }
@@ -1819,7 +1705,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   }
   auto* unit =
       resource_coordinator::TabLifecycleUnitExternal::FromWebContents(_contents);
-  // Chrome's discard: the page goes, the tab (and this object) stays; it reloads on use.
   return unit && unit->DiscardTab(
                      ::mojom::LifecycleUnitDiscardReason::EXTERNAL);
 }
@@ -1833,7 +1718,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 }
 
 - (void)setFrozen:(BOOL)frozen {
-  // Chrome freezes hidden pages only (a shown page unfreezes).
   if (frozen && _contents &&
       _contents->GetVisibility() == content::Visibility::VISIBLE) {
     return;
@@ -1898,8 +1782,7 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   if (!extension || !runner) {
     return @"none";
   }
-  // As a click on its toolbar button (grants activeTab); the host shows what it asks for.
-  switch (runner->RunAction(extension, /*grant_tab_permissions=*/true)) {
+  switch (runner->RunAction(extension, true)) {
     case extensions::ExtensionAction::ShowAction::kShowPopup:
       return @"popup";
     case extensions::ExtensionAction::ShowAction::kToggleSidePanel:
@@ -1934,7 +1817,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
       icon = action->GetDeclarativeIcon(tab_id);
     }
     NSString* badge = NS(action->GetDisplayBadgeText(tab_id));
-    // JS ActionState (packages/cef/src/extensions.ts), as ACChromeUI.mm shapes it.
     states[extensionId] = @{
       @"title" : NS(action->GetTitle(tab_id)),
       @"badgeText" : [badge hasPrefix:@"<<"] ? @"" : badge,
@@ -1979,20 +1861,16 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   }
   auto* popups = blocked_content::PopupBlockerTabHelper::FromWebContents(_contents);
   int id_number = 0;
-  // Only a popup this page still has (Chrome drops them when the page navigates).
   if (!popups || !base::StringToInt(base::SysNSStringToUTF8(popupId), &id_number) ||
       !popups->GetBlockedPopupRequests().contains(id_number)) {
     return;
   }
   if (always) {
-    // Chrome's "Always allow pop-ups from this site".
     HostContentSettingsMapFactory::GetForProfile(_contents->GetBrowserContext())
         ->SetContentSettingDefaultScope(_contents->GetLastCommittedURL(), GURL(),
                                         ContentSettingsType::POPUPS,
                                         CONTENT_SETTING_ALLOW);
   }
-  // Chrome navigates the request it kept (POST body, opener, referrer); it lands as a tab
-  // of ours, reported with this page as its opener.
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(_contents);
   ardiacore::WindowHost* host = ardiacore::WindowHost::ForBrowser(browser);
@@ -2008,7 +1886,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 
 - (BOOL)executeChromeCommand:(int)command {
   if (ardiacore::IsNotifyingTabStrip()) {
-    // Inside a tab-strip callback: on the next turn (YES: queued).
     dispatch_async(dispatch_get_main_queue(), ^{
       [self executeChromeCommand:command];
     });
@@ -2031,11 +1908,9 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   if (index == active) {
     return chrome::ExecuteCommand(browser, command);
   }
-  // Not the active tab: the command aimed at it, never a moment's switch to it.
   if (std::optional<bool> ran = RunPageCommand(_contents, command)) {
     return *ran;
   }
-  // A command of the whole Browser (caret browsing) needs no tab of its own.
   if (command == IDC_CARET_BROWSING_TOGGLE) {
     return chrome::ExecuteCommand(browser, command);
   }
@@ -2097,7 +1972,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   if (!frame || !frame->IsRenderFrameLive()) {
     return nil;
   }
-  // As CEF's CefGetMediaCaptureSourceId: the id getDisplayMedia/tab capture uses for this tab.
   return NS(content::WebContentsMediaCaptureId(frame->GetProcess()->GetDeprecatedID(),
                                                frame->GetRoutingID())
                 .ToString());
@@ -2110,7 +1984,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
     completion(nullptr);
     return;
   }
-  // The copy answers on any sequence: the picture goes to the main thread.
   void (^done)(CGImageRef) = [completion copy];
   view->CopyFromSurface(
       gfx::Rect(), gfx::Size(), base::Seconds(timeout),
@@ -2134,7 +2007,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   const bool capturing = indicator->IsCapturingTab(_contents) ||
                          indicator->IsCapturingWindow(_contents) ||
                          indicator->IsCapturingDisplay(_contents);
-  // Chrome's "Stop sharing" for what this page shares (tab, window or screen).
   indicator->StopMediaCapturing(_contents,
                                 MediaStreamCaptureIndicator::MediaType::kDisplayMedia);
   return capturing;
@@ -2148,7 +2020,7 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 
 - (void)exitFullscreen {
   if (_contents && _contents->IsFullscreen()) {
-    _contents->ExitFullscreen(/*will_cause_resize=*/true);
+    _contents->ExitFullscreen(true);
   }
 }
 
@@ -2184,12 +2056,9 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   if (!helper) {
     return NO;
   }
-  // Chrome took this tab switch (or is in its auto PiP already).
   if (helper->IsInAutoPictureInPicture() || helper->AreAutoPictureInPicturePreconditionsMet()) {
     return YES;
   }
-  // Or will: its conditions for a call (IsEligibleForAutoPictureInPicture), which don't wait
-  // on anything asynchronous.
   const GURL& url = _contents->GetLastCommittedURL();
   Profile* profile = Profile::FromBrowserContext(_contents->GetBrowserContext());
   return helper->HasAutoPictureInPictureBeenRegistered() &&
@@ -2222,9 +2091,6 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 }
 
 namespace {
-// Chrome's tab-sharing infobar on this tab for the share `capturer` makes. Each share
-// puts one on every tab, so a tab shows one per share: matched by its capturing frame
-// (the capturer's main frame, so two shares from one tab can't be told apart: none).
 TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
                                                  content::WebContents* capturer) {
   auto* manager =
@@ -2250,7 +2116,7 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   }
   return found;
 }
-}  // namespace
+}
 
 - (BOOL)canShareThisTabInsteadFor:(ArdiaCoreTab*)capturer {
   TabSharingInfoBarDelegate* sharing =
@@ -2264,7 +2130,6 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   if (![self canShareThisTabInsteadFor:capturer]) {
     return NO;
   }
-  // Chrome's "Share this tab instead" on that share's bar: its capture moves here.
   TabSharingDelegateFor(_contents, capturer.contents)->ShareThisTabInstead();
   return YES;
 }
@@ -2407,7 +2272,7 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   ardiacore::TabBridge::GetOrCreate(_contents)->EnsureFindObserved();
   if (auto* helper = find_in_page::FindTabHelper::FromWebContents(_contents)) {
     helper->StartFinding(base::SysNSStringToUTF16(text), forward,
-                         /*case_sensitive=*/false, /*find_match=*/true);
+                         false, true);
   }
 }
 
@@ -2459,16 +2324,12 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   if (!browser) {
     return;
   }
-  // As CEF's CloseBrowser(true): no beforeunload, gone now (didRemoveTab:, no tabWillClose:).
   ardiacore::TabBridge::GetOrCreate(_contents)->set_closed_by_host();
   TabStripModel* model = browser->GetTabStripModel();
   const int index = model->GetIndexOfWebContents(_contents);
   if (index == TabStripModel::kNoTab) {
     return;
   }
-  // Chrome's closed-tab entry (⇧⌘T, chrome.sessions), as a user's close records it, now: a
-  // tag the host set just before is in it. Not for incognito, a page that never committed, or
-  // a New Tab page's tab that only ever showed about:blank (made ahead of its navigation).
   content::NavigationEntry* committed = _contents->GetController().GetLastCommittedEntry();
   if (!Profile::FromBrowserContext(_contents->GetBrowserContext())->IsOffTheRecord() &&
       committed && !committed->IsInitialEntry() && !ardiacore::OnlyShowedBlank(_contents)) {
@@ -2496,7 +2357,6 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   TabStripModel* model = browser->GetTabStripModel();
   int index = model->GetIndexOfWebContents(_contents);
   if (index != TabStripModel::kNoTab) {
-    // As closeNow: a tab that only showed about:blank (made ahead) leaves no closed-tab entry.
     uint32_t close_types = TabCloseTypes::CLOSE_USER_GESTURE;
     if (!ardiacore::OnlyShowedBlank(_contents)) {
       close_types |= TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB;

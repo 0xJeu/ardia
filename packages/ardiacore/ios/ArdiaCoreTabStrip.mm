@@ -1,8 +1,3 @@
-// Chrome's tab strips as revisioned transactions (packages/cef/src/tabStrip.ts, docs/store-api.md › "Live tabs"):
-// on ArdiaCore a strip is one profile's Browser in one ArdiaCoreWindow. Chrome commits; the app sends commands with ids;
-// every change goes out as one transaction naming its cause: the command's id, -1 for the app's own engine calls
-// (a WebView opening, adopting or closing its tab), null for Chrome's own (an extension, the tab Chrome shows after
-// the active one closes).
 #import "ArdiaCoreTabStrip.h"
 
 #import "ArdiaCoreInternal.h"
@@ -15,7 +10,6 @@ namespace {
 void (^gHandler)(NSDictionary *);
 int64_t gRev = 0;
 
-// The strips each window has reported, to send them once more as closed when the window goes.
 NSMapTable<ArdiaCoreWindowController *, NSMutableDictionary<NSNumber *, NSString *> *> *KnownStrips() {
   static NSMapTable *known = [NSMapTable weakToStrongObjectsMapTable];
   return known;
@@ -30,16 +24,10 @@ void Remember(ArdiaCoreWindowController *controller, int strip, NSString *profil
   }
   strips[@(strip)] = profile;
 }
-// The command being run (its changes carry its id).
 NSNumber *gCommand;
-// Its strip: the command's one transaction reports it once the command is done (changes to it while the command runs
-// would each have gone out as another transaction with the same id).
 __weak ArdiaCoreWindowController *gCommandWindow;
 __weak ArdiaCoreProfile *gCommandProfile;
 
-// The last state each strip went out with: a report of the same state again, not answering a command, isn't sent (a
-// new tab made two identical ones, its insertion and its placing). Its rev would only have told the app that nothing
-// changed.
 NSMutableDictionary<NSNumber *, NSDictionary *> *Sent() {
   static NSMutableDictionary *sent = [NSMutableDictionary dictionary];
   return sent;
@@ -53,8 +41,6 @@ void Send(NSDictionary *tx) {
   gHandler(tx);
 }
 
-// Chrome's tab groups as //chrome/browser/ardia's ac_tabs reports them ("tabs.strip"), by the Browser's session id
-// (= the strip id): {groups: [...], tabs: {chrome tab id: group token or NSNull}}.
 NSMutableDictionary<NSNumber *, NSDictionary *> *Groups() {
   static NSMutableDictionary *groups = [NSMutableDictionary dictionary];
   return groups;
@@ -80,7 +66,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreTab *> *ActiveTabs(ArdiaCoreWindowContro
   return active;
 }
 
-// The app's id for the window (the windowId its React root was made with).
 NSString *AppWindowOf(ArdiaCoreWindowController *controller) {
   NSMutableArray<NSView *> *views = [NSMutableArray array];
   if (controller.root) [views addObject:controller.root];
@@ -137,13 +122,12 @@ NSDictionary *Strip(ArdiaCoreWindowController *controller, ArdiaCoreProfile *pro
 
 NSArray<ArdiaCoreProfile *> *ProfilesWithTabs(ArdiaCoreWindowController *controller) {
   NSMutableArray *profiles = [NSMutableArray array];
-  // Every profile the app has loaded that has a Browser in this window.
   for (ArdiaCoreProfile *profile in ardiacore_host::LoadedProfiles())
     if ([controller.coreWindow chromeWindowIdForProfile:profile] >= 0) [profiles addObject:profile];
   return profiles;
 }
 
-}  // namespace
+}
 
 @implementation ArdiaCoreTabStrip
 
@@ -168,7 +152,6 @@ NSArray<ArdiaCoreProfile *> *ProfilesWithTabs(ArdiaCoreWindowController *control
                         };
                         Groups()[window] = now;
                         if ([before isEqualToDictionary:now] || gCommand) return;
-                        // A group change Chrome made (an extension's tabs.group): the strip again, as Chrome's report.
                         for (ArdiaCoreWindowController *c in ArdiaCoreWindowController.all)
                           for (ArdiaCoreProfile *p in ardiacore_host::LoadedProfiles())
                             if ([c.coreWindow chromeWindowIdForProfile:p] == window.intValue)
@@ -265,14 +248,11 @@ NSArray<ArdiaCoreProfile *> *ProfilesWithTabs(ArdiaCoreWindowController *control
       if (ArdiaCoreTab *tab = byKey[key]) [ids addObject:@(tab.tabId)];
     if (!ids.count) rejected = YES;
     else {
-      // ac_tabs_group replies once Chrome grouped them; the command's one transaction carries the result.
       NSMutableDictionary *args = [@{@"window" : @(stripId), @"tabs" : ids} mutableCopy];
       id group = command[@"group"];
       args[@"group"] = [group isKindOfClass:NSString.class] ? group : @"";
       for (NSString *key in @[ @"title", @"color" ])
         if ([command[key] isKindOfClass:NSString.class]) args[key] = command[key];
-      // Collapse mirrors both ways (bffaa2de). ArdiaCore's Browsers have no views tab strip, so collapsing never
-      // moves the active tab (only BrowserTabStripController did that).
       if ([command[@"collapsed"] isKindOfClass:NSNumber.class]) args[@"collapsed"] = command[@"collapsed"];
       gCommand = nil;
       ArdiaCoreWindowController *controller = found;
@@ -287,7 +267,6 @@ NSArray<ArdiaCoreProfile *> *ProfilesWithTabs(ArdiaCoreWindowController *control
   }
   gCommand = nil;
   NSMutableDictionary *tx = [@{@"rev" : @(++gRev), @"cmd" : @(commandId), @"strips" : found ? @[ Strip(found, profile) ] : @[]} mutableCopy];
-  // None of its keys were in its strip: nothing was done.
   if (rejected) tx[@"rejected"] = @YES;
   if (gHandler) Send(tx);
 }

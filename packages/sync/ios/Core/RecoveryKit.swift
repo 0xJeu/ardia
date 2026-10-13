@@ -37,7 +37,6 @@ public enum RecoveryKit {
   }
 
   public static func pdf(words: [String], created: Date, device: String) -> Data {
-    // Dia: US Letter (612 × 792 pt).
     let data = NSMutableData()
     var box = CGRect(x: 0, y: 0, width: 612, height: 792)
     guard let consumer = CGDataConsumer(data: data as CFMutableData),

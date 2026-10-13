@@ -26,7 +26,6 @@ public class CalendarModule: Module {
     AsyncFunction("requestAccess") { (promise: Promise) in
       self.store.requestFullAccessToEvents { granted, _ in
         DispatchQueue.main.async {
-          // Refresh EventKit after access is granted.
           if granted { self.store = EKEventStore(); self.observe() }
           promise.resolve(granted)
         }

@@ -1,8 +1,5 @@
 import ExpoModulesCore
 
-// "ArdiaExtensions" on ArdiaCore, over //chrome/browser/ardia's ac_extensions_* exports (the same calls as
-// packages/cef/ios/ACExtensions.mm). Chrome's own install prompt still shows for now (resolveInstallPrompt waits on
-// ArdiaCore's install-prompt seam).
 public class ExtensionsModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaExtensions")

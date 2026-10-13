@@ -1,5 +1,3 @@
-// Test instances must never activate or show menus and panels. ArdiaCore's copy of packages/cef/ios/ACActivation.mm:
-// the class swizzles go in before ChromeMain (NSApp doesn't exist yet), the activation policy once Chrome made NSApp.
 #import "ArdiaCoreInternal.h"
 
 #include <execinfo.h>
@@ -37,9 +35,6 @@ void Log(NSString *what, NSArray<NSString *> *stack) {
   [file closeFile];
 }
 
-// The same, symbolicated and written off the main thread: a test instance's window calls (every new window's
-// makeKeyAndOrderFront:) took ~12 ms each to symbolicate a stack through Chromium's symbol table, which the window
-// benchmarks counted.
 void LogLater(NSString *what, NSArray<NSNumber *> *addresses) {
   static dispatch_queue_t queue = dispatch_queue_create("ardia.activation-log", DISPATCH_QUEUE_SERIAL);
   dispatch_async(queue, ^{
@@ -71,7 +66,6 @@ void ObserveActivation() {
                                                   object:nil
                                                    queue:nil
                                               usingBlock:^(NSNotification *) {
-                                                // Not the app-active seam's: macOS's.
                                                 if (!NSRunningApplication.currentApplication.isActive) return;
                                                 Log(@"became active (deactivating)", NSThread.callStackSymbols);
                                                 [NSApp deactivate];
@@ -174,18 +168,10 @@ bool Background() {
   return background;
 }
 
-// MARK: The app-active seam
-
-// A hidden test instance is never active, so AppKit never gives it a key window. It fakes that one fact: whether the app
-// is active (yes, unless a check says otherwise: SetAppActive). -[NSApplication isActive] reads it, and AppKit's key
-// window follows it as in an active app, as Chromium's ui::test::ScopedFakeNSWindowFocus has it: a window made key is
-// the key window, and while the app is active the resign and become-key notifications go out, which Chrome's views
-// (OnWidgetActivationChanged), its pages and the app hear. Everything after that is production's own focus path.
 namespace {
 
 bool gAppActive = true;
 __weak NSWindow *gKeyWindow;
-// AppKit's own -makeKeyWindow: in an app that isn't active it makes nothing key, but it is where AppKit sends key events.
 void (*gAppKitMakeKey)(id, SEL);
 
 void PostKey(NSWindow *window, bool key) {
@@ -204,7 +190,6 @@ void MakeKey(NSWindow *window) {
   PostKey(window, true);
 }
 
-// As AppKit does when the key window goes: the frontmost other window that can be key takes over.
 void KeyWindowLeaving(NSWindow *window) {
   if (window != gKeyWindow) return;
   gKeyWindow = nil;
@@ -230,28 +215,16 @@ void FakeKeyWindows() {
   });
 }
 
-// MARK: Behind the owner's windows
-
-// An inactive app's window ordered front still goes to the front of its level, over the owner's windows; so does any
-// window of an app that tries to activate (the window server brings it forward even when activation is refused), and
-// AppKit reorders windows on its own (a child window's group, re-placed against a window gone off screen). A test
-// instance's windows therefore live below the normal level, where nothing the app or AppKit does can lift them over
-// another app's window: each window's level is set a band lower (normal at -1000000, floating at -999997…), so they
-// keep production's order among themselves (a floating window over normal ones) and stay above the desktop. -level
-// answers the level asked for. AppKit, Chrome, CDP and captures (screencapture -l, in-process snapshots) work the same
-// on a covered window, occlusion is acted out (isOccluded, occlusionState), and Mission Control leaves them out.
 constexpr NSWindowLevel kLevelBand = 1000000;
 NSWindowLevel (*gAppKitLevel)(id, SEL);
 void (*gAppKitSetLevel)(id, SEL, NSWindowLevel);
 const void *kAskedLevelKey = &kAskedLevelKey;
-// While AppKit's own setLevel: runs, -level answers the real level: AppKit reads it back to tell the window server.
 bool gSettingLevel = false;
 
 NSWindowLevel Lowered(NSWindowLevel level) {
   return level < 0 ? level : level < kLevelBand ? level - kLevelBand : -1;
 }
 
-// A window that came to have a level of 0 or more (every new window has 0) takes its lowered one.
 void KeepLowered(NSWindow *window) {
   if (gAppKitLevel(window, @selector(level)) >= 0) window.level = window.level;
 }
@@ -271,8 +244,6 @@ void KeepBehindOwnerWindows() {
     NSNumber *asked = gSettingLevel ? nil : objc_getAssociatedObject(window, kAskedLevelKey);
     return asked ? asked.integerValue : gAppKitLevel(window, @selector(level));
   });
-  // Lowered from birth, and again whenever one is ordered in (orderFront:, makeKeyAndOrderFront:, sheets, child windows
-  // and Chrome's widgets all come through -orderWindow:relativeTo:; orderFrontRegardless: InstallActivationGuardsEarly).
   {
     SEL selector = @selector(initWithContentRect:styleMask:backing:defer:);
     auto original = (id (*)(id, SEL, NSRect, NSWindowStyleMask, NSBackingStoreType, BOOL))method_getImplementation(
@@ -300,9 +271,8 @@ void KeepBehindOwnerWindows() {
   });
 }
 
-}  // namespace
+}
 
-// As AppKit tells an app it comes and goes: will, the key window, did.
 void SetAppActive(bool active) {
   if (!Background() || active == gAppActive) return;
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
@@ -354,8 +324,6 @@ void InstallActivationGuardsEarly() {
                                         window.title, gAppActive ? @"" : @" (app inactive)"],
              NSThread.callStackReturnAddresses);
   };
-  // A child window ordered to the front (Chrome's bubbles: "extension added", save card…) would come up
-  // over the user's other apps while its window stays behind them. Keep it just above its parent.
   auto aboveParent = [](NSWindow *window) {
     NSWindow *parent = window.parentWindow;
     if (!parent) return false;
@@ -375,9 +343,6 @@ void InstallActivationGuardsEarly() {
     note(@"makeKeyWindow", window);
     MakeKey(window);
   });
-  // Chrome activates the app before it shows a window as active (NativeWidgetNSWindowBridge::SetVisibilityState: the
-  // "has been added" bubble, a profile's window). Refused or not, it tells the window server this process is in front,
-  // and that brings its windows over the owner's. The key window is faked here anyway (FakeKeyWindows).
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   for (SEL selector : {@selector(activateIgnoringOtherApps:), @selector(activate)})
@@ -390,11 +355,10 @@ void InstallActivationGuardsEarly() {
     auto original = (void (*)(id, SEL))method_getImplementation(class_getInstanceMethod(NSWindow.class, selector));
     Swizzle(NSWindow.class, selector, ^(NSWindow *window) {
       note(@"orderFrontRegardless", window);
-      KeepLowered(window);  // AppKit's own goes past -orderWindow:relativeTo:
+      KeepLowered(window);
       if (!aboveParent(window)) original(window, selector);
     });
   }
-  // The key window makes the View menu's Enter Full Screen live: a real one would open a Space on the owner's screen.
   Swizzle(NSWindow.class, @selector(toggleFullScreen:), ^(NSWindow *window, id) { ActToggleFullScreen(window); });
   Swizzle(NSApplication.class, @selector(unhide:), ^(NSApplication *app, id sender) {
     Log(@"unhide: (unhiding without activation)", NSThread.callStackSymbols);
@@ -433,8 +397,6 @@ void WriteAll(int fd, const char *text) {
   }
 }
 
-// Async-signal-safe enough for a dying test instance: a record, then a plain exit, so the kernel never makes a crash
-// report of it (no ReportCrash, no dialog, no focus change).
 void OnFatalSignal(int sig) {
   char path[1200], number[32];
   int len = snprintf(path, sizeof(path), "%s/crash-%d.txt", gCrashDir, getpid());
@@ -453,14 +415,13 @@ void OnFatalSignal(int sig) {
   _exit(128 + sig);
 }
 
-}  // namespace
+}
 
 void InstallTestCrashGuard(NSString *dataDir) {
   if (!dataDir.length) return;
   NSString *dir = [dataDir stringByAppendingPathComponent:@"crashes"];
   [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
   strlcpy(gCrashDir, dir.fileSystemRepresentation, sizeof(gCrashDir));
-  // Its own stack: a stack overflow still gets a record.
   static char altStack[64 * 1024];
   stack_t ss = {.ss_sp = altStack, .ss_size = sizeof(altStack), .ss_flags = 0};
   sigaltstack(&ss, nullptr);
@@ -479,4 +440,4 @@ void InstallActivationGuardsLate() {
   if (Background()) [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
 }
 
-}  // namespace ardiacore_host
+}

@@ -41,8 +41,6 @@ class Provider : public mr::mojom::MediaRouteProvider, public ProfileObserver {
   Provider(Profile* profile, mr::mojom::MediaRouter* router)
       : profile_(profile), router_receiver_(router) {
     profile_observation_.Observe(profile);
-    // The router's mojom side, called through a pipe of our own (MediaRouterDesktop keeps
-    // its receiver private); the receiver goes with this, before the router.
     router_.Bind(router_receiver_.BindNewPipeAndPassRemote());
     mr::MediaSinkInternal sink;
     sink.set_sink(mr::MediaSink("ac-test-sink", "Ardia Test Sink",
@@ -54,7 +52,6 @@ class Provider : public mr::mojom::MediaRouteProvider, public ProfileObserver {
     router->RegisterMediaRouteProvider(kId, receiver_.BindNewPipeAndPassRemote());
   }
 
-  // mojom::MediaRouteProvider:
   void CreateRoute(const std::string& media_source,
                    const std::string& sink_id,
                    const std::string& presentation_id,
@@ -63,7 +60,7 @@ class Provider : public mr::mojom::MediaRouteProvider, public ProfileObserver {
                    base::TimeDelta timeout,
                    CreateRouteCallback callback) override {
     mr::MediaRoute route(presentation_id, mr::MediaSource(media_source), sink_id,
-                         "Test Route", /*is_local=*/true);
+                         "Test Route", true);
     route.set_presentation_id(presentation_id);
     route.set_controller_type(mr::RouteControllerType::kGeneric);
     const std::string route_id = route.media_route_id();
@@ -97,7 +94,6 @@ class Provider : public mr::mojom::MediaRouteProvider, public ProfileObserver {
   void SendRouteMessage(const std::string&, const std::string&) override {}
   void SendRouteBinaryMessage(const std::string&, const std::vector<uint8_t>&) override {}
   void StartObservingMediaSinks(const std::string& media_source) override {
-    // Never the desktop: mirroring a screen opens the desktop picker (a macOS prompt).
     const bool desktop = mr::MediaSource(media_source).IsDesktopMirroringSource();
     router_->OnSinksReceived(kId, media_source,
                              desktop ? std::vector<mr::MediaSinkInternal>() : sinks_, {});
@@ -117,7 +113,6 @@ class Provider : public mr::mojom::MediaRouteProvider, public ProfileObserver {
   }
   void GetState(GetStateCallback callback) override { std::move(callback).Run(nullptr); }
 
-  // ProfileObserver: before its keyed services (the router) go.
   void OnProfileWillBeDestroyed(Profile* profile) override;
 
  private:
@@ -145,10 +140,10 @@ std::map<Profile*, std::unique_ptr<Provider>>& Providers() {
 
 void Provider::OnProfileWillBeDestroyed(Profile* profile) {
   profile_observation_.Reset();
-  Providers().erase(profile);  // destroys this
+  Providers().erase(profile);
 }
 
-}  // namespace
+}
 
 void MaybeRegisterTestMediaRouteProvider(Profile* profile) {
   if (!profile || Providers().contains(profile) ||
@@ -161,11 +156,10 @@ void MaybeRegisterTestMediaRouteProvider(Profile* profile) {
   if (!desktop) {
     return;
   }
-  // mojom::MediaRouter is MediaRouterDesktop's public base (its overrides are private).
   auto* router = static_cast<mr::mojom::MediaRouter*>(desktop);
   auto provider = std::make_unique<Provider>(profile, router);
   provider->Register(router);
   Providers()[profile] = std::move(provider);
 }
 
-}  // namespace ardiacore
+}

@@ -14,7 +14,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private weak var lastPlaced: NSWindow?
   private var legacyFrame = UserDefaults.standard.string(forKey: "NSWindow Frame BrowserWindow")
   private(set) var auxKinds: [String: String] = [:]
-  // Little Ardia windows (Arc's Little Arc): browser windows that open centred at their remembered size.
   private(set) var smallIds = Set<String>()
 
   private func isBrowserWindow(_ window: NSWindow?) -> Bool {
@@ -52,8 +51,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     window.level = window.level == .floating ? .normal : .floating
   }
 
-  // Launch: windows to open behind another once its content is on screen (`behind`), by id, and the browser windows whose
-  // first content is (RCTContentDidAppearNotification).
   private struct PendingOpen {
     var frame: [Double]?, incognito: Bool, title: String, kind: String, profile: String?, size: [Double]?, behind: String
   }
@@ -61,7 +58,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private var pendingOrder: [String] = []
   private var contentShown = Set<String>()
   private var firstContentObservers: [String: NSObjectProtocol] = [:]
-  // Content that doesn't come within this long opens the windows waiting for it anyway.
   private static let behindTimeout = 1.5
 
   func open(
@@ -72,8 +68,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
       if focus { existing.makeKeyAndOrderFront(nil) }
       return
     }
-    // The launch's other windows: the focused one's content is the first the app builds (it was the last, 700 ms later
-    // with four windows), then they go behind it, in the order they came, so the last sits right under it.
     if let behind, !focus, windows[behind] != nil, !contentShown.contains(behind) {
       if pendingOpens[id] == nil { pendingOrder.append(id) }
       pendingOpens[id] = PendingOpen(frame: frame, incognito: incognito, title: title, kind: kind, profile: profile, size: size, behind: behind)
@@ -115,15 +109,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
     if let center = lightsCenters[id] { ChromeWindows.setTrafficLightsCenter(center, in: window) }
     if smallSize == nil { lastPlaced = window }
     if focus, unrevealed[id] != nil {
-      // Key once it shows, its content first: made key while its content mounted, the key change's work (the old
-      // window's blur, Chrome's activation, the focus events) went ahead of the content and the window showed a frame or
-      // more later (0.2.23: 53 ms against 37). What the user types from now on is held for it, never the window they
-      // left (holdTyping).
       window.orderFront(nil)
       keyOnReveal = window
       holdTyping(in: window)
       unrevealed[id]!.append { [weak self, weak window] in
-        // Not if the user went to another window meanwhile, or a newer window is to be key.
         guard let self, let window, self.windows[id] === window, self.keyOnReveal === window else { return }
         self.keyOnReveal = nil
         window.makeKeyAndOrderFront(nil)
@@ -134,8 +123,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     } else if let behind, let above = windows[behind], above !== window, above.isVisible {
       window.order(.below, relativeTo: above.windowNumber)
     } else if let key = NSApp.keyWindow, key !== window {
-      // A window opened without focus (tabs Little Ardia sends behind with no main window open) goes behind the
-      // key window instead of over it.
       window.order(.below, relativeTo: key.windowNumber)
     } else {
       window.orderFront(nil)
@@ -144,10 +131,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     reportFrame(window)
   }
 
-  // A window opened while the app runs waits, transparent, until its React content is on screen, as Dia's appear at
-  // their final frame with their content: it showed an empty window (the traffic lights alone), then its sidebar
-  // and an unpainted page, for several frames (rec1522, 20.97 s). The first windows at launch show at once. Content
-  // that doesn't come within the timeout shows the window anyway; the timeout only ever shows it.
   private static let revealTimeout = 0.6
   private var unrevealed: [String: [() -> Void]] = [:]
 
@@ -161,11 +144,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
       observer = nil
       guard let self, let waiting = self.unrevealed.removeValue(forKey: id) else { return }
       window?.alphaValue = 1
-      // On screen now, before the rest.
       CATransaction.flush()
       waiting.forEach { $0() }
     }
-    // Posted (a turn after the root's first view went in) once the batch that mounted the content is done.
     observer = NotificationCenter.default.addObserver(forName: Notification.Name("RCTContentDidAppearNotification"), object: root, queue: .main) {
       _ in reveal()
     }
@@ -182,8 +163,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
       guard self.windows[id] != nil else { return }
       self.contentShown.insert(id)
       guard self.pendingOrder.contains(where: { self.pendingOpens[$0]?.behind == id }) else { return }
-      // On screen first, then the windows behind it: left to the run loop, the commit waited for them to be built
-      // (content 590 ms, on screen 990 ms, big4).
       CATransaction.flush()
       self.openPending(behind: id)
     }
@@ -199,36 +178,25 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
   }
 
-  /// `then` once the window shows its content (now, if it does or isn't one of ours).
   func whenRevealed(_ id: String, _ then: @escaping () -> Void) {
     if unrevealed[id] != nil { unrevealed[id]!.append(then) } else { then() }
   }
 
-  // Typing into a new window before its content is there (⌘N, then typing at once). Until it shows and is made key,
-  // every key the app gets is for it: held, shortcuts too (they'd act on the window the user left). Then its keys wait,
-  // in order, for the first field or page in it to take them (its address field focuses once laid out), as Chrome's
-  // new window has its address field from the start; a ⌘-shortcut acts at once while nothing waits, and takes its turn
-  // once something does. Dropped if the window closes or stops being key before that, if another window is made key
-  // before it shows (it isn't made key then), or past 256 events.
   private final class TypeAhead {
     weak var window: NSWindow?
     var keys: [NSEvent] = []
     var watches: [NSObjectProtocol] = []
-    // Made key (it shows): its keys now come with it as their window.
     var keyed = false
-    // Sending what it held: those go through.
     var passing = false
     init(_ window: NSWindow) { self.window = window }
   }
   private var typeAhead: TypeAhead?
   private var typingMonitor: Any?
-  // The window opened with focus that is made key once it shows (the newest; nil once another window became key).
   private weak var keyOnReveal: NSWindow?
 
   private func holdTyping(in window: NSWindow) {
     endTypeAhead(send: false)
     typingMonitor = typingMonitor ?? NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-      // Held from a key-down on: the ⌘N's own key-up goes where its key-down went.
       guard let self, let held = self.typeAhead, let window = held.window, !held.passing, !held.keyed || event.window === window,
         !held.keys.isEmpty || (event.type == .keyDown && (!held.keyed || !event.modifierFlags.contains(.command)))
       else { return event }
@@ -242,7 +210,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     let held = TypeAhead(window)
     held.watches.append(window.observe(\.firstResponder) { [weak self, weak held] window, _ in
       guard held?.keyed == true, Self.takesTyping(window.firstResponder) else { return }
-      // After the batch that focused it: the field sets its selection next.
       DispatchQueue.main.async { if let held, self?.typeAhead === held { self?.endTypeAhead(send: true) } }
     })
     for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
@@ -250,7 +217,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if let held, self?.typeAhead === held { self?.endTypeAhead(send: false) }
       })
     }
-    // Another window made key before this one shows (a click into it): the user went there; this one isn't made key.
     held.watches.append(NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) {
       [weak self, weak held, weak window] note in
       guard let self, let held, self.typeAhead === held, !held.keyed, note.object as? NSWindow !== window else { return }
@@ -260,14 +226,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
     typeAhead = held
   }
 
-  // The window held for is key now: what it held goes to it, at once if its field or page already has the focus.
   private func typeAheadKeyed(_ window: NSWindow) {
     guard let held = typeAhead, held.window === window, !held.keyed else { return }
     held.keyed = true
     held.keys = held.keys.compactMap { Self.retarget($0, to: window) }
     if Self.takesTyping(window.firstResponder) || !window.isKeyWindow { return endTypeAhead(send: window.isKeyWindow) }
-    // What only waited for it to be key goes now: the shortcuts and key-ups before the first plain key (a ⌘W, or a ⌘Q
-    // in a window whose content never comes).
     let first = held.keys.firstIndex { $0.type == .keyDown && !$0.modifierFlags.contains(.command) } ?? held.keys.endIndex
     let now = held.keys[..<first]
     held.keys.removeFirst(first)
@@ -276,7 +239,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     held.passing = false
   }
 
-  // A key event held while another window was key, as if it had come to `window`.
   private static func retarget(_ event: NSEvent, to window: NSWindow) -> NSEvent? {
     if event.windowNumber == window.windowNumber { return event }
     return NSEvent.keyEvent(
@@ -294,7 +256,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     if send { held.keys.forEach { NSApp.sendEvent($0) } }
   }
 
-  // A text field's editor or a page.
   private static func takesTyping(_ responder: NSResponder?) -> Bool {
     responder is NSTextView || responder.map { String(describing: type(of: $0)) == "RenderWidgetHostViewCocoa" } == true
   }
@@ -322,7 +283,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     if let current = windows[id] { ChromeWindows.prepare(neighbours, for: current) }
   }
 
-  // Kept per id: JS can ask before the window is registered.
   private var lightsCenters: [String: NSPoint] = [:]
 
   func setTrafficLightsCenter(id: String, center: NSPoint?) {
@@ -371,11 +331,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private func configureSmall(_ window: NSWindow) {
     window.minSize = NSSize(width: 420, height: 300)
     window.tabbingMode = .disallowed
-    // Opens on the Space you're on, like Little Arc, rather than pulling you to the app's last Space.
     window.collectionBehavior.insert(.moveToActiveSpace)
   }
 
-  // Little Arc's placement: the remembered size, centred on the screen you're working on, a little above centre.
   private func placeSmall(_ window: NSWindow, size: [Double]) {
     let mouse = NSEvent.mouseLocation
     let screen = (NSApp.isActive ? NSApp.keyWindow?.screen : nil)
@@ -413,19 +371,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
       return
     }
     contentShown.remove(id)
-    // Closed before its content came.
     if let observer = firstContentObservers.removeValue(forKey: id) { NotificationCenter.default.removeObserver(observer) }
     guard let window = windows[id] else { return }
     if ChromeWindows.root(of: window) != nil {
-      // Keep Chrome Browser alive until tabs finish moving out.
       NotificationCenter.default.removeObserver(self, name: nil, object: window)
       windows[id] = nil
-      // Off the screen at once: its React content goes before the window does (and Chrome fades a closing window
-      // out), which showed an empty window with its traffic lights for a few frames (rec1522, 21 s).
       window.animationBehavior = .none
       window.orderOut(nil)
-      // The ordering reaches the screen with a Core Animation commit: without one now it waited for the end of the
-      // turn, after its page had left for the other window, which drew it emptied for 2–4 frames.
       CATransaction.flush()
       if let waiting = unrevealed.removeValue(forKey: id) { waiting.forEach { $0() } }
       stopKeepingContentSized(id)
@@ -441,7 +393,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   func focus(id: String) {
-    // One still waiting to open behind the launch's focused window opens now, in front (a link the app routes to it).
     if let o = pendingOpens.removeValue(forKey: id) {
       pendingOrder.removeAll { $0 == id }
       return open(id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: true, kind: o.kind, profile: o.profile, size: o.size)
@@ -454,8 +405,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     guard let window = windows[id], window.title != title else { return }
     window.title = title
   }
-
-  // MARK: NSWindowDelegate
 
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     guard let id = id(of: sender), auxKinds[id] == nil, !smallIds.contains(id), MenuState.current.warnBeforeClosingWindow,
@@ -492,14 +441,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     relayoutRoot(window)
   }
 
-  /// Lay out RCTRootView immediately after programmatic frame changes; occluded windows may not get a display pass.
-  // React Native's root content view takes its size from the root's own layout pass only, and reports its own
-  // bounds as the size React lays out in. A new window's first layout can lose that race: its content was sized
-  // before the root was (zero), React's layout for that size landed after the root's pass, and the content view
-  // then reported its zero bounds back. Nothing laid the root out again, so the window stayed empty (hits reach the
-  // bare RCTRootView), its panes unmounted, and a tab just moved into it lost its page (acceptance
-  // move-tab-to-window, under a long run's load). Whenever the content's size leaves the root's, the root lays out
-  // again, which sets it back and reports the right size.
   private var contentSizers: [String: NSObjectProtocol] = [:]
 
   private func keepContentSized(id: String, root: NSView) {
@@ -516,7 +457,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
   }
 
-  // A JavaScript reload replaces the root's content view (its first view coming in posts this): watch the new one.
   private var contentReloads: [String: NSObjectProtocol] = [:]
 
   private func keepContentSizedAcrossReloads(id: String, root: NSView) {
@@ -552,21 +492,12 @@ final class WindowManager: NSObject, NSWindowDelegate {
     emit?("onWindowEvent", ["type": "frame", "id": id, "frame": [f.minX, f.minY, f.width, f.height]])
   }
 
-  // MARK: App lifecycle
-
-  // A quit is ArdiaCore's (ac_lifetime's QuitPhase): every quit, ⌘Q, the Dock or logout, asks shouldTerminate once per
-  // attempt, JS saves and answers willQuit with replyToTerminate, and when the quit is cancelled after all (a page's
-  // beforeunload said Stay) JS hears quitCancelled and goes on saving. All this keeps of an attempt is the wait for that
-  // answer, which asks the user when it runs long.
   var appEventsObserved = false
-  /// The JS runtime `emit` reaches (its ShellModule). One going away (a reload) cancels a quit waiting for its answer,
-  /// and no quit asks it again.
   var runtime: ObjectIdentifier?
 
   func runtimeGone(_ gone: ObjectIdentifier) {
     guard runtime == gone else { return }
     runtime = nil
-    // The next runtime opens the windows its store has (a window still waiting would open for a store that's gone).
     pendingOpens = [:]
     pendingOrder = []
     emit = nil
@@ -598,8 +529,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     return .terminateLater
   }
 
-  // waits-for: JS willQuit reply
-  // on-timeout: ask the user (Wait / Quit Without Saving)
   private var saveWait: Timer?
   private var lateSaveAlert: NSAlert?
   private let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
@@ -613,7 +542,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private func saveIsLate() {
     saveWait = nil
     let message = "\(ProcessInfo.processInfo.processName) can't save your session right now."
-    // A test instance never shows it: logged, answered Wait.
     if background {
       NSLog("[shell] quit alert: \(message) (Wait / Quit Without Saving): Wait")
       return waitForSave()
@@ -631,7 +559,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     case .alertSecondButtonReturn:
       DocumentStore.close()
       NSApp.reply(toApplicationShouldTerminate: true)
-    default: break  // JS answered while it was up (replyToTerminate).
+    default: break
     }
   }
 
@@ -648,7 +576,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     return alert.runModal() == .alertFirstButtonReturn
   }
 
-  /// JS's answer to willQuit. ArdiaCore takes only the answer to the quit it asked about.
   func replyToTerminate(_ ok: Bool) {
     saveWait?.invalidate()
     saveWait = nil
@@ -662,17 +589,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
 }
 
 
-// MARK: - Dragged tab preview
-
-/// The dragged tab as Dia shows it once it leaves its list: a small picture of the window under the pointer
-/// (over the page, outside the window, over other apps), after a moment as a tab-shaped pill. A borderless,
-/// non-activating panel that takes no mouse events, so the drag keeps going to the window it started in and no
-/// app is activated. In a hidden instance (ARDIA_BACKGROUND) it stays just above its window instead of
-/// floating over every app.
 final class DragPreview {
   static let shared = DragPreview()
 
-  // Dia's card (209 × 109.5, a picture of the window) and its tab pill; measured in dia-spec.md › Dragging tabs.
   static let card = NSSize(width: 209, height: 110)
   private static let pillMs = 0.03
   private static let morph = 0.06
@@ -685,11 +604,8 @@ final class DragPreview {
   }
 
   private var panel: Panel?
-  // The card's rim (corners, border, clip) and the picture in it.
   private let rim = CALayer()
   private let picture = CALayer()
-  // Growing into a new window: the picture is the whole window, width-fit and top-aligned, so it lines up with the
-  // window it becomes (height ÷ width); 0 otherwise (the picture fills the panel).
   private var windowAspect: CGFloat = 0
   private weak var source: NSWindow?
   private var sourceClosing: NSObjectProtocol?
@@ -699,23 +615,17 @@ final class DragPreview {
   private var cardImage: CGImage?
   private var pillImage: CGImage?
   private var pillSize = NSSize(width: 173, height: 32)
-  // The pointer's place in the pill when the tab was grabbed, from its top-left.
   private var grab = NSPoint(x: 86, y: 16)
   private var shape = "hidden" { didSet { if shape != oldValue { shapes.append(shape) } } }
-  // The shapes shown since the drag began (DEV state).
   private var shapes: [String] = []
   private var wanted = "hidden"
   private var lastPoint = NSPoint.zero
   private var shownAt = 0.0
   private var generation = 0
   private let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
-  // A frame and alpha animation driven here: AppKit's animator doesn't run for a panel of an app that isn't active
-  // (a hidden instance, or a drag that started in a window behind another app's). It heads for `desired`, which
-  // follows the pointer.
   private var animation: Timer?
   private var desired = NSRect.zero
 
-  /// `chip`: the dragged item in the window, from its top-left; `grab`: the pointer in the same coordinates.
   func begin(windowId: String, chip: NSRect, grab: NSPoint) {
     cancel()
     shapes = []
@@ -726,16 +636,11 @@ final class DragPreview {
     }
     pillSize = chip.size
     self.grab = NSPoint(x: grab.x - chip.minX, y: grab.y - chip.minY)
-    // Rendering the window's layers takes the main thread (0.3 s at 2x, mostly its shadows' blur): the window at
-    // half a point a pixel (the card shows a 1280-pt window at 418 px), and the pill, which shows at full size, alone
-    // at the screen's scale.
     windowImage = Self.snapshot(window, scale: 0.5)
     pillImage = Self.snapshot(window, scale: window.backingScaleFactor, of: chip)
     composeCard()
   }
 
-  /// The page as the engine painted it (the window's own snapshot has no web content), at `frame` in the
-  /// window from its top-left.
   func setPage(_ data: Data, frame: NSRect) {
     guard source != nil, let image = NSImage(data: data)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
     pageImage = (image, frame)
@@ -744,7 +649,6 @@ final class DragPreview {
     if shape == "card" { show(cardImage) }
   }
 
-  /// A tab never painted (asleep, not shown since launch): its icon and title where its page would be.
   func setPlaceholder(title: String, favicon: String?) {
     guard let window = source, pageImage == nil else { return }
     let size = window.frame.size
@@ -768,7 +672,6 @@ final class DragPreview {
       ])
       let textSize = label.size()
       let textWidth = min(textSize.width, rect.width - 80)
-      // The globe is a template symbol: drawn as is it's black, which vanishes on the dark card.
       let icon = icon?.isTemplate == true ? icon?.withSymbolConfiguration(.init(paletteColors: [ink])) ?? icon : icon
       icon?.draw(in: NSRect(x: rect.midX - iconSide / 2, y: rect.midY + 12, width: iconSide, height: iconSide))
       label.draw(with: NSRect(x: rect.midX - textWidth / 2, y: rect.midY - 12 - textSize.height, width: textWidth, height: textSize.height),
@@ -782,9 +685,6 @@ final class DragPreview {
     if shape == "card" { show(cardImage) }
   }
 
-  /// `shape`: "hidden", "pill" (over another window's tabs) or "card"; `at`: the pointer in the source window from its
-  /// top-left (converted here with the window's real frame, which is right in full screen too). A card that wasn't
-  /// showing comes in as the pill first, as Dia's does.
   func update(shape next: String, at local: NSPoint) {
     guard let source else { return }
     let point = NSPoint(x: source.frame.minX + local.x, y: source.frame.maxY - local.y)
@@ -796,7 +696,6 @@ final class DragPreview {
     }
     let panel = self.panel ?? makePanel()
     if shape == "hidden" {
-      // Comes in as the pill, then becomes the card.
       shownAt = ProcessInfo.processInfo.systemUptime
       shape = "pill"
       animation?.invalidate()
@@ -819,10 +718,6 @@ final class DragPreview {
     }
   }
 
-  /// The drag ended. `windowId`: the new window the tab went to (`fallback`: the frame it asked for, on screen);
-  /// the card grows into the window's real frame (Dia: 0.2 s), a picture of the whole window lined up with it, and
-  /// fades once the window shows its content (it waits, transparent, until then: WindowManager.whenRevealed).
-  /// Otherwise the card fades at once.
   func end(windowId: String?, fallback: NSRect?) {
     let panel = self.panel
     let showing = shape != "hidden"
@@ -839,7 +734,6 @@ final class DragPreview {
     }
     guard let windowId, let fallback, fallback.width > 0 else { return fade() }
     if let whole { show(whole.image, windowAspect: whole.aspect) }
-    // The window opens a moment later, placed by AppKit (kept on its screen, below the menu bar).
     var tries = 0
     func grow() {
       guard generation == gen else { return }
@@ -848,7 +742,6 @@ final class DragPreview {
         if tries > 20 { return animate(panel, to: fallback, alpha: 1, duration: Self.grow, then: fade) }
         return DispatchQueue.main.asyncAfter(deadline: .now() + 0.016) { grow() }
       }
-      // Over the new window until it shows (a floating panel is anyway).
       if background { panel.order(.above, relativeTo: window.windowNumber) }
       animate(panel, to: window.frame, alpha: 1, duration: Self.grow) {
         WindowManager.shared.whenRevealed(windowId, fade)
@@ -857,7 +750,6 @@ final class DragPreview {
     grow()
   }
 
-  /// Gone at once, with everything it held (a new drag, the source window closing).
   func cancel() {
     animation?.invalidate()
     animation = nil
@@ -888,7 +780,6 @@ final class DragPreview {
     panel?.orderOut(nil)
   }
 
-  /// DEV: the card and pill pictures as PNGs, to look at.
   func debugWrite(dir: String) -> Bool {
     var ok = false
     for (name, image) in [("card", cardImage), ("pill", pillImage)] {
@@ -898,7 +789,6 @@ final class DragPreview {
     return ok
   }
 
-  /// DEV: what shows, for tests (the panel can't be captured while the screen is locked).
   var debugState: [String: Any] {
     let frame = panel?.frame ?? .zero
     return [
@@ -917,7 +807,7 @@ final class DragPreview {
     let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] timer in
       let t = min(1, (ProcessInfo.processInfo.systemUptime - start) / max(duration, 0.001))
       let target = self?.desired ?? frame
-      let e = 1 - pow(1 - t, 3)  // ease-out
+      let e = 1 - pow(1 - t, 3)
       let mix = { (a: CGFloat, b: CGFloat) in a + (b - a) * e }
       panel.setFrame(NSRect(x: mix(from.minX, target.minX), y: mix(from.minY, target.minY), width: mix(from.width, target.width),
         height: mix(from.height, target.height)), display: true)
@@ -963,11 +853,8 @@ final class DragPreview {
   private func place(_ panel: NSPanel, shape: String, at point: NSPoint, animated: Bool) {
     let pill = shape == "pill"
     let size = pill ? pillSize : Self.card
-    // The pill keeps the pointer where it held the tab; the card is centred on it.
     let offset = pill ? grab : NSPoint(x: size.width / 2, y: size.height / 2)
     let frame = NSRect(x: (point.x - offset.x).rounded(), y: (point.y - size.height + offset.y).rounded(), width: size.width, height: size.height)
-    // The picture changes at once, and the pill's is never scaled up to fill the card: a cross-fade from the pill
-    // filled the growing card with its title (rec1522: "ease notes -" across the card).
     show(pill ? pillImage : cardImage, fit: pill)
     CATransaction.begin()
     CATransaction.setDisableActions(true)
@@ -984,8 +871,6 @@ final class DragPreview {
     layoutPicture()
   }
 
-  /// Shows `image` with no implicit cross-fade: `fit` inside the panel (the pill, while it morphs), else filling it;
-  /// `windowAspect` > 0: the whole window, lined up as it grows.
   private func show(_ image: CGImage?, windowAspect: CGFloat = 0, fit: Bool = false) {
     CATransaction.begin()
     CATransaction.setDisableActions(true)
@@ -1010,8 +895,6 @@ final class DragPreview {
     CATransaction.commit()
   }
 
-  // The whole source window with the page painted in: the card grows into the new window as this, which lines up
-  // with it (same size and layout) where the card's top crop scaled to the window's aspect didn't (doubled pages).
   private func composeWindow() -> (image: CGImage, aspect: CGFloat)? {
     guard let window = source, let base = windowImage else { return nil }
     let size = window.frame.size
@@ -1030,7 +913,6 @@ final class DragPreview {
     return (image, size.height / size.width)
   }
 
-  // The window with the page painted in, at the card's aspect from the top (title bar and tabs kept).
   private func composeCard() {
     guard let window = source, let base = windowImage else { return }
     let size = window.frame.size
@@ -1039,7 +921,6 @@ final class DragPreview {
     guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
     let fit = max(Self.card.width / size.width, Self.card.height / size.height) * scale
-    // CG's origin is bottom-left: the window's top sits at the card's top.
     let drawn = CGRect(x: 0, y: CGFloat(height) - size.height * fit, width: size.width * fit, height: size.height * fit)
     ctx.interpolationQuality = .high
     ctx.draw(base, in: drawn)
@@ -1050,7 +931,6 @@ final class DragPreview {
     cardImage = ctx.makeImage()
   }
 
-  /// The window, or the part of it at `rect` (from its top-left), as its layers draw it at `scale`.
   private static func snapshot(_ window: NSWindow, scale: CGFloat, of rect: NSRect? = nil) -> CGImage? {
     guard let view = window.contentView, let layer = view.layer else { return nil }
     let size = view.bounds.size
@@ -1062,7 +942,6 @@ final class DragPreview {
     ctx.setFillColor((window.backgroundColor ?? .windowBackgroundColor).cgColor)
     ctx.fill(CGRect(x: 0, y: 0, width: part.width * scale, height: part.height * scale))
     ctx.scaleBy(x: scale, y: scale)
-    // CG's origin is bottom-left: the part's top-left at the context's top-left.
     ctx.translateBy(x: -part.minX, y: part.maxY - size.height)
     if view.isFlipped || layer.isGeometryFlipped {
       ctx.translateBy(x: 0, y: size.height)

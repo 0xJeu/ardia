@@ -4,14 +4,9 @@ namespace ac::nativemessaging {
 
 namespace {
 
-// Where apps install hosts for every Chrome on the Mac. Our engine only reads Chromium's system dir.
 NSString *const kChromeSystemDir = @"/Library/Google/Chrome/NativeMessagingHosts";
-// The hosts this code wrote, so it never overwrites or deletes anyone else's manifest.
 NSString *const kManagedList = @".ardia-managed.json";
 
-// The password managers whose extensions talk to their app. They install these manifests only into
-// the user data dirs of the browsers they know. Written as their apps write them (allowed_origins in
-// the vendor's order), and only while the host binary exists.
 NSArray<NSDictionary *> *KnownHosts() {
   return @[
     @{
@@ -28,7 +23,6 @@ NSArray<NSDictionary *> *KnownHosts() {
         @"chrome-extension://dppgmdbiimibapkepcbdbmkaabgiofem/",
       ],
     },
-    // bitwarden/clients apps/desktop/src/main/native-messaging.main.ts
     @{
       @"name" : @"com.8bit.bitwarden",
       @"description" : @"Bitwarden desktop <-> browser bridge",
@@ -41,7 +35,6 @@ NSArray<NSDictionary *> *KnownHosts() {
         @"chrome-extension://ccnckbpmaceehanjmeomladnmlffdjgn/",
       ],
     },
-    // keepassxreboot/keepassxc src/browser/NativeMessageInstaller.cpp
     @{
       @"name" : @"org.keepassxc.keepassxc_browser",
       @"description" : @"KeePassXC integration with native messaging support",
@@ -52,7 +45,6 @@ NSArray<NSDictionary *> *KnownHosts() {
         @"chrome-extension://oboonakemofpalcgghocfoadofidjkkk/",
       ],
     },
-    // ProtonMail/WebClients applications/pass-desktop/native/shared/src/nm_install.rs
     @{
       @"name" : @"me.proton.pass.nm",
       @"description" : @"Proton Pass host for native messaging with the desktop app",
@@ -71,7 +63,6 @@ NSString *ManifestPath(NSString *dir, NSString *name) {
   return [dir stringByAppendingPathComponent:[name stringByAppendingPathExtension:@"json"]];
 }
 
-// A manifest Chromium would accept for |name| whose host is installed.
 bool IsUsable(NSDictionary *manifest, NSString *name) {
   if (![manifest isKindOfClass:NSDictionary.class]) return false;
   NSString *path = manifest[@"path"];
@@ -80,10 +71,6 @@ bool IsUsable(NSDictionary *manifest, NSString *name) {
          path.isAbsolutePath && [NSFileManager.defaultManager isExecutableFileAtPath:path];
 }
 
-// name → manifest bytes for every installed password manager. Its own system-wide Chrome manifest,
-// if it ships one, wins over our copy of its per-browser one. Other system hosts stay out: Apple's
-// Passwords helper, for one, has a launch constraint that kills it when a browser it doesn't know
-// starts it, leaving a crash report each time.
 NSDictionary<NSString *, NSData *> *InstalledHosts() {
   NSMutableDictionary<NSString *, NSData *> *hosts = [NSMutableDictionary dictionary];
   for (NSDictionary *manifest in KnownHosts()) {
@@ -99,7 +86,7 @@ NSDictionary<NSString *, NSData *> *InstalledHosts() {
   return hosts;
 }
 
-}  // namespace
+}
 
 void SyncHosts(NSString *userDataDir) {
   NSFileManager *fm = NSFileManager.defaultManager;
@@ -130,4 +117,4 @@ void SyncHosts(NSString *userDataDir) {
   }
 }
 
-}  // namespace ac::nativemessaging
+}

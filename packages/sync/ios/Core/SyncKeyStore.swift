@@ -26,7 +26,6 @@ public struct KeychainKeyStore: SyncKeyStore {
     q[kSecReturnData as String] = true
     q[kSecMatchLimit as String] = kSecMatchLimitOne
     #if DEBUG
-    // Avoid Keychain prompts from differently signed Debug builds.
     q[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
     #endif
     var item: CFTypeRef?

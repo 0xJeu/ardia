@@ -9,12 +9,9 @@ public final class AppUpdater: NSObject {
   static var feedOverride: String? {
     let env = ProcessInfo.processInfo.environment
     if let feed = env["ARDIA_UPDATE_FEED_URL"] ?? UserDefaults.standard.string(forKey: "ACUpdateFeedURL") { return feed }
-    // SUFeedURL (ardia.dev) counts checks as copies in use; background instances go straight to the same file.
     return env["ARDIA_BACKGROUND"] == "1" ? "https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml" : nil
   }
 
-  // A test instance (ACIsolation.h) checks for updates only when it's given a feed, and keeps Sparkle's state
-  // (last check, skipped version, its settings) in its data dir's defaults.
   private static var isOff: Bool {
     ACIsolatedDataDirectory() != nil && ProcessInfo.processInfo.environment["ARDIA_UPDATE_FEED_URL"] == nil
   }
@@ -23,8 +20,6 @@ public final class AppUpdater: NSObject {
   private lazy var controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
   private var deferredUpdate = false
   private var deferredRelaunch: (() -> Void)?
-  // The feed counts update checks by version and day; this one bit (no ID) tells a copy's first check
-  // from the ones after, so first launches can be told from copies still running.
   private var firstCheckPending = false
   #endif
   private var started = false
@@ -50,7 +45,6 @@ public final class AppUpdater: NSObject {
     #if canImport(Sparkle)
     guard !started, isConfigured else { return }
     started = true
-    // Sparkle stamps the check date before it builds the feed URL, so read it before the first check.
     firstCheckPending = controller.updater.lastUpdateCheckDate == nil
     do {
       try controller.updater.start()
@@ -64,7 +58,6 @@ public final class AppUpdater: NSObject {
   @objc public func checkForUpdates(_ sender: Any?) {
     #if canImport(Sparkle)
     guard isConfigured else {
-      // A hidden instance never blocks on an alert.
       if ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1" {
         return NSLog("Ardia: update checks are off in this instance")
       }
@@ -143,19 +136,13 @@ public final class AppUpdater: NSObject {
 extension AppUpdater: SPUUpdaterDelegate {
   public func feedURLString(for updater: SPUUpdater) -> String? { Self.feedOverride }
 
-  // Sparkle calls this only when it's about to fetch the feed (the permission prompt, which also asks,
-  // never shows: SUEnableAutomaticChecks is in Info.plist). No system profile is ever sent.
   public func feedParameters(for updater: SPUUpdater, sendingSystemProfile sendingProfile: Bool) -> [[String: String]] {
     guard firstCheckPending else { return [] }
     firstCheckPending = false
     return [["key": "first", "value": "1"]]
   }
 
-  // An update downloaded in the background (SUAutomaticallyUpdate), extracted and checked by Sparkle's installer, is
-  // installed when the app quits: prewarm it now, long before the user's next launch. Sparkle keeps its own schedule
-  // (false). Updates installed from the update window relaunch at once and keep Sparkle's own scan only.
   public func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
-    // The updatePrewarm kill switch (src/lib/killSwitches.ts): off, the staged copy just waits for the quit, as before.
     if KillSwitch.isOn("updatePrewarm") { UpdatePrewarm.start(version: item.versionString) }
     return false
   }
@@ -167,9 +154,6 @@ extension AppUpdater: SPUUpdaterDelegate {
   }
 }
 
-/// The app's kill switches (src/lib/killSwitches.ts) as native code reads them: this launch's ARDIA_SWITCHES
-/// ("name=off,other=on"), else the answer the app saved from ardia.dev/switches.json (switches-cache.json in the
-/// data dir), else on. Only `live` switches are read here: the app rewrites the file at launch and this reads it each time.
 enum KillSwitch {
   static let cacheDocument = "switches-cache.json"
 
@@ -193,13 +177,6 @@ enum KillSwitch {
   }
 }
 
-/// Runs an update Sparkle has staged for install-on-quit once, hidden, before the user launches it (main.swift's
-/// ARDIA_PREWARM: it exits before NSApp, a window or the data dir). macOS checks a copy it hasn't run at its first
-/// exec, and that stays with the bundle's files through Sparkle's move into place. Sparkle's own `gktool scan` (when it
-/// applies) covers Gatekeeper's scan of the bundle (4.5 s for 0.2.27 on a calm Mac); the exec also covers what only a
-/// launch does (130–190 ms more before main), and all of it when Sparkle's scan didn't take
-/// (docs/perf/launch-critical-path.md). Best effort: spawned off the main thread (the exec itself waits for those
-/// checks), killed after `timeout` or when the app quits.
 enum UpdatePrewarm {
   static let timeout: TimeInterval = 90
   private static var started = Set<String>()
@@ -213,7 +190,6 @@ enum UpdatePrewarm {
       let task = Process()
       task.executableURL = executable
       var env = ProcessInfo.processInfo.environment.filter { !$0.key.hasPrefix("ARDIA_") && !$0.key.hasPrefix("DYLD_") }
-      // Every version this updates to has it (it came with this code; Sparkle never installs an older one).
       env["ARDIA_PREWARM"] = "1"
       task.environment = env
       task.standardInput = FileHandle.nullDevice
@@ -243,15 +219,12 @@ enum UpdatePrewarm {
     }
   }
 
-  /// Kills a prewarm still running (only ours: the pid is cleared once it has been reaped).
   static func stop() {
     guard running != 0 else { return }
     kill(running, SIGKILL)
     running = 0
   }
 
-  /// The update Sparkle's installer extracted: ~/Library/Caches/<bundle id>/org.sparkle-project.Sparkle/Installation/
-  /// <session>/…/<name>.app with our bundle id at that build number, the newest if there are several.
   static func stagedApp(version: String, bundleId: String? = Bundle.main.bundleIdentifier, root: URL? = nil) -> Bundle? {
     guard let bundleId,
       let root = root ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?

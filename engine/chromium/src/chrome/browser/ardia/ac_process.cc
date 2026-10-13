@@ -26,8 +26,6 @@
 namespace ardia {
 namespace {
 
-// The arguments of a call that needs no profile, or nullopt (and the reply
-// has the error).
 std::optional<base::DictValue> ArgsOf(const char* args_json, Reply& reply) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (!args_json || !*args_json) {
@@ -101,9 +99,6 @@ const char* StateName(update_client::ComponentState state) {
   return "unknown";
 }
 
-// Keeps Chrome's task manager sampling while the app asks (as CEF's
-// CefTaskManager: every 2 s, CPU, memory footprint and GPU memory), and lets
-// it stop 15 s after the last call.
 class Sampler : public task_manager::TaskManagerObserver {
  public:
   Sampler()
@@ -112,7 +107,6 @@ class Sampler : public task_manager::TaskManagerObserver {
                                 task_manager::REFRESH_TYPE_GPU_MEMORY |
                                 task_manager::REFRESH_TYPE_MEMORY_FOOTPRINT) {}
 
-  // The task manager, sampling until 15 s from now.
   task_manager::TaskManagerInterface* Use() {
     task_manager::TaskManagerInterface* manager =
         task_manager::TaskManagerInterface::GetTaskManager();
@@ -139,8 +133,8 @@ Sampler& TheSampler() {
   return *sampler;
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_tasks_list) {
   ardia::Reply out(reply, context);

@@ -43,7 +43,6 @@ namespace ardiacore {
 
 namespace {
 
-// The page script this process runs; set by the browser before any frame exists here.
 std::string& PageScript() {
   static base::NoDestructor<std::string> script;
   return *script;
@@ -54,8 +53,6 @@ blink::WebScriptSource Source(const std::string& code, const char* url) {
                                 blink::WebURL(GURL(url)));
 }
 
-// One frame: runs the page script in its main world at document start, keeps the script's
-// receive function, and carries messages both ways.
 class ACPageObserver : public content::RenderFrameObserver,
                        public mojom::ACPage {
  public:
@@ -68,7 +65,6 @@ class ACPageObserver : public content::RenderFrameObserver,
 
   ~ACPageObserver() override { AnswerAll(); }
 
-  // content::RenderFrameObserver:
   void OnDestruct() override { delete this; }
 
   void DidCreateScriptContext(v8::Local<v8::Context> context,
@@ -88,10 +84,7 @@ class ACPageObserver : public content::RenderFrameObserver,
     v8::HandleScope handle_scope(isolate);
     v8::Context::Scope context_scope(context);
     receive_.Reset();
-    // Script can remove this frame (and this observer) synchronously, e.g. a same-origin
-    // parent removing the iframe: check after every call into it.
     base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
-    // Before the page's own scripts: the document's first script context.
     v8::Local<v8::Value> install = frame->ExecuteScriptAndReturnValue(
         Source(PageScript(), "ardia://page-script"));
     if (!alive || install.IsEmpty() || !install->IsFunction()) {
@@ -119,11 +112,9 @@ class ACPageObserver : public content::RenderFrameObserver,
     }
     receive_.Reset();
     receive_context_.Reset();
-    // A new document's evaluations start over; the old ones get no answer.
     AnswerAll();
   }
 
-  // mojom::ACPage:
   void CallPage(const std::string& kind, const std::string& json) override {
     if (receive_.IsEmpty()) {
       return;
@@ -162,8 +153,6 @@ class ACPageObserver : public content::RenderFrameObserver,
       return;
     }
     v8::Context::Scope context_scope(context);
-    // Strict, so a page function it calls can't walk up to it (`arguments.callee.caller`
-    // is null for a strict caller) and take `post` to answer for it.
     v8::Local<v8::Value> fn = frame->ExecuteScriptAndReturnValue(
         Source("(function(post){'use strict';\n" + code + "\n})",
                "ardia://evaluate"));
@@ -182,7 +171,6 @@ class ACPageObserver : public content::RenderFrameObserver,
                              &post)
                          .ToLocal(&result);
     if (alive && !ran) {
-      // It threw (an answer posted before the throw still counts).
       Answer(id, std::nullopt);
     }
   }
@@ -197,8 +185,6 @@ class ACPageObserver : public content::RenderFrameObserver,
       return;
     }
     page_color_ = next;
-    // A page already showing gets the change, a cleared colour included (a new one sets it in
-    // DidCreateScriptContext).
     if (IsMainErrorDocument()) {
       render_frame()->GetWebFrame()->ExecuteScript(
           Source(PageColorScript(), "ardia://page-color"));
@@ -206,8 +192,6 @@ class ACPageObserver : public content::RenderFrameObserver,
   }
 
  private:
-  // Only Chrome's error pages in a main frame (the offline game) see the tab's colour; a web
-  // page never does.
   bool IsMainErrorDocument() {
     if (!render_frame()->IsMainFrame()) {
       return false;
@@ -217,8 +201,6 @@ class ACPageObserver : public content::RenderFrameObserver,
     return loader && loader->HasUnreachableURL();
   }
 
-  // page_color_ is lowercase letters only, so it needs no escaping. Empty: none (the game's
-  // green).
   std::string PageColorScript() const {
     const std::string set =
         page_color_.empty()
@@ -227,7 +209,6 @@ class ACPageObserver : public content::RenderFrameObserver,
     return set + " window.dispatchEvent(new Event(\"ardiapagecolor\"));";
   }
 
-  // As CEF's EvaluateWithGesture: a transient activation, as a click would give.
   void NotifyUserActivation() {
     render_frame()->GetWebFrame()->NotifyUserActivation(
         blink::mojom::UserActivationNotificationType::kInteraction);
@@ -248,7 +229,6 @@ class ACPageObserver : public content::RenderFrameObserver,
         .ToLocalChecked();
   }
 
-  // post(kind, json): json is a string the script serialized ("null" otherwise).
   void Post(std::optional<int> evaluation, gin::Arguments* args) {
     std::string kind;
     if (!args->GetNext(&kind)) {
@@ -279,7 +259,6 @@ class ACPageObserver : public content::RenderFrameObserver,
     std::move(callback).Run(std::move(json));
   }
 
-  // Mojo wants every response callback run, even with no answer.
   void AnswerAll() {
     std::map<int, EvaluateCallback> pending = std::move(evaluations_);
     evaluations_.clear();
@@ -298,14 +277,11 @@ class ACPageObserver : public content::RenderFrameObserver,
   base::WeakPtrFactory<ACPageObserver> weak_factory_{this};
 };
 
-}  // namespace
+}
 
-// The process's ACRendererConfig: the browser sends the page script on the IPC channel
-// right after launch, ahead of any frame creation.
 class ACRenderThreadObserver : public content::RenderThreadObserver,
                                public mojom::ACRendererConfig {
  public:
-  // content::RenderThreadObserver:
   void RegisterMojoInterfaces(
       blink::AssociatedInterfaceRegistry* associated_interfaces) override {
     associated_interfaces->AddInterface<mojom::ACRendererConfig>(
@@ -317,7 +293,6 @@ class ACRenderThreadObserver : public content::RenderThreadObserver,
     associated_interfaces->RemoveInterface(mojom::ACRendererConfig::Name_);
   }
 
-  // mojom::ACRendererConfig:
   void SetPageScript(const std::string& script) override {
     PageScript() = script;
   }
@@ -342,7 +317,7 @@ void ACContentRendererClient::RenderThreadStarted() {
 void ACContentRendererClient::RenderFrameCreated(
     content::RenderFrame* render_frame) {
   ChromeContentRendererClient::RenderFrameCreated(render_frame);
-  new ACPageObserver(render_frame);  // Owns itself (OnDestruct).
+  new ACPageObserver(render_frame);
 }
 
-}  // namespace ardiacore
+}

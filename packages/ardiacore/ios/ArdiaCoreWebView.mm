@@ -1,10 +1,3 @@
-// The WebView on ArdiaCore. It hosts one live tab, an ArdiaCoreTab: Chrome's WebContents in the Browser of its window
-// and profile, with its page view placed straight in this view.
-//
-// Where packages/cef adopts popups by id after the fact (OnBeforePopup → JS → a new browser adopts the popup,
-// with a 30 s orphan timer and a replay of the navigation), Chrome here has already made the tab with its
-// navigation (POST body included): the app gets onOpenWindow with "ardiacore:<id>", and the WebView it mounts
-// takes that live tab.
 #import "ArdiaCoreWebView.h"
 #import "ArdiaCoreWebViewInternal.h"
 #import "ArdiaCorePictureInPicture.h"
@@ -24,13 +17,11 @@
 
 namespace {
 
-// ARDIA_TRACE_VISIBILITY=1: each change of what a WebView shows, for chasing a page Chrome reports hidden.
 bool TraceVisibility() {
   static const bool on = getenv("ARDIA_TRACE_VISIBILITY") != nullptr;
   return on;
 }
 
-// How long a page that left the screen keeps painting (leaveScreen): a few frames, under load too.
 constexpr CFTimeInterval kLeaveScreenDelay = 0.1;
 
 NSHashTable<ArdiaCoreWebView *> *LiveViews() {
@@ -38,38 +29,28 @@ NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   return views;
 }
 
-// Views whose visible or warm prop changed this run-loop turn, and whether the drain is scheduled (schedulePainting).
 NSHashTable<ArdiaCoreWebView *> *PendingPainting() {
   static NSHashTable *views = [NSHashTable weakObjectsHashTable];
   return views;
 }
 bool gPaintingScheduled = false;
 
-// A tab whose view went while the app keeps the tab (prepareTransfer: moved to another window, its pane remounted), by
-// its key: until the tab's next view takes it, or the app says the tab is gone (releaseTransfer). No deadline: a view
-// can mount seconds later (a window opened under load).
 NSMutableDictionary<NSString *, ArdiaCoreTab *> *Parked() {
   static NSMutableDictionary *parked = [NSMutableDictionary dictionary];
   return parked;
 }
 
-// By transfer key: the JS reload that parked its tab, until a view takes it (+initialize).
 NSMutableDictionary<NSString *, NSNumber *> *ReloadParked() {
   static NSMutableDictionary *parked = [NSMutableDictionary dictionary];
   return parked;
 }
 
-// The launch's first page (+startLaunchTab:…) until the app claims it: the tab, and what it was started for.
 ArdiaCoreTab *gLaunchTab;
 NSString *gLaunchKey;
 NSString *gLaunchURL;
 NSString *gLaunchProfile;
-// The app claimed (claimLaunchTab:): a page started after that would never be claimed.
 BOOL gLaunchClaimed;
-// On the launch page's tab until a view takes it: its ArdiaCoreLaunchTabHolder.
 const char kLaunchHolderKey = 0;
-// The app's tabs whose launch page Chrome closed before their view came (an extension's tabs.remove): their view
-// tells the app the tab closed instead of loading it again, until the app releases the tab (releaseTransfer:).
 NSMutableSet<NSString *> *ClosedLaunch() {
   static NSMutableSet<NSString *> *keys = [NSMutableSet set];
   return keys;
@@ -94,8 +75,6 @@ bool SamePage(NSString *a, NSString *b) {
   return a && b && [strip(a) isEqualToString:strip(b)];
 }
 
-// Chrome's renderer debug URLs (blink::IsRendererDebugURL and the GPU ones content handles), as chrome:// or as the
-// ardia:// the app shows them as.
 bool IsRendererDebugURL(NSString *url) {
   NSURLComponents *c = [NSURLComponents componentsWithString:url];
   if (![@[ @"chrome", @"ardia" ] containsObject:c.scheme.lowercaseString ?: @""]) return false;
@@ -107,10 +86,6 @@ bool IsRendererDebugURL(NSString *url) {
   return [hosts containsObject:c.host.lowercaseString ?: @""];
 }
 
-// Chrome names a page after its URL until the page names itself (NavigationEntryImpl::GetTitleForDisplay: the URL
-// without "http(s)://", "www." or a bare host's slash, spaces unescaped). While the page loads that stand-in isn't
-// reported: it changed the tab's title once more per load (one more store update for every listener and row), and the
-// page's own title follows within a frame or two. A page that never names itself gets it once loaded, as Chrome shows.
 NSString *ReportedTitle(NSString *title, NSString *url, BOOL loading) {
   if (!loading || !title.length) return title ?: @"";
   NSURLComponents *c = [NSURLComponents componentsWithString:url];
@@ -203,7 +178,6 @@ NSDictionary *SelectionState(NSDictionary *d) {
   return @{@"text" : text, @"rect" : @{@"x" : @(x), @"y" : @(y), @"width" : @(width), @"height" : @(height)}};
 }
 
-// The last events each tab's view sent (names and payloads), for tests (devEvents).
 NSMutableDictionary<NSNumber *, NSMutableArray *> *RecentEvents() {
   static NSMutableDictionary *events = [NSMutableDictionary dictionary];
   return events;
@@ -223,17 +197,13 @@ void NoteEvent(int browserId, NSString *name, NSDictionary *payload) {
 #endif
 }
 
-// The search engine the app names in its menu ("Search Google for …"), as CEF's ACClient keeps it.
 NSString *gSearchEngineName = @"Google";
-// The app's screen-share picker (setDisplayMediaPicker): pages' getDisplayMedia asks the app for a source.
 BOOL gDisplayMediaPicker = NO;
-// ARDIA_TRACE_PIP=1: the app's side of a real call's Picture in Picture, in the engine's /tmp/ac-pip-trace.log.
 BOOL TracingPictureInPicture() {
   static const BOOL tracing = getenv("ARDIA_TRACE_PIP") != nullptr;
   return tracing;
 }
 
-// CEF's SelectionLabel: whitespace collapsed, cut near 50 characters at a word.
 NSString *SelectionLabel(NSString *text) {
   NSArray *words = [text componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
   NSString *collapsed = [[words filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]]
@@ -245,8 +215,6 @@ NSString *SelectionLabel(NSString *text) {
   return [[collapsed substringToIndex:end] stringByAppendingString:@"…"];
 }
 
-// Chrome's menu model items (ui::MenuModel::ItemType in "type"; an older engine says "separator") as CEF's
-// DescribeMenu wrote them for ARDIA_CONTEXT_MENU_LOG: cef_menu_item_type_t, CefSimpleMenuModelImpl's mapping.
 constexpr int kMenuSeparator = 3;
 
 int MenuItemType(NSDictionary *item) {
@@ -260,7 +228,7 @@ NSArray *DescribeMenu(NSArray *items) {
   NSMutableArray *out = [NSMutableArray array];
   for (NSDictionary *item in items) {
     if (![item isKindOfClass:NSDictionary.class]) continue;
-    static const int kCefTypes[] = {1, 2, 3, 4, 0, 5, 5};  // command, check, radio, separator, button, submenus
+    static const int kCefTypes[] = {1, 2, 3, 4, 0, 5, 5};
     const int type = MenuItemType(item);
     NSMutableDictionary *described = [@{
       @"id" : Field<NSNumber>(item, @"id") ?: @0,
@@ -275,8 +243,6 @@ NSArray *DescribeMenu(NSArray *items) {
   return out;
 }
 
-// A Chrome menu label as its Mac menus show it (l10n_util::FixUpWindowsStyleLabel): no Windows mnemonics ("&Copy",
-// "Emoji && Symbols"), as CEF's background guard logged the NSMenu's titles.
 NSString *MenuTitle(NSString *label) {
   NSMutableString *title = [NSMutableString stringWithCapacity:label.length];
   for (NSUInteger i = 0; i < label.length; i++) {
@@ -291,8 +257,6 @@ NSString *MenuTitle(NSString *label) {
   return title;
 }
 
-// The first item titled `label`, depth first: its id and its indices down the tree (the engine runs it on the submenu
-// model that owns it; ids are only unique within one model).
 NSDictionary *FindMenuItem(NSArray *items, NSString *label) {
   for (NSUInteger i = 0; i < items.count; i++) {
     NSDictionary *item = items[i];
@@ -312,17 +276,10 @@ NSString *JSONString(id value) {
   return data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"null";
 }
 
-// The page's reports a view keeps, held on its tab between views (-stashPageReports).
 const char kPageReportsKey = 0;
 
-// The drag types a view under a page registered (Chrome's WebContentsViewCocoa), put away while the page isn't shown.
 const char kDropTypesKey = 0;
 
-// Whether the views under `root` take drops. AppKit finds a drop's destination with a hit test of its own (the topmost
-// view under the pointer registered for the dragged types) that counts neither alpha nor React Native's pointerEvents:
-// a page painting unseen (warm for a swipe, or just leaving the screen) stacked above the shown one took its drops, and
-// Chrome opened the dropped link as a new tab of that page, in its profile (a link dragged on x.com opened in the next
-// Space, logged out). Registered again as the page shows, or leaves its view.
 void AcceptDrops(NSView *root, BOOL accept) {
   if (!root) return;
   NSArray<NSPasteboardType> *held = objc_getAssociatedObject(root, &kDropTypesKey);
@@ -336,13 +293,11 @@ void AcceptDrops(NSView *root, BOOL accept) {
   for (NSView *sub in root.subviews) AcceptDrops(sub, accept);
 }
 
-}  // namespace
+}
 
 @interface ArdiaCoreWebView () <ArdiaCoreTabDelegate>
 @end
 
-// The page script's hello from a frame of `tab`, answered with the frame's settings as CEF's ACClient answers it:
-// autoplay blocked for the top page's site, and what the page script turns on.
 static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hello, NSString *frameId, BOOL main) {
   NSString *frameURL = Text(hello, @"url", 8192) ?: tab.url;
   NSString *origin = OriginOf(main ? frameURL : tab.url);
@@ -352,11 +307,8 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
     if (!frameId.length || ![to respondsToSelector:@selector(callFrame:kind:json:)]) return;
     NSMutableDictionary *config = [NSMutableDictionary dictionary];
     if (blockAutoplay) config[@"blockAutoplay"] = @YES;
-    // The app's screen-share picker, when the engine can grant the picked source to getUserMedia (CEF's
-    // site::AllowDesktopCapture).
     if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:)])
       config[@"displayMediaPicker"] = @YES;
-    // The page reports its first contentful paint and its first frames once shown (page_script.js › Field timing).
     if (main && ACFieldTimingEnabled()) config[@"fieldTiming"] = @YES;
     [to callFrame:frameId kind:@"config" json:JSONString(config)];
   };
@@ -369,14 +321,8 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
     answer(NO);
 }
 
-// The launch's first page has no view until the app's window mounts: this is its tab's delegate meanwhile, and keeps
-// what Chrome told it (the page script's hello, which a view answers with the page's settings; a navigation that became
-// a download; a crash; blocked requests…) for the view that takes the tab, which hears it all then, in order. Calls that
-// answer something (a context menu's items) aren't taken: a page nobody sees has none.
 @interface ArdiaCoreLaunchTabHolder : NSObject <ArdiaCoreTabDelegate>
 @property (nonatomic, copy) NSString *url;
-// The profile it loads in (its site settings answer the page's hello), and whether Chrome closed it meanwhile (an
-// extension's tabs.remove): the app's tab then closes too, instead of loading again.
 @property (nonatomic, copy) NSString *profile;
 @property (nonatomic, readonly) BOOL closedByChrome;
 - (void)replayTo:(ArdiaCoreWebView *)view tab:(ArdiaCoreTab *)tab;
@@ -402,13 +348,8 @@ static BOOL HeldSelector(SEL selector) {
 }
 
 - (void)forwardInvocation:(NSInvocation *)invocation {
-  // Every one of them names the tab first, which holds this object: not kept here (replayTo:tab: puts it back).
   if (!HeldSelector(invocation.selector) || invocation.methodSignature.numberOfArguments < 3) return [super forwardInvocation:invocation];
-  // The page's hello is answered now, as a view would: a page that blocks autoplay pauses a video that starts before
-  // the view comes (the replay answers it again, the same).
   if (invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:)) {
-    // One declaration each: in `__unsafe_unretained NSString *a, *b` ARC takes only `a` as unretained, and releases `b`
-    // (a string it never retained).
     __unsafe_unretained ArdiaCoreTab *tab = nil;
     __unsafe_unretained NSString *kind = nil;
     __unsafe_unretained NSString *json = nil;
@@ -425,9 +366,7 @@ static BOOL HeldSelector(SEL selector) {
     }
   }
   if (!_calls) _calls = [NSMutableArray array];
-  // A page left loading unseen for long: its first reports are what matter.
   if (_calls.count >= 2000) return;
-  // Cleared before the arguments are retained: once retained, setting it again doesn't release the tab.
   __unsafe_unretained id none = nil;
   [invocation setArgument:&none atIndex:2];
   invocation.target = nil;
@@ -453,19 +392,14 @@ static BOOL HeldSelector(SEL selector) {
 
 @implementation ArdiaCoreWebView {
   ArdiaCoreTab *_tab;
-  // The app's first load (a restored tab's URL), and the URL the app last asked for until a document commits: what a
-  // navigation that became a download remembers (ArdiaCoreNavigationDownloads).
   BOOL _loadedOnce;
   BOOL _pendingUserInitiated;
   NSString *_requestedURL;
   BOOL _creating;
   BOOL _closing;
-  // The app was told its launch page closed (takeTransferredTab).
   BOOL _launchCloseSent;
   BOOL _moving;
   NSString *_pendingURL;
-  // The URL a new tab opens with: the page's first loadURL asks for it again (ContentCard), and loading it twice
-  // would run the page twice.
   NSString *_creatingURL;
   CFTimeInterval _creatingAt;
   NSString *_transferredURL;
@@ -478,7 +412,6 @@ static BOOL HeldSelector(SEL selector) {
   NSString *_pageThemeSource;
   NSUInteger _createGeneration;
   NSUInteger _blockedGeneration;
-  // Requests the content blocker stopped on this page (onContentBlocked), as CEF's ACClient counts them.
   NSInteger _blockedCount;
   NSString *_lastBlocked;
   BOOL _blockedEmitQueued;
@@ -487,9 +420,7 @@ static BOOL HeldSelector(SEL selector) {
   CFTimeInterval _sentProgressAt;
   double _sentProgress;
   BOOL _progressQueued;
-  // When a link dragged onto its own page last opened (page_script.js › Link drags).
   CFTimeInterval _linkDropAt;
-  // The page script's reports, per frame (as packages/cef's ACClient keeps them).
   NSMutableDictionary<NSString *, NSNumber *> *_mediaFrames;
   NSMutableDictionary<NSString *, NSDictionary *> *_nowPlaying;
   NSString *_nowPlayingFrame;
@@ -497,25 +428,16 @@ static BOOL HeldSelector(SEL selector) {
   NSMutableDictionary<NSString *, NSDictionary *> *_displayRequests;
   double _pinchScale;
   BOOL _autoPictureInPictureActive;
-  // The page reported a Picture in Picture window open (a video's or its document's), however it opened.
   BOOL _inPictureInPicture;
-  // Whether the user saw this page when last asked (-userSightChanged), and the observer of its window's changes.
   BOOL _seenByUser;
   id _sightObserver;
-  // The page uses the camera, microphone or screen (CEF's capturing_): auto Picture in Picture takes its document PiP.
   BOOL _capturing;
-  // Its renderer died and nothing loaded since (emitNavigation).
   BOOL _crashed;
-  // Just left the screen: still painting (visible to Chrome), at alpha 0, for kLeaveScreenDelay.
   BOOL _leaving;
   NSUInteger _leaveGeneration;
-  // The app keeps this view's tab when the view goes (prepareTransfer): closing parks it instead.
   BOOL _handingOff;
 }
 
-// From the JS thread, as the app learns a tab outlives its view (lib/tabPages.ts): the view holding the tab hands it off
-// when it goes. On the main queue in call order, so before the unmount that follows and before a window close the app
-// asks for after it (WindowManager's close is a main-queue call too).
 + (void)prepareTransfer:(NSString *)transferKey {
   if (!transferKey.length) return;
   NSString *key = [transferKey copy];
@@ -525,8 +447,6 @@ static BOOL HeldSelector(SEL selector) {
   });
 }
 
-// The app's tab is gone (closed, asleep, an app page, another profile): a page parked for it closes, and a view still
-// holding it closes it when it goes.
 + (void)releaseTransfer:(NSString *)transferKey {
   if (!transferKey.length) return;
   NSString *key = [transferKey copy];
@@ -537,17 +457,11 @@ static BOOL HeldSelector(SEL selector) {
     ArdiaCoreTab *tab = Parked()[key];
     if (!tab) return;
     [Parked() removeObjectForKey:key];
-    // At once, as a closed view's tab: a beforeunload prompt nobody sees would keep it (and the hidden window
-    // keepTransfersOfWindow: put it in) alive.
     if ([tab respondsToSelector:@selector(closeNow)]) [tab closeNow];
     else [tab close];
   });
 }
 
-// React Native just started running the app's bundle: the page the app's focused window will show (session.json's hint)
-// starts loading now, in a hidden window of its profile, instead of once that window's content has mounted (200 to
-// 400 ms later). Only a web page, in a profile Chrome already has, that wasn't a download (skipsNavigationDownload:).
-// The app claims it as it hydrates (claimLaunchTab:); an app that never does leaves it 30 s.
 + (void)startLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profileName {
   if (gLaunchTab || gLaunchClaimed || !transferKey.length || !url.length || !ArdiaCoreHost.isStarted) return;
   NSString *scheme = [NSURLComponents componentsWithString:url].scheme.lowercaseString;
@@ -577,9 +491,6 @@ static BOOL HeldSelector(SEL selector) {
   });
 }
 
-// From the JS thread (lib/tabPages.ts), before the app opens its windows: on the main queue in call order, so before
-// any view mounts. The page started for the same tab, URL and profile waits, parked, for that tab's view, as a page
-// handed off does (the app releases it the same way: releaseTransfer:); any other closes.
 + (void)claimLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profile {
   NSString *key = [transferKey copy], *claimed = [url copy], *name = [profile copy];
   void (^claim)(void) = ^{
@@ -590,18 +501,12 @@ static BOOL HeldSelector(SEL selector) {
     gLaunchTab = nil;
     gLaunchKey = gLaunchURL = gLaunchProfile = nil;
     if (!same) return CloseTab(tab);
-    // Parked even when Chrome closed it already: the view sees that (takeTransferredTab) and the app's tab closes.
     Parked()[key] = tab;
   };
   if (NSThread.isMainThread) claim();
   else dispatch_async(dispatch_get_main_queue(), claim);
 }
 
-// A JS reload (development: Metro) unmounts every view and mounts them again once the new bundle has run: each tab's
-// page is parked for its next view, as prepareTransfer: parks it, instead of closing and loading again (wasted work,
-// and a second history visit for every open page). One the new bundle hasn't shown again within 30 s closes, and an
-// old view torn down later closes its tab as usual. RN posts the notification from any thread, then queues its
-// teardown on the main queue: this goes first.
 + (void)initialize {
   if (self != ArdiaCoreWebView.class) return;
   static NSUInteger reloads = 0;
@@ -622,10 +527,8 @@ static BOOL HeldSelector(SEL selector) {
                                                   }
                                                   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                                     [handed enumerateKeysAndObjectsUsingBlock:^(NSString *key, ArdiaCoreTab *tab, BOOL *) {
-                                                      // Taken by a view since, or parked again by a later reload.
                                                       if (![ReloadParked()[key] isEqual:reload]) return;
                                                       [ReloadParked() removeObjectForKey:key];
-                                                      // An old view not torn down yet closes its tab when it goes.
                                                       if (ArdiaCoreWebView *view = [views objectForKey:key]; view && view->_tab == tab) view->_handingOff = NO;
                                                       if (Parked()[key] != tab) return;
                                                       [Parked() removeObjectForKey:key];
@@ -671,8 +574,6 @@ static BOOL HeldSelector(SEL selector) {
   return [ArdiaCoreWindowController forNSWindow:self.window];
 }
 
-// MARK: The tab
-
 - (void)viewDidMoveToWindow {
   [super viewDidMoveToWindow];
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ window=%ld tab=%d", _transferKey, (long)self.window.windowNumber, _tab ? (int)_tab.tabId : -1);
@@ -689,7 +590,6 @@ static BOOL HeldSelector(SEL selector) {
 
 - (void)setExtensionHost:(NSString *)extensionHost {
   _extensionHost = [extensionHost copy];
-  // Never in a tab strip, as a standalone view.
   if (_extensionHost.length) _standalone = YES;
 }
 
@@ -704,17 +604,12 @@ static BOOL HeldSelector(SEL selector) {
   if ([_adoptId hasPrefix:@"ardiacore:"] || [_adoptId hasPrefix:@"tab:"]) {
     ArdiaCoreTab *offered = [ArdiaCoreTabs takeOffered:_adoptId];
     _adoptId = nil;
-    // Only a tab of this view's own profile (canTake): never a private tab in a normal view or the reverse, a private
-    // view takes only its session's tabs (the off-the-record profile of the profile it was opened from), a normal one
-    // only its profile's (Chrome's tabs reach a view of their profile, ArdiaCoreChromeWindow HandOffTab; another
-    // profile's would keep its cookies under this one's name). Else the view loads its URL itself.
     if (offered && ![self canTake:offered]) {
       if (!offered.closed) [offered closeNow];
       offered = nil;
     }
     if (offered && !offered.closed) return [self attach:offered];
   }
-  // "restore:<closed tab id>" and "clone:<source tab id>": a tab with history (⇧⌘T, Duplicate).
   NSString *kind = nil, *key = nil;
   NSRange colon = _adoptId ? [_adoptId rangeOfString:@":"] : NSMakeRange(NSNotFound, 0);
   if (colon.location != NSNotFound) {
@@ -723,7 +618,6 @@ static BOOL HeldSelector(SEL selector) {
   }
   _adoptId = nil;
   _creating = YES;
-  // A close (or a new creation) while Chrome is asked makes this one stale.
   const NSUInteger generation = ++_createGeneration;
   __weak ArdiaCoreWebView *weakSelf = self;
   ardiacore_host::WithProfile(_profile, ^(ArdiaCoreProfile *profile) {
@@ -732,14 +626,11 @@ static BOOL HeldSelector(SEL selector) {
     view->_creating = NO;
     ArdiaCoreWindowController *controller = view.controller;
     if (!profile || view->_tab || !controller) return;
-    // Extension popups and side panels: out of the app window's Browser and strip, as CEF's standalone browsers.
     const BOOL standalone = view->_standalone;
     NSString *url = view->_pendingURL ?: view->_initialURL;
     view->_pendingURL = nil;
     view->_creatingURL = url;
     view->_creatingAt = CACurrentMediaTime();
-    // Chrome's own extension view (an engine that has it): bound to this window's Browser, so the page's current
-    // window and active tab are this window's and its tab, as for Chrome's popup. Else a tab in a hidden window.
     if (view->_extensionHost.length && url.length &&
         [controller.coreWindow respondsToSelector:@selector(openExtensionView:profile:kind:)]) {
       if (ArdiaCoreTab *tab = [controller.coreWindow openExtensionView:url profile:profile kind:view->_extensionHost])
@@ -749,9 +640,6 @@ static BOOL HeldSelector(SEL selector) {
     if (!standalone && [kind isEqualToString:@"clone"] && [view cloneTab:key profile:profile]) return;
     if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardiacore_host::IsIncognito(view->_profile) &&
         [controller.coreWindow respondsToSelector:@selector(restoreTab:profile:foreground:)]) {
-      // Its back/forward list is the one Chrome's TabRestoreService kept when it closed (closeBrowser tagged it
-      // with the tab's id; on disk, so it survives a relaunch). Without one, the page loads. The view stays
-      // "creating" meanwhile, so a load asked for in between waits for the tab (attach loads it).
       view->_creating = YES;
       [ArdiaCoreServices call:@"ac_tab_restore_take" profile:view->_profile args:@{@"key" : key}
                 completion:^(NSDictionary *result) {
@@ -773,18 +661,14 @@ static BOOL HeldSelector(SEL selector) {
     if (url.length && [view skipsNavigationDownload:url userInitiated:view->_pendingUserInitiated]) url = nil;
     if (url.length) ACFieldMarkNow(view->_transferKey, @"request");
     controller.hostChanges++;
-    // No URL yet (a New Tab page's prewarm, or a download's tab): made ahead, which keeps its about:blank out of Back
-    // and Chrome's closed-tab list.
     ArdiaCoreTab *tab = [controller.coreWindow openTab:url.length ? url : @"" profile:profile foreground:NO];
     controller.hostChanges--;
-    // Its navigation started in openTab, before this view was its delegate (tabDidChangeLoading:).
     if (url.length && tab.loading) ACFieldMarkNow(view->_transferKey, @"start");
     if (tab) [view attach:tab];
     if (tab && url.length) [view focusAfterLoad];
   });
 }
 
-// Duplicate: Chrome's copy of the source tab (its back/forward list and current page), for this view.
 - (BOOL)cloneTab:(NSString *)sourceKey profile:(ArdiaCoreProfile *)profile {
   ArdiaCoreWindowController *controller = self.controller;
   if (![controller.coreWindow respondsToSelector:@selector(duplicateTab:profile:foreground:)]) return NO;
@@ -807,9 +691,6 @@ static BOOL HeldSelector(SEL selector) {
 + (void)keepTransfersOfWindow:(NSWindow *)window {
   ArdiaCoreWindowController *closing = [ArdiaCoreWindowController forNSWindow:window];
   if (!closing || ![closing.coreWindow respondsToSelector:@selector(adoptTab:)]) return;
-  // Moving a window's last tab to another window closes the window at once, while the tab's new view is still to
-  // mount: its tab closed with the Browser, and the new view loaded the page afresh (blank for a moment, its history
-  // and state gone).
   for (ArdiaCoreWebView *view in LiveViews().allObjects)
     if (view->_handingOff && view->_tab && !view->_tab.closed && [ArdiaCoreWindowController holding:view->_tab] == closing)
       [view closeBrowser];
@@ -824,8 +705,6 @@ static BOOL HeldSelector(SEL selector) {
   }
 }
 
-// Only a page of this view's own profile: a tab moved to another profile opens afresh there, and a page parked as
-// its view went (ContentCard) mustn't show in a profile the tab moved to meanwhile.
 - (BOOL)canTake:(ArdiaCoreTab *)tab {
   ArdiaCoreProfile *profile = tab.profile;
   if (!profile || tab.closed || profile.offTheRecord != ardiacore_host::IsIncognito(_profile)) return NO;
@@ -833,14 +712,9 @@ static BOOL HeldSelector(SEL selector) {
   return [ardiacore_host::ProfileName(profile) isEqualToString:_profile ?: @""];
 }
 
-// The tab's page, parked for this view (closeBrowser), or still in the view this one replaces: in the same batch the
-// old view goes after this one came. A page this view can't show stays parked until the app releases it (the tab moved
-// to another profile: releaseTransfer).
 - (BOOL)takeTransferredTab {
   if (!_transferKey.length) return NO;
   ArdiaCoreTab *tab = Parked()[_transferKey];
-  // The launch's first page, closed by Chrome before this view came (an extension's tabs.remove): the app's tab closes,
-  // as it would have with the view there, instead of loading again.
   ArdiaCoreLaunchTabHolder *held = tab ? objc_getAssociatedObject(tab, &kLaunchHolderKey) : nil;
   if (held && (tab.closed || held.closedByChrome)) {
     [Parked() removeObjectForKey:_transferKey];
@@ -849,7 +723,6 @@ static BOOL HeldSelector(SEL selector) {
   if ([ClosedLaunch() containsObject:_transferKey]) {
     if (!_launchCloseSent) {
       _launchCloseSent = YES;
-      // After this mount: the app hears it as it hears a tab Chrome closed (onWindowClose).
       __weak ArdiaCoreWebView *weakSelf = self;
       dispatch_async(dispatch_get_main_queue(), ^{
         ArdiaCoreWebView *view = weakSelf;
@@ -872,15 +745,12 @@ static BOOL HeldSelector(SEL selector) {
   if (!tab || tab.closed) return NO;
   [ReloadParked() removeObjectForKey:_transferKey];
   _adoptId = nil;
-  // The launch's first page: compared by the URL it was asked for, which its tab may not show yet (nothing committed)
-  // or at all (a redirect).
   ArdiaCoreLaunchTabHolder *launch = objc_getAssociatedObject(tab, &kLaunchHolderKey);
   objc_setAssociatedObject(tab, &kLaunchHolderKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   _transferredURL = launch.url ?: tab.url;
   if (SamePage(_pendingURL, _transferredURL)) _pendingURL = nil;
   [self attach:tab];
   if (launch) {
-    // This view's first load, as ensureTab would have made it, then what the page reported before the view came.
     _loadedOnce = YES;
     _requestedURL = launch.url;
     [launch replayTo:self tab:tab];
@@ -889,8 +759,6 @@ static BOOL HeldSelector(SEL selector) {
   return YES;
 }
 
-// The tab's Browser is its window's: a tab this view takes from elsewhere (a popup Chrome opened in another
-// window's Browser, a tab moved between windows) moves into this window's Browser for its profile.
 - (void)adoptIntoWindow {
   if (_standalone) return;
   ArdiaCoreWindowController *controller = self.controller;
@@ -915,7 +783,6 @@ static BOOL HeldSelector(SEL selector) {
   [ArdiaCoreTabs setView:self forTab:tab];
   [self bindRestoreKey];
   [self takePageReports];
-  // From where the last view left it: a tab that comes into sight in this one leaves Picture in Picture.
   [self userSightChanged];
   [self adoptIntoWindow];
   NSView *page = tab.view;
@@ -935,21 +802,15 @@ static BOOL HeldSelector(SEL selector) {
   }
   [self emit:@"ready" payload:@{@"browserId" : @(ardiacore_host::BrowserId(tab)), @"tabId" : @(tab.tabId)}];
   [self emitNavigation];
-  // A popup that sized itself before this view took it.
   if (_extensionHost.length && [tab respondsToSelector:@selector(preferredSize)] && tab.preferredSize.width > 0)
     [self tab:tab preferredSizeDidChange:tab.preferredSize];
-  // A moved tab's app state starts from nothing (moveTabsInto): what plays is sent again.
   if (_mediaFrames.count) [self emitMedia];
   [self tabDidChangeFavicon:tab];
   if (_tabIndex >= 0) [self placeTab];
-  // The strip names the tab by this view's key from now on (re-sent as Chrome's report, cmd null).
   if (ArdiaCoreWindowController *controller = self.controller)
     [ArdiaCoreTabStrip changedInWindow:controller profile:tab.profile cause:NSNull.null];
 }
 
-// Chrome's TabRestoreService entry for the tab carries the app's id for it, so ⇧⌘T finds this one. Bound while the tab
-// lives (the engine stamps each navigation it makes after): Chrome records a tab that closes before the app hears of it
-// (its window closed at once, an extension's chrome.tabs.remove, a page's window.close()).
 - (void)bindRestoreKey {
   if (_tab && _transferKey.length && !ardiacore_host::IsIncognito(_profile) && ArdiaCoreHost.isStarted)
     [ArdiaCoreServices call:@"ac_tab_restore_tag" profile:_profile args:@{@"tab" : @(_tab.tabId), @"key" : _transferKey}
@@ -963,7 +824,6 @@ static BOOL HeldSelector(SEL selector) {
   [ArdiaCoreTabs setView:nil forTab:_tab];
   [ArdiaCoreWebView noteShown:_tab];
   [self stashPageReports];
-  // Wherever the page goes next (another view, parked, a window of Chrome's), it takes drops until that says otherwise.
   AcceptDrops(_tab.view, YES);
   if (_tab.view.superview == self) [_tab.view removeFromSuperview];
   [self dropDevTools];
@@ -974,10 +834,6 @@ static BOOL HeldSelector(SEL selector) {
   _leaveGeneration++;
 }
 
-// What the page script and Chrome reported about the page (its theme colour, media, blocked count, a crash…) belongs
-// to the tab: a tab moved to another window, or parked while its view remounts, takes it to its next view, which
-// sends it again (attach), as packages/cef's Client kept it across views. The page script reports a change only, so
-// without it the moved tab lost its colour until the page changed it.
 - (void)stashPageReports {
   NSMutableDictionary *reports = [NSMutableDictionary dictionary];
   reports[@"url"] = _tab.url ?: @"";
@@ -1003,7 +859,6 @@ static BOOL HeldSelector(SEL selector) {
 - (void)takePageReports {
   NSDictionary *reports = objc_getAssociatedObject(_tab, &kPageReportsKey);
   objc_setAssociatedObject(_tab, &kPageReportsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  // Unless the tab went to another page meanwhile (no view heard that page's reports).
   [self takeReports:[reports[@"url"] isEqual:_tab.url ?: @""] ? reports : nil];
 }
 
@@ -1026,26 +881,22 @@ static BOOL HeldSelector(SEL selector) {
 }
 
 - (void)closeBrowser {
-  // A tab still being made for this view is no longer wanted.
   _createGeneration++;
   _creating = NO;
   if (!_tab) return;
   ArdiaCoreTab *tab = _tab;
   if (_handingOff && _transferKey.length && !tab.closed) {
-    // The app keeps the tab: its page waits for the tab's next view (takeTransferredTab) or the app's release.
     [self detach];
     [ParkingView() addSubview:tab.view];
     Parked()[_transferKey] = tab;
     return;
   }
   _closing = YES;
-  // Again as it closes (bindRestoreKey), for a key that changed since.
   if (_transferKey.length && !ardiacore_host::IsIncognito(_profile) && ArdiaCoreHost.isStarted)
     [ArdiaCoreServices call:@"ac_tab_restore_tag" profile:_profile args:@{@"tab" : @(tab.tabId), @"key" : _transferKey}
               completion:^(NSDictionary *) {}];
   [[ArdiaCoreWindowController holding:tab] noteClosing:tab];
   [self detach];
-  // As CEF's CloseBrowser(true): the app already dropped the tab, so no beforeunload keeps it alive unseen.
   if ([tab respondsToSelector:@selector(closeNow)]) [tab closeNow];
   else [tab close];
 }
@@ -1058,13 +909,10 @@ static BOOL HeldSelector(SEL selector) {
   controller.hostChanges--;
 }
 
-// MARK: From the window
-
 - (void)openedTab:(ArdiaCoreTab *)tab adoptId:(NSString *)adoptId disposition:(NSString *)disposition {
   [self announceOpenedTab:tab adoptId:adoptId disposition:disposition tries:0];
 }
 
-// window.open makes its contents before it navigates them: wait (briefly) for the URL it is going to.
 - (void)announceOpenedTab:(ArdiaCoreTab *)tab adoptId:(NSString *)adoptId disposition:(NSString *)disposition tries:(int)tries {
   if (tab.closed) return;
   NSString *url = tab.url;
@@ -1082,15 +930,12 @@ static BOOL HeldSelector(SEL selector) {
     @"userGesture" : @YES,
     @"postBody" : @NO,
   } mutableCopy];
-  // A private tab: the regular profile it's off the record of, whose private window takes it.
   if (tab.profile.offTheRecord) payload[@"profile"] = ardiacore_host::OriginalProfileNameOf(tab.profile);
   [self emit:@"openWindow" payload:payload];
 }
 
 - (void)tabRemovedFromWindow:(ArdiaCoreWindow *)window {
   if (_moving || _closing || !_tab) return;
-  // A tab Chrome deleted without telling the view (a New Tab page's prewarm, which a window's close or the quit drops
-  // first, and either may still be refused): the view lets it go, and its next load makes another. A move keeps it.
   {
     ArdiaCoreTab *removed = _tab;
     __weak ArdiaCoreWebView *weakSelf = self;
@@ -1099,10 +944,7 @@ static BOOL HeldSelector(SEL selector) {
       if (view && view->_tab == removed && removed.closed) [view detach];
     });
   }
-  // A stage 1 engine says when Chrome closes a tab (tabWillClose:); a removal is then a move (an extension's
-  // tabs.move to another window), which keeps the tab.
   if (ardiacore_host::EngineHasTabModel()) return;
-  // Chrome closed it (window.close(), an extension): the app closes the tab (onWindowClose).
   [self detach];
   [self emit:@"windowClose" payload:@{}];
 }
@@ -1141,8 +983,6 @@ static BOOL HeldSelector(SEL selector) {
   if (_devtoolsView.superview == self) [_devtoolsView removeFromSuperview];
   _devtoolsView = nil;
 }
-
-// MARK: Layout and painting
 
 - (void)setFrameSize:(NSSize)newSize {
   [super setFrameSize:newSize];
@@ -1185,11 +1025,6 @@ static BOOL HeldSelector(SEL selector) {
   [self schedulePainting];
 }
 
-// Whether the user sees `tab` (-seenByUser: both panes of a split are seen), for Chrome's automatic Picture in Picture
-// and permission prompts, which would otherwise follow Chrome's strip: the app shows pages over its active tab (New Tab,
-// another Space) and a split's other pane beside it (engine: ac_host_visibility.h). Shown at once; hidden once that held
-// 300 ms (each change restarts the wait), so a switch settles first and a tab moving between views never reads as
-// hidden.
 + (void)noteShown:(ArdiaCoreTab *)tab {
   if (![tab respondsToSelector:@selector(noteShownByHost:)]) return;
   static NSMapTable<ArdiaCoreTab *, NSNumber *> *changes = [NSMapTable weakToStrongObjectsMapTable];
@@ -1207,25 +1042,13 @@ static BOOL HeldSelector(SEL selector) {
 - (void)setVisible:(BOOL)visible {
   if (_visible == visible) return;
   _visible = visible;
-  // A page the app stops showing leaves full screen, pointer lock and keyboard lock, as on a tab switch in Chrome: the
-  // app can hide one without Chrome's tab strip changing (its New Tab page, another Space). A split pane that only
-  // loses focus stays shown and keeps them.
   if (!visible && [_tab respondsToSelector:@selector(exitExclusiveAccess)]) [_tab exitExclusiveAccess];
-  // A page painting already (warm, or just left the screen: its view shown, at alpha 0) shows with the rest of the
-  // batch: Chrome has nothing to draw first. Deferred to the end of the turn, the next tab of a window a tab was torn
-  // off from (kept warm through the drag, ContentCard) missed the commit the torn page's new window made meanwhile,
-  // and the window showed an empty card for a few frames. By what's applied, not the warm prop, which the same batch
-  // can clear first.
   if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) self.alphaValue = 1;
   [self schedulePainting];
-  // Field timing (a tab switch): the commit that shows this page.
   if (visible) ACFieldMarkAtCommit(_transferKey, @"view");
   [self userSightChanged];
 }
 
-// The one rule for "the user left this page", which automatic Picture in Picture and Chrome's reading of shown tabs
-// follow: the app stopped showing it (a tab switch, its New Tab page, another Space), or its window left the user
-// (covered, another app). The window's full-screen transitions never count (+[ArdiaCoreWindowController userSees:]).
 - (BOOL)seenByUser {
   return _visible && [ArdiaCoreWindowController userSees:self.window];
 }
@@ -1239,7 +1062,6 @@ static BOOL HeldSelector(SEL selector) {
   [self updateAutoPictureInPicture];
 }
 
-// ARDIA_TRACE_PIP: the app's view of the tab (its now-playing state, what the page says) and Chrome's auto PiP inputs.
 - (void)traceAutoPictureInPicture:(NSString *)what {
   if (!TracingPictureInPicture() || ![_tab respondsToSelector:@selector(tracePictureInPicture:withInputs:)]) return;
   NSDictionary *np = _nowPlaying[_nowPlayingFrame ?: @""];
@@ -1254,11 +1076,6 @@ static BOOL HeldSelector(SEL selector) {
       completion:^(NSString *json) { [tab tracePictureInPicture:[@"page: " stringByAppendingString:json ?: @"(no answer)"] withInputs:NO]; }];
 }
 
-// A tab switch arrives as one batch of view updates, and showing a page makes Chrome commit the Core Animation
-// transaction there and then: the screen got the half-applied batch (the new page's first tiles over the old page,
-// the old tab's toolbar) for a frame. The pages change once the batch is done, before the turn's transaction commits
-// (Core Animation's commit observer runs at order 2000000): the ones leaving first, then the ones coming in. The
-// visible and warm props both go through here, so a page going from warm to visible (a profile swipe) never hides.
 - (void)schedulePainting {
   [PendingPainting() addObject:self];
   if (gPaintingScheduled) return;
@@ -1283,13 +1100,9 @@ static BOOL HeldSelector(SEL selector) {
     if (view->_visible) [view applyPainting];
 }
 
-// Hiding Chrome's view tells the page it's hidden, and Chrome drops its layers at once, on its own schedule: the page
-// went blank (or kept a few tiles) for a frame before the app's switch to the next tab reached the screen. A page
-// leaving the screen goes transparent with the rest of the switch and stays visible to Chrome a few frames more.
 - (void)leaveScreen {
   const NSUInteger generation = ++_leaveGeneration;
   NSView *page = _tab.view;
-  // Only a page on screen now (not one already hidden, nor a warm one, which keeps painting anyway).
   _leaving = !_visible && !_warm && page.superview == self && !page.hidden && self.alphaValue > 0;
   if (!_leaving) return;
   __weak ArdiaCoreWebView *weakSelf = self;
@@ -1316,16 +1129,12 @@ static BOOL HeldSelector(SEL selector) {
   if ([_tab respondsToSelector:@selector(setPageColor:)]) _tab.pageColor = color;
 }
 
-// MARK: Events
-
 - (void)emit:(NSString *)name payload:(NSDictionary *)payload {
-  // Events reach JS in the order they happened: a held navigation report goes first.
   if (_navigationQueued && ![name isEqualToString:@"navigation"]) [self emitNavigation];
   if (_tab) NoteEvent(ardiacore_host::BrowserId(_tab), name, payload);
   [self.delegate webView:self event:name payload:payload];
 }
 
-// Field timing turned on or off: every page there is starts or stops reporting (page_script.js › Field timing).
 void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   for (ArdiaCoreWebView *view in LiveViews().allObjects)
     if (view->_tab) [view callFrame:@"" kind:@"fieldTiming" json:on ? @"{\"on\":true}" : @"{\"on\":false}"];
@@ -1353,10 +1162,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   return view.window.windowNumber;
 }
 
-// Tests: a click into the page as the user's. As a mouse down does, its window becomes key (a test instance's key window
-// is AppKit's as the app-active seam has it, ArdiaCoreActivation.mm) and the page first responder, taking focus afresh
-// even if it had it; Chrome's own focus path runs (GotFocus → OnWebContentsFocused → tabDidGainFocus:), and nothing is
-// activated.
 + (BOOL)devFocusPageOfBrowser:(int)browserId {
 #if DEBUG
   ArdiaCoreTab *tab = ardiacore_host::TabWithBrowserId(browserId);
@@ -1380,14 +1185,9 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 - (void)emitNavigation {
   _navigationQueued = NO;
   if (!_tab) return;
-  // The page script's colour (its <meta name="theme-color">, else the colour at the top of the page), as packages/cef
-  // reports it; Chrome's meta theme-color until the page script has said.
   NSString *theme = _pageTheme ?: ([_tab respondsToSelector:@selector(themeColor)] ? _tab.themeColor : nil);
   NSString *themeSource = _pageTheme ? _pageThemeSource : (theme ? @"meta" : nil);
   NSString *url = _tab.url ?: @"";
-  // A renderer debug URL (chrome://crash, kill, hang…) never commits: Chrome runs it in the page's renderer and its
-  // pending entry stays visible. As on CEF (the main frame's URL), the tab keeps the page it had, so a reload or the
-  // restored session doesn't crash it again.
   if (IsRendererDebugURL(url)) url = _sentNavigation[@"url"] ?: @"";
   NSDictionary *navigation = @{
         @"url" : url,
@@ -1398,8 +1198,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
         @"themeColor" : theme ?: NSNull.null,
         @"themeColorSource" : themeSource ?: NSNull.null,
   };
-  // The first load after a crash: CEF's dead main frame has no URL, so its first report there says none and the app
-  // (ContentCard) takes the reload for a new page and drops the sad tab. The same here, before the real report.
   if (_crashed && _tab.loading) {
     _crashed = NO;
     NSMutableDictionary *gone = [navigation mutableCopy];
@@ -1407,13 +1205,11 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     _sentNavigation = gone;
     [self emit:@"navigation" payload:gone];
   }
-  // As packages/cef (ACClient): a report that changes nothing isn't sent.
   if ([navigation isEqualToDictionary:_sentNavigation]) return;
   _sentNavigation = navigation;
   [self emit:@"navigation" payload:navigation];
 }
 
-// Title, URL, loading and history change together during a navigation: one report per run-loop turn.
 - (void)queueNavigation {
   if (_navigationQueued) return;
   _navigationQueued = YES;
@@ -1433,7 +1229,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)tabDidChangeLoading:(ArdiaCoreTab *)tab {
-  // A page starting to load starts its blocked count again, as CEF's at each main-frame navigation request.
   if (tab.loading) [self resetBlocked:YES];
   if (tab.loading) ACFieldMarkNow(_transferKey, @"start");
   [self queueNavigation];
@@ -1456,9 +1251,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self queueNavigation];
 }
 
-// The page script's colour was the last document's: Chrome's (the new page's meta theme-color) until the new document's
-// script says, and none on a page it doesn't run in (an error page, chrome://). A page back from the back/forward cache
-// says again as it shows (page_script.js, pageshow).
 - (void)tabDidCommitDocument:(ArdiaCoreTab *)tab {
   ACFieldMarkNow(_transferKey, @"commit");
   _pageTheme = nil;
@@ -1466,7 +1258,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self queueNavigation];
 }
 
-// Load progress at most 10 times a second; its start and end at once (as packages/cef's ACClient).
 - (void)tabDidChangeProgress:(ArdiaCoreTab *)tab {
   const double progress = tab.progress;
   const CFTimeInterval wait = _sentProgressAt + 0.1 - CACurrentMediaTime();
@@ -1488,7 +1279,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emit:@"progress" payload:@{@"progress" : @(_sentProgress)}];
 }
 
-// A browser page's link to an app page (ardia:) opens in its tab as if typed: the app maps it (core/appUrls).
 - (void)tab:(ArdiaCoreTab *)tab didRequestAppURL:(NSString *)url userGesture:(BOOL)userGesture {
   [self emit:@"openWindow" payload:@{@"url" : url ?: @"", @"disposition" : @"current", @"userGesture" : @(userGesture)}];
 }
@@ -1508,26 +1298,17 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emit:@"find" payload:@{@"count" : @(count), @"active" : @(active), @"final" : @(final)}];
 }
 
-// The page script's messages from every frame (packages/cef/helper/page_script.js; ACClient::OnPageMessage on CEF).
-// The page runs it in its own world, so every field is untrusted.
 - (void)tab:(ArdiaCoreTab *)tab didReceivePageMessage:(NSString *)kind json:(NSString *)json frame:(NSString *)frameId main:(BOOL)main {
   id data = JSONValue(json);
   NSDictionary *dict = [data isKindOfClass:NSDictionary.class] ? data : nil;
   frameId = frameId ?: @"";
   if ([kind isEqualToString:@"hello"]) {
-    // A new main document: the old page's media and now-playing went with it (CEF's OnLoadStart).
     if (main) [self resetPageMedia];
-    // A real document committed (not a new tab's initial about:blank): the app's request didn't become a download.
     if (main && ![(Text(dict, @"url", 8192) ?: @"about:") hasPrefix:@"about:"]) _requestedURL = nil;
     AnswerHello(tab, _profile, dict, frameId, main);
   } else if ([kind isEqualToString:@"selection"] && main) {
     [self emit:@"pageMessage" payload:@{@"kind" : @"selection", @"data" : SelectionState(dict) ?: NSNull.null}];
   } else if ([kind isEqualToString:@"linkDrop"] && main) {
-    // A link dragged out of the page and let go over it, nothing there taking it (page_script.js › Link drags): Chrome
-    // drops nothing on the page a drag came from, so it opens in a new tab. The page can send this whenever it likes, so
-    // only from the page on screen, once, and only for a drag that just ended in a release over this page: the button is
-    // up, the release came after the drag's last move (not a drag cancelled with Escape after an earlier click) and the
-    // pointer is over the page in this window (not another app's window above it).
     NSString *url = Text(dict, @"url", 8192);
     NSString *scheme = (url.length ? [NSURL URLWithString:url].scheme.lowercaseString : nil) ?: @"";
     const CFTimeInterval now = CACurrentMediaTime();
@@ -1544,13 +1325,11 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
       [self emit:@"openWindow" payload:@{@"url" : url, @"disposition" : @"foreground", @"userGesture" : @YES}];
     }
   } else if ([kind isEqualToString:@"perf"] && main && ACFieldTimingEnabled()) {
-    // Field timing: epoch ms from the page's clock, kept only when plausible.
     for (NSString *what in @[ @"fcp", @"shown" ]) {
       NSNumber *at = [dict[what] isKindOfClass:NSNumber.class] ? dict[what] : nil;
       if (at && fabs(at.doubleValue - ACFieldNow()) < 600000) ACFieldMark(_transferKey, what, at.doubleValue);
     }
   } else if ([kind isEqualToString:@"scroll"] && main) {
-    // The page's scroll direction, for the toolbar that hides while scrolling (page_script.js › Scroll direction).
     NSString *state = Text(dict, @"state", 8);
     if ([@[ @"down", @"up", @"top" ] containsObject:state ?: @""])
       [self emit:@"pageMessage" payload:@{@"kind" : @"scroll", @"data" : @{@"state" : state}}];
@@ -1595,7 +1374,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     _inPictureInPicture = active.boolValue;
     [self emit:@"pictureInPicture" payload:@{@"kind" : pipKind, @"active" : active}];
     if (active.boolValue) ardiacore_pip::WatchZoom();
-    // Chrome's video window, styled and handled as on CEF (ArdiaCorePictureInPicture).
     if ([pipKind isEqual:@"video"]) ardiacore_pip::VideoChanged(self, [NSURL URLWithString:tab.url ?: @""].host ?: @"", frameId, active.boolValue);
   } else if ([kind isEqualToString:@"notification"] && dict) {
     NSString *nid = Text(dict, @"id", 128);
@@ -1633,7 +1411,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   }
 }
 
-// Engines without per-frame messages: main-frame posts only.
 - (void)tab:(ArdiaCoreTab *)tab didReceivePageMessage:(NSString *)kind json:(NSString *)json {
   [self tab:tab didReceivePageMessage:kind json:json frame:@"" main:YES];
 }
@@ -1646,8 +1423,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 - (void)emitMedia {
   BOOL playing = NO;
   for (NSNumber *p in _mediaFrames.allValues) playing |= p.boolValue;
-  // As packages/cef's EmitMedia: playing is the page script's (a muted tab's video still "plays"; Chrome's audibility
-  // lags a pause by its hold time), muted is Chrome's own state.
   const BOOL muted = [_tab respondsToSelector:@selector(muted)] ? _tab.muted : _muted;
   [self emit:@"media" payload:@{@"playing" : @(playing), @"muted" : @(muted)}];
 }
@@ -1677,8 +1452,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emit:@"windowClose" payload:@{}];
 }
 
-// The page's media state starts again (a new main document, a crash), as packages/cef's OnLoadStart and
-// OnRenderProcessTerminated: nothing plays and nothing is now playing until the page says so.
 - (void)resetPageMedia {
   const BOOL hadMedia = _mediaFrames.count > 0, hadNowPlaying = _nowPlaying.count > 0;
   [_mediaFrames removeAllObjects];
@@ -1710,8 +1483,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emitMedia];
 }
 
-// MARK: Commands
-
 - (void)loadURL:(NSString *)url {
   [self loadURL:url userInitiated:NO];
 }
@@ -1723,7 +1494,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   NSString *creating = _creatingURL;
   _creatingURL = nil;
   if (_tab && SamePage(url, transferred)) return;
-  // Only the page's own first request, which follows the view's creation at once.
   if ((_tab || _creating) && [url isEqualToString:creating] && CACurrentMediaTime() - _creatingAt < 2) return;
   if (_tab) return [self loadNow:url userInitiated:userInitiated];
   _pendingURL = url;
@@ -1739,21 +1509,15 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self focusAfterLoad];
 }
 
-// The page on screen takes keyboard focus after a load the app asked for, as on CEF (LoadURL and a new browser's
-// first navigation call OnSetFocus(FOCUS_SOURCE_NAVIGATION), which ACClient allows only for a visible view): typing
-// goes to the page, and Chrome's page focus (autofill on a click, find…) holds in a window that isn't key.
 - (void)focusAfterLoad {
   if (_visible && _tab) [self focusPage];
 }
 
-// A restored or reopened tab whose first page was a download stays empty instead of downloading it again (CEF's
-// OnBeforeBrowse); the user asking for it again downloads it. Notes the request otherwise.
 - (BOOL)skipsNavigationDownload:(NSString *)url userInitiated:(BOOL)userInitiated {
   const BOOL first = !_loadedOnce;
   _loadedOnce = YES;
   _pendingUserInitiated = NO;
   if (first && !userInitiated && ardiacore_host::WasNavigationDownload(url, _profile)) {
-    // After the tab it opens instead is attached (a new view's tab is made right after this).
     __weak ArdiaCoreWebView *weakSelf = self;
     NSDictionary *payload = @{@"url" : url ?: @"", @"committedUrl" : @"", @"skipped" : @YES};
     dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf emit:@"downloadNavigation" payload:payload]; });
@@ -1764,7 +1528,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)loadOpenedURL:(NSInteger)openedId url:(NSString *)url {
-  // ArdiaCore never keeps navigations for later ("open:<id>" is CEF's): load the URL.
   [self loadURL:url userInitiated:NO];
 }
 
@@ -1821,7 +1584,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)print {
-  [self runChromeCommand:35003];  // IDC_PRINT
+  [self runChromeCommand:35003];
 }
 
 - (void)runChromeCommand:(int)command {
@@ -1833,19 +1596,18 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)showDevToolsPanel:(NSString *)panel {
-  // As packages/cef's: Chrome's own commands, so a second ⌥⌘I closes DevTools and ⌥⌘J/⌥⌘C open their panel.
-  const int command = [panel isEqualToString:@"console"]   ? 40005  // IDC_DEV_TOOLS_CONSOLE
-                      : [panel isEqualToString:@"inspect"] ? 40023  // IDC_DEV_TOOLS_INSPECT
-                      : [panel isEqualToString:@"toggle"]  ? 40237  // IDC_DEV_TOOLS_TOGGLE
+  const int command = [panel isEqualToString:@"console"]   ? 40005
+                      : [panel isEqualToString:@"inspect"] ? 40023
+                      : [panel isEqualToString:@"toggle"]  ? 40237
                                                            : 0;
   if (command && [_tab respondsToSelector:@selector(executeChromeCommand:)]) [self runChromeCommand:command];
   else [_tab showDevTools];
 }
 
 - (void)runPageCommand:(NSString *)name {
-  const int command = [name isEqualToString:@"savePage"]        ? 35004   // IDC_SAVE_PAGE
-                      : [name isEqualToString:@"systemPrint"]   ? 35007   // IDC_BASIC_PRINT
-                      : [name isEqualToString:@"caretBrowsing"] ? 40260   // IDC_CARET_BROWSING_TOGGLE
+  const int command = [name isEqualToString:@"savePage"]        ? 35004
+                      : [name isEqualToString:@"systemPrint"]   ? 35007
+                      : [name isEqualToString:@"caretBrowsing"] ? 40260
                                                                 : 0;
   if (command) [self runChromeCommand:command];
 }
@@ -1859,8 +1621,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [_tab evaluate:code completion:completion];
 }
 
-// The page as painted (packages/cef's capturePicture, for the dragged tab's picture): a JPEG of the viewport and the
-// view's frame in its window from the top-left; nil after a second (a hung or unpainted page).
 - (void)capturePicture:(double)scale completion:(void (^)(NSDictionary<NSString *, id> *))completion {
   NSWindow *window = self.window;
   if (!_tab || !window || self.hidden || ![_tab respondsToSelector:@selector(devToolsCall:params:completion:)]) return completion(nil);
@@ -1878,8 +1638,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     NSString *data = shot[@"data"];
     answer([data isKindOfClass:NSString.class] ? @{@"data" : data, @"frame" : frame} : nil);
   };
-  // With a deadline the engine forgets the call (and detaches its DevTools client): a hung page keeps Chrome's hang
-  // reporting, which ignores pages a debugger is attached to.
   SEL timed = NSSelectorFromString(@"devToolsCall:params:timeout:completion:");
   if ([_tab respondsToSelector:timed])
     ((void (*)(id, SEL, NSString *, NSDictionary *, NSTimeInterval, id))objc_msgSend)(_tab, timed, @"Page.captureScreenshot", params, 1.0, done);
@@ -1916,26 +1674,18 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
       completion:^(NSString *json) { completion([json isEqualToString:@"true"]); }];
 }
 
-// Picture in Picture needs the user activation a click would give (CEF's EvaluateWithGesture).
 - (void)evaluateWithGesture:(NSString *)code completion:(void (^)(NSString *))completion {
   if ([_tab respondsToSelector:@selector(evaluate:userGesture:completion:)]) return [_tab evaluate:code userGesture:YES completion:completion];
   [_tab evaluate:code completion:completion];
 }
 
-// Auto Picture in Picture (Arc's): a playing video goes into PiP when the user leaves it (-seenByUser). A page the user
-// sees again takes its video back, however it went into PiP (ours, the app's menus, the page's own button).
 - (void)updateAutoPictureInPicture {
   if (!_tab) return;
   NSDictionary *np = _nowPlaying[_nowPlayingFrame ?: @""];
   const BOOL playingVideo = [np[@"hasVideo"] boolValue] && [np[@"playbackState"] isEqual:@"playing"];
-  // A page that handles Media Session's "enterpictureinpicture" (a call, a player with its own PiP) opens its own
-  // document Picture in Picture, as on CEF (WantsDocumentPictureInPicture).
   const BOOL handles = [np[@"actions"] isKindOfClass:NSArray.class] && [np[@"actions"] containsObject:@"enterpictureinpicture"];
   const BOOL wantsDocument = handles && (_capturing || [np[@"playbackState"] isEqual:@"playing"]);
   if (!_seenByUser && _autoPictureInPicture && wantsDocument) {
-    // Chrome's own automatic PiP calls the page's handler on a tab switch too (a call: the camera or microphone in use,
-    // https, the setting on), as in Chrome and Dia: the handler runs once, or its second requestWindow closes the first
-    // window. Chrome hears of the switch about when this view hides (or 300 ms later, from setVisible:): ask after that.
     __weak ArdiaCoreWebView *weakSelf = self;
     ArdiaCoreTab *tab = _tab;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 450 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
@@ -1947,7 +1697,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
       }
       [view traceAutoPictureInPicture:@"app: auto PiP by the app (the page's handler)"];
       view->_autoPictureInPictureActive = YES;
-      // The page's handler needs a user activation: an empty gesture first, then the action.
       [view evaluateWithGesture:@"post('result', '0')" completion:^(NSString *) {
         ArdiaCoreWebView *now = weakSelf;
         if (now && !now->_seenByUser && now->_autoPictureInPictureActive) [now mediaCommand:@"enterpictureinpicture" seconds:0];
@@ -1956,7 +1705,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   } else if (!_seenByUser && _autoPictureInPicture && playingVideo) {
     [self traceAutoPictureInPicture:@"app: auto PiP by the app (the video)"];
     _autoPictureInPictureActive = YES;
-    // The user may be back before the window opens: it closes again then.
     __weak ArdiaCoreWebView *weakSelf = self;
     [self requestPictureInPicture:^(BOOL ok) {
       ArdiaCoreWebView *view = weakSelf;
@@ -1968,7 +1716,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   }
 }
 
-// Back to Tab from our PiP menu: the video's own frame leaves Picture in Picture (CEF kept the CefFrame).
 - (void)exitPictureInPictureInFrame:(NSString *)frameId {
   if (frameId.length && [_tab respondsToSelector:@selector(executeJavaScript:frame:)])
     [_tab executeJavaScript:@"document.pictureInPictureElement && document.exitPictureInPicture()" frame:frameId];
@@ -1993,8 +1740,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   if ([_tab respondsToSelector:@selector(openBlockedPopup:always:)]) [_tab openBlockedPopup:popupId always:always];
 }
 
-// Requests the content blocker stopped (ERR_BLOCKED_BY_CLIENT), new since the last report: the page's total at most
-// every 150 ms, as CEF's ACClient::NoteBlocked.
 - (void)tab:(ArdiaCoreTab *)tab didBlockRequests:(int)count lastURL:(NSString *)url {
   if (tab != _tab) return;
   _blockedCount += count;
@@ -2005,7 +1750,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   const NSUInteger generation = _blockedGeneration;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 150 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
     ArdiaCoreWebView *view = weakSelf;
-    // Reset (a new page, the tab gone or replaced) since: not this page's count any more.
     if (!view || view->_blockedGeneration != generation || !view->_tab) return;
     view->_blockedEmitQueued = NO;
     [view emit:@"contentBlocked" payload:@{@"count" : @(view->_blockedCount), @"url" : view->_lastBlocked ?: @""}];
@@ -2016,7 +1760,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emit:@"popupBlocked" payload:popup];
 }
 
-// An extension popup's page sized itself (Chrome's auto-resize): the app sizes the popup to it.
 - (void)tab:(ArdiaCoreTab *)tab preferredSizeDidChange:(NSSize)size {
   [self emit:@"preferredSize" payload:@{@"width" : @(size.width), @"height" : @(size.height)}];
 }
@@ -2050,7 +1793,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   NSDictionary *request = requestId ? _displayRequests[requestId] : nil;
   if (!request) return;
   [_displayRequests removeObjectForKey:requestId];
-  // The picked source, granted to that frame's next desktop getUserMedia (once, within 15 s).
   if (sourceId.length && _tab && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:)])
     [ArdiaCoreEngine allowDesktopCapture:sourceId
                                   tab:_tab
@@ -2071,8 +1813,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emit:@"downloadNavigation" payload:@{@"url" : url ?: @"", @"committedUrl" : tab.url ?: @"", @"skipped" : @NO}];
 }
 
-// The page's menu is Chrome's; the app adds "Search <engine> for …" after Copy, as CEF did, and runs it itself
-// (onCommand "search", the app's engine and opening rules, with the keys held).
 - (NSArray<NSDictionary<NSString *, NSString *> *> *)tab:(ArdiaCoreTab *)tab
                            contextMenuItemsForSelection:(NSString *)text {
   return @[ @{
@@ -2090,14 +1830,10 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     [self emit:@"command" payload:@{@"command" : @"search", @"text" : selection ?: @"", @"modifiers" : modifiers ?: @{}}];
 }
 
-// The autofill suggestions Chrome showed for the page (tests: in the dev event log).
 - (void)tab:(ArdiaCoreTab *)tab didShowAutofillSuggestions:(NSArray<NSDictionary<NSString *, NSString *> *> *)items {
   NoteEvent(ardiacore_host::BrowserId(tab), @"autofillSuggestions", @{@"items" : items ?: @[]});
 }
 
-// Background mode (or ARDIA_CONTEXT_MENU_LOG): the menu Chrome would have shown, not shown. In the dev event log
-// (devEvents), and as packages/cef has it: a line in activation.log, or with ARDIA_CONTEXT_MENU_LOG the menu
-// dumped there and the item its ".pick" file names run (Client::RunContextMenu).
 - (void)tab:(ArdiaCoreTab *)tab didShowContextMenu:(NSArray<NSDictionary *> *)items {
   [self tab:tab runContextMenu:@{@"items" : items ?: @[]}];
 }
@@ -2107,7 +1843,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   NoteEvent(ardiacore_host::BrowserId(tab), @"contextMenu", @{@"items" : items});
   static const char *log = getenv("ARDIA_CONTEXT_MENU_LOG");
   if (!log) {
-    // CEF's background guard logs the NSMenu it didn't pop up: its titled items, top level.
     if (ardiacore_host::Background()) {
       NSMutableArray<NSString *> *titles = [NSMutableArray array];
       for (NSDictionary *item in items)
@@ -2126,15 +1861,12 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   NSString *pick = [NSString stringWithContentsOfFile:pickPath encoding:NSUTF8StringEncoding error:nil];
   [NSFileManager.defaultManager removeItemAtPath:pickPath error:nil];
   pick = [pick stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-  // "<label>\t<flags>" picks it as if with those keys held (cef_event_flags_t, the same bits as Chrome's ui::EventFlags).
   NSArray<NSString *> *parts = [pick componentsSeparatedByString:@"\t"];
   NSDictionary *found = pick.length ? FindMenuItem(items, parts[0]) : nil;
   if (!found) return nil;
   return @{@"command" : found[@"command"], @"path" : found[@"path"], @"flags" : @(parts.count > 1 ? parts[1].intValue : 0)};
 }
 
-// Chrome's own picture-in-picture windows: a document's is reported here only (a video's state comes from the page
-// script, as on CEF).
 - (void)tab:(ArdiaCoreTab *)tab didChangePictureInPicture:(NSDictionary<NSString *, id> *)state {
   if (![state[@"kind"] isEqual:@"document"]) return;
   _inPictureInPicture = [state[@"active"] boolValue];
@@ -2142,7 +1874,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)tab:(ArdiaCoreTab *)tab requestsActivation:(NSString *)reason {
-  // Any reason: Chrome's Back to Tab asks as a "page", its window having left Picture in Picture by then.
   ardiacore_pip::TabRequestedActivation(self);
   [self emit:@"activateRequest" payload:@{@"reason" : reason ?: @"page"}];
 }
@@ -2158,10 +1889,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   if ([_tab respondsToSelector:@selector(resolveUnresponsive:)]) [_tab resolveUnresponsive:terminate];
 }
 
-// What the discard did, for the app to record only that: "discarded" (Chrome discarded the page now: its renderer goes,
-// the tab and its history stay, and it loads again when shown), "already", "refused" (Chrome wouldn't, or no page yet),
-// or "unsupported" for unload: ArdiaCore keeps a regular profile (and its tabs) loaded, and a private one goes with its
-// windows, so no tab is ever closed to let a profile go (CEF closed the browser).
 - (NSString *)discard:(BOOL)unload {
   if (unload) return @"unsupported";
   if (![_tab respondsToSelector:@selector(discard)]) return @"refused";
@@ -2174,8 +1901,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)tabDidChangeDiscarded:(ArdiaCoreTab *)tab {
-  // As CEF's onDiscarded: the page's URL, to load again when it shows. Loading again (shown or navigated), the tab is
-  // ready again, as CEF said.
   if (tab.discarded) [self emit:@"discarded" payload:@{@"url" : tab.url ?: @""}];
   else [self emit:@"ready" payload:@{@"browserId" : @(ardiacore_host::BrowserId(tab)), @"tabId" : @(tab.tabId)}];
 }
@@ -2197,21 +1922,13 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [self emit:@"externalApp" payload:request ?: @{}];
 }
 
-// MARK: ⌘-scroll zoom (packages/cef's ACZoom, the same rules)
-
 namespace {
 
-// Set by devScrollZoom: the device a synthetic scroll claims to come from, and the ⌘-scrolls that zoomed.
 int gDevTrackpad = -1;
 NSUInteger gZoomScrolls = 0;
-// Why the monitor let a devScrollZoom step through (nil: it never saw the step).
 NSString *gDevZoomMiss = nil;
 bool gGestureTrackpad = false;
 
-// Scroll events look the same from a trackpad and a Magic Mouse; the HID service that sent one doesn't. The sender
-// is an AppleMultitouchDevice whose parent driver says which: AppleMultitouchTrackpadHIDEventDriver for built-in
-// trackpads and Magic Trackpads, AppleMultitouchMouseHIDEventDriver for a Magic Mouse (measured on the owner's
-// MacBook, macOS 27: the sender's own class never names the device). Momentum events have no sender.
 BOOL FromTrackpad(NSEvent *event) {
   if (gDevTrackpad >= 0) return gDevTrackpad;
   static auto copyHIDEvent = (CFTypeRef (*)(CGEventRef))dlsym(RTLD_DEFAULT, "CGEventCopyIOHIDEvent");
@@ -2226,7 +1943,6 @@ BOOL FromTrackpad(NSEvent *event) {
   if (NSNumber *known = trackpads[@(sender)]) return known.boolValue;
   BOOL trackpad = NO;
   io_registry_entry_t entry = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(sender));
-  // The sender and up to three of its ancestors; the first event driver among them decides.
   for (int depth = 0; entry && depth < 4; depth++) {
     io_name_t name;
     if (IOObjectGetClass(entry, name) == KERN_SUCCESS) {
@@ -2243,7 +1959,6 @@ BOOL FromTrackpad(NSEvent *event) {
   return trackpad;
 }
 
-// A trackpad pinches to zoom; ⌘ with two fingers is a thumb resting on the key while scrolling (zoom::CommandScrollZooms).
 bool CommandScrollZooms(NSEvent *event, bool trackpad) {
   if (event.phase & (NSEventPhaseBegan | NSEventPhaseMayBegin)) gGestureTrackpad = trackpad;
   else if (event.phase == NSEventPhaseNone && event.momentumPhase == NSEventPhaseNone) gGestureTrackpad = false;
@@ -2251,7 +1966,7 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
   return (event.modifierFlags & NSEventModifierFlagCommand) && !gGestureTrackpad;
 }
 
-}  // namespace
+}
 
 + (void)installScrollZoom {
   static id monitor, touchMonitor;
@@ -2265,7 +1980,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
     return event;
   }];
   monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel handler:^NSEvent *(NSEvent *event) {
-    // Two fingers down is a trackpad too (a Magic Mouse scrolls with one), when AppKit reports touches.
     BOOL fingers = (event.phase & (NSEventPhaseBegan | NSEventPhaseMayBegin)) && touching >= 2 && event.timestamp - touchedAt < 0.5;
     BOOL trackpad = event.phase != NSEventPhaseNone && (fingers || FromTrackpad(event));
     if (gDevTrackpad >= 0) gDevZoomMiss = @"not a zoom (a trackpad gesture, or no ⌘)";
@@ -2273,7 +1987,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
     NSWindow *window = event.window;
     NSPoint point = event.locationInWindow;
     if (!window) {
-      // No window: the location is on the screen (packages/cef's ACZoom does the same).
       NSPoint screen = event.locationInWindow;
       for (NSWindow *w in NSApp.orderedWindows)
         if (w.isVisible && !w.ignoresMouseEvents && NSPointInRect(screen, w.frame)) {
@@ -2289,7 +2002,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
     if (gDevTrackpad >= 0 && (!view || !view->_tab))
       gDevZoomMiss = [NSString stringWithFormat:@"not over a page: window %ld %@, hit %@", (long)window.windowNumber,
                                                 NSStringFromPoint(point), [content hitTest:[content.superview convertPoint:point fromView:nil]]];
-    // Over the sidebar, the toolbar or another window: not a page's to zoom.
     if (!view || !view->_tab) return event;
     if (event.phase == NSEventPhaseBegan) accumulated = 0;
     accumulated += event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 30;
@@ -2302,20 +2014,14 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
   }];
 }
 
-// DEV: ⌘-scroll events over the visible page through the app's event dispatch, as packages/cef's.
-// Each step is {phase: "wheel" | "mayBegin" | "began" | "changed" | "ended" | "momentum", dy, trackpad}; the result
-// says, per step, whether the scroll zoomed the page instead of scrolling it.
 + (NSArray<NSNumber *> *)devScrollZoom:(NSArray<NSDictionary<NSString *, id> *> *)steps browser:(int)browserId {
   ArdiaCoreWebView *view = nil;
-  // The page asked for (a run has several windows: the last visible view needn't be the check's).
   for (ArdiaCoreWebView *v in LiveViews())
     if (v.window.isVisible && !v.isHiddenOrHasHiddenAncestor && v->_tab && v->_visible &&
         (!browserId || ardiacore_host::BrowserId(v->_tab) == browserId))
       view = v;
   if (!view) return @[];
   NSWindow *window = view.window;
-  // A point of the page no app overlay covers (a toast, a bar, a prompt left from before): the first of a grid over
-  // the page whose hit test lands in it.
   const NSRect b = view.bounds;
   NSView *content = window.contentView;
   NSPoint inWindow = [view convertPoint:NSMakePoint(NSMidX(b), NSMidY(b)) toView:nil];
@@ -2363,7 +2069,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
     [NSApp sendEvent:event];
     gDevTrackpad = -1;
     [zoomed addObject:@(gZoomScrolls > before)];
-    // A wheel step should always zoom: say why one didn't (the acceptance run quotes it).
     if (wheel && gZoomScrolls == before)
       NSLog(@"[scroll-zoom] a ⌘-wheel step didn't zoom: %@", gDevZoomMiss ?: @"the zoom monitor never saw it");
   }
@@ -2371,8 +2076,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
 }
 
 @end
-
-// MARK: - Tabs
 
 namespace {
 
@@ -2386,10 +2089,9 @@ NSMutableDictionary<NSString *, ArdiaCoreTab *> *Offered() {
   return offered;
 }
 
-// A tab Chrome opened that the app never adopts (it chose to open the URL fresh, in a private window, say).
 constexpr int64_t kOfferSeconds = 30;
 
-}  // namespace
+}
 
 @implementation ArdiaCoreTabs
 
@@ -2443,7 +2145,7 @@ NSMapTable<NSNumber *, ArdiaCoreTab *> *TabsById() {
   static NSMapTable *tabs = [NSMapTable strongToWeakObjectsMapTable];
   return tabs;
 }
-}  // namespace
+}
 
 int BrowserId(ArdiaCoreTab *tab) {
   static int next = 0;
@@ -2460,4 +2162,4 @@ ArdiaCoreTab *TabWithBrowserId(int browserId) {
   return [TabsById() objectForKey:@(browserId)];
 }
 
-}  // namespace ardiacore_host
+}

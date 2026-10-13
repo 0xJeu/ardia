@@ -2,8 +2,6 @@ import CryptoKit
 import Foundation
 
 public struct SyncKeys {
-  // The format's own constants since the first release: every Mac's files and keys depend on them, so they keep the
-  // app's former name (LegacyMigration.swift). Changing either makes every sync folder unreadable.
   static let magic = Data(LegacyName.syncMagic.utf8)
   static let salt = Data(LegacyName.syncSalt.utf8)
   static let padding = 1024

@@ -9,6 +9,5 @@ AC_ENGINE_CALL(ac_omnibox_opened) {
   if (!call) {
     return;
   }
-  // 2: the window-close and quit fix (an engine that answered {} had only the first two).
   call.TakeReply().Send(base::DictValue().Set("prewarm", 2));
 }

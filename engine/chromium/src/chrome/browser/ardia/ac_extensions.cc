@@ -110,8 +110,6 @@ base::DictValue Entry(const developer::ExtensionInfo& info) {
       .Set("errors", std::move(errors));
 }
 
-// The tab Chrome's prompts for this profile hang from: the active tab of its
-// most recently active window.
 content::WebContents* PromptTab(Profile* profile) {
   content::WebContents* tab = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
@@ -125,8 +123,6 @@ content::WebContents* PromptTab(Profile* profile) {
   return tab;
 }
 
-// Keeps the profile's in-flight work (info generators, requirement checks,
-// re-enable prompts) until it reports back.
 class ExtensionsState : public ProfileState {
  public:
   explicit ExtensionsState(Profile* profile) : ProfileState(profile) {}
@@ -137,12 +133,11 @@ class ExtensionsState : public ProfileState {
     extensions::ExtensionInfoGenerator* raw = generator.get();
     const int key = Keep(std::move(generator));
     raw->CreateExtensionsInfo(
-        /*include_disabled=*/true, /*include_terminated=*/true,
+        true, true,
         base::BindOnce(&ExtensionsState::Listed, weak_factory_.GetWeakPtr(),
                        key, std::move(reply)));
   }
 
-  // The management API's enable steps after its policy checks.
   void Enable(const Extension* extension, Reply reply) {
     const std::string id = extension->id();
     if (extensions::ExtensionPrefs::Get(profile())->HasDisableReason(
@@ -174,7 +169,6 @@ class ExtensionsState : public ProfileState {
     return Keep(std::unique_ptr<void, void (*)(void*)>(
         owned.release(), [](void* p) { delete static_cast<T*>(p); }));
   }
-  // Not inside the callback of what it deletes.
   void Drop(int key) {
     auto it = kept_.find(key);
     if (it == kept_.end()) {
@@ -219,14 +213,12 @@ class ExtensionsState : public ProfileState {
     }
     if (!extensions::ExtensionPrefs::Get(profile())
              ->DidExtensionEscalatePermissions(id)) {
-      return Finish(id, std::move(reply), /*allowed=*/true);
+      return Finish(id, std::move(reply), true);
     }
     content::WebContents* tab = PromptTab(profile());
     if (!tab) {
       return reply.Error("Open a window to re-enable this extension");
     }
-    // A key now: the prompt may answer before SetEnabledFunctionDelegate
-    // returns.
     const int key = ++next_key_;
     std::unique_ptr<extensions::InstallPromptDelegate> prompt =
         ManagementDelegate(profile())->SetEnabledFunctionDelegate(
@@ -269,16 +261,14 @@ class ExtensionsState : public ProfileState {
   base::WeakPtrFactory<ExtensionsState> weak_factory_{this};
 };
 
-// Whether the user may change the extension's settings or remove it (no
-// policy holds it), as chrome://extensions' calls check.
 bool UserMayModify(Profile* profile, const Extension* extension) {
   return extensions::ExtensionSystem::Get(profile)
       ->management_policy()
       ->UserMayModifySettings(extension, nullptr);
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 using ardia::Call;
 using ardia::Reply;
@@ -307,7 +297,6 @@ AC_ENGINE_CALL(ac_extensions_install) {
     return call.TakeReply().Error(
         "Extension installation is blocked by policy.");
   }
-  // Chrome keeps unpacked extensions off outside developer mode.
   extensions::util::SetDeveloperModeForProfile(profile, true);
   scoped_refptr<extensions::UnpackedInstaller> installer =
       extensions::UnpackedInstaller::Create(profile);
@@ -338,8 +327,6 @@ AC_ENGINE_CALL(ac_extensions_install_crx) {
     return call.TakeReply().Error(
         "Extension installation is blocked by policy.");
   }
-  // As a .crx dropped on chrome://extensions: Chrome's install prompt (the
-  // app's, through the install-prompt hook), then Chrome's post-install UI.
   scoped_refptr<extensions::CrxInstaller> installer =
       extensions::CrxInstaller::Create(
           profile, std::make_unique<ExtensionInstallPrompt>(
@@ -410,8 +397,6 @@ AC_ENGINE_CALL(ac_extensions_uninstall) {
           ->MustRemainInstalled(extension, nullptr)) {
     return call.TakeReply().Error("The extension can't be removed");
   }
-  // The app asked the user already (chrome.management.uninstall with
-  // showConfirmDialog: false, as chrome://extensions called it).
   std::u16string error;
   if (!ardia::ManagementDelegate(profile)->UninstallExtension(
           profile, id, extensions::UNINSTALL_REASON_MANAGEMENT_API, &error)) {
@@ -439,9 +424,6 @@ AC_ENGINE_CALL(ac_extensions_configure) {
   if (!ardia::Find(profile, id)) {
     return call.TakeReply().Error("No such extension");
   }
-  // Pinning first: it needs the extension loaded, and file access and
-  // incognito below may reload it (pinning is kept by id across a reload).
-  // The rest in developerPrivate.updateExtensionConfiguration's order.
   if (std::optional<bool> pinned = call.args().FindBool("pinned")) {
     ToolbarActionsModel* model = ToolbarActionsModel::Get(profile);
     if (!model->HasAction(id)) {

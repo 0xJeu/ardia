@@ -36,7 +36,6 @@ struct SettingType {
   ContentSettingsType type;
 };
 
-// The JS names, as CEF maps them (ACSiteSettings.mm kTypes).
 constexpr SettingType kTypes[] = {
     {"popups", ContentSettingsType::POPUPS},
     {"camera", ContentSettingsType::MEDIASTREAM_CAMERA},
@@ -110,8 +109,6 @@ std::optional<ContentSetting> ValueNamed(std::string_view name) {
   return std::nullopt;
 }
 
-// The site's http(s) origin ("https://a.com", "http://b.com:8080"), or an
-// invalid GURL.
 GURL SiteOf(std::string_view spec) {
   GURL url(spec);
   if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS() || url.host().empty()) {
@@ -124,8 +121,6 @@ std::string Serialize(const GURL& site) {
   return url::Origin::Create(site).Serialize();
 }
 
-// The one origin a user exception's primary pattern names, as CEF reads the
-// exceptions pref (OriginOfPattern); "" for a wider pattern.
 std::string OriginOfPattern(const ContentSettingsPattern& pattern) {
   const std::string spec = pattern.ToString();
   if (spec.find('*') != std::string::npos) {
@@ -144,7 +139,6 @@ HostContentSettingsMap* MapFor(Profile* profile) {
   return HostContentSettingsMapFactory::GetForProfile(profile);
 }
 
-// The origins with a user exception for |type|.
 std::set<std::string> ExceptionOrigins(HostContentSettingsMap* map,
                                        ContentSettingsType type) {
   std::set<std::string> origins;
@@ -153,8 +147,6 @@ std::set<std::string> ExceptionOrigins(HostContentSettingsMap* map,
   }
   for (const ContentSettingPatternSource& rule :
        map->GetSettingsForOneType(type)) {
-    // A private session's own exceptions count in its map (an off-the-record
-    // profile's: a private window's site settings), never in the regular one.
     if (rule.source != content_settings::mojom::ProviderType::kPrefProvider ||
         (rule.incognito && !map->IsOffTheRecord())) {
       continue;
@@ -167,7 +159,6 @@ std::set<std::string> ExceptionOrigins(HostContentSettingsMap* map,
   return origins;
 }
 
-// Tells the app about content setting changes in the profile.
 class SiteSettingsState : public ProfileState,
                           public content_settings::Observer {
  public:
@@ -194,8 +185,6 @@ class SiteSettingsState : public ProfileState,
       type = base::Value(name);
     }
     const std::string origin = OriginOfPattern(primary_pattern);
-    // After Chrome's notification unwinds, so the app's handler can't
-    // re-enter HostContentSettingsMap mid-notification.
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(
@@ -218,7 +207,6 @@ class SiteSettingsState : public ProfileState,
   base::WeakPtrFactory<SiteSettingsState> weak_factory_{this};
 };
 
-// The call's site, or replies with an error.
 GURL SiteFor(Call& call) {
   GURL site = SiteOf(call.String("origin"));
   if (!site.is_valid()) {
@@ -227,8 +215,8 @@ GURL SiteFor(Call& call) {
   return site;
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_site_settings_get) {
   ardia::Call call(profile_dir, args_json, reply, context,
@@ -347,8 +335,6 @@ AC_ENGINE_CALL(ac_site_data_clear) {
   }
   content::StoragePartition* partition =
       call.profile()->GetDefaultStoragePartition();
-  // As CEF: the host's cookies (CefCookieManager::DeleteCookies(url, "")),
-  // then the origin's storage (DevTools' Storage.clearDataForOrigin "all").
   auto filter = network::mojom::CookieDeletionFilter::New();
   filter->host_name = site.host();
   partition->GetCookieManagerForBrowserProcess()->DeleteCookies(

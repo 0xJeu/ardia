@@ -29,7 +29,6 @@ final class PowerUpView: MetalSurface {
     "default": ["#7E1731", "#334CB4", "#2D81FF", "#2D81FF", "#FFF268", "#F70305", "#FE64CD"],
   ].mapValues { $0.compactMap { SIMD4<Float>(hex: $0) } }
 
-  /// Dia: 3.75s
   private var time: Float = 0
   private let finishTime: Float = 3.75
 

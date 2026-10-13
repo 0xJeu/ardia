@@ -1,29 +1,4 @@
 // Copyright 2026 Ardia. Apache-2.0.
-//
-// Closed tabs: Chrome's TabRestoreService already records every tab the app
-// closes (with its whole back/forward list, on disk in Sessions/Tabs_*). The
-// app keeps its own list of what was closed, with its product rules (groups,
-// pinned tiles, splits), and takes a tab's navigations back from Chrome when it
-// reopens it.
-//
-//   ac_tab_restore_tag({tab, key}): names the open tab |tab| (its chrome.tabs
-//     id) by |key| (the app's tab id) on each of its navigations, as session
-//     data Chrome saves with them, and on every navigation it makes from then
-//     on: call it when the app's view takes the tab. Chrome records a closing
-//     tab before the app hears of the close (a window closed at once, an
-//     extension's chrome.tabs.remove, a page's window.close()), so the key has
-//     to be there already; the entry Chrome records carries it, on disk too.
-//   ac_tab_restore_take({key}) -> {state: "<base64>" | null}
-//     The navigations of the closed tab named |key|, in the format
-//     CefBrowserHost::RestoreTabInBrowser reads (its GetNavigationState:
-//     version 1, selected index, count, then each SerializedNavigationEntry as
-//     session restore pickles it). Of several (a tab closed with its window
-//     too), the newest. A tab entry of its own leaves Chrome's list; one inside
-//     a closed window or group stays (removing it would remove the whole
-//     window). Without one, null: the app loads the page.
-//
-// The last session's entries load on the first take (and on
-// ac_tab_restore_load).
 
 #include <memory>
 #include <string>
@@ -58,7 +33,6 @@ namespace {
 
 constexpr int kNavigationStateVersion = 1;
 constexpr int kMaxNavigationEntryBytes = 256 * 1024;
-// The session data key: once registered, always this.
 constexpr char kTabKey[] = "ac_tab";
 
 using sessions::tab_restore::Entry;
@@ -67,7 +41,6 @@ using sessions::tab_restore::Tab;
 using sessions::tab_restore::Type;
 using sessions::tab_restore::Window;
 
-// The app's tab id, kept on a tab's NavigationEntries and saved with them.
 struct TabKeyData : public base::SupportsUserData::Data {
   explicit TabKeyData(std::string key) : key(std::move(key)) {}
   std::string key;
@@ -97,8 +70,6 @@ void RegisterTabKey() {
                                     std::make_unique<TabKeyHandler>());
 }
 
-// A live tab's key: on each of its NavigationEntries, the ones it makes later
-// too (a new entry starts without user data).
 class TabKeyBinding : public content::WebContentsObserver,
                       public content::WebContentsUserData<TabKeyBinding> {
  public:
@@ -109,7 +80,6 @@ class TabKeyBinding : public content::WebContentsObserver,
     Stamp();
   }
 
-  // content::WebContentsObserver:
   void DidStartNavigation(content::NavigationHandle*) override { Stamp(); }
   void NavigationEntryCommitted(const content::LoadCommittedDetails&) override {
     Stamp();
@@ -216,7 +186,6 @@ void Take(sessions::TabRestoreService* service,
   reply.Send(base::DictValue().Set("state", std::move(state)));
 }
 
-// Runs |then| once the service has the last session's entries.
 class WhenLoaded : public sessions::TabRestoreServiceObserver {
  public:
   static void Run(sessions::TabRestoreService* service,
@@ -261,9 +230,9 @@ sessions::TabRestoreService* ServiceFor(Profile* profile) {
              : nullptr;
 }
 
-}  // namespace
+}
 
-}  // namespace ardia
+}
 
 using ardia::Call;
 using ardia::Reply;
@@ -321,7 +290,7 @@ AC_ENGINE_CALL(ac_tab_restore_tag) {
   if (key.empty() ||
       !extensions::ExtensionTabUtil::GetTabById(
           static_cast<int>(call.Double("tab", -1)), call.profile(),
-          /*include_incognito=*/false, &contents) ||
+          false, &contents) ||
       !contents) {
     return call.TakeReply().Error("no such tab");
   }

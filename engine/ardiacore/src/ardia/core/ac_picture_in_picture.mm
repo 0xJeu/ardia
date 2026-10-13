@@ -38,7 +38,6 @@ namespace ardiacore {
 
 namespace {
 
-// Not from inside Chrome's picture-in-picture code: the host may close the tab.
 void Report(base::WeakPtr<content::WebContents> contents, bool active, NSString* kind) {
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(
@@ -61,19 +60,13 @@ void Report(base::WeakPtr<content::WebContents> contents, bool active, NSString*
                      contents, active, kind));
 }
 
-// Background (test) instances: Chrome's picture-in-picture windows, video or document, are
-// there for the page (they keep rendering, the session stays) but invisible and
-// click-through, so a hidden run never floats a window over the owner's. Done before they
-// first show, and kept through Chrome's fade-in.
 bool Background() {
   return getenv("ARDIA_BACKGROUND") != nullptr;
 }
 
-}  // namespace
-}  // namespace ardiacore
+}
+}
 
-// Keeps a window's alpha at 0: Chrome fades its picture-in-picture windows in after showing
-// them (PictureInPictureWidgetFadeAnimator, 500 ms to opacity 1), over any alpha set before.
 @interface ACInvisibleWindowPin : NSObject
 @end
 
@@ -101,16 +94,12 @@ void MakeInvisible(NSWindow* window) {
   window.ignoresMouseEvents = YES;
   if (!objc_getAssociatedObject(window, kInvisiblePinKey)) {
     ACInvisibleWindowPin* pin = [[ACInvisibleWindowPin alloc] init];
-    // The window owns the pin; the observation goes with the window (macOS 11+ drops an
-    // observer registration whose object is deallocated).
     objc_setAssociatedObject(window, kInvisiblePinKey, pin, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [window addObserver:pin forKeyPath:@"alphaValue" options:0 context:nullptr];
   }
 }
 
-// The video overlay: the observer runs in the task that shows it, after its widget exists.
 void HideVideoOverlay(content::WebContents* opener) {
-  // (Chrome's only accessor for the overlay; the controller exists while it shows.)
   auto* overlay = static_cast<VideoOverlayWindowViews*>(
       content::PictureInPictureWindowController::GetOrCreateVideoPictureInPictureController(
           opener)
@@ -120,14 +109,11 @@ void HideVideoOverlay(content::WebContents* opener) {
   }
 }
 
-// Document picture-in-picture: Chrome makes its Browser after telling the manager, then
-// shows it once the page is inserted; the Browser is added (OnBrowserCreated) in between.
 class DocumentPipBrowsers : public BrowserCollectionObserver {
  public:
   DocumentPipBrowsers() { observation_.Observe(GlobalBrowserCollection::GetInstance()); }
 
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
-    // (Only Chrome's own window: never an app window ArdiaCore hosts the Browser in.)
     if (browser->GetType() != BrowserWindowInterface::TYPE_PICTURE_IN_PICTURE ||
         WindowHost::ForBrowser(browser) || !browser->GetWindow()) {
       return;
@@ -145,7 +131,6 @@ class PictureInPictureObserver : public PictureInPictureWindowManager::Observer 
   void OnEnterPictureInPicture() override {
     PictureInPictureWindowManager* manager = PictureInPictureWindowManager::GetInstance();
     content::WebContents* opener = manager->GetWebContents();
-    // One window at a time: a new one replaces the last (Chrome closes it first).
     if (opener_ && opener_.get() != opener) {
       Report(opener_, false, kind_);
     }
@@ -169,7 +154,6 @@ class PictureInPictureObserver : public PictureInPictureWindowManager::Observer 
 
   void OnExitPictureInPicture() override {
     if (PictureInPictureTracing()) {
-      // Who closed it (the frames past this observer).
       NSArray<NSString*>* stack = NSThread.callStackSymbols;
       NSMutableString* frames = [NSMutableString string];
       for (NSUInteger i = 1; i < MIN(stack.count, (NSUInteger)14); i++) {
@@ -191,7 +175,7 @@ class PictureInPictureObserver : public PictureInPictureWindowManager::Observer 
   NSString* __strong kind_ = @"video";
 };
 
-}  // namespace
+}
 
 bool PictureInPictureTracing() {
   static const bool tracing = getenv("ARDIA_TRACE_PIP") != nullptr;
@@ -218,7 +202,6 @@ void TracePictureInPicture(const std::string& line) {
 
 namespace {
 
-// Chrome's own inputs to AutoPictureInPictureTabHelper::IsEligibleForAutoPictureInPicture.
 std::string AutoPictureInPictureInputs(content::WebContents* contents) {
   auto* helper = AutoPictureInPictureTabHelper::FromWebContents(contents);
   const GURL& url = contents->GetLastCommittedURL();
@@ -241,7 +224,7 @@ std::string AutoPictureInPictureInputs(content::WebContents* contents) {
       profile->IsOffTheRecord());
 }
 
-}  // namespace
+}
 
 void TraceAutoPictureInPictureInputs(content::WebContents* contents, const char* when) {
   if (PictureInPictureTracing()) {
@@ -258,4 +241,4 @@ void StartPictureInPictureObserver() {
   }
 }
 
-}  // namespace ardiacore
+}

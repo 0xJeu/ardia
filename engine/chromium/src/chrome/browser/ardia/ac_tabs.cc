@@ -92,8 +92,6 @@ base::DictValue StripOf(BrowserWindowInterface* browser, bool picked_by_close) {
       .Set("activePickedOnClose", picked_by_close);
 }
 
-// Reports every Browser's strip after each change to it. Global: a Browser's
-// strip is the same whichever profile asked.
 class StripWatcher : public BrowserCollectionObserver,
                      public TabStripModelObserver {
  public:
@@ -109,7 +107,6 @@ class StripWatcher : public BrowserCollectionObserver,
     started_ = true;
     GlobalBrowserCollection* browsers = GlobalBrowserCollection::GetInstance();
     observation_.Observe(browsers);
-    // Every strip as it is now, then every change.
     browsers->ForEach([this](BrowserWindowInterface* browser) {
       Watch(browser);
       Emit("tabs.strip", browser->GetProfile(), StripOf(browser, false));
@@ -117,7 +114,6 @@ class StripWatcher : public BrowserCollectionObserver,
     });
   }
 
-  // BrowserCollectionObserver:
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
     Watch(browser);
   }
@@ -133,19 +129,15 @@ class StripWatcher : public BrowserCollectionObserver,
              .Set("closed", true));
   }
 
-  // TabStripModelObserver:
   void OnTabStripModelChanged(TabStripModel* model,
                               const TabStripModelChange& change,
                               const TabStripSelectionChange& selection) override {
-    // The active tab Chrome picked because the active one left the strip (closed, or moved to another window), as
-    // opposed to one somebody activated; it stays so until the active tab changes again.
     if (selection.active_tab_changed()) {
       picked_[model] = change.type() == TabStripModelChange::kRemoved;
     }
     Report(model);
   }
   void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override {
-    // The model isn't given: report every strip the tab could be in.
     GlobalBrowserCollection::GetInstance()->ForEach(
         [this, tab](BrowserWindowInterface* browser) {
           TabStripModel* model = browser->GetTabStripModel();
@@ -200,8 +192,8 @@ class StripWatcher : public BrowserCollectionObserver,
       observation_{this};
 };
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_tabs_watch) {
   ardia::Call call(profile_dir, args_json, reply, context);

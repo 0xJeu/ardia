@@ -1,12 +1,5 @@
 import Foundation
 
-// Safari's Cookies.binarycookies. Layout (all offsets checked before use):
-//   "cook", page count (BE u32), page sizes (BE u32 each), pages, then a checksum and footer we ignore.
-//   Page: 00 00 01 00, cookie count (LE u32), cookie offsets (LE u32, from page start), 00 00 00 00.
-//   Cookie (LE): size, version, flags (1 secure, 4 httpOnly), hasPort, domain/name/path/value/comment/commentURL
-//   offsets (from cookie start), expiry and creation (Float64 seconds since 2001-01-01), [port u16], NUL-terminated
-//   strings.
-// The whole file is read into SecretBytes because cookie values sit in it as plaintext.
 public enum SafariCookies {
   static let cocoaEpoch = 978_307_200.0
   static let maxFileSize = 512 << 20
@@ -65,7 +58,7 @@ public enum SafariCookies {
       guard at >= 0, at + 4 <= p.count else { throw Malformed() }
       return Int(p[at]) << 24 | Int(p[at + 1]) << 16 | Int(p[at + 2]) << 8 | Int(p[at + 3])
     }
-    guard p.count >= 8, p[0] == 0x63, p[1] == 0x6F, p[2] == 0x6F, p[3] == 0x6B else { throw Malformed() }  // "cook"
+    guard p.count >= 8, p[0] == 0x63, p[1] == 0x6F, p[2] == 0x6F, p[3] == 0x6B else { throw Malformed() }
     let pages = try be32(4)
     guard pages <= (p.count - 8) / 4 else { throw Malformed() }
     var pageStart = 8 + 4 * pages
@@ -89,7 +82,6 @@ public enum SafariCookies {
     guard page.count >= 8, page[0] == 0, page[1] == 0, page[2] == 1, page[3] == 0 else { throw Malformed() }
     let count = try le32(page, 4)
     guard count <= (page.count - 8) / 4 else { throw Malformed() }
-    // Records follow the offset table in order and never overlap, so no byte is copied twice.
     var used = 8 + 4 * count
     for i in 0..<count {
       let start = try le32(page, 8 + 4 * i)

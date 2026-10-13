@@ -2,7 +2,6 @@ import AppKit
 import ExpoModulesCore
 
 public class ImportModule: Module {
-  // Calls arrive concurrently; lazy initialization is not thread-safe.
   private let importer: Importer = {
     let env = ProcessInfo.processInfo.environment
     let support = env["ARDIA_IMPORT_SOURCE_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -16,8 +15,6 @@ public class ImportModule: Module {
     ))
   }()
 
-  // Safari's home folder; a test instance pointed at fixtures (ARDIA_IMPORT_SOURCE_DIR = <home>/Library/Application
-  // Support) reads Safari's data from that fixture home too, never the user's.
   private static let safariHome: URL = {
     let env = ProcessInfo.processInfo.environment
     if let home = env["ARDIA_IMPORT_SAFARI_HOME"] { return URL(fileURLWithPath: home, isDirectory: true) }
@@ -75,8 +72,6 @@ public class ImportModule: Module {
       self.vault.discardAll()
     }
 
-    // Writes what an import kept natively (cookies, addresses, cards) into the app's profile `profile` (its engine
-    // name), so cookie values and card numbers never reach JS. The token works once.
     AsyncFunction("writeImported") { (token: String, profile: String, kinds: [String], promise: Promise) in
       guard let entry = self.vault.take(token) else { return promise.reject("notFound", "Nothing to write; import again") }
       Task { @MainActor in
@@ -86,7 +81,6 @@ public class ImportModule: Module {
 
     Function("discardImported") { (token: String) in self.vault.discard(token) }
 
-    // The source profile's Chrome Web Store extensions, for the app to offer on the Web Store (nothing is installed).
     AsyncFunction("listExtensions") { (browserId: String, profileId: String, promise: Promise) in
       self.run(promise) {
         guard let def = BrowserDefinition.find(browserId), def.isChromiumBased else { return "[]" }
@@ -174,8 +168,6 @@ public class ImportModule: Module {
       panel.begin { response in promise.resolve(response == .OK ? panel.url?.path : nil) }
     }.runOnQueue(.main)
   }
-
-  // MARK: Helpers
 
   private func run(_ promise: Promise, job: String? = nil, _ body: @escaping () throws -> String?) {
     Self.work.async { [jobs] in

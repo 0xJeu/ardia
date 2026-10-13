@@ -36,9 +36,6 @@ public enum ChromiumCrypto {
     return AES.cbc(.decrypt, Data(body), key: key, iv: iv)
   }
 
-  /// Decrypts a v10 value straight into SecretBytes (no Data/String copy of the plaintext). Anything else (v11,
-  /// v20, a truncated value) is undecryptable: plaintext lives in its own column. With `hostKey` (Cookies DB
-  /// version 24+), the plaintext must start with SHA-256(hostKey), which is stripped; without it the value is rejected.
   static func decryptSecret(_ value: Data, key: Data, hostKey: String? = nil) -> SecretBytes? {
     guard isEncrypted(value) else { return nil }
     guard key.count == kCCKeySizeAES128 else { return nil }
@@ -127,7 +124,6 @@ enum AES {
 }
 
 public enum SafeStorageKeychain {
-  // Call only after explicit unlock consent; Keychain access shows a system prompt.
   public static func secret(service: String, account: String) throws -> Data {
     for query in [account as String?, nil] {
       var q: [String: Any] = [

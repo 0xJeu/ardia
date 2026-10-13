@@ -49,10 +49,6 @@ mojo::AssociatedRemote<mojom::ACPage> PageOf(content::RenderFrameHost* frame) {
   return page;
 }
 
-// Web pages may not navigate to or open ardia: URLs (the app's own pages, which only the
-// app maps): cancelled silently. Chrome's pages (chrome:, devtools:) may ask for one in their
-// main frame: cancelled too, and the host is told (tab:didRequestAppURL:userGesture:), as
-// CEF's ACClient told the app.
 class AppSchemeThrottle : public content::NavigationThrottle {
  public:
   explicit AppSchemeThrottle(content::NavigationThrottleRegistry& registry)
@@ -73,8 +69,6 @@ class AppSchemeThrottle : public content::NavigationThrottle {
         navigation->GetInitiatorOrigin();
     content::NavigationEntry* committed =
         contents->GetController().GetLastCommittedEntry();
-    // A new popup's first navigation is reported by the opener's delegate instead
-    // (ACWebContentsDelegate), which drops the popup.
     const bool popup_start = !committed || committed->IsInitialEntry();
     if (navigation->IsInPrimaryMainFrame() && !popup_start &&
         !navigation->WasServerRedirect() && initiator &&
@@ -95,7 +89,7 @@ class AppSchemeThrottle : public content::NavigationThrottle {
   }
 };
 
-}  // namespace
+}
 
 bool IsAppURL(const GURL& url) {
   return url.SchemeIs("ardia");
@@ -133,8 +127,6 @@ const std::string& GetPageScript() {
 }
 
 void SendPageScript(content::RenderProcessHost* host) {
-  // On the process's IPC channel, so it arrives before the messages that create frames
-  // (RenderProcessWillLaunch runs just after the channel is unpaused).
   IPC::ChannelProxy* channel = host->GetChannel();
   if (!channel) {
     return;
@@ -162,19 +154,13 @@ void AddAppSchemeThrottle(content::NavigationThrottleRegistry& registry) {
   registry.AddThrottle(std::make_unique<AppSchemeThrottle>(registry));
 }
 
-// --- PageChannel --------------------------------------------------------------------------
-
 PageChannel::PageChannel(content::WebContents* contents)
     : content::WebContentsObserver(contents),
       content::WebContentsUserData<PageChannel>(*contents),
       receivers_(contents, this) {}
 
 void PageChannel::PrimaryPageChanged(content::Page& page) {
-  // The old document's pending evaluations get no answer (it may sit in the back/forward
-  // cache, timers frozen, and answer much later otherwise).
   main_page_.reset();
-  // The committed page ends up with the current colour (a cleared one too), whatever changed
-  // between ReadyToCommitNavigation and the commit, where SetPageColor can't reach its frame.
   if (auto remote = PageOf(&page.GetMainDocument())) {
     remote->SetPageColor(page_color_);
   }
@@ -182,8 +168,6 @@ void PageChannel::PrimaryPageChanged(content::Page& page) {
 
 void PageChannel::ReadyToCommitNavigation(
     content::NavigationHandle* navigation) {
-  // Ahead of the commit, on the frame that will commit (speculative or not): an error page
-  // there has the current colour from its first script.
   content::RenderFrameHost* frame = navigation->GetRenderFrameHost();
   if (frame && !frame->GetParentOrOuterDocument()) {
     if (auto remote = PageOf(frame)) {
@@ -193,7 +177,6 @@ void PageChannel::ReadyToCommitNavigation(
 }
 
 void PageChannel::RenderFrameCreated(content::RenderFrameHost* frame) {
-  // Before the frame's first commit: an error page there has the colour from its first script.
   if (!page_color_.empty() && !frame->GetParentOrOuterDocument()) {
     if (auto remote = PageOf(frame)) {
       remote->SetPageColor(page_color_);
@@ -222,13 +205,11 @@ void PageChannel::SetPageColor(const std::string& color) {
 
 PageChannel::~PageChannel() = default;
 
-// static
 PageChannel* PageChannel::GetOrCreate(content::WebContents* contents) {
   CreateForWebContents(contents);
   return FromWebContents(contents);
 }
 
-// static
 std::string PageChannel::FrameId(content::RenderFrameHost* frame) {
   const content::GlobalRenderFrameHostId id = frame->GetGlobalId();
   return base::StrCat({base::NumberToString(id.child_id.GetUnsafeValue()), ":",
@@ -267,8 +248,6 @@ mojom::ACPage* PageChannel::MainPage() {
   }
   if (!main_page_.is_bound() || !main_page_.is_connected() ||
       main_page_frame_ != frame->GetGlobalId()) {
-    // A new document's calls go to its frame (an evaluation pending on the old one gets
-    // no answer).
     main_page_.reset();
     frame->GetRemoteAssociatedInterfaces()->GetInterface(&main_page_);
     main_page_frame_ = frame->GetGlobalId();
@@ -302,7 +281,7 @@ void PageChannel::ExecuteInFrame(const std::string& frame_id,
   if (target->IsInPrimaryMainFrame()) {
     Execute(code);
   } else if (auto page = PageOf(target)) {
-    page->Execute(code, /*user_gesture=*/false);
+    page->Execute(code, false);
   }
 }
 
@@ -330,9 +309,6 @@ void PageChannel::Evaluate(
     const std::string& code,
     bool user_gesture,
     base::OnceCallback<void(const std::optional<std::string>&)> callback) {
-  // No answer when the frame (or the renderer) goes before it answers.
-  // Always on a later turn: the default answer runs when the remote goes, which can be in
-  // the middle of this object's work (and the host may close the tab from its completion).
   auto answer = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       base::BindPostTaskToCurrentDefault(std::move(callback)), std::nullopt);
   mojom::ACPage* page = MainPage();
@@ -345,4 +321,4 @@ void PageChannel::Evaluate(
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(PageChannel);
 
-}  // namespace ardiacore
+}

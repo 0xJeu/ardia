@@ -1,8 +1,6 @@
 import Foundation
 import ArdiaCore
 
-// What an import read that must not reach JS (cookie values, card numbers), kept in memory until the app writes it
-// into a profile or drops it. Entries go after ten minutes; dropping the last reference wipes the secrets (SecretBytes).
 final class ImportVault: @unchecked Sendable {
   struct Entry {
     var cookies: [Cookie]
@@ -45,7 +43,6 @@ final class ImportVault: @unchecked Sendable {
 }
 
 enum ImportWriter {
-  // A batch of ac_cookies_import's arguments; Chrome's own cookie store takes them (engine/chromium ac_cookies.h).
   static let cookieBatch = 500
   static let autofillBatch = 500
 
@@ -73,7 +70,6 @@ enum ImportWriter {
       wire.batches.forEach { $0.wipe() }
     }
     if kinds.contains("autofill") {
-      // In chunks under the engine's per-call limits (1000 of each, 4 MB).
       var start = 0
       while start < max(entry.addresses.count, entry.cards.count) {
         let addresses = Array(entry.addresses[min(start, entry.addresses.count)..<min(start + autofillBatch, entry.addresses.count)])
@@ -95,8 +91,6 @@ enum ImportWriter {
     return String(decoding: data, as: UTF8.self)
   }
 
-  // One engine call whose arguments hold secrets: copied once into the buffer the bridge zeroes after the call has
-  // parsed it, and the source wiped at once.
   @MainActor
   private static func engine(_ name: String, profile: String, args: SecretBytes) async -> [String: Any] {
     let data = args.withUnsafeBytes { NSMutableData(bytes: $0.baseAddress, length: $0.count) }

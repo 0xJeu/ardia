@@ -26,8 +26,6 @@ final class AppDelegate: ExpoAppDelegate {
 
     super.applicationDidFinishLaunching(notification)
 
-    // A Dock tile pinned under the app's former name opens this app, once per Mac and in the installed copy only;
-    // in the background, a few seconds from now (packages/sync/ios/Core/LegacyDockTile.swift).
     LegacyDockTile.repointSoon()
   }
 
@@ -43,7 +41,6 @@ final class AppDelegate: ExpoAppDelegate {
 
   override func applicationWillTerminate(_ notification: Notification) {
     super.applicationWillTerminate(notification)
-    // Exit after observers; C++ static destructors can crash on stale React Native callbacks.
     atexit {
       fflush(nil)
       _exit(0)
@@ -58,8 +55,6 @@ final class AppDelegate: ExpoAppDelegate {
     ShellApp.dockMenu()
   }
 
-  // MARK: Handoff
-
   override func application(_ application: NSApplication, willContinueUserActivityWithType userActivityType: String) -> Bool {
     userActivityType == NSUserActivityTypeBrowsingWeb || super.application(application, willContinueUserActivityWithType: userActivityType)
   }
@@ -71,8 +66,6 @@ final class AppDelegate: ExpoAppDelegate {
   ) -> Bool {
     Handoff.continue(userActivity) || super.application(application, continue: userActivity, restorationHandler: restorationHandler)
   }
-
-  // MARK: AppleScript (Ardia.sdef): the application's windows and profiles come from the shell.
 
   func application(_ sender: NSApplication, delegateHandlesKey key: String) -> Bool {
     ShellScripting.handles(key)
@@ -90,8 +83,6 @@ final class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
     #if DEBUG
-    // A test run picks its Metro (ARDIA_JS_LOCATION=host:port) for this launch only: the argument domain is never
-    // written to disk.
     if let location = ProcessInfo.processInfo.environment["ARDIA_JS_LOCATION"], !location.isEmpty {
       var arguments = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
       arguments["RCT_jsLocation"] = location

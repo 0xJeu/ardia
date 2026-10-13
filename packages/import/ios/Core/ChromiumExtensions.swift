@@ -6,8 +6,6 @@ public struct ImportedExtension: Codable, Equatable, Sendable {
   public var webStoreUrl: String
 }
 
-// The Chrome Web Store extensions a Chromium-family profile has installed (its Preferences' extensions.settings),
-// so the app can offer them on the Web Store. Nothing is installed from the source's files.
 public enum ChromiumExtensions {
   public static func list(profile: URL) -> [ImportedExtension] {
     var settings: [String: Any] = [:]
@@ -24,7 +22,6 @@ public enum ChromiumExtensions {
     var out: [ImportedExtension] = []
     for (id, value) in settings {
       guard isExtensionId(id), let entry = value as? [String: Any], entry["from_webstore"] as? Bool == true else { continue }
-      // Component and external (policy, preinstalled) extensions aren't the user's choice.
       if let location = entry["location"] as? Int, location != 1 { continue }
       out.append(ImportedExtension(id: id, name: name(id: id, entry: entry, profile: profile) ?? id,
                                    webStoreUrl: "https://chromewebstore.google.com/detail/\(id)"))
@@ -48,7 +45,6 @@ public enum ChromiumExtensions {
     }
     guard let raw = (manifest?["name"] as? String)?.trimmingCharacters(in: .whitespaces), !raw.isEmpty else { return nil }
     guard raw.hasPrefix("__MSG_"), raw.hasSuffix("__") else { return raw }
-    // A localized name: the default locale's messages.json.
     let key = String(raw.dropFirst(6).dropLast(2)).lowercased()
     guard let dir, let locale = manifest?["default_locale"] as? String,
           let data = try? Data(contentsOf: dir.appendingPathComponent("_locales/\(locale)/messages.json")),

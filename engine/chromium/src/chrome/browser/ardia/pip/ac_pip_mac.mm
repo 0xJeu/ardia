@@ -23,12 +23,11 @@ NSURL* BoundsFile() {
 
 NSString* const kFadeKey = @"ardiaFadeOut";
 
-// The frame view's layer holds everything the window shows.
 CALayer* FadeLayer(NSWindow* window) {
   return window.contentView.superview.layer ?: window.contentView.layer;
 }
 
-}  // namespace
+}
 
 std::optional<gfx::Rect> LoadArdiaPictureInPictureBounds() {
   NSURL* file = BoundsFile();
@@ -50,8 +49,6 @@ std::optional<gfx::Rect> LoadArdiaPictureInPictureBounds() {
 }
 
 void SaveArdiaPictureInPictureBounds(const gfx::Rect& bounds) {
-  // Moves come in bursts while the user drags; skip the ones that change
-  // nothing.
   static gfx::Rect last;
   NSURL* file = BoundsFile();
   if (!file || bounds.IsEmpty() || bounds == last) {
@@ -81,8 +78,6 @@ void FadeOutArdiaPictureInPicture(gfx::NativeWindow window,
   layer.opacity = 0;
   [layer addAnimation:fade forKey:kFadeKey];
   [CATransaction commit];
-  // Hand it to the render server now, before whatever else this turn of the
-  // run loop does (showing the tab it goes back to).
   [CATransaction flush];
   ns_window.hasShadow = NO;
 }

@@ -12,8 +12,6 @@
 namespace ardia {
 namespace {
 
-// Only web URLs go into the record, never their credentials (a data: URL can
-// be megabytes).
 NSURL* RecordURL(const GURL& url) {
   if (!url.is_valid() ||
       !(url.SchemeIsHTTPOrHTTPS() || url.SchemeIs("ftp"))) {
@@ -26,11 +24,8 @@ NSURL* RecordURL(const GURL& url) {
                                   url.ReplaceComponents(strip).spec())];
 }
 
-}  // namespace
+}
 
-// As CEF's engine (packages/cef/ios/ACCef.mm): Chrome only adds metadata to a
-// file the system already quarantined (LSFileQuarantineEnabled), which the
-// app's Info.plist doesn't ask for.
 void QuarantineDownload(const base::FilePath& file,
                         const GURL& source,
                         const GURL& referrer) {
@@ -67,4 +62,4 @@ void QuarantineDownload(const base::FilePath& file,
   }
 }
 
-}  // namespace ardia
+}

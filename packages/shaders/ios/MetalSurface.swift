@@ -25,8 +25,6 @@ class MetalSurface: ExpoView, MTKViewDelegate {
     Self.live.append(Weak(self))
   }
 
-  // MARK: DEV snapshots
-
   private struct Weak { weak var view: MetalSurface?; init(_ v: MetalSurface) { view = v } }
   private static var live: [Weak] = []
 
@@ -76,7 +74,6 @@ class MetalSurface: ExpoView, MTKViewDelegate {
 
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-  // RN macOS sets subview frames directly; size them in setFrameSize.
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     metalView.frame = bounds

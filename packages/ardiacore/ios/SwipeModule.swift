@@ -9,23 +9,18 @@ public class SwipeModule: Module {
       DispatchQueue.main.async { ACSwipe.performHaptic(pattern) }
     }
 
-    // Dots and keys: the same native controller a drag uses, interrupting whatever it is doing.
-    // A trailing order is the caller's profile order; indexes and steps are read in it.
     AsyncFunction("switchPager") { (key: String, index: Int, order: String?) -> Bool in
       ACPager.existing(key)?.switchTo(index, order: order) ?? false
     }.runOnQueue(.main)
 
-    // A profile chosen outside the pager (a link, a tab): lands at once and outranks stale props until JS acks.
     AsyncFunction("selectPager") { (key: String, profileId: String, order: String) -> Bool in
       ACPager.existing(key)?.select(profileId, order: order) ?? false
     }.runOnQueue(.main)
 
-    // Relative steps resolve against the native selection when they run, so rapid repeats advance.
     AsyncFunction("stepPager") { (key: String, delta: Int, wrap: Bool, order: String?) -> Bool in
       ACPager.existing(key)?.step(delta, wrap: wrap, order: order) ?? false
     }.runOnQueue(.main)
 
-    // The latest native state, readable from JS without a main-thread hop.
     Function("pagerState") { (key: String) -> [String: Any]? in ACPager.snapshot(key) }
 
     AsyncFunction("devPagerState") { (key: String) -> [String: Any]? in
@@ -82,12 +77,10 @@ final class SwipeArea: ExpoView, ACSwipeTarget {
 
   @objc var hasNativePager: Bool { pager != nil }
 
-  // The strip pages narrower than the area; the sidebar pages its own width.
   var pageWidth: Double { Double(pagerWidth > 0 ? pagerWidth : bounds.width) }
 
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-  // Root moves pass through a nil window; the controller stays attached until this view goes away.
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     if window != nil { ACSwipe.addTarget(self) } else { ACSwipe.removeTarget(self) }
@@ -137,9 +130,6 @@ private func number(_ value: Any?) -> Double? {
   }
 }
 
-// MARK: Native profile pager
-
-// Dia: 0.5× paging, 255pt rubber band, 5pt/s flick, 0.25s critically damped settle.
 private let trackingScale = 0.5
 private let rubberDimension = 255.0
 private let rubberCoefficient = 0.15
@@ -148,14 +138,12 @@ private let omega = 2 * Double.pi / 0.25
 private let restDisplacement = 0.003
 private let restSpeed = 0.1
 private let historyWindow = 0.1
-// A display link that has missed this long has stopped (its display asleep, as on a locked screen).
 private let linkStall = 0.05
 
 private func rubberBand(_ value: Double, _ dimension: Double) -> Double {
   (1 - 1 / (value * rubberCoefficient / dimension + 1)) * dimension
 }
 
-// The display link's target, so the link retained by the pager never retains the pager back.
 private final class ACPagerFrames: NSObject {
   weak var pager: ACPager?
   let generation: Int
@@ -170,8 +158,6 @@ private final class ACPagerFrames: NSObject {
   }
 }
 
-// One per logical window, shared by its sidebar and strip areas. Position is in absolute profile
-// indexes; every frame reaches Animated through the areas' onPagerPosition, never through JS.
 final class ACPager {
   enum Phase: String { case idle, tracking, holding, settling }
 
@@ -190,7 +176,6 @@ final class ACPager {
   private static var pagers: [String: ACPager] = [:]
   private static let lock = NSLock()
   private static var snapshots: [String: [String: Any]] = [:]
-  // Global so a controller recreated for the same key never reuses a sequence JS already acked.
   private static var counter = 0
 
   static func named(_ key: String) -> ACPager {
@@ -219,14 +204,12 @@ final class ACPager {
   private var velocity = 0.0
   private var phase = Phase.idle
   private var sequence = 0
-  // The sequence of the last selection made here; React's selected is stale until JS acks it.
   private var selectionSequence = 0
   private var propSelected = 0
   private var propAck = 0
   private var drag = Drag()
   private var history: [(time: TimeInterval, position: Double)] = []
   private var spring: Spring?
-  // Frames come from the screen's link; the timer stands in when there is no screen or the link has stopped.
   private var link: CADisplayLink?
   private var lastLinkFrame: CFTimeInterval = 0
   private var timer: Timer?
@@ -256,8 +239,6 @@ final class ACPager {
     ACPager.lock.unlock()
   }
 
-  // MARK: React config
-
   func configure(selected newSelected: Int, count newCount: Int, ack: Int, order newOrder: String?) {
     let count = max(1, newCount)
     propSelected = min(max(newSelected, 0), count - 1)
@@ -273,9 +254,7 @@ final class ACPager {
       emitPosition()
       return
     }
-    // Indexes mean other profiles now: stop, and take React's selection.
     if count != self.count || (newOrder != nil && newOrder != order) {
-      // A selection JS hasn't committed yet keeps its profile at that profile's new index.
       var index = propSelected
       let old = orderIds
       self.count = count
@@ -295,13 +274,11 @@ final class ACPager {
     orderIds = newOrder?.components(separatedBy: "\n")
   }
 
-  // Takes a selection React made itself, once idle and once JS has seen every native selection.
   private func reconcile() {
     guard phase == .idle, propAck >= selectionSequence, propSelected != selected else { return }
     jump(to: propSelected)
   }
 
-  // As a selection, JS must ack it before React's props count again.
   private func jump(to index: Int, selection: Bool = false) {
     selected = index
     position = Double(index)
@@ -312,15 +289,12 @@ final class ACPager {
     emitPosition()
   }
 
-  // MARK: Input
-
   func input(from area: SwipeArea, phase input: String, distance: Double, direction: Int, timestamp: TimeInterval) {
     #if DEBUG
     lastInput = ["phase": input, "distance": distance, "direction": direction, "timestamp": timestamp]
     #endif
     switch input {
     case "prepare":
-      // Fingers down: catch a settle where it is without claiming the gesture yet.
       if phase == .settling {
         stopSpring()
         phase = .holding
@@ -340,7 +314,6 @@ final class ACPager {
       track(distance, direction, timestamp, sample: true)
     case "ended", "cancelled":
       guard phase == .tracking, drag.area === area else { return }
-      // The end event's zero delta is not a sample: it would read as a stop before release.
       track(distance, direction, timestamp, sample: false)
       release(velocity: releaseVelocity(at: timestamp), cancelled: input == "cancelled")
     default:
@@ -352,7 +325,6 @@ final class ACPager {
     stopSpring()
     let home = selected
     let x = position
-    // A drag that catches a multi-page settle keeps its place instead of snapping into range.
     let lo = max(0, min(home - 1, Int(x.rounded(.down))))
     let hi = min(count - 1, max(home + 1, Int(x.rounded(.up))))
     drag = Drag(start: x, lo: lo, hi: hi, home: home, detent: min(max(Int(x.rounded()), lo), hi), area: area)
@@ -388,7 +360,6 @@ final class ACPager {
     emitPosition()
   }
 
-  // Pages per second over the last 100ms before release.
   private func releaseVelocity(at timestamp: TimeInterval) -> Double {
     let recent = history.filter { timestamp - $0.time <= historyWindow }
     guard recent.count >= 2, let first = recent.first, let last = recent.last, last.time > first.time else { return 0 }
@@ -414,8 +385,6 @@ final class ACPager {
     return d != 0 && v != 0 && (d > 0) == (v > 0) ? v : 0
   }
 
-  // MARK: Switching
-
   func switchTo(_ index: Int, order newOrder: String? = nil) -> Bool {
     guard configured else { return false }
     sync(order: newOrder)
@@ -426,8 +395,6 @@ final class ACPager {
     return true
   }
 
-  // A command can arrive before the props carrying its order: adopt the order first, keeping the
-  // selected profile (or React's index when that profile is gone).
   private func sync(order newOrder: String?) {
     guard let newOrder, newOrder != order else { return }
     let ids = newOrder.components(separatedBy: "\n")
@@ -437,7 +404,6 @@ final class ACPager {
     _ = select(id, order: newOrder)
   }
 
-  // The order is the caller's, which may be newer than the props; the profile's index in it wins.
   func select(_ profileId: String, order newOrder: String) -> Bool {
     guard configured else { return false }
     let ids = newOrder.components(separatedBy: "\n")
@@ -454,11 +420,8 @@ final class ACPager {
     guard configured else { return false }
     sync(order: newOrder)
     let target = wrap ? ((selected + delta) % count + count) % count : min(max(selected + delta, 0), count - 1)
-    // At an unwrapped edge there is nowhere to go; leave any drag or settle alone.
     return target == selected || switchTo(target)
   }
-
-  // MARK: Settling
 
   private func settle(to target: Int, velocity v: Double, from origin: SwipeArea? = nil) {
     if target != selected {
@@ -473,7 +436,6 @@ final class ACPager {
     velocity = v
     spring = Spring(from: position, target: target, velocity: v, start: CACurrentMediaTime())
     let generation = self.generation
-    // The gesture's own screen, else any attached area's; never whichever app or window has focus.
     if let screen = origin?.window?.screen ?? areas.allObjects.lazy.compactMap({ $0.window?.screen }).first {
       let link = screen.displayLink(target: ACPagerFrames(self, generation: generation), selector: #selector(ACPagerFrames.frame(_:)))
       let fps = Float(max(60, screen.maximumFramesPerSecond))
@@ -482,7 +444,6 @@ final class ACPager {
       self.link = link
       lastLinkFrame = CACurrentMediaTime()
     }
-    // Without a screen, or while the link has stopped, a timer runs the frames: a settle always lands.
     let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
       guard let self else { return timer.invalidate() }
       if self.link != nil, CACurrentMediaTime() - self.lastLinkFrame < linkStall { return }
@@ -493,7 +454,6 @@ final class ACPager {
     publish()
   }
 
-  // False once this generation's spring is over, so its link or timer stops.
   fileprivate func frame(generation: Int, fromLink: Bool = false) -> Bool {
     guard generation == self.generation, spring != nil else { return false }
     if fromLink { lastLinkFrame = CACurrentMediaTime() }
@@ -543,22 +503,17 @@ final class ACPager {
     velocity = 0
   }
 
-  // MARK: Output
-
   private static func next() -> Int {
     counter += 1
     return counter
   }
 
-  // Both areas map onto one Animated.Value, so one dispatch per frame: the dragging area, else a
-  // live one.
   private func emitPosition() {
     let area = phase == .tracking ? drag.area : nil
     let all = areas.allObjects
     (area ?? all.first { $0.window != nil } ?? all.first)?.onPagerPosition(["position": position])
   }
 
-  // Every area delivers it; JS keeps only the newest sequence.
   private func emitState(_ name: String) {
     var event: [String: Any] = ["phase": name, "sequence": sequence, "position": position, "selected": selected, "velocity": velocity]
     if orderIds != nil { event["profileId"] = selectedId }
@@ -576,7 +531,6 @@ final class ACPager {
     ACPager.lock.unlock()
   }
 
-  // In the controller's own order, which may be ahead of or behind the store's.
   private var selectedId: Any {
     guard let ids = orderIds, selected >= 0, selected < ids.count else { return NSNull() }
     return ids[selected]

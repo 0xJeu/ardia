@@ -1,9 +1,3 @@
-// -[ArdiaCoreProfile fetchIcon:maxBytes:completion:]: an icon the host wants without a tab (a
-// restored or unloaded tab's, a bookmark's, a history row's), fetched through the profile's own
-// network stack as Chrome's ImageDataFetcher fetches icons (components/image_fetcher): its proxy,
-// its cache (an off-the-record profile's in memory), no cookies or credentials, a 200 only, a
-// size cap and a time-out. Only what Chrome would decode as a favicon comes back.
-
 #import "ardia/core/public/ArdiaCore.h"
 
 #include <algorithm>
@@ -35,7 +29,6 @@
 
 namespace {
 
-// ImageDataFetcher's kDownloadTimeoutSeconds.
 constexpr base::TimeDelta kTimeout = base::Seconds(30);
 
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
@@ -55,8 +48,6 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
         policy_exception_justification: "Not implemented."
       })");
 
-// An ISO-BMFF File Type Box naming AVIF among its brands (blink's
-// AVIFImageDecoder::MatchesAVIFSignature; net's sniffer calls any "ftyp" video/mp4).
 bool IsAvif(std::string_view body) {
   if (body.size() < 16 || body.substr(4, 4) != "ftyp") {
     return false;
@@ -66,7 +57,6 @@ bool IsAvif(std::string_view body) {
                        (size_t{static_cast<uint8_t>(body[1])} << 16) |
                        (size_t{static_cast<uint8_t>(body[2])} << 8) |
                        size_t{static_cast<uint8_t>(body[3])});
-  // The major brand, then (past the minor version) the compatible ones.
   for (size_t at = 8; at + 4 <= box; at += at == 8 ? 8 : 4) {
     const std::string_view brand = body.substr(at, 4);
     if (brand == "avif" || brand == "avis") {
@@ -76,10 +66,6 @@ bool IsAvif(std::string_view body) {
   return false;
 }
 
-// What Chrome decodes as a favicon (blink's ImageDecoder::SniffMimeType): a raster format
-// sniffed from the bytes, whatever the server calls it (.ico served as text/plain works), or
-// SVG when the response says image/svg+xml (blink's ImageDownloaderImpl). Anything else (a
-// PDF, a TIFF, an HTML error page) never reaches the host's decoder.
 bool IsIconBody(std::string_view body, const std::string& mime_type) {
   if (body.empty()) {
     return false;
@@ -90,7 +76,6 @@ bool IsIconBody(std::string_view body, const std::string& mime_type) {
   if (IsAvif(body)) {
     return blink::IsSupportedImageMimeType("image/avif");
   }
-  // A cursor (blink decodes .cur as ICO); net's sniffer only knows the icon signature.
   if (body.starts_with(std::string_view("\x00\x00\x02\x00", 4))) {
     return true;
   }
@@ -101,10 +86,6 @@ bool IsIconBody(std::string_view body, const std::string& mime_type) {
           sniffed == "image/x-icon" || sniffed == "image/bmp");
 }
 
-// One fetch. Owns itself: deleted when it finishes, or when its profile goes first (that
-// cancels the request; the host hears nil). The host's block always runs later on the main
-// thread, never inside a Chrome callback or the profile's teardown; at shutdown the run loop
-// may stop first, and then it never runs.
 class IconFetch : public ProfileObserver {
  public:
   static void Start(Profile* profile,
@@ -133,7 +114,6 @@ class IconFetch : public ProfileObserver {
     loader_ = network::SimpleURLLoader::Create(std::move(request),
                                                kTrafficAnnotation);
     loader_->SetTimeoutDuration(kTimeout);
-    // Unretained: loader_ is ours, and deleting it cancels the callback.
     loader_->DownloadToString(
         profile->GetDefaultStoragePartition()
             ->GetURLLoaderFactoryForBrowserProcess()
@@ -165,7 +145,7 @@ class IconFetch : public ProfileObserver {
   base::ScopedObservation<Profile, ProfileObserver> observation_{this};
 };
 
-}  // namespace
+}
 
 @implementation ArdiaCoreProfile (Icons)
 

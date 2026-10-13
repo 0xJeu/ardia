@@ -1,18 +1,13 @@
 import Foundation
 
-// Addresses and local cards from a Chromium profile's `Web Data`. Server (masked) cards live in other tables
-// and are never read.
 public enum ChromiumAutofill {
   public struct Outcome {
     public var addresses: [ImportedAddress]
     public var cards: [ImportedCard]
-    /// Cards whose number didn't decrypt to 12–19 digits.
     public var undecryptable: Int
-    /// Cards present but not read because no key was given.
     public var lockedCards: Int
   }
 
-  // Chromium FieldType values.
   enum Field {
     static let nameFirst = 3, nameLast = 5, nameFull = 7, email = 9, phone = 14
     static let line1 = 30, line2 = 31, city = 33, state = 34, zip = 35, country = 36

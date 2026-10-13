@@ -29,8 +29,6 @@ public enum Firefox {
     return out.sorted { $0.isDefault && !$1.isDefault }
   }
 
-  // MARK: Bookmarks
-
   static let roots: [String: (role: String, title: String)] = [
     "toolbar_____": ("toolbar", "Bookmarks Toolbar"),
     "menu________": ("menu", "Bookmarks Menu"),
@@ -81,16 +79,11 @@ public enum Firefox {
     return .folder("Bookmarks", top)
   }
 
-  // MARK: Cookies
-
   public struct CookieOutcome {
     public var items: [Cookie]
-    /// Cookies from containers, private browsing, first-party isolation, or with a partition key that has no
-    /// exact Chromium equivalent: not imported.
     public var skipped: Int
   }
 
-  // cookies.sqlite is plaintext on disk: no key or primary password involved.
   public static func cookies(profile: URL, cancellation: Cancellation = .init()) throws -> CookieOutcome {
     try cookies(database: profile.appendingPathComponent("cookies.sqlite"), cancellation: cancellation)
   }
@@ -111,7 +104,6 @@ public enum Firefox {
         skipped += 1
         return true
       }
-      // Older Firefox stored expiry in seconds, newer in milliseconds.
       let expiry = row.int("expiry").flatMap { $0 > 0 ? Double($0) : nil }.map { $0 > 100_000_000_000 ? $0 : $0 * 1000 }
       if let expiry, expiry < now { return true }
       let secure = (row.int("isSecure") ?? 0) != 0
@@ -137,9 +129,6 @@ public enum Firefox {
     return CookieOutcome(items: out, skipped: skipped)
   }
 
-  // nsICookie: SAMESITE_NONE 0, LAX 1, STRICT 2, UNSET 256 (newer). Older Firefox kept what the site sent in
-  // rawSameSite; a differing value means Firefox applied its own default. NONE also meant "not set" in older
-  // Firefox, and Chromium rejects SameSite=None without Secure, so an insecure NONE becomes unspecified.
   static func sameSite(_ value: Int64?, raw: Int64?, secure: Bool) -> String {
     if let raw, let value, raw != value { return "unspecified" }
     switch value {
@@ -150,9 +139,6 @@ public enum Firefox {
     }
   }
 
-  /// Parses an originAttributes suffix such as `^partitionKey=%28https%2Cexample.com%29&userContextId=2`.
-  /// `isolated` (containers, private browsing, first-party isolation) and a partition key that can't be turned
-  /// into a Chromium top-level site both mean "don't import".
   static func originAttributes(_ suffix: String) -> (isolated: Bool, partition: CookiePartition?) {
     var text = Substring(suffix)
     if text.hasPrefix("^") { text = text.dropFirst() }
@@ -161,7 +147,7 @@ public enum Firefox {
     for pair in text.split(separator: "&") where !pair.isEmpty {
       let parts = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
       guard let first = parts.first, !first.isEmpty else {
-        isolated = true  // Malformed: don't guess which jar it belongs to.
+        isolated = true
         continue
       }
       let key = String(first)
@@ -184,7 +170,6 @@ public enum Firefox {
     return (isolated, partition)
   }
 
-  /// `(https,example.com[,port])` → `https://example.com` (Chromium's schemeful site has no port).
   static func partitionSite(_ key: String) -> String? {
     guard key.hasPrefix("("), key.hasSuffix(")") else { return nil }
     let fields = key.dropFirst().dropLast().split(separator: ",", omittingEmptySubsequences: false).map(String.init)
@@ -195,8 +180,6 @@ public enum Firefox {
     guard !host.isEmpty, !host.hasPrefix("."), !host.hasSuffix("."), host.allSatisfy(allowed.contains) else { return nil }
     return "\(fields[0])://\(host)"
   }
-
-  // MARK: Session store
 
   public static func sessionFile(profile: URL) -> URL? {
     let candidates = ["sessionstore-backups/recovery.jsonlz4", "sessionstore.jsonlz4", "sessionstore-backups/previous.jsonlz4"]

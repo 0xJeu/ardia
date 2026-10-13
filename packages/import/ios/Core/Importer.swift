@@ -5,14 +5,11 @@ public final class Importer: @unchecked Sendable {
   private let lock = NSLock()
   private var keys: [String: Data] = [:]
   private var firefoxPasswords: [String: String] = [:]
-  // Bumped by forgetKeys(); an unlock() that started before a forget drops its key instead of storing it.
   private var generation = 0
 
   public init(discovery: BrowserDiscovery) {
     self.discovery = discovery
   }
-
-  // MARK: Unlocking
 
   public typealias SecretProvider = (_ service: String, _ account: String) throws -> Data
 
@@ -26,7 +23,7 @@ public final class Importer: @unchecked Sendable {
       let key = ChromiumCrypto.deriveKey(secret: try secret(service, account))
       lock.withLock { if generation == started { keys[browserId] = key } }
     case .firefox:
-      lock.withLock { firefoxPasswords[browserId] = primaryPassword }  // nothing to wait on, so no race
+      lock.withLock { firefoxPasswords[browserId] = primaryPassword }
     case .safari, .automation:
       break
     }
@@ -48,8 +45,6 @@ public final class Importer: @unchecked Sendable {
 
   private func key(_ browserId: String) -> Data? { lock.withLock { keys[browserId] } }
   private func primaryPassword(_ browserId: String) -> String? { lock.withLock { firefoxPasswords[browserId] } }
-
-  // MARK: Import
 
   public func importData(browserId: String, profileId: String, kinds: [ImportKind], options: ImportOptions = .init(),
                          observer: ImportObserver = .silent, cancellation: Cancellation = .init()) throws -> ImportResult {

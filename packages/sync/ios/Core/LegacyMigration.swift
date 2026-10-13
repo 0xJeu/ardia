@@ -1,41 +1,24 @@
-// LEGACY NAMES. Ardia was called Netnyahoo until 0.2.32 (bundle id com.netnyahoo.browser). This is the only Swift
-// file that may spell the old names: everything an older build persisted under them, and the one-time migration that
-// brings an updated install's data across (run from main.swift before Chromium, React Native or Sparkle start).
-// It's in sync's Core because sync's wire format keeps two of them for good (SyncCrypto.swift), and Core is plain
-// Swift: the pod builds it into the app and ../../Package.swift tests it on its own.
 import AppKit
 import Foundation
 import Security
 
 public enum LegacyName {
   public static let bundleId = "com.netnyahoo.browser"
-  /// The installed app's file name. Sparkle finds the new app in an update archive only under the installed bundle's
-  /// name (Sparkle 2.9.6 SUInstaller.m), so the update archive's top folder keeps it (scripts/release.sh reads this
-  /// line) and Sparkle installs it there under that name; at its first launch the app renames itself to Ardia.app
-  /// (LegacyMigration.moveToNewName).
   public static let appFileName = "Netnyahoo.app"
   public static let appName = "Netnyahoo"
 
-  // Sync's wire format, shared with every Mac on any version: frozen (SyncCrypto.swift).
   public static let syncMagic = "NNS1"
   public static let syncSalt = "netnyahoo-sync/v1"
-  /// The default sync folder in iCloud Drive before the rename. A Mac that turned sync on there keeps its path (the
-  /// sync document stores it); one setting sync up after the rename is offered it while it's the folder with the data
-  /// (SyncModule.defaultFolder).
   public static let syncFolderName = "Netnyahoo Sync"
 }
-
-// MARK: - What was renamed
 
 enum Renamed {
   struct KeychainItem {
     let oldService: String
     let newService: String
-    /// nil: every account of the service, kept as it is.
     let account: (old: String, new: String)?
     let label: (String) -> String
     let accessible: CFString?
-    /// The key every saved password and cookie is encrypted with: without it they're gone.
     let critical: Bool
   }
 
@@ -50,15 +33,12 @@ enum Renamed {
     label: { _ in "Ardia Sync Key" }, accessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, critical: false)
   static let keychain = [safeStorage, connectedAccounts, syncKey]
 
-  /// Paths in the data folder (relative to it; a "*" component is any one name) whose last component changed.
   static let paths: [(old: String, new: String)] = [
     ("Chromium/NetnyahooPictureInPicture.plist", "Chromium/ArdiaPictureInPicture.plist"),
     ("Chromium/NativeMessagingHosts/.netnyahoo-managed.json", "Chromium/NativeMessagingHosts/.ardia-managed.json"),
     ("Chromium/*/Netnyahoo Favicons", "Chromium/*/Ardia Favicons"),
   ]
 
-  /// JSON object keys, wherever they are: settings (session.json, synced), settings.shortcuts' command ids, and the
-  /// bookmark sync key Chrome keeps in a node's meta_info (Bookmarks).
   static let jsonKeys = [
     "openLinksInSmallYahu": "openLinksInLittleArdia",
     "smallYahuSize": "littleArdiaSize",
@@ -67,7 +47,6 @@ enum Renamed {
     "nn_sync_key": "ac_sync_key",
   ]
 
-  /// URL prefixes, matched case-insensitively at the start of a string, in order; a host must end there.
   static let urls: [(old: String, new: String)] = [
     ("netnyahoo://yahu", "ardia://game"),
     ("chrome://yahu", "chrome://game"),
@@ -81,11 +60,8 @@ enum Renamed {
     "NNUpdateFeedURL": "ACUpdateFeedURL",
   ]
   static let defaultsKeyPrefixes = [("NSWindow Frame Netnyahoo", "NSWindow Frame Ardia")]
-  /// Menu titles in NSUserKeyEquivalents (shortcuts set in System Settings › Keyboard).
   static let menuTitleWords = [("Small Yahu", "Little Ardia"), ("Netnyahoo", "Ardia")]
 }
-
-// MARK: - Seams (the real Library and keychain, or a test instance's fakes)
 
 enum SecretRead: Equatable {
   case found(Data)
@@ -95,16 +71,12 @@ enum SecretRead: Equatable {
 }
 
 protocol SecretStore {
-  /// The item's accounts, from attributes only: no data is read, so macOS asks nothing. nil: the keychain failed.
   func accounts(service: String) -> [String]?
   func read(service: String, account: String) -> SecretRead
-  /// Leaves exactly `data` in the item, adding it if it isn't there.
   func write(service: String, account: String, label: String, accessible: CFString?, data: Data) -> Bool
 }
 
-/// The login keychain (the file keychain Chrome and the app's SecItem calls use; no access group).
 struct LoginKeychain: SecretStore {
-  /// Tests: one throwaway keychain file instead of the user's search list.
   var only: SecKeychain? = nil
 
   private func query(_ service: String, _ account: String?) -> [String: Any] {
@@ -155,7 +127,6 @@ struct LoginKeychain: SecretStore {
   }
 }
 
-/// A fake keychain for tests: {"service": {"account": "<base64>"}}; services listed under "denied" refuse reads.
 struct SecretFile: SecretStore {
   let url: URL
 
@@ -182,8 +153,6 @@ struct SecretFile: SecretStore {
   }
 }
 
-/// A test instance's secrets where its readers look (Keychain.swift's IsolatedSecrets, FileKeyStore), and the Safe
-/// Storage key (which a test instance's engine doesn't use: it runs on the mock keychain) in legacy-keychain.json.
 struct IsolatedSecretStores: SecretStore {
   let dataDirectory: URL
   private var accountsFile: URL { dataDirectory.appendingPathComponent("Connected Accounts.json") }
@@ -229,8 +198,6 @@ struct IsolatedSecretStores: SecretStore {
   }
 }
 
-/// One preferences domain, its own persistent values only: a bundle id, or a plist's absolute path without
-/// ".plist" (a test instance's, ACIsolation.m). CFPreferences, not NSUserDefaults: ACIsolation swizzles the latter.
 struct PreferencesDomain {
   let id: String
 
@@ -253,13 +220,8 @@ struct PreferencesDomain {
   }
 }
 
-/// Chrome's own keychain items (Chrome-profile passkeys, device-bound session keys, payment confirmation keys) live
-/// in the data protection keychain under access groups named after the bundle id, and Chrome only ever reads its
-/// configured group (device/fido/mac/credential_store.mm). Secure Enclave keys can't be copied, so they're moved:
-/// SecItemUpdate of kSecAttrAccessGroup, which needs both groups in the app's keychain-access-groups entitlement.
 protocol AccessGroupMover {
   func entitled(to groups: [String]) -> Bool
-  /// How many items moved; a failure's status if any didn't.
   func move(from old: String, to new: String) -> (moved: Int, failure: OSStatus?)
 }
 
@@ -289,7 +251,6 @@ struct KeychainAccessGroups: AccessGroupMover {
         failure = status
         continue
       }
-      // The filter isn't exact (credential_store.mm): count only the old group's own.
       let items = ((found as? [[String: Any]]) ?? []).filter { $0[kSecAttrAccessGroup as String] as? String == old }
       guard !items.isEmpty else { continue }
       let updated = SecItemUpdate(query as CFDictionary, [kSecAttrAccessGroup as String: new] as CFDictionary)
@@ -299,32 +260,22 @@ struct KeychainAccessGroups: AccessGroupMover {
   }
 }
 
-/// Asks the user, before the app has an NSApp (Chrome makes its own): a CFUserNotification alert. Returns the
-/// chosen button's index, or nil when nobody can be asked (a hidden test instance).
 typealias Ask = (_ title: String, _ message: String, _ buttons: [String]) -> Int?
-
-// MARK: - The migration
 
 struct LegacyMigrator {
   struct Context {
-    /// The old app's data folder (its documents and Chromium/) and the new one.
     var oldData: URL
     var newData: URL
-    /// Best-effort extras copied once (Chrome's disk cache, NSURLSession's storage): (old, new) pairs.
     var extras: [(URL, URL)] = []
     var oldDefaults: PreferencesDomain
     var newDefaults: PreferencesDomain
-    /// nil: this build doesn't use the login keychain (ad hoc), so there's nothing to carry.
     var oldSecrets: SecretStore?
     var newSecrets: SecretStore?
-    /// Chrome's keychain access groups, old → new, and what moves them; nil where there are none (a test instance).
     var accessGroups: [(old: String, new: String)] = []
     var groupMover: AccessGroupMover? = nil
     var oldAppRunning: () -> Bool
-    /// The old app was the default browser: the bundle id changed, so macOS no longer counts this one as it.
     var oldAppWasDefaultBrowser: () -> Bool = { false }
     var ask: Ask
-    /// Test hook: stop as if the process died right after this step.
     var crashAfter: String? = nil
   }
 
@@ -335,26 +286,13 @@ struct LegacyMigrator {
 
   struct Journal: Codable, Equatable {
     var version = 1
-    /// "publishing" once the verified copy starts moving in; "done" at the end.
     var phase: String
-    /// migrated, nothing (no old data), existing (the new folder already had data), fresh (the user chose to start
-    /// without the old data).
     var outcome: String?
     var files: Int?
-    /// "<new service>/<account>" (or "/*": the service couldn't be listed): "copied", "missing", "denied" or
-    /// "failed…". An item that isn't the Safe Storage key and was denied or failed is tried again at the next launches
-    /// (macOS asks again), `secretAttempts` launches in all.
     var secrets: [String: String]?
     var secretAttempts: Int?
-    /// Chrome's keychain access groups: "moved <n>", "none", or "pending" while this build isn't entitled to the old
-    /// ones or a move failed (each launch tries again until it's done). Only failures that aren't the keychain being
-    /// unavailable for now count towards giving up ("failed").
     var groups: String?
-    /// Failures that count (moveAccessGroups), not launches.
     var groupAttempts: Int?
-    /// Whether the old app was the default browser when this install first ran under the new id: "offered" (the app
-    /// asks once to be the default again) or "no". Missing from journals written before it was asked: such an install
-    /// answers it at its next launch.
     var defaultBrowser: String?
     var finishedAt: Date?
 
@@ -368,8 +306,6 @@ struct LegacyMigrator {
   }
 
   static let journalName = ".legacy-migration.json"
-  /// Left for the app (apps/browser/src/lib/defaultBrowserOffer.ts) when the old app was the default browser: it asks
-  /// once to be the default again, and records when in the same document.
   static let defaultBrowserOfferName = "default-browser-offer.json"
   static let stagingName = ".legacy-migration-staging"
   static let lockName = ".legacy-migration.lock"
@@ -381,8 +317,6 @@ struct LegacyMigrator {
   init(_ context: Context) { self.context = context }
 
   var journalURL: URL { context.newData.appendingPathComponent(Self.journalName) }
-  /// The old folder where it really is: a data folder linked elsewhere (another disk) is copied from there, so the
-  /// copy is a folder of its own, never the link.
   var oldRoot: URL { context.oldData.resolvingSymlinksInPath() }
   var stagingURL: URL { context.newData.appendingPathComponent(Self.stagingName) }
 
@@ -393,7 +327,6 @@ struct LegacyMigrator {
     return try? decoder.decode(Journal.self, from: data)
   }
 
-  /// One stat and a small read on every launch after the first.
   var isDone: Bool { readJournal()?.isDone == true }
 
   func run() -> Outcome {
@@ -404,8 +337,6 @@ struct LegacyMigrator {
       log("can't make \(context.newData.path): \(error)")
       return .proceed
     }
-    // One migrator at a time (two copies launched at once): the second waits, then finds it done. One that can't
-    // take the lock (or waits ten minutes: the first is stuck on a question) quits; the next launch tries again.
     let lock = open(context.newData.appendingPathComponent(Self.lockName).path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0o600)
     guard lock >= 0 else {
       log("can't open the migration lock: \(String(cString: strerror(errno)))")
@@ -433,15 +364,12 @@ struct LegacyMigrator {
         let (groups, counts) = moveAccessGroups()
         done.groups = groups
         if counts { done.groupAttempts = (done.groupAttempts ?? 0) + 1 }
-        // A move that keeps failing (not a keychain that's locked for now) stops costing launches.
         if done.groups == "pending", (done.groupAttempts ?? 0) >= 5 { done.groups = "failed" }
       }
       if done.secretsPending { retrySecrets(&done) }
       if done != before, !writeJournal(done) { log("couldn't record what's left to bring across") }
       return .proceed
     }
-    // A crash while the verified copy was moving in: finish moving it, then the rest. The old folder is only ever
-    // read: whatever happened to it since, a verified copy is never thrown away unpublished.
     if let publishing = journal, publishing.phase == "publishing" {
       return publishOrQuit() ? finish(publishing) : .quit
     }
@@ -452,9 +380,6 @@ struct LegacyMigrator {
       log("\(context.newData.path) already has data; leaving it and \(context.oldData.path) as they are")
       return finish(Journal(phase: "done", outcome: "existing"))
     }
-    // One snapshot, taken while the old app isn't running: the folder, then its keychain items. If it's opened
-    // meanwhile (another copy of it; Sparkle has replaced the updated one), the snapshot is dropped and made again
-    // once it has quit; keychain items already carried aren't asked for again.
     var files = 0
     var secrets: [String: String] = [:]
     while true {
@@ -478,7 +403,6 @@ struct LegacyMigrator {
         if choice == 2 { return finish(Journal(phase: "done", outcome: "fresh")) }
         return .quit
       }
-      // Opened while we copied: the copy may be torn (a database mid-write).
       if context.oldAppRunning() {
         try? fm.removeItem(at: stagingURL)
         continue
@@ -493,20 +417,17 @@ struct LegacyMigrator {
             try? fm.removeItem(at: stagingURL)
             return .quit
           case .startFresh:
-            // Never the copied profile without its key: Chrome would make a new one and drop every password and cookie.
             try? fm.removeItem(at: stagingURL)
             return finish(Journal(phase: "done", outcome: "fresh"))
           }
         }
       }
       if crash("secrets") { return .quit }
-      // Opened while macOS asked about the keychain: what it writes from now on wouldn't be in the snapshot.
       guard context.oldAppRunning() else { break }
       try? fm.removeItem(at: stagingURL)
     }
 
     let publishing = Journal(phase: "publishing", outcome: "migrated", files: files, secrets: secrets)
-    // Can't record it: the disk is in trouble. Nothing has moved; the next launch starts over.
     guard writeJournal(publishing) else {
       log("couldn't write the journal")
       try? fm.removeItem(at: stagingURL)
@@ -518,7 +439,6 @@ struct LegacyMigrator {
     return finish(publishing)
   }
 
-  /// The app never starts on a half-moved folder: it finishes moving, or quits (the next launch resumes).
   private func publishOrQuit() -> Bool {
     while true {
       do {
@@ -534,15 +454,10 @@ struct LegacyMigrator {
     }
   }
 
-  // MARK: Steps
-
-  /// Copies the old folder into the staging folder (APFS clones: no time or space to speak of), renames and rewrites
-  /// what changed name there, and checks every file arrived. The old folder is never written to.
   func stage() throws -> Int {
     if exists(stagingURL) { try fm.removeItem(at: stagingURL) }
     try fm.copyItem(at: oldRoot, to: stagingURL)
     guard !isLink(stagingURL) else { throw MigrationError("\(context.oldData.path) copied as a link") }
-    // Chrome's profile lock names the old process; a stale one is harmless, but it isn't ours.
     for name in ["SingletonLock", "SingletonSocket", "SingletonCookie"] {
       let lock = stagingURL.appendingPathComponent("Chromium/\(name)")
       if ownCopy(lock) { try? fm.removeItem(at: lock) }
@@ -554,7 +469,6 @@ struct LegacyMigrator {
       try fm.moveItem(at: from, to: to)
       renamed[old] = new
     }
-    // Paths the app saved through the folder's real place (it was linked elsewhere) too.
     let rewriter = DocumentRewriter(oldData: context.oldData.path, newData: context.newData.path, aliases: [oldRoot.path])
     var rewritten = Set<String>()
     for relative in documents(in: stagingURL) {
@@ -568,8 +482,6 @@ struct LegacyMigrator {
     return try verify(renamed: renamed, rewritten: rewritten)
   }
 
-  /// Every regular file of the old folder is in the staging one, the same size unless it was rewritten (then it
-  /// still parses). Returns how many files came across.
   func verify(renamed: [String: String], rewritten: Set<String>) throws -> Int {
     var count = 0
     let root = oldRoot
@@ -604,10 +516,6 @@ struct LegacyMigrator {
     case startFresh
   }
 
-  /// Copies one kind of keychain item. The Safe Storage key has to come across (its data is encrypted with it): if it
-  /// can't, the user retries, quits (the migration stays pending), or starts without the old data at all.
-  /// `skip`: accounts (their new names) left as they are: carried already, or in the new keychain already.
-  /// `keepPresent`: one the new keychain has by the time it's written (saved while macOS asked) stays ("present").
   func copySecrets(_ item: Renamed.KeychainItem, from old: SecretStore, to new: SecretStore, skip: Set<String> = [],
                    keepPresent: Bool = false) -> SecretsResult {
     var results: [String: String] = [:]
@@ -629,7 +537,6 @@ struct LegacyMigrator {
         let key = "\(item.newService)/\(newAccount)"
         let read = old.read(service: item.oldService, account: oldAccount)
         var outcome = "\(read)"
-        // Listed again after macOS asked: saved meanwhile stays; can't tell, nothing is written (tried again later).
         let presentNow = keepPresent ? new.accounts(service: item.newService).map { $0.contains(newAccount) } : false
         if case .found = read, presentNow != false {
           outcome = presentNow == nil ? "failed" : "present"
@@ -661,20 +568,15 @@ struct LegacyMigrator {
     return choice == 0 ? .copied([:]) : choice == 2 ? .startFresh : .quit
   }
 
-  /// A later launch: the items other than the Safe Storage key that were denied or failed, once more (macOS asks
-  /// again), unless the new keychain has them by now (the app saved them since: a phrase entered again, an account
-  /// connected again). Never the key: the data is already in place, with it.
   func retrySecrets(_ journal: inout Journal) {
     guard let old = context.oldSecrets, let new = context.newSecrets else { return }
     var secrets = journal.secrets ?? [:]
     for item in Renamed.keychain where !item.critical {
       let pending = Self.accounts(of: item, in: secrets, Journal.retryable)
       guard !pending.isEmpty else { continue }
-      // Without knowing what the new keychain has, nothing is written: another launch tries.
       guard let present = new.accounts(service: item.newService) else { continue }
       let done = Self.accounts(of: item, in: secrets) { !Journal.retryable($0) }
       guard case let .copied(results) = copySecrets(item, from: old, to: new, skip: done.union(present), keepPresent: true) else { continue }
-      // The old service couldn't be listed: what was pending stays pending.
       if results["\(item.newService)/*"] != nil {
         secrets.merge(results) { $1 }
         continue
@@ -688,16 +590,12 @@ struct LegacyMigrator {
     journal.secretAttempts = (journal.secretAttempts ?? 1) + 1
   }
 
-  /// The accounts (new names) of one item's journal entries whose outcome matches.
   static func accounts(of item: Renamed.KeychainItem, in secrets: [String: String], _ matching: (String) -> Bool) -> Set<String> {
     Set(secrets.compactMap { key, outcome in
       key.hasPrefix(item.newService + "/") && matching(outcome) ? String(key.dropFirst(item.newService.count + 1)) : nil
     })
   }
 
-  /// Moves each entry of the staging folder into the new one. Each move is atomic; a crash between them resumes here.
-  /// Something already in the way (nothing the app wrote: it hasn't run on this folder) goes aside, not away.
-  /// False: stopped by the test hook ("moved-one": as if the process died after the first entry moved in).
   @discardableResult
   func publish() throws -> Bool {
     if exists(stagingURL) {
@@ -736,9 +634,6 @@ struct LegacyMigrator {
     if !context.newDefaults.set(copy) { log("couldn't save the copied preferences") }
   }
 
-  /// Moves Chrome's keychain items to the new access groups (their metadata secret came across in the profile's
-  /// prefs, so Chrome finds them there). nil when there's nothing to move. `counts`: a failure that may well happen
-  /// again (not a keychain that's locked or busy for now, nor a build that isn't entitled yet).
   func moveAccessGroups() -> (state: String?, counts: Bool) {
     guard let mover = context.groupMover, !context.accessGroups.isEmpty else { return (nil, false) }
     let all = context.accessGroups.flatMap { [$0.old, $0.new] }
@@ -757,14 +652,9 @@ struct LegacyMigrator {
         log("moving \(old) to \(new): \(status)")
       }
     }
-    // A failure (a locked keychain, say) tries again at the next launch: what moved is gone from the old groups.
-    // A launch where the keychain was unavailable for now doesn't count, for any group: that may be all that stopped them.
     return (failed ? "pending" : moved > 0 ? "moved \(moved)" : "none", failed && !transient)
   }
 
-  /// Chrome's disk cache and the like: copied once when the new one doesn't exist yet; failures only cost a refetch.
-  /// Each is copied beside its place and renamed into it, so one under its own name is always whole (a crash leaves
-  /// only the partial copy, which the next try replaces).
   @discardableResult
   func copyExtras() -> Bool {
     for (old, new) in context.extras where exists(old) && !exists(new) {
@@ -801,8 +691,6 @@ struct LegacyMigrator {
     return .proceed
   }
 
-  /// Leaves the offer when the old app was the default browser. Once: an offer already there (a run resumed after a
-  /// crash, or one the app has answered) stays as it is. nil when it couldn't be written: the next launch tries again.
   func checkDefaultBrowser() -> String? {
     guard context.oldAppWasDefaultBrowser() else { return "no" }
     let url = context.newData.appendingPathComponent(Self.defaultBrowserOfferName)
@@ -814,8 +702,6 @@ struct LegacyMigrator {
     }
     return "offered"
   }
-
-  // MARK: Helpers
 
   private func crash(_ step: String) -> Bool { context.crashAfter == step }
 
@@ -831,8 +717,6 @@ struct LegacyMigrator {
     return lstat(url.path, &info) == 0
   }
 
-  /// In the staging folder through no link: a folder the user linked elsewhere (a profile, say) is copied as the
-  /// link, so renaming or rewriting through it would change what it points at, the old app's own data.
   private func ownCopy(_ url: URL) -> Bool {
     guard let base = realpath(stagingURL.path, nil) else { return false }
     defer { free(base) }
@@ -847,7 +731,6 @@ struct LegacyMigrator {
     return lstat(url.path, &info) == 0 && info.st_mode & S_IFMT == S_IFLNK
   }
 
-  /// Data a launch of this app made: its session or a Chrome profile.
   private func hasData(_ dir: URL) -> Bool {
     exists(dir.appendingPathComponent("session.json")) || exists(dir.appendingPathComponent("Chromium/Local State"))
   }
@@ -861,7 +744,6 @@ struct LegacyMigrator {
     return candidate
   }
 
-  /// Renamed.paths with each "*" expanded to the names present in `root`.
   func expandedRenames(in root: URL) -> [(String, String)] {
     var result: [(String, String)] = []
     for (old, new) in Renamed.paths {
@@ -879,7 +761,6 @@ struct LegacyMigrator {
     return result
   }
 
-  /// The app's JSON documents (the folder's top level) and Chrome's Bookmarks files.
   func documents(in root: URL) -> [String] {
     var result: [String] = []
     for name in ((try? fm.contentsOfDirectory(atPath: root.path)) ?? []).sorted() where name.hasSuffix(".json") {
@@ -908,8 +789,6 @@ struct MigrationError: Error, LocalizedError {
 }
 
 enum MigrationFiles {
-  /// Writes `data` to a new temporary file (never through a link), flushes it, renames it into place and flushes the
-  /// folder, so after a power loss the file is either the old one or all of the new one.
   static func writeDurably(_ data: Data?, to url: URL, mode: mode_t, fullSync: Bool = false) -> Bool {
     guard let data else { return false }
     let temp = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).\(getpid()).tmp")
@@ -917,7 +796,6 @@ enum MigrationFiles {
     let fd = open(temp.path, O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, mode)
     guard fd >= 0 else { return false }
     let wrote = fchmod(fd, mode) == 0 && data.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) } == data.count
-    // F_FULLFSYNC also flushes the drive's cache, so what was written before (the staged copy) is down too.
     let synced = fullSync ? fcntl(fd, F_FULLFSYNC) == 0 : fsync(fd) == 0
     close(fd)
     guard wrote, synced, rename(temp.path, url.path) == 0 else {
@@ -928,7 +806,6 @@ enum MigrationFiles {
     return true
   }
 
-  /// Makes the renames in a folder durable.
   static func syncFolder(_ url: URL, full: Bool = true) {
     let fd = open(url.path, O_RDONLY | O_CLOEXEC)
     guard fd >= 0 else { return }
@@ -937,15 +814,9 @@ enum MigrationFiles {
   }
 }
 
-// MARK: - Documents
-
-/// Rewrites what a JSON document says in old names: app URLs (netnyahoo://, chrome://yahu) at the start of any string,
-/// absolute paths into the old data folder, and the renamed keys (Renamed.jsonKeys). Only a document that changes
-/// is written; it's parsed and written again, so its formatting may change, never its values.
 struct DocumentRewriter {
   let oldData: String
   let newData: String
-  /// Other spellings of oldData (where it really is, when it's a link).
   var aliases: [String] = []
 
   func string(_ s: String) -> String {
@@ -953,7 +824,6 @@ struct DocumentRewriter {
     for prefix in ["", "view-source:"] {
       for (old, new) in Renamed.urls where lower.hasPrefix(prefix + old) {
         let rest = s.dropFirst(prefix.count + old.count)
-        // "chrome://yahu" only as a whole host: not chrome://yahuu.
         if !old.hasSuffix("://"), let next = rest.first, !"/?#".contains(next) { continue }
         return String(s.prefix(prefix.count)) + new + rest
       }
@@ -972,7 +842,6 @@ struct DocumentRewriter {
       var out: [String: Any] = [:]
       for (key, v) in object {
         let newKey = Renamed.jsonKeys[key] ?? string(key)
-        // An object with both names keeps the new one's value.
         if newKey != key, object[newKey] != nil { continue }
         out[newKey] = self.value(v)
       }
@@ -982,7 +851,6 @@ struct DocumentRewriter {
     }
   }
 
-  /// Rewrites the file in place if anything in it changes; true if it did.
   func rewriteFile(_ url: URL) throws -> Bool {
     let data = try Data(contentsOf: url)
     guard let parsed = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else { return false }
@@ -1001,16 +869,7 @@ struct DocumentRewriter {
   }
 }
 
-// MARK: - At launch
-
 public enum LegacyMigration {
-  /// Brings an install of the old app across, once, before anything reads its data. False: the app must quit (the
-  /// user chose to, and the migration stays pending for the next launch).
-  ///
-  /// The installed app (no ARDIA_DATA_DIR, a Developer ID release build) migrates ~/Library's old folders, defaults
-  /// and login keychain items. A test instance migrates only when ARDIA_LEGACY_SOURCE names a fake home holding an
-  /// old layout (Library/Application Support/<old id>, Library/Preferences/<old id>.plist, keychain.json), into its
-  /// own data dir; it never touches the real Library or keychain.
   public static func runAtLaunch(bundleId: String? = Bundle.main.bundleIdentifier) -> Bool {
     let env = ProcessInfo.processInfo.environment
     let bundleId = bundleId ?? "com.ardia.browser"
@@ -1028,15 +887,12 @@ public enum LegacyMigration {
 
   static func installedContext(bundleId: String) -> LegacyMigrator.Context? {
     #if DEBUG
-    // A development build never opens the installed app's data (ArdiaCoreHost refuses to start without a data dir).
     return nil
     #else
-    // Only Developer ID builds use the installed data with the real keychain; an ad hoc one runs on the mock keychain.
     let fm = FileManager.default
     guard let library = fm.urls(for: .libraryDirectory, in: .userDomainMask).first else { return nil }
     let support = library.appendingPathComponent("Application Support", isDirectory: true)
     let newData = support.appendingPathComponent(bundleId, isDirectory: true)
-    // The usual launch: one small read and we're off.
     if LegacyMigrator.Context.isDone(newData) { return nil }
     guard let team = teamIdentifier() else { return nil }
     let caches = library.appendingPathComponent("Caches", isDirectory: true)
@@ -1044,7 +900,6 @@ public enum LegacyMigration {
     var extras: [(URL, URL)] = [(storages.appendingPathComponent(LegacyName.bundleId), storages.appendingPathComponent(bundleId)),
                                 (storages.appendingPathComponent("\(LegacyName.bundleId).binarycookies"),
                                  storages.appendingPathComponent("\(bundleId).binarycookies"))]
-    // Caches, but not Sparkle's (the update that brought this build in).
     let oldCaches = caches.appendingPathComponent(LegacyName.bundleId)
     for name in ((try? fm.contentsOfDirectory(atPath: oldCaches.path)) ?? []) where name != "org.sparkle-project.Sparkle" {
       extras.append((oldCaches.appendingPathComponent(name), caches.appendingPathComponent(bundleId).appendingPathComponent(name)))
@@ -1059,8 +914,6 @@ public enum LegacyMigration {
       newSecrets: LoginKeychain(),
       accessGroups: KeychainAccessGroups.suffixes.map { ("\(team).\(LegacyName.bundleId).\($0)", "\(team).\(bundleId).\($0)") },
       groupMover: KeychainAccessGroups(),
-      // Never this process: LaunchServices may still know its launch by the id the bundle had before the update.
-      // Chrome's profile lock too (a copy LaunchServices doesn't list), if its process is the old app's executable.
       oldAppRunning: {
         NSRunningApplication.runningApplications(withBundleIdentifier: LegacyName.bundleId).contains {
           !$0.isTerminated && $0.processIdentifier != getpid()
@@ -1079,7 +932,6 @@ public enum LegacyMigration {
 
   static func testInstanceContext(dataDir: String, legacyHome: String, bundleId: String, crashAfter: String?) -> LegacyMigrator.Context? {
     let cwd = FileManager.default.currentDirectoryPath
-    // As ACIsolation.m spells the data dir, so its preferences are the same cfprefsd domain as the app's.
     let absolute = { (path: String) in
       URL(fileURLWithPath: (((path as NSString).isAbsolutePath ? path : (cwd as NSString).appendingPathComponent(path)) as NSString)
         .standardizingPath)
@@ -1088,7 +940,6 @@ public enum LegacyMigration {
     let resolved = { (url: URL) in url.resolvingSymlinksInPath().path }
     let realHome = resolved(URL(fileURLWithPath: NSHomeDirectory()))
     let inside = { (a: String, b: String) in a == b || a.hasPrefix(b + "/") }
-    // A fake home only: never the real one or its Library, never overlapping the data dir.
     guard resolved(home) != realHome, !inside(resolved(home), realHome + "/Library"), !inside(resolved(data), resolved(home)),
       !inside(resolved(home), resolved(data)) else {
       NSLog("Ardia: ARDIA_LEGACY_SOURCE must be a scratch folder apart from the data dir and your home; ignored")
@@ -1096,7 +947,6 @@ public enum LegacyMigration {
     }
     let library = home.appendingPathComponent("Library")
     let oldData = library.appendingPathComponent("Application Support/\(LegacyName.bundleId)", isDirectory: true)
-    // Nothing it reads may lead out of the fake home (a link into the real Library, say).
     let handlers = library.appendingPathComponent("Preferences/\(launchServicesDomain).plist")
     for input in [library, oldData, library.appendingPathComponent("Preferences"), handlers, home.appendingPathComponent("keychain.json")]
     where FileManager.default.fileExists(atPath: input.path) && !inside(resolved(input), resolved(home)) {
@@ -1116,17 +966,12 @@ public enum LegacyMigration {
         let stored = (plist as? [String: Any])?["LSHandlers"] as? [[String: Any]]
         return ["http", "https"].contains { isOldApp(defaultFor: $0, live: nil, stored: stored) }
       },
-      // A hidden instance can't ask: whatever would need asking stops it.
       ask: { _, _, _ in nil },
       crashAfter: crashAfter)
   }
 
-  /// Where LaunchServices keeps the user's choices of default apps (Library/Preferences/<this>.plist).
   static let launchServicesDomain = "com.apple.LaunchServices/com.apple.launchservices.secure"
 
-  /// The old bundle id handles `scheme`. LaunchServices' answer (LSCopyDefaultHandlerForURLScheme) is nil once no
-  /// installed app has that id, as after the update replaced the old app (checked on macOS 27: a scheme whose handler
-  /// was uninstalled answers nil), so then the user's stored choice tells.
   static func isOldApp(defaultFor scheme: String, live: String?, stored handlers: [[String: Any]]?) -> Bool {
     if let live { return live.lowercased() == LegacyName.bundleId }
     return (handlers ?? []).contains { handler in
@@ -1135,8 +980,6 @@ public enum LegacyMigration {
     }
   }
 
-  /// Chrome's SingletonLock is a symlink to "<host>-<pid>": is that process still running (and not us)? With
-  /// `executable`, only if it's that program: a stale lock's pid may belong to anything by now.
   static func singletonOwnerAlive(_ lock: URL, executable: String? = nil) -> Bool {
     guard let target = try? FileManager.default.destinationOfSymbolicLink(atPath: lock.path),
       let pid = target.split(separator: "-").last.flatMap({ pid_t($0) }), pid > 0, pid != getpid() else { return false }
@@ -1163,7 +1006,6 @@ public enum LegacyMigration {
     }
   }
 
-  /// The signing team of a Developer ID build; nil for an ad hoc one.
   static func teamIdentifier() -> String? {
     var code: SecCode?
     guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return nil }
@@ -1176,25 +1018,9 @@ public enum LegacyMigration {
   }
 }
 
-// MARK: - The app's file name
-
 extension LegacyMigration {
-  /// An install updated from before the rename is still at <folder>/<old name>.app: Sparkle installs an update into the
-  /// installed bundle's own path. Before anything resolves a path through the bundle (Chromium finds its framework and
-  /// helpers by path), this renames it to <folder>/Ardia.app, registers that with LaunchServices and starts this
-  /// process over from there (execv: the same pid, arguments and environment, a hidden test instance's included).
-  ///
-  /// Returns when it stays where it is: it isn't the old name, it's translocated (Gatekeeper runs a quarantined copy
-  /// from a read-only mirror), Ardia.app is already beside it, or the folder can't be written (logged). Then it runs
-  /// under the old name, as before.
-  ///
-  /// `launched` is the executable's path when the process started (its paths are those from then on); `running` says
-  /// where it is now (the kernel's path follows renames). Only that decides: it renames the old name only while its
-  /// executable is in it (not a folder that replaced it), and a launch of the same bundle that another one moved a
-  /// moment ago follows it there. A rename is never undone: another launch may be running from the new place.
   public static func moveToNewName(launched: String? = launchedExecutable(), running: @escaping () -> String? = runningExecutable) {
     guard let launched else { return }
-    // Not standardized: that drops /private from /private/tmp, and the exec must keep the folder as launched.
     let executable = URL(fileURLWithPath: launched)
     let macOS = executable.deletingLastPathComponent(), contents = macOS.deletingLastPathComponent()
     let old = contents.deletingLastPathComponent(), name = executable.lastPathComponent
@@ -1205,7 +1031,6 @@ extension LegacyMigration {
     free(folder)
     let new = old.deletingLastPathComponent().appendingPathComponent("\(name).app")
     let log = { (message: String) in NSLog("Ardia: renaming \(old.path): \(message)") }
-    // The bundle itself, never a link to it. RENAME_EXCL: never over anything already called Ardia.app.
     var info = stat()
     let isIn = { (bundle: URL) in (running() ?? "").hasPrefix("\(resolvedFolder)/\(bundle.lastPathComponent)/") }
     let isBundle = lstat(old.path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR && isIn(old)
@@ -1226,13 +1051,10 @@ extension LegacyMigration {
     argv[0] = strdup(path)
     argv.append(nil)
     execv(path, argv)
-    // Never moved back: another launch may be running from the new place by now. This process can't run on from a
-    // bundle that has moved (its paths are the old ones); the next launch starts from Ardia.app.
     log("couldn't start from \(new.lastPathComponent): \(String(cString: strerror(errno))); quitting")
     exit(EXIT_FAILURE)
   }
 
-  /// The path this process's executable was started from (dyld's; what Bundle.main and Chromium go by).
   public static func launchedExecutable() -> String? {
     var size: UInt32 = 0
     _NSGetExecutablePath(nil, &size)
@@ -1241,7 +1063,6 @@ extension LegacyMigration {
     return String(cString: buffer)
   }
 
-  /// This process's executable where it is now (the kernel's path: links resolved, renames followed).
   public static func runningExecutable() -> String? {
     var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
     guard proc_pidpath(getpid(), &buffer, UInt32(buffer.count)) > 0 else { return nil }
@@ -1250,8 +1071,6 @@ extension LegacyMigration {
 }
 
 extension LegacyMigration {
-  /// The old → new tables as JSON, for scripts that build an old install to migrate (scripts/legacy-migration-e2e.mjs):
-  /// they read the old names here instead of spelling them.
   public static func namesJSON() -> Data {
     let names: [String: Any] = [
       "bundleId": LegacyName.bundleId,
@@ -1274,7 +1093,6 @@ extension LegacyMigration {
 }
 
 extension LegacyMigrator.Context {
-  /// The usual launch's whole cost: one small read.
   static func isDone(_ newData: URL) -> Bool {
     guard let data = try? Data(contentsOf: newData.appendingPathComponent(LegacyMigrator.journalName)) else { return false }
     let decoder = JSONDecoder()

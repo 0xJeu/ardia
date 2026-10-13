@@ -6,7 +6,6 @@ let package = Package(
   platforms: [.macOS(.v14)],
   products: [
     .library(name: "ArdiaSyncCore", targets: ["ArdiaSyncCore"]),
-    // The launch migration from the app's former name, run on its own (scripts/legacy-migration-e2e.mjs).
     .executable(name: "legacy-migration", targets: ["LegacyMigrationTool"]),
   ],
   targets: [

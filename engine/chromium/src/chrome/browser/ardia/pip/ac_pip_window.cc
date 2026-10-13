@@ -29,13 +29,9 @@
 
 namespace {
 
-// How long the window takes to fade out when the close button hides it, and
-// when anything else does (back to tab, the page leaving picture in picture).
-// Measured on Dia at 60 fps.
 constexpr base::TimeDelta kCloseFade = base::Milliseconds(100);
 constexpr base::TimeDelta kHideFade = base::Milliseconds(70);
 
-// Puts `replacement` where `view` is in its parent and deletes `view`.
 template <typename T, typename U>
 T* ReplaceView(raw_ptr<U>& view, std::unique_ptr<T> replacement) {
   U* old_view = std::exchange(view, nullptr);
@@ -45,7 +41,7 @@ T* ReplaceView(raw_ptr<U>& view, std::unique_ptr<T> replacement) {
   return parent->AddChildViewAt(std::move(replacement), index);
 }
 
-}  // namespace
+}
 
 ArdiaVideoOverlayWindow::ArdiaVideoOverlayWindow(
     content::VideoPictureInPictureWindowController* controller)
@@ -56,21 +52,16 @@ ArdiaVideoOverlayWindow::~ArdiaVideoOverlayWindow() = default;
 void ArdiaVideoOverlayWindow::SetUpViews() {
   VideoOverlayWindowViews::SetUpViews();
 
-  // Dia dims the whole video to 65 % under its controls, with no gradients.
   controls_scrim_view_->SetBackground(
       views::CreateSolidBackground(SkColorSetA(SK_ColorBLACK, 0x5A)));
   controls_top_scrim_view_->SetBackground(nullptr);
   controls_bottom_scrim_view_->SetBackground(nullptr);
 
-  // Dia's origin: 13 pt regular white, centred between the corner buttons
-  // (no favicon; see OnUpdateControlsBounds).
   origin_->SetFontList(gfx::FontList().DeriveWithSizeDelta(
       13 - gfx::FontList().GetFontSize()));
   origin_->SetEnabledColor(kColorPipWindowForeground);
   origin_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
 
-  // Our buttons in place of Chrome's, with Chrome's callbacks; the close
-  // button also picks the longer fade.
   back_to_tab_button_ = ReplaceView(
       back_to_tab_button_,
       std::make_unique<ArdiaBackToTabButton>(base::BindRepeating([] {
@@ -91,7 +82,6 @@ void ArdiaVideoOverlayWindow::SetUpViews() {
   play_pause_controls_view_ =
       ReplaceView(play_pause_controls_view_, std::move(play_pause));
 
-  // Dia's progress bar, right after Chrome's (hidden) one in the tree.
   ac_progress_bar_ = playback_controls_container_view_->AddChildViewAt(
       std::make_unique<ArdiaProgressBar>(base::BindRepeating(
           &VideoOverlayWindowViews::SeekForProgressBarInteraction,
@@ -107,8 +97,6 @@ void ArdiaVideoOverlayWindow::OnUpdateControlsBounds() {
   constexpr int kMargin = kArdiaPipButtonMargin;
   constexpr int kButton = kArdiaPipButtonSize;
 
-  // The title row spans the window, level with the corner buttons; the origin
-  // is centred between them, its baseline 1 pt above a label centred on them.
   title_view_->SetBoundsRect({0, 0, size.width(), kMargin + kButton});
   favicon_view_->SetVisible(false);
   constexpr int kOriginX = kMargin + kButton + 8;
@@ -120,14 +108,10 @@ void ArdiaVideoOverlayWindow::OnUpdateControlsBounds() {
       ->Place(size);
   static_cast<ArdiaCloseButton*>(close_controls_view_.get())->Place(size);
 
-  // Video conferencing controls stay Chrome's.
   if (vc_controls_container_view_->GetVisible()) {
     return;
   }
 
-  // Dia's playback controls are the play/pause glyph at the centre of the
-  // window and its progress bar; Chrome's skip, track, time, captions and mute
-  // controls stay hidden (keyboard shortcuts still work).
   play_pause_controls_view_->SetPosition(
       {size.width() / 2 - kCenterButtonSize / 2,
        (size.height() + 1) / 2 - kCenterButtonSize / 2});
@@ -149,8 +133,6 @@ void ArdiaVideoOverlayWindow::OnUpdateControlsBounds() {
 void ArdiaVideoOverlayWindow::UpdateControlsVisibility(
     bool is_visible,
     bool should_animate) {
-  // As in Dia, the origin (Chrome's title) shows only with the controls: the
-  // resting window is just the video. Chrome's title rule reads this first.
   force_title_and_scrim_visible_ =
       !IsOverlayViewShown() && force_controls_visible_.value_or(is_visible);
 
@@ -160,8 +142,6 @@ void ArdiaVideoOverlayWindow::UpdateControlsVisibility(
   VideoOverlayWindowViews::UpdateControlsVisibility(is_visible,
                                                     should_animate);
 
-  // Any fade Chrome just started runs on Dia's curve instead. Chrome's never
-  // stepped, so swapping it has no other effect.
   if (title_and_top_scrim_fade_animation_ &&
       title_and_top_scrim_fade_animation_.get() != title_fade) {
     title_and_top_scrim_fade_animation_ =
@@ -193,8 +173,6 @@ void ArdiaVideoOverlayWindow::SetMediaPosition(
 }
 
 gfx::Rect ArdiaVideoOverlayWindow::CalculateAndUpdateWindowBounds() {
-  // A new window opens where the user last left one, on that display if it's
-  // still there, sized to the new video, and kept on screen.
   std::optional<gfx::Rect> saved;
   if (!has_been_shown_) {
     saved = LoadArdiaPictureInPictureBounds();
@@ -209,7 +187,6 @@ gfx::Rect ArdiaVideoOverlayWindow::CalculateAndUpdateWindowBounds() {
     size.SetToMax(GetMinimumSize());
     rect.set_size(size);
     if (!natural_size_.IsEmpty()) {
-      // Keep the corner nearest the work area's corner where it was.
       const gfx::Point center = rect.CenterPoint();
       const bool left = center.x() < work_area.CenterPoint().x();
       const bool top = center.y() < work_area.CenterPoint().y();
@@ -231,15 +208,11 @@ gfx::Rect ArdiaVideoOverlayWindow::CalculateAndUpdateWindowBounds() {
 }
 
 void ArdiaVideoOverlayWindow::ShowInactive() {
-  // Dia's window appears at once; this also takes back a window that's still
-  // fading out.
   ac_hide_timer_.Stop();
   ResetArdiaPictureInPictureFade(GetNativeWindow());
   SetVisibilityChangedAnimationsEnabled(false);
   SetOpacity(1.0f);
   views::Widget::ShowInactive();
-  // Chrome's own fade in finds the window visible and leaves it opaque; the
-  // rest is Chrome's.
   VideoOverlayWindowViews::ShowInactive();
   if (fade_animator_) {
     fade_animator_->CancelAndReset();
@@ -247,8 +220,6 @@ void ArdiaVideoOverlayWindow::ShowInactive() {
   SetOpacity(1.0f);
 }
 
-// Chrome's Hide(), except that the window fades out first: 100 ms from the
-// close button and 70 ms otherwise.
 void ArdiaVideoOverlayWindow::Hide() {
   RemoveOverlayViewIfExists();
   if (fade_animator_) {
@@ -278,7 +249,6 @@ void ArdiaVideoOverlayWindow::FinishHide() {
 
 void ArdiaVideoOverlayWindow::OnCloseButtonPressed() {
   ac_hide_fade_ = kCloseFade;
-  // Closes without pausing (chromium-zz-pip-close-keeps-playing.patch).
   CloseAndPauseIfAvailable();
 }
 

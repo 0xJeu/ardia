@@ -1,5 +1,3 @@
-// packages/cef/ios/ACPictureInPicture.mm on ArdiaCore: the same window, styling, stash and menu; the video's frame is
-// a frame id (ArdiaCoreTab's -executeJavaScript:frame:).
 #import "ArdiaCorePictureInPicture.h"
 
 #import "ACChromeWindow.h"
@@ -9,7 +7,6 @@
 #import <objc/runtime.h>
 #import <QuartzCore/QuartzCore.h>
 
-// AppKit's own setter for WindowServer's prevents-activation tag, which a non-activating NSPanel gets at creation.
 @interface NSWindow (ACPreventsActivation)
 - (void)_setPreventsActivation:(BOOL)prevents;
 - (BOOL)_preventsActivation;
@@ -19,15 +16,11 @@ namespace {
 
 constexpr CGFloat kPeek = 28;
 constexpr CGFloat kReturnMargin = 16;
-// Chrome's corner buttons, restyled as Dia's (chrome/browser/ardia/pip in engine/chromium): 28 pt squares 12 pt in.
 constexpr CGFloat kButtonMargin = 12, kButtonSize = 28;
-// Dia's window corners: circular, 6 pt (fitted at 2x to 0.1 px), with the shadow following them, and a 1 pt rim of
-// white at 17 % just inside the edge.
 constexpr CGFloat kCornerRadius = 6;
 constexpr CGFloat kRimAlpha = 0.17;
 
 NSString *const kKeepOnTopDefault = @"ACPictureInPictureKeepOnTop";
-// Kill switch for ⌘-scroll / pinch zoom: `defaults write <bundle id> ACPictureInPictureZoom -bool NO`.
 NSString *const kZoomDefault = @"ACPictureInPictureZoom";
 const void *const kControllerKey = &kControllerKey;
 const void *const kZoomKey = &kZoomKey;
@@ -37,8 +30,6 @@ BOOL KeepOnTop() {
   return value ? [value boolValue] : YES;
 }
 
-// A window showing a page: a document Picture in Picture window is a Browser window of Chrome's, frameless and kept
-// on top like a video's, but with the page's own view in it.
 BOOL ShowsPage(NSView *view) {
   static Class page = NSClassFromString(@"RenderWidgetHostViewCocoa");
   if (page && [view isKindOfClass:page]) return YES;
@@ -57,7 +48,6 @@ BOOL IsChromeVideoPictureInPicture(NSWindow *window) {
   return IsChromeFloatingWindow(window) && !ShowsPage(window.contentView);
 }
 
-// Chrome's document Picture in Picture window, shown or not yet.
 BOOL IsChromeDocumentPictureInPicture(NSWindow *window) {
   static Class frameless = NSClassFromString(@"NativeWidgetMacFramelessNSWindow");
   return frameless && [window isKindOfClass:frameless] && ShowsPage(window.contentView);
@@ -80,11 +70,6 @@ BOOL ScreenAt(CGFloat x, CGFloat y) {
   return NO;
 }
 
-// A click on the mini player doesn't activate the app. WindowServer activates the owner of a clicked window unless the
-// window carries its prevents-activation tag; activated, the app made its next window key as the mini player closed,
-// and the browser window came up over the app the user was in. In an app that isn't active the window doesn't become
-// key either, so the keyboard stays where it was; Chrome's views take the click all the same (acceptsFirstMouse:).
-// Back to Tab activates the app itself (ActivateApp).
 void PreventActivation(NSWindow *window) {
   if ([window respondsToSelector:@selector(_setPreventsActivation:)]) [window _setPreventsActivation:YES];
 }
@@ -93,7 +78,6 @@ BOOL PreventsActivation(NSWindow *window) {
   return [window respondsToSelector:@selector(_preventsActivation)] && [window _preventsActivation];
 }
 
-// Times Back to Tab activated the app (the button self-test reads it).
 NSInteger gActivations = 0;
 
 void ActivateApp(NSString *why) {
@@ -107,8 +91,6 @@ void ActivateApp(NSString *why) {
 typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, ACPiPEdgeRight = 1 };
 
 @class ACPiPController;
-
-// MARK: - Views
 
 @interface ACPiPControl : NSView
 @property (nonatomic, copy) void (^onClick)(void);
@@ -200,7 +182,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
 
 @end
 
-// Holds the stash handle over Chrome's views; the resting window shows nothing of ours.
 @interface ACPiPOverlay : NSView
 @property (nonatomic, readonly) ACPiPHandle *handle;
 @end
@@ -224,7 +205,7 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
 - (instancetype)initWithFrame:(NSRect)frame {
   if ((self = [super initWithFrame:frame])) {
     self.wantsLayer = YES;
-    self.layer.zPosition = 100;  // Keep above Chrome’s compositor layers.
+    self.layer.zPosition = 100;
     self.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     _handle = [[ACPiPHandle alloc] initWithFrame:NSZeroRect];
     _handle.hidden = YES;
@@ -239,7 +220,7 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
 - (NSView *)hitTest:(NSPoint)point {
   NSPoint local = [self convertPoint:point fromView:self.superview];
   if (!_handle.hidden && NSPointInRect(local, _handle.frame)) return _handle;
-  return nil;  // Everything else is Chrome's.
+  return nil;
 }
 
 - (void)layout {
@@ -250,8 +231,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
 }
 
 @end
-
-// MARK: - Controller
 
 @implementation ACPiPController {
   NSMutableArray *_observers;
@@ -307,8 +286,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
 
 - (void)setVideoFrame:(NSString *)frameId { _frameId = [frameId copy]; }
 
-// Chrome's window is square and transparent: clipping its content view rounds everything it shows (video, controls,
-// the fades), and the shadow, which macOS takes from the window's alpha, follows once invalidated.
 - (void)roundCorners {
   NSView *content = _window.contentView;
   content.wantsLayer = YES;
@@ -325,7 +302,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   rim.borderColor = [NSColor colorWithWhite:1 alpha:kRimAlpha].CGColor;
   _window.opaque = NO;
   _window.backgroundColor = NSColor.clearColor;
-  // After Chrome has drawn the new size.
   dispatch_async(dispatch_get_main_queue(), ^{ [self->_window invalidateShadow]; });
 }
 
@@ -360,8 +336,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   [view emit:@"activateRequest" payload:@{@"reason" : @"pictureInPicture"}];
   [view exitPictureInPictureInFrame:_frameId];
 }
-
-// MARK: Stash
 
 - (void)windowMoved {
   if (_animating) return;
@@ -433,7 +407,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
       }];
 }
 
-// Dia: 0.25s ease-out.
 - (void)animateTo:(NSRect)target {
   [_slide invalidate];
   NSRect from = _window.frame;
@@ -455,9 +428,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   [NSRunLoop.currentRunLoop addTimer:_slide forMode:NSRunLoopCommonModes];
 }
 
-// MARK: Self-test
-
-// The window as Core Animation draws it, at 2x over a slate backdrop, to $ARDIA_DATA_DIR/pip-<name>.png.
 - (NSString *)snapshot:(NSString *)name {
   NSWindow *window = _window;
   NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
@@ -481,8 +451,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   NSMutableArray *steps = [NSMutableArray array];
   NSWindow *window = _window;
   NSRect start = window.frame;
-  // The window stashes only past an outer edge, one with no screen beyond it (edgeBeyond): with a display to the right
-  // (or left) of the window's, the right (left) steps run at the edge of the outermost screen at the window's height.
   auto outermost = [=](BOOL right) {
     NSScreen *pick = ScreenFor(start);
     for (NSScreen *screen in NSScreen.screens) {
@@ -563,8 +531,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   });
   after(7.0, ^{
     record(@"drag out of the stash", self.stashedEdge == ACPiPEdgeNone && fabs(NSMinX(window.frame) - (NSMinX(visibleLeft) + 100)) < 0.5, nil);
-    // Chrome saves where the window was left in its user data dir, in screen DIPs from the top left of the primary
-    // display (chrome/browser/ardia/pip in engine/chromium).
     NSArray *saved = [NSArray arrayWithContentsOfFile:[dir stringByAppendingPathComponent:@"Chromium/ArdiaPictureInPicture.plist"]];
     NSRect frame = window.frame;
     CGFloat top = NSMaxY(NSScreen.screens.firstObject.frame) - NSMaxY(frame);
@@ -595,11 +561,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   });
 }
 
-// ARDIA_PIP_SELFTEST=close / backToTab: clicks Chrome's own close button (its X, top right) or its back-to-tab
-// button (top left) as AppKit delivers a click (through the event queue, so it's NSApp's current event), then records
-// whether the window closed, whether it carries WindowServer's prevents-activation tag, and how many times the click
-// activated the app (close: never; Back to Tab: once). What happens to the video and the tab is for the caller to
-// check (CDP, the store): closing leaves the video playing where it is.
 - (void)runButtonSelfTest:(NSString *)button {
   NSWindow *window = _window;
   NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
@@ -612,8 +573,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   auto after = [](double seconds, dispatch_block_t block) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), block);
   };
-  // The pointer's arrival shows Chrome's controls (its tracking area calls the content view); a click where they're
-  // hidden would drag the window instead.
   after(1.5, ^{ [window.contentView mouseMoved:event(NSEventTypeMouseMoved)]; });
   after(2.1, ^{
     const BOOL prevents = PreventsActivation(window);
@@ -637,9 +596,6 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   });
 }
 
-// ARDIA_PIP_SELFTEST=hover: keeps Chrome's controls showing for screen captures, with the pointer over the close
-// button (ARDIA_PIP_HOVER=close), back to tab (back) or the middle of the video (default), and writes the window
-// number and frame to pip-hover.json.
 - (void)runHoverSelfTest {
   NSWindow *window = _window;
   NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
@@ -674,27 +630,20 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
 @end
 
 
-// MARK: - Zoom
-
-// ⌘-scroll (wheel or trackpad) and pinch over a Picture in Picture window resize it, keeping its aspect ratio, docked
-// to the screen edges it sits against (else around the pointer), within Chrome's own limits (its minimum, 80 % of the
-// work area) and on screen; the math is ArdiaCorePiPZoom.h. Chrome saves the new size with its place
-// (ArdiaPictureInPicture.plist, engine/chromium pip/) and the next window opens at it.
 @interface ACPiPZoom : NSObject
 + (BOOL)handle:(NSEvent *)event;
 @end
 
 @implementation ACPiPZoom {
   __weak NSWindow *_window;
-  NSRect _last;    // the frame this set last; any other frame starts over from the window's
-  double _width;   // the exact width (rounding never eats a slow scroll)
-  double _aspect;  // width / height, kept while zooming
-  double _target;  // a wheel's notches ease to this width (0: none)
+  NSRect _last;
+  double _width;
+  double _aspect;
+  double _target;
   NSPoint _pointer;
   NSTimer *_ease;
 }
 
-// A window this zooms: Chrome's video PiP (styled by ACPiPController, not tucked at an edge) or its document PiP.
 + (BOOL)zooms:(NSWindow *)window {
   if (!window.visible || !(window.styleMask & NSWindowStyleMaskResizable)) return NO;
   ACPiPController *controller = [ACPiPController forWindow:window];
@@ -712,13 +661,10 @@ typedef NS_ENUM(NSInteger, ACPiPEdge) { ACPiPEdgeNone = 0, ACPiPEdgeLeft = -1, A
   return zoom;
 }
 
-// The scroll gesture (trackpad phases and its momentum) that started or turned into a zoom over this window: the
-// rest of it zooms too, even once ⌘ is let go, and never scrolls the page under it.
 static __weak NSWindow *gZoomGesture;
 
 + (BOOL)handle:(NSEvent *)event {
   BOOL handled = [self route:event];
-  // ARDIA_PIP_ZOOM_TRACE=1: every scroll and pinch the app sees, and what became of it.
   static BOOL trace = getenv("ARDIA_PIP_ZOOM_TRACE") != nullptr;
   if (trace)
     NSLog(@"[pip-zoom] type %lu window %ld (%@) cmd %d phase %lu/%lu dy %.2f precise %d mag %.3f -> %@ %@", (unsigned long)event.type,
@@ -732,11 +678,9 @@ static __weak NSWindow *gZoomGesture;
   return handled;
 }
 
-// The window an event is for: its own, or with none (an event the window server sent to no window, as for a test
-// instance's PiP, which ignores the pointer), the frontmost Picture in Picture window under its location.
 + (NSWindow *)windowFor:(NSEvent *)event {
   if (event.window) return event.window;
-  NSPoint point = event.locationInWindow;  // in screen coordinates without a window
+  NSPoint point = event.locationInWindow;
   for (NSWindow *window in NSApp.orderedWindows)
     if (NSPointInRect(point, window.frame) && [self zooms:window]) return window;
   return nil;
@@ -749,8 +693,6 @@ static __weak NSWindow *gZoomGesture;
   if (scroll) {
     NSEventPhase phase = event.phase, momentum = event.momentumPhase;
     BOOL wheel = phase == NSEventPhaseNone && momentum == NSEventPhaseNone;
-    // A new gesture (or a wheel's line) decides afresh; the rest of a zoom gesture stays with its window, even once
-    // the window has shrunk out from under the pointer.
     if (wheel || (phase & (NSEventPhaseBegan | NSEventPhaseMayBegin))) gZoomGesture = nil;
     if (gZoomGesture) window = gZoomGesture;
     if (!window || (!command && gZoomGesture != window)) return NO;
@@ -764,7 +706,6 @@ static __weak NSWindow *gZoomGesture;
                                ease:!event.hasPreciseScrollingDeltas];
     return YES;
   }
-  // Pinch.
   if (!window || ![self zooms:window] || ![self enabled]) return NO;
   [[self forWindow:window] zoomBy:ardiacore_pip_zoom::MagnifyFactor(event.magnification)
                                at:[self screenPoint:event]
@@ -785,7 +726,6 @@ static __weak NSWindow *gZoomGesture;
   NSWindow *window = _window;
   NSRect frame = window.frame;
   if (!NSEqualRects(frame, _last) || _width <= 0) {
-    // Keep the ratio from before when the frame still has it (to its rounding): whole points would drift it.
     double aspect = NSWidth(frame) / MAX(NSHeight(frame), 1);
     if (!(_aspect > 0 && fabs(NSWidth(frame) / _aspect - NSHeight(frame)) <= 1)) _aspect = aspect;
     _width = NSWidth(frame), _target = 0;
@@ -796,7 +736,6 @@ static __weak NSWindow *gZoomGesture;
     [_ease invalidate], _ease = nil, _target = 0;
     return [self step:factor];
   }
-  // A wheel's notch is a jump of several points: ease to it over ~0.1 s, retargeting with each new notch.
   double low, high;
   ardiacore_pip_zoom::WidthLimits(_aspect, [self minSize], [self maxSize], [self visible], &low, &high);
   _target = MIN(MAX((_target > 0 ? _target : _width) * factor, low), high);
@@ -816,7 +755,6 @@ static __weak NSWindow *gZoomGesture;
     [timer invalidate];
   }];
   [NSRunLoop.currentRunLoop addTimer:_ease forMode:NSRunLoopCommonModes];
-  // Set _last now: the timer checks it before its first step.
   _last = frame;
 }
 
@@ -849,8 +787,6 @@ static __weak NSWindow *gZoomGesture;
 
 @end
 
-// MARK: - Glue
-
 namespace ardiacore_pip {
 
 namespace {
@@ -880,9 +816,7 @@ void InstallZoomMonitor() {
 bool Attach(ArdiaCoreWebView *view, NSString *host, NSString *frameId) {
   for (NSWindow *window in NSApp.windows) {
     ACPiPController *controller = [ACPiPController forWindow:window];
-    // Chrome reuses its window for successive PiP videos, at the level it was left at (normal, without Keep on Top).
     if (!IsChromeVideoPictureInPicture(window) && !(controller && window.visible)) continue;
-    // Another tab's window fading out as this one opens (no shadow while it fades; TabRequestedActivation).
     if (!window.hasShadow) continue;
     BOOL fresh = !controller;
     if (fresh) controller = [[ACPiPController alloc] initWithWindow:window];
@@ -891,7 +825,6 @@ bool Attach(ArdiaCoreWebView *view, NSString *host, NSString *frameId) {
     [controller setVideoFrame:frameId];
     [controller roundCorners];
     PreventActivation(window);
-    // A hidden test instance shows nothing on the owner's screen (the engine hides it as Chrome opens it).
     if (ardiacore_host::Background()) {
       window.alphaValue = 0;
       window.ignoresMouseEvents = YES;
@@ -911,9 +844,6 @@ bool Attach(ArdiaCoreWebView *view, NSString *host, NSString *frameId) {
 
 void WatchZoom() { InstallZoomMonitor(); }
 
-// Chrome's Back to Tab, however it was pressed (a click, the keyboard, VoiceOver), hides the window, which starts its
-// fade out (FadeOutArdiaPictureInPicture in engine/chromium's pip/: no shadow while it fades), then asks for the
-// tab. A page asking for itself while its video plays there finds the window shown, and activates nothing.
 void TabRequestedActivation(ArdiaCoreWebView *view) {
   for (NSWindow *window in NSApp.windows)
     if ([ACPiPController forWindow:window].view == view && window.visible && !window.hasShadow)
@@ -937,8 +867,6 @@ void VideoChanged(ArdiaCoreWebView *view, NSString *host, NSString *frameId, boo
 }
 
 }
-
-// MARK: - Dev
 
 @implementation ArdiaCoreWebView (PictureInPictureDev)
 
@@ -976,10 +904,6 @@ void VideoChanged(ArdiaCoreWebView *view, NSString *host, NSString *frameId, boo
   return list;
 }
 
-// "snapshot:<name>" (the window → pip-<name>.png, its path returned), "frame:<NSRect>" (moves it), "selftest" (packages/cef's
-// ARDIA_PIP_SELFTEST: rounding, stash at both edges, the handle, the saved place,
-// Keep on Top, Back to Tab → $ARDIA_DATA_DIR/pip-selftest.json), "close" or "backToTab" (Chrome's own buttons
-// clicked → pip-button-selftest.json), "menu" (our menu's titles), on the newest styled window.
 + (NSString *)devPictureInPictureAction:(NSString *)action {
   ACPiPController *controller = nil;
   for (NSWindow *window in NSApp.windows)

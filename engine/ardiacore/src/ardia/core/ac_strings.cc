@@ -17,14 +17,13 @@ namespace ardiacore {
 
 namespace {
 
-// Chrome's post-install bubble points at a Window > Extensions item; the app's is a menu of its own.
 constexpr char16_t kManageExtensions[] = u"Manage your extensions from the Extensions menu.";
 
 class Strings : public ui::ResourceBundle::Delegate {
  public:
   base::FilePath GetPathForResourcePack(const base::FilePath& pack_path,
                                         ui::ResourceScaleFactor) override {
-    return pack_path;  // load it as Chrome would
+    return pack_path;
   }
   gfx::Image GetImageNamed(int) override { return gfx::Image(); }
   gfx::Image GetNativeImageNamed(int) override { return gfx::Image(); }
@@ -43,16 +42,12 @@ class Strings : public ui::ResourceBundle::Delegate {
     return false;
   }
 
-  // Called on any thread. Chrome's own string is read through the shared bundle again; the
-  // flag makes that inner read skip this delegate.
   bool GetLocalizedString(int message_id,
                           std::u16string* value) const override {
     if (message_id == IDS_EXTENSION_INSTALLED_MANAGE_INFO) {
       *value = kManageExtensions;
       return true;
     }
-    // (--mangle-localized-strings, a debugging aid, mangles the inner read already; renaming
-    // that would mangle it twice.)
     static const bool mangled = base::CommandLine::ForCurrentProcess()->HasSwitch(
         switches::kMangleLocalizedStrings);
     thread_local bool reading = false;
@@ -76,7 +71,7 @@ bool Letter(char16_t c) {
   return (c >= u'A' && c <= u'Z') || (c >= u'a' && c <= u'z');
 }
 
-}  // namespace
+}
 
 ui::ResourceBundle::Delegate* ProductStrings() {
   static base::NoDestructor<Strings> strings;
@@ -113,4 +108,4 @@ bool RenameProduct(std::u16string& text) {
   return renamed;
 }
 
-}  // namespace ardiacore
+}

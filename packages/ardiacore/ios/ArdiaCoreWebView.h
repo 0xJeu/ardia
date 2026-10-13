@@ -1,6 +1,3 @@
-// The WebView's native view on ArdiaCore: the same interface as packages/cef's ACBrowserView (ACCef.h), so the
-// Expo view definition (CefModule.swift) stays the same. It hosts one ArdiaCoreTab: Chrome's WebContents view goes
-// straight into it, and the tab lives in the Chrome Browser of its window and profile.
 #import <AppKit/AppKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -19,10 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) NSString *adoptId;
 @property (nonatomic, copy, nullable) NSString *transferKey;
 @property (nonatomic) BOOL standalone;
-// "popup" or "sidePanel": an extension's page in Chrome's own extension view, bound to this window (implies standalone).
 @property (nonatomic, copy, nullable) NSString *extensionHost;
 @property (nonatomic, strong, nullable) NSColor *pageBackgroundColor;
-// The tab's profile colour ("plum", "incognito"…), which the offline game page takes (-[ArdiaCoreTab pageColor]).
 @property (nonatomic, copy, nullable) NSString *pageColor;
 @property (nonatomic) BOOL visible;
 @property (nonatomic) BOOL warm;
@@ -32,34 +27,20 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) int browserId;
 @property (nonatomic, readonly) int chromeTabId;
 
-// The app keeps the tab of `transferKey` when its view goes: the page waits, parked, for the tab's next view.
 + (void)prepareTransfer:(NSString *)transferKey;
-// The app's tab of `transferKey` is gone: its parked page closes.
 + (void)releaseTransfer:(NSString *)transferKey;
-// The launch's first page, started as React Native starts the bundle (ArdiaCoreHost, from session.json's hint), and the app's claim of
-// it once its store is hydrated ("" for none): kept, parked, for the view of `transferKey`, or closed.
 + (void)startLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profile;
 + (void)claimLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profile;
-// Tests: the last events a tab's view sent, and the window it shows in.
-// The engine the page menu's "Search <engine> for …" names.
 + (void)setSearchEngineName:(NSString *)name;
-// ⌘-scroll zooms the page under the pointer (a mouse wheel or Magic Mouse; a trackpad pinches), as packages/cef.
 + (void)installScrollZoom;
-// DEV: ⌘-scroll steps through the app's event dispatch (ArdiaCoreWebView.mm); over the page of `browserId` (0: the
-// last visible one).
 + (NSArray<NSNumber *> *)devScrollZoom:(NSArray<NSDictionary<NSString *, id> *> *)steps
                                browser:(int)browserId NS_SWIFT_NAME(devScrollZoom(_:browserId:));
-// Pages' getDisplayMedia goes to the app's source picker (onDisplayMediaRequest), as on CEF.
 + (void)setDisplayMediaPicker:(BOOL)enabled;
-// The app's autoPictureInPicture setting, for Chrome's own automatic PiP (a call's document PiP on a tab switch).
 + (void)setAutoPictureInPictureEnabled:(BOOL)enabled NS_SWIFT_NAME(setAutoPictureInPictureEnabled(_:));
 + (NSArray<NSDictionary<NSString *, id> *> *)devEventsForBrowser:(int)browserId NS_SWIFT_NAME(devEvents(browserId:));
 + (NSInteger)devWindowNumberForBrowser:(int)browserId NS_SWIFT_NAME(devWindowNumber(browserId:));
-// Tests: Chrome's picture-in-picture windows (styled or floating) and a test action on the newest styled one
-// (ArdiaCorePictureInPicture.mm).
 + (NSArray<NSDictionary<NSString *, id> *> *)devPictureInPicture NS_SWIFT_NAME(devPictureInPicture());
 + (NSString *)devPictureInPictureAction:(NSString *)action NS_SWIFT_NAME(devPictureInPictureAction(_:));
-// Tests: the page takes focus as a click in a key window gives it (devFocusPageOfBrowser: in ArdiaCoreWebView.mm).
 + (BOOL)devFocusPageOfBrowser:(int)browserId NS_SWIFT_NAME(devFocusPage(browserId:));
 
 - (void)loadURL:(NSString *)url;

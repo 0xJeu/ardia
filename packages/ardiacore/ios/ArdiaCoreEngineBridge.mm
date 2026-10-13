@@ -12,7 +12,6 @@ namespace {
 void (^gEventHandler)(NSString *, NSString *);
 
 void *Symbol(const char *name) {
-  // The framework is linked: its exports are in the process's namespace.
   return dlsym(RTLD_DEFAULT, name);
 }
 
@@ -31,7 +30,6 @@ NSString *RealPath(NSString *path) {
   return realpath(path.fileSystemRepresentation, resolved) ? @(resolved) : path;
 }
 
-// The app's profile name for a profile directory the engine names.
 NSString *ProfileNamed(NSString *dir) {
   NSString *real = RealPath(dir);
   for (ArdiaCoreProfile *profile in ardiacore_host::LoadedProfiles())
@@ -40,7 +38,6 @@ NSString *ProfileNamed(NSString *dir) {
   return [name hasPrefix:@"Profile "] ? [name substringFromIndex:8] : @"";
 }
 
-// The engine's conventions (public/ac_engine.h AC_ENGINE_ABI_VERSION); 0 if it can't say.
 int EngineABI() {
   static int abi = [] {
     auto version = (ac_engine_abi_version_t)Symbol("ac_engine_abi_version");
@@ -72,18 +69,13 @@ void InstallSink() {
   sink(Dispatch, nullptr);
 }
 
-}  // namespace
+}
 
 @implementation ArdiaCoreEngineBridge
 
 + (void)call:(NSString *)name profile:(NSString *)profile args:(NSString *)args completion:(void (^)(NSString *))completion {
   auto call = (ac_engine_call_t)Symbol(name.UTF8String);
   if (!call) return completion(JSON(@{@"error" : [NSString stringWithFormat:@"the engine has no %@", name]}));
-  // A private window's calls name its regular profile (the engine finds a profile by its path, which an
-  // off-the-record profile shares). Site settings, site data and zoom are its session's own, as in Chrome's incognito:
-  // they run on that profile's off-the-record profile ("offTheRecord", engine ABI 2) and go with the session. Before
-  // ABI 2 they would have acted on the regular profile, so the ones that change something are refused there; so are
-  // the regular profile's own lists and browsing data, which a private window never changes.
   if (ardiacore_host::IsIncognito(profile)) {
     static NSSet<NSString *> *session = [NSSet setWithArray:@[
       @"ac_site_settings_get", @"ac_site_settings_origins", @"ac_site_settings_set", @"ac_site_settings_reset",
@@ -115,8 +107,6 @@ void InstallSink() {
 + (void)callWithSecret:(NSString *)name profile:(NSString *)profile args:(NSMutableData *)args completion:(void (^)(NSString *))completion {
   NSMutableData *secret = args;
   void (^wipe)(void) = ^{
-    // Volatile stores: the compiler can't drop them as dead (memset_s needs __STDC_WANT_LIB_EXT1__ before any
-    // <string.h>, which the pod's prefix header includes first).
     volatile unsigned char *bytes = (volatile unsigned char *)secret.mutableBytes;
     for (NSUInteger i = 0; i < secret.length; i++) bytes[i] = 0;
   };
@@ -133,7 +123,6 @@ void InstallSink() {
       wipe();
       return done(JSON(@{@"error" : @"profile not loaded"}));
     }
-    // Exports parse their arguments before returning (public/ac_engine.h): the buffer can go now.
     call(p.path.UTF8String, (const char *)secret.mutableBytes, Replied, (__bridge_retained void *)done);
     wipe();
   });

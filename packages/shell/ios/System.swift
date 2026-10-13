@@ -7,8 +7,6 @@ public class SystemModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaSystem")
 
-    // MARK: Default browser
-
     AsyncFunction("isDefaultBrowser") { () -> Bool in
       guard let probe = URL(string: "https://example.com"),
             let handler = NSWorkspace.shared.urlForApplication(toOpen: probe) else { return false }
@@ -28,8 +26,6 @@ public class SystemModule: Module {
       }
     }.runOnQueue(.main)
 
-    // MARK: Login item
-
     AsyncFunction("launchAtLoginStatus") { () -> String in
       switch SMAppService.mainApp.status {
       case .enabled: return "enabled"
@@ -46,8 +42,6 @@ public class SystemModule: Module {
         try SMAppService.mainApp.unregister()
       }
     }.runOnQueue(.main)
-
-    // MARK: Files
 
     Function("fileExists") { (path: String) -> Bool in FileManager.default.fileExists(atPath: path) }
 
@@ -106,13 +100,9 @@ public class SystemModule: Module {
       return "data:image/png;base64,\(png.base64EncodedString())"
     }.runOnQueue(.main)
 
-    // MARK: Feedback
-
     Function("hapticTick") {
       DispatchQueue.main.async { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
     }
-
-    // MARK: Menus
 
     AsyncFunction("menuShortcuts") { () -> [[String: Any]] in MainMenu.shortcutList() }.runOnQueue(.main)
 

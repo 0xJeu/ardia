@@ -51,8 +51,6 @@ public enum ShellScripting {
     }
   }
 
-  // MARK: Lookups
-
   static var orderedWindowInfos: [WindowInfo] {
     let byId = Dictionary(windowInfos.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
     let front = NSApp.orderedWindows.compactMap { WindowManager.shared.id(of: $0) }.compactMap { byId[$0] }
@@ -74,8 +72,6 @@ public enum ShellScripting {
   public static var windows: [NSObject] { orderedWindowInfos.map { ScriptWindow(id: $0.id) } }
   public static var profiles: [NSObject] { profileInfos.map { ScriptProfile(id: $0.id) } }
   public static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "" }
-
-  // MARK: Requests to JS
 
   static func reply(_ id: String, result: Any?, error: String?) {
     pending.removeValue(forKey: id)?(result, error)

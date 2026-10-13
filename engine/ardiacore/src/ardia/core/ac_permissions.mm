@@ -30,15 +30,11 @@
 #include "ardia/core/ac_test_system_permissions.h"
 #include "url/origin.h"
 
-// Set here, defined in Chrome's restore bubble (engine/ardiacore/apply.sh).
 extern bool (*g_ardia_file_system_restore_prompt)(
     const FileSystemAccessPermissionRequestManager::RequestData& request,
     base::OnceCallback<void(permissions::PermissionAction)>& callback,
     content::WebContents* web_contents);
 
-// Chrome's permission prompt factory (engine/ardiacore/apply.sh, permission_prompt_factory.cc):
-// a prompt, or null with `default_handling` false for none at all; null with it true is
-// Chrome's own.
 extern std::unique_ptr<permissions::PermissionPrompt> (
     *g_ardia_create_permission_prompt)(
     content::WebContents* web_contents,
@@ -49,7 +45,6 @@ namespace ardiacore {
 
 namespace {
 
-// JS PermissionKind (packages/cef/src/module.ts), as packages/cef/ios/ACCef.mm names them.
 NSString* KindName(permissions::RequestType type) {
   using permissions::RequestType;
   switch (type) {
@@ -120,14 +115,6 @@ std::map<std::string, base::WeakPtr<ACPermissionPrompt>>& Prompts() {
 
 using Variant = permissions::EmbeddedPermissionPromptFlowModel::Variant;
 
-// What a prompt asks for. A page's permission element (<usermedia>, <geolocation>) runs
-// Chrome's embedded flow: after the site is allowed, the manager keeps the same requests and
-// shows the next step (ask macOS, open System Settings, an administrator's policy), the
-// views Chrome's EmbeddedPermissionPrompt picks by variant. Only the flow's first view can
-// be a question: a later one holds requests already decided, and deciding one twice runs its
-// spent callback (CEF 0.2.21 aborted there: its client answered the "ask macOS" step with
-// Accept). A later view is never a question even if its variant says so (the site's setting
-// reset while macOS was being asked): it closes, as Chrome's acknowledgement does.
 enum class Step { kAsk, kAlreadyAllowed, kSystemPrompt, kAcknowledge };
 
 Step StepOf(permissions::PermissionPrompt::Delegate* delegate) {
@@ -136,9 +123,6 @@ Step StepOf(permissions::PermissionPrompt::Delegate* delegate) {
   if (!flow) {
     return Step::kAsk;
   }
-  // The manager marks its requests displayed once their first view is up; a view made for
-  // the same requests after that is a later step (this prompt keeps itself through tab
-  // switches and anchor updates, so nothing else recreates it).
   const bool later_step = delegate->WasCurrentRequestAlreadyDisplayed();
   switch (flow->prompt_variant()) {
     case Variant::kOsPrompt:
@@ -157,10 +141,6 @@ Step StepOf(permissions::PermissionPrompt::Delegate* delegate) {
   return Step::kAcknowledge;
 }
 
-// One request group Chrome's PermissionRequestManager is asking about. The manager owns it:
-// it goes when the host answers, the page navigates or closes, or a request outranks it.
-// The host answers it once, through its id; an answer to a prompt that has gone (or a
-// second one) is dropped, and a camera and microphone group is one prompt, one answer.
 class ACPermissionPrompt : public permissions::PermissionPrompt {
  public:
   ACPermissionPrompt(content::WebContents* contents, Delegate* delegate)
@@ -168,7 +148,6 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
     static int last_id = 0;
     id_ = "p" + std::to_string(++last_id);
     Prompts()[id_] = weak_factory_.GetWeakPtr();
-    // Never from inside Chrome's ShowPrompt: an answer re-enters the manager.
     switch (step_) {
       case Step::kAsk:
       case Step::kAlreadyAllowed:
@@ -178,7 +157,6 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
         PostToSelf(&ACPermissionPrompt::AskSystem);
         break;
       case Step::kAcknowledge:
-        // Chrome's view only informs (System Settings, a policy); closing it dismisses.
         PostToSelf(&ACPermissionPrompt::Acknowledge);
         break;
     }
@@ -187,7 +165,6 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
   ~ACPermissionPrompt() override {
     Prompts().erase(id_);
     if (asked_host_ && !answered_) {
-      // Not from inside the manager's cleanup: the host may close the tab in response.
       NSString* request_id = base::SysUTF8ToNSString(id_);
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, base::BindOnce(
@@ -198,8 +175,6 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
     }
   }
 
-  // The host's answer: taken once, applied from a task of its own (never inside a call
-  // that came from the manager, or a nested run loop's).
   void Resolve(const std::string& result, bool remember) {
     if (!asked_host_ || answered_) {
       return;
@@ -210,7 +185,6 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
                                   weak_factory_.GetWeakPtr(), result, remember));
   }
 
-  // permissions::PermissionPrompt:
   bool UpdateAnchor() override { return true; }
   TabSwitchingBehavior GetTabSwitchingBehavior() override {
     return TabSwitchingBehavior::kKeepPromptAlive;
@@ -262,19 +236,15 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
         FROM_HERE, base::BindOnce(step, weak_factory_.GetWeakPtr()));
   }
 
-  // Still the manager's prompt: a stale task (the prompt replaced in the meantime) is a no-op.
   bool Current() const { return delegate_->GetCurrentPrompt() == this; }
 
   void Apply(const std::string& result, bool remember) {
     if (!Current()) {
       return;
     }
-    // The manager deletes this from inside the call: nothing after it.
     Delegate* delegate = delegate_;
     const PromptOptions options(std::monostate{});
     if (step_ == Step::kAlreadyAllowed) {
-      // The element clicked on a site already allowed: Chrome's "Continue allowing" closes
-      // (the grant stays as it is), "Stop allowing" blocks.
       if (result == "deny" && remember) {
         delegate->Deny(options);
       } else {
@@ -296,13 +266,10 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
     } else if (result == "deny" && remember) {
       delegate->Deny(options);
     } else {
-      // "dismiss", or a "deny" not to keep: the page is refused, the site stays "ask".
       delegate->Dismiss(options);
     }
   }
 
-  // The site is allowed and macOS hasn't been asked: ask it, as Chrome's view does, and
-  // move the flow on once every type has an answer (macOS's prompt can stay unanswered).
   void AskSystem() {
     if (!Current()) {
       return;
@@ -328,7 +295,6 @@ class ACPermissionPrompt : public permissions::PermissionPrompt {
         return;
       }
     }
-    // The manager replaces or deletes this from inside the call: nothing after it.
     delegate_->AdvanceOrFinalizeEmbeddedPromptFlow();
   }
 
@@ -351,7 +317,6 @@ std::unique_ptr<permissions::PermissionPrompt> CreatePrompt(
     content::WebContents* contents,
     permissions::PermissionPrompt::Delegate* delegate,
     bool* default_handling) {
-  // The host's tabs only; Chrome's own windows keep Chrome's bubble.
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
   if (!browser || !WindowHost::ForBrowser(browser)) {
@@ -364,10 +329,6 @@ std::unique_ptr<permissions::PermissionPrompt> CreatePrompt(
 
 using RestoreCallback = base::OnceCallback<void(permissions::PermissionAction)>;
 
-// A site asking again for files it kept handles to (in IndexedDB, from an earlier visit): Chrome's
-// restore prompt, a bubble anchored to the toolbar's page info icon, is asked of the host as a
-// "fileSystem" request. It answers once: the host, or the page going to another origin or the tab
-// closing, which dismiss it as Chrome's bubble does (a dismissal forgets the saved grants).
 class ACFileRestorePrompt : public content::WebContentsObserver {
  public:
   static std::map<std::string, std::unique_ptr<ACFileRestorePrompt>>& All() {
@@ -387,7 +348,6 @@ class ACFileRestorePrompt : public content::WebContentsObserver {
       @"origin" : base::SysUTF8ToNSString(origin.GetURL().spec()),
       @"permissions" : @[ @"fileSystem" ],
     };
-    // Never from inside Chrome's request manager: the host's answer re-enters it.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(
                        [](std::string id, NSDictionary* request) {
@@ -399,10 +359,6 @@ class ACFileRestorePrompt : public content::WebContentsObserver {
                        id, request));
   }
 
-  // The host's answer. Its one "Allow" is Chrome's "Allow this time": the files stay the
-  // site's for this visit and it asks again on the next (Chrome's "Allow on every visit" is a
-  // choice the host's prompt doesn't offer). A remembered "deny" is "Don't allow"; anything
-  // else dismisses.
   static bool Resolve(const std::string& id, const std::string& result, bool remember) {
     if (!All().contains(id)) {
       return false;
@@ -413,14 +369,12 @@ class ACFileRestorePrompt : public content::WebContentsObserver {
     } else if (result == "deny" && remember) {
       action = permissions::PermissionAction::DENIED;
     }
-    // From a task of its own, never inside the host's call.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&ACFileRestorePrompt::Finish, id, action,
-                                  /*tell_host=*/false));
+                                  false));
     return true;
   }
 
-  // content::WebContentsObserver: as LocationBarBubbleDelegateView closes Chrome's bubble.
   void DidFinishNavigation(content::NavigationHandle* navigation) override {
     if (navigation->IsInPrimaryMainFrame() && navigation->HasCommitted() &&
         !url::IsSameOriginWith(navigation->GetPreviousPrimaryMainFrameURL(),
@@ -439,15 +393,13 @@ class ACFileRestorePrompt : public content::WebContentsObserver {
         callback_(std::move(callback)) {}
 
   void Dismiss() {
-    // Not from inside the observer call: the host may close the tab in response.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&ACFileRestorePrompt::Finish, id_,
                                   permissions::PermissionAction::DISMISSED,
-                                  /*tell_host=*/true));
+                                  true));
     Observe(nullptr);
   }
 
-  // Once: a second answer (the page went after the host answered) finds nothing.
   static void Finish(std::string id, permissions::PermissionAction action, bool tell_host) {
     auto it = All().find(id);
     if (it == All().end()) {
@@ -458,7 +410,6 @@ class ACFileRestorePrompt : public content::WebContentsObserver {
     if (tell_host) {
       HostPermissionRequestDismissed(base::SysUTF8ToNSString(id));
     }
-    // Chrome's request manager (bound weakly: a closed tab's runs nothing).
     std::move(callback).Run(action);
   }
 
@@ -470,7 +421,6 @@ bool AskHostToRestoreFiles(
     const FileSystemAccessPermissionRequestManager::RequestData& request,
     RestoreCallback& callback,
     content::WebContents* contents) {
-  // The host's tabs only; Chrome's own windows keep Chrome's bubble.
   BrowserWindowInterface* browser =
       contents ? GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents)
                : nullptr;
@@ -481,7 +431,7 @@ bool AskHostToRestoreFiles(
   return true;
 }
 
-}  // namespace
+}
 
 void InstallPermissionPrompts() {
   MaybeInstallTestSystemPermissions();
@@ -503,4 +453,4 @@ void ResolvePermission(const std::string& request_id,
   it->second->Resolve(result, remember);
 }
 
-}  // namespace ardiacore
+}

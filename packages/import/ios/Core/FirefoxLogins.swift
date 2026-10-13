@@ -112,7 +112,6 @@ public enum FirefoxLogins {
       guard iterations > 0, keyLength == 32 else { throw ImportError.unsupported("Unsupported PBES2 key size") }
       let k = Data(Insecure.SHA1.hash(data: globalSalt + password))
       let key = pbkdf2SHA256(password: k, salt: salt, rounds: iterations, length: keyLength)
-      // NSS stores 14 IV bytes; the DER length prefix supplies the missing two.
       let iv = Data([0x04, 0x0E]) + ivTail
       guard let clear = AES.cbc(.decrypt, cipher, key: key, iv: iv, padding: false) else { throw ImportError.locked("PBES2 decryption failed") }
       return AES.unpadLeniently(clear, blockSize: kCCBlockSizeAES128)

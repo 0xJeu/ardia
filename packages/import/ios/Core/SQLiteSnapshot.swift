@@ -6,7 +6,6 @@ final class SQLiteSnapshot {
   private let tempDir: URL
 
   init(copying source: URL) throws {
-    // Copy the database with its WAL before opening; never read the live profile directly.
     let fm = FileManager.default
     guard fm.fileExists(atPath: source.path) else {
       throw ImportError.notFound("\(source.lastPathComponent) not found")
@@ -121,8 +120,6 @@ final class SQLiteSnapshot {
     }
     func blob(_ name: String) -> Data? { index(name).flatMap { blob($0) } }
 
-    /// The column's raw bytes, valid only until the next step. Use to move plaintext secrets into SecretBytes
-    /// without a Data/String copy.
     func blobPointer(_ i: Int32) -> UnsafeRawBufferPointer? {
       guard !isNull(i) else { return nil }
       let p = sqlite3_column_blob(stmt, i)

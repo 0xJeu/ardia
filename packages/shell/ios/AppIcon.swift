@@ -7,7 +7,6 @@ enum AppIcons {
     let name: String
     let plate: (top: NSColor, bottom: NSColor)?
     let mono: Bool
-    // The hills' colour on the plate: AppIconMark-<tint> (docs/brand/ardia/build.py); nil keeps the green painting.
     var tint: String? = nil
   }
 
@@ -33,7 +32,6 @@ enum AppIcons {
     if current != "default" { apply(current) }
   }
 
-  // `announce` tells the Dock tile plug-in, which serves every copy with this bundle id (the installed app's too).
   static func set(_ id: String, announce: Bool) {
     guard variants.contains(where: { $0.id == id }) else { return }
     UserDefaults.standard.set(id, forKey: defaultsKey)
@@ -54,8 +52,6 @@ enum AppIcons {
     didSet { cache.removeAll() }
   }
 
-  // Loads the painted hills without their parchment tile (AppIconMark, AppIconMark-<tint>): what the plates carry.
-  // The Dock tile plug-in reads them from the app's bundle instead of its own.
   static var markNamed: (String) -> NSImage? = { NSImage(named: $0) } {
     didSet { cache.removeAll() }
   }
@@ -151,7 +147,6 @@ enum DockTile {
     ]
     CFPreferencesSetAppValue(key, (tiles + [tile]) as CFArray, domain)
     guard CFPreferencesAppSynchronize(domain) else { return false }
-    // Dock reads persistent-apps only at startup.
     let restart = Process()
     restart.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
     restart.arguments = ["Dock"]

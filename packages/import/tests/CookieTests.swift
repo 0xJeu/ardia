@@ -2,7 +2,6 @@ import Foundation
 import XCTest
 @testable import ArdiaImportCore
 
-// Cookie values are secrets: they're read into SecretBytes, never into Strings, and only leave as wire JSON.
 final class CookieTests: XCTestCase {
   let chrome = Fixtures.support("Google/Chrome/Default")
   let firefox = Fixtures.support("Firefox/Profiles/abcd1234.default-release")
@@ -22,10 +21,9 @@ final class CookieTests: XCTestCase {
 
   func testChromiumCookiesMapEveryColumn() throws {
     let outcome = try ChromiumSecrets.cookies(profile: chrome, key: Fixtures.chromiumKey)
-    // wrong key, a v24 value without the host hash, and a row with both value and encrypted_value
     XCTAssertEqual(outcome.undecryptable, 3)
     let byName = Dictionary(uniqueKeysWithValues: outcome.items.map { ($0.name, $0) })
-    XCTAssertEqual(Set(byName.keys), ["sid", "pref", "tmp", "chips", "esc", "bin"])  // expired one skipped
+    XCTAssertEqual(Set(byName.keys), ["sid", "pref", "tmp", "chips", "esc", "bin"])
 
     let sid = try XCTUnwrap(byName["sid"])
     XCTAssertEqual(sid, Cookie(domain: ".example.com", name: "sid", value: secret("s3ss10n"), path: "/",
@@ -33,13 +31,13 @@ final class CookieTests: XCTestCase {
                                lastAccess: Double(1788220800 - 60) * 1000, secure: true, httpOnly: true,
                                sameSite: "lax", priority: "high", partition: nil, sourceScheme: "secure", sourcePort: 443))
 
-    let pref = try XCTUnwrap(byName["pref"])  // plaintext `value` column
+    let pref = try XCTUnwrap(byName["pref"])
     XCTAssertEqual(pref.value, secret("dark"))
     XCTAssertEqual([pref.sameSite, pref.priority, pref.sourceScheme], ["unspecified", "low", "nonSecure"])
     XCTAssertEqual(pref.sourcePort, 80)
     XCTAssertFalse(pref.secure)
 
-    let tmp = try XCTUnwrap(byName["tmp"])  // session cookie kept
+    let tmp = try XCTUnwrap(byName["tmp"])
     XCTAssertNil(tmp.expires)
     XCTAssertEqual(tmp.value, secret("until-quit"))
     XCTAssertEqual(tmp.path, "/app")
@@ -79,7 +77,7 @@ final class CookieTests: XCTestCase {
 
   func testFirefoxCookies() throws {
     let outcome = try Firefox.cookies(profile: firefox)
-    XCTAssertEqual(outcome.skipped, 3)  // container, private window, unconvertible partition key
+    XCTAssertEqual(outcome.skipped, 3)
     let byName = Dictionary(uniqueKeysWithValues: outcome.items.map { ($0.name, $0) })
     XCTAssertEqual(Set(byName.keys), ["ff", "ms", "part", "port", "none", "lbd"])
 
@@ -95,17 +93,17 @@ final class CookieTests: XCTestCase {
     XCTAssertNil(ms.created)
 
     XCTAssertEqual(byName["part"]?.partition, CookiePartition(topLevelSite: "https://top.example", crossSite: false))
-    XCTAssertEqual(byName["part"]?.sameSite, "unspecified")  // SAMESITE_UNSET
+    XCTAssertEqual(byName["part"]?.sameSite, "unspecified")
     XCTAssertEqual(byName["port"]?.partition, CookiePartition(topLevelSite: "https://ported.example", crossSite: false))
     XCTAssertEqual(byName["port"]?.sameSite, "none")
     XCTAssertEqual(byName["port"]?.sourceScheme, "secure")
-    XCTAssertEqual(byName["none"]?.sameSite, "unspecified")  // insecure NONE
-    XCTAssertEqual(byName["lbd"]?.sameSite, "unspecified")   // Firefox applied its own default
+    XCTAssertEqual(byName["none"]?.sameSite, "unspecified")
+    XCTAssertEqual(byName["lbd"]?.sameSite, "unspecified")
   }
 
   func testSafariBinaryCookies() throws {
     let cookies = try SafariCookies.load(home: Fixtures.home)
-    XCTAssertEqual(cookies.map(\.name), ["dc", "hc", "both"])  // expired one skipped
+    XCTAssertEqual(cookies.map(\.name), ["dc", "hc", "both"])
     XCTAssertEqual(cookies[0], Cookie(domain: ".apple.example", name: "dc", value: secret("domain-cookie"), path: "/",
                                       created: 1788220800 * 1000, expires: future, secure: true, httpOnly: false))
     XCTAssertEqual(cookies[1].domain, "host.example")
@@ -129,7 +127,6 @@ final class CookieTests: XCTestCase {
         XCTAssertEqual((error as? ImportError)?.code, "unreadable", name)
       }
     }
-    // Every prefix of a good file must fail cleanly, never crash.
     let good = try SafariCookies.read(Fixtures.url("home/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies"))
     let pagesEnd = good.count - 12
     for n in 0..<pagesEnd {
@@ -141,7 +138,7 @@ final class CookieTests: XCTestCase {
   func testCookieWireJSON() throws {
     let cookies = try ChromiumSecrets.cookies(profile: chrome, key: Fixtures.chromiumKey).items
     let wire = CookieWire.batches(cookies, size: 4)
-    XCTAssertEqual(wire.dropped, 1)  // the non-UTF-8 value
+    XCTAssertEqual(wire.dropped, 1)
     XCTAssertEqual(wire.batches.count, 2)
     var parsed: [[String: Any]] = []
     for batch in wire.batches {

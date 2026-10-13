@@ -1,7 +1,5 @@
 import ExpoModulesCore
 
-// "ArdiaChromeUI" on ArdiaCore: device choosers, the Cast dialog and routes, extension side panels, capture and
-// the autofill trigger go to the app's UI, as on CEF (docs/ardiacore-parity.md).
 public class ChromeUIModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaChromeUI")
@@ -24,7 +22,6 @@ public class ChromeUIModule: Module {
     AsyncFunction("cancelDeviceChooser") { (id: Int) in ArdiaCoreHost.deviceChooser(Int32(id), action: "cancel") }.runOnQueue(.main)
     AsyncFunction("refreshDeviceChooser") { (id: Int) in ArdiaCoreHost.deviceChooser(Int32(id), action: "refresh") }.runOnQueue(.main)
     AsyncFunction("openBluetoothSettings") { (id: Int) in ArdiaCoreHost.deviceChooser(Int32(id), action: "settings") }.runOnQueue(.main)
-    // Tests (--ardia-test-bluetooth-chooser): a Bluetooth chooser with no adapter, and what its choices answered.
     AsyncFunction("devShowBluetoothChooser") { (browserId: Int, unauthorized: Bool) -> Bool in
       ArdiaCoreHost.devShowBluetoothChooser(browserId: Int32(browserId), unauthorized: unauthorized)
     }.runOnQueue(.main)

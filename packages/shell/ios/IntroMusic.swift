@@ -32,8 +32,6 @@ final class IntroMusic {
   private var muted = false
   private var ramp: Timer?
 
-  // A hidden test instance (ARDIA_BACKGROUND) never makes a sound on the owner's Mac; every fresh test profile
-  // runs onboarding. ARDIA_ALLOW_AUDIO=1 brings it back for a test that needs it.
   private static let silent: Bool = {
     let env = ProcessInfo.processInfo.environment
     return env["ARDIA_BACKGROUND"] == "1" && env["ARDIA_ALLOW_AUDIO"] != "1"
@@ -144,8 +142,6 @@ final class IntroMusic {
     return out
   }
 
-  // MARK: DEV
-
   static func render(cues: [String: Double], to path: String) -> Double? {
     guard let buffer = synthesize(Cues(cues)) else { return nil }
     let engine = AVAudioEngine()
@@ -172,8 +168,6 @@ final class IntroMusic {
       return nil
     }
   }
-
-  // MARK: Synthesis
 
   private static func synthesize(_ c: Cues) -> AVAudioPCMBuffer? {
     let sr = sampleRate

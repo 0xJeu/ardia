@@ -32,15 +32,12 @@
 #import "ardia/core/ardiacore_internal.h"
 #include "ui/events/event_constants.h"
 
-// Chrome's context menus ask ArdiaCore first (engine/ardiacore/apply.sh, the Mac menus' Show()).
 extern bool (*g_ardia_context_menu_show)(RenderViewContextMenu* menu);
 
 namespace ardiacore {
 
 namespace {
 
-// The host's items take ids at the end of Chrome's page-custom range (pages no longer add
-// custom items; Pepper plugins did).
 constexpr int kHostFirst = IDC_CONTENT_CONTEXT_CUSTOM_FIRST + 900;
 constexpr int kHostLast = IDC_CONTENT_CONTEXT_CUSTOM_FIRST + 999;
 
@@ -55,8 +52,6 @@ ArdiaCoreTab* TabOf(content::WebContents* contents) {
 
 class ACContextMenu;
 
-// Our menus alive now, so the show handler can tell when a callback into the host destroyed
-// the one it is showing (a tab closed from the host's side, say).
 std::map<const RenderViewContextMenu*, base::WeakPtr<ACContextMenu>>& LiveMenus() {
   static base::NoDestructor<std::map<const RenderViewContextMenu*, base::WeakPtr<ACContextMenu>>>
       menus;
@@ -68,12 +63,6 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
   using RenderViewContextMenuMacCocoa::RenderViewContextMenuMacCocoa;
   ~ACContextMenu() override { LiveMenus().erase(this); }
 
-  // After Init(): Chrome's items for UI our Browsers have none of, as CEF's menu had none: its
-  // side panel (picking Reading mode did nothing), and the bubbles that anchor to a toolbar
-  // or need the side panel: QR code (picking Create QR Code dereferenced the missing
-  // ToolbarButtonProvider and the app vanished), Send to your devices, and Google Lens, which
-  // Chrome offers once Google is its search engine. Reading mode can be added twice (a
-  // selection in a text field). No separator is left doubled or at either end.
   void RemoveViewlessItems() {
     for (int command : {IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE,
                         IDC_CONTENT_CONTEXT_LISTEN_TO_THIS_PAGE,
@@ -97,7 +86,6 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
     }
   }
 
-  // After Init(): the host's items for a selection.
   void AddHostItems() {
     LiveMenus()[this] = weak_factory_.GetWeakPtr();
     const std::u16string& selection = params().selection_text;
@@ -110,7 +98,6 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
     NSArray<NSDictionary*>* items =
         [delegate tab:tab
             contextMenuItemsForSelection:base::SysUTF16ToNSString(selection)];
-    // After Chrome's Copy, as CEF placed them.
     std::optional<size_t> copy =
         menu_model_.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_COPY);
     size_t at = copy ? *copy + 1 : menu_model_.GetItemCount();
@@ -122,7 +109,6 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
         continue;
       }
       host_items_.push_back(base::SysNSStringToUTF8(item_id));
-      // "replaces": "search": in place of Chrome's own search item(s).
       size_t place = at;
       bool replaced = false;
       if ([item[@"replaces"] isEqual:@"search"]) {
@@ -194,8 +180,6 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
       return ChromeWebContentsViewDelegateViewsMac::BuildMenu(render_frame_host,
                                                               params);
     }
-    // Chrome's menu for the page, with the host's items. Paste follows the clipboard as
-    // BuildMenuAsync last read it (Chrome's view delegate keeps its own flags private).
     auto menu = std::make_unique<ACContextMenu>(
         render_frame_host, params, paste_enabled_, paste_and_match_style_enabled_,
         view->GetNativeView().GetNativeNSView());
@@ -205,8 +189,6 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
     return menu;
   }
 
-  // Chrome's own sequence (ChromeWebContentsViewDelegateViews::BuildMenuAsync): the
-  // clipboard's types decide Paste, plain text Paste and Match Style; then BuildMenu.
   void BuildMenuAsync(
       content::RenderFrameHost& render_frame_host,
       const content::ContextMenuParams& params,
@@ -217,7 +199,6 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
                                                             std::move(callback));
       return;
     }
-    // As Chrome's Mac delegate: a click doesn't activate the WebContents on the Mac.
     tabs::TabInterface* tab_interface = tabs::TabInterface::MaybeGetFromContents(contents_);
     if (tab_interface && !tab_interface->IsActivated()) {
       contents_->Focus();
@@ -274,7 +255,7 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
   base::WeakPtrFactory<ACViewDelegate> weak_factory_{this};
 };
 
-}  // namespace
+}
 
 std::unique_ptr<content::WebContentsViewDelegate> CreateViewDelegate(
     content::WebContents* contents) {
@@ -283,8 +264,6 @@ std::unique_ptr<content::WebContentsViewDelegate> CreateViewDelegate(
 
 namespace {
 
-// A menu model's items for the host: {id, label, enabled, visible, separator, type
-// (ui::MenuModel::ItemType), submenu?}.
 NSArray* DescribeMenu(ui::MenuModel* model) {
   NSMutableArray* items = [NSMutableArray array];
   for (size_t i = 0; model && i < model->GetItemCount(); ++i) {
@@ -306,11 +285,6 @@ NSArray* DescribeMenu(ui::MenuModel* model) {
   return items;
 }
 
-// The picked item's own model and index: a submenu's items belong to its model, whose
-// delegate runs them (Writing Direction's and Speech's are ui::TextServicesContextMenu's,
-// with ids of their own the page menu's ExecuteCommand doesn't know). `path` is the
-// item's indices down DescribeMenu's tree, as the host found it; without one, the first
-// item with that id in the same order.
 bool FindPicked(ui::MenuModel* model,
                 NSArray* path,
                 int command,
@@ -349,11 +323,9 @@ bool FindPicked(ui::MenuModel* model,
   return false;
 }
 
-}  // namespace
+}
 
 void InstallContextMenuShowHandler() {
-  // Background (test) instances, and ARDIA_CONTEXT_MENU_LOG (CEF's menu log, release
-  // builds too): the menu goes to the host instead of the screen.
   if (!getenv("ARDIA_BACKGROUND") && !getenv("ARDIA_CONTEXT_MENU_LOG")) {
     return;
   }
@@ -389,20 +361,13 @@ void InstallContextMenuShowHandler() {
         } else {
           [delegate tab:tab didShowContextMenu:DescribeMenu(model)];
         }
-        // The host may have closed the tab (and the menu with it) meanwhile.
         if (!weak) {
           return true;
         }
-        // Not shown: closed at once, then the pick runs, as a Mac menu closes before its
-        // item's action. It runs as a click on it would (MenuControllerCocoa's
-        // itemSelected:): ActivatedAt on the model that owns it, which for a top-level item
-        // is the menu's own ExecuteCommand.
         ui::MenuModel* owner = nullptr;
         size_t index = 0;
         const bool found =
             command && FindPicked(model, path, command.intValue, &owner, &index);
-        // Which model runs it, in the system log ([ardiacore-menu]): a submenu's first item
-        // names it.
         if (command && getenv("ARDIA_CONTEXT_MENU_LOG")) {
           const std::string where =
               !found            ? "not found"
@@ -419,4 +384,4 @@ void InstallContextMenuShowHandler() {
       };
 }
 
-}  // namespace ardiacore
+}

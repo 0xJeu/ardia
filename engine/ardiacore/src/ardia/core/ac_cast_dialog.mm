@@ -1,7 +1,3 @@
-// Chrome's Cast dialog for the host's tabs, to the host (JS CastDialog), as CEF's
-// HandleCastDialog seam did: Chrome's MediaRouterUI finds the sinks and casts; the host shows
-// them. Its toolbar-anchored bubble has nothing to anchor to in our windows.
-
 #include "ardia/core/ac_cast_dialog.h"
 
 #import <Foundation/Foundation.h>
@@ -82,7 +78,6 @@ class CastDialog : public media_router::CastDialogController::Observer {
   int id() const { return id_; }
 
   void Start() {
-    // Reports the current model right away (OnModelUpdated).
     if (ui_) {
       ui_->AddObserver(this);
     }
@@ -106,7 +101,6 @@ class CastDialog : public media_router::CastDialogController::Observer {
     if (!open_) {
       return;
     }
-    // Destroys the MediaRouterUI (OnControllerDestroying).
     if (initiator_) {
       media_router::MediaRouterDialogController::GetOrCreateForWebContents(
           initiator_.get())
@@ -119,7 +113,6 @@ class CastDialog : public media_router::CastDialogController::Observer {
     }
   }
 
-  // media_router::CastDialogController::Observer:
   void OnModelUpdated(const media_router::CastDialogModel& model) override {
     NSMutableArray* sinks = [NSMutableArray array];
     for (const auto& sink : model.media_sinks()) {
@@ -157,7 +150,6 @@ class CastDialog : public media_router::CastDialogController::Observer {
   }
 
  private:
-  // JS CastDialog without browserId.
   NSDictionary* State() const {
     return @{
       @"id" : @(id_),
@@ -183,7 +175,6 @@ class CastDialog : public media_router::CastDialogController::Observer {
     open_ = false;
   }
 
-  // Goes after this turn (it may be inside its own call).
   void Forget() {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce([](int id) { Live().erase(id); }, id_));
@@ -205,7 +196,6 @@ CastDialog* Find(int id) {
   return it == Live().end() ? nullptr : it->second.get();
 }
 
-// A profile's Cast routes (what it casts now), for the host (JS onCastRoutes).
 class RoutesWatcher : public media_router::MediaRoutesObserver,
                       public ProfileObserver {
  public:
@@ -227,7 +217,6 @@ class RoutesWatcher : public media_router::MediaRoutesObserver,
     HostCastRoutes(profile_, list);
   }
 
-  // Before its keyed services (the router) go.
   void OnProfileWillBeDestroyed(Profile* profile) override;
 
   media_router::MediaRouter* media_router() const { return router(); }
@@ -244,13 +233,12 @@ std::map<Profile*, std::unique_ptr<RoutesWatcher>>& Watchers() {
 
 void RoutesWatcher::OnProfileWillBeDestroyed(Profile* profile) {
   profile_observation_.Reset();
-  Watchers().erase(profile);  // Destroys this.
+  Watchers().erase(profile);
 }
 
-}  // namespace
+}
 
 void WatchCastRoutes(Profile* profile) {
-  // Test runs: before any dialog asks for sinks (the host watches each profile at startup).
   MaybeRegisterTestMediaRouteProvider(profile);
   if (!profile || Watchers().contains(profile) ||
       !media_router::MediaRouterEnabled(profile)) {
@@ -262,7 +250,6 @@ void WatchCastRoutes(Profile* profile) {
     return;
   }
   Watchers()[profile] = std::make_unique<RoutesWatcher>(router, profile);
-  // The routes now (the observer hears only changes).
   Watchers()[profile]->OnRoutesUpdated(router->GetCurrentRoutes());
 }
 
@@ -289,7 +276,6 @@ bool HandleCastDialog(content::WebContents* initiator,
   auto dialog = std::make_unique<CastDialog>(initiator, ui);
   CastDialog* raw = dialog.get();
   Live()[raw->id()] = std::move(dialog);
-  // Not from inside Chrome's dialog creation: the host may answer (close) at once.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(
                      [](int id) {
@@ -331,4 +317,4 @@ void CloseCastDialog(int dialog_id) {
   }
 }
 
-}  // namespace ardiacore
+}

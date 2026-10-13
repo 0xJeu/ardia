@@ -39,7 +39,7 @@ class DesktopCaptureGrant : public content::WebContentsUserData<DesktopCaptureGr
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(DesktopCaptureGrant);
 
-}  // namespace
+}
 
 void AllowDesktopCapture(content::WebContents* contents,
                          const std::string& source,
@@ -68,7 +68,6 @@ void ApplyDesktopCaptureGrant(content::WebContents* contents,
   if (!found) {
     return;
   }
-  // One request per approval, whether or not it matches.
   const std::string source = found->source;
   const std::string frame_id = found->frame_id;
   const std::string origin = found->origin;
@@ -90,8 +89,6 @@ void ApplyDesktopCaptureGrant(content::WebContents* contents,
                  << " (approved " << source << ")";
     return;
   }
-  // As chrome.desktopCapture's chooseDesktopMedia: a stream id for the tab's main frame and
-  // the page's origin, which Chrome's DesktopCaptureAccessHandler resolves and accepts.
   content::RenderFrameHost* main_frame = contents->GetPrimaryMainFrame();
   request.requested_video_device_ids = {
       content::DesktopStreamsRegistry::GetInstance()->RegisterStream(
@@ -99,4 +96,4 @@ void ApplyDesktopCaptureGrant(content::WebContents* contents,
           request_origin, media_id, content::kRegistryStreamTypeDesktop)};
 }
 
-}  // namespace ardiacore
+}

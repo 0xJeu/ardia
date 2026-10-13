@@ -38,9 +38,6 @@ uint64_t MaskFor(std::string_view type) {
   return 0;
 }
 
-// Replies when the remover finishes the one task it was handed (the remover
-// reports only to registered observers). Deletes itself; if the profile goes
-// first it never replies (public/ac_engine.h allows that at shutdown).
 class Done : public content::BrowsingDataRemover::Observer {
  public:
   Done(content::BrowsingDataRemover* remover, Reply reply)
@@ -48,8 +45,6 @@ class Done : public content::BrowsingDataRemover::Observer {
     observation_.Observe(remover);
   }
 
-  // Replies after the remover's notification unwinds (the app's reply may
-  // do anything, even close the profile).
   void OnBrowsingDataRemoverDone(uint64_t failed_data_types) override {
     observation_.Reset();
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -68,8 +63,8 @@ class Done : public content::BrowsingDataRemover::Observer {
       observation_{this};
 };
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_browsing_data_clear) {
   ardia::Call call(profile_dir, args_json, reply, context);
@@ -90,13 +85,11 @@ AC_ENGINE_CALL(ac_browsing_data_clear) {
   if (!mask) {
     return call.TakeReply().Error("types required");
   }
-  base::Time begin;  // the beginning of time
+  base::Time begin;
   const double since = call.Double("since");
   if (std::isfinite(since) && since > 0) {
     begin = base::Time::FromMillisecondsSinceUnixEpoch(since);
   }
-  // As ClearBrowsingDataHandler (and CEF's ClearBrowsingData): web origins,
-  // from |begin| to now.
   content::BrowsingDataRemover* remover =
       call.profile()->GetBrowsingDataRemover();
   remover->RemoveAndReply(

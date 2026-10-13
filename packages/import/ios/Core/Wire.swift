@@ -1,11 +1,6 @@
 import Foundation
 
-// JSON payloads for the engine (ac_cookies_import, autofill import), written straight into SecretBytes so no
-// String or Data ever holds a cookie value or card number. Each payload ends with a NUL byte for the C side.
-
 public enum CookieWire {
-  /// Splits `cookies` into NUL-terminated `{"cookies":[…]}` payloads of at most `size` cookies each.
-  /// A cookie whose value isn't valid UTF-8 can't travel in JSON: it's left out and counted in `dropped`.
   public static func batches(_ cookies: [Cookie], size: Int = 500) -> (batches: [SecretBytes], dropped: Int) {
     let size = max(1, size)
     var out: [SecretBytes] = []
@@ -69,11 +64,6 @@ public enum CookieWire {
 }
 
 public enum AutofillWire {
-  /// One NUL-terminated payload for ac_autofill_import:
-  /// `{"addresses":[{name?,organization?,street?,city?,state?,postalCode?,country?,phone?,email?}],
-  ///   "cards":[{name?,number,expMonth?,expYear?,nickname?}]}`.
-  /// Unset fields are left out. A card is left out unless its number is 12–19 digits (spaces and dashes are
-  /// dropped from the number).
   public static func batch(addresses: [ImportedAddress], cards: [ImportedCard]) -> SecretBytes {
     let w = SecretWriter(capacity: 1024)
     w.append("{\"addresses\":[")
@@ -124,7 +114,6 @@ public enum AutofillWire {
     return w.finish()
   }
 
-  /// Number of digits when the number is 12–19 digits (ignoring spaces and dashes), else nil.
   static func cardDigitCount(_ number: SecretBytes) -> Int? {
     number.withUnsafeBytes { bytes in
       var digits = 0
@@ -148,7 +137,6 @@ enum JSON {
     s.withUTF8 { string(UnsafeRawBufferPointer($0), to: w) }
   }
 
-  /// Writes a quoted, escaped JSON string. The bytes must be valid UTF-8 (checked by the caller for secrets).
   static func string(_ bytes: UnsafeRawBufferPointer, to w: SecretWriter) {
     w.append(UInt8(ascii: "\""))
     var runStart = 0

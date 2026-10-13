@@ -1,11 +1,3 @@
-// ACBrowserWindow: Chrome's BrowserWindow for a Browser that lives in an ArdiaCore window.
-//
-// It is a plain object, not a view: Chrome's BrowserView, frame, tab strip and toolbar
-// never exist for our Browsers. Several of these (one per profile) share one NSWindow,
-// owned by the WindowHost (ac_browser.h). Most of BrowserWindow is UI we don't show
-// (Chrome's toolbar, its bubbles anchored to it); those methods are inert here, and the
-// host shows its own UI through the ArdiaCore API instead.
-
 #ifndef ARDIA_CORE_AC_BROWSER_WINDOW_H_
 #define ARDIA_CORE_AC_BROWSER_WINDOW_H_
 
@@ -30,8 +22,6 @@ namespace ardiacore {
 
 class WindowHost;
 
-// Chrome asks the window for its location bar in many places (content settings icons,
-// security state, omnibox focus). We have none of Chrome's: answer like an empty one.
 class ACLocationBar : public LocationBar {
  public:
   ACLocationBar();
@@ -80,10 +70,6 @@ class ACLocationBar : public LocationBar {
   raw_ptr<BrowserWindowInterface> browser_ = nullptr;
 };
 
-// Chrome's autofill bubbles anchor to its toolbar, which we don't have. Offers to save or
-// update an address or a card go to the host as its own prompts (ac_autofill_prompt.h); the
-// rest (Google Pay, virtual cards, IBANs, offers) don't show. Registered on the window's Browser
-// too, where the payments controllers look it up (AutofillBubbleHandler::Get).
 class ACAutofillBubbleHandler : public autofill::AutofillBubbleHandler {
  public:
   ACAutofillBubbleHandler();
@@ -159,9 +145,6 @@ class ACAutofillBubbleHandler : public autofill::AutofillBubbleHandler {
       bool is_user_gesture) override;
 };
 
-// Chrome's find (⌘F, chrome.find, "Find in page") runs through a FindBar. Ours has no UI
-// of its own: Chrome's FindBarController and FindTabHelper do the searching, and the
-// host's find bar drives them through the API.
 class ACFindBar : public FindBar {
  public:
   ACFindBar();
@@ -204,24 +187,17 @@ class ACBrowserWindow : public BrowserWindow, public ExclusiveAccessContext {
   ACBrowserWindow(const ACBrowserWindow&) = delete;
   ACBrowserWindow& operator=(const ACBrowserWindow&) = delete;
 
-  // Called once Browser::Create has returned with this window.
   void AttachBrowser(Browser* browser);
   Browser* browser() const { return browser_; }
   WindowHost* host() const { return host_.get(); }
   base::WeakPtr<WindowHost> host_weak() const { return host_; }
 
-  // `window` if it is one of ArdiaCore's, else null (no RTTI, so no dynamic_cast).
   static ACBrowserWindow* FromWindow(const BrowserWindow* window);
-  // ArdiaCore's record of which Browsers are its own, and their host: from the moment `browser` gets
-  // this window (`Register`, while Chrome constructs it) until its ACWebContentsDelegate goes in
-  // ~Browser (`Forget`), after the window: Chrome's teardown of a Browser still finds it ours.
-  // A Browser Chrome made itself and kept is never in it.
   void Register(const BrowserWindowInterface* browser);
   static bool IsOurs(const BrowserWindowInterface* browser);
   static WindowHost* HostOf(const BrowserWindowInterface* browser);
   static void Forget(const BrowserWindowInterface* browser);
 
-  // ui::BaseWindow:
   bool IsActive() const override;
   bool IsMaximized() const override;
   bool IsMinimized() const override;
@@ -236,7 +212,6 @@ class ACBrowserWindow : public BrowserWindow, public ExclusiveAccessContext {
   void ShowInactive() override;
   void Close() override;
   void Activate() override;
-  // As Chrome's own on macOS (NativeWidgetMac::Deactivate does nothing).
   void Deactivate() override {}
   void Maximize() override {}
   void Minimize() override {}
@@ -246,7 +221,6 @@ class ACBrowserWindow : public BrowserWindow, public ExclusiveAccessContext {
   ui::ZOrderLevel GetZOrderLevel() const override;
   void SetZOrderLevel(ui::ZOrderLevel order) override {}
 
-  // BrowserWindow:
   bool IsOnCurrentWorkspace() const override;
   bool IsVisibleOnScreen() const override;
   void SetTopControlsShownRatio(content::WebContents* web_contents,
@@ -349,8 +323,6 @@ class ACBrowserWindow : public BrowserWindow, public ExclusiveAccessContext {
   void ShowChromeLabs() override {}
   BrowserView* AsBrowserView() override;
 
-  // ExclusiveAccessContext (tab fullscreen, pointer lock and keyboard lock). The host
-  // shows a fullscreen tab itself; Chrome only tracks the state, as with CEF's hosted tabs.
   Profile* GetProfile() override;
   void EnterFullscreen(const url::Origin& origin,
                        ExclusiveAccessBubbleType bubble_type,
@@ -375,20 +347,14 @@ class ACBrowserWindow : public BrowserWindow, public ExclusiveAccessContext {
   raw_ptr<Browser> browser_ = nullptr;
   std::unique_ptr<ACLocationBar> location_bar_;
   ACAutofillBubbleHandler autofill_bubble_handler_;
-  // The handler as the Browser's unowned user data (from AttachBrowser).
   std::optional<ui::ScopedUnownedUserData<autofill::AutofillBubbleHandler>>
       autofill_bubble_handler_registration_;
   bool tab_fullscreen_ = false;
-  // Tells the host which page is in tab fullscreen, from Chrome's own record of it (never
-  // the active tab: a tab switch selects the next tab before the old one's fullscreen ends).
   void ReportFullscreenTab();
-  // The page last reported as fullscreen.
   base::WeakPtr<content::WebContents> fullscreen_tab_;
-  // Chrome makes this only for a BrowserView; docked DevTools need it (devtools_window.cc
-  // asks it whether the Browser can dock, and it reports dock changes to our delegate).
   std::unique_ptr<DevtoolsUIController> devtools_ui_controller_;
 };
 
-}  // namespace ardiacore
+}
 
-#endif  // ARDIA_CORE_AC_BROWSER_WINDOW_H_
+#endif

@@ -46,7 +46,6 @@ base::DictValue List(Profile* profile, TemplateURLService* service) {
   return base::DictValue().Set("engines", std::move(engines));
 }
 
-// Replies that wait for the service to load.
 class SearchEnginesState : public ProfileState {
  public:
   explicit SearchEnginesState(Profile* profile) : ProfileState(profile) {}
@@ -77,8 +76,8 @@ class SearchEnginesState : public ProfileState {
   std::vector<Reply> waiting_;
 };
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_search_engines_list) {
   ardia::Call call(profile_dir, args_json, reply, context);

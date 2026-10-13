@@ -24,9 +24,6 @@ public final class DiaAppleEvents: DiaScriptingSource {
     }
   }
 
-  // MARK: Reading
-
-  // Call off-main after UI disclosure; Automation consent blocks until the user responds.
   func readOnce() throws -> [DiaScript.Window]? {
     let windows = Spec.every(Code.window, of: .null())
     let ids = try get(Code.id, of: windows).map(Value.string)
@@ -87,8 +84,6 @@ public final class DiaAppleEvents: DiaScriptingSource {
     }
     return Value.list(reply.paramDescriptor(forKeyword: Code.directObject))
   }
-
-  // MARK: Descriptors
 
   enum Code {
     static let coreSuite = fourCC("core")

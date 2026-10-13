@@ -21,18 +21,11 @@ content::HostZoomMap* ZoomMap(Profile* profile) {
   return content::HostZoomMap::GetDefaultForBrowserContext(profile);
 }
 
-// The profile whose zoom map a call means: the profile at |profile_dir|, or,
-// with "tab", that tab's own profile (a private window's off-the-record
-// profile, whose zoom map lives and dies with the private session, as in
-// Chrome's incognito). Null if the tab is gone.
 Profile* ZoomProfile(const Call& call) {
   std::optional<int> tab = call.args().FindInt("tab");
   if (!tab) {
     return call.profile();
   }
-  // Every Browser's tabs, private ones included: CEF's private profiles are
-  // off-the-record profiles of their own, which chrome.tabs' lookup (the
-  // primary off-the-record profile only) doesn't search.
   Profile* found = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&](BrowserWindowInterface* window) {
@@ -46,8 +39,6 @@ Profile* ZoomProfile(const Call& call) {
         }
         return true;
       });
-  // Only a tab of the profile the call names, or of one of its private
-  // profiles; a private session's call ("offTheRecord"), only its own tabs.
   if (!found) {
     return nullptr;
   }
@@ -57,7 +48,6 @@ Profile* ZoomProfile(const Call& call) {
   return found->GetOriginalProfile() == call.profile() ? found : nullptr;
 }
 
-// Tells the app about every host zoom change in the profile.
 class ZoomState : public ProfileState {
  public:
   explicit ZoomState(Profile* profile) : ProfileState(profile) {
@@ -81,8 +71,8 @@ class ZoomState : public ProfileState {
   base::CallbackListSubscription subscription_;
 };
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_zoom_list) {
   ardia::Call call(profile_dir, args_json, reply, context,
@@ -124,7 +114,6 @@ AC_ENGINE_CALL(ac_zoom_set) {
     return call.TakeReply().Error("host and level required");
   }
   content::HostZoomMap* map = ardia::ZoomMap(profile);
-  // As chrome://settings removes a site's zoom: the default level erases it.
   map->SetZoomLevelForHost(
       host, blink::ZoomValuesEqual(level, 0) ? map->GetDefaultZoomLevel()
                                              : level);

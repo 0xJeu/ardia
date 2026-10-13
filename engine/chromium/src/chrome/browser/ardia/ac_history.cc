@@ -1,28 +1,4 @@
 // Copyright 2026 Ardia. Apache-2.0.
-//
-// History: Chrome's HistoryService is the one store. Chrome records every
-// visit itself (HistoryTabHelper); the app reads, deletes and adds through
-// these calls and keeps only an in-memory view.
-//
-//   ac_history_query({maxUrls, maxVisits})
-//     -> {entries: [{u, t, n, v: [ms…]}]}: one per URL, newest first, with its
-//        user-visible visit times (oldest first, the newest maxVisits) and
-//        Chrome's visit count.
-//   ac_history_add({pages: [{u, t, v: [ms…]}], toleranceMs})
-//     -> {added}: adds each visit the URL doesn't already have, matching each
-//        visit Chrome has to at most one within toleranceMs (migration from
-//        the app's old history.json, sync).
-//   ac_history_import({rows: [{u, t, n, l}]}) -> {ok}: Chrome's importer path
-//        (one visit at l; n is the URL's visit count when it's new).
-//   ac_history_delete_urls({urls}) -> {ok}
-//   ac_history_watch() -> {ok}: events for the profile, topic
-//        "history.changed": {kind: "batch", changes: [change…]}, in order, each
-//        {kind: "visit", u, t, n, at} | {kind: "modified", rows: [{u, t, n}]} |
-//        {kind: "deleted", all, urls}. Changes within kBatchDelay go together:
-//        an add of many visits (the old history.json's move, sync) reported
-//        each one as its own event, ~88,000 bridge events at one launch.
-//
-// Deleting a time range stays with Clear Browsing Data (BrowsingDataRemover).
 
 #include <algorithm>
 #include <cmath>
@@ -72,7 +48,6 @@ base::CancelableTaskTracker& Tracker() {
 }
 
 history::HistoryService* HistoryFor(Profile* profile) {
-  // Never a private profile's: it has none, and Chrome doesn't record one.
   if (!profile || profile->IsOffTheRecord()) {
     return nullptr;
   }
@@ -84,8 +59,6 @@ double Ms(base::Time time) {
   return std::floor(time.InMillisecondsFSinceUnixEpoch());
 }
 
-// What the app's History page, omnibox and sync count as a visit: a page the
-// user saw, not a redirect hop or a frame.
 bool Visible(ui::PageTransition transition) {
   return (transition & ui::PAGE_TRANSITION_CHAIN_END) &&
          !ui::PageTransitionCoreTypeIs(transition,
@@ -101,9 +74,6 @@ base::DictValue Row(const history::URLRow& row) {
       .Set("n", row.visit_count());
 }
 
-// MARK: Watching
-
-// How long a change waits for the ones after it, and how many go at most.
 constexpr base::TimeDelta kBatchDelay = base::Milliseconds(20);
 constexpr size_t kBatchMax = 2000;
 
@@ -135,8 +105,6 @@ class Watcher : public history::HistoryServiceObserver {
 
   void OnHistoryDeletions(history::HistoryService*,
                           const history::DeletionInfo& info) override {
-    // A time range (Clear Browsing Data, expiry) can leave URLs with fewer
-    // visits; the app reloads its view for anything but whole URLs.
     base::ListValue urls;
     const bool whole_urls = !info.time_range().IsValid() &&
                             !info.IsAllHistory();
@@ -177,7 +145,6 @@ class Watcher : public history::HistoryServiceObserver {
 
   raw_ptr<Profile> profile_;
   base::ListValue pending_;
-  // Owned: stops with the watcher, so Unretained is safe.
   base::OneShotTimer flush_;
   base::ScopedObservation<history::HistoryService,
                           history::HistoryServiceObserver>
@@ -193,11 +160,8 @@ std::map<Profile*, std::unique_ptr<Watcher>>& Watchers() {
 void Watcher::HistoryServiceBeingDeleted(history::HistoryService*) {
   Flush();
   observation_.Reset();
-  // Deletes this.
   Watchers().erase(profile_);
 }
-
-// MARK: Adding visits
 
 struct Page {
   GURL url;
@@ -205,8 +169,6 @@ struct Page {
   std::vector<base::Time> visits;
 };
 
-// Reads the visits each page already has, on the history thread, and keeps
-// only the ones it lacks.
 class MissingVisitsTask : public history::HistoryDBTask {
  public:
   MissingVisitsTask(std::vector<Page> pages,
@@ -232,8 +194,6 @@ class MissingVisitsTask : public history::HistoryDBTask {
       }
       std::sort(times.begin(), times.end());
       std::sort(page.visits.begin(), page.visits.end());
-      // One to one: each visit Chrome has accounts for at most one asked for,
-      // the nearest in time order, so two visits close together both count.
       std::vector<bool> used(times.size(), false);
       std::vector<base::Time> missing;
       size_t from = 0;
@@ -253,7 +213,6 @@ class MissingVisitsTask : public history::HistoryDBTask {
         }
       }
       page.visits = std::move(missing);
-      // A title Chrome already has stays.
       if (!row.title().empty()) {
         page.title.clear();
       }
@@ -271,9 +230,9 @@ class MissingVisitsTask : public history::HistoryDBTask {
   base::OnceCallback<void(std::vector<Page>)> done_;
 };
 
-}  // namespace
+}
 
-}  // namespace ardia
+}
 
 using ardia::Call;
 using ardia::Reply;
@@ -299,7 +258,6 @@ AC_ENGINE_CALL(ac_history_query) {
       base::BindOnce(
           [](Reply reply, size_t max_urls, size_t max_visits,
              history::QueryResults results) {
-            // Results come newest visit first: a URL's first result orders it.
             struct Entry {
               const history::URLResult* row;
               std::vector<double> visits;
@@ -385,17 +343,17 @@ AC_ENGINE_CALL(ac_history_add) {
                 for (const auto& page : pages) {
                   for (size_t i = 0; i < page.visits.size(); ++i) {
                     history::HistoryAddPageArgs args(
-                        page.url, page.visits[i], /*context_id=*/0,
-                        /*nav_entry_id=*/0, /*local_navigation_id=*/std::nullopt,
+                        page.url, page.visits[i], 0,
+                        0, std::nullopt,
                         GURL(), history::RedirectList(),
                         ui::PageTransitionFromInt(
                             ui::PAGE_TRANSITION_LINK |
                             ui::PAGE_TRANSITION_CHAIN_START |
                             ui::PAGE_TRANSITION_CHAIN_END),
-                        /*hidden=*/false, history::SOURCE_BROWSED,
+                        false, history::SOURCE_BROWSED,
                         history::VisitResponseCodeCategory::kNot404,
-                        /*did_replace_entry=*/false,
-                        /*consider_for_ntp_most_visited=*/true);
+                        false,
+                        true);
                     if (i == page.visits.size() - 1 && !page.title.empty()) {
                       args.title = page.title;
                     }
@@ -459,8 +417,6 @@ AC_ENGINE_CALL(ac_history_delete_urls) {
       urls.emplace_back(value.GetString());
     }
   }
-  // Chrome's own History page path: every visit, the URL row, its favicon
-  // mapping when nothing else uses it.
   service->DeleteURLs(urls);
   call.TakeReply().Ok();
 }

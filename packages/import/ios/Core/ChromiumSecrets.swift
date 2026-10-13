@@ -62,7 +62,6 @@ public enum ChromiumSecrets {
   public static func cookies(database: URL, key: Data, cancellation: Cancellation = .init()) throws -> Outcome<Cookie> {
     let db = try SQLiteSnapshot(copying: database)
     guard db.tableExists("cookies") else { throw ImportError.unreadable("Cookies has no cookies table") }
-    // Version 24+ prefixes every encrypted value with SHA-256(host_key); older databases never do.
     let version = db.tableExists("meta")
       ? (try? db.scalar("SELECT CAST(value AS INTEGER) FROM meta WHERE key='version'")).flatMap { $0 } ?? 0 : 0
     let hostHashed = version >= 24
@@ -74,7 +73,6 @@ public enum ChromiumSecrets {
       seen += 1
       if seen % 256 == 0 { try cancellation.check() }
       guard let host = row.text("host_key"), let name = row.text("name") else { return true }
-      // Columns were renamed over the years (secure → is_secure, persistent → is_persistent → has_expires).
       func flag(_ names: String...) -> Bool? {
         for n in names { if let v = row.int(n) { return v != 0 } }
         return nil
@@ -87,7 +85,7 @@ public enum ChromiumSecrets {
       let plain = row.index("value").flatMap(row.blobPointer) ?? UnsafeRawBufferPointer(start: nil, count: 0)
       let encrypted = row.blob("encrypted_value") ?? Data()
       if !plain.isEmpty && !encrypted.isEmpty {
-        bad += 1  // Chromium rejects a row with both.
+        bad += 1
         return true
       } else if !plain.isEmpty {
         value = SecretBytes(copying: plain)

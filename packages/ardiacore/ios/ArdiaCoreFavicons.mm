@@ -1,6 +1,3 @@
-// The favicons the app keeps per profile (lib/favicons.ts), stored as packages/cef's ACFavicons stores them.
-// A favicon a tab already showed comes from Chrome's favicon driver (noteImage:forURL:); anything else is
-// downloaded through the profile's network stack without cookies (Download).
 #import "ArdiaCoreInternal.h"
 
 namespace {
@@ -17,8 +14,6 @@ NSCache<NSString *, NSImage *> *Seen() {
   return cache;
 }
 
-// Per profile: a private tab's icon (fetched with its cookies) never answers another profile's fetch, which the app
-// would keep in that profile's favicon store.
 NSString *SeenKey(NSString *profile, NSString *url) {
   return [NSString stringWithFormat:@"%@\n%@", profile ?: @"", url];
 }
@@ -48,7 +43,6 @@ NSDictionary *Store(NSData *png, int width, int height, NSString *profile, NSStr
   return @{@"uri" : uri, @"width" : @(width), @"height" : @(height)};
 }
 
-// The representation closest to `pixels`, drawn square at up to that size.
 NSData *PNG(NSImage *image, int pixels, int *width, int *height) {
   if (!image || image.size.width <= 0 || image.size.height <= 0) return nil;
   NSImageRep *best = nil;
@@ -79,9 +73,6 @@ NSData *PNG(NSImage *image, int pixels, int *width, int *height) {
   return [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
 }
 
-// Through Chrome's network stack, with the profile's own loader (ArdiaCoreProfile fetchIcon:): its proxy and cache,
-// no cookies, Chrome's favicon types only. A private window's profile is used only while it is open: a fetch never
-// makes one.
 void Download(NSString *url, NSString *profileName, void (^done)(NSData *_Nullable data)) {
   void (^fetch)(ArdiaCoreProfile *) = ^(ArdiaCoreProfile *profile) {
     if (!profile || profile.destroyed || ![profile respondsToSelector:@selector(fetchIcon:maxBytes:completion:)]) return done(nil);
@@ -91,7 +82,7 @@ void Download(NSString *url, NSString *profileName, void (^done)(NSData *_Nullab
   ardiacore_host::WithProfile(profileName, fetch);
 }
 
-}  // namespace
+}
 
 @implementation ArdiaCoreFavicons
 
@@ -114,7 +105,6 @@ void Download(NSString *url, NSString *profileName, void (^done)(NSData *_Nullab
   }
   NSString *scheme = [NSURL URLWithString:url].scheme.lowercaseString;
   if (!([scheme isEqualToString:@"https"] || [scheme isEqualToString:@"http"])) return completion(nil);
-  // A private profile's icon comes back as a data: URI (Store), never into the profile's folder.
   Download(url, profile, ^(NSData *body) {
     int w = 0, h = 0;
     NSImage *image = body ? [[NSImage alloc] initWithData:body] : nil;

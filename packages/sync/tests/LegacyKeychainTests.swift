@@ -4,8 +4,6 @@ import Security
 import XCTest
 @testable import ArdiaSyncCore
 
-/// The migration's keychain code against the real Security framework, on a throwaway keychain file (never the user's
-/// keychains: every query names it, and the services are this test's own).
 final class LegacyKeychainTests: XCTestCase {
   var dir: URL!
   var keychain: SecKeychain!
@@ -45,7 +43,6 @@ final class LegacyKeychainTests: XCTestCase {
     oldService: "Ardia Migration Test Old Safe Storage", newService: "Ardia Migration Test New Safe Storage",
     account: ("Old", "New"), label: { _ in "Ardia Migration Test New Safe Storage" }, accessible: nil, critical: true)
 
-  /// Chrome's macOS encryption (os_crypt): "v10" + AES-128-CBC, key PBKDF2-SHA1(secret, "saltysalt", 1003), IV of spaces.
   static func crypt(_ op: CCOperation, _ secret: Data, _ input: Data) -> Data? {
     var key = [UInt8](repeating: 0, count: 16)
     let salt = Array("saltysalt".utf8)
@@ -82,13 +79,11 @@ final class LegacyKeychainTests: XCTestCase {
     XCTAssertEqual(Self.crypt(CCOperation(kCCDecrypt), carried, cookie.dropFirst(3)), Data("session=kept".utf8))
     XCTAssertEqual(store.read(service: item.oldService, account: "Old"), .found(secret), "the old item stays")
 
-    // Again (a resumed run): the item is updated in place, not duplicated.
     XCTAssertTrue(store.write(service: item.newService, account: "New", label: "x", accessible: nil, data: Data("other".utf8)))
     guard case .copied = migrator.copySecrets(item, from: store, to: store) else { return XCTFail("not copied") }
     XCTAssertEqual(store.read(service: item.newService, account: "New"), .found(secret))
     XCTAssertEqual(store.accounts(service: item.newService), ["New"])
 
-    // A retry leaves an item the new keychain has already (the app saved it since).
     let accounts = Renamed.KeychainItem(oldService: item.oldService, newService: item.newService, account: nil,
                                         label: { $0 }, accessible: nil, critical: false)
     XCTAssertTrue(store.write(service: item.newService, account: "Old", label: "x", accessible: nil, data: Data("newer".utf8)))

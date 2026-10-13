@@ -37,8 +37,6 @@ enum ChromeWindows {
     host?.perform(NSSelectorFromString("showProfile:inWindow:"), with: profile, with: window)
   }
 
-  // The sidebarSlideLean kill switch (src/lib/killSwitches.ts), read once a launch. On, a move is drawn at once and laid
-  // out once the lights hold still (the sidebar's slide moves them every frame); off, every move lays them out.
   private static let drawnMoves = KillSwitch.isOn("sidebarSlideLean")
 
   static func setTrafficLightsCenter(_ center: NSPoint?, in window: NSWindow) {
@@ -65,7 +63,6 @@ enum ChromeWindows {
   }
 }
 
-/// Swap profiles only after the React view-update batch lands.
 public class WindowProfileModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaWindowProfile")

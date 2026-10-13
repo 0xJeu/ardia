@@ -168,8 +168,6 @@ public struct BrowserDiscovery {
     return dir
   }
 
-  // MARK: Chromium
-
   func chromiumProfiles(_ def: BrowserDefinition) -> [BrowserProfile] {
     guard let root = dataDirectory(def) else { return [] }
     let fm = FileManager.default
@@ -247,8 +245,6 @@ public struct BrowserDiscovery {
     return kinds
   }
 
-  // MARK: Arc
-
   public func arcSidebarURL() -> URL {
     applicationSupport.appendingPathComponent("Arc/StorableSidebar.json")
   }
@@ -267,8 +263,6 @@ public struct BrowserDiscovery {
       profiles[i].available = kinds
     }
   }
-
-  // MARK: Firefox
 
   func firefoxProfiles(_ def: BrowserDefinition) -> [BrowserProfile] {
     guard let root = dataDirectory(def),

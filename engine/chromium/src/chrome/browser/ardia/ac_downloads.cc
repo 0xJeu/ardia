@@ -51,11 +51,7 @@ const char* StateName(const DownloadItem& item) {
   }
 }
 
-// Chrome's own downloads of an extension to install (the Web Store's .crx, which
-// WebstoreInstaller fetches and CrxInstaller installs and deletes), and transient ones: never
-// the user's downloads.
 bool Listed(DownloadItem* item) {
-  // The installer's own download says so from the start (its approval comes a moment later).
   if (item->IsTransient() ||
       item->GetDownloadSource() == download::DownloadSource::EXTENSION_INSTALLER ||
       extensions::WebstoreInstaller::GetAssociatedApproval(*item)) {
@@ -106,7 +102,6 @@ base::DictValue Describe(DownloadItem* item) {
 
 class DownloadsState;
 
-// One download manager: the original profile's or a private profile's.
 class Watch : public download::AllDownloadItemNotifier::Observer,
               public ProfileObserver {
  public:
@@ -117,12 +112,10 @@ class Watch : public download::AllDownloadItemNotifier::Observer,
   content::DownloadManager* manager() const { return notifier_.GetManager(); }
 
  private:
-  // download::AllDownloadItemNotifier::Observer
   void OnDownloadCreated(content::DownloadManager*, DownloadItem* item) override;
   void OnDownloadUpdated(content::DownloadManager*, DownloadItem* item) override;
   void OnDownloadRemoved(content::DownloadManager*, DownloadItem* item) override;
 
-  // ProfileObserver
   void OnProfileWillBeDestroyed(Profile* profile) override;
 
   raw_ptr<DownloadsState> owner_;
@@ -131,14 +124,9 @@ class Watch : public download::AllDownloadItemNotifier::Observer,
   base::ScopedObservation<Profile, ProfileObserver> observation_{this};
 };
 
-// The profile's downloads and its private profiles', with what this session
-// has seen of each.
 class DownloadsState : public ProfileState {
  public:
   explicit DownloadsState(Profile* profile) : ProfileState(profile) {
-    // As CEF's engine: straight to the folder, never a save panel. The
-    // ungoogled patches default "Ask where to save each file" to on; only
-    // that default changes.
     PrefService* prefs = profile->GetPrefs();
     if (const PrefService::Preference* prompt =
             prefs->FindPreference(prefs::kPromptForDownload);
@@ -190,7 +178,6 @@ class DownloadsState : public ProfileState {
 
   void Changed(DownloadItem* item) {
     if (!Listed(item)) {
-      // Known only once its response came (the .crx's type) or the installer tagged it.
       if (auto it = entries_.find(item->GetGuid()); it != entries_.end()) {
         const bool emitted = it->second.emitted;
         entries_.erase(it);
@@ -205,14 +192,12 @@ class DownloadsState : public ProfileState {
     if (state == DownloadItem::IN_PROGRESS) {
       entry.live = true;
     }
-    // History loaded from an earlier session: listed, never announced.
     if (!entry.live) {
       return;
     }
     if (state == DownloadItem::COMPLETE && !entry.quarantined) {
       if (!entry.quarantining) {
         entry.quarantining = true;
-        // A private download's record keeps no URLs.
         const bool off_the_record = IsOffTheRecord(item);
         const GURL& tab = item->GetTabUrl();
         base::ThreadPool::PostTaskAndReply(
@@ -229,7 +214,7 @@ class DownloadsState : public ProfileState {
             base::BindOnce(&DownloadsState::Quarantined,
                            weak_factory_.GetWeakPtr(), item->GetGuid()));
       }
-      return;  // "finished" once the file is quarantined
+      return;
     }
     const base::TimeTicks now = base::TimeTicks::Now();
     const bool dangerous = item->IsDangerous() || item->IsInsecure();
@@ -254,7 +239,6 @@ class DownloadsState : public ProfileState {
     Post("downloads.removed", base::DictValue().Set("id", item->GetGuid()));
   }
 
-  // A private profile is going: its downloads go with it.
   void Drop(Profile* profile) {
     auto it = std::find_if(
         watches_.begin(), watches_.end(),
@@ -275,7 +259,7 @@ class DownloadsState : public ProfileState {
 
  private:
   struct Entry {
-    bool live = false;  // seen in progress this session
+    bool live = false;
     bool emitted = false;
     bool paused = false;
     bool dangerous = false;
@@ -284,7 +268,6 @@ class DownloadsState : public ProfileState {
     base::TimeTicks last_emit;
   };
 
-  // ProfileObserver (ProfileState observes the original profile).
   void OnOffTheRecordProfileCreated(Profile* off_the_record) override {
     for (const auto& watch : watches_) {
       if (watch->profile() == off_the_record) {
@@ -300,9 +283,6 @@ class DownloadsState : public ProfileState {
     entries_.clear();
   }
 
-  // Events leave after the download's own notification has unwound: an app
-  // that pauses, cancels or removes from its event handler never re-enters
-  // DownloadItem::UpdateObservers.
   void Post(const char* topic, base::DictValue payload) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
@@ -338,10 +318,6 @@ Watch::Watch(DownloadsState* owner, Profile* profile)
       notifier_(profile->GetDownloadManager(), this) {
   if (profile->IsOffTheRecord()) {
     observation_.Observe(profile);
-    // Chrome's desktop download UI turns "Ask where to save" on for every
-    // private profile when its download manager starts (DownloadUIController's
-    // bubble delegate; notifier_ has started it by now). A private window
-    // follows the profile's own choice instead, as in CEF's engine.
     profile->GetPrefs()->SetBoolean(
         prefs::kPromptForDownload,
         profile->GetOriginalProfile()->GetPrefs()->GetBoolean(
@@ -363,10 +339,9 @@ void Watch::OnDownloadRemoved(content::DownloadManager*, DownloadItem* item) {
 
 void Watch::OnProfileWillBeDestroyed(Profile* profile) {
   observation_.Reset();
-  owner_->Drop(profile);  // deletes this
+  owner_->Drop(profile);
 }
 
-// The call's download, or replies with an error.
 DownloadItem* DownloadFor(Call& call) {
   DownloadItem* item =
       StateFor<DownloadsState>(call.profile()).Find(call.String("id"));
@@ -376,8 +351,8 @@ DownloadItem* DownloadFor(Call& call) {
   return item;
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_downloads_list) {
   ardia::Call call(profile_dir, args_json, reply, context);
@@ -399,7 +374,7 @@ AC_ENGINE_CALL(ac_downloads_cancel) {
     return;
   }
   if (download::DownloadItem* item = ardia::DownloadFor(call)) {
-    item->Cancel(/*user_cancel=*/true);
+    item->Cancel(true);
     call.TakeReply().Ok();
   }
 }
@@ -424,7 +399,7 @@ AC_ENGINE_CALL(ac_downloads_resume) {
     if (!item->CanResume()) {
       return call.TakeReply().Error("can't resume");
     }
-    item->Resume(/*user_resume=*/true);
+    item->Resume(true);
     call.TakeReply().Ok();
   }
 }

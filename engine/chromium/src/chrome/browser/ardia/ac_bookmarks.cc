@@ -1,29 +1,4 @@
 // Copyright 2026 Ardia. Apache-2.0.
-//
-// Bookmarks: Chrome's BookmarkModel is the one store, so chrome.bookmarks,
-// Chrome's own UI and the app see the same tree. The app keeps its bookmark UI
-// and sync over it, reading the tree and writing changes as ops. Nodes are
-// named by their UUID (BookmarkNode::uuid), the permanent folders "bar" and
-// "other".
-//
-//   ac_bookmarks_tree() -> {bar: Node, other: Node}, once the model is loaded.
-//     Node: {id, k: "u"|"f", t, u?, a (ms added), key?, c?: [Node]}
-//     |key| is the node's sync key when it isn't its UUID (a bookmark synced
-//     before Chrome kept them keeps its old key; meta info "ac_sync_key").
-//   ac_bookmarks_apply({ops: [Op]}) -> {applied, skipped, invalid: [id]}:
-//     {op: "add", id, k, t, u?, a, key?, parent, index, ifAbsent?}
-//         (an existing id is moved and updated instead, or left as it is
-//          with ifAbsent)
-//     {op: "move", id, parent, index}
-//     {op: "update", id, t?, u?}
-//     {op: "remove", id}
-//     In order, stopping at the first op that can't apply (its parent is
-//     gone, a move would put a folder inside itself): the rest were made
-//     against a tree that isn't Chrome's, so they're skipped rather than risk
-//     a removal taking what the app still has. An add whose URL isn't valid
-//     is only listed in |invalid|. The app's own changes raise no event.
-//   ac_bookmarks_watch() -> {ok}: "bookmarks.changed" {} (coalesced) whenever
-//     anything else changes the tree (an extension, Chrome's UI).
 
 #include <algorithm>
 #include <cmath>
@@ -57,8 +32,6 @@ namespace ardia {
 namespace {
 
 constexpr char kSyncKey[] = "ac_sync_key";
-// Deeper than any real tree; a deeper one is refused, not cut short (the app
-// would read what's cut as deleted).
 constexpr int kMaxDepth = 512;
 
 using bookmarks::BookmarkModel;
@@ -129,8 +102,6 @@ bool IsAncestor(const BookmarkNode* node, const BookmarkNode* of) {
   return false;
 }
 
-// MARK: Watching
-
 class Watcher;
 std::map<Profile*, std::unique_ptr<Watcher>>& Watchers() {
   static base::NoDestructor<std::map<Profile*, std::unique_ptr<Watcher>>>
@@ -138,21 +109,18 @@ std::map<Profile*, std::unique_ptr<Watcher>>& Watchers() {
   return *watchers;
 }
 
-// Tells the app when anything but its own ops changes the tree, once per
-// burst.
 class Watcher : public bookmarks::BookmarkModelObserver {
  public:
   Watcher(Profile* profile, BookmarkModel* model) : profile_(profile) {
     observation_.Observe(model);
   }
 
-  // While the app's ops run, changes are its own.
   void set_applying(bool applying) { applying_ = applying; }
 
   void BookmarkModelLoaded(bool) override { Changed(); }
   void BookmarkModelBeingDeleted() override {
     observation_.Reset();
-    Watchers().erase(profile_);  // Deletes this.
+    Watchers().erase(profile_);
   }
   void BookmarkNodeMoved(const BookmarkNode*,
                          size_t,
@@ -203,7 +171,6 @@ class Watcher : public bookmarks::BookmarkModelObserver {
   base::WeakPtrFactory<Watcher> weak_factory_{this};
 };
 
-// Runs |then| once the model has read its file.
 class WhenLoaded : public bookmarks::BookmarkModelObserver {
  public:
   static void Run(BookmarkModel* model, base::OnceClosure then) {
@@ -250,8 +217,6 @@ class WhenLoaded : public bookmarks::BookmarkModelObserver {
       observation_{this};
 };
 
-// MARK: Ops
-
 size_t Clamp(double index, const BookmarkNode* parent) {
   if (index < 0) {
     return 0;
@@ -259,8 +224,6 @@ size_t Clamp(double index, const BookmarkNode* parent) {
   return std::min(static_cast<size_t>(index), parent->children().size());
 }
 
-// Move semantics as the app means them: |index| is the node's index among
-// |parent|'s children once moved.
 void MoveTo(BookmarkModel* model,
             const BookmarkNode* node,
             const BookmarkNode* parent,
@@ -271,7 +234,6 @@ void MoveTo(BookmarkModel* model,
     if (current == at) {
       return;
     }
-    // BookmarkModel::Move inserts before the child at |at| as it is now.
     if (at > current) {
       at++;
     }
@@ -341,7 +303,6 @@ Result Apply(BookmarkModel* model, const base::DictValue& op) {
     return Result::kApplied;
   }
   if (node) {
-    // Already there (an op sent twice): where and what the app says.
     if (model->is_permanent_node(node) || IsAncestor(node, parent)) {
       return Result::kFailed;
     }
@@ -382,9 +343,9 @@ Result Apply(BookmarkModel* model, const base::DictValue& op) {
   return Result::kApplied;
 }
 
-}  // namespace
+}
 
-}  // namespace ardia
+}
 
 using ardia::Call;
 using ardia::Reply;

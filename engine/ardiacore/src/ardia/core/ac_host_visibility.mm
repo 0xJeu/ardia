@@ -10,10 +10,8 @@
 #include "content/public/browser/web_contents_user_data.h"
 #include "ardia/core/ac_picture_in_picture.h"
 
-// The hooks (engine/ardiacore/apply.sh): 1 shown, 0 hidden, -1 the host never said.
 extern int (*g_ardia_tab_shown_by_host)(content::WebContents*);
 extern int (*g_ardia_permission_tab_shown)(content::WebContents*);
-// Chrome's automatic Picture in Picture reads the tab's state again (apply.sh).
 void ArdiaAutoPictureInPictureHostVisibilityChanged(content::WebContents* contents);
 
 namespace ardiacore {
@@ -41,7 +39,7 @@ int Answer(content::WebContents* contents) {
   return shown ? *shown : -1;
 }
 
-}  // namespace
+}
 
 std::optional<bool> ShownByHost(content::WebContents* contents) {
   HostVisibility* state = contents ? HostVisibility::FromWebContents(contents) : nullptr;
@@ -55,14 +53,10 @@ void NoteTabShownByHost(content::WebContents* contents, bool shown) {
   HostVisibility::CreateForWebContents(contents);
   HostVisibility::FromWebContents(contents)->set_shown(shown);
   TraceAutoPictureInPictureInputs(contents, shown ? "host shows tab" : "host hides tab");
-  // Chrome's reading changed only for the consumers that follow the host's: each reads it again
-  // (a call shown no more pops out, shown again its window closes; a prompt waiting for its page
-  // comes up).
   ArdiaAutoPictureInPictureHostVisibilityChanged(contents);
   if (auto* prompts = permissions::PermissionRequestManager::FromWebContents(contents)) {
     prompts->OnVisibilityChanged(contents->GetVisibility());
   }
-  // A tab-modal dialog (TabDialogManager) shows exactly while its page does.
   if (auto* tab = tabs::TabInterface::MaybeGetFromContents(contents)) {
     if (auto* features = tab->GetTabFeatures()) {
       if (auto* dialogs = features->tab_dialog_manager()) {
@@ -79,4 +73,4 @@ void StartHostVisibility() {
   g_ardia_permission_tab_shown = &Answer;
 }
 
-}  // namespace ardiacore
+}

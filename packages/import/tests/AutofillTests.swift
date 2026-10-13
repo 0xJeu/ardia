@@ -2,7 +2,6 @@ import Foundation
 import XCTest
 @testable import ArdiaImportCore
 
-// Card numbers are secrets: they're decrypted into SecretBytes and need the browser key; addresses don't.
 final class AutofillTests: XCTestCase {
   let chrome = Fixtures.support("Google/Chrome/Default")
 
@@ -22,7 +21,7 @@ final class AutofillTests: XCTestCase {
     XCTAssertEqual(outcome.cards, [
       ImportedCard(name: "Alex Example", number: secret("4111111111111111"), expMonth: 4, expYear: 2030, nickname: "Travel"),
       ImportedCard(name: nil, number: secret("5555555555554444"), expMonth: 12, expYear: 2031, nickname: nil),
-    ])  // the server card in masked_credit_cards is never read
+    ])
     XCTAssertEqual(outcome.undecryptable, 1)
     XCTAssertEqual(outcome.lockedCards, 0)
 
@@ -51,7 +50,7 @@ final class AutofillTests: XCTestCase {
   func testUnlockAfterForgetDropsKey() throws {
     let importer = Importer(discovery: Fixtures.discovery())
     try importer.unlock(browserId: "chrome") { _, _ in
-      importer.forgetKeys()  // the user cancels while the Keychain prompt is up
+      importer.forgetKeys()
       return Fixtures.chromiumSecret
     }
     XCTAssertFalse(importer.isUnlocked("chrome"))
@@ -77,7 +76,7 @@ final class AutofillTests: XCTestCase {
       return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(bytes.dropLast())) as? [String: Any])
     }
     let a = try XCTUnwrap(top["addresses"] as? [[String: Any]])
-    XCTAssertEqual(a.count, 1)  // the empty address is left out
+    XCTAssertEqual(a.count, 1)
     XCTAssertEqual(Set(a[0].keys), ["name", "street", "country"])
     XCTAssertEqual(a[0]["name"] as? String, "Q \"Quote\" \\ Person")
     XCTAssertEqual(a[0]["street"] as? String, "1 Way\nUnit\t2")
@@ -102,7 +101,7 @@ final class AutofillTests: XCTestCase {
         ImportedCard(name: nil, number: secret("0000000000000000"), expMonth: nil, expYear: nil, nickname: "Test card"),
       ], url.lastPathComponent)
       XCTAssertEqual(export.cardCount, 2)
-      XCTAssertEqual(export.profiles.first?.history.isEmpty, false)  // the rest still parses
+      XCTAssertEqual(export.profiles.first?.history.isEmpty, false)
       let json = String(decoding: try JSONEncoder().encode(export), as: UTF8.self)
       XCTAssertFalse(json.contains("4111"))
       XCTAssertTrue(json.contains("\"cardCount\":2"))

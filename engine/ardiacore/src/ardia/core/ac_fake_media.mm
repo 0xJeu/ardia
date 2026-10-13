@@ -14,11 +14,9 @@ namespace ardiacore {
 
 namespace {
 
-// content's fake audio inputs (MediaDevicesManager's GetFakeAudioDevices); the audio service
-// knows no device by these ids, so it opens Chrome's fake input stream.
 constexpr char kFakeInput[] = "fake_audio_input_";
 
-}  // namespace
+}
 
 bool UsingFakeMediaDevices() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -41,7 +39,6 @@ void KeepAudioCaptureFake(content::MediaStreamRequest& request) {
       request.audio_type != blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE) {
     return;
   }
-  // No ids (speech recognition's request must keep none): the picker's first, a fake input.
   for (const std::string& id : request.requested_audio_device_ids) {
     if (!base::StartsWith(id, kFakeInput)) {
       request.requested_audio_device_ids = {std::string(kFakeInput) + "1"};
@@ -50,4 +47,4 @@ void KeepAudioCaptureFake(content::MediaStreamRequest& request) {
   }
 }
 
-}  // namespace ardiacore
+}

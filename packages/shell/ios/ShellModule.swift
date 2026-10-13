@@ -11,11 +11,6 @@ public enum OpenURLInbox {
   }
 }
 
-/// JS saves (the session and history run to megabytes) land on a background queue instead of blocking the JS
-/// thread for the write. A read sees the newest save of a document even before it's on disk, a save never lands
-/// after a newer one of the same document, and quitting waits for the queue. A save that fails stays staged (reads
-/// still see it) and is retried; `done` hears when a save (or a newer one of the same document) is on disk, or why
-/// it couldn't be written.
 enum DocumentStore {
   typealias Done = (Error?) -> Void
   private struct Staged {
@@ -29,7 +24,6 @@ enum DocumentStore {
   private static let lock = NSLock()
   private static var staged: [String: Staged] = [:]
   private static var generation: UInt64 = 0
-  // Quit Without Saving: what is saved stays as it is; a save JS makes from now on is dropped.
   private static var closed = false
   private static let flushOnQuit = NotificationCenter.default.addObserver(
     forName: NSApplication.willTerminateNotification, object: nil, queue: nil
@@ -55,13 +49,11 @@ enum DocumentStore {
     }
     generation += 1
     let mine = generation
-    // Callers still waiting on an older save of this document wait for this one, which supersedes it.
     staged[key] = Staged(url: url, generation: mine, contents: contents, waiters: (staged[key]?.waiters ?? []) + (done.map { [$0] } ?? []))
     lock.unlock()
     queue.async { land(key, mine, attempt: 0) }
   }
 
-  // Deletes the document, and any save of it still waiting.
   static func remove(_ name: String) throws {
     let url = try ShellModule.documentURL(name)
     lock.lock()
@@ -75,7 +67,6 @@ enum DocumentStore {
     }
   }
 
-  // On the queue. Writes the document if `generation` is still its newest save.
   private static func land(_ key: String, _ generation: UInt64, attempt: Int) {
     lock.lock()
     guard let save = staged[key], save.generation == generation else { return lock.unlock() }
@@ -96,7 +87,6 @@ enum DocumentStore {
     for waiter in waiters { waiter(failure) }
     guard let failure else { return }
     NSLog("Ardia: saving \(key) failed (try \(attempt + 1)): \(failure.localizedDescription)")
-    // Kept staged and tried again, backing off to a minute; a newer save of the document takes over instead.
     let delay = min(60.0, 2.0 * pow(2.0, Double(min(attempt, 5))))
     queue.asyncAfter(deadline: .now() + delay) { land(key, generation, attempt: attempt + 1) }
   }
@@ -107,7 +97,6 @@ enum DocumentStore {
     lock.unlock()
   }
 
-  // Blocks until everything staged has been written once more (on quit).
   static func flush() {
     queue.sync {
       lock.lock()
@@ -161,7 +150,6 @@ public class ShellModule: Module {
           self?.sendEvent("onAppEvent", ["type": "appearance", "dark": ShellModule.isDark])
         }
         self?.observeForSidebar()
-        // ArdiaCore cancelled a quit JS was told of (willQuit): JS goes on saving (WindowManager's App lifecycle).
         let quitCancelled = NotificationCenter.default.addObserver(
           forName: Notification.Name("ArdiaCoreQuitCancelled"), object: nil, queue: .main
         ) { _ in self?.sendEvent("onAppEvent", ["type": "quitCancelled"]) }
@@ -196,8 +184,6 @@ public class ShellModule: Module {
       }
     }
 
-    // MARK: Windows
-
     AsyncFunction("openWindow") { (id: String, options: [String: Any]) in
       WindowManager.shared.open(
         id: id,
@@ -215,13 +201,10 @@ public class ShellModule: Module {
     AsyncFunction("setWindowProfile") { (id: String, profile: String, neighbours: [String]) in
       WindowManager.shared.setProfile(id: id, profile: profile, neighbours: neighbours)
     }.runOnQueue(.main)
-    // [x, y] from the window's top-left; nil puts the buttons back at their default place.
     AsyncFunction("setTrafficLightsCenter") { (id: String, center: [Double]?) in
       WindowManager.shared.setTrafficLightsCenter(id: id, center: center.flatMap { $0.count == 2 ? NSPoint(x: $0[0], y: $0[1]) : nil })
     }.runOnQueue(.main)
     AsyncFunction("focusWindow") { (id: String) in WindowManager.shared.focus(id: id) }.runOnQueue(.main)
-    // The dragged tab's picture under the pointer (DragPreview). Rects and points are in the source window from its
-    // top-left ([x, y, w, h], [x, y]), but for the new window's frame: on screen in AppKit's coordinates.
     AsyncFunction("dragPreviewBegin") { (windowId: String, chip: [Double], grab: [Double]) in
       guard chip.count == 4, grab.count == 2 else { return }
       DragPreview.shared.begin(windowId: windowId, chip: NSRect(x: chip[0], y: chip[1], width: chip[2], height: chip[3]), grab: NSPoint(x: grab[0], y: grab[1]))
@@ -235,21 +218,15 @@ public class ShellModule: Module {
       DragPreview.shared.update(shape: shape, at: NSPoint(x: point[0], y: point[1]))
     }.runOnQueue(.main)
     AsyncFunction("dragPreviewCancel") { DragPreview.shared.cancel() }.runOnQueue(.main)
-    // A dragged item over its neighbours. React Native macOS's zIndex sets the layer's zPosition, which doesn't change
-    // the order AppKit draws sibling views in: this puts the view with React tag `tag`, and `levels` of its ancestors,
-    // last among their siblings; lowered, they're back in React's order (as React's next change of children puts them).
     AsyncFunction("raiseView") { (tag: Int, levels: Int, raised: Bool) in
       guard var view = self.appContext?.findView(withTag: tag, ofType: NSView.self) else { return }
       for _ in 0...max(0, levels) {
         guard let parent = view.superview else { return }
-        // AppKit reorders an existing subview for hit testing but leaves its layer where it was: both move.
         let layers = view.layer.flatMap { layer in parent.layer.flatMap { $0 === layer.superlayer ? (layer, $0) : nil } }
         if raised {
           if parent.subviews.last !== view { parent.addSubview(view, positioned: .above, relativeTo: nil) }
           if let (layer, host) = layers, host.sublayers?.last !== layer { host.addSublayer(layer) }
         } else if let order = parent.value(forKey: "reactSubviews") as? [NSView], let index = order.firstIndex(where: { $0 === view }) {
-          // Below the next of its React siblings that's on screen (React may have reordered them meanwhile); only this
-          // view moves (asking the parent to re-add all its subviews dropped the clipped ones of a scroll view).
           if let next = order[(index + 1)...].first(where: { $0.superview === parent }) {
             parent.addSubview(view, positioned: .below, relativeTo: next)
             if let (layer, host) = layers, let below = next.layer, below.superlayer === host { host.insertSublayer(layer, below: below) }
@@ -264,7 +241,6 @@ public class ShellModule: Module {
     AsyncFunction("dragPreviewPlaceholder") { (title: String, favicon: String?) in
       DragPreview.shared.setPlaceholder(title: title, favicon: favicon)
     }.runOnQueue(.main)
-    // The window's frame now, on screen in AppKit's coordinates (the store's stays the restored one in full screen).
     AsyncFunction("windowFrame") { (id: String) -> [Double]? in
       guard let f = WindowManager.shared.windows[id]?.frame else { return nil }
       return [f.minX, f.minY, f.width, f.height]
@@ -292,8 +268,6 @@ public class ShellModule: Module {
     AsyncFunction("windowIds") { () -> [String] in Array(WindowManager.shared.windows.keys) }.runOnQueue(.main)
     AsyncFunction("keyWindowId") { () -> String? in WindowManager.shared.keyWindowId }.runOnQueue(.main)
 
-    // MARK: App
-
     AsyncFunction("setAppearance") { (mode: String) in
       NSApp.appearance = mode == "light" ? NSAppearance(named: .aqua) : mode == "dark" ? NSAppearance(named: .darkAqua) : nil
     }.runOnQueue(.main)
@@ -304,7 +278,6 @@ public class ShellModule: Module {
       MenuState.current = MenuState(state)
       MainMenu.refresh()
     }.runOnQueue(.main)
-    // The bookmark lists, sent only when they change (the menu state then leaves them out).
     AsyncFunction("setMenuBookmarks") { (bookmarks: [String: Any]) in
       MenuState.setBookmarks(bookmarks)
       MainMenu.refresh()
@@ -363,8 +336,6 @@ public class ShellModule: Module {
 
     Function("removeDocument") { (name: String) in try DocumentStore.remove(name) }
 
-    // The same save, resolved once it's on disk (or a newer save of the document is), rejected if it can't be
-    // written: for writes that must land before something else happens (sync's journal).
     AsyncFunction("saveDocument") { (name: String, contents: String, promise: Promise) in
       try DocumentStore.write(name, contents) { error in
         if let error { promise.reject("ERR_SAVE_DOCUMENT", error.localizedDescription) } else { promise.resolve(nil) }
@@ -467,7 +438,6 @@ public class ShellModule: Module {
       if let children = item["children"] as? [[String: Any]] {
         entry.submenu = contextMenu(children, target: target)
       } else if item["share"] as? Bool == true {
-        // The system's sharing services, chosen as "<id>:via:<service>".
         let id = item["id"] as? String ?? ""
         let submenu = NSMenu()
         submenu.autoenablesItems = false
@@ -575,7 +545,6 @@ final class FadeLabel: ExpoView {
   private func relayout() {
     let fitting = field.fittingSize
     field.frame = NSRect(x: 0, y: (bounds.height - fitting.height) / 2, width: max(bounds.width, fitting.width), height: fitting.height)
-    // RCTView resets its backing-layer mask; keep the mask on the text field layer.
     field.wantsLayer = true
     guard bounds.width > 0, fitting.width > bounds.width + 0.5 else {
       field.layer?.mask = nil
@@ -680,18 +649,8 @@ public class SymbolModule: Module {
   }
 }
 
-// A window's title bar, as far as the mouse goes: a press on it moves the window, a double-click does what System
-// Settings › Desktop & Dock › "Double-click a window's title bar to" says (Fill, Zoom, Minimize or nothing).
-//
-// AppKit only does this by itself in the window's real title bar band (the top 32 pt) and never for a double-click
-// (Chrome's content view counts as opaque there), and only when the press lands on the region itself. Over the tab
-// strip it lands on the tabs' scroll view, which covers the whole strip: pressing the empty strip right of "+" moved
-// the window only in its top 32 pt and a double-click did nothing (the owner's 0.2.25 report). So the region watches
-// the window's presses itself: one inside it whose view is the region or the empty part of a scroll view laid over it
-// (no tab, button or field: those are hit instead) is the title bar's.
 final class WindowDragRegion: ExpoView {
   private var monitor: Any?
-  // The second press of a double-click it claimed: the action runs on its release, as on a title bar.
   private var doubleClickDown = false
 
   override var mouseDownCanMoveWindow: Bool {
@@ -713,7 +672,7 @@ final class WindowDragRegion: ExpoView {
         if event.clickCount == 2, let window = self.window { Self.doubleClick(window, event.modifierFlags) }
         return nil
       }
-      self.doubleClickDown = false  // its release went elsewhere
+      self.doubleClickDown = false
       guard self.ownsPress(event) else { return event }
       self.press(event, releaseFollows: true)
       return nil
@@ -724,22 +683,19 @@ final class WindowDragRegion: ExpoView {
     if let monitor { NSEvent.removeMonitor(monitor) }
   }
 
-  // A press sent to the view itself, not through the app's event queue.
   override func mouseDown(with event: NSEvent) {
     if ownsPress(event) { press(event, releaseFollows: false) } else { super.mouseDown(with: event) }
   }
 
   private func ownsPress(_ event: NSEvent) -> Bool {
     guard let window, event.window === window, !isHiddenOrHasHiddenAncestor, alphaValue > 0,
-          !event.modifierFlags.contains(.control),  // a right-click
+          !event.modifierFlags.contains(.control),
           bounds.contains(convert(event.locationInWindow, from: nil)),
           let hit = window.contentView?.superview?.hitTest(event.locationInWindow)
     else { return false }
     if hit === self { return true }
-    // A scroll view's own background: its clip view, or its document view where no item is.
     let background = hit is NSClipView || (hit.superview as? NSClipView)?.documentView === hit
     guard background, let container = superview, hit.isDescendant(of: container) else { return false }
-    // Inside something that keeps its presses (`mouseDownCanMoveWindow={false}`).
     var view = hit.superview
     while let v = view, v !== container {
       if !(v is NSClipView || v is NSScrollView), !v.mouseDownCanMoveWindow { return false }
@@ -750,8 +706,6 @@ final class WindowDragRegion: ExpoView {
 
   private func press(_ event: NSEvent, releaseFollows: Bool) {
     guard let window else { return }
-    // The press never reaches AppKit's own handling, which makes a clicked window key; ⌘-drag moves a window
-    // without bringing it forward, and a dialog of the window's (a child window) keeps the keyboard.
     var key = NSApp.keyWindow
     while let k = key, k !== window { key = k.parent }
     if key == nil, window.canBecomeKey, !event.modifierFlags.contains(.command) { window.makeKeyAndOrderFront(nil) }
@@ -762,8 +716,6 @@ final class WindowDragRegion: ExpoView {
     window.performDrag(with: event)
   }
 
-  // AppKit's own title-bar double-click (-[NSTitledFrame _handlePossibleDoubleClickWithModifiers:], which acts on the
-  // setting as the system's title bars do, ⌥ included); else the setting read by hand.
   static func doubleClick(_ window: NSWindow, _ modifiers: NSEvent.ModifierFlags) {
     let sel = NSSelectorFromString("_handlePossibleDoubleClickWithModifiers:")
     if let frame = window.contentView?.superview, let method = class_getInstanceMethod(type(of: frame), sel),
@@ -800,11 +752,6 @@ public class OutsidePressAreaModule: Module {
   }
 }
 
-// A popover's area (the command bar): a press anywhere else in its window, on the page, the sidebar or its rows, the
-// tab strip, is `onOutsidePress`, as a click outside Dia's or Safari's address bar closes it. Its field's blur alone
-// can't tell: that comes only when the press moves AppKit's first responder, and the sidebar, its rows and the drag
-// regions never take it, so a click on the empty sidebar left the bar open (the owner's 0.2.27 report). The press
-// goes on to whatever it landed on.
 final class OutsidePressArea: ExpoView {
   let onOutsidePress = EventDispatcher()
   fileprivate static let areas = NSHashTable<OutsidePressArea>.weakObjects()
@@ -826,8 +773,6 @@ final class OutsidePressArea: ExpoView {
   }
 }
 
-// Installed by ShellModule's OnCreate, before any WindowDragRegion's: local monitors run in the order they were added,
-// and a drag region keeps the presses on the empty sidebar and tab strip from the ones after it.
 let installOutsidePressMonitor: Void = {
   _ = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { event in
     for area in OutsidePressArea.areas.allObjects { area.pressed(event) }
@@ -894,7 +839,6 @@ let installScrollViewInsetFix: Void = {
     return view
   }
   let imp = imp_implementationWithBlock(block)
-  // Patch only RCTCustomScrollView, not inherited NSScrollView implementations.
   if !class_addMethod(cls, #selector(NSView.init(frame:)), imp, method_getTypeEncoding(method)) {
     method_setImplementation(method, imp)
   }
@@ -980,7 +924,6 @@ final class VisualEffect: ExpoView {
     effect.layer?.masksToBounds = cornerRadius > 0
   }
 
-  // RN macOS sets subview frames directly; size them in setFrameSize.
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     effect.frame = bounds
@@ -1047,9 +990,6 @@ final class GlassEffect: ExpoView {
     tintLayer.backgroundColor = tint?.cgColor
   }
 
-  // RN macOS sets subview frames directly; size them in setFrameSize. The glass keeps its shape and tint through a
-  // resize: setting them again re-rendered it (a SwiftUI pass) on every frame of a resize, as the sidebar's slide is
-  // for the URL bar.
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     effect.frame = bounds

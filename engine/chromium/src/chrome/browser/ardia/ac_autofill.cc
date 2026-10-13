@@ -42,7 +42,6 @@ using autofill::PersonalDataManager;
 constexpr int kSettleChecks = 20;
 constexpr base::TimeDelta kSettleStep = base::Milliseconds(50);
 
-// The app's address keys and Chrome's field types.
 constexpr std::pair<const char*, autofill::FieldType> kAddressFields[] = {
     {"name", autofill::NAME_FULL},
     {"organization", autofill::COMPANY_NAME},
@@ -115,7 +114,6 @@ base::DictValue CardEntry(const autofill::CreditCard& card) {
 
 using Ready = base::OnceCallback<void(PersonalDataManager*)>;
 
-// Calls that wait for the profile's addresses and cards to load.
 class AutofillState : public ProfileState,
                       public autofill::PersonalDataManagerObserver {
  public:
@@ -131,8 +129,6 @@ class AutofillState : public ProfileState,
     waiting_.push_back(std::move(ready));
   }
 
-  // How many times the data changed: Chrome notifies once a write has gone
-  // through its database and the data was read back.
   int changes() const { return changes_; }
   base::WeakPtr<AutofillState> GetWeakPtr() {
     return weak_factory_.GetWeakPtr();
@@ -164,7 +160,6 @@ class AutofillState : public ProfileState,
   base::WeakPtrFactory<AutofillState> weak_factory_{this};
 };
 
-// Runs |then| with the loaded data manager, or replies with an error.
 void Load(const Call& call,
           base::OnceCallback<void(PersonalDataManager*, Reply)> then,
           Reply reply) {
@@ -186,7 +181,6 @@ void Load(const Call& call,
 
 using Check = base::RepeatingCallback<bool(PersonalDataManager*)>;
 
-// A write in flight: the data manager, and the change count before it.
 struct Write {
   base::WeakPtr<PersonalDataManager> pdm;
   base::WeakPtr<AutofillState> state;
@@ -198,10 +192,6 @@ Write StartWrite(Profile* profile, PersonalDataManager* pdm) {
   return {pdm->GetWeakPtr(), state.GetWeakPtr(), state.changes()};
 }
 
-// Sends |result| once Chrome has written the change (its data changed since
-// the write began: the in-memory copy updates before the database does) and
-// |landed| holds for what it read back; an error after kSettleChecks (Chrome
-// refused it: a duplicate, say).
 void Settle(Write write,
             Check landed,
             base::DictValue result,
@@ -223,7 +213,6 @@ void Settle(Write write,
       kSettleStep);
 }
 
-// Imports: what the call parses before it returns, kept until the data loads.
 constexpr size_t kMaxImportBytes = 4 * 1024 * 1024;
 constexpr size_t kMaxImportItems = 1000;
 
@@ -297,9 +286,6 @@ std::optional<ImportedAddress> ToAddress(const base::Value& entry) {
   return address;
 }
 
-// A local card with a 12–19 digit number that passes Luhn and a plausible
-// expiry (an expired card is kept, as Chrome keeps one). The number's copies
-// made here are zeroed.
 std::optional<autofill::CreditCard> ToCard(const base::Value& entry) {
   const base::DictValue* dict = entry.GetIfDict();
   if (!dict) {
@@ -334,7 +320,6 @@ std::optional<autofill::CreditCard> ToCard(const base::Value& entry) {
     return std::nullopt;
   }
 
-  // As chrome://settings adds a card (autofillPrivate's saveCreditCard).
   autofill::CreditCard card(base::Uuid::GenerateRandomV4().AsLowercaseString());
   card.set_is_user_confirmed(true);
   std::u16string number16 = base::ASCIIToUTF16(digits);
@@ -357,7 +342,6 @@ std::optional<autofill::CreditCard> ToCard(const base::Value& entry) {
   return card;
 }
 
-// Adds what the profile doesn't have yet; replies once it's queued.
 void ImportLoaded(ImportBatch batch, PersonalDataManager* pdm, Reply reply) {
   autofill::AddressDataManager& adm = pdm->address_data_manager();
   autofill::PaymentsDataManager& paydm = pdm->payments_data_manager();
@@ -367,7 +351,6 @@ void ImportLoaded(ImportBatch batch, PersonalDataManager* pdm, Reply reply) {
 
   std::vector<autofill::AutofillProfile> added_addresses;
   for (const ImportedAddress& address : batch.addresses) {
-    // As chrome://settings saves an address (autofillPrivate's saveAddress).
     autofill::AutofillProfile profile(
         adm.IsEligibleForAddressAccountStorage()
             ? autofill::AutofillProfile::RecordType::kAccount
@@ -423,8 +406,8 @@ void ImportLoaded(ImportBatch batch, PersonalDataManager* pdm, Reply reply) {
                  .Set("rejected", rejected));
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 using ardia::Call;
 using ardia::Reply;
@@ -468,8 +451,6 @@ AC_ENGINE_CALL(ac_autofill_save_address) {
             if (id && !id->empty() && !existing) {
               return reply.Error("No such address");
             }
-            // As chrome://settings saves an address (autofillPrivate's
-            // saveAddress): every field, trimmed and user-verified.
             const std::string* country = address.FindString("country");
             autofill::AutofillProfile profile =
                 existing
@@ -556,8 +537,6 @@ AC_ENGINE_CALL(ac_autofill_save_card) {
             if (!existing && (digits.size() < 12 || digits.size() > 19)) {
               return reply.Error("invalid number");
             }
-            // As chrome://settings saves a card (autofillPrivate's
-            // saveCreditCard): only the fields given change.
             autofill::CreditCard credit_card =
                 existing ? *existing
                          : autofill::CreditCard(
@@ -650,8 +629,6 @@ AC_ENGINE_CALL(ac_autofill_remove) {
 
 AC_ENGINE_CALL(ac_autofill_card_number) {
   AC_AUTOFILL_CALL();
-  // Load() runs |then| at once or from the profile's own state, so the
-  // profile is alive when it does.
   ardia::Load(
       call,
       base::BindOnce(
@@ -660,8 +637,6 @@ AC_ENGINE_CALL(ac_autofill_card_number) {
             if (!pdm->payments_data_manager().GetCreditCardByGUID(id)) {
               return reply.Send(base::DictValue().Set("number", base::Value()));
             }
-            // Chrome's reauth before a full card number, every time (Chrome's
-            // payments page asks when its mandatory reauth is on).
             ardia::Reauth(
                 profile, device_reauth::DeviceAuthSource::kAutofill,
                 l10n_util::GetStringUTF16(
@@ -696,8 +671,6 @@ AC_ENGINE_CALL(ac_autofill_card_number) {
 }
 
 AC_ENGINE_CALL(ac_autofill_import) {
-  // Parsed here, not by Call, so this copy of the card numbers is ours to
-  // zero.
   Call call(profile_dir, nullptr, reply, context);
   if (!call) {
     return;
@@ -714,9 +687,6 @@ AC_ENGINE_CALL(ac_autofill_import) {
     if (!args.dict()) {
       return call.TakeReply().Error("arguments are not a JSON object");
     }
-    // Call reads the private-session flag only from arguments it parsed itself:
-    // refuse it here as Call refuses it for every call that keeps no state per
-    // off-the-record profile (OffTheRecord::kRefuse).
     if (args.dict()->FindBool("offTheRecord").value_or(false)) {
       return call.TakeReply().Error("not for a private session");
     }
@@ -746,7 +716,7 @@ AC_ENGINE_CALL(ac_autofill_import) {
         }
       }
     }
-  }  // The parsed arguments are zeroed here.
+  }
   ardia::Load(call,
                   base::BindOnce(&ardia::ImportLoaded, std::move(batch)),
                   call.TakeReply());

@@ -38,12 +38,8 @@ using extensions::PasswordsPrivateDelegate;
 namespace pp = extensions::api::passwords_private;
 using Entries = PasswordsPrivateDelegate::UiEntries;
 
-// A write resolves once the list shows it, as the settings page waits for its
-// list to update: up to 20 checks 50 ms apart.
 constexpr int kSettleChecks = 20;
 constexpr base::TimeDelta kSettleStep = base::Milliseconds(50);
-// The delegate (with every saved password in memory) is held while in use and
-// this long after, as the hidden settings page was.
 constexpr base::TimeDelta kIdle = base::Seconds(60);
 
 std::string WithoutSlash(std::string realm) {
@@ -92,7 +88,6 @@ const char* StatusName(password_manager::ExportProgressStatus status) {
   return "unknown";
 }
 
-// One profile's delegate, reauth and export.
 class PasswordsState : public ProfileState {
  public:
   explicit PasswordsState(Profile* profile) : ProfileState(profile) {}
@@ -101,12 +96,10 @@ class PasswordsState : public ProfileState {
     return weak_factory_.GetWeakPtr();
   }
 
-  // Chrome's delegate, held from now until kIdle after the last call ends.
-  // Bind |busy| into the call's callbacks.
   PasswordsPrivateDelegate* Use(base::ScopedClosureRunner* busy) {
     if (!delegate_) {
       delegate_ = extensions::PasswordsPrivateDelegateFactory::
-          GetForBrowserContext(profile(), /*create=*/true);
+          GetForBrowserContext(profile(), true);
     }
     ++busy_;
     *busy = base::ScopedClosureRunner(base::BindOnce(
@@ -115,7 +108,6 @@ class PasswordsState : public ProfileState {
     return delegate_.get();
   }
 
-  // Writes the saved passwords as CSV to |path| with Chrome's exporter.
   void Export(PasswordsPrivateDelegate* delegate,
               const base::FilePath& path,
               base::ScopedClosureRunner busy,
@@ -171,7 +163,6 @@ class PasswordsState : public ProfileState {
           base::DictValue().Set("status", StatusName(info.status)));
       export_reply_.reset();
     }
-    // The exporter may not be destroyed inside its own callback.
     base::SequencedTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, std::move(exporter_));
     export_busy_.RunAndReset();
@@ -186,8 +177,6 @@ class PasswordsState : public ProfileState {
   base::WeakPtrFactory<PasswordsState> weak_factory_{this};
 };
 
-// One call's hold on the profile's passwords. Every asynchronous step checks
-// alive(): the state goes with the profile, and the delegate may outlive both.
 struct Session {
   base::WeakPtr<PasswordsState> state;
   base::WeakPtr<PasswordsPrivateDelegate> delegate;
@@ -210,8 +199,6 @@ std::optional<Session> Open(const Call& call) {
 
 using Then = base::OnceCallback<void(Session, Reply, const Entries&)>;
 
-// The list, once the delegate has loaded it (its presenter is then
-// initialized: adding checks duplicates against it, exporting reads it).
 void WithList(Session session, Reply reply, Then then) {
   if (!session.alive()) {
     return reply.Error("closed");
@@ -229,7 +216,6 @@ void WithList(Session session, Reply reply, Then then) {
 
 using Authenticated = base::OnceCallback<void(Session, Reply, bool)>;
 
-// Chrome's reauth (ac_reauth.h) with the password page's source.
 void Reauthenticate(Session session,
                     Reply reply,
                     int prompt,
@@ -253,8 +239,6 @@ void Reauthenticate(Session session,
 using Check =
     base::RepeatingCallback<bool(PasswordsPrivateDelegate*, const Entries&)>;
 
-// Replies {ok} once |landed| holds for the list, or an error after
-// kSettleChecks: the store didn't take the change.
 void Settle(Session session, Reply reply, Check landed, int checks_left) {
   WithList(
       std::move(session), std::move(reply),
@@ -276,7 +260,6 @@ void Settle(Session session, Reply reply, Check landed, int checks_left) {
           landed, checks_left));
 }
 
-// The login is listed (or not), and when |password| is given, saved with it.
 Check Saved(std::string origin,
             std::string username,
             std::optional<std::u16string> password) {
@@ -309,8 +292,8 @@ std::optional<std::u16string> OptionalUTF16(const std::string* text) {
               : std::nullopt;
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 using ardia::Call;
 using ardia::Entries;
@@ -376,8 +359,6 @@ AC_ENGINE_CALL(ac_passwords_reveal) {
             if (!entry) {
               return reply.Error("No such password");
             }
-            // The credential chosen now is the one revealed, as Chrome's
-            // page asks by id: not whatever has its name after the prompt.
             ardia::Reauthenticate(
                 std::move(session), std::move(reply),
                 IDS_PASSWORDS_PAGE_AUTHENTICATION_PROMPT_BIOMETRIC_SUFFIX,
@@ -417,8 +398,8 @@ AC_ENGINE_CALL(ac_passwords_add) {
              Session session, Reply reply, const Entries&) {
             if (!session.delegate->AddPassword(
                     origin, base::UTF8ToUTF16(username),
-                    base::UTF8ToUTF16(password), /*note=*/u"",
-                    /*use_account_store=*/false)) {
+                    base::UTF8ToUTF16(password), u"",
+                    false)) {
               return reply.Error(
                   "Could not save the password (invalid, or already saved)");
             }
@@ -443,7 +424,6 @@ AC_ENGINE_CALL(ac_passwords_update) {
             if (!entry) {
               return reply.Error("No such password");
             }
-            // Editing is behind the same reauth as Chrome's edit dialog.
             ardia::Reauthenticate(
                 std::move(session), std::move(reply),
                 IDS_PASSWORDS_PAGE_EDIT_AUTHENTICATION_PROMPT_BIOMETRIC_SUFFIX,
@@ -455,9 +435,6 @@ AC_ENGINE_CALL(ac_passwords_update) {
                       if (!authenticated) {
                         return reply.Error("Not authenticated");
                       }
-                      // ChangeCredential edits the credential the id names,
-                      // in every store it is in; no password keeps the saved
-                      // one.
                       ardia::pp::PasswordUiEntry change;
                       change.id = id;
                       change.username = username;
@@ -555,7 +532,6 @@ AC_ENGINE_CALL(ac_passwords_export) {
       std::move(*session), call.TakeReply(),
       base::BindOnce(
           [](std::string path, Session session, Reply reply, const Entries&) {
-            // As Chrome's export: a reauth every time (no validity window).
             ardia::Reauthenticate(
                 std::move(session), std::move(reply),
                 IDS_PASSWORDS_PAGE_EXPORT_AUTHENTICATION_PROMPT_BIOMETRIC_SUFFIX,

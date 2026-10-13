@@ -1,7 +1,3 @@
-// The browser side of ArdiaCore's page channel (mojom/ardiacore.mojom): the page script sent to
-// every renderer, page messages from a tab's frames, and calls into its main frame. Also the
-// ardia: scheme rule CEF enforced in packages/cef/ios/ACClient.mm.
-
 #ifndef ARDIA_CORE_AC_PAGE_CHANNEL_H_
 #define ARDIA_CORE_AC_PAGE_CHANNEL_H_
 
@@ -28,23 +24,17 @@ class NavigationThrottleRegistry;
 class RenderFrameHost;
 class RenderProcessHost;
 class WebContents;
-}  // namespace content
+}
 
 namespace ardiacore {
 
-// The page script: every renderer gets it at launch (before any frame); changing it
-// reaches the renderers already running (their next documents).
 void SetPageScript(const std::string& script);
 const std::string& GetPageScript();
 void SendPageScript(content::RenderProcessHost* host);
 
-// From ACContentBrowserClient.
 void RegisterPageChannelBinders(content::RenderFrameHost& render_frame_host,
                                 blink::AssociatedInterfaceRegistry& registry);
 void AddAppSchemeThrottle(content::NavigationThrottleRegistry& registry);
-// ardia: URLs: nothing navigates to or opens them. A page of Chrome's (chrome:,
-// devtools:) asking for one, in its main frame or a new tab, is reported to the host instead
-// (tab:didRequestAppURL:userGesture:), which routes it; web pages' are dropped silently.
 bool IsAppURL(const GURL& url);
 bool IsWebUIURL(const GURL& url);
 void ReportAppURLRequest(content::WebContents* contents,
@@ -62,9 +52,7 @@ class PageChannel : public content::WebContentsObserver,
   void Bind(content::RenderFrameHost* frame,
             mojo::PendingAssociatedReceiver<mojom::ACPageHost> receiver);
 
-  // The main frame's page script / main world.
   void CallPage(const std::string& kind, const std::string& json);
-  // A frame by its id (FrameId below).
   void CallFrame(const std::string& frame_id,
                  const std::string& kind,
                  const std::string& json);
@@ -76,16 +64,11 @@ class PageChannel : public content::WebContentsObserver,
 
   static std::string FrameId(content::RenderFrameHost* frame);
 
-  // The app's colour for the tab (-[ArdiaCoreTab pageColor]): every main frame gets it as it is
-  // created, as a navigation is about to commit in it and once it has, and the live ones again when
-  // it changes. Anything but lowercase letters clears it.
   void SetPageColor(const std::string& color);
   const std::string& page_color() const { return page_color_; }
 
-  // mojom::ACPageHost:
   void Post(const std::string& kind, const std::string& json) override;
 
-  // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
   void ReadyToCommitNavigation(content::NavigationHandle* navigation) override;
   void RenderFrameCreated(content::RenderFrameHost* frame) override;
@@ -104,6 +87,6 @@ class PageChannel : public content::WebContentsObserver,
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
 
-}  // namespace ardiacore
+}
 
-#endif  // ARDIA_CORE_AC_PAGE_CHANNEL_H_
+#endif

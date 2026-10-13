@@ -14,10 +14,6 @@ static NSUserDefaults *IsolatedStandardUserDefaults(id self, SEL _cmd) { return 
 
 @implementation ACIsolation
 
-// Before main, ahead of the app's own code, AppKit, React Native and Sparkle. A Debug build and the installed app share
-// com.ardia.browser; a test instance's persistent domain is a plist in its data dir instead. The argument, global
-// and registration domains stay the process's own, as with the standard object. Only what goes through
-// +standardUserDefaults is covered: CFPreferences on kCFPreferencesCurrentApplication still reaches the shared domain.
 + (void)load {
   const char *dir = getenv("ARDIA_DATA_DIR");
   if (!dir || !*dir) return;
@@ -26,7 +22,6 @@ static NSUserDefaults *IsolatedStandardUserDefaults(id self, SEL _cmd) { return 
     path = [NSFileManager.defaultManager.currentDirectoryPath stringByAppendingPathComponent:path];
   gDataDirectory = path.stringByStandardizingPath;
   NSString *domain = NSBundle.mainBundle.bundleIdentifier ?: @"com.ardia.browser";
-  // A suite named by an absolute path is that plist (".plist" appended), never searched past to the app's domain.
   gDefaults = [[NSUserDefaults alloc]
       initWithSuiteName:[[gDataDirectory stringByAppendingPathComponent:@"Preferences"] stringByAppendingPathComponent:domain]];
   if (!gDefaults) return;

@@ -1,7 +1,5 @@
 import Foundation
 
-// Holds a decrypted secret (cookie value, card number) in memory we own, so it can be zeroed. Never copy the
-// contents into a String, Data or [UInt8]: those can't be wiped.
 public final class SecretBytes: @unchecked Sendable, Equatable {
   private let buffer: UnsafeMutableRawPointer
   private let capacity: Int
@@ -38,7 +36,6 @@ public final class SecretBytes: @unchecked Sendable, Equatable {
     try body(UnsafeMutableRawBufferPointer(start: buffer, count: count))
   }
 
-  /// Copies `range` into a new right-sized SecretBytes.
   func slice(_ range: Range<Int>) -> SecretBytes {
     precondition(range.lowerBound >= 0 && range.upperBound <= count)
     return SecretBytes(copying: UnsafeRawBufferPointer(start: buffer + range.lowerBound, count: range.count))
@@ -61,7 +58,6 @@ extension SecretBytes: CustomStringConvertible, CustomDebugStringConvertible {
   public var debugDescription: String { description }
 }
 
-// Growable byte buffer for building wire payloads; every reallocation wipes the old storage.
 final class SecretWriter {
   private var storage: SecretBytes
   private(set) var count = 0
@@ -98,13 +94,11 @@ final class SecretWriter {
     count += 1
   }
 
-  /// For non-secret ASCII/UTF-8 text (keys, numbers, punctuation).
   func append(_ text: String) {
     var text = text
     text.withUTF8 { append(UnsafeRawBufferPointer($0)) }
   }
 
-  /// Hands over the bytes as a right-sized SecretBytes and wipes the working buffer.
   func finish() -> SecretBytes {
     let out = storage.slice(0..<count)
     storage.wipe()

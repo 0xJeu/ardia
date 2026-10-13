@@ -21,7 +21,6 @@ NSString *JSON(NSDictionary *value) {
   return data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
 }
 
-// The origin the engine keys logins by (scheme://host[:port]), as packages/cef's OriginOf.
 NSString *OriginOf(NSString *url) {
   NSURLComponents *c = [NSURLComponents componentsWithString:url ?: @""];
   if (!c.scheme.length || !c.host.length) return url ?: @"";
@@ -32,7 +31,6 @@ NSDictionary *Login(NSString *origin, NSString *username) {
   return @{@"origin" : OriginOf(origin), @"username" : username ?: @""};
 }
 
-// The app's created/modified fields, which Chrome's settings never filled either.
 ArdiaCoreResult Dated(NSString *key, ArdiaCoreResult completion) {
   return ^(NSDictionary *result) {
     NSArray *list = result[key];
@@ -62,7 +60,6 @@ NSString *ProfileDirectory(NSString *profile) {
   return [ArdiaCoreHost.dataDirectory stringByAppendingPathComponent:dir];
 }
 
-// Where Chrome unpacked a store extension: <profile>/Extensions/<id>/<version>_<n>.
 NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   if (!ac::ext::IsExtensionId(extensionId) || ![version isKindOfClass:NSString.class] || ![version length]) return nil;
   NSString *dir = [[ProfileDirectory(profile) stringByAppendingPathComponent:@"Extensions"] stringByAppendingPathComponent:extensionId];
@@ -72,15 +69,13 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   return nil;
 }
 
-}  // namespace
+}
 
 @implementation ArdiaCoreServices
 
 + (void)call:(NSString *)name profile:(NSString *)profile args:(NSDictionary *)args completion:(ArdiaCoreResult)completion {
   [ArdiaCoreEngineBridge call:name profile:profile args:JSON(args) completion:^(NSString *json) { completion(Parse(json)); }];
 }
-
-// MARK: Passwords
 
 + (void)listPasswords:(NSString *)profile completion:(ArdiaCoreResult)completion {
   [self call:@"ac_passwords_list" profile:profile args:nil completion:^(NSDictionary *result) {
@@ -138,7 +133,6 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
     }];
   };
   if (path.length) return run(path);
-  // As packages/cef: the user picks where (a background test instance answers from file-chooser.txt).
   NSSavePanel *panel = [NSSavePanel savePanel];
   panel.nameFieldStringValue = @"Ardia Passwords.csv";
   panel.allowedContentTypes = @[ UTTypeCommaSeparatedText ];
@@ -146,8 +140,6 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   panel.message = @"Anyone who can open this file can read your passwords.";
   [panel beginWithCompletionHandler:^(NSModalResponse response) { run(response == NSModalResponseOK ? panel.URL.path : nil); }];
 }
-
-// MARK: Preferences
 
 + (BOOL)boolPreference:(NSString *)name profile:(NSString *)profile {
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(ardiacore_host::OriginalProfileName(profile));
@@ -160,8 +152,6 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(ardiacore_host::OriginalProfileName(profile));
   if ([p respondsToSelector:@selector(setBoolPreference:value:)]) [p setBoolPreference:name value:value];
 }
-
-// MARK: Autofill
 
 + (void)addresses:(NSString *)profile completion:(ArdiaCoreResult)completion {
   [self call:@"ac_autofill_addresses" profile:profile args:nil completion:Dated(@"addresses", completion)];
@@ -194,10 +184,7 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   }];
 }
 
-// MARK: Zoom
-
 + (void)zoomLevels:(NSString *)profile completion:(void (^)(NSDictionary<NSString *, NSNumber *> *))completion {
-  // A private window's zoom levels are its own and go with it.
   if (ardiacore_host::IsIncognito(profile)) return completion(@{});
   [self call:@"ac_zoom_list" profile:profile args:nil completion:^(NSDictionary *result) {
     NSMutableDictionary *levels = [NSMutableDictionary dictionary];
@@ -213,8 +200,6 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   const double level = fabs(zoom - 1) < 1e-6 ? 0 : log(zoom) / log(1.2);
   [self call:@"ac_zoom_set" profile:profile args:@{@"host" : host, @"level" : @(level)} completion:^(NSDictionary *) {}];
 }
-
-// MARK: Extensions
 
 + (void (^)(NSString *, NSDictionary *))extensionsHandler {
   return gExtensionsHandler;
@@ -307,8 +292,6 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   }];
 }
 
-// MARK: Downloads
-
 void (^gDownloadsHandler)(NSDictionary *);
 NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
   static NSMutableDictionary *profiles = [NSMutableDictionary dictionary];
@@ -336,7 +319,6 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
 }
 
 + (void)watchDownloads:(NSString *)profile {
-  // The list starts the profile's events, and reports what's in flight now.
   [self call:@"ac_downloads_list" profile:profile args:nil completion:^(NSDictionary *result) {
     for (NSDictionary *download in [result[@"downloads"] isKindOfClass:NSArray.class] ? result[@"downloads"] : @[]) {
       if (![download isKindOfClass:NSDictionary.class]) continue;
@@ -353,8 +335,6 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
   [self call:[@"ac_downloads_" stringByAppendingString:command] profile:profile args:@{@"id" : downloadId ?: @""}
       completion:^(NSDictionary *) {}];
 }
-
-// MARK: Site settings
 
 + (void)siteSettings:(NSString *)profile origin:(NSString *)origin completion:(ArdiaCoreResult)completion {
   [self call:@"ac_site_settings_get" profile:profile args:@{@"origin" : origin ?: @""} completion:^(NSDictionary *result) {
@@ -383,8 +363,6 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
   }];
 }
 
-// MARK: External apps
-
 + (void)externalAppAllowances:(NSString *)profile completion:(void (^)(NSArray *))completion {
   [self call:@"ac_external_apps_allowances" profile:profile args:nil completion:^(NSDictionary *result) {
     completion([result[@"allowances"] isKindOfClass:NSArray.class] ? result[@"allowances"] : @[]);
@@ -396,15 +374,12 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
       completion:^(NSDictionary *) {}];
 }
 
-// MARK: Tasks and components
-
 + (void)tasks:(void (^)(NSArray *))completion {
   [self call:@"ac_tasks_list" profile:@"" args:nil completion:^(NSDictionary *result) {
     NSMutableArray *tasks = [NSMutableArray array];
     for (NSDictionary *task in [result[@"tasks"] isKindOfClass:NSArray.class] ? result[@"tasks"] : @[]) {
       if (![task isKindOfClass:NSDictionary.class]) continue;
       NSMutableDictionary *t = [task mutableCopy];
-      // The app's browser ids for Chrome's tab ids.
       NSMutableArray *browserIds = [NSMutableArray array];
       for (NSNumber *tabId in [task[@"tabIds"] isKindOfClass:NSArray.class] ? task[@"tabIds"] : @[])
         for (ArdiaCoreWindowController *c in ArdiaCoreWindowController.all)
@@ -429,8 +404,6 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
     completion([result[@"components"] isKindOfClass:NSArray.class] ? result[@"components"] : @[]);
   }];
 }
-
-// MARK: Browsing data
 
 + (void)clearBrowsingData:(NSString *)profile types:(NSArray<NSString *> *)types since:(double)sinceMs completion:(void (^)(void))completion {
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);

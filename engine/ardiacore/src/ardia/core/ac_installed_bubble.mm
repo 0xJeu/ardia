@@ -23,13 +23,11 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/views/widget/widget.h"
 
-// The hook in Chrome's ExtensionInstallUIDesktop::OnInstallSuccess (engine/ardiacore/apply.sh).
 extern bool (*g_ardia_extension_installed)(
     Profile* profile,
     scoped_refptr<const extensions::Extension> extension,
     const SkBitmap* icon);
 
-// The flag in Chrome's download_crx_util (engine/ardiacore/apply.sh).
 namespace download_crx_util {
 extern bool g_ardia_prompts_without_tab;
 }
@@ -38,7 +36,6 @@ namespace ardiacore {
 
 namespace {
 
-// Installs whose bubble waits for a window of their profile.
 struct Waiting {
   base::WeakPtr<Profile> profile;
   scoped_refptr<const extensions::Extension> extension;
@@ -50,9 +47,6 @@ std::vector<Waiting>& WaitingBubbles() {
   return *waiting;
 }
 
-// The page the app shows for `profile` in one of its windows on screen (the last active
-// first): the bubble goes over that window. Never one of the host's hidden windows (its own
-// pages, a Browser Chrome made), whose pages the app moves away and whose windows it closes.
 content::WebContents* ShownPageFor(Profile* profile) {
   content::WebContents* found = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
@@ -62,7 +56,7 @@ content::WebContents* ShownPageFor(Profile* profile) {
         if (browser->GetProfile() != profile || !host || host->internal() ||
             host->closing() || !host->widget() || !host->widget()->IsVisible() ||
             !host->IsActiveBrowser(static_cast<Browser*>(browser)) || !tab) {
-          return true;  // Continue iterating.
+          return true;
         }
         found = tab->GetContents();
         return false;
@@ -74,18 +68,14 @@ void Show(Profile* profile,
           scoped_refptr<const extensions::Extension> extension,
           const SkBitmap& icon,
           content::WebContents* page) {
-  // Chrome reads the page once the extension is ready (a later task): gone by then, no bubble.
-  // The bubble is a child of the page's window, and closes with it.
   extensions::TriggerPostInstallDialog(
       profile, std::move(extension), icon,
       base::BindOnce(
           [](base::WeakPtr<content::WebContents> page) { return page.get(); },
           page->GetWeakPtr()),
-      // No "pin it" tip: Chrome's points at its toolbar, which our windows don't have.
       base::OnceCallback<void(base::WeakPtr<content::WebContents>)>());
 }
 
-// A Browser becoming active: a window of a waiting profile may be on screen now.
 class ActivationWatch : public BrowserCollectionObserver {
  public:
   ActivationWatch() { observation_.Observe(GlobalBrowserCollection::GetInstance()); }
@@ -101,11 +91,9 @@ class ActivationWatch : public BrowserCollectionObserver {
 bool ExtensionInstalled(Profile* profile,
                         scoped_refptr<const extensions::Extension> extension,
                         const SkBitmap* icon) {
-  // No Chrome Apps page to open for an app.
   if (!profile || !extension || extension->is_app()) {
     return true;
   }
-  // As Chrome: confirmed in a normal window, whatever window it came from.
   Profile* original = profile->GetOriginalProfile();
   const SkBitmap bitmap = icon ? *icon : SkBitmap();
   if (content::WebContents* page = ShownPageFor(original)) {
@@ -118,12 +106,11 @@ bool ExtensionInstalled(Profile* profile,
                           w.extension->id() == extension->id());
   });
   waiting.push_back({original->GetWeakPtr(), std::move(extension), bitmap});
-  // Lives as long as the process, as the collection does.
   static base::NoDestructor<ActivationWatch> watch;
   return true;
 }
 
-}  // namespace
+}
 
 void InstallExtensionInstalledHook() {
   g_ardia_extension_installed = &ExtensionInstalled;
@@ -138,8 +125,6 @@ void ShowWaitingInstalledBubbles() {
   std::vector<Waiting> list = std::move(waiting);
   waiting.clear();
   for (Waiting& w : list) {
-    // The profile went, or the extension did (uninstalled or turned off meanwhile: Chrome's
-    // watcher would wait for it for good).
     if (!w.profile || !extensions::ExtensionRegistry::Get(w.profile.get())
                            ->enabled_extensions()
                            .Contains(w.extension->id())) {
@@ -153,4 +138,4 @@ void ShowWaitingInstalledBubbles() {
   }
 }
 
-}  // namespace ardiacore
+}

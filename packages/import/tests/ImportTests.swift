@@ -2,8 +2,6 @@ import Foundation
 import XCTest
 @testable import ArdiaImportCore
 
-// Importing reads another browser's live profile: it must never change it, never leave its data folder, and
-// never read secrets without the user's consent (Keychain, Firefox's primary password).
 final class ImportTests: XCTestCase {
   let chrome = Fixtures.support("Google/Chrome/Default")
 
@@ -56,7 +54,7 @@ final class ImportTests: XCTestCase {
     XCTAssertEqual(locked.bookmarks?.linkCount, 4)
     XCTAssertEqual(locked.historyCount, 4)
     XCTAssertEqual(locked.tabs.count, 3)
-    XCTAssertEqual(locked.cookieCount, 6)  // cookies.sqlite is plaintext: no consent step
+    XCTAssertEqual(locked.cookieCount, 6)
     XCTAssertTrue(locked.warnings.contains { $0.kind == .cookies && $0.code == "skipped" })
 
     try importer.unlock(browserId: "firefox")

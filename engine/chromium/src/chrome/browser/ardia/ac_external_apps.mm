@@ -17,7 +17,6 @@ namespace {
 
 const char* const kPairs = prefs::kProtocolHandlerPerOriginAllowedProtocols;
 
-// As ACExternalApps.mm: the bundle's display name, else its file name.
 NSString* AppName(NSURL* app) {
   NSBundle* bundle = [NSBundle bundleWithURL:app];
   for (NSString* key in @[ @"CFBundleDisplayName", @"CFBundleName" ]) {
@@ -78,15 +77,14 @@ base::DictValue Allowance(const std::string& origin,
                         : base::Value());
 }
 
-}  // namespace
-}  // namespace ardia
+}
+}
 
 AC_ENGINE_CALL(ac_external_apps_allowances) {
   ardia::Call call(profile_dir, args_json, reply, context);
   if (!call) {
     return;
   }
-  // base::DictValue iterates in key order: sorted by origin, then scheme.
   base::ListValue allowances;
   for (const auto [origin, schemes] :
        call.profile()->GetPrefs()->GetDict(ardia::kPairs)) {

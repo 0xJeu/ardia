@@ -100,12 +100,11 @@ NSString* TLSVersion(int connection_status) {
   }
 }
 
-// CEF's mask: errors, not "couldn't check revocation".
 constexpr net::CertStatus kCertErrorMask =
     net::CERT_STATUS_ALL_ERRORS & ~(net::CERT_STATUS_NO_REVOCATION_MECHANISM |
                                     net::CERT_STATUS_UNABLE_TO_CHECK_REVOCATION);
 
-}  // namespace
+}
 
 NSString* OriginOf(const GURL& url) {
   if (!url.SchemeIsHTTPOrHTTPS() || url.host().empty()) {
@@ -172,4 +171,4 @@ NSDictionary* SecurityInfoFor(content::WebContents* contents) {
   return info;
 }
 
-}  // namespace ardiacore
+}

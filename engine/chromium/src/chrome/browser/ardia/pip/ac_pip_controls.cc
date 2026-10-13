@@ -23,7 +23,6 @@
 
 namespace {
 
-// The rounded square behind a corner button.
 void PaintCornerButtonBackground(const views::Button& button,
                                  gfx::Canvas* canvas) {
   const bool active = button.GetState() == views::Button::STATE_HOVERED ||
@@ -34,7 +33,6 @@ void PaintCornerButtonBackground(const views::Button& button,
   canvas->DrawRoundRect(gfx::RectF(button.GetLocalBounds()), 6, flags);
 }
 
-// A corner button's 1 pt white line glyph.
 cc::PaintFlags GlyphFlags() {
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
@@ -48,9 +46,7 @@ void TurnOffInkDrop(views::Button* button) {
   views::InkDrop::Get(button)->SetMode(views::InkDropHost::InkDropMode::OFF);
 }
 
-}  // namespace
-
-// ArdiaBackToTabButton ----------------------------------------------------
+}
 
 ArdiaBackToTabButton::ArdiaBackToTabButton(PressedCallback callback)
     : OverlayWindowBackToTabButton(std::move(callback)) {
@@ -69,7 +65,6 @@ void ArdiaBackToTabButton::OnPaintBackground(gfx::Canvas* canvas) {
   PaintCornerButtonBackground(*this, canvas);
 }
 
-// Dia's ↖: an 8 pt corner with its diagonal, drawn from line centers.
 void ArdiaBackToTabButton::PaintButtonContents(gfx::Canvas* canvas) {
   const cc::PaintFlags flags = GlyphFlags();
   const gfx::PointF corner(11, 11);
@@ -80,8 +75,6 @@ void ArdiaBackToTabButton::PaintButtonContents(gfx::Canvas* canvas) {
 
 BEGIN_METADATA(ArdiaBackToTabButton)
 END_METADATA
-
-// ArdiaCloseButton --------------------------------------------------------
 
 ArdiaCloseButton::ArdiaCloseButton(PressedCallback callback)
     : CloseImageButton(std::move(callback)) {
@@ -101,7 +94,6 @@ void ArdiaCloseButton::OnPaintBackground(gfx::Canvas* canvas) {
   PaintCornerButtonBackground(*this, canvas);
 }
 
-// Dia's ×: two 1 pt diagonals filling a 9.5 pt square, 9.5 pt in.
 void ArdiaCloseButton::PaintButtonContents(gfx::Canvas* canvas) {
   const cc::PaintFlags flags = GlyphFlags();
   canvas->DrawLine(gfx::PointF(9.85f, 9.85f), gfx::PointF(18.65f, 18.65f),
@@ -113,12 +105,9 @@ void ArdiaCloseButton::PaintButtonContents(gfx::Canvas* canvas) {
 BEGIN_METADATA(ArdiaCloseButton)
 END_METADATA
 
-// ArdiaPlaybackButton -----------------------------------------------------
-
 ArdiaPlaybackButton::ArdiaPlaybackButton(PressedCallback callback)
     : PlaybackImageButton(std::move(callback)) {
   TurnOffInkDrop(this);
-  // Chrome's replay icon, drawn at 36 pt instead of 24.
   const ui::VectorIconModel replay = replay_image_.GetVectorIcon();
   replay_image_ = ui::ImageModel::FromVectorIcon(*replay.vector_icon(),
                                                  replay.color(), 36);
@@ -127,7 +116,6 @@ ArdiaPlaybackButton::ArdiaPlaybackButton(PressedCallback callback)
 
 ArdiaPlaybackButton::~ArdiaPlaybackButton() = default;
 
-// Chrome's circles behind play and pause aren't drawn.
 void ArdiaPlaybackButton::OnPaintBackground(gfx::Canvas* canvas) {}
 
 void ArdiaPlaybackButton::PaintButtonContents(gfx::Canvas* canvas) {
@@ -154,7 +142,6 @@ void ArdiaPlaybackButton::PaintButtonContents(gfx::Canvas* canvas) {
                               .close()
                               .detach();
   canvas->DrawPath(triangle, flags);
-  // A round-joined outline rounds the corners.
   flags.setStyle(cc::PaintFlags::kStroke_Style);
   flags.setStrokeWidth(5);
   flags.setStrokeJoin(cc::PaintFlags::kRound_Join);
@@ -163,8 +150,6 @@ void ArdiaPlaybackButton::PaintButtonContents(gfx::Canvas* canvas) {
 
 BEGIN_METADATA(ArdiaPlaybackButton)
 END_METADATA
-
-// ArdiaProgressBar --------------------------------------------------------
 
 ArdiaProgressBar::ArdiaProgressBar(
     base::RepeatingCallback<void(double)> seek)
@@ -265,8 +250,6 @@ double ArdiaProgressBar::FractionAt(int x) const {
 
 BEGIN_METADATA(ArdiaProgressBar)
 END_METADATA
-
-// ArdiaControlsFadeAnimation ----------------------------------------------
 
 ArdiaControlsFadeAnimation::ArdiaControlsFadeAnimation(
     const std::vector<raw_ptr<views::View>>& controls,

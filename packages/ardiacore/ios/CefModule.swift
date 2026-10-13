@@ -1,9 +1,6 @@
 import ExpoModulesCore
 import IOKit.ps
 
-// "ArdiaCEF" on ArdiaCore: the same module, events and view as packages/cef/ios/CefModule.swift, so the JS
-// (packages/cef/src) runs unchanged. What ArdiaCore doesn't do yet answers the way an empty engine would (no
-// downloads, no saved passwords…) and is listed in docs/ardiacore-parity.md.
 public class CefModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaCEF")
@@ -38,11 +35,8 @@ public class CefModule: Module {
       guard let window = NSApp.window(withWindowNumber: windowNumber) else { return "" }
       return ACChromeWindowHost.devAction(action, window: window) ?? ""
     }.runOnQueue(.main)
-    // A tab's page outlives its view, and its release: synchronous calls, so they reach the main queue before the
-    // unmount (or window close) the app asks for after them.
     Function("prepareTransfer") { (key: String) in ArdiaCoreWebView.prepareTransfer(key) }
     Function("releaseTransfer") { (key: String) in ArdiaCoreWebView.releaseTransfer(key) }
-    // The launch's first page, which the engine started before the app ran: the app's hydrated choice ("" for none).
     Function("claimLaunchTab") { (key: String, url: String, profile: String) in
       ArdiaCoreWebView.claimLaunchTab(key, url: url, profile: profile)
     }
@@ -56,7 +50,6 @@ public class CefModule: Module {
       .runOnQueue(.main)
     AsyncFunction("isTracing") { ArdiaCoreHost.isTracing }.runOnQueue(.main)
     AsyncFunction("setSearchEngineName") { (name: String) in ArdiaCoreWebView.setSearchEngineName(name) }.runOnQueue(.main)
-    // ArdiaCore keeps no navigations for later (CEF's "open:<id>"): nothing to forget.
     AsyncFunction("forgetOpenedURL") { (id: Int) in }.runOnQueue(.main)
     AsyncFunction("setDisplayMediaPicker") { (enabled: Bool) in ArdiaCoreWebView.setDisplayMediaPicker(enabled) }.runOnQueue(.main)
     AsyncFunction("setAutoPictureInPicture") { (enabled: Bool) in ArdiaCoreWebView.setAutoPictureInPictureEnabled(enabled) }.runOnQueue(.main)
@@ -87,7 +80,6 @@ public class CefModule: Module {
     }.runOnQueue(.main)
     AsyncFunction("releaseProfile") { (profile: String) in ArdiaCoreHost.releaseProfile(profile) }.runOnQueue(.main)
     AsyncFunction("deleteProfileData") { (profile: String, promise: Promise) in
-      // The original profile's folder stays (Chrome's Default profile): its data goes store by store, as on CEF.
       if profile.isEmpty { return ArdiaCoreProfileData.deleteDefault { promise.resolve(["remaining": $0]) } }
       ArdiaCoreHost.deleteProfileData(profile) { promise.resolve(["remaining": $0]) }
     }.runOnQueue(.main)
@@ -97,8 +89,6 @@ public class CefModule: Module {
     }.runOnQueue(.main)
     AsyncFunction("removeLegacyFavicons") { (profile: String) in }.runOnQueue(.main)
     AsyncFunction("engineCall") { (name: String, profile: String, args: String?, promise: Promise) in
-      // As packages/cef's ACEngineBridge: only the stores the JS reads, and never for a private window (the engine
-      // would answer with, or write to, its parent profile's history and favicons).
       if !CefModule.engineCalls.contains(name) { return promise.resolve(#"{"error":"not an engine call: \#(name)"}"#) }
       if profile.hasPrefix("incognito") { return promise.resolve(#"{"error":"no engine data for a private profile"}"#) }
       ArdiaCoreEngineBridge.call(name, profile: profile, args: args) { promise.resolve($0) }
@@ -322,7 +312,6 @@ public class CefModule: Module {
     }
   }
 
-  // A native change that answers with an error (nil: done) as a JS promise.
   static func settle(_ promise: Promise, _ error: String?) {
     if let error { promise.reject("ERR_CONTENT_BLOCKER", error) } else { promise.resolve(nil) }
   }

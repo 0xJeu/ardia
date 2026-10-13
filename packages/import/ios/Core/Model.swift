@@ -113,7 +113,6 @@ public struct CookiePartition: Equatable, Sendable {
   }
 }
 
-// Times are ms since the Unix epoch. `expires` nil = session cookie. `value` never leaves SecretBytes.
 public struct Cookie: Equatable, Sendable {
   public var domain: String
   public var name: String
@@ -124,11 +123,11 @@ public struct Cookie: Equatable, Sendable {
   public var lastAccess: Double?
   public var secure: Bool
   public var httpOnly: Bool
-  public var sameSite: String      // "unspecified" | "none" | "lax" | "strict"
-  public var priority: String      // "low" | "medium" | "high"
+  public var sameSite: String
+  public var priority: String
   public var partition: CookiePartition?
-  public var sourceScheme: String  // "unset" | "nonSecure" | "secure"
-  public var sourcePort: Int       // -1 = unspecified
+  public var sourceScheme: String
+  public var sourcePort: Int
 
   public init(domain: String, name: String, value: SecretBytes, path: String = "/", created: Double? = nil,
               expires: Double? = nil, lastAccess: Double? = nil, secure: Bool = false, httpOnly: Bool = false,
@@ -158,7 +157,7 @@ public struct ImportedAddress: Codable, Equatable, Sendable {
   public var city: String?
   public var state: String?
   public var postalCode: String?
-  public var country: String?  // ISO 3166-1 alpha-2 ("US")
+  public var country: String?
   public var phone: String?
   public var email: String?
 
@@ -243,7 +242,6 @@ public struct ImportResult: Codable, Equatable, Sendable {
   public var warnings: [ImportWarning] = []
   public var vaultToken: String?
 
-  // Secrets: never encoded to JSON. Only their counts are.
   public var cookies: [Cookie] = [] { didSet { cookieCount = cookies.count } }
   public var addresses: [ImportedAddress] = [] { didSet { addressCount = addresses.count } }
   public var cards: [ImportedCard] = [] { didSet { cardCount = cards.count } }

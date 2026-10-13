@@ -1,7 +1,6 @@
 import AppKit
 import ExpoModulesCore
 
-/// Apply text and selection together before the next key is handled.
 public final class InlineCompletionModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaInlineCompletion")

@@ -48,7 +48,6 @@ NSString* NS(const std::u16string& text) {
   return base::SysUTF16ToNSString(text);
 }
 
-// Each line of a multi-line summary (Chrome's address summary is one string with newlines).
 NSArray<NSString*>* Lines(const std::u16string& text) {
   NSMutableArray<NSString*>* lines = [NSMutableArray array];
   for (NSString* line in [NS(text) componentsSeparatedByString:@"\n"]) {
@@ -63,7 +62,6 @@ int g_last_prompt_id = 0;
 
 class Prompt;
 
-// The tab's pending prompt (the one the host was told about last).
 struct PromptSlot : public base::SupportsUserData::Data {
   base::WeakPtr<Prompt> prompt;
 };
@@ -81,7 +79,6 @@ class Prompt : public autofill::AutofillBubbleBase {
   bool closed() const { return closed_; }
   base::WeakPtr<Prompt> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
 
-  // What the host shows (the kind, Chrome's strings, what is saved), without the id and origin.
   virtual NSDictionary<NSString*, id>* Describe() const = 0;
 
   NSDictionary<NSString*, id>* Payload() const {
@@ -94,8 +91,6 @@ class Prompt : public autofill::AutofillBubbleBase {
     return payload;
   }
 
-  // Chrome showing it: the tab's prompt now, told to the host once the controller holds it (a
-  // host answering at once must not close it before Chrome has it).
   autofill::AutofillBubbleBase* Show() {
     auto slot = std::make_unique<PromptSlot>();
     slot->prompt = GetWeakPtr();
@@ -111,8 +106,6 @@ class Prompt : public autofill::AutofillBubbleBase {
     return this;
   }
 
-  // The host's answer. Chrome's bubble runs the decision, then closes (which tells the
-  // controller it went); the decision may already have hidden it (Chrome then shows another).
   void Answer(NSString* action) {
     if (closed_) {
       return;
@@ -127,8 +120,6 @@ class Prompt : public autofill::AutofillBubbleBase {
     Close(ClosedBy::kUser, action);
   }
 
-  // autofill::AutofillBubbleBase: Chrome hides it (the tab was switched away from, the page
-  // went, another offer replaces it, the controller is going).
   void Hide() override { Close(ClosedBy::kChrome, nil); }
   bool IsMouseHovered() const override { return false; }
 
@@ -137,8 +128,6 @@ class Prompt : public autofill::AutofillBubbleBase {
 
   virtual void Accept() = 0;
   virtual void Decline() = 0;
-  // Tells the controller its bubble went, as Chrome's view does when its widget closes; after
-  // this the prompt never calls the controller again.
   virtual void Closed(ClosedBy by, NSString* action) = 0;
 
  private:
@@ -153,10 +142,8 @@ class Prompt : public autofill::AutofillBubbleBase {
         contents_->RemoveUserData(kSlotKey);
       }
     }
-    // The host hears of this one closing before the controller can show the next.
     Notify(@{@"id" : @(id_), @"closed" : @YES});
     Closed(by, action);
-    // Chrome's bubble goes asynchronously too: a controller may still be on the stack.
     base::SequencedTaskRunner::GetCurrentDefault()->DeleteSoon(FROM_HERE, this);
   }
 
@@ -169,7 +156,6 @@ class Prompt : public autofill::AutofillBubbleBase {
     WindowHost* host = browser ? WindowHost::ForBrowser(browser) : nullptr;
     ArdiaCoreWindow* owner = host ? host->owner() : nil;
     id<ArdiaCoreWindowDelegate> delegate = owner.delegate;
-    // Never makes a tab's bridge: a page the host doesn't have (or one being destroyed) has none.
     TabBridge* bridge = TabBridge::FromWebContents(contents_.get());
     if (!bridge || ![delegate respondsToSelector:@selector(window:autofillPrompt:forTab:)]) {
       return;
@@ -183,7 +169,6 @@ class Prompt : public autofill::AutofillBubbleBase {
   base::WeakPtrFactory<Prompt> weak_factory_{this};
 };
 
-// "Save address?" (save_address_profile_view.cc).
 class SaveAddressPrompt : public Prompt {
  public:
   SaveAddressPrompt(content::WebContents* contents,
@@ -219,11 +204,9 @@ class SaveAddressPrompt : public Prompt {
   void Closed(ClosedBy, NSString*) override { controller_->OnBubbleClosed(); }
 
  private:
-  // Owned as Chrome's view owns it; it goes with the prompt.
   std::unique_ptr<autofill::SaveAddressBubbleController> controller_;
 };
 
-// "Update address?" / "Add to address?" (update_address_profile_view.cc).
 class UpdateAddressPrompt : public Prompt {
  public:
   UpdateAddressPrompt(content::WebContents* contents,
@@ -263,7 +246,7 @@ class UpdateAddressPrompt : public Prompt {
       @"kind" : @"updateAddress",
       @"title" : NS(controller_->GetWindowTitle(adds_only)),
       @"message" : NS(autofill::GetProfileDescription(controller_->GetOriginalProfile(), locale,
-                                                      /*include_address_and_contacts=*/!has_address)),
+                                                      !has_address)),
       @"accept" : NS(controller_->GetPositiveButtonText(adds_only)),
       @"decline" : NS(controller_->GetNegativeButtonText(adds_only)),
       @"footer" : NS(controller_->GetFooterMessage()),
@@ -285,9 +268,6 @@ class UpdateAddressPrompt : public Prompt {
   std::unique_ptr<autofill::UpdateAddressBubbleController> controller_;
 };
 
-// "Save card?" on this Mac (save_card_bubble_views.cc, save_card_offer_bubble_views.cc). The controller
-// belongs to the tab; it hides the prompt before it goes, and is told of the close through its
-// weak callback, as Chrome's view does.
 class SaveCardPrompt : public Prompt {
  public:
   SaveCardPrompt(content::WebContents* contents, autofill::SaveCardBubbleController* controller)
@@ -297,8 +277,8 @@ class SaveCardPrompt : public Prompt {
 
   NSDictionary<NSString*, id>* Describe() const override {
     const autofill::CreditCard& card = controller_->GetCard();
-    std::u16string identifier = card.CardNameAndLastFourDigits(/*customized_nickname=*/u"",
-                                                               /*obfuscation_length=*/2);
+    std::u16string identifier = card.CardNameAndLastFourDigits(u"",
+                                                               2);
     if (!card.IsExpired(base::Time::Now())) {
       identifier += u" • " + card.AbbreviatedExpirationDateForDisplay(false);
     }
@@ -317,8 +297,6 @@ class SaveCardPrompt : public Prompt {
   void Accept() override { controller_->OnSaveButton({}); }
   void Decline() override {}
   void Closed(ClosedBy by, NSString* action) override {
-    // The reason Chrome's widget gives (GetPaymentsUiClosedReasonFromWidget): Chrome hiding it
-    // closes the widget for no reason of the user's, kNotInteracted.
     autofill::PaymentsUiClosedReason reason = autofill::PaymentsUiClosedReason::kNotInteracted;
     if (by == ClosedBy::kUser) {
       reason = [action isEqualToString:@"accept"]    ? autofill::PaymentsUiClosedReason::kAccepted
@@ -333,10 +311,6 @@ class SaveCardPrompt : public Prompt {
   base::OnceCallback<void(autofill::PaymentsUiClosedReason)> on_closed_;
 };
 
-// Bubbles the host has no UI for (the address sign-in promo; Google Pay's upload progress and
-// "manage cards", which need its servers or the omnibox icon): closed at once, unanswered, as
-// Chrome's are when the user looks away. `close` tells the tab's controller, if this is still
-// its bubble.
 class SkippedBubble : public autofill::AutofillBubbleBase {
  public:
   using CloseCallback =
@@ -380,7 +354,7 @@ Prompt* PendingPrompt(content::WebContents* contents) {
   return prompt && !prompt->closed() ? prompt : nullptr;
 }
 
-}  // namespace
+}
 
 autofill::AutofillBubbleBase* ShowSaveAddressPrompt(
     content::WebContents* contents,
@@ -402,8 +376,6 @@ autofill::AutofillBubbleBase* ShowSaveCardPrompt(content::WebContents* contents,
     case PaymentsBubbleType::kLocalCvcSave:
       return (new SaveCardPrompt(contents, controller))->Show();
     default:
-      // Saving to Google Pay (it needs a Google account, which the app has none of), its
-      // progress, and "manage cards" (the omnibox icon's).
       return new SkippedBubble(
           contents, base::BindOnce([](content::WebContents* contents,
                                       autofill::AutofillBubbleBase* bubble) {
@@ -461,4 +433,4 @@ void ResolveAutofillPrompt(content::WebContents* contents, NSInteger prompt_id, 
   }
 }
 
-}  // namespace ardiacore
+}

@@ -1,7 +1,3 @@
-// ACChromeWindowHost on ArdiaCore: the class packages/shell's ChromeWindows looks up by name. Each app window is
-// one ArdiaCoreWindow (a Views-backed NSWindow, so Chrome's bubbles and dialogs attach to it) holding a Chrome
-// Browser per profile shown in it. Paging between profiles is a change of the active profile, never a window
-// swap, so swappedHandler never fires here.
 #import "ACChromeWindow.h"
 #import "ArdiaCoreInternal.h"
 #import "ArdiaCoreWebView.h"
@@ -34,26 +30,14 @@ NSColor *WindowColor() {
                 }];
 }
 
-// MARK: Traffic lights
-
-// The close button's top-left from the window's top-left, as the CEF build's window had it (Chrome's browser frame
-// made AppKit's title bar as tall as its tab strip, which centred the buttons there): its centre at (25, 27); Dia's is
-// at (25, 26). The app can centre them elsewhere (setTrafficLightsCenter:inWindow:).
 constexpr CGFloat kTrafficLightInsetX = 18;
 constexpr CGFloat kTrafficLightTop = 20;
 const void *kInsetLightsKey = &kInsetLightsKey;
 const void *kLightsCenterKey = &kLightsCenterKey;
 
-// MARK: Test hook: every change to the traffic lights (ARDIA_TRAFFIC_LIGHTS_LOG=<file>, test instances only)
-
-// One line per frame, visibility or alpha change of a window's buttons or the title bar views holding them, per style
-// mask change and per AppKit layout pass of the buttons ("layout"), each with the close button's top-left from the
-// window's top-left right then and the caller. Tab operations may lay the buttons out but must never move, hide or fade
-// them (acceptance: traffic-lights-steady).
 const void *kLoggedKey = &kLoggedKey;
 NSFileHandle *gLightsLog;
 
-// "close=(x,y) mini=(x,y) zoom=(x,y) hidden=0 alpha=1.00": each button's top-left from the window's top-left.
 NSString *LightsState(NSWindow *window) {
   NSMutableString *state = [NSMutableString string];
   BOOL hidden = NO;
@@ -65,7 +49,7 @@ NSString *LightsState(NSWindow *window) {
     [state appendFormat:@"%@=(%.1f,%.1f) ", kind == NSWindowCloseButton ? @"close" : kind == NSWindowZoomButton ? @"zoom" : @"mini",
                         NSMinX(r), NSHeight(window.frame) - NSMaxY(r)];
     hidden |= button.hiddenOrHasHiddenAncestor;
-    CGFloat opacity = 1;  // As drawn: a title bar view above the button can fade it too.
+    CGFloat opacity = 1;
     for (NSView *view = button; view && view != window.contentView.superview; view = view.superview) opacity *= view.alphaValue;
     alpha = MIN(alpha, opacity);
   }
@@ -87,7 +71,6 @@ void LogLights(NSWindow *window, NSString *what) {
   NSString *line = [NSString stringWithFormat:@"%.3f window=%ld %@ -> %@ | %@\n", NSProcessInfo.processInfo.systemUptime,
                                               (long)window.windowNumber, what, LightsState(window),
                                               [callers componentsJoinedByString:@" < "]];
-  // A failed write ends the log; it never throws into AppKit's layout.
   if (![gLightsLog writeData:[line dataUsingEncoding:NSUTF8StringEncoding] error:nil]) gLightsLog = nil;
 }
 
@@ -168,7 +151,6 @@ void InstallTrafficLightsLog() {
   });
 }
 
-// Logs the window's buttons and the title bar views above them (each layout pass may replace none of them).
 void LogTrafficLightsOf(NSWindow *window) {
   if (!gLightsLog || !window) return;
   objc_setAssociatedObject(window, kLoggedKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -177,24 +159,18 @@ void LogTrafficLightsOf(NSWindow *window) {
       objc_setAssociatedObject(view, kLoggedKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-// AppKit lays the title bar out again on every title change (a tab switch or close renames the window), style, key or
-// size change, and each pass puts the buttons where the frame view's -_closeButtonOrigin says (minimise and zoom
-// follow it). Answering it for our windows keeps the buttons at the app's spot in every pass. Moving them back after
-// AppKit's pass (on the next window update or notification) showed them at AppKit's (9, 9) for 10–430 ms at each tab
-// switch or close.
 void InstallTrafficLightsOrigin(Class frameClass) {
   static NSMutableSet<Class> *installed = [NSMutableSet set];
   if (!frameClass || [installed containsObject:frameClass]) return;
   [installed addObject:frameClass];
   const SEL sel = NSSelectorFromString(@"_closeButtonOrigin");
   Method method = class_getInstanceMethod(frameClass, sel);
-  if (!method) return;  // An AppKit without it: the buttons stay at its standard place.
+  if (!method) return;
   const IMP standard = method_getImplementation(method);
   const IMP ours = imp_implementationWithBlock(^NSPoint(NSView *frameView) {
     NSWindow *window = frameView.window;
     if (!window || !objc_getAssociatedObject(window, kInsetLightsKey) || (window.styleMask & NSWindowStyleMaskFullScreen))
       return ((NSPoint (*)(id, SEL))standard)(frameView, sel);
-    // The frame view's coordinates: the whole window, y up.
     NSButton *close = [window standardWindowButton:NSWindowCloseButton];
     const NSSize size = close ? close.frame.size : NSMakeSize(14, 14);
     const CGFloat height = NSHeight(frameView.bounds);
@@ -202,26 +178,17 @@ void InstallTrafficLightsOrigin(Class frameClass) {
       return NSMakePoint(center.pointValue.x - size.width / 2, height - center.pointValue.y - size.height / 2);
     return NSMakePoint(kTrafficLightInsetX, height - kTrafficLightTop - size.height);
   });
-  // Chrome's frame class inherits NSThemeFrame's: add the override there (or replace its own, if it has one).
   if (!class_addMethod(frameClass, sel, ours, method_getTypeEncoding(method))) method_setImplementation(method, ours);
 }
 
-// AppKit's layout pass for the buttons, run now (the app moved their spot).
 void RetileTrafficLights(NSWindow *window) {
   NSView *frameView = window.contentView.superview;
   const SEL sel = NSSelectorFromString(@"_updateButtonPositions");
   if ([frameView respondsToSelector:sel]) ((void (*)(id, SEL))objc_msgSend)(frameView, sel);
 }
 
-// MARK: Lights that move every frame
-
-// The sidebar's slide and its peek move the lights every frame (SidebarDock.tsx). Laid out at each step, the buttons'
-// frames moved, and AppKit answers a title-bar button's move by recomputing the window's drag regions on its next display
-// cycle: walks of every view (the window's minimum size from its constraints, the standard-button search), 5-7 ms with
-// the 200-tab sidebar's 3200 views, a dropped frame at 120 Hz each time. So a move is drawn by translating the buttons'
-// layers, and they are laid out at the new spot (one recompute) once they have held still for kLightsSettle.
-const void *kLightsShownKey = &kLightsShownKey;  // where they are drawn while that differs from their layout (NSNull: AppKit's)
-const void *kLightsMoveKey = &kLightsMoveKey;    // the latest move, so only its settle lays them out
+const void *kLightsShownKey = &kLightsShownKey;
+const void *kLightsMoveKey = &kLightsMoveKey;
 constexpr int64_t kLightsSettle = 50 * NSEC_PER_MSEC;
 
 NSArray<NSButton *> *TrafficLightButtons(NSWindow *window) {
@@ -231,7 +198,6 @@ NSArray<NSButton *> *TrafficLightButtons(NSWindow *window) {
   return buttons;
 }
 
-// The close button's centre (window top-left points) at `center`, or at its own spot when nil (-_closeButtonOrigin above).
 NSPoint LightsCenter(NSValue *center, NSSize size) {
   return center ? center.pointValue : NSMakePoint(kTrafficLightInsetX + size.width / 2, kTrafficLightTop + size.height / 2);
 }
@@ -243,7 +209,6 @@ void TranslateTrafficLights(NSArray<NSButton *> *buttons, CGFloat dx) {
   [CATransaction commit];
 }
 
-// Lays the buttons out where they're drawn and drops the translation, in one transaction (no frame shows either alone).
 void SettleTrafficLights(NSWindow *window) {
   id shown = objc_getAssociatedObject(window, kLightsShownKey);
   if (!shown) return;
@@ -256,8 +221,6 @@ void SettleTrafficLights(NSWindow *window) {
   [CATransaction commit];
 }
 
-// Draws the lights centred at `center` (nil: AppKit's spot) without laying them out, and lays them out there once they
-// hold still. NO when that can't be drawn as a translation (full screen, a vertical move, buttons without layers).
 bool MoveTrafficLights(NSWindow *window, NSValue *center) {
   NSArray<NSButton *> *buttons = TrafficLightButtons(window);
   if (!buttons.count || !objc_getAssociatedObject(window, kInsetLightsKey) || (window.styleMask & NSWindowStyleMaskFullScreen))
@@ -268,7 +231,7 @@ bool MoveTrafficLights(NSWindow *window, NSValue *center) {
   const NSPoint laidOut = LightsCenter(objc_getAssociatedObject(window, kLightsCenterKey), size), to = LightsCenter(center, size);
   if (to.y != laidOut.y) return false;
   TranslateTrafficLights(buttons, to.x - laidOut.x);
-  if (to.x == laidOut.x) {  // back where they're laid out: nothing to settle
+  if (to.x == laidOut.x) {
     objc_setAssociatedObject(window, kLightsShownKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(window, kLightsMoveKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return true;
@@ -279,7 +242,6 @@ bool MoveTrafficLights(NSWindow *window, NSValue *center) {
   __weak NSWindow *weakWindow = window;
   __weak NSObject *weakMove = move;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, kLightsSettle), dispatch_get_main_queue(), ^{
-    // A later move replaced this one (and released it): that one settles.
     if (NSWindow *w = weakWindow; w && weakMove) SettleTrafficLights(w);
   });
   return true;
@@ -294,8 +256,6 @@ void InsetTrafficLights(NSWindow *window) {
 
 void ConfigureWindow(NSWindow *window) {
   InstallTrafficLightsLog();
-  // AppKit keeps the content rect through a style change: going full-size content, the window would lose its title
-  // bar's height (32 pt, so app windows opened 32 pt shorter than CEF's). It keeps the frame Chrome made instead.
   const NSRect frame = window.frame;
   window.styleMask |= NSWindowStyleMaskFullSizeContentView;
   if (!NSEqualRects(window.frame, frame)) [window setFrame:frame display:NO];
@@ -309,40 +269,15 @@ void ConfigureWindow(NSWindow *window) {
   InsetTrafficLights(window);
 }
 
-// Shortcuts the app's menus own before the page sees them, as Chrome reserves them (they can't be
-// overridden by a page): new/close tab and window, quit, reopen closed tab, tab cycling.
 bool IsReservedKey(NSEvent *event) {
   const NSEventModifierFlags mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
   NSString *key = event.charactersIgnoringModifiers.lowercaseString;
-  if ((mods & NSEventModifierFlagControl) && event.keyCode == 48) return true;  // ⌃Tab, ⌃⇧Tab
+  if ((mods & NSEventModifierFlagControl) && event.keyCode == 48) return true;
   if (!(mods & NSEventModifierFlagCommand) || (mods & (NSEventModifierFlagControl | NSEventModifierFlagOption))) return false;
   return [@[ @"t", @"w", @"n", @"q" ] containsObject:key];
 }
 
-}  // namespace
-
-// MARK: - The window's full screen, and whether the user sees it
-
-// A page's element full screen fills the window, which enters macOS full screen for it unless it already was, and
-// leaves it afterwards only if it entered for the page, as Chrome does on the Mac (and the CEF build did). Leaving the
-// window's full screen by hand (the green button, ⌃⌘F) takes the page out of full screen too. AppKit ignores
-// -toggleFullScreen: mid-transition: the window catches up once the transition ends.
-//
-// Each transition is recorded with who started it, the app (for a page) or the user, rather than inferred afterwards.
-// AppKit sends nothing when a transition fails; the window then waits for its next transition (the page still fills
-// the window), which beats a watchdog misreading a slow transition's late end as the user's.
-//
-// The same record says whether the user sees the window, for what follows the user (ArdiaCoreWebView's seenByUser):
-// macOS's occlusion, except that the window's own full-screen transition never hides it. The Space animation reports
-// the window occluded, and visible again before or after the did-enter/did-exit notification (crbug.com/1081229): the
-// window counts as seen from the transition's start until macOS reports it visible with the transition over. While the
-// screen is locked, occlusion changes nothing (locking covers every window; it doesn't mean the user left).
-//
-// Test instances (ARDIA_BACKGROUND) act the window's full screen out, since a real one opens a Space on the owner's
-// screen: the same notifications go out, Chrome counts the window as full screen (actedFullScreen), and
-// ARDIA_FAKE_FULLSCREEN_MS gives the acted transition AppKit's length. Their windows count as seen unless a run acts
-// occlusion out (fakeOcclusion, fakeFullScreenOcclusionMs), as Chrome's own reading of them is (ArdiaCoreHost.mm). The
-// owner's screen lock is not the run's: an acted reading counts whether or not their screen is locked.
+}
 
 namespace {
 
@@ -354,8 +289,6 @@ BOOL IsWindowFullScreen(NSWindow *window) {
   return window && ((window.styleMask & NSWindowStyleMaskFullScreen) || objc_getAssociatedObject(window, kActedFullScreenKey));
 }
 
-// Test instances: macOS's occlusion state for a window, acted out ("fakeOcclusion:<visible|occluded|off>"), so a run
-// doesn't depend on what covers the window on the owner's screen. The change goes out as macOS sends it.
 const void *kActedOcclusionKey = &kActedOcclusionKey;
 
 void ActOcclusion(NSWindow *window, NSNumber *visible) {
@@ -373,20 +306,12 @@ void ActOcclusion(NSWindow *window, NSNumber *visible) {
   [NSNotificationCenter.defaultCenter postNotificationName:NSWindowDidChangeOcclusionStateNotification object:window];
 }
 
-// What a real transition does to occlusion, for acted ones ("fakeFullScreenOcclusionMs:<ms>", -1 off): the Space
-// animation occludes the window as it starts, and macOS reports it visible again <ms> after the did-enter or did-exit
-// notification (a negative gap: before it).
 NSTimeInterval gActedOcclusionGap = NAN;
-// The acted transition whose "visible again" is still to come: a transition started before it arrives takes it over,
-// as macOS reports the window visible after the last one.
 const void *kActedOcclusionTurnKey = &kActedOcclusionTurnKey;
-// The window's frame before an acted full screen, given back as it leaves.
 const void *kActedRestoreFrameKey = &kActedRestoreFrameKey;
 
-// The window's full screen acted out (a test instance): what -toggleFullScreen: does, without the Space.
 void ActWindowFullScreen(ArdiaCoreWindow *coreWindow, BOOL enter, NSTimeInterval seconds) {
   NSWindow *window = coreWindow.window;
-  // AppKit ignores a toggle while a transition runs.
   if (!window || objc_getAssociatedObject(window, kActingKey)) return;
   __weak NSWindow *weakWindow = window;
   __weak ArdiaCoreWindow *weakCore = coreWindow;
@@ -400,8 +325,6 @@ void ActWindowFullScreen(ArdiaCoreWindow *coreWindow, BOOL enter, NSTimeInterval
   if (trace) NSLog(@"[ardiacore-vis] window %ld acted %@", (long)window.windowNumber, enter ? @"willEnterFullScreen" : @"willExitFullScreen");
   [center postNotificationName:enter ? NSWindowWillEnterFullScreenNotification : NSWindowWillExitFullScreenNotification object:window];
   if (enter) set(YES);
-  // AppKit gives the window its new size as the transition starts: the screen's on the way in, the one it had on the
-  // way out, so a run sees the page resized as the owner does.
   if (enter) {
     objc_setAssociatedObject(window, kActedRestoreFrameKey, [NSValue valueWithRect:window.frame], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if (NSScreen *screen = window.screen ?: NSScreen.mainScreen) [window setFrame:screen.frame display:YES];
@@ -432,7 +355,6 @@ void ActWindowFullScreen(ArdiaCoreWindow *coreWindow, BOOL enter, NSTimeInterval
   else finish();
 }
 
-// The acted transition's length (seconds) for page full screen; the dev action "fakeFullScreenMs:<ms>" sets it.
 NSTimeInterval gActedTransition = NSProcessInfo.processInfo.environment[@"ARDIA_FAKE_FULLSCREEN_MS"].doubleValue / 1000;
 
 void ToggleWindowFullScreen(ArdiaCoreWindow *coreWindow) {
@@ -443,21 +365,10 @@ void ToggleWindowFullScreen(ArdiaCoreWindow *coreWindow) {
   ActWindowFullScreen(coreWindow, enter, gActedTransition);
 }
 
-}  // namespace
+}
 
 NSNotificationName const ArdiaCoreWindowSeenDidChange = @"ArdiaCoreWindowSeenDidChange";
 
-// Page full screen changes the page's layout and the window's in steps, each waiting for the page to have drawn the
-// one before: AppKit pictures the window as its full-screen transition starts and animates that picture, and the page,
-// a Chrome view laid out by the app's JS, draws a new size or layout a frame or several (a heavy page: hundreds of ms)
-// after its view changes. Done at once (up to 0.2.30), the transition pictured the page mid-change: the full-screen video kept
-// in the shrinking window for the whole way out, ghosted over the page, and the page sized for the old window in a
-// corner of the new one on the way in.
-//
-// A wait asks the page (twice requestAnimationFrame, so it has drawn) for its size and full-screen state until its size
-// matches its view as it is then and `test` says it drew (1) or there is no point waiting (-1), for at most
-// kPageDrawWait; a page that can't answer (hidden, closed, no frame) doesn't wait. `done` runs once, on the main
-// thread.
 static const NSTimeInterval kPageDrawWait = 0.4;
 
 @interface ACPageDrawWait : NSObject
@@ -495,7 +406,6 @@ static const NSTimeInterval kPageDrawWait = 0.4;
   if (!_done) return;
   if (!page.window) return [self finish];
   const NSSize asked = [page convertRect:page.bounds toView:nil].size;
-  // Weak: a page that never answers (its requestAnimationFrame replaced) keeps only this block, not the wait.
   __weak ACPageDrawWait *weakSelf = self;
   [tab evaluate:@"requestAnimationFrame(() => requestAnimationFrame(() => post('result', JSON.stringify("
                 @"[innerWidth * devicePixelRatio, innerHeight * devicePixelRatio, !!document.fullscreenElement]))))"
@@ -508,7 +418,6 @@ static const NSTimeInterval kPageDrawWait = 0.4;
   if (!_done) return;
   NSView *page = _tab.view;
   NSWindow *window = page.window;
-  // No page to ask any more (closed, moved away, no frame or an exception): nothing to wait for.
   if (!window || !json) return [self finish];
   NSArray *drawn = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
   if (![drawn isKindOfClass:NSArray.class] || drawn.count != 3 || ![drawn[0] isKindOfClass:NSNumber.class] ||
@@ -528,22 +437,9 @@ static const NSTimeInterval kPageDrawWait = 0.4;
 
 @end
 
-// AppKit doesn't show the window during its full-screen transition: an overlay window stands in for it
-// (_NSFullScreenTransitionOverlayWindow), crossfading a picture of the window from before the transition into one from
-// after, and hands the window back once it ends. Those pictures come from the window's own layers, and a page doesn't
-// draw there: Chrome draws it in the GPU process and the window only hosts that (CALayerHost), so a picture of the
-// window shows the app's sidebar and toolbar around the page's bare background colour (an in-process picture of a
-// window, as devSnapshotWindow takes, shows the same). Up to 0.2.30 the page's place stayed that colour, near black,
-// for the whole transition (its whole window on the way in, with the sidebar hidden), and the page popped back in
-// once AppKit returned the window.
-//
-// So the page lends the window a picture of itself (-[ArdiaCoreTab copyPicture:completion:], Chrome's copy of its last
-// frame), an ordinary layer over it from just before the transition starts until the page has drawn its new size
-// after it. It lives inside the page's own view, which sizes every subview to itself (WebContentsViewCocoa) and
-// takes it wherever the page goes; it takes no clicks and says nothing to accessibility.
-static const NSTimeInterval kPageCoverPicture = 0.25;  // How long the page may take to give its picture.
-static const NSTimeInterval kPageCoverLimit = 4;       // A cover never outstays this (a transition AppKit never ends).
-static BOOL gPageCoverOff = NO;                        // Test instances' "pageCover:0": transitions as up to 0.2.30.
+static const NSTimeInterval kPageCoverPicture = 0.25;
+static const NSTimeInterval kPageCoverLimit = 4;
+static BOOL gPageCoverOff = NO;
 
 @interface ACPageCover : NSView
 @property(readonly, weak) ArdiaCoreTab *tab;
@@ -551,10 +447,9 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
 
 @implementation ACPageCover {
   CGImageRef _picture;
-  NSSize _pictured;  // The page's size in its picture.
+  NSSize _pictured;
 }
 
-// Covers over the pages of `tabs` that have a picture to give, in no order (then: on the main thread).
 + (void)coverTabs:(NSArray<ArdiaCoreTab *> *)tabs then:(void (^)(NSArray<ACPageCover *> *covers))then {
   NSMutableArray<ACPageCover *> *covers = [NSMutableArray array];
   __block NSUInteger waiting = tabs.count + 1;
@@ -579,13 +474,11 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
         completion:^(CGImageRef picture) {
           ArdiaCoreTab *t = weakTab;
           NSView *now = t.view;
-          // Only where it was pictured: a page moved meanwhile (to another view or window) is another window's matter.
           if (!picture || !now.window || now.window != weakWindow || now.superview != weakHost) return then(nil);
           ACPageCover *cover = [[ACPageCover alloc] initWithFrame:now.bounds picture:picture];
           cover->_tab = t;
           cover->_pictured = pictured;
-          [now addSubview:cover];  // Over the page: Chrome puts each new page view at the bottom.
-          // Its picture in its layer now, not at AppKit's next display: the transition pictures the window right away.
+          [now addSubview:cover];
           [cover displayIfNeeded];
           cover.layer.contents = (__bridge id)cover->_picture;
           then(cover);
@@ -613,7 +506,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
   return YES;
 }
 
-// Stretched as the page is resized under it: AppKit's own pictures stretch the same way.
 - (void)updateLayer {
   self.layer.contents = (__bridge id)_picture;
   self.layer.contentsGravity = kCAGravityResize;
@@ -627,8 +519,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
   return NO;
 }
 
-// The window's transition resized the page under its picture: once the page has drawn its new size, a picture of
-// that (AppKit's picture from after the transition, and the window it hands back, then show the page as it is).
 - (void)repicture {
   ArdiaCoreTab *tab = _tab;
   NSView *page = tab.view;
@@ -654,7 +544,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
                  }];
 }
 
-// The page shows through again: a short fade hides a frame's difference between the picture and the page.
 - (void)uncover:(BOOL)fade {
   if (!self.superview) return;
   if (!fade) return [self removeFromSuperview];
@@ -670,37 +559,34 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
 
 @end
 
-// One per app window.
 @interface ACWindowFullScreen : NSObject
-- (ArdiaCoreTab *)probedTab;  // The page whose full screen the window follows (the one it left, until it has).
-- (BOOL)covered;           // Its picture is over it (ACPageCover).
-- (NSInteger)covers;       // How many pages' pictures are over them.
+- (ArdiaCoreTab *)probedTab;
+- (BOOL)covered;
+- (NSInteger)covers;
 - (BOOL)transitioning;
 @end
 
 @implementation ACWindowFullScreen {
   __weak ArdiaCoreWindow *_coreWindow;
-  __weak ArdiaCoreTab *_tab;  // The page in full screen.
-  BOOL _entered;           // The window is in full screen (or going) for it.
-  NSInteger _asked;        // The transition the app asked for and AppKit hasn't started: 1 in, -1 out.
+  __weak ArdiaCoreTab *_tab;
+  BOOL _entered;
+  NSInteger _asked;
   BOOL _transitioning;
-  BOOL _ours;              // The running transition is the app's.
-  BOOL _settling;          // A transition started and macOS hasn't reported the window visible since it ended.
+  BOOL _ours;
+  BOOL _settling;
   BOOL _seen;
   BOOL _closed;
   NSArray *_observers;
-  // What waits for the page to have drawn its new layout (ACPageDrawWait).
-  __weak ArdiaCoreTab *_leftTab;  // The page that just left full screen, while the window still has to.
-  NSInteger _waitingFor;       // The window's transition waiting for it: 1 in, -1 out, 0 none.
-  NSUInteger _wait;            // Which wait, so the answer to an older one does nothing.
-  BOOL _askedWait;             // The current wait has asked.
-  BOOL _drew;                  // The page drew it (or can't answer): the transition may start.
-  NSInteger _telling;          // Changes the app hasn't been told of yet, waiting for the page to draw them in place.
-  // The page's picture through the window's transition (ACPageCover).
+  __weak ArdiaCoreTab *_leftTab;
+  NSInteger _waitingFor;
+  NSUInteger _wait;
+  BOOL _askedWait;
+  BOOL _drew;
+  NSInteger _telling;
   NSArray<ACPageCover *> *_covers;
-  __weak ArdiaCoreTab *_lastTab;  // The last page in full screen (the test probe's).
-  NSUInteger _coverTurn;  // Which picture is wanted: one that arrives after a change does nothing.
-  BOOL _picturing;        // A picture is on its way; the transition starts once it's in place.
+  __weak ArdiaCoreTab *_lastTab;
+  NSUInteger _coverTurn;
+  BOOL _picturing;
 }
 
 + (instancetype)ofWindow:(ArdiaCoreWindow *)coreWindow create:(BOOL)create {
@@ -716,7 +602,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
 - (instancetype)initWithCoreWindow:(ArdiaCoreWindow *)coreWindow {
   if ((self = [super init])) {
     _coreWindow = coreWindow;
-    // Until macOS says otherwise: a window just made may not be on screen yet.
     _seen = YES;
     __weak ACWindowFullScreen *weakSelf = self;
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
@@ -741,7 +626,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
   for (id observer in _observers) [NSNotificationCenter.defaultCenter removeObserver:observer];
 }
 
-// A test instance's reading of occlusion is acted out: always visible, or what the run acts.
 - (BOOL)occlusionActed {
   return ardiacore_host::Background() && (!getenv("ARDIA_ALLOW_OCCLUSION") || objc_getAssociatedObject(_coreWindow.window, kActedOcclusionKey));
 }
@@ -767,7 +651,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
     _transitioning = _settling = YES;
     _ours = _asked == (entering ? 1 : -1);
     _asked = 0;
-    // AppKit gives the window its new size now: each picture follows its page there.
     for (ACPageCover *cover in _covers) [cover repicture];
   }
   if (did) _transitioning = NO;
@@ -777,7 +660,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
   [self uncoverWhenDrawn];
   const BOOL ours = _ours;
   _ours = NO;
-  // After the window's other observers have heard of it.
   __weak ACWindowFullScreen *weakSelf = self;
   dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf settled:entering ours:ours]; });
 }
@@ -798,7 +680,6 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
 
 - (void)settled:(BOOL)entered ours:(BOOL)ours {
   if (!entered && !ours) {
-    // Left by hand: the page leaves full screen too, and its exit comes back through -tab:fullScreen:tell:.
     _entered = NO;
     ArdiaCoreTab *tab = _tab;
     if (tab && [tab respondsToSelector:@selector(exitFullscreen)]) return [tab exitFullscreen];
@@ -806,21 +687,13 @@ static BOOL gPageCoverOff = NO;                        // Test instances' "pageC
   [self sync];
 }
 
-// Each page's full-screen changes, counted across windows: a delayed exit is told only if nothing changed since.
 static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   static NSMapTable *changes = [NSMapTable weakToStrongObjectsMapTable];
   return changes;
 }
 
-// `tell` tells the app's JS, whose layout (sidebar, toolbar) follows, once the page has drawn the change where it is:
-// into full screen, the page lays itself out full screen in its card before the card fills the window (never its
-// windowed layout stretched over the window, as a page takes a few frames to go full screen); out of it, the
-// full-screen video never shows inside the app's sidebar and toolbar. The change is already counted
-// (-[ArdiaCoreWindowController window:tab:didChangeFullscreen:], in every window).
 - (void)tab:(ArdiaCoreTab *)tab fullScreen:(BOOL)fullScreen tell:(void (^)(void))tell {
   const NSUInteger change = [FullScreenChanges() objectForKey:tab].unsignedIntegerValue;
-  // Another page, or the same one again: a wait for the window's transition starts over for it, and a picture on its
-  // way for the last one is for nothing.
   _waitingFor = 0;
   _coverTurn++;
   _picturing = NO;
@@ -833,8 +706,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   _telling++;
   __weak ACWindowFullScreen *weakSelf = self;
   __weak ArdiaCoreTab *weakTab = tab;
-  // A page Chrome took out (Esc) stays in full screen until its view next changes size (Chrome tells the page with a
-  // resize): the app's layout gives it that, at once.
   [ACPageDrawWait tab:tab
                 draws:^NSInteger(BOOL drawnFullScreen, BOOL) {
                   if (fullScreen) return drawnFullScreen ? 1 : 0;
@@ -843,8 +714,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
                  then:^{
                    ACWindowFullScreen *me = weakSelf;
                    if (me) me->_telling--;
-                   // Unless the page went back into full screen meanwhile (here or in another window): the app never heard
-                   // it leave.
                    ArdiaCoreTab *t = weakTab;
                    if (t && [FullScreenChanges() objectForKey:t].unsignedIntegerValue == change) tell();
                    [me sync];
@@ -858,19 +727,14 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   const BOOL full = IsWindowFullScreen(window), page = _tab != nil;
   const NSInteger toggle = page && !full && !_entered ? 1 : !page && full && _entered ? -1 : 0;
   if (toggle != _waitingFor) {
-    // A new wait, or none (the page changed its mind meanwhile): an older answer counts for nothing.
     _waitingFor = toggle;
     _drew = _askedWait = NO;
     _wait++;
   }
   if (toggle == 1) {
-    // In: the page drew itself full screen in its card, the app gave it the window and the page drew that, then the
-    // window grows, the page's picture over it.
     if (_telling > 0 || _picturing || ![self pageDrew:_tab entering:YES]) return;
     [self coverThenToggle:_tab entering:YES];
   } else if (toggle == -1) {
-    // Out: the page drew itself out of full screen, the app laid its sidebar and toolbar out around it and the page
-    // drew that, then the window shrinks, the page's picture over it.
     if (_telling > 0 || _picturing || ![self pageDrew:_leftTab entering:NO]) return;
     [self coverThenToggle:_leftTab entering:NO];
   } else if (!page) {
@@ -878,8 +742,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   }
 }
 
-// The pages the window shows: on the way in, the full-screen page alone (it covers the rest); on the way out, every
-// page the app lays out again (a split's panes).
 - (NSArray<ArdiaCoreTab *> *)shownTabs:(ArdiaCoreTab *)tab entering:(BOOL)entering {
   ArdiaCoreWindow *coreWindow = _coreWindow;
   NSWindow *window = coreWindow.window;
@@ -889,14 +751,12 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   for (ArdiaCoreTab *other in [coreWindow tabsForProfile:coreWindow.activeProfile]) {
     NSView *page = other.view;
     ArdiaCoreWebView *view = [ArdiaCoreTabs viewForTab:other];
-    // Shown: in this window, not hidden, and not a page kept painting unseen (alpha 0).
     if (other == tab || page.window != window || page.isHiddenOrHasHiddenAncestor || !view || view.alphaValue < 0.5) continue;
     [tabs addObject:other];
   }
   return tabs;
 }
 
-// The window's transition, once the pages' pictures cover them (ACPageCover; without any, at once).
 - (void)coverThenToggle:(ArdiaCoreTab *)tab entering:(BOOL)entering {
   _picturing = YES;
   const NSUInteger turn = ++_coverTurn;
@@ -904,7 +764,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   [ACPageCover coverTabs:[self shownTabs:tab entering:entering]
                     then:^(NSArray<ACPageCover *> *covers) {
                       ACWindowFullScreen *me = weakSelf;
-                      // A change since (its own sync runs): these pictures are for nothing.
                       if (!me || me->_coverTurn != turn) {
                         for (ACPageCover *cover in covers) [cover uncover:NO];
                         return;
@@ -919,7 +778,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
 - (void)toggle:(BOOL)entering {
   ArdiaCoreWindow *coreWindow = _coreWindow;
   NSWindow *window = coreWindow.window;
-  // Whatever changed while the pictures came (the window closed, a transition began) leaves the window as it is.
   const BOOL wanted = window && !_closed && !_transitioning && IsWindowFullScreen(window) != entering &&
                       (entering ? _tab && !_entered : !_tab && _entered);
   if (!wanted) {
@@ -930,10 +788,8 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   _entered = entering;
   _asked = entering ? 1 : -1;
   if (!entering) _leftTab = nil;
-  // The pictures are in the window's layers before AppKit pictures them.
   [CATransaction flush];
   ToggleWindowFullScreen(coreWindow);
-  // AppKit says nothing when it doesn't start a transition: the pages show through rather than stay pictures.
   NSArray *covers = _covers;
   if (!covers.count) return;
   __weak ACWindowFullScreen *weakSelf = self;
@@ -947,7 +803,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   return _tab ?: _leftTab ?: _lastTab;
 }
 
-// The pages' pictures still over them, fading out included.
 - (NSInteger)covers {
   NSInteger covers = 0;
   NSMutableArray<NSView *> *views = [NSMutableArray arrayWithObject:_coreWindow.window.contentView ?: [NSView new]];
@@ -968,8 +823,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   return _transitioning;
 }
 
-// After the window's transition: each page shows through once it has drawn the size it has now. A page that can't
-// answer, or doesn't in time (ACPageDrawWait), shows through anyway.
 - (void)uncoverWhenDrawn {
   NSArray<ACPageCover *> *covers = _covers;
   _covers = nil;
@@ -982,7 +835,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
     [ACPageDrawWait tab:tab
                   draws:^NSInteger(BOOL, BOOL) { return 1; }
                    then:^{
-                     // Chrome puts that frame on screen a frame or two after the page drew it.
                      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.034 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                        [cover uncover:YES];
                      });
@@ -1001,7 +853,7 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   _askedWait = YES;
   const NSUInteger wait = _wait;
   __weak ACWindowFullScreen *weakSelf = self;
-  __block BOOL now = YES;  // Answered at once (nothing to wait for): no need to sync again.
+  __block BOOL now = YES;
   [ACPageDrawWait tab:tab
                 draws:^NSInteger(BOOL fullScreen, BOOL fills) { return fullScreen == entering && fills == entering; }
                  then:^{
@@ -1041,9 +893,6 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
 
 namespace {
 
-// A tab Chrome made in a window of its own (chrome.windows.create) while the app shows no page to announce it through:
-// offered to the app (tab:<id>) through the extensions module, which opens it in a window of its profile. Its URL
-// first, as -[ArdiaCoreWebView openedTab:…] waits for it.
 void AnnounceStrayTab(ArdiaCoreTab *tab, int tries) {
   if (tab.closed) return;
   NSString *url = tab.url;
@@ -1058,20 +907,11 @@ void AnnounceStrayTab(ArdiaCoreTab *tab, int tries) {
   });
 }
 
-// A tab Chrome made that no view of the app asked for (a window Chrome made, an extension's tab in a window paged to
-// another profile): to the app's windows, as a tab Chrome made. A regular tab goes through a view of its own profile,
-// else the extensions module, which opens it in a window of its profile; a private tab to a private window of its
-// session, else to a private window the app opens for it ("incognito") from the profile it's off the record of, never
-// into a normal window or another profile's.
 void HandOffTab(ArdiaCoreTab *tab) {
   ArdiaCoreProfile *profile = tab.profile;
-  // A profile on its way out (the last private window just closed) has no profile to show it under.
   if (!profile) return (void)dispatch_async(dispatch_get_main_queue(), ^{ [tab closeNow]; });
   ArdiaCoreWebView *view = [ArdiaCoreWindowController hostingViewForProfile:profile];
   if (view || !profile.offTheRecord) {
-    // A view of the tab's own profile announces it. With none (a launch on the New Tab page, or only another
-    // profile's pages shown, which would adopt it under their profile), the extensions module does, live.
-    // A private profile's view is one of its session's windows, whatever its own private name.
     if (view && ([view.profile isEqualToString:ardiacore_host::ProfileName(profile)] ||
                  ardiacore_host::IsOffTheRecordOf(profile, view.profile)))
       [view openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab prefix:@"tab"] disposition:@"foreground"];
@@ -1080,14 +920,10 @@ void HandOffTab(ArdiaCoreTab *tab) {
     return;
   }
   if (!(view = [ArdiaCoreWindowController hostingViewForProfile:nil])) return;
-  // No window of its session yet: the app opens a private window of the profile it's off the record of, which takes
-  // the tab live.
   [view openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab prefix:@"tab"] disposition:@"incognito"];
 }
 
-}  // namespace
-
-// MARK: - ArdiaCoreWindowController
+}
 
 @implementation ArdiaCoreWindowController {
   NSHashTable<ArdiaCoreTab *> *_closing;
@@ -1119,7 +955,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
   if (controller && controller.coreWindow.window) return controller;
   ArdiaCoreWindow *coreWindow = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)];
   if (!coreWindow.window) return nil;
-  // Extension popups and side panels aren't pages the user visited (CEF's standalone browsers kept no history).
   if ([coreWindow respondsToSelector:@selector(setInternal:)]) coreWindow.internal = YES;
   controller = [[ArdiaCoreWindowController alloc] initWithCoreWindow:coreWindow];
   controller->_standalone = YES;
@@ -1128,8 +963,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
   return controller;
 }
 
-// The app's window to hand a stray tab to, the frontmost first (the user's): one showing the tab's profile, else any
-// (nil profile: any). A private tab only ever goes to a window showing its own profile.
 + (ArdiaCoreWebView *)hostingViewForProfile:(ArdiaCoreProfile *)profile {
   ArdiaCoreWebView *any = nil;
   for (NSWindow *window in NSApp.orderedWindows) {
@@ -1152,7 +985,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 - (void)noteClosing:(ArdiaCoreTab *)tab {
   if (!_closing) _closing = [NSHashTable weakObjectsHashTable];
   [_closing addObject:tab];
-  // A close that never completes (a page's beforeunload kept it) stops counting after a while.
   __weak ArdiaCoreWindowController *weakSelf = self;
   __weak ArdiaCoreTab *weakTab = tab;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -1193,8 +1025,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
   return tab ? [ArdiaCoreTabs viewForTab:tab] : nil;
 }
 
-// A shown tab of this window: who hears about tabs Chrome opened with no opener the app hosts (an
-// extension's tabs.create, say).
 - (ArdiaCoreWebView *)anyShownViewForProfile:(ArdiaCoreProfile *)profile {
   for (ArdiaCoreTab *tab in [_coreWindow tabsForProfile:profile]) {
     ArdiaCoreWebView *view = [ArdiaCoreTabs viewForTab:tab];
@@ -1212,25 +1042,17 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 
 - (void)window:(ArdiaCoreWindow *)window didInsertTab:(ArdiaCoreTab *)tab opener:(ArdiaCoreTab *)opener disposition:(NSString *)disposition {
   [ArdiaCoreTabStrip changedInWindow:self profile:tab.profile];
-  // The app's own (a WebView opening its tab, or adopting one): the view attaches it itself.
   if (_hostChanges > 0 || [ArdiaCoreTabs viewForTab:tab]) return;
-  // A window Chrome made (chrome.windows.create, Open Link in Incognito Window): the tab goes to the app's windows.
   if (_stray) return HandOffTab(tab);
   ArdiaCoreWebView *openerView = [self viewFor:opener];
   if ([disposition isEqualToString:@"popup"] && [tab respondsToSelector:@selector(popupFeatures)]) {
-    // A sized window.open (OAuth, payments): a window of its own, not a tab.
     return ardiacore_host::OpenPopupWindow(tab, openerView);
   }
   if (openerView) {
-    // A page's popup, target=_blank or ⌘-click: placed by the app's opener rules.
     [openerView openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab] disposition:ardiacore_host::AppDisposition(disposition)];
   } else if (ArdiaCoreWebView *view = [self anyShownViewForProfile:tab.profile]) {
-    // A tab Chrome made on its own (an extension's tabs.create): the app takes Chrome's place for it, through a shown
-    // view of its own profile in this window.
     [view openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab prefix:@"tab"] disposition:@"foreground"];
   } else {
-    // None here (the window shows another profile now): as a tab of a window Chrome made, so it never lands under
-    // another profile's page, where it would keep its own profile's cookies under the other's name.
     HandOffTab(tab);
   }
 }
@@ -1239,9 +1061,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
   if (ArdiaCoreProfile *profile = tab.profile) [ArdiaCoreTabStrip changedInWindow:self profile:profile];
   [[self viewFor:tab] tabRemovedFromWindow:window];
   if (_stray || _standalone) {
-    // Its last tab went to the app's windows (or its last standalone view closed): the hidden window goes too, so
-    // its empty Browsers don't keep a private profile alive. (The removed tab's profile counts too: one the app never
-    // loaded, another profile's private one, may still have tabs here.)
     __weak ArdiaCoreWindowController *weakSelf = self;
     ArdiaCoreProfile *removedProfile = tab.profile;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -1259,7 +1078,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
       [c.coreWindow close];
     });
   }
-  // After Chrome picked the next active tab (it does before it reports the removal).
   dispatch_async(dispatch_get_main_queue(), ^{ [self->_closing removeObject:tab]; });
 }
 
@@ -1281,18 +1099,14 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
     ArdiaCoreTab *t = weakTab;
     if (t) [[weakSelf viewFor:t] emit:@"fullscreen" payload:@{@"fullscreen" : @(fullscreen)}];
   };
-  // The app's windows only: a hidden one (a stray tab's, extension pages') shows nothing to fill the screen with.
   if (_stray || _standalone) return tell();
   [[ACWindowFullScreen ofWindow:window create:YES] tab:tab fullScreen:fullscreen tell:tell];
 }
 
-// Chrome's password bubble, already in packages/cef's PasswordPrompt shape (save, update or saved; usernames,
-// federation, the password's length).
 - (void)window:(ArdiaCoreWindow *)window passwordPrompt:(NSDictionary<NSString *, id> *)prompt forTab:(ArdiaCoreTab *)tab {
   [[self viewFor:tab] emit:@"passwordPrompt" payload:prompt];
 }
 
-// Chrome's offer to save or update an address or card, or {id, closed} once it went (JS AutofillPrompt).
 - (void)window:(ArdiaCoreWindow *)window autofillPrompt:(NSDictionary<NSString *, id> *)prompt forTab:(ArdiaCoreTab *)tab {
   [[self viewFor:tab] emit:@"autofillPrompt" payload:prompt];
 }
@@ -1306,8 +1120,6 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 }
 
 - (void)window:(ArdiaCoreWindow *)window confirmCloseWithDownloads:(int)count completion:(void (^)(BOOL))completion {
-  // The app asks about downloads in flight before it quits (WindowManager.confirmActiveDownloads); closing one
-  // window with downloads going keeps them going in Chrome's download manager until quit.
   completion(YES);
 }
 
@@ -1316,11 +1128,8 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 }
 
 - (BOOL)window:(ArdiaCoreWindow *)window handleKeyEvent:(NSEvent *)event {
-  // An Esc the page left alone (Little Ardia closes on it): onCommand "escape" on the shown tab.
   const NSEventModifierFlags mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
   if (event.type == NSEventTypeKeyDown && event.keyCode == 53 && !(mods & (NSEventModifierFlagCommand | NSEventModifierFlagOption | NSEventModifierFlagControl))) {
-    // The page holding focus, whichever profile's Browser has it (the window's active profile can be another one
-    // for a moment, e.g. while Chrome deletes a profile that had a Browser here).
     NSResponder *focused = window.window.firstResponder;
     ArdiaCoreWebView *target = nil;
     for (ArdiaCoreProfile *profile in ardiacore_host::LoadedProfiles()) {
@@ -1332,17 +1141,11 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
     }
     [target emit:@"command" payload:@{@"command" : @"escape", @"text" : @""}];
   }
-  // The engine tries the main menu next, with what AppKit takes as key equivalents.
   return NO;
 }
 
 @end
 
-// MARK: - Popup windows
-
-// A page's sized popup in a window of its own (packages/cef's ACPopupWindow): a plain titled window (the page's title,
-// its host below), the tab Chrome made for window.open moved into it live, so window.opener holds both ways. Links it
-// opens go to the opener's tab, as the app places them; its window.close() closes the window.
 @interface ArdiaCorePopupWindow : NSObject <ArdiaCoreWindowDelegate, ArdiaCoreTabDelegate>
 @end
 
@@ -1357,7 +1160,7 @@ NSString *HostOf(NSString *url) {
   return [NSURL URLWithString:url ?: @""].host ?: @"";
 }
 
-}  // namespace
+}
 
 @implementation ArdiaCorePopupWindow {
   ArdiaCoreWindow *_coreWindow;
@@ -1372,7 +1175,6 @@ NSString *HostOf(NSString *url) {
   _tab = tab;
   _opener = opener;
   NSDictionary<NSString *, NSNumber *> *features = tab.popupFeatures ?: @{};
-  // window.open's width and height are the page's; Chrome's own floor for a popup is 100 × 100, CEF's window 200 × 150.
   const NSSize size = NSMakeSize(MAX(features[@"width"] ? features[@"width"].doubleValue : 500, 200),
                                  MAX(features[@"height"] ? features[@"height"].doubleValue : 600, 150));
   _coreWindow = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, size.width, size.height)];
@@ -1400,7 +1202,6 @@ NSString *HostOf(NSString *url) {
   NSScreen *screen = parent.screen ?: NSScreen.mainScreen;
   NSRect frame = window.frame;
   if (features[@"x"] || features[@"y"]) {
-    // The page's left and top: screen points from the primary screen's top-left (the content's, as Chrome places it).
     const NSRect primary = NSScreen.screens.firstObject.frame;
     const NSRect content = [window contentRectForFrameRect:frame];
     const CGFloat left = features[@"x"] ? features[@"x"].doubleValue : NSMidX(parent.frame) - NSWidth(frame) / 2;
@@ -1418,7 +1219,6 @@ NSString *HostOf(NSString *url) {
   [window setFrame:frame display:NO];
 }
 
-// After the insert that reported the tab: Chrome's strip can't change from inside its own callback.
 - (void)takeTab {
   if (_tab.closed) return [_coreWindow close];
   _adopting = YES;
@@ -1448,12 +1248,9 @@ NSString *HostOf(NSString *url) {
   if (_closeObserver) [NSNotificationCenter.defaultCenter removeObserver:_closeObserver];
   _closeObserver = nil;
   if (_tab.delegate == self) _tab.delegate = nil;
-  // Removed after the close finishes (the engine is still unwinding the window).
   ArdiaCorePopupWindow *me = self;
   dispatch_async(dispatch_get_main_queue(), ^{ [PopupWindows() removeObject:me]; });
 }
-
-// MARK: The page
 
 - (void)tabDidChangeTitle:(ArdiaCoreTab *)tab {
   [self updateTitle];
@@ -1468,16 +1265,12 @@ NSString *HostOf(NSString *url) {
 }
 
 - (void)tab:(ArdiaCoreTab *)tab externalAppRequest:(NSDictionary<NSString *, id> *)request {
-  // The app's prompt, over the opener's tab (the request answers through the engine, whichever tab shows it).
   id<ArdiaCoreTabDelegate> opener = (id<ArdiaCoreTabDelegate>)_opener;
   if ([opener respondsToSelector:@selector(tab:externalAppRequest:)]) [opener tab:tab externalAppRequest:request];
 }
 
-// MARK: The window
-
 - (void)window:(ArdiaCoreWindow *)window didInsertTab:(ArdiaCoreTab *)tab opener:(ArdiaCoreTab *)opener disposition:(NSString *)disposition {
   if (_adopting || tab == _tab) return;
-  // The popup's own popups get windows too; its other new tabs go to the app beside the opener's tab.
   if ([disposition isEqualToString:@"popup"]) return ardiacore_host::OpenPopupWindow(tab, _opener);
   ArdiaCoreWebView *view = _opener ?: [ArdiaCoreWindowController hostingViewForProfile:tab.profile];
   if (view) [view openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab] disposition:ardiacore_host::AppDisposition(disposition)];
@@ -1486,13 +1279,11 @@ NSString *HostOf(NSString *url) {
 
 - (void)window:(ArdiaCoreWindow *)window didRemoveTab:(ArdiaCoreTab *)tab {
   if (tab != _tab) return;
-  // Its page closed (or went to the app): nothing is left to show.
   __weak ArdiaCoreWindow *coreWindow = _coreWindow;
   dispatch_async(dispatch_get_main_queue(), ^{ [coreWindow close]; });
 }
 
 - (BOOL)window:(ArdiaCoreWindow *)window preHandleKeyEvent:(NSEvent *)event {
-  // ⌘W closes the popup (the app's menu would close the opener window's tab).
   const NSEventModifierFlags mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
   if (mods == NSEventModifierFlagCommand && [event.charactersIgnoringModifiers.lowercaseString isEqualToString:@"w"]) {
     [_coreWindow close];
@@ -1508,7 +1299,6 @@ namespace ardiacore_host {
 void OpenPopupWindow(ArdiaCoreTab *tab, ArdiaCoreWebView *opener) {
   ArdiaCorePopupWindow *popup = [[ArdiaCorePopupWindow alloc] initWithTab:tab opener:opener];
   if (!popup) {
-    // No window: the tab goes to the app as any page's new tab would.
     if (opener) [opener openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab] disposition:@"foreground"];
     return;
   }
@@ -1527,9 +1317,7 @@ void ActToggleFullScreen(NSWindow *window) {
     ActWindowFullScreen(coreWindow, !IsWindowFullScreen(window), gActedTransition);
 }
 
-}  // namespace ardiacore_host
-
-// MARK: - ACChromeWindowHost
+}
 
 NSView *ACWindowRootView(NSWindow *window) {
   return [ACChromeWindowHost rootViewOfWindow:window] ?: window.contentView;
@@ -1574,7 +1362,7 @@ NSView *ACWindowRootView(NSWindow *window) {
 }
 
 + (void)setTrafficLightsCenter:(NSValue *)center inWindow:(NSWindow *)window {
-  if (objc_getAssociatedObject(window, kLightsShownKey)) {  // drawn elsewhere by a move: laid out here now instead
+  if (objc_getAssociatedObject(window, kLightsShownKey)) {
     objc_setAssociatedObject(window, kLightsShownKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(window, kLightsMoveKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     TranslateTrafficLights(TrafficLightButtons(window), 0);
@@ -1641,8 +1429,6 @@ NSView *ACWindowRootView(NSWindow *window) {
 
 @end
 
-// MARK: - DEV input (the same actions as packages/cef's ACChromeWindow.mm, for the shared test scripts)
-
 namespace {
 
 NSString *Describe(NSView *view) {
@@ -1674,11 +1460,6 @@ NSEvent *Key(NSWindow *window, NSEventType type, NSEventModifierFlags flags, NSS
 
 namespace {
 
-// What an in-process picture of the window (all AppKit shows of it through a full-screen transition: ACPageCover) has
-// in the page's place, now: {t (ms since the probe started), size (the window's), page ([x, y, w, h] from the
-// window's top-left), cover, transitioning, uniform (the share of the page's place in its most common colour: 1 is
-// a bare background), grid (8 × 6 mean colours "rrggbb", rows from the top), relayout (the window was resized since
-// the frame before and the app's views aren't laid out at its new size yet)}.
 NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInterval start, NSSize before) {
   NSView *content = window.contentView;
   CALayer *layer = content.layer;
@@ -1706,9 +1487,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     @"covers" : @(state.covers),
     @"transitioning" : @(state.transitioning),
   } mutableCopy];
-  // The window has just been resized and the app hasn't laid itself out at the new size yet (its views still have the
-  // old size, and in the window's bottom-up layer space they sit shifted by the difference): the one main-thread turn
-  // between AppKit resizing the window and the app's layout catching up, which the render can't speak for.
   if (!NSEqualSizes(before, NSZeroSize) && !NSEqualSizes(before, size)) {
     NSMutableArray<NSView *> *views = [NSMutableArray arrayWithArray:content.subviews];
     for (NSUInteger i = 0; i < views.count && i < 64; i++) {
@@ -1721,7 +1499,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
   }
   NSView *page = state.probedTab.view;
   if (!page.window || page.window != window) return frame;
-  // The page's place in the picture's rows (top-down) and columns.
   const NSRect r = [page convertRect:page.bounds toView:content];
   const CGFloat top = content.isFlipped ? NSMinY(r) : size.height - NSMaxY(r);
   frame[@"page"] = @[ @(NSMinX(r)), @(top), @(NSWidth(r)), @(NSHeight(r)) ];
@@ -1757,26 +1534,17 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
   return frame;
 }
 
-}  // namespace
+}
 
 @implementation ACChromeWindowHost (Dev)
 
-// "lights": the close button's frame in window coordinates (x,y,w,h, bottom-left origin).
 + (NSString *)devAction:(NSString *)action window:(NSWindow *)window {
   if (!window) return nil;
-  // "fakeFullScreen:<1|0>[:<ms>]" (test instances): the window enters or leaves macOS full screen as the green button
-  // would, acted out; with a duration the transition ends that much later. "fakeFullScreenMs:<ms>": the length of the
-  // acted transitions page full screen starts. "fullScreen": the window's full screen and its page full screen, as JSON.
-  // "fakeOcclusion:<visible|occluded|off>": macOS's occlusion state for the window; "fakeFullScreenOcclusionMs:<ms>"
-  // (-1 off): acted transitions occlude the window as a real one does, visible again <ms> after it ends.
   if ([action hasPrefix:@"fakeFullScreenMs:"]) {
     if (!ardiacore_host::Background()) return @"test instances only";
     gActedTransition = MAX(0, [action substringFromIndex:17].doubleValue / 1000);
     return [NSString stringWithFormat:@"%.0f", gActedTransition * 1000];
   }
-  // "pageCover:<1|0>" (test instances): the page's picture over it through the window's transitions (ACPageCover), or
-  // not, as up to 0.2.30. "fullScreenProbe:<ms>": for <ms>, at every display frame, what AppKit's pictures of the window
-  // would show in the page's place (ProbeFrame); "fullScreenProbe": those frames, as JSON.
   if ([action hasPrefix:@"pageCover:"]) {
     if (!ardiacore_host::Background()) return @"test instances only";
     gPageCoverOff = ![[action substringFromIndex:10] isEqualToString:@"1"];
@@ -1815,8 +1583,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     gActedOcclusionGap = ms == -1 ? NAN : ms / 1000;
     return [NSString stringWithFormat:@"%.0f", ms];
   }
-  // "fakeAppActive:<1|0>" (test instances): the app reads as active or not, as when the user comes back or goes to
-  // another app; the key window follows.
   if ([action hasPrefix:@"fakeAppActive:"]) {
     if (!ardiacore_host::Background()) return @"test instances only";
     ardiacore_host::SetAppActive([[action substringFromIndex:14] isEqualToString:@"1"]);
@@ -1848,7 +1614,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     return json ? [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding] : @"{}";
   }
   NSView *frameView = window.contentView.superview;
-  // The window's child windows (Chrome's dropdowns, bubbles and menus attach as children): [{class, frame, visible}].
   if ([action isEqualToString:@"children"]) {
     NSMutableArray *children = [NSMutableArray array];
     for (NSWindow *child in window.childWindows)
@@ -1861,8 +1626,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     NSPoint p = WindowPoint(window, [action substringFromIndex:4]);
     return Describe([frameView hitTest:p]);
   }
-  // Window drags started since the last call, with who started them: a drag from the tab strip must not move the
-  // window. The first call starts recording (AppKit's two entry points to a window drag).
   if ([action isEqualToString:@"windowDrags"]) {
     static NSMutableArray<NSString *> *drags;
     static dispatch_once_t once;
@@ -1886,8 +1649,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     [drags removeAllObjects];
     return out;
   }
-  // "responderChanges" (test instances): first-responder changes since the last call, each with its caller's stack
-  // (who took a field's focus). The first call starts recording.
   if ([action isEqualToString:@"responderChanges"]) {
     if (!ardiacore_host::Background()) return @"test instances only";
     static NSMutableArray<NSString *> *changes;
@@ -1907,9 +1668,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     [changes removeAllObjects];
     return out;
   }
-  // "fakeActiveClicks" (test instances): text views and pages take a click in the key window, as in an active app. A
-  // background instance's app is never really active, so AppKit keeps each first click to itself (the caret doesn't
-  // move on unselected text, a click on the page doesn't focus it).
   if ([action isEqualToString:@"fakeActiveClicks"]) {
     if (!ardiacore_host::Background()) return @"test instances only";
     static dispatch_once_t once;
@@ -1923,7 +1681,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
         IMP takes = imp_implementationWithBlock(^BOOL(NSView *v, NSEvent *e) {
           return v.window.isKeyWindow || ((BOOL(*)(id, SEL, NSEvent *))original)(v, sel, e);
         });
-        // Its own method (a subclass may only inherit NSView's).
         if (!class_addMethod(cls, sel, takes, method_getTypeEncoding(m))) method_setImplementation(m, takes);
       }
     });
@@ -1950,10 +1707,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     });
     return hit;
   }
-  // "mouse:<down|up|dragged|moved|otherdown|otherup>:<x>,<y>[,<clickCount>[,<modifier flags>]]": one event posted to
-  // the app's queue, as the window server delivers one (left button; other: the middle one). A text field's mouse-down
-  // tracks the mouse until its mouse-up comes from the queue ("click:" sends both at once, which would leave it
-  // waiting), so a script sends the up when it means to. The flags are NSEventModifierFlags (⌘-click: 1048576).
   if ([action hasPrefix:@"mouse:"]) {
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@":"];
     if (parts.count < 3) return @"mouse:<down|up|dragged|moved|otherdown|otherup>:<x>,<y>[,<clickCount>[,<flags>]]";
@@ -2162,8 +1915,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     return [NSString stringWithFormat:@"%.1f,%.1f,%.1f,%.1f", r.origin.x, r.origin.y, r.size.width, r.size.height];
   }
   if ([action isEqualToString:@"cover"] || [action isEqualToString:@"uncover"]) {
-    // Tests: one of the app's own windows right above this one, a little larger, as an owner's window covering it
-    // would be (Chrome's occlusion checker then reports it occluded). Never key, never takes clicks.
     static NSMapTable<NSWindow *, NSWindow *> *covers = [NSMapTable weakToStrongObjectsMapTable];
     NSWindow *cover = [covers objectForKey:window];
     if ([action isEqualToString:@"cover"]) {
@@ -2186,7 +1937,6 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     return @"uncovered";
   }
   if ([action isEqualToString:@"close-button"]) {
-    // The title bar's close button, as a click on it (performClose: → windowShouldClose:).
     [[window standardWindowButton:NSWindowCloseButton] performClick:nil];
     return @"clicked";
   }

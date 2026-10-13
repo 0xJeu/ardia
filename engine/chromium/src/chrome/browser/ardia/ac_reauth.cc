@@ -35,7 +35,6 @@ const char* Histogram(device_reauth::DeviceAuthSource source) {
              : "Autofill.PaymentMethods.SettingsPage.Reauth";
 }
 
-// The profile's authentication in progress (one at a time).
 class ReauthState : public ProfileState {
  public:
   explicit ReauthState(Profile* profile) : ProfileState(profile) {}
@@ -46,9 +45,6 @@ class ReauthState : public ProfileState {
              base::OnceCallback<void(bool)> done) {
     base::WeakPtr<ReauthState> self = weak_factory_.GetWeakPtr();
     const int generation = ++generation_;
-    // Cancelling answers the older request (false) synchronously. Its reply
-    // may start another request (which then wins: this one fails) or let the
-    // profile go.
     while (authenticator_) {
       std::unique_ptr<device_reauth::DeviceAuthenticator> older =
           std::move(authenticator_);
@@ -80,8 +76,6 @@ class ReauthState : public ProfileState {
             base::OnceCallback<void(bool)> done,
             bool authenticated) {
     if (generation == generation_) {
-      // As PasswordsPrivateDelegateImpl::OnReauthCompleted: the authenticator
-      // allows going away inside its own callback.
       authenticator_.reset();
     }
     std::move(done).Run(authenticated);
@@ -92,7 +86,7 @@ class ReauthState : public ProfileState {
   base::WeakPtrFactory<ReauthState> weak_factory_{this};
 };
 
-}  // namespace
+}
 
 void Reauth(Profile* profile,
             device_reauth::DeviceAuthSource source,
@@ -113,4 +107,4 @@ void Reauth(Profile* profile,
                                        std::move(done));
 }
 
-}  // namespace ardia
+}

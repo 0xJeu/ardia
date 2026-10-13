@@ -60,7 +60,6 @@ class TestSystemPermissions : public system_permission_settings::PlatformHandle 
       Real()->OpenSystemSettings(web_contents, type);
     }
   }
-  // macOS's answer comes later, as it would: "Allow" when asking is possible.
   void Request(ContentSettingsType type,
                system_permission_settings::SystemPermissionResponseCallback
                    callback) override {
@@ -97,7 +96,7 @@ class TestSystemPermissions : public system_permission_settings::PlatformHandle 
   std::map<ContentSettingsType, bool> granted_;
 };
 
-}  // namespace
+}
 
 void MaybeInstallTestSystemPermissions() {
   const base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -105,10 +104,9 @@ void MaybeInstallTestSystemPermissions() {
     return;
   }
   const std::string value = command_line->GetSwitchValueASCII(kSwitch);
-  // The stand-in lives for the process (NoDestructor), so its delayed answers never outlive it.
   static base::NoDestructor<TestSystemPermissions> handle(
       value == "denied", value == "ask-slow" ? base::Seconds(4) : base::TimeDelta());
   system_permission_settings::SetInstanceForTesting(handle.get());
 }
 
-}  // namespace ardiacore
+}

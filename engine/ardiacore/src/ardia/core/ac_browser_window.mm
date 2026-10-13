@@ -40,9 +40,7 @@
 
 namespace ardiacore {
 
-// --- ACLocationBar ----------------------------------------------------------------------
-
-ACLocationBar::ACLocationBar() : LocationBar(/*command_updater=*/nullptr) {}
+ACLocationBar::ACLocationBar() : LocationBar(nullptr) {}
 ACLocationBar::~ACLocationBar() = default;
 OmniboxView* ACLocationBar::GetOmniboxView() {
   return nullptr;
@@ -118,8 +116,6 @@ bool ACLocationBar::HasSecurityStateChanged() {
 LocationBarTesting* ACLocationBar::GetLocationBarForTesting() {
   return nullptr;
 }
-
-// --- ACAutofillBubbleHandler ------------------------------------------------------------
 
 ACAutofillBubbleHandler::ACAutofillBubbleHandler() = default;
 ACAutofillBubbleHandler::~ACAutofillBubbleHandler() = default;
@@ -199,7 +195,6 @@ autofill::AutofillBubbleBase* ACAutofillBubbleHandler::
     ShowSaveCardConfirmationBubble(
         content::WebContents* web_contents,
         autofill::SaveCardBubbleController* controller) {
-  // Google Pay's "card saved" (an upload's): nothing to show, closed unanswered.
   return ShowSaveCardPrompt(web_contents, controller);
 }
 autofill::AutofillBubbleBase* ACAutofillBubbleHandler::
@@ -226,16 +221,12 @@ autofill::AutofillBubbleBase* ACAutofillBubbleHandler::
         bool) AC_NO_BUBBLE()
 #undef AC_NO_BUBBLE
 
-// --- ACBrowserWindow --------------------------------------------------------------------
-
 namespace {
 
-// Every live ACBrowserWindow.
 std::set<const BrowserWindow*>& LiveWindows() {
   static base::NoDestructor<std::set<const BrowserWindow*>> windows;
   return *windows;
 }
-// ArdiaCore's Browsers and their hosts (ac_browser_window.h, Register).
 std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>& Records() {
   static base::NoDestructor<
       std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>>
@@ -243,9 +234,8 @@ std::map<const BrowserWindowInterface*, base::WeakPtr<WindowHost>>& Records() {
   return *records;
 }
 
-}  // namespace
+}
 
-// static
 ACBrowserWindow* ACBrowserWindow::FromWindow(const BrowserWindow* window) {
   if (!window || !LiveWindows().contains(window)) {
     return nullptr;
@@ -257,18 +247,15 @@ void ACBrowserWindow::Register(const BrowserWindowInterface* browser) {
   Records()[browser] = host_;
 }
 
-// static
 bool ACBrowserWindow::IsOurs(const BrowserWindowInterface* browser) {
   return browser && Records().contains(browser);
 }
 
-// static
 WindowHost* ACBrowserWindow::HostOf(const BrowserWindowInterface* browser) {
   auto it = browser ? Records().find(browser) : Records().end();
   return it == Records().end() ? nullptr : it->second.get();
 }
 
-// static
 void ACBrowserWindow::Forget(const BrowserWindowInterface* browser) {
   Records().erase(browser);
 }
@@ -280,8 +267,6 @@ ACBrowserWindow::ACBrowserWindow(base::WeakPtr<WindowHost> host)
 
 ACBrowserWindow::~ACBrowserWindow() {
   LiveWindows().erase(this);
-  // BrowserWindow implementations tear these down before the window goes (as
-  // BrowserView does): they hold references into it.
   devtools_ui_controller_.reset();
   autofill_bubble_handler_registration_.reset();
   if (browser_) {
@@ -328,8 +313,6 @@ bool ACBrowserWindow::IsFullscreen() const {
                  (host_->widget() && host_->widget()->IsFullscreen())))) {
     return true;
   }
-  // A page fullscreen in a window that already was (no EnterFullscreen came) stays "in
-  // fullscreen" after the user leaves the window's: Chrome would ignore its exit otherwise.
   ExclusiveAccessManager* manager =
       browser_ ? browser_->GetFeatures().exclusive_access_manager() : nullptr;
   return manager && manager->fullscreen_controller()->IsTabFullscreen();
@@ -355,9 +338,6 @@ gfx::Rect ACBrowserWindow::GetBounds() const {
 }
 
 void ACBrowserWindow::Show() {
-  // Chrome shows a Browser's window when it wants it seen (a tab it opened, the install
-  // bubble's window). The host decides what is shown: its windows are on screen when it
-  // showed them, and its hidden ones (a Browser Chrome made, its own pages) never are.
 }
 
 bool ACBrowserWindow::IsVisible() const {
@@ -366,23 +346,14 @@ bool ACBrowserWindow::IsVisible() const {
 }
 
 void ACBrowserWindow::ShowInactive() {
-  // As Show(): only the host shows its windows (-[ArdiaCoreWindow showInactive]).
 }
 
 void ACBrowserWindow::Close() {
-  // As BrowserView::CanClose/Close: beforeunload first, then close every tab; Chrome calls
-  // back here once the strip is empty and destroys the Browser after that.
   if (!browser_) {
     return;
   }
   UnloadController* unload = UnloadController::From(browser_);
   if (unload) {
-    // Its window's close records its tabs in Chrome's closed-tab list: a New Tab page's tab
-    // made ahead on about:blank goes first, unrecorded. Only for the host's close (decided:
-    // after beforeunload and the downloads question) or the quit's. One Chrome starts on its
-    // own (an extension's windows.remove) may still be refused here, and keeps it; one that
-    // races a quit's pending beforeunload and is refused loses only the prewarm (the New Tab
-    // page makes its tab at Enter instead).
     if ((host_ && host_->closing()) || browser_shutdown::IsTryingToQuit()) {
       CloseBlankTabsBeforeWindowCloses(browser_);
     }
@@ -391,9 +362,6 @@ void ACBrowserWindow::Close() {
 }
 
 void ACBrowserWindow::Activate() {
-  // Through the host's focus (chrome.windows.update focused, undocked DevTools closing): the
-  // window comes forward and its activation tells Chrome, never the bookkeeping alone. Not from
-  // inside Chrome's call: the host may switch tabs or profiles in response.
   if (host_ && browser_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(
@@ -418,9 +386,6 @@ ui::ZOrderLevel ACBrowserWindow::GetZOrderLevel() const {
 }
 
 bool ACBrowserWindow::IsOnCurrentWorkspace() const {
-  // The host's own hidden pages never are: Chrome looking for a window to show something in
-  // (ProfileBrowserCollection::FindTabbedBrowser: the install bubble, an options page) skips
-  // them.
   return host_ && !host_->internal();
 }
 
@@ -522,10 +487,6 @@ void ACBrowserWindow::ConfirmBrowserCloseWithPendingDownloads(
     int download_count,
     UnloadController::DownloadCloseType dialog_type,
     base::OnceCallback<void(bool)> callback) {
-  // Chrome asks here when closing this Browser would cancel an off-the-record profile's
-  // downloads. A close or quit the host started has asked already; anything else (an
-  // extension's chrome.windows.remove…) asks the host now. Never synchronously: Chrome sets
-  // up its state after asking.
   if (host_ && !host_->closing() && !IsQuitting()) {
     host_->ConfirmCloseWithDownloads(download_count, std::move(callback));
     return;
@@ -536,7 +497,6 @@ void ACBrowserWindow::ConfirmBrowserCloseWithPendingDownloads(
 
 namespace {
 
-// A key down the host's main menu has an item for (its key equivalent and modifiers).
 bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event) {
   const NSEventModifierFlags mask =
       NSEventModifierFlagCommand | NSEventModifierFlagOption |
@@ -555,7 +515,6 @@ bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event) {
       continue;
     }
     NSEventModifierFlags item_flags = item.keyEquivalentModifierMask & mask;
-    // An upper-case key equivalent implies Shift.
     if (![key isEqualToString:key.lowercaseString]) {
       item_flags |= NSEventModifierFlagShift;
     }
@@ -566,8 +525,6 @@ bool MenuHasKeyEquivalent(NSMenu* menu, NSEvent* event) {
   return false;
 }
 
-// As Chrome's BrowserNativeWidgetMac: what the renderer ignored is the browser's to handle,
-// except IME-consumed keys and the synthesized Char that follows a key down.
 NSEvent* UnhandledKeyDown(const input::NativeWebKeyboardEvent& event) {
   if (event.skip_if_unhandled ||
       event.GetType() == input::NativeWebKeyboardEvent::Type::kChar) {
@@ -577,12 +534,8 @@ NSEvent* UnhandledKeyDown(const input::NativeWebKeyboardEvent& event) {
   return ns_event.type == NSEventTypeKeyDown ? ns_event : nil;
 }
 
-}  // namespace
+}
 
-// Keys with the page focused. AppKit hands a key equivalent to the window, whose
-// RenderWidgetHostViewCocoa takes it when it is first responder (it never reaches the main
-// menu from there): Chrome asks here first, synchronously, then the page gets it, and what
-// the page leaves (no preventDefault) comes back to HandleKeyboardEvent.
 content::KeyboardEventProcessingResult ACBrowserWindow::PreHandleKeyboardEvent(
     const input::NativeWebKeyboardEvent& event) {
   NSEvent* ns_event = event.os_event.Get();
@@ -595,8 +548,6 @@ content::KeyboardEventProcessingResult ACBrowserWindow::PreHandleKeyboardEvent(
       [delegate window:owner preHandleKeyEvent:ns_event]) {
     return content::KeyboardEventProcessingResult::HANDLED;
   }
-  // A shortcut of the host's menu: the page still sees it first (Chrome's rule for
-  // shortcuts it doesn't reserve), as a browser shortcut (no keypress/char follows).
   if ((ns_event.modifierFlags & NSEventModifierFlagCommand) &&
       MenuHasKeyEquivalent(NSApp.mainMenu, ns_event)) {
     return content::KeyboardEventProcessingResult::NOT_HANDLED_IS_SHORTCUT;
@@ -616,13 +567,6 @@ bool ACBrowserWindow::HandleKeyboardEvent(
       [delegate window:owner handleKeyEvent:ns_event]) {
     return true;
   }
-  // Where AppKit would have taken it had the page not been first responder: Chrome's
-  // CommandDispatcher redispatch does the same (window key equivalents without the first
-  // responder, then the main menu); our window has no Chrome dispatcher delegate or parent.
-  // Chrome's own accelerators (IDC_NEW_TAB…) don't run: the host's menu owns the keys.
-  // Only what AppKit takes as a key equivalent (⌘, ⌃ or fn): asked directly, the View menu's
-  // Enter Full Screen (fn-F) answers a plain "f" too, so a page's unhandled "f" toggled the
-  // window's full screen.
   if (!(ns_event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl |
                                   NSEventModifierFlagFunction))) {
     return false;
@@ -633,8 +577,6 @@ bool ACBrowserWindow::HandleKeyboardEvent(
 std::unique_ptr<FindBar> ACBrowserWindow::CreateFindBar() {
   return std::make_unique<ACFindBar>();
 }
-
-// --- ACFindBar --------------------------------------------------------------------------
 
 ACFindBar::ACFindBar() = default;
 ACFindBar::~ACFindBar() = default;
@@ -664,7 +606,7 @@ bool ACFindBar::IsFindBarVisible() const {
   return visible_;
 }
 bool ACFindBar::HasGlobalFindPasteboard() const {
-  return true;  // macOS's find pasteboard, as Chrome's find bar on the Mac.
+  return true;
 }
 bool ACFindBar::CanPopulateFromSelectedText() {
   return true;
@@ -691,7 +633,6 @@ ACBrowserWindow::GetWebContentsModalDialogHostFor(
 }
 
 ExclusiveAccessContext* ACBrowserWindow::GetExclusiveAccessContext() {
-  // Chrome calls it on every mouse event (ExclusiveAccessManager::OnUserInput).
   return this;
 }
 
@@ -711,8 +652,6 @@ void ACBrowserWindow::ExitFullscreen() {
   ReportFullscreenTab();
 }
 
-// Chrome updates the bubble on every change of who holds fullscreen, including the ones that
-// don't go through Enter/ExitFullscreen (a page entering it in a window that already was).
 void ACBrowserWindow::UpdateExclusiveAccessBubble(
     const ExclusiveAccessBubbleParams& params,
     ExclusiveAccessBubbleHideCallback first_hide_callback) {
@@ -739,7 +678,6 @@ void ACBrowserWindow::ReportFullscreenTab() {
   if (was) {
     host_->FullscreenChanged(was, false);
   }
-  // Unless the host's answer changed it meanwhile (closed the tab, say).
   if (content::WebContents* contents = entering.get();
       contents && contents == fullscreen_tab_.get() && host_) {
     host_->FullscreenChanged(contents, true);
@@ -803,4 +741,4 @@ BrowserView* ACBrowserWindow::AsBrowserView() {
   return nullptr;
 }
 
-}  // namespace ardiacore
+}

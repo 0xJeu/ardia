@@ -59,8 +59,6 @@ public struct ArcSidebar: Equatable {
     return out
   }
 
-  // MARK: - Helpers
-
   static func objects(_ any: Any?) -> [[String: Any]] {
     (any as? [Any] ?? []).compactMap { $0 as? [String: Any] }
   }

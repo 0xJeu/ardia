@@ -1,8 +1,3 @@
-// Links to other apps (mailto:, zoommtg:…) from the host's tabs: Chrome decides as always
-// (a blocked scheme, a remembered allow, a missing gesture), and where it would show its
-// "Open <app>?" dialog the host is asked instead, in the wording packages/cef's
-// ACExternalApps.mm used (JS ExternalAppRequest). "Open" launches through Chrome.
-
 #include "ardia/core/ac_external_apps.h"
 
 #import <AppKit/AppKit.h>
@@ -32,7 +27,6 @@
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "content/public/browser/render_frame_host.h"
 
-// The hook in Chrome's external_protocol_dialog.cc (engine/ardiacore/apply.sh).
 extern bool (*g_ardia_external_protocol_dialog)(
     const GURL& url,
     content::WebContents* web_contents,
@@ -92,7 +86,7 @@ bool AskHost(const GURL& url,
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
   if (!browser || !WindowHost::ForBrowser(browser)) {
-    return false;  // Chrome's own windows keep Chrome's dialog.
+    return false;
   }
   ArdiaCoreTab* tab = TabBridge::GetOrCreate(contents)->tab();
   id<ArdiaCoreTabDelegate> delegate = tab.delegate;
@@ -114,7 +108,6 @@ bool AskHost(const GURL& url,
       has_origin ? base::SysUTF8ToNSString(initiating_origin->Serialize()) : nil;
   NSString* scheme = base::SysUTF8ToNSString(std::string(url.scheme()));
   Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
-  // As Chrome's dialog: "always" only for a trustworthy origin, outside incognito.
   const bool can_remember = app && has_origin && !profile->IsOffTheRecord() &&
                             network::IsOriginPotentiallyTrustworthy(*initiating_origin);
 
@@ -149,7 +142,6 @@ bool AskHost(const GURL& url,
         @"message" : message ?: NSNull.null,
         @"remember" : remember ?: NSNull.null,
   };
-  // On the next turn: the host may answer (and launch) at once.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(
                      [](base::WeakPtr<content::WebContents> contents,
@@ -167,7 +159,7 @@ bool AskHost(const GURL& url,
   return true;
 }
 
-}  // namespace
+}
 
 namespace {
 
@@ -178,7 +170,7 @@ NSMutableArray<NSDictionary*>* TestLaunches() {
   return launches;
 }
 
-}  // namespace
+}
 
 void InstallExternalAppPrompts() {
   g_ardia_external_protocol_dialog = &AskHost;
@@ -192,21 +184,16 @@ void ResolveExternalApp(const std::string& request_id, bool open, bool remember)
   Pending pending = std::move(it->second);
   PendingRequests().erase(it);
   content::WebContents* contents = pending.contents.get();
-  // The page that asked must still be there (not navigated away from).
   if (!open || !contents || !pending.initiator.AsRenderFrameHostIfValid()) {
     return;
   }
   Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
   const std::string scheme(pending.url.scheme());
   if (remember && pending.can_remember && pending.origin) {
-    // Chrome's own "always allow" (its protocol_handler prefs), as its dialog's checkbox.
     ExternalProtocolHandler::SetBlockState(scheme, *pending.origin,
                                            ExternalProtocolHandler::DONT_BLOCK, profile);
   }
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(kTestNoLaunchSwitch)) {
-    // Test runs: recorded, with what Chrome now remembers for the origin, not launched.
-    // (Chrome's own prefs, not GetBlockState, which answers BLOCK for a while after any
-    // request: its flood guard.)
     const base::DictValue* allowed =
         pending.origin ? profile->GetPrefs()
                              ->GetDict(prefs::kProtocolHandlerPerOriginAllowedProtocols)
@@ -235,4 +222,4 @@ void RecordTestLaunch(NSDictionary* launch) {
   [TestLaunches() addObject:launch];
 }
 
-}  // namespace ardiacore
+}

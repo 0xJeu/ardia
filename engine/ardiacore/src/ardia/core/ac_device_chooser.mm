@@ -1,8 +1,3 @@
-// A page's device chooser (WebUSB, WebHID, Web Serial, Web Bluetooth requestDevice) in the
-// host's tabs goes to the host (JS DeviceChooser), as CEF's HandleDeviceChooser seam did:
-// Chrome's bubble anchors to a toolbar our Browsers don't have. Chrome's ChooserController
-// keeps finding devices; the host shows them and answers.
-
 #include "ardia/core/ac_device_chooser.h"
 
 #import <Foundation/Foundation.h>
@@ -57,12 +52,10 @@ class DeviceChooser : public permissions::ChooserController::View {
 
   int id() const { return id_; }
   base::WeakPtr<DeviceChooser> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
-  // While open (the test Bluetooth chooser drives its controller as an adapter would).
   permissions::ChooserController* controller() const {
     return open_ ? controller_.get() : nullptr;
   }
 
-  // JS DeviceChooser without browserId (the host knows the tab).
   NSDictionary* State() const {
     NSMutableArray* options = [NSMutableArray array];
     NSMutableDictionary* state =
@@ -99,7 +92,6 @@ class DeviceChooser : public permissions::ChooserController::View {
     if (!open_ || !controller_) {
       return;
     }
-    // A scanning prompt has no options to pick: OK allows it.
     std::vector<size_t> indices;
     if (index >= 0 && static_cast<size_t>(index) < controller_->NumOptions()) {
       indices.push_back(static_cast<size_t>(index));
@@ -126,8 +118,6 @@ class DeviceChooser : public permissions::ChooserController::View {
     }
   }
 
-  // Bluetooth's privacy settings (Chrome's "authorize Bluetooth" link). Only the choosers
-  // that show that link have them (Bluetooth, Serial); the others' NOTREACHED().
   void OpenSettings() {
     if (!open_ || !controller_ || !controller_->ShouldShowAdapterUnauthorizedView()) {
       return;
@@ -143,7 +133,6 @@ class DeviceChooser : public permissions::ChooserController::View {
     controller_->OpenPermissionPreferences();
   }
 
-  // The page's request went (navigation, the tab closing): Chrome closes it.
   void CloseFromChrome() {
     if (open_) {
       Release(Finish());
@@ -155,7 +144,6 @@ class DeviceChooser : public permissions::ChooserController::View {
     Changed();
   }
 
-  // permissions::ChooserController::View:
   void OnOptionsInitialized() override { Changed(); }
   void OnOptionAdded(size_t index) override { Changed(); }
   void OnOptionRemoved(size_t index) override { Changed(); }
@@ -181,19 +169,16 @@ class DeviceChooser : public permissions::ChooserController::View {
     HostDeviceChooser(contents_.get(), State());
   }
 
-  // Closed: the host hears it, and the object goes. Returns the controller to finish with.
   std::unique_ptr<permissions::ChooserController> Finish() {
     open_ = false;
     Changed();
     controller_->set_view(nullptr);
     std::unique_ptr<permissions::ChooserController> controller = std::move(controller_);
-    // This object goes on the next turn (the caller may be inside it).
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce([](int id) { Live().erase(id); }, id_));
     return controller;
   }
 
-  // The controller may still be calling out: let it go after this task.
   static void Release(std::unique_ptr<permissions::ChooserController> controller) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
@@ -222,7 +207,6 @@ DeviceChooser* Adopt(std::unique_ptr<permissions::ChooserController> controller,
   auto chooser = std::make_unique<DeviceChooser>(std::move(controller), contents);
   DeviceChooser* raw = chooser.get();
   Live()[raw->id()] = std::move(chooser);
-  // Not from inside Chrome's request: the host may answer at once.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(
                      [](base::WeakPtr<DeviceChooser> chooser) {
@@ -234,8 +218,6 @@ DeviceChooser* Adopt(std::unique_ptr<permissions::ChooserController> controller,
   return raw;
 }
 
-// --ardia-test-bluetooth-chooser: a Bluetooth chooser with no adapter behind it (a real
-// one wakes IOBluetooth, and macOS asks for Bluetooth access), for test runs.
 constexpr char kTestBluetoothChooserSwitch[] = "ardia-test-bluetooth-chooser";
 
 NSMutableArray<NSDictionary*>* TestEvents() {
@@ -263,7 +245,6 @@ NSString* EventName(content::BluetoothChooserEvent event) {
   return @"unknown";
 }
 
-// What the adapter would report: no access, or on with one device found and the scan over.
 void DriveTestBluetoothChooser(int chooser_id, bool unauthorized) {
   DeviceChooser* chooser = Find(chooser_id);
   auto* controller = chooser ? static_cast<permissions::BluetoothChooserController*>(
@@ -278,13 +259,13 @@ void DriveTestBluetoothChooser(int chooser_id, bool unauthorized) {
     return;
   }
   controller->OnAdapterPresenceChanged(BluetoothChooser::AdapterPresence::POWERED_ON);
-  controller->AddOrUpdateDevice("ac-test-device", /*should_update_name=*/false,
-                                u"Ardia Test Device", /*is_gatt_connected=*/false,
-                                /*is_paired=*/false, /*signal_strength_level=*/3);
+  controller->AddOrUpdateDevice("ac-test-device", false,
+                                u"Ardia Test Device", false,
+                                false, 3);
   controller->OnDiscoveryStateChanged(BluetoothChooser::DiscoveryState::IDLE);
 }
 
-}  // namespace
+}
 
 bool HandleDeviceChooser(content::RenderFrameHost* owner,
                          std::unique_ptr<permissions::ChooserController>* controller,
@@ -315,7 +296,6 @@ bool ShowTestBluetoothChooser(content::WebContents* contents, bool unauthorized)
       !HostWantsDeviceChoosers()) {
     return false;
   }
-  // Chrome's own controller with a recorder where content's adapter-driving one would be.
   auto chooser_id = std::make_shared<int>(0);
   auto handler = base::BindRepeating(
       [](std::shared_ptr<int> chooser_id, content::BluetoothChooserEvent event,
@@ -325,7 +305,6 @@ bool ShowTestBluetoothChooser(content::WebContents* contents, bool unauthorized)
           @"device" : base::SysUTF8ToNSString(device),
         }];
         if (event == content::BluetoothChooserEvent::RESCAN) {
-          // A scan finds the device again, then ends (after this call returns).
           base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
               FROM_HERE, base::BindOnce(&DriveTestBluetoothChooser, *chooser_id, false));
         }
@@ -335,7 +314,6 @@ bool ShowTestBluetoothChooser(content::WebContents* contents, bool unauthorized)
                                      contents->GetPrimaryMainFrame(), handler),
                                  contents);
   *chooser_id = chooser->id();
-  // After the host heard of it (Adopt's announcement goes first).
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&DriveTestBluetoothChooser, chooser->id(), unauthorized));
   return true;
@@ -369,4 +347,4 @@ void OpenDeviceChooserSettings(int chooser_id) {
   }
 }
 
-}  // namespace ardiacore
+}

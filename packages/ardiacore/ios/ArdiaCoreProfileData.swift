@@ -1,9 +1,5 @@
 import Foundation
 
-/// Deleting the original profile's data, as packages/cef's ProfileData.deleteDefault. The original profile is Chrome's
-/// Default profile, which stays loaded (it backs private windows and the content blocker), so its folder can't go:
-/// its data goes through Chrome's own stores instead, each checked afterwards. Extensions are turned off, not removed:
-/// Chrome asks the user to confirm every removal that doesn't come from a click in its own UI.
 enum ArdiaCoreProfileData {
   typealias Done = ([String]) -> Void
   private typealias Step = (label: String, run: (@escaping (Bool) -> Void) -> Void)
@@ -13,7 +9,6 @@ enum ArdiaCoreProfileData {
       ("history, cookies and cache", { ok in
         ArdiaCoreServices.clearBrowsingData(profile: "", types: ["history", "siteData", "cache", "downloads"], since: 0) { ok(true) }
       }),
-      // As Chrome's Delete Browsing Data dialog deletes them: form data is autofill plus autocomplete entries.
       ("autocomplete entries", { ok in
         ArdiaCoreServices.call("ac_browsing_data_clear", profile: "", args: ["types": ["formData", "siteSettings"]]) { ok($0["ok"] as? Bool == true) }
       }),
@@ -84,7 +79,6 @@ enum ArdiaCoreProfileData {
     }
   }
 
-  /// Lists the items under `key`, clears each, and lists again: done(true) when none are left.
   private static func clearEach(
     list: @escaping (@escaping ([String: Any]) -> Void) -> Void, key: String, done: @escaping (Bool) -> Void,
     clear: @escaping ([String: Any], @escaping () -> Void) -> Void

@@ -14,7 +14,6 @@ public class KeychainModule: Module {
       query[kSecReturnData as String] = true
       query[kSecMatchLimit as String] = kSecMatchLimitOne
       #if DEBUG
-      // Skip cross-build keychain reads to avoid access prompts.
       query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
       #endif
       var item: CFTypeRef?
@@ -53,7 +52,6 @@ public class KeychainModule: Module {
   }
 }
 
-// A test instance's connected accounts: a file in its data dir instead of items in the owner's login keychain.
 private final class IsolatedSecrets {
   static let shared = ACIsolatedDataDirectory().map {
     IsolatedSecrets(URL(fileURLWithPath: $0, isDirectory: true).appendingPathComponent("Connected Accounts.json"))
@@ -64,7 +62,6 @@ private final class IsolatedSecrets {
 
   private init(_ url: URL) { self.url = url }
 
-  // Nil when the file is there but unreadable: a write then fails instead of dropping the other accounts.
   private func load() -> [String: String]? {
     guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
     guard let data = try? Data(contentsOf: url) else { return nil }

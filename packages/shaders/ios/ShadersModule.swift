@@ -1,6 +1,5 @@
 import ExpoModulesCore
 
-// The Metal views' debug calls (docs/agent-brief.md), under the name of the area light the module first hosted.
 public class AreaLightModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaAreaLight")

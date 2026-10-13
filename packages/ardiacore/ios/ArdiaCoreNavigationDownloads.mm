@@ -24,7 +24,7 @@ NSMutableDictionary<NSString *, NSNumber *> *Saved() {
   return gSaved;
 }
 
-}  // namespace
+}
 
 void NoteNavigationDownload(NSString *url, NSString *profile) {
   if (!url.length) return;
@@ -55,4 +55,4 @@ void ForgetPrivateNavigationDownloads(NSString *profile) {
   if (profile) [gPrivate removeObjectForKey:profile];
 }
 
-}  // namespace ardiacore_host
+}

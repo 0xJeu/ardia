@@ -40,10 +40,7 @@
 #include "ardia/core/renderer/ac_content_renderer_client.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 
-// The user agent brand hook (engine/ardiacore/apply.sh).
 extern const char* g_ardia_user_agent_brand;
-// ChromeMainDelegate's hooks (engine/ardiacore/apply.sh): Chrome leaves to its embedder what CEF's
-// build compiled out, and loads its strings through our ResourceBundle delegate.
 extern bool g_ardia_embedder;
 extern ui::ResourceBundle::Delegate* g_ardia_resource_bundle_delegate;
 
@@ -56,9 +53,6 @@ EngineCallbacks& Callbacks() {
   return *callbacks;
 }
 
-// What AppController does for Chrome on the Mac: the app outlives its last window.
-// Chrome finished starting the browser (profiles loaded, PostBrowserStart ran). Chrome
-// can also return 0 from PreMainMessageLoopRun when the initial profile fails.
 bool g_browser_started = false;
 
 std::unique_ptr<ScopedKeepAlive>& AppKeepAlive() {
@@ -75,7 +69,6 @@ class ACBrowserMainExtraParts : public ChromeBrowserMainExtraParts {
   }
   void PostBrowserStart() override {
     g_browser_started = true;
-    // The host starts once the loop runs, so it can nest run loops and post tasks.
     if (Callbacks().started) {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, std::move(Callbacks().started));
@@ -88,8 +81,6 @@ class ACBrowserMainExtraParts : public ChromeBrowserMainExtraParts {
   }
 };
 
-// Chrome's main parts, plus the one thing an embedder's Chrome leaves out: running its main
-// loop (it skips StartupBrowserCreator, which would make the loop, under g_ardia_embedder).
 class ACBrowserMainParts : public content::BrowserMainParts {
  public:
   explicit ACBrowserMainParts(std::unique_ptr<content::BrowserMainParts> chrome)
@@ -120,8 +111,6 @@ class ACBrowserMainParts : public content::BrowserMainParts {
   void WillRunMainMessageLoop(std::unique_ptr<base::RunLoop>& run_loop) override {
     chrome_->WillRunMainMessageLoop(run_loop);
     if (!run_loop) {
-      // As ChromeBrowserMainParts does after StartupBrowserCreator: the loop ends
-      // when the last keep-alive goes (BrowserProcessImpl::Unpin).
       run_loop = std::make_unique<base::RunLoop>();
       static_cast<BrowserProcessImpl*>(g_browser_process)
           ->SetQuitClosure(run_loop->QuitWhenIdleClosure());
@@ -160,10 +149,6 @@ class ACContentBrowserClient : public ChromeContentBrowserClient {
     AddAppSchemeThrottle(registry);
     MaybeAddNavigationHoldThrottle(registry);
   }
-  // The spare renderer that replaces one a navigation took starts a moment later, not
-  // within that navigation's own start: its RenderProcessHostImpl::Init held the UI
-  // thread ~7 ms inside a new tab's creation, which in a new window is the middle of
-  // the window's first layout, delaying the page's request and first paint.
   std::optional<base::TimeDelta> GetSpareRendererDelayForSiteURL(
       const GURL& site_url) override {
     std::optional<base::TimeDelta> delay =
@@ -181,10 +166,6 @@ class ACContentBrowserClient : public ChromeContentBrowserClient {
     ChromeContentBrowserClient::ConfigureNetworkContextParams(
         context, in_memory, relative_partition_path, network_context_params,
         cert_verifier_creation_params);
-    // Session cookies outlive a restart, as they did on CEF (which set
-    // session.restore_on_startup to "last session"): a profile's main on-disk partition
-    // keeps and restores them. Chrome would drop them unless it restores its own last
-    // session, which the app does itself. Private profiles stay in memory.
     if (!in_memory && relative_partition_path.empty() &&
         !context->IsOffTheRecord()) {
       network_context_params->restore_old_session_cookies = true;
@@ -202,7 +183,7 @@ class ACContentBrowserClient : public ChromeContentBrowserClient {
   }
 };
 
-}  // namespace
+}
 
 void SetEngineCallbacks(EngineCallbacks callbacks) {
   Callbacks() = std::move(callbacks);
@@ -214,9 +195,7 @@ void ReleaseAppKeepAlive() {
 
 ACMainDelegate::ACMainDelegate(const StartupTimestamps& timestamps)
     : ChromeMainDelegate(timestamps) {
-  // Every process (ChromeMain makes this delegate in each), before Chrome reads them.
   g_ardia_embedder = true;
-  // Chrome's strings say Ardia (ac_strings.h).
   g_ardia_resource_bundle_delegate = ProductStrings();
 }
 
@@ -228,17 +207,13 @@ void ACMainDelegate::PreSandboxStartup() {
   const std::string process_type =
       command_line.GetSwitchValueASCII(switches::kProcessType);
   if (chrome::ProcessNeedsProfileDir(process_type)) {
-    // The host always names the data dir. Never fall back to Chromium's default
-    // (~/Library/Application Support/Chromium): that is someone else's profile.
     base::FilePath dir = command_line.GetSwitchValuePath(switches::kUserDataDir);
     if (dir.empty() && !process_type.empty()) {
-      // A helper Chrome launched without it (the browser always has one). It never opens a
-      // profile; it gets a scratch path rather than Chromium's default.
       base::FilePath scratch;
       if (base::GetTempDir(&scratch)) {
         base::PathService::OverrideAndCreateIfNeeded(
             chrome::DIR_USER_DATA, scratch.Append("ardiacore-helper"),
-            /*is_absolute=*/true, /*create=*/false);
+            true, false);
       }
       ChromeMainDelegate::PreSandboxStartup();
       return;
@@ -247,7 +222,7 @@ void ACMainDelegate::PreSandboxStartup() {
     CHECK(base::CreateDirectory(dir));
     dir = base::MakeAbsoluteFilePath(dir);
     CHECK(base::PathService::OverrideAndCreateIfNeeded(
-        chrome::DIR_USER_DATA, dir, /*is_absolute=*/true, /*create=*/false));
+        chrome::DIR_USER_DATA, dir, true, false));
     base::PathService::Override(chrome::DIR_CRASH_DUMPS,
                                 dir.Append(FILE_PATH_LITERAL("Crashpad")));
     component_updater::RegisterPathProvider(chrome::DIR_COMPONENTS,
@@ -255,11 +230,7 @@ void ACMainDelegate::PreSandboxStartup() {
   }
   if (process_type.empty()) {
     InstallAppOverrides();
-    // Our hooks in Chrome's code, before anything could call them.
     InstallChromeHooks();
-    // Client hints and navigator.userAgentData say "Google Chrome", as Chrome's and Arc's and
-    // Dia's do (the user agent string already does): Meet's automatic Picture in Picture, among
-    // others, is offered only there (engine/ardiacore/apply.sh's hook).
     g_ardia_user_agent_brand = "Google Chrome";
   }
   ChromeMainDelegate::PreSandboxStartup();
@@ -267,7 +238,6 @@ void ACMainDelegate::PreSandboxStartup() {
 
 void ACMainDelegate::CreateThreadPool(std::string_view name) {
   ChromeMainDelegate::CreateThreadPool(name);
-  // Started as early as Chrome starts it: once the thread pool exists.
   sampling_profiler_ = std::make_unique<MainThreadStackSamplingProfiler>();
 }
 
@@ -285,4 +255,4 @@ content::ContentBrowserClient* ACMainDelegate::CreateContentBrowserClient() {
   return chrome_content_browser_client_.get();
 }
 
-}  // namespace ardiacore
+}

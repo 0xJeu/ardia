@@ -2,12 +2,10 @@ import Foundation
 import XCTest
 @testable import ArdiaSyncCore
 
-/// An in-memory keychain whose reads can be refused a number of times.
 final class FakeKeychain: SecretStore {
   var items: [String: [String: Data]] = [:]
   var denials: [String: Int] = [:]
   var reads = 0
-  /// Runs as an item is read (what happens while macOS asks about it).
   var onRead: ((String) -> Void)?
 
   var listFails = false
@@ -50,7 +48,6 @@ final class FakeGroups: AccessGroupMover {
   }
 }
 
-/// The old names come from LegacyMigration.swift, the only file that may spell them.
 func old(_ new: String) -> String { Renamed.jsonKeys.first { $0.value == new }!.key }
 let oldScheme = Renamed.urls[2].old
 let oldGame = Renamed.urls[0].old
@@ -70,9 +67,7 @@ final class LegacyMigrationTests: XCTestCase {
   var answers: [Int?] = []
   var asked: [String] = []
   var oldRunning = false
-  /// Answers for oldAppRunning, one per call, before falling back to `oldRunning`.
   var runningAnswers: [Bool] = []
-  /// Runs while a question is up (what the user does meanwhile).
   var whileAsking: (() -> Void)?
   var extras: [(URL, URL)] = []
 
@@ -86,8 +81,6 @@ final class LegacyMigrationTests: XCTestCase {
   override func tearDownWithError() throws {
     try? FileManager.default.removeItem(at: root)
   }
-
-  // MARK: Fixtures
 
   func write(_ text: String, _ relative: String, in dir: URL? = nil) throws {
     let url = (dir ?? oldData).appendingPathComponent(relative)
@@ -230,8 +223,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(prefs["SULastCheckTime"] as? Date, Date(timeIntervalSince1970: 1_800_000_000))
   }
 
-  // MARK: Tests
-
   func testMigratesEverythingAndLeavesTheOldInstallAlone() throws {
     let before = snapshot(oldData)
     XCTAssertEqual(run(), .proceed)
@@ -270,7 +261,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(asked.count, 1)
     XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent("session.json").path))
     XCTAssertFalse(LegacyMigrator.Context.isDone(newData))
-    // Nobody to ask (a hidden instance): quit.
     XCTAssertEqual(run(), .quit)
     oldRunning = false
     XCTAssertEqual(run(), .proceed)
@@ -285,7 +275,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent("session.json").path))
     XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent(LegacyMigrator.stagingName).path))
     XCTAssertNil(LegacyMigrator(context()).readJournal())
-    // Allowed the next time.
     XCTAssertEqual(run(), .proceed)
     try assertMigrated()
   }
@@ -311,7 +300,6 @@ final class LegacyMigrationTests: XCTestCase {
   }
 
   func testOldAppOpenedDuringTheCopyStartsOver() throws {
-    // Not running, then running once the copy is made, then gone when asked.
     runningAnswers = [false, true, true, false, false]
     answers = [0]
     XCTAssertEqual(run(), .proceed)
@@ -331,7 +319,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
   }
 
-  /// A keychain that's locked for now (or busy) isn't a reason to leave passkeys behind for good.
   func testGroupMovesKeepTryingWhileTheKeychainIsUnavailable() throws {
     let locked = FailingGroups(errSecInteractionNotAllowed)
     var ctx = context()
@@ -346,8 +333,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
   }
 
-  /// Denied once (a reflex at an unexpected prompt): asked again at the next launch, and one the app has saved under
-  /// the new name since (the phrase entered again, an account connected again) is newer and stays.
   func testDeniedAccountsAndSyncKeyAreAskedForAgain() throws {
     oldKeychain.denials[Renamed.connectedAccounts.oldService] = 1
     oldKeychain.denials[Renamed.syncKey.oldService] = 1
@@ -379,8 +364,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "denied")
   }
 
-  /// A profile folder linked elsewhere is copied as the link: nothing is renamed or rewritten through it, so the old
-  /// app's data stays as it was, whatever happens.
   func testNeverWritesThroughALinkIntoTheOldData() throws {
     let profile = oldData.appendingPathComponent("Chromium/Default")
     let elsewhere = root.appendingPathComponent("elsewhere/Default")
@@ -398,7 +381,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(try json("session.json")["version"] as? Int, 2)
   }
 
-  /// The whole data folder linked elsewhere (another disk, say): copied from where it really is, never through the link.
   func testALinkedDataFolderIsNeverWrittenThrough() throws {
     let real = root.appendingPathComponent("elsewhere/\(LegacyName.bundleId)")
     try FileManager.default.createDirectory(at: real.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -414,7 +396,6 @@ final class LegacyMigrationTests: XCTestCase {
     try assertMigrated()
   }
 
-  /// A retry while the new keychain can't be listed waits: it can't tell what the app has saved since.
   func testARetryNeverOverwritesWhatItCantSee() throws {
     oldKeychain.denials[Renamed.syncKey.oldService] = 1
     XCTAssertEqual(run(), .proceed)
@@ -429,7 +410,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "present")
   }
 
-  /// One group that can't move for good doesn't end the tries of another whose keychain is only locked for now.
   func testAPermanentGroupFailureLeavesTransientOnesTrying() throws {
     final class Mixed: AccessGroupMover {
       var lockedLaunches = 6
@@ -452,7 +432,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(LegacyMigrator(ctx).readJournal()?.groups, "failed")
   }
 
-  /// A crash after part of the copy moved in, then the old app used again: the rest still moves in, nothing is lost.
   func testAResumeAfterPartOfThePublishFinishesIt() throws {
     XCTAssertEqual(run(crashAfter: "moved-one"), .quit)
     try write(#"{"version":2,"tabs":[],"note":"used again"}"#, "session.json")
@@ -463,7 +442,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertFalse(FileManager.default.fileExists(atPath: newData.appendingPathComponent(LegacyMigrator.stagingName).path))
   }
 
-  /// A path the app saved through the folder's real place (the data folder linked elsewhere) points at the copy too.
   func testPathsThroughALinkedDataFolderPointAtTheCopy() throws {
     let real = root.appendingPathComponent("elsewhere/\(LegacyName.bundleId)")
     try FileManager.default.createDirectory(at: real.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -475,9 +453,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(try json("sync.json")["folder"] as? String, newData.appendingPathComponent("Ardia Sync").path)
   }
 
-  /// The old app opened (another copy of it) while macOS asked about the keychain, making a sync identity and its
-  /// key: the snapshot is dropped, it waits for the app to quit, copies the folder again, and carries the new key
-  /// without asking again for those it has.
   func testOldAppOpenedDuringTheKeychainStepIsWaitedForAndCopiedAgain() throws {
     oldKeychain.onRead = { [unowned self] service in
       guard service == Renamed.syncKey.oldService else { return }
@@ -485,7 +460,6 @@ final class LegacyMigrationTests: XCTestCase {
       oldKeychain.items[Renamed.syncKey.oldService]?["device-2"] = Data(repeating: 2, count: 32)
       try? write(#"{"version":2,"deviceId":"device-2","tabs":[]}"#, "session.json")
     }
-    // Before the copy, after it, after the keychain (open), when asked (open), then gone.
     runningAnswers = [false, false, true, true]
     answers = [0]
     XCTAssertEqual(run(), .proceed)
@@ -496,8 +470,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
   }
 
-  /// No Safe Storage key at first (the old app hadn't made it), made while the old app was open during the keychain
-  /// step: the second snapshot carries it.
   func testAKeyMadeDuringTheKeychainStepComesAcross() throws {
     oldKeychain.items[Renamed.safeStorage.oldService] = nil
     oldKeychain.onRead = { [unowned self] service in
@@ -511,7 +483,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(newKeychain.items["Ardia Safe Storage"], ["Ardia": safeStorageKey])
   }
 
-  /// A resumed run publishes its verified copy, whatever happened to the old folder since (used again, or gone).
   func testAResumePublishesTheVerifiedCopy() throws {
     for change in ["used again", "gone"] {
       try FileManager.default.removeItem(at: root)
@@ -532,7 +503,6 @@ final class LegacyMigrationTests: XCTestCase {
     }
   }
 
-  /// A later launch that can't list the old items leaves what was pending pending; the next one copies it.
   func testARetryThatCantListTheOldItemsKeepsThemPending() throws {
     oldKeychain.denials[Renamed.connectedAccounts.oldService] = 1
     XCTAssertEqual(run(), .proceed)
@@ -547,7 +517,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
   }
 
-  /// Saved under the new name while macOS asked about the old item (another running copy of the app): it stays.
   func testARetryKeepsWhatWasSavedWhileItAsked() throws {
     oldKeychain.denials[Renamed.syncKey.oldService] = 1
     XCTAssertEqual(run(), .proceed)
@@ -560,7 +529,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(LegacyMigrator(context()).readJournal()?.secrets?["Ardia Sync Key/device-1"], "present")
   }
 
-  /// The new keychain can't be listed again after macOS asked: nothing is written, and it's tried again.
   func testARetryThatCantCheckTheNewKeychainTriesAgain() throws {
     oldKeychain.denials[Renamed.syncKey.oldService] = 1
     XCTAssertEqual(run(), .proceed)
@@ -577,7 +545,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertTrue(LegacyMigrator.Context.isDone(newData))
   }
 
-  /// A crash in the middle of copying a cache leaves only the partial copy beside it; the next launch copies it whole.
   func testInterruptedCacheCopyIsDoneAgain() throws {
     let oldCache = root.appendingPathComponent("caches/old/Cache"), newCache = root.appendingPathComponent("caches/new/Cache")
     try write("cached", "a", in: oldCache)
@@ -639,7 +606,6 @@ final class LegacyMigrationTests: XCTestCase {
     XCTAssertEqual(r.string("see \(oldScheme)history"), "see \(oldScheme)history")
   }
 
-  /// Sync's format is shared with Macs on 0.2.32 and earlier: vectors made by that release's SyncCrypto.swift.
   func testSyncFormatIsUnchanged() throws {
     let keys = SyncKeys(entropy: Data(repeating: 0, count: 32))
     XCTAssertEqual(keys.chainTag, "gbcx4r55mk3rlaegbggknyx4ta")

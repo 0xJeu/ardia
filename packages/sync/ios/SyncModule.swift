@@ -124,8 +124,6 @@ public class SyncModule: Module {
       return String(decoding: plain, as: UTF8.self)
     }.runOnQueue(Self.work)
 
-    // MARK: Recovery Kit
-
     AsyncFunction("recoveryWords") { () throws -> [String] in try self.words() }.runOnQueue(Self.work)
 
     AsyncFunction("qrCode") { () throws -> String? in
@@ -185,8 +183,6 @@ public class SyncModule: Module {
       NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path, isDirectory: true)])
     }.runOnQueue(.main)
 
-    // MARK: Passwords
-
     AsyncFunction("readPasswords") { (engineProfile: String) -> [[String: Any]]? in
       do {
         let key = ChromiumCrypto.deriveKey(secret: try Self.safeStorageSecret())
@@ -206,8 +202,6 @@ public class SyncModule: Module {
       }
     }.runOnQueue(Self.work)
   }
-
-  // MARK: Helpers
 
   private func vault(_ folder: String) throws -> SyncVault {
     guard let keys = state.keys else { throw Exception(name: "locked", description: "Sync isn't set up on this Mac.") }
@@ -252,8 +246,6 @@ public class SyncModule: Module {
     return "data:image/png;base64," + png.base64EncodedString()
   }
 
-  // MARK: Environment
-
   private static let environment = ProcessInfo.processInfo.environment
   private static let dataDirectory = environment["ARDIA_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
   private static let testFolder = environment["ARDIA_SYNC_DEFAULT_FOLDER"].map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -262,8 +254,6 @@ public class SyncModule: Module {
     if let testFolder { return testFolder }
     if let dataDirectory { return dataDirectory.appendingPathComponent("Ardia Sync", isDirectory: true) }
     let folder = SyncFolder.iCloudDrive.appendingPathComponent("Ardia Sync", isDirectory: true)
-    // Macs that turned sync on before the rename sync through the old name's folder (they keep its path): a Mac
-    // setting up now finds them there while it's the one with the data.
     let legacy = SyncFolder.iCloudDrive.appendingPathComponent(LegacyName.syncFolderName, isDirectory: true)
     if !FileManager.default.fileExists(atPath: folder.path), SyncFolder.hasSyncData(legacy) { return legacy }
     return folder

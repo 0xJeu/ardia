@@ -23,7 +23,7 @@ namespace autofill {
 extern void (*g_ardia_autofill_suggestions_shown)(
     content::WebContents* web_contents,
     base::span<const Suggestion> suggestions);
-}  // namespace autofill
+}
 
 namespace ardiacore {
 
@@ -34,7 +34,6 @@ using autofill::AutofillSuggestionTriggerSource;
 using autofill::FieldGlobalId;
 using autofill::FormGlobalId;
 
-// The field Chrome's autofill last saw focused in this tab.
 class FocusedField : public content::WebContentsUserData<FocusedField>,
                      public AutofillManager::Observer {
  public:
@@ -42,14 +41,12 @@ class FocusedField : public content::WebContentsUserData<FocusedField>,
   FocusedField& operator=(const FocusedField&) = delete;
   ~FocusedField() override = default;
 
-  // Asks the field's renderer for suggestions, as Chrome's context menu does.
   bool Trigger(AutofillSuggestionTriggerSource source) {
     AutofillManager* manager = manager_.get();
     content::RenderFrameHost* frame = GetWebContents().GetFocusedFrame();
     auto* driver =
         frame ? autofill::ContentAutofillDriver::GetForRenderFrameHost(frame)
               : nullptr;
-    // Focus may have moved to another frame without a report from this one.
     if (!manager || !driver || !driver->IsActive() ||
         &driver->GetAutofillManager() != manager) {
       return false;
@@ -70,7 +67,6 @@ class FocusedField : public content::WebContentsUserData<FocusedField>,
                                          kObservePreexistingManagers);
   }
 
-  // AutofillManager::Observer:
   void OnAfterFocusOnFormField(AutofillManager& manager,
                                FormGlobalId form,
                                FieldGlobalId field) override {
@@ -101,10 +97,6 @@ class FocusedField : public content::WebContentsUserData<FocusedField>,
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(FocusedField);
 
-// Chrome's dropdown opened (apply.sh's hook in AutofillPopupControllerImpl::Show, for every
-// dropdown: BrowserAutofillManager's, and the password manager's, which no AutofillManager
-// observer hears of): its rows to the host (tab:didShowAutofillSuggestions:), for the tabs
-// tracked here.
 void ReportShown(content::WebContents* contents,
                  base::span<const autofill::Suggestion> suggestions) {
   if (!contents || !FocusedField::FromWebContents(contents)) {
@@ -136,7 +128,6 @@ void ReportShown(content::WebContents* contents,
       @"type" : base::SysUTF8ToNSString(autofill::SuggestionTypeToString(suggestion.type)),
     }];
   }
-  // Not from inside Chrome's popup code: the host may close the tab.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(
                      [](base::WeakPtr<content::WebContents> contents, NSArray* items) {
@@ -153,7 +144,7 @@ void ReportShown(content::WebContents* contents,
                      contents->GetWeakPtr(), items));
 }
 
-}  // namespace
+}
 
 void TrackAutofillFocus(content::WebContents* contents) {
   autofill::g_ardia_autofill_suggestions_shown = &ReportShown;
@@ -176,4 +167,4 @@ bool ShowAutofillSuggestions(content::WebContents* contents, bool passwords) {
                               : AutofillSuggestionTriggerSource::kFormControlElementClicked);
 }
 
-}  // namespace ardiacore
+}

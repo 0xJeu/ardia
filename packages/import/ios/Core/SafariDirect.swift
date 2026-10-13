@@ -58,8 +58,6 @@ public enum SafariDirect {
     return out
   }
 
-  // MARK: Bookmarks
-
   static func bookmarks(_ url: URL) throws -> BookmarkNode {
     guard FileManager.default.fileExists(atPath: url.path) else { throw ImportError.notFound("No Safari bookmarks") }
     let data = try Data(contentsOf: url)
@@ -102,8 +100,6 @@ public enum SafariDirect {
     }
   }
 
-  // MARK: History
-
   static func readHistory(_ url: URL, cancellation: Cancellation) throws -> [HistoryEntry] {
     guard FileManager.default.fileExists(atPath: url.path) else { throw ImportError.notFound("No Safari history") }
     let db = try SQLiteSnapshot(copying: url)
@@ -132,8 +128,6 @@ public enum SafariDirect {
     }
     return entries
   }
-
-  // MARK: Open tabs
 
   static func tabs(_ url: URL) -> [ImportedTab] {
     guard FileManager.default.fileExists(atPath: url.path),

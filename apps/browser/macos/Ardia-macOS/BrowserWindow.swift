@@ -1,7 +1,6 @@
 import AppKit
 
 final class BrowserWindow: NSWindow {
-  // Dia: traffic-light inset 16 × 20 pt.
   private let trafficLightInset = NSPoint(x: 16, y: 20)
 
   init() {
@@ -40,7 +39,6 @@ final class BrowserWindow: NSWindow {
           let zoom = standardWindowButton(.zoomButton),
           let container = close.superview?.superview else { return }
 
-    // Keep lowered traffic lights inside the title bar.
     let height = close.frame.height + trafficLightInset.y * 2
     var frame = container.frame
     frame.size.height = height

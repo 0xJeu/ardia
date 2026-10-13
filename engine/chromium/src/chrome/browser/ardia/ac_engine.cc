@@ -27,7 +27,7 @@ std::string ToJSON(const base::DictValue& dict) {
   return base::WriteJson(dict).value_or("{}");
 }
 
-}  // namespace
+}
 
 Reply::Reply(ac_engine_reply_t reply, void* context)
     : reply_(reply), context_(context) {}
@@ -92,17 +92,13 @@ Call::Call(const char* profile_dir,
     reply_.Error("profile not loaded");
     return;
   }
-  // A private window's call: the profile's primary off-the-record profile (its
-  // session, as Chrome's incognito windows), never the profile itself. None
-  // while no private window of the profile is open, or once Chrome is
-  // destroying it (its services are going: nothing may observe them now).
   if (args_.FindBool("offTheRecord").value_or(false)) {
     if (off_the_record != OffTheRecord::kAllow) {
       profile_ = nullptr;
       reply_.Error("not for a private session");
       return;
     }
-    profile_ = profile_->GetPrimaryOTRProfile(/*create_if_needed=*/false);
+    profile_ = profile_->GetPrimaryOTRProfile(false);
     if (profile_ && profile_->ShutdownStarted()) {
       profile_ = nullptr;
     }
@@ -147,8 +143,6 @@ Profile* ProfileAt(std::string_view dir) {
   if (Profile* profile = manager->GetProfileByPath(base::FilePath(dir))) {
     return profile;
   }
-  // The app and Chrome may spell the data directory differently (/tmp and
-  // /private/tmp): compare real paths. realpath() is one syscall per profile.
   auto real = [](const base::FilePath& path) {
     char resolved[PATH_MAX];
     return realpath(path.value().c_str(), resolved) ? std::string(resolved)
@@ -177,7 +171,7 @@ void Emit(std::string_view topic, Profile* profile, base::DictValue payload) {
   g_sink(g_sink_context, std::string(topic).c_str(), ToJSON(payload).c_str());
 }
 
-}  // namespace ardia
+}
 
 extern "C" AC_ENGINE_EXPORT int ac_engine_abi_version() {
   return AC_ENGINE_ABI_VERSION;

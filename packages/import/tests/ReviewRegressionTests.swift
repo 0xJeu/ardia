@@ -1,7 +1,6 @@
 import XCTest
 @testable import ArdiaImportCore
 
-// Cases from the Codex review of the cookie import (2026-10-02).
 final class ReviewRegressionTests: XCTestCase {
   func testMalformedFirefoxOriginAttributesDoNotTrap() {
     XCTAssertTrue(Firefox.originAttributes("^=").isolated)

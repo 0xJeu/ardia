@@ -56,4 +56,4 @@ base::DictValue* SensitiveArgs::dict() {
   return value_ && value_->is_dict() ? &value_->GetDict() : nullptr;
 }
 
-}  // namespace ardia
+}

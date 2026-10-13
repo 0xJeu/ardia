@@ -7,12 +7,10 @@
 
 namespace {
 
-// Dia threshold: 4pt start, 1.5× horizontal, 2× vertical cancel.
 constexpr CGFloat kStartDistance = 4;
 constexpr CGFloat kStartDominance = 1.5;
 constexpr CGFloat kCancelDominance = 2;
 
-// Chromium 154 event layout: keep the ack decoder offsets in sync.
 constexpr size_t kInputEventTypeOffset = 40;
 constexpr int kGestureScrollBegin = 11;
 constexpr int kGestureScrollUpdate = 13;
@@ -24,13 +22,11 @@ enum class State { Idle, Pending, Tracking, Ignored };
 
 NSMutableArray *gTrace;
 
-// DEV simulation trace: every tracker decision, in event order. Builds nothing outside a simulation.
 #define Diag(...)                                   \
   do {                                              \
     if (gTrace) [gTrace addObject:(__VA_ARGS__)];   \
   } while (0)
 
-// DEV simulation only: hit an existing renderer wherever the pointer is, or route hits as before the fallback.
 BOOL gWrongRendererHit;
 BOOL gLegacyHitRouting;
 
@@ -93,13 +89,11 @@ NSArray *RectValue(NSRect r) {
   _overscrollAllowed = behaviorX == kOverscrollBehaviorAuto;
 }
 
-// Suppress Chrome history-swiper scrolls or a gesture navigates twice.
 - (BOOL)handleEvent:(NSEvent *)event {
   if (event.type == NSEventTypeScrollWheel || ![_original respondsToSelector:_cmd]) return NO;
   return ((BOOL (*)(id, SEL, NSEvent *))objc_msgSend)(_original, _cmd, event);
 }
 
-// Chromium may call required responder methods without a selector check.
 - (void)touchesBeganWithEvent:(NSEvent *)event {
   if ([_original respondsToSelector:_cmd]) [(id)_original touchesBeganWithEvent:event];
 }
@@ -148,18 +142,13 @@ struct Gesture {
 Gesture gGesture;
 int gGestureSeq;
 id gMonitor;
-// A native pager that caught its settle on fingers down, until the gesture tracks it or lets it go.
 __weak NSView<ACSwipeTarget> *gPrepared;
-// The momentum of a swipe tracked over native views is the swipe's own. Passed on, it reaches the scroll view under
-// the pointer (the strip's tabs, the sidebar), whose responsive scrolling then eats every later scroll event on
-// AppKit's event thread, the next swipe's too, until the pointer moves (NSScrollingBehaviorConcurrentVBL).
 struct OwnedMomentum {
   __weak NSWindow *window;
   NSTimeInterval endedAt = 0;
   BOOL armed = NO, flowing = NO;
 };
 OwnedMomentum gMomentum;
-// macOS starts momentum within a few ms of the lift (13 ms at most in the owner's recorded swipes).
 constexpr NSTimeInterval kMomentumStartWait = 0.1;
 
 BOOL IsRenderWidgetView(NSView *view) {
@@ -174,7 +163,6 @@ ACRendererScrollObserver *ObserverFor(NSView *hit) {
     static const void *kKey = &kKey;
     ACRendererScrollObserver *observer = objc_getAssociatedObject(v, kKey);
     if (!observer) {
-      // Without the delegate ivar, leave Chrome's delegate untouched.
       if (!ivar) return nil;
       NSObject *original = object_getIvar(v, ivar);
       observer = [[ACRendererScrollObserver alloc] initWithOriginal:original];
@@ -265,8 +253,6 @@ NSView *ReactRoot(NSView *view, NSWindow *window) {
   return view;
 }
 
-// AppKit can return a page's renderer for a point outside that renderer's own frame (seen over the
-// sidebar). Only then, a visible pager of the same React root under the pointer takes the gesture.
 NSView<ACSwipeTarget> *MisroutedRendererTarget(NSWindow *window, NSPoint location, NSView *hit) {
   if (!IsRenderWidgetView(hit) || NSPointInRect([hit convertPoint:location fromView:nil], hit.bounds)) return nil;
   NSView *root = ReactRoot(hit, window);
@@ -281,8 +267,6 @@ NSView<ACSwipeTarget> *MisroutedRendererTarget(NSWindow *window, NSPoint locatio
   return best;
 }
 
-// The view and target a gesture at this point belongs to. A misrouted renderer hit is replaced by the
-// pager container's own hit, so it never reaches the renderer observer or native scroll arbitration.
 NSView *ResolveHit(NSWindow *window, NSPoint location, NSView<ACSwipeTarget> *__strong *target, BOOL *fallback) {
   NSView *hit = HitView(window, location);
   if (gTrace && gWrongRendererHit) hit = FirstRenderer(window.contentView) ?: hit;
@@ -291,7 +275,6 @@ NSView *ResolveHit(NSWindow *window, NSPoint location, NSView<ACSwipeTarget> *__
   if (*target || (gTrace && gLegacyHitRouting)) return hit;
   NSView<ACSwipeTarget> *pager = MisroutedRendererTarget(window, location, hit);
   if (!pager) return hit;
-  // The pager's own content must own the point, as an ordinary hit would; otherwise keep the original hit.
   NSView *container = pager.superview;
   NSView *inner = [container hitTest:[container.superview convertPoint:location fromView:nil]];
   if (!inner || IsRenderWidgetView(inner) || inner.window != window || ![inner isDescendantOf:container]) return hit;
@@ -314,7 +297,6 @@ BOOL NativeContentScrolls(NSView *hit, NSView *container, int direction) {
   return NO;
 }
 
-// Mirrors NativeContentScrolls with every input it reads, for both directions.
 NSArray *NativeScrollReport(NSView *hit, NSView *container) {
   NSMutableArray *out = [NSMutableArray array];
   for (NSView *v = hit; v && v != container; v = v.superview) {
@@ -334,7 +316,6 @@ NSArray *NativeScrollReport(NSView *hit, NSView *container) {
       @"documentClass" : scroll.documentView ? NSStringFromClass(scroll.documentView.class) : @"",
       @"wrapper" : wrapper ? NSStringFromClass(wrapper.class) : @"",
       @"wrapperFrame" : RectValue(wrapper.frame),
-      // RCTScrollView isHorizontal: compares against the wrapper frame, not the clip.
       @"wrapperHorizontal" : @(width > NSWidth(wrapper.frame)),
       @"hasHorizontalScroller" : @(scroll.hasHorizontalScroller),
       @"hasVerticalScroller" : @(scroll.hasVerticalScroller),
@@ -427,7 +408,6 @@ NSEvent *HandleWheel(NSEvent *event, NSWindow *window, NSPoint location) {
   return nil;
 }
 
-// Fingers down over a native pager stop its settle at once; the scroll itself still goes on to AppKit.
 void Prepare(NSWindow *window, NSPoint location, NSTimeInterval timestamp) {
   ReleasePrepared(timestamp);
   NSView<ACSwipeTarget> *target = nil;
@@ -440,7 +420,6 @@ void Prepare(NSWindow *window, NSPoint location, NSTimeInterval timestamp) {
 }
 
 void Begin(NSWindow *window, NSPoint location, BOOL ignoreSystemPreference, NSTimeInterval timestamp) {
-  // A begin without the previous end: let the old native drag land before this one resolves.
   if (gGesture.state == State::Tracking && HasNativePager(gGesture.target))
     [gGesture.target pagerInput:@"abandon" distance:0 direction:0 timestamp:timestamp];
   gGesture = Gesture();
@@ -506,10 +485,8 @@ BOOL Wait(NSString *reason) {
 BOOL ShouldTrack() {
   CGFloat dx = gGesture.dx, dy = gGesture.dy;
   NSView<ACSwipeTarget> *target = gGesture.target;
-  // Let a pager's small initial vertical wobble resolve before locking its axis.
   const CGFloat verticalIntent = IsPager(target) ? 3 * kStartDistance : kStartDistance;
   if (fabs(dy) >= verticalIntent && kCancelDominance * fabs(dx) < fabs(dy)) return Reject(@"verticalIntent");
-  // A native pager starts on the first horizontal movement; everything else keeps the 4pt start.
   const BOOL below = HasNativePager(target) ? dx == 0 : fabs(dx) < kStartDistance;
   if (below || kStartDominance * fabs(dx) < fabs(dy)) return Wait(@"belowStart");
   int direction = dx > 0 ? 1 : -1;
@@ -539,7 +516,6 @@ BOOL ShouldTrack() {
   return YES;
 }
 
-// Only the momentum that starts right after the owned swipe's lift, in its window, until that momentum ends.
 BOOL SwallowOwnedMomentum(NSEvent *event, NSWindow *window) {
   if (!gMomentum.armed) return NO;
   const NSEventPhase momentum = event.momentumPhase;
@@ -558,8 +534,6 @@ BOOL SwallowOwnedMomentum(NSEvent *event, NSWindow *window) {
   return YES;
 }
 
-// Recognizes on the event's deltas, phases and timestamps at an already resolved window and point.
-// Returns the event when it stays native scrolling, nil when the swipe consumed it.
 NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL ignoreSystemPreference) {
   NSEventPhase phase = event.phase;
   if (phase == NSEventPhaseNone && event.momentumPhase == NSEventPhaseNone) return HandleWheel(event, window, location);
@@ -568,9 +542,7 @@ NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL i
     return event;
   }
 
-  // Leave begin/end events to Chromium or wheel-phase scrolling stalls.
   if (phase == NSEventPhaseNone) return SwallowOwnedMomentum(event, window) ? nil : event;
-  // Fingers down end any momentum.
   gMomentum = OwnedMomentum();
   if (phase & NSEventPhaseMayBegin) {
     Prepare(window, location, event.timestamp);
@@ -581,7 +553,6 @@ NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL i
   switch (gGesture.state) {
     case State::Idle:
     case State::Ignored:
-      // Fingers lifted without a tracked gesture: a caught settle resumes.
       if (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) ReleasePrepared(event.timestamp);
       return event;
     case State::Pending:
@@ -607,7 +578,6 @@ NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL i
     }
     Emit(phase & NSEventPhaseEnded ? @"ended" : @"cancelled", ReleaseVelocity(event.timestamp));
     gGesture.state = State::Idle;
-    // A page's renderer saw this gesture begin and keeps its own momentum.
     if (!gGesture.rendererHit) gMomentum = {window, event.timestamp, YES, NO};
     return event;
   }
@@ -615,7 +585,6 @@ NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL i
   if (gGesture.state == State::Pending) {
     if (!ShouldTrack()) return event;
     gGesture.state = State::Tracking;
-    // The began below adopts the caught settle.
     if (gPrepared == gGesture.target) gPrepared = nil;
     Emit(@"began", 0);
     return nil;
@@ -668,8 +637,6 @@ void InstallMonitor() {
                                                    }];
 }
 
-// MARK: DEV simulation
-
 NSDictionary *ResponderReport(NSView *hit) {
   static Ivar ivar = class_getInstanceVariable(NSClassFromString(@"RenderWidgetHostViewCocoa"), "_responderDelegate");
   NSView *page = hit;
@@ -704,8 +671,6 @@ CGScrollPhase ScrollPhaseOf(NSString *phase) {
   return (CGScrollPhase)0;
 }
 
-// Optional captured fields: timestampMs (from the simulation start), dxPoint/dyPoint,
-// dxFixed/dyFixed, dxLine/dyLine, rawPhase and rawMomentumPhase (CGScrollPhase values).
 NSEvent *SyntheticScroll(NSWindow *window, NSPoint point, NSDictionary *step, uint64_t startNs) {
   NSString *phase = step[@"phase"];
   double dx = [step[@"dx"] doubleValue], dy = [step[@"dy"] doubleValue];
@@ -714,11 +679,8 @@ NSEvent *SyntheticScroll(NSWindow *window, NSPoint point, NSDictionary *step, ui
   if (!cg) return nil;
   CGEventSetIntegerValueField(cg, kCGScrollWheelEventIsContinuous, wheel ? 0 : 1);
   if ([step[@"shift"] boolValue]) CGEventSetFlags(cg, kCGEventFlagMaskShift);
-  // CGEvent timestamps are uptime nanoseconds, the clock NSEvent.timestamp reports.
   CGEventSetTimestamp(cg, step[@"timestampMs"] ? startNs + (uint64_t)llround([step[@"timestampMs"] doubleValue] * 1e6)
                                                : clock_gettime_nsec_np(CLOCK_UPTIME_RAW));
-  // CG's delta setters rewrite each other's fields (fixed then point then line turned point -13 into
-  // scrollingDeltaX -8), so set line, then fixed, then point, which scrollingDeltaX/Y read, last.
   if (step[@"dyLine"]) CGEventSetIntegerValueField(cg, kCGScrollWheelEventDeltaAxis1, [step[@"dyLine"] longLongValue]);
   if (step[@"dxLine"]) CGEventSetIntegerValueField(cg, kCGScrollWheelEventDeltaAxis2, [step[@"dxLine"] longLongValue]);
   if (!wheel) {
@@ -779,7 +741,6 @@ NSEvent *SyntheticScroll(NSWindow *window, NSPoint point, NSDictionary *step, ui
               completion:(void (^)(NSDictionary<NSString *, id> *))completion {
   gTrace = [NSMutableArray array];
   NSMutableArray *log = [NSMutableArray array];
-  // Steps with atMs run at that offset from this start, so timing does not drift.
   const uint64_t startNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
   NSPoint local = LocalPoint(window, point);
   NSPoint inWindow = [window.contentView convertPoint:local toView:nil];
@@ -815,7 +776,6 @@ NSEvent *SyntheticScroll(NSWindow *window, NSPoint point, NSDictionary *step, ui
       gWrongRendererHit = [s[@"wrongRendererHit"] boolValue];
       gLegacyHitRouting = [s[@"legacyHitRouting"] boolValue];
       if ([s[@"dispatch"] isEqualToString:@"app"]) {
-        // Through NSApp as AppKit delivers it; the monitor trace shows whether the tracker saw it.
         const NSUInteger mark = gTrace.count;
         [NSApp sendEvent:event];
         NSArray *during = [gTrace subarrayWithRange:NSMakeRange(mark, gTrace.count - mark)];
@@ -836,7 +796,6 @@ NSEvent *SyntheticScroll(NSWindow *window, NSPoint point, NSDictionary *step, ui
           @"scrollingDeltaX" : @(event.scrollingDeltaX),
           @"scrollingDeltaY" : @(event.scrollingDeltaY),
           @"monitorEntered" : @(entered),
-          // Unknown unless the monitor ran.
           @"monitorSwallowed" : exit ? exit[@"swallowed"] : NSNull.null,
           @"seq" : @(gGesture.seq),
           @"state" : @((int)gGesture.state),

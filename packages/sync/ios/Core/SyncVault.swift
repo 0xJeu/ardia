@@ -24,8 +24,6 @@ public final class SyncVault {
     try fileManager.createDirectory(at: chainURL, withIntermediateDirectories: true)
   }
 
-  // MARK: Writing
-
   @discardableResult
   public func write(scope: String, payload: Data) throws -> String {
     let id = SyncKeys.newFileId()
@@ -34,7 +32,6 @@ public final class SyncVault {
     let directory = scopeURL(scope)
     try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     let destination = directory.appendingPathComponent("\(id).\(Self.fileExtension)")
-    // Stage then rename so sync clients never see a partial file.
     let staging = try fileManager.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: directory, create: true)
     defer { try? fileManager.removeItem(at: staging) }
     let temporary = staging.appendingPathComponent(id)
@@ -58,8 +55,6 @@ public final class SyncVault {
     guard chainExists() else { return }
     try coordinate(writing: chainURL, options: .forDeleting) { url in try self.fileManager.removeItem(at: url) }
   }
-
-  // MARK: Reading
 
   public struct File {
     public let id: String
@@ -113,8 +108,6 @@ public final class SyncVault {
     }
     return listing
   }
-
-  // MARK: Coordination
 
   private func coordinate(writing url: URL, options: NSFileCoordinator.WritingOptions, _ body: (URL) throws -> Void) throws {
     var coordinationError: NSError?

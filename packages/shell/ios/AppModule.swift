@@ -5,8 +5,6 @@ import ExpoModulesCore
 public class AppModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaApp")
-    // The JS/native contract: NATIVE_API_VERSION in apps/browser/src/nativeApi.tsx, which a JS bundle checks before it
-    // loads the app. Bump both together whenever JS starts needing native code that older builds lack.
     Constant("apiVersion") { () -> Int in 8 }
     Events("onNotificationResponse", "onScriptCommand")
 
@@ -35,20 +33,15 @@ public class AppModule: Module {
       }
     }
 
-    // MARK: Updates
-
     AsyncFunction("updaterState") { () -> [String: Any] in AppUpdater.shared.state }.runOnQueue(.main)
     AsyncFunction("checkForUpdates") { AppUpdater.shared.checkForUpdates(nil) }.runOnQueue(.main)
     AsyncFunction("setAutomaticUpdateChecks") { (on: Bool) in AppUpdater.shared.setAutomaticChecks(on) }.runOnQueue(.main)
     AsyncFunction("setAutomaticUpdateDownloads") { (on: Bool) in AppUpdater.shared.setAutomaticDownloads(on) }.runOnQueue(.main)
 
-    // MARK: Handoff and sharing
-
     AsyncFunction("setWindowActivity") { (windowId: String, url: String?, title: String?) in
       Handoff.setActivity(windowId: windowId, url: url, title: title)
     }.runOnQueue(.main)
 
-    // Resolves once the share sheet closes. `anchor`: [x, y, width, height] in the window, from its top left.
     AsyncFunction("share") { (url: String, title: String?, windowId: String?, anchor: [Double]?, promise: Promise) in
       SharePicker.show(url: url, title: title, windowId: windowId, anchor: anchor) { promise.resolve(nil) }
     }.runOnQueue(.main)
@@ -57,8 +50,6 @@ public class AppModule: Module {
       SharePicker.perform(service: service, url: url, title: title, windowId: windowId)
     }.runOnQueue(.main)
 
-    // MARK: Dock and app icon
-
     AsyncFunction("isInDock") { () -> Bool in DockTile.isInDock }.runOnQueue(.main)
     AsyncFunction("addToDock") { () -> Bool in DockTile.add() }.runOnQueue(.main)
 
@@ -66,10 +57,7 @@ public class AppModule: Module {
       AppIcons.variants.map { ["id": $0.id, "name": $0.name, "preview": AppIcons.preview($0.id, size: size) as Any] }
     }.runOnQueue(.main)
     AsyncFunction("appIcon") { () -> String in AppIcons.current }.runOnQueue(.main)
-    // A test instance leaves the installed app's Dock tile alone.
     AsyncFunction("setAppIcon") { (id: String) in AppIcons.set(id, announce: ACIsolatedDataDirectory() == nil) }.runOnQueue(.main)
-
-    // MARK: Notifications
 
     AsyncFunction("notificationPermission") { (promise: Promise) in
       NotificationHub.shared.permission { promise.resolve($0) }
@@ -88,14 +76,10 @@ public class AppModule: Module {
       }
     }.runOnQueue(.main)
 
-    // MARK: AppleScript
-
     AsyncFunction("setScriptState") { (state: [String: Any]) in ShellScripting.setState(state) }.runOnQueue(.main)
     AsyncFunction("replyToScript") { (id: String, result: [String: Any]?, error: String?) in
       ShellScripting.reply(id, result: result, error: error)
     }.runOnQueue(.main)
-
-    // MARK: Diagnostics
 
     Function("systemInfo") { () -> [String: Any] in
       let info = Bundle.main.infoDictionary ?? [:]
@@ -134,10 +118,6 @@ public class AppModule: Module {
       ]
     }
 
-    // MARK: Telemetry (apps/browser/src/telemetry; only asked while the user shares diagnostics)
-
-    /// Telemetry includes only the exception, the NSException's name and throw site, and the crashing thread;
-    /// never paths, reasons or unrelated threads.
     AsyncFunction("crashReports") { (since: Double) -> [[String: Any]] in CrashReports.since(since) }
 
     AsyncFunction("devCrash") { (kind: String?) in
@@ -150,8 +130,6 @@ public class AppModule: Module {
       guard let target = URL(string: url), target.scheme != nil else { return false }
       return NSWorkspace.shared.open(target)
     }.runOnQueue(.main)
-
-    // MARK: Onboarding intro music (IntroMusic.swift)
 
     AsyncFunction("playIntroMusic") { (cues: [String: Double], muted: Bool) in IntroMusic.shared.play(cues: cues, muted: muted) }.runOnQueue(.main)
     AsyncFunction("setIntroMusicMuted") { (muted: Bool) in IntroMusic.shared.setMuted(muted) }.runOnQueue(.main)
@@ -178,11 +156,6 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
-    // A menu bar menu's items as AppKit has them now, the ones it adds itself included (Window › Fill, Move & Resize…):
-    // [{title, key, modifiers, action, enabled, hidden, alternate, items?}]. `perform` (a path of titles) picks one, as
-    // from the menu bar.
-    // One key press posted to the app's event queue as the window server delivers it (NSApp.sendEvent's whole path,
-    // menus and AppKit's own window shortcuts included), to the window's number: modifiers as in devKeyEquivalent.
     AsyncFunction("devPostKey") { (windowId: String, key: String, keyCode: Int, modifiers: [String]) -> Bool in
       #if DEBUG
       guard let window = WindowManager.shared.windows[windowId] else { return false }
@@ -190,7 +163,6 @@ public class AppModule: Module {
         "command": .command, "shift": .shift, "option": .option, "control": .control, "function": .function,
       ]
       let mods = NSEvent.ModifierFlags(modifiers.compactMap { names[$0] })
-      // "menu:<key>": straight to the menu bar's key equivalents, as AppKit tries them after the window.
       if key.hasPrefix("menu:"), let event = NSEvent.keyEvent(
         with: .keyDown, location: .zero, modifierFlags: mods, timestamp: ProcessInfo.processInfo.systemUptime,
         windowNumber: window.windowNumber, context: nil, characters: String(key.dropFirst(5)),
@@ -212,7 +184,6 @@ public class AppModule: Module {
 
     AsyncFunction("devMenuItems") { (title: String, perform: [String]?) -> [[String: Any]] in
       #if DEBUG
-      // "tiling:<windowId>": the window's own Move & Resize menu (the green button's), and whether AppKit tiles it.
       var tiling: NSMenu?
       var flags: [String: Any] = [:]
       if title.hasPrefix("tiling:"), let window = WindowManager.shared.windows[String(title.dropFirst(7))] {
@@ -228,7 +199,6 @@ public class AppModule: Module {
       guard var menu = tiling ?? NSApp.mainMenu?.items.first(where: { $0.title == title })?.submenu else { return flags.isEmpty ? [] : [flags] }
       func items(_ menu: NSMenu) -> [[String: Any]] {
         menu.delegate?.menuNeedsUpdate?(menu)
-        // The items AppKit adds as the menu opens (Window › Fill, Center, Move & Resize…).
         let populate = NSSelectorFromString("_populateFromSidebandUpdatersOfSign:")
         if menu.responds(to: populate) {
           typealias Populate = @convention(c) (AnyObject, Selector, Int) -> Void
@@ -266,7 +236,6 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
-    // windowId "key": each key goes where AppKit sends it, to the key window at that moment, through NSApp.sendEvent.
     AsyncFunction("devTypeKeys") { (windowId: String, text: String, interval: Double, promise: Promise) in
       #if DEBUG
       let toKeyWindow = windowId == "key"
@@ -326,7 +295,6 @@ public class AppModule: Module {
 
     AsyncFunction("devRunAppleScript") { (source: String, promise: Promise) in
       #if DEBUG
-      // Serialize AppleScript access; its component is not thread-safe.
       Self.scriptQueue.async {
         var error: NSDictionary?
         let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
@@ -411,8 +379,6 @@ public class AppModule: Module {
     #endif
   }
 
-  // 1Password's browser helper is sandboxed to read apps in /Applications and ~/Applications; from Downloads,
-  // the disk image or Documents it can't check our signature and refuses us. Its Add Browser wants Applications too.
   private static var inApplicationsFolder: Bool {
     let path = Bundle.main.bundleURL.resolvingSymlinksInPath().path
     let home = FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath().path
@@ -421,7 +387,6 @@ public class AppModule: Module {
 }
 
 extension AppModule {
-  /// When the Mac started (kern.boottime), epoch ms: telemetry's first launch since boot is a cold one.
   fileprivate static let bootTime: Double? = {
     var boot = timeval()
     var size = MemoryLayout<timeval>.stride
@@ -501,7 +466,6 @@ fileprivate enum CrashReports {
       }
     }
     var report: [String: Any] = ["time": time.timeIntervalSince1970 * 1000, "frames": simplified(frames)]
-    // An uncaught NSException crashes in AppKit's handler; the throw site is only in lastExceptionBacktrace.
     if let thrown = body["lastExceptionBacktrace"] as? [[String: Any]], !thrown.isEmpty {
       report["exceptionFrames"] = simplified(thrown)
     }
@@ -515,18 +479,15 @@ fileprivate enum CrashReports {
     return report
   }
 
-  /// The NSException's class-like name (NSRangeException, CALayerInvalidGeometry), never its reason.
   private static func exceptionName(_ body: [String: Any]) -> String? {
     let valid = try! NSRegularExpression(pattern: "^[A-Z][A-Za-z0-9_]{2,63}$")
     func checked(_ full: String) -> String? {
-      // RCTFatal names its exception "RCTFatalException: <message>"; keep the constant only.
       let name = String(full.prefix { $0 != ":" })
       return valid.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) == nil ? nil : name
     }
     if let reason = body["exceptionReason"] as? [String: Any], let name = reason["name"] as? String {
       return checked(name)
     }
-    // Older reports only carry "*** Terminating app due to uncaught exception 'Name', reason: …" in asi.
     let uncaught = try! NSRegularExpression(pattern: "uncaught exception '([^']{1,64})'")
     for case let lines as [String] in (body["asi"] as? [String: Any] ?? [:]).values {
       for line in lines {
@@ -541,7 +502,6 @@ fileprivate enum CrashReports {
   #if DEBUG
   @inline(never) static func crashForTesting(_ kind: String?) {
     if kind == "exception" {
-      // Raised inside -[NSApplication run], like the 0.2.15 crash: AppKit reports it and crashes.
       _ = NSArray().object(at: 3)
     }
     let pointer = UnsafeMutablePointer<Int>(bitPattern: 0x10)!
@@ -695,9 +655,6 @@ enum KeyEquivalents {
     return entry
   }
 
-  // The window key for the press, as the user's click into it would make it (a test instance's key window is its
-  // app-active seam's, ArdiaCoreActivation.mm); the one that was key before is again afterwards, unless the press itself
-  // made another window key (⌘N).
   private static func standInKeyWindow(_ window: NSWindow) -> () -> Void {
     let previous = NSApp.keyWindow
     window.makeKey()

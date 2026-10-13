@@ -1,8 +1,3 @@
-// The built-in content blocker on ArdiaCore: uBlock Origin Lite (MV3), driven by its own runtime messages. The extension
-// loads as a component extension into each profile, and the app talks to it from one of its pages
-// (chrome-extension://<id>/manifest.json) opened in a hidden window of ours, where evaluate: runs with the
-// extension's APIs. A change is one evaluation that reads and writes inside the page, and any failed read aborts it:
-// the error goes back to the caller and nothing is written.
 #import "ArdiaCoreServices.h"
 #import "ArdiaCoreInternal.h"
 
@@ -14,22 +9,17 @@
 
 namespace {
 NSString *ExtensionId() { return @"bnjeokpoejhioagiokhkhmdogkhbnbki"; }
-// +devFailNextMessage: the next call's first message to the extension fails.
 bool gFailNextMessage = false;
-// +devDelayNextLoad: the next profile's load of the extension waits that long (ms), its pages held.
 double gDelayNextLoadMs = 0;
-}  // namespace
+}
 
-// The extension's page in one profile. Calls wait until its document has loaded (again, after a reload), then run one
-// at a time in order, so one read-modify-write never interleaves with another. When the page goes (closed, its renderer
-// gone, the extension reloaded under it), the calls waiting fail and the next call opens a new page.
 @interface ACContentBlockerPage : NSObject <ArdiaCoreTabDelegate>
 @property(readonly) ArdiaCoreTab *tab;
 @property(readonly) BOOL dead;
 @end
 
 @implementation ACContentBlockerPage {
-  NSMutableArray<NSArray *> *_calls;  // [script, completion]
+  NSMutableArray<NSArray *> *_calls;
   BOOL _loaded;
   BOOL _busy;
 }
@@ -93,7 +83,7 @@ double gDelayNextLoadMs = 0;
 }
 
 - (void)tab:(ArdiaCoreTab *)tab didFailLoad:(NSString *)url code:(int)code description:(NSString *)text {
-  if (code != -3) [self fail:text];  // ERR_ABORTED: another load (a reload) replaced it
+  if (code != -3) [self fail:text];
 }
 
 @end
@@ -139,20 +129,15 @@ ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p) {
   ACContentBlockerPage *page = Pages()[profile];
   if (page.tab.closed) [page fail:@"closed"];
   if (page && !page.dead) return page;
-  // A window of our own that nobody sees: no controller, so nothing routes or reports its tab.
   ArdiaCoreWindow *window = PageWindows()[profile];
   if (!window) {
     PageWindows()[profile] = window = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, 400, 300)];
-    // The extension's page is ours, not the user's: never in history or the omnibox.
     if ([window respondsToSelector:@selector(setInternal:)]) window.internal = YES;
   }
   ArdiaCoreTab *tab = [window openTab:[NSString stringWithFormat:@"chrome-extension://%@/manifest.json", ExtensionId()] profile:p foreground:YES];
   return Pages()[profile] = tab ? [[ACContentBlockerPage alloc] initWithTab:tab] : nil;
 }
 
-// MARK: The extension
-
-// The fingerprint embed.sh wrote next to the bundled copy; builds from before it walk the copy instead.
 NSString *Fingerprint(NSString *dir) {
   NSString *stamped = [NSString stringWithContentsOfFile:[dir stringByAppendingString:@".fingerprint"]
                                                 encoding:NSUTF8StringEncoding
@@ -256,11 +241,8 @@ NSString *ExtensionPath() {
 
 void FollowDefault(NSArray<NSString *> *profiles, void (^done)(NSString *error));
 
-// Loads the extension into a profile (once), then `then`.
 void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
   then = [then copy];
-  // The writable copy is made on a background queue at launch (thousands of files the first time): wait for it
-  // there, never on the main thread.
   StartPreparing();
   dispatch_group_notify(Preparing(), dispatch_get_main_queue(), ^{
     if ([LoadedProfiles() containsObject:profile]) return then(nil);
@@ -280,10 +262,6 @@ void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
   });
 }
 
-// Loads the extension into a profile Chrome just loaded, its pages held until the extension's rules are in force:
-// Chrome reads its rulesets from disk after loading it and holds no request meanwhile, so a profile's first pages (a
-// tab restored at launch, a new profile's first window) went out unblocked. Called before anything can open a tab in
-// the profile; ArdiaCore lets its navigations go once the rulesets are in force, or when the load fails here.
 void LoadHeld(NSString *profile) {
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
   const bool hold = p && ![LoadedProfiles() containsObject:profile] && [p respondsToSelector:@selector(holdNavigationsUntilRulesetsOf:)];
@@ -298,8 +276,6 @@ void LoadHeld(NSString *profile) {
   else load();
 }
 
-// Runs `expression` in the profile's extension page, where send(message) is chrome.runtime.sendMessage. Its value
-// (JSON) or the first error it throws come back.
 void Call(NSString *profile, NSString *expression, void (^completion)(id value, NSString *error)) {
   completion = [completion copy];
   if (!ArdiaCoreHost.isStarted) return completion(nil, @"unavailable");
@@ -328,8 +304,6 @@ void Call(NSString *profile, NSString *expression, void (^completion)(id value, 
       }];
 }
 
-// The default profile's lists and per-site modes, copied to the others. A profile whose own read fails is left as it
-// is (and the error reported). One write after the other: a failed one leaves nothing running when the next call starts.
 NSString *const kFollow =
     @"Promise.all([send({what: 'getFilteringModeDetails'}), send({what: 'getEnabledRulesets'})]).then(([modes, lists]) => {"
      "  const want = %@;"
@@ -342,9 +316,6 @@ NSString *const kFollow =
      "  return written.then(() => null);"
      "})";
 
-// A profile deleted (or being deleted) or released since the extension loaded into it: forgotten with its page. Every
-// change otherwise failed on it ("not loaded", or "no answer" from a page closing with its profile) once the user had
-// deleted a profile. Loaded again, it loads the extension again and follows the default profile then.
 void ForgetGoneProfiles() {
   for (NSString *profile in LoadedProfiles().array) {
     if (ardiacore_host::LoadedProfile(profile) && !ardiacore_host::IsDeletedProfile(profile)) continue;
@@ -370,7 +341,6 @@ void FollowDefault(NSArray<NSString *> *profiles, void (^done)(NSString *error))
     for (NSString *profile in profiles) {
       dispatch_group_enter(group);
       Call(profile, ScriptWith(kFollow, @[ settings ]), ^(id, NSString *error) {
-        // A profile deleted meanwhile (its page closed under the call) has nothing left to follow.
         const bool gone = !ardiacore_host::LoadedProfile(profile) || ardiacore_host::IsDeletedProfile(profile);
         if (!gone) failed = failed ?: error;
         dispatch_group_leave(group);
@@ -451,7 +421,6 @@ void State(void (^completion)(NSDictionary *state)) {
   });
 }
 
-// After a change in the default profile: the other profiles follow it, and the app hears the new stats.
 void Changed(NSString *error, void (^completion)(NSString *error)) {
   if (error) return completion(error);
   completion = [completion copy];
@@ -461,7 +430,7 @@ void Changed(NSString *error, void (^completion)(NSString *error)) {
   });
 }
 
-}  // namespace
+}
 
 namespace ardiacore_host {
 void PrepareContentBlocker() {
@@ -471,9 +440,7 @@ void PrepareContentBlocker() {
 void LoadContentBlocker(NSString *profile) {
   if (!IsIncognito(profile)) LoadHeld(profile ?: @"");
 }
-}  // namespace ardiacore_host
-
-// MARK: - Public API
+}
 
 @implementation ArdiaCoreContentBlocker
 
@@ -505,12 +472,10 @@ void LoadContentBlocker(NSString *profile) {
 }
 
 + (void)setAllowed:(BOOL)allowed onHost:(NSString *)host completion:(void (^)(NSString *))completion {
-  // Blocking again puts the site back on the default level.
   NSString *script = @"(%@ ? Promise.resolve(%@) : send({what: 'getDefaultFilteringMode'})).then((level) => {"
                       "  if (typeof level !== 'number') throw new Error('getDefaultFilteringMode: no answer');"
                       "  return send({what: 'setFilteringMode', hostname: %@, level});"
                       "})";
-  // Each profile's rules follow before the caller reloads its page.
   Call(kProfile, ScriptWith(script, @[ @(allowed), @(kModeNone), host.lowercaseString ]), ^(id, NSString *error) {
     Changed(error, completion);
   });
