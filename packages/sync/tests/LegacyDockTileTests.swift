@@ -189,6 +189,30 @@ final class LegacyDockTileTests: XCTestCase {
     XCTAssertEqual(ids(repoint([localhost]).tiles), [bundleId])
   }
 
+  func testADeadArdiaTileIsntPinnedAndGoesLikeTheOldOne() throws {
+    let downloads = "/Users/me/Downloads/Ardia.app"
+    let deadArdia = tile(bundleId, "file://\(downloads)/", label: "Ardia", guid: 30)
+    // Not "already pinned": the old tile becomes this app's, and the dead Ardia goes.
+    let result = try XCTUnwrap(repoint([oldTile, messages, deadArdia]).tiles)
+    XCTAssertEqual(ids(result), [bundleId, "com.apple.MobileSMS"])
+    XCTAssertEqual(result[0]["GUID"] as? Int, 12)
+    XCTAssertEqual(data(result[0])["file-data"] as? [String: AnyHashable], ["_CFURLString": "file:///Applications/Ardia.app/", "_CFURLStringType": 15])
+    // The first dead tile of either app becomes this app's, in its place.
+    let first = try XCTUnwrap(repoint([deadArdia, messages, oldTile]).tiles)
+    XCTAssertEqual(ids(first), [bundleId, "com.apple.MobileSMS"])
+    XCTAssertEqual(first[0]["GUID"] as? Int, 30)
+    XCTAssertEqual(data(first[0])["file-data"] as? [String: AnyHashable], ["_CFURLString": "file:///Applications/Ardia.app/", "_CFURLStringType": 15])
+    // Without an old tile it's none of this repair's business.
+    XCTAssertNil(repoint([deadArdia, messages]).tiles)
+    // An Ardia that's there is pinned; one that can't be looked at is left alone and isn't counted.
+    XCTAssertEqual(ids(repoint([oldTile, deadArdia], disk: fakeDisk(["/Applications/Ardia.app", downloads])).tiles), [bundleId])
+    XCTAssertEqual(data(try XCTUnwrap(repoint([oldTile, deadArdia], disk: fakeDisk(["/Applications/Ardia.app", downloads])).tiles)[0])["file-data"]
+      as? [String: AnyHashable], ["_CFURLString": "file://\(downloads)/", "_CFURLStringType": 15])
+    let unknown = try XCTUnwrap(repoint([oldTile, deadArdia], disk: fakeDisk(["/Applications/Ardia.app"], unknown: [downloads])).tiles)
+    XCTAssertEqual(NSArray(array: [unknown[1]]), NSArray(array: [deadArdia]))
+    XCTAssertEqual(data(unknown[0])["file-data"] as? [String: AnyHashable], ["_CFURLString": "file:///Applications/Ardia.app/", "_CFURLStringType": 15])
+  }
+
   func testTwoDeadOldTilesBecomeOne() {
     let second = tile(LegacyName.bundleId, "file:///Users/me/Applications/\(LegacyName.appFileName)/", label: LegacyName.appName)
     XCTAssertEqual(ids(repoint([oldTile, messages, second]).tiles), [bundleId, "com.apple.MobileSMS"])
@@ -196,31 +220,43 @@ final class LegacyDockTileTests: XCTestCase {
 
   // MARK: The launch
 
+  /// The Dock's preferences as cfprefsd has them (`tiles`) and as this process last read them: a read is stale until
+  /// a synchronize.
   final class FakeDock {
     var tiles: [[String: Any]]?
-    var writes = 0, restarts = 0, reads = 0
+    private var cached: [[String: Any]]?
+    private var everSynchronized = false
+    var writes = 0, restarts = 0, synchronizes = 0
     var events: [String] = []
-    /// Runs before each read (another app changing the Dock meanwhile).
-    var onRead: ((Int) -> Void)?
+    /// Runs as each synchronize starts (another app changing the Dock meanwhile).
+    var onSynchronize: ((Int) -> Void)?
     var writeWorks = true, restartWorks = true
     var flags: [String: Bool] = [:]
     var disk = fakeDisk(["/Applications/Ardia.app"])
 
     var seams: LegacyDockTile.Seams {
-      LegacyDockTile.Seams(
+      let disk = self.disk
+      return LegacyDockTile.Seams(
+        synchronize: {
+          self.synchronizes += 1
+          self.onSynchronize?(self.synchronizes)
+          self.events.append("sync")
+          self.cached = self.tiles
+          self.everSynchronized = true
+        },
         read: {
-          self.reads += 1
-          self.onRead?(self.reads)
-          return self.tiles
+          self.events.append("read")
+          return self.everSynchronized ? self.cached : self.tiles
         },
         write: { tiles in
           self.writes += 1
           self.events.append("write")
-          if self.writeWorks { self.tiles = tiles }
+          if self.writeWorks { self.tiles = tiles; self.cached = tiles }
           return self.writeWorks
         },
         restart: {
           self.restarts += 1
+          self.events.append("restart")
           return self.restartWorks
         },
         flag: { self.flags[$0] ?? false },
@@ -228,7 +264,10 @@ final class LegacyDockTileTests: XCTestCase {
           self.flags[$0] = $1 ? true : nil
           self.events.append("\($0)=\($1)")
         },
-        disk: disk)
+        disk: LegacyDockTile.Disk(identity: { path in
+          self.events.append("stat")
+          return disk.identity(path)
+        }, caseInsensitive: disk.caseInsensitive))
     }
     var done: Bool { flags[LegacyDockTile.doneKey] == true }
     var state: String { "writes \(writes), restarts \(restarts), done \(done)" }
@@ -297,7 +336,12 @@ final class LegacyDockTileTests: XCTestCase {
     let dock = FakeDock()
     dock.tiles = [oldTile]
     launch(dock)
-    XCTAssertEqual(dock.events, ["\(LegacyDockTile.restartKey)=true", "write", "\(LegacyDockTile.restartKey)=false", "\(LegacyDockTile.doneKey)=true"])
+    let steps = dock.events.filter { $0 != "stat" }
+    XCTAssertEqual(steps, ["sync", "read", "\(LegacyDockTile.restartKey)=true", "sync", "read", "write", "restart",
+                           "\(LegacyDockTile.restartKey)=false", "\(LegacyDockTile.doneKey)=true"])
+    // The critical section (the second synchronize to the write) waits on nothing: no disk, no flags.
+    let section = dock.events.lastIndex(of: "sync")!
+    XCTAssertEqual(Array(dock.events[section...].prefix(3)), ["sync", "read", "write"])
   }
 
   func testALaunchThatStoppedAfterWritingRestartsTheDockNext() {
@@ -328,21 +372,47 @@ final class LegacyDockTileTests: XCTestCase {
     // A tile pinned meanwhile stays.
     let dock = FakeDock()
     dock.tiles = [oldTile]
-    dock.onRead = { if $0 == 2 { dock.tiles = [self.messages, self.oldTile] } }
+    dock.onSynchronize = { if $0 == 2 { dock.tiles = [self.messages, self.oldTile] } }
     launch(dock)
     XCTAssertEqual(ids(dock.tiles), ["com.apple.MobileSMS", bundleId])
     // Repointed meanwhile (by hand, say): nothing to write, nothing to restart.
     let fixed = FakeDock()
     fixed.tiles = [oldTile]
-    fixed.onRead = { if $0 == 2 { fixed.tiles = [self.ardiaTile] } }
+    fixed.onSynchronize = { if $0 == 2 { fixed.tiles = [self.ardiaTile] } }
     launch(fixed)
     XCTAssertEqual(fixed.state, "writes 0, restarts 0, done true")
     // Unreadable then: tried again later.
     let gone = FakeDock()
     gone.tiles = [oldTile]
-    gone.onRead = { if $0 == 2 { gone.tiles = nil } }
+    gone.onSynchronize = { if $0 == 2 { gone.tiles = nil } }
     launch(gone)
     XCTAssertEqual(gone.state, "writes 0, restarts 0, done false")
+  }
+
+  func testATileThatWasntLookedUpStopsTheWrite() {
+    // Pinned between the two reads, so the first pass never looked at its file: no write, no restart, next launch.
+    let other = "/Users/me/Applications/Ardia.app"
+    let dock = FakeDock()
+    dock.tiles = [oldTile]
+    dock.onSynchronize = { if $0 == 2 { dock.tiles = [self.oldTile, self.tile(self.bundleId, "file://\(other)/", label: "Ardia")] } }
+    launch(dock)
+    XCTAssertEqual(dock.state, "writes 0, restarts 0, done false")
+    XCTAssertNil(dock.flags[LegacyDockTile.restartKey])
+    // The next launch looks it up: it's there, so it's the pinned one and the old tile goes.
+    dock.onSynchronize = nil
+    dock.disk = fakeDisk(["/Applications/Ardia.app", other])
+    launch(dock)
+    XCTAssertEqual(dock.state, "writes 1, restarts 1, done true")
+    XCTAssertEqual(ids(dock.tiles), [bundleId])
+  }
+
+  func testAStaleReadNeverOverwritesAPin() {
+    // cfprefsd has a newer list than this process read: a write from the stale one would drop Messages.
+    let dock = FakeDock()
+    dock.tiles = [oldTile]
+    dock.onSynchronize = { if $0 == 2 { dock.tiles = [self.oldTile, self.messages] } }
+    launch(dock)
+    XCTAssertEqual(ids(dock.tiles), [bundleId, "com.apple.MobileSMS"])
   }
 
   // MARK: Who may
