@@ -142,7 +142,8 @@ are involved; the real identity and signature are what smoke.sh's other update c
 
 The framework and its helpers keep Chrome's names (`Chromium Framework`, `Chromium Helper (Renderer)`): they are
 compiled in from the branding file, so renaming them is a full engine rebuild. Their bundle ids and team are ours,
-and the keychain and macOS permissions belong to the app itself, so only Activity Monitor shows the names.
+and the keychain and macOS permissions belong to the app itself, so only Activity Monitor shows the names. Their
+icon is Ardia's (the Alerts helpers' shows on every notification): `engine/chromium` replaces Chromium's logo.
 
 ## The rename (0.2.32 → 0.2.33)
 

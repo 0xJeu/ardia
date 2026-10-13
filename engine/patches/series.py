@@ -79,8 +79,9 @@ def dedupe(items):
 
 
 def layer_paths(layer):
-    """What a layer's apply.sh writes: the directories it mirrors from <layer>/src (copied whole) and each
-    Chromium file it hooks (`"$src/<path>"`)."""
+    """What a layer's apply.sh writes: the directories it mirrors from <layer>/src (copied whole), each
+    Chromium file it hooks (`"$src/<path>"`), and each Chromium file it replaces (a file under <layer>/src
+    outside those directories)."""
     script = open(os.path.join(layer, "apply.sh")).read()
     out = []
     m = re.search(r"^owned=\(([^)]*)\)", script, re.M)
@@ -91,6 +92,11 @@ def layer_paths(layer):
             dirs.append(path)
         else:
             out.append((path, False))
+    root = os.path.join(layer, "src")
+    for top, subdirs, files in os.walk(root):
+        rel = os.path.relpath(top, root)
+        subdirs[:] = sorted(d for d in subdirs if os.path.normpath(os.path.join(rel, d)) not in dirs)
+        out.extend((os.path.normpath(os.path.join(rel, f)), False) for f in sorted(files) if not f.startswith("."))
     return dedupe([(d, True) for d in dirs] + out)
 
 

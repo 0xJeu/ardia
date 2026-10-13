@@ -159,6 +159,9 @@ framework.
 - **Where it lives.** `engine/chromium/src` mirrors `chromium/src`; `engine/chromium/apply.sh` copies it in
   (`--check` reports drift). This is ArdiaCore's convention too (`engine/ardiacore/src` → `//ardia/core`). Edit the
   repo copy only; `apply.sh` replaces the tree's.
+- **Chromium's files we replace.** A file under `engine/chromium/src` outside `chrome/browser/ardia` replaces
+  Chromium's at the same path (`apply.sh --paths` lists them; `series.py` counts each as the layer's). Only Chromium's
+  logo, by Ardia's (`docs/brand/ardia/build.py` writes them): binary files a patch can't carry.
 - **How it links.** One `source_set("ardia")` in `chrome/browser/ardia/BUILD.gn`: add your
   `ac_<domain>.{h,cc}` to its sources (sorted) and its deps.
   `chromium-ardia-layer.patch` links it into the macOS `//chrome:chrome_dll` (ArdiaCore's framework), through the

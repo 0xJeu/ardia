@@ -140,6 +140,12 @@ if [ -z "${ARDIACORE_FRAMEWORK:-}" ]; then
   newest="$(find "$chromium_src/ardia" "$chromium_src/chrome/browser/ardia" -type f \
     -newer "$framework_src/Versions/Current/Chromium Framework" -print -quit)"
   [ -z "$newest" ] || die "$newest is newer than the framework: rebuild chrome_framework (scripts/agent/engine-build, docs/engine-build.md)"
+  # The Chromium files engine/chromium replaces (its logo) build into the framework's resources and helpers, not its
+  # binary: one newer than every file of the framework hasn't been built since.
+  framework_newest="$(find "$framework_src/Versions/Current/" -type f -exec stat -f '%m %N' {} + | sort -n | tail -1 | cut -d' ' -f2-)"
+  newest="$(cd "$chromium_src" && "$root/engine/chromium/apply.sh" --paths | while read -r path; do
+    [ "$path" -nt "$framework_newest" ] && { echo "$path"; break; }; done || true)"
+  [ -z "$newest" ] || die "$newest is newer than the framework: rebuild chrome_framework (scripts/agent/engine-build, docs/engine-build.md)"
 fi
 
 identity_name="Developer ID Application"

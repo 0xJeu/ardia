@@ -271,3 +271,81 @@ for slot, path in slots.items():
     shutil.copyfile(path, folder / "mark.png")
     (folder / "Contents.json").write_text(IMAGESET)
 print("plate marks")
+
+# Chromium's own logo, wherever the framework shows it (the Alerts helpers' icon on every web notification and in
+# System Settings › Notifications, the WebUI pages and dialogs that draw IDR_PRODUCT_LOGO_*, chrome://version):
+# written over Chromium's files into engine/chromium/src, which engine/chromium/apply.sh copies into the tree. The
+# framework's and helpers' names stay Chromium's (docs/releasing.md); this is only the logo.
+import base64, io, subprocess, tempfile  # noqa: E401, E402
+
+ENGINE = Path("engine/chromium/src")
+BLEED = 0.92  # the tile's side in Chromium's square logo canvas: about the area of its round logo
+
+
+def logo(px):
+    """The flat tile (no shadow), centred in a px square where Chromium's round logo sits."""
+    big = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+    side = round(1024 * BLEED)
+    at = (1024 - side) // 2
+    tile = square.resize((side, side), LZ)
+    tile.putalpha(rounded_mask(side, (0, 0, side, side), side * 185.4 / 824))
+    big.alpha_composite(tile, (at, at))
+    return big.resize((px, px), LZ)
+
+
+def put(path, im):
+    (ENGINE / path).parent.mkdir(parents=True, exist_ok=True)
+    im.save(ENGINE / path, optimize=True)
+
+
+for size in (16, 24, 48, 64, 128, 256):
+    put(f"chrome/app/theme/chromium/product_logo_{size}.png", logo(size))
+for scale in (1, 2):
+    for size in (16, 32):
+        put(f"chrome/app/theme/default_{scale}00_percent/chromium/product_logo_{size}.png", logo(size * scale))
+    put(f"components/resources/default_{scale}00_percent/chromium/favicon_product.png", logo(16 * scale))
+
+# Chromium's wordmarks (its logo and "chromium", for chrome://version and the payment sheet): Ardia has no wordmark
+# (its pages name it in their own text), so the tile alone, at the wordmark's height.
+for scale in (1, 2):
+    for name in ("product_logo_name_22", "product_logo_name_22_white"):
+        put(f"chrome/app/theme/default_{scale}00_percent/chromium/{name}.png", logo(22 * scale))
+    for name in ("product_logo", "product_logo_white"):
+        put(f"components/resources/default_{scale}00_percent/chromium/{name}.png", logo(32 * scale))
+
+# The SVG slots (the profile picker, the first-run and default-browser pages): the 256 px tile inside an SVG.
+png = io.BytesIO()
+logo(256).save(png, format="PNG", optimize=True)
+svg = ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" '
+       'viewBox="0 0 256 256"><image width="256" height="256" xlink:href="data:image/png;base64,'
+       + base64.b64encode(png.getvalue()).decode() + '"/></svg>\n')
+for name in ("product_logo.svg", "product_logo_animation.svg"):
+    (ENGINE / "chrome/app/theme/chromium" / name).write_text(svg)
+
+# The helper apps' icon (app.icns, and Assets.car's AppIcon, which macOS prefers): the app icon itself, compiled
+# by actool as Xcode compiles the app's own AppIcon.appiconset.
+with tempfile.TemporaryDirectory() as tmp:
+    catalog = Path(tmp) / "Assets.xcassets"
+    appicon = catalog / "AppIcon.appiconset"
+    appicon.mkdir(parents=True)
+    (catalog / "Contents.json").write_text('{\n  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n')
+    entries = []
+    for pt in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            name = f"icon_{pt}x{pt}_{scale}x.png"
+            icon.resize((pt * scale, pt * scale), LZ).save(appicon / name)
+            entries.append(f'    {{\n      "filename" : "{name}",\n      "idiom" : "mac",\n      "scale" : "{scale}x",\n'
+                           f'      "size" : "{pt}x{pt}"\n    }}')
+    (appicon / "Contents.json").write_text('{\n  "images" : [\n' + ",\n".join(entries)
+                                           + '\n  ],\n  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n')
+    out = Path(tmp) / "out"
+    out.mkdir()
+    # Chromium's mac_deployment_target (build/config/mac/mac_sdk.gni).
+    subprocess.run(["xcrun", "actool", str(catalog), "--compile", str(out), "--platform", "macosx",
+                    "--minimum-deployment-target", "13.0", "--app-icon", "AppIcon",
+                    "--output-partial-info-plist", str(out / "partial.plist")], check=True, capture_output=True)
+    mac = ENGINE / "chrome/app/theme/chromium/mac"
+    mac.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(out / "AppIcon.icns", mac / "app.icns")
+    shutil.copyfile(out / "Assets.car", mac / "Assets.car")
+print("chromium logos")

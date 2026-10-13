@@ -14,13 +14,25 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../.." && pwd)
+name="Chromium Framework"
+
+# Which engine build: where it is, when its binary was written and its size, and when its newest file was (a build
+# that changes only resources, Chromium's logo say, rewrites paks and helpers but not the binary).
+key_of() {
+  printf '%s %s %s' "$1" "$(stat -f '%m %z' "$1/Versions/Current/$name")" \
+    "$(find "$1/Versions/Current/" -type f -exec stat -f '%m' {} + | sort -n | tail -1)" | shasum -a 256 | cut -c1-16
+}
+if [[ "${1:-}" == --key ]]; then
+  key_of "$2"
+  exit 0
+fi
+
 src=${ARDIACORE_FRAMEWORK:-$HOME/chromium-build/chromium_git/chromium/src/out/Release_GN_arm64/Chromium Framework.framework}
 if [[ -z "${ARDIACORE_FRAMEWORK:-}" && ! -d "$src" ]]; then
   src=$("$here/fetch-engine.sh") || exit 1
 fi
 dest=${ARDIACORE_STAGE_DIR:-$repo/apps/browser/build-ardiacore/ArdiaCoreFramework}
 cache=${ARDIACORE_STAGE_CACHE:-$repo/apps/browser/build-ardiacore/staged}
-name="Chromium Framework"
 
 # Under the cache lock (fill_cache): publish a signed copy as <key> unless another build did first, then drop copies
 # of other engine builds nobody has staged from in an hour, and leftovers of stagers that died.
@@ -43,8 +55,6 @@ if [[ "${1:-}" == --publish ]]; then
 fi
 
 [[ -d "$src" ]] || { echo "error: no ArdiaCore framework at $src (engine/ardiacore/apply.sh, then build chrome_framework)" >&2; exit 1; }
-# Which engine build: where it is, when it was written and its size.
-key_of() { printf '%s %s' "$1" "$(stat -f '%m %z' "$1/Versions/Current/$name")" | shasum -a 256 | cut -c1-16; }
 stamp="$dest/.stamp"
 
 # Copies the engine into a private folder of the cache and signs it, then publishes it. Prints the key.
@@ -54,8 +64,8 @@ fill_cache() {
   echo "staging $src" >&2
   "$repo/scripts/agent/locked" chromium --wait 500 -- bash -c '
     set -e
-    printf "%s %s" "$1" "$(stat -f "%m %z" "$1/Versions/Current/$3")" | shasum -a 256 | cut -c1-16 >"$2/.key"
-    cp -cR "$1" "$2/"' _ "$src" "$tmp" "$name" >&2 || return 1
+    "$3" --key "$1" >"$2/.key"
+    cp -cR "$1" "$2/"' _ "$src" "$tmp" "$here/${0##*/}" >&2 || return 1
   key=$(cat "$tmp/.key") || return 1
   # Ad hoc, without the hardened runtime (a development build; release signing is docs/releasing.md's).
   sign() { codesign --force --timestamp=none --sign - "$@"; }
