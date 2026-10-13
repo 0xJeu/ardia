@@ -225,6 +225,9 @@ namespace {
 // the others go inactive first, and one already flagged active is flagged again so Chrome
 // hears of it.
 void ActivateExclusively(Browser* browser) {
+  if (browser->IsDeleteScheduled()) {
+    return;
+  }
   for (WindowHost* host : WindowHost::All()) {
     for (Browser* other : host->browsers()) {
       if (other != browser) {
