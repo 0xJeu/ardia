@@ -151,7 +151,7 @@ Netnyahoo became Ardia. 0.2.32 and earlier are `com.netnyahoo.browser`, executab
 Sparkle still needs stays: the EdDSA key, the Developer ID team and certificate, and a higher build number. The update
 zip's top folder keeps the installed name (`Netnyahoo.app`: Sparkle finds the new app only under it), and at its first
 launch the app renames itself to `Ardia.app` and moves its data, keychain items and settings across
-(`packages/sync/ios/Core/LegacyMigration.swift`, the only Swift file that spells the old names). `smoke.sh` checks both
+(`packages/sync/ios/Core/LegacyMigration.swift`, the only Swift file that spells the old names). A Dock tile pinned under the old name is pointed at Ardia.app in place (or dropped when Ardia is pinned too) and the Dock restarted, once, by the installed copy only (`LegacyDockTile.swift` beside it; 0.2.35). `smoke.sh` checks both
 feeds lead to the same appcast and the designated requirement holds under the new id; `update-test.sh` keeps the
 bundle ids apart; `carryover.mjs` drives the old build in its own names. netnyahoo.com stays attached to the site for
 good (`infra/site/hexclave.deploy.ts`).

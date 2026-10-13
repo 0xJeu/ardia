@@ -357,8 +357,24 @@ ln -s /Applications "$staging/Applications"
 # The window's picture and layout (scripts/dmg): Finder finds the picture by the volume's name and this path.
 cp "$root/scripts/dmg/background.tiff" "$staging/.background.tiff"
 cp "$root/scripts/dmg/DS_Store" "$staging/.DS_Store"
-hdiutil create -volname Ardia -srcfolder "$staging" -format ULFO -ov "$dmg" >/dev/null
+# The volume's icon is the app's: .VolumeIcon.icns plus the custom-icon flag on the volume's root. hdiutil create
+# drops the staging folder's Finder flags, so the image is made writable, flagged while mounted (hidden from Finder,
+# with no fseventsd log), then compressed. Signing and notarizing come after, on the final image.
+cp "$app/Contents/Resources/AppIcon.icns" "$staging/.VolumeIcon.icns"
+mkdir -p "$staging/.fseventsd" && touch "$staging/.fseventsd/no_log"
+dmg_rw="$dist/dmg-rw.dmg" dmg_mnt="$dist/dmg-mnt"
+rm -rf "$dmg_rw" "$dmg_mnt" && mkdir "$dmg_mnt"
+hdiutil create -volname Ardia -srcfolder "$staging" -format UDRW -ov "$dmg_rw" >/dev/null
 rm -rf "$staging"
+hdiutil attach "$dmg_rw" -nobrowse -noautoopen -noverify -mountpoint "$dmg_mnt" >/dev/null
+SetFile -a C "$dmg_mnt" || { hdiutil detach "$dmg_mnt" -force >/dev/null; die "couldn't flag the volume's icon"; }
+for attempt in 1 2 3 4 5; do
+  hdiutil detach "$dmg_mnt" >/dev/null 2>&1 && break
+  [ "$attempt" = 5 ] && { hdiutil detach "$dmg_mnt" -force >/dev/null || die "couldn't eject $dmg_mnt"; }
+  sleep 2
+done
+hdiutil convert "$dmg_rw" -format ULFO -ov -o "$dmg" >/dev/null
+rm -rf "$dmg_rw" "$dmg_mnt"
 sign "$dmg"
 if [ "$notarize" = 1 ]; then
   notarize_file "$dmg"

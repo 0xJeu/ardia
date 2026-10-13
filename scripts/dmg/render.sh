@@ -1,24 +1,41 @@
 #!/bin/bash
 # Renders scripts/dmg/background.html to background.tiff (660×460 pt at 1× and 2×), the picture behind the disk
-# image's window. Run it after editing the HTML and commit the TIFF. Needs Google Chrome and a connection (the page
-# loads the site's typefaces from Google Fonts).
+# image's window. Run it after editing the HTML and commit the TIFF. Needs Chrome: $CHROME, else Puppeteer's
+# chrome-headless-shell (npx @puppeteer/browsers install chrome-headless-shell@stable), Google Chrome or a Chrome for
+# Testing. The headless shell is first because a full Chrome in --headless=new can hang on exit here. The typefaces and
+# the tile come from apps/site, so the render needs no connection, and it stops if a typeface didn't load rather than
+# commit fallback type.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-chrome="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
-[ -x "$chrome" ] || { echo "error: no Chrome at $chrome (set CHROME)" >&2; exit 1; }
+chrome="${CHROME:-}"
+if [ -z "$chrome" ]; then
+  while IFS= read -r c; do
+    [ -x "$c" ] && { chrome="$c"; break; }
+  done < <(ls -d "$HOME"/.cache/puppeteer/chrome-headless-shell/mac_arm-*/chrome-headless-shell-mac-arm64/chrome-headless-shell 2>/dev/null | sort -V -r
+    echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    ls -d "$HOME"/.agent-browser/browsers/chrome-*/"Google Chrome for Testing.app" 2>/dev/null \
+      | sort -V -r | sed 's|$|/Contents/MacOS/Google Chrome for Testing|')
+fi
+[ -n "$chrome" ] && [ -x "$chrome" ] || { echo "error: no Chrome found (set CHROME)" >&2; exit 1; }
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+# The page loads the site's font files and tile by relative file URLs, which Chrome blocks without
+# --allow-file-access-from-files.
+flags=(--user-data-dir="$tmp/profile" --no-first-run --disable-gpu --hide-scrollbars --allow-file-access-from-files
+  --window-size=660,460 --virtual-time-budget=8000)
+[[ "$chrome" == */chrome-headless-shell ]] || flags+=(--headless=new)
+# Output goes to files, not a pipe: a helper process that outlives a killed Chrome would hold a pipe open.
+headless() { timeout 60 "$chrome" "${flags[@]}" "$@" "file://$here/background.html" </dev/null 2>/dev/null; }
 
-# Without the typefaces the page still renders, at the right size, in fallback type.
-fonts="$(sed -n 's/.*href="\(https:\/\/fonts\.googleapis\.com[^"]*\)".*/\1/p' "$here/background.html")"
-[ -n "$fonts" ] && curl -fsS --max-time 20 -o /dev/null "$fonts" \
-  || { echo "error: can't load the typefaces from Google Fonts" >&2; exit 1; }
+headless --dump-dom > "$tmp/dom.html" || { echo "error: Chrome failed or timed out ($chrome)" >&2; exit 1; }
+for face in "Archivo Variable" "Martian Mono Variable"; do
+  grep -q "data-fonts=\"[^\"]*$face" "$tmp/dom.html" || { echo "error: the $face typeface didn't load" >&2; exit 1; }
+done
 
 for scale in 1 2; do
-  "$chrome" --headless=new --user-data-dir="$tmp/profile" --no-first-run --disable-gpu --hide-scrollbars \
-    --window-size=660,460 --force-device-scale-factor="$scale" --virtual-time-budget=8000 \
-    --screenshot="$tmp/$scale.png" "file://$here/background.html" >/dev/null 2>&1
+  headless --force-device-scale-factor="$scale" --screenshot="$tmp/$scale.png" >/dev/null \
+    || { echo "error: Chrome failed or timed out ($chrome)" >&2; exit 1; }
   [ "$(sips -g pixelWidth "$tmp/$scale.png" | awk '/pixelWidth/ { print $2 }')" = "$((660 * scale))" ] \
     || { echo "error: the ${scale}× render isn't $((660 * scale)) px wide" >&2; exit 1; }
   sips -s format tiff -s dpiWidth "$((72 * scale))" -s dpiHeight "$((72 * scale))" "$tmp/$scale.png" --out "$tmp/$scale.tiff" >/dev/null
