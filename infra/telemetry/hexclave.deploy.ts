@@ -1,22 +1,3 @@
-// Ardia's first-party telemetry, on Hexclave Deployments in the same project as the site
-// (infra/site/hexclave.deploy.ts). Nothing here is public: the site's nginx is the only way in.
-//
-//   ardia.dev/otel/v1/logs     -> otel-collector (OTLP/HTTP logs) -> ph-clickhouse, table telemetry.otel_logs
-//   ardia.dev/otel/replay/...  -> ph-objects (SeaweedFS filer), replays/<day>/<session>/<seq>.json[.gz]
-//   ardia.dev/_ch/             -> ph-clickhouse's HTTP port, for the read-only stats user
-//   ardia.dev/_replays/        -> ph-objects, read-only, with a token
-//
-// Senders, event format, tables and how to query them: docs/growth.md, "Telemetry".
-//
-// Why the group is called "posthog" and two services start with "ph-": this group first held a trial
-// self-hosted PostHog. Hexclave keeps a service's disk with its group and service id, and has no way
-// to delete a detached disk, so ClickHouse and SeaweedFS kept their ids to reuse those two disks
-// instead of leaving them billed and empty. (The trial's Postgres and Redpanda disks, pgdata and
-// redpanda, are detached; see docs/growth.md.)
-//
-// Deploy: `npx @hexclave/cli@latest deploy --cloud-project-id 49be2e2e-87c4-433e-b42f-f255854bff56`
-// from this directory. Secrets (Hexclave dashboard, Project Settings > Secrets): SECRETS below.
-
 export const deploymentGroupId = "posthog";
 
 const SECRETS = {
@@ -34,7 +15,6 @@ export const deploy = ({ secret, service }: any) => ({
       type: "server",
       memory: "4GB",
       ports: { 8123: { protocol: "tcp" }, 9000: { protocol: "tcp" } },
-      // Built from this directory (the upload root), so its paths start with clickhouse/.
       dockerfilePath: "clickhouse/Dockerfile",
       persistentVolumes: { chdata: { path: "/data", sizeGb: 20 } },
       env: {
@@ -56,8 +36,6 @@ export const deploy = ({ secret, service }: any) => ({
       },
     },
 
-    // Session replays: rrweb chunks the site's nginx writes through the filer's HTTP API (private, no
-    // auth of its own: only nginx reaches it). Everything under /buckets/replays/ expires after 30 days.
     "ph-objects": {
       type: "server",
       memory: "1GB",

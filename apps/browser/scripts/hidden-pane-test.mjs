@@ -1,12 +1,3 @@
-// A hidden tab's pane follows only its own tab (3963c7f0: popovers, the New Tab page state, splits and the hiding
-// toolbar's mode are read while it's shown), and the card mounts panes from memoized lists (861b3b73): what changed while
-// a tab was hidden is on screen the moment it's shown, and the mounted panes follow tabs opening, sleeping and closing.
-//
-//   node apps/browser/scripts/hidden-pane-test.mjs <Ardia.app> [--bundle <main.jsbundle>] [--out <dir>]
-//
-// A hidden instance on a small session; while tab B is hidden it gets a new page (URL and title), loading state, zoom,
-// an open find bar and a permission prompt; then B is shown and the rendered components (the perf probe's fiber lookup,
-// acPerf.findFibers) must show each. One line per check; exits 1 on any failure.
 import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -72,7 +63,6 @@ try {
   let ready = false;
   for (let i = 0; i < 60 && !ready; i++) ready = await ac("return !!ac.store.getState().windows.w1;", 2000).then((v) => v, () => false);
   if (!ready) throw new Error("the dev harness never answered");
-  // Helpers in the app (Hermes evaluates no async functions: promise chains).
   await ac(`
     globalThis.audit = {
       frames: (n) => new Promise((r) => { let k = n || 2; const step = () => (k-- > 0 ? requestAnimationFrame(step) : r()); step(); }),
@@ -82,7 +72,6 @@ try {
     return true;`);
   const S = "const S = () => ac.store.getState();";
 
-  // B loads once (shown), then is hidden behind A with its pane mounted.
   const loaded = await ac(`${S}
     S().activate("b");
     return audit.until(() => S().tabs.b.title === "Tab-b" && ac.webviews.has("b"))
@@ -90,7 +79,6 @@ try {
       .then(() => ({ b: ac.webviews.has("b"), shown: S().windows.w1.activeTabIds.default }));`, 60_000);
   check("tab B's pane stays mounted while hidden", loaded.b && loaded.shown === "a", JSON.stringify(loaded));
 
-  // While B is hidden: a new page (URL and title through its own tab), zoom, loading, find, a permission prompt.
   const hiddenChanges = await ac(`${S}
     const url = ${JSON.stringify(page("HiddenLoad"))};
     S().updateTab("b", { navigation: { url, seq: Date.now() } });
@@ -121,7 +109,6 @@ try {
   check("shown: the find bar opened while hidden", shown.find === true);
   check("shown: the permission prompt that came while hidden", shown.prompt === true);
 
-  // The mounted panes follow tabs: one opened (with a page) mounts, a closed one goes, a switch keeps the rest.
   const panes = await ac(`${S}
     const want = () => S().windows.w1.tabIds.filter((id) => S().tabs[id]?.navigation || S().tabs[id]?.adoptId).sort().join(",");
     const have = () => [...ac.webviews.keys()].filter((id) => S().tabs[id]?.windowId === "w1").sort().join(",");

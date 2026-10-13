@@ -1,4 +1,3 @@
-// Bookmarks are Chrome's (BookmarkModel): the store's tree and Chrome's stay alike, and bookmarks.json moved in once.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -9,7 +8,6 @@ const stub = await import("../test-native-stub.mjs");
 const S = () => useBrowser.getState();
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
-// Chrome's tree and the store's, as "title" for a link and { title: [...] } for a folder.
 function chromeTree(profile = "") {
   const db = stub.chromeBookmarks(profile);
   const walk = (id) => {
@@ -59,8 +57,6 @@ test("bookmarks.json moves into Chrome once, each bookmark under the UUID sync r
   assert.equal(stub.chromeBookmarks("").get(bookmarkUuidFor("bm-b")).key, "bm-b", "the old id stays its sync key");
   assert.equal(stub.docs.has("bookmarks.json"), false);
 
-  // A launch that stopped before deleting the file moves it again: nothing is doubled, and a bookmark moved since
-  // stays where it is now.
   stub.chromeBookmarkEdit("", [{ op: "move", id: bookmarkUuidFor("bm-c"), parent: "bar", index: 0 }]);
   stub.docs.set("bookmarks.json", JSON.stringify(legacyFile()));
   assert.equal(await migrateBookmarksFile({ keepMs: 0 }), "moved");
@@ -89,12 +85,10 @@ test("the store's tree and Chrome's stay alike: the app's edits go as ops, an ex
   S().updateBookmark(b, { title: "B, renamed", url: "https://b2.example/" });
   await settle();
   same();
-  // A folder deleted with a link moved out of it first.
   S().moveBookmark(a, S().bookmarks.roots.default.bar, 0);
   S().removeBookmark(f);
   await settle();
   same();
-  // Undo puts the same ids back.
   const removed = S().removeBookmarks([g]);
   await settle();
   S().restoreBookmarks(removed);
@@ -102,7 +96,6 @@ test("the store's tree and Chrome's stay alike: the app's edits go as ops, an ex
   same();
   assert.ok(stub.chromeBookmarks("").has(b), "ids are Chrome's UUIDs");
 
-  // An extension adds a bookmark (chrome.bookmarks): it shows in the store, and nothing echoes back.
   const sent = stub.bookmarkOpsSent.length;
   stub.chromeBookmarkEdit("", [{ op: "add", id: "0f0f0f0f-0000-4000-8000-000000000001", k: "u", t: "Ext", u: "https://ext.example/", a: 1, parent: "bar", index: 1 }]);
   await settle();
@@ -136,7 +129,6 @@ test("ops Chrome can't apply (an extension moved things meanwhile) stop there: n
   const f = S().addBookmarkFolder({ profileId: "default", title: "F" });
   const a = S().addBookmarkFolder({ profileId: "default", title: "A", parentId: f });
   await reloadBookmarks();
-  // An extension puts B inside A; before the app hears of it, the app moves A into B and deletes F.
   const db = stub.chromeBookmarks("");
   db.get("bar").children = db.get("bar").children.filter((c) => c !== b);
   db.get(a).children.push(b);

@@ -1,7 +1,3 @@
-// Staleness of the sprint's per-key reads (docs/perf/sprint.md, "Lessons"): every watcher, memo and paused subscription a
-// row, an icon or a pane reads through shows what the stores say after a create, an update, a delete and a relaunch. The
-// hooks run as a component would run them (test-hooks.mjs): a store change renders again only when the snapshot the hook
-// reads changed, so a watcher that misses a change shows up here as an old value.
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
@@ -9,7 +5,6 @@ import { mount } from "../test-hooks.mjs";
 
 globalThis.__DEV__ = false;
 
-// tabLifecycle's toast, Settings and internal pages pull in the whole UI: stand-ins, as tabLifecycle.test.mjs has them.
 const ardiacore = new URL("../test-native-stub.mjs", import.meta.url).href;
 const stubs = {
   "@ardia/ardiacore": `export * from ${JSON.stringify(ardiacore)};
@@ -49,7 +44,6 @@ const setup = () => {
   return { w, a };
 };
 
-// Everything one sidebar row of `tabId` reads (TabRow, TabIcon, TabBadges), as one component.
 const row = (tabId, windowId) =>
   mount(
     () => {
@@ -189,7 +183,6 @@ test("a hidden pane's paused reads are current the render it's shown, and follow
     { props: { visible: false } },
   );
   const renders = pane.renders;
-  // Hidden: its own tab still wakes it (what it loads, its zoom); the paused reads don't.
   S().updateTab(a, { url: "https://moved.com/", zoom: 1.5 });
   assert.deepEqual(pane.value.own, { url: "https://moved.com/", zoom: 1.5 }, "URL and zoom while hidden");
   const afterOwn = pane.renders;
@@ -198,7 +191,6 @@ test("a hidden pane's paused reads are current the render it's shown, and follow
   assert.equal(pane.pending, false, "paused reads don't wake a hidden pane");
   assert.equal(pane.renders, afterOwn);
   assert.ok(afterOwn > renders);
-  // Shown: the render that shows it reads them as they are.
   const shown = pane.rerender({ visible: true });
   assert.equal(shown.popover, "zoom");
   assert.equal(shown.newTabShown, true);
@@ -228,8 +220,6 @@ test("page progress: a bar mounted mid-load starts at the current value, follows
   other.unmount();
 });
 
-// MARK: Icons
-
 const key = engineProfile("default");
 const setIcons = (fn) =>
   useFavicons.setState((f) => {
@@ -238,7 +228,6 @@ const setIcons = (fn) =>
   });
 const icon = (url, src) =>
   mount(({ url, src }) => {
-    // As primitives.tsx's Favicon reads it.
     useAppearanceDark();
     return { resolved: useFavicon(url, src, "default"), theme: useFaviconTheme(url, src, "default") };
   }, { props: { url, src } });
@@ -256,18 +245,15 @@ test("an icon: arrives, changes, follows its page and its icon URL, its light/da
   assert.equal(i.value.resolved?.uri, "file:///two.png", "changes");
   useFavicons.setState((f) => ({ ...f, themes: { ...f.themes, "file:///two.png": { kind: "template", stroke: true } } }));
   assert.equal(i.value.theme?.kind, "template", "its shape theme");
-  // The tab reports another icon URL: the icon follows its props and that URL's image.
   i.rerender({ url: page, src: "https://icons.example/b.ico" });
   setIcons((x) => ({ ...x, srcs: { ...x.srcs, "https://icons.example/b.ico": "file:///b.png" } }));
   assert.equal(i.value.resolved?.uri, "file:///b.png", "a new icon URL's image");
-  // An appearance pair wins, and the side shown follows the window's appearance (ThemeScope's context).
   setIcons((x) => ({ ...x, appearances: { ...x.appearances, [pageKey(page)]: ["file:///light.png", "file:///dark.png"] } }));
   assert.equal(i.value.resolved?.uri, "file:///light.png");
   useBrowser.setState((s) => ({ ui: { ...s.ui, appDark: true } }));
   assert.equal(i.value.resolved?.uri, "file:///dark.png", "dark appearance");
   useBrowser.setState((s) => ({ ui: { ...s.ui, appDark: false } }));
   assert.equal(i.value.resolved?.uri, "file:///light.png", "and back");
-  // Clear data / history deleted: the profile's icons go.
   useFavicons.setState((f) => ({ ...f, profiles: { ...f.profiles, [key]: { pages: {}, srcs: {}, appearances: {} } } }));
   assert.equal(i.value.resolved, null, "gone");
   i.unmount();

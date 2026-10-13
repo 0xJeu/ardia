@@ -24,8 +24,6 @@ export const trackSuggestionChosen = (s: SuggestionLike) => capture("suggestion_
 
 export const trackSettingsSection = (section: string) => capture("settings_section_opened", { section });
 
-// MARK: Command bar speed (sampled)
-
 const SAMPLE_EVERY = 5;
 const MAX_SAMPLES = 500;
 const latency: number[] = [];
@@ -38,8 +36,6 @@ export function sampleOmniboxLatency(ms: number) {
 
 export const takeOmniboxLatency = () => latency.splice(0);
 
-// MARK: Launch time
-
 let firstWindowAt: number | null = null;
 
 export function markFirstWindow() {
@@ -47,7 +43,6 @@ export function markFirstWindow() {
   firstWindowAt = Date.now();
   const start = appInfo().processStart;
   if (!isSharing() || !start) return;
-  // perf_launch goes once the launch's later steps are in (journeys.ts); launch_ms keeps this meaning.
   if (firstWindowAt - start > 0 && firstWindowAt - start < 10 * 60_000) launchFirstWindow(firstWindowAt);
 }
 

@@ -3,9 +3,6 @@ import { useTab } from "../../store/hooks";
 import { activeTabId } from "../../store/model";
 import type { Tab } from "../../store/types";
 
-// What a sidebar row shows of its tab: the tab, and its flags in one number (a sidebar has hundreds of rows, and each
-// selector runs on every store update).
-
 export const ACTIVE = 1;
 export const SELECTED = 2;
 export const PLAYING = 4;

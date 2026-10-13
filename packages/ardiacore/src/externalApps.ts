@@ -1,8 +1,5 @@
 import { Cef } from "./native";
 
-// A link to another app (codex:, zoommtg:, mailto:…). `app` is null when no app on this Mac opens
-// it; `remember` is the "always allow" label, null when the choice can't be kept (private windows,
-// insecure or opaque origins). The wording comes from native so the popover and the popup sheet match.
 export type ExternalAppRequest = {
   id: string;
   url: string;

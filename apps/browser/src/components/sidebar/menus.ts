@@ -148,7 +148,6 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   else if (choice === "copy") copyUrls([tab.id], false);
   else if (choice === "copyMd") copyUrls([tab.id], true);
   else if (choice.startsWith("share:via:")) void shareTab(tab, windowId, choice.slice(10));
-  // Like ⌘D: bookmarks the page (or finds its bookmark) and opens the dialog; never removes one.
   else if (choice === "bookmark") bookmarkTab(windowId, tab.id);
   else if (choice.startsWith("folder:")) void bookmarkTabs(windowId, [tab.id], choice.slice(7));
   else if (choice.startsWith("profile:")) void moveTabToProfile(tab.id, choice.slice(8));

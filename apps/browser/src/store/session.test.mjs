@@ -1,4 +1,3 @@
-// What survives a quit, a relaunch and a closed window: session.json, history (Chrome's) and pinned tabs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -52,7 +51,6 @@ test("hydrate repairs dangling references", () => {
   assert.deepEqual(S().groups, {});
 });
 
-// 0.2.12: Reopen Closed Window lost each tab's Back and Forward.
 test("a reopened window's tabs wake with their back/forward list", () => {
   reset();
   S().createWindow({ url: "keep.com" });
@@ -91,8 +89,6 @@ test("profiles sharing data still share it after a save and reload", () => {
 const flushEvents = () => new Promise((r) => setTimeout(r, 0));
 const DAY = 86_400_000;
 
-// 0.2.20: history moved from history.json into Chrome's HistoryService, which had recorded the same visits all
-// along, a moment apart.
 test("history.json moves into Chrome once: Chrome's own visits aren't doubled, a second run adds nothing", async () => {
   reset();
   stub.docs.clear();
@@ -100,9 +96,7 @@ test("history.json moves into Chrome once: Chrome's own visits aren't doubled, a
   const now = Date.now();
   const work = S().createProfile({ name: "Work" });
   const shared = S().createProfile({ name: "Shared", shareWith: work });
-  // Chrome recorded a.com 20 s after the app did; b.com (imported) and c.com (another Mac's) only the app has.
   stub.chromeVisit("", "https://a.com/", "A", now - DAY + 20_000);
-  // d.com: Chrome has one of two visits 30 s apart; the other is still added.
   stub.chromeVisit("", "https://d.com/", "D", now - DAY);
   const entry = (url, times, title = url) => ({ url, title, favicon: null, visits: times.length, lastVisit: times.at(-1), visitTimes: times });
   const list = [
@@ -124,15 +118,12 @@ test("history.json moves into Chrome once: Chrome's own visits aren't doubled, a
   assert.equal(stub.historyDbs.get(null).has("gone"), false, "a deleted profile's list goes");
   assert.equal(stub.docs.has("history.json"), false, "the file is deleted");
 
-  // A launch that stopped before deleting the file runs it again: nothing more is added.
   stub.docs.set("history.json", JSON.stringify({ version: 2, history: { default: list, [work]: workList } }));
   assert.equal(await migrateHistoryFile(now, { keepMs: 0 }), "moved");
   assert.deepEqual([visits("", "https://a.com/"), visits("", "https://b.com/"), visits("", "https://d.com/"), visits(work, "https://c.com/")], [1, 2, 2, 1]);
   assert.equal(await migrateHistoryFile(now, { keepMs: 0 }), "none");
 });
 
-// With history.json still to move, Chrome's history isn't watched (nor read) until the move is done: each moved
-// visit came to the JS as an event (~88,000 for a long-used profile, ~200 ms of startup JS), all ignored.
 test("history.json's move goes before watching Chrome's history; the view then has the moved visits", async () => {
   reset();
   stub.docs.clear();
@@ -143,7 +134,6 @@ test("history.json's move goes before watching Chrome's history; the view then h
   stub.docs.set("history.json", JSON.stringify({ version: 2, history: { default: [entry("https://moved.com/", [now - DAY, now - 1000])] } }));
   const stop = startHistory();
   assert.deepEqual(stub.historyWatches, [], "not watched while the file moves");
-  // The move waits for the launch's first window: the file is still there, untouched, until it has committed.
   await new Promise((r) => setTimeout(r, 50));
   assert.ok(stub.docs.has("history.json"));
   assert.equal(stub.chromeHistory("").size, 0, "nothing moved before the first window");
@@ -181,9 +171,6 @@ test("history is a view of Chrome's: visits, deletions and a relaunch all read b
   stop();
 });
 
-// Pinned tabs (0.2.2): ⌘W unloads a pinned tab instead of closing it, and a closed window parks its pins for the
-// profile's next window.
-
 test("⌘W on a pinned tab unloads its page; the tile stays with its title, icon and pinned URL", () => {
   reset();
   const { w, ids: [p, a] } = windowWith("mail", "a");
@@ -204,7 +191,6 @@ test("⌘W on a pinned tab unloads its page; the tile stays with its title, icon
   assert.equal(active(w), a);
 });
 
-// 0.2.8: with a pinned tab open, holding ⌘W alternated forever between a New Tab page and the pinned site.
 test("holding ⌘W over pinned tiles ends by closing the window: no unloaded page wakes", () => {
   reset();
   const { w, ids: [x] } = windowWith("x", "a");
@@ -240,7 +226,6 @@ function pinnedWindow() {
 }
 const PINS = ["https://mail.com", "https://docs.com", "Work/https://jira.com", "Work/https://wiki.com"];
 
-// 0.2.8: closing a window took its pinned tabs with it, so the next window had none.
 test("⌘W until the window closes, then ⌘N: the pinned tabs and pinned groups are back, in order, unloaded", () => {
   reset();
   const { w, mail, work } = pinnedWindow();

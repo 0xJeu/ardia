@@ -52,23 +52,18 @@ export function startDevHarness() {
     get extensions(): typeof import("../components/extensions/state") {
       return require("../components/extensions/state");
     },
-    // The ⌃Tab switcher: a test ends it as the user does (Esc cancels, releasing ⌃ commits), which a hidden instance
-    // can't send.
     get switcher(): typeof import("../components/sidebar/switcher") {
       return require("../components/sidebar/switcher");
     },
     get toolbarAutoHide(): typeof import("../components/layout/toolbarAutoHide") {
       return require("../components/layout/toolbarAutoHide");
     },
-    // Hovering moves nothing but a HoverSlot's contents (scripts/hover-shift-test.mjs).
     get hoverShift(): typeof import("./hoverShift") {
       return require("./hoverShift");
     },
-    // The New Tab page's prewarm (benches turn it off for a control).
     get preload(): typeof import("./preload") {
       return require("./preload");
     },
-    // Live folders without a service: a test makes a folder and hands it items.
     get live(): { store: typeof import("../live/store"); engine: typeof import("../live/engine") } {
       return { store: require("../live/store"), engine: require("../live/engine") };
     },
@@ -91,6 +86,5 @@ export function startDevHarness() {
     } catch (error) {
       done({ error: String(error) });
     }
-    // Test scripts wait on every answer (scripts/lib/instance.mjs); a Release build's perf probe keeps the slow poll.
   }, __DEV__ ? 50 : 250);
 }

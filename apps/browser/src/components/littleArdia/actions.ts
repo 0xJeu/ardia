@@ -5,7 +5,6 @@ import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
 
 const store = () => useBrowser.getState();
 
-// ⌘⌥N, and links from other apps. Without a page the bar's field opens, ready to type.
 export function openLittleArdia(url?: string, profileId?: string): string {
   const id = store().createWindow({ small: true, url, profileId });
   if (!url) store().openPanel(id, "");
@@ -14,10 +13,6 @@ export function openLittleArdia(url?: string, profileId?: string): string {
 
 const opensInLittleArdia = (url: string) => /^(https?|file):/i.test(url);
 
-// URLs from other apps (Launch Services, `open`, Handoff) open in the profile of the window used last, even when another
-// app is in front now; a private window's counts as the profile it was opened from (store/small.ts lastActiveProfile).
-// With Settings › General › "Open links from other apps in" Little Ardia, one web link opens in its own Little Ardia, even
-// when a Little Ardia is already in front; several at once, or set to a new tab, they open as tabs of the main window.
 export function openExternalUrls(urls: string[]) {
   const [url] = urls;
   const profileId = lastActiveProfile(store());
@@ -25,8 +20,6 @@ export function openExternalUrls(urls: string[]) {
   openLinksInMainWindow(urls, profileId);
 }
 
-// New tabs in the frontmost main window showing the profile (else the frontmost main window, paged to it), which
-// comes forward; a new window when there's none. The blank window a launch opens takes the first link itself.
 function openLinksInMainWindow(urls: string[], profileId: string) {
   let target = mainWindowFor(store(), profileId);
   for (const url of urls) {
@@ -40,8 +33,6 @@ function openLinksInMainWindow(urls: string[], profileId: string) {
   if (target) focus(target);
 }
 
-// ⌘O / the bar's button: the live page (history, scroll, playback) moves into the frontmost main window of its
-// profile, which opens if there's none, and Little Ardia closes with it.
 export function openInMainWindow(windowId: string) {
   const s = store();
   if (!isSmall(s, windowId)) return;
@@ -62,7 +53,6 @@ export function closeLittleArdia(windowId: string) {
   if (isSmall(store(), windowId)) store().closeWindow(windowId);
 }
 
-// An Esc the page didn't want (not typed into a field, no page full screen) closes Little Ardia.
 export function closeLittleArdiaOnEscape(tabId: string) {
   const s = store();
   const tab = s.tabs[tabId];

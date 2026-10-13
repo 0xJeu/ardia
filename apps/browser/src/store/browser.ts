@@ -52,12 +52,10 @@ export type HydrateData = Partial<
   >
 > & { focusedWindowId?: string | null; lastProfileId?: string | null };
 
-// Batch external updates; React Native otherwise commits once per subscriber.
 let batch = (update: () => void) => update();
 export function setStoreBatching(batchedUpdates: (update: () => void) => void) {
   batch = batchedUpdates;
 }
-/** For the app's other stores: their subscribers re-render in one commit. */
 export const batchStoreUpdates = (update: () => void) => batch(update);
 
 const batched =
@@ -68,20 +66,12 @@ const batched =
     return creator(batchedSet, get, api);
   };
 
-// A tab's address or loading state can flip back within one transaction (a load that starts and ends, a same-document
-// A → B → A), which hearing only the end would hide from the listeners that act on the change (translate's language
-// detection, the web store's script, a screen-share request going with its page): each such write is heard as it
-// lands; a title, an icon, the back and forward state and the rest join the next.
 const pageMoved = (s: BrowserState, prev: BrowserState) => {
   if (s.tabs !== prev.tabs) for (const id of changedIds(s.tabs, prev.tabs)) if (s.tabs[id]?.url !== prev.tabs[id]?.url) return true;
   if (s.live !== prev.live) for (const id of changedIds(s.live, prev.live)) if (!!s.live[id]?.isLoading !== !!prev.live[id]?.isLoading) return true;
   return false;
 };
 const transactions = transactional<BrowserState>(pageMoved);
-/**
- * Runs `run` with the store's listeners (and components) hearing its writes once, at the end (store/transaction.ts).
- * For writes that arrive together and mean nothing apart: a flush of a page's reports (lib/nativeEvents.ts).
- */
 export const storeTransaction = transactions.transaction;
 
 export const useBrowser = create<BrowserState>()(transactions.middleware(batched((...a) => ({
@@ -104,8 +94,6 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       ...(data.profileOrder ?? []).filter((id) => profiles[id]),
       ...Object.keys(profiles).filter((id) => !data.profileOrder?.includes(id)),
     ];
-    // What the session had is this Mac's say; what defaults fill in isn't. A session from before `chosen` saved every
-    // setting: all of them count, as inferred (sync tells a default it filled in from an edit by its last record).
     const saved = data.settings;
     const legacy = saved && !saved.chosen ? Object.keys(saved) : null;
     const settings = { ...DEFAULT_SETTINGS, ...saved, chosen: legacy ?? saved?.chosen ?? [], inferred: legacy ?? saved?.inferred ?? [] };
@@ -160,14 +148,11 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       parkedPins: Object.fromEntries(Object.entries(data.parkedPins ?? {}).filter(([p]) => profiles[p])),
       closedGroups: data.closedGroups ?? [],
       deletedGroups: keptDeletedGroups(data.deletedGroups ?? []),
-      // Older builds saved private windows' cleaned tabs; drop them.
       cleanedTabs: (data.cleanedTabs ?? []).filter((c) => !isIncognitoProfile(c.tab.profileId)),
       privateCleanedTabs: {},
       privateSiteMutes: {},
       selection: {},
       history: Object.fromEntries(Object.entries(data.history ?? {}).filter(([p]) => profiles[p])),
-      // A view handed in (tests) counts as read; the app's history and bookmarks come from Chrome later
-      // (lib/history.ts, lib/bookmarks.ts).
       historyReady: Object.fromEntries(Object.keys(data.history ?? {}).filter((p) => profiles[p]).map((p) => [p, true as const])),
       bookmarks,
       bookmarksReady: Object.fromEntries(Object.keys(data.bookmarks?.roots ?? {}).filter((p) => profiles[p]).map((p) => [p, true as const])),
@@ -191,8 +176,6 @@ useBrowser.subscribe((s, prev) => {
   if (patch) useBrowser.setState(patch);
 });
 
-// Every window of a profile shows its pinned tabs (store/pinMirror.ts). Its own write comes back here and changes
-// nothing; a write another listener makes meanwhile is mirrored too. The depth cap only guards against a bug.
 let mirroring = 0;
 useBrowser.subscribe((s, prev) => {
   if (mirroring > 3) return;

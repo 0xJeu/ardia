@@ -1,6 +1,3 @@
-// Chrome's tab strips and the store (lib/chromeTabs.ts, store/liveTabs.ts) against a fake engine that keeps the
-// contract (docs/store-api.md › "Live tabs"): commands run later than they're sent, transactions arrive later
-// than they're made, and Chrome changes strips on its own in between.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -54,7 +51,6 @@ class FakeChrome {
     }
     return null;
   }
-  // The app's view made a browser for the tab (cmd -1): appended, in the background.
   create(stripId, key) {
     const s = this.strip(stripId);
     const browser = this.nextBrowser++;
@@ -62,8 +58,6 @@ class FakeChrome {
     if (!s.active) s.active = browser;
     this.emit(stripId, -1);
   }
-  // Chrome makes a tab on its own (an extension's tabs.create), in front or behind: no view holds it yet, so it has
-  // no key until the app adopts it (its openWindow, adoptId "tab:<browser>", comes after this transaction).
   made(stripId, active) {
     const s = this.strip(stripId);
     const browser = this.nextBrowser++;
@@ -75,20 +69,17 @@ class FakeChrome {
     this.emit(stripId, null);
     return browser;
   }
-  // The app's view took Chrome's tab: it has the view's key from now on.
   adopted(browser, key) {
     for (const [id, s] of this.strips) {
       const t = s.tabs.find((t) => t.browser === browser);
       if (t) (t.key = key), this.emit(id, null);
     }
   }
-  // A view lets its browser go without closing it (a tab parked on its way to another window): no key any more.
   parked(key) {
     const f = this.find(key);
     f.tab.key = null;
     this.emit(f.id, null);
   }
-  // Chrome closes a tab; when it was the active one it shows the next (TabStripModel::DetermineNewSelectedIndex).
   remove(key) {
     const f = this.find(key);
     if (!f) return;
@@ -102,7 +93,6 @@ class FakeChrome {
       f.s.pickedOnClose = true;
     }
   }
-  // An extension closes a tab and activates another in one go: one change.
   removeAndActivate(key, other) {
     const f = this.find(key);
     this.drop(f);
@@ -110,7 +100,6 @@ class FakeChrome {
     f.s.pickedOnClose = false;
     this.emit(f.id, null);
   }
-  // An extension moves a tab to another window (chrome.tabs.move with windowId), in front there.
   moveTo(key, stripId) {
     const f = this.find(key);
     this.drop(f);
@@ -120,12 +109,10 @@ class FakeChrome {
     to.pickedOnClose = false;
     this.emit(f.id, null, stripId);
   }
-  // An extension (cmd null).
   move(key, index) {
     const f = this.find(key);
     f.s.tabs.splice(f.i, 1);
     f.s.tabs.splice(index, 0, f.tab);
-    // As Chrome: between two tabs of a group it joins the group, elsewhere it leaves its own.
     const [prev, next] = [f.s.tabs[index - 1]?.group, f.s.tabs[index + 1]?.group];
     f.tab.group = prev && prev === next ? prev : f.tab.group && [prev, next].includes(f.tab.group) ? f.tab.group : null;
     this.emit(f.id, null);
@@ -135,7 +122,6 @@ class FakeChrome {
     s.tabs.sort((a, b) => keys.indexOf(a.key) - keys.indexOf(b.key));
     this.emit(stripId, null);
   }
-  // tabs.group / tabGroups.update: Chrome groups tabs (contiguous, as Chrome keeps them).
   group(keys, title, color = "blue") {
     const f = this.find(keys[0]);
     const id = `g${++this.lastGroup}`;
@@ -171,7 +157,6 @@ class FakeChrome {
     f.s.pickedOnClose = false;
     this.emit(f.id, cmd);
   }
-  // Runs the next command the app sent, as the engine does: Chrome's pending changes already went out.
   runOne() {
     const next = this.commands.shift();
     if (!next) return false;
@@ -192,18 +177,14 @@ class FakeChrome {
         this.regroup(s, keys, token);
       } else
         for (const t of s.tabs.filter((t) => keys.includes(t.key) && t.group)) {
-          // Chrome's RemoveFromGroup: the tab goes out past its group's last tab.
           const rest = s.tabs.filter((x) => x !== t);
           const last = rest.findLastIndex((x) => x.group === t.group);
           t.group = null;
           if (last >= 0) (s.tabs = rest).splice(last + 1, 0, t);
         }
-      // ac_tabs_group runs outside the command, so the engine reports its moves as Chrome's own first.
       this.emit(command.strip, null);
       this.emit(command.strip, id);
     } else if (command.op === "arrange" && command.keys.some(has)) {
-      // One tab at a time, as the engine places them (MoveWebContentsAt): a tab put between two tabs of a group joins
-      // it, and a grouped tab moved away from its group leaves it unless it's the last (GetGroupToAssign).
       const listed = command.keys.filter(has).map((key) => s.tabs.find((t) => t.key === key));
       listed.forEach((t, i) => {
         t.pinned = i < command.pinned;
@@ -250,7 +231,6 @@ const chromeOrder = (strip) => chrome.strips.get(strip).tabs.map((t) => urlOf(t.
 const chromeShown = (strip) => urlOf(chrome.strips.get(strip).tabs.find((t) => t.browser === chrome.strips.get(strip).active).key);
 
 let nextStrip = 1;
-// One window whose tabs live in a strip of their own. Its views make browsers as the store loads tabs.
 function windowWith(...urls) {
   S().hydrate({});
   S().updateSettings({ cmdClickCreatesTabGroup: false, newTabPosition: "bottom" });
@@ -263,7 +243,6 @@ function anotherWindow(...urls) {
   chrome.strip(strip).appWindow = w;
   return { w, strip };
 }
-// What ContentCard does: a browser for every loaded tab, none for closed ones.
 function mountViews({ w, strip }) {
   for (const id of S().windows[w]?.tabIds ?? []) {
     const t = S().tabs[id];
@@ -271,7 +250,6 @@ function mountViews({ w, strip }) {
   }
   for (const s of chrome.strips.values()) for (const t of [...s.tabs]) if (!S().tabs[t.key]) chrome.remove(t.key);
 }
-// Lets every message cross until nothing moves; returns how many transactions crossed.
 async function settle(win) {
   let crossed = 0;
   for (let i = 0; i < 200; i++) {
@@ -297,8 +275,6 @@ test("the app's own switches never come back as switches, however late Chrome re
     const b = prev.windows[win.w]?.activeTabIds[prev.windows[win.w].profileId];
     if (a !== b) switches++;
   });
-  // Twenty tabs opened faster than Chrome runs the app's commands: each activation lands after the store has
-  // moved on, and its transaction arrives after that.
   for (let i = 0; i < 20; i++) {
     S().newTab(win.w, { url: `t${i}.com` });
     mountViews(win);
@@ -331,7 +307,6 @@ test("an extension's move, pin and activation reach the sidebar", async () => {
   assert.equal(shown(win.w), "d");
   assert.deepEqual(chromeOrder(win.strip), order(win.w), "Chrome and the sidebar agree");
   assert.equal(S().tabs[a].pinned, false);
-  // Moved between two tabs of a group, a tab joins it (as in Chrome); the group's tabs stay in it.
   const id = (u) => S().windows[win.w].tabIds.find((t) => urlOf(t) === u);
   const g = S().groupTabs([id("a"), id("b")], { pinned: false });
   await settle(win);
@@ -341,7 +316,6 @@ test("an extension's move, pin and activation reach the sidebar", async () => {
   assert.deepEqual(order(win.w), ["c", "a", "d", "b"]);
   assert.deepEqual(S().groups[g].tabIds.map(urlOf), ["a", "d", "b"]);
   assert.deepEqual(chromeOrder(win.strip), order(win.w));
-  // Several tabs moved in one change land in Chrome's order.
   chrome.reorder(win.strip, ["c", "b", "d", "a"].map(id));
   await settle(win);
   assert.deepEqual(order(win.w), ["c", "b", "d", "a"]);
@@ -351,8 +325,6 @@ test("an extension's move, pin and activation reach the sidebar", async () => {
 test("the tab Chrome shows after a close doesn't override the app's successor rule", async () => {
   const win = windowWith("a", "b");
   const [a] = S().windows[win.w].tabIds;
-  // A link of a's, opened behind, lines up after it; closing it goes back to a (store/openers.ts), while
-  // Chrome's own rule shows the tab after it, b.
   const c = S().newTab(win.w, { url: "c.com", openerId: a, background: true });
   await settle(win);
   assert.deepEqual(order(win.w), ["a", "c", "b"]);
@@ -372,12 +344,10 @@ test("a command on its way wins over Chrome's earlier change; stale transactions
   await settle(win);
   S().activate(b);
   await tick();
-  // An extension shows a before the app's command for b runs: the command comes later and wins.
   chrome.activate(a);
   await settle(win);
   assert.equal(shown(win.w), "b");
   assert.equal(chromeShown(win.strip), "b");
-  // A transaction from before the last one applied changes nothing.
   const before = S().windows[win.w];
   chrome.listener({ rev: chrome.rev - 1, cmd: null, strips: [{ ...chrome.state(win.strip), tabs: [] }] });
   assert.equal(S().windows[win.w], before);
@@ -397,7 +367,6 @@ test("an extension's tab groups reach the sidebar, and the sidebar's groups reac
   chrome.retitle(ext, "Later");
   await settle(win);
   assert.equal(S().groups[made.id].name, "Later");
-  // The sidebar groups a and d: Chrome gets a group for them, with the store's name.
   const mine = S().groupTabs([id("d"), id("a")], { pinned: false, name: "Mine" });
   await settle(win);
   const strip = chrome.strips.get(win.strip);
@@ -408,7 +377,6 @@ test("an extension's tab groups reach the sidebar, and the sidebar's groups reac
   assert.equal(strip.groups.get(token).title, "Mine");
   assert.deepEqual(chromeOrder(win.strip), order(win.w));
   assert.ok(S().groups[mine]);
-  // A whole group moved in Chrome stays a group; a rename in the sidebar alone reaches Chrome.
   const before = order(win.w);
   const groupKeys = S().groups[made.id].tabIds;
   chrome.reorder(win.strip, [...groupKeys, ...S().windows[win.w].tabIds.filter((t) => !groupKeys.includes(t))]);
@@ -424,7 +392,6 @@ test("an extension's tab groups reach the sidebar, and the sidebar's groups reac
 test("an extension that closes the shown tab and shows another in one go is obeyed", async () => {
   const win = windowWith("a", "b");
   const [a, b] = S().windows[win.w].tabIds;
-  // c, opened behind from a, shown: closing it on its own would go back to a (the opener rule).
   const c = S().newTab(win.w, { url: "c.com", openerId: a, background: true });
   await settle(win);
   S().activate(c);
@@ -447,7 +414,6 @@ test("an extension moving a tab into a window of New Tab pages, or into a one-ta
   await settle(one);
   assert.equal(S().tabs[b].windowId, empty.w, "the window the engine named");
   assert.equal(shownIn(empty.w), "b");
-  // The last tab of a window into a window with one tab: the engine names the window, nothing to guess.
   const lone = anotherWindow("c");
   await settle(lone);
   const [a] = S().windows[one.w].tabIds;
@@ -467,7 +433,6 @@ test("as in Dia: an extension pinning one pane of a split leaves the split; coll
   assert.equal(S().tabs[b].pinned, false, "the pane isn't pinned");
   assert.ok(Object.values(S().splits).some((v) => v.tabIds.includes(a) && v.tabIds.includes(b)), "the split stays");
   assert.equal(chrome.find(b).tab.pinned, false, "Chrome is put back");
-  // A group collapsed in the sidebar is collapsed for extensions, and the other way; the shown tab stays.
   S().activate(c);
   const g = S().groupTabs([c], { pinned: false, name: "C" });
   await settle(win);
@@ -487,11 +452,8 @@ test("an extension's new tab is shown when Chrome made it in front, and stays be
   await settle(win);
   const [a] = S().windows[win.w].tabIds;
   for (const [active, url, expected] of [[true, "e", "e"], [false, "f", "e"]]) {
-    // Chrome's tab is in the strip, without a key, before the app hears of it: the app doesn't put its own shown tab
-    // back over it meanwhile.
     const browser = chrome.made(win.strip, active);
     await settle();
-    // The app's view announces it (openFromPage: a new tab of the window, in front), then takes it.
     const id = S().newTab(win.w, { url: `${url}.com`, adoptId: `tab:${browser}`, openerId: a });
     await settle();
     chrome.adopted(browser, id);
@@ -506,7 +468,6 @@ test("a switch while Chrome's new tab waits for the app wins; a parked tab Chrom
   const win = windowWith("a", "b");
   await settle(win);
   const [a, b] = S().windows[win.w].tabIds;
-  // The user picks b after the extension's tab appeared in Chrome, after the app opened it: b stays shown.
   const browser = chrome.made(win.strip, true);
   await settle();
   const id = S().newTab(win.w, { url: "g.com", adoptId: `tab:${browser}`, openerId: a });
@@ -518,7 +479,6 @@ test("a switch while Chrome's new tab waits for the app wins; a parked tab Chrom
   await settle(win);
   assert.equal(shown(win.w), "b");
   assert.equal(chromeShown(win.strip), "b");
-  // b's browser parked (keyless, still Chrome's active tab): the store's switch to a still goes out.
   chrome.parked(b);
   await settle();
   S().activate(a);
@@ -538,16 +498,13 @@ test("a tab dropped onto a tab groups the two; a member dragged out leaves only 
     return Object.values(out).sort();
   };
   const groups = () => Object.values(S().groups).map((g) => g.tabIds.map(urlOf)).sort();
-  // a onto d: a new group of d and a, in d's place.
   const g = S().groupOnto([id("a")], id("d"));
   await settle(win);
   assert.deepEqual(order(win.w), ["b", "c", "d", "a", "e"]);
   assert.deepEqual(groups(), [["d", "a"]]);
   assert.equal(S().groups[g].pinned, false);
   assert.deepEqual(chromeGroups(), [["d", "a"]]);
-  // A grouped tab, or one inside a group, isn't a target; neither is a pinned one.
   assert.equal(S().groupOnto([id("b")], id("a")), "");
-  // b onto c, then a out of its group onto c's: a leaves d's group, which keeps d.
   S().groupOnto([id("b")], id("c"));
   await settle(win);
   assert.deepEqual(groups(), [["c", "b"], ["d", "a"]]);
@@ -556,7 +513,6 @@ test("a tab dropped onto a tab groups the two; a member dragged out leaves only 
   assert.deepEqual(order(win.w), ["c", "b", "d", "e", "a"]);
   assert.deepEqual(groups(), [["c", "b"], ["d"]]);
   assert.deepEqual(chromeGroups(), [["c", "b"], ["d"]]);
-  // Its last member dragged out, the group is gone, in Chrome too; a group member dropped onto a tab leaves its group.
   S().placeTabs([id("d")], { pinned: false, beforeId: id("c") });
   S().groupOnto([id("b")], id("e"));
   await settle(win);
@@ -570,7 +526,6 @@ test("a member dragged out of a pinned group, or onto a tab, reaches Chrome with
   const win = windowWith("a", "b", "g1", "g2", "g3");
   const id = (u) => S().windows[win.w].tabIds.find((t) => urlOf(t) === u);
   for (const u of ["a", "b", "g1", "g2", "g3"]) S().activate(id(u));
-  // New Group with Tabs makes a pinned group: it goes first.
   S().groupTabs([id("g1"), id("g2"), id("g3")]);
   await settle(win);
   const groups = () => Object.values(S().groups).map((g) => g.tabIds.map(urlOf)).sort();
@@ -580,13 +535,11 @@ test("a member dragged out of a pinned group, or onto a tab, reaches Chrome with
     return Object.values(out).sort();
   };
   assert.deepEqual(chromeOrder(win.strip), ["g1", "g2", "g3", "a", "b"]);
-  // g2 dropped between a and b: Chrome would put a between two of the group's tabs, where it joins the group.
   S().placeTabs([id("g2")], { pinned: false, beforeId: id("b") });
   await settle(win);
   assert.deepEqual(order(win.w), ["g1", "g3", "a", "g2", "b"]);
   assert.deepEqual(chromeOrder(win.strip), order(win.w));
   assert.deepEqual(chromeGroups(), groups());
-  // g1 dropped onto a: a new group of a and g1; the pinned group keeps g3.
   S().groupOnto([id("g1")], id("a"));
   await settle(win);
   assert.deepEqual(groups(), [["a", "g1"], ["g3"]]);

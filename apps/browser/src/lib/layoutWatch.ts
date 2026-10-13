@@ -3,14 +3,6 @@ import { sidebarEntries } from "../components/sidebar/entries";
 import { rowIds, rowView } from "../components/sidebar/state";
 import { useBrowser } from "../store/browser";
 
-// The perf probe's "layout" option (lib/perfProbe.ts): through a launch's first seconds, after every React commit, where
-// each sidebar row (tab, tile, group, split, live folder) is in its window. A row once on screen that is then somewhere
-// else, with nothing done to the app, is late content shifting what was already shown (docs/perf/sprint.md, "Lessons":
-// deferred rows and side pages must hold their room). At the end it lists the rows the shown page should have and
-// doesn't (`missing`): a tab opened, closed or moved while the rows filled in must still get its row.
-// "layoutEdit" also opens a tab, closes one and moves one at the launch's second commit, while the rows fill in.
-// scripts/layout-shift-test.mjs reads `layout-watch.json`.
-
 const WATCH_MS = 8000;
 const MOVED = 0.5;
 
@@ -32,14 +24,12 @@ function onScreen(p: Place, frame: readonly number[] | null | undefined): boolea
 
 function seen(key: string, place: Place, frame: readonly number[] | null | undefined) {
   const before = last.get(key);
-  // Measurements come back in commit order; one from an older commit than what's recorded is stale.
   if (before && before.commit > place.commit) return;
   if (before && shown.has(key) && (Math.abs(before.x - place.x) > MOVED || Math.abs(before.y - place.y) > MOVED)) moves.push({ row: key, from: before, to: place });
   last.set(key, place);
   if (onScreen(place, frame)) shown.add(key);
 }
 
-// The rows each window's shown profile page should have mounted by now: its tiles, pinned groups, list entries.
 function missingRows(): string[] {
   const s = useBrowser.getState();
   const missing: string[] = [];
@@ -54,7 +44,6 @@ function missingRows(): string[] {
 }
 
 let edits: string[] = [];
-// "layoutEdit": what a user (or a restore) does while the rows fill in.
 function edit() {
   const s = useBrowser.getState();
   const windowId = s.ui.focusedWindowId ?? s.windowOrder[0];
@@ -76,7 +65,6 @@ function finish() {
   writeDocument("layout-watch.json", JSON.stringify({ commits, rows: last.size, shown: shown.size, ms: Date.now() - started, moves, missing: missingRows(), edits }));
 }
 
-/** A React commit landed (the probe's commit hook): measure every row after its layout. `editAt`: the commit to edit at. */
 export function layoutCommitted(editAt = 0) {
   if (finished) return;
   if (!started) {

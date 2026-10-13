@@ -1,5 +1,3 @@
-// Split view: one page, then two; then the divider dragged, a step per film frame (the store's sizes, as the divider's
-// own drag sets them), each step with both panes' own pictures as they reflow.
 let splitId;
 const sizesStep = (a, key) => {
   st().updateSplit(splitId, { sizes: [a, 1 - a] });

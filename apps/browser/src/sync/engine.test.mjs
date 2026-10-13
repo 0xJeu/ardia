@@ -1,8 +1,6 @@
-// 0.2.11: a crash at the wrong moment could stop some changes from reaching your other Macs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-// Cycles run only when the test calls syncNow.
 globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
 globalThis.__DEV__ = false;
@@ -40,7 +38,6 @@ globalThis.acTestNativeModules = {
 const shell = await import("@ardia/shell");
 const { useBrowser } = await import("../store/browser.ts");
 const S = () => useBrowser.getState();
-// Bookmarks are the store's alone here (lib/bookmarks.ts, which reads Chrome's, isn't running).
 const reset = () => (S().hydrate({}), useBrowser.setState({ bookmarksReady: { default: true } }));
 
 test("a crash after a batch lands: after the restart it's sent again as it was, and the next batch gets a new seq", async () => {
@@ -51,7 +48,6 @@ test("a crash after a batch lands: after the restart it's sent again as it was, 
   S().addBookmark({ profileId: "default", url: "https://one.example/", title: "One" });
   await first.syncNow();
 
-  // The app quits the moment the batch with "Two" is in the folder: the disk stays as it is then.
   let disk = null;
   onWrite = (file) => {
     if (!disk && file.ops?.some((op) => op.v?.t === "Two")) disk = new Map(shell.docs);

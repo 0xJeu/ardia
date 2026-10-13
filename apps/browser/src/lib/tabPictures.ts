@@ -2,9 +2,6 @@ import { useBrowser } from "../store/browser";
 import { isIncognitoProfile } from "../store/model";
 import { webviews } from "./webviews";
 
-// The last picture of each tab's page, for dragging a tab that isn't on screen (a page out of view isn't
-// painted, so it can't be captured then). Taken once a tab has been shown for a moment; memory only, never for
-// private windows, the most recent few.
 type Picture = { data: string; frame: [number, number, number, number] };
 
 const SETTLE_MS = 1500;
@@ -33,7 +30,6 @@ function remember(tabId: string) {
     .catch(() => {});
 }
 
-/** Watches the tabs windows show and keeps their pictures. */
 export function startTabPictures() {
   if (started) return;
   started = true;
@@ -47,7 +43,6 @@ export function startTabPictures() {
     for (const w of Object.values(s.windows)) {
       const id = w.activeTabIds[w.profileId];
       if (!id || w.incognito) continue;
-      // A tab just shown (another tab, or another profile's page), or the one shown going to another page.
       const was = prev.windows[w.id];
       if (id === was?.activeTabIds[was.profileId] && s.tabs[id]?.url === prev.tabs[id]?.url) continue;
       if (isIncognitoProfile(s.tabs[id]?.profileId ?? "")) continue;

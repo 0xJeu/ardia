@@ -25,7 +25,6 @@ const SWEEP_MS = 15_000;
 const FREEZE_SWEEP_MS = 30_000;
 const EVAL_TIMEOUT_MS = 2_000;
 
-// Whether a page is frozen is the engine's alone (showing a page unfreezes it), so nothing here keeps a copy.
 type Lifecycle = {
   discarded: Record<string, true>;
   batterySaver: boolean;
@@ -120,18 +119,12 @@ async function hasUnsavedInput(handle: WebViewHandle): Promise<boolean | null> {
 export async function sleepTab(id: string): Promise<boolean> {
   const handle = webviews.get(id);
   if (!handle || useLifecycle.getState().discarded[id]) return false;
-  // Asked now, never remembered: a page can be shown and typed in at any moment before this.
   if ((await hasUnsavedInput(handle)) !== false) return false;
-  // The page's reports that came while we waited (audio, loading, capture) count.
   applyHeldReports();
   const s = store();
   if (shownTabIds(s).has(id) || keepAliveReason(s, id) || webviews.get(id) !== handle) return false;
-  // Only what Chrome did counts, and its onDiscarded records it (a later onReady, the tab woken, clears it): a refusal
-  // leaves the tab awake.
   return (await handle.discard()) === "discarded";
 }
-
-// MARK: Web view events (ContentCard)
 
 export function noteReady(tabId: string) {
   const tab = store().tabs[tabId];
@@ -160,8 +153,6 @@ function omit<T>(map: Record<string, T>, key: string): Record<string, T> {
   delete next[key];
   return next;
 }
-
-// MARK: Sleeping tabs and unloading profiles
 
 let sweeping = false;
 
@@ -231,8 +222,6 @@ function releaseUnusedProfiles() {
   }
 }
 
-// MARK: Battery Saver
-
 function updateBatterySaver(announce: boolean) {
   const sys = currentSystem();
   const on = store().settings.batterySaver && !!sys && (sys.onBattery || sys.lowPowerMode);
@@ -251,7 +240,6 @@ function updateBatterySaver(announce: boolean) {
   }
 }
 
-// Thawing a page that isn't frozen does nothing, and shown pages never are.
 function thawAll() {
   const shown = shownTabIds(store());
   for (const id of loadedTabIds()) if (!shown.has(id)) void webviews.get(id)?.setFrozen(false);
@@ -304,8 +292,6 @@ export async function freezeTab(id: string): Promise<boolean> {
   return true;
 }
 
-// MARK: Launch
-
 function reloadRecentTabs(sys: SystemState) {
   const gb = sys.physicalMemory / 2 ** 30;
   const busy = sys.onBattery || sys.lowPowerMode || sys.memoryPressure !== "normal";
@@ -327,8 +313,6 @@ function reloadRecentTabs(sys: SystemState) {
   );
   return ids;
 }
-
-// MARK: Start
 
 let started = false;
 

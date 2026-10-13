@@ -1,21 +1,4 @@
 #!/usr/bin/env node
-// React census: what each journey interaction costs React and the store, per action: components rendered, wasted
-// renders (same props, state and context), hooks run, store subscriptions notified, selectors evaluated, host view
-// updates, timers scheduled. On a production bundle with React's profiling renderer; counts are deterministic, the
-// ms columns are not (run those under `scripts/agent/locked perflab`).
-//
-//   node js-bench.mjs bundle <dir> --profiling 1            the bundle (main.jsbundle) to run
-//   node census.mjs run --app <Release Ardia.app> --bundle <dir>/main.jsbundle --label <name>
-//                       [--runs 3] [--tabs 20] [--probe renders|renders,selectors,listeners] [--port 47841]
-//                       [--debug-port 9640] [--out <dir>] [--only cenSwitch,cenPanel,…] [--trace 1|<frames>] [--address-bar sidebar]
-//       Clones the app with the bundle swapped in; per run launches a hidden instance on a fresh `--tabs`-tab
-//       session (3 pinned, a group of 4), runs the cen* scenarios of bench-app.js, writes <out>/<label>.json.
-//       `--probe renders` (default) is the cheap pass (use it for ms); add `selectors,listeners` for the
-//       subscription and selector tables (slower: it captures a stack per hook call).
-//   node census.mjs report <report.json> [--top 10]          the markdown tables (per action, medians; offenders)
-//   node census.mjs compare <before.json> <after.json>       before/after medians per interaction
-//
-// The app side is src/lib/perfProbe.ts and the cen* scenarios in bench-app.js.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -42,9 +25,6 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-// MARK: Seed
-
-// A session of `count` tabs in one profile: 3 pinned, a group of 4, the rest loose.
 function writeSession(dir, origin, version, count, probe) {
   const files = buildSeed(origin, version);
   const session = files["session.json"];
@@ -76,10 +56,6 @@ function writeSession(dir, origin, version, count, probe) {
   for (const [name, value] of Object.entries(files)) writeFileSync(join(dir, name), typeof value === "string" ? value : JSON.stringify(value));
 }
 
-// MARK: Run
-
-// A bundle swapped into the copy breaks the app's code seal, and macOS kills a hardened-runtime app with a broken seal a
-// few seconds after launch: sign the copy again with the original's identity and entitlements (as native-bench does).
 function resign(app, clone) {
   const info = spawnSync("codesign", ["-dvv", app], { encoding: "utf8" }).stderr;
   const identity = info.match(/^Authority=(.+)$/m)?.[1] ?? "-";
@@ -118,15 +94,12 @@ async function run() {
         for (let i = 0; i < 40 && !ready; i++) ready = await evaluate(dir, pid, "return 1;", 2000).then(() => true, (e) => (String(e).includes("exited") ? Promise.reject(e) : false));
         if (!ready) throw new Error("dev harness never answered");
         await evaluate(dir, pid, lib, 60_000);
-        // --trace 1 names anonymous timers by the functions that scheduled them (slower: for finding, not timing).
         if (flags.trace) await evaluate(dir, pid, `acPerf.traceTimers = true; acPerf.traceDepth = ${Number(flags.trace) > 1 ? Number(flags.trace) : 4}; return 1;`);
-        // --address-bar sidebar: the field in the sidebar instead of the toolbar (the default).
         if (flags["address-bar"]) await evaluate(dir, pid, `ac.store.getState().updateSettings({ addressBar: ${JSON.stringify(flags["address-bar"])} }); return 1;`);
         for (const name of scenarios) {
           process.stderr.write(`[${label} ${r}] ${name}\n`);
           const options = JSON.stringify({ origin });
           result[name] = await evaluate(dir, pid, `return acBench.run(${JSON.stringify(name)}, ${options});`, 240_000);
-          // The probe's live subscription gauge, by call site (the "selectors" probe), after the first window.
           if (name === "cenStartup") result.subscriptions = await evaluate(dir, pid, "return acPerf.subscriptions?.() ?? {};");
         }
         result.subscriptionsAfter = await evaluate(dir, pid, "return acPerf.subscriptions?.() ?? {};");
@@ -145,9 +118,6 @@ async function run() {
   console.log(`\nwrote ${file}`);
 }
 
-// MARK: Report
-
-// Journey interactions: [name, journey, how to read it out of a scenario result, what one action is].
 const INTERACTIONS = [
   ["launch: first window", "J1", (r) => r.cenStartup, "launch"],
   ["Cmd-T (new tab)", "J2", (r) => r.cenNewTab, "open"],
@@ -178,7 +148,6 @@ const METRICS = [
 ];
 
 const sum = (o) => Object.values(o ?? {}).reduce((a, b) => a + (typeof b === "number" ? b : 0), 0);
-// Host wrappers render whenever their parent does; the offender tables list the app's own components.
 const HOST = /^(View|Text|Pressable|Image|ScrollView|TextInput|InternalTextInput|Animated\(.*\)|Ardia.*|Surface|Symbol|MouseArea|ContextMenuArea|FadeLabel|VirtualizedList.*|CellRenderer.*|ScrollViewBase|TouchableOpacity|AnimatedComponent.*|OutsidePressArea|WindowDragRegion)$/;
 const fmt = (v) => (v === null || v === undefined ? "–" : Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2).replace(/\.?0+$/, "") || "0");
 

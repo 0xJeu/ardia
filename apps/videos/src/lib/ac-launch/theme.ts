@@ -1,6 +1,5 @@
 import { continueRender, delayRender, staticFile } from "remotion";
 
-// The site's poster system (apps/site/src/styles/global.css): warm stock, ink, the accent blue, the stamp's red.
 export const color = {
   paper: "#F1ECE2",
   paperDeep: "#E6DFD1",
@@ -15,7 +14,6 @@ export const color = {
   nightInk2: "#A79F93",
 } as const;
 
-// The app's profile swatches (apps/browser/src/lib/theme.ts PROFILE_COLORS).
 export const swatch = {
   plum: "#C07A98",
   blue: "#4691C3",

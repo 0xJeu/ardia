@@ -46,9 +46,6 @@ export function scopeFor(text: string, windowId: string): SearchScope | null {
   return findScope(text, { engines: searchEngines(s.settings), hosts: knownHosts(s, profileId) });
 }
 
-// The scope a Space after `text` enters: a typed host (youtube.com) or an engine's own keyword. A bare site name
-// ("youtube cats" is a search) doesn't count, nor an address with a path, query or port (github.com/foo); Tab still
-// enters them.
 export function keywordScope(text: string, windowId: string): SearchScope | null {
   const bare = text.trim().replace(/^[a-z]+:\/\//i, "").replace(/\/$/, "");
   if (/[/?#:@]/.test(bare)) return null;

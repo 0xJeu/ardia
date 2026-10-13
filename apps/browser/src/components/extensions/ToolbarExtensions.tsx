@@ -21,9 +21,6 @@ import {
   type Anchor,
 } from "./state";
 
-// Dia 1.52 (owner's recording, 2026-10-09): only the pinned extensions, icons 16 pt with centres 30.25 pt apart, a
-// disabled action dimmed as here; no extensions button (the rest are in the menu bar's Extensions menu, as ours). Ours
-// shows its overflow button only when the pinned ones don't all fit (`limit`).
 const BUTTON = 28;
 const GAP = 2;
 const PITCH = BUTTON + GAP;
@@ -40,7 +37,6 @@ function useToolbarExtensions(windowId: string, limit: number) {
   }, [shown, routes, casting, limit]);
 }
 
-/** How many extension buttons fit in `room` points (the cast button, pinned extensions and the overflow button). */
 export const extensionsFitting = (room: number) => Math.max(1, Math.floor((room + GAP) / PITCH));
 
 export function useToolbarExtensionsWidth(windowId: string, limit = Infinity): number {
@@ -49,7 +45,6 @@ export function useToolbarExtensionsWidth(windowId: string, limit = Infinity): n
   return count ? count * PITCH - GAP + 6 : 0;
 }
 
-// Memoized: the toolbar re-renders with its page (title, loading), and these props rarely change.
 export const ToolbarExtensions = memo(function ToolbarExtensions({
   tabId,
   windowId,
@@ -98,8 +93,6 @@ function useAnchor(key: string) {
 }
 
 function ExtensionButton({ ext, windowId, browserId, palette }: { ext: InstalledExtension; windowId: string; browserId: number; palette: ToolbarPalette }) {
-  // A tab's states come a moment after it is shown: until they do, the button keeps what it showed rather than flash
-  // the manifest's icon without the badge. A click goes by the tab's own state (its popup), never the held one.
   const fetched = useExtensions((e) => (browserId ? e.actions[browserId] : undefined));
   const held = useRef<ActionState | undefined>(undefined);
   if (fetched) held.current = fetched[ext.id];

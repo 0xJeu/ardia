@@ -1,5 +1,3 @@
-// Store transactions (store/transaction.ts): writes apply at once, listeners hear them once at the end; a write that
-// would hide a tab's load starting or ending is heard apart (store/browser.ts loadFlipsBack).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createStore } from "zustand/vanilla";
@@ -60,7 +58,6 @@ test("a run that throws is still heard, and the next transaction starts clean", 
 });
 
 test("a write heardAlone names is heard as it lands, with what was pending; the rest wait for the end", () => {
-  // Every write to `a` is heard at once.
   const { store, heard, transaction } = counter((s, prev) => s.a !== prev.a);
   transaction(() => {
     store.getState().bump("b");
@@ -103,7 +100,6 @@ test("a listener's own write while hearing is heard too, and unsubscribing works
   assert.equal(seen.length, 2);
 });
 
-// The browser store's rule: a tab's isLoading flipping back within one transaction.
 const S = () => useBrowser.getState();
 const tabSetup = () => {
   S().hydrate({});

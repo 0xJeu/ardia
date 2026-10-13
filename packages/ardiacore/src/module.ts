@@ -3,7 +3,6 @@ import { Cef } from "./native";
 export type DownloadState = "downloading" | "finished" | "failed" | "cancelled";
 
 export type Download = {
-  /** Unique across profiles for the app's lifetime (Chromium numbers downloads per profile). */
   id: string;
   url: string;
   filename: string;
@@ -14,7 +13,6 @@ export type Download = {
   total: number;
   speed: number;
   mimeType: string;
-  /** The regular profile's name; a private window's download is its off-the-record profile's (offTheRecord). */
   profile?: string;
   offTheRecord?: boolean;
 };
@@ -90,8 +88,6 @@ export const chromeWindows = () => Cef.chromeWindows();
 export const devWindowAction = (windowNumber: number, action: string) => Cef.devWindow(windowNumber, action);
 export const prepareTabTransfer = (transferKey: string) => Cef.prepareTransfer(transferKey);
 export const releaseTabTransfer = (transferKey: string) => Cef.releaseTransfer(transferKey);
-/** The launch's first page, as the hydrated app shows it ("" for none): the page the engine started for it before the
- *  app ran is kept for that tab's view (by its transfer key), or closed if the app shows another. */
 export const claimLaunchTab = (transferKey: string, url: string, profile: string) => Cef.claimLaunchTab?.(transferKey, url, profile);
 export const listComponents = () => Cef.components();
 
@@ -112,8 +108,6 @@ export const systemState = () => Cef.systemState();
 export const onSystemState = (listener: (state: SystemState) => void) => Cef.addListener("onSystemState", listener);
 
 export const setDisplayMediaPicker = (enabled: boolean) => Cef.setDisplayMediaPicker(enabled);
-// Chrome's automatic Picture in Picture (a call's own document PiP on a tab switch) follows the app's setting. (Builds
-// before it have no such function: Chrome's default, its prompt, stays.)
 export const setAutoPictureInPicture = (enabled: boolean) => Cef.setAutoPictureInPicture?.(enabled) ?? Promise.resolve();
 export const setSearchEngineName = (name: string) => Cef.setSearchEngineName(name);
 export const getDisplayMediaSources = () => Cef.displayMediaSources();
@@ -133,5 +127,4 @@ export type BrowsingDataType = "history" | "siteData" | "cache" | "downloads";
 export const clearBrowsingData = (profile: string, types: BrowsingDataType[], since?: number) =>
   Cef.clearBrowsingData(profile, types, since ?? null);
 export const releaseProfile = (profile: string) => Cef.releaseProfile(profile);
-// Resolves with the kinds of data that couldn't be deleted (none when it all went).
 export const deleteProfileData = async (profile: string): Promise<string[]> => (await Cef.deleteProfileData(profile))?.remaining ?? ["data"];

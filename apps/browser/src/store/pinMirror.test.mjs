@@ -1,6 +1,3 @@
-// Pinned tabs are the profile's (store/pinMirror.ts): every regular window of a profile shows the same pinned tiles
-// and pinned groups, in the same order; each window has its own copy, and its own page. The owner's 0.2.27 report: a
-// new window showed none of the pinned tabs the first window had.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -112,7 +109,6 @@ test("relaunch: every restored window shows the pins; a 0.2.27 session whose win
   assert.deepEqual(pinned(a), PINS);
   assert.deepEqual(pinned(b), PINS);
 
-  // 0.2.27: each window had its own pins, and two had pinned the same site on their own.
   const tab = (id, windowId, url, pinned) => ({ id, windowId, profileId: "default", url, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? url : null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0 });
   const win = (id, tabIds) => ({ id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: tabIds.at(-1) }, sidebarOpen: true, frame: null, createdAt: 0 });
   S().hydrate({

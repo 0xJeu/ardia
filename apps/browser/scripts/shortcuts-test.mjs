@@ -1,9 +1,3 @@
-// Every shortcut in every focus, then a few for real, in a hidden instance.
-//
-//   node apps/browser/scripts/shortcuts-test.mjs <Debug Ardia.app> [cdpPort]
-//
-// One line per focus (the shortcuts that failed in it) and per real check; the table and the details go to
-// shortcuts-test.log beside the instance's data.
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -63,7 +57,6 @@ const ac = (body, timeout = 60000) => app.eval(body, { timeout }).catch((error) 
   error.message += `\n${body}`;
   throw error;
 });
-// The expression's value in the first page whose URL holds urlPart (undefined without one, or on an exception).
 async function cdp(urlPart, expression) {
   if (!(await app.pageTarget(urlPart))) return undefined;
   const page = await app.page(urlPart);
@@ -230,7 +223,6 @@ const focuses = {
   },
 };
 
-// Each focus is one check: the shortcuts that failed in it.
 let since = Date.now();
 function recordFocus(focusName) {
   const lines = [];
@@ -238,7 +230,6 @@ function recordFocus(focusName) {
     const r = results.get(name)[focusName];
     if (r && r.result !== "ok") lines.push(`${r.result.padEnd(4)}  ${name} with the focus in ${focusName}: ${r.detail} (first responder ${r.responder})`);
   }
-  // The failures first: they're what a failing check prints under its line.
   for (const l of [...lines.filter((l) => l.startsWith("FAIL")), ...lines.filter((l) => !l.startsWith("FAIL"))]) rep.log(l);
   const failed = shortcuts.filter(([name]) => results.get(name)[focusName]?.result === "FAIL").map(([name]) => name);
   rep.record(`every shortcut with the focus in ${focusName}`, {
@@ -254,8 +245,6 @@ for (const [focusName, focus] of Object.entries(focuses)) {
   await focus.setup?.();
   for (const [name, key, expect, , only] of shortcuts) {
     if (focusName !== "sidebar" && (only === "window-only" || only === "clipboard")) continue;
-    // Text fields consume ⌘↩, ⌘←/→, and ⇧⌘⌫.
-    // DevTools' own ⇧⌘D (its dock side) wins while it has the focus, as in Chrome.
     const inField =
       (only === "not-field" && (focusName === "field" || focusName === "commandBar")) || (only === "page-field" && focusName === "field") ||
       (only === "devtools-own" && focusName === "devTools");
@@ -269,7 +258,6 @@ for (const [focusName, focus] of Object.entries(focuses)) {
   recordFocus(focusName);
 }
 
-// One line per check, timed from the one before.
 const check = (name, ok, detail) => {
   rep.record(name, { ms: Date.now() - since, error: ok ? null : detail || "failed", evidence: ok && detail ? detail : undefined });
   if (!ok) failures++;
@@ -361,7 +349,6 @@ for (let i = 0; i < 150 && !quit; i++) {
 }
 check("⌘Q quits", quit, quit ? "" : "still running after 15 s");
 
-// The whole table, for the log (after the checks, so it isn't printed under a failure).
 const cols = Object.keys(focuses);
 rep.log(`\n${"shortcut".padEnd(8)} ${"Dia".padEnd(26)} ${cols.map((c) => c.padEnd(10)).join(" ")}`);
 for (const [name, , , dia] of shortcuts) {

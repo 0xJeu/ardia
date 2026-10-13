@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-// Downloads → first launches → copies still running, per version, from two counts we already have:
-//   - GitHub's download counts for each release's DMG (new downloads) and zip (Sparkle updates);
-//   - `update_check` events, one per request to ardia.dev/appcast.xml (infra/site/nginx.conf):
-//     version, day, and whether it's a copy's first check. No IP, no ID. Builds after 0.2.13 only;
-//     older copies poll GitHub directly and aren't counted.
-//
-// usage: node scripts/update-checks.mjs [days=14]
-// The events come from our ClickHouse (docs/growth.md, "Telemetry"), read with the read-only user in
-// ~/.config/ardia/telemetry.env. Without that file, only the GitHub counts print.
 
 import { clickhouse, hasTelemetryEnv } from "./telemetry-env.mjs";
 
@@ -29,7 +20,6 @@ async function github() {
   return byVersion;
 }
 
-// Real versions only (a local test of the endpoint sends 0.0.0-selftest).
 const WHERE = `event = 'update_check' AND match(properties['version'], '^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$')`;
 const FIRST = `properties['first'] = 'true'`;
 
@@ -67,7 +57,6 @@ if (!key) {
 console.log(`\nUpdate checks per day, last ${days} days (UTC)`);
 console.log(`${pad("day", 12)}${pad("version", 9)}${num("checks", 8)}${num("first", 7)}${num("running≈", 12)}`);
 for (const [day, version, checks, first] of daily) {
-  // A running copy checks at launch (once 8 h have passed) and every 8 h: 1 to 3 times a day.
   const low = Math.ceil(checks / 3);
   console.log(`${pad(day, 12)}${pad(version, 9)}${num(checks, 8)}${num(first, 7)}${num(low === checks ? checks : `${low}–${checks}`, 12)}`);
 }

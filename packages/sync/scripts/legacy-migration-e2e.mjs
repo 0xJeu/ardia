@@ -1,22 +1,4 @@
 #!/usr/bin/env node
-// The launch migration from the app's former name, end to end, against a fake old install in a scratch dir (never
-// the real Library or keychain). The old names come from the migration itself (`legacy-migration names`), so this
-// file doesn't spell them.
-//
-//   node packages/sync/scripts/legacy-migration-e2e.mjs [scratch dir]
-//     Seeds an old install (documents, a Chrome profile whose saved password and cookie are encrypted with the old
-//     Safe Storage key, preferences, a fake keychain), runs the migration as a test instance runs it, crashes it at
-//     each step and resumes, and checks what came across: the key (it decrypts the password and the cookie), tabs,
-//     pins, settings, shortcuts, bookmarks, renamed files, preferences, keychain items; and that the old install is
-//     untouched and a second run does nothing. The old app was the default browser (the fake home's LaunchServices
-//     choices), so the migration leaves the offer to be the default again; without that choice it leaves none.
-//     Then the app's rename of its own bundle (`legacy-migration move`) on fake bundles: an old-named bundle becomes
-//     Ardia.app and the process starts over from it with the same arguments and environment; a clash, a link, another
-//     name, a translocated copy and a read-only folder all stay where they are.
-//
-//   node packages/sync/scripts/legacy-migration-e2e.mjs --seed-from <instance data dir> <fake home>
-//     Turns a quit test instance's data dir (made by today's build) into an old install at <fake home>, for the
-//     hidden-instance check: launch the app with ARDIA_DATA_DIR=<new dir> ARDIA_LEGACY_SOURCE=<fake home>.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createCipheriv, createDecipheriv, createHash, pbkdf2Sync, randomBytes } from "node:crypto";
 import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -42,7 +24,6 @@ const oldPath = (now) => names.paths.find(([, n]) => n === now)[0];
 const safeStorage = names.keychain[0];
 const oldService = (now) => names.keychain.find((k) => k.newService === now).oldService;
 
-// MARK: Chrome's macOS encryption (os_crypt): "v10" + AES-128-CBC, key PBKDF2-SHA1(Safe Storage secret, "saltysalt", 1003).
 const chromeKey = (secret) => pbkdf2Sync(secret, "saltysalt", 1003, 16, "sha1");
 const IV = Buffer.alloc(16, " ");
 const encrypt = (secret, text) => {
@@ -60,10 +41,7 @@ const decrypt = (secret, blob) => {
 };
 const sqlite = (db, sql) => execFileSync("sqlite3", [db, sql]).toString().trim();
 
-// MARK: Plists (preferences)
-
 const plistJSON = (path) => JSON.parse(execFileSync("plutil", ["-convert", "json", "-r", "-o", "-", path]).toString());
-// A preferences domain as cfprefsd has it (it writes the file when it gets round to it).
 const domainJSON = (plist) =>
   JSON.parse(execFileSync("plutil", ["-convert", "json", "-r", "-o", "-", "-"], { input: execFileSync("defaults", ["export", plist.replace(/\.plist$/, ""), "-"]) }).toString());
 function writePlist(path, object) {
@@ -73,7 +51,6 @@ function writePlist(path, object) {
   rmSync(path + ".json");
 }
 
-// The user's default apps as LaunchServices keeps them, in a fake home: the old app handles http and https.
 const LAUNCH_SERVICES = "Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist";
 const writeOldDefaultBrowser = (home) => writePlist(join(home, LAUNCH_SERVICES), {
   LSHandlers: ["http", "https"].map((scheme) => ({ LSHandlerURLScheme: scheme, LSHandlerRoleAll: names.bundleId })),
@@ -94,8 +71,6 @@ const snapshot = (dir) => {
   return out;
 };
 
-// MARK: --seed-from: today's test instance → an old install
-
 function toOld(text) {
   let out = text.split("ardia://game").join(oldGame).split("chrome://game").join(oldChromeGame).split("ardia://").join(oldScheme);
   for (const [old, now] of Object.entries(names.jsonKeys)) out = out.split(`"${now}"`).join(`"${old}"`);
@@ -106,7 +81,6 @@ function seedFrom(instance, home) {
   const oldData = join(home, "Library/Application Support", names.bundleId);
   rmSync(home, { recursive: true, force: true });
   mkdirSync(dirname(oldData), { recursive: true });
-  // Its documents and Chrome profile; not the test instance's own files (defaults, logs, isolated secrets).
   mkdirSync(oldData);
   for (const name of readdirSync(instance)) {
     if (["Preferences", "Connected Accounts.json", "activation.log"].includes(name) || name.startsWith(".") || name.startsWith("sync-key-")) continue;
@@ -138,10 +112,8 @@ function seedFrom(instance, home) {
   const back = Object.fromEntries(Object.entries(names.defaultsKeys).map(([o, n]) => [n, o]));
   writePlist(join(home, "Library/Preferences", `${names.bundleId}.plist`), {
     ...Object.fromEntries(Object.entries(values).map(([k, v]) => [back[k] ?? k, v])),
-    // An icon choice under its old key, for the check to find under the new one.
     [back.ACAppIcon]: values.ACAppIcon ?? "plum",
   });
-  // The engine of a test instance runs on Chrome's mock keychain ("mock_password"): the old install's key.
   writeFileSync(join(home, "keychain.json"), JSON.stringify({
     [safeStorage.oldService]: { [safeStorage.oldAccount]: Buffer.from("mock_password").toString("base64") },
     [oldService("Ardia Connected Accounts")]: { github: Buffer.from("e2e-token").toString("base64") },
@@ -149,8 +121,6 @@ function seedFrom(instance, home) {
   writeOldDefaultBrowser(home);
   console.log(`old install at ${home} (from ${instance})`);
 }
-
-// MARK: The synthetic run
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
@@ -245,7 +215,6 @@ if (process.argv[2] === "--seed-from") {
   process.exit(0);
 }
 
-// Under /tmp: cfprefsd won't read or write a preferences file under $TMPDIR (/var/folders/…/T).
 const root = process.argv[2] ?? mkdtempSync("/tmp/legacy-migration-e2e-");
 mkdirSync(root, { recursive: true });
 const secret = randomBytes(12).toString("base64");
@@ -277,7 +246,6 @@ for (const crashAfter of [null, "staged", "secrets", "journal", "published", "de
   check("another default browser: the journal says so", JSON.parse(readFileSync(join(data, ".legacy-migration.json"), "utf8")).defaultBrowser === "no");
 }
 {
-  // An install migrated by a build from before the offer: its next launch answers it, once.
   const dir = join(root, "before-the-offer");
   rmSync(dir, { recursive: true, force: true });
   const home = join(dir, "home"), data = join(dir, "data");
@@ -290,16 +258,12 @@ for (const crashAfter of [null, "staged", "secrets", "journal", "published", "de
   check("before the offer: the next launch goes on", run(home, data) === 0);
   check("before the offer: it leaves the offer", JSON.parse(readFileSync(join(data, OFFER), "utf8")).askedAt === null);
   check("before the offer: the journal says it did", JSON.parse(readFileSync(journalFile, "utf8")).defaultBrowser === "offered");
-  // The app has asked: that stays as it is.
   writeFileSync(join(data, OFFER), JSON.stringify({ version: 1, askedAt: 1 }));
   writeFileSync(journalFile, JSON.stringify(older));
   run(home, data);
   check("before the offer: an offer already answered stays answered", JSON.parse(readFileSync(join(data, OFFER), "utf8")).askedAt === 1);
 }
 
-// MARK: The app's rename of its own bundle
-
-// A bundle whose executable is this tool: `move` runs the rename as the app does, from inside it.
 const NEW_APP = "Ardia.app";
 function fakeBundle(folder, name = names.appFileName) {
   const bundle = join(folder, name);
@@ -310,7 +274,6 @@ function fakeBundle(folder, name = names.appFileName) {
 const exe = (bundle) => join(bundle, "Contents/MacOS/Ardia");
 const moveArgs = (wait) => ["move", ...(wait ? ["--wait", wait] : [])];
 const move = (bundle) => spawnSync(exe(bundle), moveArgs(), { env: { ...process.env, MOVE_MARK: "kept" }, encoding: "utf8" }).stdout.trim();
-// What it prints once it stays: the path the process last started from (an exec's, after a move).
 const ranFrom = (bundle, wait) => `at ${exe(bundle)}|kept|${moveArgs(wait).join(" ")}`;
 const moves = join(root, "move");
 rmSync(moves, { recursive: true, force: true });
@@ -322,8 +285,6 @@ rmSync(moves, { recursive: true, force: true });
   check("move: it starts over from there, with its arguments and environment", out === ranFrom(join(folder, NEW_APP)), out);
 }
 {
-  // Two launches of the same bundle: one is held up after it started while the other renames the bundle; it must go
-  // where its bundle went, not run on from a path that no longer exists.
   const folder = join(moves, "race");
   const bundle = fakeBundle(folder);
   const go = join(moves, "race-go");
@@ -340,8 +301,6 @@ rmSync(moves, { recursive: true, force: true });
   check("move: the held-up launch follows its bundle there", heldOut.trim() === ranFrom(join(folder, NEW_APP), go), heldOut.trim());
 }
 {
-  // A launch whose bundle was moved away and replaced by another folder under the old name before it got to rename:
-  // it must neither rename that folder nor start what's inside it.
   const folder = join(moves, "replaced");
   const bundle = fakeBundle(folder);
   const go = join(moves, "replaced-go");

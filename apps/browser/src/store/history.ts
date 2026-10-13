@@ -4,18 +4,12 @@ import type { BrowserState } from "./browser";
 import { engineProfile, isIncognitoProfile } from "./model";
 import type { HistoryEntry } from "./types";
 
-// History is Chrome's (HistoryService): Chrome records every visit itself and keeps it. `history` is the app's
-// in-memory view of it, one entry per URL, newest first, filled and kept current by lib/history.ts; nothing here
-// is saved. Changes go to Chrome and land in the view at once; Chrome's own report of them changes nothing more.
 export type HistorySlice = {
   history: Record<string, HistoryEntry[]>;
-  // Profiles whose view has been read from Chrome (until then it's empty, not "no history").
   historyReady: Record<string, true>;
-  // Visits at or before this may be missing from a profile's view (it holds Chrome's newest MAX_HISTORY URLs).
   historyFloor: Record<string, number>;
 
   removeHistory(profileId: string, urls: string[]): void;
-  // The view only: Clear Browsing Data deletes from Chrome (clearBrowsingData's "history").
   clearHistory(profileId: string, since?: number): void;
   importHistory(profileId: string, entries: Omit<HistoryEntry, "favicon">[]): number;
 };

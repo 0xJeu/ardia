@@ -86,9 +86,6 @@ function DividerHandle({ split, divider, width, height }: { split: SplitView; di
   );
 }
 
-// Dia's split targets while a tab is dragged over the page (from the sidebar or the top strip): a target at each
-// side of every pane, sliding in from the card's edges, growing once the tab is over the page, and the one under
-// the dragged card turning the accent colour and leaning toward the pointer. Geometry in splitDrop.ts.
 export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; origin: { x: number; y: number } | null }) {
   const windowId = useWindowId();
   const dragging = useTabDrag((s) => (s.windowId === windowId ? s.tabId : null));
@@ -98,7 +95,6 @@ export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; or
   const outside = useTabDrag((s) => s.outside);
   const target = useTabDrag((s) => s.target);
   const full = Object.keys(panes).length >= 3;
-  // The page showing the dragged tab alone splits with the tab it leaves for: the one used last.
   const fallback = useBrowser((s) => {
     if (!dragging || Object.keys(panes).length !== 1 || !panes[dragging]) return null;
     const tab = s.tabs[dragging];
@@ -118,7 +114,6 @@ export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; or
   useEffect(() => {
     setGrown(false);
     if (!shown) return;
-    // Dia grows the targets as soon as they've slid in.
     const timer = setTimeout(() => setGrown(true), ZONE_SLIDE_MS);
     return () => clearTimeout(timer);
   }, [shown]);
@@ -147,7 +142,6 @@ export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; or
     },
     [],
   );
-  // Zones stay mounted for their slide out.
   const [mounted, setMounted] = useState<[string, Rect][]>([]);
   useEffect(() => {
     if (shown) setMounted(candidates);
@@ -174,7 +168,6 @@ export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; or
 }
 
 const ZONE_SLIDE_MS = 110;
-// Dia's targets settle in about 0.12 s with no overshoot: a 0.2 s response, 0.9 damping.
 const ZONE_SPRING = { stiffness: 987, damping: 56.5, mass: 1, useNativeDriver: false } as const;
 
 function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect; side: "left" | "right"; shown: boolean; stage: ZoneStage; pointerX: number; onHidden(): void }) {
@@ -185,7 +178,6 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
   const slide = useRef(new Animated.Value(0)).current;
   const active = stage === "active";
   useEffect(() => {
-    // JS driver: frames are layout.
     Animated.parallel([
       Animated.spring(anim.x, { toValue: rect.x, ...ZONE_SPRING }),
       Animated.spring(anim.y, { toValue: rect.y, ...ZONE_SPRING }),
@@ -201,7 +193,6 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
       ({ finished }) => finished && !shown && onHidden(),
     );
   }, [shown]);
-  // In from (and back out past) the card's edge.
   const away = side === "left" ? -(rect.x - pane.x + rect.width) : pane.x + pane.width - rect.x;
   const dark = theme.dark;
   const rest = dark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)";
@@ -231,7 +222,6 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
           bottom: 9.5,
           borderRadius: 11,
           borderStyle: "dashed",
-          // RN dashes are 3 × the width: Dia's 6 pt dashes, and 7 pt on the target under the card.
           borderWidth: active ? 2.33 : 2,
           borderColor: active ? theme.accent : dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
         }}
@@ -242,7 +232,6 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
   );
 }
 
-// Memoized: the content card re-renders on every tab switch.
 export const SplitToast = memo(function SplitToast({ windowId }: { windowId: string }) {
   const theme = useTheme();
   const toast = useToasts((s) => s.toasts[windowId] ?? null);

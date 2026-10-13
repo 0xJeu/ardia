@@ -29,8 +29,6 @@ function Buttons({ children, left }: { children: ReactNode; left?: ReactNode }) 
   );
 }
 
-// MARK: Save Your Recovery Kit
-
 export function showRecoveryKit() {
   showSettingsSheet(<RecoveryKitSheet />);
 }
@@ -94,8 +92,6 @@ function RecoveryKitSheet() {
     </Sheet>
   );
 }
-
-// MARK: Connect with Recovery Phrase
 
 export function showPhraseEntry(folder: FolderInfo | null, onChooseFolder?: () => void) {
   showSettingsSheet(<PhraseSheet folder={folder} onChooseFolder={onChooseFolder} />);
@@ -193,8 +189,6 @@ function PhraseSheet({ folder, onChooseFolder }: { folder: FolderInfo | null; on
   );
 }
 
-// MARK: Connect Another Device
-
 export function showConnectDevice() {
   showSettingsSheet(<ConnectDeviceSheet />);
 }
@@ -244,8 +238,6 @@ function ConnectDeviceSheet() {
   );
 }
 
-// MARK: Stop Syncing
-
 export function showStopSync() {
   showSettingsSheet(<StopSheet />);
 }
@@ -291,8 +283,6 @@ function DeleteDataSheet() {
     </Sheet>
   );
 }
-
-// MARK: Helpers
 
 export function folderLabel(folder: Pick<FolderInfo, "path" | "inICloud">): string {
   if (folder.inICloud) {

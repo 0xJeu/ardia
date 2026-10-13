@@ -1,4 +1,3 @@
-// A cut of the launch film: its shots on the beat grid, the score under them, inside the Studio document.
 import { Audio } from "@remotion/media";
 import type { ComponentProps } from "react";
 import { AbsoluteFill, Sequence, staticFile } from "remotion";

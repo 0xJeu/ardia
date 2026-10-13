@@ -78,7 +78,6 @@ export function PrivacyPane() {
       });
       if (!confirmed) return;
     }
-    // A change that fails changed nothing (or only the lists before it): show what the blocker has.
     try {
       await setCategory(blocker, c, on);
     } finally {
@@ -174,8 +173,6 @@ function FilterListsSheet() {
   );
 }
 
-// MARK: Zoom levels
-
 function ZoomLevels() {
   const profileId = useBrowser((s) => s.settings.defaultProfileId);
   const profiles = useProfiles();
@@ -203,8 +200,6 @@ function ZoomLevels() {
     </>
   );
 }
-
-// MARK: Site permissions
 
 const SETTING_LABELS: [SiteSettingType, string][] = [
   ["popups", "Pop-ups and redirects"],

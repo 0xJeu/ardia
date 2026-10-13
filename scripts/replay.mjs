@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Plays back a ardia.dev session replay (rrweb) locally.
-//
-//   node scripts/replay.mjs --list [days=2]     recent recorded sessions (telemetry.replay_sessions)
-//   node scripts/replay.mjs <session-id> [--open]
-//
-// Fetches the session's chunks (replays/<day>/<session>/<seq>.json[.gz], docs/growth.md "Telemetry")
-// with the read-only token in ~/.config/ardia/telemetry.env, writes a self-contained page with
-// rrweb-player to the temp folder and prints its path (--open opens it in the default browser).
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -14,7 +6,6 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { clickhouse, telemetryEnv } from "./telemetry-env.mjs";
 
-// The player matches the recorder the site ships (@rrweb/record in apps/site/package.json).
 const PLAYER_VERSION = "2.1.6";
 const PLAYER_FILES = { js: "dist/rrweb-player.umd.min.cjs", css: "dist/style.min.css" };
 
@@ -39,7 +30,6 @@ if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessi
 const env = telemetryEnv();
 const auth = { Authorization: `Bearer ${env.REPLAYS_TOKEN}` };
 
-// Chunks are filed under the UTC day they arrived; look at the days the session's events span, and the next.
 const [[first, last] = []] = await clickhouse(
   `SELECT toString(min(toDate(timestamp))), toString(max(toDate(timestamp))) FROM telemetry.events WHERE session_id = '${session}'`,
 );
@@ -73,7 +63,6 @@ if (chunks.length === 0) {
 chunks.sort((a, b) => a.seq - b.seq);
 const events = chunks.flatMap((c) => c.events).sort((a, b) => a.timestamp - b.timestamp);
 
-// The player, cached once per version.
 const cache = join(homedir(), ".cache/ardia/rrweb-player", PLAYER_VERSION);
 mkdirSync(cache, { recursive: true });
 const asset = async (path) => {

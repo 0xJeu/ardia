@@ -1,5 +1,3 @@
-// Runs the app's TypeScript under plain Node for its tests: native modules resolve to test-native-stub.mjs,
-// and extensionless relative imports find their .ts/.tsx file.
 import { registerHooks } from "node:module";
 
 const stub = new URL("./test-native-stub.mjs", import.meta.url).href;

@@ -1,5 +1,4 @@
 
-// Dia: 72→82pt capsule, 14pt inset, 38pt rows.
 const SWIPE_UNIT = 75;
 export const CAPSULE_SIZE = 72;
 export const CAPSULE_SIZE_CONFIRMED = 82;

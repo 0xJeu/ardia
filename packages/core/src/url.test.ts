@@ -1,4 +1,3 @@
-// Typed text → URL, and the URL checks that protect the user: lookalike hosts, tracking parameters, app URLs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PSL_TLDS } from "./tlds.ts";
@@ -111,8 +110,6 @@ test("displayed URLs say ardia://, never chrome://", () => {
   assert.deepEqual(breadcrumb("chrome://flags/", "Experiments"), { host: "ardia://flags", trail: ["Experiments"] });
 });
 
-// Chrome's AutocompleteInput::Parse (components/omnibox/browser/autocomplete_input.cc): a host with a port is a URL, a
-// host whose TLD is a known registry is a URL, an unknown TLD needs a port, a path ending in "/", or two of path, query and fragment.
 test("host:port navigates: single-label intranet hosts over http, a number or a time never", () => {
   assert.equal(fixupUrl("myserver:8080"), "http://myserver:8080");
   assert.equal(fixupUrl("localhost:3000"), "http://localhost:3000");
@@ -130,7 +127,6 @@ test("IDN hosts navigate, in any script, with or without a path", () => {
   assert.equal(fixupUrl("bücher.example/x/"), "https://bücher.example/x/");
   assert.equal(fixupUrl("xn--bcher-kva.de"), "https://xn--bcher-kva.de");
   assert.equal(fixupUrl("café.fr:8443"), "https://café.fr:8443");
-  // Words with accents and no TLD are searches.
   assert.equal(fixupUrl("café"), null);
   assert.equal(fixupUrl("münchen.zzzz"), null);
   assert.equal(fixupUrl("naïve bayes.com"), null);
@@ -148,7 +144,6 @@ test("an unknown TLD searches unless a port, a trailing slash or two of path, qu
   assert.equal(fixupUrl("x.y/"), "https://x.y/");
   assert.equal(fixupUrl("https://foo.zzzz/x"), "https://foo.zzzz/x");
   assert.equal(fixupUrl("http://foo"), "http://foo");
-  // A single label: the same rules, over http (an intranet name).
   assert.equal(fixupUrl("foo/bar"), null);
   assert.equal(fixupUrl("foo/"), "http://foo/");
   assert.equal(fixupUrl("wiki/Main?x=1"), "http://wiki/Main?x=1");
@@ -165,7 +160,6 @@ test("a known registry navigates with or without a path (Chrome's public suffix 
   }
 });
 
-// A fuzz over host shapes: whatever Chrome would call URL navigates, whatever has whitespace or a bad host never does.
 test("random hosts: a known TLD or a port navigates, a bare unknown name or a space never does", () => {
   let seed = 7;
   const rnd = (n: number) => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0), seed % n);

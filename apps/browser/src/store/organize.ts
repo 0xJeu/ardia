@@ -17,7 +17,6 @@ export type GroupPlacement = { pinned: boolean; beforeId?: string | null };
 export type OrganizeSlice = {
   selection: Record<string, string[]>;
   cleanedTabs: ClosedTab[];
-  // Private windows' cleanup records and site mutes, by window id: memory only, gone with the window.
   privateCleanedTabs: Record<string, ClosedTab[]>;
   privateSiteMutes: Record<string, Record<string, boolean>>;
   closedGroups: ClosedGroup[];
@@ -32,7 +31,6 @@ export type OrganizeSlice = {
   setSiteMuted(tabId: string, muted: boolean): void;
 
   groupTabs(ids: string[], options?: { pinned?: boolean; name?: string }): string;
-  /** Tabs dropped onto an ungrouped tab in the list: a new group of that tab and them, in its place. */
   groupOnto(ids: string[], targetId: string): string;
   moveGroup(groupId: string, placement: GroupPlacement): void;
   duplicateGroup(groupId: string): string;
@@ -77,10 +75,8 @@ export function samePage(a: string, b: string): boolean {
 export const awayFromPin = (t: Pick<Tab, "pinned" | "url" | "pinnedUrl">) =>
   t.pinned && !!t.pinnedUrl && !!t.url && !samePage(t.url, t.pinnedUrl);
 
-// A name the user gave wins; otherwise one from the tabs' titles (store/groupNames.ts).
 const autoLabels = new WeakMap<TabGroup, { tabs: object; members: (Tab | undefined)[]; label: string }>();
 
-// Memoized per group on its member tabs: headers ask on every store update, and naming reads every title.
 export function groupLabel(s: Pick<BrowserState, "tabs">, g: TabGroup): string {
   if (g.name) return g.name;
   const cached = autoLabels.get(g);
@@ -120,10 +116,6 @@ export function pruneSelection(selection: Record<string, string[]>, gone: Set<st
   return Object.fromEntries(Object.entries(selection).map(([w, ids]) => [w, ids.filter((id) => !gone.has(id))]));
 }
 
-// A tab opened from a link joins its opener's group, as in Chrome; opened behind from an ungrouped tab it
-// starts one with it when the setting is on (Dia's "⌘-clicking links creates tab groups"). A pinned tab (or a
-// tab of a pinned group) stays in its section: its links opened behind gather in a group of their own, below
-// the pinned tabs, as in Dia.
 export function groupWithOpener(s: BrowserState, tabId: string, openerId: string, background: boolean): BrowserState {
   const tab = s.tabs[tabId];
   const opener = s.tabs[openerId];
@@ -139,7 +131,6 @@ export function groupWithOpener(s: BrowserState, tabId: string, openerId: string
   const existing = groupOf(s, openerId);
   if (!existing && !(background && s.settings.cmdClickCreatesTabGroup)) return s;
   if (existing) return joinGroup(s, w, existing, tabId);
-  // A split opener brings its other panes: a split is one row, inside or outside the group.
   const panes = Object.values(s.splits).find((v) => v.tabIds.includes(openerId))?.tabIds ?? [openerId];
   return withGroup(s, [...panes, tabId], { autoUngroup: true })[0];
 }
@@ -214,8 +205,6 @@ function closeQuietly(s: BrowserState, ids: string[]): BrowserState {
   return removeTabs(s, ids, false);
 }
 
-// Closing a group that holds the page on screen shows the tab just above the group, as in Dia (not the opener
-// of the page, nor the tab after it); at the top of the list, the one below.
 function showAboveGroup(before: BrowserState, s: BrowserState, g: TabGroup): BrowserState {
   const w = s.windows[g.windowId];
   const was = before.windows[g.windowId]?.activeTabIds[g.profileId];
@@ -265,7 +254,6 @@ function restoreSnapshots(
       snapshot: e.tab,
       index: e.index,
       background: true,
-      // Its back/forward list from when it closed, loaded when it's first shown (as a reopened window's tabs).
       wakeAdoptId: e.tabId && e.tab.url ? restoreId(e.tabId) : undefined,
     });
     s = next;
@@ -309,7 +297,6 @@ export function cleanUpCandidates(s: BrowserState, windowId: string, inactiveFor
   const active = activeTabId(s, windowId);
   const grouped = new Set(Object.values(s.groups).flatMap((g) => g.tabIds));
   const inSplit = new Set(Object.values(s.splits).flatMap((v) => v.tabIds));
-  // A pinned group's tab is the profile's, in every window (store/pinMirror.ts): never a duplicate to clean up.
   const keep = (t: Tab) => t.id === active || inPinnedContainer(s, t.id) || s.live[t.id]?.playingAudio;
   const out = new Set<string>();
   const byPage = new Map<string, Tab[]>();
@@ -494,7 +481,6 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     if (!w || target.pinned || groupOf(s, targetId)) return "";
     const moving = ids.filter((id) => id !== targetId && s.tabs[id]?.windowId === w.id && s.tabs[id]?.profileId === target.profileId);
     if (!moving.length) return "";
-    // Right after the target, out of their own groups and pins, then grouped with it: one update.
     const after = w.tabIds.slice(w.tabIds.indexOf(targetId) + 1).find((id) => !moving.includes(id)) ?? null;
     const [next, id] = withGroup(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
     if (id) set({ ...next, selection: { ...next.selection, [w.id]: [] } });
@@ -594,7 +580,6 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       ? { ...s, privateCleanedTabs: { ...s.privateCleanedTabs, [privateId]: left } }
       : { ...s, cleanedTabs: left };
     for (const e of entries) {
-      // A private tab only ever goes back to its own private window.
       const windowId = privateId ? (next.windows[privateId]?.incognito ? privateId : undefined) : restoreTarget(next, e.windowId);
       if (!windowId || (isIncognitoProfile(e.tab.profileId) && e.windowId !== windowId)) continue;
       const [restored, [id]] = restoreSnapshots(next, windowId, [{ tab: e.tab, tabId: e.restoreFrom ?? e.tabId, index: windowId === e.windowId ? e.index : undefined }]);

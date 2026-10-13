@@ -1,25 +1,13 @@
-// Clicks, as posthog-js reported them:
-//   $autocapture  a click on a link, a button or anything tagged [data-track]
-//   $rageclick    3 clicks within 1 s of each other and 30 px of the last (any element)
-//   $dead_click   a click after which nothing happens: no scroll or text selection within 100 ms, no DOM change
-//                 within 2.5 s, no navigation (checked for up to 3 s)
-//   $dead_swipe   the same for a swipe on a touch screen (30 px or more) that scrolled nothing
-// Each carries $elements_chain (PostHog's format: the clicked element up to <body>, with its classes and
-// attributes), $el_text and, for links off the site, $external_click_url. Never an input's value or typing.
 import { capture, type Props } from "./core";
 
 const AUTOCAPTURE = 'a, button, [role="button"], [role="link"], summary, label, select, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"], [data-track]';
-/** Nothing about these is reported (no events). */
 const NO_CAPTURE = ".ph-no-capture, [data-ac-no-capture]";
-/** These are reported without their text. */
 const PRIVATE = ".ac-private, [data-private], .ph-sensitive";
 const FIELD = /^(input|textarea|select|option)$/;
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
-// Anything that looks like a card or social security number stays out.
 const sensitive = (s: string) => /\b(?:\d[ -]?){13,16}\b/.test(s) || /\b\d{3}-\d{2}-\d{4}\b/.test(s);
 
-/** The element's own text (its text nodes, not its children's), as posthog-js takes it. */
 function ownText(el: Element): string {
   if (FIELD.test(el.tagName.toLowerCase()) || (el as HTMLElement).isContentEditable || el.closest(PRIVATE)) return "";
   let text = "";
@@ -37,7 +25,6 @@ function elementText(el: Element): string {
 
 const quote = (s: string) => s.replace(/"|\\"/g, '\\"');
 
-/** PostHog's elements_chain: `tag.class1.class2:attr="v"…;parent…`, attributes sorted, up to <body>. */
 function elementsChain(target: Element): string {
   const parts: string[] = [];
   for (let el: Element | null = target; el && el !== document.documentElement; el = el.parentElement) {
@@ -97,8 +84,6 @@ const targetOf = (e: Event): Element | null => {
   return t.nodeType === Node.ELEMENT_NODE ? (t as Element) : t.parentElement;
 };
 
-// ---------------------------------------------------------------- rage clicks (posthog-js: 30 px, 1 s, 3)
-
 let series: { x: number; y: number; t: number }[] = [];
 function rage(e: MouseEvent): boolean {
   const last = series[series.length - 1];
@@ -109,8 +94,6 @@ function rage(e: MouseEvent): boolean {
   series = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }];
   return false;
 }
-
-// ---------------------------------------------------------------- dead clicks and swipes
 
 const SCROLL_MS = 100;
 const SELECTION_MS = 100;
@@ -206,8 +189,6 @@ function watchForNothing(kind: Pending["kind"], el: Element, extra: Props = {}, 
   watch();
 }
 
-// ---------------------------------------------------------------- listeners
-
 function onClick(e: MouseEvent) {
   const target = targetOf(e);
   if (!target || target.closest(NO_CAPTURE)) return;
@@ -215,10 +196,8 @@ function onClick(e: MouseEvent) {
   const hit = target.closest(AUTOCAPTURE);
   if (hit) capture("$autocapture", elementProps(target, ownText(target) || elementText(hit)));
 
-  // Keyboard "clicks" (Enter on a button) have no position.
   if (e.detail > 0 && rage(e)) capture("$rageclick", elementProps(target, ownText(target) || elementText(hit ?? target)));
 
-  // A second click on the same element within a second is part of the first.
   const now = performance.now();
   const repeat = lastClicked && lastClicked.el === target && now - lastClicked.t < 1000;
   lastClicked = { el: target, t: now };
@@ -257,7 +236,6 @@ export function startAutocapture() {
     { capture: true, passive: true },
   );
   document.addEventListener("selectionchange", () => {
-    // A click on text sets a collapsed selection; only a real selection counts as something happening.
     if (!document.getSelection()?.isCollapsed) saw("selection");
   });
   addEventListener("visibilitychange", () => saw("visibility"));

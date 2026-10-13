@@ -1,24 +1,3 @@
-// Hidden test instances of Ardia, for every script that drives the app (acceptance runs, *-test.mjs, e2e, smoke):
-// launch, find our own pid, evaluate in the app's JS (the dev harness) and in its pages (DevTools), quit. One copy of
-// what eleven scripts each did their own way.
-//
-//   import { launch, attach, session, reporter } from "<repo>/scripts/lib/instance.mjs";
-//   const app = await launch("apps/browser/build-me/Build/Products/Debug/Ardia.app", { data: "/tmp/…/data" });
-//   await app.eval("return ac.store.getState().windowOrder");            // the dev harness (lib/devHarness.ts)
-//   const page = await app.page("127.0.0.1:8080/a");                       // DevTools, one socket per page
-//   await page.eval("document.title"); await page.send("Page.reload"); page.on("Page.loadEventFired", fn);
-//   await app.quit();
-//
-// - Always hidden: `open -g -n` with ARDIA_BACKGROUND=1, its own data dir and DevTools port (AGENTS.md).
-// - The pid is the one process of the app's binary listening on that DevTools port, started by this launch (it
-//   didn't listen before), with its start time kept so a reused pid is never signalled. Diffing process lists picked
-//   another run's instance of the same binary and killed it (smoke.sh, 2026-09).
-// - `<data>/instance.json` records the instance, so another script (or `scripts/agent/ac`) can attach to it.
-// - `eval` fails at once when the app dies, and runs one script at a time (the harness has one dev-eval.js).
-// - `js: "pinned"` (default) serves Metro through a proxy that refuses its websockets, so other agents' edits and
-//   reload broadcasts can't restart the app's JS mid-run; the proxy runs detached and exits once the app has gone.
-//
-// `node scripts/lib/instance.mjs --self-test` checks the ownership rules.
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -30,9 +9,6 @@ import { fileURLToPath } from "node:url";
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const here = fileURLToPath(import.meta.url);
 
-// MARK: Processes
-
-/** A port nothing listens on yet (another instance's DevTools would answer for the wrong app). */
 export const freePort = () => new Promise((resolve) => {
   const probe = createNetServer();
   probe.listen(0, "127.0.0.1", () => {
@@ -46,14 +22,12 @@ export function parsePort(value) {
   return n;
 }
 const pidList = (text) => [...new Set(text.split(/\s+/).filter(Boolean).map(Number))].filter((n) => Number.isInteger(n) && n > 0);
-// The main binary, not a helper (`…/Ardia Helper.app/…/Ardia Helper`) nor a longer name.
 export const commandIsBinary = (command, binary) => command === binary || command.startsWith(`${binary} `);
 export function listenerPids(port) {
   const r = spawnSync("lsof", ["-nP", "-t", `-iTCP:${port}`, "-sTCP:LISTEN"], { encoding: "utf8", timeout: 5000 });
   if (r.error || r.status > 1) throw new Error(`lsof failed for port ${port}: ${r.error ?? r.stderr}`);
   return pidList(r.stdout);
 }
-// `ps -o lstart= -o command=`: a 5-token start time, then the full command.
 export function parseProcessLine(line) {
   const m = /^\s*(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+(.*\S)\s*$/.exec(line);
   return m ? { started: m[1], command: m[2] } : null;
@@ -68,7 +42,6 @@ export function binaryPids(binary) {
   return new Set(r.stdout.split("\n").map((l) => /^\s*(\d+)\s+(.*)$/.exec(l))
     .filter((m) => m && commandIsBinary(m[2], binary)).map((m) => Number(m[1])));
 }
-/** null while nothing listens yet; throws when the port's holder can't be this launch's app. */
 export function ownedCandidate(listeners, before, commandOf, binary) {
   if (!listeners.length) return null;
   if (listeners.length !== 1) throw new Error(`port has ${listeners.length} listeners: ${listeners.join(", ")}`);
@@ -79,33 +52,18 @@ export function ownedCandidate(listeners, before, commandOf, binary) {
   return pid;
 }
 export const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
-/** The app bundle's main executable. */
 export const binaryOf = (app) => join(app, "Contents/MacOS",
   execFileSync("plutil", ["-extract", "CFBundleExecutable", "raw", join(app, "Contents/Info.plist")]).toString().trim());
-/** Environment for `open --env`: builds from before the rename (0.2.32 and earlier, executable Netnyahoo) read every
- * ARDIA_ variable under its old NETNYAHOO_ name, so they get both. Without them such a build starts visible, on its
- * real data folder. */
 export const appEnv = (app, env) => {
   if (basename(binaryOf(app)) !== "Netnyahoo") return env;
   const legacy = Object.fromEntries(Object.entries(env).filter(([k]) => k.startsWith("ARDIA_")).map(([k, v]) => [`NETNYAHOO_${k.slice("ARDIA_".length)}`, v]));
   return { ...env, ...legacy };
 };
-/** The app's windows on screen (CoreGraphics' numbers), for screencapture -l. A background instance's sit below the
- * normal level (ArdiaCoreActivation.mm, "Behind the owner's windows"), an older build's at 0. */
 export const onScreenWindows = (pid) => JSON.parse(execFileSync("osascript", ["-l", "JavaScript", "-e",
   `ObjC.import("CoreGraphics"); JSON.stringify(ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, 0)))
      .filter((w) => w.kCGWindowOwnerPID === ${pid} && w.kCGWindowLayer <= 0 && w.kCGWindowLayer > -2000000).map((w) => w.kCGWindowNumber))`], { timeout: 20000 }).toString());
 
-// MARK: Fixtures
-
 const profileColors = ["plum", "blue", "green", "orange", "red"];
-/**
- * A session.json the app restores at launch (store version 2). Everything is optional and filled in:
- *   profiles: ["Personal", "Work"] or [{ id, name, color }] (the first one's id is "default")
- *   windows:  [{ id, profileId, tabIds, activeTabIds, frame, sidebarOpen, incognito }] (default one window, w1)
- *   tabs:     [{ id, windowId, profileId, url, title, pinned, … }] (windowId defaults to the first window)
- * and anything else the store keeps (settings, groups, splits, focusedWindowId…) is passed through.
- */
 export function session({ profiles = ["Personal"], windows = [{}], tabs = [], ...rest } = {}) {
   const ps = profiles.map((p, i) => {
     const o = typeof p === "string" ? { name: p } : p;
@@ -134,11 +92,6 @@ export function session({ profiles = ["Personal"], windows = [{}], tabs = [], ..
   };
 }
 
-// MARK: Metro
-
-// `node instance.mjs --metro-proxy <data dir> <metro port>`: listens on a free port, prints it, passes the bundle
-// through and refuses Metro's websockets (/hot, /message). It exits once the instance recorded in <data>/instance.json
-// has been gone for a minute (a relaunch on the same data dir takes it over), or nothing was recorded within five.
 async function metroProxyMain(data, metroPort) {
   const proxy = createServer((req, res) => {
     const up = httpRequest({ host: "127.0.0.1", port: metroPort, path: req.url, method: req.method, headers: req.headers }, (r) => {
@@ -172,9 +125,6 @@ async function startMetroProxy(data, metroPort) {
   return { pid: child.pid, port, metroPort };
 }
 
-// MARK: DevTools
-
-/** A DevTools session on one target over one socket: eval(expression), send(method, params), on(event, fn). */
 export async function devtools(target, { name = target.url } = {}) {
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((r, j) => ((ws.onopen = r), (ws.onerror = () => j(new Error(`DevTools connection to ${name} failed`)))));
@@ -187,7 +137,6 @@ export async function devtools(target, { name = target.url } = {}) {
       pending.delete(msg.id);
     } else if (msg.method) for (const fn of listeners.get(msg.method) ?? []) fn(msg.params);
   };
-  // The target went (its page closed) with calls unanswered: say so now rather than wait out the timeout.
   ws.onclose = () => {
     closed = true;
     for (const [, r] of pending) r({ error: "the target closed before replying" });
@@ -206,7 +155,6 @@ export async function devtools(target, { name = target.url } = {}) {
   return {
     target,
     send,
-    /** The expression's value (awaited, by value); throws on an exception in the page. */
     async eval(expression, { userGesture = false, awaitPromise = true, timeout } = {}) {
       const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise, userGesture }, { timeout });
       if (r.exceptionDetails) throw new Error(`page: ${r.exceptionDetails.exception?.description ?? r.exceptionDetails.text}`);
@@ -221,8 +169,6 @@ export async function devtools(target, { name = target.url } = {}) {
   };
 }
 
-// MARK: Instances
-
 class Instance {
   constructor(record) {
     Object.assign(this, record);
@@ -230,7 +176,6 @@ class Instance {
     this.evalSeq = 0;
   }
   get alive() { return isAlive(this.pid) && this.stillOwned(); }
-  /** The same start time and binary: the same process (a reused pid has another start time). */
   stillOwned() {
     const info = processInfo(this.pid);
     return !!info && info.started === this.started && commandIsBinary(info.command, this.binary);
@@ -243,7 +188,6 @@ class Instance {
     return this;
   }
 
-  /** Runs `body` (a function body: `return …`, may return a promise) in the app's JS through the dev harness. */
   eval(body, { timeout = 20000 } = {}) {
     const run = this.evalQueue.then(() => this.#eval(body, timeout));
     this.evalQueue = run.catch(() => {});
@@ -270,7 +214,6 @@ class Instance {
     }
     throw new Error(`eval timed out after ${timeout} ms: ${body.slice(0, 80)}`);
   }
-  /** Waits until the dev harness answers (and `test`, a body returning truthy, holds). */
   async ready({ timeout = 90000, test = "return true" } = {}) {
     const deadline = Date.now() + timeout;
     let last;
@@ -287,12 +230,10 @@ class Instance {
   }
 
   async targets() { return (await fetch(`http://127.0.0.1:${this.port}/json/list`)).json(); }
-  /** The first page target whose URL contains `urlPart` (or matches the predicate), or null. */
   async pageTarget(urlPart) {
     const test = typeof urlPart === "function" ? urlPart : (t) => t.url.includes(urlPart);
     return (await this.targets()).find((t) => t.type === "page" && test(t)) ?? null;
   }
-  /** A DevTools session on a page, waiting up to `timeout` for it to appear. */
   async page(urlPart, { timeout = 10000 } = {}) {
     const deadline = Date.now() + timeout;
     for (;;) {
@@ -303,21 +244,14 @@ class Instance {
       await sleep(100);
     }
   }
-  /** Chrome's browser target (Target.*, Browser.*). */
   async browser() {
     const version = await (await fetch(`http://127.0.0.1:${this.port}/json/version`)).json();
     return devtools({ url: "browser", webSocketDebuggerUrl: version.webSocketDebuggerUrl });
   }
   windows() { return onScreenWindows(this.pid); }
 
-  /**
-   * Quits as ⌘Q and Sparkle's updates do (the quit Apple event, to this pid only), then SIGTERM, then SIGKILL; with
-   * `graceful: false` straight to the signals. Only ever signals this instance (pid, start time and binary).
-   * Resolves to how it went.
-   */
   async quit(opts = {}) {
     const how = await this.#quit(opts);
-    // The Metro proxy goes with it (a relaunch starts another).
     if (this.js?.mode === "pinned" && (processInfo(this.js.pid)?.command ?? "").includes(`--metro-proxy ${this.data} `))
       try { process.kill(this.js.pid); } catch {}
     return how;
@@ -341,39 +275,17 @@ class Instance {
     return { how: "SIGKILL" };
   }
   kill(signal = "SIGKILL") { if (this.stillOwned()) process.kill(this.pid, signal); }
-  /** The app's stdout and stderr so far. */
   output() { return existsSync(this.log) ? readFileSync(this.log, "utf8") : ""; }
 }
 
-/**
- * Launches `app` hidden. Options:
- *   data      ARDIA_DATA_DIR (default a fresh dir under $TMPDIR); created, and wiped first with `fresh`
- *   session   a session.json to restore (an object; see session()); `files` writes any other files into the data dir
- *   onboarded true: onboarding.json says it's done (no intro); probe: true writes perf-probe (a Release build's harness)
- *   env       { NAME: value } more environment (null leaves a variable out: ARDIA_DATA_DIR: null starts the app
- *             on its default data, as an installed copy; `data` is then the folder its dev harness reads);
- *             `switches` Chromium switches (string or array)
- *   args      arguments after --args (they reach Chrome's command line)
- *   urls      URLs the launch opens (`open -a <app> <url>…`): a cold launch from a link in another app
- *   js        "pinned" (default: Metro through a proxy that refuses reloads), "live" (Metro itself), "host:port",
- *             or "none" (a Release build's own bundle); `metroPort` (default METRO_PORT or 8081)
- *   port      the DevTools port (default a free one); `log` the app's stdout and stderr (default <data>/app.out.log)
- *   ready     wait for the dev harness (default true; a body returning truthy to wait for more, or { test, timeout });
- *             an app that never gets ready is quit before the error is thrown
- *   runsFrom  the bundle the app runs from once it has moved itself at launch (a copy under the app's former name
- *             renames itself: LegacyMigration.moveToNewName); default `app`
- */
 export async function launch(app, opts = {}) {
   app = resolve(app);
-  // Installed apps sit at the top of /Applications; a test copy may sit in a folder of its own there (whether macOS
-  // lets the app rename itself in /Applications: legacy-migration-app-check.sh's APPS_DIR).
   const installed = (path) => /^\/Applications\/[^/]+\.app(\/|$)/.test(path);
   if (installed(app) || (opts.runsFrom && installed(resolve(opts.runsFrom))))
     throw new Error("never an installed app: pass a build (apps/browser/build-*)");
   const data = resolve(opts.data ?? join(process.env.TMPDIR ?? "/tmp", `ac-instance-${process.pid}-${Date.now()}`));
   if (opts.fresh) rmSync(data, { recursive: true, force: true });
   mkdirSync(data, { recursive: true });
-  // A relaunch on this data dir keeps the Metro proxy its last instance had, while it runs.
   let previous = null;
   try { previous = JSON.parse(readFileSync(join(data, "instance.json"), "utf8")); } catch {}
   for (const f of ["dev-eval.js", "dev-eval-result.json", "instance.json"]) rmSync(join(data, f), { force: true });
@@ -405,7 +317,6 @@ export async function launch(app, opts = {}) {
   const log = resolve(opts.log ?? join(data, "app.out.log"));
   const before = binaryPids(binary);
   const launchedAt = Date.now();
-  // As AGENTS.md says: `open -g -n` with the environment, never a plain open, so it can't take focus.
   execFileSync("open", ["-g", "-n", ...Object.entries(env).filter(([, v]) => v !== null && v !== undefined).flatMap(([k, v]) => ["--env", `${k}=${v}`]),
     "--stdout", log, "--stderr", log, ...(opts.urls?.length ? ["-a", app, ...opts.urls] : [app]), ...(opts.args?.length ? ["--args", ...opts.args] : [])]);
   let owned = null;
@@ -426,7 +337,6 @@ export async function launch(app, opts = {}) {
   return instance;
 }
 
-/** The instance recorded in a data dir (or the scratch dir holding data/), if it is still the same process. */
 export function attach(dir) {
   dir = resolve(dir);
   const file = [join(dir, "instance.json"), join(dir, "data", "instance.json")].find(existsSync);
@@ -436,13 +346,6 @@ export function attach(dir) {
   return instance;
 }
 
-// MARK: Output
-
-/**
- * Quiet output: one line per check (`PASS name 120ms`), everything else to a log file. A failure prints its error and
- * the first lines it logged, then the log's path; summary() ends the run with the counts and the path. VERBOSE=1
- * echoes the log too.
- */
 export function reporter(logFile, { name = "run" } = {}) {
   mkdirSync(dirname(resolve(logFile)), { recursive: true });
   writeFileSync(logFile, `# ${name} ${new Date().toISOString()}\n`);
@@ -458,18 +361,12 @@ export function reporter(logFile, { name = "run" } = {}) {
   const r = {
     results,
     logFile,
-    /** Lines for the log file only. */
     log: (...a) => write(a.map(text).join(" ")),
-    /** A line for the terminal too (and the log). */
     say: (...a) => {
       const line = a.map(text).join(" ");
       appendFileSync(logFile, `${line}\n`);
       console.log(line);
     },
-    /**
-     * Records a check's outcome: `error` null for a pass, `skip` a reason it didn't run, `ms` its time (left out of
-     * the line when not given). The lines logged since the last record go under a failure.
-     */
     record(checkName, { ms, error = null, evidence, skip } = {}) {
       const status = skip ? "SKIP" : error ? "FAIL" : "PASS";
       const time = skip ? ` (${skip})` : ms !== undefined ? ` ${ms}ms` : "";
@@ -487,7 +384,6 @@ export function reporter(logFile, { name = "run" } = {}) {
       for (const l of detail) console.log(`  ${l.slice(0, 300)}`);
       console.log(`  (log: ${logFile})`);
     },
-    /** Runs one check: fn's return value is its evidence (logged), a throw its failure. */
     async check(checkName, fn, { onFail } = {}) {
       section = [];
       appendFileSync(logFile, `\n## ${checkName}\n`);
@@ -516,8 +412,6 @@ export function reporter(logFile, { name = "run" } = {}) {
   return r;
 }
 
-// MARK: Self-test and the proxy
-
 if (process.argv[1] === here) {
   const args = process.argv.slice(2);
   if (args[0] === "--metro-proxy") await metroProxyMain(args[1], Number(args[2]));
@@ -536,7 +430,6 @@ if (process.argv[1] === here) {
     assert.equal(parseProcessLine(""), null);
     assert.equal(ownedCandidate([], new Set(), cmd({}), bin), null);
     assert.equal(ownedCandidate([7], new Set([5]), cmd({ 7: bin }), bin), 7);
-    // The failure this guards: another run's instance of the same binary must never become ours.
     assert.throws(() => ownedCandidate([5], new Set([5]), cmd({ 5: bin }), bin), /predates/);
     assert.throws(() => ownedCandidate([7], new Set(), cmd({ 7: "/usr/bin/python3 -m http.server" }), bin), /is not/);
     assert.throws(() => ownedCandidate([7], new Set(), cmd({}), bin), /is not/);

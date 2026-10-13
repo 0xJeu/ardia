@@ -1,5 +1,3 @@
-// The order windows open in (lib/windowOpenOrder.ts): at launch the focused window first and the others behind it, in
-// the stack the focus order describes; later, the focused one last (as before).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -21,11 +19,9 @@ test("launch: the focused window first, the rest behind it in window order", () 
 });
 
 test("each opened right under the focused one leaves the stack the focus order has", () => {
-  // Front to back after placing each directly below the focused window.
   const opens = windowOpens(state(["a", "b", "c", "d"], "b"), ["a", "b", "c", "d"], true);
   const stack = [opens[0].id];
   for (const o of opens.slice(1)) stack.splice(stack.indexOf(o.behind) + 1, 0, o.id);
-  // ui.focusOrder as hydrate builds it: the focused, then windowOrder's others newest first.
   assert.deepEqual(stack, ["b", "d", "c", "a"]);
 });
 

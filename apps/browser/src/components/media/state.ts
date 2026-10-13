@@ -84,8 +84,6 @@ export function formatTime(seconds: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
-// Play and pause show what the page reports, never what we asked for: a guess would be undone by the report already
-// on its way, and the player would flip twice.
 export function mediaCommand(tabId: string, action: MediaCommand, seconds?: number) {
   void webviews.get(tabId)?.mediaCommand(action, seconds);
 }
@@ -110,8 +108,6 @@ export function isTabShown(s: BrowserState, tabId: string): boolean {
   return active === tabId || !!splitOf(s, active)?.tabIds.includes(tabId);
 }
 
-// The tab a player shows: the one it shows now (current) for as long as that tab can have a player, so pausing it never
-// swaps in another tab; otherwise playing before paused, then the one that started playing last.
 export function playerTabFor(m: Pick<Store, "sessions" | "dismissed">, tabIds: string[], current?: string): string | undefined {
   const eligible = (id: string) => {
     const session = m.sessions[id];
@@ -132,10 +128,6 @@ export function playerTabFor(m: Pick<Store, "sessions" | "dismissed">, tabIds: s
   return bestId;
 }
 
-// MARK: Picture in Picture
-
-// A video in Picture in Picture, or the page's own document Picture in Picture window (a call's pop-out): either way the
-// page is in PiP, and a request for the video's would close the page's window.
 const PIP_STATE = 'post("result", JSON.stringify(!!document.pictureInPictureElement || !!window.documentPictureInPicture?.window))';
 
 async function inPictureInPicture(tabId: string): Promise<boolean> {

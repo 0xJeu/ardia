@@ -7,7 +7,6 @@ import { useSidebarTokens } from "../sidebar/tokens";
 import { useMedia } from "./state";
 import { CAPTURE_RED } from "./tokens";
 
-// `pip: false` where Dia shows no picture-in-picture badge (the top tab strip).
 export const TabBadges = memo(function TabBadges({ tabId, size = 16, pip = true }: { tabId: string; size?: number; pip?: boolean }) {
   return (
     <>

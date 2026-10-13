@@ -1,5 +1,3 @@
-// The toolbar that hides while scrolling: the page's direction tracker (page_script.js › Scroll direction) and the
-// app's state (toolbarAutoHide.ts).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -11,7 +9,6 @@ const source = script.match(/const scrollDirection = (\(\) => \{[\s\S]*?\n {2}\}
 assert.ok(source, "page_script.js defines scrollDirection");
 const scrollDirection = new Function(`return ${source}`)();
 
-// Drives a tracker: steps of [y, at ms] with a page of `range` px to scroll in a `height` px viewport.
 function page({ range = 2000, height = 800 } = {}) {
   const d = scrollDirection();
   d.rebase(0);
@@ -41,7 +38,6 @@ test("scrolling down past the threshold reports down once per gesture", () => {
   assert.deepEqual(p.sent, ["down"]);
   p.pause();
   for (let y = 204; y <= 300; y += 4) p.to(y);
-  // A new gesture down says so again (the app may have shown the bar meanwhile).
   assert.deepEqual(p.sent, ["down", "down"]);
 });
 
@@ -75,17 +71,14 @@ test("the bar's own resize moving the scroll position doesn't flip it back (no l
   const p = page({ range: 1000 });
   for (let y = 10; y <= 1000; y += 10) p.to(y);
   assert.deepEqual(p.sent, ["down"]);
-  // The bar hides: the viewport grows by 21 px, the page can scroll 21 px less, and Chrome clamps the position.
   p.resize(821);
   p.to(979, { viewport: 821, max: 979 });
   p.to(979, { viewport: 821, max: 979 });
   assert.deepEqual(p.sent, ["down"]);
-  // Even when the clamp comes before the resize event: the new viewport height is enough.
   const q = page({ range: 1000 });
   for (let y = 10; y <= 1000; y += 10) q.to(y);
   q.to(979, { viewport: 821, max: 979 });
   assert.deepEqual(q.sent, ["down"]);
-  // Once it settles, a real scroll up still shows it.
   q.pause(400);
   for (let y = 975; y >= 940; y -= 5) q.to(y, { viewport: 821, max: 979 });
   assert.deepEqual(q.sent, ["down", "up"]);
@@ -96,13 +89,11 @@ test("a quick reversal right after the bar hides still shows it", () => {
   for (let y = 10; y <= 300; y += 10) p.to(y);
   assert.deepEqual(p.sent, ["down"]);
   p.resize(821);
-  // Straight back up 50 px within the settling time, then stop.
   for (let y = 290; y >= 250; y -= 10) p.to(y, { viewport: 821 });
   assert.deepEqual(p.sent, ["down", "up"]);
 });
 
 test("a page that only scrolls a little once hidden still shows it going up", () => {
-  // 130 px to scroll: enough to hide; hidden, it has 109.
   const p = page({ range: 130 });
   for (let y = 10; y <= 130; y += 10) p.to(y);
   assert.deepEqual(p.sent, ["down"]);
@@ -118,12 +109,10 @@ test("the page scrolling itself (scroll restoration, a chat) doesn't hide it", (
   p.to(3000, { user: false });
   for (let y = 3020; y <= 3400; y += 20) p.to(y, { user: false });
   assert.deepEqual(p.sent, []);
-  // The user's next scroll counts from where the page put it.
   p.pause();
   p.to(3410);
   p.to(3440);
   assert.deepEqual(p.sent, ["down"]);
-  // Back at the top, by any means, is the top.
   p.to(0, { user: false });
   assert.deepEqual(p.sent, ["down", "top"]);
 });
@@ -157,7 +146,6 @@ test("page reports, reveals and peeks", () => {
   assert.equal(st().scrolledDown[tabId], true);
   setToolbarPeek(tabId, true);
   assert.equal(st().peek[tabId], true);
-  // A scroll ends a peek; up and top show the bar.
   noteScroll(tabId, { state: "down" });
   assert.equal(st().peek[tabId], undefined);
   noteScroll(tabId, { state: "up" });
@@ -170,7 +158,6 @@ test("page reports, reveals and peeks", () => {
   revealToolbar(tabId);
   assert.equal(st().scrolledDown[tabId], undefined);
   assert.equal(st().peek[tabId], undefined);
-  // A closed tab is forgotten.
   noteScroll(tabId, { state: "down" });
   useBrowser.getState().closeTab(tabId);
   assert.equal(st().scrolledDown[tabId], undefined);

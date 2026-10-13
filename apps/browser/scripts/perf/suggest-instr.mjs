@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Instructions retired per round of typing "github.com/net" and "react native perf" on the seed profile (micro-bench.mjs
-// `suggest-keys=<rounds>`): the CPU's own counter through `/usr/bin/time -l` under `node --predictable`, the difference of a
-// run of N rounds and a run of none, divided by N. Same method as ratchet.mjs instrPerRound. Run from apps/browser:
-//
-//   node scripts/perf/suggest-instr.mjs [rounds=200] [repeats=3]
 import { spawnSync } from "node:child_process";
 
 const rounds = Number(process.argv[2] ?? 200);

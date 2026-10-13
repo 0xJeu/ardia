@@ -65,7 +65,6 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
   const host = origin ? new URL(origin).hostname : "";
   const profile = engineProfile(tab?.profileId ?? "");
   const close = () => setPopover(tabId, null);
-  // Document PiP may have a window without a tab session.
   const video = useMedia((m) => !!m.sessions[tabId]?.hasVideo || !!m.pipOpen[tabId]);
   const [pip, togglePip] = usePictureInPicture(tabId);
 
@@ -74,7 +73,6 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
     let live = true;
     void getSiteSettings(profile, origin).then((s) => live && setSettings(s));
     void Promise.all([getContentBlocker(), isContentBlockerAllowed(host)]).then(([state, allowed]) => live && setBlocker({ enabled: state.enabled, allowed }));
-    // Navigation may finish before the popover subscribes to security updates.
     void webviews.get(tabId)?.getSecurityInfo().then((info) => live && info && patchPage(tabId, { security: info }));
     return () => {
       live = false;
@@ -98,12 +96,10 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
     if (choice) void setPermission(type, choice as SiteSettingValue);
   };
   const toggleBlocker = async (on: boolean) => {
-    // A change that fails changed nothing: the toggle shows what the blocker has, and the window says so.
     const failed = await setContentBlockerAllowed(host, !on).then(() => false, () => true);
     const allowed = await isContentBlockerAllowed(host);
     setBlocker((b) => (b ? { ...b, allowed } : b));
     if (failed) return showToast(tab.windowId, "Couldn't Change the Ad Blocker", `Blocking on ${host} is as it was. Try again.`, { icon: "exclamationmark.triangle" });
-    // Reload: blocking changes affect new requests only.
     void webviews.get(tabId)?.reload();
   };
   const clearData = async () => {
@@ -121,7 +117,6 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
     setCleared(n ? `Cleared ${n} cookie${n === 1 ? "" : "s"} and site data` : "Cleared site data");
     void webviews.get(tabId)?.reload();
   };
-  // The share sheet points at the row; the popover goes once the sheet closes.
   const share = () =>
     shareRow.current?.measureInWindow((x, y, width, height) => void shareTab(tab, tab.windowId, null, [x, y, width, height]).then(close));
   const copyClean = () => {

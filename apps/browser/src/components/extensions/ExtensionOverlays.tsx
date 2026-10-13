@@ -42,12 +42,9 @@ export function InstallDialogHost({ windowId, onClosed }: { windowId: string; on
   return install ? <InstallDialog request={install} /> : null;
 }
 
-// MARK: Action popup
-
 const MIN = { width: 25, height: 25 };
 const MAX = { width: 800, height: 600 };
 
-// Builds whose engine doesn't size the popup (onPreferredSize) measure the page instead: it grows, never shrinks.
 const MEASURE = `
 const measure = () => {
   const d = document.documentElement, b = document.body;
@@ -77,7 +74,6 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const appear = useRef(new Animated.Value(0)).current;
   const alive = useRef(true);
-  // The engine sizes the popup as Chrome's (its page's auto-resize): measuring the page is only for builds without it.
   const sized = useRef(false);
 
   useEffect(() => {
@@ -87,7 +83,6 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
     };
   }, []);
 
-  // As Chrome's popup, which closes when its window's tab changes (the page opened a tab, the user switched).
   const tabId = useBrowser((s) => activeTabId(s, windowId));
   const openedOn = useRef(tabId);
   useEffect(() => {
@@ -173,8 +168,6 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
   );
 }
 
-// MARK: Install dialog
-
 function InstallDialog({ request }: { request: InstallRequest }) {
   const theme = useTheme();
   const pkg = request.pkg;
@@ -240,8 +233,6 @@ function InstallDialog({ request }: { request: InstallRequest }) {
     </Dialog>
   );
 }
-
-// MARK: Pin Extensions
 
 function PinDialog({ windowId }: { windowId: string }) {
   const theme = useTheme();

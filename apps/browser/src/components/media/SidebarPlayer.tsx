@@ -18,19 +18,15 @@ export const SIDEBAR_PLAYER_HEIGHT = 74 + 8;
 const NO_IDS: string[] = [];
 
 export function useSidebarPlayerTab(windowId: string): string | undefined {
-  // Only tabs with a media session can have a player: start from those (usually none) rather than
-  // filtering every tab in the window on every store update.
   const sessions = useMedia(useShallow((m) => Object.keys(m.sessions)));
   const hidden = useBrowser(
     useShallow((s) => {
       const w = s.windows[windowId];
       if (!sessions.length || !w) return NO_IDS;
       const ids = sessions.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]!.profileId === w.profileId && !isTabShown(s, id));
-      // In sidebar order, which breaks ties between equally recent sessions.
       return ids.length > 1 ? ids.sort((a, b) => w.tabIds.indexOf(a) - w.tabIds.indexOf(b)) : ids;
     }),
   );
-  // The player keeps the tab it shows (playerTabFor): a pause, or a report that was already on its way, never swaps it.
   const shown = useRef<string | undefined>(undefined);
   shown.current = useMedia((m) => playerTabFor(m, hidden, shown.current));
   return shown.current;
@@ -107,7 +103,6 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
   );
 }
 
-// The bar is the only part that moves with the clock: it ticks on its own instead of re-rendering the player.
 function TickingSeekBar({ playing, ...props }: { playing: boolean } & ComponentProps<typeof SeekBar>) {
   useTicker(playing, 1000);
   return <SeekBar {...props} />;

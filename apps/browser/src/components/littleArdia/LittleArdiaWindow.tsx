@@ -18,8 +18,6 @@ import { Favicon, IconButton, useHover } from "../primitives";
 import { copyPageUrl } from "../site/selection";
 import { openInMainWindow } from "./actions";
 
-// Arc's Little Arc as a Ardia window: a thin bar in the profile's colour (window buttons, the page's favicon, host
-// and title, Copy Link, Open in Ardia) over one page card. Dia's card styling, the top strip's 6 pt inset.
 const SMALL_BAR_HEIGHT = 38;
 const MID = SMALL_BAR_HEIGHT / 2;
 const INSET = 6;
@@ -141,7 +139,6 @@ function PageField({ tab, windowId, hidden }: { tab: Tab; windowId: string; hidd
 function Progress({ progress, color }: { progress: number; color: string }) {
   const width = useRef(new Animated.Value(Math.max(progress, 0.08))).current;
   useEffect(() => {
-    // JS driver: a scaleX would squash the rounded ends.
     Animated.timing(width, { toValue: Math.max(progress, 0.08), duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
   }, [progress]);
   return (

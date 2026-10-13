@@ -5,8 +5,6 @@ import { DEV_SEND_ENV, LOGS_URL, MAX_BODY_BYTES } from "./config";
 import { EVENTS_SCOPE, eventRecord, LOGS_SCOPE, logRecord, logsRequest, outcome, type OtlpLogRecord, type QueuedEvent } from "./otlp";
 import { cleanProperties } from "./sanitize";
 
-// Send only with opt-in; never sync the choice.
-
 const STATE_DOC = "telemetry.json";
 const QUEUE_DOC = "telemetry-queue.json";
 const REQUEST_LOG_DOC = "telemetry-requests.log";
@@ -27,10 +25,8 @@ type Saved = {
   crashCursor: number;
   lastVersion: string | null;
   sessionOpen: boolean;
-  // perf_launch's cold and since_quit (journeys.ts): when this copy last launched and last quit, epoch ms.
   lastLaunchAt?: number | null;
   lastQuitAt?: number | null;
-  // perf_launch's first_of_version: the build the last launch ran (lastVersion is its version).
   lastBuild?: string | null;
 };
 
@@ -72,8 +68,6 @@ export const useTelemetry = create<{ sharing: boolean; decided: boolean; askDone
 
 export const isSharing = () => saved.sharing;
 
-// MARK: Context sent with every event
-
 let app: SystemInfo | null = null;
 export const appInfo = () => (app ??= systemInfo());
 let engineVersion: string | null = null;
@@ -101,8 +95,6 @@ function context(): Record<string, unknown> {
     $geoip_disable: true,
   };
 }
-
-// MARK: Queue
 
 type Queue = { version: 1; events: QueuedEvent[]; logs: OtlpLogRecord[] };
 
@@ -166,8 +158,6 @@ export function queueLog(level: "warn" | "error", message: string, attributes: R
   } catch {}
 }
 
-// MARK: Sending
-
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let flushDueAt = 0;
 let flushing = false;
@@ -209,7 +199,6 @@ function logRequest(entry: RequestLogEntry, body: string) {
   if (__DEV__) console.log(`[telemetry] ${entry.dryRun ? "dry run" : "POST"} ${entry.url} ${entry.kind}×${entry.count} → ${entry.status}`);
 }
 
-// Uploads in flight, so turning sharing off can stop them mid-request.
 const inflight = new Set<AbortController>();
 
 async function post(kind: RequestLogEntry["kind"], url: string, body: string, count: number) {
@@ -254,7 +243,6 @@ const eventsBody = (batch: QueuedEvent[]) =>
 
 const logsBody = (batch: OtlpLogRecord[]) => logsRequest(resource(), LOGS_SCOPE, batch);
 
-// Sends the head of a queue in batches until it's empty or the server says to retry later.
 type DrainResult = "done" | "failed" | "stale";
 
 async function drain<T>(
@@ -305,8 +293,6 @@ export async function flush() {
   }
 }
 
-// MARK: The user's choice
-
 type SharingSource = "settings" | "onboarding" | "ask";
 
 export function setSharing(on: boolean, source: SharingSource) {
@@ -337,8 +323,6 @@ export function setSharing(on: boolean, source: SharingSource) {
 
 export const dismissAsk = () => save({ askDoneAt: Date.now() });
 
-// MARK: Lifecycle
-
 type PreviousSession = "clean" | "unclean" | "none";
 
 let loaded = false;
@@ -355,7 +339,6 @@ type ClientSession = {
   updatedFrom: string | null;
   lastLaunchAt: number | null;
   lastQuitAt: number | null;
-  // The first launch of this version and build (or the first this copy recorded): macOS scans a new bundle first.
   firstOfVersion: boolean;
 };
 
@@ -375,7 +358,6 @@ export function startClient(): ClientSession | null {
   const version = appInfo().appVersion;
   const updatedFrom = saved.lastVersion && saved.lastVersion !== version ? saved.lastVersion : null;
   const build = appInfo().appBuild;
-  // A copy that hasn't recorded its build yet (from before lastBuild) goes by its version alone.
   const firstOfVersion = saved.lastVersion !== version || (saved.lastBuild != null && saved.lastBuild !== build);
   const last = { lastLaunchAt: saved.lastLaunchAt ?? null, lastQuitAt: saved.lastQuitAt ?? null, firstOfVersion };
   save({ sessionOpen: true, lastVersion: version, lastBuild: build, lastLaunchAt: appInfo().processStart ?? Date.now() });
@@ -393,8 +375,6 @@ export const crashCursor = () => saved.crashCursor;
 export const advanceCrashCursor = (to: number) => to > saved.crashCursor && save({ crashCursor: to });
 
 export const devState = () => ({ saved, queued: { events: queue.events.length, logs: queue.logs.length }, droppedWhileOff, canSend: canSend() });
-
-// MARK: Ids
 
 function hex(n: number) {
   return Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");

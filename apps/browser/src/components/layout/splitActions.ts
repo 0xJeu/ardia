@@ -47,7 +47,6 @@ export function openInSplit(tabId: string, side: SplitSide = "right") {
   openSplitPane(tab.windowId, { tabId, anchorTabId: active, side });
 }
 
-// `adoptId`: the tab Chrome already made for the link.
 export function openLinkInSplit(sourceTabId: string, url: string, adoptId?: string) {
   const s = store();
   const source = s.tabs[sourceTabId];

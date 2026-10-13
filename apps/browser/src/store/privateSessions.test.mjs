@@ -1,5 +1,3 @@
-// Private windows are the off-the-record profile of the regular profile they were opened from (Chrome's
-// GetPrimaryOTRProfile): one session per profile, shared by its private windows, never another profile's.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -13,7 +11,6 @@ const stub = await import("../test-native-stub.mjs");
 const S = () => useBrowser.getState();
 const PERSONAL = { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 };
 
-// Personal in window A, Work (profile 2) in window B, which is in front.
 function twoProfiles() {
   S().hydrate({ profiles: { default: PERSONAL }, profileOrder: ["default"] });
   const work = S().createProfile({ name: "Work" });
@@ -37,18 +34,15 @@ test("⇧⌘N from a profile-2 window opens profile 2's private session; Persona
   assert.equal(engine(p2), `incognito:${p2}@${work}`, "the engine makes it from Work's off-the-record profile");
   assert.equal(session(p2), work);
 
-  // From the private window itself: the same session.
   S().setFocusedWindow(p2);
   const p2b = S().createWindow({ incognito: true });
   assert.equal(session(p2b), work);
   assert.notEqual(engine(p2b), engine(p2), "each window has its own name; the engine shares the profile");
 
-  // From Personal's window (the command names its window): Personal's session ("" is Chrome's Default).
   const p1 = S().createWindow({ incognito: true, profileId: "default" });
   assert.equal(engine(p1), `incognito:${p1}@`);
   assert.equal(session(p1), "");
   assert.notEqual(session(p1), session(p2));
-  // Regular windows aren't in any private session.
   assert.equal(session(a), null);
   assert.equal(session(b), null);
 });
@@ -92,7 +86,6 @@ test("a private session's downloads show in its windows only, never on disk, and
   const p2 = S().createWindow({ incognito: true });
   const p2b = S().createWindow({ incognito: true, profileId: work });
   const p1 = S().createWindow({ incognito: true, profileId: "default" });
-  // As the engine reports them: the regular profile's name, and whether it's off the record.
   S().upsertDownload(download("private2", work, true));
   S().upsertDownload(download("private1", "", true));
   S().upsertDownload(download("regular2", work, false));
@@ -102,7 +95,6 @@ test("a private session's downloads show in its windows only, never on disk, and
   assert.deepEqual(ids(p1), ["private1"]);
   assert.deepEqual(ids(a), [], "Personal's window lists none of Work's downloads");
   assert.deepEqual(ids(b), ["regular2"]);
-  // A window paged to Work lists Work's; a download with no profile (an older build's) is Personal's.
   S().upsertDownload(download("old", undefined, undefined));
   assert.deepEqual(ids(a), ["old"]);
   S().switchProfile(a, work);
@@ -112,18 +104,15 @@ test("a private session's downloads show in its windows only, never on disk, and
   assert.ok(saved.includes("regular2"));
   assert.ok(!saved.includes("private"), "no private download reaches disk");
 
-  // One of profile 2's private windows closes: the session (and its download) stays.
   S().closeWindow(p2);
   await new Promise((r) => setTimeout(r, 0));
   assert.deepEqual(ids(p2b), ["private2"]);
   assert.deepEqual(stub.cancelledDownloads, []);
-  // Its last one closes: its downloads are cancelled and forgotten; Personal's session keeps its own.
   S().closeWindow(p2b);
   await new Promise((r) => setTimeout(r, 0));
   assert.deepEqual(stub.cancelledDownloads, ["private2"]);
   assert.ok(!S().downloads.some((d) => d.id === "private2"));
   assert.deepEqual(ids(p1), ["private1"]);
-  // The engine's late update doesn't bring it back, nor does one the app never saw, even into the profile's next session.
   S().upsertDownload({ ...download("private2", work, true), state: "cancelled" });
   S().upsertDownload(download("unseen", work, true));
   const next = S().createWindow({ incognito: true, profileId: work });
@@ -150,10 +139,8 @@ test("a private window's bookmarks are its profile's", () => {
 
 test("Open Link in Incognito Window: the private window is the tab's profile's, whichever window hears it", () => {
   const { work, a, b } = twoProfiles();
-  // Chrome made a private tab of Work's off-the-record profile; Personal's window announces it (openFromPage).
   assert.equal(privateWindowProfile(S(), S().windows[a], work), work);
   assert.equal(privateWindowProfile(S(), S().windows[b], ""), "default");
-  // No tab of Chrome's (an older engine): the page's window's profile, a private window's being its original.
   assert.equal(privateWindowProfile(S(), S().windows[b]), work);
   const p = S().createWindow({ incognito: true, profileId: privateWindowProfile(S(), S().windows[b]) });
   assert.equal(privateWindowProfile(S(), S().windows[p]), work);

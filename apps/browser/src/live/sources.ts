@@ -19,8 +19,6 @@ async function secret(source: LiveSourceId): Promise<string> {
   return value;
 }
 
-// MARK: GitHub
-
 async function githubGraphql<T>(token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const json = await request<T & { errors?: { type?: string; message: string }[] }>(endpoints.githubGraphql, {
     method: "POST",
@@ -43,7 +41,6 @@ const github: LiveSource = {
     const ids = detailIds(json, folder.filters);
     const pages = Array.from({ length: Math.ceil(ids.length / DETAILS_PAGE) }, (_, i) => ids.slice(i * DETAILS_PAGE, (i + 1) * DETAILS_PAGE));
     const page = async (ids: string[]) => detailNodes(ids, await githubGraphql<DetailsResponse>(token, GITHUB_DETAILS_QUERY, { ids }));
-    // Every page or none (a partial result would read as PRs gone); a page is small, so a failure is retried once.
     const retry = (ids: string[]) => (error: unknown) =>
       error instanceof LiveError && (error.kind === "other" || error.kind === "network") ? page(ids) : Promise.reject(error);
     const details = await Promise.all(pages.map((ids) => page(ids).catch(retry(ids))));
@@ -62,14 +59,11 @@ const github: LiveSource = {
       if (!item) continue;
       if (n.state === "MERGED") out[item.id] = "merged";
       else if (n.state === "CLOSED") out[item.id] = "closed";
-      // Still open but no longer awaiting you: you finished your review.
       else if (item.section === "review" || item.section === "team") out[item.id] = "reviewed";
     }
     return out;
   },
 };
-
-// MARK: Bitbucket Cloud
 
 const bitbucketAuth = async () => basic(live().config.bitbucketUser, await secret("bitbucket"));
 
@@ -98,8 +92,6 @@ const bitbucket: LiveSource = {
   },
 };
 
-// MARK: Notion
-
 const notionHeaders = (token: string) => ({ Authorization: `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" });
 
 const notion: LiveSource = {
@@ -117,8 +109,6 @@ const notion: LiveSource = {
   },
 };
 
-// MARK: Confluence
-
 const confluence: LiveSource = {
   id: "confluence",
   name: "Confluence",
@@ -132,8 +122,6 @@ const confluence: LiveSource = {
     return mapConfluence(await request<ConfluenceSearch>(url, { headers: { Authorization: auth } }), confluenceSite);
   },
 };
-
-// MARK: Google Drive
 
 type GoogleTokens = { access_token: string; refresh_token: string; expires_at: number; client_secret: string };
 
@@ -164,8 +152,6 @@ const gdrive: LiveSource = {
 };
 
 export const SOURCES: Record<LiveSourceId, LiveSource> = { github, bitbucket, notion, confluence, gdrive };
-
-// MARK: Connecting accounts
 
 const account = (login: string, name: string | null, avatar: string | null): LiveAccount => ({ login, name, avatar, connectedAt: Date.now() });
 

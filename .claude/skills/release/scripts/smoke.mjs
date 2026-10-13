@@ -1,5 +1,3 @@
-// usage: SMOKE_DATA=<data dir> node smoke.mjs <version> <windowsTool> <pagesOrigin>
-//   Drives the instance smoke.sh launched (scripts/agent/ac launch: recorded in $SMOKE_DATA/instance.json).
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { attach, sleep } from "../../../../scripts/lib/instance.mjs";
@@ -7,7 +5,6 @@ import { attach, sleep } from "../../../../scripts/lib/instance.mjs";
 const [version, windowsTool, pages] = process.argv.slice(2);
 const instance = attach(process.env.SMOKE_DATA);
 const { port, pid } = instance;
-// DevTools calls as this script has always made them: an error reply is an empty result, and no call times out.
 const quietly = (session, method, params = {}) => session.send(method, params, { timeout: 2 ** 31 - 1 }).catch(() => ({}));
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -63,10 +60,6 @@ await send("Runtime.enable");
 await go("https://example.com/");
 check("a web page loads", (await evaluate("document.title")) === "Example Domain");
 
-// What became of the ad script's request while `run` ran, judged by the network: "blocked" when uBlock failed it
-// (ERR_BLOCKED_BY_CLIENT, as on CEF) or redirected it to its no-op stand-in inside the extension (uBOL's optimal mode
-// on ArdiaCore: the stand-in loads, so the page's onload fires, but nothing left the browser), "loaded" when the ad
-// server answered.
 const adScript = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
 async function adFate(run) {
   const ids = new Set();
@@ -101,8 +94,6 @@ const media = JSON.parse(
 );
 check("H.264, AAC and WebGL2", media.every(Boolean), JSON.stringify(media));
 
-// A window's level as the app asked for it: a test instance sets each a band below normal so it stays behind the owner's
-// windows (ArdiaCoreActivation.mm, "Behind the owner's windows"); older builds at the level itself.
 const level = (w) => (w.layer <= -1000000 + 2000 && w.layer > -2000000 ? w.layer + 1000000 : w.layer);
 const appWindows = () => windows().filter((w) => level(w) === 0 && w.w > 400 && w.h > 300);
 const [appWindow] = appWindows().filter((w) => w.alpha > 0);
@@ -111,8 +102,6 @@ check("no hidden full-size Chrome window (the app window is Chrome's own)", !!ap
   JSON.stringify(appWindows().map((w) => [w.w, w.h, w.alpha])));
 check("a window left on its second profile reopens as that profile's window, alone on screen",
   appWindows().filter((w) => w.alpha > 0).length === 1, JSON.stringify(appWindows().map((w) => [w.title, w.alpha])));
-// One DevTools connection per call, to the browser target or a page, closed at once (a client left attached to a page
-// changes what Chrome does with it: see the hang check below).
 async function browserCall(method, params = {}) {
   const browser = await instance.browser();
   try {
@@ -167,7 +156,6 @@ if (dialog) {
   const ok = list[0]?.id === dialog.id && owner?.alpha > 0 && !!inside;
   checkUnlocked("…in front, directly over the visible app window it belongs to", ok,
     `dialog @${dialog.x},${dialog.y} ${dialog.w}x${dialog.h} alpha ${dialog.alpha}; window under it ${owner ? `@${owner.x},${owner.y} ${owner.w}x${owner.h} alpha ${owner.alpha}` : "none"}` +
-      // On a failure, every window of the app front to back, so a one-off can be read afterwards.
       (ok ? "" : `; windows ${list.map((w) => `${w.id} L${w.layer} @${w.x},${w.y} ${w.w}x${w.h} a${w.alpha} "${w.title}"`).join(" | ")}`));
 }
 await go(`${pages}/form.html`);
@@ -245,7 +233,6 @@ await evaluate(`new Promise((r) => requestAnimationFrame(() => requestAnimationF
   const b = document.querySelector("#c").getBoundingClientRect();
   r(b.width > 0 && b.height > 0);
 })))`);
-// Hidden test instances log context menus instead of displaying them over other apps.
 await click("#c", "right");
 const menuLog = () => {
   try {
@@ -265,8 +252,6 @@ check(
   logged ? `logged: ${logged.slice(0, 80)}` : menu ? `layer ${menu.layer}` : "no menu",
 );
 
-// smoke.sh launches with ARDIA_PIP_SELFTEST=close: the app clicks Chrome's own close button (X) on the first
-// Picture in Picture window. Closing the mini player must leave the video playing (Chrome paused it).
 await go(`${pages}/video.html`);
 await send("Runtime.evaluate", { expression: "v.play().then(() => v.requestPictureInPicture())", awaitPromise: true, userGesture: true });
 const pipClick = () => {
@@ -286,18 +271,13 @@ check(
   !!closed?.closed && !after?.pip && after?.paused === false && after.time !== before,
   closed ? `closed ${closed.closed}, paused ${after?.paused}, ${before?.toFixed(2)} → ${after?.time?.toFixed(2)} s` : "no close click",
 );
-// A click on the window never activates the app (WindowServer's prevents-activation tag): closing it from another app
-// once brought the browser window up over that app.
 check(
   "a click on the Picture in Picture window doesn't activate the app",
   closed?.preventsActivation === true && closed?.activations === 0,
   closed ? `tag ${closed.preventsActivation}, activations ${closed.activations}` : "no close click",
 );
 
-// smoke.sh left Chrome's last-used profile at Work, as quitting with Work's window in front does, and Chrome starts in
-// it. Personal (the app's own profile, Chrome's Default directory) must still be itself: before 0.2.20 Personal's
-// pages ran in Work's profile after such a quit (Work's cookies; Personal's history and bookmarks didn't load).
-execFileSync(process.env.SMOKE_KEYS, [pid, "18", "t"]); // ⌃1: the first profile, Personal
+execFileSync(process.env.SMOKE_KEYS, [pid, "18", "t"]);
 let homeContext;
 for (const start = Date.now(); !homeContext && Date.now() - start < 8000; await sleep(500)) {
   homeContext = (await browserCall("Target.getTargets")).targetInfos?.find((t) => t.type === "page" && t.url.endsWith("?home"))?.browserContextId;
@@ -305,18 +285,12 @@ for (const start = Date.now(); !homeContext && Date.now() - start < 8000; await 
 check("Personal's pages run in Personal's profile when Work was the last used", !!homeContext && !!workContext && homeContext !== workContext,
   `personal ${homeContext}, work ${workContext}`);
 
-// A page that stops answering is reported: Chrome's hang monitor raises onUnresponsive (the "Page Unresponsive" sheet).
-// Chrome ignores a hang while a DevTools client is attached to the page, so the busy page is opened from the browser
-// target, and the click that starts the hang monitor is sent from a client that detaches at once. 0.2.20 kept a client
-// attached to every tab it showed (its drag pictures) and reported no hang in a one-window session; this two-profile
-// session's busy tab isn't captured, so the check passes on 0.2.20 too: it guards hang reporting, not that case. The app's side is read through the dev
-// harness's perf probe (smoke.sh writes perf-probe), which counts every event that reaches the app's JS.
 const hangEvents = async () =>
   Object.entries((await instance.eval("return globalThis.acPerf.read().tasks", { timeout: 10000 })) ?? {}).filter(([k]) => /Unresponsive/.test(k)).reduce((n, [, c]) => n + c, 0);
 let hang;
 try {
   const { targetId: busyId } = await browserCall("Target.createTarget", { url: `${pages}/busy.html` });
-  await sleep(4000); // busy.html loads, then loops 2.5 s later (after 0.2.20's picture at 1.5 s)
+  await sleep(4000);
   const before = await hangEvents();
   const busy = await instance.page((t) => t.id === busyId, { timeout: 0 });
   for (const type of ["mousePressed", "mouseReleased"])
@@ -334,12 +308,9 @@ try {
 }
 check("a page that stops responding is reported (Page Unresponsive)", !!hang, hang ?? "no unresponsive event within 28 s");
 
-// ⌘T makes the new tab's page ahead, on about:blank under the New Tab page (lib/preload.ts), so Enter only navigates it.
-// That blank page must not stay in the tab's history: Back from the first page opened there has nowhere to go
-// (ardiacore_api.mm loadURL replaces the blank entry). Before that fix Back landed on a raw about:blank.
 const newTabId = await (async () => {
   const before = await instance.eval(`return ac.store.getState().tabs ? Object.keys(ac.store.getState().tabs) : [];`).catch(() => []);
-  execFileSync(process.env.SMOKE_KEYS, [pid, "17", "c"]); // ⌘T
+  execFileSync(process.env.SMOKE_KEYS, [pid, "17", "c"]);
   for (const end = Date.now() + 5000; Date.now() < end; await sleep(200)) {
     const now = await instance.eval(`return Object.keys(ac.store.getState().tabs);`).catch(() => []);
     const added = now.filter((id) => !before.includes(id));
@@ -363,9 +334,6 @@ check("the first page opened from ⌘T has no Back (the prewarmed about:blank is
   newTabId ? `${newTabHistory ? newTabHistory.map((e) => e.url.replace(/^.*\//, "")).join(" → ") : "page never loaded"}; canGoBack ${newTabBack}` : "⌘T made no tab");
 if (newTabId) await instance.eval(`ac.store.getState().closeTab(${JSON.stringify(newTabId)}); return true;`).catch(() => null);
 
-// A link from another app (Discord, Mail; the app is the default browser) opens in Little Ardia: a real GURL Apple Event
-// to this instance's pid, as Launch Services sends it. 0.2.22 and 0.2.23 dropped every one (AppKit installed no GURL
-// handler: ArdiaCoreHost.mm's bootstrap delegate came after -finishLaunching registered them).
 const linkUrl = `${pages}/form.html?from-another-app`;
 const linkWindow = `const s = ac.store.getState();
   return Object.values(s.windows).find((w) => w.kind === "small" && s.tabs[w.tabIds[0]]?.url === ${JSON.stringify(linkUrl)})?.id ?? null;`;

@@ -44,12 +44,9 @@ const SECRET = "e2e-test-secret";
 
 fs.mkdirSync(SCRATCH, { recursive: true });
 const report = reporter(path.join(SCRATCH, "e2e.log"), { name: "import e2e" });
-// What happened since the last check: in the log, and printed under a failing check.
 const note = report.log;
-// An assertion on collected data (untimed).
 const record = (name, ok, detail = "") => report.record(name, { error: ok ? null : detail || "the assertion failed" });
 
-// The fixture site: records the Cookie header of each request.
 const seen = [];
 const server = http.createServer((req, res) => {
   seen.push({ url: req.url, cookie: req.headers.cookie ?? "" });
@@ -59,7 +56,6 @@ const server = http.createServer((req, res) => {
 const SERVER_PORT = await freePort();
 await new Promise((r) => server.listen(SERVER_PORT, "127.0.0.1", r));
 
-// The instance of this phase (scripts/lib/instance.mjs): one at a time, on DATA.
 let app = null;
 
 async function launch() {
@@ -77,7 +73,6 @@ async function quit() {
   app = null;
 }
 
-// The dev harness ($DATA/dev-eval.js); fails at once if the app dies.
 const evaluate = (body, timeout = 60_000) => app.eval(body, { timeout });
 
 async function until(body, test, timeout = 60_000) {
@@ -92,7 +87,6 @@ async function until(body, test, timeout = 60_000) {
   throw new Error(`until timed out: ${JSON.stringify(last)?.slice(0, 300)}`);
 }
 
-// Chrome's browser target, one socket per call.
 async function cdp(method, params = {}) {
   const browser = await app.browser();
   try {
@@ -104,7 +98,6 @@ async function cdp(method, params = {}) {
 
 const fixtureCookies = async () => (await cdp("Storage.getCookies")).cookies.filter((c) => c.name.startsWith("ac_"));
 
-// Imports cookies straight through the module (no UI) and writes them into engine profile `profile`.
 const nativeImport = (jobId, profile) => `
   const m = globalThis.expo.modules.ArdiaImport;
   return m.unlockBrowser("chrome", null)
@@ -118,14 +111,12 @@ const nativeImport = (jobId, profile) => `
 async function importPhase(ok) {
   ok((await fixtureCookies()).length === 0, "fresh profile has no ac_ cookies");
 
-  // A private profile: the native writer refuses it, so the engine never sees the cookies.
   const refused = await evaluate(nativeImport("e2e-private", "incognito-e2e")).catch((e) => ({ error: String(e) }));
   note("private:", JSON.stringify(refused));
   ok(refused.w?.cookiesFailed === 1 && refused.w?.cookies === 0, "a private profile is refused");
   ok(refused.keys && !refused.keys.includes("cookies"), "import JSON carries no cookie list");
   ok((await fixtureCookies()).length === 0, "nothing landed after the private attempt");
 
-  // The real UI path: the import window, Chrome, unlock (with the injected test secret).
   await evaluate(`globalThis.expo.modules.ArdiaImport.forgetUnlockedKeys(); ac.runCommand({ command: "importBrowserData" }); return true`);
   await until("return !!globalThis.acImport && globalThis.acImport.step", (r) => r === "choose", 30_000);
   ok((await evaluate(`return globalThis.acImport.select("chrome")`)) === true, "Chrome fixture is listed");
@@ -161,7 +152,6 @@ async function importPhase(ok) {
   const autofill = await evaluate(`return Promise.all([${cef}.listAddresses(""), ${cef}.listCards("")])`);
   note("autofill:", JSON.stringify(autofill));
 
-  // The site sees the cookies on its next request.
   await evaluate(`ac.actions.openUrls(["http://localhost:${SERVER_PORT}/"]); return true`);
   for (const deadline = Date.now() + 20_000; !seen.length && Date.now() < deadline; ) await sleep(250);
   const header = seen[0]?.cookie ?? "";
@@ -169,7 +159,6 @@ async function importPhase(ok) {
   ok(header.includes("ac_session=until-quit"), "fixture server got the imported session cookie");
   ok(!header.includes("ac_other_path") && !header.includes("ac_expired"), "path-scoped and expired cookies not sent");
 
-  // Importing again keeps what's there.
   const again = await evaluate(nativeImport("e2e-again", ""));
   note("again:", JSON.stringify(again.w));
   ok(again.w.cookies === 0 && again.w.cookiesExisting === 5, "a second import keeps the profile's cookies");
@@ -200,7 +189,6 @@ try {
       await launch();
       await (phase === "import" ? importPhase(ok) : restartPhase(ok));
     } catch (e) {
-      // Named by its first line; the stack goes under it and into result-<phase>.json, as before.
       const stack = String(e?.stack ?? e);
       record(stack.split("\n")[0], false, stack);
       failed.push(stack);

@@ -17,7 +17,6 @@ export type InstalledExtension = {
   optionsUrl: string | null;
   pinned: boolean;
   incognito: boolean;
-  /** "incognito": "split": its pages can run in a private window's own profile. */
   incognitoSplit?: boolean;
   fileAccess: boolean;
   mayModify: boolean;
@@ -75,7 +74,6 @@ export type TabsRequest = {
   window: string | null;
   url: string;
   active?: boolean;
-  // A live tab Chrome made (chrome.windows.create with no page shown to announce it): adopt it rather than open the URL.
   adoptId?: string;
 };
 

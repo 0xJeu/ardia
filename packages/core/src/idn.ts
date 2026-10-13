@@ -1,6 +1,4 @@
 
-// MARK: Punycode (RFC 3492)
-
 const BASE = 36;
 const T_MIN = 1;
 const T_MAX = 26;
@@ -87,8 +85,6 @@ export function punycodeEncode(input: string): string {
   return output;
 }
 
-// MARK: Characters and scripts
-
 const SCRIPTS = [
   "Latin", "Greek", "Cyrillic", "Armenian", "Hebrew", "Arabic", "Thaana", "Devanagari", "Bengali", "Gurmukhi",
   "Gujarati", "Oriya", "Tamil", "Telugu", "Kannada", "Malayalam", "Sinhala", "Thai", "Lao", "Tibetan", "Myanmar",
@@ -172,8 +168,6 @@ function digitSystems(chars: string[]): Set<number> {
   }
   return zeros;
 }
-
-// MARK: Chrome's extra checks
 
 const DEVIATIONS = /[\u00df\u03c2\u200c\u200d]/u;
 const DIGIT_LOOKALIKES = /[θ२২੨૨೩೭Շзҙӡउওਤ੩૩౩ဒვპ੫丩ㄐճ৪੪୫૭୨౨]/u;
@@ -270,8 +264,6 @@ function decodeLabel(label: string): string | null {
   return unicode;
 }
 
-// MARK: Top domains
-
 const TOP_DOMAINS = (
   "google.com youtube.com facebook.com instagram.com twitter.com x.com whatsapp.com wikipedia.org amazon.com " +
   "apple.com icloud.com microsoft.com live.com outlook.com office.com bing.com linkedin.com netflix.com yahoo.com " +
@@ -316,8 +308,6 @@ function similarTopDomain(host: string): string | null {
   }
   return null;
 }
-
-// MARK: Display
 
 const cache = new Map<string, string>();
 

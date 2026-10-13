@@ -50,12 +50,8 @@ function BrowserWindow() {
   const theme = useTheme();
   const windowId = useWindowId();
   const topTabs = useTabLayout() === "top";
-  // Only the tab strip's layout reads the window's sidebar state here: hiding or showing the sidebar re-renders the
-  // docked layout alone (SidebarDock.tsx), not the window and everything in it.
   const showStrip = useBrowser((s) => topTabs && !!s.windows[windowId]?.sidebarOpen);
   const fullscreen = !!useFullscreenTab(windowId);
-  // Page full screen hides the sidebar and the strip without unmounting them: they keep their scroll, rows, measured
-  // sizes and swipe surface. Moved out of the window rather than made transparent, so nothing in them takes the pointer.
   const [width, setWidth] = useState(0);
   const card = (
     <>
@@ -69,7 +65,6 @@ function BrowserWindow() {
       <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
       <WindowProfile />
       <ProfileTint />
-      {/* One element type in both layouts: switching layouts never remounts the card and its pages. */}
       <DockedLayout
         fullscreen={fullscreen}
         topTabs={topTabs}

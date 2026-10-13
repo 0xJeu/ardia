@@ -1,7 +1,3 @@
-// Uncaught errors and unhandled rejections become $exception events shaped like posthog-js's
-// ($exception_list with type, value, mechanism and raw stack frames, plus the $exception_types/_values/
-// _sources/_functions lists PostHog added), at most once per distinct error per page and 20 per page.
-// console.warn and console.error go out as plain logs (not events), at most 50 per page.
 import { capture, log, type Props } from "./core";
 
 interface Frame {
@@ -39,7 +35,6 @@ function frames(stack: string | undefined): Frame[] {
     });
     if (out.length >= 50) break;
   }
-  // Oldest call first, the throwing frame last (PostHog's order).
   return out.reverse();
 }
 
@@ -69,7 +64,6 @@ function exceptionList(error: unknown, fallback: { message?: string; filename?: 
     });
   }
   if (list.length) return list;
-  // No Error object: a cross-origin "Script error.", or a promise rejected with something else.
   const frame: Frame[] = fallback.filename
     ? [{ platform: "web:javascript", filename: fallback.filename, function: "?", lineno: fallback.lineno, colno: fallback.colno, in_app: true }]
     : [];
@@ -83,7 +77,6 @@ function exceptionList(error: unknown, fallback: { message?: string; filename?: 
   ];
 }
 
-/** cyrb53, as hex: a short, stable id for "the same error". */
 function hash(s: string): string {
   let h1 = 0xdeadbeef;
   let h2 = 0x41c6ce57;
@@ -120,8 +113,6 @@ function report(list: Exception[]) {
   };
   capture("$exception", props);
 }
-
-// ---------------------------------------------------------------- console
 
 let logged = 0;
 const perMessage = new Map<string, number>();

@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// Typing "github.com/net" and "react native perf" on the seed profile (5000 history, 1000 bookmarks, all 200 tabs) in
-// Hermes, the engine the app runs, instead of V8: the omnibox core is transpiled to one script and run by the `hermes`
-// CLI from the app's Pods. Per-key time is the mean of many rounds (Date.now has 1 ms steps). Not a gate: wall-clock, so
-// run it under `scripts/agent/locked perflab -- …`.
-//
-//   node scripts/perf/suggest-hermes.mjs [--impl <suggest.ts|suggest.reference.ts>] [--rounds 300] [--keys]
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -21,8 +15,6 @@ const rounds = Number(flag("rounds", 300));
 const perKey = args.includes("--keys");
 const hermes = ["apps/browser/macos/Pods/hermes-engine-Release/destroot/bin/hermes", "apps/browser/macos/Pods/hermes-engine/destroot/bin/hermes", "node_modules/react-native/sdks/hermesc/osx-bin/hermes"].map((p) => join(root, p)).find((p) => spawnSync(p, ["-version"]).status === 0);
 if (!hermes) throw new Error("no hermes binary found");
-// The app's own transform (babel-preset-expo, Hermes profile: classes down to helpers, the rest kept), so Hermes runs what Metro
-// would give it. Modules are keyed by absolute path; `require` in the script resolves relative to the requiring module.
 const babel = createRequire(join(root, "apps/browser/package.json"))("@babel/core");
 const presetExpo = createRequire(join(root, "apps/browser/package.json")).resolve("babel-preset-expo");
 const resolveFrom = (from, name) => (name.startsWith(".") ? resolve(dirname(from), name) : createRequire(from).resolve(name));

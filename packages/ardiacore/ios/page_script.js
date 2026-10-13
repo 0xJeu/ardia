@@ -1,12 +1,8 @@
-// Install before page scripts.
 (function (post) {
   "use strict";
   if (!/^(https?|file):$/.test(location.protocol)) return () => {};
   const isTop = window === window.top;
   const handlers = Object.create(null);
-  // Page code runs after this and can replace any global or prototype method:
-  // keep the originals, and send plain copies (a page's Object.prototype.toJSON
-  // can't reach them). The browser still checks every message.
   const { stringify: toJSON, parse: fromJSON } = JSON;
   const apply = Reflect.apply;
   const { keys, setPrototypeOf } = Object;
@@ -47,7 +43,6 @@
     };
   };
 
-  // MARK: Media — audible state (tab speaker glyph), now playing, transport controls.
   const frame = Math.random().toString(36).slice(2);
   const tracked = new WeakSet();
   let active = null;
@@ -110,7 +105,6 @@
     send("nowPlaying", state && { ...state, timestamp: Date.now() });
   }, 100);
   let blockAutoplay = false;
-  // What plays now, in the document or not (new Audio()): what autoplay blocking that comes late pauses.
   const playingMedia = new Set();
   const onMediaEvent = (e) => {
     const m = e.target;
@@ -260,8 +254,6 @@
     reportNowPlaying();
   };
 
-  // MARK: Password reveal — an eye button in a focused password field the user
-// Reveal only user-typed passwords; never expose saved passwords.
   const typedByUser = new WeakSet();
   let revealedField = null;
   let eyeField = null;
@@ -381,8 +373,6 @@
   addEventListener("resize", () => eyeField && requestAnimationFrame(placeEye));
   addEventListener("pagehide", conceal);
 
-  // MARK: Notifications — shown by the app (macOS notifications that open the
-// Wait a microtask so Blink installs Notification before page scripts.
   const installNotifications = () => {
     const NativeNotification = window.Notification;
     if (!NativeNotification || NativeNotification.__ac) return !!NativeNotification;
@@ -475,7 +465,6 @@
   };
   if (!installNotifications()) queueMicrotask(() => installNotifications() || setTimeout(installNotifications, 0));
 
-  // MARK: Screen sharing — getDisplayMedia() through the app's source picker
   const displayRequests = new Map();
   let displaySeq = 0;
   const installDisplayMedia = () => {
@@ -504,7 +493,6 @@
       const video = request.constraints.video;
       const frameRate = (video && video.frameRate && (video.frameRate.max || video.frameRate.ideal || video.frameRate)) || 30;
       const tabAudio = !!request.constraints.audio && apply(startsWith, sourceId, ["web-contents-media-stream://"]);
-      // The browser allows only the approved source, whatever reaches getUserMedia.
       apply(getUserMedia, request.self, [
         {
           audio: tabAudio ? { mandatory: { chromeMediaSource: "desktop" } } : false,
@@ -514,9 +502,6 @@
     };
   };
 
-  // MARK: Field timing — only while the user shares diagnostics (the browser says so in config, and again whenever it
-  // changes): when the page first painted content, and its first frame each time it's shown again after being hidden.
-  // Times only, as epoch ms. Turned off, nothing stays installed and nothing in flight is sent.
   const PO = window.PerformanceObserver;
   const disconnect = PO && PO.prototype.disconnect;
   const { addEventListener: listen, removeEventListener: unlisten } = EventTarget.prototype;
@@ -551,8 +536,6 @@
   };
   handlers.fieldTiming = (message) => setFieldTiming(!!(message && message.on));
 
-  // Media that started before the browser said autoplay is blocked (its answer crosses processes, and a fast page, as
-  // the one a launch starts early, can play first): paused now, as its play event would have been.
   const pauseUnasked = (media, activated) => {
     if (activated) return 0;
     let paused = 0;
@@ -579,7 +562,6 @@
   };
   if (!isTop) return receive;
 
-  // MARK: Theme color — <meta name="theme-color">, else the colour at the top of
   const parse = (css) => {
     const m = css && css.match(/[\d.]+/g);
     if (!m || m.length < 3) return null;
@@ -673,8 +655,6 @@
     for (const ms of [300, 1000, 3000]) setTimeout(scheduleTheme, ms);
   };
   onReady(startTheme);
-  // The app forgets a document's colour when another one commits (ArdiaCoreWebView tabDidCommitDocument:): a page back from
-  // the back/forward cache, or a prerendered page shown, says again what it last said.
   const resendTheme = () => {
     lastTheme = undefined;
     reportTheme();
@@ -686,7 +666,6 @@
   addEventListener("resize", scheduleTheme);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", scheduleTheme);
 
-  // MARK: Pinch zoom (visual viewport scale), for the zoom indicator.
   if (window.visualViewport) {
     let lastScale = 1;
     visualViewport.addEventListener("resize", () => {
@@ -697,7 +676,6 @@
     });
   }
 
-  // MARK: Selected text — a mouse selection of page text (not in a text field)
   let selectionShown = false;
   let selecting = false;
   const hideSelection = () => {
@@ -745,11 +723,6 @@
   addEventListener("resize", hideSelection);
   addEventListener("pagehide", hideSelection);
 
-  // MARK: Link drags — Chrome drops nothing on the page a drag came from, so a link dragged out of the top document and
-  // let go over it, nothing there taking it (no drop zone, not a field), asks the app to open it in a new tab. Not for a
-  // ⌘-click that became a small drag (under DRAG_MIN px), nor a drop outside the page (the sidebar, another app). The
-  // page runs after this and can replace any method or getter below, so they're the originals (the app checks again
-  // that a drag really ended over the page).
   if (isTop) try {
     const DRAG_MIN = 40;
     const getter = (proto, name) => {
@@ -797,15 +770,6 @@
     );
   } catch (e) {}
 
-  // MARK: Scroll direction, for the toolbar that tucks away while you read (tabs on top). From the page's real scroll
-  // (the document, or an element scroller filling most of the window), not wheel deltas, and only while the user is
-  // scrolling (wheel, keys, a press or a scrollbar drag in the last second): scroll restoration or a chat scrolling
-  // itself doesn't hide the bar. "down" once a gesture has gone DOWN px down, "up" after UP px back, "top" at the top.
-  // A page with under MIN_RANGE px to scroll never hides it (the bar's own height could make it unscrollable). Hiding
-  // or showing the bar resizes the viewport, which can move the scroll position (the clamp at the bottom, scroll
-  // anchoring): for SETTLE ms the anchor absorbs up to the viewport's change, so that move can't flip the bar back and
-  // forth while a real scroll still counts. Sent on a change, and "down" again at the start of a gesture (the app
-  // shows the bar on its own: tab switch, navigation, a click on the strip).
   const scrollDirection = () => {
     const DOWN = 24, UP = 12, MIN_RANGE = 120, SETTLE = 300, GESTURE = 300;
     let anchor = 0, last = 0, lastAt = -1e9, settleUntil = -1e9, budget = 0, height = 0, sent = null, gestureSent = false;
@@ -858,7 +822,6 @@
   let inputAt = -1e9;
   const noteInput = () => {
     inputAt = performance.now();
-    // The document's position before the first scroll, so a single jump (End, Space) counts.
     if (!scroller && document.scrollingElement) direction.rebase((scroller = document.scrollingElement).scrollTop);
   };
   for (const type of ["wheel", "keydown", "mousedown", "touchstart"]) addEventListener(type, noteInput, { passive: true, capture: true });
@@ -869,7 +832,6 @@
     const doc = document.scrollingElement || document.documentElement;
     const el = target === document || target === doc ? doc : target;
     if (!el || !doc || (el !== doc && (el.clientHeight < innerHeight * 0.5 || el.clientWidth < innerWidth * 0.5))) return;
-    // Another scroller: measured from here on (its first move only tells the top).
     if (el !== scroller) direction.rebase((scroller = el).scrollTop);
     const now = performance.now();
     const state = direction.scrolled(el.scrollTop, el.scrollHeight - el.clientHeight, innerHeight, now, now - inputAt < 1000);

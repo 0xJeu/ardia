@@ -18,7 +18,6 @@ import { STARS } from "../data/github";
       <p class="lede" data-reveal style="--i: 2">
         Arc’s sidebar and Dia’s polish on real Chromium. No account to make. Ads and trackers stay out.
       </p>
-      {/* A visit from a link sent from a phone (?ref=mac|share|email): say so, on the computer only. */}
       <p class="label welcome not-phone" data-welcome hidden>Sent from your phone. Here it is.</p>
       <div data-reveal style="--i: 3">
         <SendToMac location="hero" main />
@@ -66,8 +65,6 @@ import { STARS } from "../data/github";
     padding-top: clamp(24px, 5vh, 72px);
     padding-bottom: clamp(48px, 8vh, 96px);
   }
-  /* One text block (headline, lede, download) bottom-aligned with the painting's caption,
-     so the headline sits on the lede like a poster instead of floating above an empty row. */
   .hero-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -80,7 +77,6 @@ import { STARS } from "../data/github";
     position: relative;
     z-index: 3;
   }
-  /* "grass." is the wide line, ~2.68em: two short words can set larger than a long one did. */
   .hero-title {
     font-size: clamp(3.2rem, min(15vw, 25vh), 14.5rem);
     line-height: 0.85;
@@ -153,7 +149,6 @@ import { STARS } from "../data/github";
     z-index: 2;
     width: min(100%, 560px);
   }
-  /* The painted logo, standing on the caption's rule. */
   .stage {
     position: relative;
     display: flex;
@@ -188,7 +183,6 @@ import { STARS } from "../data/github";
     }
   }
 
-  /* Phones and small tablets: the text block first, set as big as the width allows, then the painting. */
   @media (max-width: 820px) {
     .hero {
       padding-top: 20px;
@@ -200,7 +194,6 @@ import { STARS } from "../data/github";
       align-items: stretch;
     }
     .hero-title {
-      /* "grass." is ~2.68em wide: fill the column edge to edge. */
       font-size: min(calc((100vw - 2 * var(--gutter)) / 2.72), 11rem);
       line-height: 0.84;
     }
@@ -212,7 +205,6 @@ import { STARS } from "../data/github";
       margin-top: 24px;
       gap: 4px 24px;
     }
-    /* Phones: the panel is the call to action; "Read the source" follows it quietly. */
     :global(:root[data-device="phone"]) .cta-row {
       margin-top: 14px;
     }
@@ -239,7 +231,6 @@ import { STARS } from "../data/github";
 </style>
 
 <script>
-  // Back from a link sent from a phone (send-to-mac.ts): point at the download.
   const ref = new URLSearchParams(location.search).get("ref");
   if (ref === "mac" || ref === "share" || ref === "email") {
     const welcome = document.querySelector<HTMLElement>("[data-welcome]");

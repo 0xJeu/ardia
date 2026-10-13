@@ -1,5 +1,3 @@
-// The New Tab page's prewarm (lib/preload.ts): on only with an engine that has its fixes (it answers ac_omnibox_opened),
-// and only while its kill switch and the bench's own setting say so.
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 
@@ -13,7 +11,6 @@ globalThis.acTestEngineCall = (name, profile, args) => {
   calls.push({ name, profile, ...args });
   return answer(name);
 };
-// The module asks the engine once, 1.5 s after it loads: on mocked timers, so each test drives the probe itself.
 mock.timers.enable({ apis: ["setTimeout"] });
 const preload = await import("./preload.ts");
 const settle = () => new Promise((r) => setImmediate(r));
@@ -23,7 +20,6 @@ const setSwitches = (switches) => {
 };
 
 test("the engine is asked once, a moment after launch, with a call that changes nothing", async () => {
-  // A profile that isn't loaded yet: asked again.
   answer = () => Promise.reject(new Error("profile not loaded"));
   assert.equal(preload.newTabPrewarmOn(), false);
   mock.timers.tick(1500);
@@ -55,7 +51,6 @@ test("newTabPrewarm follows its switch (and the bench's own setting)", () => {
 });
 
 test("an engine that answers without the window-close fix ({}, 5c9d0422's) makes no page ahead", async () => {
-  // A fresh copy of the module (its own probe), on that engine.
   answer = () => Promise.resolve({});
   const older = await import(`./preload.ts?older`);
   mock.timers.tick(1500);

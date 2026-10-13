@@ -42,9 +42,6 @@ import { attach as attachInstance, launch as launchInstance, onScreenWindows as 
 
 // MARK: What each check needs
 
-// Checks run in file order. A check named on the command line brings the checks it needs (and theirs) with it; every
-// run starts with boot. A kept instance (--keep, --attach) recovers what boot and open-url leave (the run's window,
-// page A's tab) instead of running them again. Add a check here when it uses what an earlier one leaves behind.
 const usesPageA = [
   "visibility", "occlusion", "favicon", "navigate-back-forward-reload", "target-blank", "window-open",
   "cmd-click", "evaluate", "tab-strips", "tab-switch", "status-text", "load-error", "chrome-strings",
@@ -64,22 +61,17 @@ const usesPageA = [
 ];
 const needs = {
   ...Object.fromEntries([...usesPageA, "kill-task", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
-  // Another tab with a page: target-blank's C, cmd-click's D in the background, window-open's E.
   "tab-switch": ["open-url", "target-blank"],
   "tab-keys-from-page": ["open-url", "target-blank"],
   "window-close": ["window-open"],
   "frozen": ["open-url", "cmd-click"],
   "discard": ["open-url", "cmd-click"],
-  // A's back list (navigate-back-forward-reload), the menu context-menu-search showed, a second window.
   "duplicate-and-reopen": ["open-url", "navigate-back-forward-reload"],
   "context-menu-activation-log": ["context-menu-search"],
   "title-bar-close": ["open-url", "move-tab-to-window"],
-  // The relaunch with ARDIA_CONTEXT_MENU_LOG and its page.
   "context-menu-incognito": ["context-menu-log"],
-  // Personal set its cookie and the window showed Play when the app quit.
   "relaunch-profile": ["last-used-profile", "quit"],
 };
-// Every check's name and section, from this file's source (no app needed).
 function checkIndex() {
   let section = "Checks";
   const index = [];
@@ -98,7 +90,6 @@ function listChecks() {
   console.log(`${index.length} checks (name, section, needs). Every run starts with boot.`);
   process.exit(0);
 }
-// The checks a run runs: those asked for, the ones they need, and boot.
 function selection(asked) {
   const index = checkIndex().map((c) => c.name);
   const unknown = asked.filter((n) => !index.includes(n));
@@ -108,7 +99,7 @@ function selection(asked) {
   }
   if (!asked.length) return { run: new Set(index), deps: new Map() };
   const run = new Set(["boot", ...asked]);
-  const deps = new Map();  // dependency → the asked checks that need it
+  const deps = new Map();
   const add = (name, by) => {
     for (const dep of needs[name] ?? []) {
       if (!asked.includes(dep)) deps.set(dep, [...(deps.get(dep) ?? []), by]);
@@ -133,8 +124,6 @@ if (flag("--list")) listChecks();
 const attaching = argv[0] === "--attach";
 if (attaching) argv.shift();
 const keep = flag("--keep") || attaching;
-// With --attach the scratch dir comes first and the app is the kept instance's. --keep reuses a kept instance of the
-// same app (another build's is quit first: a cold run then starts on that data dir).
 let kept = null;
 if (attaching || keep) {
   try {
@@ -161,8 +150,6 @@ const scratch = resolve(scratchArg);
 const data = join(scratch, "data");
 let port;
 const downloadsDir = join(scratch, "downloads");
-// ARDIA_TRAFFIC_LIGHTS_LOG (every launch): each change to a window's buttons and each AppKit layout pass of them.
-// A kept instance keeps writing to its file (checks read what's added after they start).
 const lightsLog = join(scratch, "traffic-lights.log");
 if (!kept) {
   rmSync(lightsLog, { force: true });
@@ -179,9 +166,7 @@ const stamp = () => new Date().toISOString().slice(11, 23);
 
 // MARK: Fixtures
 
-// Requests that reached a host other than the fixture's own (the ad hosts mapped here, content-blocker-blocks).
 const adServed = [];
-// Every request's path and query, counted (js-reload-keeps-pages: a page loaded once).
 const served = new Map();
 const server = createServer((req, res) => {
   if (!req.headers.host?.startsWith("127.0.0.1")) adServed.push(`${req.headers.host}${req.url}`);
@@ -190,7 +175,6 @@ const server = createServer((req, res) => {
   const page = (title, body, extra = "") =>
     `<!doctype html><html><head><title>${title}</title><link rel="icon" href="/icon.png">${extra}</head><body>${body}</body></html>`;
   if (url.pathname === "/icon.png") {
-    // A 1×1 red PNG.
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==", "base64");
     res.writeHead(200, { "content-type": "image/png" });
     return res.end(png);
@@ -200,7 +184,6 @@ const server = createServer((req, res) => {
     return res.end(Buffer.alloc(64 * 1024, 7));
   }
   if (url.pathname === "/slow.bin") {
-    // 2 MB over about 8 s, for pausing, resuming and cancelling a download that is still running.
     res.writeHead(200, { "content-type": "application/octet-stream", "content-length": String(40 * 50 * 1024), "content-disposition": 'attachment; filename="ardiacore-slow.bin"' });
     let sent = 0;
     const timer = setInterval(() => {
@@ -216,13 +199,10 @@ const server = createServer((req, res) => {
     return;
   }
   if (url.pathname === "/webstore/crx") {
-    // The Web Store's update URL in this run (--apps-gallery-update-url): Chrome installs what it serves, as the .crx
-    // of a Web Store install (extension-download-hidden).
     res.writeHead(200, { "content-type": "application/x-chrome-extension" });
     return res.end(fixtureCrx());
   }
   if (url.pathname === "/tone.wav") {
-    // One second of a quiet 440 Hz tone (the tab is muted while it plays).
     const rate = 8000, n = rate;
     const wav = Buffer.alloc(44 + n * 2);
     wav.write("RIFF", 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write("WAVEfmt ", 8); wav.writeUInt32LE(16, 16);
@@ -233,8 +213,6 @@ const server = createServer((req, res) => {
     return res.end(wav);
   }
   res.writeHead(200, { "content-type": "text/html" });
-  // Camera and microphone (fake devices only: every hidden instance gets --use-fake-device-for-media-stream). `ask(c)`
-  // records the getUserMedia answer and the tracks' states; /element is the <usermedia> element (Chrome's embedded flow).
   if (url.pathname === "/cam")
     return res.end(page("Cam", "cam", `<script>
       window.__asks = []; window.__streams = [];
@@ -258,8 +236,6 @@ const server = createServer((req, res) => {
       });
     </script>`));
   if (url.pathname === "/blocking") return res.end(page("Blocking", `<img src="/nnblock-1.png"><img src="/nnblock-2.png"><img src="/icon.png">`));
-  // A page whose own markup asks for ads as it loads, each request tagged with the page's query (the content
-  // blocker's first page in a profile, a restored tab at launch).
   if (url.pathname === "/adfirst") {
     const tag = url.search.slice(1);
     return res.end(page("Ad first", "ads", `<script src="http://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?${tag}"></script>
@@ -268,10 +244,8 @@ const server = createServer((req, res) => {
   if (url.pathname === "/login") return res.end(page("Login", `<form action="/b" method="get"><input name="u" id="u" autocomplete="username"><input type="password" name="p" id="p" autocomplete="current-password"><button id="go">Sign in</button></form>`));
   if (url.pathname === "/text") return res.end(page("Text", `<p id="t" style="font: 20px sans-serif; margin: 40px">Hello selection world, select me please</p>`));
   if (url.pathname === "/capture-target") return res.end(page("Capture Target", "the tab that tab capture picks"));
-  // One flat colour (?c=rrggbb), titled ?t: a captured tab whose frames say which tab they are.
   if (url.pathname === "/solid")
     return res.end(page(url.searchParams.get("t") ?? "Solid", "", `<style>html, body { margin: 0; height: 100%; background: #${url.searchParams.get("c") ?? "808080"} }</style>`));
-  // A page that shares a tab (getDisplayMedia, the app's picker answers) and reads its stream's middle pixel.
   if (url.pathname === "/capturer")
     return res.end(page(url.searchParams.get("t") ?? "Capturer", "capturer", `<script>
       window.__cap = "idle";
@@ -284,11 +258,8 @@ const server = createServer((req, res) => {
       };
     </script>`));
   if (url.pathname === "/media") return res.end(page("Media", `<audio id="tone" src="/tone.wav" loop></audio>`));
-  // The release smoke test's form (.claude/skills/release/scripts/pages/form.html): one field Chrome remembers.
   if (url.pathname === "/form")
     return res.end(page("Form", `<form action="/form" method="get" autocomplete="on"><input id="c" name="city" autocomplete="on" style="font-size: 20px; margin: 80px; width: 300px"><button id="b">go</button></form>`));
-  // A video drawn from a canvas (start(true) adds a WebAudio tone): Picture in Picture without a media file. With
-  // ?docpip the page handles Media Session's "enterpictureinpicture" with a document Picture in Picture window.
   if (url.pathname === "/video")
     return res.end(page("Video", `<video id="v" playsinline style="width: 320px; height: 180px"></video><script>
       const c = document.createElement("canvas"); c.width = 320; c.height = 180;
@@ -319,17 +290,12 @@ const server = createServer((req, res) => {
           navigator.mediaSession.setActionHandler(action, () => {});
       }
     </script>`));
-  // An extension's rules on a page (content-blocked-count): an image they block, a script they send to a stand-in.
   if (url.pathname === "/ac-ads") return res.end(page("Ads", `<img src="/nnblock-ad.png"><script src="/nnredirect-ad.js"></script>`));
   if (url.pathname === "/a") return res.end(page("Page A", `<a id="next" href="/b">to B</a> <a id="blank" target="_blank" href="/c">blank</a> <a id="cmd" href="/d">cmd</a>`));
-  // A page whose toolbar colour comes from the page script alone (a fixed header, no <meta name="theme-color">).
   if (url.pathname === "/red-header")
     return res.end(page("Red header", `<div style="position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgb(200, 0, 0)"></div><p style="margin-top: 80px">red</p>`));
   if (url.pathname === "/painted") return res.end(page("Painted", "painted", "<style>html, body { background: rgb(60, 60, 60) }</style>"));
   if (url.pathname === "/scheme-dark") return res.end(page("Dark scheme", "dark scheme", `<meta name="color-scheme" content="dark">`));
-  // Page full screen's two layouts, told apart by colour (fullscreen-transition-picture): in the window a blue masthead,
-  // a red player and an orange title row on YouTube's dark background; in full screen the red player alone. "f" toggles
-  // the player's full screen, as on YouTube.
   if (url.pathname === "/fs-layout")
     return res.end(page("FS layout", `<div id="mast"></div><div id="player"></div><div id="title"></div><script>
       document.addEventListener("keydown", (e) => {
@@ -344,8 +310,6 @@ const server = createServer((req, res) => {
   if (url.pathname === "/d") return res.end(page("Page D", "D"));
   if (url.pathname === "/e") return res.end(page("Page E", "E"));
   if (url.pathname === "/cookie") return res.end(page("Cookie", `<script>document.cookie="who=" + location.search.slice(1) + "; path=/"</script>`));
-  // Chrome's address and card forms (served over HTTPS too: Chrome offers to save cards from secure pages only). A
-  // POST to /saved, so the values stay out of URLs; ?email adds an email field.
   const field = (id, autocomplete, label) => `<label>${label} <input id="${id}" name="${id}" autocomplete="${autocomplete}"></label><br>`;
   if (url.pathname === "/address")
     return res.end(page("Address", `<form action="/saved" method="post">${field("name", "name", "Name")}${url.searchParams.has("email") ? field("email", "email", "Email") : ""}${field("street", "street-address", "Street")}${field("city", "address-level2", "City")}${field("state", "address-level1", "State")}${field("zip", "postal-code", "ZIP")}${field("country", "country-name", "Country")}<button id="go">Save</button></form>`));
@@ -357,15 +321,12 @@ const server = createServer((req, res) => {
   }
   return res.end(page(url.pathname, url.pathname));
 });
-// A kept instance's switches name the fixture's ports (host rules, the Web Store URL): the same ports again.
 const listen = (srv, at) => new Promise((r, j) => {
   srv.once("error", (e) => j(new Error(`fixture port ${at}: ${e.message} (the kept instance needs it back; quit it and run without --attach)`)));
   srv.listen(at, "127.0.0.1", r);
 });
 await listen(server, kept?.meta.http ?? 0);
 const base = `http://127.0.0.1:${server.address().port}`;
-// The same pages over HTTPS, with a certificate made for this run that only this run's instances trust
-// (--ignore-certificate-errors-spki-list: Chrome then treats the page as secure, as the autofill checks need).
 const tlsDir = join(scratch, "tls");
 mkdirSync(tlsDir, { recursive: true });
 if (!kept || !existsSync(join(tlsDir, "cert.pem"))) execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=127.0.0.1",
@@ -378,43 +339,27 @@ const tlsSpki = createHash("sha256").update(new X509Certificate(tlsCert).publicK
 
 // MARK: The app
 
-// The app's JS comes from Metro (METRO_PORT, default 8081) through a proxy that passes the bundle and refuses Metro's
-// websockets (scripts/lib/instance.mjs, js "pinned"): other agents' edits and reload broadcasts can't restart the
-// app's JS mid-run, and a kept instance keeps its proxy between runs.
 let exe, stdout, pid, child, launchedAt, exited = null;
 let instance = null;
-// Cast without network devices: the engine's test sink, and Chrome's own Cast/DIAL discovery off (on a Mac it can
-// raise the Local Network prompt). A Bluetooth chooser without an adapter (no Bluetooth permission prompt). Passed with
-// the other test switches below.
 process.env.ARDIA_CHROMIUM_SWITCHES = `--ardia-test-media-route-provider --disable-media-route-providers-for-test --ardia-test-bluetooth-chooser ${process.env.ARDIA_CHROMIUM_SWITCHES ?? ""}`.trim();
-// The content blocker's check: ad hosts (and a site to allow) answered by the fixture server, never the network.
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --host-resolver-rules=${["ib.adnxs.com", "securepubads.g.doubleclick.net", "pagead2.googlesyndication.com", "adpage.test"]
   .map((host) => `MAP ${host} 127.0.0.1:${server.address().port}`).join(", ")}`;
-// The Web Store's update URL: a .crx downloaded from it is a Web Store install's (extension-download-hidden).
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --apps-gallery-update-url=${base}/webstore/crx`;
-// The HTTPS fixture's certificate (autofill-save-prompts).
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --ignore-certificate-errors-spki-list=${tlsSpki}`;
-// Starts the app on the run's data dir (again for the relaunch checks), with a fresh DevTools port. `opts.app` runs
-// another bundle (the media checks' copy), `opts.switches` adds Chromium switches. The pid is the DevTools port's
-// listener, checked against the bundle's binary (scripts/lib/instance.mjs): never another run's instance.
 async function launch(logName = "app.out.log", env = {}, args = [], opts = {}) {
   instance = await launchInstance(opts.app ?? app, {
     data, log: join(scratch, logName), args, ready: false,
     env: {
       ARDIA_TEST_REAUTH: "granted", ARDIA_DOWNLOADS_DIR: downloadsDir,
-      // Passed through for experiments (e.g. ARDIA_ALLOW_OCCLUSION=1).
       ...Object.fromEntries(["ARDIA_ALLOW_OCCLUSION", "ARDIA_TRACE_VISIBILITY", "ARDIA_TRACE_PIP"].filter((k) => process.env[k]).map((k) => [k, process.env[k]])),
       ARDIA_TRAFFIC_LIGHTS_LOG: lightsLog,
       ...env,
     },
-    // Tab capture without Chrome's picker: getDisplayMedia takes the tab titled "Capture Target" (Chrome's browser-test
-    // switch; a tab, so no macOS screen-recording prompt).
     switches: `--auto-select-tab-capture-source-by-title=Capture Target --ardia-test-external-protocol-no-launch ${process.env.ARDIA_CHROMIUM_SWITCHES ?? ""} ${opts.switches ?? ""}`.trim(),
     meta: { http: server.address().port, https: tlsServer.address().port },
   });
   adopt(instance);
 }
-// The globals the checks use, from a launched or kept instance.
 function adopt(i) {
   instance = i;
   ({ pid, port, launchedAt, binary: exe, log: stdout } = i);
@@ -463,7 +408,6 @@ async function cdp(target, method, params = {}) {
       const msg = JSON.parse(m.data);
       if (msg.id === 1) r(msg);
     };
-    // The target went (its page closed) with the call unanswered: say so now rather than wait out the 10 s.
     ws.onclose = () => r({ error: `the target closed before replying (${method})` });
   });
   ws.send(JSON.stringify({ id: 1, method, params }));
@@ -473,8 +417,6 @@ async function cdp(target, method, params = {}) {
   return msg.result;
 }
 
-// The first pixel of a PNG (8-bit RGB or RGBA) as [r, g, b, a]: a scanline's first pixel is stored unfiltered
-// whatever its filter (no left neighbour, and the first row has no row above).
 function firstPixel(base64) {
   const png = Buffer.from(base64, "base64");
   let ihdr = null;
@@ -493,20 +435,11 @@ function firstPixel(base64) {
 }
 
 const pageTarget = async (urlPart) => (await targets()).find((t) => t.type === "page" && t.url.includes(urlPart));
-// A page's window.close(), a turn after DevTools' reply. Closed inside the evaluate, the page asks to close (its frame's
-// pipe, RequestClose) right behind the reply (the DevTools session's pipe): Mojo doesn't order the two, and when the
-// close comes first Chrome closes the tab at once (the renderer already ran unload) and the queued reply is dropped,
-// so the call got no answer though the tab closed (window-close's "cdp timeout", about half the full runs).
 const closeFromPage = (target) => cdp(target, "Runtime.evaluate", { expression: "setTimeout(() => window.close()); true" });
 const cef = (call) => evalApp(`return globalThis.expo.modules.ArdiaCEF.${call}`);
 const exts = (call) => evalApp(`return globalThis.expo.modules.ArdiaExtensions.${call}`);
-// A copy in the scratch dir: the app reading the checkout under ~/Documents would raise macOS's folder-access
-// prompt (and block the main thread on it) for every re-signed build.
 const extPath = join(scratch, "fixture-ext");
 cpSync(resolve(new URL(".", import.meta.url).pathname, "../../../spikes/ardiacore-host/fixtures/ext"), extPath, { recursive: true });
-// An extension made here (no Web Store): an action popup; rules that block /nnblock-* and send /nnredirect-* to its
-// stand-in script; an options page; with `welcome`, a worker that opens a tab when installed, as Dark Reader opens its
-// help page.
 const extPopupPath = join(scratch, "fixture-ext-popup");
 function writePopupExtension({ welcome = false } = {}) {
   rmSync(extPopupPath, { recursive: true, force: true });
@@ -533,7 +466,6 @@ function writePopupExtension({ welcome = false } = {}) {
   };
   for (const [name, text] of Object.entries(files)) writeFileSync(join(extPopupPath, name), text);
 }
-// A signed CRX3 of a one-file extension: a store-only zip, one RSA proof over its signed data and the archive.
 let crxCache = null;
 function fixtureCrx() {
   if (crxCache) return crxCache;
@@ -570,11 +502,8 @@ function fixtureCrx() {
   prefix.write("Cr24", 0, "latin1"); prefix.writeUInt32LE(3, 4); prefix.writeUInt32LE(header.length, 8);
   return (crxCache = Buffer.concat([prefix, header, zip]));
 }
-// The app's windows on screen (CoreGraphics' window numbers).
 const onScreenWindows = () => windowsOf(pid);
-// The module's browser id of an app tab.
 const browserOf = (tabId) => evalApp(`return ac.pageState.getState().browsers ? Object.entries(ac.pageState.getState().browsers).find(([, t]) => t === "${tabId}")?.[0] ?? null : null`);
-// The DevTools target of one app tab (several tabs can show the same URL): marked through the app, then found.
 async function pageFor(tabId, urlPart) {
   const candidates = (await targets()).filter((t) => t.type === "page" && t.url.includes(urlPart));
   if (candidates.length <= 1) return candidates[0];
@@ -586,12 +515,9 @@ async function pageFor(tabId, urlPart) {
   }
   return candidates[0];
 }
-// The window the run works in: the first one, then the one its first tab is in.
 let mainWindow = null;
 let first;
-// Personal's profile id, from last-used-profile (relaunch-profile switches back to it).
 let personal = null;
-// The dev event log (ArdiaCoreWebView's devEvents) of an app tab.
 const eventsOf = async (tabId) => {
   const browser = await browserOf(tabId);
   return browser ? evalApp(`return globalThis.expo.modules.ArdiaCEF.devEvents(${browser})`) : [];
@@ -602,7 +528,6 @@ const state = () =>
 
 // MARK: Helpers
 
-// A tab of the main window at `url`, loaded; foreground or behind.
 const openTab = async (url, title, background = false) => {
   const before = new Set((await state()).tabs.map((t) => t.id));
   await evalApp(`ac.actions.openUrls([${JSON.stringify(url)}], ${JSON.stringify(mainWindow)}); return true`);
@@ -614,13 +539,10 @@ const openTab = async (url, title, background = false) => {
   return tab;
 };
 const closeTab = (id) => evalApp(`ac.store.getState().closeTab("${id}"); return true`);
-// A tab's WebView is mounted (a background or restored tab mounts when shown).
 const shownAndMounted = async (id) => {
   await evalApp(`ac.actions.switchToTab(${JSON.stringify(id)}); return true`);
   await until(`${id}'s WebView`, () => evalApp(`return !!ac.webviews.get(${JSON.stringify(id)})`), 15000);
 };
-// A new foreground tab on `url` in the run's window, mounted and loaded (for checks after move-tab-to-window took
-// the first tab to a window of its own).
 const freshTab = async (url) => {
   const id = await evalApp(`return ac.store.getState().newTab(${JSON.stringify(mainWindow)}, { url: ${JSON.stringify(url)} })`);
   await shownAndMounted(id);
@@ -632,7 +554,6 @@ const backToA = async () => {
   await until("A again", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Page A" && !t.loading));
   await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
 };
-// The last event of a kind an app tab sent, and the app's own media state for it.
 const lastEvent = async (tabId, name, test = () => true) => (await eventsOf(tabId)).findLast((x) => x.name === name && test(x.payload ?? {})) ?? null;
 const live = (tabId) => evalApp(`return ac.store.getState().live["${tabId}"] ?? null`);
 const pipWindows = () => cef(`devPictureInPicture()`).catch(() => null);
@@ -643,13 +564,11 @@ const startVideo = async (tabId, audio) => {
   await until("the video's first frames", async () => (await cdp(t, "Runtime.evaluate", { expression: "document.getElementById('v').videoWidth", returnByValue: true })).result?.value > 0, 8000);
   return t;
 };
-// Quits the app (the quit Apple event, then signals: scripts/lib/instance.mjs) before a check starts it again.
 const stopApp = async () => {
   if (!exited) await instance.quit();
   await until("the app to exit", async () => exited || !alive(), 5000);
-  exited ??= { pid };  // at once, not at the next 300 ms poll: appUp relaunches on it
+  exited ??= { pid };
 };
-// Starts the app on the run's data dir when it isn't running (the quit checks), and waits for its window.
 const appUp = async (logName) => {
   if (exited) await launch(logName);
   await until("the app", async () => {
@@ -664,8 +583,6 @@ const appUp = async (logName) => {
   return (mainWindow = await until("a window", async () => (await state()).windowId, 30000));
 };
 
-// ARDIA_TRACE_VISIBILITY: the first tab's document.visibilityState, sampled every 250 ms over one DevTools
-// connection, each change logged with the time and the check running (the app logs its side as [ardiacore-vis]).
 let currentCheck = "";
 let visibilityWatch = null;
 function watchVisibility(target) {
@@ -687,7 +604,6 @@ function watchVisibility(target) {
   visibilityWatch = { stop: () => { clearInterval(timer); try { ws.close(); } catch {} } };
 }
 
-// What a kept instance already has: boot's window, open-url's page A (wherever it is now).
 const recovered = new Set();
 async function recoverKept() {
   await until("the kept instance's dev harness", () => evalApp("return true", 3000).catch(() => null), 30000);
@@ -754,7 +670,6 @@ try {
     const asn = execFileSync("lsappinfo", ["info", "-only", "pid", front.trim()]).toString();
     if (asn.includes(`=${child.pid}`)) throw new Error("the app took focus");
     mainWindow = s.windowId;
-    // One JS runtime: a second one (the launch callbacks sent twice) makes a second window with its own id prefix.
     await sleep(2000);
     const native = await evalApp(`return ac.shell.windowIds()`);
     if (native.length !== 1) throw new Error(`windows ${JSON.stringify(native)} (a second JS runtime?)`);
@@ -762,10 +677,6 @@ try {
   });
 
   await check("window-profiles", async () => {
-    // A window never gets a dead or missing profile (the 0.2.22 RC crashed in WindowHost::BrowserFor(null) opening
-    // one), and a private window never shows Personal's: private and second-profile windows right after launch, at
-    // once after their profile's last window closed, and a while after (Chrome destroys an off-the-record profile
-    // with its last Browser); a private window's new tab after its last tab closed.
     const home = (await state()).windowId;
     const titles = (w) => evalApp(`const s = ac.store.getState(); return (s.windows[${JSON.stringify(w)}]?.tabIds ?? []).map((i) => s.tabs[i]?.title)`);
     const shows = (w, title) => until(`${title} in ${w}`, async () => ((await titles(w)).includes(title) ? true : null), 15000);
@@ -775,7 +686,6 @@ try {
     const personalTab = await evalApp(`return ac.store.getState().newTab(${JSON.stringify(home)}, { url: "${base}/cookie?personal" })`);
     await shows(home, "Cookie");
     const steps = [];
-    // Private windows.
     const p1 = await open({ incognito: true, url: `${base}/cookie?private1` });
     await shows(p1, "Cookie");
     if ((await cookie("/cookie?private1")).includes("personal")) throw new Error("a private window sees Personal's cookie");
@@ -784,7 +694,6 @@ try {
     await shows(p2, "Page B");
     steps.push("private, reopened at once");
     if ((await cookie("/b?private2")).includes("personal")) throw new Error("the reopened private window sees Personal's cookie");
-    // Its last tab closed (Chrome closes its Browser), then a new tab in the same window.
     await evalApp(`const s = ac.store.getState(); s.closeTabs([...s.windows[${JSON.stringify(p2)}].tabIds]); return true`);
     await sleep(2500);
     await evalApp(`ac.store.getState().newTab(${JSON.stringify(p2)}, { url: "${base}/c?private3" }); return true`);
@@ -796,8 +705,6 @@ try {
     await shows(p4, "Page D");
     steps.push("private, reopened later");
     if ((await cookie("/d?private4")).includes("personal")) throw new Error("a later private window sees Personal's cookie");
-    // ⌘W on the last private window and ⇧⌘N in the same turn, a few times: Chrome is still destroying the old
-    // profile when the new window asks for one.
     let last = p4;
     for (let round = 0; round < 4; round++) {
       const next = await evalApp(`const s = ac.store.getState(); s.closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ incognito: true, url: "${base}/e?churn${round}" })`);
@@ -809,7 +716,6 @@ try {
     }
     steps.push("private, closed and reopened in one turn (4 rounds)");
     await close(last);
-    // A second profile's windows.
     const id = await evalApp(`return ac.store.getState().createProfile({ name: "Spare" })`);
     const w1 = await open({ profileId: id, url: `${base}/cookie?spare` });
     await shows(w1, "Cookie");
@@ -830,7 +736,6 @@ try {
   });
 
   await check("window-size", async () => {
-    // The first window is CEF's 1360 × 860 (frame), centred by AppKit.
     const frame = await evalApp(`return ac.shell.windowFrame(${JSON.stringify(mainWindow)})`);
     if (frame?.[2] !== 1360 || frame?.[3] !== 860) throw new Error(`frame ${JSON.stringify(frame)}`);
     return { frame };
@@ -851,7 +756,6 @@ try {
   });
 
   await check("visibility", async () => {
-    // Diagnostic: how Chrome sees the shown page of a hidden (background-mode) window.
     const t = await pageFor(first.id, `${base}/a`);
     const vis = (await cdp(t, "Runtime.evaluate", { expression: "document.visibilityState + '/' + document.hasFocus()", returnByValue: true })).result.value;
     const windows = (await evalApp(`return globalThis.expo.modules.ArdiaCEF.chromeWindows()`)).map((w) => ({ visible: w.visible, alpha: w.alpha, key: w.key, frame: w.frame }));
@@ -859,11 +763,6 @@ try {
   });
 
   await check("occlusion", async () => {
-    // A background-mode window that something covers (here: one of the app's own windows right above it, which macOS
-    // reports as occluding it) keeps its shown page visible and taking input: hidden instances must not depend on
-    // the owner's windows (Chrome hides an occluded window's pages and drops their input).
-    // With ARDIA_ALLOW_OCCLUSION=1 (Chrome's own behaviour, as the user's app has it) the page goes hidden while
-    // covered and must come back visible once uncovered.
     const allow = !!process.env.ARDIA_ALLOW_OCCLUSION;
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
@@ -875,8 +774,6 @@ try {
     await evalApp(`return globalThis.expo.modules.ArdiaCEF.devWindow(${windowNumber}, "cover")`);
     let samples = [], escape = null, w = null;
     try {
-      // macOS reports the window occluded (Chrome's occlusion checker follows it, and waits a second more before
-      // telling the page; with the background switch it doesn't run).
       w = await until("macOS to see the window occluded", async () => {
         const x = await chromeSees();
         return x && !x.occlusionVisible && (!allow || x.chromeOccluded) ? x : null;
@@ -886,7 +783,6 @@ try {
         await sleep(400);
       }
       if (!allow) {
-        // Input still reaches the covered page: an Esc it leaves alone comes back to the app.
         const s = await state();
         const before = (await eventsOf(first.id)).filter((x) => x.name === "command" && x.payload?.command === "escape").length;
         await evalApp(`return ac.webviews.get("${first.id}").focus()`);
@@ -969,7 +865,6 @@ try {
   });
 
   await check("evaluate", async () => {
-    // The page channel (ArdiaCore's renderer side): evaluate runs in the page's main world and answers with post.
     const title = await evalApp(`return ac.webviews.get("${first.id}").evaluate("post('result', JSON.stringify(document.title))")`);
     if (title !== "Page A") throw new Error(`evaluate gave ${JSON.stringify(title)}`);
     const script = await evalApp(`return ac.webviews.get("${first.id}").evaluate("post('result', JSON.stringify(typeof window.Notification))")`);
@@ -1021,10 +916,8 @@ try {
 
   await check("tab-keys-from-page", async () => {
     const s = await state();
-    // ⌃Tab opens the tab switcher (it switches when ⌃ is released); ⌘⇧] goes to the next tab at once.
     const ctrlTab = await evalApp(`return ac.shell.devKeyEquivalent("${s.windowId}", { key: "\t", keyCode: 48, modifiers: ["control"], focus: "page" })`);
     if (!ctrlTab.fired?.some((f) => f.command === "tabSwitcher")) throw new Error(`⌃Tab: ${JSON.stringify(ctrlTab)}`);
-    // Esc in the switcher, as the user ends it without switching (left open, it covers the page for later checks).
     await evalApp(`ac.switcher.cancelSwitcher(); return true`);
     const next = await evalApp(`return ac.shell.devKeyEquivalent("${s.windowId}", { key: "}", keyCode: 30, modifiers: ["command", "shift"], focus: "page" })`);
     const after = await until("the next tab", async () => {
@@ -1047,7 +940,6 @@ try {
   // MARK: Page UI
 
   await check("status-text", async () => {
-    // Hovering a link shows its URL (Chrome's UpdateTargetURL → onStatus → the status bubble's state).
     const t = await pageFor(first.id, `${base}/a`);
     const r = await cdp(t, "Runtime.evaluate", { expression: "JSON.stringify(document.getElementById('next').getBoundingClientRect())", returnByValue: true });
     const box = JSON.parse(r.result.value);
@@ -1065,13 +957,9 @@ try {
   });
 
   await check("chrome-strings", async () => {
-    // Chrome's own strings name the product Ardia, as on CEF (a WebUI page, browser side; ACHost's S29 also
-    // checks a renderer error page); the credit still names the Chromium Authors.
-    // On screen: a background tab's WebUI page can sit "loading" (Chrome defers it while hidden).
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     await evalApp(`ac.store.getState().navigate("${first.id}", "chrome://version", { userInitiated: true }); return true`);
-    // The app shows Chrome's pages under its own scheme (ardia://version).
     await until("chrome://version", async () => (await state()).tabs.find((t) => t.id === first.id && /^(chrome|ardia):\/\/version/.test(t.url ?? "") && t.title === "About Version"), 20000);
     try {
       const t = await pageFor(first.id, "chrome://version");
@@ -1081,17 +969,13 @@ try {
       if (!/^Ardia\t/.test(product ?? "") || !credit) throw new Error(`version page: ${product} / ${credit}`);
       return { product, credit };
     } finally {
-      // (backToA is defined further down.)
       await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/a", { userInitiated: true }); return true`);
       await until("A again", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Page A" && !t.loading));
     }
   });
 
   await check("context-menu-search", async () => {
-    // Chrome's own page menu, with the app's "Search <engine> for …" after Copy (background mode reports it
-    // instead of showing it).
     await evalApp(`return globalThis.expo.modules.ArdiaCEF.setSearchEngineName("Acceptance").then(() => true)`);
-    // A page on screen: Chrome doesn't run a hidden tab's context menu.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     await sleep(300);
@@ -1115,7 +999,6 @@ try {
     };
     let e = await rightClick();
     if (!e) {
-      // Once more on a freshly loaded page (seen flaky in long runs only).
       log("  context menu: none after 3 right-clicks; reloading the page and trying again");
       await evalApp(`return ac.webviews.get("${first.id}").reload()`);
       await sleep(1500);
@@ -1135,7 +1018,6 @@ try {
   });
 
   await check("context-menu-activation-log", async () => {
-    // As CEF's background guard: the menu not shown is a line in activation.log (the release smoke test reads it).
     const line = await until("the activation.log line", async () =>
       (existsSync(join(data, "activation.log")) ? readFileSync(join(data, "activation.log"), "utf8") : "").split("\n").findLast((l) => l.includes("context menu (not shown): ")), 5000);
     if (!line.includes("Search Acceptance for “to B”")) throw new Error(`activation.log: ${line}`);
@@ -1143,8 +1025,6 @@ try {
   });
 
   await check("duplicate-and-reopen", async () => {
-    // Duplicate copies the tab's back/forward list (clone:), and ⇧⌘T brings a closed tab back with its own list
-    // (restore:, through Chrome's TabRestoreService entry tagged with the tab's id).
     const copyId = await evalApp(`const c = ac.store.getState().duplicateTab("${first.id}"); return typeof c === "string" ? c : c?.id ?? null`);
     if (!copyId) throw new Error("no copy");
     await until("the copy on A with history", async () => (await state()).tabs.find((t) => t.id === copyId && t.title === "Page A" && t.back && !t.loading), 15000);
@@ -1166,8 +1046,6 @@ try {
   // MARK: Choosers and Cast
 
   await check("device-chooser", async () => {
-    // WebUSB requestDevice: Chrome's chooser comes to the app's sheet (onDeviceChooser); cancelling it rejects
-    // the page's promise with NotFoundError.
     const t = await pageFor(first.id, `${base}/a`);
     await cdp(t, "Runtime.evaluate", {
       expression: "window.__usb = 'pending'; navigator.usb.requestDevice({ filters: [] }).then(() => (window.__usb = 'picked'), (e) => (window.__usb = e.name))",
@@ -1190,8 +1068,6 @@ try {
     return { chooser: { id: chooser.id, title: chooser.title, options: chooser.options?.length }, page: result };
   });
 
-  // Chrome's Bluetooth chooser with no adapter behind it (--ardia-test-bluetooth-chooser: its real
-  // ChromeBluetoothChooserController, no IOBluetooth, no macOS prompt; what its answers tell the page's side is recorded).
   const chromeUI = (call) => evalApp(`return globalThis.expo.modules.ArdiaChromeUI.${call}`);
   const chooserOf = (tabId) => evalApp(`return globalThis.acDeviceChoosers?.useChoosers.getState().byTab["${tabId}"] ?? null`);
   const bluetoothChooser = async (unauthorized) => {
@@ -1205,8 +1081,6 @@ try {
   const chooserGone = () => until("the sheet gone", async () => !(await chooserOf(first.id)), 5000);
 
   await check("bluetooth-chooser", async () => {
-    // A Bluetooth chooser's device list in the app's sheet: the app's Scan again (refreshDeviceChooser) asks Chrome to
-    // rescan and the list comes back; its pick (selectDevice) answers the page's side with that device.
     await evalApp(`globalThis.__acChooser = []; globalThis.__acChooserSub?.remove();
       globalThis.__acChooserSub = globalThis.expo.modules.ArdiaChromeUI.addListener("onDeviceChooser", (e) => globalThis.__acChooser.push(e)); return true`);
     try {
@@ -1232,10 +1106,6 @@ try {
   });
 
   await check("bluetooth-settings", async () => {
-    // A Bluetooth chooser without macOS's Bluetooth permission shows "Open Bluetooth Settings" (unauthorized):
-    // openBluetoothSettings asks Chrome for its System Settings pane, recorded rather than opened
-    // (--ardia-test-external-protocol-no-launch), and the chooser stays. On a WebUSB chooser it does nothing
-    // (Chrome's default is NOTREACHED).
     const launches = () => evalApp(`return globalThis.expo.modules.ArdiaCEF.devExternalLaunches()`);
     const isSettings = (x) => /Privacy_Bluetooth/.test(x.url ?? "");
     const t = await pageFor(first.id, `${base}/a`);
@@ -1272,8 +1142,6 @@ try {
   });
 
   await check("cast-dialog", async () => {
-    // Chrome's Cast dialog for the tab comes to the app's popover (onCastDialog), the profile's routes to
-    // onCastRoutes, and closing it from the app closes Chrome's.
     const browser = await browserOf(first.id);
     const shown = await evalApp(`return globalThis.expo.modules.ArdiaChromeUI.showCastDialog(${browser})`);
     if (!shown) throw new Error("showCastDialog said no (media router off?)");
@@ -1285,10 +1153,6 @@ try {
   });
 
   await check("cast-routes", async () => {
-    // Casting the tab to the engine's test sink (--ardia-test-media-route-provider: Chrome's media router with no
-    // network device; the real providers are off): the app's picker starts it (startCasting), the route reaches
-    // onCastRoutes and the dialog's sink, and both ways the app stops it end it: the picker's Stop (stopCasting) and
-    // the toolbar's "Stop Casting" menu (terminateCastRoute).
     const browser = await browserOf(first.id);
     const routesNow = () => evalApp(`return Object.values(globalThis.acCast.useCast.getState().routes).flat()`);
     const dialogNow = () => evalApp(`return globalThis.acCast.useCast.getState().dialogs["${first.id}"] ?? null`);
@@ -1315,7 +1179,6 @@ try {
       }, 10000);
       await evalApp(`return globalThis.expo.modules.ArdiaChromeUI.stopCasting(${dialog.id}, ${JSON.stringify(route.id)}).then(() => true)`);
       await until("the route gone after stopCasting", async () => !(await routesNow()).some((r) => r.id === route.id), 10000);
-      // Again, then the dialog closed and the route ended from the toolbar's menu.
       const second = await casting(dialog.id, sink);
       await evalApp(`return globalThis.expo.modules.ArdiaChromeUI.closeCastDialog(${dialog.id}).then(() => true)`);
       await until("the dialog closed", async () => !(await dialogNow()), 5000);
@@ -1339,8 +1202,6 @@ try {
   // MARK: Page state and prompts
 
   await check("theme-commit", async () => {
-    // The toolbar colour belongs to the page shown: a page the page script never runs in (an error page) doesn't keep
-    // the last site's colour, and a page back from the back/forward cache brings its own colour back.
     const tab = await openTab(`${base}/red-header?commit`, "Red header");
     const color = () => evalApp(`return ac.store.getState().live["${tab.id}"]?.themeColor ?? null`);
     const settled = (title) => until(title, async () => (await state()).tabs.find((t) => t.id === tab.id && t.title === title && !t.loading));
@@ -1352,7 +1213,6 @@ try {
       await sleep(100);
       const error = await color();
 
-      // Back/forward cache: red header → Page C (white) → Back restores the red page as it was.
       await evalApp(`ac.store.getState().navigate("${tab.id}", "${base}/red-header?bf", { userInitiated: true }); return true`);
       await settled("Red header");
       await until("red again", async () => (await color()) === "#C80000", 5000);
@@ -1376,7 +1236,6 @@ try {
   });
 
   await check("user-selection", async () => {
-    // A mouse selection of page text: the page script reports it (onPageMessage "selection").
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/text", { userInitiated: true }); return true`);
     await until("the text page", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Text" && !t.loading));
@@ -1398,8 +1257,6 @@ try {
   });
 
   await check("password-prompt", async () => {
-    // A sign-in form submitted with typed values: Chrome's password manager offers to save (onPasswordPrompt), and
-    // the app's answer saves it (resolvePasswordPrompt).
     await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/login", { userInitiated: true }); return true`);
     await until("the login page", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Login" && !t.loading));
     try {
@@ -1414,7 +1271,6 @@ try {
       await cdp(t, "Input.dispatchMouseEvent", { type: "mousePressed", ...at, buttons: 1 });
       await cdp(t, "Input.dispatchMouseEvent", { type: "mouseReleased", ...at, buttons: 0 });
       const e = await until("onPasswordPrompt", async () => (await eventsOf(first.id)).findLast((x) => x.name === "passwordPrompt"), 10000);
-      // packages/cef's PasswordPrompt: state, origin, username, passwordLength, federation, usernames.
       const p = e.payload;
       if (p.state !== "save" || p.username !== "nnformuser" || p.passwordLength !== 11 || p.federation !== "" || !Array.isArray(p.usernames) || p.origin !== base)
         throw new Error(`prompt ${JSON.stringify(p)}`);
@@ -1423,7 +1279,6 @@ try {
         const list = await evalApp(`return globalThis.expo.modules.ArdiaCEF.listPasswords("")`);
         return list.passwords?.find((x) => x.username === "nnformuser") ?? null;
       }, 10000);
-      // The same user with a new password: "update", answered with the app's edited password.
       const seen = (await eventsOf(first.id)).filter((x) => x.name === "passwordPrompt").length;
       await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/login?again", { userInitiated: true }); return true`);
       await until("the login page again", async () => (await state()).tabs.find((t) => t.id === first.id && t.url?.endsWith("/login?again") && !t.loading));
@@ -1456,9 +1311,6 @@ try {
   // MARK: Screen and tab capture
 
   await check("screen-share-picker", async () => {
-    // getDisplayMedia through the app's source picker (setDisplayMediaPicker, as the app sets it): the request reaches
-    // the app (onDisplayMediaRequest, with displayMediaSources' list), the app picks another tab (its
-    // mediaCaptureSourceId), and the engine grants that source to the page (resolveDisplayMedia): the page captures it.
     const target = await openTab(`${base}/capture-target?picker`, "Capture Target", true);
     const t = await pageFor(first.id, `${base}/a`);
     try {
@@ -1474,7 +1326,6 @@ try {
       const request = await until("onDisplayMediaRequest", async () => (await eventsOf(first.id)).findLast((x) => x.name === "displayMediaRequest"), 10000);
       const sourceId = await evalApp(`return ac.webviews.get("${target.id}").mediaCaptureSourceId()`);
       if (!sourceId) throw new Error("no capture source id for the target tab");
-      // As the app's picker answers (it closes the sheet too).
       await evalApp(`globalThis.acSharePicker.answerDisplayMedia("${first.id}", ${JSON.stringify(sourceId)}); return true`);
       const live = await until("a live capture", async () => {
         const v = (await cdp(page, "Runtime.evaluate", { expression: "window.__cap", returnByValue: true })).result.value;
@@ -1489,9 +1340,6 @@ try {
   });
 
   await check("tab-capture", async () => {
-    // Chrome's own picker (the app's turned off; the test switch picks the tab titled "Capture Target"): the capturing
-    // tab's media access (onMediaAccess), "Share this tab instead" (changeCaptureSource) and Stop sharing
-    // (stopCapture, which ends the page's track).
     const target = await openTab(`${base}/capture-target`, "Capture Target", true);
     const other = await openTab(`${base}/d?share-instead`, "Page D", true);
     await evalApp(`return globalThis.expo.modules.ArdiaCEF.setDisplayMediaPicker(false).then(() => true)`);
@@ -1525,8 +1373,6 @@ try {
       const stopped = await evalApp(`return globalThis.expo.modules.ArdiaChromeUI.stopCapture(${capturer})`);
       const ended = await until("the track ended", async () =>
         (await cdp(t, "Runtime.evaluate", { expression: "window.__cap", returnByValue: true })).result.value === "ended" ? true : null, 8000);
-      // Chrome's picker, which the test switch answered, is gone: with the screen locked its close animation never
-      // ended, and the dialog left over the page kept Chrome's autofill dropdown from opening there for the rest of the run.
       const windowNumber = await cef(`devWindowNumber(${capturer})`);
       const picker = await until("the picker closed", async () => {
         const children = JSON.parse(await cef(`devWindow(${windowNumber}, "children")`));
@@ -1544,8 +1390,6 @@ try {
   });
 
   await check("share-instead-two-captures", async () => {
-    // Two calls in one profile share two tabs (red, green) through the app's picker. "Share this tab instead" on a
-    // third tab (blue) for the second call moves that call only: each call's own frames say what it gets.
     const opened = [];
     const pages = {};
     try {
@@ -1560,7 +1404,6 @@ try {
         const page = await pageFor(call.id, `/capturer?t=${call.title}`);
         await cdp(page, "Runtime.evaluate", { expression: "share()", userGesture: true });
         await until(`${call.title}'s picker`, async () => (await eventsOf(call.id)).findLast((x) => x.name === "displayMediaRequest"), 10000);
-        // As a click on the target in the app's picker.
         if (hooks.picker) await evalApp(`return globalThis.acSharePicker.shareTab("${call.id}", "${target.id}")`);
         else {
           const source = await evalApp(`return ac.webviews.get("${target.id}").mediaCaptureSourceId()`);
@@ -1607,7 +1450,6 @@ try {
       if (settled.A !== "red" || settled.B !== "blue") throw new Error(`after B's share instead: A ${settled.A} (want red), B ${settled.B} (want blue)`);
       let records = null;
       if (hooks.bar) {
-        // Past the moment the switch turns B's capture off (ShareBar's SHARE_END_MS): the share stays, on blue.
         await sleep(2000);
         records = await evalApp(`const s = globalThis.acShareBar.tabShares(); return { A: s["${callA.id}"]?.capturedTabId ?? null, B: s["${callB.id}"]?.capturedTabId ?? null }`);
         if (records.A !== red.id || records.B !== blue.id) throw new Error(`app records ${JSON.stringify(records)} (want A ${red.id}, B ${blue.id})`);
@@ -1623,9 +1465,6 @@ try {
   // MARK: Tab lifecycle
 
   await check("restore-after-close", async () => {
-    // A → B, then the tab goes with its window, or by itself from Chrome's side, at once; reopened, Back reaches A.
-    // Its Chrome TabRestoreService entry has to carry the app's key before the close starts (ac_tab_restore_tag on
-    // attach and each new NavigationEntry), not from the app's teardown that comes after.
     const shell = "globalThis.expo.modules.ArdiaShell";
     const s = (expr) => evalApp(`const s = ac.store.getState(); return ${expr}`);
     const toB = async (tabId, tag) => {
@@ -1633,7 +1472,6 @@ try {
       await evalApp(`ac.store.getState().navigate("${tabId}", "${base}/b?${tag}", { userInitiated: true }); return true`);
       await until(`B?${tag} with Back`, async () => (await s(`s.tabs["${tabId}"]?.title === "Page B" && s.live["${tabId}"]?.canGoBack && !s.live["${tabId}"]?.isLoading`)) || null, 15000);
     };
-    // The reopened tab (shown): Page B with Back, and Back reaches A.
     const backReachesA = async (tabId, tag) => {
       await evalApp(`ac.actions.switchToTab("${tabId}"); return true`);
       await until(`the reopened B?${tag}`, async () => (await s(`s.tabs["${tabId}"]?.title === "Page B" && !s.live["${tabId}"]?.isLoading && !!ac.webviews.get("${tabId}")`)) || null, 15000);
@@ -1668,7 +1506,6 @@ try {
     try {
       results.appCommand = await windowCase("r1", (w) => evalApp(`ac.store.getState().closeWindow("${w}"); return true`));
       results.closeWarning = await windowCase("r2", async (w, tabId) => {
-        // Two tabs, so the app asks; its dialog (an AppKit sheet) answers Close All Tabs.
         await evalApp(`ac.store.getState().newTab("${w}", { url: "${base}/c?r2", background: true }); ac.store.getState().updateSettings({ warnBeforeClosingWindow: true }); return true`);
         await sleep(300);
         await evalApp(`globalThis.__acConfirm = ${shell}.confirm; ${shell}.confirm = (o) => { globalThis.__acAsked = o.title; return Promise.resolve({ confirmed: true, suppressed: false }); }; return true`);
@@ -1681,7 +1518,6 @@ try {
         await sleep(300);
         await closeButton(tabId);
       });
-      // Tabs Chrome closes itself: an extension's chrome.tabs.remove, and a page's window.close().
       const tabCase = async (tag, close) => {
         const tab = await openTab(`${base}/a?${tag}`, "Page A", true);
         await toB(tab.id, tag);
@@ -1711,7 +1547,6 @@ try {
       } finally {
         await exts(`uninstall("${installed.id}", "")`);
       }
-      // window.close() closes a tab a script opened (whatever its history).
       results.windowClose = await (async () => {
         const opener = await pageFor(first.id, `${base}/a`);
         const before = new Set((await state()).tabs.map((t) => t.id));
@@ -1740,8 +1575,6 @@ try {
   });
 
   await check("discard-outcomes", async () => {
-    // What discard answers is what happened, and the app records only that: a discard (the renderer goes, the tab
-    // sleeps, and wakes when shown), an already-discarded tab, a refusal, and unload (unsupported under ArdiaCore).
     const tab = await openTab(`${base}/d?discard`, "Page D", true);
     const browser = await browserOf(tab.id);
     const renderer = async () => (await evalApp(`return globalThis.expo.modules.ArdiaCEF.listTasks()`)).some((t) => t.browserIds?.includes(Number(browser)));
@@ -1750,15 +1583,11 @@ try {
     try {
       const out = {};
       if (!(await renderer())) throw new Error("no renderer before the discard");
-      // unload: ArdiaCore keeps the tab (and a regular profile): it says so, and nothing changes.
       out.unload = await raw("{ unload: true }");
       out.afterUnload = { renderer: await renderer(), ...(await flags()) };
-      // A discard through the app's policy.
       out.slept = await evalApp(`return globalThis.acLifecycle.sleepTab("${tab.id}")`);
       out.afterSleep = { renderer: await until("the renderer gone", async () => ((await renderer()) ? null : "gone"), 5000).catch(() => "still there"), ...(await flags()) };
-      // Again: already discarded.
       out.again = await raw();
-      // A refusal (as Chrome's for a tab outside a tab strip), through the app's policy: nothing recorded.
       const other = await openTab(`${base}/e?refused`, "Page E", true);
       try {
         out.refusedSlept = await evalApp(`const h = ac.webviews.get("${other.id}"); h.discard = () => Promise.resolve("refused"); return globalThis.acLifecycle.sleepTab("${other.id}")`);
@@ -1766,7 +1595,6 @@ try {
       } finally {
         await closeTab(other.id);
       }
-      // Wake: shown, Chrome loads it again and the app's flag clears.
       await evalApp(`ac.actions.switchToTab("${tab.id}"); return true`);
       out.woke = await until("awake", async () => {
         const f = await flags();
@@ -1787,7 +1615,6 @@ try {
   });
 
   await check("capture-picture", async () => {
-    // The page as painted (capturePicture, the dragged tab's picture): a JPEG and the view's frame.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     const picture = await evalApp(`return ac.webviews.get("${first.id}").capturePicture(0.3)`);
@@ -1797,19 +1624,13 @@ try {
   });
 
   await check("unresponsive", async () => {
-    // A page that stops answering: Chrome's hang monitor (onUnresponsive), the app's "wait" (resolveUnresponsive),
-    // and the page answering again (onResponsive).
     const busy = await openTab(`${base}/b?busy`, "Page B");
     try {
-      // No DevTools client on the page meanwhile: Chrome ignores a hang while a debugger is attached.
       await evalApp(`return ac.webviews.get("${busy.id}").focus()`);
-      // The page says it's busy (its title) as the loop starts: a key sent before then (a loaded run delays the script)
-      // was answered at once, and the loop that followed had no input to hang on.
       await evalApp(`return ac.webviews.get("${busy.id}").executeJavaScript("setTimeout(() => { document.title = 'Busy'; const end = Date.now() + 40000; while (Date.now() < end); }, 50)")`);
       await until("the page busy", async () => (await state()).tabs.find((t) => t.id === busy.id && t.title === "Busy"), 10000);
       await sleep(300);
       const s = await state();
-      // Input the busy page can't answer: Chrome's hang monitor starts with it.
       const sent = await evalApp(`return ac.shell.devKeyEquivalent("${s.windowId}", { key: "a", keyCode: 0, modifiers: [], focus: "page" })`);
       const busyNow = "-";
       const hung = await until("onUnresponsive", async () => (await eventsOf(busy.id)).find((x) => x.name === "unresponsive"), 35000)
@@ -1825,8 +1646,6 @@ try {
   });
 
   await check("permission-dismissed", async () => {
-    // A prompt Chrome drops on its own (its tab closes before the app answers): the app hears so
-    // (onPermissionDismissed). A navigation doesn't show it: the app answers "dismiss" itself then.
     await evalApp(`globalThis.__acDismissed = []; globalThis.__acDismissSub?.remove(); globalThis.__acDismissSub = globalThis.expo.modules.ArdiaCEF.addListener("onPermissionDismissed", (e) => globalThis.__acDismissed.push(e)); return true`);
     const asker = await openTab(`${base}/c?asker`, "Page C");
     try {
@@ -1846,7 +1665,6 @@ try {
   });
 
   await check("kill-task", async () => {
-    // Chrome's task manager ends a tab's renderer (killTask): the tab shows its crash (onCrashed).
     const victim = await openTab(`${base}/c?kill`, "Page C", true);
     try {
       const browser = Number(await browserOf(victim.id));
@@ -1863,8 +1681,6 @@ try {
   });
 
   await check("module-events", async () => {
-    // Events with no WebView: the blocker's state (onContentBlocker), extensions changing (onChanged); and the
-    // screen-share picker's sources (displayMediaSources: screens and windows, no macOS prompt).
     await evalApp(`globalThis.__acEvents = []; globalThis.__acSubs?.forEach((x) => x.remove());
       globalThis.__acSubs = [globalThis.expo.modules.ArdiaCEF.addListener("onContentBlocker", (e) => globalThis.__acEvents.push(["blocker", e])),
         globalThis.expo.modules.ArdiaExtensions.addListener("onChanged", (e) => globalThis.__acEvents.push(["extensions", e]))]; return true`);
@@ -1887,19 +1703,15 @@ try {
     }
   });
 
-  // A download opens the downloads popover, whose backdrop (a click outside closes it) covers the page: a check that
-  // downloads closes it again, so a later one's mouse or scroll lands on the page.
   const closeDownloads = () => evalApp(`ac.store.getState().setDownloadsOpen(${JSON.stringify(mainWindow)}, false); return true`).catch(() => null);
 
   await check("save-page", async () => {
-    // Chrome's Save Page As (runPageCommand "savePage"), its save panel answered from file-chooser.txt.
     const file = join(scratch, "saved-page.html");
     writeFileSync(join(data, "file-chooser.txt"), file + "\n");
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await evalApp(`return ac.webviews.get("${first.id}").runPageCommand("savePage")`);
     try {
       const saved = await until("the saved page", async () => existsSync(file) && readFileSync(file, "utf8").includes("Page A"), 15000);
-      // The popover opens as the app hears of the download; closed before that, it would open over the page later.
       await until("the saved page in the app's downloads", () =>
         evalApp(`return ac.store.getState().downloads.some((d) => d.state === "finished" && (d.path ?? d.filename ?? "").endsWith("saved-page.html"))`), 10000);
       return { saved };
@@ -1909,8 +1721,6 @@ try {
   });
 
   await check("activate-request", async () => {
-    // A page focusing the popup it opened (window.focus() on it) while the app shows the opener: Chrome asks the app
-    // to bring the popup forward (onActivateRequest "page").
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     const t = await pageFor(first.id, `${base}/a`);
     const before = new Set((await state()).tabs.map((x) => x.id));
@@ -1930,8 +1740,6 @@ try {
   });
 
   await check("private-release", async () => {
-    // A private window's profile goes when its last window closes (releaseProfile): a new private window starts
-    // without the old one's cookies.
     const a = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${base}/cookie?private1" })`);
     await until("the private cookie set", async () => {
       const tabs = await evalApp(`const s = ac.store.getState(); return (s.windows["${a}"]?.tabIds ?? []).map((i) => s.tabs[i]?.title)`);
@@ -1956,10 +1764,6 @@ try {
   });
 
   await check("private-churn", async () => {
-    // ⌘W on the last private window and ⇧⌘N in the same turn, 50 times: each new window gets a live tab, though the
-    // old window's profile is still going when it asks (the engine hands out a new one once the old one is gone), and
-    // the tab stays (it never lands in the dying profile, which would close it). Every other round waits out
-    // Chrome's destruction (≤ 1 s) before checking the tab is still there.
     const titles = (w) => evalApp(`const s = ac.store.getState(); return (s.windows[${JSON.stringify(w)}]?.tabIds ?? []).map((i) => s.tabs[i]?.title)`);
     let last = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${base}/e?churn-start" })`);
     const waits = [];
@@ -1977,8 +1781,6 @@ try {
           if (!after.includes("Page E")) throw new Error(`round ${round}: the tab went: ${JSON.stringify(after)}`);
         }
       }
-      // Then 10 windows each closed as soon as it's made, before its profile or tab could come: the last one still
-      // gets a live tab, and keeps it.
       for (let round = 0; round < 10; round++)
         last = await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ incognito: true, url: "${base}/e?burst${round}" })`);
       await until("the burst's last window: a live tab", async () => ((await titles(last)).includes("Page E") ? true : null), 15000);
@@ -1994,8 +1796,6 @@ try {
   // MARK: Chrome services and extensions
 
   await check("extension-popup-and-panel", async () => {
-    // The extension's action (executeExtensionAction) opens its popup, and its side panel opens beside the page:
-    // both are standalone WebViews, whose tabs stay out of the window's tab strip and close with them.
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
     const windowsBefore = (await cef(`chromeWindows()`)).length;
@@ -2008,15 +1808,11 @@ try {
       const strips = await cef(`tabStrips()`);
       const inStrip = strips.strips.some((st) => st.tabs.some((x) => x.key == null));
       const popupVisible = (await cdp(popupTarget, "Runtime.evaluate", { expression: "document.visibilityState", returnByValue: true })).result.value;
-      // The popup sizes itself as Chrome's (its page's auto-resize): it follows the page down as well as up (it only
-      // grew while the app measured the page).
       const pageSize = async (t) => (await cdp(t, "Runtime.evaluate", { expression: "[innerWidth, innerHeight]", returnByValue: true })).result.value;
       const grown = await until("the popup sized to its page", async () => { const s = await pageSize(popupTarget); return s[0] > 100 ? s : null; }, 5000);
       await cdp(popupTarget, "Runtime.evaluate", { expression: "document.body.style.height = '30px'" });
       const shrunk = await until("the popup shrunk with its page", async () => { const s = await pageSize(popupTarget); return s[1] < grown[1] ? s : null; }, 5000)
         .catch(async () => { throw new Error(`the popup kept its size: ${JSON.stringify(grown)} → ${JSON.stringify(await pageSize(popupTarget))}`); });
-      // chrome.action.openPopup() from its worker opens it afresh over the active tab, as 1Password does once its Mac
-      // app unlocks (it failed with "Browser window has no toolbar" before).
       await cdp(popupTarget, "Runtime.evaluate", { expression: "window.__acOld = 1" });
       const worker = await until("the extension's worker", async () =>
         (await targets()).find((t) => t.type === "service_worker" && t.url.includes(`${installed.id}/worker.js`)) ?? null, 10000);
@@ -2049,8 +1845,6 @@ try {
   });
 
   await check("scroll-zoom", async () => {
-    // ⌘-scroll zooms the page with a wheel or a Magic Mouse and scrolls it with a trackpad (devScrollZoom, as
-    // packages/cef's zoom-scroll-test).
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     const zoom = () => evalApp(`return ac.store.getState().tabs["${first.id}"]?.zoom ?? 1`);
@@ -2072,7 +1866,6 @@ try {
     const wheel = await scroll([{ phase: "wheel", dy: 1 }, { phase: "wheel", dy: 1 }]);
     const afterWheel = await until("zoomed", async () => { const z = await zoom(); return z > 1 ? z : null; }, 5000)
       .catch(async (e) => {
-        // Why (devScrollZoom logs each ⌘-wheel step that didn't zoom), and the app's UI that can cover the page.
         const why = appLog.join().split("\n").filter((l) => l.includes("[scroll-zoom]")).slice(-3).map((l) => l.replace(/^.*\[scroll-zoom\] /, ""));
         const ui = await evalApp(`return ac.store.getState().windowUi[${JSON.stringify(mainWindow)}] ?? null`).catch(() => null);
         throw new Error(`${e.message}; trackpad ${JSON.stringify(trackpad)} wheel ${JSON.stringify(wheel)} zoom ${await zoom()} why ${JSON.stringify(why)} ui ${JSON.stringify(ui)} events ${JSON.stringify((await eventsOf(first.id)).filter((x) => x.name === "zoom").slice(-2))}`);
@@ -2084,11 +1877,9 @@ try {
   });
 
   await check("print-preview", async () => {
-    // Print (WebViewHandle.print): Chrome's print preview for the page; closed again.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await evalApp(`return ac.webviews.get("${first.id}").print()`);
     const preview = await until("the print preview", async () => (await targets()).find((t) => t.url.startsWith("chrome://print")), 15000);
-    // Chrome closes a print preview when its page navigates.
     await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/a?after-print", { userInitiated: true }); return true`);
     await until("the preview closed", async () => !(await targets()).some((t) => t.url.startsWith("chrome://print")), 10000);
     await backToA();
@@ -2096,9 +1887,6 @@ try {
   });
 
   await check("extension-prompts", async () => {
-    // An extension asking for an optional permission: Chrome's install prompt goes to the app's dialog
-    // (onInstallPrompt), and the app's answer grants it (resolveInstallPrompt). Its action opening its side panel
-    // (chrome.sidePanel.open from the action's click): the app shows the panel (onSidePanel).
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
     try {
@@ -2108,7 +1896,6 @@ try {
         return ac.extensions.activateExtension(${JSON.stringify(mainWindow)}, ext, { x: 100, y: 40, width: 20, height: 20 }).then(() => true)`);
       await activate();
       const popup = await until("the popup page", async () => (await targets()).find((t) => t.type === "page" && t.url.includes(`${installed.id}/popup.html`)), 10000);
-      // Not granted yet (an earlier install of the same extension may have it): Chrome asks again.
       await cdp(popup, "Runtime.evaluate", { expression: "chrome.permissions.remove({ permissions: ['bookmarks'] }).then(() => true)", awaitPromise: true });
       await cdp(popup, "Runtime.evaluate", { expression: "window.__perm = 'pending'; chrome.permissions.request({ permissions: ['bookmarks'] }).then((g) => (window.__perm = String(g)), (e) => (window.__perm = String(e))); true", userGesture: true });
       const request = await until("the app's install dialog", async () => evalApp(`return ac.extensions.useExtensions.getState().install ?? null`), 10000);
@@ -2120,7 +1907,6 @@ try {
       }, 10000);
       if (granted !== "true") throw new Error(`permissions.request answered ${granted}`);
       await evalApp(`ac.extensions.closeExtensionPopup(); return true`);
-      // The action's click opens the side panel instead of a popup.
       const worker = await until("the extension's worker", async () => {
         for (const t of (await targets()).filter((t) => t.type === "service_worker" && t.url.includes(installed.id))) {
           const r = await cdp(t, "Runtime.evaluate", { expression: "typeof chrome?.sidePanel?.open", returnByValue: true }).catch(() => null);
@@ -2141,13 +1927,9 @@ try {
   });
 
   await check("crash", async () => {
-    // A renderer crash reaches the app (onCrashed → the sad tab), and the app keeps running.
     await evalApp(`ac.actions.openUrls(["${base}/crash-me"], ${JSON.stringify(mainWindow)}); return true`);
-    // Its page committed and loaded (its title), not only the tab's URL: on a fresh instance the first navigation is
-    // slow, and Page.crash then took the initial empty document's renderer, which the navigation replaced.
     const tab = await until("the tab to crash", async () => (await state()).tabs.find((x) => x.url?.includes("crash-me") && x.title === "/crash-me" && x.loading === false));
     const t = await pageTarget("crash-me");
-    // Page.crash never answers (the page is gone): not waited for.
     cdp(t, "Page.crash").catch(() => null);
     const crashed = await until("onCrashed", async () => evalApp(`return ac.pageState.getState().pages["${tab.id}"]?.crashed ?? null`), 10000);
     return { crashed };
@@ -2174,7 +1956,6 @@ try {
 
 
   await check("passwords", async () => {
-    // Chrome's password store through //chrome/browser/ardia (ac_passwords_*).
     const origin = "https://example.test";
     const saved = await cef(`savePassword("", "${origin}", "nnuser", "s3cret")`);
     if (saved?.error) throw new Error(saved.error);
@@ -2231,9 +2012,6 @@ try {
   });
 
   await check("extension-configure", async () => {
-    // What the app's Extensions settings pass to configure (pinned, incognito, siteAccess; fileAccess as CEF's API
-    // takes it) lands in Chrome: list reads each back, onChanged says "configured", and site access "on click"
-    // stops the extension's content script on a fresh page until "on all sites" lets it run again.
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
     const id = installed.id;
@@ -2242,7 +2020,6 @@ try {
       const r = await exts(`configure("${id}", "", ${JSON.stringify(options)})`);
       if (r?.error) throw new Error(`configure ${JSON.stringify(options)}: ${r.error}`);
     };
-    // The content script's mark on a freshly loaded page (it runs at document_idle), or null after a grace period.
     const scriptRan = async (tag) => {
       const tab = await openTab(`${base}/e?cfg-${tag}`, "Page E");
       try {
@@ -2288,7 +2065,6 @@ try {
         const mine = list.filter((x) => x.event === "configured" && x.id === id);
         return mine.length >= 5 ? mine : null;
       }, 10000).catch(async (e) => { throw new Error(`${e.message}; got ${JSON.stringify(await evalApp(`return globalThis.__acCfg`)).slice(0, 300)}`); });
-      // Back as it was (pinning and incognito are profile prefs that would outlive an uninstall-free run).
       await configure({ pinned: before.pinned, incognito: before.incognito, fileAccess: before.fileAccess });
       return {
         set,
@@ -2304,10 +2080,8 @@ try {
   });
 
   await check("chrome-windows-create", async () => {
-    // A window an extension makes (chrome.windows.create): its tab lands in the app's window, live (tab:<id>).
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
-    // The installed copy's worker (an earlier install's target can linger, without the chrome API).
     const worker = await until("the extension's worker", async () => {
       for (const t of (await targets()).filter((t) => t.type === "service_worker" && t.url.includes(installed.id))) {
         const r = await cdp(t, "Runtime.evaluate", { expression: "typeof chrome?.windows?.create", returnByValue: true }).catch(() => null);
@@ -2330,8 +2104,6 @@ try {
   });
 
   await check("private-windows-create", async () => {
-    // A private window an extension makes (chrome.windows.create({incognito: true}), allowed in private windows): its
-    // tab lands in a private window of the app, live, never in a normal window. With one open, it goes there.
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
     await exts(`configure("${installed.id}", "", { incognito: true })`);
@@ -2356,7 +2128,6 @@ try {
         opened.push(tab.windowId);
         return { tab, created: made.result?.value };
       };
-      // Personal's cookie, which a private page must not see.
       await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/cookie?personal", { userInitiated: true }); return true`);
       await until("Personal's cookie", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Cookie" && !t.loading));
       const lone = await create("private-ext1");
@@ -2373,7 +2144,6 @@ try {
     }
   });
 
-  // The popup fixture installed for one check, and gone after it.
   const withPopupExtension = async (options, fn) => {
     writePopupExtension(options);
     const installed = await exts(`install(${JSON.stringify(extPopupPath)}, "")`);
@@ -2386,14 +2156,9 @@ try {
       await exts(`uninstall("${installed.id}", "")`).catch(() => null);
     }
   };
-  // The Chrome window id of the run's window for Personal (tabStrips' strip).
   const mainStrip = async () => (await cef(`tabStrips()`)).strips.find((st) => st.appWindow === mainWindow && st.profile === "");
 
   await check("extension-popup-window", async () => {
-    // B9: an action's popup is Chrome's own extension view, bound to the window it was clicked in, as Chrome's popup:
-    // its current window is that window and its active tab the page under it (not a hidden window and the popup
-    // itself, which made Dark Reader call every page "protected by browser"). It is in no tab strip and makes no
-    // window. Esc in it closes it (Chrome's close reaches the app), as in Chrome.
     return withPopupExtension({}, async (id) => {
       const tab = await freshTab(`${base}/b?under-popup`);
       try {
@@ -2416,7 +2181,6 @@ try {
         if (strips.strips.some((st) => st.tabs.some((x) => x.key == null))) throw new Error("the popup is a tab in a strip");
         const windowsWith = (await cef(`chromeWindows()`)).length;
         if (windowsWith !== windowsBefore) throw new Error(`windows ${windowsBefore} → ${windowsWith} with the popup open`);
-        // The popup may go before DevTools acknowledges the key.
         for (const type of ["rawKeyDown", "keyUp"])
           await cdp(popup, "Input.dispatchKeyEvent", { type, key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 53 }).catch(() => null);
         await until("Esc closing the popup", async () => (await evalApp(`return ac.extensions.useExtensions.getState().popup === null`)) ? true : null, 8000);
@@ -2429,10 +2193,6 @@ try {
   });
 
   await check("extension-windows-hidden", async () => {
-    // B10/B11: Chrome never picks one of the host's hidden windows (the content blocker's page, a standalone view's) for
-    // an extension: chrome.windows lists only the app's windows; the tab an extension opens when installed (as Dark
-    // Reader opens its help page) and its options page (chrome.runtime.openOptionsPage shows Chrome's last tabbed window,
-    // as the "added" bubble does) land in the app's window; no window the app didn't show comes on screen.
     const appWindows = async () => (await cef(`chromeWindows()`)).map((w) => w.window);
     const before = new Set([...onScreenWindows(), ...(await appWindows())]);
     return withPopupExtension({ welcome: true }, async (id) => {
@@ -2474,8 +2234,6 @@ try {
   });
 
   await check("content-blocked-count", async () => {
-    // B8: the blocked count counts what extensions' rules stopped, as Chrome's action count does: a blocked image and a
-    // script sent to the extension's stand-in (uBlock Origin Lite answers most ad scripts so), each once.
     return withPopupExtension({}, async () => {
       const tab = await freshTab(`${base}/ac-ads`);
       try {
@@ -2497,9 +2255,6 @@ try {
   });
 
   await check("extension-download-hidden", async () => {
-    // B12: a Web Store install's .crx (Chrome downloads it, installs it and deletes it) is never one of the user's
-    // downloads, and doesn't open the downloads popover. The run's Web Store update URL serves one; it has no Web Store
-    // proof, so Chrome stops at checking the package, after the download.
     const listed = () => evalApp(`return ac.store.getState().downloads.map((d) => d.url ?? "")`);
     const open = () => evalApp(`return !!ac.store.getState().windowUi[${JSON.stringify(mainWindow)}]?.downloadsOpen`);
     const wasOpen = await open();
@@ -2508,7 +2263,6 @@ try {
       const target = await until("the page", () => pageTarget("/b?crx"));
       const url = `${base}/webstore/crx?ac=${Date.now()}`;
       await cdp(target, "Runtime.evaluate", { expression: `(() => { const a = document.createElement("a"); a.href = "${url}"; document.body.append(a); a.click(); return true; })()`, userGesture: true });
-      // Chrome made it a download (the page stays: onDownloadNavigation).
       await until("the .crx becoming a download", async () => (await eventsOf(tab)).some((x) => x.name === "downloadNavigation" && JSON.stringify(x.payload).includes("/webstore/crx")), 10000);
       const seen = [];
       for (let i = 0; i < 10; i++) {
@@ -2524,11 +2278,6 @@ try {
   });
 
   await check("extension-installed-bubble", async () => {
-    // The "<name> has been added" bubble after an install with Chrome's UI (a .crx, as one dropped on
-    // chrome://extensions): over the window the app shows for the profile; with none on screen (its windows closed
-    // mid-install), held until one shows a page, never put in a hidden window. Chrome's own path added a tab to a
-    // Browser without one (the app's New Tab page is its own) and then read that Browser's active tab after the app
-    // had closed it: a crash. The bubble closes with its window.
     const crxPath = join(scratch, "fixture.crx");
     writeFileSync(crxPath, fixtureCrx());
     const profile = await evalApp(`return ac.store.getState().createProfile({ name: "Installs" })`);
@@ -2563,7 +2312,6 @@ try {
     };
     let id = null;
     try {
-      // A window of the profile on screen: the bubble shows over it; the window closes with the bubble up.
       const first = await profileWindow("/b?installs-1");
       id = await install();
       const shown = await until("the bubble", () => bubbleIn(), 8000);
@@ -2571,7 +2319,6 @@ try {
       await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(first.id)}); return true`);
       await sleep(1500);
       await exts(`uninstall("${id}", ${JSON.stringify(profile)})`);
-      // Its windows closed mid-install: nothing shows, nothing crashes, until a window of the profile shows a page.
       const before = new Set([...onScreenWindows(), ...(await cef(`chromeWindows()`)).map((w) => w.window)]);
       const second = await profileWindow("/c?installs-2");
       id = await install(async () => {
@@ -2596,8 +2343,6 @@ try {
   });
 
   await check("context-menu-reading-mode", async () => {
-    // B7: Chrome's page menu has no "Open in Reading Mode" (or "Listen to this page"): both open Chrome's side panel,
-    // which the app's windows don't have, so picking one did nothing. CEF's menu had neither. No separator is doubled.
     const tab = await freshTab(`${base}/text`);
     try {
       const target = await until("the page", () => pageTarget("/text"));
@@ -2629,7 +2374,6 @@ try {
   // MARK: Content blocker
 
   await check("content-blocker", async () => {
-    // The built-in uBlock Origin Lite, loaded as a component extension and driven through its runtime messages.
     const state = await until("the blocker's state", async () => {
       const s = await cef(`getContentBlocker()`);
       return s?.stats?.ready ? s : null;
@@ -2641,8 +2385,6 @@ try {
   });
 
   await check("content-blocker-fails-closed", async () => {
-    // A change whose read fails (uBOL's service worker waking up, its page reloading) changes nothing and reports the
-    // error: devContentBlockerFailNextMessage fails the next call's first message, here the read of the enabled lists.
     const enabled = async () => (await cef(`getContentBlocker()`)).lists.filter((l) => l.enabled).map((l) => l.id).sort();
     const before = await enabled();
     const off = (await cef(`getContentBlocker()`)).lists.find((l) => !l.enabled);
@@ -2654,12 +2396,8 @@ try {
     return { error, enabled: after.length };
   });
 
-  // Requests for ads tagged `tag` (the /adfirst page's) that reached the ad hosts (not the page itself).
   const adsServedFor = (tag) => adServed.filter((s) => !s.startsWith("adpage.test") && s.endsWith(`?${tag}`));
 
-  // The content blocker's rounds on an ad page in a new tab of `profileId` (the window's own when undefined): its first
-  // page (the profile's very first, in a profile made now) asks for ads as it loads, and none goes out; then blocked,
-  // allowed for the site (and reloaded, as the app does), blocked again.
   const contentBlockerRounds = async (profileId) => {
     await until("the blocker's state", async () => ((await cef(`getContentBlocker()`))?.stats?.ready ? true : null), 30000);
     const origin = `http://adpage.test:${server.address().port}`;
@@ -2667,14 +2405,11 @@ try {
     const tag0 = profileId ? profileId : "personal";
     const firstTag = `first-${tag0}-${Date.now()}`;
     const firstPage = `${origin}/adfirst?${firstTag}`;
-    // Another profile's page in a window of its own: closing its only tab in the main window would close that window.
     const ownWindow = profileId ? await evalApp(`return ac.actions.openWindow({ profileId: ${JSON.stringify(profileId)}, url: "${firstPage}" })`) : null;
     const tab = ownWindow
       ? await until("the profile's tab", () => evalApp(`return ac.store.getState().windows[${JSON.stringify(ownWindow)}]?.tabIds[0] ?? null`))
       : await evalApp(`return ac.store.getState().newTab(${JSON.stringify(mainWindow)}, { url: "${firstPage}" })`);
     try {
-      // Chrome reads an extension's rulesets from disk after loading it, and a profile loaded just now must not show a
-      // page before they're in force (ArdiaCore holds its navigations): none of the first page's ads goes out.
       await until("the first page", () => evalApp(`const s = ac.store.getState(); const t = s.tabs[${JSON.stringify(tab)}];
         return t?.title === "Ad first" && !s.live[${JSON.stringify(tab)}]?.isLoading ? true : null`), 20000);
       await sleep(500);
@@ -2691,9 +2426,6 @@ try {
           const r = (await cdp(t, "Runtime.evaluate", { expression: `fetch("${url}", { mode: "no-cors" }).then(() => "loaded", () => "failed")`, awaitPromise: true, returnByValue: true })).result.value;
           return { fetch: r, reached: adServed.slice(before).some((s) => url.includes(s.split("?")[0])) };
         };
-        // The release smoke test's ad script as a <script>: uBOL answers it with its stand-in (an adsbygoogle that does
-        // nothing), so it "loads" without the request leaving the browser. CEF failed the stand-in's load instead
-        // (ERR_BLOCKED_BY_CLIENT on the extension's web_accessible_resources), which the smoke test took as "blocked".
         const script = async () => {
           const before = adServed.length;
           const url = `http://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?${tag}`;
@@ -2720,24 +2452,16 @@ try {
   };
 
   await check("content-blocker-blocks", async () => {
-    // A page's ad requests never reach the ad server: a block rule fails them, and uBOL sends some (gpt.js) to its
-    // stand-in script instead, so check the server, not the fetch. Allowing the site lets them through; turning it back
-    // off blocks them again. The hosts are mapped to the fixture server.
     return contentBlockerRounds(undefined);
   });
 
   await check("content-blocker-profile", async () => {
-    // The same in a profile made now (the release smoke test's page is in its Work profile): uBOL loads into every
-    // profile, and its rulesets must block there from its very first page, and follow Personal's allow-list.
     const id = await evalApp(`return ac.store.getState().createProfile({ name: "Blocker" })`);
     if (!id) throw new Error("no profile made");
     return { profile: id, ...(await contentBlockerRounds(id)) };
   });
 
   await check("content-blocker-held", async () => {
-    // The hold itself, made certain: the next profile's blocker loads 1.5 s late (devContentBlockerDelayNextLoad), so
-    // its first page asks to load long before the rules are in force. ArdiaCore holds it until they are (an explicit
-    // signal from Chrome's ruleset load, not a timer): it loads after the delay, and none of its ads goes out.
     const delay = 1500;
     await cef(`devContentBlockerDelayNextLoad(${delay})`);
     const id = await evalApp(`return ac.store.getState().createProfile({ name: "Held" })`);
@@ -2759,8 +2483,6 @@ try {
   });
 
   await check("content-blocker-private", async () => {
-    // A private window's first page, and the first page of the next one after the first's profile went (released with
-    // its last window): uBOL, a component extension, runs in private windows on its profile's rules.
     const origin = `http://adpage.test:${server.address().port}`;
     const out = [];
     for (const step of ["first", "after-release"]) {
@@ -2776,7 +2498,7 @@ try {
       } finally {
         await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(w)}); return true`);
       }
-      await sleep(2000);  // its profile goes (private-release)
+      await sleep(2000);
     }
     return { blocked: out };
   });
@@ -2784,10 +2506,6 @@ try {
   // MARK: Data, downloads and crashes
 
   await check("internal-pages-not-history", async () => {
-    // The host's own pages never reach a profile's history or the omnibox: the content blocker's hidden page
-    // (chrome-extension://<uBOL>/manifest.json, opened in every profile it loads into), extension popups and side
-    // panels. A page the user visits does, an extension's page opened as a tab too (an options page: Chrome records
-    // chrome-extension: URLs, CanAddURLToHistory, as extension-windows-hidden opens one).
     const userOpened = (u) => /^chrome-extension:\/\/[a-p]{32}\/options\.html/.test(u);
     const profiles = ["", ...(await evalApp(`return ac.store.getState().profileOrder.filter((p) => p !== "default")`))];
     await sleep(1500);
@@ -2806,8 +2524,6 @@ try {
   });
 
   await check("crash-reload", async () => {
-    // A crashed tab's Reload brings the page back and drops the sad tab (pageState.crashed), as CEF: its first
-    // report after the crash names no URL, so the app takes the reload for a new page.
     const tab = await evalApp(`return ac.store.getState().newTab(${JSON.stringify(mainWindow)}, { url: "${base}/crash-reload" })`);
     try {
       await until("the page", async () => (await state()).tabs.find((t) => t.id === tab && t.title === "/crash-reload" && !t.loading));
@@ -2830,8 +2546,6 @@ try {
   });
 
   await check("crash-debug-url", async () => {
-    // chrome://crash crashes the page without committing: the tab keeps its URL (a reload or the restored session
-    // doesn't crash it again), as CEF.
     const tab = await evalApp(`return ac.store.getState().newTab(${JSON.stringify(mainWindow)}, { url: "${base}/crash-url" })`);
     try {
       await until("the page", async () => (await state()).tabs.find((t) => t.id === tab && t.title === "/crash-url" && !t.loading));
@@ -2854,8 +2568,6 @@ try {
   });
 
   await check("popup-window", async () => {
-    // A sized window.open (OAuth, payments) gets a window of its own, as CEF's ACPopupWindow: not a tab, its page the
-    // size asked for, window.opener kept both ways; window.close() in it closes the window.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     const opener = await pageFor(first.id, `${base}/a`);
     const popups = async () => (await cef(`engineInfo()`)).popupWindows;
@@ -2876,7 +2588,6 @@ try {
   });
 
   await check("download", async () => {
-    // Chrome's download manager through //chrome/browser/ardia (ac_downloads_*): the app's list fills in.
     await evalApp(`ac.actions.openUrls(["${base}/file.bin"], ${JSON.stringify(mainWindow)}); return true`);
     const d = await until("the finished download", async () => {
       const list = await evalApp(`return ac.store.getState().downloads.map((d) => ({ id: d.id, state: d.state, filename: d.filename, path: d.path, received: d.received }))`);
@@ -2901,7 +2612,6 @@ try {
   });
 
   await check("passwords-more", async () => {
-    // The rest of Settings › Passwords: edit, the never-save list, unlock (ARDIA_TEST_REAUTH), export to a file.
     const origin = "https://more.test";
     await cef(`savePassword("", "${origin}", "olduser", "pw1")`);
     const updated = await cef(`updatePassword("", "${origin}", "olduser", "newuser", "pw2")`);
@@ -2914,7 +2624,6 @@ try {
     const never = await cef(`getNeverSavePasswordOrigins("")`);
     const allowed = await cef(`allowSavingPasswords("", "https://never.test")`);
     const file = join(scratch, "passwords.csv");
-    // The save panel a background instance doesn't show answers from file-chooser.txt.
     writeFileSync(join(data, "file-chooser.txt"), file + "\n");
     const exported = await cef(`exportPasswords("")`);
     const written = await until("the export file", async () => existsSync(file) && readFileSync(file, "utf8").includes("newuser"), 10000);
@@ -2923,7 +2632,6 @@ try {
   });
 
   await check("autofill-cards", async () => {
-    // Cards in Chrome's personal data manager: save (with a published test number), list, reveal, delete; settings.
     const saved = await cef(`saveCard("", { name: "Acceptance Test", expMonth: 12, expYear: 2031 }, "4111111111111111")`);
     if (saved?.error) throw new Error(`save: ${saved.error}`);
     const card = await until("the card listed", async () => {
@@ -2942,13 +2650,6 @@ try {
   });
 
   await check("autofill-save-prompts", async () => {
-    // Chrome's offers after a form is sent, as a person sends it (typed values, a click): save an address, update it,
-    // save a card. Chrome's controllers (AddressBubblesController, SaveCardBubbleControllerImpl) ask ArdiaCore's bubble
-    // handler, the app shows the offer on the page (onAutofillPrompt) and answers it (resolveAutofillPrompt); Chrome's
-    // personal data manager then has what was accepted, and nothing that was declined. Switching tabs closes a pending
-    // offer, as Chrome's tab switch does; switching profiles keeps it for when the page is back. A made-up address and
-    // the networks' published test card numbers.
-    // The tab's event log keeps its last 80 events: offers are told apart by their ids, which only grow.
     const prompts = async () => (await eventsOf(first.id)).filter((x) => x.name === "autofillPrompt");
     const lastId = async () => Math.max(0, ...(await prompts()).map((x) => x.payload.id));
     const offerAfter = (id, what) =>
@@ -2981,7 +2682,6 @@ try {
       await until("A shown", async () => (await state()).active === first.id);
       const saveSeen = await lastId();
 
-      // A new address: "Save address?" on the page, saved on accept.
       await sendForm("/address", "Address", address);
       const save = await offerAfter(saveSeen, "the save-address offer");
       if (save.kind !== "saveAddress" || !save.title || !save.accept || !save.decline || !JSON.stringify(save.lines).includes("Springfield"))
@@ -2991,8 +2691,6 @@ try {
       const saved = await until("the address saved", async () => (await addresses()).find((a) => a.city === "Springfield") ?? null);
       await until("the offer gone from the page", async () => ((await appPrompt()) === null ? true : null), 5000);
 
-      // The same address with an email: "Update address?", pending while another tab is shown: Chrome's tab switch
-      // closes it (the app's offer goes) and it doesn't come back; the address is untouched.
       const email = "big.mascot@example.com";
       let seen = await lastId();
       await sendForm("/address?email", "Address", [...address.slice(0, 1), ["email", email], ...address.slice(1)]);
@@ -3007,8 +2705,6 @@ try {
       if (await appPrompt()) throw new Error(`the offer came back after the tab switch: ${JSON.stringify(await appPrompt())}`);
       if ((await addresses()).some((a) => a.email === email)) throw new Error("the ignored update was saved");
 
-      // Again, pending through a profile switch: still offered when the profile is back, and accepting it updates
-      // this profile's address only.
       seen = await lastId();
       await sendForm("/address?email", "Address", [...address.slice(0, 1), ["email", email], ...address.slice(1)]);
       const update2 = await offerAfter(seen, "the update offer again");
@@ -3029,7 +2725,6 @@ try {
       if ((await addresses()).length !== 1) throw new Error(`addresses ${JSON.stringify(await addresses())}`);
       if ((await addresses(profileB)).length) throw new Error("profile B got the address");
 
-      // A card: "Save card?", saved on accept; a second one declined ("No thanks") saves nothing.
       seen = await lastId();
       await sendForm("/card", "Card", card("4111111111111111", "The mascot"));
       const cardOffer = await offerAfter(seen, "the save-card offer");
@@ -3043,7 +2738,6 @@ try {
       await until("the declined offer closed", () => closed(declined.id), 5000);
       await sleep(1000);
       if ((await cards()).some((c) => c.last4 === "4444")) throw new Error("the declined card was saved");
-      // A stale answer (an offer already answered) changes nothing.
       await answer(cardOffer.id, "accept");
       return {
         save: { title: save.title, accept: save.accept, decline: save.decline, lines: save.lines, shown },
@@ -3062,7 +2756,6 @@ try {
   });
 
   await check("settings-services", async () => {
-    // Clearing browsing data, resetting a site, the blocker's switches and an external-app allowance, as Settings does.
     await evalApp(`return globalThis.expo.modules.ArdiaCEF.clearBrowsingData("", ["cache", "history"], null)`, 90000);
     await cef(`setSiteSetting("", "https://reset.test", "sound", "block")`);
     await cef(`resetSiteSettings("", "https://reset.test")`);
@@ -3087,7 +2780,6 @@ try {
   });
 
   await check("download-controls", async () => {
-    // A running download paused, resumed and cancelled from the app (ac_downloads_pause/_resume/_cancel).
     await evalApp(`ac.actions.openUrls(["${base}/slow.bin"], ${JSON.stringify(mainWindow)}); return true`);
     const find = () => evalApp(`return ac.store.getState().downloads.map((d) => ({ id: d.id, state: d.state, paused: d.paused, filename: d.filename, received: d.received }))`)
       .then((l) => l.find((x) => x.filename?.includes("ardiacore-slow")) ?? null);
@@ -3101,7 +2793,6 @@ try {
       const last = await until("cancelled", async () => { const x = await find(); return x?.state === "cancelled" ? x : null; }, 8000);
       return { id: d.id, state: last.state };
     } finally {
-      // The new download opened the popover over the page; it stayed open for the rest of the run.
       await closeDownloads();
     }
   });
@@ -3117,7 +2808,6 @@ try {
   });
 
   await check("download-navigation", async () => {
-    // A page navigating to a download stays where it was, and the app hears of it (onDownloadNavigation).
     await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/file.bin?nav", { userInitiated: true }); return true`);
     const e = await until("onDownloadNavigation", async () => (await eventsOf(first.id)).find((x) => x.name === "downloadNavigation"), 15000);
     return e.payload;
@@ -3133,19 +2823,15 @@ try {
   });
 
   await check("delete-profile-data", async () => {
-    // A loaded profile's data goes through Chrome's profile deletion (one never loaded is its folder alone).
     const folder = join(data, "Chromium", "Profile scratch-delete");
     await cef(`listPasswords("scratch-delete")`);
     await until("the profile loaded", async () => existsSync(folder), 10000);
     const result = await cef(`deleteProfileData("scratch-delete")`);
     if (result.remaining.length) throw new Error(`remaining ${JSON.stringify(result)}`);
-    // Chrome removes the folder once the profile is destroyed (its Browsers closed, its services gone).
     const gone = await until("the folder gone", async () => !existsSync(folder), 15000).catch(() => false);
     if (!gone) throw new Error("the profile's folder is still there");
-    // And it stays gone: nothing working for the profile (the content blocker's messages) loads it back.
     await sleep(3000);
     if (existsSync(folder)) throw new Error("the profile's folder came back");
-    // The app window still shows its own profile (Chrome's deletion moves "last used", not the window).
     const shown = (await cef(`chromeWindows()`)).filter((w) => w.visible || w.alpha >= 0).map((w) => w.profile);
     return { ...result, folderGone: true, windowProfiles: shown };
   });
@@ -3153,14 +2839,12 @@ try {
   // MARK: Page events
 
   await check("page-events", async () => {
-    // Zoom steps, the security report, an app link with no app on this Mac, and an Esc the page leaves alone.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A's WebView", async () => evalApp(`return !!ac.webviews.get("${first.id}")`), 8000);
     await evalApp(`return ac.webviews.get("${first.id}").zoomStep(1)`);
     const zoom = await until("onZoom", async () => (await eventsOf(first.id)).filter((x) => x.name === "zoom").pop(), 8000);
     await evalApp(`return ac.webviews.get("${first.id}").zoomStep(0)`);
     const security = await evalApp(`return ac.webviews.get("${first.id}").getSecurityInfo()`);
-    // Esc first: the external-app prompt below is the app's own sheet, which takes Esc itself.
     const s = await state();
     await evalApp(`return ac.webviews.get("${first.id}").focus()`);
     await sleep(300);
@@ -3180,7 +2864,6 @@ try {
     const securityEvent = (await eventsOf(first.id)).some((x) => x.name === "security");
     if (!securityEvent) throw new Error("no onSecurity");
     const focused = (await eventsOf(first.id)).some((x) => x.name === "focus");
-    // A background tab's window.focus() asks the app to bring it forward (onActivateRequest "page").
     const other = (await state()).tabs.find((x) => x.id !== first.id && x.url?.startsWith(`${base}/d`));
     let activate = null;
     if (other) {
@@ -3194,11 +2877,6 @@ try {
   });
 
   await check("page-background", async () => {
-    // A page that paints no background gets Chrome's canvas, as in Chrome and Dia: white, or Chrome's dark canvas when
-    // its color-scheme is dark. The tab's base background was transparent (53ed19ca to 0.2.30), which showed the app's
-    // card through such pages: dark text on the dark card (workspace.google.com). The same after a reload (a new
-    // document) and after an opaque page (a new document's view once kept the last page's gray); a page that paints
-    // its own background covers it.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     const pixel = async (t) => {
@@ -3231,18 +2909,12 @@ try {
     const result = { plainPage: plain, reloaded, paintedPage: painted, darkSchemePage: darkScheme, afterPainted: after };
     if (!near(plain, white) || !near(reloaded, white) || !near(after, white))
       throw new Error(`a page with no background isn't on Chrome's white canvas: ${JSON.stringify(result)}`);
-    // Neutral grays: the screenshot is in the display's color space, where sRGB grays keep their values.
     if (!near(darkScheme, [18, 18, 18, 255])) throw new Error(`the color-scheme: dark page isn't on Chrome's dark canvas: ${JSON.stringify(result)}`);
     if (!near(painted, [60, 60, 60, 255])) throw new Error(`the painted page shows ${JSON.stringify(painted)}`);
     return result;
   });
 
   await check("external-app-answer", async () => {
-    // A link to an app this Mac has (shortcuts:, Shortcuts.app, looked up, never launched): the app's prompt
-    // (onExternalApp) offers "always allow" for this trustworthy origin; the app's Cancel with the box ticked
-    // (resolveExternalApp(id, false, true)) launches nothing and Chrome records no allowance, so the next link asks
-    // again. Open with the box ticked (open: true, remember: true) launches it (recorded instead under the run's
-    // --ardia-test-external-protocol-no-launch) and Chrome records the allowance.
     const running = () => { try { return execFileSync("pgrep", ["-x", "Shortcuts"]).toString().trim().length > 0; } catch { return false; } };
     const wasRunning = running();
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
@@ -3250,8 +2922,6 @@ try {
     const ask = async (n) => {
       await evalApp(`ac.pageState.setState((s) => ({ pages: { ...s.pages, "${first.id}": { ...s.pages["${first.id}"], externalApp: null } } })); return true`);
       const t = await pageFor(first.id, `${base}/a`);
-      // A click first: Chrome takes one external link per user interaction (its anti-flood guard); a DevTools
-      // userGesture isn't one.
       for (const type of ["mousePressed", "mouseReleased"])
         await cdp(t, "Input.dispatchMouseEvent", { type, x: 600, y: 400, button: "left", clickCount: 1 });
       await cdp(t, "Runtime.evaluate", { expression: `location.href = 'shortcuts://ardiacore-acceptance-${n}'`, userGesture: true });
@@ -3290,7 +2960,6 @@ try {
   });
 
   await check("notifications", async () => {
-    // A page's Notification goes to the app (onNotification), and the app's click reaches the page.
     await cef(`setSiteSetting("", "${base}", "notifications", "allow")`);
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     const t = await pageFor(first.id, `${base}/a`);
@@ -3311,8 +2980,6 @@ try {
   });
 
   await check("now-playing", async () => {
-    // A playing <audio> with Media Session metadata: onNowPlaying, onMedia, and the app's pause (mediaCommand).
-    // The tab is muted first: nothing is heard.
     await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/media", { userInitiated: true }); return true`);
     await until("the media page", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Media" && !t.loading), 10000);
     await evalApp(`return ac.webviews.get("${first.id}").setMuted(true)`);
@@ -3342,8 +3009,6 @@ try {
   // MARK: Media, Picture in Picture, page focus
 
   await check("media-state", async () => {
-    // onMedia as packages/cef reports it: `playing` from the page script (a playing element the page hasn't muted),
-    // `muted` from Chrome's mute; the app's live.playingAudio follows. The tab is muted: nothing is heard.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/media", { userInitiated: true }); return true`);
     await until("the media page", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Media" && !t.loading), 10000);
@@ -3378,9 +3043,6 @@ try {
   });
 
   await check("picture-in-picture", async () => {
-    // The app's requestPictureInPicture / exitPictureInPicture on a playing video → onPictureInPicture (video), then a
-    // page's own documentPictureInPicture.requestWindow → onPictureInPicture (document). Chrome's window is styled as
-    // on CEF (rounded, kept on top), and in a hidden run it is transparent and lets clicks through.
     const tab = await openTab(`${base}/video`, "Video");
     try {
       await evalApp(`return ac.webviews.get("${tab.id}").setMuted(true)`);
@@ -3389,7 +3051,6 @@ try {
       if (requested !== true) throw new Error(`requestPictureInPicture answered ${requested}`);
       const on = await until("onPictureInPicture video", async () => lastEvent(tab.id, "pictureInPicture", (p) => p.kind === "video" && p.active), 5000);
       const element = (await cdp(t, "Runtime.evaluate", { expression: "document.pictureInPictureElement?.id ?? null", returnByValue: true })).result.value;
-      // Chrome's window, styled as packages/cef styles it (ArdiaCorePictureInPicture), invisible and click-through here.
       const video = await until("Chrome's PiP window, styled", async () => (await pipWindows())?.find((w) => w.video && w.styled) ?? null, 5000)
         .catch(async (e) => { throw new Error(`${e.message}: ${JSON.stringify(await pipWindows())}`); });
       if (!video.rounded || !video.keepOnTop || video.rim !== 1 || video.level < 3 || video.host !== "127.0.0.1" || !video.backToTab)
@@ -3403,7 +3064,6 @@ try {
         const e = await lastEvent(tab.id, "pictureInPicture");
         return e && e.payload.kind === "video" && !e.payload.active ? e : null;
       }, 5000);
-      // Document Picture in Picture, opened by the page.
       const doc = await cdp(t, "Runtime.evaluate", {
         expression: "documentPictureInPicture.requestWindow({ width: 320, height: 180 }).then(() => 'ok', (e) => e.name)",
         awaitPromise: true, userGesture: true, returnByValue: true,
@@ -3412,7 +3072,6 @@ try {
         .catch((e) => { throw new Error(`${e.message}; requestWindow: ${JSON.stringify(doc.result)}`); });
       const docWindow = await until("the document PiP window", async () => (await pipWindows())?.find((w) => w.document) ?? null, 5000)
         .catch(async (e) => { throw new Error(`${e.message}: ${JSON.stringify(await pipWindows())}`); });
-      // Past Chrome's 500 ms fade-in, which would show it again.
       await sleep(800);
       const docShown = (await pipWindows())?.find((w) => w.window === docWindow.window) ?? docWindow;
       if (docShown.alpha !== 0 || !docShown.ignoresMouseEvents) throw new Error(`a hidden run's document PiP window shows: ${JSON.stringify(docShown)}`);
@@ -3429,9 +3088,6 @@ try {
   });
 
   await check("auto-picture-in-picture", async () => {
-    // autoPictureInPicture (Arc's, the app's default): a tab playing a video with sound pops it out when the app
-    // shows another tab, and takes it back when shown again; a page handling Media Session's "enterpictureinpicture"
-    // opens its own document Picture in Picture instead (as on CEF). The tab is muted: nothing is heard.
     const results = {};
     for (const [path, kind] of [["/video?auto", "video"], ["/video?docpip", "document"]]) {
       const tab = await openTab(`${base}${path}`, "Video");
@@ -3458,10 +3114,6 @@ try {
   });
 
   await check("pip-window", async () => {
-    // Chrome's PiP window as packages/cef handles it (its self-test, ArdiaCorePictureInPicture): rounded, stashed past
-    // either screen edge with a peek and its handle, Chrome remembering the place, Keep Window on Top, Back to Tab
-    // (onActivateRequest "pictureInPicture"); then Chrome's own close button (X), which leaves the video playing
-    // (the release smoke test's ARDIA_PIP_SELFTEST=close).
     const tab = await openTab(`${base}/video?window`, "Video");
     const selftest = join(data, "pip-selftest.json"), button = join(data, "pip-button-selftest.json");
     rmSync(selftest, { force: true });
@@ -3481,10 +3133,6 @@ try {
       const activate = await lastEvent(tab.id, "activateRequest", (p) => p.reason === "pictureInPicture");
       if (!activate) throw new Error("Back to Tab sent no onActivateRequest");
       await until("PiP closed by Back to Tab", async () => lastEvent(tab.id, "pictureInPicture", (p) => !p.active), 5000);
-      // Chrome's own buttons, clicked with the user in another app (the app-active seam). The window carries
-      // WindowServer's prevents-activation tag, so a click on it never activates the app (which then made the browser
-      // window key and brought it over the user's app as the window closed): the close button activates nothing and
-      // keys or raises no window of ours; Back to Tab activates the app (once) and shows the tab.
       const n = await cef(`devWindowNumber(${await browserOf(first.id)})`);
       const appActive = (on) => cef(`devWindow(${n}, "fakeAppActive:${on ? 1 : 0}")`);
       const logLines = () => (existsSync(join(data, "activation.log")) ? readFileSync(join(data, "activation.log"), "utf8").split("\n") : []);
@@ -3497,7 +3145,7 @@ try {
         try {
           if ((await cef(`devPictureInPictureAction("${name}")`)) !== "started") throw new Error("no button self-test");
           const clicked = await until(`the ${name} click`, async () => (existsSync(button) ? JSON.parse(readFileSync(button, "utf8")) : null), 10000);
-          await sleep(300);  // activation.log is written off the main thread
+          await sleep(300);
           const raised = logLines().slice(from).filter((l) => /^\S+ \S+ \S+ (makeKey|orderFront)/.test(l) && !l.includes("NativeWidgetMacFramelessNSWindow"));
           return { ...clicked, raised };
         } finally {
@@ -3531,8 +3179,6 @@ try {
   });
 
   await check("page-focus", async () => {
-    // onPageFocus: a click into the other page of a split (Chrome's focus path as in a key window: devFocusPage) makes
-    // that tab the active one, as the app does on CEF. The app's own focus() isn't the user's and sends none.
     const other = await openTab(`${base}/b?focus`, "Page B", true);
     try {
       const split = await evalApp(`return ac.store.getState().createSplit(["${first.id}", "${other.id}"])`);
@@ -3564,10 +3210,6 @@ try {
   });
 
   // MARK: Page full screen
-  // A page's element full screen (requestFullscreen, with a gesture): the fullscreen event for that tab, the app's flag
-  // (pageState, which hides the toolbar and sidebar), the page's document.fullscreenElement and the window's macOS full
-  // screen. A test instance acts the window's full screen out (no Space on the owner's screen): devWindow "fullScreen"
-  // reads it, "fakeFullScreen:<1|0>" stands in for the green button and ⌃⌘F.
   const fsFlag = (tabId) => evalApp(`return !!ac.pageState.getState().pages[${JSON.stringify(tabId)}]?.fullscreen`);
   const fsWindow = async (tabId, action = "fullScreen") => {
     const n = await cef(`devWindowNumber(${await browserOf(tabId)})`);
@@ -3581,7 +3223,6 @@ try {
   const fsElement = async (t) => (await cdp(t, "Runtime.evaluate", { expression: "!!document.fullscreenElement", returnByValue: true })).result.value;
   const fsRequest = (t) => cdp(t, "Runtime.evaluate", { expression: "document.documentElement.requestFullscreen().then(() => 'ok', (e) => e.name)", awaitPromise: true, userGesture: true, returnByValue: true });
   const fsEvents = async (tabId) => (await eventsOf(tabId)).filter((x) => x.name === "fullscreen").map((x) => x.payload.fullscreen);
-  // The page in full screen: its event, the app's flag and the page itself agree.
   const fsEnter = async (tabId, t) => {
     const asked = await fsRequest(t);
     await until("the page in full screen", async () => (await fsFlag(tabId)) && (await fsElement(t)), 6000)
@@ -3594,9 +3235,6 @@ try {
   };
 
   await check("fullscreen-tab-switch", async () => {
-    // A in full screen, then B and back (A → B → A): Chrome ends A's full screen on the switch, and the app hears it
-    // for A (not for B, the tab Chrome selected by then), so A comes back with its toolbar and sidebar. The window
-    // leaves the macOS full screen it entered for A.
     const tab = await openTab(`${base}/b?fs-switch`, "Page B");
     try {
       const t = await pageFor(tab.id, "/b?fs-switch");
@@ -3623,9 +3261,6 @@ try {
   });
 
   await check("fullscreen-native", async () => {
-    // Page full screen takes the window into macOS full screen and back, as Chrome on the Mac and 0.2.21: from a normal
-    // window (Esc, the green button), from a window already in full screen (which stays), and with the page leaving or
-    // its tab closing while the window's transition runs.
     const tab = await openTab(`${base}/b?fs-native`, "Page B");
     const out = {};
     try {
@@ -3635,19 +3270,16 @@ try {
         const w = await win();
         return !w.pageFullScreen?.transitioning && test(w) ? w : null;
       }, 6000).catch(async (e) => { throw new Error(`${e.message}; window ${JSON.stringify(await win())}`); });
-      // From a normal window: in with the page, out with Esc.
       await fsEnter(tab.id, t);
       out.entered = await settled("the window in full screen", (w) => w.fullScreen && w.chromeCounts && w.pageFullScreen?.entered);
       await fsEscape(t);
       await fsLeft(tab.id, t, "Esc ended the page's full screen");
       out.esc = await settled("the window out of full screen after Esc", (w) => !w.fullScreen);
-      // The green button (⌃⌘F) ends the page's full screen too.
       await fsEnter(tab.id, t);
       await settled("the window in full screen again", (w) => w.fullScreen);
       await fsWindow(tab.id, "fakeFullScreen:0");
       await fsLeft(tab.id, t, "the green button ended the page's full screen");
       out.greenButton = await settled("the window out after the green button", (w) => !w.fullScreen);
-      // A window already in full screen: the page fills it, Esc leaves the window in full screen.
       await fsWindow(tab.id, "fakeFullScreen:1");
       await settled("the window in full screen by hand", (w) => w.fullScreen);
       await fsEnter(tab.id, t);
@@ -3657,15 +3289,12 @@ try {
       await sleep(400);
       out.alreadyEsc = await win();
       if (!out.alreadyEsc.fullScreen) throw new Error(`Esc took the user's full-screen window out: ${JSON.stringify(out.alreadyEsc)}`);
-      // ... and the green button there ends both.
       await fsEnter(tab.id, t);
       await fsWindow(tab.id, "fakeFullScreen:0");
       await fsLeft(tab.id, t, "the green button in a window already full screen");
       out.alreadyGreen = await settled("the window out", (w) => !w.fullScreen);
-      // The page leaves while the window's transition into full screen runs: the window comes back out once it ends.
       await fsWindow(tab.id, "fakeFullScreenMs:1500");
       await fsEnter(tab.id, t);
-      // The window's transition starts once the page has drawn its full-screen layout (a frame or a few).
       const mid = await until("the window's transition started", async () => {
         const w = await win();
         return w.pageFullScreen?.transitioning ? w : null;
@@ -3674,7 +3303,6 @@ try {
       await fsLeft(tab.id, t, "the page out mid-transition");
       out.midTransition = { during: mid.pageFullScreen, after: await settled("the window out after the transition", (w) => !w.fullScreen && !w.pageFullScreen?.entered) };
       if (!mid.pageFullScreen?.transitioning) throw new Error(`the transition had ended before the page left: ${JSON.stringify(mid)}`);
-      // Its tab closes while the window goes full screen.
       await fsEnter(tab.id, t);
       const n = await cef(`devWindowNumber(${await browserOf(tab.id)})`);
       const closing = await until("the window's transition started", async () => {
@@ -3683,13 +3311,10 @@ try {
       }, 2000).catch(async () => JSON.parse(await cef(`devWindow(${n}, "fullScreen")`)).pageFullScreen);
       if (!closing?.transitioning) throw new Error(`the transition had ended before the close: ${JSON.stringify(closing)}`);
       await closeTab(tab.id);
-      // The window finishes going in (AppKit ignores a toggle mid-transition), then comes back out: two transitions.
       out.closedMidTransition = await until("the window out after its tab closed mid-transition", async () => {
         const w = JSON.parse(await cef(`devWindow(${n}, "fullScreen")`));
         return !w.fullScreen && !w.pageFullScreen?.transitioning && w.pageFullScreen?.page == null ? w : null;
       }, 6000).catch(async (e) => { throw new Error(`${e.message}; closing the tab mid-transition left ${await cef(`devWindow(${n}, "fullScreen")`)}`); });
-      // A transition slower than the 3 s the window waits for one: the page's exit, after those 3 s and before the
-      // window is in full screen, still takes the window out once it is.
       const slow = await openTab(`${base}/b?fs-slow`, "Page B");
       try {
         const st = await pageFor(slow.id, "/b?fs-slow");
@@ -3706,8 +3331,6 @@ try {
         await fsWindow(slow.id, "fakeFullScreenMs:0").catch(() => null);
         await closeTab(slow.id);
       }
-      // The page leaves, then comes back while the window's slow way out runs (past 3 s): that transition's late end is
-      // the app's own, not the user leaving by hand, so the page stays in full screen and the window goes back in.
       const again = await openTab(`${base}/b?fs-again`, "Page B");
       try {
         const at = await pageFor(again.id, "/b?fs-again");
@@ -3742,12 +3365,6 @@ try {
   });
 
   await check("fullscreen-transition-picture", async () => {
-    // Through the window's full-screen transition AppKit shows only pictures of the window rendered from its own layers,
-    // which hold none of a page's pixels (ACPageCover, ArdiaCoreChromeWindow.mm): the probe renders the window that way at
-    // every frame of an acted transition. In every one the page's place shows the page's picture with the layout it is
-    // going to (the full-screen player on the way in, the windowed layout on the way out), never its bare background or
-    // the layout it left. With the picture off (as up to 0.2.30) the same frames must be bare background, or the probe
-    // proves nothing.
     const tab = await openTab(`${base}/fs-layout`, "FS layout");
     const act = async (action) => cef(`devWindow(${await cef(`devWindowNumber(${await browserOf(tab.id)})`)}, ${JSON.stringify(action)})`);
     try {
@@ -3761,14 +3378,11 @@ try {
         const p = w.pageFullScreen;
         return w.fullScreen === full && p && !p.transitioning && !p.covered && !p.picturing && !p.telling ? w : null;
       }, 8000).catch(async (e) => { throw new Error(`${e.message}; window ${JSON.stringify(await fsWindow(tab.id))}`); });
-      // A frame's page place, from its 8 × 6 grid of mean colours: the bare background, the full-screen player (red), the
-      // windowed layout (the blue masthead along the top, the red player) or something else.
       const rgb = (hex) => [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
       const near = (c, ref, tol) => c.every((v, i) => Math.abs(v - ref[i]) <= tol);
       const kind = (f) => {
         if (!f.grid) return "none";
         const cells = f.grid.map(rgb);
-        // Bare: one dark colour (the page's background, black once it's in full screen: Chrome's gutter).
         if (f.uniform >= 0.97 && cells.every((c) => Math.max(...c) < 32)) return "bare";
         if (cells.filter((c) => near(c, [220, 30, 30], 45)).length >= 44) return "full";
         if (cells.slice(0, 8).some((c) => c[2] > c[0] + 30) && cells.some((c) => c[0] > c[1] + 80)) return "windowed";
@@ -3783,7 +3397,6 @@ try {
         await key();
         await settled("the window out of full screen", false);
         const frames = JSON.parse(await act("fullScreenProbe"));
-        // The acted transitions' frames, in and out, as AppKit's pictures would show them.
         const runs = [];
         for (const f of frames) {
           if (!f.transitioning) continue;
@@ -3792,9 +3405,6 @@ try {
           else runs.push({ frames: [f], end: frames.indexOf(f) });
         }
         if (runs.length !== 2) throw new Error(`expected two transitions in the probe, got ${runs.length} (${frames.length} frames)`);
-        // A frame rendered in the one main-thread turn between the window's resize and the app's layout at its new size
-        // (ProbeFrame's relayout: the views still have the old size, shifted in the window's layer space) shows where
-        // the views aren't; it's counted apart, and a transition may have at most one.
         const tally = (r, want) => {
           const laid = r.frames.filter((f) => !f.relayout);
           const kinds = laid.map(kind);
@@ -3802,8 +3412,6 @@ try {
             stale: kinds.filter((k) => k !== want && k !== "bare").length, uncovered: laid.filter((f) => !f.cover).length,
             kinds: [...new Set(kinds)], bareAtMs: laid.filter((f, i) => kinds[i] === "bare").map((f) => f.t - r.frames[0].t) };
         };
-        // From the key (the probe starts just before it) to each transition's start, and from its end to the page
-        // showing through again.
         const keyAt = frames[0]?.t ?? 0;
         const timing = (r) => {
           const start = r.frames[0].t, end = r.frames.at(-1).t;
@@ -3818,7 +3426,6 @@ try {
         throw new Error(`without the page's picture the probe didn't see the bare background: ${JSON.stringify(off)}`);
       for (const [dir, r] of Object.entries({ in: on.in, out: on.out }))
         if (r.bare || r.stale || r.uncovered || r.frames < 10 || r.relayout > 1) throw new Error(`the way ${dir}: ${JSON.stringify(r)}; all ${JSON.stringify(on)}`);
-      // A split: on the way out both panes come back, and both lend the window their pictures.
       const other = await openTab(`${base}/fs-layout?pane`, "FS layout");
       let split;
       try {
@@ -3847,16 +3454,12 @@ try {
   });
 
   await check("fullscreen-hidden-page", async () => {
-    // The app hiding a full-screen page without Chrome's tab strip changing (its New Tab page, another Space) ends the
-    // page's full screen (and its locks), as a tab switch does; a split's other pane hiding while one pane fills the
-    // window doesn't end that pane's.
     const tab = await openTab(`${base}/b?fs-hide`, "Page B");
     const s = await state();
     let profileB = null;
     const out = {};
     try {
       const t = await pageFor(tab.id, "/b?fs-hide");
-      // The app's New Tab page.
       await fsEnter(tab.id, t);
       const lock = (await cdp(t, "Runtime.evaluate", { expression: "Promise.resolve(document.body.requestPointerLock()).then(() => !!document.pointerLockElement, (e) => e.name)", awaitPromise: true, userGesture: true, returnByValue: true })).result.value;
       const keys = (await cdp(t, "Runtime.evaluate", { expression: "navigator.keyboard.lock().then(() => 'locked', (e) => e.name)", awaitPromise: true, userGesture: true, returnByValue: true })).result.value;
@@ -3870,7 +3473,6 @@ try {
       await until("the page shown again", async () => (await state()).active === tab.id);
       await sleep(500);
       if ((await fsFlag(tab.id)) || (await fsElement(t))) throw new Error("the page came back in full screen");
-      // Another Space.
       await fsEnter(tab.id, t);
       profileB = await evalApp(`return ac.store.getState().createProfile({ name: "Full screen" })`);
       await evalApp(`ac.actions.switchProfile(${JSON.stringify(s.windowId)}, ${JSON.stringify(profileB)}); return true`);
@@ -3881,7 +3483,6 @@ try {
       await sleep(500);
       out.space = { flag: await fsFlag(tab.id), element: await fsElement(t), window: await fsWindow(tab.id) };
       if (out.space.flag || out.space.element || out.space.window.fullScreen) throw new Error(`back from the Space in full screen: ${JSON.stringify(out.space)}`);
-      // A split: the other pane hides while this one fills the window; this one stays in full screen.
       const split = await evalApp(`return ac.store.getState().createSplit(["${tab.id}", "${first.id}"])`);
       if (!split) throw new Error("no split");
       await evalApp(`ac.actions.switchToTab("${tab.id}"); return true`);
@@ -3903,8 +3504,6 @@ try {
   });
 
   await check("fullscreen-split-sibling", async () => {
-    // One pane of a split in page full screen: the split stays shown under it, so the other pane's playing video
-    // doesn't pop out into Picture in Picture and Chrome still counts that page as shown. The tab is muted.
     const video = await openTab(`${base}/video?split`, "Video");
     const tab = await openTab(`${base}/b?fs-split`, "Page B");
     try {
@@ -3935,12 +3534,6 @@ try {
   });
 
   await check("fullscreen-pip", async () => {
-    // "f", then "f" on a playing video (the owner's YouTube case), 20 times on a page without Media Session handlers
-    // and 20 on one with YouTube's, the window's full screen acted out at a real transition's length (700 ms) and its
-    // occlusion as a real Space animation reports it: occluded as the transition starts, visible again from before the
-    // did-enter/did-exit notification to well after it. Picture in Picture never opens, not even for a moment. Then
-    // the window really leaves the user (occluded, no transition): the video pops out, and comes back when the window
-    // shows again. The tab is muted: nothing is heard.
     const n = await cef(`devWindowNumber(${await browserOf(first.id)})`);
     const win = (action) => cef(`devWindow(${n}, ${JSON.stringify(action)})`);
     const pressF = async (t) => {
@@ -3974,7 +3567,6 @@ try {
             await sleep(Math.max(0, gap) + 150);
             await pressF(t);
             await settled(`round ${i}: out of full screen`, (w) => !w.fullScreen && w.pageFullScreen?.page == null);
-            // The occlusion's return, and anything it sets off.
             await sleep(Math.max(0, gap) + 600);
             const fresh = (await pipEvents(tab.id)).filter((x) => !seen.has(x.t));
             const page = (await cdp(t, "Runtime.evaluate", { expression: "({ pip: !!document.pictureInPictureElement, paused: v.paused, fs: !!document.fullscreenElement })", returnByValue: true })).result.value;
@@ -3986,7 +3578,6 @@ try {
           }
           out[name] = { rounds: 20, pipWindows: (await pipWindows())?.length ?? null };
           if (name !== "plain") continue;
-          // The user leaves the window: the video pops out, and comes back with the window.
           await win("fakeOcclusion:occluded");
           const popped = await until("auto PiP on leaving the window", async () => lastEvent(tab.id, "pictureInPicture", (p) => p.kind === "video" && p.active), 5000);
           await win("fakeOcclusion:visible");
@@ -3995,8 +3586,6 @@ try {
             return e && e.t > popped.t && !e.payload.active ? e : null;
           }, 5000);
           out.leftWindow = "popped out and back";
-          // With the setting off nothing pops out, and a window the user opened by hand still closes when they come
-          // back to the page (another tab and back, the window covered and back).
           await evalApp(`ac.store.getState().updateSettings({ autoPictureInPicture: false }); return true`);
           try {
             out.manual = {};
@@ -4031,10 +3620,6 @@ try {
   // MARK: Pages, profiles and windows
 
   await check("autofill-suggestions", async () => {
-    // Chrome's autofill dropdown in a page: an entry this profile submitted, offered on a click into the field and
-    // picked with ↓ and Return (the release smoke test's steps); the same dropdown from the app's Autofill command
-    // (ArdiaChromeUI.showAutofillSuggestions, reported by the engine's tab:didShowAutofillSuggestions:); and the
-    // saved passwords from the command's "passwords".
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     const go = async (path, title) => {
       await evalApp(`ac.store.getState().navigate("${first.id}", "${base}${path}", { userInitiated: true }); return true`);
@@ -4060,8 +3645,6 @@ try {
       await cdp(t, "Runtime.evaluate", { expression: "document.getElementById('c').value = 'Springfield'; document.getElementById('b').click(); 1" });
       t = await until("the form submitted", async () => (await state()).tabs.find((x) => x.id === first.id && x.url?.includes("/form?city=") && !x.loading) && pageFor(first.id, "/form?city="), 10000);
       await sleep(1500);
-      // As the smoke test: a DevTools navigation, no focus() from the app, the click alone (the page took focus when
-      // the app loaded it, as on CEF).
       await cdp(t, "Page.navigate", { url: `${base}/form` });
       await until("the form again", async () => (await state()).tabs.find((x) => x.id === first.id && x.url === `${base}/form` && !x.loading), 10000);
       await sleep(800);
@@ -4078,7 +3661,6 @@ try {
       await key(t, "Enter");
       const picked = await until("the picked entry in the field", async () => ((await value(t)) === "Springfield" ? true : null), 4000)
         .catch(async (e) => { throw new Error(`${e.message}; field "${await value(t)}"`); });
-      // The app's Autofill command on the focused field.
       await cdp(t, "Runtime.evaluate", { expression: "const c = document.getElementById('c'); c.value = ''; c.blur(); c.focus(); 1", userGesture: true });
       await sleep(400);
       count = await shownCount();
@@ -4086,12 +3668,10 @@ try {
       const shown = await evalApp(`return globalThis.expo.modules.ArdiaChromeUI.showAutofillSuggestions(${browser}, false)`);
       const command = await until("the dropdown from showAutofillSuggestions", async () => shownSince(count, "Springfield"), 6000)
         .catch((e) => { throw new Error(`${e.message}; showAutofillSuggestions answered ${shown}`); });
-      // Saved passwords (the command's "passwords"), on a sign-in form.
       await cef(`savePassword("", ${JSON.stringify(base)}, "nnfill", "fill-s3cret")`);
       t = await go("/login?fill", "Login");
       await evalApp(`return ac.webviews.get("${first.id}").focus()`);
       await cdp(t, "Runtime.evaluate", { expression: "document.getElementById('u').focus(); 1", userGesture: true });
-      // Chrome offers the saved sign-in as the field takes focus: that dropdown goes (Esc) before the command's.
       await sleep(1000);
       await key(t, "Escape");
       await sleep(400);
@@ -4112,7 +3692,6 @@ try {
   });
 
   await check("images", async () => {
-    // The page's images and favicons as data: PNGs (downloadImage, downloadFavicon, fetchFavicon).
     const image = await evalApp(`return ac.webviews.get("${first.id}").downloadImage("${base}/icon.png", 64)`);
     const favicon = await evalApp(`return ac.webviews.get("${first.id}").downloadFavicon("${base}/icon.png")`);
     const fetched = await cef(`fetchFavicon("${base}/icon.png", "")`);
@@ -4122,11 +3701,6 @@ try {
   });
 
   await check("favicon-fetch", async () => {
-    // fetchFavicon with no tab (restored and unloaded tabs, bookmarks, history) goes through Chrome's network stack
-    // with the profile's own loader, as Chrome fetches icons: plain http to any host (App Transport Security exempts
-    // only 127.0.0.1, so NSURLSession failed *.localhost and the web), no cookies or credentials, redirects followed,
-    // 200 only, at most 2 MB, Chrome's favicon types only, and a time-out. A private window fetches through its own
-    // profile and never one it would have to make.
     const png = (side, rgb) => {
       const chunk = (type, body) => {
         const out = Buffer.alloc(12 + body.length);
@@ -4149,12 +3723,10 @@ try {
       ]);
     };
     const icon = png(16, [0, 160, 0]);
-    // An .ico holding that PNG, served as text/plain: Chrome decodes favicons by their bytes.
     const ico = Buffer.concat([Buffer.from([0, 0, 1, 0, 1, 0, 16, 16, 0, 0, 1, 0, 32, 0]), Buffer.alloc(8), icon]);
     ico.writeUInt32LE(icon.length, 14);
     ico.writeUInt32LE(22, 18);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#0a0"/></svg>`;
-    // A TIFF: AppKit decodes it, Chrome never takes one as a favicon.
     const pngPath = join(scratch, "favicon-fetch.png"), tiffPath = join(scratch, "favicon-fetch.tiff");
     writeFileSync(pngPath, icon);
     execFileSync("sips", ["-s", "format", "tiff", pngPath, "--out", tiffPath], { stdio: "ignore" });
@@ -4182,7 +3754,6 @@ try {
       send(404, "text/plain", "no");
     });
     await new Promise((r) => icons.listen(0, "127.0.0.1", r));
-    // *.localhost is loopback to Chrome, but not ATS-exempt as 127.0.0.1 is.
     const favBase = `http://nnfav.localhost:${icons.address().port}`;
     const fetchIcon = async (url, profile = "") => {
       const started = Date.now();
@@ -4192,11 +3763,9 @@ try {
     const ok = (r) => r.uri === "data:image/png;base64,";
     let privateWindow = null;
     try {
-      // The time-out runs alongside everything else (in the app: the dev harness answers one script at a time).
       await evalApp(`const h = (globalThis.acFaviconHang = { started: Date.now() });
         globalThis.expo.modules.ArdiaCEF.fetchFavicon(${JSON.stringify(`${favBase}/hang`)}, "").then((r) => { h.uri = r?.uri ?? null; h.ms = Date.now() - h.started; }, () => { h.uri = null; h.ms = Date.now() - h.started; });
         return true`);
-      // A cookie the profile holds for the host: the icon request never carries it.
       const cookieTab = await openTab(`${favBase}/set-cookie`, "Favicon Cookie");
       const cookie = (await cdp(await pageFor(cookieTab.id, "/set-cookie"), "Runtime.evaluate", { expression: "document.cookie", returnByValue: true })).result.value;
       await closeTab(cookieTab.id);
@@ -4226,15 +3795,11 @@ try {
       if (!iconRequest || iconRequest.cookie) throw new Error(`the icon request carried cookies: ${JSON.stringify(iconRequest)}`);
       if (!seen.some((s) => s.path === "/icon.png?redirected")) throw new Error("the redirect wasn't followed");
       if (seen.some((s) => s.authorization)) throw new Error("credentials were sent");
-      // A remote plain-http icon (the dogfood repro's): required when this script reaches it too, else only reported.
       const remoteUrl = "http://neverssl.com/favicon.ico";
       const reachable = await fetch(remoteUrl, { signal: AbortSignal.timeout(8000) }).then((r) => r.ok, () => false);
       const remoteFetch = await fetchIcon(remoteUrl);
       if (reachable && !ok(remoteFetch)) throw new Error(`${remoteUrl} not loaded (${JSON.stringify(remoteFetch)})`);
       const remote = `${ok(remoteFetch) ? "ok" : "null"}${reachable ? "" : " (not reachable from this script)"}`;
-      // A private window's profile: fetched through it, handed back as data (Chrome's favicon store refuses it). A
-      // private profile no window shows is never made for a fetch. Native calls take the engine's profile name
-      // (incognito:<window>@<engine profile>, the app's engineProfile), not the store's id (…@default).
       const noWindow = await fetchIcon(`${favBase}/icon.png?no-private-window`, "incognito:nnfav@");
       if (noWindow.uri !== null) throw new Error("a fetch made a private profile");
       privateWindow = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${favBase}/icon.png?private-page" })`);
@@ -4246,7 +3811,6 @@ try {
       if (!ok(privately)) throw new Error(`the private window's fetch failed: ${JSON.stringify(privately)}`);
       const stored = JSON.parse(await cef(`engineCall("ac_favicons_set", ${JSON.stringify(privateProfile)}, ${JSON.stringify(JSON.stringify({ page: `${favBase}/private-page`, icon: `${favBase}/icon.png?private`, png: "AA==" }))})`).catch((e) => JSON.stringify({ refused: String(e) })));
       if (!stored?.error) throw new Error(`a private profile wrote Chrome's favicon store: ${JSON.stringify(stored)}`);
-      // The time-out: nil after Chrome's 30 s, never a hang.
       const timedOut = await until("the hung request's end", () => evalApp(`const h = globalThis.acFaviconHang; return h.ms ? { uri: h.uri ? h.uri.slice(0, 22) : null, ms: h.ms } : null`), 50000);
       if (timedOut.uri !== null || timedOut.ms < 25000 || timedOut.ms > 50000) throw new Error(`the hung request: ${JSON.stringify(timedOut)}`);
       const ms = (o) => Object.fromEntries(Object.entries(o).map(([k, r]) => [k, r.ms]));
@@ -4259,8 +3823,6 @@ try {
   });
 
   await check("extension-surfaces", async () => {
-    // An installed extension's action state and side panel for a tab, reload, and its DNR blocks counted on the page
-    // (onContentBlocked).
     const installed = await exts(`install(${JSON.stringify(extPath)}, "")`);
     if (installed?.error) throw new Error(installed.error);
     const browser = await browserOf(first.id);
@@ -4281,7 +3843,6 @@ try {
   });
 
   await check("frozen", async () => {
-    // The app freezes a background page (setFrozen) and wakes it; the page sees freeze and resume.
     const s = await state();
     const other = s.tabs.find((x) => x.id !== first.id && x.id !== s.active && x.url?.startsWith(`${base}/d`));
     if (!other) throw new Error("no background tab");
@@ -4299,7 +3860,6 @@ try {
   });
 
   await check("discard", async () => {
-    // A tab in the background discarded by Chrome keeps its place; the app hears onDiscarded.
     const s = await state();
     let other = null;
     for (const x of s.tabs.filter((x) => x.id !== first.id && x.id !== s.active && x.url?.startsWith(base)))
@@ -4311,13 +3871,10 @@ try {
   });
 
   await check("permission-prompt", async () => {
-    // A site asking for a permission reaches the app's prompt (onPermission → pageState.permission), and its answer
-    // goes back to Chrome. Chrome holds a background tab's prompt until it shows, so the page is shown first.
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     const t = await pageFor(first.id, `${base}/a`);
     await cdp(t, "Runtime.evaluate", {
-      // MIDI with sysex: a Chrome permission with no macOS prompt behind it (location and the camera would ask macOS).
       expression: "navigator.requestMIDIAccess({ sysex: true }).then(() => (window.__geo = 'ok'), (e) => (window.__geo = 'denied:' + e.name))",
       userGesture: true,
     });
@@ -4331,8 +3888,6 @@ try {
   });
 
   await check("popup-blocked", async () => {
-    // A popup without a user gesture: Chrome's blocker keeps it, the app hears of it and can open it. The page is
-    // loaded again first: the checks before gave it a user activation (CDP's userGesture), which would let it through.
     await evalApp(`return ac.webviews.get("${first.id}").reload()`);
     await sleep(1500);
     await until("A loaded", async () => (await state()).tabs.find((t) => t.id === first.id && !t.loading), 10000);
@@ -4384,7 +3939,6 @@ try {
     return { window: id, tab: t };
   });
 
-  // A window whose content mounts late (a window opened under load: devMountDelay in main.tsx holds it back 5 s).
   const slowMount = async (body) => {
     await evalApp(`globalThis.acDevMountDelayMs = 5000; return true`);
     try {
@@ -4399,8 +3953,6 @@ try {
   // MARK: Moving tabs
 
   await check("move-tab-slow-mount", async () => {
-    // A tab moved to a window that mounts its view late keeps its page (the same WebContents: its history, its state):
-    // the page waits for the tab's next view however long that takes.
     const tab = await openTab(`${base}/a?slow`, "Page A");
     try {
       await evalApp(`ac.store.getState().navigate("${tab.id}", "${base}/b?slow", { userInitiated: true }); return true`);
@@ -4409,7 +3961,6 @@ try {
       const browser = await browserOf(tab.id);
       const windowId = await slowMount(async () => {
         const id = await evalApp(`return ac.store.getState().moveTabsToWindow(["${tab.id}"], null)`);
-        // Past the mount delay.
         await sleep(6000);
         return id;
       });
@@ -4429,8 +3980,6 @@ try {
   });
 
   await check("move-last-tab-slow-mount", async () => {
-    // A window's last tab moved to a new window that mounts late: the old window closes at once, its Browser with it,
-    // and the tab's page still waits for its new view.
     const tab = await openTab(`${base}/a?last`, "Page A");
     try {
       const own = await evalApp(`return ac.store.getState().moveTabsToWindow(["${tab.id}"], null)`);
@@ -4459,13 +4008,11 @@ try {
   });
 
   await check("move-tab-closed-while-parked", async () => {
-    // A moved tab closed before its new view took its page: the page (and its renderer) goes with the tab.
     const tab = await openTab(`${base}/c?parked`, "Page C");
     const target = await pageFor(tab.id, "/c?parked");
     try {
       return await slowMount(async () => {
         await evalApp(`ac.store.getState().moveTabsToWindow(["${tab.id}"], null); return true`);
-        // Its view gone (the new window's is 5 s away): the page lives on, parked.
         await until("the old view gone", () => evalApp(`return !ac.webviews.get("${tab.id}")`), 3000);
         await sleep(300);
         if (!(await targets()).some((x) => x.id === target.id)) throw new Error("the page went before its tab closed");
@@ -4482,7 +4029,6 @@ try {
   });
 
   await check("move-tab-to-window", async () => {
-    // The tab keeps its page (same WebContents: no reload) in the new window.
     const t = await pageTarget(`${base}/a`);
     await cdp(t, "Runtime.evaluate", { expression: "window.__kept = 42" });
     const windowId = await evalApp(`const id = ac.store.getState().moveTabsToWindow(["${first.id}"], null); return id`);
@@ -4502,7 +4048,6 @@ try {
   // MARK: Startup and engine
 
   await check("title-bar-close", async () => {
-    // The title bar's close button on the second window: ArdiaCore asks the app (windowShouldClose:), which closes it.
     const ids = await evalApp(`return ac.shell.windowIds()`);
     const browser = await browserOf(first.id);
     const windowNumber = await evalApp(`return globalThis.expo.modules.ArdiaCEF.devWindowNumber(${browser})`);
@@ -4528,9 +4073,6 @@ try {
   });
 
   await check("startup-native-messaging", async () => {
-    // As packages/cef's ACCef at startup (ArdiaCoreStartup.mm): the password managers installed on this Mac get their
-    // native messaging manifests in the user data dir (only those whose host exists, listed as ours), and Chrome
-    // runs a host from that dir for an extension it names (an echo host here: no real app is started).
     const dir = join(data, "Chromium", "NativeMessagingHosts");
     const known = {
       "com.1password.1password": "/Applications/1Password.app/Contents/Library/LoginItems/1Password Browser Helper.app/Contents/MacOS/1Password-BrowserSupport",
@@ -4580,9 +4122,6 @@ try {
   });
 
   await check("startup-accept-language", async () => {
-    // As CEF's accept_language_list (ArdiaCoreStartup.mm, --accept-lang): pages see the system's preferred languages,
-    // "<language>-<region>" then "<language>", in navigator.languages and the Accept-Language header. (Chrome's own
-    // default follows the app bundle's English UI locale: "en-US,en" whatever the system's languages.)
     const system = JSON.parse(execFileSync("osascript", ["-l", "JavaScript", "-e",
       `ObjC.import("Foundation"); const out = []; const all = $.NSLocale.preferredLanguages;
        for (let i = 0; i < all.count; i++) { const l = $.NSLocale.localeWithLocaleIdentifier(all.objectAtIndex(i));
@@ -4616,8 +4155,6 @@ try {
   });
 
   await check("engine-call-guard", async () => {
-    // As CEF's ACEngineBridge: the JS reaches only the stores it reads (history, favicons, closed tabs, bookmarks), and
-    // never for a private window (the engine would answer with Personal's data).
     const parse = async (call) => JSON.parse(await cef(call));
     const privateHistory = await parse(`engineCall("ac_history_query", "incognito-check", null)`);
     const notAllowed = await parse(`engineCall("ac_passwords_list", "", null)`);
@@ -4627,7 +4164,6 @@ try {
   });
 
   await check("devtools-toggle", async () => {
-    // ⌥⌘I twice opens then closes DevTools (Chrome's IDC_DEV_TOOLS_TOGGLE, as CEF ran it); ⌥⌘J opens the console.
     const tab = await freshTab(`${base}/b?devtools`);
     const devtools = async () => (await targets()).filter((t) => t.url.startsWith("devtools://")).length;
     const handle = (panel) => evalApp(`return ac.webviews.get("${tab}").showDevTools(${JSON.stringify(panel)})`);
@@ -4644,8 +4180,6 @@ try {
   });
 
   await check("navigation-download-memory", async () => {
-    // A page that turned out to be a download is remembered (NavigationDownloads.json, as CEF's): a tab that opens on
-    // it without the user asking (a restored tab) stays empty instead of downloading it again.
     const files = () => readdirSync(downloadsDir).filter((f) => f.startsWith("ardiacore-test")).length;
     const before = files();
     const tab = await freshTab(`${base}/b?memory`);
@@ -4653,8 +4187,6 @@ try {
     await until("the download", async () => (files() > before ? true : null), 15000);
     const saved = JSON.parse(readFileSync(join(data, "Chromium", "NavigationDownloads.json"), "utf8"));
     if (!saved[`${base}/file.bin?memory`]) throw new Error(`not remembered: ${JSON.stringify(saved)}`);
-    // A tab the app restores on it (its saved tab, as a relaunch or a reopened window brings back: not the user asking,
-    // which downloads it again, as on CEF).
     await evalApp(`ac.store.getState().newTab(${JSON.stringify(mainWindow)}, { url: "${base}/file.bin?memory", snapshot: { url: "${base}/file.bin?memory", title: "file.bin" } }); return true`);
     const skipped = await until("downloadNavigation skipped", async () => {
       for (const t of (await state()).tabs) {
@@ -4670,8 +4202,6 @@ try {
   });
 
   await check("delete-original-profile-data", async () => {
-    // Deleting the original profile's data (Chrome's Default profile, whose folder stays): each store is emptied and
-    // checked, as packages/cef's ProfileData.deleteDefault.
     const origin = "https://original.test";
     await cef(`savePassword("", "${origin}", "nnoriginal", "s3cret")`);
     await cef(`saveAddress("", { fullName: "Original Mascot", city: "Haifa", country: "IL" })`);
@@ -4691,8 +4221,6 @@ try {
   // MARK: Quitting and relaunching
 
   await check("last-used-profile", async () => {
-    // Before the quit: Personal sets a cookie, then the window shows another profile, so that profile is Chrome's
-    // last used when the app quits (the relaunch check after the quit).
     const s = await state();
     personal = s.profileId;
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
@@ -4710,20 +4238,14 @@ try {
 
   await check("quit", async () => {
     const s = await state();
-    // A tab opened just before quitting must be in the saved session: the app saved it on the way out
-    // (willQuit → flushPersistence, the documents flushed on willTerminate).
     await evalApp(`ac.actions.openUrls(["${base}/quit-marker"], "${s.windowId}"); return true`);
     await until("the marker tab", async () => (await state()).tabs.some((x) => x.url?.includes("quit-marker")));
     const started = Date.now();
-    // ⌘Q → the app's Quit item → NSApp terminate: → applicationShouldTerminate (the app saves its session) →
-    // ArdiaCore's quit. The app may exit before the harness answers.
     await evalApp(`return ac.shell.devKeyEquivalent("${s.windowId}", { key: "q", keyCode: 12, modifiers: ["command"], focus: "window" })`, 5000).catch(() => null);
     await until("the app to exit", async () => exited, 20000);
-    await sleep(4000);  // a crash in teardown writes its report a moment after the process is gone
+    await sleep(4000);
     const saved = readFileSync(join(data, "session.json"), "utf8").includes("quit-marker");
     if (!saved) throw new Error("the session wasn't saved on quit");
-    // This instance's reports only (another run may be going alongside). ExcUserFault reports are os_fault logs
-    // the process survives; they're listed, crashes fail the check.
     const dir = join(process.env.HOME, "Library/Logs/DiagnosticReports");
     const ours = readdirSync(dir).filter((f) => {
       if (!f.includes(basename(exe)) || statSync(join(dir, f)).mtimeMs < launchedAt) return false;
@@ -4739,7 +4261,6 @@ try {
   });
 
   await check("relaunch-profile", async () => {
-    // Relaunched with another profile last used: Personal is still Chrome's Default profile (its cookie, not Play's).
     if (!personal) throw new Error("last-used-profile didn't run");
     await launch("app2.out.log");
     await until("the relaunched app", async () => {
@@ -4760,7 +4281,6 @@ try {
     const t = await pageTarget(`${base}/b?personal-again`);
     const cookie = (await cdp(t, "Runtime.evaluate", { expression: "document.cookie", returnByValue: true })).result.value;
     const info = await evalApp(`return globalThis.expo.modules.ArdiaCEF.chromeWindows()`);
-    // The next check launches the app again only once this one has gone.
     await stopApp();
     if (!cookie.includes("who=personal") || cookie.includes("who=play")) throw new Error(`Personal's page sees "${cookie}"`);
     return { cookie, windows: info.map((w) => w.profile) };
@@ -4775,14 +4295,11 @@ try {
   };
 
   await check("quit-cancelled", async () => {
-    // ⌘Q, a page's beforeunload answered Stay: the app keeps running and keeps saving (it stopped saving for the
-    // quit). Then a new tab, ⌘Q answered Leave: the relaunch restores that tab.
     const windowId = await appUp("app-quit-cancelled.out.log");
     await evalApp(`ac.actions.openUrls(["${base}/b?stay"], "${windowId}"); return true`);
     await until("the page loaded", async () => (await state()).tabs.find((t) => t.url?.includes("b?stay") && t.title === "Page B" && !t.loading), 15000);
     const target = await until("the page", () => pageTarget(`${base}/b?stay`), 15000);
     await cdp(target, "Runtime.evaluate", { expression: `addEventListener("beforeunload", (e) => { e.preventDefault(); e.returnValue = ""; }); true`, userGesture: true });
-    // Chrome's beforeunload prompt, answered through DevTools (Page.handleJavaScriptDialog) with `leave`.
     const ws = new WebSocket(target.webSocketDebuggerUrl);
     await new Promise((r, j) => ((ws.onopen = r), (ws.onerror = () => j(new Error("DevTools connection failed")))));
     let leave = false;
@@ -4816,9 +4333,6 @@ try {
   });
 
   await check("content-blocker-restored", async () => {
-    // A tab the app restores at launch asks for ads as it loads: the content blocker loads into Personal as the app
-    // starts, after Chrome has loaded the profile, and ArdiaCore holds Personal's navigations until its rulesets are in
-    // force, so none of the restored page's ads goes out.
     const windowId = await appUp("app-blocker-restored.out.log");
     const tag = `restored-${Date.now()}`;
     const url = `http://adpage.test:${server.address().port}/adfirst?${tag}`;
@@ -4841,8 +4355,6 @@ try {
   });
 
   await check("closed-tabs-own-lists", async () => {
-    // Two tabs on the same page closed a moment apart: ⇧⌘T gives each its own back/forward list (Chrome's
-    // TabRestoreService entry carries the closed tab's id, ac_tab_restore_tag), and after a quit too, from Chrome's file.
     let windowId = await appUp("app-closed-tabs.out.log");
     const s = (expr) => evalApp(`const s = ac.store.getState(); return ${expr}`);
     const entries = (id) => evalApp(`return ac.webviews.get(${JSON.stringify(id)})?.navigationEntries().then((e) => e.map((x) => { const u = new URL(x.url); return u.pathname + u.search; })) ?? null`);
@@ -4873,7 +4385,6 @@ try {
     };
     const first = await reopen(closed[a], ["/a?first-closed", "/b?same"]);
     await sleep(1500);
-    // ⌘Q, as the owner quits, then the other one.
     await pressQuit(windowId);
     await until("the quit", async () => exited, 30000);
     windowId = await appUp("app-closed-tabs-2.out.log");
@@ -4882,19 +4393,15 @@ try {
   });
 
   await check("js-reload-keeps-pages", async () => {
-    // A JS reload (development: Metro) parks each tab's page for its next view: the page isn't loaded again, nor
-    // visited again in Chrome's history, and the tab keeps it.
     const windowId = await appUp("app-js-reload.out.log");
     const path = `/b?kept-${Date.now()}`;
     const visits = async () => JSON.parse(await cef(`engineCall("ac_history_query", "", "{}")`)).entries.filter((e) => e.u === `${base}${path}`).map((e) => e.v.length);
     const id = await evalApp(`return ac.store.getState().newTab(${JSON.stringify(windowId)}, { url: "${base}${path}" })`);
     await until("the page", async () => (await state()).tabs.find((t) => t.id === id && t.title === "Page B" && !t.loading), 15000);
     await until("its visit", async () => (await visits()).length || null);
-    // The session is saved a moment after a change; a reload before that wouldn't have the tab at all.
     await sleep(2000);
     await evalApp(`setTimeout(() => { try { globalThis.nativeModuleProxy.DevSettings.reload(); } catch {} }, 50); return true`);
     await sleep(1500);
-    // A reloaded harness skips the script it finds waiting: asked again until the new bundle answers.
     await until("the reloaded app", async () => {
       try {
         return await evalApp(`const s = ac.store.getState(); return Object.keys(s.windows).length > 0 && !!s.historyReady.default && !!ac.webviews.get(${JSON.stringify(id)})`, 3000);
@@ -4910,8 +4417,6 @@ try {
   });
 
   await check("quit-js-stall", async () => {
-    // ⌘Q while the JS thread is busy for 2 s: the quit waits for the app's answer, and the tab opened at the end of
-    // the stall (after the quit began) is in the saved session and restored.
     const windowId = await appUp("app-quit-stall.out.log");
     const started = Date.now();
     await evalApp(`ac.shell.devKeyEquivalent("${windowId}", { key: "q", keyCode: 12, modifiers: ["command"], focus: "window" });
@@ -4925,8 +4430,6 @@ try {
   });
 
   await check("quit-js-hung", async () => {
-    // ⌘Q while the JS thread never comes back: after 5 s the quit asks the user (Wait / Quit Without Saving); a test
-    // instance logs it and waits. The instance is killed afterwards.
     const windowId = await appUp("app-quit-hung.out.log");
     const started = Date.now();
     await evalApp(`ac.shell.devKeyEquivalent("${windowId}", { key: "q", keyCode: 12, modifiers: ["command"], focus: "window" });
@@ -4944,12 +4447,6 @@ try {
   });
 
   await check("extension-tab-empty-window", async () => {
-    // An extension's tabs.create while the app's window shows no page (its tabs closed: a New Tab placeholder only):
-    // Chrome puts its tab in that window's Browser and the app adopts that very tab, once, in front, in that window
-    // under its profile. It arrives through the placeholder's view (openWindow, adoptId tab:<browser>; the
-    // extensions module's onTabs only when no view of the profile is shown anywhere: recorded, not asserted). The
-    // extension's tab id stays that tab's: chrome.tabs sees it active, in the app window's Chrome window, loaded
-    // once. With every app window closed, Chrome 154 itself refuses ("No current window"); recorded, not asserted.
     if (exited) await launch("app3.out.log");
     await until("the app", async () => {
       try {
@@ -4980,8 +4477,6 @@ try {
         });
         return made.result?.value ?? made.exceptionDetails?.exception?.description;
       };
-      // The app's only window (earlier checks' windows closed: Chrome would pick its last active one), every tab of it
-      // closed: the app keeps the window with a new-tab placeholder (no page).
       await evalApp(`const s = ac.store.getState(); Object.keys(s.windows).filter((id) => id !== "${windowId}").forEach((id) => s.closeWindow(id));
         s.closeTabs([...s.windows["${windowId}"].tabIds]); return true`);
       await until("one app window", async () => ((await evalApp(`return Object.keys(ac.store.getState().windows).length`)) === 1 ? true : null), 10000);
@@ -5032,7 +4527,6 @@ try {
       ].filter(Boolean);
       if (wrong.length) throw new Error(`${wrong.join("; ")}: ${JSON.stringify(out)}`);
       const event = (await evalApp(`return globalThis.__acTabs`)).some((e) => e.url?.includes("e?empty-window"));
-      // Every window closed.
       await evalApp(`const s = ac.store.getState(); Object.keys(s.windows).forEach((id) => s.closeWindow(id)); return true`);
       await until("no app windows", async () => ((await evalApp(`return Object.keys(ac.store.getState().windows).length`)) === 0 ? true : null), 10000);
       await sleep(1000);
@@ -5048,13 +4542,6 @@ try {
   });
 
   await check("traffic-lights-steady", async () => {
-    // Tab work makes AppKit lay the title bar out again (the app renames the window to its active tab): the buttons
-    // must stay at (18, 20) from the window's top-left, visible and opaque, through every pass. The log samples them
-    // synchronously at each pass and at each change to them or the title bar views holding them; on 0.2.22's first
-    // ArdiaCore build they went to AppKit's (9, 9) at each switch or close and came back 10–430 ms later.
-    // Hiding the sidebar takes them out of the window with it (Dia): while it's hidden they hold one spot past the
-    // window's left edge, through tab work too. The slides themselves (out and back) aren't sampled.
-    // A window to work in: the checks before may have closed every one (extension-tab-empty-window does).
     const w = (await state()).windowId ?? (await evalApp(`return ac.actions.openWindow()`));
     if (!w) throw new Error("no window to work in");
     await sleep(1000);
@@ -5084,7 +4571,6 @@ try {
     const log = readFileSync(lightsLog, "utf8");
     const linesOf = (a, b) => log.slice(a, b).split("\n").filter(Boolean);
     const sample = (line) => line.match(/ -> (.*?) \| /)?.[1] ?? line;
-    // Each slide's last sample is where it came to rest: out of the window, then back at (18, 20).
     const rest = (a, b) => linesOf(a, b).filter((line) => line.includes(" layout -> ")).slice(-1);
     const docked = [...linesOf(from, hiding), ...rest(showing, shown), ...linesOf(shown)];
     const away = [...rest(hiding, hidden), ...linesOf(hidden, showing)];
@@ -5092,14 +4578,12 @@ try {
     const lines = [...docked, ...away];
     const healthy = (line) => sample(line).endsWith(" hidden=0 alpha=1.00") && !/ _NSTheme\w*Widget set/.test(line);
     const bad = docked.filter((line) => !sample(line).startsWith("close=(18.0,20.0) ") || !healthy(line));
-    // Hidden: all three past the left edge (the zoom button, rightmost, ends 14 pt right of its x), level with their place.
     const out = (line) => {
       const xs = [...sample(line).matchAll(/=\((-?[\d.]+),(-?[\d.]+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
       return xs.length === 3 && xs.every(([x, y]) => x + 14 <= 0 && y === 20);
     };
     const window = (line) => line.match(/window=(\d+)/)?.[1];
     const badAway = away.filter((line) => window(line) === window(docked[0] ?? "") && (!out(line) || !healthy(line)));
-    // Each window's buttons are in one place throughout each phase (minimise and zoom too).
     const moved = [];
     for (const [phase, set] of [["docked", docked], ["hidden", away]]) {
       const places = new Map();
@@ -5113,8 +4597,6 @@ try {
   });
 
   await check("launch-cocoa-args", async () => {
-    // Cocoa's argument-domain defaults on the command line ("-NSAppSleepDisabled YES", as the perf bench passes them)
-    // are AppKit's: the app starts as usual, Chrome never takes "YES" for a page to open, and AppKit still reads them.
     await stopApp();
     await launch("app-args.out.log", {}, ["-NSAppSleepDisabled", "YES", "-ApplePersistenceIgnoreState", "YES"]);
     await until("the relaunched app", async () => {
@@ -5134,9 +4616,6 @@ try {
   });
 
   await check("context-menu-log", async () => {
-    // ARDIA_CONTEXT_MENU_LOG, as CEF's Client::RunContextMenu (release builds too): the page menu is dumped to
-    // that file instead of shown ({ url, link, items: [{ id, label, type, enabled, visible, submenu? }] }, CEF's
-    // menu item types), and the item its ".pick" file names ("<label>\t<flags>") runs. Relaunched with it set.
     const menuLog = join(scratch, "context-menu.json");
     rmSync(menuLog, { force: true });
     await stopApp();
@@ -5176,8 +4655,6 @@ try {
   });
 
   await check("context-menu-incognito", async () => {
-    // The page menu's Open Link in Incognito Window (picked through ARDIA_CONTEXT_MENU_LOG, as context-menu-log):
-    // the link opens in a private window of the app, never as a tab of the Personal window.
     const menuLog = join(scratch, "context-menu.json");
     const tab = await until("A", async () => (await state()).tabs.find((t) => t.url?.endsWith("/a?menu") && !t.loading));
     await evalApp(`ac.actions.switchToTab("${tab.id}"); return true`);
@@ -5202,14 +4679,6 @@ try {
     return landed;
   });
   // MARK: Camera and microphone (the 0.2.21 crash: Allow on a camera + microphone prompt aborted the app)
-  //
-  // Run on a copy of the app without the camera and microphone entitlements (ad hoc, hardened runtime): macOS then
-  // refuses the devices without ever asking, so nothing here can raise its consent dialog on the owner's screen, even
-  // if a path reached a real device. Capture comes from Chrome's fake devices (ArdiaCoreHost gives every hidden instance
-  // --use-fake-device-for-media-stream, and the engine keeps the microphone on a fake input, ac_fake_media.mm); the
-  // engine's stand-in for macOS's own permission (--ardia-test-system-media-permission=ask) says "not asked yet",
-  // so the permission element's flow takes its "ask macOS" step, the one 0.2.21 answered with a second Accept.
-  // Each check asks from an origin of its own (*.localhost: secure, and a grant doesn't carry to the next check).
   const mediaChecks = ["camera-mic-allow", "permission-answer-once", "permission-element-allow"];
   if (!only.length || mediaChecks.some((c) => only.includes(c))) {
     const mediaApp = join(scratch, "media-app", basename(app));
@@ -5237,7 +4706,6 @@ try {
       const port = server.address().port;
       let site = 0;
       media = {
-        // A tab at a fresh origin, shown (Chrome holds a hidden tab's prompt), and its DevTools target.
         async open(path, title) {
           const url = `http://media${++site}.localhost:${port}${path}`;
           const before = new Set((await state()).tabs.map((t) => t.id));
@@ -5249,7 +4717,6 @@ try {
         },
         js: async (t, expression) => (await cdp(t, "Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true, userGesture: true })).result.value,
         prompt: (tabId) => evalApp(`return ac.pageState.getState().pages["${tabId}"]?.permission ?? null`),
-        // The app's own answer path (Prompts.tsx's buttons call it with the prompt they show).
         answer: (tabId, id, result) => evalApp(`ac.permissions.answerPermission("${tabId}", "${id}", "${result}"); return true`),
         async answered(t, i = 0) {
           return until("the page's getUserMedia answer", async () => {
@@ -5267,7 +4734,6 @@ try {
     });
 
     await mediaCheck("camera-mic-allow", async () => {
-      // The owner's case: one prompt for a camera + microphone request, Allow, and the stream starts with both tracks.
       const tab = await media.open("/cam", "Cam");
       try {
         await media.js(tab.target, `ask({ audio: true, video: true })`);
@@ -5289,9 +4755,6 @@ try {
     });
 
     await mediaCheck("permission-answer-once", async () => {
-      // A prompt is answered once: a double click on Allow, then the same answer and a contrary one straight to the
-      // engine, decide nothing twice (0.2.21 aborted deciding a request twice). A late click meant for that prompt
-      // doesn't answer the tab's next one either.
       const tab = await media.open("/cam", "Cam");
       try {
         await media.js(tab.target, `ask({ audio: true, video: true })`);
@@ -5320,12 +4783,9 @@ try {
     });
 
     await mediaCheck("permission-element-allow", async () => {
-      // The <usermedia> element (0.2.21's crash path): Chrome's embedded flow asks for the site, then, with macOS not
-      // asked yet, shows its "ask macOS" step for the same requests. One app prompt, one Allow, no second prompt, and
-      // the element's stream starts with both tracks.
       const tab = await media.open("/element", "Element");
       try {
-        await sleep(1200);  // the element only takes a click once it's been visible a moment
+        await sleep(1200);
         const at = await media.js(tab.target, "box()");
         for (const type of ["mouseMoved", "mousePressed", "mouseReleased"])
           await cdp(tab.target, "Input.dispatchMouseEvent", { type, x: at.x, y: at.y, button: "left", clickCount: 1 });
@@ -5350,9 +4810,6 @@ try {
   // MARK: Crash guard (ends the run)
 
   await check("crash-guard", async () => {
-    // A hidden test instance that crashes (here Chrome's own Browser.crash, an abort on the main thread) leaves its
-    // record in <data dir>/crashes and exits: no crash report for macOS's reporter, so no "quit unexpectedly" dialog
-    // and no focus change on the owner's screen.
     const reports = () => readdirSync(join(process.env.HOME, "Library/Logs/DiagnosticReports")).filter((f) => f.startsWith("Ardia-"));
     const before = new Set(reports());
     const front = execFileSync("lsappinfo", ["front"]).toString().trim();
@@ -5382,13 +4839,12 @@ try {
     report.say(`kept pid ${pid}: --attach ${scratch} [check…] runs more; scripts/agent/ac quit ${data} ends it`);
   } else {
     if (keep) report.say("not kept: the app had exited");
-    await instance.quit();  // also stops its Metro proxy when the app is already gone (crash-guard ends the run)
+    await instance.quit();
     rmSync(join(scratch, "media-app"), { recursive: true, force: true });
   }
   server.closeAllConnections?.();
   server.close();
   tlsServer.closeAllConnections?.();
   tlsServer.close();
-  // A DevTools socket or a page's keep-alive connection can hold the loop open: the run ends here.
   process.exit(passed === results.length ? 0 : 1);
 }

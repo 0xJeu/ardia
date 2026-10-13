@@ -2,7 +2,6 @@ import { useBrowser, type BrowserState } from "../../store/browser";
 import type { Frame } from "../../store/types";
 
 
-// `live`: the window's frame now, when the store's isn't (it keeps the restored frame in full screen).
 export function screenPoint(s: BrowserState, windowId: string, x: number, y: number, live?: Frame | null): [number, number] | null {
   const frame = live ?? s.windows[windowId]?.frame;
   if (!frame) return null;
@@ -24,7 +23,6 @@ export function windowUnder(s: BrowserState, source: string, x: number, y: numbe
   return { outside, overWindow: overWindow ?? null };
 }
 
-// `onNewWindow`: the frame a new window gets, before it opens (the dragged tab's picture grows into it).
 export function dropTabsOutside(
   tabIds: string[],
   source: string,

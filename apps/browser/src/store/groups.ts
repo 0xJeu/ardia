@@ -53,8 +53,6 @@ export function leaveGroups(groups: Record<string, TabGroup>, ids: Set<string>):
   for (const g of Object.values(groups)) {
     const tabIds = g.tabIds.filter((id) => !ids.has(id));
     if (tabIds.length === g.tabIds.length) next[g.id] = g;
-    // A ⌘-click group of a loose tab ends with one tab left; a pinned tab's links (pinnedOpenerId) started as a
-    // group of one and keep it to the last.
     else if (tabIds.length > (g.autoUngroup && !g.pinnedOpenerId ? 1 : 0)) next[g.id] = { ...g, tabIds };
   }
   return next;
@@ -110,7 +108,6 @@ export const createGroupsSlice: StateCreator<BrowserState, [], [], GroupsSlice> 
       if (!adding.length) return {};
       const w = s.windows[group.windowId]!;
       const window = { ...w, tabIds: placeBlock(w.tabIds, [...group.tabIds, ...adding]) };
-      // A new map: leaveGroups returns the current one when no added tab was in a group.
       const groups = { ...leaveGroups(s.groups, new Set(adding)), [groupId]: { ...group, tabIds: [...group.tabIds, ...adding] } };
       return { groups, windows: { ...s.windows, [w.id]: window } };
     });

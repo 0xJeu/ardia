@@ -13,7 +13,6 @@ export function useHover() {
   return { hovered, hoverProps };
 }
 
-// Memoized: the bars that hold it re-render on every key or hover while its props stay the same.
 export const IconButton = memo(function IconButton({
   icon,
   onPress,
@@ -67,7 +66,6 @@ export const IconButton = memo(function IconButton({
   );
 });
 
-// Memoized (primitive props): it sits in rows that re-render for their own reasons (a title, a player's clock).
 export const Favicon = memo(function Favicon({
   url,
   favicon,
@@ -103,7 +101,6 @@ export const Favicon = memo(function Favicon({
   );
 });
 
-// Before Chrome has the page's icon: the one the app ships for the site (lib/siteIcons), else the host's initial.
 export const FaviconFallback = memo(function FaviconFallback({ url, size = 16 }: { url: string; size?: number }) {
   const theme = useTheme();
   const bundled = bundledSiteIcon(url, theme.dark);

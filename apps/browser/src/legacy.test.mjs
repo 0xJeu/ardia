@@ -1,9 +1,7 @@
-// Synced records from Macs on the app's former name apply in today's names (sync/engine.ts inTodaysNames).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { fromLegacy, fromLegacyUrl, LEGACY_KEYS, LEGACY_URLS } = await import("./legacy.ts");
 
-// The old names come from legacy.ts, the only file that may spell them.
 const [[oldGame], [oldChromeGame], [oldScheme]] = LEGACY_URLS;
 const old = (name) => Object.keys(LEGACY_KEYS).find((key) => LEGACY_KEYS[key] === name);
 

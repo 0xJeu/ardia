@@ -89,8 +89,6 @@ export function startNativeSync() {
   };
 
   const syncWindows = (s: BrowserState, prev?: BrowserState) => {
-    // At launch (no prev) the focused window first and the rest behind it once it shows; later the focused one last, so
-    // it comes to front (lib/windowOpenOrder.ts).
     const opens = windowOpens(s, s.windowOrder.filter((id) => !open.has(id)), !prev);
     for (const { id, focus, behind } of opens) {
       const w = s.windows[id]!;
@@ -124,8 +122,6 @@ export function startNativeSync() {
   const syncMenu = () => {
     menuTimer = undefined;
     const state = menuState(store.getState());
-    // The bookmark menus are cached per bookmarks tree (bookmarkMenus), so they compare by identity;
-    // stringifying them (thousands of bookmarks) on every store change is what this sync used to spend.
     const { bookmarkFolders, recentBookmarks, bookmarksBar, otherBookmarks, ...rest } = state;
     const bookmarkMenus = [bookmarkFolders, recentBookmarks, bookmarksBar, otherBookmarks];
     const json = JSON.stringify(rest);
@@ -136,9 +132,6 @@ export function startNativeSync() {
     void setMenuStateParts(state, bookmarksChanged);
   };
 
-  // The windows open now, without first asking which exist: that answer comes from the main thread, which Chrome's
-  // startup holds, and waiting for it put 20–100 ms before the first frame. Opening one that exists (after a JS reload)
-  // only brings it forward; the ones the store doesn't have close when the answer comes.
   syncWindows(store.getState());
   syncMenu();
   store.subscribe((s, prev) => {
@@ -158,7 +151,6 @@ export function startNativeSync() {
         if (!isUtilityWindowId(id)) void closeWindow(id);
         continue;
       }
-      // One that already existed kept the title it had (openWindow leaves it be): send the current one.
       const title = windowTitle(s, id);
       titles.set(id, title);
       void setWindowTitle(id, title);
@@ -265,7 +257,6 @@ export function menuState(s: BrowserState): MenuState {
   Object.assign(titles, sidebar.titles);
   if (w?.kind === "small") {
     disabled.push(...LITTLE_ARDIA_DISABLED_COMMANDS);
-    // ⌘O is Open File in a main window and Open in Ardia in Little Ardia, as in Little Arc.
     titles.openFile = "Open in Ardia";
   }
 

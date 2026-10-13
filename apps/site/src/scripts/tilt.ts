@@ -1,6 +1,3 @@
-// The painted logo (Hero, Closing) leans a few degrees toward the mouse: [data-tilt] gets --tx and --ty, from -1 to 1,
-// for where the pointer is relative to its centre (global.css turns them into a transform). Mouse only, only while
-// on screen, and never with reduced motion.
 const motion = matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
 const shown = new Set<HTMLElement>();
 const io = new IntersectionObserver((entries) => {

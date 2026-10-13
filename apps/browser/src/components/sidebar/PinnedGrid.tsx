@@ -22,7 +22,6 @@ import { useSidebarTokens } from "./tokens";
 
 const GAP = 6;
 const MIN_TILE = 50;
-// Dia: 3pt stroke.
 const SELECTION_STROKE = 3;
 const GLASS_RIM = 1;
 
@@ -32,7 +31,6 @@ export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs:
   const width = Math.floor(((innerWidth - GAP * (columns - 1)) / columns) * 2) / 2;
   const tail = useDragItem("tail:tiles", { kind: "tail", tabIds: [], section: "tiles" });
   const topGap = listTopGap(useAddressBarInSidebar());
-  // With no pinned tabs a drag's pin target is an overlay that takes no room (PinDropZone): nothing here.
   if (!tabs.length) return null;
   return (
     <View
@@ -49,11 +47,6 @@ export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs:
   );
 });
 
-/**
- * The pin target while a tab is dragged and nothing is pinned yet: laid over the sidebar in room it already has (the
- * address field, or the band between the header and the first row), so no row moves as a drag starts or ends.
- * It lights up while the drop would pin.
- */
 export function PinDropZone({ top, height, cover }: { top: number; height: number; cover: boolean }) {
   const tokens = useSidebarTokens();
   const theme = useTheme();
@@ -76,7 +69,6 @@ export function PinDropZone({ top, height, cover }: { top: number; height: numbe
         borderWidth: active ? 1.5 : 1,
         borderStyle: "dashed",
         borderColor: active ? theme.accent : tokens.dragBorder,
-        // Over the address field it hides it (the drag's silhouette fill); in the empty band it needs none.
         backgroundColor: cover ? tokens.dragSilhouette : active ? (theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)") : undefined,
         alignItems: "center",
         justifyContent: "center",

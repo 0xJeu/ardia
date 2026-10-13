@@ -1,6 +1,3 @@
-// Browser, OS and device from the user agent, with PostHog's names and values ($browser "Mobile Safari",
-// $os "Mac OS X", $device_type "Desktop" …), so old and new events group the same way.
-
 interface Device {
   $browser: string;
   $browser_version: number | null;
@@ -79,7 +76,6 @@ function device(ua: string): string | null {
 
 const TABLETS = new Set(["iPad", "Android Tablet", "Kindle Fire", "PlayBook"]);
 
-// In-app browsers (X is most of the traffic): the app and its version.
 const WEBVIEWS: [string, RegExp][] = [
   ["Twitter", /(?:TwitterAndroid|Twitter for iP(?:hone|ad))\/(\d[\d.]*\d|\d)/],
   ["Facebook", /(?:FBAV|FB_IAB\/[^;]*;FBAV)\/(\d[\d.]*\d|\d)/],
@@ -109,7 +105,6 @@ export function parseUserAgent(ua: string, brave = false): Device {
       break;
     }
   }
-  // Android puts the model in the UA ("Android 16; Pixel 10 Build/…"); reduced UAs say "K".
   let model = /Android [\d.]+; ([^;)]+?)(?: Build\/[^;)]*)?[;)]/.exec(ua)?.[1] ?? null;
   if (model === "K" || model === "Mobile" || model === "Tablet") model = null;
   return {

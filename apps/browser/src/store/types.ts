@@ -22,10 +22,7 @@ export type BrowserWindow = {
   tabLayout?: "sidebar" | "top";
   frame: Frame | null;
   createdAt: number;
-  // Little Ardia (Arc's Little Arc): one page, no sidebar, never saved with the session (store/small.ts).
   kind?: "small";
-  // A private window's regular profile: the one it was opened from (store/small.ts originalProfile). Its session is that
-  // profile's off-the-record one, which its profile id names too (model.ts incognitoProfileId).
   originalProfileId?: string;
 };
 
@@ -45,12 +42,9 @@ export type Tab = {
   navigation: { url: string; seq: number; userInitiated?: boolean } | null;
   adoptId?: string;
   openerId: string | null;
-  // What a tab that hasn't loaded adopts when first shown (store/model.ts wake): a reopened window's tab
-  // "restore:<closed tab>" (its back/forward list, from Chrome's TabRestoreService).
   wakeAdoptId?: string;
   liveItem?: { folderId: string; itemId: string };
   unloaded?: boolean;
-  // The pinned tab this one is a window's copy of (store/pinMirror.ts); unset on the first copy, whose id is the key.
   pinKey?: string;
   createdAt: number;
   lastActiveAt: number;
@@ -78,9 +72,7 @@ export type TabGroup = {
   tabIds: string[];
   createdAt: number;
   autoUngroup?: boolean;
-  // The pinned tab whose links, opened behind, this group collects (Dia: they gather below the pinned tabs).
   pinnedOpenerId?: string;
-  // The pinned group this one is a window's copy of (store/pinMirror.ts).
   pinKey?: string;
 };
 
@@ -102,8 +94,6 @@ export type HistoryEntry = {
   visitTimes?: number[];
 };
 
-// `id` is Chrome's UUID for the node (BookmarkModel). `syncKey` is its sync record's key when that isn't the id: a
-// bookmark synced before Chrome kept bookmarks keeps the key its old id gave it (sync/adapters.ts).
 export type BookmarkNode =
   | { kind: "url"; id: string; parentId: string; title: string; url: string; favicon: string | null; addedAt: number; syncKey?: string }
   | { kind: "folder"; id: string; parentId: string | null; title: string; children: string[]; addedAt: number; syncKey?: string };
@@ -126,7 +116,6 @@ export type ClosedTab = {
   id: string;
   tab: TabSnapshot;
   tabId?: string;
-  // The id its back/forward list is under, when not tabId: a reopened tab closed again before it was shown.
   restoreFrom?: string;
   windowId: string;
   index: number;
@@ -146,7 +135,6 @@ export type ClosedWindow = {
 };
 
 export type ParkedPins = {
-  // restoreFrom: a reopened tab not shown yet, the id its back/forward list is under (regular profiles only).
   tabs: (TabSnapshot & { id: string; groupId: string | null; restoreFrom?: string })[];
   groups: Pick<TabGroup, "id" | "name" | "icon" | "color" | "collapsed">[];
 };
@@ -156,8 +144,6 @@ export type ClosedGroup = {
   id: string;
   group: Pick<TabGroup, "id" | "name" | "icon" | "color" | "pinned">;
   tabs: TabSnapshot[];
-  // The ids each tab's back/forward list is under (its own, or a reopened tab's not shown since), by `tabs`' index;
-  // absent from older entries.
   tabIds?: string[];
   windowId: string;
   index: number;

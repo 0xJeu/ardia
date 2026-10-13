@@ -80,8 +80,6 @@ export type ToolbarGeometry = {
 
 const geometries = new Map<string, ToolbarGeometry>();
 
-// One object per layout, so panes that get it as a prop can skip re-rendering. The traffic lights never need room:
-// they go with the sidebar (components/layout/SidebarDock.tsx), so a hidden sidebar's toolbar starts at the card's edge.
 export function toolbarGeometry(o: { sidebarButton: boolean }): ToolbarGeometry {
   const key = `${o.sidebarButton}`;
   let g = geometries.get(key);

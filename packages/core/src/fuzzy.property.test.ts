@@ -1,4 +1,3 @@
-// matchActions and fuzzyScore against their frozen spec (fuzzy.reference.ts): random action lists and typed queries.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fuzzyScore, matchActions, type ActionCandidate } from "./fuzzy.ts";
@@ -34,7 +33,6 @@ test("matchActions ranks and matches exactly as the reference does", () => {
       const limit = r.pick([3, 3, 1, 5, 100]);
       const want = reference.matchActions(query, actions, limit);
       assert.deepStrictEqual(matchActions(query, actions, limit), want, `seed ${seed} query ${JSON.stringify(query)}`);
-      // The same list again (the prepared names are reused) and a fresh copy of it.
       assert.deepStrictEqual(matchActions(query, actions, limit), want);
       assert.deepStrictEqual(matchActions(query, [...actions], limit), want);
       hits += want.length;

@@ -2,7 +2,6 @@
 const FILE_EXTENSIONS =
   "json|jsonl|js|mjs|cjs|jsx|ts|tsx|map|bundle|jsbundle|hbc|html?|css|txt|md|rtf|csv|log|ips|plist|xml|ya?ml|pdf|docx?|xlsx?|pptx?|key|pages|numbers|png|jpe?g|gif|webp|heic|svg|ico|icns|mp[34]|m4[av]|mov|avi|mkv|webm|wav|aac|flac|zip|gz|tgz|tar|7z|rar|dmg|pkg|app|crx|xpi|db|sqlite|sqlite3|ldb|sst";
 
-// Match quoted text and URLs before tokens inside them.
 const RULES: [RegExp, string][] = [
   [/"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|`[^`\n]*`/g, "<text>"],
   [/(^|[\s(\[{=:,])'[^'\n]*'(?=$|[\s)\]},.:;!?])/g, "$1<text>"],
@@ -43,7 +42,6 @@ export function errorType(error: unknown): string {
   return typeof error === "undefined" ? "Undefined" : error === null ? "Null" : "NonError";
 }
 
-// Expo's failed native call names the Swift function, a code identifier; the cause lines are dropped with the rest.
 const NATIVE_CALL = /^Calling the '([A-Za-z_$][\w$]{0,60})' function has failed$/;
 
 export function errorMessage(error: unknown): string {
@@ -54,7 +52,6 @@ export function errorMessage(error: unknown): string {
   return scrubText(message, 300);
 }
 
-// Expo's CodedError codes (ERR_…) and Node's (ENOENT) are constants, never user data.
 export function errorCode(error: unknown): string | null {
   const code = error && typeof error === "object" ? (error as { code?: unknown }).code : undefined;
   return typeof code === "string" && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(code) ? code : null;
@@ -81,7 +78,6 @@ function frameFunction(name: string | undefined): string {
 function frameFile(location: string | undefined): string {
   const raw = (location ?? "").replace(/^address at /, "").trim();
   if (!raw || raw === "native") return raw || "<unknown>";
-  // Metro puts bundle options after "//&".
   const base = raw.split(/[?#]|\/\/&/, 1)[0]!.split("/").filter(Boolean).at(-1) ?? "";
   return /^[\w.-]{1,80}$/.test(base) ? base : "<unknown>";
 }
@@ -149,7 +145,6 @@ export function nativeFrames(frames: NativeFrame[], limit = 64): ExceptionFrame[
 }
 
 const SYSTEM_NAME = /^[A-Z][A-Z0-9_ ()]{1,40}$/;
-// Framework-prefixed constants only (NSRangeException, CALayerInvalidGeometry, RCTFatalException).
 const EXCEPTION_NAME = /^[A-Z]{2,4}[A-Z][a-z][A-Za-z0-9]{1,60}$/;
 
 type NativeCrash = {
@@ -160,8 +155,6 @@ type NativeCrash = {
   exceptionFrames?: NativeFrame[];
 };
 
-/** A crash report as exceptions: the uncaught NSException's throw site first (when there is one),
- *  then the Mach exception with the crashed thread. Names only; never reasons. */
 export function nativeCrashExceptions(report: NativeCrash) {
   const machType = report.exceptionType && SYSTEM_NAME.test(report.exceptionType) ? report.exceptionType : "Crash";
   const signal = report.signal && SYSTEM_NAME.test(report.signal) ? report.signal : null;

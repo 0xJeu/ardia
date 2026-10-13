@@ -14,26 +14,22 @@ export type Theme = typeof dark & {
 
 const dark = {
   dark: true,
-  // Dia: 0.09 sidebar, 0.05 page.
   grain: 0.006,
-  // Dia: 0.5 tint.
   card: "rgba(18,18,18,0.5)",
   cardEdge: "rgba(0,0,0,0.35)",
   divider: "rgba(255,255,255,0.08)",
 
   textPrimary: "#FFFFFF",
-  textTab: "#FFFFFFC7", // Dia: 0.78.
+  textTab: "#FFFFFFC7",
   textSecondary: "#FFFFFF80",
   textTertiary: "#FFFFFF59",
-  icon: "#F7F5FFC6", // Dia: 0.78.
+  icon: "#F7F5FFC6",
   iconDisabled: "#F7F5FF4D",
 
   tabHover: "rgba(255,255,255,0.16)",
   tabPressed: "rgba(255,255,255,0.31)",
-  // Dia: 0.5.
   tabSelected: "rgba(18,18,18,0.5)",
   tabSelectedText: "#FFFFFF",
-  // Dia: 0.5pt border; 15/12.5 shadow.
   tabSelectedBorder: ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.15)"] as [string, string],
   tabSelectedShadow: "rgba(255,255,255,0.15)",
   tabSelectedShadowRadius: 15,
@@ -53,7 +49,7 @@ const dark = {
   rowSelected: "rgba(255,255,255,0.22)",
   rowHover: "rgba(255,255,255,0.07)",
   selection: "rgba(120,125,134,0.7)",
-  placeholder: "#FFFFFF87", // Dia: 0.53.
+  placeholder: "#FFFFFF87",
   chipBorder: "rgba(255,255,255,0.15)",
   chipText: "#FFFFFF99",
   goButton: "#DCCBD8",
@@ -68,12 +64,12 @@ const dark = {
 const light: typeof dark = {
   dark: false,
   grain: 0.05,
-  card: "rgba(255,255,255,0.7)", // Dia: 0.7.
+  card: "rgba(255,255,255,0.7)",
   cardEdge: "rgba(0,0,0,0.08)",
   divider: "rgba(0,0,0,0.08)",
 
   textPrimary: "#000000",
-  textTab: "#000000AD", // Dia: 0.68.
+  textTab: "#000000AD",
   textSecondary: "#00000080",
   textTertiary: "#00000059",
   icon: "#000000C6",
@@ -135,7 +131,6 @@ export const PROFILE_COLORS: Record<ProfileColor, ProfileColorSpec> = {
   plum: {
     name: "Plum",
     swatch: "#C07A98",
-    // Dia: plum band #B5556B, tint #B25B6B, name #DD899B.
     powerUp: "#B5556B",
     tint: "#B25B6B",
     action: "#DD899B",
@@ -173,7 +168,6 @@ export function themeFor(key: string): Theme {
     const [color, mode] = key.split(":") as [ProfileColor | "incognito", string];
     const base = color === "incognito" || mode === "dark" ? dark : light;
     const spec = color === "incognito" ? null : (PROFILE_COLORS[color] ?? PROFILE_COLORS.plum);
-    // Dia: neutral band 0.502 at 0.65.
     const powerUpColor = !spec ? null : spec.palette ? (spec.powerUp ?? spec.swatch) : "#808080A6";
     const backdrop = backdropTint(spec ? (spec.tint ?? tintForHue(spec.swatch, !spec.palette)) : INCOGNITO_TINT, !spec?.palette);
     theme = {
@@ -197,9 +191,6 @@ function themeKey(s: BrowserState, windowId: string | null, page: string | null)
 
 const ThemeContext = createContext<Theme | null>(null);
 
-// Resolves the theme once for everything below it: every window root and every profile page (which
-// sets PageProfileContext) has one, so the hundreds of components that call useTheme read a context
-// instead of each subscribing to the store (each subscription runs on every store update).
 export function ThemeScope({ children }: { children: ReactNode }) {
   const windowId = useContext(WindowContext);
   const page = useContext(PageProfileContext);
@@ -210,7 +201,6 @@ export function ThemeScope({ children }: { children: ReactNode }) {
 export function useTheme(): Theme {
   const scoped = useContext(ThemeContext);
   if (scoped) return scoped;
-  // Outside a ThemeScope (nothing renders there today) the theme is read once, not followed.
   if (__DEV__) console.warn("useTheme outside a ThemeScope");
   return themeFor(themeKey(useBrowser.getState(), null, null));
 }
@@ -218,9 +208,7 @@ export function useTheme(): Theme {
 export const layout = {
   sidebarWidth: 190,
   sidebarHeader: 46,
-  // Dia: 6pt inset.
   sidebarInset: 6,
-  // Dia: 41pt tiles, 6pt gap, 54pt top; 37pt rows.
   pinnedTop: 54,
   pinnedHeight: 41,
   rowHeight: 34,

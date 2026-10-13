@@ -11,8 +11,6 @@ import { useUrlAnchors } from "./layout/windowLayout";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "./Toolbar";
 
-// Dia: 5.5pt rise, 12pt margin/radius. Dia 1.52 puts the panel's text exactly where the field had it, and its right
-// edge 40pt past the field's end (an 810pt field, 888pt panel): our pill is drawn at rest, so all of it stays covered.
 const RIGHT_OF_URL = 40;
 const ABOVE_PANE = 5.5;
 const PANEL_RADIUS = 17;
@@ -21,13 +19,8 @@ const WINDOW_MARGIN = 12;
 const DROPDOWN_MIN_WIDTH = 350;
 const DROPDOWN_PAST_FIELD = 137;
 const DROPDOWN_RADIUS = 12;
-// The panel's height as it opens (its field row and bottom row, no suggestions yet): the grow's first frame, before
-// its layout is known.
 const PANEL_OPEN_HEIGHT = 107;
 
-// Dia 1.52 grows the panel out of the URL field: its edges cover 63%, 82%, 92%, 95%, 99% of the way in successive
-// 60 fps frames (a 2x capture), an exponential ease-out of about 130 ms. The content doesn't move; the panel's shape
-// uncovers it.
 const GROW_MS = 130;
 const GROW_EASING = Easing.out(Easing.exp);
 
@@ -44,16 +37,13 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const theme = useTheme();
   const windowId = useWindowId();
   const { panel } = useWindowUi();
-  // The active tab's id, and only while the panel is open: a closed panel doesn't re-render on tab switches.
   const activeId = useBrowser((s) => (panel.open ? activeTabId(s, windowId) : undefined));
-  // Only while the panel is open, as the line above: a closed panel's selector ran on every store update.
   const hasField = useStoreWhile(useBrowser, panel.open, (s) => !!(activeId && s.tabs[activeId]?.url));
   const insecure = usePage(activeId, (p) => !!insecureLevel(p));
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
   if (!panel.open || !activeId || !anchor) return null;
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);
-  // A click anywhere outside the bar closes it, as Esc does (its field's blur alone misses clicks on the sidebar).
   const onCancel = () => useBrowser.getState().closePanel(windowId);
   const surface = (radius: number) => ({
     fill: hex(theme.panel),
@@ -67,8 +57,6 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   });
 
   if (anchor.sidebar) {
-    // A hidden sidebar (Arc's layout keeps the bar in it) is out of the window: the bar drops from the window's corner.
-    // Shown, the bar covers the field from its own edge (the field sits closer to the window's edge than the margin).
     const shown = anchor.left >= 0;
     const left = shown ? anchor.left : WINDOW_MARGIN;
     const width = Math.min(Math.max(DROPDOWN_MIN_WIDTH, anchor.width + DROPDOWN_PAST_FIELD), room(left, DROPDOWN_MIN_WIDTH));
@@ -82,7 +70,6 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
     );
   }
 
-  // The panel's text starts where the field's did, so opening it doesn't move the address.
   const left = Math.max(WINDOW_MARGIN, anchor.left + urlTextLeft(insecure) - PANEL_TEXT_LEFT);
   const top = Math.max(0.5, anchor.top - ABOVE_PANE);
   const covering = anchor.left + anchor.width + RIGHT_OF_URL - left;
@@ -97,9 +84,6 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   );
 }
 
-// The panel, grown out of the field's box on the native driver: the panel and a clip of its shape scale from the
-// field's box to their own, and the content inside is scaled back, so it stays put while the shape uncovers it. No
-// box (the field isn't on screen) shows it at once; Reduce Motion fades it in.
 function Grow({
   from,
   frame,
@@ -117,7 +101,6 @@ function Grow({
 }) {
   const fade = !!from && reduceMotion;
   const [progress] = useState(() => new Animated.Value(from ? 0 : 1));
-  // The box it grows from and its own height, as they were when it opened: later moves don't restart it.
   const start = useRef(fade ? null : from);
   const [height, setHeight] = useState<number | null>(null);
   const onLayout = (e: LayoutChangeEvent) => {

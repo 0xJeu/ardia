@@ -27,7 +27,6 @@ export type Settings = {
   commandBarPreference: "website" | "search";
 
   tabLayout: "sidebar" | "top";
-  // The card's toolbar collapses to a strip while you scroll down (components/AutoHideToolbar.tsx).
   hideToolbarWhileScrolling: boolean;
   newTabPosition: "top" | "bottom";
   warnBeforeClosingLastTab: boolean;
@@ -59,11 +58,7 @@ export type Settings = {
   openLinksInLittleArdia: boolean;
   littleArdiaSize: [number, number];
 
-  // The settings this Mac has a say on: set here (not by sync), or saved in its session. Sync publishes only these
-  // (sync/adapters.ts): one filled in with its default at launch is no opinion.
   chosen?: string[];
-  // Of those, the ones only counted because a session saved before `chosen` had them: it saved every setting, defaults
-  // filled in included, so one still at its default whose last sync record is empty or none is no say (sync/adapters.ts).
   inferred?: string[];
 };
 
@@ -145,7 +140,6 @@ function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?:
   return validateEngine(input, searchEngines(settings), ignoreId);
 }
 
-/** `settings` with `patch` applied as a choice made on this Mac (`Settings.chosen`), for writes outside updateSettings. */
 export function choose(settings: Settings, patch: Partial<Settings>): Settings {
   const chosen = settings.chosen ?? [];
   const added = Object.keys(patch).filter((k) => k !== "chosen" && k !== "inferred" && !chosen.includes(k));
@@ -155,7 +149,6 @@ export function choose(settings: Settings, patch: Partial<Settings>): Settings {
 
 export type SettingsSlice = {
   settings: Settings;
-  /** `fromSync`: another Mac's choice, which doesn't make it this Mac's (`Settings.chosen`). */
   updateSettings(patch: Partial<Settings>, options?: { fromSync?: boolean }): void;
   setSearchEngine(id: string): void;
   addCustomEngine(input: EngineInput): { id: string } | { error: string };

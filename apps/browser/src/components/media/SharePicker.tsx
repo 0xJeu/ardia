@@ -36,7 +36,6 @@ export function requestDisplayMedia(tabId: string, request: DisplayMediaRequest)
   useMedia.setState((m) => ({ displayRequests: { ...m.displayRequests, [tabId]: { ...request, pageUrl } as Pending } }));
 }
 
-// The ArdiaCore acceptance run answers the picker as a click would.
 if (__DEV__)
   (globalThis as { acSharePicker?: unknown }).acSharePicker = {
     answerDisplayMedia: (tabId: string, sourceId: string | null) => answerDisplayMedia(tabId, sourceId),
@@ -54,12 +53,10 @@ export function answerDisplayMedia(tabId: string, sourceId: string | null) {
   });
 }
 
-// Shares another tab: its capture id, read just before (a renderer change replaces it).
 async function shareTab(tabId: string, sharedTabId: string) {
   const request = useMedia.getState().displayRequests[tabId];
   if (!request) return;
   const source = await webviews.get(sharedTabId)?.mediaCaptureSourceId();
-  // A newer request replaced this one meanwhile (and answered it): this choice was for the old one.
   if (useMedia.getState().displayRequests[tabId] !== request) return;
   if (source) noteTabShare(tabId, sharedTabId, request.origin);
   answerDisplayMedia(tabId, source ?? null);

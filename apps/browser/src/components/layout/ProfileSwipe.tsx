@@ -31,7 +31,6 @@ export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "side
   const area = useRef<SwipeAreaHandle>(null);
   const pager = pagerFor(windowId);
   const nativePager = usePagerNativeConfig(windowId, pageWidth);
-  // One event per area: Animated attaches an event object to a single view.
   const onPagerPosition = useMemo(() => Animated.event([{ nativeEvent: { position: pager.pos } }], { useNativeDriver: true }), [pager]);
 
   const onSwipe = (event: SwipeEvent) => {
@@ -41,7 +40,6 @@ export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "side
     }
     const e = pageWidth ? { ...event, width: pageWidth } : event;
     if (e.phase === "swipe") return pager.step(e.direction === "back" ? -1 : 1);
-    // Drags never need JS: the native pager tracks and settles them.
     if (e.phase === "wheel") pager.wheel(e);
   };
 
@@ -52,8 +50,6 @@ export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "side
     return () => void (devAreas.get(key) === area && devAreas.delete(key));
   }, [windowId, surface]);
 
-  // Keep the native controller configured when the last extra profile is removed, so its absolute
-  // position returns to zero. The area stays transparent and recognizes no single-profile drags.
   if (!multiple && !nativePager) return null;
   return (
     <SwipeArea
@@ -92,7 +88,6 @@ export function ProfileTint() {
 }
 
 const devAreas = new Map<string, React.RefObject<SwipeAreaHandle | null>>();
-// DEV: every onSwipe JS received, to compare with the native emits.
 const received: object[] = [];
 if (__DEV__) {
   const g = globalThis as { acSwipe?: Record<string, unknown> };

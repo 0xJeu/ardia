@@ -17,8 +17,6 @@ export function historyHosts(history: HistoryEntry[]): string[] {
   return hosts;
 }
 
-// The hosts of a profile's open tabs, then of its history. Kept for one tabs map and history list: typing in the bar changes
-// neither, and each key asks (is what is typed a site the profile knows?).
 let last: { tabs: BrowserState["tabs"]; history: HistoryEntry[]; profileId: string; hosts: string[] } | null = null;
 
 export function knownHosts(s: BrowserState, profileId: string): string[] {

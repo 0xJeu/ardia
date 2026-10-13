@@ -1,4 +1,3 @@
-// Page reports held at the bridge (lib/nativeEvents.ts): they replay in order, as one batch, before anything else runs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { afterHeldReports, createHold, holdPageReports } = await import("./nativeEvents.ts");
@@ -10,7 +9,6 @@ function setup() {
     __callFunction: (module, method, args) => {
       if (args[2]?.throws) throw new Error(args[2].throws);
       log.push(module === "RCTEventEmitter" ? args[1] : `${module}.${method}`);
-      // A handler that sets off a native module's listener, which applies what's held first.
       if (args[2]?.reenter) {
         hooks.flush();
         log.push("listener");

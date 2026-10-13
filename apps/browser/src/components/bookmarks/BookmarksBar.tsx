@@ -19,14 +19,11 @@ export const BOOKMARKS_BAR_HEIGHT = 30;
 const ITEM_HEIGHT = 24;
 const OVERFLOW_WIDTH = 28;
 
-// Memoized: every tab's pane renders one, and panes re-render on layout changes (sidebar, splits). The pane decides
-// whether it's shown (bookmarksBarShown); a pane that isn't on screen draws only the room it takes.
 export const BookmarksBar = memo(function BookmarksBar({ placeholder }: { placeholder?: boolean }) {
   const windowId = useWindowId();
   return placeholder ? <View style={{ height: BOOKMARKS_BAR_HEIGHT }} /> : <Bar windowId={windowId} />;
 });
 
-/** Whether a tab's pane has a bookmarks bar: `mode` is the setting, "never" in a private window. */
 export function bookmarksBarShown(mode: BookmarksBarMode, tab: { url: string } | undefined): boolean {
   if (!tab || mode === "never") return false;
   return mode === "always" || !tab.url;
@@ -34,7 +31,6 @@ export function bookmarksBarShown(mode: BookmarksBarMode, tab: { url: string } |
 
 export type BookmarksBarMode = Settings["bookmarksBar"];
 
-/** The window's bookmarks bar mode: the setting, "never" in a private window. */
 export function useBookmarksBarMode(windowId: string): BookmarksBarMode {
   return useBrowser((s) => (s.windows[windowId]?.incognito ? "never" : s.settings.bookmarksBar));
 }

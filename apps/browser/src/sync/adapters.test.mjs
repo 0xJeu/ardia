@@ -1,4 +1,3 @@
-// Two simulated Macs share one sync folder; each round trip runs the real adapters against the real store.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../store/browser.ts");
@@ -33,7 +32,6 @@ class Device {
     this.id = id;
     this.folder = folder;
     S().hydrate({});
-    // Their history and bookmarks are the store's alone here (lib/history.ts, lib/bookmarks.ts aren't running).
     useBrowser.setState({ historyReady: { default: true }, bookmarksReady: { default: true } });
     this.browser = S();
     this.scopes = { app: emptyScope(), p: emptyScope() };
@@ -106,7 +104,6 @@ function assertTreeWhole(device) {
   });
 }
 
-// A session saved by a build without these settings: hydrate fills them in with defaults, which are no say of this Mac's.
 const OLD_SESSION = (() => {
   const { cmdClickCreatesTabGroup: _c, tabReorderHaptics: _t, chosen: _x, ...rest } = S().settings;
   return { ...rest, cleanUpInactiveTabsAfterHours: null };
@@ -127,7 +124,6 @@ test("settings: what a Mac only has by default isn't sent; nulls from another Ma
   const extraction = a.with(() => adapters.settingsAdapter.extract(() => undefined));
   assert.ok(!extraction.values.has("set:cmdClickCreatesTabGroup") && extraction.ignore("set:cmdClickCreatesTabGroup"), "a default filled in abstains");
   assert.ok(!extraction.values.has("set:cleanUpInactiveTabsAfterHours"), "an old session's Never, its default, never published: no say either");
-  // What an older Mac's record says: null, or no value at all; another Mac's Never.
   const visible = new Map([["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}], ["set:cleanUpInactiveTabsAfterHours", { v: null }]]);
   b.with(() => adapters.settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
   b.with(() => {
@@ -144,23 +140,18 @@ test("settings: a joined Mac relaunched with a setting it never had doesn't over
   const a = new Device("A", folder);
   const b = new Device("B", folder);
   await syncAll([a, b]);
-  // A quits on an older build (no such setting; it published null then) and comes back on this one.
   a.scopes.app.base["set:cmdClickCreatesTabGroup"] = JSON.stringify({ v: null });
   relaunch(a, OLD_SESSION);
-  // Meanwhile B turns it off on purpose.
   b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: false }));
   await b.sync();
   await new Promise((r) => setTimeout(r, 20));
-  // A reconnects later: it publishes before it pulls.
   await syncAll([a, b]);
   assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), false);
   assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), false);
-  // A's user turns it back on (the default): a choice, sent.
   await new Promise((r) => setTimeout(r, 20));
   a.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true }));
   await syncAll([a, b]);
   assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), true);
-  // Never (a real null) still round-trips.
   a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: 12 }));
   await syncAll([a, b]);
   a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: null }));
@@ -173,8 +164,6 @@ test("settings: a session a pre-chosen build saved whole (defaults filled in) do
   const a = new Device("A", folder);
   const b = new Device("B", folder);
   await syncAll([a, b]);
-  // A ran a build without the setting (published null), then a pre-`chosen` build that filled in its default and
-  // saved every setting while offline.
   a.scopes.app.base["set:cmdClickCreatesTabGroup"] = JSON.stringify({ v: null });
   const { chosen: _x, ...whole } = { ...S().settings, cmdClickCreatesTabGroup: true };
   relaunch(a, whole);
@@ -184,7 +173,6 @@ test("settings: a session a pre-chosen build saved whole (defaults filled in) do
   await syncAll([a, b]);
   assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), false);
   assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), false);
-  // A setting that session saved away from its default is A's own: it goes out.
   await new Promise((r) => setTimeout(r, 20));
   relaunch(a, { ...whole, cmdClickCreatesTabGroup: false, tabReorderHaptics: false });
   await syncAll([a, b]);
@@ -196,7 +184,6 @@ test("settings: a setting from a newer version survives an older Mac's syncs (no
   const a = new Device("A", folder);
   const b = new Device("B", folder);
   await syncAll([a, b]);
-  // B is newer: it has a setting A doesn't know.
   const newer = {
     ...adapters.settingsAdapter,
     extract: (base) => {
@@ -250,7 +237,6 @@ test("bookmarks: folders moved into each other on two Macs don't make a cycle", 
   assert.ok(reachable.includes("One") && reachable.includes("Two"));
 });
 
-// Pinned tabs are the profile's: every window has a copy of each (store/pinMirror.ts), and sync sees one pin per key.
 test("pinned tabs sync once however many windows show them; a closed window or a parked set deletes nothing elsewhere", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);
@@ -284,7 +270,6 @@ test("pinned tabs sync once however many windows show them; a closed window or a
   assert.deepEqual(tiles(a, aWork), ["https://mail.example/ Inbox"]);
   assert.equal((await a.sync()).published, 0, "settled");
 
-  // The last window closes: its pins wait in the park; a change made meanwhile reaches the next window.
   a.with(() => S().closeWindow(aWork));
   assert.equal(a.with(() => S().parkedPins.default.tabs.length), 1);
   b.with(() => S().updateTab(Object.values(S().tabs).find((t) => t.pinned).id, { customTitle: "Mail" }));
@@ -318,14 +303,11 @@ test("passwords: saved on one Mac, changed or deleted on another; the newer edit
   assert.equal((await a.sync()).published, 0);
 });
 
-// 0.2.20: history is Chrome's. Applying a record adds its visits to Chrome, whose copy then differs from the record
-// (its own count, the other Mac's visits merged in); that must not read as an edit, or two Macs trade versions forever.
 test("history: two Macs settle on the union of their visits in Chrome, publish nothing more, and deletions reach Chrome", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);
   const b = new Device("devB", folder);
   for (const d of [a, b]) stub.historyDbs.delete(d.id);
-  // What lib/history.ts does from Chrome's reports: the store's view is Chrome's history.
   const readChrome = async (d) => {
     stub.current.device = d.id;
     const entries = await stub.queryHistory("");
@@ -369,14 +351,11 @@ test("history: two Macs settle on the union of their visits in Chrome, publish n
   assert.equal((await sync(b)).published, 0);
 });
 
-// 0.2.20: bookmarks are Chrome's, named by UUID. A bookmark synced before keeps its old id as its record key (the
-// node's syncKey), so a Mac not yet updated and an updated one name it alike: no renames, no duplicates.
 test("bookmarks: a Mac on old ids and one on Chrome's UUIDs keep one tree", async () => {
   const { bookmarkUuidFor } = await import("../store/bookmarks.ts");
   const folder = new Folder();
   const old = new Device("devOld", folder);
   const now = new Device("devNew", folder);
-  // The old Mac's store: its own ids, as before 0.2.20 (and as its records are keyed).
   old.with(() => {
     const roots = { bar: "bm-bar", other: "bm-other" };
     const n = (id, parentId, x) => ({ id, parentId, addedAt: 5, ...x });
@@ -394,7 +373,6 @@ test("bookmarks: a Mac on old ids and one on Chrome's UUIDs keep one tree", asyn
     });
   });
   await old.sync();
-  // The updated Mac moved the same bookmarks.json into Chrome: UUIDs, old ids as sync keys.
   now.with(() => {
     S().hydrate({ bookmarks: { nodes: {}, roots: {} } });
     useBrowser.setState({ bookmarksReady: { default: true } });
@@ -423,8 +401,6 @@ test("bookmarks: a Mac on old ids and one on Chrome's UUIDs keep one tree", asyn
   assert.equal(old.with(() => Object.keys(S().bookmarks.nodes).length), 5, "nor on the old one");
   assert.equal((await now.sync()).published, 0, "the updated Mac republishes nothing");
 
-  // Edits both ways: the old Mac's reach the UUID node; the updated Mac's new bookmark is one node on the old Mac.
-  // (This "old" Mac runs today's adapter, which names its nodes by UUID once it applies; it edits by sync key.)
   const onOld = (key) => old.with(() => Object.values(S().bookmarks.nodes).find((n) => (n.syncKey ?? n.id) === key).id);
   old.with(() => S().updateBookmark(onOld("bm-a"), { title: "A, renamed" }));
   now.with(() => S().addBookmark({ profileId: "default", url: "https://c.example/", title: "C", parentId: bookmarkUuidFor("bm-f") }));

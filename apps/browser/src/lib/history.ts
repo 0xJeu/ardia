@@ -6,25 +6,14 @@ import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { engineProfile, isIncognitoProfile } from "../store/model";
 import type { HistoryEntry } from "../store/types";
 
-// Keeps the store's `history` view of Chrome's history (store/history.ts): read from Chrome at launch and for
-// each new profile, then kept current from Chrome's change events. Once, it moves the app's old history.json
-// into Chrome.
-
 const LEGACY_FILE = "history.json";
-// Chrome recorded the same visits the old file did, a moment apart (it notes a visit at commit, the app did at
-// load end): within this, a saved visit is one Chrome has.
 const LEGACY_TOLERANCE_MS = 60_000;
-// Chrome expires visits older than this; there's no use adding them.
 const CHROME_KEEPS_MS = 90 * 86_400_000;
 const CHUNK = 500;
-// Chrome commits history a few seconds after a change; the old file stays until then, so a crash before it moves
-// it again (adding only what Chrome lacks).
 const LEGACY_KEPT_MS = 15_000;
 
 const store = () => useBrowser.getState();
 
-// The pages the app's History, command bar and sync show: Chrome also keeps extension pages (a hidden helper's
-// chrome-extension:// page among them), which the app never listed.
 const shownInHistory = (url: string) => /^(https?|file):/i.test(url);
 
 const toEntry = (e: EngineHistoryEntry): HistoryEntry => ({
@@ -48,13 +37,8 @@ function viewOf(engine: string): HistoryEntry[] {
   return [];
 }
 
-// Sync may use a view only once history.json is in Chrome: before, its visits would read as deleted.
 let legacyMoved = false;
 
-/**
- * Shows `list` for the engine profile. `floor`: visits at or before it may be missing from the view (it holds
- * Chrome's newest MAX_HISTORY URLs); a read sets it, and it only rises while the view fills from events.
- */
 function setView(engine: string, list: HistoryEntry[], floor?: number) {
   useBrowser.setState((s) => {
     const ids = profilesUsing(s, engine);
@@ -66,7 +50,6 @@ function setView(engine: string, list: HistoryEntry[], floor?: number) {
     const sameFloor = ids.every((id) => (s.historyFloor[id] ?? -Infinity) === next);
     const sameReady = !ready || ids.every((id) => s.historyReady[id]);
     if (sameList && sameFloor && sameReady) return {};
-    // Only what changed gets a new object: most events (a visit, a title) change the list alone.
     return {
       ...(sameList ? {} : { history: { ...s.history, ...Object.fromEntries(ids.map((id) => [id, list])) } }),
       ...(sameFloor ? {} : { historyFloor: { ...s.historyFloor, ...Object.fromEntries(ids.map((id) => [id, next])) } }),
@@ -74,8 +57,6 @@ function setView(engine: string, list: HistoryEntry[], floor?: number) {
     };
   });
 }
-
-// MARK: Changes
 
 const byLastVisit = (a: HistoryEntry, b: HistoryEntry) => b.lastVisit - a.lastVisit;
 
@@ -95,8 +76,6 @@ export function applyHistoryChange(list: HistoryEntry[], change: Exclude<History
         lastVisit: times[times.length - 1]!,
         visitTimes: times,
       };
-      // One copy of the list (up to 5000 entries, on every visit Chrome reports): the page's old entry drops out and the
-      // new one goes before the first entry visited no later than it.
       const next = list.slice();
       if (old) next.splice(oldAt, 1);
       const at = next.findIndex((h) => h.lastVisit <= entry.lastVisit);
@@ -106,7 +85,6 @@ export function applyHistoryChange(list: HistoryEntry[], change: Exclude<History
       return next;
     }
     case "modified": {
-      // A title or count change names a page or two: look those up, copy the list only if one differs.
       let next: HistoryEntry[] | null = null;
       for (const row of new Map(change.rows.map((r) => [r.url, r])).values()) {
         const at = list.findIndex((h) => h.url === row.url);
@@ -125,12 +103,9 @@ export function applyHistoryChange(list: HistoryEntry[], change: Exclude<History
   }
 }
 
-// MARK: Loading
-
 type Load = { running: Promise<void>; again: boolean; queued: HistoryChange[] };
 const loads = new Map<string, Load>();
 const loaded = new Set<string>();
-// Profiles whose old file is being moved in: their views are read again once it's done, not per added visit.
 const migrating = new Set<string>();
 
 function load(engine: string): Promise<void> {
@@ -148,7 +123,6 @@ function load(engine: string): Promise<void> {
         state.queued = [];
         await watchHistory(engine);
         const read = await queryHistory(engine, MAX_HISTORY, MAX_VISIT_TIMES);
-        // Chrome had more URLs than the view reads: the older ones may be missing (shown or not).
         const floor = read.length >= MAX_HISTORY ? Math.min(...read.map((e) => e.visitTimes.at(-1) ?? 0)) : -Infinity;
         let list = read.filter((e) => shownInHistory(e.url)).map(toEntry).sort(byLastVisit);
         for (const change of state.queued) if (!(change.kind === "deleted" && change.all)) list = applyHistoryChange(list, change);
@@ -165,10 +139,6 @@ function load(engine: string): Promise<void> {
   return state.running;
 }
 
-// Chrome sends its changes in batches (a page's visit with its redirects and title, ~20 ms of them per event): one
-// event's changes go into the view together, one store update per profile, as soon as the event's own task is done
-// (a microtask: no other native event, timer or user action lands in between). Code already waiting on a promise
-// can run first, as it could before any change's own dispatch.
 let pending: HistoryChange[] = [];
 
 function changed(change: HistoryChange) {
@@ -194,7 +164,6 @@ function applyPending() {
     }
     if (!loaded.has(engine)) continue;
     if (change.kind === "deleted" && change.all) {
-      // Read again from Chrome: what came before it is in the view first, what comes after is queued for the read.
       show();
       void load(engine);
       continue;
@@ -204,16 +173,8 @@ function applyPending() {
   show();
 }
 
-// MARK: The old file
-
 type LegacyFile = { history?: Record<string, HistoryEntry[]> };
 
-/**
- * Adds history.json's visits that Chrome doesn't have (imports, other Macs' synced history, visits it never
- * saw) to Chrome, then deletes the file once Chrome has committed. Adding again is harmless (each visit Chrome
- * has accounts for one saved visit), so a launch that stops halfway starts over. Profiles that no longer exist
- * are dropped.
- */
 export async function migrateHistoryFile(now = Date.now(), { keepMs = LEGACY_KEPT_MS } = {}): Promise<"none" | "moved" | "kept"> {
   let file: LegacyFile | null = null;
   try {
@@ -229,7 +190,6 @@ export async function migrateHistoryFile(now = Date.now(), { keepMs = LEGACY_KEP
   for (const [profileId, list] of Object.entries(file.history ?? {})) {
     if (!s.profiles[profileId] || isIncognitoProfile(profileId) || !Array.isArray(list)) continue;
     const engine = engineProfile(profileId);
-    // Profiles sharing data saved the same list.
     if (!perEngine.has(engine)) perEngine.set(engine, list);
   }
   for (const engine of perEngine.keys()) migrating.add(engine);
@@ -256,16 +216,11 @@ export async function migrateHistoryFile(now = Date.now(), { keepMs = LEGACY_KEP
   return "moved";
 }
 
-// MARK: Start
-
 export function startHistory() {
   const events = onHistoryChanged(changed);
   const loadAll = (s: Pick<BrowserState, "profiles">) => {
     for (const engine of engineProfiles(s)) if (!loaded.has(engine) && !loads.has(engine)) void load(engine);
   };
-  // With an old history.json to move in, the views are first read (and Chrome's changes watched) once it's in:
-  // watching during the move sent the JS one event per moved visit (~88,000 for a long-used profile, ~200 ms of
-  // the startup JS), all of them ignored, and the views are read again after it anyway.
   let moving = readDocument(LEGACY_FILE) !== null;
   let stopped = false;
   if (!moving) loadAll(store());
@@ -280,14 +235,11 @@ export function startHistory() {
       else if (legacyMoved) for (const engine of loaded) setView(engine, viewOf(engine));
     });
   };
-  // The move reads and parses the whole file (2 MB for 5000 pages, ~100 ms) before its first await: it waits for the
-  // first window, which shows no history.
   if (moving) afterFirstWindow(migrate);
   else migrate();
   const stop = useBrowser.subscribe((s, prev) => {
     if (s.profiles === prev.profiles) return;
     if (!moving) loadAll(s);
-    // A profile sharing another's data shows its list at once.
     for (const id of Object.keys(s.profiles)) {
       if (prev.profiles[id] || isIncognitoProfile(id) || s.history[id]) continue;
       const list = viewOf(engineProfile(id));
@@ -304,5 +256,4 @@ export function startHistory() {
   };
 }
 
-/** Re-reads every profile's history from Chrome (the dev harness, tests). */
 export const reloadHistory = () => Promise.all(engineProfiles(store()).map(load));

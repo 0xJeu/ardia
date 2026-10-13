@@ -97,7 +97,6 @@ export function refreshCalendar(): Promise<void> {
   return inflight;
 }
 
-// Request EventKit access only from an explicit click.
 export async function connectCalendar(): Promise<boolean> {
   if (fixtureMode) {
     await refreshCalendar();

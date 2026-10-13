@@ -59,8 +59,6 @@ export function StepLayout({ children, actions, preview }: { children: ReactNode
   );
 }
 
-// MARK: Default browser, Dock, login item
-
 type SystemState = { isDefault: boolean; inDock: boolean; loginEnabled: boolean };
 
 export function DefaultBrowserStep() {
@@ -164,8 +162,6 @@ function SystemPreview({ isDefault, dock, login }: { isDefault: boolean; dock: b
   );
 }
 
-// MARK: Personalization
-
 export function PersonalizeStep() {
   const next = useOnboarding((s) => s.next);
   const windowId = useOnboarding((s) => s.windowId) ?? "";
@@ -240,8 +236,6 @@ function WindowPreview({ windowId }: { windowId: string }) {
   );
 }
 
-// MARK: Import
-
 const BROWSERS = [
   { name: "Chrome", path: "/Applications/Google Chrome.app" },
   { name: "Safari", path: "/Applications/Safari.app" },
@@ -313,8 +307,6 @@ export function ImportStep() {
     </StepLayout>
   );
 }
-
-// MARK: Pinned tabs
 
 export function PinnedTabsStep() {
   const next = useOnboarding((s) => s.next);
@@ -433,8 +425,6 @@ function PinnedPreview({ selected }: { selected: string[] }) {
     </View>
   );
 }
-
-// MARK: Welcome
 
 export function OutroStep() {
   const colors = useOnboardingColors();

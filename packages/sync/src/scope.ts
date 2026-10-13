@@ -27,7 +27,6 @@ export type ScopeState = {
   extra: Record<string, number[]>;
   files: Record<string, FileMeta>;
   damaged: Record<string, number>;
-  /** The last seq given to a batch. Batches in `journal` have their seq but may not be in the folder yet. */
   seq: number;
   outbox: Op[];
   journal?: LogFile[];
@@ -87,11 +86,6 @@ export type ScopeOptions = {
   compactInterval?: number;
   pruneGrace?: number;
   damagedGiveUp?: number;
-  /**
-   * Saves the batches about to be written so they survive a crash; they're written only once it resolves.
-   * After a restart, `restoreJournal` puts them back and they're written again as they were: a device
-   * never publishes two different batches under one seq.
-   */
   persist?: (batches: LogFile[]) => Promise<void>;
 };
 
@@ -145,8 +139,6 @@ export function ingestSnapshot(state: ScopeState, file: SnapshotFile, clock: Clo
   for (const [device, at] of Object.entries(file.seen)) see(state, device, at);
   see(state, file.device, file.at);
   for (const [key, record] of Object.entries(file.records)) {
-    // This replica already applied the change that wrote this record and no longer has the key: it was
-    // deleted and the tombstone collected (or it expired). An older snapshot mustn't bring it back.
     if (!(key in state.records) && isApplied(state, record.o)) continue;
     if (mergeRecord(state, key, record, clock)) changed.add(key);
   }
@@ -231,16 +223,10 @@ export async function flush(state: ScopeState, transport: Transport, scope: stri
   delete state.journal;
 }
 
-/**
- * After a restart, puts back the batches `persist` saved that `state` (as last saved) doesn't have yet.
- * Batches above `written` may not have reached the folder and are sent again by the next flush; if one
- * did, the folder holds the same batch twice, which merges as a no-op.
- */
 export function restoreJournal(state: ScopeState, batches: LogFile[], clock: Clock, written = 0) {
   const saved = state.seq;
   for (const file of [...batches].sort((a, b) => a.seq - b.seq)) {
     if (file.seq <= state.seq) continue;
-    // The saved outbox went out in the batch after the saved seq.
     if (file.seq === saved + 1) state.outbox = [];
     for (const op of file.ops) {
       mergeRecord(state, op.k, { h: op.h, v: op.v, o: [file.device, file.seq] }, clock);
@@ -254,7 +240,6 @@ export function restoreJournal(state: ScopeState, batches: LogFile[], clock: Clo
   state.seq = Math.max(state.seq, written);
 }
 
-/** The last seq known to be in the folder. */
 export const writtenSeq = (state: ScopeState) => state.seq - (state.journal?.length ?? 0);
 
 export async function pull(state: ScopeState, transport: Transport, scope: string, clock: Clock, now: number, options: ScopeOptions = {}) {

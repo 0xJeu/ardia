@@ -1,13 +1,3 @@
-// Compares the Chrome startup traces of two native-bench sides (`native-bench.mjs --only launch --trace-startup <cats>`):
-// where in the engine's start a launch's time goes.
-//
-//   node launch-trace.mjs <a/results.json> <b/results.json> [--top 40] [--thread CrBrowserMain] [--proc Browser]
-//
-// Times are ms after the browser process was created (the trace's Startup.LoadTime.ProcessCreateToApplicationStart):
-// ChromeMain's entry, BrowserMain, the end of BrowserMainRunnerImpl::Initialize, and each process kind's first event,
-// as medians with every launch's value. Then the slices on the browser's main thread up to BrowserMain + 400 ms, by
-// name (a task by where it was posted from), inclusive ms, biggest change first. Nothing between ChromeMain and
-// BrowserMain is traced: for that window, acsample.c and launch-samples.mjs sample the main thread.
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
@@ -50,7 +40,6 @@ function analyze(file) {
     const k = `first event: ${procName.get(e.pid) ?? "?"}`;
     if (!(k in marks) || ms(e.ts) < marks[k]) marks[k] = ms(e.ts);
   }
-  // Main-thread slices by name, clipped to BrowserMain + 400 ms.
   const until = marks.BrowserMain + 400;
   const key = (e) => (e.args?.src_func ? `${e.name} @${(e.args.src_file ?? "").split("/").slice(-2).join("/")}:${e.args.src_func}` : e.name);
   const byName = new Map();

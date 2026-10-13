@@ -1,6 +1,3 @@
-// OTLP/HTTP JSON log records for ardia.dev/otel/v1/logs.
-// Events keep their PostHog names so old and new data query the same.
-
 type OtlpValue = { stringValue: string } | { intValue: string } | { doubleValue: number } | { boolValue: boolean };
 export type OtlpAttribute = { key: string; value: OtlpValue };
 export type OtlpLogRecord = {
@@ -16,7 +13,6 @@ export type QueuedEvent = { uuid: string; event: string; distinct_id: string; ti
 export const EVENTS_SCOPE = "ardia.analytics";
 export const LOGS_SCOPE = "ardia.app";
 
-// OTLP JSON has no nested values here: objects and arrays go as JSON text, int64 as a decimal string.
 function otlpValue(value: unknown): OtlpValue | null {
   switch (typeof value) {
     case "string":
@@ -71,8 +67,6 @@ export function logsRequest(resource: Record<string, unknown>, scope: string, re
   });
 }
 
-// 2xx: accepted. 400: the batch is bad, drop it. 413: halve it, or drop a lone record.
-// Anything else (429, 5xx, offline, a misrouted endpoint): keep it and retry later.
 export type Outcome = "sent" | "drop" | "split" | "retry";
 
 export function outcome(status: number, count: number): Outcome {

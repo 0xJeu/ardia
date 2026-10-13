@@ -15,23 +15,18 @@ function restPages(current: string | null, order: string[]): PagerPage[] {
   return [...(before ? [{ id: before, slot: -1 }] : []), { id: current, slot: 0 }, ...(after ? [{ id: after, slot: 1 }] : [])];
 }
 
-// Dia: 1pt threshold, 50ms bursts, 0.25s cooldown.
 const WHEEL_THRESHOLD = 1;
 const WHEEL_BURST_MS = 49;
 const WHEEL_COOLDOWN_MS = 250;
 
-// The native controller (ACPager) tracks, settles and selects; JS only commits its selections.
 class ProfilePager {
-  // The absolute profile index, written only by the native controller's frames.
   readonly pos: Animated.Value;
-  // pages: the current profile's neighbours to keep warm; ack: the newest native sequence JS has handled.
   readonly state = create<{ pages: PagerPage[] | null; ack: number }>(() => ({ pages: null, ack: 0 }));
   private surfaces = 0;
   private switching = false;
   private unsubscribe: () => void;
   private lastEvent: object | null = null;
   private wheelState = { sum: 0, last: 0, trigger: 0 };
-  // The pending external selection's generation, 0 when none.
   private external = 0;
   private externalGeneration = 0;
 
@@ -41,7 +36,6 @@ class ProfilePager {
     this.unsubscribe = useBrowser.subscribe((s, prev) => {
       const w = s.windows[windowId];
       if (!w) return this.dispose();
-      // Native selection survives root swaps; React's selection reaches it through props.
       const was = prev.windows[windowId];
       if (w.profileId !== was?.profileId || w.incognito !== was?.incognito || s.profileOrder !== prev.profileOrder) {
         this.state.setState({ pages: this.warmPages() });
@@ -55,23 +49,17 @@ class ProfilePager {
     return () => void this.surfaces--;
   }
 
-  // Coalesces native events: whichever arrives first commits the controller's latest state, and
-  // older ones are dropped, so a delayed event never undoes a newer gesture.
   readonly onNativeState = (event: PagerStateEvent) => {
-    // An external selection is on its way to native; its completion commits whatever is newest.
     if (this.external) return;
     this.commitNative(pagerState(this.windowId) ?? event, event);
   };
 
-  // A profile chosen outside the pager: native jumps to it, and no older native event may move the
-  // store until that has landed.
   private selectExternal(profileId: string, order: string[]) {
     const generation = ++this.externalGeneration;
     this.external = generation;
     const done = (ok: boolean) => {
       if (this.external !== generation) return;
       this.external = 0;
-      // The latest state, not the requested profile: a gesture after the command wins.
       if (ok) this.commitNative(pagerState(this.windowId));
     };
     selectPager(this.windowId, profileId, order.join("\n")).then(done, () => done(false));
@@ -82,7 +70,6 @@ class ProfilePager {
     if (__DEV__) this.lastEvent = { native: event ?? null, snapshot };
     const s = useBrowser.getState();
     const w = s.windows[this.windowId];
-    // The native order may differ from the store's by now; the index is only a fallback without one.
     const id = snapshot.profileId !== undefined ? snapshot.profileId : s.profileOrder[snapshot.selected];
     unstable_batchedUpdates(() => {
       if (w && !w.incognito && id && s.profiles[id] && id !== w.profileId) {
@@ -129,7 +116,6 @@ class ProfilePager {
 
   step(delta: -1 | 1) {
     if (!this.current()) return;
-    // Native steps from where it is headed when the command runs, which may be ahead of the store.
     void stepPager(this.windowId, delta, false, useBrowser.getState().profileOrder.join("\n")).then((ok) => {
       if (ok) return;
       const next = useBrowser.getState().profileOrder[this.index() + delta];
@@ -185,7 +171,6 @@ export function usePagerPages(windowId: string): { pages: PagerPage[]; paging: b
   const current = useBrowser((s) => s.windows[windowId]?.profileId ?? null);
   const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
   const order = useBrowser((s) => s.profileOrder);
-  // Every profile stays mounted at its absolute index, so a drag needs no JS to start.
   const all = !incognito && !!current && order.includes(current);
   const pages = useMemo(
     () =>
@@ -197,7 +182,6 @@ export function usePagerPages(windowId: string): { pages: PagerPage[]; paging: b
   return { pages, paging: all, pager };
 }
 
-// Props for the SwipeArea's native pager; undefined without a profile to page.
 export function usePagerNativeConfig(windowId: string, width?: number): NativePagerConfig | undefined {
   const pager = pagerFor(windowId);
   const ack = pager.state((s) => s.ack);
@@ -214,7 +198,6 @@ export function usePagerNativeConfig(windowId: string, width?: number): NativePa
   );
 }
 
-// A page's place in the pager: off to the side at rest, outside the surface's clip.
 export function usePageStyle(windowId: string, slot: number, width: number) {
   const { pos } = pagerFor(windowId);
   return useMemo(() => ({ transform: [{ translateX: Animated.multiply(Animated.add(pos, -slot), -width) }] }), [pos, slot, width]);

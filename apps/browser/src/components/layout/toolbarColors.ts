@@ -90,10 +90,8 @@ export function useEasedColor(color: string | null, duration = 180) {
     to.current = target;
   }
   useEffect(() => {
-    // A toolbar that appears (a tab shown, a pane opened) starts at its colour: nothing to fade.
     if (from.current === to.current) return;
     progress.setValue(0);
-    // JS driver: it animates a colour.
     Animated.timing(progress, { toValue: 1, duration, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
   }, [target]);
   return progress.interpolate({ inputRange: [0, 1], outputRange: [from.current, to.current] });

@@ -142,8 +142,6 @@ function load() {
   }
 }
 
-// Batches numbered since the sealed state was last saved, kept until a saved state has them: a batch is
-// in here, on disk, before it's written to the folder (`persist`), so a crash can't reuse its seq.
 type Journal = Record<string, LogFile[]>;
 let journal: Journal = {};
 let journalOnDisk = false;
@@ -174,8 +172,6 @@ const persistJournal = (scope: string) => async (batches: LogFile[]) => {
   const list = (journal[scope] ??= []);
   for (const file of batches) if (!list.some((f) => f.seq === file.seq)) list.push(file);
   const sealed = await SyncNative!.sealLocal(JSON.stringify({ journal }));
-  // The journal must be on disk before the batches are published: after a crash, it's how this device knows
-  // which sequence numbers it already used.
   await saveDocument(JOURNAL, sealed);
   journalOnDisk = true;
 };
@@ -217,7 +213,6 @@ function save() {
     try {
       const sealed = await SyncNative?.sealLocal(state);
       if (sealed) {
-        // Only once the state is on disk may the journal entries it covers go.
         await saveDocument(STATE, sealed);
         savedState = state;
         pruneJournal(seqs);
@@ -245,10 +240,6 @@ function publishUi(patch: Partial<SyncUi> = {}) {
 
 export const deviceName = () => SyncNative?.deviceName() ?? "This Mac";
 
-// MARK: Adapters
-
-// What other Macs send in the app's former names (an older version's, or records saved then) applies in today's.
-// Only for records of URLs and settings: never passwords, whose text is the user's.
 const inTodaysNames = (adapter: Adapter): Adapter => ({
   ...adapter,
   apply: (visible, changed, base) =>
@@ -281,8 +272,6 @@ function profileAdapters(profileId: string, retiring: boolean): Adapter[] {
     ...(t.passwords && ownsData ? [passwords] : []),
   ];
 }
-
-// MARK: The cycle
 
 function scheduleSync(delay = AFTER_EDIT_MS) {
   if (!doc.enabled) return;
@@ -387,7 +376,6 @@ function linkProfiles(app: ScopeState) {
     const syncId = match ?? SyncNative!.newDeviceId();
     doc.profiles[id] = { syncId, enabled: true };
     taken.add(syncId);
-    // Read the existing chain before publishing local sync data.
     if (match) doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
   }
   for (const [id, link] of Object.entries(doc.profiles)) if (!s.profiles[id] && !link.retire) link.retire = true;
@@ -417,7 +405,6 @@ function summarize(): Pick<SyncUi, "devices" | "remoteTabs" | "remoteProfiles"> 
     if (!scope || !link.enabled) continue;
     remoteTabs[profileId] = [...visible(scope, "tabs:")]
       .map(([k, v]) => ({ deviceId: k.slice(5), value: v as DeviceTabs }))
-      // A device that stopped syncing took its record away; one without a name record is on its way out.
       .filter(({ deviceId, value }) => deviceId !== doc.deviceId && names.has(deviceId) && value.tabs.length > 0)
       .map(({ deviceId, value }) => ({ deviceId, name: names.get(deviceId) || value.n || "Unknown Device", tabs: value.tabs.map((t) => ({ url: t.u, title: t.t })) }));
   }
@@ -427,8 +414,6 @@ function summarize(): Pick<SyncUi, "devices" | "remoteTabs" | "remoteProfiles"> 
     .map(([k, v]) => ({ syncId: k.slice(5), name: (v as ProfileRecord).n, color: (v as ProfileRecord).c, icon: (v as ProfileRecord).i }));
   return { devices, remoteTabs, remoteProfiles };
 }
-
-// MARK: Setup
 
 export async function folderInfo(path?: string | null): Promise<FolderInfo | null> {
   return (await SyncNative?.folderInfo(path ?? doc.folder ?? null)) ?? null;
@@ -540,8 +525,6 @@ export function addRemoteProfile(syncId: string): string | null {
   scheduleSync(0);
   return id;
 }
-
-// MARK: Launch
 
 export function startSync() {
   if (!SyncNative) return;

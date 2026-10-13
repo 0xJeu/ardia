@@ -1,4 +1,3 @@
-// The sidebar's row places from the store: which entries a viewport shows before anything has laid out.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../../store/browser.ts");
@@ -13,7 +12,6 @@ const tab = (i) => ({
   muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: null, openerId: null, createdAt: i, lastActiveAt: i,
 });
 
-// 40 tabs: t0 and t1 loose, t2…t6 a group, the rest loose.
 function hydrate({ collapsed = false } = {}) {
   const tabs = Array.from({ length: 40 }, (_, i) => tab(i));
   S().hydrate({
@@ -34,7 +32,6 @@ test("entriesWithin counts the entries that start inside the height, a group as 
   assert.equal(entriesWithin(s, "w", "default", list, 1), 1);
   assert.equal(entriesWithin(s, "w", "default", list, pitch), 1);
   assert.equal(entriesWithin(s, "w", "default", list, pitch + 1), 2);
-  // The group starts at 2 pitches; the next row only after the whole block.
   const group = entryHeight(s, "w", "default", "g:g");
   assert.ok(group > 5 * pitch);
   assert.equal(entriesWithin(s, "w", "default", list, 2 * pitch + 1), 3);
@@ -53,15 +50,12 @@ test("the entries within a height cover it: the rest start below it", () => {
   }
 });
 
-// The lazySidebarRows kill switch (lib/killSwitches.ts): on, a page first mounts what its window shows and a page beside the
-// current one waits a frame; off, the launch before that (64 entries, every page at once).
 test("lazySidebarRows on: a page first mounts the entries its window's saved frame shows", () => {
   const list = hydrate();
   const s = S();
   const n = firstPaintEntries(s, "w", "default", list, true);
   assert.equal(n, entriesWithin(s, "w", "default", list, 800));
   assert.ok(n > 0 && n < list.length);
-  // No saved frame yet: the 2400 pt a tall sidebar can't exceed.
   S().hydrate({ ...s, windows: { w: { ...s.windows.w, frame: undefined } } });
   assert.equal(firstPaintEntries(S(), "w", "default", list, true), entriesWithin(S(), "w", "default", list, FIRST_PAINT_HEIGHT));
   assert.equal(startsOffScreen(true, false), true);

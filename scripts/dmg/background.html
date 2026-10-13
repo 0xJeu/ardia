@@ -1,13 +1,4 @@
 <!doctype html>
-<!-- The picture behind the disk image's window, in the site's poster system (apps/site/src/styles/global.css), its
-     header the share card's (apps/site/public/og.png): the painted tile, the wordmark and the mono line.
-     scripts/dmg/render.sh renders it to background.tiff. Finder draws the two icons (112 pt, centred at 176,208 and
-     484,208: scripts/dmg/layout.sh) and their labels, in black, so each sits on a light name card.
-     The window is 660×384 pt with its title bar, which leaves about 354 pt of picture, about 327 pt with
-     Finder's status bar on and about 299 pt with its path bar too: the name cards end at 294. The picture is taller
-     than the window so a resized window shows paper.
-     The typefaces and the tile are the site's own files, so the render needs no connection; render.sh checks that
-     both faces loaded (the page lists them in body[data-fonts] once they have). -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -37,8 +28,6 @@
 html, body { margin: 0; }
 body { width: 660px; height: 460px; position: relative; overflow: hidden; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; }
 body > * { position: absolute; margin: 0; }
-/* The header, as on the share card: tile, wordmark (the site header's: apps/site/src/components/Header.astro), then
-   the mono line (the site's .label), centred on the wordmark. */
 .head { left: 28px; top: 18px; display: flex; align-items: center; gap: 9px; white-space: nowrap; }
 .head img { width: 24px; height: 24px; display: block; }
 .word { font-family: var(--poster); font-weight: 880; font-stretch: 112%; font-size: 18px; letter-spacing: -0.035em; line-height: 1; }

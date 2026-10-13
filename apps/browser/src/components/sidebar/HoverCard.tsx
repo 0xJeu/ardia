@@ -58,7 +58,6 @@ function TabCard({ tabId, windowId, anchor }: { tabId: string; windowId: string;
   const tab = useBrowser((s) => s.tabs[tabId]);
   const isActive = useBrowser((s) => activeTabId(s, windowId) === tabId);
   const bookmarked = useIsBookmarked(tab?.url ?? "");
-  // Document PiP may have a window without a tab session.
   const video = useMedia((m) => !!m.sessions[tabId]?.hasVideo || !!m.pipOpen[tabId]);
   const [pip, togglePip] = usePictureInPicture(tabId);
   const sleeping = useIsSleeping(tabId);

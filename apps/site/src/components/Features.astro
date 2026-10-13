@@ -4,7 +4,6 @@ import { extras, features } from "../data/features";
 const pad = (n: number) => String(n).padStart(2, "0");
 ---
 
-{/* data-shot="pledge-…" and "also" stay: they name these sections in the section_viewed analytics. */}
 <section class="features" id="features" aria-label="Features">
   <div class="wrap">
     <ol class="feature-list">
@@ -74,7 +73,6 @@ const pad = (n: number) => String(n).padStart(2, "0");
     grid-column: 1 / span 4;
     grid-row: 1;
   }
-  /* Alternate sides, so the column of screenshots reads as a sequence, not a list. */
   .feature:nth-child(even) .feature-text {
     grid-column: 9 / -1;
   }

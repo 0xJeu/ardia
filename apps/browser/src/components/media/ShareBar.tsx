@@ -42,8 +42,6 @@ export function noteTabShare(capturerTabId: string, capturedTabId: string, origi
   useMedia.setState((m) => ({ tabShares: { ...m.tabShares, [capturerTabId]: { capturedTabId, origin, dismissed: {} } } }));
 }
 
-// A share ends when its capture does. "Share this tab instead" stops the old source before it starts the new one, so the
-// capture goes off for a moment: a share is forgotten only once it stays off.
 const SHARE_END_MS = 1500;
 
 export function startTabShareCleanup() {
@@ -64,7 +62,6 @@ export function startTabShareCleanup() {
   });
 }
 
-// The engine moves this capturer's share only (each share has its own bar on every tab), and says whether it did.
 async function shareInstead(capturer: string, tabId: string): Promise<boolean> {
   const ok = await changeCaptureSource(browserIdOf(capturer), browserIdOf(tabId));
   if (!ok) return false;
@@ -75,7 +72,6 @@ async function shareInstead(capturer: string, tabId: string): Promise<boolean> {
   return true;
 }
 
-// The ArdiaCore acceptance run presses "Share This Tab Instead" as a click would.
 if (__DEV__) (globalThis as { acShareBar?: unknown }).acShareBar = { shareInstead, tabShares: () => useMedia.getState().tabShares };
 
 function dismiss(capturer: string, tabId: string) {
@@ -91,7 +87,6 @@ export function ShareBar({ tabId }: { tabId: string }) {
   const height = useRef(new Animated.Value(0)).current;
   const visible = !!found;
   useEffect(() => {
-    // JS driver: the height pushes the page down.
     Animated.timing(height, { toValue: visible ? SHARE_BAR_HEIGHT : 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
   }, [visible]);
   const last = useRef(found);

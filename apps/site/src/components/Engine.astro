@@ -1,5 +1,4 @@
 ---
-// What's under it, as a checklist: what's in (ticked), what's partly in (a dash), what isn't yet (empty box).
 type Status = "yes" | "part" | "no";
 const rows: { item: string; detail: string; status: Status; label?: string }[] = [
   { item: "Engine", detail: "Chromium 154. Chrome’s own framework.", status: "yes" },
@@ -17,7 +16,6 @@ const rows: { item: string; detail: string; status: Status; label?: string }[] =
 const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not yet" };
 ---
 
-{/* data-shot="record" stays: it names this section in the section_viewed analytics. */}
 <section class="engine" id="chromium" aria-labelledby="engine-title" data-shot="record">
   <div class="wrap engine-grid">
     <header class="engine-head">

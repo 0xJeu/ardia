@@ -20,7 +20,6 @@ export function showWebNotification(tabId: string, n: WebNotification) {
   const s = useBrowser.getState();
   const tab = s.tabs[tabId];
   const window = tab ? s.windows[tab.windowId] : undefined;
-  // Dismiss incognito notifications.
   if (!tab || !window || window.incognito) return void webviews.get(tabId)?.notificationAction(n.id, "close");
   const id = macId(n);
   shown.set(id, n.id);
@@ -51,7 +50,6 @@ export function showWebNotification(tabId: string, n: WebNotification) {
 const ICON_PIXELS = 128;
 const ICON_TIMEOUT_MS = 3000;
 
-// Load icons through the page tab's request context.
 async function iconFor(tabId: string, url: string): Promise<string | undefined> {
   const view = webviews.get(tabId);
   if (!view) return undefined;
@@ -84,7 +82,6 @@ export function handleWebNotificationResponse({ id, action, tabId, data }: Notif
 
 let asked = false;
 
-// Ask once before opening Notification Settings.
 export async function ensureNotificationPermission(windowId?: string): Promise<boolean> {
   const status = await notificationPermission();
   if (status === "granted" || status === "provisional") return true;

@@ -35,19 +35,14 @@ type Item = ItemSpec & {
 type Drop =
   | { type: "tabs"; placement: TabPlacement }
   | { type: "group"; placement: { pinned: boolean; beforeId?: string | null } }
-  // Onto an ungrouped tab in the list: a new group of the two.
   | { type: "onto"; targetId: string }
   | { type: "none" };
 
-// `landing`: let go, it settles into the item's place while the item stays hidden.
 export type Ghost = { item: Item; count: number; width: number; height: number; position: Animated.ValueXY; landing?: boolean };
 
-// The list stacks rows with `gap`; a zero-height tail cancels its gap with this negative margin.
 const ROW_GAP = layout.rowGap;
 const TILE_GAP = 6;
 const EDGE = 28;
-// Rows make room and close up with Dia's slide (stripReorder.ts). JS driver: gaps and sizes are margins, widths and
-// heights.
 const spring = (value: Animated.Value, toValue: number) => Animated.spring(value, { toValue, ...SLIDE });
 
 const inside = (f: Frame, x: number, y: number, slop = 0) => x >= f.x - slop && x <= f.x + f.w + slop && y >= f.y - slop && y <= f.y + f.h + slop;
@@ -67,8 +62,6 @@ class DragController {
   scroll: ScrollView | null = null;
   scrollY = 0;
   setGhost: (ghost: Ghost | null) => void = () => {};
-  // What the items show while a drag goes on, each item reading only its own part: a drag's start or end
-  // re-renders the items it hides or shows, not the whole list.
   marks = create<Marks>()(() => NO_MARKS);
   setSources = (sources: Set<string>) => this.marks.setState({ sources });
   setLanding = (landing: string | null) => this.marks.setState({ landing });
@@ -82,9 +75,7 @@ class DragController {
   private pointer = { x: 0, y: 0 };
   private ghost: Ghost | null = null;
   private gapKey: string | null = null;
-  // The room open at gapKey.
   private pitch = 0;
-  // The collapsed group the drop goes into.
   private into: string | null = null;
   private dropKey = "";
   private drop: Drop = { type: "none" };
@@ -125,7 +116,6 @@ class DragController {
     this.grab = { x: x - frame.x, y: y - frame.y };
     const count = new Set(this.sources.flatMap((s) => s.tabIds)).size;
     const height = item.kind === "group" ? Math.min(frame.h, item.headerFrame?.h ?? 33) : frame.h;
-    // Its picture, taken if it leaves the sidebar: the ghost, where it is by then.
     if (seq) setDragPicture(seq, () => [this.pointer.x - this.grab.x, this.pointer.y - this.grab.y, frame.w, height], [x, y]);
     this.ghost = {
       item,
@@ -143,7 +133,6 @@ class DragController {
     this.move(this.pointer.x, this.pointer.y);
   }
 
-  /** The pin target overlay (PinDropZone) came in with the ghost, after the drag measured everything: its place. */
   async tilesLaidOut() {
     const token = this.token;
     const frame = await measure(this.regions.get("tiles") ?? null);
@@ -180,11 +169,7 @@ class DragController {
     const sources = this.sources;
     const drop = this.drop;
     const ghost = this.ghost;
-    // Page split drop takes precedence over sidebar drop.
     const splitDrop = commit ? endTabDrag() : (cancelTabDrag(), false);
-    // Where it lands, measured before the store moves anything (a measure in the same batch as a commit sees the
-    // layout before it): the room the list made for it, or its own place. A selection, a tile, or a drop into a
-    // collapsed group or the pinned grid just shows in its place.
     const spot =
       !splitDrop && this.measured && ghost && sources.length === 1 && sources[0]!.kind !== "tile" && !this.into && drop.type !== "onto"
         ? this.landingSpot(commit ? drop : { type: "none" })
@@ -196,7 +181,6 @@ class DragController {
       else if (drop.type === "group" && sources[0]!.groupId) s.moveGroup(sources[0]!.groupId, drop.placement);
       else if (drop.type === "onto") s.groupOnto(ids, drop.targetId);
     }
-    // The gaps close as the store moves the items into them, in the same commit: nothing moves on screen.
     for (const i of this.items.values()) {
       i.gap.stopAnimation();
       i.gap.setValue(0);
@@ -219,7 +203,6 @@ class DragController {
       this.setGhost(null);
       return;
     }
-    // The ghost settles into its place while the item, laid out there, stays hidden; then the item shows.
     const token = (this.token = {});
     this.setLanding(ghost.item.key);
     this.setGhost({ ...ghost, landing: true });
@@ -231,19 +214,14 @@ class DragController {
     };
     void spot.then((at) => {
       if (this.token !== token) return;
-      // DEV: where it landed, for the drag test to compare with the item's place.
       if (__DEV__) this.landed = at && { key: ghost.item.key, x: at.x, y: at.y };
       if (!at) return done();
       Animated.spring(ghost.position, { toValue: { x: at.x - this.rootFrame.x, y: at.y - this.rootFrame.y }, ...SLIDE }).start(done);
     });
   }
 
-  // The landing item's top-left in the window once the store has moved it: the gap opened before `gapKey` (which
-  // it fills), or, dropped nowhere, its own place. Measured now, less what closes above it as it lands: the gaps and
-  // the collapsing source (their springs may be midway).
   private landingSpot(drop: Drop): Promise<{ x: number; y: number } | null> | null {
     const source = this.sources[0]!;
-    // Pinned, its place is in the grid.
     if (drop.type === "tabs" && drop.placement.pinned) return null;
     const target = drop.type !== "none" && this.gapKey ? this.items.get(this.gapKey) : undefined;
     const ref = target ?? source;
@@ -256,16 +234,11 @@ class DragController {
     };
     let closing = 0;
     for (const i of this.items.values()) if (i.frame && (i === ref || i.frame.y < top)) closing += now(i.gap);
-    // A group's member sits in its fold's own wrapper, which can't shrink below nothing: the gap after it stays until
-    // the member goes (Fold.tsx). A top-level row's negative margin cancels its gap.
-    // Its group's last member, the group goes with it: all of the group's room closes.
     const group = source.parentGroup ? this.items.get(`g:${source.parentGroup}`) : undefined;
     const emptied = !!group && group.tabIds.every((id) => source.tabIds.includes(id)) && !!group.frame && group.frame.y < top && group !== ref;
     if (!emptied && source !== ref && source.frame && source.frame.y < top)
       closing += source.parentGroup ? Math.max(0, now(source.size) - ROW_GAP) + ROW_GAP : now(source.size);
-    // A tail is a zero-height mark after its section's or group's last item: its x is the container's.
     const container = ref.kind === "tail" ? [...this.items.values()].find((i) => i !== source && i.kind !== "tail" && i.frame && i.section === ref.section && i.parentGroup === ref.parentGroup) : ref;
-    // Dropped nowhere, the list goes back to how it was when the drag began: its place then.
     const home = target ? null : this.at(source.frame);
     if (home) return Promise.resolve({ x: home.x, y: home.y });
     return Promise.all([measure(ref.view), emptied ? measure(group!.view) : null]).then(([f, gone]) => {
@@ -298,13 +271,11 @@ class DragController {
     const source = this.sources[0]!;
     const sourceKeys = new Set(this.sources.map((s) => s.key));
     const live = [...this.items.values()].filter((i) => !sourceKeys.has(i.key) && i.frame);
-    // Where an item's middle (a group's header's) shows now.
     const cy = (i: Item) => {
       const f = this.shown(i);
       return f.y + Math.min(f.h, i.headerFrame?.h ?? f.h) / 2;
     };
     const byY = (a: Item, b: Item) => this.at(a.frame)!.y - this.at(b.frame)!.y || a.frame!.x - b.frame!.x;
-    // Before an item's first tab that isn't being dragged (a group's member dragged out above its own group).
     const dragged = new Set(this.sources.flatMap((s) => s.tabIds));
     const firstTab = (i: Item | undefined) => i?.tabIds.find((id) => !dragged.has(id)) ?? null;
     const tabsDrag = source.kind === "row" || source.kind === "tile";
@@ -331,7 +302,6 @@ class DragController {
       pitch = (cells[0]?.frame?.w ?? source.frame?.w ?? 50) + TILE_GAP;
     } else {
       const groups = live.filter((i) => i.kind === "group");
-      // Where the groups show now: a row dragged out from above one moves it up, as the room the list made moves it.
       const box = tabsDrag
         ? groups.find((g) => {
             const f = this.shown(g);
@@ -350,7 +320,6 @@ class DragController {
         drop = { type: "tabs", placement: { pinned: false, groupId: box.groupId!, beforeId: firstTab(before) } };
         gapKey = before?.key ?? `tail:group:${box.groupId}`;
       } else if ((onto = tabsDrag ? this.ontoTarget(live, y) : null)) {
-        // The list stays as it is (the room it made doesn't move): the tab under the pointer lights up.
         drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
         gapKey = this.gapKey;
         pitch = this.pitch;
@@ -359,7 +328,6 @@ class DragController {
         const pinned = source.kind === "group" && !!list && y < list.y;
         const section: Section = pinned ? "pinnedGroups" : "list";
         const blocks = live.filter((i) => i.section === section && !i.parentGroup && i.kind !== "tail" && i.kind !== "tile").sort(byY);
-        // A block holding nothing but what's dragged (a group's last member) isn't a place to land before.
         const before = blocks.find((b) => cy(b) > y && firstTab(b) !== null);
         gapKey = before?.key ?? `tail:${section}`;
         drop =
@@ -392,9 +360,6 @@ class DragController {
     }
   }
 
-  // An item's frame where it shows now: moved up by the dragged rows that closed above it, down by the room open
-  // above it; a group's also shorter or taller by what closed or opened inside it. As the drag begins, where it was:
-  // the room opens at the dragged rows' own place then.
   private shown(i: Item): Frame {
     const f = this.at(i.frame)!;
     if (!this.dropKey) return f;
@@ -415,7 +380,6 @@ class DragController {
     return { ...f, y: f.y + dy, h: f.h + dh };
   }
 
-  // The ungrouped tab in the list whose middle half is under the pointer where it shows now.
   private ontoTarget(live: Item[], y: number): string | null {
     for (const i of live) {
       if (i.kind !== "row" || i.parentGroup || i.section !== "list") continue;
@@ -433,7 +397,6 @@ export function DragProvider({ children }: { children: (ghost: Ghost | null, con
   if (__DEV__) (globalThis as { sidebarDrag?: DragController }).sidebarDrag = controller;
   const [ghost, setGhost] = useState<Ghost | null>(null);
   controller.setGhost = setGhost;
-  // The sidebar going away mid-drag (its window closing, the layout switching) ends the drag and its picture.
   useEffect(() => () => void (controller.active && controller.end(false)), [controller]);
   return (
     <DragContext.Provider value={controller}>
@@ -477,9 +440,7 @@ export function DragScope({ enabled, children }: { enabled: boolean; children: R
 
 export const useDragController = () => useContext(DragContext) ?? undefined;
 export const useDropInto = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.dropInto);
-/** The drop would group the dragged tabs with this item's tab. */
 export const useDropOnto = (key: string) => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.onto === key);
-/** The drop would pin the dragged tabs. */
 export const useDropPins = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.pins);
 
 export function useDragItem(key: string, spec: ItemSpec, selection: () => string[] = () => []) {
@@ -521,7 +482,6 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
   );
 
   const source = useStore(marks, (m) => m.sources.has(key));
-  // Let go: laid out in its place, hidden until the ghost has settled there.
   const landing = useStore(marks, (m) => m.landing === key);
   const horizontal = spec.kind === "tile";
   const tailOffset = useMemo(() => item && Animated.add(item.gap, -ROW_GAP), [item]);

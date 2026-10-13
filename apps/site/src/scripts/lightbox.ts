@@ -1,5 +1,3 @@
-// Screenshots open full size on click or tap (components/Shot.astro's .zoom-hit): the whole window, not the
-// phone crop. Tap, click or Escape closes. Opening is tracked by analytics.ts (screenshot_opened).
 type Full = { src: string; w: number; h: number };
 
 let dialog: HTMLDialogElement | null = null;
@@ -39,7 +37,6 @@ function open(button: HTMLElement) {
     img.height = s.h;
     img.alt = shots.length > 1 ? "" : (button.dataset.lightboxAlt ?? "");
     img.decoding = "async";
-    // Phones: the whole window at 343px is smaller than the page's own crop, so show it large and let people pan.
     img.style.cssText = narrow
       ? `display:block;width:${Math.min(900, Math.round(s.w / 2))}px;max-width:none;height:auto`
       : `display:block;width:auto;height:auto;max-width:min(100%,${Math.round(s.w / 2)}px);max-height:calc(100dvh - 32px);object-fit:contain`;

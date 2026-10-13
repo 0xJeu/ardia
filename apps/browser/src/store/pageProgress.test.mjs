@@ -1,5 +1,3 @@
-// Page progress apart from the browser store (store/pageProgress.ts): a report wakes its own tab's bar only, never
-// the store, and a bar shown later reads the value as it is.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

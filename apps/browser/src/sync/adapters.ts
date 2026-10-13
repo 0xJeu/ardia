@@ -13,8 +13,6 @@ import type { BookmarkNode, HistoryEntry, Profile, Tab, TabGroup } from "../stor
 
 const store = () => useBrowser.getState();
 
-// MARK: App scope: settings, profiles, devices
-
 export const SYNCED_SETTINGS = [
   "warnBeforeQuitting",
   "warnBeforeClosingWindow",
@@ -48,13 +46,8 @@ export const settingsAdapter: Adapter = {
   adoptRemoteOnJoin: true,
   extract: (base) => {
     const settings = store().settings;
-    // Only what this Mac has a say on goes out (Settings.chosen): a setting it holds no value for, or one filled in
-    // with its default at launch, would read as an edit of the last record and beat another Mac's choice. Null is a
-    // value only where it is the setting's own. Nothing is ever deleted: a key left out, or one this version doesn't
-    // know (a newer Mac's setting), keeps its record.
     const chosen = new Set(settings.chosen ?? []);
     const inferred = new Set(settings.inferred ?? []);
-    // A default an old session saved (inferred) where this Mac never published a value: filled in, not chosen.
     const filledIn = (name: (typeof SYNCED_SETTINGS)[number], value: unknown) => {
       if (!inferred.has(name) || JSON.stringify(value) !== JSON.stringify(DEFAULT_SETTINGS[name])) return false;
       const last = base(`set:${name}`) as { v?: unknown } | undefined;
@@ -74,8 +67,6 @@ export const settingsAdapter: Adapter = {
       const name = key.slice(4);
       const record = visible.get(key) as { v: unknown } | undefined;
       if (!record || !(SYNCED_SETTINGS as readonly string[]).includes(name)) continue;
-      // A device without the setting (a build from before it, or one that never had it set) sends nothing or null:
-      // no opinion, not off. Null is a value only where it is the setting's own (cleanUpInactiveTabsAfterHours: never).
       const value = record.v;
       if (value === undefined || (value === null && DEFAULT_SETTINGS[name as keyof Settings] !== null)) continue;
       patch[name] = value;
@@ -123,15 +114,9 @@ export function deviceAdapter(deviceId: string, name: () => string, retired = fa
   };
 }
 
-// MARK: Profile scope
-
 type BookmarkValue = { k: "u" | "f"; p: string; t: string; u?: string; a: number; pos: string };
 
-// A bookmark's record key is its sync key: Chrome's UUID, or for a bookmark synced before Chrome kept bookmarks,
-// its old id (kept on Chrome's node as `syncKey`), so Macs not yet updated and updated ones name it alike. A key
-// that isn't a UUID becomes the node bookmarkUuidFor gives, on every Mac.
 export function bookmarksAdapter(profileId: string): Adapter {
-  // Before the tree is read from Chrome it's empty, which would read as every bookmark deleted.
   const ready = () => !!store().bookmarksReady[profileId];
   return {
     prefix: "bm:",
@@ -141,7 +126,6 @@ export function bookmarksAdapter(profileId: string): Adapter {
       const roots = b.roots[profileId];
       const values = new Map<string, unknown>();
       if (!roots) return { values };
-      // An old key names this node only if it maps to it (a copy of a bookmark carries its original's key along).
       const keyOf = (id: string) => {
         if (id === roots.bar) return "bar";
         if (id === roots.other) return "other";
@@ -182,7 +166,6 @@ export function bookmarksAdapter(profileId: string): Adapter {
       if (!ready()) return false;
       const s = store();
       const [b, roots] = ensureRoots(s.bookmarks, profileId);
-      // By node id; a key that isn't a UUID names the node bookmarkUuidFor gives it.
       const values = new Map([...visible].map(([k, v]) => [bookmarkUuidFor(k.slice(3)), v as BookmarkValue]));
       const keys = new Map([...visible.keys()].map((k) => [bookmarkUuidFor(k.slice(3)), k.slice(3)]));
       const rootOf = (key: string) => (key === "bar" ? roots.bar : key === "other" ? roots.other : null);
@@ -241,30 +224,22 @@ const HISTORY_WINDOW_MS = 90 * 86_400_000;
 
 type HistoryValue = { t: string; n: number; vt: number[] };
 const lastVisitOf = (v: HistoryValue) => Math.max(0, ...v.vt);
-// What Chrome keeps in history (an app page, ardia://, it doesn't): other records are left alone.
 const keptInHistory = (url: string) => /^(https?|file):/i.test(url);
-// Chrome stores visit times in microseconds and reports them in whole ms: the same visit reads back within this.
 const SAME_VISIT_MS = 1;
 
 export const historyExpired = (key: string, value: unknown, now: number) =>
   key.startsWith("h:") && lastVisitOf(value as HistoryValue) < now - HISTORY_WINDOW_MS;
 
-// History is Chrome's (lib/history.ts keeps the store's view of it). Applying a record adds its visits to
-// Chrome, so Chrome's copy then differs from the record (its own visit count and title). A local edit is a visit
-// the record doesn't have; anything else publishes the record unchanged. Two Macs settle on the union of their
-// visits instead of trading versions.
 export function historyAdapter(profileId: string): Adapter {
   const ready = () => !!store().historyReady[profileId];
   return {
     prefix: "h:",
     extract: (base) => {
-      // Before the view is read from Chrome it's empty, which would read as every URL deleted.
       if (!ready()) return null;
       const since = Date.now() - HISTORY_WINDOW_MS;
       const values = new Map<string, unknown>();
       const older = new Set<string>();
       const view = store().history[profileId] ?? [];
-      // The view holds Chrome's newest MAX_HISTORY URLs: one visited at or before this may only be missing from it.
       const floor = store().historyFloor[profileId] ?? -Infinity;
       for (const e of view) {
         if (!keptInHistory(e.url)) continue;
@@ -280,7 +255,6 @@ export function historyAdapter(profileId: string): Adapter {
       }
       const ignore = (key: string) => {
         if (older.has(key) || !keptInHistory(key.slice(2))) return true;
-        // Chrome expired it (as every Mac does), or the view no longer reaches it: not a deletion.
         const known = base(key) as HistoryValue | undefined;
         return !!known && (lastVisitOf(known) < since || lastVisitOf(known) <= floor);
       };
@@ -321,7 +295,6 @@ export function historyAdapter(profileId: string): Adapter {
       if (!updates.size) return;
       const engine = engineProfile(profileId);
       await Promise.all([addHistoryVisits(engine, add, SAME_VISIT_MS), deleteHistoryUrls(engine, remove)]);
-      // The view as it is now (Chrome's reports may have landed meanwhile), with the records merged in.
       useBrowser.setState((s) => {
         const current = new Map((s.history[profileId] ?? []).map((e) => [e.url, e]));
         for (const [url, update] of updates) {
@@ -351,7 +324,6 @@ export function deviceTabsAdapter(profileId: string, deviceId: string, name: () 
       if (retired) return { values: new Map(), ignore: (k) => k !== key };
       const s = store();
       const open = Object.values(s.tabs)
-        // Pinned tabs sync as pinned tabs; unloaded tiles aren't open.
         .filter((t) => t.profileId === profileId && !t.pinned && !t.unloaded && /^(https?|file):/.test(t.url) && !s.windows[t.windowId]?.incognito)
         .sort((a, z) => z.lastActiveAt - a.lastActiveAt)
         .slice(0, MAX_DEVICE_TABS)
@@ -367,10 +339,8 @@ type PinGroupValue = { n: string; i: string | null; c: TabGroup["color"]; pos: s
 
 type Window = BrowserState["windows"][string];
 
-// Little Ardia's page isn't one of the open tabs: it's thrown away when the window closes.
 const openWindows = (s: BrowserState) => s.windowOrder.map((id) => s.windows[id]).filter((w): w is Window => !!w && !w.incognito && w.kind !== "small");
 
-// Where the profile's pins change: a window that shows it (store/pinMirror.ts carries the change to the others).
 function homeWindow(s: BrowserState, profileId: string): Window | undefined {
   const order = [...s.ui.focusOrder, ...s.windowOrder].map((id) => s.windows[id]).filter((w): w is Window => !!w && !w.incognito && w.kind !== "small");
   const shows = (w: Window) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId);
@@ -388,8 +358,6 @@ export function pinnedAdapter(profileId: string): Adapter {
       const members = new Map<string, Pin[]>();
       const pinnedGroupOf = new Map<string, TabGroup>();
       for (const g of Object.values(s.groups)) if (g.pinned && g.profileId === profileId) g.tabIds.forEach((id) => pinnedGroupOf.set(id, g));
-      // Every window has a copy of each pin (store/pinMirror.ts): one per key.
-      // The home window first: it's the copy a change from elsewhere is written to.
       const seen = new Set<string>();
       const home = homeWindow(s, profileId);
       for (const w of home ? [home, ...openWindows(s).filter((w) => w.id !== home.id)] : openWindows(s)) {
@@ -436,8 +404,6 @@ export function pinnedAdapter(profileId: string): Adapter {
         const stand: Window = { id: PARK, profileId, incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 };
         s = adoptParkedPins({ ...s, windows: { ...s.windows, [PARK]: stand } }, PARK, profileId);
       }
-      // Pins are keyed by pinKey: here the home window's copy (or the park's) stands for each, and the profile's
-      // other windows follow it (store/pinMirror.ts).
       const scope = new Set([home.id, PARK]);
       const tabOfKey = new Map<string, string>();
       const groupOfKey = new Map<string, string>();
@@ -458,7 +424,6 @@ export function pinnedAdapter(profileId: string): Adapter {
       const memberOrder = new Map(groupOrder.map((g) => [g, [...pins.keys()].filter((id) => pins.get(id)!.g === g).sort(byPos(pins))]));
 
       const goneTabs = [...changed].filter((k) => k.startsWith("pin:t:") && !visible.has(k)).map((k) => tid(k.slice(6))).filter((id) => s.tabs[id] && scope.has(s.tabs[id]!.windowId));
-      // A pin deleted elsewhere: a tile with a page (or on screen) here stays as a regular tab.
       const removable = goneTabs.filter((id) => {
         const t = s.tabs[id]!;
         const w = s.windows[t.windowId];
@@ -541,12 +506,9 @@ export function pinnedAdapter(profileId: string): Adapter {
   };
 }
 
-// MARK: Passwords
-
 type PasswordValue = { o: string; u: string; p: string };
 const PASSWORD_READ_INTERVAL = 30_000;
 
-// Sync passwords through Chrome; disabling sync never deletes local passwords.
 export function passwordsAdapter(
   profileId: string,
   forced: () => boolean,
@@ -597,7 +559,6 @@ export function passwordsAdapter(
           ok = (await deletePassword(profile(), origin, username)) && ok;
         }
       }
-      // Wait for Chrome to write password changes before reading them.
       let settled = false;
       for (let i = 0; i < 20 && !settled; i++) {
         const now = await read();

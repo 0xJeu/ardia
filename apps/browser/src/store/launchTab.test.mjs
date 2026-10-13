@@ -1,5 +1,3 @@
-// The launch's first page (store/launchTab.ts): the hint session.json keeps for the engine, and what a launch claims of
-// it once hydrated. The hint and the claim must name the same tab for a plain session, and nothing the app doesn't load.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -10,7 +8,6 @@ const { loadSession, flushPersistence, startPersistence } = await import("../lib
 const stub = await import("../test-native-stub.mjs");
 
 const S = () => useBrowser.getState();
-// Saving follows the store from here on (it hydrates from the empty documents first).
 startPersistence();
 const tab = (id, windowId, url, profileId = "default") => ({
   id, windowId, profileId, url, title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null,
@@ -30,7 +27,6 @@ test("the focused window's active web page, under its engine profile", () => {
   hydrate([win("w1", ["a", "b"], "b"), win("w2", ["c"], "c")], [tab("a", "w1", "https://a.com/"), tab("b", "w1", "https://b.com/x"), tab("c", "w2", "http://c.com/")], { focusedWindowId: "w1" });
   assert.deepEqual(launchTab(S(), S().ui.focusedWindowId), { id: "b", url: "https://b.com/x", profile: "" });
   assert.deepEqual(launchTab(S(), "w2"), { id: "c", url: "http://c.com/", profile: "" });
-  // Hydrate woke it: the page the window's view loads is that URL.
   assert.equal(S().tabs.b.navigation?.url, "https://b.com/x");
 });
 
@@ -59,7 +55,6 @@ test("session.json's hint is what the next launch claims", () => {
   flushPersistence();
   const saved = JSON.parse(stub.docs.get("session.json"));
   assert.deepEqual(saved.launchTab, { id: "b", url: "https://b.com/", profile: "" });
-  // The next launch: hydrated from that file, it claims the same tab.
   S().hydrate(loadSession());
   assert.deepEqual(launchTab(S(), S().ui.focusedWindowId), saved.launchTab);
 });
@@ -78,7 +73,6 @@ test("a reopened tab not shown yet keeps its back/forward list across a relaunch
   assert.equal(S().tabs.b.wakeAdoptId, "restore:old-b");
   S().activate("b");
   assert.equal(S().tabs.b.adoptId, "restore:old-b", "shown, it wakes with its list");
-  // A launch never starts such a tab's page afresh: no hint, no claim.
   S().updateTab("b", { adoptId: undefined, wakeAdoptId: "restore:old-b" });
   S().setFocusedWindow("w1");
   assert.equal(launchTab(S(), "w1"), null);
@@ -91,8 +85,6 @@ test("no hint when the next launch won't restore the session", () => {
   assert.equal(JSON.parse(stub.docs.get("session.json")).launchTab, null);
 });
 
-// Staleness: the hint is written with the session it names, so the page the engine starts is the one this session
-// shows, whatever changed before the quit (or before the last save, after a crash).
 const savedHint = () => (flushPersistence(), JSON.parse(stub.docs.get("session.json")).launchTab);
 
 test("staleness: a navigation, a switch, a close and a window change all move the hint", () => {
@@ -113,7 +105,6 @@ test("staleness: a navigation, a switch, a close and a window change all move th
 test("staleness: after a crash the file read at launch has the hint of its own session", () => {
   hydrate([win("w1", ["a"], "a")], [tab("a", "w1", "https://a.com/")], { focusedWindowId: "w1" });
   flushPersistence();
-  // Changes after the last save that never reach the file (the app died): the next launch reads the old file whole.
   S().navigated("a", { url: "https://a.com/lost", title: "" }, { isLoading: false, canGoBack: true, canGoForward: false });
   const onDisk = JSON.parse(stub.docs.get("session.json"));
   S().hydrate(loadSession());

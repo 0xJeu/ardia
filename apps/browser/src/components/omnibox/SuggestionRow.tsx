@@ -79,7 +79,6 @@ function sameSuggestion(a: Suggestion, b: Suggestion): boolean {
   return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k]);
 }
 
-// A visited page row that isn't an open tab: the hover ✕ and ⇧⌦ remove it from history.
 export const isRemovable = (s: Suggestion | undefined): s is Extract<Suggestion, { kind: "page" }> => s?.kind === "page" && !!s.visited && !s.tabId;
 
 const SuggestionRow = memo(

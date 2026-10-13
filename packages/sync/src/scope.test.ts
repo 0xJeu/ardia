@@ -113,7 +113,6 @@ class Device {
     this.state = JSON.parse(JSON.stringify(this.state)) as ScopeState;
     this.clock = new Clock(this.id, this.clock.last, () => this.time());
   }
-  // What's on disk: the state as last saved, and the batches persisted since.
   saved = JSON.stringify(emptyScope());
   savedClock: string | null = null;
   journal = new Map<number, LogFile>();
@@ -125,7 +124,6 @@ class Device {
     this.savedClock = this.clock.last;
     for (const seq of this.journal.keys()) if (seq <= this.state.seq) this.journal.delete(seq);
   }
-  // Quit without saving: back to what's on disk; the store keeps its edits.
   crash() {
     this.state = JSON.parse(this.saved) as ScopeState;
     this.clock = new Clock(this.id, this.savedClock, () => this.time());
@@ -321,7 +319,6 @@ test("an old snapshot put back after its tombstones were collected doesn't bring
   await syncAll([a, b]);
   assert.equal(a.store.has("x:secret"), false, "A");
   assert.equal(b.store.has("x:secret"), false, "B");
-  // A new device reading the old snapshot after the current ones.
   const c = new Device("devC", folder, opts);
   const entries = [...folder.scope("s")];
   folder.scopes.set("s", new Map([...entries.filter(([id]) => id !== oldId), [oldId, folder.scope("s").get(oldId)!]]));

@@ -47,7 +47,6 @@ export function startAppIntegration() {
   const updated = trackAppVersion();
   maybeStartOnboarding();
   if (updated) openReleaseNotesAfterUpdate();
-  // After the rename, once the first window is up: be the default browser again, if the old app was (asked once).
   afterFirstWindow(() => {
     void offerDefaultBrowserAgain({
       read: readDocument,
@@ -80,8 +79,6 @@ function runAppCommand({ command, windowId }: CommandEvent) {
       return openTaskManager();
   }
 }
-
-// MARK: Feedback and diagnostics
 
 export async function sendFeedback(windowId?: string | null) {
   const app = systemInfo();
@@ -126,8 +123,6 @@ async function recordPerformanceIssue() {
   if (path) void revealFile(path);
 }
 
-// MARK: Handoff
-
 function startHandoff() {
   const last = new Map<string, string>();
   const sync = (s: BrowserState) => {
@@ -154,8 +149,6 @@ function startHandoff() {
   });
   setTimeout(() => sync(useBrowser.getState()), 1000);
 }
-
-// MARK: AppleScript
 
 function scriptState(s: BrowserState): ScriptState {
   return {
@@ -209,7 +202,6 @@ function startScripting() {
         result = (await runScriptCommand(request)) ?? {};
       })
       .then(
-        // Push state before replying so the script sees the change.
         () => push().then(() => replyToScript(request.id, result)),
         (error: unknown) => push().then(() => replyToScript(request.id, null, error instanceof Error ? error.message : String(error))),
       );

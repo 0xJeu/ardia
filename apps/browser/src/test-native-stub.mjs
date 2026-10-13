@@ -1,7 +1,6 @@
 export const docs = new Map();
 export const readDocument = (name) => docs.get(name) ?? null;
 export const writeDocument = (name, contents) => docs.set(name, contents);
-// saveDocument lands at once, or, while heldSaves.on, when a test runs the queued releases.
 export const heldSaves = { on: false, queue: [] };
 export const saveDocument = (name, contents) =>
   new Promise((resolve) => {
@@ -34,10 +33,8 @@ export const deletedProfileData = [];
 export const profileDataLeft = new Map();
 export const deleteProfileData = (profile) => (deletedProfileData.push(profile), Promise.resolve(profileDataLeft.get(profile) ?? []));
 
-// expo-modules-core: a test installs native modules on globalThis.acTestNativeModules.
 export const requireOptionalNativeModule = (name) => globalThis.acTestNativeModules?.[name] ?? null;
 export const requireNativeModule = () => ({});
-// Saved passwords, one store per simulated device (sync tests).
 export const passwordStores = new Map();
 export const current = { device: null };
 const logins = () => passwordStores.get(current.device);
@@ -48,8 +45,6 @@ export const savePassword = async (_profile, origin, username, password) => {
 export const deletePassword = async (_profile, origin, username) => (logins().delete(`${origin}\n${username}`), true);
 export const readLogins = async () => [...logins().values()];
 
-// Chrome's history (HistoryService), one per simulated device (sync tests) and engine profile: url → { title,
-// visits (ms, oldest first) }. Visits Chrome records itself come in through chromeVisit.
 export const historyDbs = new Map();
 export const chromeHistory = (profile = "", device = current.device) => {
   if (!historyDbs.has(device)) historyDbs.set(device, new Map());
@@ -61,10 +56,8 @@ const historyListeners = new Set();
 const emitHistory = (change) => {
   for (const listener of historyListeners) queueMicrotask(() => listener(change));
 };
-/** Any change event Chrome sends (a title change: "modified"; Clear Browsing Data: "deleted" with all). */
 export const chromeHistoryEvent = (change) => emitHistory(change);
 export const onHistoryChanged = (listener) => (historyListeners.add(listener), { remove: () => historyListeners.delete(listener) });
-// Each profile the app asked to watch, in order (Chrome's events reach the app only once it watches).
 export const historyWatches = [];
 export const watchHistory = async (profile) => (historyWatches.push(profile), { ok: true });
 const addVisit = (profile, url, title, at) => {
@@ -75,7 +68,6 @@ const addVisit = (profile, url, title, at) => {
   db.set(url, row);
   emitHistory({ kind: "visit", profile, url, title: row.title, visits: row.visits.length, at });
 };
-/** A page load Chrome records. */
 export const chromeVisit = (profile, url, title, at = Date.now()) => addVisit(profile, url, title, at);
 export const queryHistory = async (profile, maxUrls = 5000, maxVisits = 50) =>
   [...chromeHistory(profile)]
@@ -85,7 +77,6 @@ export const queryHistory = async (profile, maxUrls = 5000, maxVisits = 50) =>
 export const addHistoryVisits = async (profile, pages, toleranceMs = 1000) => {
   let added = 0;
   for (const page of pages) {
-    // One to one: each visit Chrome has accounts for one asked for.
     const have = [...(chromeHistory(profile).get(page.url)?.visits ?? [])];
     for (const at of [...page.visitTimes].sort((a, b) => a - b)) {
       const match = have.findIndex((t) => Math.abs(t - at) <= toleranceMs);
@@ -107,7 +98,6 @@ export const deleteHistoryUrls = async (profile, urls) => {
   emitHistory({ kind: "deleted", profile, all: false, urls });
 };
 
-// Chrome's favicons: none unless a test puts some in.
 export const chromeFavicons = new Map();
 export const faviconsFor = async (profile, pages) => ({
   pages: new Map(pages.filter((p) => chromeFavicons.has(`${profile}|${p}`)).map((p) => [p, { uri: chromeFavicons.get(`${profile}|${p}`), icon: "" }])),
@@ -116,11 +106,9 @@ export const faviconsFor = async (profile, pages) => ({
 export const removeLegacyFavicons = () => Promise.resolve();
 export const removeDocument = (name) => docs.delete(name);
 
-// Chrome's tab strips (lib/chromeTabs.ts): a test installs a fake engine on globalThis.acTestTabStrip.
 export const chromeWindows = () => Promise.resolve([]);
 export const devWindowAction = () => Promise.resolve("");
 export const engineInfo = () => Promise.resolve(null);
-// //chrome/browser/ardia's calls (packages/ardiacore/src/engine.ts): a test installs globalThis.acTestEngineCall.
 export const engineCall = (name, profile, args) => globalThis.acTestEngineCall?.(name, profile, args) ?? Promise.resolve({});
 export const prepareTabTransfer = () => {};
 export const releaseTabTransfer = () => {};
@@ -129,8 +117,6 @@ export const onTabStripTransaction = (listener) => globalThis.acTestTabStrip.lis
 export const sendTabStripCommand = (command) => globalThis.acTestTabStrip.command(command);
 export const tabStrips = () => globalThis.acTestTabStrip.snapshot();
 
-// Chrome's bookmarks (BookmarkModel), one per simulated device and engine profile: nodes by UUID, "bar" and
-// "other" the permanent folders. Ops behave as ac_bookmarks_apply's.
 export const bookmarkDbs = new Map();
 export const chromeBookmarks = (profile = "", device = current.device) => {
   if (!bookmarkDbs.has(device)) bookmarkDbs.set(device, new Map());
@@ -217,14 +203,12 @@ export const applyBookmarkOps = async (profile, ops) => {
   }
   return { applied, skipped: ops.length - applied - invalid.length, invalid };
 };
-/** An edit something other than the app makes (an extension): Chrome tells the app. */
 export const chromeBookmarkEdit = (profile, ops) => {
   const db = chromeBookmarks(profile);
   for (const op of ops) applyOp(db, op);
   for (const listener of bookmarkListeners) queueMicrotask(() => listener(profile));
 };
 
-// Extensions: what Chrome answers for a tab's action states and side panel; a test swaps in its own (and late) answers.
 export const extensionAnswers = { actionStates: async () => ({}), sidePanelUrl: async () => null };
 export const extensionActionStates = (browserId, ids) => extensionAnswers.actionStates(browserId, ids);
 export const extensionSidePanelUrl = (browserId, extensionId) => extensionAnswers.sidePanelUrl(browserId, extensionId);

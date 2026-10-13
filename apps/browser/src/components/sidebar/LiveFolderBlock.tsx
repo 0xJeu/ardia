@@ -31,7 +31,6 @@ const NONE: string[] = [];
 
 const liveRowKey = (folderId: string, itemId: string) => `live|${folderId}|${itemId}`;
 
-// Memoized: the sidebar page re-renders whenever a tab opens or closes.
 export const LiveFolders = memo(function LiveFolders({ windowId, spaced }: { windowId: string; spaced: boolean }) {
   const page = usePageProfileId();
   const profileId = useBrowser((s) => (s.windows[windowId]?.incognito ? "" : page));
@@ -58,7 +57,6 @@ function LiveFolderBlock({ folderId, windowId }: { folderId: string; windowId: s
   const strays = useBrowser(
     useShallow((s) => viewTabIds(s, windowId, profileId).filter((id) => s.tabs[id]?.liveItem?.folderId === folderId && !itemIds.has(s.tabs[id]!.liveItem!.itemId))),
   );
-  // The window's active tab, when it's this folder's: its tab and item.
   const activeTab = useBrowser((s) => {
     const id = activeTabId(s, windowId, profileId) ?? "";
     return s.tabs[id]?.liveItem?.folderId === folderId ? id : null;
@@ -73,7 +71,6 @@ function LiveFolderBlock({ folderId, windowId }: { folderId: string; windowId: s
     : [{ key: "note", node: <FolderNote folderId={folderId} /> }];
   for (const id of strays) entries.push({ key: `stray:${id}`, node: <TabRow tabId={id} /> });
   if (completed) entries.push({ key: "completed", node: <CompletedFooter folderId={folderId} windowId={windowId} /> });
-  // The active tab's row stays out while the folder is collapsed (its stack, for an item in one).
   const keep = !activeTab
     ? null
     : strays.includes(activeTab)
@@ -306,7 +303,6 @@ function LiveItemRow({ folderId, item, windowId, indent = 0 }: { folderId: strin
   useEffect(() => {
     if (!completion) return;
     fold.setValue(1);
-    // JS driver: the height reflows the rows below.
     Animated.sequence([
       Animated.delay(COMPLETION_MS - 420),
       Animated.timing(fold, { toValue: 0, duration: 360, easing: Easing.bezier(0.2, 0.9, 0.3, 1), useNativeDriver: false }),
@@ -433,7 +429,6 @@ function Trailing({ item, completion, colors }: { item: LiveItem; completion: Co
   );
 }
 
-// Items completed in the last day and done animating out of the list.
 function useCompletedShown(folderId: string): CompletedItem[] {
   return useLive(
     useShallow((s) => {

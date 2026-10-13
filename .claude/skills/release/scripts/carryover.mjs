@@ -1,19 +1,3 @@
-// What a user's data looks like after an update: carryover.sh runs this twice on test copies, in a fake home.
-//   node carryover.mjs create <previous app> <home> <cdp port> <pages origin> <extension dir> <out.json>
-//     The previous build, with ARDIA_DATA_DIR set to where an installed copy keeps its data: two profiles with
-//     tabs, cookies (persistent and session), localStorage, a saved password each, bookmarks, history, an address, a
-//     site permission, a zoom level and an unpacked extension. Reads it all back, quits as ⌘Q does.
-//   node carryover.mjs read <new app> <home> <cdp port> <pages origin> <created.json> <out.json>
-//     The new build with no ARDIA_DATA_DIR, so it finds the installed copy's folder itself. Reads the same things
-//     and prints a PASS/FAIL line for each; exits 1 on any FAIL.
-//   node carryover.mjs use <new app> <home> <cdp port> <pages origin> - <used.json>          (rollback.sh)
-//     The new build adds a second session: a tab with persistent and session cookies and localStorage, a visit, a
-//     password, a bookmark, a zoom level, and the extension turned off. Reads it all back, quits.
-//   node carryover.mjs back <previous app> <home> <cdp port> <pages origin> <used.json> <out.json>  (rollback.sh)
-//     The previous build again (ARDIA_DATA_DIR set, as in create): everything from both sessions must be there.
-// The apps run hidden (ARDIA_BACKGROUND=1, which also keeps them off the login keychain) with HOME and
-// CFFIXED_USER_HOME at <home>; their data folder is named after their (test) bundle id. They're launched and driven
-// through scripts/lib/instance.mjs (its instance.json lands in that folder, the app's log beside <out.json>).
 import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -30,13 +14,9 @@ setTimeout(() => { console.error("carryover: no result in 240 s"); try { instanc
 
 if (listenerPids(port).length) { console.error(`carryover: port ${port} is taken`); process.exit(4); }
 fs.mkdirSync(docs, { recursive: true });
-// The previous build (create, back) predates silent test instances: onboarding done, so its intro music never starts,
-// and Chrome's --mute-audio for page audio. ArdiaCore builds (read, use) mute themselves under ARDIA_BACKGROUND.
 const previousBuild = phase === "create" || phase === "back";
 if (previousBuild && !fs.existsSync(path.join(docs, "onboarding.json")))
   fs.writeFileSync(path.join(docs, "onboarding.json"), JSON.stringify({ version: 1, completedAt: Date.now(), introMusicMuted: true }));
-// Hidden, on this port; perf-probe starts the dev harness in a release build's isolated instance. read and use start
-// without ARDIA_DATA_DIR (null leaves it out), so the new build finds the installed copy's folder itself.
 try {
   instance = await launch(app, {
     data: docs, port, js: "none", ready: false, probe: true, log: path.join(path.dirname(path.resolve(out)), `${phase}.app.log`),
@@ -50,15 +30,13 @@ try {
 const { pid } = instance;
 
 const step = (what) => { if (process.env.CARRYOVER_VERBOSE) console.error(`carryover ${phase}: ${what}`); };
-// A build from before the rename (0.2.32 and earlier, executable Netnyahoo) names its dev harness `nn`, its modules
-// Netnyahoo* and its engine calls nn_*; the scripts here are written in today's names.
 const legacy = path.basename(execFileSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleExecutable", `${app}/Contents/Info.plist`]).toString().trim()) === "Netnyahoo";
 const inLegacyNames = (body) => `const ac = nn;\n${body.replace(/expo\.modules\.Ardia(\w+)/g, "expo.modules.Netnyahoo$1").replace(/"ac_(\w+)"/g, '"nn_$1"')}`;
-async function inApp(body, timeoutMs = 30_000) { // lib/devHarness.ts; Hermes has no async functions here
+async function inApp(body, timeoutMs = 30_000) {
   step(body.trim().split("\n")[0].slice(0, 100));
   return instance.eval(legacy ? inLegacyNames(body) : body, { timeout: timeoutMs });
 }
-async function inPage(urlPart, expression) { // Runtime.evaluate in the first page whose URL has urlPart
+async function inPage(urlPart, expression) {
   for (let i = 0; i < 40; i++) {
     const page = await instance.page(urlPart, { timeout: 0 }).catch(() => null);
     if (page) {
@@ -74,7 +52,6 @@ const window = `Object.keys(ac.store.getState().windows)[0]`;
 const show = (pattern) => inApp(`const s = ac.store.getState(); const t = Object.values(s.tabs).find((t) => ${pattern}.test(t.url));
   if (t) { ac.actions.switchProfile(${window}, t.profileId); ac.actions.switchToTab(t.id); } return !!t;`);
 
-// Everything this test covers, per profile, as the app's own APIs report it.
 const READ = `
 const s = ac.store.getState(), C = globalThis.expo.modules.ArdiaCEF, X = globalThis.expo.modules.ArdiaExtensions;
 const O = ${JSON.stringify(origin)};
@@ -105,7 +82,7 @@ try {
     const W = JSON.stringify(w);
     await inApp(`const s = ac.store.getState(); s.newTab(${W}, { url: "${origin}/page2.html" }); ac.actions.switchToTab(s.newTab(${W}, { url: "${origin}/page1.html" })); return 1;`);
     report.setPersonal = await inPage("page1.html", `document.cookie = "p_persist=yes; max-age=31536000; path=/"; document.cookie = "p_session=yes; path=/"; localStorage.setItem("p_ls", "yes"); document.cookie`);
-    await show("/page2/"); await sleep(1500); // a visit to page2 too
+    await show("/page2/"); await sleep(1500);
     const work = await inApp(`const s = ac.store.getState(); const id = s.createProfile({ name: "Work", color: "blue" }); ac.actions.switchProfile(${W}, id); return id;`);
     await sleep(1500);
     await inApp(`ac.actions.switchToTab(ac.store.getState().newTab(${W}, { url: "${origin}/work.html", profileId: ${JSON.stringify(work)} })); return 1;`);
@@ -140,22 +117,20 @@ try {
     await show("/page3/"); await sleep(2500);
     report.read["New build page"] = await inPage("page3.html", `document.cookie + "; localStorage " + localStorage.getItem("n_ls")`);
   }
-  // Cookies and localStorage as each profile's page sees them (showing a tab loads it).
   await show("/work/"); await sleep(2500);
   report.read["Work page"] = await inPage("work.html", `document.cookie + "; localStorage " + localStorage.getItem("w_ls")`);
   await show("/page1/"); await sleep(2500);
   report.read["Personal page"] = await inPage("page1.html", `document.cookie + "; localStorage " + localStorage.getItem("p_ls")`);
-  // Files the app has open in the real home's Ardia folders: must be none.
   const real = path.join(os.userInfo().homedir, "Library");
   const tree = [pid];
   for (let i = 0; i < tree.length; i++) { try { tree.push(...execSync(`pgrep -P ${tree[i]}`).toString().trim().split("\n").filter(Boolean)); } catch {} }
-  const open = execSync(`lsof -p ${tree.join(",")} -Fn`).toString(); // throws (and fails the run) if lsof can't look
+  const open = execSync(`lsof -p ${tree.join(",")} -Fn`).toString();
   report.realHomeFiles = open.split("\n").filter((l) => l.startsWith(`n${real}/Application Support/com.ardia`) || l.startsWith(`n${real}/Caches/com.ardia`));
   report.processesChecked = tree.length;
 } catch (e) {
   report.error = String(e.stack || e);
 }
-execFileSync(process.env.CARRYOVER_QUIT, [String(pid)]); // the quit Apple event, so Chrome flushes its stores
+execFileSync(process.env.CARRYOVER_QUIT, [String(pid)]);
 for (let i = 0; i < 60 && alive(); i++) await sleep(500);
 report.quit = !alive();
 if (alive()) instance.kill("SIGKILL");
@@ -168,7 +143,6 @@ if (phase === "use") {
 }
 if (phase === "create") {
   fs.writeFileSync(out, JSON.stringify(report, null, 2));
-  // Everything the run made must read back as made, or a later "carried over" compares nothing.
   const r = report.read ?? {};
   const want = {
     "profiles": '["Personal","Work"]', "Personal passwords": '["alice pw-personal-123"]', "Work passwords": '["bob pw-work-456"]',
@@ -189,9 +163,7 @@ const created = JSON.parse(fs.readFileSync(extra, "utf8")).read;
 fs.writeFileSync(out, JSON.stringify(report, null, 2));
 let failed = !!report.error;
 if (report.error) console.log(`FAIL  the new build read the data  (${report.error})`);
-// Key order aside (Chrome lists zoom levels in its own order).
 const stable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort()) : x));
-// The previous build may drop session cookies at its own launch (0.2.21 does, at every launch): reported, not failed.
 const sessionless = (v) => (typeof v === "string" ? v.replace(/\w+_session=yes; /g, "") : v);
 const line = (ok, name, detail) => { console.log(`${ok ? "PASS" : "FAIL"}  carried over: ${name}${detail ? `  (${detail})` : ""}`); if (!ok) failed = true; };
 const expected = path.join(docs, "Chromium");
@@ -199,7 +171,6 @@ if (phase !== "back") line(report.read?.dataDirectory?.replace(/^\/private/, "")
 for (const [key, was] of Object.entries(created)) {
   if (key === "dataDirectory") continue;
   const now = report.read?.[key];
-  // History may gain entries; every earlier one must still be there.
   const failedRead = typeof now === "string" && now.startsWith("error:");
   const ok = !failedRead && key.endsWith(" history") && Array.isArray(was) && Array.isArray(now) ? was.every((u) => now.includes(u)) : !failedRead && (stable(now) === stable(was) || (phase === "back" && key.endsWith(" page") && sessionless(now) === sessionless(was)));
   if (phase === "back" && key.endsWith(" page") && ok && stable(now) !== stable(was))

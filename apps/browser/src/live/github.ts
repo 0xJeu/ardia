@@ -18,9 +18,6 @@ const PR_FIELDS = `
     }
   }`;
 
-// One query for every PR's details timed out on GitHub's side (a 502 after ~10 s) for an account with ~60 authored PRs
-// and ~130 review requests: one 50-PR search with these fields took 7-10 s alone. The searches ask only for ids, and
-// the details come in pages of DETAILS_PAGE (~2.5 s each), fetched in parallel (sources.ts).
 export const GITHUB_QUERY = `query LiveFolder($authored: String!, $review: String!, $direct: String!) {
   viewer { login name avatarUrl(size: 64) }
   authored: search(query: $authored, type: ISSUE, first: 50) { nodes { ... on PullRequest { id } } }
@@ -28,7 +25,6 @@ export const GITHUB_QUERY = `query LiveFolder($authored: String!, $review: Strin
   direct: search(query: $direct, type: ISSUE, first: 50) { nodes { ... on PullRequest { id } } }
 }`;
 
-// `state`: a PR can close or merge between the searches (is:open) and this query; withDetails drops it.
 export const GITHUB_DETAILS_QUERY = `query LiveFolderDetails($ids: [ID!]!) { nodes(ids: $ids) { ${PR_FIELDS} ... on PullRequest { state } } }`;
 
 export const DETAILS_PAGE = 10;
@@ -139,7 +135,6 @@ function mapPR(raw: RawPR, section: PullRequestSection): LiveItem {
 
 const isPR = (n: object): n is RawPR => "number" in n;
 
-// The ids whose details the folder shows (GITHUB_DETAILS_QUERY), each once.
 export function detailIds(json: GithubResponse, filters: { authored: boolean; reviewRequests: boolean }): string[] {
   const data = json.data;
   if (!data) return [];
@@ -150,11 +145,6 @@ export function detailIds(json: GithubResponse, filters: { authored: boolean; re
 type GraphqlError = { type?: string; message: string; path?: (string | number)[] };
 export type DetailsResponse = { data?: { nodes?: (RawPR | null)[] } | null; errors?: GraphqlError[] };
 
-// One details page's PRs. A PR missing from a successful fetch counts as merged or reviewed (resolveGone), so a page
-// that may have lost PRs to a passing failure fails the refresh instead, which keeps the folder's PRs as they were.
-// Other errors beside data are kept to what they touch: a field error (a token that can't read checks, say) leaves
-// the PR with that field empty, and a PR GitHub can't find or won't show (deleted, or behind SSO) drops out; failing
-// for those would stop every refresh for as long as the search lists the PR.
 export function detailNodes(ids: string[], res: DetailsResponse): RawPR[] {
   const errors = res.errors ?? [];
   const limited = errors.find((e) => e.type === "RATE_LIMITED");
@@ -170,8 +160,6 @@ export function detailNodes(ids: string[], res: DetailsResponse): RawPR[] {
   });
 }
 
-// The search response with each id replaced by its details; an id without open details (closed, merged or deleted
-// between the two queries) drops out.
 export function withDetails(json: GithubResponse, details: (RawPR | null)[]): GithubResponse {
   const data = json.data;
   if (!data) return json;

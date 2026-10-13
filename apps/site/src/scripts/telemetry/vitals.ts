@@ -1,6 +1,3 @@
-// Web vitals (LCP, CLS, FCP, INP) as posthog-js sent them: one $web_vitals event with
-// $web_vitals_<NAME>_value and $web_vitals_<NAME>_event per metric, buffered for 5 s (or until all four are in,
-// or the page is hidden). The web-vitals library loads after the page has, from its own chunk.
 import type { MetricWithAttribution } from "web-vitals/attribution";
 import { capture, onHide, sessionId, windowId, type Props } from "./core";
 
@@ -11,7 +8,6 @@ const MAX_MS = 15 * 60 * 1000;
 const buffer = new Map<string, MetricWithAttribution>();
 let timer = 0;
 
-/** The metric without its DOM entries (attribution keeps only plain values). */
 function describe(m: MetricWithAttribution): Props {
   const attribution: Props = {};
   for (const [k, v] of Object.entries(m.attribution ?? {})) if (v === null || ["string", "number", "boolean"].includes(typeof v)) attribution[k] = v;

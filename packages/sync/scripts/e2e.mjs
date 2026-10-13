@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-// End to end: two, then three hidden Ardia instances (A, B, C) syncing through one folder.
-//
-//   node packages/sync/scripts/e2e.mjs [Debug app] [work dir]
-//
-// Each instance runs through scripts/lib/instance.mjs with its own data dir (<work dir>/A, B, C) and DevTools port,
-// and ARDIA_SYNC_DEFAULT_FOLDER at <work dir>/folder. One line per check; everything else goes to
-// <work dir>/e2e.log. Exit code 1 if any check failed.
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -23,13 +16,9 @@ const W = `http://127.0.0.1:${PORT}`;
 const DEV = { A: {}, B: {}, C: {} };
 for (const [name, d] of Object.entries(DEV)) d.dir = `${WORK}/${name}`;
 
-// MARK: Harness
-
 fs.rmSync(WORK, { recursive: true, force: true });
 const report = reporter(`${WORK}/e2e.log`, { name: "sync e2e" });
-// What happened since the last check: in the log, and printed under a failing check.
 const note = report.log;
-// An assertion on collected data (untimed).
 const check = (name, ok, detail = "") => report.record(name, { error: ok ? null : detail || "the assertion failed" });
 
 const apps = {};
@@ -56,7 +45,6 @@ async function ev(name, body, timeout = 90_000) {
   }
 }
 
-// Chrome records a page load in its history; the store's view shows it once Chrome reports it.
 async function inHistory(name, url) {
   const end = Date.now() + 30_000;
   while (Date.now() < end) {
@@ -65,7 +53,6 @@ async function inHistory(name, url) {
   }
   throw new Error(`${name}: ${url} never reached Chrome's history`);
 }
-// A page load, then its tab closes.
 async function visit(name, url) {
   const tab = await ev(name, `const s = ac.store.getState(); return s.newTab(s.windowOrder[0], { url: ${JSON.stringify(url)} });`);
   await inHistory(name, url);
@@ -115,8 +102,6 @@ function bip39(entropy) {
 const savePassword = (origin, user, password) =>
   `const c = globalThis.expo.modules.ArdiaCEF; return c.deletePassword("", "${origin}", "${user}").then(() => c.savePassword("", "${origin}", "${user}", "${password}"));`;
 
-// MARK: Run
-
 fs.mkdirSync(FOLDER, { recursive: true });
 const swift = fs.readFileSync(`${repo}/packages/sync/ios/Core/Wordlist.swift`, "utf8");
 fs.writeFileSync(`${WORK}/english.txt`, [...swift.matchAll(/"([a-z]+)"/g)].map((m) => m[1]).join("\n"));
@@ -131,7 +116,6 @@ const server = http
 await new Promise((r, j) => (server.once("listening", r), server.once("error", j)));
 
 try {
-  // Both at once; one that never gets ready is quit by launch(), the other is in `apps` for the quit below.
   const started = await Promise.allSettled([start("A"), start("B")]);
   const notStarted = started.find((r) => r.status === "rejected");
   if (notStarted) throw notStarted.reason;
@@ -283,7 +267,6 @@ try {
 
   await start("C");
   await ev("C", `ac.store.getState().newTab(ac.store.getState().windowOrder[0], { url: "${W}/openc.html?nne2e=tabC" }); return true`);
-  // Loaded before C joins, or its history entry lands after the syncs below and C can't converge with A.
   await inHistory("C", `${W}/openc.html?nne2e=tabC`);
   check("C joins", text(await ev("C", `return acSync.enterRecoveryPhrase(${JSON.stringify(FOLDER)}, ${JSON.stringify(phrase)})`)) === '{"ok":true}');
   await sync("C", "C", "A", "B", "C");

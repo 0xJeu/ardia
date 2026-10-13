@@ -49,8 +49,6 @@ function hostOf(url: string): string {
   }
 }
 
-// MARK: Never Translate This Site (per profile; a private window follows the profile it was opened from)
-
 function listOwner(profileId: string): string {
   return isIncognitoProfile(profileId) ? incognitoOriginal(profileId) : profileId;
 }
@@ -71,8 +69,6 @@ export function setNeverTranslate(tabId: string, never: boolean) {
   patch(tabId, { source: null });
 }
 
-// MARK: Detection
-
 type Sample = { lang: string; text: string; active: boolean };
 
 async function pageLanguage(tabId: string): Promise<{ language: string | null; active: boolean } | null> {
@@ -87,7 +83,6 @@ async function detect(tabId: string) {
   if (!translation || !tab || !hostOf(tab.url)) return patch(tabId, { source: null, status: "idle", target: null, token: null });
   const page = await pageLanguage(tabId);
   if (!page) return;
-  // Navigation replaces the document and clears its translation.
   if (!page.active && stateOf(tabId).status === "translated") patch(tabId, { status: "idle", target: null, token: null });
   if (isNeverTranslated(tab.profileId, tab.url)) return patch(tabId, { source: null });
   const mine = new Set(languages().map(baseLanguage));
@@ -95,8 +90,6 @@ async function detect(tabId: string) {
   if (source && (await translation.status(source, defaultTarget())) === "unsupported") return patch(tabId, { source: null });
   if (stateOf(tabId).status === "idle") patch(tabId, { source });
 }
-
-// MARK: Translating
 
 type Batch = { passages: Passage[]; more: boolean; gone: boolean; done: number; total: number };
 
@@ -147,7 +140,6 @@ async function follow(tabId: string, token: string) {
     try {
       if (await drain(tabId, token)) continue;
     } catch {}
-    // Drop a failed round if navigation replaced the document.
     if (stateOf(tabId).token !== token) return;
     if ((await pageLanguage(tabId).catch(() => null))?.active) continue;
     if (stateOf(tabId).token === token) patch(tabId, { status: "idle", target: null, token: null });
@@ -220,8 +212,6 @@ export async function otherLanguages(): Promise<{ id: string; name: string }[]> 
   }
   return [...best.values()].map((id) => ({ id, name: languageName(id) })).sort((a, b) => a.name.localeCompare(b.name));
 }
-
-// MARK: Wiring
 
 export function startTranslate() {
   if (!translation) return () => {};

@@ -1,34 +1,8 @@
-// native-bench.mjs's `frames` and `framecounts` phases: the frame rig for the app's own UI (not web pages).
-//
-// `frames` runs one hidden instance of the big seed (200 tabs, two profiles) with acframes.m loaded (a CADisplayLink of the
-// window's screen at its maximum rate, main-thread and JS-thread run-loop busy time, layout passes). It drives each
-// interaction of the four journeys N times and, for each, reads what the probe recorded between the interaction's start
-// and the end of its window. Timings: run under the perflab lock.
-// `framecounts` is the same list on an instance with the JS perf probe on (a `perf-probe` file), reading what does not
-// depend on timing: React commits, host view updates, store updates, native layout passes, mount batches, UI blocks.
-// Those are the counts the ratchet can gate (apps/browser/scripts/perf/frames-ratchet.json, `node frames-phase.mjs check`).
-//
-// Per interaction (a window of fixed length after its start), medians over the repetitions of every run:
-//   frames                 display-link ticks delivered in the window (the window's length / the refresh interval is what the
-//                          screen asked for); the window is extended to the ticks around it, so a stall that outlasts it is counted
-//   span                   the extended window's length in ms
-//   >8.33 / >16.7          ticks that came more than 8.33 (16.7) + 2 ms after the previous one: a 120 Hz (60 Hz) frame the main
-//                          thread did not deliver; on a 60 Hz screen every tick is over 8.33 and the column is meaningless
-//   dropped                refresh intervals skipped (a 41.7 ms gap at 120 Hz is 4)
-//   worst                  the longest gap between two ticks
-//   main busy / worst      busy: the main thread's CPU time in the window (thread_info at every tick); worst: the longest main-thread
-//                          run-loop iteration (AfterWaiting → BeforeWaiting, past Core Animation's commit observer), cut at every tick:
-//                          an iteration with ticks in it wasn't blocking. A single iteration over 8.33 ms always costs a frame.
-//   JS busy / worst        the same on React Native's JS thread (busy: its CPU time)
-// Counts: layoutPasses, mountBatches, uiBlocks, viewUpdates, viewCreates (native); commits, hostUpdates, renders, storeUpdates,
-// tasks (JS probe, `framecounts` only).
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// scripts/agent/cpu-cap keeps our processes on background QoS (efficiency cores) and SIGSTOPs the busiest while the Mac is
-// over its cap. Frame timings from a run it touched are invalid: its log says when it paused one of this run's processes.
 const CAP_LOG = process.env.AC_CPU_CAP_LOG ?? "/private/tmp/claude-501/-Users-barreloflube-Documents-ardia/a6e87140-35e6-4a65-85e0-018a5c019c75/scratchpad/cpu-cap.log";
 const capRunning = () => spawnSync("pgrep", ["-f", "scripts/agent/cpu-cap"]).status === 0;
 const capSize = () => {
@@ -38,7 +12,6 @@ const capSize = () => {
     return 0;
   }
 };
-// Pauses of the app (its copy's path, or its pid) since `from` bytes.
 const capPauses = (from, app, pid) => {
   try {
     return readFileSync(CAP_LOG, "utf8").slice(from).split("\n").filter((l) => l.includes(": paused ") && (l.includes(app) || new RegExp(`paused ${pid} `).test(l))).length;
@@ -54,7 +27,6 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-// The probe library (acframes.m), built like the marker library.
 export function framesLibrary(toolDir, here) {
   const lib = join(toolDir, "acframes.dylib");
   const src = join(here, "acframes.m");
@@ -66,7 +38,6 @@ export function framesLibrary(toolDir, here) {
   return lib;
 }
 
-// What the probe wrote, read incrementally.
 class Records {
   constructor(file) {
     this.file = file;
@@ -107,9 +78,6 @@ class Records {
   }
 }
 
-// What happened in [a, b] (epoch ms), extended to the ticks around it: from the last tick at or before a to the first tick at or
-// after b. A stall that starts in the window and runs past its end is the interaction's, so the gap it ends is counted, and the
-// CPU time in it. `refresh` is one refresh interval of the screen.
 export function windowStats(rec, a, b, refresh) {
   const ticks = rec.f;
   let first = 0;
@@ -157,8 +125,6 @@ export function windowStats(rec, a, b, refresh) {
   };
 }
 
-// The interactions, in the order they run. window: how long after its start the frames are read.
-// Each `go(c)` starts the interaction and returns its start (epoch ms, the interaction's own clock); `after(c)` puts the app back.
 function interactions(c) {
   const { app, key, sleep, run, W, probe, base } = c;
   const seedTab = `(() => { const s = ac.store.getState(); return Object.keys(s.tabs).find((id) => s.tabs[id].url.includes("id=seed")); })()`;
@@ -169,7 +135,6 @@ function interactions(c) {
     return true;`);
   const store = (code) => run(`globalThis.acPerf?.reset(); const t = ac.now(); ${code}; return t;`);
   let k = 0;
-  // The sidebar in the state an interaction starts from (a toggle each repetition would alternate), with its swap settled.
   const want = async (open) => {
     if ((await run(`return ${"ac.store.getState().windows[" + W + "].sidebarOpen"};`)) !== open) {
       await run(`ac.store.getState().toggleSidebar(${W}); return 1;`);
@@ -195,7 +160,6 @@ function interactions(c) {
         globalThis.__frameTarget = id; ac.actions.switchToTab(id); return t;`) },
     { name: "sidebar collapse", window: 800, verify: `return !${win}.sidebarOpen;`, before: async () => { await reset(); await want(true); }, go: () => store(`ac.store.getState().toggleSidebar(${W})`) },
     { name: "sidebar expand", window: 800, verify: `return ${win}.sidebarOpen;`, before: async () => { await reset(); await want(false); }, go: () => store(`ac.store.getState().toggleSidebar(${W})`), after: () => sleep(300) },
-    // Arc's layout (the address bar in the sidebar): no toolbar row on the card, Arc's 100 ms hide (SidebarDock.tsx).
     { name: "sidebar collapse (address bar in the sidebar)", window: 800, verify: `return !${win}.sidebarOpen;`, before: async () => { await reset(); await arcLayout(true); await want(true); }, go: () => store(`ac.store.getState().toggleSidebar(${W})`) },
     { name: "sidebar expand (address bar in the sidebar)", window: 800, verify: `return ${win}.sidebarOpen;`, before: async () => { await reset(); await arcLayout(true); await want(false); }, go: () => store(`ac.store.getState().toggleSidebar(${W})`), after: async () => { await sleep(300); await arcLayout(false); } },
     { name: "profile swipe (next profile)", window: 1200, verify: `return ${win}.profileId !== globalThis.__frameProfile;`, before: async () => { await reset(); await run(`globalThis.__frameProfile = ${win}.profileId; return 1;`); }, go: () => store(`ac.runCommand({ command: "nextProfile", arg: null, windowId: ${W} })`), after: () => sleep(600) },
@@ -225,18 +189,14 @@ export async function framesRun(c, side, i, { counts }) {
   const rec = new Records(join(dir, "bench-frames.jsonl"));
   const run = (code) => app.run(code);
   let seq = 0;
-  // A probe command (acframes.m): answered when done; a driver (scroll, hover) answers when its last tick has run, and
-  // wait = false returns as soon as the command is written (the window is read after the interaction's length).
   const probe = async (op, args = {}, wait = true) => {
     const id = `f${++seq}-${Date.now()}`;
     writeFileSync(join(dir, "bench-frames-cmd.json"), JSON.stringify({ id, op, ...args }));
     if (!wait) return { id };
-    // Generous: a loaded Mac on efficiency cores can keep the main thread busy for seconds (a launch of 200 tabs).
     const r = await app.waitFile("bench-frames-result.json", 60_000, (v) => v.id === id);
     if (!r?.ok) throw new Error(`probe ${op}: ${JSON.stringify(r)}`);
     return r;
   };
-  // A real key event; retried until the app's event loop saw it (CGEventPostToPid drops about one in ten).
   const key = async (spec) => {
     for (let attempt = 0; attempt < 4; attempt++) {
       const r = acperf("postkeys", String(app.pid), "0", spec);
@@ -248,7 +208,6 @@ export async function framesRun(c, side, i, { counts }) {
     }
     throw new Error(`key ${spec} never arrived`);
   };
-  // For a before-step that needs the bar open: press, then give it its animation.
   key.open = async (spec) => {
     await key(spec);
     await sleep(900);
@@ -256,8 +215,6 @@ export async function framesRun(c, side, i, { counts }) {
   const capFrom = capSize();
   const out = { info: null, display, counts, interactions: {}, load: [Math.round(c.loadavg()[0])], cpuCap: { running: capRunning(), pauses: 0 } };
   const counters = () => probe("counters");
-  // Quiet: no UI block or mount for 900 ms (the restored tabs' loads settle), or `maxMs` gone. (Layout passes and React commits
-  // never stop on the big seed: engine events from the 200 tabs and the bench channel's own timers.)
   const quiet = async (maxMs) => {
     let last = null, since = Date.now();
     for (const end = Date.now() + maxMs; Date.now() < end; await sleep(200)) {
@@ -290,11 +247,7 @@ export async function framesRun(c, side, i, { counts }) {
     const list = interactions({ app, key, sleep, run, W: WINDOW, probe, base }).filter((it) => !only || only.test(it.name));
     for (const it of list) {
       const rows = [];
-      // Stats are computed once the interaction's reps are done: a run-loop iteration that outlasted its window is written
-      // when it ends, and counts for nothing before that.
       const taken = [];
-      // --frames-sample: `sample` of the app over all of this interaction's repetitions (a sampler on background QoS gets
-      // few samples per second, so one window isn't enough), to see where the main thread's time goes.
       let sampler = null;
       if (opt["frames-sample"] && !it.name.startsWith("idle")) {
         mkdirSync(join(c.out ?? dir, "frames-sample"), { recursive: true });
@@ -332,7 +285,6 @@ export async function framesRun(c, side, i, { counts }) {
       rec.read();
       for (const { t0, extra } of taken) {
         const stats = { ...windowStats(rec, t0, t0 + it.window, refresh), ...extra, expected: Math.round(it.window / refresh), t0 };
-        // A window with no ticks at all: the display went off or the screen locked meanwhile.
         if (stats.frames) rows.push(stats);
       }
       out.interactions[it.name] = rows;
@@ -349,7 +301,6 @@ export async function framesRun(c, side, i, { counts }) {
   }
 }
 
-// Summary rows (native-bench's table) from side.results.frames, and the markdown table the docs quote.
 const METRICS = [
   ["frames", "frames delivered", "", 0],
   ["over8", "ticks over 8.33 ms", "", 0],
@@ -386,7 +337,6 @@ export function frameRows(results) {
   for (const name of names)
     for (const [key, label, unit, digits] of METRICS) {
       if (!SHOWN.has(key)) continue;
-      // One value per run: the median of its repetitions (a count that only the counts runs have is left out when none has it).
       const perRun = runs.map((r) => median((r.interactions[name] ?? []).map((x) => x[key]))).filter(Number.isFinite);
       if (!perRun.length) continue;
       rows.push({ name: `frames ${name}: ${label}`, median: median(perRun), min: Math.min(...perRun), max: Math.max(...perRun), n: perRun.length, unit, digits });
@@ -394,7 +344,6 @@ export function frameRows(results) {
   return rows;
 }
 
-// The table per interaction, one column per app (labels), medians over every repetition of every run.
 export function frameTable(resultsByLabel) {
   const labels = Object.keys(resultsByLabel);
   const keys = ["frames", "over8", "over16", "worst", "mainBusy", "mainWorst", "jsBusy", "jsWorst", "layoutPasses", "mountBatches", "uiBlocks", "commits", "hostUpdates"];
@@ -414,17 +363,8 @@ export function frameTable(resultsByLabel) {
   return out.join("\n");
 }
 
-// The ratchet for the counts that repeat (frames-ratchet.json): per interaction, the most layout passes, mount batches, UI
-// blocks, view updates (native) and React commits and host updates (framecounts) a run may take. Exact when every repetition of
-// every baseline run agreed, else the largest plus 10%. Not gated: ticks, busy times, renders and store updates (they follow
-// timing or page load progress).
-//
-// A count only gates once it has been shown to move frame time: a change that cut it also cut the interaction's main-thread
-// CPU or its over-budget frames, in a before/after run (docs/perf/frames.md). `proof` names that evidence per count; a count
-// with none is UNPROVEN: `check` lists it when it is over its ceiling but doesn't fail on it. Nothing is proven yet.
 const RATCHET_FILE = join(dirname(fileURLToPath(import.meta.url)), "frames-ratchet.json");
 const GATED = ["layoutPasses", "mountBatches", "uiBlocks", "viewUpdates", "commits", "hostUpdates"];
-// Interactions whose counts follow a page's load or a window's start-up rather than the interaction.
 const NOT_GATED = ["idle (no interaction)", "new window"];
 
 function repsOf(results, name) {
@@ -446,7 +386,6 @@ export function ratchetInit(results) {
   return { revision: 2, proof: Object.fromEntries(GATED.map((key) => [key, null])), ceilings };
 }
 
-// A count is judged by its median over the results' repetitions: an outlier (a stray window event) doesn't fail the gate.
 export function ratchetCheck(results, ratchet) {
   const rows = [];
   const proven = (key) => !!ratchet.proof?.[key];

@@ -24,7 +24,6 @@ export function dismissDefaultBrowserCheckIn() {
   useCheckIn.setState({ doneAt: Date.now() });
 }
 
-// Never show the check-in in incognito.
 export function useDefaultBrowserCheckIn(windowId: string) {
   const due = useCheckIn(checkInDue);
   const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);

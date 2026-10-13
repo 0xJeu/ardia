@@ -1,10 +1,3 @@
-// Profile swipes in the sidebar and swipes on web pages, through the native gesture path (ArdiaSwipe devSimulate)
-// in a hidden instance with two profiles.
-//   node apps/browser/scripts/profile-swipe-test.mjs <Debug Ardia.app> [--port=<DevTools port>] [--keep-data]
-//     [--stale-window] [--only=<case name substring>] [--bundle-port=<Metro port>]
-// One line per case; the details go to profile-swipe.log and the evidence (native traces) to
-// profile-swipe-results.json beside the instance's data; both are kept with --keep-data or after a failure.
-// The launched app's ownership (scripts/lib/instance.mjs) has its own self-test: `--self-test` runs it.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -41,9 +34,7 @@ const scratch = mkdtempSync(join(tmpdir(), "ac-profile-swipe-"));
 const data = join(scratch, "data");
 const rep = reporter(join(scratch, "profile-swipe.log"), { name: "profile-swipe-test" });
 const evidence = { app, data, stale, cases: [] };
-// The instance once launched: the only process cleanup may signal (scripts/lib/instance.mjs).
 let owned;
-// An Error when the owned app has died (recorded once in evidence.death), else null.
 function ownedDeath() {
   if (!owned || !owned.exited) return null;
   evidence.death ??= { pid: owned.pid, detectedAt: new Date().toISOString(), alive: false,
@@ -90,9 +81,7 @@ const gesture = (sign, wobble = false, drift = false) => [
   { phase: "changed", dx: 22 * sign, dy: 0 },
   { phase: "changed", dx: 22 * sign, dy: 0 },
   { phase: "ended", dx: 0, dy: 0 },
-// Hardware-like 16ms event timestamps, whenever the main thread gets to each step.
 ].map((step, index) => ({ ...step, atMs: index * 16, timestampMs: index * 16 }));
-// A flick as a trackpad sends it, through AppKit's dispatch: the swipe, then the momentum macOS adds after the lift.
 function flick(sign) {
   const swipe = gesture(sign);
   const end = swipe.at(-1).atMs;
@@ -100,7 +89,6 @@ function flick(sign) {
     .map(([phase, dx], i) => ({ phase, dx: dx * sign, dy: 0, atMs: end + 8 * (i + 1), timestampMs: end + 8 * (i + 1) }));
   return [...swipe, ...momentum].map((step) => ({ ...step, dispatch: "app" }));
 }
-// Decoded NSEvent timestamps against the requested ones, and the native release velocity.
 function fixtureFidelity(steps, result) {
   const start = Number(result?.startNs) / 1e9;
   const events = (result?.events ?? []).filter((e) => !e.error);
@@ -151,7 +139,6 @@ async function test(name, fn) {
       evidence.cases.push(failed);
       if (!death) failed.windows = await windows().catch((e) => ({ error: String(e) }));
       if (error.evidence) rep.log("evidence:", JSON.stringify(error.evidence));
-      // A dead app fails this case with its traces kept, then stops the run.
       fatal = death ?? ownedDeath();
       if (fatal) failed.appDeath = evidence.death;
     },
@@ -173,17 +160,12 @@ try {
   owned = await launch(app, {
     data, port, session: fixture,
     switches: "--disable-backgrounding-occluded-windows",
-    // The app's Metro for this launch: pinned (the module's proxy, which refuses reloads and hot updates) unless
-    // --bundle-port names another one.
     ...(bundlePort ? { js: `127.0.0.1:${bundlePort}` } : {}),
     ready: 'return !!globalThis.acSwipe?.sidebar("w1");',
   });
   evidence.owner = { pid: owned.pid, port: owned.port, binary: owned.binary, started: owned.started, js: owned.js };
-  // For the log only (rep.log's lines would show under every later failure).
   appendFileSync(rep.logFile, `instance pid ${owned.pid}, DevTools port ${owned.port}, data ${data}\n`);
   if (bundlePort) {
-    // Freeze this instance's JS while other engineers edit that Metro's checkout (a pinned instance can't get
-    // updates). Call the client locally; do not change the app's persisted developer settings.
     evidence.liveUpdatesDisabled = await ac(`
       const entry=[...globalThis.__r.getModules()].find(([,m])=>m.verboseName?.endsWith("/Libraries/Utilities/HMRClient.js"));
       if (!entry) throw new Error("HMR client missing");
@@ -209,7 +191,6 @@ try {
         if (fidelity.at(-1).errors.length) throw new Error(`fixture fidelity: ${fidelity.at(-1).errors.join("; ")}`);
         await waitProfile(expected);
       } catch (error) {
-        // Keep every completed native trace and the state at the failure; a dead app yields null, not a new error.
         error.evidence = { iteration: i, expected, results, fidelity,
           profile: await profile().catch(() => null),
           pager: await ac('return globalThis.acPager("w1").debug();').catch(() => null) };
@@ -324,9 +305,6 @@ try {
     await waitProfile("work");
     return { incomplete, next };
   });
-  // 0.2.25: a swipe's momentum went on to the scroll view under the pointer, whose responsive scrolling then ate every
-  // scroll event on AppKit's event thread until the pointer moved, so the third swipe at one point did nothing. Only
-  // a real trackpad shows the eating; what guards it here is that the momentum never leaves the tracker.
   for (const surface of ["sidebar", "strip"]) {
     await test(`a ${surface} swipe's momentum stays with it, so a third swipe at the same point switches`, async () => {
       await reset();
@@ -357,9 +335,6 @@ try {
   }
 
   if (stale) {
-    // ArdiaCore keeps one NSWindow per logical window across profile switches (chromeWindows reports its active
-    // profile and no group), so the source window stays current: the reverse must be recognized there, not in
-    // the logical window ordered in front of it at the same point.
     await test("stale ordinary window cannot redirect into an overlapping logical window", async () => {
       await reset();
       const source = (await nativeWindow()).window;
@@ -422,7 +397,6 @@ try {
     await pageEval("window.scrollTo(400,400); true");
     await sleep(100);
     const before = await pageEval("({x:scrollX,y:scrollY,url:location.href})");
-    // A loaded CDP target may still be an inactive tab. Keep UI/root state if its gesture area is absent.
     const webState = await ac(`return {
       window: ac.store.getState().windows.w1,
       pager: globalThis.acPager("w1").debug(),
@@ -445,7 +419,6 @@ try {
     assert.equal(await profile(), "default");
     return { before, afterHorizontal, afterVertical, horizontal, vertical };
   });
-  // Needs the web page test's renderer: t1 shows the local scroll fixture.
   const routing = (result) => result.acks.find((a) => a.diag === "hitRouting");
   const flagged = (steps, flags) => steps.map((s) => ({ ...s, ...flags }));
   await test("a renderer hit outside its own frame falls back to the sidebar pager", async () => {
@@ -484,7 +457,6 @@ try {
     assert.equal(routing(result)?.fallback, false, "an ordinary sidebar hit should match directly");
     return result;
   });
-  // SwipeOverlay: a discrete swipe's delayed dismiss once landed in the next gesture and dropped its navigation.
   await test("a tracked swipe right after a discrete swipe goes back too", async () => {
     await reset();
     const base = `http://127.0.0.1:${server.address().port}/history`;
@@ -499,7 +471,6 @@ try {
       assert.equal(await waitUrl(base + n, 5000), base + n);
     }
     await sleep(500);
-    // The tracked one starts 50 ms after the discrete one and lasts a quarter second, as a hand's does.
     const steps = [{ phase: "swipe", dx: 3, atMs: 0 }, { phase: "began", dx: 0, dy: 0, atMs: 50, timestampMs: 50 }];
     for (let at = 66; at <= 258; at += 16) steps.push({ phase: "changed", dx: 10, dy: 0, atMs: at, timestampMs: at });
     steps.push({ phase: "ended", dx: 0, dy: 0, atMs: 274, timestampMs: 274 });

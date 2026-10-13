@@ -10,7 +10,6 @@ export type UiSlice = {
     focusedWindowId: string | null;
     focusOrder: string[];
     appDark: boolean;
-    // The regular profile of the window used last (store/small.ts lastActiveProfile).
     lastProfileId: string | null;
   };
   windowUi: Record<string, WindowUi>;
@@ -29,15 +28,11 @@ export type UiSlice = {
   forgetDownloads(profile: string): void;
 };
 
-// The private session a download is in (the engine names its regular profile and says it's off the record), or null.
 export function downloadSession(d: Pick<Download, "profile" | "offTheRecord">): string | null {
   if (d.offTheRecord) return d.profile ?? "";
   return d.profile && isIncognitoProfile(d.profile) ? privateSession(d.profile) : null;
 }
 
-// A window lists its profile's downloads, as Chrome's per-profile list: a private window its session's (every private
-// window of its profile's), a regular one the regular downloads of the profile it shows (an older one with no profile:
-// Personal's).
 export function downloadVisibleIn(d: Pick<Download, "profile" | "offTheRecord">, window: { incognito: boolean; profileId: string } | undefined): boolean {
   if (!window) return false;
   const session = downloadSession(d);
@@ -47,7 +42,6 @@ export function downloadVisibleIn(d: Pick<Download, "profile" | "offTheRecord">,
 
 const sessionOpen = (s: Pick<BrowserState, "windows">, session: string) =>
   Object.values(s.windows).some((w) => w.incognito && privateSession(w.profileId) === session);
-// Downloads of private sessions that ended: a late update never brings one into the profile's next session.
 const endedPrivateDownloads = new Set<string>();
 
 export const downloadsIn = (s: Pick<BrowserState, "downloads" | "windows">, windowId: string) =>
@@ -72,7 +66,6 @@ export const createUiSlice: StateCreator<BrowserState, [], [], UiSlice> = (set, 
     const s = get();
     const { ui, windows } = s;
     if (!windows[id]) return;
-    // The store may already call it focused (it opened, or the one in front closed) before the window says it's key.
     const lastProfileId = originalProfile(s, windows[id]) ?? ui.lastProfileId;
     if (ui.focusedWindowId === id && ui.lastProfileId === lastProfileId) return;
     set({ ui: { ...ui, focusedWindowId: id, focusOrder: [id, ...ui.focusOrder.filter((w) => w !== id)], lastProfileId } });
@@ -101,8 +94,6 @@ export const createUiSlice: StateCreator<BrowserState, [], [], UiSlice> = (set, 
   upsertDownload(d) {
     set((s) => {
       const exists = s.downloads.some((x) => x.id === d.id);
-      // A private session's downloads leave with its last window; the engine's late "cancelled" update mustn't bring one
-      // back.
       const session = downloadSession(d);
       if (!exists && session !== null && (!sessionOpen(s, session) || endedPrivateDownloads.has(d.id))) {
         endedPrivateDownloads.add(d.id);
@@ -126,7 +117,6 @@ export const createUiSlice: StateCreator<BrowserState, [], [], UiSlice> = (set, 
   },
 
   forgetDownloads(profile) {
-    // A private profile id: its whole session's.
     const session = privateSession(profile);
     const gone = (d: Download) => (session !== null ? downloadSession(d) === session : d.profile === profile);
     if (session !== null) for (const d of get().downloads) if (gone(d)) endedPrivateDownloads.add(d.id);

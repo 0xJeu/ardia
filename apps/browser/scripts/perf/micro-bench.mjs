@@ -1,25 +1,4 @@
 #!/usr/bin/env node
-// Micro-benchmarks for store-side work that scales with a profile's size, run in Node (V8's JIT: expect Hermes
-// in the app to take several times longer). Each prints the median of repeated runs.
-//
-//   cd apps/browser && node --no-warnings --import ./src/test-loader.mjs scripts/perf/micro-bench.mjs [name…]
-//
-// Cases (all of them when no name is given):
-//   entries        sidebar, strip and group entries of 500/1000-tab windows after a title or load-state update
-//   groupNames     a big group's automatic name after a load-state or title update
-//   suggest        omnibox pool rebuilds after a visit, with 25k/50k bookmarks (the longest 4 ms slice)
-//   suggest-seed   omnibox keystrokes on js-bench's seed profile (seed.mjs: 5000 history entries, 200 tabs, 1000
-//                  bookmarks); `suggest-seed=<query>` types another query. js-bench `typing` is what a key costs in the app.
-//   suggest-keys   one keystroke at a time on the seed profile with all 200 tabs, the bar's actions and its known-hosts check (SUGGEST_BEFORE=1: the old code): typing "github.com/net" and "react native perf",
-//                  ops (ops.mjs builtin calls) and time per key, cold first key and warm keys. `suggest-keys=<rounds>` repeats the
-//                  sequences that many times with nothing printed (suggest-instr.mjs measures instructions that way).
-//   counts         not a timing: how many builtin calls (string search, regexp, array, Map/Set…) the hot paths above
-//                  make, counted exactly by ops.mjs, so it repeats to the digit on any machine. Prints one
-//                  `counts.<case> <n>` line each and a final `COUNTS {json}` line that ratchet.mjs reads. A change that
-//                  makes the work cheaper lowers these; ratchet.json holds the ceilings (docs/perf/README.md).
-//   instr          the same hot paths repeated INSTR_ROUNDS times (default 10), with nothing printed: ratchet.mjs runs it
-//                  under `/usr/bin/time -l node --predictable` with 0 and N rounds and divides the difference of the
-//                  "instructions retired" lines (the CPU's own counter, no root needed on Apple silicon) by N.
 
 const { useBrowser } = await import("../../src/store/browser.ts");
 const { sidebarEntries, groupEntries } = await import("../../src/components/sidebar/entries.ts");
@@ -84,14 +63,10 @@ function bigSession(count, bigGroup = 0) {
   return ids;
 }
 
-// The suggestion code as it was before the keystroke hill-climb (SUGGEST_BEFORE=1): the frozen spec in packages/core, a known-hosts
-// list and a list of actions made again on every key.
 const BEFORE = process.env.SUGGEST_BEFORE === "1";
 const suggestImpl = BEFORE ? await import("../../../../packages/core/src/suggest.reference.ts") : core;
-// The command bar's actions (apps/browser/src/components/omnibox/actions.ts as of 0.2.27, a copy of what matters to ranking).
 const BAR_ACTIONS = JSON.parse(readFileSync(new URL("./bar-actions.json", import.meta.url), "utf8"));
 
-// js-bench's seed profile as the omnibox sees it: 5000 history entries, 1000 bookmarks, and every one of the 200 tabs.
 function seedSource() {
   const seed = buildSeed("http://127.0.0.1:47817");
   const history = seed["history.json"].history.default;
@@ -101,8 +76,6 @@ function seedSource() {
     .map((n) => ({ url: n.url, title: n.title, favicon: n.favicon }));
   return { tabs, history, bookmarks };
 }
-// Everything one key of the command bar asks of this code: is the text a site this profile knows (Omnibox.tsx tabScope), the
-// actions of the window, then the suggestions.
 const historyHostsBefore = new WeakMap();
 function hostsFor(source) {
   const state = (source.state ??= { tabs: Object.fromEntries(source.tabs.map((t) => [t.id, t])), history: { default: source.history } });
@@ -123,7 +96,6 @@ function keystroke(source, q, at) {
   const actions = BEFORE ? BAR_ACTIONS.map((a) => ({ ...a })) : BAR_ACTIONS;
   return suggestImpl.buildSuggestions(q, source, { now: at, actions });
 }
-// What the bar has computed before the first key: the pool and the history's hosts (the warm-up effect in useSuggestions).
 function warm(source, at) {
   suggestImpl.prepareSuggestions(source, Infinity);
   hostsFor(source);
@@ -189,7 +161,6 @@ const benches = {
       const source = { tabs: [], history, bookmarks };
       core.prepareSuggestions(source, Infinity);
       core.buildSuggestions("b", source);
-      // A visit replaces the history array (one entry moved to the front): the pool is rebuilt.
       const slices = [];
       let h = history;
       for (let k = 0; k < 5; k++) {
@@ -293,8 +264,6 @@ const benches = {
       if (process.env.COUNTS_DETAIL) console.log(`    ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(", ")}`);
     };
 
-    // The omnibox on the seed profile (5000 history, 200 tabs, 1000 bookmarks): the pool, then each keystroke of the
-    // js-bench `typing` query. Fixed `now` so frecency and recency don't depend on the clock.
     const seed = buildSeed("http://127.0.0.1:47817");
     const history = seed["history.json"].history.default;
     const tabs = seed["session.json"].tabs.filter((t) => t.profileId === "default");
@@ -303,8 +272,6 @@ const benches = {
       .map((n) => ({ url: n.url, title: n.title, favicon: n.favicon }));
     const source = { tabs, history, bookmarks };
     const at = Date.now();
-    // The full list of registries (tlds.ts) is read once a session, the first time a TLD isn't a common one: keep that
-    // out of the keystrokes counted here.
     core.fixupUrl("a.zzzz");
     add("suggest.prepare", () => core.prepareSuggestions(source, Infinity));
     const query = "github.com/facebook/react/pull";
@@ -312,7 +279,6 @@ const benches = {
     add("suggest.typeAll", () => {
       for (let i = 2; i <= query.length; i++) core.buildSuggestions(query.slice(0, i), source, { now: at });
     });
-    // The same keys with all 200 tabs (the seed's tabs of the work profile too), a typed URL and a typed phrase.
     const everyTab = seedSource();
     warm(everyTab, at);
     for (const [name, q] of Object.entries(KEY_SEQUENCES)) {
@@ -324,7 +290,6 @@ const benches = {
       for (const q of ["react native performance", "react native performance hermes"]) for (let i = 1; i <= q.length; i++) core.buildSuggestions(q.slice(0, i), source, { now: at });
     });
 
-    // Sidebar, strip and group entries of a 1000-tab window after one title or load-state update.
     for (const count of [500, 1000]) {
       const ids = bigSession(count);
       const warm = () => {
@@ -353,7 +318,6 @@ const benches = {
   },
 };
 
-// `name` or `name=argument`.
 const wanted = new Map(process.argv.slice(2).map((a) => [a.split("=")[0], a.includes("=") ? a.slice(a.indexOf("=") + 1) : undefined]));
 for (const name of wanted.keys()) if (!(name in benches)) throw new Error(`no case ${name}; cases: ${Object.keys(benches).join(", ")}`);
 for (const [name, run] of Object.entries(benches)) if (!wanted.size || wanted.has(name)) await run(wanted.get(name));

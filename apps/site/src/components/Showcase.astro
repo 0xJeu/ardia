@@ -4,7 +4,6 @@ import DownloadButton from "./DownloadButton.astro";
 import windowShot from "../assets/shots/window.webp";
 ---
 
-{/* data-shot="office" stays: it names this section in the section_viewed analytics. */}
 <section class="showcase" aria-label="The app" data-shot="office">
   <div class="wrap">
     <figure class="showcase-figure">
@@ -21,7 +20,6 @@ import windowShot from "../assets/shots/window.webp";
         <span>A screenshot, not a mockup.</span>
       </figcaption>
     </figure>
-    {/* Experiment "download-band" (docs/growth.md): shown only to Macs in the "band" variant. */}
     <aside class="band" aria-label="Download" data-download-band hidden>
       <p class="band-line poster">That was a screenshot. <span>This is the app.</span></p>
       <DownloadButton location="office-band" />
@@ -30,11 +28,6 @@ import windowShot from "../assets/shots/window.webp";
 </section>
 
 <script>
-  // The download-band experiment. Only Mac desktops ask for the flag, so only they count as exposures
-  // (getFeatureFlag records $feature_flag_called and $experiment_exposure, once per visitor). The variant is
-  // bucketed on the visitor id with PostHog's algorithm (scripts/telemetry/flags.ts), so visitors keep theirs.
-  // A silent build (not ardia.dev, no opt-in) or no Web Crypto: control, no band.
-  // On localhost, ?nnflag=band (or control) forces a variant.
   import { getFeatureFlag } from "../scripts/telemetry";
 
   const FLAG = "download-band";

@@ -13,35 +13,16 @@ import { useBrowser, type BrowserState } from "../store/browser";
 import { changedIds } from "../store/changes";
 import { chromeChanged, groupStep, stripActual, stripPlan, type GroupBindings } from "../store/liveTabs";
 
-// Chrome's tab strips and the store (docs/store-api.md › "Live tabs"). Chrome commits; the engine reports each
-// change as a transaction with a revision and its cause. Transactions apply in revision order. The app's own
-// changes come back with their command and only update the mirror; Chrome's become the same change in the store
-// (store/liveTabs.ts). After every change the store's plan for each strip is compared with Chrome's, and a command
-// goes out where they differ: one per strip at a time, and never the same command twice against the same strip.
-
 let started = false;
 const mirror = new Map<number, StripState>();
-// -1 until the first snapshot arrives; transactions before it wait.
 let lastRev = -1;
 let early: TabStripTransaction[] = [];
-// Tabs the app has seen in a strip (a tab Chrome made is Chrome's to place only the first time).
 const seen = new Set<string>();
-// The command each strip is waiting for (an arrange or group with the tabs it lists; the store group a new Chrome
-// group is made for).
 type Kind = "arrange" | "activate" | "group";
-// `moves`: a group command that moves its tabs (joining, a new group, leaving one); a rename or recolour moves nothing.
 const inflight = new Map<number, { kind: Kind; cmd: number; keys?: string[]; makes?: string; successor?: boolean; moves?: boolean }>();
-// Chrome's group ids → the store's.
 const groups: GroupBindings = new Map();
-// What was last sent to each strip, against which of its states: a plan Chrome couldn't reach isn't sent again
-// until something other than the app's commands changes the strip.
 const tried = new Map<string, { sig: string; since: number }>();
 const changedAt = new Map<number, number>();
-// A tab Chrome made in front of a strip on its own (an extension's tabs.create), which no view holds yet, and the
-// tab the store showed there then: until the app adopts it (its openWindow comes after this transaction), the
-// store's tab isn't put back over it. Chrome's activation is the new tab's (liveTabs: a tab Chrome made takes
-// Chrome's activation the first time the app sees it); putting the store's tab back sent every such tab behind.
-// A switch in the store meanwhile is sent as usual.
 const madeInFront = new Map<number, { browser: number; over: string | null }>();
 
 if (__DEV__) {
@@ -74,8 +55,6 @@ export function startChromeTabs() {
   });
 }
 
-// Whether a tab came, went or changed what the plans read of it (stripPlan, groupStep: its window, profile and pin).
-// A page's title, address or icon changing doesn't project again.
 function placed(s: BrowserState, prev: BrowserState) {
   return changedIds(s.tabs, prev.tabs).some((id) => {
     const a = s.tabs[id];
@@ -84,15 +63,12 @@ function placed(s: BrowserState, prev: BrowserState) {
   });
 }
 
-// MARK: Chrome → store
-
 function receive(tx: TabStripTransaction) {
   if (tx.rev <= lastRev) return;
   lastRev = tx.rev;
   for (const [strip, f] of inflight) {
     if (f.cmd !== tx.cmd) continue;
     inflight.delete(strip);
-    // The Chrome group made for a store group: whatever group its tabs are in now.
     const made = f.makes && tx.strips.find((x) => x.strip === strip)?.tabs.find((t) => t.key === f.keys?.[0])?.group;
     if (made && f.makes) groups.set(made, f.makes);
   }
@@ -106,7 +82,6 @@ function receive(tx: TabStripTransaction) {
     } else mirror.set(strip.strip, strip);
     if (tx.cmd === null || tx.cmd < 0) changedAt.set(strip.strip, tx.rev);
     if (tx.cmd === null) {
-      // A command of the app's own on its way to this strip comes after Chrome's change, and wins.
       const waiting = inflight.get(strip.strip);
       const siblings = [...mirror.values()].filter((x) => x.window === strip.window && x.strip !== strip.strip);
       const made = strip.tabs.find((t) => t.active && !t.key && !before?.tabs.some((b) => b.browser === t.browser));
@@ -117,12 +92,8 @@ function receive(tx: TabStripTransaction) {
         groups,
         pending: {
           arranged: new Set(waiting?.kind === "arrange" ? waiting.keys : []),
-          // A group command that moves its tabs (Chrome puts a group's tabs together, an ungrouped tab after its old
-          // group) has the engine report those moves as Chrome's own: the store's places stand. Pins aren't its.
           regrouped: new Set(waiting?.kind === "group" && waiting.moves ? waiting.keys : []),
           grouped: new Set(waiting?.kind === "group" ? waiting.keys : []),
-          // The store's successor for a tab that closed gives way to a tab Chrome activated explicitly meanwhile
-          // (an extension closing and activating in one go), as in Chrome.
           active: waiting?.kind === "activate" && !waiting.successor,
         },
       });
@@ -133,8 +104,6 @@ function receive(tx: TabStripTransaction) {
   if (s !== start) useBrowser.setState(s);
   scheduleProject();
 }
-
-// MARK: Store → Chrome
 
 let projectQueued = false;
 
@@ -153,7 +122,6 @@ function project(s: BrowserState) {
     const plan = stripPlan(s, strip);
     if (!plan) continue;
     const actual = stripActual(strip, plan);
-    // The shown tab first: Chrome's commands and extensions act on its active tab.
     const order = `${plan.keys.join(",")}|${plan.pinned}`;
     const made = madeInFront.get(strip.strip);
     const unadopted = !!made && plan.active === made.over && strip.tabs.some((t) => t.browser === made.browser && t.active && !t.key);
@@ -165,13 +133,9 @@ function project(s: BrowserState) {
       send(strip.strip, "group", JSON.stringify(step), { op: "group", strip: strip.strip, ...rest }, makes, undefined, moves);
     };
     if (plan.active && plan.active !== actual.active && !unadopted) {
-      // Chrome's active tab is gone from the store (it closed): the store's pick is a successor.
       const successor = !!actual.active && !s.tabs[actual.active];
       send(strip.strip, "activate", plan.active, { op: "activate", strip: strip.strip, key: plan.active }, undefined, successor);
     } else if (step?.group === null && !sentAlready(strip.strip, "group", JSON.stringify(step))) {
-      // Tabs that left their group leave Chrome's before anything moves: Chrome keeps a group's tabs together, so a
-      // tab arranged between two of its tabs joins it (TabStripModel's group contiguity) and the arrange never lands.
-      // Tried already (Chrome refused), the arrange goes ahead.
       group();
     } else if (order !== `${actual.keys.join(",")}|${actual.pinned}`) {
       send(strip.strip, "arrange", order, { op: "arrange", strip: strip.strip, keys: plan.keys, pinned: plan.pinned });
@@ -179,7 +143,6 @@ function project(s: BrowserState) {
   }
 }
 
-// The same command was sent since Chrome last changed the strip on its own: sending it again would change nothing.
 function sentAlready(strip: number, kind: Kind, sig: string) {
   const last = tried.get(`${strip}:${kind}`);
   return last?.sig === sig && last.since === (changedAt.get(strip) ?? 0);

@@ -113,7 +113,6 @@ export function runBarAction(id: string, windowId: string) {
   runCommand({ command, arg, windowId });
 }
 
-// The actions for one store state: a bar asks on every key, and typing doesn't change the store.
 const barActionsOf = new WeakMap<BrowserState, Map<string, CommandAction[]>>();
 
 export function currentBarActions(windowId: string): CommandAction[] {

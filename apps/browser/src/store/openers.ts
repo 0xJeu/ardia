@@ -4,32 +4,22 @@ import { groupOf, pinnedChildGroup } from "./organize";
 import { splitOf } from "./splits";
 import type { BrowserWindow, Tab } from "./types";
 
-// Chrome's opener model (TabStripModel), which Dia keeps: a tab opened from a link remembers its opener
-// (`Tab.openerId`) until the user starts something else. While it holds, links opened behind line up after
-// the opener in the order they were opened, and closing the page goes back to the opener's other tabs,
-// then to the opener. Switching to an unrelated tab, typing an address or opening a link in front forgets
-// every opener in the window.
-
 const regular = (s: BrowserState, id: string) => !inPinnedContainer(s, id);
 
-// Where a new unpinned tab goes: next to its opener, else at the top or bottom of the list (the setting).
 export function insertionIndex(s: BrowserState, w: BrowserWindow, tab: Tab, background: boolean): number {
   const opener = tab.openerId ? s.tabs[tab.openerId] : undefined;
   let index: number;
   if (opener && opener.windowId === w.id && opener.profileId === tab.profileId && regular(s, opener.id)) {
-    // A split is one row: its tabs go after its last pane.
     const panes = splitOf(s, opener.id)?.tabIds ?? [opener.id];
     const at = Math.max(...panes.map((id) => w.tabIds.indexOf(id))) + 1;
     index = background ? afterFamily(s, w, tab, at, opener.id) : at;
   } else if (opener && opener.windowId === w.id && opener.profileId === tab.profileId) {
-    // From a pinned tab: just below the pinned tabs, after the links it opened before (Dia gathers them there).
     const gathered = pinnedChildGroup(s, opener.id, tab.profileId);
     index = gathered
       ? Math.max(...gathered.tabIds.map((id) => w.tabIds.indexOf(id))) + 1
       : afterFamily(s, w, tab, firstRegular(s, w, tab), opener.id);
   } else {
     index = listStart(s, w, tab);
-    // An opener in another window (Little Ardia) still keeps its tabs in order.
     if (opener) index = afterFamily(s, w, tab, index, opener.id);
   }
   return outsideSplit(s, w, index);
@@ -43,7 +33,6 @@ function firstRegular(s: BrowserState, w: BrowserWindow, tab: Tab): number {
 const listStart = (s: BrowserState, w: BrowserWindow, tab: Tab) =>
   s.settings.newTabPosition === "top" ? firstRegular(s, w, tab) : w.tabIds.length;
 
-// Past the tabs the opener opened, and the tabs those opened, that follow `from` in the same group.
 function afterFamily(s: BrowserState, w: BrowserWindow, tab: Tab, from: number, openerId: string): number {
   const family = new Set([openerId]);
   const group = s.tabs[openerId]?.windowId === w.id && regular(s, openerId) ? groupOf(s, openerId)?.id : undefined;
@@ -58,7 +47,6 @@ function afterFamily(s: BrowserState, w: BrowserWindow, tab: Tab, from: number, 
   return index;
 }
 
-// A split's panes stay next to each other in the list.
 function outsideSplit(s: BrowserState, w: BrowserWindow, index: number): number {
   const before = w.tabIds[index - 1], after = w.tabIds[index];
   const split = before && after ? splitOf(s, before) : undefined;
@@ -75,16 +63,11 @@ export function forgetOpeners(s: BrowserState, windowId: string, keep?: string):
   return { ...s, tabs };
 }
 
-// Chrome keeps the openers when the user moves between a tab and a tab it opened, or between two tabs that
-// share an opener (TabStripModel::SetSelection).
 export function switchKeepsOpeners(s: BrowserState, from: string, to: string): boolean {
   const a = s.tabs[from]?.openerId ?? null, b = s.tabs[to]?.openerId ?? null;
   return a === b || b === from || a === to;
 }
 
-// What to show when the shown tab `closed` goes: a tab it opened, then another tab its opener opened, then the
-// opener (TabStripModel::DetermineNewSelectedIndex). `order` is the profile's tabs before the close, `left` the
-// ones that stay.
 export function openerSuccessor(s: BrowserState, closed: string, order: string[], left: string[]): string | undefined {
   const at = order.indexOf(closed);
   const candidates = [...left.filter((id) => order.indexOf(id) > at), ...left.filter((id) => order.indexOf(id) < at).reverse()].filter(

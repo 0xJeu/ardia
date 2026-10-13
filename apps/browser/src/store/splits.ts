@@ -29,7 +29,6 @@ export type OpenPaneOptions = {
   anchorTabId?: string;
   side?: SplitSide;
   background?: boolean;
-  // A link opened in the new pane: the tab Chrome already made for it.
   adoptId?: string;
 };
 export type OpenPaneResult = { ok: true; tabId: string; splitId: string } | { ok: false; reason: "max" | "invalid" };

@@ -1,6 +1,3 @@
-// Serves the film's stand-in sites (sites/<host>/…) for the capture instance, which maps *.example here
-// (--host-resolver-rules). They are generic pages built for the film: no real brand, logo, headline or photo.
-// usage: node sites/serve.mjs <port>
 import { createServer } from "node:http";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize } from "node:path";

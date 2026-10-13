@@ -5,13 +5,11 @@ interface Props {
   label?: string;
   meta?: string;
   class?: string;
-  /** Where on the site it is, for analytics (download_clicked, send_to_mac_clicked). */
   location: "hero" | "closing" | "release_notes" | "menu" | "office-band";
 }
 const { label = "Download for Mac", meta = "Apple Silicon", class: className, location } = Astro.props;
 ---
 
-{/* On phones and tablets it's "Send to my Mac": scripts/send-to-mac.ts shares or copies the link instead. */}
 <a
   class:list={["btn", className]}
   href={DMG}

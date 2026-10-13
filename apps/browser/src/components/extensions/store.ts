@@ -20,8 +20,6 @@ export type InstallRequest = {
 type ExtensionsStore = {
   lists: Record<string, InstalledExtension[]>;
   actions: Record<number, Record<string, ActionState>>;
-  /** `pageProfile`: the engine profile its page runs in. */
-  // `opened` tells a reopen of the same popup (chrome.action.openPopup over it) from the one shown: a fresh page.
   popup: { windowId: string; pageProfile: string; extensionId: string; url: string; anchor: Anchor; opened?: number } | null;
   install: InstallRequest | null;
   pinDialog: { windowId: string } | null;
@@ -30,9 +28,7 @@ type ExtensionsStore = {
 
 export type SidePanel = {
   extensionId: string;
-  /** The profile whose extension list it's from. */
   profile: string;
-  /** The engine profile its page runs in: a private window's own. */
   pageProfile: string;
   url: string;
 };
@@ -41,7 +37,6 @@ export const useExtensions = create<ExtensionsStore>()(() => ({ lists: {}, actio
 
 const EMPTY: InstalledExtension[] = [];
 
-/** The profile whose extensions a window lists. A private window's is the profile it was opened from, off the record. */
 export function extensionProfile(s: BrowserState, windowId: string | null | undefined): string {
   const w = windowId ? s.windows[windowId] : undefined;
   return !w ? "" : (privateSession(w.profileId) ?? engineProfile(w.profileId));
@@ -49,15 +44,9 @@ export function extensionProfile(s: BrowserState, windowId: string | null | unde
 
 export const isPrivate = (s: BrowserState, windowId: string) => !!s.windows[windowId]?.incognito;
 
-/** The engine profile an extension's popup or side panel runs in: a private window's own. */
 export const pageProfile = (s: BrowserState, windowId: string) =>
   isPrivate(s, windowId) ? engineProfile(s.windows[windowId]!.profileId) : extensionProfile(s, windowId);
 
-/**
- * Whether a window shows an extension. A private window shows only extensions allowed in incognito whose pages
- * Chrome runs in the private profile (split mode); a spanning one's popup and side panel would use the regular
- * profile's storage and sign-ins.
- */
 const showsExtension = (priv: boolean, ext: InstalledExtension) => ext.enabled && (!priv || (ext.incognito && !!ext.incognitoSplit));
 
 export function useWindowExtensions(windowId: string): InstalledExtension[] {

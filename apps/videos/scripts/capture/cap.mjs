@@ -1,5 +1,3 @@
-// Runs one capture scene in the film's hidden DEV instance and saves its raw frames.
-// usage: node scripts/capture/cap.mjs <instance data dir> <scene> → .capture/<scene>/{0000.png…, pages/*.jpg, manifest.json}
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

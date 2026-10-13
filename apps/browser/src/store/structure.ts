@@ -1,11 +1,8 @@
 import type { SplitView, TabGroup } from "./types";
 
-// Which group and which splits hold each tab, built once per groups/splits map (the store replaces those maps
-// when they change, never edits them), so per-tab lookups in selectors don't scan every group and split.
 const groupIndexes = new WeakMap<Record<string, TabGroup>, Map<string, TabGroup>>();
 const splitIndexes = new WeakMap<Record<string, SplitView>, Map<string, SplitView[]>>();
 
-// The first group (in the map's order) holding each tab, as Object.values(groups).find would give.
 export function groupIndex(groups: Record<string, TabGroup>): Map<string, TabGroup> {
   let index = groupIndexes.get(groups);
   if (!index) {
@@ -16,7 +13,6 @@ export function groupIndex(groups: Record<string, TabGroup>): Map<string, TabGro
   return index;
 }
 
-// Every split holding each tab, in the map's order.
 export function splitIndex(splits: Record<string, SplitView>): Map<string, SplitView[]> {
   let index = splitIndexes.get(splits);
   if (!index) {
@@ -35,8 +31,6 @@ export function splitIndex(splits: Record<string, SplitView>): Map<string, Split
 
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-// A list recomputed from store state that keeps its previous identity while its contents don't change, so
-// subscribers compare it by reference.
 export function stableList(previous: string[] | undefined, next: string[]): string[] {
   return previous && same(previous, next) ? previous : next;
 }

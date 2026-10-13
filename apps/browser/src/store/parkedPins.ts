@@ -6,8 +6,6 @@ import { pinKeyOf } from "./pinMirror";
 import type { BrowserWindow, HistoryEntry, ParkedPins, Tab, TabGroup } from "./types";
 
 
-// With `windows`, a profile another regular window still shows keeps its pins there (store/pinMirror.ts): only the
-// last window of a profile parks them.
 type PinSource = Pick<BrowserState, "tabs" | "groups" | "history"> & Partial<Pick<BrowserState, "windows">>;
 
 function atPin(t: Tab, history: HistoryEntry[]): Partial<Pick<Tab, "url" | "title" | "favicon">> {
@@ -37,7 +35,6 @@ export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWin
     const groups = [...old.groups];
     const tiles: ParkedPins["tabs"] = [];
     const members: ParkedPins["tabs"] = [];
-    // A reopened tab not shown yet keeps the back/forward list it will wake with, unless it goes back to its pin.
     const pending = (t: Tab, moved: boolean) => {
       const from = !moved && !isIncognitoProfile(t.profileId) ? pendingRestore(t) : undefined;
       return from ? { restoreFrom: from } : {};
@@ -77,11 +74,9 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
     if (!groupId && homes.some((h) => samePage(h, home))) continue;
     const tab: Tab = {
       ...makeTab(windowId, profileId, snap.url, { ...snap, profileId, pinned: !groupId, pinnedUrl: groupId ? null : home || null }),
-      // A copy's key stays the pin's (sync keys pins by it).
       ...(tabs[id] ? { id: newId("tab"), pinKey: id } : { id }),
       navigation: null,
       unloaded: true,
-      // The pin's own tab wakes with its list; a copy beside it loads its page (one restore per list).
       ...(restoreFrom && !tabs[id] ? { wakeAdoptId: restoreId(restoreFrom) } : {}),
     };
     tabs[tab.id] = tab;

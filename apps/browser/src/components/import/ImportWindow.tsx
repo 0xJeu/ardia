@@ -31,7 +31,6 @@ const KINDS: { kind: ImportKind; title: string; icon: string }[] = [
 ];
 const kindTitle = (k: ImportKind) => KINDS.find((x) => x.kind === k)?.title ?? k;
 
-// The kinds a Chromium-family browser encrypts with its keychain key ("<Browser> Safe Storage").
 const ENCRYPTED: ImportKind[] = ["passwords", "cookies", "autofill"];
 
 const DIA_NOT_SHARED = "Custom tab names, colours, spaces and folders stay in Dia: its AppleScript doesn't share them.";
@@ -55,7 +54,6 @@ export function ImportWindow() {
   const [unlocking, setUnlocking] = useState(false);
   const [fullDiskAccess, setFullDiskAccess] = useState(false);
   const [safariCookies, setSafariCookies] = useState(true);
-  // What was left behind (cookies or cards that didn't decrypt, isolated Firefox cookies), shown at the end.
   const [notes, setNotes] = useState<string[]>([]);
   const [extensions, setExtensions] = useState<{ profileId: string; list: ImportedExtension[] }>({ profileId: "", list: [] });
   const [diaStatus, setDiaStatus] = useState<DiaAutomationStatus | "checking" | "reading">("checking");
@@ -203,7 +201,6 @@ export function ImportWindow() {
     const found = new Map<string, ImportedExtension>();
     const left: string[] = [];
     let extensionsProfile = "";
-    // Firefox keeps no keychain key: without a primary password its logins open as they are.
     if (source.family === "firefox" && requested.includes("passwords") && !api.isBrowserUnlocked(source.id)) {
       await api.unlockBrowser(source.id).catch(() => {});
     }
@@ -596,7 +593,6 @@ export function ImportWindow() {
         <Button
           title="Skip Encrypted Data"
           onPress={() => {
-            // Addresses need no key; cards, passwords and cookies do (the importer skips cards with a warning).
             const without = new Set(kinds);
             without.delete("passwords");
             without.delete("cookies");

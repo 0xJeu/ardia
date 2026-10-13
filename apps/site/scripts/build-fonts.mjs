@@ -1,11 +1,3 @@
-// Splits each font's Latin file in two and writes src/styles/fonts.css (Base.astro imports it):
-//   core  the characters the site sets (ASCII, its punctuation, and whatever the pages and release notes use),
-//         cut from the same font, so the same glyphs, axes and kerning; it's what the page preloads (about a third smaller);
-//   rest  Fontsource's own Latin file, for every other Latin character. A browser downloads it only for a page
-//         that has one, so new copy with a rare letter still renders in the right face.
-// The other subsets (Latin Extended, Vietnamese, Cyrillic) are Fontsource's, unchanged.
-// Rerun after a release note or new copy brings in a character outside the core (it then costs the rest file):
-//   pnpm -C apps/site exec node scripts/build-fonts.mjs
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,14 +12,12 @@ const FONTS = [
   { pkg: "martian-mono", css: "wdth.css", core: "martian-mono-core.woff2" },
 ];
 
-// Always in the core: printable ASCII, the no-break space and the typography the copy uses or may.
 const BASE =
   " ©«®°·»×" +
   "‐‑‒–—‘’‚“”„•…′″‹›™↑↓−";
 const chars = new Set(Array.from({ length: 0x7f - 0x20 }, (_, i) => 0x20 + i));
 for (const c of BASE) chars.add(c.codePointAt(0));
 
-// Plus every character in the site's source and the release notes.
 function walk(dir, files = []) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
@@ -39,7 +29,6 @@ function walk(dir, files = []) {
 for (const file of [...walk(join(site, "src")), ...walk(join(site, "../../docs/release-notes"))])
   for (const c of readFileSync(file, "utf8")) chars.add(c.codePointAt(0));
 
-/** "U+0000-00FF,U+0131" → code points. */
 function parseRange(range) {
   const set = new Set();
   for (const part of range.split(",")) {
@@ -48,7 +37,6 @@ function parseRange(range) {
   }
   return set;
 }
-/** Code points → "U+0020-007E,U+00A0". */
 function formatRange(set) {
   const sorted = [...set].sort((a, b) => a - b);
   const hex = (n) => n.toString(16).toUpperCase().padStart(4, "0");
@@ -85,7 +73,6 @@ for (const font of FONTS) {
     const full = readFileSync(join(pkgDir, "files", file));
     const subset = await subsetFont(full, String.fromCodePoint(...core), { targetFormat: "woff2" });
     writeFileSync(join(out, font.core), subset);
-    // The rest first: with no overlap between the two, the order doesn't matter to any browser.
     css.push(rule(comment.replace("-latin-", "-latin-rest-"), url, formatRange(rest)));
     css.push(rule(comment.replace("-latin-", "-latin-core-"), relative(styles, join(out, font.core)), formatRange(core)));
     console.log(`${font.core}: ${core.size} characters, ${full.length} → ${subset.length} bytes`);

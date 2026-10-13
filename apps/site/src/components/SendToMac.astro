@@ -1,11 +1,6 @@
 ---
-// Phones and tablets only (data-device="phone", Device.astro): the app is Mac-only, so instead of a Download
-// button they get "Send to my Mac" (the share sheet, or email without one), then Share / Copy link / Email it
-// to me. Behaviour and events live in scripts/send-to-mac.ts.
 interface Props {
-  /** Where on the site it is, for analytics (send_to_mac_clicked). */
   location: "hero" | "closing" | "release_notes";
-  /** The page's main panel: the header's "Send to my Mac" scrolls here. */
   main?: boolean;
 }
 const { location, main = false } = Astro.props;

@@ -1,17 +1,9 @@
 import { useMemo, useRef } from "react";
 import { Animated, Easing, PanResponder, type GestureResponderHandlers } from "react-native";
 
-// Past its range the edge follows the pointer less and less, never more than BAND pt.
 const BAND = 36;
 const BAND_SCALE = 90;
 
-/**
- * Dragging a panel's edge to resize it (the sidebar; the extension side panel can take it too). Past `min` or `max`
- * the edge stretches on a rubber band, and let go there it springs back into range. The width on screen is the one
- * fact: a grab starts from it, and stops a spring still settling, so a second drag never fights the first one's spring.
- * `direction`: 1 when dragging right widens the panel, -1 for a panel on the right. `onLive(null)` hands the width back
- * to the saved one, right after `onCommit` saved it.
- */
 export function useResizeDrag(o: {
   min: number;
   max: number;
@@ -43,7 +35,6 @@ export function useResizeDrag(o: {
       if (width < min) return min - band(min - width);
       return width;
     };
-    // The pointer position a width on screen stands for, so a grab mid-spring starts where the edge is.
     const unstretch = (width: number) => {
       const { min, max } = latest.current;
       if (width > max) return max + unband(width - max);
@@ -55,7 +46,6 @@ export function useResizeDrag(o: {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        // Stopped, a spring's callback sees `finished: false` and commits nothing.
         spring?.stop();
         spring = null;
         start = unstretch(live ?? latest.current.saved());
@@ -66,7 +56,6 @@ export function useResizeDrag(o: {
         const raw = at(g.dx);
         const target = clamp(raw);
         if (raw === target) return commit(target);
-        // JS driver: each frame sets the panel's width.
         const value = new Animated.Value(raw);
         value.addListener(({ value: v }) => show(v));
         const mine = Animated.timing(value, { toValue: target, duration: 260, easing: Easing.out(Easing.back(1.2)), useNativeDriver: false });

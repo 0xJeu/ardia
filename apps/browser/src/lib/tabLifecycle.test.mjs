@@ -1,12 +1,9 @@
-// Sleeping and freezing background tabs (lib/tabLifecycle.ts): a tab with unsaved input never sleeps.
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 globalThis.__DEV__ = false;
 
-// The battery saver's toast and Settings, and the internal pages, pull in the whole UI: stand-ins for them, and for the
-// engine's task and system calls.
 const ardiacore = new URL("../test-native-stub.mjs", import.meta.url).href;
 const stubs = {
   "@ardia/ardiacore": `export * from ${JSON.stringify(ardiacore)};
@@ -31,7 +28,6 @@ const lifecycle = await import("./tabLifecycle.ts");
 
 const S = () => useBrowser.getState();
 
-// A page in a tab: evaluate answers whether it has unsaved input, setFrozen resolves when the test says so.
 function fakePage() {
   const page = { dirty: false, evaluated: 0, discarded: 0, release: () => {} };
   page.handle = {
@@ -53,7 +49,6 @@ test("a tab shown and typed in while it was being frozen doesn't sleep", async (
 
   const freezing = lifecycle.freezeTab(b);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  // Before the engine answers, the tab is shown (which unfreezes it) and typed in, then left again.
   S().activate(b);
   page.dirty = true;
   page.release();

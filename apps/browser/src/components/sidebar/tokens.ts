@@ -4,26 +4,26 @@ import type { GroupColor } from "../../store/types";
 import { useSidebarUi } from "./state";
 
 const DARK = {
-  groupFill: "rgba(255,255,255,0.1)", // TabGroupNeutralBackground
+  groupFill: "rgba(255,255,255,0.1)",
   groupFillEmphasized: "rgba(255,255,255,0.12)",
-  groupHeaderHover: "rgba(255,255,255,0.12)", // TabGroupNeutralBackgroundHovered
-  groupStroke: "rgba(255,255,255,0.1)", // TabGroupSidebarStroke
-  groupTitle: "#FFFFFF", // TabGroupTitle
-  countPill: "rgba(255,255,255,0.15)", // TabGroupCountPillBackground
-  multiSelected: "rgba(255,255,255,0.1)", // TabCellBackgroundMutiselected
+  groupHeaderHover: "rgba(255,255,255,0.12)",
+  groupStroke: "rgba(255,255,255,0.1)",
+  groupTitle: "#FFFFFF",
+  countPill: "rgba(255,255,255,0.15)",
+  multiSelected: "rgba(255,255,255,0.1)",
   multiSelectedStroke: "rgba(255,255,255,0.14)",
-  dragBorder: "rgba(255,255,255,0.33)", // DragDrop/Border
-  dragSilhouette: "#0F0F14", // DragDrop/TabSilhouetteBackground
-  switcherFocus: "rgba(255,255,255,0.3)", // RecentTabs/ItemFocusBackground
-  switcherOutline: "rgba(255,255,255,0.15)", // RecentTabs/ItemOutline
-  pickerCellHover: "rgba(255,255,255,0.25)", // CustomIconUI/IconPickerBackground
-  separator: "rgba(255,255,255,0.15)", // SidebarSeparator
+  dragBorder: "rgba(255,255,255,0.33)",
+  dragSilhouette: "#0F0F14",
+  switcherFocus: "rgba(255,255,255,0.3)",
+  switcherOutline: "rgba(255,255,255,0.15)",
+  pickerCellHover: "rgba(255,255,255,0.25)",
+  separator: "rgba(255,255,255,0.15)",
   badge: "rgba(255,255,255,0.9)",
   badgeGlyph: "#1B1618",
-  upsellButton: "rgba(255,255,255,0.08)", // CleanTabs/SecondaryButton
+  upsellButton: "rgba(255,255,255,0.08)",
   upsellButtonHover: "rgba(255,255,255,0.11)",
-  newTabLabel: "#FFFFFF8C", // secondaryLabelColor
-  newTabIcon: "#FFFFFF40", // tertiaryLabelColor
+  newTabLabel: "#FFFFFF8C",
+  newTabIcon: "#FFFFFF40",
 };
 
 const LIGHT: typeof DARK = {

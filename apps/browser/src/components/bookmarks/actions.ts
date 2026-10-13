@@ -21,7 +21,6 @@ export function openUrl(url: string, windowId: string | null | undefined, mode: 
   const w = id ? s.windows[id] : undefined;
   if (mode === "incognito") return void openWindow({ incognito: true, url, profileId: originalProfile(s, w) });
   if (!id || mode === "window") {
-    // From a private window, a new window stays private (in its session).
     const created = openWindow(w?.incognito ? { incognito: true, url, profileId: originalProfile(s, w) } : { url, profileId: w?.profileId });
     return focus(created);
   }
@@ -60,7 +59,6 @@ export async function openFolder(folderId: string, windowId: string | null | und
   openInOrder(id, links.slice(1), first);
 }
 
-// The folder's order, whatever the new-tab position setting.
 function openInOrder(windowId: string, links: { url: string }[], after: string | undefined) {
   for (const link of links) {
     const tabIds = useBrowser.getState().windows[windowId]?.tabIds ?? [];

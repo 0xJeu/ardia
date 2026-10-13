@@ -1,6 +1,3 @@
-// Staleness of the history view's coalescing (db144ef6: one engine event's changes are one store update) and of the
-// first-window-deferred history.json move (d7e6372a): what Chrome has is what the view shows after a visit, a title
-// change, a deletion, a clear and a relaunch, and a quit at any point of the move loses nothing.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -27,7 +24,6 @@ test("the view follows Chrome: a burst of visits, a retitle, a deletion, a clear
   let updates = 0;
   const off = useBrowser.subscribe((s, prev) => void (s.history !== prev.history && updates++));
 
-  // One event's changes (a visit with its redirect and title): shown together, in one store update.
   const t0 = Date.now() - 60_000;
   stub.chromeVisit("", "https://b.com/", "B", t0);
   stub.chromeVisit("", "https://a.com/", "A", t0 + 1);
@@ -40,7 +36,6 @@ test("the view follows Chrome: a burst of visits, a retitle, a deletion, a clear
   await tick();
   assert.deepEqual(view(), ["https://a.com/ A 2", "https://b.com/ B retitled 1"], "updated: the new title shows");
 
-  // A visit and a deletion of the same page in one event: the deletion, after it, wins.
   stub.chromeVisit("", "https://c.com/", "C", t0 + 3);
   stub.chromeHistoryEvent({ kind: "deleted", profile: "", all: false, urls: ["https://c.com/"] });
   await tick();
@@ -51,7 +46,6 @@ test("the view follows Chrome: a burst of visits, a retitle, a deletion, a clear
   await tick();
   assert.deepEqual(view(), ["https://b.com/ B retitled 1"], "and stays gone once Chrome's event lands");
 
-  // Clear Browsing Data: the view empties at once; Chrome's "deleted all" re-reads it; a visit after it shows.
   S().clearHistory("default");
   stub.chromeHistory("").clear();
   stub.chromeHistoryEvent({ kind: "deleted", profile: "", all: true, urls: [] });
@@ -59,7 +53,6 @@ test("the view follows Chrome: a burst of visits, a retitle, a deletion, a clear
   await until(() => view().length === 1, "the visit after the clear");
   assert.deepEqual(view(), ["https://after.com/ After 1"], "cleared, then the next visit only");
 
-  // A relaunch reads Chrome again: nothing the view dropped comes back, nothing it had is lost.
   await reloadHistory();
   assert.deepEqual(view(), ["https://after.com/ After 1"], "relaunch");
   off();
@@ -88,7 +81,6 @@ test("history.json: a quit before the first window leaves it untouched for the n
   stub.historyDbs.clear();
   const now = Date.now();
   stub.docs.set("history.json", legacy(["https://old.com/"], now));
-  // Launch 1 quits before its first window committed: nothing moved, the file is still there.
   const stop1 = startHistory();
   await new Promise((r) => setTimeout(r, 30));
   stop1();
@@ -105,14 +97,12 @@ test("history.json: a quit right after the move keeps the file until Chrome has 
   stub.historyDbs.clear();
   const now = Date.now();
   stub.docs.set("history.json", legacy(["https://old.com/", "https://older.com/"], now));
-  // afterFirstWindow already ran once in this process (the test above): later launches' moves run at once.
   const stop1 = startHistory();
   await until(() => (S().history.default ?? []).length === 2, "moved and shown");
   stop1();
   assert.ok(stub.docs.has("history.json"), "kept a while after the move (Chrome commits a few seconds later)");
   const visits = () => [...stub.chromeHistory("").values()].map((r) => r.visits.length);
   assert.deepEqual(visits(), [2, 2]);
-  // Launch 2 (the quit came before Chrome committed): moves it again, adding nothing Chrome already has.
   S().hydrate({});
   const stop2 = startHistory();
   await until(() => (S().history.default ?? []).length === 2, "shown after the second launch");

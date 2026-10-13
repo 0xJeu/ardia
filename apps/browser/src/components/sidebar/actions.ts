@@ -92,7 +92,6 @@ export async function openIconPicker(windowId: string, target: Target) {
 
 export function setIcon(target: Target, icon: string | null) {
   if (target.kind === "tab") store().updateTab(target.id, { customIcon: icon });
-  // A live folder's header row ("livefolder|<id>").
   else if (target.kind === "live") updateFolder(target.id.split("|")[1] ?? "", { icon });
   else store().updateGroup(target.id, { icon });
 }
@@ -103,7 +102,6 @@ export function newGroupWithSelection(windowId: string, ids = selectedTabIds(sto
   return groupId;
 }
 
-// A page not loaded yet shows its address the way Dia does: "x.com/home".
 const urlLabel = (url: string) => url.replace(/^[a-z][\w+.-]*:\/\//i, "").replace(/^www\./, "").replace(/\/$/, "");
 export const tabTitle = (t: Pick<Tab, "customTitle" | "title" | "url">) => t.customTitle || t.title || (t.url && urlLabel(t.url)) || "New Tab";
 

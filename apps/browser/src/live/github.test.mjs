@@ -1,6 +1,3 @@
-// GitHub live folders' details pages (live/github.ts): which errors beside data fail the refresh, and which only
-// drop what they touch. A PR missing from a successful fetch reads as merged or reviewed, so getting this wrong
-// either completes PRs that are still open or stops every refresh.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detailIds, detailNodes, mapGithub, withDetails } from "./github.ts";

@@ -105,8 +105,6 @@ export function errorText(kind: LiveError["kind"], source: LiveSourceId): string
   }
 }
 
-// MARK: Folder actions
-
 export function newLiveFolder(windowId: string, kind: LiveFolderKind): string | null {
   const w = useBrowser.getState().windows[windowId];
   if (!w || w.incognito) return null;
@@ -139,8 +137,6 @@ export function deleteLiveFolder(folderId: string) {
   if (tabs.length) s.closeTabs(tabs);
   removeFolder(folderId);
 }
-
-// MARK: Background refresh
 
 let started = false;
 const lastNudge = new Map<string, number>();

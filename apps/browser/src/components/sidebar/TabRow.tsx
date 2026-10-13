@@ -44,7 +44,6 @@ export const TabRowItem = memo(function TabRowItem({
   );
 });
 
-// `onto`: a dragged tab would make a group with it.
 export function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();

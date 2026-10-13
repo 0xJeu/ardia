@@ -1,10 +1,5 @@
 import type { Tab } from "./types";
 
-// A name for a group nobody named, from its tabs' titles (Dia asks an AI; we read the titles). Sites put their
-// name at one end of the title ("Home / X", "Rick Astley - YouTube", "GitHub - user/repo"): that's the site; the
-// rest is the page. Tabs of one site on one page name the group "X Home", of one site "X". A tab still loading
-// (no title) takes its site from a loaded tab of its host, else from the host itself.
-
 type Member = Pick<Tab, "url" | "title">;
 
 const SEPARATORS = [" / ", " | ", " - ", " — ", " – ", " · ", " • ", " :: "];
@@ -19,7 +14,6 @@ const hostOf = (url: string) => {
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-// "x.com" → "x", "news.ycombinator.com" → "ycombinator", "bbc.co.uk" → "bbc".
 function hostLabel(host: string): string {
   const parts = host.split(".").filter(Boolean);
   if (parts.length < 2) return parts[0] ?? "";
@@ -32,7 +26,6 @@ const tidyHost = (host: string) => {
   return label ? label[0]!.toUpperCase() + label.slice(1) : "";
 };
 
-// The title's two ends: [site candidate, page] pairs.
 function ends(title: string): [string, string][] {
   const out: [string, string][] = [];
   for (const sep of SEPARATORS) {
@@ -44,7 +37,6 @@ function ends(title: string): [string, string][] {
   return out.filter(([site, page]) => site && page);
 }
 
-// The site name a host's titles agree on: the end that looks like the host, else one end all of them share.
 function siteFromTitles(host: string, titles: string[]): string | undefined {
   const label = squash(hostLabel(host));
   const looksLikeHost = (site: string) => {
@@ -66,7 +58,6 @@ export function autoGroupName(members: Member[]): string {
   if (!members.length) return "";
   const hosts = members.map((m) => hostOf(m.url));
   const titledByHost = new Map<string, string[]>();
-  // The first tab with a title for each URL, for tabs of that URL still loading.
   const loadedByUrl = new Map<string, Member>();
   members.forEach((m, i) => {
     if (!m.title || m.title === m.url) return;
@@ -84,7 +75,6 @@ export function autoGroupName(members: Member[]): string {
   const sites = hosts.map((h) => siteOfHost.get(h) || "");
   const site = sites[0]!;
   if (!site || sites.some((s) => s !== site)) return site || (members[0]!.title ?? "");
-  // One site: add the page when every tab is on the same one (a loading tab counts if a loaded one has its URL).
   const siteInTitles = members.some((m) => m.title && pageOf(m.title, site) !== m.title.trim()) ? site : undefined;
   const pages = members.map((m) => {
     const loaded = m.title && m.title !== m.url ? m : loadedByUrl.get(m.url);

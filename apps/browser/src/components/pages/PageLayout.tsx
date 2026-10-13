@@ -74,7 +74,6 @@ export function hostLabel(url: string): string {
 
 export const queryWords = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean);
 
-/** What a query's words are looked for in: the fields, lowercased, with punycode hosts also in Unicode. */
 export const searchText = (...fields: string[]) => fields.map((f) => (/xn--/i.test(f) ? `${f} ${urlForDisplay(f)}` : f)).join(" ").toLowerCase();
 
 export function matchesQuery(query: string, ...fields: string[]): boolean {

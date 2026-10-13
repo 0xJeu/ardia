@@ -60,7 +60,6 @@ export type SystemInfo = {
   isolatedInstance?: boolean;
   forceReleaseNotes?: boolean;
   processStart?: number | null;
-  /** When the Mac started, epoch ms (kern.boottime). */
   bootTime?: number | null;
   inApplicationsFolder?: boolean;
 };
@@ -73,7 +72,6 @@ export type CrashReport = {
   exceptionType?: string;
   signal?: string;
   frames: NativeFrame[];
-  /** An uncaught NSException's name (validated natively) and where it was thrown. */
   exceptionName?: string;
   exceptionFrames?: NativeFrame[];
 };
@@ -152,14 +150,11 @@ export const setAutomaticUpdateDownloads = (on: boolean) => App.setAutomaticUpda
 export const setWindowActivity = (windowId: string, url: string | null, title: string | null) =>
   App.setWindowActivity(windowId, url, title);
 
-// [x, y, width, height] in the window from its top left, as measureInWindow gives it.
 export type ShareAnchor = [number, number, number, number];
 
-// The share sheet, at `anchor` (else the top of the page); resolves once it closes.
 export const sharePage = (url: string, title?: string | null, windowId?: string | null, anchor?: ShareAnchor | null) =>
   App.share(url, title ?? null, windowId ?? null, anchor ?? null);
 
-// One service from a Share menu (`service` is the title the menu listed it under).
 export const sharePageVia = (service: string, url: string, title?: string | null, windowId?: string | null) =>
   App.shareVia(service, url, title ?? null, windowId ?? null);
 

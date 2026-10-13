@@ -203,13 +203,11 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
   );
 }
 
-// Chrome's offer to save or update an address or card (onAutofillPrompt), or null once offer `id` went.
 export function showAutofillPrompt(tabId: string, prompt: ChromeAutofillPrompt | null, id: number) {
   if (prompt) patchPage(tabId, { autofillPrompt: prompt });
   else if (pageOf(tabId).autofillPrompt?.id === id) patchPage(tabId, { autofillPrompt: null });
 }
 
-// Styled as the password prompt, in Chrome's words: what gets saved in a well, an update's new values over its old.
 export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: number; top: number }) {
   const theme = useTheme();
   const prompt = usePage(tabId, (p) => p.autofillPrompt);
@@ -260,7 +258,6 @@ export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: nu
   );
 }
 
-// "Open “Codex”?": a site (or an OAuth redirect) sent this tab to another app's link.
 export function ExternalAppPrompt({ tabId, left, top }: { tabId: string; left: number; top: number }) {
   const theme = useTheme();
   const request = usePage(tabId, (p) => p.externalApp);

@@ -15,8 +15,6 @@ import { HoverSlot } from "./HoverSlot";
 import { PANEL } from "./layout/controls";
 import { IconButton, useHover } from "./primitives";
 
-// MARK: Formatting
-
 function formatBytes(n: number) {
   if (n < 0) return "";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -43,8 +41,6 @@ export function downloadStatus(d: Download, exists = true) {
   if (d.speed > 0 && d.total > 0) return `${progress}, ${formatBytes(d.speed)}/s — ${formatDuration((d.total - d.received) / d.speed)}`;
   return progress;
 }
-
-// MARK: Actions
 
 const openWhenDone = new Set<string>();
 
@@ -101,7 +97,6 @@ async function trashDownload(d: Download) {
 }
 
 const iconCache = new Map<string, string | null>();
-// Memoized: its row re-renders with every progress report.
 export const FileIcon = memo(function FileIcon({ path, size = 28 }: { path: string; size?: number }) {
   const theme = useTheme();
   const key = `${path}@${size}`;
@@ -124,9 +119,6 @@ export const FileIcon = memo(function FileIcon({ path, size = 28 }: { path: stri
   );
 });
 
-// MARK: Popover
-
-// The header's 28 pt row puts its small caps (about 8 pt tall) on the panel's inset; Clear's text ends on it.
 const HEADER = 28;
 const CAPS = 8;
 const TEXT_BUTTON_PAD = 7;
@@ -137,7 +129,6 @@ export function DownloadsPopover() {
   const theme = useTheme();
   const windowId = useWindowId();
   const open = useWindowUi().downloadsOpen;
-  // Ids only: each row follows its own download, so a progress report re-renders that row, not the popover.
   const ids = useBrowser(useShallow((s) => (s.windowUi[windowId]?.downloadsOpen ? downloadsIn(s, windowId).map((d) => d.id) : [])));
   const clearable = useBrowser((s) => !!s.windowUi[windowId]?.downloadsOpen && downloadsIn(s, windowId).some((d) => d.state !== "downloading"));
   const top = useTabLayout() === "top";
@@ -241,8 +232,6 @@ function DownloadRow({ d, windowId }: { d: Download; windowId: string }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   const exists = d.state !== "finished" || fileExists(d.path);
-  // A finished row checks its file again whenever a download changes (as it did when every report re-rendered
-  // every row), and re-renders only if that differs from what it shows.
   const shown = useRef(exists);
   shown.current = exists;
   const [, recheck] = useState(0);
@@ -320,8 +309,6 @@ function DownloadRow({ d, windowId }: { d: Download; windowId: string }) {
   );
 }
 
-// MARK: Magnet
-
 export function DownloadMagnet() {
   const windowId = useWindowId();
   const sidebarOpen = useSidebarOpen();
@@ -342,7 +329,6 @@ export function DownloadMagnet() {
       if (!fresh || s.ui.focusedWindowId !== windowId || !downloadVisibleIn(fresh, s.windows[windowId])) return;
       t.setValue(0);
       setFlight({ id: fresh.id, path: fresh.path || fresh.filename });
-      // A second download within the flight restarts it: only the flight that finished lands.
       Animated.timing(t, { toValue: 1, duration: 700, easing: Easing.bezier(0.45, 0, 0.2, 1), useNativeDriver: true }).start(({ finished }) => finished && setFlight(null));
     });
   }, [windowId]);

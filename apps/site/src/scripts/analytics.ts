@@ -1,20 +1,3 @@
-// Named events (beyond the automatic ones in scripts/telemetry: $pageview, $pageleave, $autocapture, $rageclick,
-// $dead_click, $dead_swipe, $exception, $web_vitals, $replay_chunk, $feature_flag_called):
-//   download_clicked { location, version }       a Download button (data-track)
-//   github_clicked { link, location }            a GitHub link (data-track)
-//   send_to_mac_clicked { location, method: email|share|copy|panel, outcome?, inapp? }
-//                                                phones: scripts/send-to-mac.ts. outcome: share → shared|cancelled|error,
-//                                                copy → copied|blocked; none for email (mailto) or panel (the header
-//                                                or menu button scrolled to the panel). inapp: "x" in X's iOS browser.
-//   mac_link_visit { ref: mac|share|email, device }   a visit from a link sent from a phone (/mac redirects to ?ref=mac),
-//                                                once per session
-//   notify_clicked { os, location }              Windows/Linux: "Tell me when it's on …" (GitHub Watch › Releases)
-//   non_mac_visit { os }                         Windows/Linux desktops, once per session
-//   section_viewed { section }                   a [data-shot] section scrolled into view
-//   support_opened { location }                  the footer's support chat (scripts/support.ts)
-//   release_notes_viewed { version, latest, trigger }   pages/release-notes.astro
-//   game_solved { seconds, misses }              the lamb found in the game's screenshot (components/Game.astro)
-// Experiment: flag "download-band", Macs only (components/Showcase.astro, docs/growth.md).
 import { track, type Props } from "./track";
 import "./support";
 
@@ -48,8 +31,6 @@ if (sections.length) {
   for (const s of sections) seen.observe(s);
 }
 
-// Links sent from a phone come back with ?ref=: typed ardia.dev/mac (pages/mac.astro), the share sheet or
-// copy (share), or the email to self (email).
 const sentRef = new URLSearchParams(location.search).get("ref");
 if (sentRef === "mac" || sentRef === "share" || sentRef === "email") {
   let seen = false;
@@ -60,7 +41,6 @@ if (sentRef === "mac" || sentRef === "share" || sentRef === "email") {
   if (!seen) track("mac_link_visit", { ref: sentRef, device: document.documentElement.dataset.device ?? null });
 }
 
-// Windows and Linux can't run it yet (components/Device.astro sorts visitors); count them once per session.
 const { device, os } = document.documentElement.dataset;
 if (device === "other") {
   let seen = false;

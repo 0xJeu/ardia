@@ -1,5 +1,3 @@
-// The spec for fuzzy.ts: matchActions as it was before the keystroke hill-climb (commit 8def9b0). fuzzy.property.test.ts runs this and the
-// live one side by side. Not imported by the app.
 export type ActionCandidate = { id: string; title: string; keywords?: readonly string[] };
 
 export type ActionMatch<T extends ActionCandidate> = {

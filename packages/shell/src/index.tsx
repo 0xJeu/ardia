@@ -150,7 +150,6 @@ export type MenuItem =
       enabled?: boolean;
       checked?: boolean;
       children?: MenuItem[];
-      // A submenu of the system's sharing services; picking one answers "<id>:via:<service>" (sharePageVia).
       share?: boolean;
     };
 
@@ -161,9 +160,7 @@ export type OpenWindowOptions = {
   focus?: boolean;
   kind?: "browser" | "small" | "settings" | "import" | "taskManager";
   profile?: string;
-  // Little Ardia: its remembered size; the window opens centred on the active screen.
   size?: [number, number];
-  // Launch: opens once that window's content is on screen, right behind it (builds before NATIVE_API 9 ignore it).
   behind?: string;
 };
 
@@ -244,7 +241,6 @@ const Shell = requireNativeModule<{
 
 export const readDocument = (name: string) => Shell.readDocument(name);
 export const writeDocument = (name: string, contents: string) => Shell.writeDocument(name, contents);
-/** Resolves once the document is on disk (writeDocument returns before), rejects if it can't be written. */
 export const saveDocument = (name: string, contents: string) => Shell.saveDocument(name, contents);
 export const removeDocument = (name: string) => Shell.removeDocument(name);
 
@@ -275,26 +271,17 @@ export const setTrafficLightsCenter = (id: string, center: [number, number] | nu
   Shell.setTrafficLightsCenter(id, center);
 type Rect4 = [number, number, number, number];
 export type DragPreviewShape = "hidden" | "pill" | "card";
-// The dragged tab's picture under the pointer, a native panel that floats over everything (Windows.swift ›
-// DragPreview). Rects and points are in the source window from its top-left; `end`'s frame (the new window's, as
-// asked for) is on screen, in AppKit's coordinates. Optional: builds from before it have no picture, nothing else
-// changes.
 export const dragPreview = {
   begin: (windowId: string, chip: Rect4, grab: [number, number]) => void Shell.dragPreviewBegin?.(windowId, chip, grab),
   page: (base64: string, frame: Rect4) => void Shell.dragPreviewPage?.(base64, frame),
   update: (shape: DragPreviewShape, point: [number, number]) => void Shell.dragPreviewUpdate?.(shape, point),
-  /** `windowId`: the new window the tab went to; the picture grows into it. */
   end: (windowId: string | null = null, frame: Rect4 | null = null) => void Shell.dragPreviewEnd?.(windowId, frame),
   cancel: () => void Shell.dragPreviewCancel?.(),
-  /** A tab with no picture: its icon (a data: or file: URL) and title where its page would be. */
   placeholder: (title: string, favicon: string | null) => void Shell.dragPreviewPlaceholder?.(title, favicon),
 };
-/** Draws the view with React tag `tag` (and `levels` of its ancestors) over its siblings, or back in React's order:
- * React Native macOS's zIndex doesn't reorder them. A no-op on builds without it. */
 export const raiseView = (tag: number | null, levels: number, raised: boolean) => {
   if (tag != null) void Shell.raiseView?.(tag, levels, raised);
 };
-/** The window's frame now, on screen (AppKit's coordinates); null on builds without it. */
 export const windowFrame = (id: string): Promise<Rect4 | null> => Shell.windowFrame?.(id) ?? Promise.resolve(null);
 export const windowIds = () => Shell.windowIds();
 
@@ -302,10 +289,6 @@ export const setAppearance = (mode: "auto" | "light" | "dark") => Shell.setAppea
 export const isDarkAppearance = () => Shell.isDarkAppearance();
 
 type MenuBookmarkKey = "bookmarkFolders" | "recentBookmarks" | "bookmarksBar" | "otherBookmarks";
-/**
- * Sends the menu state with the bookmark lists only when `bookmarksChanged`, so the native menus rebuild (and the
- * bridge carries) thousands of bookmarks only when they change.
- */
 export function setMenuStateParts(state: MenuState, bookmarksChanged: boolean) {
   const { bookmarkFolders, recentBookmarks, bookmarksBar, otherBookmarks, ...rest } = state;
   if (bookmarksChanged) void Shell.setMenuBookmarks({ bookmarkFolders, recentBookmarks, bookmarksBar, otherBookmarks });
@@ -324,7 +307,6 @@ export const onOpenURLs = (listener: (urls: string[]) => void) =>
 
 export const WindowDragRegion = requireNativeViewManager<ViewProps>("ArdiaShell");
 
-/** A popover's area: `onOutsidePress` hears a press anywhere else in its window (the press still does its own thing). */
 export const OutsidePressArea = requireNativeViewManager<ViewProps & { onOutsidePress?: () => void }>("ArdiaOutsidePressArea");
 
 export type SymbolProps = ViewProps & {
@@ -461,5 +443,4 @@ type TranslationModule = {
 };
 const TranslationNative = requireNativeModule<TranslationModule>("ArdiaTranslate");
 
-// Null before macOS 26, which has no translation API for apps.
 export const translation: Omit<TranslationModule, "available"> | null = TranslationNative.available ? TranslationNative : null;

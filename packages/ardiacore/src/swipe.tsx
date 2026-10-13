@@ -20,8 +20,6 @@ export type SwipeStep = {
   delayMs?: number;
 };
 
-// The native profile pager a SwipeArea drives. Indexes are absolute; ack is the newest pager
-// sequence JS has handled, and order changes whenever the indexes start meaning other pages.
 export type NativePagerConfig = { key: string; selected: number; count: number; width?: number; ack?: number; order?: string };
 
 export type PagerStateEvent = {
@@ -29,7 +27,6 @@ export type PagerStateEvent = {
   sequence: number;
   position: number;
   selected: number;
-  // The selected profile in the controller's own order; absent when React never sent an order.
   profileId?: string | null;
   velocity: number;
 };
@@ -53,7 +50,6 @@ export type SwipeAreaProps = ViewProps & {
   isPager?: boolean;
   onSwipe: (event: SwipeEvent) => void;
   nativePager?: NativePagerConfig;
-  // A native-driver Animated.event on { nativeEvent: { position } }, passed through as is.
   onPagerPosition?: (...args: never[]) => void;
   onPagerState?: (event: PagerStateEvent) => void;
 };
@@ -81,18 +77,14 @@ type NativeComponent = React.ComponentType<NativeProps & { ref?: React.Ref<Nativ
 
 const Module = requireNativeModule<SwipeModule>("ArdiaSwipe");
 const Native = requireNativeViewManager<NativeProps>("ArdiaSwipe") as unknown as NativeComponent;
-// Native Animated attaches onPagerPosition to this view, so frames update the value without JS.
 let AnimatedNative: NativeComponent | undefined;
 const animatedNative = () => (AnimatedNative ??= Animated.createAnimatedComponent(Native) as unknown as NativeComponent);
 
 export const swipeHaptic = (pattern: "levelChange" | "alignment" | "generic") => Module.haptic(pattern);
 
-// order: the caller's profile ids joined with newlines, so the index means what the caller meant.
 export const switchPager = (key: string, index: number, order?: string): Promise<boolean> => Module.switchPager(key, index, order);
-// False when the window has no native pager; the caller falls back to the store.
 export const stepPager = (key: string, delta: -1 | 1, wrap = false, order?: string): Promise<boolean> =>
   Module.stepPager(key, delta, wrap, order);
-// Order is the profile ids joined with newlines, as in NativePagerConfig.order.
 export const selectPager = (key: string, profileId: string, order: string): Promise<boolean> =>
   Module.selectPager(key, profileId, order);
 export const pagerState = (key: string): PagerSnapshot | null => Module.pagerState(key);

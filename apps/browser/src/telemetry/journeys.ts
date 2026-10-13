@@ -1,11 +1,3 @@
-// Real-user timing of the four journeys (docs/perf/field-journeys.md), only while the user shares diagnostics:
-// launch, a new tab's command bar, a tab switch and a navigation, each from the user's key or click (process start for
-// launch) to the result on screen, in steps that tell our JS, the native side and the engine (network) apart.
-// Native marks (packages/ardiacore/ios/ArdiaCoreFieldTiming.mm) carry the times JS can't see: when the key or click reached the
-// app, when a commit reached the screen, and what the engine did. They're read only when a journey settles, a second or
-// more later, so nothing here runs between the user's action and its result but a few timestamps.
-// What leaves: perf_launch once per launch, and perf_journeys (p50, p75, p95, max and n per step) hourly and at quit.
-// Durations, counts and rough ranges only: never a URL, a title or what was typed.
 import { NativeModules } from "react-native";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTabId } from "../store/model";
@@ -19,17 +11,11 @@ type NativeTiming = {
   drain(): [key: string, kind: string, at: number][];
 };
 
-// Builds before ArdiaCoreFieldTiming have none: the journeys then keep only what JS sees.
 const native = NativeModules.ACFieldTiming as NativeTiming | undefined;
 
 let on = false;
 
-// When the views JS changes from here to the end of this JS task are on screen: the UI manager runs the mark with this
-// task's view updates, and it times the Core Animation commit that carries them. (A mark made later, in a microtask,
-// rides the next batch, a frame late.)
 const frame = (key: string, kind: string) => native?.markFrame(key, kind);
-
-// MARK: Samples, summarized hourly and at quit (perf_journeys)
 
 const MAX_SAMPLES = 500;
 const samples = new Map<string, number[]>();
@@ -45,7 +31,6 @@ function sample(step: string, ms: number | null) {
 const count = (what: string) => counts.set(what, (counts.get(what) ?? 0) + 1);
 const since = (at: number | null | undefined, from: number | null | undefined) => (at == null || from == null ? null : at - from);
 
-// `final`: at quit, every journey in flight goes in with what it has.
 export function emitJourneys(final = false) {
   settle(final);
   if (!samples.size && !counts.size) return;
@@ -65,9 +50,6 @@ export function emitJourneys(final = false) {
   if (on && isSharing()) capture("perf_journeys", props);
 }
 
-// MARK: Native marks
-
-// The user's last key down or click, if it came within the last second: what started the change being handled.
 function lastInput(now = Date.now()): number | null {
   const [at = 0] = native?.lastInput() ?? [];
   return at > 0 && at <= now + 5 && now - at <= 1000 ? at : null;
@@ -89,14 +71,11 @@ function pullMarks(now: number) {
   }
 }
 
-// The earliest `kind` for `key` from `from` (to `until`).
 function mark(key: string, kind: string, from: number, until = Infinity): number | null {
   let first: number | null = null;
   for (const [k, at] of marks.get(key) ?? []) if (k === kind && at >= from - 1 && at < until && (first === null || at < first)) first = at;
   return first;
 }
-
-// MARK: Journeys in flight
 
 type NewTab = { journey: "j2"; key: string; t0: number; heard: number; bar?: number; barSettled?: boolean; keyAt?: number; suggested?: number };
 type Switch = { journey: "j3"; key: string; t0: number; heard: number };
@@ -120,7 +99,6 @@ function tick() {
   if (pending.length) timer = setTimeout(tick, 1000);
 }
 
-// Records each journey whose marks are in (or that waited long enough); `force`: every one, with what it has.
 function settle(force: boolean) {
   if (!pending.length) return;
   const now = Date.now();
@@ -141,8 +119,6 @@ function settleOne(p: Pending, now: number): boolean {
   }
 }
 
-// J2: ⌘T (or the new tab button) → the new tab's command bar committed, on screen, focused; then its first keystroke →
-// that keystroke's suggestions on screen.
 function settleNewTab(p: NewTab, now: number) {
   if (p.bar === undefined) {
     if (now - p.t0 < 5000) return false;
@@ -164,16 +140,12 @@ function settleNewTab(p: NewTab, now: number) {
     sample("j2_suggest", since(shown, p.keyAt));
     return true;
   }
-  // Never typed in.
   return now - p.t0 > 60_000;
 }
 
-// J3: a click or shortcut that shows another tab → React's switch on screen, the page's view shown, and (a page that
-// was hidden) its first new frame; a tab that had to load, its first contentful paint.
 function settleSwitch(p: Switch, now: number) {
   const end = p.t0 + 2000;
   if (now < end + 500) return false;
-  // A tab that wasn't loaded: the switch asked the engine for its page.
   const started = mark(p.key, "request", p.t0, end) ?? mark(p.key, "start", p.t0, end);
   const fcp = started === null ? null : mark(p.key, "fcp", p.t0);
   if (started !== null && fcp === null && now - p.t0 < 20_000) return false;
@@ -190,8 +162,6 @@ function settleSwitch(p: Switch, now: number) {
   return true;
 }
 
-// J4: Enter (or a click on a suggestion) → the engine asked to load (our side) → Chrome started the navigation →
-// committed → first contentful paint; request → paint is the engine's and the network's side.
 function settleNavigate(p: Navigate, now: number) {
   const until = p.until ?? Infinity;
   const request = mark(p.key, "request", p.t0, until);
@@ -211,8 +181,6 @@ function settleNavigate(p: Navigate, now: number) {
   return true;
 }
 
-// MARK: J1 launch (perf_launch)
-
 const bucket = (n: number, edges: [number, string][], last: string) => edges.find(([max]) => n <= max)?.[1] ?? last;
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -225,7 +193,6 @@ let launchSent = false;
 type PreviousLaunch = { lastLaunchAt: number | null; lastQuitAt: number | null; firstOfVersion: boolean | null };
 let previousLaunch: PreviousLaunch = { lastLaunchAt: null, lastQuitAt: null, firstOfVersion: null };
 
-// The first window's content committed (main.tsx, the first root's layout effect).
 export function launchCommitted() {
   if (launch || launchSent || !on) return;
   const start = appInfo().processStart;
@@ -242,8 +209,6 @@ export function launchCommitted() {
   begin(launch);
 }
 
-// The command bar is usable once the app answers at once: the first timer after the first commit that runs within
-// 50 ms of being set (React Native's timers run on the main thread's frames, so this waits for both threads).
 let usableTimer: ReturnType<typeof setTimeout> | undefined;
 
 function probeUsable(l: Launch) {
@@ -257,7 +222,6 @@ function probeUsable(l: Launch) {
   }, 0);
 }
 
-// processStart → the first window's root effect: perf_launch's launch_ms, the same as before these steps.
 export function launchFirstWindow(at: number) {
   if (launch) launch.firstWindow = at;
 }
@@ -287,7 +251,6 @@ function sendLaunch(l: Launch, content: number | null, paints: number[]) {
     js_ms: ms(jsStartedAt),
     commit_ms: ms(l.commit),
     content_ms: ms(content),
-    // Not before its content is on screen (the first commit's layout can still be under way when the timer runs).
     usable_ms: ms(l.usable === undefined ? undefined : Math.max(l.usable, content ?? 0)),
     tab_request_ms: ms(tab ? mark(tab, "request", l.t0) : null),
     tab_commit_ms: ms(tab ? mark(tab, "commit", l.t0) : null),
@@ -295,18 +258,13 @@ function sendLaunch(l: Launch, content: number | null, paints: number[]) {
     tabs: bucket(l.tabs, [[0, "0"], [1, "1"], [5, "2-5"], [20, "6-20"], [50, "21-50"], [100, "51-100"], [200, "101-200"]], "200+"),
     windows: Math.min(l.windows, 10),
     history: bucket(history, [[0, "0"], [99, "<100"], [999, "<1k"], [4999, "<5k"], [19_999, "<20k"]], "20k+"),
-    // The first launch since the Mac started (its disk cache cold), as far as this copy knows.
     cold: bootTime && lastLaunchAt ? lastLaunchAt < bootTime : null,
-    // The first launch of this version and build, or the first this copy recorded: Gatekeeper scans the new bundle.
     first_of_version: firstOfVersion,
     since_quit: lastQuitAt && (!lastLaunchAt || lastQuitAt >= lastLaunchAt) ? ago(l.t0 - lastQuitAt) : lastLaunchAt ? "unclean" : "unknown",
     since_boot: bootTime ? bucket(l.t0 - bootTime, [[2 * MINUTE, "<2m"], [10 * MINUTE, "<10m"], [HOUR, "<1h"], [DAY, "<1d"]], "1d+") : "unknown",
   });
 }
 
-// MARK: Starts and steps the app reports
-
-// A window's active tab changed: a new empty tab (J2) or another existing tab (J3), when the user's key or click did it.
 function watchStore(s: BrowserState, prev: BrowserState) {
   if (!on || s.windows === prev.windows) return;
   for (const id in s.windows) {
@@ -320,7 +278,6 @@ function watchStore(s: BrowserState, prev: BrowserState) {
       if (!s.tabs[now]!.url) begin({ journey: "j2", key: now, t0, heard });
     } else if (before && s.tabs[before]?.windowId === id) {
       begin({ journey: "j3", key: now, t0, heard });
-      // React commits this change in the store's set, after this listener: the mark goes with that commit.
       frame(now, "frame");
     }
   }
@@ -331,7 +288,6 @@ const newTabFor = (tabId: string) => {
   return undefined;
 };
 
-// A command bar for `tabId` committed (Omnibox's mount).
 export function journeyBarCommitted(tabId: string) {
   if (!on) return;
   const p = newTabFor(tabId);
@@ -340,7 +296,6 @@ export function journeyBarCommitted(tabId: string) {
   frame(tabId, "bar");
 }
 
-// Its field took focus: typing goes in from the frame after.
 export function journeyBarFocused(tabId: string) {
   if (on && newTabFor(tabId)?.bar !== undefined) frame(tabId, "typeable");
 }
@@ -351,7 +306,6 @@ export function journeyKeystroke(tabId: string) {
   if (p && p.bar !== undefined && p.keyAt === undefined) p.keyAt = lastInput() ?? Date.now();
 }
 
-// The bar committed with suggestions to show.
 export function journeySuggestions(tabId: string) {
   if (!on) return;
   const p = newTabFor(tabId);
@@ -360,7 +314,6 @@ export function journeySuggestions(tabId: string) {
   frame(tabId, "suggest");
 }
 
-// The command bar opens a page in its own tab (Enter, or a click on a suggestion).
 export function journeyNavigate(tabId: string) {
   if (!on) return;
   const now = Date.now();
@@ -369,23 +322,18 @@ export function journeyNavigate(tabId: string) {
   begin({ journey: "j4", key: tabId, t0 });
 }
 
-// MARK: Lifecycle
-
 let unwatchStore: (() => void) | undefined;
 
-// `initial`: said to native even when it matches, as native can still be on from a bridge this JS replaced (a reload).
 function setOn(next: boolean, initial = false) {
   if (next === on && !initial) return;
   on = next;
   native?.setEnabled(next);
-  // The store has no listener of ours unless the user shares: opted out, a store update costs nothing extra.
   if (next) {
     unwatchStore ??= useBrowser.subscribe(watchStore);
     return;
   }
   unwatchStore?.();
   unwatchStore = undefined;
-  // A launch that saw sharing off isn't sent, even if it comes back on.
   clearTimeout(usableTimer);
   usableTimer = undefined;
   if (launch) launchSent = true;
@@ -404,7 +352,6 @@ export function startJourneys(previous: PreviousLaunch | null) {
   useTelemetry.subscribe((t) => setOn(t.sharing));
 }
 
-// Quitting: perf_launch with what it has, if it hasn't gone yet, and this session's journeys.
 export function journeysEnding() {
   if (launch && !launchSent) {
     settle(false);

@@ -15,7 +15,6 @@ export type PageState = {
   popups: BlockedPopup[];
   permission: PermissionRequest | null;
   passwordPrompt: PasswordPrompt | null;
-  /** Chrome's pending offer to save or update an address or card; Chrome decides when it goes. */
   autofillPrompt: AutofillPrompt | null;
   externalApp: ExternalAppRequest | null;
   mediaAccess: MediaAccess | null;
@@ -86,10 +85,7 @@ export function setPopover(tabId: string, popover: Store["popover"][string]) {
 
 export const usePopover = (tabId: string | undefined) => usePages((s) => (tabId ? (s.popover[tabId] ?? null) : null));
 
-// Page (element) fullscreen: only a tab on screen counts, so switching tabs leaves it (the hidden
-// web view exits fullscreen natively).
 export function useFullscreenTab(windowId: string): string | undefined {
-  // Both selectors return strings, so switching tabs doesn't re-render the callers (the window root).
   const fullscreen = usePages((s) => {
     let ids = "";
     for (const id in s.pages) if (s.pages[id]!.fullscreen) ids += `${id}\n`;
@@ -106,7 +102,6 @@ export function useFullscreenTab(windowId: string): string | undefined {
 useBrowser.subscribe((s, prev) => {
   if (s.tabs === prev.tabs) return;
   const { pages, browsers, popover } = usePages.getState();
-  // Plain loops that allocate nothing while every entry still has its tab: this runs on every tab update.
   const stale = (ids: string[], tabOf: (id: string) => string) => {
     for (let i = 0; i < ids.length; i++) if (!s.tabs[tabOf(ids[i]!)]) return true;
     return false;

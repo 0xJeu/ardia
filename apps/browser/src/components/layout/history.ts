@@ -18,7 +18,6 @@ export function canGoForward(tabId: string, live: Pick<TabLive, "canGoForward">)
   return !!pageOf(tabId).newTabShown || live.canGoForward;
 }
 
-// Subscribes to the two flags only, so a page's progress and audio reports don't re-render the buttons' owner.
 export function useHistoryAvailability(tabId: string) {
   const back = useTabLive(tabId, (l) => l.canGoBack);
   const forward = useTabLive(tabId, (l) => l.canGoForward);
@@ -68,8 +67,6 @@ useBrowser.subscribe((s, prev) => {
     if (!tabDestination(before) && internalPageOf(tabDestination(tab)) && !pageOf(id).backToNewTab) patchPage(id, { backToNewTab: true });
   }
 });
-
-// MARK: History lists (the back / forward popover, the swipe overlay's destinations)
 
 export type HistoryItem = {
   key: string;

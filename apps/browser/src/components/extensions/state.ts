@@ -51,8 +51,6 @@ export function refreshExtensions(profile: string): Promise<InstalledExtension[]
 
 export const findExtension = (profile: string, id: string) => useExtensions.getState().lists[profile]?.find((x) => x.id === id);
 
-// MARK: Installing
-
 export function addFromWebStore(windowId: string, urlOrId: string, profile = extensionProfile(useBrowser.getState(), windowId)) {
   const id = webStoreExtensionId(urlOrId);
   if (!id) {
@@ -127,8 +125,6 @@ export function cancelInstall() {
   useExtensions.setState({ install: null });
 }
 
-// MARK: Managing
-
 export async function removeExtension(profile: string, ext: InstalledExtension, windowId?: string) {
   const { confirmed } = await confirm({
     title: `Remove “${ext.name}”?`,
@@ -188,8 +184,6 @@ export const openPinDialog = (windowId: string) => useExtensions.setState({ pinD
 export const openWebStore = (windowId: string) =>
   useBrowser.getState().newTab(windowId, { url: "https://chromewebstore.google.com/category/extensions" });
 
-// MARK: Action popups
-
 export async function activateExtension(windowId: string, ext: InstalledExtension, anchor: Anchor, state?: ActionState | null) {
   const current = useExtensions.getState().popup;
   if (current?.windowId === windowId && current.extensionId === ext.id) return closeExtensionPopup();
@@ -199,7 +193,6 @@ export async function activateExtension(windowId: string, ext: InstalledExtensio
   const tabId = activeTabId(s, windowId);
   const web = tabId ? webviews.get(tabId) : undefined;
   const result = web ? await web.executeExtensionAction(ext.id) : null;
-  // The extensions menu and shortcuts pass no state; the tab's popup may not be the manifest's.
   const browserId = browserIdOf(tabId);
   if (!state && result === "popup" && browserId) state = (await extensionActionStates(browserId, [ext.id]))[ext.id];
   const url = state ? state.popup : ext.popup ? `chrome-extension://${ext.id}/${ext.popup.replace(/^\//, "")}` : "";
@@ -213,15 +206,7 @@ export const closeExtensionPopup = () => useExtensions.setState({ popup: null })
 
 let popupRequests = 0;
 
-/**
- * chrome.action.openPopup(): the popup the extension has for the tab `browserId` shows, as for a click on its button
- * but without running its action (no activeTab grant, no onClicked). Over its own popup it opens afresh, as Chrome's
- * reopens: 1Password asks once its Mac app unlocks, and the page shown while it waited is stale.
- */
 export async function openActionPopup(windowId: string, extensionId: string, anchor: Anchor, browserId: number) {
-  // The tab it asked over must still be the one shown once Chrome answers, and a later request wins. Chrome has checked
-  // the extension runs here and has a popup for the tab: the app's own list (refreshed a moment after an install) isn't
-  // asked.
   const request = ++popupRequests;
   const tabId = activeTabId(useBrowser.getState(), windowId);
   const url = (await extensionActionStates(browserId, [extensionId]))[extensionId]?.popup ?? "";

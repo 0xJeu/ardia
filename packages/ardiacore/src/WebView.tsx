@@ -40,17 +40,13 @@ export type OpenWindowRequest = {
   disposition: OpenDisposition;
   adoptId?: string;
   userGesture?: boolean;
-  /** The new tab's navigation is a form's POST. */
   postBody?: boolean;
-  /** "incognito" with a private tab Chrome made: the regular profile (engine name) it is off the record of. */
   profile?: string;
 };
 
 export type BlockedPopup = { id: string; url: string; origin: string };
 
 export type FindResult = { count: number; active: number; final: boolean };
-// "escape": an Esc the page left alone, outside a text field (Little Ardia closes on it).
-// `modifiers`: the keys held when the menu item was picked ("search").
 export type PageCommand = {
   command: "search" | "ask" | "copyLinkToHighlight" | "escape";
   text: string;
@@ -121,9 +117,6 @@ export type PasswordPrompt = {
   usernames: string[];
 };
 export type PasswordPromptAnswer = "save" | "update" | "never" | "nope" | "dismiss";
-/** Chrome's offer to save or update an address or card after the page sent a form, in Chrome's words. `lines` is
- *  what gets saved (an address's lines, a card's "Visa ••1111 • 12/31"); an update lists its `changes` instead, under
- *  `newLabel` / `oldLabel` (empty when it only adds values). */
 export type AutofillPrompt = {
   id: number;
   kind: "saveAddress" | "updateAddress" | "saveCard";
@@ -138,7 +131,6 @@ export type AutofillPrompt = {
   newLabel?: string;
   oldLabel?: string;
 };
-/** "accept" saves (or updates), "decline" is Chrome's "No thanks", "dismiss" closes it undecided. */
 export type AutofillPromptAnswer = "accept" | "decline" | "dismiss";
 export type ExtensionActionResult = "none" | "popup" | "sidePanel";
 
@@ -146,19 +138,12 @@ export type WebViewProps = ViewProps & {
   url?: string;
   profile?: string;
   adoptId?: string;
-  /** The app's id for the tab: its browser keeps it while moving between views, and Chrome's tab strips name the
-   *  tab by it (`StripTab.key`, tabStrip.ts). */
   transferKey?: string;
   standalone?: boolean;
-  /** An extension's popup or side panel page (implies `standalone`): Chrome's own extension view, bound to the
-   *  window it shows in, so the page's current window and active tab are that window's (chrome.windows,
-   *  chrome.tabs). Without it, a standalone page's current window is a hidden one. */
   extensionHost?: "popup" | "sidePanel";
   visible?: boolean;
   warm?: boolean;
   pageBackgroundColor?: string;
-  /** The tab's profile colour ("plum", "incognito"…): the offline game page (ardia://game, Chrome's offline
-   *  error page) paints itself in it, and follows a change. Web pages never see it. */
   pageColor?: string;
   autoPictureInPicture?: boolean;
   onNavigationChange?: (state: NavigationState) => void;
@@ -192,10 +177,8 @@ export type WebViewProps = ViewProps & {
   onReady?: (browserId: number, chromeTabId: number) => void;
   onDiscarded?: (url: string) => void;
   onPasswordPrompt?: (prompt: PasswordPrompt) => void;
-  /** An offer to save an address or card (`prompt`), or null once offer `id` went (answered, or Chrome closed it). */
   onAutofillPrompt?: (prompt: AutofillPrompt | null, id: number) => void;
   onExternalApp?: (request: ExternalAppRequest) => void;
-  /** An extension popup's page sized itself (Chrome's auto-resize, 25×25 to 800×600 points). */
   onPreferredSize?: (size: { width: number; height: number }) => void;
 };
 
@@ -218,7 +201,6 @@ export type WebViewHandle = {
   executeJavaScript(code: string): Promise<void>;
   evaluate<T = unknown>(code: string): Promise<T | null>;
   navigationEntries(): Promise<NavigationEntry[]>;
-  /** The page as painted: a base64 JPEG and the view's frame in its window from the top-left (null after 1 s). */
   capturePicture(scale: number): Promise<{ data: string; frame: [number, number, number, number] } | null>;
   downloadFavicon(url: string): Promise<FaviconImage | null>;
   downloadImage(url: string, maxPixels: number): Promise<FaviconImage | null>;
@@ -244,9 +226,6 @@ export type WebViewHandle = {
   setFrozen(frozen: boolean): Promise<void>;
 };
 
-// What discard() did: "discarded" (Chrome discarded the page now: its renderer goes, the tab and its history stay, and
-// it loads again when shown, with onReady), "already" (it was), "refused" (Chrome wouldn't, or there's no page yet), or
-// "unsupported": unload, which ArdiaCore doesn't do (a regular profile stays loaded, a private one goes with its windows).
 export type DiscardOutcome = "discarded" | "already" | "refused" | "unsupported";
 
 type Evt<T> = (e: NativeSyntheticEvent<T>) => void;
@@ -340,7 +319,6 @@ type NativeHandle = Omit<
 const NativeWebView = requireNativeViewManager<NativeProps>("ArdiaCEF");
 
 const VIEW_RETRIES = 3;
-// Expo's view functions reject with this cause when the view tag has no registered view.
 const isViewMissing = (error: unknown) =>
   (error as { code?: unknown } | null)?.code === "ERR_ARGUMENT_CAST" &&
   /Unable to find the '\w+' view with tag/.test(String((error as { message?: unknown }).message));
@@ -348,8 +326,6 @@ const isViewMissing = (error: unknown) =>
 export const WebView = forwardRef<WebViewHandle, WebViewProps>(function WebView(props, ref) {
   const native = useRef<NativeHandle>(null);
   useImperativeHandle(ref, () => {
-    // Expo can't find the view just after mount (legacy architecture registers it later) or once the tab
-    // is gone; retry the first briefly and settle the second with the fallback instead of rejecting.
     const call = async <T,>(fallback: T, fn: (view: NativeHandle) => Promise<T>): Promise<T> => {
       for (let attempt = 0; ; attempt++) {
         const view = native.current;

@@ -1,7 +1,5 @@
 import type { LiveItem } from "./types";
 
-// MARK: Notion (POST /v1/search, GET /v1/users)
-
 type NotionRichText = { plain_text: string }[];
 type NotionPage = {
   object: "page" | "database";
@@ -45,8 +43,6 @@ export function mapNotion(json: NotionSearch, users: NotionUsers | null, workspa
     }));
 }
 
-// MARK: Confluence (GET /wiki/rest/api/content/search)
-
 export type ConfluenceSearch = {
   results: {
     id: string;
@@ -74,8 +70,6 @@ export function mapConfluence(json: ConfluenceSearch, site: string): LiveItem[] 
     doc: { kind: "Page", editedBy: r.history?.lastUpdated?.by?.displayName ?? null, place: r.space?.name ?? null },
   }));
 }
-
-// MARK: Google Drive (GET /drive/v3/files)
 
 export type DriveFiles = {
   files: {
@@ -117,8 +111,6 @@ export function mapDrive(json: DriveFiles): LiveItem[] {
     doc: { kind: DRIVE_KINDS[f.mimeType] ?? "File", editedBy: f.lastModifyingUser?.displayName ?? null, place: null },
   }));
 }
-
-// MARK: Bitbucket Cloud (GET /2.0/pullrequests/{user}, …/statuses)
 
 export type BitbucketPR = {
   id: number;

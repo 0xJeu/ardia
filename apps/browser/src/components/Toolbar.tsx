@@ -25,28 +25,20 @@ import { GlassFill, liquidGlass } from "./glass";
 import { TranslateButton } from "./site/TranslateControls";
 import { ZoomIndicator } from "./site/ZoomControls";
 
-// What the toolbar shows of its tab: the page's favicon and the tab's bookkeeping (last active, …) don't re-render it.
-// Nor does a web page's title (it changes several times while a page loads): the field shows a title only after a
-// non-web address (a file, an app page), so only then is it part of what the toolbar reads.
 type ToolbarTab = Pick<Tab, "id" | "url" | "title" | "windowId" | "zoom">;
 const toolbarTab = (t: Tab | undefined): ToolbarTab | undefined =>
   t && { id: t.id, url: t.url, title: isWebUrl(t.url) ? "" : t.title, windowId: t.windowId, zoom: t.zoom };
 const isWebUrl = (url: string) => /^https?:/i.test(url);
 export const useToolbarTab = (tabId: string | undefined) => useBrowser(useShallow((s) => toolbarTab(tabId ? s.tabs[tabId] : undefined)));
 
-// The URL field's place in a pane's toolbar, which the command bar opens over (CommandPanel.tsx).
 export const URL_FIELD = { top: 21.2 - 15, height: 30 } as const;
-// The toolbar's glyphs (sidebar, back, forward, reload): Dia 1.52's ink at 2x is 30 × 23, 12 × 22 and 22 × 26 px
-// (owner's recording, 2026-10-09), which SF Symbols draw at 13 pt regular.
 export const GLYPH = 13;
 export const urlFieldRight = (inSplit: boolean, extensionsWidth: number) => (inSplit ? 12 + 2 * 28 : 12) + extensionsWidth;
-// Where the field's text starts: after the warning lock on a page that isn't secure.
 const LOCK = { left: 7, width: 18, gap: 3 } as const;
 export const urlTextLeft = (insecure: boolean) => (insecure ? LOCK.left + LOCK.width + LOCK.gap : 8);
 export const insecureLevel = (p: PageState) =>
   p.security && (p.security.level === "insecure" || p.security.level === "certificateError") ? p.security.level : null;
 
-// bare: no band or divider of its own (AutoHideToolbar draws them, so the controls can fade over a band that doesn't).
 export function Toolbar({
   tabId,
   geometry,
@@ -64,27 +56,22 @@ export function Toolbar({
 }) {
   const theme = useTheme();
   const tab = useToolbarTab(tabId);
-  // Narrow on purpose: a loading page reports progress many times a second, and only the bar below shows it.
   const isLoading = useTabLive(tabId, (l) => l.isLoading);
   const themeColor = useTabLive(tabId, (l) => l.themeColor);
   const extendColor = useSettings((s) => s.extendWebsiteColor);
   const website = extendColor && tab?.url ? themeColor : null;
   const palette = toolbarPalette(theme, website);
-  // A bare toolbar draws no band: no fade to run (each is a JS-driven animation, a frame callback per frame).
   const band = useEasedColor(bare ? null : palette.background);
   const history = useHistoryAvailability(tabId);
   const extensionsWidth = useToolbarExtensionsWidth(windowId);
-  // The card's URL anchor (the command bar's frame) takes it from here (layout/windowLayout.ts).
   useEffect(() => setToolbarExtensionsWidth(windowId, extensionsWidth), [windowId, extensionsWidth]);
   const dim = useRef(new Animated.Value(focused ? 1 : 0.5)).current;
   const dimmedFor = useRef(focused);
   useEffect(() => {
-    // Mounting starts at the right value; only a change of focus animates.
     if (dimmedFor.current === focused) return;
     dimmedFor.current = focused;
     Animated.timing(dim, { toValue: focused ? 1 : 0.5, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
   }, [focused]);
-  // Stable callbacks and styles: the buttons are memoized, and a loading or history change re-renders only theirs.
   const focus = useCallback(() => {
     if (!focused) useBrowser.getState().activate(tabId);
   }, [focused, tabId]);
@@ -180,7 +167,6 @@ function ProgressBar({ progress, color }: { progress: number; color: string }) {
     const to = Math.max(progress, 0.08);
     if (shownFor.current === to) return;
     shownFor.current = to;
-    // JS driver: a scaleX version loses its transform when it mounts on macOS (it draws full width until it animates).
     Animated.timing(width, { toValue: to, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
   }, [progress]);
   return (
@@ -277,7 +263,6 @@ export const UrlField = memo(function UrlField({
   };
   const toggleBookmark = () => {
     const s = useBrowser.getState();
-    // The whole tab (its favicon too) as it is now; the field itself follows only what it shows.
     const page = s.tabs[tab.id];
     if (page) s.toggleBookmark(bookmarkProfileId(s, s.windows[windowId]), page);
   };

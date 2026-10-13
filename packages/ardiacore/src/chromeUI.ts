@@ -44,7 +44,6 @@ export type CastDialog = {
 export type CastRoute = { id: string; sink: string; description: string; source: string };
 
 export type SidePanelRequest = { browserId: number; extensionId: string; open: boolean };
-// chrome.action.openPopup() over the tab `browserId` shows.
 export type ActionPopupRequest = { browserId: number; extensionId: string };
 
 type NativeChromeUI = {
@@ -84,15 +83,11 @@ export const ChromeUI = requireNativeModule<NativeChromeUI>("ArdiaChromeUI");
 
 if (__DEV__) (globalThis as { acChromeUI?: unknown }).acChromeUI = ChromeUI;
 
-// MARK: Device choosers
-
 export const onDeviceChooser = (listener: (e: DeviceChooser) => void) => ChromeUI.addListener("onDeviceChooser", listener);
 export const selectDevice = (id: number, index: number) => ChromeUI.selectDevice(id, index);
 export const cancelDeviceChooser = (id: number) => ChromeUI.cancelDeviceChooser(id);
 export const refreshDeviceChooser = (id: number) => ChromeUI.refreshDeviceChooser(id);
 export const openBluetoothSettings = (id: number) => ChromeUI.openBluetoothSettings(id);
-
-// MARK: Cast
 
 export const onCastDialog = (listener: (e: CastDialog) => void) => ChromeUI.addListener("onCastDialog", listener);
 export const onCastRoutes = (listener: (e: { profile: string; routes: CastRoute[] }) => void) => ChromeUI.addListener("onCastRoutes", listener);
@@ -107,18 +102,12 @@ export function preferredCastMode(modes: number): number {
   return 0;
 }
 
-// MARK: Extension side panels
-
 export const onExtensionSidePanel = (listener: (e: SidePanelRequest) => void) => ChromeUI.addListener("onSidePanel", listener);
 export const extensionSidePanelUrl = (browserId: number, extensionId: string) => ChromeUI.sidePanelURL(browserId, extensionId);
 export const onExtensionActionPopup = (listener: (e: ActionPopupRequest) => void) => ChromeUI.addListener("onActionPopup", listener);
 
-// MARK: Tab capture
-
 export const changeCaptureSource = (capturer: number, target: number) => ChromeUI.changeCaptureSource(capturer, target);
 export const stopCapture = (capturer: number) => ChromeUI.stopCapture(capturer);
-
-// MARK: Autofill
 
 export const showAutofillSuggestions = (browserId: number, kind: "passwords" | "field") =>
   ChromeUI.showAutofillSuggestions(browserId, kind === "passwords");

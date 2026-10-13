@@ -1,6 +1,3 @@
-// The sender: who the visitor is, which session they're in, and the batches of events and logs it posts to
-// our own collector as OTLP/HTTP JSON (the contract: infra/telemetry; settings: src/data/telemetry.ts).
-// Event and property names are PostHog's, so old and new data read the same.
 import { VERSION } from "../../data/release";
 import {
   DEV_OPT_IN,
@@ -17,16 +14,12 @@ import { parseUserAgent } from "./ua";
 export type Value = string | number | boolean | null | undefined | object;
 export type Props = Record<string, Value>;
 interface CaptureOptions {
-  /** Post now, with sendBeacon, because the page is about to go (an outbound link). */
   send_instantly?: boolean;
-  /** When it happened (ms epoch), if not now. */
   timestamp?: number;
   uuid?: string;
 }
 
 const LIB_VERSION = "1.0.0";
-
-// ---------------------------------------------------------------- storage
 
 function read(key: string, store: "local" | "session" = "local"): string | null {
   try {
@@ -48,18 +41,12 @@ function readJSON<T>(key: string): T | null {
   }
 }
 
-// ---------------------------------------------------------------- switch
-
 const production = PRODUCTION_HOSTS.includes(location.hostname);
-/** Only the production hosts (PRODUCTION_HOSTS) report; anything else only after `localStorage.setItem("ac:telemetry", "dev")`. */
 export const enabled = production || DEV_OPT_IN.some((key) => read(key) === "dev");
 const environment = production ? "production" : "development";
 
-// ---------------------------------------------------------------- ids
-
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
-/** A UUIDv7: 48 bits of ms time, then random; sorts by time. */
 function uuidv7(ms = Date.now()): string {
   const b = crypto.getRandomValues(new Uint8Array(16));
   for (let i = 5, t = ms; i >= 0; i--, t = Math.floor(t / 256)) b[i] = t % 256;
@@ -69,7 +56,6 @@ function uuidv7(ms = Date.now()): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-/** The id posthog-js kept for this browser, so a returning visitor stays the same visitor. */
 function posthogId(): string | null {
   const key = `ph_${LEGACY_POSTHOG_TOKEN}_posthog`;
   const pick = (json: string | null | undefined) => {
@@ -100,11 +86,8 @@ function visitorId(): string {
 
 export const distinctId = visitorId();
 
-/** One per tab. */
 export const windowId: string = read("ac:window", "session") ?? uuidv7();
 write("ac:window", windowId, "session");
-
-// ---------------------------------------------------------------- page facts
 
 const CAMPAIGN_PARAMS = [
   "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
@@ -144,7 +127,6 @@ function searchEngine(host: string): string | null {
 const device = parseUserAgent(navigator.userAgent, "brave" in navigator);
 const language = navigator.language || "";
 
-/** What every event carries about the browser; the URL parts are read when the event happens. */
 const constant: Props = {
   $lib: "ardia-web",
   $lib_version: LIB_VERSION,
@@ -169,7 +151,6 @@ const constant: Props = {
   release_version: VERSION,
 };
 
-// Reduced Android UAs say "K"; Chromium tells the model through client hints.
 if (device.$os === "Android" && !device.$device_model) {
   const cached = read("ac:model", "session");
   if (cached) constant.$device_model = cached;
@@ -184,17 +165,13 @@ if (device.$os === "Android" && !device.$device_model) {
       .catch(() => {});
 }
 
-/** Properties registered for every later event (environment, release_version and the flags). */
 const registered: Props = {};
 export function register(props: Props) {
   Object.assign(registered, props);
 }
 
-// The flags' super properties from the last page (flags.ts), so this page view carries them too, as with posthog-js.
 const cachedFlags = readJSON<{ id: string; props: Props }>("ac:flags");
 if (cachedFlags?.id === distinctId && cachedFlags.props) register(cachedFlags.props);
-
-// ---------------------------------------------------------------- session
 
 interface Session {
   id: string;
@@ -218,12 +195,10 @@ function entryProps(): Props {
 let session: Session | null = null;
 const sessionListeners: ((id: string, previous: string) => void)[] = [];
 
-/** Calls back when this page's session ends (30 min idle, 24 h) and a new one starts. */
 export function onSessionChange(fn: (id: string, previous: string) => void) {
   sessionListeners.push(fn);
 }
 
-/** The current session, renewed if it has lapsed; activity keeps it going. Shared by the tabs of the browser. */
 function touchSession(now = Date.now()): Session {
   const stored = readJSON<Session>("ac:session");
   let s = stored && typeof stored.id === "string" ? stored : session;
@@ -240,7 +215,6 @@ function touchSession(now = Date.now()): Session {
 export const sessionId = () => (session ?? touchSession()).id;
 export const sessionStart = () => (session ?? touchSession()).start;
 
-// Activity: anything the visitor does keeps the session alive (checked at most every 5 s).
 let lastTouch = 0;
 const activity = () => {
   const now = Date.now();
@@ -248,8 +222,6 @@ const activity = () => {
   lastTouch = now;
   touchSession(now);
 };
-
-// ---------------------------------------------------------------- OTLP
 
 interface AnyValue {
   stringValue?: string;
@@ -303,8 +275,6 @@ const resource = {
   }),
 };
 
-// ---------------------------------------------------------------- queue
-
 type Scope = "ardia.analytics" | "ardia.site";
 interface Queued {
   scope: Scope;
@@ -315,7 +285,6 @@ interface Queued {
 
 const queue: Queued[] = [];
 let timer = 0;
-/** Beacons and keepalive fetches carry at most 64 KB. */
 const MAX_BODY = 60_000;
 
 function body(items: Queued[]): string {
@@ -340,7 +309,6 @@ function post(items: Queued[], beacon: boolean) {
     } catch {}
   }
   const retry = () => {
-    // One more try on the next flush, then they're dropped.
     const again = items.filter((i) => !i.retried);
     for (const i of again) i.retried = true;
     if (again.length) {
@@ -361,7 +329,6 @@ function post(items: Queued[], beacon: boolean) {
     .catch(retry);
 }
 
-/** Posts everything queued, in bodies small enough for a beacon. */
 function flush(beacon = false) {
   clearTimeout(timer);
   timer = 0;
@@ -387,11 +354,8 @@ function enqueue(scope: Scope, record: LogRecord, instantly = false) {
   else schedule();
 }
 
-// ---------------------------------------------------------------- capture
-
 let pageviewId: string | undefined;
 
-/** Records an event with PostHog's name and property names. Returns its uuid (undefined when silent). */
 export function capture(event: string, props: Props = {}, options: CaptureOptions = {}): string | undefined {
   if (!enabled) return;
   try {
@@ -437,7 +401,6 @@ export function capture(event: string, props: Props = {}, options: CaptureOption
 
 const SEVERITY = { warn: [13, "WARN"], error: [17, "ERROR"] } as const;
 
-/** A plain log line (not an event): the site's console warnings and errors. */
 export function log(level: keyof typeof SEVERITY, message: string, props: Props = {}) {
   if (!enabled) return;
   try {
@@ -464,15 +427,11 @@ export function log(level: keyof typeof SEVERITY, message: string, props: Props 
   } catch {}
 }
 
-// ---------------------------------------------------------------- leaving
-
 const hideHooks: (() => void)[] = [];
-/** Runs just before the queue goes out when the page is hidden or unloaded (web vitals, replay). */
 export function onHide(fn: () => void) {
   hideHooks.push(fn);
 }
 
-// Scroll depth for $pageleave, as posthog-js measures it.
 let lastScroll = 0;
 let maxScroll = 0;
 let lastContent = 0;
@@ -524,8 +483,6 @@ function hidden(unloading: boolean) {
   flush(true);
 }
 
-// ---------------------------------------------------------------- start
-
 if (enabled) {
   touchSession();
   pageviewId = uuidv7();
@@ -538,11 +495,9 @@ if (enabled) {
   for (const type of ["click", "keydown", "scroll", "touchstart", "mousemove"])
     addEventListener(type, activity, { passive: true, capture: true });
   addEventListener("pagehide", () => hidden(true));
-  // Bubbles up from document, so it runs after web-vitals' own listeners have reported.
   addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") hidden(false);
   });
-  // Back from the bfcache: the same page view carries on.
   addEventListener("pageshow", (e) => {
     if (e.persisted) left = false;
   });

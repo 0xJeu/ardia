@@ -1,12 +1,3 @@
-// Opt-in probe for the JS benchmark (apps/browser/scripts/perf/js-bench.mjs). It turns on only in an
-// isolated instance (ARDIA_DATA_DIR or ARDIA_BACKGROUND) whose data folder holds a `perf-probe`
-// file; otherwise it installs nothing.
-// index.js imports it first, so React's renderer finds the hook below when it loads.
-//
-// With it on: React commits, component renders and mounts, host view updates, store updates and the time
-// their subscribers take, native→JS calls (events, timers) with their time, timer callbacks and document
-// writes, all readable through `globalThis.acPerf` from the dev harness.
-
 type Fiber = {
   tag: number;
   flags: number;
@@ -18,7 +9,6 @@ type Fiber = {
   memoizedState: unknown;
   dependencies: { firstContext: ContextItem | null } | null;
   stateNode: unknown;
-  // Set by React's profiling build only (the bench bundles it with --profiling).
   selfBaseDuration?: number;
   actualDuration?: number;
 };
@@ -33,9 +23,6 @@ type Store = {
 
 type Counter = Record<string, number>;
 
-// This runs before anything has imported expo-modules-core, and the legacy bridge installs `expo` ahead of the bundle
-// only when its runtime exists by then: install it as expo-modules-core's ensureNativeModulesAreInstalled does, or the
-// probe stays off in some launches.
 if (!(globalThis as { expo?: unknown }).expo) {
   try {
     const { TurboModuleRegistry } = require("react-native") as typeof import("react-native");
@@ -45,8 +32,6 @@ if (!(globalThis as { expo?: unknown }).expo) {
 const modules = (globalThis as { expo?: { modules?: Record<string, Record<string, (...a: unknown[]) => unknown>> } }).expo?.modules;
 const shell = modules?.ArdiaShell;
 
-// The file's contents name optional (slower) probes: "selectors" times every store selector by call site;
-// "renders" says why each component rendered (props, state, context, or nothing: a wasted render).
 const probeOptions = (() => {
   try {
     const info = modules?.ArdiaApp?.systemInfo?.() as { isolatedInstance?: boolean } | undefined;
@@ -60,16 +45,9 @@ const probeOptions = (() => {
 
 export const perfProbeEnabled = probeOptions !== null;
 
-// What the probe counts, as acPerf.revision; js-bench stamps it into its reports and `compare` warns when two differ.
-// Bump it whenever a change moves the numbers (a new kind of task timed, a counter redefined).
-//   1  before 6232fa43 (0.2.21 and older): Expo module events (JSI) weren't timed as tasks
-//   2  6232fa43: module events timed as module:<event> tasks, counted in taskMs; commitTasks
 export const PERF_PROBE_REVISION = 2;
 const rendersProbe = !!probeOptions?.includes("renders");
-// "listeners" also times each store listener by the functions that subscribed it.
 const listenersProbe = !!probeOptions?.includes("listeners");
-// "layout": where each sidebar row is after every commit of the launch's first seconds (lib/layoutWatch.ts);
-// "layoutEdit" also opens, closes and moves a tab while the launch's rows fill in.
 const layoutProbe = !!probeOptions?.includes("layout");
 const layoutEditAt = probeOptions?.includes("layoutEdit") ? 2 : 0;
 
@@ -81,11 +59,8 @@ function fresh() {
     since: now(),
     commits: 0,
     commitTimes: [] as number[],
-    // The task of each commit in commitTimes.
     commitTaskLog: [] as string[],
     renders: {} as Counter,
-    // Hooks run by those renders: per component, the length of its hook list (state, memo, ref and effect hooks;
-    // useContext keeps no list entry) times its renders.
     hooks: {} as Counter,
     mounts: {} as Counter,
     hostUpdates: 0,
@@ -94,44 +69,33 @@ function fresh() {
     storeKeys: {} as Counter,
     listenerCalls: {} as Counter,
     listenerMs: {} as Counter,
-    // With the "listeners" probe: the same, by the store and the function that subscribed.
     listenerSiteCalls: {} as Counter,
     listenerSiteMs: {} as Counter,
     tasks: {} as Counter,
     taskMs: {} as Counter,
-    // When each native→JS task other than a timer started: [label, time].
     taskLog: [] as [string, number][],
-    // Commits by the task they happened in (a native→JS call, a timer, a native module's event).
     commitTasks: {} as Counter,
     timers: {} as Counter,
     timerMs: {} as Counter,
-    // Timers and animation frames scheduled (timers counts the callbacks that ran).
     timersScheduled: {} as Counter,
-    // With the "selectors" probe: store notifications that reached a component's subscription, by call site (each runs
-    // that hook's selector once), against selectorCalls (every evaluation, renders included).
     subNotified: {} as Counter,
     selectorCalls: {} as Counter,
     selectorMs: {} as Counter,
     writes: {} as Counter,
     writeBytes: {} as Counter,
     writeMs: {} as Counter,
-    // With the "renders" probe: per component, renders that changed nothing (wasted), their time, each
-    // render's self time, and what changed (props:<key> real change, fn:<key> new function, obj:<key> new
-    // but shallow-equal object, state, state~ new but shallow-equal state, context:<name>).
     wasted: {} as Counter,
     wastedMs: {} as Counter,
     unstable: {} as Counter,
     unstableMs: {} as Counter,
     renderMs: {} as Counter,
     causes: {} as Record<string, Counter>,
-    // Components whose own state or context changed with their props unchanged: where an update starts.
     origins: {} as Counter,
     commitMs: 0,
   };
 }
 
 let stats = fresh();
-// Live store subscriptions by call site (the "selectors" probe); not reset with the stats.
 const subscriptions: Counter = {};
 const marks: Record<string, number> = {};
 const startedAt = now();
@@ -139,7 +103,6 @@ const startup: [task: string, at: number, ms: number][] = [];
 const roots = new Set<{ current: Fiber }>();
 let firstCommit = 0;
 let firstCommitMounts: Counter | null = null;
-// The native→JS task running now (bridge call, timer callback or native module event), for commitTasks.
 let task: string | null = null;
 
 function nameOf(type: unknown): string {
@@ -158,8 +121,6 @@ const PERFORMED_WORK = 1;
 const UPDATE = 4;
 const HOST_COMPONENT = 5;
 
-// Walks only the part of the tree React reconciled: a fiber whose child list is the one it had before
-// wasn't visited this commit (React's DevTools skips the same way).
 function walk(fiber: Fiber) {
   if (fiber.alternate && fiber.child === fiber.alternate.child) return;
   for (let c = fiber.child; c; c = c.sibling) {
@@ -190,7 +151,6 @@ function shallowEqual(a: unknown, b: unknown) {
   return ka.every((k) => Object.prototype.hasOwnProperty.call(b, k) && Object.is(a[k], b[k]));
 }
 
-// Why a component rendered this commit, against what it rendered with last time (its alternate).
 function classify(fiber: Fiber, before: Fiber) {
   const name = nameOf(fiber.type);
   const causes: string[] = [];
@@ -219,8 +179,6 @@ function classify(fiber: Fiber, before: Fiber) {
       causes.push("state");
     }
   } else {
-    // Only hooks with an update queue hold state (useState, useReducer, useSyncExternalStore: zustand
-    // selectors); memo, ref and effect hooks follow from props and state.
     let h = fiber.memoizedState as Hook | null;
     let o = before.memoizedState as Hook | null;
     for (; h && o; h = h.next, o = o.next) {
@@ -246,7 +204,6 @@ function classify(fiber: Fiber, before: Fiber) {
     bump(counter, "wasted");
   } else {
     if (!propsChanged) bump(stats.origins, name);
-    // Only new functions or new-but-equal objects: stable props (memo, callbacks) would have skipped it.
     else if (!realProps && !stateChanged && !contextChanged) {
       bump(stats.unstable, name);
       bump(stats.unstableMs, name, ms);
@@ -280,14 +237,12 @@ function installReactHook() {
       try {
         walk(root.current);
       } catch {}
-      // What the app's first commit mounted, by component: the launch's first frame waits for all of it.
       if (mountsBefore) {
         firstCommitMounts = {};
         for (const key in stats.mounts) if (stats.mounts[key]! > (mountsBefore[key] ?? 0)) firstCommitMounts[key] = stats.mounts[key]! - (mountsBefore[key] ?? 0);
       }
       stats.commitMs += root.current.actualDuration ?? 0;
       stats.walkMs += now() - t;
-      // Required here: the probe loads before the app's modules.
       if (layoutProbe) {
         try {
           (require("./layoutWatch") as typeof import("./layoutWatch")).layoutCommitted(layoutEditAt);
@@ -298,7 +253,6 @@ function installReactHook() {
 }
 
 let traceTimers = false;
-// How many frames name an anonymous timer's call site (acPerf.traceDepth).
 let traceDepth = 4;
 
 const callers = (stack: string | undefined, depth = 4) =>
@@ -316,7 +270,6 @@ function wrapTimers() {
     g[name] = function (this: unknown, callback: unknown, ...rest: unknown[]) {
       if (typeof callback !== "function") return original.call(this, callback, ...rest);
       let label = `${name}:${callback.name || "anonymous"}`;
-      // With acPerf.traceTimers on, anonymous callbacks are named by the functions that scheduled them.
       if (traceTimers && !callback.name) label += ` <${callers(new Error().stack, traceDepth)}>`;
       bump(stats.timersScheduled, label);
       return original.call(
@@ -339,20 +292,15 @@ function wrapTimers() {
   }
 }
 
-// Times each useSyncExternalStore snapshot (a zustand selector), keyed by the hooks and component that
-// called it. Stack capture on every render makes this slow; use it to find costly selectors, not to time.
 function wrapSelectors() {
   const react = require("react") as { useSyncExternalStore: (...a: unknown[]) => unknown };
   const original = react.useSyncExternalStore;
-  // A subscribe function per (store, call site), so React keeps its subscription across renders; the gauge counts the
-  // live subscriptions by call site (acPerf.subscriptions()).
   const counted = new WeakMap<object, Map<string, unknown>>();
   react.useSyncExternalStore = (subscribe: unknown, getSnapshot: unknown, getServerSnapshot: unknown) => {
     const label = callers(new Error().stack, 4);
     let bySite = counted.get(subscribe as object);
     if (!bySite) counted.set(subscribe as object, (bySite = new Map()));
     let tracked = bySite.get(label);
-    // A read that isn't subscribed (store/tabWatch.ts useStoreWhile while not live) isn't a live subscription.
     if ((subscribe as { inert?: boolean }).inert) tracked = subscribe;
     else if (!tracked) {
       const raw = subscribe as (cb: () => void) => () => void;
@@ -384,7 +332,6 @@ function wrapSelectors() {
   };
 }
 
-// Every native→JS call (events, timers, callbacks) goes through the bridge queue; time each one.
 function wrapBridge() {
   const queue = (globalThis as { __fbBatchedBridge?: Record<string, (...a: unknown[]) => unknown> }).__fbBatchedBridge;
   if (!queue) return;
@@ -403,7 +350,6 @@ function wrapBridge() {
         const end = now();
         bump(stats.tasks, key);
         bump(stats.taskMs, key, end - t);
-        // Until the first window is up: when each task ran (ms from the bundle's start) and for how long.
         if (!marks.firstWindow && startup.length < 1000) startup.push([key, Math.round(t - startedAt), Math.round((end - t) * 10) / 10]);
       }
     };
@@ -416,14 +362,11 @@ function wrapBridge() {
   wrap("invokeCallbackAndReturnFlushedQueue", () => "callback");
 }
 
-// Native modules' events (Expo's, through JSI) don't go through the bridge queue: time each listener call as a
-// `module:<event>` task. A listener an event of the JS side's own runs inside its task and isn't counted again.
 function wrapModuleEvents() {
   const proto = (globalThis as unknown as { expo?: { EventEmitter?: { prototype: Record<string, unknown> } } }).expo?.EventEmitter?.prototype;
   const add = proto?.addListener as ((this: unknown, name: string, listener: (...a: unknown[]) => void) => unknown) | undefined;
   const remove = proto?.removeListener as ((this: unknown, name: string, listener: unknown) => unknown) | undefined;
   if (!proto || typeof add !== "function" || typeof remove !== "function") return;
-  // Per listener and event, so removeListener finds what addListener added.
   const wrapped = new WeakMap<object, Map<string, (...a: unknown[]) => void>>();
   proto.addListener = function (this: unknown, name: string, listener: (...a: unknown[]) => void) {
     if (typeof listener !== "function") return add.call(this, name, listener);
@@ -471,12 +414,9 @@ function wrapWrites() {
   } catch {}
 }
 
-// Counts a store's updates (by top-level key) and times every subscriber it notifies.
 export function probeStore(name: string, store: Store) {
   if (!perfProbeEnabled) return;
   const subscribe = store.subscribe;
-  // React's subscriptions aren't store listeners here: zustand's hooks subscribe through the store's own `subscribe`,
-  // which store/tabWatch.ts reaches as `unprobed`.
   store.subscribe = Object.assign((listener: Parameters<Store["subscribe"]>[0]) => {
     const site = listenersProbe ? `${name} ${callers(new Error().stack, 3)}` : "";
     return subscribe((s, prev) => {

@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Shows that a count tracks wall-clock on a real fix: runs the same Node workload on two revisions of the source and
-// prints, for each, the builtin calls (ops.mjs, exact) and the median time. The default pair is f3417151^ and f3417151,
-// "Strip and sidebar entries look tabs' groups and splits up by index" (a commit that cut sidebarEntries after a
-// title change from 49,271 calls and 3.1 ms to 4,121 calls and 0.16 ms with 1000 tabs). The times are wall-clock:
-// run it under `scripts/agent/locked perflab -- node apps/browser/scripts/perf/ratchet-proof.mjs`.
-//
-//   node ratchet-proof.mjs [<before rev> <after rev>] [--out <dir>]
-//
-// Each revision's apps/browser/src and packages/core are exported with `git archive` into <out>/<name> (not a worktree:
-// nothing is checked out), with this tree's node_modules linked in and its Node test loader and native stub copied in
-// (a revision from before them can't run its TypeScript otherwise). Needs revisions whose store has `hydrate`.
 
 import { execFileSync } from "node:child_process";
 import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -26,8 +15,6 @@ for (let i = 0; i < args.length; i++) (args[i].startsWith("--") ? (flags[args[i]
 const [beforeRev = "f3417151^", afterRev = "f3417151"] = positional;
 const out = resolve(flags.out ?? join(process.env.TMPDIR ?? "/tmp", "ac-ratchet-proof"));
 
-// The workload: a 1000-tab window (every 10th pair a split, groups of 20), one tab retitled, then the sidebar's
-// entries asked for. Same code on both revisions.
 const micro = readFileSync(join(here, "micro-bench.mjs"), "utf8");
 const bigSession = /\/\/ One window with `count` tabs.*?\n}\n/s.exec(micro)[0];
 const workload = `

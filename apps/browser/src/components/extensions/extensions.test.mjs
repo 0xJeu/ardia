@@ -1,5 +1,3 @@
-// The toolbar's action states and the side panel: answers from Chrome come late and out of order, and a click or a tab
-// switch while one is on its way must still land.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const native = await import("../../test-native-stub.mjs");
@@ -13,7 +11,6 @@ const S = () => useBrowser.getState();
 const E = () => useExtensions.getState();
 const EXT = { id: "ext", name: "Ext", enabled: true, pinned: true, hasAction: true, incognito: false, sidePanel: "panel.html" };
 
-// A window with tabs a (browser 1) and b (browser 2), a showing; each answer from Chrome waits until the test settles it.
 function setup() {
   S().hydrate({});
   const w = S().createWindow({ url: "a.com" });

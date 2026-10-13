@@ -1,5 +1,3 @@
-// The kill switches (lib/killSwitches.ts): the registry's cap and expiry, how values are read, fetched and cached, and the
-// file the site serves.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -72,10 +70,8 @@ test("a fetch asks for the plain URL (no cookies, no query), saves the answer, a
   assert.equal(asked.init.credentials, "omit");
   assert.equal(asked.init.headers, undefined);
   assert.ok(!asked.url.includes("?"));
-  // live: sidebarSlide is off at once; lazySidebarRows keeps this launch's value (on).
   assert.equal(ks.switchOn("sidebarSlide"), false);
   assert.equal(ks.switchOn("lazySidebarRows"), true);
-  // The next launch reads both from the cache.
   ks.reloadSwitches();
   assert.equal(ks.switchOn("sidebarSlide"), false);
   assert.equal(ks.switchOn("lazySidebarRows"), false);

@@ -13,22 +13,15 @@ import pipPoster from "../assets/shots/pip-loop-poster.webp";
 import pipMp4 from "../assets/shots/pip-loop.mp4";
 import pipWebm from "../assets/shots/pip-loop.webm";
 
-// Every image here is a real capture of Ardia (see apps/site/README.md). Window shots are
-// ScreenCaptureKit captures of the window; `panel` shots are the app's own render of one view
-// (no window frame), used where a window capture wasn't possible.
 interface Feature {
   id: string;
   title: string;
-  /** One line. If it needs two, cut it. */
   body: string;
-  /** One window, or several fanned out (front last). */
   shots: ImageMetadata[];
   alt: string;
   caption: string;
   panel?: boolean;
-  /** The part worth showing on a phone. */
   focus?: Focus;
-  /** A clip of the part that moves, over the one shot. */
   loop?: Loop;
 }
 
@@ -59,7 +52,6 @@ export const features: Feature[] = [
     alt: "Ardia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right. Its tab, muted, is in the sidebar, with a player at the foot of the sidebar.",
     caption: "Picture in Picture, still playing",
     focus: { x: 1, y: 1, zoom: 2.4, ratio: 0.8 },
-    // The capture's floating window, 336 × 189 pt at 2×, where it opened over the 1440 × 900 window.
     loop: { mp4: pipMp4, webm: pipWebm, poster: pipPoster, rect: { x: 2170, y: 1384, w: 672, h: 378 } },
   },
   {
@@ -92,7 +84,6 @@ export const features: Feature[] = [
   },
 ];
 
-/** In the app, without a screenshot. */
 export const extras: { title: string; body: string }[] = [
   { title: "Brings your things", body: "Bookmarks, history, passwords and logins from Chrome, Safari, Firefox, Arc, Dia and five more." },
   { title: "Keeps secrets", body: "Passwords and passkeys per profile, and a strong new password when you sign up somewhere." },

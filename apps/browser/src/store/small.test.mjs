@@ -1,5 +1,3 @@
-// Which profile and window a link from another app (and a new Little Ardia) uses: the last active window's, as Chrome's
-// AppController picks its last profile, private windows counting as the profile they were opened from.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -10,7 +8,6 @@ const stub = await import("../test-native-stub.mjs");
 const S = () => useBrowser.getState();
 const PERSONAL = { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 };
 
-// Two profiles; window A pages to Work, window B stays on Personal.
 function twoProfilesTwoWindows() {
   S().hydrate({ profiles: { default: PERSONAL }, profileOrder: ["default"] });
   const work = S().createProfile({ name: "Work" });
@@ -21,10 +18,7 @@ function twoProfilesTwoWindows() {
   return { work, a, b };
 }
 
-// What components/littleArdia/actions.ts does with one link from another app (its imports need the app, not Node):
-// a Little Ardia with no profile asked for, so the store picks it.
 const openExternalUrls = ([url]) => S().createWindow({ small: true, url });
-// ⌘O: the page moves to the frontmost main window of its profile.
 const openInMainWindow = (id) => {
   const tab = S().windows[id].tabIds[0];
   S().moveTabsToWindow([tab], mainWindowFor(S(), S().tabs[tab].profileId) ?? null);
@@ -42,7 +36,6 @@ test("a link from another app opens Little Ardia in the profile of the last acti
   assert.equal(small.profileId, work);
   assert.equal(S().tabs[small.tabIds[0]].profileId, work);
   assert.equal(S().tabs[small.tabIds[0]].url, "https://link.example/");
-  // ⌘O takes it to the window the user came from, on that profile.
   assert.equal(mainWindowFor(S(), work), a);
   openInMainWindow(small.id);
   assert.equal(smallWindows().length, 0);
@@ -52,7 +45,6 @@ test("a link from another app opens Little Ardia in the profile of the last acti
 test("with several windows, the one used last wins, even after another app took focus", () => {
   const { work, a, b } = twoProfilesTwoWindows();
   S().setFocusedWindow(b);
-  // Another app comes forward: no Ardia window is key, nothing changes in the store.
   openExternalUrls(["https://one.example/"]);
   assert.equal(lastSmall().profileId, "default");
   S().setFocusedWindow(a);
@@ -88,9 +80,7 @@ test("a private window counts as the regular profile it was opened from; Little 
   const small = lastSmall();
   assert.equal(small.incognito, false);
   assert.equal(small.profileId, work);
-  // ⌘O goes to a regular window of that profile, never the private one.
   assert.equal(mainWindowFor(S(), work), a);
-  // It stays remembered after the private window closes (Chrome's last-used profile is its original profile).
   S().closeWindow(small.id);
   S().closeWindow(priv);
   assert.equal(lastActiveProfile(S()), work);
@@ -117,13 +107,11 @@ test("the window in front closing hands over to the next most recent window's pr
   assert.equal(S().ui.focusedWindowId, b);
   openExternalUrls(["https://after-close.example/"]);
   assert.equal(lastSmall().profileId, "default");
-  // Closing Little Ardia leaves B's profile; paging B to Work and closing a window behind it changes nothing.
   S().closeWindow(lastSmall().id);
   S().setFocusedWindow(b);
   S().switchProfile(b, work);
   S().closeWindow(c);
   assert.equal(lastActiveProfile(S()), work);
-  // The last window closing keeps its profile for the next link (no window: one opens).
   S().closeWindow(b);
   assert.equal(Object.keys(S().windows).length, 0);
   assert.equal(lastActiveProfile(S()), work);
@@ -151,12 +139,9 @@ test("the last active profile survives a quit and relaunch", () => {
   assert.equal(saved.lastProfileId, work);
   S().hydrate(saved);
   assert.equal(S().ui.lastProfileId, work);
-  // Before any restored window becomes key (or with none restored), the remembered Work wins over B (Personal), the
-  // last regular window in front; the private window isn't restored.
   assert.equal(S().ui.focusedWindowId, b);
   openExternalUrls(["https://after-relaunch.example/"]);
   assert.equal(lastSmall().profileId, work);
-  // A profile deleted since (or a session from another build) is forgotten: the focused window's profile counts.
   S().hydrate({ ...saved, lastProfileId: "gone" });
   assert.equal(S().ui.lastProfileId, null);
   assert.equal(lastActiveProfile(S()), "default");

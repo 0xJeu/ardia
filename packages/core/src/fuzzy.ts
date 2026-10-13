@@ -35,7 +35,6 @@ export function fuzzyScore(query: string, text: string): number {
   return score - tw.length;
 }
 
-// What a name needs for scoring that doesn't depend on the query: lowercased, its words, and (when asked for) its letters and digits.
 type Name = { lower: string; words: string[]; plain?: string };
 
 function nameOf(text: string): Name {
@@ -43,8 +42,6 @@ function nameOf(text: string): Name {
   return { lower, words: words(lower) };
 }
 
-// Kept for one array of actions while its rows, titles and keyword lists are the same (the bar's list is made again when its
-// inputs change; the names of an action edited in place are made again).
 type Prepared = { action: ActionCandidate; title: string; keywords: readonly string[] | undefined; names: Name[] };
 const prepared = new WeakMap<readonly ActionCandidate[], Prepared[]>();
 
@@ -62,7 +59,6 @@ function preparedNames(actions: readonly ActionCandidate[]): Prepared[] {
   return list;
 }
 
-// fuzzyScore(q, name) for a q that is already trimmed and lowercase, `tokens` being its words.
 function scoreName(q: string, tokens: readonly string[], n: Name): number {
   const t = n.lower;
   if (t === q) return 1000;

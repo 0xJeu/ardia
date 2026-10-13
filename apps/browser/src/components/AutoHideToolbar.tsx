@@ -12,28 +12,13 @@ import { usePages } from "./layout/pageState";
 import { needsBar, revealToolbar, setToolbarPeek, STRIP_HEIGHT, toolbarMode, useToolbarAutoHide, type ToolbarMode } from "./layout/toolbarAutoHide";
 import { Toolbar } from "./Toolbar";
 
-// The toolbar that hides while scrolling (layout/toolbarAutoHide.ts), drawn over the top of its pane, with the page
-// placed under it by useToolbarMotion.
-//
-// Hiding and showing don't resize the page: a page that sizes things to the viewport (vh units, a canvas re-created
-// on resize) would redraw, and a WebGL canvas cleared by its resize shows blank for a frame (ardia.dev's 3D hero
-// blinked on every hide and show in 0.2.23). So once a pane's bar has first hidden, its page keeps the strip's size
-// until the next document: the bar shown slides it down and its bottom goes under the card's edge (the link status
-// bubble stays above it). Each motion is one transform on the native driver, from where the layout moved the page (in the
-// same commit, so they land in the same frame) to its place; a reversal carries on from where the page is.
-
-// Dia (owner's clip, 60 fps): the page's top glides up over ~150 ms, eased out (17, 32, 49, 68, 76, 88, 93, 95,
-// 100 % per frame); the controls are gone in ~5 frames (45, 25, 11, 3 % left). Showing mirrors it, a little longer and
-// softer at the end so the page settles rather than snaps, the controls fading and growing back in.
 const HIDE_MS = 150;
 const HIDE_EASING = Easing.out(Easing.quad);
 const SHOW_MS = 200;
 const SHOW_EASING = Easing.out(Easing.cubic);
-// Resting on the strip this long peeks the bar (crossing it on the way to the tab strip doesn't).
 const PEEK_DELAY = 150;
 const UNPEEK_DELAY = 250;
 const SHRINK = 0.94;
-// What the page gets back from the bar itself.
 const BAR_ROOM = layout.toolbarHeight - STRIP_HEIGHT;
 
 let reduceMotion = false;
@@ -43,16 +28,11 @@ AccessibilityInfo.isReduceMotionEnabled().then(
 );
 AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => (reduceMotion = on));
 
-// Disabled (a pane not shown, or a toolbar that doesn't hide), the bar is shown whatever the stores say: nothing is
-// subscribed until it's enabled, and the render that enables it reads them as they are.
 export function useToolbarMode(tabId: string, windowId: string, enabled: boolean): ToolbarMode {
   const scrolledDown = useStoreWhile(useToolbarAutoHide, enabled, (s) => !!s.scrolledDown[tabId]);
-  // The rest only matter while the page is scrolled down: until then the bar is shown whatever they say, and a tab
-  // switched to (always shown) subscribes to one store, not six.
   const down = enabled && scrolledDown;
   const peek = useStoreWhile(useToolbarAutoHide, down, (s) => !!s.peek[tabId]);
   const hasPage = useStoreWhile(useBrowser, down, (s) => !!s.tabs[tabId]?.url);
-  // So a closed panel or find bar elsewhere doesn't re-render every pane.
   const appNeedsBar = useStoreWhile(useBrowser, down, (s) => down && needsBar(s, tabId, windowId));
   const popover = useStoreWhile(usePages, down, (s) => down && !!s.popover[tabId]);
   const historyMenu = useStoreWhile(useHistoryMenu, down, (m) => down && m.menu?.tabId === tabId);
@@ -60,22 +40,13 @@ export function useToolbarMode(tabId: string, windowId: string, enabled: boolean
 }
 
 type ToolbarMotion = {
-  // 0: the full bar's band and controls, 1: the strip.
   bar: Animated.Value;
-  // The controls' fade (0 shown), apart from the band so Reduce Motion can fade without moving anything.
   fade: Animated.Value;
-  // The page group (a bookmarks bar under the toolbar, then the page): where its layout puts it, and the transform to
-  // where it shows.
   groupStyle: Animated.WithAnimatedValue<ViewStyle>;
   pageHeight: number;
-  // For what sits at the bottom of the page (the link status bubble): kept above the card's edge while part of the
-  // page is under it.
   bottomStyle: Animated.WithAnimatedValue<ViewStyle>;
 };
 
-// The pane's layout and motion with a toolbar that hides (`enabled`: the pane places its page with it, shown or not).
-// `extra`: a bookmarks bar under the toolbar, which goes with the bar. `doc`: the page's document (its URL without the
-// fragment); a new one gets the shown bar's size again.
 export function useToolbarMotion({
   enabled,
   mode,
@@ -93,9 +64,6 @@ export function useToolbarMotion({
   const hidden = mode === "collapsed";
   const shownTop = layout.toolbarHeight + extra;
   const room = shownTop - STRIP_HEIGHT;
-  // The strip's size from the first hide (the one resize, held in place by the transform like any other move) until
-  // the next document. A page that never scrolls far enough to hide the bar keeps all of it in view. Set while
-  // rendering, so the layout changes in the commit that starts the motion.
   const [tallState, setTall] = useState({ on: collapsed, doc });
   let tall = tallState;
   if (tall.doc !== doc || (!enabled && tall.on)) tall = { on: false, doc };
@@ -106,32 +74,22 @@ export function useToolbarMotion({
   const initial = useRef({ page: collapsed ? 1 : 0, bar: hidden ? 1 : 0 }).current;
   if (!values.current) {
     values.current = {
-      // Where the page shows (0: under the full bar, 1: under the strip) and where its layout puts it (same scale).
       page: new Animated.Value(initial.page),
       laid: new Animated.Value(initial.page),
       bar: new Animated.Value(initial.bar),
       fade: new Animated.Value(initial.bar),
     };
-    // Animated writes its JS-side values into the view's props when the pane re-renders: listening has the native
-    // driver report each frame's value back, so a re-render mid-motion puts things where they are, not where the
-    // motion started.
     const { page, bar, fade } = values.current;
     for (const a of [page, bar, fade]) a.addListener(() => {});
   }
   const v = values.current;
   const translateY = useMemo(() => Animated.multiply(Animated.subtract(v.laid, v.page), room), [room]);
-  // The page's bottom is room × (1 − page) under the card's edge while it keeps the strip's size.
   const bottomShift = useMemo(() => (tall.on ? Animated.multiply(Animated.subtract(v.page, 1), room) : 0), [tall.on, room]);
-  // Driven natively from the first commit's effects on, so the setValue calls below reach the native side with the
-  // commit's mount rather than through a JS frame.
   useEffect(() => {
     const keep = (a: Animated.Value, value: number) => Animated.timing(a, { toValue: value, duration: 0, useNativeDriver: true });
     Animated.parallel([keep(v.page, initial.page), keep(v.laid, initial.page), keep(v.bar, initial.bar), keep(v.fade, initial.bar)]).start();
   }, []);
   const was = useRef({ collapsed, hidden });
-  // A layout effect: its native ops go with this commit's mount, so the layout's move and the transform holding the
-  // page where it was land in the same frame. Starting a value's animation stops the one running and carries on from
-  // where it got to, so a reversal mid-motion never jumps.
   useLayoutEffect(() => {
     const before = was.current;
     was.current = { collapsed, hidden };
@@ -143,13 +101,11 @@ export function useToolbarMotion({
       const barTo = hidden ? 1 : 0;
       v.laid.setValue(to);
       if (reduceMotion) {
-        // The page and the band move at once, the controls fade.
         v.page.setValue(to);
         v.bar.setValue(barTo);
         glide(v.fade, barTo, !collapsed).start();
       } else Animated.parallel([glide(v.page, to, !collapsed), glide(v.bar, barTo, !collapsed), glide(v.fade, barTo, !collapsed)]).start();
     } else if (!hidden) {
-      // Peeking: the bar over the page, at once.
       v.bar.setValue(0);
       v.fade.setValue(0);
     } else if (reduceMotion) {
@@ -209,22 +165,17 @@ export function AutoHideToolbar({
 
   const { bar, fade } = motion;
   const H = layout.toolbarHeight;
-  // The bar's motion is wired up the first time it leaves (in the commit that starts it), and stays for the way back. A
-  // tab switched to shows its bar, so a switch mounts it with plain styles: no native animation nodes, no strip.
   const [moved, setMoved] = useState(mode !== "shown");
   if (!moved && mode !== "shown") setMoved(true);
-  // Made once: a new interpolation is a new native node, detached and reattached on every render.
   const anim = useMemo(
     () =>
       moved && {
-        // The band: the bar's height down to the strip's, its top edge fixed (scaled about its middle, then lifted).
         bandScale: bar.interpolate({ inputRange: [0, 1], outputRange: [1, STRIP_HEIGHT / H] }),
         bandLift: bar.interpolate({ inputRange: [0, 1], outputRange: [0, -BAR_ROOM / 2] }),
         dividerTop: bar.interpolate({ inputRange: [0, 1], outputRange: [0, -BAR_ROOM] }),
         controls: fade.interpolate({ inputRange: [0, 0.2, 0.4, 0.6, 1], outputRange: [1, 0.45, 0.15, 0, 0] }),
         label: fade.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] }),
         shrink: [
-          // Toward the top centre: scaled about its middle, then lifted so its top edge stays put, and a little more.
           { translateY: bar.interpolate({ inputRange: [0, 1], outputRange: [0, -((1 - SHRINK) * H) / 2 - 3] }) },
           { scale: bar.interpolate({ inputRange: [0, 1], outputRange: [1, SHRINK] }) },
         ],
@@ -235,7 +186,6 @@ export function AutoHideToolbar({
 
   return (
     <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: 0, height: H }}>
-      {/* The band, the card under it first: a peeking bar covers the page, and a website colour never fades out. */}
       <Animated.View
         pointerEvents="none"
         style={{ position: "absolute", left: 0, right: 0, top: 0, height: H, backgroundColor: theme.card, transform: anim ? [{ translateY: anim.bandLift }, { scaleY: anim.bandScale }] : undefined }}

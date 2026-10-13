@@ -9,21 +9,21 @@ function onboardingColors(dark: boolean) {
   return dark
     ? {
         background: "#000000",
-        overlay: "rgba(0,0,0,0.6)", // BackgroundOverlay
+        overlay: "rgba(0,0,0,0.6)",
         card: "#161616",
-        cardBorder: "rgba(254,255,255,0.3)", // BackgroundBorder
+        cardBorder: "rgba(254,255,255,0.3)",
         title: "#FEFFFF",
         subtitle: "rgba(254,255,255,0.6)",
-        body: "rgba(255,255,255,0.55)", // RebrandBodyText
+        body: "rgba(255,255,255,0.55)",
         footnote: "rgba(255,255,255,0.5)",
-        steps: "rgba(255,255,255,0.3)", // StepsDescription
-        row: "rgba(255,255,255,0.08)", // RebrandRowBackground
+        steps: "rgba(255,255,255,0.3)",
+        row: "rgba(255,255,255,0.08)",
         rowBorder: "rgba(255,255,255,0.16)",
-        rowSubtitle: "rgba(255,255,255,0.6)", // RebrandCheckboxSubtitleText
-        primary: "rgba(255,255,255,0.85)", // ButtonPrimaryBackground
+        rowSubtitle: "rgba(255,255,255,0.6)",
+        primary: "rgba(255,255,255,0.85)",
         primaryHover: "rgba(255,255,255,0.9)",
         primaryText: "#000000",
-        button: "rgba(255,255,255,0.08)", // ButtonDefaultBackground
+        button: "rgba(255,255,255,0.08)",
         buttonHover: "rgba(255,255,255,0.1)",
         buttonText: "#FFFFFF",
         outlinedHover: "rgba(255,255,255,0.03)",
@@ -34,7 +34,7 @@ function onboardingColors(dark: boolean) {
         preview: "rgba(255,255,255,0.04)",
         previewBorder: "rgba(255,255,255,0.1)",
         progressTrack: "rgba(255,255,255,0.12)",
-        progressFill: "#FDD023", // RebrandProgressFill
+        progressFill: "#FDD023",
         checkbox: "rgba(255,255,255,0.1)",
         checkboxBorder: "rgba(255,255,255,0.25)",
         checkboxOn: "#FEFFFF",

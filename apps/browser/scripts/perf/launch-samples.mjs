@@ -1,14 +1,3 @@
-// Compares where two apps' main threads spend a launch, from acsample.c's samples, between two stack marks (by default
-// ChromeMain's entry and BrowserMain: the stretch Chrome's startup trace doesn't cover).
-//
-//   clang -O2 -dynamiclib -arch arm64 acsample.c -o <tools>/acsample.dylib && codesign -fs - <tools>/acsample.dylib
-//   node native-bench.mjs … --only launch --env AC_SAMPLE_MS=300 --env DYLD_INSERT_LIBRARIES=<tools>/acsample.dylib
-//   rm <out>/*/template/acsample.txt        (the seeding launch's; AC_SAMPLE_MS must end before a launch quits)
-//   node launch-samples.mjs <out> <labelA>=<unstripped framework A> <labelB>=<unstripped framework B> [--from re] [--to re] [--top n] [--leaf]
-//
-// The unstripped framework is dist/<version>/symbols/Chromium Framework (release.sh keeps it; match `dwarfdump --uuid`).
-// Frames in Chrome's framework are symbolized with atos, the rest with dladdr in the app. Prints each launch's window
-// length and the median samples (≈ ms at the ~1 ms period it prints) per function inside the window, inclusive.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -46,7 +35,6 @@ for (const spec of sides) {
     }
     return { d, sym, samples };
   });
-  // atos the framework's offsets once.
   const offsets = new Set();
   for (const p of parsed) for (const [pc, s] of p.sym) if (s.file.endsWith("Chromium Framework")) offsets.add(parseInt(pc, 16) - s.base - 1);
   const list = [...offsets];

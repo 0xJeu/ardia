@@ -55,7 +55,6 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "newWindow":
       return void openWindow({ profileId: arg ?? undefined });
     case "newIncognitoWindow":
-      // From the window it's asked in (a private one: its own regular profile), else the last active profile.
       return void openWindow({ incognito: true, profileId: originalProfile(s, s.windows[requested ?? ""]) });
     case "newLittleArdia":
       return void openLittleArdia();
@@ -95,7 +94,6 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     }
   }
 
-  // From Little Ardia, tabs, windows and the sidebar's commands act on the main window.
   if (isSmall(s, requested) && !LITTLE_ARDIA_PAGE_COMMANDS.has(command)) {
     requested = mainWindowFor(s, s.windows[requested!]!.profileId) ?? null;
     if (requested) focus(requested);
@@ -148,7 +146,6 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "stop":
       return void web?.stopLoading();
     case "share":
-      // File › Share's services send "via:<service>"; without one, the share sheet.
       return void shareTab(page, windowId, arg?.startsWith("via:") ? arg.slice(4) : null);
     case "copyUrl":
       return page ? void copyPageUrl(page.id) : undefined;
@@ -280,8 +277,6 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
   }
 }
 
-// What Little Ardia runs on its own page; everything else goes to the main window (menuState disables the tab and
-// sidebar commands that make no sense from there).
 const LITTLE_ARDIA_PAGE_COMMANDS = new Set<string>([
   "print", "printWithSystemDialog", "savePage", "caretBrowsing", "emailPageLocation", "stop", "share", "copyUrl",
   "copyUrlAsMarkdown", "findInPage", "findAndReplace", "jumpToSelection", "useSelectionForFind", "findNext", "findPrevious",
@@ -296,7 +291,6 @@ function runLittleArdiaCommand(command: string, windowId: string): boolean {
   const tab = tabId ? s.tabs[tabId] : undefined;
   switch (command) {
     case "closeTab":
-      // A blank Little Ardia (⌘⌥N, nothing typed yet) closes with its field open.
       if (s.windowUi[windowId]?.panel.open && tab?.url) s.closePanel(windowId);
       else if (tabId && s.find[tabId]?.open) closeFind(tabId);
       else closeLittleArdia(windowId);

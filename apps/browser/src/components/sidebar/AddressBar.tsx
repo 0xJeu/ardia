@@ -19,18 +19,11 @@ import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../layout/do
 
 const BUTTON = layout.toolbarButton;
 const { toggleX: TOGGLE_X, edge: EDGE, lightsRight: LIGHTS_RIGHT } = HEADER_TOOLS;
-// Dia: lights y26.75pt, x70.75pt; 5pt gap, 7pt inset.
 const LIGHTS_Y = 26.75;
-// The buttons take the header's whole height down to the field and the row past the traffic lights, edge to edge
-// (each to the midpoint between its plate and the next): presses near a button are its, not the title bar's (the
-// owner's recording 2026-10-11: clicks a few points above or left of the sidebar button double-clicked the header,
-// which zoomed the window).
 const HIT_TOP = 0;
 const HIT_BOTTOM = SIDEBAR_FIELD.top - 2;
 
 type Slot = { center: number; left: number; right: number };
-// Each button's press area from its centre and its neighbours': split at the midpoints, from just past the lights to
-// just short of the sidebar's edge.
 function slots(centers: number[], width: number): Slot[] {
   return centers.map((center, i) => ({
     center,
@@ -123,7 +116,6 @@ export function SidebarAddressRow({ width }: { width: number }) {
   );
 }
 
-// The field keeps this much for the host ("example.com") before an extension button gives way to the overflow button.
 const HOST_ROOM = 84;
 
 function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeof useToolbarTab>>; windowId: string; width: number }) {
@@ -132,7 +124,6 @@ function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeo
   const loaded = usePageProgress(tab.id);
   const progress = loading ? loaded : null;
   const inSplit = useBrowser((s) => !!splitOf(s, tab.id));
-  // The text's left padding (10) and the trailing one (3).
   const limit = extensionsFitting(width - 10 - 3 - HOST_ROOM);
   const extensionsWidth = useToolbarExtensionsWidth(windowId, limit);
   return (

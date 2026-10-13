@@ -8,8 +8,6 @@ import { NewTabExtras } from "./ntp";
 import { Omnibox } from "./Omnibox";
 
 const BAR_HEIGHT = 112;
-// The painted hills in each profile colour, as Dia paints its mark per colour; green is the brand painting. Three layers
-// (back hill, front hill, sun; docs/brand/ardia/build.py) that make the painting at rest and rise one after another.
 const MARKS = {
   green: { back: require("../../assets/ntp-mark-back.png"), front: require("../../assets/ntp-mark-front.png"), sun: require("../../assets/ntp-mark-sun.png") },
   plum: { back: require("../../assets/ntp-mark-plum-back.png"), front: require("../../assets/ntp-mark-plum-front.png"), sun: require("../../assets/ntp-mark-plum-sun.png") },
@@ -23,9 +21,6 @@ const MARKS = {
 };
 const MARK_SIZE = 100;
 const MARK_ABOVE_BAR = 84.1;
-// The intro. Each layer starts `hidden` pt down, just under the bar's top edge, and springs up: the front hill first, the
-// far hill from behind it, then the sun from behind both, drifting a little left as it climbs. The back hill trails the
-// front one all the way, so the paint under the front hill never shows. Settled by about 0.8 s. Drawn back to front.
 const SUN_DELAY = 250;
 const MARK_LAYERS = [
   { name: "sun", hidden: 56, delay: SUN_DELAY, spring: springParams(0.56, 0.9) },
@@ -82,7 +77,6 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
 
   const width = barWidth(size.width);
   const x = Math.max(size.width / 2 - width / 2, 14) + DIA_OFFSET;
-  // Dia's rule is from the page under the toolbar; without one (address bar in the sidebar) the bar keeps the same place in the card.
   const under = toolbar ? 0 : layout.toolbarHeight;
   const top = Math.max((size.height - under) / 2 - 158, 100) + 38 + DIA_OFFSET + under;
 

@@ -1,5 +1,3 @@
-// The app itself, which index.js loads once the native build matches this bundle (nativeApi.tsx).
-// First, so every native module listener the app adds applies held page reports before it runs.
 import "./lib/nativeEvents";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { AppRegistry, unstable_batchedUpdates } from "react-native";
@@ -21,11 +19,9 @@ import { launchCommitted } from "./telemetry/journeys";
 import { markFirstWindow } from "./telemetry/track";
 
 probeStore("browser", useBrowser);
-// Reports stay silent until the user shares them.
 installErrorReporting();
 setStoreBatching(unstable_batchedUpdates);
 startPersistence();
-// Before the native sync: a moved tab's page is handed off before the window it left closes (lib/tabPages.ts).
 startTabPages();
 startNativeSync();
 startAppIntegration();
@@ -36,8 +32,6 @@ startTelemetry();
 startKillSwitches();
 if (__DEV__ || perfProbeEnabled) require("./lib/devHarness").startDevHarness();
 
-// Development: `globalThis.acDevMountDelayMs` holds a window's content back that long after its root starts, as a
-// window opened under load mounts late (acceptance move-tab-slow-mount).
 const devMountDelay = () => (__DEV__ ? ((globalThis as { acDevMountDelayMs?: number }).acDevMountDelayMs ?? 0) : 0);
 
 function Root({ windowId }: { windowId: string }) {

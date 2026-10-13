@@ -40,9 +40,6 @@ export function ToolbarButton({
   palette: Pick<ToolbarPalette, "icon" | "iconDisabled" | "hover" | "pressed">;
   color?: string;
   style?: ViewStyle;
-  /** A press area larger than the plate (the plate's top-left at `plateX`, `plateY` in it): the button takes the
-   *  presses around its plate, so a near miss in a title-bar strip doesn't land on the strip (a double-click there
-   *  zooms the window). */
   hit?: ButtonHit;
 }) {
   const { hovered, hoverProps } = useHover();
@@ -74,8 +71,6 @@ export function ToolbarButton({
       {({ pressed }) => plate(pressed)}
     </Pressable>
   );
-  // mouseDownCanMoveWindow={false}: a press on a button, disabled or not, is never the title bar's (a drag of the
-  // window, or its double-click action).
   return (
     <View tooltip={tooltip} style={style} mouseDownCanMoveWindow={false} {...hoverProps}>
       {onContextMenu && !disabled ? <ContextMenuArea onContextMenu={onContextMenu}>{button}</ContextMenuArea> : button}
@@ -85,10 +80,6 @@ export function ToolbarButton({
 
 export type ButtonHit = { width: number; height: number; plateX: number; plateY: number };
 
-// One grid for every panel that opens from the address field and the toolbar (Site Controls, the site's prompts, zoom,
-// history, Cast, screen sharing, the device chooser, downloads). Everything sits `inset` from each edge: the first icon
-// is as far from the top as from the left, and row icons, separators, accessories and the last row line up with it.
-// A row's hover fill reaches `rowInset` from the edge and its contents start `rowPadding` further in, on the inset.
 const INSET = 16;
 const ROW_INSET = 6;
 const RADIUS = 12;
@@ -100,18 +91,13 @@ export const PANEL = {
   inset: INSET,
   rowInset: ROW_INSET,
   rowPadding: INSET - ROW_INSET,
-  /** Concentric with the panel's corner. */
   rowRadius: RADIUS - ROW_INSET,
   rowHeight: ROW_HEIGHT,
-  /** Row icons and the header's favicon are centred in this box, so the icon column is one line. */
   iconSlot: ICON_SLOT,
   iconSize: 13,
   iconGap: ICON_GAP,
-  /** Where row titles start, from the panel's edge. */
   textColumn: INSET + ICON_SLOT + ICON_GAP,
-  /** Above the first row and below the last: their icon slots land on the inset. */
   listPadding: INSET - (ROW_HEIGHT - ICON_SLOT) / 2,
-  /** Between a header and what follows it. */
   headerGap: 8,
   separatorGap: 5,
   titleSize: 13,
@@ -121,8 +107,6 @@ export const PANEL = {
   valueSize: 12,
 } as const;
 
-/** A panel's title row: its icon's box `inset` from the top and the left, the title (and a one-line subtitle) centred on
- *  it. Text taller than the icon reaches above it, so the icon, not the text, decides the top inset. */
 export function PanelHeader({
   icon,
   iconSize = PANEL.iconSlot,
@@ -142,7 +126,6 @@ export function PanelHeader({
 }) {
   const theme = useTheme();
   const titleLine = large ? PANEL.titleLine + 1 : PANEL.titleLine;
-  // Measured once laid out (a subtitle may wrap); the estimate is exact for one line each.
   const [textHeight, setTextHeight] = useState(titleLine + (subtitle ? PANEL.subtitleLine : 0));
   const overhang = Math.max(0, (textHeight - iconSize) / 2);
   return (
@@ -172,7 +155,6 @@ export function PanelHeader({
   );
 }
 
-/** A row's value that opens a menu ("Ask ⌃⌄"): its glyph ends on the inset, its hover box reaching past it. */
 export function PopoverValue({ title, onPress, chevron = "chevron.up.chevron.down", tooltip }: { title: string; onPress: () => void; chevron?: string; tooltip?: string }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
@@ -189,7 +171,6 @@ export function PopoverValue({ title, onPress, chevron = "chevron.up.chevron.dow
 }
 const VALUE_PAD = 6;
 
-/** A prompt's ✕: its glyph's corner on the inset. */
 export function PanelCloseButton({ onPress, tooltip = "Dismiss" }: { onPress: () => void; tooltip?: string }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
@@ -205,7 +186,6 @@ export function PanelCloseButton({ onPress, tooltip = "Dismiss" }: { onPress: ()
   );
 }
 const CLOSE_BOX = 22;
-// xmark at 9 pt, semibold, is about 7 pt across.
 const CLOSE_GLYPH = 7;
 
 export function Popover({
@@ -280,7 +260,6 @@ export function PopoverRow({
   destructive,
 }: {
   icon?: string;
-  /** Drawn in the icon's slot instead of a symbol (a favicon). */
   leading?: ReactNode;
   iconColor?: string;
   title: string;
@@ -377,7 +356,6 @@ export function Toggle({ value, onChange }: { value: boolean; onChange: (value: 
   const theme = useTheme();
   const x = useRef(new Animated.Value(value ? 1 : 0)).current;
   useEffect(() => {
-    // JS driver: the track's colour rides the same value.
     Animated.timing(x, { toValue: value ? 1 : 0, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
   }, [value]);
   return (

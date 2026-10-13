@@ -45,7 +45,6 @@ function SwitcherRow({ tabId, focused, index, focusFill, outline }: { tabId: str
   const theme = useTheme();
   const tab = useBrowser((s) => s.tabs[tabId]);
   if (!tab) return null;
-  // Switch on mouse-down; the following mouse-up would close the switcher.
   return (
     <Pressable onPressIn={() => commitSwitcher(index)}>
       <View

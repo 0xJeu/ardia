@@ -1,29 +1,20 @@
-// rrweb session recording (loaded lazily by replay.ts). Inputs are masked, text inside .ac-private /
-// [data-private] is masked and .ac-block / [data-private-block] is blocked; no canvas, fonts, network or
-// console. Every session is recorded; chunks go up only once the session is REPLAY_MIN_SESSION_MS old:
-//   every REPLAY_CHUNK_MS  gzip → POST /otel/replay/<session>/<seq>.json.gz
-//   page hidden            plain JSON by sendBeacon → /otel/replay/<session>/<seq>.json
-// seq counts on across the pages of a session (localStorage), and each chunk is also a $replay_chunk event.
 import { record as rrweb } from "@rrweb/record";
 import { BLOCK_SELECTOR, PRIVATE_SELECTOR, REPLAY_CHUNK_MS, REPLAY_MIN_SESSION_MS, REPLAY_PATH } from "../../data/telemetry";
 import { capture, distinctId, onHide, onSessionChange, sessionId, sessionStart } from "./core";
 import { sampled } from "./replay";
 
-/** What rrweb emits (its own types don't resolve from @rrweb/record under pnpm). */
 interface eventWithTime {
   type: number;
   data: unknown;
   timestamp: number;
 }
 
-/** nginx takes 2 MB; beacons and keepalive fetches 64 KB. */
 const MAX_CHUNK = 1_900_000;
 const MAX_BEACON = 60_000;
 
 const SEQ_KEY = "ac:replay_seq";
 let memorySeq: { sid: string; next: number } = { sid: "", next: 0 };
 
-/** The next chunk number for this session, shared by its tabs and pages. */
 function nextSeq(sid: string): number {
   let state = memorySeq;
   try {
@@ -63,8 +54,6 @@ async function gzip(text: string): Promise<ArrayBuffer> {
   return new Response(stream).arrayBuffer();
 }
 
-/** A chunk, gzipped when the browser can: serialized and compressed once, and split in two only when that's
- * over nginx's limit (a rare, huge snapshot; its number then goes unused, and readers sort what's there). */
 async function upload(sid: string, events: eventWithTime[]): Promise<void> {
   if (!events.length) return;
   const compress = typeof CompressionStream === "function";
@@ -89,8 +78,6 @@ async function upload(sid: string, events: eventWithTime[]): Promise<void> {
   }).catch(() => {});
 }
 
-/** The page is going: plain JSON by beacon, in pieces that fit one. An event too big for a beacon goes by
- * a normal fetch, which only lands if the page lives on (a hidden tab, not an unload). */
 function beacon(sid: string, events: eventWithTime[]) {
   let piece: eventWithTime[] = [];
   let size = 200;
@@ -163,7 +150,6 @@ export function record() {
     if (buffer.length && ready()) void upload(sid, take());
   };
   setInterval(tick, REPLAY_CHUNK_MS);
-  // Short sessions never go up; the first chunk goes as soon as the session is long enough.
   const wait = REPLAY_MIN_SESSION_MS - (Date.now() - sessionStart());
   if (wait > 0) setTimeout(tick, wait + 50);
   else tick();
@@ -172,8 +158,6 @@ export function record() {
     if (buffer.length && ready()) beacon(sid, take());
   });
 
-  // After 30 idle minutes the next activity starts a new session: what's buffered belongs to the old one,
-  // and the new one starts from a full snapshot (or not at all, if it isn't sampled).
   onSessionChange((next, previous) => {
     const events = take();
     if (events.length) void upload(previous, events);

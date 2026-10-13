@@ -78,8 +78,6 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
     return () => clearTimeout(timer);
   }, [undo]);
 
-  // MARK: Drag and drop
-
   const dragging = useRef<string[]>([]);
   const onDragStart = (id: string) => {
     dragging.current = selected.includes(id) ? ids.filter((x) => selected.includes(x)) : [id];

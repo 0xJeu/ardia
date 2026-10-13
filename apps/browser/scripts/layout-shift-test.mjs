@@ -1,15 +1,3 @@
-// Nothing already on screen moves while a launch fills in (docs/perf/sprint.md, "Lessons"): the sidebar's deferred rows
-// (7184f7e8: a page first mounts what its window shows, the rest a chunk per frame, holding their room) and the profile
-// page beside it (a frame later) must not shift a row the first frames showed.
-//
-//   node apps/browser/scripts/layout-shift-test.mjs <Release or Debug Ardia.app> [--bundle <main.jsbundle>] [--runs 3]
-//
-// Each run seeds seed.mjs's big session (200 tabs in two profiles) with the perf probe's "layout" option
-// (src/lib/layoutWatch.ts: every sidebar row measured in its window after each commit of the launch's first 8 s),
-// launches a hidden instance, and fails when a row that was on screen is later somewhere else, or when a row the shown
-// page should have is missing at the end. One more run opens, closes and moves a tab while the rows fill in
-// ("layoutEdit"): its rows must all be there at the end (rows moving is expected then). A Release app runs its own bundle
-// unless --bundle swaps one in (a copy, signed again, as js-bench does).
 import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

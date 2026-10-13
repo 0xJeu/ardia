@@ -9,7 +9,6 @@ import type { Profile, ProfileColor } from "./types";
 export type ProfilesSlice = {
   profiles: Record<string, Profile>;
   profileOrder: string[];
-  // Engine profiles whose data a deleted profile left behind, until it's gone (lib/profileData.ts).
   orphanedProfileData: string[];
 
   createProfile(options: { name: string; color?: ProfileColor; icon?: string | null; shareWith?: string | null }): string;
@@ -27,10 +26,7 @@ const COLORS: ProfileColor[] = ["blue", "green", "orange", "purple", "red", "yel
 export const unusedProfileColor = (profiles: Record<string, Profile>): ProfileColor =>
   COLORS.find((c) => !Object.values(profiles).some((p) => p.color === c)) ?? "blue";
 
-// MARK: Shared data
-
 const dataIdOf = (profile: Profile) => profile.dataId ?? profile.id;
-// The engine's profile id, as model.engineProfile maps it: the original profile's data is Chrome's default profile.
 export const engineIdOf = (profile: Profile) => (dataIdOf(profile) === DEFAULT_PROFILE_ID ? "" : dataIdOf(profile));
 
 export function dataGroups(s: Pick<BrowserState, "profiles" | "profileOrder">): { dataId: string; profileIds: string[] }[] {
@@ -110,7 +106,6 @@ export const createProfilesSlice: StateCreator<BrowserState, [], [], ProfilesSli
 
     deleteProfile(id) {
       if (!get().profiles[id] || get().profileOrder.length <= 1) return;
-      // Its private windows close with it, as Chrome's do: their session is its off-the-record profile.
       for (const w of Object.values(get().windows)) if (w.incognito && w.originalProfileId === id) get().closeWindow(w.id);
       let s = get();
       const profileOrder = s.profileOrder.filter((p) => p !== id);

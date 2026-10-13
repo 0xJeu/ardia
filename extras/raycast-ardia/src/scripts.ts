@@ -1,38 +1,22 @@
-/**
- * The AppleScript this extension sends Ardia (its dictionary: Ardia.sdef in the app),
- * kept free of Raycast imports so it can be checked on its own (`npm test`) and run inside the
- * app by its DEV AppleScript runner.
- */
-
 export const BUNDLE_ID = "com.ardia.browser";
 
-/** Who the scripts talk to: the app by bundle id (tests inside the app use `current application`). */
 export const APP_TARGET = `application id "${BUNDLE_ID}"`;
 
 export type Tab = {
   windowId: string;
-  /** Front to back, 1 = the front window. */
   windowIndex: number;
   tabId: string;
   title: string;
-  /** Empty for the New Tab page. */
   url: string;
   isPinned: boolean;
-  /** The tab its window shows. */
   isFocused: boolean;
 };
 
-// ASCII unit and record separators: never in titles or URLs.
 const FIELD = "\u001f";
 const RECORD = "\u001e";
 
-/** "a\"b" → a quoted AppleScript string literal. */
 export const quote = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
-/**
- * Every window's tabs in sidebar order (pinned first), windows front to back. One Apple event
- * per property and window (`… of every tab`), not one per tab.
- */
 export function listTabsScript(target = APP_TARGET) {
   return `set fs to character id 31
 set rs to character id 30
@@ -55,7 +39,6 @@ end tell
 return out`;
 }
 
-/** What `listTabsScript` returns → tabs. */
 export function parseTabs(output: string): Tab[] {
   return output
     .split(RECORD)
@@ -74,7 +57,6 @@ export function parseTabs(output: string): Tab[] {
     });
 }
 
-/** Selects the tab, bringing its window forward. Activating the app is a separate step (`activateScript`). */
 export function focusTabScript(tab: Pick<Tab, "windowId" | "tabId">, target = APP_TARGET) {
   return `tell ${target} to focus (tab id ${quote(tab.tabId)} of window id ${quote(tab.windowId)})`;
 }
@@ -87,7 +69,6 @@ export function activateScript(target = APP_TARGET) {
   return `tell ${target} to activate`;
 }
 
-/** The part of a URL a tab row shows under its title. */
 export function hostOf(url: string) {
   try {
     const { hostname, protocol } = new URL(url);

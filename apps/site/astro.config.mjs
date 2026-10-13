@@ -4,8 +4,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { constants, gzipSync } from "node:zlib";
 
-/** A gzip at the highest level next to every text file, served as-is by nginx's gzip_static
- * (infra/site/nginx.conf), so no request waits on compression and none gets a quick, larger one. */
 function dist() {
   const compressible = /\.(html|css|js|mjs|json|svg|xml|txt)$/;
   const walk = (dir) =>

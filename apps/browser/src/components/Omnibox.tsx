@@ -24,8 +24,6 @@ import { IconButton, useHover } from "./primitives";
 
 type Variant = "panel" | "hero" | "sidebar";
 
-// Dia 1.52's panel: its text starts 48pt in from its edge, where the URL field's text was (CommandPanel places it so),
-// at the field's 13pt; the search icon is centred 30pt in. An NSTextField draws its text 2.5pt into its frame.
 export const PANEL_TEXT_LEFT = 48;
 const PANEL_ICON_LEFT = 21;
 const FIELD_TEXT_INSET = 2.5;
@@ -47,7 +45,6 @@ const BASE_KEYS = [
   { key: "Enter", ctrlKey: true, shiftKey: true },
 ];
 const SCOPE_KEYS = [...BASE_KEYS, { key: "Backspace" }];
-// ⇧⌦ is the field's own forward delete unless the selected row can be removed from history (Chrome's TryDeletingPopupLine).
 const REMOVE_KEYS = [...BASE_KEYS, { key: "Delete", shiftKey: true }];
 
 export function Omnibox({
@@ -80,8 +77,6 @@ export function Omnibox({
     restored?.selection ?? (initialText ? { start: 0, end: initialText.length } : null),
   );
   const selection = useRef<Selection>(restored?.selection ?? { start: 0, end: typed.length });
-  // The selection before the latest change to it: RN reports the caret after an edit before the edit's text, so a
-  // text change finds the selection it replaced here (Chrome's just_deleted_text and paste rules need it).
   const selectionBefore = useRef<Selection>(selection.current);
   const selectionAt = useRef(0);
   const noteSelection = (next: Selection) => {
@@ -119,9 +114,6 @@ export function Omnibox({
   snapshot.current = { typed, edited, selection: selection.current, selected, scope };
   const fieldText = useRef(value);
   fieldText.current = value;
-  // Focusing a field that isn't being edited reports AppKit's select-all and then the caret at the end (RN's
-  // reactFocus), after the selection the bar applies with it: those two would leave `selection` wrong for the
-  // first key (⌘L, then a letter the address starts with, read as a deletion).
   const editing = useRef(false);
   const focusEcho = useRef(false);
   const focusField = () => {
@@ -132,7 +124,6 @@ export function Omnibox({
     if (!hero) return;
     const focus = () => {
       focusField();
-      // Everything in the field, the shown completion too.
       setPendingSelection({ start: 0, end: fieldText.current.length });
     };
     const unregister = registerHeroBar(windowId, focus);
@@ -142,7 +133,6 @@ export function Omnibox({
     };
   }, [hero, windowId, tabId]);
 
-  // Apply selection imperatively; RN macOS can restore a stale caret when its selection prop clears.
   useLayoutEffect(() => {
     if (!pendingSelection) return;
     input.current?.setSelection(pendingSelection.start, pendingSelection.end);
@@ -169,7 +159,6 @@ export function Omnibox({
   };
 
   const choose = (s: Suggestion | undefined, disposition: Disposition = "current") => {
-    // Opt-in telemetry records the suggestion kind only, never its text.
     if (s || !scope) trackSuggestionChosen(s);
     if (!s) {
       if (scope) return;
@@ -222,7 +211,6 @@ export function Omnibox({
     setSuppressCompletion(true);
   };
 
-  // ↑ and ↓ wrap around the rows, as in Chrome (OmniboxPopupSelection::GetNextSelection).
   const move = (delta: 1 | -1) =>
     setSelected((i) => (items.length ? (Math.min(i, items.length - 1) + delta + items.length) % items.length : 0));
 
@@ -287,7 +275,6 @@ export function Omnibox({
     focusField();
   };
 
-  // Opt-in field timing (telemetry/journeys.ts): a new tab's bar, and its first suggestions.
   useLayoutEffect(() => journeyBarCommitted(tabId), []);
   useLayoutEffect(() => {
     if (items.length) journeySuggestions(tabId);
@@ -305,8 +292,6 @@ export function Omnibox({
 
   const onChangeText = (next: string) => {
     if (__DEV__) heardAt.current = Date.now();
-    // An edit's caret arrives just before its text. An edit that leaves the caret where it was (⌦) has none, so a
-    // selection that changed earlier (a click) is what it started from.
     const fresh = Date.now() - selectionAt.current < 100;
     const change = inline.read(next, { before: fresh ? selectionBefore.current : selection.current, after: selection.current });
     if (change.echo) {
@@ -316,7 +301,6 @@ export function Omnibox({
     focusEcho.current = false;
     keyAt.current = Date.now();
     journeyKeystroke(tabId);
-    // Space right after an exact keyword or site host (youtube.com␣) enters its search, as Tab does.
     const keyword = !scope && next === typed + " " ? keywordScope(typed, windowId) : null;
     if (keyword) return enterScope(keyword);
     setEdited(true);
@@ -326,7 +310,6 @@ export function Omnibox({
   };
 
   useOmniboxDriver(`${windowId}:${variant}`, {
-    // As the field reports a keystroke: the caret after the edit first, then the text.
     type: (text) => {
       noteSelection({ start: text.length, end: text.length });
       onChangeText(text);
@@ -346,9 +329,6 @@ export function Omnibox({
       <Symbol name="magnifyingglass" size={15} weight="medium" color={hero ? theme.textSecondary : theme.textPrimary} style={{ width: 18, height: 18 }} />
     );
 
-  // Focus once the field has its frame: autoFocus hands the window's shared field editor a
-  // zero-width field, and the editor then stays wider than the field (its text draws past the
-  // edge and never scrolls).
   const focused = useRef(false);
   const focusOnce = () => {
     if (focused.current) return;
@@ -375,7 +355,6 @@ export function Omnibox({
           focusEcho.current = false;
         }
         noteSelection(next);
-        // → and ⌘→ (or a click at the end) accept the completion: it is typed text from here on (the next ⌫ deletes from it).
         if (inline.accepts(next)) {
           setTyped(value);
           setSuppressCompletion(true);
@@ -403,7 +382,6 @@ export function Omnibox({
         fontSize: hero ? 17 : dropdown ? 14 : 13,
         color: theme.textPrimary,
         paddingVertical: 0,
-        // Centred in its row, the field's baseline sat 1.5pt below the URL field's.
         marginTop: variant === "panel" ? -3 : 0,
       }}
     />
@@ -411,7 +389,6 @@ export function Omnibox({
 
   const latest = useRef({ choose, profileId, go, current, onCancel, tabId });
   latest.current = { choose, profileId, go, current, onCancel, tabId };
-  // The bar's buttons take these, so they stay as they are while the field re-renders on each key.
   const [barActions] = useState(() => ({
     go: (url: string) => latest.current.go(url),
     choose: () => latest.current.choose(latest.current.current),

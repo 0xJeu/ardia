@@ -8,7 +8,6 @@ import { Favicon } from "../primitives";
 
 export const SYMBOL_PREFIX = "symbol:";
 
-// Memoized: rows re-render on hover and selection, and the icon's props rarely change.
 export const TabIcon = memo(function TabIcon({
   tabId,
   url,
@@ -37,8 +36,6 @@ export const TabIcon = memo(function TabIcon({
   );
 });
 
-// Looks the tab's profile up only when the caller didn't pass it: a subscription per icon adds up in
-// the sidebar, where every row runs its selectors on every store update.
 function TabProfileIcon({ tabId, ...props }: Omit<Parameters<typeof Icon>[0], "profileId"> & { tabId: string }) {
   const profileId = useBrowser((s) => s.tabs[tabId]?.profileId);
   return <Icon {...props} profileId={profileId} />;

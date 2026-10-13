@@ -32,23 +32,18 @@ import { SplitRowItem, TabRowItem } from "./sidebar/TabRow";
 import { useSidebarTokens } from "./sidebar/tokens";
 
 const GLOW_ROOM = 24;
-// The pin target's band between the header and the first row, with no address field there.
 const PIN_BAND = 17;
 const ROW_PITCH = layout.rowHeight + layout.rowGap;
 const DOCKED_BOTTOM = 6;
-// Room the docked New Tab row takes from the list: the row plus one row gap above it.
 const DOCK = DOCKED_BOTTOM + ROW_PITCH;
 const ROWS_PER_FRAME = 32;
 const NONE: string[] = [];
 
-// `width`: the window's sidebar width (its frame, layout/SidebarDock.tsx, reads it once for both).
 export function Sidebar({ width }: { width: number }) {
   const windowId = useWindowId();
   const current = useWindowProfileId();
   const { pages, paging } = usePagerPages(windowId);
   const [available, setAvailable] = useState(0);
-  // The list's height matters only through `docked`: kept in a ref, so a tab opening or closing re-renders the
-  // sidebar only when the New Tab row docks or undocks.
   const listHeight = useRef(0);
   const [, setDockChanges] = useState(0);
   const dockedAt = (list: number) => available > 0 && list + ROW_PITCH + 12 > available;
@@ -73,7 +68,6 @@ export function Sidebar({ width }: { width: number }) {
   const nothingPinned = useBrowser((s) => sidebarEntries(s, windowId, current).tiles.length === 0);
 
   useRevealTabs(windowId, scroll, scrollY, geometry, glowRoom);
-  // A card anchored to a row of the page paging away would stay where the row was.
   useEffect(() => dismissHover(), [current]);
 
   return (
@@ -153,7 +147,6 @@ export function Sidebar({ width }: { width: number }) {
                 <SidebarAddressRow width={width} />
               </>
             ) : (
-              // Box-none: the header's empty space is the drag region's (it moves the window), not the row's.
               <View pointerEvents="box-none" style={{ height: layout.sidebarHeader, flexDirection: "row", alignItems: "flex-start", paddingLeft: PROFILE_INDICATOR_X, paddingRight: 7, paddingTop: 27 - 17 }}>
                 <ProfileIndicator room={width - PROFILE_INDICATOR_X - 7 - (hasDownloads ? 34 + 2 : 0)} />
                 <View pointerEvents="none" style={{ flex: 1 }} />
@@ -163,7 +156,6 @@ export function Sidebar({ width }: { width: number }) {
           </View>
 
           <ResizeHandle windowId={windowId} />
-          {/* Nothing pinned: the drag's pin target, over room the sidebar already has, so no row moves. */}
           {ghost && !ghost.landing && nothingPinned ? (
             addressBar ? (
               <PinDropZone top={SIDEBAR_FIELD.top} height={SIDEBAR_FIELD.height} cover />
@@ -187,7 +179,6 @@ type PageProps = {
   docked: boolean;
   glowRoom: number;
   rows: number | undefined;
-  /** The current page's: where its regions and viewport are, for revealing tabs. */
   geometry: RefObject<SidebarGeometry> | undefined;
   onListHeight: (height: number) => void;
   onScrollView: (view: ScrollView | null) => void;
@@ -198,9 +189,6 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
   const windowId = useWindowId();
   const topGap = listTopGap(useAddressBarInSidebar());
   const pageStyle = usePageStyle(windowId, slot, width);
-  // The viewport starts glowRoom above the header's foot so the first row's glow isn't cut, but scrolled rows
-  // must never show there, under the traffic lights and the profile name. The viewport's top edge follows the
-  // first row down to the header's foot as the list scrolls (outer view moves the clip, inner one cancels it).
   const scrollY = useRef(new Animated.Value(0)).current;
   const [onScroll] = useState(() =>
     Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -281,23 +269,12 @@ type PageRowsProps = {
   onListHeight: (height: number) => void;
 };
 
-// A page's tiles, groups and rows. Their own component, so the rows mounting chunk by chunk (and a tab opening or
-// closing) re-render this list alone, not the page's scroll view.
 function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, topGap, innerWidth, controller, geometry, onListHeight }: PageRowsProps) {
   const { tiles, pinnedGroups, list: all } = useSidebarEntries(windowId, profileId);
-  // A page's first render mounts only the rows its window can show (a list as tall as the window, from the top: a page
-  // mounts scrolled to the top); the rest follow in chunks, one per frame, so a long sidebar neither holds up the
-  // window's first frame nor mounts in one long task after it.
-  // (The lazySidebarRows kill switch, read at launch: off, a page first mounts 64 rows and mounts a beside page at once.)
   const [lazy] = useState(() => switchOn("lazySidebarRows"));
   const [mountedRows, setMountedRows] = useState(() => firstPaintEntries(useBrowser.getState(), windowId, profileId, all, lazy));
-  // A page beside the current one draws only the rows that fit until it has been current; after that it keeps every
-  // row, so paging mounts nothing (dropping back to a screenful unmounted every row past it on the page leaving and
-  // mounted them again on the page arriving, on every switch).
   const [visited, setVisited] = useState(current);
   if (current && !visited) setVisited(true);
-  // A page beside the current one is off screen until a swipe brings it: its tiles and rows mount a frame after it,
-  // so a launch's first frame mounts the current page's alone.
   const [beside, setBeside] = useState(() => startsOffScreen(lazy, current));
   useEffect(() => {
     if (!beside) return;
@@ -309,14 +286,11 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   const growing = cap === undefined && mountedRows < all.length;
   useEffect(() => {
     if (!growing) return;
-    // Once caught up, every row mounts with the list (a tab opened later never waits for a chunk).
     const frame = requestAnimationFrame(() => setMountedRows((n) => (n + ROWS_PER_FRAME >= all.length ? Infinity : n + ROWS_PER_FRAME)));
     return () => cancelAnimationFrame(frame);
   }, [growing, mountedRows, all.length]);
   const limit = cap ?? (growing ? mountedRows : undefined);
   const list = limit === undefined ? all : all.slice(0, limit);
-  // Rows still to mount hold their room (rows are fixed-height): the list is as tall as it will be, so a tab revealed
-  // early scrolls to its place, and the New Tab row docks once.
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
   if (geometry) geometry.current.newTabAtTop = newTabsAtTop && inlineNewTab;
@@ -370,8 +344,6 @@ function PageContent({ children }: { children: (controller: ReturnType<typeof us
   return <>{children(useDragController())}</>;
 }
 
-// Rows are memoized by id: the sidebar re-renders on layout and profile changes, and each row
-// subscribes to its own tab.
 const ListEntry = memo(function ListEntry({ entry }: { entry: string }) {
   const id = entry.slice(2);
   if (entry.startsWith("g:")) return <GroupBlock groupId={id} section="list" />;
@@ -386,8 +358,6 @@ const Tail = memo(function Tail({ id, section }: { id: string; section: "list" |
 
 type SidebarGeometry = { viewport: number; regions: Record<Section, number>; newTabAtTop: boolean; laidOut?: () => void };
 
-// Keeps the tab just switched to, or else the last tab opened from another in the background, in view: one scroll a
-// frame, to the row's place worked out from the store (rows are fixed-height), mounted or not.
 function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, scrollY: RefObject<number>, geometry: RefObject<SidebarGeometry>, glowRoom: number) {
   useEffect(() => {
     let switched: string | null = null;
@@ -402,7 +372,6 @@ function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, s
     };
     const reveal = () => {
       frame = 0;
-      // A page that hasn't laid out yet (the sidebar just mounted) reveals once it has.
       if (!geometry.current.viewport || !scroll.current) return;
       const mine = ++reveals;
       const tabId = switched ?? opened;
@@ -413,13 +382,11 @@ function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, s
       const { regions, newTabAtTop } = geometry.current;
       const span = rowSpan(s, windowId, profileId, tabId, newTabAtTop);
       if (span) return show(glowRoom + regions[span.section] + span.top, span.height);
-      // A pinned tile or a live folder's row: always mounted, so measured once.
       const view = scroll.current as unknown as View;
       void measureRow(windowId, tabId).then((row) =>
         view.measureInWindow((_x, y) => row && mine === reveals && show(row.y - y + (scrollY.current ?? 0), row.height)),
       );
     };
-    // After the frame's layout: the rows it adds are in the list.
     const schedule = () => {
       if ((switched || opened) && !frame) frame = requestAnimationFrame(reveal);
     };

@@ -83,7 +83,6 @@ function Tour({ windowId }: { windowId: string }) {
       card.y.setValue(cardTo.y);
       return;
     }
-    // JS driver: these drive layout (left/top/width/height) and Ring's radius listener.
     const spring = (v: Animated.Value, toValue: number) => Animated.spring(v, { toValue, friction: 10, tension: 70, useNativeDriver: false });
     Animated.parallel([
       ...(Object.keys(to) as (keyof typeof to)[]).map((k) => spring(hole[k], to[k])),
@@ -159,7 +158,6 @@ function Ring({ hole }: { hole: { x: Animated.Value; y: Animated.Value; w: Anima
         height: Animated.add(hole.h, out * 2),
       }}
     >
-      {/* Its own view: a native-driven value can't share a style with the JS-driven frame above. */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }) }]}>
         <Surface style={StyleSheet.absoluteFill} cornerRadius={r + out} borderWidth={1.5} borderColor="#FFFFFFB3" />
       </Animated.View>
@@ -236,8 +234,6 @@ function TextButton({ title, onPress }: { title: string; onPress: () => void }) 
     </View>
   );
 }
-
-// MARK: Geometry
 
 const sameRect = (a: Rect | null, b: Rect | null) =>
   a === b || (!!a && !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5);

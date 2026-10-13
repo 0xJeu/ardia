@@ -3,7 +3,6 @@ import { Image, Picture } from "astro:assets";
 import crowd from "../assets/game/crowd.webp";
 import lost from "../assets/game/lost.webp";
 
-// Where she is in this particular screenshot (fractions of the image).
 const spot = { x: 0.193, y: 0.388, r: 0.04 };
 ---
 
@@ -176,7 +175,6 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
       grid-template-columns: 1fr auto;
       grid-template-areas: "title lost" "copy copy";
     }
-    /* On a phone the whole meadow is too small to search: show it big and let the flock pan. */
     .pan {
       overflow-x: auto;
       overscroll-behavior-x: contain;
@@ -209,7 +207,6 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
   const board = document.querySelector<HTMLElement>("[data-board]");
   const spot = board?.querySelector<HTMLButtonElement>("[data-found]");
   const toast = board?.querySelector<HTMLElement>("[data-toast]");
-  // Phones: start at the far end of the meadow, so finding her takes a swipe.
   const pan = board?.querySelector<HTMLElement>("[data-pan]");
   if (pan && pan.scrollWidth > pan.clientWidth) pan.scrollLeft = pan.scrollWidth;
   if (board && spot && toast) {
@@ -227,7 +224,6 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
       clearTimeout(Number(toast.dataset.t));
       toast.dataset.t = String(setTimeout(() => toast.removeAttribute("data-show"), 2600));
     };
-    // Once she's found, any click repeats the result: most solvers kept clicking a board that had gone quiet.
     let found = "";
     spot.addEventListener("click", (e) => {
       e.stopPropagation();

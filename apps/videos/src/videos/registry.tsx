@@ -20,9 +20,6 @@ interface WebpackContext {
   (key: string): unknown;
 }
 
-// `require.context` has to appear literally for webpack to see it. The cast is
-// what keeps this file free of an ambient declaration that would clash with
-// whatever types the project already has.
 const VIDEOS = (
   require as unknown as {
     context: (
@@ -35,9 +32,6 @@ const VIDEOS = (
 
 const ID = /^\.\/([^/]+)\/index\.tsx$/;
 
-// Every folder under src/videos is a composition, named after the folder. This
-// file is the studio's; the project's own compositions stay in Root.tsx, and
-// nothing here ever edits them.
 export function Videos() {
   return (
     <>

@@ -9,7 +9,6 @@ import { useSidebarTokens } from "../sidebar/tokens";
 import { useLiveColors } from "./colors";
 
 export const NextMeetingBadge = memo(function NextMeetingBadge({ tabId }: { tabId: string }) {
-  // The URL, not the check: the selector runs on every store update, the regex only when it changes.
   const pinnedUrl = useBrowser((s) => {
     const t = s.tabs[tabId];
     return t?.pinned ? (t.pinnedUrl ?? t.url) : null;
@@ -26,7 +25,6 @@ export const NextMeetingBadge = memo(function NextMeetingBadge({ tabId }: { tabI
   const [label, setLabel] = useState(text);
   useEffect(() => {
     if (text) setLabel(text);
-    // Only a finished fade-out drops the label: a badge coming back mid-fade stops it, and must stay.
     Animated.spring(shown, { toValue: text ? 1 : 0, speed: 16, bounciness: text ? 10 : 0, useNativeDriver: true }).start(({ finished }) => {
       if (finished && !text) setLabel(null);
     });

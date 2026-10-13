@@ -1,4 +1,3 @@
-// Where tabs open, which tab shows when one closes, and the structures that must stay whole (groups, splits).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -13,7 +12,6 @@ const short = (url) => url.replace(/^https:\/\/|\.com$/g, "");
 const hosts = (w) => S().windows[w].tabIds.map((id) => short(S().tabs[id].url));
 const shown = (w) => short(S().tabs[model.activeTabId(S(), w)].url);
 
-// Chrome's opener rules (store/openers.ts).
 const reset = (settings = {}) => {
   S().hydrate({});
   S().updateSettings({ cmdClickCreatesTabGroup: false, newTabPosition: "bottom", ...settings });
@@ -96,7 +94,6 @@ test("a pinned tab's links keep their group down to the last one; a loose tab's 
   assert.deepEqual(gathered()?.tabIds, [c2], "the pinned tab's group started with one link and keeps its last");
   const c3 = open(w, "c3", pin);
   assert.deepEqual(gathered()?.tabIds, [c2, c3]);
-  // From a loose tab the group is the opener and its link: one left is no group.
   S().activate(home);
   const l1 = open(w, "l1", home);
   assert.ok(Object.values(S().groups).some((g) => g.tabIds.includes(home) && g.tabIds.includes(l1)));
@@ -190,11 +187,9 @@ test("a reopened group's and cleaned tabs' tabs take their back/forward lists ba
   const g = S().createGroup([b, c], { name: "G" });
   S().closeGroup(g);
   S().restoreClosed(S().closedGroups.at(-1).id);
-  // The one it shows adopts now, the other when it's first shown.
   const adopts = (id) => S().tabs[id].adoptId ?? S().tabs[id].wakeAdoptId;
   const back = Object.values(S().groups).find((x) => x.name === "G");
   assert.deepEqual(back.tabIds.map(adopts), [`restore:${b}`, `restore:${c}`]);
-  // An entry saved before closed groups kept their tabs' ids reopens them without one.
   const g2 = S().createGroup([d], { name: "Old" });
   S().closeGroup(g2);
   const entry = S().closedGroups.at(-1);
@@ -218,12 +213,10 @@ test("a reopened tab not shown yet keeps its back/forward list's source through 
   S().restoreClosed(S().closedGroups.at(-1).id);
   const [, c2] = Object.values(S().groups).find((x) => x.name === "G").tabIds;
   assert.equal(S().tabs[c2].wakeAdoptId, `restore:${c}`, "the second tab hasn't been shown");
-  // Closed again before it was shown: its list is still under the first id Chrome saw.
   S().closeGroup(Object.values(S().groups).find((x) => x.name === "G").id);
   S().restoreClosed(S().closedGroups.at(-1).id);
   const [, c3] = Object.values(S().groups).find((x) => x.name === "G").tabIds;
   assert.equal(S().tabs[c3].wakeAdoptId, `restore:${c}`);
-  // The same for one tab (⇧⌘T) and for a window.
   S().closeTab(c3);
   S().reopenClosedTab();
   const c4 = S().windows[w].tabIds.find((id) => S().tabs[id].url.includes("c.com"));
@@ -239,7 +232,6 @@ test("a pinned group's reopened tab, closed before it was shown, still wakes wit
   S().restoreClosed(S().closedGroups.at(-1).id);
   const [, c2] = Object.values(S().groups).find((x) => x.name === "P").tabIds;
   assert.equal(S().tabs[c2].wakeAdoptId, `restore:${c}`);
-  // A pinned group's tab closes by unloading in place (unloadPinnedTabs): its list is still to come.
   S().closeTab(c2);
   assert.ok(S().tabs[c2]?.unloaded, "it keeps its row");
   S().activate(c2);
@@ -340,7 +332,6 @@ test("an extension that took the default search engine controls it until it goes
   assert.equal(defaultSearchEngine(S().settings).id, "google", "a removed engine falls back to Google");
 });
 
-// 0.2.12: the mini player's × paused the video and jumped to its tab. Dismissing it lasts until the tab plays again.
 test("closing the mini player lasts until its tab plays again", async () => {
   const M = () => media.useMedia.getState();
   const report = (overrides = {}) => ({

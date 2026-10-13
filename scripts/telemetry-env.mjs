@@ -1,6 +1,3 @@
-// Read access to Ardia's telemetry (docs/growth.md, "Telemetry") from this Mac. Credentials live in
-// ~/.config/ardia/telemetry.env, outside the repo: CLICKHOUSE_URL/USER/PASSWORD (the read-only
-// "reader" user, through ardia.dev/_ch/) and REPLAYS_URL/TOKEN (session replays, read-only).
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +16,6 @@ export function telemetryEnv() {
 
 export const hasTelemetryEnv = () => existsSync(FILE);
 
-/** Runs a ClickHouse query as the read-only user and returns its rows as arrays. */
 export async function clickhouse(query) {
   const env = telemetryEnv();
   const res = await fetch(env.CLICKHOUSE_URL, {

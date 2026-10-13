@@ -1,7 +1,4 @@
 ---
-// Release notes, set as a field journal: one entry per version, newest first, each
-// anchored at its version (/release-notes#0.1.4). The app opens that anchor after it updates.
-// The entries are the repo's docs/release-notes/<version>.md (src/content.config.ts).
 import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
 import Header from "../components/Header.astro";
@@ -24,8 +21,6 @@ const releases = notes.map((n, i) => ({
   no: notes.length - i,
   date: n.data.date,
   headline: n.data.headline,
-  // Written for GitHub, where "##" is a section; here the release's headline is the h2.
-  // A table gets a box of its own, so on a phone it scrolls sideways there and not the page.
   html: (n.rendered?.html ?? "")
     .replace(/<(\/?)h2\b/g, "<$1h3")
     .replace(/<table\b/g, '<div class="table-scroll"><table')
@@ -124,7 +119,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     padding-bottom: clamp(24px, 4vw, 48px);
   }
 
-  /* Nameplate: a newspaper's, set in the poster type. */
   .nameplate {
     padding-top: clamp(28px, 5vw, 64px);
   }
@@ -180,7 +174,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     margin-top: clamp(40px, 6vw, 88px);
   }
 
-  /* The index: sticky beside the entries, following the one being read. */
   .index {
     grid-column: 1 / span 3;
     align-self: start;
@@ -294,7 +287,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     box-decoration-break: clone;
   }
 
-  /* The newest release is the one in season. */
   .stamp {
     position: absolute;
     right: 0;
@@ -322,7 +314,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     border-radius: 2px;
   }
 
-  /* Arriving at /release-notes#<version> (the app does after an update): that entry is marked. */
   .entry:target .here {
     display: block;
     order: -1;
@@ -356,7 +347,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     }
   }
 
-  /* The notes themselves (rendered Markdown): section labels in the margin, numbered items. */
   .notes {
     display: grid;
     grid-template-columns: 7.5rem minmax(0, 1fr);
@@ -434,8 +424,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     text-underline-offset: 0.2em;
   }
 
-  /* A table (the "Faster" section's old-against-new numbers): rules like the item list's, tabular figures, and on a
-     phone it scrolls sideways inside its own box instead of widening the page. */
   .notes > :global(.table-scroll) {
     margin: 0 0 30px;
     overflow-x: auto;
@@ -504,7 +492,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     }
   }
 
-  /* Tablets and phones: the index becomes a row of versions above the entries. */
   @media (max-width: 900px) {
     .index,
     .entries {
@@ -556,7 +543,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       padding-top: 0;
       margin-bottom: 10px;
     }
-    /* The table's last column (the change) is the one people came for: keep it on screen. */
     .notes :global(th),
     .notes :global(td) {
       padding-right: 10px;
@@ -580,14 +566,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 <script>
   import { track } from "../scripts/track";
 
-  // Which release people read, and which version the app sent them to (/release-notes#<version>).
   const latest = document.querySelector<HTMLElement>(".entry")?.id ?? null;
   const viewed = (trigger: "load" | "hashchange") =>
     track("release_notes_viewed", { version: decodeURIComponent(location.hash.slice(1)) || null, latest, trigger });
   viewed("load");
   addEventListener("hashchange", () => viewed("hashchange"));
 
-  // The index follows the entry being read.
   const links = new Map(
     [...document.querySelectorAll<HTMLAnchorElement>("[data-index]")].map((a) => [a.dataset.index!, a] as const),
   );

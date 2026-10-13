@@ -1,9 +1,3 @@
-// A large, deterministic saved session for the JS benchmark: 200 tabs in two profiles (pinned tiles,
-// groups, a long list), 5000 history entries and 1000 bookmarks. Tab pages point at the benchmark's
-// local server, so a tab that wakes never leaves the machine.
-//
-//   node seed.mjs <data dir> <server origin> [appVersion]
-
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 

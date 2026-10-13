@@ -1,21 +1,8 @@
-// Runs React hooks in plain Node, without a renderer, for tests that check what a component would show after the stores
-// change: React's hooks call the dispatcher in React's internals, so a small one here stands in for the renderer's.
-//
-//   const row = mount(() => useTab("a"));      // renders once
-//   store.updateTab("a", { title: "B" });      // a subscription that sees a new snapshot marks it for a render
-//   row.value                                  // renders what is pending, then the latest value
-//   row.rerender(props) / row.setContext(Context, value) / row.unmount()
-//
-// It keeps React's rules where staleness lives: a useSyncExternalStore subscription renders again only when the
-// snapshot it reads (the latest getSnapshot) is a new value (Object.is); memo, ref and state keep their slots by call
-// order; effects run after each render when their deps change, cleanups before the next run and at unmount. It subscribes
-// during render rather than after commit; tests change the stores between renders, so that difference never shows.
 import React from "react";
 
 const internals = React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 const sameDeps = (a, b) => !!a && !!b && a.length === b.length && a.every((d, i) => Object.is(d, b[i]));
 
-/** Mounts `render(props)` as a component; `contexts`: [[Context, value], …] its providers give it. */
 export function mount(render, { props, contexts = [] } = {}) {
   const slots = [];
   const provided = new Map(contexts);
@@ -117,7 +104,6 @@ export function mount(render, { props, contexts = [] } = {}) {
     effects = [];
     for (const effect of run) effect();
   };
-  // Renders until nothing is pending (an effect's setState renders again, as React does).
   const settle = () => {
     for (let n = 0; dirty && alive; n++) {
       if (n > 50) throw new Error("render loop: a snapshot changes on every read (getSnapshot should be cached)");
@@ -132,7 +118,6 @@ export function mount(render, { props, contexts = [] } = {}) {
       settle();
       return value;
     },
-    /** Whether a store change marked it for a render (what React would schedule), without rendering. */
     get pending() {
       return dirty;
     },
@@ -140,7 +125,6 @@ export function mount(render, { props, contexts = [] } = {}) {
       settle();
       return renders;
     },
-    /** A provider above it gives a new value: its consumers render again, through memo, as React's do. */
     setContext(ctx, next) {
       if (provided.get(ctx) === next) return value;
       provided.set(ctx, next);

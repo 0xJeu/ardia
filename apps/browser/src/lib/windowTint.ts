@@ -1,15 +1,12 @@
-// AppKit makes the visual-effect fill opaque when inactive or Reduce Transparency is on.
 export type BackdropTint = {
   tintColor: string;
   tintAlpha: number;
   tintLightness: number;
 };
 
-// Dia: 0.25.
 const LIGHTNESS = 0.25;
 
 export function backdropTint(color: string, neutral: boolean): BackdropTint {
-  // Dia: 0.12 / 0.36.
   return { tintColor: color, tintAlpha: neutral ? 0.12 : 0.36, tintLightness: LIGHTNESS };
 }
 
@@ -24,7 +21,6 @@ export function opaqueTint(tint: BackdropTint, dark: boolean): [string, string] 
   return [over(top), over(bottom)];
 }
 
-// Dia: 349°, 0.36, 0.53.
 export function tintForHue(swatch: string, grey = false): string {
   const [h] = hsl(rgb(swatch));
   return hex(fromHsl(h, grey ? 0 : 0.36, 0.527));

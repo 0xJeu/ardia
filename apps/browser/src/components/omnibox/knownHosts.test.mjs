@@ -1,5 +1,3 @@
-// The bar asks for a profile's known hosts on every key; the answer is kept while the tabs and history are the same objects
-// and must follow them when they change.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { knownHosts } from "./knownHosts.ts";

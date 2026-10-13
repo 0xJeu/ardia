@@ -1,13 +1,3 @@
-// Tab dragging in the top tab strip (and the sidebar's drag onto the page), driven through AppKit's own event path
-// (DEV `drag:`: mouseDown, mouseDragged…, mouseUp sent to the window) in a hidden instance.
-//
-//   node apps/browser/scripts/tab-drag-test.mjs <Debug Ardia.app> [--port=<DevTools port>] [--keep-data]
-//
-// Guards the owner's 0.2.18 report: pressing a tab in the strip moved the window (the press climbed the responder
-// chain to the strip's WindowDragRegion) and nothing could be dragged. A real mouse is still needed for the feel
-// (AppKit's window drag tracks the hardware pointer, which synthetic events can't).
-//
-// One line per check; the details go to tab-drag-test.log beside the instance's data.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -37,7 +27,6 @@ const fixture = () => session({
     { id: "w1", tabIds: ["p1", "p2", "t1", "t2", "t3", "t4"], activeTabIds: { default: "t1" }, frame: [80, 80, 1280, 800], createdAt: 1 },
     { id: "w2", tabIds: ["l1"], activeTabIds: { default: "l1" }, frame: [200, 120, 1100, 700], createdAt: 2 },
     { id: "w3", tabIds: ["g1", "g2", "x1"], activeTabIds: { default: "x1" }, frame: [140, 100, 1200, 760], createdAt: 3 },
-    // Side by side, the same height: a tab dragged from one onto the other's strip.
     { id: "w5", tabIds: ["a1", "a2"], activeTabIds: { default: "a2" }, frame: [100, 60, 560, 420], createdAt: 5 },
     { id: "w6", tabIds: ["b1", "b2", "b3"], activeTabIds: { default: "b1" }, frame: [700, 60, 560, 420], createdAt: 6 },
   ],
@@ -48,8 +37,6 @@ const fixture = () => session({
 
 let app = null;
 
-// The page's helpers: `win(id)` the native window number of a store window, `act(id, action)` a DEV window action,
-// `items(id)` the strip's items as [left, right] runs of the hit test along the strip's middle line.
 const HELPERS = `
 const C = globalThis.expo.modules.ArdiaCEF;
 const st = () => ac.store.getState();
@@ -65,7 +52,6 @@ const run = (body) => app.eval(`${HELPERS}\n${body}`);
 const order = (w) => run(`return st().windows.${w}.tabIds;`);
 const drag = (w, points) => run(`return act("${w}", "windowDrags").then(() => act("${w}", "drag:${points.map((p) => p.join(",")).join(";")}")).then(() => settle(${points.length * 12 * 16 + 700})).then(() => act("${w}", "windowDrags")).then((t) => Number(t.split("\\n")[0]));`);
 
-// An 8-bit RGB(A) PNG's pixels (what devSnapshotWindow writes): { width, height, channels, data }.
 function readPng(path) {
   const buf = readFileSync(path);
   let width = 0, height = 0, channels = 4;
@@ -97,8 +83,6 @@ function readPng(path) {
   }
   return { width, height, channels, data };
 }
-// How much a box varies (luminance's standard deviation), in points (the snapshot is at 2x): an icon drawn there
-// varies; covered by a card, it varies by as little as the card lets through.
 function contrast(png, [x0, y0, x1, y1]) {
   const values = [];
   for (let y = y0 * 2; y < y1 * 2; y++)
@@ -119,11 +103,9 @@ try {
   await run(`return act("w1", "windowDrags");`);
 
   const strip = await run(`return items("w1");`);
-  // Two pinned tiles, then four tabs.
   assert.equal(strip.length, 6, `strip items ${JSON.stringify(strip)}`);
   const mid = (i) => Math.round((strip[i][0] + strip[i][1]) / 2);
 
-  // The dragged tab's picture: a native panel that never takes the mouse or activates the app.
   const PREVIEW = `const preview = () => globalThis.expo.modules.ArdiaShell.devDragPreviewState();`;
   const watch = (w, path, ms) => run(`${PREVIEW}
     const seen = [];
@@ -132,7 +114,6 @@ try {
 
   await check("a tab dragged along the strip reorders and doesn't move the window", async () => {
     const frame = await run(`return st().windows.w1.frame;`);
-    // The tab follows from where the drag started (a few points past the press), so go a little past t3's centre.
     const drags = await drag("w1", [[mid(2), 21], [mid(3), 21], [mid(4) + 30, 21]]);
     assert.equal(drags, 0, "window drags");
     assert.deepEqual(await order("w1"), ["p1", "p2", "t2", "t3", "t1", "t4"]);
@@ -143,13 +124,11 @@ try {
     const now = await run(`return items("w1");`);
     const before = await order("w1");
     const at = (i) => Math.round((now[i][0] + now[i][1]) / 2);
-    // Only tabs with a page are Chrome's: the two it trades places with get one.
     const live = before.slice(2, 4);
     await run(`${JSON.stringify(live)}.forEach((id, i) => st().navigate(id, "data:text/html,<h1>" + i));
       const ready = () => globalThis.acChromeTabs.strips().some((s) => ${JSON.stringify(live)}.every((id) => s.tabs.some((t) => t.key === id)));
       const wait = (n) => (ready() || !n ? Promise.resolve(ready()) : settle(100).then(() => wait(n - 1)));
       return wait(100);`);
-    // The third item (a tab) right past the fourth's middle, with plenty of moves on the way.
     const path = [[at(2), 21], [at(2) + 20, 21], [at(3), 21], [at(3) + 40, 21]];
     const seen = await run(`
       const cef = globalThis.expo.modules.ArdiaCEF;
@@ -173,11 +152,9 @@ try {
     assert.deepEqual(seen.windows.filter((t) => t < drop), [], "no store update while dragging");
     assert.equal(seen.windows.length, 1, `one store update on drop: ${JSON.stringify(seen.windows)}`);
     assert.equal(seen.commands.length, 1, `one strip command on drop: ${JSON.stringify(seen.commands)}`);
-    // A reorder never takes the window's picture (it stalls the main thread): only leaving the strip does.
     assert.deepEqual(seen.picture, [], "no drag picture for a reorder");
     const after = await order("w1");
     assert.notDeepEqual(after, before, "it moved");
-    // Back where it was, for the cases after this one.
     await run(`const id = ${JSON.stringify(before[2])}; const ids = ${JSON.stringify(before)}.filter((t) => !st().tabs[t].pinned); st().moveTab(id, ids.indexOf(id)); return settle(300);`);
     assert.deepEqual(await order("w1"), before);
   });
@@ -185,12 +162,9 @@ try {
   await check("a tab dragged over its right neighbour draws on top of it, its card opaque in dark", async () => {
     const now = await run(`return items("w1");`);
     const before = await order("w1");
-    // The third item (a tab) held over the left part of the fourth, short of trading places with it.
     const [a, b] = [now[2], now[3]];
     const x0 = Math.round((a[0] + a[1]) / 2);
     const x1 = x0 + Math.round((a[1] - a[0]) * 0.4);
-    // Selected, so it has its card. Under the empty end of the dragged tab (its close button's slot, past its title),
-    // the neighbour's icon and title: alone, then with the tab held over them.
     await run(`ac.shell.setAppearance("dark"); st().activate(${JSON.stringify(before[2])}); return settle(800).then(() => st().settings);`);
     const end = a[1] + (x1 - x0);
     const icon = [end - 24, 12, end - 6, 30];
@@ -200,8 +174,6 @@ try {
       return settle(150 + 12 * 16 * 2 + 200).then(() => ac.shell.devSnapshotWindow("w1", ${JSON.stringify(shots[1])}));
     }).then(() => settle(1500));`);
     const [alone, over] = shots.map((path) => contrast(readPng(path), icon));
-    // Drawn under the neighbour, its icon would show over the tab's card at full contrast; under a card that lets it
-    // through (the resting card is half clear in dark), dimmed. The dragged card hides it.
     assert.ok(alone > 12, `the box holds the icon: ${alone}`);
     assert.ok(over < 3, `the neighbour's icon shows through the dragged tab: contrast alone ${alone.toFixed(1)}, held over ${over.toFixed(1)}`);
     rep.log(`the neighbour's icon: contrast ${alone.toFixed(1)} alone, ${over.toFixed(1)} under the dragged tab`);
@@ -227,8 +199,6 @@ try {
     assert.equal(drags, 1, "window drags");
   });
 
-  // 0.2.25 (owner's report): below AppKit's 32 pt title bar band the empty strip did nothing, and a double-click never
-  // zoomed. Presses go through the app's event queue here (DEV `mouse:`), where the drag region watches for them.
   await check("the empty strip moves the window over its whole height, and a double-click on it zooms", async () => {
     const x = strip[5][1] + 150;
     const result = await run(`
@@ -244,7 +214,6 @@ try {
           .then((f) => { out.back = f; return out; });
       });`);
     assert.equal(result.drags, 2, "a press at the strip's top and one near its bottom each drag the window");
-    // System Settings › Desktop & Dock › "Double-click a window's title bar to": Fill and Zoom change the frame.
     let action = null;
     try { action = execFileSync("defaults", ["read", "-g", "AppleActionOnDoubleClick"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch {}
     if (action === "None" || action === "Minimize") return;
@@ -254,7 +223,6 @@ try {
 
   await check("a group's member trades places inside the group, and a tab moves past the whole group", async () => {
     const items = await run(`return items("w3");`);
-    // The group's chip, its two members, then x1.
     assert.equal(items.length, 4, JSON.stringify(items));
     const at = (i) => Math.round((items[i][0] + items[i][1]) / 2);
     assert.equal(await drag("w3", [[at(2), 21], [at(1), 21], [at(1) - 40, 21]]), 0, "window drags");
@@ -264,7 +232,6 @@ try {
   });
 
   await check("a group dragged by its chip moves along the strip as one", async () => {
-    // x1, the group's chip, g2, g1.
     const items = await run(`return items("w3");`);
     const at = (i) => Math.round((items[i][0] + items[i][1]) / 2);
     assert.equal(await drag("w3", [[Math.round(items[1][0] + 15), 21], [at(0), 21], [items[0][0] - 20, 21]]), 0, "window drags");
@@ -272,13 +239,11 @@ try {
   });
 
   await check("a tab dragged onto another window's tabs: the strip makes room at the pointer, and it lands there", async () => {
-    // w6 in front of the others under the pointer.
     await run(`ac.store.setState((s) => ({ ui: { ...s.ui, focusOrder: ["w6", "w5", ...s.ui.focusOrder.filter((id) => id !== "w6" && id !== "w5")] } })); return 1;`);
     const from = await run(`return items("w5");`);
     const into = await run(`return items("w6");`);
-    const dx = 600; // w6's left edge in w5's coordinates
+    const dx = 600;
     const a1 = Math.round((from[0][0] + from[0][1]) / 2);
-    // Between b1's and b2's middles.
     const between = dx + Math.round((into[0][1] + into[1][1]) / 2);
     const seen = await run(`${PREVIEW}
       const seen = [];
@@ -291,7 +256,6 @@ try {
   });
 
   await check("a background tab's card shows its own page: its last picture, else its icon and title", async () => {
-    // Down onto the page and back into the strip (nothing changes), the card sampled over the page.
     const cardOf = async (id) => {
       const now = await run(`return items("w1");`);
       const i = (await order("w1")).indexOf(id);
@@ -303,11 +267,9 @@ try {
         return settle(2200).then(() => out.p);`);
     };
     const before = await order("w1");
-    // t4 was never shown: its icon and title.
     const never = await cardOf("t4");
     assert.equal(never?.shape, "card", JSON.stringify(never));
     assert.ok(never.page && never.placeholder, `placeholder ${JSON.stringify(never)}`);
-    // t2 with a page, shown for a moment, then left: its picture from then. (A New Tab page isn't a web page.)
     await run(`st().activate("t2"); st().navigate("t2", "data:text/html,<body style='background:%2366aaff'><h1>t2</h1>"); return settle(3200).then(() => { st().activate("t1"); return settle(600); });`);
     const shown = await cardOf("t2");
     assert.ok(shown?.page && !shown.placeholder, `its picture ${JSON.stringify(shown)}`);
@@ -338,9 +300,7 @@ try {
     const width = await run(`return st().windows.w1.frame[2];`);
     const x = Math.round((now.at(-1)[0] + now.at(-1)[1]) / 2);
     const splits = await run(`return Object.values(st().splits).map((v) => v.tabIds);`);
-    // Low in the split's left pane: below its targets, which are centred on the pane.
     const seen = await watch("w1", `${x},21;${x},200;${Math.round(width / 4)},560;${Math.round(width / 4)},740`, 1400);
-    // Every shape it took since the drag began (the pill shows for only 30 ms).
     const shapes = seen.at(-1).shapes;
     assert.deepEqual(shapes.slice(0, 2), ["pill", "card"], `pill, then card: ${shapes}`);
     assert.ok(seen.every((p) => !p.key && !p.activeApp && (p.shape === "hidden" || p.ignoresMouse)), "never key or active, takes no mouse");
@@ -361,9 +321,7 @@ try {
     const seen = await watch("w1", `${x},21;${x},-40;${x + 80},-90`, 1200);
     const outside = seen.filter((p) => p.shape === "card");
     assert.ok(outside.length, "a card outside the window");
-    // Centred on the pointer, above the window.
     assert.ok(outside.some((p) => p.frame[1] + p.frame[3] / 2 > frame[1] + frame[3]), JSON.stringify(outside.at(-1)));
-    // It grows into the new window before it fades.
     assert.ok(seen.some((p) => p.visible && p.frame[2] === frame[2] && p.frame[3] === frame[3]), "grew to the new window");
     const after = await run(`return Object.values(st().windows).map((w) => w.tabIds);`);
     assert.equal(after.length, windows + 1, JSON.stringify(after));
@@ -374,7 +332,6 @@ try {
     await run(`st().newTab("w1"); return settle(800);`);
     const ids = await order("w1");
     const fresh = ids.at(-1);
-    // p2, p1, the split (t1 | t3), a new tab.
     assert.deepEqual(ids.slice(0, 4), ["p2", "p1", "t1", "t3"]);
     const now = await run(`return items("w1");`);
     const split = now[2], last = now[3];
@@ -394,18 +351,15 @@ try {
     const fresh = ids[2];
     let now = await run(`return items("w1");`);
     const x = Math.round((now[2][0] + now[2][1]) / 2);
-    // Onto the first pinned tab's left half.
     assert.equal(await drag("w1", [[x, 21], [now[1][0], 21], [now[0][0] + 6, 21]]), 0, "window drags");
     assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${fresh}"].pinned];`), [[fresh, "p2", "p1", "t1"], true]);
     now = await run(`return items("w1");`);
     const cell = Math.round((now[0][0] + now[0][1]) / 2);
-    // Out past t1's middle.
     await drag("w1", [[cell, 21], [now[3][0], 21], [now[3][1] - 20, 21]]);
     assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${fresh}"].pinned];`), [["p2", "p1", "t1", fresh], false]);
   });
 
   await check("sidebar: a row dragged onto the page's left target splits", async () => {
-    // The DEV sidebar controller is the last window's to render: leave w1 alone.
     await run(`for (const id of Object.keys(st().windows)) if (id !== "w1") st().closeWindow(id); st().updateSettings({ tabLayout: "sidebar" }); return settle(1500);`);
     const rows = await run(`const c = globalThis.sidebarDrag; const out = [];
       return Promise.all([...c.items.values()].filter((i) => i.kind === "row" && i.view).map((i) => new Promise((r) => i.view.measureInWindow((x, y, w, h) => r({ id: i.tabIds[0], x, y, w, h })))));`);
@@ -423,14 +377,12 @@ try {
   });
   await check("sidebar: nothing moves as a drag starts or ends (the pin target takes no room)", async () => {
     const rows = () => run(`return Promise.all([...globalThis.sidebarDrag.items.values()].filter((i) => (i.kind === "row" || i.kind === "group") && i.view).map((i) => new Promise((r) => i.view.measureInWindow((x, y, w, h) => r([i.key, x, y, w, h])))));`);
-    // Nothing pinned: the case whose pin target used to push the list down.
     await run(`const pinned = st().windows.w1.tabIds.filter((id) => st().tabs[id].pinned); if (pinned.length) st().placeTabs(pinned, { pinned: false, beforeId: null }); return settle(800);`);
     const start = (await rows()).sort((a, b) => a[2] - b[2]);
     const top = start.find(([key]) => key.startsWith("t:"));
     assert.ok(top, JSON.stringify(start));
     const [key, x, y, w, h] = top;
     const sx = Math.round(x + w / 2), sy = Math.round(y + h / 2);
-    // Pressed, moved a little within its own place, held, let go: the drag shows its pin target meanwhile.
     const during = await run(`act("w1", "drag:${sx},${sy};${sx},${sy + 8};${sx},${sy + 8};${sx},${sy + 8};${sx},${sy + 8}");
       return settle(150 + 12 * 16 * 2 + 150).then(() => Promise.all([...globalThis.sidebarDrag.items.values()].filter((i) => (i.kind === "row" || i.kind === "group") && i.view && i.key !== ${JSON.stringify(key)}).map((i) => new Promise((r) => i.view.measureInWindow((x, y, w, h) => r([i.key, x, y, w, h]))))))
         .then((rows) => ({ rows, ghost: !!globalThis.sidebarDrag.active, zone: !!globalThis.sidebarDrag.regions.get("tiles") }));`);
@@ -455,7 +407,6 @@ try {
     assert.ok(rows.length >= 3, JSON.stringify(rows));
     const row = rows[0];
     const sx = Math.round(row.x + row.w / 2), sy = Math.round(row.y + row.h / 2);
-    // Down past the next row's middle, short of the one after.
     const to = Math.round(rows[1].y + rows[1].h * 0.8);
     const out = await run(`const c = globalThis.sidebarDrag; c.landed = null;
       return act("w1", "drag:${sx},${sy};${sx},${sy + 10};${sx},${to}").then(() => settle(1500)).then(() => {

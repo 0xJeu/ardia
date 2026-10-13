@@ -21,8 +21,6 @@ const serialized =
   (s: BrowserState): string =>
     JSON.stringify(serialize(s));
 
-// A reopened tab not shown since keeps the back/forward list it will wake with (Chrome's TabRestoreService, on disk);
-// a private tab never has one (its closed tabs aren't kept), and no other pending adoption outlives the launch.
 const persistedTab = ({ navigation: _n, adoptId: _a, wakeAdoptId, ...t }: Tab) =>
   wakeAdoptId?.startsWith("restore:") && !isIncognitoProfile(t.profileId) ? { ...t, wakeAdoptId } : t;
 const publicTab = (t: { profileId: string }) => !isIncognitoProfile(t.profileId);
@@ -42,7 +40,6 @@ const DOCS: Doc[] = [
     name: "session.json",
     sources: (s) => [s.profiles, s.profileOrder, s.orphanedProfileData, s.windows, s.windowOrder, s.tabs, s.groups, s.splits, s.closedTabs, s.closedWindows, s.parkedPins, s.settings, s.ui.focusedWindowId, s.ui.lastProfileId, s.closedGroups, s.deletedGroups, s.cleanedTabs],
     json: serialized((s) => {
-      // Little Ardia windows aren't restored: closing (or quitting) throws their page away.
       const windows = Object.values(s.windows).filter((w) => !w.incognito && w.kind !== "small");
       const kept = new Set(windows.map((w) => w.id));
       const focusedWindowId = s.ui.focusOrder.find((id) => kept.has(id)) ?? null;
@@ -56,12 +53,10 @@ const DOCS: Doc[] = [
         windowOrder: s.windowOrder.filter((id) => kept.has(id)),
         focusedWindowId,
         lastProfileId: s.ui.lastProfileId,
-        // Read by the engine as it starts, to load this page before the app's window is up (ArdiaCoreHost).
         launchTab: earlyLaunchTabOn() ? launchTab(s, focusedWindowId) : null,
         tabs: Object.values(s.tabs).filter((t) => kept.has(t.windowId)).map(persistedTab),
         groups: Object.values(s.groups).filter((g) => kept.has(g.windowId)),
         splits: Object.values(s.splits).filter((v) => kept.has(v.windowId)),
-        // The store keeps private windows out of these lists; filter again so nothing private is ever written.
         closedTabs: s.closedTabs.filter((c) => publicTab(c.tab)),
         closedWindows: s.closedWindows.filter((c) => c.tabs.every(publicTab)),
         parkedPins: Object.fromEntries(Object.entries(s.parkedPins).filter(([profileId]) => publicTab({ profileId }))),
@@ -115,7 +110,6 @@ type SessionV2 = {
   launchTab?: LaunchTab | null;
 };
 
-// downloads.json held private downloads (saved by an older build): rewritten without them once persistence starts.
 let droppedPrivateDownloads = false;
 
 export function loadSession(): HydrateData | null {
@@ -141,7 +135,6 @@ export function loadSession(): HydrateData | null {
     closedGroups: session.closedGroups ?? [],
     deletedGroups: session.deletedGroups ?? [],
     cleanedTabs: session.cleanedTabs ?? [],
-    // Builds before 2026-10-06 saved private windows' downloads (marked offTheRecord): they're dropped.
     downloads: (downloads?.downloads ?? []).filter((d) => downloadSession(d) === null).map((d, i) => ({ ...d, id: `saved-${i}` })),
   };
   if (session.settings && session.settings.restoreSession === false) {
@@ -171,8 +164,6 @@ export function loadSession(): HydrateData | null {
 
 let flush: () => void = () => {};
 let resume: () => void = () => {};
-// From the quit's last save until the quit ends or is cancelled: what the quit itself does to the store (its windows
-// closing) is never saved.
 let frozen = false;
 
 export function flushPersistence({ final = false } = {}) {
@@ -180,7 +171,6 @@ export function flushPersistence({ final = false } = {}) {
   if (final) frozen = true;
 }
 
-// The quit was cancelled (a page's beforeunload said Stay): saving goes on, starting with what changed meanwhile.
 export function resumePersistence() {
   frozen = false;
   resume();
@@ -248,7 +238,6 @@ export function startPersistence() {
   };
 }
 
-// A private session's downloads go with its last window (the engine ends the session then too).
 function forgetClosedIncognito(s: BrowserState, prev: BrowserState) {
   for (const w of Object.values(prev.windows)) {
     if (!w.incognito || s.windows[w.id]) continue;

@@ -9,14 +9,10 @@
   const theme = params.get("theme");
   if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
 
-  // The profile's colour (apps/browser/src/lib/theme.ts PROFILE_COLORS). ArdiaCore sets
-  // window.ardiaPageColor before this runs and fires "ardiapagecolor" when it changes; ?color= stands in
-  // elsewhere. Green is the painting as painted and game.css as written; incognito is neutral, and dark.
   const SWATCHES = {
     plum: "#C07A98", blue: "#4691C3", purple: "#7873AF", pink: "#D37B8B", red: "#C1575C",
     orange: "#D87249", yellow: "#E3AC38", neutral: "#8E8E93",
   };
-  // docs/brand/ardia/build.py SUNS: where the gold sun would vanish into the hills.
   const SUNS = { orange: "#FFD873", yellow: "#FFF1CF" };
   const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
@@ -30,9 +26,8 @@
   };
   let paint = GREEN_PAINT;
   let pageColor = "green";
-  let painted = false; // the backgrounds are loaded (boot)
+  let painted = false;
 
-  // The page chrome in colour c, built as game.css builds it from the logo's palette.
   function chromeVars(c) {
     const L = { bg: mix(c, PAPER, 0.88), card: mix(c, [252, 251, 247], 0.93), card2: mix(c, PAPER, 0.76),
       text: mix(c, BLACK, 0.8), ink: mix(c, BLACK, 0.66), accent: mix(c, BLACK, 0.22) };
@@ -70,7 +65,6 @@
     const hex = SWATCHES[name];
     if (!hex) return null;
     const c = rgbOf(hex);
-    // As the New Tab mark: neutral is the swatch's luminance, without its blue cast.
     if (name !== "neutral") return c;
     const y = Math.round(c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722);
     return [y, y, y];
@@ -99,9 +93,6 @@
     }
   }
 
-  // The New Tab mark's recolour (docs/brand/ardia/build.py `tinted_marks`, offline-game-pipeline/tint_maps.py):
-  // luminance, stretched to the scene's range, runs colour × 0.4 → × 0.78 → + (1 − colour) × 0.6; the sun's gold
-  // (the map's red) stays, or takes the profile's own sun.
   function tintBackground(bg, c, sunHex) {
     const { w, h } = bg;
     const canvas = document.createElement("canvas");
@@ -195,7 +186,6 @@
   function loadBest() {
     try { return Math.max(0, parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0); } catch (_) { return 0; }
   }
-  // Chrome net-error pages are opaque; use the browser's high-score store.
   function saveBest(v) {
     try { localStorage.setItem(BEST_KEY, String(v)); } catch (_) {}
     try {
@@ -206,7 +196,6 @@
   window.initializeEasterEggHighScore = (v) => {
     if (v > best) { best = v; updateHud(); }
   };
-  // Query after load; Chrome installs the high-score hook then.
   function requestStoredBest() {
     const ask = () => setTimeout(() => {
       try {
@@ -373,7 +362,6 @@
       y += h * rowK;
     }
 
-    // Levels 1–2: only lambs without her bell, so the yellow pops; after that, other animals wear it too.
     const decoyPool = sprites.decoy.filter((s) => n >= 3 || s.trait === "lamb");
     const decoyCount = Math.round(lerp(2, 16, t));
     const nextDecoy = makeBag(decoyPool.length ? decoyPool : sprites.decoy);
@@ -642,7 +630,6 @@
         ctx.rotate(c.r);
         ctx.scale(1, Math.cos(c.r * 2.3));
         ctx.globalAlpha = Math.min(1, c.life * 2);
-        // A petal: a fat ellipse with a darker spine, like a dab of paint.
         ctx.fillStyle = c.color;
         ctx.beginPath();
         ctx.ellipse(0, 0, 10, 5, 0, 0, Math.PI * 2);
@@ -869,7 +856,6 @@
     effects.push({ wx: w.x, wy: w.y, start: performance.now(), ms: 400 });
   }
 
-  // Use client coordinates; offsetX fails for synthetic events and transforms.
   const lx = (e) => e.clientX - canvas.getBoundingClientRect().left;
   const ly = (e) => e.clientY - canvas.getBoundingClientRect().top;
   const pointers = new Map();
@@ -923,7 +909,6 @@
     if (state === "paused" || state === "loading") return;
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? vh : 1;
     const dx = e.deltaX * unit, dy = e.deltaY * unit;
-    // Trackpad pinch uses ctrl+wheel; two-finger scroll pans.
     const notched = e.deltaMode === 1 || (dx === 0 && Math.abs(dy) >= 50 && Number.isInteger(dy) && Math.abs(dy) % 50 === 0);
     if (e.ctrlKey || e.metaKey) zoomAt(lx(e), ly(e), Math.exp(-dy * 0.012));
     else if (notched) zoomAt(lx(e), ly(e), dy > 0 ? 1 / 1.2 : 1.2);

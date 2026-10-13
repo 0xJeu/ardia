@@ -5,8 +5,6 @@ import footage from "./footage.json";
 import { type Aspect, BEAT, type Shot, type TypeLayer } from "./plan";
 import { color, font } from "./theme";
 
-// ---------------------------------------------------------------------------------------------- clock
-
 const ShotContext = createContext<Shot | null>(null);
 export const ShotProvider = ShotContext.Provider;
 export function useShot(): Shot {
@@ -14,7 +12,6 @@ export function useShot(): Shot {
   if (!shot) throw new Error("useShot outside a shot");
   return shot;
 }
-/** Beats since the shot's downbeat (plus its skip), fractional. */
 export function useBeat(): number {
   const shot = useShot();
   return useCurrentFrame() / BEAT + (shot.skip ?? 0);
@@ -29,12 +26,10 @@ export const easeInOut = Easing.bezier(0.65, 0, 0.35, 1);
 export const easeIn = Easing.bezier(0.55, 0, 0.9, 0.4);
 export const clamp = (x: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
 export const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-/** 0 → 1 between two beats. */
 export function seg(b: number, start: number, dur: number, ease: (t: number) => number = easeOut) {
   if (dur <= 0) return b >= start ? 1 : 0;
   return ease(clamp((b - start) / dur));
 }
-/** A damped spring's position for a step at `start` (beats), 0 → 1 with overshoot. Pure function of time. */
 export function springAt(b: number, start: number, { stiffness = 260, damping = 17, mass = 1 } = {}) {
   const t = ((b - start) * BEAT) / 30;
   if (t <= 0) return 0;
@@ -46,15 +41,11 @@ export function springAt(b: number, start: number, { stiffness = 260, damping = 
   }
   return 1 - Math.exp(-w0 * t) * (1 + w0 * t);
 }
-/** A decaying kick (1 at `start`, back to 0), for a hit that bumps the camera. */
 export function kick(b: number, start: number, decay = 0.35) {
   if (b < start) return 0;
   return Math.exp(-(b - start) / decay) * Math.cos((b - start) * 9);
 }
 
-// ---------------------------------------------------------------------------------------------- stage
-
-/** Warm poster stock with a printed grain that changes every other frame. */
 export function Paper({ tone = color.paper, children }: { tone?: string; children?: ReactNode }) {
   return (
     <AbsoluteFill style={{ backgroundColor: tone }}>
@@ -80,8 +71,6 @@ export function Grain({ opacity = 0.09 }: { opacity?: number }) {
   );
 }
 
-// ---------------------------------------------------------------------------------------------- footage
-
 type Scene = keyof typeof footage;
 export const SCENES = footage;
 export function frameCount(scene: Scene) {
@@ -98,7 +87,6 @@ export function footageSrc(scene: Scene, index: number) {
   return staticFile(`footage/${scene}/${String(i).padStart(4, "0")}.jpg`);
 }
 
-/** The camera on a window: zoom about a point of the window (0–1), then a pan and a tilt. */
 export interface Cam {
   zoom: number;
   fx: number;
@@ -106,8 +94,6 @@ export interface Cam {
   dx: number;
   dy: number;
   rot: number;
-  /** 0–1: how far the focus point (fx, fy) is carried to the frame point (ax, ay), in frame fractions. Lets a camera
-   * aim at a corner of a window that is wider than a portrait frame. */
   aim: number;
   ax: number;
   ay: number;
@@ -115,7 +101,6 @@ export interface Cam {
 export const REST: Cam = { zoom: 1, fx: 0.5, fy: 0.5, dx: 0, dy: 0, rot: 0, aim: 0, ax: 0.5, ay: 0.5 };
 export type CamKey = Partial<Cam> & { at: number; ease?: "spring" | "out" | "inout" | "cut"; dur?: number };
 
-/** Camera keys over beats: each key moves from the previous pose (spring, eased or cut). Pure in time. */
 export function camAt(keys: CamKey[], b: number): Cam {
   let pose: Cam = { ...REST, ...keys[0] };
   for (let k = 1; k < keys.length; k++) {
@@ -134,12 +119,8 @@ export function camAt(keys: CamKey[], b: number): Cam {
 }
 
 const WINDOW_PT = 1440;
-const CORNER_PT = 21; // macOS 26's window corner, measured from apps/site's ScreenCaptureKit captures
+const CORNER_PT = 21;
 
-/**
- * A real Ardia window frame (scripts/capture → public/footage) placed by its Studio object (the rest pose, which
- * the owner can drag on the canvas) and moved by the camera. Fast moves get a directional blur.
- */
 export function Window({
   id, scene, index, cam, prev, shadow = 1, children, style, pointer, blur: blurOn = false, overlay,
 }: {
@@ -147,15 +128,12 @@ export function Window({
   scene: Scene;
   index: number;
   cam: Cam;
-  /** The camera a frame earlier, for the motion blur. */
   prev?: Cam;
   shadow?: number;
   children?: ReactNode;
   style?: CSSProperties;
   pointer?: PointerAt | null;
-  /** Drawn on the window's content, under its corner mask and blur, in window fractions (0–1) via percentages. */
   overlay?: ReactNode;
-  /** Directional motion blur on fast moves; kept for the few whips and dives that need it. */
   blur?: boolean;
 }) {
   const object = useStudioObject(id);
@@ -164,7 +142,6 @@ export function Window({
   const frame = useVideoConfig();
   const x0 = object.number("x");
   const y0 = object.number("y");
-  // The focus point stays put under the zoom (it sits at x0 + fx·w); `aim` carries it to (ax, ay) of the frame.
   const offset = (c: Cam) => {
     const aim = c.aim ?? 0;
     return {
@@ -181,7 +158,6 @@ export function Window({
   if (prev && blurOn) {
     const p = offset(prev);
     const zoomSpeed = (Math.abs(cam.zoom - prev.zoom) / Math.max(cam.zoom, 1)) * w * 0.12;
-    // Only fast moves smear (a whip, a throw, a dive), as a shutter would at 30 fps; a slow push stays sharp.
     const vx = Math.abs(o.x - p.x) + zoomSpeed;
     const vy = Math.abs(o.y - p.y) + zoomSpeed;
     blur = { x: vx > 12 ? Math.min(28, (vx - 12) * 0.16) : 0, y: vy > 12 ? Math.min(28, (vy - 12) * 0.16) : 0 };
@@ -218,14 +194,11 @@ export function Window({
   );
 }
 
-/** macOS's pointer (scripts/capture/cursor.swift), placed in window points; its size and hot spot in points. */
 const POINTERS = { arrow: { pt: [28, 40], hot: [5, 5] }, hand: { pt: [32, 32], hot: [12, 8] } } as const;
 export interface PointerAt {
-  /** Window fractions (0–1). */
   x: number;
   y: number;
   kind: "arrow" | "hand";
-  /** 0–1: pressed. */
   press?: number;
 }
 export function Pointer({ at, width }: { at: PointerAt; width: number }) {
@@ -244,7 +217,6 @@ export function Pointer({ at, width }: { at: PointerAt; width: number }) {
   );
 }
 
-/** A pointer that glides between stops (beats) and clicks at each. */
 export function pointerAt(b: number, stops: { at: number; x: number; y: number; kind?: "arrow" | "hand"; click?: boolean }[], travel = 0.35): PointerAt | null {
   if (b < stops[0].at - travel) return null;
   let i = 0;
@@ -267,11 +239,8 @@ export function pointerAt(b: number, stops: { at: number; x: number; y: number; 
   return { x, y, kind: cur.kind ?? "arrow", press };
 }
 
-// ---------------------------------------------------------------------------------------------- type
-
 const poster: CSSProperties = {
   fontFamily: font.poster, fontWeight: 860, fontStretch: "62%", textTransform: "uppercase", lineHeight: 0.86,
-  // The condensed face's own word space nearly vanishes at 860: "APP ICONS" read as "APPICONS".
   letterSpacing: "-0.005em", wordSpacing: "0.22em", whiteSpace: "pre-line", margin: 0,
 };
 const mono: CSSProperties = {
@@ -282,7 +251,6 @@ const serif: CSSProperties = { fontFamily: font.serif, fontWeight: 400, lineHeig
 
 let canvas: CanvasRenderingContext2D | null = null;
 const measured = new Map<string, number>();
-/** The widest line of `text` at 100 px in the poster face (condensed 860, or the stamp's 850 at 75%). */
 function lineWidth(text: string, stamp: boolean) {
   const key = `${stamp}:${text}`;
   const hit = measured.get(key);
@@ -292,12 +260,11 @@ function lineWidth(text: string, stamp: boolean) {
   canvas.font = `${stamp ? 850 : 860} 100px "${font.poster}"`;
   (canvas as CanvasRenderingContext2D & { fontStretch: string }).fontStretch = stamp ? "condensed" : "extra-condensed";
   const spacing = stamp ? 7 : -0.5;
-  const words = stamp ? 0 : 22; // poster.wordSpacing, at 100 px
+  const words = stamp ? 0 : 22;
   const w = Math.max(...text.toUpperCase().split("\n").map((l) => canvas!.measureText(l).width + spacing * l.length + words * (l.split(" ").length - 1)));
   measured.set(key, w);
   return w;
 }
-/** The largest size up to `size` at which `text` fits the box (width and height). */
 export function fitSize(text: string, size: number, width: number, height: number, stamp = false) {
   const lines = text.split("\n").length;
   const byWidth = (100 * width) / Math.max(1, lineWidth(text, stamp));
@@ -305,14 +272,12 @@ export function fitSize(text: string, size: number, width: number, height: numbe
   return Math.max(8, Math.min(size, byWidth * 0.97, byHeight));
 }
 
-/** A stamp starts falling this long before its beat, so it lands on the beat's sound. */
 const STAMP_FALL = 3 / BEAT;
 function visible(b: number, layer: TypeLayer, shot: Shot) {
   const start = layer.style === "stamp" ? layer.at - STAMP_FALL : layer.at;
   return b >= start && b < (layer.out ?? shot.beats + (shot.skip ?? 0));
 }
 
-/** One of the film's texts, bound to its Studio object (text, size, colour, plate and box are editable). */
 export function Type({ layer }: { layer: TypeLayer }) {
   const shot = useShot();
   const b = useBeat();
@@ -328,7 +293,6 @@ export function Type({ layer }: { layer: TypeLayer }) {
   const boxH = object.number("height");
   const stampStyle = layer.style === "stamp";
   const sized = layer.style === "slam" || layer.style === "words" || stampStyle;
-  // A plate's padding (0.14 em × 0.2 em) and a stamp's two borders come out of the box.
   const room = (s: number) => (plate ? [boxW - s * 0.4, boxH - s * 0.28] : stampStyle ? [boxW - s * 0.9, boxH] : [boxW, boxH]);
   let size = object.number("size");
   if (sized) {
@@ -342,12 +306,10 @@ export function Type({ layer }: { layer: TypeLayer }) {
   const align = (frame.width < frame.height && layer.portAlign) || layer.align || "left";
   let style: CSSProperties = poster;
   if (layer.style === "slam") {
-    // A small overshoot only: a bigger one pushed the first frame of a full-width line past the margin.
     const s = springAt(b, layer.at, { stiffness: 620, damping: 26 });
     scale = 1.07 - 0.07 * s;
     extraRot = (1 - s) * (random(layer.id) - 0.5) * 6;
   } else if (layer.style === "stamp") {
-    // Falls for three frames and lands (scale 0.94) exactly on its beat.
     const t = clamp((local + STAMP_FALL) / STAMP_FALL);
     scale = t < 1 ? mix(2.4, 0.94, easeIn(t)) : 1 - 0.06 * Math.exp(-local * 9);
     opacity = t < 0.15 ? 0 : 1;
@@ -369,7 +331,6 @@ export function Type({ layer }: { layer: TypeLayer }) {
     const s = springAt(b, layer.at + (n - 1) * step, { stiffness: 520, damping: 24 });
     scale = 1.07 - 0.07 * s;
   }
-  // An entrance never overshoots past the frame: the scale stays where the box still fits, 16 px in.
   {
     const cx = object.number("x") + boxW / 2;
     const cy = object.number("y") + boxH / 2;
@@ -428,10 +389,6 @@ export function Supers() {
   );
 }
 
-/**
- * Two fingers on a trackpad, seen from above: a wide pad, two fingers reaching in from its lower edge with their tips
- * on it, and an arrow trail behind the tips as they slide. `slide` is −1…1 of the travel; `from` is where it started.
- */
 export function Fingers({ x, y, size, slide = 0, from = slide, press = 0, opacity = 1 }: { x: number; y: number; size: number; slide?: number; from?: number; press?: number; opacity?: number }) {
   const W = 240;
   const H = 200;
@@ -462,7 +419,6 @@ export function Fingers({ x, y, size, slide = 0, from = slide, press = 0, opacit
   );
 }
 
-/** A frame-wide shake, decaying from each hit (beats). */
 export function useShake(hits: number[], amount = 14) {
   const b = useBeat();
   let x = 0;

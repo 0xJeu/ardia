@@ -165,7 +165,6 @@ const { values: opt } = parseArgs({
   },
 });
 if (opt.help) {
-  // The header above is the usage.
   const lines = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1);
   console.log(lines.slice(0, lines.findIndex((l) => !l.startsWith("//"))).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(0);
@@ -180,8 +179,6 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-// MARK: Probes
-
 const toolDir = join(opt.out, ".tools");
 function acperf(...args) {
   const bin = join(toolDir, "acperf");
@@ -195,7 +192,6 @@ function acperf(...args) {
   return { code: r.status, out: r.stdout.trim() };
 }
 
-// The content marker (acmark.m), loaded into the benchmark's copy of the app.
 function markerLibrary() {
   const lib = join(toolDir, "acmark.dylib");
   const src = join(here, "acmark.m");
@@ -240,7 +236,6 @@ function usage(root) {
   return lines.map((l) => JSON.parse(l)).map((u) => ({ ...u, kind: byPid.get(u.pid) }));
 }
 
-// CPU % and wakeups/s per process kind between two usage() snapshots (processes present in both).
 function usageDelta(a, b) {
   const before = new Map(a.map((u) => [u.pid, u]));
   const kinds = {};
@@ -270,8 +265,6 @@ const footprint = (snap) => {
   }
   return { totalMB: total, processes: snap.length, kinds };
 };
-
-// MARK: Test pages
 
 const PAGE_SCRIPT = `
 window.__ac = { vis: [[Date.now(), document.visibilityState]], shown: [], fcp: null, frame: null, ticks: 0, raf: 0, fast: 0 };
@@ -323,8 +316,6 @@ function startServer() {
   });
 }
 
-// MARK: CDP
-
 class Cdp {
   constructor(port) {
     this.port = port;
@@ -373,7 +364,6 @@ class Cdp {
       return null;
     }
   }
-  // `id=t1` must not match `id=t13`: page URLs end with their id.
   async find(substring) {
     return (await this.targets()).find((t) => t.url.endsWith(substring) || t.url.includes(substring + "&"));
   }
@@ -382,8 +372,6 @@ class Cdp {
     this.sockets.clear();
   }
 }
-
-// MARK: App instances
 
 function prepareApp(app, out, bundle) {
   const copy = join(out, "Ardia.app");
@@ -394,19 +382,15 @@ function prepareApp(app, out, bundle) {
   const info = spawnSync("codesign", ["-dvv", app], { encoding: "utf8" }).stderr;
   const identity = info.match(/^Authority=(.+)$/m)?.[1] ?? "-";
   const entitlements = join(out, "entitlements.plist");
-  // The copy loads the content marker (acmark.m): DYLD_INSERT_LIBRARIES, an ad-hoc signed library.
   const granted = execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", app], { encoding: "utf8" });
   const marker = ["com.apple.security.cs.allow-dyld-environment-variables", "com.apple.security.cs.disable-library-validation"]
     .filter((key) => !granted.includes(`<key>${key}</key>`)).map((key) => `<key>${key}</key><true/>`).join("");
   writeFileSync(entitlements, granted.replace(/<\/dict>\s*<\/plist>\s*$/, `${marker}</dict></plist>`));
-  // No secure timestamp: both apps' copies are signed the same way, and Apple's timestamp server sometimes doesn't
-  // answer ("A timestamp was expected but was not found"), which used to abort the whole run.
   execFileSync("codesign", ["--force", "--sign", identity, "--timestamp=none", "--options", "runtime", "--entitlements", entitlements, copy], { stdio: "inherit" });
   writeFileSync(join(out, "prepared.json"), JSON.stringify({ app, bundle, date: new Date().toISOString() }));
   return copy;
 }
 
-// --prepared: a copy prepareApp made (the marker's entitlements say so), run in place.
 function checkPrepared(copy) {
   if (copy.startsWith("/Applications/")) throw new Error(`--prepared runs the app in place; ${copy} is the owner's`);
   const granted = spawnSync("codesign", ["-d", "--entitlements", "-", "--xml", copy], { encoding: "utf8" }).stdout ?? "";
@@ -430,11 +414,9 @@ function buildBundle(out) {
   return hbc;
 }
 
-// Instances still running, for Ctrl-C.
 const live = new Set();
 
 class Instance {
-  // side: the app being measured (Main); dataDir: this instance's ARDIA_DATA_DIR.
   constructor(side, dataDir) {
     this.side = side;
     this.app = side.app;
@@ -443,17 +425,13 @@ class Instance {
     this.feed = `${base()}/appcast.xml`;
     this.cdp = new Cdp(this.port);
     this.seq = 0;
-    // Extra K=V environment for this instance alone (journeyRun: AC_BENCH_KEYLOG).
     this.env = [];
   }
   async launch() {
-    // The real path: the process lists it so (/private/tmp, not /tmp), and pgrep matches it from the start.
     const exe = join(realpathSync(this.app), "Contents/MacOS", execFileSync("defaults", ["read", join(this.app, "Contents/Info.plist"), "CFBundleExecutable"], { encoding: "utf8" }).trim());
     const main = `^${exe.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`;
     if (spawnSync("pgrep", ["-f", main]).status === 0) throw new Error("a bench instance is still running");
-    // --env K=V; an extra DYLD_INSERT_LIBRARIES loads after the marker.
     const extra = [...opt.env, ...this.env].filter((e) => !e.startsWith("DYLD_INSERT_LIBRARIES="));
-    // --env ARDIA_SWITCHES=…: the app's JS reads switches from its data dir in a Release build (js-bench.mjs).
     writeSwitches(this.dataDir, extra.find((e) => e.startsWith("ARDIA_SWITCHES="))?.slice(19));
     const dyld = [markerLibrary(), ...(this.frames ? [framesLibrary(toolDir, here)] : []), ...opt.env.filter((e) => e.startsWith("DYLD_INSERT_LIBRARIES=")).map((e) => e.slice(22))].join(":");
     this.t0 = Date.now();
@@ -463,9 +441,6 @@ class Instance {
       ...Object.fromEntries(extra.map((e) => [e.slice(0, e.indexOf("=")), e.slice(e.indexOf("=") + 1)])),
     });
     execFileSync("open", ["-g", "-n", ...Object.entries(env).flatMap(([k, v]) => ["--env", `${k}=${v}`]), this.app,
-      // App Nap would stretch the hidden instance's timers (a tab switch after a quiet minute took seconds).
-      // BENCH_ALLOW_APP_NAP=1 leaves it on: the control for the App Nap check in the table. --mute-audio: builds
-      // before b7899c26 (0.2.21, whose CEF takes its switches from the command line) aren't muted on their own.
       "--args", "--mute-audio", ...(process.env.BENCH_ALLOW_APP_NAP ? [] : ["-NSAppSleepDisabled", "YES"])]);
     for (let i = 0; i < 400 && !this.pid; i++) {
       const r = spawnSync("pgrep", ["-f", main], { encoding: "utf8" });
@@ -480,14 +455,13 @@ class Instance {
     this.jsStart = boot?.jsStart ?? NaN;
     return this;
   }
-  // The content marker's marks (acmark.m): {content|committed: epoch ms, window}.
   marks() {
     try {
       return readFileSync(join(this.dataDir, "bench-marks.jsonl"), "utf8").split("\n").filter(Boolean).flatMap((l) => {
         try {
           return [JSON.parse(l)];
         } catch {
-          return []; // a line still being written
+          return [];
         }
       });
     } catch {
@@ -515,10 +489,8 @@ class Instance {
     }
     return null;
   }
-  // Runs `body` (JS with `ac` in scope) in the app and returns its result.
   async run(body, timeout = +(process.env.BENCH_CMD_TIMEOUT_MS ?? 30_000)) {
     const id = `b${process.pid}-${++this.seq}-${Date.now()}`;
-    // A bench bundle from before the rename (0.2.32's, as a --control-bundle) hands the body its channel as `nn`.
     writeFileSync(join(this.dataDir, "bench-cmd.js"), `// ${id}\nvar ac = typeof ac === "undefined" ? nn : ac;\n${body}`);
     const r = await this.waitFile("bench-result.json", timeout, (v) => v.id === id);
     if (!r) throw new Error(`no result for: ${body.slice(0, 80)}`);
@@ -535,7 +507,6 @@ class Instance {
     }
     return null;
   }
-  // A measured instance's end: --hold keeps it alive first.
   async done() {
     const secs = +opt.hold;
     if (secs > 0 && this.pid && this.alive()) {
@@ -557,16 +528,11 @@ class Instance {
   }
 }
 
-// MARK: Phases
-
 const base = () => `http://127.0.0.1:${server.address().port}`;
 let server;
 
 const WINDOW = `(() => { const s = ac.store.getState(); return s.ui.focusedWindowId && s.windows[s.ui.focusedWindowId] ? s.ui.focusedWindowId : s.windowOrder.find((id) => s.windows[id] && !s.windows[id].kind); })()`;
 
-// --seed big: the template is seed.mjs's profile, written without launching anything. No perf-probe file (that
-// turns the JS probe on, which native-bench's launches don't run with). The seed's tabs point at /static?id=p-<tab>
-// on the bench server, and its active tab of the default profile at the page launchRun waits for.
 function writeBigSeed(side) {
   const dir = side.template;
   const version = execFileSync("defaults", ["read", join(side.src, "Contents/Info.plist"), "CFBundleShortVersionString"], { encoding: "utf8" }).trim();
@@ -589,13 +555,11 @@ async function makeTemplate(side) {
   mkdirSync(dir, { recursive: true });
   if (opt.seed) return writeBigSeed(side);
   log(`seeding a session (${side.label})`);
-  // Past onboarding: its intro music would play on the owner's Mac from builds without b7899c26 (0.2.21).
   writeFileSync(join(dir, "onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
   const app = await new Instance(side, dir).launch();
   try {
     await app.run(`const w = ${WINDOW}; ac.store.getState().newTab(w, { url: "${base()}/static?id=seed" }); return w;`);
     await app.pageState("id=seed", 30_000, (s) => s.fcp);
-    // Leave just the seeded tab.
     await app.run(`const s = ac.store.getState(); const w = ${WINDOW};
       const keep = s.windows[w].tabIds.find((id) => s.tabs[id].url.includes("id=seed"));
       for (const id of s.windows[w].tabIds) if (id !== keep) ac.store.getState().closeTab(id);
@@ -631,8 +595,6 @@ async function launchRun(side, i) {
   try {
     await app.launch();
     const page = await app.pageState("id=seed", 30_000, (s) => s.fcp);
-    // On screen with its content, as for new windows: 0.2.21 showed its first window empty and its content after,
-    // 0.2.22 keeps it transparent until the transaction carrying its React content commits.
     const content = app.marks().find((m) => m.content >= app.t0);
     const committed = content && app.marks().find((m) => m.committed >= content.content && m.window === content.window);
     const r = {
@@ -641,12 +603,10 @@ async function launchRun(side, i) {
       js: app.jsStart - app.t0,
       firstPaint: (page?.fcp ?? NaN) - app.t0,
       firstFrame: (page?.frame ?? NaN) - app.t0,
-      // The machine's 1-minute load average as the launch ends: what else was running (other builds, other agents).
       load: Math.round(loadavg()[0] * 10) / 10,
     };
     if (opt.seed) r.pageTargets = (await app.cdp.targets()).length;
     if (opt["trace-startup"]) {
-      // Chrome writes the trace when its duration ends.
       const trace = await app.waitFile("startup-trace.json", 15_000, (v) => Array.isArray(v.traceEvents));
       if (trace) {
         mkdirSync(join(side.dir, "traces"), { recursive: true });
@@ -665,7 +625,6 @@ async function launchRun(side, i) {
 
 async function idleWindow(app, secs) {
   await app.run(`ac.pause(${secs * 1000 + 1500}); return true;`);
-  // Someone using the Mac meanwhile (the window is on screen, usually in front): its pointer over the window wakes the app.
   const probe = spawn(join(toolDir, "acperf"), ["input", String(app.pid), String(secs)], { stdio: ["ignore", "pipe", "ignore"] });
   let said = "";
   probe.stdout.on("data", (d) => (said += d));
@@ -680,16 +639,11 @@ async function idleWindow(app, secs) {
   } catch {}
   if (!Number.isFinite(input?.inputSecs)) input = null;
   await sleep(2000);
-  // App Nap check: a napped app answers its first command late and stretches a 100 ms timer (the bench passes
-  // -NSAppSleepDisabled; ArdiaCore keeps Cocoa's argument-domain switches off Chrome's command line, AppKit reads them).
   const asked = Date.now();
   const late = await app.run(`return new Promise((r) => { const t = Date.now(); setTimeout(() => r(Date.now() - t - 100), 100); });`);
   return { ...usageDelta(a, b), input, afterIdle: { commandMs: Date.now() - asked, timerLateMs: late } };
 }
 
-// Whether the page on screen can paint right now: frames in 250 ms of requestAnimationFrame. A window macOS stops
-// giving display-link frames (the display asleep, or a covered window on some systems) paints about once a second
-// whatever the app does, so a sample taken then measures that, not the app: it's counted and left out of the medians.
 async function throttled(app) {
   for (const t of await app.cdp.targets()) {
     const r = await app.cdp.send(t, "Runtime.evaluate", {
@@ -714,9 +668,6 @@ async function tabIds(app) {
   return app.run(`const s = ac.store.getState(); return s.windows[${WINDOW}].tabIds.map((id) => [id, s.tabs[id].url]);`);
 }
 
-// A new window: command → on screen (CGWindowList: alpha > 0), → on screen with its content (on screen, and the
-// transaction carrying its React content committed: 0.2.21 showed a window empty and its content after, 0.2.22 keeps it
-// transparent until then), and → its page's first paint.
 async function newWindow(app, id) {
   const watcher = spawn(join(toolDir, "acperf"), ["newwindow", String(app.pid), "20"], { stdio: ["ignore", "pipe", "ignore"] });
   let said = "";
@@ -756,16 +707,8 @@ async function windowsRun(side, i) {
   }
 }
 
-// MARK: Journeys: real key events in, the app's field timing out
-
-// The app times a journey only while the user shares diagnostics (telemetry/journeys.ts), so these runs turn sharing
-// on in their data folder, with a `bench-offline` file that makes bench-offline.js answer every non-local fetch itself:
-// the Release bundle would otherwise send the events to our collector. Input is real: acperf postkeys posts key events
-// to this one pid (CGEventPostToPid), which reach the app as a keyboard's do (NSApp.sendEvent, the menu bar's ⌘T, the
-// focused field). Every row starts at the key down's own timestamp (epoch ms, the clock the app's marks use): the instant the app's field timing starts a journey from.
 const TELEMETRY_ON = { version: 1, sharing: true, decidedAt: 1, askDoneAt: 1, installId: "00000000-0000-4000-8000-0000000000b0", lastVersion: null, sessionOpen: false };
 
-// After a lost iteration: the bar's panel closed and any empty new tab closed, so the next one starts from the same place.
 async function recover(app) {
   await app.run(`const s = ac.store.getState(); const w = ${WINDOW};
     if (s.windowUi[w]?.panel.open) s.closePanel(w);
@@ -780,10 +723,6 @@ function postKeys(app, gap, ...specs) {
   return r.out.split("\n").filter(Boolean).map((l) => JSON.parse(l));
 }
 
-// CGEventPostToPid sometimes drops an event (about one in ten here); the app's key log (acmark.m) says whether this one
-// arrived, and a key it never saw is made again. Returns the press that arrived: `at` is the event's own timestamp (when
-// the system made the key, the instant the app's field timing starts every journey from), `posted` the moment acperf
-// handed it over, which the event system stamps a few ms to a few tens of ms later (the row "poster → timestamp").
 async function postSeen(app, spec) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const [press] = postKeys(app, 0, spec);
@@ -809,7 +748,6 @@ async function waitFor(app, accept, timeout, every = 60) {
 }
 
 const sampled = (st, step) => st.samples[step]?.length ?? 0;
-// The first mark of `kind` for any tab at or after `from` (epoch ms).
 function markAfter(st, kind, from) {
   let first = NaN;
   for (const list of Object.values(st.marks))
@@ -820,16 +758,12 @@ const markOf = (st, key, kind, from) => (st.marks[key] ?? []).filter(([k, at]) =
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
-// How long a key sat between being made (acperf's CGEvent, the event's timestamp) and the app's event loop getting to it
-// (acmark.m's key log), for the key acperf made at `at`.
 function delivery(app, at) {
   const keys = app.marks().filter((m) => m.keydown !== undefined && Math.abs(m.made - at) < 100);
   keys.sort((a, b) => Math.abs(a.made - at) - Math.abs(b.made - at));
   return keys[0] ? keys[0].keydown - keys[0].made : NaN;
 }
 
-// ⌘T, and its new tab's command bar committed (the key pressed again once if the app didn't act on it: the press that
-// counts is the one that did).
 async function openNewTab(app) {
   let press, bar = null;
   for (let attempt = 0; attempt < 2 && !bar; attempt++) {
@@ -840,13 +774,11 @@ async function openNewTab(app) {
   return { press, bar };
 }
 
-// J2: ⌘T → the new tab's command bar committed, on screen, focused; one keystroke → its suggestions on screen.
 async function newTabKey(app, i, k) {
   const before = await journeyState(app);
   const { press, bar } = await openNewTab(app);
   const p = bar?.pending.filter((q) => q.journey === "j2" && q.bar !== undefined && q.t0 >= press.at - 5).at(-1);
   if (!p) return { lost: "no bar" };
-  // Type once the field has focus (its typeable mark; the app hands marks over once a second), as a person would.
   if (!(await waitFor(app, (st) => markOf(st, p.key, "typeable", press.at) >= 0, 5000, 150))) return { lost: "never typeable", tab: p.key };
   await sleep(150);
   const key = await postSeen(app, "text:n");
@@ -861,13 +793,11 @@ async function newTabKey(app, i, k) {
   const last = (step) => (sampled(done, step) > sampled(before, step) ? done.samples[step].at(-1) : NaN);
   return {
     tab: p.key,
-    // Cumulative from the ⌘T key down (acperf's stamp), the app's own steps in ms.
     js: p.heard - press.at,
     commit: p.bar - press.at,
     shown: markOf(done, p.key, "bar", press.at) - press.at,
     typeable: markOf(done, p.key, "typeable", press.at) - press.at,
     suggest: markOf(done, p.key, "suggest", key.at) - key.at,
-    // The app's own numbers (its t0 is the event's timestamp), and how far that was from ours.
     appTypeable: last("j2_typeable"),
     appSuggest: last("j2_suggest"),
     t0Skew: p.t0 - press.at,
@@ -877,8 +807,6 @@ async function newTabKey(app, i, k) {
   };
 }
 
-// J4: a URL typed into the bar (from a new tab's bar, or ⌘L's panel over a page), Enter → the engine asked to load,
-// navigation started, committed, first contentful paint (the app's marks, and the page's own over CDP).
 async function navigateByEnter(app, side, id, from) {
   const url = `127.0.0.1:${server.address().port}/static?id=${id}`;
   let tab = null;
@@ -890,7 +818,6 @@ async function navigateByEnter(app, side, id, from) {
   } else {
     const w = JSON.stringify(await app.run(`return ${WINDOW};`));
     let open = false;
-    // A key the app didn't act on (it was still busy, or the window wasn't key yet) is pressed again, once.
     for (let attempt = 0; attempt < 2 && !open; attempt++) {
       if (!(await postSeen(app, "cmd+l"))) continue;
       for (const end = Date.now() + 2500; !open && Date.now() < end; await sleep(60)) open = await app.run(`return !!ac.store.getState().windowUi[${w}]?.panel.open;`);
@@ -899,11 +826,9 @@ async function navigateByEnter(app, side, id, from) {
   }
   await sleep(from === "newtab" ? 150 : 900);
   const [typed] = postKeys(app, 25, `text:${url}`);
-  // Every character has to have arrived (the bar's text is what Enter sends), and the app caught up with them.
   const arrived = () => app.marks().filter((m) => m.keydown !== undefined && m.made >= typed.at - 5 && m.made < typed.at + url.length * 60).length;
   for (const end = Date.now() + 6000; arrived() < url.length && Date.now() < end; ) await sleep(30);
   if (arrived() < url.length) return { lost: "typed keys dropped", tab };
-  // Let the typed address settle (its suggestions, the inline completion) before Enter, as a person's pause would.
   await journeyState(app);
   await sleep(500);
   const before = await journeyState(app);
@@ -945,7 +870,6 @@ async function journeyRun(side, i, parts) {
     await app.launch();
     await app.pageState("id=seed", 30_000, (s) => s.fcp);
     await sleep(6000);
-    // Nothing may leave: the guard answers a collector URL itself, and the field timing is on with native marks.
     r.guard = await app.run(`return fetch("https://ardia.dev/otel/v1/logs", { method: "POST", body: "{}" }).then((res) => {
       const j = ac.journeys();
       return { blocked: res.headers.get("x-bench-blocked"), on: j.on, native: j.native, sharing: ac.telemetry().saved.sharing };
@@ -986,7 +910,6 @@ async function journeyRun(side, i, parts) {
   }
 }
 
-// The parts of a session run (--only session runs them all, in this order, on one instance).
 const SESSION_PARTS = ["idle", "memory", "switch", "newtab", "newwindow"];
 
 async function sessionRun(side, i, parts) {
@@ -1011,7 +934,6 @@ async function sessionRun(side, i, parts) {
     if (has("memory")) r.memory.tabs20 = footprint(usage(app.pid));
     if (has("idle")) r.idle.tabs20 = await idleWindow(app, secs);
 
-    // Tab switches: command → the page's visibilitychange + two frames.
     const tabs = has("switch") ? (await tabIds(app)).filter(([, url]) => url.includes("/static?id=t")) : [];
     for (let k = 0; k < (has("switch") ? 16 : 0); k++) {
       const [id, url] = tabs[(k * 7 + 3) % tabs.length];
@@ -1028,7 +950,6 @@ async function sessionRun(side, i, parts) {
       await sleep(400);
     }
 
-    // New tabs with a page: command → first contentful paint.
     for (let k = 0; k < (has("newtab") ? 5 : 0); k++) {
       const hidden = await throttled(app);
       const at = await app.run(`const t = ac.now(); ac.store.getState().newTab(${WINDOW}, { url: "${base()}/static?id=n${k}" }); return t;`);
@@ -1043,7 +964,6 @@ async function sessionRun(side, i, parts) {
 
     for (let k = 0; k < (has("newwindow") ? 3 : 0); k++) r.newWindow.push(await newWindow(app, `w${k}`));
 
-    // Close all but the first tab; memory once the renderers are gone.
     if (has("memory")) {
       r.processes.tabs20 = usage(app.pid).length;
       await app.run(`const s = ac.store.getState(); const w = ${WINDOW}; const keep = s.windows[w].tabIds.find((id) => s.tabs[id].url.includes("id=seed"));
@@ -1059,7 +979,6 @@ async function sessionRun(side, i, parts) {
   side.results.session.push(r);
 }
 
-// Hidden tabs: rAF and timer rates of animating pages that aren't shown.
 async function throttleRun(side) {
   const app = new Instance(side, freshDir(side, "throttle"));
   try {
@@ -1092,7 +1011,6 @@ async function throttleRun(side) {
   }
 }
 
-// Leak check: open and close 10 tabs five times; the browser process's footprint after each round.
 async function churnRun(side) {
   const app = new Instance(side, freshDir(side, "churn"));
   const rounds = [];
@@ -1119,7 +1037,6 @@ async function churnRun(side) {
   }
 }
 
-// Main-thread samples: idle with 20 tabs, then while switching tabs and scrolling.
 async function sampleRun(side) {
   const app = new Instance(side, freshDir(side, "sample"));
   const dir = join(side.dir, "samples");
@@ -1149,7 +1066,6 @@ async function sampleRun(side) {
   }
 }
 
-// The main thread's samples and where its busy ones go (frames named in `sample`'s call graph).
 function summarizeSample(file) {
   const text = readFileSync(file, "utf8");
   const thread = text.split(/\n(?=    \d+ Thread_)/).find((t) => /com\.apple\.main-thread|DispatchQueue_1:/.test(t.split("\n")[0])) ?? "";
@@ -1160,7 +1076,6 @@ function summarizeSample(file) {
     samples: total,
     waiting: idleWait,
     busy: total - idleWait,
-    // Chromium's own work on the main thread: CEF's pump (0.2.21 and older) or ArdiaCore's run loop source.
     engineWork: count("CefDoMessageLoopWork|MessagePumpCFRunLoopBase::RunWorkSource"),
     metalDraw: count("MTKView draw|\\bdraw\\(in:"),
     caCommit: count("CA::Transaction::commit"),
@@ -1168,8 +1083,6 @@ function summarizeSample(file) {
     hermes: count("hermes::vm::"),
   };
 }
-
-// MARK: Report
 
 function summary(res) {
   const rows = [];
@@ -1194,8 +1107,6 @@ function summary(res) {
   for (const m of ["tabs1", "tabs10", "tabs20", "closed"]) add(`memory (phys_footprint), ${m === "closed" ? "after closing back to 1 tab" : m.slice(4) + " tab(s)"}`, S.map((r) => r.memory[m]?.totalMB), "MB");
   add("memory, browser process, 20 tabs", S.map((r) => r.memory.tabs20?.kinds.browser), "MB");
   add("memory, browser process, after closing", S.map((r) => r.memory.closed?.kinds.browser), "MB");
-  // Nonzero: someone used the Mac during the idle windows, and the pointer over the bench's window raises its wakeups.
-  // A window whose probe failed (input null) makes the run's count unknown, not zero.
   const used = (r, k) => {
     const windows = [r.idle.tabs1, r.idle.tabs20].filter(Boolean);
     return windows.length ? windows.reduce((n, w) => n + (w.input?.[k] ?? NaN), 0) : NaN;
@@ -1208,13 +1119,11 @@ function summary(res) {
   add("tab switch → shown (median of 16 per run)", S.map((r) => median(r.tabSwitch)), "ms");
   add("new tab → first paint (median of 5 per run)", S.map((r) => median(r.newTab)), "ms");
   add("new tab → its page's first frame (median of 5 per run)", S.map((r) => median(r.newTabFrame ?? [])), "ms");
-  // The window phase's runs too (8 windows each).
   const W = [...S, ...(res.windows ?? [])];
   add("new window → on screen (median per run)", W.map((r) => median(r.newWindow.map((w) => w.window))), "ms");
   add("new window → on screen with its content (median per run)", W.map((r) => median(r.newWindow.map((w) => w.withContent))), "ms");
   add("new window → first paint (median per run)", W.map((r) => median(r.newWindow.map((w) => w.firstPaint))), "ms");
   add("new window → its page's first frame (median per run)", W.map((r) => median(r.newWindow.map((w) => w.firstFrame))), "ms");
-  // The journeys: every sample of every run pooled (median, p75 by nearest rank, min–max, n).
   const J = res.journeys ?? [];
   const pooled = (name, get) => {
     const v = J.flatMap((r) => get(r)).filter(Number.isFinite).sort((a, b) => a - b);
@@ -1255,7 +1164,6 @@ function summary(res) {
   return rows;
 }
 
-// `other` is the before column; `names` the two columns' headings.
 function printTable(rows, other, names = ["Before", "After"]) {
   const fmt = (r) =>
     Number.isFinite(r?.median) ? `${r.median.toFixed(r.digits)} ${r.unit}${r.p75 === undefined ? "" : `, p75 ${r.p75.toFixed(r.digits)}`} (${r.min.toFixed(r.digits)}–${r.max.toFixed(r.digits)}, n=${r.n})` : "—";
@@ -1264,8 +1172,6 @@ function printTable(rows, other, names = ["Before", "After"]) {
     : ["| Metric | Median (min–max, runs) |", "|---|---|", ...rows.map((r) => `| ${r.name} | ${fmt(r)} |`)];
   console.log(lines.join("\n"));
 }
-
-// MARK: Main
 
 if (opt.report) {
   const other = opt.compare ? summary(JSON.parse(readFileSync(opt.compare, "utf8"))) : null;
@@ -1291,8 +1197,6 @@ for (const e of opt.env) if (!/^[A-Za-z_]\w*=/.test(e)) fail(`--env wants K=V, g
 if (!(+opt.hold >= 0)) fail(`--hold wants seconds, got "${opt.hold}"`);
 if (opt.control && opt.compare) log("--compare is ignored with --control: the control is the before column");
 
-// A side: one app being measured, its prepared copy, seeded template and results. The candidate is --app, the
-// control (when given) --control; with both, every phase alternates them run by run.
 const labelOf = (app) => basename(dirname(dirname(resolve(app))));
 function makeSide(app, label, role) {
   const dir = join(opt.out, label);
@@ -1311,7 +1215,6 @@ if (opt.control) {
 }
 const sides = control ? [candidate, control] : [candidate];
 
-// Runs fn(side, i) for i < n, alternating the sides (control first on even runs) so drift hits both alike.
 async function interleaved(n, fn) {
   for (let i = 0; i < n; i++) for (const side of !control ? sides : i % 2 ? [candidate, control] : [control, candidate]) await fn(side, i);
 }
@@ -1335,7 +1238,6 @@ try {
       side.bundle = join(side.app, "Contents/Resources/main.jsbundle");
       side.results.meta.preparedFrom = from;
     } else {
-      // The control runs the candidate's bundle unless it has its own (each must match its app's NATIVE_API_VERSION).
       const own = side === control ? opt["control-bundle"] : opt.bundle;
       side.bundle = own ? resolve(own) : side === control ? candidate.bundle : buildBundle(join(side.dir, "bundle"));
       side.app = prepareApp(side.src, join(side.dir, "app"), side.bundle);

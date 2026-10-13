@@ -1,5 +1,3 @@
-// Per-tab store reads (store/tabWatch.ts): a watcher wakes only for its own tab's changes, and a snapshot stays the
-// same value while its tab does.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

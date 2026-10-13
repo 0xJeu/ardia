@@ -1,8 +1,3 @@
-// The edit as data, in beats. 128.57 BPM at 30 fps: a beat is exactly 14 frames, a bar 56.
-// The score (scripts/music/score.py) is arranged from cuts.json with the same bars, so a beat here is a hit there.
-// This file has no imports: scripts/studio-docs.mts reads it with Node's type stripping to write each video's
-// studio.json (the Remocn Studio document with every editable text and window).
-
 export const BEAT = 14;
 export const f = (beat: number) => Math.round(beat * BEAT);
 
@@ -14,24 +9,18 @@ export type TypeStyle = "slam" | "stamp" | "label" | "lede" | "words";
 export interface TypeLayer {
   id: string;
   text: string;
-  /** Beats from the shot's start; `out` is when it leaves (default: the shot's end). */
   at: number;
   out?: number;
   style: TypeStyle;
   color: string;
-  /** A plate behind the text (a sticker on the poster); transparent by default. */
   fill?: string;
   size: number;
-  /** Portrait size, when it differs. */
   portSize?: number;
-  /** Portrait copy, when it breaks differently. */
   portText?: string;
   rotation?: number;
   box: Record<Aspect, Box>;
   align?: "left" | "center" | "right";
-  /** Portrait alignment, when it differs. */
   portAlign?: "left" | "center" | "right";
-  /** `words`: beats between words. */
   step?: number;
 }
 
@@ -51,24 +40,16 @@ export interface Shot {
   beats: number;
   type: TypeLayer[];
   window?: WindowLayer;
-  /** More placed things in the shot (the painted mark, the sun, the app icon), each a Studio object with a box. */
   extra?: WindowLayer[];
-  /** Beats of the shot's own timeline skipped (a teaser reuses a later part of a hero shot). */
   skip?: number;
-  /** Shot-specific beats (the end card's lockup and button). */
   marks?: Record<string, number>;
 }
 
 const ink = "#16130F";
 const paper = "#F1ECE2";
-/** A swipe's page lands one frame before its commit beat (its thud stays on the beat). */
 export const LAND = 1 / BEAT;
 const P = { red: "#C3371F", blue: "#2150D9", plum: "#C07A98", work: "#4691C3", orange: "#D87249", green: "#3EB489", yellow: "#E3AC38" };
 
-// Landscape keeps 80 px side and 60 px top/bottom margins. Portrait keeps everything that matters inside y 220–1480
-// and x 60–940 (Reels/TikTok/Shorts put captions and buttons over the bottom ~420 px and the right ~140 px).
-// Text over a window gets a plate (fill); text on the paper has none. A slam's size is its largest: it shrinks to
-// fit its box (kit.tsx fitSize), so an edited line never runs out of the frame.
 const WIN: Record<Aspect, Box> = { land: [210, 96, 1500, 938], port: [40, 560, 1700, 1063] };
 const win = (id: string, box: Partial<Record<Aspect, Box>> = {}): WindowLayer => ({ id, box: { ...WIN, ...box } });
 const T = (
@@ -78,36 +59,25 @@ const T = (
 const TOP: Record<Aspect, Box> = { land: [80, 50, 1760, 150], port: [60, 230, 880, 300] };
 const BIG: Box = [80, 250, 1760, 580];
 const BIG_PORT: Box = [60, 420, 880, 820];
-/** A line docked under the window (landscape) or above it (portrait), 64 px or more. */
 const DOCK: Record<Aspect, Box> = { land: [80, 950, 1760, 72], port: [60, 470, 880, 90] };
-/** A profile's name plate, docked top-left beside the window's own profile name. */
-// Beside the sidebar column (which carries the swipe), never over it.
 const PLATE: Record<Aspect, Box> = { land: [560, 40, 1100, 170], port: [60, 230, 880, 200] };
 const BIG_PLATE_BOX: Record<Aspect, Box> = { land: [700, 40, 1140, 170], port: [60, 230, 880, 200] };
-/** Ardia's painted logo (hills and sun, Mark.tsx), placed: its box is fitted to the painting, standing on the floor. */
 const PLACED = (id: string, land: Box, port: Box): WindowLayer => ({ id, box: { land, port } });
-
-// ---------------------------------------------------------------------------------------------- the hero cut
 
 const nags: Shot = {
   id: "nags", kind: "nags", at: 0, beats: 8, window: win("nags-window", { land: [300, 270, 1320, 825], port: [40, 700, 1500, 938] }),
   extra: [
-    // The hills rise beside the pile on the roll, and shove it off on the drop (title).
     PLACED("nags-mark", [1250, 560, 640, 483], [300, 1010, 560, 422]),
-    // The sun peeks up from behind the window's top edge and glints on the first NO.
     PLACED("nags-sun", [1270, 40, 340, 400], [580, 220, 360, 420]),
   ],
   type: [
-    // Bar 1: four stabs, one ask each, over a site really asking it in a Ardia window (scenes/asks.js).
     T("nag-sign-in", "SIGN IN.", 0, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 1, align: "center", portAlign: "left", fill: paper, portText: "SIGN\nIN." }),
     T("nag-try-ai", "TRY AI.", 1, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 2, align: "center", portAlign: "left", fill: paper, portText: "TRY\nAI." }),
     T("nag-cookies", "ACCEPT ALL.", 2, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 3, align: "center", portAlign: "left", fill: paper, portText: "ACCEPT\nALL." }),
     T("nag-upgrade", "UPGRADE.", 3, "slam", 230, [80, 24, 1760, 230], [60, 230, 520, 440], { out: 4, align: "center", portAlign: "left", fill: paper, portText: "UPGRADE.", portSize: 150 }),
-    // Each of the first three asks gets its answer stamped on it, half a beat in.
     T("nag-no-1", "NO.", 0.5, "stamp", 150, [690, 600, 540, 240], [300, 960, 480, 220], { out: 1, rotation: -8, color: P.red, portSize: 130 }),
     T("nag-no-2", "NO.", 1.5, "stamp", 150, [700, 470, 540, 240], [300, 960, 480, 220], { out: 2, rotation: 6, color: P.red, portSize: 130 }),
     T("nag-no-3", "NO.", 2.5, "stamp", 150, [690, 480, 540, 240], [300, 960, 480, 220], { out: 3, rotation: -4, color: P.red, portSize: 130 }),
-    // Bar 2: the snare roll. The asks stamp down on the browser, each still readable, until the hills shove them off.
     T("nag-pile-1", "SIGN IN TO SYNC", 4, "stamp", 86, [180, 270, 760, 150], [60, 250, 820, 130], { out: 8, rotation: -6, portSize: 70 }),
     T("nag-pile-2", "MEET YOUR AI COPILOT", 5, "stamp", 86, [440, 380, 820, 150], [120, 420, 820, 130], { out: 8, rotation: 4, color: P.blue, portSize: 62 }),
     T("nag-pile-3", "ACCEPT ALL COOKIES", 6, "stamp", 86, [140, 590, 820, 150], [60, 590, 820, 130], { out: 8, rotation: -3, color: P.red, portSize: 64 }),
@@ -135,7 +105,6 @@ const tabs: Shot = {
 const swipe: Shot = {
   id: "swipe", kind: "swipe", at: 18, beats: 8, window: win("swipe-window"),
   type: [
-    // Docked at the top-left, beside the profile's own name in the window, switching on the frame the page changes.
     T("swipe-name", "SWIPE BETWEEN LIVES.", 0, "slam", 72, DOCK.land, DOCK.port, { out: 5, color: paper, fill: ink, portSize: 64 }),
     T("swipe-work", "WORK.", 0.75 - LAND, "slam", 150, PLATE.land, PLATE.port, { out: 2.25 - LAND, color: paper, fill: P.work }),
     T("swipe-travel", "TRAVEL.", 2.25 - LAND, "slam", 150, PLATE.land, PLATE.port, { out: 3.75 - LAND, color: paper, fill: P.orange }),
@@ -146,7 +115,6 @@ const swipe: Shot = {
 
 const split: Shot = {
   id: "split", kind: "split", at: 26, beats: 8, window: win("split-window"),
-  // The hills and sun peek up over the bottom edge for "ONE WINDOW.".
   extra: [PLACED("split-mark", [1360, 770, 500, 400], [520, 1150, 420, 340])],
   type: [
     T("split-two", "TWO PAGES.", 0, "slam", 140, TOP.land, TOP.port, { out: 5, color: paper, fill: ink }),
@@ -174,7 +142,6 @@ const BIG_PLATE = (id: string, text: string, at: number, out: number, fill: stri
   T(id, text, at, "slam", 150, BIG_PLATE_BOX.land, BIG_PLATE_BOX.port, { out, color, fill });
 const swipeBig: Shot = {
   id: "swipe-big", kind: "swipeBig", at: 48, beats: 10, window: win("swipe-big-window", { land: [120, 66, 1680, 1050], port: [40, 520, 1700, 1063] }),
-  // Each name on the frame its page lands (the commits: 0, 1.5, 3, 4.5, 6).
   type: [
     BIG_PLATE("big-weekend", "WEEKEND.", 0, 1.5 - LAND, P.yellow, ink),
     BIG_PLATE("big-side", "SIDE PROJECT.", 1.5 - LAND, 3 - LAND, P.green),
@@ -212,8 +179,6 @@ const nos: Shot = {
 
 const typing: Shot = { id: "typing", kind: "typing", at: 72, beats: 8, window: win("typing-window"), type: [] };
 
-/** The end: "TOUCH GRASS." on the hit as the sun rises over the hills, then the lockup (icon, name, download, URL,
- * source) with the sun hopping on the march taps and leaping on the button. */
 const endShot = (at: number, beats: number, lockup: number, button: number): Shot => ({
   id: "end", kind: "end", at, beats, marks: { lockup, button },
   extra: [
@@ -233,12 +198,9 @@ const endShot = (at: number, beats: number, lockup: number, button: number): Sho
 
 const hero: Shot[] = [nags, title, tabs, swipe, split, block, chromium, poise, swipeBig, store, icons, nos, typing, endShot(80, 16, 3, 11)];
 
-// ---------------------------------------------------------------------------------------------- the teaser
-
 const teaser: Shot[] = [
   nags,
   { ...title, beats: 2, type: title.type.filter((t) => t.id !== "title-stamp") },
-  // The teaser has no poise: the first swipe drags in from its own start and commits a beat in.
   { ...swipeBig, at: 10, beats: 10, marks: { lead: 1 }, type: swipeBig.type.map((t) => ({ ...t, at: t.at + 1, out: (t.out ?? 10) + 1 })) },
   { ...nos, at: 20, beats: 4 },
   endShot(24, 8, 2, 4),

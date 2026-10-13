@@ -61,7 +61,6 @@ export function ContentCard() {
   const fullscreenTab = useFullscreenTab(windowId);
   const tabLayout = useTabLayout();
   const addressInSidebar = useAddressBarInSidebar();
-  // Little Ardia draws its own bar above the card (components/littleArdia).
   const small = useBrowser((s) => isSmallWindow(s.windows[windowId]));
   const hideWhileScrolling = useBrowser((s) => s.settings.hideToolbarWhileScrolling);
   const barMode = useBookmarksBarMode(windowId);
@@ -73,9 +72,6 @@ export function ContentCard() {
   useEffect(startMedia, []);
   useEffect(startSelectionTools, []);
 
-  // Recomputed only when the window's tabs change, not on every store update (page progress, say). Switching tabs
-  // rewrites the tab map too (lastActiveAt), so with the same tab list a tab that is still the object it was costs
-  // nothing: only a tab that changed is asked again, and the answer is reused when it's the same.
   const mountedMemo = useRef<{ tabIds?: string[]; tabs?: object; ids: string[]; seen: (Tab | undefined)[]; wants: boolean[] }>({ ids: [], seen: [], wants: [] });
   const mounted = useBrowser(
     useShallow((s) => {
@@ -107,14 +103,11 @@ export function ContentCard() {
     }),
   );
 
-  // Asked once per pane: a set, not a scan of the list per pane.
   const mountedIds = useMemo(() => new Set(mounted), [mounted]);
 
   const { panes, dividers } = useMemo(() => {
     const full: Rect = { x: 0, y: 0, width: size.width, height: size.height };
     if (fullscreenTab) {
-      // A split stays laid out under its pane in full screen: the other pane is still shown (painting, and seen by the
-      // user as far as Picture in Picture and Chrome go), only covered.
       const under = split?.tabIds.includes(fullscreenTab) ? splitGeometry(split, size.width, size.height).panes : {};
       return { panes: { ...under, [fullscreenTab]: full }, dividers: [] };
     }
@@ -131,18 +124,13 @@ export function ContentCard() {
   }, [panes]);
 
   const pagerPages = pagerFor(windowId).state((st) => st.pages);
-  // Tabs dragged where a drop takes them out of this window (outside it, or onto its page away from a split target).
   const leaving = useTabDrag((d) => (d.windowId === windowId && d.tabIds.length && (d.outside || !!(d.lifted ?? d.onPage)) ? d.tabIds : null));
-  // The tab the window shows once they go, painting meanwhile. Hidden until the drop, its page had no frame to show:
-  // the window showed an empty card while Chrome drew one (~90 ms, with the new window being built meanwhile).
   const successor = useMemo(() => {
     if (!leaving) return undefined;
     const s = useBrowser.getState();
     const next = activeTabId(removeTabs(s, leaving, false), windowId);
     return next && next !== activeTabId(s, windowId) ? next : undefined;
   }, [leaving, windowId]);
-  // Keep adjacent profile pages painting so a swipe doesn't reveal an unpainted page, and the successor of tabs being
-  // dragged out so the drop shows it at once.
   const warm = useBrowser(
     useShallow((s) => {
       const w = s.windows[windowId];
@@ -158,8 +146,6 @@ export function ContentCard() {
     return out;
   }, [warm, warmSplits, size.width, size.height]);
 
-  // The panes' keys in mount order: recomputed when what is mounted or laid out changes, or when a tab in them changes
-  // its order or profile (a switch rewrites the tab map for lastActiveAt alone).
   const shownMemo = useRef<{ mounted?: string[]; panes?: object; tabs?: object; keys: string[]; ids: string[]; found: (Tab | undefined)[] }>({ keys: [], ids: [], found: [] });
   const shown = useBrowser(
     useShallow((s) => {
@@ -187,7 +173,6 @@ export function ContentCard() {
       const found = ids.map((id) => s.tabs[id]);
       const keys = found
         .filter((t): t is Tab => !!t)
-        // Keep mount order stable; reordering native subviews while tabs move can shuffle them.
         .sort((a, b) => a.createdAt - b.createdAt)
         .map((t) => `${t.id}|${t.profileId}`);
       shownMemo.current = { mounted, panes, tabs: s.tabs, keys, ids, found };
@@ -205,9 +190,6 @@ export function ContentCard() {
   useEffect(() => {
     if (!origin || !focusedRect || addressInSidebar || small) return;
     const g = geometryFor(focusedRect);
-    // The field's own width (the extensions and split buttons sit past it): the command bar covers all of it. The
-    // extensions' width as the toolbars publish it, read here and not through a hook: it changes as they load, which
-    // would re-render the card.
     const place = (extensionsWidth = 0) =>
       setUrlAnchor(windowId, {
         left: origin.x + focusedRect.x + g.urlLeft,
@@ -220,15 +202,11 @@ export function ContentCard() {
     });
   }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split]);
 
-  // While the sidebar slides, the card's size changes every frame: a pane filling the card follows it by itself (flex),
-  // and the card's own size (split rects, hidden panes, the URL bar's anchor) is taken once the motion ends, so the
-  // motion re-renders nothing (components/layout/dockMotion.ts).
   const settled = useRef<{ width: number; height: number } | null>(null);
   const measure = (width: number, height: number) => {
     setSize({ width, height });
     container.current?.measureInWindow((x, y) => setOrigin({ x, y }));
   };
-  // A subscription, not a selector: the motion starting or ending re-renders the card only when it has a size to take.
   useEffect(
     () =>
       useDockMotion.subscribe((m) => {
@@ -246,7 +224,6 @@ export function ContentCard() {
       style={{ flex: 1 }}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
-        // A split's panes are placed from the card's size: they follow it every frame (a re-render each).
         if (size.width > 0 && dockMoving(windowId) && !split) settled.current = { width, height };
         else measure(width, height);
       }}
@@ -285,7 +262,6 @@ export function ContentCard() {
   );
 }
 
-// Memoized: the card re-renders on every switch, and a pane only needs to when its own props change.
 const TabPane = memo(function TabPane({
   tabId,
   windowId,
@@ -308,20 +284,15 @@ const TabPane = memo(function TabPane({
   tabId: string;
   windowId: string;
   rect: Rect | undefined;
-  // Shown over the whole card: laid out by the card itself, so it follows the card's size between renders (the sidebar's
-  // slide resizes the card every frame and re-renders nothing).
   fills: boolean;
   fullWidth: number;
   fullHeight: number;
   focused: boolean;
-  // Whether the window's shown split holds this pane (a boolean, so a split change re-renders only its panes).
   inActiveSplit: boolean;
   fullscreen: boolean;
-  // Under the window's page in full screen (the other pane of its split): shown, but not drawn and not hit.
   covered: boolean;
   geometry: ToolbarGeometry;
   toolbar: boolean;
-  // The toolbar hides while the page scrolls down (components/AutoHideToolbar.tsx).
   autoHide: boolean;
   small: boolean;
   mounted: boolean;
@@ -330,9 +301,6 @@ const TabPane = memo(function TabPane({
 }) {
   const theme = useTheme();
   const visible = !!rect;
-  // A window mounts a pane for every tab with a page, shown or not. Only a pane on screen or kept painting (`warm`)
-  // follows the stores; a hidden one follows its own tab (what it loads, its document, its bookmarks bar's room), and
-  // reads the rest as it is when it's shown (store/tabWatch.ts).
   const live = visible || !!warm;
   const own = useTabValue(tabId, paneTab, shallowEqual);
   const isNewTab = !own.url;
@@ -350,10 +318,8 @@ const TabPane = memo(function TabPane({
   const mode = useToolbarMode(tabId, windowId, hideBar);
   const bookmarksBar = bookmarksBarShown(barMode, own.exists ? own : undefined) && !fullscreen && !inSplit && !small;
   const doc = pageKey(own.url);
-  // The page placed by the toolbar's motion, shown or not, so switching tabs keeps its size.
   const autoLayout = autoHide && toolbar && !fullscreen;
   const motion = useToolbarMotion({ enabled: autoLayout, mode, height: frame.height, extra: bookmarksBar ? BOOKMARKS_BAR_HEIGHT : 0, doc });
-  // A tab switched to shows its bar.
   useEffect(() => {
     if (visible) revealToolbar(tabId);
   }, [visible]);
@@ -379,8 +345,6 @@ const TabPane = memo(function TabPane({
         <View style={{ height: layout.toolbarHeight }} />
       )}
       {!autoLayout && bookmarksBar && <BookmarksBar placeholder={!visible} />}
-      {/* The page and what sits on it; with a toolbar that hides, placed and moved by its motion (AutoHideToolbar's
-          useToolbarMotion), a bookmarks bar going with it. */}
       <Animated.View style={autoLayout ? motion.groupStyle : { flex: 1 }}>
         {autoLayout && bookmarksBar && <BookmarksBar placeholder={!visible} />}
         <View style={autoLayout ? { height: motion.pageHeight } : { flex: 1 }}>
@@ -392,12 +356,10 @@ const TabPane = memo(function TabPane({
             {visible && (
               <>
                 <FindBar tabId={tabId} />
-                {/* Above the part of the page that's under the card's edge while the bar is shown. */}
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, autoLayout && motion.bottomStyle]}>
                   <StatusBubble tabId={tabId} maxWidth={Math.max(160, frame.width / 2)} />
                 </Animated.View>
                 <SadTab tabId={tabId} />
-                {/* A page's own prompts go with its page: not over the New Tab page shown in its place (Back to it). */}
                 {!newTabShown && <PermissionPrompt tabId={tabId} left={Math.max(8, Math.min(geometry.urlLeft, frame.width - 308))} top={4} />}
                 <PasswordPrompt tabId={tabId} right={8} top={4} />
                 <AutofillPrompt tabId={tabId} right={8} top={4} />
@@ -427,23 +389,18 @@ const isBlank = (url: string) => !url || url === "about:blank";
 const pageKey = (url: string) => url.replace(/#.*$/, "");
 const hostOf = (url: string) => url.match(/^[a-z][\w+.-]*:\/\/([^/?#]*)/i)?.[1]?.toLowerCase() ?? "";
 
-// Memoized: its pane re-renders on layout changes, and the web view's props only change with these.
 const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: string; visible: boolean; warm: boolean }) {
-  // Its own tab's fields, shown or not: a hidden tab still loads what it's sent to (store/tabWatch.ts).
   const { navigation, adoptId, profileId } = useTabValue(tabId, webViewTab, shallowEqual);
   const tab = () => useBrowser.getState().tabs[tabId];
   const store = () => useBrowser.getState();
   const ref = useMemo(() => webviewRef(tabId), [tabId]);
   const autoPictureInPicture = useAutoPictureInPicture(tabId, visible);
-  // The offline game paints itself in it (WebView pageColor). Kept in state off a watch of the profiles map: a store
-  // selector here ran for every mounted tab on every store update.
   const pageColor = useProfilesValue(profileId, (profiles) => (isIncognitoProfile(profileId) ? "incognito" : (profiles[profileId]?.color ?? "plum")));
 
   const lastPage = useRef<string | null>(null);
   const pending = useRef<string | null>(navigation?.url ?? (adoptId ? (tab()?.url ?? null) : null));
 
   const seq = navigation?.seq;
-  // A page Chrome loaded into a prewarmed tab on its own, which the tab's navigation now records: already loaded.
   const adopted = useRef<string | null>(null);
   useEffect(() => {
     if (!navigation) return;
@@ -462,22 +419,16 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
     },
     [],
   );
-  // This view goes while its tab keeps its page (lib/tabPages.ts): handed off before the native unmount (a layout
-  // effect's cleanup runs in the commit). A tab that closed, went to sleep, changed profile or is going to one of the
-  // app's own pages closes its page with the view.
   const mountedProfile = useRef(profileId);
   useLayoutEffect(
     () => () => {
       const t = tab();
       if (wantsPage(t) && engineProfile(t.profileId) === engineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(t.profileId));
-      // Its page goes with it: what loads next starts from nothing.
       else setPageProgress(tabId, 0);
     },
     [],
   );
 
-  // A New Tab page's prewarmed tab (usePrewarm): nothing asked it to load yet, so what its about:blank reports isn't the
-  // tab's.
   const prewarmOnly = () => !tab()?.navigation && !adoptId;
 
   const onOpenWindow = (request: OpenWindowRequest) => {
@@ -497,25 +448,18 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       warm={warm}
       autoPictureInPicture={autoPictureInPicture}
       pageColor={pageColor}
-      // No pageBackgroundColor: a page that paints no background gets Chrome's canvas (white, or dark when its
-      // color-scheme says so), as in Chrome and Dia. A transparent base showed the app's card through it instead, so a
-      // light page's dark text sat on the dark card (workspace.google.com, 0.2.30).
       onReady={(browserId) => {
         setBrowserId(tabId, browserId);
         noteReady(tabId);
         if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
       }}
       onNavigationChange={({ url, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource }) => {
-        // Before the effect that loads a new navigation has run (it sets pending), a prewarmed tab's late about:blank
-        // report is still not the tab's: nothing has committed in this view yet, so the navigation is the target.
         const target = pending.current ?? (lastPage.current === null ? (tab()?.navigation?.url ?? null) : null);
         if (target === null && prewarmOnly()) {
           if (isBlank(url)) return;
-          // Chrome navigated the prewarmed tab itself (an extension's chrome.tabs.update): the tab has that page now.
           adopted.current = url;
           store().updateTab(tabId, { navigation: navigationTo(url) });
         }
-        // A fresh browser reports about:blank before the requested navigation commits.
         if (target !== null && isBlank(url) && !target.startsWith("about:")) {
           store().updateLive(tabId, { isLoading: true });
           return;
@@ -533,7 +477,6 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
         if (fromNewTab.current && url && !isBlank(url)) patchPage(tabId, { backToNewTab: true });
         store().navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor });
         if (lastPage.current !== null && pageKey(url) !== lastPage.current) {
-          // Like Chrome's tab-modal dialogs, the open-app prompt stays within a site.
           if (pageOf(tabId).externalApp && hostOf(url) !== hostOf(lastPage.current)) answerExternalApp(tabId, false);
           dismissPermissions(tabId);
           setPopover(tabId, null);
@@ -573,7 +516,6 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       }}
       onMedia={({ playing, muted }) => {
         store().updateLive(tabId, { playingAudio: playing });
-        // A new browser can drop mute state before its first page load.
         if (tab()?.muted && !muted) void webviews.get(tabId)?.setMuted(true);
       }}
       onNowPlaying={(state) => setNowPlaying(tabId, state)}
@@ -602,7 +544,6 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
         const t = tab();
         if (t && splitOf(store(), tabId) && store().windows[t.windowId]?.activeTabIds[t.profileId] !== tabId) store().activate(tabId);
       }}
-      // Engine close callbacks also fire during quit; don't remove saved-session tabs then.
       onWindowClose={() => !isQuitting() && store().closeTab(tabId)}
       onNotification={(notification) => showWebNotification(tabId, notification)}
       onCommand={({ command, text, modifiers }) => {

@@ -6,11 +6,9 @@ const dir = new URL(".", import.meta.url);
 const load = (name) => JSON.parse(readFileSync(new URL(name, dir), "utf8"));
 
 let github;
-// Every PR the mock knows, listed by a search or not (merged, closed, reviewed): the details come from here.
 let prs;
 let state;
 let approved;
-// /mock/details-error: how the details query fails for one PR (FORBIDDEN, NOT_FOUND, FIELD, OTHER or PAGE).
 let detailsError;
 const log = [];
 function reset() {

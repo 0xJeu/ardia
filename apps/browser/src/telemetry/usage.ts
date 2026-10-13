@@ -80,8 +80,6 @@ function watchExtensions() {
   });
 }
 
-// MARK: Performance
-
 const mb = (bytes: number) => Math.round(bytes / 1_048_576);
 
 async function sampleMemory() {

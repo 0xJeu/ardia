@@ -10,7 +10,6 @@ import { modifiersOf, PANEL, Popover, PopoverSeparator } from "./controls";
 import { closeHistoryMenu, goToHistoryItem, useHistoryMenu, type HistoryItem } from "./history";
 
 const WIDTH = 300;
-// A row's 16 pt favicon, centred in the icon slot, from the panel's edge: it sits 2 pt left of the button it opened from.
 const FAVICON_X = PANEL.inset + (PANEL.iconSlot - 16) / 2;
 
 export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; windowId: string; anchors: { back: number; forward: number } }) {

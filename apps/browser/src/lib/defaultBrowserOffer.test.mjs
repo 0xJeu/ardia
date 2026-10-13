@@ -1,5 +1,3 @@
-// The offer to be the default browser again after the rename (lib/defaultBrowserOffer.ts): asked once, only when the
-// launch migration left the offer, never in a test instance or over onboarding.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

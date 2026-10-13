@@ -7,21 +7,15 @@ import type { BrowserWindow, Profile, Tab, TabLive, TabSnapshot } from "./types"
 const launch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 let counter = 0;
 export const newId = (prefix: string) => `${prefix}-${launch}-${(++counter).toString(36)}`;
-// A closed tab's back/forward list is Chrome's (TabRestoreService), which the engine finds by the closed tab's id.
 export const restoreId = (tabId: string) => `restore:${tabId}`;
-// The id Chrome closed a tab's page under, when it isn't the tab's own: a reopened tab not shown since wakes with it.
 export const pendingRestore = (t: Pick<Tab, "wakeAdoptId">): string | undefined =>
   t.wakeAdoptId?.startsWith("restore:") ? t.wakeAdoptId.slice("restore:".length) : undefined;
 
 let navSeq = 0;
 export const navigationTo = (url: string, userInitiated = false) => ({ url, seq: ++navSeq, ...(userInitiated ? { userInitiated } : {}) });
 
-// A private window's profile: incognito:<window id>@<the regular profile it was opened from>. Its engine profile is
-// that profile's off-the-record one (Chrome's GetPrimaryOTRProfile): private windows opened from one profile share a
-// session, never another profile's (packages/ardiacore ArdiaCoreHost.mm OriginalProfileName).
 export const incognitoProfileId = (windowId: string, originalProfileId: string) => `incognito:${windowId}@${originalProfileId}`;
 export const isIncognitoProfile = (profileId: string) => profileId.startsWith("incognito:");
-// The regular profile a private profile id was opened from (an id without one: the default profile's, as before).
 export const incognitoOriginal = (profileId: string) => {
   const at = profileId.indexOf("@");
   return at < 0 ? DEFAULT_PROFILE_ID : profileId.slice(at + 1);
@@ -41,7 +35,6 @@ export const engineProfile = (profileId: string): string => {
   return id === DEFAULT_PROFILE_ID ? "" : id;
 };
 
-// The off-the-record session a private profile id is in, named by its regular engine profile; null for a regular one.
 export const privateSession = (profileId: string): string | null =>
   isIncognitoProfile(profileId) ? engineProfile(incognitoOriginal(profileId)) : null;
 
@@ -78,7 +71,6 @@ export function makeTab(windowId: string, profileId: string, url = "", snapshot?
   };
 }
 
-// What loads a tab that hasn't yet (lazy, opened behind, or sleeping): the browser it's to adopt, else its URL.
 export function wake(t: Tab): Partial<Tab> {
   return t.wakeAdoptId ? { adoptId: t.wakeAdoptId, wakeAdoptId: undefined } : { navigation: navigationTo(t.url) };
 }
@@ -138,7 +130,6 @@ export function profileFor(s: BrowserState, profileId: string): Profile {
   return isIncognitoProfile(profileId) ? INCOGNITO_PROFILE : (s.profiles[profileId] ?? s.profiles[s.settings.defaultProfileId] ?? INCOGNITO_PROFILE);
 }
 
-// A private window's are the profile's it was opened from, as Chrome's incognito bookmarks bar.
 export function bookmarkProfileId(s: BrowserState, window: BrowserWindow | undefined): string {
   const id = window?.incognito ? window.originalProfileId : window?.profileId;
   return id && s.profiles[id] ? id : s.settings.defaultProfileId;
@@ -146,13 +137,10 @@ export function bookmarkProfileId(s: BrowserState, window: BrowserWindow | undef
 
 export function resolveWindowId(s: BrowserState, id?: string | null): string | undefined {
   if (id && s.windows[id]) return id;
-  // Without a window named, never pick a Little Ardia: it holds one page (store/small.ts).
   const main = (w: string) => !!s.windows[w] && s.windows[w]!.kind !== "small";
   return s.ui.focusOrder.find(main) ?? s.windowOrder.find(main);
 }
 
-// A window keeps its own tab layout, so the default can differ from what it shows (another window's last toggle, another
-// Mac's choice through sync). Settings shows the front window's.
 export function tabLayoutOf(s: BrowserState, windowId?: string | null): "sidebar" | "top" {
   const id = resolveWindowId(s, windowId);
   return (id && s.windows[id]!.tabLayout) || s.settings.tabLayout;

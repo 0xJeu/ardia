@@ -1,17 +1,4 @@
 #!/usr/bin/env node
-// React render benchmark: how many commits and renders each interaction costs, and how many of those renders
-// were wasted (same props, no state or context change), on a production bundle with React's profiling renderer.
-//
-//   node js-bench.mjs bundle <dir> --profiling 1           the bundle (main.jsbundle) to run
-//   node render-bench.mjs run --app <Release Ardia.app> --bundle <dir>/main.jsbundle --label <name>
-//                             [--runs 3] [--port 47827] [--out <dir>] [--only idle1,ticker,…] [--idle 60]
-//       Clones the app with the bundle swapped in and, per run, launches two hidden instances on fresh data folders:
-//       one tab (idle), then 20 tabs (3 pinned, a group of 4) for every interaction. Writes <label>.json.
-//   node render-bench.mjs compare <before.json> <after.json>     before/after table (medians)
-//   node render-bench.mjs top <report.json> [interaction]        the top offenders of the last run
-//
-// The app side is the probe in src/lib/perfProbe.ts with its "renders" option (the seed writes it into the data
-// folder's perf-probe file) and the scenarios in bench-app.js.
 
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -39,9 +26,6 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-// MARK: Seed
-
-// A session of `count` tabs in one profile: 3 pinned, a group of 4, the rest loose; the probe's renders option on.
 function writeRenderSeed(dir, origin, version, count) {
   const files = buildSeed(origin, version);
   const session = files["session.json"];
@@ -72,8 +56,6 @@ function writeRenderSeed(dir, origin, version, count) {
   mkdirSync(dir, { recursive: true });
   for (const [name, value] of Object.entries(files)) writeFileSync(join(dir, name), typeof value === "string" ? value : JSON.stringify(value));
 }
-
-// MARK: CDP (the page side of scrolling and media)
 
 async function cdp(port, urlPart, calls) {
   const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
@@ -109,8 +91,6 @@ async function cdp(port, urlPart, calls) {
     ws.close();
   }
 }
-
-// MARK: Run
 
 const INTERACTIONS = ["idle1", "tabSwitch", "idle20", "openTab", "closeTab", "typeCommandBar", "typeOmnibox", "hover", "ticker", "bgLoad", "media", "pageScroll", "split", "unsplit", "sidebarCollapse", "sidebarExpand", "downloads"];
 
@@ -204,7 +184,6 @@ async function run() {
         if (want("media")) {
           log("media");
           const id = await call("openBackground", { path: "/media", origin });
-          // A background tab's play() settles only once Chrome lets it play: start it, then ask.
           result.mediaPlaying = await cdp(debugPort, "/media", async (send) => {
             await send("Runtime.evaluate", { expression: "void document.getElementById('a').play()", userGesture: true });
             await sleep(2000);
@@ -219,7 +198,6 @@ async function run() {
           log("pageScroll");
           const id = await call("openActive", { path: "/long", origin });
           await call("mark", { settleMs: 500 });
-          // Down and back up; returns how far it got.
           result.scrolled = await cdp(debugPort, "/long", async (send) => {
             let furthest = 0;
             for (let i = 0; i < 60; i++) {
@@ -261,9 +239,6 @@ async function run() {
   console.log(`\nwrote ${file}`);
 }
 
-// MARK: Summary
-
-// Host wrappers render whenever their parent does; offenders lists the app's own components.
 const HOST = /^(View|Text|Pressable|Image|ScrollView|TextInput|InternalTextInput|Animated\(.*\)|Ardia.*|Surface|Symbol|MouseArea|ContextMenuArea|FadeLabel|VirtualizedList.*|CellRenderer.*|ScrollViewBase|TouchableOpacity|AnimatedComponent.*)$/;
 
 function line(stats) {
@@ -312,7 +287,6 @@ function compare(a, b) {
   }
 }
 
-// The components that render most (and waste most) in one interaction of the last run, with why they rendered.
 function top(file, only) {
   const report = JSON.parse(readFileSync(file, "utf8"));
   const last = report.results.at(-1);

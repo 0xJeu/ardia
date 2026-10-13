@@ -6,13 +6,6 @@ import { samePage } from "./organize";
 import { removeTabs } from "./tabs";
 import type { BrowserWindow, Tab, TabGroup } from "./types";
 
-// Pinned tabs belong to the profile, as in Dia and Arc: every regular window that shows a profile shows the same
-// pinned tiles and pinned groups, in the same order. Each window keeps its own copy of each one (its own Tab, linked
-// to the others by `pinKey`), so each has its own page: a copy made for another window starts unloaded and loads
-// when clicked there. `mirrorPins` (a store listener, store/browser.ts) carries any change of one window's pinned
-// section (pin, unpin, reorder, rename, icon, pinned URL, pinned groups) to the profile's other windows, and gives a
-// window that starts showing a profile (⌘N, paging, a relaunch) the profile's pins.
-
 type Keyed = { id: string; pinKey?: string };
 export const pinKeyOf = (x: Keyed) => x.pinKey ?? x.id;
 const homeOf = (t: Pick<Tab, "url" | "pinnedUrl">) => t.pinnedUrl || t.url;
@@ -44,7 +37,6 @@ const signature = (x: Section) =>
     ...x.groups.map(({ group: g, members }) => `G${pinKeyOf(g)}\u0001${g.name}\u0001${g.icon ?? ""}\u0001${g.color ?? ""}\u0002${members.map(memberSig).join("\u0002")}`),
   ].join("\n");
 
-// The profiles a window shows: those it has tabs of (a window paged to another profile keeps the first one's tabs).
 function profilesOf(s: Pick<BrowserState, "tabs">, w: BrowserWindow): Set<string> {
   const out = new Set<string>();
   for (const id of w.tabIds) {
@@ -62,7 +54,6 @@ function hasDuplicates(x: Section): boolean {
   return new Set(tabs).size < tabs.length || new Set(groups).size < groups.length;
 }
 
-// Only a change to what a pinned section shows (not a title, an icon or a load) needs a look.
 const PIN_FIELDS = ["pinned", "pinnedUrl", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
 function pinsMayDiffer(s: BrowserState, prev: BrowserState): boolean {
   if (s.windows !== prev.windows || s.groups !== prev.groups) return true;
@@ -82,14 +73,12 @@ function pinsMayDiffer(s: BrowserState, prev: BrowserState): boolean {
   return false;
 }
 
-/** The profile's pinned section every window should show, as a list of the copies to make it from. */
 type Spec = { tiles: Tab[]; groups: { group: TabGroup; members: Tab[] }[] };
 
 function union(sections: Section[]): Spec {
   const spec: Spec = { tiles: [], groups: [] };
   const keys = new Set<string>();
   for (const x of sections) {
-    // Windows that pinned one page each on their own (before pins were the profile's) share one tile.
     const earlier = [...spec.tiles];
     for (const t of x.tiles) {
       if (keys.has(pinKeyOf(t)) || earlier.some((o) => samePage(homeOf(o), homeOf(t)))) continue;
@@ -129,9 +118,6 @@ function copyOf(src: Tab, windowId: string, tile: boolean): Tab {
   };
 }
 
-// Makes window `windowId`'s pinned section for `profileId` the spec's: its copies are kept (by key, or a tile by its
-// pinned URL), missing ones are made unloaded, and the ones the spec doesn't have leave: a copy without a page goes,
-// one with a page (or on screen) stays as a regular tab, so no page closes under the user.
 function conform(s: BrowserState, windowId: string, profileId: string, spec: Spec): BrowserState {
   const w = s.windows[windowId]!;
   const cur = sectionOf(s, w, profileId, pinnedGroupsOf(s));
@@ -142,7 +128,6 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   let groups = { ...s.groups };
   const reuse = (src: Tab, tile: boolean): string => {
     const key = pinKeyOf(src);
-    // Of two copies of one pin (a page moved in), the one with a page stays.
     const same = mine.filter((m) => !used.has(m.id) && pinKeyOf(m) === key);
     let t = same.find(hasPage) ?? same[0];
     if (!t && tile) t = cur.tiles.find((m) => !used.has(m.id) && samePage(homeOf(m), homeOf(src)));
@@ -175,7 +160,6 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
     const base: TabGroup = own ?? { id, windowId, profileId, name: "", icon: null, color: null, collapsed: src.collapsed, pinned: true, tabIds: [], createdAt: Date.now() };
     groups[id] = { ...base, ...keyField(id, key), name: src.name, icon: src.icon, color: src.color, pinned: true, tabIds: ids };
   }
-  // Members reused elsewhere leave their old group.
   const placed = new Set([...tileIds, ...memberIds]);
   for (const { group } of cur.groups) {
     if (usedGroups.has(group.id)) continue;
@@ -188,7 +172,6 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   const demoted = leaving.filter((t) => hasPage(t) || shown.has(t.id)).map((t) => t.id);
   const gone = leaving.filter((t) => !demoted.includes(t.id)).map((t) => t.id);
   for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinKey: undefined };
-  // A group no window pins any more stays as a regular group of the pages it still has.
   for (const { group } of cur.groups) {
     if (usedGroups.has(group.id)) continue;
     const left = groups[group.id]!.tabIds.filter((id) => demoted.includes(id));
@@ -204,14 +187,11 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   return gone.length ? removeTabs(next, gone, false) : next;
 }
 
-/** What makes every window of a profile show the same pinned section after `prev` → `s`, or null when they do. */
 export function mirrorPins(s: BrowserState, prev: BrowserState): BrowserState | null {
   if (!pinsMayDiffer(s, prev)) return null;
   const order = [...new Set([...s.ui.focusOrder, ...s.windowOrder])].filter((id) => mirrored(s.windows[id]));
   const byProfile = new Map<string, string[]>();
   for (const id of order) for (const p of profilesOf(s, s.windows[id]!)) byProfile.set(p, [...(byProfile.get(p) ?? []), id]);
-  // A window holding two copies of one pin (a page moved in, windows merged) keeps one: the one with a page, in the
-  // place of the first.
   let next = s;
   for (const [profileId, ids] of byProfile) {
     for (const id of ids) {
@@ -226,8 +206,6 @@ export function mirrorPins(s: BrowserState, prev: BrowserState): BrowserState | 
     const sections = new Map(ids.map((id) => [id, sectionOf(next, next.windows[id]!, profileId, nowGroups)]));
     const sigs = new Map(ids.map((id) => [id, signature(sections.get(id)!)]));
     if (new Set(sigs.values()).size === 1) continue;
-    // A window that showed the profile before and whose pins changed is where the user (or sync, or an extension)
-    // changed them: the focused one if several. A window that only now shows the profile takes the others'.
     const before = ids.filter((id) => mirrored(prev.windows[id]) && profilesOf(prev, prev.windows[id]!).has(profileId));
     const source = before.find((id) => signature(sectionOf(prev, prev.windows[id]!, profileId, prevGroups)) !== sigs.get(id));
     const spec: Spec = source
@@ -242,12 +220,6 @@ export function mirrorPins(s: BrowserState, prev: BrowserState): BrowserState | 
   return next === s ? null : next;
 }
 
-/**
- * After `moved` tabs went from their windows to `targetId` (Move to Window, a drag, Merge All Windows, an extension):
- * a pinned tab's page moved, not the pin. The window it left keeps an unloaded copy in its place (unless that window
- * went), and a pinned group's member takes the place of the target's copy of it. Two copies of one tile in the target
- * become one in `mirrorPins`.
- */
 export function settleMovedPins(before: BrowserState, after: BrowserState, moved: string[], targetId: string): BrowserState {
   if (!mirrored(after.windows[targetId])) return after;
   const memberOf = new Map<string, TabGroup>();
@@ -260,7 +232,6 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
   const live = { ...after.live };
   const windows = { ...after.windows };
   const groups = { ...after.groups };
-  // The windows they left keep the pin.
   for (const sourceId of new Set(pins.map((t) => t.windowId))) {
     const src = windows[sourceId];
     if (!mirrored(src) || !mirrored(before.windows[sourceId])) continue;
@@ -279,7 +250,6 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
     }
     windows[sourceId] = { ...src, tabIds: pinnedFirst(keep(before.windows[sourceId]!.tabIds), tabs) };
   }
-  // A pinned group's member takes its copy's place in the target's group (the moved tab stays: it's the one shown).
   const target = windows[targetId]!;
   let tabIds = [...target.tabIds];
   const gone: string[] = [];

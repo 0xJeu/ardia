@@ -35,7 +35,6 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
     return !!selection?.length && !!s.groups[groupId]?.tabIds.some((id) => selection.includes(id));
   });
   const profileId = usePageProfileId();
-  // The window's active tab, when it's a member: it stays out while the group is collapsed, as in Arc and Dia.
   const activeEntry = useBrowser((s) => keptEntry(s, windowId, profileId, entries));
   const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed });
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
@@ -52,9 +51,6 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
         <View ref={headerRef} {...handle}>
           <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
         </View>
-        {/* A collapsed group's members aren't mounted (a big group would otherwise cost as much as if it were open); they
-            mount for the animation. Selected members stay mounted: a multi-tab drag gathers its rows from the mounted
-            ones (sidebar/dnd.tsx). The active tab stays out while the group is collapsed, as in Arc and Dia. */}
         <Fold
           fold={fold}
           collapsed={collapsed}
@@ -79,13 +75,11 @@ const Entry = memo(function Entry({ entry, section, groupId }: { entry: string; 
   );
 });
 
-// `open` is the members' collapse animation: the chevron turns on its frames, so the two never drift apart.
 function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; windowId: string; collapsed: boolean; open: Animated.Value }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const group = useBrowser((s) => s.groups[groupId]);
   const label = useBrowser((s) => (s.groups[groupId] ? groupLabel(s, s.groups[groupId]!) : ""));
-  // The first tab's icon fields only: its title, loading and bookkeeping changes don't re-render the header.
   const firstTab = useBrowser(
     useShallow((s) => {
       const t = s.tabs[s.groups[groupId]?.tabIds[0] ?? ""];
@@ -133,10 +127,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
                   onDone={(text) => (text === null ? endRename(target) : commitRename(target, text))}
                 />
               ) : (
-                // Dia: the name, then a chevron right after it (∨ open, › closed), no count.
                 <Animated.View style={{ flex: 1, height: 18, marginLeft: 5, flexDirection: "row", alignItems: "center", transform: [{ rotate: countdown.rotate }] }}>
-                  {/* The name is as wide as its (transparent) text, laid out in the same pass: the chevron follows it
-                      from the first frame. The label draws over it with 8 pt more for its fade. */}
                   <View style={{ flexShrink: 1, height: 18, paddingRight: 8, justifyContent: "center" }}>
                     <Text numberOfLines={1} style={{ opacity: 0, fontSize: 13, fontWeight: "500" }}>
                       {label}

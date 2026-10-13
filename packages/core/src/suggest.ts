@@ -43,8 +43,6 @@ export type SuggestOptions = {
   currentTabId?: string;
   currentUrl?: string;
   scope?: SearchScope | null;
-  // Chrome's prevent_inline_autocomplete, set after the user deleted text: no inline completion, and a page only
-  // goes first when what was typed is exactly the page's host or address (a typed URL still goes first).
   preventInline?: boolean;
 };
 
@@ -65,8 +63,6 @@ type PageText = {
   shown: string;
   shownLower: string;
   titleLower: string;
-  // Lowercase text with every run of characters outside a-z0-9 turned into one space, and a space in front: a word starts
-  // with `w` exactly when the text includes " " + w.
   titleWords: string;
   shownWords?: string;
   shownBlank?: boolean;
@@ -77,13 +73,11 @@ type PageText = {
 
 const pageTexts = new WeakMap<object, PageText>();
 
-// Math.log2(1 + visits) * 8 per candidate, remembered by visit count: a profile has a few dozen different counts, not thousands.
 const logVisitsOf: number[] = [];
 const logVisits = (visits: number) => (visits >= 0 && visits < 1024 && (visits | 0) === visits ? (logVisitsOf[visits] ??= Math.log2(1 + visits) * 8) : Math.log2(1 + visits) * 8);
 
 const NOT_WORD = /[^a-z0-9]+/g;
 const PLAIN_WORDS = /^[a-z0-9]+(?: [a-z0-9]+)*$/;
-// Most titles are lowercase words and single spaces already: one test then, no replacing.
 const wordsOf = (lower: string) => (PLAIN_WORDS.test(lower) ? ` ${lower}` : ` ${lower}`.replace(NOT_WORD, " "));
 const shownWordsOf = (t: PageText) => (t.shownWords ??= wordsOf(t.shownLower));
 
@@ -110,11 +104,9 @@ type Candidate = {
   favicon: string | null;
   visits: number;
   lastVisit: number;
-  // Math.log2(1 + visits) * 8, once per candidate instead of once per key.
   logVisits: number;
   bookmarked: boolean;
   tabId?: string;
-  // An open tab no history row or bookmark covers: it was visited just now, whatever "now" is.
   fresh?: boolean;
   text: PageText;
 };
@@ -122,9 +114,7 @@ type Candidate = {
 type Lookup = { get(key: string): Candidate | undefined; has(key: string): boolean };
 type Pool = { list: Candidate[]; byKey: Lookup };
 
-// Bookmark candidates, deduplicated, built once per bookmarks list: a visit replaces the history list, not this.
 type BookmarkBase = { list: Candidate[]; byKey: Map<string, Candidate>; keys: Set<string>; cursor: number; done: boolean };
-// A pool under construction for one history list and one bookmarks list, resumed where the last slice stopped.
 type Builder = {
   base: BookmarkBase;
   history: readonly HistoryRow[];
@@ -138,7 +128,6 @@ type Builder = {
 const bases = new WeakMap<readonly BookmarkRow[], BookmarkBase>();
 const builders = new WeakMap<readonly HistoryRow[], WeakMap<readonly BookmarkRow[], Builder>>();
 const NO_BOOKMARKS: readonly BookmarkRow[] = [];
-// A history row's candidate, kept while its bookmark flag holds, so a new history list reuses them.
 const historyCandidates = new WeakMap<HistoryRow, Candidate>();
 const SLICE_CHECK = 64;
 
@@ -148,7 +137,6 @@ function baseFor(bookmarks: readonly BookmarkRow[]): BookmarkBase {
   return base;
 }
 
-// Runs a builder until its pool is ready or `deadline` passes (checked every SLICE_CHECK rows); true when ready.
 function advance(b: Builder, bookmarks: readonly BookmarkRow[], deadline: number): boolean {
   if (b.pool) return true;
   let n = 0;
@@ -208,8 +196,6 @@ function poolFor(history: readonly HistoryRow[], bookmarks: readonly BookmarkRow
   return b.pool!;
 }
 
-// Warms what the first keystroke would build (page text, then the candidate pool) in slices that end once
-// `deadline` passes, resuming where the previous call stopped. True when everything is ready.
 export function prepareSuggestions(source: SuggestionSource, deadline: number): boolean {
   const bookmarks = source.bookmarks ?? NO_BOOKMARKS;
   const b = builderFor(source.history, bookmarks);
@@ -228,9 +214,6 @@ export function prepareSuggestions(source: SuggestionSource, deadline: number): 
 type TabsOver = { pool: Pool; currentTabId: string | undefined; rows: TabRow[]; tabIds: Map<string, string>; extra: Candidate[] };
 const tabsOverCache = new WeakMap<readonly TabRow[], TabsOver>();
 
-// Which pool entries are open tabs, and the open tabs the pool doesn't have. Kept for one tabs list, pool and current tab:
-// typing changes none of them. (A row is replaced when a tab changes, never edited: pageText relies on that too. The list may
-// be edited, so the rows are compared.)
 function tabsOver(pool: Pool, tabs: readonly TabRow[], currentTabId?: string): TabsOver {
   const cached = tabsOverCache.get(tabs);
   if (cached && cached.pool === pool && cached.currentTabId === currentTabId && cached.rows.length === tabs.length) {
@@ -274,8 +257,6 @@ function parseQuery(q: string, tokens: readonly string[]): Query {
   };
 }
 
-// A query of several words. Its own text has a space, so a page address (which has none unless it decodes to one)
-// can't start with it or include it: those tests are skipped for such a page.
 function matchScore(t: PageText, query: Query): number {
   const shown = t.shownLower;
   const title = t.titleLower;
@@ -301,8 +282,6 @@ function matchScore(t: PageText, query: Query): number {
   return s;
 }
 
-// matchScore for a query of one word: the needle is the query, so one indexOf per text answers the prefilter and the
-// start tests together.
 function matchScoreWord(t: PageText, query: Query): number {
   const shown = t.shownLower;
   const title = t.titleLower;
@@ -322,14 +301,10 @@ function matchScoreWord(t: PageText, query: Query): number {
   return s;
 }
 
-// What a query matched, for each prefix of what is being typed: a longer query narrows the list of a shorter one that it
-// extends (backspacing finds the list of the query it returns to). Prefixes only, shortest first; one pool at a time.
-// `scores` are the pages' match scores, so the same query again (a space typed, backspace and retype, remote suggestions arriving) doesn't score them again.
 type Matched = { q: string; tokens: string[]; pages: Candidate[]; scores: number[] };
 const MATCHED_KEPT = 8;
 let matchedChain: { pool: Pool; list: Matched[] } = { pool: null as unknown as Pool, list: [] };
 
-// The matches of the longest earlier query that the new one can only narrow, or null when none is.
 function narrowing(pool: Pool, q: string, tokens: readonly string[]): Matched | null {
   const chain = matchedChain;
   if (chain.pool !== pool) return null;
@@ -361,7 +336,6 @@ type Ranked = { c: Candidate; tabId: string | undefined; m: number; s: number };
 
 class TopList {
   readonly items: Ranked[] = [];
-  // The score a row has to beat to get in: the last one's once the list is full.
   floor = -Infinity;
   private readonly size: number;
   constructor(size: number) {
@@ -407,8 +381,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
   const { limit = 8, now = Date.now(), engine = BUILT_IN_ENGINES[0]!, preference = "website", remote = [], actions = [], scope, preventInline = false } = options;
   const query = raw.trim();
   if (!query) return { items: [], completion: "" };
-  // Pages match by their shown address, which has no scheme: a typed one (the bar shows it while editing) is left out.
-  // Most keys don't start with "h": they skip the regexp.
   const bare = query[0] === "h" || query[0] === "H" ? query.replace(/^https?:\/\/(?=\S)/i, "") : query;
   const q = bare.toLowerCase();
   const tokens = q.split(/\s+/).filter(Boolean);
@@ -428,19 +400,15 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
   const known = (url: string) => {
     const key = pageKey(url);
     const c = pool.byKey.get(key) ?? extra.find((x) => x.text.key === key);
-    // What was typed opens here, as in Chrome: an open tab at the same address keeps its own Switch to Tab row.
     return c && pageSuggestion(c, null);
   };
 
   const websiteFirst = preference === "website";
   const oneWord = tokens.length === 1;
-  // Chrome's SetAllowedToBeDefault: a word followed by a space never completes (the space isn't part of any address), and a
-  // deletion (preventInline) doesn't either; the search goes first then unless the typed text is the page's host or address.
   const noInline = preventInline || (oneWord && raw.length !== query.length && /\s$/.test(raw));
   const completes = websiteFirst && !scope && oneWord && !noInline;
   const from = narrowing(pool, q, tokens);
   const pages = from ? from.pages : pool.list;
-  // The same query as last time: its matches and their scores are known.
   const again = from !== null && from.q === q;
   const parsed = parseQuery(q, tokens);
   const matched: Candidate[] = again ? from.pages : [];
@@ -463,8 +431,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
       }
       const key = c.text.key;
       const derank = currentKey !== null && key === currentKey ? 80 : 0;
-      // Frecency, as it was before it was inlined: log2 part kept per candidate, age part without Math.max/min.
-      // A tab the pool doesn't have was last visited `now`.
       const lastVisit = c.fresh ? now : c.lastVisit;
       let age = 10;
       if (lastVisit) {
@@ -472,8 +438,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
         age = d < 0 ? 0 : d > 30 ? 30 : d;
       }
       const base = c.logVisits - age + (c.bookmarked ? 20 : 0);
-      // Without the open-tab bonus (6) the row can't get in the list, and can't be the inline completion: skip it
-      // before looking up its tab. The extra point is for float rounding.
       if (!bound && top.floor >= m + base - derank + 7) {
         if (!completes) continue;
         if (inline === null ? false : inline.s >= m + base - derank + 7) continue;
@@ -490,7 +454,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
         const host = hostOfPage(c.text);
         if (host === scope!.host || host.endsWith(`.${scope!.host}`)) onSite.offer(r ?? { c, tabId, m, s });
       }
-      // Only a page that was visited completes (Chrome's history providers): not a bookmark or a tab that has no history row.
       if (completes && (!inline || s > inline.s) && c.visits > 0 && inlineMatch(c.text, q)) inline = r ?? { c, tabId, m, s };
     }
   }
@@ -541,7 +504,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
   return { items: out.items, completion };
 }
 
-// What was typed is the page's host or its whole shown address: the only way a page is the default match with no completion.
 function typedIsPage(t: PageText, q: string): boolean {
   return q === t.shownLower || q === hostLowerOfPage(t);
 }

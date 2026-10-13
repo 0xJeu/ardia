@@ -1,6 +1,3 @@
-// The demo state the film is shot in: five profiles with real tabs, light, the address in the toolbar (the profile's
-// name then sits next to the traffic lights, in its colour, which is what makes a swipe readable).
-// usage: node scripts/capture/session.mjs <out.json> [appearance] [addressBar]
 import { writeFileSync } from "node:fs";
 import { session } from "../../../../scripts/lib/instance.mjs";
 
@@ -47,7 +44,6 @@ const s = session({
 });
 s.windows[0].tabIds = tabs.map((t) => t.id);
 s.windows[0].activeTabIds = { default: "t1", work: "t7", travel: "t14", side: "t21", weekend: "t23" };
-// APPEARANCE / ADDRESS_BAR override for a test run: node session.mjs out.json light toolbar
 const [, , , appearance = "light", addressBar = "toolbar"] = process.argv;
 s.settings = { addressBar, appearance, searchSuggestions: false, warnBeforeQuitting: false };
 writeFileSync(process.argv[2], JSON.stringify(s, null, 2));

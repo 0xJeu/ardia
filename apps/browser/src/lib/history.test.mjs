@@ -1,5 +1,3 @@
-// How Chrome's history changes land in the app's view (lib/history.ts applyHistoryChange): the straightforward
-// version below is the specification; the real one is the same function written to copy a 5000-entry list once.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -58,7 +56,6 @@ const entry = (i, visitTimes = [1_000_000 - i * 1000]) => ({
 });
 const view = (n) => Array.from({ length: n }, (_, i) => entry(i));
 
-// Small deterministic random numbers.
 function random(seed) {
   let x = seed;
   return () => (x = (x * 1664525 + 1013904223) >>> 0) / 2 ** 32;
@@ -113,7 +110,6 @@ test("the real functions match the straightforward ones on random changes", () =
     const known = real.length ? real[Math.floor(rand() * real.length)] : null;
     let change;
     if (pick < 0.45) {
-      // a visit: to a known page or a new one, now or (sometimes) at an old time
       const url = known && rand() < 0.5 ? known.url : `https://new.test/${Math.floor(rand() * 60)}`;
       const at = rand() < 0.8 ? (clock += 1 + Math.floor(rand() * 500)) : Math.floor(rand() * clock);
       change = { kind: "visit", profile: "", url: rand() < 0.05 ? "chrome://settings" : url, title: rand() < 0.5 ? `T${step}` : "", visits: 1 + Math.floor(rand() * 5), at };
@@ -122,7 +118,6 @@ test("the real functions match the straightforward ones on random changes", () =
         const target = real.length && rand() < 0.8 ? real[Math.floor(rand() * real.length)] : null;
         return { url: target?.url ?? "https://absent.test/", title: rand() < 0.3 ? "" : `R${step}`, visits: rand() < 0.5 ? (target?.visits ?? 1) : 1 + Math.floor(rand() * 9) };
       });
-      // the same page twice in one change: the later row wins
       if (rows.length > 1 && rand() < 0.3) rows[1] = { ...rows[1], url: rows[0].url };
       change = { kind: "modified", profile: "", rows };
     } else {

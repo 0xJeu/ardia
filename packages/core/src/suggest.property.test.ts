@@ -1,5 +1,3 @@
-// The live omnibox ranking against its frozen spec (suggest.reference.ts): random profiles, random typing sequences,
-// every keystroke's whole result compared, so a faster implementation has to rank exactly as the old one did.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BUILT_IN_ENGINES } from "./engines.ts";
@@ -32,7 +30,6 @@ function makeProfile(r: Rng, size: number) {
     return `${proto}://${r.pick(HOSTS)}/${path}${r.pick(TAILS)}`;
   };
   const title = () => (r.int(10) === 0 ? "" : Array.from({ length: 1 + r.int(6) }, () => r.pick(WORDS)).join(r.int(8) ? " " : "-"));
-  // Half the profiles have few distinct visit counts and dates, so many rows tie and the order among ties shows.
   const ties = r.int(2) === 0;
   const history = Array.from({ length: size }, () => ({
     url: url(),
@@ -59,7 +56,6 @@ const ACTIONS = [
   { id: "pin", title: "Pin Tab", keywords: ["keep"] },
 ];
 
-// Queries: a target taken from the profile (a URL slice, a title's words, a host) typed a key at a time, then edited.
 function sequence(r: Rng, p: ReturnType<typeof makeProfile>): string[] {
   const row = p.history.length ? r.pick(p.history) : { url: "https://github.com/", title: "GitHub" };
   const shown = row.url.replace(/^https?:\/\//, "");
@@ -72,7 +68,6 @@ function sequence(r: Rng, p: ReturnType<typeof makeProfile>): string[] {
   const out: string[] = [];
   const upTo = Math.min(target.length, 4 + r.int(24));
   for (let i = 1; i <= upTo; i++) out.push(target.slice(0, i));
-  // Edits: backspaces, a retype of a different tail, a jump to an unrelated query, the same query again.
   for (let n = r.int(4); n > 0 && out.length; n--) {
     const last = out[out.length - 1]!;
     switch (r.int(4)) {
@@ -109,22 +104,16 @@ function compareRun(seed: number, size: number) {
     scope,
     preventInline: r.int(6) === 0,
   };
-  // A second profile of the same size, for switching profiles (or windows) mid-typing.
   const other = makeProfile(rng(seed + 100_000), size);
   let source: SuggestionSource = p;
-  // Some keys come twice, the second time with other remote suggestions (they arrive after the key does).
   const queries = [...sequence(r, p), ...sequence(r, p)].flatMap((q) => (r.int(5) === 0 ? [q, q] : [q]));
   for (const [i, q] of queries.entries()) {
-    // Now and then the profile changes the way the app changes it: a visit makes a new history list, a bookmark a new
-    // bookmarks list, a tab opening a new tabs list; the rows themselves are reused.
     if (r.int(7) === 0 && p.history.length) {
       const h = r.pick(p.history);
       source = { ...source, history: [{ ...h, visits: h.visits + 1, lastVisit: NOW }, ...source.history.filter((x) => x !== h)] };
     }
     if (r.int(11) === 0) source = { ...source, bookmarks: [...(source.bookmarks ?? [])] };
     if (r.int(9) === 0) source = { ...source, tabs: source.tabs.slice(r.int(3)) };
-    // Mid-typing, the rest of what the app does to a profile (each makes new lists; rows are replaced, never edited): a
-    // history entry deleted, history cleared, a tab retitled or opened, a bookmark added or removed, another profile.
     if (r.int(10) === 0 && source.history.length) source = { ...source, history: source.history.filter((_, at) => at !== r.int(source.history.length)) };
     if (r.int(40) === 0) source = { ...source, history: [] };
     if (r.int(10) === 0 && source.tabs.length) {
@@ -166,7 +155,6 @@ test("an empty profile and a one-row profile", () => {
   compareRun(78, 1);
 });
 
-// Found by review (Codex): inputs the app never makes, which the old code answered and a cache must too.
 test("a tab is last visited `now`, even when now is 0 or NaN", () => {
   const source = {
     history: [{ url: "https://history.example/", title: "abc", favicon: null, visits: 2, lastVisit: 0 }],

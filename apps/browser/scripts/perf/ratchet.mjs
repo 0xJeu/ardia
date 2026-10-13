@@ -1,57 +1,4 @@
 #!/usr/bin/env node
-// The perf ratchet: ceilings on counts, so a number can only go down. Wall-clock is too noisy to gate on (±20% between
-// runs on a busy Mac); counts of React commits, renders, store updates, native→JS tasks, timers and document writes
-// per interaction mostly repeat to the digit, and so do the builtin-call counts of the Node hot paths.
-// ratchet.json holds a ceiling per count. The gate, the policy and the proof the counts track wall-clock:
-// docs/perf/README.md ("The ratchet").
-//
-//   node ratchet.mjs run [--app <Ardia.app>] [--own | --bundle <main.jsbundle>] [--instr] [--skip-js] [--skip-micro] [--lib <bench-app.js>] [--out <dir>] [--port <n>]
-//       The fast local check (about 85 s, 170 s when a count needs the rerun): bundles the current tree, runs the journey scenarios once in a hidden
-//       instance of a Release app, counts the Node hot paths and checks both against ratchet.json. A count over its
-//       ceiling gets one more run, and only a count over in both fails (a real regression stays over; a stray event
-//       from a mouse over the hidden window or a window deactivating doesn't). --app defaults to the newest
-//       dist/<v>/export/Ardia.app, which must have the tree's native API. --own runs the app's own main.jsbundle
-//       instead of a bundle of the tree: that is how a release candidate is gated. --bundle runs a bundle js-bench.mjs
-//       built earlier. --lib <bench-app.js> swaps in another copy of the scenarios. --instr adds the instruction counter.
-//   node ratchet.mjs baseline [--runs 8] [--app …] [--bundle …] [--out <dir>] [--measure-only]
-//       Rebuilds ratchet.json from scratch: runs the scenarios 8 times on a bundle of the tree (about
-//       8 minutes) and calls `init` on them. Do it on a quiet machine, from a tree whose counts you accept as the new
-//       floor; the diff of ratchet.json is the review. --measure-only stops after the runs and prints the two reports
-//       (the big and the one-tab session), to `lower` or `init` from by hand.
-//   node ratchet.mjs check <js-bench report.json> [--micro <counts.json>] [--instr <n>]
-//       Exit 1 with a table when a count is over its ceiling. A report of several runs counts as its median run.
-//   node ratchet.mjs lower <js-bench report.json> [--micro <counts.json>] [--instr <n>]
-//       Lowers every exact ceiling that every run of the report beat and prints the diff. It never raises one: a
-//       deliberate increase is a hand edit of ratchet.json with the reason in the commit.
-//   node ratchet.mjs init <js-bench report.json…> [--micro <counts.json…>] [--no-instr]
-//       Rebuilds ratchet.json from reports of at least 6 runs in all (see the policy below), counting the Node hot paths
-//       twice and measuring the instruction count itself. Prints what it dropped.
-//       With --adopt it merges into the existing ratchet.json instead, never raising a ceiling: new counts are added,
-//       ceilings the runs beat are lowered (noisy ones too), counts that came out higher are listed and keep theirs.
-//   node ratchet.mjs census <js-bench report.json…>
-//       Every count with its values per run, steady ones apart from wobbling ones, for choosing what to gate.
-//
-// What a count is: for each scenario, the probe's counters (src/lib/perfProbe.ts) as <scenario>.<counter> (the total)
-// and <scenario>.<counter>.<name> (per component, store key, task, timer or file), with the *Ms and log counters
-// left out; flatten() lists the scenarios. A count missing from a run is 0 (a component that stopped rendering),
-// and a scenario the report didn't run is skipped.
-//
-// Policy (init):
-//   exact   a count that took the same value in every baseline run. Its ceiling is that value. Counts that were
-//           steady in 7 of 8 runs are left out: one stray run (a pointer over the hidden window, the window
-//           deactivating) would otherwise fail a check in one of seven, and a count that wobbles is the noisy kind.
-//           A count that is over in a check still gets a second run before it fails. A group total is held to its
-//           ceiling exactly; a named count (one component, store key or timer) has 2 or 5% of room, since a timer firing
-//           once more says nothing and the total says whether the work grew.
-//   noisy   a group total (commits, renders, tasks…) that moves between runs because pages and timers finish at
-//           their own pace, with its median within 30% of its largest value (a run that did less, because the
-//           window deactivated mid-scenario, doesn't count against it). Its ceiling is the largest value plus 10%:
-//           it catches a regression, not a few percent. `lower` leaves these alone; `init` rebases them.
-//           A named count that is 0 in most runs gets no ceiling (a pointer over the window sometimes causes it); a
-//           group total that is 0 does (an idle app renders nothing: idle.commits stays 0).
-//   micro   the exact builtin-call counts of micro-bench.mjs `counts`: no interference possible.
-//   instr   instructions retired per round of micro-bench.mjs `instr`: repeats within 0.5% on a quiet machine and 2% on a
-//           loaded one, so the ceiling is the largest of 3 baseline measurements plus 4%.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -59,18 +6,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-// RATCHET_APP_DIR: run the Node counts on another copy of apps/browser (an export of HEAD, to count the committed tree).
 const appDir = process.env.RATCHET_APP_DIR ? resolve(process.env.RATCHET_APP_DIR) : resolve(here, "../..");
 const repo = resolve(appDir, "../..");
 const ceilingsFile = join(here, "ratchet.json");
 
-// The scenarios the ratchet runs, in this order (js-bench scenario names; `launch` is ratchet-app.js's): J1 launch
-// (startup marks the first window; launch reads the whole launch's work once it has stopped), idle (which also waits
-// for the launch's saves to finish, so typing doesn't catch the end of the launch), J2 command bar (typing, openClose),
-// J3 tab switch (switchTabs), J4 navigate (pageLoad), and scroll, hover. The order matters: counts depend on what
-// ran before (typing counts the launch's leftovers unless idle ran first; scroll counts the page loads and closing tabs
-// openClose leaves behind), so the steady scenarios come first and the two whose counts follow page loads, pageLoad and
-// openClose, come last. The baseline and every check run exactly this list with these options.
 export const JOURNEYS = ["startup", "launch", "idle", "typing", "switchTabs", "scroll", "hover", "pageLoad", "openClose"];
 const OPTIONS = '{"seconds":5}';
 
@@ -81,11 +20,7 @@ const INSTR_TOLERANCE = 0.04;
 const NAMED_ROOM = 2;
 const MIN_RUNS = 6;
 
-// MARK: Flatten
-
 const COUNTERS = ["renders", "mounts", "storeUpdates", "storeKeys", "listenerCalls", "tasks", "timers", "writes", "writeBytes", "commitTasks"];
-// The store fan-out, from the `selectors` probe (the ratchet runs with it): subscriptions notified by a store update and
-// selectors evaluated. Only the totals are counts: the per-site names are call stacks.
 const FAN_OUT = ["subNotified", "selectorCalls"];
 const SCALARS = ["commits", "hostUpdates"];
 const TOTALS = new Set([...COUNTERS, ...SCALARS, ...FAN_OUT, "firstCommitMounts"]);
@@ -94,7 +29,6 @@ const add = (into, key, value) => {
   into[key] = (into[key] ?? 0) + value;
 };
 
-// One stats object (acPerf.read()) as flat counts under `prefix`.
 function flattenStats(into, prefix, stats) {
   if (!stats) return;
   for (const k of SCALARS) if (typeof stats[k] === "number") add(into, `${prefix}.${k}`, stats[k]);
@@ -103,7 +37,6 @@ function flattenStats(into, prefix, stats) {
     if (!counter) continue;
     let total = 0;
     for (const [name, value] of Object.entries(counter)) {
-      // The bench's own timers (the dev harness polling for its next command) aren't the app's.
       if (name.includes("pollDevEval")) continue;
       add(into, `${prefix}.${k}.${name}`, value);
       total += value;
@@ -116,7 +49,6 @@ function flattenStats(into, prefix, stats) {
   }
 }
 
-// One run of js-bench (a `results` entry) as { counts: { name: value }, ran: scenarios }.
 export function flatten(result, prefix = "") {
   const out = {};
   const ran = new Set();
@@ -124,9 +56,7 @@ export function flatten(result, prefix = "") {
     ran.add(prefix + scenario);
     flattenStats(out, prefix + scenario, stats);
   };
-  // `startup` reads the probe when the first window appears, a race against the rest of the launch: not a count.
   for (const name of ["launch", "typing", "switchTabs", "scroll", "hover", "storeUpdate", "idle"]) if (result[name]?.stats) one(name, result[name].stats);
-  // What the launch's first React commit mounted, by component: the first frame waits for all of it.
   if (result.launch?.firstCommitMounts) {
     let total = 0;
     for (const [name, value] of Object.entries(result.launch.firstCommitMounts)) {
@@ -142,7 +72,6 @@ export function flatten(result, prefix = "") {
     flattenStats(out, "close", result.openClose.closeStats);
   }
   if (result.pageLoad?.runs) {
-    // The three loads of one run add up (the first leaves a seeded page, the others a heavy one).
     ran.add("pageLoad");
     for (const run of result.pageLoad.runs) flattenStats(out, "pageLoad", run.stats);
   }
@@ -153,14 +82,11 @@ export function flatten(result, prefix = "") {
   return { counts: out, ran };
 }
 
-// A count's scenario, as js-bench names it: open.* and close.* belong to openClose.
-// small.<scenario>.* is a scenario of the one-tab seed's runs.
 const scenarioOf = (key) => {
   const [head, second] = key.split(".");
   if (head === "small") return `small.${second}`;
   return head === "open" || head === "close" ? "openClose" : head;
 };
-// Whether a count is a group total (<scenario>.<counter>, or profileSwipe.<command>.<counter>).
 const isTotal = (key) => {
   const parts = key.replace(/^small\./, "").split(".");
   return TOTALS.has(parts.at(-1)) && parts.length === (key.includes("profileSwipe.") ? 3 : 2);
@@ -168,8 +94,6 @@ const isTotal = (key) => {
 
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
-// The runs of one or more reports: { values: { count: [value per run] }, runs, ran: scenarios every run had }. Reports of
-// the one-tab seed (`seed: "small"`) are runs of their own: their counts are prefixed `small.`.
 function collect(reports) {
   const values = {};
   const ran = new Set();
@@ -189,7 +113,6 @@ function collect(reports) {
 }
 
 const sorted = (xs) => [...xs].sort((a, b) => a - b);
-// The middle run; of two, the lower: a regression is in both runs, interference is in one.
 const lowerMedian = (xs) => sorted(xs)[(xs.length - 1) >> 1];
 
 function modeOf(xs) {
@@ -198,8 +121,6 @@ function modeOf(xs) {
   const [value, n] = [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
   return { value, share: n / xs.length };
 }
-
-// MARK: Ceilings
 
 function readCeilings() {
   if (!existsSync(ceilingsFile)) throw new Error(`no ${ceilingsFile}: run \`ratchet.mjs init\` on js-bench reports of several runs`);
@@ -216,7 +137,6 @@ function reportRevisions(reports) {
   return { probe: [...probe].join("+"), bench: String(bench) };
 }
 
-// Each ceiling against the report's median run: [{ tier, key, ceiling, value, kind }], kind over | under | same.
 function judge(tier, ceilings, counts, ran) {
   const rows = [];
   for (const [key, ceiling] of Object.entries(ceilings)) {
@@ -235,8 +155,6 @@ function table(rows) {
   return [line("count", "ceiling", "now", ""), ...rows.map((r) => line(name(r), r.ceiling, r.value, `${r.value > r.ceiling ? "+" : ""}${r.value - r.ceiling}`))].join("\n");
 }
 
-// MARK: Commands
-
 function parseArgs(argv) {
   const positional = [];
   const flags = {};
@@ -252,7 +170,6 @@ function parseArgs(argv) {
   return { positional, flags };
 }
 
-// What the report (its median run), the micro counts and the instruction count say against ceilings.
 function evaluate(ceilings, { files = [], micro = null, instr = null }) {
   const rows = [];
   const notes = [];
@@ -284,7 +201,6 @@ function printCheck({ rows, notes, ran, counts, runs }, ceilings, { quiet = fals
   if (over.length) lines.push("", "OVER THE CEILING", table(over));
   if (under.length && !quiet) lines.push("", "below the ceiling (`ratchet.mjs lower` locks the exact ones in)", table(under.slice(0, 30)), under.length > 30 ? `… and ${under.length - 30} more` : "");
   if (counts && !quiet) {
-    // A count with no ceiling: a new component, task or timer. The totals above are what gates it.
     const known = new Set([...Object.keys(ceilings.exact), ...Object.keys(ceilings.noisy)]);
     const fresh = Object.entries(counts).filter(([k, v]) => !known.has(k) && v > 0 && ran.has(scenarioOf(k)) && !isTotal(k));
     const named = fresh.filter(([k]) => !/\.(storeKeys|listenerCalls)\./.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -315,7 +231,6 @@ function lower(files, micro, instr) {
   };
   if (files.length) {
     const { values, ran } = collect(files.map(readJson));
-    // Lower only what every run beat: one run can be the one the window deactivated in.
     for (const [key, ceiling] of Object.entries(ceilings.exact)) {
       if (!ran.has(scenarioOf(key))) continue;
       const worst = Math.max(...(values[key] ?? [0]));
@@ -342,7 +257,6 @@ function init(files, microRuns, instr, { adopt = false } = {}) {
     const max = Math.max(...v);
     if (max === 0 && !isTotal(key)) continue;
     const mode = modeOf(v);
-    // A count that is usually absent (an event a pointer over the window sometimes causes) isn't a ceiling.
     if (mode.share >= EXACT_SHARE) {
       if (mode.value > 0 || isTotal(key)) exact[key] = mode.value;
     } else if (isTotal(key) && (max - lowerMedian(v)) / max <= NOISY_SPREAD) noisy[key] = Math.ceil(max * (1 + NOISY_MARGIN));
@@ -373,9 +287,6 @@ function init(files, microRuns, instr, { adopt = false } = {}) {
   if (dropped.length) console.log(`not gated (totals whose median is more than ${NOISY_SPREAD * 100}% below their largest value):\n${dropped.map((d) => `  ${d.key}  [${d.v.join(", ")}]`).join("\n")}`);
 }
 
-// init --adopt: merges a fresh baseline into ratchet.json without ever raising a ceiling: counts the baseline adds are
-// added, ceilings it beat (noisy ones too) are lowered, and counts it found higher keep their ceiling and are listed, so
-// the check keeps failing on them until someone fixes the code or raises the ceiling by hand with a reason.
 function adoptCeilings(next, dropped) {
   const old = readCeilings();
   const merged = { ...next, exact: {}, noisy: {}, micro: {}, instr: {} };
@@ -396,7 +307,6 @@ function adoptCeilings(next, dropped) {
       }
     }
   }
-  // A count that was noisy and is now exact is gated exact only.
   for (const key of Object.keys(merged.exact)) delete merged.noisy[key];
   writeFileSync(ceilingsFile, `${serialize(merged)}\n`);
   const counts = (tier, rows) => rows.filter((r) => r.tier === tier).length;
@@ -420,8 +330,6 @@ function census(files) {
   for (const r of wobbly.filter((r) => !isTotal(r.key)).sort((a, b) => a.key.localeCompare(b.key))) console.log(line(r));
 }
 
-// MARK: Run
-
 const sh = (cmd, args, options = {}) => execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], ...options });
 
 function newestApp() {
@@ -436,11 +344,8 @@ function newestApp() {
   throw new Error("no dist/<version>/export/Ardia.app: pass --app");
 }
 
-// The app, the bundle and the js-bench command line for `run` and `baseline`.
 function jsSetup(flags, out, mark) {
   const app = flags.app ? resolve(flags.app) : newestApp();
-  // --own: the app's own main.jsbundle (a release candidate's: what ships); --bundle: one built earlier; otherwise a
-  // bundle of the tree.
   let jsbundle = flags.bundle ? resolve(flags.bundle) : join(app, "Contents/Resources/main.jsbundle");
   if (!flags.own && !flags.bundle) {
     const bundle = join(out, "bundle");
@@ -450,15 +355,10 @@ function jsSetup(flags, out, mark) {
   }
   const scenarios = JOURNEYS.join(",");
   const libs = [flags.lib ? resolve(flags.lib) : join(here, "bench-app.js"), join(here, "ratchet-app.js")].join(",");
-  // The instance's CDP port is 9500 + run + (label length % 50) * 10 (js-bench.mjs): the label picks the port range.
   const label = flags.label ?? "ratchet";
-  // The launch alone again from a one-tab session (--seed small): what the first commit mounts for someone who has
-  // barely used the browser. Its own label (same length, so the same CDP port range) and report.
   const smallLabel = `s${label.slice(1)}`;
   const args = (runs, append, small = false) => {
     const a = [join(here, "js-bench.mjs"), "run", "--app", app, "--bundle", jsbundle, "--label", small ? smallLabel : label, "--runs", String(runs), "--port", flags.port ?? "47831", "--out", out, "--scenarios", small ? "startup,launch" : scenarios, "--options", OPTIONS];
-    // The big session runs with the `selectors` probe, for the fan-out counts (subscriptions notified, selectors run). It
-    // slows a run by a tenth and moves no other count.
     if (small) a.push("--seed", "small");
     else a.push("--probe", "selectors");
     if (append) a.push("--append", "1");
@@ -502,7 +402,6 @@ async function run(flags) {
   process.exit(ok ? 0 : 1);
 }
 
-// Rebuilds ratchet.json: runs the scenarios N times (default 8) on a fresh bundle and sets the ceilings from them.
 async function baseline(flags) {
   const started = Date.now();
   const out = resolve(flags.out ?? join(process.env.TMPDIR ?? "/tmp", "ac-ratchet-baseline"));
@@ -517,7 +416,6 @@ async function baseline(flags) {
   init([setup.report, setup.smallReport], [microCounts(), microCounts()], Math.max(instrPerRound(), instrPerRound(), instrPerRound()));
 }
 
-// The Node counts: micro-bench.mjs `counts`, whose last line is COUNTS {json}.
 export function microCounts() {
   const text = sh(process.execPath, ["--no-warnings", "--import", "./src/test-loader.mjs", "scripts/perf/micro-bench.mjs", "counts"], { cwd: appDir });
   const line = text.split("\n").find((l) => l.startsWith("COUNTS "));
@@ -525,10 +423,6 @@ export function microCounts() {
   return JSON.parse(line.slice("COUNTS ".length));
 }
 
-// Instructions retired per round of micro-bench.mjs `instr`: the CPU's own counter through `/usr/bin/time -l` (no root
-// needed on Apple silicon), under `node --predictable` (one thread, no concurrent compiler), as the difference
-// between a run of N rounds and a run of none, so Node's own start-up cancels. It repeats within about 0.5%, not
-// exactly (0.5% on a quiet machine, up to 2% under load): the ceiling has 4% of room.
 export function instrPerRound(rounds = 10) {
   const retired = (n) => {
     const r = spawnSync("/usr/bin/time", ["-l", process.execPath, "--no-warnings", "--predictable", "--import", "./src/test-loader.mjs", "scripts/perf/micro-bench.mjs", "instr"], {
@@ -552,7 +446,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     else if (command === "check") process.exit(check(positional, micro, instr) ? 0 : 1);
     else if (command === "lower") lower(positional, micro, instr);
     else if (command === "init") {
-      // The Node counts are measured here twice (they must agree to the digit), the instruction count three times.
       const microRuns = flags.micro ? flags.micro.map(readJson) : [microCounts(), microCounts()];
       init(positional, microRuns, flags["no-instr"] ? null : Math.max(instrPerRound(), instrPerRound(), instrPerRound()), { adopt: !!flags.adopt });
     }

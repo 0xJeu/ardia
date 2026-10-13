@@ -9,7 +9,6 @@ import { BEAT, CUTS, LAND, type ShotKind } from "./plan";
 import { color, font, swatch } from "./theme";
 import { Mark, SunPeek } from "./Mark";
 
-/** A window shown whole: in portrait, centred under the type (inside the safe zone, y 220–1480). */
 const wideCam = (port: boolean, bump = 0): Cam =>
   port ? { ...REST, zoom: 0.62 * (1 + bump), fx: 0.5, fy: 0.5, aim: 1, ax: 0.5, ay: 0.56 } : { ...REST, zoom: 0.86 * (1 + bump), fx: 0.5, dy: 60 };
 
@@ -31,7 +30,6 @@ function extraId(suffix: string) {
 }
 
 const tab = (n: number) => frameOf("tabs", `tab:t${n}`);
-/** All the frames with a label, in order. */
 function framesOf(scene: keyof typeof SCENES, label: string) {
   const out: number[] = [];
   SCENES[scene].labels.forEach((l, i) => {
@@ -40,20 +38,11 @@ function framesOf(scene: keyof typeof SCENES, label: string) {
   if (!out.length) throw new Error(`${scene}: no frames labelled ${label}`);
   return out;
 }
-/** Plays a run of frames over [start, end) beats, holding the last. */
 function playRun(b: number, frames: number[], start: number, end: number) {
   const t = clamp((b - start) / (end - start));
   return frames[Math.min(frames.length - 1, Math.floor(t * frames.length))];
 }
 
-/**
- * Which swipe frame shows at beat `b`. Through each drag the frame is picked by the pager's own progress (recorded
- * per frame, footage.json) on an ease-in-out: a soft start (the first step is a few percent), the fastest travel
- * mid-drag and a soft approach, reaching the last captured position (~99%) on the last drag frame, once. The page is
- * composited on the same progress, so page and sidebar travel together. The settled live frame (new name, title and
- * URL) lands one frame before the commit beat, as the page arrives; the commit's thud stays on the beat. The drop's
- * own commit (`onBeat`) lands on its beat.
- */
 const PROGRESS = (SCENES.swipe as { progress?: (number | null)[] }).progress ?? [];
 type SwipeEvent = { label: string; commit: number; drag: number; onBeat?: boolean; dir?: number };
 const landOf = (e: SwipeEvent) => e.commit - (e.onBeat ? 0 : LAND);
@@ -65,11 +54,8 @@ function swipeIndex(b: number, events: SwipeEvent[], before = "start") {
     const rest = frameOf("swipe", `${e.label}:rest`);
     const land = landOf(e);
     const start = land - e.drag;
-    // An epsilon: `start` and a frame's beat can tie in floating point, which used to drop the drag's first frame.
     if (b < start - 1e-6) return index;
     if (b < land - 1e-6) {
-      // The film frames that fall inside the drag (start and land are not always on whole frames): the curve is
-      // spread over exactly those, so its last value shows on the last one.
       const first = Math.ceil(start * BEAT - 1e-6);
       const last = Math.ceil(land * BEAT - 1e-6) - 1;
       const frames = Math.max(1, last - first + 1);
@@ -78,8 +64,6 @@ function swipeIndex(b: number, events: SwipeEvent[], before = "start") {
       const target = easeInOutSine((n + 1) / frames) * top;
       let best = drag[0];
       for (const i of drag) if (Math.abs((PROGRESS[i] ?? 0) - target) < Math.abs((PROGRESS[best] ?? 0) - target)) best = i;
-      // The first and last frames never overshoot their targets: the start stays soft, and the landing frame (with
-      // its plate and thud) closes the last few percent instead of a still page frame before it.
       if (n === 0 || n === frames - 1) {
         best = drag[0];
         for (const i of drag) if ((PROGRESS[i] ?? 0) <= target && (PROGRESS[i] ?? 0) > (PROGRESS[best] ?? 0)) best = i;
@@ -91,7 +75,6 @@ function swipeIndex(b: number, events: SwipeEvent[], before = "start") {
   return index;
 }
 
-/** After each commit, a short spring tail by translation only: the page carries ~1% past home and settles. */
 function settleDx(b: number, events: SwipeEvent[], width: number) {
   let dx = 0;
   for (const e of events) {
@@ -105,15 +88,9 @@ const Shake = ({ hits, amount, children }: { hits: number[]; amount?: number; ch
   <AbsoluteFill style={useShake(hits, amount)}>{children}</AbsoluteFill>
 );
 
-const SEC = BEAT / 30; // seconds in a beat
+const SEC = BEAT / 30;
 
-// ---------------------------------------------------------------------------------------------- the hook
-
-// Each stab cuts to a stand-in site interrupting you in a Ardia window (scenes/asks.js, sites/*.example): the
-// interruption plays in on the stab, a frame of the page per film frame, and a pointer heads for its button.
 const ASK_NAMES = ["signin", "ai", "cookies", "upgrade"];
-// The first ask's framing differs by aspect: in 16:9 the window sits low enough for the sun to peek up over its top
-// edge; in 9:16 the window's top edge stays at y ~617, under the stab plate, where it peeks up beside it.
 const ASK_CAM_0: Record<"land" | "port", Cam> = {
   land: { ...REST, zoom: 1.12, fx: 0.55, fy: 0.62, aim: 1, ax: 0.5, ay: 0.8 },
   port: { ...REST, zoom: 1.12, fx: 0.55, fy: 0.62, aim: 1, ax: 0.46, ay: 0.62 },
@@ -128,7 +105,6 @@ const ASK_CAMS: Cam[] = [
 function askFrame(b: number) {
   const k = Math.min(3, Math.floor(b));
   const frames = framesOf("asks", `ask:${ASK_NAMES[k]}`);
-  // Frame 0 already has the login wall half up over a dimmed page: it has to stop a scroll.
   if (k === 0) return playRun(b, frames.slice(6), 0, 0.35);
   return playRun(b, frames, k + 0.05, k + 0.6);
 }
@@ -137,13 +113,11 @@ function askPointer(b: number) {
   const mark = (SCENES.asks as { marks?: Record<string, { x: number; y: number }> }).marks?.[`ask:${ASK_NAMES[k]}`];
   if (!mark || b < k + 0.35 || b >= 4) return null;
   const t = easeInOut(clamp((b - (k + 0.35)) / 0.5));
-  // It starts inside the window: below-right of the button, or above-right when the button sits low.
   const sx = Math.min(0.95, mark.x + 0.14);
   const sy = mark.y > 0.75 ? mark.y - 0.16 : mark.y + 0.16;
   return { x: mix(sx, mark.x, t), y: mix(sy, mark.y, t), kind: "hand" as const };
 }
 
-/** A real browser, asked for everything: four stabs over four interruptions, then the asks stamped on the snare roll. */
 function Nags() {
   const b = useBeat();
   const shot = useShot();
@@ -152,22 +126,15 @@ function Nags() {
   const piles = shot.type.filter((t) => t.style === "stamp").map((t) => t.at);
   const knock = piles.reduce((s, h) => s + kick(b, h, 0.2) * 0.6, 0);
   const k = Math.min(3, Math.floor(b));
-  // The last six frames of the upgrade stab push into its fine print, the joke worth reading.
-  // Low enough that the UPGRADE. plate (top of frame) clears the modal's padlock.
   const joke: Cam = { ...REST, zoom: port ? 2.4 : 2.6, fx: 0.5635, fy: 0.52, aim: 1, ax: 0.5, ay: port ? 0.62 : 0.7 };
-  // Held for a full beat, into the first stamp of the pile.
   const askCam = k === 0 ? ASK_CAM_0[port ? "port" : "land"] : ASK_CAMS[k];
   const cam: Cam = b >= 3.45 && b < 4.45 ? joke : b < 4 ? askCam : { ...REST, zoom: 1 + 0.015 * knock };
   const index = b < 4 ? askFrame(b) : framesOf("asks", "ask:upgrade").slice(-1)[0];
-  // The hills rise beside the pile on the pop (the sun still set behind them); on the whoosh they lean back, winding
-  // up, and the shove lands on the drop (Title).
   const rise = springAt(b, 7.1, { stiffness: 200, damping: 16 });
   const windup = seg(b, 7.72, 0.28, easeIn);
   return (
     <Paper>
       <Shake hits={[...stabs, ...piles]} amount={10}>
-        {/* The sun peeks up from behind the window for the first stab (drawn behind it, so the window hides its lower
-            half), glints as the first NO. lands on its beat, and sinks back before the cut. */}
         {b < 1 ? (
           <SunPeek
             id={extraId("sun")}
@@ -186,13 +153,10 @@ function Nags() {
 
 const NAG_PILE = ["nag-pile-1", "nag-pile-2", "nag-pile-3", "nag-pile-4"];
 
-/** One of the hook's stamps, shoved off the window on the drop: thrown outward, spinning, falling. */
 function Shoved({ id, k }: { id: string; k: number }) {
   const b = useBeat();
-  const t = Math.max(0, b * SEC); // seconds since the drop
+  const t = Math.max(0, b * SEC);
   const object = useStudioObject(id);
-  // Shoved off to the left, away from the hills: they stand on the right of the frame.
-  // Fast, to the left and down: clear of the wordmark (top) within a quarter second.
   const vx = -(2600 + random(`vx${id}`) * 1200);
   const vy = 200 + random(`vy${id}`) * 500;
   const geometry = object.geometry(
@@ -220,10 +184,6 @@ function Shoved({ id, k }: { id: string; k: number }) {
   );
 }
 
-/**
- * The shove, from the hook's wind-up (36 px back, leaning 5°): on the drop the hills lunge left into the pile, leaning
- * in and stretched, then spring back to their place. Returns the pose's dx, lean and squash.
- */
 function shove(b: number, reach: number) {
   const lunge = seg(b, 0, 0.14, easeOut);
   const back = springAt(b, 0.14, { stiffness: 170, damping: 13 });
@@ -238,11 +198,8 @@ function Title() {
   const b = useBeat();
   const shot = useShot();
   const port = useAspect() === "port";
-  // The window carries on from the hook, dropping to its title place as the name slams in.
   const settle = springAt(b, 0, { stiffness: 260, damping: 18 });
   const cam: Cam = { ...REST, dy: mix(-120, 0, settle), zoom: 1 + 0.02 * kick(b, 0, 0.3) + 0.03 * seg(b, 3, 1, easeInOut) };
-  // The hills: on from the hook, they shove the pile off on the drop; the sun rises over them as the name lands, glints
-  // with the stamp on 2, and both sink out at the end of the shot.
   const out = seg(b, shot.beats - 0.7, 0.7, easeIn);
   const mark = useStudioObject(extraId("mark"));
   const push = shove(b, mark.number("width") * (port ? 0.35 : 0.45));
@@ -267,9 +224,6 @@ function Title() {
   );
 }
 
-// ---------------------------------------------------------------------------------------------- drop A
-
-// The sidebar's tab rows in the toolbar layout: from y 65 pt on a 34 pt pitch.
 const row = (i: number) => (65 + 34 * i) / 900;
 
 function Tabs() {
@@ -310,9 +264,7 @@ function Swipe() {
     { at: 5, ...wideCam(port), dy: port ? 0 : -40 },
   ]);
   const bump = RUN_1.reduce((s, e) => s + kick(b, e.commit, 0.2) * 0.015, 0);
-  // The gesture, the first time only: two fingers sliding with the first drag.
   const first = RUN_1[0];
-  // Fingers slide left (to the next profile) through the drag, then lift.
   const slide = 1 - 2 * clamp((b - (first.commit - first.drag)) / first.drag);
   const glyph = b < first.commit ? 1 : 0;
   return (
@@ -324,7 +276,6 @@ function Swipe() {
   );
 }
 
-// The divider as the capture set it (scenes/split.js): the left pane's share at each step.
 const ease = (x: number) => 0.5 - 0.5 * Math.cos(Math.PI * x);
 const DIVIDER_SIZES = [
   ...Array.from({ length: 16 }, (_, i) => 0.5 - 0.17 * ease((i + 1) / 16)),
@@ -337,19 +288,16 @@ function Split() {
   const b = useBeat();
   const port = useAspect() === "port";
   const run = framesOf("split", "divider");
-  // Split view is open on the cut (no single-page beat first).
   const index = b < DIVIDER.start ? frameOf("split", "two") : playRun(b, run, DIVIDER.start, DIVIDER.end);
   const bump = kick(b, 0, 0.25) * 0.02;
   const wide = wideCam(port, bump);
   const close: Cam = { ...REST, zoom: port ? 1.3 : 1.45, fx: 0.5, fy: 0.45, aim: 1, ax: 0.5, ay: port ? 0.55 : 0.52 };
   const cam = b >= DIVIDER.start && b < 5 ? close : wide;
-  // The pointer holds the divider: its x follows the panes' share (the page area starts after the 190 pt sidebar).
   const share = b < DIVIDER.start ? 0.5 : DIVIDER_SIZES[Math.min(DIVIDER_SIZES.length - 1, Math.max(0, run.indexOf(index)))];
   const paneLeft = 190 / 1440;
   const pointer = b > DIVIDER.start - 0.4 && b < DIVIDER.end + 0.3
     ? { x: paneLeft + (1 - paneLeft) * share, y: 0.5, kind: "arrow" as const, press: b > DIVIDER.start && b < DIVIDER.end ? 1 : 0 }
     : null;
-  // The hills peek up over the bottom edge on the pop, and the sun springs up over them for "ONE WINDOW.".
   const markOn = springAt(b, 5, { stiffness: 230, damping: 14 }) * (1 - seg(b, 7.4, 0.6, easeIn));
   return (
     <Paper>
@@ -368,10 +316,6 @@ function Split() {
   );
 }
 
-/**
- * The blocker: the page with its ads (blocking switched off, Site Controls open), the pointer switches Block Ads &
- * Trackers on, the page reloads clean and the count climbs to "13 blocked on this page".
- */
 function Block() {
   const b = useBeat();
   const port = useAspect() === "port";
@@ -397,8 +341,6 @@ function Block() {
   );
 }
 
-// ---------------------------------------------------------------------------------------------- the break
-
 function Chromium() {
   const b = useBeat();
   const cam: Cam = b < 2 ? { ...REST, zoom: 1 + 0.04 * seg(b, 0, 2, easeInOut), fx: 0.35, fy: 0.3 } : { ...REST, zoom: 1.7 + 0.06 * seg(b, 2, 2, easeInOut), fx: 0, fy: 0.3 };
@@ -410,11 +352,8 @@ function Chromium() {
   );
 }
 
-/** The drop-B window (the swipe-big object), shared by the poise and the run so the drop is a match cut. */
 const BIG_ID = CUTS.launch.shots.find((s) => s.kind === "swipeBig")?.window?.id ?? "swipe-big-window";
 
-// Drop B: five swipes. The first drags inside the silence and commits on the drop itself (beat 0 of swipeBig).
-// Beats here are relative to the drop.
 const RUN_2 = [
   { label: "toWeekend", commit: 0, drag: 0.7, dir: -1, onBeat: true },
   { label: "backToSide", commit: 1.5, drag: 0.55, dir: 1 },
@@ -424,13 +363,7 @@ const RUN_2 = [
 ];
 const RUN_2_TONES = [swatch.green, swatch.yellow, swatch.green, swatch.orange, swatch.blue, swatch.plum];
 
-/**
- * The drop-B window at beat `d` (relative to the drop), shared by the poise and the run so the drop is one continuous
- * shot. The first two swipes are framed whole (sidebar, tint and the coloured stock all change), the next three on a
- * macro of the sidebar and the page's edge. On each commit the window is shoved the way the fingers went.
- */
 function dropCam(d: number, port: boolean): Cam {
-  // Portrait: the sidebar and the left of the page, big enough to read on a phone, inside the safe zone.
   const whole: Cam = port ? { ...REST, zoom: 0.78, fx: 0.32, fy: 0.5, aim: 1, ax: 0.5, ay: 0.54 } : { ...REST, zoom: 0.8, dy: 40 };
   const macro: Cam = { ...REST, zoom: port ? 1.15 : 1.9, fx: 0.12, fy: 0.2, aim: 1, ax: port ? 0.42 : 0.32, ay: port ? 0.46 : 0.42 };
   const lerp = (a: Cam, b: Cam, t: number): Cam => ({
@@ -439,11 +372,9 @@ function dropCam(d: number, port: boolean): Cam {
   });
   let cam: Cam = d < 2.6 ? whole : d < 7.4 ? macro : lerp(macro, whole, seg(d, 7.4, 2.6, easeInOut));
   if (d < 0) {
-    // The poise: a slow push from wider into the framing the drop keeps (no jump on the drop frame).
     const push = seg(d, -4, 3.6, easeInOut);
     cam = { ...whole, zoom: whole.zoom * mix(0.88, 1, push) };
   }
-  // The drag pulls the window a little the way the fingers go; the commit carries it on and it springs home.
   const W = port ? 1080 : 1920;
   let dx = 0;
   for (const e of RUN_2) {
@@ -455,10 +386,6 @@ function dropCam(d: number, port: boolean): Cam {
   return { ...cam, dx: cam.dx + dx + settleDx(d, RUN_2, W) };
 }
 
-/**
- * The backdrop behind the drop-B window: the last profile's colour, with the next one wiped in from the side the page
- * comes from, tracking the fingers through each drag (complete on the commit).
- */
 function DropStock({ d }: { d: number }) {
   const landed = RUN_2.filter((e) => d >= e.commit).length;
   const base = RUN_2_TONES[landed];
@@ -475,7 +402,6 @@ function DropStock({ d }: { d: number }) {
   );
 }
 
-/** The bar before drop B: the window waits on the stock's colour, the fingers settle, and the first drag starts in the silence. */
 function Poise() {
   const b = useBeat();
   const port = useAspect() === "port";
@@ -493,19 +419,16 @@ function Poise() {
   );
 }
 
-/** The biggest swipe, on drop B: five profiles, each named on the frame its page lands, the stock in its colour. */
 function SwipeBig() {
   const b = useBeat();
   const shot = useShot();
   const port = useAspect() === "port";
-  // The teaser has no poise: its run starts `lead` beats into the shot.
   const d = b - (shot.marks?.lead ?? 0);
   const index = swipeIndex(d, RUN_2, "toSide:rest");
   const bump = kick(d, 0, 0.3) * 0.03;
   const cam = dropCam(d, port);
   const first = RUN_2[0];
   const lead = shot.marks?.lead ?? 0;
-  // The fingers lift on the commit frame (a fade read as a ghost box over the new page).
   const glyph = d < 0 ? (lead > 0 ? seg(b, 0, 0.15) : 1) : 0;
   const slide = 1 - 2 * clamp((d - (first.commit - first.drag)) / first.drag);
   return (
@@ -550,7 +473,6 @@ function Icons() {
   );
 }
 
-// Similar luminance card to card (ink, red, blue, ink): no dark/light alternation, so no flashing (fix 13).
 const NO_TONES = [color.ink, color.stamp, color.blue, color.ink];
 
 function Nos() {
@@ -565,11 +487,6 @@ function Nos() {
   );
 }
 
-// The site frames were captured (2026-10-03, at netnyahoo.com) while the site still had its old name, mascot and copy. They are brought
-// up to date in place, on the page's own paper, as apps/site lays the page out at this width: the hero figure becomes
-// the painting with its "NO ACCOUNT" stamp and caption, the headline and lede become today's ("TOUCH GRASS." is what
-// the dive lands on), the header's wordmark, icon and section links and the tab's title and favicon follow. Everything
-// is placed in window points (1440 × 900) and scaled to the window. Recapturing `typing` makes this unnecessary.
 const SITE_PAPER = "rgb(240,235,229)";
 const ROW = "rgb(249,243,245)";
 const SITE_NAV = ["Features", "Chromium", "Game", "FAQ", "Notes", "GitHub"];
@@ -581,19 +498,15 @@ function SiteLogo({ width }: { width: number }) {
     fontSize: 11.04 * s, lineHeight: 1.5, margin: 0, whiteSpace: "nowrap",
   };
   const clear = (x: number, y: number, w: number, h: number, bg = SITE_PAPER) => <div style={{ ...at(x, y, w, h), backgroundColor: bg }} />;
-  // The site's app icon is Apple's template (an 824 px tile in 1024): sized so its tile fills the old icon's square.
   const icon = (x: number, y: number, tile: number) => {
     const box = tile / (824 / 1024);
     return <Img src={staticFile("brand/app-icon.png")} style={at(x - (box - tile) / 2, y - (box - tile) / 2, box, box)} />;
   };
   return (
     <>
-      {/* The old figure and its caption, cleared (the rule between them stays: the site still draws it). */}
       {clear(924, 216, 476, 474)}
       {clear(924, 702, 476, 40)}
-      {/* The painting: the figure's width less 2% a side, standing 14 px above the caption's rule. */}
       <Img src={staticFile("brand/mark.png")} style={{ ...at(941, 346, 443, 334), filter: `drop-shadow(0 ${18 * s}px ${22 * s}px rgba(32,63,50,0.16))` }} />
-      {/* The stamp, pinned by its top-right corner to the figure's, turned -9° about it. */}
       <div
         style={{
           position: "absolute", right: (1440 - 1393) * s, top: 287 * s, transform: "rotate(-9deg)", transformOrigin: "100% 0",
@@ -613,7 +526,6 @@ function SiteLogo({ width }: { width: number }) {
       </div>
       <p style={{ ...label, ...at(932, 703, 300, 20), height: "auto", color: color.ink2 }}>Fig. 1. The logo, oil on canvas</p>
       <p style={{ ...label, ...at(1093, 703, 300, 20), height: "auto", color: "#6E685F", textAlign: "right" }}>Two hills, one sun</p>
-      {/* The headline and the lede, cleared and set again in the site's type. */}
       {clear(222, 262, 690, 362)}
       <p
         style={{
@@ -626,7 +538,6 @@ function SiteLogo({ width }: { width: number }) {
       <p style={{ ...at(230, 555.5, 569, 70), margin: 0, fontFamily: font.serif, fontSize: 23.7 * s, lineHeight: 1.36, color: color.ink }}>
         Arc’s sidebar and Dia’s polish on real Chromium. No account to make. Ads and trackers stay out.
       </p>
-      {/* The header's wordmark and section links. */}
       {clear(264, 58, 160, 36)}
       <p
         style={{
@@ -642,7 +553,6 @@ function SiteLogo({ width }: { width: number }) {
           <span key={name} style={{ ...label, fontSize: 11.52 * s, letterSpacing: "0.05em", color: color.ink2 }}>{name}</span>
         ))}
       </div>
-      {/* The header's icon, on the page's paper; the tab's favicon and title, on the selected row. */}
       {clear(229, 61, 32, 32)}
       {icon(231.5, 63, 27)}
       {clear(14, 284, 18, 18, ROW)}
@@ -663,7 +573,6 @@ function SiteLogo({ width }: { width: number }) {
 
 const TYPED = ["a", "ar", "ard", "ardi", "ardia", "ardia.", "ardia.d", "ardia.de", "ardia.dev"];
 
-/** ardia.dev typed into the address bar a key at a time, completed from history; Return; the site; a dive into its headline. */
 function Typing() {
   const b = useBeat();
   const port = useAspect() === "port";
@@ -687,12 +596,6 @@ function Typing() {
   );
 }
 
-// ---------------------------------------------------------------------------------------------- the end
-
-/**
- * The app icon on the lockup. Through the breath before the button it cycles once through the seven app icons (cut
- * from the real Settings › Appearance capture: scripts/capture/icons.py), landing back on the default on the button.
- */
 function AppIcon({ id, at, cycle }: { id: string; at: number; cycle?: [number, number] }) {
   const b = useBeat();
   const object = useStudioObject(id);
@@ -705,8 +608,6 @@ function AppIcon({ id, at, cycle }: { id: string; at: number; cycle?: [number, n
     const k = Math.floor(((b - cycle[0]) / (cycle[1] - cycle[0])) * 7);
     if (k > 0) src = staticFile(`footage/icons/${k}.png`);
   }
-  // The captured icons are bare tiles; the default is Apple's template (an 824 px tile in 1024), so they are inset to
-  // the same tile.
   const tile = src.includes("footage/") ? 824 / 1024 : 1;
   const inset = `${((1 - tile) / 2) * 100}%`;
   return (
@@ -716,7 +617,6 @@ function AppIcon({ id, at, cycle }: { id: string; at: number; cycle?: [number, n
   );
 }
 
-/** The URL underlines itself on the button, in its own colour, under the URL's box. */
 function Underline({ id, at }: { id: string; at: number }) {
   const b = useBeat();
   const url = useStudioObject(id);
@@ -732,12 +632,10 @@ function Underline({ id, at }: { id: string; at: number }) {
   );
 }
 
-/** A hop that lands at `land` after `dur` beats in the air, `height` px at its top. */
 function hopAt(b: number, land: number, dur: number, height: number) {
   const t = (b - (land - dur)) / dur;
   return t > 0 && t < 1 ? Math.sin(Math.PI * t) * height : 0;
 }
-/** Squash (+) and stretch (−) for the leap on the button: a crouch into it, stretched in the air, a squash on landing. */
 function leapSquash(b: number, at: number, dur: number) {
   if (b < at - 0.2) return 0;
   if (b < at) return 0.9 * Math.sin((Math.PI / 2) * ((b - (at - 0.2)) / 0.2));
@@ -751,14 +649,10 @@ function End() {
   const shot = useShot();
   const lockup = shot.marks?.lockup ?? 4;
   const button = shot.marks?.button ?? 11;
-  // The score's march taps: the three beats before the button, when the end runs three bars or more
-  // (scripts/music/score.py end_marks); the teaser's two-bar end has the button alone.
   const taps = shot.beats >= 12 ? [button - 3, button - 2, button - 1] : [];
-  // The hills come up on the hit and the sun rises over them through the ringing chord, floating a little.
   const rise = springAt(b, 0, { stiffness: 200, damping: 15 });
   const sun = seg(b, 0.3, 1.6, easeOut);
   const float = 0.012 * Math.sin((Math.PI * Math.max(0, b - 1.9)) / 2);
-  // The sun hops on each tap, landing on its beat, then leaps on the button and settles, glowing.
   const leap = 0.6;
   const tapHop = taps.reduce((s, t) => s + hopAt(b, t, 0.45, port ? 18 : 46), 0);
   const tapLand = taps.reduce((s, t) => s + kick(b, t, 0.18), 0);

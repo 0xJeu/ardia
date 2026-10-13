@@ -3,8 +3,6 @@ import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { browserIdOf, useExtensions, windowExtensions } from "./store";
 
-// The toolbar's action states (icon, badge, title) for each window's active tab. One pass at a time: asking while one
-// runs runs another right after it, so a tab switch mid-pass is never dropped and the last pass sees the latest tabs.
 let running: Promise<void> | null = null;
 let again = false;
 
@@ -20,7 +18,7 @@ export function refreshActionStates(): Promise<void> {
         await pass();
       } while (again);
     } finally {
-      running = null; // in the same turn as the last check of `again`: no request falls between
+      running = null;
     }
   })();
   return running;

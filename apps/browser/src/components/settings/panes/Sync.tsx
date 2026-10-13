@@ -59,8 +59,6 @@ function SyncIcon({ on }: { on: boolean }) {
   );
 }
 
-// MARK: Off
-
 function SyncOff({ info }: { info: FolderInfo | null }) {
   const theme = useTheme();
   const colors = useFormColors();
@@ -137,8 +135,6 @@ function SyncOff({ info }: { info: FolderInfo | null }) {
     </>
   );
 }
-
-// MARK: On
 
 function statusLine(status: SyncStatus, lastSyncedAt: number | null, pending: number): string {
   const since = lastSyncedAt ? ago(lastSyncedAt) : null;

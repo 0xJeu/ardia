@@ -29,7 +29,6 @@ function useIndicator(room: number) {
   return { incognito, title, textWidth, shown, showName, width, color };
 }
 
-/** The indicator's width at `room` (0 when it isn't shown), known before it lays out: the tab strip sizes its tabs by it. */
 export const useProfileIndicatorWidth = (room: number) => useIndicator(room).width;
 
 export function ProfileIndicator({ room }: { room: number }) {

@@ -10,9 +10,7 @@ export const SHARING_COPY = {
     share: "Share",
     notNow: "Not now",
   },
-  // Not opt-in: the update feed (infra/site/nginx.conf) counts every check, the one thing any copy sends.
   updateChecks: "ardia.dev counts update checks by version and day, and whether it's this copy's first. Nothing else.",
-  // Not opt-in either: lib/killSwitchesLaunch.ts reads the site's switches file once a launch, where the update check runs.
   switchFile:
     "While update checks are on, each launch also reads ardia.dev/switches.json: one small file, the same for everyone, that lets us turn off a speed-up that misbehaves. It sends no ID, no cookies and nothing about you.",
   onboarding: {

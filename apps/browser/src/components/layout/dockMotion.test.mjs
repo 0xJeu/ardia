@@ -1,5 +1,3 @@
-// Hiding and showing the sidebar (⌘S, the toolbar's sidebar button): Dia's spring, the traffic lights riding with the
-// sidebar, the card's edge, the motion flag the card waits on, and the per-window state across a relaunch.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -12,8 +10,6 @@ const stub = await import("../../test-native-stub.mjs");
 
 const S = () => useBrowser.getState();
 
-// The card's left edge in the owner's 240 fps recording of Dia (2026-10-06), as a fraction of its travel, against
-// seconds after the fitted start of each motion (two collapses, 191 → 6 pt, and one expansion, 6 → 191 pt).
 const DIA = [
   [0.0337, 0.303], [0.0629, 0.616], [0.0837, 0.805], [0.1212, 0.968], [0.1379, 1.011], [0.1629, 1.011], [0.1837, 1.003],
   [0.0263, 0.246], [0.0596, 0.524], [0.0805, 0.8], [0.1055, 0.951], [0.1305, 1.008], [0.1555, 1.011], [0.1805, 1.003],
@@ -23,7 +19,6 @@ const DIA = [
 test("the spring follows Dia's measured motion (rms under 4 % of the travel, the recorder's own timing jitter)", () => {
   const rms = Math.sqrt(DIA.reduce((sum, [t, x]) => sum + (dm.springAt(t) - x) ** 2, 0) / DIA.length);
   assert.ok(rms < 0.04, `rms ${rms.toFixed(3)}`);
-  // 90 % of the way by 100 ms, a small overshoot (no bounce anyone sees), at rest within 0.3 s.
   assert.ok(dm.springAt(0.1) > 0.88);
   const peak = Math.max(...Array.from({ length: 60 }, (_, i) => dm.springAt(i / 120)));
   assert.ok(peak > 1.005 && peak < 1.03, `peak ${peak}`);
@@ -46,7 +41,6 @@ test("the traffic lights go with the sidebar: at their place when it's shown, pa
   assert.deepEqual(dm.lightsCenter(-px, py), [25 + px, 27 + py], "in the peek panel: as far in as the panel");
   for (const width of [160, 190, 400]) {
     const [x] = dm.lightsCenter(width);
-    // The zoom button is the rightmost: 46 pt right of the close button's centre, 7 pt to its edge.
     assert.ok(x + 46 + 7 < 0, `width ${width}: all three past the left edge`);
   }
 });
@@ -72,7 +66,6 @@ test("the motion flag is per window, and ending it twice is harmless", () => {
 
 test("the toolbar's buttons don't move with the sidebar: the hidden sidebar's toolbar starts at the card's edge, as Dia's", () => {
   const g = toolbarGeometry({ sidebarButton: true });
-  // Dia, collapsed: the button at x 27 = the card's edge (6) + 21; back, forward, reload at 56, 92, 127 from it.
   assert.deepEqual([g.sidebarButton, g.back, g.forward, g.reload], [21, 56, 92, 127]);
 });
 
@@ -87,7 +80,6 @@ test("the sidebar's own button (address bar in the sidebar) always fits; back, r
   assert.deepEqual(dm.navButtonsFitting(224.75), { buttons: ["back", "forward", "reload"], step: 35 });
   assert.deepEqual(dm.navButtonsFitting(400), { buttons: ["back", "forward", "reload"], step: 35 });
   assert.equal(dm.navButtonsFitting(100).buttons.length, 0);
-  // No two plates closer than the gap, the sidebar button's included, at any width.
   for (let w = 150; w <= 400; w += 0.5) {
     const { buttons, step } = dm.navButtonsFitting(w);
     const last = w - dm.HEADER_TOOLS.edge - 15;
@@ -110,13 +102,11 @@ test("hidden or shown is each window's own, and survives a quit and relaunch; ne
   assert.equal(S().windows[a].sidebarOpen, false, "relaunch: still hidden");
   assert.equal(S().windows[b].sidebarOpen, true, "relaunch: still shown");
 
-  // Shown again, then a relaunch: shown (the saved state follows the change, not the first value).
   S().toggleSidebar(a);
   flushPersistence();
   S().hydrate(loadSession());
   assert.equal(S().windows[a].sidebarOpen, true);
 
-  // Hidden, closed, reopened (⇧⌘T): hidden. A new window: shown.
   S().toggleSidebar(a);
   S().closeWindow(a);
   flushPersistence();
@@ -131,8 +121,6 @@ test("hidden or shown is each window's own, and survives a quit and relaunch; ne
   stop();
 });
 
-// Arc (the owner's recording, 2026-10-06): the peek panel's right edge and the card's left edge as a fraction of their
-// travel, against seconds after the fitted start of each motion (docs/dia-spec.md, "Arc note").
 const springAt = (t, s) => dm.springAt(t, s);
 const fitT0 = (points, curve) => {
   let best = Infinity;
@@ -162,7 +150,6 @@ test("Arc's peek slides in on its measured spring and leaves on its ease-in-out;
     const rms = fitT0(motion, hide);
     assert.ok(rms < 0.05, `hide rms ${rms.toFixed(3)}`);
   }
-  // Faster than Dia's spring: Dia's would miss Arc's hide by far more.
   const dia = Math.max(...ARC_HIDE.map((m) => fitT0(m, (t) => dm.springAt(t))));
   assert.ok(dia > 0.06, `Dia's spring against Arc's hide: rms ${dia.toFixed(3)}`);
   assert.equal(dm.easeInOutCubic(0), 0);

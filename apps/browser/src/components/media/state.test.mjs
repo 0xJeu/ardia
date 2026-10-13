@@ -1,4 +1,3 @@
-// The sidebar player: which tab it shows, and where its play and pause state comes from.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../../store/browser.ts");
@@ -13,8 +12,6 @@ const report = (overrides = {}) => ({
 });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 3));
 
-// Two background tabs playing; the player shows the one that started last. As useSidebarPlayerTab does, the player
-// passes the tab it shows back in.
 async function twoPlaying() {
   S().hydrate({});
   const w = S().createWindow({ url: "a.com" });
@@ -50,7 +47,6 @@ test("a late playing report doesn't move the sidebar player", async () => {
   assert.equal(player(), c);
   media.mediaCommand(c, "pause");
   const playedAt = M().sessions[c].playedAt;
-  // Sent before the page paused, it lands after the click.
   media.setNowPlaying(c, report({ position: 11 }));
   assert.equal(player(), c);
   assert.equal(M().sessions[c].playedAt, playedAt, "still the same play, not a new one");

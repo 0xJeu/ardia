@@ -36,7 +36,6 @@ export function startDeviceChoosers() {
       return { byTab };
     });
   });
-  // Chrome closes chooser requests with their tab.
   useBrowser.subscribe((s, prev) => {
     if (s.tabs === prev.tabs) return;
     const { byTab } = useChoosers.getState();
@@ -120,7 +119,6 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
   } else {
     body = (
       <>
-        {/* Rows reach out to the rows' inset, their contents back on the panel's. */}
         <ScrollView style={{ maxHeight: 200, marginHorizontal: PANEL.rowInset - PANEL.inset }} contentContainerStyle={{ gap: 2 }}>
           {chooser.options.map((o, i) => (
             <OptionRow

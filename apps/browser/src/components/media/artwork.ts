@@ -6,7 +6,6 @@ import { useBrowser } from "../../store/browser";
 const MAX_PIXELS = 256;
 const MAX_ENTRIES = 24;
 
-// Keep artwork in memory only; incognito images must not reach disk or another context.
 type Entry = { uri: string | null; at: number };
 const useArtworks = create<{ entries: Record<string, Entry> }>(() => ({ entries: {} }));
 const inflight = new Set<string>();

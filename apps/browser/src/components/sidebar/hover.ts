@@ -9,7 +9,6 @@ const HIDE_DELAY_MS = 160;
 let showTimer: ReturnType<typeof setTimeout> | undefined;
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressed = false;
-// Bumped by everything that ends or replaces a hover: a card measured for an older one never shows.
 let ticket = 0;
 
 export function suppressHover(value: boolean) {
@@ -43,7 +42,6 @@ export function hoverLeave() {
 
 export const keepHover = () => clearTimeout(hideTimer);
 
-// Clicks, menus, drags, scrolling and profile switches: the card's anchor no longer holds.
 export function dismissHover() {
   ticket++;
   clearTimeout(showTimer);
@@ -56,8 +54,6 @@ export function useRowHover(windowId: string, target: Target | null) {
   const page = useContext(PageProfileContext);
   const latest = useRef({ windowId, target, page });
   latest.current = { windowId, target, page };
-  // Another profile's page is moved aside by a transform, which AppKit's hover tracking ignores: its rows still hover
-  // under the current page's, and the last one entered took the card (another profile's tab over the one pointed at).
   const onCurrentPage = () => {
     const { windowId, page } = latest.current;
     return !page || useBrowser.getState().windows[windowId]?.profileId === page;

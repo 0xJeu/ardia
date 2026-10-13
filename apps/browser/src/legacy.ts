@@ -1,20 +1,11 @@
-/**
- * LEGACY NAMES. Ardia was called Netnyahoo until 0.2.32. This is the only TypeScript file that may spell the old
- * names: values other Macs (or an older build) still write under them. An updated install's own files are brought
- * across once at launch, natively (packages/sync/ios/Core/LegacyMigration.swift, which has the same tables).
- */
-
-/** Hashed into the UUID of a bookmark saved before Chrome kept bookmarks (store/bookmarks.ts): every Mac must agree. */
 export const LEGACY_BOOKMARK_SEED = "netnyahoo-bookmark:";
 
-/** App URLs, at the start of a string; a host must end where the prefix does. */
 export const LEGACY_URLS: [string, string][] = [
   ["netnyahoo://yahu", "ardia://game"],
   ["chrome://yahu", "chrome://game"],
   ["netnyahoo://", "ardia://"],
 ];
 
-/** Object keys: settings, and settings.shortcuts' command ids. */
 export const LEGACY_KEYS: Record<string, string> = {
   openLinksInSmallYahu: "openLinksInLittleArdia",
   smallYahuSize: "littleArdiaSize",
@@ -35,7 +26,6 @@ export function fromLegacyUrl(url: string): string {
   return url;
 }
 
-/** A synced record in today's names (the same value, untouched, when it has none of the old ones). */
 export function fromLegacy<T>(value: T): T {
   if (typeof value === "string") return fromLegacyUrl(value) as T;
   if (Array.isArray(value)) {
@@ -48,7 +38,6 @@ export function fromLegacy<T>(value: T): T {
     const out: Record<string, unknown> = {};
     for (const [key, v] of Object.entries(source)) {
       const name = LEGACY_KEYS[key] ?? key;
-      // Both names: the new one's value wins.
       if (name !== key && name in source) {
         changed = true;
         continue;

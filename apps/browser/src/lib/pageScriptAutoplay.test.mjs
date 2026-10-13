@@ -1,5 +1,3 @@
-// Autoplay blocking that arrives after a page started playing (page_script.js › pauseUnasked): the browser's answer to
-// the page's hello crosses processes, and a fast page (the one a launch starts early) can play first.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";

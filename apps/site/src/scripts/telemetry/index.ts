@@ -1,6 +1,3 @@
-// First-party analytics for ardia.dev (replaces PostHog). Importing it starts everything once:
-// $pageview/$pageleave (core.ts), clicks, rage and dead clicks (autocapture.ts), errors and console logs
-// (errors.ts), web vitals (vitals.ts), the flags' super properties (flags.ts) and session replay (replay.ts).
 import { enabled } from "./core";
 import { startAutocapture } from "./autocapture";
 import { startErrors } from "./errors";

@@ -3,28 +3,16 @@ import { viewTabIds } from "../../store/model";
 import { groupIndex, splitIndex, stableList } from "../../store/structure";
 import { springParams } from "./swipeMotion";
 
-// Tab groups in the top strip, measured from a 2x recording of Dia 1.50.1 (dia-spec.md › Top tab strip › Groups).
-// A group is one container: the chip (glyph + name), then its members. Collapsed, only the window's active tab
-// stays out when it's a member; expanded, every member at full width, then a divider and Close Group.
-
-// The container sits 8 from the pinned dock and from the next tab.
 export const GROUP_MARGIN_LEFT = 3.5;
 export const GROUP_MARGIN_RIGHT = 4;
-// Chip → first member, and the room after the last member: 4.5 collapsed, divider + close button expanded.
 export const MEMBERS_INSET = 6.5;
 const TAIL_COLLAPSED = 4.5;
 export const TAIL_EXPANDED = 30.25;
-// Both ways, the members and the container move on one spring: response 0.30 s, damping 0.82 (1 % overshoot,
-// settled in ~0.3 s). A tab tucked back into the group fades out in ~0.12 s.
 export const GROUP_SPRING = springParams(0.3, 0.82);
 export const TUCK_FADE_MS = 120;
 
 type GroupLayout = { offsets: number[]; width: number };
 
-/**
- * Member offsets from the first member's slot when expanded, and the container width. Collapsed, the shown
- * member (the active tab, `shown` ≥ 0) sits in the first slot and the others under it.
- */
 export function groupLayout(chip: number, widths: number[], gap: number, expanded: boolean, shown: number): GroupLayout {
   const offsets: number[] = [];
   let x = 0;
@@ -38,7 +26,6 @@ export function groupLayout(chip: number, widths: number[], gap: number, expande
   return { offsets, width: chip };
 }
 
-/** Dia's "–" on the active tab of a collapsed group: the tab to go back to, the most recent one outside the group. */
 export function tuckTarget(s: BrowserState, windowId: string, profileId: string, groupId: string): string | undefined {
   const members = new Set(s.groups[groupId]?.tabIds ?? []);
   let best: string | undefined;
@@ -50,7 +37,6 @@ export function tuckTarget(s: BrowserState, windowId: string, profileId: string,
   return best;
 }
 
-/** The tabs' width in the strip: what's left once the dock, the groups' own parts and the + button have their room. */
 export function stripTabWidth(o: {
   pageWidth: number;
   dockWidth: number;
@@ -67,15 +53,9 @@ export function stripTabWidth(o: {
     room -= GROUP_MARGIN_LEFT + GROUP_MARGIN_RIGHT + g.chip + parts + o.gap;
   }
   const width = o.tabUnits ? room / o.tabUnits - o.gap : o.max;
-  // Half points keep every tab edge on the 2x pixel grid, so the attached tab shows no seam against the card.
   return Math.round(Math.max(o.min, Math.min(o.max, width)) * 2) / 2;
 }
 
-/**
- * Dragging a tab along the strip. The slots are what it can trade places with, in strip order: at the top level
- * every tab, split and group (a group moves as one block, so a tab never lands between its members); inside an
- * open group, its members. Each has its tabs (in window order), its width and its outer margins.
- */
 export type DragSlot = { tabIds: string[]; width: number; marginLeft?: number; marginRight?: number };
 export type DragGeometry = { slots: DragSlot[]; lefts: number[] };
 
@@ -90,16 +70,11 @@ export function dragGeometry(slots: DragSlot[], gap: number): DragGeometry {
   return { slots, lefts };
 }
 
-/** How far the dragged slot may travel: from the first slot's left edge to the last slot's right edge. */
 export function dragRange({ slots, lefts }: DragGeometry, from: number): [number, number] {
   const last = slots.length - 1;
   return [lefts[0]! - lefts[from]!, lefts[last]! + slots[last]!.width - (lefts[from]! + slots[from]!.width)];
 }
 
-/**
- * The slot index the dragged one lands on: once its leading edge passes a neighbour's centre, it takes that
- * neighbour's place (a wide group passes a narrow tab, and a tab doesn't have to travel a whole width).
- */
 export function dropIndex({ slots, lefts }: DragGeometry, from: number, dx: number): number {
   const left = lefts[from]! + dx;
   const right = left + slots[from]!.width;
@@ -111,10 +86,6 @@ export function dropIndex({ slots, lefts }: DragGeometry, from: number, dx: numb
   return index;
 }
 
-/**
- * The index for store.moveTab (its section: the window's unpinned tabs of the profile, in order, without the tab)
- * that puts the dragged tab at slot `to`: before the first tab of the slot it lands on, or after the last one.
- */
 export function moveIndex(section: string[], tabId: string, slots: DragSlot[], from: number, to: number): number | null {
   if (to === from) return null;
   const moved = section.filter((id) => id !== tabId);
@@ -125,11 +96,6 @@ export function moveIndex(section: string[], tabId: string, slots: DragSlot[], f
   return to < others.length ? at : at + 1;
 }
 
-/**
- * A group's member dragged along the strip (`left`: its left edge, in the strip's `lefts`) leaves the group once its
- * leading edge passes the chip's centre, or the close button's (collapsed: the container's end). Returns the top
- * slot it lands before (`slots.length`: the end), by its leading edge as along the strip; null while it stays in.
- */
 export function leaveIndex({ slots, lefts }: DragGeometry, slot: number, chip: number, expanded: boolean, left: number, width: number): number | null {
   const start = lefts[slot]!;
   const end = start + slots[slot]!.width;
@@ -148,19 +114,12 @@ export function leaveIndex({ slots, lefts }: DragGeometry, slot: number, chip: n
   return null;
 }
 
-/** A member takes clicks when it's the tab shown after a collapsed group's chip, or once an open group has settled. */
 export function memberInteractive(shown: boolean, expanded: boolean, moving: boolean): boolean {
   return shown || (expanded && !moving);
 }
 
 const stripMemo = new Map<string, { inputs: unknown[]; result: string[] }>();
 
-/**
- * The strip's entries for a profile page, in order: `pinned:<tab>`, `group:<id>:<collapsed>`,
- * `split:<id>:<tabs>:<group>` and `tab:<id>:<group>`. Every member stays listed, collapsed or not, so a group can
- * slide them in and out. Recomputed only when tabs, windows, groups or splits change, and the same array comes
- * back while the entries don't, so a progress update costs a lookup.
- */
 export function stripEntries(s: BrowserState, windowId: string, profileId: string): string[] {
   const key = `${windowId}|${profileId}`;
   const inputs = [s.tabs, s.windows, s.groups, s.splits];

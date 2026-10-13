@@ -8,7 +8,6 @@ import { useHover } from "../primitives";
 
 const INSET = 16;
 const BUTTON = 30;
-// The palette glyph is wider than tall: drop the button so its visible gaps to the right and bottom edges match.
 const GLYPH_DROP = 1.5;
 
 const usePanel = create<{ windowId: string | null }>(() => ({ windowId: null }));

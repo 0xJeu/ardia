@@ -35,7 +35,6 @@ export type NewTabOptions = {
   pinned?: boolean;
   snapshot?: Partial<TabSnapshot>;
   index?: number;
-  // Load only when first shown, adopting this (a restored tab: "restore:<id>").
   wakeAdoptId?: string;
 };
 
@@ -56,12 +55,9 @@ export type TabsSlice = {
   activateIndex(windowId: string, index: number): void;
   cycle(windowId: string, delta: 1 | -1): void;
   navigate(id: string, input: string, options?: { userInitiated?: boolean }): void;
-  // `live` patches the tab's live state in the same update (one pass over the store's subscribers).
   updateTab(id: string, patch: Partial<Tab>, live?: Partial<TabLive>): void;
   updateLive(id: string, patch: Partial<TabLive>): void;
-  // The engine's report of the tab's page. Chrome records the visit in its history itself.
   navigated(id: string, page: { url: string; title: string }, live: Partial<TabLive>): void;
-  // The page's icon. Chrome keeps it with the page (FaviconService).
   faviconChanged(id: string, favicon: string): void;
   duplicateTab(id: string): string | undefined;
   togglePin(id: string): void;
@@ -171,7 +167,6 @@ export function removeTabs(s: BrowserState, ids: string[], record: boolean): Bro
   return next;
 }
 
-// A closed tab's tabs take its opener (TabStripModel::FixOpeners).
 function adoptOrphans(tabs: Record<string, Tab>, before: Record<string, Tab>, gone: Set<string>): Record<string, Tab> {
   let next = tabs;
   for (const t of Object.values(tabs)) {
@@ -201,7 +196,6 @@ export function unloadPinnedTabs(s: BrowserState, ids: string[]): BrowserState {
       closed.push({ kind: "tab", id: newId("ct"), tab: snapshotTab(t), tabId: id, windowId: t.windowId, index: w?.tabIds.indexOf(id) ?? 0, group: null, closedAt: now, pinnedTile: true });
     }
     const back = backToPin(s, t);
-    // A reopened tab not shown yet still wakes with its back/forward list, unless it goes back to its pinned page.
     const pending = !back.url && pendingRestore(t) ? t.wakeAdoptId : undefined;
     tabs[id] = { ...t, ...back, navigation: null, adoptId: undefined, wakeAdoptId: pending, unloaded: true };
     live[id] = IDLE_LIVE;
@@ -256,7 +250,6 @@ function lastLivePinnedTab(s: BrowserState, w: BrowserWindow, id: string, closin
 }
 
 export function withNewTab(s: BrowserState, windowId: string, o: NewTabOptions = {}): [BrowserState, string] {
-  // A link opened in front starts a new task: Chrome forgets the window's other openers.
   if (o.openerId && !o.background) s = forgetOpeners(s, windowId);
   const w = s.windows[windowId];
   if (!w) return [s, ""];
@@ -267,7 +260,6 @@ export function withNewTab(s: BrowserState, windowId: string, o: NewTabOptions =
   tab.openerId = o.openerId ?? null;
   tab.pinnedUrl = tab.pinned ? tab.pinnedUrl || url || null : null;
   if (o.adoptId) {
-    // The adopted browser is already loading `url`; reloading drops POST data and opener state.
     tab.adoptId = o.adoptId;
     tab.navigation = null;
   } else if (o.wakeAdoptId) {
@@ -301,14 +293,12 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
   newTab(windowId, options) {
     const small = get().windows[windowId];
     if (small?.kind === "small" && small.tabIds.length) {
-      // Little Ardia keeps its one page; new tabs go to a main window of that profile.
       const profileId = options?.profileId ?? small.profileId;
       const main = mainWindowFor(get(), profileId);
       if (!main) {
         const created = get().createWindow({ profileId, url: options?.url, adoptId: options?.adoptId ?? options?.wakeAdoptId, background: options?.background });
         return activeTabId(get(), created) ?? "";
       }
-      // The Little Ardia page stays the opener, so the tabs it sends keep their order.
       return get().newTab(main, { ...options, profileId, index: undefined });
     }
     if (options?.url && !options.adoptId && openOutsideTab(resolveInput(fromLegacyUrl(options.url.trim()), searchUrlPrefix(get().settings)), windowId)) return "";
@@ -365,7 +355,6 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
 
   navigate(id, input, { userInitiated = true } = {}) {
     const s = get();
-    // An app URL in the old app's name (typed from habit, pasted from a note) goes where it went: legacy.ts.
     const url = resolveInput(fromLegacyUrl(input.trim()), searchUrlPrefix(s.settings));
     const tab = s.tabs[id];
     if (!url || !tab) return;
@@ -373,9 +362,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       if (get().windowUi[tab.windowId]?.panel.open) get().closePanel(tab.windowId);
       return;
     }
-    // A new address supersedes a link the tab kept to load when shown (the engine drops it: lib/chromeTabs.ts).
     const { unloaded: _, wakeAdoptId: _kept, ...rest } = tab;
-    // Typing an address starts a new task (a New Tab page gets one lookup first, as in Chrome).
     const base = userInitiated && tab.url ? forgetOpeners(s, tab.windowId) : s;
     set(apply(base, { tabs: { ...base.tabs, [id]: { ...rest, openerId: base.tabs[id]!.openerId, navigation: navigationTo(url, userInitiated), url: tab.url || url } } }));
     const ui = get().windowUi[tab.windowId];
@@ -387,7 +374,6 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
     const tab = s.tabs[id];
     if (!tab) return;
     const url = patch.url;
-    // Loading something else supersedes the link the tab kept to load when shown.
     const supersedes = !!tab.wakeAdoptId && !("wakeAdoptId" in patch) && (!!patch.navigation || !!patch.adoptId || (url !== undefined && url !== tab.url));
     const change = supersedes ? { ...patch, wakeAdoptId: undefined } : patch;
     const next = merge(tab, url !== undefined && url !== tab.url ? { ...onUrlChange(s, tab, url), ...change } : change);

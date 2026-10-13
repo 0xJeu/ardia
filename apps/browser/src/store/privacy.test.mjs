@@ -1,4 +1,3 @@
-// Private windows, incognito data and profile deletion: what must never reach disk, and what must leave it.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
@@ -40,7 +39,6 @@ test("incognito window: own profile, closing records nothing, history ignored", 
   assert.equal(S().closedWindows.length, 0);
 });
 
-// 0.2.11: tidying up a private window saved its tabs to disk, where they could reopen as regular tabs.
 test("cleaning up a private window keeps its tabs in memory, out of session.json, and in that window", () => {
   stub.docs.clear();
   S().hydrate({});
@@ -59,7 +57,6 @@ test("cleaning up a private window keeps its tabs in memory, out of session.json
   assert.ok(saved().includes("public.example"));
   assert.ok(!saved().includes("secret.example"));
 
-  // Restoring from a regular window never pulls a private tab into it.
   S().restoreCleaned(undefined, normal);
   S().restoreCleaned(cleanedTabsFor(S(), w)[0].id, normal);
   assert.equal(model.viewTabIds(S(), normal).length, 1);
@@ -171,7 +168,6 @@ test("favicons: incognito icons stay in memory and in their own profile; nothing
 
   noteFavicon(normalTab, "https://site.example/favicon.ico");
   noteFavicon(privateTab, "https://secret.example/favicon.ico");
-  // Recorded icons land with the next frame's batch.
   await new Promise((r) => setTimeout(r, 50));
 
   assert.equal(resolveFavicon("https://site.example/a")?.uri, "data:image/png;base64,SITE");
@@ -222,7 +218,6 @@ test("clearing a time range removes visits, not pages", () => {
   assert.deepEqual(S().history.default, []);
 });
 
-// 0.2.11: deleting "Personal" removed it from the sidebar but kept its history, cookies and passwords on disk.
 test("deleting the original profile queues Chrome's default profile for deletion", () => {
   S().hydrate({});
   const work = S().createProfile({ name: "Work" });
@@ -261,7 +256,6 @@ test("queued profile data is deleted once, and stays queued in session.json unti
   stop();
   assert.deepEqual(loadSession().orphanedProfileData, [""]);
 
-  // Next launch: it's tried again and leaves the queue once it succeeds.
   stub.profileDataLeft.clear();
   const again = startPersistence();
   await settle();

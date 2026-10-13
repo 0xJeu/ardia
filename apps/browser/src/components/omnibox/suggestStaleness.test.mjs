@@ -1,14 +1,9 @@
-// Staleness of the command bar's caches (cf07e5f6, 8def9b0b, 5020c202: the suggestion pool and its narrowing, the bar's
-// actions, the known hosts): the very next keystroke after a profile changes (and the result already on screen) shows
-// the change: a history entry deleted, history cleared, a tab closed or retitled, a bookmark added or removed, another
-// profile. The hook runs as the bar's component runs it (test-hooks.mjs).
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
 import { mount } from "../../test-hooks.mjs";
 
 globalThis.__DEV__ = false;
-// The actions' runner pulls in the whole UI; a test only lists them.
 registerHooks({
   resolve(specifier, context, next) {
     if (context.parentURL?.endsWith("/omnibox/actions.ts") && specifier === "../../lib/commands")
@@ -40,7 +35,6 @@ function setup() {
 
 const bar = (w, profileId = "default") =>
   mount(({ text, profileId }) => useSuggestions({ text, active: true, windowId: w, profileId, scope: null }), { props: { text: "z", profileId } });
-// Page rows with a title (the inline completion's host row has none).
 const pages = (result) => result.items.filter((x) => x.kind === "page" && x.title).map((x) => `${x.url}${x.tabId ? " [tab]" : ""}${x.bookmarked ? " [bm]" : ""} ${x.title}`);
 const type = (h, text, profileId = "default") => pages(h.rerender({ text, profileId }));
 
@@ -80,7 +74,6 @@ test("mid-typing: a tab opened, retitled and closed; a bookmark added and remove
   assert.ok(pages(h.value).includes("https://zebra.example/two Zebra two"), "unbookmarked: on screen");
   assert.ok(type(h, "zebra").includes("https://zebra.example/two Zebra two"), "unbookmarked: next key");
 
-  // The window pages to another profile while the bar is open: that profile's history, nothing of the other's.
   assert.deepEqual(type(h, "zebra", work), ["https://zebra.work/ Zebra at work"], "another profile");
   assert.ok(type(h, "zebra", "default").includes("https://zebra.example/two Zebra two"), "and back");
   h.unmount();

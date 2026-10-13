@@ -1,11 +1,6 @@
 import type { ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 
-/**
- * Where a control appears on hover (a row's ✕, a folder's refresh). The slot is as wide as what it shows at rest, and
- * never narrower than `width`; the hover control lies over it, right-aligned. Hovering never moves or resizes anything
- * around the slot: `node apps/browser/scripts/hover-shift-test.mjs` checks every hover-tracked view for that.
- */
 export function HoverSlot({
   hovered,
   hover,
@@ -14,10 +9,8 @@ export function HoverSlot({
   style,
 }: {
   hovered: boolean;
-  /** Shown while hovered, in place of `children`. */
   hover: ReactNode;
   width: number;
-  /** Shown at rest; kept in layout (transparent) while hovered, so the slot's size stays. */
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {

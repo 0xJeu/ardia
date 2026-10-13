@@ -27,10 +27,8 @@ main{columns:5 220px;column-gap:14px;padding:16px 18px}
 <div id="sheet"><div class="card"><div class="mark">m</div><h1>Sign in to keep scrolling</h1><p class="sub">You've looked at 12 ideas. That's the limit without an account.</p>
 <div class="field">Email</div><div class="field">Password</div><div class="go" id="go">Continue</div><p class="fine">By continuing you agree to our 43-page terms.</p></div></div>
 <script>
-// Photo tiles (img/0…15.jpg: CC0 / public-domain photos, SOURCES.md), with captions and saves, as a pinboard has.
 const caps=["Blue kitchens are back","Lavender season","Lake mornings","Succulents in old tins","Slow coffee","Trail days","Sunday mood","Golden hour fields","Bread worth the queue","Forest walks","Desk plants","Sunset swims","Blue on blue","Bark textures","Terracotta everything","Ridge hikes"];
 const hs=[300,240,330,260,280,340,250,300,270,330,240,290,260,320,280,300];
 document.getElementById("grid").innerHTML=caps.map((c,i)=>`<div class="tile"><img class="img" src="img/${i}.jpg" style="display:block;width:100%;height:${hs[i]}px;object-fit:cover"><p>${c}</p><span class="who">${["Ana","Leo","Mira","Sam","Jo","Kai"][i%6]} · ${(i*37%90)+12} saves</span></div>`).join("");
-// The capture drives the wall: __t(0…1). Eased with a small overshoot, as a sheet springs up.
 window.__t=(t)=>{const e=t<=0?0:t>=1?1:1-Math.pow(1-t,3)*Math.cos(t*Math.PI*0.5)*1+Math.sin(t*Math.PI)*0.06;document.body.style.setProperty("--t",Math.min(1,t*1.6));document.body.style.setProperty("--e",e);};
 </script></body></html>

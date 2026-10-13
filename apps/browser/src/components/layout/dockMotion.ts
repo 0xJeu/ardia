@@ -1,39 +1,19 @@
 import { create } from "zustand";
 
-// The sidebar sliding out of the window and back (Auto-Hide Tabs, ⌘S), as in Dia: the sidebar, the traffic lights over
-// it and the card's left edge move together on one spring, the card's right edge stays, and the page is laid out at
-// every step (components/layout/SidebarDock.tsx). This file is the arithmetic and the per-window motion flag.
-
-/**
- * Dia's spring, fitted to the owner's 240 fps recording (2026-10-06, two collapses and one expansion, the card's left
- * edge traced frame by frame): response 0.215 s, damping ratio 0.79 both ways (rms 2.4 % of the travel collapsing,
- * 3.2 % expanding). 90 % of the way in 100 ms, a 1.7 % overshoot at 170 ms, settled by ~0.27 s.
- */
 export const DOCK_SPRING = { response: 0.215, damping: 0.79 } as const;
 
-/**
- * Arc's motions with the address bar in the sidebar, from the owner's recording of Arc (2026-10-06, the panel's and the
- * card's edges traced frame by frame; docs/dia-spec.md, "Arc note"). The peek slides a floating panel in from past the
- * window's edge on a spring (three peeks: response 0.185 s, damping 0.77, rms 2.1 % of the travel; a 1.6 % overshoot)
- * and out on an ease-in-out (two: 150 ms, rms 3.7 %). Hiding the docked sidebar is quicker than Dia's: an ease-out
- * cubic of 100 ms (two: rms 1.3 %). Docking from the peek is instant: the panel becomes the sidebar and the page is laid
- * out narrower in one frame. Showing from hidden (⌘S) isn't in the recording: Dia's spring.
- */
 export const ARC_PEEK_SPRING = { response: 0.185, damping: 0.77 } as const;
 export const ARC_PEEK_OUT_MS = 150;
 export const ARC_HIDE_MS = 100;
 
-/** Ease-out cubic (Arc's hide) and ease-in-out cubic (Arc's peek leaving), `u` from 0 to 1. */
 export const easeOutCubic = (u: number) => 1 - (1 - u) ** 3;
 export const easeInOutCubic = (u: number) => (u < 0.5 ? 4 * u ** 3 : 1 - (-2 * u + 2) ** 3 / 2);
 
-/** React Native's spring parameters (unit mass) for a response and damping ratio. */
 export function springConfig({ response, damping }: { response: number; damping: number }) {
   const omega = (2 * Math.PI) / response;
   return { stiffness: omega * omega, damping: 2 * damping * omega, mass: 1 };
 }
 
-/** The spring's position after `t` seconds from 0 toward 1 (tests, and the frame strip's reference curve). */
 export function springAt(
   t: number,
   { response, damping }: { response: number; damping: number } = DOCK_SPRING,
@@ -44,28 +24,17 @@ export function springAt(
   return 1 - Math.exp(-damping * omega * t) * (Math.cos(wd * t) + ((damping * omega) / wd) * Math.sin(wd * t));
 }
 
-/** Where AppKit puts the traffic lights (ArdiaCore's default centre, ArdiaCoreChromeWindow.mm), window top-left points. */
 export const LIGHTS_CENTER: readonly [number, number] = [25, 27];
 
-/** The peek panel's top-left in the window (Dia's 6/6; Arc's is 5/5): the panel holds the lights, so they sit as far in. */
 export const PEEK_ORIGIN: readonly [number, number] = [6, 6];
 
-/**
- * The traffic lights' centre with the sidebar `offset` points to the left of its place (0 = shown, `width` = gone) and
- * `down` points below it (the peek panel's inset): they belong to the sidebar's top row and go with it, as in Dia. null:
- * their own place (nothing to move). A sidebar all the way out puts them past the window's left edge, where AppKit
- * doesn't draw them.
- */
 export function lightsCenter(offset: number, down = 0): [number, number] | null {
   const dx = Math.round(offset * 2) / 2;
   return dx === 0 && down === 0 ? null : [LIGHTS_CENTER[0] - dx, LIGHTS_CENTER[1] + down];
 }
 
-/** The card's left edge for a dock position (1 shown, 0 hidden) and a sidebar width. */
 export const cardLeft = (dock: number, width: number, inset: number) => inset + (width - inset) * dock;
 
-// Windows whose sidebar is moving: the card's pane fills the card by itself meanwhile (flex), and what the card computes
-// from its size (split rects, the URL bar's anchor) waits for the end, so the motion re-renders nothing per frame.
 type DockMotion = { moving: Record<string, true> };
 export const useDockMotion = create<DockMotion>()(() => ({ moving: {} }));
 
@@ -80,34 +49,20 @@ export function setDockMoving(windowId: string, moving: boolean) {
   });
 }
 
-// Windows whose peek panel is out (from the moment it starts sliding in until it has slid out): docking from it is
-// instant in Arc's layout. Read when the sidebar is shown, never rendered from.
 const peeking = new Set<string>();
 export const setPeekShown = (windowId: string, shown: boolean) => void (shown ? peeking.add(windowId) : peeking.delete(windowId));
 export const peekShown = (windowId: string) => peeking.has(windowId);
-/** Development: each window's peek, for the dev harness (acLayout.peek[windowId].show()). */
 export const devPeeks: Record<string, { show(): void; hide(): void }> = {};
 
-// The sidebar's own button with the address bar in the sidebar (Arc's header, sidebar/AddressBar.tsx): 27 pt after the
-// last traffic light's centre (Arc's, and Dia's 6 pt after the window buttons for a 30 pt plate), then back, forward and
-// reload right-aligned 7 pt from the edge on Dia's toolbar pitch (centres 34-37 apart in Dia 1.52: 35).
 export const HEADER_TOOLS = { toggleX: 70.75 + 27, pitch: 35, edge: 7, lightsRight: 70.75 + 7 } as const;
 
-/** Least air between two plates (Dia's sidebar header stack spacing): closer, a button gives way instead. */
 export const HEADER_MIN_GAP = 2;
 
 export type HeaderButton = "back" | "forward" | "reload";
 
-/**
- * Which of back, forward and reload fit after the sidebar button in a sidebar `width` wide (plates `button` wide), and
- * how far apart their centres are. Plates never overlap: overlapping, two of them lit at once under the pointer (both
- * tracked it) and they read as clutter (owner's report 2026-10-11). The sidebar button always shows. Forward gives way
- * first (⌘], a swipe and back's history menu still reach it), so the default 190 pt sidebar keeps reload (owner's
- * report 2026-10-07), then reload.
- */
 export function navButtonsFitting(width: number, button = 30): { buttons: HeaderButton[]; step: number } {
   const { toggleX, pitch, edge } = HEADER_TOOLS;
-  const span = width - edge - button / 2 - toggleX; // the sidebar button's centre to the last button's
+  const span = width - edge - button / 2 - toggleX;
   const count = Math.max(0, Math.min(3, Math.floor(span / (button + HEADER_MIN_GAP))));
   const buttons: HeaderButton[] = count === 3 ? ["back", "forward", "reload"] : count === 2 ? ["back", "reload"] : count === 1 ? ["back"] : [];
   return { buttons, step: count ? Math.min(pitch, span / count) : pitch };

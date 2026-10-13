@@ -1,5 +1,3 @@
-// Clicking down the Personal sidebar (each tab shown, then its page), then a real scroll of Mount Everest's page: one
-// page picture per film frame, the page scrolled by script between them.
 then(() => { unsplit(); return goProfile("default"); });
 ["t1", "t2", "t3", "t4", "t5", "t6"].forEach((id) => then(() => { st().activate(id); return sleep(3500).then(() => picShown()).then(() => sleep(800)).then(() => picShown()).then(() => snap("tab:" + id)); }));
 then(() => { st().activate("t1"); return sleep(2500).then(() => picShown()); });

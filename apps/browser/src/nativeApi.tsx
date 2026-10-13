@@ -1,13 +1,8 @@
 import { requireNativeModule, requireOptionalNativeModule } from "expo-modules-core";
 import { AppRegistry, Text, View } from "react-native";
 
-// The JS/native contract. Bump it together with `apiVersion` in packages/shell/ios/AppModule.swift whenever JS
-// starts needing native code an older build lacks (a module, function, view, event or field), so JS never has to
-// guard for older builds. Metro serves the working tree to every dev instance, built before or after a native
-// change; a Release build embeds its own bundle, so there a mismatch can only be a broken build.
 export const NATIVE_API_VERSION = 8;
 
-// Only modules every build has: on another version the app's own imports may throw before anything shows.
 const built = requireOptionalNativeModule<{ apiVersion?: number }>("ArdiaApp")?.apiVersion ?? 0;
 
 export const nativeApiSkew =
@@ -22,7 +17,6 @@ type Shell = {
   writeDocument(name: string, contents: string): void;
 };
 
-// Instead of the app: one window that shows the skew, and in Debug the dev harness answering every script with it.
 export function startSkewed(message: string) {
   console.error(`[ardia] ${message}`);
   AppRegistry.registerComponent("main", () => () => (
@@ -36,8 +30,6 @@ export function startSkewed(message: string) {
   if (__DEV__) answerWithSkew(message, "dev-eval.js", "dev-eval-result.json");
 }
 
-// Answers every script a driver drops into the data folder as `command` (first line `// <id>`) with the skew, in
-// `result`, so the driver fails at once instead of waiting for an app that never loaded.
 export function answerWithSkew(message: string, command: string, result: string) {
   const shell = requireNativeModule<Shell>("ArdiaShell");
   const idOf = (source: string | null) => source?.match(/^\/\/ *(\S+)/)?.[1];

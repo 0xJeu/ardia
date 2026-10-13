@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Extension popups in any build, Release exports included (their own JS bundle, no Metro): an unpacked fixture loaded
-// with --load-extension, then
-//   - chrome.action.openPopup() from its service worker, with no user gesture, as 1Password calls it once its Mac app
-//     unlocks: "ok", and the popup's page opens over the active tab;
-//   - the popup sizes itself from its page (Chrome's auto-resize), down as well as up;
-//   - openPopup over the open popup opens it afresh (a new page).
-//
-//   node packages/ardiacore/scripts/popup-check.mjs <Ardia.app> [scratch dir]
-//   JS=localhost:<metro port> for a Debug build (default: the build's own bundle, as a release runs)
-//
-// Hidden (scripts/lib/instance.mjs: ARDIA_BACKGROUND=1, its own data dir and DevTools port). Exit 1 on a failure.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join, resolve } from "node:path";

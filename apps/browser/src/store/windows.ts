@@ -25,7 +25,6 @@ import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedTab, ClosedWindow, Frame, ParkedPins, Tab, TabGroup } from "./types";
 
 export type CreateWindowOptions = {
-  // A private window's: the regular profile it's opened from (its session's; default: the last active profile).
   profileId?: string;
   incognito?: boolean;
   url?: string;
@@ -33,7 +32,6 @@ export type CreateWindowOptions = {
   tabIds?: string[];
   frame?: Frame | null;
   small?: boolean;
-  // Opened behind: the focused window keeps focus.
   background?: boolean;
 };
 
@@ -63,11 +61,8 @@ function emptyWindow(id: string, profileId: string, incognito: boolean, frame: F
   return { id, profileId, incognito, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame, createdAt: Date.now() };
 }
 
-// Little Ardia opens centred at its remembered size (packages/shell Windows.swift), so it keeps no frame.
 const smallWindow = (id: string, profileId: string): BrowserWindow => ({ ...emptyWindow(id, profileId, false), sidebarOpen: false, kind: "small" });
 
-// The window in front closing hands the last profile to the next one in focus order (it comes forward), unless it was
-// private: then its regular profile stays, as Chrome's last-used profile does when an incognito window goes.
 function lastProfileAfterClosing(s: BrowserState, id: string): string | null {
   const w = s.windows[id];
   if (!w || w.incognito || s.ui.focusedWindowId !== id) return s.ui.lastProfileId;
@@ -173,7 +168,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
         kind: "window",
         id: newId("cw"),
         window: { profileId: w.profileId, sidebarOpen: w.sidebarOpen, frame: w.frame },
-        // A tab with a page keeps its id: the engine holds its back/forward list under it (NoteClosedTabState).
         tabs: tabs.map((t) => ({ ...snapshotTab(t), active: active.has(t.id), ...(t.url && (t.navigation || t.adoptId) ? { tabId: t.id } : pendingRestore(t) ? { tabId: pendingRestore(t) } : {}) })),
         groups: Object.values(s.groups)
           .filter((g) => g.windowId === id && !g.pinned)
@@ -182,7 +176,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
       };
       closedWindows = [...closedWindows, entry].slice(-MAX_CLOSED_WINDOWS);
     }
-    // A Little Ardia page goes to Recently Closed as a tab, so ⇧⌘T brings it back in Little Ardia.
     const next = removeTabs(s, w.tabIds, small);
     set({
       ...next,
@@ -207,7 +200,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
       if (!w || (w.frame && w.frame.every((v, i) => v === frame[i]))) return {};
       const windows = { ...s.windows, [id]: { ...w, frame } };
       if (!isSmallWindow(w)) return { windows };
-      // Little Ardia remembers its size, not its position: it always opens centred.
       const size: [number, number] = [Math.round(frame[2]), Math.round(frame[3])];
       const [width, height] = s.settings.littleArdiaSize ?? [];
       return size[0] === width && size[1] === height ? { windows } : { windows, settings: { ...s.settings, littleArdiaSize: size } };
@@ -231,7 +223,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     target ??= s.windows[windowId]!.tabIds.find((id) => s.tabs[id]?.profileId === profileId && !s.tabs[id]!.unloaded);
     if (!target) [s, target] = withNewTab(s, windowId, { profileId, background: true });
     s = apply(s, activated(s, target));
-    // Paging the window in front changes the active profile (store/small.ts lastActiveProfile).
     if (s.ui.focusedWindowId === windowId) s = { ...s, ui: { ...s.ui, lastProfileId: profileId } };
     set(s);
   },
@@ -258,7 +249,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     let next = removeTabs(s, [tabId], false);
     const base = next.windows[w.id] ?? { ...w, tabIds: [], activeTabIds: {} };
     const loaded = !!tab.url && (!!tab.navigation || !!tab.adoptId);
-    // A tab moved to another profile reopens from its URL: its live tab belongs to the other profile.
     const { adoptId: _, wakeAdoptId: _w, ...rest } = tab;
     const moved: Tab = { ...rest, profileId, navigation: loaded ? navigationTo(tab.url) : null, lastActiveAt: Date.now() };
     const tabs = { ...next.tabs, [tabId]: moved };
@@ -283,7 +273,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     const tabIds = others.flatMap((id) => s.windows[id]!.tabIds);
     if (!tabIds.length) return;
     let next = moveTabsInto(s, tabIds, target);
-    // The groups come along with the tabs that did (a pinned tab's copy the target already had stays behind).
     const groups = { ...next.groups };
     const taken = new Set(Object.values(next.groups).flatMap((g) => g.tabIds));
     for (const g of Object.values(s.groups)) {
@@ -333,7 +322,6 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
   },
 });
 
-// ⇧⌘T reopens what the window's shown profile closed, like Chrome's per-profile history.
 function shownProfile(s: BrowserState, windowId: string | undefined, profileId: string | undefined): boolean {
   return !windowId || profileId === s.windows[windowId]!.profileId;
 }

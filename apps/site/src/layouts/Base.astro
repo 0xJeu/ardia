@@ -1,8 +1,6 @@
 ---
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-// Fontsource's faces, with each Latin file split into the characters the site uses and the rest
-// (scripts/build-fonts.mjs); the page preloads the first.
 import "../styles/fonts.css";
 import archivoLatin from "../assets/fonts/archivo-core.woff2?url";
 import newsreaderLatin from "../assets/fonts/newsreader-core.woff2?url";
@@ -13,14 +11,12 @@ import Device from "../components/Device.astro";
 interface Props {
   title: string;
   description: string;
-  /** schema.org objects for this page, as JSON-LD. */
   jsonLd?: object[];
   noindex?: boolean;
 }
 const { title, description, jsonLd = [], noindex = false } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const canonical = new URL(Astro.url.pathname, Astro.site);
-// Versioned by content: X and others cache a card image by its URL for days.
 const ogVersion = createHash("sha256").update(readFileSync(`${process.cwd()}/public/og.png`)).digest("hex").slice(0, 10);
 const og = new URL(`${base}/og.png?v=${ogVersion}`, Astro.site);
 const OG_ALT =

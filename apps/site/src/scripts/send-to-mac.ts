@@ -1,9 +1,3 @@
-// Phones and tablets can't run a Mac app. components/SendToMac.astro gives them "Send to my Mac" (the share
-// sheet; a mailto to themselves where there's none), then Share, Copy link and Email it to me. X's iOS browser
-// refuses the clipboard (docs/growth.md), so a failed copy points at Email instead. The other download CTAs ([data-download]: header, menu) scroll to
-// the page's panel, or go to the home page's when the page has none. The device class comes from
-// components/Device.astro; data-inapp="x" marks X's iOS browser.
-// Tracks send_to_mac_clicked { location, method: "email" | "share" | "copy" | "panel", outcome?, via?: "main" | "link", inapp? }.
 import { track } from "./track";
 
 const LINK = "https://ardia.dev/?ref=share";
@@ -47,11 +41,9 @@ function wire(panel: HTMLElement) {
       await navigator.share(DATA);
       report(location, "share", "shared", via);
     } catch (e) {
-      // Dismissed: Copy link and Email are right below; no clipboard retry (it's refused by now).
       report(location, "share", e instanceof DOMException && e.name === "AbortError" ? "cancelled" : "error", via);
     }
   };
-  // The main button is the share sheet; without one it stays the mailto it's rendered as.
   main?.addEventListener("click", (e) => {
     if (!canShare) return report(location, "email", undefined, "main");
     e.preventDefault();
@@ -79,7 +71,6 @@ if (root.dataset.device === "phone") {
   const main = document.querySelector<HTMLElement>('[data-send-panel="main"]') ?? panels[0];
 
   for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-download]")) {
-    // Not a download here: analytics.ts counts [data-track] clicks, and this one reports send_to_mac_clicked.
     delete link.dataset.track;
     link.addEventListener("click", (e) => {
       e.preventDefault();

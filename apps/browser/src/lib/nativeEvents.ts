@@ -1,39 +1,19 @@
-// Native events that arrive together land as one React commit (docs/store-api.md › "Native events").
-//
-// Every native→JS call is its own task, and React Native commits at the end of each: a tab opening sent about ten
-// page reports (address, title, progress, security, icon…) and drew ten commits. Here a page's reports are held
-// until the calls queued behind them have run, then applied in the order they came, inside one React batch.
-// Whatever reaches JS next first applies the held ones, then runs: another event, a timer, a callback, a native
-// module's event (a tab strip transaction, a download). So nothing is reordered, and nothing a user action waits on
-// is held: only page reports wait, and only for the calls already queued behind them.
-
-/** React Native's MessageQueue (`__fbBatchedBridge`): every native→JS call and callback runs through these. */
 export type Bridge = {
   __callFunction(module: string, method: string, args: unknown[]): void;
   __invokeCallback(id: number, args: unknown[]): void;
 };
-/** Expo's EventEmitter prototype: native modules' events reach their listeners through JSI, not the bridge. */
 export type Emitter = {
   addListener(this: unknown, name: string, listener: (...args: unknown[]) => unknown): unknown;
   removeListener(this: unknown, name: string, listener: unknown): unknown;
 };
 type Options = {
-  /** Runs updates as one React commit (React Native's unstable_batchedUpdates). */
   batch: (update: () => void) => void;
-  /** Calls back once the calls queued now have run (also how errors are reported, from a task of their own). */
   schedule: (callback: () => void) => void;
-  /** An error a held report threw (the bridge's own guard reports it the same way). */
   report: (error: unknown) => void;
-  /**
-   * Runs a flush's reports with the store's listeners hearing them together, at the end (store/browser.ts
-   * storeTransaction; a new address and a load starting or ending are heard as they land).
-   */
   transaction?: (run: () => void) => void;
 };
 export type Hold = ReturnType<typeof createHold>;
 
-// The WebView's live page state (packages/ardiacore WebView.tsx). Opening windows, focus, activation, page commands,
-// find results, zoom, prompts, crashes and a new page's ready report (its browser id, mute) are never held.
 export const HELD_EVENTS: ReadonlySet<string> = new Set([
   "topNavigationChange",
   "topProgress",
@@ -46,17 +26,13 @@ export const HELD_EVENTS: ReadonlySet<string> = new Set([
   "topMediaAccess",
   "topLoadError",
 ]);
-/** The queue: `hold` keeps a report for later, `flush` applies everything held, in order, as one batch. */
 export function createHold({ batch, schedule, report, transaction = (run) => run() }: Options) {
   let held: (() => void)[] = [];
-  // The next held report to apply. A flush that starts while one runs (a listener a report set off) goes on from
-  // there, so what it runs still comes after every report held before it.
   let next = 0;
   let flushing = false;
 
   const drain = (errors: unknown[]) => {
     while (next < held.length) {
-      // One report's error doesn't drop the ones after it.
       try {
         held[next++]!();
       } catch (error) {
@@ -72,8 +48,6 @@ export function createHold({ batch, schedule, report, transaction = (run) => run
       flushing = true;
       try {
         batch(() => {
-          // The listeners hear the reports at the end: one of them throwing is reported like a report's error.
-          // A listener can hold another report as it hears: that runs too, in a transaction of its own.
           while (next < held.length) {
             try {
               transaction(() => drain(errors));
@@ -88,8 +62,6 @@ export function createHold({ batch, schedule, report, transaction = (run) => run
         flushing = false;
       }
     }
-    // Each from a task of its own: a reporter that throws can't drop a report, another error, or the call that set
-    // off the flush.
     for (const error of errors) schedule(() => report(error));
   };
   const hold = (run: () => void) => {
@@ -99,7 +71,6 @@ export function createHold({ batch, schedule, report, transaction = (run) => run
   return { hold, flush, batch };
 }
 
-/** Holds page reports at `bridge`; every other call and callback applies what's held first. */
 export function holdPageReports(bridge: Bridge, { hold, flush }: Hold) {
   const call = bridge.__callFunction.bind(bridge);
   const invoke = bridge.__invokeCallback.bind(bridge);
@@ -117,11 +88,9 @@ export function holdPageReports(bridge: Bridge, { hold, flush }: Hold) {
   };
 }
 
-/** Makes every listener added to `emitter` apply what's held first, in one React commit with it. */
 export function afterHeldReports(emitter: Emitter, { flush, batch }: Hold) {
   const add = emitter.addListener;
   const remove = emitter.removeListener;
-  // Per listener and event, so removeListener finds what addListener added.
   const wrapped = new WeakMap<object, Map<string, (...args: unknown[]) => unknown>>();
   emitter.addListener = function (name, listener) {
     if (typeof listener !== "function") return add.call(this, name, listener);
@@ -146,7 +115,6 @@ export function afterHeldReports(emitter: Emitter, { flush, batch }: Hold) {
   };
 }
 
-// Installed once per JS context (a Fast Refresh evaluates this module again): the flush lives on the global.
 const g = globalThis as unknown as {
   __acApplyHeldReports?: () => void;
   __fbBatchedBridge?: Bridge;
@@ -156,9 +124,7 @@ const g = globalThis as unknown as {
 const bridge = g.__fbBatchedBridge;
 const emitter = g.expo?.EventEmitter?.prototype;
 if (!g.__acApplyHeldReports && bridge && emitter && typeof bridge.__callFunction === "function" && typeof bridge.__invokeCallback === "function") {
-  // Required here, not imported: tests load this module without React Native.
   const batch = (update: () => void) => (require("react-native") as typeof import("react-native")).unstable_batchedUpdates(update);
-  // A 0 ms timer runs at once on the JS thread (RCTTiming), so its call queues behind the ones already waiting.
   const transaction = (run: () => void) => (require("../store/browser") as typeof import("../store/browser")).storeTransaction(run);
   const held = createHold({ batch, transaction, schedule: (callback) => setTimeout(callback, 0), report: (error) => g.ErrorUtils?.reportFatalError(error) });
   holdPageReports(bridge, held);
@@ -166,8 +132,4 @@ if (!g.__acApplyHeldReports && bridge && emitter && typeof bridge.__callFunction
   g.__acApplyHeldReports = held.flush;
 }
 
-/**
- * Applies held page reports now. JSI settles native promises without passing the bridge, so code that decides from
- * a page's live state after awaiting the engine (may this tab sleep? close it?) calls this first.
- */
 export const applyHeldReports = () => g.__acApplyHeldReports?.();

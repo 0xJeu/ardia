@@ -37,7 +37,6 @@ export async function closeTab(tabId: string) {
     const { confirmed, suppressed } = await confirm({ ...closeWindowDialog(w.id), suppression: "Don’t ask me again", windowId: w.id });
     if (suppressed) store().updateSettings({ warnBeforeClosingLastTab: false });
     if (!confirmed) return;
-    // The page's last reports land before the tab closes (Reopen Closed Tab restores what it showed).
     applyHeldReports();
   }
   store().closeTab(tabId);
@@ -69,12 +68,9 @@ export async function deleteProfile(profileId: string, windowId?: string) {
     windowId,
   });
   if (!confirmed) return;
-  // The store queues its engine data for deletion (lib/profileData.ts).
   store().deleteProfile(profileId);
 }
 
-// Chrome won't remove the original profile's extensions without asking, so they're only turned off
-// (packages/ardiacore/ios/ArdiaCoreProfileData.swift); say so.
 async function keptExtensionsNote(): Promise<string> {
   const names = await listExtensions("").then(
     (list) => list.filter((e) => e.mayModify).map((e) => e.name),
@@ -116,7 +112,6 @@ export function switchProfile(windowId: string, profileId: string, animated = fa
 
 export function cycleProfile(windowId: string, delta: 1 | -1) {
   if (!cycleTarget(windowId, delta)) return;
-  // The native pager steps from its own selection, so rapid presses advance past a store that lags.
   void stepPager(windowId, delta, true, store().profileOrder.join("\n")).then((ok) => ok || cycleFromStore(windowId, delta));
 }
 

@@ -1,6 +1,3 @@
-/* Ardia: the poster system.
-   One theme on purpose: a printed poster on warm stock, with night sections for rhythm. */
-
 :root {
   color-scheme: light;
 
@@ -24,7 +21,6 @@
   --serif: "Newsreader Variable", Georgia, serif;
   --mono: "Martian Mono Variable", ui-monospace, "SF Mono", monospace;
 
-  /* Fluid type scale. */
   --t-mega: clamp(3.4rem, 1.2rem + 9.4vw, 11.5rem);
   --t-h2: clamp(2.6rem, 1.3rem + 5.4vw, 7rem);
   --t-h3: clamp(1.7rem, 1.25rem + 1.5vw, 2.6rem);
@@ -119,7 +115,6 @@ h3 {
   padding-inline: var(--gutter);
 }
 
-/* The painted logo (Hero, Closing): leans toward the mouse by --tx and --ty (scripts/tilt.ts). */
 [data-tilt] picture {
   display: block;
   width: 100%;
@@ -133,7 +128,6 @@ h3 {
   }
 }
 
-/* Poster headline: condensed, black, tight. */
 .poster {
   font-family: var(--poster);
   font-weight: 860;
@@ -163,15 +157,12 @@ h3 {
   white-space: nowrap;
 }
 
-/* Who sees what: components/Device.astro sets <html data-device> before the first paint.
-   Without JS there's no data-device, so everyone gets the plain Mac download. */
 :root:not([data-device="phone"]) .phone-only,
 :root:not([data-device="other"]) .other-only,
 :root[data-device="phone"] .not-phone {
   display: none !important;
 }
 
-/* Buttons: printed, square-shouldered. */
 .btn {
   --h: 56px;
   display: inline-flex;
@@ -222,7 +213,6 @@ h3 {
   align-items: center;
 }
 
-/* Small phones: the requirements line under the button already says Apple Silicon. */
 @media (max-width: 400px) {
   .btn .btn-meta {
     display: none;
@@ -241,7 +231,6 @@ h3 {
   text-decoration-color: currentColor;
 }
 
-/* Reveal on scroll: only when motion is welcome and JS is running. */
 @media (prefers-reduced-motion: no-preference) {
   .js [data-reveal] {
     opacity: 0;

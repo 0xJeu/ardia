@@ -1,4 +1,3 @@
-// Omnibox ranking and inline completion, and the suggestion fetcher's race with typing.
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 import { BUILT_IN_ENGINES, engineById } from "./engines.ts";
@@ -63,15 +62,12 @@ test("preventInline (after a deletion): no completion, and the search is first u
   assert.equal(after.completion, "");
   assert.equal(rows(after.items)[0], "search:gi");
   assert.ok(rows(after.items).includes("https://github.com/"), "the page stays in the list");
-  // A page that matches by title or host, but isn't what was typed, doesn't go first either.
   assert.equal(rows(typed("gith", true).items)[0], "search:gith");
   assert.equal(rows(typed("x.c", true).items)[0], "search:x.c");
-  // What was typed is the page's host: it still goes first, with no completion needed.
   assert.equal(rows(typed("github.com", true).items)[0], "https://github.com/");
   assert.equal(typed("github.com", true).completion, "");
   assert.equal(rows(typed("x.com/home", true).items)[0], "https://x.com/home");
   assert.equal(rows(typed("https://x.com/notifications", true).items)[0], "https://x.com/notifications");
-  // Typing again turns it back on.
   assert.equal(typed("git", false).completion, "hub.com");
 });
 
@@ -81,7 +77,6 @@ test("preventInline keeps quick-create, actions and calculator rules", () => {
   assert.equal(rows(buildSuggestions("2+2", { tabs: [], history }, { now, preventInline: true }).items)[0], "search:2+2");
 });
 
-// Chrome's AutocompleteMatch::SetAllowedToBeDefault: input ending in whitespace is never completed.
 test("a word and a space: no completion, the search goes first unless it is the host or address", () => {
   const typed = (text: string, o = {}) => buildSuggestions(text, { tabs: [], history }, { now, ...o });
   assert.equal(typed("git").completion, "hub.com");
@@ -91,14 +86,11 @@ test("a word and a space: no completion, the search goes first unless it is the 
     assert.equal(rows(r.items)[0], `search:${text.trim()}`, JSON.stringify(text));
     assert.ok(rows(r.items).includes("https://github.com/") || text.startsWith("x"), "the page stays in the list");
   }
-  // Exactly a host or address still goes first, completion or not.
   assert.equal(rows(typed("github.com ").items)[0], "https://github.com/");
   assert.equal(typed("github.com ").completion, "");
   assert.equal(rows(typed("x.com/home ").items)[0], "https://x.com/home");
-  // A leading space is not trailing whitespace; several words never completed anyway.
   assert.equal(typed(" git").completion, "hub.com");
   assert.equal(typed("git hub ").completion, "");
-  // Typing the next letter after the space is a search for two words, as before.
   assert.equal(rows(typed("git s").items)[0], "search:git s");
 });
 
@@ -111,19 +103,16 @@ test("only a visited page completes: a bookmark or an open tab with no history r
   const t = buildSuggestions("news", { tabs, history, bookmarks }, { now });
   assert.equal(t.completion, "");
   assert.ok(rows(t.items).includes("tab:https://news.ycombinator.com/"), "still a switch-to-tab row");
-  // Once the page has been visited (a history row), it completes, bookmarked or open or not.
   const visited = [...history, { url: "https://bookmarked.example.org/", title: "Reading list", favicon: null, visits: 1, lastVisit: now - 9000 }];
   assert.equal(buildSuggestions("bookm", { tabs: [], history: visited, bookmarks }, { now }).completion, "arked.example.org");
   const tabbed = [...history, { url: "https://news.ycombinator.com/", title: "Hacker News", favicon: null, visits: 2, lastVisit: now - 9000 }];
   assert.equal(buildSuggestions("news", { tabs, history: tabbed, bookmarks }, { now }).completion, ".ycombinator.com");
-  // A bookmarked deep link whose host was visited under another address completes the host.
   const deep = [{ url: "https://bookmarked.example.org/a/b", title: "Deep", favicon: null }];
   const host = [...history, { url: "https://bookmarked.example.org/", title: "Home", favicon: null, visits: 3, lastVisit: now - 100 }];
   assert.equal(buildSuggestions("bookm", { tabs: [], history: host, bookmarks: deep }, { now }).completion, "arked.example.org");
 });
 
 test("open tabs are marked so the bar can switch to them, except the bar's own tab", () => {
-  // A page found by its title, not an address being typed: Enter goes to its tab.
   const tabs = [{ id: "t1", url: "https://github.com/pulls", title: "Pull requests", favicon: null }];
   const { items } = buildSuggestions("pull", { tabs, history }, { now });
   assert.equal(items[0]?.kind === "page" && items[0].tabId, "t1");

@@ -1,12 +1,3 @@
-// Counts the calls a piece of Node code makes to the JS builtins that its hot paths are made of (string search and
-// case, regexp, array methods, Map/Set access, Object.keys/entries…). The counts are exact and repeatable: they
-// don't depend on the machine, its load or the JIT. micro-bench.mjs `counts` uses it; ratchet.mjs gates on it.
-//
-//   const { total, by } = countOps(() => work());
-//
-// Not counted: indexing, for-of, spread and other syntax that doesn't call a builtin function, so the number is
-// "builtin calls", a proxy for work: a loop that scans N rows shows up as N calls of whatever it does per row.
-
 const TARGETS = {
   String: ["includes", "startsWith", "endsWith", "indexOf", "lastIndexOf", "toLowerCase", "toUpperCase", "normalize", "split", "slice", "substring", "charCodeAt", "replace", "replaceAll", "match", "trim", "localeCompare", "concat"],
   RegExp: ["exec", "test"],

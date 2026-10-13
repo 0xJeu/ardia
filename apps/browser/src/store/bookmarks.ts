@@ -6,7 +6,6 @@ import type { BookmarkFolder, BookmarkNode, Bookmarks } from "./types";
 
 export type BookmarksSlice = {
   bookmarks: Bookmarks;
-  // Profiles whose tree has been read from Chrome (until then it's empty, not "no bookmarks").
   bookmarksReady: Record<string, true>;
 
   addBookmark(options: { profileId: string; url: string; title: string; favicon?: string | null; parentId?: string; index?: number }): string;
@@ -26,26 +25,17 @@ export type RemovedBookmarks = { nodes: BookmarkNode[]; places: { id: string; pa
 
 const EMPTY_BOOKMARKS: Bookmarks = { nodes: {}, roots: {} };
 
-// Bookmarks are Chrome's (BookmarkModel; lib/bookmarks.ts keeps Chrome's tree and this one alike). A node's id is
-// its Chrome UUID, so sync and chrome.bookmarks name it the same way; Chrome's two permanent folders are each
-// engine profile's roots.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const isBookmarkUuid = (id: string) => UUID.test(id);
 
 function uuidFrom(words: number[]): string {
   const hex = words.map((w) => (w >>> 0).toString(16).padStart(8, "0")).join("");
-  // Version 4, variant 10xx: what Chrome generates.
   const v = ((parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${v}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 export const newBookmarkId = () => uuidFrom(Array.from({ length: 4 }, () => Math.floor(Math.random() * 0x1_0000_0000)));
 
-/**
- * The UUID a bookmark saved before Chrome kept them gets, from its old id ("bm-…"), which stays its sync key: the
- * same on every Mac, so the bookmarks.json move and a synced record keyed by the old id make one bookmark. A UUID
- * stays as it is.
- */
 export function bookmarkUuidFor(id: string): string {
   if (isBookmarkUuid(id)) return id;
   const text = `${LEGACY_BOOKMARK_SEED}${id}`;
@@ -68,7 +58,6 @@ export function bookmarkUuidFor(id: string): string {
   return uuidFrom([h1, h2, h3, h4]);
 }
 
-/** An engine profile's permanent folders, as store ids. */
 export const rootIdsFor = (engine: string) => ({ bar: `bar@${engine || "default"}`, other: `other@${engine || "default"}` });
 
 export function bookmarkRoots(b: Bookmarks, profileId: string) {

@@ -1,28 +1,16 @@
 #!/usr/bin/env node
-// The growth numbers at a glance, as one JSON object: what the stats skill reports first, cheap enough to
-// poll (the live stats pane runs it every 15 minutes): one ClickHouse request of ~1 s server time, and
-// GitHub's numbers alongside.
-// usage: node scripts/stats-snapshot.mjs
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { clickhouse, hasTelemetryEnv } from "./telemetry-env.mjs";
 
 const REPO = "mantrakp04/ardia";
 
-// The queries read the two tables under telemetry.events directly: the view casts every row's property
-// map and reads with FINAL, which a unique count doesn't need (a duplicate row doesn't change it). Both
-// tables sort by (event, date), so a filter on the event skips most of each. `both` writes one SELECT per
-// table from a template: {p} is the property map, {ts} the raw timestamp column, {t} it as UTC, {e} the
-// event, {d} the distinct id, and {site}, {app}, {mac} the usual filters (.claude/skills/stats/queries.md).
-// Events from before the rename (0.2.32 and earlier, and netnyahoo.com) carry the old names; netnyahoo.com still
-// serves the site.
 const HOSTS = "'ardia.dev', 'www.ardia.dev', 'netnyahoo.com', 'www.netnyahoo.com'";
 const OTEL = {
   table: "telemetry.otel_logs",
   p: "LogAttributes", ts: "Timestamp", t: "toDateTime64(Timestamp, 6, 'UTC')", e: "Event", d: "DistinctId",
   site: "ServiceName IN ('ardia-site', 'netnyahoo-site') AND {p}['$lib'] IN ('web', 'ardia-web', 'netnyahoo-web') AND {p}['$host'] IN (" + HOSTS + ")",
   app: "ServiceName IN ('ardia-app', 'netnyahoo-app') AND {p}['$lib'] IN ('ardia-telemetry', 'netnyahoo-telemetry')",
-  // What the view leaves out: the endpoints' self-tests.
   base: "Event != '' AND ResourceAttributes['service.version'] != '0.0.0-selftest'",
 };
 const POSTHOG = {
@@ -69,7 +57,6 @@ const github = attempt("github", async () => {
 
 const telemetry = {};
 if (hasTelemetryEnv()) {
-  // One request: each round trip to the server costs ~300 ms, more than any of these queries.
   const firstHour = Math.floor(Date.now() / 3_600_000) - 23;
   await attempt("telemetry", async () => {
     const [[site, copies, app, exceptions]] = await clickhouse(`SELECT

@@ -17,7 +17,6 @@ export type FieldChange =
     };
 
 export type Selection = { start: number; end: number };
-// The field's selection before the edit and the caret after it (RN reports the new caret before the text).
 export type EditContext = { before: Selection; after: Selection };
 
 export function fieldChange(typed: string, shown: string, next: string, pending: readonly PendingInline[], edit?: EditContext): FieldChange {
@@ -31,9 +30,6 @@ export function fieldChange(typed: string, shown: string, next: string, pending:
 
 const length = (s: string) => [...s].length;
 
-// Chrome's prevent_inline_autocomplete for one edit: it only took text out (OmniboxView::GetStateChanges: the field got
-// shorter and the caret ended at or before the old selection's start: Backspace, Delete, ⌥⌫, ⌘⌫, cut, deleting the selected
-// completion), or it put in more than one character at once (a paste). Typing over a selection is neither.
 function preventsInline(typed: string, shown: string, next: string, edit: EditContext | undefined): boolean {
   const old = typed + shown;
   if (edit) {
@@ -41,20 +37,14 @@ function preventsInline(typed: string, shown: string, next: string, edit: EditCo
     const hi = Math.max(edit.before.start, edit.before.end);
     if (hi <= old.length) {
       if (next.length < old.length && edit.after.start <= lo) return true;
-      // What went in: the selection says where it replaced text; when it doesn't explain the edit (a stale
-      // selection, set natively and never reported), the text decides.
       const inserted = next.length - (old.length - (hi - lo));
       if (inserted >= 0 && next.startsWith(old.slice(0, lo)) && next.endsWith(old.slice(hi))) return length(next.slice(lo, lo + inserted)) > 1;
     }
   }
-  // No usable selection: judge by the text. A longer field that still starts with `typed` is typing (or pasting) over
-  // the selected completion ("git" over "gi" + "thub.com").
   if (next.length > typed.length && next.startsWith(typed)) return length(next.slice(typed.length)) > 1;
   return onlyRemoved(old, next) || length(next) - length(typed) > 1;
 }
 
-// The caret moved to the end of the text with the completion in it (→, End, ⌘→): the completion is accepted and is
-// now typed text. Not while a completion write is in flight: its own selection changes pass through here.
 export function acceptsCompletion(typed: string, shown: string, selection: Selection, pending: readonly PendingInline[]): boolean {
   return !!shown && pending.length === 0 && selection.start === selection.end && selection.start === typed.length + shown.length;
 }
@@ -70,7 +60,6 @@ export function withoutFirst(pending: readonly PendingInline[], inline: Inline):
   return i < 0 ? [...pending] : [...pending.slice(0, i), ...pending.slice(i + 1)];
 }
 
-// `next` is `from` with one run of characters cut out and nothing put in.
 function onlyRemoved(from: string, next: string): boolean {
   if (next.length >= from.length) return false;
   let head = 0;

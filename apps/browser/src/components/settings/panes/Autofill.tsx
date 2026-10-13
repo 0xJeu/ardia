@@ -40,7 +40,6 @@ export function AutofillPane({ profileId: initial }: { profileId?: string | null
   };
   useEffect(() => {
     setEnabled(null);
-    // Load prefs after the profile list initializes its request context.
     let current = true;
     void load().then(() =>
       getAutofillSettings(profile)

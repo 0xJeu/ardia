@@ -58,8 +58,6 @@ async function importPasswords(profileId: string, credentials: Credential[]): Pr
   return saved;
 }
 
-/** Writes the cookies, addresses and cards an import kept natively (their values never reach JS) into the profile.
- * Never into a private profile: the token is dropped instead. `onFailed` hears the kinds the engine refused. */
 export async function importNative(
   profileId: string,
   token: string | undefined,
@@ -90,7 +88,6 @@ function windowFor(profileId: string): string {
   return regular ?? s.createWindow({ profileId });
 }
 
-/** Opens each extension's Chrome Web Store page in the profile, where the user adds the ones they want. */
 export function openInWebStore(profileId: string, urls: string[]) {
   if (!urls.length) return;
   const windowId = windowFor(profileId);
@@ -170,7 +167,6 @@ export async function applyResult(
   const counts = emptyCounts();
   counts.bookmarks += importBookmarks(profileId, result.bookmarks, browserName);
   if (result.history.length) counts.history += importHistory(profileId, result.history);
-  // Sign-ins first, so the imported tabs load signed in.
   Object.assign(counts, await importNative(profileId, result.vaultToken, ["cookies", "autofill"], onFailed));
   if (result.tabs.length && !result.spaces.length) counts.tabs += importTabs(profileId, result.tabs, "Imported");
   if (result.favorites.length) counts.tabs += importTabs(profileId, result.favorites.map((t) => ({ ...t, pinned: true })), null);
@@ -178,7 +174,6 @@ export async function applyResult(
   return counts;
 }
 
-/** `cookies`: whether the user kept Safari's cookies ticked (the export file has none; its cards always come). */
 export async function applySafari(profileId: string, data: SafariExport, cookies = true, onFailed?: (kind: ImportKind) => void): Promise<ImportCounts> {
   const counts = emptyCounts();
   counts.bookmarks = importSafariBookmarks(profileId, data.bookmarks);

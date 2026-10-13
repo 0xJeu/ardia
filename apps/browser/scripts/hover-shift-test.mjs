@@ -1,8 +1,3 @@
-// Hovering moves or resizes nothing but a HoverSlot's contents, in the sidebar, the tab strip and the downloads popover.
-// Launches a hidden instance with a fixture (tabs, an open and a collapsed group, a live folder with an open item, a
-// finished download) and runs the dev harness's check (src/lib/hoverShift.ts) on each surface.
-//   node apps/browser/scripts/hover-shift-test.mjs <Debug Ardia.app> [cdpPort]
-// One line per surface; the details go to hover-shift-test.log beside the instance's data.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -36,7 +31,6 @@ try {
   });
   const ac = (body) => app.eval(body, { timeout: 120000 });
 
-  // The fixture: groups, a live folder with an open item (its row shows ✕ on hover) and a finished download.
   await ac(`
     const s = ac.store.getState();
     s.createGroup(["a1", "a2", "a3"], { name: "Open group" });

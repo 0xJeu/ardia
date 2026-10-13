@@ -20,7 +20,6 @@ type Day = { label: string; offset: number };
 type Row = { entry: HistoryEntry; day: number; first: boolean; last: boolean; offset: number };
 type Layout = { days: Day[]; rows: Row[]; height: number };
 
-// An entry is never changed in place and keeps its identity across history updates: its search text is built once.
 const searchTexts = new WeakMap<HistoryEntry, string>();
 function searchTextOf(entry: HistoryEntry) {
   let text = searchTexts.get(entry);
@@ -28,8 +27,6 @@ function searchTextOf(entry: HistoryEntry) {
   return text;
 }
 
-// Every row and day header with its offset. Up to 5000 entries on each keystroke: the list is newest first, so a day's
-// entries come together and its bounds are worked out once per day, not per entry.
 function layoutHistory(history: HistoryEntry[], query: string): Layout {
   const words = queryWords(query);
   const days: Day[] = [];
@@ -58,7 +55,6 @@ function layoutHistory(history: HistoryEntry[], query: string): Layout {
   return { days, rows, height: offset };
 }
 
-// The first row that ends below y.
 function rowAt(rows: Row[], y: number) {
   let lo = 0;
   let hi = rows.length;
@@ -94,10 +90,8 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
   const latest = useRef({ layout, profileId });
   latest.current = { layout, profileId };
 
-  // Stable, so a row re-renders only when what it shows changes (the list reuses rows as it scrolls).
   const toggle = useCallback((url: string, shift: boolean) => {
     const { rows } = latest.current.layout;
-    // Read now: the updater may run after lastClicked has moved on to this click.
     const from = shift && lastClicked.current ? rows.findIndex((r) => r.entry.url === lastClicked.current) : -1;
     setSelected((prev) => {
       const next = new Set(prev);
@@ -162,10 +156,6 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
   );
 }
 
-// Only the rows around the viewport are mounted, half a screen above and below it, each at its offset in a content view as
-// tall as the whole list. As the list scrolls, the row that leaves that band is reused for the one that enters it (row i
-// lives in slot i % pool, and the slots keep their order): a scroll changes a few rows' props instead of mounting and
-// unmounting native views, which is what made a flick through 5000 entries stall the main thread for a second.
 function HistoryList({
   layout,
   profileId,
@@ -185,14 +175,10 @@ function HistoryList({
 }) {
   const { rows, days } = layout;
   const [viewport, setViewport] = useState(800);
-  // Half a screen each way: rows are reused, not mounted, as the list scrolls, so this only has to cover the frame or two
-  // the JS thread takes to catch up with a fast scroll, and every row in it is mounted when the page opens.
   const overscan = Math.round(viewport / 2);
   const rowPool = Math.ceil((viewport + 2 * overscan) / ROW) + 1;
   const dayPool = Math.ceil((viewport + 2 * overscan + ROW) / (HEADER + ROW)) + 2;
 
-  // The scroll offset is read as the list renders (a search re-lays the rows out under the same offset); a scroll
-  // re-renders the list only when the band's first row changes.
   const scrollY = useRef(0);
   const [, rerender] = useState(0);
   const band = rowAt(rows, scrollY.current - overscan);
@@ -281,7 +267,6 @@ const HistoryRow = memo(function HistoryRow({
 }) {
   const theme = useTheme();
   const colors = useFormColors();
-  // Hover belongs to the entry, not the reused row: a row that scrolled away hovered shows its next entry at rest.
   const url = useRef(entry.url);
   url.current = entry.url;
   const [hoveredUrl, setHoveredUrl] = useState<string | null>(null);
@@ -323,8 +308,6 @@ const HistoryRow = memo(function HistoryRow({
             borderBottomRightRadius: last ? r : 0,
           }}
         >
-          {/* Mounted at rest, not on hover: a scroll moves rows under the pointer, and the list reuses rows, so they're
-              mounted once per row rather than once per row the pointer passes. */}
           <View style={{ width: 14, opacity: hovered || selecting ? 1 : 0 }}>
             <Checkbox value={selected} onChange={() => onToggle(entry.url, false)} />
           </View>

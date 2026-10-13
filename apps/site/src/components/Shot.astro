@@ -1,27 +1,17 @@
 ---
-// Real captures of the app. Window shots are the window only (rounded corners, transparent outside),
-// so the shadow here follows the window's shape. Several shots fan out, back to front.
-// A `panel` is one view rendered by the app without its window frame; it gets a plain rounded card.
-// A `loop` plays the part of a shot that moves (scripts/loops.ts): a clip of that rectangle, cut from the
-// same capture, laid exactly over the still, so without it (reduced motion, Save-Data) the still is the shot.
 import type { ImageMetadata } from "astro";
 import { Picture, getImage } from "astro:assets";
 
 export interface Focus {
-  /** Where to look, 0–1 across and down the part of the shot that doesn't fit the phone frame. */
   x: number;
   y: number;
-  /** How far to zoom in on a phone: the shot is drawn this many times the frame's width. */
   zoom: number;
-  /** The phone frame's height / width. */
   ratio?: number;
 }
 export interface Loop {
   mp4: string;
   webm: string;
-  /** The clip's first frame: the still's pixels under it. */
   poster: ImageMetadata;
-  /** Where the clip sits on the shot, in the shot's pixels. */
   rect: { x: number; y: number; w: number; h: number };
 }
 interface Props {
@@ -30,16 +20,13 @@ interface Props {
   sizes: string;
   panel?: boolean;
   eager?: boolean;
-  /** On phones, show this part of the shot, bigger, instead of the whole window shrunk to fit. */
   focus?: Focus;
-  /** One shot only. */
   loop?: Loop;
 }
 const { src, alt, sizes: baseSizes, panel = false, eager = false, focus, loop } = Astro.props;
 const shots = Array.isArray(src) ? src : [src];
 const first = shots[0];
 const fan = shots.length > 1;
-// Phone crop: the shot is `zoom` frames wide, shifted so the focus point's share of the overflow is hidden.
 const ratio = focus?.ratio ?? 0.78;
 const aspect = first.height / first.width;
 const crop = focus && {
@@ -49,7 +36,6 @@ const crop = focus && {
   "--ty": `${(-focus.y * Math.max(0, 1 - ratio / (focus.zoom * aspect)) * 100).toFixed(2)}%`,
 };
 const sizes = focus ? `(max-width: 640px) ${Math.round(focus.zoom * 100)}vw, ${baseSizes}` : baseSizes;
-// Full-size copies for the lightbox (scripts/lightbox.ts): a click or tap opens the whole window, big.
 const full = await Promise.all(shots.map((s) => getImage({ src: s, format: "webp", width: Math.min(s.width, 2880) })));
 const name = first.src.split("/").pop()?.split(".")[0]?.split("_")[0] ?? "shot";
 const pct = (n: number, of: number) => `${((n / of) * 100).toFixed(3)}%`;
@@ -114,7 +100,6 @@ const widths = (s: ImageMetadata) => [640, 960, 1280, 1600, 2200, s.width].filte
     object-fit: cover;
     pointer-events: none;
   }
-  /* Phones: a window shrunk to 343px is unreadable, so show the focus region at a legible size. */
   @media (max-width: 640px) {
     .crop.on {
       position: relative;
@@ -161,7 +146,6 @@ const widths = (s: ImageMetadata) => [640, 960, 1280, 1600, 2200, s.width].filte
   .panel :global(img) {
     border-radius: 12px;
   }
-  /* Fanned windows: each one down and to the right of the last, the front one full size. */
   .fan {
     --step: 10%;
   }

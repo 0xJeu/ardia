@@ -1,7 +1,3 @@
-// The spec for suggest.ts: a frozen copy of buildSuggestions as it was before the keystroke hill-climb (commit
-// 3ed77f61). suggest.property.test.ts runs this and the live implementation side by side on random profiles and
-// typing sequences and requires identical results, ranking and all. Don't edit it to follow a change in behavior
-// that was meant: change the spec on purpose, in its own commit. Don't import it from the app.
 import { calculate } from "./calculator.ts";
 import { BUILT_IN_ENGINES, searchUrl, type SearchEngine } from "./engines.ts";
 import { matchActions, type ActionCandidate } from "./fuzzy.reference.ts";
@@ -100,9 +96,7 @@ type Candidate = {
 type Lookup = { get(key: string): Candidate | undefined; has(key: string): boolean };
 type Pool = { list: Candidate[]; byKey: Lookup };
 
-// Bookmark candidates, deduplicated, built once per bookmarks list: a visit replaces the history list, not this.
 type BookmarkBase = { list: Candidate[]; byKey: Map<string, Candidate>; keys: Set<string>; cursor: number; done: boolean };
-// A pool under construction for one history list and one bookmarks list, resumed where the last slice stopped.
 type Builder = {
   base: BookmarkBase;
   history: readonly HistoryRow[];
@@ -116,7 +110,6 @@ type Builder = {
 const bases = new WeakMap<readonly BookmarkRow[], BookmarkBase>();
 const builders = new WeakMap<readonly HistoryRow[], WeakMap<readonly BookmarkRow[], Builder>>();
 const NO_BOOKMARKS: readonly BookmarkRow[] = [];
-// A history row's candidate, kept while its bookmark flag holds, so a new history list reuses them.
 const historyCandidates = new WeakMap<HistoryRow, Candidate>();
 const SLICE_CHECK = 64;
 
@@ -126,7 +119,6 @@ function baseFor(bookmarks: readonly BookmarkRow[]): BookmarkBase {
   return base;
 }
 
-// Runs a builder until its pool is ready or `deadline` passes (checked every SLICE_CHECK rows); true when ready.
 function advance(b: Builder, bookmarks: readonly BookmarkRow[], deadline: number): boolean {
   if (b.pool) return true;
   let n = 0;
@@ -186,8 +178,6 @@ function poolFor(history: readonly HistoryRow[], bookmarks: readonly BookmarkRow
   return b.pool!;
 }
 
-// Warms what the first keystroke would build (page text, then the candidate pool) in slices that end once
-// `deadline` passes, resuming where the previous call stopped. True when everything is ready.
 export function prepareSuggestions(source: SuggestionSource, deadline: number): boolean {
   const bookmarks = source.bookmarks ?? NO_BOOKMARKS;
   const b = builderFor(source.history, bookmarks);
@@ -328,7 +318,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
   const { limit = 8, now = Date.now(), engine = BUILT_IN_ENGINES[0]!, preference = "website", remote = [], actions = [], scope } = options;
   const query = raw.trim();
   if (!query) return { items: [], completion: "" };
-  // Pages match by their shown address, which has no scheme: a typed one (the bar shows it while editing) is left out.
   const bare = query.replace(/^https?:\/\/(?=\S)/i, "");
   const q = bare.toLowerCase();
   const tokens = q.split(/\s+/).filter(Boolean);
@@ -348,7 +337,6 @@ export function buildSuggestions(raw: string, source: SuggestionSource, options:
   const known = (url: string) => {
     const key = pageKey(url);
     const c = pool.byKey.get(key) ?? extra.find((x) => x.text.key === key);
-    // What was typed opens here, as in Chrome: an open tab at the same address keeps its own Switch to Tab row.
     return c && pageSuggestion(c, null);
   };
 

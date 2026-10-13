@@ -31,7 +31,6 @@ const LIST_RADIUS = 18;
 const LIST_IDLE_MS = 300;
 const EASE = Easing.bezier(0.25, 0.46, 0.45, 0.94);
 
-// The capsule's frame (x, w, h, top, radius) is layout and stays on the JS driver; opacity and transforms go native.
 export function spring(value: Animated.Value, toValue: number, response: number, dampingRatio: number, native = false) {
   return Animated.spring(value, { toValue, ...springParams(response, dampingRatio), useNativeDriver: native });
 }
@@ -50,7 +49,6 @@ type Shown = { direction: "back" | "forward"; confirmed: boolean; list: HistoryI
 export function SwipeOverlay({ tabId }: { tabId: string }) {
   const theme = useTheme();
   const history = useHistoryAvailability(tabId);
-  // Read only when a gesture starts: a ref, so a resize (the sidebar sliding resizes the card every frame) renders nothing.
   const sizeRef = useRef({ width: 0, height: 0 });
   const [shown, setShown] = useState<Shown | null>(null);
   const area = useRef<SwipeAreaHandle>(null);
@@ -81,7 +79,6 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
     scale: new Animated.Value(1),
   }).current;
 
-  // A new gesture stops everything the last one left running: its springs, its delayed dismiss and its list timer.
   const resetValues = (direction: "back" | "forward") => {
     for (const value of Object.values(v)) value.stopAnimation();
     clearTimeout(g.idle);
@@ -173,7 +170,6 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
       v.x.setValue(CAPSULE_INSET);
       setConfirmed(true);
       navigate(e.direction, null);
-      // Confirmed for a moment, then gone; the delay is part of the animation, so the next gesture's reset stops it.
       return dismiss(120);
     }
     if (e.phase === "cancelled") return dismiss();
@@ -226,7 +222,6 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
             height: v.h,
           }}
         >
-          {/* The dismiss fade and shrink sit on their own view: one view can't mix JS- and native-driven values. */}
           <Animated.View style={{ ...StyleSheet.absoluteFillObject, opacity: v.fade, transform: [{ scale: v.scale }] }}>
             <Surface
               style={StyleSheet.absoluteFill}

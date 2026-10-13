@@ -68,8 +68,6 @@ function openRequestedTab(request: TabsRequest) {
     s.ui.focusOrder.find(ofProfile) ??
     s.ui.focusOrder.find((id) => s.windows[id]);
   const background = request.active === false;
-  // A live tab Chrome made keeps its profile's cookies and storage: adopted only under an app profile on that profile,
-  // in a window showing it, else in a new window of it. Without one, the URL opens afresh (and Chrome's tab goes).
   const profileId = request.adoptId
     ? windowId && ofProfile(windowId) ? s.windows[windowId]!.profileId : s.profileOrder.find((p) => engineProfile(p) === request.profile)
     : undefined;
@@ -92,17 +90,12 @@ function toolbarAnchor(windowId: string, extensionId: string) {
   return toolbarAnchors.get(`${windowId}|${extensionId}`) ?? toolbarAnchors.get(`${windowId}|*`) ?? { x: 100_000, y: 13, width: 28, height: 28 };
 }
 
-// MARK: Toolbar actions
-
 function startActionStates() {
-  // Extensions change their action and side panel without telling the app (ArdiaCore has no event for it): look again
-  // every 1.5 s while the app is active. Everything the app itself changes asks at once, below.
   setInterval(() => {
     if (AppState.currentState !== "active") return;
     void refreshActionStates();
     for (const [windowId] of wantedSidePanels()) void syncSidePanel(windowId);
   }, 1500);
-  // Actions are the shown tabs' own: a change to a tab in the background doesn't ask again.
   useBrowser.subscribe((s, prev) => {
     if (s.windows !== prev.windows || s.ui.focusedWindowId !== prev.ui.focusedWindowId) return void refreshActionStates();
     if (s.tabs === prev.tabs) return;
@@ -113,7 +106,6 @@ function startActionStates() {
   });
   usePages.subscribe((p, prev) => {
     if (p.browsers === prev.browsers) return;
-    // A tab's page arriving (or replaced) is a new browser to ask about.
     void refreshActionStates();
     const actions = useExtensions.getState().actions;
     const gone = Object.keys(actions).filter((id) => !p.browsers[Number(id)]);
@@ -124,15 +116,10 @@ function startActionStates() {
   });
 }
 
-// MARK: Side panels
-
-// MARK: chrome.action.openPopup
-
 function startActionPopups() {
   onExtensionActionPopup(({ browserId, extensionId }) => {
     const tabId = tabForBrowser(browserId);
     const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
-    // The engine fails the call after 10 s (chrome_debug.log says so); this says why.
     if (!windowId) return console.warn(`action.openPopup for ${extensionId}: ${tabId ? "its tab has no window" : `no tab for browser ${browserId}`}`);
     void state.openActionPopup(windowId, extensionId, toolbarAnchor(windowId, extensionId), browserId);
   });
@@ -164,8 +151,6 @@ function startSidePanels() {
     if (e.popup && !windowExtensions(s, e.popup.windowId).some((x) => x.id === e.popup!.extensionId)) closeExtensionPopup();
   });
 }
-
-// MARK: Chrome Web Store
 
 const STORE_SCRIPT = `
 const g = window;
@@ -226,7 +211,6 @@ function startWebStoreIntegration() {
       if (tab.url === url) listen(tabId, url);
     });
   };
-  // After the first pass, only the tabs whose page or loading state changed since `prev` are looked at.
   const sync = (s: BrowserState, prev?: BrowserState) => {
     for (const [tabId, url] of listening) if (s.tabs[tabId]?.url !== url || s.live[tabId]?.isLoading) listening.delete(tabId);
     const ids = prev ? new Set([...changedIds(s.tabs, prev.tabs), ...changedIds(s.live, prev.live)]) : Object.keys(s.tabs);

@@ -1,8 +1,3 @@
-// Runs inside the app (the dev harness evaluates it as `function (ac) { … }`) and installs
-// globalThis.acBench: the benchmark's scenarios. Each one resets the probe (src/lib/perfProbe.ts),
-// drives the app the way its native events would (inside a React batch), and returns timings plus
-// the probe's counters. js-bench.mjs loads it and calls acBench.run(name, options).
-
 const P = globalThis.acPerf;
 if (!P) throw new Error("perf probe is off (no perf-probe file in the data folder)");
 const store = ac.store;
@@ -15,7 +10,6 @@ const activeId = () => {
   return w.activeTabIds[w.profileId];
 };
 
-// The time one batched update takes on the JS thread: store update, selectors, render, commit, layout effects.
 function timed(fn) {
   const t = P.now();
   P.batch(fn);
@@ -36,8 +30,6 @@ async function quiet(ms = 400) {
   await sleep(ms);
 }
 
-// Waits until the app has written nothing for `quietMs` (longer than its longest save delay: 2 s for the
-// bookmarks cache, 0.8 s for the session), so an idle window doesn't catch saves left over from startup.
 async function writesSettled(quietMs = 3000, timeoutMs = 30000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
@@ -98,7 +90,6 @@ const scenarios = {
     const view = s.windows[w].tabIds.filter((id) => s.tabs[id].profileId === s.windows[w].profileId && !s.tabs[id].pinned);
     const ids = view.slice(30, 30 + count);
     const start = activeId();
-    // First pass wakes the tabs (each loads its page); the measured pass switches between loaded tabs.
     for (const id of ids) {
       timed(() => {
         S().setSelection(w, []);
@@ -107,10 +98,6 @@ const scenarios = {
       await sleep(250);
     }
     await quiet();
-    // Session saves are throttled (lib/persist.ts: the first change starts an 800 ms timer). One left from the first
-    // pass, or the measured pass's last window still open when the counts are read, made `writes` land at 2 or 3. So
-    // the pass starts with no save pending, and its writes are read once the last window has closed: every save the
-    // switches caused, and nothing else (the other counts are read as the pass ends, as before).
     await writesSettled(1200, 10000);
     P.reset();
     const steps = [];
@@ -240,8 +227,6 @@ const scenarios = {
     return { runs: out };
   },
 
-  // What one store update costs when nothing on screen depends on it (a background tab's load state flipping;
-  // progress isn't a store field since 33e88e6f): every subscribed selector runs, React bails out.
   async storeUpdate({ count = 60 } = {}) {
     await quiet();
     const s = S();
@@ -262,7 +247,6 @@ const scenarios = {
     return scenarios.idle({ seconds });
   },
 
-  // Which tab is active after each store update while tabs open (finds activation ping-pong).
   async activeTrail({ count = 4, origin } = {}) {
     const w = windowId();
     await quiet();
@@ -292,8 +276,6 @@ const scenarios = {
     return { opened, trail };
   },
 
-  // Opening tabs while every switch costs `slowMs` of JS (as renders did with 200 tabs before the sidebar was
-  // memoized): counts activations, to catch Chrome's late reports switching back and forth.
   async slowOpen({ count = 10, slowMs = 100, gapMs = 300, origin } = {}) {
     const w = windowId();
     await quiet();
@@ -341,15 +323,11 @@ const scenarios = {
 Object.assign(scenarios, renderScenarios());
 Object.assign(scenarios, censusScenarios());
 
-// Hermes' runtime compiler takes async methods but not async arrows.
 scenarios.traced = function ({ scenario, ...options }) {
   P.traceTimers = true;
   return scenarios[scenario](options).finally(() => (P.traceTimers = false));
 };
 
-// The render benchmark's interactions (render-bench.mjs, a 20-tab session): each settles, resets the probe, acts
-// and reads what rendered until things settle again. The ones a page drives (scrolling, media) are `mark` and
-// `read` around the host's CDP calls.
 function renderScenarios() {
   const tabsInView = () => {
     const s = S();
@@ -435,7 +413,6 @@ function renderScenarios() {
       await sleep(400);
       return { keys, stats };
     },
-    // Opens a page in a background tab (title ticker, media) and returns its id.
     async openBackground({ path, origin, settleMs = 2500 } = {}) {
       const w = windowId();
       const id = S().newTab(w, { url: `${origin}${path}`, background: true });
@@ -453,7 +430,6 @@ function renderScenarios() {
       await sleep(400);
       return true;
     },
-    // A background tab loading a page (progress, title, favicon, loading state): only its row should render.
     async bgLoad({ origin } = {}) {
       await quiet(800);
       const s = S();
@@ -493,7 +469,6 @@ function renderScenarios() {
       const openStats = await settle(1200);
       return { ms, stats, openMs, openStats };
     },
-    // A download's progress as the engine reports it (onDownload → upsertDownload), ten updates a second.
     async downloads({ updates = 40, gapMs = 100 } = {}) {
       const total = 50_000_000;
       const d = { id: `bench-${Date.now()}`, url: "http://127.0.0.1/file.zip", filename: "file.zip", path: "", state: "downloading", paused: false, received: 0, total, speed: 0, mimeType: "application/zip", profile: S().windows[windowId()].profileId };
@@ -515,9 +490,6 @@ function renderScenarios() {
 }
 
 
-// The render census's journeys (census.mjs, docs/perf/render-census.md). Each action is measured alone: reset the
-// probe, act, settle, read; a scenario returns `per` (one summary per action) and `stats` (the actions' counters
-// summed, for the offender tables).
 function censusScenarios() {
   const total = (o) => Object.values(o ?? {}).reduce((a, b) => a + (typeof b === "number" ? b : 0), 0);
   const summary = (r, ms) => ({
@@ -544,7 +516,6 @@ function censusScenarios() {
     return into;
   };
   const SKIP = new Set(["commitTimes", "commitTaskLog", "taskLog", "since"]);
-  // One measured action: probe reset, the action (batched, timed), a settle, the probe's counters.
   async function action(act, settleMs, sink) {
     P.reset();
     const ms = timed(act);
@@ -562,7 +533,6 @@ function censusScenarios() {
     return w.tabIds.filter((id) => s.tabs[id]?.profileId === w.profileId);
   };
   const run = (command, arg = null) => () => ac.runCommand({ command, arg, windowId: windowId() });
-  // The command bar's variant: a floating panel, or the sidebar's dropdown with the address bar there.
   const panelId = (w) => `${w}:${S().settings.addressBar === "sidebar" ? "sidebar" : "panel"}`;
   async function driverOf(id) {
     if (!(await until(() => ac.omnibox.get(id), 4000))) throw new Error(`no omnibox driver ${id}`);
@@ -586,14 +556,12 @@ function censusScenarios() {
     });
   }
   return {
-    // The first window's counters since the bundle started (everything until the window was up).
     async cenStartup() {
       await until(() => P.marks.firstWindow, 20000);
       const r = P.read();
       for (const k of SKIP) delete r[k];
       return { per: [summary(r, 0)], stats: r, marks: { ...P.marks, firstCommit: P.firstCommit } };
     },
-    // J2, Cmd-T: a blank tab with the new tab page's field.
     async cenNewTab({ count = 4 } = {}) {
       const out = sink();
       for (let i = 0; i < count; i++) {
@@ -609,7 +577,6 @@ function censusScenarios() {
       }
       return out;
     },
-    // J2: keystrokes in the new tab page's field (per key), then the tab closed.
     async cenTypeHero({ query = "github.com/facebook/react", gapMs = 120 } = {}) {
       const w = windowId();
       await quiet(600);
@@ -621,7 +588,6 @@ function censusScenarios() {
       await sleep(400);
       return out;
     },
-    // J2, Cmd-L: the command bar opens over a page, keystrokes, Esc closes it.
     async cenPanel({ query = "github.com/facebook/react", gapMs = 120, repeats = 3 } = {}) {
       const w = windowId();
       await quiet(600);
@@ -637,7 +603,6 @@ function censusScenarios() {
       }
       return { open, keys, close };
     },
-    // J4: Enter on a URL in the command bar, then the page load's updates (title, favicon, progress, loading).
     async cenEnter({ origin, repeats = 3 } = {}) {
       const w = windowId();
       const enter = sink();
@@ -657,7 +622,6 @@ function censusScenarios() {
         enter.per.push(summary(rd, ms));
         merge(enter.stats, rd);
         P.reset();
-        // Woken by the store, not polled: a polling timer would count among the app's timers.
         await untilStore((st) => !st.live[tab]?.isLoading, 15000);
         await sleep(1500);
         rd = P.read();
@@ -667,7 +631,6 @@ function censusScenarios() {
       }
       return { enter, load };
     },
-    // J3: a click on a sidebar row (what clickTab does) and the shortcuts (⌘1-9, ⌃Tab's next tab), between loaded tabs.
     async cenSwitch({ count = 10, gapMs = 300 } = {}) {
       const w = windowId();
       const s = S();
@@ -687,7 +650,6 @@ function censusScenarios() {
       await quiet(800);
       return { click, shortcut };
     },
-    // Sidebar hover: the pointer entering and leaving rows.
     async cenHover({ rows = 14, from = 0, gapMs = 150 } = {}) {
       await quiet(800);
       const hosts = P.findFibers("TabRow", 400).map(hostOf).filter((h) => h && typeof h.memoizedProps?.onMouseEnter === "function").slice(from, from + rows);
@@ -705,7 +667,6 @@ function censusScenarios() {
       await action(() => prev.memoizedProps.onMouseLeave?.({ nativeEvent: {} }), gapMs, out);
       return out;
     },
-    // J4's page-load updates in a background tab: its row only should render.
     async cenBgLoad({ origin, repeats = 2 } = {}) {
       const out = sink();
       for (let r = 0; r < repeats; r++) {
