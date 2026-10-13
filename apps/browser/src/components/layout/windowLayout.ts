@@ -27,8 +27,10 @@ export function useAddressBarInSidebar(): boolean {
 }
 
 export const SIDEBAR_FIELD = { top: 48, height: layout.rowHeight, radius: 10 } as const;
-// Dia: 34pt button, 41pt footer, 28pt band, 3pt inset.
-export const SIDEBAR_FOOTER_DOWNLOADS = { bottom: 3 + (28 - 34) / 2, size: 34 } as const;
+// Dia: 34pt button, 41pt footer whose 28pt band is centred above its bottom 3pt (22pt up, where the profile dots sit).
+// Centred on that band, the button is 5pt off the window's bottom and sidebarInset off its left: its radius-10 corner
+// runs concentric with the window's, as the card's does.
+export const SIDEBAR_FOOTER_DOWNLOADS = { bottom: 3 + (41 - 3 - 34) / 2, size: 34 } as const;
 export function listTopGap(addressBar: boolean): number {
   return addressBar ? 6 : layout.pinnedTop - layout.sidebarHeader;
 }
