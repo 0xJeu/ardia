@@ -222,9 +222,8 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     render blank; text opacity is applied twice, so a label at α reads 1 − (1 − α)², don't match colours on it),
     `globalThis.expo.modules.ArdiaAreaLight.debugSnapshot(dir)` (every Metal view, offscreen, with its frame),
     the accessibility tree and store state, and list "needs visual check" items in your report.
-- Code style: read the surrounding code first and match it — naming, comment density
-  (short "why" comments, no noise), idioms. Keep files cohesive; new features go in new
-  files where sensible.
+- Code style: read the surrounding code first and match its naming and idioms. No comments (AGENTS.md).
+  Keep files cohesive; new features go in new files where sensible.
 - Dia fidelity: when you build UI, match Dia, and check it with numbers against a Dia capture
   (same crop, same state) before calling it a match (`docs/dia-spec.md`, `docs/dia-feature-parity.md`).
 

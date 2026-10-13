@@ -33,6 +33,11 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   kill processes you didn't start.
 
 ## Hard rules
+- **No comments in code.** Don't write comments in any source, script or config file (`//`, `/* */`, `#`,
+  `<!-- -->`, doc comments). Name things so the code says what it does, and put the why in the commit message.
+  Only what a tool reads stays: shebangs, license headers, compiler, linter and type directives
+  (`@ts-expect-error`, `eslint-disable`, `#pragma`, `swiftlint:`, `# noqa`), and the header a script prints as its
+  `--help`.
 - **The Chromium build cache is sacred.** Never touch `~/chromium-build/chromium_git/chromium/src/out`,
   and never run `gclient sync` or `gn clean`: a full rebuild costs about 5 hours. Engine changes are
   incremental builds only, holding the chromium lock (`scripts/agent/locked chromium`,
