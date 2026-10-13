@@ -298,9 +298,10 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
   reopenClosed(windowId) {
     const s = get();
     const target = resolveWindowId(s, windowId);
-    const lastTab = findLast(s.closedTabs, (c) => canRestoreTabInto(s, c, target));
-    const lastWindow = s.windows[target ?? ""]?.incognito ? undefined : s.closedWindows.at(-1);
-    const lastGroup = s.windows[target ?? ""]?.incognito ? undefined : s.closedGroups.at(-1);
+    const lastTab = lastClosedTab(s, target);
+    const regular = (p: string | undefined) => !s.windows[target ?? ""]?.incognito && shownProfile(s, target, p);
+    const lastWindow = findLast(s.closedWindows, (c) => regular(c.window.profileId));
+    const lastGroup = findLast(s.closedGroups, (c) => regular(c.tabs[0]?.profileId));
     const entry = [lastWindow, lastGroup, lastTab].reduce<{ id: string; closedAt: number } | undefined>(
       (latest, e) => (e && (!latest || e.closedAt > latest.closedAt) ? e : latest),
       undefined,
@@ -311,7 +312,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
   reopenClosedTab(windowId) {
     const s = get();
     const target = resolveWindowId(s, windowId);
-    const entry = findLast(s.closedTabs, (c) => canRestoreTabInto(s, c, target));
+    const entry = lastClosedTab(s, target);
     if (entry) get().restoreClosed(entry.id, target);
   },
 
@@ -331,6 +332,18 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     if (closedGroup) set(restoringGroup(s, closedGroup, windowId));
   },
 });
+
+// ⇧⌘T reopens what the window's shown profile closed, like Chrome's per-profile history.
+function shownProfile(s: BrowserState, windowId: string | undefined, profileId: string | undefined): boolean {
+  return !windowId || profileId === s.windows[windowId]!.profileId;
+}
+
+function lastClosedTab(s: BrowserState, windowId: string | undefined): ClosedTab | undefined {
+  return findLast(
+    s.closedTabs,
+    (c) => canRestoreTabInto(s, c, windowId) && (isIncognitoProfile(c.tab.profileId) || shownProfile(s, windowId, c.tab.profileId)),
+  );
+}
 
 function canRestoreTabInto(s: BrowserState, c: ClosedTab, windowId: string | undefined): boolean {
   const w = windowId ? s.windows[windowId] : undefined;

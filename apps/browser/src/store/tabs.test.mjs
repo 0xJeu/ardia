@@ -263,6 +263,24 @@ test("a pinned group's reopened tab not shown yet keeps its back/forward list th
   assert.equal(S().tabs[back].adoptId, `restore:${c}`);
 });
 
+test("⇧⌘T reopens only what the window's shown profile closed", () => {
+  reset();
+  const [w, , b] = setup("a", "b");
+  S().closeTab(b);
+  const p = S().createProfile({ name: "Work" });
+  S().switchProfile(w, p);
+  const work = S().newTab(w, { url: "w.com" });
+  S().reopenClosed(w);
+  assert.equal(S().windows[w].profileId, p, "it stays on Work");
+  assert.ok(!Object.values(S().tabs).some((t) => short(t.url) === "b"), "the default profile's tab stays closed");
+  S().closeTab(work);
+  S().reopenClosed(w);
+  assert.ok(Object.values(S().tabs).some((t) => short(t.url) === "w" && t.profileId === p), "Work's own tab comes back");
+  S().switchProfile(w, "default");
+  S().reopenClosedTab(w);
+  assert.ok(Object.values(S().tabs).some((t) => short(t.url) === "b" && t.profileId === "default"));
+});
+
 test("abandoned New Tab cleanup never closes a window or the tab it shows", () => {
   reset();
   const w = S().createWindow();
