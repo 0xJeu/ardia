@@ -378,5 +378,5 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
   - GitHub: 27 stars, none since 10-02; 6 forks (+4). 339 views from 202 people in 14 days, 0-4 a day lately.
   - Errors: two app crashes, both from one Mac (likely the owner's). 0.2.25 SIGABRT in a context-menu action
     (clipboard read in `NNViewDelegate::BuildMenuAsync`), fixed 10-04 (8663d84b, 2b689a10). 0.2.32 SIGABRT while
-    Sparkle installed 0.2.33 (a window closing during the update quit; unsymbolized), handed to an agent to
-    symbolize and fix. The site's 14 are not ours (cross-origin `Script error.`, Stylus, ResizeObserver, fetch drops).
+    Sparkle installed 0.2.33: AppKit made our window key while its Browser was already closing, and
+    activating it failed Chrome's CHECK (global_browser_collection.cc:70). Fixed in 166c567e, next release. The site's 14 are not ours (cross-origin `Script error.`, Stylus, ResizeObserver, fetch drops).
