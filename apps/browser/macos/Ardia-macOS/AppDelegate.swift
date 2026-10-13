@@ -2,6 +2,7 @@ import AppKit
 import Expo
 import React
 import ArdiaShell
+import ArdiaSync
 import ReactAppDependencyProvider
 
 final class AppDelegate: ExpoAppDelegate {
@@ -24,6 +25,10 @@ final class AppDelegate: ExpoAppDelegate {
     factory.rootViewFactory.initializeReactHost(launchOptions: nil)
 
     super.applicationDidFinishLaunching(notification)
+
+    // A Dock tile pinned under the app's former name opens this app, once per Mac and in the installed copy only;
+    // in the background, a few seconds from now (packages/sync/ios/Core/LegacyDockTile.swift).
+    LegacyDockTile.repointSoon()
   }
 
   override func application(_ application: NSApplication, open urls: [URL]) {

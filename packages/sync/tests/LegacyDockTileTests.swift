@@ -2,11 +2,25 @@ import Foundation
 import XCTest
 @testable import ArdiaSyncCore
 
-/// A disk holding `files`; on a case-insensitive one, any spelling of a file is that file.
-func fakeDisk(_ files: Set<String>, caseInsensitive: Bool = true) -> LegacyDockTile.Disk {
-  let key = { (path: String) in caseInsensitive ? path.lowercased() : path }
-  let known = Set(files.map(key))
-  return LegacyDockTile.Disk(identity: { known.contains(key($0)) ? key($0) : nil }, caseInsensitive: caseInsensitive)
+/// A disk holding `files`; on a case-insensitive one, any spelling of a file is that file. `unknown` paths can't be
+/// looked at (no permission); `looked` lists every path asked about.
+final class FakeDisk {
+  var looked: [String] = []
+  func disk(_ files: Set<String>, unknown: Set<String> = [], caseInsensitive: Bool = true) -> LegacyDockTile.Disk {
+    let key = { (path: String) in caseInsensitive ? path.lowercased() : path }
+    let known = Set(files.map(key)), hidden = Set(unknown.map(key))
+    return LegacyDockTile.Disk(
+      identity: { path in
+        self.looked.append(path)
+        if hidden.contains(key(path)) { return .unknown }
+        return known.contains(key(path)) ? .file(key(path)) : .absent
+      },
+      caseInsensitive: caseInsensitive)
+  }
+}
+
+func fakeDisk(_ files: Set<String>, unknown: Set<String> = [], caseInsensitive: Bool = true) -> LegacyDockTile.Disk {
+  FakeDisk().disk(files, unknown: unknown, caseInsensitive: caseInsensitive)
 }
 
 /// The Dock's persistent-apps as fixtures, shaped like a real list (the old names come from LegacyName).
@@ -130,6 +144,10 @@ final class LegacyDockTileTests: XCTestCase {
       with(oldTile) { $0["file-data"] = ["_CFURLString": "", "_CFURLStringType": 15] },
       with(oldTile) { $0["file-data"] = ["_CFURLString": "relative/path", "_CFURLStringType": 0] },
       with(oldTile) { $0["file-data"] = ["_CFURLString": oldURL] },
+      // Relative file URLs, and one on another host.
+      with(oldTile) { $0["file-data"] = ["_CFURLString": "file:\(LegacyName.appFileName)/", "_CFURLStringType": 15] },
+      with(oldTile) { $0["file-data"] = ["_CFURLString": "file:Applications/\(LegacyName.appFileName)/", "_CFURLStringType": 15] },
+      with(oldTile) { $0["file-data"] = ["_CFURLString": "file://server/Applications/\(LegacyName.appFileName)/", "_CFURLStringType": 15] },
       ["tile-type": "spacer-tile", "tile-data": [:] as [String: Any]],
     ]
     for tile in malformed {
@@ -151,6 +169,26 @@ final class LegacyDockTileTests: XCTestCase {
     XCTAssertEqual(ids(repoint([oldTile, other]).tiles), ["something.else"])
   }
 
+  func testAnOldAppThatCantBeLookedAtKeepsItsTile() {
+    // Not "missing": a copy there may be live (no permission to look, a volume that didn't answer).
+    let result = repoint([messages, oldTile], disk: fakeDisk(["/Applications/Ardia.app"], unknown: [oldAppPath]))
+    XCTAssertNil(result.tiles)
+    XCTAssertTrue(result.keptLive)
+  }
+
+  func testOnlyTilesNamedLikeEitherAppAreLookedUp() {
+    let disk = FakeDisk()
+    let share = tile("", "file:///Volumes/Gone/Folder/", label: "Folder")
+    _ = LegacyDockTile.repointed([messages, dia, share, oldTile, ardiaTile], app: app, bundleId: bundleId, label: "Ardia",
+                                 disk: disk.disk(["/Applications/Ardia.app"]))
+    XCTAssertFalse(disk.looked.contains { $0.hasPrefix("/Volumes") || $0.hasPrefix("/System") || $0.hasSuffix("Dia.app") }, "\(disk.looked)")
+  }
+
+  func testAFileURLOnThisMacMayNameLocalhost() {
+    let localhost = with(oldTile) { $0["file-data"] = ["_CFURLString": "file://localhost/Applications/\(LegacyName.appFileName)/", "_CFURLStringType": 15] }
+    XCTAssertEqual(ids(repoint([localhost]).tiles), [bundleId])
+  }
+
   func testTwoDeadOldTilesBecomeOne() {
     let second = tile(LegacyName.bundleId, "file:///Users/me/Applications/\(LegacyName.appFileName)/", label: LegacyName.appName)
     XCTAssertEqual(ids(repoint([oldTile, messages, second]).tiles), [bundleId, "com.apple.MobileSMS"])
@@ -160,16 +198,24 @@ final class LegacyDockTileTests: XCTestCase {
 
   final class FakeDock {
     var tiles: [[String: Any]]?
-    var writes = 0, restarts = 0
+    var writes = 0, restarts = 0, reads = 0
+    var events: [String] = []
+    /// Runs before each read (another app changing the Dock meanwhile).
+    var onRead: ((Int) -> Void)?
     var writeWorks = true, restartWorks = true
     var flags: [String: Bool] = [:]
     var disk = fakeDisk(["/Applications/Ardia.app"])
 
     var seams: LegacyDockTile.Seams {
       LegacyDockTile.Seams(
-        read: { self.tiles },
+        read: {
+          self.reads += 1
+          self.onRead?(self.reads)
+          return self.tiles
+        },
         write: { tiles in
           self.writes += 1
+          self.events.append("write")
           if self.writeWorks { self.tiles = tiles }
           return self.writeWorks
         },
@@ -178,7 +224,10 @@ final class LegacyDockTileTests: XCTestCase {
           return self.restartWorks
         },
         flag: { self.flags[$0] ?? false },
-        setFlag: { self.flags[$0] = $1 ? true : nil },
+        setFlag: {
+          self.flags[$0] = $1 ? true : nil
+          self.events.append("\($0)=\($1)")
+        },
         disk: disk)
     }
     var done: Bool { flags[LegacyDockTile.doneKey] == true }
@@ -242,6 +291,58 @@ final class LegacyDockTileTests: XCTestCase {
     launch(dock)
     launch(dock)
     XCTAssertEqual(dock.state, "writes 1, restarts 1, done true")
+  }
+
+  func testTheRestartIsPendingBeforeTheListIsWritten() {
+    let dock = FakeDock()
+    dock.tiles = [oldTile]
+    launch(dock)
+    XCTAssertEqual(dock.events, ["\(LegacyDockTile.restartKey)=true", "write", "\(LegacyDockTile.restartKey)=false", "\(LegacyDockTile.doneKey)=true"])
+  }
+
+  func testALaunchThatStoppedAfterWritingRestartsTheDockNext() {
+    // The list was written and the launch stopped before the restart.
+    let dock = FakeDock()
+    dock.tiles = repoint([oldTile]).tiles
+    dock.flags[LegacyDockTile.restartKey] = true
+    launch(dock)
+    XCTAssertEqual(dock.state, "writes 0, restarts 1, done true")
+    // One that stopped before writing writes it then.
+    let early = FakeDock()
+    early.tiles = [oldTile]
+    early.flags[LegacyDockTile.restartKey] = true
+    launch(early)
+    XCTAssertEqual(early.state, "writes 1, restarts 1, done true")
+  }
+
+  func testAFailedWriteLeavesNoRestartPending() {
+    let dock = FakeDock()
+    dock.tiles = [oldTile]
+    dock.writeWorks = false
+    launch(dock)
+    XCTAssertNil(dock.flags[LegacyDockTile.restartKey])
+    XCTAssertEqual(dock.state, "writes 1, restarts 0, done false")
+  }
+
+  func testTheListIsReadAgainRightBeforeTheWrite() {
+    // A tile pinned meanwhile stays.
+    let dock = FakeDock()
+    dock.tiles = [oldTile]
+    dock.onRead = { if $0 == 2 { dock.tiles = [self.messages, self.oldTile] } }
+    launch(dock)
+    XCTAssertEqual(ids(dock.tiles), ["com.apple.MobileSMS", bundleId])
+    // Repointed meanwhile (by hand, say): nothing to write, nothing to restart.
+    let fixed = FakeDock()
+    fixed.tiles = [oldTile]
+    fixed.onRead = { if $0 == 2 { fixed.tiles = [self.ardiaTile] } }
+    launch(fixed)
+    XCTAssertEqual(fixed.state, "writes 0, restarts 0, done true")
+    // Unreadable then: tried again later.
+    let gone = FakeDock()
+    gone.tiles = [oldTile]
+    gone.onRead = { if $0 == 2 { gone.tiles = nil } }
+    launch(gone)
+    XCTAssertEqual(gone.state, "writes 0, restarts 0, done false")
   }
 
   // MARK: Who may

@@ -17,10 +17,6 @@ LegacyMigration.moveToNewName()
 // before anything reads them (packages/sync/ios/Core/LegacyMigration.swift). False: the user chose to quit.
 if !LegacyMigration.runAtLaunch() { exit(0) }
 
-// A Dock tile pinned under the former name now opens this app, once per Mac; the installed copy only
-// (packages/sync/ios/Core/LegacyDockTile.swift).
-LegacyDockTile.repointAtLaunch()
-
 // The app on ArdiaCore: Chromium runs the process and its loop, and the React Native host (AppDelegate) starts inside
 // it. Nothing may touch NSApp before this: Chrome makes it its own NSApplication.
 exit(ArdiaCoreHost.run(argc: CommandLine.argc, argv: CommandLine.unsafeArgv) { AppDelegate() })
