@@ -2,6 +2,7 @@ import { Symbol } from "@ardia/shell";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
+import { tabLayoutOf } from "../../../store/model";
 import type { Settings } from "../../../store/settings";
 import { Checkbox, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
 
@@ -20,7 +21,7 @@ export function TabsPane() {
       <Toggle value={!!settings[key]} onChange={(v) => update({ [key]: v })} />
     </Row>
   );
-  const top = settings.tabLayout === "top";
+  const top = useBrowser((s) => tabLayoutOf(s) === "top");
 
   return (
     <View>

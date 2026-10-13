@@ -151,6 +151,13 @@ export function resolveWindowId(s: BrowserState, id?: string | null): string | u
   return s.ui.focusOrder.find(main) ?? s.windowOrder.find(main);
 }
 
+// A window keeps its own tab layout, so the default can differ from what it shows (another window's last toggle, another
+// Mac's choice through sync). Settings shows the front window's.
+export function tabLayoutOf(s: BrowserState, windowId?: string | null): "sidebar" | "top" {
+  const id = resolveWindowId(s, windowId);
+  return (id && s.windows[id]!.tabLayout) || s.settings.tabLayout;
+}
+
 export function merge<T extends object>(obj: T, patch: Partial<T>): T {
   for (const key in patch) {
     if (!Object.is(obj[key], patch[key])) return { ...obj, ...patch };

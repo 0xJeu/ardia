@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
+import { tabLayoutOf } from "../../../store/model";
 import type { Settings } from "../../../store/settings";
 import { useHover } from "../../primitives";
 import { SectionHeader, useFormColors } from "../controls";
@@ -35,7 +36,7 @@ export function AppearancePane() {
 
 function AddressBarPicker() {
   const addressBar = useBrowser((s) => s.settings.addressBar);
-  const topTabs = useBrowser((s) => s.settings.tabLayout === "top");
+  const topTabs = useBrowser((s) => tabLayoutOf(s) === "top");
   const choose = (value: Settings["addressBar"]) => useBrowser.getState().updateSettings({ addressBar: value });
   return (
     <>

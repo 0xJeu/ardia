@@ -263,6 +263,18 @@ test("a pinned group's reopened tab not shown yet keeps its back/forward list th
   assert.equal(S().tabs[back].adoptId, `restore:${c}`);
 });
 
+test("Settings shows the tab layout of the window in front, not a default it no longer follows", () => {
+  reset({ tabLayout: "sidebar" });
+  const [w] = setup("a");
+  S().toggleTabLayout(w);
+  S().toggleTabLayout(w);
+  S().updateSettings({ tabLayout: "top" }, { fromSync: true });
+  assert.equal(S().windows[w].tabLayout, "sidebar", "the window keeps its own layout");
+  assert.equal(model.tabLayoutOf(S()), "sidebar", "so Settings shows that one");
+  S().toggleTabLayout(w);
+  assert.equal(model.tabLayoutOf(S()), "top");
+});
+
 test("⇧⌘T reopens only what the window's shown profile closed", () => {
   reset();
   const [w, , b] = setup("a", "b");
