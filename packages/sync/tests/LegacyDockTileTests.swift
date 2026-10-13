@@ -228,6 +228,7 @@ final class LegacyDockTileTests: XCTestCase {
     private var everSynchronized = false
     var writes = 0, restarts = 0, synchronizes = 0
     var events: [String] = []
+    var looked: [String] = []
     /// Runs as each synchronize starts (another app changing the Dock meanwhile).
     var onSynchronize: ((Int) -> Void)?
     var writeWorks = true, restartWorks = true
@@ -266,6 +267,7 @@ final class LegacyDockTileTests: XCTestCase {
         },
         disk: LegacyDockTile.Disk(identity: { path in
           self.events.append("stat")
+          self.looked.append(path)
           return disk.identity(path)
         }, caseInsensitive: disk.caseInsensitive))
     }
@@ -413,6 +415,33 @@ final class LegacyDockTileTests: XCTestCase {
     dock.onSynchronize = { if $0 == 2 { dock.tiles = [self.oldTile, self.messages] } }
     launch(dock)
     XCTAssertEqual(ids(dock.tiles), [bundleId, "com.apple.MobileSMS"])
+  }
+
+  func testAnUnrelatedAutomountTileIsNeverParsedOrLookedUp() {
+    // A folder pinned from a server: neither pass may touch the disk for it (an automount that's gone stalls).
+    let automount = tile("", "file:///private/var/automount/Network/Servers/gone/Shared/../Folder/", label: "Folder")
+    let posix = with(automount) { $0["file-data"] = ["_CFURLString": "/private/var/automount/Network/Servers/gone/Shared", "_CFURLStringType": 0] }
+    let dock = FakeDock()
+    dock.tiles = [automount, posix, oldTile]
+    dock.onSynchronize = { if $0 == 2 { dock.tiles = [automount, posix, self.oldTile, self.messages] } }
+    launch(dock)
+    XCTAssertEqual(ids(dock.tiles), ["", "", bundleId, "com.apple.MobileSMS"])
+    XCTAssertFalse(dock.looked.contains { $0.contains("automount") }, "\(dock.looked)")
+    // Every disk lookup is in the first pass: none from the second synchronize on.
+    let section = dock.events.lastIndex(of: "sync")!
+    XCTAssertFalse(dock.events[section...].contains("stat"))
+  }
+
+  func testPathsAreNormalizedByStringAlone() {
+    XCTAssertEqual(LegacyDockTile.lexical("/Applications//Ardia.app/"), "/Applications/Ardia.app")
+    XCTAssertEqual(LegacyDockTile.lexical("/Applications/./x/../Ardia.app"), "/Applications/Ardia.app")
+    XCTAssertEqual(LegacyDockTile.lexical("/private/var/automount/Network/../x"), "/private/var/automount/x")
+    XCTAssertEqual(LegacyDockTile.lexical("/../.."), "/")
+    XCTAssertNil(LegacyDockTile.lexical("Applications/Ardia.app"))
+    // Percent-encoded names are found, and decoded once.
+    let encoded = with(oldTile) { $0["file-data"] = ["_CFURLString": "file:///Applications/\(LegacyName.appName)%2Eapp/", "_CFURLStringType": 15] }
+    XCTAssertEqual(LegacyDockTile.rawName(data(encoded)), LegacyName.appFileName.lowercased())
+    XCTAssertEqual(LegacyDockTile.filePath(data(encoded)), oldAppPath)
   }
 
   // MARK: Who may

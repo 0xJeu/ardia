@@ -71,8 +71,9 @@ public enum LegacyDockTile {
   /// and every other dead tile goes. Only tiles with either app's id or file name are looked up on disk: a pinned folder
   /// on a server that's gone never holds it up.
   static func repointed(_ tiles: [[String: Any]], app: URL, bundleId: String, label: String, disk: Disk) -> Result {
-    let appPath = standardized(app.path)
-    let oldPath = standardized(app.deletingLastPathComponent().appendingPathComponent(LegacyName.appFileName).path)
+    let appPath = lexical(app.path) ?? app.path
+    let oldRaw = app.deletingLastPathComponent().appendingPathComponent(LegacyName.appFileName).path
+    let oldPath = lexical(oldRaw) ?? oldRaw
     let appID = disk.identity(appPath), oldID = disk.identity(oldPath)
     func named(_ path: String, like other: String) -> Bool {
       (path as NSString).lastPathComponent.lowercased() == (other as NSString).lastPathComponent.lowercased()
@@ -82,10 +83,13 @@ public enum LegacyDockTile {
       if case .file = id, case .file = otherID { return id == otherID }
       return disk.caseInsensitive ? path.lowercased() == other.lowercased() : path == other
     }
+    let names: Set<String> = [(oldPath as NSString).lastPathComponent.lowercased(), (appPath as NSString).lastPathComponent.lowercased()]
     func kind(_ tile: [String: Any]) -> Kind {
-      guard let data = tile["tile-data"] as? [String: Any], let path = filePath(data) else { return .other }
+      guard let data = tile["tile-data"] as? [String: Any] else { return .other }
       let tileId = (data["bundle-identifier"] as? String)?.lowercased()
       let oldById = tileId == LegacyName.bundleId, oursById = tileId == bundleId.lowercased()
+      // Whether it's either app's, from its id or the URL's last name as written: any other tile is never parsed.
+      guard oldById || oursById || rawName(data).map(names.contains) == true, let path = filePath(data) else { return .other }
       guard oldById || oursById || named(path, like: oldPath) || named(path, like: appPath) else { return .other }
       let id = disk.identity(path)
       if case .file = id, case .file = appID, id == appID { return oldById ? .dead : .pinned }
@@ -138,17 +142,37 @@ public enum LegacyDockTile {
     guard let file = data["file-data"] as? [String: Any], let string = file["_CFURLString"] as? String, !string.isEmpty,
       let type = file["_CFURLStringType"] as? Int else { return nil }
     switch type {
-    case 0: return string.hasPrefix("/") ? standardized(string) : nil
+    case 0: return lexical(string)
     case 15:
       guard string.lowercased().hasPrefix("file:///") || string.lowercased().hasPrefix("file://localhost/"),
         let url = URL(string: string), url.isFileURL, url.path.hasPrefix("/") else { return nil }
-      return standardized(url.path)
+      return lexical(url.path)
     default: return nil
     }
   }
 
-  /// No trailing slash, no `.` or `..`.
-  static func standardized(_ path: String) -> String { (path as NSString).standardizingPath }
+  /// An absolute path with no empty, `.` or `..` parts and no trailing slash, by string alone: never the disk
+  /// (NSString's standardizingPath looks at it for automount prefixes and `..`, and a server that's gone stalls it).
+  /// nil for a relative path.
+  static func lexical(_ path: String) -> String? {
+    guard path.hasPrefix("/") else { return nil }
+    var parts: [Substring] = []
+    for part in path.split(separator: "/") where part != "." {
+      if part == ".." {
+        _ = parts.popLast()
+      } else {
+        parts.append(part)
+      }
+    }
+    return "/" + parts.joined(separator: "/")
+  }
+
+  /// The last name in a tile's URL as written (percent-decoded, any case), without parsing it as a path.
+  static func rawName(_ data: [String: Any]) -> String? {
+    guard let file = data["file-data"] as? [String: Any], let string = file["_CFURLString"] as? String else { return nil }
+    let last = string.split(separator: "/").last.map(String.init) ?? ""
+    return (last.removingPercentEncoding ?? last).lowercased()
+  }
 
   /// The installed copy, once per Mac: repoints the old tile (repointed) in com.apple.dock and restarts the Dock. Called
   /// once the app has finished launching (Chromium's single-instance check is behind it, so a second launch never gets
@@ -163,8 +187,8 @@ public enum LegacyDockTile {
     let defaults = UserDefaults.standard
     guard !defaults.bool(forKey: doneKey) else { return }
     let app = bundle.bundleURL
-    guard isInstalled(app) else { return }
     DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5) {
+      guard isInstalled(app) else { return }
       run(Seams(
         synchronize: { _ = CFPreferencesAppSynchronize(dockDomain) },
         read: { CFPreferencesCopyAppValue(persistentApps, dockDomain) as? [[String: Any]] },
