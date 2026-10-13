@@ -1,6 +1,3 @@
-// Writes src/videos/<id>/studio.json, the Remocn Studio document for each cut: every text and window the film
-// draws, with its plan.ts defaults. An existing document keeps its values, removals and operation history; only
-// objects it lacks are added. usage: node scripts/studio-docs.mts
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

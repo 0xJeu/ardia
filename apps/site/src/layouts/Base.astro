@@ -50,7 +50,6 @@ const OG_ALT =
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image:alt" content={OG_ALT} />
     {jsonLd.map((data) => <script type="application/ld+json" set:html={JSON.stringify(data)} />)}
-    {/* All three are on the first screen; preloading them keeps the hero from reflowing on swap. */}
     <link rel="preload" href={archivoLatin} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={newsreaderLatin} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={martianLatin} as="font" type="font/woff2" crossorigin />
