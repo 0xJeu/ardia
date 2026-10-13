@@ -363,3 +363,20 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
     camera + microphone prompt) was the owner's own click at 16:08 UTC and is fixed on main (d1080097), shipping
     next release. 0.2.11's "Calling the <text> function has failed" is the old loadUrl race (fixed in 0.2.12).
     The site's only error is a cross-origin `Script error.`.
+- **2026-10-13 10:15 UTC check:** 7,640 visitors all time, 454 since 2 Oct 06:15 (213 in 7 days). Flat at
+  23-104 a day since the launch wave, with small bumps on 10-05 (101) and the 10-10/11 weekend (39, 55).
+  7 days: direct 125, t.co 76, netnyahoo.com 9, Google 8; phones 35%.
+  - Downloads: 211 people all time (172 Mac), +35. Since 2 Oct, Mac desktop 32/218 = 14.7%; Windows 3/48,
+    Linux 1/24.
+  - Phones since 2 Oct: the share sheet 5 cancelled, 2 shared. `mac_link_visit` 7 all time (+3).
+  - Experiment: band 85/890 (9.6%), control 78/826 (9.4%). Still a tie after two weeks.
+  - Installs: DMG downloads 333 (+94; 0.2.32 21, 0.2.27 18, 0.2.28 10); update zips 155 (+96); first launches
+    73 (+26, 0-7 a day). Copies running: 10-21 on 10-12, 5-9 so far today; 10-22 on 10-02, so the installed
+    base holds steady rather than growing. The feed also sees a `2.4.2` version (6 checks since 10-12): not an
+    Ardia version, likely a fork or another app pointed at our appcast.
+  - Opted-in app users: 28 all time, 8 in 7 days, 2-6 a day.
+  - GitHub: 27 stars, none since 10-02; 6 forks (+4). 339 views from 202 people in 14 days, 0-4 a day lately.
+  - Errors: two app crashes, both from one Mac (likely the owner's). 0.2.25 SIGABRT in a context-menu action
+    (clipboard read in `NNViewDelegate::BuildMenuAsync`), fixed 10-04 (8663d84b, 2b689a10). 0.2.32 SIGABRT while
+    Sparkle installed 0.2.33 (a window closing during the update quit; unsymbolized), handed to an agent to
+    symbolize and fix. The site's 14 are not ours (cross-origin `Script error.`, Stylus, ResizeObserver, fetch drops).
