@@ -1,11 +1,8 @@
-// Renders macOS's own traffic-light buttons (AppKit's artwork, as an active window draws them) to a PNG, offscreen.
-// The in-process window snapshot doesn't include the title bar, so the film adds these. usage: swift lights.swift out.png [dark|light]
 import AppKit
 
 final class KeyWindow: NSWindow {
   override var isKeyWindow: Bool { true }
   override var isMainWindow: Bool { true }
-  // AppKit's own question when it picks the active or inactive artwork.
   @objc func _hasActiveAppearance() -> Bool { true }
   @objc func _hasActiveAppearanceIgnoringKeyFocus() -> Bool { true }
   @objc func _hasKeyAppearance() -> Bool { true }
@@ -14,7 +11,6 @@ final class KeyWindow: NSWindow {
 
 let out = CommandLine.arguments[1]
 let dark = CommandLine.arguments.count < 3 || CommandLine.arguments[2] == "dark"
-// Reads as active, so the buttons draw in colour, without ever activating (the policy is .prohibited).
 final class ActiveApp: NSApplication {
   override var isActive: Bool { true }
 }
@@ -24,7 +20,6 @@ app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
 let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
 let window = KeyWindow(contentRect: NSRect(x: -10000, y: -10000, width: 200, height: 60), styleMask: style, backing: .buffered, defer: true)
 window.titlebarAppearsTransparent = true
-// Measure spacing from a real titled window's layout.
 window.contentView = NSView(frame: window.contentRect(forFrameRect: window.frame))
 let real = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].compactMap { window.standardWindowButton($0) }
 var frames: [NSRect] = []
@@ -51,6 +46,5 @@ for (b, f) in zip(real, frames) {
 }
 NSGraphicsContext.restoreGraphicsState()
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))
-// Where the first button sits from the window's top-left, in points, for placement.
 let top = window.frame.height - maxY
 print("{\"x\": \(minX - pad), \"y\": \(top - pad), \"w\": \(w), \"h\": \(h)}")

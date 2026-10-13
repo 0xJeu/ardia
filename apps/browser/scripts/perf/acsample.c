@@ -1,9 +1,3 @@
-// Main-thread sampler for launch profiling (launch-samples.mjs reads its output; build and use: that file's header).
-// Loaded with DYLD_INSERT_LIBRARIES; acts in the app's main process only. AC_SAMPLE_MS=<ms>: from the library's
-// constructor (before main), every ~1 ms for that long, suspends the main thread, reads its pc and frame-pointer chain
-// and its run state, then writes $ARDIA_DATA_DIR/acsample.txt: "img <load address> <path>" lines, one
-// "s <µs since constructor> <run state> <pc> <return addresses…>" line per sample, and "sym <pc> <image base> <image>\t<dladdr
-// symbol>" per distinct pc. The file is written when the time is up: keep AC_SAMPLE_MS shorter than the instance lives.
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
@@ -78,7 +72,6 @@ static void *sampler(void *arg) {
     for (int k = 0; k < g_n[i]; k++) fprintf(f, " %llx", (unsigned long long)g_f[i][k]);
     fputc('\n', f);
   }
-  // Each distinct pc: its image (and load address) and, outside Chrome's stripped framework, its symbol.
   static uint64_t seen[200000];
   int nseen = 0;
   for (int i = 0; i < g_count; i++)
@@ -105,7 +98,7 @@ __attribute__((constructor)) static void start(void) {
   uint32_t size = sizeof exe;
   if (_NSGetExecutablePath(exe, &size) != 0) return;
   const size_t len = strlen(exe);
-  if (len < 16 || strcmp(exe + len - 16, "/MacOS/Ardia") != 0) return;  // the main process only
+  if (len < 16 || strcmp(exe + len - 16, "/MacOS/Ardia") != 0) return;
   g_ms = atoi(ms);
   g_main = mach_thread_self();
   g_t0 = mach_absolute_time();

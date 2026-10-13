@@ -1,7 +1,3 @@
-// Sparkle's EdDSA (Ed25519) signatures, with no private key of the release's:
-//   ed25519 verify <file> <base64 signature> <base64 public key>   as Sparkle checks an update before installing it
-//   ed25519 generate <private key file>                             a throwaway pair; prints the public key
-//   ed25519 sign <file> <private key file>                          prints the base64 signature
 import CryptoKit
 import Foundation
 

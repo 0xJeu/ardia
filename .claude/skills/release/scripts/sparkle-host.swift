@@ -1,8 +1,3 @@
-// usage: sparkle-host <installed Ardia.app> <feed URL> <expected CFBundleShortVersionString>
-// Updates an installed copy in place the way Sparkle's automatic updates do: reads the feed, picks the newest item,
-// downloads it, checks its EdDSA signature against the copy's SUPublicEDKey, extracts it, and runs Sparkle's
-// installer, which swaps the bundle. Silently (no installer progress window) and without relaunching it.
-// update-test.sh runs it on a scratch copy with a test bundle id, so Sparkle's settings land in that id's defaults.
 import Foundation
 import Sparkle
 
@@ -65,7 +60,6 @@ final class Delegate: NSObject, SPUUpdaterDelegate {
 
 let driver = Driver(), delegate = Delegate()
 let updater = SPUUpdater(hostBundle: host, applicationBundle: host, userDriver: driver, delegate: delegate)
-// Sparkle's silent path (an automatic download, installed on quit) runs its installer without a progress window.
 updater.automaticallyDownloadsUpdates = true
 do { try updater.start() } catch { fail("start: \(error)") }
 updater.checkForUpdatesInBackground()

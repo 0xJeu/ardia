@@ -1,27 +1,3 @@
-// Frame probe for native-bench.mjs's `frames` phase. Loaded into the benchmark's copy of the app (DYLD_INSERT_LIBRARIES,
-// like acmark.m) when AC_BENCH_FRAMES=1; it never ships. It records, as JSON lines in $ARDIA_DATA_DIR/bench-frames.jsonl
-// (epoch ms, the clock native-bench's Date.now() uses):
-//
-//   {"k":"f"}       one display-link tick on the main thread (a CADisplayLink of the window's screen, asked for the screen's
-//                   maximum rate): ts = the vsync the tick is for, now = when the main thread got to it, tgt = the next vsync.
-//                   A gap of more than one refresh between two ts is a frame the main thread didn't deliver.
-//   {"k":"r"}       one run-loop iteration that took d ms (AfterWaiting → BeforeWaiting, after Core Animation's commit
-//                   observer) on the main thread (th "m") or on React Native's JS thread (th "j"); only those ≥ 0.05 ms.
-//   {"k":"l"}       one RCTUIManager layout pass (Yoga + mount blocks queued) on the shadow queue, d ms
-//   {"k":"key"}     a key down the app's event loop saw: made = the event's own timestamp
-//   {"k":"info"}    once: the screen, its maximum frames per second, whether the link runs
-//
-// And counters (op "counters"): layout passes, mount batches, UI blocks run, view updates and creates sent by JS.
-//
-// Drivers, run on the display link's own ticks so an interaction is stepped by frames, not by timers: the probe polls
-// $ARDIA_DATA_DIR/bench-frames-cmd.json ({"id", "op", …}) and answers in bench-frames-result.json:
-//   info                                      screen, refresh rate, JS thread found
-//   counters                                  the counters above (cumulative)
-//   scroll {distance, seconds, back}          the sidebar's scroll view (the tallest NSScrollView): eased from the top to
-//                                             `distance` pt in `seconds`, then back when `back`; each tick moves its clip view
-//                                             as a wheel's momentum would (bounds changes → onScroll events)
-//   hover {rows, gapMs}                       mouseEntered:/mouseExited: sent to the first `rows` views that have an
-//                                             onMouseEnter (the sidebar's tab rows), `gapMs` apart
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <mach/mach.h>
@@ -41,8 +17,6 @@ static double EpochMs(void) {
   return ts.tv_sec * 1e3 + ts.tv_nsec / 1e6;
 }
 
-// MARK: Records (the main and JS threads append; a writer thread flushes)
-
 typedef struct {
   char k, th;
   double a, b, c, d, e;
@@ -53,7 +27,7 @@ static _Atomic unsigned long gHead, gTail;
 
 static void Push(char k, char th, double a, double b, double c, double d, double e) {
   unsigned long h = atomic_fetch_add(&gHead, 1);
-  if (h - atomic_load(&gTail) >= RING) return; // the writer fell behind: drop
+  if (h - atomic_load(&gTail) >= RING) return;
   gRing[h % RING] = (Rec){k, th, a, b, c, d, e};
 }
 
@@ -71,8 +45,6 @@ static void Flush(void) {
   atomic_store(&gTail, t);
   fflush(gOut);
 }
-
-// MARK: Counters
 
 static _Atomic long gLayoutPasses, gMountBatches, gUIBlocks, gViewUpdates, gViewCreates, gTicks;
 
@@ -117,9 +89,6 @@ static void SwizzleUIManager(void) {
   });
 }
 
-// MARK: Thread CPU time (cumulative ms; user + system), sampled at every tick: a window's difference is how long the thread
-// really ran, with none of the time a nested run loop or a wait spends inside one iteration.
-
 static mach_port_t gMainThread, gJSThread;
 static double ThreadCpuMs(mach_port_t t) {
   if (!t) return -1;
@@ -128,8 +97,6 @@ static double ThreadCpuMs(mach_port_t t) {
   if (thread_info(t, THREAD_BASIC_INFO, (thread_info_t)&i, &n) != KERN_SUCCESS) return -1;
   return (i.user_time.seconds + i.system_time.seconds) * 1e3 + (i.user_time.microseconds + i.system_time.microseconds) / 1e3;
 }
-
-// MARK: Run-loop busy time
 
 typedef struct {
   char th;
@@ -150,7 +117,6 @@ static void LoopActivity(CFRunLoopObserverRef observer, CFRunLoopActivity activi
 
 static void ObserveLoop(CFRunLoopRef loop, LoopState *st) {
   CFRunLoopObserverContext ctx = {0, st, NULL, NULL, NULL};
-  // After Core Animation's own observer (order 2000000): the iteration's end includes the commit.
   CFRunLoopObserverRef o = CFRunLoopObserverCreate(kCFAllocatorDefault, kCFRunLoopAfterWaiting | kCFRunLoopBeforeWaiting, true, 0x7FFFFFF0, LoopActivity, &ctx);
   CFRunLoopAddObserver(loop, o, kCFRunLoopCommonModes);
 }
@@ -180,8 +146,6 @@ static void FindJSThread(void) {
   vm_deallocate(mach_task_self(), (vm_address_t)threads, n * sizeof *threads);
 }
 
-// MARK: Drivers
-
 @interface ACFramesProbe : NSObject
 + (instancetype)shared;
 @property(nonatomic, strong) CADisplayLink *link;
@@ -192,7 +156,6 @@ static void FindJSThread(void) {
 @end
 
 @implementation ACFramesProbe {
-  // The running driver, stepped on every tick.
   void (^_step)(double ts, BOOL *done);
   NSString *_driverId;
   NSString *_driverOp;
@@ -216,7 +179,6 @@ static void FindJSThread(void) {
   rename(tmp.UTF8String, [gDir stringByAppendingPathComponent:@"bench-frames-result.json"].UTF8String);
 }
 
-// The first window with a layer-backed content view big enough to be the app's: the screen to link to.
 - (NSWindow *)appWindow {
   for (NSWindow *w in NSApp.windows)
     if (w.isVisible && w.frame.size.width >= 300 && w.frame.size.height >= 200) return w;
@@ -229,7 +191,7 @@ static void FindJSThread(void) {
 
 - (void)boot {
   NSWindow *w = NSApp ? [self appWindow] : nil;
-  if (!w) return; // the timer below tries again
+  if (!w) return;
   if (_booted) return;
   _booted = YES;
   [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
@@ -250,7 +212,6 @@ static void FindJSThread(void) {
   SwizzleUIManager();
   ObserveLoop(CFRunLoopGetMain(), &gMainLoop);
   fprintf(gOut, "{\"k\":\"info\",\"screen\":\"%s\",\"maxFPS\":%ld,\"at\":%.3f}\n", self.screenName.UTF8String, (long)self.maxFPS, EpochMs());
-  // The JS thread may not exist yet.
   CFRunLoopTimerRef find = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + 0.25, 0.25, 0, 0, ^(CFRunLoopTimerRef t) {
     FindJSThread();
     if (gJSObserved) CFRunLoopTimerInvalidate(t);
@@ -262,9 +223,6 @@ static void FindJSThread(void) {
   double now = EpochMs();
   double off = now - CACurrentMediaTime() * 1000;
   double ts = l.timestamp * 1000 + off;
-  // A tick inside a main-thread iteration cuts it there: an iteration that contains ticks wasn't blocking (the display link
-  // fires from the same run loop), one that doesn't is a stall whole. Nested run loops in modes we don't observe look like
-  // one long iteration otherwise.
   if (gMainLoop.start > 0) {
     if (now - gMainLoop.start >= 0.05) Push('r', 'm', gMainLoop.start, now - gMainLoop.start, 0, 0, 0);
     gMainLoop.start = now;
@@ -324,7 +282,6 @@ static void FindJSThread(void) {
     if (t0 == 0) t0 = ts;
     double t = (ts - t0) / 1000, total = back ? secs * 2 : secs;
     double phase = t < secs ? t / secs : (t - secs) / secs;
-    // Momentum: a fast start that decays (a flick), back the same way.
     double eased = 1 - pow(1 - MIN(phase, 1), 3);
     double y = t < secs ? distance * eased : distance * (1 - eased);
     [weak setScrollY:y of:sv];
@@ -344,7 +301,6 @@ static void FindJSThread(void) {
   NSScrollView *sv = [self tallestScrollView];
   NSMutableArray<NSView *> *views = [NSMutableArray array];
   [self collectHoverViews:(sv ?: self.appWindow.contentView) into:views];
-  // Only rows on screen in the scroll view.
   NSMutableArray<NSView *> *rows = [NSMutableArray array];
   for (NSView *v in views) {
     NSRect r = [v convertRect:v.bounds toView:nil];
@@ -399,14 +355,11 @@ static void FindJSThread(void) {
 __attribute__((constructor)) static void Start(void) {
   const char *dir = getenv("ARDIA_DATA_DIR");
   if (!dir || !getenv("AC_BENCH_FRAMES")) return;
-  // Only the app: Chrome's helper processes inherit the environment.
   if (![NSBundle.mainBundle.bundlePath hasSuffix:@".app"] || [NSBundle.mainBundle.bundlePath containsString:@"Helper"]) return;
-  gMainThread = mach_thread_self(); // dyld runs constructors on the main thread
+  gMainThread = mach_thread_self();
   gDir = [NSString stringWithUTF8String:dir];
   gOut = fopen([gDir stringByAppendingPathComponent:@"bench-frames.jsonl"].UTF8String, "a");
   if (!gOut) return;
-  // The writer: records out of the main thread's way, and the command file polled.
-  // Both kept alive by statics: ARC would release a local source at the end of this function and cancel it.
   static dispatch_queue_t q;
   static dispatch_source_t timer;
   q = dispatch_queue_create("acframes.writer", DISPATCH_QUEUE_SERIAL);
@@ -427,9 +380,6 @@ __attribute__((constructor)) static void Start(void) {
     }
   });
   dispatch_resume(timer);
-  // Once the app's window exists (NSApp stays untouched until then: Chrome creates it; reading the global doesn't): the display
-  // link, the counters and the key monitor. Polled, since Chrome's run loop may never post didFinishLaunching to us.
-  // A timer in the main run loop's common modes (Chrome's message pump doesn't service dispatch_after on the main queue early on).
   CFRunLoopTimerRef boot = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + 0.1, 0.1, 0, 0, ^(CFRunLoopTimerRef t) {
     [ACFramesProbe.shared boot];
     if ([ACFramesProbe.shared booted]) CFRunLoopTimerInvalidate(t);

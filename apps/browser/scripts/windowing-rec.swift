@@ -1,11 +1,3 @@
-// The frame recorder windowing-test.mjs builds and runs: every on-screen window of one process, composited as the
-// screen shows them (ScreenCaptureKit, the display's own frames, at up to 60 fps), as small grey pictures.
-//
-//   windowing-rec <pid> <seconds> <out.jsonl>
-//
-// One JSON line per frame: {"t": <unix ms>, "w": <px>, "h": <px>, "g": <base64 grey bytes>}, at an eighth of the
-// display's size in points (one pixel per 8 × 8 points). Windows the process opens while it records join in. Only
-// this process's windows: an application filter would take every instance of the bundle (the owner's too).
 import AppKit
 import CoreImage
 import ScreenCaptureKit

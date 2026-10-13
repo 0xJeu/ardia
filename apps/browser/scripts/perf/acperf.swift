@@ -1,22 +1,3 @@
-// Process probes for native-bench.mjs (built on demand with swiftc; no sudo needed).
-//
-//   acperf rusage <pid>...            one JSON line per pid: CPU time, wakeups, phys_footprint
-//   acperf waitwindow <pid> <secs>    prints the epoch ms at which the pid first has an on-screen window ≥ 300×200
-//   acperf windows <pid>              JSON array of the pid's on-screen windows
-//   acperf newwindow <pid> <secs>     prints "ready" once it knows the pid's windows, then {"at": epoch ms, "id": window
-//                                     number} when a new one is on screen (≥ 300×200, alpha > 0), polling every 2 ms
-//   acperf quit <pid>                 asks that one process to quit (a quit Apple event, as ⌘Q would)
-//   acperf postkeys <pid> <gap ms> <spec>...
-//                                     real key events posted to that one process (CGEventPostToPid: the window server's
-//                                     event path into the app's queue, as a keyboard's are). A spec is a chord (`cmd+t`,
-//                                     `enter`, `esc`) or `text:<chars>` (US layout, a key down and up per character,
-//                                     <gap ms> apart). Prints {"spec", "at"} per spec: epoch ms when its first key down
-//                                     was created, the instant the press starts for the journey rows
-//   acperf display                    {"asleep", "locked"}: whether the main display is off and whether the login session's
-//                                     screen is locked (macOS gives windows no display-link frames then)
-//   acperf input <pid> <secs>         {"inputSecs", "overWindowSecs"}: how long, polling every 250 ms, someone used the
-//                                     mouse, trackpad or keyboard (HIDIdleTime), and how much of that with the pointer
-//                                     moving over one of the pid's windows
 import AppKit
 import CoreGraphics
 import Darwin
@@ -57,7 +38,6 @@ func windows(_ pid: pid_t) -> [[String: Any]] {
   }
 }
 
-// Nanoseconds since the last mouse, trackpad or keyboard event, from anyone (no permission needed).
 func hidIdleNs() -> UInt64? {
   let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"))
   guard service != 0 else { return nil }
@@ -110,8 +90,6 @@ case "newwindow":
   }
   exit(2)
 case "input":
-  // The bench's windows are on screen, often in front: a pointer moving over them makes the app work (hover, cursor
-  // updates), so an idle window someone used the Mac in doesn't measure the app alone. Counts are 250 ms ticks.
   let pid = pid_t(args[2]) ?? 0
   let tick = 0.25
   let deadline = Date().addingTimeInterval(Double(args[3]) ?? 60)
@@ -119,7 +97,6 @@ case "input":
     printJSON(["error": "no HIDIdleTime"])
     exit(1)
   }
-  // Whether the frontmost window under the point is one of the pid's (below the Dock, menu bar and overlays).
   func overOwnWindow(_ at: CGPoint) -> Bool {
     guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
     else { return false }
@@ -148,7 +125,6 @@ case "postkeys":
     FileHandle.standardError.write("usage: acperf postkeys <pid> <gap ms> <spec>...\n".data(using: .utf8)!)
     exit(64)
   }
-  // US ANSI virtual key codes; `shifted` are the characters typed with shift on the same key.
   let codes: [Character: UInt16] = [
     "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14, "r": 15,
     "y": 16, "t": 17, "1": 18, "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24, "9": 25, "7": 26, "-": 27, "8": 28, "0": 29,
@@ -157,7 +133,6 @@ case "postkeys":
   let shifted: [Character: Character] = ["?": "/", ":": ";", "_": "-", "+": "=", "&": "7"]
   let named: [String: UInt16] = ["enter": 36, "return": 36, "tab": 48, "esc": 53, "escape": 53, "delete": 51, "space": 49, "down": 125, "up": 126]
   let source = CGEventSource(stateID: .combinedSessionState)
-  // One key press (down, then up) to the pid, as a keyboard makes it; returns when its key down was created.
   func press(_ code: UInt16, _ flags: CGEventFlags, _ chars: String?) -> Double {
     let down = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: true)
     let at = nowMs()
