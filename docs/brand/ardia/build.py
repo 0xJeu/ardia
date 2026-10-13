@@ -25,7 +25,6 @@ def rounded_mask(size, box, radius, ss=4):
     return m.resize((size, size), LZ)
 
 
-# Tile artwork: the painted square without its own (soft) edge, as a full-bleed square.
 src = Image.open(SRC / "app-icon.png").convert("RGBA")
 art = src.crop((131, 133, 893, 891))
 parchment = tuple(int(v) for v in np.median(np.array(art)[8:40, 300:460, :3].reshape(-1, 3), axis=0))
@@ -35,7 +34,6 @@ square = flat.resize((1024, 1024), LZ)
 square.save(OUT / "tile-square-1024.png")
 print("parchment", "#%02X%02X%02X" % parchment)
 
-# macOS icon: Apple's 1024 template (824 body at a 100 inset, 185.4 radius) with its drop shadow.
 icon = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
 body = (100, 100, 924, 924)
 mask = rounded_mask(1024, body, 185.4)
@@ -51,7 +49,6 @@ icon.save(OUT / "icon-1024.png")
 for px in (16, 32, 64, 128, 180, 256, 512):
     icon.resize((px, px), LZ).save(OUT / f"icon-{px}.png")
 
-# Painted mark (no tile): New Tab page and the plate app-icon variants.
 mark = clean_alpha(Image.open(SRC / "mark.png"))
 mark.save(OUT / "mark-trim.png")
 
@@ -69,16 +66,11 @@ def fit(im, size, width_frac, bottom=None):
     return c
 
 
-# New Tab page: 100 pt square, clipped 15.9 pt above its bottom by the address bar, so the
-# hills sit on the bottom edge and rise out from behind the bar.
 for scale in (1, 2, 3):
     fit(mark, 100 * scale, 0.94, bottom=0).save(OUT / f"ntp-mark{'' if scale == 1 else f'@{scale}x'}.png")
 
-# Plate variants: the mark centred in a square.
 fit(mark, 1024, 0.96).save(OUT / "plate-mark-1024.png")
 
-# 16 pt "new tab" glyph, drawn tinted (one colour): a silhouette with the hills split and
-# the sun cut free so it still reads as two hills and a sun.
 flat_mark = clean_alpha(Image.open(SRC / "mark-small.png"))
 rgb = np.array(flat_mark)[:, :, :3].astype(np.int32)
 alpha = np.array(flat_mark)[:, :, 3]
@@ -92,9 +84,8 @@ def grow(m, px):
     return np.array(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(px))) > 127
 
 
-pt = flat_mark.width / 16  # source pixels per point at 16 pt
+pt = flat_mark.width / 16
 gap = 2 * round(pt * 0.45) + 1
-# Opening the sun-to-hill gap: a little smaller sun, a shallow notch in the hills.
 sy, sx = np.nonzero(sun)
 sun_r = np.sqrt(sun.sum() / np.pi)
 yy, xx = np.mgrid[: sun.shape[0], : sun.shape[1]]
@@ -108,13 +99,9 @@ for scale in (1, 2, 3):
     fit(glyph, 16 * scale, 1.0).save(OUT / f"new-tab-mark{'' if scale == 1 else f'@{scale}x'}.png")
 fit(glyph, 512, 1.0).save(OUT / "new-tab-mark-512.png")
 
-# iOS home-screen icon: opaque, full-bleed (iOS rounds it).
 square.convert("RGB").resize((180, 180), LZ).save(OUT / "apple-touch-icon.png")
 print("done")
 
-# New Tab marks per profile colour (apps/browser/src/lib/theme.ts PROFILE_COLORS), like Dia's painted mark per
-# colour: the hills repainted in shades of the swatch from their own brushwork's lightness, the light hill kept
-# lighter; the sun stays gold except where it would vanish into the hills. Green is the brand painting itself.
 import sys  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -163,10 +150,6 @@ def tinted_marks(base, names=PROFILE_SWATCHES):
         yield name, Image.fromarray((np.dstack([np.clip(out, 0, 1), al]) * 255).astype(np.uint8))
 
 
-# The New Tab page animates the painting as three layers (NewTabPage.tsx): the back hill (the light one), the front
-# hill (the dark one: its ridge runs on unbroken through the notch, where the light hill's outline stops) and the sun.
-# Over each other at rest they make the marks above (within 3 levels). The back hill is painted on under the front one
-# (its colour carried on in the front hill's brushstrokes), so the front hill moving uncovers paint, not a hole.
 from scipy import ndimage as nd  # noqa: E402
 
 BACK, FRONT, SUN = 0, 1, 2
@@ -174,9 +157,8 @@ painting = np.array(mark).astype(np.float32) / 255
 known = painting[..., 3] > 0.5
 blobs, _ = nd.label(painting[..., 3] > 0.06)
 hills_blob = blobs == np.bincount(blobs[blobs > 0]).argmax()
-dark = nd.median_filter(hsvlib.rgb_to_hsv(painting[..., :3])[..., 0] > 0.34, 9)  # light hill ~0.23, dark ~0.45
+dark = nd.median_filter(hsvlib.rgb_to_hsv(painting[..., :3])[..., 0] > 0.34, 9)
 labels = np.where(hills_blob, np.where(dark, FRONT, BACK), SUN)
-# Every pixel takes its nearest painted pixel's layer, so the layers' edges fall in the gaps and soft rims.
 labels = labels[tuple(nd.distance_transform_edt(~known, return_distances=False, return_indices=True))]
 
 
@@ -193,14 +175,11 @@ def fit_mask(m, size):
 def split_layers(comp, size):
     """Alphas of the back, front and sun layers, the back hill's own paint, and where it goes on under the front."""
     a = comp[..., 3]
-    cover = np.clip(a / np.median(a[a > 0.5]), 0, 1)  # the painting is 252/255 opaque inside
+    cover = np.clip(a / np.median(a[a > 0.5]), 0, 1)
     front, sun = fit_mask(labels == FRONT, size), fit_mask(labels == SUN, size)
     seen = (front < 0.5) & (a > 0.5) & (sun < 0.5)
-    # The front's soft edge one pixel out, over the light hill's beaded rim: the back hill's edge pixels then hold no
-    # dark paint to show when the front moves, and the front hill keeps a hairline of the rim, like a highlight.
     front = nd.grey_dilation(front, size=3)
-    core = nd.binary_erosion(seen, iterations=max(1, round(0.6 * size / 100)))  # inside the light hill's beaded rim
-    # Under the light hill's ridge, carried on past the notch at its slope, wherever the front hill covers it.
+    core = nd.binary_erosion(seen, iterations=max(1, round(0.6 * size / 100)))
     cols = np.nonzero(seen.any(0))[0]
     top = np.where(seen.any(0), seen.argmax(0), size).astype(np.float32)
     notch = cols.max()
@@ -210,7 +189,6 @@ def split_layers(comp, size):
     ridge = np.where(x > notch, top[notch] + slope * (x - notch), top)
     under = (np.arange(size)[:, None] >= ridge[None, :]) & (x >= cols.min())[None, :]
     fill = under & (front > 0.998) & (cover > 0.97)
-    # Over the back hill the front's soft edge gives back the painting: the back is a·(1 − f)/(1 − f) = a under it.
     back = np.where(fill, a, np.where(cover * front < 0.999, a * (1 - front) / np.maximum(1 - cover * front, 1e-6), 0.0))
     return back * (1 - sun), a * front * (1 - sun), a * sun, core, fill
 
@@ -227,7 +205,7 @@ def paint_back(comp, core, fill):
     rgb = comp[..., :3]
     size = rgb.shape[0]
     colour, _ = spread(rgb, core.astype(np.float32), 0.2 * size)
-    for sigma in (0.08, 0.03):  # finer where there is enough of the back hill near
+    for sigma in (0.08, 0.03):
         c, den = spread(rgb, core.astype(np.float32), sigma * size)
         colour = np.where((den > 0.05)[..., None], c, colour)
     lum = rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)
@@ -250,13 +228,11 @@ for scale in (1, 2, 3):
         comp = np.array(im).astype(np.float32) / 255
         layer(paint_back(comp, core, fill), back).save(OUT / f"ntp-mark{name}-back{suffix}.png", optimize=True)
         layer(comp, front).save(OUT / f"ntp-mark{name}-front{suffix}.png", optimize=True)
-        layer(comp, sun).save(OUT / f"ntp-mark{name}-sun{suffix}.png", optimize=True)  # its rim takes the hills' tint
-    if scale == 3:  # NewTabPage.tsx's MARK_TOPS
+        layer(comp, sun).save(OUT / f"ntp-mark{name}-sun{suffix}.png", optimize=True)
+    if scale == 3:
         print("layer tops (pt):", [round(np.nonzero((m > 0.02).any(1))[0].min() / 3, 1) for m in (back, front, sun)])
 print("tinted marks")
 
-# Coloured app-icon plates (packages/shell/ios/AppIcon.swift `tint`): the hills in the plate's colour family, the
-# same recolour as the New Tab page's (midnight and daylight take neutral), installed as AppIconMark-<colour>.
 import shutil  # noqa: E402
 
 XCASSETS = Path("apps/browser/macos/Ardia-macOS/Assets.xcassets")
@@ -272,14 +248,10 @@ for slot, path in slots.items():
     (folder / "Contents.json").write_text(IMAGESET)
 print("plate marks")
 
-# Chromium's own logo, wherever the framework shows it (the Alerts helpers' icon on every web notification and in
-# System Settings › Notifications, the WebUI pages and dialogs that draw IDR_PRODUCT_LOGO_*, chrome://version):
-# written over Chromium's files into engine/chromium/src, which engine/chromium/apply.sh copies into the tree. The
-# framework's and helpers' names stay Chromium's (docs/releasing.md); this is only the logo.
 import base64, io, subprocess, tempfile  # noqa: E401, E402
 
 ENGINE = Path("engine/chromium/src")
-BLEED = 0.92  # the tile's side in Chromium's square logo canvas: about the area of its round logo
+BLEED = 0.92
 
 
 def logo(px):
@@ -305,15 +277,12 @@ for scale in (1, 2):
         put(f"chrome/app/theme/default_{scale}00_percent/chromium/product_logo_{size}.png", logo(size * scale))
     put(f"components/resources/default_{scale}00_percent/chromium/favicon_product.png", logo(16 * scale))
 
-# Chromium's wordmarks (its logo and "chromium", for chrome://version and the payment sheet): Ardia has no wordmark
-# (its pages name it in their own text), so the tile alone, at the wordmark's height.
 for scale in (1, 2):
     for name in ("product_logo_name_22", "product_logo_name_22_white"):
         put(f"chrome/app/theme/default_{scale}00_percent/chromium/{name}.png", logo(22 * scale))
     for name in ("product_logo", "product_logo_white"):
         put(f"components/resources/default_{scale}00_percent/chromium/{name}.png", logo(32 * scale))
 
-# The SVG slots (the profile picker, the first-run and default-browser pages): the 256 px tile inside an SVG.
 png = io.BytesIO()
 logo(256).save(png, format="PNG", optimize=True)
 svg = ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" '
@@ -322,8 +291,6 @@ svg = ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1
 for name in ("product_logo.svg", "product_logo_animation.svg"):
     (ENGINE / "chrome/app/theme/chromium" / name).write_text(svg)
 
-# The helper apps' icon (app.icns, and Assets.car's AppIcon, which macOS prefers): the app icon itself, compiled
-# by actool as Xcode compiles the app's own AppIcon.appiconset.
 with tempfile.TemporaryDirectory() as tmp:
     catalog = Path(tmp) / "Assets.xcassets"
     appicon = catalog / "AppIcon.appiconset"
@@ -340,7 +307,6 @@ with tempfile.TemporaryDirectory() as tmp:
                                            + '\n  ],\n  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n')
     out = Path(tmp) / "out"
     out.mkdir()
-    # Chromium's mac_deployment_target (build/config/mac/mac_sdk.gni).
     subprocess.run(["xcrun", "actool", str(catalog), "--compile", str(out), "--platform", "macosx",
                     "--minimum-deployment-target", "13.0", "--app-icon", "AppIcon",
                     "--output-partial-info-plist", str(out / "partial.plist")], check=True, capture_output=True)

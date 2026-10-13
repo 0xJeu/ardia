@@ -17,6 +17,6 @@ mask = mask.resize((HALF * 2, HALF * 2), Image.LANCZOS)
 for i in range(7):
     cx = CX + PITCH * i
     tile = im.crop((cx - HALF, CY - HALF, cx + HALF, CY + HALF)).convert("RGBA")
-    tile.putalpha(mask)  # every icon is a plate (the painted hills on parchment, night, paper, plum…)
+    tile.putalpha(mask)
     tile.save(os.path.join(d, "icons", f"{i}.png"))
 print("icons → public/footage/icons")

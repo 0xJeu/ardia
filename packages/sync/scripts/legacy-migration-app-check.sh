@@ -1,29 +1,11 @@
 #!/bin/bash
-# The launch migration in a real (hidden) app: makes data with today's build, turns it into an old install
-# (legacy-migration-e2e.mjs --seed-from), then launches a copy of the build under the old app's file name, as Sparkle
-# leaves an updated install, on a fresh data dir with ARDIA_LEGACY_SOURCE pointing at it. The copy must rename itself
-# to Ardia.app and run from there (same pid, still hidden), its engine must load pages, and tabs, pins, settings,
-# shortcuts, the bookmark and a site's cookie must come across, with the offer to be the default browser again left
-# unasked (a test instance never asks). Then a copy beside an existing Ardia.app must stay under its old name and work.
-#
-#   packages/sync/scripts/legacy-migration-app-check.sh <Ardia.app> [scratch dir under /tmp]
-#
-# A Debug build runs on Metro; a Release build (a signed RC: dist/<version>-rc/export/Ardia.app) on its own bundle,
-# with the dev harness a perf-probe file turns on. APPS_DIR=<folder> puts the old-named copy there instead of the
-# scratch dir (a folder of its own under /Applications: whether macOS lets the app rename itself there); it must not
-# exist yet, and is removed afterwards.
-#
-# Hidden instances only (scripts/agent/ac): no real Library, keychain or profile is read. Quits what it launched, and
-# takes every copy it launched out of LaunchServices, so links never open in a test copy.
 set -euo pipefail
 app="${1:?usage: legacy-migration-app-check.sh <Ardia.app> [scratch dir]}"
 here="$(cd "$(dirname "$0")" && pwd -P)"
 repo="$(cd "$here/../../.." && pwd -P)"
 ac="$repo/scripts/agent/ac"
-# Under /tmp: cfprefsd won't keep a test instance's preferences under $TMPDIR.
 scratch="${2:-/tmp/ardia-legacy-app-check}"
 rm -rf "$scratch" && mkdir -p "$scratch"
-# As LaunchServices and the kernel spell it (/private/tmp): the paths a launch reports.
 scratch="$(cd "$scratch" && pwd -P)"
 made="$scratch/made" migrated="$scratch/migrated" home="$scratch/home" clash="$scratch/clash"
 apps="${APPS_DIR:-$scratch/apps}"
@@ -41,7 +23,6 @@ cleanup() {
 trap cleanup EXIT
 fail=0
 check() { if [ "$2" = 1 ]; then echo "ok   $1"; else echo "FAIL $1${3:+: $3}"; fail=1; fi; }
-# A Release build has its JS inside; its dev harness runs in an isolated instance with a perf-probe file.
 release=()
 if [ -f "$app/Contents/Resources/main.jsbundle" ]; then
   release=(--js none)
@@ -71,7 +52,6 @@ echo "==> a copy under the old file name moves itself, then migrates it at launc
 legacy_app="$(sed -n 's/^ *public static let appFileName = "\(.*\)"$/\1/p' "$repo/packages/sync/ios/Core/LegacyMigration.swift")"
 [[ "$legacy_app" == *.app ]] || { echo "can't read the legacy app name from LegacyMigration.swift" >&2; exit 1; }
 binary="$(plutil -extract CFBundleExecutable raw "$app/Contents/Info.plist")"
-# APFS clones: the copies cost no time or space.
 mkdir -p "$apps" && { cp -Rc "$app" "$apps/$legacy_app" 2>/dev/null || ditto "$app" "$apps/$legacy_app"; }
 echo "    (from $apps)"
 launched="$("$ac" launch "$apps/$legacy_app" --runs-from "$apps/Ardia.app" --data "$migrated" --onboarded ${release[@]+"${release[@]}"} \
@@ -81,11 +61,10 @@ check "it renamed itself to Ardia.app" "$([ -d "$apps/Ardia.app" ] && [ ! -e "$a
 command="$(ps -ww -o command= -p "$pid" 2>/dev/null || true)"
 check "it runs from Ardia.app" "$([ "$command" = "$apps/Ardia.app/Contents/MacOS/$binary" ] && echo 1 || echo 0)" "$command"
 helpers="$(ps -ww -ax -o ppid= -o command= | awk -v p="$pid" '$1 == p' | grep -c "$apps/Ardia.app/Contents/Frameworks/" || true)"
-# LaunchServices knows the process by its new place (Sparkle's installer finds the running app by bundle id and path).
 lsinfo="$(lsappinfo info -app "$pid" 2>/dev/null || true)"
 check "LaunchServices has it at Ardia.app" "$([[ "$lsinfo" == *"bundle path=\"$apps/Ardia.app\""* ]] && echo 1 || echo 0)" "$(grep "bundle path" <<<"$lsinfo")"
 check "its helpers start from Ardia.app" "$([ "${helpers:-0}" -gt 0 ] && echo 1 || echo 0)" "$helpers"
-loads() { # data dir: a page loads over DevTools in that instance
+loads() {
   "$ac" eval "$1" 'ac.actions.openUrls(["data:text/html,<title>engine-ok</title>"]); return true' >/dev/null
   sleep 3
   [ "$("$ac" page "$1" "engine-ok" 'document.title' 2>/dev/null || true)" = engine-ok ] && echo 1 || echo 0
@@ -117,7 +96,6 @@ journal="$(cat "$migrated/.legacy-migration.json" 2>/dev/null || true)"
 check "the migration's journal says done" "$([[ "$journal" == *'"phase":"done"'* && "$journal" == *'"outcome":"migrated"'* ]] && echo 1 || echo 0)" "$journal"
 offer="$(cat "$migrated/default-browser-offer.json" 2>/dev/null || true)"
 check "the offer to be the default browser again, left unasked" "$([[ "$offer" == *'"askedAt":null'* ]] && echo 1 || echo 0)" "$offer"
-# ARDIA_BACKGROUND came through the exec: the process is BackgroundOnly, and never in front.
 lsinfo="$(lsappinfo info -app "$pid" 2>/dev/null || true)"
 check "still hidden after the exec" "$([[ "$lsinfo" == *'type="BackgroundOnly"'* ]] && ! lsappinfo info -app "$(lsappinfo front)" | grep -q "pid = $pid " && echo 1 || echo 0)" "$(grep -o 'type="[^"]*"' <<<"$lsinfo")"
 "$ac" quit "$migrated" >/dev/null

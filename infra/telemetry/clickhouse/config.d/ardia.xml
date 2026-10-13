@@ -1,5 +1,3 @@
-<!-- ClickHouse for Ardia's telemetry (hexclave.deploy.ts). Data on the service's volume, logs on the
-     console (Hexclave collects them), caches and system logs sized for a small single server. -->
 <clickhouse>
     <logger>
         <level>warning</level>
@@ -20,7 +18,6 @@
     <uncompressed_cache_size>0</uncompressed_cache_size>
     <max_server_memory_usage_to_ram_ratio>0.8</max_server_memory_usage_to_ram_ratio>
 
-    <!-- System logs are for debugging; a week is plenty and keeps them from growing into the disk. -->
     <query_log><ttl>event_date + INTERVAL 7 DAY DELETE</ttl></query_log>
     <query_thread_log remove="1"/>
     <query_views_log remove="1"/>

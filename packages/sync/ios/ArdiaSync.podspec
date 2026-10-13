@@ -9,11 +9,8 @@ Pod::Spec.new do |s|
   s.source         = { git: '' }
   s.static_framework = true
   s.dependency 'ExpoModulesCore'
-  # Reads this app's own saved passwords with the importer's Chromium reader.
   s.dependency 'ArdiaImport'
   s.frameworks     = 'AppKit', 'CoreImage', 'CryptoKit', 'Security'
-  # Core/ is plain Swift with no Expo dependency; it's also built and tested on its own by
-  # ../Package.swift (`pnpm --filter @ardia/sync test`).
   s.source_files   = 'SyncModule.swift', 'Core/**/*.swift'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end

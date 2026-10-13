@@ -1,16 +1,4 @@
 #!/usr/bin/env bash
-# Moves the bundled uBlock Origin Lite to its latest GitHub release, so each Ardia release
-# ships the block lists uBOL published last (they only change when uBOL does: a component
-# extension never updates itself).
-#
-# usage: scripts/update-ubol.sh [--check]
-#   --check  only say whether a newer release exists (exit 1 when it does)
-#
-# It checks the release's chromium zip against the SHA-256 digest GitHub records for the asset
-# and against the manifest inside (its version must be the tag's, MV3 with declarativeNetRequest
-# rulesets), then rewrites the pin (UBOL_VERSION, UBOL_SHA256) in packages/ardiacore/scripts/ubol.sh
-# and installs it into packages/ardiacore/vendor/ubol. Commit ubol.sh afterwards; the next build (or
-# a release) bundles it. Nothing downloaded here runs until it is committed.
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -19,7 +7,6 @@ repo="uBlockOrigin/uBOL-home"
 current="$(sed -n 's/^UBOL_VERSION="\(.*\)"$/\1/p' "$pin")"
 [ -n "$current" ] || { echo "error: no UBOL_VERSION in $pin" >&2; exit 1; }
 
-# The latest non-prerelease release: its tag and the chromium zip's URL and digest.
 release="$(curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$repo/releases/latest")"
 read -r latest url digest < <(python3 -c '
 import json, sys
@@ -37,7 +24,6 @@ if [ "$latest" = "$current" ]; then
   "$root/packages/ardiacore/scripts/ubol.sh"
   exit 0
 fi
-# Tags are dates (2026.920.1710): never move the pin backwards.
 if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)" != "$latest" ]; then
   echo "error: the latest release ($latest) is older than the pinned $current" >&2
   exit 1

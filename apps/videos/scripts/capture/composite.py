@@ -22,11 +22,9 @@ from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-RADIUS = 42  # px at 2x: the window's corner, measured from apps/site's ScreenCaptureKit window captures
-LIGHTS_AT = (16, 18)  # pt: AppKit's 18,20 close-button origin (ARDIA_TRAFFIC_LIGHTS_LOG) less the image's 2 pt pad
+RADIUS = 42
+LIGHTS_AT = (16, 18)
 
-# Opaque window tint (top, bottom) per profile colour, from apps/browser/src/lib/windowTint.ts (docs/brand/inventory.md
-# 2.3), used where a snapshot has no opaque sidebar to sample.
 TINT = {
     "dark": {"plum": ("#342123", "#3B3031"), "pink": ("#342123", "#3B3031"), "blue": ("#242A30", "#343537"),
              "purple": ("#262130", "#353037"), "red": ("#342121", "#3B3030"), "orange": ("#342520", "#3B3230"),
@@ -117,7 +115,6 @@ def composite(snap_path, page_items, color, dark, tint=None, slide=None):
     a = snap[..., 3:4].astype(np.float32) / 255
     rgb = snap[..., :3].astype(np.float32)
     if tint is not None:
-        # Recolour the snapshot's own opaque tint (the sidebar's plain areas) to the blended tint.
         own = sampled_tint(snap_path)
         if own is not None:
             t = np.linspace(0, 1, H, dtype=np.float32)[:, None, None]
@@ -126,7 +123,7 @@ def composite(snap_path, page_items, color, dark, tint=None, slide=None):
             near = (np.abs(rgb - own_grad).max(axis=2, keepdims=True) < 6) & (a > 0.98)
             rgb = np.where(near, rgb + (new_grad - own_grad), rgb)
     base = backdrop(snap, color, dark, tint)
-    out = rgb * a + base * (1 - a)  # snapshot pixels are straight alpha
+    out = rgb * a + base * (1 - a)
     for page_path, frame in page_items:
         x, y, w, h = [int(round(v * 2)) for v in frame]
         x2, y2 = min(W, x + w), min(H, y + h)
@@ -136,8 +133,6 @@ def composite(snap_path, page_items, color, dark, tint=None, slide=None):
         if page.size != (w, h):
             page = page.resize((w, h), Image.LANCZOS)
         if slide is not None:
-            # A profile swipe: the app slides the sidebar; the film slides the page with it. The outgoing page travels
-            # with the fingers and the incoming one follows it in, offset by the drag fraction.
             p, direction, incoming = slide
             inc = Image.open(incoming).convert("RGB")
             if inc.size != (w, h):
@@ -150,9 +145,6 @@ def composite(snap_path, page_items, color, dark, tint=None, slide=None):
         page = np.array(page, np.float32)[: y2 - y, : x2 - x]
         m = placeholder_mask(snap[y:y2, x:x2])
         if m.mean() < 0.2 and (snap[y:y2, x:x2, 3] < 128).mean() > 0.6:
-            # Right after a profile swipe commits, the hidden instance shows the new page's card a beat late (its
-            # view is re-attached): the snapshot has no card there yet. Put the page where its card goes, as the app
-            # does once attached (card radius 10 pt).
             card = np.asarray(Image.new("L", (x2 - x, y2 - y), 0), np.float32)
             mask_img = Image.new("L", (x2 - x, y2 - y), 0)
             ImageDraw.Draw(mask_img).rounded_rectangle([0, 0, x2 - x - 1, y2 - y - 1], 20, fill=255)
@@ -180,37 +172,30 @@ def main():
     pages = man["pages"]
     frames = [fr for fr in man["frames"] if fr.get("ok")]
     rest = {}
-    for fr in frames:  # each profile's tint at rest, for the swipe blend
+    for fr in frames:
         if "p" not in fr and fr.get("profile") and fr["profile"] not in rest:
             t = sampled_tint(fr["f"])
             if t is not None:
                 rest[fr["profile"]] = t
-    # A page shown again after a swipe can be captured before it repaints: a blank picture. Skip those and keep the
-    # tab's last good one.
     blank = {}
     def is_blank(p):
         if p["file"] not in blank:
             a = np.asarray(Image.open(os.path.join(src, p["file"])).convert("L").resize((96, 60)), np.float32)
             blank[p["file"]] = float(a.std()) < 4.0
         return blank[p["file"]]
-    # Each frame's own picture of a tab, else the tab's last good one, else its next good one (a profile's page
-    # during the swipe that first shows it).
     own = []
     for fr in frames:
         keys = fr.get("pageKey") or {}
         pick = {}
         for tab in fr.get("tabs", []):
-            # The frame's own picture first; the tab's generic one only when it has none.
             c = next((c for c in (pages.get(keys.get(tab, "")), pages.get(tab)) if c and not is_blank(c)), None)
             if c:
                 pick[tab] = c
         own.append(pick)
-    # Each swipe's incoming page: the picture its rest frame shows.
     incoming = {}
     for i, fr in enumerate(frames):
         if fr.get("label", "").endswith(":rest") and own[i]:
             incoming[fr["label"][: -len(":rest")]] = os.path.join(src, next(iter(own[i].values()))["file"])
-    # Each swipe's outgoing page: the picture its drag frames show (filled in as the loop reaches them).
     outgoing = {}
     last_page = {}
     out = []
@@ -234,10 +219,8 @@ def main():
         if "p" in fr and items and base not in outgoing:
             outgoing[base] = items[0][0]
         if fr.get("pos") is not None and fr.get("from") is not None and base in incoming:
-            # The page travels exactly as far as the pager has (its own position), so page and sidebar move as one.
             frac = min(1.0, max(0.0, abs(fr["pos"] - fr["from"])))
             if fr.get("label", "").endswith(":settle"):
-                # After the commit the app shows the new page; the outgoing one is the drag's.
                 out_tab = outgoing.get(base)
                 if out_tab:
                     items = [(out_tab, items[0][1])] if items else items

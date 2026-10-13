@@ -1,6 +1,3 @@
-# The collector behind ardia.dev/otel/ (infra/site/nginx.conf): OTLP/HTTP logs in, ClickHouse out.
-# Senders and the event format: docs/growth.md, "Telemetry". Only logs; there is no traces or
-# metrics pipeline.
 extensions:
   health_check:
     endpoint: 0.0.0.0:13133
@@ -10,7 +7,6 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
-        # nginx passes the visitor's address as X-Real-IP; it becomes a country below and is dropped.
         include_metadata: true
         max_request_body_size: 2097152
 
@@ -26,7 +22,6 @@ processors:
         from_context: metadata.x-real-ip
         action: upsert
 
-  # Senders that ask for no location (the app sends $geoip_disable, as it did with PostHog) keep none.
   transform/geoip-opt-out:
     error_mode: ignore
     log_statements:
@@ -46,17 +41,14 @@ processors:
     log_statements:
       - context: log
         statements:
-          # Country only, under PostHog's property names; never the IP, city or coordinates.
           - set(attributes["$geoip_country_code"], attributes["geo.country.iso_code"]) where attributes["geo.country.iso_code"] != nil
           - set(attributes["$geoip_country_name"], attributes["geo.country_name"]) where attributes["geo.country_name"] != nil
           - set(attributes["$geoip_continent_code"], attributes["geo.continent.code"]) where attributes["geo.continent.code"] != nil
           - delete_matching_keys(attributes, "^geo\\.")
           - delete_key(attributes, "client.address")
           - delete_key(attributes, "source.address")
-          # A sender that only knows a date or an ISO time (the update_check mirror) sends it here.
           - set(time, Time(attributes["timestamp"], "%Y-%m-%dT%H:%M:%SZ")) where attributes["timestamp"] != nil
           - delete_key(attributes, "timestamp")
-          # A record without a time gets the time it arrived.
           - set(time, Now()) where time_unix_nano == 0
 
   batch:

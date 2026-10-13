@@ -1,11 +1,4 @@
 #!/bin/bash
-# Build-phase helper (the Podfile installs the calls): copies each file under <from> to the same place under <to>
-# only when its content differs, by an atomic rename. Generators that rewrite a shared source file on every build
-# (Expo's modules provider, React Native's codegen) write into the build's own folder, then publish through this,
-# so builds running in parallel never see a file half-written or changed under them, and an unchanged file keeps
-# its date (no recompile).
-#
-#   publish-changed.sh <from dir> <to dir> [--exclude <glob>]…
 set -euo pipefail
 from=$1 to=$2
 shift 2

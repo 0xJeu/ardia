@@ -1,4 +1,3 @@
-# Symbols ArdiaCore exports from Chrome's framework, on top of chrome/app/framework.exports.
 _ArdiaCoreMain
 _OBJC_CLASS_$_ArdiaCore*
 _OBJC_METACLASS_$_ArdiaCore*

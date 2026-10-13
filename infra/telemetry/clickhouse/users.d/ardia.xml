@@ -1,13 +1,7 @@
-<!-- Users. Passwords come from Hexclave secrets (hexclave.deploy.ts); none are in git.
-     - default: admin, only from inside this server (start.sh applies schema.sql with it).
-     - otel: the collector's writer. It connects over the project's private network.
-     - reader: read-only, for the stats (through ardia.dev/_ch/, infra/site/nginx.conf).
-     - importer: loads PostHog Cloud exports into telemetry.posthog_events (also through /_ch/). -->
 <clickhouse>
     <profiles>
         <reader>
             <readonly>2</readonly>
-            <!-- The server has 2 cores; a stats query over the PostHog history's property maps takes ~15 s alone. -->
             <max_execution_time>180</max_execution_time>
             <max_memory_usage>2000000000</max_memory_usage>
             <max_result_rows>1000000</max_result_rows>
@@ -45,7 +39,6 @@
             <quota>default</quota>
             <grants>
                 <query>GRANT SELECT ON telemetry.*</query>
-                <!-- Server health, for diagnosing from the Mac (the admin user is local only). -->
                 <query>GRANT SELECT ON system.parts</query>
                 <query>GRANT SELECT ON system.merges</query>
                 <query>GRANT SELECT ON system.errors</query>

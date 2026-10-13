@@ -91,17 +91,16 @@ def main(name):
           f"   below 60 Hz: {100 * p[f < 60].sum() / p.sum():.1f}%")
     tm, mom = loudness_series(x, 0.4)
     ts, st = loudness_series(x, 3.0)
-    first = 4 * score.BEAT  # the intro's first bar
+    first = 4 * score.BEAT
     print(f"intro (bar 1) momentary: max {mom[tm <= first].max():.1f} LUFS, at 0.5 s {mom[np.argmin(abs(tm - 0.5))]:.1f} LUFS")
     bar = 0
     for kind, bars in cut["arrangement"]:
-        a, b = 4 * bar * score.BEAT + 3.0, 4 * (bar + bars) * score.BEAT  # short-term windows wholly inside
+        a, b = 4 * bar * score.BEAT + 3.0, 4 * (bar + bars) * score.BEAT
         sel = st[(ts >= a) & (ts <= b)]
         if len(sel):
             print(f"  {kind:6s} short-term loudness: median {np.median(sel):6.1f}, max {sel.max():6.1f} LUFS")
         bar += bars
 
-    # per bar
     secs, bar = [], 0
     for kind, bars in cut["arrangement"]:
         secs += [kind] * bars
@@ -125,7 +124,6 @@ def main(name):
     for k, v in loud.items():
         print(f"  {k:6s} mean bar loudness {10 * np.log10(np.mean(10 ** (np.array(v) / 10))):6.1f} LUFS")
 
-    # silence
     for a, b in cut.get("silence", []):
         seg = x[score.at(a):score.at(b)]
         print(f"silence {a}-{b}: max |x| = {np.abs(seg).max():.3g} ({'digital zero' if not seg.any() else 'NOT ZERO'})")
@@ -137,7 +135,6 @@ def main(name):
     print(f"last 50 ms peak {20 * np.log10(np.abs(last).max() + 1e-12):.1f} dBFS; "
           f"last frame (1/30 s) rms {20 * np.log10(np.sqrt((x[-1600:] ** 2).mean()) + 1e-12):.1f} dBFS")
 
-    # onsets on the master: every section downbeat, and every sound effect cue on its own stem
     print("onsets (ms vs the grid):")
     bar = 0
     marks = []
@@ -167,7 +164,7 @@ def main(name):
             worst = max(worst, abs(d) if d is not None else 99)
         print(f"  sfx {cue['kind']:7s} beat {cue['beat']:6.2f}: {fmt(d)} on its stem")
     print(f"  worst transient sfx offset {worst:.2f} ms (whoosh/swipe/riser swell in by design)")
-    for cue in [c for c in cut.get("sfx", []) if c["kind"] == "swipe"]:  # a swipe should peak 0.16 s after its cue
+    for cue in [c for c in cut.get("sfx", []) if c["kind"] == "swipe"]:
         one = score.Mix(name)
         score.play_sfx(one, cue)
         e = ndimage.uniform_filter1d((one.bus["sfx"] ** 2).sum(axis=1), int(0.06 * SR))

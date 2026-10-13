@@ -38,7 +38,7 @@ CHROMIUM_SECRET = b"ardia-fixture-secret"
 CHROMIUM_KEY = hashlib.pbkdf2_hmac("sha1", CHROMIUM_SECRET, b"saltysalt", 1003, 16)
 WRONG_KEY = hashlib.pbkdf2_hmac("sha1", b"some-other-secret", b"saltysalt", 1003, 16)
 
-BASE_UNIX = 1788220800  # 2026-09-01T00:00:00Z
+BASE_UNIX = 1788220800
 
 
 def webkit(unix_seconds):
@@ -80,9 +80,6 @@ def new_db(path, wal=False):
         db.execute("PRAGMA journal_mode=WAL")
     return db
 
-
-# --------------------------------------------------------------------------------------
-# Chromium
 
 
 def chromium_local_state(root, profiles, last_used="Default"):
@@ -222,8 +219,6 @@ def chromium_cookies_old(path):
     db.close()
 
 
-# Chromium Web Data (autofill) ----------------------------------------------------------
-
 def chromium_web_data(path):
     db = new_db(path)
     db.executescript("""
@@ -280,8 +275,6 @@ def chromium_web_data(path):
     db.close()
 
 
-# SNSS session files -------------------------------------------------------------------
-
 
 def pad4(b):
     return b + b"\0" * ((4 - len(b) % 4) % 4)
@@ -307,8 +300,6 @@ def pickle(*fields):
 
 
 def nav(tab, index, url, title):
-    # SerializedNavigationEntry::WriteToPickle, abbreviated after the fields we read plus a
-    # few of the optional trailing ones so the reader has to skip them.
     return 6, pickle(p_i32(tab), p_i32(index), p_str(url), p_str16(title), p_str(""), p_i32(0),
                      p_i32(0), p_str(""), p_i32(0), p_str(url))
 
@@ -320,36 +311,36 @@ def ids(command, *values):
 def session_commands():
     group_high, group_low = 0x1122334455667788, 0x99AABBCCDDEEFF00
     cmds = [
-        ids(9, 1, 0),  # window 1 is a normal window
+        ids(9, 1, 0),
         ids(0, 1, 10), ids(2, 10, 0), nav(10, 0, "https://mail.example.com/", "Inbox"),
-        (12, struct.pack("<i?3x", 10, True)),  # pinned
+        (12, struct.pack("<i?3x", 10, True)),
         ids(7, 10, 0),
         ids(0, 1, 11), ids(2, 11, 2),
         nav(11, 0, "https://news.example.com/", "News"),
         nav(11, 1, "https://news.example.com/story", "Story"),
-        ids(7, 11, 0),  # went back
+        ids(7, 11, 0),
         ids(0, 1, 12), ids(2, 12, 1),
         nav(12, 0, "https://a.example.com/", "A"),
         nav(12, 1, "https://b.example.com/", "B"),
         nav(12, 2, "https://c.example.com/", "C"),
         ids(7, 12, 2),
-        ids(24, 12, 0, 1),  # prune entry 0: B→0, C→1, current 2→1
+        ids(24, 12, 0, 1),
         ids(0, 1, 13), ids(2, 13, 3), nav(13, 0, "https://docs.example.com/", "Docs 文档"),
         (25, struct.pack("<i4xQQ?7x", 13, group_high, group_low, True)),
         (27, pickle(struct.pack("<QQ", group_high, group_low), p_str16("Research"), struct.pack("<I", 4), p_i32(1), p_i32(0))),
         ids(0, 1, 14), ids(2, 14, 4), nav(14, 0, "https://closed.example.com/", "Closed"),
-        (16, struct.pack("<i4xq", 14, webkit(BASE_UNIX))),  # tab closed
-        ids(8, 1, 2),  # selected tab index 2 in window 1
-        (255, b""),  # end of the initial state; later commands are appended changes
-        ids(9, 2, 1),  # window 2 is a popup
+        (16, struct.pack("<i4xq", 14, webkit(BASE_UNIX))),
+        ids(8, 1, 2),
+        (255, b""),
+        ids(9, 2, 1),
         ids(0, 2, 20), nav(20, 0, "https://popup.example.com/", "Popup"),
         ids(9, 3, 0),
         ids(0, 3, 30), nav(30, 0, "https://second.example.com/", "Second window"),
         (21, struct.pack("<i4xq", 30, webkit(BASE_UNIX - 120))),
         ids(9, 4, 0),
         ids(0, 4, 40), nav(40, 0, "https://gone.example.com/", "Gone"),
-        (17, struct.pack("<i4xq", 4, webkit(BASE_UNIX))),  # window closed
-        (19, pickle(p_i32(10), p_str("session-storage-id"))),  # a command the reader ignores
+        (17, struct.pack("<i4xq", 4, webkit(BASE_UNIX))),
+        (19, pickle(p_i32(10), p_str("session-storage-id"))),
     ]
     return cmds
 
@@ -358,7 +349,7 @@ def snss_plain(cmds):
     out = b"SNSS" + struct.pack("<i", 3)
     for cid, payload in cmds:
         out += struct.pack("<H", len(payload) + 1) + bytes([cid]) + payload
-    return out + b"\x09\x00\x06"  # truncated trailing command, as after a crash
+    return out + b"\x09\x00\x06"
 
 
 def snss_encrypted(cmds):
@@ -382,7 +373,6 @@ def build_chrome():
         "Profile 1": {"name": "Work", "user_name": "", "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_20",
                       "is_using_default_name": False},
     })
-    # A directory Local State doesn't list (and that isn't a profile) must be ignored.
     write_json(os.path.join(root, "System Profile", "junk.json"), {})
 
     d = os.path.join(root, "Default")
@@ -404,7 +394,6 @@ def build_chrome():
                        other=[], synced=[bookmark("Phone link", "https://phone.example/", t, "00000000-0000-4000-8000-000000000202")])
 
     rows = []
-    # 2,500 ordinary entries, newest first by id: url i visited i minutes before BASE.
     for i in range(2500):
         rows.append((f"https://site{i % 97}.example/page/{i}", f"Page {i}", 1 + i % 7, i % 3, BASE_UNIX - 60 * (i + 1), 0))
     rows += [
@@ -419,10 +408,10 @@ def build_chrome():
     chromium_logins(os.path.join(d, "Login Data"), [
         ("https://accounts.example.com/login", "https://accounts.example.com/", "alex@example.com", v10(b"correct horse"), 0, 12),
         ("https://shop.example/", "https://shop.example/", "alex", v10("pässwörd 🔑".encode()), 0, 0),
-        ("https://never.example/", "https://never.example/", "", b"", 1, 0),  # "never save"
+        ("https://never.example/", "https://never.example/", "", b"", 1, 0),
         ("android://hash@com.example.app/", "android://hash@com.example.app/", "alex", v10(b"from-android"), 0, 1),
         ("https://wrongkey.example/", "https://wrongkey.example/", "bob", v10(b"secret", WRONG_KEY), 0, 0),
-        ("https://legacy.example/", "https://legacy.example/", "old", b"plain-legacy", 0, 0),  # pre-encryption row
+        ("https://legacy.example/", "https://legacy.example/", "old", b"plain-legacy", 0, 0),
     ])
     chromium_logins(os.path.join(d, "Login Data For Account"), [
         ("https://accounts.example.com/login", "https://accounts.example.com/", "alex@example.com", v10(b"correct horse"), 0, 1),
@@ -432,7 +421,7 @@ def build_chrome():
     def host_hashed(host, value):
         return v10(hashlib.sha256(host.encode()).digest() + value.encode())
 
-    future = 4102444800  # 2100-01-01
+    future = 4102444800
     chromium_cookies(os.path.join(d, "Network", "Cookies"), [
         dict(host=".example.com", name="sid", encrypted_value=host_hashed(".example.com", "s3ss10n"), expires=future,
              is_secure=1, is_httponly=1, samesite=1, priority=2, source_scheme=2, source_port=443),
@@ -442,9 +431,7 @@ def build_chrome():
              path="/app", samesite=0, source_scheme=0, source_port=-1),
         dict(host="expired.example", name="old", encrypted_value=host_hashed("expired.example", "gone"), expires=978307200),
         dict(host="wrong.example", name="bad", encrypted_value=v10(b"x", WRONG_KEY), expires=future),
-        # Version 24 requires the host hash: a value without it is rejected.
         dict(host="accounts.example.com", name="nohash", encrypted_value=v10(b"no-host-prefix"), expires=future),
-        # Chromium rejects a row with both a plaintext and an encrypted value.
         dict(host="both.example", name="both", value="plain", encrypted_value=host_hashed("both.example", "enc"),
              expires=future),
         dict(host="embed.example", name="chips", encrypted_value=host_hashed("embed.example", "partitioned"),
@@ -460,7 +447,7 @@ def build_chrome():
 
     cmds = session_commands()
     sessions = os.path.join(d, "Sessions")
-    write(os.path.join(sessions, f"Session_{webkit(BASE_UNIX - 86400)}"), b"SNSS" + struct.pack("<i", 3))  # older, empty
+    write(os.path.join(sessions, f"Session_{webkit(BASE_UNIX - 86400)}"), b"SNSS" + struct.pack("<i", 3))
     write(os.path.join(sessions, f"Session_{webkit(BASE_UNIX)}"), snss_plain(cmds))
     write(os.path.join(sessions, f"Tabs_{webkit(BASE_UNIX)}"), b"SNSS" + struct.pack("<i", 3))
     write(os.path.join(MISC, "Session_v5_encrypted"), snss_encrypted(cmds))
@@ -484,7 +471,6 @@ def build_brave():
 
 
 def build_opera():
-    # Opera keeps its main profile in the data directory itself.
     root = os.path.join(SUPPORT, "com.operasoftware.Opera")
     chromium_local_state(root, {})
     write_json(os.path.join(root, "Preferences"), {})
@@ -494,8 +480,6 @@ def build_opera():
 
 
 def build_helium():
-    # Helium (imput's ungoogled-chromium fork) is an ordinary Chromium profile on disk; only
-    # its Keychain item name differs ("Helium Storage Key" / "Helium"). Same OSCrypt v10.
     root = os.path.join(SUPPORT, "net.imput.helium")
     chromium_local_state(root, {"Default": {"name": "Helium", "user_name": ""}})
     d = os.path.join(root, "Default")
@@ -512,7 +496,7 @@ def build_helium():
     chromium_logins(os.path.join(d, "Login Data"), [
         ("https://helium.example/", "https://helium.example/", "he@example.com", v10(b"helium-pass"), 0, 3)])
     cmds = [
-        ids(9, 1, 0),  # normal window
+        ids(9, 1, 0),
         ids(0, 1, 10), ids(2, 10, 0), nav(10, 0, "https://helium.example/", "Helium"),
         ids(7, 10, 0),
         ids(8, 1, 0),
@@ -522,14 +506,9 @@ def build_helium():
 
 
 def build_dia():
-    # Dia (The Browser Company). Its bookmarks / history / open tabs are ordinary Chromium
-    # files (plaintext SNSS Sessions), passwords under "Dia Safe Storage" / "Dia". Dia's own
-    # sidebar (spaces, pinned tiles) lives in a SQLCipher-encrypted tabs.db we can't decrypt,
-    # so nothing here mirrors that — Dia imports as a normal Chromium browser.
     root = os.path.join(SUPPORT, "Dia", "User Data")
     chromium_local_state(root, {
         "Default": {"name": "Personal", "user_name": "me@example.com", "profile_highlight_color": -12627531},
-        # Dia leaves Chromium's colour at opaque black (unset).
         "Profile 2": {"name": "Work", "user_name": "", "profile_highlight_color": -16777216},
     }, last_used="Default")
     d = os.path.join(root, "Default")
@@ -549,9 +528,9 @@ def build_dia():
     chromium_logins(os.path.join(d, "Login Data"), [
         ("https://dia.example/", "https://dia.example/", "me@example.com", v10(b"dia-pass"), 0, 2)])
     cmds = [
-        ids(9, 1, 0),  # normal window
+        ids(9, 1, 0),
         ids(0, 1, 10), ids(2, 10, 0), nav(10, 0, "https://dia.example/", "Dia"),
-        (12, struct.pack("<i?3x", 10, True)),  # pinned
+        (12, struct.pack("<i?3x", 10, True)),
         ids(7, 10, 0),
         ids(0, 1, 11), ids(2, 11, 1), nav(11, 0, "https://read.example/", "Long read"),
         ids(7, 11, 0),
@@ -565,9 +544,6 @@ def build_dia():
                        bar=[bookmark("Work", "https://work.dia.example/", t, "00000000-0000-4000-8000-000000000705")],
                        other=[], synced=[])
 
-
-# --------------------------------------------------------------------------------------
-# Safari direct (Full Disk Access): ~/Library/Safari/{Bookmarks.plist, History.db, LastSession.plist}
 
 
 def safari_leaf(url, title, reading_list_date=None):
@@ -591,13 +567,12 @@ def build_safari_direct():
     safari = os.path.join(home, "Library", "Safari")
     os.makedirs(safari, exist_ok=True)
 
-    # Bookmarks.plist (binary plist): Bookmarks Bar, a user folder, and the Reading List.
     root = safari_list([
         safari_list([
             safari_leaf("https://apple.example/", "Apple"),
             safari_list([safari_leaf("https://kyoto.example/", "京都 guide")], title="Travel"),
         ], title="BookmarksBar", identifier="BookmarksBar"),
-        safari_list([], title="History", identifier="History"),  # proxy-ish list with no kids: skipped
+        safari_list([], title="History", identifier="History"),
         safari_list([
             safari_leaf("https://longread.example/article", "A long read",
                         reading_list_date=datetime.datetime(2026, 8, 30, 0, 0, 0)),
@@ -607,7 +582,6 @@ def build_safari_direct():
     with open(os.path.join(safari, "Bookmarks.plist"), "wb") as f:
         plistlib.dump(root, f, fmt=plistlib.FMT_BINARY)
 
-    # History.db (Safari schema; visit_time is CFAbsoluteTime = seconds since 2001-01-01).
     def cf(unix_seconds):
         return float(unix_seconds - 978307200)
     db = new_db(os.path.join(safari, "History.db"))
@@ -625,7 +599,7 @@ def build_safari_direct():
     rows = [
         ("https://apple.example/", "apple", 3, "Apple - Home", BASE_UNIX - 100),
         ("https://news.example/", "news", 5, "News Today", BASE_UNIX),
-        ("file:///tmp/x.html", None, 1, "local", BASE_UNIX - 500),  # non-web, dropped
+        ("file:///tmp/x.html", None, 1, "local", BASE_UNIX - 500),
     ]
     for url, dom, vc, title, when in rows:
         cur = db.execute("INSERT INTO history_items(url, domain_expansion, visit_count) VALUES (?,?,?)", (url, dom, vc))
@@ -634,19 +608,16 @@ def build_safari_direct():
     db.commit()
     db.close()
 
-    # LastSession.plist: one window, two tabs, the second selected.
     session = {"SessionVersion": "1.0", "SessionWindows": [
         {"SelectedTabIndex": 1, "TabStates": [
             {"TabURL": "https://apple.example/", "TITLE": "Apple"},
             {"TabURL": "https://news.example/", "TITLE": "News Today"},
-            {"TabURL": "favorites://", "TITLE": "Favorites"},  # non-web, dropped
+            {"TabURL": "favorites://", "TITLE": "Favorites"},
         ]},
     ]}
     with open(os.path.join(safari, "LastSession.plist"), "wb") as f:
         plistlib.dump(session, f, fmt=plistlib.FMT_BINARY)
 
-
-# Safari Cookies.binarycookies --------------------------------------------------------
 
 def binary_cookie(domain, name, path, value, flags, expiry_unix, created_unix, port=None):
     head = 56 + (2 if port is not None else 0)
@@ -696,24 +667,18 @@ def build_safari_cookies():
     write(os.path.join(bad_dir, "truncated.binarycookies"), good[:len(good) // 2])
     write(os.path.join(bad_dir, "bad-magic.binarycookies"), b"kooc" + good[4:])
     write(os.path.join(bad_dir, "page-count.binarycookies"), b"cook" + struct.pack(">I", 0x7FFFFFFF) + good[8:])
-    # The first cookie's name offset points past the cookie.
     bad = bytearray(good)
     first_cookie = 8 + 4 * 2 + 4 + 4 + 4 * 2 + 4
     struct.pack_into("<I", bad, first_cookie + 20, 0xFFFF)
     write(os.path.join(bad_dir, "bad-offset.binarycookies"), bytes(bad))
-    # The last string loses its NUL terminator.
     single = binary_cookies([binary_cookie_page([binary_cookie("x.example", "n", "/", "v", 0, future, BASE_UNIX)])])
     nonul = bytearray(single)
     nonul[len(single) - 8 - 4 - 1] = ord("!")
     write(os.path.join(bad_dir, "no-nul.binarycookies"), bytes(nonul))
-    # A cookie size smaller than its own header.
     small = bytearray(single)
     struct.pack_into("<I", small, 8 + 4 + 4 + 4 + 4 + 4, 8)
     write(os.path.join(bad_dir, "small-cookie.binarycookies"), bytes(small))
 
-
-# --------------------------------------------------------------------------------------
-# Arc
 
 
 def arc_color(r, g, b):
@@ -732,7 +697,7 @@ def build_arc():
     p1 = os.path.join(root, "Profile 1")
     write_json(os.path.join(p1, "Preferences"), {})
 
-    ref = BASE_UNIX - 978307200  # NSDate reference time
+    ref = BASE_UNIX - 978307200
 
     def tab(id_, parent, url, title, rename=None):
         return {"id": id_, "parentID": parent, "childrenIds": [], "title": rename, "isUnread": False,
@@ -817,9 +782,6 @@ def build_arc():
     write_json(os.path.join(arc, "StorableSidebar.json"), sidebar)
 
 
-# --------------------------------------------------------------------------------------
-# Firefox
-
 
 def der(tag, content):
     n = len(content)
@@ -878,7 +840,6 @@ def key4(path, global_salt, password, login_key):
         CREATE TABLE metaData (id PRIMARY KEY UNIQUE ON CONFLICT REPLACE, item1, item2);
         CREATE TABLE nssPrivate (id PRIMARY KEY UNIQUE ON CONFLICT ABORT, a0, a1, a2, a3, a10, a11, a12, a102, a104, a105);
     """)
-    # NSS encrypts "password-check" with PKCS#7 padding, i.e. "password-check\x02\x02".
     check = pbes2(b"password-check", global_salt, password, b"C" * 32, b"c" * 14)
     db.execute("INSERT INTO metaData VALUES ('Version', 1, NULL)")
     db.execute("INSERT INTO metaData VALUES ('password', ?, ?)", (global_salt, check))
@@ -916,7 +877,6 @@ def logins_json(path, key, rows):
 
 
 def lz4_literals(data):
-    # A valid LZ4 block made of one literal-only sequence: token, extended length, literals.
     n = len(data)
     if n < 15:
         return bytes([n << 4]) + data
@@ -935,8 +895,6 @@ def mozlz4(obj):
 
 
 def places(path):
-    # WAL mode, with the last rows left in the -wal file (as when Firefox is running), to
-    # prove the reader sees uncheckpointed data.
     tmp = tempfile.mkdtemp()
     src = os.path.join(tmp, "places.sqlite")
     db = new_db(src, wal=True)
@@ -974,10 +932,10 @@ def places(path):
         (10, 1, 1, 3, 0, "Mozilla", "b00000000010"),
         (11, 2, None, 3, 1, "Dev & Docs", "b00000000011"),
         (12, 1, 2, 11, 0, "MDN", "b00000000012"),
-        (13, 3, None, 11, 1, None, "b00000000013"),  # separator
-        (14, 1, 4, 3, 2, "Recent Tags", "b00000000014"),  # smart bookmark
+        (13, 3, None, 11, 1, None, "b00000000013"),
+        (14, 1, 4, 3, 2, "Recent Tags", "b00000000014"),
         (15, 1, 3, 2, 0, "Never visited", "b00000000015"),
-        (16, 2, None, 4, 0, "sometag", "b00000000016"),  # tag folder
+        (16, 2, None, 4, 0, "sometag", "b00000000016"),
         (17, 1, 7, 16, 0, None, "b00000000017"),
     ]
     for bid, type_, fk, parent, pos, title, guid in bm:
@@ -985,7 +943,6 @@ def places(path):
                    (bid, type_, fk, parent, pos, title, us(BASE_UNIX - 86400), us(BASE_UNIX - 86400), guid))
     db.commit()
     db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    # These stay in the WAL.
     db.execute("INSERT INTO moz_places (id,url,title,visit_count,hidden,typed,last_visit_date,guid) VALUES (8,'https://in-wal.example/','Only in WAL',1,0,0,?,'p00000000008')",
                (us(BASE_UNIX),))
     db.execute("INSERT INTO moz_bookmarks (id,type,fk,parent,position,title,dateAdded,lastModified,guid) VALUES (18,1,8,5,0,'WAL bookmark',?,?,'b00000000018')",
@@ -1011,13 +968,13 @@ def firefox_cookies(path):
     cols = "originAttributes,name,value,host,path,expiry,lastAccessed,creationTime,isSecure,isHttpOnly,sameSite,rawSameSite,schemeMap"
     us = BASE_UNIX * 1_000_000
     rows = [
-        ("", "ff", "1", ".mozilla.example", "/", 4102444800, us - 60_000_000, us, 1, 1, 1, 1, 2),       # expiry in s
-        ("", "ms", "2", "ms.example", "/", 4102444800000, 0, 0, 0, 0, 2, 2, 1),                         # expiry in ms
-        ("", "old", "3", "old.example", "/", 978307200, 0, 0, 0, 0, 0, 0, 0),                            # expired
+        ("", "ff", "1", ".mozilla.example", "/", 4102444800, us - 60_000_000, us, 1, 1, 1, 1, 2),
+        ("", "ms", "2", "ms.example", "/", 4102444800000, 0, 0, 0, 0, 2, 2, 1),
+        ("", "old", "3", "old.example", "/", 978307200, 0, 0, 0, 0, 0, 0, 0),
         ("^partitionKey=%28https%2Ctop.example%29", "part", "p", "embed.example", "/", 4102444800, 0, 0, 1, 0, 256, 256, 2),
         ("^partitionKey=%28https%2Cported.example%2C8443%29", "port", "q", "embed.example", "/", 4102444800, 0, 0, 1, 0, 0, 0, 3),
-        ("", "none", "n", "insecure.example", "/", 4102444800, 0, 0, 0, 0, 0, 0, 1),                    # insecure NONE
-        ("", "lbd", "l", "laxdefault.example", "/", 4102444800, 0, 0, 0, 0, 1, 0, 0),                   # Firefox's default
+        ("", "none", "n", "insecure.example", "/", 4102444800, 0, 0, 0, 0, 0, 0, 1),
+        ("", "lbd", "l", "laxdefault.example", "/", 4102444800, 0, 0, 0, 0, 1, 0, 0),
         ("^userContextId=2", "container", "c", "container.example", "/", 4102444800, 0, 0, 0, 0, 0, 0, 0),
         ("^privateBrowsingId=1", "private", "p", "private.example", "/", 4102444800, 0, 0, 0, 0, 0, 0, 0),
         ("^partitionKey=%28https%2C%5B%3A%3A1%5D%29", "v6", "x", "v6.example", "/", 4102444800, 0, 0, 0, 0, 0, 0, 0),
@@ -1075,7 +1032,7 @@ Locked=1
     }
     write(os.path.join(d, "sessionstore-backups", "recovery.jsonlz4"), mozlz4(session))
     global_salt = b"S" * 20
-    login_key = bytes(range(1, 25))  # 3DES
+    login_key = bytes(range(1, 25))
     key4(os.path.join(d, "key4.db"), global_salt, b"", login_key)
     logins_json(os.path.join(d, "logins.json"), login_key, [
         ("https://accounts.mozilla.example", "https://accounts.mozilla.example", "fox@example.com", "fire & fox"),
@@ -1083,12 +1040,11 @@ Locked=1
     ])
 
     w = os.path.join(root, "Profiles", "zzzz9999.work")
-    work_key = bytes(range(100, 132))  # AES-256
+    work_key = bytes(range(100, 132))
     key4(os.path.join(w, "key4.db"), b"W" * 20, b"hunter2", work_key)
     logins_json(os.path.join(w, "logins.json"), work_key, [("https://intranet.example", "https://intranet.example", "worker", "aes-protected")])
     write_json(os.path.join(w, "prefs.js.json"), {})
 
-    # Legacy pbeWithSha1AndTripleDES-CBC vector (pre-2020 key4.db).
     entry_salt = b"legacy-entry-salt-20"[:20]
     gs, pw = b"G" * 20, b"old-primary"
     hp = hashlib.sha1(gs + pw).digest()
@@ -1104,9 +1060,6 @@ Locked=1
         "globalSalt": base64.b64encode(gs).decode(), "password": pw.decode(),
         "der": base64.b64encode(blob).decode(), "plain": "password-check"})
 
-
-# --------------------------------------------------------------------------------------
-# Safari export, CSVs, bookmark HTML
 
 BOOKMARKS_HTML_SAFARI = """<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <HTML>
@@ -1213,7 +1166,6 @@ def build_exports():
     with zipfile.ZipFile(zip_path, "w") as z:
         for name, data in files.items():
             info = zipfile.ZipInfo("Safari Export/" + name, date_time=(2026, 9, 1, 0, 0, 0))
-            # Mix of deflated and stored entries, as zip writers do.
             info.compress_type = zipfile.ZIP_STORED if name.endswith(".csv") else zipfile.ZIP_DEFLATED
             z.writestr(info, data)
         z.writestr(zipfile.ZipInfo("__MACOSX/Safari Export/._Bookmarks.html", date_time=(2026, 9, 1, 0, 0, 0)), b"junk")

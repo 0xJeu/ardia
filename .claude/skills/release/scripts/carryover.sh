@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
-# An update keeps the user's data: <previous>'s data, in the folder an installed copy uses, opens in the new build.
-# usage: carryover.sh <previous Ardia.app> <new Ardia.app>
-#
-# Both builds run as test copies (bundle id com.ardia.browser.carryover, signed ad hoc: the mock keychain, and
-# their defaults are that id's, never the real app's) in a fake home (HOME and CFFIXED_USER_HOME). The previous build
-# makes two profiles' worth of data where an installed copy keeps it (ARDIA_DATA_DIR set to that folder); the new
-# one starts without ARDIA_DATA_DIR, as an installed copy does, and must find and read all of it
-# (carryover.mjs lists what). Never touches /Applications, the real app's data or the login keychain.
 set -euo pipefail
-# The new build must find the data by itself: nothing from this shell may point it elsewhere.
 unset ARDIA_DATA_DIR ARDIA_UPDATE_FEED_URL
 
 old="${1:?usage: carryover.sh <previous app> <new app>}"
@@ -21,7 +12,7 @@ pages_port="${CARRYOVER_PAGES_PORT:-8794}"
 work="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/ac-carryover.XXXXXX")" && pwd -P)"
 server=""
 cleanup() {
-  pkill -KILL -f "^$work/" 2>/dev/null || true  # only this run's test copies
+  pkill -KILL -f "^$work/" 2>/dev/null || true
   [ -n "$server" ] && { kill "$server"; wait "$server"; } 2>/dev/null || true
   defaults delete "$test_id" >/dev/null 2>&1 || true
   rm -f "$HOME/Library/Preferences/$test_id.plist"
@@ -29,7 +20,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-copy() { # app dest: a test copy
+copy() {
   ditto "$1" "$2"
   /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $test_id" "$2/Contents/Info.plist"
   codesign --force --deep --sign - "$2" 2>/dev/null
@@ -41,7 +32,6 @@ mkdir -p "$work/home" "$work/pages"
 for page in page1 page2 work; do
   printf '<!doctype html><title>Carryover %s</title><h1>%s</h1><form><input name="username" autocomplete="username"><input type="password" autocomplete="current-password"></form>\n' "$page" "$page" > "$work/pages/$page.html"
 done
-# An unpacked extension, copied out of the checkout (an app reading ~/Documents raises macOS's folder prompt).
 cp -R "$root/spikes/ardiacore-host/fixtures/ext" "$work/extension"
 if nc -z -G 2 127.0.0.1 "$pages_port" 2>/dev/null; then
   echo "error: port $pages_port is taken (CARRYOVER_PAGES_PORT)" >&2

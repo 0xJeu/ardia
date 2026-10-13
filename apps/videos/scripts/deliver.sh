@@ -1,9 +1,4 @@
 #!/bin/bash
-# Renders a cut and puts the score back on it sample-accurately: Remotion's AAC carries the encoder's priming
-# (2048 samples) without an edit list, so every hit would land 43 ms late. The video is kept; the audio is
-# re-encoded from the WAV with Apple's AAC encoder (its peaks stay under -1 dBTP), and ffmpeg's mp4 muxer writes the edit
-# list that trims the priming.
-# usage: scripts/deliver.sh <composition id>   (→ out/<id>.mp4, then scripts/check-sync.py must report 0)
 set -euo pipefail
 V=$(cd "$(dirname "$0")/.." && pwd); cd "$V"
 id=$1; cut=${id%%-*}

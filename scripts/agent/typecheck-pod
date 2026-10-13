@@ -53,7 +53,6 @@ done
 [[ -z "$wait" || "$wait" =~ ^[0-9]+$ ]] || { echo "typecheck-pod: --wait takes whole seconds" >&2; usage; }
 [[ -d "$pods" ]] || { echo "typecheck-pod: no $pods (run pod install first)" >&2; exit 1; }
 
-# The pod's native target: "<id> /* <pod> */ = {" followed by "isa = PBXNativeTarget;".
 target=$(awk -v name="$pod" '
   $2 == "/*" && $3 == name && $4 == "*/" && $5 == "=" && $6 == "{" { id = $1; next }
   id != "" { if ($0 ~ /isa = PBXNativeTarget;/) { print id; exit } id = "" }

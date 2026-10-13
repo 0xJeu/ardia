@@ -36,7 +36,6 @@ def source_hash(text: str) -> str:
 
 
 def inline_block(tag: str, text: str) -> str:
-    # Nothing may close the element early; the data URLs and our own code never do.
     assert f"</{tag}" not in text.lower(), f"</{tag} inside inlined {tag}"
     return f"<{tag}>{text}</{tag}>"
 

@@ -1,4 +1,3 @@
-# `hexclave deploy` uploads only the prebuilt site (staged by deploy.sh; gitignored) and what serves it.
 *
 !Dockerfile
 !nginx.conf

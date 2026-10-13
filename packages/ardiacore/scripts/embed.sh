@@ -1,6 +1,4 @@
 #!/bin/bash
-# Xcode build phase (apps/browser/macos): clones the staged ArdiaCore framework (stage-framework.sh) into
-# the app bundle. An APFS clone: instant, whatever its 500 MB.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../.." && pwd)
@@ -9,12 +7,8 @@ frameworks="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH"
 mkdir -p "$frameworks"
 stamp="$DERIVED_FILE_DIR/ardiacore-embedded.stamp"
 mkdir -p "$DERIVED_FILE_DIR"
-# The staged copy is signed ad hoc. A build signed with a team identity (Apple Development) signs it again with that
-# identity, under the hardened runtime, as Chrome signs its own helpers (the renderer and GPU ones with JIT):
-# library validation rejects an ad-hoc framework in a team-signed app. A release re-signs it with Developer ID.
 identity="${EXPANDED_CODE_SIGN_IDENTITY:--}"
 [ -z "$identity" ] && identity="-"
-# Signing this script or its entitlements differently re-signs too.
 want="$(cat "$staged/../.stamp") $identity $(cat "$0" "$here"/signing/*.entitlements | shasum -a 256 | cut -c1-16)"
 if ! [[ -f "$stamp" && "$(cat "$stamp")" == "$want" && -d "$frameworks/Chromium Framework.framework" ]]; then
   rm -rf "$frameworks/Chromium Framework.framework"
@@ -38,8 +32,6 @@ if ! [[ -f "$stamp" && "$(cat "$stamp")" == "$want" && -d "$frameworks/Chromium 
   echo "$want" > "$stamp"
 fi
 
-# The built-in content blocker (uBlock Origin Lite, pinned in ubol.sh, which installs it once) → Resources/Extensions,
-# with the fingerprint ArdiaCoreContentBlocker.mm compares its writable copy with.
 "$here/ubol.sh"
 ubol="$repo/packages/ardiacore/vendor/ubol/ext"
 if [ -n "${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}" ] && [ -f "$ubol/manifest.json" ]; then

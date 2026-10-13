@@ -1,5 +1,3 @@
-# ArdiaCore's own IPC between the browser and its renderers (the page script, page messages).
-
 import("//mojo/public/tools/bindings/mojom.gni")
 
 mojom("mojom") {

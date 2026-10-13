@@ -1,6 +1,5 @@
 require 'pathname'
 
-# node_modules is hoisted to the monorepo root.
 ws_dir = Pathname.new(__dir__)
 ws_dir = ws_dir.parent until
   File.exist?("#{ws_dir}/node_modules/react-native-macos/scripts/react_native_pods.rb") ||
@@ -8,20 +7,10 @@ ws_dir = ws_dir.parent until
 require "#{ws_dir}/node_modules/react-native-macos/scripts/react_native_pods.rb"
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 
-# Legacy architecture: react-native-macos 0.81's Fabric support is still experimental.
 ENV['RCT_NEW_ARCH_ENABLED'] ||= '0'
 
 prepare_react_native_project!
 
-# Parallel builds. Agents build at once, each into its own derived data, from this one Pods directory, so no build
-# phase may write a shared file another build reads. The stock scripts do in four places; these hooks move each
-# write into the build's own folder (docs/agent-brief.md, "Isolated builds"):
-#   - [CP] Copy Pods Resources wrote its file list to Pods/resources-to-copy-<target>.txt and deleted it after, so
-#     one build's rsync read a list another had emptied or removed ("resources-to-copy" errors);
-#   - [Expo] Configure project rewrote Pods/…/ExpoModulesProvider.swift every build, under other builds' compiles;
-#   - ReactCodegen's Generate Specs rewrote build/generated/ios on a new derived data's first build;
-#   - Hermes' "Replace Hermes" phase swapped Pods/hermes-engine between its Debug and Release builds whenever the
-#     configuration changed, under any other build linking or embedding it.
 publish_changed = '"${PODS_ROOT}/../publish-changed.sh"'
 
 ac_patch_file = lambda do |path, &edit|
@@ -34,7 +23,6 @@ end
 ac_parallel_post_install = lambda do |installer|
   support = File.join(installer.sandbox.root, 'Target Support Files')
 
-  # The resources list goes in the build's own derived files.
   Dir.glob(File.join(support, 'Pods-*', 'Pods-*-resources.sh')).each do |script|
     ac_patch_file.call(script) do |s|
       s.sub('RESOURCES_TO_COPY=${PODS_ROOT}/resources-to-copy-${TARGETNAME}.txt',
@@ -42,8 +30,6 @@ ac_parallel_post_install = lambda do |installer|
     end
   end
 
-  # Codegen generates into the build's own folder, then publishes only what changed (its podspec embeds that
-  # folder's path, so it stays out; pod install writes the real one).
   installer.pods_project.targets.select { |t| t.name == 'ReactCodegen' }.each do |t|
     t.shell_script_build_phases.select { |p| p.name.to_s.include?('Generate Specs') }.each do |phase|
       script = phase.shell_script
@@ -61,9 +47,6 @@ ac_parallel_post_install = lambda do |installer|
     end
   end
 
-  # Hermes: Pods/hermes-engine stays the Debug build; Release builds embed hermes-engine-Release, unpacked here. The
-  # two export the same API (Release's symbols are a subset), so every configuration compiles and links against the
-  # one in Pods/hermes-engine, and nothing is swapped during a build.
   artifacts = File.join(installer.sandbox.root, 'hermes-engine-artifacts')
   hermes = installer.pod_targets.find { |t| t.pod_name == 'hermes-engine' }&.root_spec&.version&.to_s&.downcase
   debug_tgz = File.join(artifacts, "hermes-ios-#{hermes}-debug.tar.gz")
@@ -80,7 +63,6 @@ ac_parallel_post_install = lambda do |installer|
     end
     last = File.join(root, '.last_build_configuration')
     if File.exist?(last) && File.read(last).strip != 'Debug'
-      # An earlier build swapped Release in; put Debug back.
       FileUtils.rm_rf(File.join(root, 'hermes-engine', '.ardia-from'))
       unpack.call(debug_tgz, File.join(root, 'hermes-engine'))
     end
@@ -102,7 +84,6 @@ ac_parallel_post_install = lambda do |installer|
   end
 end
 
-# Expo writes its configure script while integrating the app project, after post_install.
 ac_parallel_post_integrate = lambda do |installer|
   installer.aggregate_targets.each do |target|
     script = File.join(target.support_files_dir, 'expo-configure-project.sh')
@@ -137,11 +118,9 @@ target 'Ardia-macOS' do
   post_install do |installer|
     react_native_post_install(installer)
 
-    # RN assumes node_modules sits next to the app; ours is hoisted to the monorepo root.
     rn_path = "${PODS_ROOT}/" + Pathname.new("#{ws_dir}/node_modules/react-native-macos").relative_path_from(Pathname.new(installer.sandbox.root)).to_s
     installer.pods_project.build_configurations.each { |c| c.build_settings['REACT_NATIVE_PATH'] = rn_path }
 
-    # Xcode 26+ rejects deployment targets below 12; some Expo resource bundles default to 11.
     installer.pods_project.targets.each do |t|
       t.build_configurations.each { |c| c.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '14.0' }
     end

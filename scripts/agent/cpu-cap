@@ -30,7 +30,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 MARKERS = (REPO + "/", REPO + " ", "/private/tmp/claude-", "/tmp/ac-")
 NEVER = ("/Applications/Ardia.app/", "/Applications/Claude.app/", "/Applications/League of Legends.app/",
          "/System/", "/usr/libexec/", "/sbin/launchd")
-# Shared build daemons and coordinators: pausing one stalls every build behind it; pause their workers instead.
 COORD = {"SWBBuildService", "ibtoold", "xcodebuild", "XCBBuildService", "lockf", "siso", "ninja", "autoninja", "gn"}
 TOOLS = COORD | {"bash", "zsh", "sh", "-zsh", "top", "ps", "git", "perl", "lockf", "timeout", "sleep", "python3", "Python",
          "osascript", "log", "caffeinate", "codex", "node_repl"}
@@ -51,9 +50,9 @@ if a.league:
 if bool(a.during) != (a.share is not None):
     ap.error("--during and --share go together")
 
-paused = []          # pids, in pause order
-paused_at = {}       # pid -> when it was paused
-turn_until = {}      # pid -> it was given a turn; don't pause it again before this
+paused = []
+paused_at = {}
+turn_until = {}
 backgrounded = set()
 
 
@@ -105,7 +104,6 @@ def ours(procs=None):
                 break
             seen.append(cur)
             cur = procs[cur][0]
-    # never this script or its ancestors (the shell that runs it)
     cur = ME
     while cur in procs and cur > 1:
         mine.discard(cur)
@@ -138,15 +136,14 @@ for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
     signal.signal(s, resume_all)
 
 def pausable(cmd):
-    # a shell or a probe: pausing it would hang an agent's command, not save CPU
     return os.path.basename(cmd.split()[0]) not in TOOLS
 
 
 def share_loop():
     ncpu = os.cpu_count()
     active = False
-    last, last_at = {}, time.time()   # pid -> CPU seconds at the previous tick
-    rate = {}                         # pid -> its last share of the machine, %
+    last, last_at = {}, time.time()
+    rate = {}
     log(f"share mode: ours <= {a.share}% while {a.during} runs; repo {REPO}")
     while True:
         time.sleep(a.every)
@@ -155,7 +152,7 @@ def share_loop():
         dt, last_at = now - last_at, now
         mine = ours(procs)
         paused[:] = [p for p in paused if alive(p)]
-        mine_up = set()  # this script and the shells that started it: their command lines may hold the pattern
+        mine_up = set()
         cur = ME
         while cur in procs and cur > 1:
             mine_up.add(cur)
@@ -185,14 +182,13 @@ def share_loop():
                 backgrounded.add(pid)
         backgrounded.intersection_update(mine.keys() | set(paused))
         for pid, (_, _, _, secs) in mine.items():
-            if pid not in paused:  # a paused process keeps its last rate, for deciding when it fits again
+            if pid not in paused:
                 rate[pid] = max(0.0, secs - last.get(pid, 0.0)) / dt / ncpu * 100
         last = {pid: procs[pid][3] for pid in mine}
         for pid in list(rate):
             if pid not in mine and pid not in paused:
                 del rate[pid]
         share = sum(r for pid, r in rate.items() if pid not in paused)
-        # turns: a job paused longer than --max-pause runs again; the next ticks pause someone else if need be
         for pid in [p for p in paused if now - paused_at.get(p, now) > a.max_pause]:
             try:
                 os.kill(pid, signal.SIGCONT)
@@ -215,7 +211,7 @@ def share_loop():
                 share -= rate[pid]
                 log(f"ours {share + rate[pid]:.0f}%: paused {pid} ({rate[pid]:.0f}%) {mine[pid][2][:80]}")
         else:
-            for pid in list(paused):  # longest-paused first, as many as fit
+            for pid in list(paused):
                 if share + rate.get(pid, 0) > a.share:
                     break
                 try:
@@ -239,11 +235,11 @@ try:
         procs = ours()
         for pid in procs.keys() - backgrounded:
             if "/perf-gate/" in procs[pid][2]:
-                continue  # a release perf gate's instances keep normal QoS (both apps alike); they can still be paused
+                continue
             subprocess.run(["taskpolicy", "-b", "-p", str(pid)], capture_output=True)
             backgrounded.add(pid)
         backgrounded &= procs.keys() | set(paused)
-        paused[:] = [p for p in paused if alive(p)]  # not `in procs`: an orphan reparented to launchd must still be resumed
+        paused[:] = [p for p in paused if alive(p)]
         now = time.time()
         for pid in [p for p in paused if now - paused_at.get(p, now) > a.max_pause]:
             try:
@@ -271,7 +267,7 @@ try:
                 budget -= pcpu / os.cpu_count()
                 log(f"cpu {cpu:.0f}%: paused {pid} ({pcpu:.0f}%) {cmd[:90]}")
         elif cpu < a.resume and paused:
-            pid = paused.pop(0)  # longest-paused first
+            pid = paused.pop(0)
             paused_at.pop(pid, None)
             try:
                 os.kill(pid, signal.SIGCONT)

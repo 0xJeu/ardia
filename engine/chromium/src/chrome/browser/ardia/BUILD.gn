@@ -1,13 +1,4 @@
 # Copyright 2026 Ardia. Apache-2.0.
-#
-# //chrome/browser/ardia: Ardia's own code in the Chromium tree. Plain
-# Chromium code over Chrome's services, exported as plain C (public/ac_engine.h)
-# and linked into ArdiaCore's //chrome:chrome_dll (chromium-ardia-layer.patch;
-# engine/chromium/apply.sh copies it in). The repo copy is engine/chromium/src;
-# never edit the tree's copy.
-#
-# One source_set: add your ac_<domain>.{h,cc} to `sources` (sorted) and the
-# deps it needs. Nothing in //chrome depends on this target.
 
 assert(is_mac)
 
@@ -119,19 +110,14 @@ source_set("ardia") {
     "//url",
   ]
 
-  # pip/: the Picture in Picture window's Core Animation fade.
   frameworks = [ "QuartzCore.framework" ]
 
-  # ac_downloads_mac.mm: the quarantine record (LSQuarantine);
-  # ac_external_apps.mm: the app that opens a scheme, and its icon.
   frameworks += [
     "AppKit.framework",
     "CoreServices.framework",
   ]
 }
 
-# Chrome's framework exports only what its lists name; ArdiaCore's framework also
-# exports every ac_* call (//chrome:chrome_dll depends on this).
 config("exports_config") {
   ldflags = [ "-Wl,-exported_symbols_list," +
               rebase_path("ac_engine.exports", root_build_dir) ]

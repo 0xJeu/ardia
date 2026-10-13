@@ -34,7 +34,6 @@ done
 [[ $# -gt 0 ]] || { echo "usage: $0 [--timeout S] [--every S] [--pid PID]… [--quiet] -- <test command…> (--help for more)" >&2; exit 64; }
 
 start=$(date +%s)
-# Each probe gets what's left of the deadline (at least 1 s), so a probe that hangs can't outlast it.
 probe() { timeout -k 2 "$((timeout - ($(date +%s) - start) > 0 ? timeout - ($(date +%s) - start) : 1))" "$@" >/dev/null 2>&1; }
 while true; do
   if probe "$@"; then

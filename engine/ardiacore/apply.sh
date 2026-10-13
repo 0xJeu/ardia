@@ -1,21 +1,4 @@
 #!/usr/bin/env bash
-# Puts ArdiaCore into the Chromium tree: copies src/ardia/ to //ardia and adds its hooks:
-# a dep of the macOS //chrome:chrome_dll on //ardia/core (Chrome's framework then links
-# our layer), ChromeMain making ArdiaCore's main delegate, Browser asking ArdiaCore for the window of a
-# Browser Chrome makes itself, HistoryTabHelper asking ArdiaCore which tabs are history,
-# declarativeNetRequest telling it which rules matched a tab's requests and when an extension's
-# rulesets are in force, CHECKs made tolerant of Browsers without a BrowserView, and the hooks
-# that took over from CEF's seams when CEF left the tree (docs/engine-build.md › hooks H1-H6:
-# the custom window, the WebContentsDelegate, permission prompts, context menus, the ResourceBundle
-# delegate, and g_ardia_embedder for what Chrome leaves to its embedder). Chrome's behaviour is
-# unchanged while ArdiaCore sets none of them. Idempotent. Never touches
-# args.gn; the next autoninja re-runs gn by itself.
-#
-#   engine/ardiacore/apply.sh            copy + hook
-#   engine/ardiacore/apply.sh --check    exit 1 if the tree differs from the repo
-#
-# Build (holding the chromium lock):
-#   scripts/agent/locked chromium -- autoninja -C out/Release_GN_arm64 chrome_framework
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${CHROMIUM_SRC:-$HOME/chromium-build/chromium_git/chromium/src}
@@ -63,7 +46,6 @@ if [[ "${1:-}" == --check ]]; then
 fi
 
 mkdir -p "$src/ardia"
-# No -t: a changed file gets a new mtime, so ninja always sees it (a restored older copy too).
 rsync -r --delete --checksum "$here/src/ardia/" "$src/ardia/"
 
 python3 - "$src/chrome/BUILD.gn" <<'PY'
@@ -72,7 +54,6 @@ path = sys.argv[1]
 s = open(path).read()
 if '"//ardia/core"' in s:
     sys.exit(0)
-# The macOS chrome_dll (the source_set the framework links): its deps end with cld_3.
 mac = s.index('target(_dll_target_type, "chrome_dll")')
 anchor = '      "//third_party/cld_3/src/src:cld_3",\n'
 at = s.index(anchor, mac) + len(anchor)
@@ -81,8 +62,6 @@ open(path, "w").write(s[:at] + hook + s[at:])
 print("hooked //chrome:chrome_dll")
 PY
 
-# ChromeMain (chrome/app/chrome_main.cc, compiled into Chrome's framework) makes ArdiaCore's
-# delegate, a ChromeMainDelegate, for every process.
 python3 - "$src/chrome/app/chrome_main.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -104,9 +83,6 @@ open(path, "w").write(s)
 print("hooked ChromeMain")
 PY
 
-# ArdiaCore makes the WebContentsDelegate of its own Browsers (ACWebContentsDelegate: every new tab
-# and window stays in the host's window); a Browser Chrome keeps gets Chrome's. ArdiaCore answers
-# from the Browser's window (one of its own, ac_browser_window.h), and only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/ui/browser_window/internal/browser_window_features.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -154,9 +130,6 @@ open(path, "w").write(s.replace(at, decl + at).replace(old, new))
 print("hooked BrowserWindowFeatures' WebContentsDelegate")
 PY
 
-# Reading mode's side panel controller CHECKs that only tests have a Browser without a side
-# panel UI. A viewless Browser has none (until ArdiaCore implements SidePanelUI, as Dia does).
-# g_ardia_viewless_browsers (defined with the toast hook below) says ArdiaCore runs the process.
 python3 - "$src/chrome/browser/ui/read_anything/read_anything_side_panel_controller.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -179,9 +152,6 @@ open(path, "w").write(s.replace(old, new).replace(inc_old, inc_new))
 print("hooked ReadAnythingSidePanelController")
 PY
 
-# Chrome's toasts ("Image copied", "Link copied") anchor to a BrowserView, and without an anchor
-# ToastController CHECKs that it's a test: right-click > Copy Image aborted the app. A viewless
-# Browser shows none. ArdiaCore sets g_ardia_viewless_browsers at launch.
 python3 - "$src/chrome/browser/ui/toasts/toast_controller.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -201,9 +171,6 @@ open(path, "w").write(s.replace(old, new))
 print("hooked ToastController")
 PY
 
-# And a viewless Browser turns every toast down up front: ShowToast marks the toast as showing
-# and starts its timer before CreateToast finds no anchor, and with no widget to close nothing
-# ever cleared it, so every later toast queued behind it forever.
 python3 - "$src/chrome/browser/ui/toasts/toast_controller.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -232,9 +199,6 @@ open(path, "w").write(s.replace(old, new))
 print("hooked ToastController::MaybeShowToast")
 PY
 
-# Closing a selection of pinned tabs (IDC_CLOSE_TAB, ⌘W as Chrome's command) asks for a confirmation
-# toast with the command's accelerator, and CHECKs the Browser's BrowserView for it. A viewless
-# Browser closes them as Chrome does without a ToastController.
 python3 - "$src/chrome/browser/ui/browser_commands.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -255,8 +219,6 @@ open(path, "w").write(s.replace(old, new).replace(inc_old, inc_new))
 print("hooked CloseTab's pinned tab toast")
 PY
 
-# Clearing history in chrome://settings tells the BrowserView's element (user education) and
-# CHECKs it is there. A viewless Browser has no such element: nothing to tell.
 python3 - "$src/chrome/browser/ui/webui/settings/settings_clear_browsing_data_handler.cc" <<'PY'
 import sys
 path = sys.argv[1]
@@ -284,11 +246,6 @@ open(path, "w").write(s.replace(old, new).replace(inc_old, inc_new))
 print("hooked ClearBrowsingDataHandler")
 PY
 
-# A Browser Chrome makes itself (chrome.windows.create, an incognito window, undocked DevTools,
-# document Picture in Picture) asks ArdiaCore for its window before Chrome builds a BrowserView:
-# ArdiaCore may host it in one of the app's windows. And a Browser ArdiaCore makes takes the window ArdiaCore
-# made for it (BrowserWindowCreateParams::window), which Chrome otherwise allows only in tests. The
-# factory is only ever set by ArdiaCore, as it starts, before any Browser.
 python3 - "$src/chrome/browser/ui/browser.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -333,15 +290,6 @@ open(path, "w").write(s)
 print("hooked Browser window creation")
 PY2
 
-# Chrome's ChromeMainDelegate and main parts leave to an embedder what CEF's build compiled out
-# under ENABLE_CEF (CEF's chrome_runtime.patch), now at run time: g_ardia_embedder, which
-# ACMainDelegate sets in every process. ArdiaCore does these itself (ac_main_delegate.cc) or wants
-# them off: --user-data-dir and the component paths, the startup metrics' core system profile, the
-# sampling profiler, Chrome's first run and initial prefs, --make-default-browser,
-# StartupBrowserCreator and the main RunLoop it makes, AppController and Chrome's main menu, the
-# about: -> chrome: URL handler, and the crash reporter (crash keys, ChromeCrashReporterClient,
-# crashpad: crashes stay with macOS's own reports). And Chrome's strings load through ArdiaCore's
-# ResourceBundle delegate (g_ardia_resource_bundle_delegate), in every process.
 python3 - "$src/chrome/app/chrome_main_delegate.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -435,7 +383,6 @@ decl = ("\n// Ardia: ArdiaCore (engine/ardiacore) embeds Chrome; defined in chro
         "extern bool g_ardia_embedder;\n")
 i = s.index(ns)
 s = s[:i] + decl + s[i:]
-# Initial preferences: an embedder's Chrome makes an empty MasterPrefs and reads none.
 start = """  std::unique_ptr<installer::InitialPreferences> installer_initial_prefs =
       startup_data_->chrome_feature_list_creator()->TakeInitialPrefs();
 """
@@ -540,11 +487,6 @@ open(path, "w").write(s.replace(old, new))
 print("hooked ChromeContentBrowserClient's URL handlers (embedder)")
 PY2
 
-# No platform policy provider for an embedder's Chrome, as on CEF (whose chrome_browser_policy patch made
-# CreatePlatformProvider return none unless the embedder named a policy id, which ArdiaCore never did). The
-# macOS one's first load runs on the main thread before BrowserMain and waits for /usr/bin/profiles
-# (base::IsManagedDevice): 0.2.31 launched 10-20 ms later for it, and it read every Chrome policy key
-# from the app's managed preferences, which no ArdiaCore build had done.
 python3 - "$src/chrome/browser/policy/chrome_browser_policy_connector.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -571,9 +513,6 @@ open(path, "w").write(s.replace(old, new))
 print("hooked ChromeBrowserPolicyConnector's platform provider (embedder)")
 PY2
 
-# Chrome's permission prompts ask ArdiaCore first: the host's tabs show the host's own prompt
-# (ac_permissions.mm). ArdiaCore returns a prompt, or null with `default_handling` false for none, or
-# null with it true for Chrome's bubble. Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/ui/views/permissions/permission_prompt_factory.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -617,8 +556,6 @@ open(path, "w").write(s.replace(at, decl).replace(old, new))
 print("hooked the permission prompt factory")
 PY2
 
-# Chrome's context menus ask ArdiaCore before showing: a background (test) instance's menu goes to
-# the host instead of the screen (ac_context_menu.mm). Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/renderer_context_menu/render_view_context_menu.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -653,9 +590,6 @@ print("hooked " + cls + "::Show")
 PY2
 done
 
-# A renderer crash shows Chrome's sad tab in the tab's ContentsWebView, found through the
-# Browser's BrowserView; ArdiaCore's Browsers have none (the host shows its own, from
-# tab:rendererGone:code:). Without one the sad tab stays unattached, as in unit tests.
 python3 - "$src/chrome/browser/ui/sad_tab_controller.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -676,11 +610,6 @@ open(path, "w").write(s.replace(old, new))
 print("hooked SadTabController")
 PY2
 
-# Chrome's autofill dropdown tells ArdiaCore each time it shows, whoever filled it: addresses and
-# entries (BrowserAutofillManager), saved passwords (PasswordAutofillManager, the manual
-# fallback), so the host hears of all of them (tab:didShowAutofillSuggestions:); also when its
-# search bar couldn't take focus in an app that isn't active (Chrome then doesn't count it
-# shown, though it is on screen). Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/ui/autofill/autofill_popup_controller_impl.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -701,8 +630,6 @@ new = """  // Ardia: ArdiaCore
                                            non_filtered_suggestions_);
   }
 """ + old
-# A dropdown with a search bar (the saved passwords) counts as shown only once its window
-# takes focus, which it can't in an app that isn't active: on screen all the same.
 old2 = """    if (!view_->Show(autoselect_first_suggestion)) {
       return;
     }
@@ -728,12 +655,6 @@ open(path, "w").write(s)
 print("hooked AutofillPopupControllerImpl")
 PY2
 
-# A new document's view takes over the last page's background (CopyBackgroundColorIfPresentFrom)
-# and, when that background isn't opaque, tells the renderer to paint the page on a transparent
-# base: with ArdiaCore's translucent page background (the host's pageBackgroundColor), every
-# navigation that swapped views after the last page reported its background lost it. With the
-# hook set, the opacity follows the colours the embedder set, as SetBackgroundColor's does.
-# Only ArdiaCore sets the hook.
 python3 - "$src/content/browser/renderer_host/render_widget_host_view_base.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -770,10 +691,6 @@ open(path, "w").write(s)
 print("hooked RenderWidgetHostViewBase")
 PY2
 
-# Chrome's "Open <app>?" dialog for a link to another app (mailto: aside, which Chrome opens
-# unasked) asks ArdiaCore first, before the Mac's "no app for this scheme" check: for the host's
-# tabs the host shows its own (and launches through Chrome on "open"). Only ArdiaCore sets the
-# hook.
 python3 - "$src/chrome/browser/external_protocol/external_protocol_handler.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -803,16 +720,13 @@ new = """  DCHECK(web_contents);
   if (delegate) {
     delegate->RunExternalProtocolDialog(url, web_contents, page_transition,"""
 assert s.count(old) == 1
-at = s.index(old_fn)  # the first anonymous namespace: the hook stays out of it
+at = s.index(old_fn)
 s = s[:at] + decl + s[at:]
 s = s.replace(old, new)
 open(path, "w").write(s)
 print("hooked external protocol dialog")
 PY2
 
-# HistoryTabHelper asks ArdiaCore whether a tab's navigations are history: the host's own pages
-# (the content blocker's hidden extension page, extension popups and side panels) never are,
-# as CEF's Alloy browsers never were. Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/history/history_tab_helper.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -841,10 +755,6 @@ open(path, "w").write(s)
 print("hooked HistoryTabHelper")
 PY2
 
-# declarativeNetRequest's ActionTracker tells ArdiaCore of each rule an extension's ruleset applied
-# to a tab's request (block, redirect…), as it counts them for the action's badge: the host's
-# blocked count follows what was stopped, redirects to a stand-in included. Only ArdiaCore sets
-# the hook.
 python3 - "$src/extensions/browser/api/declarative_net_request/action_tracker.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -873,15 +783,6 @@ open(path, "w").write(s)
 print("hooked declarativeNetRequest's ActionTracker")
 PY2
 
-# declarativeNetRequest's RulesMonitorService loads a component extension's enabled static
-# rulesets with the extension, and tells ArdiaCore when the rulesets an extension had as it loaded
-# are in force (read from disk on another sequence, a moment after the load): ArdiaCore holds a
-# profile's navigations until its content blocker's are (ac_navigation_hold.mm). A component
-# extension is never installed, so nothing indexed its rulesets and recorded their checksums:
-# Chrome skipped them all as "checksum not found" and the content blocker had no rules in a new
-# profile until its service worker turned its lists on again. Now they're indexed on that first
-# load (as Chrome indexes a ruleset enabled after install) and their checksums kept. Only ArdiaCore
-# loads component extensions with rulesets and sets the hook.
 python3 - "$src/extensions/browser/api/declarative_net_request/rules_monitor_service.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -951,9 +852,6 @@ open(path, "w").write(s)
 print("hooked declarativeNetRequest's RulesMonitorService")
 PY2
 
-# The Browser extensions get for their windows when nothing names one (a popup's window.open,
-# a private tab.create's parent) skips the host's own hidden pages, as chrome.windows' current
-# window does (chromium-hidden-window-current-window.patch): their windows are never shown.
 python3 - "$src/chrome/browser/extensions/browser_window_util.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -983,12 +881,6 @@ open(path, "w").write(s)
 print("hooked extensions' browser_window_util")
 PY2
 
-# Chrome's post-install UI ("<name> has been added") asks ArdiaCore first. Chrome's finds or makes
-# a tabbed Browser for it (a hidden window of ours, given none of the app's), adds a tab when
-# the Browser has none, and reads that Browser's active tab later through a raw pointer (the
-# host had closed the tab, or the window: a crash), then reaches for its BrowserView's
-# toolbar when the bubble closes (ours have none). ArdiaCore shows the bubble over a window the
-# app shows for the profile, later if there is none yet. Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/ui/extensions/extension_install_ui_desktop.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1017,9 +909,6 @@ open(path, "w").write(s)
 print("hooked the extension post-install UI")
 PY2
 
-# A downloaded .crx whose tab has gone asks without a tab under ArdiaCore (its install prompt is
-# the app's): Chrome would find a Browser, or make one (a hidden window of ours), and read its
-# active tab, which a Browser of the app's need not have. Only ArdiaCore sets the flag.
 python3 - "$src/chrome/browser/download/download_crx_util.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1046,10 +935,6 @@ open(path, "w").write(s)
 print("hooked download_crx_util's install prompt")
 PY2
 
-# Client hints and navigator.userAgentData name the browser by its product name, which a
-# Chromium-branded build leaves out ("Chromium" and the GREASE brand only). Meet and other sites
-# gate features on a "Google Chrome" brand, which Chrome-based browsers (Arc, Dia) report. With
-# the hook set, the brand list is Chrome's. Only ArdiaCore sets the hook.
 python3 - "$src/components/embedder_support/user_agent_utils.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1074,13 +959,6 @@ open(path, "w").write(s)
 print("hooked the user agent brand")
 PY2
 
-# Chrome's automatic Picture in Picture (a call's own window) follows the tab strip's active tab.
-# The host shows more and less than that (engine/ardiacore ac_host_visibility.h): both panes of a split
-# (focusing the other pane made Chrome take the call as left), and its own pages over the strip's
-# active tab (New Tab, another Space: the strip doesn't change). With the hook set, a tab the host
-# reported reads as activated exactly while the host shows it, and the host's changes reach the
-# observer (ArdiaAutoPictureInPictureHostVisibilityChanged) as the strip's do. Only ArdiaCore sets
-# the hook.
 python3 - "$src/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_strip_observer_helper.h" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1164,8 +1042,6 @@ update_new = """  if (tab_strip_model) {
     }
     // If there is not currently a selected tab, then the tabstrip is still
 """
-# The tab a switch went to, told it became active (and so to close its own window): never one the
-# host hides (leaving a split hides both panes; the strip's active one isn't where the user went).
 active_old = """  return observed_tab_strip_model_->GetActiveWebContents();
 }
 """
@@ -1186,12 +1062,6 @@ open(path, "w").write(s)
 print("hooked auto picture-in-picture's tab strip observer")
 PY2
 
-# Permission prompts follow the tab strip's active tab: a split's other pane (shown, not the strip's
-# active tab) couldn't prompt until focused, and a page under the host's own page (New Tab, another
-# Space) could. With the hook set, a tab the host reported (engine/ardiacore ac_host_visibility.h) can
-# prompt exactly while the host shows it; an open prompt stays with its page (ArdiaCore's prompts keep
-# alive across switches), and ArdiaCore tells the manager of each change through OnVisibilityChanged.
-# Only ArdiaCore sets the hook.
 python3 - "$src/components/permissions/permission_request_manager.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1252,11 +1122,6 @@ open(path, "w").write(s)
 print("hooked the permission request manager's tab activation")
 PY2
 
-# A site asking again for files it kept handles to (IndexedDB) gets Chrome's restore prompt, a bubble
-# anchored to the toolbar's page info icon: with no BrowserView that segfaulted
-# (bubble_anchor_util::GetPageInfoAnchorConfiguration). With the hook set, ArdiaCore asks its host
-# instead, as for every other permission, and takes the callback; it declines the Browsers it doesn't
-# host, which keep Chrome's bubble. Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/ui/views/file_system_access/file_system_access_restore_permission_bubble_view.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1286,12 +1151,6 @@ open(path, "w").write(s.replace(old, new))
 print("hooked the File System Access restore prompt")
 PY2
 
-# Chrome's tab-modal dialogs (TabDialogManager: FedCM's "Sign in with", Ask before HTTP) show while
-# their tab is the strip's active one; the host's own pages (New Tab) cover that tab without the
-# strip changing, so a dialog stayed up over them, and focusing a split's other pane hid it. With the
-# hook set, a tab the host reported (engine/ardiacore ac_host_visibility.h) shows its dialog exactly
-# while the host shows the tab (a split's other pane too), and ArdiaCore asks the manager again on each
-# change. Only ArdiaCore sets the hook (it is defined with auto Picture in Picture's, above).
 python3 - "$src/chrome/browser/ui/tabs/tab_dialog_manager.cc" <<'PY2'
 import sys
 path = sys.argv[1]
@@ -1318,8 +1177,6 @@ new = """  // Ardia: ArdiaCore (the host's reading, when it gave one)
       tab_interface_->GetBrowserWindowInterface()->GetWindow()->IsMinimized(),
       params_->should_show_callback);
 """
-# And a page the host still shows keeps its dialog when the strip's active tab moves off it
-# (focusing a split's other pane: the host's splits aren't Chrome's).
 bg_old = """void TabDialogManager::TabWillEnterBackground(TabInterface* tab_interface) {
   if (widget_) {
 """
@@ -1337,10 +1194,6 @@ open(path, "w").write(s)
 print("hooked TabDialogManager's visibility")
 PY2
 
-# chrome.action.openPopup() (and browserAction.openPopup) asks ArdiaCore first: its Browsers have no
-# toolbar, so Chrome refused every call ("Browser window has no toolbar"). The host shows the
-# popup in its own panel and Chrome answers the extension once the page has loaded (1Password
-# reopens its popup this way once its Mac app unlocks). Only ArdiaCore sets the hook.
 python3 - "$src/chrome/browser/extensions/api/extension_action/extension_action_api.cc" <<'PY2'
 import sys
 path = sys.argv[1]

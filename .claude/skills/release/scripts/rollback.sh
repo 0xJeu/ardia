@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# Going back after an update keeps the user's data: <previous> -> <new> -> <previous> on the same folder.
-# usage: rollback.sh <previous Ardia.app> <new Ardia.app>
-#
-# The test copies and fake home of carryover.sh (bundle id com.ardia.browser.rollback, signed ad hoc). The previous
-# build makes two profiles' data where an installed copy keeps it; the new build, started without ARDIA_DATA_DIR,
-# reads it and adds a second session (carryover.mjs "use"); then the previous build opens the folder again and must
-# show everything from both sessions, without crashing or resetting the profile. Prints Chrome's version and session
-# bookkeeping after each build (Local State, each profile's Preferences, its Sessions files, the app's documents) and
-# any crash report. Session cookies the previous build drops at its own launch are INFO, not FAIL (0.2.21 drops them
-# at every launch). Never touches /Applications, the real app's data or the login keychain.
 set -euo pipefail
 unset ARDIA_DATA_DIR ARDIA_UPDATE_FEED_URL
 
@@ -22,7 +12,7 @@ pages_port="${ROLLBACK_PAGES_PORT:-8793}"
 work="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/ac-rollback.XXXXXX")" && pwd -P)"
 server=""
 cleanup() {
-  pkill -KILL -f "^$work/" 2>/dev/null || true  # only this run's test copies
+  pkill -KILL -f "^$work/" 2>/dev/null || true
   [ -n "$server" ] && { kill "$server"; wait "$server"; } 2>/dev/null || true
   defaults delete "$test_id" >/dev/null 2>&1 || true
   rm -f "$HOME/Library/Preferences/$test_id.plist"
@@ -30,7 +20,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-copy() { # app dest: a test copy
+copy() {
   ditto "$1" "$2"
   /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $test_id" "$2/Contents/Info.plist"
   codesign --force --deep --sign - "$2" 2>/dev/null
@@ -52,7 +42,7 @@ sleep 1
 origin="http://127.0.0.1:$pages_port"
 data="$work/home/Library/Application Support/$test_id"
 export CARRYOVER_QUIT="$work/quit"
-state() { # Chrome's version and session bookkeeping, and the app's documents
+state() {
   python3 - "$1" "$data" <<'PY'
 import json, os, sys
 who, data = sys.argv[1], sys.argv[2]

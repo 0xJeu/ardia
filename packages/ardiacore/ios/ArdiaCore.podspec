@@ -1,9 +1,3 @@
-# The web engine's native side (Expo modules ArdiaCEF, ArdiaExtensions, ArdiaSwipe and
-# ArdiaChromeUI, the names the JS in ../src uses), on our own Chromium layer (engine/ardiacore).
-#
-# The engine is Chrome's framework built with engine/ardiacore ("Chromium Framework.framework"). The app
-# target stages a copy of it (packages/ardiacore/scripts/stage-framework.sh), links that and embeds it
-# (scripts/embed.sh); this pod only needs ArdiaCore's public header.
 engine_public = File.expand_path('../../../engine/ardiacore/src/ardia/core/public', __dir__)
 
 Pod::Spec.new do |s|

@@ -36,7 +36,6 @@ def tint_map(path: Path):
     hsv = np.array(half.convert("HSV")).astype(np.float32) / 255
     h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     sun = soft((h > 0.06) & (h < 0.13) & (s > 0.3) & (v > 0.6), 11, 1.5)
-    # The statistics come from the full-size pixels the page reads.
     lum = (np.array(full).astype(np.float32) / 255) @ LUMA
     sun_full = np.array(Image.fromarray((sun * 255).astype(np.uint8)).resize(full.size, Image.BILINEAR)) / 255
     lo, hi = np.percentile(lum[sun_full < 0.1], 1), np.percentile(lum[sun_full < 0.1], 99.5)

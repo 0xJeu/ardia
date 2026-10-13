@@ -1,16 +1,5 @@
--- Ardia telemetry schema. start.sh applies it on every boot, so every statement is idempotent;
--- a change to an existing table is a new ALTER ... IF NOT EXISTS line, never an edited CREATE.
---
---   otel_logs        what the collector writes: one row per OTLP log record. Analytics events are the
---                    records with an `event` attribute (body = event name); the rest are plain logs.
---   posthog_events   events exported from PostHog Cloud (2026-09-29 until the switch), same names.
---   events           the view to query: both of them, one shape, PostHog's names.
---   replay_sessions  one row per recorded session (rrweb chunks live in SeaweedFS, see the site's nginx).
-
 CREATE DATABASE IF NOT EXISTS telemetry;
 
--- The collector's ClickHouse exporter inserts the first 15 columns by name (create_schema is off, see
--- collector/config.yaml); the rest are computed here.
 CREATE TABLE IF NOT EXISTS telemetry.otel_logs
 (
     Timestamp DateTime64(9) CODEC(Delta(8), ZSTD(1)),
@@ -29,10 +18,7 @@ CREATE TABLE IF NOT EXISTS telemetry.otel_logs
     ScopeAttributes Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     LogAttributes Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     EventName String CODEC(ZSTD(1)),
-    -- '' for plain logs.
     Event LowCardinality(String) MATERIALIZED LogAttributes['event'],
-    -- The sender's event uuid is the dedupe key (a retried batch collapses at merge time). Plain logs
-    -- have none, so they get a random one and never collapse.
     Uuid String MATERIALIZED if(LogAttributes['uuid'] != '', LogAttributes['uuid'], toString(generateUUIDv4())),
     DistinctId String MATERIALIZED LogAttributes['distinct_id'],
     SessionId String MATERIALIZED LogAttributes['$session_id'],
@@ -42,12 +28,9 @@ CREATE TABLE IF NOT EXISTS telemetry.otel_logs
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(Timestamp)
 ORDER BY (Event, toDate(Timestamp), Uuid)
--- Events are kept; plain logs (app/site warnings and errors) for 90 days.
 TTL toDateTime(Timestamp) + INTERVAL 90 DAY DELETE WHERE Event = ''
 SETTINGS index_granularity = 8192;
 
--- PostHog Cloud's events as exported (scratch export + infra/telemetry/import-posthog.py). Property values are
--- strings, as in otel_logs: string properties unquoted, anything else as its JSON text (true, 12, [..]).
 CREATE TABLE IF NOT EXISTS telemetry.posthog_events
 (
     uuid String,
@@ -63,14 +46,9 @@ ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (event, toDate(timestamp), uuid);
 
--- Compact parts (all columns in one file) until a part passes 1 GiB. Wide parts keep two files per
--- column and these tables are mostly Maps, so a stats query over wide parts held hundreds of files open
--- per table and four at once ran the server out (errno 24, 2026-10-01). start.sh merges older wide parts.
 ALTER TABLE telemetry.otel_logs MODIFY SETTING min_bytes_for_wide_part = 1073741824;
 ALTER TABLE telemetry.posthog_events MODIFY SETTING min_bytes_for_wide_part = 1073741824;
 
--- Everything, in PostHog's shape. `source` is the service that sent it (ardia-site, ardia-app,
--- ardia-feed; netnyahoo-site, -app and -feed before the rename) or posthog-cloud for the migrated history. Deduplicated on uuid.
 CREATE OR REPLACE VIEW telemetry.events AS
 SELECT
     Uuid AS uuid,
@@ -84,8 +62,6 @@ SELECT
     ResourceAttributes['service.version'] AS source_version
 FROM telemetry.otel_logs FINAL
 WHERE Event != ''
-  -- Checks of the pipeline itself (docs/growth.md, Telemetry): service ardia-selftest (netnyahoo-selftest
-  -- before the rename), or a sender whose version is 0.0.0-selftest.
   AND ServiceName NOT IN ('ardia-selftest', 'netnyahoo-selftest')
   AND ResourceAttributes['service.version'] != '0.0.0-selftest'
 UNION ALL
@@ -101,7 +77,6 @@ SELECT
     '' AS source_version
 FROM telemetry.posthog_events FINAL;
 
--- Plain logs (not events), newest first when you ORDER BY timestamp DESC.
 CREATE OR REPLACE VIEW telemetry.logs AS
 SELECT
     toDateTime64(Timestamp, 6, 'UTC') AS timestamp,
@@ -113,9 +88,6 @@ SELECT
 FROM telemetry.otel_logs
 WHERE Event = '' AND ServiceName NOT IN ('ardia-selftest', 'netnyahoo-selftest') AND ResourceAttributes['service.version'] != '0.0.0-selftest';
 
--- One row per recorded session. The site sends a `$replay_chunk` event with every chunk it uploads
--- (replays/<day>/<session>/<seq>.json[.gz] in SeaweedFS); pages, clicks and device come from the
--- session's other events.
 CREATE OR REPLACE VIEW telemetry.replay_sessions AS
 SELECT
     c.session_id AS session_id,

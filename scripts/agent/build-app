@@ -55,9 +55,6 @@ log="$dd/build-app.log"
 app="$dd/Build/Products/$config/Ardia.app"
 stamp_file="$dd/.ac-native-stamp-$config"
 
-# Everything the native build reads that git sees, plus the Pods install and the engine framework. A change
-# anywhere else is JS (or docs, tests…), which Metro serves to every instance. A pathspec with a wildcard matches whole
-# paths only: 'packages/*/ios' matched no file, so every edit there read as JS-only.
 native_stamp() {
   (
     cd "$repo" || exit 1
@@ -84,7 +81,6 @@ print(h.hexdigest())
 }
 
 stamp=$(native_stamp) || { echo "build-app: couldn't hash the native files" >&2; exit 1; }
-# (A Release build bundles the JS, so it always builds.)
 if [[ -z "$force" && $config == Debug && -d "$app" && -f "$stamp_file" && "$(cat "$stamp_file")" == "$stamp" ]]; then
   echo "JS-only: Metro reloads it; no build needed (no native file changed since $app was built; --force builds anyway)"
   exit 0
@@ -103,7 +99,6 @@ echo "build-app: $config into ${dd#"$repo"/} (log: ${log#"$repo"/})"
 status=$?
 elapsed=$(($(date +%s) - start))
 
-# Errors, each failed build command, and a failed script's own last 30 lines.
 python3 - "$log" <<'PY'
 import re, sys
 lines = open(sys.argv[1], errors="replace").read().split("\n")

@@ -1,21 +1,8 @@
 #!/bin/bash
-# Downloads the prebuilt engine (Chrome's framework built with engine/, "Chromium Framework.framework") that matches
-# this checkout, so the app builds without a Chromium tree. Prints the framework's path; everything else goes to stderr.
-# stage-framework.sh runs it when there's no local engine build (~/chromium-build) and no ARDIACORE_FRAMEWORK.
-#
-#   fetch-engine.sh             the engine built from exactly this checkout's engine/ (its git tree)
-#   fetch-engine.sh --nearest   or else the newest one built from an earlier engine/ (the app may not match it)
-#
-# Every release whose engine/ changed attaches ArdiaCore-<tree>.tar.xz (release.sh packs it: stripped, ~110 MB) and adds
-# a line to prebuilt-engines.tsv: engine/'s git tree, the release, the archive's SHA-256. The download is checked
-# against that line, so it is only as trusted as this repo. A line lands after its release is tagged: a checkout of
-# the tag looks it up in main's copy of the table.
-# Uncommitted changes under engine/ can't be in any prebuilt: build the engine (docs/engine-build.md).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
 repo=${ARDIACORE_PREBUILT_REPO:-mantrakp04/ardia}
-# Where release assets download from (another host for a fork, a local server for a test).
 assets=${ARDIACORE_PREBUILT_ASSETS:-https://github.com/$repo/releases/download}
 table="$here/../prebuilt-engines.tsv"
 store="$root/apps/browser/build-ardiacore/prebuilt"
@@ -34,7 +21,6 @@ git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || die "$root isn't a git che
   || die "engine/ has uncommitted changes, and no prebuilt has them: build the engine (docs/engine-build.md)"
 tree=$(git -C "$root" rev-parse HEAD:engine)
 
-# Lines of the table: <engine tree> <version> <sha256>. This checkout's copy, then main's.
 remote_table=""
 lookup() {
   local line
@@ -49,7 +35,6 @@ lookup() {
 
 entry=$(lookup "$tree")
 if [ -z "$entry" ]; then
-  # The newest engine/ before this one that has a prebuilt: walk the commits that changed engine/.
   skipped=0 found=""
   while read -r commit; do
     candidate=$(lookup "$(git -C "$root" rev-parse "$commit:engine" 2>/dev/null || true)")
@@ -85,7 +70,6 @@ if [ ! -f "$dest/.complete" ]; then
   rm -rf "$dest"
   mv "$tmp" "$dest"
   trap - EXIT
-  # Only the engine in use is kept.
   for old in "$store"/*/; do
     [ "${old%/}" = "$dest" ] || rm -rf "${old%/}"
   done

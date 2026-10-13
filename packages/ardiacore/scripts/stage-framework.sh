@@ -1,23 +1,9 @@
 #!/bin/bash
-# Stages ArdiaCore for the app target (apps/browser/macos): a copy of Chrome's framework built with
-# engine/ardiacore, signed ad hoc with its helpers. The app links the staged copy and embed.sh clones it into the bundle.
-#
-# Each build stages into its own ARDIACORE_STAGE_DIR (the project sets it inside the derived data), so builds running
-# in parallel never replace a framework another one is linking or embedding. The copy is made and signed once per
-# engine build into a shared cache (apps/browser/build-ardiacore/staged/<key>), and each build clones that: an APFS
-# clone, instant, no new disk. The copy out of Chromium's out dir holds the chromium lock (an engine build writes
-# there under it), and the key is read under that lock too, so it always names what was copied. No lock is held while
-# waiting for another: two builds that find a new engine at once both copy and sign, and the first to publish wins.
-#
-#   ARDIACORE_FRAMEWORK=<path to Chromium Framework.framework>   another build than out/Release_GN_arm64
-# Without a local engine build, it uses the prebuilt one matching engine/ (fetch-engine.sh downloads it once).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../.." && pwd)
 name="Chromium Framework"
 
-# Which engine build: where it is, when its binary was written and its size, and when its newest file was (a build
-# that changes only resources, Chromium's logo say, rewrites paks and helpers but not the binary).
 key_of() {
   printf '%s %s %s' "$1" "$(stat -f '%m %z' "$1/Versions/Current/$name")" \
     "$(find "$1/Versions/Current/" -type f -exec stat -f '%m' {} + | sort -n | tail -1)" | shasum -a 256 | cut -c1-16
@@ -34,8 +20,6 @@ fi
 dest=${ARDIACORE_STAGE_DIR:-$repo/apps/browser/build-ardiacore/ArdiaCoreFramework}
 cache=${ARDIACORE_STAGE_CACHE:-$repo/apps/browser/build-ardiacore/staged}
 
-# Under the cache lock (fill_cache): publish a signed copy as <key> unless another build did first, then drop copies
-# of other engine builds nobody has staged from in an hour, and leftovers of stagers that died.
 if [[ "${1:-}" == --publish ]]; then
   tmp=$2 key=$3
   if [[ -f "$cache/$key/.complete" ]]; then
@@ -57,7 +41,6 @@ fi
 [[ -d "$src" ]] || { echo "error: no ArdiaCore framework at $src (engine/ardiacore/apply.sh, then build chrome_framework)" >&2; exit 1; }
 stamp="$dest/.stamp"
 
-# Copies the engine into a private folder of the cache and signs it, then publishes it. Prints the key.
 fill_cache() {
   local tmp="$cache/.tmp-$$" key fwv lib helper
   rm -rf "$tmp" && mkdir -p "$tmp" || return 1
@@ -67,7 +50,6 @@ fill_cache() {
     "$3" --key "$1" >"$2/.key"
     cp -cR "$1" "$2/"' _ "$src" "$tmp" "$here/${0##*/}" >&2 || return 1
   key=$(cat "$tmp/.key") || return 1
-  # Ad hoc, without the hardened runtime (a development build; release signing is docs/releasing.md's).
   sign() { codesign --force --timestamp=none --sign - "$@"; }
   fwv=$(cd "$tmp/$name.framework/Versions/Current" && pwd -P) || return 1
   for lib in "$fwv"/Libraries/*.dylib; do
@@ -78,7 +60,6 @@ fill_cache() {
   done
   sign "$tmp/$name.framework" || return 1
   touch "$tmp/.complete" "$tmp/.used" || return 1
-  # lockf's lock dies with its holder.
   lockf -k -t 120 "$cache/.lock" "$0" --publish "$tmp" "$key" >&2 || return 1
   echo "$key"
 }
@@ -92,7 +73,6 @@ for attempt in 1 2 3; do
   if [[ ! -f "$cache/$key/.complete" ]]; then
     key=$(fill_cache) || { echo "error: staging ArdiaCore from $src failed" >&2; exit 1; }
   fi
-  # Marks the copy in use (pruning skips it for an hour), then clones it. Pruned in between: stage it again.
   touch "$cache/$key/.used" 2>/dev/null || continue
   rm -rf "$dest/$name.framework.new"
   cp -cR "$cache/$key/$name.framework" "$dest/$name.framework.new" 2>/dev/null || continue

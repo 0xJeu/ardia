@@ -1,36 +1,28 @@
-# Dependencies
 node_modules/
 .pnpm-store/
 
-# Turbo / TypeScript
 .turbo/
 *.tsbuildinfo
 
-# Expo / Metro / React Native
 .expo/
 .metro-health-check*
 *.jsbundle
 
-# Env and machine-local Xcode
 .env
 .env.*
 !.env.example
 .xcode.env.local
 
-# Logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS
 .DS_Store
 Thumbs.db
 
-# Xcode DerivedData, including per-agent build-<name> dirs
 build/
-# …but not the engine source build's step scripts (docs/engine-build.md)
 !engine/patches/build/
 build-*/
 DerivedData/
@@ -44,24 +36,18 @@ xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 
-# CocoaPods / SwiftPM
 Pods/
 .swiftpm/
 .build/
 
-# The content blocker's filter lists (packages/ardiacore/scripts/ubol.sh)
 packages/ardiacore/vendor/
 
-# Generated design / video frames
 output/
 
-# Test / coverage
 coverage/
 .nyc_output/
 
-# Release builds (scripts/release.sh)
 dist/
 
-# Notarization API key settings (scripts/release.sh)
 scripts/.notary.env
 *.p8

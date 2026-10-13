@@ -35,7 +35,6 @@ def v10(plain):
 
 
 def hashed(host, value):
-    # Cookies DB v24+: the plaintext starts with SHA-256(host_key).
     return v10(hashlib.sha256(host.encode()).digest() + value.encode())
 
 
@@ -51,12 +50,9 @@ CREATE TABLE meta(key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR
 INSERT INTO meta VALUES ('version', '24');
 CREATE TABLE cookies(creation_utc INTEGER NOT NULL,host_key TEXT NOT NULL,top_frame_site_key TEXT NOT NULL,name TEXT NOT NULL,value TEXT NOT NULL,encrypted_value BLOB NOT NULL,path TEXT NOT NULL,expires_utc INTEGER NOT NULL,is_secure INTEGER NOT NULL,is_httponly INTEGER NOT NULL,last_access_utc INTEGER NOT NULL,has_expires INTEGER NOT NULL,is_persistent INTEGER NOT NULL,priority INTEGER NOT NULL,samesite INTEGER NOT NULL,source_scheme INTEGER NOT NULL,source_port INTEGER NOT NULL,last_update_utc INTEGER NOT NULL,source_type INTEGER NOT NULL,has_cross_site_ancestor INTEGER NOT NULL);
 """)
-# The cookies e2e.mjs checks, by name. Five import; the rest are refused or skipped on purpose.
-# host, top_frame, name, plain value, encrypted value, path, expires (unix, 0 = session), secure, httponly,
-# priority, samesite, source scheme, source port (0 = the fixture server's)
 rows = [
     ("localhost", "", "ac_sid", "", hashed("localhost", "s3ss10n-e2e"), "/", future, 1, 1, 2, 1, 2, 443),
-    ("localhost", "", "ac_legacy", "", v10(b"no-host-prefix"), "/", future, 0, 0, 1, 2, 1, 80),  # undecryptable
+    ("localhost", "", "ac_legacy", "", v10(b"no-host-prefix"), "/", future, 0, 0, 1, 2, 1, 80),
     ("localhost", "", "ac_session", "until-quit", b"", "/", 0, 0, 0, 0, -1, 1, 0),
     ("localhost", "", "ac_expired", "", hashed("localhost", "gone"), "/", now - 86400, 0, 0, 1, 0, 1, 80),
     ("localhost", "", "ac_other_path", "", hashed("localhost", "elsewhere"), "/private", future, 0, 0, 1, 1, 1, 0),
@@ -65,7 +61,7 @@ rows = [
     (".com", "", "ac_supercookie", "", hashed(".com", "everywhere"), "/", future, 1, 0, 1, 0, 2, 443),
     ("partitioned.example", "https://top.example", "ac_chips", "", hashed("partitioned.example", "chips"), "/", future, 1, 0, 1, 0, 2, 443),
 ]
-port = int(sys.argv[3]) if len(sys.argv) > 3 else 80  # the fixture server's port, for localhost cookies
+port = int(sys.argv[3]) if len(sys.argv) > 3 else 80
 for (host, top, name, value, enc, path, exp, sec, http, prio, ss, scheme, src_port) in rows:
     persistent = 1 if exp else 0
     db.execute("INSERT INTO cookies VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)",
@@ -82,7 +78,6 @@ CREATE TABLE credit_cards (guid VARCHAR PRIMARY KEY, name_on_card VARCHAR, expir
 """)
 g = "00000000-0000-4000-8000-00000000e2e1"
 wd.execute("INSERT INTO addresses VALUES (?,1,0,0,'en','',0,0)", (g,))
-# Chrome's FieldType numbers: name, company, street, city, state, zip, country, phone, email.
 for t, v in [(7, "The mascot"), (60, "Ardia Test Co"), (77, "1 Fixture Way"), (33, "Testville"), (34, "CA"),
              (35, "94000"), (36, "US"), (14, "+14155550100"), (9, "mascot@example.com")]:
     wd.execute("INSERT INTO address_type_tokens VALUES (?,?,?,0,NULL)", (g, t, v))

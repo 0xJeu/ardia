@@ -23,21 +23,18 @@ import tint_maps
 
 HERE = Path(__file__).resolve().parent
 GAME = HERE.parent / "offline-game" / "assets"
-SPRITE_H = 400  # px; covers ~4x zoom on back rows at 2x DPR
+SPRITE_H = 400
 BG_W = 1600
 
-# Sheets and which cells (row-major, 0-based) to drop after review.
 SHEETS = {
-    "sheet1": ("crowd", set()),  # adult sheep
-    "sheet2": ("crowd", set()),  # more sheep
-    "sheet3": ("crowd", set()),  # goats
-    "sheet4": ("crowd", set()),  # dogs, donkey, geese, alpacas
-    "sheet5": ("crowd", set()),  # white- and brown-faced lambs
+    "sheet1": ("crowd", set()),
+    "sheet2": ("crowd", set()),
+    "sheet3": ("crowd", set()),
+    "sheet4": ("crowd", set()),
+    "sheet5": ("crowd", set()),
     "decoys": ("decoy", set()),
-    "lamb": ("lamb", set()),  # the lost lamb: black face, sun-yellow bell
+    "lamb": ("lamb", set()),
 }
-# Decoy trait per cell (row-major, prompts/decoys.txt) for the difficulty ramp:
-# "lamb" looks like her but has no yellow bell, "bell" wears her bell but isn't her.
 DECOY_TRAITS = ["lamb", "bell", "lamb", "bell", "lamb", "bell", "lamb", "bell", "lamb"]
 
 
@@ -50,8 +47,6 @@ def cut_sheet(raw: Path, cutout_bin: str, tmp: Path):
     labels, n = ndimage.label(solid)
     areas = ndimage.sum(np.ones_like(a), labels, range(1, n + 1))
     median = float(np.median([x for x in areas if x > 0.005 * a.size]))
-    # Animals that touch come out as one blob: cut it at the thinnest
-    # column (side by side) or row (stacked) near its middle, then relabel.
     for i, sl in enumerate(ndimage.find_objects(labels)):
         if areas[i] < 1.6 * median:
             continue
@@ -75,13 +70,11 @@ def cut_sheet(raw: Path, cutout_bin: str, tmp: Path):
             continue
         ys, xs = sl
         comps.append((ys.start, ys.stop, xs.start, xs.stop, i + 1))
-    # Row-major order: bucket by vertical centre into thirds of the sheet.
     h = a.shape[0]
     comps.sort(key=lambda c: (int(((c[0] + c[1]) / 2) / (h / 3)), (c[2] + c[3]) / 2))
     out = []
     for y0, y1, x0, x1, lab in comps:
         crop = np.asarray(im)[y0:y1, x0:x1].copy()
-        # Keep only this component's pixels (neighbours can poke into the bbox).
         keep = ndimage.binary_dilation(labels[y0:y1, x0:x1] == lab, iterations=3)
         crop[:, :, 3] = np.where(keep, crop[:, :, 3], 0)
         out.append(Image.fromarray(crop, "RGBA"))
@@ -142,7 +135,7 @@ def main():
     for src in sorted(raw_dir.glob("bg-*.png")):
         im = Image.open(src).convert("RGB")
         im = im.resize((BG_W, round(im.height * BG_W / im.width)), Image.LANCZOS)
-        im.save(GAME / "bg" / f"{src.stem}.webp", "WEBP", quality=60, method=6)  # impasto is high-frequency: 72 costs 50 KB more per scene
+        im.save(GAME / "bg" / f"{src.stem}.webp", "WEBP", quality=60, method=6)
         bgs.append({"id": src.stem, "w": im.width, "h": im.height})
 
     manifest = {"sprites": sprites, "backgrounds": bgs}

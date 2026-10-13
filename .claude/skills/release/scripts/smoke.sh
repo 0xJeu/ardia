@@ -1,28 +1,4 @@
 #!/usr/bin/env bash
-# Smoke test of a release build before publishing it.
-# usage: smoke.sh <version> <previous-version> [--rc]
-#   Tests dist/<version>/ (dist/<version>-rc/ with --rc). SMOKE_APP=<path to Ardia.app> tests that build instead
-#   (an engine change before it ships, say): the version arguments still drive the release-notes check, and the
-#   checks of the release's files (zip, DMG, appcast) are skipped.
-#
-# First what an update from <previous> depends on (dist/<previous>/export/Ardia.app):
-# - the engine is ArdiaCore (Chrome's framework, no CEF);
-# - Sparkle on <previous> would install it in place: same bundle id, executable, feed and EdDSA key, it satisfies
-#   <previous>'s designated requirement (Sparkle's code-signing check, and what the keychain and TCC trust), a higher
-#   build number, and the appcast's signature of the zip verifies with that key. Across the rename (<previous> is
-#   still com.netnyahoo.browser) the bundle id, executable and feed (netnyahoo.com → ardia.dev) change on purpose: then the EdDSA key must stay, both feeds must lead to the same appcast,
-#   the designated requirement must hold under the new id (same team and certificate), and Sparkle accepts the new
-#   identity on the unchanged key (update-test.sh shows it does);
-# - Gatekeeper accepts the app and the DMG as notarized and stapled;
-# - update-test.sh: <previous>'s Sparkle really updates a copy to this build (test copies, a local feed);
-# - carryover.sh: <previous>'s data, where an installed copy keeps it, opens in this build with nothing converted.
-# Then it launches the build hidden (ARDIA_BACKGROUND=1: no Dock icon, never takes focus) with a throwaway data
-# dir that says <previous> ran last, so the after-update release-notes tab opens (ARDIA_RELEASE_NOTES=1), and
-# whose session has a window left on its second profile (each profile a Chrome window of its own: the window restores
-# as the Work profile's, Personal's made ahead off screen; Work shows its pinned tab). Runs smoke.mjs over CDP, checks
-# the browser's child processes are the bundle's own helpers, quits the app as ⌘Q and updates do and checks it exits
-# cleanly, then that the bundle is still sealed.
-# Never touches /Applications or the user's own data.
 set -euo pipefail
 
 version="${1:?usage: smoke.sh <version> <previous-version> [--rc]}"
@@ -31,7 +7,6 @@ root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 here="$(cd "$(dirname "$0")" && pwd)"
 if [ "${3:-}" = --rc ]; then dist="$root/dist/$version-rc"; else dist="$root/dist/$version"; fi
 app="${SMOKE_APP:-$dist/export/Ardia.app}"
-# <previous>'s export, whatever it was called (0.2.32 and earlier: Netnyahoo.app).
 old="$(ls -d "$root/dist/$previous/export"/*.app 2>/dev/null | head -1)"
 old="${old:-$root/dist/$previous/export/Ardia.app}"
 port="${SMOKE_CDP_PORT:-9398}"
@@ -57,7 +32,7 @@ cleanup() {
 trap cleanup EXIT
 
 status=0
-check() { # name ok detail
+check() {
   if [ "$2" = 1 ]; then echo "PASS  $1${3:+  ($3)}"; else echo "FAIL  $1${3:+  ($3)}"; status=1; fi
 }
 info() { /usr/libexec/PlistBuddy -c "Print :$2" "$1/Contents/Info.plist" 2>/dev/null || true; }
@@ -74,7 +49,6 @@ if [ -d "$old" ]; then
   [ -n "$legacy_id" ] && [ "$old_id" = "$legacy_id" ] && [ "$new_id" != "$legacy_id" ] && renamed=1
   if [ "$renamed" = 1 ]; then
     echo "      renamed: $old_id → $new_id, $(info "$old" CFBundleExecutable) → $(info "$app" CFBundleExecutable)"
-    # The feed moves with the domain (netnyahoo.com → ardia.dev): both must lead to the same appcast, below.
     keys="SUPublicEDKey" what="same update key as $previous (the rename keeps it)"
   else
     keys="CFBundleIdentifier CFBundleExecutable SUFeedURL SUPublicEDKey" what="same bundle id, executable, feed and update key as $previous"
@@ -85,8 +59,6 @@ if [ -d "$old" ]; then
   done
   check "$what" $same
   if [ "$renamed" = 1 ]; then
-    # Copies still on <previous> ask its feed for good; this build asks its own. Both hosts serve the same nginx
-    # (infra/site/nginx.conf), which redirects to the latest release's appcast.
     old_feed="$(info "$old" SUFeedURL)" new_feed="$(info "$app" SUFeedURL)"
     to_old="$(curl -s -o /dev/null -m 15 -w '%{redirect_url}' "$old_feed" || true)"
     to_new="$(curl -s -o /dev/null -m 15 -w '%{redirect_url}' "$new_feed" || true)"
@@ -95,7 +67,6 @@ if [ -d "$old" ]; then
   fi
   old_dr="$(codesign -d -r- "$old" 2>&1 | sed -n 's/^designated => //p')"
   if [ "$renamed" = 1 ]; then
-    # The keychain and TCC see a new app; what carries over is the team and certificate, under the new id.
     old_dr="${old_dr//\"$old_id\"/\"$new_id\"}"
     codesign --verify -R="$old_dr" "$app" 2>"$work/dr.log" && ok=1 || ok=0
     check "satisfies $previous's designated requirement under the new bundle id (same team and certificate)" $ok "$(head -c 160 "$work/dr.log")"
@@ -111,7 +82,6 @@ fi
 zip="$dist/Ardia-$version.zip"
 dmg="$dist/Ardia-$version.dmg"
 if [ -z "${SMOKE_APP:-}" ]; then
-  # What Sparkle downloads: the zip in the appcast, signed with the update key, holding this very app.
   for f in "$zip" "$dmg" "$dist/appcast.xml"; do [ -f "$f" ] || check "the release has $(basename "$f")" 0; done
   if [ -f "$zip" ] && [ -f "$dist/appcast.xml" ]; then
     swiftc -O "$here/ed25519.swift" -o "$work/ed25519" 2>/dev/null
@@ -121,7 +91,6 @@ if [ -z "${SMOKE_APP:-}" ]; then
     ok=0
     [ -n "$signature" ] && "$work/ed25519" verify "$zip" "$signature" "$(info "$app" SUPublicEDKey)" && [ "$length" = "$(stat -f %z "$zip")" ] && ok=1
     check "the appcast's EdDSA signature of the zip verifies with the app's SUPublicEDKey" $ok "length ${length:-none}"
-    # Its top folder has the installed copies' file name (release.sh), whatever it is.
     mkdir -p "$work/zip" && ditto -x -k "$zip" "$work/zip"
     zapp="$(ls -d "$work/zip"/*.app 2>/dev/null | head -1)"
     [ -n "$zapp" ] && [ -n "$(cdhash "$app")" ] && [ "$(cdhash "$zapp")" = "$(cdhash "$app")" ] \
@@ -155,7 +124,7 @@ server=$!
 mkdir -p "$work/data"
 printf '{"version":1,"lastVersion":"%s","pending":null}' "$previous" > "$work/data/release-notes.json"
 pages="http://localhost:$pages_port"
-tab() { # id profile url [pinned]
+tab() {
   local pinned="${4:-false}" home=null
   [ "$pinned" = true ] && home="\"$3\""
   printf '{"id":"%s","windowId":"w-smoke","profileId":"%s","url":"%s","title":"","favicon":null,"pinned":%s,"muted":false,"zoom":1,"customTitle":null,"customIcon":null,"pinnedUrl":%s,"openerId":null,"createdAt":1,"lastActiveAt":1}' "$1" "$2" "$3" "$pinned" "$home"
@@ -173,41 +142,29 @@ cat > "$work/data/session.json" <<JSON
  "groups":[],"splits":[],"closedTabs":[],"closedWindows":[],"closedGroups":[],"cleanedTabs":[]}
 JSON
 
-# Chrome's last-used profile is Work's, as after quitting with Work's window in front (smoke.mjs checks Personal's
-# pages don't run in it).
-# The dev harness (dev-eval.js), which release builds start only for an isolated instance with a perf-probe file:
-# smoke.mjs reads the window's accessibility tree through it. The probe itself only counts store and timer calls.
 : > "$work/data/perf-probe"
 
 mkdir -p "$work/data/Chromium"
 printf '{"profile":{"last_used":"Profile p-work"}}' > "$work/data/Chromium/Local State"
 
 codesign --verify --deep --strict "$app"
-# Hidden, with its own data dir and DevTools port (scripts/lib/instance.mjs). Its pid is the process of this build that
-# started listening on our port: another of the same build may be running, even one the owner opened during the run
-# (a process-list diff once picked theirs and killed it at the end). It records the instance in data/instance.json,
-# which smoke.mjs attaches to; its own bundle's JS (--js none), as a release runs.
 launched="$("$root/scripts/agent/ac" launch "$app" --data "$work/data" --port "$port" --js none --no-wait \
   --env ARDIA_RELEASE_NOTES=1 --env ARDIA_PIP_SELFTEST=close --switch --disable-backgrounding-occluded-windows)" \
   || { echo "error: the app didn't start" >&2; exit 1; }
 pid="$(sed -n 's/^pid \([0-9]*\) .*/\1/p' <<<"$launched")"
 [ -n "$pid" ] || { echo "error: the app didn't start ($launched)" >&2; exit 1; }
-sleep 8  # session restore, then the release-notes tab
+sleep 8
 
 locked="$("$work/windows" --locked)"
 [ "$locked" = 1 ] && echo "note: the screen is locked; checks of window order and closing are skipped (they need an unlocked screen)"
 SMOKE_LOCKED="$locked" SMOKE_DATA="$work/data" SMOKE_KEYS="$work/keys" SMOKE_GURL="$work/gurl" node "$here/smoke.mjs" "$version" "$work/windows" "$pages" || status=1
 
-# Chrome's process checks pass under Developer ID signing: the browser's children are the bundle's own helpers.
 children="$(ps -axo ppid=,pid=,comm= | awk -v p="$pid" '$1 == p { $1 = ""; $2 = ""; sub(/^ +/, ""); print }')"
 foreign="$(printf '%s\n' "$children" | grep -v "^$fw/Chromium Framework.framework/" | grep -v '^$' || true)"
 kinds="$(printf '%s\n' "$children" | sed -n 's/.*Helpers\/\([^/]*\)\.app\/.*/\1/p' | sort | uniq -c | tr -s ' ' | tr '\n' ',')"
 [ -z "$foreign" ] && [[ "$kinds" == *"(Renderer)"* ]] && ok=1 || ok=0
 check "the browser's child processes are the bundle's own helpers (a renderer among them)" $ok "${kinds%,}${foreign:+; foreign: $foreign}"
 
-# Quit it as ⌘Q and Sparkle's update do (the quit Apple event, to this instance only; SIGTERM skips
-# the app's own shutdown): it must be gone within 15 s, exit 0 and leave no crash report. 0.2.6 and
-# 0.2.7 crashed on every quit, so every update ended in "Ardia quit unexpectedly".
 log stream --style compact --predicate "process == \"runningboardd\" AND eventMessage CONTAINS \":$pid]\" AND eventMessage CONTAINS \"termination reported\"" \
   > "$work/exit.log" 2>/dev/null &
 logger=$!
@@ -220,15 +177,10 @@ if kill -0 "$pid" 2>/dev/null; then
   echo "FAIL  quits cleanly on the quit Apple event  (still running after 15 s)"
   status=1
 else
-  # runningboardd's record of the exit ("(0, 0, 0)": status 0, no signal), and ReportCrash's report.
   exited="" report=""
   for _ in $(seq 1 10); do
     sleep 1
-    # The app's own line ("[app<…>:<pid>] termination reported"). Lines for XPC services it used also
-    # carry its pid ("[xpcservice<…([app<…>:<pid>])…>:<their pid>]"), and launchd SIGKILLs those
-    # (2, 9, 9) as their client exits, sometimes logging them first.
     exited="$(grep -o ">:$pid\] termination reported by launchd ([0-9, ]*)" "$work/exit.log" | head -1 | sed 's/.*launchd //' || true)"
-    # Only reports written after the quit: pids get reused, and an old report can share this one's.
     report="$(find ~/Library/Logs/DiagnosticReports ~/Library/Logs/DiagnosticReports/Retired -maxdepth 1 \
       -name 'Ardia-*.ips' -newer "$work/quit-marker" -exec grep -l "\"pid\" : $pid," {} + 2>/dev/null | head -1 || true)"
     [ -n "$report" ] && break
@@ -246,11 +198,7 @@ fi
 logger=""
 kill -KILL "$pid" 2>/dev/null || true
 pid=""
-# Extension popups on this build's own bundle (a second hidden instance, a fixture extension): chrome.action.openPopup
-# from a service worker with no user gesture (1Password's call once its Mac app unlocks; 0.2.26 said "Browser window
-# has no toolbar."), and the popup's size following its page.
 node "$root/packages/ardiacore/scripts/popup-check.mjs" "$app" "$work/popup-check" || status=1
 codesign --verify --deep --strict "$app" && echo "PASS  bundle still sealed after running" || { echo "FAIL  running the app changed its bundle"; status=1; }
-# The feed in this build's Info.plist answers (after publishing, feed.sh <version> checks it lists it).
 "$here/feed.sh" "$version" --before-publish "$app" || status=1
 exit $status

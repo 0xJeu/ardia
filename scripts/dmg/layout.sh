@@ -1,11 +1,4 @@
 #!/bin/bash
-# Writes scripts/dmg/DS_Store, the Finder layout scripts/release.sh copies into the disk image: a 660×384 pt icon-view
-# window with no toolbar or sidebar, background.tiff behind it (as .background.tiff in the volume), 112 pt icons and
-# where the app and the Applications link sit. Run it after changing any of those and commit the file; the picture
-# alone changes with render.sh. It builds a throwaway image with dmgbuild (installed into a temporary venv, so it
-# needs a connection) and never opens Finder. The layout finds the picture by volume name and path, so both must
-# stay "Ardia" and ".background.tiff", and no other volume named Ardia may be mounted while this runs: the
-# throwaway image would mount as "Ardia 1" and the layout would record that.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -15,7 +8,6 @@ run() { "$@" > "$tmp/log" 2>&1 || { cat "$tmp/log" >&2; echo "error: $1 failed" 
 
 [ ! -e /Volumes/Ardia ] || { echo "error: eject the mounted Ardia volume first" >&2; exit 1; }
 
-# dmgbuild 1.6.7 needs Python 3.10 or later; macOS's own python3 is 3.9.
 py="$(PATH="/opt/homebrew/bin:$PATH" command -v python3)"
 "$py" -c 'import sys; sys.exit(sys.version_info < (3, 10))' || { echo "error: needs Python 3.10 or later (brew install python)" >&2; exit 1; }
 "$py" -m venv "$tmp/venv"

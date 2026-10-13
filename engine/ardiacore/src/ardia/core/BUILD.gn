@@ -1,14 +1,6 @@
-# ArdiaCore: Ardia's own layer over //chrome (the "ArcCore" of Ardia).
-#
-# Linked into Chrome's framework through one dep in //chrome:chrome_dll (see
-# engine/ardiacore/apply.sh), so the framework that comes out of `chrome_framework`
-# is ArdiaCore: //chrome's services plus our BrowserWindow, window host and ObjC API.
-# A host app links the framework and drives it through public/ArdiaCore.h.
-
 assert(is_mac)
 
 config("exports") {
-  # Chrome's framework exports only ChromeMain; keep our API visible too.
   ldflags = [ "-Wl,-exported_symbols_list," +
               rebase_path("ardiacore.exports", root_build_dir) ]
 }
@@ -75,8 +67,6 @@ source_set("core") {
     "renderer/ac_content_renderer_client.h",
   ]
 
-  # The framework that links this exports our API (an all_dependent config
-  # reaches the framework's link through //chrome:chrome_dll).
   all_dependent_configs = [ ":exports" ]
 
   deps = [

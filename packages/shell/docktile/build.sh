@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Xcode "Run Script" phase for the app target: builds the Dock tile plug-in
-# (Contents/PlugIns/ArdiaDockTile.plugin, named by Info.plist's NSDockTilePlugIn) and
-# signs it. It keeps the app icon chosen in Settings › Appearance in the Dock after the app
-# quits. Sources: DockTilePlugIn.swift + the app's own ../ios/AppIcon.swift (the variants).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -25,7 +21,6 @@ if [ "$stale" = 1 ]; then
   slices=()
   for arch in ${ARCHS:-$(uname -m)}; do
     out="$work/$name-$arch"
-    # A loadable bundle (MH_BUNDLE), like Xcode's "Bundle" product type.
     xcrun swiftc -O -parse-as-library -module-name "$name" -target "$arch-apple-macos$min_os" \
       -sdk "$(xcrun --sdk macosx --show-sdk-path)" -Xlinker -bundle -emit-executable \
       -framework AppKit -framework CoreImage -o "$out" "${sources[@]}"
@@ -53,7 +48,6 @@ cat > "$plugin/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-# Signed like the app; Developer ID builds need a secure timestamp (notarization).
 case "${EXPANDED_CODE_SIGN_IDENTITY_NAME:-}" in
   "Developer ID"*) timestamp=--timestamp ;;
   *) timestamp=--timestamp=none ;;

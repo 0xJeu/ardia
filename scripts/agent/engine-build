@@ -51,7 +51,6 @@ done
 [[ -z "$wait" || "$wait" =~ ^[0-9]+$ ]] || { echo "engine-build: --wait takes whole seconds" >&2; usage; }
 [[ ${#targets[@]} -gt 0 ]] || targets=(chrome_framework)
 
-# Step 1: run the rest of this script again under the lock.
 if [[ -z "${AC_ENGINE_BUILD_LOCKED:-}" ]]; then
   lock=(chromium)
   [[ -n "$as" ]] && lock+=(--as "$as")
@@ -89,7 +88,6 @@ step "engine/ardiacore/apply.sh --check" "$repo/engine/ardiacore/apply.sh" --che
 if [[ -n "$series_check" ]]; then
   step "engine/patches/series.py check" python3 "$repo/engine/patches/series.py" check
 fi
-# env.sh is written for an interactive shell; it sets PATH (depot_tools), DEPOT_TOOLS_UPDATE=0 and the versions.
 step "source engine/patches/build/env.sh" source "$repo/engine/patches/build/env.sh"
 step "cd $src" cd "$src"
 step "autoninja -C $out ${targets[*]}" autoninja -C "$out" "${targets[@]}"

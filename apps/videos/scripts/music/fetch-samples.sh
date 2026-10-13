@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# Download the CC0 samples that score.py plays into public/music/samples (gitignored), pinned to the upstream
-# commits listed in samples.md and checked against their git blob hashes.
-#
-# usage: scripts/music/fetch-samples.sh [--force]   (from apps/videos; --force re-downloads files already there)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 DEST=public/music/samples
 FORCE=${1:-}
 
-repo() {  # library prefix -> owner/name@commit
+repo() {
   case "$1" in
     vsco) echo "sgossner/VSCO-2-CE@440300901dfe9275fd84e0b7763af1f8443ae62e" ;;
     vcsl) echo "sgossner/VCSL@c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e" ;;
@@ -17,7 +13,7 @@ repo() {  # library prefix -> owner/name@commit
   esac
 }
 
-manifest() {  # git blob sha, then the path under public/music/samples (library prefix + upstream path)
+manifest() {
   cat <<'LIST'
 00a9f623324538a93e90e2bdfc5c24b8b27cb06d  vsco/Brass/Tenor Trombone/stac/tenortbn_stac_F2_v3_rr2.wav
 00eecfab16c3bab05a5b84b8671316b76013da0a  vsco/Percussion/cymbal-crash1_ff_rr2.wav

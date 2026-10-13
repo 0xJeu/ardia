@@ -1,19 +1,4 @@
 #!/usr/bin/env bash
-# Strips the local symbols out of Chrome's framework in an exported app, before release.sh signs it, keeping the
-# unstripped files for symbolication.
-# usage: strip-engine.sh <Ardia.app> <symbols dir>
-#
-# The engine is built with symbol_level=0: no DWARF, but every local symbol stays in the symbol table, 175 MB of the
-# framework's 441. Gatekeeper's first-launch scan of a copy it hasn't seen (a new install from the DMG, a copy Sparkle
-# didn't scan) reads the whole bundle and takes time in proportion to its bytes: on 2026-10-06, the stripped
-# framework's first launch waited 7.2/6.7 s against 11.1/12.5 s for the shipped one on the same (loaded) Mac
-# (docs/perf/launch-critical-path.md).
-#
-# `strip -x` removes local symbols only. What stays: the export trie (the ac_* calls ArdiaCoreEngineBridge finds with
-# dlsym, the ArdiaCore* classes), the external symbols, the code signature's inputs and the LC_UUID, which this checks.
-# The unstripped files are copied to <symbols dir> (same relative paths) first: a crash report's frames in the framework
-# symbolicate with `atos -o "<symbols dir>/Chromium Framework" -l <load address> <addresses>` (match the UUID with
-# `dwarfdump --uuid`). The signatures break here; release.sh signs everything in the framework afterwards.
 set -euo pipefail
 
 app="${1:?usage: strip-engine.sh <Ardia.app> <symbols dir>}"
