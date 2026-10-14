@@ -305,7 +305,7 @@ export const onAppEvent = (listener: (e: AppEvent) => void) => Shell.addListener
 export const onOpenURLs = (listener: (urls: string[]) => void) =>
   Shell.addListener("onOpenURLs", ({ urls }) => listener(urls));
 
-export const WindowDragRegion = requireNativeViewManager<ViewProps>("ArdiaShell");
+export const WindowDragRegion = requireNativeViewManager<ViewProps & { titleBarDoubleClick?: boolean; onRegionDoubleClick?: () => void }>("ArdiaShell");
 
 export const OutsidePressArea = requireNativeViewManager<ViewProps & { onOutsidePress?: () => void }>("ArdiaOutsidePressArea");
 

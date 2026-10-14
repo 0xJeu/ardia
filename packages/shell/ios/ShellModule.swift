@@ -378,7 +378,10 @@ public class ShellModule: Module {
       DispatchQueue.main.async { promise.resolve(target.chosen) }
     }.runOnQueue(.main)
 
-    View(WindowDragRegion.self) {}
+    View(WindowDragRegion.self) {
+      Events("onRegionDoubleClick")
+      Prop("titleBarDoubleClick") { (view: WindowDragRegion, on: Bool) in view.titleBarDoubleClick = on }
+    }
   }
 
   private func observeForSidebar() {
@@ -650,6 +653,8 @@ public class SymbolModule: Module {
 }
 
 final class WindowDragRegion: ExpoView {
+  let onRegionDoubleClick = EventDispatcher()
+  var titleBarDoubleClick = true
   private var monitor: Any?
   private var doubleClickDown = false
 
@@ -669,11 +674,12 @@ final class WindowDragRegion: ExpoView {
       if event.type == .leftMouseUp {
         guard self.doubleClickDown, event.window === self.window else { return event }
         self.doubleClickDown = false
-        if event.clickCount == 2, let window = self.window { Self.doubleClick(window, event.modifierFlags) }
+        if event.clickCount == 2 { self.doubleClick(event) }
         return nil
       }
       self.doubleClickDown = false
       guard self.ownsPress(event) else { return event }
+      OutsidePressArea.tellAreas(event)
       self.press(event, releaseFollows: true)
       return nil
     }
@@ -710,10 +716,15 @@ final class WindowDragRegion: ExpoView {
     while let k = key, k !== window { key = k.parent }
     if key == nil, window.canBecomeKey, !event.modifierFlags.contains(.command) { window.makeKeyAndOrderFront(nil) }
     if event.clickCount == 2 {
-      if releaseFollows { doubleClickDown = true } else { Self.doubleClick(window, event.modifierFlags) }
+      if releaseFollows { doubleClickDown = true } else { doubleClick(event) }
       return
     }
     window.performDrag(with: event)
+  }
+
+  private func doubleClick(_ event: NSEvent) {
+    guard let window else { return }
+    if titleBarDoubleClick { Self.doubleClick(window, event.modifierFlags) } else { onRegionDoubleClick([:]) }
   }
 
   static func doubleClick(_ window: NSWindow, _ modifiers: NSEvent.ModifierFlags) {
@@ -755,6 +766,13 @@ public class OutsidePressAreaModule: Module {
 final class OutsidePressArea: ExpoView {
   let onOutsidePress = EventDispatcher()
   fileprivate static let areas = NSHashTable<OutsidePressArea>.weakObjects()
+  private static let toldPresses = NSHashTable<NSEvent>(options: [.weakMemory, .objectPointerPersonality])
+
+  static func tellAreas(_ event: NSEvent) {
+    guard !toldPresses.contains(event) else { return }
+    toldPresses.add(event)
+    for area in areas.allObjects { area.pressed(event) }
+  }
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -775,7 +793,7 @@ final class OutsidePressArea: ExpoView {
 
 let installOutsidePressMonitor: Void = {
   _ = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { event in
-    for area in OutsidePressArea.areas.allObjects { area.pressed(event) }
+    OutsidePressArea.tellAreas(event)
     return event
   }
 }()

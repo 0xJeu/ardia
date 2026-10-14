@@ -241,7 +241,7 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
                         onListHeight={onListHeight}
                       />
                       <ContextMenuArea style={{ flexGrow: 1, minHeight: inlineNewTab ? 24 : 0 }} onContextMenu={() => void openSidebarMenu(windowId)}>
-                        <View style={{ flex: 1 }} onDoubleClick={() => useBrowser.getState().newTab(windowId)} />
+                        <WindowDragRegion style={{ flex: 1 }} titleBarDoubleClick={false} onRegionDoubleClick={() => useBrowser.getState().newTab(windowId)} />
                       </ContextMenuArea>
                     </Animated.ScrollView>
                   </Animated.View>
