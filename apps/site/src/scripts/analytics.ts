@@ -1,5 +1,4 @@
 import { track, type Props } from "./track";
-import "./support";
 
 function onTrackedClick(e: MouseEvent) {
   const el = (e.target as Element | null)?.closest<HTMLElement>("[data-track]");

@@ -10,11 +10,11 @@ read-only, credentials in `~/.config/ardia/telemetry.env`; the query for each nu
 [queries.md](queries.md)), `node scripts/update-checks.mjs` for installs, and GitHub through `gh` (repo,
 traffic, release download counts). `docs/growth.md` explains what the events mean ("Telemetry" has the
 tables); compare against its last **Log** entry and say what changed since. If the env file is missing, say
-so and ask the owner for it; don't fall back to PostHog.
+so and ask the owner for it. ClickHouse is the only source.
 
-App versions released before 2026-09-30 still send their opt-in events to PostHog Cloud (EU project
-287835), not to ClickHouse. While any are in use, include them: read them through the PostHog MCP, or load
-a fresh Cloud export with `infra/telemetry/import-posthog.py` first. Say which you did.
+Copies on 0.2.17 or earlier send their opt-in events to PostHog Cloud, not to ClickHouse, and nothing reads
+them now. Their update checks still count; their opted-in usage and errors don't. Say so when
+those versions still show up in the update checks.
 
 ## What I want to know
 

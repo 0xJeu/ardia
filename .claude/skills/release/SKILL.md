@@ -225,7 +225,8 @@ the final RC and said ship).
    `grep -c phasedRolloutInterval dist/<version>/appcast.xml`, which must print 1): Sparkle gives each copy a random
    group on that Mac (no ID, nothing sent) and offers the update to the first seventh of copies at once, a seventh more
    every interval, so everyone has it after a week. Someone who clicks Check for Updates… gets it at once. Publish as in
-   step 5 and watch a day or two: `crash.log`, new PostHog `$exception`s, `update_check` counts by version
+   step 5 and watch a day or two: `crash.log`, new `$exception`s in `telemetry.events` and errors in
+   `telemetry.logs` (`.claude/skills/stats/queries.md`, Errors), `update_check` counts by version
    (`docs/growth.md`). A problem found: flip the release's kill switch (`docs/kill-switches.md`) if it has one, and
    publish a fixed build with a higher build number: copies that haven't updated yet go straight to it.
 3. **Everyone.** Remove the interval from the published appcast, so every copy sees the update:

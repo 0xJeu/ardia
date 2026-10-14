@@ -7,10 +7,6 @@
             <max_result_rows>1000000</max_result_rows>
             <result_overflow_mode>break</result_overflow_mode>
         </reader>
-        <importer>
-            <max_execution_time>300</max_execution_time>
-            <max_memory_usage>2000000000</max_memory_usage>
-        </importer>
     </profiles>
 
     <users>
@@ -47,15 +43,5 @@
                 <query>GRANT SELECT ON system.processes</query>
             </grants>
         </reader>
-        <importer>
-            <password from_env="CLICKHOUSE_IMPORTER_PASSWORD"/>
-            <networks><ip>::/0</ip></networks>
-            <profile>importer</profile>
-            <quota>default</quota>
-            <grants>
-                <query>GRANT SELECT, INSERT ON telemetry.posthog_events</query>
-                <query>GRANT SELECT ON telemetry.*</query>
-            </grants>
-        </importer>
     </users>
 </clickhouse>

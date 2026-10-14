@@ -1,15 +1,16 @@
 # Stats queries (ClickHouse)
 
 Run with `node scripts/telemetry-sql.mjs "<query>"` (read-only user from `~/.config/ardia/telemetry.env`),
-one at a time: the server has 2 cores, a query over the PostHog history takes 5–30 s, and parallel ones
+one at a time: the server has 2 cores, a query over the whole history takes 5–30 s, and parallel ones
 only queue up behind each other (four at once once ran it out of open files). Put a `timestamp >` filter
 first when a query only needs recent events. For a query that runs often, read the two tables under the view
 directly and filter on the event first (both sort by event, date); unique counts don't need the view's FINAL.
 `scripts/stats-snapshot.mjs` does this: all the headline numbers in one request, about 1 s.
-Everything is in `telemetry.events`: PostHog's event and property names, one row per event, `properties`
+Everything is in `telemetry.events`: PostHog's event and property naming (`$pageview`, `$lib`…), one row per event, `properties`
 a `Map(String, String)` (booleans are `'true'`/`'false'`). `source` says who sent it: `ardia-site`,
-`ardia-app`, `ardia-feed` (update checks; `netnyahoo-site`, `-app` and `-feed` before the rename) or `posthog-cloud` (history before the switch, and old app
-versions that still report to PostHog Cloud until the next delta import). Times are UTC.
+`ardia-app`, `ardia-feed` (update checks; `netnyahoo-site`, `-app` and `-feed` before the rename) or `posthog-cloud`
+(history only: events from 2026-09-29 09:04 to 2026-09-30 14:31 UTC, before our own pipeline; nothing new
+arrives with it). Times are UTC.
 
 Common filters. They are not SQL macros: paste the expression in place of the name.
 
@@ -58,7 +59,7 @@ FROM telemetry.events WHERE SITE AND MAC AND timestamp > now() - INTERVAL 24 HOU
 
 -- Clicks worth watching
 SELECT event, count(), uniqExact(distinct_id) FROM telemetry.events
-WHERE SITE AND event IN ('github_clicked', 'screenshot_opened', 'notify_clicked', 'support_opened', '$rageclick', '$dead_click')
+WHERE SITE AND event IN ('github_clicked', 'screenshot_opened', 'notify_clicked', '$rageclick', '$dead_click')
   AND timestamp > now() - INTERVAL 24 HOUR GROUP BY event;
 
 -- Dead clicks by element text (images have none)

@@ -1,13 +1,13 @@
 export const PRODUCTION_HOSTS = ["ardia.dev", "www.ardia.dev", "netnyahoo.com", "www.netnyahoo.com"];
 
-export const DEV_OPT_IN = ["ac:telemetry", "ac:posthog"];
+export const DEV_OPT_IN_KEY = "ac:telemetry";
 
 export const LOGS_PATH = "/otel/v1/logs";
 export const REPLAY_PATH = "/otel/replay";
 
 export const SERVICE_NAME = "ardia-site";
 
-export const LEGACY_POSTHOG_TOKEN = "phc_qzH3gR3HsZEF8fUXnwEdugsZm6Yq5pUPiEUGMqjxL3QY";
+export const LEGACY_VISITOR_ID_KEY = "ph_phc_qzH3gR3HsZEF8fUXnwEdugsZm6Yq5pUPiEUGMqjxL3QY_posthog";
 
 export const SESSION_IDLE_MS = 30 * 60 * 1000;
 export const SESSION_MAX_MS = 24 * 60 * 60 * 1000;

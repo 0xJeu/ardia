@@ -65,12 +65,10 @@ Pages without a custom domain).
 ardia.dev counts its own visitors: `src/scripts/telemetry/` posts events to `/otel/v1/logs` on the same
 origin (OTLP/HTTP JSON; ardia.dev's nginx hands them to our OpenTelemetry Collector, which writes
 ClickHouse) and rrweb session replays to `/otel/replay/<session>/<seq>.json[.gz]` (SeaweedFS, kept 30 days).
-The one third-party script is PostHog's support chat ("Write to us", `src/scripts/support.ts`): posthog-js
-loads through nginx's `/relay` only when someone clicks the button, with everything but the chat switched off.
-Event and property names are PostHog's (`$pageview`, `$pageleave`, `$autocapture`,
-`$rageclick`, `$dead_click`, `$dead_swipe`, `$exception`, `$web_vitals`, `$feature_flag_called`, `$browser`,
-`$os`, `$device_type` …), so the migrated PostHog history and new events read the same. Console warnings and
-errors go out as plain logs. Replays mask every input and the text of anything marked `.ac-private` or
+No third-party script loads. Event and property names follow PostHog's convention (`$pageview`, `$pageleave`,
+`$autocapture`, `$rageclick`, `$dead_click`, `$dead_swipe`, `$exception`, `$web_vitals`, `$feature_flag_called`,
+`$browser`, `$os`, `$device_type` …), so the September history in `telemetry.posthog_events` and new events read
+the same. Console warnings and errors go out as plain logs. Replays mask every input and the text of anything marked `.ac-private` or
 `data-private`; rrweb and web-vitals load in their own chunks after the page has. Settings (hosts, sample rate,
 minimum session length, flags) are in `src/data/telemetry.ts`. The named events are listed at the top of
 `src/scripts/analytics.ts`; tag a link with `data-track="event"` and `data-track-<prop>="value"`, or call
@@ -82,5 +80,5 @@ line, and only Macs evaluate the `download-band` experiment (`src/components/Sho
 `?nndevice=phone|mac|other` and `?nnflag=band|control` force them. The experiment log is `docs/growth.md`.
 
 Only ardia.dev reports. `pnpm dev`, `pnpm preview` and any other host stay silent unless you opt in from
-the console with `localStorage.setItem("ac:telemetry", "dev")` (the old `"ac:posthog"` works too), and then
+the console with `localStorage.setItem("ac:telemetry", "dev")`, and then
 events go to the same paths on that host and carry `environment: development`. Remove the item when you're done.

@@ -34,7 +34,7 @@ processors:
     error_mode: silent
     providers:
       maxmind:
-        database_path: /etc/otelcol-contrib/GeoLite2-City.mmdb
+        database_path: /etc/otelcol-contrib/dbip-city-lite.mmdb
 
   transform/clean:
     error_mode: ignore

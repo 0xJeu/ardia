@@ -59,10 +59,9 @@ or narrower.
 - **Local check:** `http://localhost:4321/?nnflag=band` (or `control`) forces a variant on localhost only;
   `?nndevice=phone|mac|other` forces the visitor class.
 
-- **PostHog:** experiment 98483 (https://eu.posthog.com/project/287835/experiments/98483), flag 293364,
-  launched 2026-09-29 17:23 UTC. Primary metric: funnel on `download_clicked` after exposure (PostHog uses
-  `$experiment_exposure`, sent with the flag call). Secondary: `download_clicked` with `location = office-band`.
-  Bayesian, test accounts filtered.
+- **Launched** 2026-09-29 17:23 UTC, as PostHog experiment 98483 (flag 293364) until the 2026-09-30 switch.
+  Read it with the `download-band` query in `.claude/skills/stats/queries.md` (exposed Mac visitors per variant
+  who clicked Download after exposure). Secondary: `download_clicked` with `location = office-band`.
 
 Result: _pending._
 
@@ -112,8 +111,7 @@ GROUP BY day, version ORDER BY day DESC, version
 
 Site analytics, session replays, the app's opt-in telemetry and the update-check count are first-party:
 they go to ardia.dev and are stored on our own servers (Hexclave, same project as the site). No third
-party sees them. The one exception is the footer's "Write to the office" chat, which is still PostHog's
-widget: posthog-js loads only when someone clicks it, and only the conversation goes to PostHog.
+party sees them, and the site loads no third-party script.
 
 ```
 browser / app ──POST──▶ ardia.dev/otel/v1/logs ──▶ otel-collector ──▶ ph-clickhouse  (telemetry.otel_logs)
@@ -130,7 +128,11 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
   `uuid`, `distinct_id`, `$session_id` (site) and every property, under PostHog's names. Senders:
   `apps/site/src/scripts/telemetry/` and `apps/browser/src/telemetry/`. The collector
   (`infra/telemetry/collector/config.yaml`) turns the visitor's address into `$geoip_country_code`/`_name` and
-  `$geoip_continent_code`, then drops it. It adds no location to events that carry `$geoip_disable` (the app
+  `$geoip_continent_code` with DB-IP's IP to City Lite database (CC BY 4.0, a pinned monthly file checked by
+  hash; `collector/fetch-geoip.mjs` falls back to the byte-identical npm mirror `dbip-city-lite` once DB-IP drops
+  the month, and relabels the file's `database_type` to `GeoLite2-City`, the only City type the collector's
+  geoip processor accepts; the footer carries DB-IP's required link), then drops it. To update it, bump the month,
+  the mirror version and the hash in `collector/Dockerfile`. It adds no location to events that carry `$geoip_disable` (the app
   sends it). No IP is ever stored.
 - **Tables** (`infra/telemetry/clickhouse/schema.sql`): `telemetry.events` is the one to query (PostHog's
   shape: `uuid, event, distinct_id, session_id, timestamp, properties Map, elements_chain, source`). It unions
@@ -146,17 +148,19 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
   `https://ardia.dev/_ch`); `/_ch/` takes Basic auth for `reader` only.
 - **Checks of the pipeline:** send with service `ardia-selftest` (or version `0.0.0-selftest`); the views
   leave those out.
-- **PostHog Cloud** (EU project 287835) is untouched. App versions released before the switch still send
-  their opt-in events there. `infra/telemetry/import-posthog.py` loads a Cloud export into `posthog_events`
-  (safe to re-run). Export by the time Cloud received events (`created_at`), not by their timestamp: update
-  checks carry the day as their timestamp and arrive later. Imported so far: everything received before
-  2026-09-30 14:31:00 UTC. Recordings made in PostHog stay
-  there: the MCP can't export snapshots, and they expire from Cloud after 30 days.
-- **Leftover disks:** a trial self-hosted PostHog (30 Sep) left two detached Hexclave volumes in group
-  "posthog": `pgdata` (10 GB, service ph-db) and `redpanda` (5 GB, ph-kafka). Hexclave has no API to delete
-  a volume; ask Hexclave support to remove them.
+- **History and old versions:** `posthog_events` (`source = 'posthog-cloud'` in the view) is the history from
+  before the switch: the 76,700 events PostHog Cloud received until 2026-09-30 14:31:00 UTC. It's closed;
+  nothing loads into it any more. 0.2.18 (2026-09-30) is the first app version that reports to our collector.
+  Copies on 0.2.17 or earlier still post their opt-in events to PostHog Cloud, and nothing reads those; their
+  update checks reach our collector like everyone else's. Recordings made in PostHog were never copied.
+- **Leftover disks:** a trial self-hosted analytics stack (30 Sep) left two detached Hexclave volumes in the
+  deployment group "posthog": `pgdata` (10 GB, service ph-db) and `redpanda` (5 GB, ph-kafka). Hexclave has no
+  API to delete a volume; ask Hexclave support to remove them. The group, `ph-clickhouse` and `ph-objects`
+  keep their names because renaming them would detach their volumes.
 
 ### Parity: what PostHog did, what does it now
+
+The 2026-09-30 switch's checklist; the Before column is history.
 
 | Feature | Before (PostHog) | Now | Checked |
 | --- | --- | --- | --- |
@@ -169,10 +173,10 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
 | Session replay | PostHog recordings, inputs masked | rrweb (@rrweb/record 2.1.6, loaded after the page): inputs and `.ac-private` text masked, no canvas, network or console; sessions over 4 s; kept 30 days | live session replayed with `scripts/replay.mjs` |
 | Custom events and `data-track*` props | posthog.capture | same names and props | local run |
 | Referrer, UTM, device, OS, browser | posthog-js | same props; UA parsed in the page (matches PostHog on 849 real UAs) | offline check |
-| Country | PostHog GeoIP | collector GeoIP, IP dropped | live |
+| Country | PostHog GeoIP | collector GeoIP (DB-IP City Lite since 2026-10-14), IP dropped | live |
 | Visitors and sessions | PostHog ids | same ids reused (posthog-js's stored id), first-party session id | local run |
 | `download-band` experiment | PostHog flag 293364 | first-party bucketing with PostHog's hash; `$feature_flag_called` + `$experiment_exposure` | 1,318/1,318 exposures reproduce |
-| Support chat ("Write to the office") | PostHog conversations | still PostHog's widget, posthog-js loaded on click only | local run |
+| Support chat ("Write to the office") | PostHog conversations | removed 2026-10-14; the footer keeps "Report a bug" (GitHub issues) | — |
 | App opt-in telemetry | PostHog `/batch/`, `/i/v1/logs` | OTLP to ardia.dev (netnyahoo.com before the rename) | Node harness against the live endpoint |
 | Update checks | nginx → PostHog | nginx → collector | live |
 | History (2026-09-29 → switch) | PostHog Cloud | `telemetry.posthog_events`: 76,700 events received by Cloud until 2026-09-30 14:31 UTC, equal to Cloud's count | totals, per-event counts and stats numbers vs Cloud |
@@ -207,7 +211,7 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
   - Dead clicks: the "In office" screenshot draws 14 (12 people): people expect it to open bigger. Candidate next
     change if it keeps up. Rage clicks 3.
   - App: "Calling the … function has failed" (0.2.11, 2 people) is an unhandled promise rejection from a native
-    module call (CodedError). The frames are minified: upload the JS bundle's source map to PostHog to name it.
+    module call (CodedError). The frames are minified: naming it needs the JS bundle's source map.
   - Decision: nothing shipped this round.
 - **2026-09-29 ~23:10 UTC, owner's call:** screenshots open full size. The "In office" shot drew 14 dead clicks
   from 12 people. Every screenshot (office and the five pledges) now opens in a lightbox on click or tap:
@@ -380,3 +384,9 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
     (clipboard read in `NNViewDelegate::BuildMenuAsync`), fixed 10-04 (8663d84b, 2b689a10). 0.2.32 SIGABRT while
     Sparkle installed 0.2.33: AppKit made our window key while its Browser was already closing, and
     activating it failed Chrome's CHECK (global_browser_collection.cc:70). Fixed in 166c567e, next release. The site's 14 are not ours (cross-origin `Script error.`, Stylus, ResizeObserver, fetch drops).
+- **2026-10-14: PostHog removed** (owner's call: our own ClickHouse and OpenTelemetry pipeline is the only
+  analytics). The footer's PostHog support chat is gone (the footer keeps "Report a bug"), and so are nginx's
+  `/relay/` proxy to PostHog, the Cloud import script and ClickHouse's `importer` user. The collector's GeoIP
+  database is now DB-IP's IP to City Lite. The site's dev opt-in is `ac:telemetry` only. `posthog_events` stays
+  as the September history. Copies on 0.2.17 and earlier (the last release before 0.2.18 switched the app to our
+  collector on 2026-09-30) still post their opt-in events to PostHog Cloud; those are no longer read.

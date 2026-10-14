@@ -32,7 +32,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
           data-track-link="issues"
           data-track-location="footer">Report a bug</a
         >
-        <button class="link" type="button" data-support="footer" hidden>Write to us</button>
       </nav>
       <div class="col">
         <p class="label h">Disclaimer</p>
@@ -41,8 +40,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         </p>
         <p>
           This website counts its own visitors, on its own servers: page views, clicks and session replays,
-          with typing masked. Replays are deleted after 30 days. No third party sees any of it. The support chat is
-          PostHog’s, and loads only if you open it.
+          with typing masked. Replays are deleted after 30 days. No third party sees any of it. Countries come from
+          <a class="link" href="https://db-ip.com" rel="noopener">IP Geolocation by DB-IP</a>, looked up on our
+          servers, and the IP isn’t kept.
         </p>
       </div>
       <div class="col">
@@ -136,20 +136,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     color: var(--night-ink);
     margin-bottom: 6px;
   }
-  .col a,
-  .col button {
+  .col a {
     color: var(--night-ink);
-  }
-  .col button {
-    font: inherit;
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    text-align: left;
-  }
-  .col button[hidden] {
-    display: none;
   }
   @media (max-width: 800px) {
     .sign-off {
@@ -158,13 +146,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     .col {
       grid-column: 1 / -1;
     }
-    .col a,
-    .col button {
+    .col > a {
       min-height: 44px;
       display: inline-flex;
       align-items: center;
     }
-    .col:has(a) {
+    .col:has(> a) {
       gap: 0;
     }
   }

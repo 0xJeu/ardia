@@ -6,7 +6,7 @@ prove the number tracks what users feel, then lock the win in with a ratchet.
 
 ## Journeys
 
-Chosen from PostHog (30 days, opt-in sharing, small n): launches, command bar opens and suggestions, tab use
+Chosen from the field telemetry (30 days, opt-in sharing, small n): launches, command bar opens and suggestions, tab use
 (158 tabs opened in usage_counts) and profile switches dominate.
 
 | | Journey | Starts | Ends | Field today | Lab today |
@@ -24,7 +24,7 @@ The field/lab gap on J1 is the first thing to explain: lab launches restore a ti
   `js-bench.mjs` and `render-bench.mjs` count work (commits, renders, store updates, tasks).
 - **Ratchets.** Deterministic counts become ceilings in `apps/browser/scripts/perf/ratchet.json`. They can only go
   down, and they are checked in the release gate.
-- **Field data.** Every release, read the per-journey summary events in PostHog (`field-journeys.md`).
+- **Field data.** Every release, read the per-journey summary events in ClickHouse (`field-journeys.md`).
 - **One agent per slow stretch.** Each agent's loop: benchmark → fix → before/after → ratchet → next spot.
   User-visible changes come to the owner with before/after captures.
 

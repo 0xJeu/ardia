@@ -13,7 +13,7 @@ const OTEL = {
   app: "ServiceName IN ('ardia-app', 'netnyahoo-app') AND {p}['$lib'] IN ('ardia-telemetry', 'netnyahoo-telemetry')",
   base: "Event != '' AND ResourceAttributes['service.version'] != '0.0.0-selftest'",
 };
-const POSTHOG = {
+const HISTORY = {
   table: "telemetry.posthog_events",
   p: "properties", ts: "timestamp", t: "timestamp", e: "event", d: "distinct_id",
   site: "{p}['$lib'] IN ('web', 'ardia-web', 'netnyahoo-web') AND {p}['$host'] IN (" + HOSTS + ")",
@@ -25,7 +25,7 @@ const fill = (sql, t) =>
     .replaceAll("{mac}", "({p}['$os'] = 'Mac OS X' AND {p}['$device_type'] = 'Desktop')")
     .replace(/\{(p|ts|t|e|d)\}/g, (_, k) => t[k]);
 const both = (select, where, { final = false } = {}) =>
-  [OTEL, POSTHOG]
+  [OTEL, HISTORY]
     .map((t) => `SELECT ${fill(select, t)} FROM ${t.table}${final ? " FINAL" : ""} WHERE ${fill(where, t)} AND ${t.base}`)
     .join(" UNION ALL ");
 const VERSION = "'^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$'";

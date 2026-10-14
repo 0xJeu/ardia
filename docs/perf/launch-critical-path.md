@@ -8,7 +8,7 @@ by the sprint's launch agent; companion to [sprint-baseline.md](sprint-baseline.
 ## Headline
 
 1. **The field's slow launches are first launches of a copy macOS hasn't run before, and their extra time is all
-   before `main`.** PostHog `perf_launch` (CEF era, 0.2.9 to 0.2.17, the only versions with samples) is 2.7 to 3.5 s
+   before `main`.** Field `perf_launch` (CEF era, 0.2.9 to 0.2.17, the only versions with samples) is 2.7 to 3.5 s
    on the first launch of every new version and 0.5 to 0.9 s on the launches after it, same user, same Mac. In the
    lab, a fresh APFS clone of the app runs nothing of ours for 3 to 8 s on a calm Mac (13 s on a loaded one): an
    injected library's constructor, which runs right after dyld, fires that late. The rest of the launch is the same

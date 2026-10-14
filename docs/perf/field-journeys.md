@@ -1,6 +1,6 @@
 # Field journeys (real-user timing)
 
-What the app measures on users' Macs for the four sprint journeys ([sprint.md](sprint.md)), and the PostHog queries
+What the app measures on users' Macs for the four sprint journeys ([sprint.md](sprint.md)), and the ClickHouse queries
 that read them per release. Only with diagnostics sharing on (Settings › Privacy & Security); with it off nothing is
 timed, no event monitor runs and pages aren't asked for paint times. Turning it off stops every open page's reporting at
 once, drops what's in flight (a launch that saw it off is never sent), and a JS reload always tells native the current
@@ -101,78 +101,62 @@ new tab's bar, Enter, and ⌘L, an address, Enter. The `$`-context properties ar
   observer before the script installs it: values more than 10 minutes off are dropped natively, outliers past 60 s in JS.
 - Builds before this change send `perf_launch` with `launch_ms` only, at the first window.
 
-## Queries (PostHog SQL)
+## Queries (ClickHouse)
 
+Run with `node scripts/telemetry-sql.mjs "<SQL>"` against `telemetry.events` (see `docs/growth.md`, Telemetry).
+`properties` is a `Map(String, String)`: numbers go through `toFloat64OrNull`, booleans are `'true'`/`'false'`.
 Production only; versions sort numerically. J1 has one value per launch, so its percentiles are exact:
 
 ```sql
-SELECT properties.$app_version AS version, count() AS launches,
-  round(quantile(0.5)(toFloat(properties.launch_ms))) AS launch_p50, round(quantile(0.75)(toFloat(properties.launch_ms))) AS launch_p75,
-  round(quantile(0.5)(toFloat(properties.content_ms))) AS content_p50, round(quantile(0.75)(toFloat(properties.content_ms))) AS content_p75,
-  round(quantile(0.5)(toFloat(properties.usable_ms))) AS usable_p50, round(quantile(0.75)(toFloat(properties.usable_ms))) AS usable_p75,
-  round(quantile(0.5)(toFloat(properties.tab_paint_ms))) AS paint_p50, round(quantile(0.75)(toFloat(properties.tab_paint_ms))) AS paint_p75,
-  countIf(properties.cold = true) AS cold_launches
-FROM events
-WHERE event = 'perf_launch' AND timestamp > now() - INTERVAL 30 DAY AND properties.$environment = 'production'
-GROUP BY version ORDER BY arrayMap(x -> toInt(x), splitByChar('.', version)) DESC
+SELECT properties['$app_version'] AS version, count() AS launches,
+  round(quantile(0.5)(toFloat64OrNull(properties['launch_ms']))) AS launch_p50, round(quantile(0.75)(toFloat64OrNull(properties['launch_ms']))) AS launch_p75,
+  round(quantile(0.5)(toFloat64OrNull(properties['content_ms']))) AS content_p50, round(quantile(0.75)(toFloat64OrNull(properties['content_ms']))) AS content_p75,
+  round(quantile(0.5)(toFloat64OrNull(properties['usable_ms']))) AS usable_p50, round(quantile(0.75)(toFloat64OrNull(properties['usable_ms']))) AS usable_p75,
+  round(quantile(0.5)(toFloat64OrNull(properties['tab_paint_ms']))) AS paint_p50, round(quantile(0.75)(toFloat64OrNull(properties['tab_paint_ms']))) AS paint_p75,
+  countIf(properties['cold'] = 'true') AS cold_launches
+FROM telemetry.events
+WHERE timestamp > now() - INTERVAL 30 DAY AND event = 'perf_launch' AND properties['$environment'] = 'production'
+GROUP BY version ORDER BY arrayMap(x -> toUInt32OrZero(x), splitByChar('.', version)) DESC
 ```
 
-Add `AND properties.cold = true` (or group by `properties.tabs`, `properties.history`) to split cold from warm launches
-and small sessions from big ones; that's the field/lab gap's first question.
+Add `AND properties['cold'] = 'true'` (or group by `properties['tabs']`, `properties['history']`) to split cold from
+warm launches and small sessions from big ones; that's the field/lab gap's first question.
 
 The first launch of a version against the rest (launch project 3, `launch-critical-path.md`): content on screen and the
 restored tab's first paint. Launches from builds before `first_of_version` show it empty.
 
 ```sql
-SELECT properties.$app_version AS version, properties.first_of_version AS first_of_version, count() AS launches,
-  round(quantile(0.5)(toFloat(properties.content_ms))) AS content_p50, round(quantile(0.75)(toFloat(properties.content_ms))) AS content_p75,
-  round(quantile(0.5)(toFloat(properties.tab_paint_ms))) AS paint_p50, round(quantile(0.75)(toFloat(properties.tab_paint_ms))) AS paint_p75
-FROM events
-WHERE event = 'perf_launch' AND timestamp > now() - INTERVAL 30 DAY AND properties.$environment = 'production'
+SELECT properties['$app_version'] AS version, properties['first_of_version'] AS first_of_version, count() AS launches,
+  round(quantile(0.5)(toFloat64OrNull(properties['content_ms']))) AS content_p50, round(quantile(0.75)(toFloat64OrNull(properties['content_ms']))) AS content_p75,
+  round(quantile(0.5)(toFloat64OrNull(properties['tab_paint_ms']))) AS paint_p50, round(quantile(0.75)(toFloat64OrNull(properties['tab_paint_ms']))) AS paint_p75
+FROM telemetry.events
+WHERE timestamp > now() - INTERVAL 30 DAY AND event = 'perf_launch' AND properties['$environment'] = 'production'
 GROUP BY version, first_of_version
-ORDER BY arrayMap(x -> toInt(x), splitByChar('.', version)) DESC, first_of_version DESC
+ORDER BY arrayMap(x -> toUInt32OrZero(x), splitByChar('.', version)) DESC, first_of_version DESC
 ```
 
-J2–J4 come as per-summary percentiles. PostHog's SQL has no weighted quantile, so each summary is spread back into
-pseudo-samples (half its `n` at its p50, a quarter at its p75, a fifth at its p95, the rest at its max) and the
-percentiles taken over all of them. That merges summaries with different sample counts fairly; it reads the median and
-p75 slightly high (each band is placed at its upper edge). For a journey's total, replace `STEP` (`j2_typeable`,
-`j3_total`, `j4_fcp`; or any step, `j4_request` for our side of J4, `j4_engine` for the engine's):
+J2–J4 come as per-summary percentiles. Each summary is weighted back into its samples (half its `n` at its p50, a
+quarter at its p75, a fifth at its p95, the rest at its max) and the percentiles are taken over all of them with
+`quantileExactWeighted`. That merges summaries with different sample counts fairly; it reads the median and p75
+slightly high (each band is placed at its upper edge). The headline steps are `j2_typeable`, `j3_total` and `j4_fcp`;
+put any other step in the list (`j4_request` for our side of J4, `j4_engine` for the engine's):
 
 ```sql
-SELECT version, count() AS samples, round(quantile(0.5)(ms)) AS p50, round(quantile(0.75)(ms)) AS p75
+SELECT version, step, sum(w) AS samples,
+  round(quantileExactWeighted(0.5)(ms, w)) AS p50, round(quantileExactWeighted(0.75)(ms, w)) AS p75
 FROM (
-  SELECT properties.$app_version AS version, ifNull(toFloat(properties.STEP_n), 0) AS n,
-    arrayJoin(arrayConcat(
-      arrayResize([toFloat(properties.STEP_p50)], assumeNotNull(toInt(ceil(n * 0.5)))),
-      arrayResize([toFloat(properties.STEP_p75)], assumeNotNull(toInt(ceil(n * 0.25)))),
-      arrayResize([toFloat(properties.STEP_p95)], assumeNotNull(toInt(ceil(n * 0.2)))),
-      arrayResize([toFloat(properties.STEP_max)], assumeNotNull(toInt(ceil(n * 0.05)))))) AS ms
-  FROM events
-  WHERE event = 'perf_journeys' AND timestamp > now() - INTERVAL 30 DAY AND properties.$environment = 'production' AND n > 0
+  SELECT properties['$app_version'] AS version, step,
+    arrayJoin([('p50', 0.5), ('p75', 0.25), ('p95', 0.2), ('max', 0.05)]) AS band,
+    toFloat64OrNull(properties[concat(step, '_', band.1)]) AS ms,
+    toUInt64(ceil(toFloat64OrZero(properties[concat(step, '_n')]) * band.2)) AS w
+  FROM telemetry.events
+  ARRAY JOIN ['j2_typeable', 'j3_total', 'j4_fcp'] AS step
+  WHERE timestamp > now() - INTERVAL 30 DAY AND event = 'perf_journeys' AND properties['$environment'] = 'production'
 )
-GROUP BY version ORDER BY arrayMap(x -> toInt(x), splitByChar('.', version)) DESC
+WHERE w > 0 AND ms IS NOT NULL
+GROUP BY version, step ORDER BY arrayMap(x -> toUInt32OrZero(x), splitByChar('.', version)) DESC, step
 ```
 
-The three journeys at once, by version (the headline steps):
-
-```sql
-SELECT version, step, count() AS samples, round(quantile(0.5)(ms)) AS p50, round(quantile(0.75)(ms)) AS p75
-FROM (
-  SELECT properties.$app_version AS version, s.1 AS step, s.2 AS ms
-  FROM events
-  ARRAY JOIN arrayConcat(
-    arrayMap(i -> ('j2_typeable', toFloat(properties.j2_typeable_p50)), range(assumeNotNull(toInt(ceil(ifNull(toFloat(properties.j2_typeable_n), 0) * 0.5))))),
-    arrayMap(i -> ('j2_typeable', toFloat(properties.j2_typeable_p75)), range(assumeNotNull(toInt(ceil(ifNull(toFloat(properties.j2_typeable_n), 0) * 0.5))))),
-    arrayMap(i -> ('j3_total', toFloat(properties.j3_total_p50)), range(assumeNotNull(toInt(ceil(ifNull(toFloat(properties.j3_total_n), 0) * 0.5))))),
-    arrayMap(i -> ('j3_total', toFloat(properties.j3_total_p75)), range(assumeNotNull(toInt(ceil(ifNull(toFloat(properties.j3_total_n), 0) * 0.5))))),
-    arrayMap(i -> ('j4_fcp', toFloat(properties.j4_fcp_p50)), range(assumeNotNull(toInt(ceil(ifNull(toFloat(properties.j4_fcp_n), 0) * 0.5))))),
-    arrayMap(i -> ('j4_fcp', toFloat(properties.j4_fcp_p75)), range(assumeNotNull(toInt(ceil(ifNull(toFloat(properties.j4_fcp_n), 0) * 0.5)))))) AS s
-  WHERE event = 'perf_journeys' AND timestamp > now() - INTERVAL 30 DAY AND properties.$environment = 'production'
-)
-GROUP BY version, step ORDER BY arrayMap(x -> toInt(x), splitByChar('.', version)) DESC, step
-```
-
-(The combined query uses only p50 and p75 per summary, so its p75 is the cruder of the two; use the single-step query
-for a number you'll quote.) Both queries were checked against PostHog's SQL on `perf_omnibox`'s fields before any
-`perf_journeys` data existed; re-run them after the first release that sends it.
+Checked on 2026-10-14 against the same spread done with `arrayWithConstant` (`samples` and p50 equal for every
+version). The earlier version of this query padded with `arrayResize`, which fills with NULL rather than repeating
+the value, so it weighted each summary's four bands equally and read high; don't reuse it.

@@ -1,8 +1,8 @@
 import { VERSION } from "../../data/release";
 import {
-  DEV_OPT_IN,
+  DEV_OPT_IN_KEY,
   FLUSH_MS,
-  LEGACY_POSTHOG_TOKEN,
+  LEGACY_VISITOR_ID_KEY,
   LOGS_PATH,
   PRODUCTION_HOSTS,
   SERVICE_NAME,
@@ -42,7 +42,7 @@ function readJSON<T>(key: string): T | null {
 }
 
 const production = PRODUCTION_HOSTS.includes(location.hostname);
-export const enabled = production || DEV_OPT_IN.some((key) => read(key) === "dev");
+export const enabled = production || read(DEV_OPT_IN_KEY) === "dev";
 const environment = production ? "production" : "development";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -56,8 +56,7 @@ function uuidv7(ms = Date.now()): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-function posthogId(): string | null {
-  const key = `ph_${LEGACY_POSTHOG_TOKEN}_posthog`;
+function legacyVisitorId(): string | null {
   const pick = (json: string | null | undefined) => {
     try {
       const id = json ? (JSON.parse(json) as { distinct_id?: unknown }).distinct_id : null;
@@ -66,11 +65,11 @@ function posthogId(): string | null {
       return null;
     }
   };
-  const fromStorage = pick(read(key));
+  const fromStorage = pick(read(LEGACY_VISITOR_ID_KEY));
   if (fromStorage) return fromStorage;
   try {
-    const cookie = document.cookie.split("; ").find((c) => c.startsWith(`${key}=`));
-    return pick(cookie && decodeURIComponent(cookie.slice(key.length + 1)));
+    const cookie = document.cookie.split("; ").find((c) => c.startsWith(`${LEGACY_VISITOR_ID_KEY}=`));
+    return pick(cookie && decodeURIComponent(cookie.slice(LEGACY_VISITOR_ID_KEY.length + 1)));
   } catch {
     return null;
   }
@@ -79,7 +78,7 @@ function posthogId(): string | null {
 function visitorId(): string {
   const stored = read("ac:id");
   if (stored) return stored;
-  const id = posthogId() ?? uuidv7();
+  const id = legacyVisitorId() ?? uuidv7();
   write("ac:id", id);
   return id;
 }
