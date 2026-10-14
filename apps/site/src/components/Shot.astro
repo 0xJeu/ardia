@@ -2,12 +2,6 @@
 import type { ImageMetadata } from "astro";
 import { Picture, getImage } from "astro:assets";
 
-export interface Focus {
-  x: number;
-  y: number;
-  zoom: number;
-  ratio?: number;
-}
 export interface Loop {
   mp4: string;
   webm: string;
@@ -20,22 +14,12 @@ interface Props {
   sizes: string;
   panel?: boolean;
   eager?: boolean;
-  focus?: Focus;
   loop?: Loop;
 }
-const { src, alt, sizes: baseSizes, panel = false, eager = false, focus, loop } = Astro.props;
+const { src, alt, sizes, panel = false, eager = false, loop } = Astro.props;
 const shots = Array.isArray(src) ? src : [src];
 const first = shots[0];
 const fan = shots.length > 1;
-const ratio = focus?.ratio ?? 0.78;
-const aspect = first.height / first.width;
-const crop = focus && {
-  "--zoom": focus.zoom,
-  "--ratio": ratio,
-  "--tx": `${(-focus.x * (1 - 1 / focus.zoom) * 100).toFixed(2)}%`,
-  "--ty": `${(-focus.y * Math.max(0, 1 - ratio / (focus.zoom * aspect)) * 100).toFixed(2)}%`,
-};
-const sizes = focus ? `(max-width: 640px) ${Math.round((focus.zoom * 200) / 3)}vw, ${baseSizes}` : baseSizes;
 const full = await Promise.all(shots.map((s) => getImage({ src: s, format: "webp", width: Math.min(s.width, 2880) })));
 const name = first.src.split("/").pop()?.split(".")[0]?.split("_")[0] ?? "shot";
 const pct = (n: number, of: number) => `${((n / of) * 100).toFixed(3)}%`;
@@ -46,7 +30,6 @@ const loopBox =
 const widths = (s: ImageMetadata) => [640, 960, 1280, 1600, 1920, 2200, s.width].filter((w, i, a) => w <= s.width && a.indexOf(w) === i);
 ---
 
-<div class:list={["crop", { on: !!focus }]} style={crop ? Object.entries(crop).map(([k, v]) => `${k}: ${v}`).join("; ") : undefined}>
 <div
   class:list={["shot", { panel, fan }]}
   style={`--n: ${shots.length}; aspect-ratio: ${first.width} / ${first.height}`}
@@ -86,7 +69,6 @@ const widths = (s: ImageMetadata) => [640, 960, 1280, 1600, 1920, 2200, s.width]
     data-track-shot={name}
   ></button>
 </div>
-</div>
 
 <script>
   import "../scripts/loops";
@@ -99,28 +81,6 @@ const widths = (s: ImageMetadata) => [640, 960, 1280, 1600, 1920, 2200, s.width]
     display: block;
     object-fit: cover;
     pointer-events: none;
-  }
-  @media (max-width: 640px) {
-    .crop.on {
-      position: relative;
-      overflow: hidden;
-      aspect-ratio: 1 / var(--ratio);
-      border-radius: 10px;
-      background: var(--paper-deep);
-      box-shadow:
-        0 0 0 1px rgb(22 19 15 / 0.1),
-        0 14px 30px -12px rgb(22 19 15 / 0.35);
-    }
-    .crop.on > .shot {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: calc(var(--zoom) * 100%);
-      transform: translate(var(--tx), var(--ty));
-    }
-    .crop.on > .shot :global(img) {
-      filter: none;
-    }
   }
   .zoom-hit {
     position: absolute;

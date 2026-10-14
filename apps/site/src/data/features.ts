@@ -1,5 +1,5 @@
 import type { ImageMetadata } from "astro";
-import type { Focus, Loop } from "../components/Shot.astro";
+import type { Loop } from "../components/Shot.astro";
 import type { Hour } from "../components/Plate.astro";
 import addressToolbar from "../assets/shots/address-toolbar.webp";
 import addressSidebar from "../assets/shots/address-sidebar.webp";
@@ -26,7 +26,6 @@ interface Feature {
   sun: { x: number; y: number };
   flip?: boolean;
   panel?: boolean;
-  focus?: Focus;
   loop?: Loop;
 }
 
@@ -39,7 +38,6 @@ export const features: Feature[] = [
     alt: "Two Ardia windows on the same Wikipedia page: behind, the address bar in a toolbar above the page; in front, the address bar in the sidebar under the traffic lights and the page running to the top of the window.",
     hour: "morning",
     sun: { x: 0.18, y: 0.18 },
-    focus: { x: 0, y: 0, zoom: 2.1, ratio: 0.8 },
   },
   {
     id: "split",
@@ -50,7 +48,6 @@ export const features: Feature[] = [
     hour: "morning",
     sun: { x: 0.8, y: 0.14 },
     flip: true,
-    focus: { x: 0.5, y: 0, zoom: 1.3, ratio: 0.8 },
   },
   {
     id: "mini-player",
@@ -60,7 +57,6 @@ export const features: Feature[] = [
     alt: "Ardia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right. Its tab, muted, is in the sidebar, with a player at the foot of the sidebar.",
     hour: "noon",
     sun: { x: 0.5, y: 0.1 },
-    focus: { x: 1, y: 1, zoom: 2.4, ratio: 0.8 },
     loop: { mp4: pipMp4, webm: pipWebm, poster: pipPoster, rect: { x: 2170, y: 1384, w: 672, h: 378 } },
   },
   {
@@ -72,7 +68,6 @@ export const features: Feature[] = [
     hour: "noon",
     sun: { x: 0.86, y: 0.2 },
     flip: true,
-    focus: { x: 0, y: 0, zoom: 2.4, ratio: 0.8 },
   },
   {
     id: "extensions",
@@ -82,7 +77,6 @@ export const features: Feature[] = [
     alt: "Dark Reader’s page on the Chrome Web Store, open in Ardia, with an Add to Ardia button.",
     hour: "golden",
     sun: { x: 0.2, y: 0.3 },
-    focus: { x: 1, y: 0.1, zoom: 1.19, ratio: 0.8 },
   },
   {
     id: "privacy",
@@ -93,7 +87,6 @@ export const features: Feature[] = [
     hour: "golden",
     sun: { x: 0.78, y: 0.4 },
     flip: true,
-    focus: { x: 0.96, y: 0, zoom: 1.4, ratio: 0.75 },
   },
 ];
 
@@ -116,7 +109,6 @@ export const duo: Feature[] = [
     hour: "golden",
     sun: { x: 0.2, y: 0.26 },
     flip: true,
-    focus: { x: 0, y: 0, zoom: 2.2, ratio: 0.8 },
   },
 ];
 

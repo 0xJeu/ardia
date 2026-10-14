@@ -19,7 +19,7 @@ const dabs = ["var(--sun)", "var(--sage)", "var(--forest)", "#d98a6c"];
             </div>
             <figure class="feature-figure">
               <Plate hour={p.hour} sun={p.sun} flip={p.flip}>
-                <Shot src={p.shots} alt={p.alt} panel={p.panel} focus={p.focus} loop={p.loop} sizes="(max-width: 900px) 92vw, 52vw" />
+                <Shot src={p.shots} alt={p.alt} panel={p.panel} loop={p.loop} sizes="(max-width: 900px) 92vw, 52vw" />
               </Plate>
             </figure>
           </li>
@@ -33,7 +33,7 @@ const dabs = ["var(--sun)", "var(--sage)", "var(--forest)", "#d98a6c"];
           <li class:list={["duo-item", p.hour]} id={p.id} data-shot={`pledge-${p.id}`}>
             <figure class="duo-figure">
               <Plate hour={p.hour} sun={p.sun} flip={p.flip}>
-                <Shot src={p.shots} alt={p.alt} focus={p.focus} sizes="(max-width: 900px) 92vw, 44vw" />
+                <Shot src={p.shots} alt={p.alt} sizes="(max-width: 900px) 92vw, 44vw" />
               </Plate>
             </figure>
             <div class="duo-text" data-reveal style={`--i: ${i}`}>
