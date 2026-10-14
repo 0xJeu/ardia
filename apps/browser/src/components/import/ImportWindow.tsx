@@ -9,6 +9,7 @@ import { plural } from "../../store/model";
 import type { ProfileColor } from "../../store/types";
 import { useHover } from "../primitives";
 import { Button, Checkbox, PopUp, useFormColors } from "../settings/controls";
+import { useOnboarding } from "../onboarding/state";
 import { IMPORT_WINDOW_ID } from "../settings/windows";
 import { applyResult, applySafari, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, type ImportCounts } from "./apply";
 import { importModule } from "./module";
@@ -55,7 +56,8 @@ export function ImportWindow() {
   const [fullDiskAccess, setFullDiskAccess] = useState(false);
   const [safariCookies, setSafariCookies] = useState(true);
   const [notes, setNotes] = useState<string[]>([]);
-  const [extensions, setExtensions] = useState<{ profileId: string; list: ImportedExtension[] }>({ profileId: "", list: [] });
+  const [extensions, setExtensions] = useState<{ profileId: string; list: ImportedExtension[]; opened: boolean }>({ profileId: "", list: [], opened: false });
+  const onboarding = useOnboarding((s) => s.windowId !== null);
   const [diaStatus, setDiaStatus] = useState<DiaAutomationStatus | "checking" | "reading">("checking");
   const [dia, setDia] = useState<DiaTabsResult | null>(null);
   const [asking, setAsking] = useState(false);
@@ -125,7 +127,7 @@ export function ImportWindow() {
     setKinds(new Set(available));
     if (b.family === "safari" && api) setFullDiskAccess(api.safariHasFullDiskAccess());
     setDia(null);
-    setExtensions({ profileId: "", list: [] });
+    setExtensions({ profileId: "", list: [], opened: false });
     setNotes([]);
     setError(null);
   };
@@ -252,7 +254,7 @@ export function ImportWindow() {
         for (const e of await api.listExtensions(source.id, profile.id).catch(() => [])) found.set(e.id, e);
       }
     }
-    setExtensions({ profileId: extensionsProfile, list: [...found.values()] });
+    setExtensions({ profileId: extensionsProfile, list: [...found.values()], opened: false });
     setNotes(left);
     setStatus((st) => Object.fromEntries(Object.entries(st).map(([k, v]) => [k, failed.has(k as ImportKind) ? "failed" : v === "failed" ? v : "done"])));
     setFailures([...failed].map(([kind, names]) => ({ kind, profiles: selected.length > 1 ? names : [] })));
@@ -784,15 +786,21 @@ export function ImportWindow() {
         <Text style={{ fontSize: 12, color: theme.textPrimary, textAlign: "center" }} numberOfLines={3}>
           {extensions.list.map((e) => e.name).join(", ")}
         </Text>
-        <View style={{ alignItems: "center" }}>
-          <Button
-            title={extensions.list.length === 1 ? "Open in Chrome Web Store" : `Open ${extensions.list.length} in Chrome Web Store`}
-            onPress={() => {
-              openInWebStore(extensions.profileId || target, extensions.list.map((e) => e.webStoreUrl));
-              setExtensions({ profileId: "", list: [] });
-            }}
-          />
-        </View>
+        {extensions.opened ? (
+          <Text style={{ fontSize: 12, color: theme.textSecondary, textAlign: "center" }}>
+            {`${extensions.list.length === 1 ? "Its page is" : "Their pages are"} open in your sidebar${onboarding ? ", ready when you finish setting up" : ""}. Click Add to ${APP} on each one you want.`}
+          </Text>
+        ) : (
+          <View style={{ alignItems: "center" }}>
+            <Button
+              title={extensions.list.length === 1 ? "Open in Chrome Web Store" : `Open ${extensions.list.length} in Chrome Web Store`}
+              onPress={() => {
+                openInWebStore(extensions.profileId || target, extensions.list.map((e) => e.webStoreUrl));
+                setExtensions((x) => ({ ...x, opened: true }));
+              }}
+            />
+          </View>
+        )}
       </View>
     ) : null;
     body = failures.length ? (

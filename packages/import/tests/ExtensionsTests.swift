@@ -9,6 +9,12 @@ final class ExtensionsTests: XCTestCase {
     XCTAssertEqual(list.first?.webStoreUrl, "https://chromewebstore.google.com/detail/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
   }
 
+  func testHeliumListsStoreInstallsButNotItsBuiltInUBlock() {
+    let list = ChromiumExtensions.list(profile: Fixtures.url("extensions/Helium"))
+    XCTAssertEqual(list.map(\.id), ["eimadpbcbfnmbkopoojfekhnkhdbieeh"])
+    XCTAssertEqual(list.map(\.name), ["Dark Reader"])
+  }
+
   func testMissingProfileListsNothing() {
     XCTAssertEqual(ChromiumExtensions.list(profile: Fixtures.url("extensions/Nope")), [])
   }
