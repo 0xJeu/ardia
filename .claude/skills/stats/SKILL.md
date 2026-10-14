@@ -5,31 +5,29 @@ description: Ardia's numbers in one short report — users and installs, site tr
 
 # Ardia stats
 
-Fetch the numbers yourself: our ClickHouse for site and app events (`node scripts/telemetry-sql.mjs "<SQL>"`,
-read-only, credentials in `~/.config/ardia/telemetry.env`; the query for each number below is in
-[queries.md](queries.md)), `node scripts/update-checks.mjs` for installs, and GitHub through `gh` (repo,
-traffic, release download counts). `docs/growth.md` explains what the events mean ("Telemetry" has the
-tables); compare against its last **Log** entry and say what changed since. If the env file is missing, say
-so and ask the owner for it. ClickHouse is the only source.
+The owner wants the numbers fast: one command, then the reply. Don't read other files first.
 
-Copies on 0.2.17 or earlier send their opt-in events to PostHog Cloud, not to ClickHouse, and nothing reads
-them now. Their update checks still count; their opted-in usage and errors don't. Say so when
-those versions still show up in the update checks.
+```sh
+node scripts/stats.mjs                      # last 24 h
+node scripts/stats.mjs --since "8:30pm IST" # or 6h, 2d, 1w, "21:00 UTC", "2026-10-14 15:00"
+```
 
-## What I want to know
+It takes about a second and prints the finished report: users and installs, the site, phones, GitHub,
+errors (real ones apart from known noise), and what changed since the last run. Relay it as it is, trimmed
+to what was asked, and add a line only for what needs the owner. When they ask for a visual (chart, graph,
+"show me"), call `html_render` with the `html` and `height` from the report's last line; it's an SVG the
+script already drew, so don't build a page. Without a window in the question, use the default.
 
-- **Users:** how many people have the app. Keep the kinds of number apart: DMG downloads, first launches
-  (`update_check` with `first`, 0.2.14 on), copies still running, updates (Sparkle zips), and opted-in app
-  users by version. There's no exact user count; say which number is which.
-- **Site:** visitors (recent and all time) and whether traffic is rising or tapering; download clicks and
-  the Mac download rate; other platforms briefly.
-- **Phones:** Send to my Mac taps → links that got out (shared, copied, emailed) → Macs that opened one.
-- **GitHub:** stars (and how many are recent), repo views, where they come from.
-- **Errors:** anything new from the site or the app. Fix real ones without asking (AGENTS.md); skip noise
-  that isn't ours (X's in-app browser, wallets, webviews, cross-origin "Script error.", network drops).
-- **Needs me:** only if something does.
+Only go further when the report doesn't answer the question:
+- an error listed under **Errors** that isn't noise: find the cause and fix it (AGENTS.md);
+- a number the report doesn't have: `node scripts/telemetry-sql.mjs "<query>; <query>"` (all in one call),
+  with the queries in [queries.md](queries.md) and the event meanings in `docs/growth.md` ("Telemetry");
+- installs per version and per day: `node scripts/update-checks.mjs`.
 
-## Report
+If `~/.config/ardia/telemetry.env` is missing, the report says so; ask the owner for it.
 
-Short and plain, in that order, numbers first. Then add a dated entry to the Log in `docs/growth.md` and
-commit it.
+Copies on 0.2.17 or earlier send their opt-in events to PostHog Cloud, which nothing reads; the report
+names those versions when they still check for updates.
+
+Add a dated entry to the Log in `docs/growth.md` only for something worth remembering (a launch, a release's
+first day, a spike, a fix), after replying, and commit it.

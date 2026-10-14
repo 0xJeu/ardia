@@ -7,7 +7,7 @@ ten queries takes about as long as two calls with one each. Most queries take 0.
 slow ones are those without an `event` filter, which decode every row's `properties` map. Always filter on
 `event` (both tables sort by event, then date), and add a `timestamp >` filter when only recent events
 matter: that skips the September history entirely.
-`scripts/stats-snapshot.mjs` gets all the headline numbers in one request, about 1 s.
+`scripts/stats.mjs` already prints the whole report; these are for what it doesn't cover.
 Everything is in `telemetry.events`: PostHog's event and property naming (`$pageview`, `$lib`…), one row per event, `properties`
 a `Map(String, String)` (booleans are `'true'`/`'false'`). `source` says who sent it: `ardia-site`,
 `ardia-app`, `ardia-feed` (update checks; `netnyahoo-site`, `-app` and `-feed` before the rename) or `posthog-cloud`
