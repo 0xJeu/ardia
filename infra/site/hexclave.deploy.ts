@@ -7,6 +7,7 @@ export const deploy = ({ secret, service }: any) => ({
       public: true,
       ports: { 8080: { protocol: "http" } },
       dockerfilePath: "Dockerfile",
+      minInstances: 2,
       maxInstances: 2,
       env: {
         TELEMETRY_COLLECTOR_HOST: service("otel-collector").hostname(),

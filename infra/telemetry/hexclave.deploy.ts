@@ -12,6 +12,7 @@ export const deploy = ({ secret, service }: any) => ({
   services: {
     "ph-clickhouse": {
       type: "server",
+      minInstances: 1,
       memory: "4GB",
       ports: { 8123: { protocol: "tcp" }, 9000: { protocol: "tcp" } },
       dockerfilePath: "clickhouse/Dockerfile",
@@ -25,6 +26,7 @@ export const deploy = ({ secret, service }: any) => ({
 
     "otel-collector": {
       type: "server",
+      minInstances: 1,
       memory: "512MB",
       ports: { 4318: { protocol: "tcp" }, 13133: { protocol: "tcp" } },
       dockerfilePath: "collector/Dockerfile",
@@ -36,6 +38,7 @@ export const deploy = ({ secret, service }: any) => ({
 
     "ph-objects": {
       type: "server",
+      minInstances: 1,
       memory: "1GB",
       ports: { 8888: { protocol: "tcp" } },
       image: SEAWEEDFS,
