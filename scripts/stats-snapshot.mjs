@@ -26,7 +26,7 @@ const fill = (sql, t) =>
     .replace(/\{(p|ts|t|e|d)\}/g, (_, k) => t[k]);
 const both = (select, where, { final = false } = {}) =>
   [OTEL, HISTORY]
-    .map((t) => `SELECT ${fill(select, t)} FROM ${t.table}${final ? " FINAL" : ""} WHERE ${fill(where, t)} AND ${t.base}`)
+    .map((t) => `SELECT ${fill(select, t)} FROM ${t.table}${final && t === OTEL ? " FINAL" : ""} WHERE ${fill(where, t)} AND ${t.base}`)
     .join(" UNION ALL ");
 const VERSION = "'^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$'";
 

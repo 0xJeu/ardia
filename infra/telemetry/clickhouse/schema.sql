@@ -75,7 +75,7 @@ SELECT
     elements_chain,
     'posthog-cloud' AS source,
     '' AS source_version
-FROM telemetry.posthog_events FINAL;
+FROM telemetry.posthog_events;
 
 CREATE OR REPLACE VIEW telemetry.logs AS
 SELECT

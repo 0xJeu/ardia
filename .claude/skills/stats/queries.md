@@ -1,11 +1,13 @@
 # Stats queries (ClickHouse)
 
-Run with `node scripts/telemetry-sql.mjs "<query>"` (read-only user from `~/.config/ardia/telemetry.env`),
-one at a time: the server has 2 cores, a query over the whole history takes 5–30 s, and parallel ones
-only queue up behind each other (four at once once ran it out of open files). Put a `timestamp >` filter
-first when a query only needs recent events. For a query that runs often, read the two tables under the view
-directly and filter on the event first (both sort by event, date); unique counts don't need the view's FINAL.
-`scripts/stats-snapshot.mjs` does this: all the headline numbers in one request, about 1 s.
+Run with `node scripts/telemetry-sql.mjs "<query>; <query>; …"` (read-only user from `~/.config/ardia/telemetry.env`).
+Put every query you need in one call, separated by `;` (or pipe them on stdin): they run 4 at a time and print
+in order under `== n` headers. Each request costs about 0.35 s of network on top of the query, so one call with
+ten queries takes about as long as two calls with one each. Most queries take 0.1–0.2 s on the server; the
+slow ones are those without an `event` filter, which decode every row's `properties` map. Always filter on
+`event` (both tables sort by event, then date), and add a `timestamp >` filter when only recent events
+matter: that skips the September history entirely.
+`scripts/stats-snapshot.mjs` gets all the headline numbers in one request, about 1 s.
 Everything is in `telemetry.events`: PostHog's event and property naming (`$pageview`, `$lib`…), one row per event, `properties`
 a `Map(String, String)` (booleans are `'true'`/`'false'`). `source` says who sent it: `ardia-site`,
 `ardia-app`, `ardia-feed` (update checks; `netnyahoo-site`, `-app` and `-feed` before the rename) or `posthog-cloud`
@@ -54,7 +56,8 @@ FROM telemetry.events WHERE event = 'download_clicked' AND SITE;
 -- Mac download rate since T: Mac desktop visitors who clicked Download / Mac desktop visitors
 SELECT uniqExactIf(distinct_id, event = 'download_clicked') AS clicked,
        uniqExactIf(distinct_id, event = '$pageview') AS visitors, round(100 * clicked / visitors, 1) AS pct
-FROM telemetry.events WHERE SITE AND MAC AND timestamp > now() - INTERVAL 24 HOUR;
+FROM telemetry.events WHERE event IN ('$pageview', 'download_clicked') AND SITE AND MAC
+  AND timestamp > now() - INTERVAL 24 HOUR;
 -- (Windows/Linux: swap MAC for properties['$os'] IN ('Windows') / ('Linux').)
 
 -- Clicks worth watching
