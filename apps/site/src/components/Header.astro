@@ -93,9 +93,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   .bar:not([data-scrolled]):has(~ main [data-meadow]) :is(.mark, .links a, .menu-btn) {
     text-shadow:
       0 0 1px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
+      0 0 1px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
       0 0 2px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
-      0 0 4px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
-      0 0 9px rgb(var(--halo-rgb, 243 236 223) / calc(var(--halo, 0) * 0.85));
+      0 0 3px rgb(var(--halo-rgb, 243 236 223) / calc(var(--halo, 0) * 0.7));
   }
   .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) {
     --halo-rgb: 18 16 26;
@@ -108,8 +108,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     color: var(--night-ink);
   }
   .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) .bar-cta {
-    background: var(--night-ink);
-    color: var(--ink);
+    box-shadow: 0 0 0 1px rgb(239 232 220 / 0.55);
   }
   .bar-inner {
     display: flex;
@@ -175,7 +174,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   .bar-cta {
     transition:
       color 400ms var(--ease-out),
-      background-color 400ms var(--ease-out);
+      background-color 400ms var(--ease-out),
+      box-shadow 600ms var(--ease-out);
   }
 
   .menu-btn,

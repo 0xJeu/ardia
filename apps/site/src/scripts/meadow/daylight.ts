@@ -61,6 +61,7 @@ const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 const mixRgb = (a: Rgb, b: Rgb, t: number): Rgb => [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)];
 const smooth = (t: number) => t * t * (3 - 2 * t);
 const degrees = (value: number) => (value * Math.PI) / 180;
+const KEY_HANDOVER = 0.16;
 
 export interface Daylight {
   sunDir: [number, number, number];
@@ -101,6 +102,7 @@ export function daylightAt(p: number, framing: Framing, moon = 0.5): Daylight {
   const moonElevation = degrees(-5) + (MOONLIGHT_ELEVATION + degrees(5)) * moonSky.arc;
   const moonDir = directionFrom(moonSky.azimuth, moonSky.elevation);
   const keyIsMoon = night > 0.5;
+  const keyStrength = keyIsMoon ? smooth(Math.min(1, (night - 0.5) / KEY_HANDOVER)) : smooth(Math.min(1, (0.5 - night) / KEY_HANDOVER));
   const keyAzimuth = keyIsMoon ? moonAzimuth : lightSun.azimuth;
   const keyElevation = keyIsMoon ? moonElevation : lightSun.elevation;
   const glowStrength = mix(a.glowStrength, b.glowStrength, t);
@@ -109,7 +111,7 @@ export function daylightAt(p: number, framing: Framing, moon = 0.5): Daylight {
     sunDir,
     sunElevation: sun.elevation,
     keyDir: directionFrom(keyAzimuth, keyElevation),
-    keyColor: mixRgb(a.key, b.key, t),
+    keyColor: mixRgb(a.key, b.key, t).map((c) => c * keyStrength) as Rgb,
     keyElevation,
     moonDir,
     moonElevation: moonSky.elevation,

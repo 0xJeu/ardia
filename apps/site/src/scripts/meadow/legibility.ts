@@ -18,6 +18,7 @@ interface Group {
   brightest: number;
   halo: number;
   shownHalo: string;
+  changedAt: number;
 }
 
 const INK_LUMINANCE = 0.0068;
@@ -33,6 +34,8 @@ const PAPER_LUMINANCE = 0.84;
 const HALO_COVERAGE = 0.26;
 const HALO_STEP = 0.05;
 const EASE_SECONDS = 0.5;
+const TONE_DWELL_MS = 2500;
+const MAX_HALO = 1;
 
 const SRGB_TO_LINEAR = Float32Array.from({ length: 256 }, (_, i) => {
   const c = i / 255;
@@ -66,6 +69,7 @@ export class TextTones {
       brightest: 0,
       halo: 0,
       shownHalo: "",
+      changedAt: -Infinity,
     });
     const sendPanel = one("[data-send-panel]")?.parentElement ?? null;
     this.groups = [
@@ -129,7 +133,8 @@ export class TextTones {
       const lightText = (NIGHT_INK_LUMINANCE + 0.05) / (group.brightest + 0.05);
       const preferred: Tone = darkText >= lightText ? "light" : "dark";
       const margin = preferred === "light" ? darkText / lightText : lightText / darkText;
-      if (preferred !== group.tone && margin > TONE_HYSTERESIS) this.apply(group, preferred);
+      const settled = performance.now() - group.changedAt > TONE_DWELL_MS;
+      if (preferred !== group.tone && margin > TONE_HYSTERESIS && settled) this.apply(group, preferred);
     }
   }
 
@@ -150,7 +155,7 @@ export class TextTones {
       group.tone === "light"
         ? ((group.large ? LARGE_FLOOR : READABLE_FLOOR) - group.darkest) / (PAPER_LUMINANCE - group.darkest)
         : (group.brightest - (group.large ? LARGE_CEILING : READABLE_CEILING)) / Math.max(group.brightest - INK_LUMINANCE, 1e-3);
-    return Math.min(1, Math.max(0, needed / HALO_COVERAGE));
+    return Math.min(MAX_HALO, Math.max(0, needed / HALO_COVERAGE));
   }
 
   shadeAt(x: number, y: number, reach: number) {
@@ -189,11 +194,15 @@ export class TextTones {
 
   private apply(group: Group, tone: Tone) {
     if (group === this.header) {
-      if (group.tone !== tone) this.onHeaderTone(tone);
+      if (group.tone !== tone) {
+        this.onHeaderTone(tone);
+        if (this.decided) group.changedAt = performance.now();
+      }
       group.tone = tone;
       return;
     }
     if (group.tone === tone && group.toned.every((element) => element.dataset.tone === tone)) return;
+    if (group.tone !== tone && this.decided) group.changedAt = performance.now();
     group.tone = tone;
     for (const element of group.toned) element.dataset.tone = tone;
   }

@@ -23,6 +23,12 @@ Pages without a custom domain).
 - **Release notes:** `/release-notes` renders the repo's `docs/release-notes/<version>.md` (one file per version,
   `src/content.config.ts`), newest first, each at `/release-notes#<version>`. The app opens that anchor after it
   updates, so rebuild and redeploy the site when a release ships (`docs/releasing.md`).
+- **Hero poster:** until WebGL draws its first frame, the hero shows a WebP of that exact frame (dawn, or
+  morning with reduced motion) in five framings: `tall` (phones), `mid`, `laptop` (16:10), `wide` (16:9) and
+  `wider`. `src/data/heroPoster.ts` holds the media queries; the canvas crossfades in over it. After changing
+  the meadow's look or the hero text, run `pnpm dev` and `node scripts/hero-posters.mjs --url <dev url>`: it
+  captures each frame in headless Chrome on the GPU, works out the text tones the scene picks, and rewrites
+  `src/assets/hero/`.
 - **Screenshots:** `src/assets/shots/*.webp` are real window captures of Ardia (2×, transparent outside
   the window). Every shot but the Picture in Picture set is a 0.2.35 capture (the export, re-signed to inject
   the dylib): `screencapture -l <windowID> -o` of a hidden test instance drawn as the active window by

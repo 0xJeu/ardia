@@ -4,55 +4,31 @@ import MacOnlyNote from "./MacOnlyNote.astro";
 import SendToMac from "./SendToMac.astro";
 import { REPO } from "../data/release";
 import { STARS } from "../data/github";
+import { HERO_POSTER_CSS, HERO_POSTER_FALLBACK, HERO_POSTERS } from "../data/heroPoster";
+
+const posterTones = HERO_POSTERS.map(({ media, tones, sky, headerHalo }) => ({ media, tones, sky, headerHalo }));
 ---
 
 <section class="hero" id="top" data-shot="hero" data-meadow>
   <div class="scene" aria-hidden="true">
-    <div class="fallback">
-      <div class="sky sky-dawn"></div>
-      <div class="sky sky-morning"></div>
-      <svg class="layer" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
-        <defs>
-          <radialGradient id="meadow-sun-glow">
-            <stop offset="0" stop-color="#ffd27a" stop-opacity="0.75"></stop>
-            <stop offset="0.35" stop-color="#ffc764" stop-opacity="0.22"></stop>
-            <stop offset="1" stop-color="#ffc764" stop-opacity="0"></stop>
-          </radialGradient>
-          <radialGradient id="meadow-sun-disc" cx="0.42" cy="0.4" r="0.62">
-            <stop offset="0" stop-color="#ffe49c"></stop>
-            <stop offset="1" stop-color="#f6b12c"></stop>
-          </radialGradient>
-        </defs>
-        <g class="sun-body">
-          <circle cx="992" cy="270" r="260" fill="url(#meadow-sun-glow)"></circle>
-          <circle cx="992" cy="270" r="60" fill="url(#meadow-sun-disc)"></circle>
-        </g>
-      </svg>
-      <svg class="layer hills" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
-        <defs>
-          <linearGradient id="meadow-field" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#7d9244"></stop>
-            <stop offset="0.45" stop-color="#55722f"></stop>
-            <stop offset="1" stop-color="#3e5a27"></stop>
-          </linearGradient>
-          <linearGradient id="meadow-forest" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#3a6b52"></stop>
-            <stop offset="1" stop-color="#1d4536"></stop>
-          </linearGradient>
-          <linearGradient id="meadow-sage" x1="0" y1="0" x2="0.4" y2="1">
-            <stop offset="0" stop-color="#b3bf7f"></stop>
-            <stop offset="1" stop-color="#8ea55e"></stop>
-          </linearGradient>
-        </defs>
-        <path
-          fill="#c9c4c4"
-          d="M0 612Q60 600 120 596T210 580T300 598T390 575T470 590T560 566T650 585T760 560T850 582T960 570T1060 590T1150 566T1260 588T1370 572T1480 594T1600 580V720H0Z"
-        ></path>
-        <path fill="url(#meadow-sage)" d="M0 446C44 384 110 338 182 338C304 338 424 402 562 462C702 522 900 572 1250 652V720H0Z"></path>
-        <path fill="url(#meadow-forest)" d="M250 662C560 642 820 562 1080 472C1262 410 1420 380 1600 386V740H250Z"></path>
-        <path fill="url(#meadow-field)" d="M0 650C400 640 900 656 1600 645V1000H0Z"></path>
-      </svg>
-    </div>
+    <style is:inline set:html={HERO_POSTER_CSS}></style>
+    <picture class="hero-poster">
+      {
+        HERO_POSTERS.filter((poster) => !poster.fallback).map((poster) => (
+          <source media={poster.media} srcset={poster.srcset} sizes={poster.sizes} type="image/webp" />
+        ))
+      }
+      <img
+        src={HERO_POSTER_FALLBACK.src}
+        srcset={HERO_POSTER_FALLBACK.srcset}
+        sizes={HERO_POSTER_FALLBACK.sizes}
+        width={HERO_POSTER_FALLBACK.width}
+        height={HERO_POSTER_FALLBACK.height}
+        alt=""
+        fetchpriority="high"
+        onload="this.dataset.loaded = ''"
+      />
+    </picture>
     <canvas class="meadow-canvas" data-meadow-canvas></canvas>
   </div>
   <span class="label sun-hint" data-sun-hint aria-hidden="true">Drag the sun</span>
@@ -89,9 +65,7 @@ import { STARS } from "../data/github";
 
 <style>
   .hero {
-    --sunrise-delay: 300ms;
-    --sunrise-length: 2850ms;
-    --sunrise-ease: cubic-bezier(0.37, 0, 0.63, 1);
+    --handoff: 400ms;
     position: relative;
     isolation: isolate;
     overflow: clip;
@@ -119,64 +93,43 @@ import { STARS } from "../data/github";
     background-image: var(--grain);
     background-size: 256px;
     background-blend-mode: soft-light;
-    -webkit-mask: var(--edge-a) 0 100% / 1200px 100% repeat-x;
-    mask: var(--edge-a) 0 100% / 1200px 100% repeat-x;
+    -webkit-mask: url("../assets/paint/edge-hero.svg") 0 100% / 1200px 100% repeat-x;
+    mask: url("../assets/paint/edge-hero.svg") 0 100% / 1200px 100% repeat-x;
   }
-  .fallback,
-  .sky,
-  .layer,
+  .hero-poster,
+  .hero-poster img,
   .meadow-canvas {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
   }
-  .sky-dawn {
-    background: linear-gradient(180deg, #7c85ab 0%, #9a83a8 30%, #c98190 56%, #e6998b 68%);
+  .hero-poster {
+    display: block;
+    background-repeat: no-repeat;
+    background-size: cover;
   }
-  .sky-morning {
-    background: linear-gradient(180deg, #bccfd9 0%, #e1e4dc 30%, #f3e8d4 54%, #f7e5c2 68%);
+  .hero-poster img {
+    display: block;
+    object-fit: cover;
+  }
+  :global(.js) .hero-poster img {
+    opacity: 0;
+    transition: opacity 240ms var(--ease-out);
+  }
+  :global(.js) .hero-poster img[data-loaded] {
+    opacity: 1;
   }
   .meadow-canvas {
     opacity: 0;
-    transition: opacity 900ms var(--ease-out);
+    transition: opacity var(--handoff) cubic-bezier(0.37, 0, 0.63, 1);
   }
   .hero[data-meadow="ready"] .meadow-canvas {
     opacity: 1;
   }
-  .hero[data-meadow="ready"] .fallback {
+  .hero[data-meadow="ready"] .hero-poster {
     visibility: hidden;
-    transition: visibility 0s 1s;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    :global(.js) .sky-morning {
-      animation: sky-warm var(--sunrise-length) var(--sunrise-ease) var(--sunrise-delay) both paused;
-    }
-    :global(.js) .sun-body {
-      animation: sun-rise var(--sunrise-length) var(--sunrise-ease) var(--sunrise-delay) both paused;
-    }
-    :global(.js) .hills {
-      animation: hills-wake var(--sunrise-length) var(--sunrise-ease) var(--sunrise-delay) both paused;
-    }
-    .hero[data-sunrise="run"] .fallback * {
-      animation-play-state: running;
-    }
-  }
-  @keyframes sky-warm {
-    from {
-      opacity: 0;
-    }
-  }
-  @keyframes sun-rise {
-    from {
-      transform: translateY(335px);
-    }
-  }
-  @keyframes hills-wake {
-    from {
-      filter: brightness(0.66) saturate(0.6);
-    }
+    transition: visibility 0s var(--handoff);
   }
 
   .hero :global([data-tone]) {
@@ -185,10 +138,10 @@ import { STARS } from "../data/github";
       color 600ms var(--ease-out),
       text-shadow 600ms var(--ease-out);
     text-shadow:
-      0 0 max(1px, 0.06em) rgb(var(--halo-rgb) / var(--halo, 0)),
-      0 0 max(2px, 0.1em) rgb(var(--halo-rgb) / var(--halo, 0)),
-      0 0 max(4px, 0.2em) rgb(var(--halo-rgb) / var(--halo, 0)),
-      0 0 clamp(9px, 0.45em, 26px) rgb(var(--halo-rgb) / calc(var(--halo, 0) * 0.85));
+      0 0 1px rgb(var(--halo-rgb) / var(--halo, 0)),
+      0 0 1px rgb(var(--halo-rgb) / var(--halo, 0)),
+      0 0 2px rgb(var(--halo-rgb) / var(--halo, 0)),
+      0 0 3px rgb(var(--halo-rgb) / calc(var(--halo, 0) * 0.7));
   }
   .hero :global([data-tone="dark"]) {
     --halo-rgb: 18 16 26;
@@ -196,11 +149,13 @@ import { STARS } from "../data/github";
   }
   .hero :global([data-tone] .btn) {
     text-shadow: none;
+    transition:
+      color 200ms var(--ease-out),
+      transform 160ms var(--ease-out),
+      box-shadow 600ms var(--ease-out);
   }
   .hero :global([data-tone="dark"] .btn) {
-    --btn-bg: var(--night-ink);
-    --btn-fg: var(--ink);
-    --btn-wipe: var(--sun-pale);
+    box-shadow: 0 0 0 1px rgb(239 232 220 / 0.55);
   }
   .hero :global([data-tone="dark"] .send-link) {
     color: var(--night-ink);
@@ -328,10 +283,6 @@ import { STARS } from "../data/github";
       padding-top: calc(61px + 22px);
       padding-bottom: var(--scene-strip);
     }
-    .fallback .layer {
-      inset: auto 0 0;
-      height: var(--scene-strip);
-    }
     .hero-grid {
       display: flex;
       flex-direction: column;
@@ -366,6 +317,32 @@ import { STARS } from "../data/github";
     }
   }
 </style>
+
+<script is:inline define:vars={{ posterTones }}>
+  (() => {
+    const hero = document.querySelector("[data-meadow]");
+    const image = hero?.querySelector(".hero-poster img");
+    if (image?.complete && image.naturalWidth) image.dataset.loaded = "";
+    const preset = posterTones.find((poster) => matchMedia(poster.media).matches);
+    if (!preset || !hero) return;
+    const groups = {
+      title: [hero.querySelector(".hero-title")],
+      lede: [hero.querySelector(".lede"), hero.querySelector(".welcome")],
+      cta: [hero.querySelector(".cta-row")],
+      send: [hero.querySelector("[data-send-panel]")?.parentElement],
+      note: [hero.querySelector(".note")],
+    };
+    for (const [group, [tone, halo]] of Object.entries(preset.tones)) {
+      for (const element of groups[group] ?? []) {
+        if (!element) continue;
+        element.dataset.tone = tone;
+        element.style.setProperty("--halo", halo);
+      }
+    }
+    if (preset.sky === "dark") hero.dataset.sky = "dark";
+    document.querySelector("[data-bar]")?.style.setProperty("--halo", preset.headerHalo);
+  })();
+</script>
 
 <script>
   import "../scripts/meadow/boot";

@@ -53,6 +53,7 @@ const OG_ALT =
     <link rel="preload" href={archivoLatin} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={newsreaderLatin} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={martianLatin} as="font" type="font/woff2" crossorigin />
+    <slot name="head" />
     <script is:inline>document.documentElement.classList.add("js");</script>
     <Device />
   </head>

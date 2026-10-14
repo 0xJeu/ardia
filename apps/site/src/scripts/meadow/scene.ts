@@ -174,6 +174,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     hero.dataset.sky = tone;
   });
   let probe: ColorProbe | null = null;
+  let tonesFromScene = false;
   let lastProbeAt = -Infinity;
   let probedCycle = -1;
   let sunSeen = true;
@@ -524,6 +525,10 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
   const readProbe = () => {
     if (!probe?.poll()) return;
     tones.decide(probe.pixels, probe.width, probe.height, cssWidth, cssHeight);
+    if (!tonesFromScene) {
+      tonesFromScene = true;
+      tones.ease(Infinity);
+    }
     const sun = probe.colorAt(bodies.sun.x, bodies.sun.y, bodies.radius * 0.45, cssWidth, cssHeight, true);
     const moon = probe.colorAt(bodies.moon.x, bodies.moon.y, bodies.radius * 0.8, cssWidth, cssHeight);
     sunSeen = !!sun && sun[0] >= SUN_MIN_RED && sun[2] <= sun[0] * SUN_MAX_BLUE_SHARE;
@@ -612,8 +617,10 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     const grassEdge = project(0, 0, GRASS_FAR * 0.75);
     grassTopCss = grassEdge ? grassEdge.y : cssHeight * 0.7;
 
-    tones.fallback(light.night > SKY_DARK_NIGHT ? "dark" : "light");
-    tones.ease(reducedMotion ? Infinity : dt);
+    if (tonesFromScene) {
+      tones.fallback(light.night > SKY_DARK_NIGHT ? "dark" : "light");
+      tones.ease(reducedMotion ? Infinity : dt);
+    }
 
     if (hint) placeHint(now);
 
@@ -742,12 +749,14 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     bindTexture(gl, 1, t.sceneFlow);
     bindTexture(gl, 2, g.smearTex);
     bindTexture(gl, 3, g.horizonTex);
-    const keyPoint = light.night > 0.5 ? moonPoint : sunPoint;
-    const lightX = keyPoint ? keyPoint.x - cssWidth / 2 : 0;
-    const lightY = keyPoint ? cssHeight / 2 - keyPoint.y : cssHeight;
-    const lightLength = Math.hypot(lightX, lightY) || 1;
-    const lightDir = [(lightX / lightLength) * 0.62, (lightY / lightLength) * 0.62, 0.78];
-    const specColor = light.night > 0.5 ? [0.45, 0.55, 0.75] : [1, 0.9, 0.72];
+    const moonShare = Math.min(1, Math.max(0, (light.night - 0.35) / 0.3));
+    const handover = moonShare * moonShare * (3 - 2 * moonShare);
+    const angleToward = (point: { x: number; y: number } | null) => (point ? Math.atan2(cssHeight / 2 - point.y, point.x - cssWidth / 2) : Math.PI / 2);
+    const sunAngle = angleToward(sunPoint);
+    const turn = Math.atan2(Math.sin(angleToward(moonPoint) - sunAngle), Math.cos(angleToward(moonPoint) - sunAngle));
+    const lightAngle = sunAngle + turn * handover;
+    const lightDir = [Math.cos(lightAngle) * 0.62, Math.sin(lightAngle) * 0.62, 0.78];
+    const specColor = [mix(1, 0.45, handover), mix(0.9, 0.55, handover), mix(0.72, 0.75, handover)];
     applyShared(programs.final.use(), light, skySpan)
       .int("uPaint", 0)
       .int("uFlow", 1)
@@ -807,7 +816,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
         const busy = isBusy(now);
         const dt = Math.min(0.1, Math.max(0, (now - lastNow) / 1000));
         lastNow = now;
-        if (windOn) windTime += dt;
+        if (windOn && firstFrameSent) windTime += dt;
         ensureSize();
         const started = performance.now();
         render(now, dt);
