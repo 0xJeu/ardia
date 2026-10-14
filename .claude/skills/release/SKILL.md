@@ -54,7 +54,10 @@ perf-gate table, step 4c) / `## Fixed` / `## Smaller` bullets written from the u
 Source material: `git log --format='%h %s%n%b' v<previous>..HEAD -- apps/browser packages`. The commit
 bodies already describe the user-visible symptom; translate them, don't paste them. Leave out the site,
 the videos, docs and version bumps. Each bold lead says what the user can do or what stopped being
-broken; no file names, flags or commit hashes.
+broken; no file names, flags or commit hashes. Items that came from an outside contributor's PR, or a
+commit co-authored by one, end with `Thanks, [@handle](<PR url>).` (README step 5); check
+`git log --format='%h %an %(trailers:key=Co-authored-by)' v<previous>..HEAD` and the merged PRs
+(`gh pr list --state merged --search "merged:>=<previous release date>"`) so nobody is missed.
 
 Check it renders: `pnpm -C apps/site build` and grep the headline in
 `apps/site/dist/release-notes/index.html` (or preview it on port 4321, the "site" launch config).

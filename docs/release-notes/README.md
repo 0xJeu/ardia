@@ -101,6 +101,9 @@ user's expense.
 3. Merge commits that are one change for the user into one item. Split a commit that fixes two visible
    things into two items.
 4. Sort each section by how many people it affects; crashes and data loss first.
-5. Pick the headline from the top item.
-6. Check it renders: `pnpm -C apps/site build`, then `pnpm -C apps/site preview` and open
+5. Credit outside contributors. When a change came from someone's pull request, or a commit has a
+   `Co-authored-by:` who isn't the owner or Claude, end its item with `Thanks, [@handle](<PR url>).` (their
+   GitHub handle, linking the PR). One credit per item, even when several commits fed it.
+6. Pick the headline from the top item.
+7. Check it renders: `pnpm -C apps/site build`, then `pnpm -C apps/site preview` and open
    `http://localhost:4321/release-notes#<version>`.
