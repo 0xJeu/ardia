@@ -55,6 +55,26 @@ function layoutHistory(history: HistoryEntry[], query: string): Layout {
   return { days, rows, height: offset };
 }
 
+function assignSlots(keys: string[], previous: Map<string, number>) {
+  const next = new Map<string, number>();
+  const taken = new Set<number>();
+  for (const key of keys) {
+    const slot = previous.get(key);
+    if (slot !== undefined && slot < keys.length && !taken.has(slot) && !next.has(key)) {
+      next.set(key, slot);
+      taken.add(slot);
+    }
+  }
+  let free = 0;
+  for (const key of keys) {
+    if (next.has(key)) continue;
+    while (taken.has(free)) free++;
+    next.set(key, free);
+    taken.add(free);
+  }
+  return next;
+}
+
 function rowAt(rows: Row[], y: number) {
   let lo = 0;
   let hi = rows.length;
@@ -198,29 +218,32 @@ function HistoryList({
   const firstDay = Math.max(0, Math.min(rows[top]!.day, days.length - dayCount));
   const selecting = selected.size > 0;
 
+  const rowSlots = useRef(new Map<string, number>());
+  rowSlots.current = assignSlots(rows.slice(firstRow, firstRow + rowCount).map((r) => r.entry.url), rowSlots.current);
+
   const slots: ReactNode[] = new Array(dayCount + rowCount);
   for (let i = firstDay; i < firstDay + dayCount; i++) {
     const slot = i % dayPool;
     slots[slot] = <DayHeader key={`d${slot}`} label={days[i]!.label} top={days[i]!.offset} />;
   }
   for (let i = firstRow; i < firstRow + rowCount; i++) {
-    const slot = i % rowPool;
     const row = rows[i]!;
+    const slot = rowSlots.current.get(row.entry.url)!;
     slots[dayCount + slot] = (
-      <HistoryRow
-        key={`r${slot}`}
-        entry={row.entry}
-        top={row.offset}
-        profileId={profileId}
-        first={row.first}
-        last={row.last}
-        selected={selected.has(row.entry.url)}
-        selecting={selecting}
-        windowId={windowId}
-        onToggle={onToggle}
-        onMoreFromSite={onMoreFromSite}
-        onRemove={onRemove}
-      />
+      <View key={`r${slot}`} style={{ position: "absolute", top: row.offset, left: 0, right: 0, height: ROW }}>
+        <HistoryRow
+          entry={row.entry}
+          profileId={profileId}
+          first={row.first}
+          last={row.last}
+          selected={selected.has(row.entry.url)}
+          selecting={selecting}
+          windowId={windowId}
+          onToggle={onToggle}
+          onMoreFromSite={onMoreFromSite}
+          onRemove={onRemove}
+        />
+      </View>
     );
   }
 
@@ -242,7 +265,6 @@ const DayHeader = memo(function DayHeader({ label, top }: { label: string; top: 
 
 const HistoryRow = memo(function HistoryRow({
   entry,
-  top,
   profileId,
   first,
   last,
@@ -254,7 +276,6 @@ const HistoryRow = memo(function HistoryRow({
   onRemove,
 }: {
   entry: HistoryEntry;
-  top: number;
   profileId: string;
   first: boolean;
   last: boolean;
@@ -292,7 +313,7 @@ const HistoryRow = memo(function HistoryRow({
   };
   const r = 10;
   return (
-    <View {...hoverProps} style={{ position: "absolute", top, left: 0, right: 0, height: ROW, paddingHorizontal: 16 }}>
+    <View {...hoverProps} style={{ height: ROW, paddingHorizontal: 16 }}>
       <ContextMenuArea onContextMenu={() => void menu()} style={{ flex: 1 }}>
         <View
           style={{
