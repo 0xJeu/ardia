@@ -3,7 +3,7 @@ import { openExternalURL, showMenu, Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
-import { PANEL, PanelHeader, Popover, PopoverValue, PromptButton } from "../layout/controls";
+import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, PromptButton } from "../layout/controls";
 import { useHover } from "../primitives";
 import { closeCastPicker, useCast } from "./cast";
 
@@ -27,7 +27,7 @@ export function CastPicker({ tabId, paneWidth }: { tabId: string; paneWidth: num
   };
 
   return (
-    <Popover key={dialog.id} width={width} top={4} right={8} onDismiss={close}>
+    <Popover key={dialog.id} width={width} top={POPOVER_MARGIN} right={POPOVER_MARGIN} onDismiss={close}>
       <View style={{ paddingBottom: PANEL.inset }}>
         <PanelHeader
           icon={<Symbol name="tv.and.mediabox" size={14} color={theme.icon} style={{ width: PANEL.iconSlot, height: PANEL.iconSlot }} />}

@@ -6,7 +6,7 @@ import { useBrowser } from "../../store/browser";
 import { openModeFor, openUrl } from "../bookmarks/actions";
 import { openInternalPage } from "../pages/urls";
 import { Favicon, NewTabIcon, useHover } from "../primitives";
-import { modifiersOf, PANEL, Popover, PopoverSeparator } from "./controls";
+import { modifiersOf, PANEL, Popover, POPOVER_MARGIN, PopoverSeparator } from "./controls";
 import { closeHistoryMenu, goToHistoryItem, useHistoryMenu, type HistoryItem } from "./history";
 
 const WIDTH = 300;
@@ -35,7 +35,7 @@ export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; wi
   };
 
   return (
-    <Popover width={WIDTH} top={2} left={Math.max(6, (menu.direction < 0 ? anchors.back : anchors.forward) - FAVICON_X - 2)} onDismiss={closeHistoryMenu}>
+    <Popover width={WIDTH} top={POPOVER_MARGIN} left={Math.max(POPOVER_MARGIN, (menu.direction < 0 ? anchors.back : anchors.forward) - FAVICON_X - 2)} onDismiss={closeHistoryMenu}>
       <View style={{ paddingVertical: PANEL.listPadding }}>
         {menu.items.map((item) => (
           <Row key={item.key} item={item} favicon={favicons.get(item.url) ?? null} onOpen={(e) => open(item, e)} />

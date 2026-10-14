@@ -126,7 +126,7 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
   };
 
   return (
-    <Popover width={306} top={top} right={right} left={left} onDismiss={close}>
+    <Popover width={306} top={top} right={right} left={left} onDismiss={close} fitHeight>
       <View style={{ paddingBottom: PANEL.listPadding }}>
         <PanelHeader
           icon={<Favicon url={url} favicon={tab.favicon} size={PANEL.iconSlot} profileId={tab.profileId} />}

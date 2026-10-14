@@ -21,6 +21,7 @@ import { splitOf } from "../store/splits";
 import type { SplitView, Tab } from "../store/types";
 import { BOOKMARKS_BAR_HEIGHT, BookmarksBar, bookmarksBarShown, useBookmarksBarMode, type BookmarksBarMode } from "./bookmarks/BookmarksBar";
 import { FindBar } from "./FindBar";
+import { POPOVER_MARGIN } from "./layout/controls";
 import { NO_TOOLBAR, splitGeometry, toolbarGeometry, type Rect, type ToolbarGeometry } from "./layout/geometry";
 import { dismissPermissions, startPermissionPrompts } from "./site/permissions";
 import { patchPage, pageOf, setBrowserId, setPopover, useFullscreenTab, usePages } from "./layout/pageState";
@@ -360,15 +361,15 @@ const TabPane = memo(function TabPane({
                   <StatusBubble tabId={tabId} maxWidth={Math.max(160, frame.width / 2)} />
                 </Animated.View>
                 <SadTab tabId={tabId} />
-                {!newTabShown && <PermissionPrompt tabId={tabId} left={Math.max(8, Math.min(geometry.urlLeft, frame.width - 308))} top={4} />}
-                <PasswordPrompt tabId={tabId} right={8} top={4} />
-                <AutofillPrompt tabId={tabId} right={8} top={4} />
-                {!newTabShown && <ExternalAppPrompt tabId={tabId} left={Math.max(8, Math.min(geometry.urlLeft, frame.width - 348))} top={4} />}
-                {popover === "siteControls" && <SiteControls tabId={tabId} {...(toolbar ? { right: 8 } : { left: 8 })} top={2} />}
-                {popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...(toolbar ? { right: 8 } : { left: 8 })} top={2} />}
-                {popover === "zoom" && <ZoomPopover tabId={tabId} {...(toolbar ? { right: 8 } : { left: 8 })} top={2} />}
+                {!newTabShown && <PermissionPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, frame.width - 308))} top={POPOVER_MARGIN} />}
+                <PasswordPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
+                <AutofillPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
+                {!newTabShown && <ExternalAppPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, frame.width - 348))} top={POPOVER_MARGIN} />}
+                {popover === "siteControls" && <SiteControls tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
+                {popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
+                {popover === "zoom" && <ZoomPopover tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
                 <SharePicker tabId={tabId} paneWidth={frame.width} />
-                {!newTabShown && <DeviceChooser tabId={tabId} left={Math.max(8, Math.min(geometry.urlLeft, frame.width - 348))} top={4} />}
+                {!newTabShown && <DeviceChooser tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, frame.width - 348))} top={POPOVER_MARGIN} />}
                 <CastPicker tabId={tabId} paneWidth={frame.width} />
                 <NavigationOverlays tabId={tabId} windowId={windowId} geometry={geometry} />
                 <SelectionPopover tabId={tabId} zoom={zoom} />

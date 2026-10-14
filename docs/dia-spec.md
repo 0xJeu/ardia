@@ -139,6 +139,10 @@ the same as top"), so if a Dia capture ever differs, the owner's equal insets wi
   14.5 left / 18 top before → 17.5 / 17.5 after; the prompts (permission, password, autofill, external app, device
   chooser) 14.5 → 16.5 on all four sides; blocked pop-ups 13.5 → 16.5; history 13.5 → 16.5 (its favicons 18 in, a 16 pt
   favicon centred in the slot); Cast 14 → 16; Downloads' header caps and rows 16 / 16.
+- Placement in the page (`POPOVER_MARGIN`): every panel sits **8** from the card's side and 8 below the page's top
+  (the card's top with the address bar in the sidebar and in Little Ardia, the toolbar's hairline otherwise); it was 2
+  (Site Controls, Zoom, pop-ups, history) or 4 (prompts, Cast, Share) below the top (owner, 2026-10-15). A panel taller
+  than the page (Site Controls in Little Ardia) scrolls inside an 8 pt margin at the bottom.
 
 ## Sidebar
 

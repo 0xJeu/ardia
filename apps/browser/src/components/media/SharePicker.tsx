@@ -6,7 +6,7 @@ import { useTheme } from "../../lib/theme";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { engineProfile } from "../../store/model";
-import { PANEL, PanelHeader, Popover, PromptButton } from "../layout/controls";
+import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PromptButton } from "../layout/controls";
 import { usePages } from "../layout/pageState";
 import { Favicon, useHover } from "../primitives";
 import { noteTabShare } from "./ShareBar";
@@ -125,7 +125,7 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
   const width = Math.min(WIDTH, paneWidth - 24);
 
   return (
-    <Popover key={request.id} width={width} top={4} left={(paneWidth - width) / 2} onDismiss={cancel}>
+    <Popover key={request.id} width={width} top={POPOVER_MARGIN} left={(paneWidth - width) / 2} onDismiss={cancel}>
       <View style={{ paddingBottom: PANEL.inset }}>
         <PanelHeader
           large

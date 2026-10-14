@@ -1,6 +1,6 @@
 import { ContextMenuArea, Surface, Symbol, VisualEffect, type SymbolProps } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type ViewStyle } from "react-native";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent, type ViewStyle } from "react-native";
 import { hex, useTheme } from "../../lib/theme";
 import { Switch, switchEasing } from "../Switch";
 import { useHover } from "../primitives";
@@ -80,6 +80,8 @@ export function ToolbarButton({
 }
 
 export type ButtonHit = { width: number; height: number; plateX: number; plateY: number };
+
+export const POPOVER_MARGIN = 8;
 
 const INSET = 16;
 const ROW_INSET = 6;
@@ -197,6 +199,7 @@ export function Popover({
   onDismiss,
   children,
   modal = true,
+  fitHeight = false,
 }: {
   width: number;
   top: number;
@@ -205,15 +208,18 @@ export function Popover({
   onDismiss?: () => void;
   children: ReactNode;
   modal?: boolean;
+  fitHeight?: boolean;
 }) {
   const theme = useTheme();
   const appear = useRef(new Animated.Value(0)).current;
+  const [room, setRoom] = useState<number | null>(null);
   useEffect(() => {
     Animated.timing(appear, { toValue: 1, duration: 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, []);
   const origin = right !== undefined ? "top right" : "top left";
   return (
     <>
+      {fitHeight && <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={(e) => setRoom(e.nativeEvent.layout.height)} />}
       {modal && onDismiss && <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />}
       <Animated.View
         style={{
@@ -242,7 +248,7 @@ export function Popover({
         >
           <VisualEffect material="menu" cornerRadius={PANEL.radius} style={StyleSheet.absoluteFill} />
           <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: PANEL.radius, backgroundColor: theme.dark ? "rgba(38,36,37,0.72)" : "rgba(252,251,252,0.7)" }} />
-          {children}
+          {fitHeight ? <ScrollView style={room === null ? undefined : { maxHeight: Math.max(0, room - top - POPOVER_MARGIN) }}>{children}</ScrollView> : children}
         </Surface>
       </Animated.View>
     </>
