@@ -66,7 +66,8 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   frame difference, and measure positions and timings from the pixels. A position or size in the owner's
   recording may be their saved preference rather than Dia's default.
 - **Errors get fixed without asking.** When `crash.log` shows up in the repo root, a crash report appears, or
-  PostHog shows a new `$exception` from the site or the app, find the cause and fix it; don't wait for the
+  our telemetry (`telemetry.events` and `telemetry.logs` in our ClickHouse, see the `stats` skill) shows a new
+  `$exception` from the site or the app, find the cause and fix it; don't wait for the
   owner to ask. Check the binary UUID against the current build first (older builds are usually
   known-fixed), and skip noise that isn't ours (X's in-app browser, wallet extensions, telemetry self-tests).
   Site fixes deploy right away; app fixes ship in the next release. Delete `crash.log` once handled.
