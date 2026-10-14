@@ -390,3 +390,10 @@ The 2026-09-30 switch's checklist; the Before column is history.
   database is now DB-IP's IP to City Lite. The site's dev opt-in is `ac:telemetry` only. `posthog_events` stays
   as the September history. Copies on 0.2.17 and earlier (the last release before 0.2.18 switched the app to our
   collector on 2026-09-30) still post their opt-in events to PostHog Cloud; those are no longer read.
+- **2026-10-14 15:52 UTC: first 35 minutes after the owner's launch tweet (15:17 UTC, 20:47 IST).** 18 site
+  visitors (25 page views), about 3 of them our own headless checks; 14 came from t.co, 5 direct. Visitors per
+  15 minutes went from 1–2 before the tweet to 10 and 9 after. 12 Mac desktop, 4 phones; IN 8, DE 5, US 2. 2 of
+  12 Mac visitors clicked Download (17%); 0.2.35's DMG has 3 downloads in all and no new first launch has
+  checked in yet. GitHub: 28 stars, 1 since the tweet. Dead clicks: 18 by 3 visitors, mostly on the hero
+  (brushing) and the "Also in there" rows. Errors: a Safari 27 desktop "Non-Error promise rejection {}"
+  (3 events, 2 visitors, no stack, cause not found) and one cross-origin "Script error.".
