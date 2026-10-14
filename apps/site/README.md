@@ -24,27 +24,30 @@ Pages without a custom domain).
   `src/content.config.ts`), newest first, each at `/release-notes#<version>`. The app opens that anchor after it
   updates, so rebuild and redeploy the site when a release ships (`docs/releasing.md`).
 - **Screenshots:** `src/assets/shots/*.webp` are real window captures of Ardia (2×, transparent outside
-  the window). `window.webp`, `address-*.webp`, `profile-*.webp`, `split.webp` and `extensions.webp` are 0.2.33
-  captures (the export, re-signed to inject the dylib; the New Tab hills in each profile's colour, the decluttered
-  sidebar header): `screencapture -l <windowID> -o` of a hidden test instance drawn as the active window by
-  `scripts/draw-active.m` (how to build and inject it is in its header), set up from a `session()` fixture
-  (`scripts/lib/instance.mjs`) at 1440 × 900 pt (`address-*` 1360 × 860), light appearance except `split` and
-  `extensions` (dark, sidebar 232 pt). The PNGs'
-  Display P3 values go into the WebP as they are (`cwebp -q 85 -m 6 -alpha_q 100`), no colour conversion, like
-  the older shots. The profiles are Personal (plum), Work (blue) and Side project (orange). `window.webp` shows the Liquid
-  Glass pinned tiles on Wikipedia, and `privacy.webp` is from 0.1.0 (the app's own offscreen render of
-  that Settings pane, no window frame). `pip.webp` is 0.2.13 (the export, re-signed to inject the draw-active dylib): the window on Wikipedia with
-  the Picture in Picture window where Chrome opened it (window-relative 1085, 692 pt), its real shadow from
-  `screencapture -l`; `pip-loop.{mp4,webm}` is that rectangle over 7 s of SCK captures of the PiP window, laid
-  over the still by `Shot.astro` (`loop` in `data/features.ts`; `scripts/loops.ts` plays it, never with reduced
-  motion or Save-Data). SCK captures of the main window show macOS's "being shared" capsule in place of the
-  traffic lights, so its pixels come from `screencapture`. `game/crowd.webp` is a work-in-progress capture of the offline game; its hotspot coordinates are in
-  `Game.astro`. Replace a file with a new capture of the same name; Astro makes the AVIF/WebP sizes. On phones
-  a shot shows only its `focus` region (see `Shot.astro` and `data/features.ts`), so check the crop after
-  replacing one.
+  the window). Every shot but the Picture in Picture set is a 0.2.35 capture (the export, re-signed to inject
+  the dylib): `screencapture -l <windowID> -o` of a hidden test instance drawn as the active window by
+  `scripts/draw-active.m` (how to build and inject it is in its header), at 1440 × 900 pt (`address-*` 1360 × 860,
+  `little-ardia` 900 × 640, `privacy` 820 × 640), light appearance except `split`, `extensions` and `privacy`
+  (dark). The PNGs' Display P3 values go into the WebP as they are (`cwebp -q 85 -m 6 -alpha_q 100`), no colour
+  conversion. The profiles are Personal (plum), Work (blue) and Side project (orange). `window.webp` is the
+  showcase: the Liquid Glass pinned tiles and Wikipedia's article on The Hay Wain. `tab-group.webp` is a tab
+  dropped on a tab (0.2.34) and `little-ardia.webp` a Little Ardia window. `pip.webp` is 0.2.13 (a hidden
+  instance's PiP window never draws): the window on Wikipedia with the Picture in Picture window where Chrome
+  opened it, its real shadow from `screencapture -l`; `pip-loop.{mp4,webm}` is that rectangle over 7 s of SCK
+  captures of the PiP window, laid over the still by `Shot.astro` (`loop` in `data/features.ts`;
+  `scripts/loops.ts` plays it, never with reduced motion or Save-Data). `game/crowd.webp` is the offline game's
+  canvas; its hotspot is in `Game.astro`. Replace a file with a new capture of the same name; Astro makes the
+  AVIF/WebP sizes. On phones a shot shows only its `focus` region (see `Shot.astro` and `data/features.ts`), so
+  check the crop after replacing one. Each shot sits on a painted `Plate.astro` (sky, hills, sun and grass in its
+  hour of the day).
+- **Paint:** the page walks from morning to night: each section's `--bg`/`--wash` is a time of day (tokens in
+  `global.css`), joined by brush-edged tops (`.paint.edge`). `src/assets/paint/` holds the textures:
+  `impasto.webp` (strong, for small fills, plates and buttons), `impasto-soft.webp` (behind text), `grain.webp`
+  (the canvas weave on the body), `edge-{a,b}.svg` (the brush edges), `grass.svg` (the plates' fringe), and
+  `hills.png` / `sun.png`, the logo split in two so the closing's sun can set behind its hills.
 - **the logo:** `src/assets/ardia-mark.png` is the painted hills and sun (the brand's `mark-trim.png`, from
-  `output/brand/ardia/final/` in the main checkout), shown in the hero and the closing section; Astro makes the
-  AVIF/WebP sizes. `app-icon.png` (the header) is the macOS icon cropped close to its tile; `public/favicon.png` is
+  `output/brand/ardia/final/` in the main checkout), the source of `paint/hills.png` and `paint/sun.png`.
+  `app-icon.png` (the header) is the macOS icon cropped close to its tile; `public/favicon.png` is
   the tile, rounded, at 64 px (and `favicon.ico`, the same at 16, 32 and 48 px, for clients that ask for `/favicon.ico`); `public/og.png` is the share card.
 - **Fonts:** Fontsource's variable faces, with each Latin file split into the characters the site sets
   (preloaded) and the rest (`src/styles/fonts.css` and `src/assets/fonts/`, both from

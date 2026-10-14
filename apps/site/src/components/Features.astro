@@ -1,42 +1,57 @@
 ---
 import Shot from "./Shot.astro";
-import { extras, features } from "../data/features";
+import Plate from "./Plate.astro";
+import { duo, extras, features } from "../data/features";
 const pad = (n: number) => String(n).padStart(2, "0");
+const dabs = ["var(--sun)", "var(--sage)", "var(--forest)", "#d98a6c"];
 ---
 
-<section class="features" id="features" aria-label="Features">
+<section class="features paint" id="features" aria-label="Features">
   <div class="wrap">
     <ol class="feature-list">
       {
         features.map((p, i) => (
-          <li class="feature" id={p.id} data-shot={`pledge-${p.id}`}>
+          <li class:list={["feature", p.hour]} id={p.id} data-shot={`pledge-${p.id}`}>
             <div class="feature-text" data-reveal>
-              <p class="label num">
-                <span>No. {pad(i + 1)}</span>
-              </p>
+              <p class="label kicker num">No. {pad(i + 1)}</p>
               <h3>{p.title}</h3>
               <p class="body">{p.body}</p>
             </div>
-            <figure class="feature-figure" data-reveal style="--i: 1">
-              <Shot src={p.shots} alt={p.alt} panel={p.panel} focus={p.focus} loop={p.loop} sizes="(max-width: 900px) 100vw, 58vw" />
-              <figcaption class="label">
-                Fig. {i + 3}. {p.caption}
-              </figcaption>
+            <figure class="feature-figure">
+              <Plate hour={p.hour} sun={p.sun} flip={p.flip}>
+                <Shot src={p.shots} alt={p.alt} panel={p.panel} focus={p.focus} loop={p.loop} sizes="(max-width: 900px) 92vw, 52vw" />
+              </Plate>
             </figure>
           </li>
         ))
       }
     </ol>
 
+    <ul class="duo">
+      {
+        duo.map((p, i) => (
+          <li class:list={["duo-item", p.hour]} id={p.id} data-shot={`pledge-${p.id}`}>
+            <figure class="duo-figure">
+              <Plate hour={p.hour} sun={p.sun} flip={p.flip}>
+                <Shot src={p.shots} alt={p.alt} focus={p.focus} sizes="(max-width: 900px) 92vw, 44vw" />
+              </Plate>
+            </figure>
+            <div class="duo-text" data-reveal style={`--i: ${i}`}>
+              <p class="label kicker num">No. {pad(features.length + i + 1)}</p>
+              <h3>{p.title}</h3>
+              <p class="body">{p.body}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
     <div class="also" data-shot="also">
-      <p class="label also-head">Also in there, no screenshot needed</p>
-      <ol class="also-list" start={features.length + 1}>
+      <p class="label kicker also-head">Also in there, no screenshot needed</p>
+      <ol class="also-list">
         {
           extras.map((a, i) => (
-            <li data-reveal style={`--i: ${i}`}>
-              <p class="label num">
-                <span>No. {pad(features.length + i + 1)}</span>
-              </p>
+            <li data-reveal style={`--i: ${i % 3}; --dab: ${dabs[i % dabs.length]}`}>
               <h3 class="also-title">{a.title}</h3>
               <p class="also-body">{a.body}</p>
             </li>
@@ -49,7 +64,9 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 <style>
   .features {
-    padding-top: var(--section);
+    --bg: var(--morning);
+    --wash: linear-gradient(180deg, var(--morning) 0%, var(--morning) 30%, var(--noon) 70%, #f5e3c0 100%);
+    padding: clamp(64px, 9vw, 140px) 0 var(--section);
   }
 
   .feature-list {
@@ -62,30 +79,34 @@ const pad = (n: number) => String(n).padStart(2, "0");
     grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: var(--gutter);
     align-items: center;
-    min-height: min(88vh, 860px);
-    padding: clamp(56px, 9vh, 112px) 0;
-    border-bottom: 1px solid var(--rule);
+    padding: clamp(44px, 6vw, 96px) 0;
   }
-  .feature:last-child {
-    border-bottom: 0;
+  .feature:first-child {
+    padding-top: 0;
   }
   .feature-text {
     grid-column: 1 / span 4;
     grid-row: 1;
   }
+  .feature-figure {
+    grid-column: 5 / -1;
+    grid-row: 1;
+    margin: 0;
+  }
   .feature:nth-child(even) .feature-text {
     grid-column: 9 / -1;
   }
   .feature:nth-child(even) .feature-figure {
-    grid-column: 1 / span 7;
+    grid-column: 1 / span 8;
   }
-  .num {
-    color: var(--ink-3);
-    display: flex;
-    gap: 10px;
+  .morning .num {
+    --dab: var(--sun);
   }
-  .num span {
-    color: var(--stamp);
+  .noon .num {
+    --dab: var(--sage);
+  }
+  .golden .num {
+    --dab: #e98f3c;
   }
   h3 {
     font-family: var(--serif);
@@ -94,55 +115,92 @@ const pad = (n: number) => String(n).padStart(2, "0");
     line-height: 1.06;
     letter-spacing: -0.018em;
     font-variation-settings: "opsz" 72;
-    margin-top: 18px;
+  }
+  .num {
+    margin-bottom: 18px;
   }
   .body {
     margin-top: 18px;
     color: var(--ink-2);
     max-width: 26em;
   }
-  .feature-figure {
-    grid-column: 6 / -1;
-    grid-row: 1;
+
+  .duo {
+    list-style: none;
+    margin: 0;
+    padding: clamp(24px, 4vw, 64px) 0 clamp(72px, 9vw, 140px);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(40px, 5vw, 80px) var(--gutter);
+    align-items: start;
+  }
+  .duo-item:nth-child(2) {
+    margin-top: clamp(40px, 8vw, 140px);
+  }
+  .duo-figure {
     margin: 0;
   }
-  .feature-figure figcaption {
-    margin-top: 16px;
-    color: var(--ink-3);
+  .duo-text {
+    margin-top: 28px;
+    max-width: 30em;
   }
-
+  .duo-text h3 {
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 2.1rem);
+  }
+  .duo .num {
+    --dab: #e98f3c;
+  }
   .also {
-    border-top: 2px solid var(--ink);
-    padding-top: 14px;
-    margin-top: clamp(24px, 4vw, 48px);
-  }
-  .also-head {
-    color: var(--ink-2);
+    margin-top: 0;
   }
   .also-list {
     list-style: none;
-    margin: 28px 0 0;
+    margin: 18px 0 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    column-gap: var(--gutter);
-    row-gap: 40px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: clamp(24px, 4vw, 64px);
+    row-gap: clamp(28px, 3.4vw, 44px);
+    border-top: 2px solid var(--ink);
+    padding-top: clamp(28px, 3.4vw, 44px);
   }
   .also-list li {
-    border-left: 1px solid var(--rule);
-    padding-left: 18px;
+    position: relative;
+    padding-left: 30px;
+  }
+  .also-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.42em;
+    width: 16px;
+    height: 12px;
+    border-radius: 55% 45% 60% 40% / 60% 50% 50% 40%;
+    background-color: var(--dab);
+    background-image: var(--impasto);
+    background-size: 120px;
+    background-blend-mode: soft-light;
+    rotate: -10deg;
+    transition: scale 300ms var(--ease-out), rotate 300ms var(--ease-out);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .also-list li:hover::before {
+      scale: 1.5;
+      rotate: 14deg;
+    }
   }
   .also-title {
-    font-size: 1.45rem;
-    margin-top: 12px;
+    font-size: 1.36rem;
+    line-height: 1.15;
   }
   .also-body {
-    margin-top: 10px;
+    margin-top: 8px;
     color: var(--ink-2);
     font-size: var(--t-small);
     line-height: 1.5;
+    max-width: 30em;
   }
-  @media (max-width: 1100px) {
+  @media (max-width: 1000px) {
     .also-list {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -153,19 +211,21 @@ const pad = (n: number) => String(n).padStart(2, "0");
     }
   }
 
+  @media (max-width: 760px) {
+    .duo {
+      grid-template-columns: 1fr;
+    }
+    .duo-item:nth-child(2) {
+      margin-top: 0;
+    }
+  }
   @media (max-width: 900px) {
     .feature {
       display: block;
-      min-height: 0;
-      padding: 56px 0 64px;
-    }
-    .feature-text,
-    .feature-figure {
-      position: static;
-      padding: 0;
+      padding: 48px 0 56px;
     }
     .feature-figure {
-      margin-top: 32px;
+      margin-top: 28px;
     }
   }
 </style>

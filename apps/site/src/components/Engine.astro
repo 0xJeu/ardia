@@ -1,27 +1,27 @@
 ---
 type Status = "yes" | "part" | "no";
 const rows: { item: string; detail: string; status: Status; label?: string }[] = [
-  { item: "Engine", detail: "Chromium 154. Chrome’s own framework.", status: "yes" },
-  { item: "Windows", detail: "Chrome’s own. Menus and autofill just work.", status: "yes" },
+  { item: "Engine", detail: "Chromium 154, on Chrome’s own framework.", status: "yes" },
+  { item: "Windows", detail: "Chrome’s own, so menus and autofill just work.", status: "yes" },
   { item: "De-Googled", detail: "ungoogled-chromium underneath.", status: "yes" },
   { item: "H.264 and AAC", detail: "The codecs Chromium leaves out.", status: "yes" },
   { item: "DevTools", detail: "Docked, with device mode. Like Chrome.", status: "yes" },
   { item: "Notarized", detail: "Scanned by Apple. Opens without a warning.", status: "yes" },
   { item: "Passkeys", detail: "Touch ID yes. iCloud Keychain waits on Apple.", status: "part" },
-  { item: "Sync", detail: "End to end encrypted. No account, no server.", status: "yes" },
+  { item: "Sync", detail: "End-to-end encrypted, through your own iCloud Drive.", status: "yes" },
   { item: "Translate", detail: "On your Mac. Nothing leaves it.", status: "yes", label: "Yes, macOS 26" },
-  { item: "Widevine", detail: "So no Netflix.", status: "no" },
+  { item: "Widevine", detail: "Google hasn’t signed off. So no Netflix.", status: "no" },
   { item: "Intel Macs", detail: "Apple Silicon only.", status: "no", label: "No" },
 ];
 const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not yet" };
 ---
 
-<section class="engine" id="chromium" aria-labelledby="engine-title" data-shot="record">
+<section class="engine paint edge" id="chromium" aria-labelledby="engine-title" data-shot="record">
   <div class="wrap engine-grid">
     <header class="engine-head">
       <p class="label kicker">The engine</p>
       <h2 class="poster" id="engine-title" data-reveal>It’s actually Chromium.</h2>
-      <p class="lede" data-reveal style="--i: 1">Not WebKit. Not Electron. Every window is Chrome’s own.</p>
+      <p class="lede" data-reveal style="--i: 1">Not WebKit. Not Electron. Every window is Chrome’s own, so sites, extensions and DevTools behave like they do in Chrome.</p>
     </header>
 
     <div class="checklist" role="table" aria-label="What Ardia does and doesn’t do yet">
@@ -31,18 +31,17 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
         <span role="columnheader">Status</span>
       </div>
       {
-        rows.map((r) => (
-          <div class:list={["row", r.status]} role="row">
+        rows.map((r, i) => (
+          <div class:list={["row", r.status]} role="row" data-ticks style={`--i: ${i}`}>
             <span class="item" role="cell">{r.item}</span>
             <span class="detail" role="cell">{r.detail}</span>
             <span class="status label" role="cell">
-              <span class="box" aria-hidden="true">
-                {r.status !== "no" && (
-                  <svg viewBox="0 0 20 20" width="20" height="20">
-                    <path d={r.status === "yes" ? "M3.5 10.5l4.2 4.3L16.8 4" : "M4 10h12"} fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square" />
-                  </svg>
-                )}
-              </span>
+              <svg class="tick" viewBox="0 0 28 24" width="28" height="24" aria-hidden="true">
+                <path
+                  pathLength="1"
+                  d={r.status === "yes" ? "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6" : r.status === "part" ? "M3 12.6c6.5-1.4 13.4-1.6 21.6-.4" : "M5 4.4c5.4 4.6 11 10 17.4 16.4M22.6 4c-6.4 4.8-11.6 10.2-17.4 16.8"}
+                />
+              </svg>
               {r.label ?? labels[r.status]}
             </span>
           </div>
@@ -54,20 +53,17 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
 
 <style>
   .engine {
-    margin-top: var(--section);
-    background: var(--night);
-    color: var(--night-ink);
+    --bg: var(--golden);
+    --wash: linear-gradient(180deg, #f0c983 0%, var(--golden) 45%, var(--golden-late) 100%);
+    --bg-top: #f0c983;
+    --dab: var(--forest);
     padding: var(--section) 0;
-  }
-  .engine ::selection {
-    background: var(--night-ink);
-    color: var(--night);
   }
   .engine-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: var(--gutter);
-    row-gap: clamp(48px, 7vw, 96px);
+    row-gap: clamp(40px, 6vw, 80px);
   }
   .engine-head {
     grid-column: 1 / span 5;
@@ -75,36 +71,32 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
     position: sticky;
     top: 100px;
   }
-  .kicker {
-    color: var(--night-ink-2);
-    margin-bottom: 20px;
-  }
   h2 {
     font-size: clamp(2.6rem, 1.2rem + 4vw, 5.6rem);
   }
   .lede {
     margin-top: 28px;
-    color: var(--night-ink-2);
-    max-width: 28em;
+    color: var(--ink-2);
+    max-width: 26em;
   }
   .checklist {
     grid-column: 7 / -1;
-    border-top: 2px solid var(--night-ink);
+    border-top: 2px solid var(--ink);
   }
   .checklist-top {
     display: grid;
-    grid-template-columns: 11rem 1fr 7.5rem;
+    grid-template-columns: 10rem 1fr 8rem;
     gap: 16px;
     padding: 10px 0;
-    color: var(--night-ink-2);
-    border-bottom: 1px solid var(--night-rule);
+    color: var(--ink-2);
+    border-bottom: 1px solid var(--rule);
   }
   .row {
     display: grid;
-    grid-template-columns: 11rem 1fr 7.5rem;
+    grid-template-columns: 10rem 1fr 8rem;
     gap: 16px;
-    padding: 18px 0;
-    border-bottom: 1px solid var(--night-rule);
+    padding: 17px 0;
+    border-bottom: 1px solid var(--rule);
     align-items: baseline;
   }
   .item {
@@ -116,39 +108,60 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
     font-size: 1.05rem;
   }
   .detail {
-    color: var(--night-ink-2);
+    color: var(--ink-2);
     font-size: var(--t-small);
     line-height: 1.45;
   }
   .status {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     justify-self: start;
     align-self: center;
   }
-  .box {
-    display: inline-grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border: 1.5px solid var(--night-ink);
-    border-radius: 2px;
+  .tick {
+    flex: none;
+    overflow: visible;
   }
-  .yes .box {
-    color: var(--night-ink);
+  .tick path {
+    fill: none;
+    stroke: var(--forest-deep);
+    stroke-width: 3.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
-  .part .box {
-    color: var(--night-ink-2);
+  .part .tick path {
+    stroke: var(--sun-deep);
   }
-  .no {
-    color: color-mix(in srgb, var(--night-ink) 62%, transparent);
+  .no .tick path {
+    stroke: var(--stamp);
+    stroke-width: 3;
   }
-  .no .box {
-    border-color: var(--night-ink-2);
+  .no .item,
+  .no .detail {
+    opacity: 0.72;
   }
   .no .status {
-    color: #ff8a73;
+    color: var(--stamp);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .tick path {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      transition: stroke-dashoffset 520ms cubic-bezier(0.5, 0, 0.2, 1);
+      transition-delay: calc(var(--i) * 60ms + 150ms);
+    }
+    :global(.js) .row:global(.in) .tick path {
+      stroke-dashoffset: 0;
+    }
+    .row:hover .tick path {
+      animation: repaint 560ms cubic-bezier(0.5, 0, 0.2, 1);
+    }
+  }
+  @keyframes repaint {
+    from {
+      stroke-dashoffset: 1;
+    }
   }
 
   @media (max-width: 960px) {
@@ -178,3 +191,18 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
     }
   }
 </style>
+
+<script>
+  const rows = document.querySelectorAll<HTMLElement>("[data-ticks]");
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add("in");
+        io.unobserve(e.target);
+      }
+    },
+    { rootMargin: "0px 0px -15% 0px" },
+  );
+  for (const r of rows) io.observe(r);
+</script>

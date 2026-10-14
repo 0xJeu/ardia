@@ -1,15 +1,15 @@
-<section class="faq" id="faq" aria-labelledby="faq-title" data-shot="press">
+<section class="faq paint edge edge-b" id="faq" aria-labelledby="faq-title" data-shot="press">
   <div class="wrap faq-grid">
     <header class="faq-head">
       <p class="label kicker">FAQ</p>
       <h2 class="poster" id="faq-title" data-reveal>Fair questions.</h2>
-      <p class="sub" data-reveal style="--i: 1">Short answers, all of them true.</p>
+      <p class="sub" data-reveal style="--i: 1">Short answers. All of them true.</p>
     </header>
 
     <dl class="qa">
       <div class="item">
         <dt>What does it cost?</dt>
-        <dd>Nothing. It’s open source under Apache 2.0, with no account and no paid tier.</dd>
+        <dd>Nothing. It’s open source under Apache 2.0. No paid tier, no catch.</dd>
       </div>
       <div class="item" id="install">
         <dt>Is it safe to open?</dt>
@@ -22,6 +22,10 @@
       <div class="item">
         <dt>And this website?</dt>
         <dd>It counts its own visitors on its own servers, replays included, typing masked, gone after 30 days. No third party does the counting.</dd>
+      </div>
+      <div class="item">
+        <dt>Coming from Arc?</dt>
+        <dd>Same sidebar, same muscle memory. The importer brings your spaces, pinned tabs and their names along.</dd>
       </div>
       <div class="item">
         <dt>Is this Dia?</dt>
@@ -37,7 +41,14 @@
 
 <style>
   .faq {
-    padding-top: var(--section);
+    --bg: var(--dusk);
+    --bg-top: #d98f86;
+    --wash: linear-gradient(180deg, #d98f86 0%, var(--dusk) 40%, var(--dusk-late) 100%);
+    --dab: var(--sun);
+    --ink-2: #3f3437;
+    --ink-3: #5a4a4e;
+    --rule: rgb(22 25 26 / 0.2);
+    padding: var(--section) 0;
   }
   .faq-grid {
     display: grid;
@@ -50,10 +61,6 @@
     align-self: start;
     position: sticky;
     top: 100px;
-  }
-  .kicker {
-    color: var(--ink-2);
-    margin-bottom: 20px;
   }
   h2 {
     font-size: clamp(2.6rem, 1.2rem + 4vw, 5.6rem);

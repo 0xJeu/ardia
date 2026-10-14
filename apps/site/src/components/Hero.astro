@@ -1,6 +1,4 @@
 ---
-import { Picture } from "astro:assets";
-import mark from "../assets/ardia-mark.png";
 import DownloadButton from "./DownloadButton.astro";
 import MacOnlyNote from "./MacOnlyNote.astro";
 import SendToMac from "./SendToMac.astro";
@@ -8,7 +6,57 @@ import { REPO } from "../data/release";
 import { STARS } from "../data/github";
 ---
 
-<section class="hero" id="top" data-shot="hero">
+<section class="hero" id="top" data-shot="hero" data-meadow>
+  <div class="scene" aria-hidden="true">
+    <div class="fallback">
+      <div class="sky sky-dawn"></div>
+      <div class="sky sky-morning"></div>
+      <svg class="layer" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
+        <defs>
+          <radialGradient id="meadow-sun-glow">
+            <stop offset="0" stop-color="#ffd27a" stop-opacity="0.75"></stop>
+            <stop offset="0.35" stop-color="#ffc764" stop-opacity="0.22"></stop>
+            <stop offset="1" stop-color="#ffc764" stop-opacity="0"></stop>
+          </radialGradient>
+          <radialGradient id="meadow-sun-disc" cx="0.42" cy="0.4" r="0.62">
+            <stop offset="0" stop-color="#ffe49c"></stop>
+            <stop offset="1" stop-color="#f6b12c"></stop>
+          </radialGradient>
+        </defs>
+        <g class="sun-body">
+          <circle cx="992" cy="270" r="260" fill="url(#meadow-sun-glow)"></circle>
+          <circle cx="992" cy="270" r="60" fill="url(#meadow-sun-disc)"></circle>
+        </g>
+      </svg>
+      <svg class="layer hills" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
+        <defs>
+          <linearGradient id="meadow-field" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7d9244"></stop>
+            <stop offset="0.45" stop-color="#55722f"></stop>
+            <stop offset="1" stop-color="#3e5a27"></stop>
+          </linearGradient>
+          <linearGradient id="meadow-forest" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3a6b52"></stop>
+            <stop offset="1" stop-color="#1d4536"></stop>
+          </linearGradient>
+          <linearGradient id="meadow-sage" x1="0" y1="0" x2="0.4" y2="1">
+            <stop offset="0" stop-color="#b3bf7f"></stop>
+            <stop offset="1" stop-color="#8ea55e"></stop>
+          </linearGradient>
+        </defs>
+        <path
+          fill="#c9c4c4"
+          d="M0 612Q60 600 120 596T210 580T300 598T390 575T470 590T560 566T650 585T760 560T850 582T960 570T1060 590T1150 566T1260 588T1370 572T1480 594T1600 580V720H0Z"
+        ></path>
+        <path fill="url(#meadow-sage)" d="M0 446C44 384 110 338 182 338C304 338 424 402 562 462C702 522 900 572 1250 652V720H0Z"></path>
+        <path fill="url(#meadow-forest)" d="M250 662C560 642 820 562 1080 472C1262 410 1420 380 1600 386V740H250Z"></path>
+        <path fill="url(#meadow-field)" d="M0 650C400 640 900 656 1600 645V1000H0Z"></path>
+      </svg>
+    </div>
+    <canvas class="meadow-canvas" data-meadow-canvas></canvas>
+  </div>
+  <span class="label sun-hint" data-sun-hint aria-hidden="true">Drag the sun</span>
+
   <div class="wrap hero-grid">
     <div class="hero-text">
       <h1 class="poster hero-title">
@@ -16,7 +64,7 @@ import { STARS } from "../data/github";
         <span class="line"><span>grass.</span></span>
       </h1>
       <p class="lede" data-reveal style="--i: 2">
-        Arc’s sidebar and Dia’s polish on real Chromium. No account to make. Ads and trackers stay out.
+        Arc’s sidebar and Dia’s polish on real Chromium. Free and open source. Ads and trackers stay out.
       </p>
       <p class="label welcome not-phone" data-welcome hidden>Sent from your phone. Here it is.</p>
       <div data-reveal style="--i: 3">
@@ -36,46 +84,180 @@ import { STARS } from "../data/github";
       </div>
       <MacOnlyNote location="hero" />
     </div>
-
-    <figure class="hero-figure">
-      <div class="stage" data-tilt>
-        <Picture
-          class="stage-art"
-          src={mark}
-          alt="The Ardia logo: two rolling green hills under a yellow sun, painted in thick oils."
-          formats={["avif"]}
-          fallbackFormat="webp"
-          widths={[360, 560, 760, mark.width]}
-          sizes="(max-width: 820px) 86vw, 560px"
-          loading="eager"
-          fetchpriority="high"
-        />
-      </div>
-      <figcaption class="label stage-caption">
-        <span>Fig. 1. The logo, oil on canvas</span>
-        <span class="hint">Two hills, one sun</span>
-      </figcaption>
-    </figure>
   </div>
 </section>
 
 <style>
   .hero {
+    --sunrise-delay: 300ms;
+    --sunrise-length: 2850ms;
+    --sunrise-ease: cubic-bezier(0.37, 0, 0.63, 1);
     position: relative;
-    padding-top: clamp(24px, 5vh, 72px);
-    padding-bottom: clamp(48px, 8vh, 96px);
+    isolation: isolate;
+    overflow: clip;
+    margin-top: -61px;
+    min-height: clamp(640px, 100svh, 1120px);
+    padding-top: calc(61px + clamp(28px, 7vh, 96px));
+    padding-bottom: clamp(140px, 30svh, 320px);
   }
+
+  .scene {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--paper);
+  }
+  .scene::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--edge);
+    background-color: var(--paper);
+    background-image: var(--grain);
+    background-size: 256px;
+    background-blend-mode: soft-light;
+    -webkit-mask: var(--edge-a) 0 100% / 1200px 100% repeat-x;
+    mask: var(--edge-a) 0 100% / 1200px 100% repeat-x;
+  }
+  .fallback,
+  .sky,
+  .layer,
+  .meadow-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .sky-dawn {
+    background: linear-gradient(180deg, #7c85ab 0%, #9a83a8 30%, #c98190 56%, #e6998b 68%);
+  }
+  .sky-morning {
+    background: linear-gradient(180deg, #bccfd9 0%, #e1e4dc 30%, #f3e8d4 54%, #f7e5c2 68%);
+  }
+  .meadow-canvas {
+    opacity: 0;
+    transition: opacity 900ms var(--ease-out);
+  }
+  .hero[data-meadow="ready"] .meadow-canvas {
+    opacity: 1;
+  }
+  .hero[data-meadow="ready"] .fallback {
+    visibility: hidden;
+    transition: visibility 0s 1s;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .sky-morning {
+      animation: sky-warm var(--sunrise-length) var(--sunrise-ease) var(--sunrise-delay) both paused;
+    }
+    :global(.js) .sun-body {
+      animation: sun-rise var(--sunrise-length) var(--sunrise-ease) var(--sunrise-delay) both paused;
+    }
+    :global(.js) .hills {
+      animation: hills-wake var(--sunrise-length) var(--sunrise-ease) var(--sunrise-delay) both paused;
+    }
+    .hero[data-sunrise="run"] .fallback * {
+      animation-play-state: running;
+    }
+  }
+  @keyframes sky-warm {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sun-rise {
+    from {
+      transform: translateY(335px);
+    }
+  }
+  @keyframes hills-wake {
+    from {
+      filter: brightness(0.66) saturate(0.6);
+    }
+  }
+
+  .hero :global([data-tone]) {
+    --halo-rgb: 243 236 223;
+    transition:
+      color 600ms var(--ease-out),
+      text-shadow 600ms var(--ease-out);
+    text-shadow:
+      0 0 max(1px, 0.06em) rgb(var(--halo-rgb) / var(--halo, 0)),
+      0 0 max(2px, 0.1em) rgb(var(--halo-rgb) / var(--halo, 0)),
+      0 0 max(4px, 0.2em) rgb(var(--halo-rgb) / var(--halo, 0)),
+      0 0 clamp(9px, 0.45em, 26px) rgb(var(--halo-rgb) / calc(var(--halo, 0) * 0.85));
+  }
+  .hero :global([data-tone="dark"]) {
+    --halo-rgb: 18 16 26;
+    color: var(--night-ink);
+  }
+  .hero :global([data-tone] .btn) {
+    text-shadow: none;
+  }
+  .hero :global([data-tone="dark"] .btn) {
+    --btn-bg: var(--night-ink);
+    --btn-fg: var(--ink);
+    --btn-wipe: var(--sun-pale);
+  }
+  .hero :global([data-tone="dark"] .send-link) {
+    color: var(--night-ink);
+  }
+  .hero[data-sky="dark"] .sun-hint {
+    color: var(--night-ink);
+  }
+  .hero[data-cursor="brush"] {
+    cursor:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M11 17V7.5a1.75 1.75 0 0 1 3.5 0V15V5.5a1.75 1.75 0 0 1 3.5 0V15V6.5a1.75 1.75 0 0 1 3.5 0V16V9.5a1.75 1.75 0 0 1 3.5 0V19c0 5-3 9-8 9-3.5 0-5.5-1.6-7.3-4.4L6.3 18.9a1.8 1.8 0 0 1 2.9-2.1L11 19z' fill='%23fffdf8' stroke='%2316130f' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E")
+        16 16,
+      grab;
+  }
+  .hero[data-cursor="grab"] {
+    cursor: grab;
+  }
+  .hero[data-cursor="grabbing"] {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .sun-hint {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    pointer-events: none;
+    color: inherit;
+    opacity: 0;
+    white-space: nowrap;
+    transition: opacity 500ms var(--ease-out);
+  }
+  .sun-hint[data-side="right"]::before {
+    content: "← ";
+  }
+  .sun-hint[data-side="left"]::after {
+    content: " →";
+  }
+  .sun-hint:global(.is-shown) {
+    opacity: 0.72;
+  }
+  @media (max-width: 820px), (pointer: coarse) {
+    .sun-hint {
+      display: none;
+    }
+  }
+
   .hero-grid {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: var(--gutter);
-    align-items: end;
+    align-items: start;
   }
   .hero-text {
     grid-column: 1 / span 7;
     grid-row: 1;
-    position: relative;
-    z-index: 3;
   }
   .hero-title {
     font-size: clamp(3.2rem, min(15vw, 25vh), 14.5rem);
@@ -92,11 +274,11 @@ import { STARS } from "../data/github";
     display: block;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .js .line > span {
-      animation: rise 1000ms var(--ease-out) both;
+    :global(.js) .line > span {
+      animation: rise 1000ms var(--ease-out) -180ms both;
     }
-    .js .line:nth-child(2) > span {
-      animation-delay: 70ms;
+    :global(.js) .line:nth-child(2) > span {
+      animation-delay: -110ms;
     }
   }
   @keyframes rise {
@@ -128,7 +310,7 @@ import { STARS } from "../data/github";
     margin-left: 10px;
     font-family: var(--mono);
     font-size: 0.78em;
-    color: var(--ink-2);
+    color: inherit;
     text-decoration: none;
     display: inline-block;
   }
@@ -140,53 +322,15 @@ import { STARS } from "../data/github";
     display: none;
   }
 
-  .hero-figure {
-    grid-column: 8 / -1;
-    grid-row: 1;
-    justify-self: end;
-    margin: 0;
-    position: relative;
-    z-index: 2;
-    width: min(100%, 560px);
-  }
-  .stage {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: clamp(56px, 9vh, 104px) 2% 14px;
-  }
-  .stage-art {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-height: max(300px, 52svh);
-    object-fit: contain;
-    object-position: 50% 100%;
-    filter: drop-shadow(0 18px 22px rgb(32 63 50 / 0.16));
-  }
-  .stage-caption {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    border-top: 1px solid var(--rule-strong);
-    padding-top: 10px;
-    color: var(--ink-2);
-  }
-  .hint {
-    color: var(--ink-3);
-  }
-
-  @media (max-width: 1100px) {
-    .hint {
-      display: none;
-    }
-  }
-
   @media (max-width: 820px) {
     .hero {
-      padding-top: 20px;
-      padding-bottom: 56px;
+      --scene-strip: clamp(300px, 40svh, 380px);
+      padding-top: calc(61px + 22px);
+      padding-bottom: var(--scene-strip);
+    }
+    .fallback .layer {
+      inset: auto 0 0;
+      height: var(--scene-strip);
     }
     .hero-grid {
       display: flex;
@@ -198,7 +342,7 @@ import { STARS } from "../data/github";
       line-height: 0.84;
     }
     .lede {
-      margin-top: 18px;
+      margin-top: 14px;
       max-width: 22em;
     }
     .cta-row {
@@ -206,20 +350,13 @@ import { STARS } from "../data/github";
       gap: 4px 24px;
     }
     :global(:root[data-device="phone"]) .cta-row {
-      margin-top: 14px;
+      margin-top: 0;
     }
-    .hero-figure {
-      width: 100%;
-      margin-top: 8px;
+    .hero-text :global(.send) {
+      margin-top: 18px;
     }
-    .stage {
-      padding: 52px 7% 12px;
-    }
-    .stage-art {
-      max-height: 46svh;
-    }
-    .hint {
-      display: none;
+    .hero-text :global(.send-more) {
+      margin-top: 0;
     }
   }
   @media (max-width: 480px) {
@@ -231,6 +368,8 @@ import { STARS } from "../data/github";
 </style>
 
 <script>
+  import "../scripts/meadow/boot";
+
   const ref = new URLSearchParams(location.search).get("ref");
   if (ref === "mac" || ref === "share" || ref === "email") {
     const welcome = document.querySelector<HTMLElement>("[data-welcome]");

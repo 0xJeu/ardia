@@ -3,7 +3,10 @@ import { RELEASES, REPO } from "../data/release";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
-<footer class="foot" data-shot="footer">
+<footer class="foot paint edge edge-b dark" data-shot="footer">
+  <div class="fireflies" aria-hidden="true" data-fireflies>
+    {Array.from({ length: 14 }, (_, i) => <span style={`--x: ${(i * 37 + 11) % 97}%; --y: ${(i * 53 + 7) % 83}%; --d: ${6 + ((i * 7) % 9)}s; --o: ${-((i * 13) % 11)}s`} />)}
+  </div>
   <div class="wrap">
     <p class="poster sign-off">Just a <span>browser.</span></p>
     <div class="cols">
@@ -39,7 +42,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         <p>
           This website counts its own visitors, on its own servers: page views, clicks and session replays,
           with typing masked. Replays are deleted after 30 days. No third party sees any of it. The support chat is
-          PostHog's, and loads only if you open it.
+          PostHog’s, and loads only if you open it.
         </p>
       </div>
       <div class="col">
@@ -52,10 +55,52 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 <style>
   .foot {
-    background: var(--night);
-    color: var(--night-ink);
+    --bg: var(--night);
+    --bg-top: #1d2b4c;
+    --wash: linear-gradient(180deg, #1d2b4c 0%, var(--night) 40%, #0d1424 100%);
     padding: clamp(64px, 9vw, 128px) 0 clamp(40px, 5vw, 64px);
-    margin-top: clamp(64px, 8vw, 120px);
+  }
+  .fireflies {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .fireflies span {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #f4f2a6;
+    box-shadow: 0 0 10px 3px rgb(230 240 120 / 0.45);
+    opacity: 0.55;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .fireflies span {
+      animation: drift var(--d) ease-in-out var(--o) infinite alternate;
+      animation-play-state: paused;
+    }
+    .fireflies.awake span {
+      animation-play-state: running;
+    }
+  }
+  @keyframes drift {
+    0% {
+      transform: translate(0, 0);
+      opacity: 0.1;
+    }
+    40% {
+      opacity: 0.85;
+    }
+    100% {
+      transform: translate(26px, -48px);
+      opacity: 0.2;
+    }
+  }
+  .foot .wrap {
+    position: relative;
   }
   .sign-off {
     font-size: clamp(3rem, 0.6rem + 10.4vw, 11.4rem);
@@ -64,6 +109,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   }
   .sign-off span {
     white-space: nowrap;
+    color: var(--sun);
   }
   .cols {
     display: grid;
@@ -123,3 +169,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     }
   }
 </style>
+
+<script>
+  const fireflies = document.querySelector<HTMLElement>("[data-fireflies]");
+  if (fireflies)
+    new IntersectionObserver(([e]) => fireflies.classList.toggle("awake", e.isIntersecting)).observe(fireflies);
+</script>

@@ -1,24 +1,23 @@
 ---
 import Shot from "./Shot.astro";
 import DownloadButton from "./DownloadButton.astro";
+import Plate from "./Plate.astro";
 import windowShot from "../assets/shots/window.webp";
 ---
 
 <section class="showcase" aria-label="The app" data-shot="office">
   <div class="wrap">
     <figure class="showcase-figure">
-      <div class="tilt">
-        <Shot
-          src={windowShot}
-          alt="The Ardia window in light mode: three pinned tiles and six tabs in the sidebar, Wikipedia’s article on Chromium open on the right."
-          sizes="(max-width: 1440px) 94vw, 1360px"
-          focus={{ x: 0, y: 0, zoom: 1.9, ratio: 0.8 }}
-        />
+      <div class="tilt" data-settle>
+        <Plate hour="morning" sun={{ x: 0.84, y: 0.16 }}>
+          <Shot
+            src={windowShot}
+            alt="The Ardia window in light mode: pinned tiles and tabs in the sidebar, and Wikipedia’s article on The Hay Wain, John Constable’s painting of a hay cart crossing a river, open on the right."
+            sizes="(max-width: 1440px) 88vw, 1240px"
+            focus={{ x: 0, y: 0, zoom: 1.9, ratio: 0.8 }}
+          />
+        </Plate>
       </div>
-      <figcaption class="label">
-        <span>Fig. 2. Pinned tabs up top, the rest down the side</span>
-        <span>A screenshot, not a mockup.</span>
-      </figcaption>
     </figure>
     <aside class="band" aria-label="Download" data-download-band hidden>
       <p class="band-line poster">That was a screenshot. <span>This is the app.</span></p>
@@ -55,21 +54,15 @@ import windowShot from "../assets/shots/window.webp";
   .tilt {
     transform-origin: 50% 0%;
   }
-  @supports (animation-timeline: view()) {
-    @media (prefers-reduced-motion: no-preference) {
-      .tilt {
-        animation: settle linear both;
-        animation-timeline: view();
-        animation-range: entry 0% cover 45%;
-      }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .tilt {
+      transform: rotateX(12deg) scale(0.92) translateY(40px);
+      opacity: 0.5;
+      transition:
+        transform 1300ms var(--ease-out),
+        opacity 900ms var(--ease-out);
     }
-  }
-  @keyframes settle {
-    from {
-      transform: rotateX(14deg) scale(0.9) translateY(40px);
-      opacity: 0.4;
-    }
-    to {
+    :global(.js) .tilt:global(.in) {
       transform: none;
       opacity: 1;
     }
@@ -113,15 +106,5 @@ import windowShot from "../assets/shots/window.webp";
     .band :global(.btn) {
       justify-content: center;
     }
-  }
-  figcaption {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px 24px;
-    flex-wrap: wrap;
-    margin-top: 22px;
-    padding-top: 10px;
-    border-top: 1px solid var(--rule-strong);
-    color: var(--ink-2);
   }
 </style>

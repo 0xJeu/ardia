@@ -11,10 +11,11 @@ const { home = "" } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
+<div class="bar-sentinel" aria-hidden="true" data-bar-sentinel></div>
 <header class="bar" data-bar>
   <div class="wrap bar-inner">
     <a class="mark" href={`${home}#top`} aria-label={home ? "Ardia home" : "Ardia, back to top"}>
-      <Image src={icon} alt="" width={30} height={30} densities={[1, 2]} loading="eager" />
+      <Image src={icon} alt="" width={30} height={30} densities={[1, 2]} loading="eager" decoding="sync" fetchpriority="high" />
       <span>ardia</span>
     </a>
     <nav class="links" aria-label="Sections">
@@ -61,14 +62,54 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     position: sticky;
     top: 0;
     z-index: 20;
-    background: color-mix(in srgb, var(--paper) 92%, transparent);
-    backdrop-filter: saturate(1.2) blur(10px);
-    -webkit-backdrop-filter: saturate(1.2) blur(10px);
+    background: var(--paper);
     border-bottom: 1px solid transparent;
-    transition: border-color 200ms;
+    transition:
+      border-color 200ms,
+      background-color 300ms var(--ease-out);
   }
   .bar[data-scrolled] {
     border-bottom-color: var(--rule);
+  }
+  .bar[data-snap],
+  .bar[data-snap] :is(.mark, .links a, .menu-btn, .bar-cta) {
+    transition: none;
+  }
+  .bar-sentinel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 9px;
+    pointer-events: none;
+    visibility: hidden;
+  }
+  .bar:not([data-scrolled]):has(~ main [data-meadow]) {
+    background-color: transparent;
+  }
+  .bar:not([data-scrolled]):has(~ main [data-meadow]) .links a {
+    color: var(--ink);
+  }
+  .bar:not([data-scrolled]):has(~ main [data-meadow]) :is(.mark, .links a, .menu-btn) {
+    text-shadow:
+      0 0 1px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
+      0 0 2px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
+      0 0 4px rgb(var(--halo-rgb, 243 236 223) / var(--halo, 0)),
+      0 0 9px rgb(var(--halo-rgb, 243 236 223) / calc(var(--halo, 0) * 0.85));
+  }
+  .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) {
+    --halo-rgb: 18 16 26;
+  }
+  .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) {
+    color: var(--night-ink);
+  }
+  .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) .links a,
+  .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) .menu-btn {
+    color: var(--night-ink);
+  }
+  .bar:not([data-scrolled]):has(~ main [data-sky="dark"]) .bar-cta {
+    background: var(--night-ink);
+    color: var(--ink);
   }
   .bar-inner {
     display: flex;
@@ -127,6 +168,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   }
   .bar-cta:hover {
     background: var(--accent);
+  }
+  .mark,
+  .links a,
+  .menu-btn,
+  .bar-cta {
+    transition:
+      color 400ms var(--ease-out),
+      background-color 400ms var(--ease-out);
   }
 
   .menu-btn,
@@ -224,9 +273,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 <script>
   const bar = document.querySelector<HTMLElement>("[data-bar]")!;
-  const onScroll = () => bar.toggleAttribute("data-scrolled", scrollY > 8);
-  addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
+  const sentinel = document.querySelector<HTMLElement>("[data-bar-sentinel]")!;
+  const meadow = document.querySelector<HTMLElement>("[data-meadow]");
+  let scrolled = false;
+  const applyScrolled = () => {
+    if (scrolled === bar.hasAttribute("data-scrolled") || meadow?.hasAttribute("data-brushing")) return;
+    bar.setAttribute("data-snap", "");
+    bar.toggleAttribute("data-scrolled", scrolled);
+    requestAnimationFrame(() => requestAnimationFrame(() => bar.removeAttribute("data-snap")));
+  };
+  new IntersectionObserver(([entry]) => {
+    scrolled = !entry.isIntersecting;
+    applyScrolled();
+  }).observe(sentinel);
+  addEventListener("touchend", applyScrolled, { passive: true });
+  addEventListener("touchcancel", applyScrolled, { passive: true });
 
   const btn = bar.querySelector<HTMLButtonElement>("[data-menu-btn]")!;
   const menu = bar.querySelector<HTMLElement>("[data-menu]")!;

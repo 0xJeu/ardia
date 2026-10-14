@@ -1,5 +1,6 @@
 import type { ImageMetadata } from "astro";
 import type { Focus, Loop } from "../components/Shot.astro";
+import type { Hour } from "../components/Plate.astro";
 import addressToolbar from "../assets/shots/address-toolbar.webp";
 import addressSidebar from "../assets/shots/address-sidebar.webp";
 import split from "../assets/shots/split.webp";
@@ -12,6 +13,8 @@ import pip from "../assets/shots/pip.webp";
 import pipPoster from "../assets/shots/pip-loop-poster.webp";
 import pipMp4 from "../assets/shots/pip-loop.mp4";
 import pipWebm from "../assets/shots/pip-loop.webm";
+import littleArdia from "../assets/shots/little-ardia.webp";
+import tabGroup from "../assets/shots/tab-group.webp";
 
 interface Feature {
   id: string;
@@ -19,7 +22,9 @@ interface Feature {
   body: string;
   shots: ImageMetadata[];
   alt: string;
-  caption: string;
+  hour: Hour;
+  sun: { x: number; y: number };
+  flip?: boolean;
   panel?: boolean;
   focus?: Focus;
   loop?: Loop;
@@ -29,19 +34,22 @@ export const features: Feature[] = [
   {
     id: "address-bar",
     title: "Lose the toolbar.",
-    body: "Move the address bar into the sidebar and the page runs to the top of the window.",
+    body: "Move the address bar into the sidebar and the page runs all the way to the top of the window.",
     shots: [addressToolbar, addressSidebar],
     alt: "Two Ardia windows on the same Wikipedia page: behind, the address bar in a toolbar above the page; in front, the address bar in the sidebar under the traffic lights and the page running to the top of the window.",
-    caption: "Before and after",
+    hour: "morning",
+    sun: { x: 0.18, y: 0.18 },
     focus: { x: 0, y: 0, zoom: 2.1, ratio: 0.8 },
   },
   {
     id: "split",
     title: "Two pages, one window.",
-    body: "Drag a tab onto the page. Up to three panes.",
+    body: "Drag a tab onto the page. Up to three panes, side by side or stacked.",
     shots: [split],
     alt: "Ardia in split view: MDN on the left, Wikipedia on the right, both in one window.",
-    caption: "Split view",
+    hour: "morning",
+    sun: { x: 0.8, y: 0.14 },
+    flip: true,
     focus: { x: 0.5, y: 0, zoom: 1.3, ratio: 0.8 },
   },
   {
@@ -50,47 +58,79 @@ export const features: Feature[] = [
     body: "Switch tabs mid-video and it floats along in the corner. Go back to its tab and it slips back into the page.",
     shots: [pip],
     alt: "Ardia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right. Its tab, muted, is in the sidebar, with a player at the foot of the sidebar.",
-    caption: "Picture in Picture, still playing",
+    hour: "noon",
+    sun: { x: 0.5, y: 0.1 },
     focus: { x: 1, y: 1, zoom: 2.4, ratio: 0.8 },
     loop: { mp4: pipMp4, webm: pipWebm, poster: pipPoster, rect: { x: 2170, y: 1384, w: 672, h: 378 } },
   },
   {
     id: "profiles",
     title: "Work stays at work.",
-    body: "Each profile keeps its own logins, history and colour. Swipe the sidebar to switch.",
+    body: "Each profile keeps its own logins, history, extensions and colour. Swipe the sidebar to switch.",
     shots: [sideProject, work, personal],
     alt: "Three Ardia windows, one per profile, each tinted in its colour with its name next to the window buttons: Side project in orange, Work in blue and, in front, Personal in plum, its New Tab page showing the painted hills in plum.",
-    caption: "Three profiles",
+    hour: "noon",
+    sun: { x: 0.86, y: 0.2 },
+    flip: true,
     focus: { x: 0, y: 0, zoom: 2.4, ratio: 0.8 },
   },
   {
     id: "extensions",
     title: "Your extensions come along.",
-    body: "The Chrome Web Store, with a button that says Add to Ardia.",
+    body: "The Chrome Web Store just works, and its button says Add to Ardia.",
     shots: [extensions],
     alt: "Dark Reader’s page on the Chrome Web Store, open in Ardia, with an Add to Ardia button.",
-    caption: "The Chrome Web Store, working",
+    hour: "golden",
+    sun: { x: 0.2, y: 0.3 },
     focus: { x: 1, y: 0.1, zoom: 1.19, ratio: 0.8 },
   },
   {
     id: "privacy",
-    title: "Leave no trace.",
-    body: "uBlock Origin Lite is built in. Google’s pings are compiled out. Crash reports are opt-in: no sites, no searches.",
+    title: "Ads and trackers stay out.",
+    body: "uBlock Origin Lite is built in, cookie banners included. Google’s pings are compiled out. Crash reports are opt-in and never carry your sites or searches.",
     shots: [privacy],
-    panel: true,
     alt: "Ardia’s Privacy & Security settings: switches to block ads, trackers and cookie banners, and the number of filter rules loaded.",
-    caption: "Settings › Privacy & Security",
+    hour: "golden",
+    sun: { x: 0.78, y: 0.4 },
+    flip: true,
     focus: { x: 0.96, y: 0, zoom: 1.4, ratio: 0.75 },
   },
 ];
 
+export const duo: Feature[] = [
+  {
+    id: "little-ardia",
+    title: "Little Ardia.",
+    body: "⌥⌘N opens a small window with one page and no sidebar. For a quick look that doesn’t need a tab.",
+    shots: [littleArdia],
+    alt: "A Little Ardia window: a small window with a thin bar in the profile’s colour above Wikipedia’s article on John Constable, and no sidebar.",
+    hour: "golden",
+    sun: { x: 0.82, y: 0.22 },
+  },
+  {
+    id: "tab-groups",
+    title: "Groups on contact.",
+    body: "Drop a tab on a tab and they’re a group, named for you.",
+    shots: [tabGroup],
+    alt: "Ardia’s sidebar with a new tab group called Wikipedia, made by dropping one Wikipedia tab onto another. The Hay Wain is open on the right.",
+    hour: "golden",
+    sun: { x: 0.2, y: 0.26 },
+    flip: true,
+    focus: { x: 0, y: 0, zoom: 2.2, ratio: 0.8 },
+  },
+];
+
 export const extras: { title: string; body: string }[] = [
-  { title: "Brings your things", body: "Bookmarks, history, passwords and logins from Chrome, Safari, Firefox, Arc, Dia and five more." },
+  { title: "Moves in for you", body: "Bookmarks, history, passwords and logins from Chrome, Safari, Firefox, Arc, Dia and five more. Arc’s spaces and pinned tabs too." },
+  { title: "Syncs through your iCloud", body: "End-to-end encrypted, in a folder in your own iCloud Drive, so even Apple only sees gibberish. No server of ours in the middle." },
+  { title: "Command bar", body: "⌘L finds tabs, history and bookmarks, does your sums, and knows doc.new and 16 friends." },
+  { title: "Updates itself", body: "Quietly, then shows you what changed." },
+  { title: "Tidies up", body: "⌥⌘K sweeps the tabs you haven’t touched into Recently Cleaned." },
+  { title: "Clean links", body: "Copy a link and the tracking junk stays behind." },
   { title: "Keeps secrets", body: "Passwords and passkeys per profile, and a strong new password when you sign up somewhere." },
-  { title: "Syncs without signing in", body: "End to end encrypted, through a folder in your own iCloud Drive. No account, no server." },
-  { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
+  { title: "Naps when you do", body: "Background tabs sleep after half an hour. On battery, the greedy ones get frozen." },
   { title: "Knows your shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
-  { title: "Updates itself", body: "In the background, then shows you what changed." },
-  { title: "Formerly Netnyahoo", body: "Same app, new name. The update brings your tabs, passwords and the rest along." },
+  { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
   { title: "Sits still", body: "Idles under half a percent of CPU with a tab open." },
+  { title: "Formerly Netnyahoo", body: "Same app, new name. The update carries your tabs, passwords and the rest across." },
 ];

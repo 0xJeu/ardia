@@ -65,7 +65,7 @@ open-country touch (a lamb, a field, a quiet week) is welcome where it fits; mos
 and none should be bent to make room for it. Deadpan, never a pun on the change, never an exclamation mark.
 The fact under it must be true.
 
-- 0.1.0 "The first build runs Chromium 154 and asks for no account." (first release)
+- 0.1.0 "The first build runs Chromium 154 and asks for nothing." (first release)
 - 0.1.1 "The ad blocker goes back to work while a lamb goes missing." (ad blocking fixed; the offline game)
 - 0.1.2 "The menu bar can be used without consequences." (menu commands crashed the app)
 - 0.1.3 "Autofill starts counting clicks again." (autofill suggestions ignored clicks)

@@ -3,10 +3,10 @@ import { Image, Picture } from "astro:assets";
 import crowd from "../assets/game/crowd.webp";
 import lost from "../assets/game/lost.webp";
 
-const spot = { x: 0.193, y: 0.388, r: 0.04 };
+const spot = { x: 0.118, y: 0.31, r: 0.045 };
 ---
 
-<section class="game" id="game" aria-labelledby="game-title" data-shot="game">
+<section class="game paint" id="game" aria-labelledby="game-title" data-shot="game">
   <div class="wrap">
     <div class="game-head">
       <div class="lost">
@@ -18,8 +18,9 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
         <h2 class="poster" id="game-title" data-reveal>Where’s the lamb?</h2>
       </div>
       <p class="game-copy" data-reveal style="--i: 1">
-        Chrome gives you a dinosaur. We give you a hillside of sheep, goats and very helpful dogs, and one lamb
-        with a yellow bell. Find her.
+        Wi-Fi died? Chrome gives you a dinosaur. Ardia gives you a hillside of sheep, goats and very helpful dogs,
+        and one lamb with a yellow bell. Find her.<span class="swipe"> Swipe the flock, she’s in there.</span>{" "}Online
+        too, at <code>ardia://game</code>.
       </p>
     </div>
 
@@ -32,7 +33,7 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
           alt="A screenshot of the game: a painted meadow packed with sheep, goats and sheepdogs, the lost lamb somewhere among them."
           formats={["avif"]}
           fallbackFormat="webp"
-          widths={[640, 1024, 1440, 2248]}
+          widths={[640, 1024, 1440, 2252]}
           sizes="(max-width: 700px) 240vw, (max-width: 1440px) 94vw, 1360px"
           loading="lazy"
         />
@@ -47,18 +48,16 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
       </div>
         <p class="toast label" role="status" aria-live="polite" data-toast></p>
       </div>
-      <figcaption class="label">
-        <span>Fig. 9. Level 1, 100 in the flock</span>
-        <span class="swipe">Swipe the flock. She’s in there.</span>
-        <span>Online too, at ardia://game</span>
-      </figcaption>
     </figure>
   </div>
 </section>
 
 <style>
   .game {
-    padding: var(--section) 0 0;
+    --bg: var(--golden-late);
+    --wash: linear-gradient(180deg, var(--golden-late) 0%, #e8a682 100%);
+    --dab: var(--forest);
+    padding: clamp(24px, 4vw, 64px) 0 var(--section);
   }
   .game-head {
     display: grid;
@@ -75,7 +74,8 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
     text-align: center;
     border: 2px solid var(--ink);
     padding: 10px 10px 8px;
-    background: #f9f5e3;
+    background: #fbf6e4;
+    box-shadow: 0 10px 20px -12px rgb(60 30 20 / 0.5);
     transform: rotate(-3deg);
     width: clamp(96px, 12vw, 148px);
   }
@@ -91,10 +91,6 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
   .game-title {
     grid-area: title;
   }
-  .kicker {
-    color: var(--ink-2);
-    margin-bottom: 14px;
-  }
   h2 {
     font-size: var(--t-h2);
   }
@@ -103,10 +99,27 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
     max-width: 36em;
     color: var(--ink-2);
   }
+  .game-copy code {
+    font-family: var(--mono);
+    font-size: 0.8em;
+    font-stretch: 87.5%;
+    color: var(--ink);
+  }
   .board {
     position: relative;
     margin: 0;
     cursor: crosshair;
+  }
+  .view {
+    padding: clamp(8px, 1.2vw, 16px);
+    border-radius: 10px 16px 8px 18px / 14px 8px 18px 10px;
+    background-color: var(--forest-deep);
+    background-image: var(--impasto);
+    background-size: 300px;
+    background-blend-mode: soft-light;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.12),
+      0 30px 60px -28px rgb(60 30 20 / 0.55);
   }
   .board :global(img) {
     width: 100%;
@@ -136,7 +149,7 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
   }
   .found:focus-visible,
   .board[data-solved] .found {
-    outline: 3px solid var(--stamp);
+    outline: 3px solid var(--sun);
     outline-offset: 2px;
     box-shadow: 0 0 0 9999px rgb(22 19 15 / 0.55);
   }
@@ -159,16 +172,6 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
   .toast[data-show] {
     opacity: 1;
     transform: none;
-  }
-  figcaption {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px 24px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid var(--rule-strong);
-    color: var(--ink-2);
   }
   @media (max-width: 700px) {
     .game-head {
@@ -194,9 +197,6 @@ const spot = { x: 0.193, y: 0.388, r: 0.04 };
     }
     .swipe {
       display: inline;
-    }
-    figcaption span:last-child:not(.swipe) {
-      display: none;
     }
   }
 </style>
