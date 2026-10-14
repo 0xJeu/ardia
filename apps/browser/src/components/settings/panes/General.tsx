@@ -54,7 +54,7 @@ export function GeneralPane() {
           description={
             settings.openLinksInLittleArdia
               ? `A link from Discord, Slack or Mail opens in Little Ardia, a small window of its own. ⌘O moves it into ${APP}; closing it throws it away.`
-              : `A link from Discord, Slack or Mail opens as a new tab in your ${APP} window, in the default profile.`
+              : `A link from Discord, Slack or Mail opens as a new tab in the ${APP} window you used last.`
           }
         >
           <PopUp
