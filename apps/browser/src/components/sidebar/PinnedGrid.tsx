@@ -11,7 +11,7 @@ import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../store/hoo
 import { awayFromPin } from "../../store/organize";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
 import { clickTab, startRename } from "./actions";
-import { useDragController, useDragItem, useDropPins } from "./dnd";
+import { PIN_SLOT, useDragController, useDragItem, useDropPins } from "./dnd";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
 import { registerRow } from "./state";
@@ -30,8 +30,9 @@ export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs:
   const columns = Math.max(1, Math.min(tabs.length || 1, Math.floor((innerWidth + GAP) / (MIN_TILE + GAP))));
   const width = Math.floor(((innerWidth - GAP * (columns - 1)) / columns) * 2) / 2;
   const tail = useDragItem("tail:tiles", { kind: "tail", tabIds: [], section: "tiles" });
-  const topGap = listTopGap(useAddressBarInSidebar());
-  if (!tabs.length) return null;
+  const addressBar = useAddressBarInSidebar();
+  const topGap = listTopGap(addressBar);
+  if (!tabs.length) return addressBar || !tail.gap ? null : <Animated.View style={{ height: tail.gap }} />;
   return (
     <View
       ref={(v) => {
@@ -47,7 +48,7 @@ export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs:
   );
 });
 
-export function PinDropZone({ top, height, cover }: { top: number; height: number; cover: boolean }) {
+export function PinFieldZone({ top, height }: { top: number; height: number }) {
   const tokens = useSidebarTokens();
   const theme = useTheme();
   const controller = useDragController();
@@ -69,14 +70,64 @@ export function PinDropZone({ top, height, cover }: { top: number; height: numbe
         borderWidth: active ? 1.5 : 1,
         borderStyle: "dashed",
         borderColor: active ? theme.accent : tokens.dragBorder,
-        backgroundColor: cover ? tokens.dragSilhouette : active ? (theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)") : undefined,
+        backgroundColor: tokens.dragSilhouette,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Symbol name="pin" size={13} color={active ? theme.accent : theme.textSecondary} style={{ width: 16, height: 16 }} />
+      <PinGlyph color={active ? theme.accent : theme.textSecondary} />
     </View>
   );
+}
+
+export function PinSlotZone() {
+  const theme = useTheme();
+  const controller = useDragController();
+  const active = useDropPins();
+  const gap = controller?.items.get("tail:tiles")?.gap;
+  const opacity = gap ? gap.interpolate({ inputRange: [0, PIN_SLOT], outputRange: [0, 1], extrapolate: "clamp" }) : active ? 1 : 0;
+  return (
+    <>
+      <View
+        ref={(v) => {
+          controller?.regions.set("tiles", v);
+        }}
+        onLayout={() => void controller?.tilesLaidOut()}
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: layout.sidebarInset,
+          right: layout.sidebarInset,
+          top: 0,
+          height: active ? layout.pinnedTop + layout.pinnedHeight : layout.pinnedTop - layout.rowGap,
+        }}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: layout.sidebarInset,
+          right: layout.sidebarInset,
+          top: layout.pinnedTop,
+          height: layout.pinnedHeight,
+          opacity,
+          borderRadius: 10,
+          borderWidth: 1.5,
+          borderStyle: "dashed",
+          borderColor: theme.accent,
+          backgroundColor: theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <PinGlyph color={theme.accent} />
+      </Animated.View>
+    </>
+  );
+}
+
+function PinGlyph({ color }: { color: string }) {
+  return <Symbol name="pin" size={13} color={color} style={{ width: 16, height: 16 }} />;
 }
 
 const PinnedTile = memo(function PinnedTile({ tabId, width }: { tabId: string; width: number }) {

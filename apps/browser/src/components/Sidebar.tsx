@@ -24,7 +24,7 @@ import { GroupBlock } from "./sidebar/GroupBlock";
 import { dismissHover } from "./sidebar/hover";
 import { LiveFolders } from "./sidebar/LiveFolderBlock";
 import { openOverflowMenu, openSidebarMenu } from "./sidebar/menus";
-import { PinDropZone, PinnedGrid } from "./sidebar/PinnedGrid";
+import { PinFieldZone, PinnedGrid, PinSlotZone } from "./sidebar/PinnedGrid";
 import { ResizeHandle } from "./sidebar/ResizeHandle";
 import { entriesHeight, firstPaintEntries, rowSpan, startsOffScreen, type Section } from "./sidebar/geometry";
 import { measureRow } from "./sidebar/state";
@@ -32,7 +32,6 @@ import { SplitRowItem, TabRowItem } from "./sidebar/TabRow";
 import { useSidebarTokens } from "./sidebar/tokens";
 
 const GLOW_ROOM = 24;
-const PIN_BAND = 17;
 const ROW_PITCH = layout.rowHeight + layout.rowGap;
 const DOCKED_BOTTOM = 6;
 const DOCK = DOCKED_BOTTOM + ROW_PITCH;
@@ -158,9 +157,9 @@ export function Sidebar({ width }: { width: number }) {
           <ResizeHandle windowId={windowId} />
           {ghost && !ghost.landing && nothingPinned ? (
             addressBar ? (
-              <PinDropZone top={SIDEBAR_FIELD.top} height={SIDEBAR_FIELD.height} cover />
+              <PinFieldZone top={SIDEBAR_FIELD.top} height={SIDEBAR_FIELD.height} />
             ) : (
-              <PinDropZone top={layout.pinnedTop - PIN_BAND - 3} height={PIN_BAND} cover={false} />
+              <PinSlotZone />
             )
           ) : null}
           {ghost ? <DragGhost ghost={ghost} /> : null}

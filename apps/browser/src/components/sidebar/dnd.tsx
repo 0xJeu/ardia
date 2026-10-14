@@ -42,6 +42,7 @@ export type Ghost = { item: Item; count: number; width: number; height: number; 
 
 const ROW_GAP = layout.rowGap;
 const TILE_GAP = 6;
+export const PIN_SLOT = layout.pinnedHeight + TILE_GAP;
 const EDGE = 28;
 const spring = (value: Animated.Value, toValue: number) => Animated.spring(value, { toValue, ...SLIDE });
 
@@ -299,7 +300,7 @@ class DragController {
       });
       drop = { type: "tabs", placement: { pinned: true, beforeId: firstTab(before) } };
       gapKey = before?.key ?? "tail:tiles";
-      pitch = (cells[0]?.frame?.w ?? source.frame?.w ?? 50) + TILE_GAP;
+      pitch = cells.length ? (cells[0]?.frame?.w ?? source.frame?.w ?? 50) + TILE_GAP : PIN_SLOT;
     } else {
       const groups = live.filter((i) => i.kind === "group");
       const box = tabsDrag
@@ -497,5 +498,5 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
             : {}),
       }
     : {};
-  return { wrapper: { ref, style }, handle: responder.panHandlers, headerRef, dragging: source };
+  return { wrapper: { ref, style }, handle: responder.panHandlers, headerRef, dragging: source, gap: item?.gap };
 }
