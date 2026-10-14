@@ -130,13 +130,20 @@ function text(args: unknown[]): string {
     .slice(0, 4000);
 }
 
+const isCrossOriginScriptError = (e: ErrorEvent) => !e.error && !e.filename && /^Script error\.?$/.test(e.message);
+
+const isEmptyPlainObject = (v: unknown) =>
+  typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype && Object.keys(v).length === 0;
+
 export function startErrors() {
   addEventListener("error", (e: ErrorEvent) => {
+    if (isCrossOriginScriptError(e)) return;
     try {
       report(exceptionList(e.error, { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno }, false));
     } catch {}
   });
   addEventListener("unhandledrejection", (e: PromiseRejectionEvent) => {
+    if (isEmptyPlainObject(e.reason)) return;
     try {
       report(exceptionList(e.reason, {}, true));
     } catch {}
