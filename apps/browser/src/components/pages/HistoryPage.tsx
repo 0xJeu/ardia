@@ -7,6 +7,7 @@ import { useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import type { HistoryEntry } from "../../store/types";
 import { openModeFor, openUrl } from "../bookmarks/actions";
+import { HoverSlot } from "../HoverSlot";
 import { Favicon, IconButton } from "../primitives";
 import { Button, Checkbox, useFormColors } from "../settings/controls";
 import { ClearDataDialog, useClearDataRequest } from "./ClearDataDialog";
@@ -15,6 +16,8 @@ import { dayLabel, dayStart, EmptyState, hostLabel, PAGE_WIDTH, PageHeader, quer
 const ROW = 38;
 const HEADER = 44;
 const NO_HISTORY: HistoryEntry[] = [];
+const SCROLL_SETTLE_MS = 150;
+let lastScrollAt = 0;
 
 type Day = { label: string; offset: number };
 type Row = { entry: HistoryEntry; day: number; first: boolean; last: boolean; offset: number };
@@ -206,6 +209,7 @@ function HistoryList({
   rendered.current = { rows, overscan, band };
   const [onScroll] = useState(() => (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.current = e.nativeEvent.contentOffset.y;
+    lastScrollAt = Date.now();
     const { rows, overscan, band } = rendered.current;
     if (rowAt(rows, scrollY.current - overscan) !== band) rerender((n) => n + 1);
   });
@@ -291,8 +295,43 @@ const HistoryRow = memo(function HistoryRow({
   const url = useRef(entry.url);
   url.current = entry.url;
   const [hoveredUrl, setHoveredUrl] = useState<string | null>(null);
-  const [hoverProps] = useState(() => markHoverProps({ onMouseEnter: () => setHoveredUrl(url.current), onMouseLeave: () => setHoveredUrl(null) }));
+  const [restingUrl, setRestingUrl] = useState<string | null>(null);
+  const [hoverProps] = useState(() => {
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const rest = (hoveredEntry: string) => {
+      const wait = lastScrollAt + SCROLL_SETTLE_MS - Date.now();
+      if (wait <= 0) setRestingUrl(hoveredEntry);
+      else settle = setTimeout(() => rest(hoveredEntry), wait);
+    };
+    return markHoverProps({
+      onMouseEnter: () => {
+        clearTimeout(settle);
+        setHoveredUrl(url.current);
+        rest(url.current);
+      },
+      onMouseLeave: () => {
+        clearTimeout(settle);
+        setHoveredUrl(null);
+        setRestingUrl(null);
+      },
+    });
+  });
   const hovered = hoveredUrl === entry.url;
+  const [focusedUrl, setFocusedUrl] = useState<string | null>(null);
+  const [focusProps] = useState(() => {
+    let blurTimer: ReturnType<typeof setTimeout> | undefined;
+    return {
+      onFocus: () => {
+        clearTimeout(blurTimer);
+        setFocusedUrl(url.current);
+      },
+      onBlur: () => {
+        clearTimeout(blurTimer);
+        blurTimer = setTimeout(() => setFocusedUrl(null), 0);
+      },
+    };
+  });
+  const showControls = restingUrl === entry.url || focusedUrl === entry.url;
   const menu = async () => {
     const choice = await showMenu([
       { id: "tab", title: "Open in New Tab" },
@@ -313,7 +352,7 @@ const HistoryRow = memo(function HistoryRow({
   };
   const r = 10;
   return (
-    <View {...hoverProps} style={{ height: ROW, paddingHorizontal: 16 }}>
+    <View {...hoverProps} {...focusProps} style={{ height: ROW, paddingHorizontal: 16 }}>
       <ContextMenuArea onContextMenu={() => void menu()} style={{ flex: 1 }}>
         <View
           style={{
@@ -329,9 +368,7 @@ const HistoryRow = memo(function HistoryRow({
             borderBottomRightRadius: last ? r : 0,
           }}
         >
-          <View style={{ width: 14, opacity: hovered || selecting ? 1 : 0 }}>
-            <Checkbox value={selected} onChange={() => onToggle(entry.url, false)} />
-          </View>
+          <HoverSlot hovered={showControls || selecting} width={14} hover={<Checkbox value={selected} onChange={() => onToggle(entry.url, false)} />} />
           <Text style={{ width: 64, fontSize: 12, color: theme.textSecondary }}>{timeLabel(entry.lastVisit)}</Text>
           <MouseArea style={{ flex: 1 }} onMiddleClick={() => openUrl(entry.url, windowId, "background")}>
             <Pressable
@@ -339,6 +376,14 @@ const HistoryRow = memo(function HistoryRow({
                 const ev = e.nativeEvent as unknown as { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
                 if (selecting) return onToggle(entry.url, !!ev.shiftKey);
                 openUrl(entry.url, windowId, openModeFor(ev));
+              }}
+              accessibilityActions={[
+                { name: "select", label: selected ? "Deselect" : "Select" },
+                { name: "menu", label: "More Actions" },
+              ]}
+              onAccessibilityAction={(e) => {
+                if (e.nativeEvent.actionName === "select") onToggle(entry.url, false);
+                if (e.nativeEvent.actionName === "menu") void menu();
               }}
               style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
             >
@@ -351,9 +396,7 @@ const HistoryRow = memo(function HistoryRow({
               </Text>
             </Pressable>
           </MouseArea>
-          <View style={{ opacity: hovered ? 1 : 0 }}>
-            <IconButton icon="ellipsis" size={13} box={26} radius={6} onPress={() => void menu()} tooltip="More actions" />
-          </View>
+          <HoverSlot hovered={showControls} width={26} hover={<IconButton icon="ellipsis" size={13} box={26} radius={6} onPress={() => void menu()} tooltip="More actions" />} />
         </View>
       </ContextMenuArea>
       {!last && <View style={{ position: "absolute", left: 16 + 12, right: 16 + 12, bottom: 0, height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.separator }} />}
