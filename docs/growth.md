@@ -397,3 +397,17 @@ The 2026-09-30 switch's checklist; the Before column is history.
   checked in yet. GitHub: 28 stars, 1 since the tweet. Dead clicks: 18 by 3 visitors, mostly on the hero
   (brushing) and the "Also in there" rows. Errors: a Safari 27 desktop "Non-Error promise rejection {}"
   (3 events, 2 visitors, no stack, cause not found) and one cross-origin "Script error.".
+- **2026-10-14 19:34 UTC: the launch tweet's first 4.5 hours (from 15:00 UTC, 20:30 IST).** 125 site visitors
+  (166 page views): t.co 95, direct 28. Two waves, 10 per 15 minutes right after the tweet and 12-14 per 15
+  minutes from 18:00 to 19:00 UTC (the US afternoon), then tapering to 2. US 32, IN 31, DE 16, GB 6. Mac desktop
+  61, iPhone 36, Windows 11, Android 11, Linux 6.
+  - Downloads: 14 of 61 Mac desktop visitors clicked Download (23%, against 14.7% the two weeks before); Windows 1.
+    0.2.35's DMG went from 3 to 18 downloads, its zip has 11. 8 first launches of 0.2.35 on 10-14.
+  - Phones: Send to my Mac 2 shared, 1 copied, 4 cancelled; 5 Macs opened a sent link (7 all time before).
+  - `github_clicked` 19, `release_notes_viewed` 8 people, `game_solved` 8. Rage clicks 37 by 13 visitors, mostly
+    on the hero tagline and the footer's privacy line (text selection, not broken buttons).
+  - GitHub: 33 stars (+6 since the tweet), 7 forks.
+  - Opted-in app users: 3, all on 0.2.35. The feed also sees a `3.0.0` (11 checks on 10-14): not ours, like `2.4.2`.
+  - Errors: none from the app. The site's 6 are the known Safari "Non-Error promise rejection {}", one
+    cross-origin `Script error.`, an in-app webview's `window.webkit.messageHandlers.scrollEventHandler`, and an
+    extension's `M_ID`. All noise.
