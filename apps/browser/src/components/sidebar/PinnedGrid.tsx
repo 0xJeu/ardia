@@ -11,7 +11,7 @@ import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../store/hoo
 import { awayFromPin } from "../../store/organize";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
 import { clickTab, startRename } from "./actions";
-import { PIN_SLOT, useDragController, useDragItem, useDropPins } from "./dnd";
+import { PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins } from "./dnd";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
 import { registerRow } from "./state";
@@ -30,9 +30,10 @@ export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs:
   const columns = Math.max(1, Math.min(tabs.length || 1, Math.floor((innerWidth + GAP) / (MIN_TILE + GAP))));
   const width = Math.floor(((innerWidth - GAP * (columns - 1)) / columns) * 2) / 2;
   const tail = useDragItem("tail:tiles", { kind: "tail", tabIds: [], section: "tiles" });
+  const dragging = useDragging();
   const addressBar = useAddressBarInSidebar();
   const topGap = listTopGap(addressBar);
-  if (!tabs.length) return addressBar || !tail.gap ? null : <Animated.View style={{ height: tail.gap }} />;
+  if (!tabs.length) return dragging && !addressBar && tail.gap ? <Animated.View style={{ height: tail.gap }} /> : null;
   return (
     <View
       ref={(v) => {
