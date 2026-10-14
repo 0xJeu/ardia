@@ -2,6 +2,7 @@ import { ContextMenuArea, Surface, Symbol, VisualEffect, type SymbolProps } from
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type ViewStyle } from "react-native";
 import { hex, useTheme } from "../../lib/theme";
+import { Switch, switchEasing } from "../Switch";
 import { useHover } from "../primitives";
 import type { ToolbarPalette } from "./toolbarColors";
 
@@ -354,31 +355,11 @@ export function PromptButton({ title, onPress, primary, flex }: { title: string;
 
 export function Toggle({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
   const theme = useTheme();
-  const x = useRef(new Animated.Value(value ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(x, { toValue: value ? 1 : 0, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
-  }, [value]);
   return (
-    <Pressable onPress={() => onChange(!value)} hitSlop={6}>
-      <Animated.View
-        style={{
-          width: 30,
-          height: 17,
-          borderRadius: 9,
-          padding: 1.5,
-          backgroundColor: x.interpolate({ inputRange: [0, 1], outputRange: [theme.dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)", "#3478F6"] }),
-        }}
-      >
-        <Animated.View
-          style={{
-            width: 14,
-            height: 14,
-            borderRadius: 7,
-            backgroundColor: "#FFFFFF",
-            transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, 13] }) }],
-          }}
-        />
-      </Animated.View>
-    </Pressable>
+    <Switch
+      value={value}
+      onChange={onChange}
+      look={{ width: 30, height: 17, knob: 14, inset: 1.5, offColor: theme.dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)", onColor: "#3478F6", duration: 150, easing: switchEasing.quadOut }}
+    />
   );
 }

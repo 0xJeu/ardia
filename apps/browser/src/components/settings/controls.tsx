@@ -1,7 +1,8 @@
 import { showMenu, Surface, Symbol, type MenuItem } from "@ardia/shell";
-import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
+import { type ReactNode } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
 import { hex, useTheme, type Theme } from "../../lib/theme";
+import { Switch, switchEasing } from "../Switch";
 import { useHover } from "../primitives";
 
 function formColors(theme: Theme) {
@@ -44,34 +45,13 @@ export function useFormColors() {
 
 export function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   const colors = useFormColors();
-  const t = useRef(new Animated.Value(value ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(t, { toValue: value ? 1 : 0, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  }, [value]);
   return (
-    <Pressable disabled={disabled} onPress={() => onChange(!value)} style={{ opacity: disabled ? 0.45 : 1 }}>
-      <Animated.View
-        style={{
-          width: 32,
-          height: 18,
-          borderRadius: 9,
-          padding: 1.5,
-          backgroundColor: t.interpolate({ inputRange: [0, 1], outputRange: [colors.switchOff, colors.accent] }),
-        }}
-      >
-        <Animated.View
-          style={{
-            width: 15,
-            height: 15,
-            borderRadius: 7.5,
-            backgroundColor: "#FFFFFF",
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: "rgba(0,0,0,0.12)",
-            transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) }],
-          }}
-        />
-      </Animated.View>
-    </Pressable>
+    <Switch
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      look={{ width: 32, height: 18, knob: 15, inset: 1.5, offColor: colors.switchOff, onColor: colors.accent, knobBorder: "rgba(0,0,0,0.12)", duration: 160, easing: switchEasing.cubicOut }}
+    />
   );
 }
 
