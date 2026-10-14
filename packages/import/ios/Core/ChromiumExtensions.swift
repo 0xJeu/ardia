@@ -7,6 +7,10 @@ public struct ImportedExtension: Codable, Equatable, Sendable {
 }
 
 public enum ChromiumExtensions {
+  static let uBlockOrigin = "cjpalhdlnbpafiamejdnhcphjbkeiagm"
+  static let uBlockOriginLite = "ddkjiahejlhfcafbddmgiahcphecmpfh"
+  static let notOffered: Set<String> = [uBlockOrigin, uBlockOriginLite]
+
   public static func list(profile: URL) -> [ImportedExtension] {
     var settings: [String: Any] = [:]
     for file in ["Preferences", "Secure Preferences"] {
@@ -21,7 +25,7 @@ public enum ChromiumExtensions {
     }
     var out: [ImportedExtension] = []
     for (id, value) in settings {
-      guard isExtensionId(id), let entry = value as? [String: Any], entry["from_webstore"] as? Bool == true else { continue }
+      guard isExtensionId(id), !notOffered.contains(id), let entry = value as? [String: Any], entry["from_webstore"] as? Bool == true else { continue }
       if let location = entry["location"] as? Int, location != 1 { continue }
       out.append(ImportedExtension(id: id, name: name(id: id, entry: entry, profile: profile) ?? id,
                                    webStoreUrl: "https://chromewebstore.google.com/detail/\(id)"))

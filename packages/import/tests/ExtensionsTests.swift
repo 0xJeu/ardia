@@ -15,6 +15,10 @@ final class ExtensionsTests: XCTestCase {
     XCTAssertEqual(list.map(\.name), ["Dark Reader"])
   }
 
+  func testLeavesOutUBlockOriginAndItsLiteVersion() {
+    XCTAssertEqual(ChromiumExtensions.list(profile: Fixtures.url("extensions/UBlockOnly")), [])
+  }
+
   func testMissingProfileListsNothing() {
     XCTAssertEqual(ChromiumExtensions.list(profile: Fixtures.url("extensions/Nope")), [])
   }
