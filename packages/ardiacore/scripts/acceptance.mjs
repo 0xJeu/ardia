@@ -170,6 +170,7 @@ const stamp = () => new Date().toISOString().slice(11, 23);
 const adServed = [];
 const served = new Map();
 const siteDataDomain = "ardia-sitedata.com";
+const siteDataSecureHosts = [`s.${siteDataDomain}`, "embed.ardia-thirdparty.com", "top.ardia-elsewhere.com"];
 const server = createServer((req, res) => {
   if (!req.headers.host?.startsWith("127.0.0.1")) adServed.push(`${req.headers.host}${req.url}`);
   served.set(req.url, (served.get(req.url) ?? 0) + 1);
@@ -185,6 +186,16 @@ const server = createServer((req, res) => {
     const set = url.searchParams.has("set");
     res.writeHead(200, { "content-type": "text/html", ...(set ? { "set-cookie": ["host_only=1; Path=/", `domain_wide=1; Path=/; Domain=${siteDataDomain}`] } : {}) });
     return res.end(page("Site data", set ? `<script>localStorage.setItem("kept", "yes")</script>` : ""));
+  }
+  if (url.pathname === "/frame-host") {
+    res.writeHead(200, { "content-type": "text/html" });
+    return res.end(page("Frame host", `<script>window.__frame = null; addEventListener("message", (e) => (window.__frame = e.data));</script><iframe src="${url.searchParams.get("src")}"></iframe>`));
+  }
+  if (url.pathname === "/frame-probe") {
+    const set = url.searchParams.has("set");
+    res.writeHead(200, { "content-type": "text/html" });
+    return res.end(page("Frame probe", `<script>${set ? `document.cookie = "chips=1; Secure; SameSite=None; Partitioned; Path=/"; localStorage.setItem("kept", "yes");` : ""}
+      parent.postMessage({ cookie: document.cookie, ls: localStorage.getItem("kept") }, "*");</script>`));
   }
   if (url.pathname === "/file.bin") {
     res.writeHead(200, { "content-type": "application/octet-stream", "content-disposition": 'attachment; filename="ardiacore-test.bin"' });
@@ -350,7 +361,7 @@ let exe, stdout, pid, child, launchedAt, exited = null;
 let instance = null;
 process.env.ARDIA_CHROMIUM_SWITCHES = `--ardia-test-media-route-provider --disable-media-route-providers-for-test --ardia-test-bluetooth-chooser ${process.env.ARDIA_CHROMIUM_SWITCHES ?? ""}`.trim();
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --host-resolver-rules=${["ib.adnxs.com", "securepubads.g.doubleclick.net", "pagead2.googlesyndication.com", "adpage.test", `one.${siteDataDomain}`, `two.${siteDataDomain}`]
-  .map((host) => `MAP ${host} 127.0.0.1:${server.address().port}`).join(", ")}`;
+  .map((host) => `MAP ${host} 127.0.0.1:${server.address().port}`).concat(siteDataSecureHosts.map((host) => `MAP ${host} 127.0.0.1:${tlsServer.address().port}`)).join(", ")}`;
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --apps-gallery-update-url=${base}/webstore/crx`;
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --ignore-certificate-errors-spki-list=${tlsSpki}`;
 async function launch(logName = "app.out.log", env = {}, args = [], opts = {}) {
@@ -2641,12 +2652,61 @@ try {
         await closeTab(tab.id);
       }
     };
-    const before = { one: await read(`${one}/site-data?set`), two: await read(`${two}/site-data`) };
+    const [secure, thirdParty, elsewhere] = siteDataSecureHosts.map((host) => `https://${host}`);
+    const readFrame = async (top, src) => {
+      const url = `${top}/frame-host?src=${encodeURIComponent(src)}`;
+      const tab = await openTab(url, "Frame host", true);
+      try {
+        const t = await until(`${url}'s page`, () => pageTarget("/frame-host"));
+        return await until(`the frame's report on ${top}`, async () => (await cdp(t, "Runtime.evaluate", { expression: "window.__frame", returnByValue: true })).result.value ?? null);
+      } finally {
+        await closeTab(tab.id);
+      }
+    };
+    const persisted = async () => {
+      const tab = await openTab(`${secure}/site-data`, "Site data", true);
+      try {
+        const t = await until("the secure page", () => pageTarget(`${secure}/site-data`));
+        return (await cdp(t, "Runtime.evaluate", { expression: "navigator.storage.persisted()", awaitPromise: true, returnByValue: true })).result.value;
+      } finally {
+        await closeTab(tab.id);
+      }
+    };
+    await cef(`setSiteSetting("", "${secure}", "notifications", "allow")`);
+    const persistTab = await openTab(`${secure}/site-data`, "Site data", true);
+    try {
+      const t = await until("the secure page", () => pageTarget(`${secure}/site-data`));
+      await cdp(t, "Runtime.evaluate", { expression: "navigator.storage.persist()", awaitPromise: true, returnByValue: true });
+    } finally {
+      await closeTab(persistTab.id);
+    }
+    const before = {
+      one: await read(`${one}/site-data?set`), two: await read(`${two}/site-data`),
+      embeddedOnSite: await readFrame(secure, `${thirdParty}/frame-probe?set`),
+      siteEmbeddedElsewhere: await readFrame(elsewhere, `${secure}/frame-probe?set`),
+      persisted: await persisted(),
+    };
     if (before.one !== "domain_wide=1; host_only=1 | yes" || before.two !== "domain_wide=1 | null") throw new Error(`the fixture's data: ${JSON.stringify(before)}`);
+    for (const k of ["embeddedOnSite", "siteEmbeddedElsewhere"])
+      if (before[k]?.cookie !== "chips=1" || before[k]?.ls !== "yes") throw new Error(`the fixture's partitioned data: ${JSON.stringify(before)}`);
+    if (before.persisted !== true) throw new Error(`persistent storage wasn't granted: ${JSON.stringify(before)}`);
     const cleared = await cef(`clearSiteData("", "${one}")`);
-    const after = { one: await read(`${one}/site-data`), two: await read(`${two}/site-data`) };
-    if (after.one !== " | null" || after.two !== " | null") throw new Error(`left after clearing: ${JSON.stringify(after)} (${JSON.stringify(cleared)})`);
-    if (cleared.cookies !== 2 || !cleared.storage) throw new Error(`the reply: ${JSON.stringify(cleared)}`);
+    const after = {
+      one: await read(`${one}/site-data`), two: await read(`${two}/site-data`),
+      embeddedOnSite: await readFrame(secure, `${thirdParty}/frame-probe`),
+      siteEmbeddedElsewhere: await readFrame(elsewhere, `${secure}/frame-probe`),
+      persisted: await persisted(),
+      notifications: (await cef(`getSiteSettings("", "${secure}")`))?.notifications?.value,
+    };
+    await cef(`resetSiteSettings("", "${secure}")`);
+    const wrong = [];
+    if (after.one !== " | null" || after.two !== " | null") wrong.push("the site's own cookies or storage");
+    if (after.embeddedOnSite?.cookie !== "" || after.embeddedOnSite?.ls !== null) wrong.push("a third party's data stored under the site");
+    if (after.siteEmbeddedElsewhere?.cookie !== "chips=1" || after.siteEmbeddedElsewhere?.ls !== "yes") wrong.push("the site's data stored under another site (Chrome keeps it)");
+    if (after.persisted !== false) wrong.push("the persistent-storage grant (Chrome resets it)");
+    if (after.notifications !== "allow") wrong.push("the notifications permission (a setting, not data)");
+    if (cleared.cookies !== 3 || !cleared.storage) wrong.push(`the reply ${JSON.stringify(cleared)}`);
+    if (wrong.length) throw new Error(`${wrong.join("; ")}: ${JSON.stringify({ before, cleared, after })}`);
     return { before, cleared, after };
   });
 

@@ -9,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -29,6 +30,9 @@
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "net/base/schemeful_site.h"
+#include "net/cookies/cookie_partition_key.h"
+#include "net/cookies/cookie_partition_key_collection.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -122,23 +126,45 @@ GURL SiteOf(std::string_view spec) {
   return url::Origin::Create(url).GetURL();
 }
 
-std::unique_ptr<content::BrowsingDataFilterBuilder> SiteFilter(
-    const GURL& site) {
+std::string RegistrableDomainOf(const GURL& site) {
   std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
       site, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
-  if (domain.empty()) {
-    domain = site.host();
+  return domain.empty() ? std::string(site.host()) : domain;
+}
+
+net::CookiePartitionKeyCollection PartitionsOf(const std::string& domain) {
+  base::flat_set<net::CookiePartitionKey> keys;
+  for (const char* scheme : {"https://", "http://"}) {
+    const net::SchemefulSite top_level(GURL(scheme + domain));
+    for (const net::CookiePartitionKey& key :
+         net::CookiePartitionKeyCollection::MatchesSite(top_level)
+             .PartitionKeys()) {
+      keys.insert(key);
+    }
   }
+  return net::CookiePartitionKeyCollection(std::move(keys));
+}
+
+std::unique_ptr<content::BrowsingDataFilterBuilder> SiteFilter(
+    const std::string& domain) {
   auto filter = content::BrowsingDataFilterBuilder::Create(
       content::BrowsingDataFilterBuilder::Mode::kDelete);
   filter->AddRegisterableDomain(domain);
+  filter->SetCookiePartitionKeyCollection(PartitionsOf(domain));
+  return filter;
+}
+
+network::mojom::CookieDeletionFilterPtr CookiesPartitionedUnder(
+    const std::string& domain) {
+  auto filter = network::mojom::CookieDeletionFilter::New();
+  filter->cookie_partition_key_collection = PartitionsOf(domain);
+  filter->partitioned_state_only = true;
   return filter;
 }
 
 constexpr uint64_t kSiteDataTypes =
     chrome_browsing_data_remover::DATA_TYPE_SITE_DATA &
-    ~(chrome_browsing_data_remover::DATA_TYPE_PERSISTENT_PERMISSION |
-      chrome_browsing_data_remover::DATA_TYPE_EXTERNAL_PROTOCOL_DATA);
+    ~chrome_browsing_data_remover::DATA_TYPE_EXTERNAL_PROTOCOL_DATA;
 
 class SiteDataCleared : public content::BrowsingDataRemover::Observer {
  public:
@@ -386,29 +412,49 @@ AC_ENGINE_CALL(ac_site_data_clear) {
     return call.TakeReply().Send(
         base::DictValue().Set("cookies", false).Set("storage", false));
   }
-  call.profile()
-      ->GetDefaultStoragePartition()
-      ->GetCookieManagerForBrowserProcess()
-      ->DeleteCookies(
-          ardia::SiteFilter(site)->BuildCookieDeletionFilter(),
-          base::BindOnce(
-              [](ardia::Reply reply, base::WeakPtr<Profile> profile, GURL site,
-                 uint32_t cookies) {
-                if (!profile) {
-                  return reply.Send(
-                      base::DictValue()
-                          .Set("cookies", static_cast<int>(cookies))
-                          .Set("storage", false));
-                }
-                content::BrowsingDataRemover* remover =
-                    profile->GetBrowsingDataRemover();
-                remover->RemoveWithFilterAndReply(
-                    base::Time(), base::Time::Max(), ardia::kSiteDataTypes,
-                    content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
-                        content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
-                    ardia::SiteFilter(site),
-                    new ardia::SiteDataCleared(remover, std::move(reply),
-                                               cookies));
-              },
-              call.TakeReply(), call.profile()->GetWeakPtr(), site));
+  const std::string domain = ardia::RegistrableDomainOf(site);
+  network::mojom::CookieManager* cookies =
+      call.profile()->GetDefaultStoragePartition()
+          ->GetCookieManagerForBrowserProcess();
+  cookies->DeleteCookies(
+      ardia::SiteFilter(domain)->BuildCookieDeletionFilter(),
+      base::BindOnce(
+          [](ardia::Reply reply, base::WeakPtr<Profile> profile,
+             std::string domain, uint32_t own) {
+            if (!profile) {
+              return reply.Send(base::DictValue()
+                                    .Set("cookies", static_cast<int>(own))
+                                    .Set("storage", false));
+            }
+            profile->GetDefaultStoragePartition()
+                ->GetCookieManagerForBrowserProcess()
+                ->DeleteCookies(
+                    ardia::CookiesPartitionedUnder(domain),
+                    base::BindOnce(
+                        [](ardia::Reply reply, base::WeakPtr<Profile> profile,
+                           std::string domain, uint32_t own,
+                           uint32_t embedded) {
+                          const uint32_t deleted = own + embedded;
+                          if (!profile) {
+                            return reply.Send(
+                                base::DictValue()
+                                    .Set("cookies", static_cast<int>(deleted))
+                                    .Set("storage", false));
+                          }
+                          content::BrowsingDataRemover* remover =
+                              profile->GetBrowsingDataRemover();
+                          remover->RemoveWithFilterAndReply(
+                              base::Time(), base::Time::Max(),
+                              ardia::kSiteDataTypes,
+                              content::BrowsingDataRemover::
+                                      ORIGIN_TYPE_UNPROTECTED_WEB |
+                                  content::BrowsingDataRemover::
+                                      ORIGIN_TYPE_PROTECTED_WEB,
+                              ardia::SiteFilter(domain),
+                              new ardia::SiteDataCleared(
+                                  remover, std::move(reply), deleted));
+                        },
+                        std::move(reply), profile, domain, own));
+          },
+          call.TakeReply(), call.profile()->GetWeakPtr(), domain));
 }
