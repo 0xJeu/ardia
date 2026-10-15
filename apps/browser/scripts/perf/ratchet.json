@@ -969,7 +969,7 @@
   },
   "noisy": {
     "close.hostUpdates": 1054,
-    "close.mounts": 1800,
+    "close.mounts": 1980,
     "close.renders": 1968,
     "close.storeKeys": 337,
     "close.tasks": 901,

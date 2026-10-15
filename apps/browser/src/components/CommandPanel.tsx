@@ -7,6 +7,7 @@ import { useWindowId, useWindowUi } from "../store/hooks";
 import { activeTabId } from "../store/model";
 import { useStoreWhile } from "../store/tabWatch";
 import { usePage } from "./layout/pageState";
+import { dismissHover, setRowsCovered } from "./sidebar/hover";
 import { useUrlAnchors } from "./layout/windowLayout";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "./Toolbar";
@@ -41,6 +42,11 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const hasField = useStoreWhile(useBrowser, panel.open, (s) => !!(activeId && s.tabs[activeId]?.url));
   const insecure = usePage(activeId, (p) => !!insecureLevel(p));
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
+  const overRows = panel.open && !!anchor?.sidebar;
+  useEffect(() => {
+    if (panel.open) dismissHover();
+    setRowsCovered(windowId, overRows);
+  }, [panel.open, overRows, windowId]);
   if (!panel.open || !activeId || !anchor) return null;
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);

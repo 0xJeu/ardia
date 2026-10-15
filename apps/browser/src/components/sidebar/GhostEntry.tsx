@@ -66,32 +66,30 @@ export function snapshotEntry(s: BrowserState, windowId: string, profileId: stri
   };
 }
 
-export function GhostEntry({ snapshot }: { snapshot: EntrySnapshot }) {
-  if (snapshot.kind === "tab") return <TabGhost shot={snapshot} />;
-  if (snapshot.kind === "split") return <SplitGhost shot={snapshot} />;
-  return <GroupGhost shot={snapshot} />;
+export function ghostEntry(snapshot: EntrySnapshot, theme: ReturnType<typeof useTheme>, top: number) {
+  if (snapshot.kind === "tab") return tabGhost(snapshot, theme, top);
+  return <View style={{ marginTop: top }}>{snapshot.kind === "split" ? <SplitGhost shot={snapshot} /> : <GroupGhost shot={snapshot} />}</View>;
 }
 
-function TabGhost({ shot }: { shot: TabShot }) {
-  const theme = useTheme();
+function tabGhost(shot: TabShot, theme: ReturnType<typeof useTheme>, top = 0) {
   return (
     <View
+      key={shot.key}
       style={{
+        marginTop: top,
         height: layout.rowHeight,
         borderRadius: 10,
         flexDirection: "row",
         alignItems: "center",
         paddingLeft: 9,
-        paddingRight: 6,
+        paddingRight: shot.hovered ? 6 : 28,
         backgroundColor: shot.hovered ? theme.tabHover : undefined,
       }}
     >
       <TabIcon url={shot.url} favicon={shot.favicon} icon={shot.icon} profileId={shot.profileId} />
       {shot.sound ? <Symbol name={shot.sound === "muted" ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16, marginLeft: 6 }} /> : null}
       <FadeLabel text={shot.title} fontSize={13} color={theme.textTab} style={{ flex: 1, height: 18, marginLeft: 5 }} />
-      <View style={{ width: 22, height: 22, alignItems: "center", justifyContent: "center" }}>
-        {shot.hovered ? <Symbol name="xmark" size={10} weight="semibold" color={theme.icon} style={{ width: 22, height: 22 }} /> : null}
-      </View>
+      {shot.hovered ? <Symbol name="xmark" size={10} weight="semibold" color={theme.icon} style={{ width: 22, height: 22 }} /> : null}
     </View>
   );
 }
@@ -114,6 +112,7 @@ function SplitGhost({ shot }: { shot: SplitShot }) {
 }
 
 function GroupGhost({ shot }: { shot: GroupShot }) {
+  const theme = useTheme();
   const tokens = useSidebarTokens();
   const spec = shot.color ? GROUP_COLORS[shot.color as keyof typeof GROUP_COLORS] : null;
   const fill = spec ? withAlpha(spec.hex, 0.16) : tokens.groupFill;
@@ -133,7 +132,7 @@ function GroupGhost({ shot }: { shot: GroupShot }) {
           <Symbol name="chevron.down" size={9} weight="semibold" color={withAlpha(tokens.groupTitle, 0.5)} style={{ width: 10, height: 10 }} />
         </View>
       </View>
-      <View style={{ gap: layout.rowGap, paddingBottom: pad }}>{shot.members.map((m) => (m.kind === "split" ? <SplitGhost key={m.key} shot={m} /> : <TabGhost key={m.key} shot={m} />))}</View>
+      <View style={{ gap: layout.rowGap, paddingBottom: pad }}>{shot.members.map((m) => (m.kind === "split" ? <SplitGhost key={m.key} shot={m} /> : tabGhost(m, theme)))}</View>
     </View>
   );
 }

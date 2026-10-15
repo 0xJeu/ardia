@@ -1,5 +1,5 @@
 import { ActivitySpinner, ContextMenuArea, FadeLabel, MouseArea, Surface, Symbol } from "@ardia/shell";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, TextInput, View, type GestureResponderEvent } from "react-native";
 import { closeTab, toggleMute } from "../../lib/actions";
 import { hex, layout, useTheme } from "../../lib/theme";
@@ -9,7 +9,7 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "./actions";
 import { useDragItem, useDropOnto } from "./dnd";
-import { EntryShift } from "./entryMotion";
+import { useEntryShift } from "./entryMotion";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
 import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
@@ -40,14 +40,12 @@ export const TabRowItem = memo(function TabRowItem({
   const onto = useDropOnto(`t:${tabId}`);
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <EntryShift>
-        <TabRow tabId={tabId} onto={onto} />
-      </EntryShift>
+      <TabRow tabId={tabId} onto={onto} />
     </Animated.View>
   );
 });
 
-export function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean }) {
+export const TabRow = memo(function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const windowId = useWindowId();
@@ -58,6 +56,7 @@ export function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean 
   const loading = !!(flags & LOADING);
   const renaming = useSidebarUi((u) => u.renaming?.kind === "tab" && u.renaming.id === tabId);
   const { hovered, hoverProps } = useRowHover(windowId, renaming ? null : { kind: "tab", id: tabId });
+  const [moved, movedRef] = useEntryShift(useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
   if (!tab) return null;
   const title = tabTitle(tab);
   const fill = active ? theme.tabSelected : selected ? tokens.multiSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)";
@@ -65,8 +64,10 @@ export function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean 
 
   return (
     <View
-      ref={(v) => registerRow(windowId, tabId, v)}
+      {...moved}
+      ref={movedRef}
       {...hoverProps}
+      style={moved.style as object}
       onDoubleClick={() => void startRename(windowId, { kind: "tab", id: tabId })}
     >
       <MouseArea onMiddleClick={() => void closeTab(tabId)}>
@@ -128,7 +129,7 @@ export function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean 
       </MouseArea>
     </View>
   );
-}
+});
 
 export function RenameField({
   initial,
@@ -193,31 +194,30 @@ export const SplitRowItem = memo(function SplitRowItem({
   const profileId = usePageProfileId();
   const active = useBrowser((s) => tabIds.includes(s.windows[windowId]?.activeTabIds[profileId] ?? ""));
   const { hovered, hoverProps } = useRowHover(windowId, null);
+  const [moved, movedRef] = useEntryShift(useCallback((v: View | null) => registerRow(windowId, `s:${splitId}`, v), [windowId, splitId]));
   if (tabIds.length < 2) return null;
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <EntryShift>
-        <View ref={(v) => registerRow(windowId, `s:${splitId}`, v)} {...hoverProps}>
-          <Surface
-            fill={hex(active ? theme.tabSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)")}
-            cornerRadius={10}
-            borderWidth={active ? 1 : 0}
-            borderColors={active ? theme.tabSelectedBorder.map(hex) : undefined}
-            shadowColor={active ? hex(theme.tabSelectedShadow) : undefined}
-            shadowOpacity={active ? 1 : 0}
-            shadowRadius={theme.tabSelectedShadowRadius}
-            shadowOffset={[0, 0.5]}
-            style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingHorizontal: active ? 2 : 3 }}
-          >
-            {tabIds.map((id, i) => (
-              <View key={id} style={{ flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 }}>
-                {i > 0 && <View style={{ width: 1, height: 16, backgroundColor: theme.divider, marginRight: 2 }} />}
-                <SplitPane tabId={id} windowId={windowId} />
-              </View>
-            ))}
-          </Surface>
-        </View>
-      </EntryShift>
+      <View {...moved} ref={movedRef} {...hoverProps} style={moved.style as object}>
+        <Surface
+          fill={hex(active ? theme.tabSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)")}
+          cornerRadius={10}
+          borderWidth={active ? 1 : 0}
+          borderColors={active ? theme.tabSelectedBorder.map(hex) : undefined}
+          shadowColor={active ? hex(theme.tabSelectedShadow) : undefined}
+          shadowOpacity={active ? 1 : 0}
+          shadowRadius={theme.tabSelectedShadowRadius}
+          shadowOffset={[0, 0.5]}
+          style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingHorizontal: active ? 2 : 3 }}
+        >
+          {tabIds.map((id, i) => (
+            <View key={id} style={{ flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 }}>
+              {i > 0 && <View style={{ width: 1, height: 16, backgroundColor: theme.divider, marginRight: 2 }} />}
+              <SplitPane tabId={id} windowId={windowId} />
+            </View>
+          ))}
+        </Surface>
+      </View>
     </Animated.View>
   );
 });

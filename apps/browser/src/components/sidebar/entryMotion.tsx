@@ -1,18 +1,41 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { Animated } from "react-native";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type Ref } from "react";
+import type { Animated, View } from "react-native";
 
-export type EntryMotion = { shift: Animated.Value | null; raised: boolean; clipped: boolean };
+export type ClipSource = { clipped: () => boolean; subscribe: (changed: () => void) => () => void };
+export type EntryMotion = { shift: Animated.Value | null; clip: ClipSource };
 
 export const EntryMotionContext = createContext<EntryMotion | null>(null);
 
-export const useEntryLayering = (applies: boolean) => {
-  const motion = useContext(EntryMotionContext);
-  return { raised: applies && !!motion?.raised, clipped: applies && !!motion?.clipped };
+type AnimatedPropsHook = (props: object) => [Record<string, unknown>, (instance: View | null) => void];
+const useAnimatedProps: AnimatedPropsHook = require("react-native/Libraries/Animated/useAnimatedProps").default;
+
+export function useClipped(source: ClipSource | null | undefined) {
+  const [, changed] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => source?.subscribe(changed), [source]);
+  return !!source?.clipped();
+}
+
+export const useEntryClipped = (applies: boolean) => {
+  const clipped = useClipped(useContext(EntryMotionContext)?.clip);
+  return applies && clipped;
 };
 
-export function EntryShift({ children }: { children: ReactNode }) {
-  const motion = useContext(EntryMotionContext);
-  const shift = motion?.shift ?? null;
-  const style = useMemo(() => (shift ? { transform: [{ translateY: shift }] } : undefined), [shift]);
-  return <Animated.View style={style}>{children}</Animated.View>;
+export function useAnimatedStyle(style: object | null, own?: (view: View | null) => void): [Record<string, unknown>, Ref<View>] {
+  const props = useMemo(() => (style ? { style } : {}), [style]);
+  const [animated, attach] = useAnimatedProps(props);
+  const ref = useCallback(
+    (view: View | null) => {
+      attach(view);
+      own?.(view);
+    },
+    [attach, own],
+  );
+  return [animated, ref];
 }
+
+export function useShift(shift: Animated.Value | null, own?: (view: View | null) => void) {
+  const style = useMemo(() => (shift ? { transform: [{ translateY: shift }] } : null), [shift]);
+  return useAnimatedStyle(style, own);
+}
+
+export const useEntryShift = (own?: (view: View | null) => void) => useShift(useContext(EntryMotionContext)?.shift ?? null, own);

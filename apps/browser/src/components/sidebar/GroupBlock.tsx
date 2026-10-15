@@ -1,5 +1,5 @@
 import { ContextMenuArea, FadeLabel, Surface, Symbol } from "@ardia/shell";
-import { memo, useContext } from "react";
+import { memo, useContext, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { hex, layout, useTheme } from "../../lib/theme";
@@ -11,12 +11,12 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { commitRename, endRename, startRename } from "./actions";
 import { useDragItem, useDropInto } from "./dnd";
-import { EntryMotionContext, EntryShift } from "./entryMotion";
+import { EntryMotionContext, useEntryShift } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
 import { GROUP_BORDER, GROUP_PAD, keptEntry } from "./geometry";
-import { useGroupEntries } from "./entries";
+import { groupEntries } from "./entries";
 import { dismissHover, useRowHover } from "./hover";
-import { BoxExtension, GhostSlot, ListMotionEnabled, useGroupMotion } from "./listMotion";
+import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./listMotion";
 import { openGroupMenu } from "./menus";
 import { registerRow, useSidebarUi } from "./state";
 import { TabIcon } from "./TabIcon";
@@ -31,7 +31,13 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
   const collapsed = useBrowser((s) => !!s.groups[groupId]?.collapsed);
   const color = useBrowser((s) => s.groups[groupId]?.color ?? null);
   const tabIds = useBrowser((s) => s.groups[groupId]?.tabIds.join(",") ?? "");
-  const entries = useGroupEntries(groupId);
+  const [captured] = useState(newCapture);
+  const entries = useBrowser(
+    useShallow((s) => {
+      const list = groupEntries(s, groupId);
+      return capture(captured, s, list, list);
+    }),
+  );
   const selectedInside = useBrowser((s) => {
     const selection = s.selection[windowId];
     return !!selection?.length && !!s.groups[groupId]?.tabIds.some((id) => selection.includes(id));
@@ -42,7 +48,9 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
 
   const fold = useFold(collapsed);
-  const motion = useGroupMotion(windowId, profileId, groupId, entries, useContext(ListMotionEnabled) && !collapsed);
+  const scope = useContext(ListMotionContext);
+  const motion = useGroupMotion(windowId, profileId, groupId, entries, captured, section === "list" ? scope : { enabled: scope.enabled, slideBelow: null }, scope.enabled && !collapsed);
+  const [moved, movedRef] = useEntryShift();
 
   const spec = color ? GROUP_COLORS[color] : null;
   const fill = spec ? withAlpha(spec.hex, 0.16) : tokens.groupFill;
@@ -50,36 +58,34 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
 
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style}>
-      <EntryShift>
-        <View style={{ borderRadius: 12, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }}>
-          <View ref={headerRef} {...handle}>
-            <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
-          </View>
-          <Fold
-            fold={fold}
-            collapsed={collapsed}
-            entries={motion.slots(entries).map((slot) =>
-              "ghost" in slot
-                ? { key: `ghost:${slot.ghost.id}`, ghost: true, node: <GhostSlot ghost={slot.ghost} top={slot.top} /> }
-                : {
-                    key: slot.entry,
-                    node: (
-                      <EntryMotionContext.Provider value={motion.motion(slot.entry)}>
-                        <Entry entry={slot.entry} section={section} groupId={groupId} />
-                      </EntryMotionContext.Provider>
-                    ),
-                  },
-            )}
-            keep={activeEntry}
-            gap={layout.rowGap}
-            rowHeight={layout.rowHeight}
-            padBottom={PAD}
-            mountClosed={selectedInside}
-            footer={<Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />}
-          />
-          <BoxExtension extra={motion.tail} />
+      <View {...moved} ref={movedRef} style={[{ borderRadius: 12, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }, moved.style as object]}>
+        <View ref={headerRef} {...handle}>
+          <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
         </View>
-      </EntryShift>
+        <Fold
+          fold={fold}
+          collapsed={collapsed}
+          entries={motion.slots(entries).map((slot) =>
+            "ghost" in slot
+              ? { key: `ghost:${slot.ghost.id}`, ghost: true, node: <GhostSlot ghost={slot.ghost} top={slot.top} /> }
+              : {
+                  key: slot.entry,
+                  node: (
+                    <EntryMotionContext.Provider value={motion.motion(slot.entry)}>
+                      <Entry entry={slot.entry} section={section} groupId={groupId} />
+                    </EntryMotionContext.Provider>
+                  ),
+                },
+          )}
+          keep={activeEntry}
+          gap={layout.rowGap}
+          rowHeight={layout.rowHeight}
+          padBottom={PAD}
+          mountClosed={selectedInside}
+          footer={<Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />}
+        />
+        {motion.tail ? <Animated.View style={{ marginTop: motion.tail }} /> : null}
+      </View>
     </Animated.View>
   );
 });

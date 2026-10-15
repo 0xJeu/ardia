@@ -1,5 +1,5 @@
 import { ContextMenuArea, FadeLabel, Symbol, WindowDragRegion } from "@ardia/shell";
-import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { switchOn } from "../lib/killSwitches";
 import { layout, ThemeScope, useTheme } from "../lib/theme";
@@ -19,12 +19,12 @@ import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "./profile
 import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragItem, type Ghost } from "./sidebar/dnd";
-import { EntryMotionContext } from "./sidebar/entryMotion";
-import { sidebarEntries, useSidebarEntries } from "./sidebar/entries";
+import { EntryMotionContext, useClipped, useShift, type ClipSource } from "./sidebar/entryMotion";
+import { sidebarEntries } from "./sidebar/entries";
 import { GroupBlock } from "./sidebar/GroupBlock";
 import { dismissHover } from "./sidebar/hover";
 import { LiveFolders } from "./sidebar/LiveFolderBlock";
-import { GhostSlot, ListMotionEnabled, TailShift, useListMotion } from "./sidebar/listMotion";
+import { capture, GhostSlot, ListMotionContext, newCapture, useListMotion } from "./sidebar/listMotion";
 import { openOverflowMenu, openSidebarMenu } from "./sidebar/menus";
 import { PinFieldZone, PinnedGrid, PinSlotZone } from "./sidebar/PinnedGrid";
 import { ResizeHandle } from "./sidebar/ResizeHandle";
@@ -271,7 +271,11 @@ type PageRowsProps = {
 };
 
 function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, topGap, innerWidth, controller, geometry, onListHeight }: PageRowsProps) {
-  const { tiles, pinnedGroups, list: all } = useSidebarEntries(windowId, profileId);
+  const [captured] = useState(newCapture);
+  const { tiles, pinnedGroups, list: all } = useBrowser((s) => {
+    const entries = sidebarEntries(s, windowId, profileId);
+    return capture(captured, s, entries.list, entries);
+  });
   const [lazy] = useState(() => switchOn("lazySidebarRows"));
   const [mountedRows, setMountedRows] = useState(() => firstPaintEntries(useBrowser.getState(), windowId, profileId, all, lazy));
   const [visited, setVisited] = useState(current);
@@ -295,7 +299,8 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
   const animated = current && !offScreen;
-  const motion = useListMotion(windowId, profileId, all, animated);
+  const motion = useListMotion(windowId, profileId, all, captured, animated);
+  const scope = useMemo(() => ({ enabled: animated, slideBelow: motion.slideBelow }), [animated, motion.slideBelow]);
   if (geometry) geometry.current.newTabAtTop = newTabsAtTop && inlineNewTab;
   const measured = useRef(0);
   useEffect(() => {
@@ -303,7 +308,7 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   }, [current]);
 
   return (
-    <ListMotionEnabled.Provider value={animated}>
+    <ListMotionContext.Provider value={scope}>
       <View
         onLayout={(e) => {
           measured.current = e.nativeEvent.layout.height + glowRoom - (inlineNewTab ? ROW_PITCH : 0);
@@ -343,11 +348,11 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
           )}
           {pending ? <View style={{ height: pending }} /> : null}
           <Tail id="tail:list" section="list" />
-          {!newTabsAtTop && inlineNewTab ? <ShiftedNewTabRow windowId={windowId} shift={motion.tail} clipped={motion.tailClipped} /> : null}
+          {!newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} shift={motion.tail} clip={motion.tailClip} /> : null}
         </View>
-        {current ? <ShiftedCleanUpUpsell windowId={windowId} shift={motion.tail} /> : null}
+        {current ? <CleanUpUpsell windowId={windowId} shift={motion.tail} /> : null}
       </View>
-    </ListMotionEnabled.Provider>
+    </ListMotionContext.Provider>
   );
 }
 
@@ -438,13 +443,18 @@ function DownloadsButton({ windowId }: { windowId: string }) {
   );
 }
 
-const NewTabRow = memo(function NewTabRow({ windowId }: { windowId: string }) {
+const CLIPPED = { marginTop: -layout.rowGap, paddingTop: layout.rowGap, overflow: "hidden" } as const;
+
+const NewTabRow = memo(function NewTabRow({ windowId, shift = null, clip = null }: { windowId: string; shift?: Animated.Value | null; clip?: ClipSource | null }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const cleaned = useBrowser((s) => cleanedTabsFor(s, windowId).length);
   const { hovered, hoverProps } = useHover();
+  const [moved, movedRef] = useShift(shift);
+  const [movedButtons, movedButtonsRef] = useShift(shift);
+  const clipped = useClipped(clip);
   return (
-    <View {...hoverProps} style={{ flexDirection: "row", alignItems: "center" }}>
+    <View {...hoverProps} style={[{ flexDirection: "row", alignItems: "center" }, clipped ? CLIPPED : null]}>
       <Pressable
         style={{ flex: 1 }}
         onPress={(e) => {
@@ -454,22 +464,27 @@ const NewTabRow = memo(function NewTabRow({ windowId }: { windowId: string }) {
       >
         {({ pressed }) => (
           <View
-            style={{
-              height: layout.rowHeight,
-              borderRadius: 10,
-              flexDirection: "row",
-              alignItems: "center",
-              paddingLeft: 9,
-              paddingRight: 34,
-              backgroundColor: pressed ? theme.tabPressed : hovered ? theme.tabHover : undefined,
-            }}
+            {...moved}
+            ref={movedRef}
+            style={[
+              {
+                height: layout.rowHeight,
+                borderRadius: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                paddingLeft: 9,
+                paddingRight: 34,
+                backgroundColor: pressed ? theme.tabPressed : hovered ? theme.tabHover : undefined,
+              },
+              moved.style as object,
+            ]}
           >
             <Symbol name="plus" size={13} weight="medium" color={tokens.newTabIcon} style={{ width: 16, height: 16 }} />
             <FadeLabel text="New Tab" fontSize={13} color={tokens.newTabLabel} style={{ flex: 1, height: 18, marginLeft: 5 }} />
           </View>
         )}
       </Pressable>
-      <View style={{ position: "absolute", right: 6, flexDirection: "row", alignItems: "center" }}>
+      <View {...movedButtons} ref={movedButtonsRef} style={[{ position: "absolute", right: 6, flexDirection: "row", alignItems: "center" }, movedButtons.style as object]}>
         <HoverSlot hovered={hovered && cleaned > 0} width={0} hover={<Text style={{ fontSize: 11, color: theme.textTertiary, marginRight: 2 }}>{cleaned} cleaned</Text>} />
         <IconButton
           icon="chevron.down"
@@ -486,26 +501,10 @@ const NewTabRow = memo(function NewTabRow({ windowId }: { windowId: string }) {
   );
 });
 
-const ShiftedNewTabRow = memo(function ShiftedNewTabRow({ windowId, shift, clipped }: { windowId: string; shift: Animated.Value | null; clipped: boolean }) {
-  return (
-    <TailShift shift={shift} clipped={clipped}>
-      <NewTabRow windowId={windowId} />
-    </TailShift>
-  );
-});
-
-const ShiftedCleanUpUpsell = memo(function ShiftedCleanUpUpsell({ windowId, shift }: { windowId: string; shift: Animated.Value | null }) {
-  return (
-    <TailShift shift={shift}>
-      <CleanUpUpsell windowId={windowId} />
-    </TailShift>
-  );
-});
-
 const UPSELL_MIN = 10;
 let upsellDeclined = false;
 
-const CleanUpUpsell = memo(function CleanUpUpsell({ windowId }: { windowId: string }) {
+const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { windowId: string; shift: Animated.Value | null }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const [count, setCount] = useState(0);
@@ -517,6 +516,7 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId }: { windowId: stri
     const t = setInterval(check, 60_000);
     return () => clearInterval(t);
   }, [windowId]);
+  const [moved, movedRef] = useShift(shift);
   if (hidden || daily || count < UPSELL_MIN) return null;
   const button = (title: string, onPress: () => void, primary = false) => (
     <Pressable onPress={onPress}>
@@ -541,7 +541,7 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId }: { windowId: stri
     setHidden(true);
   };
   return (
-    <View style={{ marginTop: 10, borderRadius: 12, padding: 10, backgroundColor: tokens.groupFill, borderWidth: 0.5, borderColor: tokens.groupStroke, gap: 8 }}>
+    <View {...moved} ref={movedRef} style={[{ marginTop: 10, borderRadius: 12, padding: 10, backgroundColor: tokens.groupFill, borderWidth: 0.5, borderColor: tokens.groupStroke, gap: 8 }, moved.style as object]}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <Symbol name="wand.and.stars" size={12} color={theme.icon} style={{ width: 16, height: 16 }} />
         <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: theme.textPrimary }}>{count} tabs haven’t been touched in a while</Text>

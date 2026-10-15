@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from "react";
+import { useContext, useEffect, useReducer, useRef, useState } from "react";
 import { markHoverProps } from "../../lib/hoverShift";
 import { useBrowser } from "../../store/browser";
 import { PageProfileContext } from "../../store/hooks";
@@ -16,7 +16,23 @@ let owner: string | null = null;
 export const pointerOnRow = (id: string) => underPointer === id;
 
 const panelOpen = (windowId: string) => !!useBrowser.getState().windowUi[windowId]?.panel?.open;
-const usePanelOverRows = (windowId: string) => useBrowser((s) => !!s.windowUi[windowId]?.panel?.open && s.settings.addressBar === "sidebar");
+const covered = new Set<string>();
+const pointedRows = new Map<string, Set<() => void>>();
+
+export function setRowsCovered(windowId: string, on: boolean) {
+  if (on === covered.has(windowId)) return;
+  if (on) covered.add(windowId);
+  else covered.delete(windowId);
+  for (const refresh of pointedRows.get(windowId) ?? []) refresh();
+}
+
+function pointed(windowId: string, refresh: () => void, on: boolean) {
+  let rows = pointedRows.get(windowId);
+  if (on) {
+    if (!rows) pointedRows.set(windowId, (rows = new Set()));
+    rows.add(refresh);
+  } else if (rows?.delete(refresh) && !rows.size) pointedRows.delete(windowId);
+}
 
 export function suppressHover(value: boolean) {
   suppressed = value;
@@ -62,8 +78,8 @@ export function dismissHover() {
 
 export function useRowHover(windowId: string, target: Target | null) {
   const [hovered, setHovered] = useState(false);
+  const [, refresh] = useReducer((n: number) => n + 1, 0);
   const page = useContext(PageProfileContext);
-  const covered = usePanelOverRows(windowId);
   const latest = useRef({ windowId, target, page });
   latest.current = { windowId, target, page };
   const onCurrentPage = () => {
@@ -76,15 +92,18 @@ export function useRowHover(windowId: string, target: Target | null) {
         if (!onCurrentPage()) return;
         setHovered(true);
         const { windowId, target } = latest.current;
+        pointed(windowId, refresh, true);
         underPointer = target?.id ?? null;
         if (target) hoverEnter(windowId, target);
       },
       onMouseLeave: () => {
         setHovered(false);
+        pointed(latest.current.windowId, refresh, false);
         if (underPointer === latest.current.target?.id) underPointer = null;
         if (latest.current.target && onCurrentPage()) hoverLeave(latest.current.target.id);
       },
     }),
   );
-  return { hovered: hovered && !covered, hoverProps };
+  useEffect(() => () => pointed(latest.current.windowId, refresh, false), []);
+  return { hovered: hovered && !covered.has(windowId), hoverProps };
 }
