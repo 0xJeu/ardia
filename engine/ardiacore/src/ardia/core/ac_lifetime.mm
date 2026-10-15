@@ -4,19 +4,37 @@
 #include <CoreServices/CoreServices.h>
 #import <objc/runtime.h>
 
+#include <stdlib.h>
+#include <string.h>
+
 #include <utility>
 
+#include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
 #import "chrome/browser/app_controller_mac.h"
+#include "chrome/browser/browser_process.h"
 #import "chrome/browser/chrome_browser_application_mac.h"
 #include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_attributes_entry.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/color_provider_browser_helper.h"
+#include "ui/color/color_provider.h"
+#include "ui/color/color_provider_source.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/native_theme/native_theme.h"
 #include <vector>
@@ -150,37 +168,177 @@ void StartLifetimeObservers() {
 }
 
 @interface ACAppControllerStandIn : NSObject
-@property(readonly, nonatomic) Profile* lastProfileIfLoaded;
-@property(readonly, nonatomic) Profile* lastProfile;
-- (const ui::ColorProvider&)lastActiveColorProvider;
-- (BOOL)keyWindowIsModal;
 @end
 
 @implementation ACAppControllerStandIn
+
+- (BOOL)startupComplete {
+  return YES;
+}
+
 - (Profile*)lastProfileIfLoaded {
   return ProfileManager::GetLastUsedProfileIfLoaded();
 }
+
 - (Profile*)lastProfile {
-  return ProfileManager::GetLastUsedProfileIfLoaded();
+  return [self lastProfileIfLoaded];
 }
+
+- (void)mainMenuCreated {
+}
+
+- (void)didEndMainMessageLoop {
+}
+
+- (void)tryToTerminateApplication {
+  [NSApp terminate:nil];
+}
+
+- (void)stopTryingToTerminateApplication {
+  if (browser_shutdown::IsTryingToQuit()) {
+    browser_shutdown::SetTryingToQuit(false);
+  }
+}
+
+- (ConfirmQuitResult)confirmQuitIfNeeded {
+  return ConfirmQuitResultNotPrompted;
+}
+
+- (void)willPowerOff:(NSNotification*)notification {
+}
+
+- (BOOL)keyWindowIsModal {
+  if (NSApp.modalWindow) {
+    return YES;
+  }
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+  BrowserWindow* window = browser ? BrowserWindow::FromBrowser(browser) : nullptr;
+  return window && [window->GetNativeWindow().GetNativeNSWindow().attachedSheet
+                       isKindOfClass:[NSWindow class]];
+}
+
+- (void)commandDispatch:(id)sender {
+}
+
+- (void)executeCommand:(id)sender withProfile:(Profile*)profile {
+}
+
+- (IBAction)showPreferences:(id)sender {
+}
+
+- (IBAction)showPreferencesForProfile:(Profile*)profile {
+}
+
+- (IBAction)orderFrontStandardAboutPanel:(id)sender {
+}
+
+- (IBAction)orderFrontStandardAboutPanelForProfile:(Profile*)profile {
+}
+
+- (IBAction)toggleConfirmToQuit:(id)sender {
+}
+
+- (NSMenu*)applicationDockMenu:(NSApplication*)sender {
+  return nil;
+}
+
+- (BookmarkMenuBridge*)bookmarkMenuBridge {
+  return nullptr;
+}
+
+- (HistoryMenuBridge*)historyMenuBridge {
+  return nullptr;
+}
+
+- (TabMenuBridge*)tabMenuBridge {
+  return nullptr;
+}
+
+- (void)setLastProfile:(Profile*)profile {
+}
+
 - (const ui::ColorProvider&)lastActiveColorProvider {
+  if (BrowserWindowInterface* browser =
+          GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser()) {
+    auto* helper = ColorProviderBrowserHelper::From(browser);
+    if (ui::ColorProviderSource* source =
+            helper ? helper->color_provider_source() : nullptr) {
+      if (const auto* provider = source->GetColorProvider()) {
+        return *provider;
+      }
+    }
+  }
   return *ui::ColorProviderManager::Get().GetColorProviderFor(
       ui::NativeTheme::GetInstanceForNativeUi()->GetColorProviderKey(nullptr));
 }
-- (BOOL)keyWindowIsModal {
-  return NSApp.keyWindow.sheet || NSApp.modalWindow != nil;
+
+- (void)updateMenuItemKeyEquivalents {
 }
+
+- (BOOL)windowHasBrowserTabs:(NSWindow*)window {
+  ardiacore::WindowHost* host = ardiacore::WindowHost::ForNSWindow(window);
+  if (!host) {
+    return NO;
+  }
+  for (Browser* browser : host->browsers()) {
+    if (!browser->GetTabStripModel()->empty()) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
+- (Profile*)safeProfileForNewWindows:(Profile*)profile {
+  if (!profile || profile->IsSystemProfile()) {
+    return nullptr;
+  }
+  if (profile->IsGuestSession() && !profiles::IsGuestModeEnabled()) {
+    return nullptr;
+  }
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  ProfileAttributesEntry* entry =
+      profile_manager ? profile_manager->GetProfileAttributesStorage()
+                            .GetProfileAttributesWithPath(profile->GetPath())
+                      : nullptr;
+  if (entry && entry->IsSigninRequired()) {
+    return nullptr;
+  }
+  return ProfileManager::MaybeForceOffTheRecordMode(profile);
+}
+
+- (void)allowApplicationToTerminate {
+}
+
+- (void)resetKeepAliveWhileHidden {
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification*)notification {
+}
+
 - (NSMethodSignature*)methodSignatureForSelector:(SEL)selector {
   return [super methodSignatureForSelector:selector]
              ?: [AppController instanceMethodSignatureForSelector:selector];
 }
+
 - (void)forwardInvocation:(NSInvocation*)invocation {
-  const NSUInteger length = invocation.methodSignature.methodReturnLength;
-  if (length) {
+  const SEL selector = invocation.selector;
+  NSMethodSignature* signature = invocation.methodSignature;
+  const char* type = signature.methodReturnType;
+  while (*type && strchr("rnNoORV", *type)) {
+    ++type;
+  }
+  const bool zeroable = strchr("vcCsSiIlLqQBfd@#:", *type) != nullptr;
+  LOG(ERROR) << "[ardiacore] AppController stand-in has no -"
+             << sel_getName(selector) << " (returns " << type << ")";
+  CHECK(zeroable && !getenv("ARDIA_BACKGROUND"))
+      << "AppController stand-in: implement -" << sel_getName(selector);
+  if (const NSUInteger length = signature.methodReturnLength) {
     std::vector<char> zero(length, 0);
     [invocation setReturnValue:zero.data()];
   }
 }
+
 @end
 
 namespace {
