@@ -11,6 +11,7 @@ const releaseNotes = defineCollection({
   schema: z.object({
     date: z.coerce.date(),
     headline: z.string().min(1),
+    channel: z.enum(["stable", "nightly"]).default("stable"),
   }),
 });
 

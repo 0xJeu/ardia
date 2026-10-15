@@ -1,5 +1,5 @@
 ---
-import { RELEASES, REPO } from "../data/release";
+import { NIGHTLY, RELEASES, REPO } from "../data/release";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
@@ -26,6 +26,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         >
         <a
           class="link"
+          href={NIGHTLY}
+          data-track="download_clicked"
+          data-track-version="nightly"
+          data-track-channel="nightly"
+          data-track-location="footer">Nightly (wet paint)</a
+        >
+        <a
+          class="link"
           href={`${REPO}/issues`}
           rel="noopener"
           data-track="github_clicked"
@@ -40,7 +48,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         </p>
         <p>
           This website counts its own visitors, on its own servers: page views, clicks and session replays,
-          with typing masked. Replays are deleted after 30 days. No third party sees any of it. Countries come from
+          with typing masked. Replays are deleted after 30 days. No third party sees any of it. Countries come from{" "}
           <a class="link" href="https://db-ip.com" rel="noopener">IP Geolocation by DB-IP</a>, looked up on our
           servers, and the IP isn’t kept.
         </p>

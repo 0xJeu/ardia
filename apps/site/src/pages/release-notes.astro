@@ -6,19 +6,12 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import DownloadButton from "../components/DownloadButton.astro";
 import SendToMac from "../components/SendToMac.astro";
+import { newestFirst } from "../data/versions";
+import { NIGHTLY } from "../data/release";
 import hills from "../assets/paint/hills.png";
 import sun from "../assets/paint/sun.png";
 
 const OPEN_COUNT = 6;
-const parts = (v: string) => v.split(".").map(Number);
-const byNewest = (a: string, b: string) => {
-  const [x, y] = [parts(a), parts(b)];
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    const d = (y[i] ?? 0) - (x[i] ?? 0);
-    if (d) return d;
-  }
-  return 0;
-};
 const sectionName = (raw: string) => raw.replace(/<[^>]+>/g, "").trim();
 const sectionSlug = (name: string) => name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
 const tally = (html: string) =>
@@ -34,14 +27,19 @@ const tally = (html: string) =>
 const summary = (sections: { name: string; items: number }[]) =>
   sections.map((s) => (s.name === "Faster" ? "faster" : `${s.items} ${s.name.toLowerCase()}`)).join(" · ");
 
-const notes = (await getCollection("releaseNotes")).sort((a, b) => byNewest(a.id, b.id));
-const releases = notes.map((n, i) => {
+const notes = (await getCollection("releaseNotes")).sort((a, b) => newestFirst(a.id, b.id));
+const placeInChannel = new Map<string, number>();
+const releases = notes.map((n) => {
   const raw = n.rendered?.html ?? "";
+  const nightly = n.data.channel === "nightly";
+  const place = placeInChannel.get(n.data.channel) ?? 0;
+  placeInChannel.set(n.data.channel, place + 1);
   return {
     version: n.id,
     date: n.data.date,
     headline: n.data.headline,
-    open: i < OPEN_COUNT,
+    nightly,
+    open: place < OPEN_COUNT,
     summary: summary(tally(raw)),
     html: raw
       .replace(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g, (_, inner: string) => `<h3 class="sec sec-${sectionSlug(sectionName(inner))}">${inner}</h3>`)
@@ -49,7 +47,9 @@ const releases = notes.map((n, i) => {
       .replace(/<\/table>/g, "</table></div>"),
   };
 });
-const latest = releases[0]!;
+const stable = releases.filter((r) => !r.nightly);
+const nightlyCount = releases.length - stable.length;
+const latest = stable[0]!;
 const longDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 const monthYear = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
@@ -61,7 +61,9 @@ const months = releases.reduce<{ label: string; releases: typeof releases }[]>((
   else acc.push({ label, releases: [r] });
   return acc;
 }, []);
+const onlyNightlies = (group: typeof releases) => group.every((r) => r.nightly);
 const dabs = ["var(--sun)", "var(--sage)", "#e98f3c", "#d98a6c"];
+const nightlyDab = "#a99bd0";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
@@ -76,7 +78,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
             <span class="visually-hidden">Ardia release notes: </span>Fresh<br />paint.
           </h1>
           <p class="lede">
-            Every update, newest on top. {releases.length} so far, and the app brings you here after each one.
+            Every update, newest on top. {stable.length} so far, and the app brings you here after each one.
           </p>
         </div>
         <a class="newest" href={`#${latest.version}`}>
@@ -101,18 +103,34 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       <span class="grass" aria-hidden="true"></span>
     </section>
 
-    <div class="log paint">
+    <div class="log paint" data-log>
       <div class="wrap layout">
         <nav class="index" aria-label="Releases">
-          <p class="label index-head">{releases.length} releases</p>
+          <div class="index-head">
+            <p class="label">
+              <span class="count-stable">{stable.length} releases</span>
+              <span class="count-all">{stable.length} releases · {nightlyCount} nightlies</span>
+            </p>
+            {
+              nightlyCount > 0 && (
+                <fieldset class="view label" data-view-switch>
+                  <legend class="visually-hidden">Show</legend>
+                  <input type="radio" name="view" id="view-stable" value="stable" checked />
+                  <label for="view-stable">Stable</label>
+                  <input type="radio" name="view" id="view-all" value="all" />
+                  <label for="view-all">Nightlies too</label>
+                </fieldset>
+              )
+            }
+          </div>
           <div class="index-scroll" data-index-scroll>
             {
               months.map((m) => (
-                <div class="month">
+                <div class:list={["month", { "nightly-only": onlyNightlies(m.releases) }]}>
                   <p class="label month-name">{m.label}</p>
                   <ol>
                     {m.releases.map((r) => (
-                      <li>
+                      <li class:list={{ nightly: r.nightly }}>
                         <a href={`#${r.version}`} data-index={r.version}>
                           <span class="index-version">{r.version}</span>
                           <span class="index-date">{dayMonth.format(r.date)}</span>
@@ -128,16 +146,34 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
         <div class="entries">
           {
+            nightlyCount > 0 && (
+              <p class="nightly-note">
+                <span class="label nightly-tag">Nightly</span>
+                Wet paint: every fix the day it’s made, smudges and all.{" "}
+                <a
+                  class="link"
+                  href={NIGHTLY}
+                  data-track="download_clicked"
+                  data-track-version="nightly"
+                  data-track-channel="nightly"
+                  data-track-location="release_notes">Get the nightly</a
+                >. Back to stable any time in Settings › General. That never downgrades you: you stay put until the next
+                stable catches up.
+              </p>
+            )
+          }
+          {
             releases.map((r, i) => (
               <article
-                class:list={["entry", { latest: i === 0, folded: !r.open }]}
+                class:list={["entry", { latest: r === latest, nightly: r.nightly, folded: !r.open }]}
                 id={r.version}
                 aria-labelledby={`title-${r.version}`}
-                style={`--dab: ${dabs[i % dabs.length]}`}
+                style={`--dab: ${r.nightly ? nightlyDab : dabs[i % dabs.length]}`}
               >
                 <header class="entry-head">
                   <p class="label meta">
                     <span class="here">You are here</span>
+                    {r.nightly && <span class="nightly-tag">Nightly</span>}
                     <time datetime={isoDate(r.date)}>{longDate.format(r.date)}</time>
                     {r.summary && <span class="tally">{r.summary}</span>}
                   </p>
@@ -312,9 +348,110 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     top: 92px;
   }
   .index-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
     padding-bottom: 10px;
     border-bottom: 2px solid var(--ink);
     color: var(--ink-2);
+  }
+  .view {
+    display: inline-flex;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--rule-strong);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .view input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .view label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 10px;
+    color: var(--ink-2);
+    cursor: pointer;
+    user-select: none;
+    transition:
+      background-color 160ms,
+      color 160ms;
+  }
+  .view label + input + label {
+    border-left: 1px solid var(--rule-strong);
+  }
+  @media (pointer: coarse) {
+    .view label {
+      min-height: 40px;
+      padding: 0 12px;
+    }
+  }
+  .view input:checked + label {
+    background-color: var(--ink);
+    color: var(--paper);
+  }
+  .view input:focus-visible + label {
+    outline: 2px solid var(--accent);
+    outline-offset: -4px;
+  }
+  @media (hover: hover) {
+    .view input:not(:checked) + label:hover {
+      background-color: rgb(255 255 255 / 0.4);
+      color: var(--ink);
+    }
+  }
+  .log:not(:has(#view-all:checked)):is([data-js], :not(:has(.entry.nightly:target)))
+    :is(.entry.nightly, .index li.nightly, .month.nightly-only, .count-all, .nightly-note) {
+    display: none;
+  }
+  .log:has(#view-all:checked) .count-stable,
+  .log:not([data-js]):has(.entry.nightly:target) .count-stable {
+    display: none;
+  }
+  .log:has(#view-all:checked) .entry.latest:not(:first-of-type) {
+    padding-top: clamp(32px, 4vw, 52px);
+    border-top: 1px solid var(--rule-strong);
+  }
+  .log:has(#view-all:checked) .entry:first-of-type {
+    padding-top: 0;
+    border-top: 0;
+  }
+  .nightly-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px 0;
+    border-radius: 3px;
+    background-color: var(--night);
+    color: var(--night-ink);
+    letter-spacing: 0.08em;
+  }
+  .meta > .nightly-tag {
+    margin-right: 10px;
+  }
+  .meta > .nightly-tag + *::before {
+    content: none;
+  }
+  .nightly-note {
+    max-width: 40em;
+    margin-bottom: clamp(32px, 4vw, 48px);
+    padding: 14px 16px 15px;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+    background: rgb(255 255 255 / 0.28);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+  .nightly-note .nightly-tag {
+    margin-right: 8px;
+    vertical-align: 0.1em;
+  }
+  .index li.nightly .index-version {
+    font-size: 0.96rem;
   }
   .index-scroll {
     max-height: calc(100vh - 160px);
@@ -485,6 +622,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   }
   .folded .version::before {
     opacity: 0.55;
+  }
+  .entry.nightly:not(.folded) {
+    padding: clamp(28px, 3vw, 40px) 0;
+  }
+  .nightly .version {
+    font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.8rem);
+  }
+  .nightly .headline-text {
+    max-width: 30em;
+    font-size: clamp(1.15rem, 1.05rem + 0.4vw, 1.4rem);
   }
 
   .entry:target .here {
@@ -850,19 +997,40 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 <script>
   import { track } from "../scripts/track";
 
-  const latest = document.querySelector<HTMLElement>(".entry")?.id ?? null;
+  const latest = document.querySelector<HTMLElement>(".entry:not(.nightly)")?.id ?? null;
   const viewed = (trigger: "load" | "hashchange") =>
     track("release_notes_viewed", { version: decodeURIComponent(location.hash.slice(1)) || null, latest, trigger });
 
-  const unfoldTarget = () => {
+  const log = document.querySelector<HTMLElement>("[data-log]");
+  if (log) log.dataset.js = "";
+  const viewSwitch = document.querySelector<HTMLFieldSetElement>("[data-view-switch]");
+  const showAll = document.querySelector<HTMLInputElement>("#view-all");
+  const viewKey = "ac:release-notes-view";
+  try {
+    if (showAll && localStorage.getItem(viewKey) === "all") showAll.checked = true;
+  } catch {}
+  viewSwitch?.addEventListener("change", (e) => {
+    try {
+      localStorage.setItem(viewKey, (e.target as HTMLInputElement).value);
+    } catch {}
+  });
+
+  const isShown = (el: HTMLElement) => el.offsetParent !== null;
+  const revealTarget = () => {
     const id = decodeURIComponent(location.hash.slice(1));
-    const fold = id ? document.getElementById(id)?.querySelector<HTMLDetailsElement>("[data-fold]") : null;
+    if (!id) return;
+    const entry = document.getElementById(id);
+    const wantsNightly = entry ? entry.classList.contains("nightly") : /-nightly\.\d+$/.test(id);
+    const hidden = entry ? !isShown(entry) : false;
+    if (wantsNightly && showAll) showAll.checked = true;
+    const fold = entry?.querySelector<HTMLDetailsElement>("[data-fold]");
     if (fold && !fold.open) fold.open = true;
+    if (entry && hidden && isShown(entry)) entry.scrollIntoView({ block: "start" });
   };
-  unfoldTarget();
+  revealTarget();
   viewed("load");
   addEventListener("hashchange", () => {
-    unfoldTarget();
+    revealTarget();
     viewed("hashchange");
   });
 
@@ -882,7 +1050,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     } else if (r.top < box.top || r.bottom > box.bottom) strip.scrollTop += r.top - box.top - box.height / 3;
   };
   const mark = () => {
-    const next = entries.find((e) => visible.has(e.id))?.id ?? (entries[0] && scrollY < entries[0].offsetTop ? entries[0].id : undefined);
+    const first = entries.find(isShown);
+    const next = entries.find((e) => visible.has(e.id))?.id ?? (first && scrollY < first.offsetTop ? first.id : undefined);
     if (!next || next === current) return;
     current = next;
     for (const [version, a] of links) a.setAttribute("aria-current", String(version === current));

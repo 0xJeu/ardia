@@ -4,4 +4,5 @@ export const REPO = "https://github.com/mantrakp04/ardia";
 export const RELEASES = `${REPO}/releases/latest`;
 const DMG_NAME = VERSION.localeCompare("0.2.33", "en", { numeric: true }) < 0 ? "Netnyahoo" : "Ardia";
 export const DMG = `${REPO}/releases/latest/download/${DMG_NAME}-${VERSION}.dmg`;
+export const NIGHTLY = "/nightly";
 export const MIN_MACOS = "macOS 14 Sonoma";
