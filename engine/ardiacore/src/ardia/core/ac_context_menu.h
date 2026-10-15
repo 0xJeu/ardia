@@ -13,8 +13,6 @@ namespace ardiacore {
 std::unique_ptr<content::WebContentsViewDelegate> CreateViewDelegate(
     content::WebContents* contents);
 
-void InstallContextMenuShowHandler();
-
 }
 
 #endif

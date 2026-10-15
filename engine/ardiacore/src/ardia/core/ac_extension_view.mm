@@ -37,16 +37,11 @@
 #include "extensions/browser/extension_util.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/public/ArdiaCore.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
-
-extern std::optional<bool> (*g_ardia_open_action_popup)(
-    BrowserWindowInterface& browser,
-    const extensions::Extension& extension,
-    ShowPopupCallback& callback,
-    std::string* error);
 
 namespace ardiacore {
 

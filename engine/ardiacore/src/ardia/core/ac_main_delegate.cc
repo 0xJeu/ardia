@@ -30,6 +30,7 @@
 #include "content/public/common/result_codes.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_lifetime.h"
 #include "ardia/core/ac_context_menu.h"
 #include "ardia/core/ac_navigation_hold.h"
@@ -39,10 +40,6 @@
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "ardia/core/renderer/ac_content_renderer_client.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
-
-extern const char* g_ardia_user_agent_brand;
-extern bool g_ardia_embedder;
-extern ui::ResourceBundle::Delegate* g_ardia_resource_bundle_delegate;
 
 namespace ardiacore {
 
@@ -201,6 +198,17 @@ ACMainDelegate::ACMainDelegate(const StartupTimestamps& timestamps)
 
 ACMainDelegate::~ACMainDelegate() = default;
 
+std::optional<int> ACMainDelegate::BasicStartupComplete() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(switches::kProcessType)) {
+    command_line->AppendSwitch(switches::kNoStartupWindow);
+    command_line->AppendSwitch(switches::kNoFirstRun);
+    command_line->AppendSwitch(switches::kNoDefaultBrowserCheck);
+    command_line->RemoveSwitch(switches::kMakeDefaultBrowser);
+  }
+  return ChromeMainDelegate::BasicStartupComplete();
+}
+
 void ACMainDelegate::PreSandboxStartup() {
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
@@ -234,11 +242,6 @@ void ACMainDelegate::PreSandboxStartup() {
     g_ardia_user_agent_brand = "Google Chrome";
   }
   ChromeMainDelegate::PreSandboxStartup();
-}
-
-void ACMainDelegate::CreateThreadPool(std::string_view name) {
-  ChromeMainDelegate::CreateThreadPool(name);
-  sampling_profiler_ = std::make_unique<MainThreadStackSamplingProfiler>();
 }
 
 content::ContentRendererClient* ACMainDelegate::CreateContentRendererClient() {

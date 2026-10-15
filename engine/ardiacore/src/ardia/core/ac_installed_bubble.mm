@@ -19,18 +19,10 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_browser.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/views/widget/widget.h"
-
-extern bool (*g_ardia_extension_installed)(
-    Profile* profile,
-    scoped_refptr<const extensions::Extension> extension,
-    const SkBitmap* icon);
-
-namespace download_crx_util {
-extern bool g_ardia_prompts_without_tab;
-}
 
 namespace ardiacore {
 

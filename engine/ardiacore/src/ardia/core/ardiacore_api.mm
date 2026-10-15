@@ -75,6 +75,7 @@
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_autofill_prompt.h"
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/ac_browser_window.h"
@@ -97,7 +98,6 @@
 #include "components/sessions/core/serialized_user_agent_override.h"
 #include "ardia/core/ac_device_chooser.h"
 #include "ardia/core/ac_cast_dialog.h"
-#include "ardia/core/ac_context_menu.h"
 #include "ardia/core/ac_desktop_capture.h"
 #include "ardia/core/ac_devtools_call.h"
 #include "ardia/core/ac_host_visibility.h"
@@ -332,9 +332,6 @@ class BrowsingDataDone : public content::BrowsingDataRemover::Observer {
 };
 
 }
-
-extern BrowserWindow* (*g_ardia_browser_window_factory)(Browser*);
-extern bool (*g_ardia_history_eligible)(content::WebContents*);
 
 namespace {
 
@@ -645,7 +642,6 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
         ardiacore::InstallPermissionPrompts();
         ardiacore::StartMediaCaptureObserver();
         ardiacore::InstallExternalAppPrompts();
-        ardiacore::InstallContextMenuShowHandler();
         ardiacore::StartPictureInPictureObserver();
         ardiacore::StartHostVisibility();
         [g_delegate engineDidStart];
@@ -671,9 +667,6 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
   if (!merged) {
     args.push_back(features.c_str());
   }
-  args.push_back("--no-startup-window");
-  args.push_back("--no-first-run");
-  args.push_back("--no-default-browser-check");
   int rv = ChromeMain(static_cast<int>(args.size()), args.data());
   g_delegate = nil;
   return rv;

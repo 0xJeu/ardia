@@ -22,6 +22,7 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/web_contents.h"
+#include "ardia/core/ac_hooks.h"
 #include "extensions/browser/api/declarative_net_request/rules_monitor_service.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_manager.h"
 #include "content/public/common/url_constants.h"
@@ -29,11 +30,6 @@
 #include "extensions/common/extension_id.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
-
-extern void (*g_ardia_dnr_rulesets_in_force)(
-    content::BrowserContext* browser_context,
-    const extensions::ExtensionId& extension_id,
-    bool all_loaded);
 
 namespace ardiacore {
 

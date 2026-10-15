@@ -25,21 +25,11 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/ac_fake_media.h"
 #include "ardia/core/ac_test_system_permissions.h"
 #include "url/origin.h"
-
-extern bool (*g_ardia_file_system_restore_prompt)(
-    const FileSystemAccessPermissionRequestManager::RequestData& request,
-    base::OnceCallback<void(permissions::PermissionAction)>& callback,
-    content::WebContents* web_contents);
-
-extern std::unique_ptr<permissions::PermissionPrompt> (
-    *g_ardia_create_permission_prompt)(
-    content::WebContents* web_contents,
-    permissions::PermissionPrompt::Delegate* delegate,
-    bool* default_handling);
 
 namespace ardiacore {
 

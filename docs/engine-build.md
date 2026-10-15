@@ -66,9 +66,11 @@ and the next app build picks it up.
 ## Our hooks in Chrome's code
 
 Where our patches and `engine/ardiacore/apply.sh` let ArdiaCore decide something in Chrome's code, the hook is a
-`g_ardia_*` function pointer (or flag) defined in the Chrome file that calls it, `extern` where another file shares
-it; unset, Chrome behaves as stock. (Some changes are direct instead: `ChromeMain` making ArdiaCore's main delegate, the
-PiP window factory, the `CHECK`s made tolerant of a Browser without a `BrowserView`.) ArdiaCore sets the patches' hooks as
+`g_ardia_*` function pointer (or flag) defined in the Chrome file that calls it; unset, Chrome behaves as stock. Each is
+declared once, in `//ardia/core`'s `ac_hooks.h` (hooks in `chrome/`) or `ac_content_hooks.h` (in `content/`,
+`components/`, `extensions/`, which can't see `chrome/`'s headers), and both the Chrome file and ArdiaCore include that
+header (`// nogncheck`), so a signature that drifts on either side is a compile error, not a crash at the first call.
+(Some changes are direct instead: `ChromeMain` making ArdiaCore's main delegate, the PiP window factory, the `CHECK`s made tolerant of a Browser without a `BrowserView`.) ArdiaCore sets the patches' hooks as
 the browser process starts (`ACMainDelegate::PreSandboxStartup`), in `ardiacore::InstallChromeHooks` (`ac_seams.mm`: the
 password bubble, the extension install prompt, device choosers, the Cast dialog, extension side panels, hidden
 windows, windows without tabs, docked DevTools' changes, the WebContentsDelegate (H2), and `g_ardia_viewless_browsers`, which apply.sh's toast and
@@ -83,9 +85,9 @@ reading mode hooks read); apply.sh's other hooks are set next to the code they s
 | H1 | `browser.cc` | With `g_ardia_browser_window_factory` set, a Browser may take the host's own `BrowserWindow` (`params.window`) without `CHECK_IS_TEST` | CEF's removed `CHECK` |
 | H2 | `browser_window_features.cc` `InitPostWindowConstruction` | `g_ardia_create_web_contents_delegate` makes ArdiaCore's `BrowserWebContentsDelegate` for its Browsers | `cef::BrowserDelegate::CreateWebContentsDelegate` |
 | H3 | `permission_prompt_factory.cc` | `g_ardia_create_permission_prompt` | `SetCreatePermissionPromptFunction` |
-| H4 | `render_view_context_menu_mac_cocoa.mm`, `_mac_remote_cocoa.mm` (and views) | `g_ardia_context_menu_show` | `RegisterMenuShowHandlerCallback` |
+| H4 | none: `ACContextMenu` (`ac_context_menu.mm`) overrides `RenderViewContextMenuMacCocoa::Show()` | in background mode the menu goes to the host, not the screen | `RegisterMenuShowHandlerCallback` |
 | H5 | `chrome_main_delegate.cc` | `g_ardia_resource_bundle_delegate`, passed where Chrome inits the shared ResourceBundle | CEF's `GetResourceBundleDelegate()` |
-| H6 | `chrome_main_delegate.cc`, `chrome_browser_main.cc`, `chrome_browser_main_mac.mm`, `chrome_content_browser_client.cc`, `chrome_browser_policy_connector.cc` | `g_ardia_embedder` (set by `ACMainDelegate` in every process) skips at run time what `chrome_runtime.patch` compiled out under `ENABLE_CEF`: `InitializeUserDataDir` and startup metrics, `RecordCoreSystemProfile`, the sampling profiler (ArdiaCore starts its own), crash keys, the crash reporter and crashpad; first-run prefs and first run, `--make-default-browser`, `StartupBrowserCreator::Start` and the `RunLoop`; `AppController` and `BuildMainMenu`, `didEndMainMessageLoop`; the `HandleWebUI` handler pair. And no platform policy provider (`CreatePlatformProvider`), as CEF made none without a policy id: the macOS one's first load ran on the main thread before `BrowserMain`, waiting for `/usr/bin/profiles`, 10–20 ms of every launch | `chrome_runtime.patch`'s `#if !BUILDFLAG(ENABLE_CEF)` blocks; `chrome_browser_policy.patch`'s `CreatePlatformProvider` |
+| H6 | `chrome_main_delegate.cc`, `chrome_browser_main.cc`, `chrome_browser_main_mac.mm`, `chrome_content_browser_client.cc`, `chrome_browser_policy_connector.cc` | `g_ardia_embedder` (set by `ACMainDelegate` in every process) skips at run time what `chrome_runtime.patch` compiled out under `ENABLE_CEF`: `InitializeUserDataDir` and startup metrics, `RecordCoreSystemProfile`, crash keys, the crash reporter and crashpad; `StartupBrowserCreator::Start` and the `RunLoop` (not a no-op under `--no-startup-window`: it sets up profiles and Chrome's own main `RunLoop`); `AppController` and `BuildMainMenu`, `didEndMainMessageLoop`; the `HandleWebUI` handler pair (it rewrites `chrome://` URLs and claims them as WebUI, so it isn't a no-op either). First run and `--make-default-browser` need no hook: `ACMainDelegate::BasicStartupComplete` gives the browser process `--no-first-run` (so `IsChromeFirstRun()` is false), `--no-default-browser-check` and `--no-startup-window`, and drops `--make-default-browser`. And no platform policy provider (`CreatePlatformProvider`), as CEF made none without a policy id: the macOS one's first load ran on the main thread before `BrowserMain`, waiting for `/usr/bin/profiles`, 10–20 ms of every launch | `chrome_runtime.patch`'s `#if !BUILDFLAG(ENABLE_CEF)` blocks; `chrome_browser_policy.patch`'s `CreatePlatformProvider` |
 
 ## The offline page
 
@@ -147,7 +149,12 @@ ArdiaCore (`docs/ardiacore-spike.md`) is our own layer over Chrome. `engine/ardi
 `//ardia/core` and adds its hooks: in files only Chrome's framework compiles (`chrome/BUILD.gn`'s macOS
 `chrome_dll`, `chrome/app/chrome_main.cc`), H1–H6 ([above](#our-hooks-in-chromes-code)), and a few `CHECK`s made
 tolerant of a Browser without a `BrowserView` (`read_anything_side_panel_controller.cc`, `sad_tab_controller.cc`…).
-Run `apply.sh` again after anything that resets these files (steps 1–4); `apply.sh --check` reports drift.
+Run `apply.sh` again after anything that resets these files (steps 1–4). Each hook is one `hook "$src/<file>"` block that
+names its own markers, lines only that edit writes: `apply.sh` skips a block whose markers are all in the file, refuses one
+that is partly there, and `apply.sh --check` runs every block and names each hook whose markers or header include are
+missing. `series.py check` doesn't replace it: it runs `apply.sh` itself, so a hook skipped in the tree is skipped in its
+copy too. Changing or removing a hook means restoring its file from the series (`series.py check --keep <dir>` writes
+the expected files) before `apply.sh` runs again.
 
 ## Our own code in the tree: `chrome/browser/ardia`
 
@@ -343,7 +350,7 @@ own API, Views or build, or crash upload.
 | `chrome_browser` | dropped (CEF build) |
 | `chrome_browser_browser` | hook (H1, H2); folded (`chromium-cef-carryover`: `DeleteBrowser` order, the tab strip API's colour provider without an active tab; `chromium-ui-update-before-insert`: the `browser_ui_controller` guard); rest dropped |
 | `chrome_browser_content_settings` | dropped (a `NOTREACHED` only CEF's tests hit) |
-| `chrome_browser_context_menus` | hook (H4) |
+| `chrome_browser_context_menus` | dropped (H4 is `ACContextMenu::Show()`) |
 | `chrome_browser_devtools_osr` | dropped (OSR) |
 | `chrome_browser_dialogs_jsmodal` | dropped (Alloy, OSR) |
 | `chrome_browser_dialogs_misc` | dropped (OSR; CEF's toolbar-less extension dialog anchor) |

@@ -11,58 +11,11 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_install_prompt_client.h"
 #include "extensions/common/extension_id.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/ac_cast_dialog.h"
 #include "ardia/core/ac_browser_window.h"
 #include "ardia/core/ac_device_chooser.h"
-
-class Profile;
-
-namespace extensions {
-class InstallPromptData;
-}
-
-namespace media_router {
-class MediaRouterUI;
-}
-
-extern bool (*g_ardia_password_bubble)(content::WebContents* web_contents);
-extern bool (*g_ardia_extension_install_prompt)(
-    Profile* profile,
-    content::WebContents* parent,
-    const extensions::InstallPromptData& prompt,
-    extensions::ExtensionInstallPromptClient::DoneCallback* done_callback);
-extern bool (*g_ardia_device_chooser)(
-    content::WebContents* contents,
-    std::unique_ptr<permissions::ChooserController>* controller,
-    base::ScopedClosureRunner* fullscreen_blocker,
-    base::OnceClosure* close_closure);
-extern bool (*g_ardia_wants_cast_dialog)(content::WebContents* initiator);
-extern bool (*g_ardia_cast_dialog)(content::WebContents* initiator,
-                                       media_router::MediaRouterUI* ui);
-extern bool (*g_ardia_extension_side_panel)(
-    BrowserWindowInterface* browser_window,
-    content::WebContents* web_contents,
-    const extensions::ExtensionId& extension_id,
-    bool open);
-extern bool (*g_ardia_hidden_from_extensions)(
-    const BrowserWindowInterface* browser);
-extern bool (*g_ardia_keeps_window_without_tabs)(
-    const BrowserWindowInterface* browser);
-extern void (*g_ardia_devtools_dock_changed)(BrowserWindowInterface* browser,
-                                                 content::WebContents* inspected,
-                                                 content::WebContents* devtools);
-extern bool g_ardia_viewless_browsers;
-extern std::unique_ptr<BrowserWebContentsDelegate> (
-    *g_ardia_create_web_contents_delegate)(
-    BrowserWindowInterface* browser,
-    ExclusiveAccessManager& exclusive_access_manager,
-    chrome::BrowserCommandController& command_controller,
-    UnloadController& unload_controller,
-    web_app::AppBrowserController* app_browser_controller,
-    BrowserWindow& window,
-    DesktopBrowserWindowCapabilities& capabilities,
-    BrowserUiController& browser_ui_controller);
 
 namespace ardiacore {
 

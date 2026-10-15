@@ -8,11 +8,8 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_picture_in_picture.h"
-
-extern int (*g_ardia_tab_shown_by_host)(content::WebContents*);
-extern int (*g_ardia_permission_tab_shown)(content::WebContents*);
-void ArdiaAutoPictureInPictureHostVisibilityChanged(content::WebContents* contents);
 
 namespace ardiacore {
 

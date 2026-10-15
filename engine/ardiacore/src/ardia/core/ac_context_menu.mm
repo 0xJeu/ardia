@@ -3,13 +3,11 @@
 #import <AppKit/AppKit.h>
 #include <os/log.h>
 
-#include <map>
 #include <string>
 #include <vector>
 
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
-#include "base/no_destructor.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu.h"
@@ -32,8 +30,6 @@
 #import "ardia/core/ardiacore_internal.h"
 #include "ui/events/event_constants.h"
 
-extern bool (*g_ardia_context_menu_show)(RenderViewContextMenu* menu);
-
 namespace ardiacore {
 
 namespace {
@@ -50,18 +46,74 @@ ArdiaCoreTab* TabOf(content::WebContents* contents) {
              : nil;
 }
 
-class ACContextMenu;
+NSArray* DescribeMenu(ui::MenuModel* model) {
+  NSMutableArray* items = [NSMutableArray array];
+  for (size_t i = 0; model && i < model->GetItemCount(); ++i) {
+    const ui::MenuModel::ItemType type = model->GetTypeAt(i);
+    NSMutableDictionary* item = [@{
+      @"id" : @(model->GetCommandIdAt(i)),
+      @"label" : base::SysUTF16ToNSString(model->GetLabelAt(i)),
+      @"enabled" : @(model->IsEnabledAt(i)),
+      @"visible" : @(model->IsVisibleAt(i)),
+      @"separator" : @(type == ui::MenuModel::TYPE_SEPARATOR),
+      @"type" : @(static_cast<int>(type)),
+    } mutableCopy];
+    if (type == ui::MenuModel::TYPE_SUBMENU ||
+        type == ui::MenuModel::TYPE_ACTIONABLE_SUBMENU) {
+      item[@"submenu"] = DescribeMenu(model->GetSubmenuModelAt(i));
+    }
+    [items addObject:item];
+  }
+  return items;
+}
 
-std::map<const RenderViewContextMenu*, base::WeakPtr<ACContextMenu>>& LiveMenus() {
-  static base::NoDestructor<std::map<const RenderViewContextMenu*, base::WeakPtr<ACContextMenu>>>
-      menus;
-  return *menus;
+bool FindPicked(ui::MenuModel* model,
+                NSArray* path,
+                int command,
+                ui::MenuModel** owner,
+                size_t* index) {
+  if (path) {
+    for (NSUInteger depth = 0; model && depth < path.count; ++depth) {
+      NSNumber* step = [path[depth] isKindOfClass:NSNumber.class] ? path[depth] : nil;
+      if (!step || step.longLongValue < 0 ||
+          static_cast<size_t>(step.longLongValue) >= model->GetItemCount()) {
+        return false;
+      }
+      const size_t i = static_cast<size_t>(step.longLongValue);
+      if (depth + 1 == path.count) {
+        if (model->GetCommandIdAt(i) != command) {
+          return false;
+        }
+        *owner = model;
+        *index = i;
+        return true;
+      }
+      model = model->GetSubmenuModelAt(i);
+    }
+    return false;
+  }
+  for (size_t i = 0; model && i < model->GetItemCount(); ++i) {
+    if (model->GetCommandIdAt(i) == command) {
+      *owner = model;
+      *index = i;
+      return true;
+    }
+    if (FindPicked(model->GetSubmenuModelAt(i), nil, command, owner, index)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 class ACContextMenu : public RenderViewContextMenuMacCocoa {
  public:
   using RenderViewContextMenuMacCocoa::RenderViewContextMenuMacCocoa;
-  ~ACContextMenu() override { LiveMenus().erase(this); }
+
+  void Show() override {
+    if (!ShowThroughHost()) {
+      RenderViewContextMenuMacCocoa::Show();
+    }
+  }
 
   void RemoveViewlessItems() {
     for (int command : {IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE,
@@ -87,7 +139,6 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
   }
 
   void AddHostItems() {
-    LiveMenus()[this] = weak_factory_.GetWeakPtr();
     const std::u16string& selection = params().selection_text;
     ArdiaCoreTab* tab = TabOf(source_web_contents_);
     id<ArdiaCoreTabDelegate> delegate = tab.delegate;
@@ -163,6 +214,57 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
   }
 
  private:
+  bool ShowThroughHost() {
+    static const bool to_host =
+        getenv("ARDIA_BACKGROUND") || getenv("ARDIA_CONTEXT_MENU_LOG");
+    if (!to_host) {
+      return false;
+    }
+    ArdiaCoreTab* tab = TabOf(GetWebContents());
+    id<ArdiaCoreTabDelegate> delegate = tab.delegate;
+    const bool runs = [delegate respondsToSelector:@selector(tab:runContextMenu:)];
+    if (!runs && ![delegate respondsToSelector:@selector(tab:didShowContextMenu:)]) {
+      return false;
+    }
+    base::WeakPtr<ACContextMenu> weak = weak_factory_.GetWeakPtr();
+    ui::SimpleMenuModel* model = &menu_model_;
+    NSNumber* command = nil;
+    NSNumber* flags = nil;
+    NSArray* path = nil;
+    if (runs) {
+      NSDictionary* picked = [delegate tab:tab
+                            runContextMenu:@{
+                              @"items" : DescribeMenu(model),
+                              @"url" : base::SysUTF8ToNSString(params().page_url.spec()),
+                              @"link" : base::SysUTF8ToNSString(params().link_url.spec()),
+                            }];
+      command = [picked[@"command"] isKindOfClass:NSNumber.class] ? picked[@"command"] : nil;
+      flags = [picked[@"flags"] isKindOfClass:NSNumber.class] ? picked[@"flags"] : nil;
+      path = [picked[@"path"] isKindOfClass:NSArray.class] ? picked[@"path"] : nil;
+    } else {
+      [delegate tab:tab didShowContextMenu:DescribeMenu(model)];
+    }
+    if (!weak) {
+      return true;
+    }
+    ui::MenuModel* owner = nullptr;
+    size_t index = 0;
+    const bool found = command && FindPicked(model, path, command.intValue, &owner, &index);
+    if (command && getenv("ARDIA_CONTEXT_MENU_LOG")) {
+      const std::string where =
+          !found            ? "not found"
+          : owner == model ? "top level"
+                           : "submenu [" + base::UTF16ToUTF8(owner->GetLabelAt(0)) + ", …]";
+      os_log(OS_LOG_DEFAULT, "[ardiacore-menu] pick %d: %{public}s", command.intValue,
+             where.c_str());
+    }
+    MenuClosed(model);
+    if (weak && found && owner->IsEnabledAt(index)) {
+      owner->ActivatedAt(index, flags.intValue);
+    }
+    return true;
+  }
+
   std::vector<std::string> host_items_;
   base::WeakPtrFactory<ACContextMenu> weak_factory_{this};
 };
@@ -260,128 +362,6 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
 std::unique_ptr<content::WebContentsViewDelegate> CreateViewDelegate(
     content::WebContents* contents) {
   return std::make_unique<ACViewDelegate>(contents);
-}
-
-namespace {
-
-NSArray* DescribeMenu(ui::MenuModel* model) {
-  NSMutableArray* items = [NSMutableArray array];
-  for (size_t i = 0; model && i < model->GetItemCount(); ++i) {
-    const ui::MenuModel::ItemType type = model->GetTypeAt(i);
-    NSMutableDictionary* item = [@{
-      @"id" : @(model->GetCommandIdAt(i)),
-      @"label" : base::SysUTF16ToNSString(model->GetLabelAt(i)),
-      @"enabled" : @(model->IsEnabledAt(i)),
-      @"visible" : @(model->IsVisibleAt(i)),
-      @"separator" : @(type == ui::MenuModel::TYPE_SEPARATOR),
-      @"type" : @(static_cast<int>(type)),
-    } mutableCopy];
-    if (type == ui::MenuModel::TYPE_SUBMENU ||
-        type == ui::MenuModel::TYPE_ACTIONABLE_SUBMENU) {
-      item[@"submenu"] = DescribeMenu(model->GetSubmenuModelAt(i));
-    }
-    [items addObject:item];
-  }
-  return items;
-}
-
-bool FindPicked(ui::MenuModel* model,
-                NSArray* path,
-                int command,
-                ui::MenuModel** owner,
-                size_t* index) {
-  if (path) {
-    for (NSUInteger depth = 0; model && depth < path.count; ++depth) {
-      NSNumber* step = [path[depth] isKindOfClass:NSNumber.class] ? path[depth] : nil;
-      if (!step || step.longLongValue < 0 ||
-          static_cast<size_t>(step.longLongValue) >= model->GetItemCount()) {
-        return false;
-      }
-      const size_t i = static_cast<size_t>(step.longLongValue);
-      if (depth + 1 == path.count) {
-        if (model->GetCommandIdAt(i) != command) {
-          return false;
-        }
-        *owner = model;
-        *index = i;
-        return true;
-      }
-      model = model->GetSubmenuModelAt(i);
-    }
-    return false;
-  }
-  for (size_t i = 0; model && i < model->GetItemCount(); ++i) {
-    if (model->GetCommandIdAt(i) == command) {
-      *owner = model;
-      *index = i;
-      return true;
-    }
-    if (FindPicked(model->GetSubmenuModelAt(i), nil, command, owner, index)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-}
-
-void InstallContextMenuShowHandler() {
-  if (!getenv("ARDIA_BACKGROUND") && !getenv("ARDIA_CONTEXT_MENU_LOG")) {
-    return;
-  }
-  g_ardia_context_menu_show = +[](RenderViewContextMenu* menu) {
-        auto live = LiveMenus().find(menu);
-        if (live == LiveMenus().end()) {
-          return false;
-        }
-        base::WeakPtr<ACContextMenu> weak = live->second;
-        ArdiaCoreTab* tab = TabOf(menu->GetWebContents());
-        id<ArdiaCoreTabDelegate> delegate = tab.delegate;
-        const bool runs = [delegate respondsToSelector:@selector(tab:runContextMenu:)];
-        if (!runs && ![delegate respondsToSelector:@selector(tab:didShowContextMenu:)]) {
-          return false;
-        }
-        ui::SimpleMenuModel* model =
-            const_cast<ui::SimpleMenuModel*>(&menu->menu_model());
-        NSNumber* command = nil;
-        NSNumber* flags = nil;
-        NSArray* path = nil;
-        if (runs) {
-          NSDictionary* picked = [delegate tab:tab
-                                runContextMenu:@{
-                                  @"items" : DescribeMenu(model),
-                                  @"url" : base::SysUTF8ToNSString(
-                                      menu->params().page_url.spec()),
-                                  @"link" : base::SysUTF8ToNSString(
-                                      menu->params().link_url.spec()),
-                                }];
-          command = [picked[@"command"] isKindOfClass:NSNumber.class] ? picked[@"command"] : nil;
-          flags = [picked[@"flags"] isKindOfClass:NSNumber.class] ? picked[@"flags"] : nil;
-          path = [picked[@"path"] isKindOfClass:NSArray.class] ? picked[@"path"] : nil;
-        } else {
-          [delegate tab:tab didShowContextMenu:DescribeMenu(model)];
-        }
-        if (!weak) {
-          return true;
-        }
-        ui::MenuModel* owner = nullptr;
-        size_t index = 0;
-        const bool found =
-            command && FindPicked(model, path, command.intValue, &owner, &index);
-        if (command && getenv("ARDIA_CONTEXT_MENU_LOG")) {
-          const std::string where =
-              !found            ? "not found"
-              : owner == model ? "top level"
-                               : "submenu [" + base::UTF16ToUTF8(owner->GetLabelAt(0)) + ", …]";
-          os_log(OS_LOG_DEFAULT, "[ardiacore-menu] pick %d: %{public}s", command.intValue,
-                 where.c_str());
-        }
-        menu->MenuClosed(model);
-        if (weak && found && owner->IsEnabledAt(index)) {
-          owner->ActivatedAt(index, flags.intValue);
-        }
-        return true;
-      };
 }
 
 }

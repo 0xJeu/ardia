@@ -16,14 +16,9 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_browser.h"
 #import "ardia/core/ardiacore_internal.h"
-
-namespace autofill {
-extern void (*g_ardia_autofill_suggestions_shown)(
-    content::WebContents* web_contents,
-    base::span<const Suggestion> suggestions);
-}
 
 namespace ardiacore {
 

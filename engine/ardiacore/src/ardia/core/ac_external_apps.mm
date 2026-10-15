@@ -20,19 +20,13 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "content/public/browser/web_contents.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_browser.h"
 #import "ardia/core/ardiacore_internal.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "content/public/browser/render_frame_host.h"
-
-extern bool (*g_ardia_external_protocol_dialog)(
-    const GURL& url,
-    content::WebContents* web_contents,
-    const std::optional<url::Origin>& initiating_origin,
-    content::WeakDocumentPtr initiator_document,
-    const std::u16string& program_name);
 
 namespace ardiacore {
 

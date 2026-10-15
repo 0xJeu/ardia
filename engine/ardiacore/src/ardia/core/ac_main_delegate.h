@@ -1,7 +1,7 @@
 #ifndef ARDIA_CORE_AC_MAIN_DELEGATE_H_
 #define ARDIA_CORE_AC_MAIN_DELEGATE_H_
 
-#include <string_view>
+#include <optional>
 
 #include "base/functional/callback.h"
 #include "chrome/app/chrome_main_delegate.h"
@@ -14,8 +14,8 @@ class ACMainDelegate : public ChromeMainDelegate {
   ~ACMainDelegate() override;
 
  protected:
+  std::optional<int> BasicStartupComplete() override;
   void PreSandboxStartup() override;
-  void CreateThreadPool(std::string_view name) override;
   content::ContentBrowserClient* CreateContentBrowserClient() override;
   content::ContentRendererClient* CreateContentRendererClient() override;
 };

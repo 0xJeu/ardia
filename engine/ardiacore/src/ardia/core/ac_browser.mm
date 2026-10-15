@@ -46,6 +46,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "third_party/blink/public/common/loader/resource_type_util.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
+#include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_desktop_capture.h"
 #include "ardia/core/ac_fake_media.h"
 #include "ardia/core/ac_installed_bubble.h"
@@ -67,16 +68,6 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/client_view.h"
 #include "url/origin.h"
-
-namespace content {
-extern bool g_ardia_opacity_from_default_color;
-}
-
-extern void (*g_ardia_dnr_rule_matched)(
-    content::BrowserContext* browser_context,
-    int tab_id,
-    const extensions::declarative_net_request::RequestAction& action,
-    const extensions::WebRequestInfo& request);
 
 namespace ardiacore {
 
