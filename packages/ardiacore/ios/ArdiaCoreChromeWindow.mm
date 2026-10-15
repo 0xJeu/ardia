@@ -666,7 +666,7 @@ static BOOL gPageCoverOff = NO;
 
 - (void)updateSeen {
   if (![self occlusionActed] && [CFBridgingRelease(CGSessionCopyCurrentDictionary())[@"CGSSessionScreenIsLocked"] boolValue]) return;
-  const BOOL seen = _settling || [self windowVisible];
+  const BOOL seen = _settling || [self windowVisible] || IsWindowFullScreen(_coreWindow.window);
   if (getenv("ARDIA_TRACE_VISIBILITY"))
     NSLog(@"[ardiacore-vis] window %ld seen=%d (transitioning=%d settling=%d)", (long)_coreWindow.window.windowNumber, seen, _transitioning, _settling);
   if (seen == _seen) return;
