@@ -322,6 +322,13 @@ h3 {
   background-blend-mode: soft-light;
 }
 
+.btn.nightly-btn {
+  --btn-bg: transparent;
+  --btn-fg: currentColor;
+  --btn-wipe: color-mix(in srgb, currentColor 14%, transparent);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
 @media (max-width: 400px) {
   .btn .btn-meta {
     display: none;

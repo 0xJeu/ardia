@@ -5,7 +5,7 @@ import sun from "../assets/paint/sun.png";
 import DownloadButton from "./DownloadButton.astro";
 import MacOnlyNote from "./MacOnlyNote.astro";
 import SendToMac from "./SendToMac.astro";
-import { DMG_SIZE, MIN_MACOS, NIGHTLY, VERSION } from "../data/release";
+import { DMG_SIZE, MIN_MACOS, VERSION } from "../data/release";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const hillsMask = await getImage({ src: hills, width: 320, format: "webp" });
 ---
@@ -21,20 +21,13 @@ const hillsMask = await getImage({ src: hills, width: 320, format: "webp" });
       <SendToMac location="closing" />
       <div class="cta" data-reveal style="--i: 2">
         <DownloadButton label={`Download ${VERSION}`} meta="DMG" location="closing" class="not-phone sun-btn" />
+        <DownloadButton label="Nightly" meta="Wet paint" location="closing" class="not-phone" nightly />
         <a class="link" href={`${base}/release-notes`}>What’s new in {VERSION}</a>
       </div>
       <MacOnlyNote location="closing" />
       <p class="label fine not-phone">{MIN_MACOS} or later · Apple Silicon · Notarized by Apple</p>
       <p class="nightly not-phone" data-reveal style="--i: 3">
-        Like your paint wet?{" "}
-        <a
-          class="link"
-          href={NIGHTLY}
-          data-track="download_clicked"
-          data-track-version="nightly"
-          data-track-channel="nightly"
-          data-track-location="closing">Get the nightly</a
-        >: every fix the day it’s made, smudges and all. Back to stable any time in Settings › General.
+        Nightly gets every fix the day it’s made, smudges and all. Back to stable any time in Settings › General.
       </p>
     </div>
     <div class="closing-stage" data-tilt data-sunset aria-hidden="true">
@@ -124,9 +117,6 @@ const hillsMask = await getImage({ src: hills, width: 320, format: "webp" });
     max-width: 30em;
     font-size: var(--t-small);
     color: var(--ink-2);
-  }
-  .nightly .link {
-    color: var(--night-ink);
   }
   .closing-stage {
     grid-column: 8 / -1;

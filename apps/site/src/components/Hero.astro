@@ -48,6 +48,7 @@ const posterTones = HERO_POSTERS.map(({ media, tones, sky, headerHalo }) => ({ m
       </div>
       <div class="cta-row" data-reveal style="--i: 3">
         <DownloadButton location="hero" class="not-phone" />
+        <DownloadButton location="hero" class="not-phone" nightly label="Nightly" meta="Wet paint" />
         <a
           class="link source"
           href={REPO}
@@ -254,6 +255,14 @@ const posterTones = HERO_POSTERS.map(({ media, tones, sky, headerHalo }) => ({ m
     align-items: center;
     gap: 12px 28px;
     margin-top: clamp(22px, 3.4vh, 34px);
+  }
+  .hero :global(.nightly-btn) {
+    --btn-bg: color-mix(in srgb, var(--paper) 80%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .hero :global([data-tone="dark"] .nightly-btn) {
+    --btn-bg: color-mix(in srgb, var(--ink) 55%, transparent);
   }
   .source {
     font-size: var(--t-small);
