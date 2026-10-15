@@ -8,6 +8,7 @@ import { useWindowId } from "../../store/hooks";
 import type { TabPlacement } from "../../store/organize";
 import { SLIDE } from "../layout/stripReorder";
 import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, updateTabDrag, useTabDrag } from "../layout/tabDrag";
+import { useEntryLayering } from "./entryMotion";
 import { suppressHover } from "./hover";
 
 type Frame = { x: number; y: number; w: number; h: number };
@@ -485,6 +486,7 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
 
   const source = useStore(marks, (m) => m.sources.has(key));
   const landing = useStore(marks, (m) => m.landing === key);
+  const layering = useEntryLayering(!spec.parentGroup && spec.kind !== "tail" && spec.section === "list");
   const horizontal = spec.kind === "tile";
   const tailOffset = useMemo(() => item && Animated.add(item.gap, -ROW_GAP), [item]);
   const style = item
@@ -497,6 +499,8 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
           : landing
             ? { opacity: 0 }
             : {}),
+        ...(layering.raised ? { zIndex: 1 } : {}),
+        ...(layering.clipped && !source && !landing ? { marginTop: -ROW_GAP, paddingTop: ROW_GAP, overflow: "hidden" as const } : {}),
       }
     : {};
   return { wrapper: { ref, style }, handle: responder.panHandlers, headerRef, dragging: source, gap: item?.gap };

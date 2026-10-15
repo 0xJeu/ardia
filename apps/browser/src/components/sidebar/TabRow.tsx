@@ -9,6 +9,7 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "./actions";
 import { useDragItem, useDropOnto } from "./dnd";
+import { EntryShift } from "./entryMotion";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
 import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
@@ -39,7 +40,9 @@ export const TabRowItem = memo(function TabRowItem({
   const onto = useDropOnto(`t:${tabId}`);
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <TabRow tabId={tabId} onto={onto} />
+      <EntryShift topLevel={!parentGroup}>
+        <TabRow tabId={tabId} onto={onto} />
+      </EntryShift>
     </Animated.View>
   );
 });
@@ -193,26 +196,28 @@ export const SplitRowItem = memo(function SplitRowItem({
   if (tabIds.length < 2) return null;
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <View ref={(v) => registerRow(windowId, `s:${splitId}`, v)} {...hoverProps}>
-        <Surface
-          fill={hex(active ? theme.tabSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)")}
-          cornerRadius={10}
-          borderWidth={active ? 1 : 0}
-          borderColors={active ? theme.tabSelectedBorder.map(hex) : undefined}
-          shadowColor={active ? hex(theme.tabSelectedShadow) : undefined}
-          shadowOpacity={active ? 1 : 0}
-          shadowRadius={theme.tabSelectedShadowRadius}
-          shadowOffset={[0, 0.5]}
-          style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingHorizontal: active ? 2 : 3 }}
-        >
-          {tabIds.map((id, i) => (
-            <View key={id} style={{ flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 }}>
-              {i > 0 && <View style={{ width: 1, height: 16, backgroundColor: theme.divider, marginRight: 2 }} />}
-              <SplitPane tabId={id} windowId={windowId} />
-            </View>
-          ))}
-        </Surface>
-      </View>
+      <EntryShift topLevel={!parentGroup}>
+        <View ref={(v) => registerRow(windowId, `s:${splitId}`, v)} {...hoverProps}>
+          <Surface
+            fill={hex(active ? theme.tabSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)")}
+            cornerRadius={10}
+            borderWidth={active ? 1 : 0}
+            borderColors={active ? theme.tabSelectedBorder.map(hex) : undefined}
+            shadowColor={active ? hex(theme.tabSelectedShadow) : undefined}
+            shadowOpacity={active ? 1 : 0}
+            shadowRadius={theme.tabSelectedShadowRadius}
+            shadowOffset={[0, 0.5]}
+            style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingHorizontal: active ? 2 : 3 }}
+          >
+            {tabIds.map((id, i) => (
+              <View key={id} style={{ flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 }}>
+                {i > 0 && <View style={{ width: 1, height: 16, backgroundColor: theme.divider, marginRight: 2 }} />}
+                <SplitPane tabId={id} windowId={windowId} />
+              </View>
+            ))}
+          </Surface>
+        </View>
+      </EntryShift>
     </Animated.View>
   );
 });

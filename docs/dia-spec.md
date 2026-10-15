@@ -185,6 +185,25 @@ the same as top"), so if a Dia capture ever differs, the owner's equal insets wi
   over a 0.16 hover fill. It sits one row gap (3 pt) under the tab above it, background to background.
 - Pinned tile hover: a custom tooltip showing the title and URL.
 
+### Opening and closing tabs (owner's 2× recording, 120 fps, 2026-10-15)
+
+Regular rows on the 37 pt pitch; the same for "+ New Tab" and ⌘T, and for the hover ✕ and ⌘W.
+- Open: the new row is in its final slot at once, opaque and already selected; the old selection drops at once. No
+  fade, scale or height grow. Every row below the insertion point (the "+ New Tab" row in the recording) starts where
+  it was and slides down one pitch, drawn under the new row: it is hidden at first and comes out from beneath its
+  bottom edge (Dia's selected fill is translucent, yet nothing shows through it).
+- Close: selection moves to the neighbour at once. The closed row stays in its slot, drops its selected fill at once
+  (it shows the hover fill and ✕, the pointer still being on it) and fades out in place. Every row below slides up one
+  pitch, starting at the same moment, drawn over the fading row. Hover follows the final layout at once: the row that
+  ends up under the pointer shows its hover fill and ✕ while it is still sliding in.
+- Curves: the slide is Core Animation's default, cubic-bezier(0.25, 0.1, 0.25, 1) over 0.14 s, no overshoot (a
+  spring with ω ≈ 40 rad/s and damping ratio 0.9 fits almost as well). The fade is ease-out, cubic-bezier(0, 0, 0.58,
+  1) over 0.10 s, opacity 1 → 0.
+- Ardia (`sidebar/listMotion.tsx`): the same, for every top-level list entry (rows, splits, group blocks, the + row);
+  several closes at once fade together. The row just under a new one is clipped at the new row's bottom edge while it
+  slides, which gives Dia's look over our translucent selected fill. Changes inside a group, pins and moves between
+  windows don't animate.
+
 ### Hiding and showing the sidebar (Auto-Hide Tabs, ⌘S; owner recording 2026-10-06, 240 fps)
 
 - The button is the card toolbar's first one (`sidebar.left`, centre 21 from the card's edge: x 211 with a 190

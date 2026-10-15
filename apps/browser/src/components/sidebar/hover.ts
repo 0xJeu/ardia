@@ -10,6 +10,9 @@ let showTimer: ReturnType<typeof setTimeout> | undefined;
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressed = false;
 let ticket = 0;
+let underPointer: string | null = null;
+
+export const pointerOnRow = (id: string) => underPointer === id;
 
 export function suppressHover(value: boolean) {
   suppressed = value;
@@ -64,10 +67,12 @@ export function useRowHover(windowId: string, target: Target | null) {
         if (!onCurrentPage()) return;
         setHovered(true);
         const { windowId, target } = latest.current;
+        underPointer = target?.id ?? null;
         if (target) hoverEnter(windowId, target);
       },
       onMouseLeave: () => {
         setHovered(false);
+        if (underPointer === latest.current.target?.id) underPointer = null;
         if (latest.current.target && onCurrentPage()) hoverLeave();
       },
     }),

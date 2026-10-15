@@ -19,10 +19,12 @@ import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "./profile
 import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragItem, type Ghost } from "./sidebar/dnd";
+import { EntryMotionContext } from "./sidebar/entryMotion";
 import { sidebarEntries, useSidebarEntries } from "./sidebar/entries";
 import { GroupBlock } from "./sidebar/GroupBlock";
 import { dismissHover } from "./sidebar/hover";
 import { LiveFolders } from "./sidebar/LiveFolderBlock";
+import { GhostSlot, TailShift, useListMotion } from "./sidebar/listMotion";
 import { openOverflowMenu, openSidebarMenu } from "./sidebar/menus";
 import { PinFieldZone, PinnedGrid, PinSlotZone } from "./sidebar/PinnedGrid";
 import { ResizeHandle } from "./sidebar/ResizeHandle";
@@ -292,6 +294,7 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   const list = limit === undefined ? all : all.slice(0, limit);
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
+  const motion = useListMotion(windowId, profileId, all, current && !offScreen);
   if (geometry) geometry.current.newTabAtTop = newTabsAtTop && inlineNewTab;
   const measured = useRef(0);
   useEffect(() => {
@@ -327,14 +330,20 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
         style={{ marginTop: pinnedGroups.length ? 7 : 0, gap: layout.rowGap }}
       >
         {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
-        {list.map((entry) => (
-          <ListEntry key={entry} entry={entry} />
-        ))}
+        {motion.slots(list).map((slot) =>
+          "ghost" in slot ? (
+            <GhostSlot key={`ghost:${slot.ghost.id}`} ghost={slot.ghost} top={slot.top} />
+          ) : (
+            <EntryMotionContext.Provider key={slot.entry} value={motion.motion(slot.entry)}>
+              <ListEntry entry={slot.entry} />
+            </EntryMotionContext.Provider>
+          ),
+        )}
         {pending ? <View style={{ height: pending }} /> : null}
         <Tail id="tail:list" section="list" />
-        {!newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
+        {!newTabsAtTop && inlineNewTab ? <ShiftedNewTabRow windowId={windowId} shift={motion.tail} clipped={motion.tailClipped} /> : null}
       </View>
-      {current ? <CleanUpUpsell windowId={windowId} /> : null}
+      {current ? <ShiftedCleanUpUpsell windowId={windowId} shift={motion.tail} /> : null}
     </View>
   );
 }
@@ -471,6 +480,22 @@ const NewTabRow = memo(function NewTabRow({ windowId }: { windowId: string }) {
         />
       </View>
     </View>
+  );
+});
+
+const ShiftedNewTabRow = memo(function ShiftedNewTabRow({ windowId, shift, clipped }: { windowId: string; shift: Animated.Value | null; clipped: boolean }) {
+  return (
+    <TailShift shift={shift} clipped={clipped}>
+      <NewTabRow windowId={windowId} />
+    </TailShift>
+  );
+});
+
+const ShiftedCleanUpUpsell = memo(function ShiftedCleanUpUpsell({ windowId, shift }: { windowId: string; shift: Animated.Value | null }) {
+  return (
+    <TailShift shift={shift}>
+      <CleanUpUpsell windowId={windowId} />
+    </TailShift>
   );
 });
 

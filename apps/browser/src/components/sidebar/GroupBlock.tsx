@@ -11,6 +11,7 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { commitRename, endRename, startRename } from "./actions";
 import { useDragItem, useDropInto } from "./dnd";
+import { EntryShift } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
 import { GROUP_BORDER, GROUP_PAD, keptEntry } from "./geometry";
 import { useGroupEntries } from "./entries";
@@ -47,22 +48,24 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
 
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style}>
-      <View style={{ borderRadius: 12, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }}>
-        <View ref={headerRef} {...handle}>
-          <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
+      <EntryShift topLevel={section === "list"}>
+        <View style={{ borderRadius: 12, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }}>
+          <View ref={headerRef} {...handle}>
+            <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
+          </View>
+          <Fold
+            fold={fold}
+            collapsed={collapsed}
+            entries={entries.map((entry) => ({ key: entry, node: <Entry entry={entry} section={section} groupId={groupId} /> }))}
+            keep={activeEntry}
+            gap={layout.rowGap}
+            rowHeight={layout.rowHeight}
+            padBottom={PAD}
+            mountClosed={selectedInside}
+            footer={<Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />}
+          />
         </View>
-        <Fold
-          fold={fold}
-          collapsed={collapsed}
-          entries={entries.map((entry) => ({ key: entry, node: <Entry entry={entry} section={section} groupId={groupId} /> }))}
-          keep={activeEntry}
-          gap={layout.rowGap}
-          rowHeight={layout.rowHeight}
-          padBottom={PAD}
-          mountClosed={selectedInside}
-          footer={<Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />}
-        />
-      </View>
+      </EntryShift>
     </Animated.View>
   );
 });
