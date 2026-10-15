@@ -109,7 +109,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
           <div class="index-head">
             <p class="label">
               <span class="count-stable">{stable.length} releases</span>
-              <span class="count-all">{stable.length} releases · {nightlyCount} nightlies</span>
+              <span class="count-all">{stable.length} releases · {nightlyCount} {nightlyCount === 1 ? "nightly" : "nightlies"}</span>
             </p>
             {
               nightlyCount > 0 && (
