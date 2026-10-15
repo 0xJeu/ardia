@@ -19,7 +19,7 @@ import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "./profile
 import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragItem, type Ghost } from "./sidebar/dnd";
-import { EntryMotionContext, useClipped, useShift, type ClipSource } from "./sidebar/entryMotion";
+import { useClipped, useShift, type ClipSource, type EntryMotion } from "./sidebar/entryMotion";
 import { sidebarEntries } from "./sidebar/entries";
 import { GroupBlock } from "./sidebar/GroupBlock";
 import { dismissHover } from "./sidebar/hover";
@@ -337,15 +337,15 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
           style={{ marginTop: pinnedGroups.length ? 7 : 0, gap: layout.rowGap }}
         >
           {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
-          {motion.slots(list).map((slot) =>
-            "ghost" in slot ? (
-              <GhostSlot key={`ghost:${slot.ghost.id}`} ghost={slot.ghost} top={slot.top} />
-            ) : (
-              <EntryMotionContext.Provider key={slot.entry} value={motion.motion(slot.entry)}>
-                <ListEntry entry={slot.entry} />
-              </EntryMotionContext.Provider>
-            ),
-          )}
+          {motion.fading
+            ? motion.slots(list).map((slot) =>
+                "ghost" in slot ? (
+                  <GhostSlot key={slot.ghost.key} snapshot={slot.ghost.snapshot} top={slot.top} opacity={slot.ghost.opacity} />
+                ) : (
+                  <ListEntry key={slot.entry} entry={slot.entry} motion={motion.motion(slot.entry)} />
+                ),
+              )
+            : list.map((entry) => <ListEntry key={entry} entry={entry} motion={motion.motion(entry)} />)}
           {pending ? <View style={{ height: pending }} /> : null}
           <Tail id="tail:list" section="list" />
           {!newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} shift={motion.tail} clip={motion.tailClip} /> : null}
@@ -360,11 +360,11 @@ function PageContent({ children }: { children: (controller: ReturnType<typeof us
   return <>{children(useDragController())}</>;
 }
 
-const ListEntry = memo(function ListEntry({ entry }: { entry: string }) {
+const ListEntry = memo(function ListEntry({ entry, motion }: { entry: string; motion: EntryMotion | null }) {
   const id = entry.slice(2);
-  if (entry.startsWith("g:")) return <GroupBlock groupId={id} section="list" />;
-  if (entry.startsWith("s:")) return <SplitRowItem splitId={id} section="list" />;
-  return <TabRowItem tabId={id} section="list" />;
+  if (entry.startsWith("g:")) return <GroupBlock groupId={id} section="list" motion={motion} />;
+  if (entry.startsWith("s:")) return <SplitRowItem splitId={id} section="list" motion={motion} />;
+  return <TabRowItem tabId={id} section="list" motion={motion} />;
 });
 
 const Tail = memo(function Tail({ id, section }: { id: string; section: "list" | "pinnedGroups" }) {

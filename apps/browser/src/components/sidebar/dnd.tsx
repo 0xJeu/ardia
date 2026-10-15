@@ -8,7 +8,7 @@ import { useWindowId } from "../../store/hooks";
 import type { TabPlacement } from "../../store/organize";
 import { SLIDE } from "../layout/stripReorder";
 import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, updateTabDrag, useTabDrag } from "../layout/tabDrag";
-import { useEntryClipped } from "./entryMotion";
+import { useClipped, type ClipSource } from "./entryMotion";
 import { suppressHover } from "./hover";
 
 type Frame = { x: number; y: number; w: number; h: number };
@@ -446,7 +446,7 @@ export const useDropOnto = (key: string) => useStore(useContext(DragContext)?.ma
 export const useDropPins = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.pins);
 export const useDragging = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.sources.size > 0);
 
-export function useDragItem(key: string, spec: ItemSpec, selection: () => string[] = () => []) {
+export function useDragItem(key: string, spec: ItemSpec, selection: () => string[] = () => [], clip: ClipSource | null = null) {
   const controller = useContext(DragContext) ?? undefined;
   const marks = controller?.marks ?? noMarks;
   const item = useMemo(() => controller?.create(key), [controller, key]);
@@ -486,7 +486,7 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
 
   const source = useStore(marks, (m) => m.sources.has(key));
   const landing = useStore(marks, (m) => m.landing === key);
-  const clipped = useEntryClipped(spec.kind !== "tail" && spec.kind !== "tile");
+  const clipped = useClipped(clip);
   const horizontal = spec.kind === "tile";
   const tailOffset = useMemo(() => item && Animated.add(item.gap, -ROW_GAP), [item]);
   const style = item

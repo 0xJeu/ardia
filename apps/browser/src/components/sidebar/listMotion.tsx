@@ -14,10 +14,11 @@ export const FADE_EASING = Easing.bezier(0, 0, 0.58, 1);
 const ROW = layout.rowHeight;
 const GAP = layout.rowGap;
 const TAIL = "~tail";
+const FRAME_SLACK_MS = 50;
 const devScale = () => (__DEV__ ? ((globalThis as { sidebarMotionScale?: number }).sidebarMotionScale ?? 1) : 1);
 
-type Slide = { value: Animated.Value; from: number; at: number };
-type Ghost = { id: number; anchor: string | null; y: number; snapshot: EntrySnapshot; opacity: Animated.Value };
+type Slide = { value: Animated.Value; from: number; at: number; until: number; landed: boolean };
+type Ghost = { key: string; anchor: string | null; y: number; snapshot: EntrySnapshot; opacity: Animated.Value; until: number };
 type Snapshot = { state: BrowserState; list: string[] };
 type Move = { key: string; from: number };
 type Plan = { moves: Move[]; ghosts: Ghost[]; clipped: string[]; below: number };
@@ -57,14 +58,26 @@ const openedIn = (before: BrowserState, after: BrowserState) => (entry: string) 
   return ids.length > 0 && ids.every((id) => !before.tabs[id]);
 };
 
-function offsets(s: BrowserState, entries: string[], height: Height): Offsets {
+function offsets(s: BrowserState, entries: string[], height: Height, start = 0, base = 0): Offsets {
   const at = new Map<string, number>();
-  let y = 0;
-  for (const e of entries) {
-    at.set(e, y);
-    y += height(s, e) + GAP;
+  let y = base;
+  for (let i = start; i < entries.length; i++) {
+    at.set(entries[i]!, y);
+    y += height(s, entries[i]!) + GAP;
   }
   return { at, end: y };
+}
+
+function sharedPrefix(a: string[], b: string[]): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i;
+}
+
+function prefixHeight(s: BrowserState, entries: string[], count: number, height: Height): number {
+  let y = 0;
+  for (let i = 0; i < count; i++) y += height(s, entries[i]!) + GAP;
+  return y;
 }
 
 function shiftAt(slide: Slide | undefined, t: number): number {
@@ -86,20 +99,22 @@ type Diff = {
   tail: boolean;
   snapshot: (entry: string) => EntrySnapshot | null;
   clipAfter: string[];
+  start: number;
 };
 
-function buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail, snapshot, clipAfter }: Diff): Plan | null {
-  const kept = new Set(after.list);
-  const had = new Set(before.list);
+function buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail, snapshot, clipAfter, start }: Diff): Plan | null {
+  const kept = new Set(after.list.slice(start));
+  const had = new Set(before.list.slice(start));
   const moves: Move[] = [];
-  for (const e of after.list) {
-    if (!had.has(e)) continue;
+  for (let i = start; i < after.list.length; i++) {
+    const e = after.list[i]!;
+    if (!had.has(e) || !next.at.has(e)) continue;
     const delta = old.at.get(e)! - next.at.get(e)!;
     if (delta) moves.push({ key: e, from: shiftAt(slides.get(e), t) + delta });
   }
   if (tail && old.end !== next.end) moves.push({ key: TAIL, from: shiftAt(slides.get(TAIL), t) + old.end - next.end });
   const anchorAfter = (entry: string): string | null => {
-    for (let i = before.list.indexOf(entry) + 1; i < before.list.length; i++) if (kept.has(before.list[i]!)) return before.list[i]!;
+    for (let i = before.list.indexOf(entry, start) + 1; i < before.list.length; i++) if (kept.has(before.list[i]!)) return before.list[i]!;
     return null;
   };
   const gone = new Set(removed);
@@ -108,7 +123,7 @@ function buildPlan({ before, after, old, next, removed, added, slides, ghosts, t
     const shot = snapshot(e);
     if (!shot) return [];
     const y = old.at.get(e)! + shiftAt(slides.get(e), t);
-    return [{ id: ++ghostIds, anchor: anchorAfter(e), y, snapshot: shot, opacity: new Animated.Value(1) }];
+    return [{ key: `ghost:${++ghostIds}`, anchor: anchorAfter(e), y, snapshot: shot, opacity: new Animated.Value(1), until: 0 }];
   });
   if (!moves.length) return born.length ? { moves, ghosts: born, clipped: [], below: 0 } : null;
   const fresh = new Set(added);
@@ -146,13 +161,13 @@ type Core = {
   entries: string[];
   from: Capture;
   planner: Planner;
-  place: (list: string[]) => Offsets;
+  height: (entry: string) => number;
   enabled: boolean;
   native: boolean;
   below?: ((delta: number) => void) | null;
 };
 
-function useMotion({ devKey, entries, from, planner, place, enabled, native, below }: Core) {
+function useMotion({ devKey, entries, from, planner, height, enabled, native, below }: Core) {
   const slides = useRef(new Map<string, Slide>()).current;
   const contexts = useRef(new Map<string, EntryMotion>()).current;
   const clipped = useRef(new Set<string>()).current;
@@ -186,15 +201,24 @@ function useMotion({ devKey, entries, from, planner, place, enabled, native, bel
   const latest = useRef(entries);
   latest.current = entries;
   const queued = useRef<Plan | null>(null);
-  const running = useRef(new Set<object>()).current;
+  const clipping = useRef<object | null>(null);
   const [, rerender] = useState(0);
   if (__DEV__ && enabled) {
     const dev = globalThis as { sidebarMotion?: Record<string, unknown> };
     dev.sidebarMotion = { ...dev.sidebarMotion, [devKey]: { slides, ghosts, clipped } };
   }
 
+  const now = Date.now();
+  for (const slide of slides.values()) {
+    if (slide.until && now >= slide.until) {
+      slide.until = 0;
+      if (!slide.landed) slide.value.setValue(0);
+    }
+  }
+  if (ghosts.current.some((g) => g.until && now >= g.until)) ghosts.current = ghosts.current.filter((g) => !g.until || now < g.until);
+
   const prepare = (plan: Plan, at: number) => {
-    for (const m of plan.moves) if (!slides.has(m.key)) slides.set(m.key, { value: new Animated.Value(m.from), from: m.from, at });
+    for (const m of plan.moves) if (!slides.has(m.key)) slides.set(m.key, { value: new Animated.Value(m.from), from: m.from, at, until: 0, landed: false });
     ghosts.current = [...ghosts.current, ...plan.ghosts];
     clipped.clear();
     for (const key of plan.clipped) clipped.add(key);
@@ -230,27 +254,31 @@ function useMotion({ devKey, entries, from, planner, place, enabled, native, bel
     if (!plan) return;
     queued.current = null;
     const at = Date.now();
-    for (const m of plan.moves) {
+    const slideMs = SLIDE_MS * devScale();
+    const token = plan.clipped.length ? {} : null;
+    clipping.current = token;
+    for (const [i, m] of plan.moves.entries()) {
       const slide = slides.get(m.key);
       if (!slide) continue;
       slide.value.setValue(m.from);
       slide.from = m.from;
       slide.at = at;
-      const token = {};
-      running.add(token);
-      Animated.timing(slide.value, { toValue: 0, duration: SLIDE_MS * devScale(), easing: SLIDE_EASING, useNativeDriver: native }).start(({ finished }) => {
-        running.delete(token);
-        if (finished) slide.value.setValue(0);
-        if (running.size || !clipped.size) return;
+      slide.until = at + slideMs + FRAME_SLACK_MS;
+      slide.landed = false;
+      const timing = Animated.timing(slide.value, { toValue: 0, duration: slideMs, easing: SLIDE_EASING, useNativeDriver: native });
+      const clips = i === 0 && token;
+      timing.start(({ finished }) => {
+        if (!finished) return;
+        slide.landed = true;
+        if (!clips || clipping.current !== token) return;
+        clipping.current = null;
         clipped.clear();
         announce();
       });
     }
     for (const g of plan.ghosts) {
-      Animated.timing(g.opacity, { toValue: 0, duration: FADE_MS * devScale(), easing: FADE_EASING, useNativeDriver: true }).start(() => {
-        ghosts.current = ghosts.current.filter((x) => x !== g);
-        rerender((n) => n + 1);
-      });
+      g.until = at + FADE_MS * devScale() + FRAME_SLACK_MS;
+      Animated.timing(g.opacity, { toValue: 0, duration: FADE_MS * devScale(), easing: FADE_EASING, useNativeDriver: true }).start();
     }
     announce();
     if (plan.below) below?.(plan.below);
@@ -268,49 +296,60 @@ function useMotion({ devKey, entries, from, planner, place, enabled, native, bel
 
   const slots = (list: string[]): ListSlot[] => {
     if (!ghosts.current.length) return list.map((entry) => ({ entry }));
-    const { at, end } = place(entries);
-    const mounted = new Set(list);
-    const out: ListSlot[] = [];
+    const place = (ghost: Ghost, top: number): ListSlot => ({ ghost, top });
     const byAnchor = new Map<string | null, Ghost[]>();
-    for (const g of ghosts.current) {
-      const anchor = g.anchor && at.has(g.anchor) ? g.anchor : null;
-      if (anchor && !mounted.has(anchor)) continue;
-      byAnchor.set(anchor, [...(byAnchor.get(anchor) ?? []), g]);
+    for (const g of ghosts.current) byAnchor.set(g.anchor, [...(byAnchor.get(g.anchor) ?? []), g]);
+    const out: ListSlot[] = [];
+    let y = 0;
+    let shown = 0;
+    for (const entry of entries) {
+      const here = byAnchor.get(entry);
+      const mounted = shown < list.length && list[shown] === entry;
+      if (here && mounted) for (const ghost of here) out.push(place(ghost, ghost.y - y));
+      if (mounted) {
+        out.push({ entry });
+        shown++;
+      }
+      if (here) byAnchor.delete(entry);
+      y += height(entry) + GAP;
     }
-    for (const entry of list) {
-      for (const ghost of byAnchor.get(entry) ?? []) out.push({ ghost, top: ghost.y - at.get(entry)! });
-      out.push({ entry });
-    }
-    for (const ghost of byAnchor.get(null) ?? []) out.push({ ghost, top: ghost.y - end });
+    for (const left of byAnchor.values()) for (const ghost of left) if (!ghost.anchor || !entries.includes(ghost.anchor)) out.push(place(ghost, ghost.y - y));
     return out;
   };
 
-  return { motion, slots, slideBelow, tail: slides.get(TAIL)?.value ?? null, tailClip: source(TAIL) };
+  return { motion, slots, fading: ghosts.current.length > 0, slideBelow, tail: slides.get(TAIL)?.value ?? null, tailClip: source(TAIL) };
 }
 
 export function useListMotion(windowId: string, profileId: string, entries: string[], from: Capture, enabled: boolean) {
   const height: Height = (s, e) => entryHeight(s, windowId, profileId, e);
   const planner: Planner = (before, after, slides, ghosts, t) => {
-    const had = new Set(before.list);
-    const kept = new Set(after.list);
-    const removed = before.list.filter((e) => !kept.has(e));
-    const added = after.list.filter((e) => !had.has(e));
-    if (!removed.length && !added.length) return null;
-    if (!removed.every(closedIn(before.state, after.state)) || !added.every(openedIn(before.state, after.state))) return null;
     const changes = new Map<string, GroupChange>();
-    for (const e of after.list) {
-      if (!had.has(e) || !e.startsWith("g:")) continue;
-      const change = groupChange(before.state, after.state, e.slice(2));
-      if (change === "other" && height(before.state, e) !== height(after.state, e)) return null;
-      if (change === "grown" || change === "extended") changes.set(e, change);
+    if (before.state.groups !== after.state.groups) {
+      const had = new Set(before.list);
+      for (const e of after.list) {
+        if (!had.has(e) || !e.startsWith("g:")) continue;
+        const change = groupChange(before.state, after.state, e.slice(2));
+        if (change === "other" && height(before.state, e) !== height(after.state, e)) return null;
+        if (change === "grown" || change === "extended") changes.set(e, change);
+      }
     }
+    const start = changes.size ? 0 : sharedPrefix(before.list, after.list);
+    const had = new Set(before.list.slice(start));
+    const kept = new Set(after.list.slice(start));
+    const removed = before.list.slice(start).filter((e) => !kept.has(e));
+    const added = after.list.slice(start).filter((e) => !had.has(e));
+    if (!removed.length && !added.length && !changes.size) return null;
+    if (!removed.every(closedIn(before.state, after.state)) || !added.every(openedIn(before.state, after.state))) return null;
     const grown = [...changes].flatMap(([e, c]) => (c === "grown" ? [e] : []));
-    const old = offsets(before.state, before.list, height);
-    const next = offsets(after.state, after.list, (s, e) => (changes.get(e) === "extended" ? height(before.state, e) : height(s, e)));
+    if (!removed.length && !added.length && !grown.length) return null;
+    const now: Height = (s, e) => (changes.get(e) === "extended" ? height(before.state, e) : height(s, e));
+    const base = prefixHeight(after.state, after.list, start, now);
+    const old = offsets(before.state, before.list, height, start, base);
+    const next = offsets(after.state, after.list, now, start, base);
     const snapshot = (e: string) => snapshotEntry(before.state, windowId, profileId, e);
-    return buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail: true, snapshot, clipAfter: grown });
+    return buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail: true, snapshot, clipAfter: grown, start });
   };
-  return useMotion({ devKey: windowId, entries, from, planner, place: (list) => offsets(useBrowser.getState(), list, height), enabled, native: true });
+  return useMotion({ devKey: windowId, entries, from, planner, height: (e) => height(useBrowser.getState(), e), enabled, native: true });
 }
 
 const rowHeight: Height = () => ROW;
@@ -330,21 +369,21 @@ export function useGroupMotion(windowId: string, profileId: string, groupId: str
     const next = offsets(after.state, after.list, rowHeight);
     const snapshot = (e: string) => snapshotEntry(before.state, windowId, profileId, e);
     const atEnd = !removed.length && groupGrowsAtEnd(before.state, after.state, groupId);
-    const plan = buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail: !atEnd, snapshot, clipAfter: [] });
+    const plan = buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail: !atEnd, snapshot, clipAfter: [], start: 0 });
     if (!atEnd) return plan;
     return { ...(plan ?? { moves: [], ghosts: [], clipped: [] }), below: old.end - next.end };
   };
   const below = scope.slideBelow ? (delta: number) => scope.slideBelow?.(`g:${groupId}`, delta) : null;
-  return useMotion({ devKey: `${windowId}:${groupId}`, entries, from, planner, place: (list) => offsets(useBrowser.getState(), list, rowHeight), enabled, native: false, below });
+  return useMotion({ devKey: `${windowId}:${groupId}`, entries, from, planner, height: () => ROW, enabled, native: false, below });
 }
 
-export const GhostSlot = memo(function GhostSlot({ ghost, top }: { ghost: Ghost; top: number }) {
-  const style = useMemo(() => ({ opacity: ghost.opacity }), [ghost.opacity]);
+export const GhostSlot = memo(function GhostSlot({ snapshot, top, opacity }: { snapshot: EntrySnapshot; top: number; opacity: Animated.Value }) {
+  const style = useMemo(() => ({ opacity }), [opacity]);
   const [fade, ref] = useAnimatedStyle(style);
   const theme = useTheme();
   return (
     <View pointerEvents="none" {...fade} ref={ref} style={[{ height: 0, marginBottom: -GAP }, fade.style as object]}>
-      {ghostEntry(ghost.snapshot, theme, top)}
+      {ghostEntry(snapshot, theme, top)}
     </View>
   );
 });

@@ -11,7 +11,7 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { commitRename, endRename, startRename } from "./actions";
 import { useDragItem, useDropInto } from "./dnd";
-import { EntryMotionContext, useEntryShift } from "./entryMotion";
+import { useShift, type EntryMotion } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
 import { GROUP_BORDER, GROUP_PAD, keptEntry } from "./geometry";
 import { groupEntries } from "./entries";
@@ -25,7 +25,7 @@ import { GROUP_COLORS, useSidebarTokens, withAlpha } from "./tokens";
 
 const PAD = GROUP_PAD;
 
-export const GroupBlock = memo(function GroupBlock({ groupId, section }: { groupId: string; section: "list" | "pinnedGroups" }) {
+export const GroupBlock = memo(function GroupBlock({ groupId, section, motion: own = null }: { groupId: string; section: "list" | "pinnedGroups"; motion?: EntryMotion | null }) {
   const windowId = useWindowId();
   const tokens = useSidebarTokens();
   const collapsed = useBrowser((s) => !!s.groups[groupId]?.collapsed);
@@ -44,13 +44,13 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
   });
   const profileId = usePageProfileId();
   const activeEntry = useBrowser((s) => keptEntry(s, windowId, profileId, entries));
-  const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed });
+  const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed }, undefined, own?.clip);
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
 
   const fold = useFold(collapsed);
   const scope = useContext(ListMotionContext);
   const motion = useGroupMotion(windowId, profileId, groupId, entries, captured, section === "list" ? scope : { enabled: scope.enabled, slideBelow: null }, scope.enabled && !collapsed);
-  const [moved, movedRef] = useEntryShift();
+  const [moved, movedRef] = useShift(own?.shift ?? null);
 
   const spec = color ? GROUP_COLORS[color] : null;
   const fill = spec ? withAlpha(spec.hex, 0.16) : tokens.groupFill;
@@ -67,13 +67,11 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
           collapsed={collapsed}
           entries={motion.slots(entries).map((slot) =>
             "ghost" in slot
-              ? { key: `ghost:${slot.ghost.id}`, ghost: true, node: <GhostSlot ghost={slot.ghost} top={slot.top} /> }
+              ? { key: slot.ghost.key, ghost: true, node: <GhostSlot snapshot={slot.ghost.snapshot} top={slot.top} opacity={slot.ghost.opacity} /> }
               : {
                   key: slot.entry,
                   node: (
-                    <EntryMotionContext.Provider value={motion.motion(slot.entry)}>
-                      <Entry entry={slot.entry} section={section} groupId={groupId} />
-                    </EntryMotionContext.Provider>
+                    <Entry entry={slot.entry} section={section} groupId={groupId} motion={motion.motion(slot.entry)} />
                   ),
                 },
           )}
@@ -90,11 +88,11 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
   );
 });
 
-const Entry = memo(function Entry({ entry, section, groupId }: { entry: string; section: "list" | "pinnedGroups"; groupId: string }) {
+const Entry = memo(function Entry({ entry, section, groupId, motion }: { entry: string; section: "list" | "pinnedGroups"; groupId: string; motion: EntryMotion | null }) {
   return entry.startsWith("s:") ? (
-    <SplitRowItem splitId={entry.slice(2)} section={section} parentGroup={groupId} />
+    <SplitRowItem splitId={entry.slice(2)} section={section} parentGroup={groupId} motion={motion} />
   ) : (
-    <TabRowItem tabId={entry.slice(2)} section={section} parentGroup={groupId} />
+    <TabRowItem tabId={entry.slice(2)} section={section} parentGroup={groupId} motion={motion} />
   );
 });
 

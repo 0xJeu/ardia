@@ -9,7 +9,7 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "./actions";
 import { useDragItem, useDropOnto } from "./dnd";
-import { useEntryShift } from "./entryMotion";
+import { useShift, type EntryMotion } from "./entryMotion";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
 import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
@@ -29,23 +29,25 @@ export const TabRowItem = memo(function TabRowItem({
   tabId,
   section,
   parentGroup,
+  motion = null,
 }: {
   tabId: string;
   section: "list" | "pinnedGroups";
   parentGroup?: string;
+  motion?: EntryMotion | null;
 }) {
   const windowId = useWindowId();
   const selection = useSelection(windowId);
-  const { wrapper, handle } = useDragItem(`t:${tabId}`, { kind: "row", tabIds: [tabId], section, parentGroup }, selection);
+  const { wrapper, handle } = useDragItem(`t:${tabId}`, { kind: "row", tabIds: [tabId], section, parentGroup }, selection, motion?.clip);
   const onto = useDropOnto(`t:${tabId}`);
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <TabRow tabId={tabId} onto={onto} />
+      <TabRow tabId={tabId} onto={onto} shift={motion?.shift ?? null} />
     </Animated.View>
   );
 });
 
-export const TabRow = memo(function TabRow({ tabId, onto = false }: { tabId: string; onto?: boolean }) {
+export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }: { tabId: string; onto?: boolean; shift?: Animated.Value | null }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const windowId = useWindowId();
@@ -56,7 +58,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false }: { tabId: str
   const loading = !!(flags & LOADING);
   const renaming = useSidebarUi((u) => u.renaming?.kind === "tab" && u.renaming.id === tabId);
   const { hovered, hoverProps } = useRowHover(windowId, renaming ? null : { kind: "tab", id: tabId });
-  const [moved, movedRef] = useEntryShift(useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
+  const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
   if (!tab) return null;
   const title = tabTitle(tab);
   const fill = active ? theme.tabSelected : selected ? tokens.multiSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)";
@@ -182,19 +184,21 @@ export const SplitRowItem = memo(function SplitRowItem({
   splitId,
   section,
   parentGroup,
+  motion = null,
 }: {
   splitId: string;
   section: "list" | "pinnedGroups";
   parentGroup?: string;
+  motion?: EntryMotion | null;
 }) {
   const windowId = useWindowId();
   const tabIds = useBrowser((s) => s.splits[splitId]?.tabIds.filter((id) => s.tabs[id] && !s.tabs[id]!.pinned).join(",") ?? "").split(",").filter(Boolean);
-  const { wrapper, handle } = useDragItem(`s:${splitId}`, { kind: "split", tabIds, section, parentGroup });
+  const { wrapper, handle } = useDragItem(`s:${splitId}`, { kind: "split", tabIds, section, parentGroup }, undefined, motion?.clip);
   const theme = useTheme();
   const profileId = usePageProfileId();
   const active = useBrowser((s) => tabIds.includes(s.windows[windowId]?.activeTabIds[profileId] ?? ""));
   const { hovered, hoverProps } = useRowHover(windowId, null);
-  const [moved, movedRef] = useEntryShift(useCallback((v: View | null) => registerRow(windowId, `s:${splitId}`, v), [windowId, splitId]));
+  const [moved, movedRef] = useShift(motion?.shift ?? null, useCallback((v: View | null) => registerRow(windowId, `s:${splitId}`, v), [windowId, splitId]));
   if (tabIds.length < 2) return null;
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>

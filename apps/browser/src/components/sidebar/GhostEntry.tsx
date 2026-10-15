@@ -1,5 +1,6 @@
 import { FadeLabel, Symbol } from "@ardia/shell";
-import { Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
+import { resolveFavicon, useFavicons } from "../../lib/favicons";
 import { layout, useTheme } from "../../lib/theme";
 import type { BrowserState } from "../../store/browser";
 import { groupLabel } from "../../store/organize";
@@ -7,10 +8,11 @@ import { tabTitle } from "./actions";
 import { groupEntries } from "./entries";
 import { GROUP_BORDER, GROUP_PAD, keptEntry } from "./geometry";
 import { pointerOnRow } from "./hover";
-import { TabIcon } from "./TabIcon";
+import { FaviconFallback, NewTabIcon } from "../primitives";
+import { SYMBOL_PREFIX, TabIcon } from "./TabIcon";
 import { GROUP_COLORS, useSidebarTokens, withAlpha } from "./tokens";
 
-type TabShot = { kind: "tab"; key: string; title: string; url: string; favicon?: string | null; icon?: string | null; profileId: string; sound: "muted" | "playing" | null; hovered: boolean };
+type TabShot = { kind: "tab"; key: string; title: string; url: string; favicon?: string | null; icon?: string | null; profileId: string; uri: string | null; template: boolean; sound: "muted" | "playing" | null; hovered: boolean };
 type SplitShot = { kind: "split"; key: string; panes: TabShot[] };
 type GroupShot = {
   kind: "group";
@@ -26,7 +28,11 @@ export type EntrySnapshot = TabShot | SplitShot | GroupShot;
 function tabShot(s: BrowserState, tabId: string, hovered: boolean): TabShot | null {
   const tab = s.tabs[tabId];
   if (!tab) return null;
+  const uri = tab.customIcon ? null : (resolveFavicon(tab.url, tab.favicon, tab.profileId)?.uri ?? null);
+  const shape = uri ? useFavicons.getState().themes[uri] : null;
   return {
+    uri,
+    template: shape?.kind === "template" && !!shape.stroke,
     kind: "tab",
     key: `t:${tabId}`,
     title: tabTitle(tab),
@@ -71,6 +77,13 @@ export function ghostEntry(snapshot: EntrySnapshot, theme: ReturnType<typeof use
   return <View style={{ marginTop: top }}>{snapshot.kind === "split" ? <SplitGhost shot={snapshot} /> : <GroupGhost shot={snapshot} />}</View>;
 }
 
+function ghostIcon(shot: TabShot, theme: ReturnType<typeof useTheme>) {
+  if (shot.icon?.startsWith(SYMBOL_PREFIX)) return <Symbol name={shot.icon.slice(SYMBOL_PREFIX.length)} size={13} weight="medium" color={theme.icon} style={{ width: 16, height: 16 }} />;
+  if (shot.icon) return <TabIcon url={shot.url} icon={shot.icon} profileId={shot.profileId} />;
+  if (shot.uri) return <Image source={{ uri: shot.uri }} style={{ width: 16, height: 16, borderRadius: 3, tintColor: shot.template && !theme.dark ? theme.textPrimary : undefined }} />;
+  return shot.url ? <FaviconFallback url={shot.url} /> : <NewTabIcon />;
+}
+
 function tabGhost(shot: TabShot, theme: ReturnType<typeof useTheme>, top = 0) {
   return (
     <View
@@ -86,7 +99,7 @@ function tabGhost(shot: TabShot, theme: ReturnType<typeof useTheme>, top = 0) {
         backgroundColor: shot.hovered ? theme.tabHover : undefined,
       }}
     >
-      <TabIcon url={shot.url} favicon={shot.favicon} icon={shot.icon} profileId={shot.profileId} />
+      {ghostIcon(shot, theme)}
       {shot.sound ? <Symbol name={shot.sound === "muted" ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16, marginLeft: 6 }} /> : null}
       <FadeLabel text={shot.title} fontSize={13} color={theme.textTab} style={{ flex: 1, height: 18, marginLeft: 5 }} />
       {shot.hovered ? <Symbol name="xmark" size={10} weight="semibold" color={theme.icon} style={{ width: 22, height: 22 }} /> : null}
