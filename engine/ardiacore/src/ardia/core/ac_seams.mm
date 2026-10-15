@@ -33,8 +33,9 @@ extern bool (*g_ardia_extension_install_prompt)(
     const extensions::InstallPromptData& prompt,
     extensions::ExtensionInstallPromptClient::DoneCallback* done_callback);
 extern bool (*g_ardia_device_chooser)(
-    content::RenderFrameHost* owner,
+    content::WebContents* contents,
     std::unique_ptr<permissions::ChooserController>* controller,
+    base::ScopedClosureRunner* fullscreen_blocker,
     base::OnceClosure* close_closure);
 extern bool (*g_ardia_wants_cast_dialog)(content::WebContents* initiator);
 extern bool (*g_ardia_cast_dialog)(content::WebContents* initiator,
