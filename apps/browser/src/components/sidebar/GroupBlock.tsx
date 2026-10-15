@@ -1,5 +1,5 @@
 import { ContextMenuArea, FadeLabel, Surface, Symbol } from "@ardia/shell";
-import { memo } from "react";
+import { memo, useContext } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { hex, layout, useTheme } from "../../lib/theme";
@@ -11,11 +11,12 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { commitRename, endRename, startRename } from "./actions";
 import { useDragItem, useDropInto } from "./dnd";
-import { EntryShift } from "./entryMotion";
+import { EntryMotionContext, EntryShift } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
 import { GROUP_BORDER, GROUP_PAD, keptEntry } from "./geometry";
 import { useGroupEntries } from "./entries";
 import { dismissHover, useRowHover } from "./hover";
+import { BoxExtension, GhostSlot, ListMotionEnabled, useGroupMotion } from "./listMotion";
 import { openGroupMenu } from "./menus";
 import { registerRow, useSidebarUi } from "./state";
 import { TabIcon } from "./TabIcon";
@@ -41,6 +42,7 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
 
   const fold = useFold(collapsed);
+  const motion = useGroupMotion(windowId, profileId, groupId, entries, useContext(ListMotionEnabled) && !collapsed);
 
   const spec = color ? GROUP_COLORS[color] : null;
   const fill = spec ? withAlpha(spec.hex, 0.16) : tokens.groupFill;
@@ -48,7 +50,7 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
 
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style}>
-      <EntryShift topLevel={section === "list"}>
+      <EntryShift>
         <View style={{ borderRadius: 12, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }}>
           <View ref={headerRef} {...handle}>
             <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
@@ -56,7 +58,18 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
           <Fold
             fold={fold}
             collapsed={collapsed}
-            entries={entries.map((entry) => ({ key: entry, node: <Entry entry={entry} section={section} groupId={groupId} /> }))}
+            entries={motion.slots(entries).map((slot) =>
+              "ghost" in slot
+                ? { key: `ghost:${slot.ghost.id}`, ghost: true, node: <GhostSlot ghost={slot.ghost} top={slot.top} /> }
+                : {
+                    key: slot.entry,
+                    node: (
+                      <EntryMotionContext.Provider value={motion.motion(slot.entry)}>
+                        <Entry entry={slot.entry} section={section} groupId={groupId} />
+                      </EntryMotionContext.Provider>
+                    ),
+                  },
+            )}
             keep={activeEntry}
             gap={layout.rowGap}
             rowHeight={layout.rowHeight}
@@ -64,6 +77,7 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section }: { group
             mountClosed={selectedInside}
             footer={<Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />}
           />
+          <BoxExtension extra={motion.tail} />
         </View>
       </EntryShift>
     </Animated.View>

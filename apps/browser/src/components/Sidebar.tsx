@@ -24,7 +24,7 @@ import { sidebarEntries, useSidebarEntries } from "./sidebar/entries";
 import { GroupBlock } from "./sidebar/GroupBlock";
 import { dismissHover } from "./sidebar/hover";
 import { LiveFolders } from "./sidebar/LiveFolderBlock";
-import { GhostSlot, TailShift, useListMotion } from "./sidebar/listMotion";
+import { GhostSlot, ListMotionEnabled, TailShift, useListMotion } from "./sidebar/listMotion";
 import { openOverflowMenu, openSidebarMenu } from "./sidebar/menus";
 import { PinFieldZone, PinnedGrid, PinSlotZone } from "./sidebar/PinnedGrid";
 import { ResizeHandle } from "./sidebar/ResizeHandle";
@@ -294,7 +294,8 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   const list = limit === undefined ? all : all.slice(0, limit);
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
-  const motion = useListMotion(windowId, profileId, all, current && !offScreen);
+  const animated = current && !offScreen;
+  const motion = useListMotion(windowId, profileId, all, animated);
   if (geometry) geometry.current.newTabAtTop = newTabsAtTop && inlineNewTab;
   const measured = useRef(0);
   useEffect(() => {
@@ -302,49 +303,51 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   }, [current]);
 
   return (
-    <View
-      onLayout={(e) => {
-        measured.current = e.nativeEvent.layout.height + glowRoom - (inlineNewTab ? ROW_PITCH : 0);
-        if (current) onListHeight(measured.current);
-      }}
-    >
-      <PinnedGrid tabs={offScreen ? NONE : tiles} innerWidth={innerWidth} />
+    <ListMotionEnabled.Provider value={animated}>
       <View
-        ref={(v) => {
-          controller?.regions.set("pinnedGroups", v);
+        onLayout={(e) => {
+          measured.current = e.nativeEvent.layout.height + glowRoom - (inlineNewTab ? ROW_PITCH : 0);
+          if (current) onListHeight(measured.current);
         }}
-        onLayout={geometry ? (e) => void (geometry.current.regions.pinnedGroups = e.nativeEvent.layout.y) : undefined}
-        style={{ marginTop: tiles.length ? 6 : topGap, gap: layout.rowGap }}
       >
-        {(offScreen ? NONE : pinnedGroups).map((id) => (
-          <GroupBlock key={id} groupId={id} section="pinnedGroups" />
-        ))}
-        <Tail id="tail:pinnedGroups" section="pinnedGroups" />
+        <PinnedGrid tabs={offScreen ? NONE : tiles} innerWidth={innerWidth} />
+        <View
+          ref={(v) => {
+            controller?.regions.set("pinnedGroups", v);
+          }}
+          onLayout={geometry ? (e) => void (geometry.current.regions.pinnedGroups = e.nativeEvent.layout.y) : undefined}
+          style={{ marginTop: tiles.length ? 6 : topGap, gap: layout.rowGap }}
+        >
+          {(offScreen ? NONE : pinnedGroups).map((id) => (
+            <GroupBlock key={id} groupId={id} section="pinnedGroups" />
+          ))}
+          <Tail id="tail:pinnedGroups" section="pinnedGroups" />
+        </View>
+        {offScreen ? null : <LiveFolders windowId={windowId} spaced={pinnedGroups.length > 0} />}
+        <View
+          ref={(v) => {
+            controller?.regions.set("list", v);
+          }}
+          onLayout={geometry ? (e) => void (geometry.current.regions.list = e.nativeEvent.layout.y) : undefined}
+          style={{ marginTop: pinnedGroups.length ? 7 : 0, gap: layout.rowGap }}
+        >
+          {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
+          {motion.slots(list).map((slot) =>
+            "ghost" in slot ? (
+              <GhostSlot key={`ghost:${slot.ghost.id}`} ghost={slot.ghost} top={slot.top} />
+            ) : (
+              <EntryMotionContext.Provider key={slot.entry} value={motion.motion(slot.entry)}>
+                <ListEntry entry={slot.entry} />
+              </EntryMotionContext.Provider>
+            ),
+          )}
+          {pending ? <View style={{ height: pending }} /> : null}
+          <Tail id="tail:list" section="list" />
+          {!newTabsAtTop && inlineNewTab ? <ShiftedNewTabRow windowId={windowId} shift={motion.tail} clipped={motion.tailClipped} /> : null}
+        </View>
+        {current ? <ShiftedCleanUpUpsell windowId={windowId} shift={motion.tail} /> : null}
       </View>
-      {offScreen ? null : <LiveFolders windowId={windowId} spaced={pinnedGroups.length > 0} />}
-      <View
-        ref={(v) => {
-          controller?.regions.set("list", v);
-        }}
-        onLayout={geometry ? (e) => void (geometry.current.regions.list = e.nativeEvent.layout.y) : undefined}
-        style={{ marginTop: pinnedGroups.length ? 7 : 0, gap: layout.rowGap }}
-      >
-        {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
-        {motion.slots(list).map((slot) =>
-          "ghost" in slot ? (
-            <GhostSlot key={`ghost:${slot.ghost.id}`} ghost={slot.ghost} top={slot.top} />
-          ) : (
-            <EntryMotionContext.Provider key={slot.entry} value={motion.motion(slot.entry)}>
-              <ListEntry entry={slot.entry} />
-            </EntryMotionContext.Provider>
-          ),
-        )}
-        {pending ? <View style={{ height: pending }} /> : null}
-        <Tail id="tail:list" section="list" />
-        {!newTabsAtTop && inlineNewTab ? <ShiftedNewTabRow windowId={windowId} shift={motion.tail} clipped={motion.tailClipped} /> : null}
-      </View>
-      {current ? <ShiftedCleanUpUpsell windowId={windowId} shift={motion.tail} /> : null}
-    </View>
+    </ListMotionEnabled.Provider>
   );
 }
 

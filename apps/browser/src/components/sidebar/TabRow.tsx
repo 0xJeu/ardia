@@ -40,7 +40,7 @@ export const TabRowItem = memo(function TabRowItem({
   const onto = useDropOnto(`t:${tabId}`);
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <EntryShift topLevel={!parentGroup}>
+      <EntryShift>
         <TabRow tabId={tabId} onto={onto} />
       </EntryShift>
     </Animated.View>
@@ -196,7 +196,7 @@ export const SplitRowItem = memo(function SplitRowItem({
   if (tabIds.length < 2) return null;
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
-      <EntryShift topLevel={!parentGroup}>
+      <EntryShift>
         <View ref={(v) => registerRow(windowId, `s:${splitId}`, v)} {...hoverProps}>
           <Surface
             fill={hex(active ? theme.tabSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)")}

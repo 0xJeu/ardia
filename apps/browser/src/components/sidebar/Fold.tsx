@@ -28,7 +28,7 @@ export function useFold(collapsed: boolean): FoldState {
   return { open, moving: running || settled !== collapsed };
 }
 
-export type FoldEntry = { key: string; node: ReactNode };
+export type FoldEntry = { key: string; node: ReactNode; ghost?: boolean };
 
 export function Fold({
   fold,
@@ -62,7 +62,8 @@ export function Fold({
   const state = useRef({ moving, folding, kept });
   state.current = { moving, folding, kept };
   const heightOf = (key: string) => rowHeight ?? measured[key] ?? 0;
-  const total = entries.reduce((sum, e) => sum + heightOf(e.key), 0) + gap * Math.max(0, entries.length - 1) + padTop + padBottom;
+  const rows = entries.filter((e) => !e.ghost);
+  const total = rows.reduce((sum, e) => sum + heightOf(e.key), 0) + gap * Math.max(0, rows.length - 1) + padTop + padBottom;
   const foldingStyle = (height: number) => {
     let style = styles.get(height);
     if (!style) {

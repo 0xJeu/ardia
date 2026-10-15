@@ -138,6 +138,7 @@ type AppModule = {
   devRenderIntroMusic(cues: IntroMusicCues, path: string): Promise<number | null>;
   devRunAppleScript(source: string): Promise<{ ok: boolean; result?: unknown; error?: string; number?: number }>;
   devSnapshotWindow(windowId: string, path: string, transparent?: boolean): Promise<boolean>;
+  devSetPointer(windowId: string, x: number, y: number, on: boolean): Promise<boolean>;
   devMenuCommand(command: string, arg: string | null): Promise<void>;
   devTypeKeys(windowId: string, text: string, interval: number): Promise<KeyTiming[]>;
   devKeyEquivalent(windowId: string, press: KeyPress): Promise<KeyPressResult>;
@@ -206,6 +207,7 @@ export const launchEnvironment = (name: string) => App.launchEnvironment(name);
 export const devRunAppleScript = (source: string) => App.devRunAppleScript(source);
 export const devSnapshotWindow = (windowId: string, path: string, transparent = false) =>
   transparent ? App.devSnapshotWindow(windowId, path, true) : App.devSnapshotWindow(windowId, path);
+export const devSetPointer = (windowId: string, point: { x: number; y: number } | null) => App.devSetPointer(windowId, point?.x ?? 0, point?.y ?? 0, !!point);
 export type KeyTiming = { due: number; handled: number; drawn: number };
 export const devTypeKeys = (windowId: string, text: string, interval: number) => App.devTypeKeys(windowId, text, interval);
 export type KeyPress = {

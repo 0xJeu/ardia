@@ -486,7 +486,7 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
 
   const source = useStore(marks, (m) => m.sources.has(key));
   const landing = useStore(marks, (m) => m.landing === key);
-  const layering = useEntryLayering(!spec.parentGroup && spec.kind !== "tail" && spec.section === "list");
+  const layering = useEntryLayering(spec.kind !== "tail" && spec.kind !== "tile");
   const horizontal = spec.kind === "tile";
   const tailOffset = useMemo(() => item && Animated.add(item.gap, -ROW_GAP), [item]);
   const style = item

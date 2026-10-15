@@ -237,6 +237,24 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
+    AsyncFunction("devSetPointer") { (windowId: String, x: Double, y: Double, on: Bool) -> Bool in
+      #if DEBUG
+      let select = NSSelectorFromString("ardia_setPointerOverride:")
+      guard let view = NSClassFromString("RCTView"), (view as AnyObject).responds(to: select) else { return false }
+      guard on else {
+        _ = (view as AnyObject).perform(select, with: nil)
+        return true
+      }
+      guard let window = WindowManager.shared.windows[windowId], let content = window.contentView else { return false }
+      let local = NSPoint(x: x, y: content.isFlipped ? y : content.bounds.height - y)
+      let screen = window.convertPoint(toScreen: content.convert(local, to: nil))
+      _ = (view as AnyObject).perform(select, with: NSValue(point: screen))
+      return true
+      #else
+      return false
+      #endif
+    }.runOnQueue(.main)
+
     AsyncFunction("devTypeKeys") { (windowId: String, text: String, interval: Double, promise: Promise) in
       #if DEBUG
       let toKeyWindow = windowId == "key"

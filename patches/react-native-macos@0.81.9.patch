@@ -1,5 +1,5 @@
 diff --git a/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-index cac171e70c9fa225cdec45b205086342a0d50f06..3e63c9761e540e6450448b5241fe55b9980e64dc 100644
+index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8178fcb41 100644
 --- a/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 +++ b/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 @@ -47,6 +47,10 @@ @implementation RCTBaseTextInputView {
@@ -86,7 +86,7 @@ index cac171e70c9fa225cdec45b205086342a0d50f06..3e63c9761e540e6450448b5241fe55b9
  
  - (void)reactBlur
 diff --git a/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm b/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm
-index 6f332dc..5dd8e99 100644
+index 6f332dc1701cada0aff0e9a2678fa7bdcea0ef85..462853ec8b76f004cd5b9e92291473bc673a7ed1 100644
 --- a/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm
 +++ b/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm
 @@ -14,6 +14,11 @@
@@ -102,19 +102,19 @@ index 6f332dc..5dd8e99 100644
  
  @property (nonatomic, assign) UIEdgeInsets textContainerInset;
 @@ -71,13 +76,53 @@ - (NSText *)setUpFieldEditorAttributes:(NSText *)textObj
-
+ 
  #pragma mark - RCTUISecureTextField
-
+ 
 -@implementation RCTUISecureTextField
 +@implementation RCTUISecureTextField {
 +  BOOL _showsIndicators;
 +}
-
+ 
  + (Class)cellClass
  {
    return RCTUISecureTextFieldCell.class;
  }
-
+ 
 +// NSSecureTextField answers NO here, which keeps Writing Tools out of its field editor; NSTextField's YES would offer
 +// them on the secret being typed.
 ++ (BOOL)allowsWritingTools
@@ -157,7 +157,7 @@ index 6f332dc..5dd8e99 100644
  
  #endif // TARGET_OS_OSX
 diff --git a/React/Base/macOS/RCTUIKit.m b/React/Base/macOS/RCTUIKit.m
-index a37a1c106a04752c1baeb6dd2170402ce5f34f71..c096a10720e76e449619a026d4b756ec1bb6907b 100644
+index a37a1c106a04752c1baeb6dd2170402ce5f34f71..fbcdcd5f6eae146da455c26771b12d0c01e3735e 100644
 --- a/React/Base/macOS/RCTUIKit.m
 +++ b/React/Base/macOS/RCTUIKit.m
 @@ -284,20 +284,53 @@ - (CATransform3D)transform3D
@@ -234,7 +234,7 @@ index a37a1c106a04752c1baeb6dd2170402ce5f34f71..c096a10720e76e449619a026d4b756ec
  
    if (_respondsToDisplayLayer) {
 diff --git a/React/CoreModules/RCTTiming.mm b/React/CoreModules/RCTTiming.mm
-index 3edcc9670a8ccb5eef44524e78445117d2416ed8..4aa0da5897e9ca7f1b21d374ad88d63be3fd3089 100644
+index 3edcc9670a8ccb5eef44524e78445117d2416ed8..1f7951f616996941706f11b380c12051def474f4 100644
 --- a/React/CoreModules/RCTTiming.mm
 +++ b/React/CoreModules/RCTTiming.mm
 @@ -18,7 +18,9 @@
@@ -434,10 +434,27 @@ index 3edcc9670a8ccb5eef44524e78445117d2416ed8..4aa0da5897e9ca7f1b21d374ad88d63b
    if (sendIdleEvents) {
      [self startTimers];
 diff --git a/React/Views/RCTView.m b/React/Views/RCTView.m
-index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..b93796f 100644
+index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..02258136f98db28c061099c8d0e5b8142be78efd 100644
 --- a/React/Views/RCTView.m
 +++ b/React/Views/RCTView.m
-@@ -143,6 +143,9 @@ @implementation RCTView {
+@@ -136,6 +136,16 @@ - (RCTPlatformView *)react_findClipView // [macOS]
+   return str;
+ }
+ 
++#if TARGET_OS_OSX // [macOS
++// [Ardia: hover follows layout. AppKit sends mouseEntered/mouseExited only when the pointer moves, so a view that
++// lays out under a still pointer (the next sidebar row after a close) stayed unhovered until the pointer moved. Every
++// view with hover handlers is kept here, and after each layout pass one coalesced check compares the pointer with
++// their frames. A dev-only override stands in for the pointer in hidden test instances. Ardia]
++static NSHashTable *ArdiaHoverViews;
++static BOOL ArdiaHoverCheckScheduled;
++static NSValue *ArdiaPointerOverride;
++#endif // macOS]
++
+ @implementation RCTView {
+   RCTUIColor *_backgroundColor; // [macOS]
+   id<RCTEventDispatcherProtocol> _eventDispatcher; // [macOS]
+@@ -143,6 +153,9 @@ @implementation RCTView {
    NSTrackingArea *_trackingArea;
    BOOL _hasMouseOver;
    BOOL _mouseDownCanMoveWindow;
@@ -447,7 +464,7 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..b93796f 100644
  #endif // macOS]
    NSMutableDictionary<NSString *, NSDictionary *> *accessibilityActionsNameMap;
    NSMutableDictionary<NSString *, NSDictionary *> *accessibilityActionsLabelMap;
-@@ -784,17 +787,28 @@ - (void)viewDidMoveToWindow
+@@ -784,17 +797,28 @@ - (void)viewDidMoveToWindow
    // scroll event occurs either due to trackpad/gesture based scrolling or a scrollwheel event
    // both of which would not cause the mouseExited to be invoked.
  
@@ -480,7 +497,36 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..b93796f 100644
  
    [self reactViewDidMoveToWindow]; // [macOS] Github#1412
  
-@@ -1248,17 +1262,8 @@ - (void)displayLayer:(CALayer *)layer
+@@ -951,6 +975,9 @@ - (void)setRemoveClippedSubviews:(BOOL)removeClippedSubviews
+ 
+ - (void)didUpdateReactSubviews
+ {
++#if TARGET_OS_OSX // [macOS
++  [RCTView ardia_scheduleHoverCheck]; // [Ardia: hover follows layout. Ardia]
++#endif // macOS]
+   if (_removeClippedSubviews) {
+     [self updateClippedSubviews];
+   } else {
+@@ -1196,10 +1223,18 @@ - (void)reactSetFrame:(CGRect)frame
+   // be rendered as a stretchable image, we'll need to re-render.
+   // TODO: detect up-front if re-rendering is necessary
+   CGSize oldSize = self.bounds.size;
++#if TARGET_OS_OSX // [macOS
++  CGRect oldFrame = self.frame; // [Ardia: hover follows layout. Ardia]
++#endif // macOS]
+   [super reactSetFrame:frame];
+   if (!CGSizeEqualToSize(self.bounds.size, oldSize)) {
+     [self.layer setNeedsDisplay];
+   }
++#if TARGET_OS_OSX // [macOS
++  if (!CGRectEqualToRect(self.frame, oldFrame)) {
++    [RCTView ardia_scheduleHoverCheck]; // [Ardia: hover follows layout. Ardia]
++  }
++#endif // macOS]
+ }
+ 
+ - (void)displayLayer:(CALayer *)layer
+@@ -1248,17 +1283,8 @@ - (void)displayLayer:(CALayer *)layer
    RCTUIColor *backgroundColor = _backgroundColor;
  #endif // macOS]
  
@@ -500,7 +546,7 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..b93796f 100644
  
    if (useIOSBorderRendering) {
      layer.cornerRadius = cornerRadii.topLeftHorizontal;
-@@ -1514,6 +1519,20 @@ - (BOOL)acceptsFirstResponder
+@@ -1514,6 +1540,20 @@ - (BOOL)acceptsFirstResponder
  	return [self focusable] || [super acceptsFirstResponder];
  }
  
@@ -521,7 +567,7 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..b93796f 100644
  - (void)updateTrackingAreas
  {
    BOOL hasMouseHoverEvent = self.onMouseEnter || self.onMouseLeave;
-@@ -1522,6 +1541,13 @@ - (void)updateTrackingAreas
+@@ -1522,6 +1562,13 @@ - (void)updateTrackingAreas
    if (!wouldRecreateIdenticalTrackingArea) {
      if (_trackingArea) {
        [self removeTrackingArea:_trackingArea];
@@ -535,8 +581,87 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..b93796f 100644
      }
  
      if (hasMouseHoverEvent) {
+@@ -1533,9 +1580,78 @@ - (void)updateTrackingAreas
+     }
+   }
+ 
++  // [Ardia: hover follows layout: the views the check looks at. Ardia]
++  if (hasMouseHoverEvent) {
++    if (ArdiaHoverViews == nil) {
++      ArdiaHoverViews = [NSHashTable weakObjectsHashTable];
++    }
++    [ArdiaHoverViews addObject:self];
++  } else {
++    [ArdiaHoverViews removeObject:self];
++  }
++
+   [super updateTrackingAreas];
+ }
+ 
++// [Ardia: hover follows layout. One check per run loop turn, after the layout that asked for it: the pointer (or the
++// dev override) against the visible frame of each view with hover handlers, in the window that is frontmost under the
++// pointer, as AppKit's tracking areas would see it once the pointer moved. Frames, not layer transforms: hover follows
++// where a view is laid out, where its clicks land, while an animation still slides it there. Ardia]
+++ (void)ardia_scheduleHoverCheck
++{
++  if (ArdiaHoverCheckScheduled || ArdiaHoverViews.count == 0) {
++    return;
++  }
++  ArdiaHoverCheckScheduled = YES;
++  dispatch_async(dispatch_get_main_queue(), ^{
++    ArdiaHoverCheckScheduled = NO;
++    [RCTView ardia_checkHover];
++  });
++}
++
+++ (void)ardia_setPointerOverride:(NSValue *)screenPoint
++{
++  ArdiaPointerOverride = screenPoint;
++  [self ardia_scheduleHoverCheck];
++}
++
+++ (void)ardia_checkHover
++{
++  NSPoint screen = ArdiaPointerOverride != nil ? ArdiaPointerOverride.pointValue : [NSEvent mouseLocation];
++  NSInteger front = ArdiaPointerOverride != nil ? 0 : [NSWindow windowNumberAtPoint:screen belowWindowWithWindowNumber:0];
++  for (RCTView *view in ArdiaHoverViews.allObjects) {
++    NSWindow *window = view.window;
++    if (window == nil) {
++      continue;
++    }
++    BOOL frontmost = ArdiaPointerOverride != nil ? NSPointInRect(screen, window.frame) : window.windowNumber == front;
++    BOOL over = NO;
++    NSPoint inWindow = [window convertPointFromScreen:screen];
++    if (frontmost && !view.isHiddenOrHasHiddenAncestor) {
++      over = NSPointInRect([view convertPoint:inWindow fromView:nil], NSIntersectionRect(view.bounds, view.visibleRect));
++    }
++    [view ardia_setMouseOver:over atWindowPoint:inWindow];
++  }
++}
++
++- (void)ardia_setMouseOver:(BOOL)over atWindowPoint:(NSPoint)inWindow
++{
++  if (over == _hasMouseOver) {
++    return;
++  }
++  _hasMouseOver = over;
++  if (_trackingArea) {
++    [self removeTrackingArea:_trackingArea];
++    NSTrackingAreaOptions options = NSTrackingActiveAlways | NSTrackingMouseEnteredAndExited | (over ? NSTrackingAssumeInside : 0);
++    _trackingArea = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self userInfo:nil];
++    [self addTrackingArea:_trackingArea];
++  }
++  [self sendMouseEventWithBlock:over ? self.onMouseEnter : self.onMouseLeave
++                   locationInfo:[self locationInfoFromDraggingLocation:inWindow]
++                  modifierFlags:0
++                 additionalData:nil];
++}
++
+ - (void)mouseEntered:(NSEvent *)event
+ {
+   _hasMouseOver = YES;
 diff --git a/React/Views/ScrollView/RCTScrollView.m b/React/Views/ScrollView/RCTScrollView.m
-index eb79ff32614392cb16e6eb3dbec6cc5b037fe27a..18b2f96cf65892c3db53b751d2878ecb5b05a71d 100644
+index eb79ff32614392cb16e6eb3dbec6cc5b037fe27a..e0aee0c66030a8e29c279133399f1b0ddcc8ef78 100644
 --- a/React/Views/ScrollView/RCTScrollView.m
 +++ b/React/Views/ScrollView/RCTScrollView.m
 @@ -740,13 +740,23 @@ - (void)viewDidMoveToWindow
@@ -565,7 +690,7 @@ index eb79ff32614392cb16e6eb3dbec6cc5b037fe27a..18b2f96cf65892c3db53b751d2878ecb
      [defaultCenter addObserver:self
                        selector:@selector(scrollViewDocumentViewBoundsDidChange:)
 diff --git a/React/Views/UIView+React.m b/React/Views/UIView+React.m
-index 30c4f1e53e7b94016c8ed1b425587753fc80c2ce..b1c734080b05e4924a2034aae15b3f03bd071f88 100644
+index 30c4f1e53e7b94016c8ed1b425587753fc80c2ce..1090fa65bc64e943dd360b4298ce21364e157894 100644
 --- a/React/Views/UIView+React.m
 +++ b/React/Views/UIView+React.m
 @@ -306,7 +306,15 @@ static void updateTransform(RCTPlatformView *view) // [macOS]

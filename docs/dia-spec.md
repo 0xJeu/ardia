@@ -199,10 +199,12 @@ Regular rows on the 37 pt pitch; the same for "+ New Tab" and ⌘T, and for the 
 - Curves: the slide is Core Animation's default, cubic-bezier(0.25, 0.1, 0.25, 1) over 0.14 s, no overshoot (a
   spring with ω ≈ 40 rad/s and damping ratio 0.9 fits almost as well). The fade is ease-out, cubic-bezier(0, 0, 0.58,
   1) over 0.10 s, opacity 1 → 0.
-- Ardia (`sidebar/listMotion.tsx`): the same, for every top-level list entry (rows, splits, group blocks, the + row);
-  several closes at once fade together. The row just under a new one is clipped at the new row's bottom edge while it
-  slides, which gives Dia's look over our translucent selected fill. Changes inside a group, pins and moves between
-  windows don't animate.
+- Ardia (`sidebar/listMotion.tsx`): the same, for every top-level list entry (rows, splits, group blocks, the + row)
+  and inside an expanded group, whose box grows or shrinks with its rows (a tab added as the group's last row: the box
+  takes its height at once and what is below the group slides instead); several closes at once fade together. The row
+  just under a new one is clipped at the new row's bottom edge while it slides, which gives Dia's look over our
+  translucent selected fill. Hover is checked again after every layout (react-native-macos patch, `RCTView.m`), so it
+  follows the final layout during the slide. Collapsed groups, pins and moves between windows don't animate.
 
 ### Hiding and showing the sidebar (Auto-Hide Tabs, ⌘S; owner recording 2026-10-06, 240 fps)
 
