@@ -45,6 +45,7 @@ export type Settings = {
   extensionSidePanelWidth: number;
 
   showFullUrl: boolean;
+  allowJavaScriptFromAppleEvents: boolean;
   bookmarksBar: "always" | "newTab" | "never";
   hideBookmarksBarImport: boolean;
 
@@ -92,6 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
   batterySaver: true,
   extensionSidePanelWidth: 360,
   showFullUrl: false,
+  allowJavaScriptFromAppleEvents: false,
   bookmarksBar: "never",
   hideBookmarksBarImport: false,
   appearance: "auto",

@@ -35,6 +35,7 @@ export type BrowserCommand =
   | "focusNextPane"
   | "focusPreviousPane"
   | "toggleFullUrl"
+  | "toggleJavaScriptFromAppleEvents"
   | "toggleAddressBar"
   | "cast"
   | "zoomReset"

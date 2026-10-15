@@ -238,6 +238,7 @@ export function menuState(s: BrowserState): MenuState {
 
   const checked = [`setAppearance:${s.settings.appearance}`];
   if (s.settings.showFullUrl) checked.push("toggleFullUrl");
+  if (s.settings.allowJavaScriptFromAppleEvents) checked.push("toggleJavaScriptFromAppleEvents");
   if (s.settings.addressBar === "sidebar") checked.push("toggleAddressBar");
   checked.push(`setBookmarksBar:${s.settings.bookmarksBar}`);
   if ((w?.tabLayout ?? s.settings.tabLayout) === "sidebar") checked.push("toggleTabLayout");

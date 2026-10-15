@@ -279,6 +279,7 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
     }
     case "execute": {
       tabOf(request.tabId);
+      if (!s.settings.allowJavaScriptFromAppleEvents) return { refused: "javaScriptFromAppleEvents" };
       const outcome = await loaded(request.tabId).evaluate<{ value?: string; error?: string }>(executeWrapper(request.code));
       if (!outcome) throw new Error("The page didn't answer.");
       if (outcome.error) throw new Error(outcome.error);

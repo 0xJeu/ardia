@@ -224,7 +224,15 @@ final class ScriptTab: NSObject {
       command.setError("Missing the “javascript” parameter.")
       return nil
     }
-    return ShellScripting.perform(["command": "execute", "tabId": uniqueID, "code": code]) { $0["value"] as? String ?? "" }
+    return ShellScripting.perform(["command": "execute", "tabId": uniqueID, "code": code]) { result in
+      if result["refused"] as? String == "javaScriptFromAppleEvents" {
+        command.scriptErrorNumber = 12
+        command.scriptErrorString =
+          "Executing JavaScript through AppleScript is turned off. To turn it on, from the menu bar, go to View > Developer > Allow JavaScript from Apple Events."
+        return nil
+      }
+      return result["value"] as? String ?? ""
+    }
   }
 }
 
