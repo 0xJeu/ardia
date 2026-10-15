@@ -59,6 +59,7 @@ EngineCallbacks& Callbacks() {
 bool g_browser_started = false;
 
 constexpr const char* kSwitchesThatOpenTheProfile[] = {
+    "allow-insecure-localhost",
     "auto-open-devtools-for-tabs",
     "custom-devtools-frontend",
     "devtools-flags",
@@ -88,6 +89,7 @@ constexpr const char* kSwitchesThatOpenTheProfile[] = {
     "silent-debugger-extension-api",
     "ssl-key-log-file",
     "unsafely-treat-insecure-origin-as-secure",
+    "webtransport-developer-mode",
 };
 
 constexpr const char* kEnvironmentThatOpensTheProfile[] = {
