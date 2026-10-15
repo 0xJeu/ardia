@@ -1,6 +1,14 @@
 --- a/chrome/browser/ui/extensions/extension_side_panel_utils_views.cc
 +++ b/chrome/browser/ui/extensions/extension_side_panel_utils_views.cc
-@@ -15,6 +15,14 @@
+@@ -5,6 +5,7 @@
+ #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+ #include "chrome/browser/ui/extensions/extension_side_panel_utils.h"
++#include "ardia/core/ac_hooks.h"  // nogncheck
+ #include "chrome/browser/ui/side_panel/side_panel_entry.h"
+ #include "chrome/browser/ui/side_panel/side_panel_enums.h"
+ #include "chrome/browser/ui/side_panel/side_panel_registry.h"
+@@ -15,6 +16,14 @@
  #include "content/public/browser/web_contents.h"
  #include "extensions/common/extension_id.h"
  
@@ -15,7 +23,7 @@
  namespace extensions::side_panel_util {
  
  namespace {
-@@ -35,6 +43,12 @@
+@@ -35,6 +44,12 @@
  // Defined in extension_side_panel_utils.h
  void ToggleExtensionSidePanel(BrowserWindowInterface* browser_window,
                                const ExtensionId& extension_id) {
@@ -28,7 +36,7 @@
    auto* organizer_controller =
        organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()
            ? OrganizerPanelStateController::From(browser_window)
-@@ -55,6 +69,12 @@
+@@ -55,6 +70,12 @@
  void OpenGlobalExtensionSidePanel(BrowserWindowInterface& browser_window,
                                    content::WebContents* web_contents,
                                    const ExtensionId& extension_id) {
@@ -41,7 +49,7 @@
    auto* organizer_controller =
        organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()
            ? OrganizerPanelStateController::From(&browser_window)
-@@ -131,6 +151,12 @@
+@@ -131,6 +152,12 @@
  void OpenContextualExtensionSidePanel(BrowserWindowInterface& browser_window,
                                        content::WebContents& web_contents,
                                        const ExtensionId& extension_id) {
@@ -54,7 +62,7 @@
    auto* organizer_controller =
        organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()
            ? OrganizerPanelStateController::From(&browser_window)
-@@ -159,6 +185,12 @@
+@@ -159,6 +186,12 @@
  // Declared in extension_side_panel_utils.h
  void CloseGlobalExtensionSidePanel(BrowserWindowInterface* browser_window,
                                     const ExtensionId& extension_id) {
@@ -67,7 +75,7 @@
    auto* organizer_controller =
        organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()
            ? OrganizerPanelStateController::From(browser_window)
-@@ -201,6 +233,12 @@
+@@ -201,6 +234,12 @@
  void CloseContextualExtensionSidePanel(BrowserWindowInterface* browser_window,
                                         content::WebContents* web_contents,
                                         const ExtensionId& extension_id) {

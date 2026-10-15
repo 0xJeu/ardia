@@ -1,10 +1,17 @@
 --- a/chrome/browser/extensions/extension_install_prompt.cc
 +++ b/chrome/browser/extensions/extension_install_prompt.cc
-@@ -33,6 +33,14 @@
- #include "ui/base/ui_base_types.h"
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/extensions/extension_install_prompt.h"
++#include "ardia/core/ac_hooks.h"  // nogncheck
+ 
+ #include <optional>
+ #include <utility>
+@@ -34,6 +35,14 @@
  #include "ui/gfx/image/image_skia.h"
  #include "ui/gfx/image/image_skia_rep.h"
-+
+ 
 +// Ardia: ArdiaCore (engine/ardiacore) may ask with its own install prompt.
 +bool (*g_ardia_extension_install_prompt)(
 +    Profile* profile,
@@ -12,10 +19,11 @@
 +    const extensions::InstallPromptData& prompt,
 +    extensions::ExtensionInstallPromptClient::DoneCallback* done_callback) =
 +    nullptr;
- 
++
  static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
  
-@@ -289,6 +297,14 @@
+ using extensions::Extension;
+@@ -289,6 +298,14 @@
    if (AutoConfirmPromptIfEnabled())
      return;
  

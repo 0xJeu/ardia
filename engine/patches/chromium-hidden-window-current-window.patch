@@ -1,18 +1,14 @@
 --- a/chrome/browser/extensions/chrome_extension_function_details.cc
 +++ b/chrome/browser/extensions/chrome_extension_function_details.cc
-@@ -27,6 +27,11 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
  
- static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+ #include "chrome/browser/extensions/chrome_extension_function_details.h"
++#include "ardia/core/ac_hooks.h"  // nogncheck
  
-+// Ardia: ArdiaCore (engine/ardiacore); defined in
-+// browser_extension_window_controller.cc.
-+extern bool (*g_ardia_hidden_from_extensions)(
-+    const BrowserWindowInterface* browser);
-+
- namespace extensions {
- 
- ChromeExtensionFunctionDetails::ChromeExtensionFunctionDetails(
-@@ -44,7 +49,13 @@
+ #include "chrome/browser/extensions/browser_extension_window_controller.h"
+ #include "chrome/browser/extensions/window_controller.h"
+@@ -44,7 +45,13 @@
        // Only return the found controller if it's not about to be deleted,
        // otherwise fall through to finding another one.
        if (!window_controller->GetBrowserWindowInterface()
@@ -27,7 +23,7 @@
          return window_controller;
        }
      }
-@@ -60,6 +71,11 @@
+@@ -60,6 +67,11 @@
    WindowController* window_controller = nullptr;
    ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
        [&](BrowserWindowInterface* browser) {

@@ -1,6 +1,12 @@
 --- a/chrome/browser/devtools/devtools_ui_controller.cc
 +++ b/chrome/browser/devtools/devtools_ui_controller.cc
-@@ -8,11 +8,19 @@
+@@ -3,16 +3,25 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/devtools/devtools_ui_controller.h"
++#include "ardia/core/ac_hooks.h"  // nogncheck
+ 
+ #include "base/memory/raw_ptr.h"
  #include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
  #include "chrome/browser/devtools/devtools_window.h"
  #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -20,7 +26,7 @@
  DEFINE_USER_DATA(DevtoolsUIController);
  
  DevtoolsUIController::DevtoolsUIController(
-@@ -43,6 +51,21 @@
+@@ -43,6 +52,21 @@
  bool DevtoolsUIController::UpdateDevtools(
      content::WebContents* web_contents,
      bool update_devtools_web_contents) {

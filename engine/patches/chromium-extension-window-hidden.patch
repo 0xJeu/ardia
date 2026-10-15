@@ -1,18 +1,26 @@
 --- a/chrome/browser/extensions/browser_extension_window_controller.cc
 +++ b/chrome/browser/extensions/browser_extension_window_controller.cc
-@@ -46,6 +46,11 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/extensions/browser_extension_window_controller.h"
++#include "ardia/core/ac_hooks.h"  // nogncheck
+ 
+ #include <optional>
+ #include <string>
+@@ -45,6 +46,11 @@
+ #endif
  
  static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
- 
++
 +// Ardia: ArdiaCore (engine/ardiacore) keeps the windows of its own pages (its
 +// popups, side panels, the content blocker's page) from extensions.
 +bool (*g_ardia_hidden_from_extensions)(
 +    const BrowserWindowInterface* browser) = nullptr;
-+
+ 
  namespace extensions {
  
- namespace {
-@@ -183,6 +188,12 @@
+@@ -183,6 +189,12 @@
      return false;
    }
  

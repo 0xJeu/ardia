@@ -74,7 +74,7 @@
    // first responder for the key NSWindow, NativeWidgetMacNSWindowHost's
 --- a/chrome/browser/ui/browser.cc
 +++ b/chrome/browser/ui/browser.cc
-@@ -619,7 +619,18 @@
+@@ -604,7 +604,18 @@
  }
  
  
@@ -95,14 +95,17 @@
    // the last Browser with ongoing downloads.
 --- a/chrome/browser/ui/unload_controller.cc
 +++ b/chrome/browser/ui/unload_controller.cc
-@@ -576,7 +576,17 @@
-   }
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/unload_controller.h"
++#include "ardia/core/ac_hooks.h"  // nogncheck
+ 
+ #include <algorithm>
+ 
+@@ -577,6 +578,12 @@
  }
  
-+// Ardia: ArdiaCore (engine/ardiacore); defined in browser.cc.
-+extern bool (*g_ardia_keeps_window_without_tabs)(
-+    const BrowserWindowInterface* browser);
-+
  void UnloadController::TabStripEmpty() {
 +  // Ardia: see Browser::TabStripEmpty. The window stays open for new tabs.
 +  if (!is_attempting_to_close_browser_ &&
