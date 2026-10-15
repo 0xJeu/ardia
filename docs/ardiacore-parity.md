@@ -292,7 +292,6 @@ The app closes a tab by unmounting its WebView; ArdiaCore closes it at once with
 | `setZoom`, `getZoomLevels` | done | |
 | `listPasswords`, `unlockPasswords`, `getPassword`, `savePassword`, `updatePassword`, `deletePassword`, `getNeverSavePasswordOrigins`, `allowSavingPasswords`, `exportPasswords`, `getPasswordAutofill`, `setPasswordAutofill` | done | |
 | `getAutofillSettings`, `setAutofillSettings`, `listAddresses`, `saveAddress`, `listCards`, `saveCard`, `deleteAutofillEntry`, `revealCardNumber` | done | |
-| `killTask` | partial | Works; the services run saw it answer `{ok: false}` once for a renderer it had just killed |
 | `resolveExternalApp` | partial | The prompt is proven; opening the app is not (it would launch one) |
 | `releaseProfile` | partial | Destroys a private profile once no window shows it (engine-proven) |
 | `onPermissionDismissed` | partial | Wired; no check dismisses a prompt by navigating yet |
@@ -388,7 +387,8 @@ Plain Chromium code over Chrome's services (`engine/chromium/src/chrome/browser/
 | `ac_downloads_*` (list, cancel, pause, resume, keep, remove; events `downloads.changed`/`removed`) | `onDownload` and the download functions |
 | `ac_site_settings_*`, `ac_site_data_clear` | the site-settings functions, both `clearSiteData`s |
 | `ac_external_apps_allowances`, `_remove` | `getExternalAppAllowances`, `removeExternalAppAllowance` |
-| `ac_tasks_list`, `_kill`, `ac_components_list` | `listTasks`, `killTask`, `components` |
+| `ac_tasks_list`, `ac_components_list` | `listTasks` (memory telemetry, the dev harness), `components` |
+| `ac_task_manager_open`, `ac_battery_saver` | `openTaskManager` / `hideTaskManager` (Chrome's Views Task Manager), `setBatterySaver` (Chrome's battery saver mode pref) |
 | `ac_history_*`, `ac_favicons_*`, `ac_bookmarks_*` | `history.ts`, `favicons.ts`, `bookmarks.ts` (through `engineCall`) |
 | `ac_tab_restore_tag`, `_take`, `_load` | native: the WebView's attach (and close) and `restore:` |
 | `ac_tabs_watch`, `ac_tabs_group` | tab groups in strip transactions |

@@ -1,4 +1,4 @@
-import { listTasks, onSystemState, releaseProfile, systemState, type SystemState, type WebViewHandle } from "@ardia/ardiacore";
+import { listTasks, onSystemState, releaseProfile, setBatterySaver, systemState, type SystemState, type WebViewHandle } from "@ardia/ardiacore";
 import { onAppEvent, onWindowEvent } from "@ardia/shell";
 import { create } from "zustand";
 import { pageOf, usePages } from "../components/layout/pageState";
@@ -9,6 +9,7 @@ import { openSettings } from "../components/settings/windows";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTabId, engineProfile, isIncognitoProfile, wake } from "../store/model";
 import { splitOf } from "../store/splits";
+import { switchOn } from "./killSwitches";
 import { applyHeldReports } from "./nativeEvents";
 import { webviews } from "./webviews";
 
@@ -222,12 +223,23 @@ function releaseUnusedProfiles() {
   }
 }
 
+let chromeSaver = false;
+
+function syncChromeBatterySaver() {
+  const mode = switchOn("chromeBatterySaver") ? (useLifecycle.getState().batterySaver ? "on" : "off") : "default";
+  void setBatterySaver(mode).then(
+    () => void (chromeSaver = mode !== "default"),
+    () => void (chromeSaver = false),
+  );
+}
+
 function updateBatterySaver(announce: boolean) {
   const sys = currentSystem();
   const on = store().settings.batterySaver && !!sys && (sys.onBattery || sys.lowPowerMode);
   if (on === useLifecycle.getState().batterySaver) return;
   useLifecycle.setState({ batterySaver: on });
-  if (!on) thawAll();
+  syncChromeBatterySaver();
+  if (!on && !chromeSaver) thawAll();
   const windowId = store().ui.focusedWindowId;
   if (!announce || !windowId || !store().windows[windowId]) return;
   if (on) {
@@ -353,6 +365,7 @@ export function startTabLifecycle() {
       (state) => {
         system = state;
         updateBatterySaver(false);
+        syncChromeBatterySaver();
         onSystemState(onSystem);
         setTimeout(() => reloadRecentTabs(currentSystem()!), 3000);
       },
@@ -364,7 +377,7 @@ export function startTabLifecycle() {
     void sweep();
   }, SWEEP_MS);
   setInterval(() => {
-    if (useLifecycle.getState().batterySaver) void freezeBusyTabs();
+    if (useLifecycle.getState().batterySaver && !chromeSaver) void freezeBusyTabs();
   }, FREEZE_SWEEP_MS);
 
   if (__DEV__) {
@@ -383,6 +396,7 @@ export function startTabLifecycle() {
         hiddenAt: Object.fromEntries(hiddenAt),
         loadedProfiles: [...loadedProfiles],
         loaded: loadedTabIds(),
+        chromeSaver,
       }),
       keepAliveReason: (id: string) => keepAliveReason(store(), id),
       memory: () =>

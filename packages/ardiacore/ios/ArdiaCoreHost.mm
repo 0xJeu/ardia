@@ -324,7 +324,8 @@ static void StartLaunchTab() {
       "--enable-smooth-scrolling",
       "--disable-stack-profiler",
       "--disable-features=MacAppCodeSignClone",
-      "--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true",
+      "--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
+      "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s",
       "--profile-directory=Default",
   };
   const bool mockKeychain = gScratchDataDir || !IsTeamSigned();

@@ -1,4 +1,4 @@
-import { beginTracing, endTracing, engineInfo, isTracing } from "@ardia/ardiacore";
+import { beginTracing, endTracing, engineInfo, isTracing, openTaskManager } from "@ardia/ardiacore";
 import {
   confirm,
   copyText,
@@ -23,7 +23,6 @@ import {
 import { maybeStartOnboarding, openVideoTour, startOnboarding, startToolTour } from "../components/onboarding";
 import { onboardingCompletedAt, useOnboarding } from "../components/onboarding/state";
 import { trackAppVersion } from "../components/ntp/releaseNotes";
-import { openTaskManager } from "../components/taskManager/window";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTabId, resolveWindowId, viewTabIds, windowTitle } from "../store/model";
 import { focus, openUrls, openWindow, switchProfile, switchToTab } from "./actions";
@@ -76,7 +75,7 @@ function runAppCommand({ command, windowId }: CommandEvent) {
     case "releaseNotes":
       return openReleaseNotesPage(windowId);
     case "taskManager":
-      return openTaskManager();
+      return void openTaskManager().catch(() => {});
   }
 }
 

@@ -304,16 +304,15 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private func openAux(id: String, kind: String, title: String) {
     guard let makeContentView = WindowHost.makeContentView else { return }
     let settings = kind == "settings"
-    let taskManager = kind == "taskManager"
-    let size = settings ? NSSize(width: 820, height: 640) : taskManager ? NSSize(width: 720, height: 460) : NSSize(width: 640, height: 600)
+    let size = settings ? NSSize(width: 820, height: 640) : NSSize(width: 640, height: 600)
     var style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-    if settings || taskManager { style.insert(.resizable) }
+    if settings { style.insert(.resizable) }
     let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: style, backing: .buffered, defer: false)
     window.titlebarAppearsTransparent = true
     window.titleVisibility = .hidden
     window.title = title
     window.isReleasedWhenClosed = false
-    window.minSize = settings ? NSSize(width: 720, height: 480) : taskManager ? NSSize(width: 540, height: 280) : size
+    window.minSize = settings ? NSSize(width: 720, height: 480) : size
     window.tabbingMode = .disallowed
     let controller = NSViewController()
     controller.view = makeContentView(id)

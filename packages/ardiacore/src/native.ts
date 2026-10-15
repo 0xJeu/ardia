@@ -45,7 +45,6 @@ export const Cef = requireNativeModule<{
   setSearchEngineName(name: string): Promise<void>;
   displayMediaSources(): Promise<DisplayMediaSource[]>;
   listTasks(): Promise<EngineTask[]>;
-  killTask(id: number): Promise<boolean>;
   systemState(): Promise<SystemState>;
 
   cancelDownload(id: string): Promise<void>;

@@ -1,0 +1,13 @@
+import { engineCall } from "./engine";
+
+export type BatterySaverMode = "on" | "off" | "default";
+
+export type BatterySaverState = { state: number; active: boolean };
+
+export const openTaskManager = () => engineCall<{ ok: boolean }>("ac_task_manager_open", "");
+
+export const hideTaskManager = () => engineCall<{ ok: boolean }>("ac_task_manager_open", "", { hide: true });
+
+export const setBatterySaver = (mode: BatterySaverMode) => engineCall<BatterySaverState>("ac_battery_saver", "", { mode });
+
+export const batterySaverState = () => engineCall<BatterySaverState>("ac_battery_saver", "");

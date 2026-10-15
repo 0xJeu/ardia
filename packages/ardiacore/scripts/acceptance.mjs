@@ -60,7 +60,7 @@ const usesPageA = [
   "move-tab-closed-while-parked", "move-tab-to-window", "title-bar-close", "last-used-profile",
 ];
 const needs = {
-  ...Object.fromEntries([...usesPageA, "kill-task", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
+  ...Object.fromEntries([...usesPageA, "task-manager", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
   "tab-switch": ["open-url", "target-blank"],
   "tab-keys-from-page": ["open-url", "target-blank"],
   "window-close": ["window-open"],
@@ -1671,19 +1671,21 @@ try {
     }
   });
 
-  await check("kill-task", async () => {
-    const victim = await openTab(`${base}/c?kill`, "Page C", true);
+  await check("task-manager", async () => {
+    const tab = await openTab(`${base}/c?tasks`, "Page C", true);
+    const call = (args) => evalApp(`return globalThis.expo.modules.ArdiaCEF.engineCall("ac_task_manager_open", "", ${JSON.stringify(args)})`).then(JSON.parse);
     try {
-      const browser = Number(await browserOf(victim.id));
+      const browser = Number(await browserOf(tab.id));
       const task = await until("the tab's task", async () => {
         const tasks = await evalApp(`return globalThis.expo.modules.ArdiaCEF.listTasks()`);
         return tasks.find((x) => (x.browserIds ?? []).includes(browser)) ?? null;
       }, 10000);
-      const killed = await evalApp(`return globalThis.expo.modules.ArdiaCEF.killTask(${task.id})`);
-      const crashed = await until("onCrashed", async () => (await eventsOf(victim.id)).find((x) => x.name === "crashed"), 10000);
-      return { task: task.title ?? task.id, killed, crashed: crashed.payload.reason };
+      const opened = await call(null);
+      if (!opened.ok) throw new Error(`ac_task_manager_open: ${JSON.stringify(opened)}`);
+      return { task: task.title ?? task.id, opened: true };
     } finally {
-      await closeTab(victim.id);
+      await call(JSON.stringify({ hide: true })).catch(() => null);
+      await closeTab(tab.id);
     }
   });
 

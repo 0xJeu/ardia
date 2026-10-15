@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -14,10 +15,17 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/performance_manager/public/user_tuning/battery_saver_mode_manager.h"
 #include "chrome/browser/task_manager/providers/task.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
+#include "chrome/browser/task_manager/task_manager_metrics_recorder.h"
 #include "chrome/browser/task_manager/task_manager_observer.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "components/component_updater/component_updater_service.h"
+#include "components/performance_manager/public/user_tuning/prefs.h"
+#include "components/prefs/pref_service.h"
 #include "components/sessions/core/session_id.h"
 #include "components/update_client/crx_update_item.h"
 #include "components/update_client/update_client.h"
@@ -174,21 +182,57 @@ AC_ENGINE_CALL(ac_tasks_list) {
   out.Send(base::DictValue().Set("tasks", std::move(tasks)));
 }
 
-AC_ENGINE_CALL(ac_tasks_kill) {
+AC_ENGINE_CALL(ac_task_manager_open) {
   ardia::Reply out(reply, context);
   std::optional<base::DictValue> args = ardia::ArgsOf(args_json, out);
   if (!args) {
     return;
   }
-  const std::optional<double> id = args->FindDouble("id");
-  if (!id || !std::isfinite(*id)) {
-    return out.Error("id required");
+  if (args->FindBool("hide").value_or(false)) {
+    chrome::HideTaskManager();
+  } else {
+    chrome::OpenTaskManager(
+        GetLastActiveBrowserWindowInterfaceWithAnyProfile(),
+        task_manager::StartAction::kMainMenu);
   }
-  const auto task = static_cast<task_manager::TaskId>(*id);
-  task_manager::TaskManagerInterface* manager = ardia::TheSampler().Use();
-  const bool killable = manager->IsTaskValid(task) &&
-                        manager->IsTaskKillable(task);
-  out.Send(base::DictValue().Set("ok", killable && manager->KillTask(task)));
+  out.Send(base::DictValue().Set("ok", true));
+}
+
+AC_ENGINE_CALL(ac_battery_saver) {
+  ardia::Reply out(reply, context);
+  std::optional<base::DictValue> args = ardia::ArgsOf(args_json, out);
+  if (!args) {
+    return;
+  }
+  PrefService* local_state =
+      g_browser_process ? g_browser_process->local_state() : nullptr;
+  if (!local_state) {
+    return out.Error("no local state");
+  }
+  using performance_manager::user_tuning::prefs::BatterySaverModeState;
+  const char* pref =
+      performance_manager::user_tuning::prefs::kBatterySaverModeState;
+  if (const std::string* mode = args->FindString("mode")) {
+    if (*mode == "on") {
+      local_state->SetInteger(pref,
+                              static_cast<int>(BatterySaverModeState::kEnabled));
+    } else if (*mode == "off") {
+      local_state->SetInteger(
+          pref, static_cast<int>(BatterySaverModeState::kDisabled));
+    } else if (*mode == "default") {
+      local_state->ClearPref(pref);
+    } else {
+      return out.Error("mode is on, off or default");
+    }
+  }
+  auto* manager =
+      performance_manager::user_tuning::BatterySaverModeManager::HasInstance()
+          ? performance_manager::user_tuning::BatterySaverModeManager::
+                GetInstance()
+          : nullptr;
+  out.Send(base::DictValue()
+               .Set("state", local_state->GetInteger(pref))
+               .Set("active", manager && manager->IsBatterySaverActive()));
 }
 
 AC_ENGINE_CALL(ac_components_list) {

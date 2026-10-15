@@ -83,7 +83,6 @@ typedef void (^ArdiaCoreResult)(NSDictionary<NSString *, id> *result);
     NS_SWIFT_NAME(removeExternalAppAllowance(profile:origin:scheme:));
 
 + (void)tasks:(void (^)(NSArray *tasks))completion NS_SWIFT_NAME(tasks(_:));
-+ (void)killTask:(long long)taskId completion:(void (^)(BOOL killed))completion NS_SWIFT_NAME(killTask(_:completion:));
 + (void)components:(void (^)(NSArray *components))completion NS_SWIFT_NAME(components(_:));
 
 + (void)clearBrowsingData:(NSString *)profile types:(NSArray<NSString *> *)types since:(double)sinceMs completion:(void (^)(void))completion

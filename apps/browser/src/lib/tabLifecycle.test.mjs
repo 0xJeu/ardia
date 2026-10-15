@@ -10,7 +10,8 @@ const stubs = {
     export const listTasks = async () => [];
     export const onSystemState = () => ({ remove() {} });
     export const systemState = async () => null;
-    export const releaseProfile = async () => {};`,
+    export const releaseProfile = async () => {};
+    export const setBatterySaver = async () => ({ state: 0, active: false });`,
   "../components/layout/splitActions": "export const showToast = () => {};",
   "../components/settings/windows": "export const openSettings = () => {};",
   "../components/pages": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",

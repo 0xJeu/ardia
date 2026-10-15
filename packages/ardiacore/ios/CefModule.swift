@@ -55,7 +55,6 @@ public class CefModule: Module {
     AsyncFunction("setAutoPictureInPicture") { (enabled: Bool) in ArdiaCoreWebView.setAutoPictureInPictureEnabled(enabled) }.runOnQueue(.main)
     AsyncFunction("displayMediaSources") { ArdiaCoreHost.displayMediaSources }.runOnQueue(.main)
     AsyncFunction("listTasks") { (promise: Promise) in ArdiaCoreServices.tasks { promise.resolve($0) } }.runOnQueue(.main)
-    AsyncFunction("killTask") { (id: Int64, promise: Promise) in ArdiaCoreServices.killTask(id) { promise.resolve($0) } }.runOnQueue(.main)
     AsyncFunction("systemState") { SystemState.shared.snapshot }.runOnQueue(.main)
 
     AsyncFunction("cancelDownload") { (id: String) in ArdiaCoreServices.downloadCommand("cancel", id: id) }.runOnQueue(.main)

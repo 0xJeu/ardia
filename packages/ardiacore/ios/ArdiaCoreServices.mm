@@ -466,12 +466,6 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
   }];
 }
 
-+ (void)killTask:(long long)taskId completion:(void (^)(BOOL))completion {
-  [self call:@"ac_tasks_kill" profile:@"" args:@{@"id" : @(taskId)} completion:^(NSDictionary *result) {
-    completion([result[@"ok"] boolValue]);
-  }];
-}
-
 + (void)components:(void (^)(NSArray *))completion {
   [self call:@"ac_components_list" profile:@"" args:nil completion:^(NSDictionary *result) {
     completion([result[@"components"] isKindOfClass:NSArray.class] ? result[@"components"] : @[]);

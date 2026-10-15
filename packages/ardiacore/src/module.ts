@@ -95,7 +95,6 @@ export const beginTracing = () => Cef.beginTracing();
 export const endTracing = (keep: boolean) => Cef.endTracing(keep);
 export const isTracing = () => Cef.isTracing();
 export const listTasks = () => Cef.listTasks();
-export const killTask = (id: number) => Cef.killTask(id);
 
 export type SystemState = {
   onBattery: boolean;
