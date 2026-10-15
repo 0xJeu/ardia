@@ -255,6 +255,27 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
+    AsyncFunction("devHoverStats") { (reset: Bool) -> [String: Any] in
+      #if DEBUG
+      let select = NSSelectorFromString("ardia_hoverStats:")
+      guard let view = NSClassFromString("RCTView"), (view as AnyObject).responds(to: select) else { return [:] }
+      return ((view as AnyObject).perform(select, with: NSNumber(value: reset))?.takeUnretainedValue() as? [String: Any]) ?? [:]
+      #else
+      return [:]
+      #endif
+    }.runOnQueue(.main)
+
+    AsyncFunction("devSetMouseButtons") { (pressed: Int) -> Bool in
+      #if DEBUG
+      let select = NSSelectorFromString("ardia_setButtonsOverride:")
+      guard let view = NSClassFromString("RCTView"), (view as AnyObject).responds(to: select) else { return false }
+      _ = (view as AnyObject).perform(select, with: pressed < 0 ? nil : NSNumber(value: pressed > 0))
+      return true
+      #else
+      return false
+      #endif
+    }.runOnQueue(.main)
+
     AsyncFunction("devTypeKeys") { (windowId: String, text: String, interval: Double, promise: Promise) in
       #if DEBUG
       let toKeyWindow = windowId == "key"

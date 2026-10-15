@@ -139,6 +139,8 @@ type AppModule = {
   devRunAppleScript(source: string): Promise<{ ok: boolean; result?: unknown; error?: string; number?: number }>;
   devSnapshotWindow(windowId: string, path: string, transparent?: boolean): Promise<boolean>;
   devSetPointer(windowId: string, x: number, y: number, on: boolean): Promise<boolean>;
+  devSetMouseButtons(pressed: number): Promise<boolean>;
+  devHoverStats(reset: boolean): Promise<{ passes?: number; log?: [string, number, number][]; registered?: number }>;
   devMenuCommand(command: string, arg: string | null): Promise<void>;
   devTypeKeys(windowId: string, text: string, interval: number): Promise<KeyTiming[]>;
   devKeyEquivalent(windowId: string, press: KeyPress): Promise<KeyPressResult>;
@@ -208,6 +210,8 @@ export const devRunAppleScript = (source: string) => App.devRunAppleScript(sourc
 export const devSnapshotWindow = (windowId: string, path: string, transparent = false) =>
   transparent ? App.devSnapshotWindow(windowId, path, true) : App.devSnapshotWindow(windowId, path);
 export const devSetPointer = (windowId: string, point: { x: number; y: number } | null) => App.devSetPointer(windowId, point?.x ?? 0, point?.y ?? 0, !!point);
+export const devSetMouseButtons = (pressed: boolean | null) => App.devSetMouseButtons(pressed === null ? -1 : pressed ? 1 : 0);
+export const devHoverStats = (reset = true) => App.devHoverStats(reset);
 export type KeyTiming = { due: number; handled: number; drawn: number };
 export const devTypeKeys = (windowId: string, text: string, interval: number) => App.devTypeKeys(windowId, text, interval);
 export type KeyPress = {

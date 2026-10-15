@@ -11,6 +11,7 @@ let hideTimer: ReturnType<typeof setTimeout> | undefined;
 let suppressed = false;
 let ticket = 0;
 let underPointer: string | null = null;
+let owner: string | null = null;
 
 export const pointerOnRow = (id: string) => underPointer === id;
 
@@ -30,13 +31,16 @@ export function hoverEnter(windowId: string, target: Target) {
   clearTimeout(showTimer);
   clearTimeout(hideTimer);
   const current = sidebarUi().hover;
+  owner = target.id;
   if (current?.id === target.id) return;
   const mine = ++ticket;
   if (current) void show(windowId, target, mine);
   else showTimer = setTimeout(() => void show(windowId, target, mine), SHOW_DELAY_MS);
 }
 
-export function hoverLeave() {
+export function hoverLeave(from?: unknown) {
+  if (typeof from === "string" && from !== owner) return;
+  owner = null;
   ticket++;
   clearTimeout(showTimer);
   clearTimeout(hideTimer);
@@ -46,6 +50,7 @@ export function hoverLeave() {
 export const keepHover = () => clearTimeout(hideTimer);
 
 export function dismissHover() {
+  owner = null;
   ticket++;
   clearTimeout(showTimer);
   clearTimeout(hideTimer);
@@ -73,7 +78,7 @@ export function useRowHover(windowId: string, target: Target | null) {
       onMouseLeave: () => {
         setHovered(false);
         if (underPointer === latest.current.target?.id) underPointer = null;
-        if (latest.current.target && onCurrentPage()) hoverLeave();
+        if (latest.current.target && onCurrentPage()) hoverLeave(latest.current.target.id);
       },
     }),
   );
