@@ -283,6 +283,11 @@ a behaviour decision for later, no longer a build need.
 
 - `enable-extra-locales`: not privacy-related (it broke CEF's string packs).
 - `disable-webstore-urls`: the Web Store and extension updates are needed (user decision).
+- `disable-download-quarantine`: Chrome quarantines every download itself (`com.apple.quarantine`, and
+  `kMDItemWhereFroms` with its source URL) before it reports it complete, and turns a file macOS blocks into a failed
+  download. Ardia used to apply the patch and quarantine finished files afterwards, from `chrome/browser/ardia`.
+- `prefs-always-prompt-for-download-directory-by-defaul`: Chrome's default, save to the Downloads folder without
+  asking, is Ardia's. Ardia used to apply the patch and then write "don't ask" into each profile.
 
 **Skipped:**
 

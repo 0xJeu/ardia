@@ -2593,9 +2593,18 @@ try {
       const list = await evalApp(`return ac.store.getState().downloads.map((d) => ({ id: d.id, state: d.state, filename: d.filename, path: d.path, received: d.received }))`);
       return list.find((x) => x.filename?.includes("ardiacore-test") && x.state === "finished") ?? null;
     }, 20000);
+    const quarantine = (() => { try { return execFileSync("xattr", ["-p", "com.apple.quarantine", d.path]).toString().trim(); } catch { return null; } })();
+    const froms = (() => {
+      try {
+        const hex = execFileSync("xattr", ["-px", "com.apple.metadata:kMDItemWhereFroms", d.path]).toString().replace(/\s+/g, "");
+        return JSON.parse(execFileSync("plutil", ["-convert", "json", "-o", "-", "-"], { input: Buffer.from(hex, "hex") }).toString());
+      } catch { return []; }
+    })();
     await closeDownloads();
     if (!d.path.startsWith(downloadsDir)) throw new Error(`downloaded to ${d.path}, not the scratch dir`);
-    return d;
+    if (!quarantine) throw new Error(`${d.path} has no com.apple.quarantine when it's finished`);
+    if (!froms.includes(`${base}/file.bin`)) throw new Error(`${d.path} doesn't say where it came from: ${JSON.stringify(froms)}`);
+    return { ...d, quarantine, froms };
   });
 
   await check("site-settings", async () => {

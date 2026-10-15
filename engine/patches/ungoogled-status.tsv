@@ -45,7 +45,7 @@ extra/inox-patchset/0016-chromium-sandbox-pie.patch	skipped	Linux-only
 extra/inox-patchset/0019-disable-battery-status-service.patch	applied	exact
 extra/debian/disable/google-api-warning.patch	applied	exact
 extra/iridium-browser/mime_util-force-text-x-suse-ymp-to-be-downloaded.patch	applied	exact
-extra/iridium-browser/prefs-always-prompt-for-download-directory-by-defaul.patch	applied	exact
+extra/iridium-browser/prefs-always-prompt-for-download-directory-by-defaul.patch	reverted	Chrome's default (save to Downloads without asking) is what Ardia wants; it used to write the pref into every profile instead
 extra/iridium-browser/updater-disable-auto-update.patch	applied	exact
 extra/iridium-browser/Remove-EV-certificates.patch	applied	exact
 extra/iridium-browser/browser-disable-profile-auto-import-on-first-run.patch	applied	exact
@@ -57,7 +57,7 @@ extra/ungoogled-chromium/disable-formatting-in-omnibox.patch	applied	exact
 extra/ungoogled-chromium/add-ipv6-probing-option.patch	applied	exact
 extra/ungoogled-chromium/remove-disable-setuid-sandbox-as-bad-flag.patch	skipped	Linux-only
 extra/ungoogled-chromium/disable-intranet-redirect-detector.patch	applied	exact
-extra/ungoogled-chromium/disable-download-quarantine.patch	applied	exact
+extra/ungoogled-chromium/disable-download-quarantine.patch	reverted	Chrome quarantines each download (com.apple.quarantine with its source URL) before it completes, and reports blocked or infected files as interrupted downloads; Ardia used to quarantine finished files itself
 extra/ungoogled-chromium/fix-building-without-mdns-and-service-discovery.patch	reverted	build fix for enable_mdns/enable_service_discovery=false, which this build keeps enabled; breaks dns_sd_registry otherwise
 extra/ungoogled-chromium/add-flag-to-configure-extension-downloading.patch	applied	exact
 extra/ungoogled-chromium/add-flag-for-search-engine-collection.patch	applied	exact

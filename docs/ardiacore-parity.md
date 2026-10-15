@@ -172,7 +172,7 @@ Test hygiene the run keeps (each was a real failure):
 | context-menu-reading-mode | The page menu has no "Open in Reading Mode" or "Listen to this page", and no doubled separator |
 | content-blocker, settings-services | uBlock Origin Lite as a component extension: state, lists, allow-list, on/off, a list toggled (also with a profile deleted just before); clearing browsing data, resetting a site, an external-app allowance, a tab's site data |
 | content-blocker-profile, -held, -private, -restored | No ad request from a profile's first page: a new profile's, one whose blocker loads 1.5 s late (held until its rulesets are in force), a private window's before and after its profile went, a tab restored at launch |
-| download, download-controls, download-navigation | Downloads land in the scratch folder through Chrome's manager and the app's list; pause, resume and cancel a running one; a navigation that became a download |
+| download, download-controls, download-navigation | Downloads land in the scratch folder through Chrome's manager and the app's list, finished only once Chrome has quarantined them (`com.apple.quarantine`, and `kMDItemWhereFroms` naming the URL); pause, resume and cancel a running one; a navigation that became a download |
 | site-settings | Set, get, origins, clear site data |
 | tasks-components, tracing | Chrome's task manager (with tab ids), components, tracing start/stop (also on a fresh instance showing only the New Tab page) |
 | delete-profile-data | A loaded profile deleted through Chrome's profile deletion; its folder goes |

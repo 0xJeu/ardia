@@ -3,9 +3,7 @@
 #ifndef CHROME_BROWSER_ARDIA_AC_DOWNLOADS_H_
 #define CHROME_BROWSER_ARDIA_AC_DOWNLOADS_H_
 
-#include "base/files/file_path.h"
 #include "chrome/browser/ardia/ac_engine.h"
-#include "url/gurl.h"
 
 AC_ENGINE_CALL(ac_downloads_list);
 AC_ENGINE_CALL(ac_downloads_cancel);
@@ -13,13 +11,5 @@ AC_ENGINE_CALL(ac_downloads_pause);
 AC_ENGINE_CALL(ac_downloads_resume);
 AC_ENGINE_CALL(ac_downloads_keep);
 AC_ENGINE_CALL(ac_downloads_remove);
-
-namespace ardia {
-
-void QuarantineDownload(const base::FilePath& file,
-                        const GURL& source,
-                        const GURL& referrer);
-
-}
 
 #endif

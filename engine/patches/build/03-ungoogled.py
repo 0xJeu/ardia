@@ -45,6 +45,11 @@ SKIP = {
         'disables the Web Store and extension update checks (Ardia needs both)',
     'extra/ungoogled-chromium/enable-extra-locales.patch':
         'not privacy-related; kept out as in the CEF-era build (it broke CEF\'s strings); revisit',
+    'extra/ungoogled-chromium/disable-download-quarantine.patch':
+        'Chrome quarantines each download (com.apple.quarantine with its source) before it is complete '
+        'and reports blocked or infected files as interrupted downloads',
+    'extra/iridium-browser/prefs-always-prompt-for-download-directory-by-defaul.patch':
+        'Ardia saves downloads to the Downloads folder without asking, as Chrome does by default',
 }
 PARTIAL_EXCLUDE = {
     # Its webstore_installer.cc hunks stub out Web Store installs; Ardia
@@ -133,7 +138,8 @@ if not dry:
             assert s.count(old) == 1, f'fixup anchor missing in {rel}'
             f.write_text(s.replace(old, new, 1))
 
-REPORT.write_text('patch\tstatus\tdetail\n' + ''.join('\t'.join(r) + '\n' for r in rows))
+if not dry:
+    REPORT.write_text('patch\tstatus\tdetail\n' + ''.join('\t'.join(r) + '\n' for r in rows))
 for r in rows:
     if r[1] != 'applied':
         print('%-8s %s  %s' % (r[1], r[0], r[2]))

@@ -11,15 +11,15 @@
 #include <utility>
 #include <vector>
 
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/json/values_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/task/sequenced_task_runner.h"
-#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/download/download_crx_util.h"
-#include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/common/pref_names.h"
@@ -67,6 +67,16 @@ bool IsOffTheRecord(DownloadItem* item) {
   content::BrowserContext* context =
       content::DownloadItemUtils::GetBrowserContext(item);
   return context && context->IsOffTheRecord();
+}
+
+void UseTestDownloadsDir(Profile* profile) {
+  const char* dir = getenv("ARDIA_DOWNLOADS_DIR");
+  if (!dir || !*dir) {
+    return;
+  }
+  profile->GetPrefs()->SetDefaultPrefValue(
+      prefs::kDownloadDefaultDirectory,
+      base::FilePathToValue(base::FilePath(dir)));
 }
 
 base::DictValue Describe(DownloadItem* item) {
@@ -127,16 +137,6 @@ class Watch : public download::AllDownloadItemNotifier::Observer,
 class DownloadsState : public ProfileState {
  public:
   explicit DownloadsState(Profile* profile) : ProfileState(profile) {
-    PrefService* prefs = profile->GetPrefs();
-    if (const PrefService::Preference* prompt =
-            prefs->FindPreference(prefs::kPromptForDownload);
-        prompt && prompt->IsDefaultValue() && prompt->IsUserModifiable()) {
-      prefs->SetBoolean(prefs::kPromptForDownload, false);
-    }
-    if (const char* dir = getenv("ARDIA_DOWNLOADS_DIR"); dir && *dir) {
-      DownloadPrefs::FromBrowserContext(profile)->SetDownloadPath(
-          base::FilePath(dir));
-    }
     watches_.push_back(std::make_unique<Watch>(this, profile));
     for (Profile* off_the_record : profile->GetAllOffTheRecordProfiles()) {
       OnOffTheRecordProfileCreated(off_the_record);
@@ -195,27 +195,6 @@ class DownloadsState : public ProfileState {
     if (!entry.live) {
       return;
     }
-    if (state == DownloadItem::COMPLETE && !entry.quarantined) {
-      if (!entry.quarantining) {
-        entry.quarantining = true;
-        const bool off_the_record = IsOffTheRecord(item);
-        const GURL& tab = item->GetTabUrl();
-        base::ThreadPool::PostTaskAndReply(
-            FROM_HERE,
-            {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-             base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-            base::BindOnce(&QuarantineDownload, item->GetTargetFilePath(),
-                           off_the_record ? GURL() : item->GetURL(),
-                           off_the_record
-                               ? GURL()
-                               : (item->GetReferrerUrl().is_valid()
-                                      ? item->GetReferrerUrl()
-                                      : tab)),
-            base::BindOnce(&DownloadsState::Quarantined,
-                           weak_factory_.GetWeakPtr(), item->GetGuid()));
-      }
-      return;
-    }
     const base::TimeTicks now = base::TimeTicks::Now();
     const bool dangerous = item->IsDangerous() || item->IsInsecure();
     if (state == DownloadItem::IN_PROGRESS && entry.emitted &&
@@ -263,8 +242,6 @@ class DownloadsState : public ProfileState {
     bool emitted = false;
     bool paused = false;
     bool dangerous = false;
-    bool quarantining = false;
-    bool quarantined = false;
     base::TimeTicks last_emit;
   };
 
@@ -296,17 +273,6 @@ class DownloadsState : public ProfileState {
             weak_factory_.GetWeakPtr(), topic, std::move(payload)));
   }
 
-  void Quarantined(const std::string& id) {
-    auto it = entries_.find(id);
-    if (it == entries_.end()) {
-      return;
-    }
-    it->second.quarantined = true;
-    if (DownloadItem* item = Find(id)) {
-      Changed(item);
-    }
-  }
-
   std::vector<std::unique_ptr<Watch>> watches_;
   std::map<std::string, Entry> entries_;
   base::WeakPtrFactory<DownloadsState> weak_factory_{this};
@@ -316,12 +282,9 @@ Watch::Watch(DownloadsState* owner, Profile* profile)
     : owner_(owner),
       profile_(profile),
       notifier_(profile->GetDownloadManager(), this) {
+  UseTestDownloadsDir(profile);
   if (profile->IsOffTheRecord()) {
     observation_.Observe(profile);
-    profile->GetPrefs()->SetBoolean(
-        prefs::kPromptForDownload,
-        profile->GetOriginalProfile()->GetPrefs()->GetBoolean(
-            prefs::kPromptForDownload));
   }
 }
 
