@@ -165,13 +165,14 @@ function SidebarDock({
     [width],
   );
 
-  const leaveStrip = (e: { nativeEvent: { clientX: number } }) => {
-    if (peek.live && e.nativeEvent.clientX < STRIP_WIDTH) peek.hide();
+  const leaveStrip = (e: { nativeEvent: { clientX: number; clientY: number } }) => {
+    const intoPanel = e.nativeEvent.clientX >= STRIP_WIDTH && e.nativeEvent.clientY >= PEEK_ORIGIN[1];
+    if (peek.live && !intoPanel) peek.hide();
   };
   const leavePanel = (e: { nativeEvent: { clientX: number; clientY: number } }) => {
     const x = e.nativeEvent.clientX + PEEK_ORIGIN[0];
     const y = e.nativeEvent.clientY + PEEK_ORIGIN[1];
-    if (!(x >= 0 && x < STRIP_WIDTH && y >= layout.sidebarHeader)) peek.hide();
+    if (!(x >= 0 && x < STRIP_WIDTH && y >= 0)) peek.hide();
   };
 
   const strip = useRef(false);
@@ -198,7 +199,7 @@ function SidebarDock({
           style={{
             position: "absolute",
             left: 0,
-            top: layout.sidebarHeader,
+            top: 0,
             bottom: layout.cardInset,
             width: !open && !fullscreen ? STRIP_WIDTH : 0,
           }}
