@@ -407,7 +407,11 @@ AC_ENGINE_CALL(ac_passwords_add) {
   AC_PASSWORDS_OPEN_WITH(nullptr);
   AC_PASSWORDS_SENSITIVE_ARGS(args);
   const std::string origin = args.String("origin");
-  ardia::Secret password = args.SecretAt("password");
+  std::optional<ardia::Secret> secret = args.SecretAt("password");
+  if (!secret) {
+    return call.TakeReply().Error("bad arguments");
+  }
+  ardia::Secret password = std::move(*secret);
   if (origin.empty() || password.value().empty()) {
     return call.TakeReply().Error("origin and password required");
   }
@@ -434,6 +438,10 @@ AC_ENGINE_CALL(ac_passwords_add) {
 AC_ENGINE_CALL(ac_passwords_update) {
   AC_PASSWORDS_OPEN_WITH(nullptr);
   AC_PASSWORDS_SENSITIVE_ARGS(args);
+  std::optional<ardia::Secret> new_password = args.SecretAt("newPassword");
+  if (!new_password) {
+    return call.TakeReply().Error("bad arguments");
+  }
   ardia::WithList(
       std::move(*session), call.TakeReply(),
       base::BindOnce(
@@ -483,7 +491,7 @@ AC_ENGINE_CALL(ac_passwords_update) {
           args.dict()->FindString("newUsername")
               ? std::optional<std::string>(args.String("newUsername"))
               : std::nullopt,
-          args.SecretAt("newPassword")));
+          std::move(*new_password)));
 }
 
 AC_ENGINE_CALL(ac_passwords_remove) {

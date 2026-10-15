@@ -45,7 +45,7 @@ class SensitiveArgs {
   bool too_large() const { return too_large_; }
   base::DictValue* dict();
   std::string String(std::string_view key);
-  Secret SecretAt(std::string_view key);
+  std::optional<Secret> SecretAt(std::string_view key);
 
  private:
   std::optional<base::Value> value_;

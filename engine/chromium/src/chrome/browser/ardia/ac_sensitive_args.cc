@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "base/json/json_reader.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "third_party/boringssl/src/include/openssl/mem.h"
 
 namespace ardia {
@@ -103,8 +105,28 @@ std::string SensitiveArgs::String(std::string_view key) {
   return value ? *value : std::string();
 }
 
-Secret SensitiveArgs::SecretAt(std::string_view key) {
-  return Secret(dict() ? dict()->FindString(key) : nullptr);
+std::optional<Secret> SensitiveArgs::SecretAt(std::string_view key) {
+  if (!dict()) {
+    return Secret();
+  }
+  const std::string* hex = dict()->FindString(base::StrCat({key, "Hex"}));
+  if (!hex) {
+    return Secret(dict()->FindString(key));
+  }
+  if (hex->size() % 2) {
+    return std::nullopt;
+  }
+  std::string bytes(hex->size() / 2, '\0');
+  for (size_t i = 0; i < bytes.size(); ++i) {
+    const char high = (*hex)[2 * i], low = (*hex)[2 * i + 1];
+    if (!base::IsHexDigit(high) || !base::IsHexDigit(low)) {
+      Cleanse(bytes);
+      return std::nullopt;
+    }
+    bytes[i] = static_cast<char>(base::HexDigitToInt(high) * 16 +
+                                 base::HexDigitToInt(low));
+  }
+  return Secret(std::move(bytes));
 }
 
 }

@@ -532,6 +532,10 @@ AC_ENGINE_CALL(ac_autofill_save_card) {
   if (!card) {
     return call.TakeReply().Error("card required");
   }
+  std::optional<ardia::Secret> number = args.SecretAt("number");
+  if (!number) {
+    return call.TakeReply().Error("bad arguments");
+  }
   ardia::Load(
       call,
       base::BindOnce(
@@ -602,7 +606,7 @@ AC_ENGINE_CALL(ac_autofill_save_card) {
                     credit_card),
                 base::DictValue().Set("id", guid), std::move(reply));
           },
-          call.profile(), card->Clone(), args.SecretAt("number")),
+          call.profile(), card->Clone(), std::move(*number)),
       call.TakeReply());
 }
 

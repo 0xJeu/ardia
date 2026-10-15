@@ -28,11 +28,7 @@ void Wipe(NSMutableData *data) {
   for (NSUInteger i = 0; i < data.length; i++) bytes[i] = 0;
 }
 
-NSUInteger EscapedCapacity(NSString *text) {
-  return [text maximumLengthOfBytesUsingEncoding:NSUTF8StringEncoding] * 6;
-}
-
-char *AppendEscaped(char *out, NSString *text) {
+char *AppendHex(char *out, NSString *text) {
   const NSUInteger capacity = [text maximumLengthOfBytesUsingEncoding:NSUTF8StringEncoding];
   NSMutableData *raw = [NSMutableData dataWithLength:capacity];
   NSUInteger used = 0;
@@ -41,20 +37,8 @@ char *AppendEscaped(char *out, NSString *text) {
   const unsigned char *bytes = (const unsigned char *)raw.bytes;
   static const char hex[] = "0123456789abcdef";
   for (NSUInteger i = 0; i < used; i++) {
-    const unsigned char c = bytes[i];
-    if (c == '"' || c == '\\') {
-      *out++ = '\\';
-      *out++ = (char)c;
-    } else if (c < 0x20) {
-      *out++ = '\\';
-      *out++ = 'u';
-      *out++ = '0';
-      *out++ = '0';
-      *out++ = hex[c >> 4];
-      *out++ = hex[c & 15];
-    } else {
-      *out++ = (char)c;
-    }
+    *out++ = hex[bytes[i] >> 4];
+    *out++ = hex[bytes[i] & 15];
   }
   Wipe(raw);
   return out;
@@ -64,7 +48,8 @@ NSMutableData *WithSecrets(NSDictionary *plain, NSDictionary<NSString *, NSStrin
   NSData *open = plain.count ? [NSJSONSerialization dataWithJSONObject:plain options:0 error:nil] : [NSData dataWithBytes:"{}" length:2];
   if (open.length < 2) return [NSMutableData data];
   NSUInteger capacity = open.length + 1;
-  for (NSString *key in secrets) capacity += EscapedCapacity(key) + EscapedCapacity(secrets[key]) + 6;
+  for (NSString *key in secrets)
+    capacity += key.length + 3 + 2 * [secrets[key] maximumLengthOfBytesUsingEncoding:NSUTF8StringEncoding] + 6;
   NSMutableData *data = [NSMutableData dataWithLength:capacity];
   char *start = (char *)data.mutableBytes;
   char *out = start;
@@ -74,12 +59,10 @@ NSMutableData *WithSecrets(NSDictionary *plain, NSDictionary<NSString *, NSStrin
   for (NSString *key in secrets) {
     if (!first) *out++ = ',';
     first = false;
-    *out++ = '"';
-    out = AppendEscaped(out, key);
-    *out++ = '"';
-    *out++ = ':';
-    *out++ = '"';
-    out = AppendEscaped(out, secrets[key]);
+    NSString *name = [NSString stringWithFormat:@"\"%@Hex\":\"", key];
+    memcpy(out, name.UTF8String, strlen(name.UTF8String));
+    out += strlen(name.UTF8String);
+    out = AppendHex(out, secrets[key]);
     *out++ = '"';
   }
   *out++ = '}';
