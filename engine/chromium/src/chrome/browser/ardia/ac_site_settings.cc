@@ -2,6 +2,7 @@
 
 #include "chrome/browser/ardia/ac_site_settings.h"
 
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -13,6 +14,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
+#include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "components/content_settings/core/browser/content_settings_info.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
@@ -22,9 +25,11 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "content/public/browser/browsing_data_filter_builder.h"
+#include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
-#include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -116,6 +121,54 @@ GURL SiteOf(std::string_view spec) {
   }
   return url::Origin::Create(url).GetURL();
 }
+
+std::unique_ptr<content::BrowsingDataFilterBuilder> SiteFilter(
+    const GURL& site) {
+  std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
+      site, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  if (domain.empty()) {
+    domain = site.host();
+  }
+  auto filter = content::BrowsingDataFilterBuilder::Create(
+      content::BrowsingDataFilterBuilder::Mode::kDelete);
+  filter->AddRegisterableDomain(domain);
+  return filter;
+}
+
+constexpr uint64_t kSiteDataTypes =
+    chrome_browsing_data_remover::DATA_TYPE_SITE_DATA &
+    ~(chrome_browsing_data_remover::DATA_TYPE_PERSISTENT_PERMISSION |
+      chrome_browsing_data_remover::DATA_TYPE_EXTERNAL_PROTOCOL_DATA);
+
+class SiteDataCleared : public content::BrowsingDataRemover::Observer {
+ public:
+  SiteDataCleared(content::BrowsingDataRemover* remover,
+                  Reply reply,
+                  uint32_t cookies)
+      : reply_(std::move(reply)), cookies_(cookies) {
+    observation_.Observe(remover);
+  }
+
+  void OnBrowsingDataRemoverDone(uint64_t failed_data_types) override {
+    observation_.Reset();
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](Reply reply, uint32_t cookies, bool storage) {
+                         reply.Send(base::DictValue()
+                                        .Set("cookies", static_cast<int>(cookies))
+                                        .Set("storage", storage));
+                       },
+                       std::move(reply_), cookies_, failed_data_types == 0));
+    delete this;
+  }
+
+ private:
+  Reply reply_;
+  const uint32_t cookies_;
+  base::ScopedObservation<content::BrowsingDataRemover,
+                          content::BrowsingDataRemover::Observer>
+      observation_{this};
+};
 
 std::string Serialize(const GURL& site) {
   return url::Origin::Create(site).Serialize();
@@ -333,31 +386,29 @@ AC_ENGINE_CALL(ac_site_data_clear) {
     return call.TakeReply().Send(
         base::DictValue().Set("cookies", false).Set("storage", false));
   }
-  content::StoragePartition* partition =
-      call.profile()->GetDefaultStoragePartition();
-  auto filter = network::mojom::CookieDeletionFilter::New();
-  filter->host_name = site.host();
-  partition->GetCookieManagerForBrowserProcess()->DeleteCookies(
-      std::move(filter),
-      base::BindOnce(
-          [](ardia::Reply reply, base::WeakPtr<Profile> profile, GURL site,
-             uint32_t deleted) {
-            if (!profile) {
-              return reply.Send(base::DictValue()
-                                    .Set("cookies", static_cast<int>(deleted))
-                                    .Set("storage", false));
-            }
-            profile->GetDefaultStoragePartition()->ClearData(
-                content::StoragePartition::REMOVE_DATA_MASK_ALL,
-                blink::StorageKey::CreateFirstParty(url::Origin::Create(site)),
-                base::Time(), base::Time::Max(),
-                base::BindOnce(
-                    [](ardia::Reply reply, uint32_t deleted) {
-                      reply.Send(base::DictValue()
-                                     .Set("cookies", static_cast<int>(deleted))
-                                     .Set("storage", true));
-                    },
-                    std::move(reply), deleted));
-          },
-          call.TakeReply(), call.profile()->GetWeakPtr(), site));
+  call.profile()
+      ->GetDefaultStoragePartition()
+      ->GetCookieManagerForBrowserProcess()
+      ->DeleteCookies(
+          ardia::SiteFilter(site)->BuildCookieDeletionFilter(),
+          base::BindOnce(
+              [](ardia::Reply reply, base::WeakPtr<Profile> profile, GURL site,
+                 uint32_t cookies) {
+                if (!profile) {
+                  return reply.Send(
+                      base::DictValue()
+                          .Set("cookies", static_cast<int>(cookies))
+                          .Set("storage", false));
+                }
+                content::BrowsingDataRemover* remover =
+                    profile->GetBrowsingDataRemover();
+                remover->RemoveWithFilterAndReply(
+                    base::Time(), base::Time::Max(), ardia::kSiteDataTypes,
+                    content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB |
+                        content::BrowsingDataRemover::ORIGIN_TYPE_PROTECTED_WEB,
+                    ardia::SiteFilter(site),
+                    new ardia::SiteDataCleared(remover, std::move(reply),
+                                               cookies));
+              },
+              call.TakeReply(), call.profile()->GetWeakPtr(), site));
 }

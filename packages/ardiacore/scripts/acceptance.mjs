@@ -64,6 +64,7 @@ const needs = {
   "tab-switch": ["open-url", "target-blank"],
   "tab-keys-from-page": ["open-url", "target-blank"],
   "window-close": ["window-open"],
+  "site-data-clear": ["open-url"],
   "frozen": ["open-url", "cmd-click"],
   "discard": ["open-url", "cmd-click"],
   "duplicate-and-reopen": ["open-url", "navigate-back-forward-reload"],
@@ -168,6 +169,7 @@ const stamp = () => new Date().toISOString().slice(11, 23);
 
 const adServed = [];
 const served = new Map();
+const siteDataDomain = "ardia-sitedata.com";
 const server = createServer((req, res) => {
   if (!req.headers.host?.startsWith("127.0.0.1")) adServed.push(`${req.headers.host}${req.url}`);
   served.set(req.url, (served.get(req.url) ?? 0) + 1);
@@ -178,6 +180,11 @@ const server = createServer((req, res) => {
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==", "base64");
     res.writeHead(200, { "content-type": "image/png" });
     return res.end(png);
+  }
+  if (url.pathname === "/site-data") {
+    const set = url.searchParams.has("set");
+    res.writeHead(200, { "content-type": "text/html", ...(set ? { "set-cookie": ["host_only=1; Path=/", `domain_wide=1; Path=/; Domain=${siteDataDomain}`] } : {}) });
+    return res.end(page("Site data", set ? `<script>localStorage.setItem("kept", "yes")</script>` : ""));
   }
   if (url.pathname === "/file.bin") {
     res.writeHead(200, { "content-type": "application/octet-stream", "content-disposition": 'attachment; filename="ardiacore-test.bin"' });
@@ -342,7 +349,7 @@ const tlsSpki = createHash("sha256").update(new X509Certificate(tlsCert).publicK
 let exe, stdout, pid, child, launchedAt, exited = null;
 let instance = null;
 process.env.ARDIA_CHROMIUM_SWITCHES = `--ardia-test-media-route-provider --disable-media-route-providers-for-test --ardia-test-bluetooth-chooser ${process.env.ARDIA_CHROMIUM_SWITCHES ?? ""}`.trim();
-process.env.ARDIA_CHROMIUM_SWITCHES += ` --host-resolver-rules=${["ib.adnxs.com", "securepubads.g.doubleclick.net", "pagead2.googlesyndication.com", "adpage.test"]
+process.env.ARDIA_CHROMIUM_SWITCHES += ` --host-resolver-rules=${["ib.adnxs.com", "securepubads.g.doubleclick.net", "pagead2.googlesyndication.com", "adpage.test", `one.${siteDataDomain}`, `two.${siteDataDomain}`]
   .map((host) => `MAP ${host} 127.0.0.1:${server.address().port}`).join(", ")}`;
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --apps-gallery-update-url=${base}/webstore/crx`;
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --ignore-certificate-errors-spki-list=${tlsSpki}`;
@@ -2618,6 +2625,27 @@ try {
     await cef(`resetSiteSettings("", "${origin}")`);
     const cleared = await cef(`clearSiteData("", "${origin}")`);
     return { popups: settings.popups, origins: origins.length, cleared };
+  });
+
+  await check("site-data-clear", async () => {
+    const one = `http://one.${siteDataDomain}`, two = `http://two.${siteDataDomain}`;
+    const read = async (url) => {
+      const tab = await openTab(url, "Site data", true);
+      try {
+        const t = await until(`${url}'s page`, () => pageTarget(url));
+        const r = await cdp(t, "Runtime.evaluate", { expression: `document.cookie.split("; ").filter(Boolean).sort().join("; ") + " | " + localStorage.getItem("kept")`, returnByValue: true });
+        return r.result.value;
+      } finally {
+        await closeTab(tab.id);
+      }
+    };
+    const before = { one: await read(`${one}/site-data?set`), two: await read(`${two}/site-data`) };
+    if (before.one !== "domain_wide=1; host_only=1 | yes" || before.two !== "domain_wide=1 | null") throw new Error(`the fixture's data: ${JSON.stringify(before)}`);
+    const cleared = await cef(`clearSiteData("", "${one}")`);
+    const after = { one: await read(`${one}/site-data`), two: await read(`${two}/site-data`) };
+    if (after.one !== " | null" || after.two !== " | null") throw new Error(`left after clearing: ${JSON.stringify(after)} (${JSON.stringify(cleared)})`);
+    if (cleared.cookies !== 2 || !cleared.storage) throw new Error(`the reply: ${JSON.stringify(cleared)}`);
+    return { before, cleared, after };
   });
 
   await check("passwords-more", async () => {
