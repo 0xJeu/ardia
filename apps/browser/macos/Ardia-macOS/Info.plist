@@ -8,6 +8,8 @@
 	<string>https://github.com/mantrakp04/ardia/issues/new?body=%s</string>
 	<key>ACReleaseNotesURL</key>
 	<string>https://ardia.dev/release-notes</string>
+	<key>ACUpdateChannel</key>
+	<string>$(AC_UPDATE_CHANNEL)</string>
 	<key>ACVideoTourURL</key>
 	<string></string>
 	<key>CFBundleDevelopmentRegion</key>

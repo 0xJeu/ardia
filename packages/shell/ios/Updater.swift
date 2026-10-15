@@ -12,6 +12,39 @@ public final class AppUpdater: NSObject {
     return env["ARDIA_BACKGROUND"] == "1" ? "https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml" : nil
   }
 
+  public static let channels = ["stable", "nightly"]
+  static let channelDefaultsKey = "ACUpdateChannel"
+
+  static var buildChannel: String {
+    Bundle.main.object(forInfoDictionaryKey: "ACUpdateChannel") as? String == "nightly" ? "nightly" : "stable"
+  }
+
+  public var channel: String {
+    let chosen = UserDefaults.standard.string(forKey: Self.channelDefaultsKey) ?? ""
+    return Self.channels.contains(chosen) ? chosen : Self.buildChannel
+  }
+
+  public func setChannel(_ channel: String) {
+    guard Self.channels.contains(channel) else { return }
+    UserDefaults.standard.set(channel, forKey: Self.channelDefaultsKey)
+  }
+
+  private func rememberChannel() {
+    guard !Self.channels.contains(UserDefaults.standard.string(forKey: Self.channelDefaultsKey) ?? "") else { return }
+    UserDefaults.standard.set(Self.buildChannel, forKey: Self.channelDefaultsKey)
+  }
+
+  public static var displayVersion: String {
+    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    guard let range = version.range(of: #"-nightly\.(\d+)$"#, options: .regularExpression) else { return version }
+    let number = version[range].split(separator: ".").last.map(String.init) ?? ""
+    return "\(version[..<range.lowerBound]) Nightly \(number)"
+  }
+
+  @objc public func showAbout(_ sender: Any?) {
+    NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: Self.displayVersion])
+  }
+
   private static var isOff: Bool {
     ACIsolatedDataDirectory() != nil && ProcessInfo.processInfo.environment["ARDIA_UPDATE_FEED_URL"] == nil
   }
@@ -43,6 +76,7 @@ public final class AppUpdater: NSObject {
 
   public func start() {
     #if canImport(Sparkle)
+    rememberChannel()
     guard !started, isConfigured else { return }
     started = true
     firstCheckPending = controller.updater.lastUpdateCheckDate == nil
@@ -81,6 +115,9 @@ public final class AppUpdater: NSObject {
       "feedURL": updater.feedURL?.absoluteString as Any,
       "lastCheck": updater.lastUpdateCheckDate.map { $0.timeIntervalSince1970 * 1000 } as Any,
       "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as Any,
+      "displayVersion": Self.displayVersion,
+      "channel": channel,
+      "buildChannel": Self.buildChannel,
     ]
     #else
     return ["available": false]
@@ -135,6 +172,18 @@ public final class AppUpdater: NSObject {
 #if canImport(Sparkle)
 extension AppUpdater: SPUUpdaterDelegate {
   public func feedURLString(for updater: SPUUpdater) -> String? { Self.feedOverride }
+
+  public func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+    channel == "nightly" ? ["nightly"] : []
+  }
+
+  public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+    NSLog("Ardia: update found: \(item.displayVersionString) (build \(item.versionString)\(item.channel.map { ", \($0)" } ?? "")) on the \(channel) channel")
+  }
+
+  public func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
+    NSLog("Ardia: no update on the \(channel) channel")
+  }
 
   public func feedParameters(for updater: SPUUpdater, sendingSystemProfile sendingProfile: Bool) -> [[String: String]] {
     guard firstCheckPending else { return [] }

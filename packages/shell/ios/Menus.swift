@@ -232,7 +232,7 @@ enum MainMenu {
     let services = NSMenu(title: "Services")
     NSApp.servicesMenu = services
     _ = top(appName, [
-      std("About \(appName)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
+      aboutItem("About \(appName)"),
       updatesItem(),
       .separator(),
       cmd("Settings…", "openSettings", ","),
@@ -473,6 +473,12 @@ enum MainMenu {
 
   private static func functionKey(_ key: Int) -> String { String(Character(UnicodeScalar(UInt16(key))!)) }
   static let leftArrow = functionKey(NSLeftArrowFunctionKey), rightArrow = functionKey(NSRightArrowFunctionKey)
+
+  private static func aboutItem(_ title: String) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: #selector(AppUpdater.showAbout(_:)), keyEquivalent: "")
+    item.target = AppUpdater.shared
+    return item
+  }
 
   private static func updatesItem() -> NSMenuItem {
     let item = NSMenuItem(title: "Check for Updates…", action: #selector(AppUpdater.checkForUpdates(_:)), keyEquivalent: "")

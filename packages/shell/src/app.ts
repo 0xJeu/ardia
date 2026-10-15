@@ -12,7 +12,12 @@ export type UpdaterState =
       feedURL: string | null;
       lastCheck: number | null;
       version: string;
+      displayVersion?: string;
+      channel?: UpdateChannel;
+      buildChannel?: UpdateChannel;
     };
+
+export type UpdateChannel = "stable" | "nightly";
 
 export type AppIcon = { id: string; name: string; preview: string | null };
 
@@ -108,6 +113,7 @@ type AppModule = {
   checkForUpdates(): Promise<void>;
   setAutomaticUpdateChecks(on: boolean): Promise<void>;
   setAutomaticUpdateDownloads(on: boolean): Promise<void>;
+  setUpdateChannel(channel: UpdateChannel): Promise<void>;
   setWindowActivity(windowId: string, url: string | null, title: string | null): Promise<void>;
   share(url: string, title: string | null, windowId: string | null, anchor: ShareAnchor | null): Promise<void>;
   shareVia(service: string, url: string, title: string | null, windowId: string | null): Promise<void>;
@@ -146,6 +152,7 @@ export const updaterState = () => App.updaterState();
 export const checkForUpdates = () => App.checkForUpdates();
 export const setAutomaticUpdateChecks = (on: boolean) => App.setAutomaticUpdateChecks(on);
 export const setAutomaticUpdateDownloads = (on: boolean) => App.setAutomaticUpdateDownloads(on);
+export const setUpdateChannel = (channel: UpdateChannel) => App.setUpdateChannel(channel);
 
 export const setWindowActivity = (windowId: string, url: string | null, title: string | null) =>
   App.setWindowActivity(windowId, url, title);

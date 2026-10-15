@@ -6,8 +6,10 @@ import {
   setAutomaticUpdateChecks,
   setAutomaticUpdateDownloads,
   setLaunchAtLogin,
+  setUpdateChannel,
   Symbol,
   updaterState,
+  type UpdateChannel,
   type UpdaterState,
 } from "@ardia/shell";
 import { useEffect, useState } from "react";
@@ -121,10 +123,11 @@ function UpdatesSection() {
   }, []);
   if (!state?.available) return null;
   const ready = state.configured;
-  const set = (patch: { automaticChecks?: boolean; automaticDownloads?: boolean }) => {
+  const set = (patch: { automaticChecks?: boolean; automaticDownloads?: boolean; channel?: UpdateChannel }) => {
     setState({ ...state, ...patch });
     if (patch.automaticChecks !== undefined) void setAutomaticUpdateChecks(patch.automaticChecks).finally(refresh);
     if (patch.automaticDownloads !== undefined) void setAutomaticUpdateDownloads(patch.automaticDownloads).finally(refresh);
+    if (patch.channel !== undefined) void setUpdateChannel(patch.channel).finally(refresh);
   };
   const lastCheck = state.lastCheck
     ? `Last checked ${new Date(state.lastCheck).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`
@@ -143,7 +146,21 @@ function UpdatesSection() {
             onChange={(v) => set({ automaticDownloads: v })}
           />
         </Row>
-        <Row title={`${APP} ${state.version}`} description={ready ? lastCheck : undefined}>
+        {state.channel && (
+          <Row title="Update channel" description="Nightly gets every fix first. Switching back to Stable never downgrades.">
+            <PopUp
+              value={state.channel}
+              options={[
+                { value: "stable", title: "Stable" },
+                { value: "nightly", title: "Nightly" },
+              ]}
+              disabled={!ready}
+              onChange={(channel) => set({ channel })}
+              minWidth={190}
+            />
+          </Row>
+        )}
+        <Row title={`${APP} ${state.displayVersion ?? state.version}`} description={ready ? lastCheck : undefined}>
           <Button title="Check Now" disabled={ready && (!state.canCheck || state.sessionInProgress)} onPress={() => void checkForUpdates().finally(refresh)} />
         </Row>
       </Group>
