@@ -38,8 +38,11 @@ std::map<int, std::unique_ptr<DeviceChooser>>& Live() {
 class DeviceChooser : public permissions::ChooserController::View {
  public:
   DeviceChooser(std::unique_ptr<permissions::ChooserController> controller,
-                content::WebContents* contents)
-      : controller_(std::move(controller)), contents_(contents->GetWeakPtr()) {
+                content::WebContents* contents,
+                base::ScopedClosureRunner fullscreen_blocker)
+      : controller_(std::move(controller)),
+        contents_(contents->GetWeakPtr()),
+        fullscreen_blocker_(std::move(fullscreen_blocker)) {
     static int last_id = 0;
     id_ = ++last_id;
     controller_->set_view(this);
@@ -188,6 +191,7 @@ class DeviceChooser : public permissions::ChooserController::View {
 
   std::unique_ptr<permissions::ChooserController> controller_;
   base::WeakPtr<content::WebContents> contents_;
+  base::ScopedClosureRunner fullscreen_blocker_;
   int id_;
   bool open_ = true;
   bool announced_ = false;
@@ -203,8 +207,10 @@ DeviceChooser* Find(int id) {
 }
 
 DeviceChooser* Adopt(std::unique_ptr<permissions::ChooserController> controller,
-                     content::WebContents* contents) {
-  auto chooser = std::make_unique<DeviceChooser>(std::move(controller), contents);
+                     content::WebContents* contents,
+                     base::ScopedClosureRunner fullscreen_blocker = {}) {
+  auto chooser = std::make_unique<DeviceChooser>(
+      std::move(controller), contents, std::move(fullscreen_blocker));
   DeviceChooser* raw = chooser.get();
   Live()[raw->id()] = std::move(chooser);
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -267,19 +273,19 @@ void DriveTestBluetoothChooser(int chooser_id, bool unauthorized) {
 
 }
 
-bool HandleDeviceChooser(content::RenderFrameHost* owner,
+bool HandleDeviceChooser(content::WebContents* contents,
                          std::unique_ptr<permissions::ChooserController>* controller,
+                         base::ScopedClosureRunner* fullscreen_blocker,
                          base::OnceClosure* close_closure) {
-  content::WebContents* contents =
-      owner ? content::WebContents::FromRenderFrameHost(owner) : nullptr;
   BrowserWindowInterface* browser =
       contents ? GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents)
                : nullptr;
   if (!browser || !WindowHost::ForBrowser(browser) || !controller || !*controller ||
-      !HostWantsDeviceChoosers()) {
+      !fullscreen_blocker || !close_closure || !HostWantsDeviceChoosers()) {
     return false;
   }
-  DeviceChooser* raw = Adopt(std::move(*controller), contents);
+  DeviceChooser* raw =
+      Adopt(std::move(*controller), contents, std::move(*fullscreen_blocker));
   *close_closure = base::BindOnce(
       [](base::WeakPtr<DeviceChooser> chooser) {
         if (chooser) {

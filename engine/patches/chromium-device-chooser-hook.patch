@@ -1,28 +1,54 @@
 --- a/chrome/browser/ui/views/permissions/chooser_bubble_ui.cc
 +++ b/chrome/browser/ui/views/permissions/chooser_bubble_ui.cc
-@@ -222,6 +222,12 @@
+@@ -222,6 +222,13 @@
  
  BEGIN_METADATA(ChooserBubbleUiViewDelegate)
  END_METADATA
 +
 +// Ardia: ArdiaCore (engine/ardiacore) shows its own chooser for the tabs it hosts.
 +bool (*g_ardia_device_chooser)(
-+    content::RenderFrameHost* owner,
++    content::WebContents* contents,
 +    std::unique_ptr<permissions::ChooserController>* controller,
++    base::ScopedClosureRunner* fullscreen_blocker,
 +    base::OnceClosure* close_closure) = nullptr;
  
  namespace chrome {
  
-@@ -322,6 +328,12 @@
- base::OnceClosure ShowDeviceChooserDialog(
-     content::RenderFrameHost* owner,
-     std::unique_ptr<permissions::ChooserController> controller) {
-+  // Ardia: ArdiaCore may show its own chooser.
+@@ -278,6 +285,15 @@
+   }
+ 
+   return ChooserDialogHost{browser, contents, std::move(*fullscreen_blocker)};
++}
++
++bool ShowArdiaDeviceChooser(
++    ChooserDialogHost& host,
++    std::unique_ptr<permissions::ChooserController>& controller,
++    base::OnceClosure* close_closure) {
++  return g_ardia_device_chooser &&
++         g_ardia_device_chooser(host.contents, &controller,
++                                &host.fullscreen_blocker, close_closure);
+ }
+ 
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+@@ -292,6 +308,10 @@
+   if (!host) {
+     return base::DoNothing();
+   }
 +  base::OnceClosure ardia_close_closure;
-+  if (g_ardia_device_chooser &&
-+      g_ardia_device_chooser(owner, &controller, &ardia_close_closure)) {
++  if (ShowArdiaDeviceChooser(*host, controller, &ardia_close_closure)) {
 +    return ardia_close_closure;
 +  }
-   content::WeakDocumentPtr weak_document = owner->GetWeakDocumentPtr();
-   auto* contents = content::WebContents::FromRenderFrameHost(owner);
  
+   auto* browser_view = BrowserView::GetBrowserViewForBrowser(host->browser);
+   if (!browser_view) {
+@@ -353,6 +373,10 @@
+   if (!host) {
+     return base::DoNothing();
+   }
++  base::OnceClosure ardia_close_closure;
++  if (ShowArdiaDeviceChooser(*host, controller, &ardia_close_closure)) {
++    return ardia_close_closure;
++  }
+   BrowserWindowInterface* browser = host->browser;
+ 
+   auto bubble = std::make_unique<ChooserBubbleUiViewDelegate>(

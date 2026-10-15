@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 
 namespace content {
 class RenderFrameHost;
@@ -18,8 +19,9 @@ class ChooserController;
 
 namespace ardiacore {
 
-bool HandleDeviceChooser(content::RenderFrameHost* owner,
+bool HandleDeviceChooser(content::WebContents* contents,
                          std::unique_ptr<permissions::ChooserController>* controller,
+                         base::ScopedClosureRunner* fullscreen_blocker,
                          base::OnceClosure* close_closure);
 void SelectDevice(int chooser_id, int index);
 void CancelDeviceChooser(int chooser_id);
