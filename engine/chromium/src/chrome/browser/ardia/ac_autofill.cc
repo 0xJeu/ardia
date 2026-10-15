@@ -515,15 +515,27 @@ AC_ENGINE_CALL(ac_autofill_cards) {
 }
 
 AC_ENGINE_CALL(ac_autofill_save_card) {
-  AC_AUTOFILL_CALL();
-  const base::DictValue* card = call.args().FindDict("card");
+  Call call(profile_dir, nullptr, reply, context);
+  if (!call) {
+    return;
+  }
+  ardia::SensitiveArgs args(args_json, ardia::kMaxImportBytes);
+  if (!args.dict()) {
+    return call.TakeReply().Error(args.too_large()
+                                      ? "arguments too large"
+                                      : "arguments are not a JSON object");
+  }
+  if (args.dict()->FindBool("offTheRecord").value_or(false)) {
+    return call.TakeReply().Error("not for a private session");
+  }
+  const base::DictValue* card = args.dict()->FindDict("card");
   if (!card) {
     return call.TakeReply().Error("card required");
   }
   ardia::Load(
       call,
       base::BindOnce(
-          [](Profile* owner, base::DictValue card, std::string number,
+          [](Profile* owner, base::DictValue card, ardia::Secret number,
              PersonalDataManager* pdm,
              Reply reply) {
             autofill::PaymentsDataManager& paydm = pdm->payments_data_manager();
@@ -533,8 +545,9 @@ AC_ENGINE_CALL(ac_autofill_save_card) {
             if (id && !id->empty() && !existing) {
               return reply.Error("No such card");
             }
-            const std::string digits = ardia::Digits(number);
-            if (!existing && (digits.size() < 12 || digits.size() > 19)) {
+            const ardia::Secret digits(ardia::Digits(number.value()));
+            if (!existing &&
+                (digits.value().size() < 12 || digits.value().size() > 19)) {
               return reply.Error("invalid number");
             }
             autofill::CreditCard credit_card =
@@ -549,9 +562,10 @@ AC_ENGINE_CALL(ac_autofill_save_card) {
               credit_card.SetRawInfo(autofill::CREDIT_CARD_NAME_FULL,
                                      base::UTF8ToUTF16(*name));
             }
-            if (!digits.empty()) {
-              credit_card.SetRawInfo(autofill::CREDIT_CARD_NUMBER,
-                                     base::UTF8ToUTF16(digits));
+            if (!digits.value().empty()) {
+              std::u16string digits16 = base::UTF8ToUTF16(digits.value());
+              credit_card.SetRawInfo(autofill::CREDIT_CARD_NUMBER, digits16);
+              ardia::Cleanse(digits16);
             }
             if (std::optional<int> month = card.FindInt("expMonth");
                 month && *month > 0) {
@@ -588,7 +602,7 @@ AC_ENGINE_CALL(ac_autofill_save_card) {
                     credit_card),
                 base::DictValue().Set("id", guid), std::move(reply));
           },
-          call.profile(), card->Clone(), call.String("number")),
+          call.profile(), card->Clone(), args.SecretAt("number")),
       call.TakeReply());
 }
 

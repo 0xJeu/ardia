@@ -22,6 +22,7 @@
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate_factory.h"
 #include "chrome/browser/ardia/ac_reauth.h"
+#include "chrome/browser/ardia/ac_sensitive_args.h"
 #include "chrome/common/extensions/api/passwords_private.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/password_manager/core/browser/export/export_progress_status.h"
@@ -39,6 +40,7 @@ namespace pp = extensions::api::passwords_private;
 using Entries = PasswordsPrivateDelegate::UiEntries;
 
 constexpr int kSettleChecks = 20;
+constexpr size_t kMaxSecretArgsBytes = 64 * 1024;
 constexpr base::TimeDelta kSettleStep = base::Milliseconds(50);
 constexpr base::TimeDelta kIdle = base::Seconds(60);
 
@@ -260,22 +262,31 @@ void Settle(Session session, Reply reply, Check landed, int checks_left) {
           landed, checks_left));
 }
 
-Check Saved(std::string origin,
-            std::string username,
-            std::optional<std::u16string> password) {
+Check Saved(std::string origin, std::string username, Secret password) {
   return base::BindRepeating(
       [](const std::string& origin, const std::string& username,
-         const std::optional<std::u16string>& password,
-         PasswordsPrivateDelegate* delegate, const Entries& entries) {
+         const Secret& password, PasswordsPrivateDelegate* delegate,
+         const Entries& entries) {
         const pp::PasswordUiEntry* entry = Find(entries, origin, username);
-        if (!entry || !password) {
+        if (!entry || !password.present()) {
           return !!entry;
         }
         std::optional<password_manager::CredentialUIEntry> credential =
             delegate->GetCredentialFromId(entry->id);
-        return credential && credential->password == *password;
+        if (!credential) {
+          return false;
+        }
+        std::string saved = base::UTF16ToUTF8(credential->password);
+        const bool same = saved == password.value();
+        Cleanse(saved);
+        Cleanse(credential->password);
+        return same;
       },
       std::move(origin), std::move(username), std::move(password));
+}
+
+std::u16string UTF16Of(const Secret& secret) {
+  return base::UTF8ToUTF16(secret.value());
 }
 
 Check Gone(std::string origin, std::string username) {
@@ -287,11 +298,6 @@ Check Gone(std::string origin, std::string username) {
       std::move(origin), std::move(username));
 }
 
-std::optional<std::u16string> OptionalUTF16(const std::string* text) {
-  return text ? std::optional<std::u16string>(base::UTF8ToUTF16(*text))
-              : std::nullopt;
-}
-
 }
 }
 
@@ -300,14 +306,27 @@ using ardia::Entries;
 using ardia::Reply;
 using ardia::Session;
 
-#define AC_PASSWORDS_OPEN()                                  \
-  Call call(profile_dir, args_json, reply, context);         \
+#define AC_PASSWORDS_OPEN_WITH(json)                         \
+  Call call(profile_dir, json, reply, context);              \
   if (!call) {                                               \
     return;                                                  \
   }                                                          \
-  std::optional<Session> session = ardia::Open(call);    \
+  std::optional<Session> session = ardia::Open(call);        \
   if (!session) {                                            \
     return call.TakeReply().Error("no password manager");    \
+  }
+
+#define AC_PASSWORDS_OPEN() AC_PASSWORDS_OPEN_WITH(args_json)
+
+#define AC_PASSWORDS_SENSITIVE_ARGS(args)                                   \
+  ardia::SensitiveArgs args(args_json, ardia::kMaxSecretArgsBytes);         \
+  if (!args.dict()) {                                                       \
+    return call.TakeReply().Error(args.too_large()                          \
+                                      ? "arguments too large"               \
+                                      : "arguments are not a JSON object"); \
+  }                                                                         \
+  if (args.dict()->FindBool("offTheRecord").value_or(false)) {              \
+    return call.TakeReply().Error("not for a private session");             \
   }
 
 AC_ENGINE_CALL(ac_passwords_list) {
@@ -385,41 +404,43 @@ AC_ENGINE_CALL(ac_passwords_reveal) {
 }
 
 AC_ENGINE_CALL(ac_passwords_add) {
-  AC_PASSWORDS_OPEN();
-  const std::string origin = call.String("origin");
-  const std::string password = call.String("password");
-  if (origin.empty() || password.empty()) {
+  AC_PASSWORDS_OPEN_WITH(nullptr);
+  AC_PASSWORDS_SENSITIVE_ARGS(args);
+  const std::string origin = args.String("origin");
+  ardia::Secret password = args.SecretAt("password");
+  if (origin.empty() || password.value().empty()) {
     return call.TakeReply().Error("origin and password required");
   }
   ardia::WithList(
       std::move(*session), call.TakeReply(),
       base::BindOnce(
-          [](std::string origin, std::string username, std::string password,
+          [](std::string origin, std::string username, ardia::Secret password,
              Session session, Reply reply, const Entries&) {
-            if (!session.delegate->AddPassword(
-                    origin, base::UTF8ToUTF16(username),
-                    base::UTF8ToUTF16(password), u"",
-                    false)) {
+            std::u16string password16 = ardia::UTF16Of(password);
+            const bool added = session.delegate->AddPassword(
+                origin, base::UTF8ToUTF16(username), password16, u"", false);
+            ardia::Cleanse(password16);
+            if (!added) {
               return reply.Error(
                   "Could not save the password (invalid, or already saved)");
             }
-            ardia::Settle(
-                std::move(session), std::move(reply),
-                ardia::Saved(origin, username, base::UTF8ToUTF16(password)),
-                ardia::kSettleChecks);
+            ardia::Settle(std::move(session), std::move(reply),
+                          ardia::Saved(origin, username, std::move(password)),
+                          ardia::kSettleChecks);
           },
-          origin, call.String("username"), password));
+          origin, args.String("username"), std::move(password)));
 }
 
 AC_ENGINE_CALL(ac_passwords_update) {
-  AC_PASSWORDS_OPEN();
+  AC_PASSWORDS_OPEN_WITH(nullptr);
+  AC_PASSWORDS_SENSITIVE_ARGS(args);
   ardia::WithList(
       std::move(*session), call.TakeReply(),
       base::BindOnce(
           [](std::string origin, std::string username,
              std::optional<std::string> new_username,
-             std::optional<std::u16string> new_password, Session session,
-             Reply reply, const Entries& entries) {
+             ardia::Secret new_password, Session session, Reply reply,
+             const Entries& entries) {
             const auto* entry = ardia::Find(entries, origin, username);
             if (!entry) {
               return reply.Error("No such password");
@@ -430,33 +451,39 @@ AC_ENGINE_CALL(ac_passwords_update) {
                 password_manager::constants::kPasswordManagerAuthValidity,
                 base::BindOnce(
                     [](int id, std::string origin, std::string username,
-                       std::optional<std::u16string> new_password,
-                       Session session, Reply reply, bool authenticated) {
+                       ardia::Secret new_password, Session session,
+                       Reply reply, bool authenticated) {
                       if (!authenticated) {
                         return reply.Error("Not authenticated");
                       }
                       ardia::pp::PasswordUiEntry change;
                       change.id = id;
                       change.username = username;
-                      if (new_password) {
-                        change.password = base::UTF16ToUTF8(*new_password);
+                      if (new_password.present()) {
+                        change.password = new_password.value();
                       }
-                      if (!session.delegate->ChangeCredential(change)) {
+                      const bool changed =
+                          session.delegate->ChangeCredential(change);
+                      if (change.password) {
+                        ardia::Cleanse(*change.password);
+                      }
+                      if (!changed) {
                         return reply.Error("Could not change the password");
                       }
                       ardia::Settle(
                           std::move(session), std::move(reply),
-                          ardia::Saved(origin, username, new_password),
+                          ardia::Saved(origin, username,
+                                       std::move(new_password)),
                           ardia::kSettleChecks);
                     },
                     entry->id, origin, new_username.value_or(username),
-                    new_password));
+                    std::move(new_password)));
           },
-          call.String("origin"), call.String("username"),
-          call.args().FindString("newUsername")
-              ? std::optional<std::string>(call.String("newUsername"))
+          args.String("origin"), args.String("username"),
+          args.dict()->FindString("newUsername")
+              ? std::optional<std::string>(args.String("newUsername"))
               : std::nullopt,
-          ardia::OptionalUTF16(call.args().FindString("newPassword"))));
+          args.SecretAt("newPassword")));
 }
 
 AC_ENGINE_CALL(ac_passwords_remove) {

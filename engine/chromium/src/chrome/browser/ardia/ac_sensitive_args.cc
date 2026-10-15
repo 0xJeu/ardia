@@ -4,6 +4,8 @@
 
 #include <string.h>
 
+#include <utility>
+
 #include "base/json/json_reader.h"
 #include "third_party/boringssl/src/include/openssl/mem.h"
 
@@ -35,6 +37,46 @@ void Cleanse(base::Value& value) {
   }
 }
 
+Secret::Secret() = default;
+
+Secret::Secret(const std::string* value)
+    : value_(value ? *value : std::string()), present_(value != nullptr) {}
+
+Secret::Secret(std::string&& value)
+    : value_(std::move(value)), present_(true) {
+  Cleanse(value);
+}
+
+Secret::Secret(const Secret& other) = default;
+
+Secret::Secret(Secret&& other)
+    : value_(std::move(other.value_)), present_(other.present_) {
+  Cleanse(other.value_);
+}
+
+Secret& Secret::operator=(const Secret& other) {
+  if (this != &other) {
+    Cleanse(value_);
+    value_ = other.value_;
+    present_ = other.present_;
+  }
+  return *this;
+}
+
+Secret& Secret::operator=(Secret&& other) {
+  if (this != &other) {
+    Cleanse(value_);
+    value_ = std::move(other.value_);
+    present_ = other.present_;
+    Cleanse(other.value_);
+  }
+  return *this;
+}
+
+Secret::~Secret() {
+  Cleanse(value_);
+}
+
 SensitiveArgs::SensitiveArgs(const char* json, size_t max_bytes) {
   if (!json || !*json) {
     return;
@@ -54,6 +96,15 @@ SensitiveArgs::~SensitiveArgs() {
 
 base::DictValue* SensitiveArgs::dict() {
   return value_ && value_->is_dict() ? &value_->GetDict() : nullptr;
+}
+
+std::string SensitiveArgs::String(std::string_view key) {
+  const std::string* value = dict() ? dict()->FindString(key) : nullptr;
+  return value ? *value : std::string();
+}
+
+Secret SensitiveArgs::SecretAt(std::string_view key) {
+  return Secret(dict() ? dict()->FindString(key) : nullptr);
 }
 
 }

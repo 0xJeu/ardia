@@ -6,6 +6,8 @@
 
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
+#include <string.h>
+
 #include <cmath>
 
 namespace {
@@ -19,6 +21,71 @@ NSDictionary *Parse(NSString *json) {
 NSString *JSON(NSDictionary *value) {
   NSData *data = value ? [NSJSONSerialization dataWithJSONObject:value options:0 error:nil] : nil;
   return data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+}
+
+void Wipe(NSMutableData *data) {
+  volatile unsigned char *bytes = (volatile unsigned char *)data.mutableBytes;
+  for (NSUInteger i = 0; i < data.length; i++) bytes[i] = 0;
+}
+
+NSUInteger EscapedCapacity(NSString *text) {
+  return [text maximumLengthOfBytesUsingEncoding:NSUTF8StringEncoding] * 6;
+}
+
+char *AppendEscaped(char *out, NSString *text) {
+  const NSUInteger capacity = [text maximumLengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+  NSMutableData *raw = [NSMutableData dataWithLength:capacity];
+  NSUInteger used = 0;
+  [text getBytes:raw.mutableBytes maxLength:capacity usedLength:&used encoding:NSUTF8StringEncoding
+         options:0 range:NSMakeRange(0, text.length) remainingRange:nullptr];
+  const unsigned char *bytes = (const unsigned char *)raw.bytes;
+  static const char hex[] = "0123456789abcdef";
+  for (NSUInteger i = 0; i < used; i++) {
+    const unsigned char c = bytes[i];
+    if (c == '"' || c == '\\') {
+      *out++ = '\\';
+      *out++ = (char)c;
+    } else if (c < 0x20) {
+      *out++ = '\\';
+      *out++ = 'u';
+      *out++ = '0';
+      *out++ = '0';
+      *out++ = hex[c >> 4];
+      *out++ = hex[c & 15];
+    } else {
+      *out++ = (char)c;
+    }
+  }
+  Wipe(raw);
+  return out;
+}
+
+NSMutableData *WithSecrets(NSDictionary *plain, NSDictionary<NSString *, NSString *> *secrets) {
+  NSData *open = plain.count ? [NSJSONSerialization dataWithJSONObject:plain options:0 error:nil] : [NSData dataWithBytes:"{}" length:2];
+  if (open.length < 2) return [NSMutableData data];
+  NSUInteger capacity = open.length + 1;
+  for (NSString *key in secrets) capacity += EscapedCapacity(key) + EscapedCapacity(secrets[key]) + 6;
+  NSMutableData *data = [NSMutableData dataWithLength:capacity];
+  char *start = (char *)data.mutableBytes;
+  char *out = start;
+  memcpy(out, open.bytes, open.length - 1);
+  out += open.length - 1;
+  bool first = !plain.count;
+  for (NSString *key in secrets) {
+    if (!first) *out++ = ',';
+    first = false;
+    *out++ = '"';
+    out = AppendEscaped(out, key);
+    *out++ = '"';
+    *out++ = ':';
+    *out++ = '"';
+    out = AppendEscaped(out, secrets[key]);
+    *out++ = '"';
+  }
+  *out++ = '}';
+  *out++ = 0;
+  data.length = (NSUInteger)(out - start);
+  return data;
 }
 
 NSString *OriginOf(NSString *url) {
@@ -77,6 +144,14 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
   [ArdiaCoreEngineBridge call:name profile:profile args:JSON(args) completion:^(NSString *json) { completion(Parse(json)); }];
 }
 
++ (void)call:(NSString *)name profile:(NSString *)profile args:(NSDictionary *)args secrets:(NSDictionary<NSString *, NSString *> *)secrets
+    completion:(ArdiaCoreResult)completion {
+  [ArdiaCoreEngineBridge callWithSecret:name
+                                profile:ardiacore_host::OriginalProfileName(profile)
+                                   args:WithSecrets(args, secrets)
+                             completion:^(NSString *json) { completion(Parse(json)); }];
+}
+
 + (void)listPasswords:(NSString *)profile completion:(ArdiaCoreResult)completion {
   [self call:@"ac_passwords_list" profile:profile args:nil completion:^(NSDictionary *result) {
     NSArray *list = result[@"passwords"];
@@ -98,17 +173,16 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
 
 + (void)savePassword:(NSString *)profile origin:(NSString *)origin username:(NSString *)username password:(NSString *)password
           completion:(ArdiaCoreResult)completion {
-  NSMutableDictionary *args = [Login(origin, username) mutableCopy];
-  args[@"password"] = password ?: @"";
-  [self call:@"ac_passwords_add" profile:profile args:args completion:completion];
+  [self call:@"ac_passwords_add" profile:profile args:Login(origin, username) secrets:@{@"password" : password ?: @""}
+      completion:completion];
 }
 
 + (void)updatePassword:(NSString *)profile origin:(NSString *)origin username:(NSString *)username
            newUsername:(NSString *)newUsername newPassword:(NSString *)newPassword completion:(ArdiaCoreResult)completion {
   NSMutableDictionary *args = [Login(origin, username) mutableCopy];
   if (newUsername) args[@"newUsername"] = newUsername;
-  if (newPassword) args[@"newPassword"] = newPassword;
-  [self call:@"ac_passwords_update" profile:profile args:args completion:completion];
+  [self call:@"ac_passwords_update" profile:profile args:args secrets:newPassword ? @{@"newPassword" : newPassword} : @{}
+      completion:completion];
 }
 
 + (void)deletePassword:(NSString *)profile origin:(NSString *)origin username:(NSString *)username completion:(ArdiaCoreResult)completion {
@@ -169,9 +243,8 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
 }
 
 + (void)saveCard:(NSDictionary *)card number:(NSString *)number profile:(NSString *)profile completion:(ArdiaCoreResult)completion {
-  NSMutableDictionary *args = [NSMutableDictionary dictionaryWithObject:card ?: @{} forKey:@"card"];
-  if (number) args[@"number"] = number;
-  [self call:@"ac_autofill_save_card" profile:profile args:args completion:completion];
+  [self call:@"ac_autofill_save_card" profile:profile args:@{@"card" : card ?: @{}} secrets:number ? @{@"number" : number} : @{}
+      completion:completion];
 }
 
 + (void)deleteAutofillEntry:(NSString *)entryId profile:(NSString *)profile completion:(ArdiaCoreResult)completion {
