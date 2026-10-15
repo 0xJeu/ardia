@@ -254,6 +254,10 @@ size=$(gh release view v<version> -R mantrakp04/ardia --json assets -q '.assets[
 # set VERSION = "<version>" and DMG_SIZE = "$size" in apps/site/src/data/release.ts
 ```
 
+The root `README.md` is the landing page on GitHub and carries the same link: replace the old version and size there
+too (both download links, the "Download Ardia <version>" labels and the "<size> DMG" line), and commit it with
+`release.ts`. If a release changes a claim on the landing page (below), change the README's matching line.
+
 **Bring the landing page's claims up to date.** The home page makes specific promises; a release can make
 one of them stale or earn a new one. Read the new notes against:
 - `apps/site/src/data/features.ts`: the features with screenshots (`features`), and the ones without (`extras`, one

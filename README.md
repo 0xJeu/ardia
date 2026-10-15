@@ -1,4 +1,98 @@
-# Ardia
+<p align="center">
+  <img src="apps/site/src/assets/app-icon.png" width="128" height="128" alt="Ardia's app icon">
+</p>
+
+<h1 align="center">Touch grass.</h1>
+
+<p align="center">
+  Arc’s sidebar and Dia’s polish on real Chromium.<br>
+  Free and open source. Ads and trackers stay out.
+</p>
+
+<h3 align="center">
+  <a href="https://github.com/mantrakp04/ardia/releases/latest/download/Ardia-0.2.35.dmg">Download Ardia 0.2.35 for Mac</a>
+</h3>
+
+<p align="center">
+  187 MB DMG · macOS 14 Sonoma or later · Apple Silicon · Notarized by Apple<br>
+  <a href="https://ardia.dev">ardia.dev</a> · <a href="https://ardia.dev/release-notes">What’s new</a> · <a href="https://github.com/mantrakp04/ardia/releases">All releases</a>
+</p>
+
+<p align="center">
+  <img src="apps/site/src/assets/shots/window.webp" alt="The Ardia window in light mode: pinned tiles and tabs in the sidebar, and Wikipedia’s article on The Hay Wain open on the right.">
+</p>
+
+## Lose the toolbar.
+
+Move the address bar into the sidebar and the page runs all the way to the top of the window.
+
+<img src="apps/site/src/assets/shots/address-sidebar.webp" alt="Ardia with the address bar in the sidebar under the traffic lights and Wikipedia running to the top of the window.">
+
+## Two pages, one window.
+
+Drag a tab onto the page. Up to three panes, side by side or stacked.
+
+<img src="apps/site/src/assets/shots/split.webp" alt="Ardia in split view: MDN on the left, Wikipedia on the right, both in one window.">
+
+## Refuses to leave the picture.
+
+Switch tabs mid-video and it floats along in the corner. Go back to its tab and it slips back into the page.
+
+<img src="apps/site/src/assets/shots/pip.webp" alt="Ardia on Wikipedia’s article about Big Buck Bunny, while the film keeps playing in a small floating window at the bottom right.">
+
+## Your extensions come along.
+
+The Chrome Web Store just works, and its button says Add to Ardia.
+
+<img src="apps/site/src/assets/shots/extensions.webp" alt="Dark Reader’s page on the Chrome Web Store, open in Ardia, with an Add to Ardia button.">
+
+## Ads and trackers stay out.
+
+uBlock Origin Lite is built in, cookie banners included. Google’s pings are compiled out. Crash reports are
+opt-in and never carry your sites or searches.
+
+## Also in there
+
+- **Work stays at work.** Each profile keeps its own logins, history, extensions and colour. Swipe the sidebar to switch.
+- **Little Ardia.** ⌥⌘N opens a small window with one page and no sidebar.
+- **Groups on contact.** Drop a tab on a tab and they’re a group, named for you.
+- **Moves in for you.** Bookmarks, history, passwords and logins from Chrome, Safari, Firefox, Arc, Dia and five more. Arc’s spaces and pinned tabs too.
+- **Syncs through your iCloud.** End-to-end encrypted, in a folder in your own iCloud Drive. No server of ours in the middle.
+- **Command bar.** ⌘L finds tabs, history and bookmarks, does your sums, and knows doc.new and 16 friends.
+- **Tidies up.** ⌥⌘K sweeps the tabs you haven’t touched into Recently Cleaned.
+- **Clean links.** Copy a link and the tracking junk stays behind.
+- **Naps when you do.** Background tabs sleep after half an hour. On battery, the greedy ones get frozen.
+- **Sits still.** Idles under half a percent of CPU with a tab open.
+- **Updates itself.** Quietly, then shows you what changed.
+
+## It’s actually Chromium.
+
+Not WebKit. Not Electron. Every window is Chrome’s own, so sites, extensions and DevTools behave like they do in Chrome.
+
+| Part | Details | Status |
+| --- | --- | --- |
+| Engine | Chromium 154, on Chrome’s own framework. | ✓ Yes |
+| De-Googled | ungoogled-chromium underneath. | ✓ Yes |
+| H.264 and AAC | The codecs Chromium leaves out. | ✓ Yes |
+| DevTools | Docked, with device mode. Like Chrome. | ✓ Yes |
+| Sync | End-to-end encrypted, through your own iCloud Drive. | ✓ Yes |
+| Translate | On your Mac. Nothing leaves it. | ✓ macOS 26 |
+| Passkeys | Touch ID yes. iCloud Keychain waits on Apple. | ~ Partly |
+| Widevine | Google hasn’t signed off. So no Netflix. | ✗ Not yet |
+| Intel Macs | Apple Silicon only. | ✗ No |
+
+<h3 align="center">
+  <a href="https://github.com/mantrakp04/ardia/releases/latest/download/Ardia-0.2.35.dmg">Download Ardia 0.2.35</a>
+</h3>
+
+<p align="center">
+  It’s 187 MB and one drag into Applications.<br>
+  Not on a Mac? Watch › Custom › Releases up top and GitHub tells you when it is.
+</p>
+
+---
+
+# Build it yourself
 
 A macOS browser that looks and feels like [Dia](https://diabrowser.com): Chrome's own framework from our
 patched Chromium with our layer on top (ArdiaCore), an Expo + React Native macOS shell, and Metal shaders
@@ -14,6 +108,7 @@ packages/
   import/             Import from other browsers (bookmarks, history, passwords, Arc spaces)
   core/               Pure TS: omnibox input → URL, suggestions, Dia-style breadcrumbs (tested)
 ```
+
 
 ## Run it
 
