@@ -472,7 +472,17 @@
     const proto = devices && Object.getPrototypeOf(devices);
     if (!proto || !proto.getDisplayMedia || proto.getDisplayMedia.__ac) return;
     const getUserMedia = proto.getUserMedia;
+    const activation = navigator.userActivation;
+    const activationProto = activation && Object.getPrototypeOf(activation);
+    const activationState = activationProto && Object.getOwnPropertyDescriptor(activationProto, "isActive");
+    const isActive = activationState && activationState.get;
+    const policy = document.featurePolicy;
+    const allowsFeature = policy && policy.allowsFeature;
     const getDisplayMedia = function getDisplayMedia(constraints) {
+      if (policy && allowsFeature && !apply(allowsFeature, policy, ["display-capture"]))
+        return Promise.reject(new DOMException('Access to the feature "display-capture" is disallowed by permissions policy.', "NotAllowedError"));
+      if (activation && isActive && !apply(isActive, activation, []))
+        return Promise.reject(new DOMException("getDisplayMedia() requires transient activation (user gesture).", "InvalidStateError"));
       const self = this;
       return new Promise((resolve, reject) => {
         const id = ++displaySeq;
