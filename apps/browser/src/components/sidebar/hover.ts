@@ -15,6 +15,9 @@ let owner: string | null = null;
 
 export const pointerOnRow = (id: string) => underPointer === id;
 
+const panelOpen = (windowId: string) => !!useBrowser.getState().windowUi[windowId]?.panel?.open;
+const usePanelOverRows = (windowId: string) => useBrowser((s) => !!s.windowUi[windowId]?.panel?.open && s.settings.addressBar === "sidebar");
+
 export function suppressHover(value: boolean) {
   suppressed = value;
   if (value) dismissHover();
@@ -22,12 +25,12 @@ export function suppressHover(value: boolean) {
 
 async function show(windowId: string, target: Target, mine: number) {
   const anchor = await measureRow(windowId, target.id);
-  if (mine !== ticket || suppressed || !anchor || sidebarUi().iconPicker || sidebarUi().renaming) return;
+  if (mine !== ticket || suppressed || !anchor || panelOpen(windowId) || sidebarUi().iconPicker || sidebarUi().renaming) return;
   setSidebarUi({ hover: { windowId, ...target, anchor } });
 }
 
 export function hoverEnter(windowId: string, target: Target) {
-  if (suppressed) return;
+  if (suppressed || panelOpen(windowId)) return;
   clearTimeout(showTimer);
   clearTimeout(hideTimer);
   const current = sidebarUi().hover;
@@ -60,6 +63,7 @@ export function dismissHover() {
 export function useRowHover(windowId: string, target: Target | null) {
   const [hovered, setHovered] = useState(false);
   const page = useContext(PageProfileContext);
+  const covered = usePanelOverRows(windowId);
   const latest = useRef({ windowId, target, page });
   latest.current = { windowId, target, page };
   const onCurrentPage = () => {
@@ -82,5 +86,5 @@ export function useRowHover(windowId: string, target: Target | null) {
       },
     }),
   );
-  return { hovered, hoverProps };
+  return { hovered: hovered && !covered, hoverProps };
 }

@@ -1,5 +1,5 @@
 import { FadeLabel, Surface, Symbol } from "@ardia/shell";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../../lib/theme";
@@ -25,7 +25,11 @@ export function HoverCard({ windowId }: { windowId: string }) {
   const hover = useSidebarUi((u) => (u.hover?.windowId === windowId ? u.hover : null));
   const player = useShowsMiniPlayer(hover?.kind === "tab" ? hover.id : undefined);
   const calendar = useIsCalendarTab(hover?.kind === "tab" ? hover.id : null);
-  if (!hover) return null;
+  const panelOpen = useBrowser((s) => !!s.windowUi[windowId]?.panel?.open);
+  useEffect(() => {
+    if (panelOpen) dismissHover();
+  }, [panelOpen]);
+  if (!hover || panelOpen) return null;
   if (hover.kind === "live") return <LiveItemCard id={hover.id} windowId={windowId} anchor={hover.anchor} />;
   if (hover.kind === "tab" && player) return <HoverPlayer tabId={hover.id} windowId={windowId} anchor={hover.anchor} />;
   if (hover.kind === "tab" && calendar) return <CalendarPreview tabId={hover.id} windowId={windowId} anchor={hover.anchor} />;

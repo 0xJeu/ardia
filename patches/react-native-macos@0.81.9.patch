@@ -434,7 +434,7 @@ index 3edcc9670a8ccb5eef44524e78445117d2416ed8..1f7951f616996941706f11b380c12051
    if (sendIdleEvents) {
      [self startTimers];
 diff --git a/React/Views/RCTView.m b/React/Views/RCTView.m
-index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde93f48cd9 100644
+index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..34447fbb3fe6fd5e16c1320e5395090665bcc402 100644
 --- a/React/Views/RCTView.m
 +++ b/React/Views/RCTView.m
 @@ -136,6 +136,24 @@ - (RCTPlatformView *)react_findClipView // [macOS]
@@ -451,9 +451,9 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
 +static BOOL ArdiaHoverDirty;
 +static BOOL ArdiaHoverHeld;
 +static BOOL ArdiaHoverInstalled;
++#if DEBUG
 +static NSValue *ArdiaPointerOverride;
 +static NSNumber *ArdiaButtonsOverride;
-+#if DEBUG
 +static NSInteger ArdiaHoverPasses;
 +static NSMutableArray *ArdiaHoverLog;
 +#endif
@@ -635,7 +635,7 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
      }
  
      if (hasMouseHoverEvent) {
-@@ -1533,9 +1556,151 @@ - (void)updateTrackingAreas
+@@ -1533,9 +1556,173 @@ - (void)updateTrackingAreas
      }
    }
  
@@ -655,8 +655,9 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
 +// [Ardia: hover follows layout. The check: the pointer (or the dev override) against the visible frame of each view
 +// with hover handlers, in the window frontmost under the pointer, as AppKit's tracking areas would see it once the
 +// pointer moved. Frames, not layer transforms: hover follows where a view is laid out, where its clicks land, while an
-+// animation still slides it there. All leaves go out before any enter, so a row taking another's place under the
-+// pointer isn't left by a late leave. Enters wait while a mouse button is down, as AppKit's do. Ardia]
++// animation still slides it there. All leaves go out before any enter, innermost first, then the enters, outermost
++// first, so a row taking another's place under the pointer isn't left by a late leave. Enters wait while a mouse
++// button is down, as AppKit's do. Ardia]
 ++ (void)ardia_markHoverDirty
 +{
 +  if (ArdiaHoverDirty || ArdiaHoverViews.count == 0) {
@@ -679,6 +680,7 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
 +  });
 +}
 +
++#if DEBUG
 ++ (void)ardia_setPointerOverride:(NSValue *)screenPoint
 +{
 +  ArdiaPointerOverride = screenPoint;
@@ -691,17 +693,46 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
 +  [self ardia_markHoverDirty];
 +}
 +
+++ (NSDictionary *)ardia_hoverStats:(NSNumber *)reset
++{
++  NSDictionary *stats = @{@"passes": @(ArdiaHoverPasses), @"log": ArdiaHoverLog ?: @[], @"registered": @(ArdiaHoverViews.count)};
++  if (reset.boolValue) {
++    ArdiaHoverPasses = 0;
++    ArdiaHoverLog = nil;
++  }
++  return stats;
++}
++#endif
++
 ++ (NSWindow *)ardia_windowUnderPointer:(NSPoint)screen
 +{
-+  if (ArdiaPointerOverride == nil) {
-+    return [NSApp windowWithWindowNumber:[NSWindow windowNumberAtPoint:screen belowWindowWithWindowNumber:0]];
-+  }
-+  for (NSWindow *window in NSApp.orderedWindows) {
-+    if (window.isVisible && !window.ignoresMouseEvents && NSPointInRect(screen, window.frame)) {
-+      return window;
++#if DEBUG
++  if (ArdiaPointerOverride != nil) {
++    for (NSWindow *window in NSApp.orderedWindows) {
++      if (window.isVisible && !window.ignoresMouseEvents && NSPointInRect(screen, window.frame)) {
++        return window;
++      }
 +    }
++    return nil;
 +  }
-+  return nil;
++#endif
++  return [NSApp windowWithWindowNumber:[NSWindow windowNumberAtPoint:screen belowWindowWithWindowNumber:0]];
++}
++
+++ (NSArray<RCTView *> *)ardia_byDepth:(NSArray<RCTView *> *)views deepestFirst:(BOOL)deepestFirst
++{
++  NSMapTable<RCTView *, NSNumber *> *depths = [NSMapTable strongToStrongObjectsMapTable];
++  for (RCTView *view in views) {
++    NSInteger depth = 0;
++    for (NSView *ancestor = view.superview; ancestor != nil; ancestor = ancestor.superview) {
++      depth++;
++    }
++    [depths setObject:@(depth) forKey:view];
++  }
++  return [views sortedArrayUsingComparator:^NSComparisonResult(RCTView *a, RCTView *b) {
++    NSComparisonResult order = [[depths objectForKey:a] compare:[depths objectForKey:b]];
++    return deepestFirst ? -order : order;
++  }];
 +}
 +
 ++ (void)ardia_checkHover
@@ -709,9 +740,17 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
 +#if DEBUG
 +  ArdiaHoverPasses++;
 +#endif
-+  NSPoint screen = ArdiaPointerOverride != nil ? ArdiaPointerOverride.pointValue : [NSEvent mouseLocation];
++  NSPoint screen = [NSEvent mouseLocation];
++  BOOL pressed = [NSEvent pressedMouseButtons] != 0;
++#if DEBUG
++  if (ArdiaPointerOverride != nil) {
++    screen = ArdiaPointerOverride.pointValue;
++  }
++  if (ArdiaButtonsOverride != nil) {
++    pressed = ArdiaButtonsOverride.boolValue;
++  }
++#endif
 +  NSWindow *front = [self ardia_windowUnderPointer:screen];
-+  BOOL pressed = ArdiaButtonsOverride != nil ? ArdiaButtonsOverride.boolValue : [NSEvent pressedMouseButtons] != 0;
 +  NSMutableArray<RCTView *> *leaving = [NSMutableArray new];
 +  NSMutableArray<RCTView *> *entering = [NSMutableArray new];
 +  BOOL held = NO;
@@ -737,29 +776,12 @@ index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..09346527b468223e3fdcbeebe23c7bde
 +    }
 +  }
 +  ArdiaHoverHeld = held;
-+  [entering sortUsingComparator:^NSComparisonResult(RCTView *a, RCTView *b) {
-+    return [a isDescendantOf:b] ? NSOrderedDescending : [b isDescendantOf:a] ? NSOrderedAscending : NSOrderedSame;
-+  }];
-+  for (RCTView *view in leaving) {
++  for (RCTView *view in [self ardia_byDepth:leaving deepestFirst:YES]) {
 +    [view ardia_setMouseOver:NO atScreenPoint:screen];
 +  }
-+  for (RCTView *view in entering) {
++  for (RCTView *view in [self ardia_byDepth:entering deepestFirst:NO]) {
 +    [view ardia_setMouseOver:YES atScreenPoint:screen];
 +  }
-+}
-+
-++ (NSDictionary *)ardia_hoverStats:(NSNumber *)reset
-+{
-+#if DEBUG
-+  NSDictionary *stats = @{@"passes": @(ArdiaHoverPasses), @"log": ArdiaHoverLog ?: @[], @"registered": @(ArdiaHoverViews.count)};
-+  if (reset.boolValue) {
-+    ArdiaHoverPasses = 0;
-+    ArdiaHoverLog = nil;
-+  }
-+  return stats;
-+#else
-+  return @{};
-+#endif
 +}
 +
 +- (void)ardia_setMouseOver:(BOOL)over atScreenPoint:(NSPoint)screen
