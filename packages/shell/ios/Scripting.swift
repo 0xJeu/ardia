@@ -93,8 +93,11 @@ public enum ShellScripting {
     pending[id] = { result, error in
       guard !finished else { return }
       finished = true
+      let answer = result as? [String: Any] ?? [:]
+      let refused = error == nil && answer["refused"] as? String == "javaScriptFromAppleEvents"
       if let error { command?.setError(error) }
-      let value = error == nil ? transform(result as? [String: Any] ?? [:]) : nil
+      if refused { command?.refuseJavaScriptFromAppleEvents() }
+      let value = error == nil && !refused ? transform(answer) : nil
       if let failure = ACTryCatch({ command?.resumeExecution(withResult: value) }) {
         NSLog("Ardia: AppleScript reply failed: \(failure)")
       }
@@ -113,6 +116,12 @@ extension NSScriptCommand {
   func setError(_ message: String) {
     scriptErrorNumber = -10000
     scriptErrorString = message
+  }
+
+  func refuseJavaScriptFromAppleEvents() {
+    scriptErrorNumber = 12
+    scriptErrorString =
+      "Executing JavaScript through AppleScript is turned off. To turn it on, from the menu bar, go to View > Developer > Allow JavaScript from Apple Events."
   }
 }
 
@@ -224,15 +233,7 @@ final class ScriptTab: NSObject {
       command.setError("Missing the “javascript” parameter.")
       return nil
     }
-    return ShellScripting.perform(["command": "execute", "tabId": uniqueID, "code": code]) { result in
-      if result["refused"] as? String == "javaScriptFromAppleEvents" {
-        command.scriptErrorNumber = 12
-        command.scriptErrorString =
-          "Executing JavaScript through AppleScript is turned off. To turn it on, from the menu bar, go to View > Developer > Allow JavaScript from Apple Events."
-        return nil
-      }
-      return result["value"] as? String ?? ""
-    }
+    return ShellScripting.perform(["command": "execute", "tabId": uniqueID, "code": code]) { $0["value"] as? String ?? "" }
   }
 }
 

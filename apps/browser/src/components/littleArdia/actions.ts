@@ -1,4 +1,5 @@
 import { focus, openWindow } from "../../lib/actions";
+import { runsJavaScript } from "../../lib/scriptUrls";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
@@ -13,7 +14,10 @@ export function openLittleArdia(url?: string, profileId?: string): string {
 
 const opensInLittleArdia = (url: string) => /^(https?|file):/i.test(url);
 
-export function openExternalUrls(urls: string[]) {
+export function openExternalUrls(given: string[]) {
+  const settings = store().settings;
+  const urls = settings.allowJavaScriptFromAppleEvents ? given : given.filter((url) => !runsJavaScript(url, settings));
+  if (!urls.length) return;
   const [url] = urls;
   const profileId = lastActiveProfile(store());
   if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) return void openLittleArdia(url, profileId);

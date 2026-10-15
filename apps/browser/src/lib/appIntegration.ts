@@ -29,6 +29,7 @@ import { focus, openUrls, openWindow, switchProfile, switchToTab } from "./actio
 import { afterFirstWindow } from "./afterFirstWindow";
 import { offerDefaultBrowserAgain } from "./defaultBrowserOffer";
 import { openReleaseNotesAfterUpdate, openReleaseNotesPage } from "./releaseNotesPage";
+import { JAVASCRIPT_FROM_APPLE_EVENTS_REFUSED, runsJavaScript } from "./scriptUrls";
 import { webviews } from "./webviews";
 import { handleWebNotificationResponse } from "./webNotifications";
 
@@ -219,12 +220,16 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
     if (!web) throw new Error("The tab hasn't loaded yet; focus it first.");
     return web;
   };
+  const scriptJavaScriptAllowed = s.settings.allowJavaScriptFromAppleEvents;
+  const refusesUrl = (url: string | undefined) => !!url && !scriptJavaScriptAllowed && runsJavaScript(url, s.settings);
   switch (request.command) {
     case "newWindow": {
+      if (refusesUrl(request.url)) return JAVASCRIPT_FROM_APPLE_EVENTS_REFUSED;
       const windowId = openWindow({ url: request.url, incognito: request.incognito, profileId: request.profileId });
       return { windowId };
     }
     case "newTab": {
+      if (refusesUrl(request.url)) return JAVASCRIPT_FROM_APPLE_EVENTS_REFUSED;
       const windowId = resolveWindowId(s, request.windowId);
       if (!windowId) {
         const created = openWindow({ url: request.url });
@@ -243,6 +248,7 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
     }
     case "setURL":
       tabOf(request.tabId);
+      if (refusesUrl(request.url)) return JAVASCRIPT_FROM_APPLE_EVENTS_REFUSED;
       return s.navigate(request.tabId, request.url);
     case "closeTab":
       tabOf(request.tabId);
@@ -279,7 +285,7 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
     }
     case "execute": {
       tabOf(request.tabId);
-      if (!s.settings.allowJavaScriptFromAppleEvents) return { refused: "javaScriptFromAppleEvents" };
+      if (!scriptJavaScriptAllowed) return JAVASCRIPT_FROM_APPLE_EVENTS_REFUSED;
       const outcome = await loaded(request.tabId).evaluate<{ value?: string; error?: string }>(executeWrapper(request.code));
       if (!outcome) throw new Error("The page didn't answer.");
       if (outcome.error) throw new Error(outcome.error);
