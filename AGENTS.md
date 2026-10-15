@@ -88,7 +88,15 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   edit to appear; report the dependency instead.
 
 ## Shipping
-- **Use the `release` skill** (`.claude/skills/release/SKILL.md`). The flow is:
+- **Two channels: nightly and stable.** One app; Settings › General picks the channel, and nightly users get
+  stable releases too.
+  - **Nightly** is for fast iteration. Each fix is reproduced, fixed and verified, its adjacent tests run, then it
+    is built and released as a nightly (`scripts/release.sh <version> --channel nightly`). Run only the focused
+    checks for what changed: no full suite, no perf gate, no tweet, no landing-page refresh. A nightly is a GitHub
+    prerelease and never reaches stable users.
+  - **Stable** gets the full run (about 1.5 h): smoke, update test, perf ratchet and perf gate. Its perf is
+    compared against the previous stable release, never against a nightly.
+- **Use the `release` skill** (`.claude/skills/release/SKILL.md`). The stable flow is:
   - write the notes in `docs/release-notes/<version>.md` (style guide in that folder);
   - bump the version;
   - run `scripts/release.sh`, which signs and notarizes;
