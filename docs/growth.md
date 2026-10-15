@@ -33,7 +33,7 @@ Shipped (site only, not yet deployed):
 - **Windows / Linux:** Download stays, plus "Mac only for now. Follow the case on GitHub." under the hero and
   closing buttons (`github_clicked { link: notify }`). Event: `non_mac_visit { os }`, once per session.
 - **Download band experiment** on Macs (below).
-- PostHog: `capture_dead_clicks: true`.
+- Dead clicks, dead swipes and rage clicks are captured (`$dead_click`, `$dead_swipe`, `$rageclick`).
 
 How visitors are sorted: `apps/site/src/components/Device.astro`, before first paint, sets
 `<html data-device="phone|mac|other">`. Phone = mobile UA, iPadOS, or touch plus a coarse pointer at 1024px
