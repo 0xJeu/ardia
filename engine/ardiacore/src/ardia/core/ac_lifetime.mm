@@ -65,6 +65,7 @@ void QuitCancelled() {
     return;
   }
   g_phase = QuitPhase::kCancelling;
+  browser_shutdown::SetTryingToQuit(false);
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce([] {
         g_phase = QuitPhase::kNone;
@@ -195,9 +196,7 @@ void StartLifetimeObservers() {
 }
 
 - (void)stopTryingToTerminateApplication {
-  if (browser_shutdown::IsTryingToQuit()) {
-    browser_shutdown::SetTryingToQuit(false);
-  }
+  browser_shutdown::SetTryingToQuit(false);
 }
 
 - (ConfirmQuitResult)confirmQuitIfNeeded {
@@ -331,7 +330,8 @@ void StartLifetimeObservers() {
   const bool zeroable = strchr("vcCsSiIlLqQBfd@#:", *type) != nullptr;
   LOG(ERROR) << "[ardiacore] AppController stand-in has no -"
              << sel_getName(selector) << " (returns " << type << ")";
-  CHECK(zeroable && !getenv("ARDIA_BACKGROUND"))
+  const char* background = getenv("ARDIA_BACKGROUND");
+  CHECK(zeroable && !(background && !strcmp(background, "1")))
       << "AppController stand-in: implement -" << sel_getName(selector);
   if (const NSUInteger length = signature.methodReturnLength) {
     std::vector<char> zero(length, 0);
@@ -353,9 +353,7 @@ void ACTerminate(id self, SEL _cmd, id sender) {
 }
 
 void ACCancelTerminate(id self, SEL _cmd, id sender) {
-  if (browser_shutdown::IsTryingToQuit()) {
-    browser_shutdown::SetTryingToQuit(false);
-  }
+  browser_shutdown::SetTryingToQuit(false);
 }
 
 void ACReplyToApplicationShouldTerminate(id self, SEL _cmd, BOOL should_terminate) {
