@@ -798,7 +798,8 @@ bool WindowHost::ShouldActivateDialog() const {
   BrowserWindowInterface* last =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
   return last && ForBrowser(last) == this &&
-         IsActiveBrowser(static_cast<Browser*>(last));
+         IsActiveBrowser(static_cast<Browser*>(last)) &&
+         WindowIsForeground(ns_window());
 }
 
 gfx::Size WindowHost::GetMaximumDialogSize() {
@@ -848,6 +849,11 @@ void WindowHost::ScheduleDialogPositionUpdate() {
 void WindowHost::OnWidgetBoundsChanged(views::Widget* widget,
                                        const gfx::Rect& new_bounds) {
   ScheduleDialogPositionUpdate();
+  for (Browser* browser : browsers()) {
+    if (ACBrowserWindow* window = ACBrowserWindow::FromWindow(BrowserWindow::FromBrowser(browser))) {
+      window->RepositionExclusiveAccessBubble();
+    }
+  }
 }
 
 void ConfirmQuitWithDownloads(int count, base::OnceCallback<void(bool)> callback) {

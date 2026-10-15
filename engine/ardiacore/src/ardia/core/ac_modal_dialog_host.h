@@ -9,6 +9,7 @@
 #include "ui/gfx/geometry/size.h"
 
 @class NSView;
+@class NSWindow;
 
 namespace content {
 class WebContents;
@@ -23,6 +24,7 @@ gfx::Point DialogPositionInHostView(NSView* host_view,
                                     const gfx::Rect& page,
                                     const gfx::Size& size);
 
+bool WindowIsForeground(NSWindow* window);
 void DialogHostObserverAdded();
 void DialogHostObserverRemoved();
 

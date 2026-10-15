@@ -49,6 +49,22 @@ gfx::Point DialogPositionInHostView(NSView* host_view,
   return gfx::Point(x, page.y());
 }
 
+bool WindowIsForeground(NSWindow* window) {
+  if (!window || !NSApp.isActive) {
+    return false;
+  }
+  if (NSApp.mainWindow == window) {
+    return true;
+  }
+  for (NSWindow* key = NSApp.keyWindow; key;
+       key = key.parentWindow ?: key.sheetParent) {
+    if (key == window) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void DialogHostObserverAdded() {
   if (++g_dialog_host_observers != 1 || g_frame_change_observer) {
     return;
@@ -111,9 +127,11 @@ gfx::Point ACTabDialogHost::GetDialogPosition(const gfx::Size& size) {
 bool ACTabDialogHost::ShouldActivateDialog() const {
   auto* tab = tabs::TabInterface::MaybeGetFromContents(
       const_cast<content::WebContents*>(&GetWebContents()));
-  return tab && tab->GetBrowserWindowInterface() &&
+  WindowHost* host = window_host();
+  return tab && tab->GetBrowserWindowInterface() && host &&
          GetLastActiveBrowserWindowInterfaceWithAnyProfile() ==
-             tab->GetBrowserWindowInterface();
+             tab->GetBrowserWindowInterface() &&
+         WindowIsForeground(host->ns_window());
 }
 
 gfx::Size ACTabDialogHost::GetMaximumDialogSize() {

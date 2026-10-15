@@ -3,6 +3,7 @@
 #import <AppKit/AppKit.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <map>
 #include <set>
@@ -780,6 +781,12 @@ gfx::Rect ACBrowserWindow::GetTopContainerBoundsInScreen() {
   return gfx::Rect();
 }
 
+void ACBrowserWindow::RepositionExclusiveAccessBubble() {
+  if (exclusive_access_bubble_) {
+    exclusive_access_bubble_->RepositionIfVisible();
+  }
+}
+
 void ACBrowserWindow::DestroyAnyExclusiveAccessBubble() {
   exclusive_access_bubble_.reset();
   exclusive_access_bubble_destruction_task_id_.reset();
@@ -889,7 +896,8 @@ class BackgroundEyeDropper : public content::EyeDropper {
 std::unique_ptr<content::EyeDropper> ACBrowserWindow::OpenEyeDropper(
     content::RenderFrameHost* frame,
     content::EyeDropperListener* listener) {
-  if (getenv("ARDIA_BACKGROUND") && listener) {
+  const char* background = getenv("ARDIA_BACKGROUND");
+  if (background && !strcmp(background, "1") && listener) {
     return features::IsEyeDropperEnabled()
                ? std::make_unique<BackgroundEyeDropper>(listener)
                : nullptr;
