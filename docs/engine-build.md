@@ -19,13 +19,11 @@ What the build adds:
 
 | Patch | What it does |
 |---|---|
-| `chromium-cef-carryover.patch` | The CEF patches we keep ([CEF's 117 patches](#cefs-117-patches)): `BrowserManagerService::DeleteBrowser`'s destruction order, no `NOTREACHED` for unmapped Mac key codes, bubbles kept on screen on the Mac, rounded DIP/pixel screen rects, the Mac print preview's file dialog and child-modal focus, the Mac locale and ResourceBundle delegate plumbing H5 uses, the tab strip API's colour provider without an active tab, and `browser_tests` building without background mode (for `enable_background_mode=false`) |
-| `chromium-ui-update-before-insert.patch`, `chromium-tab-strip-notify-before-insert.patch` | Fix a CHECK when a tab loads before it's in the tab strip. The first also carries CEF's guard in `browser_ui_controller.cc` |
+| `chromium-cef-carryover.patch` | The CEF patches we keep ([CEF's 117 patches](#cefs-117-patches)): `BrowserManagerService::DeleteBrowser`'s destruction order, no `NOTREACHED` for unmapped Mac key codes, bubbles kept on screen on the Mac (`kAdjustBubbleIfOffscreen`), a window with a child-modal sheet resizable and the sheet's focus back after the resize, the ResourceBundle delegate parameter H5 passes to `LoadLocalState`, the tab strip API's colour provider without an active tab, and `browser_tests` building without background mode (for `enable_background_mode=false`) |
 | `chromium-extension-window-hidden.patch` | The windows of ArdiaCore's own pages are invisible to chrome.windows/tabs (`g_ardia_hidden_from_extensions`, also read by the next patch and apply.sh's `browser_window_util` hook) |
 | `chromium-password-bubble-hook.patch` | ArdiaCore may replace Chrome's password bubble (`g_ardia_password_bubble`) |
 | `chromium-extension-install-prompt-hook.patch` | ArdiaCore may replace Chrome's extension install dialog (`g_ardia_extension_install_prompt`) |
 | `chromium-branding.patch` | Ardia's bundle and team id (`branding_file_path`), for the passkey and payments keychain access groups; product names stay "Chromium" |
-| `chromium-icloud-keychain-window.patch` | iCloud Keychain's passkey sheet attaches to the tab's own window when it isn't a `views::Widget` |
 | `chromium-safe-storage-name.patch` | The Safe Storage key lives in its own "Ardia Safe Storage" keychain item, account "Ardia". **Load-bearing:** it's Chromium's own `os_crypt` code, so ArdiaCore uses it too, and every user's saved passwords and cookies are encrypted with that item's key. Keep it, unchanged, through every re-sync and version bump; without it Chrome reads "Chromium Safe Storage" and nothing decrypts |
 | `chromium-device-chooser-hook.patch` | `chrome::ShowDeviceChooserDialog` (and its extension-page variant) asks ArdiaCore (`g_ardia_device_chooser`) once Chrome's `DropFullscreenForChooserDialog` has dropped the page's full screen and revalidated the frame and active tab: ArdiaCore gets that WebContents and the full-screen blocker, which its chooser holds until it closes |
 | `chromium-cast-dialog-hook.patch` | The Media Router's Cast dialog (and Presentation API requests) asks ArdiaCore first (`g_ardia_wants_cast_dialog`, `g_ardia_cast_dialog`) |
@@ -42,11 +40,16 @@ What the build adds:
 | `chromium-extension-installed-bubble.patch` | Chrome's "<extension> has been added" bubble (`ShowInfoDialog`): a window without Chrome's toolbar (every client window) gets it as a bubble under the top-right corner of the window, with a close button, closing on Esc and when the window is clicked. Chrome fell back to a browser-modal sheet there, with no buttons and no way to dismiss it. The app renames "Chromium" in Chrome's strings itself (`ac_strings.cc`) |
 | `chromium-tab-sharing-capturer.patch` | Each tab-sharing infobar remembers the frame whose capture it's for (`TabSharingInfoBarDelegate::capturer_id()`): a tab shows one infobar per share, and "Share this tab instead" moves only that share, never another call's |
 | `chromium-ardia-layer.patch` | The macOS `//chrome:chrome_dll` (ArdiaCore's framework) links `//chrome/browser/ardia` and exports its `ac_*` calls |
-| `chromium-pip-close-keeps-playing.patch` | The video Picture in Picture window's close button (and the window going away any other way) closes it without pausing the video, which keeps playing in its tab, as in Dia and Arc. Chrome paused it whenever the window had a play/pause button (`VideoOverlayWindowViews::CloseAndPauseIfAvailable`, `OnNativeWidgetDestroyed`). Back to tab and the page's own `exitPictureInPicture()` never paused |
-| `chromium-pip-overlay-window.patch` | Chrome makes our `ArdiaVideoOverlayWindow` (`chrome/browser/ardia/pip/`, a `VideoOverlayWindowViews` subclass with its own buttons, progress bar, fade and bounds memory; the hook makes six methods virtual): Dia's video Picture in Picture window (measured in `docs/dia-spec.md` › Picture in Picture): nothing but the video at rest (the origin shows only with the controls); on hover a 35 % black scrim, back to tab (top left) and close (top right) as 28 pt rounded squares with 1 pt line glyphs, the origin centred in 13 pt, a bare play/pause glyph and a 5 pt progress bar that seeks; no skip, time, mute, captions or minimize controls (the keyboard shortcuts stay). Controls fade in 200 ms ease-in-out. The window shows at once and fades out in Core Animation (100 ms from the close button, 70 ms otherwise, smooth while the tab is being shown), and a new window opens where the last one was left, sized to the new video and kept on screen (`ArdiaPictureInPicture.plist` in the user data dir) |
+| `chromium-pip-overlay-window.patch` | Chrome makes our `ArdiaVideoOverlayWindow` (`chrome/browser/ardia/pip/`, a `VideoOverlayWindowViews` subclass with its own buttons, progress bar, fade and bounds memory; the hook makes six methods virtual): Dia's video Picture in Picture window (measured in `docs/dia-spec.md` › Picture in Picture): nothing but the video at rest (the origin shows only with the controls); on hover a 35 % black scrim, back to tab (top left) and close (top right) as 28 pt rounded squares with 1 pt line glyphs, the origin centred in 13 pt, a bare play/pause glyph and a 5 pt progress bar that seeks; no skip, time, mute, captions or minimize controls (the keyboard shortcuts stay). Controls fade in 200 ms ease-in-out. The window shows at once and fades out in Core Animation (100 ms from the close button, 70 ms otherwise, smooth while the tab is being shown), and a new window opens where the last one was left, sized to the new video and kept on screen (`ArdiaPictureInPicture.plist` in the user data dir). Closing it, by its button or by the window going away any other way, never pauses the video, which keeps playing in its tab, as in Dia and Arc (`OnCloseButtonPressed` asks for `kCloseWindowOnly`, and the subclass's `OnNativeWidgetDestroyed` tells the controller not to pause; Chrome paused whenever the window had a play/pause button) |
 
 Removed, all in git history:
 
+- 2026-10-15: `chromium-ui-update-before-insert.patch` and `chromium-tab-strip-notify-before-insert.patch` (CEF's guards
+  for an embedder that made the Browser a tab's delegate before inserting it; ArdiaCore never does, and an instrumented
+  build never hit either guard across popups, `target=_blank`, ⌘-click, `window.open`, session restore, splits and tabs
+  moved between windows), `chromium-icloud-keychain-window.patch` (the tab's window is ArdiaCore's `views::Widget`, so
+  Chrome's own branch hands iCloud Keychain that window) and `chromium-pip-close-keeps-playing.patch` (now
+  `ArdiaVideoOverlayWindow`'s close button and `OnNativeWidgetDestroyed`).
 - 2026-10-09, with CEF: `chromium-webview-native-hosted.patch`, `chromium-browser-view-hosted-fullscreen.patch` and
   `chromium-autofill-card-touchbar.patch`, which served CEF's hosted tabs and views-hosted windows. ArdiaCore has neither.
 - 2026-10-08: our 18 `cef-*.patch` to CEF's own tree (the CEF runtime's API the app used before ArdiaCore, `CEF_AC_*`).
@@ -353,7 +356,7 @@ own API, Views or build, or crash upload.
 | `browser_security_policy_1081397` | dropped (CEF's custom schemes) |
 | `chrome_autofill_bubble_3796` | folded (`chromium-autofill-address-bubble-window`) |
 | `chrome_browser` | dropped (CEF build) |
-| `chrome_browser_browser` | hook (H1, H2); folded (`chromium-cef-carryover`: `DeleteBrowser` order, the tab strip API's colour provider without an active tab; `chromium-ui-update-before-insert`: the `browser_ui_controller` guard); rest dropped |
+| `chrome_browser_browser` | hook (H1, H2); folded (`chromium-cef-carryover`: `DeleteBrowser` order, the tab strip API's colour provider without an active tab; its `browser_ui_controller` guard against a tab that loads before it's in the strip, kept as `chromium-ui-update-before-insert` until 2026-10-15, dropped with it); rest dropped |
 | `chrome_browser_content_settings` | dropped (a `NOTREACHED` only CEF's tests hit) |
 | `chrome_browser_context_menus` | dropped (H4 is `ACContextMenu::Show()`) |
 | `chrome_browser_devtools_osr` | dropped (OSR) |
@@ -408,12 +411,12 @@ own API, Views or build, or crash upload.
 | `linux_gtk_theme_3610` | dropped (Linux) |
 | `linux_gwp_asan_3803` | dropped (Linux) |
 | `linux_printing_context` | dropped (Linux) |
-| `mac_chrome_locale_3623` | folded (`chromium-cef-carryover`) |
+| `mac_chrome_locale_3623` | folded (`chromium-cef-carryover`: only `LoadLocalState`'s ResourceBundle delegate, for H5); its Mac UI locale from Local State dropped (Chrome's own on the Mac: Cocoa's, `en-US` for Ardia's bundle either way) |
 | `mac_event_observer_2539` | dropped (CEF's own `NSApplication`; ArdiaCore runs Chrome's) |
 | `mac_fling_scheduler_2540` | dropped (OSR) |
 | `mac_keyboard_conversion_1467329` | folded (`chromium-cef-carryover`) |
-| `mac_platform_style_bubble_893292` | folded (`chromium-cef-carryover`) |
-| `mac_print_preview_modal` | folded (`chromium-cef-carryover`) |
+| `mac_platform_style_bubble_893292` | folded (`chromium-cef-carryover`: `kAdjustBubbleIfOffscreen`); its `profile_menu_view_base.cc` hunk dropped (Chrome's profile menu, which ArdiaCore never shows) |
+| `mac_print_preview_modal` | folded (`chromium-cef-carryover`: child-modal resize and focus); its Save as PDF file dialog policy dropped (`PdfPrinterHandler::SelectFile` already checks it) |
 | `mac_render_widget_3680` | dropped (CEF Views: `acceptsFirstMouse`) |
 | `message_loop` | dropped (Windows; multi-threaded message loop) |
 | `metrics_system_profile` | dropped (multi-threaded message loop) |
@@ -431,7 +434,7 @@ own API, Views or build, or crash upload.
 | `resource_bundle_2512` | dropped (CEF's threading) |
 | `rfh_navigation_4829483` | dropped (CEF's custom schemes and window callback) |
 | `runhooks` | dropped (Windows toolchain) |
-| `screen_1443650` | folded (`chromium-cef-carryover`) |
+| `screen_1443650` | dropped (`Screen::*RectInWindow` has only Aura and Windows callers) |
 | `services_network_2622` | dropped (CEF API: cookieable schemes) |
 | `services_network_2718` | dropped (the `bool` `ConfigureNetworkContextParams`) |
 | `set_resize_background_color` | dropped (CEF Views) |

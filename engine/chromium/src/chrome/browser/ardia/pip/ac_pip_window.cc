@@ -249,7 +249,14 @@ void ArdiaVideoOverlayWindow::FinishHide() {
 
 void ArdiaVideoOverlayWindow::OnCloseButtonPressed() {
   ac_hide_fade_ = kCloseFade;
-  CloseAndPauseIfAvailable();
+  PictureInPictureWindowManager::GetInstance()->ExitPictureInPictureViaWindowUi(
+      PictureInPictureWindowManager::UiBehavior::kCloseWindowOnly);
+}
+
+void ArdiaVideoOverlayWindow::OnNativeWidgetDestroyed() {
+  views::Widget::OnNativeWidgetDestroyed();
+  const bool should_pause_video = false;
+  controller_->OnWindowDestroyed(should_pause_video);
 }
 
 void ArdiaVideoOverlayWindow::OnNativeWidgetMove() {

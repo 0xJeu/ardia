@@ -7,12 +7,10 @@ Windows-only parts and comments:
   tolerates a strip without an active tab (ArdiaCore keeps Browsers with empty strips) instead of a CHECK.
 - mac_keyboard_conversion_1467329: a key with no DOM key mapping is DomKey::NONE, not a fatal NOTREACHED.
 - mac_platform_style_bubble_893292: bubbles near a screen edge are placed as the shipped builds placed them.
-- screen_1443650 (ui/display/screen.cc): DIP <-> screen rects round instead of enclosing (the geometry the
-  Dia measurements were taken on).
-- mac_print_preview_modal: print preview's Save as PDF dialog keeps its file dialog policy, and a window with
-  a sheet stays resizable.
-- mac_chrome_locale_3623: the Mac UI locale comes from Local State, as on other platforms; LoadLocalState takes
-  the ResourceBundle delegate (engine/ardiacore/apply.sh passes ArdiaCore's).
+- mac_print_preview_modal: a window with a child-modal sheet stays resizable, and the sheet gets focus back
+  after the resize.
+- mac_chrome_locale_3623 (only this part): LoadLocalState takes the ResourceBundle delegate
+  (engine/ardiacore/apply.sh passes ArdiaCore's). The Mac UI locale stays Chrome's (Cocoa's).
 - chrome_browser_extensions_background: browser_tests builds without background mode (gn gen asserts
   otherwise; the build keeps enable_background_mode=false, as CEF's build had it).
 --- a/chrome/browser/ui/browser_manager_service.cc
@@ -62,19 +60,6 @@ Windows-only parts and comments:
    }
  }
  
---- a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
-+++ b/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
-@@ -840,8 +840,8 @@
-           ->GetDisplayNearestPoint(anchor_rect.CenterPoint())
-           .work_area();
-   int available_space = screen_space.bottom() - anchor_rect.bottom();
--#if BUILDFLAG(IS_WIN)
--  // On Windows the bubble can also be show to the top of the anchor.
-+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-+  // On Windows and macOS the bubble can also be show to the top of the anchor.
-   available_space =
-       std::max(available_space, anchor_rect.y() - screen_space.y());
- #endif
 --- a/ui/views/style/platform_style.h
 +++ b/ui/views/style/platform_style.h
 @@ -84,7 +84,7 @@
@@ -86,39 +71,6 @@ Windows-only parts and comments:
  
    // Default focus behavior on the platform.
    static constexpr View::FocusBehavior kDefaultFocusBehavior =
---- a/ui/display/screen.cc
-+++ b/ui/display/screen.cc
-@@ -104,13 +104,13 @@
- gfx::Rect Screen::ScreenToDIPRectInWindow(gfx::NativeWindow window,
-                                           const gfx::Rect& screen_rect) const {
-   float scale = GetDisplayNearestWindow(window).device_scale_factor();
--  return ScaleToEnclosingRect(screen_rect, 1.0f / scale);
-+  return ScaleToRoundedRect(screen_rect, 1.0f / scale);
- }
- 
- gfx::Rect Screen::DIPToScreenRectInWindow(gfx::NativeWindow window,
-                                           const gfx::Rect& dip_rect) const {
-   float scale = GetDisplayNearestWindow(window).device_scale_factor();
--  return ScaleToEnclosingRect(dip_rect, scale);
-+  return ScaleToRoundedRect(dip_rect, scale);
- }
- 
- bool Screen::GetDisplayWithDisplayId(int64_t display_id,
---- a/chrome/browser/ui/webui/print_preview/pdf_printer_handler.cc
-+++ b/chrome/browser/ui/webui/print_preview/pdf_printer_handler.cc
-@@ -530,8 +530,10 @@
-   }
- #endif
- 
--  select_file_dialog_ =
--      ui::SelectFileDialog::Create(this, nullptr /*policy already checked*/);
-+  // Preserve the source contents so the file dialog is associated with
-+  // the print initiator, even when the preview owns a separate native window.
-+  select_file_dialog_ = ui::SelectFileDialog::Create(
-+      this, std::make_unique<ChromeSelectFilePolicy>(preview_web_contents_));
-   select_file_dialog_->SelectFile(
-       ui::SelectFileDialog::SELECT_SAVEAS_FILE, std::u16string(), path,
-       &file_type_info, 0, kPdfExtension,
 --- a/components/remote_cocoa/app_shim/native_widget_mac_nswindow.mm
 +++ b/components/remote_cocoa/app_shim/native_widget_mac_nswindow.mm
 @@ -771,6 +771,12 @@
@@ -216,24 +168,7 @@ Windows-only parts and comments:
  #if BUILDFLAG(IS_ANDROID)
    // In order for DetectAndSetLoadNonWebViewLocalePaks() to work ResourceBundle
    // must not have been created yet.
-@@ -70,23 +72,16 @@
-   ui::DetectAndSetLoadNonWebViewLocalePaks();
- #endif
- 
--  std::string preferred_locale;
--#if BUILDFLAG(IS_MAC)
--  // TODO(markusheintz): Read preference pref::kApplicationLocale in order
--  // to enforce the application locale.
--  // Tests always get en-US.
--  preferred_locale = is_running_tests ? "en-US" : std::string();
--#else
--  preferred_locale =
-+  std::string preferred_locale =
-       local_state->GetString(language::prefs::kApplicationLocale);
--#endif
- 
-   TRACE_EVENT0("startup",
-                "ChromeBrowserMainParts::InitResourceBundleAndDetermineLocale");
+@@ -86,7 +88,8 @@
    // On a POSIX OS other than ChromeOS, the parameter that is passed to the
    // method InitSharedInstance is ignored.
    std::string actual_locale = ui::ResourceBundle::InitSharedInstanceWithLocale(
@@ -243,7 +178,7 @@ Windows-only parts and comments:
    CHECK(!actual_locale.empty())
        << "Locale could not be found for " << preferred_locale;
  
-@@ -119,6 +114,7 @@
+@@ -119,6 +122,7 @@
  
  std::string LoadLocalState(
      ChromeFeatureListCreator* chrome_feature_list_creator,
@@ -251,7 +186,7 @@ Windows-only parts and comments:
      bool is_running_tests) {
    base::FilePath user_data_dir;
    if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir))
-@@ -131,5 +127,6 @@
+@@ -131,5 +135,6 @@
            base::CommandLine::ForCurrentProcess()));
  
    return InitResourceBundleAndDetermineLocale(
@@ -277,67 +212,6 @@ Windows-only parts and comments:
      bool is_running_tests);
  
  #endif  // CHROME_BROWSER_CHROME_RESOURCE_BUNDLE_HELPER_H_
---- a/components/language/core/browser/locale_util.cc
-+++ b/components/language/core/browser/locale_util.cc
-@@ -17,11 +17,11 @@
-   // LoadLocaleResources(), which is how the global locale is set.
-   // TODO(asvitkine): We should try to refactor things so that the logic is not
-   // duplicated in multiple files.
--#if !BUILDFLAG(IS_APPLE)
-+
-   // The pref isn't always registered in unit tests.
-   if (local_state->HasPrefPath(prefs::kApplicationLocale))
-     preferred_locale = local_state->GetString(prefs::kApplicationLocale);
--#endif
-+
-   // Note: The call below is necessary even if |preferred_locale| is empty, as
-   // it will get the locale that should be used potentially from other sources,
-   // depending on the platform (e.g. the OS locale on Mac).
---- a/ui/base/l10n/l10n_util.cc
-+++ b/ui/base/l10n/l10n_util.cc
-@@ -159,25 +159,7 @@
-       });
- }
- 
--#if BUILDFLAG(IS_APPLE)
--std::string GetApplicationLocaleInternalMac(std::string_view pref_locale) {
--  // Use any override (Cocoa for the browser), otherwise use the preference
--  // passed to the function.
--  std::string app_locale = l10n_util::GetLocaleOverride();
--  if (app_locale.empty())
--    app_locale = pref_locale;
--
--  // The above should handle all of the cases Chrome normally hits, but for some
--  // unit tests, fallback is needed too.
--  if (app_locale.empty())
--    app_locale = "en-US";
--
--  return app_locale;
--}
--#endif
--
--#if !BUILDFLAG(IS_APPLE)
--std::string GetApplicationLocaleInternalNonMac(std::string_view pref_locale) {
-+std::string GetApplicationLocaleInternal(std::string_view pref_locale) {
-   std::vector<std::optional<LanguageTag>> candidates;
-   // The `prefered_tag` is separated from the other candidates.
-   std::optional<LanguageTag> prefered_tag = std::nullopt;
-@@ -279,15 +261,6 @@
- 
-   // Fallback to "en-US"
-   return IsResourceBundleLocale(GetKnownLanguageTag("en-US")) ? "en-US" : "";
--}
--#endif  // !BUILDFLAG(IS_APPLE)
--
--std::string GetApplicationLocaleInternal(std::string_view pref_locale) {
--#if BUILDFLAG(IS_APPLE)
--  return GetApplicationLocaleInternalMac(pref_locale);
--#else
--  return GetApplicationLocaleInternalNonMac(pref_locale);
--#endif
- }
- 
- std::string GetApplicationLocale(std::string_view pref_locale,
 --- a/chrome/browser/extensions/BUILD.gn
 +++ b/chrome/browser/extensions/BUILD.gn
 @@ -3165,10 +3165,10 @@

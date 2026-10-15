@@ -29,6 +29,7 @@ class ArdiaVideoOverlayWindow : public VideoOverlayWindowViews {
   void Hide() override;
   void SetMediaPosition(const media_session::MediaPosition& position) override;
   void OnNativeWidgetMove() override;
+  void OnNativeWidgetDestroyed() override;
   void OnNativeWidgetSizeChanged(const gfx::Size& new_size) override;
   void OnUpdateControlsBounds() override;
   void UpdateControlsVisibility(bool is_visible, bool should_animate) override;

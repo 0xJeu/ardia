@@ -22,18 +22,14 @@ chromium chromium-extension-updates.patch
 chromium chromium-extension-window-hidden.patch
 chromium chromium-neterror-game.patch
 chromium chromium-branding.patch
-chromium chromium-icloud-keychain-window.patch
 # Load-bearing for every user's data: the Safe Storage item ("Ardia Safe Storage" / "Ardia") holds the key to
 # their saved passwords and cookies. It must survive any re-sync (plain Chromium for ArdiaCore, a version bump), unchanged.
 chromium chromium-safe-storage-name.patch
 chromium chromium-password-bubble-hook.patch
 chromium chromium-password-generation-local.patch
-chromium chromium-tab-strip-notify-before-insert.patch
-chromium chromium-ui-update-before-insert.patch
 chromium chromium-window-docked-devtools.patch
 chromium chromium-window-hosted.patch
 chromium chromium-extension-installed-bubble.patch
-chromium chromium-pip-close-keeps-playing.patch
 chromium chromium-pip-overlay-window.patch
 chromium chromium-tab-sharing-capturer.patch
 chromium chromium-ardia-layer.patch
