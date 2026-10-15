@@ -9,6 +9,7 @@ export const saveDocument = (name, contents) =>
     else land();
   });
 export const setZoom = () => Promise.resolve();
+export const setBatterySaver = () => Promise.resolve(null);
 export const launchEnvironment = () => null;
 export const appInfo = { appVersion: "1.0" };
 export const systemInfo = () => ({ ...appInfo });
