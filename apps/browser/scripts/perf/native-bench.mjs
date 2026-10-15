@@ -939,10 +939,10 @@ async function sessionRun(side, i, parts) {
       const [id, url] = tabs[(k * 7 + 3) % tabs.length];
       const marker = url.match(/id=(t\d+)/)[1];
       const target = await app.cdp.find(`id=${marker}`);
-      const before = (await app.cdp.state(target))?.shown.length ?? 0;
+      const before = (await app.cdp.state(target))?.shown?.length ?? 0;
       const hidden = await throttled(app);
       const at = await app.run(`const t = ac.now(); ac.actions.switchToTab(${JSON.stringify(id)}); return t;`);
-      const s = await app.pageState(`id=${marker}`, 5000, (st) => st.shown.length > before);
+      const s = await app.pageState(`id=${marker}`, 5000, (st) => (st.shown?.length ?? 0) > before);
       const shown = s?.shown.at(-1);
       if (hidden) r.throttled.tabSwitch++;
       r.tabSwitch.push(shown && !hidden ? shown[1] - at : NaN);
