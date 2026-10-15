@@ -48,13 +48,13 @@ make an instance a test instance; the rest are hooks for one test.
 | --- | --- | --- |
 | `ARDIA_BACKGROUND=1` | everywhere (below) | A hidden test instance (below) |
 | `ARDIA_DATA_DIR` | `ArdiaCoreHost.mm`, `packages/shell` `ACIsolation.m` | Scratch data dir (below). A Debug build refuses to start without one |
-| `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaCoreHost.mm` | CDP on that port (`--remote-allow-origins=*`) |
+| `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaCoreHost.mm` | CDP on that port (`--remote-allow-origins=*`), only on Chrome's mock keychain (a scratch `ARDIA_DATA_DIR`, or an ad hoc build); a team-signed build on its real data dir ignores it and drops `--remote-debugging-*` and `--load-extension` from its switches |
 | `ARDIA_JS_LOCATION=host:port` | `AppDelegate.swift` | This launch's Metro, never written to defaults |
 | `ARDIA_CHROMIUM_SWITCHES` | `ArdiaCoreHost.mm` | Extra Chrome switches, space-separated (background mode drops the auto-accept capture ones) |
 | `ARDIA_ALLOW_OCCLUSION=1` | `ArdiaCoreHost.mm` | Background mode keeps Chrome's occlusion |
 | `ARDIA_ALLOW_AUDIO=1` | `ArdiaCoreHost.mm`, `IntroMusic.swift` | Background mode keeps sound |
 | `ARDIA_DOWNLOADS_DIR` | engine `ac_downloads.cc` | Chrome's download folder |
-| `ARDIA_TEST_REAUTH=granted` | engine `ac_reauth.cc` | Background mode grants macOS re-auth requests (otherwise refused, each reported as `reauth.requested`) |
+| `ARDIA_TEST_REAUTH=granted` | engine `ac_reauth.cc` | Background mode grants macOS re-auth requests (otherwise refused, each reported as `reauth.requested`). Only builds that aren't signed for distribution (Debug, ad hoc) and run on Chrome's mock keychain honour it, so it can never reveal what the real "Ardia Safe Storage" key encrypts; a Developer ID build refuses every request in background mode |
 | `ARDIA_CONTEXT_MENU_LOG` | engine `ac_context_menu.mm` | Context menus go to the host instead of the screen, in any build; the pick runs on the model that owns it, logged as `[ardiacore-menu]` in the system log |
 | `ARDIA_FAKE_FULLSCREEN_MS` | `ArdiaCoreChromeWindow.mm` | Length of the acted-out full-screen transition (the window takes the screen's frame as it starts and its old frame back on the way out, as AppKit does). Dev actions (`devWindow`): `fakeFullScreen:<1\|0>[:<ms>]`, `fakeFullScreenMs:<ms>`, `fakeOcclusion:<visible\|occluded\|off>` (macOS's occlusion state; a test window otherwise counts as seen), `fakeFullScreenOcclusionMs:<ms>` (acted transitions occlude the window, visible again `<ms>` after they end, as a real Space animation), `pageCover:<1\|0>` (the page's picture over it through transitions, `ACPageCover`; 0 is 0.2.30's behaviour), `fullScreenProbe:<ms>` then `fullScreenProbe` (per display frame, what an in-process render of the window, all AppKit's transition shows, has in the page's place: an 8 × 6 colour grid, uniformity, covers; acceptance `fullscreen-transition-picture`) |
 | `ARDIA_TRAFFIC_LIGHTS_LOG=<file>` | `ArdiaCoreChromeWindow.mm` | Logs every traffic-light change (test instances only) |
@@ -92,7 +92,8 @@ make an instance a test instance; the rest are hooks for one test.
   PiP windows stay at alpha 0 and click-through; the drag preview stays above its own window only.
 - **Media:** `--mute-audio`, no intro music, `--use-fake-device-for-media-stream` with the microphone kept on a fake
   input (`ac_fake_media.mm`), and `--disable-modal-animations` (a locked screen never ends a dialog's close animation).
-- **Other:** macOS re-auth prompts never show; requests are refused unless `ARDIA_TEST_REAUTH=granted`.
+- **Other:** macOS re-auth prompts never show; requests are refused unless `ARDIA_TEST_REAUTH=granted` in a build that
+  honours it (above).
 
 A scratch `ARDIA_DATA_DIR` holds Chrome's user data and the app's documents, its defaults, keychain items and
 Sparkle state (`ACIsolation.h`); Chrome gets `--use-mock-keychain`; update checks are off without

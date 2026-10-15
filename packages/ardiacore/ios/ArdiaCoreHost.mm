@@ -327,7 +327,8 @@ static void StartLaunchTab() {
       "--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true",
       "--profile-directory=Default",
   };
-  if (gScratchDataDir || !IsTeamSigned()) extra.push_back("--use-mock-keychain");
+  const bool mockKeychain = gScratchDataDir || !IsTeamSigned();
+  if (mockKeychain) extra.push_back("--use-mock-keychain");
   ardiacore_host::PrepareStartup(gDataDirectory, extra);
   if (getenv("ARDIA_BACKGROUND") && !getenv("ARDIA_ALLOW_OCCLUSION")) {
     extra.push_back("--disable-backgrounding-occluded-windows");
@@ -341,7 +342,10 @@ static void StartLaunchTab() {
     return getenv("ARDIA_BACKGROUND") && (!strncmp(sw, "--use-fake-ui-for-media-stream", 30) ||
                                               !strncmp(sw, "--auto-accept-camera-and-microphone-capture", 43));
   };
-  if (const char *port = getenv("ARDIA_REMOTE_DEBUGGING_PORT")) {
+  auto opensRealProfile = [mockKeychain](const char *sw) {
+    return !mockKeychain && (!strncmp(sw, "--remote-debugging-", 19) || !strncmp(sw, "--load-extension", 16));
+  };
+  if (const char *port = getenv("ARDIA_REMOTE_DEBUGGING_PORT"); port && mockKeychain) {
     extra.push_back(std::string("--remote-debugging-port=") + port);
     extra.push_back("--remote-allow-origins=*");
   }
@@ -350,7 +354,7 @@ static void StartLaunchTab() {
     for (NSString *item in [all componentsSeparatedByString:@" --"]) {
       NSString *sw = [item stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
       std::string full = std::string("--") + sw.UTF8String;
-      if (sw.length && !autoAccepts(full.c_str())) extra.push_back(full);
+      if (sw.length && !autoAccepts(full.c_str()) && !opensRealProfile(full.c_str())) extra.push_back(full);
     }
   }
   std::vector<const char *> args = {argc > 0 && argv[0] ? argv[0] : "Ardia"};
@@ -364,7 +368,7 @@ static void StartLaunchTab() {
       i++;
       continue;
     }
-    if (autoAccepts(arg)) continue;
+    if (autoAccepts(arg) || opensRealProfile(arg)) continue;
     args.push_back(arg);
   }
   static ArdiaCoreHostEngineDelegate *engineDelegate = [ArdiaCoreHostEngineDelegate new];
