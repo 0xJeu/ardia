@@ -48,9 +48,9 @@ make an instance a test instance; the rest are hooks for one test.
 | --- | --- | --- |
 | `ARDIA_BACKGROUND=1` | everywhere (below) | A hidden test instance (below) |
 | `ARDIA_DATA_DIR` | `ArdiaCoreHost.mm`, `packages/shell` `ACIsolation.m` | Scratch data dir (below). A Debug build refuses to start without one |
-| `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaCoreHost.mm` | CDP on that port (`--remote-allow-origins=*`), only on Chrome's mock keychain (a scratch `ARDIA_DATA_DIR`, or an ad hoc build); a team-signed build on its real data dir ignores it and drops `--remote-debugging-*` and `--load-extension` from its switches |
+| `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaCoreHost.mm` | CDP on that port (`--remote-allow-origins=*`), only on Chrome's mock keychain (a scratch `ARDIA_DATA_DIR`, or an ad hoc build). A team-signed build on its real data dir ignores it, forwards neither argv nor `ARDIA_CHROMIUM_SWITCHES`, and its browser process removes every switch that would open the profile to outside control, however it's spelled (`ac_main_delegate.cc` `kSwitchesThatOpenTheProfile`; `--ardia-show-profile-gate` logs the parsed and gated command lines) |
 | `ARDIA_JS_LOCATION=host:port` | `AppDelegate.swift` | This launch's Metro, never written to defaults |
-| `ARDIA_CHROMIUM_SWITCHES` | `ArdiaCoreHost.mm` | Extra Chrome switches, space-separated (background mode drops the auto-accept capture ones) |
+| `ARDIA_CHROMIUM_SWITCHES` | `ArdiaCoreHost.mm` | Extra Chrome switches, space-separated (background mode drops the auto-accept capture ones); only on Chrome's mock keychain, like argv |
 | `ARDIA_ALLOW_OCCLUSION=1` | `ArdiaCoreHost.mm` | Background mode keeps Chrome's occlusion |
 | `ARDIA_ALLOW_AUDIO=1` | `ArdiaCoreHost.mm`, `IntroMusic.swift` | Background mode keeps sound |
 | `ARDIA_DOWNLOADS_DIR` | engine `ac_downloads.cc` | Chrome's download folder for this launch: the pref's default, never written to the profile (a folder the user picked still wins) |

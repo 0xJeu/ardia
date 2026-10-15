@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
@@ -24,6 +25,7 @@
 #include "components/component_updater/component_updater_paths.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
+#include "components/os_crypt/common/os_crypt_switches.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/common/content_switches.h"
@@ -51,6 +53,55 @@ EngineCallbacks& Callbacks() {
 }
 
 bool g_browser_started = false;
+
+constexpr const char* kSwitchesThatOpenTheProfile[] = {
+    "auto-open-devtools-for-tabs",
+    "custom-devtools-frontend",
+    "devtools-flags",
+    "disable-extensions-except",
+    "disable-web-security",
+    "enable-automation",
+    "host-resolver-rules",
+    "host-rules",
+    "ignore-certificate-errors",
+    "ignore-certificate-errors-spki-list",
+    "load-apps",
+    "load-extension",
+    "log-net-log",
+    "net-log-capture-mode",
+    "proxy-pac-url",
+    "proxy-server",
+    "remote-allow-origins",
+    "remote-debugging-address",
+    "remote-debugging-io-pipes",
+    "remote-debugging-pipe",
+    "remote-debugging-port",
+    "remote-debugging-socket-name",
+    "remote-debugging-targets",
+    "silent-debugger-extension-api",
+};
+
+void RemoveSwitchesThatOpenTheProfile(base::CommandLine* command_line) {
+  for (const char* name : kSwitchesThatOpenTheProfile) {
+    command_line->RemoveSwitch(name);
+  }
+}
+
+void KeepRealProfileClosed(base::CommandLine* command_line) {
+  const bool mock_keychain =
+      command_line->HasSwitch(os_crypt::switches::kUseMockKeychain);
+  if (command_line->HasSwitch("ardia-show-profile-gate")) {
+    base::CommandLine closed(*command_line);
+    RemoveSwitchesThatOpenTheProfile(&closed);
+    LOG(ERROR) << "[ardiacore] profile gate (applies here: "
+               << (mock_keychain ? "no" : "yes") << ")\n  parsed: "
+               << command_line->GetCommandLineString()
+               << "\n  closed: " << closed.GetCommandLineString();
+  }
+  if (!mock_keychain) {
+    RemoveSwitchesThatOpenTheProfile(command_line);
+  }
+}
 
 std::unique_ptr<ScopedKeepAlive>& AppKeepAlive() {
   static base::NoDestructor<std::unique_ptr<ScopedKeepAlive>> keep_alive;
@@ -201,6 +252,7 @@ ACMainDelegate::~ACMainDelegate() = default;
 std::optional<int> ACMainDelegate::BasicStartupComplete() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kProcessType)) {
+    KeepRealProfileClosed(command_line);
     command_line->AppendSwitch(switches::kNoStartupWindow);
     command_line->AppendSwitch(switches::kNoFirstRun);
     command_line->AppendSwitch(switches::kNoDefaultBrowserCheck);

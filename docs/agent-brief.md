@@ -214,11 +214,12 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     (`http://localhost:<port>/json`, `Runtime.evaluate`, `Page.captureScreenshot`). A `ARDIA_BACKGROUND` instance's windows answer NO to
     `-[NSWindow isOccluded]` (`ArdiaCoreHost.mm`), so a covered window shows a tab at once instead of after Chrome's 1 s
     occlusion delay; set `ARDIA_ALLOW_OCCLUSION=1` to test occlusion itself.
-  - CDP (`ARDIA_REMOTE_DEBUGGING_PORT`, and `--remote-debugging-*` or `--load-extension` in argv or
-    `ARDIA_CHROMIUM_SWITCHES`) only works where Chrome runs on its mock keychain: a scratch `ARDIA_DATA_DIR`, or a build
-    without a team signature (ad hoc copies such as carryover.sh's). A team-signed build on its real data dir drops them
-    (`ArdiaCoreHost.mm`), so nothing can drive the real profile, with its real Safe Storage key, over DevTools; Chrome 136
-    did the same for its default profile.
+  - CDP (`ARDIA_REMOTE_DEBUGGING_PORT`), argv and `ARDIA_CHROMIUM_SWITCHES` only reach Chrome where it runs on its mock
+    keychain: a scratch `ARDIA_DATA_DIR`, or a build without a team signature (ad hoc copies such as carryover.sh's). A
+    team-signed build on its real data dir forwards none of them (`ArdiaCoreHost.mm`), and its browser process removes
+    every switch that opens the profile to outside control (remote debugging, unpacked extensions, automation, proxies,
+    certificate overrides; `ac_main_delegate.cc`), so nothing drives the real profile, with its real Safe Storage key;
+    Chrome 136 did the same for its default profile.
   - Native UI: `screencapture -l <windowID> -o` (find the id with CGWindowList by owner PID; a test window's layer is negative). It captures the
     window's own content even while the owner's windows cover it, which a test window's always may. Wrap every capture in `timeout 20`: with the screen locked they can hang instead of failing.
     For the New Tab intro, launch with `ARDIA_SHADERS_FORCE_KEY=1` (it only plays in a key window).

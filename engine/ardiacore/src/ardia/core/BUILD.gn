@@ -88,6 +88,7 @@ source_set("core") {
     "//chrome/browser/ui/views/exclusive_access",
     "//chrome/browser/ui/views/eye_dropper",
     "//chrome/common",
+    "//components/os_crypt/common:switches",
     "//chrome/common/profiler",
     "//components/component_updater",
     "//components/keep_alive_registry",

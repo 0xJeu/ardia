@@ -343,24 +343,21 @@ static void StartLaunchTab() {
     return getenv("ARDIA_BACKGROUND") && (!strncmp(sw, "--use-fake-ui-for-media-stream", 30) ||
                                               !strncmp(sw, "--auto-accept-camera-and-microphone-capture", 43));
   };
-  auto opensRealProfile = [mockKeychain](const char *sw) {
-    return !mockKeychain && (!strncmp(sw, "--remote-debugging-", 19) || !strncmp(sw, "--load-extension", 16));
-  };
   if (const char *port = getenv("ARDIA_REMOTE_DEBUGGING_PORT"); port && mockKeychain) {
     extra.push_back(std::string("--remote-debugging-port=") + port);
     extra.push_back("--remote-allow-origins=*");
   }
-  if (const char *switches = getenv("ARDIA_CHROMIUM_SWITCHES")) {
+  if (const char *switches = getenv("ARDIA_CHROMIUM_SWITCHES"); switches && mockKeychain) {
     NSString *all = [@" " stringByAppendingString:@(switches)];
     for (NSString *item in [all componentsSeparatedByString:@" --"]) {
       NSString *sw = [item stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
       std::string full = std::string("--") + sw.UTF8String;
-      if (sw.length && !autoAccepts(full.c_str()) && !opensRealProfile(full.c_str())) extra.push_back(full);
+      if (sw.length && !autoAccepts(full.c_str())) extra.push_back(full);
     }
   }
   std::vector<const char *> args = {argc > 0 && argv[0] ? argv[0] : "Ardia"};
   for (const std::string &s : extra) args.push_back(s.c_str());
-  for (int i = 1; i < argc; i++) {
+  for (int i = 1; mockKeychain && i < argc; i++) {
     const char *arg = argv[i];
     if (!arg) break;
     const bool cocoaDefault = arg[0] == '-' && arg[1] != '-' && isalpha((unsigned char)arg[1]) &&
@@ -369,7 +366,7 @@ static void StartLaunchTab() {
       i++;
       continue;
     }
-    if (autoAccepts(arg) || opensRealProfile(arg)) continue;
+    if (autoAccepts(arg)) continue;
     args.push_back(arg);
   }
   static ArdiaCoreHostEngineDelegate *engineDelegate = [ArdiaCoreHostEngineDelegate new];
