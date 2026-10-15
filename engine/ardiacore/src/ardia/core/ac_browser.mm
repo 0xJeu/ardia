@@ -50,6 +50,7 @@
 #include "ardia/core/ac_desktop_capture.h"
 #include "ardia/core/ac_fake_media.h"
 #include "ardia/core/ac_installed_bubble.h"
+#include "ardia/core/ac_modal_dialog_host.h"
 #include "ardia/core/ac_page_channel.h"
 #include "ardia/core/ac_tab_info.h"
 #include "ardia/core/ac_autofill_trigger.h"
@@ -182,6 +183,9 @@ WindowHost::~WindowHost() {
   std::erase(Hosts(), this);
   for (auto& observer : modal_observers_) {
     observer.OnHostDestroying();
+  }
+  for ([[maybe_unused]] auto& observer : modal_observers_) {
+    DialogHostObserverRemoved();
   }
   for (auto& [profile, browser] : browsers_) {
     browser->GetTabStripModel()->RemoveObserver(this);
@@ -772,33 +776,78 @@ gfx::NativeView WindowHost::GetHostView() const {
   return gfx::NativeView(host_view_);
 }
 
+namespace {
+
+content::WebContents* ActiveContentsOf(const WindowHost* host) {
+  Browser* browser = host->active_profile()
+                         ? host->ExistingBrowserFor(host->active_profile())
+                         : nullptr;
+  return browser ? browser->GetTabStripModel()->GetActiveWebContents()
+                 : nullptr;
+}
+
+}
+
 gfx::Point WindowHost::GetDialogPosition(const gfx::Size& size) {
-  NSRect page = host_view_.bounds;
-  if (Browser* browser =
-          active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr) {
-    if (content::WebContents* contents =
-            browser->GetTabStripModel()->GetActiveWebContents()) {
-      NSView* view = contents->GetNativeView().GetNativeNSView();
-      if (view.window == host_view_.window && view.superview) {
-        page = [view convertRect:view.bounds toView:host_view_];
-      }
-    }
-  }
-  const int top = host_view_.bounds.size.height - NSMaxY(page);
-  return gfx::Point(NSMidX(page) - size.width() / 2, top);
+  return DialogPositionInHostView(
+      host_view_, PageRectInHostView(host_view_, ActiveContentsOf(this)),
+      size);
+}
+
+bool WindowHost::ShouldActivateDialog() const {
+  BrowserWindowInterface* last =
+      GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+  return last && ForBrowser(last) == this &&
+         IsActiveBrowser(static_cast<Browser*>(last));
 }
 
 gfx::Size WindowHost::GetMaximumDialogSize() {
-  NSSize size = host_view_.bounds.size;
-  return gfx::Size(size.width, size.height);
+  return PageRectInHostView(host_view_, ActiveContentsOf(this)).size();
 }
 
 void WindowHost::AddObserver(web_modal::ModalDialogHostObserver* observer) {
+  if (modal_observers_.HasObserver(observer)) {
+    return;
+  }
   modal_observers_.AddObserver(observer);
+  DialogHostObserverAdded();
 }
 
 void WindowHost::RemoveObserver(web_modal::ModalDialogHostObserver* observer) {
+  if (!modal_observers_.HasObserver(observer)) {
+    return;
+  }
   modal_observers_.RemoveObserver(observer);
+  DialogHostObserverRemoved();
+}
+
+void WindowHost::NotifyPositionRequiresUpdate() {
+  dialog_position_update_scheduled_ = false;
+  modal_observers_.Notify(
+      &web_modal::ModalDialogHostObserver::OnPositionRequiresUpdate);
+  for (Browser* browser : browsers()) {
+    TabStripModel* tabs = browser->GetTabStripModel();
+    for (int i = 0; i < tabs->count(); ++i) {
+      if (auto* host = ACTabDialogHost::FromWebContents(tabs->GetWebContentsAt(i))) {
+        host->NotifyPositionRequiresUpdate();
+      }
+    }
+  }
+}
+
+void WindowHost::ScheduleDialogPositionUpdate() {
+  if (dialog_position_update_scheduled_) {
+    return;
+  }
+  dialog_position_update_scheduled_ = true;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&WindowHost::NotifyPositionRequiresUpdate,
+                                GetWeakPtr()));
+}
+
+void WindowHost::OnWidgetBoundsChanged(views::Widget* widget,
+                                       const gfx::Rect& new_bounds) {
+  ScheduleDialogPositionUpdate();
 }
 
 void ConfirmQuitWithDownloads(int count, base::OnceCallback<void(bool)> callback) {

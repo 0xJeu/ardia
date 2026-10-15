@@ -2,12 +2,16 @@
 
 #import <AppKit/AppKit.h>
 
+#include <stdlib.h>
+
 #include <map>
 #include <set>
 
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
+#include "chrome/app/chrome_command_ids.h"
 
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
@@ -22,15 +26,28 @@
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "ui/gfx/range/range.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+#include "chrome/browser/ui/views/exclusive_access/exclusive_access_bubble_views.h"
+#include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/eye_dropper.h"
+#include "content/public/browser/eye_dropper_listener.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #import "ardia/core/ardiacore_internal.h"
 #include "content/public/browser/web_contents.h"
 #include "ardia/core/ac_autofill_prompt.h"
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/ac_lifetime.h"
+#include "ardia/core/ac_modal_dialog_host.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/accelerators/accelerator.h"
+#include "ui/base/ui_base_features.h"
+#include "ui/display/types/display_constants.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/gfx/geometry/rect.h"
@@ -267,6 +284,7 @@ ACBrowserWindow::ACBrowserWindow(base::WeakPtr<WindowHost> host)
 
 ACBrowserWindow::~ACBrowserWindow() {
   LiveWindows().erase(this);
+  DestroyAnyExclusiveAccessBubble();
   devtools_ui_controller_.reset();
   autofill_bubble_handler_registration_.reset();
   if (browser_) {
@@ -629,6 +647,9 @@ ACBrowserWindow::GetWebContentsModalDialogHost() {
 web_modal::WebContentsModalDialogHost*
 ACBrowserWindow::GetWebContentsModalDialogHostFor(
     content::WebContents* web_contents) {
+  if (web_contents && tabs::TabInterface::MaybeGetFromContents(web_contents)) {
+    return ACTabDialogHost::GetOrCreateForWebContents(web_contents);
+  }
   return host_.get();
 }
 
@@ -644,7 +665,11 @@ void ACBrowserWindow::EnterFullscreen(const url::Origin& origin,
                                       ExclusiveAccessBubbleType bubble_type,
                                       FullscreenTabParams fullscreen_tab_params) {
   tab_fullscreen_ = true;
+  base::WeakPtr<ACBrowserWindow> self = weak_factory_.GetWeakPtr();
   ReportFullscreenTab();
+  if (self) {
+    PostWindowFullscreenStateChanged();
+  }
 }
 
 void ACBrowserWindow::ExitFullscreen() {
@@ -652,10 +677,112 @@ void ACBrowserWindow::ExitFullscreen() {
   ReportFullscreenTab();
 }
 
+void ACBrowserWindow::PostWindowFullscreenStateChanged() {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<ACBrowserWindow> window) {
+                       ExclusiveAccessManager* manager =
+                           window ? window->GetExclusiveAccessManager()
+                                  : nullptr;
+                       if (manager && window->tab_fullscreen_) {
+                         manager->fullscreen_controller()
+                             ->WindowFullscreenStateChanged();
+                       }
+                     },
+                     weak_factory_.GetWeakPtr()));
+}
+
 void ACBrowserWindow::UpdateExclusiveAccessBubble(
     const ExclusiveAccessBubbleParams& params,
     ExclusiveAccessBubbleHideCallback first_hide_callback) {
+  base::WeakPtr<ACBrowserWindow> self = weak_factory_.GetWeakPtr();
   ReportFullscreenTab();
+  if (!self) {
+    return;
+  }
+  const bool can_show = host_ && host_->widget() && browser_ &&
+                        GetExclusiveAccessManager();
+  const bool should_close_bubble =
+      !can_show ||
+      (!params.has_download && params.type == EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE);
+  if (should_close_bubble) {
+    if (first_hide_callback) {
+      std::move(first_hide_callback)
+          .Run(ExclusiveAccessBubbleHideReason::kNotShown);
+    }
+    if (!exclusive_access_bubble_ ||
+        exclusive_access_bubble_destruction_task_id_) {
+      return;
+    }
+    exclusive_access_bubble_->HideImmediately();
+    exclusive_access_bubble_destruction_task_id_ =
+        exclusive_access_bubble_task_tracker_.PostTask(
+            base::SingleThreadTaskRunner::GetCurrentDefault().get(), FROM_HERE,
+            base::BindOnce(&ACBrowserWindow::DestroyAnyExclusiveAccessBubble,
+                           weak_factory_.GetWeakPtr()));
+    return;
+  }
+  if (exclusive_access_bubble_) {
+    if (exclusive_access_bubble_destruction_task_id_) {
+      exclusive_access_bubble_task_tracker_.TryCancel(
+          *exclusive_access_bubble_destruction_task_id_);
+      exclusive_access_bubble_destruction_task_id_.reset();
+    }
+    exclusive_access_bubble_->Update(params, std::move(first_hide_callback));
+    return;
+  }
+  exclusive_access_bubble_ = std::make_unique<ExclusiveAccessBubbleViews>(
+      this, params, std::move(first_hide_callback));
+}
+
+void ACBrowserWindow::OnExclusiveAccessUserInput() {
+  if (exclusive_access_bubble_) {
+    exclusive_access_bubble_->OnUserInput();
+  }
+}
+
+ExclusiveAccessManager* ACBrowserWindow::GetExclusiveAccessManager() {
+  return browser_ ? browser_->GetFeatures().exclusive_access_manager()
+                  : nullptr;
+}
+
+ui::AcceleratorProvider* ACBrowserWindow::GetAcceleratorProvider() {
+  return this;
+}
+
+bool ACBrowserWindow::GetAcceleratorForCommandId(
+    int command_id,
+    ui::Accelerator* accelerator) const {
+  if (command_id != IDC_FULLSCREEN) {
+    return false;
+  }
+  *accelerator =
+      ui::Accelerator(ui::VKEY_F, ui::EF_CONTROL_DOWN | ui::EF_COMMAND_DOWN);
+  return true;
+}
+
+gfx::NativeView ACBrowserWindow::GetBubbleParentView() const {
+  return host_ && host_->widget() ? host_->widget()->GetNativeView()
+                                  : gfx::NativeView();
+}
+
+gfx::Rect ACBrowserWindow::GetClientAreaBoundsInScreen() const {
+  return host_ && host_->widget()
+             ? host_->widget()->GetClientAreaBoundsInScreen()
+             : gfx::Rect();
+}
+
+bool ACBrowserWindow::IsImmersiveModeEnabled() const {
+  return false;
+}
+
+gfx::Rect ACBrowserWindow::GetTopContainerBoundsInScreen() {
+  return gfx::Rect();
+}
+
+void ACBrowserWindow::DestroyAnyExclusiveAccessBubble() {
+  exclusive_access_bubble_.reset();
+  exclusive_access_bubble_destruction_task_id_.reset();
 }
 
 void ACBrowserWindow::ReportFullscreenTab() {
@@ -676,6 +803,17 @@ void ACBrowserWindow::ReportFullscreenTab() {
   }
   base::WeakPtr<content::WebContents> entering = fullscreen_tab_;
   if (was) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](base::WeakPtr<content::WebContents> left) {
+                         content::RenderWidgetHostView* view =
+                             left ? left->GetRenderWidgetHostView() : nullptr;
+                         if (view && !left->IsFullscreen()) {
+                           view->GetRenderWidgetHost()
+                               ->SynchronizeVisualProperties();
+                         }
+                       },
+                       was->GetWeakPtr()));
     host_->FullscreenChanged(was, false);
   }
   if (content::WebContents* contents = entering.get();
@@ -685,7 +823,8 @@ void ACBrowserWindow::ReportFullscreenTab() {
 }
 
 bool ACBrowserWindow::IsExclusiveAccessBubbleDisplayed() const {
-  return false;
+  return exclusive_access_bubble_ && (exclusive_access_bubble_->IsShowing() ||
+                                      exclusive_access_bubble_->IsVisible());
 }
 
 content::WebContents* ACBrowserWindow::GetWebContentsForExclusiveAccess() {
@@ -710,13 +849,52 @@ bool ACBrowserWindow::IsVisibleOnAllWorkspaces() const {
 }
 
 void ACBrowserWindow::ShowEmojiPanel() {
+  base::WeakPtr<ACBrowserWindow> self = weak_factory_.GetWeakPtr();
+  if (content::WebContents* contents =
+          browser_ ? browser_->GetTabStripModel()->GetActiveWebContents()
+                   : nullptr) {
+    if (!contents->ForSecurityDropFullscreen(display::kInvalidDisplayId) ||
+        !self) {
+      return;
+    }
+  }
+  if (host_ && host_->widget()) {
+    host_->widget()->ShowEmojiPanel();
+    return;
+  }
   [NSApp orderFrontCharacterPalette:nil];
+}
+
+namespace {
+
+class BackgroundEyeDropper : public content::EyeDropper {
+ public:
+  explicit BackgroundEyeDropper(content::EyeDropperListener* listener)
+      : listener_(listener) {
+    LOG(WARNING) << "[ardiacore] eye dropper (background run: picks #123456)";
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&BackgroundEyeDropper::Pick,
+                                  weak_factory_.GetWeakPtr()));
+  }
+
+ private:
+  void Pick() { listener_->ColorSelected(SkColorSetRGB(0x12, 0x34, 0x56)); }
+
+  raw_ptr<content::EyeDropperListener> listener_;
+  base::WeakPtrFactory<BackgroundEyeDropper> weak_factory_{this};
+};
+
 }
 
 std::unique_ptr<content::EyeDropper> ACBrowserWindow::OpenEyeDropper(
     content::RenderFrameHost* frame,
     content::EyeDropperListener* listener) {
-  return nullptr;
+  if (getenv("ARDIA_BACKGROUND") && listener) {
+    return features::IsEyeDropperEnabled()
+               ? std::make_unique<BackgroundEyeDropper>(listener)
+               : nullptr;
+  }
+  return ShowEyeDropper(frame, listener);
 }
 
 bool ACBrowserWindow::IsUnframedModeEnabled() const {

@@ -122,9 +122,14 @@ class WindowHost : public TabStripModelObserver,
 
   gfx::NativeView GetHostView() const override;
   gfx::Point GetDialogPosition(const gfx::Size& size) override;
+  bool ShouldActivateDialog() const override;
   gfx::Size GetMaximumDialogSize() override;
   void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
   void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void NotifyPositionRequiresUpdate() override;
+  void ScheduleDialogPositionUpdate();
+  void OnWidgetBoundsChanged(views::Widget* widget,
+                             const gfx::Rect& new_bounds) override;
 
  private:
   enum class CloseState { kOpen, kAsking, kClosing };
@@ -151,6 +156,7 @@ class WindowHost : public TabStripModelObserver,
   bool acted_fullscreen_ = false;
   PendingOpen pending_open_;
   base::ObserverList<web_modal::ModalDialogHostObserver> modal_observers_;
+  bool dialog_position_update_scheduled_ = false;
   base::WeakPtrFactory<WindowHost> weak_factory_{this};
 };
 
