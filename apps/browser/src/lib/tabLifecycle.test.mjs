@@ -11,7 +11,7 @@ const stubs = {
     export const onSystemState = () => ({ remove() {} });
     export const systemState = async () => null;
     export const releaseProfile = async () => {};
-    export const setBatterySaver = async () => ({ state: 0, active: false });`,
+    export const setBatterySaver = (mode) => globalThis.batterySaverReply(mode);`,
   "../components/layout/splitActions": "export const showToast = () => {};",
   "../components/settings/windows": "export const openSettings = () => {};",
   "../components/pages": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",
@@ -71,4 +71,37 @@ test("a tab without unsaved input sleeps", async () => {
   assert.equal(await lifecycle.sleepTab(b), true);
   assert.equal(page.discarded, 1);
   webviews.delete(b);
+});
+
+const STATE = { off: 0, belowThreshold: 1, on: 3 };
+
+async function syncWith(on, reply) {
+  lifecycle.useLifecycle.setState({ batterySaver: on });
+  globalThis.batterySaverReply = reply;
+  return lifecycle.syncChromeBatterySaver();
+}
+
+test("Chrome owns Battery Saver when its effective state is the one asked for", async () => {
+  assert.equal(await syncWith(true, async (mode) => ({ state: STATE[mode], active: mode === "on" })), true);
+  assert.equal(await syncWith(false, async (mode) => ({ state: STATE[mode], active: false })), true);
+});
+
+test("a policy that pins Chrome's battery saver keeps our sampler running", async () => {
+  assert.equal(await syncWith(true, async () => ({ state: STATE.off, active: false })), false);
+  assert.equal(await syncWith(false, async () => ({ state: STATE.belowThreshold, active: false })), false);
+});
+
+test("an engine without the call keeps our sampler running", async () => {
+  assert.equal(await syncWith(true, async () => { throw new Error("not an engine call"); }), false);
+});
+
+test("an older reply landing last doesn't override the newer one", async () => {
+  let releaseFirst;
+  lifecycle.useLifecycle.setState({ batterySaver: true });
+  globalThis.batterySaverReply = () => new Promise((resolve) => (releaseFirst = () => resolve({ state: STATE.on, active: true })));
+  const first = lifecycle.syncChromeBatterySaver();
+  const second = syncWith(true, async () => ({ state: STATE.off, active: false }));
+  assert.equal(await second, false);
+  releaseFirst();
+  assert.equal(await first, false);
 });

@@ -223,14 +223,20 @@ function releaseUnusedProfiles() {
   }
 }
 
-let chromeSaver = false;
+const CHROME_SAVER_STATE = { off: 0, on: 3 } as const;
 
-function syncChromeBatterySaver() {
+let chromeSaver = false;
+let chromeSaverSync = 0;
+
+export async function syncChromeBatterySaver(): Promise<boolean> {
   const mode = switchOn("chromeBatterySaver") ? (useLifecycle.getState().batterySaver ? "on" : "off") : "default";
-  void setBatterySaver(mode).then(
-    () => void (chromeSaver = mode !== "default"),
-    () => void (chromeSaver = false),
+  const sync = ++chromeSaverSync;
+  const owned = await setBatterySaver(mode).then(
+    (reply) => mode !== "default" && reply.state === CHROME_SAVER_STATE[mode],
+    () => false,
   );
+  if (sync === chromeSaverSync) chromeSaver = owned;
+  return chromeSaver;
 }
 
 function updateBatterySaver(announce: boolean) {
@@ -238,7 +244,7 @@ function updateBatterySaver(announce: boolean) {
   const on = store().settings.batterySaver && !!sys && (sys.onBattery || sys.lowPowerMode);
   if (on === useLifecycle.getState().batterySaver) return;
   useLifecycle.setState({ batterySaver: on });
-  syncChromeBatterySaver();
+  void syncChromeBatterySaver();
   if (!on && !chromeSaver) thawAll();
   const windowId = store().ui.focusedWindowId;
   if (!announce || !windowId || !store().windows[windowId]) return;
@@ -365,7 +371,7 @@ export function startTabLifecycle() {
       (state) => {
         system = state;
         updateBatterySaver(false);
-        syncChromeBatterySaver();
+        void syncChromeBatterySaver();
         onSystemState(onSystem);
         setTimeout(() => reloadRecentTabs(currentSystem()!), 3000);
       },
