@@ -71,8 +71,16 @@ sleep 1
 
 installed="$work/installed/$installed_name"
 from="$(plist -c "Print :CFBundleShortVersionString" "$installed/Contents/Info.plist")"
+channel="$(sed -n 's/.*<sparkle:channel>\([^<]*\)<.*/\1/p' "$work/feed/appcast.xml" | head -1)"
+if [ -n "$channel" ]; then
+  HOME="$work/home" CFFIXED_USER_HOME="$work/home" timeout 300 "$work/sparkle-host" "$installed" \
+    "http://127.0.0.1:$port/appcast.xml" none > "$work/sparkle-default.log" 2>&1 \
+    || { sed 's/^/      /' "$work/sparkle-default.log"; echo "FAIL  a copy of $from on the stable channel ignores $version ($channel)"; exit 1; }
+  sed 's/^/      /' "$work/sparkle-default.log"
+  echo "PASS  a copy of $from on the stable channel ignores $version ($channel)"
+fi
 HOME="$work/home" CFFIXED_USER_HOME="$work/home" timeout 300 "$work/sparkle-host" "$installed" \
-  "http://127.0.0.1:$port/appcast.xml" "$version" > "$work/sparkle.log" 2>&1 \
+  "http://127.0.0.1:$port/appcast.xml" "$version" $channel > "$work/sparkle.log" 2>&1 \
   || { sed 's/^/      /' "$work/sparkle.log"; fail "Sparkle didn't install it"; }
 sed 's/^/      /' "$work/sparkle.log"
 codesign --verify --deep --strict "$installed" 2>/dev/null || fail "the installed bundle isn't sealed"
@@ -82,4 +90,4 @@ differences="$(mtree -p "$installed" -f "$work/new.mtree" 2>&1 | head -5 || true
 ls "$work/installed" | grep -qvxF "$installed_name" && fail "left beside it: $(ls "$work/installed" | tr '\n' ' ')"
 renamed=""
 [ "$new_test_id" = "$test_id" ] || renamed="; across the bundle id change, on the EdDSA signature"
-echo "PASS  Sparkle on $from updates a copy in place to $version (feed, EdDSA, extraction, installer; the bundle is the new build's, sealed$renamed)"
+echo "PASS  Sparkle on $from${channel:+ on the $channel channel} updates a copy in place to $version (feed, EdDSA, extraction, installer; the bundle is the new build's, sealed$renamed)"

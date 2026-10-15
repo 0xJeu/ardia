@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut and ship an Ardia release end to end — write the Dia-style release notes from git log, bump the version, build/sign/package with scripts/release.sh, smoke-test the build in a hidden instance, publish the GitHub release + Sparkle appcast, and deploy ardia.dev with the release-notes entry, the new download link and the landing page's claims and screenshots brought up to date. Use this whenever the user asks to ship, release, cut/push a new version or update, publish a build, "get this to me", bump the version, or write release notes for Ardia — even if they only say "ship it" or "new release" after a batch of fixes.
+description: Cut and ship an Ardia release end to end, stable or nightly — write the Dia-style release notes from git log, bump the version, build/sign/package with scripts/release.sh, smoke-test the build in a hidden instance, publish the GitHub release (a prerelease for a nightly) + Sparkle appcast, and deploy ardia.dev with the release-notes entry, the new download link and the landing page's claims and screenshots brought up to date. Use this whenever the user asks to ship, release, cut/push a new version, a nightly or an update, publish a build, "ship it as a nightly", "get this to me", bump the version, or write release notes for Ardia — even if they only say "ship it", "nightly" or "new release" after a batch of fixes.
 ---
 
 # Releasing Ardia
@@ -9,6 +9,49 @@ A release is: notes → version bump → `scripts/release.sh` → smoke test →
 Users get it through Sparkle (Ardia › Check for Updates…), and the first launch of the new version
 opens `https://ardia.dev/release-notes#<version>`. So the release isn't done until the site is
 deployed with the new entry — otherwise that tab opens on a page that doesn't mention the update.
+
+There are two channels (`docs/releasing.md` › Channels):
+
+- **Nightly** (`0.2.37-nightly.1`): fast iteration, one fix at a time. Only the focused checks for what changed run;
+  no perf ratchet, no perf gate, no tweet, no landing-page refresh. It's a GitHub prerelease, so the site's download,
+  the README and fetch-engine (all on `releases/latest`) keep pointing at stable.
+- **Stable** (`0.2.37`): everything below, about 1.5 h with the smoke test, the update test, the ratchet and the
+  perf gate. Its perf is compared with the previous **stable** release, never a nightly.
+
+When the owner asks for a nightly, or a fix is ready and nobody said stable, run the nightly loop.
+
+## The nightly loop
+
+For each fix:
+
+1. **Reproduce** it in a hidden instance (or the test that shows it) before touching code.
+2. **Fix** it; commit straight to `main` (only your hunks).
+3. **Verify** the fix the same way you reproduced it, once before and once after.
+4. **Run the adjacent tests**: the checks for what changed (its acceptance checks, `packages/core` tests, the shortcut
+   test, a smoke.mjs check), not the full suite.
+5. **Build and release it as a nightly**:
+   ```bash
+   prev="$(git describe --tags --abbrev=0 --match 'v*')"                          # the previous release, either channel
+   stable="$(git describe --tags --abbrev=0 --match 'v*' --exclude '*-nightly*')"  # the previous stable
+   ```
+   - Version: `<next stable>-nightly.<n>`, where the next stable is `$stable` with the patch bumped and `<n>` counts up
+     from 1 since `$stable` (`git tag -l "v<next stable>-nightly.*"`). The build number goes up by one, as always.
+   - Notes: `docs/release-notes/<version>.md` with `channel: nightly` in the frontmatter, the headline and one to three
+     bullets (`docs/release-notes/README.md` › Nightlies). Source: `git log $prev..HEAD -- apps/browser packages engine`.
+   - Bump and build: step 3 below, with `scripts/release.sh <version> --channel nightly`.
+   - Smoke test: `.claude/skills/release/scripts/smoke.sh <version> ${prev#v}`. Its update test runs the nightly's own
+     appcast item twice: a copy of the previous build on Stable must not be offered it, one on Nightly must install it.
+     All of it must pass, as for stable.
+   - Publish: `git tag v<version> && git push origin main v<version>`, then
+     `.claude/skills/release/scripts/publish-nightly.sh <version>` (a prerelease with the DMG, zip and appcast; the
+     merged feed onto the latest stable release; `Ardia-Nightly.dmg` behind https://ardia.dev/nightly; it checks all
+     three). With a new engine, commit `prebuilt-engine.tsv`'s line as in step 5.
+   - Site: deploy so the after-update tab finds the nightly's entry (step 6's deploy only: no `release.ts` change, no
+     claims or screenshots). The nightly download link never changes.
+   - Report in two lines: the version, the fix, the smoke result.
+
+Batch nightlies when fixes land close together; never hold a fix back for a stable. A stable release's notes cover
+everything since the previous stable, nightlies included.
 
 `docs/releasing.md` is the reference for the machinery (keys, notarization, what release.sh checks);
 `docs/release-notes/README.md` is the notes style guide. Read the style guide before writing notes.
@@ -40,8 +83,9 @@ would end up in the build (release.sh refuses to run with it). If it belongs to 
 someone else's work in progress. Untracked files under `apps/videos`, `apps/site` or `output/` don't
 affect the app.
 
-`<previous>` is the last tag (`git describe --tags --abbrev=0`). The next version bumps the patch
-(0.1.5 → 0.1.6) unless the user says otherwise.
+For a stable release `<previous>` is the last stable tag (`git describe --tags --abbrev=0 --match 'v*' --exclude
+'*-nightly*'`); nightlies in between don't count, for the notes range, the smoke test or the perf gate. The next version
+bumps the patch (0.1.5 → 0.1.6) unless the user says otherwise.
 
 ## 2. Write the notes
 
@@ -88,8 +132,11 @@ git commit -m "Release <version>"
 scripts/release.sh <version>     # ~15–25 min with notarization; run it in the background and wait
 ```
 
-`CURRENT_PROJECT_VERSION` is the build number Sparkle compares — it must go up every release (read the
-current value with `grep CURRENT_PROJECT_VERSION …project.pbxproj | sort -u`). release.sh refuses to run
+For a nightly, set `MARKETING_VERSION` to `<version>` (`0.2.37-nightly.1`) the same way, commit as "Nightly <version>",
+and run `scripts/release.sh <version> --channel nightly`.
+
+`CURRENT_PROJECT_VERSION` is the build number Sparkle compares — it must go up every release, nightlies included
+(release.sh refuses one that isn't above every build in the published feed; read the current value with `grep CURRENT_PROJECT_VERSION …project.pbxproj | sort -u`). release.sh refuses to run
 if `MARKETING_VERSION` doesn't match, the notes file is missing, the tree has uncommitted app or engine
 changes, or the engine framework is stale (`docs/releasing.md` lists what it checks). It notarizes the app and the DMG with the
 `ardia` notarytool profile (an App Store Connect API key in the login keychain, set up 2026-09-26) and
@@ -155,7 +202,7 @@ don't publish) or the check itself going stale after an intended change (fix the
 `.claude/skills/release/scripts/smoke.mjs`, and say so). When a release fixes a new class of bug that can be observed over CDP or
 the window list, add a check for it to `smoke.mjs` so the next release guards it.
 
-### 4b. Perf ratchet
+### 4b. Perf ratchet (stable only)
 
 Check the candidate's counts against the ceilings before publishing (about two minutes, no perflab lock needed: they
 are counts, not timings):
@@ -172,9 +219,10 @@ one ceiling by hand in `apps/browser/scripts/perf/ratchet.json` and say why in t
 the release made counts go down, run `ratchet.mjs lower <the run's report>` (`$TMPDIR/ac-ratchet/ratchet.json`), commit
 the lowered ceilings, and say which counts dropped. The wall-clock gate is a separate step: `docs/perf/README.md`.
 
-### 4c. Perf gate: the RC against the previous release
+### 4c. Perf gate: the RC against the previous stable release (stable only)
 
-Every release is timed against the previous one before it publishes, and ships only when every row is the same or
+Every stable release is timed against the previous stable one before it publishes (never against a nightly: the
+control is `dist/<previous stable>/export/Ardia.app`), and ships only when every row is the same or
 better (`docs/perf/README.md` › Gating a release: native-bench with `--control dist/<previous>/export/Ardia.app`,
 interleaved, launch x6+ and session x2, then js-bench alternating the two apps). It runs alone on a quiet Mac, holding
 the perflab lock, after the smoke test and the ratchet. Call a row a regression only when the ranges separate.
@@ -188,8 +236,11 @@ Faster section. (0.2.28 and 0.2.29 were also timed against 0.2.17, the last CEF 
 
 ## 5. Publish
 
+A nightly publishes with `publish-nightly.sh` (the nightly loop above). A stable release:
+
 ```bash
 git tag v<version> && git push origin main v<version>
+.claude/skills/release/scripts/appcast-merge.sh <version>
 gh release create v<version> -R mantrakp04/ardia --title "Ardia <version>" \
   --notes-file dist/<version>/release-notes.md \
   dist/<version>/Ardia-<version>.dmg dist/<version>/Ardia-<version>.zip dist/<version>/appcast.xml \
@@ -209,6 +260,8 @@ if [ -f dist/<version>/prebuilt-engine.tsv ]; then
 fi
 ```
 
+`appcast-merge.sh` puts this release's item onto the feed as it's published right now, so nightlies that shipped while
+this release was being tested stay listed (it rewrites `dist/<version>/appcast.xml`, keeping `appcast.built.xml`).
 Both must show the new version. Copies from 0.2.13 and earlier poll GitHub's URL directly; 0.2.14 to 0.2.32 poll
 netnyahoo.com/appcast.xml and later ones ardia.dev/appcast.xml, both served by the site, which counts the check
 (version, day, first check or not) and redirects to the same GitHub file. feed.sh reads the URL from the built
@@ -325,7 +378,7 @@ The SEO data follows `release.ts` and the notes by itself; check that it did:
 Deploying makes things public. The user has asked for releases to go all the way through, so deploy as
 part of a release; for site changes outside a release, ask first.
 
-## 7. Tweet draft
+## 7. Tweet draft (stable only)
 
 Draft the announcement for the owner to post (never post it yourself): `Ardia <version>`, 4–5 short,
 witty, simple bullets from the notes, then ardia.dev, under 280

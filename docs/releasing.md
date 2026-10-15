@@ -1,11 +1,14 @@
 # Releasing
 
-Releases are GitHub releases of `mantrakp04/ardia`, tagged `v<version>`. Each has three assets, four when the engine changed:
+Releases are GitHub releases of `mantrakp04/ardia`, tagged `v<version>`, on two channels: **stable** (`0.2.37`, a full
+release) and **nightly** (`0.2.37-nightly.1`, a GitHub prerelease: one fix, shipped the day it's made; "Channels" below).
+Each has three assets, four when the engine changed:
 
 - `Ardia-<version>.dmg`: what people download (the app and an `/Applications` link, in a window with the
   site's poster behind them: `scripts/dmg`, where `render.sh` redraws the picture and `layout.sh` the layout).
 - `Ardia-<version>.zip`: the archive Sparkle installs updates from.
-- `appcast.xml`: the Sparkle feed. The latest release's appcast is the feed. Builds after 0.2.13 poll
+- `appcast.xml`: the Sparkle feed, both channels' items in one file. The latest stable release's appcast is the feed
+  (a nightly rewrites that asset; "Channels" below). Builds after 0.2.13 poll
   `https://ardia.dev/appcast.xml` (`SUFeedURL`), which counts the check by version and day (and whether
   it's the copy's first) and redirects to
   `https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml`, the URL 0.2.13 and
@@ -21,6 +24,43 @@ Each version's notes are a file in the repo, `docs/release-notes/<version>.md` (
 `https://ardia.dev/release-notes` all come from it. The first launch after an update opens
 `/release-notes#<version>` in a new tab (`apps/browser/src/lib/releaseNotesPage.ts`), so the site has to be
 deployed with the new entry by the time the update reaches people.
+
+## Channels
+
+Ardia is one app with two Sparkle channels. A stable item in the appcast has no channel; a nightly item carries
+`<sparkle:channel>nightly</sparkle:channel>` (`generate_appcast --channel nightly`). Sparkle skips items on a channel the
+app doesn't allow, and allows none by default, so every shipped build (all on Sparkle 2.9.6, which has channels) and
+every copy on Stable sees only stable items. A copy on Nightly allows `nightly` (`allowedChannels(for:)` in
+`packages/shell/ios/Updater.swift`) and so gets the newest of both.
+
+- **Which channel a copy is on.** Settings › General › "Update channel" (Stable / Nightly), kept in the defaults key
+  `ACUpdateChannel`. Until the user picks, it's the channel of the build that first ran: the `ACUpdateChannel` key in
+  `Info.plist`, which `release.sh --channel nightly` sets to `nightly` (the build setting `AC_UPDATE_CHANNEL`). It's
+  written at the first launch, so a nightly copy stays on Nightly after it updates to a stable build. Switching to
+  Stable never downgrades: Sparkle only offers a higher build number, so the copy waits for the next stable.
+- **Versions.** Sparkle compares `sparkle:version`, the build number (`CURRENT_PROJECT_VERSION`), which goes up by one
+  every release on either channel; the version string is only shown. A nightly is `<next stable>-nightly.<n>`, so
+  0.2.36 (44) < 0.2.37-nightly.1 (45) < 0.2.37-nightly.2 (46) < 0.2.37 (47). Sparkle's comparator can't order the
+  strings themselves (it reads `0.2.37-nightly.1` and `0.2.37-nightly.2` as equal), which is why it never sees them.
+  `release.sh` refuses a build number that isn't above every build already in the feed, nightly or stable. About Ardia
+  and Settings show a nightly as "0.2.37 Nightly 1".
+- **The feed.** It stays where every shipped build reads it: `https://ardia.dev/appcast.xml` redirects to
+  `releases/latest/download/appcast.xml`, and GitHub's "latest" skips prereleases, so it's always the newest stable
+  release's `appcast.xml`. A stable release publishes the merged feed as its own asset and becomes latest; a nightly
+  re-uploads the merged feed onto that same latest stable release (`gh release upload … --clobber`). Nothing moved:
+  no new URL, no nginx change for the feed, and the copies from 0.2.13 and earlier that poll GitHub directly read the
+  same file. Both flows build on the published feed (`release.sh` fetches it and refuses to go on without it), and
+  `appcast-merge.sh` puts the new item onto the feed as published at that moment, so a nightly that shipped while a
+  stable was being tested isn't dropped. `generate_appcast` keeps 3 items per channel.
+- **Downloads.** Stable keeps its versioned link (`releases/latest/download/Ardia-<version>.dmg`, from
+  `apps/site/src/data/release.ts`). Nightly has one fixed link, `https://ardia.dev/nightly` (`infra/site/nginx.conf`),
+  which redirects to the `nightly` prerelease's `Ardia-Nightly.dmg`; each nightly re-uploads that asset, so the site
+  never redeploys for a nightly.
+- **Proof.** `.claude/skills/release/scripts/channel-test.sh dist/<stable>/export/Ardia.app` runs that build's own
+  Sparkle against local feeds made by `generate_appcast`: on stable it isn't offered a nightly, and with a newer
+  nightly in the feed it takes the stable; on nightly it takes the nightly, a newer stable, and the newest of both. It
+  also checks the build-number order with Sparkle's comparator. `update-test.sh` does the stable-ignores-it half for
+  every nightly's own item.
 
 ## Once per machine
 
@@ -52,10 +92,11 @@ deployed with the new entry by the time the update reaches people.
 2. Write `docs/release-notes/<version>.md` from `git log v<previous>..HEAD` (`docs/release-notes/README.md`)
    and check it on the site: `pnpm -C apps/site build && pnpm -C apps/site preview`, then
    `http://localhost:4321/release-notes#<version>`.
-3. `scripts/release.sh <version>`. It stops right away if the notes file is missing or lacks its `date` and
+3. `scripts/release.sh <version>` (`--channel nightly` for a nightly). It stops right away if the notes file is missing or lacks its `date` and
    `headline`, if the tree under `apps/browser`, `packages`, `engine` or `scripts/dmg` has uncommitted changes, or if the engine
    framework is older than the tree's ArdiaCore sources or the Chromium tree differs from `engine/ardiacore`
-   (`apply.sh --check`). It writes `dist/<version>/`:
+   (`apply.sh --check`), if the version doesn't fit the channel or the notes' `channel`, if it can't read the published
+   appcast, or if the build number isn't above every build in it. It writes `dist/<version>/`:
    - archives the Release configuration of `apps/browser/macos` (arm64 only), staging the engine into its own
      derived data so a development build restaging can't change it mid-build, and exports it with Developer ID,
    - signs Chrome's framework inside out as Chrome signs its own (`chrome/installer/mac/signing/parts.py`): the
@@ -71,7 +112,8 @@ deployed with the new entry by the time the update reaches people.
      quits it and checks the signature again: the app must never write into its own bundle,
    - notarizes and staples the app and the DMG,
    - packages the DMG and the zip, and signs `appcast.xml` with the Sparkle key. It starts from the
-     published appcast, so earlier versions stay listed. The new item embeds the notes' headline and body
+     published appcast, so earlier versions and the other channel's items stay listed; a nightly's item gets
+     `<sparkle:channel>nightly</sparkle:channel>`. The new item embeds the notes' headline and body
      (Markdown, shown in Sparkle's update dialog) and links the page as its full release notes
      (`sparkle:fullReleaseNotesLink`: "You're up to date" › Version History opens it in a tab),
    - writes `release-notes.md` (the notes' body, then the standard Install section and a link to the page) and
@@ -80,10 +122,14 @@ deployed with the new entry by the time the update reaches people.
    `scripts/release.sh <version> --rc` builds a candidate into `dist/<version>-rc/` from the working tree, as
    `<version>` with the next build number, notarized but never published: no notes file or clean tree needed (it
    lists the uncommitted files it included).
-4. Commit (the notes file with the version bump), tag and publish:
+4. Commit (the notes file with the version bump), tag and publish. A nightly publishes with
+   `.claude/skills/release/scripts/publish-nightly.sh <version>` after the tag is pushed (`--dry-run` prints what it would
+   do): a prerelease, the merged feed onto the latest stable release, and `Ardia-Nightly.dmg` on the `nightly` release.
+   A stable release:
 
    ```bash
    git tag v<version> && git push origin main v<version>
+   .claude/skills/release/scripts/appcast-merge.sh <version>
    gh release create v<version> -R mantrakp04/ardia --title "Ardia <version>" \
      --notes-file dist/<version>/release-notes.md \
      dist/<version>/Ardia-<version>.dmg dist/<version>/Ardia-<version>.zip dist/<version>/appcast.xml \
@@ -91,7 +137,7 @@ deployed with the new entry by the time the update reaches people.
    ```
    With a new engine, then append `dist/<version>/prebuilt-engine.tsv` to `packages/ardiacore/prebuilt-engines.tsv` and
    commit it.
-5. Deploy the site so `/release-notes` shows the new version (the updated app opens it on its first launch):
+5. Deploy the site so `/release-notes` shows the new version (for a nightly too: the updated app opens its entry) (the updated app opens it on its first launch):
    `pnpm -C apps/site run deploy` builds `apps/site` with `SITE_URL=https://ardia.dev` and ships it
    (`infra/site/hexclave.deploy.ts`). Also bump `VERSION` and `DMG_SIZE` in `apps/site/src/data/release.ts`
    first so the download button points at the new DMG. The owner has authorized releases to go all the way

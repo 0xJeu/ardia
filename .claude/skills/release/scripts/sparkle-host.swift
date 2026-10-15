@@ -2,11 +2,13 @@ import Foundation
 import Sparkle
 
 let args = CommandLine.arguments
-guard args.count == 4, let host = Bundle(path: args[1]) else {
-  FileHandle.standardError.write("usage: sparkle-host <app> <feed URL> <expected version>\n".data(using: .utf8)!)
+guard args.count == 4 || args.count == 5, let host = Bundle(path: args[1]) else {
+  FileHandle.standardError.write("usage: sparkle-host <app> <feed URL> <expected version | none> [allowed channels, comma-separated]\n".data(using: .utf8)!)
   exit(2)
 }
 let appPath = args[1], feed = args[2], expected = args[3]
+let channels = Set((args.count == 5 ? args[4] : "").split(separator: ",").map(String.init))
+let expectsNone = expected == "none"
 func log(_ s: String) { print("sparkle: \(s)"); fflush(stdout) }
 func fail(_ s: String) -> Never { log("FAIL \(s)"); exit(1) }
 
@@ -21,7 +23,10 @@ final class Driver: NSObject, SPUUserDriver {
   }
   func showUpdateReleaseNotes(with downloadData: SPUDownloadData) {}
   func showUpdateReleaseNotesFailedToDownloadWithError(_ error: Error) {}
-  func showUpdateNotFoundWithError(_ error: Error, acknowledgement: @escaping () -> Void) { fail("no update found: \(error.localizedDescription)") }
+  func showUpdateNotFoundWithError(_ error: Error, acknowledgement: @escaping () -> Void) {
+    if expectsNone { log("no update offered"); exit(0) }
+    fail("no update found: \(error.localizedDescription)")
+  }
   func showUpdaterError(_ error: Error, acknowledgement: @escaping () -> Void) { fail("updater error: \(error)") }
   func showDownloadInitiated(cancellation: @escaping () -> Void) {}
   func showDownloadDidReceiveExpectedContentLength(_ expectedContentLength: UInt64) {}
@@ -41,11 +46,16 @@ final class Driver: NSObject, SPUUserDriver {
 
 final class Delegate: NSObject, SPUUpdaterDelegate {
   func feedURLString(for updater: SPUUpdater) -> String? { feed }
+  func allowedChannels(for updater: SPUUpdater) -> Set<String> { channels }
   func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool { false }
   func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+    if expectsNone { fail("offered \(item.displayVersionString) (build \(item.versionString), channel \(item.channel ?? "default"))") }
     log("found \(item.displayVersionString) (build \(item.versionString)) at \(item.fileURL?.absoluteString ?? "?")")
   }
-  func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) { fail("no update found: \((error as NSError).localizedDescription)") }
+  func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
+    if expectsNone { log("no update offered (allowed channels: \(channels.isEmpty ? "default only" : channels.sorted().joined(separator: ", ")))"); exit(0) }
+    fail("no update found: \((error as NSError).localizedDescription)")
+  }
   func updater(_ updater: SPUUpdater, didDownloadUpdate item: SUAppcastItem) { log("downloaded") }
   func updater(_ updater: SPUUpdater, failedToDownloadUpdate item: SUAppcastItem, error: Error) { fail("download: \(error)") }
   func updater(_ updater: SPUUpdater, didExtractUpdate item: SUAppcastItem) { log("extracted and validated (EdDSA)") }

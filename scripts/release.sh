@@ -1,23 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version="${1:?usage: scripts/release.sh <version> [--rc] [--phased <seconds>]}"
+usage="usage: scripts/release.sh <version> [--channel stable|nightly] [--rc] [--phased <seconds>]"
+version="${1:?$usage}"
 shift
 rc=0
 phased=""
+channel=stable
 while [ $# -gt 0 ]; do
   case "$1" in
     --rc) rc=1 ;;
+    --channel)
+      channel="${2:-}"
+      shift
+      case "$channel" in stable | nightly) ;; *) echo "error: --channel is stable or nightly, got '$channel'" >&2; exit 1 ;; esac
+      ;;
     --phased)
       phased="${2:-}"
       shift
       case "$phased" in '' | *[!0-9]* | 0) echo "error: --phased takes whole seconds (86400 is a day), got '$phased'" >&2; exit 1 ;; esac
       ;;
-    *) echo "error: unknown option $1 (usage: scripts/release.sh <version> [--rc] [--phased <seconds>])" >&2; exit 1 ;;
+    *) echo "error: unknown option $1 ($usage)" >&2; exit 1 ;;
   esac
   shift
 done
 [ "$rc" = 1 ] && [ -n "$phased" ] && { echo "error: a candidate is never published, so --phased doesn't apply to --rc" >&2; exit 1; }
+if [ "$channel" = nightly ]; then
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+$ ]] \
+    || { echo "error: a nightly's version is <next stable>-nightly.<n>, like 0.2.37-nightly.1 (got $version)" >&2; exit 1; }
+else
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || { echo "error: a stable version is <major>.<minor>.<patch> (got $version; nightlies take --channel nightly)" >&2; exit 1; }
+fi
 root="$(cd "$(dirname "$0")/.." && pwd -P)"
 app_dir="$root/apps/browser"
 macos="$app_dir/macos"
@@ -60,8 +74,9 @@ pbx="$macos/Ardia.xcodeproj/project.pbxproj"
 project_version="$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' "$pbx" | sort -u)"
 project_build="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/p' "$pbx" | sort -u)"
 version_settings=()
+release_build="$project_build"
 if [ "$rc" = 1 ]; then
-  [ "$project_version" = "$version" ] || version_settings=(MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$((project_build + 1))")
+  [ "$project_version" = "$version" ] || { release_build="$((project_build + 1))"; version_settings=(MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$release_build"); }
 elif [ "$project_version" != "$version" ]; then
   die "MARKETING_VERSION is '$project_version'. Set it to $version (and bump CURRENT_PROJECT_VERSION) first."
 fi
@@ -74,8 +89,12 @@ if [ -f "$notes" ]; then
   headline="$(sed -n 's/^headline: *//p' <<< "$meta")"
   grep -Eq '^date: *[0-9]{4}-[0-9]{2}-[0-9]{2} *$' <<< "$meta" && [ -n "$headline" ] \
     || die "$notes needs 'date: YYYY-MM-DD' and 'headline:' frontmatter"
+  notes_channel="$(sed -n 's/^channel: *//p' <<< "$meta" | tr -d ' ')"
+  [ "${notes_channel:-stable}" = "$channel" ] \
+    || die "$notes says 'channel: ${notes_channel:-stable}' but this is a $channel release (nightly notes carry 'channel: nightly')"
 elif [ "$rc" = 1 ]; then
   headline="Release candidate $version"
+  notes_channel="$channel"
   notes_body() { echo "A release candidate of Ardia $version. Not published."; }
 else
   die "no release notes: write docs/release-notes/$version.md first"
@@ -117,10 +136,25 @@ else
   exit 1
 fi
 
+feed_base="${APPCAST_BASE:-https://github.com/$repo/releases/latest/download/appcast.xml}"
+base_feed="$(mktemp "${TMPDIR:-/tmp}/ac-appcast.XXXXXX")"
+trap 'rm -f "$base_feed"' EXIT
+case "$feed_base" in
+  none) : > "$base_feed" ;;
+  http://* | https://*) curl -fsL "$feed_base" -o "$base_feed" || : > "$base_feed" ;;
+  *) cp "$feed_base" "$base_feed" ;;
+esac
+if [ ! -s "$base_feed" ] && [ "$rc" = 0 ] && [ "$feed_base" != none ]; then
+  die "couldn't read the published appcast ($feed_base): every release builds on it, or earlier versions and the other channel drop out of the feed"
+fi
+newest_listed="$(grep -o '<sparkle:version>[0-9]*<' "$base_feed" | tr -dc '0-9\n' | sort -n | tail -1 || true)"
+[ -z "$newest_listed" ] || [ "$release_build" -gt "$newest_listed" ] \
+  || die "the build number ($release_build) must be above every build in the feed, nightly or stable (newest: $newest_listed): bump CURRENT_PROJECT_VERSION"
+
 rm -rf "$dist"
 mkdir -p "$dist"
 {
-  echo "version $version${version_settings:+ (${version_settings[*]})}"
+  echo "version $version, build $release_build, $channel${version_settings:+ (${version_settings[*]})}"
   echo "commit $(git -C "$root" rev-parse HEAD)${dirty:+ + uncommitted changes}"
   echo "framework $(plutil -extract SCMRevision raw "$framework_src/Versions/Current/Resources/Info.plist" 2>/dev/null)"
   echo "framework built $(stat -f '%Sm' "$framework_src/Versions/Current/Chromium Framework")"
@@ -134,7 +168,7 @@ echo "==> Archive"
 (cd "$app_dir" && ARDIACORE_FRAMEWORK="$framework_src" "$root/scripts/agent/locked" pod --wait 1800 -- \
   "$root/scripts/agent/locked" xcodebuild --wait 1800 -- xcodebuild -workspace macos/Ardia.xcworkspace -scheme Ardia-macOS \
   -configuration Release -destination 'generic/platform=macOS' ARCHS=arm64 ARDIACORE_STAGE_DIR="$build/ArdiaCoreFramework" \
-  ${version_settings[@]+"${version_settings[@]}"} \
+  ${version_settings[@]+"${version_settings[@]}"} AC_UPDATE_CHANNEL="$channel" \
   -derivedDataPath "$build" -archivePath "$archive" -allowProvisioningUpdates archive) \
   > "$dist/archive.log" 2>&1 || {
   grep -E "error:|build commands failed" -A2 "$dist/archive.log" | grep -v MACOSX_DEPLOYMENT_TARGET | tail -20 >&2
@@ -189,6 +223,8 @@ info() { plutil -extract "$1" raw "$app/Contents/Info.plist" 2>/dev/null; }
 [ "$(info CFBundleIdentifier)" = com.ardia.browser ] || die "bundle id is $(info CFBundleIdentifier)"
 [ "$(info CFBundleExecutable)" = Ardia ] || die "executable is $(info CFBundleExecutable)"
 [ "$(info CFBundleShortVersionString)" = "$version" ] || die "CFBundleShortVersionString is $(info CFBundleShortVersionString)"
+[ "$(info CFBundleVersion)" = "$release_build" ] || die "CFBundleVersion is $(info CFBundleVersion), not $release_build"
+[ "$(info ACUpdateChannel)" = "$channel" ] || die "ACUpdateChannel is '$(info ACUpdateChannel)', not $channel"
 for key in SUFeedURL SUPublicEDKey NSDockTilePlugIn NSCameraUsageDescription NSMicrophoneUsageDescription \
   NSBluetoothAlwaysUsageDescription NSLocationUsageDescription NSLocalNetworkUsageDescription; do
   [ -n "$(info "$key")" ] || die "Info.plist has no $key"
@@ -307,6 +343,11 @@ if [ "$notarize" = 1 ]; then
 fi
 
 echo "==> Release notes"
+if [ "$channel" = nightly ]; then
+  updates_line="A nightly: every fix the day it lands, tested less than a stable release. It updates to newer nightlies and stables (Ardia › Check for Updates…); Settings › General › Update channel switches back to Stable, which never downgrades. Every release's notes: $notes_page"
+else
+  updates_line="Earlier versions update automatically (Ardia › Check for Updates…). Every release's notes: $notes_page"
+fi
 if [ "$notarize" = 1 ]; then
   install_line="Apple Silicon, macOS 14 or later. Signed with Developer ID and notarized by Apple: download, drag it to Applications, open it."
 else
@@ -320,7 +361,7 @@ fi
 
 $install_line
 
-Earlier versions update automatically (Ardia › Check for Updates…). Every release's notes: $notes_page
+$updates_line
 EOF
 } > "$dist/release-notes.md"
 
@@ -329,12 +370,13 @@ updates="$dist/updates"
 mkdir -p "$updates"
 cp "$zip" "$updates/"
 { printf '**%s**\n\n' "$headline"; notes_body; } > "$updates/Ardia-$version.md"
-curl -fsL "https://github.com/$repo/releases/latest/download/appcast.xml" -o "$updates/appcast.xml" || rm -f "$updates/appcast.xml"
+[ -s "$base_feed" ] && cp "$base_feed" "$updates/appcast.xml"
 key="$(mktemp -d)/sparkle-key"
-trap 'rm -rf "$(dirname "$key")"' EXIT
+trap 'rm -rf "$(dirname "$key")" "$base_feed"' EXIT
 "$sparkle/generate_keys" --account "$sparkle_account" -x "$key" >/dev/null
 phased_args=()
 [ -n "$phased" ] && phased_args=(--phased-rollout-interval "$phased")
+[ "$channel" = nightly ] && phased_args+=(--channel nightly)
 "$sparkle/generate_appcast" --ed-key-file "$key" ${phased_args[@]+"${phased_args[@]}"} \
   --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
   --embed-release-notes --full-release-notes-url "$notes_page" \
@@ -353,5 +395,6 @@ echo
 [ "$notarize" = 1 ] && echo "Notarized and stapled." || echo "NOT notarized."
 [ -n "$engine_pack" ] && echo "New engine: publish $(basename "$engine_archive") with the release, then add prebuilt-engine.tsv's line to packages/ardiacore/prebuilt-engines.tsv."
 [ "$rc" = 1 ] && echo "Release candidate: never publish dist/$version-rc."
+[ "$channel" = nightly ] && [ "$rc" = 0 ] && echo "Nightly: publish it with .claude/skills/release/scripts/publish-nightly.sh $version (a prerelease; the feed and ardia.dev/nightly follow)."
 [ -n "$phased" ] && echo "Phased rollout: $phased s between steps (the appcast item has phasedRolloutInterval; the whole release takes $((phased * 7)) s)."
 du -sh "$app" "$dmg" "$zip" "$dist/appcast.xml" "$dist/release-notes.md" ${engine_files[@]+"${engine_files[@]}"}

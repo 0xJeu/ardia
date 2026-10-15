@@ -54,6 +54,28 @@ Body:
 - Nothing else: no images, no other tables, no nested lists, no links unless the item is about a page. The site
   numbers the items and puts the section names in the margin.
 
+## Nightlies
+
+A nightly's file is `docs/release-notes/<next stable>-nightly.<n>.md` (`0.2.37-nightly.1.md`) and carries a third
+frontmatter key, `channel: nightly`; `release.sh --channel nightly` refuses notes without it, and a stable release
+refuses notes with it. Keep it short: the headline and the one to three bullets for what the nightly fixed, in
+`## Fixed` or `## New`, written exactly like a stable item. No `## Faster` (nightlies aren't perf-gated). The site
+lists nightlies only in its "Nightlies too" view, tagged Nightly; `#<version>` links open that view. When the next
+stable ships, its notes cover everything since the previous stable, nightlies included, written fresh for people who
+never ran a nightly.
+
+```markdown
+---
+date: 2026-10-16
+headline: Sites can share a tab without a second click.
+channel: nightly
+---
+
+## Fixed
+
+- **Sharing a tab starts from the first click.** …
+```
+
 ## Voice
 
 The notes are plain and useful. The wit goes in the headline only.

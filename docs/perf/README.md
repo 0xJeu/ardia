@@ -43,8 +43,9 @@ Each bench drives the app through files in the instance's `ARDIA_DATA_DIR`:
 
 ## Gating a release
 
-The previous release is the control and the new release candidate is the candidate. The gate passes when every
-row is the same or better.
+The previous stable release is the control and the new release candidate is the candidate. The gate passes when every
+row is the same or better. Only stable releases are gated, and only against stable: a nightly is never a control, so
+the control stays `dist/<previous stable>/export/Ardia.app` however many nightlies shipped in between.
 
 1. **Build the candidate with `scripts/release.sh <v> --rc`.** That gives you `dist/<v>-rc/export/Ardia.app`.
    A local Release build is a different app: it's unstripped (about 18 MB against 8.9 MB) and has no secure
