@@ -218,8 +218,9 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     keychain: a scratch `ARDIA_DATA_DIR`, or a build without a team signature (ad hoc copies such as carryover.sh's). A
     team-signed build on its real data dir forwards none of them (`ArdiaCoreHost.mm`), and its browser process removes
     every switch that opens the profile to outside control (remote debugging, unpacked extensions, automation, proxies,
-    certificate overrides; `ac_main_delegate.cc`), so nothing drives the real profile, with its real Safe Storage key;
-    Chrome 136 did the same for its default profile.
+    certificate overrides, net-log), also after chrome://flags have been applied, and unsets `SSLKEYLOGFILE`
+    (`ac_main_delegate.cc`), so nothing drives or records the real profile, with its real Safe Storage key; Chrome 136
+    did the same for its default profile.
   - Native UI: `screencapture -l <windowID> -o` (find the id with CGWindowList by owner PID; a test window's layer is negative). It captures the
     window's own content even while the owner's windows cover it, which a test window's always may. Wrap every capture in `timeout 20`: with the screen locked they can hang instead of failing.
     For the New Tab intro, launch with `ARDIA_SHADERS_FORCE_KEY=1` (it only plays in a key window).

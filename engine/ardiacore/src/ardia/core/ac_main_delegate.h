@@ -15,6 +15,7 @@ class ACMainDelegate : public ChromeMainDelegate {
 
  protected:
   std::optional<int> BasicStartupComplete() override;
+  std::optional<int> PostEarlyInitialization(InvokedIn invoked_in) override;
   void PreSandboxStartup() override;
   content::ContentBrowserClient* CreateContentBrowserClient() override;
   content::ContentRendererClient* CreateContentRendererClient() override;

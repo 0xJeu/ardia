@@ -2,9 +2,13 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <variant>
 
 #include "base/command_line.h"
+#include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -61,6 +65,9 @@ constexpr const char* kSwitchesThatOpenTheProfile[] = {
     "disable-extensions-except",
     "disable-web-security",
     "enable-automation",
+    "enable-ui-devtools",
+    "extensions-on-chrome-urls",
+    "extensions-on-extension-urls",
     "host-resolver-rules",
     "host-rules",
     "ignore-certificate-errors",
@@ -79,6 +86,12 @@ constexpr const char* kSwitchesThatOpenTheProfile[] = {
     "remote-debugging-socket-name",
     "remote-debugging-targets",
     "silent-debugger-extension-api",
+    "ssl-key-log-file",
+    "unsafely-treat-insecure-origin-as-secure",
+};
+
+constexpr const char* kEnvironmentThatOpensTheProfile[] = {
+    "SSLKEYLOGFILE",
 };
 
 void RemoveSwitchesThatOpenTheProfile(base::CommandLine* command_line) {
@@ -87,19 +100,37 @@ void RemoveSwitchesThatOpenTheProfile(base::CommandLine* command_line) {
   }
 }
 
-void KeepRealProfileClosed(base::CommandLine* command_line) {
+std::string EnvironmentThatOpensTheProfile(base::Environment& env) {
+  std::string set;
+  for (const char* name : kEnvironmentThatOpensTheProfile) {
+    if (env.HasVar(std::string(name))) {
+      set += std::string(set.empty() ? "" : " ") + name;
+    }
+  }
+  return set.empty() ? "none" : set;
+}
+
+void KeepRealProfileClosed(base::CommandLine* command_line,
+                           std::string_view stage) {
   const bool mock_keychain =
-      command_line->HasSwitch(os_crypt::switches::kUseMockKeychain);
+      command_line->HasSwitch(os_crypt::switches::kUseMockKeychain) &&
+      !command_line->HasSwitch("ardia-apply-profile-gate");
+  std::unique_ptr<base::Environment> env = base::Environment::Create();
   if (command_line->HasSwitch("ardia-show-profile-gate")) {
     base::CommandLine closed(*command_line);
     RemoveSwitchesThatOpenTheProfile(&closed);
-    LOG(ERROR) << "[ardiacore] profile gate (applies here: "
+    LOG(ERROR) << "[ardiacore] profile gate " << stage << " (applies here: "
                << (mock_keychain ? "no" : "yes") << ")\n  parsed: "
                << command_line->GetCommandLineString()
-               << "\n  closed: " << closed.GetCommandLineString();
+               << "\n  closed: " << closed.GetCommandLineString()
+               << "\n  environment it unsets: "
+               << EnvironmentThatOpensTheProfile(*env);
   }
   if (!mock_keychain) {
     RemoveSwitchesThatOpenTheProfile(command_line);
+    for (const char* name : kEnvironmentThatOpensTheProfile) {
+      env->UnSetVar(std::string(name));
+    }
   }
 }
 
@@ -252,13 +283,24 @@ ACMainDelegate::~ACMainDelegate() = default;
 std::optional<int> ACMainDelegate::BasicStartupComplete() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kProcessType)) {
-    KeepRealProfileClosed(command_line);
+    KeepRealProfileClosed(command_line, "at startup");
     command_line->AppendSwitch(switches::kNoStartupWindow);
     command_line->AppendSwitch(switches::kNoFirstRun);
     command_line->AppendSwitch(switches::kNoDefaultBrowserCheck);
     command_line->RemoveSwitch(switches::kMakeDefaultBrowser);
   }
   return ChromeMainDelegate::BasicStartupComplete();
+}
+
+std::optional<int> ACMainDelegate::PostEarlyInitialization(
+    InvokedIn invoked_in) {
+  std::optional<int> exit_code =
+      ChromeMainDelegate::PostEarlyInitialization(invoked_in);
+  if (std::holds_alternative<InvokedInBrowserProcess>(invoked_in)) {
+    KeepRealProfileClosed(base::CommandLine::ForCurrentProcess(),
+                          "after chrome://flags");
+  }
+  return exit_code;
 }
 
 void ACMainDelegate::PreSandboxStartup() {
