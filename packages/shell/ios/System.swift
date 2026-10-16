@@ -132,6 +132,11 @@ final class ShortcutRecorder {
       }
       let key = (event.characters(byApplyingModifiers: []) ?? event.charactersIgnoringModifiers ?? "").lowercased()
       guard !key.isEmpty else { return nil }
+      let functionKey = key.unicodeScalars.first.map { (0xF704...0xF726).contains($0.value) } ?? false
+      guard flags.contains(.command) || flags.contains(.control) || functionKey else {
+        NSSound.beep()
+        return nil
+      }
       var mods: [String] = []
       if flags.contains(.control) { mods.append("control") }
       if flags.contains(.option) { mods.append("option") }

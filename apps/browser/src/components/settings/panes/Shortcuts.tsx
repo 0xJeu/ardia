@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
+import { openUrls } from "../../../lib/actions";
 import { IconButton, useHover } from "../../primitives";
 import { matchesQuery } from "../../pages/PageLayout";
 import { Button, Group, PopUp, Row, SearchField, SectionHeader, useFormColors } from "../controls";
@@ -59,15 +60,22 @@ export function ShortcutsPane() {
     return o ? { key: o[0] ?? "", modifiers: o.slice(1) } : { key: item.defaultKey, modifiers: item.defaultModifiers };
   };
 
+  const combosOf = useMemo(() => {
+    const taken = new Set(Object.values(overrides).map((o) => comboId({ key: o[0] ?? "", modifiers: o.slice(1) })));
+    return (item: MenuShortcut) => {
+      const aliases = overrides[item.id] ? [] : (item.aliases ?? []).map((a) => comboId({ key: a[0] ?? "", modifiers: a.slice(1) }));
+      return [...new Set([comboId(effective(item)), ...aliases.filter((id) => !taken.has(id))])].filter(Boolean);
+    };
+  }, [overrides]);
+
   const conflicts = useMemo(() => {
     const byCombo = new Map<string, MenuShortcut[]>();
-    for (const item of items ?? []) {
-      const id = comboId(effective(item));
-      if (id) byCombo.set(id, [...(byCombo.get(id) ?? []), item]);
-    }
+    for (const item of items ?? []) for (const id of combosOf(item)) byCombo.set(id, [...(byCombo.get(id) ?? []), item]);
     return byCombo;
-  }, [items, overrides]);
-  const conflictsOf = (item: MenuShortcut) => (conflicts.get(comboId(effective(item))) ?? []).filter((x) => x.id !== item.id);
+  }, [items, combosOf]);
+  const conflictsOf = (item: MenuShortcut) => [
+    ...new Set(combosOf(item).flatMap((id) => conflicts.get(id) ?? []).filter((x) => x.id !== item.id)),
+  ];
 
   const setShortcut = (id: string, combo: Combo | null) => {
     const next = { ...useBrowser.getState().settings.shortcuts };
@@ -154,6 +162,16 @@ export function ShortcutsPane() {
           </Group>
         </View>
       ))}
+      {filter === "all" && !query && (
+        <>
+          <SectionHeader title="Extensions" />
+          <Group>
+            <Row title="Extension shortcuts" description="Shortcuts that extensions add, like opening their popup.">
+              <Button title="Edit…" onPress={() => openUrls(["chrome://extensions/shortcuts"])} />
+            </Row>
+          </Group>
+        </>
+      )}
     </View>
   );
 }

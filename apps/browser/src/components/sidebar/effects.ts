@@ -22,7 +22,7 @@ export function startSidebarEffects() {
 
   onAppEvent((e) => {
     if (e.type === "resignActive" || e.type === "screenLocked") useBrowser.getState().closeAbandonedNewTabs();
-    if (e.type === "controlReleased" || e.type === "resignActive") commitSwitcher();
+    if (e.type === "switcherReleased" || e.type === "resignActive") commitSwitcher();
     if (e.type === "switcherMouseUp" || (e.type === "switcherKey" && e.key === "escape")) cancelSwitcher();
     if (e.type === "switcherKey" && e.key !== "escape") moveSwitcher(e.key === "next" ? 1 : -1);
   });

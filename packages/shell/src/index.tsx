@@ -128,7 +128,7 @@ export type AppEvent =
   | { type: "quitWarningSuppressed" }
   | { type: "resignActive" }
   | { type: "screenLocked" }
-  | { type: "controlReleased" }
+  | { type: "switcherReleased" }
   | { type: "switcherKey"; key: "escape" | "next" | "previous" }
   | { type: "switcherMouseUp" };
 

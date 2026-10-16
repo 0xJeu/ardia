@@ -269,12 +269,34 @@ void ConfigureWindow(NSWindow *window) {
   InsetTrafficLights(window);
 }
 
+NSMenuItem *ReservedMenuItem(NSMenu *menu, NSString *key, NSEventModifierFlags mods) {
+  static NSSet<NSString *> *reserved = [NSSet setWithArray:@[
+    @"ardia.command.newTab", @"ardia.command.reopenClosedTab", @"ardia.command.closeTab", @"ardia.command.newWindow",
+    @"ardia.command.newIncognitoWindow", @"ardia.command.tabSwitcher", @"ardia.shortcut.std:closeWindow:",
+    @"ardia.shortcut.std:quit:"
+  ]];
+  const NSEventModifierFlags relevant = NSEventModifierFlagCommand | NSEventModifierFlagShift | NSEventModifierFlagOption | NSEventModifierFlagControl;
+  for (NSMenuItem *item in menu.itemArray) {
+    if (item.submenu) {
+      if (item.submenu == NSApp.servicesMenu) continue;
+      if (NSMenuItem *found = ReservedMenuItem(item.submenu, key, mods)) return found;
+      continue;
+    }
+    if (!item.identifier || ![reserved containsObject:item.identifier] || !item.keyEquivalent.length) continue;
+    if (item.isHidden && !item.allowsKeyEquivalentWhenHidden) continue;
+    NSEventModifierFlags itemMods = item.keyEquivalentModifierMask & relevant;
+    if (![item.keyEquivalent isEqualToString:item.keyEquivalent.lowercaseString]) itemMods |= NSEventModifierFlagShift;
+    if (itemMods == (mods & relevant) && [item.keyEquivalent.lowercaseString isEqualToString:key]) return item;
+  }
+  return nil;
+}
+
 bool IsReservedKey(NSEvent *event) {
   const NSEventModifierFlags mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
+  if (!(mods & (NSEventModifierFlagCommand | NSEventModifierFlagControl))) return false;
   NSString *key = event.charactersIgnoringModifiers.lowercaseString;
-  if ((mods & NSEventModifierFlagControl) && event.keyCode == 48) return true;
-  if (!(mods & NSEventModifierFlagCommand) || (mods & (NSEventModifierFlagControl | NSEventModifierFlagOption))) return false;
-  return [@[ @"t", @"w", @"n", @"q" ] containsObject:key];
+  if ([key isEqualToString:@"\x19"]) key = @"\t";
+  return ReservedMenuItem(NSApp.mainMenu, key, mods) != nil;
 }
 
 }

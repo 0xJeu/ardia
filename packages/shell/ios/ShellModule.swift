@@ -348,16 +348,23 @@ public class ShellModule: Module {
       self.switcherMonitor = nil
       guard active else { return }
       let emit: ([String: Any]) -> Void = { [weak self] body in self?.sendEvent("onAppEvent", body) }
-      self.switcherMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseUp, .rightMouseUp, .otherMouseUp]) { event in
-        guard event.type == .keyDown else {
+      let held = MainMenu.switcherHeldModifiers()
+      self.switcherMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .leftMouseUp, .rightMouseUp, .otherMouseUp]) { event in
+        switch event.type {
+        case .keyUp:
+          if held.isEmpty && MainMenu.isSwitcherKey(event) { emit(["type": "switcherReleased"]) }
+          return event
+        case .keyDown:
+          break
+        default:
           emit(["type": "switcherMouseUp"])
           return event
         }
+        if MainMenu.isSwitcherKey(event) { return event }
         switch event.keyCode {
         case 53: emit(["type": "switcherKey", "key": "escape"])
         case 124: emit(["type": "switcherKey", "key": "next"])
         case 123: emit(["type": "switcherKey", "key": "previous"])
-        case 48 where event.modifierFlags.contains(.control): return event
         default: break
         }
         return nil
@@ -395,11 +402,12 @@ public class ShellModule: Module {
     sidebarObservers.append((distributed, distributed.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { _ in
       if quiet() { emit("screenLocked") }
     }))
-    var controlDown = false
+    var heldDown = false
     flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
-      let down = event.modifierFlags.contains(.control)
-      if controlDown && !down { emit("controlReleased") }
-      controlDown = down
+      let held = MainMenu.switcherHeldModifiers()
+      let down = !held.isEmpty && event.modifierFlags.isSuperset(of: held)
+      if heldDown && !down { emit("switcherReleased") }
+      heldDown = down
       return event
     }
   }

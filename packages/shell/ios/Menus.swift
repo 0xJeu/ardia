@@ -97,7 +97,43 @@ struct MenuState {
   }
 }
 
-final class CommandItem: NSMenuItem {
+protocol Rebindable: NSMenuItem {
+  var shortcutId: String { get }
+  var defaultTitle: String { get }
+  var defaultKey: String { get }
+  var defaultModifiers: NSEvent.ModifierFlags { get }
+}
+
+final class StandardItem: NSMenuItem, Rebindable {
+  let shortcutId: String
+  let defaultTitle: String
+  let defaultKey: String
+  let defaultModifiers: NSEvent.ModifierFlags
+
+  init(_ title: String, _ action: Selector, key: String = "", _ mods: NSEvent.ModifierFlags = .command) {
+    shortcutId = "std:" + NSStringFromSelector(action)
+    defaultTitle = title
+    defaultKey = key
+    defaultModifiers = mods
+    let shortcut = MainMenu.keyEquivalent(key, mods)
+    super.init(title: title, action: action, keyEquivalent: shortcut.key)
+    keyEquivalentModifierMask = shortcut.mods
+    identifier = NSUserInterfaceItemIdentifier("ardia.shortcut." + shortcutId)
+  }
+
+  override init(title: String, action: Selector?, keyEquivalent: String) {
+    shortcutId = "std:" + (action.map(NSStringFromSelector) ?? title)
+    defaultTitle = title
+    defaultKey = keyEquivalent
+    defaultModifiers = .command
+    super.init(title: title, action: action, keyEquivalent: keyEquivalent)
+    identifier = NSUserInterfaceItemIdentifier("ardia.shortcut." + shortcutId)
+  }
+
+  required init(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+}
+
+final class CommandItem: NSMenuItem, Rebindable {
   let command: String
   let arg: String?
   let defaultTitle: String
@@ -107,6 +143,7 @@ final class CommandItem: NSMenuItem {
   let defaultModifiers: NSEvent.ModifierFlags
 
   var stateKey: String { arg.map { "\(command):\($0)" } ?? command }
+  var shortcutId: String { stateKey }
 
   init(_ title: String, _ command: String, arg: String? = nil, key: String = "", _ mods: NSEvent.ModifierFlags = .command) {
     self.command = command
@@ -114,8 +151,10 @@ final class CommandItem: NSMenuItem {
     defaultTitle = title
     defaultKey = key
     defaultModifiers = mods
-    super.init(title: title, action: #selector(MenuTarget.performCommand(_:)), keyEquivalent: key)
-    keyEquivalentModifierMask = mods
+    let shortcut = MainMenu.keyEquivalent(key, mods)
+    super.init(title: title, action: #selector(MenuTarget.performCommand(_:)), keyEquivalent: shortcut.key)
+    keyEquivalentModifierMask = shortcut.mods
+    identifier = NSUserInterfaceItemIdentifier("ardia.command." + command)
     target = MenuTarget.shared
     tag = Self.chromeMenuTag
   }
@@ -200,10 +239,8 @@ enum MainMenu {
     profiles = NSMenu(title: "Profiles")
     profilesSeparator = NSMenuItem.separator()
 
-    func std(_ title: String, _ action: Selector, _ key: String = "", _ mods: NSEvent.ModifierFlags = .command) -> NSMenuItem {
-      let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-      item.keyEquivalentModifierMask = mods
-      return item
+    func std(_ title: String, _ action: Selector, _ key: String = "", _ mods: NSEvent.ModifierFlags = .command) -> StandardItem {
+      StandardItem(title, action, key: key, mods)
     }
     func sub(_ title: String, _ items: [NSMenuItem], menu: NSMenu? = nil) -> NSMenuItem {
       let submenu = menu ?? NSMenu(title: title)
@@ -273,8 +310,7 @@ enum MainMenu {
       cmd("Print Using System Dialog…", "printWithSystemDialog", "p", [.command, .option]),
     ])
 
-    let paste = NSMenuItem(title: "Paste and Match Style", action: #selector(MenuTarget.pasteAndMatchStyle(_:)), keyEquivalent: "v")
-    paste.keyEquivalentModifierMask = [.command, .shift]
+    let paste = std("Paste and Match Style", #selector(MenuTarget.pasteAndMatchStyle(_:)), "v", [.command, .shift])
     paste.target = MenuTarget.shared
     _ = top("Edit", [
       std("Undo", Selector(("undo:")), "z"),
@@ -383,12 +419,12 @@ enum MainMenu {
         cmd("Inspect Elements", "inspectElements", "c", [.command, .option]),
         cmd("JavaScript Console", "javaScriptConsole", "j", [.command, .option]),
         cmd("Allow JavaScript from Apple Events", "toggleJavaScriptFromAppleEvents"),
-        cmd("Developer Tools", "toggleDevTools", functionKey(NSF12FunctionKey), []).hiddenShortcut(),
+        cmd("Toggle Developer Tools", "toggleDevTools", functionKey(NSF12FunctionKey), []).hiddenShortcut(),
         cmd("Caret Browsing", "caretBrowsing", functionKey(NSF7FunctionKey), []).hiddenShortcut(),
       ]),
     ])
 
-    let selectTab = (1...8).map { cmd("Tab \($0)", "selectTab", arg: "\($0)", "\($0)").hiddenShortcut() }
+    let selectTab = (1...8).map { cmd("Select Tab \($0)", "selectTab", arg: "\($0)", "\($0)").hiddenShortcut() }
     _ = top("Tabs", [
       cmd("Go Back", "back", "["),
       cmd("Go Forward", "forward", "]"),
@@ -412,7 +448,7 @@ enum MainMenu {
       cmd("Tab Switcher (backward)", "tabSwitcher", arg: "backward", "\t", [.control, .shift]).hiddenShortcut(),
       cmd("Back to Pinned URL", "returnToPinnedUrl", "\r").hiddenShortcut(),
     ] + selectTab + [
-      cmd("Last Tab", "selectLastTab", "9").hiddenShortcut(),
+      cmd("Select Last Tab", "selectLastTab", "9").hiddenShortcut(),
       .separator(),
       cmd("Pin", "togglePin"),
       cmd("Duplicate", "duplicateTab"),
@@ -443,9 +479,9 @@ enum MainMenu {
 
     profilesItem = sub("Profiles", [], menu: profiles)
     let minimizeAll = std("Minimize All", #selector(NSApplication.miniaturizeAll(_:)), "m", [.command, .option])
-    let arrange = NSMenuItem(title: "Arrange in Front", action: #selector(MenuTarget.arrangeWindowsInFront(_:)), keyEquivalent: "")
+    let arrange = std("Arrange in Front", #selector(MenuTarget.arrangeWindowsInFront(_:)))
     arrange.target = MenuTarget.shared
-    let keepOnTop = NSMenuItem(title: "Keep Window on Top", action: #selector(MenuTarget.toggleKeepOnTop(_:)), keyEquivalent: "")
+    let keepOnTop = std("Keep Window on Top", #selector(MenuTarget.toggleKeepOnTop(_:)))
     keepOnTop.target = MenuTarget.shared
     minimizeAll.isAlternate = true
     let windowMenu = top("Window", [
@@ -461,7 +497,7 @@ enum MainMenu {
       cmd("Merge All Windows", "mergeAllWindows"),
       profilesSeparator,
       profilesItem,
-      cmd("Profiles", "openProfileMenu", "m", [.command, .shift]).hiddenShortcut(),
+      cmd("Show Profiles Menu", "openProfileMenu", "m", [.command, .shift]).hiddenShortcut(),
     ])
     NSApp.windowsMenu = windowMenu
 
@@ -470,6 +506,44 @@ enum MainMenu {
     built = nil
     refresh()
     return main
+  }
+
+  static func keyEquivalent(_ key: String, _ mods: NSEvent.ModifierFlags) -> (key: String, mods: NSEvent.ModifierFlags) {
+    guard mods.contains(.shift), key.count == 1, let scalar = key.unicodeScalars.first, ("a"..."z").contains(scalar) else {
+      return (key, mods)
+    }
+    return (key.uppercased(), mods.subtracting(.shift))
+  }
+
+  private static func shortcut(of item: NSMenuItem) -> (key: String, mods: NSEvent.ModifierFlags) {
+    let key = item.keyEquivalent
+    guard key.count == 1, key != key.lowercased() else { return (key, item.keyEquivalentModifierMask) }
+    return (key.lowercased(), item.keyEquivalentModifierMask.union(.shift))
+  }
+
+  private static func switcherItems() -> [CommandItem] {
+    var items: [CommandItem] = []
+    walk(NSApp.mainMenu) { item, _ in
+      if let item = item as? CommandItem, item.command == "tabSwitcher", !item.keyEquivalent.isEmpty { items.append(item) }
+    }
+    return items
+  }
+
+  static func switcherHeldModifiers() -> NSEvent.ModifierFlags {
+    guard let forward = switcherItems().first(where: { $0.arg == "forward" }) ?? switcherItems().first else { return [] }
+    let mods = shortcut(of: forward).mods
+    let held = mods.intersection([.control, .option, .command])
+    return held.isEmpty ? mods.intersection(.shift) : held
+  }
+
+  static func isSwitcherKey(_ event: NSEvent) -> Bool {
+    var key = (event.charactersIgnoringModifiers ?? "").lowercased()
+    if key == "\u{19}" { key = "\t" }
+    let mods = event.modifierFlags.intersection([.control, .option, .command, .shift])
+    return switcherItems().contains { item in
+      let combo = shortcut(of: item)
+      return combo.key.lowercased() == key && combo.mods.intersection([.control, .option, .command]) == mods.subtracting(.shift)
+    }
   }
 
   private static func functionKey(_ key: Int) -> String { String(Character(UnicodeScalar(UInt16(key))!)) }
@@ -636,58 +710,115 @@ enum MainMenu {
     ("control", .control), ("option", .option), ("shift", .shift), ("command", .command), ("function", .function),
   ]
   private static let dynamicCommands: Set<String> = [
-    "openBookmark", "restoreClosed", "moveTabToProfile", "moveTabToWindow", "addBookmarkToFolder", "switchProfile",
+    "openBookmark", "restoreClosed", "moveTabToProfile", "moveTabToWindow", "addBookmarkToFolder",
   ]
 
   private static func walk(_ menu: NSMenu?, path: [String] = [], _ visit: (NSMenuItem, [String]) -> Void) {
     for item in menu?.items ?? [] where !item.isSeparatorItem {
       if let submenu = item.submenu {
-        walk(submenu, path: path + [item.title], visit)
+        if submenu !== NSApp.servicesMenu { walk(submenu, path: path + [item.title], visit) }
       } else {
         visit(item, path)
       }
     }
   }
 
+  private static func modifiers(_ names: some Sequence<String>) -> NSEvent.ModifierFlags {
+    let names = Set(names)
+    return NSEvent.ModifierFlags(modifierNames.filter { names.contains($0.0) }.map(\.1))
+  }
+
+  private static func comboKey(_ key: String, _ mods: NSEvent.ModifierFlags) -> String {
+    let relevant = mods.intersection([.control, .option, .shift, .command, .function])
+    let shift: NSEvent.ModifierFlags = key != key.lowercased() ? .shift : []
+    return "\(key.lowercased())|\(relevant.union(shift).rawValue)"
+  }
+
+  private struct ShortcutGroup {
+    var primary: Rebindable
+    var path: [String]
+    var items: [Rebindable]
+  }
+
+  private static func shortcutGroups() -> [(id: String, group: ShortcutGroup)] {
+    var order: [String] = []
+    var groups: [String: ShortcutGroup] = [:]
+    walk(NSApp.mainMenu) { item, path in
+      guard let item = item as? Rebindable else { return }
+      let id = item.shortcutId
+      if var group = groups[id] {
+        group.items.append(item)
+        if group.primary.isHidden && !item.isHidden { group.primary = item; group.path = path }
+        groups[id] = group
+      } else {
+        order.append(id)
+        groups[id] = ShortcutGroup(primary: item, path: path, items: [item])
+      }
+    }
+    return order.map { ($0, groups[$0]!) }
+  }
+
+  private static func setShortcut(_ item: NSMenuItem, _ key: String, _ mods: NSEvent.ModifierFlags) {
+    let shortcut = keyEquivalent(key, key.isEmpty ? [] : mods)
+    if item.keyEquivalent != shortcut.key { item.keyEquivalent = shortcut.key }
+    if item.keyEquivalentModifierMask != shortcut.mods { item.keyEquivalentModifierMask = shortcut.mods }
+  }
+
   private static func applyShortcuts(_ overrides: [String: [String]]) {
-    walk(NSApp.mainMenu) { item, _ in
-      guard let item = item as? CommandItem else { return }
-      if let o = overrides[item.stateKey] {
-        let key = item.isHidden ? "" : (o.first ?? "")
-        let mods = NSEvent.ModifierFlags(modifierNames.filter { o.dropFirst().contains($0.0) }.map(\.1))
-        if item.keyEquivalent != key { item.keyEquivalent = key }
-        if item.keyEquivalentModifierMask != mods { item.keyEquivalentModifierMask = mods }
-      } else if item.keyEquivalent != item.defaultKey || item.keyEquivalentModifierMask != item.defaultModifiers {
-        item.keyEquivalent = item.defaultKey
-        item.keyEquivalentModifierMask = item.defaultModifiers
+    let taken = Set(overrides.values.compactMap { o -> String? in
+      guard let key = o.first, !key.isEmpty else { return nil }
+      return comboKey(key, modifiers(o.dropFirst()))
+    })
+    for (id, group) in shortcutGroups() {
+      let carriesOverride: (Rebindable) -> Bool = { $0 === group.primary || !$0.isHidden }
+      for item in group.items {
+        if let o = overrides[id] {
+          if carriesOverride(item) { setShortcut(item, o.first ?? "", modifiers(o.dropFirst())) } else { setShortcut(item, "", []) }
+        } else if !carriesOverride(item), !item.defaultKey.isEmpty, taken.contains(comboKey(item.defaultKey, item.defaultModifiers)) {
+          setShortcut(item, "", [])
+        } else {
+          setShortcut(item, item.defaultKey, item.defaultModifiers)
+        }
       }
     }
   }
 
   static func shortcutList() -> [[String: Any]] {
     var list: [[String: Any]] = []
-    var seen = Set<String>()
     func names(_ mods: NSEvent.ModifierFlags) -> [String] {
       modifierNames.filter { mods.contains($0.1) }.map(\.0)
     }
-    walk(NSApp.mainMenu) { item, path in
-      guard !item.isHidden, !item.isAlternate || item is CommandItem, !item.title.isEmpty, item.title != "Empty" else { return }
-      if let item = item as? CommandItem {
-        guard !dynamicCommands.contains(item.command), seen.insert(item.stateKey).inserted else { return }
-        list.append([
-          "id": item.stateKey, "title": item.defaultTitle, "path": path, "key": item.keyEquivalent,
-          "modifiers": item.keyEquivalent.isEmpty ? [] : names(item.keyEquivalentModifierMask), "defaultKey": item.defaultKey,
-          "defaultModifiers": item.defaultKey.isEmpty ? [] : names(item.defaultModifiers), "remappable": true,
-        ])
-      } else if !item.keyEquivalent.isEmpty, item.action != nil {
-        let id = "std:" + (path + [item.title]).joined(separator: " > ")
-        guard seen.insert(id).inserted else { return }
-        let mods = names(item.keyEquivalentModifierMask)
-        list.append([
-          "id": id, "title": item.title, "path": path, "key": item.keyEquivalent, "modifiers": mods,
-          "defaultKey": item.keyEquivalent, "defaultModifiers": mods, "remappable": false,
-        ])
+    for (id, group) in shortcutGroups() {
+      let item = group.primary
+      if let command = item as? CommandItem, dynamicCommands.contains(command.command) { continue }
+      guard !item.defaultTitle.isEmpty else { continue }
+      let current = shortcut(of: item)
+      let defaultCombo = comboKey(item.defaultKey, item.defaultModifiers)
+      var aliases: [[String]] = []
+      var seen: Set<String> = [defaultCombo]
+      for other in group.items where other !== item && !other.defaultKey.isEmpty {
+        if seen.insert(comboKey(other.defaultKey, other.defaultModifiers)).inserted {
+          aliases.append([other.defaultKey] + names(other.defaultModifiers))
+        }
       }
+      list.append([
+        "id": id, "title": item.defaultTitle, "path": group.path, "key": current.key,
+        "modifiers": current.key.isEmpty ? [] : names(current.mods), "defaultKey": item.defaultKey,
+        "defaultModifiers": item.defaultKey.isEmpty ? [] : names(item.defaultModifiers), "remappable": true,
+        "aliases": aliases,
+      ])
+    }
+    var seen = Set<String>()
+    walk(NSApp.mainMenu) { item, path in
+      guard !(item is Rebindable), !item.isHidden, !item.title.isEmpty, !item.keyEquivalent.isEmpty, item.action != nil else { return }
+      let id = "system:" + (path + [item.title]).joined(separator: " > ")
+      guard seen.insert(id).inserted else { return }
+      let current = shortcut(of: item)
+      let mods = names(current.mods)
+      list.append([
+        "id": id, "title": item.title, "path": path, "key": current.key, "modifiers": mods,
+        "defaultKey": current.key, "defaultModifiers": mods, "remappable": false, "aliases": [[String]](),
+      ])
     }
     return list
   }

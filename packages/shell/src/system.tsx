@@ -10,6 +10,7 @@ export type MenuShortcut = {
   defaultKey: string;
   defaultModifiers: ShortcutModifier[];
   remappable: boolean;
+  aliases?: string[][];
 };
 
 export type ShortcutModifier = "control" | "option" | "shift" | "command" | "function";
