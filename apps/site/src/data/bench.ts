@@ -113,6 +113,29 @@ function callFor(row: RawRow, entries: RawBrowser[], kind: Kind): Call {
   const ranked = [...others].sort((x, y) => (row.lowerIsBetter ? value(x) - value(y) : value(y) - value(x)));
   const closest = ranked[0];
   const farthest = ranked[ranked.length - 1];
+  const dia = others.find((b) => /^dia\b/i.test(b.name.trim()));
+  const headline = dia && isBetter(value(ardia), value(dia), row.lowerIsBetter) ? dia : null;
+
+  if (headline) {
+    const lead = margin(value(ardia), value(headline), row, kind);
+    const rest = ranked.filter((b) => b !== headline);
+    const beaten = rest.find((b) => isBetter(value(b), value(ardia), row.lowerIsBetter));
+    const kicker = beaten ? `${row.label} · ${beaten.name} wins this one` : row.label;
+    const near = rest[0];
+    const second = !near
+      ? null
+      : beaten
+        ? (() => {
+            const f = margin(value(beaten), value(ardia), row, kind);
+            return f ? { figure: f, line: `${kind.word} for ${beaten.name}` } : null;
+          })()
+        : (() => {
+            const f = margin(value(ardia), value(near), row, kind);
+            return f ? { figure: f, line: `${kind.word} than ${near.name}` } : null;
+          })();
+    if (!lead) return { lost: false, kicker, figure: null, line: `Dead even with ${headline.name}.`, second };
+    return { lost: false, kicker, figure: lead, line: `${kind.word} than ${headline.name}`, second };
+  }
 
   if (isBetter(value(closest), value(ardia), row.lowerIsBetter)) {
     const figure = margin(value(closest), value(ardia), row, kind);
