@@ -126,6 +126,7 @@ export function PrimaryButton({ title, onPress, disabled, icon }: { title: strin
       <Pressable disabled={disabled} onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
         {({ pressed }) => (
           <View
+            mouseDownCanMoveWindow={false}
             style={{
               height: 36,
               borderRadius: 18,
@@ -155,6 +156,7 @@ export function SecondaryButton({ title, onPress, filled }: { title: string; onP
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
         {({ pressed }) => (
           <View
+            mouseDownCanMoveWindow={false}
             style={{
               height: 36,
               borderRadius: 18,
@@ -237,6 +239,7 @@ export function CheckRow({
     <View {...hoverProps} style={{ opacity: disabled ? 0.5 : 1 }}>
       <Pressable disabled={disabled} onPress={() => onChange(!value)} accessibilityRole="checkbox" accessibilityState={{ checked: value, disabled }} accessibilityLabel={title}>
         <View
+          mouseDownCanMoveWindow={false}
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -250,11 +253,11 @@ export function CheckRow({
           }}
         >
           {icon ? (
-            <View style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: colors.iconContainer, alignItems: "center", justifyContent: "center" }}>
+            <View mouseDownCanMoveWindow={false} style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: colors.iconContainer, alignItems: "center", justifyContent: "center" }}>
               <Symbol name={icon} size={13} color={colors.title} style={{ width: 28, height: 28 }} />
             </View>
           ) : null}
-          <View style={{ flex: 1, gap: 2 }}>
+          <View mouseDownCanMoveWindow={false} style={{ flex: 1, gap: 2 }}>
             <Text style={{ fontSize: 13, fontWeight: "500", color: colors.title }}>{title}</Text>
             <Text numberOfLines={2} style={{ fontSize: 12, color: colors.rowSubtitle }}>{subtitle}</Text>
           </View>

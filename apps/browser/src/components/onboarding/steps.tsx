@@ -353,6 +353,7 @@ function SiteTile({ title, url, selected, onPress }: { title: string; url: strin
       <Pressable onPress={onPress} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} accessibilityLabel={title}>
         {({ pressed }) => (
           <View
+            mouseDownCanMoveWindow={false}
             style={{
               width: 80,
               height: 70,

@@ -89,6 +89,7 @@ function LayoutButton({ kind, title, subtitle, selected, onPress }: { kind: "sid
       <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={title}>
         {({ pressed }) => (
           <View
+            mouseDownCanMoveWindow={false}
             style={{
               padding: 10,
               gap: 10,

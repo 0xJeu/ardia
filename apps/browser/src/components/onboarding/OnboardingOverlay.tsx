@@ -63,6 +63,7 @@ function Overlay({ session }: { session: number }) {
       {step !== "intro" && width > 0 && (
         <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]} pointerEvents="box-none">
           <Animated.View
+            mouseDownCanMoveWindow={false}
             style={{
               width,
               height,
