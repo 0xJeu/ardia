@@ -6,9 +6,11 @@ import { WindowRoot } from "../../browser/src/App";
 import { startNativeSync } from "../../browser/src/lib/native";
 import { startTabPages } from "../../browser/src/lib/tabPages";
 import { setStoreBatching, useBrowser } from "../../browser/src/store/browser";
+import { Controls } from "./Controls";
 import { isFrameable } from "./frameable";
 import { pageTitle } from "./pages";
 import { installLocalSuggestions } from "./localSuggest";
+import { startScrolledPages } from "./scrolledPages";
 import { demoSession } from "./seed";
 import { warmFrame } from "./shims/web/framePool";
 import { MenuHost } from "./shims/web/menus";
@@ -18,8 +20,12 @@ import { TrafficLights } from "./shims/web/windowChrome";
 installLocalSuggestions();
 setStoreBatching(unstable_batchedUpdates);
 useBrowser.getState().hydrate(demoSession());
+useBrowser.setState((s) => ({ settings: { ...s.settings, hideToolbarWhileScrolling: false } }));
 startTabPages();
 startNativeSync();
+startScrolledPages();
+
+const bare = new URLSearchParams(location.search).has("bare");
 
 Object.assign(globalThis, { ardiaDemo: { store: useBrowser, emitCommand } });
 
@@ -37,11 +43,12 @@ idle(warmOtherProfiles);
 
 function DemoWindow() {
   return (
-    <div className="ardia-desktop">
+    <div className={bare ? "ardia-desktop" : "ardia-desktop with-controls"}>
       <div className="ardia-window">
         <WindowRoot />
         <TrafficLights />
       </div>
+      {bare ? null : <Controls />}
       <MenuHost />
     </div>
   );

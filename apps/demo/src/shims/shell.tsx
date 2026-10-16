@@ -58,8 +58,13 @@ export const prompt = async (options: PromptOptions) =>
 
 const darkQuery = typeof window === "undefined" ? null : window.matchMedia("(prefers-color-scheme: dark)");
 export const isDarkAppearance = async () => !!darkQuery?.matches;
-export const setAppearance = async (_mode: "auto" | "light" | "dark") => {};
-darkQuery?.addEventListener("change", (e) => emitAppEvent({ type: "appearance", dark: e.matches }));
+let appearance: "auto" | "light" | "dark" = "auto";
+export const setAppearance = async (mode: "auto" | "light" | "dark") => {
+  if (mode === appearance) return;
+  appearance = mode;
+  emitAppEvent({ type: "appearance", dark: mode === "auto" ? !!darkQuery?.matches : mode === "dark" });
+};
+darkQuery?.addEventListener("change", (e) => appearance === "auto" && emitAppEvent({ type: "appearance", dark: e.matches }));
 
 export const windowIds = async () => [] as string[];
 export const windowFrame = async (_id: string): Promise<[number, number, number, number] | null> => null;

@@ -28,7 +28,7 @@ try {
   await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   for (let run = 0; run < runs; run++)
     for (const query of QUERIES) {
-      await page.send("Page.navigate", { url: `${url}?race=${Date.now()}` });
+      await page.send("Page.navigate", { url: `${url}?bare&race=${Date.now()}` });
       for (let i = 0; i < 100 && !(await page.eval("!!globalThis.ardiaDemo").catch(() => false)); i++) await sleep(100);
       await sleep(800);
       await page.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "l", code: "KeyL", modifiers: 4, windowsVirtualKeyCode: 76 });

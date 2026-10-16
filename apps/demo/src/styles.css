@@ -42,6 +42,69 @@ textarea:focus,
     0 22px 70px rgba(0, 0, 0, 0.45);
 }
 
+.ardia-desktop.with-controls {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ardia-desktop.with-controls .ardia-window {
+  height: calc(100% - 32px - 42px);
+}
+
+.ardia-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  height: 30px;
+  font-size: 12.5px;
+  user-select: none;
+}
+
+.ardia-control-group {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+}
+
+.ardia-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.ardia-control:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.ardia-control[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1d1f24;
+}
+
+.ardia-control:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.ardia-control:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 1px;
+}
+
 .ardia-window > div:first-child {
   flex: 1;
   display: flex;

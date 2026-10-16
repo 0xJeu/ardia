@@ -82,7 +82,7 @@ async function captureDemo() {
       await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: theme }] });
       mkdirSync(join(out, theme), { recursive: true });
       for (const state of states) {
-        await page.send("Page.navigate", { url: `${url}${url.includes("?") ? "&" : "?"}compare=${Date.now()}` });
+        await page.send("Page.navigate", { url: `${url}${url.includes("?") ? "&" : "?"}bare&compare=${Date.now()}` });
         for (let i = 0; i < 100 && !(await page.eval("!!globalThis.ardiaDemo && document.readyState === 'complete'").catch(() => false)); i++) await sleep(100);
         await page.eval("document.fonts.ready.then(() => true)");
         await run(page, reset);
