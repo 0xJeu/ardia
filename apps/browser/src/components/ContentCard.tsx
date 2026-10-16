@@ -203,10 +203,6 @@ export function ContentCard() {
     });
   }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split]);
 
-  const measured = size.width > 0;
-  const paneShown = (key: string) => measured || !!panes[key.slice(0, key.indexOf("|"))];
-  const mountsUnmeasured = !split && !fullscreenTab;
-
   const settled = useRef<{ width: number; height: number } | null>(null);
   const measure = (width: number, height: number) => {
     setSize({ width, height });
@@ -233,8 +229,8 @@ export function ContentCard() {
         else measure(width, height);
       }}
     >
-      {(measured || mountsUnmeasured) &&
-        shown.filter(paneShown).map((key) => {
+      {size.width > 0 &&
+        shown.map((key) => {
           const tabId = key.slice(0, key.indexOf("|"));
           const rect = panes[tabId];
           return (
@@ -315,7 +311,6 @@ const TabPane = memo(function TabPane({
   const inSomeSplit = useStoreWhile(useBrowser, !!warm, (s) => !!warm && !!splitOf(s, tabId));
   const inSplit = visible ? inActiveSplit : inSomeSplit;
   const frame = rect ?? warm ?? { x: 0, y: 0, width: fullWidth, height: fullHeight };
-  const measured = fullHeight > 0;
   useEffect(() => {
     if (visible && isNewTab && !mounted) patchPage(tabId, { wasNewTab: true });
   }, [visible, isNewTab, mounted]);
@@ -351,9 +346,9 @@ const TabPane = memo(function TabPane({
         <View style={{ height: layout.toolbarHeight }} />
       )}
       {!autoLayout && bookmarksBar && <BookmarksBar placeholder={!visible} />}
-      <Animated.View style={autoLayout ? (measured ? motion.groupStyle : [motion.groupStyle, UNMEASURED_GROUP]) : { flex: 1 }}>
+      <Animated.View style={autoLayout ? motion.groupStyle : { flex: 1 }}>
         {autoLayout && bookmarksBar && <BookmarksBar placeholder={!visible} />}
-        <View style={autoLayout && measured ? { height: motion.pageHeight } : { flex: 1 }}>
+        <View style={autoLayout ? { height: motion.pageHeight } : { flex: 1 }}>
           {visible && !fullscreen && <ShareBar tabId={tabId} />}
           <View style={{ flex: 1 }}>
             {(mounted || prewarmed) && <TabWebView tabId={tabId} visible={visible && !newTabShown && !isNewTab} warm={!!warm && !newTabShown && !isNewTab} />}
@@ -387,8 +382,6 @@ const TabPane = memo(function TabPane({
     </View>
   );
 });
-
-const UNMEASURED_GROUP = { bottom: 0 } as const;
 
 const paneTab = (t: Tab | undefined) => ({ exists: !!t, url: t?.url ?? "", zoom: t?.zoom ?? 1 });
 const webViewTab = (t: Tab | undefined) => ({ navigation: t?.navigation, adoptId: t?.adoptId, profileId: t?.profileId ?? "" });
