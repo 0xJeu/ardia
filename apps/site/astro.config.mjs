@@ -1,8 +1,27 @@
 import { defineConfig } from "astro/config";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { constants, gzipSync } from "node:zlib";
+
+function demo() {
+  let base = "/";
+  return {
+    name: "ardia:demo",
+    hooks: {
+      "astro:config:done": ({ config }) => {
+        base = config.base.endsWith("/") ? config.base : `${config.base}/`;
+      },
+      "astro:build:done": ({ dir, logger }) => {
+        const outDir = fileURLToPath(new URL("demo/", dir));
+        const demoDir = fileURLToPath(new URL("../demo/", import.meta.url));
+        execFileSync("pnpm", ["-C", demoDir, "exec", "vite", "build", "--base", `${base}demo/`, "--outDir", outDir, "--emptyOutDir", "--logLevel", "warn"], { stdio: "inherit" });
+        logger.info(`built the demo into ${outDir}`);
+      },
+    },
+  };
+}
 
 function dist() {
   const compressible = /\.(html|css|js|mjs|json|svg|xml|txt)$/;
@@ -37,5 +56,5 @@ export default defineConfig({
   build: { inlineStylesheets: "always", assets: "_assets" },
   image: { responsiveStyles: false },
   devToolbar: { enabled: false },
-  integrations: [dist()],
+  integrations: [demo(), dist()],
 });

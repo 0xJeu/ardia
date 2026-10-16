@@ -4,9 +4,10 @@ interface Props {
   hour?: Hour;
   flip?: boolean;
   sun?: { x: number; y: number };
+  still?: boolean;
   class?: string;
 }
-const { hour = "morning", flip = false, sun = { x: 0.72, y: 0.2 }, class: className } = Astro.props;
+const { hour = "morning", flip = false, sun = { x: 0.72, y: 0.2 }, still = false, class: className } = Astro.props;
 ---
 
 <div class:list={["plate", hour, { flip }, className]} data-tilt style={`--sx: ${sun.x * 100}%; --sy: ${sun.y * 100}%`}>
@@ -20,7 +21,7 @@ const { hour = "morning", flip = false, sun = { x: 0.72, y: 0.2 }, class: classN
     </svg>
     <span class="oil"></span>
   </div>
-  <div class="window" data-depth="6,4">
+  <div class="window" data-depth={still ? undefined : "6,4"}>
     <slot />
   </div>
   <span class="grass" aria-hidden="true" data-depth="12,0"></span>

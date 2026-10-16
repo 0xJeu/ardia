@@ -3,29 +3,38 @@ import Shot from "./Shot.astro";
 import DownloadButton from "./DownloadButton.astro";
 import Plate from "./Plate.astro";
 import windowShot from "../assets/shots/window.webp";
+
+const demoSrc = `${import.meta.env.DEV ? (import.meta.env.PUBLIC_DEMO_URL ?? "http://127.0.0.1:5191/") : `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}demo/`}?embed`;
 ---
 
 <section class="showcase" aria-label="The app" data-shot="office">
   <div class="wrap">
     <figure class="showcase-figure">
       <div class="tilt" data-settle>
-        <Plate hour="morning" sun={{ x: 0.84, y: 0.16 }}>
-          <Shot
-            src={windowShot}
-            alt="The Ardia window in light mode: pinned tiles and tabs in the sidebar, and Wikipedia’s article on The Hay Wain, John Constable’s painting of a hay cart crossing a river, open on the right."
-            sizes="(max-width: 1440px) 88vw, 1240px"
-          />
+        <Plate hour="morning" sun={{ x: 0.84, y: 0.16 }} still>
+          <div class="demo" data-demo data-demo-src={demoSrc}>
+            <div class="demo-poster" data-demo-poster>
+              <Shot
+                src={windowShot}
+                alt="The Ardia window in light mode: pinned tiles and tabs in the sidebar, and Wikipedia’s article on The Hay Wain, John Constable’s painting of a hay cart crossing a river, open on the right."
+                sizes="(max-width: 1440px) 88vw, 1240px"
+              />
+            </div>
+            <div class="demo-stage" data-demo-stage></div>
+          </div>
         </Plate>
       </div>
+      <div class="demo-controls" data-demo-controls role="toolbar" aria-label="Try Ardia" hidden></div>
     </figure>
     <aside class="band" aria-label="Download" data-download-band hidden>
-      <p class="band-line poster">That was a screenshot. <span>This is the app.</span></p>
+      <p class="band-line poster"><span data-band-lead>That was a screenshot. </span><span>This is the app.</span></p>
       <DownloadButton location="office-band" />
     </aside>
   </div>
 </section>
 
 <script>
+  import "../scripts/demo";
   import { getFeatureFlag } from "../scripts/telemetry";
 
   const FLAG = "download-band";
@@ -47,8 +56,13 @@ import windowShot from "../assets/shots/window.webp";
     padding-top: clamp(24px, 4vw, 64px);
   }
   .showcase-figure {
-    margin: 0;
+    margin: 0 auto;
     perspective: 1600px;
+  }
+  @media (hover: hover) and (pointer: fine) and (min-width: 900px) {
+    .showcase-figure {
+      max-width: max(860px, calc((100svh - 170px) / 0.66));
+    }
   }
   .tilt {
     transform-origin: 50% 0%;
@@ -65,6 +79,98 @@ import windowShot from "../assets/shots/window.webp";
       transform: none;
       opacity: 1;
     }
+  }
+  .demo {
+    position: relative;
+  }
+  .demo-poster {
+    transition: opacity 500ms var(--ease-out);
+  }
+  .demo-stage {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: calc(14px * var(--demo-scale, 1));
+    box-shadow:
+      0 1px 2px rgb(22 19 15 / 0.14),
+      0 22px 44px rgb(22 19 15 / 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 500ms var(--ease-out);
+  }
+  .demo-stage:empty {
+    display: none;
+  }
+  .demo[data-live] .demo-stage {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .demo[data-live] .demo-poster {
+    opacity: 0;
+  }
+  .demo-stage :global(.demo-frame) {
+    display: block;
+    border: 0;
+    transform-origin: 0 0;
+    background: transparent;
+  }
+  .demo-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 14px;
+    margin-top: clamp(18px, 2.2vw, 28px);
+  }
+  .demo-controls[hidden] {
+    display: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .demo-controls {
+      animation: band-in 600ms var(--ease-out) both;
+    }
+  }
+  .demo-controls :global(.demo-group) {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--rule);
+  }
+  .demo-controls :global(.demo-label) {
+    padding: 0 8px 0 10px;
+    color: var(--ink-3);
+  }
+  .demo-controls :global(.demo-control) {
+    height: 30px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--t-small);
+    cursor: pointer;
+    transition:
+      background-color 140ms var(--ease-out),
+      color 140ms var(--ease-out);
+  }
+  .demo-controls :global(.demo-control:hover:not(:disabled):not([aria-checked="true"]):not([aria-pressed="true"])) {
+    background: rgb(22 19 15 / 0.07);
+    color: var(--ink);
+  }
+  .demo-controls :global(.demo-control[aria-checked="true"]),
+  .demo-controls :global(.demo-control[aria-pressed="true"]) {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .demo-controls :global(.demo-control:disabled) {
+    opacity: 0.38;
+    cursor: default;
+  }
+  .demo-controls :global(.demo-control:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
   .band {
     display: flex;
@@ -83,7 +189,7 @@ import windowShot from "../assets/shots/window.webp";
     font-size: clamp(2rem, 1.2rem + 2.6vw, 3.6rem);
     line-height: 0.9;
   }
-  .band-line span {
+  .band-line span + span {
     color: var(--accent);
   }
   @media (prefers-reduced-motion: no-preference) {

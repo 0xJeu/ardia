@@ -7,6 +7,7 @@ import { startNativeSync } from "../../browser/src/lib/native";
 import { startTabPages } from "../../browser/src/lib/tabPages";
 import { setStoreBatching, useBrowser } from "../../browser/src/store/browser";
 import { Controls } from "./Controls";
+import { startEmbed } from "./embed";
 import { isFrameable } from "./frameable";
 import { pageTitle } from "./pages";
 import { installLocalSuggestions } from "./localSuggest";
@@ -22,7 +23,9 @@ useBrowser.getState().hydrate(demoSession());
 startTabPages();
 startNativeSync();
 
-const bare = new URLSearchParams(location.search).has("bare");
+const params = new URLSearchParams(location.search);
+const embed = params.has("embed");
+const bare = embed || params.has("bare");
 
 Object.assign(globalThis, { ardiaDemo: { store: useBrowser, emitCommand } });
 
@@ -40,7 +43,7 @@ idle(warmOtherProfiles);
 
 function DemoWindow() {
   return (
-    <div className={bare ? "ardia-desktop" : "ardia-desktop with-controls"}>
+    <div className={embed ? "ardia-desktop embed" : bare ? "ardia-desktop" : "ardia-desktop with-controls"}>
       <div className="ardia-window">
         <WindowRoot />
         <TrafficLights />
@@ -52,3 +55,5 @@ function DemoWindow() {
 }
 
 createRoot(document.getElementById("root")!, { onUncaughtError: (error) => console.error("[ardia demo] crashed", error) }).render(<DemoWindow />);
+
+if (embed) startEmbed();
