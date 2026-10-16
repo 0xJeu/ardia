@@ -8,6 +8,8 @@
 //   node apps/browser/scripts/perf/xbench.mjs check  --out <dir> [options]   one quick look per browser, nothing kept
 //   node apps/browser/scripts/perf/xbench.mjs report --out <dir> [--json <file>] [--md <file>]
 //   node apps/browser/scripts/perf/xbench.mjs clean  --out <dir>             quit leftovers, unregister the copies, delete runs
+//   node apps/browser/scripts/perf/xbench.mjs signin --browsers dia --base dia=<home>   open the browser on that HOME, in
+//                        view, for the owner to sign in by hand; returns when they quit it (or at --deadline)
 //   node apps/browser/scripts/perf/xbench.mjs prepare-bg --browsers <a,b>    make <apps>/<name>-bg/: the copy with LSBackgroundOnly
 //                        set (it can't become the active app, as Ardia's test instances can't), signed ad hoc with its
 //                        entitlements and without the hardened runtime; run it as the browser <name>-bg
@@ -23,13 +25,15 @@
 //     --port <n>           the instances' CDP port (default 9461). One instance runs at a time
 //     --page-port <n>      the test pages' server port (default 9462); templates restore pages from it, so keep it fixed
 //     --deadline <mins>    stop starting items after this long (default 100); run again to resume
-//     --gate away|off      away (default): every item waits until the owner is away (screen locked, or no keyboard,
-//                          mouse or trackpad input for --away secs) and is thrown away, its browser quit at once, the
+//     --gate away|off      away (default): every item waits until the owner is away (screen locked with no input for
+//                          60 s, or no keyboard, mouse or trackpad input for --away secs) and is thrown away, its browser quit at once, the
 //                          moment input comes. off is allowed only when every browser chosen is Ardia (hidden)
 //     --away <secs>        idle time that counts as away (default 600)
 //     --window <x,y>       the windows' top-left corner (default 40,80)
 //     --allow-focus        record a browser making itself the active app instead of stopping (only for an A/B the
 //                          owner agreed to, run while they're away)
+//     --base <name>=<home> repeatable: the template starts from a copy of this HOME (a signed-in profile) instead of
+//                          an empty one
 //     --dmg <name>=<file|url>  repeatable: the download whose size the size row reports
 //     --json <file>, --md <file>  report: where the results JSON and the markdown table go (default <out>/bench.json, stdout)
 //
@@ -53,7 +57,7 @@
 //   download, on disk             size     the DMG's bytes; du of the bundle
 // Results: <out>/samples.jsonl (one line per finished item), report → bench.json and the table.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, appendFileSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { cpus, loadavg, totalmem } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -79,6 +83,7 @@ const { values: opt, positionals } = parseArgs({
     gate: { type: "string", default: "away" },
     window: { type: "string", default: "40,80" },
     "allow-focus": { type: "boolean" },
+    base: { type: "string", multiple: true, default: [] },
     away: { type: "string", default: "600" },
     dmg: { type: "string", multiple: true, default: [] },
     json: { type: "string" },
@@ -107,7 +112,7 @@ const SETTLE_TEMPLATE_MS = 90_000;
 
 const BROWSERS = {
   ardia: { name: "Ardia", bundle: "ardia/Ardia.app", hidden: true },
-  dia: { name: "Dia", bundle: "dia/Dia.app", downloadUrl: (i) => `https://releases.diabrowser.com/release/Dia-${i.version}-${i.build}.dmg` },
+  dia: { name: "Dia", bundle: "dia/Dia.app", readOnly: true, guardPrefs: true, downloadUrl: (i) => `https://releases.diabrowser.com/release/Dia-${i.version}-${i.build}.dmg` },
   helium: { name: "Helium", bundle: "helium/Helium.app", restoreSwitch: true, downloadUrl: (i) => `https://github.com/imputnet/helium-macos/releases/download/${i.version}/helium_${i.version}_arm64-macos.dmg` },
   chrome: { name: "Google Chrome", bundle: "chrome/Google Chrome.app", restoreSwitch: true, downloadUrl: () => "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg" },
 };
@@ -398,7 +403,7 @@ class Gate {
     this.proc = null;
   }
   away(s = this.state) {
-    return !!s && !s.asleep && (s.locked || s.hid >= +opt.away);
+    return !!s && !s.asleep && (s.locked ? s.hid >= 60 : s.hid >= +opt.away);
   }
   async wait(deadline) {
     if (!this.on) return true;
@@ -416,6 +421,8 @@ class Gate {
 const gate = new Gate();
 
 class Aborted extends Error {}
+const live = new Set();
+let lockHeld = false;
 
 class Instance {
   constructor(name, dir) {
@@ -494,6 +501,16 @@ class Instance {
   async launch(url) {
     if (spawnSync("pgrep", ["-f", `^${this.info.exe.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`]).status === 0) throw new Error(`a ${this.name} instance is still running`);
     if ((await this.cdp.get("/json/version"))) throw new Error(`port ${port} is already taken`);
+    if (this.b.readOnly) {
+      let writable = true;
+      try {
+        accessSync(join(this.app, "Contents"), fsConstants.W_OK);
+      } catch {
+        writable = false;
+      }
+      if (writable) throw new Error(`${this.name}'s copy is writable: chmod -R a-w it so it can't update itself`);
+    }
+    if (this.b.guardPrefs) this.prefs = new PrefsGuard(this.info.id).save();
     const env = this.env();
     const argv = ["-g", "-n", ...Object.entries(env).flatMap(([k, v]) => ["--env", `${k}=${v}`]), "-a", this.app, ...(url ? [url] : []), "--args", ...this.args()];
     this.front = probe("state").front;
@@ -506,6 +523,7 @@ class Instance {
       else await sleep(5);
     }
     if (!this.pid) throw new Error(`${this.name} didn't start`);
+    live.add(this);
     this.window = new Promise((done) => {
       const p = spawn(acperfBin(), ["waitwindow", String(this.pid), "60"], { stdio: ["ignore", "pipe", "ignore"] });
       let said = "";
@@ -552,16 +570,45 @@ class Instance {
     }
     this.cdp.close();
     for (const end = Date.now() + 10_000; Date.now() < end && (await this.cdp.get("/json/version")); ) await sleep(200);
+    this.prefs?.restore();
+    live.delete(this);
     if (info(this.app).version !== this.info.version) throw new Error(`${this.name}'s copy changed version (${this.info.version} → ${info(this.app).version}): it updated itself`);
   }
 }
 
 const templateDir = (name) => join(out, "templates", name);
 
+class PrefsGuard {
+  constructor(domain) {
+    this.domain = domain;
+    this.dir = join(out, "prefs-guard");
+    this.file = join(this.dir, `${domain}.plist`);
+  }
+  save() {
+    mkdirSync(this.dir, { recursive: true, mode: 0o700 });
+    this.existed = existsSync(join(process.env.HOME, "Library/Preferences", `${this.domain}.plist`));
+    if (this.existed) {
+      rmSync(this.file, { force: true });
+      execFileSync("sh", ["-c", 'umask 077 && exec defaults export "$0" "$1"', this.domain, this.file]);
+      const first = join(this.dir, `${this.domain}.first.plist`);
+      if (!existsSync(first)) execFileSync("cp", ["-p", this.file, first]);
+    }
+    return this;
+  }
+  restore() {
+    spawnSync("defaults", ["delete", this.domain], { stdio: "ignore" });
+    if (this.existed) execFileSync("defaults", ["import", this.domain, this.file]);
+    rmSync(this.file, { force: true });
+  }
+}
+
 async function makeTemplate(name) {
   const dir = templateDir(name);
   rmSync(dir, { recursive: true, force: true });
-  mkdirSync(join(dir, "home"), { recursive: true });
+  mkdirSync(dir, { recursive: true });
+  const baseHome = opt.base.find((b) => b.startsWith(`${name}=`))?.slice(name.length + 1);
+  if (baseHome) execFileSync("cp", ["-Rc", resolve(baseHome), join(dir, "home")]);
+  else mkdirSync(join(dir, "home"), { recursive: true });
   if (isArdia(name)) {
     mkdirSync(join(dir, "home/data"), { recursive: true });
     writeFileSync(join(dir, "home/data/onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
@@ -793,9 +840,13 @@ const ESTIMATE_MS = { link: 25_000, restore: 25_000, session: 3 * 60_000 + 2 * +
 
 function takeLock() {
   const r = spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--take", "xbench", "--ttl", "30", "--wait", "120"], { encoding: "utf8" });
-  return r.status === 0;
+  lockHeld = r.status === 0;
+  return lockHeld;
 }
-const releaseLock = () => spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--release", "xbench"], { encoding: "utf8" });
+const releaseLock = () => {
+  lockHeld = false;
+  return spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--release", "xbench"], { encoding: "utf8" });
+};
 
 async function run(names) {
   const deadline = Date.now() + +opt.deadline * 60_000;
@@ -941,8 +992,8 @@ const ROWS = [
   { id: "idle-cpu-20", label: "Idle CPU, 20 tabs", unit: "%", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs20.total.cpu },
   { id: "idle-wakeups-1", label: "Idle wakeups, 1 tab", unit: "/s", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs1.total.wakeups },
   { id: "idle-wakeups-20", label: "Idle wakeups, 20 tabs", unit: "/s", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs20.total.wakeups },
-  { id: "download", label: "Download (DMG)", unit: "MB", lowerIsBetter: true, kind: "size", get: (s) => s.download / 1e6 },
-  { id: "on-disk", label: "App on disk", unit: "MB", lowerIsBetter: true, kind: "size", get: (s) => s.bundle / 1e6 },
+  { id: "download", label: "Download (DMG)", unit: "MB", lowerIsBetter: true, kind: "size", context: true, get: (s) => s.download / 1e6 },
+  { id: "on-disk", label: "App on disk", unit: "MB", lowerIsBetter: true, kind: "size", context: true, get: (s) => s.bundle / 1e6 },
 ];
 
 function machine() {
@@ -963,7 +1014,8 @@ function report(names) {
   for (const n of names) {
     const t = existsSync(join(templateDir(n), "template.json")) ? JSON.parse(readFileSync(join(templateDir(n), "template.json"), "utf8")) : null;
     const app = bundleOf(n);
-    browsers[n] = { name: spec(n).name + (n === baseOf(n) ? "" : ` (${n.slice(baseOf(n).length + 1)})`), version: info(app).version, chromium: chromiumOf(app, t) };
+    browsers[n] = { name: spec(n).name, version: info(app).version, chromium: chromiumOf(app, t) };
+    if (n !== baseOf(n)) browsers[n].variant = n.endsWith("-bg") ? "background-only copy (LSBackgroundOnly, ad hoc signed)" : n.slice(baseOf(n).length + 1);
   }
   const rows = ROWS.map((row) => {
     const per = {};
@@ -972,7 +1024,7 @@ function report(names) {
       per[n] = { ...browsers[n], median: round(median(xs)), min: round(Math.min(...xs)), max: round(Math.max(...xs)), n: xs.length };
       if (!xs.length) Object.assign(per[n], { median: null, min: null, max: null });
     }
-    return { id: row.id, label: row.label, unit: row.unit, lowerIsBetter: row.lowerIsBetter, browsers: per };
+    return { id: row.id, label: row.label, unit: row.unit, lowerIsBetter: row.lowerIsBetter, ...(row.context ? { context: true } : {}), browsers: per };
   }).filter((row) => Object.values(row.browsers).some((b) => b.n));
   const result = {
     date: new Date().toISOString().slice(0, 10),
@@ -1049,6 +1101,22 @@ function breakdown(names) {
 }
 const mapKinds = (kinds, f) => Object.fromEntries(Object.entries(kinds ?? {}).map(([k, v]) => [k, f(v)]));
 
+async function signin(names) {
+  for (const name of names) {
+    const home = opt.base.find((b) => b.startsWith(`${name}=`))?.slice(name.length + 1);
+    if (!home) throw new Error(`signin needs --base ${name}=<home>`);
+    mkdirSync(home, { recursive: true });
+    const app = new Instance(name, dirname(resolve(home)));
+    app.home = resolve(home);
+    await app.launch(null);
+    log(`${name} is open (pid ${app.pid}) on ${app.home}: sign in, then quit it (⌘Q)`);
+    const deadline = Date.now() + +opt.deadline * 60_000;
+    while (app.alive() && Date.now() < deadline) await sleep(1000);
+    await app.quit();
+    log(`${name} quit; its HOME is ${app.home}`);
+  }
+}
+
 function prepareBackgroundOnly(names) {
   for (const name of names) {
     if (spec(name).hidden || name !== baseOf(name)) throw new Error(`prepare-bg takes a competitor's own name, not ${name}`);
@@ -1094,21 +1162,57 @@ function clean(names) {
   }
   rmSync(join(out, "runs"), { recursive: true, force: true });
   rmSync(join(out, "check"), { recursive: true, force: true });
+  for (const n of names) {
+    const guard = spec(n).guardPrefs && new PrefsGuard(info(bundleOf(n)).id);
+    if (guard && existsSync(guard.file)) {
+      log(`restoring ${guard.domain} from the snapshot a stopped run left`);
+      guard.existed = true;
+      guard.restore();
+    }
+  }
 }
 
 const names = opt.browsers.split(",").filter(Boolean);
 for (const n of names) if (!spec(n)) throw new Error(`unknown browser ${n}`);
 if (opt.gate === "off" && names.some((n) => !spec(n).hidden)) throw new Error("--gate off is only for Ardia: the others' windows show on the owner's screen");
 const command = positionals[0];
-process.on("SIGINT", () => process.exit(130));
+for (const signal of ["SIGINT", "SIGTERM"])
+  process.on(signal, () => {
+    for (const app of live) {
+      for (const p of app.ownPids()) try {
+        process.kill(p.pid, "SIGTERM");
+      } catch {}
+      if (app.prefs) spawnSync("sleep", ["3"]);
+      try {
+        app.prefs?.restore();
+      } catch {}
+    }
+    gate.stop();
+    if (lockHeld) releaseLock();
+    process.exit(130);
+  });
 if (command === "report") {
   const result = report(names);
   const file = resolve(opt.json ?? join(out, "bench.json"));
-  writeFileSync(file, JSON.stringify(result, null, 2) + "\n");
   const md = `${table(result, names)}\n${breakdown(names)}\n`;
+  const json = { ...result, rows: result.rows.filter((r) => !r.context) };
+  const keyOf = (n) => (n !== baseOf(n) && names.filter((m) => baseOf(m) === baseOf(n)).length === 1 ? baseOf(n) : n);
+  json.browsers = Object.fromEntries(Object.entries(json.browsers).map(([n, b]) => [keyOf(n), b]));
+  for (const row of json.rows) {
+    row.browsers = Object.fromEntries(Object.entries(row.browsers).map(([n, b]) => [keyOf(n), b]));
+    row.best = row.best && keyOf(row.best);
+  }
+  writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
   if (opt.md) writeFileSync(resolve(opt.md), md);
   else console.log(md);
   log(`wrote ${file}`);
+} else if (command === "signin") {
+  await startServer();
+  try {
+    await signin(names);
+  } finally {
+    server.close();
+  }
 } else if (command === "prepare-bg") {
   prepareBackgroundOnly(names);
 } else if (command === "clean") {
