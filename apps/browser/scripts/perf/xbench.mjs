@@ -38,6 +38,7 @@
 //     --base <name>=<home> repeatable: the template starts from a copy of this HOME (a signed-in profile) instead of
 //                          an empty one
 //     --dmg <name>=<file|url>  repeatable: the download whose size the size row reports
+//     --version-label <name>=<text>  report: show this instead of the app's version (a dev build, say)
 //     --json <file>, --md <file>  report: where the results JSON and the markdown table go (default <out>/bench.json, stdout)
 //
 // What every instance gets: its own copy of a template profile (made once per browser by one launch that opens the
@@ -89,6 +90,7 @@ const { values: opt, positionals } = parseArgs({
     env: { type: "string", multiple: true, default: [] },
     "launch-tab": { type: "string", default: "on" },
     base: { type: "string", multiple: true, default: [] },
+    "version-label": { type: "string", multiple: true, default: [] },
     away: { type: "string", default: "600" },
     dmg: { type: "string", multiple: true, default: [] },
     json: { type: "string" },
@@ -1057,7 +1059,8 @@ function report(names) {
   for (const n of names) {
     const t = existsSync(join(templateDir(n), "template.json")) ? JSON.parse(readFileSync(join(templateDir(n), "template.json"), "utf8")) : null;
     const app = bundleOf(n);
-    browsers[n] = { name: spec(n).name, version: info(app).version, chromium: chromiumOf(app, t) };
+    const label = opt["version-label"].find((v) => v.startsWith(`${n}=`))?.slice(n.length + 1);
+    browsers[n] = { name: spec(n).name, version: label ?? info(app).version, chromium: chromiumOf(app, t) };
     if (n !== baseOf(n)) browsers[n].variant = n.endsWith("-bg") ? "background-only copy (LSBackgroundOnly, ad hoc signed)" : n.slice(baseOf(n).length + 1);
   }
   const rows = ROWS.map((row) => {
