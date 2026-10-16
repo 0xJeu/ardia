@@ -36,6 +36,7 @@ void InstallTestCrashGuard(NSString *_Nullable dataDir);
 
 void OpenPopupWindow(ArdiaCoreTab *tab, ArdiaCoreWebView *_Nullable opener);
 bool IsReservedKeyEvent(NSEvent *event);
+NSArray<NSDictionary *> *ReservedShortcuts();
 NSUInteger PopupWindowCount();
 
 }

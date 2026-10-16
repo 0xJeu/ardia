@@ -10,8 +10,7 @@
 #include "extensions/common/extension_id.h"
 #include "ui/base/accelerators/accelerator.h"
 
-@class NSEvent;
-@class NSWindow;
+#import <AppKit/AppKit.h>
 
 class Browser;
 
@@ -28,7 +27,6 @@ class ExtensionShortcuts : public extensions::ExtensionKeybindingRegistry {
   bool Run(const ui::Accelerator& accelerator);
 
   static ui::Accelerator AcceleratorFor(NSEvent* event);
-  static NSEvent* HotKeyEventFor(const ui::Accelerator& accelerator);
 
  private:
   bool PopulateCommands(const extensions::Extension* extension,
@@ -48,6 +46,9 @@ class ExtensionShortcuts : public extensions::ExtensionKeybindingRegistry {
 };
 
 void InstallExtensionShortcutDispatcher(NSWindow* window);
+bool IsReservedGlobalAccelerator(const ui::Accelerator& accelerator);
+bool IsReservedGlobalShortcut(NSString* key, NSEventModifierFlags modifiers);
+void SetReservedShortcuts(NSArray<NSDictionary*>* shortcuts);
 
 }
 

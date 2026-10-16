@@ -37,6 +37,7 @@ class BrowserCommandController;
 }
 
 namespace content {
+class BrowserContext;
 class RenderFrameHost;
 class WeakDocumentPtr;
 }
@@ -165,7 +166,11 @@ extern int (*g_ardia_tab_shown_by_host)(content::WebContents*);
 
 extern bool (*g_ardia_reserved_accelerator)(const ui::Accelerator& accelerator);
 
-extern bool (*g_ardia_host_takes_global_accelerator)(const ui::Accelerator& accelerator);
+extern bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator);
+
+namespace extensions {
+void ArdiaReregisterGlobalCommands(content::BrowserContext* context);
+}
 
 void ArdiaAutoPictureInPictureHostVisibilityChanged(
     content::WebContents* contents);

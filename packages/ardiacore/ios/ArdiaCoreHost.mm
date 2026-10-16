@@ -19,6 +19,20 @@ id<NSApplicationDelegate> gAppDelegate;
 BOOL gStarted;
 NSString *gDataDirectory;
 
+void SendReservedShortcuts() {
+  if (!gStarted || ![ArdiaCoreEngine respondsToSelector:@selector(setReservedShortcuts:)]) return;
+  [ArdiaCoreEngine setReservedShortcuts:ardiacore_host::ReservedShortcuts()];
+}
+
+void WatchReservedShortcuts() {
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    [NSNotificationCenter.defaultCenter addObserverForName:@"ArdiaMenuShortcutsChanged" object:nil queue:NSOperationQueue.mainQueue
+                                                usingBlock:^(NSNotification *) { SendReservedShortcuts(); }];
+  });
+  SendReservedShortcuts();
+}
+
 NSMutableDictionary<NSString *, ArdiaCoreProfile *> *Profiles() {
   static NSMutableDictionary *profiles = [NSMutableDictionary dictionary];
   return profiles;
@@ -117,6 +131,7 @@ static void StartLaunchTab() {
 - (void)engineDidStart {
   NSLog(@"[ardiacore] engine started (Chromium %@)", ArdiaCoreEngine.sharedEngine.chromiumVersion);
   gStarted = YES;
+  WatchReservedShortcuts();
   ardiacore_host::InstallActivationGuardsLate();
   if (gScratchDataDir && ardiacore_host::Background())
     ardiacore_host::InstallTestCrashGuard([gDataDirectory stringByDeletingLastPathComponent]);
@@ -496,6 +511,11 @@ static void StartLaunchTab() {
 
 + (NSArray<NSDictionary *> *)testExternalLaunches {
   return ArdiaCoreEngine.testExternalLaunches ?: @[];
+}
+
++ (BOOL)devReservedGlobalShortcut:(NSString *)key modifiers:(NSUInteger)modifiers {
+  return [ArdiaCoreEngine respondsToSelector:@selector(isReservedGlobalShortcut:modifiers:)] &&
+         [ArdiaCoreEngine isReservedGlobalShortcut:key modifiers:modifiers];
 }
 
 + (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized {

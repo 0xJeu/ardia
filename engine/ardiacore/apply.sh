@@ -1033,25 +1033,63 @@ hook(["  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accele
 PY
 
 hook "$src/chrome/browser/extensions/extension_commands_global_registry.cc" "global extension commands' reserved keys" <<'PY'
-decl = ("// Ardia: ArdiaCore. True when the host ran one of its reserved commands for the hot key instead.\n"
-        "bool (*g_ardia_host_takes_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n\n")
+decl = ("// Ardia: ArdiaCore. True when the accelerator is bound to one of the host's reserved commands.\n"
+        "bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n\n")
 old_ns = "namespace extensions {\n"
-old = """    const ui::Accelerator& accelerator) {
-  ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
-"""
-new = """    const ui::Accelerator& accelerator) {
-  if (g_ardia_host_takes_global_accelerator &&
-      g_ardia_host_takes_global_accelerator(accelerator)) {
-    return;
+old = """  auto* instance = GetGlobalAcceleratorListener();
+  if (!instance) {
+    return false;
   }
-  ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
+  return instance->RegisterAccelerator(accelerator, this);
 """
+new = """  auto* instance = GetGlobalAcceleratorListener();
+  if (!instance) {
+    return false;
+  }
+  if (g_ardia_reserved_global_accelerator &&
+      g_ardia_reserved_global_accelerator(accelerator)) {
+    return false;
+  }
+  return instance->RegisterAccelerator(accelerator, this);
+"""
+tail_old = "}  // namespace extensions\n"
+tail_new = """namespace {
+
+class ArdiaGlobalRegistryAccess : public ExtensionCommandsGlobalRegistry {
+ public:
+  static void Reregister(ExtensionCommandsGlobalRegistry* registry,
+                         content::BrowserContext* context) {
+    for (const scoped_refptr<const Extension>& extension :
+         ExtensionRegistry::Get(context)->enabled_extensions()) {
+      (registry->*(&ArdiaGlobalRegistryAccess::RemoveExtensionKeybinding))(
+          extension.get(), std::string());
+      (registry->*(&ArdiaGlobalRegistryAccess::AddExtensionKeybindings))(
+          extension.get(), std::string());
+    }
+  }
+};
+
+}  // namespace
+
+void ArdiaReregisterGlobalCommands(content::BrowserContext* context) {
+  if (ExtensionCommandsGlobalRegistry* registry =
+          ExtensionCommandsGlobalRegistry::Get(context)) {
+    ArdiaGlobalRegistryAccess::Reregister(registry, context);
+  }
+}
+
+}  // namespace extensions
+"""
+inc_old = '#include "extensions/common/extension.h"\n'
 def edit(s):
-    assert s.count(old) == 1 and s.count(old_ns) == 1
+    assert s.count(old) == 1 and s.count(old_ns) == 1 and s.count(tail_old) == 1 and s.count(inc_old) == 1
     i = s.index(old_ns)
-    return (s[:i] + decl + s[i:]).replace(old, new)
-hook(["bool (*g_ardia_host_takes_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n",
-      "  if (g_ardia_host_takes_global_accelerator &&\n"], edit, HOOKS)
+    s = s[:i] + decl + s[i:]
+    s = s.replace(old, new).replace(tail_old, tail_new)
+    return s.replace(inc_old, inc_old + '#include "extensions/browser/extension_registry.h"\n')
+hook(["bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n",
+      "  if (g_ardia_reserved_global_accelerator &&\n",
+      "void ArdiaReregisterGlobalCommands(content::BrowserContext* context) {\n"], edit, HOOKS)
 PY
 
 if [[ $mode == check ]]; then

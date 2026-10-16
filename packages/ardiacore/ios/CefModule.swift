@@ -31,6 +31,11 @@ public class CefModule: Module {
     AsyncFunction("devPictureInPicture") { ArdiaCoreWebView.devPictureInPicture() }.runOnQueue(.main)
     AsyncFunction("devPictureInPictureAction") { (action: String) in ArdiaCoreWebView.devPictureInPictureAction(action) }.runOnQueue(.main)
     AsyncFunction("devFocusPage") { (browserId: Int) in ArdiaCoreWebView.devFocusPage(browserId: Int32(browserId)) }.runOnQueue(.main)
+    AsyncFunction("devReservedGlobalShortcut") { (key: String, modifiers: [String]) -> Bool in
+      let names: [String: NSEvent.ModifierFlags] = ["command": .command, "shift": .shift, "option": .option, "control": .control]
+      let flags = NSEvent.ModifierFlags(modifiers.compactMap { names[$0] })
+      return ArdiaCoreHost.devReservedGlobalShortcut(key, modifiers: flags.rawValue)
+    }.runOnQueue(.main)
     AsyncFunction("devWindow") { (windowNumber: Int, action: String) -> String in
       guard let window = NSApp.window(withWindowNumber: windowNumber) else { return "" }
       return ACChromeWindowHost.devAction(action, window: window) ?? ""

@@ -782,7 +782,19 @@ enum MainMenu {
     if item.keyEquivalentModifierMask != shortcut.mods { item.keyEquivalentModifierMask = shortcut.mods }
   }
 
+  private static var announcedShortcuts: [String]?
+
   private static func applyShortcuts(_ overrides: [String: [String]]) {
+    defer {
+      var bound: [String] = []
+      walk(NSApp.mainMenu) { item, _ in
+        if item is Rebindable { bound.append("\(item.identifier?.rawValue ?? "")=\(item.keyEquivalent)|\(item.keyEquivalentModifierMask.rawValue)") }
+      }
+      if bound != announcedShortcuts {
+        announcedShortcuts = bound
+        NotificationCenter.default.post(name: .init("ArdiaMenuShortcutsChanged"), object: nil)
+      }
+    }
     let taken = Set(overrides.values.compactMap { o -> String? in
       guard let key = o.first, !key.isEmpty else { return nil }
       return comboKey(key, modifiers(o.dropFirst()))

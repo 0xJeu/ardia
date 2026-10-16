@@ -640,18 +640,7 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
            [g_delegate respondsToSelector:@selector(engineIsReservedKeyEvent:)] &&
            [g_delegate engineIsReservedKeyEvent:event];
   };
-  g_ardia_host_takes_global_accelerator = [](const ui::Accelerator& accelerator) {
-    if (!NSApp.isActive ||
-        ![g_delegate respondsToSelector:@selector(engineIsReservedKeyEvent:)]) {
-      return false;
-    }
-    NSEvent* event = ardiacore::ExtensionShortcuts::HotKeyEventFor(accelerator);
-    if (!event || ![g_delegate engineIsReservedKeyEvent:event]) {
-      return false;
-    }
-    [NSApp.mainMenu performKeyEquivalent:event];
-    return true;
-  };
+  g_ardia_reserved_global_accelerator = &ardiacore::IsReservedGlobalAccelerator;
   g_ardia_history_eligible = [](content::WebContents* contents) {
     BrowserWindowInterface* browser =
         GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
@@ -893,6 +882,14 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 
 + (void)stopCasting:(int)dialogId route:(NSString*)routeId {
   ardiacore::StopCasting(dialogId, base::SysNSStringToUTF8(routeId));
+}
+
++ (void)setReservedShortcuts:(NSArray<NSDictionary*>*)shortcuts {
+  ardiacore::SetReservedShortcuts(shortcuts);
+}
+
++ (BOOL)isReservedGlobalShortcut:(NSString*)key modifiers:(NSEventModifierFlags)modifiers {
+  return ardiacore::IsReservedGlobalShortcut(key, modifiers);
 }
 
 + (void)setAutoPictureInPicture:(BOOL)enabled {

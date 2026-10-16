@@ -65,6 +65,8 @@ ARDIACORE_EXPORT
 + (void)closeCastDialog:(int)dialogId;
 + (void)terminateCastRoute:(NSString*)routeId;
 + (void)setAutoPictureInPicture:(BOOL)enabled;
++ (void)setReservedShortcuts:(NSArray<NSDictionary*>*)shortcuts;
++ (BOOL)isReservedGlobalShortcut:(NSString*)key modifiers:(NSEventModifierFlags)modifiers;
 + (void)selectDevice:(int)chooserId index:(int)index;
 + (void)cancelDeviceChooser:(int)chooserId;
 + (void)refreshDeviceChooser:(int)chooserId;

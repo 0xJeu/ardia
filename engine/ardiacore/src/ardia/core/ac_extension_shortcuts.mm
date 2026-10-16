@@ -2,11 +2,14 @@
 
 #import <AppKit/AppKit.h>
 
-#include <tuple>
+#include <optional>
 
 #include "base/apple/owned_objc.h"
+#include "base/no_destructor.h"
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -23,7 +26,8 @@
 #include "ui/base/accelerators/global_accelerator_listener/global_accelerator_listener.h"
 #import "ui/base/cocoa/command_dispatcher.h"
 #include "ui/content_accelerators/accelerator_util.h"
-#import "ui/events/keycodes/keyboard_code_conversion_mac.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 
 @interface ACExtensionShortcutDispatcher : NSObject <CommandDispatcherDelegate>
 @end
@@ -54,6 +58,95 @@
 
 namespace ardiacore {
 
+namespace {
+
+std::set<ui::Accelerator>& ReservedGlobalAccelerators() {
+  static base::NoDestructor<std::set<ui::Accelerator>> accelerators;
+  return *accelerators;
+}
+
+std::optional<ui::KeyboardCode> KeyboardCodeForKeyEquivalent(unichar key) {
+  if (key >= 'a' && key <= 'z') {
+    return static_cast<ui::KeyboardCode>(ui::VKEY_A + (key - 'a'));
+  }
+  if (key >= '0' && key <= '9') {
+    return static_cast<ui::KeyboardCode>(ui::VKEY_0 + (key - '0'));
+  }
+  if (key >= NSF1FunctionKey && key <= NSF24FunctionKey) {
+    return static_cast<ui::KeyboardCode>(ui::VKEY_F1 + (key - NSF1FunctionKey));
+  }
+  switch (key) {
+    case ',': return ui::VKEY_OEM_COMMA;
+    case '.': return ui::VKEY_OEM_PERIOD;
+    case ' ': return ui::VKEY_SPACE;
+    case '\t': return ui::VKEY_TAB;
+    case NSUpArrowFunctionKey: return ui::VKEY_UP;
+    case NSDownArrowFunctionKey: return ui::VKEY_DOWN;
+    case NSLeftArrowFunctionKey: return ui::VKEY_LEFT;
+    case NSRightArrowFunctionKey: return ui::VKEY_RIGHT;
+    case NSHomeFunctionKey: return ui::VKEY_HOME;
+    case NSEndFunctionKey: return ui::VKEY_END;
+    case NSPageUpFunctionKey: return ui::VKEY_PRIOR;
+    case NSPageDownFunctionKey: return ui::VKEY_NEXT;
+    case NSInsertFunctionKey: return ui::VKEY_INSERT;
+    case NSDeleteFunctionKey: return ui::VKEY_DELETE;
+  }
+  return std::nullopt;
+}
+
+std::optional<ui::Accelerator> AcceleratorForKeyEquivalent(NSString* key,
+                                                           NSEventModifierFlags modifiers) {
+  if (key.length != 1) {
+    return std::nullopt;
+  }
+  NSString* lower = key.lowercaseString;
+  if (![lower isEqualToString:key]) {
+    modifiers |= NSEventModifierFlagShift;
+  }
+  std::optional<ui::KeyboardCode> code = KeyboardCodeForKeyEquivalent([lower characterAtIndex:0]);
+  if (!code) {
+    return std::nullopt;
+  }
+  int flags = 0;
+  flags |= (modifiers & NSEventModifierFlagCommand) ? ui::EF_COMMAND_DOWN : 0;
+  flags |= (modifiers & NSEventModifierFlagControl) ? ui::EF_CONTROL_DOWN : 0;
+  flags |= (modifiers & NSEventModifierFlagOption) ? ui::EF_ALT_DOWN : 0;
+  flags |= (modifiers & NSEventModifierFlagShift) ? ui::EF_SHIFT_DOWN : 0;
+  return ui::Accelerator(*code, flags);
+}
+
+}
+
+bool IsReservedGlobalAccelerator(const ui::Accelerator& accelerator) {
+  return ReservedGlobalAccelerators().contains(accelerator);
+}
+
+bool IsReservedGlobalShortcut(NSString* key, NSEventModifierFlags modifiers) {
+  std::optional<ui::Accelerator> accelerator = AcceleratorForKeyEquivalent(key, modifiers);
+  return accelerator && IsReservedGlobalAccelerator(*accelerator);
+}
+
+void SetReservedShortcuts(NSArray<NSDictionary*>* shortcuts) {
+  std::set<ui::Accelerator> accelerators;
+  for (NSDictionary* shortcut in shortcuts) {
+    NSString* key = [shortcut[@"key"] isKindOfClass:NSString.class] ? shortcut[@"key"] : nil;
+    const NSEventModifierFlags modifiers = [shortcut[@"modifiers"] unsignedIntegerValue];
+    if (std::optional<ui::Accelerator> accelerator = AcceleratorForKeyEquivalent(key, modifiers)) {
+      accelerators.insert(*accelerator);
+    }
+  }
+  if (accelerators == ReservedGlobalAccelerators()) {
+    return;
+  }
+  ReservedGlobalAccelerators() = std::move(accelerators);
+  if (!g_browser_process || !g_browser_process->profile_manager()) {
+    return;
+  }
+  for (Profile* profile : g_browser_process->profile_manager()->GetLoadedProfiles()) {
+    extensions::ArdiaReregisterGlobalCommands(profile);
+  }
+}
+
 ExtensionShortcuts::ExtensionShortcuts(Browser* browser)
     : ExtensionKeybindingRegistry(browser->GetProfile(),
                                   TabListInterface::From(browser),
@@ -67,46 +160,6 @@ ExtensionShortcuts::~ExtensionShortcuts() = default;
 ui::Accelerator ExtensionShortcuts::AcceleratorFor(NSEvent* event) {
   return ui::GetAcceleratorFromNativeWebKeyboardEvent(
       input::NativeWebKeyboardEvent(base::apple::OwnedNSEvent(event)));
-}
-
-NSEvent* ExtensionShortcuts::HotKeyEventFor(const ui::Accelerator& accelerator) {
-  const NSEventModifierFlags modifiers =
-      (accelerator.IsCtrlDown() ? NSEventModifierFlagControl : 0) |
-      (accelerator.IsCmdDown() ? NSEventModifierFlagCommand : 0) |
-      (accelerator.IsAltDown() ? NSEventModifierFlagOption : 0) |
-      (accelerator.IsShiftDown() ? NSEventModifierFlagShift : 0);
-  unichar shifted = 0;
-  unichar character = 0;
-  int key_code = ui::MacKeyCodeForWindowsKeyCode(accelerator.key_code(), modifiers,
-                                                 &shifted, &character);
-  unichar target = 0;
-  ui::MacKeyCodeForWindowsKeyCode(accelerator.key_code(), 0, nullptr, &target);
-  if (target) {
-    for (int i = 0; i < 128; ++i) {
-      auto [translated, dead] = ui::NsKeyCodeAndModifiersToCharacter(i, 0);
-      if (translated == target && !dead) {
-        key_code = i;
-        character = std::get<0>(ui::NsKeyCodeAndModifiersToCharacter(
-            i, modifiers & NSEventModifierFlagOption));
-        shifted = std::get<0>(ui::NsKeyCodeAndModifiersToCharacter(
-            i, modifiers & NSEventModifierFlagShift));
-        break;
-      }
-    }
-  }
-  if (key_code == -1) {
-    return nil;
-  }
-  return [NSEvent keyEventWithType:NSEventTypeKeyDown
-                          location:NSZeroPoint
-                     modifierFlags:modifiers
-                         timestamp:0
-                      windowNumber:NSApp.keyWindow.windowNumber
-                           context:nil
-                        characters:[NSString stringWithFormat:@"%C", character]
-       charactersIgnoringModifiers:[NSString stringWithFormat:@"%C", shifted]
-                         isARepeat:NO
-                           keyCode:static_cast<unsigned short>(key_code)];
 }
 
 bool ExtensionShortcuts::Suspended() const {
