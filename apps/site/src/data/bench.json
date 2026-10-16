@@ -10,7 +10,7 @@
   "browsers": {
     "ardia": {
       "name": "Ardia",
-      "version": "0.2.37",
+      "version": "dev build",
       "chromium": "154.0.8037.97"
     },
     "dia": {
@@ -32,13 +32,13 @@
   "rows": [
     {
       "id": "launch-link",
-      "label": "Cold launch → page painted (link opened from another app)",
+      "label": "Cold launch \u2192 page painted (link opened from another app)",
       "unit": "ms",
       "lowerIsBetter": true,
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
           "median": 543,
           "min": 513,
@@ -77,13 +77,13 @@
     },
     {
       "id": "launch-window",
-      "label": "Cold launch → window on screen",
+      "label": "Cold launch \u2192 window on screen",
       "unit": "ms",
       "lowerIsBetter": true,
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
           "median": 358,
           "min": 329,
@@ -122,13 +122,13 @@
     },
     {
       "id": "launch-restore",
-      "label": "Cold launch → restored tab painted",
+      "label": "Cold launch \u2192 restored tab painted",
       "unit": "ms",
       "lowerIsBetter": true,
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
           "median": 494,
           "min": 475,
@@ -168,18 +168,18 @@
     },
     {
       "id": "newtab",
-      "label": "New tab → first paint",
+      "label": "New tab \u2192 first paint",
       "unit": "ms",
       "lowerIsBetter": true,
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 80,
-          "min": 71.3,
-          "max": 81.1,
-          "n": 5
+          "median": 80.8,
+          "min": 80.8,
+          "max": 80.8,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -213,18 +213,18 @@
     },
     {
       "id": "switch",
-      "label": "Tab switch → shown",
+      "label": "Tab switch \u2192 shown",
       "unit": "ms",
       "lowerIsBetter": true,
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 40,
-          "min": 32.5,
-          "max": 40,
-          "n": 5
+          "median": 11.5,
+          "min": 11.5,
+          "max": 11.5,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -258,19 +258,18 @@
     },
     {
       "id": "newwindow",
-      "label": "New window → first paint",
+      "label": "New window \u2192 first paint",
       "unit": "ms",
       "lowerIsBetter": true,
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": null,
-          "min": null,
-          "max": null,
-          "n": 0,
-          "note": "Target.createTarget with newWindow opens a tab in the current window, not a new window"
+          "median": 104,
+          "min": 104,
+          "max": 104,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -310,12 +309,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 290,
-          "min": 273,
-          "max": 291,
-          "n": 5
+          "median": 274,
+          "min": 274,
+          "max": 274,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -355,12 +354,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 763,
-          "min": 750,
-          "max": 767,
-          "n": 5
+          "median": 740,
+          "min": 740,
+          "max": 740,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -400,12 +399,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 1183,
-          "min": 1171,
-          "max": 1191,
-          "n": 5
+          "median": 1160,
+          "min": 1160,
+          "max": 1160,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -445,12 +444,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 361,
-          "min": 359,
-          "max": 366,
-          "n": 5
+          "median": 350,
+          "min": 350,
+          "max": 350,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -490,12 +489,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 0.2,
-          "min": 0.18,
-          "max": 0.25,
-          "n": 5
+          "median": 0.16,
+          "min": 0.16,
+          "max": 0.16,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -535,12 +534,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 1.42,
-          "min": 1.34,
-          "max": 1.64,
-          "n": 5
+          "median": 1.46,
+          "min": 1.46,
+          "max": 1.46,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -580,12 +579,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 6.9,
-          "min": 6.52,
-          "max": 7.39,
-          "n": 5
+          "median": 7.84,
+          "min": 7.84,
+          "max": 7.84,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -625,12 +624,12 @@
       "browsers": {
         "ardia": {
           "name": "Ardia",
-          "version": "0.2.37",
+          "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 29.84,
-          "min": 29.13,
-          "max": 31.74,
-          "n": 5
+          "median": 32.49,
+          "min": 32.49,
+          "max": 32.49,
+          "n": 1
         },
         "dia": {
           "name": "Dia",
@@ -660,6 +659,186 @@
           "n": 5
         }
       },
+      "best": "chrome"
+    },
+    {
+      "id": "idle-cpu-1-steady",
+      "label": "Idle CPU, 1 tab, settled (2 min after load)",
+      "unit": "%",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "dev build",
+          "chromium": "154.0.8037.97",
+          "median": 0.12,
+          "min": 0.12,
+          "max": 0.12,
+          "n": 1
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "idle-cpu-20-steady",
+      "label": "Idle CPU, 20 tabs, settled (2 min after the last load)",
+      "unit": "%",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "dev build",
+          "chromium": "154.0.8037.97",
+          "median": 0.53,
+          "min": 0.53,
+          "max": 0.53,
+          "n": 1
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "idle-wakeups-1-steady",
+      "label": "Idle wakeups, 1 tab, settled",
+      "unit": "/s",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "dev build",
+          "chromium": "154.0.8037.97",
+          "median": 7,
+          "min": 7,
+          "max": 7,
+          "n": 1
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "idle-wakeups-20-steady",
+      "label": "Idle wakeups, 20 tabs, settled",
+      "unit": "/s",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "dev build",
+          "chromium": "154.0.8037.97",
+          "median": 28.15,
+          "min": 28.15,
+          "max": 28.15,
+          "n": 1
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0
+        }
+      },
       "best": "ardia"
     }
   ],
@@ -668,10 +847,10 @@
     "One harness drives all four from outside the app over CDP, the same local test pages served from 127.0.0.1, one instance at a time, browsers interleaved per run and rotated each round.",
     "Every run starts from its own copy of a template profile made once per browser (one launch, the test page open, 90 s to settle, quit), with HOME pointed into it; default settings, built-in ad blockers as shipped.",
     "Chrome and Helium get --restore-last-session so all four restore the same one-tab session (Ardia and Dia restore by default).",
-    "Window 1280×800 at the same place for every browser that takes --window-size; Ardia's window frame is set in its session to the same size; Dia ignores --window-size and opens full-screen-sized (1512×949).",
+    "Window 1280\u00d7800 at the same place for every browser that takes --window-size; Ardia's window frame is set in its session to the same size; Dia ignores --window-size and opens full-screen-sized (1512\u00d7949).",
     "Chrome and Helium run as shipped: they bring themselves to the front at launch and on a tab switch, and fetch their Finch (variations) seed and components as usual. Dia runs in view without taking focus, signed in with a throwaway account. Ardia runs in its background test mode: it can't become the active app, its windows sit behind the owner's and report themselves as not occluded, and App Nap is off for it.",
     "Memory is phys_footprint summed over every process of the browser (app, helpers, GPU, renderers, utilities, anything running from its bundle); CPU and wakeups are rusage over the same processes.",
-    "Measured on the owner's working Mac, in normal use: browsers interleaved run by run and rotated each round so the owner's activity falls on all of them alike; each figure is the median of the runs, with min–max and n.",
-    "Median, min–max and n over runs; a row is a win when the ranges don't overlap."
+    "Measured on the owner's working Mac, in normal use: browsers interleaved run by run and rotated each round so the owner's activity falls on all of them alike; each figure is the median of the runs, with min\u2013max and n.",
+    "Median, min\u2013max and n over runs; a row is a win when the ranges don't overlap."
   ]
 }
