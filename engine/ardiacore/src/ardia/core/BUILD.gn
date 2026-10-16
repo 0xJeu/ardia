@@ -138,6 +138,7 @@ source_set("core") {
 
   frameworks = [
     "AppKit.framework",
+    "Carbon.framework",
     "Foundation.framework",
   ]
 }

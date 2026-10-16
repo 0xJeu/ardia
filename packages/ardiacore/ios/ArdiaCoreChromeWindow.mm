@@ -278,18 +278,6 @@ NSSet<NSString *> *ReservedIdentifiers() {
   return reserved;
 }
 
-void CollectReservedShortcuts(NSMenu *menu, NSMutableArray<NSDictionary *> *into) {
-  for (NSMenuItem *item in menu.itemArray) {
-    if (item.submenu) {
-      if (item.submenu != NSApp.servicesMenu) CollectReservedShortcuts(item.submenu, into);
-      continue;
-    }
-    if (!item.identifier || ![ReservedIdentifiers() containsObject:item.identifier] || !item.keyEquivalent.length) continue;
-    if (item.isHidden && !item.allowsKeyEquivalentWhenHidden) continue;
-    [into addObject:@{@"key" : item.keyEquivalent, @"modifiers" : @(item.keyEquivalentModifierMask)}];
-  }
-}
-
 NSMenuItem *ReservedMenuItem(NSMenu *menu, NSString *key, NSEventModifierFlags mods) {
   NSSet<NSString *> *reserved = ReservedIdentifiers();
   const NSEventModifierFlags relevant = NSEventModifierFlagCommand | NSEventModifierFlagShift | NSEventModifierFlagOption | NSEventModifierFlagControl;
@@ -1349,10 +1337,9 @@ bool IsReservedKeyEvent(NSEvent *event) {
   return IsReservedKey(event);
 }
 
-NSArray<NSDictionary *> *ReservedShortcuts() {
-  NSMutableArray<NSDictionary *> *shortcuts = [NSMutableArray array];
-  CollectReservedShortcuts(NSApp.mainMenu, shortcuts);
-  return shortcuts;
+bool IsReservedBinding(NSString *key, NSString *unshiftedKey, NSEventModifierFlags modifiers) {
+  if (key.length && ReservedMenuItem(NSApp.mainMenu, key.lowercaseString, modifiers)) return true;
+  return unshiftedKey.length && ReservedMenuItem(NSApp.mainMenu, unshiftedKey.lowercaseString, modifiers);
 }
 
 void OpenPopupWindow(ArdiaCoreTab *tab, ArdiaCoreWebView *opener) {

@@ -1,10 +1,14 @@
 #include "ardia/core/ac_extension_shortcuts.h"
 
 #import <AppKit/AppKit.h>
+#import <Carbon/Carbon.h>
 
-#include <optional>
 
 #include "base/apple/owned_objc.h"
+#include "base/apple/scoped_cftyperef.h"
+#include "base/functional/bind.h"
+#include "base/strings/sys_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -26,7 +30,7 @@
 #include "ui/base/accelerators/global_accelerator_listener/global_accelerator_listener.h"
 #import "ui/base/cocoa/command_dispatcher.h"
 #include "ui/content_accelerators/accelerator_util.h"
-#include "ui/events/event_constants.h"
+#import "ui/events/keycodes/keyboard_code_conversion_mac.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
 @interface ACExtensionShortcutDispatcher : NSObject <CommandDispatcherDelegate>
@@ -60,90 +64,104 @@ namespace ardiacore {
 
 namespace {
 
-std::set<ui::Accelerator>& ReservedGlobalAccelerators() {
-  static base::NoDestructor<std::set<ui::Accelerator>> accelerators;
-  return *accelerators;
+struct GlobalShortcutState {
+  bool host_ready = false;
+  bool reregister_pending = false;
+};
+
+GlobalShortcutState& GlobalShortcuts() {
+  static GlobalShortcutState state;
+  return state;
 }
 
-std::optional<ui::KeyboardCode> KeyboardCodeForKeyEquivalent(unichar key) {
-  if (key >= 'a' && key <= 'z') {
-    return static_cast<ui::KeyboardCode>(ui::VKEY_A + (key - 'a'));
-  }
-  if (key >= '0' && key <= '9') {
-    return static_cast<ui::KeyboardCode>(ui::VKEY_0 + (key - '0'));
-  }
-  if (key >= NSF1FunctionKey && key <= NSF24FunctionKey) {
-    return static_cast<ui::KeyboardCode>(ui::VKEY_F1 + (key - NSF1FunctionKey));
-  }
-  switch (key) {
-    case ',': return ui::VKEY_OEM_COMMA;
-    case '.': return ui::VKEY_OEM_PERIOD;
-    case ' ': return ui::VKEY_SPACE;
-    case '\t': return ui::VKEY_TAB;
-    case NSUpArrowFunctionKey: return ui::VKEY_UP;
-    case NSDownArrowFunctionKey: return ui::VKEY_DOWN;
-    case NSLeftArrowFunctionKey: return ui::VKEY_LEFT;
-    case NSRightArrowFunctionKey: return ui::VKEY_RIGHT;
-    case NSHomeFunctionKey: return ui::VKEY_HOME;
-    case NSEndFunctionKey: return ui::VKEY_END;
-    case NSPageUpFunctionKey: return ui::VKEY_PRIOR;
-    case NSPageDownFunctionKey: return ui::VKEY_NEXT;
-    case NSInsertFunctionKey: return ui::VKEY_INSERT;
-    case NSDeleteFunctionKey: return ui::VKEY_DELETE;
-  }
-  return std::nullopt;
+NSString* CharacterString(unichar character) {
+  return character ? [NSString stringWithCharacters:&character length:1] : @"";
 }
 
-std::optional<ui::Accelerator> AcceleratorForKeyEquivalent(NSString* key,
-                                                           NSEventModifierFlags modifiers) {
-  if (key.length != 1) {
-    return std::nullopt;
+unichar TranslatedCharacter(int key_code, UInt32 carbon_modifiers) {
+  base::apple::ScopedCFTypeRef<TISInputSourceRef> input_source(
+      TISCopyCurrentKeyboardLayoutInputSource());
+  UInt32 dead_key_state = 0;
+  return ui::TranslatedUnicodeCharFromKeyCode(
+      input_source.get(), static_cast<UInt16>(key_code), kUCKeyActionDown,
+      (carbon_modifiers >> 8) & 0xFF, LMGetKbdLast(), &dead_key_state);
+}
+
+bool HotKeyIsReserved(const ui::Accelerator& accelerator) {
+  const NSEventModifierFlags modifiers =
+      (accelerator.IsCtrlDown() ? NSEventModifierFlagControl : 0) |
+      (accelerator.IsCmdDown() ? NSEventModifierFlagCommand : 0) |
+      (accelerator.IsAltDown() ? NSEventModifierFlagOption : 0) |
+      (accelerator.IsShiftDown() ? NSEventModifierFlagShift : 0);
+  unichar fixed_shifted = 0;
+  unichar fixed_character = 0;
+  const int fixed_key_code = ui::MacKeyCodeForWindowsKeyCode(
+      accelerator.key_code(), modifiers & NSEventModifierFlagShift, &fixed_shifted,
+      &fixed_character);
+  unichar target = 0;
+  ui::MacKeyCodeForWindowsKeyCode(accelerator.key_code(), 0, nullptr, &target);
+  if (!target) {
+    return fixed_key_code != -1 &&
+           HostReservesKey(CharacterString(fixed_shifted),
+                           CharacterString(fixed_character), modifiers);
   }
-  NSString* lower = key.lowercaseString;
-  if (![lower isEqualToString:key]) {
-    modifiers |= NSEventModifierFlagShift;
-  }
-  std::optional<ui::KeyboardCode> code = KeyboardCodeForKeyEquivalent([lower characterAtIndex:0]);
-  if (!code) {
-    return std::nullopt;
-  }
-  int flags = 0;
-  flags |= (modifiers & NSEventModifierFlagCommand) ? ui::EF_COMMAND_DOWN : 0;
-  flags |= (modifiers & NSEventModifierFlagControl) ? ui::EF_CONTROL_DOWN : 0;
-  flags |= (modifiers & NSEventModifierFlagOption) ? ui::EF_ALT_DOWN : 0;
-  flags |= (modifiers & NSEventModifierFlagShift) ? ui::EF_SHIFT_DOWN : 0;
-  return ui::Accelerator(*code, flags);
-}
-
-}
-
-bool IsReservedGlobalAccelerator(const ui::Accelerator& accelerator) {
-  return ReservedGlobalAccelerators().contains(accelerator);
-}
-
-bool IsReservedGlobalShortcut(NSString* key, NSEventModifierFlags modifiers) {
-  std::optional<ui::Accelerator> accelerator = AcceleratorForKeyEquivalent(key, modifiers);
-  return accelerator && IsReservedGlobalAccelerator(*accelerator);
-}
-
-void SetReservedShortcuts(NSArray<NSDictionary*>* shortcuts) {
-  std::set<ui::Accelerator> accelerators;
-  for (NSDictionary* shortcut in shortcuts) {
-    NSString* key = [shortcut[@"key"] isKindOfClass:NSString.class] ? shortcut[@"key"] : nil;
-    const NSEventModifierFlags modifiers = [shortcut[@"modifiers"] unsignedIntegerValue];
-    if (std::optional<ui::Accelerator> accelerator = AcceleratorForKeyEquivalent(key, modifiers)) {
-      accelerators.insert(*accelerator);
+  int key_code = -1;
+  for (int i = 0; i < 128; ++i) {
+    auto [translated, dead] = ui::NsKeyCodeAndModifiersToCharacter(i, 0);
+    if (translated == target && !dead) {
+      key_code = i;
+      break;
     }
   }
-  if (accelerators == ReservedGlobalAccelerators()) {
+  if (key_code == -1) {
+    key_code = fixed_key_code;
+  }
+  if (key_code == -1) {
+    return false;
+  }
+  const UInt32 command_layer = accelerator.IsCmdDown() ? cmdKey : 0;
+  const UInt32 shift = accelerator.IsShiftDown() ? shiftKey : 0;
+  return HostReservesKey(CharacterString(TranslatedCharacter(key_code, command_layer | shift)),
+                         CharacterString(TranslatedCharacter(key_code, command_layer)),
+                         modifiers);
+}
+
+void ReregisterGlobalShortcuts() {
+  ui::GlobalAcceleratorListener* global = ui::GlobalAcceleratorListener::GetInstance();
+  if (global && global->IsShortcutHandlingSuspended()) {
+    GlobalShortcuts().reregister_pending = true;
     return;
   }
-  ReservedGlobalAccelerators() = std::move(accelerators);
+  GlobalShortcuts().reregister_pending = false;
   if (!g_browser_process || !g_browser_process->profile_manager()) {
     return;
   }
   for (Profile* profile : g_browser_process->profile_manager()->GetLoadedProfiles()) {
     extensions::ArdiaReregisterGlobalCommands(profile);
+  }
+}
+
+}
+
+bool IsReservedGlobalAccelerator(const ui::Accelerator& accelerator) {
+  return !GlobalShortcuts().host_ready || HotKeyIsReserved(accelerator);
+}
+
+bool IsReservedGlobalShortcut(NSString* shortcut) {
+  ui::Accelerator accelerator =
+      extensions::Command::StringToAccelerator(base::SysNSStringToUTF8(shortcut), "ardia");
+  return accelerator.key_code() != ui::VKEY_UNKNOWN && IsReservedGlobalAccelerator(accelerator);
+}
+
+void ReservedShortcutsChanged() {
+  GlobalShortcuts().host_ready = true;
+  ReregisterGlobalShortcuts();
+}
+
+void GlobalShortcutsResumed() {
+  if (GlobalShortcuts().reregister_pending) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&ReregisterGlobalShortcuts));
   }
 }
 

@@ -30,6 +30,9 @@ NS_ASSUME_NONNULL_BEGIN
     extensionActionShortcut:(NSDictionary<NSString*, id>*)shortcut
                         tab:(ArdiaCoreTab*)tab;
 - (BOOL)engineIsReservedKeyEvent:(NSEvent*)event;
+- (BOOL)engineIsReservedKey:(NSString*)key
+               unshiftedKey:(NSString*)unshiftedKey
+                  modifiers:(NSEventModifierFlags)modifiers;
 - (void)engine:(ArdiaCoreEngine*)engine
     extensionInstallPrompt:(NSDictionary<NSString*, id>*)prompt
                        tab:(nullable ArdiaCoreTab*)tab;
@@ -65,8 +68,8 @@ ARDIACORE_EXPORT
 + (void)closeCastDialog:(int)dialogId;
 + (void)terminateCastRoute:(NSString*)routeId;
 + (void)setAutoPictureInPicture:(BOOL)enabled;
-+ (void)setReservedShortcuts:(NSArray<NSDictionary*>*)shortcuts;
-+ (BOOL)isReservedGlobalShortcut:(NSString*)key modifiers:(NSEventModifierFlags)modifiers;
++ (void)reservedShortcutsChanged;
++ (BOOL)isReservedGlobalShortcut:(NSString*)shortcut;
 + (void)selectDevice:(int)chooserId index:(int)index;
 + (void)cancelDeviceChooser:(int)chooserId;
 + (void)refreshDeviceChooser:(int)chooserId;

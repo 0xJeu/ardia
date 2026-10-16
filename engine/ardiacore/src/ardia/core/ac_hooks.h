@@ -168,6 +168,8 @@ extern bool (*g_ardia_reserved_accelerator)(const ui::Accelerator& accelerator);
 
 extern bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator);
 
+extern void (*g_ardia_global_shortcuts_resumed)();
+
 namespace extensions {
 void ArdiaReregisterGlobalCommands(content::BrowserContext* context);
 }

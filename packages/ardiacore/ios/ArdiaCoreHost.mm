@@ -19,16 +19,23 @@ id<NSApplicationDelegate> gAppDelegate;
 BOOL gStarted;
 NSString *gDataDirectory;
 
+BOOL gMenuShortcutsReady;
+
 void SendReservedShortcuts() {
-  if (!gStarted || ![ArdiaCoreEngine respondsToSelector:@selector(setReservedShortcuts:)]) return;
-  [ArdiaCoreEngine setReservedShortcuts:ardiacore_host::ReservedShortcuts()];
+  if (!gStarted || !gMenuShortcutsReady || ![ArdiaCoreEngine respondsToSelector:@selector(reservedShortcutsChanged)]) return;
+  [ArdiaCoreEngine reservedShortcutsChanged];
 }
 
 void WatchReservedShortcuts() {
   static dispatch_once_t once;
   dispatch_once(&once, ^{
-    [NSNotificationCenter.defaultCenter addObserverForName:@"ArdiaMenuShortcutsChanged" object:nil queue:NSOperationQueue.mainQueue
-                                                usingBlock:^(NSNotification *) { SendReservedShortcuts(); }];
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center addObserverForName:@"ArdiaMenuShortcutsChanged" object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *) {
+      gMenuShortcutsReady = YES;
+      SendReservedShortcuts();
+    }];
+    [center addObserverForName:NSTextInputContextKeyboardSelectionDidChangeNotification object:nil queue:NSOperationQueue.mainQueue
+                    usingBlock:^(NSNotification *) { SendReservedShortcuts(); }];
   });
   SendReservedShortcuts();
 }
@@ -241,6 +248,10 @@ static void StartLaunchTab() {
   payload[@"browserId"] = @(ardiacore_host::BrowserId(tab));
   gChromeUIHandler(@"actionPopup", payload);
   return YES;
+}
+
+- (BOOL)engineIsReservedKey:(NSString *)key unshiftedKey:(NSString *)unshiftedKey modifiers:(NSEventModifierFlags)modifiers {
+  return ardiacore_host::IsReservedBinding(key, unshiftedKey, modifiers);
 }
 
 - (BOOL)engineIsReservedKeyEvent:(NSEvent *)event {
@@ -513,9 +524,8 @@ static void StartLaunchTab() {
   return ArdiaCoreEngine.testExternalLaunches ?: @[];
 }
 
-+ (BOOL)devReservedGlobalShortcut:(NSString *)key modifiers:(NSUInteger)modifiers {
-  return [ArdiaCoreEngine respondsToSelector:@selector(isReservedGlobalShortcut:modifiers:)] &&
-         [ArdiaCoreEngine isReservedGlobalShortcut:key modifiers:modifiers];
++ (BOOL)devReservedGlobalShortcut:(NSString *)shortcut {
+  return [ArdiaCoreEngine respondsToSelector:@selector(isReservedGlobalShortcut:)] && [ArdiaCoreEngine isReservedGlobalShortcut:shortcut];
 }
 
 + (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized {

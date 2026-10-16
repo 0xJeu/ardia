@@ -1033,8 +1033,13 @@ hook(["  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accele
 PY
 
 hook "$src/chrome/browser/extensions/extension_commands_global_registry.cc" "global extension commands' reserved keys" <<'PY'
+stale = "g_ardia_host_takes_global_accelerator"
+if stale in s:
+    sys.exit(f"apply.sh: {name}: {path} still has a3258b69's OnKeyPressed hook: restore the file from the series base (docs/engine-build.md)")
 decl = ("// Ardia: ArdiaCore. True when the accelerator is bound to one of the host's reserved commands.\n"
-        "bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n\n")
+        "bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n"
+        "// Ardia: ArdiaCore. Called when shortcut handling resumes.\n"
+        "void (*g_ardia_global_shortcuts_resumed)() = nullptr;\n\n")
 old_ns = "namespace extensions {\n"
 old = """  auto* instance = GetGlobalAcceleratorListener();
   if (!instance) {
@@ -1051,6 +1056,17 @@ new = """  auto* instance = GetGlobalAcceleratorListener();
     return false;
   }
   return instance->RegisterAccelerator(accelerator, this);
+"""
+resume_old = """    registry_for_active_window()->SetShortcutHandlingSuspended(suspended);
+  }
+}
+"""
+resume_new = """    registry_for_active_window()->SetShortcutHandlingSuspended(suspended);
+  }
+  if (!suspended && g_ardia_global_shortcuts_resumed) {
+    g_ardia_global_shortcuts_resumed();
+  }
+}
 """
 tail_old = "}  // namespace extensions\n"
 tail_new = """namespace {
@@ -1083,13 +1099,15 @@ void ArdiaReregisterGlobalCommands(content::BrowserContext* context) {
 inc_old = '#include "extensions/common/extension.h"\n'
 def edit(s):
     assert s.count(old) == 1 and s.count(old_ns) == 1 and s.count(tail_old) == 1 and s.count(inc_old) == 1
+    assert s.count(resume_old) == 1
     i = s.index(old_ns)
     s = s[:i] + decl + s[i:]
-    s = s.replace(old, new).replace(tail_old, tail_new)
+    s = s.replace(old, new).replace(tail_old, tail_new).replace(resume_old, resume_new)
     return s.replace(inc_old, inc_old + '#include "extensions/browser/extension_registry.h"\n')
 hook(["bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n",
       "  if (g_ardia_reserved_global_accelerator &&\n",
-      "void ArdiaReregisterGlobalCommands(content::BrowserContext* context) {\n"], edit, HOOKS)
+      "void ArdiaReregisterGlobalCommands(content::BrowserContext* context) {\n",
+      "  if (!suspended && g_ardia_global_shortcuts_resumed) {\n"], edit, HOOKS)
 PY
 
 if [[ $mode == check ]]; then

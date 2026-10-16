@@ -33,6 +33,7 @@ struct MenuState {
   var downloadsInProgress = 0
   var shortcuts: [String: [String]] = [:]
   var extensions: [(id: String, title: String, icon: String?)] = []
+  var fromApp = false
 
   init() {}
 
@@ -91,6 +92,7 @@ struct MenuState {
     warnBeforeClosingWindow = d["warnBeforeClosingWindow"] as? Bool ?? false
     downloadsInProgress = d["downloadsInProgress"] as? Int ?? 0
     shortcuts = d["shortcuts"] as? [String: [String]] ?? [:]
+    fromApp = true
     extensions = (d["extensions"] as? [[String: Any]] ?? []).map {
       (id: $0["id"] as? String ?? "", title: $0["title"] as? String ?? "", icon: $0["icon"] as? String)
     }
@@ -784,17 +786,20 @@ enum MainMenu {
 
   private static var announcedShortcuts: [String]?
 
-  private static func applyShortcuts(_ overrides: [String: [String]]) {
-    defer {
-      var bound: [String] = []
-      walk(NSApp.mainMenu) { item, _ in
-        if item is Rebindable { bound.append("\(item.identifier?.rawValue ?? "")=\(item.keyEquivalent)|\(item.keyEquivalentModifierMask.rawValue)") }
-      }
-      if bound != announcedShortcuts {
-        announcedShortcuts = bound
-        NotificationCenter.default.post(name: .init("ArdiaMenuShortcutsChanged"), object: nil)
-      }
+  private static func announceShortcuts() {
+    guard MenuState.current.fromApp else { return }
+    var bound: [String] = []
+    walk(NSApp.mainMenu) { item, _ in
+      if item is Rebindable { bound.append("\(item.identifier?.rawValue ?? "")=\(item.keyEquivalent)|\(item.keyEquivalentModifierMask.rawValue)") }
     }
+    if bound != announcedShortcuts {
+      announcedShortcuts = bound
+      NotificationCenter.default.post(name: .init("ArdiaMenuShortcutsChanged"), object: nil)
+    }
+  }
+
+  private static func applyShortcuts(_ overrides: [String: [String]]) {
+    defer { announceShortcuts() }
     let taken = Set(overrides.values.compactMap { o -> String? in
       guard let key = o.first, !key.isEmpty else { return nil }
       return comboKey(key, modifiers(o.dropFirst()))

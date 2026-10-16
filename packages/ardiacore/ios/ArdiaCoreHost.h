@@ -20,7 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)deviceChooser:(int)chooserId action:(NSString *)action NS_SWIFT_NAME(deviceChooser(_:action:));
 + (NSArray<NSDictionary *> *)testExternalLaunches;
 + (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized NS_SWIFT_NAME(devShowBluetoothChooser(browserId:unauthorized:));
-+ (BOOL)devReservedGlobalShortcut:(NSString *)key modifiers:(NSUInteger)modifiers NS_SWIFT_NAME(devReservedGlobalShortcut(_:modifiers:));
++ (BOOL)devReservedGlobalShortcut:(NSString *)shortcut NS_SWIFT_NAME(devReservedGlobalShortcut(_:));
 + (NSArray<NSDictionary *> *)testChooserEvents;
 + (BOOL)shareTabInstead:(int)capturerBrowserId target:(int)targetBrowserId NS_SWIFT_NAME(shareTabInstead(capturer:target:));
 + (BOOL)showCastDialog:(int)browserId NS_SWIFT_NAME(showCastDialog(browserId:));

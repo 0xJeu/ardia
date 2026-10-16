@@ -33,6 +33,7 @@
 
 @class ArdiaCoreTab;
 @class NSDictionary;
+@class NSString;
 @class ArdiaCoreWindow;
 @class NSView;
 @class NSWindow;
@@ -174,6 +175,8 @@ bool HostExtensionActionPopup(content::WebContents* contents,
 
 bool HostExtensionActionShortcut(content::WebContents* contents,
                                  const std::string& extension_id);
+
+bool HostReservesKey(NSString* key, NSString* unshifted_key, unsigned long modifiers);
 
 bool HostExtensionInstallPrompt(
     Profile* profile,

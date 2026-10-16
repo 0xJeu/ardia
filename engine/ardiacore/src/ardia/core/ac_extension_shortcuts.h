@@ -47,8 +47,9 @@ class ExtensionShortcuts : public extensions::ExtensionKeybindingRegistry {
 
 void InstallExtensionShortcutDispatcher(NSWindow* window);
 bool IsReservedGlobalAccelerator(const ui::Accelerator& accelerator);
-bool IsReservedGlobalShortcut(NSString* key, NSEventModifierFlags modifiers);
-void SetReservedShortcuts(NSArray<NSDictionary*>* shortcuts);
+bool IsReservedGlobalShortcut(NSString* shortcut);
+void ReservedShortcutsChanged();
+void GlobalShortcutsResumed();
 
 }
 
