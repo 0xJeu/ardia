@@ -100,7 +100,7 @@ measured the way its users will have it. A link launch opens Little Ardia (a 900
 main window, and pays the same.
 
 **Download and on disk (context).** Helium is also arm64-only. The difference:
-- uBlock Origin Lite's unpacked rulesets in `Resources/Extensions/ublock-lite`: 34.6 MB;
+- uBlock Origin Lite's unpacked rulesets in `Resources/Extensions/ublock-lite`: 34.6 MB (full uBlock Origin, which replaced it, is 17 MB);
 - a framework binary 24 MB larger (265 against 241 MB);
 - React Native: main executable 9.1, hermes 4.6, JS bundle 3.9, assets 9.2 MB.
 

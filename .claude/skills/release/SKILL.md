@@ -108,20 +108,20 @@ Check it renders: `pnpm -C apps/site build` and grep the headline in
 
 ## 3. Bump and build
 
-First bring the block lists up to date. uBlock Origin Lite is bundled as a component extension, which
-never updates itself, so its lists are only as fresh as the last release that moved the pin (Dia refreshes
-its lists from its server; this is our equivalent, once per release):
+First bring the content blocker up to date. uBlock Origin is bundled as a component extension, which
+never updates itself, so its code is only as fresh as the last release that moved the pin (its filter lists
+update themselves from the network, as uBO's do everywhere):
 
 ```bash
-scripts/update-ubol.sh     # "uBOL <x> is the latest release", or "uBOL <old> -> <new> (sha256 …)"
-git add packages/ardiacore/scripts/ubol.sh && git commit -m "Block lists: uBlock Origin Lite <new>"   # only if it moved
+scripts/update-ubo.sh     # "uBO <x> is the latest release", or "uBO <old> -> <new> (sha256 …)"
+git add packages/ardiacore/scripts/ubo.sh && git commit -m "Content blocker: uBlock Origin <new>"   # only if it moved
 ```
 
 It checks the zip against GitHub's SHA-256 digest and the manifest's version, rewrites the pin in
-`packages/ardiacore/scripts/ubol.sh` and installs it into `packages/ardiacore/vendor/ubol`. Verify after release.sh
+`packages/ardiacore/scripts/ubo.sh` and installs it into `packages/ardiacore/vendor/ubo`. Verify after release.sh
 that the export carries it: `python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])'
-dist/<version>/export/Ardia.app/Contents/Resources/Extensions/ublock-lite/manifest.json` prints the
-pinned `UBOL_VERSION`, and the smoke test's "uBlock blocks an ad script" check passes. An error means
+dist/<version>/export/Ardia.app/Contents/Resources/Extensions/ublock/manifest.json` prints the
+pinned `UBO_VERSION`, and the smoke test's "uBlock blocks an ad script" check passes. An error means
 the release is odd (no digest, a version mismatch): keep the old pin and say so in the report.
 
 ```bash

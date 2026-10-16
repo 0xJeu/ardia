@@ -135,11 +135,11 @@ found one writer (2026-09-25):
   (`FileBackedRulesetSource::CreateStatic`). The ruleset checksums live in the profile's prefs, so a profile with none
   (every new profile; component extensions are never "installed") indexes again, and so does any profile whose
   indexes go stale (a new indexed format in a Chrome update). Shipping prebuilt indexes wouldn't stop the writes.
-  So `ArdiaCoreContentBlocker.mm` loads uBlock Origin Lite from a copy in the data directory,
-  `<data dir>/Built-in Extensions/ublock-lite` (an APFS clone of the bundled folder, made writable, next to
-  `Chromium`), and copies it again when the bundled extension changes (`ublock-lite.source` holds the manifest's
-  SHA-256, file count and size). Chrome's indexes persist in the copy, so later launches load them without indexing.
-  Ardia 0.1.0 loaded it straight from the bundle: its first launch wrote the six indexes into the bundle, and
+  So `ArdiaCoreContentBlocker.mm` loaded uBlock Origin Lite from a copy in the data directory, and still loads
+  its successor, full uBlock Origin (MV2, no DNR rulesets), the same way: `<data dir>/Built-in Extensions/ublock`
+  (an APFS clone of the bundled folder, made writable, next to `Chromium`), copied again when the bundled
+  extension changes (`ublock.source` holds the build's fingerprint). The old `ublock-lite` copy is deleted then.
+  Ardia 0.1.0 loaded uBOL straight from the bundle: its first launch wrote the six indexes into the bundle, and
   from a read-only bundle nothing was blocked at all.
 
 Everything else Chrome writes (component updater, caches, extension installs) goes to the user data dir, and

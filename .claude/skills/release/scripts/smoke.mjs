@@ -162,12 +162,8 @@ await go(`${pages}/form.html`);
 await sleep(1500);
 checkUnlocked("…and closes when the page navigates", !windows().some((w) => /passkey/i.test(w.title)));
 
-const ubolPage = "chrome-extension://bnjeokpoejhioagiokhkhmdogkhbnbki/manifest.json";
 const adsOnPage = () => adFate(() => go(`${pages}/ad.html`));
-async function allowAds(allowed) {
-  await go(ubolPage);
-  return evaluate(`chrome.runtime.sendMessage({ what: "setFilteringMode", hostname: "localhost", level: ${allowed ? 0 : 2} })`);
-}
+const allowAds = (allowed) => instance.eval(`return globalThis.expo.modules.ArdiaCEF.setContentBlockerAllowed("localhost", ${allowed})`, { timeout: 30000 });
 const adSteps = [await adsOnPage()];
 await allowAds(true);
 adSteps.push(await adsOnPage());

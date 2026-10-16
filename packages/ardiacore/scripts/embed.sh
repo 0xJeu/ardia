@@ -32,12 +32,14 @@ if ! [[ -f "$stamp" && "$(cat "$stamp")" == "$want" && -d "$frameworks/Chromium 
   echo "$want" > "$stamp"
 fi
 
-"$here/ubol.sh"
-ubol="$repo/packages/ardiacore/vendor/ubol/ext"
-if [ -n "${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}" ] && [ -f "$ubol/manifest.json" ]; then
+"$here/ubo.sh"
+ubo="$repo/packages/ardiacore/vendor/ubo/ext"
+if [ -n "${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}" ] && [ -f "$ubo/manifest.json" ]; then
   extensions="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Extensions"
   mkdir -p "$extensions"
-  rsync -a --delete "$ubol/" "$extensions/ublock-lite/"
-  (cd "$extensions/ublock-lite" && find . -type f ! -path './_metadata/*' -print0 | LC_ALL=C sort -z \
-    | xargs -0 shasum -a 256 | shasum -a 256 | cut -d' ' -f1) > "$extensions/ublock-lite.fingerprint"
+  rm -rf "$extensions/ublock-lite" "$extensions/ublock-lite.fingerprint"
+  rsync -a --delete "$ubo/" "$extensions/ublock/"
+  (cd "$extensions/ublock" && find . -type f ! -path './_metadata/*' -print0 | LC_ALL=C sort -z \
+    | xargs -0 shasum -a 256 | shasum -a 256 | cut -d' ' -f1) > "$extensions/ublock.fingerprint"
+  rsync -a --delete "$repo/packages/ardiacore/extensions/ublock-lite-settings/" "$extensions/ublock-lite-settings/"
 fi

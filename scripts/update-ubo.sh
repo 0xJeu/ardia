@@ -2,16 +2,16 @@
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-pin="$root/packages/ardiacore/scripts/ubol.sh"
-repo="uBlockOrigin/uBOL-home"
-current="$(sed -n 's/^UBOL_VERSION="\(.*\)"$/\1/p' "$pin")"
-[ -n "$current" ] || { echo "error: no UBOL_VERSION in $pin" >&2; exit 1; }
+pin="$root/packages/ardiacore/scripts/ubo.sh"
+repo="gorhill/uBlock"
+current="$(sed -n 's/^UBO_VERSION="\(.*\)"$/\1/p' "$pin")"
+[ -n "$current" ] || { echo "error: no UBO_VERSION in $pin" >&2; exit 1; }
 
 release="$(curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$repo/releases/latest")"
 read -r latest url digest < <(python3 -c '
 import json, sys
 r = json.load(sys.stdin)
-zips = [a for a in r["assets"] if a["name"] == "uBOLite_%s.chromium.zip" % r["tag_name"]]
+zips = [a for a in r["assets"] if a["name"] == "uBlock0_%s.chromium.zip" % r["tag_name"]]
 if r.get("prerelease") or r.get("draft") or len(zips) != 1:
     sys.exit("error: the latest release has no single chromium zip")
 a = zips[0]
@@ -20,8 +20,8 @@ print(r["tag_name"], a["browser_download_url"], digest or "-")
 ' <<< "$release")
 
 if [ "$latest" = "$current" ]; then
-  echo "uBOL $current is the latest release"
-  "$root/packages/ardiacore/scripts/ubol.sh"
+  echo "uBO $current is the latest release"
+  "$root/packages/ardiacore/scripts/ubo.sh"
   exit 0
 fi
 if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)" != "$latest" ]; then
@@ -29,32 +29,34 @@ if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -t. -k1,1n -k2,2n -k3,3n |
   exit 1
 fi
 if [ "${1:-}" = "--check" ]; then
-  echo "uBOL $latest is out (bundled: $current)"
+  echo "uBO $latest is out (bundled: $current)"
   exit 1
 fi
 [ "$digest" != "-" ] || { echo "error: GitHub gives no digest for $url; not updating" >&2; exit 1; }
 
-ubol="$root/packages/ardiacore/vendor/ubol"
-zip="$ubol/uBOLite_$latest.chromium.zip"
-mkdir -p "$ubol"
+ubo="$root/packages/ardiacore/vendor/ubo"
+zip="$ubo/uBlock0_$latest.chromium.zip"
+mkdir -p "$ubo"
 echo "Downloading $url"
 curl -fL --retry 3 -o "$zip.part" "$url"
 sha="$(shasum -a 256 "$zip.part" | cut -d' ' -f1)"
 [ "$sha" = "$digest" ] || { rm -f "$zip.part"; echo "error: $url has SHA-256 $sha, GitHub says $digest" >&2; exit 1; }
-unzip -p "$zip.part" manifest.json | python3 -c '
+unzip -p "$zip.part" uBlock0.chromium/manifest.json | python3 -c '
 import json, sys
 m = json.load(sys.stdin)
 want = sys.argv[1]
 problems = []
 if m.get("version") != want: problems.append("version %r, not %r" % (m.get("version"), want))
-if m.get("manifest_version") != 3: problems.append("not MV3")
-if not m.get("declarative_net_request", {}).get("rule_resources"): problems.append("no declarativeNetRequest rulesets")
+if m.get("manifest_version") != 2: problems.append("not MV2")
+if "webRequestBlocking" not in m.get("permissions", []): problems.append("no webRequestBlocking")
 if problems: sys.exit("error: manifest.json: " + "; ".join(problems))
 ' "$latest"
 mv "$zip.part" "$zip"
 
-sed -i '' "s/^UBOL_VERSION=\".*\"$/UBOL_VERSION=\"$latest\"/; s/^UBOL_SHA256=\".*\"$/UBOL_SHA256=\"$sha\"/" "$pin"
-"$root/packages/ardiacore/scripts/ubol.sh"
-[ "$(cat "$ubol/.version")" = "$latest" ] || { echo "error: vendor/ubol didn't install $latest" >&2; exit 1; }
-echo "uBOL $current -> $latest (sha256 $sha)"
-echo "Commit it: git add packages/ardiacore/scripts/ubol.sh && git commit -m \"Block lists: uBlock Origin Lite $latest\""
+old_pin="$(cat "$pin")"
+restore_pin() { printf '%s\n' "$old_pin" > "$pin"; echo "error: uBO $latest didn't install; the pin stays at $current" >&2; exit 1; }
+sed -i '' "s/^UBO_VERSION=\".*\"$/UBO_VERSION=\"$latest\"/; s/^UBO_SHA256=\".*\"$/UBO_SHA256=\"$sha\"/" "$pin"
+"$root/packages/ardiacore/scripts/ubo.sh" || restore_pin
+[ "$(cut -d- -f1 "$ubo/.version")" = "$latest" ] || { echo "error: vendor/ubo didn't install $latest" >&2; exit 1; }
+echo "uBO $current -> $latest (sha256 $sha)"
+echo "Commit it: git add packages/ardiacore/scripts/ubo.sh && git commit -m \"Content blocker: uBlock Origin $latest\""

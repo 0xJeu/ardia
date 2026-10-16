@@ -59,7 +59,9 @@ const categoryOn = (s: ContentBlockerState, c: FilterListCategory) => s.enabled 
 
 async function setCategory(s: ContentBlockerState, c: FilterListCategory, on: boolean) {
   const lists = s.lists.filter((l) => l.category === c);
-  for (const l of on ? lists.filter((l) => l.defaultOn || l.enabled) : lists.filter((l) => l.enabled)) await setFilterListEnabled(l.id, on);
+  const usual = lists.filter((l) => l.defaultOn || l.enabled);
+  const starters = usual.length ? usual : lists.filter((l) => /easylist|fanboy/.test(l.id));
+  for (const l of on ? (starters.length ? starters : lists) : lists.filter((l) => l.enabled)) await setFilterListEnabled(l.id, on);
   const anyOn = CATEGORIES.some((x) => (x.id === c ? on : categoryOn(s, x.id)));
   if (anyOn !== s.enabled) await setContentBlockerEnabled(anyOn);
 }
@@ -165,7 +167,7 @@ function FilterListsSheet() {
       </ScrollView>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 16 }}>
         <Text style={{ flex: 1, fontSize: 11.5, color: theme.textTertiary }}>
-          {blocker?.version ? `Lists from uBlock Origin Lite ${blocker.version}, included with Ardia. They update with the app.` : ""}
+          {blocker?.version ? `Blocking by uBlock Origin ${blocker.version}, included with Ardia. Its lists update on their own.` : ""}
         </Text>
         <Button title="Done" kind="primary" onPress={closeSettingsSheet} />
       </View>

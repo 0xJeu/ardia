@@ -4455,10 +4455,22 @@ try {
     const relaunched = Date.now();
     const tab = await restored(tag);
     await until("the restored page loaded", () => loaded(tab.id), 20000);
+    const loadedAfterMs = Date.now() - relaunched;
+    if (beforeQuit.length) throw new Error(`ads went out before the quit: ${JSON.stringify(beforeQuit)}`);
+    await until("the blocker's state", async () => ((await cef(`getContentBlocker()`))?.stats?.ready ? true : null), 30000);
+    const racedAtLaunch = adsServedFor(tag).length;
+    if (!(await evalApp(`return !!ac.webviews.get(${JSON.stringify(tab.id)})`))) throw new Error("the restored tab has no page view");
+    const again = `${tag}-ready`;
+    const pagesBefore = adServed.filter((s) => s.startsWith("adpage.test") && s.endsWith(`?${again}`)).length;
+    await evalApp(`ac.store.getState().navigate(${JSON.stringify(tab.id)}, ${JSON.stringify(`http://adpage.test:${server.address().port}/adfirst?${again}`)}, { userInitiated: true }); return true`);
+    await until("the restored tab's next page", () => evalApp(`const s = ac.store.getState(); const t = s.tabs[${JSON.stringify(tab.id)}];
+      return t?.url?.endsWith(${JSON.stringify(`?${again}`)}) && t.title === "Ad first" && !s.live[${JSON.stringify(tab.id)}]?.isLoading ? true : null`), 20000);
     await sleep(500);
-    const afterLaunch = adsServedFor(tag).slice(beforeQuit.length);
-    if (beforeQuit.length || afterLaunch.length) throw new Error(`ads went out: ${JSON.stringify({ beforeQuit, afterLaunch })}`);
-    return { restored: tab.url, loadedAfterMs: Date.now() - relaunched - 500 };
+    const documents = adServed.filter((s) => s.startsWith("adpage.test") && s.endsWith(`?${again}`)).length - pagesBefore;
+    if (documents < 1) throw new Error("the next page's document never reached the server");
+    const afterReady = adsServedFor(again);
+    if (afterReady.length) throw new Error(`ads went out once uBlock Origin was ready: ${JSON.stringify(afterReady)}`);
+    return { restored: tab.url, loadedAfterMs, racedAtLaunch, nextDocuments: documents };
   });
 
   await check("closed-tabs-own-lists", async () => {

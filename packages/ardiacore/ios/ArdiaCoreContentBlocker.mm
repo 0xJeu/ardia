@@ -8,29 +8,43 @@
 #include <utility>
 
 namespace {
-NSString *ExtensionId() { return @"bnjeokpoejhioagiokhkhmdogkhbnbki"; }
+NSString *ExtensionId() { return @"fajbdaomknpkicfjcpipdmcpoamdmilh"; }
+NSString *const kLiteId = @"bnjeokpoejhioagiokhkhmdogkhbnbki";
+NSString *const kCopyName = @"ublock";
+NSString *const kOldCopyName = @"ublock-lite";
+NSString *const kLiteReaderName = @"ublock-lite-settings";
+NSString *const kLiteMovedMarker = @"uBlock Origin Lite settings moved";
 bool gFailNextMessage = false;
 double gDelayNextLoadMs = 0;
 }
 
 @interface ACContentBlockerPage : NSObject <ArdiaCoreTabDelegate>
 @property(readonly) ArdiaCoreTab *tab;
+@property(readonly) NSString *origin;
 @property(readonly) BOOL dead;
 @end
 
 @implementation ACContentBlockerPage {
   NSMutableArray<NSArray *> *_calls;
+  void (^_inflight)(id value, NSString *error);
+  BOOL _started;
   BOOL _loaded;
   BOOL _busy;
 }
 
-- (instancetype)initWithTab:(ArdiaCoreTab *)tab {
+- (instancetype)initWithTab:(ArdiaCoreTab *)tab origin:(NSString *)origin {
   if ((self = [super init])) {
     _tab = tab;
+    _origin = origin;
     _calls = [NSMutableArray array];
+    _started = tab.loading;
     tab.delegate = self;
   }
   return self;
+}
+
+- (BOOL)onOwnPage {
+  return !_dead && [_tab.url hasPrefix:_origin];
 }
 
 - (void)run:(NSString *)script completion:(void (^)(id value, NSString *error))completion {
@@ -43,10 +57,13 @@ double gDelayNextLoadMs = 0;
   if (_dead || !_loaded || _busy || !_calls.count) return;
   NSArray *call = _calls.firstObject;
   [_calls removeObjectAtIndex:0];
-  void (^completion)(id, NSString *) = call[1];
+  _inflight = call[1];
   _busy = YES;
   [_tab evaluate:call[0]
       completion:^(NSString *json) {
+        void (^completion)(id, NSString *) = self->_inflight;
+        if (!completion) return;
+        self->_inflight = nil;
         self->_busy = NO;
         NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
         NSDictionary *answer = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
@@ -55,7 +72,6 @@ double gDelayNextLoadMs = 0;
                                                                               : nil;
         id value = error || answer[@"value"] == NSNull.null ? nil : answer[@"value"];
         completion(value, error);
-        if ([error containsString:@"context invalidated"]) [self fail:error];
         [self next];
       }];
 }
@@ -65,12 +81,16 @@ double gDelayNextLoadMs = 0;
   _dead = YES;
   NSArray<NSArray *> *calls = _calls;
   _calls = nil;
-  for (NSArray *call in calls) ((void (^)(id, NSString *))call[1])(nil, error);
+  void (^inflight)(id, NSString *) = _inflight;
+  _inflight = nil;
   [_tab closeNow];
+  if (inflight) inflight(nil, error);
+  for (NSArray *call in calls) ((void (^)(id, NSString *))call[1])(nil, error);
 }
 
 - (void)tabDidChangeLoading:(ArdiaCoreTab *)tab {
-  _loaded = !tab.loading;
+  _started = _started || tab.loading;
+  _loaded = _started && !tab.loading;
   [self next];
 }
 
@@ -86,6 +106,19 @@ double gDelayNextLoadMs = 0;
   if (code != -3) [self fail:text];
 }
 
+@end
+
+@interface ACContentBlockerOp : NSObject
+@property(copy) NSString *profile;
+@property(copy) NSString *expression;
+@property(copy) void (^completion)(id value, NSString *error);
+@property int attemptsLeft;
+@property BOOL failNext;
+@property NSTimeInterval deadline;
+@property NSUInteger attempt;
+@end
+
+@implementation ACContentBlockerOp
 @end
 
 namespace {
@@ -105,9 +138,6 @@ NSString *ScriptWith(NSString *format, NSArray *args) {
   return out;
 }
 
-constexpr int kModeNone = 0;
-constexpr int kModeOptimal = 2;
-
 NSString *const kProfile = @"";
 
 NSMutableOrderedSet<NSString *> *LoadedProfiles() {
@@ -125,8 +155,10 @@ NSMutableDictionary<NSString *, ACContentBlockerPage *> *Pages() {
   return pages;
 }
 
-ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p) {
-  ACContentBlockerPage *page = Pages()[profile];
+NSString *OriginOf(NSString *extensionId) { return [NSString stringWithFormat:@"chrome-extension://%@/", extensionId]; }
+
+ACContentBlockerPage *HiddenPage(NSString *key, NSString *profile, ArdiaCoreProfile *p, NSString *extensionId, NSString *file) {
+  ACContentBlockerPage *page = Pages()[key];
   if (page.tab.closed) [page fail:@"closed"];
   if (page && !page.dead) return page;
   ArdiaCoreWindow *window = PageWindows()[profile];
@@ -134,8 +166,12 @@ ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p) {
     PageWindows()[profile] = window = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, 400, 300)];
     if ([window respondsToSelector:@selector(setInternal:)]) window.internal = YES;
   }
-  ArdiaCoreTab *tab = [window openTab:[NSString stringWithFormat:@"chrome-extension://%@/manifest.json", ExtensionId()] profile:p foreground:YES];
-  return Pages()[profile] = tab ? [[ACContentBlockerPage alloc] initWithTab:tab] : nil;
+  ArdiaCoreTab *tab = [window openTab:[OriginOf(extensionId) stringByAppendingString:file] profile:p foreground:YES];
+  return Pages()[key] = tab ? [[ACContentBlockerPage alloc] initWithTab:tab origin:OriginOf(extensionId)] : nil;
+}
+
+ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p) {
+  return HiddenPage(profile, profile, p, ExtensionId(), @"blank.html");
 }
 
 NSString *Fingerprint(NSString *dir) {
@@ -169,25 +205,45 @@ NSString *Fingerprint(NSString *dir) {
   return fingerprint;
 }
 
+NSString *BundledExtension() {
+  NSString *bundled = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[@"Extensions" stringByAppendingPathComponent:kCopyName]];
+  return [NSFileManager.defaultManager fileExistsAtPath:[bundled stringByAppendingPathComponent:@"manifest.json"]] ? bundled : nil;
+}
+
+NSString *CopiesDirectory() {
+  return [[ArdiaCoreHost.dataDirectory stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Built-in Extensions"];
+}
+
+NSString *UpToDateCopy(NSString *bundled, NSString *fingerprint) {
+  NSString *dir = CopiesDirectory();
+  NSString *copy = [dir stringByAppendingPathComponent:kCopyName];
+  NSString *stamp = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:[kCopyName stringByAppendingString:@".source"]]
+                                              encoding:NSUTF8StringEncoding
+                                                 error:nil];
+  return fingerprint && [stamp isEqualToString:fingerprint] &&
+                 [NSFileManager.defaultManager fileExistsAtPath:[copy stringByAppendingPathComponent:@"manifest.json"]]
+             ? copy
+             : nil;
+}
+
 NSString *WritableCopy(NSString *bundled) {
   NSFileManager *fm = NSFileManager.defaultManager;
-  NSString *dir = [[ArdiaCoreHost.dataDirectory stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Built-in Extensions"];
-  NSString *copy = [dir stringByAppendingPathComponent:@"ublock-lite"];
-  NSString *stampPath = [dir stringByAppendingPathComponent:@"ublock-lite.source"];
+  NSString *dir = CopiesDirectory();
+  NSString *copy = [dir stringByAppendingPathComponent:kCopyName];
+  NSString *stampPath = [dir stringByAppendingPathComponent:[kCopyName stringByAppendingString:@".source"]];
   NSString *fingerprint = Fingerprint(bundled);
-  NSString *stamp = [NSString stringWithContentsOfFile:stampPath encoding:NSUTF8StringEncoding error:nil];
-  if (fingerprint && [stamp isEqualToString:fingerprint] &&
-      [fm fileExistsAtPath:[copy stringByAppendingPathComponent:@"manifest.json"]])
-    return copy;
+  if (NSString *current = UpToDateCopy(bundled, fingerprint)) return current;
 
   NSError *error;
   if (![fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:&error]) {
     NSLog(@"[blocker] %@: %@", dir, error);
     return nil;
   }
+  [fm removeItemAtPath:[dir stringByAppendingPathComponent:kOldCopyName] error:nil];
+  [fm removeItemAtPath:[dir stringByAppendingPathComponent:[kOldCopyName stringByAppendingString:@".source"]] error:nil];
   for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:nil])
-    if ([name hasPrefix:@".ublock-lite"]) [fm removeItemAtPath:[dir stringByAppendingPathComponent:name] error:nil];
-  NSString *staging = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@".ublock-lite-%d", getpid()]];
+    if ([name hasPrefix:@".ublock"]) [fm removeItemAtPath:[dir stringByAppendingPathComponent:name] error:nil];
+  NSString *staging = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@".%@-%d", kCopyName, getpid()]];
   bool cloned = clonefile(bundled.fileSystemRepresentation, staging.fileSystemRepresentation, 0) == 0;
   if (!cloned) [fm removeItemAtPath:staging error:nil];
   if (!cloned && ![fm copyItemAtPath:bundled toPath:staging error:&error]) {
@@ -204,7 +260,7 @@ NSString *WritableCopy(NSString *bundled) {
   }
   [fm removeItemAtPath:[staging stringByAppendingPathComponent:@"_metadata"] error:nil];
 
-  NSString *old = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@".ublock-lite-old-%d", getpid()]];
+  NSString *old = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@".%@-old-%d", kCopyName, getpid()]];
   bool hadCopy = [fm fileExistsAtPath:copy];
   if ((hadCopy && ![fm moveItemAtPath:copy toPath:old error:&error]) || ![fm moveItemAtPath:staging toPath:copy error:&error]) {
     NSLog(@"[blocker] installing %@: %@", copy, error);
@@ -226,9 +282,7 @@ void StartPreparing() {
   static dispatch_once_t once;
   dispatch_once(&once, ^{
     dispatch_group_async(Preparing(), dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-      NSString *bundled = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"Extensions/ublock-lite"];
-      if ([NSFileManager.defaultManager fileExistsAtPath:[bundled stringByAppendingPathComponent:@"manifest.json"]])
-        gExtensionPath = WritableCopy(bundled);
+      if (NSString *bundled = BundledExtension()) gExtensionPath = WritableCopy(bundled);
     });
   });
 }
@@ -240,11 +294,12 @@ NSString *ExtensionPath() {
 }
 
 void FollowDefault(NSArray<NSString *> *profiles, void (^done)(NSString *error));
+void WhenDefaultSettled(void (^then)(void));
 
 void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
   then = [then copy];
   StartPreparing();
-  dispatch_group_notify(Preparing(), dispatch_get_main_queue(), ^{
+  void (^load)(void) = ^{
     if ([LoadedProfiles() containsObject:profile]) return then(nil);
     ardiacore_host::WithProfile(profile, ^(ArdiaCoreProfile *p) {
       if ([LoadedProfiles() containsObject:profile]) return then(nil);
@@ -256,63 +311,209 @@ void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
         return then(@"not loaded");
       }
       [LoadedProfiles() addObject:profile];
-      if (profile.length) FollowDefault(@[ profile ], ^(NSString *) {});
       then(nil);
     });
+  };
+  if (NSThread.isMainThread && dispatch_group_wait(Preparing(), DISPATCH_TIME_NOW) == 0) load();
+  else dispatch_group_notify(Preparing(), dispatch_get_main_queue(), load);
+}
+
+NSString *const kOffDirective = @"/^(?:ardia-blocking-off|)/";
+
+bool gDefaultSettled = false;
+bool gLaunching = true;
+constexpr double kSettleAfterLaunchSeconds = 1.5;
+
+constexpr int kAttempts = 40;
+constexpr double kRetryMs = 250;
+constexpr double kOpSeconds = 20;
+
+NSString *const kPrelude =
+    @"let failing = %@;"
+     "const offDirective = %@;"
+     "const deadline = Date.now() + %@;"
+     "const left = () => Math.max(0, deadline - Date.now());"
+     "let expired = false;"
+     "const withDeadline = (promise, what) => new Promise((resolve, reject) => {"
+     "  const timer = setTimeout(() => { expired = true; reject(new Error(`${what}: timed out`)); }, left());"
+     "  promise.then((v) => { clearTimeout(timer); resolve(v); }, (e) => { clearTimeout(timer); reject(e); });"
+     "});"
+     "const ready = () => new Promise((resolve, reject) => {"
+     "  const look = () => {"
+     "    const ublock = chrome.extension.getBackgroundPage()?.µBlock;"
+     "    if (ublock?.isReadyPromise) return ublock.isReadyPromise.then(resolve, reject);"
+     "    if (left() === 0) return reject(new Error('uBlock Origin never started'));"
+     "    setTimeout(look, 10);"
+     "  };"
+     "  look();"
+     "});"
+     "const loadScript = (src) => new Promise((resolve, reject) => {"
+     "  const element = document.createElement('script');"
+     "  element.src = src;"
+     "  element.onload = resolve;"
+     "  element.onerror = () => reject(new Error(`${src} didn't load`));"
+     "  document.head.append(element);"
+     "});"
+     "const client = () => self.vAPI?.messaging ? Promise.resolve()"
+     "  : ['js/vapi.js', 'js/vapi-common.js', 'js/vapi-client.js'].reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve());"
+     "const send = (message) => {"
+     "  if (expired) return Promise.reject(new Error(`${message.what}: timed out`));"
+     "  if (failing) { failing = false; return Promise.reject(new Error(`${message.what}: failed (dev)`)); }"
+     "  return client().then(() => {"
+     "    if (expired) throw new Error(`${message.what}: timed out`);"
+     "    return vAPI.messaging.send('dashboard', message);"
+     "  }).then((reply) => {"
+     "    if (reply === undefined) throw new Error(`${message.what}: no reply`);"
+     "    return reply;"
+     "  });"
+     "};"
+     "const trusted = () => send({what: 'getWhitelist'}).then((t) => {"
+     "  if (!t || !Array.isArray(t.whitelist)) throw new Error('getWhitelist: no answer');"
+     "  return t;"
+     "});"
+     "const lists = () => send({what: 'getLists'}).then((l) => {"
+     "  if (!l || !l.available || typeof l.available !== 'object') throw new Error('getLists: no answer');"
+     "  return l;"
+     "});"
+     "const selected = (l) => Object.keys(l.available).filter((k) => l.available[k] && l.available[k].off !== true);"
+     "const covers = (directive, host) => !directive.includes('/') && (host === directive || host.endsWith('.' + directive));"
+     "const sameSet = (a, b) => [...a].sort().join('\\n') === [...b].sort().join('\\n');"
+     "const storageCall = (name, arg) => expired ? Promise.reject(new Error(`storage ${name}: timed out`))"
+     "  : new Promise((resolve, reject) => chrome.storage.local[name](arg, (v) =>"
+     "    chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve(v || {})));"
+     "const local = {get: (k) => storageCall('get', k), set: (v) => storageCall('set', v), remove: (k) => storageCall('remove', k)};"
+     "const reloadLists = () => send({what: 'reloadAllFilters'}).then(() => local.remove('ardiaReloadPending'));"
+     "const applyLists = (toSelect) => local.set({ardiaReloadPending: true})"
+     "  .then(() => send({what: 'applyFilterListSelection', toSelect})).then(reloadLists);"
+     "const settlePending = () => local.get('ardiaReloadPending').then((b) => b.ardiaReloadPending ? reloadLists() : null);"
+     "Promise.resolve().then(() => { if (location.protocol !== 'chrome-extension:') throw new Error(`not the extension page: ${location.href}`); })"
+     ".then(() => withDeadline(ready(), 'uBlock Origin'))"
+     ".then(() => withDeadline(settlePending().then(() => (%@)), 'the call'))"
+     ".then((v) => post('result', JSON.stringify({value: v === undefined ? null : v})),"
+     "(e) => post('result', JSON.stringify({error: String(e && e.message || e)})))";
+
+NSMutableDictionary<NSString *, NSMutableArray<ACContentBlockerOp *> *> *Queues() {
+  static NSMutableDictionary *queues = [NSMutableDictionary dictionary];
+  return queues;
+}
+
+NSMutableSet<NSString *> *BusyProfiles() {
+  static NSMutableSet *busy = [NSMutableSet set];
+  return busy;
+}
+
+void Pump(NSString *profile);
+
+constexpr double kPageIdleSeconds = 30;
+
+NSMutableDictionary<NSString *, NSNumber *> *Uses() {
+  static NSMutableDictionary *uses = [NSMutableDictionary dictionary];
+  return uses;
+}
+
+void CloseWhenIdle(NSString *profile) {
+  const NSUInteger use = Uses()[profile].unsignedIntegerValue + 1;
+  Uses()[profile] = @(use);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageIdleSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (Uses()[profile].unsignedIntegerValue != use || [BusyProfiles() containsObject:profile] || Queues()[profile].count) return;
+    [Pages()[profile] fail:@"idle"];
+    [Pages() removeObjectForKey:profile];
   });
 }
 
-void LoadHeld(NSString *profile) {
-  ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
-  const bool hold = p && ![LoadedProfiles() containsObject:profile] && [p respondsToSelector:@selector(holdNavigationsUntilRulesetsOf:)];
-  if (hold) [p holdNavigationsUntilRulesetsOf:ExtensionId()];
-  void (^load)(void) = ^{
-    LoadIntoProfile(profile, ^(NSString *error) {
-      if (error && hold) [p releaseNavigationHold:[NSString stringWithFormat:@"the content blocker didn't load: %@", error]];
-    });
-  };
-  const double delay = std::exchange(gDelayNextLoadMs, 0);
-  if (delay > 0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_MSEC)), dispatch_get_main_queue(), load);
-  else load();
+void Finish(ACContentBlockerOp *op, id value, NSString *error) {
+  NSMutableArray *queue = Queues()[op.profile];
+  if (queue.firstObject == op) [queue removeObjectAtIndex:0];
+  [BusyProfiles() removeObject:op.profile];
+  if (error) NSLog(@"[blocker] profile \"%@\": %@", op.profile, error);
+  op.completion(value, error);
+  Pump(op.profile);
+  if (!Queues()[op.profile].count) CloseWhenIdle(op.profile);
 }
 
-void Call(NSString *profile, NSString *expression, void (^completion)(id value, NSString *error)) {
-  completion = [completion copy];
-  if (!ArdiaCoreHost.isStarted) return completion(nil, @"unavailable");
+bool Retriable(NSString *error, ACContentBlockerPage *page) {
+  if (!page.onOwnPage) return true;
+  for (NSString *sign in @[ @"no reply", @"no answer", @"context invalidated", @"not the extension page", @"renderer ", @"closed" ])
+    if ([error containsString:sign]) return true;
+  return false;
+}
+
+void Attempt(ACContentBlockerOp *op) {
+  NSString *profile = op.profile;
+  if (!ArdiaCoreHost.isStarted) return Finish(op, nil, @"unavailable");
   if (![LoadedProfiles() containsObject:profile]) {
     return LoadIntoProfile(profile, ^(NSString *error) {
-      if (error) completion(nil, error);
-      else Call(profile, expression, completion);
+      if (error) Finish(op, nil, error);
+      else Attempt(op);
     });
   }
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
   ACContentBlockerPage *page = p ? PageFor(profile, p) : nil;
-  if (!page) return completion(nil, @"not loaded");
-  NSString *script = [NSString stringWithFormat:
-      @"let failing = %@;"
-       "const send = (message) => failing ? (failing = false, Promise.reject(new Error(`${message.what}: failed (dev)`)))"
-       "  : chrome.runtime.sendMessage(message);"
-       "Promise.resolve().then(() => (%@)).then("
-       "(v) => post('result', JSON.stringify({value: v === undefined ? null : v})),"
-       "(e) => post('result', JSON.stringify({error: String(e && e.message || e)})))",
-      gFailNextMessage ? @"true" : @"false", expression];
-  gFailNextMessage = false;
+  if (!page) return Finish(op, nil, @"not loaded");
+  const double leftMs = MAX(0, (op.deadline - NSDate.timeIntervalSinceReferenceDate) * 1000);
+  NSString *script = [NSString stringWithFormat:kPrelude, op.failNext ? @"true" : @"false", ScriptWith(@"%@", @[ kOffDirective ]),
+                                                @((long long)leftMs), op.expression];
+  const NSUInteger attempt = ++op.attempt;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((leftMs + 2000) * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+    if (op.attempt == attempt && Queues()[profile].firstObject == op) [page fail:@"the call timed out"];
+  });
   [page run:script
       completion:^(id value, NSString *error) {
-        if (error) NSLog(@"[blocker] profile \"%@\": %@", profile, error);
-        completion(value, error);
+        if (op.attempt != attempt) return;
+        if ([error hasSuffix:@"failed (dev)"]) op.failNext = NO;
+        if ([error containsString:@"timed out"]) [page fail:error];
+        const bool inTime = NSDate.timeIntervalSinceReferenceDate < op.deadline;
+        if (error && op.attemptsLeft > 0 && inTime && Retriable(error, page) && [LoadedProfiles() containsObject:profile] &&
+            !ardiacore_host::IsDeletedProfile(profile)) {
+          op.attemptsLeft--;
+          [page fail:@"uBlock Origin restarted"];
+          dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRetryMs * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+            Attempt(op);
+          });
+          return;
+        }
+        Finish(op, value, error);
       }];
 }
 
+void Pump(NSString *profile) {
+  if ([BusyProfiles() containsObject:profile]) return;
+  ACContentBlockerOp *op = Queues()[profile].firstObject;
+  if (!op) return;
+  [BusyProfiles() addObject:profile];
+  Attempt(op);
+}
+
+void Call(NSString *profile, NSString *expression, void (^completion)(id value, NSString *error)) {
+  ACContentBlockerOp *op = [ACContentBlockerOp new];
+  op.profile = profile;
+  op.expression = expression;
+  op.completion = completion;
+  op.attemptsLeft = kAttempts;
+  op.deadline = NSDate.timeIntervalSinceReferenceDate + kOpSeconds;
+  if (gFailNextMessage && ![expression isEqualToString:@"null"]) {
+    op.failNext = YES;
+    gFailNextMessage = false;
+  }
+  NSMutableArray *queue = Queues()[profile] ?: (Queues()[profile] = [NSMutableArray array]);
+  [queue addObject:op];
+  Pump(profile);
+}
+
+NSString *const kRead =
+    @"Promise.all([lists(), trusted()]).then(([l, t]) => ({lists: selected(l).sort(), whitelist: [...t.whitelist].sort(), autoUpdate: l.autoUpdate !== false}))";
+
 NSString *const kFollow =
-    @"Promise.all([send({what: 'getFilteringModeDetails'}), send({what: 'getEnabledRulesets'})]).then(([modes, lists]) => {"
+    @"Promise.all([lists(), trusted()]).then(([l, t]) => {"
      "  const want = %@;"
-     "  if (!modes || typeof modes !== 'object' || !Array.isArray(lists)) throw new Error('no settings to compare');"
-     "  const key = (m) => JSON.stringify(Object.keys(m).sort().map((k) => [k, Array.isArray(m[k]) ? [...m[k]].sort() : m[k]]));"
+     "  if (!Array.isArray(want.lists) || !Array.isArray(want.whitelist)) throw new Error('no settings to copy');"
      "  let written = Promise.resolve(null);"
-     "  if (key(modes) !== key(want.modes)) written = written.then(() => send({what: 'setFilteringModeDetails', modes: want.modes}));"
-     "  if ([...lists].sort().join() !== [...want.lists].sort().join())"
-     "    written = written.then(() => send({what: 'applyRulesets', enabledRulesets: want.lists}));"
+     "  if (!sameSet(selected(l), want.lists))"
+     "    written = written.then(() => applyLists(want.lists));"
+     "  if (!sameSet(t.whitelist, want.whitelist))"
+     "    written = written.then(() => send({what: 'setWhitelist', whitelist: want.whitelist.join('\\n')}));"
+     "  if ((l.autoUpdate !== false) !== (want.autoUpdate !== false))"
+     "    written = written.then(() => send({what: 'userSettings', name: 'autoUpdate', value: want.autoUpdate !== false}));"
      "  return written.then(() => null);"
      "})";
 
@@ -327,15 +528,13 @@ void ForgetGoneProfiles() {
 
 void FollowDefault(NSArray<NSString *> *profiles, void (^done)(NSString *error)) {
   done = [done copy];
+  if (!gDefaultSettled && ArdiaCoreHost.isStarted) return WhenDefaultSettled(^{ FollowDefault(profiles, done); });
   if (!profiles) ForgetGoneProfiles();
   profiles = [(profiles ?: LoadedProfiles().array) filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
   if (!profiles.count) return done(nil);
-  NSString *read = @"Promise.all([send({what: 'getFilteringModeDetails'}), send({what: 'getEnabledRulesets'})]).then(([modes, lists]) => {"
-                    "  if (!modes || typeof modes !== 'object' || !Array.isArray(lists)) throw new Error('no settings to copy');"
-                    "  return {modes, lists};"
-                    "})";
-  Call(kProfile, read, ^(NSDictionary *settings, NSString *error) {
+  Call(kProfile, kRead, ^(NSDictionary *settings, NSString *error) {
     if (error) return done(error);
+    if (![settings isKindOfClass:NSDictionary.class]) return done(@"no settings to copy");
     dispatch_group_t group = dispatch_group_create();
     __block NSString *failed;
     for (NSString *profile in profiles) {
@@ -350,17 +549,220 @@ void FollowDefault(NSArray<NSString *> *profiles, void (^done)(NSString *error))
   });
 }
 
-NSString *Category(NSDictionary *ruleset) {
-  NSString *rulesetId = ruleset[@"id"], *group = ruleset[@"group"];
+NSDictionary<NSString *, NSArray<NSString *> *> *LiteListMap() {
+  return @{
+    @"ublock-filters" : @[ @"ublock-filters", @"ublock-unbreak", @"ublock-quick-fixes" ],
+    @"pgl" : @[ @"plowe-0" ],
+    @"urlhaus-full" : @[ @"urlhaus-1" ],
+    @"annoyances-ai" : @[ @"fanboy-ai-suggestions" ],
+    @"annoyances-cookies" : @[ @"fanboy-cookiemonster", @"ublock-cookies-easylist" ],
+    @"annoyances-overlays" : @[ @"easylist-newsletters", @"ublock-annoyances" ],
+    @"annoyances-social" : @[ @"fanboy-social" ],
+    @"annoyances-widgets" : @[ @"easylist-chat" ],
+    @"annoyances-others" : @[ @"easylist-annoyances" ],
+    @"annoyances-notifications" : @[ @"easylist-notifications" ],
+  };
+}
+
+NSString *const kMoveLite =
+    @"Promise.all([lists(), trusted()]).then(([l, t]) => {"
+     "  const lite = %@;"
+     "  const map = %@;"
+     "  const none = Array.isArray(lite.filteringModeDetails?.none) ? lite.filteringModeDetails.none : [];"
+     "  const off = none.includes('all-urls');"
+     "  const hosts = none.filter((h) => typeof h === 'string' && h !== 'all-urls' && /^[a-z0-9.\\-_[\\]:]+$/.test(h));"
+     "  const enabled = Array.isArray(lite.rulesetConfig?.enabledRulesets) ? lite.rulesetConfig.enabledRulesets : null;"
+     "  const defaults = Array.isArray(lite.defaultRulesetIds) ? lite.defaultRulesetIds : [];"
+     "  const keys = Object.keys(l.available);"
+     "  const lookup = (id) => (map[id] || keys.filter((k) => k.toLowerCase() === String(id).toLowerCase())).filter((k) => l.available[k]);"
+     "  const pick = new Set(selected(l));"
+     "  if (enabled) {"
+     "    for (const id of defaults) if (!enabled.includes(id)) for (const k of lookup(id)) pick.delete(k);"
+     "    for (const id of enabled) if (!defaults.includes(id)) for (const k of lookup(id)) pick.add(k);"
+     "  }"
+     "  const whitelist = [...new Set(t.whitelist.filter((d) => d !== offDirective).concat(hosts, off ? [offDirective] : []))];"
+     "  let written = Promise.resolve(null);"
+     "  if (!sameSet(pick, selected(l)))"
+     "    written = written.then(() => applyLists([...pick]));"
+     "  if (!sameSet(whitelist, t.whitelist))"
+     "    written = written.then(() => send({what: 'setWhitelist', whitelist: whitelist.join('\\n')}));"
+     "  if (off) written = written.then(() => send({what: 'userSettings', name: 'autoUpdate', value: false}));"
+     "  return written.then(() => ({off, hosts: hosts.length, lists: pick.size}));"
+     "})";
+
+NSString *LiteReaderPath() {
+  NSString *path = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[@"Extensions" stringByAppendingPathComponent:kLiteReaderName]];
+  return [NSFileManager.defaultManager fileExistsAtPath:[path stringByAppendingPathComponent:@"manifest.json"]] ? path : nil;
+}
+
+NSString *LiteMarker(ArdiaCoreProfile *p) {
+  return p.path.length ? [p.path stringByAppendingPathComponent:kLiteMovedMarker] : nil;
+}
+
+bool LiteSettingsPending(ArdiaCoreProfile *p) {
+  NSString *marker = LiteMarker(p);
+  if (!marker || [NSFileManager.defaultManager fileExistsAtPath:marker]) return false;
+  NSString *store = [p.path stringByAppendingPathComponent:[@"Local Extension Settings" stringByAppendingPathComponent:kLiteId]];
+  return [NSFileManager.defaultManager fileExistsAtPath:store];
+}
+
+void MarkLiteSettingsMoved(ArdiaCoreProfile *p, NSString *summary) {
+  NSLog(@"[blocker] uBlock Origin Lite's settings: %@", summary);
+  [summary writeToFile:LiteMarker(p) atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
+constexpr double kLiteReadSeconds = 10;
+
+void ReadLiteSettings(NSString *profile, ArdiaCoreProfile *p, void (^done)(NSDictionary *lite, NSString *error)) {
+  done = [done copy];
+  NSString *reader = LiteReaderPath();
+  if (!reader) return done(nil, @"the reader isn't in the app");
+  if (![[p loadComponentExtension:reader] isEqualToString:kLiteId]) return done(nil, @"the reader didn't load");
+  NSString *key = [@"lite:" stringByAppendingString:profile];
+  ACContentBlockerPage *page = HiddenPage(key, profile, p, kLiteId, @"read.html");
+  __block bool answered = false;
+  void (^finish)(NSDictionary *, NSString *) = ^(NSDictionary *lite, NSString *error) {
+    if (answered) return;
+    answered = true;
+    [page fail:@"read"];
+    [Pages() removeObjectForKey:key];
+    if ([p respondsToSelector:@selector(unloadComponentExtension:)]) [p unloadComponentExtension:kLiteId];
+    done(lite, error);
+  };
+  if (!page) return finish(nil, @"no reader page");
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLiteReadSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    finish(nil, @"the reader timed out");
+  });
+  [page run:@"chrome.storage.local.get(['filteringModeDetails', 'rulesetConfig', 'defaultRulesetIds'])"
+             ".then((v) => post('result', JSON.stringify({value: v})), (e) => post('result', JSON.stringify({error: String(e && e.message || e)})))"
+      completion:^(NSDictionary *lite, NSString *error) {
+        finish([lite isKindOfClass:NSDictionary.class] ? lite : nil, error ?: ([lite isKindOfClass:NSDictionary.class] ? nil : @"unreadable"));
+      }];
+}
+
+bool LiteSettingsUsable(NSDictionary *lite) {
+  NSDictionary *modes = lite[@"filteringModeDetails"], *config = lite[@"rulesetConfig"];
+  const bool modesOk = [modes isKindOfClass:NSDictionary.class] && (!modes[@"none"] || [modes[@"none"] isKindOfClass:NSArray.class]);
+  const bool configOk = [config isKindOfClass:NSDictionary.class] && (!config[@"enabledRulesets"] || [config[@"enabledRulesets"] isKindOfClass:NSArray.class]);
+  return modesOk || configOk;
+}
+
+void MoveLiteSettings(NSString *profile, ArdiaCoreProfile *p, void (^done)(void)) {
+  done = [done copy];
+  if (!LiteSettingsPending(p)) return done();
+  ReadLiteSettings(profile, p, ^(NSDictionary *lite, NSString *error) {
+    if (error) {
+      NSLog(@"[blocker] uBlock Origin Lite's settings weren't read (%@); trying again next launch", error);
+      return done();
+    }
+    if (!LiteSettingsUsable(lite)) {
+      NSLog(@"[blocker] uBlock Origin Lite's settings aren't in a shape we know (%@); trying again next launch", lite.allKeys);
+      return done();
+    }
+    Call(profile, ScriptWith(kMoveLite, @[ lite, LiteListMap() ]), ^(NSDictionary *result, NSString *moveError) {
+      if (moveError) {
+        NSLog(@"[blocker] uBlock Origin Lite's settings didn't move (%@); trying again next launch", moveError);
+        return done();
+      }
+      MarkLiteSettingsMoved(p, [NSString stringWithFormat:@"moved (%@)", result]);
+      done();
+    });
+  });
+}
+
+NSMutableArray<void (^)(void)> *SettledWaiters() {
+  static NSMutableArray *waiters = [NSMutableArray array];
+  return waiters;
+}
+
+void WhenDefaultSettled(void (^then)(void)) {
+  if (gDefaultSettled) return then();
+  [SettledWaiters() addObject:[then copy]];
+}
+
+void DefaultSettled() {
+  gDefaultSettled = true;
+  gLaunching = false;
+  NSArray<void (^)(void)> *waiters = [SettledWaiters() copy];
+  [SettledWaiters() removeAllObjects];
+  for (void (^waiter)(void) in waiters) waiter();
+}
+
+constexpr int kInheritAttempts = 6;
+
+void Inherit(NSString *profile, int attempt, void (^first)(NSString *error)) {
+  first = [first copy];
+  FollowDefault(@[ profile ], ^(NSString *error) {
+    if (first) first(error);
+    const bool gone = !ardiacore_host::LoadedProfile(profile) || ardiacore_host::IsDeletedProfile(profile) ||
+                      ![LoadedProfiles() containsObject:profile];
+    if (!error || gone || attempt + 1 >= kInheritAttempts) {
+      if (error && !gone) NSLog(@"[blocker] profile \"%@\" didn't take the default profile's settings: %@", profile, error);
+      return;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((1 << attempt) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      Inherit(profile, attempt + 1, nil);
+    });
+  });
+}
+
+void LoadHeld(NSString *profile) {
+  ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
+  const bool isDefault = profile.length == 0;
+  const bool firstLoad = p && ![LoadedProfiles() containsObject:profile];
+  const bool hold = firstLoad && [p respondsToSelector:@selector(holdNavigationsUntilRulesetsOf:)] &&
+                    (isDefault ? LiteSettingsPending(p) : !gLaunching);
+  if (hold) [p holdNavigationsUntilRulesetsOf:ExtensionId()];
+  void (^release)(NSString *) = ^(NSString *why) {
+    if (!hold) return;
+    if (!why && [p respondsToSelector:@selector(releaseNavigationHoldReady)]) [p releaseNavigationHoldReady];
+    else [p releaseNavigationHold:why ?: @"uBlock Origin is ready"];
+  };
+  void (^load)(void) = ^{
+    LoadIntoProfile(profile, ^(NSString *error) {
+      if (error) {
+        if (isDefault) DefaultSettled();
+        return release([@"the content blocker didn't load: " stringByAppendingString:error]);
+      }
+      if (!isDefault) {
+        return WhenDefaultSettled(^{
+          Inherit(profile, 0, ^(NSString *followError) {
+            release(followError ? [@"the default profile's settings didn't apply: " stringByAppendingString:followError] : nil);
+          });
+        });
+      }
+      void (^settle)(void) = ^{
+        Call(profile, @"null", ^(id, NSString *readyError) {
+          ArdiaCoreProfile *loaded = ardiacore_host::LoadedProfile(profile);
+          if (readyError || !loaded) {
+            DefaultSettled();
+            return release(readyError ? [@"uBlock Origin isn't ready: " stringByAppendingString:readyError] : nil);
+          }
+          MoveLiteSettings(profile, loaded, ^{
+            DefaultSettled();
+            release(nil);
+          });
+        });
+      };
+      if (hold || !gLaunching) return settle();
+      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kSettleAfterLaunchSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), settle);
+    });
+  };
+  const double delay = std::exchange(gDelayNextLoadMs, 0);
+  if (delay > 0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_MSEC)), dispatch_get_main_queue(), load);
+  else load();
+}
+
+NSString *Category(NSString *listId, NSString *group) {
   if ([group isEqual:@"regions"]) return @"regional";
-  if ([rulesetId isEqual:@"annoyances-cookies"]) return @"cookies";
-  if ([group isEqual:@"privacy"] || [rulesetId isEqual:@"easyprivacy"]) return @"trackers";
-  if ([group isEqual:@"annoyances"]) return @"annoyances";
-  if ([group isEqual:@"malware"]) return @"security";
+  if ([listId containsString:@"cookie"]) return @"cookies";
+  if ([group isEqual:@"privacy"] || [listId isEqual:@"ublock-privacy"]) return @"trackers";
+  if ([group isEqual:@"malware"] || [listId isEqual:@"ublock-badware"]) return @"security";
+  if ([group isEqual:@"annoyances"] || [group isEqual:@"social"]) return @"annoyances";
   return @"ads";
 }
 
-double Count(NSDictionary *d, NSString *key) { return [d[key] isKindOfClass:NSNumber.class] ? [d[key] doubleValue] : 0; }
+double Count(id value) { return [value isKindOfClass:NSNumber.class] ? [value doubleValue] : 0; }
 
 NSString *BundledVersion() {
   NSString *path = [ExtensionPath() stringByAppendingPathComponent:@"manifest.json"];
@@ -369,53 +771,59 @@ NSString *BundledVersion() {
   return [manifest isKindOfClass:NSDictionary.class] && [manifest[@"version"] isKindOfClass:NSString.class] ? manifest[@"version"] : @"";
 }
 
+NSString *const kState =
+    @"Promise.all([lists(), trusted(), fetch('/assets/assets.json').then((r) => r.json())]).then(([l, t, assets]) => {"
+     "  const langs = new Set([chrome.i18n.getUILanguage(), ...(navigator.languages || [])].map((x) => (/^[a-z]+/.exec(x) || [])[0]).filter(Boolean));"
+     "  const forLanguages = (lang) => typeof lang === 'string' && lang.split(/\\s+/).some((x) => langs.has(x));"
+     "  const onByDefault = (id) => !!assets[id] && (assets[id].off !== true || forLanguages(assets[id].lang));"
+     "  return {"
+     "    lists: Object.entries(l.available)"
+     "      .filter(([id, list]) => list && list.content === 'filters' && list.group !== 'user' && list.group !== 'custom')"
+     "      .map(([id, list]) => ({id, title: list.title || id, group: list.group || '', enabled: list.off !== true,"
+     "        defaultOn: onByDefault(id), filters: list.entryCount || 0})),"
+     "    networkFilters: l.netFilterCount || 0,"
+     "    cosmeticFilters: l.cosmeticFilterCount || 0,"
+     "    enabled: !t.whitelist.includes(offDirective),"
+     "    allowedHosts: t.whitelist.filter((d) => !d.includes('/') && !d.startsWith('#') && !(t.whitelistDefault || []).includes(d)),"
+     "  };"
+     "})";
+
 void State(void (^completion)(NSDictionary *state)) {
-  Call(kProfile, @"Promise.all([send({what: 'getOptionsPageData'}), send({what: 'getFilteringModeDetails'})])", ^(NSArray *both, NSString *error) {
-    NSDictionary *options = [both isKindOfClass:NSArray.class] && both.count == 2 ? both[0] : nil;
-    id modes = options ? both[1] : nil;
-    if (![options isKindOfClass:NSDictionary.class]) {
+  completion = [completion copy];
+  if (!gDefaultSettled && ArdiaCoreHost.isStarted) return WhenDefaultSettled(^{ State(completion); });
+  Call(kProfile, kState, ^(NSDictionary *read, NSString *error) {
+    if (![read isKindOfClass:NSDictionary.class] || ![read[@"lists"] isKindOfClass:NSArray.class]) {
       return completion(@{
         @"enabled" : @NO, @"lists" : @[], @"allowedHosts" : @[], @"version" : BundledVersion(),
         @"stats" : @{@"ready" : @NO, @"enabled" : @NO, @"parseMs" : @0, @"lookups" : @0, @"averageLookupMicros" : @0,
                      @"maxLookupMicros" : @0, @"error" : error ?: @"unavailable"},
       });
     }
-    NSSet *enabledIds = [NSSet setWithArray:options[@"enabledRulesets"] ?: @[]];
-    BOOL on = [options[@"defaultFilteringMode"] intValue] != kModeNone;
     NSMutableArray *lists = [NSMutableArray array];
-    double network = 0, cosmetic = 0;
-    for (NSDictionary *r in options[@"rulesetDetails"]) {
-      if (![r isKindOfClass:NSDictionary.class] || [r[@"id"] isEqual:@"ubol-tests"]) continue;
-      BOOL enabled = [enabledIds containsObject:r[@"id"]];
-      NSDictionary *rules = [r[@"rules"] isKindOfClass:NSDictionary.class] ? r[@"rules"] : @{};
-      NSDictionary *css = [r[@"css"] isKindOfClass:NSDictionary.class] ? r[@"css"] : @{};
-      NSDictionary *filters = [r[@"filters"] isKindOfClass:NSDictionary.class] ? r[@"filters"] : @{};
-      double count = Count(rules, @"total");
-      if (enabled) {
-        network += count;
-        cosmetic += Count(css, @"generic") + Count(css, @"specific");
-      }
+    for (NSDictionary *l in read[@"lists"]) {
+      if (![l isKindOfClass:NSDictionary.class] || ![l[@"id"] isKindOfClass:NSString.class]) continue;
       [lists addObject:@{
-        @"id" : r[@"id"],
-        @"title" : r[@"name"] ?: r[@"id"],
-        @"category" : Category(r),
-        @"enabled" : @(enabled),
-        @"defaultOn" : @([r[@"enabled"] boolValue]),
-        @"filters" : @(Count(filters, @"accepted") ?: count),
+        @"id" : l[@"id"],
+        @"title" : [l[@"title"] isKindOfClass:NSString.class] ? l[@"title"] : l[@"id"],
+        @"category" : Category(l[@"id"], [l[@"group"] isKindOfClass:NSString.class] ? l[@"group"] : @""),
+        @"enabled" : @([l[@"enabled"] boolValue]),
+        @"defaultOn" : @([l[@"defaultOn"] boolValue]),
+        @"filters" : @(Count(l[@"filters"])),
       }];
     }
     NSMutableArray *allowed = [NSMutableArray array];
-    NSArray *none = [modes isKindOfClass:NSDictionary.class] && [modes[@"none"] isKindOfClass:NSArray.class] ? modes[@"none"] : @[];
-    for (NSString *host in none)
-      if ([host isKindOfClass:NSString.class] && ![host isEqualToString:@"all-urls"]) [allowed addObject:host];
+    for (NSString *host in [read[@"allowedHosts"] isKindOfClass:NSArray.class] ? read[@"allowedHosts"] : @[])
+      if ([host isKindOfClass:NSString.class]) [allowed addObject:host];
+    const BOOL on = [read[@"enabled"] boolValue];
     completion(@{
       @"enabled" : @(on),
       @"version" : BundledVersion(),
       @"lists" : lists,
       @"allowedHosts" : allowed,
       @"stats" : @{
-        @"ready" : @YES, @"enabled" : @(on), @"networkFilters" : @(network), @"cosmeticFilters" : @(cosmetic),
-        @"parseMs" : @0, @"lookups" : @0, @"averageLookupMicros" : @0, @"maxLookupMicros" : @0,
+        @"ready" : @YES, @"enabled" : @(on), @"networkFilters" : @(Count(read[@"networkFilters"])),
+        @"cosmeticFilters" : @(Count(read[@"cosmeticFilters"])), @"parseMs" : @0, @"lookups" : @0,
+        @"averageLookupMicros" : @0, @"maxLookupMicros" : @0,
       },
     });
   });
@@ -449,16 +857,22 @@ void LoadContentBlocker(NSString *profile) {
 }
 
 + (void)setEnabled:(BOOL)enabled completion:(void (^)(NSString *))completion {
-  Call(kProfile, ScriptWith(@"send({what: 'setDefaultFilteringMode', level: %@})", @[ @(enabled ? kModeOptimal : kModeNone) ]), ^(id, NSString *error) {
+  NSString *script = @"trusted().then((t) => {"
+                      "  const on = %@;"
+                      "  const kept = t.whitelist.filter((d) => d !== offDirective);"
+                      "  return send({what: 'setWhitelist', whitelist: (on ? kept : kept.concat([offDirective])).join('\\n')});"
+                      "}).then(() => send({what: 'userSettings', name: 'autoUpdate', value: %@}))";
+  Call(kProfile, ScriptWith(script, @[ @(enabled), @(enabled) ]), ^(id, NSString *error) {
     Changed(error, completion);
   });
 }
 
 + (void)setList:(NSString *)listId enabled:(BOOL)enabled completion:(void (^)(NSString *))completion {
-  NSString *script = @"send({what: 'getEnabledRulesets'}).then((ids) => {"
+  NSString *script = @"lists().then((l) => {"
                       "  const [id, on] = [%@, %@];"
-                      "  if (!Array.isArray(ids)) throw new Error('getEnabledRulesets: no answer');"
-                      "  return send({what: 'applyRulesets', enabledRulesets: ids.filter((x) => x !== id).concat(on ? [id] : [])});"
+                      "  if (!l.available[id]) throw new Error(`no list ${id}`);"
+                      "  const keep = selected(l).filter((x) => x !== id);"
+                      "  return applyLists(on ? keep.concat([id]) : keep);"
                       "})";
   Call(kProfile, ScriptWith(script, @[ listId, @(enabled) ]), ^(id, NSString *error) {
     Changed(error, completion);
@@ -466,17 +880,19 @@ void LoadContentBlocker(NSString *profile) {
 }
 
 + (void)isAllowedOnHost:(NSString *)host completion:(void (^)(BOOL))completion {
-  Call(kProfile, ScriptWith(@"send({what: 'getFilteringMode', hostname: %@})", @[ host.lowercaseString ]), ^(id level, NSString *error) {
-    completion(!error && [level isKindOfClass:NSNumber.class] && [level intValue] == kModeNone);
+  NSString *script = @"trusted().then((t) => t.whitelist.some((d) => covers(d, %@)))";
+  Call(kProfile, ScriptWith(script, @[ host.lowercaseString ]), ^(id allowed, NSString *error) {
+    completion(!error && [allowed isKindOfClass:NSNumber.class] && [allowed boolValue]);
   });
 }
 
 + (void)setAllowed:(BOOL)allowed onHost:(NSString *)host completion:(void (^)(NSString *))completion {
-  NSString *script = @"(%@ ? Promise.resolve(%@) : send({what: 'getDefaultFilteringMode'})).then((level) => {"
-                      "  if (typeof level !== 'number') throw new Error('getDefaultFilteringMode: no answer');"
-                      "  return send({what: 'setFilteringMode', hostname: %@, level});"
+  NSString *script = @"trusted().then((t) => {"
+                      "  const [allowed, host] = [%@, %@];"
+                      "  const kept = t.whitelist.filter((d) => allowed ? d !== host : !covers(d, host));"
+                      "  return send({what: 'setWhitelist', whitelist: (allowed ? kept.concat([host]) : kept).join('\\n')});"
                       "})";
-  Call(kProfile, ScriptWith(script, @[ @(allowed), @(kModeNone), host.lowercaseString ]), ^(id, NSString *error) {
+  Call(kProfile, ScriptWith(script, @[ @(allowed), host.lowercaseString ]), ^(id, NSString *error) {
     Changed(error, completion);
   });
 }

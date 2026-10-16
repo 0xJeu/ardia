@@ -161,8 +161,8 @@ mkdir -p "$dist"
 } > "$dist/provenance.txt"
 
 echo "==> Content blocker"
-"$ardiacore/scripts/ubol.sh"
-[ -f "$ardiacore/vendor/ubol/ext/manifest.json" ] || die "uBlock Origin Lite isn't installed ($ardiacore/scripts/ubol.sh)"
+"$ardiacore/scripts/ubo.sh"
+[ -f "$ardiacore/vendor/ubo/ext/manifest.json" ] || die "uBlock Origin isn't installed ($ardiacore/scripts/ubo.sh)"
 
 echo "==> Archive"
 (cd "$app_dir" && ARDIACORE_FRAMEWORK="$framework_src" "$root/scripts/agent/locked" pod --wait 1800 -- \
@@ -232,7 +232,7 @@ done
 [ -d "$app/Contents/Frameworks/Sparkle.framework" ] || die "no Sparkle.framework"
 [ -d "$app/Contents/PlugIns/ArdiaDockTile.plugin" ] || die "no dock tile plug-in"
 [ -f "$app/Contents/embedded.provisionprofile" ] || die "no Developer ID provisioning profile (keychain groups need it)"
-[ -f "$app/Contents/Resources/Extensions/ublock-lite/manifest.json" ] || die "no uBlock Origin Lite in the app"
+[ -f "$app/Contents/Resources/Extensions/ublock/manifest.json" ] || die "no uBlock Origin in the app"
 designated="$(codesign -d -r- "$app" 2>&1 | sed -n 's/^designated => //p')"
 [[ "$designated" == *'identifier "com.ardia.browser"'* && "$designated" == *"subject.OU] = U5L5T3NGVV"* ]] \
   || die "designated requirement: $designated"
@@ -274,12 +274,10 @@ fi
 echo "==> Launch check"
 check_data="$(mktemp -d "${TMPDIR:-/tmp}/ac-release.XXXXXX")"
 before="$(pgrep -f "^$app/Contents/MacOS/Ardia" | sort || true)"
-open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR="$check_data" "$app"
-indexes="$check_data/Built-in Extensions/ublock-lite/_metadata/generated_indexed_rulesets"
-for _ in $(seq 1 90); do
-  [ "$(ls "$indexes" 2>/dev/null | wc -l)" -ge 6 ] && break
-  sleep 1
-done
+check_port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR="$check_data" --env ARDIA_REMOTE_DEBUGGING_PORT="$check_port" "$app"
+ubo_ok=0
+node "$root/scripts/lib/ubo-ready.mjs" "$check_port" 90 && ubo_ok=1
 sleep 5
 pid=""
 for p in $(pgrep -f "^$app/Contents/MacOS/Ardia\$" || true); do
@@ -291,7 +289,7 @@ kill -TERM "$pid"
 for _ in $(seq 1 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
 kill -KILL "$pid" 2>/dev/null || true
 codesign --verify --deep --strict "$app" || die "running the app changed its bundle"
-[ "$(ls "$indexes" 2>/dev/null | wc -l)" -ge 6 ] || die "uBlock's rulesets weren't indexed in the data dir (90 s)"
+[ "$ubo_ok" = 1 ] || die "uBlock Origin wasn't ready and blocking in the exported app (90 s)"
 rm -rf "$check_data"
 
 notarize_file() {

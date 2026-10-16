@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// A/B of Ardia's content blocker (uBlock Origin Lite) on xbench's rows: the same app with the blocker on (as shipped)
+// A/B of Ardia's content blocker (uBlock Origin) on xbench's rows: the same app with the blocker on (as shipped)
 // and off, interleaved. Run only with the Mac quiet (no other benchmark, build or instance running).
 //
 //   node apps/browser/scripts/perf/blocker-ab.mjs prepare --out <dir> [--app <Ardia.app>]
-//       makes <dir>/off-home: a HOME whose Ardia profile has the blocker switched off (filtering mode none) and its
-//       content scripts unregistered (in mode none uBOL still injects its scriptlets into every frame), by
+//       makes <dir>/off-home: a HOME whose Ardia profile has the blocker switched off (uBO trusts every site and
+//       doesn't update its lists, as Ardia's own switch leaves it), by
 //       launching the app hidden once on it
 //   node apps/browser/scripts/perf/blocker-ab.mjs run --out <dir> [--app <Ardia.app>] [-- <more xbench options>]
 //       xbench run --browsers ardia,ardia-off with --base ardia-off=<dir>/off-home, rows session,restore,link,
@@ -37,7 +37,8 @@ if (opt.help || !positionals[0] || !opt.out) {
   process.exit(opt.help ? 0 : 64);
 }
 
-const EXTENSION = "bnjeokpoejhioagiokhkhmdogkhbnbki";
+const EXTENSION = "fajbdaomknpkicfjcpipdmcpoamdmilh";
+const OFF = "/^(?:ardia-blocking-off|)/";
 const out = resolve(opt.out);
 const app = realpathSync(resolve(opt.app));
 const offHome = join(out, "off-home");
@@ -62,25 +63,26 @@ async function prepare() {
   try {
     const browser = await (await fetch(`http://127.0.0.1:${instance.port}/json/version`)).json();
     const root = await devtools({ webSocketDebuggerUrl: browser.webSocketDebuggerUrl, url: "browser" });
-    await root.send("Target.createTarget", { url: `chrome-extension://${EXTENSION}/dashboard.html` });
+    await root.send("Target.createTarget", { url: `chrome-extension://${EXTENSION}/no-dashboard.html` });
     root.close();
     let state;
     for (const end = Date.now() + 60_000; Date.now() < end; await sleep(500)) {
       state = await evaluate(instance.port, `(async () => {
-        await chrome.runtime.sendMessage({ what: "setDefaultFilteringMode", level: 0 });
-        const mode = await chrome.runtime.sendMessage({ what: "getDefaultFilteringMode" });
-        await new Promise((r) => setTimeout(r, 1500));
-        await chrome.scripting.unregisterContentScripts();
-        await new Promise((r) => setTimeout(r, 1500));
-        const scripts = await chrome.scripting.getRegisteredContentScripts();
-        return { mode, scripts: scripts.map((s) => s.id) };
+        const send = (m) => vAPI.messaging.send("dashboard", m);
+        const before = await send({ what: "getWhitelist" });
+        if (!before.whitelist.includes(${JSON.stringify(OFF)}))
+          await send({ what: "setWhitelist", whitelist: before.whitelist.concat([${JSON.stringify(OFF)}]).join("\\n") });
+        await send({ what: "userSettings", name: "autoUpdate", value: false });
+        const after = await send({ what: "getWhitelist" });
+        const lists = await send({ what: "getLists" });
+        return { off: after.whitelist.includes(${JSON.stringify(OFF)}), autoUpdate: lists.autoUpdate };
       })()`).catch(() => undefined);
-      if (state && state.mode === 0 && state.scripts.length === 0) break;
+      if (state?.off && state.autoUpdate === false) break;
     }
-    if (!state || state.mode !== 0 || state.scripts.length) throw new Error(`the blocker didn't switch off: ${JSON.stringify(state)}`);
+    if (!state?.off || state.autoUpdate !== false) throw new Error(`the blocker didn't switch off: ${JSON.stringify(state)}`);
     await sleep(3000);
     writeFileSync(join(out, "off-home.json"), JSON.stringify({ made: new Date().toISOString(), app, state }, null, 2));
-    console.log(`off-home ready: mode ${state.mode}, no content scripts`);
+    console.log("off-home ready: uBO trusts every site");
   } finally {
     await instance.quit();
   }
