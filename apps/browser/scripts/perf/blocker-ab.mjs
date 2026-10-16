@@ -3,15 +3,16 @@
 // and off, interleaved. Run only with the Mac quiet (no other benchmark, build or instance running).
 //
 //   node apps/browser/scripts/perf/blocker-ab.mjs prepare --out <dir> [--app <Ardia.app>]
-//       makes <dir>/off-home: a HOME whose Ardia profile has the blocker switched off (filtering mode none, its
-//       content scripts unregistered), by launching the app hidden once on it
+//       makes <dir>/off-home: a HOME whose Ardia profile has the blocker switched off (filtering mode none) and its
+//       content scripts unregistered (in mode none uBOL still injects its scriptlets into every frame), by
+//       launching the app hidden once on it
 //   node apps/browser/scripts/perf/blocker-ab.mjs run --out <dir> [--app <Ardia.app>] [-- <more xbench options>]
 //       xbench run --browsers ardia,ardia-off with --base ardia-off=<dir>/off-home, rows session,restore,link,
 //       then xbench report into <dir>/table.md
 //
 //     --app <path>   the Ardia copy (default /tmp/ac-xbench/apps/ardia/Ardia.app); never a bundle in /Applications
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -38,7 +39,7 @@ if (opt.help || !positionals[0] || !opt.out) {
 
 const EXTENSION = "bnjeokpoejhioagiokhkhmdogkhbnbki";
 const out = resolve(opt.out);
-const app = resolve(opt.app);
+const app = realpathSync(resolve(opt.app));
 const offHome = join(out, "off-home");
 if (app.startsWith("/Applications/")) throw new Error("never an installed app: pass a copy");
 
@@ -68,6 +69,9 @@ async function prepare() {
       state = await evaluate(instance.port, `(async () => {
         await chrome.runtime.sendMessage({ what: "setDefaultFilteringMode", level: 0 });
         const mode = await chrome.runtime.sendMessage({ what: "getDefaultFilteringMode" });
+        await new Promise((r) => setTimeout(r, 1500));
+        await chrome.scripting.unregisterContentScripts();
+        await new Promise((r) => setTimeout(r, 1500));
         const scripts = await chrome.scripting.getRegisteredContentScripts();
         return { mode, scripts: scripts.map((s) => s.id) };
       })()`).catch(() => undefined);
