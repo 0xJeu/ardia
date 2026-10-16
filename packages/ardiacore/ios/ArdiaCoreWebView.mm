@@ -1267,6 +1267,9 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
     [ArdiaCoreWebView dropRevealsInWindow:view.window except:nil];
     ArdiaCoreTab *tab = [ArdiaCoreTabs offeredTab:offer];
     NSView *page = tab.view;
+    if (TraceVisibility())
+      NSLog(@"[ardiacore-vis] %@ front %@ offered=%d closed=%d superview=%@ adopted=%d", key, offer, tab != nil, tab.closed,
+            page.superview.className, [ArdiaCoreTabs viewForTab:tab] != nil);
     if (!tab || tab.closed || !page || page.superview || [ArdiaCoreTabs viewForTab:tab]) return;
     [view frontPage:page profile:tab.profile];
   });
@@ -1287,6 +1290,7 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
   page.hidden = NO;
   [self addSubview:page positioned:NSWindowAbove relativeTo:mine];
   _frontedPage = page;
+  if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ fronts a new tab's page", _transferKey);
   const NSUInteger generation = ++_frontGeneration;
   __weak ArdiaCoreWebView *weakSelf = self;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRevealBackstopSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -1321,6 +1325,7 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
   NSView *pane = PaneUnder(self, shared);
   NSView *shownPane = PaneUnder(shown, shared);
   if (!shared || !pane || !shownPane || !shownPane.layer || pane == shownPane || pane.isHiddenOrHasHiddenAncestor || pane.alphaValue < 1) return;
+  if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ revealed over %@", _transferKey, shown->_transferKey);
   _revealed = YES;
   _loweredPane = shownPane;
   _loweredPaneZ = shownPane.layer.zPosition;
