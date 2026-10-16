@@ -10,6 +10,7 @@ import { SLIDE } from "../layout/stripReorder";
 import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, updateTabDrag, useTabDrag } from "../layout/tabDrag";
 import { useClipped, type ClipSource } from "./entryMotion";
 import { suppressHover } from "./hover";
+import { overPins, pinGridHeight, pinSlot, TILE_GAP } from "./pinZone";
 
 type Frame = { x: number; y: number; w: number; h: number };
 type Section = "tiles" | "pinnedGroups" | "list";
@@ -42,7 +43,6 @@ type Drop =
 export type Ghost = { item: Item; count: number; width: number; height: number; position: Animated.ValueXY; landing?: boolean };
 
 const ROW_GAP = layout.rowGap;
-const TILE_GAP = 6;
 export const PIN_SLOT = layout.pinnedHeight + TILE_GAP;
 const EDGE = 28;
 const spring = (value: Animated.Value, toValue: number) => Animated.spring(value, { toValue, ...SLIDE });
@@ -53,8 +53,8 @@ const measure = (view: View | null): Promise<Frame | null> =>
     ? new Promise((resolve) => view.measureInWindow((x, y, w, h) => resolve(w || h ? { x, y, w, h } : null)))
     : Promise.resolve(null);
 
-type Marks = { sources: Set<string>; dropInto: string | null; onto: string | null; landing: string | null; pins: boolean };
-const NO_MARKS: Marks = { sources: new Set(), dropInto: null, onto: null, landing: null, pins: false };
+type Marks = { sources: Set<string>; dropInto: string | null; onto: string | null; landing: string | null; pins: boolean; pinCount: number };
+const NO_MARKS: Marks = { sources: new Set(), dropInto: null, onto: null, landing: null, pins: false, pinCount: 0 };
 const noMarks = create<Marks>()(() => NO_MARKS);
 
 class DragController {
@@ -83,6 +83,8 @@ class DragController {
   private drop: Drop = { type: "none" };
   private scrollTimer: ReturnType<typeof setInterval> | undefined;
   private measured = false;
+  private gridBase: Frame | null = null;
+  private gridGrowth = 0;
   private token: object | null = null;
   landed: { key: string; x: number; y: number } | null = null;
 
@@ -154,6 +156,9 @@ class DragController {
       }),
     );
     for (const [name, view] of this.regions) this.regionFrames.set(name, await measure(view));
+    const grid = [...this.items.values()].some((i) => i.kind === "tile");
+    this.gridBase = grid ? (this.regionFrames.get("tiles") ?? null) : null;
+    this.gridGrowth = 0;
   }
 
   move(x: number, y: number) {
@@ -196,9 +201,11 @@ class DragController {
     this.into = null;
     this.ghost = null;
     this.measured = false;
+    this.gridBase = null;
+    this.gridGrowth = 0;
     suppressHover(false);
     this.setSources(new Set());
-    this.marks.setState({ dropInto: null, onto: null, pins: false });
+    this.marks.setState({ dropInto: null, onto: null, pins: false, pinCount: 0 });
     if (!spot || !ghost) {
       this.token = null;
       this.setLanding(null);
@@ -235,7 +242,7 @@ class DragController {
       return value;
     };
     let closing = 0;
-    for (const i of this.items.values()) if (i.frame && (i === ref || i.frame.y < top)) closing += now(i.gap);
+    for (const i of this.items.values()) if (i.frame && i.section !== "tiles" && (i === ref || i.frame.y < top)) closing += now(i.gap);
     const group = source.parentGroup ? this.items.get(`g:${source.parentGroup}`) : undefined;
     const emptied = !!group && group.tabIds.every((id) => source.tabIds.includes(id)) && !!group.frame && group.frame.y < top && group !== ref;
     if (!emptied && source !== ref && source.frame && source.frame.y < top)
@@ -265,7 +272,15 @@ class DragController {
   }
 
   private at(f: Frame | null): Frame | null {
-    return f && { ...f, y: f.y - (this.scrollY - this.startScrollY) };
+    if (!f) return null;
+    const below = !!this.gridBase && f.y >= this.gridBase.y + this.gridBase.h;
+    return { ...f, y: f.y - (this.scrollY - this.startScrollY) + (below ? this.gridGrowth : 0) };
+  }
+
+  private pinFloor(live: Item[], tiles: Frame): number {
+    const list = this.at(this.regionFrames.get("list") ?? null);
+    const groups = live.filter((i) => i.kind === "group" && i.section === "pinnedGroups").map((g) => this.at(g.frame)!.y);
+    return Math.min(list?.y ?? tiles.y + tiles.h + TILE_GAP, ...groups);
   }
 
   private retarget() {
@@ -290,18 +305,17 @@ class DragController {
 
     const sidebar = this.viewport ?? this.rootFrame;
     const tiles = this.at(this.regionFrames.get("tiles") ?? null);
-    if (x > sidebar.x + sidebar.w + 40 || x < sidebar.x - 40 || useTabDrag.getState().outside) {
+    const away = x > sidebar.x + sidebar.w + 40 || x < sidebar.x - 40 || useTabDrag.getState().outside;
+    const cells = live.filter((i) => i.kind === "tile").sort(byY);
+    const overTiles = !away && tabsDrag && !!tiles && (this.gridBase ? overPins(y, this.pinFloor(live, tiles), this.pinning) : inside(tiles, x, y, 6));
+    if (this.gridBase) this.gridGrowth = pinGridHeight(cells.length + (overTiles ? dragged.size : 0), this.gridBase.w, layout.pinnedHeight) - this.gridBase.h;
+    if (away) {
       drop = { type: "none" };
-    } else if (tabsDrag && tiles && inside(tiles, x, y, 6)) {
-      const cells = live.filter((i) => i.kind === "tile").sort(byY);
-      const before = cells.find((t) => {
-        const f = this.at(t.frame)!;
-        const mid = f.y + f.h / 2;
-        return mid > y + f.h / 2 || (Math.abs(mid - y) <= f.h / 2 && f.x + f.w / 2 > x);
-      });
+    } else if (overTiles && tiles) {
+      const before = this.gridBase ? cells[Math.min(cells.length, pinSlot(tiles, cells.length + dragged.size, layout.pinnedHeight, x, y))] : undefined;
       drop = { type: "tabs", placement: { pinned: true, beforeId: firstTab(before) } };
       gapKey = before?.key ?? "tail:tiles";
-      pitch = cells.length ? (cells[0]?.frame?.w ?? source.frame?.w ?? 50) + TILE_GAP : PIN_SLOT;
+      pitch = this.gridBase ? dragged.size : PIN_SLOT;
     } else {
       const groups = live.filter((i) => i.kind === "group");
       const box = tabsDrag
@@ -351,15 +365,21 @@ class DragController {
     this.dropKey = key;
     this.drop = drop;
     this.into = into;
-    this.marks.setState({ dropInto: into, onto, pins: drop.type === "tabs" && drop.placement.pinned });
+    const pins = drop.type === "tabs" && drop.placement.pinned;
+    this.marks.setState({ dropInto: into, onto, pins, pinCount: pins ? dragged.size : 0 });
     if (gapKey !== this.gapKey) {
       const prev = this.gapKey && this.items.get(this.gapKey);
-      if (prev) spring(prev.gap, 0).start();
+      if (prev && prev.section === "tiles" && this.gridBase && !this.pinning) prev.gap.setValue(0);
+      else if (prev) spring(prev.gap, 0).start();
       const next = gapKey && this.items.get(gapKey);
       if (next) spring(next.gap, pitch).start();
       this.gapKey = gapKey;
       this.pitch = pitch;
     }
+  }
+
+  private get pinning() {
+    return this.drop.type === "tabs" && this.drop.placement.pinned;
   }
 
   private shown(i: Item): Frame {
@@ -444,6 +464,8 @@ export const useDragController = () => useContext(DragContext) ?? undefined;
 export const useDropInto = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.dropInto);
 export const useDropOnto = (key: string) => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.onto === key);
 export const useDropPins = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.pins);
+export const usePinnedCount = (tabIds: string[]) =>
+  useStore(useContext(DragContext)?.marks ?? noMarks, (m) => tabIds.reduce((n, id) => n + (m.sources.has(`t:${id}`) ? 0 : 1), 0) + m.pinCount);
 export const useDragging = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.sources.size > 0);
 
 export function useDragItem(key: string, spec: ItemSpec, selection: () => string[] = () => [], clip: ClipSource | null = null) {
@@ -491,10 +513,15 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
   const tailOffset = useMemo(() => item && Animated.add(item.gap, -ROW_GAP), [item]);
   const style = item
     ? {
-        ...(horizontal ? { marginLeft: item.gap } : { marginTop: spec.kind === "tail" ? tailOffset! : item.gap }),
+        ...(horizontal ? { marginRight: TILE_GAP } : { marginTop: spec.kind === "tail" ? tailOffset! : item.gap }),
         ...(source
           ? horizontal
-            ? { width: item.size, marginRight: -TILE_GAP, opacity: 0, overflow: "hidden" as const }
+            ? {
+                width: item.size,
+                marginRight: item.size.interpolate({ inputRange: [0, Math.max(1, item.frame?.w ?? 0)], outputRange: [0, TILE_GAP], extrapolate: "clamp" }),
+                opacity: 0,
+                overflow: "hidden" as const,
+              }
             : { height: item.size, marginBottom: -ROW_GAP, opacity: 0, overflow: "hidden" as const }
           : landing
             ? { opacity: 0 }

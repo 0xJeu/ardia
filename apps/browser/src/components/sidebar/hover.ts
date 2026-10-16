@@ -12,6 +12,7 @@ let suppressed = false;
 let ticket = 0;
 let underPointer: string | null = null;
 let owner: string | null = null;
+let ownerWindow: string | null = null;
 
 export const pointerOnRow = (id: string) => underPointer === id;
 
@@ -51,6 +52,7 @@ export function hoverEnter(windowId: string, target: Target) {
   clearTimeout(hideTimer);
   const current = sidebarUi().hover;
   owner = target.id;
+  ownerWindow = windowId;
   if (current?.id === target.id) return;
   const mine = ++ticket;
   if (current) void show(windowId, target, mine);
@@ -70,10 +72,22 @@ export const keepHover = () => clearTimeout(hideTimer);
 
 export function dismissHover() {
   owner = null;
+  ownerWindow = null;
   ticket++;
   clearTimeout(showTimer);
   clearTimeout(hideTimer);
   if (sidebarUi().hover) setSidebarUi({ hover: null });
+}
+
+export function dismissHoverIn(windowId: string) {
+  if (ownerWindow === windowId || sidebarUi().hover?.windowId === windowId) dismissHover();
+}
+
+function releaseAnchor(windowId: string, id: string) {
+  if (underPointer === id) underPointer = null;
+  if (owner === id && ownerWindow === windowId) return dismissHover();
+  const hover = sidebarUi().hover;
+  if (hover?.windowId === windowId && hover.id === id) setSidebarUi({ hover: null });
 }
 
 export function useRowHover(windowId: string, target: Target | null) {
@@ -104,6 +118,13 @@ export function useRowHover(windowId: string, target: Target | null) {
       },
     }),
   );
-  useEffect(() => () => pointed(latest.current.windowId, refresh, false), []);
+  useEffect(
+    () => () => {
+      const { windowId, target } = latest.current;
+      pointed(windowId, refresh, false);
+      if (target) releaseAnchor(windowId, target.id);
+    },
+    [],
+  );
   return { hovered: hovered && !covered.has(windowId), hoverProps };
 }

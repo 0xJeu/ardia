@@ -40,7 +40,7 @@ import {
   type DragGeometry,
   type DragSlot,
 } from "./stripGroups";
-import { makeRoom, registerSlot, reorderOffsets, settleRoom, SLIDE } from "./stripReorder";
+import { makeRoom, registerSlot, reorderOffsets, settleRoom, shiftRoom, SLIDE } from "./stripReorder";
 import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, setInsert, setInsertResolver, updateTabDrag, useTabDrag } from "./tabDrag";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "./toolbarColors";
 
@@ -242,10 +242,9 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   );
   const slotOf = (id: string) => top.slots.findIndex((slot) => slot.tabIds[0] === id);
   const dockIds = parsed.flatMap((e) => (e.kind === "dock" ? e.ids : []));
-  const strip = useMemo(
-    () => ({ top, dock: dockIds.length ? { ids: dockIds, left: -(dockWidth(dockIds.length) + DOCK_GAP) } : null }),
-    [top, dockIds.join()],
-  );
+  const grow = useRef(new Animated.Value(0)).current;
+  const dockGeometry = useMemo(() => dragGeometry(dockIds.map((id) => ({ tabIds: [id], width: PINNED_CELL })), PINNED_SPACING), [dockIds.join()]);
+  const strip: Strip = { top, chip, grow, dock: dockIds.length ? { ids: dockIds, left: -(dockWidth(dockIds.length) + DOCK_GAP), geometry: dockGeometry } : null };
   const incoming = useIncomingTab(windowId, current, top);
   let slotIndex = 0;
   const gap = (i: number) => (incoming.active ? <IncomingGap key={`gap${i}`} open={incoming.at === i} width={chip} origin={i === 0 ? incoming.origin : undefined} /> : null);
@@ -286,7 +285,7 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
                 return [before, <DraggableChip key={e.id} tabId={e.id} width={chip} geometry={top} from={slotOf(e.id)} group={null} />];
               })}
               {gap(top.slots.length)}
-              <NewTabButton windowId={windowId} />
+              <NewTabButton windowId={windowId} geometry={top} />
             </ScrollView>
           </DockContext.Provider>
         </ThemeScope>
@@ -335,14 +334,139 @@ type StripDrag = {
   width: number;
   gap: number;
   axis?: "x" | "y";
-  range?: [number, number];
+  range?: [number, number] | ((grab: number) => [number, number]);
   drop?: (dx: number, ids: string[]) => boolean;
+  cross?: Cross;
+  levels?: number;
   local?: boolean;
 };
 
-type Dock = { ids: string[]; left: number };
-const dockWidth = (cells: number) => cells * (PINNED_CELL + PINNED_SPACING) - PINNED_SPACING;
-const DockContext = createContext<{ dock: Dock | null; top: DragGeometry } | null>(null);
+type Landing = { dx: number; commit: () => void };
+type Cross = { at: (dx: number, grab: number) => boolean; land: (dx: number, grab: number, ids: string[]) => Landing | null; clear: () => void };
+
+type Dock = { ids: string[]; left: number; geometry: DragGeometry };
+type Strip = { dock: Dock | null; top: DragGeometry; chip: number; grow: Animated.Value };
+const CELL_STEP = PINNED_CELL + PINNED_SPACING;
+const dockWidth = (cells: number) => cells * CELL_STEP - PINNED_SPACING;
+const DockContext = createContext<Strip | null>(null);
+
+const growTargets = new WeakMap<Animated.Value, number>();
+function growDock(grow: Animated.Value, to: number) {
+  if ((growTargets.get(grow) ?? 0) === to) return;
+  growTargets.set(grow, to);
+  Animated.spring(grow, { toValue: to, ...SLIDE }).start();
+}
+
+function settleStrip({ top, dock, grow }: Strip) {
+  settleRoom(top);
+  if (dock) settleRoom(dock.geometry);
+  grow.stopAnimation();
+  grow.setValue(0);
+  growTargets.set(grow, 0);
+}
+
+const slotStart = ({ slots, lefts }: DragGeometry, k: number) =>
+  k < slots.length ? lefts[k]! - (slots[k]!.marginLeft ?? 0) : slots.length ? lefts.at(-1)! + slots.at(-1)!.width + (slots.at(-1)!.marginRight ?? 0) + GAP : 0;
+
+const dockShrink = (dock: Dock) => (dock.ids.length > 1 ? CELL_STEP : PINNED_CELL + DOCK_GAP);
+
+function pinOutIndex({ dock, top }: Strip, from: number, dx: number): number | null {
+  if (!dock) return null;
+  const left = dock.left + dock.geometry.lefts[from]! + dx;
+  if (left < -DOCK_GAP) return null;
+  const shrink = dockShrink(dock);
+  return top.slots.filter((slot, i) => top.lefts[i]! - shrink + slot.width / 2 < left).length;
+}
+
+function pinOut(strip: () => Strip | null, from: number): Cross {
+  return {
+    at: (dx) => {
+      const s = strip();
+      const k = s ? pinOutIndex(s, from, dx) : null;
+      if (!s?.dock || k === null) return false;
+      const shrink = dockShrink(s.dock);
+      shiftRoom(s.dock.geometry, (i) => (i > from ? -CELL_STEP : 0), from);
+      shiftRoom(s.top, (i) => -shrink + (i >= k ? s.chip + GAP : 0));
+      growDock(s.grow, s.dock.ids.length > 1 ? -CELL_STEP : -PINNED_CELL);
+      return true;
+    },
+    land: (dx, _, ids) => {
+      const s = strip();
+      const k = s ? pinOutIndex(s, from, dx) : null;
+      if (!s?.dock || k === null) return null;
+      const target = slotStart(s.top, k) - dockShrink(s.dock);
+      return {
+        dx: target - (s.dock.left + s.dock.geometry.lefts[from]!),
+        commit: () => {
+          settleStrip(s);
+          useBrowser.getState().placeTabs(ids, { pinned: false, beforeId: s.top.slots[k]?.tabIds[0] ?? null });
+        },
+      };
+    },
+    clear: () => {
+      const s = strip();
+      if (!s) return;
+      shiftRoom(s.top, () => 0);
+      growDock(s.grow, 0);
+    },
+  };
+}
+
+function tabInIndex({ dock, top }: Strip, from: number, dx: number, grab: number): number | null {
+  if (!dock || from < 0) return null;
+  const left = top.lefts[from]! + dx;
+  if (left >= -DOCK_GAP) return null;
+  const tile = Math.min(left + grab - PINNED_CELL / 2, dock.left + dock.ids.length * CELL_STEP);
+  return dock.ids.filter((_, i) => dock.left + dock.geometry.lefts[i]! + PINNED_CELL / 2 < tile).length;
+}
+
+function tabIn(strip: () => Strip | null, from: number, width: number): Cross {
+  return {
+    at: (dx, grab) => {
+      const s = strip();
+      const j = s ? tabInIndex(s, from, dx, grab) : null;
+      if (!s?.dock || j === null) return false;
+      shiftRoom(s.dock.geometry, (i) => (i >= j ? CELL_STEP : 0));
+      shiftRoom(s.top, (i) => CELL_STEP - (i > from ? width + GAP : 0), from);
+      growDock(s.grow, CELL_STEP);
+      return true;
+    },
+    land: (dx, grab, ids) => {
+      const s = strip();
+      const j = s ? tabInIndex(s, from, dx, grab) : null;
+      if (!s?.dock || j === null) return null;
+      const target = s.dock.left + s.dock.geometry.lefts[j]!;
+      return {
+        dx: target - (s.top.lefts[from]! + grab - PINNED_CELL / 2),
+        commit: () => {
+          settleStrip(s);
+          useBrowser.getState().placeTabs(ids, { pinned: true, beforeId: s.dock!.ids[j] ?? null });
+        },
+      };
+    },
+    clear: () => {
+      const s = strip();
+      if (!s?.dock) return;
+      shiftRoom(s.dock.geometry, () => 0);
+      growDock(s.grow, 0);
+    },
+  };
+}
+
+const tileHold = (dx: Animated.Value, limit: number) =>
+  dx.interpolate({ inputRange: [limit, limit + 1], outputRange: [0, -1], extrapolateLeft: "clamp", extrapolateRight: "extend" });
+
+function FadeIn({ style, children }: { style: object; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(opacity, { toValue: 1, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+  }, []);
+  return (
+    <Animated.View pointerEvents="none" style={{ position: "absolute", ...style, opacity }}>
+      {children}
+    </Animated.View>
+  );
+}
 
 function useStripDrag(item: StripDrag) {
   const dx = useRef(new Animated.Value(0)).current;
@@ -350,10 +474,11 @@ function useStripDrag(item: StripDrag) {
   const translateX = useRef(Animated.add(dx, shift)).current;
   const lift = useRef(new Animated.Value(0)).current;
   const [dragging, setDragging] = useState(false);
+  const [crossed, setCrossed] = useState(false);
   const view = useRef<View>(null);
   const latest = useRef(item);
   latest.current = item;
-  const drag = useRef({ stripBottom: TOP_STRIP_HEIGHT, lifted: false, ids: [] as string[], dx: 0, to: -1 });
+  const drag = useRef({ stripBottom: TOP_STRIP_HEIGHT, lifted: false, ids: [] as string[], dx: 0, to: -1, grab: item.width / 2, crossed: false });
   useEffect(() => registerSlot(() => latest.current.geometry, () => latest.current.from, shift), []);
   const setLifted = (lifted: boolean) => {
     if (drag.current.lifted === lifted) return;
@@ -366,15 +491,25 @@ function useStripDrag(item: StripDrag) {
     drag.current.to = to;
     makeRoom(geometry, from, to < 0 ? from : to);
   };
+  const setCross = (on: boolean) => {
+    if (drag.current.crossed === on) return;
+    drag.current.crossed = on;
+    if (!on) {
+      latest.current.cross?.clear();
+      drag.current.to = NaN;
+    }
+    setCrossed(on);
+  };
   const owns = useRef(false);
   const raised = useRef<number | null>(null);
   const raise = (on: boolean) => {
     const tag = on ? findNodeHandle(view.current) : raised.current;
-    raiseView(tag, latest.current.groupId ? 1 : 0, on);
+    raiseView(tag, latest.current.levels ?? (latest.current.groupId ? 1 : 0), on);
     raised.current = on ? tag : null;
   };
   const reset = () => {
     owns.current = false;
+    setCross(false);
     makeRoomAt(-1);
     dx.setValue(0);
     setLifted(false);
@@ -401,10 +536,27 @@ function useStripDrag(item: StripDrag) {
     settle.current = landing;
     Animated.spring(dx, { toValue: to === null ? 0 : (reorderOffsets(geometry, from, to)[from] ?? 0), ...SLIDE }).start(() => landing.land());
   };
+  const settleAcross = ({ dx: toValue, commit }: Landing) => {
+    const landing = {
+      land: () => {
+        if (settle.current !== landing) return;
+        settle.current = null;
+        commit();
+        drag.current.crossed = false;
+        setCrossed(false);
+        dx.setValue(0);
+        setDragging(false);
+        raise(false);
+      },
+    };
+    settle.current = landing;
+    Animated.spring(dx, { toValue, ...SLIDE }).start(() => landing.land());
+  };
   useEffect(
     () => () => {
       settle.current?.land();
       if (!owns.current) return;
+      if (drag.current.crossed) latest.current.cross?.clear();
       settleRoom(latest.current.geometry);
       if (!latest.current.local) cancelTabDrag();
     },
@@ -426,7 +578,7 @@ function useStripDrag(item: StripDrag) {
           settle.current?.land();
           dx.stopAnimation();
           dx.setValue(0);
-          const mine = { stripBottom: TOP_STRIP_HEIGHT, lifted: false, ids, dx: 0, to: -1 };
+          const mine = { stripBottom: TOP_STRIP_HEIGHT, lifted: false, ids, dx: 0, to: -1, grab: latest.current.width / 2, crossed: false };
           drag.current = mine;
           owns.current = true;
           setDragging(true);
@@ -436,19 +588,22 @@ function useStripDrag(item: StripDrag) {
           view.current?.measureInWindow((x, y, width, height) => {
             if (drag.current !== mine) return;
             mine.stripBottom = y + TOP_STRIP_HEIGHT;
+            mine.grab = Math.max(0, Math.min(width, grab[0] - x));
             setDragPicture(seq, () => [x + mine.dx, y, width, height], [grab[0] + mine.dx, grab[1]]);
           });
         },
         onPanResponderMove: (_, g) => {
-          const { geometry, from, tabId, range, local } = latest.current;
+          const { geometry, from, tabId, range, local, cross } = latest.current;
           const lifted = !local && !!tabId && drag.current.ids.length === 1 && g.moveY > drag.current.stripBottom + LIFT_SLOP;
           setLifted(lifted);
-          const [min, max] = range ?? (from < 0 ? [0, 0] : dragRange(geometry, from));
+          const [min, max] = (typeof range === "function" ? range(drag.current.grab) : range) ?? (from < 0 ? [0, 0] : dragRange(geometry, from));
           if (!lifted) {
             drag.current.dx = Math.max(min, Math.min(max, g.dx));
             dx.setValue(drag.current.dx);
           }
-          makeRoomAt(lifted || from < 0 ? -1 : dropIndex(geometry, from, g.dx));
+          const across = !lifted && !!cross?.at(drag.current.dx, drag.current.grab);
+          setCross(across);
+          if (!across) makeRoomAt(lifted || from < 0 ? -1 : dropIndex(geometry, from, g.dx));
           if (!local) updateTabDrag(g.moveX, g.moveY, lifted);
         },
         onPanResponderRelease: (_, g) => {
@@ -456,8 +611,12 @@ function useStripDrag(item: StripDrag) {
           const { local, drop, from, range, geometry } = latest.current;
           owns.current = false;
           if ((!local && (endTabDrag() || lifted)) || (from < 0 && !drop)) return reset();
-          const travelled = range ? Math.max(range[0], Math.min(range[1], g.dx)) : g.dx;
           const ids = drag.current.ids;
+          const landing = drag.current.crossed ? latest.current.cross?.land(drag.current.dx, drag.current.grab, ids) : null;
+          if (landing) return settleAcross(landing);
+          setCross(false);
+          const bounds = typeof range === "function" ? range(drag.current.grab) : range;
+          const travelled = bounds ? Math.max(bounds[0], Math.min(bounds[1], g.dx)) : g.dx;
           if (!local) {
             const store = useBrowser.getState();
             const moved = drop?.(travelled, ids) || (from >= 0 && ids.length > 1 && reorder(ids, latest.current, g.dx));
@@ -488,7 +647,7 @@ function useStripDrag(item: StripDrag) {
     marginRight: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -(item.width + item.gap)] }),
     transform: [{ translateX }],
   };
-  return { ref: view, panHandlers: responder.panHandlers, style, dragging };
+  return { ref: view, panHandlers: responder.panHandlers, style, dragging, crossed, grab: drag.current.grab, dx };
 }
 
 function reorder(ids: string[], { geometry, from, pinned, groupId }: StripDrag, dx: number): boolean {
@@ -544,11 +703,13 @@ function DraggableChip({
 }) {
   const active = useIsActiveTab(tabId);
   const strip = useContext(DockContext);
+  const latestStrip = useRef(strip);
+  latestStrip.current = strip;
   const dock = !group && from >= 0 ? (strip?.dock ?? null) : null;
   const member = group && out && out.slot >= 0 ? out : null;
   const stripEnd = member ? member.top.lefts.at(-1)! + member.top.slots.at(-1)!.width : 0;
-  const range: [number, number] | undefined = dock
-    ? [dock.left - geometry.lefts[from]!, dragRange(geometry, from)[1]]
+  const range: StripDrag["range"] = dock
+    ? (grab) => [Math.min(0, dock.left - geometry.lefts[from]! - grab + PINNED_CELL / 2), dragRange(geometry, from)[1]]
     : member
       ? [member.top.lefts[0]! - member.left - width / 2, stripEnd - member.left - width / 2]
       : undefined;
@@ -562,25 +723,32 @@ function DraggableChip({
     width,
     gap: GAP,
     range,
+    cross: dock ? tabIn(() => latestStrip.current, from, width) : undefined,
     drop: (dx, ids) => {
-      if (member) {
-        const at = leaveIndex(member.top, member.slot, member.chip, member.expanded, member.left + dx, width);
-        if (at === null) return false;
-        const beforeId = member.top.slots.slice(at).flatMap((slot) => slot.tabIds).find((id) => !ids.includes(id)) ?? null;
-        useBrowser.getState().placeTabs(ids, { pinned: false, beforeId, groupId: null });
-        return true;
-      }
-      if (!dock) return false;
-      const left = geometry.lefts[from]! + dx;
-      if (left > dock.left + (dock.ids.length - 1) * (PINNED_CELL + PINNED_SPACING) + PINNED_CELL / 2) return false;
-      const index = dock.ids.filter((_, i) => dock.left + i * (PINNED_CELL + PINNED_SPACING) + PINNED_CELL / 2 < left + PINNED_CELL / 2).length;
-      useBrowser.getState().placeTabs(ids, { pinned: true, beforeId: dock.ids[index] ?? null });
+      if (!member) return false;
+      const at = leaveIndex(member.top, member.slot, member.chip, member.expanded, member.left + dx, width);
+      if (at === null) return false;
+      const beforeId = member.top.slots.slice(at).flatMap((slot) => slot.tabIds).find((id) => !ids.includes(id)) ?? null;
+      useBrowser.getState().placeTabs(ids, { pinned: false, beforeId, groupId: null });
       return true;
     },
   });
   return (
     <Animated.View ref={drag.ref} {...drag.panHandlers} mouseDownCanMoveWindow={false} style={{ ...drag.style, zIndex: drag.dragging ? 10 : active ? 1 : 0 }}>
-      <TabChip tabId={tabId} width={width} tuck={tuck} dragged={drag.dragging} />
+      <View style={{ opacity: drag.crossed ? 0 : 1 }}>
+        <TabChip tabId={tabId} width={width} tuck={tuck} dragged={drag.dragging} />
+      </View>
+      {drag.crossed && dock && (
+        <FadeIn
+          style={{
+            left: drag.grab - PINNED_CELL / 2,
+            top: ITEM_TOP + 0.5,
+            transform: [{ translateX: tileHold(drag.dx, dock.left + dock.ids.length * CELL_STEP - geometry.lefts[from]! - drag.grab + PINNED_CELL / 2) }],
+          }}
+        >
+          <PinnedFace tabId={tabId} active={active} hovered={false} pressed={false} />
+        </FadeIn>
+      )}
     </Animated.View>
   );
 }
@@ -609,10 +777,13 @@ function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width: number
   return (
     <View {...hoverProps} tooltip={tab.url ? `${title}\n${tab.url}` : title} style={{ width, height: TOP_STRIP_HEIGHT }}>
       {active && <SelectedTab width={width} band={band} opaque={dragged} />}
+      {dragged && !active && (
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, width, top: ITEM_TOP, height: ITEM_HEIGHT, borderRadius: TAB_RADIUS, backgroundColor: theme.windowTint[0] }} />
+      )}
       <ContextMenuArea onContextMenu={() => void openTabMenu(windowId, tab)} style={StyleSheet.absoluteFill}>
         <Pressable onPress={(e) => clickTab(windowId, tab.id, modifiersOf(e))} style={{ flex: 1 }}>
           {({ pressed }) => (
-            <ItemRow hovered={hovered && !active} pressed={pressed && !active}>
+            <ItemRow hovered={(hovered || dragged) && !active} pressed={pressed && !active}>
               <View pointerEvents="none">
                 <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />
                 <TabBadges tabId={tab.id} pip={false} />
@@ -758,24 +929,28 @@ function Flare({ x, side, color }: { x: number; side: "left" | "right"; color: F
 
 function PinnedDock({ tabIds }: { tabIds: string[] }) {
   const theme = useTheme();
-  const geometry = useMemo(() => dragGeometry(tabIds.map((id) => ({ tabIds: [id], width: PINNED_CELL })), PINNED_SPACING), [tabIds]);
+  const strip = useContext(DockContext)!;
+  const geometry = strip.dock!.geometry;
+  const width = dockWidth(tabIds.length);
+  const box = useMemo(() => Animated.add(strip.grow, width), [strip.grow, width]);
   return (
-    <View
-      style={{
-        marginTop: ITEM_TOP,
-        marginRight: DOCK_GAP - GAP,
-        zIndex: 2,
-        width: tabIds.length * (PINNED_CELL + PINNED_SPACING) - PINNED_SPACING,
-        height: ITEM_HEIGHT,
-        flexDirection: "row",
-        alignItems: "center",
-        borderRadius: TAB_RADIUS,
-        borderWidth: 0.5,
-        borderColor: theme.pinnedRestingStroke,
-        backgroundColor: theme.pinnedResting,
-      }}
-    >
-      <View style={{ flexDirection: "row", gap: PINNED_SPACING, marginHorizontal: -0.5 }}>
+    <View style={{ marginTop: ITEM_TOP, marginRight: DOCK_GAP - GAP, zIndex: 2, width, height: ITEM_HEIGHT, flexDirection: "row", alignItems: "center" }}>
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          height: ITEM_HEIGHT,
+          width: box.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp" }),
+          opacity: box.interpolate({ inputRange: [0, PINNED_CELL / 2], outputRange: [0, 1], extrapolate: "clamp" }),
+          borderRadius: TAB_RADIUS,
+          borderWidth: 0.5,
+          borderColor: theme.pinnedRestingStroke,
+          backgroundColor: theme.pinnedResting,
+        }}
+      />
+      <View style={{ flexDirection: "row", gap: PINNED_SPACING }}>
         {tabIds.map((id, i) => (
           <PinnedCell key={id} tabId={id} geometry={geometry} from={i} />
         ))}
@@ -784,13 +959,41 @@ function PinnedDock({ tabIds }: { tabIds: string[] }) {
   );
 }
 
-function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGeometry; from: number }) {
+function PinnedFace({ tabId, active, hovered, pressed }: { tabId: string; active: boolean; hovered: boolean; pressed: boolean }) {
   const theme = useTheme();
+  const tab = useTab(tabId);
+  if (!tab) return null;
+  return (
+    <View style={{ width: PINNED_CELL, height: ITEM_HEIGHT - 1, alignItems: "center", justifyContent: "center" }}>
+      {(active || hovered || pressed) && (
+        <View
+          style={{
+            position: "absolute",
+            left: 2,
+            right: 2,
+            top: 2,
+            bottom: 2,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.tabPressed : active ? theme.pinnedSelectedFill : theme.tabHover,
+          }}
+        />
+      )}
+      <View pointerEvents="none">
+        <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />
+        <TabBadges tabId={tab.id} pip={false} />
+      </View>
+    </View>
+  );
+}
+
+function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGeometry; from: number }) {
   const windowId = useWindowId();
   const tab = useTab(tabId);
   const active = useIsActiveTab(tabId);
   const { hovered, hoverProps } = useHover();
   const strip = useContext(DockContext);
+  const latestStrip = useRef(strip);
+  latestStrip.current = strip;
   const dock = strip?.dock;
   const top = strip?.top;
   const end = top && top.slots.length ? top.lefts.at(-1)! + top.slots.at(-1)!.width : MAX_CHIP;
@@ -805,45 +1008,24 @@ function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGe
     width: PINNED_CELL,
     gap: PINNED_SPACING,
     range,
-    drop: (dx, ids) => {
-      if (!dock || !top) return false;
-      const left = dock.left + geometry.lefts[from]! + dx;
-      if (left + PINNED_CELL / 2 < -DOCK_GAP / 2) return false;
-      const k = top.slots.filter((slot, i) => top.lefts[i]! + slot.width / 2 < left + PINNED_CELL).length;
-      useBrowser.getState().placeTabs(ids, { pinned: false, beforeId: top.slots[k]?.tabIds[0] ?? null });
-      return true;
-    },
+    cross: dock ? pinOut(() => latestStrip.current, from) : undefined,
+    levels: 2,
   });
   if (!tab) return null;
   return (
     <Animated.View ref={drag.ref} {...drag.panHandlers} mouseDownCanMoveWindow={false} style={drag.style}>
-      <View {...hoverProps} tooltip={`${tab.customTitle || tab.title || tab.url}${tab.url ? `\n${tab.url}` : ""}`}>
+      <View {...hoverProps} style={{ opacity: drag.crossed ? 0 : 1 }} tooltip={`${tab.customTitle || tab.title || tab.url}${tab.url ? `\n${tab.url}` : ""}`}>
         <ContextMenuArea onContextMenu={() => void openTabMenu(windowId, tab)}>
           <Pressable onPress={(e) => clickTab(windowId, tab.id, modifiersOf(e))}>
-            {({ pressed }) => (
-              <View style={{ width: PINNED_CELL, height: ITEM_HEIGHT - 1, alignItems: "center", justifyContent: "center" }}>
-                {(active || hovered || pressed) && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      left: 2,
-                      right: 2,
-                      top: 2,
-                      bottom: 2,
-                      borderRadius: 8,
-                      backgroundColor: pressed ? theme.tabPressed : active ? theme.pinnedSelectedFill : theme.tabHover,
-                    }}
-                  />
-                )}
-                <View pointerEvents="none">
-                  <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />
-                  <TabBadges tabId={tab.id} pip={false} />
-                </View>
-              </View>
-            )}
+            {({ pressed }) => <PinnedFace tabId={tabId} active={active} hovered={hovered} pressed={pressed} />}
           </Pressable>
         </ContextMenuArea>
       </View>
+      {drag.crossed && strip && (
+        <FadeIn style={{ left: 0, top: -(ITEM_TOP + 0.5), width: strip.chip, height: TOP_STRIP_HEIGHT }}>
+          <TabChip tabId={tabId} width={strip.chip} dragged />
+        </FadeIn>
+      )}
     </Animated.View>
   );
 }
@@ -1102,11 +1284,15 @@ function SplitPart({ tabId, first, ink }: { tabId: string; first: boolean; ink: 
   );
 }
 
-function NewTabButton({ windowId }: { windowId: string }) {
+function NewTabButton({ windowId, geometry }: { windowId: string; geometry: DragGeometry }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
+  const shift = useRef(new Animated.Value(0)).current;
+  const latest = useRef(geometry);
+  latest.current = geometry;
+  useEffect(() => registerSlot(() => latest.current, () => latest.current.slots.length, shift), []);
   return (
-    <View {...hoverProps} mouseDownCanMoveWindow={false} tooltip="New Tab (⌘T) — ⌥-click to open in Split View" style={{ marginTop: ITEM_TOP, marginLeft: 0.5 }}>
+    <Animated.View {...hoverProps} mouseDownCanMoveWindow={false} tooltip="New Tab (⌘T) — ⌥-click to open in Split View" style={{ marginTop: ITEM_TOP, marginLeft: 0.5, transform: [{ translateX: shift }] }}>
       <Pressable
         onPress={(e) => {
           if (modifiersOf(e).altKey) openNewTabInSplit(windowId);
@@ -1119,7 +1305,7 @@ function NewTabButton({ windowId }: { windowId: string }) {
           </View>
         )}
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -7,6 +7,7 @@ import { hex, layout, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { useWindowId } from "../../store/hooks";
 import { Sidebar } from "../Sidebar";
+import { dismissHoverIn } from "../sidebar/hover";
 import { useSidebarUi } from "../sidebar/state";
 import { ProfileSwipe } from "./ProfileSwipe";
 import {
@@ -144,13 +145,15 @@ function SidebarDock({
   const windowId = useWindowId();
   const moving = useDockMotion((m) => !!m.moving[windowId]);
   const edgeOver = useRef(false);
-  const peek = usePeek(!open && !moving && !fullscreen, arc, () => edgeOver.current);
+  const peek = usePeek(!open && !moving && !fullscreen, arc, () => edgeOver.current, () => dismissHoverIn(windowId));
   const latestPeek = useRef(peek);
   latestPeek.current = peek;
   const holdWidth = PEEK_ORIGIN[0] + width + HOLD_SLACK;
   const holdHeight = useRef(Infinity);
   const inHold = (x: number, y: number) => x >= 0 && x < holdWidth && y >= 0 && y < holdHeight.current;
   const peeking = !open && !fullscreen && peek.live;
+  const shown = fullscreen ? "fullscreen" : open ? "docked" : peek.live ? "peek" : "away";
+  useLayoutEffect(() => () => dismissHoverIn(windowId), [windowId, shown]);
   const watching = !open && !fullscreen && !moving;
   const nativeHold = peeking ? holdWidth : 0;
   useEffect(() => {

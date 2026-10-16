@@ -1,5 +1,5 @@
 import { ContextMenuArea, FadeLabel, Symbol, WindowDragRegion } from "@ardia/shell";
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { switchOn } from "../lib/killSwitches";
 import { layout, ThemeScope, useTheme } from "../lib/theme";
@@ -23,7 +23,7 @@ import { DragProvider, DragScope, useDragController, useDragItem, type Ghost } f
 import { useClipped, useShift, type ClipSource, type EntryMotion } from "./sidebar/entryMotion";
 import { sidebarEntries } from "./sidebar/entries";
 import { GroupBlock } from "./sidebar/GroupBlock";
-import { dismissHover } from "./sidebar/hover";
+import { dismissHover, dismissHoverIn } from "./sidebar/hover";
 import { LiveFolders } from "./sidebar/LiveFolderBlock";
 import { capture, GhostSlot, ListMotionContext, newCapture, useListMotion } from "./sidebar/listMotion";
 import { openOverflowMenu, openSidebarMenu } from "./sidebar/menus";
@@ -70,7 +70,7 @@ export function Sidebar({ width }: { width: number }) {
   const nothingPinned = useBrowser((s) => sidebarEntries(s, windowId, current).tiles.length === 0);
 
   useRevealTabs(windowId, scroll, scrollY, geometry, glowRoom);
-  useEffect(() => dismissHover(), [current]);
+  useLayoutEffect(() => dismissHoverIn(windowId), [windowId, current, paging]);
 
   return (
     <DragProvider>

@@ -1,5 +1,5 @@
 import { ContextMenuArea, DockSelection, MouseArea, Surface, Symbol } from "@ardia/shell";
-import { memo, useEffect, useRef } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { closeTab } from "../../lib/actions";
 import { hex, layout, useTheme } from "../../lib/theme";
@@ -11,24 +11,23 @@ import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../store/hoo
 import { awayFromPin } from "../../store/organize";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
 import { clickTab, startRename } from "./actions";
-import { PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins } from "./dnd";
+import { PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, usePinnedCount } from "./dnd";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
+import { pinGrid, pinGridHeight, TILE_GAP } from "./pinZone";
 import { registerRow } from "./state";
 import { TabIcon } from "./TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { clickMods } from "./TabRow";
 import { useSidebarTokens } from "./tokens";
 
-const GAP = 6;
-const MIN_TILE = 50;
 const SELECTION_STROKE = 3;
 const GLASS_RIM = 1;
 
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs: string[]; innerWidth: number }) {
   const controller = useDragController();
-  const columns = Math.max(1, Math.min(tabs.length || 1, Math.floor((innerWidth + GAP) / (MIN_TILE + GAP))));
-  const width = Math.floor(((innerWidth - GAP * (columns - 1)) / columns) * 2) / 2;
+  const count = usePinnedCount(tabs);
+  const { width } = pinGrid(count, innerWidth);
   const tail = useDragItem("tail:tiles", { kind: "tail", tabIds: [], section: "tiles" });
   const dragging = useDragging();
   const addressBar = useAddressBarInSidebar();
@@ -39,15 +38,26 @@ export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs:
       ref={(v) => {
         controller?.regions.set("tiles", v);
       }}
-      style={{ marginTop: topGap, flexDirection: "row", flexWrap: "wrap", rowGap: GAP, columnGap: GAP }}
+      style={{ marginTop: topGap }}
     >
-      {tabs.map((id) => (
-        <PinnedTile key={id} tabId={id} width={width} />
-      ))}
+      <View style={{ height: pinGridHeight(count, innerWidth, layout.pinnedHeight), flexDirection: "row", flexWrap: "wrap", rowGap: TILE_GAP, marginRight: -TILE_GAP }}>
+        {tabs.map((id) => (
+          <Fragment key={id}>
+            {dragging ? <PinCell gap={controller?.items.get(`t:${id}`)?.gap} width={width} /> : null}
+            <PinnedTile tabId={id} width={width} />
+          </Fragment>
+        ))}
+        {dragging ? <PinCell gap={tail.gap} width={width} /> : null}
+      </View>
       <Animated.View ref={tail.wrapper.ref} style={{ position: "absolute", right: 0, bottom: 0, width: 0, height: 0 }} />
     </View>
   );
 });
+
+function PinCell({ gap, width }: { gap: Animated.Value | undefined; width: number }) {
+  const cell = useMemo(() => gap && Animated.multiply(gap, width + TILE_GAP), [gap, width]);
+  return cell ? <Animated.View style={{ width: cell, height: layout.pinnedHeight }} /> : null;
+}
 
 export function PinFieldZone({ top, height }: { top: number; height: number }) {
   const tokens = useSidebarTokens();

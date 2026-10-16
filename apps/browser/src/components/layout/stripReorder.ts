@@ -24,10 +24,14 @@ export function reorderOffsets({ slots: row, lefts }: DragGeometry, from: number
 
 export function makeRoom(geometry: DragGeometry, from: number, to: number) {
   const offsets = reorderOffsets(geometry, from, to);
+  shiftRoom(geometry, (i) => offsets[i] ?? 0, from);
+}
+
+export function shiftRoom(geometry: DragGeometry, offsetOf: (index: number) => number, skip = -1) {
   for (const slot of slots) {
     const i = slot.index();
-    if (slot.geometry() !== geometry || i === from || i < 0) continue;
-    const target = offsets[i] ?? 0;
+    if (slot.geometry() !== geometry || i === skip || i < 0) continue;
+    const target = offsetOf(i);
     if (slot.to === target) continue;
     slot.to = target;
     Animated.spring(slot.shift, { toValue: target, ...SLIDE }).start();
