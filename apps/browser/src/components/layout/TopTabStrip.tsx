@@ -19,6 +19,7 @@ import { ProfileSwipeArea } from "./ProfileSwipe";
 import { openNewTabInSplit } from "./splitActions";
 import { setMeasuredWidth, useMeasuredWidths } from "./measuredWidths";
 import { usePeek } from "./usePeek";
+import { lightsCenter } from "./dockMotion";
 import {
   dragGeometry,
   dragRange,
@@ -1128,7 +1129,13 @@ const PEEK_TOP = 4;
 
 export function TopStripPeek({ windowWidth, enabled }: { windowWidth: number; enabled: boolean }) {
   const theme = useTheme();
+  const windowId = useWindowId();
   const { slide, live, show, hide } = usePeek(enabled);
+  useEffect(() => {
+    if (!enabled) return;
+    void setTrafficLightsCenter(windowId, lightsCenter(layout.sidebarWidth));
+    return () => void setTrafficLightsCenter(windowId, null);
+  }, [enabled, windowId]);
   const leaveStrip = (e: { nativeEvent: { clientY: number } }) => {
     if (live && e.nativeEvent.clientY < HOVER_HEIGHT) hide();
   };
