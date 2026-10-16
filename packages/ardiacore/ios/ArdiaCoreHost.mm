@@ -109,6 +109,7 @@ bool gScratchDataDir = false;
 bool gAppKitWillFinish = false;
 bool gAppKitDidFinish = false;
 NSArray<NSURL *> *gPendingLaunchURLs;
+NSArray<NSURL *> *gLaunchLinks;
 void (^gEventHandler)(NSString *, NSDictionary *);
 void (^gChromeUIHandler)(NSString *, NSDictionary *);
 void (^gExtensionsEventHandler)(NSString *, NSDictionary *);
@@ -123,7 +124,17 @@ static void StartLaunchTab() {
   }
   NSData *data = dir ? [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"session.json"]] : nil;
   NSDictionary *session = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-  NSDictionary *hint = [session isKindOfClass:NSDictionary.class] ? session[@"launchTab"] : nil;
+  if (![session isKindOfClass:NSDictionary.class]) session = nil;
+  NSArray<NSURL *> *links = gLaunchLinks;
+  gLaunchLinks = nil;
+  NSString *linkProfile = [session[@"linkProfile"] isKindOfClass:NSString.class] ? session[@"linkProfile"] : nil;
+  if (links.count && linkProfile) {
+    NSMutableArray<NSString *> *urls = [NSMutableArray array];
+    for (NSURL *link in links)
+      if (!link.isFileURL && link.absoluteString.length) [urls addObject:link.absoluteString];
+    [ArdiaCoreWebView startLinkTabs:urls profile:linkProfile];
+  }
+  NSDictionary *hint = session[@"launchTab"];
   if (![hint isKindOfClass:NSDictionary.class]) return;
   NSString *key = hint[@"id"], *url = hint[@"url"], *profile = hint[@"profile"];
   if (![key isKindOfClass:NSString.class] || ![url isKindOfClass:NSString.class] || ![profile isKindOfClass:NSString.class]) return;
@@ -173,6 +184,7 @@ static void StartLaunchTab() {
 
 - (void)launchApp {
   NSArray<NSURL *> *launchURLs = gBootstrap.urls.copy;
+  gLaunchLinks = launchURLs.count ? launchURLs : nil;
   gAppDelegate = gMakeDelegate();
   NSApp.delegate = gAppDelegate;
   gBootstrap = nil;

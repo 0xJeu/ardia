@@ -1,4 +1,6 @@
+import { releaseLinkTabs } from "@ardia/ardiacore";
 import { focus, openWindow } from "../../lib/actions";
+import { claimLinkPage } from "../../lib/linkPages";
 import { runsJavaScript } from "../../lib/scriptUrls";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
@@ -15,12 +17,23 @@ export function openLittleArdia(url?: string, profileId?: string): string {
 const opensInLittleArdia = (url: string) => /^(https?|file):/i.test(url);
 
 export function openExternalUrls(given: string[]) {
+  try {
+    openUrlsFromApps(given);
+  } finally {
+    releaseLinkTabs();
+  }
+}
+
+function openUrlsFromApps(given: string[]) {
   const settings = store().settings;
   const urls = settings.allowJavaScriptFromAppleEvents ? given : given.filter((url) => !runsJavaScript(url, settings));
   if (!urls.length) return;
   const [url] = urls;
   const profileId = lastActiveProfile(store());
-  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) return void openLittleArdia(url, profileId);
+  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) {
+    const windowId = openLittleArdia(url, profileId);
+    return void claimLinkPage(activeTabId(store(), windowId), url);
+  }
   openLinksInMainWindow(urls, profileId);
 }
 
@@ -30,9 +43,11 @@ function openLinksInMainWindow(urls: string[], profileId: string) {
     const s = store();
     const w = target ? s.windows[target] : undefined;
     const blank = w && w.tabIds.length === 1 ? s.tabs[w.tabIds[0]!] : undefined;
-    if (!w) target = openWindow({ url, profileId });
-    else if (blank && !blank.url && !blank.navigation && blank.profileId === profileId && !s.windowUi[w.id]?.panel.open) s.navigate(blank.id, url);
-    else s.newTab(w.id, { url, profileId });
+    if (!w) {
+      target = openWindow({ url, profileId });
+      claimLinkPage(activeTabId(store(), target), url);
+    } else if (blank && !blank.url && !blank.navigation && blank.profileId === profileId && !s.windowUi[w.id]?.panel.open) s.navigate(blank.id, url);
+    else claimLinkPage(s.newTab(w.id, { url, profileId }), url);
   }
   if (target) focus(target);
 }

@@ -30,6 +30,11 @@ NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   return views;
 }
 
+NSHashTable<ArdiaCoreWebView *> *AllViews() {
+  static NSHashTable *views = [NSHashTable weakObjectsHashTable];
+  return views;
+}
+
 NSHashTable<ArdiaCoreWebView *> *PendingPainting() {
   static NSHashTable *views = [NSHashTable weakObjectsHashTable];
   return views;
@@ -468,26 +473,51 @@ static BOOL HeldSelector(SEL selector) {
   });
 }
 
-+ (void)startLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profileName {
-  if (gLaunchTab || gLaunchClaimed || !transferKey.length || !url.length || !ArdiaCoreHost.isStarted) return;
+static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName) {
+  if (!url.length || !ArdiaCoreHost.isStarted) return nil;
   NSString *scheme = [NSURLComponents componentsWithString:url].scheme.lowercaseString;
-  if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return;
+  if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return nil;
   profileName = profileName ?: @"";
-  if (ardiacore_host::IsIncognito(profileName) || ardiacore_host::IsDeletedProfile(profileName)) return;
+  if (ardiacore_host::IsIncognito(profileName) || ardiacore_host::IsDeletedProfile(profileName)) return nil;
   ArdiaCoreProfile *profile = ardiacore_host::LoadedProfile(profileName);
-  if (!profile || ardiacore_host::WasNavigationDownload(url, profileName)) return;
+  if (!profile || ardiacore_host::WasNavigationDownload(url, profileName)) return nil;
   ArdiaCoreWindowController *keeper = [ArdiaCoreWindowController strayWindowForProfile:profile];
-  if (!keeper) return;
+  if (!keeper) return nil;
   keeper.hostChanges++;
   ArdiaCoreTab *tab = [keeper.coreWindow openTab:url profile:profile foreground:NO];
   keeper.hostChanges--;
-  if (!tab) return [keeper.coreWindow close];
+  if (!tab) {
+    [keeper.coreWindow close];
+    return nil;
+  }
   [ParkingView() addSubview:tab.view];
   ArdiaCoreLaunchTabHolder *holder = [ArdiaCoreLaunchTabHolder new];
   holder.url = url;
   holder.profile = profileName;
   objc_setAssociatedObject(tab, &kLaunchHolderKey, holder, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   tab.delegate = holder;
+  return tab;
+}
+
+static NSMutableArray<ArdiaCoreTab *> *LinkTabs() {
+  static NSMutableArray *tabs = [NSMutableArray array];
+  return tabs;
+}
+static BOOL gLinkTabsDone;
+constexpr NSUInteger kMaxLinkTabs = 4;
+
+static BOOL KeyHasPage(NSString *key) {
+  if (Parked()[key]) return YES;
+  for (ArdiaCoreWebView *view in AllViews().allObjects)
+    if ([view->_transferKey isEqualToString:key] && (view->_tab || view->_creating)) return YES;
+  return NO;
+}
+
++ (void)startLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profileName {
+  if (gLaunchTab || gLaunchClaimed || !transferKey.length) return;
+  ArdiaCoreTab *tab = StartParkedPage(url, profileName);
+  if (!tab) return;
+  profileName = profileName ?: @"";
   gLaunchTab = tab;
   gLaunchKey = [transferKey copy];
   gLaunchURL = [url copy];
@@ -511,6 +541,46 @@ static BOOL HeldSelector(SEL selector) {
   };
   if (NSThread.isMainThread) claim();
   else dispatch_async(dispatch_get_main_queue(), claim);
+}
+
++ (void)startLinkTabs:(NSArray<NSString *> *)urls profile:(NSString *)profileName {
+  if (gLinkTabsDone) return;
+  for (NSString *url in urls) {
+    if (LinkTabs().count >= kMaxLinkTabs) break;
+    if (ArdiaCoreTab *tab = StartParkedPage(url, profileName)) [LinkTabs() addObject:tab];
+  }
+  if (!LinkTabs().count) return;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    [ArdiaCoreWebView releaseLinkTabs];
+  });
+}
+
++ (void)claimLinkTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profile {
+  NSString *key = [transferKey copy], *claimed = [url copy], *name = [profile copy] ?: @"";
+  void (^claim)(void) = ^{
+    if (!key.length || !claimed.length) return;
+    for (ArdiaCoreTab *tab in LinkTabs().copy) {
+      ArdiaCoreLaunchTabHolder *holder = objc_getAssociatedObject(tab, &kLaunchHolderKey);
+      if (![holder.url isEqualToString:claimed] || ![holder.profile isEqualToString:name]) continue;
+      [LinkTabs() removeObject:tab];
+      if (tab.closed || KeyHasPage(key)) return CloseTab(tab);
+      Parked()[key] = tab;
+      return;
+    }
+  };
+  if (NSThread.isMainThread) claim();
+  else dispatch_async(dispatch_get_main_queue(), claim);
+}
+
++ (void)releaseLinkTabs {
+  void (^release)(void) = ^{
+    gLinkTabsDone = YES;
+    NSArray<ArdiaCoreTab *> *left = LinkTabs().copy;
+    [LinkTabs() removeAllObjects];
+    for (ArdiaCoreTab *tab in left) CloseTab(tab);
+  };
+  if (NSThread.isMainThread) release();
+  else dispatch_async(dispatch_get_main_queue(), release);
 }
 
 + (void)initialize {
@@ -555,6 +625,7 @@ static BOOL HeldSelector(SEL selector) {
     _seenByUser = YES;
     _tabIndex = -1;
     self.wantsLayer = YES;
+    [AllViews() addObject:self];
   }
   return self;
 }
