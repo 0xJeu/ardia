@@ -5,7 +5,7 @@ import { faviconFor, PAGES } from "./pages";
 export const WINDOW_ID = "w_demo";
 export const PERSONAL: Profile = { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 };
 export const WORK: Profile = { id: "p_work", name: "Work", color: "blue", icon: null, createdAt: 0 };
-export const ACTIVE_TABS = { [PERSONAL.id]: "t_browser", [WORK.id]: "t_cern" };
+export const ACTIVE_TABS = { [PERSONAL.id]: "t_browser", [WORK.id]: "t_vite" };
 
 type Page = { url: string; title: string };
 type FaviconOf = (url: string) => string | null;
@@ -47,7 +47,7 @@ export function seedTabs(favicon: FaviconOf = faviconFor, now = Date.now()): Tab
     make("t_rust", PERSONAL.id, PAGES.rust, false, 55),
     make("t_caniuse", PERSONAL.id, PAGES.caniuse, false, 70),
     make("t_pin_whatwg", WORK.id, PAGES.whatwg, true, 400),
-    make("t_cern", WORK.id, PAGES.firstWebsite, false, 30),
+    make("t_vite", WORK.id, PAGES.vite, false, 30),
     make("t_gutenberg", WORK.id, PAGES.gutenberg, false, 45),
   ];
 }
@@ -74,7 +74,7 @@ export const HISTORY_PAGES: Page[] = [
   { url: "https://developer.mozilla.org/en-US/docs/Web/CSS/backdrop-filter", title: "backdrop-filter - CSS | MDN" },
   { url: "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe", title: "<iframe>: The Inline Frame element - HTML | MDN" },
   { url: "https://xkcd.com/927/", title: "xkcd: Standards" },
-  { url: "https://vite.dev/guide/", title: "Getting Started | Vite" },
+  { url: "https://vite.dev/config/", title: "Configuring Vite | Vite" },
   { url: "https://caniuse.com/css-backdrop-filter", title: "CSS Backdrop Filter | Can I use..." },
 ];
 

@@ -11,7 +11,7 @@ export const PAGES = {
   github: { url: "https://github.com/", title: "GitHub" },
   caniuse: { url: "https://caniuse.com/", title: "Can I use… Support tables for HTML5, CSS3, etc" },
   whatwg: { url: "https://html.spec.whatwg.org/", title: "HTML Standard" },
-  firstWebsite: { url: "https://info.cern.ch/", title: "http://info.cern.ch" },
+  vite: { url: "https://vite.dev/guide/", title: "Getting Started | Vite" },
   gutenberg: { url: "https://www.gutenberg.org/", title: "Project Gutenberg" },
 } as const;
 
@@ -29,7 +29,7 @@ const REMOTE_FAVICONS: Record<string, string> = {
   "caniuse.com": "https://caniuse.com/img/favicon-128.png",
   "html.spec.whatwg.org": "https://resources.whatwg.org/logo.svg",
   "www.gutenberg.org": "https://www.gutenberg.org/gutenberg/favicon.ico",
-  "info.cern.ch": "https://info.cern.ch/favicon.ico",
+  "vite.dev": "https://vite.dev/logo-without-border.svg",
 };
 
 const LOCAL_FILES: Record<string, string> = { "html.spec.whatwg.org": "html.spec.whatwg.org.svg" };
@@ -67,6 +67,6 @@ export const PAGE_THEMES: Record<string, { light: PageTheme; dark: PageTheme }> 
   "https://rust-lang.org/": { light: { color: "#FFFFFF", source: "meta" }, dark: { color: "#FFFFFF", source: "meta" } },
   "https://caniuse.com/": { light: { color: "#3D3527", source: "background" }, dark: { color: "#17140E", source: "background" } },
   "https://html.spec.whatwg.org/": { light: { color: "#3C790A", source: "meta" }, dark: { color: "#3C790A", source: "meta" } },
-  "https://info.cern.ch/": { light: { color: "#FFFFFF", source: "background" }, dark: { color: "#FFFFFF", source: "background" } },
+  "https://vite.dev/guide/": { light: { color: "#646CFF", source: "meta" }, dark: { color: "#646CFF", source: "meta" } },
   "https://www.gutenberg.org/": { light: { color: "#7EBED0", source: "header" }, dark: { color: "#7EBED0", source: "header" } },
 };
