@@ -13,9 +13,12 @@ type RawRow = {
   unit: string;
   lowerIsBetter: boolean;
   group?: string;
-  browsers: RawBrowser[];
+  browsers: RawBrowser[] | Record<string, RawBrowser>;
 };
-type RawBench = { date: string; machine: string; method?: string; rows: RawRow[] };
+type RawMachine = { model?: string; chip?: string; cores?: number | string; ram?: string | number; macOS?: string };
+type RawBench = { date: string; machine: string | RawMachine; method?: string; rows: RawRow[] };
+
+const SHOWN = /^(ardia|dia)\b/i;
 
 export type Figure = { value: number; decimals: number; from: number; suffix: string };
 export type Bar = {
@@ -123,7 +126,7 @@ function callFor(row: RawRow, entries: RawBrowser[], kind: Kind): Call {
 }
 
 function shapeRow(row: RawRow): Omit<Row, "sub"> | null {
-  const entries = row.browsers.filter((b) => typeof b.median === "number" && Number.isFinite(b.median) && b.median >= 0);
+  const entries = (row.browsers as RawBrowser[]).filter((b) => typeof b.median === "number" && Number.isFinite(b.median) && b.median >= 0);
   if (entries.length < 2 || !entries.some((b) => isArdia(b.name))) return null;
   const kind = kindOf(row);
   const sorted = [...entries].sort((x, y) =>
@@ -191,7 +194,7 @@ function groupRows(rows: RawRow[]): Group[] {
 function versionsOf(rows: RawRow[]): string {
   const seen = new Map<string, string>();
   for (const row of rows)
-    for (const b of row.browsers) {
+    for (const b of row.browsers as RawBrowser[]) {
       if (seen.has(b.name)) continue;
       const engine = b.chromium && !/chrome/i.test(b.name) ? ` (Chromium ${b.chromium})` : "";
       seen.set(b.name, `${b.name} ${b.version ?? ""}`.trim() + engine);
@@ -206,8 +209,21 @@ function formatDate(date: string) {
     : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-function build(raw: RawBench | undefined, isSample: boolean): Bench | null {
-  if (!raw?.rows?.length) return null;
+function machineOf(machine: string | RawMachine): string {
+  if (typeof machine === "string") return machine;
+  const ram = typeof machine.ram === "number" ? `${machine.ram} GB` : machine.ram;
+  return [machine.model, machine.chip, ram, machine.macOS && `macOS ${machine.macOS}`].filter(Boolean).join(", ");
+}
+
+const shownRows = (rows: RawRow[]): RawRow[] =>
+  rows.map((row) => ({
+    ...row,
+    browsers: (Array.isArray(row.browsers) ? row.browsers : Object.values(row.browsers)).filter((b) => SHOWN.test(b.name.trim())),
+  }));
+
+function build(source: RawBench | undefined, isSample: boolean): Bench | null {
+  if (!source?.rows?.length) return null;
+  const raw = { ...source, machine: machineOf(source.machine), rows: shownRows(source.rows) };
   const groups = groupRows(raw.rows);
   if (!groups.length) return null;
   return {
@@ -216,7 +232,7 @@ function build(raw: RawBench | undefined, isSample: boolean): Bench | null {
     date: formatDate(raw.date),
     machine: raw.machine,
     versions: versionsOf(raw.rows),
-    rivals: [...new Set(raw.rows.flatMap((r) => r.browsers.map((b) => b.name)))].filter((n) => !isArdia(n)),
+    rivals: [...new Set(raw.rows.flatMap((r) => (r.browsers as RawBrowser[]).map((b) => b.name)))].filter((n) => !isArdia(n)),
   };
 }
 
