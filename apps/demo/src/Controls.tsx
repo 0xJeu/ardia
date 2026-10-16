@@ -1,6 +1,7 @@
 import type { BrowserCommand } from "@ardia-real/shell";
 import { emitCommand } from "@ardia/shell";
 import { useShallow } from "zustand/react/shallow";
+import { noteScroll } from "../../browser/src/components/layout/toolbarAutoHide";
 import { useBrowser, type BrowserState } from "../../browser/src/store/browser";
 import { splitOf } from "../../browser/src/store/splits";
 import { isFrameable } from "./frameable";
@@ -45,8 +46,16 @@ function setTabs(mode: TabsMode) {
   if (mode !== "top" && w.sidebarOpen !== (mode === "sidebar")) s.toggleSidebar(w.id);
 }
 
+function shownTabs(s: BrowserState) {
+  const active = activeTab(s);
+  if (!active) return [];
+  return splitOf(s, active)?.tabIds ?? [active];
+}
+
 function setAddress(mode: AddressMode) {
-  useBrowser.getState().updateSettings({ addressBar: mode === "sidebar" ? "sidebar" : "toolbar", hideToolbarWhileScrolling: mode === "autoHide" });
+  const s = useBrowser.getState();
+  s.updateSettings({ addressBar: mode === "sidebar" ? "sidebar" : "toolbar", hideToolbarWhileScrolling: mode === "autoHide" });
+  if (mode === "autoHide") for (const id of shownTabs(s)) noteScroll(id, { state: "down" });
 }
 
 type Option<T extends string> = { value: T; label: string; hint?: string; disabled?: boolean };
@@ -65,7 +74,7 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
           disabled={o.disabled}
           title={o.hint ? `${label}: ${o.label} (${o.hint})` : `${label}: ${o.label}`}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => value !== o.value && onChange(o.value)}
+          onClick={() => onChange(o.value)}
         >
           {o.label}
         </button>

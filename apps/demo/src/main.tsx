@@ -10,7 +10,6 @@ import { Controls } from "./Controls";
 import { isFrameable } from "./frameable";
 import { pageTitle } from "./pages";
 import { installLocalSuggestions } from "./localSuggest";
-import { startScrolledPages } from "./scrolledPages";
 import { demoSession } from "./seed";
 import { warmFrame } from "./shims/web/framePool";
 import { MenuHost } from "./shims/web/menus";
@@ -20,10 +19,8 @@ import { TrafficLights } from "./shims/web/windowChrome";
 installLocalSuggestions();
 setStoreBatching(unstable_batchedUpdates);
 useBrowser.getState().hydrate(demoSession());
-useBrowser.setState((s) => ({ settings: { ...s.settings, hideToolbarWhileScrolling: false } }));
 startTabPages();
 startNativeSync();
-startScrolledPages();
 
 const bare = new URLSearchParams(location.search).has("bare");
 
