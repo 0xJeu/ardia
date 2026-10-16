@@ -19,6 +19,7 @@ import {
 } from "./actions";
 import { isCalendarUrl } from "../../live/meetings";
 import { bookmarkTab } from "../bookmarks/actions";
+import { showToast } from "../layout/splitActions";
 import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../../sync/menu";
@@ -275,9 +276,12 @@ export async function openSidebarMenu(windowId: string) {
 }
 
 export function closeAllTabs(windowId: string) {
-  const s = store();
-  const pinnedGroup = new Set(Object.values(s.groups).filter((g) => g.pinned).flatMap((g) => g.tabIds));
-  s.closeTabs(viewTabIds(s, windowId).filter((id) => !s.tabs[id]!.pinned && !pinnedGroup.has(id)));
+  const cleared = store().clearUnpinnedTabs(windowId);
+  if (!cleared?.entries.length) return;
+  showToast(windowId, `Cleared ${plural(cleared.entries.length, "Tab")}`, undefined, {
+    icon: "arrow.down",
+    action: { title: "Undo", run: () => store().undoClearTabs(cleared) },
+  });
 }
 
 export async function openOverflowMenu(windowId: string) {

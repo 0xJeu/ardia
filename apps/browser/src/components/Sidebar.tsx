@@ -17,6 +17,7 @@ import { PROFILE_INDICATOR_X, ProfileIndicator } from "./ProfileIndicator";
 import { usePageStyle, usePagerPages } from "./layout/profilePager";
 import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "./profiles/ProfileDots";
 import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
+import { ClearDivider } from "./sidebar/ClearDivider";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragItem, type Ghost } from "./sidebar/dnd";
 import { useClipped, useShift, type ClipSource, type EntryMotion } from "./sidebar/entryMotion";
@@ -297,6 +298,7 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   const limit = cap ?? (growing ? mountedRows : undefined);
   const list = limit === undefined ? all : all.slice(0, limit);
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
+  const divided = !offScreen && all.length > 0;
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
   const animated = current && !offScreen;
   const motion = useListMotion(windowId, profileId, all, captured, animated);
@@ -329,12 +331,13 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
           <Tail id="tail:pinnedGroups" section="pinnedGroups" />
         </View>
         {offScreen ? null : <LiveFolders windowId={windowId} spaced={pinnedGroups.length > 0} />}
+        {divided ? <ClearDivider windowId={windowId} spaced={pinnedGroups.length > 0} /> : null}
         <View
           ref={(v) => {
             controller?.regions.set("list", v);
           }}
           onLayout={geometry ? (e) => void (geometry.current.regions.list = e.nativeEvent.layout.y) : undefined}
-          style={{ marginTop: pinnedGroups.length ? 7 : 0, gap: layout.rowGap }}
+          style={{ marginTop: pinnedGroups.length && !divided ? 7 : 0, gap: layout.rowGap }}
         >
           {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
           {motion.fading

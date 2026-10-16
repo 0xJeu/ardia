@@ -39,8 +39,16 @@ export type OrganizeSlice = {
 
   cleanUpTabs(windowId: string, options?: { inactiveForMs?: number }): number;
   restoreCleaned(entryId?: string, windowId?: string): void;
+  clearUnpinnedTabs(windowId: string): ClearedTabs | null;
+  undoClearTabs(cleared: ClearedTabs): void;
   closeAbandonedNewTabs(): void;
 };
+
+export type ClearedTabs = { windowId: string; entries: ClosedTab[]; shownTabId: string | null; blankTabId: string | null };
+
+export function unpinnedTabIds(s: BrowserState, windowId: string): string[] {
+  return viewTabIds(s, windowId).filter((id) => !inPinnedContainer(s, id));
+}
 
 const CLEAN_UP_AFTER_MS = 12 * 60 * 60 * 1000;
 const MAX_CLEANED = 100;
@@ -260,6 +268,29 @@ function restoreSnapshots(
     ids.push(id);
   }
   return [s, ids];
+}
+
+function regroupRestored(s: BrowserState, windowId: string, entries: ClosedTab[], ids: string[]): BrowserState {
+  const byGroup = new Map<string, { info: NonNullable<ClosedTab["group"]>; members: string[] }>();
+  entries.forEach((e, i) => {
+    const id = ids[i];
+    if (!e.group || !id) return;
+    const g = byGroup.get(e.group.id) ?? { info: e.group, members: [] };
+    g.members.push(id);
+    byGroup.set(e.group.id, g);
+  });
+  for (const { info, members } of byGroup.values()) {
+    const w = s.windows[windowId]!;
+    const profileId = s.tabs[members[0]!]!.profileId;
+    const existing = s.groups[info.id];
+    const group: TabGroup =
+      existing && existing.windowId === windowId && existing.profileId === profileId
+        ? { ...existing, tabIds: [...existing.tabIds, ...members] }
+        : { ...info, id: existing ? newId("g") : info.id, windowId, profileId, collapsed: false, pinned: false, tabIds: members, createdAt: Date.now() };
+    const window = { ...w, tabIds: placeBlock(w.tabIds, w.tabIds.filter((id) => group.tabIds.includes(id))) };
+    s = { ...s, windows: { ...s.windows, [windowId]: window }, groups: syncGroupOrder({ ...s.groups, [group.id]: group }, window) };
+  }
+  return s;
 }
 
 function restoreTarget(s: BrowserState, original: string, requested?: string | null): string | undefined {
@@ -593,6 +624,42 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       }
       if (id && entryId) next = apply(next, activated(next, id));
     }
+    set(next);
+  },
+
+  clearUnpinnedTabs(windowId) {
+    const s = get();
+    const ids = unpinnedTabIds(s, windowId);
+    if (!ids.length) return null;
+    const shown = activeTabId(s, windowId);
+    const entries = closedEntries(s, ids);
+    get().closeTabs(ids);
+    const blankTabId = viewTabIds(get(), windowId).find((id) => !s.tabs[id]) ?? null;
+    return { windowId, entries, shownTabId: shown && ids.includes(shown) ? shown : null, blankTabId };
+  },
+
+  undoClearTabs({ windowId, entries, shownTabId, blankTabId }) {
+    const s = get();
+    const target = s.windows[windowId] ? windowId : restoreTarget(s, windowId);
+    const back = target ? entries.filter((e) => !isIncognitoProfile(e.tab.profileId) || e.windowId === target) : [];
+    if (!target || !back.length) return;
+    const cleared = new Set(back.map((e) => e.tabId));
+    let next: BrowserState = { ...s, closedTabs: s.closedTabs.filter((c) => !c.tabId || !cleared.has(c.tabId)) };
+    const blank = blankTabId ? next.tabs[blankTabId] : undefined;
+    const dropBlank = !!blank && blank.windowId === target && !blank.url && !blank.navigation;
+    if (dropBlank) {
+      const w = next.windows[target]!;
+      next = { ...next, windows: { ...next.windows, [target]: { ...w, tabIds: w.tabIds.filter((id) => id !== blankTabId) } } };
+    }
+    const [restored, ids] = restoreSnapshots(
+      next,
+      target,
+      back.map((e) => ({ tab: e.tab, tabId: e.restoreFrom ?? e.tabId, index: target === e.windowId ? e.index : undefined })),
+    );
+    next = regroupRestored(restored, target, back, ids);
+    const shown = ids[back.findIndex((e) => e.tabId === shownTabId)] ?? (dropBlank && activeTabId(next, target) === blankTabId ? ids[0] : undefined);
+    if (shown) next = apply(next, activated(next, shown));
+    if (dropBlank) next = removeTabs(next, [blankTabId!], false);
     set(next);
   },
 

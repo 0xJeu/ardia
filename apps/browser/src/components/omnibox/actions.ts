@@ -25,7 +25,7 @@ const DEFS: ActionDef[] = [
   { command: "newWindow", title: "New Window", icon: "macwindow", hint: "⌘N" },
   { command: "newIncognitoWindow", title: "New Incognito Window", icon: "eyeglasses", hint: "⇧⌘N", keywords: ["private window", "incognito"] },
   { command: "closeTab", title: "Close Tab", icon: "xmark", hint: "⌘W", needs: "tab" },
-  { command: "closeAllTabs", title: "Close All Tabs", icon: "xmark.square", hint: "⇧⌘K" },
+  { command: "closeAllTabs", title: "Close All Tabs", icon: "xmark.square", hint: "⇧⌘K", keywords: ["clear unpinned tabs", "close unpinned tabs", "clear today"] },
   { command: "reopenClosedTab", title: "Reopen Closed Tab", icon: "arrow.uturn.backward", hint: "⇧⌘T", keywords: ["undo close", "restore tab"] },
   {
     command: "togglePin",

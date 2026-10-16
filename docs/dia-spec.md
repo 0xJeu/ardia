@@ -242,6 +242,20 @@ screen capture (frames 8–33 ms apart, most 17), so timings are ±1 frame. Edge
 - Ours (`dockMotion.ts`: `ARC_PEEK_SPRING`, `ARC_PEEK_OUT_MS`, `ARC_HIDE_MS`; `dockMotion.test.mjs` holds the traced
   points), behind `sidebarSlide`.
 
+#### Arc note: Clear above the unpinned tabs (Arc's bundle and a user's screenshot, 2026-10-16)
+
+Arc, not Dia. From Arc's binary: the divider is `UnpinnedSectionDividerCellView` (a border view, a down-arrow image,
+"arrow pointing down", and `SidebarClearButton`: an image and a label in a stack view, handling only mouseDown/mouseUp);
+its state is `clearTabAction` (`clearAll`, `clearOthers` = "Clear unselected Today tabs", `tidyAndClear`),
+`shouldShowAutoOrgButton` and `buttons` (`clear`, `moveToMainWindow`, `custom`), with no hover state, so the button
+shows with the section, not on hover. Button title "Clear", tooltip "Clear unpinned tabs in this space". The menu item is
+"Clear Unpinned Tabs" (`clearUnpinnedTabs:`, ⇧⌘K, SF Symbol `bubbles.and.sparkles`, search terms "Close Unpinned Tabs;
+Clear Tabs; Clear Today"); a toast confirms the clear and offers Undo. Measured on the screenshot (scale from the 36 pt row
+pitch, about 6.3 px/pt): the line is 1 pt at about white 0.08 and starts at the favicons' left edge; it ends 7.5 pt before
+the arrow; the arrow is 7 pt wide and 8 pt tall, 3 pt from the text; "Clear" is semibold with a cap height 0.75 of the
+tab titles' (10 pt beside our 13 pt titles) and ends where the titles do; the line's centre is 25 pt above the first
+row's centre. Ours: `components/sidebar/ClearDivider.tsx`, a 16 pt row with Dia's `divider` colour and secondary text.
+
 ## New Tab page
 
 - The card is translucent (no black fill). A glass orb (Dia's logo, 68.5pt; see below) sits above the bar.
