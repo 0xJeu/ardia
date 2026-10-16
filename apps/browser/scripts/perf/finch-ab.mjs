@@ -52,7 +52,8 @@ const port = Number(opt.port);
 const PERF = /Memory|Purge|PartitionAlloc|Quarantine|V8|Heap|GC|Throttl|Freez|Background|Priority|Wake|Timer|Idle|Discard|Raster|Tile|Compositor|Frame|Paint|Renderer|Process|Spare|Warm|Scheduler|Pump|Mojo|Vouchers|Thread|Cache/;
 
 function switchValue(cmd, name) {
-  return cmd.match(new RegExp(`--${name}=(\\S+)`))?.[1] ?? "";
+  const m = cmd.match(new RegExp(`--${name}=(?:"([^"]*)"|(\\S+))`));
+  return m?.[1] ?? m?.[2] ?? "";
 }
 
 function ardiaFeatures() {
