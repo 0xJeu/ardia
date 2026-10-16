@@ -116,6 +116,24 @@ void (^gExtensionsEventHandler)(NSString *, NSDictionary *);
 NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDictionary dictionary];
 }
 
+static bool LaunchTabSwitchedOff(NSString *dir) {
+  if (const char *env = getenv("ARDIA_SWITCHES")) {
+    for (NSString *part in [@(env) componentsSeparatedByString:@","]) {
+      NSArray<NSString *> *pair = [part componentsSeparatedByString:@"="];
+      if (pair.count != 2) continue;
+      NSString *name = [pair[0] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+      NSString *value = [pair[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+      if (![name isEqualToString:@"launchTab"]) continue;
+      if ([@[ @"off", @"0", @"false" ] containsObject:value]) return true;
+      if ([@[ @"on", @"1", @"true" ] containsObject:value]) return false;
+    }
+  }
+  NSData *data = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"switches-cache.json"]];
+  NSDictionary *cache = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+  NSDictionary *switches = [cache isKindOfClass:NSDictionary.class] && [cache[@"switches"] isKindOfClass:NSDictionary.class] ? cache[@"switches"] : nil;
+  return [switches[@"launchTab"] isEqual:@NO];
+}
+
 static void StartLaunchTab() {
   NSString *dir = gScratchDataDir ? [gDataDirectory stringByDeletingLastPathComponent] : nil;
   if (!dir) {
@@ -128,7 +146,7 @@ static void StartLaunchTab() {
   NSArray<NSURL *> *links = gLaunchLinks;
   gLaunchLinks = nil;
   NSString *linkProfile = [session[@"linkProfile"] isKindOfClass:NSString.class] ? session[@"linkProfile"] : nil;
-  if (links.count && linkProfile) {
+  if (links.count && linkProfile && !LaunchTabSwitchedOff(dir)) {
     NSMutableArray<NSString *> *urls = [NSMutableArray array];
     for (NSURL *link in links)
       if (!link.isFileURL && link.absoluteString.length) [urls addObject:link.absoluteString];

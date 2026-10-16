@@ -139,3 +139,12 @@ test("switched off (launchTab): no hint is saved, so the engine starts nothing",
   S().navigated("a", { url: "https://a.com/on", title: "" }, { isLoading: false, canGoBack: true, canGoForward: false });
   assert.equal(savedHint().url, "https://a.com/on");
 });
+
+test("session.json names the profile the next launch opens links from other apps in", () => {
+  hydrate([win("w1", ["a"], "a")], [tab("a", "w1", "https://a.com/")], { focusedWindowId: "w1", lastProfileId: "work" });
+  flushPersistence();
+  assert.equal(JSON.parse(stub.docs.get("session.json")).linkProfile, "work");
+  hydrate([win("w1", ["a"], "a")], [tab("a", "w1", "https://a.com/")], { focusedWindowId: "w1" });
+  flushPersistence();
+  assert.equal(JSON.parse(stub.docs.get("session.json")).linkProfile, "");
+});
