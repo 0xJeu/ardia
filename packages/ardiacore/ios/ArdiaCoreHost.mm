@@ -171,6 +171,21 @@ static void LinksArrived(NSArray<NSURL *> *urls) {
   ParkLaunchLinks(urls, dir, SavedSession(dir));
 }
 
+static void ReportLoweredWindowOcclusion() {
+  void (^report)(NSWindow *) = ^(NSWindow *window) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+      [NSNotificationCenter.defaultCenter postNotificationName:NSWindowDidChangeOcclusionStateNotification object:window];
+    });
+  };
+  NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+  for (NSNotificationName name in @[ NSWindowDidMiniaturizeNotification, NSWindowDidDeminiaturizeNotification ])
+    [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification *note) { report(note.object); }];
+  for (NSNotificationName name in @[ NSApplicationDidHideNotification, NSApplicationDidUnhideNotification ])
+    [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification *) {
+      for (NSWindow *window in NSApp.windows) report(window);
+    }];
+}
+
 static void StartLaunchTab() {
   gJSStarted = true;
   NSString *dir = AppDataDirectory();
@@ -441,6 +456,7 @@ static void StartLaunchTab() {
     if (Method occluded = class_getInstanceMethod(NSWindow.class, NSSelectorFromString(@"isOccluded")))
       method_setImplementation(occluded, imp_implementationWithBlock(^BOOL(id) { return NO; }));
   }
+  if (getenv("ARDIA_BACKGROUND") && getenv("ARDIA_ALLOW_OCCLUSION")) ReportLoweredWindowOcclusion();
   if (getenv("ARDIA_BACKGROUND") && !getenv("ARDIA_ALLOW_AUDIO")) extra.push_back("--mute-audio");
   if (getenv("ARDIA_BACKGROUND")) extra.push_back("--use-fake-device-for-media-stream");
   if (getenv("ARDIA_BACKGROUND")) extra.push_back("--disable-modal-animations");
