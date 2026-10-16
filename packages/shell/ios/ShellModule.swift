@@ -144,6 +144,7 @@ public class ShellModule: Module {
           self?.sendEvent("onCommand", ["command": command, "arg": arg as Any, "windowId": windowId as Any])
         }
         WindowManager.shared.emit = { name, body in self?.sendEvent(name, body) }
+        LeftEdgeWatcher.shared.emit = { name, body in self?.sendEvent(name, body) }
         WindowManager.shared.runtime = self.map(ObjectIdentifier.init)
         NSApp.mainMenu = MainMenu.build()
         self?.appearanceObservation = NSApp.observe(\.effectiveAppearance) { _, _ in
@@ -166,7 +167,10 @@ public class ShellModule: Module {
       if let monitor = self.switcherMonitor { NSEvent.removeMonitor(monitor) }
       self.switcherMonitor = nil
       let gone = ObjectIdentifier(self)
-      DispatchQueue.main.async { WindowManager.shared.runtimeGone(gone) }
+      DispatchQueue.main.async {
+        WindowManager.shared.runtimeGone(gone)
+        if WindowManager.shared.runtime == nil { LeftEdgeWatcher.shared.reset() }
+      }
     }
 
     OnStartObserving("onAppEvent") {
@@ -203,6 +207,9 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
     AsyncFunction("setTrafficLightsCenter") { (id: String, center: [Double]?) in
       WindowManager.shared.setTrafficLightsCenter(id: id, center: center.flatMap { $0.count == 2 ? NSPoint(x: $0[0], y: $0[1]) : nil })
+    }.runOnQueue(.main)
+    AsyncFunction("watchLeftEdge") { (id: String, on: Bool, hold: Double) in
+      LeftEdgeWatcher.shared.watch(id: id, on: on, hold: CGFloat(hold))
     }.runOnQueue(.main)
     AsyncFunction("focusWindow") { (id: String) in WindowManager.shared.focus(id: id) }.runOnQueue(.main)
     AsyncFunction("dragPreviewBegin") { (windowId: String, chip: [Double], grab: [Double]) in

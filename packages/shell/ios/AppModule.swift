@@ -255,6 +255,22 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
+    AsyncFunction("devLeftEdgePointer") { (windowId: String, x: Double, y: Double, on: Bool) -> Bool in
+      #if DEBUG
+      guard on else {
+        LeftEdgeWatcher.shared.pointerOverride = nil
+        LeftEdgeWatcher.shared.checkPointer()
+        return true
+      }
+      guard let window = WindowManager.shared.windows[windowId] else { return false }
+      LeftEdgeWatcher.shared.pointerOverride = NSPoint(x: window.frame.minX + x, y: window.frame.maxY - y)
+      LeftEdgeWatcher.shared.checkPointer()
+      return true
+      #else
+      return false
+      #endif
+    }.runOnQueue(.main)
+
     AsyncFunction("devHoverStats") { (reset: Bool) -> [String: Any] in
       #if DEBUG
       let select = NSSelectorFromString("ardia_hoverStats:")
