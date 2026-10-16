@@ -176,10 +176,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 80.8,
-          "min": 80.8,
-          "max": 80.8,
-          "n": 1
+          "median": 75.7,
+          "min": 70.3,
+          "max": 81.1,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -221,10 +221,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 11.5,
-          "min": 11.5,
-          "max": 11.5,
-          "n": 1
+          "median": 9.25,
+          "min": 8,
+          "max": 10.5,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -266,10 +266,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 104,
-          "min": 104,
-          "max": 104,
-          "n": 1
+          "median": 120,
+          "min": 82.2,
+          "max": 158,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -311,10 +311,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 274,
-          "min": 274,
-          "max": 274,
-          "n": 1
+          "median": 286,
+          "min": 281,
+          "max": 291,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -356,10 +356,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 740,
-          "min": 740,
-          "max": 740,
-          "n": 1
+          "median": 759,
+          "min": 756,
+          "max": 762,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -401,10 +401,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 1160,
-          "min": 1160,
-          "max": 1160,
-          "n": 1
+          "median": 1168,
+          "min": 1165,
+          "max": 1170,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -446,10 +446,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 350,
-          "min": 350,
-          "max": 350,
-          "n": 1
+          "median": 361,
+          "min": 357,
+          "max": 365,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -491,10 +491,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 0.16,
-          "min": 0.16,
-          "max": 0.16,
-          "n": 1
+          "median": 0.14,
+          "min": 0.11,
+          "max": 0.17,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -536,10 +536,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 1.46,
-          "min": 1.46,
-          "max": 1.46,
-          "n": 1
+          "median": 0.62,
+          "min": 0.62,
+          "max": 0.63,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -569,7 +569,7 @@
           "n": 5
         }
       },
-      "best": "chrome"
+      "best": "ardia"
     },
     {
       "id": "idle-wakeups-1",
@@ -581,10 +581,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 7.84,
-          "min": 7.84,
-          "max": 7.84,
-          "n": 1
+          "median": 6.49,
+          "min": 6.34,
+          "max": 6.64,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -614,7 +614,7 @@
           "n": 5
         }
       },
-      "best": "helium"
+      "best": "ardia"
     },
     {
       "id": "idle-wakeups-20",
@@ -626,10 +626,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 32.49,
-          "min": 32.49,
-          "max": 32.49,
-          "n": 1
+          "median": 30.02,
+          "min": 28.88,
+          "max": 31.16,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -659,7 +659,7 @@
           "n": 5
         }
       },
-      "best": "chrome"
+      "best": "ardia"
     },
     {
       "id": "idle-cpu-1-steady",
@@ -671,10 +671,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 0.12,
-          "min": 0.12,
-          "max": 0.12,
-          "n": 1
+          "median": 0.1,
+          "min": 0.09,
+          "max": 0.1,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -716,10 +716,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 0.53,
-          "min": 0.53,
-          "max": 0.53,
-          "n": 1
+          "median": 0.4,
+          "min": 0.39,
+          "max": 0.41,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -761,10 +761,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 7,
-          "min": 7,
-          "max": 7,
-          "n": 1
+          "median": 5.82,
+          "min": 5.77,
+          "max": 5.87,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
@@ -806,10 +806,10 @@
           "name": "Ardia",
           "version": "dev build",
           "chromium": "154.0.8037.97",
-          "median": 28.15,
-          "min": 28.15,
-          "max": 28.15,
-          "n": 1
+          "median": 24.98,
+          "min": 24.05,
+          "max": 25.91,
+          "n": 2
         },
         "dia": {
           "name": "Dia",
