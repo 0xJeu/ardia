@@ -1,6 +1,7 @@
 import { dropTabReveals, revealOffered, revealTab } from "@ardia/ardiacore";
 import { useMedia } from "../components/media/state";
 import { pageOf } from "../components/layout/pageState";
+import { useToolbarAutoHide } from "../components/layout/toolbarAutoHide";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTabId } from "../store/model";
 import { splitOf } from "../store/splits";
@@ -28,7 +29,8 @@ function revealFor(s: BrowserState, prev: BrowserState, windowId: string, next: 
   const had = prev.tabs[next];
   if (!hasPage(tab) || tab.windowId !== windowId) return null;
   if (hasPage(had)) return had.windowId === windowId && was.tabIds.includes(next) ? { tabId: next, over: before } : null;
-  if (!had && tab.adoptId && OFFERED.test(tab.adoptId) && hasPage(prev.tabs[before])) return { tabId: next, offered: tab.adoptId, over: before };
+  if (!had && tab.adoptId && OFFERED.test(tab.adoptId) && hasPage(prev.tabs[before]) && !useToolbarAutoHide.getState().scrolledDown[before])
+    return { tabId: next, offered: tab.adoptId, over: before };
   return null;
 }
 

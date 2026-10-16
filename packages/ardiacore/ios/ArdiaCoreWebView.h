@@ -35,7 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)dropTabReveals:(NSString *)transferKey;
 + (void)revealOffered:(NSString *)adoptId over:(NSString *)transferKey;
 + (void)startLinkTabs:(NSArray<NSString *> *)urls profile:(NSString *)profile;
-+ (void)releaseLinkTabs;
++ (NSDictionary<NSString *, id> *)routeLinkTabs:(NSArray<NSString *> *)urls;
 + (void)setSearchEngineName:(NSString *)name;
 + (void)installScrollZoom;
 + (NSArray<NSNumber *> *)devScrollZoom:(NSArray<NSDictionary<NSString *, id> *> *)steps

@@ -118,15 +118,17 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 
 static bool LaunchTabSwitchedOff(NSString *dir) {
   if (const char *env = getenv("ARDIA_SWITCHES")) {
+    NSNumber *said = nil;
     for (NSString *part in [@(env) componentsSeparatedByString:@","]) {
       NSArray<NSString *> *pair = [part componentsSeparatedByString:@"="];
       if (pair.count != 2) continue;
       NSString *name = [pair[0] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
       NSString *value = [pair[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
       if (![name isEqualToString:@"launchTab"]) continue;
-      if ([@[ @"off", @"0", @"false" ] containsObject:value]) return true;
-      if ([@[ @"on", @"1", @"true" ] containsObject:value]) return false;
+      if ([@[ @"off", @"0", @"false" ] containsObject:value]) said = @NO;
+      else if ([@[ @"on", @"1", @"true" ] containsObject:value]) said = @YES;
     }
+    if (said) return !said.boolValue;
   }
   NSData *data = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"switches-cache.json"]];
   NSDictionary *cache = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;

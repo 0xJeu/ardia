@@ -46,7 +46,7 @@ public class CefModule: Module {
     Function("revealTab") { (key: String) in ArdiaCoreWebView.revealTab(key) }
     Function("dropTabReveals") { (key: String) in ArdiaCoreWebView.dropTabReveals(key) }
     Function("revealOffered") { (adoptId: String, key: String) in ArdiaCoreWebView.revealOffered(adoptId, over: key) }
-    Function("releaseLinkTabs") { ArdiaCoreWebView.releaseLinkTabs() }
+    AsyncFunction("routeLinkTabs") { (urls: [String]) -> [String: Any] in ArdiaCoreWebView.routeLinkTabs(urls) }.runOnQueue(.main)
     AsyncFunction("tabStripCommand") { (id: Int, command: [String: Any]) in ArdiaCoreTabStrip.command(id, command: command) }
       .runOnQueue(.main)
     AsyncFunction("tabStrips") { ArdiaCoreTabStrip.allStrips }.runOnQueue(.main)

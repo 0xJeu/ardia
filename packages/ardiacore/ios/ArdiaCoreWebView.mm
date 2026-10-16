@@ -507,31 +507,24 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName) {
   return tab;
 }
 
-static NSMutableArray<ArdiaCoreTab *> *LinkTabs() {
-  static NSMutableArray *tabs = [NSMutableArray array];
+static NSMutableDictionary<NSNumber *, ArdiaCoreTab *> *LinkTabs() {
+  static NSMutableDictionary *tabs = [NSMutableDictionary dictionary];
   return tabs;
 }
-static BOOL gLinkTabsRouted;
-static NSUInteger gLinkTabsGeneration;
-constexpr NSUInteger kMaxLinkTabs = 4;
-constexpr int64_t kLinkTabsGraceSeconds = 30;
-constexpr int64_t kLinkTabsBackstopSeconds = 180;
-
-static void CloseLinkTabs(NSUInteger generation) {
-  if (generation != gLinkTabsGeneration) return;
-  NSArray<ArdiaCoreTab *> *left = LinkTabs().copy;
-  [LinkTabs() removeAllObjects];
-  for (ArdiaCoreTab *tab in left) CloseTab(tab);
+static NSMutableDictionary<NSNumber *, NSString *> *LinkURLs() {
+  static NSMutableDictionary *urls = [NSMutableDictionary dictionary];
+  return urls;
 }
+static NSString *gLinkProfile;
+static BOOL gLinkTabsStarted;
+constexpr NSUInteger kMaxLinkTabs = 4;
+constexpr int64_t kLinkTabsBackstopSeconds = 300;
 
-static ArdiaCoreTab *ParkedLinkFor(NSString *url, NSString *profile) {
-  if (!url.length) return nil;
-  for (ArdiaCoreTab *tab in LinkTabs()) {
-    ArdiaCoreLaunchTabHolder *holder = objc_getAssociatedObject(tab, &kLaunchHolderKey);
-    if (![holder.profile isEqualToString:profile ?: @""]) continue;
-    if (SamePage(url, holder.url) || SamePage(url, tab.url)) return tab;
-  }
-  return nil;
+static void CloseLinkTabs() {
+  NSArray<ArdiaCoreTab *> *left = LinkTabs().allValues;
+  [LinkTabs() removeAllObjects];
+  [LinkURLs() removeAllObjects];
+  for (ArdiaCoreTab *tab in left) CloseTab(tab);
 }
 
 + (void)startLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profileName {
@@ -565,42 +558,50 @@ static ArdiaCoreTab *ParkedLinkFor(NSString *url, NSString *profile) {
 }
 
 + (void)startLinkTabs:(NSArray<NSString *> *)urls profile:(NSString *)profileName {
-  if (gLinkTabsRouted || LinkTabs().count) return;
+  if (gLinkTabsStarted) return;
+  gLinkTabsStarted = YES;
+  gLinkProfile = [profileName copy] ?: @"";
+  NSUInteger index = 0;
   for (NSString *url in urls) {
-    if (LinkTabs().count >= kMaxLinkTabs) break;
-    if (ParkedLinkFor(url, profileName ?: @"")) continue;
-    if (ArdiaCoreTab *tab = StartParkedPage(url, profileName)) [LinkTabs() addObject:tab];
+    if (index >= kMaxLinkTabs) break;
+    if (ArdiaCoreTab *tab = StartParkedPage(url, gLinkProfile)) {
+      LinkTabs()[@(index)] = tab;
+      LinkURLs()[@(index)] = [url copy];
+    }
+    index++;
   }
   if (!LinkTabs().count) return;
-  const NSUInteger generation = ++gLinkTabsGeneration;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, kLinkTabsBackstopSeconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-    CloseLinkTabs(generation);
+    CloseLinkTabs();
   });
 }
 
-+ (void)releaseLinkTabs {
-  OnMain(^{
-    if (gLinkTabsRouted) return;
-    gLinkTabsRouted = YES;
-    if (!LinkTabs().count) return;
-    const NSUInteger generation = ++gLinkTabsGeneration;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, kLinkTabsGraceSeconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-      CloseLinkTabs(generation);
-    });
-  });
-}
-
-- (BOOL)takeLinkPage:(NSString *)url replacing:(BOOL)replacing {
-  ArdiaCoreTab *tab = ParkedLinkFor(url, _profile);
-  if (!tab || !_transferKey.length || Parked()[_transferKey]) return NO;
-  [LinkTabs() removeObject:tab];
-  if (replacing && _tab) {
-    ArdiaCoreTab *blank = _tab;
-    [self detach];
-    CloseTab(blank);
++ (NSDictionary<NSString *, id> *)routeLinkTabs:(NSArray<NSString *> *)urls {
+  NSMutableArray *marks = [NSMutableArray array];
+  NSMutableSet<NSNumber *> *used = [NSMutableSet set];
+  BOOL any = NO;
+  for (NSString *url in urls) {
+    id mark = NSNull.null;
+    for (NSNumber *index in [LinkURLs().allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+      if ([used containsObject:index] || ![LinkURLs()[index] isEqualToString:url] || !LinkTabs()[index]) continue;
+      [used addObject:index];
+      mark = [NSString stringWithFormat:@"link:%@", index];
+      any = YES;
+      break;
+    }
+    [marks addObject:mark];
   }
+  if (!any) return @{};
+  for (NSNumber *index in used) [LinkURLs() removeObjectForKey:index];
+  return @{@"profile" : gLinkProfile ?: @"", @"adoptIds" : marks};
+}
+
+- (BOOL)takeLinkTab:(NSString *)adoptId {
+  NSNumber *index = @([[adoptId substringFromIndex:5] integerValue]);
+  ArdiaCoreTab *tab = LinkTabs()[index];
+  if (!tab || !_transferKey.length || Parked()[_transferKey]) return NO;
+  [LinkTabs() removeObjectForKey:index];
   Parked()[_transferKey] = tab;
-  _pendingURL = nil;
   if ([self takeTransferredTab]) return YES;
   if (Parked()[_transferKey] == tab) [Parked() removeObjectForKey:_transferKey];
   CloseTab(tab);
@@ -701,7 +702,11 @@ static ArdiaCoreTab *ParkedLinkFor(NSString *url, NSString *profile) {
 - (void)ensureTab {
   if (_tab || _creating || !self.window || !ArdiaCoreHost.isStarted || !self.controller) return;
   if ([self takeTransferredTab]) return;
-  if (!_adoptId.length && !_standalone && !_extensionHost.length && [self takeLinkPage:(_pendingURL ?: _initialURL) replacing:NO]) return;
+  if ([_adoptId hasPrefix:@"link:"]) {
+    NSString *link = _adoptId;
+    _adoptId = nil;
+    if (!_standalone && !_extensionHost.length && [self takeLinkTab:link]) return;
+  }
   if ([_adoptId hasPrefix:@"ardiacore:"] || [_adoptId hasPrefix:@"tab:"]) {
     ArdiaCoreTab *offered = [ArdiaCoreTabs takeOffered:_adoptId];
     _adoptId = nil;
@@ -888,7 +893,7 @@ static ArdiaCoreTab *ParkedLinkFor(NSString *url, NSString *profile) {
   [self adoptIntoWindow];
   NSView *page = tab.view;
   if (page.superview != self) {
-    [page removeFromSuperview];
+    if (!page.window || page.window != self.window) [page removeFromSuperview];
     [self addSubview:page];
   }
   if (NSView *devtools = tab.devToolsView) [self devToolsChanged:devtools];
@@ -1093,6 +1098,7 @@ static ArdiaCoreTab *ParkedLinkFor(NSString *url, NSString *profile) {
 }
 
 - (void)layoutPage {
+  if (NSView *fronted = _frontedPage; fronted.superview == self) fronted.frame = self.bounds;
   NSView *page = _tab.view;
   if (!page || page.superview != self) return;
   if (_devtoolsView) {
@@ -1276,8 +1282,8 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 
 - (void)frontPage:(NSView *)page profile:(ArdiaCoreProfile *)profile {
   NSView *mine = _tab.view;
-  if (_frontedPage || !mine || mine.superview != self || mine.hidden || _tab.profile != profile || ![self onlyShownInWindow]) return;
-  page.frame = mine.frame;
+  if (_frontedPage || _devtoolsView || !mine || mine.superview != self || mine.hidden || _tab.profile != profile || ![self onlyShownInWindow]) return;
+  page.frame = self.bounds;
   page.hidden = NO;
   [self addSubview:page positioned:NSWindowAbove relativeTo:mine];
   _frontedPage = page;
@@ -1748,7 +1754,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   _creatingURL = nil;
   if (_tab && SamePage(url, transferred)) return;
   if ((_tab || _creating) && [url isEqualToString:creating] && CACurrentMediaTime() - _creatingAt < 2) return;
-  if (_tab && !_loadedOnce && !_standalone && (!_tab.url.length || [_tab.url isEqualToString:@"about:blank"]) && [self takeLinkPage:url replacing:YES]) return;
   if (_tab) return [self loadNow:url userInitiated:userInitiated];
   _pendingURL = url;
   _pendingUserInitiated = userInitiated;
