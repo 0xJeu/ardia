@@ -963,6 +963,11 @@ void HandOffTab(ArdiaCoreTab *tab) {
 
 @implementation ArdiaCoreWindowController {
   NSHashTable<ArdiaCoreTab *> *_closing;
+  NSString *_chromeToken;
+  BOOL _awaitingApp;
+  BOOL _showInactive;
+  BOOL _announced;
+  __weak ArdiaCoreTab *_chromeActive;
 }
 
 + (BOOL)userSees:(NSWindow *)window {
@@ -978,6 +983,79 @@ void HandOffTab(ArdiaCoreTab *tab) {
   controller->_stray = YES;
   [Controllers() setObject:controller forKey:coreWindow.window];
   return controller;
+}
+
+NSMutableDictionary<NSString *, ArdiaCoreWindowController *> *ChromeMadeWindows() {
+  static NSMutableDictionary *windows = [NSMutableDictionary dictionary];
+  return windows;
+}
+
++ (instancetype)chromeMadeWindowForProfile:(ArdiaCoreProfile *)profile {
+  ArdiaCoreWindow *coreWindow = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1360, 860)];
+  NSWindow *window = coreWindow.window;
+  if (!window) return nil;
+  ConfigureWindow(window);
+  ArdiaCoreWindowController *controller = [[ArdiaCoreWindowController alloc] initWithCoreWindow:coreWindow];
+  controller->_chromeToken = NSUUID.UUID.UUIDString;
+  controller->_awaitingApp = YES;
+  [Controllers() setObject:controller forKey:window];
+  ChromeMadeWindows()[controller->_chromeToken] = controller;
+  __weak ArdiaCoreWindowController *weakController = controller;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    [weakController stopAwaitingApp];
+  });
+  return controller;
+}
+
++ (instancetype)claimChromeMadeWindow:(NSString *)token {
+  ArdiaCoreWindowController *controller = token.length ? ChromeMadeWindows()[token] : nil;
+  if (!controller) return nil;
+  [ChromeMadeWindows() removeObjectForKey:token];
+  if (!controller->_awaitingApp || !controller.coreWindow.window) return nil;
+  controller->_awaitingApp = NO;
+  return controller;
+}
+
+- (void)stopAwaitingApp {
+  if (!_awaitingApp) return;
+  _awaitingApp = NO;
+  [ChromeMadeWindows() removeObjectForKey:_chromeToken];
+  _stray = YES;
+  NSArray<ArdiaCoreTab *> *tabs = @[];
+  for (ArdiaCoreProfile *profile in ardiacore_host::LoadedProfiles())
+    tabs = [tabs arrayByAddingObjectsFromArray:[_coreWindow tabsForProfile:profile]];
+  if (!tabs.count) return [_coreWindow close];
+  for (ArdiaCoreTab *tab in tabs)
+    if (![ArdiaCoreTabs viewForTab:tab]) HandOffTab(tab);
+}
+
+- (void)announceChromeMadeTab:(ArdiaCoreTab *)tab tries:(int)tries {
+  if (_stray || tab.closed || ![[_coreWindow tabsForProfile:tab.profile] containsObject:tab]) return;
+  NSString *moving = [ArdiaCoreTabs viewForTab:tab].transferKey;
+  NSString *url = tab.url;
+  const BOOL blank = !moving.length && (!url.length || [url isEqualToString:@"about:blank"]);
+  if ((blank && tries < 20) || (!ArdiaCoreServices.extensionsHandler && tries < 400)) {
+    __weak ArdiaCoreWindowController *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+      [weakSelf announceChromeMadeTab:tab tries:tries + 1];
+    });
+    return;
+  }
+  if (!ArdiaCoreServices.extensionsHandler) return;
+  NSMutableDictionary *request = [@{
+    @"action" : @"open", @"url" : url ?: @"", @"profile" : ardiacore_host::ProfileName(tab.profile),
+    @"active" : @(!_chromeActive || _chromeActive == tab), @"window" : NSNull.null, @"extensionId" : @"",
+    @"chromeWindow" : _chromeToken, @"focused" : @(!_showInactive)
+  } mutableCopy];
+  if (moving.length) request[@"tabKey"] = moving;
+  else if ([ArdiaCoreTabs viewForTab:tab]) return;
+  else request[@"adoptId"] = [ArdiaCoreTabs offerTab:tab prefix:@"tab"];
+  _announced = YES;
+  ArdiaCoreServices.extensionsHandler(@"tabs", request);
+}
+
+- (void)window:(ArdiaCoreWindow *)window showRequestedActive:(BOOL)active {
+  if (_awaitingApp) _showInactive = !active;
 }
 
 NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows() {
@@ -1078,7 +1156,13 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 
 - (void)window:(ArdiaCoreWindow *)window didInsertTab:(ArdiaCoreTab *)tab opener:(ArdiaCoreTab *)opener disposition:(NSString *)disposition {
   [ArdiaCoreTabStrip changedInWindow:self profile:tab.profile];
-  if (_hostChanges > 0 || [ArdiaCoreTabs viewForTab:tab]) return;
+  if (_hostChanges > 0) return;
+  if (_awaitingApp) {
+    __weak ArdiaCoreWindowController *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf announceChromeMadeTab:tab tries:0]; });
+    return;
+  }
+  if ([ArdiaCoreTabs viewForTab:tab]) return;
   if (_stray) return HandOffTab(tab);
   ArdiaCoreWebView *openerView = [self viewFor:opener];
   if ([disposition isEqualToString:@"popup"] && [tab respondsToSelector:@selector(popupFeatures)]) {
@@ -1096,7 +1180,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 - (void)window:(ArdiaCoreWindow *)window didRemoveTab:(ArdiaCoreTab *)tab {
   if (ArdiaCoreProfile *profile = tab.profile) [ArdiaCoreTabStrip changedInWindow:self profile:profile];
   [[self viewFor:tab] tabRemovedFromWindow:window];
-  if (_stray || _standalone) {
+  if (_stray || _standalone || _awaitingApp) {
     __weak ArdiaCoreWindowController *weakSelf = self;
     ArdiaCoreProfile *removedProfile = tab.profile;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -1106,6 +1190,14 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
       if (removedProfile) [profiles addObject:removedProfile];
       for (ArdiaCoreProfile *p in profiles)
         if ([c.coreWindow tabsForProfile:p].count) return;
+      if (c->_awaitingApp) {
+        c->_awaitingApp = NO;
+        [ChromeMadeWindows() removeObjectForKey:c->_chromeToken];
+        if (c->_announced && ArdiaCoreServices.extensionsHandler)
+          ArdiaCoreServices.extensionsHandler(@"tabs", @{@"action" : @"closeWindow", @"chromeWindow" : c->_chromeToken});
+      } else if (!c.stray && !c.standalone) {
+        return;
+      }
       if (c.standalone) {
         NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *windows = StandaloneWindows();
         for (ArdiaCoreProfile *p in windows.keyEnumerator.allObjects)
@@ -1118,6 +1210,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 }
 
 - (void)window:(ArdiaCoreWindow *)window didActivateTab:(ArdiaCoreTab *)tab {
+  if (_awaitingApp) _chromeActive = tab;
   [ArdiaCoreTabStrip activated:tab inWindow:self];
   [ArdiaCoreTabStrip changedInWindow:self profile:tab.profile];
   [[self viewFor:tab] tabActivatedByChrome:!self.appChanging];
@@ -1379,6 +1472,14 @@ NSView *ACWindowRootView(NSWindow *window) {
   ConfigureWindow(window);
   ArdiaCoreWindowController *controller = [[ArdiaCoreWindowController alloc] initWithCoreWindow:coreWindow];
   [Controllers() setObject:controller forKey:window];
+  [self showProfile:profile ?: @"" inWindow:window];
+  return window;
+}
+
++ (NSWindow *)makeWindowForProfile:(NSString *)profile chromeWindow:(NSString *)chromeWindow {
+  ArdiaCoreWindowController *made = [ArdiaCoreWindowController claimChromeMadeWindow:chromeWindow];
+  if (!made) return [self makeWindowForProfile:profile];
+  NSWindow *window = made.coreWindow.window;
   [self showProfile:profile ?: @"" inWindow:window];
   return window;
 }

@@ -142,6 +142,7 @@ ARDIACORE_EXPORT
     passwordSavePromptForTab:(ArdiaCoreTab*)tab
                     username:(NSString*)username
                       origin:(NSString*)origin;
+- (void)window:(ArdiaCoreWindow*)window showRequestedActive:(BOOL)active;
 - (BOOL)windowShouldClose:(ArdiaCoreWindow*)window;
 - (void)windowDidCancelClose:(ArdiaCoreWindow*)window;
 - (void)window:(ArdiaCoreWindow*)window

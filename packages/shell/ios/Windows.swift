@@ -53,6 +53,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   private struct PendingOpen {
     var frame: [Double]?, incognito: Bool, title: String, kind: String, profile: String?, size: [Double]?, behind: String
+    var chromeWindow: String?
   }
   private var pendingOpens: [String: PendingOpen] = [:]
   private var pendingOrder: [String] = []
@@ -62,7 +63,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   func open(
     id: String, frame: [Double]?, incognito: Bool, title: String, focus: Bool, kind: String = "browser", profile: String? = nil,
-    size: [Double]? = nil, behind: String? = nil
+    size: [Double]? = nil, behind: String? = nil, chromeWindow: String? = nil
   ) {
     if let existing = windows[id] {
       if focus { existing.makeKeyAndOrderFront(nil) }
@@ -70,7 +71,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
     if let behind, !focus, windows[behind] != nil, !contentShown.contains(behind) {
       if pendingOpens[id] == nil { pendingOrder.append(id) }
-      pendingOpens[id] = PendingOpen(frame: frame, incognito: incognito, title: title, kind: kind, profile: profile, size: size, behind: behind)
+      pendingOpens[id] = PendingOpen(
+        frame: frame, incognito: incognito, title: title, kind: kind, profile: profile, size: size, behind: behind, chromeWindow: chromeWindow)
       DispatchQueue.main.asyncAfter(deadline: .now() + Self.behindTimeout) { [weak self] in self?.openPending(behind: behind) }
       return
     }
@@ -78,7 +80,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     if kind != "browser" && !small { return openAux(id: id, kind: kind, title: title) }
     guard let makeWindow = WindowHost.makeWindow, let makeContentView = WindowHost.makeContentView else { return }
     if small { smallIds.insert(id) }
-    if let chromeWindow = ChromeWindows.makeWindow(profile: profile) {
+    if let chromeWindow = ChromeWindows.makeWindow(profile: profile, chromeWindow: small ? nil : chromeWindow) {
       if incognito { chromeWindow.appearance = NSAppearance(named: .darkAqua) }
       let root = makeContentView(id)
       ChromeWindows.embed(root, in: chromeWindow)
@@ -174,7 +176,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
       guard let o = pendingOpens.removeValue(forKey: id) else { continue }
       pendingOrder.removeAll { $0 == id }
       contentShown.insert(behind)
-      open(id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: false, kind: o.kind, profile: o.profile, size: o.size, behind: behind)
+      open(
+        id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: false, kind: o.kind, profile: o.profile, size: o.size,
+        behind: behind, chromeWindow: o.chromeWindow)
     }
   }
 

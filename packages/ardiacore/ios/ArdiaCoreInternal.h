@@ -48,6 +48,7 @@ NSUInteger PopupWindowCount();
 @property(nonatomic, strong, nullable) NSView *root;
 @property(nonatomic) NSInteger hostChanges;
 + (ArdiaCoreWindowController *)strayWindowForProfile:(ArdiaCoreProfile *)profile;
++ (nullable ArdiaCoreWindowController *)chromeMadeWindowForProfile:(ArdiaCoreProfile *)profile;
 @property(nonatomic, readonly) BOOL stray;
 + (ArdiaCoreWindowController *)standaloneWindowForProfile:(ArdiaCoreProfile *)profile;
 @property(nonatomic, readonly) BOOL standalone;

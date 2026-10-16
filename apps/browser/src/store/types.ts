@@ -24,6 +24,7 @@ export type BrowserWindow = {
   createdAt: number;
   kind?: "small";
   originalProfileId?: string;
+  chromeWindow?: string;
 };
 
 export type Tab = {

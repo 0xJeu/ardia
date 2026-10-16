@@ -199,6 +199,7 @@ class ACBrowserWindow : public BrowserWindow,
 
   void AttachBrowser(Browser* browser);
   Browser* browser() const { return browser_; }
+  bool closed_by_chrome() const { return closed_by_chrome_; }
   bool HandleExtensionKeyEquivalent(NSEvent* event);
   WindowHost* host() const { return host_.get(); }
   base::WeakPtr<WindowHost> host_weak() const { return host_; }
@@ -374,6 +375,7 @@ class ACBrowserWindow : public BrowserWindow,
   std::optional<ui::ScopedUnownedUserData<autofill::AutofillBubbleHandler>>
       autofill_bubble_handler_registration_;
   bool tab_fullscreen_ = false;
+  bool closed_by_chrome_ = false;
   void ReportFullscreenTab();
   void PostWindowFullscreenStateChanged();
   base::WeakPtr<content::WebContents> fullscreen_tab_;

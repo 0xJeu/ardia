@@ -699,8 +699,12 @@ void WindowHost::OnTabStripModelChanged(
           browser = b;
         }
       }
+      ACBrowserWindow* browser_window =
+          browser ? ACBrowserWindow::FromWindow(BrowserWindow::FromBrowser(browser)) : nullptr;
       const bool browser_closing =
-          !browser || UnloadController::From(browser)->is_attempting_to_close_browser();
+          !browser ||
+          (UnloadController::From(browser)->is_attempting_to_close_browser() &&
+           !(browser_window && browser_window->closed_by_chrome()));
       if (bridge && removed.remove_reason == TabRemovedReason::kDeleted &&
           !browser_closing && !closing() && !browser_shutdown::IsTryingToQuit()) {
         bridge->ReportWillClose();

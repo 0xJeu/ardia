@@ -164,6 +164,7 @@ export type OpenWindowOptions = {
   profile?: string;
   size?: [number, number];
   behind?: string;
+  chromeWindow?: string;
 };
 
 export type MenuEntry = { id: string; title: string; current?: boolean };

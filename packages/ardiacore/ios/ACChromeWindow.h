@@ -5,6 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ACChromeWindowHost : NSObject
 
 + (nullable NSWindow *)makeWindowForProfile:(NSString *)profile;
++ (nullable NSWindow *)makeWindowForProfile:(NSString *)profile chromeWindow:(nullable NSString *)chromeWindow;
 
 + (nullable NSWindow *)makePopupWindowForProfile:(NSString *)profile root:(NSView *)root;
 

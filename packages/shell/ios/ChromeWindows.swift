@@ -4,10 +4,14 @@ import ExpoModulesCore
 enum ChromeWindows {
   private static let host = NSClassFromString("ACChromeWindowHost") as? NSObject.Type
 
-  static func makeWindow(profile: String?) -> NSWindow? {
+  static func makeWindow(profile: String?, chromeWindow: String? = nil) -> NSWindow? {
     guard let host else { return nil }
     let profile = profile ?? ""
     installCloseHandler(host)
+    let claiming = NSSelectorFromString("makeWindowForProfile:chromeWindow:")
+    if let chromeWindow, (host as AnyObject).responds(to: claiming) {
+      return host.perform(claiming, with: profile, with: chromeWindow)?.takeUnretainedValue() as? NSWindow
+    }
     let selector = NSSelectorFromString("makeWindowForProfile:")
     return host.perform(selector, with: profile)?.takeUnretainedValue() as? NSWindow
   }

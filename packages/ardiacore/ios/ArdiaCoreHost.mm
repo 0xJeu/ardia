@@ -279,6 +279,8 @@ static void StartLaunchTab() {
 
 - (ArdiaCoreWindow *)engineWindowForNewBrowserOfProfile:(ArdiaCoreProfile *)profile type:(NSString *)type {
   if (![type isEqualToString:@"normal"] && ![type isEqualToString:@"popup"]) return nil;
+  if ([type isEqualToString:@"normal"] && !profile.offTheRecord)
+    if (ArdiaCoreWindowController *made = [ArdiaCoreWindowController chromeMadeWindowForProfile:profile]) return made.coreWindow;
   return [ArdiaCoreWindowController strayWindowForProfile:profile].coreWindow;
 }
 

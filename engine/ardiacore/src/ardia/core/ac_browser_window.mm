@@ -16,6 +16,7 @@
 
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/autofill/save_address_bubble_controller.h"
@@ -368,7 +369,23 @@ gfx::Rect ACBrowserWindow::GetBounds() const {
                                   : gfx::Rect();
 }
 
+namespace {
+
+void RequestShow(WindowHost* host, bool active) {
+  if (!host) {
+    return;
+  }
+  ArdiaCoreWindow* owner = host->owner();
+  id<ArdiaCoreWindowDelegate> delegate = owner.delegate;
+  if ([delegate respondsToSelector:@selector(window:showRequestedActive:)]) {
+    [delegate window:owner showRequestedActive:active];
+  }
+}
+
+}
+
 void ACBrowserWindow::Show() {
+  RequestShow(host_.get(), true);
 }
 
 bool ACBrowserWindow::IsVisible() const {
@@ -377,12 +394,16 @@ bool ACBrowserWindow::IsVisible() const {
 }
 
 void ACBrowserWindow::ShowInactive() {
+  RequestShow(host_.get(), false);
 }
 
 void ACBrowserWindow::Close() {
   if (!browser_) {
     return;
   }
+  Profile* profile = browser_->GetProfile();
+  closed_by_chrome_ = host_ && !host_->closing() && !browser_shutdown::IsTryingToQuit() &&
+                      !IsProfileDying(profile) && !IsProfileDeleting(profile);
   UnloadController* unload = UnloadController::From(browser_);
   if (unload) {
     if ((host_ && host_->closing()) || browser_shutdown::IsTryingToQuit()) {

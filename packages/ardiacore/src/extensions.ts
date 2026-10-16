@@ -68,13 +68,16 @@ export type ExtensionsChange = {
 };
 
 export type TabsRequest = {
-  action: "open";
+  action: "open" | "closeWindow";
   profile: string;
   extensionId: string;
   window: string | null;
   url: string;
   active?: boolean;
   adoptId?: string;
+  chromeWindow?: string;
+  focused?: boolean;
+  tabKey?: string;
 };
 
 export type ExtensionInstallPrompt = {

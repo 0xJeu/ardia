@@ -2119,8 +2119,16 @@ try {
       const tabs = await evalApp(`const s = ac.store.getState(); return Object.values(s.tabs).map((t) => ({ id: t.id, url: t.url, adoptId: t.adoptId, windowId: t.windowId }))`);
       return tabs.find((t) => t.url?.includes("e?window")) ?? null;
     }, 15000);
-    await exts(`uninstall("${installed.id}", "")`);
-    return { tab: tab.id, adoptId: tab.adoptId ?? null, window: tab.windowId };
+    try {
+      if (tab.windowId === mainWindow) throw new Error("the window's tab landed in the run's window, not a new one");
+      const created = JSON.parse(made.result?.value ?? "{}");
+      const strip = await until("the new window's strip", async () => (await cef(`tabStrips()`)).strips.find((st) => st.appWindow === tab.windowId && st.tabs.length) ?? null, 10000);
+      if (strip.strip !== created.id) throw new Error(`chrome.windows.create answered window ${created.id}, the app shows ${strip.strip}`);
+      return { tab: tab.id, adoptId: tab.adoptId ?? null, window: tab.windowId, chromeWindow: created.id };
+    } finally {
+      if (tab.windowId !== mainWindow) await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(tab.windowId)}); return true`).catch(() => null);
+      await exts(`uninstall("${installed.id}", "")`).catch(() => null);
+    }
   });
 
   await check("private-windows-create", async () => {
