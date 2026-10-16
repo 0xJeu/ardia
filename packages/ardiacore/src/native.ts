@@ -33,6 +33,7 @@ export const Cef = requireNativeModule<{
   releaseTransfer(key: string): void;
   claimLaunchTab?(key: string, url: string, profile: string): void;
   revealTab?(key: string): void;
+  dropTabReveals?(key: string): void;
   revealOffered?(adoptId: string, key: string): void;
   claimLinkTab?(key: string, url: string, profile: string): void;
   releaseLinkTabs?(): void;

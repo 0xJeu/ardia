@@ -44,6 +44,7 @@ public class CefModule: Module {
       ArdiaCoreWebView.claimLaunchTab(key, url: url, profile: profile)
     }
     Function("revealTab") { (key: String) in ArdiaCoreWebView.revealTab(key) }
+    Function("dropTabReveals") { (key: String) in ArdiaCoreWebView.dropTabReveals(key) }
     Function("revealOffered") { (adoptId: String, key: String) in ArdiaCoreWebView.revealOffered(adoptId, over: key) }
     Function("claimLinkTab") { (key: String, url: String, profile: String) in
       ArdiaCoreWebView.claimLinkTab(key, url: url, profile: profile)

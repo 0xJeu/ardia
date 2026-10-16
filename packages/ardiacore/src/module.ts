@@ -90,6 +90,7 @@ export const prepareTabTransfer = (transferKey: string) => Cef.prepareTransfer(t
 export const releaseTabTransfer = (transferKey: string) => Cef.releaseTransfer(transferKey);
 export const claimLaunchTab = (transferKey: string, url: string, profile: string) => Cef.claimLaunchTab?.(transferKey, url, profile);
 export const revealTab = (transferKey: string) => Cef.revealTab?.(transferKey);
+export const dropTabReveals = (transferKey: string) => Cef.dropTabReveals?.(transferKey);
 export const revealOffered = (adoptId: string, overTransferKey: string) => Cef.revealOffered?.(adoptId, overTransferKey);
 export const claimLinkTab = (transferKey: string, url: string, profile: string) => Cef.claimLinkTab?.(transferKey, url, profile);
 export const releaseLinkTabs = () => Cef.releaseLinkTabs?.();

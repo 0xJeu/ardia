@@ -23,7 +23,7 @@ bool TraceVisibility() {
 }
 
 constexpr CFTimeInterval kLeaveScreenDelay = 0.1;
-constexpr CFTimeInterval kRevealHoldSeconds = 0.5;
+constexpr CFTimeInterval kRevealBackstopSeconds = 5;
 
 NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   static NSHashTable *views = [NSHashTable weakObjectsHashTable];
@@ -66,6 +66,11 @@ void CloseTab(ArdiaCoreTab *tab) {
   if (!tab || tab.closed) return;
   if ([tab respondsToSelector:@selector(closeNow)]) [tab closeNow];
   else [tab close];
+}
+
+void OnMain(void (^block)(void)) {
+  if (NSThread.isMainThread) block();
+  else dispatch_async(dispatch_get_main_queue(), block);
 }
 
 NSView *ParkingView() {
@@ -445,8 +450,8 @@ static BOOL HeldSelector(SEL selector) {
   BOOL _handingOff;
   BOOL _revealed;
   NSUInteger _revealGeneration;
-  __weak NSView *_raisedPane;
-  CGFloat _raisedPaneZ;
+  __weak NSView *_loweredPane;
+  CGFloat _loweredPaneZ;
   __weak NSView *_frontedPage;
   NSUInteger _frontGeneration;
 }
@@ -908,6 +913,7 @@ static BOOL KeyHasPage(NSString *key) {
   [self dropDevTools];
   [self resetBlocked:NO];
   [self endReveal];
+  [self dropFront];
   _tab = nil;
   _handingOff = NO;
   _leaving = NO;
@@ -1181,15 +1187,38 @@ static BOOL KeyHasPage(NSString *key) {
     if (view->_visible) [view applyPainting];
 }
 
+static ArdiaCoreWebView *ViewForKey(NSString *key) {
+  for (ArdiaCoreWebView *view in LiveViews().allObjects)
+    if (view->_tab && [view->_transferKey isEqualToString:key]) return view;
+  return nil;
+}
+
 + (void)revealTab:(NSString *)transferKey {
   if (!transferKey.length) return;
   NSString *key = [transferKey copy];
-  void (^reveal)(void) = ^{
-    for (ArdiaCoreWebView *view in LiveViews().allObjects)
-      if (view->_tab && [view->_transferKey isEqualToString:key]) return [view revealAhead];
-  };
-  if (NSThread.isMainThread) reveal();
-  else dispatch_async(dispatch_get_main_queue(), reveal);
+  OnMain(^{
+    ArdiaCoreWebView *view = ViewForKey(key);
+    if (!view.window) return;
+    [ArdiaCoreWebView dropRevealsInWindow:view.window except:view];
+    [view revealAhead];
+  });
+}
+
++ (void)dropTabReveals:(NSString *)transferKey {
+  if (!transferKey.length) return;
+  NSString *key = [transferKey copy];
+  OnMain(^{
+    ArdiaCoreWebView *view = ViewForKey(key);
+    if (view.window) [ArdiaCoreWebView dropRevealsInWindow:view.window except:nil];
+  });
+}
+
++ (void)dropRevealsInWindow:(NSWindow *)window except:(ArdiaCoreWebView *)keep {
+  for (ArdiaCoreWebView *other in LiveViews().allObjects) {
+    if (other.window != window) continue;
+    [other dropFront];
+    if (other != keep) [other dropReveal];
+  }
 }
 
 static NSView *PaneUnder(NSView *view, NSView *ancestor) {
@@ -1209,15 +1238,15 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 + (void)revealOffered:(NSString *)adoptId over:(NSString *)transferKey {
   if (!adoptId.length || !transferKey.length) return;
   NSString *offer = [adoptId copy], *key = [transferKey copy];
-  void (^reveal)(void) = ^{
+  OnMain(^{
+    ArdiaCoreWebView *view = ViewForKey(key);
+    if (!view.window) return;
+    [ArdiaCoreWebView dropRevealsInWindow:view.window except:nil];
     ArdiaCoreTab *tab = [ArdiaCoreTabs offeredTab:offer];
     NSView *page = tab.view;
     if (!tab || tab.closed || !page || page.superview || [ArdiaCoreTabs viewForTab:tab]) return;
-    for (ArdiaCoreWebView *view in LiveViews().allObjects)
-      if (view->_tab && [view->_transferKey isEqualToString:key]) return [view frontPage:page profile:tab.profile];
-  };
-  if (NSThread.isMainThread) reveal();
-  else dispatch_async(dispatch_get_main_queue(), reveal);
+    [view frontPage:page profile:tab.profile];
+  });
 }
 
 - (BOOL)onlyShownInWindow {
@@ -1237,14 +1266,17 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
   _frontedPage = page;
   const NSUInteger generation = ++_frontGeneration;
   __weak ArdiaCoreWebView *weakSelf = self;
-  __weak NSView *weakPage = page;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRevealHoldSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRevealBackstopSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     ArdiaCoreWebView *view = weakSelf;
-    NSView *fronted = weakPage;
-    if (!view || view->_frontGeneration != generation) return;
-    view->_frontedPage = nil;
-    if (fronted.superview == view) [fronted removeFromSuperview];
+    if (view && view->_frontGeneration == generation) [view dropFront];
   });
+}
+
+- (void)dropFront {
+  NSView *fronted = _frontedPage;
+  _frontedPage = nil;
+  _frontGeneration++;
+  if (fronted.superview == self) [fronted removeFromSuperview];
 }
 
 - (void)revealAhead {
@@ -1264,15 +1296,16 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
   if (NSIsEmptyRect(mine) || !NSEqualRects(mine, [shown convertRect:shown.bounds toView:nil])) return;
   NSView *shared = SharedAncestor(self, shown);
   NSView *pane = PaneUnder(self, shared);
-  if (!shared || !pane || !pane.layer || pane == PaneUnder(shown, shared) || pane.isHiddenOrHasHiddenAncestor || pane.alphaValue < 1) return;
+  NSView *shownPane = PaneUnder(shown, shared);
+  if (!shared || !pane || !shownPane || !shownPane.layer || pane == shownPane || pane.isHiddenOrHasHiddenAncestor || pane.alphaValue < 1) return;
   _revealed = YES;
-  _raisedPane = pane;
-  _raisedPaneZ = pane.layer.zPosition;
-  pane.layer.zPosition = _raisedPaneZ + 1;
+  _loweredPane = shownPane;
+  _loweredPaneZ = shownPane.layer.zPosition;
+  shownPane.layer.zPosition = _loweredPaneZ - 1;
   [self applyPainting];
   const NSUInteger generation = ++_revealGeneration;
   __weak ArdiaCoreWebView *weakSelf = self;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRevealHoldSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRevealBackstopSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     ArdiaCoreWebView *view = weakSelf;
     if (view && view->_revealGeneration == generation && view->_revealed) [view dropReveal];
   });
@@ -1282,8 +1315,8 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
   if (!_revealed) return;
   _revealed = NO;
   _revealGeneration++;
-  if (NSView *pane = _raisedPane) pane.layer.zPosition = _raisedPaneZ;
-  _raisedPane = nil;
+  if (NSView *pane = _loweredPane) pane.layer.zPosition = _loweredPaneZ;
+  _loweredPane = nil;
 }
 
 - (void)dropReveal {
@@ -1295,9 +1328,7 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 - (void)settleRevealsInWindow {
   [self endReveal];
   NSWindow *window = self.window;
-  if (!window) return;
-  for (ArdiaCoreWebView *other in LiveViews().allObjects)
-    if (other != self && other->_revealed && other.window == window) [other dropReveal];
+  if (window) [ArdiaCoreWebView dropRevealsInWindow:window except:self];
 }
 
 - (void)leaveScreen {
