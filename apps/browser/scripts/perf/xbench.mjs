@@ -30,6 +30,9 @@
 //                          moment input comes. off: run now, with the Mac in use (competitors' windows show on screen)
 //     --away <secs>        idle time that counts as away (default 600)
 //     --window <x,y>       the windows' top-left corner (default 40,80)
+//     --env <name>=K=V     repeatable: extra environment for one browser's instances (ardia=ARDIA_CHROMIUM_SWITCHES=…)
+//     --launch-tab on|off  Ardia's template session names its active tab as launchTab, as a user's session written
+//                          with that kill switch on does (default on)
 //     --allow-focus        record a browser making itself the active app instead of stopping (only for an A/B the
 //                          owner agreed to, run while they're away)
 //     --base <name>=<home> repeatable: the template starts from a copy of this HOME (a signed-in profile) instead of
@@ -83,6 +86,8 @@ const { values: opt, positionals } = parseArgs({
     gate: { type: "string", default: "away" },
     window: { type: "string", default: "40,80" },
     "allow-focus": { type: "boolean" },
+    env: { type: "string", multiple: true, default: [] },
+    "launch-tab": { type: "string", default: "on" },
     base: { type: "string", multiple: true, default: [] },
     away: { type: "string", default: "600" },
     dmg: { type: "string", multiple: true, default: [] },
@@ -457,6 +462,8 @@ class Instance {
     if (isArdia(this.name)) {
       Object.assign(env, { ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: join(this.home, "data"), ARDIA_REMOTE_DEBUGGING_PORT: String(port), ARDIA_UPDATE_FEED_URL: `${base()}/appcast.xml` });
     }
+    for (const e of opt.env.filter((e) => e.startsWith(`${this.name}=`)).map((e) => e.slice(this.name.length + 1)))
+      env[e.slice(0, e.indexOf("="))] = e.slice(e.indexOf("=") + 1);
     return env;
   }
   args() {
@@ -497,7 +504,8 @@ class Instance {
       kinds[u.kind] = (kinds[u.kind] ?? 0) + u.footprint / 1048576;
       total += u.footprint / 1048576;
     }
-    return { totalMB: total, processes: snap.length, outsideTree: snap.filter((u) => !u.inTree).length, kinds };
+    const renderers = snap.filter((u) => u.kind === "renderer" || u.kind === "extension").map((u) => ({ pid: u.pid, kind: u.kind, mb: Math.round((u.footprint / 1048576) * 10) / 10 }));
+    return { totalMB: total, processes: snap.length, outsideTree: snap.filter((u) => !u.inTree).length, kinds, renderers };
   }
   async launch(url) {
     if (spawnSync("pgrep", ["-f", `^${this.info.exe.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( |$)`]).status === 0) throw new Error(`a ${this.name} instance is still running`);
@@ -638,6 +646,8 @@ function fixArdiaSession(file) {
   const session = JSON.parse(readFileSync(file, "utf8"));
   const { h } = probe("screen");
   const blank = new Set(session.tabs.filter((t) => !t.url).map((t) => t.id));
+  const seed = session.tabs.find((t) => t.url.endsWith("id=seed"));
+  if (seed && opt["launch-tab"] === "on") session.launchTab = { id: seed.id, url: seed.url, profile: seed.profileId === "default" ? "" : seed.profileId };
   if (blank.size < session.tabs.length) session.tabs = session.tabs.filter((t) => !blank.has(t.id));
   for (const w of session.windows ?? []) {
     w.tabIds = w.tabIds.filter((id) => session.tabs.some((t) => t.id === id));
@@ -674,8 +684,18 @@ async function launchItem(name, item, kind) {
     return r;
   } finally {
     await app.quit();
+    keepLogs(item, dir);
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+const STEADY_MS = 120_000;
+
+function keepLogs(item, dir) {
+  const log = join(dir, "home/data/Chromium/chrome_debug.log");
+  if (!existsSync(log)) return;
+  mkdirSync(join(out, "logs"), { recursive: true });
+  execFileSync("cp", [log, join(out, "logs", `${item.replaceAll("/", "-")}.chrome_debug.log`)]);
 }
 
 async function throttled(app) {
@@ -739,17 +759,24 @@ async function sessionItem(name, item) {
     }
     if (!seed) throw new Error(`${name}: the restored page never painted, even activated`);
     r.focusTaken = app.focusTaken();
+    const seedAt = Date.now();
     await app.hold(30_000);
     r.idle.tabs1 = await idleWindow(app, secs);
     r.memory.tabs1 = app.footprint();
+    await app.hold(Math.max(0, seedAt + STEADY_MS - Date.now()));
+    r.idle.tabs1steady = await idleWindow(app, secs);
     const tabs = [];
     for (let i = 1; i < 10; i++) tabs.push(await openTab(app, `t${i}`));
     await app.hold(10_000);
     r.memory.tabs10 = app.footprint();
     for (let i = 10; i < 20; i++) tabs.push(await openTab(app, `t${i}`));
+    const loadedAt = Date.now();
     await app.hold(15_000);
     r.memory.tabs20 = app.footprint();
     r.idle.tabs20 = await idleWindow(app, secs);
+    await app.hold(Math.max(0, loadedAt + STEADY_MS - Date.now()));
+    r.idle.tabs20steady = await idleWindow(app, secs);
+    r.memory.tabs20steady = app.footprint();
     r.pagesAt20 = (await app.cdp.pages()).length;
 
     for (let k = 0; k < 16; k++) {
@@ -800,6 +827,7 @@ async function sessionItem(name, item) {
     r.pagesClosed = (await app.cdp.pages()).length;
   } finally {
     await app.quit();
+    keepLogs(item, dir);
     rmSync(dir, { recursive: true, force: true });
   }
   return r;
@@ -843,7 +871,7 @@ function plan(names) {
   return items;
 }
 
-const ESTIMATE_MS = { link: 25_000, restore: 25_000, session: 3 * 60_000 + 2 * +opt.idle * 1000 };
+const ESTIMATE_MS = { link: 25_000, restore: 25_000, session: 5 * 60_000 + 4 * +opt.idle * 1000 };
 
 function takeLock() {
   const r = spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--take", "xbench", "--ttl", "30", "--wait", "120"], { encoding: "utf8" });
@@ -1003,6 +1031,10 @@ const ROWS = [
   { id: "idle-cpu-20", label: "Idle CPU, 20 tabs", unit: "%", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs20.total.cpu },
   { id: "idle-wakeups-1", label: "Idle wakeups, 1 tab", unit: "/s", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs1.total.wakeups },
   { id: "idle-wakeups-20", label: "Idle wakeups, 20 tabs", unit: "/s", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs20.total.wakeups },
+  { id: "idle-cpu-1-steady", label: "Idle CPU, 1 tab, settled (2 min after load)", unit: "%", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs1steady?.total.cpu },
+  { id: "idle-cpu-20-steady", label: "Idle CPU, 20 tabs, settled (2 min after the last load)", unit: "%", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs20steady?.total.cpu },
+  { id: "idle-wakeups-1-steady", label: "Idle wakeups, 1 tab, settled", unit: "/s", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs1steady?.total.wakeups },
+  { id: "idle-wakeups-20-steady", label: "Idle wakeups, 20 tabs, settled", unit: "/s", lowerIsBetter: true, kind: "session", get: (s) => s.idle.tabs20steady?.total.wakeups },
   { id: "download", label: "Download (DMG)", unit: "MB", lowerIsBetter: true, kind: "size", context: true, get: (s) => s.download / 1e6 },
   { id: "on-disk", label: "App on disk", unit: "MB", lowerIsBetter: true, kind: "size", context: true, get: (s) => s.bundle / 1e6 },
 ];
