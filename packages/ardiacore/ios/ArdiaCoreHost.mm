@@ -110,6 +110,8 @@ bool gAppKitWillFinish = false;
 bool gAppKitDidFinish = false;
 NSArray<NSURL *> *gPendingLaunchURLs;
 NSArray<NSURL *> *gLaunchLinks;
+bool gLinksHandled = false;
+bool gJSStarted = false;
 void (^gEventHandler)(NSString *, NSDictionary *);
 void (^gChromeUIHandler)(NSString *, NSDictionary *);
 void (^gExtensionsEventHandler)(NSString *, NSDictionary *);
@@ -136,24 +138,46 @@ static bool LaunchTabSwitchedOff(NSString *dir) {
   return [switches[@"launchTab"] isEqual:@NO];
 }
 
-static void StartLaunchTab() {
+static NSString *AppDataDirectory() {
   NSString *dir = gScratchDataDir ? [gDataDirectory stringByDeletingLastPathComponent] : nil;
-  if (!dir) {
-    NSURL *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;
-    dir = [support URLByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier ?: @"Ardia"].path;
-  }
+  if (dir) return dir;
+  NSURL *support = [NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;
+  return [support URLByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier ?: @"Ardia"].path;
+}
+
+static NSDictionary *SavedSession(NSString *dir) {
   NSData *data = dir ? [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"session.json"]] : nil;
   NSDictionary *session = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-  if (![session isKindOfClass:NSDictionary.class]) session = nil;
+  return [session isKindOfClass:NSDictionary.class] ? session : nil;
+}
+
+static void ParkLaunchLinks(NSArray<NSURL *> *links, NSString *dir, NSDictionary *session) {
+  NSString *linkProfile = [session[@"linkProfile"] isKindOfClass:NSString.class] ? session[@"linkProfile"] : nil;
+  if (!links.count || !linkProfile || LaunchTabSwitchedOff(dir)) return;
+  NSMutableArray<NSString *> *urls = [NSMutableArray array];
+  for (NSURL *link in links)
+    if (!link.isFileURL && link.absoluteString.length) [urls addObject:link.absoluteString];
+  [ArdiaCoreWebView startLinkTabs:urls profile:linkProfile];
+}
+
+static void LinksArrived(NSArray<NSURL *> *urls) {
+  if (gLinksHandled || !urls.count) return;
+  gLinksHandled = true;
+  if (!gJSStarted) {
+    gLaunchLinks = [urls copy];
+    return;
+  }
+  NSString *dir = AppDataDirectory();
+  ParkLaunchLinks(urls, dir, SavedSession(dir));
+}
+
+static void StartLaunchTab() {
+  gJSStarted = true;
+  NSString *dir = AppDataDirectory();
+  NSDictionary *session = SavedSession(dir);
   NSArray<NSURL *> *links = gLaunchLinks;
   gLaunchLinks = nil;
-  NSString *linkProfile = [session[@"linkProfile"] isKindOfClass:NSString.class] ? session[@"linkProfile"] : nil;
-  if (links.count && linkProfile && !LaunchTabSwitchedOff(dir)) {
-    NSMutableArray<NSString *> *urls = [NSMutableArray array];
-    for (NSURL *link in links)
-      if (!link.isFileURL && link.absoluteString.length) [urls addObject:link.absoluteString];
-    [ArdiaCoreWebView startLinkTabs:urls profile:linkProfile];
-  }
+  ParkLaunchLinks(links, dir, session);
   NSDictionary *hint = session[@"launchTab"];
   if (![hint isKindOfClass:NSDictionary.class]) return;
   NSString *key = hint[@"id"], *url = hint[@"url"], *profile = hint[@"profile"];
@@ -204,8 +228,16 @@ static void StartLaunchTab() {
 
 - (void)launchApp {
   NSArray<NSURL *> *launchURLs = gBootstrap.urls.copy;
-  gLaunchLinks = launchURLs.count ? launchURLs : nil;
+  LinksArrived(launchURLs);
   gAppDelegate = gMakeDelegate();
+  const SEL openURLs = @selector(application:openURLs:);
+  if (Method open = class_getInstanceMethod([gAppDelegate class], openURLs)) {
+    IMP original = method_getImplementation(open);
+    method_setImplementation(open, imp_implementationWithBlock(^(id delegate, NSApplication *app, NSArray<NSURL *> *urls) {
+      LinksArrived(urls);
+      ((void (*)(id, SEL, NSApplication *, NSArray<NSURL *> *))original)(delegate, openURLs, app, urls);
+    }));
+  }
   NSApp.delegate = gAppDelegate;
   gBootstrap = nil;
   NSNotification *note = [NSNotification notificationWithName:NSApplicationWillFinishLaunchingNotification object:NSApp];
