@@ -1,6 +1,5 @@
 import type { BrowserCommand } from "@ardia-real/shell";
 import { emitCommand } from "@ardia/shell";
-import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useBrowser, type BrowserState } from "../../browser/src/store/browser";
 import { splitOf } from "../../browser/src/store/splits";
@@ -34,71 +33,110 @@ function toggleSplit() {
   else run("openSplitPane");
 }
 
-function Button({ icon, label, hint, on, disabled, onPress }: { icon: string; label: string; hint?: string; on?: boolean; disabled?: boolean; onPress: () => void }) {
+type TabsMode = "sidebar" | "autoHide" | "top";
+type AddressMode = "toolbar" | "autoHide" | "sidebar";
+
+function setTabs(mode: TabsMode) {
+  const s = useBrowser.getState();
+  const w = focusedWindow(s);
+  if (!w) return;
+  const onTop = (w.tabLayout ?? s.settings.tabLayout) === "top";
+  if (onTop !== (mode === "top")) s.toggleTabLayout(w.id);
+  if (mode !== "top" && w.sidebarOpen !== (mode === "sidebar")) s.toggleSidebar(w.id);
+}
+
+function setAddress(mode: AddressMode) {
+  useBrowser.getState().updateSettings({ addressBar: mode === "sidebar" ? "sidebar" : "toolbar", hideToolbarWhileScrolling: mode === "autoHide" });
+}
+
+type Option<T extends string> = { value: T; label: string; hint?: string; disabled?: boolean };
+
+function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Option<T>[]; onChange: (value: T) => void }) {
   return (
-    <button
-      type="button"
-      className="ardia-control"
-      aria-pressed={on}
-      disabled={disabled}
-      title={hint ? `${label} (${hint})` : label}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={onPress}
-    >
+    <div className="ardia-control-group" role="radiogroup" aria-label={label}>
+      <span className="ardia-control-label">{label}</span>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          className="ardia-control"
+          aria-checked={value === o.value}
+          disabled={o.disabled}
+          title={o.hint ? `${label}: ${o.label} (${o.hint})` : `${label}: ${o.label}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => value !== o.value && onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Action({ icon, label, hint, on, onPress }: { icon: string; label: string; hint: string; on?: boolean; onPress: () => void }) {
+  return (
+    <button type="button" className="ardia-control" aria-pressed={on} title={`${label} (${hint})`} onMouseDown={(e) => e.preventDefault()} onClick={onPress}>
       <Symbol name={icon} size={13} weight="medium" style={{ width: 15, height: 15 }} />
       <span>{label}</span>
     </button>
   );
 }
 
-const Group = ({ children }: { children: ReactNode }) => <div className="ardia-control-group">{children}</div>;
-
 export function Controls() {
   const state = useBrowser(
     useShallow((s) => {
       const w = focusedWindow(s);
       const active = activeTab(s);
-      const tabsOnTop = (w?.tabLayout ?? s.settings.tabLayout) === "top";
-      return {
-        sidebar: !!w?.sidebarOpen,
-        tabsOnTop,
-        addressInSidebar: s.settings.addressBar === "sidebar",
-        autoHide: s.settings.hideToolbarWhileScrolling,
-        split: !!(active && splitOf(s, active)),
-        dark: s.ui.appDark,
-        profileId: w?.profileId ?? null,
-      };
+      const onTop = (w?.tabLayout ?? s.settings.tabLayout) === "top";
+      const tabs: TabsMode = onTop ? "top" : w?.sidebarOpen ? "sidebar" : "autoHide";
+      const address: AddressMode = s.settings.addressBar === "sidebar" && !onTop ? "sidebar" : s.settings.hideToolbarWhileScrolling ? "autoHide" : "toolbar";
+      return { tabs, address, split: !!(active && splitOf(s, active)), dark: s.ui.appDark, profileId: w?.profileId ?? "" };
     }),
   );
   const profiles = useBrowser(useShallow((s) => s.profileOrder.map((id) => s.profiles[id]!).filter(Boolean)));
-  const addressInSidebar = state.addressInSidebar && !state.tabsOnTop;
 
   return (
     <div className="ardia-controls" role="toolbar" aria-label="Try Ardia">
-      <Group>
-        <Button icon="sidebar.left" label="Sidebar" hint={`${CMD}S`} on={state.sidebar && !state.tabsOnTop} disabled={state.tabsOnTop} onPress={() => run("toggleSidebar")} />
-        <Button icon="menubar.rectangle" label="Tabs on top" hint={`⇧${CMD}S`} on={state.tabsOnTop} onPress={() => run("toggleTabLayout")} />
-        <Button icon="rectangle.lefthalf.filled" label="Address bar in sidebar" on={addressInSidebar} disabled={state.tabsOnTop} onPress={() => run("toggleAddressBar")} />
-        <Button
-          icon="eye.slash"
-          label="Auto-hide toolbar"
-          on={state.autoHide && !addressInSidebar}
-          disabled={addressInSidebar}
-          onPress={() => useBrowser.getState().updateSettings({ hideToolbarWhileScrolling: !state.autoHide })}
-        />
-      </Group>
-      <Group>
-        <Button icon="rectangle.split.2x1" label="Split view" hint={`${CTRL}⇧=`} on={state.split} onPress={toggleSplit} />
-        <Button icon="magnifyingglass" label="Command bar" hint={`${CMD}L`} onPress={() => run("focusCommandBar")} />
-      </Group>
-      <Group>
-        {profiles.map((p, i) => (
-          <Button key={p.id} icon="person.crop.circle" label={p.name} hint={`${CTRL}${i + 1}`} on={state.profileId === p.id} onPress={() => run("switchProfile", p.id)} />
-        ))}
-      </Group>
-      <Group>
-        <Button icon={state.dark ? "moon" : "sun.max"} label={state.dark ? "Dark" : "Light"} onPress={() => run("setAppearance", state.dark ? "light" : "dark")} />
-      </Group>
+      <Choice
+        label="Tabs"
+        value={state.tabs}
+        onChange={setTabs}
+        options={[
+          { value: "sidebar", label: "Sidebar" },
+          { value: "autoHide", label: "Auto-hide", hint: `${CMD}S` },
+          { value: "top", label: "Top", hint: `⇧${CMD}S` },
+        ]}
+      />
+      <Choice
+        label="Address bar"
+        value={state.address}
+        onChange={setAddress}
+        options={[
+          { value: "toolbar", label: "Toolbar" },
+          { value: "autoHide", label: "Auto-hide" },
+          { value: "sidebar", label: "Sidebar", disabled: state.tabs === "top" },
+        ]}
+      />
+      <div className="ardia-control-group">
+        <Action icon="rectangle.split.2x1" label="Split view" hint={`${CTRL}⇧=`} on={state.split} onPress={toggleSplit} />
+        <Action icon="magnifyingglass" label="Command bar" hint={`${CMD}L`} onPress={() => run("focusCommandBar")} />
+      </div>
+      <Choice
+        label="Profile"
+        value={state.profileId}
+        onChange={(id) => run("switchProfile", id)}
+        options={profiles.map((p, i) => ({ value: p.id, label: p.name, hint: `${CTRL}${i + 1}` }))}
+      />
+      <Choice
+        label="Theme"
+        value={state.dark ? "dark" : "light"}
+        onChange={(mode) => run("setAppearance", mode)}
+        options={[
+          { value: "light", label: "Light" },
+          { value: "dark", label: "Dark" },
+        ]}
+      />
     </div>
   );
 }
