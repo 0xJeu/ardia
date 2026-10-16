@@ -1032,6 +1032,28 @@ def edit(s):
 hook(["  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accelerator)) {\n"], edit, HOOKS)
 PY
 
+hook "$src/chrome/browser/extensions/extension_commands_global_registry.cc" "global extension commands' reserved keys" <<'PY'
+decl = ("// Ardia: ArdiaCore. True when the host ran one of its reserved commands for the hot key instead.\n"
+        "bool (*g_ardia_host_takes_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n\n")
+old_ns = "namespace extensions {\n"
+old = """    const ui::Accelerator& accelerator) {
+  ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
+"""
+new = """    const ui::Accelerator& accelerator) {
+  if (g_ardia_host_takes_global_accelerator &&
+      g_ardia_host_takes_global_accelerator(accelerator)) {
+    return;
+  }
+  ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
+"""
+def edit(s):
+    assert s.count(old) == 1 and s.count(old_ns) == 1
+    i = s.index(old_ns)
+    return (s[:i] + decl + s[i:]).replace(old, new)
+hook(["bool (*g_ardia_host_takes_global_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n",
+      "  if (g_ardia_host_takes_global_accelerator &&\n"], edit, HOOKS)
+PY
+
 if [[ $mode == check ]]; then
   exit "$drift"
 fi

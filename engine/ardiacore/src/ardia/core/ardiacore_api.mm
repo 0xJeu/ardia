@@ -634,15 +634,23 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
   ardiacore::InstallExtensionInstalledHook();
   ardiacore::InstallActionPopupHook();
   g_ardia_reserved_accelerator = [](const ui::Accelerator& accelerator) {
-    if (![g_delegate respondsToSelector:@selector(engineIsReservedKeyEvent:)]) {
+    NSEvent* event = NSApp.currentEvent;
+    return event.type == NSEventTypeKeyDown &&
+           ardiacore::ExtensionShortcuts::AcceleratorFor(event) == accelerator &&
+           [g_delegate respondsToSelector:@selector(engineIsReservedKeyEvent:)] &&
+           [g_delegate engineIsReservedKeyEvent:event];
+  };
+  g_ardia_host_takes_global_accelerator = [](const ui::Accelerator& accelerator) {
+    if (!NSApp.isActive ||
+        ![g_delegate respondsToSelector:@selector(engineIsReservedKeyEvent:)]) {
       return false;
     }
-    NSEvent* event = NSApp.currentEvent;
-    if (event.type != NSEventTypeKeyDown ||
-        ardiacore::ExtensionShortcuts::AcceleratorFor(event) != accelerator) {
-      event = ardiacore::ExtensionShortcuts::KeyEventFor(accelerator);
+    NSEvent* event = ardiacore::ExtensionShortcuts::HotKeyEventFor(accelerator);
+    if (!event || ![g_delegate engineIsReservedKeyEvent:event]) {
+      return false;
     }
-    return event && [g_delegate engineIsReservedKeyEvent:event];
+    [NSApp.mainMenu performKeyEquivalent:event];
+    return true;
   };
   g_ardia_history_eligible = [](content::WebContents* contents) {
     BrowserWindowInterface* browser =

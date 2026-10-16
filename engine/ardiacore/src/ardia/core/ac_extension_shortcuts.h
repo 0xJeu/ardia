@@ -28,7 +28,7 @@ class ExtensionShortcuts : public extensions::ExtensionKeybindingRegistry {
   bool Run(const ui::Accelerator& accelerator);
 
   static ui::Accelerator AcceleratorFor(NSEvent* event);
-  static NSEvent* KeyEventFor(const ui::Accelerator& accelerator);
+  static NSEvent* HotKeyEventFor(const ui::Accelerator& accelerator);
 
  private:
   bool PopulateCommands(const extensions::Extension* extension,

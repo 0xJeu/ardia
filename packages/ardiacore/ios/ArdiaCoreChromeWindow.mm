@@ -298,7 +298,10 @@ NSMenuItem *ReservedMenuItemForEvent(NSEvent *event) {
   const bool functionKey = first >= NSF1FunctionKey && first <= NSF35FunctionKey;
   if (!functionKey && !(mods & (NSEventModifierFlagCommand | NSEventModifierFlagControl))) return nil;
   if ([key isEqualToString:@"\x19"]) key = @"\t";
-  return ReservedMenuItem(NSApp.mainMenu, key, mods);
+  if (NSMenuItem *item = ReservedMenuItem(NSApp.mainMenu, key, mods)) return item;
+  NSString *unshifted = [event charactersByApplyingModifiers:0].lowercaseString;
+  if (!unshifted.length || [unshifted isEqualToString:key]) return nil;
+  return ReservedMenuItem(NSApp.mainMenu, unshifted, mods);
 }
 
 bool IsReservedKey(NSEvent *event) {
@@ -1800,7 +1803,9 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     if (parts.count < 3) return @"keys:<flags>:<characters>[:<keyCode>]";
     NSEventModifierFlags flags = (NSEventModifierFlags)parts[1].longLongValue;
     unsigned short code = parts.count > 3 ? (unsigned short)parts[3].intValue : 0;
-    NSEvent *down = Key(window, NSEventTypeKeyDown, flags, parts[2], code);
+    [NSApp postEvent:Key(window, NSEventTypeKeyDown, flags, parts[2], code) atStart:YES];
+    NSEvent *down = [NSApp nextEventMatchingMask:NSEventMaskKeyDown untilDate:NSDate.distantPast inMode:NSDefaultRunLoopMode dequeue:YES];
+    if (!down) return @"keys: the key event didn't come back";
     NSString *handler = @"none";
     if ([window performKeyEquivalent:down]) handler = @"window";
     else if ([NSApp.mainMenu performKeyEquivalent:down]) handler = @"mainMenu";

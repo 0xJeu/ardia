@@ -2,6 +2,8 @@
 
 #import <AppKit/AppKit.h>
 
+#include <tuple>
+
 #include "base/apple/owned_objc.h"
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -67,16 +69,31 @@ ui::Accelerator ExtensionShortcuts::AcceleratorFor(NSEvent* event) {
       input::NativeWebKeyboardEvent(base::apple::OwnedNSEvent(event)));
 }
 
-NSEvent* ExtensionShortcuts::KeyEventFor(const ui::Accelerator& accelerator) {
+NSEvent* ExtensionShortcuts::HotKeyEventFor(const ui::Accelerator& accelerator) {
   const NSEventModifierFlags modifiers =
       (accelerator.IsCtrlDown() ? NSEventModifierFlagControl : 0) |
       (accelerator.IsCmdDown() ? NSEventModifierFlagCommand : 0) |
       (accelerator.IsAltDown() ? NSEventModifierFlagOption : 0) |
       (accelerator.IsShiftDown() ? NSEventModifierFlagShift : 0);
-  unichar shifted_character;
-  unichar character;
-  const int key_code = ui::MacKeyCodeForWindowsKeyCode(
-      accelerator.key_code(), modifiers, &shifted_character, &character);
+  unichar shifted = 0;
+  unichar character = 0;
+  int key_code = ui::MacKeyCodeForWindowsKeyCode(accelerator.key_code(), modifiers,
+                                                 &shifted, &character);
+  unichar target = 0;
+  ui::MacKeyCodeForWindowsKeyCode(accelerator.key_code(), 0, nullptr, &target);
+  if (target) {
+    for (int i = 0; i < 128; ++i) {
+      auto [translated, dead] = ui::NsKeyCodeAndModifiersToCharacter(i, 0);
+      if (translated == target && !dead) {
+        key_code = i;
+        character = std::get<0>(ui::NsKeyCodeAndModifiersToCharacter(
+            i, modifiers & NSEventModifierFlagOption));
+        shifted = std::get<0>(ui::NsKeyCodeAndModifiersToCharacter(
+            i, modifiers & NSEventModifierFlagShift));
+        break;
+      }
+    }
+  }
   if (key_code == -1) {
     return nil;
   }
@@ -84,10 +101,10 @@ NSEvent* ExtensionShortcuts::KeyEventFor(const ui::Accelerator& accelerator) {
                           location:NSZeroPoint
                      modifierFlags:modifiers
                          timestamp:0
-                      windowNumber:0
+                      windowNumber:NSApp.keyWindow.windowNumber
                            context:nil
                         characters:[NSString stringWithFormat:@"%C", character]
-       charactersIgnoringModifiers:[NSString stringWithFormat:@"%C", shifted_character]
+       charactersIgnoringModifiers:[NSString stringWithFormat:@"%C", shifted]
                          isARepeat:NO
                            keyCode:static_cast<unsigned short>(key_code)];
 }
