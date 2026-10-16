@@ -1,0 +1,185 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Inter, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #1d1f24;
+}
+
+input:focus,
+textarea:focus,
+[tabindex]:focus {
+  outline: none;
+}
+
+.ardia-desktop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(120% 90% at 15% 10%, #4a5d8a 0%, transparent 55%),
+    radial-gradient(90% 80% at 90% 90%, #8a5a7a 0%, transparent 60%),
+    #262a33;
+}
+
+.ardia-window {
+  position: relative;
+  display: flex;
+  width: calc(100% - 32px);
+  height: calc(100% - 32px);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.25),
+    0 22px 70px rgba(0, 0, 0, 0.45);
+}
+
+.ardia-window > div:first-child {
+  flex: 1;
+  display: flex;
+}
+
+.ardia-menu {
+  position: fixed;
+  z-index: 10000;
+  padding: 5px;
+  border-radius: 10px;
+  background: rgba(246, 246, 246, 0.78);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.18),
+    0 10px 30px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  color: #1d1d1f;
+  user-select: none;
+}
+
+.ardia-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px 0 4px;
+  border-radius: 5px;
+  cursor: default;
+}
+
+.ardia-menu-item:hover:not(.disabled) {
+  background: #0a63e0;
+  color: #fff;
+}
+
+.ardia-menu-item.disabled {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.ardia-menu-check {
+  width: 14px;
+  font-size: 11px;
+}
+
+.ardia-menu-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  margin-right: 7px;
+}
+
+.ardia-menu-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ardia-menu-key {
+  margin-left: 16px;
+  opacity: 0.55;
+  font-size: 12px;
+}
+
+.ardia-menu-separator {
+  height: 1px;
+  margin: 5px 8px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.ardia-refused {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(80% 60% at 50% 35%, #f7f4f2 0%, #efebe8 100%);
+  color: #1d1d1f;
+}
+
+.ardia-refused-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 420px;
+  padding: 36px 40px 30px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.08),
+    0 18px 50px rgba(60, 40, 30, 0.12);
+  text-align: center;
+}
+
+.ardia-refused-site {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.ardia-refused-card h1 {
+  margin: 18px 0 8px;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.ardia-refused-card p {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.58);
+}
+
+.ardia-refused-download {
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: #1d1d1f;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ardia-refused-download:hover {
+  background: #000;
+}
+
+.ardia-refused-note {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: rgba(0, 0, 0, 0.4);
+}

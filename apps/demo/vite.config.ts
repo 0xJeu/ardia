@@ -1,0 +1,71 @@
+import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
+import { visualizer } from "rollup-plugin-visualizer";
+import { defineConfig, type Plugin } from "vite";
+
+const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
+const repo = here("../../");
+const shims = here("./src/shims/");
+
+const realPackages: Record<string, string> = {
+  shell: `${repo}packages/shell/src/index.tsx`,
+  ardiacore: `${repo}packages/ardiacore/src/index.ts`,
+  shaders: `${repo}packages/shaders/src/index.tsx`,
+  sync: `${repo}packages/sync/src/index.ts`,
+  import: `${repo}packages/import/src/index.ts`,
+};
+
+const ASSET = /\.(png|jpe?g|gif|webp|svg)$/;
+
+function commonJsRequires(): Plugin {
+  const scope = [`${repo}apps/browser/src/`, `${repo}packages/`];
+  return {
+    name: "ardia-demo:requires",
+    enforce: "pre",
+    transform(code, id) {
+      if (!/\.(t|j)sx?$/.test(id) || !scope.some((dir) => id.startsWith(dir)) || !code.includes("require(")) return null;
+      const specs: string[] = [];
+      const body = code.replace(/\brequire\((["'])([^"']+)\1\)/g, (_match, _quote, spec: string) => {
+        let index = specs.indexOf(spec);
+        if (index < 0) index = specs.push(spec) - 1;
+        return ASSET.test(spec) ? `__required${index}.default` : `__required${index}`;
+      });
+      if (!specs.length) return null;
+      const imports = specs.map((spec, i) => `import * as __required${i} from ${JSON.stringify(spec)};`).join("\n");
+      return { code: `${imports}\n${body}`, map: null };
+    },
+  };
+}
+
+const analyze = !!process.env.ARDIA_DEMO_ANALYZE;
+
+export default defineConfig({
+  plugins: [
+    commonJsRequires(),
+    react(),
+    analyze && visualizer({ filename: "dist/stats.html", gzipSize: true, template: "treemap" }),
+    analyze && visualizer({ filename: "dist/stats.json", gzipSize: true, template: "raw-data" }),
+  ],
+  define: {
+    __DEV__: "false",
+    global: "globalThis",
+  },
+  resolve: {
+    extensions: [".web.tsx", ".web.ts", ".web.js", ".tsx", ".ts", ".mjs", ".js", ".jsx", ".json"],
+    alias: [
+      { find: /^react-native\/Libraries\/Animated\/useAnimatedProps$/, replacement: "react-native-web/dist/vendor/react-native/Animated/useAnimatedProps.js" },
+      { find: /^react-native(-macos)?$/, replacement: `${shims}react-native.tsx` },
+      { find: /^expo-modules-core$/, replacement: `${shims}expo-modules-core.ts` },
+      { find: /^@ardia\/(shell|ardiacore|shaders|sync|import)$/, replacement: `${shims}$1.tsx` },
+      ...Object.entries(realPackages).map(([name, path]) => ({ find: new RegExp(`^@ardia-real/${name}$`), replacement: path })),
+    ],
+  },
+  optimizeDeps: {
+    include: ["react-native-web", "lucide-react", "zustand", "zustand/react/shallow", "react-dom/client"],
+  },
+  build: {
+    target: "es2022",
+    sourcemap: false,
+    chunkSizeWarningLimit: 4000,
+  },
+});
