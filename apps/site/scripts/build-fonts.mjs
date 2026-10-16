@@ -7,8 +7,7 @@ const site = fileURLToPath(new URL("..", import.meta.url));
 const styles = join(site, "src/styles");
 const out = join(site, "src/assets/fonts");
 const FONTS = [
-  { pkg: "archivo", css: "wdth.css", core: "archivo-core.woff2" },
-  { pkg: "newsreader", css: "opsz.css", core: "newsreader-core.woff2" },
+  { pkg: "mona-sans", css: "wdth.css", core: "mona-sans-core.woff2" },
   { pkg: "martian-mono", css: "wdth.css", core: "martian-mono-core.woff2" },
 ];
 
@@ -63,7 +62,7 @@ for (const font of FONTS) {
     const url = relative(styles, join(pkgDir, "files", file));
     const rule = (name, src, range) =>
       `\n/* ${name} */\n@font-face {${body.replace(/url\([^)]+\)/, `url(${src})`).replace(/unicode-range: [^;]+;/, `unicode-range: ${range};`)}}`;
-    if (!/-latin-(wdth|opsz)-normal$/.test(comment)) {
+    if (!/-latin-wdth-normal$/.test(comment)) {
       css.push(rule(comment, url, body.match(/unicode-range: ([^;]+);/)[1]));
       continue;
     }

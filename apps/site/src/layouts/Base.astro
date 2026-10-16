@@ -2,8 +2,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import "../styles/fonts.css";
-import archivoLatin from "../assets/fonts/archivo-core.woff2?url";
-import newsreaderLatin from "../assets/fonts/newsreader-core.woff2?url";
+import monaLatin from "../assets/fonts/mona-sans-core.woff2?url";
 import martianLatin from "../assets/fonts/martian-mono-core.woff2?url";
 import "../styles/global.css";
 import Device from "../components/Device.astro";
@@ -50,8 +49,7 @@ const OG_ALT =
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image:alt" content={OG_ALT} />
     {jsonLd.map((data) => <script type="application/ld+json" set:html={JSON.stringify(data)} />)}
-    <link rel="preload" href={archivoLatin} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={newsreaderLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monaLatin} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={martianLatin} as="font" type="font/woff2" crossorigin />
     <slot name="head" />
     <script is:inline>document.documentElement.classList.add("js");</script>

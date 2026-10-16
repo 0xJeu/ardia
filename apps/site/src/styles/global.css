@@ -40,16 +40,16 @@
   --edge-a: url("../assets/paint/edge-a.svg");
   --edge-b: url("../assets/paint/edge-b.svg");
 
-  --poster: "Archivo Variable", "Arial Narrow", sans-serif;
-  --serif: "Newsreader Variable", Georgia, serif;
+  --sans: "Mona Sans Variable", -apple-system, "Helvetica Neue", sans-serif;
+  --poster: "Mona Sans Variable", "Arial Narrow", sans-serif;
   --mono: "Martian Mono Variable", ui-monospace, "SF Mono", monospace;
 
   --t-mega: clamp(3.4rem, 1.2rem + 9.4vw, 11.5rem);
   --t-h2: clamp(2.6rem, 1.3rem + 5.4vw, 7rem);
   --t-h3: clamp(1.7rem, 1.25rem + 1.5vw, 2.6rem);
-  --t-lede: clamp(1.2rem, 1.05rem + 0.55vw, 1.55rem);
-  --t-body: clamp(1.06rem, 1rem + 0.2vw, 1.19rem);
-  --t-small: 0.94rem;
+  --t-lede: clamp(1.14rem, 1.02rem + 0.48vw, 1.42rem);
+  --t-body: clamp(1rem, 0.96rem + 0.16vw, 1.1rem);
+  --t-small: 0.9rem;
   --t-label: 0.69rem;
 
   --gutter: clamp(16px, 3.2vw, 40px);
@@ -86,10 +86,10 @@ body {
   background-size: 256px;
   background-blend-mode: soft-light;
   color: var(--ink);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: var(--t-body);
-  line-height: 1.5;
-  font-optical-sizing: auto;
+  font-weight: 420;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: clip;
@@ -186,11 +186,11 @@ h3 {
 
 .poster {
   font-family: var(--poster);
-  font-weight: 860;
-  font-stretch: 62%;
+  font-weight: 900;
+  font-stretch: 75%;
   text-transform: uppercase;
   line-height: 0.86;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   font-kerning: normal;
 }
 
@@ -257,10 +257,10 @@ h3 {
   background: var(--btn-bg);
   color: var(--btn-fg);
   font-family: var(--poster);
-  font-weight: 760;
-  font-stretch: 80%;
-  font-size: 1.06rem;
-  letter-spacing: 0.01em;
+  font-weight: 740;
+  font-stretch: 85%;
+  font-size: 1.04rem;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;

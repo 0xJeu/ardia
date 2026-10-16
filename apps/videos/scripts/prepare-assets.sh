@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 V=$(cd "$(dirname "$0")/.." && pwd); R=$(cd "$V/../.." && pwd)
-F=$R/apps/site/node_modules/@fontsource-variable
-[ -d "$F" ] || (cd "$R/apps/site" && pnpm install --frozen-lockfile)
+F=$V/node_modules/@fontsource-variable
+[ -d "$F/archivo" ] && [ -d "$F/newsreader" ] && [ -d "$F/martian-mono" ] || (cd "$V" && pnpm install --frozen-lockfile)
 mkdir -p "$V/public/fonts" "$V/public/brand"
 cp "$F/archivo/files/archivo-latin-wdth-normal.woff2" "$F/martian-mono/files/martian-mono-latin-wdth-normal.woff2" \
   "$F/newsreader/files/newsreader-latin-opsz-normal.woff2" "$F/newsreader/files/newsreader-latin-opsz-italic.woff2" "$V/public/fonts/"
