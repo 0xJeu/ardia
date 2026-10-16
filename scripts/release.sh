@@ -334,7 +334,7 @@ for attempt in 1 2 3 4 5; do
   [ "$attempt" = 5 ] && { hdiutil detach "$dmg_mnt" -force >/dev/null || die "couldn't eject $dmg_mnt"; }
   sleep 2
 done
-hdiutil convert "$dmg_rw" -format ULFO -ov -o "$dmg" >/dev/null
+hdiutil convert "$dmg_rw" -format ULMO -ov -o "$dmg" >/dev/null
 rm -rf "$dmg_rw" "$dmg_mnt"
 sign "$dmg"
 if [ "$notarize" = 1 ]; then
