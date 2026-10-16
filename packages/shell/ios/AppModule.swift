@@ -271,6 +271,16 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
+    AsyncFunction("devLeftEdgeStats") { (reset: Bool) -> [String: Any] in
+      #if DEBUG
+      let stats = LeftEdgeWatcher.shared.stats
+      if reset { LeftEdgeWatcher.shared.resetStats() }
+      return stats
+      #else
+      return [:]
+      #endif
+    }.runOnQueue(.main)
+
     AsyncFunction("devHoverStats") { (reset: Bool) -> [String: Any] in
       #if DEBUG
       let select = NSSelectorFromString("ardia_hoverStats:")

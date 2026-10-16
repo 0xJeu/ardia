@@ -9,7 +9,14 @@ final class LeftEdgeWatcher {
   private var watched: [String: CGFloat] = [:]
   private var over: Set<String> = []
   private var unreported: Set<String> = []
-  private var monitors: [Any] = []
+  private var localMonitor: Any?
+  private var globalMonitor: Any?
+  private var observers: [NSObjectProtocol] = []
+  #if DEBUG
+  private(set) var wakes: [String: Int] = ["global": 0, "local": 0]
+  var stats: [String: Any] { ["wakes": wakes, "global": globalMonitor != nil, "local": localMonitor != nil, "watched": watched.count] }
+  func resetStats() { wakes = ["global": 0, "local": 0] }
+  #endif
 
   private static let pointerEvents: NSEvent.EventTypeMask = [
     .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .leftMouseUp, .rightMouseUp, .otherMouseUp,
@@ -43,7 +50,8 @@ final class LeftEdgeWatcher {
       let frame = window.frame
       emit?("onWindowEvent", ["type": "leftEdge", "id": id, "over": now, "point": [point.x - frame.minX, frame.maxY - point.y]])
     }
-    if watched.isEmpty { stop() }
+    if watched.isEmpty { return stop() }
+    updateGlobalMonitor()
   }
 
   private func isOver(_ point: NSPoint, of window: NSWindow, hold: CGFloat, live: Bool) -> Bool {
@@ -61,22 +69,71 @@ final class LeftEdgeWatcher {
     guard NSWindow.windowNumber(at: edge, belowWindowWithWindowNumber: 0) == window.windowNumber else { return false }
     let under = NSWindow.windowNumber(at: point, belowWindowWithWindowNumber: 0)
     if under != window.windowNumber, NSApp.window(withWindowNumber: under) != nil { return false }
-    return NSApp.isActive || frame.minX - screen.frame.minX <= Self.reach
+    return NSApp.isActive || Self.besideScreenEdge(window, screen)
+  }
+
+  private static func besideScreenEdge(_ window: NSWindow, _ screen: NSScreen) -> Bool {
+    window.frame.minX - screen.frame.minX <= reach
+  }
+
+  private var needsGlobalMonitor: Bool {
+    if NSApp.isActive || !over.isEmpty { return true }
+    return watched.contains { id, hold in
+      guard let window = WindowManager.shared.windows[id] else { return false }
+      if hold > 0 { return true }
+      guard let screen = window.screen else { return false }
+      return Self.besideScreenEdge(window, screen)
+    }
+  }
+
+  private func updateGlobalMonitor() {
+    let needed = !watched.isEmpty && needsGlobalMonitor
+    guard needed != (globalMonitor != nil) else { return }
+    if let globalMonitor {
+      NSEvent.removeMonitor(globalMonitor)
+      self.globalMonitor = nil
+      return
+    }
+    globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: Self.pointerEvents, handler: { [weak self] _ in
+      #if DEBUG
+      self?.wakes["global", default: 0] += 1
+      #endif
+      self?.checkPointer()
+    })
+  }
+
+  private func isWatched(_ window: NSWindow) -> Bool {
+    watched.keys.contains { WindowManager.shared.windows[$0] === window }
   }
 
   private func start() {
-    guard monitors.isEmpty else { return }
-    if let global = NSEvent.addGlobalMonitorForEvents(matching: Self.pointerEvents, handler: { [weak self] _ in
-      self?.checkPointer()
-    }) {
-      monitors.append(global)
+    if localMonitor == nil {
+      localMonitor = NSEvent.addLocalMonitorForEvents(matching: Self.pointerEvents, handler: { [weak self] event in
+        #if DEBUG
+        self?.wakes["local", default: 0] += 1
+        #endif
+        self?.checkPointer()
+        return event
+      })
     }
-    if let local = NSEvent.addLocalMonitorForEvents(matching: Self.pointerEvents, handler: { [weak self] event in
-      self?.checkPointer()
-      return event
-    }) {
-      monitors.append(local)
+    if observers.isEmpty {
+      let center = NotificationCenter.default
+      for name in [
+        NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
+        NSApplication.didChangeScreenParametersNotification,
+      ] {
+        observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+          self?.updateGlobalMonitor()
+        })
+      }
+      for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification, NSWindow.didChangeScreenNotification] {
+        observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+          guard let self, let window = note.object as? NSWindow, self.isWatched(window) else { return }
+          self.updateGlobalMonitor()
+        })
+      }
     }
+    updateGlobalMonitor()
   }
 
   func reset() {
@@ -88,7 +145,10 @@ final class LeftEdgeWatcher {
   }
 
   private func stop() {
-    for monitor in monitors { NSEvent.removeMonitor(monitor) }
-    monitors = []
+    for monitor in [localMonitor, globalMonitor].compactMap({ $0 }) { NSEvent.removeMonitor(monitor) }
+    localMonitor = nil
+    globalMonitor = nil
+    for observer in observers { NotificationCenter.default.removeObserver(observer) }
+    observers = []
   }
 }
