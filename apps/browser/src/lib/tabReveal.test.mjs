@@ -99,3 +99,20 @@ test("splits and profile switches are left to React", () => {
   }));
   assert.deepEqual(revealed(), [], "another profile's page");
 });
+
+test("a page Chrome opened in front (a link's new tab, DevTools, an extension) is shown over the page it replaces", () => {
+  setup(["a", "b"], "a");
+  const made = S().newTab("w1", { url: "https://made.example/", adoptId: "tab:5" });
+  assert.deepEqual(revealed(), ["tab:5 over a"]);
+  assert.equal(S().windows.w1.activeTabIds.default, made);
+  stub.revealedTabs.length = 0;
+  S().newTab("w1", { url: "https://behind.example/", adoptId: "tab:6", background: true });
+  S().newTab("w1", { url: "https://dup.example/", adoptId: "clone:a" });
+  assert.deepEqual(revealed(), [], "in the background, or a duplicate made from the tab");
+  S().activate("b");
+  stub.revealedTabs.length = 0;
+  patchPage("b", { newTabShown: true });
+  S().newTab("w1", { url: "https://other.example/", adoptId: "tab:7" });
+  assert.deepEqual(revealed(), [], "over a New Tab page");
+  patchPage("b", { newTabShown: null });
+});

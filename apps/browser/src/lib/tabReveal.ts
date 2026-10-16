@@ -1,14 +1,21 @@
-import { revealTab } from "@ardia/ardiacore";
+import { revealOffered, revealTab } from "@ardia/ardiacore";
 import { pageOf } from "../components/layout/pageState";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTabId } from "../store/model";
 import { splitOf } from "../store/splits";
+import type { Tab } from "../store/types";
 
 const WEB_PAGE = /^(https?|file):/i;
 
-export function switchedTabs(s: BrowserState, prev: BrowserState): string[] {
+const OFFERED = /^(tab|ardiacore):/;
+
+export type Switch = { tabId: string; offered?: string; over: string };
+
+const hasPage = (t: Tab | undefined): t is Tab => !!t && !!(t.navigation || t.adoptId) && WEB_PAGE.test(t.url);
+
+export function switchedTabs(s: BrowserState, prev: BrowserState): Switch[] {
   if (s.windows === prev.windows) return [];
-  const out: string[] = [];
+  const out: Switch[] = [];
   for (const id in s.windows) {
     const w = s.windows[id]!;
     const was = prev.windows[id];
@@ -19,16 +26,21 @@ export function switchedTabs(s: BrowserState, prev: BrowserState): string[] {
     if (splitOf(prev, before) || splitOf(s, next) || pageOf(before).fullscreen) continue;
     const tab = s.tabs[next];
     const had = prev.tabs[next];
-    if (!tab || !had || !(had.navigation || had.adoptId) || !(tab.navigation || tab.adoptId) || !WEB_PAGE.test(tab.url) || tab.windowId !== id) continue;
+    if (!hasPage(tab) || tab.windowId !== id) continue;
     const page = pageOf(next);
     if (page.newTabShown || page.fullscreen) continue;
-    out.push(next);
+    if (hasPage(had)) out.push({ tabId: next, over: before });
+    else if (!had && tab.adoptId && OFFERED.test(tab.adoptId) && hasPage(prev.tabs[before]) && !pageOf(before).newTabShown)
+      out.push({ tabId: next, offered: tab.adoptId, over: before });
   }
   return out;
 }
 
 export function startTabReveal() {
   useBrowser.subscribe((s, prev) => {
-    for (const id of switchedTabs(s, prev)) revealTab(id);
+    for (const { tabId, offered, over } of switchedTabs(s, prev)) {
+      if (offered) revealOffered(offered, over);
+      else revealTab(tabId);
+    }
   });
 }

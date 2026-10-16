@@ -84,6 +84,7 @@ bool EngineHasTabModel();
 + (NSString *)offerTab:(ArdiaCoreTab *)tab;
 + (NSString *)offerTab:(ArdiaCoreTab *)tab prefix:(NSString *)prefix;
 + (nullable ArdiaCoreTab *)takeOffered:(NSString *)adoptId;
++ (nullable ArdiaCoreTab *)offeredTab:(NSString *)adoptId;
 + (void)forget:(ArdiaCoreTab *)tab;
 @end
 

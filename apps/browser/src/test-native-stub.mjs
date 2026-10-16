@@ -116,6 +116,7 @@ export const releaseTabTransfer = () => {};
 export const claimLaunchTab = () => {};
 export const revealedTabs = [];
 export const revealTab = (key) => revealedTabs.push(key);
+export const revealOffered = (adoptId, over) => revealedTabs.push(`${adoptId} over ${over}`);
 export const linkClaims = [];
 export const claimLinkTab = (key, url, profile) => linkClaims.push({ key, url, profile });
 export const releaseLinkTabs = () => linkClaims.push("released");

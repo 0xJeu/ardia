@@ -447,6 +447,8 @@ static BOOL HeldSelector(SEL selector) {
   NSUInteger _revealGeneration;
   __weak NSView *_raisedPane;
   CGFloat _raisedPaneZ;
+  __weak NSView *_frontedPage;
+  NSUInteger _frontGeneration;
 }
 
 + (void)prepareTransfer:(NSString *)transferKey {
@@ -1204,6 +1206,47 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
   return nil;
 }
 
++ (void)revealOffered:(NSString *)adoptId over:(NSString *)transferKey {
+  if (!adoptId.length || !transferKey.length) return;
+  NSString *offer = [adoptId copy], *key = [transferKey copy];
+  void (^reveal)(void) = ^{
+    ArdiaCoreTab *tab = [ArdiaCoreTabs offeredTab:offer];
+    NSView *page = tab.view;
+    if (!tab || tab.closed || !page || page.superview || [ArdiaCoreTabs viewForTab:tab]) return;
+    for (ArdiaCoreWebView *view in LiveViews().allObjects)
+      if (view->_tab && [view->_transferKey isEqualToString:key]) return [view frontPage:page profile:tab.profile];
+  };
+  if (NSThread.isMainThread) reveal();
+  else dispatch_async(dispatch_get_main_queue(), reveal);
+}
+
+- (BOOL)onlyShownInWindow {
+  NSWindow *window = self.window;
+  if (!_visible || _warm || _revealed || _standalone || _closing || !window || self.alphaValue < 1 || self.isHiddenOrHasHiddenAncestor) return NO;
+  for (ArdiaCoreWebView *other in LiveViews().allObjects)
+    if (other != self && other.window == window && (other->_visible || other->_warm || other->_revealed)) return NO;
+  return YES;
+}
+
+- (void)frontPage:(NSView *)page profile:(ArdiaCoreProfile *)profile {
+  NSView *mine = _tab.view;
+  if (_frontedPage || !mine || mine.superview != self || mine.hidden || _tab.profile != profile || ![self onlyShownInWindow]) return;
+  page.frame = mine.frame;
+  page.hidden = NO;
+  [self addSubview:page positioned:NSWindowAbove relativeTo:mine];
+  _frontedPage = page;
+  const NSUInteger generation = ++_frontGeneration;
+  __weak ArdiaCoreWebView *weakSelf = self;
+  __weak NSView *weakPage = page;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRevealHoldSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    ArdiaCoreWebView *view = weakSelf;
+    NSView *fronted = weakPage;
+    if (!view || view->_frontGeneration != generation) return;
+    view->_frontedPage = nil;
+    if (fronted.superview == view) [fronted removeFromSuperview];
+  });
+}
+
 - (void)revealAhead {
   NSWindow *window = self.window;
   NSView *page = _tab.view;
@@ -1216,7 +1259,7 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
     if (shown) return;
     shown = other;
   }
-  if (!shown || shown.alphaValue < 1) return;
+  if (!shown || shown.alphaValue < 1 || shown->_frontedPage) return;
   const NSRect mine = [self convertRect:self.bounds toView:nil];
   if (NSIsEmptyRect(mine) || !NSEqualRects(mine, [shown convertRect:shown.bounds toView:nil])) return;
   NSView *shared = SharedAncestor(self, shown);
@@ -2279,6 +2322,10 @@ constexpr int64_t kOfferSeconds = 30;
     if (![ArdiaCoreTabs viewForTab:tab]) [tab close];
   });
   return adoptId;
+}
+
++ (ArdiaCoreTab *)offeredTab:(NSString *)adoptId {
+  return adoptId.length ? Offered()[adoptId] : nil;
 }
 
 + (ArdiaCoreTab *)takeOffered:(NSString *)adoptId {
