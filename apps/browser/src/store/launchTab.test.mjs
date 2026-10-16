@@ -73,9 +73,21 @@ test("a reopened tab not shown yet keeps its back/forward list across a relaunch
   assert.equal(S().tabs.b.wakeAdoptId, "restore:old-b");
   S().activate("b");
   assert.equal(S().tabs.b.adoptId, "restore:old-b", "shown, it wakes with its list");
-  S().updateTab("b", { adoptId: undefined, wakeAdoptId: "restore:old-b" });
   S().setFocusedWindow("w1");
-  assert.equal(launchTab(S(), "w1"), null);
+  assert.deepEqual(launchTab(S(), "w1"), { id: "b", url: "https://b.com/", profile: "" }, "woken, the next launch loads it by its address");
+  S().updateTab("b", { adoptId: undefined, wakeAdoptId: "restore:old-b" });
+  assert.equal(launchTab(S(), "w1"), null, "not woken yet: it keeps its list");
+});
+
+test("a tab the engine made (a link, an extension, DevTools) is the hint once adopted, and the relaunch claims it", () => {
+  hydrate([win("w1", ["a"], "a")], [tab("a", "w1", "https://a.com/")], { focusedWindowId: "w1" });
+  const id = S().newTab("w1", { url: "https://made.example/page", adoptId: "tab:7" });
+  assert.equal(S().tabs[id].adoptId, "tab:7");
+  assert.deepEqual(savedHint(), { id, url: "https://made.example/page", profile: "" });
+  S().hydrate(loadSession());
+  assert.equal(S().tabs[id].adoptId, undefined, "the relaunch loads it by its address");
+  assert.deepEqual(launchTab(S(), S().ui.focusedWindowId), { id, url: "https://made.example/page", profile: "" });
+  assert.equal(S().tabs[id].navigation?.url, "https://made.example/page");
 });
 
 test("no hint when the next launch won't restore the session", () => {
