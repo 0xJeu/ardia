@@ -136,6 +136,8 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     Control (same file, "Behind the owner's windows"; `-level` still answers the level asked for).
   - Any standalone test program or prototype window you create must be unable to take focus
     (NSApplicationActivationPolicyProhibited/accessory, non-activating panels).
+  - Never give an extension shortcut Global scope in a test instance. Chrome registers it as a system-wide hotkey,
+    so it swallows that key in the owner's other apps for as long as the instance runs.
   - Don't use computer-use / screen-control tools on the user's apps. Never click or type in
     Dia (it's a read-only reference). Don't read Dia's user data
     (`~/Library/Application Support/Dia`), nor any other browser's real profile data;
