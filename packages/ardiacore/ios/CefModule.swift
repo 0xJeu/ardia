@@ -43,6 +43,7 @@ public class CefModule: Module {
     Function("claimLaunchTab") { (key: String, url: String, profile: String) in
       ArdiaCoreWebView.claimLaunchTab(key, url: url, profile: profile)
     }
+    Function("revealTab") { (key: String) in ArdiaCoreWebView.revealTab(key) }
     AsyncFunction("tabStripCommand") { (id: Int, command: [String: Any]) in ArdiaCoreTabStrip.command(id, command: command) }
       .runOnQueue(.main)
     AsyncFunction("tabStrips") { ArdiaCoreTabStrip.allStrips }.runOnQueue(.main)

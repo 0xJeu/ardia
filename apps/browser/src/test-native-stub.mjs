@@ -114,6 +114,8 @@ export const engineCall = (name, profile, args) => globalThis.acTestEngineCall?.
 export const prepareTabTransfer = () => {};
 export const releaseTabTransfer = () => {};
 export const claimLaunchTab = () => {};
+export const revealedTabs = [];
+export const revealTab = (key) => revealedTabs.push(key);
 export const onTabStripTransaction = (listener) => globalThis.acTestTabStrip.listen(listener);
 export const sendTabStripCommand = (command) => globalThis.acTestTabStrip.command(command);
 export const tabStrips = () => globalThis.acTestTabStrip.snapshot();

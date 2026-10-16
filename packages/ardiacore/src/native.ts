@@ -32,6 +32,7 @@ export const Cef = requireNativeModule<{
   prepareTransfer(key: string): void;
   releaseTransfer(key: string): void;
   claimLaunchTab?(key: string, url: string, profile: string): void;
+  revealTab?(key: string): void;
   addListener(name: "onTabStrip", listener: (tx: TabStripTransaction) => void): EventSubscription;
   tabStripCommand(id: number, command: TabStripCommand): Promise<void>;
   tabStrips(): Promise<TabStripTransaction>;

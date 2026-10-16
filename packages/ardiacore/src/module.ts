@@ -89,6 +89,7 @@ export const devWindowAction = (windowNumber: number, action: string) => Cef.dev
 export const prepareTabTransfer = (transferKey: string) => Cef.prepareTransfer(transferKey);
 export const releaseTabTransfer = (transferKey: string) => Cef.releaseTransfer(transferKey);
 export const claimLaunchTab = (transferKey: string, url: string, profile: string) => Cef.claimLaunchTab?.(transferKey, url, profile);
+export const revealTab = (transferKey: string) => Cef.revealTab?.(transferKey);
 export const listComponents = () => Cef.components();
 
 export const beginTracing = () => Cef.beginTracing();
