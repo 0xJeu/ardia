@@ -81,7 +81,7 @@ export function DefaultBrowserStep() {
     if (!system) return;
     setBusy(true);
     try {
-      if (setDefault && !system.isDefault && (await setAsDefaultBrowser()) && trial) recordDefaultBrowserTrial();
+      if (!system.isDefault && (setDefault || trial) && (await setAsDefaultBrowser()) && !setDefault) recordDefaultBrowserTrial();
       if (login !== system.loginEnabled) await setLaunchAtLogin(login).catch(() => {});
       if (dock && !system.inDock) await addToDock();
     } finally {
@@ -91,10 +91,11 @@ export function DefaultBrowserStep() {
   };
 
   const defaultOn = system?.isDefault || setDefault;
+  const trying = !defaultOn && trial;
   return (
     <StepLayout
       actions={<PrimaryButton title={busy ? "Setting Up…" : "Continue"} onPress={() => void apply()} disabled={!system || busy} />}
-      preview={<SystemPreview isDefault={!!defaultOn} dock={!!(system?.inDock || dock)} login={login} />}
+      preview={<SystemPreview isDefault={!!(defaultOn || trying)} dock={!!(system?.inDock || dock)} login={login} />}
     >
       <Reveal delay={60}>
         <StepTitle title="Fast, secure, and packed with all your browser essentials" subtitle="Ardia works best as your default browser." />
@@ -108,7 +109,7 @@ export function DefaultBrowserStep() {
           disabled={!system || system.isDefault}
           onChange={setSetDefault}
         />
-        {!system?.isDefault && setDefault ? (
+        {system && !defaultOn ? (
           <CheckRow
             icon="calendar"
             title="Try Ardia as your default for seven days"
