@@ -37,11 +37,53 @@ function commonJsRequires(): Plugin {
   };
 }
 
+const LAZY_COMPONENTS: Record<string, string[]> = {
+  [`${repo}apps/browser/src/components/settings/UtilityWindow.tsx`]: ["UtilityWindow"],
+  [`${repo}apps/browser/src/components/onboarding/OnboardingOverlay.tsx`]: ["OnboardingOverlay"],
+  [`${repo}apps/browser/src/components/pages/InternalPage.tsx`]: ["InternalPage"],
+  [`${repo}apps/browser/src/components/extensions/ExtensionOverlays.tsx`]: ["ExtensionOverlays", "InstallDialogHost"],
+  [`${repo}apps/browser/src/components/extensions/SidePanel.tsx`]: ["ExtensionSidePanel"],
+  [`${repo}apps/browser/src/components/bookmarks/BookmarkDialog.tsx`]: ["BookmarkDialog"],
+  [`${repo}apps/browser/src/components/bookmarks/EditBookmarkDialog.tsx`]: ["EditBookmarkDialog"],
+  [`${repo}apps/browser/src/components/littleArdia/LittleArdiaWindow.tsx`]: ["LittleArdiaWindow"],
+};
+
+const LAZY_PREFIX = "\0ardia-lazy:";
+const EAGER_QUERY = "?ardia-eager";
+
+function lazyComponents(): Plugin {
+  return {
+    name: "ardia-demo:lazy-components",
+    enforce: "pre",
+    async resolveId(source, importer, options) {
+      if (!importer || source.endsWith(EAGER_QUERY) || importer.startsWith(LAZY_PREFIX)) return null;
+      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+      if (!resolved || !LAZY_COMPONENTS[resolved.id]) return null;
+      return LAZY_PREFIX + resolved.id;
+    },
+    load(id) {
+      if (!id.startsWith(LAZY_PREFIX)) return null;
+      const file = id.slice(LAZY_PREFIX.length);
+      const names = LAZY_COMPONENTS[file]!;
+      const lines = [
+        `import { createElement, lazy, Suspense } from "react";`,
+        `const load = () => import(${JSON.stringify(file + EAGER_QUERY)});`,
+        ...names.flatMap((name) => [
+          `const Lazy${name} = lazy(() => load().then((m) => ({ default: m.${name} })));`,
+          `export function ${name}(props) { return createElement(Suspense, { fallback: null }, createElement(Lazy${name}, props)); }`,
+        ]),
+      ];
+      return lines.join("\n");
+    },
+  };
+}
+
 const analyze = !!process.env.ARDIA_DEMO_ANALYZE;
 
 export default defineConfig({
   plugins: [
     commonJsRequires(),
+    lazyComponents(),
     react(),
     analyze && visualizer({ filename: "dist/stats.html", gzipSize: true, template: "treemap" }),
     analyze && visualizer({ filename: "dist/stats.json", gzipSize: true, template: "raw-data" }),

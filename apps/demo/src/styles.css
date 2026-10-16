@@ -8,8 +8,6 @@ body,
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Inter, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   background: #1d1f24;
 }
 
@@ -115,71 +113,18 @@ textarea:focus,
   background: rgba(0, 0, 0, 0.1);
 }
 
-.ardia-refused {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(80% 60% at 50% 35%, #f7f4f2 0%, #efebe8 100%);
-  color: #1d1d1f;
-}
-
-.ardia-refused-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 420px;
-  padding: 36px 40px 30px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.82);
+.ardia-menu.dark {
+  background: rgba(40, 40, 40, 0.78);
+  color: #ffffff;
   box-shadow:
-    0 0 0 0.5px rgba(0, 0, 0, 0.08),
-    0 18px 50px rgba(60, 40, 30, 0.12);
-  text-align: center;
+    0 0 0 0.5px rgba(255, 255, 255, 0.16),
+    0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
-.ardia-refused-site {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.05);
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.6);
+.ardia-menu.dark .ardia-menu-item.disabled {
+  color: rgba(255, 255, 255, 0.3);
 }
 
-.ardia-refused-card h1 {
-  margin: 18px 0 8px;
-  font-size: 21px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.ardia-refused-card p {
-  margin: 0 0 22px;
-  font-size: 14px;
-  line-height: 1.45;
-  color: rgba(0, 0, 0, 0.58);
-}
-
-.ardia-refused-download {
-  padding: 9px 20px;
-  border-radius: 999px;
-  background: #1d1d1f;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.ardia-refused-download:hover {
-  background: #000;
-}
-
-.ardia-refused-note {
-  margin-top: 12px;
-  font-size: 11.5px;
-  color: rgba(0, 0, 0, 0.4);
+.ardia-menu.dark .ardia-menu-separator {
+  background: rgba(255, 255, 255, 0.12);
 }

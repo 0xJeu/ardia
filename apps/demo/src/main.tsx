@@ -2,38 +2,38 @@ import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { unstable_batchedUpdates } from "react-native";
 import { emitCommand } from "@ardia/shell";
-import type { BrowserCommand } from "@ardia-real/shell";
 import { WindowRoot } from "../../browser/src/App";
 import { startNativeSync } from "../../browser/src/lib/native";
 import { startTabPages } from "../../browser/src/lib/tabPages";
 import { setStoreBatching, useBrowser } from "../../browser/src/store/browser";
+import { isFrameable } from "./frameable";
+import { pageTitle } from "./pages";
+import { installLocalSuggestions } from "./localSuggest";
 import { demoSession } from "./seed";
+import { warmFrame } from "./shims/web/framePool";
 import { MenuHost } from "./shims/web/menus";
+import "./shims/web/motion/shortcuts";
 import { TrafficLights } from "./shims/web/windowChrome";
 
+installLocalSuggestions();
 setStoreBatching(unstable_batchedUpdates);
 useBrowser.getState().hydrate(demoSession());
 startTabPages();
 startNativeSync();
 
-const SHORTCUTS: { key: string; shift?: boolean; command: BrowserCommand }[] = [
-  { key: "l", command: "focusCommandBar" },
-  { key: "k", command: "focusCommandBar" },
-  { key: "t", command: "newTab" },
-  { key: "t", shift: true, command: "reopenClosedTab" },
-  { key: "s", command: "toggleSidebar" },
-  { key: "[", command: "back" },
-  { key: "]", command: "forward" },
-  { key: "w", command: "closeTab" },
-];
+Object.assign(globalThis, { ardiaDemo: { store: useBrowser, emitCommand } });
 
-window.addEventListener("keydown", (e) => {
-  if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-  const shortcut = SHORTCUTS.find((s) => s.key === e.key.toLowerCase() && !!s.shift === e.shiftKey);
-  if (!shortcut) return;
-  e.preventDefault();
-  emitCommand({ command: shortcut.command, arg: null, windowId: useBrowser.getState().ui.focusedWindowId });
-}, true);
+function warmOtherProfiles() {
+  const s = useBrowser.getState();
+  for (const window of Object.values(s.windows))
+    for (const [profileId, tabId] of Object.entries(window.activeTabIds)) {
+      const url = s.tabs[tabId]?.url;
+      if (profileId !== window.profileId && url && isFrameable(url)) warmFrame(url, pageTitle(url));
+    }
+}
+
+const idle = (run: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(run, { timeout: 1500 }) : setTimeout(run, 300));
+idle(warmOtherProfiles);
 
 function DemoWindow() {
   return (

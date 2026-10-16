@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { MenuItem } from "@ardia-real/shell";
+import { useBrowser } from "../../../../browser/src/store/browser";
 import { Symbol } from "./Symbol";
 
 type OpenMenu = { items: MenuItem[]; x: number; y: number; resolve: (id: string | null) => void };
@@ -37,10 +38,11 @@ const KEYS: Record<string, string> = { command: "⌘", shift: "⇧", option: "�
 
 function MenuList({ items, x, y }: { items: MenuItem[]; x: number; y: number }) {
   const [sub, setSub] = useState<{ index: number; top: number } | null>(null);
+  const dark = useBrowser((s) => s.ui.appDark);
   const width = 240;
   const left = Math.min(x, window.innerWidth - width - 8);
   return (
-    <div className="ardia-menu" style={{ left, top: Math.min(y, window.innerHeight - 40), width }} onPointerDown={(e) => e.stopPropagation()}>
+    <div className={`ardia-menu${dark ? " dark" : ""}`} style={{ left, top: Math.min(y, window.innerHeight - 40), width }} onPointerDown={(e) => e.stopPropagation()}>
       {items.map((item, i) => {
         if ("separator" in item) return <div key={i} className="ardia-menu-separator" />;
         const enabled = item.enabled !== false;

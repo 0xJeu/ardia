@@ -1,19 +1,22 @@
 import type { AppEvent, CommandEvent, ConfirmOptions, InlineWrite, PromptOptions, SystemInfo, WindowEvent } from "@ardia-real/shell";
+import { unstable_batchedUpdates } from "react-dom";
 import { emitNativeEvent, provideNativeModule } from "./expo-modules-core";
+import { NATIVE_CHANGE } from "./react-native";
 
 export * from "@ardia-real/shell";
 export { Symbol } from "./web/Symbol";
+export { ActivitySpinner } from "./web/motion/ActivitySpinner";
 export {
-  ActivitySpinner,
   ContextMenuArea,
   DockSelection,
-  FadeLabel,
   GlassEffect,
   OutsidePressArea,
   Surface,
   VisualEffect,
   WindowDragRegion,
 } from "./web/chrome";
+export { FadeLabel } from "./web/FadeLabel";
+export { MouseArea } from "./web/MouseArea";
 export { showMenu } from "./web/menus";
 export { setTrafficLightsCenter } from "./web/windowChrome";
 
@@ -66,17 +69,13 @@ export const launchEnvironment = (_name: string) => null;
 const valueSetter = typeof window === "undefined" ? undefined : Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
 
 export async function completeInline(tag: number, typed: string, completion: string): Promise<InlineWrite> {
-  const field = tag as unknown as HTMLInputElement | null;
+  const field = tag as unknown as (HTMLInputElement & { [NATIVE_CHANGE]?: (text: string, selection: { start: number; end: number }) => void }) | null;
   if (!(field instanceof HTMLInputElement) || !valueSetter) return 0;
   if (field.value !== typed || document.activeElement !== field) return 2;
   const full = typed + completion;
-  const select = () => {
-    if (field.value === full) field.setSelectionRange(typed.length, full.length);
-  };
   valueSetter.call(field, full);
-  field.dispatchEvent(new Event("input", { bubbles: true }));
-  select();
-  requestAnimationFrame(select);
+  field.setSelectionRange(typed.length, full.length);
+  unstable_batchedUpdates(() => field[NATIVE_CHANGE]?.(full, { start: typed.length, end: full.length }));
   return 1;
 }
 

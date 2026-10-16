@@ -1,22 +1,26 @@
 import type { HydrateData } from "../../browser/src/store/browser";
-import { DEFAULT_PROFILE } from "../../browser/src/store/profiles";
-import type { HistoryEntry, Profile, Tab } from "../../browser/src/store/types";
+import type { BrowserWindow, HistoryEntry, Profile, Tab } from "../../browser/src/store/types";
 import { faviconFor, PAGES } from "./pages";
 
-const WINDOW_ID = "w_demo";
-const WORK: Profile = { id: "p_work", name: "Work", color: "blue", icon: null, createdAt: 0 };
+export const WINDOW_ID = "w_demo";
+export const PERSONAL: Profile = { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 };
+export const WORK: Profile = { id: "p_work", name: "Work", color: "blue", icon: null, createdAt: 0 };
+export const ACTIVE_TABS = { [PERSONAL.id]: "t_browser", [WORK.id]: "t_cern" };
 
 type Page = { url: string; title: string };
+type FaviconOf = (url: string) => string | null;
 
-function tab(id: string, profileId: string, page: Page, pinned = false, ageMinutes = 0): Tab {
-  const at = Date.now() - ageMinutes * 60_000;
+const DAY = 86_400_000;
+
+function tab(favicon: FaviconOf, now: number, id: string, profileId: string, page: Page, pinned = false, ageMinutes = 0): Tab {
+  const at = now - ageMinutes * 60_000;
   return {
     id,
     windowId: WINDOW_ID,
     profileId,
     url: page.url,
     title: page.title,
-    favicon: faviconFor(page.url),
+    favicon: favicon(page.url),
     pinned,
     muted: false,
     zoom: 1,
@@ -30,24 +34,38 @@ function tab(id: string, profileId: string, page: Page, pinned = false, ageMinut
   };
 }
 
-const personal = DEFAULT_PROFILE.id;
+export function seedTabs(favicon: FaviconOf = faviconFor, now = Date.now()): Tab[] {
+  const make = (...a: [string, string, Page, boolean?, number?]) => tab(favicon, now, ...a);
+  return [
+    make("t_pin_wikipedia", PERSONAL.id, PAGES.wikipediaHome, true, 300),
+    make("t_pin_mdn", PERSONAL.id, PAGES.mdn, true, 290),
+    make("t_pin_github", PERSONAL.id, PAGES.github, true, 280),
+    make("t_browser", PERSONAL.id, PAGES.wikipedia, false, 1),
+    make("t_hn", PERSONAL.id, PAGES.hackerNews, false, 12),
+    make("t_react", PERSONAL.id, PAGES.react, false, 25),
+    make("t_xkcd", PERSONAL.id, PAGES.xkcd, false, 40),
+    make("t_rust", PERSONAL.id, PAGES.rust, false, 55),
+    make("t_caniuse", PERSONAL.id, PAGES.caniuse, false, 70),
+    make("t_pin_whatwg", WORK.id, PAGES.whatwg, true, 400),
+    make("t_cern", WORK.id, PAGES.firstWebsite, false, 30),
+    make("t_gutenberg", WORK.id, PAGES.gutenberg, false, 45),
+  ];
+}
 
-const TABS: Tab[] = [
-  tab("t_pin_wikipedia", personal, PAGES.wikipediaHome, true, 300),
-  tab("t_pin_mdn", personal, PAGES.mdn, true, 290),
-  tab("t_pin_github", personal, PAGES.github, true, 280),
-  tab("t_browser", personal, PAGES.wikipedia, false, 1),
-  tab("t_hn", personal, PAGES.hackerNews, false, 12),
-  tab("t_react", personal, PAGES.react, false, 25),
-  tab("t_xkcd", personal, PAGES.xkcd, false, 40),
-  tab("t_rust", personal, PAGES.rust, false, 55),
-  tab("t_caniuse", personal, PAGES.caniuse, false, 70),
-  tab("t_pin_whatwg", WORK.id, PAGES.whatwg, true, 400),
-  tab("t_cern", WORK.id, PAGES.firstWebsite, false, 30),
-  tab("t_gutenberg", WORK.id, PAGES.gutenberg, false, 45),
-];
+export function seedWindow(tabs: Tab[], frame: BrowserWindow["frame"] = null, now = Date.now()): BrowserWindow {
+  return {
+    id: WINDOW_ID,
+    profileId: PERSONAL.id,
+    incognito: false,
+    tabIds: tabs.map((t) => t.id),
+    activeTabIds: ACTIVE_TABS,
+    sidebarOpen: true,
+    frame,
+    createdAt: now,
+  };
+}
 
-const HISTORY_PAGES: Page[] = [
+export const HISTORY_PAGES: Page[] = [
   ...Object.values(PAGES),
   { url: "https://en.wikipedia.org/wiki/Hypertext", title: "Hypertext - Wikipedia" },
   { url: "https://en.wikipedia.org/wiki/World_Wide_Web", title: "World Wide Web - Wikipedia" },
@@ -60,35 +78,24 @@ const HISTORY_PAGES: Page[] = [
   { url: "https://caniuse.com/css-backdrop-filter", title: "CSS Backdrop Filter | Can I use..." },
 ];
 
-function history(pages: Page[]): HistoryEntry[] {
-  const now = Date.now();
+export function seedHistory(pages: Page[], favicon: FaviconOf = faviconFor, now = Date.now()): HistoryEntry[] {
   return pages.map((page, i) => {
     const visits = Math.max(1, 14 - i);
     const lastVisit = now - (i + 1) * 3_600_000;
-    return { url: page.url, title: page.title, favicon: faviconFor(page.url), visits, lastVisit, visitTimes: Array.from({ length: visits }, (_, v) => lastVisit - v * 86_400_000) };
+    return { url: page.url, title: page.title, favicon: favicon(page.url), visits, lastVisit, visitTimes: Array.from({ length: visits }, (_, v) => lastVisit - v * DAY) };
   });
 }
 
 export function demoSession(): HydrateData {
-  const now = Date.now();
+  const tabs = seedTabs();
+  const window = seedWindow(tabs);
   return {
-    profiles: { [personal]: DEFAULT_PROFILE, [WORK.id]: WORK },
-    profileOrder: [personal, WORK.id],
-    windows: {
-      [WINDOW_ID]: {
-        id: WINDOW_ID,
-        profileId: personal,
-        incognito: false,
-        tabIds: TABS.map((t) => t.id),
-        activeTabIds: { [personal]: "t_browser", [WORK.id]: "t_cern" },
-        sidebarOpen: true,
-        frame: null,
-        createdAt: now,
-      },
-    },
+    profiles: { [PERSONAL.id]: PERSONAL, [WORK.id]: WORK },
+    profileOrder: [PERSONAL.id, WORK.id],
+    windows: { [WINDOW_ID]: window },
     windowOrder: [WINDOW_ID],
     focusedWindowId: WINDOW_ID,
-    tabs: Object.fromEntries(TABS.map((t) => [t.id, t])),
-    history: { [personal]: history(HISTORY_PAGES), [WORK.id]: history(HISTORY_PAGES.slice(8)) },
+    tabs: Object.fromEntries(tabs.map((t) => [t.id, t])),
+    history: { [PERSONAL.id]: seedHistory(HISTORY_PAGES), [WORK.id]: seedHistory(HISTORY_PAGES.slice(8)) },
   };
 }

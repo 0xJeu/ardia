@@ -1,126 +1,65 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { View } from "react-native";
-import type { NativePagerConfig, PagerSnapshot, PagerStateEvent, SwipeAreaHandle, SwipeAreaProps } from "@ardia-real/ardiacore";
+import type { PagerSnapshot, SwipeAreaHandle, SwipeAreaProps } from "@ardia-real/ardiacore";
+import { Pager, type PagerArea } from "./motion/pager";
+import { addSwipeTarget, simulate, type SwipeTarget } from "./motion/swipe";
 
-const SETTLE_MS = 320;
-const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+export const switchPager = async (key: string, index: number, order?: string) => Pager.existing(key)?.switchTo(index, order) ?? false;
 
-type Pager = {
-  config: NativePagerConfig;
-  position: number;
-  selected: number;
-  sequence: number;
-  profileId: string | null;
-  frame: number;
-  onPosition: (position: number) => void;
-  onState: (event: PagerStateEvent) => void;
-};
+export const stepPager = async (key: string, delta: -1 | 1, wrap = false, order?: string) => Pager.existing(key)?.step(delta, wrap, order) ?? false;
 
-const pagers = new Map<string, Pager>();
+export const selectPager = async (key: string, profileId: string, order: string) => Pager.existing(key)?.select(profileId, order) ?? false;
 
-function emitState(pager: Pager, phase: PagerStateEvent["phase"]) {
-  pager.onState({ phase, sequence: pager.sequence, position: pager.position, selected: pager.selected, profileId: pager.profileId, velocity: 0 });
-}
+export const pagerState = (key: string): PagerSnapshot | null => Pager.existing(key)?.snapshot() ?? null;
 
-function slideTo(key: string, index: number, profileId: string | null): Promise<boolean> {
-  const pager = pagers.get(key);
-  if (!pager || index < 0 || index >= pager.config.count) return Promise.resolve(false);
-  cancelAnimationFrame(pager.frame);
-  pager.sequence++;
-  pager.selected = index;
-  pager.profileId = profileId;
-  emitState(pager, "selected");
-  const from = pager.position;
-  const start = performance.now();
-  return new Promise((resolve) => {
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / SETTLE_MS);
-      pager.position = from + (index - from) * easeOut(t);
-      pager.onPosition(pager.position);
-      if (t < 1) {
-        pager.frame = requestAnimationFrame(step);
-        return;
-      }
-      pager.frame = 0;
-      emitState(pager, "settled");
-      resolve(true);
-    };
-    pager.frame = requestAnimationFrame(step);
-  });
-}
-
-const orderOf = (order: string | undefined) => (order ? order.split("\n") : []);
-
-export const switchPager = (key: string, index: number, order?: string) => slideTo(key, index, orderOf(order)[index] ?? null);
-
-export const stepPager = (key: string, delta: -1 | 1, wrap = false, order?: string) => {
-  const pager = pagers.get(key);
-  if (!pager) return Promise.resolve(false);
-  const count = pager.config.count;
-  const target = wrap ? (pager.selected + delta + count) % count : pager.selected + delta;
-  return slideTo(key, target, orderOf(order)[target] ?? null);
-};
-
-export const selectPager = (key: string, profileId: string, order: string) => slideTo(key, orderOf(order).indexOf(profileId), profileId);
-
-export function pagerState(key: string): PagerSnapshot | null {
-  const pager = pagers.get(key);
-  if (!pager) return null;
-  return {
-    sequence: pager.sequence,
-    selectionSequence: pager.sequence,
-    position: pager.position,
-    selected: pager.selected,
-    phase: "idle",
-    profileId: pager.profileId,
-    velocity: 0,
-    count: pager.config.count,
-  };
-}
-
-export const devPagerState = async (key: string) => pagerState(key);
+export const devPagerState = async (key: string) => Pager.existing(key)?.debug() ?? null;
 
 export const SwipeArea = forwardRef<SwipeAreaHandle, SwipeAreaProps>(function SwipeArea(
-  { onSwipe: _onSwipe, onPagerState, onPagerPosition, nativePager, canSwipeBack: _back, canSwipeForward: _forward, tracksUnavailableDirections: _tracks, allowsVerticalMotion: _vertical, isPager: _isPager, ...props },
+  { onSwipe, onPagerState, onPagerPosition, nativePager, canSwipeBack, canSwipeForward, tracksUnavailableDirections, allowsVerticalMotion, isPager, ...props },
   ref,
 ) {
-  useImperativeHandle(ref, () => ({ devSimulate: async () => ({ error: "not on the web" }) }));
-  const latest = useRef({ onPagerState, onPagerPosition });
-  latest.current = { onPagerState, onPagerPosition };
+  const node = useRef<HTMLElement | null>(null);
+  const latest = useRef({ onSwipe, onPagerState, onPagerPosition, nativePager, canSwipeBack, canSwipeForward, tracksUnavailableDirections, allowsVerticalMotion, isPager });
+  latest.current = { onSwipe, onPagerState, onPagerPosition, nativePager, canSwipeBack, canSwipeForward, tracksUnavailableDirections, allowsVerticalMotion, isPager };
+  const pager = useRef<Pager | null>(null);
 
-  useEffect(() => {
-    if (!nativePager) return;
-    const existing = pagers.get(nativePager.key);
-    const pager: Pager = existing ?? {
-      config: nativePager,
-      position: nativePager.selected,
-      selected: nativePager.selected,
-      sequence: nativePager.ack ?? 0,
-      profileId: null,
-      frame: 0,
-      onPosition: (position) => (latest.current.onPagerPosition as ((e: unknown) => void) | undefined)?.({ nativeEvent: { position } }),
-      onState: (event) => latest.current.onPagerState?.(event),
-    };
-    pager.config = nativePager;
-    if (!existing) {
-      pagers.set(nativePager.key, pager);
-      pager.onPosition(pager.position);
-    } else if (pager.selected !== nativePager.selected && !pager.frame) {
-      pager.selected = nativePager.selected;
-      pager.position = nativePager.selected;
-      pager.onPosition(pager.position);
-    }
-  }, [nativePager?.key, nativePager?.selected, nativePager?.count]);
+  const area = useRef<PagerArea>({
+    pageWidth: () => latest.current.nativePager?.width || node.current?.getBoundingClientRect().width || 0,
+    attached: () => !!node.current?.isConnected,
+    onPosition: (position) => (latest.current.onPagerPosition as ((e: unknown) => void) | undefined)?.({ nativeEvent: { position } }),
+    onState: (event) => latest.current.onPagerState?.(event),
+  }).current;
 
+  const target = useRef<SwipeTarget>({
+    node: () => node.current,
+    canSwipeBack: () => !!latest.current.canSwipeBack,
+    canSwipeForward: () => !!latest.current.canSwipeForward,
+    tracksUnavailableDirections: () => !!latest.current.tracksUnavailableDirections,
+    allowsVerticalMotion: () => !!latest.current.allowsVerticalMotion,
+    isPager: () => !!latest.current.isPager,
+    pager: () => (pager.current ? { pager: pager.current, area } : null),
+    onSwipe: (event) => latest.current.onSwipe?.(event),
+  }).current;
+
+  useImperativeHandle(ref, () => ({ devSimulate: (steps, options) => simulate(target, steps, options) }), [target]);
+
+  useEffect(() => addSwipeTarget(target), [target]);
+
+  const key = nativePager?.key;
   useEffect(() => {
-    const key = nativePager?.key;
+    if (!key) return;
+    const named = Pager.named(key);
+    pager.current = named;
+    named.attach(area);
     return () => {
-      if (!key) return;
-      const pager = pagers.get(key);
-      if (pager) cancelAnimationFrame(pager.frame);
-      pagers.delete(key);
+      if (pager.current === named) pager.current = null;
+      named.detach(area);
     };
-  }, [nativePager?.key]);
+  }, [key, area]);
 
-  return <View pointerEvents="box-none" {...props} />;
+  useEffect(() => {
+    if (nativePager && pager.current?.key === nativePager.key) pager.current.configure(nativePager);
+  }, [nativePager?.key, nativePager?.selected, nativePager?.count, nativePager?.ack, nativePager?.order, nativePager?.width]);
+
+  return <View pointerEvents="box-none" ref={(view) => void (node.current = view as unknown as HTMLElement | null)} {...props} />;
 });
