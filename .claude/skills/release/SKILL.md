@@ -121,7 +121,8 @@ It checks the zip against GitHub's SHA-256 digest and the manifest's version, re
 `packages/ardiacore/scripts/ubo.sh` and installs it into `packages/ardiacore/vendor/ubo`. Verify after release.sh
 that the export carries it: `python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])'
 dist/<version>/export/Ardia.app/Contents/Resources/Extensions/ublock/manifest.json` prints the
-pinned `UBO_VERSION`, and the smoke test's "uBlock blocks an ad script" check passes. An error means
+pinned `UBO_VERSION` followed by ubo.sh's patch level as a fourth part (`1.75.0.8`: uBO refreshes its cached
+scriptlets when that version changes, so our patches reach existing profiles), and the smoke test's "uBlock blocks an ad script" check passes. An error means
 the release is odd (no digest, a version mismatch): keep the old pin and say so in the report.
 
 ```bash

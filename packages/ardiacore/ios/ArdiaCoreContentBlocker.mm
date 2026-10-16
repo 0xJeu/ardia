@@ -768,7 +768,10 @@ NSString *BundledVersion() {
   NSString *path = [ExtensionPath() stringByAppendingPathComponent:@"manifest.json"];
   NSData *data = path ? [NSData dataWithContentsOfFile:path] : nil;
   NSDictionary *manifest = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-  return [manifest isKindOfClass:NSDictionary.class] && [manifest[@"version"] isKindOfClass:NSString.class] ? manifest[@"version"] : @"";
+  if (![manifest isKindOfClass:NSDictionary.class]) return @"";
+  for (NSString *key in @[ @"version_name", @"version" ])
+    if ([manifest[key] isKindOfClass:NSString.class]) return manifest[key];
+  return @"";
 }
 
 NSString *const kState =

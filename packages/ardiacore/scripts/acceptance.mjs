@@ -2406,10 +2406,13 @@ try {
       const s = await cef(`getContentBlocker()`);
       return s?.stats?.ready ? s : null;
     }, 30000);
+    const enabledLists = state.lists.filter((l) => l.enabled).length;
+    if (state.lists.length < 20 || enabledLists < 5 || !(state.stats.networkFilters > 20000))
+      throw new Error(`uBlock Origin has no bundled lists on a fresh profile: ${state.lists.length} lists, ${enabledLists} on, ${state.stats.networkFilters} network filters`);
     await cef(`setContentBlockerAllowed("allowed.test", true)`);
     const allowed = await cef(`isContentBlockerAllowed("allowed.test")`);
     await cef(`setContentBlockerAllowed("allowed.test", false)`);
-    return { enabled: state.enabled, lists: state.lists.length, version: state.version, allowed };
+    return { enabled: state.enabled, lists: state.lists.length, on: enabledLists, networkFilters: state.stats.networkFilters, version: state.version, allowed };
   });
 
   await check("content-blocker-fails-closed", async () => {

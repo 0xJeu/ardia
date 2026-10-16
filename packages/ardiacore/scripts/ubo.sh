@@ -6,7 +6,7 @@ vendor="$(cd "$(dirname "$0")/.." && pwd)/vendor"
 UBO_VERSION="1.75.0"
 UBO_SHA256="393cf95709d1074d4022970e9014e434395c53a822387f1e25f43be97cf4b582"
 UBO_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv1MPdIgJjIsN4Y0N/20GDNPfN4J//aknk5dsH8Y1LBxSnz3Jp/BT187Gub5cv6lee5CUVDmVBa3Yiqow8GMna5KwX+ZP+yc1pt/ewzyNxm2BzoQPgWz+1DgZaahz56/szi1EEtWVYxd3wNxFN4wPDqwV6aqlnV4R3RnxlF1ocw1kDgJ+8BxR1EY+MB+H8bymdef+xB3TNifBZIVmZt81cC3UMOG6KWRTU1wtIXsW+ZqSv5zaeFHLkjG4MPB7EfcMGrvO80ElJBZZLdrTmYOL4uUPsz2Wy6GiPWzpDmzzI9RfsZm11sLiJo63blcPF0Cz3sM0wQfxJPPcQuqkZDReswIDAQAB"
-UBO_PATCH="6"
+UBO_PATCH="9"
 ubo="$vendor/ubo"
 stamp="$UBO_VERSION-$UBO_PATCH"
 installed() { [ -f "$ubo/.version" ] && [ "$(cat "$ubo/.version")" = "$stamp" ]; }
@@ -27,12 +27,14 @@ if ! installed; then
   unzip -q "$zip" -d "$ubo/unzip"
   mv "$ubo/unzip/uBlock0.chromium" "$ubo/ext.new"
   rm -rf "$ubo/unzip"
-  python3 -I - "$ubo/ext.new" "$UBO_KEY" <<'PY'
+  python3 -I - "$ubo/ext.new" "$UBO_KEY" "$UBO_PATCH" <<'PY'
 import json, os, sys
-ext, key = sys.argv[1], sys.argv[2]
+ext, key, level = sys.argv[1], sys.argv[2], sys.argv[3]
 path = os.path.join(ext, "manifest.json")
 manifest = json.load(open(path))
 manifest["key"] = key
+manifest["version_name"] = manifest["version"]
+manifest["version"] = f"{manifest['version']}.{level}"
 manifest["incognito"] = "spanning"
 scripts = manifest["content_scripts"]
 kept = [entry for entry in scripts if entry["js"] not in (["/js/scriptlets/subscriber.js"], ["/js/scriptlets/updater.js"])]
@@ -52,6 +54,15 @@ patch("js/background.js", "    autoUpdateDelayAfterLaunch: 37,", "    autoUpdate
 patch("js/background.js", "    showIconBadge: true,", "    showIconBadge: false,")
 patch("js/background.js", "    contextMenuEnabled: true,", "    contextMenuEnabled: false,")
 patch("js/contextmenu.js", "    newBits |= SUBSCRIBE_TO_LIST_BIT;\n", "")
+patch("js/vapi-background.js",
+      "        let version = manifest.version_name || manifest.version;\n",
+      "        let version = manifest.version;\n")
+patch("js/start.js",
+      "    redirectEngine.invalidateResourcesSelfie(io);\n};\n",
+      "    redirectEngine.invalidateResourcesSelfie(io);\n"
+      "    µb.compiledFormatChanged = true;\n"
+      "    µb.selfieManager.destroy();\n"
+      "};\n")
 patch("js/vapi-background.js",
       "    if ( webext.storage.managed instanceof Object === false ) {\n        return {",
       "    if ( true ) {\n        return {")
