@@ -85,6 +85,16 @@ lean. Ardia also injects `page_script.js` into every frame. Suspects, in order:
 The next run records each renderer's footprint by pid and can turn the blocker off for Ardia
 (`--env ardia=…`), which isolates the first two.
 
+Update (2026-10-17, full uBlock Origin in place of uBO Lite): renderers at 20 tabs are 730 MB (Helium 692), and the
+extension process 71 MB (Helium 60). The browser process keeps about 25 MB after closing back to 1 tab (ctl too).
+memory-infra dumps of it show the live objects return to baseline (PartitionAlloc's allocated objects 38.5 MB at 1
+tab, 60.2 at 20, 38.8 after closing), while the allocator stays at 63 MB: free space in partly used pages.
+A critical memory-pressure notification frees only 3.8 MB of it, and Hermes keeps no per-tab state (a full GC
+frees 12 MB of heap but only 2 MB of footprint). It's fragmentation; tab-scoped partitions would be the fix, which
+isn't worth an engine project for about 20 MB, so it's parked. Our base is higher than Helium's (108 against 76 MB
+at 1 tab) mostly because the window is drawn in the browser process: two 16 MB IOSurfaces that Chrome keeps in
+its GPU process (ours 52-131 MB, Helium's 132-209).
+
 **Idle CPU at 20 tabs (+0.80 points).** Wakeups are the same (Ardia 29.8, Chrome 30.9 /s): every page's 1 s timer
 wakes it in every browser. Ardia's renderers spend about 3× the CPU per wakeup: renderer CPU 1.17 % against
 Chrome's 0.39 %. Helium, with uBlock Origin, is at 0.89 %. The same suspects as memory. Chrome may also be applying
