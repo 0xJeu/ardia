@@ -2,7 +2,8 @@
 // Captures the real Ardia app in the demo's seeded state, for compare.mjs.
 //
 //   node apps/demo/scripts/reference.mjs [--app <Debug Ardia.app>] [--out DIR] [--themes light,dark]
-//                                        [--states idle,command,ntp,hover,menu,profile] [--favicons] [--keep]
+//                                        [--states idle,command,ntp,hover,menu,profile,field] [--favicons] [--keep]
+//                                        [--data DIR]
 //
 // The app runs hidden from a clone in the scratch dir (cp -c of the train's or the newest Debug build), on the
 // shared Metro, with the session seed.ts gives the demo. Each state is captured at 2x with `screencapture -l`
@@ -13,7 +14,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync,
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launch, sleep } from "../../../scripts/lib/instance.mjs";
-import { COMMAND_QUERY, DEMO_WINDOW, HOVER_ROW, newTabScript, profileScript, realLayoutScript, resetScript, STATES, THEMES } from "./states.mjs";
+import { COMMAND_QUERY, DEMO_WINDOW, fieldScript, HOVER_ROW, newTabScript, profileScript, realLayoutScript, resetScript, STATES, THEMES } from "./states.mjs";
 import { referenceSession } from "./seedSession.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -85,7 +86,7 @@ mkdirSync(out, { recursive: true });
 
 const { seed, pages, ...session } = await referenceSession({ frame: [60, 60, DEMO_WINDOW.width, DEMO_WINDOW.height] });
 const windowId = seed.WINDOW_ID;
-const data = `${scratch}/data`;
+const data = resolve(option("data", `${scratch}/data`));
 const sources = appArg ? [resolve(appArg)] : debugApps();
 
 async function start(theme) {
@@ -159,6 +160,10 @@ for (const theme of themes) {
     profile: async () => {
       await reset();
       await evaluate(profileScript("ac.store"));
+    },
+    field: async () => {
+      await reset();
+      await evaluate(fieldScript("ac.store"));
     },
   };
   try {

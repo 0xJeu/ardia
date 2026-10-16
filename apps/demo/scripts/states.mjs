@@ -3,7 +3,7 @@ export const VIEWPORT = { width: 1440, height: 900 };
 export const WINDOW_INSET = { left: (VIEWPORT.width - DEMO_WINDOW.width) / 2, top: (VIEWPORT.height - DEMO_WINDOW.height) / 2 };
 export const HOVER_ROW = { x: 100, y: 172 };
 export const COMMAND_QUERY = "365*24";
-export const STATES = ["idle", "command", "ntp", "hover", "menu", "profile"];
+export const STATES = ["idle", "command", "ntp", "hover", "menu", "profile", "field"];
 export const THEMES = ["light", "dark"];
 
 export function resetScript(store, seedTabs) {
@@ -14,6 +14,7 @@ export function resetScript(store, seedTabs) {
     const s = store.getState();
     const windowId = Object.keys(s.windows)[0];
     if (s.windowUi[windowId]?.panel.open) s.closePanel(windowId);
+    if (s.settings.addressBar !== "toolbar") s.updateSettings({ addressBar: "toolbar" });
     for (const id of store.getState().windows[windowId].tabIds) if (!${ids}.includes(id)) store.getState().closeTab(id);
     if (store.getState().windows[windowId].profileId !== "default") store.getState().switchProfile(windowId, "default");
     store.getState().activate("t_browser");
@@ -23,6 +24,7 @@ export function resetScript(store, seedTabs) {
 }
 
 export const newTabScript = (store) => `const s = ${store}.getState(); s.newTab(Object.keys(s.windows)[0]); return true;`;
+export const fieldScript = (store) => `${store}.getState().updateSettings({ addressBar: "sidebar" }); return true;`;
 export const profileScript = (store) => `const s = ${store}.getState(); s.switchProfile(Object.keys(s.windows)[0], "p_work"); return true;`;
 
 const GENERIC = [
@@ -100,4 +102,4 @@ export const demoLayoutScript = (inset) =>
     for (const o of h.owners) o.hosts.push(frame);
   }
   return composites.filter((c) => c.hosts.length).map((c) => ({ key: c.key, box: [Math.min(...c.hosts.map((b) => b[0])), Math.min(...c.hosts.map((b) => b[1])), Math.max(...c.hosts.map((b) => b[0] + b[2])), Math.max(...c.hosts.map((b) => b[1] + b[3]))] }));
-`).replace("ROOT", () => "(() => { const host = document.getElementById('root'); const key = Object.keys(host).find((k) => k.startsWith('__reactContainer$')); return host[key].child; })()");
+`).replace("ROOT", () => "(() => { const host = document.getElementById('root'); const key = Object.keys(host).find((k) => k.startsWith('__reactContainer$')); return host[key].stateNode.current.child; })()");

@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { sleep } from "../../../scripts/lib/instance.mjs";
 import { startChrome } from "./chrome.mjs";
 import { loadSeed } from "./seedSession.mjs";
-import { COMMAND_QUERY, DEMO_WINDOW, demoLayoutScript, HOVER_ROW, newTabScript, profileScript, resetScript, STATES, THEMES, VIEWPORT, WINDOW_INSET } from "./states.mjs";
+import { COMMAND_QUERY, DEMO_WINDOW, demoLayoutScript, fieldScript, HOVER_ROW, newTabScript, profileScript, resetScript, STATES, THEMES, VIEWPORT, WINDOW_INSET } from "./states.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const scratch = realpathSync("/tmp") + "/ardia-demo-layout";
@@ -72,6 +72,7 @@ const setups = {
     await mouse(page, 100, 209, "mouseReleased", { button: "right", clickCount: 1 });
   },
   profile: (page) => run(page, profileScript("ardiaDemo.store")),
+  field: (page) => run(page, fieldScript("ardiaDemo.store")),
 };
 
 async function captureDemo() {

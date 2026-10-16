@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { View, type ViewProps, type ViewStyle } from "react-native";
 import { useBrowser } from "../../../../browser/src/store/browser";
+import { edgeGain, fallbackRadius, highlightMask, maskStyle, peakGain, SHADE_OUTSET, shadeMask, shapeMask, type RimCurve, type RimProfile, type ShadeProfile } from "./glassRim";
 
 type Style = ViewStyle & Record<string, unknown>;
 
@@ -95,97 +96,116 @@ export function VisualEffect({ material = "popover", cornerRadius, style, ...pro
 
 export type GlassEffectProps = ViewProps & { cornerRadius?: number; tint?: string; glassStyle?: "regular" | "clear"; dark?: boolean };
 
-export const GLASS_OUTSET = 0.5;
+type GlassLook = { saturate: number; slope: number; offset: number; rim: RimProfile; shade: ShadeProfile };
 
-export const GLASS = {
-  light: { saturate: 3.6, slope: 0.42, offset: 143.2, ring: [0.14, 0.33], highlight: 1.65, highlightInner: 0.585, glow: 1.05 },
-  dark: { saturate: 1.25, slope: 1, offset: 27.5, ring: [0, 0.355], highlight: 1.65, highlightInner: 0.585, glow: 1.12 },
-} as const;
+const RIM_ANGLES = [0, 1, 8.5, 25, 45, 65, 81.5, 89, 90];
+const RIM_DEPTHS = [0, 0.25, 0.75, 1.25, 1.75];
+const GLOW_BY_ANGLE: RimCurve = [[0, 1], [5, 0.9], [10, 0.8], [20, 0.7], [35, 0.6], [90, 0.6]];
+
+export const GLASS: { light: GlassLook; dark: GlassLook } = {
+  light: {
+    saturate: 1.8705,
+    slope: 0.6098,
+    offset: 98.2,
+    rim: {
+      angles: RIM_ANGLES,
+      depths: RIM_DEPTHS,
+      gains: [
+        [0.42, 0.42, 0.16, 0, 0],
+        [0.16, 0.16, 0.13, 0, 0],
+        [0.16, 0.16, 0.12, 0, 0],
+        [0.1, 0.105, 0.04, 0, 0],
+        [0.085, 0.088, 0.03, 0, 0],
+        [0.11, 0.114, 0.033, 0, 0],
+        [0.03, 0.03, 0.045, 0.025, 0.01],
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0],
+      ],
+      glow: [[0, 0.14], [1.25, 0.14], [1.75, 0.12], [2.25, 0.1], [2.75, 0.09], [3.25, 0.08], [3.75, 0.07], [4.25, 0.06], [5, 0.05], [6, 0.03], [7, 0.015], [8, 0]],
+      glowByAngle: GLOW_BY_ANGLE,
+    },
+    shade: {
+      line: [[0, 1], [0.45, 1], [0.6, 0]],
+      byAngle: [[0, 0.1], [8.5, 0.1], [25, 0.13], [45, 0.16], [65, 0.19], [81.5, 0.22], [89, 0.27], [90, 0.29]],
+    },
+  },
+  dark: {
+    saturate: 1.2652,
+    slope: 0.8684,
+    offset: 32.48,
+    rim: {
+      angles: RIM_ANGLES,
+      depths: RIM_DEPTHS,
+      gains: [
+        [0.55, 0.55, 0.26, 0, 0],
+        [0.22, 0.22, 0.2, 0, 0],
+        [0.18, 0.18, 0.18, 0, 0],
+        [0.16, 0.168, 0.05, 0, 0],
+        [0.18, 0.186, 0.065, 0, 0],
+        [0.106, 0.107, 0.039, 0, 0],
+        [0, 0, 0.05, 0, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0],
+      ],
+      glow: [[0, 0.14], [1.25, 0.14], [1.75, 0.11], [2.25, 0.09], [2.75, 0.07], [3.25, 0.05], [3.75, 0.04], [4.25, 0.03], [5, 0.02], [6, 0.01], [7, 0]],
+      glowByAngle: GLOW_BY_ANGLE,
+    },
+    shade: {
+      line: [[0, 1], [0.45, 1], [0.6, 0]],
+      byAngle: [[0, 0], [8.5, 0.02], [25, 0.02], [45, 0.1], [65, 0.15], [81.5, 0.33], [89, 0.47], [90, 0.51]],
+    },
+  },
+};
 
 function glassFilter(saturate: number, slope: number, offset: number) {
   const brightness = slope + (2 * offset) / 255;
   return `saturate(${saturate}) contrast(${(slope / brightness).toFixed(5)}) brightness(${brightness.toFixed(5)})`;
 }
 
-const RIM = "linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0) border-box";
-const RIM_WEBKIT = "linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0) border-box";
-
-function rim(width: number, radius: number, background: string): React.CSSProperties {
-  return {
-    position: "absolute",
-    inset: 0,
-    borderRadius: radius,
-    border: `${width}px solid transparent`,
-    background: `${background} border-box`,
-    mask: RIM,
-    WebkitMask: RIM_WEBKIT,
-    WebkitMaskComposite: "xor",
-    pointerEvents: "none",
-  };
-}
-
-const edgeBands = (stops: [number, number][]) => {
-  const top = stops.map(([alpha, at]) => `rgba(0,0,0,${alpha}) ${at}px`).join(", ");
-  const bottom = [...stops].reverse().map(([alpha, at]) => `rgba(0,0,0,${alpha}) calc(100% - ${at}px)`).join(", ");
+function fallbackBands(rim: RimProfile) {
+  const peak = peakGain(rim);
+  const stops = rim.glow.map(([d]) => [d, edgeGain(rim, d) / peak] as const);
+  const top = stops.map(([at, alpha]) => `rgba(0,0,0,${alpha.toFixed(3)}) ${at}px`).join(", ");
+  const bottom = [...stops].reverse().map(([at, alpha]) => `rgba(0,0,0,${alpha.toFixed(3)}) calc(100% - ${at}px)`).join(", ");
   return `linear-gradient(to bottom, ${top}, ${bottom})`;
-};
-
-function backdropLayer(radius: number, filter: string, mask?: string): React.CSSProperties {
-  return {
-    position: "absolute",
-    inset: 0,
-    borderRadius: radius,
-    backdropFilter: filter,
-    WebkitBackdropFilter: filter,
-    ...(mask ? { mask, WebkitMask: mask } : {}),
-    pointerEvents: "none",
-  };
 }
 
-const HIGHLIGHT_MASK = (inner: number) => edgeBands([[0, 0], [0, 0.5], [1, 0.5], [1, 1], [inner, 1], [inner, 1.5], [0, 1.5], [0, 8]]);
-const GLOW_MASK = edgeBands([[0, 1.5], [1, 1.5], [0.67, 2], [0.54, 2.5], [0.38, 3], [0.25, 3.5], [0.1, 4.5], [0, 5.5], [0, 8]]);
+const layer: React.CSSProperties = { position: "absolute", inset: 0, pointerEvents: "none" };
 
-let rimIds = 0;
+function backdrop(filter: string, extra?: Record<string, string>): React.CSSProperties {
+  return { ...layer, backdropFilter: filter, WebkitBackdropFilter: filter, ...extra };
+}
 
-function RimStroke({ radius, ends, sides, width = 0.5 }: { radius: number; ends: number; sides: number; width?: number }) {
-  const [id] = useState(() => `ardia-rim-${++rimIds}`);
-  const half = width / 2;
-  return (
-    <svg aria-hidden style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", pointerEvents: "none" }}>
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" style={{ stopColor: "#000", stopOpacity: ends }} />
-          <stop offset="0.3" style={{ stopColor: "#000", stopOpacity: sides }} />
-          <stop offset="0.7" style={{ stopColor: "#000", stopOpacity: sides }} />
-          <stop offset="1" style={{ stopColor: "#000", stopOpacity: ends }} />
-        </linearGradient>
-      </defs>
-      <rect
-        style={{ x: half, y: half, width: `calc(100% - ${width}px)`, height: `calc(100% - ${width}px)`, rx: radius - half, ry: radius - half } as React.CSSProperties}
-        fill="none"
-        stroke={`url(#${id})`}
-        strokeWidth={width}
-      />
-    </svg>
-  );
+function inScrollView(node: Element | null) {
+  for (let a = node?.parentElement; a; a = a.parentElement) {
+    const overflow = getComputedStyle(a).overflowY;
+    if (overflow === "auto" || overflow === "scroll") return true;
+  }
+  return false;
 }
 
 export function GlassEffect({ cornerRadius = 0, tint, glassStyle = "regular", dark, style, ...props }: GlassEffectProps) {
   const appDark = useBrowser((s) => s.ui.appDark);
-  const g = GLASS[(dark ?? appDark) ? "dark" : "light"];
+  const theme = (dark ?? appDark) ? "dark" : "light";
+  const g = GLASS[theme];
   const clear = glassStyle === "clear";
   const filter = clear ? glassFilter(1, (1 + g.slope) / 2, g.offset / 2) : glassFilter(g.saturate, g.slope, g.offset);
-  const [ringEnd, ringSide] = g.ring;
-  const radius = cornerRadius + GLASS_OUTSET;
+  const host = useRef<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  useLayoutEffect(() => setScrolled(inScrollView(host.current)), []);
+  const highlight = highlightMask(cornerRadius, g.rim, theme);
+  const shape = shapeMask(cornerRadius);
+  const shade = scrolled ? shadeMask(cornerRadius, g.shade, theme) : null;
+  const clip: React.CSSProperties = shape ? {} : { borderRadius: fallbackRadius(cornerRadius), overflow: "hidden" };
+  const shaped = shape ? maskStyle(shape) : {};
   return (
     <View pointerEvents="none" {...props} style={style}>
-      <div style={{ position: "absolute", inset: -GLASS_OUTSET, borderRadius: radius, overflow: "hidden" }}>
-        <div style={backdropLayer(radius, filter)} />
-        {tint ? <div style={{ position: "absolute", inset: 0, borderRadius: radius, background: tint }} /> : null}
-        <div style={backdropLayer(radius, `brightness(${g.glow})`, GLOW_MASK)} />
-        <div style={backdropLayer(radius, `brightness(${g.highlight})`, HIGHLIGHT_MASK(g.highlightInner))} />
-        <RimStroke radius={radius} ends={ringEnd} sides={ringSide} />
+      <div ref={host} style={{ ...layer, ...clip }}>
+        <div style={backdrop(filter, shaped)} />
+        {tint ? <div style={{ ...layer, ...shaped, background: tint }} /> : null}
+        <div style={backdrop(`brightness(${1 + peakGain(g.rim)})`, highlight ? maskStyle(highlight) : { mask: fallbackBands(g.rim), WebkitMask: fallbackBands(g.rim) })} />
       </div>
+      {shade ? <div style={{ ...layer, inset: -SHADE_OUTSET, background: "#000", ...maskStyle(shade) }} /> : null}
     </View>
   );
 }

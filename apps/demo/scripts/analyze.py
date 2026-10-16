@@ -11,9 +11,10 @@ SCALE = 2
 
 REGIONS = {
     "lights": {"box": (10, 13, 76, 28), "states": ["idle", "profile"], "text": False},
-    "chrome": {"box": (80, 0, 110, 56), "states": ["idle", "command", "ntp", "hover", "profile"]},
-    "sidebar": {"box": (0, 0, 190, 868), "states": ["idle", "command", "ntp", "hover", "profile"]},
-    "tabrows": {"box": (0, 125, 190, 280), "states": ["idle", "hover", "ntp", "profile"]},
+    "chrome": {"box": (80, 0, 110, 56), "states": ["idle", "command", "ntp", "hover", "profile", "field"]},
+    "sidebar": {"box": (0, 0, 190, 868), "states": ["idle", "command", "ntp", "hover", "profile", "field"]},
+    "tabrows": {"box": (0, 125, 190, 280), "states": ["idle", "hover", "ntp", "profile", "field"]},
+    "field": {"box": (0, 40, 190, 90), "states": ["field"]},
     "toolbar": {"box": (190, 0, 1218, 47), "states": ["idle", "ntp", "hover", "profile"]},
     "command": {"box": (190, 0, 1218, 300), "states": ["command"]},
     "ntp": {"box": (190, 47, 1218, 821), "states": ["ntp"]},

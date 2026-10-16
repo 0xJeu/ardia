@@ -19,7 +19,7 @@ export async function startChrome(name = "chrome-profile") {
   const profile = `${realpathSync("/tmp")}/ardia-demo-layout/${name}`;
   rmSync(profile, { recursive: true, force: true });
   const child = spawn(chromeBinary(), [
-    "--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run",
+    "--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--force-device-scale-factor=2", "--no-first-run",
     "--no-default-browser-check", "--hide-scrollbars", "--force-color-profile=srgb", "--font-render-hinting=none",
     "about:blank",
   ], { stdio: "ignore" });
