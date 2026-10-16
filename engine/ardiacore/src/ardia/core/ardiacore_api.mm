@@ -75,6 +75,7 @@
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
+#include "ardia/core/ac_extension_shortcuts.h"
 #include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_autofill_prompt.h"
 #include "ardia/core/ac_browser.h"
@@ -632,6 +633,17 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
   ardiacore::InstallRuleMatchedHook();
   ardiacore::InstallExtensionInstalledHook();
   ardiacore::InstallActionPopupHook();
+  g_ardia_reserved_accelerator = [](const ui::Accelerator& accelerator) {
+    if (![g_delegate respondsToSelector:@selector(engineIsReservedKeyEvent:)]) {
+      return false;
+    }
+    NSEvent* event = NSApp.currentEvent;
+    if (event.type != NSEventTypeKeyDown ||
+        ardiacore::ExtensionShortcuts::AcceleratorFor(event) != accelerator) {
+      event = ardiacore::ExtensionShortcuts::KeyEventFor(accelerator);
+    }
+    return event && [g_delegate engineIsReservedKeyEvent:event];
+  };
   g_ardia_history_eligible = [](content::WebContents* contents) {
     BrowserWindowInterface* browser =
         GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);

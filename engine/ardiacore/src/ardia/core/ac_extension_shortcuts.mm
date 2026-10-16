@@ -17,9 +17,11 @@
 #include "extensions/common/extension.h"
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/ac_browser_window.h"
+#include "ardia/core/ac_hooks.h"
 #include "ui/base/accelerators/global_accelerator_listener/global_accelerator_listener.h"
 #import "ui/base/cocoa/command_dispatcher.h"
 #include "ui/content_accelerators/accelerator_util.h"
+#import "ui/events/keycodes/keyboard_code_conversion_mac.h"
 
 @interface ACExtensionShortcutDispatcher : NSObject <CommandDispatcherDelegate>
 @end
@@ -65,6 +67,31 @@ ui::Accelerator ExtensionShortcuts::AcceleratorFor(NSEvent* event) {
       input::NativeWebKeyboardEvent(base::apple::OwnedNSEvent(event)));
 }
 
+NSEvent* ExtensionShortcuts::KeyEventFor(const ui::Accelerator& accelerator) {
+  const NSEventModifierFlags modifiers =
+      (accelerator.IsCtrlDown() ? NSEventModifierFlagControl : 0) |
+      (accelerator.IsCmdDown() ? NSEventModifierFlagCommand : 0) |
+      (accelerator.IsAltDown() ? NSEventModifierFlagOption : 0) |
+      (accelerator.IsShiftDown() ? NSEventModifierFlagShift : 0);
+  unichar shifted_character;
+  unichar character;
+  const int key_code = ui::MacKeyCodeForWindowsKeyCode(
+      accelerator.key_code(), modifiers, &shifted_character, &character);
+  if (key_code == -1) {
+    return nil;
+  }
+  return [NSEvent keyEventWithType:NSEventTypeKeyDown
+                          location:NSZeroPoint
+                     modifierFlags:modifiers
+                         timestamp:0
+                      windowNumber:0
+                           context:nil
+                        characters:[NSString stringWithFormat:@"%C", character]
+       charactersIgnoringModifiers:[NSString stringWithFormat:@"%C", shifted_character]
+                         isARepeat:NO
+                           keyCode:static_cast<unsigned short>(key_code)];
+}
+
 bool ExtensionShortcuts::Suspended() const {
   if (suspended_) {
     return true;
@@ -75,7 +102,8 @@ bool ExtensionShortcuts::Suspended() const {
 }
 
 bool ExtensionShortcuts::Matches(const ui::Accelerator& accelerator) const {
-  return !Suspended() && accelerators_.contains(accelerator);
+  return !Suspended() && accelerators_.contains(accelerator) &&
+         !(g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accelerator));
 }
 
 bool ExtensionShortcuts::Run(const ui::Accelerator& accelerator) {

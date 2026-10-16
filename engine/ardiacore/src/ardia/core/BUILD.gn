@@ -131,6 +131,7 @@ source_set("core") {
     "//ui/base/accelerators/global_accelerator_listener",
     "//ui/color",
     "//ui/content_accelerators",
+    "//ui/events:events_base",
     "//ui/gfx",
     "//ui/views",
   ]

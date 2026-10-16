@@ -316,15 +316,6 @@ bool ACBrowserWindow::HandleExtensionKeyEquivalent(NSEvent* event) {
     return false;
   }
   const ui::Accelerator accelerator = ExtensionShortcuts::AcceleratorFor(event);
-  if (!extension_shortcuts_->Matches(accelerator)) {
-    return false;
-  }
-  ArdiaCoreWindow* owner = host_->owner();
-  id<ArdiaCoreWindowDelegate> delegate = owner.delegate;
-  if ([delegate respondsToSelector:@selector(window:preHandleKeyEvent:)] &&
-      [delegate window:owner preHandleKeyEvent:event]) {
-    return true;
-  }
   return extension_shortcuts_->Run(accelerator);
 }
 

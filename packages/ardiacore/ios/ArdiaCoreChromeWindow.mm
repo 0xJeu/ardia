@@ -1325,6 +1325,10 @@ NSString *HostOf(NSString *url) {
 
 namespace ardiacore_host {
 
+bool IsReservedKeyEvent(NSEvent *event) {
+  return IsReservedKey(event);
+}
+
 void OpenPopupWindow(ArdiaCoreTab *tab, ArdiaCoreWebView *opener) {
   ArdiaCorePopupWindow *popup = [[ArdiaCorePopupWindow alloc] initWithTab:tab opener:opener];
   if (!popup) {

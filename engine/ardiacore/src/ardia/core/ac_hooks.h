@@ -54,6 +54,10 @@ namespace permissions {
 class ChooserController;
 }
 
+namespace ui {
+class Accelerator;
+}
+
 namespace url {
 class Origin;
 }
@@ -158,6 +162,8 @@ extern void (*g_ardia_devtools_dock_changed)(BrowserWindowInterface* browser,
                                              content::WebContents* devtools);
 
 extern int (*g_ardia_tab_shown_by_host)(content::WebContents*);
+
+extern bool (*g_ardia_reserved_accelerator)(const ui::Accelerator& accelerator);
 
 void ArdiaAutoPictureInPictureHostVisibilityChanged(
     content::WebContents* contents);

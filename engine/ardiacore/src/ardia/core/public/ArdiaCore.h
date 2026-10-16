@@ -29,6 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)engine:(ArdiaCoreEngine*)engine
     extensionActionShortcut:(NSDictionary<NSString*, id>*)shortcut
                         tab:(ArdiaCoreTab*)tab;
+- (BOOL)engineIsReservedKeyEvent:(NSEvent*)event;
 - (void)engine:(ArdiaCoreEngine*)engine
     extensionInstallPrompt:(NSDictionary<NSString*, id>*)prompt
                        tab:(nullable ArdiaCoreTab*)tab;

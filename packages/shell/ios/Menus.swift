@@ -181,8 +181,8 @@ enum SwitcherHold {
 
   static func opened(by item: CommandItem) {
     let mods = MainMenu.heldModifiers(of: item)
-    let down = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
-    held = !mods.isEmpty && down.isSuperset(of: mods) ? mods : []
+    let event = NSApp.currentEvent
+    held = !mods.isEmpty && event?.type == .keyDown && event?.modifierFlags.isSuperset(of: mods) == true ? mods : []
     if held.isEmpty { DispatchQueue.main.async { onRelease?() } }
   }
 

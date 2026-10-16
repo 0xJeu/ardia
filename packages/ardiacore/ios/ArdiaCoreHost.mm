@@ -228,6 +228,10 @@ static void StartLaunchTab() {
   return YES;
 }
 
+- (BOOL)engineIsReservedKeyEvent:(NSEvent *)event {
+  return event.type == NSEventTypeKeyDown && ardiacore_host::IsReservedKeyEvent(event);
+}
+
 - (BOOL)engine:(ArdiaCoreEngine *)engine extensionActionShortcut:(NSDictionary *)shortcut tab:(ArdiaCoreTab *)tab {
   if (!gChromeUIHandler || !tab) return NO;
   NSMutableDictionary *payload = [shortcut mutableCopy];

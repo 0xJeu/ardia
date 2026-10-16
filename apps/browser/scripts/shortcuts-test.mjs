@@ -276,6 +276,17 @@ const real = async (label, key, focus, expectUrl) => {
 };
 const sidebar = { focus: "window" };
 const page = { focus: "page", asKey: true, wait: 800, settle: 500 };
+const menuLive = async () => {
+  await ac(`ac.store.getState().setFocusedWindow("w1"); return 1;`);
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const r = await press(cmd("1", 18), { focus: "window", dry: true });
+    if (r.matched?.some((m) => m.command === "selectTab" && m.enabled)) return true;
+    await sleep(100);
+  }
+  return false;
+};
+check("the window's menu is live before the real presses", await menuLive(), "Select Tab 1 stayed disabled: the menu state has no focused window");
 await real("⌘1 in the sidebar", cmd("1", 18), sidebar, "pin1");
 await real("⌘2 in the sidebar", cmd("2", 19), sidebar, "pin2");
 await real("⌘9 in the sidebar", cmd("9", 25), sidebar, "t9");

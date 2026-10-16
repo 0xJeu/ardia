@@ -995,6 +995,43 @@ hook(["std::optional<bool> (*g_ardia_open_action_popup)(\n",
       "    if (std::optional<bool> shown = g_ardia_open_action_popup(\n"], edit, HOOKS)
 PY
 
+hook "$src/chrome/browser/ui/views/extensions/extension_keybinding_registry_views.cc" "extension commands' reserved keys" <<'PY'
+decl = ("// Ardia: ArdiaCore. True when the key being pressed runs one of the host's reserved commands.\n"
+        "bool (*g_ardia_reserved_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n\n")
+ctor = "ExtensionKeybindingRegistryViews::ExtensionKeybindingRegistryViews(\n"
+old = """    const ui::Accelerator& accelerator) {
+  return ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
+"""
+new = """    const ui::Accelerator& accelerator) {
+  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accelerator)) {
+    return false;
+  }
+  return ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
+"""
+def edit(s):
+    assert s.count(old) == 1 and s.count(ctor) == 1
+    i = s.index(ctor)
+    return (s[:i] + decl + s[i:]).replace(old, new)
+hook(["bool (*g_ardia_reserved_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n",
+      "  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accelerator)) {\n"], edit, HOOKS)
+PY
+
+hook "$src/chrome/browser/ui/views/extensions/extension_action_delegate_desktop.cc" "extension actions' reserved keys" <<'PY'
+old = """    const ui::Accelerator& accelerator) {
+  return model_->TryHandleAcceleratorPress();
+"""
+new = """    const ui::Accelerator& accelerator) {
+  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accelerator)) {
+    return false;
+  }
+  return model_->TryHandleAcceleratorPress();
+"""
+def edit(s):
+    assert s.count(old) == 1
+    return s.replace(old, new)
+hook(["  if (g_ardia_reserved_accelerator && g_ardia_reserved_accelerator(accelerator)) {\n"], edit, HOOKS)
+PY
+
 if [[ $mode == check ]]; then
   exit "$drift"
 fi
