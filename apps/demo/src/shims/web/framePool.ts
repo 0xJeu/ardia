@@ -16,7 +16,7 @@ function poolHost() {
   if (host?.isConnected) return host;
   host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
-  Object.assign(host.style, { position: "fixed", left: "0", top: "0", zIndex: "-1", pointerEvents: "none", overflow: "hidden", width: "0", height: "0" });
+  Object.assign(host.style, { position: "fixed", left: "0", top: "0", zIndex: "-1", pointerEvents: "none", opacity: "0" });
   document.body.prepend(host);
   return host;
 }
