@@ -1357,7 +1357,7 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 - (void)leaveScreen {
   const NSUInteger generation = ++_leaveGeneration;
   NSView *page = _tab.view;
-  _leaving = !_visible && !_warm && page.superview == self && !page.hidden && self.alphaValue > 0;
+  _leaving = !_visible && !_warm && !_revealed && page.superview == self && !page.hidden && self.alphaValue > 0;
   if (!_leaving) return;
   __weak ArdiaCoreWebView *weakSelf = self;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLeaveScreenDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
