@@ -421,6 +421,7 @@ class Gate {
 const gate = new Gate();
 
 class Aborted extends Error {}
+class Fatal extends Error {}
 const live = new Set();
 let lockHeld = false;
 
@@ -438,7 +439,7 @@ class Instance {
   watched() {
     if (gate.on && gate.input > this.inputAtStart) throw new Aborted("the owner came back");
     if (this.pid && gate.state?.front === this.pid) {
-      if (!opt["allow-focus"]) throw new Error(`${this.name} took focus (it became the frontmost app): stopping`);
+      if (!opt["allow-focus"]) throw new Fatal(`${this.name} took focus (it became the frontmost app): stopping`);
       this.focusSeen = true;
     }
     if (this.pid && !this.alive()) throw new Error(`${this.name} (pid ${this.pid}) died`);
@@ -572,7 +573,7 @@ class Instance {
     for (const end = Date.now() + 10_000; Date.now() < end && (await this.cdp.get("/json/version")); ) await sleep(200);
     this.prefs?.restore();
     live.delete(this);
-    if (info(this.app).version !== this.info.version) throw new Error(`${this.name}'s copy changed version (${this.info.version} → ${info(this.app).version}): it updated itself`);
+    if (info(this.app).version !== this.info.version) throw new Fatal(`${this.name}'s copy changed version (${this.info.version} → ${info(this.app).version}): it updated itself`);
   }
 }
 
@@ -659,7 +660,7 @@ async function launchItem(name, item, kind) {
   const linkId = item.replaceAll("/", "-");
   try {
     await app.launch(kind === "link" ? pageUrl(linkId) : null);
-    const page = await app.page(kind === "link" ? linkId : "seed", 30_000);
+    const page = await app.page(kind === "link" ? linkId : "seed", kind === "link" ? 30_000 : 15_000);
     const windowAt = await app.window;
     const r = {
       window: windowAt - app.t0,
@@ -729,8 +730,14 @@ async function sessionItem(name, item) {
   try {
     await app.launch(null);
     await app.ready();
-    const seed = await app.page("seed", 30_000);
-    if (!seed) throw new Error(`${name}: the restored page never painted`);
+    let seed = await app.page("seed", 15_000);
+    if (!seed) {
+      const target = await app.cdp.find("seed");
+      if (target) await app.cdp.call("Target.activateTarget", { targetId: target.id }).catch(() => null);
+      seed = await app.page("seed", 30_000);
+      r.seedShownByActivate = true;
+    }
+    if (!seed) throw new Error(`${name}: the restored page never painted, even activated`);
     r.focusTaken = app.focusTaken();
     await app.hold(30_000);
     r.idle.tabs1 = await idleWindow(app, secs);
@@ -877,9 +884,10 @@ async function run(names) {
           try {
             await makeTemplate(item.browser);
           } catch (e) {
-            if (!(e instanceof Aborted)) throw e;
-            log(`template of ${item.browser} thrown away: ${e.message}`);
-            continue;
+            if (e instanceof Fatal) throw e;
+            log(`template of ${item.browser} ${e instanceof Aborted ? "thrown away" : "failed"}: ${e.message}`);
+            if (e instanceof Aborted) continue;
+            break;
           }
         }
         const cond = gate.cond();
@@ -892,9 +900,10 @@ async function run(names) {
           await sleep(3000);
           break;
         } catch (e) {
-          if (!(e instanceof Aborted)) throw e;
-          record({ ...item, ok: false, at: new Date(started).toISOString(), aborted: e.message });
-          log(`${item.key} thrown away: ${e.message}`);
+          if (e instanceof Fatal) throw e;
+          record({ ...item, ok: false, at: new Date(started).toISOString(), [e instanceof Aborted ? "aborted" : "failed"]: e.message });
+          log(`${item.key} ${e instanceof Aborted ? "thrown away" : "failed (retried on the next run)"}: ${e.message}`);
+          if (!(e instanceof Aborted)) break;
           if (locked) releaseLock(), (locked = false);
         }
       }
@@ -1039,6 +1048,7 @@ function report(names) {
   for (const row of result.rows) {
     const ranked = Object.entries(row.browsers).filter(([, b]) => b.median !== null).sort((a, b) => (row.lowerIsBetter ? a[1].median - b[1].median : b[1].median - a[1].median));
     row.best = ranked[0]?.[0] ?? null;
+    if (row.id === "launch-restore") for (const [n, b] of Object.entries(row.browsers)) if (b.median === null && baseOf(n) === "dia") b.note = "Dia opens on its start view at launch; the restored tab stays hidden until it's chosen, so it never paints on its own";
     if (row.id === "newwindow") for (const [n, b] of Object.entries(row.browsers)) if (b.median === null) b.note = "Target.createTarget with newWindow opens a tab in the current window, not a new window";
   }
   return result;
