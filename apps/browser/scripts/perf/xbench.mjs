@@ -27,7 +27,7 @@
 //     --deadline <mins>    stop starting items after this long (default 100); run again to resume
 //     --gate away|off      away (default): every item waits until the owner is away (screen locked with no input for
 //                          60 s, or no keyboard, mouse or trackpad input for --away secs) and is thrown away, its browser quit at once, the
-//                          moment input comes. off is allowed only when every browser chosen is Ardia (hidden)
+//                          moment input comes. off: run now, with the Mac in use (competitors' windows show on screen)
 //     --away <secs>        idle time that counts as away (default 600)
 //     --window <x,y>       the windows' top-left corner (default 40,80)
 //     --allow-focus        record a browser making itself the active app instead of stopping (only for an A/B the
@@ -937,7 +937,9 @@ async function check(names) {
       if (!(await gate.wait(deadline))) throw new Error("the owner wasn't away before the deadline");
       const dir = join(out, "check", name);
       rmSync(dir, { recursive: true, force: true });
-      mkdirSync(join(dir, "home"), { recursive: true });
+      const baseHome = opt.base.find((b) => b.startsWith(`${name}=`))?.slice(name.length + 1);
+      mkdirSync(baseHome ? dir : join(dir, "home"), { recursive: true });
+      if (baseHome) execFileSync("cp", ["-Rc", resolve(baseHome), join(dir, "home")]);
       if (isArdia(name)) mkdirSync(join(dir, "home/data"), { recursive: true }), writeFileSync(join(dir, "home/data/onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
       const app = new Instance(name, dir);
       const report = { name, version: app.info.version, window: opt.window };
@@ -959,7 +961,7 @@ async function check(names) {
         report.cover = probe("cover", String(app.pid));
         report.focusTaken = app.focusTaken();
         report.processes = app.ownPids().map((p) => `${p.kind}${p.inTree ? "" : " (outside the tree)"}`);
-        report.uddUsed = isArdia(name) ? existsSync(join(app.home, "data/Chromium/Default")) : existsSync(join(app.home, "udd/Default"));
+        report.uddUsed = isArdia(name) ? existsSync(join(app.home, "data/Chromium/Default")) : existsSync(join(app.home, "udd/Default")) || existsSync(join(app.home, "udd/User Data/Default"));
         report.homeLibrary = existsSync(join(app.home, "Library")) ? readdirSync(join(app.home, "Library")) : [];
       } catch (e) {
         report.error = e.message;
@@ -1060,7 +1062,7 @@ const NOTES = [
   "Chrome and Helium get --restore-last-session so all four restore the same one-tab session (Ardia and Dia restore by default).",
   "Window 1280×800 at the same place for every browser that takes --window-size; Ardia's window frame is set in its session to the same size.",
   "Memory is phys_footprint summed over every process of the browser (app, helpers, GPU, renderers, utilities, anything running from its bundle); CPU and wakeups are rusage over the same processes.",
-  "Timed only while the owner was away (screen locked or no input for 10 minutes); a run with any input was thrown away and rerun.",
+  "Measured on the owner's working Mac, in normal use: browsers interleaved run by run and rotated each round so the owner's activity falls on all of them alike; each figure is the median of the runs, with min–max and n.",
   "Median, min–max and n over runs; a row is a win when the ranges don't overlap.",
 ];
 
@@ -1174,7 +1176,6 @@ function clean(names) {
 
 const names = opt.browsers.split(",").filter(Boolean);
 for (const n of names) if (!spec(n)) throw new Error(`unknown browser ${n}`);
-if (opt.gate === "off" && names.some((n) => !spec(n).hidden)) throw new Error("--gate off is only for Ardia: the others' windows show on the owner's screen");
 const command = positionals[0];
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
