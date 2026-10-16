@@ -46,6 +46,7 @@ export type Row = {
   meta: string;
   call: Call;
   bars: Bar[];
+  lead: number;
 };
 export type Group = { id: string; label: string; rows: Row[] };
 export type Bench = {
@@ -97,6 +98,13 @@ function margin(better: number, worse: number, row: RawRow, kind: Kind): Figure 
 }
 
 const isBetter = (a: number, b: number, lower: boolean) => (lower ? a < b : a > b);
+
+function leadOverDia(row: RawRow, entries: RawBrowser[]): number {
+  const ardia = entries.find((b) => isArdia(b.name))!.median as number;
+  const rival = (entries.find((b) => /^dia\b/i.test(b.name.trim())) ?? entries.find((b) => !isArdia(b.name)))!.median as number;
+  if (ardia <= 0 || rival <= 0) return 0;
+  return Math.log(row.lowerIsBetter ? rival / ardia : ardia / rival);
+}
 
 function callFor(row: RawRow, entries: RawBrowser[], kind: Kind): Call {
   const value = (b: RawBrowser) => b.median as number;
@@ -163,6 +171,7 @@ function shapeRow(row: RawRow): Omit<Row, "sub"> | null {
     meta: [runs, direction].filter(Boolean).join(" · "),
     call: callFor(row, entries, kind),
     bars,
+    lead: leadOverDia(row, entries),
   };
 }
 
@@ -184,11 +193,19 @@ function groupRows(rows: RawRow[]): Group[] {
     if (!groups.has(key)) groups.set(key, { label: key, rows: [] });
     groups.get(key)!.rows.push({ ...k.row, sub: sub ? capitalize(sub) : null });
   }
-  return [...groups.values()].map((g) => ({
-    id: slug(g.label),
-    label: g.label,
-    rows: g.rows.length === 1 ? [{ ...g.rows[0], sub: null }] : g.rows,
-  }));
+  const byLead = (a: { lead: number }, b: { lead: number }) => b.lead - a.lead;
+  return [...groups.values()]
+    .map((g) => {
+      const rows = [...g.rows].sort(byLead);
+      return {
+        id: slug(g.label),
+        label: g.label,
+        rows: rows.length === 1 ? [{ ...rows[0], sub: null }] : rows,
+        lead: rows[0].lead,
+      };
+    })
+    .sort(byLead)
+    .map(({ lead: _lead, ...g }) => g);
 }
 
 function versionsOf(rows: RawRow[]): string {

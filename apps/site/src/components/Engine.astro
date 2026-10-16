@@ -16,7 +16,7 @@ const rows: { item: string; detail: string; status: Status; label?: string }[] =
 const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not yet" };
 ---
 
-<section class="engine paint edge" id="chromium" aria-labelledby="engine-title" data-shot="record">
+<section class="engine paint" id="chromium" aria-labelledby="engine-title" data-shot="record">
   <div class="wrap engine-grid">
     <header class="engine-head">
       <p class="label kicker">The engine</p>
@@ -53,11 +53,9 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
 
 <style>
   .engine {
-    --bg: var(--golden);
-    --wash: linear-gradient(180deg, #f0c983 0%, var(--golden) 45%, var(--golden-late) 100%);
-    --bg-top: #f0c983;
+    --bg: var(--golden-late);
     --dab: var(--forest);
-    padding: var(--section) 0;
+    padding: 0 0 var(--section);
   }
   .engine-grid {
     display: grid;

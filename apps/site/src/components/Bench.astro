@@ -17,7 +17,7 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
 
 {
   bench && lead && (
-    <section class="bench paint" id="speed" aria-labelledby="bench-title" data-shot="bench" data-bench>
+    <section class="bench paint edge" id="speed" aria-labelledby="bench-title" data-shot="bench" data-bench>
       <div class="wrap">
         <header class="bench-head">
           <p class="label kicker">Measured before every release</p>
@@ -172,12 +172,14 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
 
 <style>
   .bench {
-    --bg: var(--golden-late);
+    --bg: var(--golden);
+    --wash: linear-gradient(180deg, #f0c983 0%, var(--golden) 45%, var(--golden-late) 100%);
+    --bg-top: #f0c983;
     --dab: var(--forest);
     --ink-2: #3a372f;
     --muted: #7a5c42;
     --room: 8.6rem;
-    padding: 0 0 clamp(72px, 9vw, 140px);
+    padding: var(--section) 0 clamp(72px, 9vw, 140px);
   }
   .bench-head {
     display: grid;
