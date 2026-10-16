@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -67,6 +68,7 @@ namespace {
 struct GlobalShortcutState {
   bool host_ready = false;
   bool reregister_pending = false;
+  bool retry_scheduled = false;
 };
 
 GlobalShortcutState& GlobalShortcuts() {
@@ -100,6 +102,9 @@ bool HotKeyIsReserved(const ui::Accelerator& accelerator) {
       &fixed_character);
   unichar target = 0;
   ui::MacKeyCodeForWindowsKeyCode(accelerator.key_code(), 0, nullptr, &target);
+  if (target >= 0xF700 && target <= 0xF8FF) {
+    return HostReservesKey(CharacterString(target), CharacterString(target), modifiers);
+  }
   if (!target) {
     return fixed_key_code != -1 &&
            HostReservesKey(CharacterString(fixed_shifted),
@@ -126,10 +131,24 @@ bool HotKeyIsReserved(const ui::Accelerator& accelerator) {
                          modifiers);
 }
 
+void ReregisterGlobalShortcuts();
+
+void RetryPendingReregister() {
+  GlobalShortcuts().retry_scheduled = false;
+  if (GlobalShortcuts().reregister_pending) {
+    ReregisterGlobalShortcuts();
+  }
+}
+
 void ReregisterGlobalShortcuts() {
   ui::GlobalAcceleratorListener* global = ui::GlobalAcceleratorListener::GetInstance();
   if (global && global->IsShortcutHandlingSuspended()) {
     GlobalShortcuts().reregister_pending = true;
+    if (!GlobalShortcuts().retry_scheduled) {
+      GlobalShortcuts().retry_scheduled = true;
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+          FROM_HERE, base::BindOnce(&RetryPendingReregister), base::Seconds(1));
+    }
     return;
   }
   GlobalShortcuts().reregister_pending = false;
