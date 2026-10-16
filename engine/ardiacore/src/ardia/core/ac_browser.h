@@ -172,6 +172,9 @@ bool HostExtensionSidePanel(content::WebContents* contents,
 bool HostExtensionActionPopup(content::WebContents* contents,
                               const std::string& extension_id);
 
+bool HostExtensionActionShortcut(content::WebContents* contents,
+                                 const std::string& extension_id);
+
 bool HostExtensionInstallPrompt(
     Profile* profile,
     content::WebContents* parent,

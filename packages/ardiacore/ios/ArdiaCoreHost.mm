@@ -228,6 +228,14 @@ static void StartLaunchTab() {
   return YES;
 }
 
+- (BOOL)engine:(ArdiaCoreEngine *)engine extensionActionShortcut:(NSDictionary *)shortcut tab:(ArdiaCoreTab *)tab {
+  if (!gChromeUIHandler || !tab) return NO;
+  NSMutableDictionary *payload = [shortcut mutableCopy];
+  payload[@"browserId"] = @(ardiacore_host::BrowserId(tab));
+  gChromeUIHandler(@"actionShortcut", payload);
+  return YES;
+}
+
 - (void)engine:(ArdiaCoreEngine *)engine extensionInstallPrompt:(NSDictionary *)prompt tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [prompt mutableCopy];
   payload[@"browserId"] = @(tab ? ardiacore_host::BrowserId(tab) : 0);

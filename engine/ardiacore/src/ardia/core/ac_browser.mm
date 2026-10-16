@@ -48,6 +48,7 @@
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
 #include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_desktop_capture.h"
+#include "ardia/core/ac_extension_shortcuts.h"
 #include "ardia/core/ac_fake_media.h"
 #include "ardia/core/ac_installed_bubble.h"
 #include "ardia/core/ac_modal_dialog_host.h"
@@ -177,6 +178,7 @@ WindowHost::WindowHost(ArdiaCoreWindow* owner, const gfx::Rect& bounds)
     static_cast<BridgedContentView*>(content).ardiaEmbeddedView =
         host_view_;
   }
+  InstallExtensionShortcutDispatcher(window);
 }
 
 WindowHost::~WindowHost() {

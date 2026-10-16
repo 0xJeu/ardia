@@ -587,6 +587,16 @@ bool HostExtensionActionPopup(content::WebContents* contents,
                         tab:TabBridge::GetOrCreate(contents)->tab()];
 }
 
+bool HostExtensionActionShortcut(content::WebContents* contents,
+                                 const std::string& extension_id) {
+  if (![g_delegate respondsToSelector:@selector(engine:extensionActionShortcut:tab:)]) {
+    return false;
+  }
+  return [g_delegate engine:g_engine
+      extensionActionShortcut:@{@"extensionId" : NS(extension_id)}
+                          tab:TabBridge::GetOrCreate(contents)->tab()];
+}
+
 void HostPermissionRequestDismissed(NSString* request_id) {
   if ([g_delegate respondsToSelector:@selector(engine:permissionRequestDismissed:)]) {
     [g_delegate engine:g_engine permissionRequestDismissed:request_id];

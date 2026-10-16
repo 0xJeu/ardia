@@ -41,10 +41,12 @@
 #include "content/public/browser/web_contents.h"
 #include "ardia/core/ac_autofill_prompt.h"
 #include "ardia/core/ac_browser.h"
+#include "ardia/core/ac_extension_shortcuts.h"
 #include "ardia/core/ac_lifetime.h"
 #include "ardia/core/ac_modal_dialog_host.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/content_accelerators/accelerator_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_constants.h"
@@ -285,6 +287,7 @@ ACBrowserWindow::ACBrowserWindow(base::WeakPtr<WindowHost> host)
 
 ACBrowserWindow::~ACBrowserWindow() {
   LiveWindows().erase(this);
+  extension_shortcuts_.reset();
   DestroyAnyExclusiveAccessBubble();
   devtools_ui_controller_.reset();
   autofill_bubble_handler_registration_.reset();
@@ -305,6 +308,24 @@ void ACBrowserWindow::AttachBrowser(Browser* browser) {
   devtools_ui_controller_ = std::make_unique<DevtoolsUIController>(
       browser,
       std::vector<raw_ptr<ContentsContainerView, DanglingUntriaged>>());
+  extension_shortcuts_ = std::make_unique<ExtensionShortcuts>(browser);
+}
+
+bool ACBrowserWindow::HandleExtensionKeyEquivalent(NSEvent* event) {
+  if (!extension_shortcuts_ || !host_ || event.type != NSEventTypeKeyDown) {
+    return false;
+  }
+  const ui::Accelerator accelerator = ExtensionShortcuts::AcceleratorFor(event);
+  if (!extension_shortcuts_->Matches(accelerator)) {
+    return false;
+  }
+  ArdiaCoreWindow* owner = host_->owner();
+  id<ArdiaCoreWindowDelegate> delegate = owner.delegate;
+  if ([delegate respondsToSelector:@selector(window:preHandleKeyEvent:)] &&
+      [delegate window:owner preHandleKeyEvent:event]) {
+    return true;
+  }
+  return extension_shortcuts_->Run(accelerator);
 }
 
 void ACBrowserWindow::DeleteBrowserWindow() {
@@ -565,6 +586,10 @@ content::KeyboardEventProcessingResult ACBrowserWindow::PreHandleKeyboardEvent(
   id<ArdiaCoreWindowDelegate> delegate = owner.delegate;
   if ([delegate respondsToSelector:@selector(window:preHandleKeyEvent:)] &&
       [delegate window:owner preHandleKeyEvent:ns_event]) {
+    return content::KeyboardEventProcessingResult::HANDLED;
+  }
+  if (extension_shortcuts_ &&
+      extension_shortcuts_->Run(ui::GetAcceleratorFromNativeWebKeyboardEvent(event))) {
     return content::KeyboardEventProcessingResult::HANDLED;
   }
   if ((ns_event.modifierFlags & NSEventModifierFlagCommand) &&

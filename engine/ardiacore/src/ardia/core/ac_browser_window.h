@@ -18,12 +18,15 @@
 #include "chrome/browser/ui/views/exclusive_access/exclusive_access_bubble_views_context.h"
 #include "ui/base/accelerators/accelerator.h"
 
+@class NSEvent;
+
 class BrowserWindowInterface;
 class DevtoolsUIController;
 class ExclusiveAccessBubbleViews;
 
 namespace ardiacore {
 
+class ExtensionShortcuts;
 class WindowHost;
 
 class ACLocationBar : public LocationBar {
@@ -196,6 +199,7 @@ class ACBrowserWindow : public BrowserWindow,
 
   void AttachBrowser(Browser* browser);
   Browser* browser() const { return browser_; }
+  bool HandleExtensionKeyEquivalent(NSEvent* event);
   WindowHost* host() const { return host_.get(); }
   base::WeakPtr<WindowHost> host_weak() const { return host_; }
 
@@ -365,6 +369,7 @@ class ACBrowserWindow : public BrowserWindow,
   base::WeakPtr<WindowHost> host_;
   raw_ptr<Browser> browser_ = nullptr;
   std::unique_ptr<ACLocationBar> location_bar_;
+  std::unique_ptr<ExtensionShortcuts> extension_shortcuts_;
   ACAutofillBubbleHandler autofill_bubble_handler_;
   std::optional<ui::ScopedUnownedUserData<autofill::AutofillBubbleHandler>>
       autofill_bubble_handler_registration_;

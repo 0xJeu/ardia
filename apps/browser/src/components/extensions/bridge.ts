@@ -1,6 +1,7 @@
 import {
   onExtensionInstallPrompt,
   onExtensionActionPopup,
+  onExtensionActionShortcut,
   onExtensionSidePanel,
   onExtensionsChanged,
   onExtensionTabsRequest,
@@ -122,6 +123,11 @@ function startActionPopups() {
     const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
     if (!windowId) return console.warn(`action.openPopup for ${extensionId}: ${tabId ? "its tab has no window" : `no tab for browser ${browserId}`}`);
     void state.openActionPopup(windowId, extensionId, toolbarAnchor(windowId, extensionId), browserId);
+  });
+  onExtensionActionShortcut(({ browserId, extensionId }) => {
+    const tabId = tabForBrowser(browserId);
+    const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
+    if (windowId) openExtensionFromMenu(windowId, extensionId);
   });
 }
 
