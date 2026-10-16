@@ -22,7 +22,7 @@ export function useSidebarPlayerTab(windowId: string): string | undefined {
   const hidden = useBrowser(
     useShallow((s) => {
       const w = s.windows[windowId];
-      if (!sessions.length || !w) return NO_IDS;
+      if (!sessions.length || !w || !s.settings.sidebarMediaControls) return NO_IDS;
       const ids = sessions.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]!.profileId === w.profileId && !isTabShown(s, id));
       return ids.length > 1 ? ids.sort((a, b) => w.tabIds.indexOf(a) - w.tabIds.indexOf(b)) : ids;
     }),

@@ -165,6 +165,7 @@ NSDictionary *NowPlayingState(NSDictionary *d) {
     @"timestamp" : @(timestamp),
     @"hasVideo" : @(Flag(d, @"hasVideo")),
     @"actions" : actions,
+    @"controllable" : @(Flag(d, @"controllable")),
   };
 }
 
@@ -1346,8 +1347,13 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     if (dict) _nowPlaying[frameId] = NowPlayingState(dict);
     else [_nowPlaying removeObjectForKey:frameId];
     _nowPlayingFrame = dict ? frameId : _nowPlaying.allKeys.firstObject;
+    NSDictionary<NSString *, NSDictionary *> *frames = _nowPlaying;
+    NSInteger (^rank)(NSString *) = ^NSInteger(NSString *f) {
+      NSDictionary *np = f ? frames[f] : nil;
+      return ([np[@"controllable"] boolValue] ? 2 : 0) + ([np[@"playbackState"] isEqual:@"playing"] ? 1 : 0);
+    };
     for (NSString *f in _nowPlaying)
-      if ([_nowPlaying[f][@"playbackState"] isEqual:@"playing"]) _nowPlayingFrame = f;
+      if (rank(f) > rank(_nowPlayingFrame)) _nowPlayingFrame = f;
     NSMutableDictionary *state = [_nowPlaying[_nowPlayingFrame ?: @""] mutableCopy];
     [state removeObjectForKey:@"frame"];
     [self emit:@"nowPlaying" payload:@{@"state" : state ?: NSNull.null}];

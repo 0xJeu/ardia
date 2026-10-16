@@ -46,6 +46,11 @@ export function TabsPane() {
         {toggle("warnBeforeClosingLastTab", "Warn before closing last tab in a Profile")}
         {toggle("tabReorderHaptics", "Haptic feedback when reordering tabs")}
         {toggle("extendWebsiteColor", "Extend website color into tab bar")}
+        {toggle(
+          "sidebarMediaControls",
+          "Show media controls in the sidebar",
+          "When a tab you're not looking at plays sound, a player appears at the bottom of the sidebar. Pinned tabs that are playing show one when you hover them.",
+        )}
         {toggle("autoPictureInPicture", "Automatic Picture in Picture", "A video or call you're watching pops out when you switch tabs or leave the window, and returns when you come back.")}
       </Group>
 

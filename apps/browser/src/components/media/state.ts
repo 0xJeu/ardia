@@ -50,12 +50,14 @@ export function setNowPlaying(tabId: string, state: NowPlaying | null) {
       return { sessions };
     }
     const before = sessions[tabId];
-    const started = state.playbackState === "playing" && before?.playbackState !== "playing";
-    sessions[tabId] = { ...state, playedAt: started ? Date.now() : (before?.playedAt ?? (state.playbackState === "playing" ? Date.now() : 0)) };
+    const started = isControllablyPlaying(state) && !(before && isControllablyPlaying(before));
+    sessions[tabId] = { ...state, playedAt: started ? Date.now() : (before?.playedAt ?? 0) };
     if (started) delete dismissed[tabId];
     return { sessions, dismissed };
   });
 }
+
+const isControllablyPlaying = (state: NowPlaying) => state.controllable && state.playbackState === "playing";
 
 export const useSession = (tabId: string | undefined): Session | undefined => useMedia((s) => (tabId ? s.sessions[tabId] : undefined));
 
@@ -111,7 +113,7 @@ export function isTabShown(s: BrowserState, tabId: string): boolean {
 export function playerTabFor(m: Pick<Store, "sessions" | "dismissed">, tabIds: string[], current?: string): string | undefined {
   const eligible = (id: string) => {
     const session = m.sessions[id];
-    return !!session && !m.dismissed[id] && !!session.playedAt && session.playbackState !== "none";
+    return !!session && session.controllable && !m.dismissed[id] && !!session.playedAt && session.playbackState !== "none";
   };
   if (current && tabIds.includes(current) && eligible(current)) return current;
   let best: Session | undefined;
@@ -181,5 +183,5 @@ useBrowser.subscribe((s, prev) => {
 });
 
 if (typeof __DEV__ !== "undefined" && __DEV__) {
-  (globalThis as { acMedia?: unknown }).acMedia = { useMedia, mediaCommand, setNowPlaying, togglePictureInPicture, inPictureInPicture };
+  (globalThis as { acMedia?: unknown }).acMedia = { useMedia, mediaCommand, setNowPlaying, togglePictureInPicture, inPictureInPicture, playerTabFor };
 }

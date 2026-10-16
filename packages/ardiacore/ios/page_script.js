@@ -47,7 +47,8 @@
   const tracked = new WeakSet();
   let active = null;
   let lastPlaying = null;
-  const audible = (m) => !m.paused && !m.ended && !m.muted && m.volume > 0 && m.readyState > 2;
+  const heard = new WeakSet();
+  const audible = (m) => !m.paused && !m.ended && !m.muted && m.volume > 0 && m.readyState > 2 && heard.has(m);
   const reportAudible = () => {
     const playing = [...document.querySelectorAll("video,audio")].some(audible) || (active && audible(active)) || webAudible();
     if (playing === lastPlaying) return;
@@ -58,11 +59,42 @@
   const session = navigator.mediaSession;
   const actions = new Map();
   let positionState = null;
+  const listening = new WeakSet();
+  const LISTEN_TRIES = 20;
+  const playingUnmuted = (m) => !m.paused && !m.ended && !m.muted && m.volume > 0;
+  const decodedAudio = (m) =>
+    m.srcObject instanceof MediaStream
+      ? m.srcObject.getAudioTracks().length > 0
+      : typeof m.webkitAudioDecodedByteCount !== "number" || m.webkitAudioDecodedByteCount > 0;
+  const listenFor = (m, tries) => {
+    if (heard.has(m) || !playingUnmuted(m)) return listening.delete(m);
+    if (decodedAudio(m)) {
+      heard.add(m);
+      listening.delete(m);
+      reportAudible();
+      return reportNowPlaying();
+    }
+    if (tries >= LISTEN_TRIES) return;
+    setTimeout(guard(() => listenFor(m, tries + 1)), 500);
+  };
+  const noteHeard = (m) => {
+    if (heard.has(m) || listening.has(m) || !playingUnmuted(m)) return;
+    listening.add(m);
+    listenFor(m, 0);
+  };
+  const isPlaying = (m) => !m.paused && !m.ended;
   const pickMedia = () => {
     const all = [...document.querySelectorAll("video,audio")];
-    if (active && !all.includes(active)) all.push(active);
-    return all.find((m) => !m.paused && !m.ended) || active || null;
+    if (active && !all.includes(active) && tracked.has(active)) all.push(active);
+    const current = all.includes(active) ? active : null;
+    return (
+      all.find((m) => heard.has(m) && isPlaying(m)) ||
+      (current && heard.has(current) ? current : null) ||
+      all.find(isPlaying) ||
+      current
+    );
   };
+  const oneShot = (m) => m.duration > 0 && m.duration <= 5;
   const absolute = (src) => {
     try {
       return new URL(src, location.href).href;
@@ -96,6 +128,7 @@
         playbackRate: positionState?.playbackRate ?? el?.playbackRate ?? 1,
         hasVideo: !!el && el.tagName === "VIDEO" && el.videoWidth > 0,
         actions: [...actions.keys()],
+        controllable: !!el && heard.has(el) && (sessionState !== "none" || !oneShot(el)),
       };
       if (!state.title && !el) state = null;
     }
@@ -115,9 +148,23 @@
       m.pause();
       return;
     }
-    if (e.type === "play" || e.type === "playing") active = m;
+    if (e.type === "play" || e.type === "playing") {
+      active = m;
+      watchRemoval(m);
+    }
+    noteHeard(m);
     reportAudible();
     if (e.type !== "volumechange") reportNowPlaying();
+  };
+  const watched = new WeakSet();
+  const watchRemoval = (m) => {
+    if (watched.has(m)) return;
+    watched.add(m);
+    m.addEventListener("pause", () => {
+      if (m.isConnected || tracked.has(m)) return;
+      reportAudible();
+      reportNowPlaying();
+    });
   };
   document.addEventListener("enterpictureinpicture", (e) => send("pip", { active: true, kind: "video" }), true);
   document.addEventListener("leavepictureinpicture", (e) => send("pip", { active: false, kind: "video" }), true);

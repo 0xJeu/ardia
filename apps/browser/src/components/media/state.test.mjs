@@ -8,7 +8,7 @@ const S = () => useBrowser.getState();
 const M = () => media.useMedia.getState();
 const report = (overrides = {}) => ({
   title: "Song", artist: "Band", album: "", artwork: null, playbackState: "playing", position: 10, duration: 200,
-  playbackRate: 1, timestamp: Date.now(), hasVideo: false, actions: ["play", "pause"], ...overrides,
+  playbackRate: 1, timestamp: Date.now(), hasVideo: false, actions: ["play", "pause"], controllable: true, ...overrides,
 });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 3));
 
@@ -64,4 +64,20 @@ test("closing the sidebar player hands it to the next tab", async () => {
   media.useMedia.setState({ dismissed: { [c]: true } });
   assert.equal(player(), b);
   for (const id of [b, c]) webviews.delete(id);
+});
+
+test("media that never played with sound gets no sidebar player until it does", async () => {
+  S().hydrate({});
+  const w = S().createWindow({ url: "a.com" });
+  const feed = S().newTab(w, { url: "x.com", background: true });
+  const pick = () => media.playerTabFor(M(), [feed]);
+  media.setNowPlaying(feed, report({ title: "Home / X", controllable: false }));
+  assert.equal(pick(), undefined, "muted autoplay");
+  media.setNowPlaying(feed, report({ title: "Home / X", playbackState: "paused", controllable: false }));
+  assert.equal(pick(), undefined, "paused muted autoplay");
+  media.setNowPlaying(feed, report({ title: "Home / X", controllable: true }));
+  assert.equal(pick(), feed, "unmuted while playing");
+  assert.ok(M().sessions[feed].playedAt > 0);
+  media.setNowPlaying(feed, report({ title: "Home / X", controllable: false }));
+  assert.equal(pick(), undefined, "another muted video took over the page");
 });

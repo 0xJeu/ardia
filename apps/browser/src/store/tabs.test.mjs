@@ -336,7 +336,7 @@ test("closing the mini player lasts until its tab plays again", async () => {
   const M = () => media.useMedia.getState();
   const report = (overrides = {}) => ({
     title: "Song", artist: "Band", album: "", artwork: null, playbackState: "playing", position: 10, duration: 200,
-    playbackRate: 1, timestamp: Date.now(), hasVideo: false, actions: ["play", "pause"], ...overrides,
+    playbackRate: 1, timestamp: Date.now(), hasVideo: false, actions: ["play", "pause"], controllable: true, ...overrides,
   });
   reset();
   const w = S().createWindow({ url: "a.com" });

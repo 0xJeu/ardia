@@ -10,10 +10,10 @@ import { useMedia } from "./state";
 import { useMediaTokens } from "./tokens";
 
 export function useShowsMiniPlayer(tabId: string | undefined): boolean {
-  const pinned = useBrowser((s) => !!tabId && !!s.tabs[tabId]?.pinned);
+  const pinned = useBrowser((s) => !!tabId && !!s.tabs[tabId]?.pinned && s.settings.sidebarMediaControls);
   const hasSession = useMedia((s) => {
     const session = tabId ? s.sessions[tabId] : undefined;
-    return !!session && session.playbackState !== "none" && !!(session.title || session.artwork);
+    return !!session && session.controllable && session.playbackState !== "none" && !!(session.title || session.artwork);
   });
   return pinned && hasSession;
 }
