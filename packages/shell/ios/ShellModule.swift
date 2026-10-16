@@ -348,15 +348,8 @@ public class ShellModule: Module {
       self.switcherMonitor = nil
       guard active else { return }
       let emit: ([String: Any]) -> Void = { [weak self] body in self?.sendEvent("onAppEvent", body) }
-      let held = MainMenu.switcherHeldModifiers()
-      self.switcherMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .leftMouseUp, .rightMouseUp, .otherMouseUp]) { event in
-        switch event.type {
-        case .keyUp:
-          if held.isEmpty && MainMenu.isSwitcherKey(event) { emit(["type": "switcherReleased"]) }
-          return event
-        case .keyDown:
-          break
-        default:
+      self.switcherMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseUp, .rightMouseUp, .otherMouseUp]) { event in
+        guard event.type == .keyDown else {
           emit(["type": "switcherMouseUp"])
           return event
         }
@@ -402,12 +395,9 @@ public class ShellModule: Module {
     sidebarObservers.append((distributed, distributed.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { _ in
       if quiet() { emit("screenLocked") }
     }))
-    var heldDown = false
+    SwitcherHold.onRelease = { emit("switcherReleased") }
     flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
-      let held = MainMenu.switcherHeldModifiers()
-      let down = !held.isEmpty && event.modifierFlags.isSuperset(of: held)
-      if heldDown && !down { emit("switcherReleased") }
-      heldDown = down
+      if SwitcherHold.released(by: event.modifierFlags) { emit("switcherReleased") }
       return event
     }
   }

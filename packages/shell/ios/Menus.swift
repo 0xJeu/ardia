@@ -175,6 +175,24 @@ final class CommandItem: NSMenuItem, Rebindable {
   }
 }
 
+enum SwitcherHold {
+  static var onRelease: (() -> Void)?
+  private static var held: NSEvent.ModifierFlags = []
+
+  static func opened(by item: CommandItem) {
+    let mods = MainMenu.heldModifiers(of: item)
+    let down = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
+    held = !mods.isEmpty && down.isSuperset(of: mods) ? mods : []
+    if held.isEmpty { DispatchQueue.main.async { onRelease?() } }
+  }
+
+  static func released(by flags: NSEvent.ModifierFlags) -> Bool {
+    guard !held.isEmpty, !flags.isSuperset(of: held) else { return false }
+    held = []
+    return true
+  }
+}
+
 final class MenuTarget: NSObject, NSMenuItemValidation {
   static let shared = MenuTarget()
   var handler: ((String, String?, String?) -> Void)?
@@ -182,6 +200,7 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
   @objc(commandDispatch:) func performCommand(_ sender: NSMenuItem) {
     guard let item = sender as? CommandItem else { return }
     handler?(item.command, item.arg, item.windowless ? nil : WindowManager.shared.keyWindowId)
+    if item.command == "tabSwitcher" { SwitcherHold.opened(by: item) }
   }
 
   func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
@@ -529,9 +548,8 @@ enum MainMenu {
     return items
   }
 
-  static func switcherHeldModifiers() -> NSEvent.ModifierFlags {
-    guard let forward = switcherItems().first(where: { $0.arg == "forward" }) ?? switcherItems().first else { return [] }
-    let mods = shortcut(of: forward).mods
+  static func heldModifiers(of item: NSMenuItem) -> NSEvent.ModifierFlags {
+    let mods = shortcut(of: item).mods
     let held = mods.intersection([.control, .option, .command])
     return held.isEmpty ? mods.intersection(.shift) : held
   }

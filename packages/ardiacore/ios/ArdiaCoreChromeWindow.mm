@@ -291,12 +291,18 @@ NSMenuItem *ReservedMenuItem(NSMenu *menu, NSString *key, NSEventModifierFlags m
   return nil;
 }
 
-bool IsReservedKey(NSEvent *event) {
+NSMenuItem *ReservedMenuItemForEvent(NSEvent *event) {
   const NSEventModifierFlags mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
-  if (!(mods & (NSEventModifierFlagCommand | NSEventModifierFlagControl))) return false;
   NSString *key = event.charactersIgnoringModifiers.lowercaseString;
+  const unichar first = key.length ? [key characterAtIndex:0] : 0;
+  const bool functionKey = first >= NSF1FunctionKey && first <= NSF35FunctionKey;
+  if (!functionKey && !(mods & (NSEventModifierFlagCommand | NSEventModifierFlagControl))) return nil;
   if ([key isEqualToString:@"\x19"]) key = @"\t";
-  return ReservedMenuItem(NSApp.mainMenu, key, mods) != nil;
+  return ReservedMenuItem(NSApp.mainMenu, key, mods);
+}
+
+bool IsReservedKey(NSEvent *event) {
+  return ReservedMenuItemForEvent(event) != nil;
 }
 
 }
@@ -1306,12 +1312,13 @@ NSString *HostOf(NSString *url) {
 }
 
 - (BOOL)window:(ArdiaCoreWindow *)window preHandleKeyEvent:(NSEvent *)event {
-  const NSEventModifierFlags mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
-  if (mods == NSEventModifierFlagCommand && [event.charactersIgnoringModifiers.lowercaseString isEqualToString:@"w"]) {
+  NSMenuItem *reserved = ReservedMenuItemForEvent(event);
+  if (!reserved) return NO;
+  if ([reserved.identifier isEqualToString:@"ardia.command.closeTab"]) {
     [_coreWindow close];
     return YES;
   }
-  return NO;
+  return [NSApp.mainMenu performKeyEquivalent:event];
 }
 
 @end
