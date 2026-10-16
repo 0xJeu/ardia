@@ -1,0 +1,677 @@
+{
+  "date": "2026-10-16",
+  "machine": {
+    "model": "MacBook Pro (Mac17,9)",
+    "chip": "Apple M5 Pro",
+    "cores": 15,
+    "ram": "48 GB",
+    "macOS": "27.2 (26B5112a)"
+  },
+  "browsers": {
+    "ardia": {
+      "name": "Ardia",
+      "version": "0.2.37",
+      "chromium": "154.0.8037.97"
+    },
+    "dia": {
+      "name": "Dia",
+      "version": "1.53.0",
+      "chromium": "155.0.8059.80"
+    },
+    "helium": {
+      "name": "Helium",
+      "version": "0.19.2.1",
+      "chromium": "155.0.8059.39"
+    },
+    "chrome": {
+      "name": "Google Chrome",
+      "version": "155.0.8059.85",
+      "chromium": "155.0.8059.85"
+    }
+  },
+  "rows": [
+    {
+      "id": "launch-link",
+      "label": "Cold launch → page painted (link opened from another app)",
+      "unit": "ms",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 543,
+          "min": 513,
+          "max": 817,
+          "n": 10
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 2643,
+          "min": 2307,
+          "max": 3076,
+          "n": 10
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 527,
+          "min": 455,
+          "max": 805,
+          "n": 10
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 484,
+          "min": 434,
+          "max": 738,
+          "n": 10
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "launch-window",
+      "label": "Cold launch → window on screen",
+      "unit": "ms",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 358,
+          "min": 329,
+          "max": 590,
+          "n": 10
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 2262,
+          "min": 2003,
+          "max": 2547,
+          "n": 10
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 499,
+          "min": 431,
+          "max": 724,
+          "n": 10
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 424,
+          "min": 405,
+          "max": 681,
+          "n": 10
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "launch-restore",
+      "label": "Cold launch → restored tab painted",
+      "unit": "ms",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 494,
+          "min": 475,
+          "max": 805,
+          "n": 10
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0,
+          "note": "Dia opens on its start view at launch; the restored tab stays hidden until it's chosen, so it never paints on its own"
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 508,
+          "min": 457,
+          "max": 746,
+          "n": 10
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 438,
+          "min": 413,
+          "max": 676,
+          "n": 10
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "newtab",
+      "label": "New tab → first paint",
+      "unit": "ms",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 80,
+          "min": 71.3,
+          "max": 81.1,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 88.9,
+          "min": 85,
+          "max": 96.1,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 70.5,
+          "min": 62.5,
+          "max": 75.2,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 54.3,
+          "min": 46.3,
+          "max": 63.2,
+          "n": 5
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "switch",
+      "label": "Tab switch → shown",
+      "unit": "ms",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 40,
+          "min": 32.5,
+          "max": 40,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 24,
+          "min": 24,
+          "max": 31,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 8.5,
+          "min": 8,
+          "max": 33,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 8,
+          "min": 7,
+          "max": 8.5,
+          "n": 5
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "newwindow",
+      "label": "New window → first paint",
+      "unit": "ms",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": null,
+          "min": null,
+          "max": null,
+          "n": 0,
+          "note": "Target.createTarget with newWindow opens a tab in the current window, not a new window"
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 144,
+          "min": 131,
+          "max": 153,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 95,
+          "min": 82.9,
+          "max": 104,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 100,
+          "min": 83.4,
+          "max": 103,
+          "n": 5
+        }
+      },
+      "best": "helium"
+    },
+    {
+      "id": "memory-1",
+      "label": "Memory, 1 tab",
+      "unit": "MB",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 290,
+          "min": 273,
+          "max": 291,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 480,
+          "min": 478,
+          "max": 485,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 375,
+          "min": 372,
+          "max": 378,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 370,
+          "min": 367,
+          "max": 379,
+          "n": 5
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "memory-10",
+      "label": "Memory, 10 tabs",
+      "unit": "MB",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 763,
+          "min": 750,
+          "max": 767,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 1273,
+          "min": 1113,
+          "max": 1278,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 776,
+          "min": 773,
+          "max": 804,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 692,
+          "min": 690,
+          "max": 700,
+          "n": 5
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "memory-20",
+      "label": "Memory, 20 tabs",
+      "unit": "MB",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 1183,
+          "min": 1171,
+          "max": 1191,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 1822,
+          "min": 1602,
+          "max": 1835,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 1125,
+          "min": 1124,
+          "max": 1292,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 919,
+          "min": 919,
+          "max": 934,
+          "n": 5
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "memory-closed",
+      "label": "Memory, back to 1 tab after 20",
+      "unit": "MB",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 361,
+          "min": 359,
+          "max": 366,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 538,
+          "min": 535,
+          "max": 552,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 415,
+          "min": 409,
+          "max": 440,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 406,
+          "min": 402,
+          "max": 416,
+          "n": 5
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "idle-cpu-1",
+      "label": "Idle CPU, 1 tab",
+      "unit": "%",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 0.2,
+          "min": 0.18,
+          "max": 0.25,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 0.63,
+          "min": 0.55,
+          "max": 0.74,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 0.24,
+          "min": 0.18,
+          "max": 0.34,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 0.2,
+          "min": 0.18,
+          "max": 0.55,
+          "n": 5
+        }
+      },
+      "best": "ardia"
+    },
+    {
+      "id": "idle-cpu-20",
+      "label": "Idle CPU, 20 tabs",
+      "unit": "%",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 1.42,
+          "min": 1.34,
+          "max": 1.64,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 1.05,
+          "min": 0.95,
+          "max": 1.45,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 1.43,
+          "min": 1.1,
+          "max": 1.52,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 0.62,
+          "min": 0.58,
+          "max": 1.34,
+          "n": 5
+        }
+      },
+      "best": "chrome"
+    },
+    {
+      "id": "idle-wakeups-1",
+      "label": "Idle wakeups, 1 tab",
+      "unit": "/s",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 6.9,
+          "min": 6.52,
+          "max": 7.39,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 14.39,
+          "min": 13.49,
+          "max": 19.92,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 6.49,
+          "min": 6.24,
+          "max": 12.03,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 6.77,
+          "min": 6.37,
+          "max": 7.27,
+          "n": 5
+        }
+      },
+      "best": "helium"
+    },
+    {
+      "id": "idle-wakeups-20",
+      "label": "Idle wakeups, 20 tabs",
+      "unit": "/s",
+      "lowerIsBetter": true,
+      "browsers": {
+        "ardia": {
+          "name": "Ardia",
+          "version": "0.2.37",
+          "chromium": "154.0.8037.97",
+          "median": 29.84,
+          "min": 29.13,
+          "max": 31.74,
+          "n": 5
+        },
+        "dia": {
+          "name": "Dia",
+          "version": "1.53.0",
+          "chromium": "155.0.8059.80",
+          "median": 38.7,
+          "min": 36.28,
+          "max": 44.99,
+          "n": 5
+        },
+        "helium": {
+          "name": "Helium",
+          "version": "0.19.2.1",
+          "chromium": "155.0.8059.39",
+          "median": 34.14,
+          "min": 26.84,
+          "max": 42.44,
+          "n": 5
+        },
+        "chrome": {
+          "name": "Google Chrome",
+          "version": "155.0.8059.85",
+          "chromium": "155.0.8059.85",
+          "median": 30.86,
+          "min": 28.42,
+          "max": 32.17,
+          "n": 5
+        }
+      },
+      "best": "ardia"
+    }
+  ],
+  "method": "docs/perf/vs-browsers.md",
+  "notes": [
+    "One harness drives all four from outside the app over CDP, the same local test pages served from 127.0.0.1, one instance at a time, browsers interleaved per run and rotated each round.",
+    "Every run starts from its own copy of a template profile made once per browser (one launch, the test page open, 90 s to settle, quit), with HOME pointed into it; default settings, built-in ad blockers as shipped.",
+    "Chrome and Helium get --restore-last-session so all four restore the same one-tab session (Ardia and Dia restore by default).",
+    "Window 1280×800 at the same place for every browser that takes --window-size; Ardia's window frame is set in its session to the same size; Dia ignores --window-size and opens full-screen-sized (1512×949).",
+    "Chrome and Helium run as shipped: they bring themselves to the front at launch and on a tab switch, and fetch their Finch (variations) seed and components as usual. Dia runs in view without taking focus, signed in with a throwaway account. Ardia runs in its background test mode: it can't become the active app, its windows sit behind the owner's and report themselves as not occluded, and App Nap is off for it.",
+    "Memory is phys_footprint summed over every process of the browser (app, helpers, GPU, renderers, utilities, anything running from its bundle); CPU and wakeups are rusage over the same processes.",
+    "Measured on the owner's working Mac, in normal use: browsers interleaved run by run and rotated each round so the owner's activity falls on all of them alike; each figure is the median of the runs, with min–max and n.",
+    "Median, min–max and n over runs; a row is a win when the ranges don't overlap."
+  ]
+}
