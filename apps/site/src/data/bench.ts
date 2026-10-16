@@ -18,7 +18,7 @@ type RawRow = {
 type RawMachine = { model?: string; chip?: string; cores?: number | string; ram?: string | number; macOS?: string };
 type RawBench = { date: string; machine: string | RawMachine; method?: string; rows: RawRow[] };
 
-const SHOWN = /^(ardia|dia)\b/i;
+const SHOWN = /^(ardia|dia|helium)\b/i;
 
 export type Figure = { value: number; decimals: number; from: number; suffix: string };
 export type Bar = {
