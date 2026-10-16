@@ -8,6 +8,9 @@
 //   node apps/browser/scripts/perf/xbench.mjs check  --out <dir> [options]   one quick look per browser, nothing kept
 //   node apps/browser/scripts/perf/xbench.mjs report --out <dir> [--json <file>] [--md <file>]
 //   node apps/browser/scripts/perf/xbench.mjs clean  --out <dir>             quit leftovers, unregister the copies, delete runs
+//   node apps/browser/scripts/perf/xbench.mjs prepare-bg --browsers <a,b>    make <apps>/<name>-bg/: the copy with LSBackgroundOnly
+//                        set (it can't become the active app, as Ardia's test instances can't), signed ad hoc with its
+//                        entitlements and without the hardened runtime; run it as the browser <name>-bg
 //
 //     --browsers <a,b>     ardia,dia,helium,chrome (default: all four, in that order)
 //     --apps <dir>         where the copies live (default /tmp/ac-xbench/apps): ardia/Ardia.app, dia/Dia.app,
@@ -18,12 +21,15 @@
 //     --rows <a,b>         link,restore,session,size (default all). session = idle, memory, newtab, switch, newwindow
 //     --idle <secs>        each idle window (default 60)
 //     --port <n>           the instances' CDP port (default 9461). One instance runs at a time
+//     --page-port <n>      the test pages' server port (default 9462); templates restore pages from it, so keep it fixed
 //     --deadline <mins>    stop starting items after this long (default 100); run again to resume
 //     --gate away|off      away (default): every item waits until the owner is away (screen locked, or no keyboard,
 //                          mouse or trackpad input for --away secs) and is thrown away, its browser quit at once, the
 //                          moment input comes. off is allowed only when every browser chosen is Ardia (hidden)
 //     --away <secs>        idle time that counts as away (default 600)
 //     --window <x,y>       the windows' top-left corner (default 40,80)
+//     --allow-focus        record a browser making itself the active app instead of stopping (only for an A/B the
+//                          owner agreed to, run while they're away)
 //     --dmg <name>=<file|url>  repeatable: the download whose size the size row reports
 //     --json <file>, --md <file>  report: where the results JSON and the markdown table go (default <out>/bench.json, stdout)
 //
@@ -68,9 +74,11 @@ const { values: opt, positionals } = parseArgs({
     rows: { type: "string", default: "link,restore,session,size" },
     idle: { type: "string", default: "60" },
     port: { type: "string", default: "9461" },
+    "page-port": { type: "string", default: "9462" },
     deadline: { type: "string", default: "100" },
     gate: { type: "string", default: "away" },
     window: { type: "string", default: "40,80" },
+    "allow-focus": { type: "boolean" },
     away: { type: "string", default: "600" },
     dmg: { type: "string", multiple: true, default: [] },
     json: { type: "string" },
@@ -103,6 +111,10 @@ const BROWSERS = {
   helium: { name: "Helium", bundle: "helium/Helium.app", restoreSwitch: true, downloadUrl: (i) => `https://github.com/imputnet/helium-macos/releases/download/${i.version}/helium_${i.version}_arm64-macos.dmg` },
   chrome: { name: "Google Chrome", bundle: "chrome/Google Chrome.app", restoreSwitch: true, downloadUrl: () => "https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg" },
 };
+
+const baseOf = (name) => name.split("-")[0];
+const spec = (name) => BROWSERS[baseOf(name)];
+const isArdia = (name) => baseOf(name) === "ardia";
 
 const toolDir = join(out, ".tools");
 function compiled(name, source) {
@@ -183,7 +195,7 @@ function acperf(...args) {
 }
 
 const PAGE_SCRIPT = `
-window.__ac = { vis: [[Date.now(), document.visibilityState]], shown: [], fcp: null, frame: null };
+window.__ac = { vis: [[Date.now(), document.visibilityState]], shown: [], fcp: null, frame: null, ticks: 0 };
 requestAnimationFrame(() => (__ac.frame = Date.now()));
 new PerformanceObserver((list) => {
   for (const e of list.getEntries()) if (e.name === "first-contentful-paint") __ac.fcp = performance.timeOrigin + e.startTime;
@@ -194,6 +206,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible")
     requestAnimationFrame(() => requestAnimationFrame(() => __ac.shown.push([t, Date.now()])));
 });
+setInterval(() => __ac.ticks++, 1000);
 `;
 
 function staticPage(id) {
@@ -218,7 +231,7 @@ function startServer() {
       if (url.pathname !== "/static") return res.writeHead(404).end();
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }).end(staticPage(url.searchParams.get("id") ?? "0"));
     });
-    server.listen(0, "127.0.0.1", () => done());
+    server.listen(+opt["page-port"], "127.0.0.1", () => done());
   });
 }
 
@@ -353,7 +366,7 @@ function info(app) {
 
 function bundleOf(name) {
   const given = opt.app.find((a) => a.startsWith(`${name}=`));
-  const app = resolve(given ? given.slice(name.length + 1) : join(opt.apps, BROWSERS[name].bundle));
+  const app = resolve(given ? given.slice(name.length + 1) : join(opt.apps, name, basename(spec(name).bundle)));
   if (realpathSync(app).startsWith("/Applications/")) throw new Error(`${app} is in /Applications: run a copy`);
   if (!existsSync(app)) throw new Error(`no ${name} copy at ${app}`);
   return app;
@@ -407,7 +420,7 @@ class Aborted extends Error {}
 class Instance {
   constructor(name, dir) {
     this.name = name;
-    this.b = BROWSERS[name];
+    this.b = spec(name);
     this.app = bundleOf(name);
     this.info = info(this.app);
     this.dir = dir;
@@ -417,7 +430,10 @@ class Instance {
   }
   watched() {
     if (gate.on && gate.input > this.inputAtStart) throw new Aborted("the owner came back");
-    if (this.pid && gate.state?.front === this.pid) throw new Error(`${this.name} took focus (it became the frontmost app): stopping`);
+    if (this.pid && gate.state?.front === this.pid) {
+      if (!opt["allow-focus"]) throw new Error(`${this.name} took focus (it became the frontmost app): stopping`);
+      this.focusSeen = true;
+    }
     if (this.pid && !this.alive()) throw new Error(`${this.name} (pid ${this.pid}) died`);
   }
   alive() {
@@ -430,14 +446,14 @@ class Instance {
   }
   env() {
     const env = { HOME: this.home, CFFIXED_USER_HOME: this.home };
-    if (this.name === "ardia") {
+    if (isArdia(this.name)) {
       Object.assign(env, { ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: join(this.home, "data"), ARDIA_REMOTE_DEBUGGING_PORT: String(port), ARDIA_UPDATE_FEED_URL: `${base()}/appcast.xml` });
     }
     return env;
   }
   args() {
     const shared = ["--no-first-run", "--no-default-browser-check", "--password-store=basic", "--disable-backgrounding-occluded-windows", "--mute-audio"];
-    if (this.name === "ardia") return [...shared, "-NSAppSleepDisabled", "YES"];
+    if (isArdia(this.name)) return [...shared, "-NSAppSleepDisabled", "YES"];
     return [`--user-data-dir=${join(this.home, "udd")}`, `--remote-debugging-port=${port}`, "--remote-allow-origins=*", ...shared,
       "--use-mock-keychain", `--window-size=${WIN.w},${WIN.h}`, `--window-position=${WIN.x},${WIN.y}`, ...(this.b.restoreSwitch ? ["--restore-last-session"] : [])];
   }
@@ -452,7 +468,7 @@ class Instance {
     for (const r of rows) if (r.command.startsWith(prefix + "/") || r.command.startsWith(prefix.replace(/^\/private/, "") + "/")) pids.add(r.pid), walk(r.pid);
     return rows.filter((r) => pids.has(r.pid)).map((r) => {
       const inTree = r.pid === this.pid || this.isDescendant(rows, r.pid);
-      return { pid: r.pid, ppid: r.ppid, kind: inTree ? kindOf(r.command) : `outside:${basename(r.command.split(/ --/)[0])}`, inTree };
+      return { pid: r.pid, ppid: r.ppid, kind: inTree ? kindOf(r.command) : `outside:${r.command.match(/([^/]+)\.(?:app|xpc)\/Contents\/MacOS\//)?.[1] ?? basename(r.command.split(" ")[0])}`, inTree };
     });
   }
   isDescendant(rows, pid) {
@@ -546,7 +562,7 @@ async function makeTemplate(name) {
   const dir = templateDir(name);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(join(dir, "home"), { recursive: true });
-  if (name === "ardia") {
+  if (isArdia(name)) {
     mkdirSync(join(dir, "home/data"), { recursive: true });
     writeFileSync(join(dir, "home/data/onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
   }
@@ -565,7 +581,7 @@ async function makeTemplate(name) {
   } finally {
     await app.quit();
   }
-  if (name === "ardia") fixArdiaSession(join(dir, "home/data/session.json"));
+  if (isArdia(name)) fixArdiaSession(join(dir, "home/data/session.json"));
   for (const f of ["SingletonLock", "SingletonSocket", "SingletonCookie"]) rmSync(join(dir, "home/udd", f), { force: true });
   log(`${name} template: ${version.Browser}`);
 }
@@ -604,7 +620,7 @@ async function launchItem(name, item, kind) {
       firstFrame: (page?.state.frame ?? NaN) - app.t0,
       viewport: page ? [page.state.w, page.state.h] : null,
       pages: (await app.cdp.pages()).length,
-      focusTaken: app.focusTaken(),
+      focusTaken: app.focusTaken() || !!app.focusSeen,
     };
     await app.hold(1500);
     return r;
@@ -726,6 +742,7 @@ async function sessionItem(name, item) {
     for (const t of await app.cdp.pages()) if (!t.url.endsWith("id=seed")) await app.cdp.call("Target.closeTarget", { targetId: t.id }).catch(() => null);
     await app.hold(30_000);
     r.memory.closed = app.footprint();
+    r.focusTaken = r.focusTaken || !!app.focusSeen;
     r.pagesClosed = (await app.cdp.pages()).length;
   } finally {
     await app.quit();
@@ -742,8 +759,8 @@ async function sizeItem(name) {
   const app = bundleOf(name);
   const i = info(app);
   const given = opt.dmg.find((d) => d.startsWith(`${name}=`))?.slice(name.length + 1);
-  const local = name === "ardia" ? join(repoRoot, `dist/${i.version}/Ardia-${i.version}.dmg`) : null;
-  const source = given ?? (local && existsSync(local) ? local : BROWSERS[name].downloadUrl?.(i));
+  const local = isArdia(name) ? join(repoRoot, `dist/${i.version}/Ardia-${i.version}.dmg`) : null;
+  const source = given ?? (local && existsSync(local) ? local : spec(name).downloadUrl?.(i));
   let download = NaN;
   if (source && /^https?:/.test(source)) {
     const r = spawnSync("curl", ["-sIL", "--max-time", "30", source], { encoding: "utf8" });
@@ -870,7 +887,7 @@ async function check(names) {
       const dir = join(out, "check", name);
       rmSync(dir, { recursive: true, force: true });
       mkdirSync(join(dir, "home"), { recursive: true });
-      if (name === "ardia") mkdirSync(join(dir, "home/data"), { recursive: true }), writeFileSync(join(dir, "home/data/onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
+      if (isArdia(name)) mkdirSync(join(dir, "home/data"), { recursive: true }), writeFileSync(join(dir, "home/data/onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
       const app = new Instance(name, dir);
       const report = { name, version: app.info.version, window: opt.window };
       const prefs = prefsStamp(name);
@@ -891,7 +908,7 @@ async function check(names) {
         report.cover = probe("cover", String(app.pid));
         report.focusTaken = app.focusTaken();
         report.processes = app.ownPids().map((p) => `${p.kind}${p.inTree ? "" : " (outside the tree)"}`);
-        report.uddUsed = name === "ardia" ? existsSync(join(app.home, "data/Chromium/Default")) : existsSync(join(app.home, "udd/Default"));
+        report.uddUsed = isArdia(name) ? existsSync(join(app.home, "data/Chromium/Default")) : existsSync(join(app.home, "udd/Default"));
         report.homeLibrary = existsSync(join(app.home, "Library")) ? readdirSync(join(app.home, "Library")) : [];
       } catch (e) {
         report.error = e.message;
@@ -902,6 +919,7 @@ async function check(names) {
       }
       console.log(JSON.stringify(report, null, 2));
       rmSync(dir, { recursive: true, force: true });
+      if (/took focus|updated itself/.test(`${report.error} ${report.quitError}`)) throw new Error(`${name}: ${report.error ?? report.quitError}; stopping the check`);
     }
   } finally {
     gate.stop();
@@ -945,7 +963,7 @@ function report(names) {
   for (const n of names) {
     const t = existsSync(join(templateDir(n), "template.json")) ? JSON.parse(readFileSync(join(templateDir(n), "template.json"), "utf8")) : null;
     const app = bundleOf(n);
-    browsers[n] = { name: BROWSERS[n].name, version: info(app).version, chromium: chromiumOf(app, t) };
+    browsers[n] = { name: spec(n).name + (n === baseOf(n) ? "" : ` (${n.slice(baseOf(n).length + 1)})`), version: info(app).version, chromium: chromiumOf(app, t) };
   }
   const rows = ROWS.map((row) => {
     const per = {};
@@ -1031,6 +1049,30 @@ function breakdown(names) {
 }
 const mapKinds = (kinds, f) => Object.fromEntries(Object.entries(kinds ?? {}).map(([k, v]) => [k, f(v)]));
 
+function prepareBackgroundOnly(names) {
+  for (const name of names) {
+    if (spec(name).hidden || name !== baseOf(name)) throw new Error(`prepare-bg takes a competitor's own name, not ${name}`);
+    const src = bundleOf(name);
+    const dst = join(opt.apps, `${name}-bg`, basename(src));
+    rmSync(dirname(dst), { recursive: true, force: true });
+    mkdirSync(dirname(dst), { recursive: true });
+    execFileSync("cp", ["-Rc", src, dst]);
+    const plist = join(dst, "Contents/Info.plist");
+    spawnSync("/usr/libexec/PlistBuddy", ["-c", "Delete :LSBackgroundOnly", plist]);
+    execFileSync("/usr/libexec/PlistBuddy", ["-c", "Add :LSBackgroundOnly bool true", plist]);
+    spawnSync("xattr", ["-rd", "com.apple.FinderInfo", dst]);
+    const granted = execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", src], { encoding: "utf8" });
+    const restricted = /^(com\.apple\.application-identifier|com\.apple\.developer\..*|keychain-access-groups)$/;
+    const kept = granted.replace(/<key>([^<]+)<\/key>\s*(<true\/>|<false\/>|<string>[^<]*<\/string>|<array>[\s\S]*?<\/array>|<array\/>)/g, (all, key) => (restricted.test(key) ? "" : all));
+    const entitlements = join(dirname(dst), "entitlements.plist");
+    writeFileSync(entitlements, kept);
+    execFileSync("codesign", ["--force", "--sign", "-", "--entitlements", entitlements, "--preserve-metadata=identifier", dst], { stdio: "inherit" });
+    const verify = spawnSync("codesign", ["--verify", "--strict", dst], { encoding: "utf8" });
+    const flags = spawnSync("codesign", ["-dvv", dst], { encoding: "utf8" }).stderr.match(/flags=\S+/)?.[0];
+    log(`${name}-bg: ${dst} (${verify.status === 0 ? "signature valid" : `signature: ${verify.stderr.trim()}`}, ${flags}, version ${info(dst).version})`);
+  }
+}
+
 function clean(names) {
   const lsr = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
   for (const n of names) {
@@ -1055,8 +1097,8 @@ function clean(names) {
 }
 
 const names = opt.browsers.split(",").filter(Boolean);
-for (const n of names) if (!BROWSERS[n]) throw new Error(`unknown browser ${n}`);
-if (opt.gate === "off" && names.some((n) => !BROWSERS[n].hidden)) throw new Error("--gate off is only for Ardia: the others' windows show on the owner's screen");
+for (const n of names) if (!spec(n)) throw new Error(`unknown browser ${n}`);
+if (opt.gate === "off" && names.some((n) => !spec(n).hidden)) throw new Error("--gate off is only for Ardia: the others' windows show on the owner's screen");
 const command = positionals[0];
 process.on("SIGINT", () => process.exit(130));
 if (command === "report") {
@@ -1067,6 +1109,8 @@ if (command === "report") {
   if (opt.md) writeFileSync(resolve(opt.md), md);
   else console.log(md);
   log(`wrote ${file}`);
+} else if (command === "prepare-bg") {
+  prepareBackgroundOnly(names);
 } else if (command === "clean") {
   clean(names);
 } else if (command === "run" || command === "check") {
