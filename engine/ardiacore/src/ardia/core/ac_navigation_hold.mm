@@ -123,20 +123,18 @@ void Hold::Release(bool in_force, const std::string& why) {
   Holds().erase(it);
   const int64_t ms = (base::TimeTicks::Now() - since_).InMilliseconds();
   if (!in_force) {
-    LOG(ERROR) << "ArdiaCore: navigation hold for " << extension_id_
-               << "'s rulesets ended without them (" << why << ") after " << ms
-               << " ms; " << throttles_.size()
-               << " held navigations go ahead without its rules";
+    LOG(ERROR) << "ArdiaCore: navigation hold for " << extension_id_ << " ended before it was ready ("
+               << why << ") after " << ms << " ms; " << throttles_.size()
+               << " held navigations go ahead without its blocking";
   } else if (!why.empty()) {
-    LOG(ERROR) << "ArdiaCore: " << extension_id_ << "'s rulesets in force after " << ms
-               << " ms, but " << why << "; " << throttles_.size()
-               << " held navigations go ahead without those rules";
+    LOG(ERROR) << "ArdiaCore: " << extension_id_ << " ready after " << ms << " ms, but " << why << "; "
+               << throttles_.size() << " held navigations go ahead without all of its rules";
   } else if (throttles_.empty()) {
-    NSLog(@"[ardiacore] %s's rulesets in force %lld ms after the hold began; no navigation waited",
+    NSLog(@"[ardiacore] %s ready %lld ms after the navigation hold began; no navigation waited",
           extension_id_.c_str(), ms);
   } else {
-    NSLog(@"[ardiacore] held %zu navigations for %s's rulesets, the first %lld ms (in force %lld ms "
-          @"after the hold began)",
+    NSLog(@"[ardiacore] held %zu navigations for %s, the first %lld ms (ready %lld ms after the hold "
+          @"began)",
           throttles_.size(), extension_id_.c_str(),
           (base::TimeTicks::Now() - first_deferred_).InMilliseconds(), ms);
   }
@@ -181,6 +179,12 @@ void HoldNavigationsForRulesets(Profile* profile, const std::string& extension_i
 void ReleaseNavigationHold(Profile* profile, const std::string& reason) {
   if (Hold* hold = HoldFor(profile)) {
     hold->Release(false, reason);
+  }
+}
+
+void ReleaseNavigationHoldReady(Profile* profile) {
+  if (Hold* hold = HoldFor(profile)) {
+    hold->Release(true, "");
   }
 }
 

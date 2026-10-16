@@ -101,8 +101,10 @@ ARDIACORE_EXPORT
 @property(readonly) BOOL offTheRecord;
 @property(readonly) BOOL destroyed;
 - (nullable NSString*)loadComponentExtension:(NSString*)path;
+- (void)unloadComponentExtension:(NSString*)extensionId;
 - (void)holdNavigationsUntilRulesetsOf:(NSString*)extensionId;
 - (void)releaseNavigationHold:(NSString*)reason;
+- (void)releaseNavigationHoldReady;
 - (void)watchCastRoutes;
 @property(readonly) NSArray<NSDictionary<NSString*, id>*>* extensions;
 - (nullable NSNumber*)boolPreference:(NSString*)name;

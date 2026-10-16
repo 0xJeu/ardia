@@ -15,6 +15,8 @@ void HoldNavigationsForRulesets(Profile* profile, const std::string& extension_i
 
 void ReleaseNavigationHold(Profile* profile, const std::string& reason);
 
+void ReleaseNavigationHoldReady(Profile* profile);
+
 void MaybeAddNavigationHoldThrottle(content::NavigationThrottleRegistry& registry);
 
 }

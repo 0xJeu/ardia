@@ -1161,6 +1161,15 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   return extension_id.empty() ? nil : NS(extension_id);
 }
 
+- (void)unloadComponentExtension:(NSString*)extensionId {
+  if (!_profile || !extensionId.length) {
+    return;
+  }
+  if (extensions::ComponentLoader* loader = extensions::ComponentLoader::Get(_profile.get())) {
+    loader->Remove(base::SysNSStringToUTF8(extensionId));
+  }
+}
+
 - (void)holdNavigationsUntilRulesetsOf:(NSString*)extensionId {
   if (_profile) {
     ardiacore::HoldNavigationsForRulesets(_profile.get(), base::SysNSStringToUTF8(extensionId));
@@ -1170,6 +1179,12 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 - (void)releaseNavigationHold:(NSString*)reason {
   if (_profile) {
     ardiacore::ReleaseNavigationHold(_profile.get(), base::SysNSStringToUTF8(reason));
+  }
+}
+
+- (void)releaseNavigationHoldReady {
+  if (_profile) {
+    ardiacore::ReleaseNavigationHoldReady(_profile.get());
   }
 }
 

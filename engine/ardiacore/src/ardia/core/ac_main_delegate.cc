@@ -6,6 +6,7 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/environment.h"
@@ -15,6 +16,8 @@
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
@@ -33,6 +36,8 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/common/content_switches.h"
+#include "extensions/common/switches.h"
+#include "third_party/blink/public/common/switches.h"
 #include "content/public/common/result_codes.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -282,6 +287,31 @@ ACMainDelegate::ACMainDelegate(const StartupTimestamps& timestamps)
 
 ACMainDelegate::~ACMainDelegate() = default;
 
+namespace {
+
+void KeepMemoryReducer(base::CommandLine* command_line) {
+  const std::string flags = command_line->GetSwitchValueASCII(blink::switches::kJavaScriptFlags);
+  std::vector<std::string> kept;
+  bool dropped = false;
+  for (const std::string& flag :
+       base::SplitString(flags, " ,", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+    if (flag == "--no-memory-reducer" || flag == "--no_memory_reducer") {
+      dropped = true;
+    } else {
+      kept.push_back(flag);
+    }
+  }
+  if (!dropped) {
+    return;
+  }
+  command_line->RemoveSwitch(blink::switches::kJavaScriptFlags);
+  if (!kept.empty()) {
+    command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags, base::JoinString(kept, " "));
+  }
+}
+
+}
+
 std::optional<int> ACMainDelegate::BasicStartupComplete() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kProcessType)) {
@@ -290,6 +320,9 @@ std::optional<int> ACMainDelegate::BasicStartupComplete() {
     command_line->AppendSwitch(switches::kNoFirstRun);
     command_line->AppendSwitch(switches::kNoDefaultBrowserCheck);
     command_line->RemoveSwitch(switches::kMakeDefaultBrowser);
+  }
+  if (command_line->HasSwitch(extensions::switches::kExtensionProcess)) {
+    KeepMemoryReducer(command_line);
   }
   return ChromeMainDelegate::BasicStartupComplete();
 }

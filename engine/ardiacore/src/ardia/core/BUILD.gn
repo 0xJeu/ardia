@@ -118,6 +118,7 @@ source_set("core") {
     "//chrome/renderer",
     "//content/public/renderer",
     "//extensions/browser",
+    "//extensions/common",
     "//gin",
     "//ipc",
     "//media",
