@@ -71,7 +71,7 @@ framework_src="${ARDIACORE_FRAMEWORK:-$chromium_src/out/Release_GN_arm64/Chromiu
 die() { echo "error: $*" >&2; exit 1; }
 
 pbx="$macos/Ardia.xcodeproj/project.pbxproj"
-project_version="$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' "$pbx" | sort -u)"
+project_version="$(sed -n 's/.*MARKETING_VERSION = "\{0,1\}\([^";]*\)"\{0,1\};/\1/p' "$pbx" | sort -u)"
 project_build="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/p' "$pbx" | sort -u)"
 version_settings=()
 release_build="$project_build"
