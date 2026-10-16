@@ -1,6 +1,7 @@
 export const VERSION = "0.2.37";
 export const DMG_SIZE = "187 MB";
 export const REPO = "https://github.com/mantrakp04/ardia";
+export const DISCORD = "https://discord.gg/TdhuXrbcA6";
 export const RELEASES = `${REPO}/releases/latest`;
 const DMG_NAME = VERSION.localeCompare("0.2.33", "en", { numeric: true }) < 0 ? "Netnyahoo" : "Ardia";
 export const DMG = `${REPO}/releases/latest/download/${DMG_NAME}-${VERSION}.dmg`;

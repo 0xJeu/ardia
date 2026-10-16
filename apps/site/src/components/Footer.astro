@@ -1,5 +1,5 @@
 ---
-import { NIGHTLY, RELEASES, REPO } from "../data/release";
+import { DISCORD, NIGHTLY, RELEASES, REPO } from "../data/release";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
@@ -40,6 +40,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
           data-track-link="issues"
           data-track-location="footer">Report a bug</a
         >
+        <a class="link" href={DISCORD} rel="noopener" data-track="discord_clicked" data-track-location="footer">Discord</a>
       </nav>
       <div class="col">
         <p class="label h">Disclaimer</p>
