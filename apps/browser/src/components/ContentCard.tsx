@@ -20,7 +20,7 @@ import { removeTabs } from "../store/tabs";
 import { splitOf } from "../store/splits";
 import type { SplitView, Tab } from "../store/types";
 import { BOOKMARKS_BAR_HEIGHT, BookmarksBar, bookmarksBarShown, useBookmarksBarMode, type BookmarksBarMode } from "./bookmarks/BookmarksBar";
-import { CliControlBar } from "./CliControlBar";
+import { CliControlBar, CliControlPill } from "./CliControlBar";
 import { FindBar } from "./FindBar";
 import { POPOVER_MARGIN } from "./layout/controls";
 import { NO_TOOLBAR, splitGeometry, toolbarGeometry, type Rect, type ToolbarGeometry } from "./layout/geometry";
@@ -359,6 +359,7 @@ const TabPane = memo(function TabPane({
             {visible && (
               <>
                 <FindBar tabId={tabId} />
+                {fullscreen && <CliControlPill />}
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, autoLayout && motion.bottomStyle]}>
                   <StatusBubble tabId={tabId} maxWidth={Math.max(160, frame.width / 2)} />
                 </Animated.View>

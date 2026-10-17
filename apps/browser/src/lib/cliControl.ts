@@ -98,7 +98,11 @@ let started = false;
 export function startCliControl() {
   if (started) return;
   started = true;
-  const setServer = (server: CliControlStatus) => useCli.setState({ server });
+  const setServer = (server: CliControlStatus) => {
+    useCli.setState({ server });
+    const stoppedItself = server.state === "off" && !!server.error;
+    if (stoppedItself && useBrowser.getState().settings.cliControl) useBrowser.getState().updateSettings({ cliControl: false });
+  };
   onCliControlChanged(setServer);
   let applied: boolean | null = null;
   const sync = () => {
