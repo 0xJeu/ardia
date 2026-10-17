@@ -73,6 +73,8 @@ extern ui::ResourceBundle::Delegate* g_ardia_resource_bundle_delegate;
 
 extern bool g_ardia_viewless_browsers;
 
+extern bool g_ardia_skip_cpu_health_sampling;
+
 extern BrowserWindow* (*g_ardia_browser_window_factory)(Browser*);
 
 extern bool (*g_ardia_keeps_window_without_tabs)(

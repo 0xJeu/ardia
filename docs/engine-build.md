@@ -94,6 +94,18 @@ reading mode hooks read); apply.sh's other hooks are set next to the code they s
 | H5 | `chrome_main_delegate.cc` | `g_ardia_resource_bundle_delegate`, passed where Chrome inits the shared ResourceBundle | CEF's `GetResourceBundleDelegate()` |
 | H6 | `chrome_main_delegate.cc`, `chrome_browser_main.cc`, `chrome_browser_main_mac.mm`, `chrome_content_browser_client.cc`, `chrome_browser_policy_connector.cc` | `g_ardia_embedder` (set by `ACMainDelegate` in every process) skips at run time what `chrome_runtime.patch` compiled out under `ENABLE_CEF`: `InitializeUserDataDir` and startup metrics, `RecordCoreSystemProfile`, crash keys, the crash reporter and crashpad; `StartupBrowserCreator::Start` and the `RunLoop` (not a no-op under `--no-startup-window`: it sets up profiles and Chrome's own main `RunLoop`); `AppController` and `BuildMainMenu`, `didEndMainMessageLoop`; the `HandleWebUI` handler pair (it rewrites `chrome://` URLs and claims them as WebUI, so it isn't a no-op either). First run and `--make-default-browser` need no hook: `ACMainDelegate::BasicStartupComplete` gives the browser process `--no-first-run` (so `IsChromeFirstRun()` is false), `--no-default-browser-check` and `--no-startup-window`, and drops `--make-default-browser`. And no platform policy provider (`CreatePlatformProvider`), as CEF made none without a policy id: the macOS one's first load ran on the main thread before `BrowserMain`, waiting for `/usr/bin/profiles`, 10–20 ms of every launch | `chrome_runtime.patch`'s `#if !BUILDFLAG(ENABLE_CEF)` blocks; `chrome_browser_policy.patch`'s `CreatePlatformProvider` |
 
+apply.sh also has three hooks for idle wakeups:
+- `cpu_health_tracker.cc`: with `g_ardia_skip_cpu_health_sampling`, `CpuHealthTracker` gets no `CpuProbe`, so there's
+  no 15 s CPU sampling. That sampling only feeds Chrome's performance-intervention toolbar button.
+- `system_memory_pressure_evaluator_mac.cc`: with `g_ardia_disk_space_check_seconds`, free disk is checked at that
+  period while more than 20 GiB are free, and at Chrome's 5 s otherwise.
+- `extension_action_storage_manager.cc`: restored browser-action defaults notify the `ExtensionActionDispatcher`, so
+  `ac_extensions_watch_actions`' watchers see them.
+
+`ACMainDelegate::BasicStartupComplete` sets the first two (60 s) and turns on
+`PartitionAllocAdaptiveMemoryReclaimInterval`. Kill switches: `ARDIA_CPU_HEALTH_SAMPLING=on`,
+`ARDIA_DISK_CHECK_SECONDS=5`, `ARDIA_PA_RECLAIM=fixed`. HangWatcher stays on; `ARDIA_HANG_WATCHER=off` turns it off.
+
 ## The offline page
 
 Wherever Chrome would start the dino (`LocalizedError::IsOfflineError`: `ERR_INTERNET_DISCONNECTED`, or a DNS

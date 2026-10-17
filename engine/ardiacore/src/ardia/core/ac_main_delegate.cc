@@ -1,5 +1,7 @@
 #include "ardia/core/ac_main_delegate.h"
 
+#include <algorithm>
+#include <cstdlib>
 #include <memory>
 #include <optional>
 #include <string>
@@ -8,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/files/file_util.h"
@@ -16,6 +19,7 @@
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
@@ -42,6 +46,7 @@
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "ardia/core/ac_video_upscaler.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "ardia/core/ac_content_hooks.h"
 #include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_lifetime.h"
 #include "ardia/core/ac_context_menu.h"
@@ -311,6 +316,34 @@ void KeepMemoryReducer(base::CommandLine* command_line) {
   }
 }
 
+bool EnvIs(const char* name, std::string_view value) {
+  const char* set = getenv(name);
+  return set && value == set;
+}
+
+void MergeFeatures(base::CommandLine* command_line, const char* list, std::string_view features) {
+  const std::string current = command_line->GetSwitchValueASCII(list);
+  command_line->RemoveSwitch(list);
+  command_line->AppendSwitchASCII(list, current.empty() ? std::string(features)
+                                                        : current + "," + std::string(features));
+}
+
+void QuietIdleTimers(base::CommandLine* command_line) {
+  if (!EnvIs("ARDIA_PA_RECLAIM", "fixed")) {
+    MergeFeatures(command_line, switches::kEnableFeatures, "PartitionAllocAdaptiveMemoryReclaimInterval");
+  }
+  if (EnvIs("ARDIA_HANG_WATCHER", "off")) {
+    MergeFeatures(command_line, switches::kDisableFeatures, "EnableHangWatcher,EnableHangWatcherOnGpuProcess");
+  }
+  g_ardia_skip_cpu_health_sampling = !EnvIs("ARDIA_CPU_HEALTH_SAMPLING", "on");
+  int disk_check_seconds = 60;
+  if (const char* set = getenv("ARDIA_DISK_CHECK_SECONDS");
+      set && !base::StringToInt(set, &disk_check_seconds)) {
+    disk_check_seconds = 0;
+  }
+  g_ardia_disk_space_check_seconds = std::clamp(disk_check_seconds, 0, 3600);
+}
+
 }
 
 std::optional<int> ACMainDelegate::BasicStartupComplete() {
@@ -321,6 +354,7 @@ std::optional<int> ACMainDelegate::BasicStartupComplete() {
     command_line->AppendSwitch(switches::kNoFirstRun);
     command_line->AppendSwitch(switches::kNoDefaultBrowserCheck);
     command_line->RemoveSwitch(switches::kMakeDefaultBrowser);
+    QuietIdleTimers(command_line);
   }
   if (command_line->HasSwitch(extensions::switches::kExtensionProcess)) {
     KeepMemoryReducer(command_line);

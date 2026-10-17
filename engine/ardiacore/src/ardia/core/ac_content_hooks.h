@@ -25,6 +25,8 @@ struct RequestAction;
 
 extern const char* g_ardia_user_agent_brand;
 
+extern int g_ardia_disk_space_check_seconds;
+
 extern int (*g_ardia_permission_tab_shown)(content::WebContents*);
 
 extern void (*g_ardia_dnr_rule_matched)(

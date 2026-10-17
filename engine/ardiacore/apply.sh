@@ -1110,6 +1110,67 @@ hook(["bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accele
       "  if (!suspended && g_ardia_global_shortcuts_resumed) {\n"], edit, HOOKS)
 PY
 
+hook "$src/chrome/browser/performance_manager/user_tuning/cpu_health_tracker.cc" "CpuHealthTracker's sampling" <<'PY'
+at = "namespace performance_manager::user_tuning {\n"
+decl = """bool g_ardia_skip_cpu_health_sampling = false;
+
+"""
+old = """  std::unique_ptr<system_cpu::CpuProbe> cpu_probe =
+      system_cpu::CpuProbe::Create();
+  if (cpu_probe) {"""
+new = """  std::unique_ptr<system_cpu::CpuProbe> cpu_probe =
+      g_ardia_skip_cpu_health_sampling ? nullptr
+                                       : system_cpu::CpuProbe::Create();
+  if (cpu_probe) {"""
+def edit(s):
+    assert s.count(at) == 1 and s.count(old) == 1
+    i = s.index(at)
+    return s[:i] + decl + s[i:].replace(old, new)
+hook(["bool g_ardia_skip_cpu_health_sampling = false;\n",
+      "      g_ardia_skip_cpu_health_sampling ? nullptr\n"], edit, HOOKS)
+PY
+
+hook "$src/components/memory_pressure/system_memory_pressure_evaluator_mac.cc" "the disk space check's relaxed period" <<'PY'
+at = "namespace memory_pressure::mac {\n"
+decl = """int g_ardia_disk_space_check_seconds = 0;
+
+namespace {
+constexpr base::ByteSize kArdiaRelaxedDiskSpace = base::GiB(20);
+}
+
+"""
+old = """  if (disk_pressure_vote_ != new_disk_vote) {
+    disk_pressure_vote_ = new_disk_vote;
+    UpdatePressureAndManageNotifications();
+  }
+"""
+new = """  if (disk_pressure_vote_ != new_disk_vote) {
+    disk_pressure_vote_ = new_disk_vote;
+    UpdatePressureAndManageNotifications();
+  }
+
+  if (g_ardia_disk_space_check_seconds > 0) {
+    const base::TimeDelta period =
+        disk_space_info.has_value() &&
+                disk_space_info->available > kArdiaRelaxedDiskSpace
+            ? base::Seconds(g_ardia_disk_space_check_seconds)
+            : kDiskSpaceCheckPeriod;
+    if (disk_space_check_timer_.GetCurrentDelay() != period) {
+      disk_space_check_timer_.Start(
+          FROM_HERE, period,
+          base::BindRepeating(&SystemMemoryPressureEvaluator::CheckDiskSpace,
+                              weak_ptr_factory_.GetWeakPtr()));
+    }
+  }
+"""
+def edit(s):
+    assert s.count(at) == 1 and s.count(old) == 1
+    i = s.index(at)
+    return s[:i] + decl + s[i:].replace(old, new)
+hook(["int g_ardia_disk_space_check_seconds = 0;\n",
+      "  if (g_ardia_disk_space_check_seconds > 0) {\n"], edit, CONTENT_HOOKS)
+PY
+
 hook "$src/chrome/browser/extensions/extension_action_storage_manager.cc" "restored browser action defaults notify" <<'PY'
 old = """  SetDefaultsFromValue(value->GetDict(), action);
 }
