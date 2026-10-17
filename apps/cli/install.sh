@@ -1,31 +1,36 @@
 #!/bin/sh
 # Installs the ardia command, which controls a running Ardia from the terminal.
 #
-#   install.sh [--version V] [--uninstall]
+#   install.sh [--version V] [--sha256 DIGEST] [--uninstall]
 #   install.sh -h | --help
 #
-# --version V   install that release (default: the latest release that ships the CLI).
-# --uninstall   remove the installed CLI and its ardia link.
+# --version V        install that release (default: the latest release that ships the CLI).
+# --sha256 DIGEST    trust only this digest of the tarball (the .sha256 asset isn't downloaded).
+# --uninstall        remove the installed CLI and its ardia link.
 #
 # Installs into ${ARDIA_CLI_HOME:-~/Library/Application Support/Ardia/CLI}/<version>, points its `current` link
 # there and links ${ARDIA_CLI_BIN_DIR:-~/.local/bin}/ardia to current/bin/ardia. When the default bin dir isn't on
 # the login shell's PATH, it adds one PATH line to ~/.zprofile (~/.bash_profile for bash), once.
-# Re-running it upgrades: a version that is already current is left alone; a new one is staged in <version>.partial,
-# renamed, and `current` is swapped atomically (a running ardia keeps its old dir). It keeps the current and the
-# previous version and prunes the rest. Two runs never overlap (a lock in $ARDIA_CLI_HOME/.lock).
+# Re-running it upgrades: a version that is already current is left alone; a new one is verified, staged in
+# <version>.partial, renamed, and `current` is swapped atomically (a running ardia keeps its old dir). It keeps the
+# current and the previous version and prunes the rest. Two runs never overlap (a lock in $ARDIA_CLI_HOME/.lock).
 # The installed version is `basename "$(readlink "$ARDIA_CLI_HOME/current")"`.
-# ARDIA_CLI_URL overrides the tarball URL (file:// works); its checksum is read from $ARDIA_CLI_URL.sha256.
+# Downloads are https only. ARDIA_CLI_URL overrides the tarball URL (file:// works); without --sha256 its checksum
+# is read from $ARDIA_CLI_URL.sha256.
 #
 # Prints one line per event: `step resolve|download|verify|install|link`, `version <v>`, `path <rc file>`,
 # then `installed <bin path>` (or `uninstalled`), or `error <message>` and exits 1.
 set -eu
+umask 022
 
 repo=mantrakp04/ardia
 asset_suffix=-macos-arm64.tar.gz
+version_pattern='^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}(-[a-z]{1,16}\.[0-9]{1,4})?$'
 cli_home=${ARDIA_CLI_HOME:-$HOME/Library/Application Support/Ardia/CLI}
 default_bin_dir=$HOME/.local/bin
 bin_dir=${ARDIA_CLI_BIN_DIR:-$default_bin_dir}
 version=
+pinned_sha=
 uninstall=0
 work=
 reported=0
@@ -51,19 +56,39 @@ finish() {
   fi
 }
 trap finish EXIT
+trap 'exit 130' INT TERM HUP
+
+is_version() {
+  printf '%s\n' "$1" | grep -Eq "$version_pattern"
+}
 
 while [ $# -gt 0 ]; do
   case $1 in
     --version) [ $# -ge 2 ] || fail "--version needs a value"; version=${2#v}; shift 2 ;;
     --version=*) version=${1#--version=}; version=${version#v}; shift ;;
+    --sha256) [ $# -ge 2 ] || fail "--sha256 needs a value"; pinned_sha=$2; shift 2 ;;
+    --sha256=*) pinned_sha=${1#--sha256=}; shift ;;
     --uninstall) uninstall=1; shift ;;
     -h|--help) help ;;
     *) fail "unknown option: $1" ;;
   esac
 done
 
+if [ -n "$version" ] && ! is_version "$version"; then
+  fail "bad version: $version"
+fi
+if [ -n "$pinned_sha" ] && ! printf '%s\n' "$pinned_sha" | grep -Eq '^[0-9a-f]{64}$'; then
+  fail "bad --sha256 digest: $pinned_sha"
+fi
+
+if [ -n "${ARDIA_CLI_URL:-}" ]; then
+  protocols==https,file
+else
+  protocols==https
+fi
+
 fetch() {
-  curl -fsSL --retry 2 --connect-timeout 15 "$@"
+  curl -fsSL --proto "$protocols" --proto-redir =https --retry 2 --connect-timeout 15 "$@"
 }
 
 take_lock() {
@@ -83,42 +108,84 @@ take_lock() {
   locked=1
 }
 
-link_bin() {
-  target=$cli_home/current/bin/ardia
-  [ -L "$bin_dir/ardia" ] && [ "$(readlink "$bin_dir/ardia")" = "$target" ] && return 0
-  printf 'step link\n'
-  mkdir -p "$bin_dir" || fail "couldn't create $bin_dir"
-  if [ -e "$bin_dir/ardia" ] && ! [ -L "$bin_dir/ardia" ]; then
-    fail "$bin_dir/ardia exists and isn't a link; move it away and run this again"
-  fi
-  ln -s "$target" "$work/ardia" || fail "couldn't create the ardia link"
-  mv -fh "$work/ardia" "$bin_dir/ardia" || fail "couldn't link $bin_dir/ardia"
-}
-
-ardia_link_is_ours() {
-  [ -L "$bin_dir/ardia" ] || return 1
-  case $(readlink "$bin_dir/ardia") in
+points_into_cli_home() {
+  [ -L "$1" ] || return 1
+  case $(readlink "$1") in
     "$cli_home"/*) return 0 ;;
   esac
   return 1
 }
 
+check_bin_free() {
+  if { [ -e "$bin_dir/ardia" ] || [ -L "$bin_dir/ardia" ]; } && ! points_into_cli_home "$bin_dir/ardia"; then
+    fail "$bin_dir/ardia already exists and isn't this CLI's link; move it away and run this again"
+  fi
+}
+
+link_bin() {
+  target=$cli_home/current/bin/ardia
+  [ -L "$bin_dir/ardia" ] && [ "$(readlink "$bin_dir/ardia")" = "$target" ] && return 0
+  printf 'step link\n'
+  mkdir -p "$bin_dir" || fail "couldn't create $bin_dir"
+  check_bin_free
+  ln -sfh "$target" "$bin_dir/.ardia.$$" || fail "couldn't create the ardia link"
+  mv -fh "$bin_dir/.ardia.$$" "$bin_dir/ardia" || { rm -f "$bin_dir/.ardia.$$"; fail "couldn't link $bin_dir/ardia"; }
+}
+
+is_cli_entry() {
+  name=${1##*/}
+  case $name in
+    current) [ -L "$1" ] ;;
+    *.partial) is_version "${name%.partial}" ;;
+    *) is_version "$name" && [ -d "$1" ] ;;
+  esac
+}
+
+check_archive() {
+  tar -tzf "$1" >"$work/names" 2>/dev/null || fail "couldn't read the tarball"
+  if grep -Ev "^ardia-cli-$version(/|$)" "$work/names" | grep -q .; then
+    fail "the tarball has entries outside ardia-cli-$version/"
+  fi
+  if grep -Eq '(^|/)\.\.(/|$)' "$work/names"; then
+    fail "the tarball has .. entries"
+  fi
+  tar -tvzf "$1" >"$work/listing" 2>/dev/null || fail "couldn't read the tarball"
+  if grep -Eq '^h| link to ' "$work/listing"; then
+    fail "the tarball has hard links"
+  fi
+  if grep -E '^l' "$work/listing" | sed 's/.* -> //' | grep -Eq '^/|(^|/)\.\.(/|$)'; then
+    fail "the tarball has links that point outside it"
+  fi
+}
+
+check_tree() {
+  find "$1" -type l >"$work/links"
+  while IFS= read -r link; do
+    case $(readlink "$link") in
+      /*|..|../*|*/../*|*/..) fail "the tarball has a link that points outside it: ${link#"$1"/}" ;;
+    esac
+  done <"$work/links"
+}
+
 if [ "$uninstall" -eq 1 ]; then
-  step=uninstall
-  printf 'step %s\n' "$step"
-  if ardia_link_is_ours; then
+  printf 'step uninstall\n'
+  if points_into_cli_home "$bin_dir/ardia"; then
     rm -f "$bin_dir/ardia" || fail "couldn't remove $bin_dir/ardia"
   fi
   if [ -d "$cli_home" ]; then
     take_lock
     for entry in "$cli_home"/* "$cli_home"/.install.*; do
       [ -e "$entry" ] || [ -L "$entry" ] || continue
-      [ "$entry" = "$cli_home/.lock" ] && continue
+      case ${entry##*/} in
+        .install.*) ;;
+        *) is_cli_entry "$entry" || continue ;;
+      esac
       rm -rf "$entry" || fail "couldn't remove $entry"
     done
+    rm -rf "$cli_home/.lock"
+    locked=0
+    rmdir "$cli_home" 2>/dev/null || true
   fi
-  [ "$locked" -eq 1 ] && rm -rf "$cli_home/.lock" && locked=0
-  rmdir "$cli_home" 2>/dev/null || true
   reported=1
   printf 'uninstalled\n'
   exit 0
@@ -134,12 +201,11 @@ if [ -n "${ARDIA_CLI_URL:-}" ]; then
     name=${url##*/}
     version=${name#ardia-cli-}
     version=${version%"$asset_suffix"}
-    [ "$version" != "$name" ] || fail "can't read a version from $name"
   fi
 elif [ -n "$version" ]; then
   url=https://github.com/$repo/releases/download/v$version/ardia-cli-$version$asset_suffix
 else
-  pattern="https://github\.com/$repo/releases/download/[^\"]*/ardia-cli-[^\"/]*-macos-arm64\.tar\.gz"
+  pattern="https://github\.com/$repo/releases/download/v[0-9a-z.-]*/ardia-cli-[0-9a-z.-]*-macos-arm64\.tar\.gz"
   url=$(fetch https://api.github.com/repos/$repo/releases/latest 2>/dev/null | grep -o "$pattern" | head -n 1 || true)
   if [ -z "$url" ]; then
     url=$(fetch "https://api.github.com/repos/$repo/releases?per_page=30" 2>/dev/null | grep -o "$pattern" | head -n 1 || true)
@@ -149,14 +215,14 @@ else
   version=${name#ardia-cli-}
   version=${version%"$asset_suffix"}
 fi
-case $version in
-  ''|*/*|.*) fail "bad version: $version" ;;
-esac
+is_version "$version" || fail "bad version: $version"
 printf 'version %s\n' "$version"
+check_bin_free
 
 mkdir -p "$cli_home" || fail "couldn't create $cli_home"
 take_lock
-work=$(mktemp -d "$cli_home/.install.XXXXXX") || fail "couldn't create a temporary folder in $cli_home"
+work=$(mktemp -d "${TMPDIR:-/tmp}/ardia-cli-install.XXXXXX") || fail "couldn't create a temporary folder"
+chmod 700 "$work"
 
 previous=$(readlink "$cli_home/current" 2>/dev/null || true)
 if [ "$previous" = "$version" ] && [ -x "$cli_home/$version/bin/ardia" ]; then
@@ -165,41 +231,45 @@ if [ "$previous" = "$version" ] && [ -x "$cli_home/$version/bin/ardia" ]; then
   printf 'installed %s\n' "$bin_dir/ardia"
   exit 0
 fi
+is_version "$previous" || previous=
 
 printf 'step download\n'
 fetch -o "$work/cli.tar.gz" "$url" 2>"$work/curl.err" || fail "download failed: $url ($(tail -n 1 "$work/curl.err"))"
-expected=$(fetch "$url.sha256" 2>"$work/curl.err" | awk '{ print $1; exit }') || fail "checksum download failed: $url.sha256"
+if [ -n "$pinned_sha" ]; then
+  expected=$pinned_sha
+else
+  expected=$(fetch "$url.sha256" 2>"$work/curl.err" | awk '{ print $1; exit }') || fail "checksum download failed: $url.sha256"
+fi
 
 printf 'step verify\n'
-case $expected in
-  [0-9a-f]*) [ ${#expected} -eq 64 ] || fail "bad checksum file: $url.sha256" ;;
-  *) fail "bad checksum file: $url.sha256" ;;
-esac
+printf '%s\n' "$expected" | grep -Eq '^[0-9a-f]{64}$' || fail "bad checksum file: $url.sha256"
 actual=$(shasum -a 256 "$work/cli.tar.gz" | awk '{ print $1 }')
 [ "$actual" = "$expected" ] || fail "checksum mismatch: expected $expected, got $actual"
+check_archive "$work/cli.tar.gz"
 
 printf 'step install\n'
 staged=$cli_home/$version.partial
 dest=$cli_home/$version
 rm -rf "$staged"
-mkdir "$staged" && tar -xzf "$work/cli.tar.gz" -C "$staged" --strip-components 1 "ardia-cli-$version" \
+mkdir "$staged" || fail "couldn't create $staged"
+tar -xzf "$work/cli.tar.gz" -C "$staged" --strip-components 1 --no-same-owner "ardia-cli-$version" \
   || fail "couldn't extract ardia-cli-$version from the tarball"
+check_tree "$staged"
 [ -x "$staged/bin/ardia" ] || fail "the tarball has no ardia-cli-$version/bin/ardia"
 xattr -dr com.apple.quarantine "$staged" 2>/dev/null || true
 "$staged/bin/ardia" --version >"$work/check.out" 2>&1 || fail "the downloaded ardia doesn't run: $(tail -n 1 "$work/check.out")"
-if [ -e "$dest" ]; then
-  mv "$dest" "$work/replaced" || fail "couldn't replace $dest"
+if [ -e "$dest" ] || [ -L "$dest" ]; then
+  mv "$dest" "$cli_home/.install.replaced.$$" || fail "couldn't replace $dest"
+  rm -rf "$cli_home/.install.replaced.$$"
 fi
 mv "$staged" "$dest" || fail "couldn't move the CLI into $dest"
-ln -s "$version" "$work/current" || fail "couldn't create the current link"
-mv -fh "$work/current" "$cli_home/current" || fail "couldn't switch $cli_home/current"
+ln -sfh "$version" "$cli_home/.install.current.$$" || fail "couldn't create the current link"
+mv -fh "$cli_home/.install.current.$$" "$cli_home/current" || fail "couldn't switch $cli_home/current"
 for entry in "$cli_home"/*; do
   case ${entry##*/} in
     current|"$version"|"$previous") continue ;;
   esac
-  if [ -d "$entry" ] && { [ -x "$entry/bin/ardia" ] || [ "${entry%.partial}" != "$entry" ]; }; then
-    rm -rf "$entry"
-  fi
+  is_cli_entry "$entry" && rm -rf "$entry"
 done
 
 link_bin
