@@ -87,8 +87,8 @@ function CommandLineSection() {
   const serverNote =
     server?.state === "external"
       ? "This instance already has a DevTools port from the command line, so the setting leaves it alone."
-      : server?.error
-        ? server.error
+      : server?.reason
+        ? server.reason
         : on && server?.state === "on"
           ? server.connections
             ? `Connected now: ${server.connections === 1 ? "1 session" : `${server.connections} sessions`}.`

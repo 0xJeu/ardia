@@ -100,7 +100,7 @@ export function startCliControl() {
   started = true;
   const setServer = (server: CliControlStatus) => {
     useCli.setState({ server });
-    const stoppedItself = server.state === "off" && !!server.error;
+    const stoppedItself = server.state === "off" && !!server.reason;
     if (stoppedItself && useBrowser.getState().settings.cliControl) useBrowser.getState().updateSettings({ cliControl: false });
   };
   onCliControlChanged(setServer);
@@ -111,7 +111,7 @@ export function startCliControl() {
     const first = applied === null;
     applied = on;
     const call = first && !on ? cliControlStatus() : setCliControl(on);
-    void call.then(setServer, (e: unknown) => setServer({ state: "off", error: e instanceof Error ? e.message : String(e) }));
+    void call.then(setServer, (e: unknown) => setServer({ state: "off", reason: e instanceof Error ? e.message : String(e) }));
   };
   sync();
   useBrowser.subscribe(sync);

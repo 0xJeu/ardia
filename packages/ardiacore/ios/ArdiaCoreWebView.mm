@@ -438,6 +438,7 @@ static BOOL HeldSelector(SEL selector) {
   BOOL _creating;
   BOOL _closing;
   BOOL _launchCloseSent;
+  BOOL _offerClosed;
   BOOL _moving;
   NSString *_pendingURL;
   NSString *_creatingURL;
@@ -738,7 +739,7 @@ static void CloseLinkTabs() {
 }
 
 - (void)ensureTab {
-  if (_tab || _creating || !self.window || !ArdiaCoreHost.isStarted || !self.controller) return;
+  if (_tab || _creating || _offerClosed || !self.window || !ArdiaCoreHost.isStarted || !self.controller) return;
   if ([self takeTransferredTab]) return;
   if ([_adoptId hasPrefix:@"link:"]) {
     NSString *link = _adoptId;
@@ -748,6 +749,14 @@ static void CloseLinkTabs() {
   if ([_adoptId hasPrefix:@"ardiacore:"] || [_adoptId hasPrefix:@"tab:"]) {
     ArdiaCoreTab *offered = [ArdiaCoreTabs takeOffered:_adoptId];
     _adoptId = nil;
+    if (offered.closed) {
+      _offerClosed = YES;
+      __weak ArdiaCoreWebView *weakSelf = self;
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf emit:@"windowClose" payload:@{}];
+      });
+      return;
+    }
     if (offered && ![self canTake:offered]) {
       if (!offered.closed) [offered closeNow];
       offered = nil;

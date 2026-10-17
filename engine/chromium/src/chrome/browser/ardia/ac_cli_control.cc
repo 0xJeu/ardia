@@ -3,8 +3,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,6 +21,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/no_destructor.h"
@@ -27,6 +30,8 @@
 #include "base/process/process_handle.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -37,6 +42,7 @@
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
@@ -54,6 +60,10 @@ constexpr char kControlFileName[] = "ArdiaControl.json";
 constexpr char kTopic[] = "cliControl";
 constexpr int kBacklog = 10;
 constexpr base::TimeDelta kStartDeadline = base::Seconds(5);
+constexpr char kPolicyError[] =
+    "Remote debugging is turned off by your administrator.";
+
+std::atomic<uint64_t> g_live_generation{0};
 
 class LoopbackSocketFactory : public content::DevToolsSocketFactory {
  public:
@@ -81,9 +91,15 @@ base::FilePath ControlFilePath() {
   return dir.Append(kControlFileName);
 }
 
-void WriteControlFile(const base::FilePath& path, const std::string& contents) {
+std::string ErrnoText() {
+  return base::ToLowerASCII(strerror(errno));
+}
+
+std::string WriteControlFile(const base::FilePath& path,
+                             const std::string& contents,
+                             uint64_t generation) {
   if (path.empty()) {
-    return;
+    return "Ardia has no data folder.";
   }
   const base::FilePath temp = path.DirName().Append(
       "." + path.BaseName().value() + "." +
@@ -92,19 +108,31 @@ void WriteControlFile(const base::FilePath& path, const std::string& contents) {
       open(temp.value().c_str(),
            O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
   if (fd < 0) {
-    PLOG(ERROR) << "[ardia] can't write " << temp;
-    return;
+    return base::StrCat({"Couldn't write ", path.value(), ": ", ErrnoText()});
   }
   bool written = base::WriteFileDescriptor(fd, contents) && fsync(fd) == 0;
-  written = IGNORE_EINTR(close(fd)) == 0 && written;
-  if (!written || rename(temp.value().c_str(), path.value().c_str()) != 0) {
-    PLOG(ERROR) << "[ardia] can't publish " << path;
-    unlink(temp.value().c_str());
+  std::string error = written ? std::string() : ErrnoText();
+  if (IGNORE_EINTR(close(fd)) != 0 && written) {
+    written = false;
+    error = ErrnoText();
   }
+  if (written && g_live_generation.load() != generation) {
+    unlink(temp.value().c_str());
+    return "The control server stopped.";
+  }
+  if (!written || rename(temp.value().c_str(), path.value().c_str()) != 0) {
+    if (written) {
+      error = ErrnoText();
+    }
+    unlink(temp.value().c_str());
+    return base::StrCat({"Couldn't write ", path.value(), ": ", error});
+  }
+  return std::string();
 }
 
 void DeleteControlFile(const base::FilePath& path) {
-  if (!path.empty() && unlink(path.value().c_str()) != 0 && errno != ENOENT) {
+  if (!path.empty() && unlink(path.value().c_str()) != 0 && errno != ENOENT &&
+      errno != EISDIR && errno != EPERM) {
     PLOG(ERROR) << "[ardia] can't delete " << path;
   }
 }
@@ -116,7 +144,7 @@ bool ServerStartedBySwitch() {
 
 class ControlServer {
  public:
-  enum class State { kStopped, kStarting, kRunning, kStopping };
+  enum class State { kStopped, kStarting, kPublishing, kRunning, kStopping };
 
   static ControlServer& Get() {
     static base::NoDestructor<ControlServer> server;
@@ -129,6 +157,12 @@ class ControlServer {
     g_ardia_devtools_token_server = &ServerChanged;
     terminating_ = browser_shutdown::AddAppTerminatingCallback(
         base::BindOnce(&ControlServer::Quit, base::Unretained(this)));
+    if (PrefService* local_state = LocalState()) {
+      policy_.Init(local_state);
+      policy_.Add(prefs::kDevToolsRemoteDebuggingAllowed,
+                  base::BindRepeating(&ControlServer::PolicyChanged,
+                                      base::Unretained(this)));
+    }
     if (!ServerStartedBySwitch()) {
       FileRunner()->PostTask(FROM_HERE,
                              base::BindOnce(&DeleteControlFile, file_path_));
@@ -136,24 +170,25 @@ class ControlServer {
   }
 
   void Enable(Reply reply) {
-    if (ServerStartedBySwitch()) {
+    if (ServerStartedBySwitch() || quitting_) {
       return reply.Send(Status());
     }
     if (!Allowed()) {
-      error_ = "Remote debugging is turned off by your administrator.";
+      error_ = kPolicyError;
       return reply.Send(Status());
     }
     if (state_ == State::kRunning) {
       return reply.Send(Status());
     }
     pending_.push_back(std::move(reply));
-    if (state_ == State::kStarting) {
+    if (Active()) {
       return;
     }
     if (PrefService* local_state = LocalState()) {
       local_state->ClearPref(prefs::kDevToolsRemoteDebuggingEnabled);
     }
     ++generation_;
+    g_live_generation.store(generation_);
     error_.clear();
     std::vector<uint8_t> secret = base::RandBytesAsVector(32);
     token_.clear();
@@ -168,14 +203,16 @@ class ControlServer {
     content::DevToolsAgentHost::StartRemoteDebuggingServer(
         std::move(factory), base::FilePath(), base::FilePath(),
         content::DevToolsAgentHost::RemoteDebuggingServerMode::kDefault);
-    Emit(kTopic, nullptr, Status());
+    Announce();
   }
 
   void Disable() {
     if (ServerStartedBySwitch()) {
       return;
     }
-    error_.clear();
+    if (state_ != State::kStopped) {
+      error_.clear();
+    }
     Stop();
   }
 
@@ -191,6 +228,7 @@ class ControlServer {
         status.Set("state", "off");
         break;
       case State::kStarting:
+      case State::kPublishing:
         status.Set("state", "starting");
         break;
       case State::kRunning:
@@ -202,7 +240,7 @@ class ControlServer {
     status.Set("generation", static_cast<int>(generation_));
     status.Set("file", file_path_.value());
     if (!error_.empty()) {
-      status.Set("error", error_);
+      status.Set("reason", error_);
     }
     return status;
   }
@@ -216,6 +254,11 @@ class ControlServer {
     PrefService* local_state = LocalState();
     return local_state &&
            local_state->GetBoolean(prefs::kDevToolsRemoteDebuggingAllowed);
+  }
+
+  bool Active() const {
+    return state_ == State::kStarting || state_ == State::kPublishing ||
+           state_ == State::kRunning;
   }
 
   static bool IsOurFactory(const content::DevToolsSocketFactory* factory) {
@@ -247,15 +290,13 @@ class ControlServer {
                        std::string_view browser_path,
                        int port,
                        size_t connections) {
-    if (!factory || factory != factory_ || state_ == State::kStopping ||
-        state_ == State::kStopped) {
+    if (!factory || factory != factory_ || !Active()) {
       return;
     }
     if (port <= 0) {
       const bool failed_to_start = state_ == State::kStarting;
-      if (failed_to_start) {
-        error_ = "Couldn't listen on 127.0.0.1.";
-      }
+      error_ = failed_to_start ? "Couldn't listen on 127.0.0.1."
+                               : "The control server stopped.";
       Reset();
       if (failed_to_start) {
         base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -266,8 +307,7 @@ class ControlServer {
       return;
     }
     if (state_ == State::kStarting) {
-      deadline_.Stop();
-      state_ = State::kRunning;
+      state_ = State::kPublishing;
       port_ = port;
       connections_ = 0;
       base::DictValue file;
@@ -276,25 +316,40 @@ class ControlServer {
       file.Set("token", token_);
       file.Set("pid", static_cast<int>(base::GetCurrentProcId()));
       file.Set("generation", static_cast<int>(generation_));
-      FileRunner()->PostTask(
-          FROM_HERE, base::BindOnce(&WriteControlFile, file_path_,
-                                    base::WriteJson(file).value_or("{}")));
-      Settle();
+      FileRunner()->PostTaskAndReplyWithResult(
+          FROM_HERE,
+          base::BindOnce(&WriteControlFile, file_path_,
+                         base::WriteJson(file).value_or("{}"), generation_),
+          base::BindOnce(&ControlServer::Published, base::Unretained(this),
+                         generation_));
       return;
     }
-    if (connections_ != connections) {
+    if (state_ == State::kRunning && connections_ != connections) {
       connections_ = connections;
-      if (!quitting_) {
-        Emit(kTopic, nullptr, Status());
-      }
+      Announce();
     }
   }
 
+  void Published(uint64_t generation, const std::string& error) {
+    if (generation != generation_ || state_ != State::kPublishing) {
+      return;
+    }
+    if (!error.empty()) {
+      error_ = error;
+      Stop();
+      return;
+    }
+    deadline_.Stop();
+    state_ = State::kRunning;
+    Settle();
+  }
+
   void Stop() {
-    if (state_ == State::kStarting || state_ == State::kRunning) {
+    if (Active()) {
       state_ = State::kStopping;
       token_.clear();
       factory_ = nullptr;
+      g_live_generation.store(0);
       content::DevToolsAgentHost::StopRemoteDebuggingServer();
     }
     Reset();
@@ -306,10 +361,17 @@ class ControlServer {
     state_ = State::kStopped;
     token_.clear();
     factory_ = nullptr;
+    g_live_generation.store(0);
     port_ = 0;
     connections_ = 0;
     FileRunner()->PostTask(FROM_HERE,
                            base::BindOnce(&DeleteControlFile, file_path_));
+  }
+
+  void Announce() {
+    if (!quitting_) {
+      Emit(kTopic, nullptr, Status());
+    }
   }
 
   void Settle() {
@@ -319,13 +381,12 @@ class ControlServer {
     for (Reply& reply : pending) {
       reply.Send(status.Clone());
     }
-    if (!quitting_) {
-      Emit(kTopic, nullptr, std::move(status));
-    }
+    Announce();
   }
 
   void StartTimedOut(uint64_t generation) {
-    if (generation != generation_ || state_ != State::kStarting) {
+    if (generation != generation_ ||
+        (state_ != State::kStarting && state_ != State::kPublishing)) {
       return;
     }
     error_ = "The control server didn't start.";
@@ -338,8 +399,16 @@ class ControlServer {
     }
   }
 
+  void PolicyChanged() {
+    if (!Allowed() && Active()) {
+      error_ = kPolicyError;
+      Stop();
+    }
+  }
+
   void Quit() {
     quitting_ = true;
+    policy_.RemoveAll();
     if (!ServerStartedBySwitch()) {
       Stop();
     }
@@ -361,10 +430,11 @@ class ControlServer {
   int port_ = 0;
   size_t connections_ = 0;
   std::string error_;
+  bool quitting_ = false;
   const base::FilePath file_path_ = ControlFilePath();
   std::vector<Reply> pending_;
   base::OneShotTimer deadline_;
-  bool quitting_ = false;
+  PrefChangeRegistrar policy_;
   base::CallbackListSubscription terminating_;
   scoped_refptr<base::SequencedTaskRunner> file_runner_;
 };

@@ -439,7 +439,7 @@ static void StartLaunchTab() {
       "--user-data-dir=" + std::string(gDataDirectory.UTF8String),
       "--enable-smooth-scrolling",
       "--disable-stack-profiler",
-      "--disable-features=MacAppCodeSignClone",
+      "--disable-features=MacAppCodeSignClone,DevToolsAcceptDebuggingConnections",
       "--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
       "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s",
       "--profile-directory=Default",

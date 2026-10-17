@@ -6,7 +6,7 @@ export type CliControlStatus = {
   connections?: number;
   generation?: number;
   file?: string;
-  error?: string;
+  reason?: string;
 };
 
 export const setCliControl = (on: boolean) => engineCall<CliControlStatus>("ac_cli_control", "", { on });
