@@ -124,5 +124,5 @@ export const extras: { title: string; body: string }[] = [
   { title: "Knows your shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
   { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
   { title: "Sits still", body: "Idles under half a percent of CPU with a tab open." },
-  { title: "Formerly Netnyahoo", body: "Same app, new name. The update carries your tabs, passwords and the rest across." },
+  { title: "Nightly, if you dare", body: "Settings › General puts you on Nightly: every fix the day it’s ready, and every stable release too." },
 ];
