@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { basename, dirname, join, resolve } from "node:path";
@@ -50,6 +50,23 @@ export function ownedCandidate(listeners, before, commandOf, binary) {
   if (before.has(pid)) throw new Error(`port listener ${pid} predates the launch`);
   if (!commandIsBinary(command, binary)) throw new Error(`port listener ${pid} is not ${binary}: ${command}`);
   return pid;
+}
+export const realPath = (path) => { try { return realpathSync(path); } catch { return path; } };
+export function spawnedPids(binary, before, port, dataDirs) {
+  const r = spawnSync("ps", ["-ww", "-ax", "-o", "pid=", "-o", "ppid=", "-o", "command="], { encoding: "utf8", timeout: 5000, maxBuffer: 64 << 20 });
+  if (r.status !== 0) return [];
+  const rows = r.stdout.split("\n").map((l) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(l)).filter(Boolean)
+    .map((m) => ({ pid: Number(m[1]), ppid: Number(m[2]), command: m[3] }));
+  let listening = [];
+  try { listening = listenerPids(port); } catch {}
+  return rows.filter((row) => commandIsBinary(row.command, binary) && !before.has(row.pid)).map((row) => row.pid)
+    .filter((pid) => listening.includes(pid) ||
+      rows.some((child) => child.ppid === pid && dataDirs.some((dir) => child.command.includes(`--user-data-dir=${dir}`))));
+}
+async function killSpawned(pids) {
+  for (const pid of pids) try { process.kill(pid, "SIGTERM"); } catch {}
+  for (const end = Date.now() + 5000; pids.some(isAlive) && Date.now() < end; await sleep(100));
+  for (const pid of pids.filter(isAlive)) try { process.kill(pid, "SIGKILL"); } catch {}
 }
 export const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
 export const binaryOf = (app) => join(app, "Contents/MacOS",
@@ -283,6 +300,7 @@ export async function launch(app, opts = {}) {
   const installed = (path) => /^\/Applications\/[^/]+\.app(\/|$)/.test(path);
   if (installed(app) || (opts.runsFrom && installed(resolve(opts.runsFrom))))
     throw new Error("never an installed app: pass a build (apps/browser/build-*)");
+  app = realPath(app);
   const data = resolve(opts.data ?? join(process.env.TMPDIR ?? "/tmp", `ac-instance-${process.pid}-${Date.now()}`));
   if (opts.fresh) rmSync(data, { recursive: true, force: true });
   mkdirSync(data, { recursive: true });
@@ -293,7 +311,7 @@ export async function launch(app, opts = {}) {
   if (opts.onboarded) writeFileSync(join(data, "onboarding.json"), JSON.stringify({ version: 1, completedAt: 1 }));
   if (opts.probe) writeFileSync(join(data, "perf-probe"), "");
   for (const [name, text] of Object.entries(opts.files ?? {})) writeFileSync(join(data, name), typeof text === "string" ? text : JSON.stringify(text));
-  const runsFrom = opts.runsFrom ? resolve(opts.runsFrom) : app;
+  const runsFrom = opts.runsFrom ? realPath(resolve(opts.runsFrom)) : app;
   const binary = join(runsFrom, "Contents/MacOS", basename(binaryOf(app)));
   const port = opts.port ? parsePort(opts.port) : await freePort();
   const busy = listenerPids(port);
@@ -320,12 +338,20 @@ export async function launch(app, opts = {}) {
   execFileSync("open", ["-g", "-n", ...Object.entries(env).filter(([, v]) => v !== null && v !== undefined).flatMap(([k, v]) => ["--env", `${k}=${v}`]),
     "--stdout", log, "--stderr", log, ...(opts.urls?.length ? ["-a", app, ...opts.urls] : [app]), ...(opts.args?.length ? ["--args", ...opts.args] : [])]);
   let owned = null;
-  for (const end = Date.now() + (opts.startTimeout ?? 60000); !owned && Date.now() < end; await sleep(100)) {
-    let info;
-    const pid = ownedCandidate(listenerPids(port), before, (p) => (info = processInfo(p))?.command, binary);
-    if (pid && info) owned = { pid, started: info.started };
+  try {
+    for (const end = Date.now() + (opts.startTimeout ?? 60000); !owned && Date.now() < end; await sleep(100)) {
+      let info;
+      const pid = ownedCandidate(listenerPids(port), before, (p) => (info = processInfo(p))?.command, binary);
+      if (pid && info) owned = { pid, started: info.started };
+    }
+    if (!owned) throw new Error(`the app didn't listen on DevTools port ${port} within ${(opts.startTimeout ?? 60000) / 1000} s (log: ${log})`);
+  } catch (e) {
+    const dirs = [...new Set([data, realPath(data)])];
+    let spawned = [];
+    for (const end = Date.now() + 10000; !spawned.length && Date.now() < end; await sleep(250)) spawned = spawnedPids(binary, before, port, dirs);
+    await killSpawned(spawned);
+    throw e;
   }
-  if (!owned) throw new Error(`the app didn't listen on DevTools port ${port} within ${(opts.startTimeout ?? 60000) / 1000} s (log: ${log})`);
   const instance = new Instance({ app: runsFrom, binary, data, port, log, launchedAt, js, ...owned, meta: opts.meta ?? {} }).save();
   if (opts.ready !== false)
     try {
