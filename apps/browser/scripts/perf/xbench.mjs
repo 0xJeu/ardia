@@ -875,14 +875,15 @@ function plan(names) {
 
 const ESTIMATE_MS = { link: 25_000, restore: 25_000, session: 5 * 60_000 + 4 * +opt.idle * 1000 };
 
+const lockOwner = `xbench-${process.pid}`;
 function takeLock() {
-  const r = spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--take", "xbench", "--ttl", "30", "--wait", "120"], { encoding: "utf8" });
+  const r = spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--take", lockOwner, "--ttl", "30", "--wait", "120"], { encoding: "utf8" });
   lockHeld = r.status === 0;
   return lockHeld;
 }
 const releaseLock = () => {
   lockHeld = false;
-  return spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--release", "xbench"], { encoding: "utf8" });
+  return spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--release", lockOwner], { encoding: "utf8" });
 };
 
 async function run(names) {
@@ -905,7 +906,7 @@ async function run(names) {
       let waited = true;
       for (;;) {
         if (!(waited = await gate.wait(deadline - ESTIMATE_MS[item.kind]))) break;
-        if (!locked && !(locked = takeLock())) {
+        if (!(locked = takeLock())) {
           log("perflab is busy; waiting");
           await sleep(30_000);
           continue;
