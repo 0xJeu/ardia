@@ -61,18 +61,19 @@ await go("https://example.com/");
 check("a web page loads", (await evaluate("document.title")) === "Example Domain");
 
 const adScript = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js";
-async function adFate(run) {
+const adRequest = "https://ib.adnxs.com/ut/v3?ardia-smoke";
+async function adFate(adUrl, run) {
   const ids = new Set();
   let fate;
   const listener = (method) => (p = {}) => {
-    if (method === "Network.requestWillBeSent" && (p.request?.url === adScript || ids.has(p.requestId))) {
+    if (method === "Network.requestWillBeSent" && (p.request?.url === adUrl || ids.has(p.requestId))) {
       ids.add(p.requestId);
       if (p.request.url.startsWith("chrome-extension://")) fate ??= "blocked";
     } else if (!ids.has(p.requestId)) {
       return;
     } else if (method === "Network.loadingFailed") {
       fate ??= /ERR_BLOCKED_BY_CLIENT/.test(p.errorText ?? "") || p.blockedReason ? "blocked" : `failed (${p.errorText})`;
-    } else if (method === "Network.responseReceived" && new URL(p.response.url).hostname.endsWith("googlesyndication.com")) {
+    } else if (method === "Network.responseReceived" && new URL(p.response.url).hostname === new URL(adUrl).hostname) {
       fate ??= p.response.status < 400 ? "loaded" : `failed (${p.response.status})`;
     }
   };
@@ -83,9 +84,11 @@ async function adFate(run) {
   return fate ?? (ids.size ? "pending" : "not requested");
 }
 await send("Network.enable");
-const ad = await adFate(() => evaluate(`fetch(${JSON.stringify(adScript)},{mode:"no-cors"}).then(()=>"loaded",e=>"blocked")`));
+const ad = await adFate(adRequest, () => evaluate(`fetch(${JSON.stringify(adRequest)},{mode:"no-cors"}).then(()=>"loaded",e=>"blocked")`));
+const script = await adFate(adScript, () => evaluate(`fetch(${JSON.stringify(adScript)},{mode:"no-cors"}).then(()=>"loaded",e=>"blocked")`));
 const control = await evaluate(`fetch("https://www.iana.org/favicon.ico",{mode:"no-cors"}).then(()=>"loaded",e=>"failed")`);
-check("uBlock blocks an ad script, lets other requests through", ad === "blocked" && control === "loaded", `${ad}/${control}`);
+check("uBlock blocks an ad request, lets other requests through", ad === "blocked" && control === "loaded", `${ad}/${control}`);
+check("…and Google's ad script never loads (uBlock swaps in its stand-in)", script !== "loaded", script);
 
 const media = JSON.parse(
   await evaluate(
@@ -162,7 +165,7 @@ await go(`${pages}/form.html`);
 await sleep(1500);
 checkUnlocked("…and closes when the page navigates", !windows().some((w) => /passkey/i.test(w.title)));
 
-const adsOnPage = () => adFate(() => go(`${pages}/ad.html`));
+const adsOnPage = () => adFate(adScript, () => go(`${pages}/ad.html`));
 const allowAds = (allowed) => instance.eval(`return globalThis.expo.modules.ArdiaCEF.setContentBlockerAllowed("localhost", ${allowed})`, { timeout: 30000 });
 const adSteps = [await adsOnPage()];
 await allowAds(true);
