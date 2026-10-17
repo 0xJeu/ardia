@@ -1990,8 +1990,13 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   if ([_tab respondsToSelector:@selector(executeJavaScript:)]) [_tab executeJavaScript:code];
 }
 
+- (void)thawHiddenPage {
+  if (!_visible && !_frozen && [_tab respondsToSelector:@selector(setFrozen:)]) _tab.frozen = NO;
+}
+
 - (void)evaluate:(NSString *)code completion:(void (^)(NSString *))completion {
   if (![_tab respondsToSelector:@selector(evaluate:completion:)]) return completion(nil);
+  [self thawHiddenPage];
   [_tab evaluate:code completion:completion];
 }
 
@@ -2033,6 +2038,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)mediaCommand:(NSString *)action seconds:(double)seconds {
+  [self thawHiddenPage];
   [self callFrame:_nowPlayingFrame ?: @"" kind:@"media" json:JSONString(@{@"action" : action ?: @"", @"seconds" : @(seconds)})];
 }
 
@@ -2049,6 +2055,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)evaluateWithGesture:(NSString *)code completion:(void (^)(NSString *))completion {
+  [self thawHiddenPage];
   if ([_tab respondsToSelector:@selector(evaluate:userGesture:completion:)]) return [_tab evaluate:code userGesture:YES completion:completion];
   [_tab evaluate:code completion:completion];
 }

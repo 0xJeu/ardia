@@ -435,13 +435,16 @@ static void StartLaunchTab() {
                                                 });
                                               }];
 
+  const char *tabFreezing = getenv("ARDIA_TAB_FREEZING");
+  const bool freezeLeastRecentTabs = !(tabFreezing && !strcmp(tabFreezing, "off"));
   std::vector<std::string> extra = {
       "--user-data-dir=" + std::string(gDataDirectory.UTF8String),
       "--enable-smooth-scrolling",
       "--disable-stack-profiler",
       "--disable-features=MacAppCodeSignClone,DevToolsAcceptDebuggingConnections",
-      "--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
-      "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s",
+      std::string("--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
+                  "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s") +
+          (freezeLeastRecentTabs ? ",InfiniteTabsFreezing" : ""),
       "--profile-directory=Default",
       "--js-flags=--no-memory-reducer",
   };
