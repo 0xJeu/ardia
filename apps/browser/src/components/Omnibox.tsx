@@ -227,7 +227,7 @@ export function Omnibox({
     if (key === "PageUp") return setSelected(0);
     if (key === "PageDown") return setSelected(Math.max(0, items.length - 1));
     if (key === "Delete" && shiftKey) return isRemovable(current) ? rowActions.remove(current.url) : undefined;
-    if (key === "Tab") {
+    if (key === "Tab" && !ctrlKey) {
       if (shiftKey) return move(-1);
       if (tabScope) return enterScope(tabScope);
       if (shownCompletion) {
