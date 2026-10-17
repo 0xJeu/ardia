@@ -3,6 +3,7 @@ import { installCli, installedCliVersion, onCliInstallLine, readDocument, system
 import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTabId } from "../store/model";
+import { pageOf, usePages } from "../components/layout/pageState";
 import { isInternalTab } from "../components/pages";
 import { afterFirstWindow } from "./afterFirstWindow";
 
@@ -92,7 +93,8 @@ function shownChromeTab(s: BrowserState): number {
   const windowId = s.ui.focusedWindowId;
   const id = windowId ? activeTabId(s, windowId) : undefined;
   const tab = id ? s.tabs[id] : undefined;
-  return id && tab && (tab.navigation || tab.adoptId) && !isInternalTab(tab) ? (chromeTabIds.get(id) ?? -1) : -1;
+  if (!id || !tab?.url || pageOf(id).newTabShown || !(tab.navigation || tab.adoptId) || isInternalTab(tab)) return -1;
+  return chromeTabIds.get(id) ?? -1;
 }
 
 function pushActiveTab() {
@@ -159,6 +161,7 @@ export function startCliControl() {
   useBrowser.subscribe(sync);
   useBrowser.subscribe(pushActiveTab);
   useCli.subscribe(pushActiveTab);
+  usePages.subscribe(pushActiveTab);
   afterFirstWindow(() => setTimeout(upgradeIfBehind, UPGRADE_DELAY_MS));
 }
 

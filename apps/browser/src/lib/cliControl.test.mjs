@@ -6,7 +6,7 @@ globalThis.__DEV__ = false;
 registerHooks({
   resolve(specifier, context, next) {
     if (!context.parentURL?.endsWith("/lib/cliControl.ts") || specifier !== "../components/pages") return next(specifier, context);
-    const stub = "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');";
+    const stub = "export const isInternalTab = (t) => /^ardia:\\/\\//i.test(t.navigation?.url ?? t.url ?? '');";
     return { url: `data:text/javascript,${encodeURIComponent(stub)}`, shortCircuit: true };
   },
 });
@@ -76,4 +76,33 @@ test("the engine hears which page the user is looking at while control is on", a
   S().activate(a);
   await settle();
   assert.deepEqual(active, [41, 42, -1], "nothing is sent while control is off");
+});
+
+test("a page parked behind New Tab or an Ardia page is not what the user is looking at", async () => {
+  const active = [];
+  globalThis.acTestCliActive = (id) => (active.push(id), Promise.resolve({}));
+  const { patchPage } = await import("../components/layout/pageState.ts");
+  const S = useBrowser.getState;
+  S().hydrate({});
+  const w = S().createWindow({ url: "https://a.com" });
+  S().setFocusedWindow(w);
+  const a = S().windows[w].tabIds[0];
+  cli.noteChromeTab(a, 51);
+  emit({ state: "on", generation: 4, connections: 0 });
+  await settle();
+  assert.deepEqual(active, [51]);
+  const tab = S().tabs[a];
+  patchPage(a, { newTabShown: { url: tab.url, title: tab.title, favicon: null } });
+  S().updateTab(a, { url: "", title: "", favicon: null });
+  await settle();
+  assert.deepEqual(active, [51, -1], "Back to New Tab keeps the WebContents for Forward, but shows New Tab");
+  patchPage(a, { newTabShown: null });
+  S().updateTab(a, { url: tab.url, title: tab.title });
+  await settle();
+  assert.deepEqual(active, [51, -1, 51], "Forward shows the page again");
+  S().updateTab(a, { url: "ardia://settings", navigation: { ...S().tabs[a].navigation, url: "ardia://settings" } });
+  await settle();
+  assert.deepEqual(active, [51, -1, 51, -1], "an Ardia page over a parked WebContents");
+  emit({ state: "off", generation: 4 });
+  await settle();
 });
