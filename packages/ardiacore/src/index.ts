@@ -11,6 +11,7 @@ export * from "./chromeUI";
 export * from "./favicons";
 export * from "./engine";
 export * from "./performance";
+export * from "./cliControl";
 export * from "./history";
 export * from "./bookmarks";
 export * from "./swipe";

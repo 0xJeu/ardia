@@ -21,7 +21,8 @@
       "DockSelectionModule",
       "InlineCompletionModule",
       "TranslateModule",
-      "WindowProfileModule"
+      "WindowProfileModule",
+      "CliModule"
     ]
   }
 }

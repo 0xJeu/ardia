@@ -135,7 +135,7 @@
 				381D8A6E24576A4E00465D17 /* Bundle React Native code and images */,
 				2A6668A84BEE1867A8B8AF9E /* [CP] Embed Pods Frameworks */,
 				F2B782290948FD07702EBCEC /* [CP] Copy Pods Resources */,
-				D0C71E5E2E9A4B1D00D0C001 /* Build Dock Tile Plug-in, embed ArdiaCore */,
+				D0C71E5E2E9A4B1D00D0C001 /* Build Dock Tile Plug-in, embed ArdiaCore, bundle the CLI installer */,
 			);
 			buildRules = (
 			);
@@ -297,7 +297,7 @@
 			shellPath = /bin/sh;
 			shellScript = "\"$PROJECT_DIR/../../../packages/ardiacore/scripts/stage-framework.sh\"\n";
 		};
-		D0C71E5E2E9A4B1D00D0C001 /* Build Dock Tile Plug-in, embed ArdiaCore */ = {
+		D0C71E5E2E9A4B1D00D0C001 /* Build Dock Tile Plug-in, embed ArdiaCore, bundle the CLI installer */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -307,14 +307,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Build Dock Tile Plug-in, embed ArdiaCore";
+			name = "Build Dock Tile Plug-in, embed ArdiaCore, bundle the CLI installer";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/../../../packages/shell/docktile/build.sh\" && \"$PROJECT_DIR/../../../packages/ardiacore/scripts/embed.sh\"\n";
+			shellScript = "\"$PROJECT_DIR/../../../packages/shell/docktile/build.sh\" && \"$PROJECT_DIR/../../../packages/ardiacore/scripts/embed.sh\" && \"$PROJECT_DIR/../../../packages/shell/scripts/bundle-cli-installer.sh\"\n";
 		};
 		F2B782290948FD07702EBCEC /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -6,5 +6,6 @@ extension CefModule {
     "ac_bookmarks_tree", "ac_bookmarks_apply", "ac_bookmarks_watch",
     "ac_omnibox_opened",
     "ac_task_manager_open", "ac_battery_saver",
+    "ac_cli_control",
   ]
 }

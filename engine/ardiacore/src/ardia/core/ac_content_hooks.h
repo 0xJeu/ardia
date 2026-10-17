@@ -1,10 +1,15 @@
 #ifndef ARDIA_CORE_AC_CONTENT_HOOKS_H_
 #define ARDIA_CORE_AC_CONTENT_HOOKS_H_
 
+#include <stddef.h>
+
+#include <string_view>
+
 #include "extensions/common/extension_id.h"
 
 namespace content {
 class BrowserContext;
+class DevToolsSocketFactory;
 class WebContents;
 
 extern bool g_ardia_opacity_from_default_color;
@@ -31,5 +36,18 @@ extern void (*g_ardia_dnr_rulesets_in_force)(
     content::BrowserContext* browser_context,
     const extensions::ExtensionId& extension_id,
     bool all_loaded);
+
+extern bool (*g_ardia_devtools_token_factory)(
+    const content::DevToolsSocketFactory* factory);
+
+extern bool (*g_ardia_devtools_token_accepts)(
+    const content::DevToolsSocketFactory* factory,
+    std::string_view token);
+
+extern void (*g_ardia_devtools_token_server)(
+    const content::DevToolsSocketFactory* factory,
+    std::string_view browser_path,
+    int port,
+    size_t connections);
 
 #endif

@@ -4,6 +4,7 @@ import type { ViewProps } from "react-native";
 export * from "./system";
 export * from "./app";
 export * from "./live";
+export * from "./cli";
 
 export type BrowserCommand =
   | "newTab"

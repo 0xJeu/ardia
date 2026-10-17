@@ -1,0 +1,19 @@
+import { engineCall, onEngineEvent } from "./engine";
+
+export type CliControlStatus = {
+  state: "off" | "starting" | "on" | "external";
+  port?: number;
+  connections?: number;
+  generation?: number;
+  file?: string;
+  error?: string;
+};
+
+export const setCliControl = (on: boolean) => engineCall<CliControlStatus>("ac_cli_control", "", { on });
+
+export const cliControlStatus = () => engineCall<CliControlStatus>("ac_cli_control", "");
+
+export const onCliControlChanged = (listener: (status: CliControlStatus) => void) =>
+  onEngineEvent((topic, payload) => {
+    if (topic === "cliControl") listener(payload as unknown as CliControlStatus);
+  });

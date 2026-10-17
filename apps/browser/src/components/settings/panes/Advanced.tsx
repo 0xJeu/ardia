@@ -1,10 +1,11 @@
 import { engineInfo, listComponents, WIDEVINE_COMPONENT_ID, type EngineComponent, type EngineInfo } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import { describeCliInstall, installCliInBackground, useCli } from "../../../lib/cliControl";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { openInternalPage } from "../../pages/urls";
-import { Button, Group, Row, SectionHeader, Toggle } from "../controls";
+import { Button, Group, Row, SectionHeader, Toggle, useFormColors } from "../controls";
 
 export function AdvancedPane() {
   const theme = useTheme();
@@ -52,6 +53,8 @@ export function AdvancedPane() {
         </Row>
       </Group>
 
+      <CommandLineSection />
+
       <SectionHeader title="Web engine" />
       <Group>
         <Row title="Chromium" description={info ? "ArdiaCore" : undefined}>
@@ -71,5 +74,48 @@ export function AdvancedPane() {
         />
       </Group>
     </View>
+  );
+}
+
+function CommandLineSection() {
+  const theme = useTheme();
+  const colors = useFormColors();
+  const on = useBrowser((s) => s.settings.cliControl ?? false);
+  const update = useBrowser((s) => s.updateSettings);
+  const cli = useCli();
+  const server = cli.server;
+  const serverNote =
+    server?.state === "external"
+      ? "This instance already has a DevTools port from the command line, so the setting leaves it alone."
+      : server?.error
+        ? server.error
+        : on && server?.state === "on"
+          ? server.connections
+            ? `Connected now: ${server.connections === 1 ? "1 session" : `${server.connections} sessions`}.`
+            : "On. Nothing is connected."
+          : "While it's on, the command can open, read and act in every page you're signed in to, and it stays on after you quit.";
+  return (
+    <>
+      <SectionHeader title="Command line" />
+      <Group>
+        <Row title="Let the ardia command control Ardia" description={serverNote}>
+          <Toggle value={on} onChange={(v) => update({ cliControl: v })} />
+        </Row>
+        <Row
+          title="The ardia command"
+          description={
+            <Text selectable style={{ fontSize: 11.5, marginTop: 2, lineHeight: 15, color: cli.error && !cli.installing ? colors.destructive : theme.textSecondary }}>
+              {describeCliInstall(cli)}
+            </Text>
+          }
+        >
+          <Button
+            title={cli.installing ? "Installing…" : cli.installedVersion ? "Reinstall" : "Install"}
+            disabled={!!cli.installing}
+            onPress={() => void installCliInBackground("settings")}
+          />
+        </Row>
+      </Group>
+    </>
   );
 }

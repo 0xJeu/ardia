@@ -6,6 +6,7 @@ import { DevErrorBoundary } from "./DevErrorBoundary";
 import { startTranslate } from "./components/site/translate";
 import { firstWindowCommitted } from "./lib/afterFirstWindow";
 import { startAppIntegration } from "./lib/appIntegration";
+import { startCliControl } from "./lib/cliControl";
 import { startKillSwitches } from "./lib/killSwitchesLaunch";
 import { startNativeSync } from "./lib/native";
 import { startPersistence } from "./lib/persist";
@@ -32,6 +33,7 @@ startTranslate();
 startSync();
 startTelemetry();
 startKillSwitches();
+startCliControl();
 if (__DEV__ || perfProbeEnabled) require("./lib/devHarness").startDevHarness();
 
 const devMountDelay = () => (__DEV__ ? ((globalThis as { acDevMountDelayMs?: number }).acDevMountDelayMs ?? 0) : 0);

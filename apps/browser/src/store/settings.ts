@@ -47,6 +47,7 @@ export type Settings = {
 
   showFullUrl: boolean;
   allowJavaScriptFromAppleEvents: boolean;
+  cliControl: boolean;
   bookmarksBar: "always" | "newTab" | "never";
   hideBookmarksBarImport: boolean;
 
@@ -96,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   extensionSidePanelWidth: 360,
   showFullUrl: false,
   allowJavaScriptFromAppleEvents: false,
+  cliControl: false,
   bookmarksBar: "never",
   hideBookmarksBarImport: false,
   appearance: "auto",
