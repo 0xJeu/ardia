@@ -4,6 +4,7 @@ import { Animated, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { focus, switchToTab } from "../lib/actions";
 import { noteFavicon } from "../lib/favicons";
+import { noteChromeTab } from "../lib/cliControl";
 import { isQuitting } from "../lib/native";
 import { layout, useTheme } from "../lib/theme";
 import { startChromeTabs } from "../lib/chromeTabs";
@@ -454,8 +455,9 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       neighbour={neighbour}
       autoPictureInPicture={autoPictureInPicture}
       pageColor={pageColor}
-      onReady={(browserId) => {
+      onReady={(browserId, chromeTabId) => {
         setBrowserId(tabId, browserId);
+        noteChromeTab(tabId, chromeTabId);
         noteReady(tabId);
         if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
       }}

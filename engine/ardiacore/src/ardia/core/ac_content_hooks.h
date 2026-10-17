@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include <string>
 #include <string_view>
 
 #include "extensions/common/extension_id.h"
@@ -49,5 +50,10 @@ extern void (*g_ardia_devtools_token_server)(
     std::string_view browser_path,
     int port,
     size_t connections);
+
+extern bool (*g_ardia_devtools_active_target)(
+    const content::DevToolsSocketFactory* factory,
+    std::string_view token,
+    std::string* target_id);
 
 #endif

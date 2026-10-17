@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 globalThis.__DEV__ = false;
+registerHooks({
+  resolve(specifier, context, next) {
+    if (!context.parentURL?.endsWith("/lib/cliControl.ts") || specifier !== "../components/pages") return next(specifier, context);
+    const stub = "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');";
+    return { url: `data:text/javascript,${encodeURIComponent(stub)}`, shortCircuit: true };
+  },
+});
 const calls = [];
 const replies = [];
 globalThis.acTestCliControl = (on) => {
@@ -42,4 +50,30 @@ test("a failure of the current start still turns the setting off and keeps the r
   assert.equal(useBrowser.getState().settings.cliControl, false);
   assert.match(cli.useCli.getState().server?.reason ?? "", /is a directory/);
   assert.deepEqual(calls, [true, false, true, false]);
+});
+
+test("the engine hears which page the user is looking at while control is on", async () => {
+  const active = [];
+  globalThis.acTestCliActive = (id) => (active.push(id), Promise.resolve({}));
+  const S = useBrowser.getState;
+  S().hydrate({});
+  const w = S().createWindow({ url: "https://a.com" });
+  S().setFocusedWindow(w);
+  const a = S().windows[w].tabIds[0];
+  const b = S().newTab(w, { url: "https://b.com", background: true });
+  cli.noteChromeTab(a, 41);
+  cli.noteChromeTab(b, 42);
+  emit({ state: "on", generation: 3, connections: 0 });
+  await settle();
+  assert.deepEqual(active, [41]);
+  S().activate(b);
+  await settle();
+  assert.deepEqual(active, [41, 42]);
+  S().newTab(w, {});
+  await settle();
+  assert.deepEqual(active, [41, 42, -1], "New Tab has no page");
+  emit({ state: "off", generation: 3 });
+  S().activate(a);
+  await settle();
+  assert.deepEqual(active, [41, 42, -1], "nothing is sent while control is off");
 });

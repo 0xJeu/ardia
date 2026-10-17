@@ -1,7 +1,9 @@
-import { cliControlStatus, onCliControlChanged, setCliControl, type CliControlStatus } from "@ardia/ardiacore";
+import { cliControlStatus, onCliControlChanged, setCliActiveTab, setCliControl, type CliControlStatus } from "@ardia/ardiacore";
 import { installCli, installedCliVersion, onCliInstallLine, readDocument, systemInfo, writeDocument, type CliInstallResult } from "@ardia/shell";
 import { create } from "zustand";
-import { useBrowser } from "../store/browser";
+import { useBrowser, type BrowserState } from "../store/browser";
+import { activeTabId } from "../store/model";
+import { isInternalTab } from "../components/pages";
 import { afterFirstWindow } from "./afterFirstWindow";
 
 const DOC = "ardia-cli.json";
@@ -83,6 +85,35 @@ export function describeCliInstall(state: Pick<CliState, "installing" | "step" |
   return "Not installed.";
 }
 
+const chromeTabIds = new Map<string, number>();
+let sentActive: number | null = null;
+
+function shownChromeTab(s: BrowserState): number {
+  const windowId = s.ui.focusedWindowId;
+  const id = windowId ? activeTabId(s, windowId) : undefined;
+  const tab = id ? s.tabs[id] : undefined;
+  return id && tab && (tab.navigation || tab.adoptId) && !isInternalTab(tab) ? (chromeTabIds.get(id) ?? -1) : -1;
+}
+
+function pushActiveTab() {
+  const state = useCli.getState().server?.state;
+  if (state !== "on" && state !== "starting") {
+    sentActive = null;
+    return;
+  }
+  const active = shownChromeTab(useBrowser.getState());
+  if (active === sentActive) return;
+  sentActive = active;
+  void setCliActiveTab(active).catch(() => {});
+}
+
+export function noteChromeTab(tabId: string, chromeTabId: number) {
+  if (chromeTabId > 0) chromeTabIds.set(tabId, chromeTabId);
+  else chromeTabIds.delete(tabId);
+  for (const id of chromeTabIds.keys()) if (!useBrowser.getState().tabs[id]) chromeTabIds.delete(id);
+  pushActiveTab();
+}
+
 export const stopCliControl = () => useBrowser.getState().updateSettings({ cliControl: false });
 
 function upgradeIfBehind() {
@@ -126,6 +157,8 @@ export function startCliControl() {
   };
   sync();
   useBrowser.subscribe(sync);
+  useBrowser.subscribe(pushActiveTab);
+  useCli.subscribe(pushActiveTab);
   afterFirstWindow(() => setTimeout(upgradeIfBehind, UPGRADE_DELAY_MS));
 }
 

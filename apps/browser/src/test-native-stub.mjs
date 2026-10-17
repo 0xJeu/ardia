@@ -220,6 +220,7 @@ export const extensionAnswers = { actionStates: async () => ({}), sidePanelUrl: 
 export const extensionActionStates = (browserId, ids) => extensionAnswers.actionStates(browserId, ids);
 export const extensionSidePanelUrl = (browserId, extensionId) => extensionAnswers.sidePanelUrl(browserId, extensionId);
 export const setCliControl = (on) => globalThis.acTestCliControl?.(on) ?? Promise.resolve({ state: on ? "on" : "off" });
+export const setCliActiveTab = (id) => globalThis.acTestCliActive?.(id) ?? Promise.resolve({});
 export const cliControlStatus = () => globalThis.acTestCliControl?.(null) ?? Promise.resolve({ state: "off" });
 export const onCliControlChanged = (listener) => ((globalThis.acTestCliEvents ??= []).push(listener), { remove() {} });
 export const installCli = () => Promise.resolve({ ok: false, appVersion: "1.0", error: "stub", lines: [] });

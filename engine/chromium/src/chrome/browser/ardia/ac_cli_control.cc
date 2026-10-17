@@ -6,7 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <atomic>
 #include <memory>
 #include <optional>
 #include <string>
@@ -32,6 +31,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -40,13 +40,18 @@
 #include "chrome/browser/ardia/ac_engine.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/termination_notification.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/devtools_socket_factory.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "crypto/secure_util.h"
 #include "net/base/net_errors.h"
@@ -63,7 +68,17 @@ constexpr base::TimeDelta kStartDeadline = base::Seconds(5);
 constexpr char kPolicyError[] =
     "Remote debugging is turned off by your administrator.";
 
-std::atomic<uint64_t> g_live_generation{0};
+base::Lock& PublishLock() {
+  static base::NoDestructor<base::Lock> lock;
+  return *lock;
+}
+
+uint64_t g_live_generation = 0;
+
+void SetLiveGeneration(uint64_t generation) {
+  base::AutoLock hold(PublishLock());
+  g_live_generation = generation;
+}
 
 class LoopbackSocketFactory : public content::DevToolsSocketFactory {
  public:
@@ -116,16 +131,21 @@ std::string WriteControlFile(const base::FilePath& path,
     written = false;
     error = ErrnoText();
   }
-  if (written && g_live_generation.load() != generation) {
-    unlink(temp.value().c_str());
-    return "The control server stopped.";
-  }
-  if (!written || rename(temp.value().c_str(), path.value().c_str()) != 0) {
-    if (written) {
-      error = ErrnoText();
-    }
+  if (!written) {
     unlink(temp.value().c_str());
     return base::StrCat({"Couldn't write ", path.value(), ": ", error});
+  }
+  {
+    base::AutoLock hold(PublishLock());
+    if (g_live_generation != generation) {
+      unlink(temp.value().c_str());
+      return "The control server stopped.";
+    }
+    if (rename(temp.value().c_str(), path.value().c_str()) != 0) {
+      error = ErrnoText();
+      unlink(temp.value().c_str());
+      return base::StrCat({"Couldn't write ", path.value(), ": ", error});
+    }
   }
   return std::string();
 }
@@ -155,6 +175,7 @@ class ControlServer {
     g_ardia_devtools_token_factory = &IsOurFactory;
     g_ardia_devtools_token_accepts = &Accepts;
     g_ardia_devtools_token_server = &ServerChanged;
+    g_ardia_devtools_active_target = &ActiveTarget;
     terminating_ = browser_shutdown::AddAppTerminatingCallback(
         base::BindOnce(&ControlServer::Quit, base::Unretained(this)));
     if (PrefService* local_state = LocalState()) {
@@ -188,7 +209,7 @@ class ControlServer {
       local_state->ClearPref(prefs::kDevToolsRemoteDebuggingEnabled);
     }
     ++generation_;
-    g_live_generation.store(generation_);
+    SetLiveGeneration(generation_);
     error_.clear();
     std::vector<uint8_t> secret = base::RandBytesAsVector(32);
     token_.clear();
@@ -279,6 +300,42 @@ class ControlServer {
                                   base::as_byte_span(self.token_));
   }
 
+ public:
+  void SetActiveTab(std::optional<int> tab_id) {
+    active_.reset();
+    if (!tab_id) {
+      return;
+    }
+    GlobalBrowserCollection::GetInstance()->ForEach(
+        [&](BrowserWindowInterface* browser) {
+          TabStripModel* model = browser->GetTabStripModel();
+          for (int i = 0; model && i < model->count(); ++i) {
+            content::WebContents* contents = model->GetWebContentsAt(i);
+            if (sessions::SessionTabHelper::IdForTab(contents).id() ==
+                *tab_id) {
+              active_ = contents->GetWeakPtr();
+              return false;
+            }
+          }
+          return true;
+        });
+  }
+
+  static bool ActiveTarget(const content::DevToolsSocketFactory* factory,
+                           std::string_view token,
+                           std::string* target_id) {
+    if (!Accepts(factory, token)) {
+      return false;
+    }
+    target_id->clear();
+    if (content::WebContents* contents = Get().active_.get()) {
+      *target_id =
+          content::DevToolsAgentHost::GetOrCreateFor(contents)->GetId();
+    }
+    return true;
+  }
+
+ private:
   static void ServerChanged(const content::DevToolsSocketFactory* factory,
                             std::string_view browser_path,
                             int port,
@@ -349,7 +406,7 @@ class ControlServer {
       state_ = State::kStopping;
       token_.clear();
       factory_ = nullptr;
-      g_live_generation.store(0);
+      SetLiveGeneration(0);
       content::DevToolsAgentHost::StopRemoteDebuggingServer();
     }
     Reset();
@@ -361,7 +418,7 @@ class ControlServer {
     state_ = State::kStopped;
     token_.clear();
     factory_ = nullptr;
-    g_live_generation.store(0);
+    SetLiveGeneration(0);
     port_ = 0;
     connections_ = 0;
     FileRunner()->PostTask(FROM_HERE,
@@ -434,6 +491,7 @@ class ControlServer {
   const base::FilePath file_path_ = ControlFilePath();
   std::vector<Reply> pending_;
   base::OneShotTimer deadline_;
+  base::WeakPtr<content::WebContents> active_;
   PrefChangeRegistrar policy_;
   base::CallbackListSubscription terminating_;
   scoped_refptr<base::SequencedTaskRunner> file_runner_;
@@ -455,6 +513,11 @@ AC_ENGINE_CALL(ac_cli_control) {
     args = std::move(*parsed).TakeDict();
   }
   ardia::ControlServer& server = ardia::ControlServer::Get();
+  if (const base::Value* active = args.Find("active")) {
+    server.SetActiveTab(active->is_int() && active->GetInt() >= 0
+                            ? std::optional<int>(active->GetInt())
+                            : std::nullopt);
+  }
   std::optional<bool> on = args.FindBool("on");
   if (on.value_or(false)) {
     return server.Enable(std::move(out));
