@@ -118,8 +118,14 @@ class MetalSurface: ExpoView, MTKViewDelegate {
     encode(encoder, size: SIMD2(Float(bounds.width), Float(bounds.height)))
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     encoder.endEncoding()
-    buffer.present(drawable)
-    buffer.commit()
+    if (view.layer as? CAMetalLayer)?.presentsWithTransaction == true {
+      buffer.commit()
+      buffer.waitUntilScheduled()
+      drawable.present()
+    } else {
+      buffer.present(drawable)
+      buffer.commit()
+    }
   }
 }
 
