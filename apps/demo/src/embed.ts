@@ -1,7 +1,8 @@
 import { useBrowser } from "../../browser/src/store/browser";
 import { applyControl, controlModel, type Control } from "./Controls";
+import { playNudge } from "./nudge";
 
-type Inbound = { type: "ardia-demo:control"; id: Control["id"]; value?: string } | { type: "ardia-demo:hello" };
+type Inbound = { type: "ardia-demo:control"; id: Control["id"]; value?: string } | { type: "ardia-demo:hello" } | { type: "ardia-demo:nudge" };
 
 function guardFocus(engaged: () => boolean) {
   const focus = HTMLElement.prototype.focus;
@@ -16,15 +17,20 @@ export function startEmbed() {
   if (host === window) return;
   document.documentElement.classList.add("embed");
 
+  const post = (message: object) => host.postMessage(message, "*");
   let engaged = false;
+  let nudged = false;
+  const nudge = new AbortController();
   const engage = () => {
+    if (engaged) return;
     engaged = true;
+    nudge.abort();
+    post({ type: "ardia-demo:engaged" });
   };
   guardFocus(() => engaged);
   addEventListener("pointerdown", engage, { capture: true });
   addEventListener("keydown", engage, { capture: true });
 
-  const post = (message: object) => host.postMessage(message, "*");
   let last = "";
   const publish = (force = false) => {
     const snapshot = JSON.stringify(controlModel(useBrowser.getState()));
@@ -37,6 +43,12 @@ export function startEmbed() {
   addEventListener("message", (event: MessageEvent<Inbound>) => {
     if (event.source !== host || !event.data || typeof event.data !== "object") return;
     if (event.data.type === "ardia-demo:hello") return publish(true);
+    if (event.data.type === "ardia-demo:nudge") {
+      if (engaged || nudged) return;
+      nudged = true;
+      void playNudge(nudge.signal);
+      return;
+    }
     if (event.data.type === "ardia-demo:control") {
       engage();
       applyControl(event.data.id, event.data.value);

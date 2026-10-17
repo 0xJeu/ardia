@@ -2,21 +2,29 @@ type Option = { value: string; label: string; hint?: string; disabled?: boolean 
 type Control =
   | { kind: "choice"; id: string; label: string; value: string; options: Option[] }
   | { kind: "action"; id: string; label: string; hint: string; on?: boolean };
-type Outbound = { type: "ardia-demo:ready" } | { type: "ardia-demo:controls"; controls: Control[] };
+type Outbound = { type: "ardia-demo:ready" } | { type: "ardia-demo:engaged" } | { type: "ardia-demo:controls"; controls: Control[] };
 
-const MIN_LOGICAL_WIDTH = 1100;
+const DESKTOP_LOGICAL_WIDTH = 1100;
+const PHONE_LOGICAL_WIDTH = 640;
+const PHONE_BOX_WIDTH = 400;
+const DESKTOP_BOX_WIDTH = 860;
 const REVEAL_FALLBACK_MS = 1500;
+const NUDGE_DELAY_MS = 900;
 
 const root = document.querySelector<HTMLElement>("[data-demo]");
 const stage = root?.querySelector<HTMLElement>("[data-demo-stage]");
 const poster = root?.querySelector<HTMLElement>("[data-demo-poster]");
 const bar = document.querySelector<HTMLElement>("[data-demo-controls]");
-const roomy = matchMedia("(hover: hover) and (pointer: fine) and (min-width: 900px)");
+
+function minLogicalWidth(boxWidth: number) {
+  const t = Math.min(1, Math.max(0, (boxWidth - PHONE_BOX_WIDTH) / (DESKTOP_BOX_WIDTH - PHONE_BOX_WIDTH)));
+  return PHONE_LOGICAL_WIDTH + t * (DESKTOP_LOGICAL_WIDTH - PHONE_LOGICAL_WIDTH);
+}
 
 function fit(frame: HTMLIFrameElement, box: HTMLElement) {
   const { width, height } = box.getBoundingClientRect();
   if (!width || !height) return;
-  const logicalWidth = Math.max(width, MIN_LOGICAL_WIDTH);
+  const logicalWidth = Math.max(width, minLogicalWidth(width));
   const scale = width / logicalWidth;
   frame.style.width = `${logicalWidth}px`;
   frame.style.height = `${height / scale}px`;
@@ -63,6 +71,7 @@ function renderControls(frame: HTMLIFrameElement, controls: Control[], target: H
         }
         const el = button(control);
         el.addEventListener("click", () => {
+          root?.setAttribute("data-engaged", "");
           if (control.id === "command") frame.focus();
           frame.contentWindow?.postMessage({ type: "ardia-demo:control", id: control.id }, "*");
         });
@@ -79,7 +88,10 @@ function renderControls(frame: HTMLIFrameElement, controls: Control[], target: H
       group.append(label);
       for (const option of control.options) {
         const el = button(control, option);
-        el.addEventListener("click", () => frame.contentWindow?.postMessage({ type: "ardia-demo:control", id: control.id, value: option.value }, "*"));
+        el.addEventListener("click", () => {
+          root?.setAttribute("data-engaged", "");
+          frame.contentWindow?.postMessage({ type: "ardia-demo:control", id: control.id, value: option.value }, "*");
+        });
         group.append(el);
       }
       target.append(group);
@@ -100,6 +112,22 @@ function renderControls(frame: HTMLIFrameElement, controls: Control[], target: H
   }
 }
 
+function watchForNudge(frame: HTMLIFrameElement, box: HTMLElement) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const seen = new IntersectionObserver(
+    (entries) => {
+      clearTimeout(timer);
+      if (!entries.some((e) => e.isIntersecting)) return;
+      timer = setTimeout(() => {
+        seen.disconnect();
+        if (root?.dataset.engaged === undefined) frame.contentWindow?.postMessage({ type: "ardia-demo:nudge" }, "*");
+      }, NUDGE_DELAY_MS);
+    },
+    { threshold: 0.6 },
+  );
+  seen.observe(box);
+}
+
 function mount(box: HTMLElement, src: string) {
   const frame = document.createElement("iframe");
   frame.src = src;
@@ -117,6 +145,7 @@ function mount(box: HTMLElement, src: string) {
     poster?.setAttribute("inert", "");
     if (bar) bar.hidden = false;
     document.querySelector("[data-band-lead]")?.replaceChildren("That was a demo. ");
+    watchForNudge(frame, box);
   };
   frame.addEventListener("load", () => {
     loaded = true;
@@ -129,13 +158,13 @@ function mount(box: HTMLElement, src: string) {
       if (loaded) reveal();
       else setTimeout(reveal, REVEAL_FALLBACK_MS);
     }
+    if (event.data.type === "ardia-demo:engaged") root?.setAttribute("data-engaged", "");
     if (event.data.type === "ardia-demo:controls" && bar) renderControls(frame, event.data.controls, bar);
   });
 }
 
 function start() {
   if (!root || !stage || root.dataset.mounted === "") return;
-  if (!roomy.matches || document.documentElement.dataset.device === "phone") return;
   root.dataset.mounted = "";
   const src = root.dataset.demoSrc!;
   const near = new IntersectionObserver(
@@ -156,4 +185,3 @@ function afterLoad(run: () => void) {
 }
 
 afterLoad(start);
-roomy.addEventListener("change", start);

@@ -11,8 +11,15 @@ const demoSrc = `${import.meta.env.DEV ? (import.meta.env.PUBLIC_DEMO_URL ?? "ht
   <div class="wrap">
     <figure class="showcase-figure">
       <div class="tilt" data-settle>
-        <Plate hour="morning" sun={{ x: 0.84, y: 0.16 }} still>
+        <Plate hour="morning" sun={{ x: 0.84, y: 0.16 }} still class="showcase-plate">
           <div class="demo" data-demo data-demo-src={demoSrc}>
+            <p class="label demo-cue">
+              <span>Not a screenshot.</span>
+              <span class="demo-cue-swap">
+                <span class="demo-nudge"><span class="go-on">Go on, </span><span class="by-pointer">click</span><span class="by-touch">tap</span> a tab</span>
+                <span class="demo-told" aria-hidden="true">Told you.</span>
+              </span>
+            </p>
             <div class="demo-poster" data-demo-poster>
               <Shot
                 src={windowShot}
@@ -82,6 +89,90 @@ const demoSrc = `${import.meta.env.DEV ? (import.meta.env.PUBLIC_DEMO_URL ?? "ht
   }
   .demo {
     position: relative;
+  }
+  .demo-cue {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    gap: 0.7em;
+    margin: 0 0 clamp(10px, 1.2vw, 13px);
+    padding: 0.72em 1em 0.66em;
+    border-radius: 4px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: clamp(0.66rem, 0.6rem + 0.3vw, 0.78rem);
+    white-space: nowrap;
+    box-shadow:
+      0 1px 2px rgb(22 19 15 / 0.2),
+      0 8px 18px -6px rgb(22 19 15 / 0.35);
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition:
+      opacity 500ms var(--ease-out),
+      transform 500ms var(--ease-out);
+  }
+  .demo-cue::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 1.6em;
+    border: 6px solid transparent;
+    border-top-color: var(--ink);
+    border-bottom: 0;
+  }
+  .demo[data-live] .demo-cue {
+    opacity: 1;
+    transform: none;
+  }
+  .demo-cue-swap {
+    display: grid;
+    color: var(--sun-pale);
+  }
+  .demo-nudge,
+  .demo-told {
+    grid-area: 1 / 1;
+    transition: opacity 400ms var(--ease-out);
+  }
+  .demo-told,
+  .demo[data-engaged] .demo-nudge {
+    opacity: 0;
+  }
+  .demo[data-engaged] .demo-told {
+    opacity: 1;
+    transition-delay: 250ms;
+  }
+  .by-touch {
+    display: none;
+  }
+  @media (hover: none) {
+    .by-touch {
+      display: inline;
+    }
+    .by-pointer {
+      display: none;
+    }
+  }
+  @media (max-width: 400px) {
+    .go-on {
+      display: none;
+    }
+  }
+  .showcase :global(.showcase-plate) {
+    padding-top: clamp(50px, 6.5%, 78px);
+  }
+  @media (max-width: 640px) {
+    :global(.js) .demo {
+      aspect-ratio: 4 / 5;
+    }
+    :global(.js) .demo-poster {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+    }
   }
   .demo-poster {
     transition: opacity 500ms var(--ease-out);
@@ -171,6 +262,27 @@ const demoSrc = `${import.meta.env.DEV ? (import.meta.env.PUBLIC_DEMO_URL ?? "ht
   .demo-controls :global(.demo-control:focus-visible) {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+  }
+  @media (max-width: 560px) {
+    .demo-controls {
+      display: grid;
+      gap: 8px;
+    }
+    .demo-controls :global(.demo-group) {
+      gap: 0;
+    }
+    .demo-controls :global(.demo-label) {
+      flex: 0 0 6.2em;
+      padding: 0 4px 0 11px;
+      line-height: 1.15;
+    }
+    .demo-controls :global(.demo-control) {
+      flex: 1 1 auto;
+      height: 36px;
+      padding: 0 6px;
+      font-size: 0.84rem;
+      white-space: nowrap;
+    }
   }
   .band {
     display: flex;

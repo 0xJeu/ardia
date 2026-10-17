@@ -6,6 +6,11 @@ body,
   overflow: hidden;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Inter, sans-serif;
   background: #1d1f24;
@@ -219,4 +224,51 @@ html.embed body {
   box-shadow:
     0 0 0 0.5px rgba(0, 0, 0, 0.35),
     inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+.ardia-nudge {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20000;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+
+.ardia-nudge svg {
+  display: block;
+  transform-origin: 5px 3px;
+  transition: transform 120ms ease-out;
+}
+
+.ardia-nudge.pressed svg {
+  transform: scale(0.84);
+}
+
+.ardia-nudge-ring {
+  position: absolute;
+  top: -15px;
+  left: -14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(251, 185, 39, 0.95);
+  opacity: 0;
+  transform: scale(0.3);
+}
+
+.ardia-nudge.pressed .ardia-nudge-ring {
+  animation: ardia-nudge-ring 520ms ease-out forwards;
+}
+
+@keyframes ardia-nudge-ring {
+  0% {
+    opacity: 1;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
 }
