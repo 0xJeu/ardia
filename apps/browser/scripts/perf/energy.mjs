@@ -13,6 +13,7 @@
 //     --base <name>=<home> repeatable: its template starts from a copy of this HOME (Dia: a throwaway signed-in home)
 //     --env <name>=K=V     repeatable: extra environment for one browser
 //     --args <name>=<sw>   repeatable: one extra switch for one browser
+//     --video-only <name>  repeatable: that browser runs only the video phase (no hidden launch)
 //     --setting <name>=K=V repeatable: an Ardia setting in each run's session.json (V is JSON: videoUpscaling=false)
 //     --rounds <n>         default 3
 //     --launches <a,b>     visible,hidden (default both). visible: idle in view, scroll, switch, video; hidden: minimized
@@ -54,6 +55,7 @@ const { values: opt, positionals } = parseArgs({
     env: { type: "string", multiple: true, default: [] },
     args: { type: "string", multiple: true, default: [] },
     setting: { type: "string", multiple: true, default: [] },
+    "video-only": { type: "string", multiple: true, default: [] },
     rounds: { type: "string", default: "3" },
     launches: { type: "string", default: "visible,hidden" },
     idle: { type: "string", default: "180" },
@@ -733,11 +735,13 @@ async function visibleItem(name, key) {
     r.renderers = await mapRenderers(app, ids);
     await app.hold(10_000);
     r.tabs = await tabStates(app, ids);
-    r.phases.idleVisible = await measure(app, +opt.idle);
-    await activate(app, ids[SCROLL_TAB]);
-    await app.hold(5000);
-    r.phases.scroll = await measure(app, +opt.active, (end) => scrollFor(app, ids[SCROLL_TAB], end));
-    r.phases.switch = await measure(app, +opt.active, (end) => switchFor(app, ids, end));
+    if (!opt["video-only"].includes(name)) {
+      r.phases.idleVisible = await measure(app, +opt.idle);
+      await activate(app, ids[SCROLL_TAB]);
+      await app.hold(5000);
+      r.phases.scroll = await measure(app, +opt.active, (end) => scrollFor(app, ids[SCROLL_TAB], end));
+      r.phases.switch = await measure(app, +opt.active, (end) => switchFor(app, ids, end));
+    }
     if (+opt.video > 0) {
       const v = await startVideo(app);
       await app.hold(3000);
@@ -801,7 +805,8 @@ function plan(names) {
   const items = [];
   for (let r = 0; r < +opt.rounds; r++) {
     const order = names.map((_, i) => names[(i + r) % names.length]);
-    for (const launch of opt.launches.split(",")) for (const n of order) items.push({ key: `r${r}/${launch}/${n}`, round: r, launch, browser: n });
+    for (const launch of opt.launches.split(","))
+      for (const n of order) if (launch === "visible" || !opt["video-only"].includes(n)) items.push({ key: `r${r}/${launch}/${n}`, round: r, launch, browser: n });
   }
   return items;
 }
