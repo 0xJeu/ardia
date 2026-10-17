@@ -592,6 +592,7 @@
     apply(listen, document, ["visibilitychange", state.onVisibility]);
   };
   handlers.fieldTiming = (message) => setFieldTiming(!!(message && message.on));
+  handlers.wakeFrames = () => apply(raf, window, [() => {}]);
 
   const pauseUnasked = (media, activated) => {
     if (activated) return 0;

@@ -2279,6 +2279,13 @@ namespace {
 
 int gDevTrackpad = -1;
 NSUInteger gZoomScrolls = 0;
+NSUInteger gSwitchPrewarms = 0;
+constexpr NSTimeInterval kSwitchPrewarmGapSeconds = 0.1;
+
+bool SwitchPrewarmOff() {
+  const char *value = getenv("ARDIA_SWITCH_PREWARM");
+  return value && (!strcmp(value, "off") || !strcmp(value, "0") || !strcmp(value, "false"));
+}
 NSString *gDevZoomMiss = nil;
 bool gGestureTrackpad = false;
 
@@ -2319,6 +2326,69 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
   return (event.modifierFlags & NSEventModifierFlagCommand) && !gGestureTrackpad;
 }
 
+}
+
+- (BOOL)canWakeFrames {
+  if (!_tab || !_visible || _frozen || _tab.closed || _tab.discarded || self.isHiddenOrHasHiddenAncestor) return NO;
+  NSString *url = _tab.url;
+  return [url hasPrefix:@"https:"] || [url hasPrefix:@"http:"] || [url hasPrefix:@"file:"];
+}
+
++ (BOOL)prewarmForMouseEvent:(NSEvent *)event {
+  static NSMapTable<id, NSNumber *> *lastByDisplay = [NSMapTable weakToStrongObjectsMapTable];
+  NSWindow *window = event.window;
+  if (!window) return NO;
+  id display = window.screen ?: NSNull.null;
+  if (event.timestamp - [lastByDisplay objectForKey:display].doubleValue < kSwitchPrewarmGapSeconds) return NO;
+  const NSPoint point = event.locationInWindow;
+  ArdiaCoreWebView *target = nil;
+  for (ArdiaCoreWebView *view in LiveViews()) {
+    if (view.window != window || view.isHiddenOrHasHiddenAncestor) continue;
+    if (NSPointInRect(point, [view convertRect:view.bounds toView:nil])) return NO;
+    if (!target && view.canWakeFrames) target = view;
+  }
+  if (target) {
+    [target callFrame:@"" kind:@"wakeFrames" json:@"{}"];
+    [lastByDisplay setObject:@(event.timestamp) forKey:display];
+    gSwitchPrewarms++;
+    return YES;
+  }
+  return NO;
+}
+
++ (void)installSwitchPrewarm {
+  static id monitor;
+  if (monitor || SwitchPrewarmOff()) return;
+  monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp handler:^NSEvent *(NSEvent *event) {
+    [ArdiaCoreWebView prewarmForMouseEvent:event];
+    return event;
+  }];
+}
+
++ (NSDictionary<NSString *, id> *)devSwitchPrewarm:(int)browserId at:(NSString *)where {
+  ArdiaCoreWebView *view = nil;
+  for (ArdiaCoreWebView *v in LiveViews())
+    if (v.window && v.canWakeFrames &&
+        (!browserId || ardiacore_host::BrowserId(v->_tab) == browserId))
+      view = v;
+  if (!view) return @{@"woke" : @NO, @"reason" : @"no shown page"};
+  NSWindow *window = view.window;
+  const NSRect frame = [view convertRect:view.bounds toView:nil];
+  const NSRect bounds = window.contentView.bounds;
+  const NSPoint point = [where isEqualToString:@"titlebar"] ? NSMakePoint(NSMidX(bounds), NSMaxY(bounds) - 6)
+                        : [where isEqualToString:@"edge"]   ? NSMakePoint(1, NSMidY(bounds))
+                                                            : NSMakePoint(MAX(1, NSMinX(frame) - 8), NSMidY(frame));
+  NSEvent *event = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:point modifierFlags:0
+                                     timestamp:NSProcessInfo.processInfo.systemUptime windowNumber:window.windowNumber
+                                       context:nil eventNumber:0 clickCount:1 pressure:1];
+  const NSUInteger before = gSwitchPrewarms;
+  const CFTimeInterval start = CACurrentMediaTime();
+  const BOOL woke = !SwitchPrewarmOff() && [ArdiaCoreWebView prewarmForMouseEvent:event];
+  const double micros = (CACurrentMediaTime() - start) * 1e6;
+  return @{
+    @"woke" : @(woke), @"prewarms" : @(gSwitchPrewarms), @"counted" : @(gSwitchPrewarms > before), @"off" : @(SwitchPrewarmOff()),
+    @"micros" : @(micros)
+  };
 }
 
 + (void)installScrollZoom {

@@ -87,11 +87,27 @@ In Helium the switch first redraws Chrome's own tab strip on the window's compos
 the tab is visible. Parked:
 - keeping the link alive longer (`kMaxKeepAliveCount`) would fix the bench row but costs up to 120 wakeups/s for
   each second it stays up;
-- sharing one compositor per window, as Chrome does, means rewriting how our tab views draw;
-- waking the link on the user's intent (mouse-down on a sidebar row: rows switch on release, 60–120 ms later) has
-  no public engine hook. The workaround is a no-op requestAnimationFrame in the visible page through page_script
-  (`callPage`) from a native mouse-down monitor; it would save 6–13 ms on real sidebar clicks, and xbench's
-  CDP-driven switch wouldn't show it.
+- sharing one compositor per window, as Chrome does, means rewriting how our tab views draw.
+
+Shipped instead (2026-10-17): the link is woken on the user's intent. A native local monitor sees every left
+mouse-down and mouse-up in a window outside a page's rect (sidebar, toolbar, titlebar) and runs one no-op
+requestAnimationFrame in the shown page through page_script (`wakeFrames`), at most once per 100 ms per display.
+Rows switch on release, so the link is already running at the show, and the new tab's compositor joins it: in the
+trace the wake registers about 92 ms before the show, 10–11 display-link callbacks land in the 100 ms before it, and
+the old source stays registered until the new one has. Release build, store `activate` 90 ms after a synthesized
+mouse-down, interleaved in one instance:
+
+| sidebar click → shown (median) | plain | prewarm |
+|---|---|---|
+| total, 90 ms press (n=12 each) | 13 ms | 5 ms |
+| second BeginFrame after the show | 11.9 ms | 3.8 ms |
+| total, 160 ms press (down and up both wake) | 15 ms | 8 ms |
+| first display-link callback after the show (trace) | 7.9–18.3 ms | 1.5–8.6 ms (the next vsync) |
+
+It costs about 60 µs of main thread per waking click and nothing without one (idle wakeups 0–0.1/s, interrupt 5/s,
+the same with it off). A wake right before the switch (the keyboard case: ⌘1–9 switch on keydown) saves about 1 ms,
+so keys don't wake. xbench's CDP-driven switch doesn't click, so its row doesn't show this.
+`ARDIA_SWITCH_PREWARM=off` turns it off.
 
 **New tab (+26 ms).** In Chrome, `Target.createTarget` adds a tab that is already in its window. In Ardia the
 WebContents is made and starts loading in Chrome's strip, but it is only shown once the JS adopts it and React mounts
