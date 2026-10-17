@@ -22,6 +22,8 @@
 //     --tabs <n>           how many of the site list to open (default all)
 //     --port <n>           CDP port (default 9481); --page-port <n> (default 9491)
 //     --deadline <mins>    stop starting items after this long (default 240)
+//     --yield-to <pattern> repeatable: don't take the lab while a process whose command line matches it is alive
+//     --max-load <n>       wait before an item while the 1-minute load average is over this (default 10)
 //     --allow-focus        record a browser making itself the frontmost app instead of stopping (only when the owner
 //                          agreed to it for this run)
 //
@@ -33,6 +35,7 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { loadavg } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -60,6 +63,8 @@ const { values: opt, positionals } = parseArgs({
     "page-port": { type: "string", default: "9491" },
     deadline: { type: "string", default: "240" },
     "allow-focus": { type: "boolean" },
+    "max-load": { type: "string", default: "10" },
+    "yield-to": { type: "string", multiple: true, default: [] },
     md: { type: "string" },
     help: { type: "boolean", short: "h" },
   },
@@ -528,6 +533,7 @@ function usageDelta(a, b, sitePids = new Map()) {
 }
 
 async function measure(app, secs, work) {
+  const loadBefore = loadavg()[0];
   const targetsBefore = await targetMetrics(app);
   const threadsBefore = probe("threads", String(app.pid));
   const a = app.usage();
@@ -547,7 +553,7 @@ async function measure(app, secs, work) {
     const p = targetsBefore.find((x) => x.id === t.id);
     return p && { url: t.url, type: t.type, busy: Math.round(((t.task - p.task) / secsReal) * 1000) / 10, script: Math.round(((t.script - p.script) / secsReal) * 1000) / 10 };
   }).filter((t) => t && t.busy > 0.05).sort((x, y) => y.busy - x.busy).slice(0, 8);
-  return { ...usageDelta(a, b, app.sitePids ?? new Map()), secs: secsReal, cover, browserThreads: threads, targets, windowServer, cond: probe("state"), ...(extra ? { extra } : {}) };
+  return { ...usageDelta(a, b, app.sitePids ?? new Map()), secs: secsReal, cover, browserThreads: threads, targets, windowServer, cond: { ...probe("state"), load: Math.max(loadBefore, loadavg()[0]) }, ...(extra ? { extra } : {}) };
 }
 
 async function targetMetrics(app) {
@@ -792,7 +798,7 @@ function plan(names) {
 }
 
 function takeLock() {
-  const r = spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--take", "energy", "--ttl", "30", "--wait", "120"], { encoding: "utf8" });
+  const r = spawnSync(join(repoRoot, "scripts/agent/locked"), ["perflab", "--take", "energy", "--ttl", "30", "--wait", "590"], { encoding: "utf8" });
   lockHeld = r.status === 0;
   return lockHeld;
 }
@@ -820,11 +826,19 @@ async function run(names) {
       log("deadline: stopping; run again to resume");
       break;
     }
+    const yielding = () => opt["yield-to"].some((p) => spawnSync("pgrep", ["-f", p]).status === 0);
+    for (let said = 0, clearSince = yielding() ? 0 : Date.now(); (!clearSince || Date.now() - clearSince < 180_000) && opt["yield-to"].length && Date.now() + estimate[item.launch] < deadline; await sleep(15_000), clearSince = yielding() ? 0 : clearSince || Date.now())
+      if (Date.now() - said > 600_000) {
+        said = Date.now();
+        if (lockHeld) releaseLock();
+        log(`yielding the lab to ${opt["yield-to"].join(", ")}`);
+      }
     while (!takeLock()) {
       if (Date.now() + estimate[item.launch] > deadline) return 75;
       log("perflab is busy; waiting");
-      await sleep(30_000);
     }
+    for (let said = 0; loadavg()[0] > +opt["max-load"] && Date.now() + estimate[item.launch] < deadline; await sleep(15_000))
+      if (Date.now() - said > 300_000) said = Date.now(), log(`load ${loadavg()[0].toFixed(1)} is over ${opt["max-load"]}: waiting`);
     try {
       if (!existsSync(join(templateDir(item.browser), "template.json"))) await makeTemplate(item.browser);
       const started = Date.now();
