@@ -8,7 +8,7 @@ Run Python against the running Ardia, with top-level await.
 
 In scope:
   browser        pydoll Chrome attached to Ardia (closing it only drops the connection)
-  tab            the tab the user is looking at (visible and focused, else visible, else the first)
+  tab            the web page the user is looking at; NoPageTab on first use when there is none (New Tab)
   tabs           every web page tab (http, https, file, about, data, blob), plus the ones new_tab opens
   new_tab(url, background=True)   open a tab and return it once the page has loaded
   js(expression, tab=None)        evaluate JavaScript in tab (else the user's tab, else the last new_tab) and return its value

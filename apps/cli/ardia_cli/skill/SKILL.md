@@ -17,12 +17,13 @@ ardia exec -f script.py
 
 In scope:
 
-- `tab`: the tab the user is looking at.
-- `tabs`: every web page tab (http, https, file, about, data, blob) when the run starts, plus the ones `new_tab` opens.
+- `tab`: the web page the user is looking at. When they're on New Tab or another Ardia view, any use of `tab` raises
+  `NoPageTab` (and `bool(tab)` is False): open a page with `new_tab` instead.
+- `tabs`: every web page tab when the run starts, the user's own included, plus the ones `new_tab` opens.
 - `new_tab(url, background=True)`: opens a tab in the sidebar, waits for the page to load and returns it.
   `background=False` switches the user to it.
-- `js(expression, tab=None)`: evaluates JavaScript in `tab` (default: the user's tab, else the last tab you opened)
-  and returns its value.
+- `js(expression, tab=None)`: evaluates JavaScript and returns its value. Pass `tab=t` for your own tab; without
+  it, `js` uses the user's tab, else the last tab you opened, else raises `NoPageTab`.
 - `browser` (pydoll `Chrome`), `By`, `Key`, `asyncio` and the rest of `pydoll`'s exports.
 
 Exit status: 0 done, 1 your code raised or timed out (`--timeout`, default 300 s), 2 Ardia can't be reached or
@@ -35,13 +36,14 @@ This is the user's own browser, signed in to their accounts.
 
 - Do your work in a tab you open with `new_tab`. Read the user's `tab`, but don't navigate it unless they ask.
 - Close only the tabs you opened (`await t.close()`), and only when you're done with them.
+- Delete the scratch scripts you wrote; keep the files the user asked for (screenshots, exports).
 - Ask before anything with consequences: submitting forms, sending messages, posting, buying, deleting,
   changing settings or accepting dialogs.
 - Don't read or export cookies, passwords or storage unless the user asks for exactly that.
 
 ## Recipes
 
-Read the page the user is on:
+Read the page the user is on (raises `NoPageTab` on New Tab):
 
 ```sh
 ardia exec 'await tab.current_url(), await tab.title()'
@@ -51,8 +53,22 @@ ardia exec 'await js("document.body.innerText.slice(0, 5000)")'
 Open a page and work there. Every run starts over, so find your tab again by URL:
 
 ```sh
-ardia exec 't = await new_tab("https://example.com"); await t.title()'
+ardia exec 't = await new_tab("https://example.com"); await js("document.links[0].href", tab=t)'
 ardia exec 't = [t for t in tabs if "example.com" in await t.current_url()][0]; await t.page_source()'
+```
+
+Longer work goes in a file. Close your tab, then put the data on the last line so it's printed:
+
+```python
+t = await new_tab("https://news.ycombinator.com")
+rows = await js("[...document.querySelectorAll('.titleline > a')].slice(0, 3).map(a => [a.innerText, a.href])", tab=t)
+await t.take_screenshot("/tmp/hn.png")
+await t.close()
+rows
+```
+
+```sh
+ardia exec --json -f /tmp/hn.py && rm /tmp/hn.py
 ```
 
 Find, click and type:

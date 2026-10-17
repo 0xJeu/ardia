@@ -12,8 +12,9 @@ the pins into `pyproject.toml`).
 ## Commands
 
 - `ardia exec [CODE | -] [-f FILE] [--data-dir DIR] [--port N] [--ws URL] [--timeout S] [--json]` runs Python with
-  top-level `await`. In scope: `browser` (pydoll `Chrome`), `tab` (the user's tab: visible and focused, else visible,
-  else the first), `tabs` (http, https, file, about, data and blob pages, plus what `new_tab` opens),
+  top-level `await`. In scope: `browser` (pydoll `Chrome`), `tab` (the user's tab: visible and focused, else visible;
+  when no web page is visible, as on New Tab, it's a placeholder that raises `NoPageTab` on first use), `tabs` (http,
+  https, file, about, data and blob pages, minus the hidden `about:blank` New Tab prewarms, plus what `new_tab` opens),
   `new_tab(url, background=True)`, `js(expression, tab=None)` (default: `tab`, else the last `new_tab`), `By`, `Key`,
   `asyncio`, pydoll's exports and its common exceptions. It prints the last expression's value. Exit 0 done, 1 the
   code raised or timed out (default 300 s), 2 Ardia can't be reached or closed the browser socket (it watches the

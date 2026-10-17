@@ -4,7 +4,7 @@ FORBIDDEN_METHODS = frozenset({"Browser.close", "Browser.crash", "Browser.crashG
 
 
 class ForbiddenCommand(RuntimeError):
-    pass
+    __module__ = "__main__"
 
 
 def check_method(method) -> None:
