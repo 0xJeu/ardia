@@ -97,7 +97,8 @@ enum DocumentStore {
     lock.unlock()
   }
 
-  static func flush() {
+  @discardableResult
+  static func flush() -> Bool {
     queue.sync {
       lock.lock()
       let keys = Array(staged.keys)
@@ -109,6 +110,9 @@ enum DocumentStore {
         if let generation { land(key, generation, attempt: 99) }
       }
     }
+    lock.lock()
+    defer { lock.unlock() }
+    return staged.isEmpty
   }
 }
 

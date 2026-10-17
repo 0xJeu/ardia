@@ -218,3 +218,37 @@ warm tab, gets a page at launch).
   biglat) ran at load up to 55 and are not usable; this run replaces them. Verdict: keep; `launchTab` stays as the
   kill switch. Open: why the window shows later with a slow page (the early load's responses compete with the
   window's first commit on the main thread is the likely cause; not profiled).
+
+## Early window (2026-10-17)
+
+At engineDidStart, before React Native starts, the focused saved window shows natively. It holds the session's frame,
+the real backdrop (shaders' `ArdiaEarlyBackdrop`), a picture of the chrome taken at the last quit, and the launch tab's
+live page in a rounded cover. When JS opens that window it claims the same NSWindow (`ArdiaCoreEarlyWindow.mm`), so the
+handoff makes no second window.
+
+- **Gates.** The early window never shows on a login-item launch, for a launch that opens documents or URLs, while
+  the app is hidden, mid-onboarding, or for incognito, small or split launch tabs. It also needs a saved
+  `launchBackdrop` whose dark flag matches the current appearance, and a layout whose state signature (layout, sidebar,
+  bars, appearance, profile) matches the session. The picture shows only if its content hash (that window's tabs,
+  groups, profiles and settings) and its size still match.
+- **Picture.** It's captured at quit only: after the final session save has been flushed, and only when the visible
+  tab is the saved active tab. The capture draws the RN content view, not the RN root, whose `windowBackgroundColor`
+  fill would hide the backdrop. During the render it hides the backdrop and vibrancy views, and drops masks and
+  filters, because `renderInContext` skips a masked subtree. At launch the picture is decoded into vm_allocate'd
+  pages off the main thread. A capture or write that fails deletes the old picture.
+- **Lifetime.** The claim drops the cover 5 s later, or 0.5 s after RN's content appears. An unclaimed window holding
+  its page stays claimable past 15 s; one without a page is closed. The user can close it before the claim, and JS then
+  gets the same `close` event a normal close sends. Clearing history and turning session restore off erase the
+  pictures, whatever the switch says.
+- **Measured** (v10, interleaved, n=4, medians, on vs off): window 329 vs 385 ms, FCP 398 vs 439, navigation start 267
+  vs 317. Every frame shows either the picture or the real UI, and the first frame's sidebar is the real UI's colour.
+- **Memory.** About +2.5 MB of live objects in the browser process 40 s after launch (Chrome memory-infra, n=2 each):
+  malloc's allocated objects +1.2 to +1.6 MB with or without the picture, and GPU-owned memory +1.1 MB (0.5 MB without
+  the picture). Without the window shown early, the difference goes away. Footprint alone can't see it: PartitionAlloc's
+  committed memory moves ±3 MB from run to run. Open: which objects showing the NSWindow before RN keeps.
+- **Kill switches.** `ARDIA_EARLY_WINDOW=off` or `ARDIA_SWITCHES=earlyWindow=off` (environment), and the remote
+  `launchTab` switch, which turns this off with the launch tab.
+
+The content blocker's launch hold (84e75272) is separate. Restored pages wait for uBlock Origin, about 200 to 240 ms
+on a warm launch, and the leak probe's escaped ad-host beacons go from 6 to 0. `ARDIA_BLOCKER_LAUNCH_HOLD=off` turns
+it off.

@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)emit:(NSString *)name payload:(NSDictionary<NSString *, id> *)payload;
 - (void)exitPictureInPictureInFrame:(nullable NSString *)frameId;
 + (void)keepTransfersOfWindow:(NSWindow *)window;
+@property(class, nonatomic, readonly, nullable) ArdiaCoreTab *launchTab;
 @end
 
 NS_ASSUME_NONNULL_END

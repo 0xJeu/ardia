@@ -6,6 +6,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nullable NSWindow *)makeWindowForProfile:(NSString *)profile;
 + (nullable NSWindow *)makeWindowForProfile:(NSString *)profile chromeWindow:(nullable NSString *)chromeWindow;
++ (nullable NSWindow *)makeWindowForProfile:(NSString *)profile
+                               chromeWindow:(nullable NSString *)chromeWindow
+                                  appWindow:(nullable NSString *)appWindow;
+
++ (void)recordLaunchLayout;
++ (void)forgetLaunchPictures;
++ (BOOL)takeDismissedAppWindow:(NSString *)appWindow;
 
 + (nullable NSWindow *)makePopupWindowForProfile:(NSString *)profile root:(NSView *)root;
 
@@ -30,6 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NSView *_Nullable ACWindowRootView(NSWindow *_Nullable window);
+NSValue *_Nullable ACTrafficLightsCenter(NSWindow *_Nullable window);
 
 @interface ACChromeWindowHost (Dev)
 

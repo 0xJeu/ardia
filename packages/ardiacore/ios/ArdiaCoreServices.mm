@@ -1,5 +1,6 @@
 #import "ArdiaCoreServices.h"
 
+#import "ArdiaCoreEarlyWindow.h"
 #import "ArdiaCoreEngineBridge.h"
 #import "ArdiaCoreInternal.h"
 #import "ACExtensionPackage.h"
@@ -456,6 +457,7 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
 }
 
 + (void)clearBrowsingData:(NSString *)profile types:(NSArray<NSString *> *)types since:(double)sinceMs completion:(void (^)(void))completion {
+  if ([types containsObject:@"history"]) [ArdiaCoreEarlyWindow forgetPictures];
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
   if ([p respondsToSelector:@selector(clearBrowsingData:since:completion:)]) {
     [p clearBrowsingData:types since:[NSDate dateWithTimeIntervalSince1970:sinceMs / 1000] completion:completion];

@@ -79,8 +79,12 @@ final class WindowManager: NSObject, NSWindowDelegate {
     let small = kind == "small"
     if kind != "browser" && !small { return openAux(id: id, kind: kind, title: title) }
     guard let makeWindow = WindowHost.makeWindow, let makeContentView = WindowHost.makeContentView else { return }
+    if !small, ChromeWindows.takeDismissed(appWindow: id) {
+      emit?("onWindowEvent", ["type": "close", "id": id])
+      return
+    }
     if small { smallIds.insert(id) }
-    if let chromeWindow = ChromeWindows.makeWindow(profile: profile, chromeWindow: small ? nil : chromeWindow) {
+    if let chromeWindow = ChromeWindows.makeWindow(profile: profile, chromeWindow: small ? nil : chromeWindow, appWindow: small ? nil : id) {
       if incognito { chromeWindow.appearance = NSAppearance(named: .darkAqua) }
       let root = makeContentView(id)
       ChromeWindows.embed(root, in: chromeWindow)
@@ -105,11 +109,15 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   private func show(_ window: NSWindow, id: String, frame: [Double]?, title: String, focus: Bool, smallSize: [Double]? = nil, behind: String? = nil) {
     window.title = title
-    if let smallSize { placeSmall(window, size: smallSize) } else { place(window, frame: frame) }
+    if let smallSize { placeSmall(window, size: smallSize) } else if frame != nil || !window.isVisible { place(window, frame: frame) }
     relayoutRoot(window)
     windows[id] = window
     if let center = lightsCenters[id] { ChromeWindows.setTrafficLightsCenter(center, in: window) }
     if smallSize == nil { lastPlaced = window }
+    if window.isMiniaturized {
+      observeFrame(window)
+      return reportFrame(window)
+    }
     if focus, unrevealed[id] != nil {
       window.orderFront(nil)
       keyOnReveal = window
@@ -137,7 +145,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private var unrevealed: [String: [() -> Void]] = [:]
 
   private func holdUntilContent(_ window: NSWindow, id: String, root: NSView) {
-    guard windows.values.contains(where: { $0.isVisible && isBrowserWindow($0) }) else { return }
+    guard !window.isVisible, windows.values.contains(where: { $0.isVisible && isBrowserWindow($0) }) else { return }
     window.alphaValue = 0
     unrevealed[id] = []
     var observer: NSObjectProtocol?
@@ -584,6 +592,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
     saveWait?.invalidate()
     saveWait = nil
     if lateSaveAlert != nil { NSApp.stopModal(withCode: .abort) }
+    if ok {
+      if DocumentStore.flush() { ChromeWindows.recordLaunchLayout() } else { ChromeWindows.forgetLaunchPictures() }
+    }
     NSApp.reply(toApplicationShouldTerminate: ok)
   }
 

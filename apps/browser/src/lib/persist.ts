@@ -3,6 +3,7 @@ import { readDocument, writeDocument } from "@ardia/shell";
 import { useBrowser, type BrowserState, type HydrateData } from "../store/browser";
 import { inPinnedContainer, isIncognitoProfile, newId, privateSession, snapshotTab } from "../store/model";
 import { earlyLaunchTabOn, launchTab, linkProfile, type LaunchTab } from "../store/launchTab";
+import { launchBackdrop, type LaunchBackdrop } from "./launchBackdrop";
 import { parkWindowPins } from "../store/parkedPins";
 import type { BrowserWindow, ClosedTab, Tab } from "../store/types";
 import { downloadSession } from "../store/ui";
@@ -38,7 +39,7 @@ const DOCS: Doc[] = [
   },
   {
     name: "session.json",
-    sources: (s) => [s.profiles, s.profileOrder, s.orphanedProfileData, s.windows, s.windowOrder, s.tabs, s.groups, s.splits, s.closedTabs, s.closedWindows, s.parkedPins, s.settings, s.ui.focusedWindowId, s.ui.lastProfileId, s.closedGroups, s.deletedGroups, s.cleanedTabs],
+    sources: (s) => [s.profiles, s.profileOrder, s.orphanedProfileData, s.windows, s.windowOrder, s.tabs, s.groups, s.splits, s.closedTabs, s.closedWindows, s.parkedPins, s.settings, s.ui.focusedWindowId, s.ui.lastProfileId, s.ui.appDark, s.closedGroups, s.deletedGroups, s.cleanedTabs],
     json: serialized((s) => {
       const windows = Object.values(s.windows).filter((w) => !w.incognito && w.kind !== "small").map(({ chromeWindow: _c, ...w }) => w);
       const kept = new Set(windows.map((w) => w.id));
@@ -54,6 +55,7 @@ const DOCS: Doc[] = [
         focusedWindowId,
         lastProfileId: s.ui.lastProfileId,
         launchTab: earlyLaunchTabOn() ? launchTab(s, focusedWindowId) : null,
+        launchBackdrop: earlyLaunchTabOn() ? launchBackdrop(s, focusedWindowId) : null,
         linkProfile: earlyLaunchTabOn() ? linkProfile(s) : null,
         tabs: Object.values(s.tabs).filter((t) => kept.has(t.windowId)).map(persistedTab),
         groups: Object.values(s.groups).filter((g) => kept.has(g.windowId)),
@@ -109,6 +111,7 @@ type SessionV2 = {
   deletedGroups?: BrowserState["deletedGroups"];
   cleanedTabs?: BrowserState["cleanedTabs"];
   launchTab?: LaunchTab | null;
+  launchBackdrop?: LaunchBackdrop | null;
   linkProfile?: string | null;
 };
 

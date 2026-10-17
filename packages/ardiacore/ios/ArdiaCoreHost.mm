@@ -1,11 +1,13 @@
 #import <Security/Security.h>
 #import <objc/runtime.h>
 
+#import "ArdiaCoreEarlyWindow.h"
 #import "ArdiaCoreInternal.h"
 #import "ArdiaCoreServices.h"
 #import "ArdiaCoreNavigationDownloads.h"
 #import "ArdiaCoreStartup.h"
 #import "ArdiaCoreWebView.h"
+#import "ArdiaCoreWebViewInternal.h"
 
 #include <cctype>
 #include <cstring>
@@ -194,6 +196,54 @@ static void StartLaunchTab() {
   NSString *key = hint[@"id"], *url = hint[@"url"], *profile = hint[@"profile"];
   if (![key isKindOfClass:NSString.class] || ![url isKindOfClass:NSString.class] || ![profile isKindOfClass:NSString.class]) return;
   [ArdiaCoreWebView startLaunchTab:key url:url profile:profile];
+  if (ArdiaCoreTab *tab = ArdiaCoreWebView.launchTab) [ArdiaCoreEarlyWindow attachPage:tab key:key];
+}
+
+static bool gLaunchedHidden;
+static bool gEarlyWindowPending;
+static bool gLaunchedForDocuments;
+
+static bool OnboardingPending(NSString *dir) {
+  NSData *data = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"onboarding.json"]];
+  NSDictionary *saved = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+  if (![saved isKindOfClass:NSDictionary.class]) return false;
+  const bool completed = [saved[@"completedAt"] isKindOfClass:NSNumber.class] && [saved[@"completedAt"] doubleValue] > 0;
+  return !completed && [saved[@"startedAt"] isKindOfClass:NSNumber.class];
+}
+
+static void TryEarlyWindow() {
+  if (ArdiaCoreEarlyWindow.switchedOff) return;
+  NSString *dir = AppDataDirectory();
+  if (gLaunchedHidden || gLaunchedForDocuments || NSApp.isHidden || gBootstrap.urls.count || LaunchTabSwitchedOff(dir) || OnboardingPending(dir)) return;
+  NSDictionary *session = SavedSession(dir);
+  NSDictionary *hint = session[@"launchTab"];
+  NSString *focused = session[@"focusedWindowId"];
+  if (![hint isKindOfClass:NSDictionary.class] || ![focused isKindOfClass:NSString.class]) return;
+  NSString *key = hint[@"id"], *url = hint[@"url"], *profile = hint[@"profile"];
+  if (![key isKindOfClass:NSString.class] || ![url isKindOfClass:NSString.class] || ![profile isKindOfClass:NSString.class]) return;
+  NSDictionary *window = nil;
+  for (NSDictionary *w in [session[@"windows"] isKindOfClass:NSArray.class] ? session[@"windows"] : @[])
+    if ([w isKindOfClass:NSDictionary.class] && [w[@"id"] isEqual:focused]) window = w;
+  if (!window || [window[@"incognito"] boolValue] || window[@"kind"] || ![window[@"frame"] isKindOfClass:NSArray.class]) return;
+  if (![window[@"tabIds"] isKindOfClass:NSArray.class] || ![window[@"tabIds"] containsObject:key]) return;
+  for (NSDictionary *split in [session[@"splits"] isKindOfClass:NSArray.class] ? session[@"splits"] : @[])
+    if ([split isKindOfClass:NSDictionary.class] && [split[@"tabIds"] isKindOfClass:NSArray.class] && [split[@"tabIds"] containsObject:key]) return;
+  NSDictionary *backdrop = [session[@"launchBackdrop"] isKindOfClass:NSDictionary.class] ? session[@"launchBackdrop"] : nil;
+  const bool dark = [[NSApp.effectiveAppearance bestMatchFromAppearancesWithNames:@[ NSAppearanceNameDarkAqua, NSAppearanceNameAqua ]]
+      isEqualToString:NSAppearanceNameDarkAqua];
+  if (!backdrop || ![backdrop[@"dark"] isKindOfClass:NSNumber.class] || [backdrop[@"dark"] boolValue] != dark) return;
+  if (![ArdiaCoreEarlyWindow canShowWindow:focused session:session]) return;
+  if (!ardiacore_host::LoadedProfile(profile)) return;
+  [ArdiaCoreWebView startLaunchTab:key url:url profile:profile];
+  if (![ArdiaCoreEarlyWindow showWindow:focused frame:window[@"frame"] key:key profile:profile backdrop:backdrop]) return;
+  if (ArdiaCoreTab *tab = ArdiaCoreWebView.launchTab) [ArdiaCoreEarlyWindow attachPage:tab key:key];
+}
+
+static void StartEarlyWindow() {
+  @autoreleasepool {
+    TryEarlyWindow();
+    [ArdiaCoreEarlyWindow discardPrefetch];
+  }
 }
 
 @interface ArdiaCoreHostEngineDelegate : NSObject <ArdiaCoreEngineDelegate>
@@ -219,6 +269,8 @@ static void StartLaunchTab() {
   NSString *path = [bundle pathForResource:@"page_script" ofType:@"js"];
   NSString *script = path ? [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] : nil;
   if (script && [engine respondsToSelector:@selector(setPageScript:)]) engine.pageScript = script;
+  if (gAppKitDidFinish) StartEarlyWindow();
+  else gEarlyWindowPending = true;
 
   CFRunLoopObserverRef idle = CFRunLoopObserverCreateWithHandler(
       nullptr, kCFRunLoopBeforeWaiting, false, 0, ^(CFRunLoopObserverRef observer, CFRunLoopActivity) {
@@ -426,6 +478,16 @@ static void StartLaunchTab() {
                                                    queue:nil
                                               usingBlock:^(NSNotification *) {
                                                 gAppKitDidFinish = true;
+                                                NSAppleEventDescriptor *event = NSAppleEventManager.sharedAppleEventManager.currentAppleEvent;
+                                                if (event.eventID == kAEOpenApplication &&
+                                                    [event paramDescriptorForKeyword:keyAEPropData].enumCodeValue == keyAELaunchedAsLogInItem)
+                                                  gLaunchedHidden = true;
+                                                if (event && !(event.eventClass == kCoreEventClass && event.eventID == kAEOpenApplication))
+                                                  gLaunchedForDocuments = true;
+                                                if (gEarlyWindowPending) {
+                                                  gEarlyWindowPending = false;
+                                                  StartEarlyWindow();
+                                                }
                                                 if (!gPendingLaunchURLs.count) return;
                                                 dispatch_async(dispatch_get_main_queue(), ^{
                                                   NSArray<NSURL *> *urls = gPendingLaunchURLs;
@@ -451,6 +513,10 @@ static void StartLaunchTab() {
   const bool mockKeychain = gScratchDataDir || !IsTeamSigned();
   if (mockKeychain) extra.push_back("--use-mock-keychain");
   ardiacore_host::PrepareStartup(gDataDirectory, extra);
+  @autoreleasepool {
+    [ArdiaCoreEarlyWindow setDataDirectory:AppDataDirectory()];
+    [ArdiaCoreEarlyWindow prefetchForSession:SavedSession(AppDataDirectory()) ?: @{}];
+  }
   if (getenv("ARDIA_BACKGROUND") && !getenv("ARDIA_ALLOW_OCCLUSION")) {
     extra.push_back("--disable-backgrounding-occluded-windows");
     if (Method occluded = class_getInstanceMethod(NSWindow.class, NSSelectorFromString(@"isOccluded")))

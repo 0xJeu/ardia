@@ -1,5 +1,6 @@
 #import "ArdiaCoreWebView.h"
 #import "ArdiaCoreWebViewInternal.h"
+#import "ArdiaCoreEarlyWindow.h"
 #import "ArdiaCorePictureInPicture.h"
 #import "ArdiaCoreServices.h"
 
@@ -420,6 +421,7 @@ static BOOL HeldSelector(SEL selector) {
 
 - (void)tabWillClose:(ArdiaCoreTab *)tab {
   _closedByChrome = YES;
+  [ArdiaCoreEarlyWindow dropPage:tab];
 }
 
 - (void)replayTo:(ArdiaCoreWebView *)view tab:(ArdiaCoreTab *)tab {
@@ -559,6 +561,14 @@ static void CloseLinkTabs() {
   for (ArdiaCoreTab *tab in left) CloseTab(tab);
 }
 
+static void ExpireLaunchTab(ArdiaCoreTab *tab) {
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    if (gLaunchTab != tab) return;
+    if ([ArdiaCoreEarlyWindow holdsPage:tab]) return ExpireLaunchTab(tab);
+    [ArdiaCoreWebView claimLaunchTab:@"" url:@"" profile:@""];
+  });
+}
+
 + (void)startLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profileName {
   if (gLaunchTab || gLaunchClaimed || !transferKey.length) return;
   ArdiaCoreTab *tab = StartParkedPage(url, profileName);
@@ -568,9 +578,11 @@ static void CloseLinkTabs() {
   gLaunchKey = [transferKey copy];
   gLaunchURL = [url copy];
   gLaunchProfile = [profileName copy];
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-    if (gLaunchTab == tab) [ArdiaCoreWebView claimLaunchTab:@"" url:@"" profile:@""];
-  });
+  ExpireLaunchTab(tab);
+}
+
++ (ArdiaCoreTab *)launchTab {
+  return gLaunchTab;
 }
 
 + (void)claimLaunchTab:(NSString *)transferKey url:(NSString *)url profile:(NSString *)profile {
@@ -582,6 +594,7 @@ static void CloseLinkTabs() {
                       [gLaunchProfile isEqualToString:name ?: @""] && !Parked()[key];
     gLaunchTab = nil;
     gLaunchKey = gLaunchURL = gLaunchProfile = nil;
+    if (!same) [ArdiaCoreEarlyWindow dropPage:tab];
     if (!same) return CloseTab(tab);
     Parked()[key] = tab;
   };
@@ -724,6 +737,7 @@ static void CloseLinkTabs() {
   if (_sightObserver) [NSNotificationCenter.defaultCenter removeObserver:_sightObserver];
   _sightObserver = nil;
   if (!self.window) return;
+  if (_visible) [ArdiaCoreEarlyWindow noteLayoutChangeIn:self.window];
   __weak ArdiaCoreWebView *weakSelf = self;
   _sightObserver = [NSNotificationCenter.defaultCenter addObserverForName:ArdiaCoreWindowSeenDidChange object:self.window queue:nil
                                                                usingBlock:^(NSNotification *) { [weakSelf userSightChanged]; }];
@@ -946,6 +960,7 @@ static void CloseLinkTabs() {
   if (page.superview != self) {
     if (!page.window || page.window != self.window) [page removeFromSuperview];
     [self addSubview:page];
+    [ArdiaCoreEarlyWindow pageMoved:tab];
   }
   if (NSView *devtools = tab.devToolsView) [self devToolsChanged:devtools];
   [self layoutPage];
@@ -1146,6 +1161,12 @@ static void CloseLinkTabs() {
 - (void)setFrameSize:(NSSize)newSize {
   [super setFrameSize:newSize];
   [self layoutPage];
+  if (_visible) [ArdiaCoreEarlyWindow noteLayoutChangeIn:self.window];
+}
+
+- (void)setFrameOrigin:(NSPoint)newOrigin {
+  [super setFrameOrigin:newOrigin];
+  if (_visible) [ArdiaCoreEarlyWindow noteLayoutChangeIn:self.window];
 }
 
 - (void)layoutPage {
@@ -1258,6 +1279,7 @@ static void CloseLinkTabs() {
   if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) self.alphaValue = 1;
   [self schedulePainting];
   if (visible) ACFieldMarkAtCommit(_transferKey, @"view");
+  if (visible) [ArdiaCoreEarlyWindow noteLayoutChangeIn:self.window];
   [self userSightChanged];
 }
 

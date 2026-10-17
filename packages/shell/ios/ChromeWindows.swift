@@ -4,10 +4,17 @@ import ExpoModulesCore
 enum ChromeWindows {
   private static let host = NSClassFromString("ACChromeWindowHost") as? NSObject.Type
 
-  static func makeWindow(profile: String?, chromeWindow: String? = nil) -> NSWindow? {
+  static func makeWindow(profile: String?, chromeWindow: String? = nil, appWindow: String? = nil) -> NSWindow? {
     guard let host else { return nil }
     let profile = profile ?? ""
     installCloseHandler(host)
+    let withAppWindow = NSSelectorFromString("makeWindowForProfile:chromeWindow:appWindow:")
+    if let appWindow, (host as AnyObject).responds(to: withAppWindow),
+      let make = (host as AnyObject).method(for: withAppWindow) {
+      typealias Make = @convention(c) (AnyObject, Selector, NSString, NSString?, NSString) -> Unmanaged<NSWindow>?
+      return unsafeBitCast(make, to: Make.self)(host, withAppWindow, profile as NSString, chromeWindow as NSString?, appWindow as NSString)?
+        .takeUnretainedValue()
+    }
     let claiming = NSSelectorFromString("makeWindowForProfile:chromeWindow:")
     if let chromeWindow, (host as AnyObject).responds(to: claiming) {
       return host.perform(claiming, with: profile, with: chromeWindow)?.takeUnretainedValue() as? NSWindow
@@ -22,6 +29,23 @@ enum ChromeWindows {
     closeHandlerInstalled = true
     let handler: @convention(block) (NSWindow) -> Bool = { WindowManager.shared.windowShouldClose($0) }
     (host as AnyObject).setValue(handler, forKey: "shouldCloseHandler")
+  }
+
+  static func takeDismissed(appWindow: String) -> Bool {
+    let selector = NSSelectorFromString("takeDismissedAppWindow:")
+    guard let host, (host as AnyObject).responds(to: selector), let take = (host as AnyObject).method(for: selector) else { return false }
+    typealias Take = @convention(c) (AnyObject, Selector, NSString) -> ObjCBool
+    return unsafeBitCast(take, to: Take.self)(host, selector, appWindow as NSString).boolValue
+  }
+
+  static func forgetLaunchPictures() {
+    guard let host, (host as AnyObject).responds(to: NSSelectorFromString("forgetLaunchPictures")) else { return }
+    host.perform(NSSelectorFromString("forgetLaunchPictures"))
+  }
+
+  static func recordLaunchLayout() {
+    guard let host, (host as AnyObject).responds(to: NSSelectorFromString("recordLaunchLayout")) else { return }
+    host.perform(NSSelectorFromString("recordLaunchLayout"))
   }
 
   static func embed(_ root: NSView, in window: NSWindow) {

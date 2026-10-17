@@ -1,4 +1,5 @@
 #import "ACChromeWindow.h"
+#import "ArdiaCoreEarlyWindow.h"
 #import "ArdiaCoreInternal.h"
 #import "ArdiaCoreWebView.h"
 #import "ArdiaCoreWebViewInternal.h"
@@ -1458,6 +1459,10 @@ void ActToggleFullScreen(NSWindow *window) {
 
 }
 
+NSValue *ACTrafficLightsCenter(NSWindow *window) {
+  return window ? objc_getAssociatedObject(window, kLightsCenterKey) : nil;
+}
+
 NSView *ACWindowRootView(NSWindow *window) {
   return [ACChromeWindowHost rootViewOfWindow:window] ?: window.contentView;
 }
@@ -1482,6 +1487,26 @@ NSView *ACWindowRootView(NSWindow *window) {
   NSWindow *window = made.coreWindow.window;
   [self showProfile:profile ?: @"" inWindow:window];
   return window;
+}
+
++ (NSWindow *)makeWindowForProfile:(NSString *)profile chromeWindow:(NSString *)chromeWindow appWindow:(NSString *)appWindow {
+  NSWindow *window = chromeWindow.length ? nil : [ArdiaCoreEarlyWindow claimForAppWindow:appWindow profile:profile];
+  if (window) [self showProfile:profile ?: @"" inWindow:window];
+  else window = [self makeWindowForProfile:profile chromeWindow:chromeWindow];
+  if (window && appWindow.length) [ArdiaCoreWindowController forNSWindow:window].appWindowId = appWindow;
+  return window;
+}
+
++ (void)recordLaunchLayout {
+  [ArdiaCoreEarlyWindow recordNow];
+}
+
++ (void)forgetLaunchPictures {
+  [ArdiaCoreEarlyWindow forgetPicturesNow];
+}
+
++ (BOOL)takeDismissedAppWindow:(NSString *)appWindow {
+  return [ArdiaCoreEarlyWindow takeDismissed:appWindow];
 }
 
 + (NSWindow *)makePopupWindowForProfile:(NSString *)profile root:(NSView *)root {
@@ -1560,8 +1585,11 @@ NSView *ACWindowRootView(NSWindow *window) {
   NSView *host = controller.coreWindow.hostView;
   root.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
   root.frame = host.bounds;
-  [host addSubview:root];
+  NSView *cover = [ArdiaCoreEarlyWindow coverInWindow:window];
+  if (cover.superview == host) [host addSubview:root positioned:NSWindowBelow relativeTo:cover];
+  else [host addSubview:root];
   controller.root = root;
+  [ArdiaCoreEarlyWindow rootEmbedded:root inWindow:window];
 }
 
 + (NSView *)rootViewOfWindow:(NSWindow *)window {
