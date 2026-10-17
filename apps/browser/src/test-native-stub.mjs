@@ -11,6 +11,7 @@ export const saveDocument = (name, contents) =>
 export const setZoom = () => Promise.resolve();
 export const setBatterySaver = () => Promise.resolve(null);
 export const launchEnvironment = () => null;
+export const killSwitchEnvironment = () => null;
 export const appInfo = { appVersion: "1.0" };
 export const systemInfo = () => ({ ...appInfo });
 export const calendarAuthorization = () => "notDetermined";

@@ -132,6 +132,7 @@ type AppModule = {
   systemInfo(): SystemInfo;
   openExternalURL(url: string): Promise<boolean>;
   launchEnvironment(name: string): string | null;
+  killSwitchEnvironment?(name: string): string | null;
   playIntroMusic(cues: IntroMusicCues, muted: boolean): Promise<void>;
   setIntroMusicMuted(muted: boolean): Promise<void>;
   stopIntroMusic(fade: number): Promise<void>;
@@ -208,6 +209,8 @@ export const setIntroMusicMuted = (muted: boolean) => void App.setIntroMusicMute
 export const stopIntroMusic = (fade = 0.4) => void App.stopIntroMusic(fade);
 export const devRenderIntroMusic = (cues: IntroMusicCues, path: string) => App.devRenderIntroMusic(cues, path);
 export const launchEnvironment = (name: string) => App.launchEnvironment(name);
+export const killSwitchEnvironment = (name: string) =>
+  typeof App.killSwitchEnvironment === "function" ? App.killSwitchEnvironment(name) : App.launchEnvironment(name);
 export const devRunAppleScript = (source: string) => App.devRunAppleScript(source);
 export const devSnapshotWindow = (windowId: string, path: string, transparent = false) =>
   transparent ? App.devSnapshotWindow(windowId, path, true) : App.devSnapshotWindow(windowId, path);

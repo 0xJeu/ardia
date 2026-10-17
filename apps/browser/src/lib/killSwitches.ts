@@ -1,4 +1,4 @@
-import { launchEnvironment, readDocument, writeDocument } from "@ardia/shell";
+import { killSwitchEnvironment, readDocument, writeDocument } from "@ardia/shell";
 
 type SwitchDef = {
   about: string;
@@ -101,7 +101,7 @@ function load() {
   loaded = true;
   try {
     cached = parseSwitches(readDocument(CACHE_DOC));
-    override = parseOverride(launchEnvironment(SWITCHES_ENV));
+    override = parseOverride(killSwitchEnvironment(SWITCHES_ENV));
   } catch {
     cached = {};
     override = {};
