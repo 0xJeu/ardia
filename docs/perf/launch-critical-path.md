@@ -249,11 +249,6 @@ handoff makes no second window.
 - **Kill switches.** `ARDIA_EARLY_WINDOW=off` or `ARDIA_SWITCHES=earlyWindow=off` (environment), and the remote
   `launchTab` switch, which turns this off with the launch tab.
 
-The content blocker's launch hold is separate (84e75272, narrowed in the commit after it). Until uBlock Origin answers
-(about 375 to 435 ms after engine start on a warm launch), a profile's first content-blocker load holds its subframe
-navigations and its subresource requests, which wait in the webRequest proxy. The top-level document goes ahead, so
-the HTML is fetched and parsed and a page with no subresources paints. The leak probe's escaped ad-host beacons go
-from 6 to 0, including the `<img>` beacons in the first-party HTML. With a fresh uBO copy it's 6 to 0 too. On the
-bench page (one held request) the timeline diagnostic, n=4 interleaved, reads FCP 425 vs 408 ms without the hold,
-where the hold of every navigation cost 200 to 240 ms. A request still held after 10 s is blocked
-(ERR_BLOCKED_BY_CLIENT), never sent unprotected. `ARDIA_BLOCKER_LAUNCH_HOLD=off` turns the hold off.
+The content blocker's launch hold (84e75272) is separate. Restored pages wait for uBlock Origin, about 200 to 240 ms
+on a warm launch, and the leak probe's escaped ad-host beacons go from 6 to 0. `ARDIA_BLOCKER_LAUNCH_HOLD=off` turns
+it off.

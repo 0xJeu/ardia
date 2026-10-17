@@ -6,10 +6,7 @@
 #include <string>
 #include <string_view>
 
-#include "base/functional/callback_forward.h"
 #include "extensions/common/extension_id.h"
-
-class GURL;
 
 namespace content {
 class BrowserContext;
@@ -44,11 +41,6 @@ extern void (*g_ardia_dnr_rulesets_in_force)(
     content::BrowserContext* browser_context,
     const extensions::ExtensionId& extension_id,
     bool all_loaded);
-
-extern bool (*g_ardia_web_request_held)(content::BrowserContext* browser_context,
-                                        const GURL& url,
-                                        base::OnceClosure resume,
-                                        base::OnceClosure block);
 
 extern bool (*g_ardia_devtools_token_factory)(
     const content::DevToolsSocketFactory* factory);

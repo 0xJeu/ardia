@@ -706,17 +706,12 @@ void Inherit(NSString *profile, int attempt, void (^first)(NSString *error)) {
   });
 }
 
-bool HoldsLaunchNavigations() {
-  const char *value = getenv("ARDIA_BLOCKER_LAUNCH_HOLD");
-  return !(value && (!strcmp(value, "off") || !strcmp(value, "0") || !strcmp(value, "false")));
-}
-
 void LoadHeld(NSString *profile) {
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
   const bool isDefault = profile.length == 0;
   const bool firstLoad = p && ![LoadedProfiles() containsObject:profile];
   const bool hold = firstLoad && [p respondsToSelector:@selector(holdNavigationsUntilRulesetsOf:)] &&
-                    (HoldsLaunchNavigations() || (isDefault ? LiteSettingsPending(p) : !gLaunching));
+                    (isDefault ? LiteSettingsPending(p) : !gLaunching);
   if (hold) [p holdNavigationsUntilRulesetsOf:ExtensionId()];
   void (^release)(NSString *) = ^(NSString *why) {
     if (!hold) return;
