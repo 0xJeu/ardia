@@ -11,6 +11,7 @@
 #include <simd/simd.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -262,6 +263,10 @@ struct VideoKey {
   bool operator==(const VideoKey& other) const = default;
 };
 
+struct SetupCancel {
+  std::atomic<bool> cancelled{false};
+};
+
 struct KitBox {
   ArdiaVideoUpscalerKit* __strong kit = nil;
 };
@@ -360,7 +365,12 @@ CVPixelBufferRef CreateBuffer(int width, int height, NSDictionary* required) {
 }
 
 API_AVAILABLE(macos(26.0))
-ArdiaVideoUpscalerKit* BuildKit(ArdiaVideoUpscalerKit* previous, const Plan& plan) {
+ArdiaVideoUpscalerKit* BuildKit(ArdiaVideoUpscalerKit* previous,
+                                const Plan& plan,
+                                const SetupCancel& cancel) {
+  if (cancel.cancelled) {
+    return nil;
+  }
   ArdiaVideoUpscalerKit* kit = [[ArdiaVideoUpscalerKit alloc] init];
   kit.device = previous.device ?: MTLCreateSystemDefaultDevice();
   if (!kit.device) {
@@ -386,6 +396,9 @@ ArdiaVideoUpscalerKit* BuildKit(ArdiaVideoUpscalerKit* previous, const Plan& pla
       return nil;
     }
   }
+  if (cancel.cancelled) {
+    return nil;
+  }
   if (plan.vt_factor > 0) {
     if (previous.processor && previous.configuration.frameWidth == plan.vt_input.width() &&
         previous.configuration.frameHeight == plan.vt_input.height() &&
@@ -403,6 +416,9 @@ ArdiaVideoUpscalerKit* BuildKit(ArdiaVideoUpscalerKit* previous, const Plan& pla
       if (![kit.processor startSessionWithConfiguration:kit.configuration error:&error]) {
         return nil;
       }
+    }
+    if (cancel.cancelled) {
+      return nil;
     }
     {
       const int out_width = (int)std::lround(plan.vt_input.width() * plan.vt_factor);
@@ -426,6 +442,9 @@ ArdiaVideoUpscalerKit* BuildKit(ArdiaVideoUpscalerKit* previous, const Plan& pla
         return nil;
       }
     }
+  }
+  if (cancel.cancelled) {
+    return nil;
   }
   if (plan.needs_metalfx) {
     MTLTextureDescriptor* descriptor =
@@ -467,7 +486,7 @@ class Upscaler : public VideoUpscaler {
       }
       gate_open_ = false;
       kit_requested_.reset();
-      setup_in_flight_ = 0;
+      CancelSetup();
       Forget();
       return;
     }
@@ -651,8 +670,13 @@ class Upscaler : public VideoUpscaler {
       kit_requested_.reset();
       return;
     }
+    if (setup_worker_) {
+      return;
+    }
     const uint64_t setup = ++last_operation_;
     setup_in_flight_ = setup;
+    auto cancel = std::make_shared<SetupCancel>();
+    setup_worker_ = cancel;
     const Plan plan = *kit_requested_;
     ArdiaVideoUpscalerKit* previous = kit_;
     kit_ = nil;
@@ -664,7 +688,7 @@ class Upscaler : public VideoUpscaler {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
       const base::TimeTicks started = base::TimeTicks::Now();
       auto box = std::make_unique<KitBox>();
-      box->kit = BuildKit(previous, plan);
+      box->kit = BuildKit(previous, plan, *cancel);
       const base::TimeDelta took = base::TimeTicks::Now() - started;
       reply_to->PostTask(FROM_HERE, base::BindOnce(&Upscaler::KitBuilt, weak, setup, plan,
                                                    std::move(box), took));
@@ -676,8 +700,11 @@ class Upscaler : public VideoUpscaler {
                 Plan plan,
                 std::unique_ptr<KitBox> box,
                 base::TimeDelta took) {
+    setup_worker_.reset();
     if (setup != setup_in_flight_) {
-      TRACE_EVENT_INSTANT0("gpu", "ArdiaVSR.SetupDropped", TRACE_EVENT_SCOPE_THREAD);
+      TRACE_EVENT_INSTANT1("gpu", "ArdiaVSR.SetupDropped", TRACE_EVENT_SCOPE_THREAD, "built",
+                           box->kit != nil);
+      BuildNextKit();
       return;
     }
     setup_in_flight_ = 0;
@@ -926,9 +953,21 @@ class Upscaler : public VideoUpscaler {
   void Forget() {
     current_source_.reset();
     current_key_.reset();
-    if (!idle_timer_.IsRunning()) {
+    if (!idle_timer_.IsRunning() && HoldsAnything()) {
       ArmIdleTeardown();
     }
+  }
+
+  bool HoldsAnything() const {
+    return kit_ || kit_requested_ || setup_worker_ || job_in_flight_ || cache_output_ ||
+           !outputs_.empty();
+  }
+
+  void CancelSetup() {
+    if (setup_worker_) {
+      setup_worker_->cancelled = true;
+    }
+    setup_in_flight_ = 0;
   }
 
   void ArmIdleTeardown() {
@@ -937,7 +976,8 @@ class Upscaler : public VideoUpscaler {
   }
 
   void TearDown() {
-    if (!kit_ && !kit_requested_ && !setup_in_flight_ && !cache_output_ && outputs_.empty()) {
+    TRACE_EVENT_INSTANT0("gpu", "ArdiaVSR.IdleWake", TRACE_EVENT_SCOPE_THREAD);
+    if (!HoldsAnything()) {
       return;
     }
     TRACE_EVENT_INSTANT0("gpu", "ArdiaVSR.TearDown", TRACE_EVENT_SCOPE_THREAD);
@@ -952,7 +992,7 @@ class Upscaler : public VideoUpscaler {
     kit_plan_.reset();
     kit_requested_.reset();
     kit_failed_.reset();
-    setup_in_flight_ = 0;
+    CancelSetup();
     job_in_flight_ = 0;
     job_in_flight_source_ = nullptr;
     cache_source_.reset();
@@ -976,6 +1016,7 @@ class Upscaler : public VideoUpscaler {
   std::optional<Plan> kit_requested_;
   uint64_t last_operation_ = 0;
   uint64_t setup_in_flight_ = 0;
+  std::shared_ptr<SetupCancel> setup_worker_;
   uint64_t job_in_flight_ = 0;
   IOSurfaceRef job_in_flight_source_ = nullptr;
   int64_t frame_count_ = 0;

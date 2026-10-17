@@ -46,6 +46,7 @@ const CHECKS = {
   "little-ardia": "a Little Ardia window: nothing",
   teardown: "the gate closing frees the scaler, its session and buffers within a few seconds",
   "idle-teardown": "a paused video that stops presenting still frees everything after 3 s, with no new frame",
+  "idle-quiet": "once freed, a page that keeps drawing (no video, or the gate closed) never wakes the idle timer again",
 };
 if (flags.help) {
   console.log(HELP);
@@ -213,6 +214,7 @@ async function watch(ms = seconds * 1000, during) {
     misses: named("Miss").length,
     late: named("LateSwap").length,
     teardowns: named("TearDown").length,
+    wakes: named("IdleWake").length,
     extra,
   };
 }
@@ -410,6 +412,32 @@ await check("idle-teardown", async () => {
   } finally {
     await closeTab(v.id);
   }
+});
+
+const animate = (page) => page.eval(`(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;left:0;top:0;width:40px;height:40px;background:red"; d.animate([{ transform: "translateX(0)" }, { transform: "translateX(300px)" }], { duration: 1000, iterations: Infinity }); document.body.append(d); return true })()`);
+await check("idle-quiet", async () => {
+  const results = [];
+  const v = await warm(`${q480}&nosrc=1`);
+  try {
+    await v.page.eval("(() => { const e = document.getElementById('v'); e.pause(); e.removeAttribute('src'); e.load(); return true })()");
+    await animate(v.page);
+    const w = await watch(11000);
+    results.push(`video removed: wakes ${w.wakes}, teardowns ${w.teardowns}`);
+    if (w.wakes !== w.teardowns || w.wakes > 1) throw new Error(`the idle timer woke ${w.wakes}× for ${w.teardowns} teardowns: ${fmt(w)}`);
+  } finally {
+    await closeTab(v.id);
+  }
+  const v2 = await warm(q480);
+  try {
+    await animate(v2.page);
+    const w = await watch(11000, () => evalApp("ac.store.getState().updateSettings({ videoUpscaling: false }); return true"));
+    results.push(`gate closed after a video: wakes ${w.wakes}, teardowns ${w.teardowns}`);
+    if (w.teardowns !== 1 || w.wakes !== 1) throw new Error(`expected one teardown and one wake in 11 s: ${fmt(w)}, wakes ${w.wakes}`);
+  } finally {
+    await evalApp("ac.store.getState().updateSettings({ videoUpscaling: true }); return true");
+    await closeTab(v2.id);
+  }
+  return results.join("; ");
 });
 
 server.close();
