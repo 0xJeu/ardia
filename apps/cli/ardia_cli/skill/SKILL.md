@@ -17,8 +17,9 @@ ardia exec -f script.py
 
 In scope:
 
-- `tab`: the web page the user is looking at. When they're on New Tab or another Ardia view, any use of `tab` raises
-  `NoPageTab` (and `bool(tab)` is False): open a page with `new_tab` instead.
+- `tab`: the web page the user is looking at when the run starts, even with Ardia's window covered. When they're on
+  New Tab or another Ardia view, any use of `tab` raises `NoPageTab` (and `bool(tab)` is False): open a page with
+  `new_tab` instead.
 - `tabs`: every web page tab when the run starts, the user's own included, plus the ones `new_tab` opens.
 - `new_tab(url, background=True)`: opens a tab in the sidebar, waits for the page to load and returns it.
   `background=False` switches the user to it.

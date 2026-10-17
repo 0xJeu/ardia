@@ -16,6 +16,8 @@ PAGE_SCHEMES = ("http:", "https:", "file:", "about:", "data:", "blob:")
 CONNECT_TIMEOUT = 10
 PROBE_TIMEOUT = 1.5
 CLOSE_TIMEOUT = 3
+ACTIVE_TIMEOUT = 3
+UNKNOWN = object()
 EXCEPTIONS = (
     "ElementNotFound",
     "WaitElementTimeout",
@@ -26,8 +28,9 @@ EXCEPTIONS = (
 )
 
 
-NO_PAGE_TAB = (
-    "the user isn't on a web page (New Tab or another Ardia view, or Ardia's window is hidden); "
+NO_PAGE_TAB = "the user isn't on a web page (New Tab or another Ardia view); open one with new_tab(url) or pick one from tabs"
+NO_VISIBLE_TAB = (
+    "no web page is visible (New Tab, another Ardia view, or a hidden window); "
     "open one with new_tab(url) or pick one from tabs"
 )
 
@@ -37,6 +40,9 @@ class NoPageTab(RuntimeError):
 
 
 class NoTab:
+    def __init__(self, message: str = NO_PAGE_TAB):
+        object.__setattr__(self, "_message", message)
+
     def __bool__(self):
         return False
 
@@ -44,7 +50,7 @@ class NoTab:
         return "<no web page tab>"
 
     def __getattr__(self, name):
-        raise NoPageTab(NO_PAGE_TAB)
+        raise NoPageTab(object.__getattribute__(self, "_message"))
 
 
 class UserCodeError(Exception):
@@ -129,15 +135,39 @@ class Session:
         self._tabs[target_id] = tab
         return tab
 
-    async def page_tabs(self) -> list:
+    async def active_target(self):
+        if not self.endpoint.active:
+            return UNKNOWN
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(self._fetch_active), ACTIVE_TIMEOUT)
+        except Exception:
+            return UNKNOWN
+
+    def _fetch_active(self):
+        import urllib.request
+
+        direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with direct.open(self.endpoint.active, timeout=ACTIVE_TIMEOUT) as response:
+            answer = json.loads(response.read(64 * 1024))
+        target_id = answer.get("targetId") if isinstance(answer, dict) else UNKNOWN
+        return target_id if target_id is None or isinstance(target_id, str) else UNKNOWN
+
+    async def page_tabs(self, active) -> list:
         targets = [target for target in await self.browser.get_targets() if is_page(target)]
         tabs = [self._tab_for(target) for target in targets]
-        blank = [tab for tab, target in zip(tabs, targets) if target.get("url") == "about:blank"]
+        blank = [
+            tab
+            for tab, target in zip(tabs, targets)
+            if target.get("url") == "about:blank" and target["targetId"] != active
+        ]
         if not blank:
             return tabs
-        probes = await asyncio.gather(*(self._probe(tab) for tab in blank))
-        hidden = {id(tab) for tab, visible, _ in probes if not visible}
-        return [tab for tab in tabs if id(tab) not in hidden]
+        if active is not UNKNOWN:
+            dropped = {id(tab) for tab in blank}
+        else:
+            probes = await asyncio.gather(*(self._probe(tab) for tab in blank))
+            dropped = {id(tab) for tab, visible, _ in probes if not visible}
+        return [tab for tab in tabs if id(tab) not in dropped]
 
     async def new_tab(self, url: str = "about:blank", background: bool = True):
         from pydoll.commands import TargetCommands
@@ -165,9 +195,11 @@ class Session:
         except Exception:
             return tab, False, False
 
-    async def current_tab(self, tabs: list):
+    async def current_tab(self, tabs: list, active):
+        if active is not UNKNOWN:
+            return next((tab for tab in tabs if tab.target_id == active), NoTab()) if active else NoTab()
         if not tabs:
-            return NoTab()
+            return NoTab(NO_VISIBLE_TAB)
         visible = set()
         probes = [asyncio.ensure_future(self._probe(tab)) for tab in tabs]
         try:
@@ -180,7 +212,7 @@ class Session:
         finally:
             for probe in probes:
                 probe.cancel()
-        return next((tab for tab in tabs if id(tab) in visible), NoTab())
+        return next((tab for tab in tabs if id(tab) in visible), NoTab(NO_VISIBLE_TAB))
 
     async def close(self):
         handlers = {id(tab._connection_handler): tab._connection_handler for tab in self._tabs.values()}
@@ -224,7 +256,8 @@ def build_namespace(session: Session, filename: str) -> dict:
     async def js(expression: str, tab=None):
         target = tab or namespace.get("tab") or (session.opened[-1] if session.opened else None)
         if not target:
-            raise NoPageTab(NO_PAGE_TAB)
+            fallback = namespace.get("tab")
+            raise NoPageTab(fallback._message if isinstance(fallback, NoTab) else NO_PAGE_TAB)
         response = await target.execute_script(expression, return_by_value=True, await_promise=True)
         result = response["result"]
         if "exceptionDetails" in result:
@@ -248,9 +281,10 @@ async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: floa
     try:
         await session.connect()
         namespace = build_namespace(session, filename)
-        tabs = await session.page_tabs()
+        active = await session.active_target()
+        tabs = await session.page_tabs(active)
         namespace["tabs"].extend(tabs)
-        namespace["tab"] = await session.current_tab(tabs) if "tab" in names or "js" in names else NoTab()
+        namespace["tab"] = await session.current_tab(tabs, active) if "tab" in names or "js" in names else NoTab()
         socket = session.browser_socket()
 
         async def execute():

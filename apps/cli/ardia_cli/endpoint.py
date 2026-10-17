@@ -28,6 +28,7 @@ class Endpoint:
     ws: str
     source: str
     explicit: bool
+    active: str | None = None
 
 
 def resolve(ws: str | None = None, port: int | None = None, data_dir: str | None = None) -> Endpoint:
@@ -112,7 +113,13 @@ def from_control_file(path: Path) -> Endpoint:
     add_secret(token)
     if not (isinstance(pid, int) and pid > 1 and _alive(pid)):
         raise EndpointError(NOT_REACHABLE)
-    return Endpoint(f"ws://127.0.0.1:{port}{browser}?token={quote(token, safe='')}", str(path), False)
+    query = f"token={quote(token, safe='')}"
+    return Endpoint(
+        f"ws://127.0.0.1:{port}{browser}?{query}",
+        str(path),
+        False,
+        f"http://127.0.0.1:{port}/ardia/active?{query}",
+    )
 
 
 def _alive(pid: int) -> bool:

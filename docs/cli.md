@@ -12,9 +12,12 @@ the pins into `pyproject.toml`).
 ## Commands
 
 - `ardia exec [CODE | -] [-f FILE] [--data-dir DIR] [--port N] [--ws URL] [--timeout S] [--json]` runs Python with
-  top-level `await`. In scope: `browser` (pydoll `Chrome`), `tab` (the user's tab: visible and focused, else visible;
-  when no web page is visible, as on New Tab, it's a placeholder that raises `NoPageTab` on first use), `tabs` (http,
-  https, file, about, data and blob pages, minus the hidden `about:blank` New Tab prewarms, plus what `new_tab` opens),
+  top-level `await`. In scope: `browser` (pydoll `Chrome`), `tab` (the page shown in Ardia's last focused window,
+  from `GET /ardia/active?token=…` on the token path, so it holds while the window is covered; `--port`/`--ws` test
+  servers fall back to visible and focused, else visible; with no page, as on New Tab, it's a placeholder that raises
+  `NoPageTab` on first use), `tabs` (http, https, file, about, data and blob pages, plus what `new_tab` opens, minus
+  the New Tab's prewarmed `about:blank`: on the token path every `about:blank` that isn't the active page, on test
+  servers the hidden ones),
   `new_tab(url, background=True)`, `js(expression, tab=None)` (default: `tab`, else the last `new_tab`), `By`, `Key`,
   `asyncio`, pydoll's exports and its common exceptions. It prints the last expression's value. Exit 0 done, 1 the
   code raised or timed out (default 300 s), 2 Ardia can't be reached or closed the browser socket (it watches the
@@ -39,6 +42,10 @@ ignoring `http_proxy`, `ws_proxy` and the like, so no proxy sees the token.
 3. `$ARDIA_CDP_URL`, like `--ws`.
 4. `<data dir>/Chromium/ArdiaControl.json`, with `--data-dir` or `$ARDIA_DATA_DIR`, else the installed app's
    `~/Library/Application Support/com.ardia.browser/Chromium/ArdiaControl.json`.
+
+The active-page route is `GET http://127.0.0.1:P/ardia/active?token=<token>`: `{"targetId": "<id>"}`, or `null` when
+New Tab or an Ardia view is showing; anything else is a 404. The CLI calls it directly (no proxy, no Origin header)
+with the token redacted like everywhere else, and falls back to the visibility check if it fails.
 
 The app writes `ArdiaControl.json` when the setting is on:
 `{"port":P,"browser":"/devtools/browser/<guid>","token":"…","pid":…,"generation":N}`. The CLI opens it without
