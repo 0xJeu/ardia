@@ -1,5 +1,6 @@
 import { requireNativeModule, type EventSubscription } from "expo-modules-core";
 import { ChromeUI } from "./chromeUI";
+import { engineCall, onEngineEvent } from "./engine";
 
 export type SiteAccess = "ON_ALL_SITES" | "ON_SPECIFIC_SITES" | "ON_CLICK";
 
@@ -186,6 +187,26 @@ export async function extensionActionStates(browserId: number, ids: string[]): P
 }
 
 export const onExtensionsChanged = (listener: (e: ExtensionsChange) => void) => Native.addListener("onChanged", listener);
+
+export const watchExtensionActions = (profile: string) =>
+  engineCall("ac_extensions_watch_actions", profile).then(
+    () => true,
+    () => false,
+  );
+
+export type ExtensionActionChange = { profile: string; id: string; kind: "action" | "sidePanel" | "registry" };
+
+export const extensionActionChange = (p: { profile: string } & Record<string, unknown>): ExtensionActionChange => ({
+  profile: p.profile,
+  id: String(p.id),
+  kind: p.kind === "sidePanel" || p.kind === "registry" ? p.kind : "action",
+});
+
+export const onExtensionActionChanged = (listener: (e: ExtensionActionChange) => void) =>
+  onEngineEvent((topic, p) => {
+    if (topic !== "extensions.action" || typeof p.id !== "string") return;
+    listener(extensionActionChange(p));
+  });
 export const onExtensionInstallPrompt = (listener: (e: ExtensionInstallPrompt) => void) => Native.addListener("onInstallPrompt", listener);
 export const resolveExtensionInstallPrompt = (requestId: string, accepted: boolean) => Native.resolveInstallPrompt(requestId, accepted);
 export const onExtensionTabsRequest = (listener: (e: TabsRequest) => void) => Native.addListener("onTabs", listener);

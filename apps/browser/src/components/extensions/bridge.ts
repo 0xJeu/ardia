@@ -1,14 +1,17 @@
 import {
   onExtensionInstallPrompt,
+  onExtensionActionChanged,
   onExtensionActionPopup,
   onExtensionActionShortcut,
   onExtensionSidePanel,
   onExtensionsChanged,
   onExtensionTabsRequest,
   resolveExtensionInstallPrompt,
+  watchExtensionActions,
   webStoreExtensionId,
   type TabsRequest,
 } from "@ardia/ardiacore";
+import { killSwitchEnvironment } from "@ardia/shell";
 import { AppState } from "react-native";
 import { openWindow } from "../../lib/actions";
 import { webviews } from "../../lib/webviews";
@@ -27,6 +30,7 @@ import {
   findExtension,
   openSidePanel,
   refreshExtensions,
+  refreshExtensionsAfterChange,
   showInstallPrompt,
   wantedSidePanels,
   syncSidePanel,
@@ -39,13 +43,13 @@ export function startExtensionsBridge() {
   startExtensionSearchEngines();
   onExtensionsChanged(({ profile }) => void refreshExtensions(profile));
 
-  const loaded = new Set<string>();
   const loadProfiles = (s: BrowserState) => {
     for (const id of s.windowOrder) {
       const profile = extensionProfile(s, id);
-      if (loaded.has(profile)) continue;
-      loaded.add(profile);
+      if (loadedProfiles.has(profile)) continue;
+      loadedProfiles.add(profile);
       void refreshExtensions(profile);
+      watchActionsOf(profile);
     }
   };
   loadProfiles(useBrowser.getState());
@@ -118,12 +122,70 @@ function toolbarAnchor(windowId: string, extensionId: string) {
   return toolbarAnchors.get(`${windowId}|${extensionId}`) ?? toolbarAnchors.get(`${windowId}|*`) ?? { x: 100_000, y: 13, width: 28, height: 28 };
 }
 
+const ACTION_POLL_MS = 1500;
+const ACTION_EVENT_COALESCE_MS = 150;
+
+function refreshActionsAndPanels() {
+  void refreshActionStates();
+  for (const [windowId] of wantedSidePanels()) void syncSidePanel(windowId);
+}
+
+let actionPoll: ReturnType<typeof setInterval> | null = null;
+function pollActionStates() {
+  actionPoll ??= setInterval(() => {
+    if (AppState.currentState === "active") refreshActionsAndPanels();
+  }, ACTION_POLL_MS);
+}
+
+const pollsActions = () => killSwitchEnvironment("ARDIA_EXTENSION_ACTION_POLL") === "on";
+
+function watchActionsOf(profile: string) {
+  if (pollsActions()) return pollActionStates();
+  void watchExtensionActions(profile).then((watching) => watching || pollActionStates());
+}
+
+const loadedProfiles = new Set<string>();
+const dirtyActions = new Set<string>();
+const dirtyLists = new Set<string>();
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+const windowsOf = (s: BrowserState, profile: string) => s.windowOrder.filter((windowId) => extensionProfile(s, windowId) === profile);
+
+function showsAction(profile: string, extensionId: string) {
+  const s = useBrowser.getState();
+  const popup = useExtensions.getState().popup;
+  const windows = windowsOf(s, profile);
+  if (wantedSidePanels().some(([windowId, id]) => id === extensionId && windows.includes(windowId))) return true;
+  return windows.some((windowId) => windowExtensions(s, windowId).some((x) => x.id === extensionId && (x.pinned || popup?.extensionId === x.id)));
+}
+
+function flushActionChanges() {
+  flushTimer = null;
+  if (AppState.currentState !== "active") return;
+  for (const profile of dirtyLists) if (loadedProfiles.has(profile)) void refreshExtensionsAfterChange(profile);
+  dirtyLists.clear();
+  if (dirtyActions.size) {
+    const profiles = [...dirtyActions];
+    dirtyActions.clear();
+    void refreshActionStates(profiles);
+    const s = useBrowser.getState();
+    for (const [windowId] of wantedSidePanels()) if (profiles.includes(extensionProfile(s, windowId))) void syncSidePanel(windowId);
+  }
+}
+
+function flushSoon() {
+  if (AppState.currentState !== "active" || (!dirtyActions.size && !dirtyLists.size)) return;
+  flushTimer ??= setTimeout(flushActionChanges, ACTION_EVENT_COALESCE_MS);
+}
+
 function startActionStates() {
-  setInterval(() => {
-    if (AppState.currentState !== "active") return;
-    void refreshActionStates();
-    for (const [windowId] of wantedSidePanels()) void syncSidePanel(windowId);
-  }, 1500);
+  onExtensionActionChanged(({ profile, id, kind }) => {
+    if (kind === "registry") dirtyLists.add(profile);
+    else if (showsAction(profile, id)) dirtyActions.add(profile);
+    else return;
+    flushSoon();
+  });
+  AppState.addEventListener("change", (state) => state === "active" && flushSoon());
   useBrowser.subscribe((s, prev) => {
     if (s.windows !== prev.windows || s.ui.focusedWindowId !== prev.ui.focusedWindowId) return void refreshActionStates();
     if (s.tabs === prev.tabs) return;

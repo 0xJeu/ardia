@@ -49,6 +49,22 @@ export function refreshExtensions(profile: string): Promise<InstalledExtension[]
   return job;
 }
 
+const trailing = new Map<string, Promise<InstalledExtension[]>>();
+
+export function refreshExtensionsAfterChange(profile: string): Promise<InstalledExtension[]> {
+  const running = loading.get(profile);
+  if (!running) return refreshExtensions(profile);
+  let next = trailing.get(profile);
+  if (!next) {
+    next = running.then(() => {
+      trailing.delete(profile);
+      return refreshExtensions(profile);
+    });
+    trailing.set(profile, next);
+  }
+  return next;
+}
+
 export const findExtension = (profile: string, id: string) => useExtensions.getState().lists[profile]?.find((x) => x.id === id);
 
 export function addFromWebStore(windowId: string, urlOrId: string, profile = extensionProfile(useBrowser.getState(), windowId)) {

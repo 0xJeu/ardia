@@ -1,12 +1,16 @@
 import { extensionActionStates } from "@ardia/ardiacore";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
-import { browserIdOf, useExtensions, windowExtensions } from "./store";
+import { browserIdOf, extensionProfile, useExtensions, windowExtensions } from "./store";
 
 let running: Promise<void> | null = null;
 let again = false;
+let pendingAll = false;
+const pendingProfiles = new Set<string>();
 
-export function refreshActionStates(): Promise<void> {
+export function refreshActionStates(profiles?: Iterable<string>): Promise<void> {
+  if (profiles) for (const profile of profiles) pendingProfiles.add(profile);
+  else pendingAll = true;
   if (running) {
     again = true;
     return running;
@@ -15,7 +19,10 @@ export function refreshActionStates(): Promise<void> {
     try {
       do {
         again = false;
-        await pass();
+        const only = pendingAll ? null : new Set(pendingProfiles);
+        pendingAll = false;
+        pendingProfiles.clear();
+        await pass(only);
       } while (again);
     } finally {
       running = null;
@@ -24,11 +31,11 @@ export function refreshActionStates(): Promise<void> {
   return running;
 }
 
-async function pass() {
+async function pass(only: Set<string> | null) {
   const s = useBrowser.getState();
   const { popup } = useExtensions.getState();
   await Promise.all(
-    s.windowOrder.map(async (windowId) => {
+    s.windowOrder.filter((windowId) => !only || only.has(extensionProfile(s, windowId))).map(async (windowId) => {
       const ids = windowExtensions(s, windowId)
         .filter((x) => x.hasAction !== false && (x.pinned || popup?.extensionId === x.id))
         .map((x) => x.id);

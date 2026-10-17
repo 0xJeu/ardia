@@ -1110,6 +1110,23 @@ hook(["bool (*g_ardia_reserved_global_accelerator)(const ui::Accelerator& accele
       "  if (!suspended && g_ardia_global_shortcuts_resumed) {\n"], edit, HOOKS)
 PY
 
+hook "$src/chrome/browser/extensions/extension_action_storage_manager.cc" "restored browser action defaults notify" <<'PY'
+old = """  SetDefaultsFromValue(value->GetDict(), action);
+}
+"""
+new = """  SetDefaultsFromValue(value->GetDict(), action);
+  if (g_ardia_embedder) {
+    ExtensionActionDispatcher::Get(browser_context_)
+        ->NotifyChange(action, nullptr, browser_context_);
+  }
+}
+"""
+def edit(s):
+    assert s.count(old) == 1
+    return s.replace(old, new)
+hook(["  if (g_ardia_embedder) {\n    ExtensionActionDispatcher::Get(browser_context_)\n"], edit, HOOKS)
+PY
+
 if [[ $mode == check ]]; then
   exit "$drift"
 fi
