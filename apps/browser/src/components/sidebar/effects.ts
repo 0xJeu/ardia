@@ -1,4 +1,5 @@
 import { onAppEvent } from "@ardia/shell";
+import { everySlowly } from "../../lib/slowTimers";
 import { webviews } from "../../lib/webviews";
 import { startLive } from "../../live";
 import { useBrowser } from "../../store/browser";
@@ -27,10 +28,13 @@ export function startSidebarEffects() {
     if (e.type === "switcherKey" && e.key !== "escape") moveSwitcher(e.key === "next" ? 1 : -1);
   });
 
-  setInterval(() => {
-    const s = useBrowser.getState();
-    const hours = s.settings.cleanUpInactiveTabsAfterHours;
-    if (hours === null) return;
-    for (const id of s.windowOrder) s.cleanUpTabs(id, { inactiveForMs: hours * 3_600_000 });
-  }, AUTO_CLEAN_EVERY_MS);
+  everySlowly({
+    every: AUTO_CLEAN_EVERY_MS,
+    run: () => {
+      const s = useBrowser.getState();
+      const hours = s.settings.cleanUpInactiveTabsAfterHours;
+      if (hours === null) return;
+      for (const id of s.windowOrder) s.cleanUpTabs(id, { inactiveForMs: hours * 3_600_000 });
+    },
+  });
 }

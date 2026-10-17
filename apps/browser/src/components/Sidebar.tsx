@@ -2,6 +2,7 @@ import { ContextMenuArea, FadeLabel, Symbol, WindowDragRegion } from "@ardia/she
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { switchOn } from "../lib/killSwitches";
+import { everySlowly } from "../lib/slowTimers";
 import { layout, ThemeScope, useTheme } from "../lib/theme";
 import { useBrowser } from "../store/browser";
 import { PageProfileContext, useSettings, useWindowId, useWindowProfileId } from "../store/hooks";
@@ -516,8 +517,7 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { windowI
   useEffect(() => {
     const check = () => setCount(cleanUpCandidates(useBrowser.getState(), windowId).length);
     check();
-    const t = setInterval(check, 60_000);
-    return () => clearInterval(t);
+    return everySlowly({ every: 60_000, run: check });
   }, [windowId]);
   const [moved, movedRef] = useShift(shift);
   if (hidden || daily || count < UPSELL_MIN) return null;

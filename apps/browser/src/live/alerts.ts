@@ -4,6 +4,7 @@ import { useBrowser } from "../store/browser";
 import { useCalendar } from "./calendar";
 import { joinMeeting } from "./meetingGroups";
 import { ALERT_LEADS, dueAlerts, joinLink, joinTitle, relativeTime, type CalendarEvent } from "./meetings";
+import { everySlowly } from "../lib/slowTimers";
 import { dismissAlert, live } from "./store";
 
 export const useMeetingAlert = create<{ event: CalendarEvent | null }>()(() => ({ event: null }));
@@ -65,6 +66,15 @@ export function startMeetingAlerts() {
     if (e.type === "focus") appActive = true;
   });
   useCalendar.subscribe((s, prev) => s.events !== prev.events && check());
-  setInterval(check, 10_000);
+  everySlowly({
+    every: 10_000,
+    run: check,
+    needed: () => useCalendar.getState().events.length > 0 || !!useMeetingAlert.getState().event,
+    watch: (changed) => {
+      const calendar = useCalendar.subscribe(changed);
+      const alert = useMeetingAlert.subscribe(changed);
+      return () => (calendar(), alert());
+    },
+  });
   check();
 }

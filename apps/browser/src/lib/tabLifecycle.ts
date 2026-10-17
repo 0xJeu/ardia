@@ -11,6 +11,7 @@ import { activeTabId, engineProfile, isIncognitoProfile, wake } from "../store/m
 import { splitOf } from "../store/splits";
 import { switchOn } from "./killSwitches";
 import { applyHeldReports } from "./nativeEvents";
+import { everySlowly, reschedule } from "./slowTimers";
 import { webviews } from "./webviews";
 
 const POLICY = {
@@ -22,7 +23,7 @@ const POLICY = {
   freezeAfterMs: 60_000,
 };
 
-const SWEEP_MS = 15_000;
+const SWEEP_MS = 30_000;
 const FREEZE_SWEEP_MS = 30_000;
 const EVAL_TIMEOUT_MS = 2_000;
 
@@ -236,6 +237,7 @@ export async function syncChromeBatterySaver(): Promise<boolean> {
     () => false,
   );
   if (sync === chromeSaverSync) chromeSaver = owned;
+  reschedule();
   return chromeSaver;
 }
 
@@ -378,13 +380,20 @@ export function startTabLifecycle() {
       () => {},
     );
 
-  setInterval(() => {
-    track(store());
-    void sweep();
-  }, SWEEP_MS);
-  setInterval(() => {
-    if (useLifecycle.getState().batterySaver && !chromeSaver) void freezeBusyTabs();
-  }, FREEZE_SWEEP_MS);
+  everySlowly({
+    every: SWEEP_MS,
+    separateEvery: 15_000,
+    run: () => {
+      track(store());
+      void sweep();
+    },
+  });
+  everySlowly({
+    every: FREEZE_SWEEP_MS,
+    run: () => void freezeBusyTabs(),
+    needed: () => useLifecycle.getState().batterySaver && !chromeSaver,
+    watch: (changed) => useLifecycle.subscribe(changed),
+  });
 
   if (__DEV__) {
     (globalThis as { acLifecycle?: unknown }).acLifecycle = {
