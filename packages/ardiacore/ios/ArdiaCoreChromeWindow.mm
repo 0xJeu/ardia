@@ -1735,6 +1735,19 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     ardiacore_host::SetAppActive([[action substringFromIndex:14] isEqualToString:@"1"]);
     return @(NSApp.isActive).stringValue;
   }
+  if ([action hasPrefix:@"postNotification:"]) {
+    if (!ardiacore_host::Background()) return @"test instances only";
+    NSArray<NSString *> *parts = [[action substringFromIndex:17] componentsSeparatedByString:@":"];
+    if (parts.count != 2) return @"postNotification:<workspace|app|window|windows>:<name>";
+    NSString *center = parts[0], *name = parts[1];
+    if ([center isEqualToString:@"workspace"]) [NSWorkspace.sharedWorkspace.notificationCenter postNotificationName:name object:NSWorkspace.sharedWorkspace];
+    else if ([center isEqualToString:@"app"]) [NSNotificationCenter.defaultCenter postNotificationName:name object:NSApp];
+    else if ([center isEqualToString:@"window"]) [NSNotificationCenter.defaultCenter postNotificationName:name object:window];
+    else if ([center isEqualToString:@"windows"])
+      for (NSWindow *each in NSApp.windows) [NSNotificationCenter.defaultCenter postNotificationName:name object:each];
+    else return @"unknown center";
+    return @"posted";
+  }
   if ([action hasPrefix:@"fakeOcclusion:"]) {
     if (!ardiacore_host::Background()) return @"test instances only";
     NSString *to = [action substringFromIndex:14];
