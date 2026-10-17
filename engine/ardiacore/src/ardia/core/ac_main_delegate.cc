@@ -348,6 +348,7 @@ void QuietIdleTimers(base::CommandLine* command_line) {
 
 std::optional<int> ACMainDelegate::BasicStartupComplete() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  g_ardia_begin_frame_bridge = EnvIs("ARDIA_BEGIN_FRAME_BRIDGE", "on");
   if (!command_line->HasSwitch(switches::kProcessType)) {
     KeepRealProfileClosed(command_line, "at startup");
     command_line->AppendSwitch(switches::kNoStartupWindow);
