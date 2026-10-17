@@ -81,7 +81,7 @@ export const features: Feature[] = [
   {
     id: "privacy",
     title: "Ads and trackers stay out.",
-    body: "uBlock Origin Lite is built in, cookie banners included. Google’s pings are compiled out. Crash reports are opt-in and never carry your sites or searches.",
+    body: "The full uBlock Origin is built in, not the Lite one. Cookie banners included. Google’s pings are compiled out. Crash reports are opt-in and never carry your sites or searches.",
     shots: [privacy],
     alt: "Ardia’s Privacy & Security settings: switches to block ads, trackers and cookie banners, and the number of filter rules loaded.",
     hour: "golden",
