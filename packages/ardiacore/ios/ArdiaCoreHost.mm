@@ -180,10 +180,6 @@ static void ReportLoweredWindowOcclusion() {
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
   for (NSNotificationName name in @[ NSWindowDidMiniaturizeNotification, NSWindowDidDeminiaturizeNotification ])
     [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification *note) { report(note.object); }];
-  for (NSNotificationName name in @[ NSApplicationDidHideNotification, NSApplicationDidUnhideNotification ])
-    [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification *) {
-      for (NSWindow *window in NSApp.windows) report(window);
-    }];
 }
 
 static void StartLaunchTab() {
@@ -216,6 +212,7 @@ static void StartLaunchTab() {
   if (ArdiaCoreProfile *profile = ardiacore_host::PersonalIfLoaded(engine)) Profiles()[@""] = profile;
   ardiacore_host::LoadContentBlocker(@"");
   [ArdiaCoreWebView installScrollZoom];
+  [ArdiaCoreWebView installSwitchPrewarm];
   [ArdiaCoreServices watchDownloads:@""];
 
   NSBundle *bundle = [NSBundle bundleForClass:ArdiaCoreHostEngineDelegate.class];

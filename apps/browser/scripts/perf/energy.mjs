@@ -22,6 +22,8 @@
 //     --tabs <n>           how many of the site list to open (default all)
 //     --port <n>           CDP port (default 9481); --page-port <n> (default 9491)
 //     --deadline <mins>    stop starting items after this long (default 240)
+//     --allow-focus        record a browser making itself the frontmost app instead of stopping (only when the owner
+//                          agreed to it for this run)
 //
 // Window states: visible launches run every browser as if in view whatever covers it (Ardia's background mode with
 // its forced visibility; Helium and Dia with --disable-backgrounding-occluded-windows), hidden launches let occlusion
@@ -57,6 +59,7 @@ const { values: opt, positionals } = parseArgs({
     port: { type: "string", default: "9481" },
     "page-port": { type: "string", default: "9491" },
     deadline: { type: "string", default: "240" },
+    "allow-focus": { type: "boolean" },
     md: { type: "string" },
     help: { type: "boolean", short: "h" },
   },
@@ -411,7 +414,10 @@ class Instance {
   watched() {
     if (this.pid && !this.alive()) throw new Error(`${this.name} (pid ${this.pid}) died`);
     const front = probe("state").front;
-    if (this.pid && front && this.ownPids().some((p) => p.pid === front)) throw new Error(`${this.name} became the frontmost app: stopping`);
+    if (this.pid && front && this.ownPids().some((p) => p.pid === front)) {
+      if (!opt["allow-focus"]) throw new Error(`${this.name} became the frontmost app: stopping`);
+      this.tookFocus = true;
+    }
   }
   env() {
     const env = { HOME: this.home, CFFIXED_USER_HOME: this.home };
@@ -731,6 +737,7 @@ async function visibleItem(name, key) {
     await app.quit();
     rmSync(dir, { recursive: true, force: true });
   }
+  r.tookFocus = !!app.tookFocus;
   return r;
 }
 
@@ -764,6 +771,7 @@ async function hiddenItem(name, key) {
     await app.quit();
     rmSync(dir, { recursive: true, force: true });
   }
+  r.tookFocus = !!app.tookFocus;
   return r;
 }
 
@@ -822,6 +830,7 @@ async function run(names) {
       const started = Date.now();
       const data = item.launch === "visible" ? await visibleItem(item.browser, item.key) : await hiddenItem(item.browser, item.key);
       const s = { ...item, ok: true, at: new Date(started).toISOString(), version: bundleInfo(bundleOf(item.browser)).version, ...data };
+      if (data.tookFocus) log(`${item.key}: the browser became the frontmost app during the run`);
       record(s);
       log(`${item.key}:`, Object.entries(s.phases).map(([p, v]) => `${p} ${v.total.mw.toFixed(0)} mW cpu ${v.total.cpu.toFixed(1)}% gpu ${v.total.gpu.toFixed(1)}% wk ${v.total.wakeups.toFixed(0)}/s`).join(" | "));
     } catch (e) {
