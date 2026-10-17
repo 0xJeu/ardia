@@ -220,6 +220,7 @@ public class CefModule: Module {
       Prop("extensionHost") { (view: CefWebView, kind: String?) in view.browser.extensionHost = kind }
       Prop("visible") { (view: CefWebView, visible: Bool?) in view.browser.visible = visible ?? true }
       Prop("warm") { (view: CefWebView, warm: Bool?) in view.browser.warm = warm ?? false }
+      Prop("neighbour") { (view: CefWebView, neighbour: Bool?) in view.browser.neighbour = neighbour ?? false }
       Prop("pageBackgroundColor") { (view: CefWebView, color: NSColor?) in view.browser.pageBackgroundColor = color }
       Prop("pageColor") { (view: CefWebView, color: String?) in view.browser.pageColor = color }
       Prop("autoPictureInPicture") { (view: CefWebView, enabled: Bool?) in

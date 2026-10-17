@@ -74,6 +74,7 @@ public class WindowProfileModule: Module {
     View(WindowProfileView.self) {
       Prop("profile") { (view: WindowProfileView, value: String?) in view.profile = value ?? "" }
       Prop("neighbours") { (view: WindowProfileView, value: [String]?) in view.neighbours = value ?? [] }
+      Prop("selection") { (view: WindowProfileView, value: String?) in view.selection = value ?? "" }
       OnViewDidUpdateProps { view in view.scheduleSwap() }
     }
   }
@@ -82,7 +83,8 @@ public class WindowProfileModule: Module {
 final class WindowProfileView: ExpoView {
   var profile = ""
   var neighbours: [String] = []
-  private var applied: (profile: String, neighbours: [String])?
+  var selection = ""
+  private var applied: (profile: String, neighbours: [String], selection: String)?
   private var observer: CFRunLoopObserver?
 
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -105,7 +107,10 @@ final class WindowProfileView: ExpoView {
   private func apply() {
     guard let window else { return }
     if applied?.profile != profile { ChromeWindows.showProfile(profile, in: window) }
+    if let applied, applied.profile != profile || applied.selection != selection {
+      NotificationCenter.default.post(name: Notification.Name("ArdiaPagerActivity"), object: window)
+    }
     if applied?.neighbours != neighbours, let current = self.window { ChromeWindows.prepare(neighbours, for: current) }
-    applied = (profile, neighbours)
+    applied = (profile, neighbours, selection)
   }
 }

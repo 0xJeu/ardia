@@ -144,6 +144,7 @@ export type WebViewProps = ViewProps & {
   extensionHost?: "popup" | "sidePanel";
   visible?: boolean;
   warm?: boolean;
+  neighbour?: boolean;
   pageBackgroundColor?: string;
   pageColor?: string;
   autoPictureInPicture?: boolean;

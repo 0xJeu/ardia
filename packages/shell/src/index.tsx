@@ -264,6 +264,7 @@ export const openWindow = (id: string, options: OpenWindowOptions = {}) => Shell
 
 export type WindowProfileProps = ViewProps & {
   profile: string;
+  selection?: string;
   neighbours: string[];
 };
 export const WindowProfile = requireNativeViewManager<WindowProfileProps>("ArdiaWindowProfile");

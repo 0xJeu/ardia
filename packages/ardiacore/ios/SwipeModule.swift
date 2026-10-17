@@ -121,6 +121,8 @@ final class SwipeArea: ExpoView, ACSwipeTarget {
   }
 }
 
+private let pagerActivity = Notification.Name("ArdiaPagerActivity")
+
 private func number(_ value: Any?) -> Double? {
   switch value {
   case let v as Double: return v
@@ -280,6 +282,7 @@ final class ACPager {
   }
 
   private func jump(to index: Int, selection: Bool = false) {
+    announceActivity()
     selected = index
     position = Double(index)
     velocity = 0
@@ -295,6 +298,7 @@ final class ACPager {
     #endif
     switch input {
     case "prepare":
+      announceActivity(["seconds": 1, "speculative": true])
       if phase == .settling {
         stopSpring()
         phase = .holding
@@ -305,6 +309,8 @@ final class ACPager {
         settle(to: selected, velocity: 0)
       } else if phase == .tracking, drag.area === area {
         release(velocity: 0, cancelled: false)
+      } else {
+        announceActivity(["release": true])
       }
     case "began":
       begin(area)
@@ -322,6 +328,7 @@ final class ACPager {
   }
 
   private func begin(_ area: SwipeArea) {
+    announceActivity()
     stopSpring()
     let home = selected
     let x = position
@@ -424,6 +431,7 @@ final class ACPager {
   }
 
   private func settle(to target: Int, velocity v: Double, from origin: SwipeArea? = nil) {
+    announceActivity()
     if target != selected {
       selected = target
       sequence = ACPager.next()
@@ -518,6 +526,12 @@ final class ACPager {
     var event: [String: Any] = ["phase": name, "sequence": sequence, "position": position, "selected": selected, "velocity": velocity]
     if orderIds != nil { event["profileId"] = selectedId }
     for area in areas.allObjects { area.onPagerState(event) }
+  }
+
+  private func announceActivity(_ info: [String: Any] = [:]) {
+    var windows: [NSWindow] = []
+    for case let window? in areas.allObjects.map(\.window) where !windows.contains(where: { $0 === window }) { windows.append(window) }
+    for window in windows { NotificationCenter.default.post(name: pagerActivity, object: window, userInfo: info) }
   }
 
   private func publish() {

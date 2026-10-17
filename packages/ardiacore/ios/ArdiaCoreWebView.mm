@@ -24,6 +24,33 @@ bool TraceVisibility() {
 
 constexpr CFTimeInterval kLeaveScreenDelay = 0.1;
 constexpr CFTimeInterval kRevealBackstopSeconds = 5;
+constexpr CFTimeInterval kNeighbourPagesAwakeSeconds = 10;
+
+bool NeighbourPagesAlwaysLive() {
+  static const bool on = [@(getenv("ARDIA_WARM_NEIGHBOURS") ?: "") isEqualToString:@"1"];
+  return on;
+}
+
+}
+
+@interface ACNeighbourWake : NSObject
+@property(nonatomic) CFTimeInterval committedUntil;
+@property(nonatomic) CFTimeInterval speculativeUntil;
+@property(nonatomic, readonly) CFTimeInterval until;
+@end
+
+@implementation ACNeighbourWake
+- (CFTimeInterval)until {
+  return MAX(_committedUntil, _speculativeUntil);
+}
+@end
+
+namespace {
+
+NSMapTable<NSWindow *, ACNeighbourWake *> *NeighbourPagesAwake() {
+  static NSMapTable *windows = [NSMapTable weakToStrongObjectsMapTable];
+  return windows;
+}
 
 NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   static NSHashTable *views = [NSHashTable weakObjectsHashTable];
@@ -610,6 +637,17 @@ static void CloseLinkTabs() {
 
 + (void)initialize {
   if (self != ArdiaCoreWebView.class) return;
+  [NSNotificationCenter.defaultCenter addObserverForName:@"ArdiaPagerActivity"
+                                                  object:nil
+                                                   queue:nil
+                                              usingBlock:^(NSNotification *note) {
+                                                if (![note.object isKindOfClass:NSWindow.class]) return;
+                                                if ([note.userInfo[@"release"] boolValue]) return [ArdiaCoreWebView releaseNeighbourPagesIn:note.object];
+                                                const double seconds = [note.userInfo[@"seconds"] doubleValue];
+                                                [ArdiaCoreWebView wakeNeighbourPagesIn:note.object
+                                                                               seconds:seconds > 0 ? seconds : kNeighbourPagesAwakeSeconds
+                                                                             committed:![note.userInfo[@"speculative"] boolValue]];
+                                              }];
   static NSUInteger reloads = 0;
   [NSNotificationCenter.defaultCenter addObserverForName:@"RCTBridgeWillReloadNotification"
                                                   object:nil
@@ -1112,7 +1150,58 @@ static void CloseLinkTabs() {
 }
 
 - (BOOL)paints {
-  return _visible || _warm || _leaving || _revealed;
+  return _visible || (_warm && !self.neighbourPageAsleep) || _leaving || _revealed;
+}
+
+- (BOOL)neighbourPageAsleep {
+  if (!_warm || !_neighbour || _visible || NeighbourPagesAlwaysLive()) return NO;
+  NSWindow *window = self.window;
+  if (!window) return NO;
+  return [NeighbourPagesAwake() objectForKey:window].until <= CACurrentMediaTime();
+}
+
+- (void)setNeighbour:(BOOL)neighbour {
+  if (_neighbour == neighbour) return;
+  _neighbour = neighbour;
+  [self schedulePainting];
+}
+
++ (void)wakeNeighbourPagesIn:(NSWindow *)window seconds:(CFTimeInterval)seconds committed:(BOOL)committed {
+  const CFTimeInterval now = CACurrentMediaTime();
+  ACNeighbourWake *wake = [NeighbourPagesAwake() objectForKey:window];
+  const BOOL wasAwake = wake.until > now;
+  if (!wake) [NeighbourPagesAwake() setObject:(wake = [ACNeighbourWake new]) forKey:window];
+  if (committed) wake.committedUntil = MAX(wake.committedUntil, now + seconds);
+  else wake.speculativeUntil = MAX(wake.speculativeUntil, now + seconds);
+  if (wasAwake) return;
+  [self repaintWarmPagesIn:window];
+  [self sleepNeighbourPagesIn:window after:seconds];
+}
+
++ (void)releaseNeighbourPagesIn:(NSWindow *)window {
+  ACNeighbourWake *wake = [NeighbourPagesAwake() objectForKey:window];
+  const CFTimeInterval now = CACurrentMediaTime();
+  if (!wake || wake.speculativeUntil <= now) return;
+  wake.speculativeUntil = 0;
+  if (wake.committedUntil <= now) [self repaintWarmPagesIn:window];
+}
+
++ (void)sleepNeighbourPagesIn:(NSWindow *)window after:(CFTimeInterval)delay {
+  __weak NSWindow *weakWindow = window;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    NSWindow *window = weakWindow;
+    ACNeighbourWake *wake = window ? [NeighbourPagesAwake() objectForKey:window] : nil;
+    if (!wake) return;
+    const CFTimeInterval left = wake.until - CACurrentMediaTime();
+    if (left > 0) return [self sleepNeighbourPagesIn:window after:left];
+    [NeighbourPagesAwake() removeObjectForKey:window];
+    [self repaintWarmPagesIn:window];
+  });
+}
+
++ (void)repaintWarmPagesIn:(NSWindow *)window {
+  for (ArdiaCoreWebView *view in LiveViews().allObjects)
+    if (view->_warm && view.window == window) [view schedulePainting];
 }
 
 - (void)applyPainting {
