@@ -13,17 +13,22 @@ the pins into `pyproject.toml`).
 
 - `ardia exec [CODE | -] [-f FILE] [--data-dir DIR] [--port N] [--ws URL] [--timeout S] [--json]` runs Python with
   top-level `await`. In scope: `browser` (pydoll `Chrome`), `tab` (the user's tab: visible and focused, else visible,
-  else the first), `tabs` (http, https, file and about pages), `new_tab(url, background=True)`, `js(expression, tab=None)`,
-  `By`, `Key`, `asyncio`, pydoll's exports and its common exceptions. It prints the last expression's value. Exit 0
-  done, 1 the code raised or timed out (default 300 s), 2 Ardia can't be reached, 130 interrupted.
+  else the first), `tabs` (http, https, file, about, data and blob pages, plus what `new_tab` opens),
+  `new_tab(url, background=True)`, `js(expression, tab=None)` (default: `tab`, else the last `new_tab`), `By`, `Key`,
+  `asyncio`, pydoll's exports and its common exceptions. It prints the last expression's value. Exit 0 done, 1 the
+  code raised or timed out (default 300 s), 2 Ardia can't be reached or closed the browser socket (it watches the
+  socket, so turning the setting off ends an idle run at once), 130 interrupted.
 - `ardia skills install --target general|codex|claude-code|cursor|opencode [--target …] [--project]` installs the
   agent skill (`ardia_cli/skill`: `SKILL.md` and `references/pydoll.md`) into `~/.agents/skills` (general, codex),
   `~/.claude/skills`, `~/.cursor/skills` or `~/.config/opencode/skills`; with `--project`, into `./.agents/skills`,
   `./.claude/skills`, `./.cursor/skills` or `./.opencode/skills`. It replaces only its own `ardia` folder.
 - `ardia --version`, `ardia --help`, `ardia exec --help`.
 
-`exec` never quits Ardia: it refuses `browser.stop()`, `Browser.close` and `Browser.crash`, and on exit (normal, an
-exception or Ctrl-C) it closes only its own page and browser WebSockets.
+`exec` never quits Ardia: it refuses `browser.stop()`, and every WebSocket it opens checks each outgoing message, so
+`Browser.close`, `Browser.crash` and `Browser.crashGpuProcess` never leave the process, whether sent one at a time, in
+an `execute_commands` batch (checked whole before anything is sent) or straight on the socket. On exit (normal, an
+exception or Ctrl-C) it closes only its own page and browser WebSockets. Its WebSockets always connect directly,
+ignoring `http_proxy`, `ws_proxy` and the like, so no proxy sees the token.
 
 ## How it finds Ardia
 
@@ -39,8 +44,9 @@ following links and trusts it only when it's a regular file the user owns, mode 
 to `ws://127.0.0.1:P<browser>?token=<token>`; pydoll keeps the query on every `/devtools/page/<id>` URL, so page
 sockets carry the token too. A missing, stale or unsafe file, or a refused connection, prints one line and exits 2:
 `Ardia isn't running, or "Let the ardia command control Ardia" is off in Settings.` There's no port scanning and no
-`/json` fallback on this path. The token never reaches the output: stdout, stderr, log records and tracebacks are
-redacted, and pydoll's loggers stay at WARNING.
+`/json` fallback on this path. The token never reaches the output: stdout and stderr are redacted as a stream (a token
+split across writes is held back until it's complete), and so are log records and everything a logging handler
+formats, tracebacks included. pydoll's loggers stay at ERROR.
 
 ## Install and upgrade
 
@@ -51,12 +57,16 @@ redacted, and pydoll's loggers stay at WARNING.
   digest it trusts when given (the app passes `Ardia.app/Contents/Resources/ardia-cli.sha256`); otherwise it reads the
   `.sha256` asset.
 - Verifies the digest, refuses entries outside `ardia-cli-<V>/`, `..` paths, hard links and links pointing outside the
-  tree, extracts to `$ARDIA_CLI_HOME/<V>.partial`, renames it to `<V>`, and swaps `current` atomically. A running
-  `ardia` keeps its old dir. It keeps the current and the previous version.
+  tree, plus names with control characters, backslashes or ` -> `, extracts to `$ARDIA_CLI_HOME/<V>.partial`, checks
+  the extracted tree again (`find`, no line parsing), renames it to `<V>`, and swaps `current` atomically.
+- It keeps the current and the previous version, and any version a running `ardia` uses: the launcher writes
+  `<V>/.leases/<pid>` before it starts Python, which removes it at exit; a lease whose pid is gone doesn't count.
 - Links `$ARDIA_CLI_BIN_DIR/ardia` (default `~/.local/bin`) to `current/bin/ardia`. It replaces only a link that
   already points into `$ARDIA_CLI_HOME` and refuses anything else. With the default bin dir off the login shell's
   PATH, it adds `export PATH="$HOME/.local/bin:$PATH"` to `~/.zprofile` once.
-- A version that is already current is a no-op. A lock (`$ARDIA_CLI_HOME/.lock`) keeps two runs apart.
+- A version that is already current is a no-op. A lock (`$ARDIA_CLI_HOME/.lock`, holding its pid) keeps two runs
+  apart. A lock whose pid is dead is broken only under a second lock (`.lock-takeover`), after checking it still holds
+  that pid, and a run removes only a lock it holds.
 - Output for the app, one line each: `step resolve|download|verify|install|link`, `version <v>`, `path <rc file>`,
   then `installed <bin path>` or `uninstalled`, or `error <message>` with exit 1.
 

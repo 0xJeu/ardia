@@ -4,15 +4,17 @@ import re
 
 MASK = "***"
 _TOKEN_QUERY = re.compile(r"(token=)[^&\s'\"<>]+")
+_OPEN_TOKEN_QUERY = re.compile(r"token=[^&\s'\"<>]*$")
+_TOKEN_KEY = "token="
 _secrets: set[str] = set()
 _installed = False
 
 
 def add_secret(secret: str | None) -> None:
     if secret:
-        _secrets.add(secret)
         from urllib.parse import quote
 
+        _secrets.add(secret)
         _secrets.add(quote(secret, safe=""))
 
 
@@ -22,13 +24,42 @@ def redact(text: str) -> str:
     return _TOKEN_QUERY.sub(r"\1" + MASK, text)
 
 
+def _unsafe_tail(text: str) -> int:
+    keep = 0
+    for secret in _secrets | {_TOKEN_KEY}:
+        for size in range(min(len(secret) - 1, len(text)), keep, -1):
+            if text.endswith(secret[:size]):
+                keep = size
+                break
+    match = _OPEN_TOKEN_QUERY.search(text)
+    if match:
+        keep = max(keep, len(text) - match.start())
+    return keep
+
+
 class RedactingStream(io.TextIOBase):
     def __init__(self, stream):
         self._stream = stream
+        self._pending = ""
 
     def write(self, text):
-        self._stream.write(redact(text))
+        combined = self._pending + text
+        keep = _unsafe_tail(combined)
+        ready, self._pending = (combined[:-keep], combined[-keep:]) if keep else (combined, "")
+        if ready:
+            cleaned = redact(ready)
+            keep_masked = _unsafe_tail(cleaned)
+            if keep_masked:
+                self._pending = cleaned[-keep_masked:] + self._pending
+                cleaned = cleaned[:-keep_masked]
+            self._stream.write(cleaned)
         return len(text)
+
+    def drain(self):
+        if self._pending:
+            pending, self._pending = self._pending, ""
+            self._stream.write(redact(pending))
+        self._stream.flush()
 
     def flush(self):
         self._stream.flush()
@@ -42,6 +73,10 @@ class RedactingStream(io.TextIOBase):
     @property
     def encoding(self):
         return self._stream.encoding
+
+    @property
+    def errors(self):
+        return self._stream.errors
 
     @property
     def buffer(self):
@@ -67,6 +102,12 @@ def install_log_redaction() -> None:
             record.args = ()
         return record
 
+    handler_format = logging.Handler.format
+
+    def redacting_format(self, record):
+        return redact(handler_format(self, record))
+
     logging.setLogRecordFactory(redacting_record)
-    logging.getLogger("pydoll").setLevel(logging.WARNING)
+    logging.Handler.format = redacting_format
+    logging.getLogger("pydoll").setLevel(logging.ERROR)
     logging.getLogger("websockets").setLevel(logging.WARNING)

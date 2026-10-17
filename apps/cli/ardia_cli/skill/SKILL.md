@@ -18,13 +18,15 @@ ardia exec -f script.py
 In scope:
 
 - `tab`: the tab the user is looking at.
-- `tabs`: every web page tab (http, https, file, about).
+- `tabs`: every web page tab (http, https, file, about, data, blob) when the run starts, plus the ones `new_tab` opens.
 - `new_tab(url, background=True)`: opens a tab in the sidebar, waits for the page to load and returns it.
   `background=False` switches the user to it.
-- `js(expression, tab=None)`: evaluates JavaScript in `tab` (default: the user's tab) and returns its value.
+- `js(expression, tab=None)`: evaluates JavaScript in `tab` (default: the user's tab, else the last tab you opened)
+  and returns its value.
 - `browser` (pydoll `Chrome`), `By`, `Key`, `asyncio` and the rest of `pydoll`'s exports.
 
-Exit status: 0 done, 1 your code raised or timed out (`--timeout`, default 300 s), 2 Ardia can't be reached.
+Exit status: 0 done, 1 your code raised or timed out (`--timeout`, default 300 s), 2 Ardia can't be reached or
+stopped the connection.
 On exit 2, tell the user to open Ardia and turn on Settings › "Let the ardia command control Ardia".
 
 ## Etiquette
@@ -65,8 +67,9 @@ results = await t.query("h3", find_all=True)
 ```
 
 `query` takes CSS or XPath; `find(tag_name=..., id=..., class_name=..., name=..., text=..., **attributes)` builds
-the selector for you. Both raise `ElementNotFound` unless you pass `raise_exc=False` (then they return `None`),
-and wait up to `timeout` seconds for the element. For a click that loads a new page:
+the selector for you. Both wait up to `timeout` seconds for the element. When it isn't there they raise
+`ElementNotFound` (with `timeout=0`, the default) or `WaitElementTimeout` (with a timeout), or return `None` with
+`raise_exc=False`. For a click that loads a new page:
 
 ```python
 async with t.expect_navigation():

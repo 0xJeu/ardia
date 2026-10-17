@@ -1,5 +1,15 @@
+import os
 import sys
 
-from ardia_cli.cli import main
+lease = os.environ.pop("ARDIA_CLI_LEASE", None)
+try:
+    from ardia_cli.cli import main
 
-sys.exit(main())
+    status = main()
+finally:
+    if lease:
+        try:
+            os.unlink(lease)
+        except OSError:
+            pass
+sys.exit(status)

@@ -7,11 +7,11 @@ import linecache
 import sys
 import traceback
 
+from ardia_cli import guard
 from ardia_cli.endpoint import NOT_REACHABLE, Endpoint, EndpointError
 from ardia_cli.redact import redact
 
-PAGE_SCHEMES = ("http:", "https:", "file:", "about:")
-FORBIDDEN_METHODS = frozenset({"Browser.close", "Browser.crash", "Browser.crashGpuProcess"})
+PAGE_SCHEMES = ("http:", "https:", "file:", "about:", "data:", "blob:")
 CONNECT_TIMEOUT = 10
 PROBE_TIMEOUT = 1.5
 CLOSE_TIMEOUT = 3
@@ -49,25 +49,6 @@ def compile_code(source: str, filename: str):
     return body, tail, names
 
 
-def _guard_browser_close():
-    from pydoll.connection.connection_handler import ConnectionHandler
-
-    if getattr(ConnectionHandler, "_ardia_guarded", False):
-        return
-
-    def guard(method):
-        async def guarded(self, command, *args, **kwargs):
-            if isinstance(command, dict) and command.get("method") in FORBIDDEN_METHODS:
-                raise RuntimeError(f"ardia exec never sends {getattr(command['method'], 'value', command['method'])}: it's the user's browser")
-            return await method(self, command, *args, **kwargs)
-
-        return guarded
-
-    ConnectionHandler.execute_command = guard(ConnectionHandler.execute_command)
-    ConnectionHandler.execute_command_nowait = guard(ConnectionHandler.execute_command_nowait)
-    ConnectionHandler._ardia_guarded = True
-
-
 def _refuse_stop(*_args, **_kwargs):
     raise RuntimeError("ardia exec never stops Ardia: it's the user's browser")
 
@@ -84,11 +65,12 @@ class Session:
     def __init__(self, endpoint: Endpoint):
         from pydoll.browser.chromium import Chrome
 
-        _guard_browser_close()
+        guard.install()
         self.endpoint = endpoint
         self.browser = Chrome()
         self.browser.stop = _refuse_stop_async
         self._tabs: dict[str, object] = {}
+        self.opened: list = []
 
     async def connect(self):
         from pydoll.exceptions import NoValidTabFound
@@ -105,6 +87,14 @@ class Session:
             detail = str(error) or type(error).__name__
             return redact(f"can't connect to {self.endpoint.source} ({detail})")
         return NOT_REACHABLE
+
+    def lost(self) -> str:
+        if self.endpoint.explicit:
+            return redact(f"lost the connection to {self.endpoint.source}")
+        return NOT_REACHABLE
+
+    def browser_socket(self):
+        return self.browser._connection_handler._ws_connection
 
     def _tab_for(self, target: dict):
         from pydoll.browser.tab import Tab
@@ -128,6 +118,7 @@ class Session:
             TargetCommands.create_target(url="about:blank", background=background)
         )
         tab = self._tab_for({"targetId": response["result"]["targetId"]})
+        self.opened.append(tab)
         if url and url != "about:blank":
             await tab.go_to(url)
         return tab
@@ -179,13 +170,19 @@ def build_namespace(session: Session, filename: str) -> dict:
     import pydoll
     from pydoll.constants import By, Key
 
+    async def new_tab(url: str = "about:blank", background: bool = True):
+        tab = await session.new_tab(url, background)
+        namespace["tabs"].append(tab)
+        return tab
+
     namespace = {
         "__name__": "__main__",
         "__file__": filename,
         "__builtins__": builtins,
         "asyncio": asyncio,
         "browser": session.browser,
-        "new_tab": session.new_tab,
+        "new_tab": new_tab,
+        "tabs": [],
         "By": By,
         "Key": Key,
     }
@@ -197,9 +194,9 @@ def build_namespace(session: Session, filename: str) -> dict:
         namespace[name] = getattr(exceptions, name)
 
     async def js(expression: str, tab=None):
-        target = tab or namespace.get("tab")
+        target = tab or namespace.get("tab") or (session.opened[-1] if session.opened else None)
         if target is None:
-            raise RuntimeError("no tab to evaluate in")
+            raise RuntimeError("no tab to evaluate in: there's no web page open, pass one or open one with new_tab")
         response = await target.execute_script(expression, return_by_value=True, await_promise=True)
         result = response["result"]
         if "exceptionDetails" in result:
@@ -219,8 +216,9 @@ async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: floa
         await session.connect()
         namespace = build_namespace(session, filename)
         tabs = await session.page_tabs()
-        namespace["tabs"] = tabs
+        namespace["tabs"].extend(tabs)
         namespace["tab"] = await session.current_tab(tabs) if "tab" in names or "js" in names else None
+        socket = session.browser_socket()
 
         async def execute():
             try:
@@ -238,10 +236,21 @@ async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: floa
             except BaseException as error:
                 raise UserCodeError(error, filename) from None
 
+        running = asyncio.ensure_future(execute())
+        closed = asyncio.ensure_future(socket.wait_closed()) if socket is not None else None
         try:
-            return await asyncio.wait_for(execute(), timeout) if timeout else await execute()
-        except asyncio.TimeoutError:
-            raise ExecTimeout(f"timed out after {timeout:g}s") from None
+            waiting = {running} | ({closed} if closed else set())
+            done, _ = await asyncio.wait(waiting, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+            if running in done:
+                return running.result()
+            if closed is not None and closed in done:
+                raise EndpointError(session.lost())
+            raise ExecTimeout(f"timed out after {timeout:g}s")
+        finally:
+            for task in (running, closed):
+                if task is not None and not task.done():
+                    task.cancel()
+            await asyncio.gather(*(task for task in (running, closed) if task is not None), return_exceptions=True)
     finally:
         await session.close()
 
@@ -282,5 +291,6 @@ def format_syntax_error(error: SyntaxError) -> str:
 
 
 def print_err(text: str) -> None:
-    sys.stdout.flush()
+    drain = getattr(sys.stdout, "drain", None)
+    drain() if drain else sys.stdout.flush()
     sys.stderr.write(redact(text if text.endswith("\n") else text + "\n"))

@@ -9,15 +9,15 @@ Run Python against the running Ardia, with top-level await.
 In scope:
   browser        pydoll Chrome attached to Ardia (closing it only drops the connection)
   tab            the tab the user is looking at (visible and focused, else visible, else the first)
-  tabs           every web page tab
+  tabs           every web page tab (http, https, file, about, data, blob), plus the ones new_tab opens
   new_tab(url, background=True)   open a tab and return it once the page has loaded
-  js(expression, tab=None)        evaluate JavaScript in tab and return its value
+  js(expression, tab=None)        evaluate JavaScript in tab (else the user's tab, else the last new_tab) and return its value
   By, Key, asyncio and pydoll's exports (Tab, WebElement, PageEvent, NetworkEvent, ...)
 
 The value of the last expression is printed (strings as is, other values as repr, or JSON with --json).
 Ardia keeps running after every exec.
 
-Exit status: 0 done, 1 the code raised or timed out, 2 Ardia can't be reached, 130 interrupted.
+Exit status: 0 done, 1 the code raised or timed out, 2 Ardia can't be reached or closed the connection, 130 interrupted.
 
 Examples:
   ardia exec 'await tab.title()'
@@ -113,14 +113,23 @@ def read_source(args) -> tuple[str, str]:
 
 
 def run_exec(args, parser) -> int:
+    from ardia_cli import redact as redaction
+
+    out = sys.stdout = redaction.RedactingStream(sys.stdout)
+    err = sys.stderr = redaction.RedactingStream(sys.stderr)
+    redaction.install_log_redaction()
+    try:
+        return _run_exec(args)
+    finally:
+        out.drain()
+        err.drain()
+
+
+def _run_exec(args) -> int:
     import asyncio
 
-    from ardia_cli import redact as redaction
     from ardia_cli.endpoint import EndpointError, resolve
 
-    sys.stdout = redaction.RedactingStream(sys.stdout)
-    sys.stderr = redaction.RedactingStream(sys.stderr)
-    redaction.install_log_redaction()
     try:
         source, filename = read_source(args)
     except OSError as error:
@@ -132,7 +141,7 @@ def run_exec(args, parser) -> int:
     try:
         runner.compile_code(source, filename)
     except SyntaxError as error:
-        sys.stderr.write(runner.format_syntax_error(error))
+        runner.print_err(runner.format_syntax_error(error))
         return 1
     try:
         endpoint = resolve(ws=args.ws, port=args.port, data_dir=args.data_dir)
@@ -141,8 +150,7 @@ def run_exec(args, parser) -> int:
         runner.print_err(f"ardia: {error}")
         return 2
     except runner.UserCodeError as error:
-        sys.stdout.flush()
-        sys.stderr.write(runner.format_user_error(error))
+        runner.print_err(runner.format_user_error(error))
         return 1
     except runner.ExecTimeout as error:
         runner.print_err(f"ardia exec: {error}")

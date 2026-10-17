@@ -13,7 +13,8 @@
 # the login shell's PATH, it adds one PATH line to ~/.zprofile (~/.bash_profile for bash), once.
 # Re-running it upgrades: a version that is already current is left alone; a new one is verified, staged in
 # <version>.partial, renamed, and `current` is swapped atomically (a running ardia keeps its old dir). It keeps the
-# current and the previous version and prunes the rest. Two runs never overlap (a lock in $ARDIA_CLI_HOME/.lock).
+# current and the previous version and prunes the rest, except versions a running ardia uses (its launcher leaves a
+# lease in <version>/.leases/<pid>). Two runs never overlap (a lock in $ARDIA_CLI_HOME/.lock).
 # The installed version is `basename "$(readlink "$ARDIA_CLI_HOME/current")"`.
 # Downloads are https only. ARDIA_CLI_URL overrides the tarball URL (file:// works); without --sha256 its checksum
 # is read from $ARDIA_CLI_URL.sha256.
@@ -50,7 +51,7 @@ fail() {
 finish() {
   status=$?
   [ -n "$work" ] && rm -rf "$work"
-  [ "$locked" -eq 1 ] && rm -rf "$cli_home/.lock"
+  release_lock
   if [ "$status" -ne 0 ] && [ "$reported" -eq 0 ]; then
     printf 'error install stopped (exit %s)\n' "$status"
   fi
@@ -96,8 +97,8 @@ take_lock() {
   tries=0
   until mkdir "$lock" 2>/dev/null; do
     holder=$(cat "$lock/pid" 2>/dev/null || true)
-    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
-      rm -rf "$lock"
+    if { [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; } || { [ -z "$holder" ] && older_than 30 "$lock"; }; then
+      break_stale "$lock" "$holder"
       continue
     fi
     tries=$((tries + 1))
@@ -106,6 +107,35 @@ take_lock() {
   done
   printf '%s\n' "$$" >"$lock/pid"
   locked=1
+}
+
+older_than() {
+  modified=$(stat -f %m "$2" 2>/dev/null) || return 1
+  [ $(($(date +%s) - modified)) -gt "$1" ]
+}
+
+break_stale() {
+  takeover=$cli_home/.lock-takeover
+  if mkdir "$takeover" 2>/dev/null; then
+    printf '%s\n' "$$" >"$takeover/pid"
+    if [ -d "$1" ] && [ "$(cat "$1/pid" 2>/dev/null || true)" = "$2" ]; then
+      rm -rf "$1"
+    fi
+    rm -rf "$takeover"
+    return 0
+  fi
+  owner=$(cat "$takeover/pid" 2>/dev/null || true)
+  if { [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; } || { [ -z "$owner" ] && older_than 30 "$takeover"; }; then
+    rm -rf "$takeover"
+  fi
+  sleep 1
+}
+
+release_lock() {
+  if [ "$locked" -eq 1 ] && [ "$(cat "$cli_home/.lock/pid" 2>/dev/null || true)" = "$$" ]; then
+    rm -rf "$cli_home/.lock"
+  fi
+  locked=0
 }
 
 points_into_cli_home() {
@@ -132,6 +162,19 @@ link_bin() {
   mv -fh "$bin_dir/.ardia.$$" "$bin_dir/ardia" || { rm -f "$bin_dir/.ardia.$$"; fail "couldn't link $bin_dir/ardia"; }
 }
 
+in_use() {
+  for lease in "$1"/.leases/*; do
+    [ -f "$lease" ] || continue
+    holder=${lease##*/}
+    case $holder in
+      ''|*[!0-9]*) continue ;;
+    esac
+    kill -0 "$holder" 2>/dev/null && return 0
+    rm -f "$lease"
+  done
+  return 1
+}
+
 is_cli_entry() {
   name=${1##*/}
   case $name in
@@ -143,6 +186,9 @@ is_cli_entry() {
 
 check_archive() {
   tar -tzf "$1" >"$work/names" 2>/dev/null || fail "couldn't read the tarball"
+  if grep -q -e '\\' -e ' -> ' -e '[[:cntrl:]]' "$work/names"; then
+    fail "the tarball has entry names with control characters, backslashes or arrows"
+  fi
   if grep -Ev "^ardia-cli-$version(/|$)" "$work/names" | grep -q .; then
     fail "the tarball has entries outside ardia-cli-$version/"
   fi
@@ -153,18 +199,25 @@ check_archive() {
   if grep -Eq '^h| link to ' "$work/listing"; then
     fail "the tarball has hard links"
   fi
-  if grep -E '^l' "$work/listing" | sed 's/.* -> //' | grep -Eq '^/|(^|/)\.\.(/|$)'; then
+  grep -E '^l' "$work/listing" | awk '{ i = index($0, " -> "); print (i ? substr($0, i + 4) : "/") }' >"$work/targets"
+  if grep -Eq '^/|(^|/)\.\.(/|$)|\\' "$work/targets"; then
     fail "the tarball has links that point outside it"
   fi
 }
 
 check_tree() {
-  find "$1" -type l >"$work/links"
-  while IFS= read -r link; do
-    case $(readlink "$link") in
-      /*|..|../*|*/../*|*/..) fail "the tarball has a link that points outside it: ${link#"$1"/}" ;;
-    esac
-  done <"$work/links"
+  if [ -n "$(find "$1" -name '*[[:cntrl:]]*' -print -quit)" ]; then
+    fail "the tarball has names with control characters"
+  fi
+  if [ -n "$(find "$1" -type f -links +1 -print -quit)" ]; then
+    fail "the tarball has hard links"
+  fi
+  find "$1" -type l -exec sh -c '
+    for link do
+      case $(readlink "$link") in
+        /*|..|../*|*/../*|*/..|*[[:cntrl:]]*) exit 1 ;;
+      esac
+    done' sh {} + || fail "the tarball has a link that points outside it"
 }
 
 if [ "$uninstall" -eq 1 ]; then
@@ -182,8 +235,7 @@ if [ "$uninstall" -eq 1 ]; then
       esac
       rm -rf "$entry" || fail "couldn't remove $entry"
     done
-    rm -rf "$cli_home/.lock"
-    locked=0
+    release_lock
     rmdir "$cli_home" 2>/dev/null || true
   fi
   reported=1
@@ -258,18 +310,24 @@ check_tree "$staged"
 [ -x "$staged/bin/ardia" ] || fail "the tarball has no ardia-cli-$version/bin/ardia"
 xattr -dr com.apple.quarantine "$staged" 2>/dev/null || true
 "$staged/bin/ardia" --version >"$work/check.out" 2>&1 || fail "the downloaded ardia doesn't run: $(tail -n 1 "$work/check.out")"
-if [ -e "$dest" ] || [ -L "$dest" ]; then
-  mv "$dest" "$cli_home/.install.replaced.$$" || fail "couldn't replace $dest"
-  rm -rf "$cli_home/.install.replaced.$$"
+if [ -d "$dest" ] && ! [ -L "$dest" ] && [ -x "$dest/bin/ardia" ] && in_use "$dest"; then
+  rm -rf "$staged"
+else
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    mv "$dest" "$cli_home/.install.replaced.$$" || fail "couldn't replace $dest"
+    rm -rf "$cli_home/.install.replaced.$$"
+  fi
+  mv "$staged" "$dest" || fail "couldn't move the CLI into $dest"
 fi
-mv "$staged" "$dest" || fail "couldn't move the CLI into $dest"
 ln -sfh "$version" "$cli_home/.install.current.$$" || fail "couldn't create the current link"
 mv -fh "$cli_home/.install.current.$$" "$cli_home/current" || fail "couldn't switch $cli_home/current"
 for entry in "$cli_home"/*; do
   case ${entry##*/} in
     current|"$version"|"$previous") continue ;;
   esac
-  is_cli_entry "$entry" && rm -rf "$entry"
+  if is_cli_entry "$entry" && ! in_use "$entry"; then
+    rm -rf "$entry"
+  fi
 done
 
 link_bin

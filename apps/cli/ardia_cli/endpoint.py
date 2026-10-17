@@ -58,7 +58,8 @@ def _from_port(port: int) -> Endpoint:
     if not 0 < port < 65536:
         raise EndpointError(f"--port must be between 1 and 65535, not {port}")
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=3) as response:
+        direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with direct.open(f"http://127.0.0.1:{port}/json/version", timeout=3) as response:
             info = json.loads(response.read(_MAX_CONTROL_FILE))
     except Exception as error:
         raise EndpointError(f"no DevTools server answers on 127.0.0.1:{port} ({_reason(error)})") from None

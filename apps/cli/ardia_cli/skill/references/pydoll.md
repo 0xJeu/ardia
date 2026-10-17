@@ -10,7 +10,7 @@ Every method below is a coroutine (`await` it) unless marked as a property. Chec
 | `refresh(ignore_cache=False)` | Reload and wait for the load. |
 | `current_url()`, `title()`, `page_source()` | The URL, the title, the HTML. |
 | `find(id=, class_name=, name=, tag_name=, text=, timeout=0, find_all=False, raise_exc=True, **attributes)` | Find by attributes (`data_testid="x"` matches `data-testid`). |
-| `query(expression, timeout=0, find_all=False, raise_exc=True)` | CSS or XPath. |
+| `query(expression, timeout=0, find_all=False, raise_exc=True)` | CSS or XPath. Not found: `ElementNotFound` with `timeout=0`, `WaitElementTimeout` with a timeout, `None` with `raise_exc=False`. |
 | `execute_script(script, return_by_value=None, await_promise=None)` | Raw `Runtime.evaluate`; the value is at `response["result"]["result"]["value"]`. `js()` is shorter. |
 | `wait_for_script(script, timeout=30)` | Poll until the expression is truthy; returns it. |
 | `wait_for_url(pattern, timeout=30)` | Glob (`*` stops at `/`, `**` doesn't: `"**/checkout/*"`), compiled regex or callable. |
