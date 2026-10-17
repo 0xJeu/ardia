@@ -1,4 +1,4 @@
-import { setAutoPictureInPicture, setDisplayMediaPicker } from "@ardia/ardiacore";
+import { setAutoPictureInPicture, setDisplayMediaPicker, setVideoUpscaling } from "@ardia/ardiacore";
 import { useRef } from "react";
 import { useBrowser } from "../../store/browser";
 import { useStoreWhile } from "../../store/tabWatch";
@@ -27,8 +27,15 @@ export function startMedia() {
     const on = useBrowser.getState().settings.autoPictureInPicture ?? true;
     if (on !== autoPip) void setAutoPictureInPicture((autoPip = on));
   };
+  let upscaling: boolean | null = null;
+  const syncUpscaling = () => {
+    const on = useBrowser.getState().settings.videoUpscaling ?? true;
+    if (on !== upscaling) void setVideoUpscaling((upscaling = on));
+  };
   syncAutoPip();
+  syncUpscaling();
   useBrowser.subscribe(syncAutoPip);
+  useBrowser.subscribe(syncUpscaling);
   cancelDisplayMediaOnNavigation();
   startTabShareCleanup();
   startCast();

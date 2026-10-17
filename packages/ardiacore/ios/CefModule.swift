@@ -60,6 +60,11 @@ public class CefModule: Module {
     AsyncFunction("forgetOpenedURL") { (id: Int) in }.runOnQueue(.main)
     AsyncFunction("setDisplayMediaPicker") { (enabled: Bool) in ArdiaCoreWebView.setDisplayMediaPicker(enabled) }.runOnQueue(.main)
     AsyncFunction("setAutoPictureInPicture") { (enabled: Bool) in ArdiaCoreWebView.setAutoPictureInPictureEnabled(enabled) }.runOnQueue(.main)
+    AsyncFunction("setVideoUpscaling") { (enabled: Bool) in ArdiaCoreWebView.setVideoUpscalingEnabled(enabled) }.runOnQueue(.main)
+    AsyncFunction("setVideoUpscalingTestConditions") { (conditions: [String: Bool]) in
+      ArdiaCoreWebView.setVideoUpscalingTestConditions(conditions.mapValues { NSNumber(value: $0) })
+    }.runOnQueue(.main)
+    AsyncFunction("videoUpscalingState") { ArdiaCoreWebView.videoUpscalingState() }.runOnQueue(.main)
     AsyncFunction("displayMediaSources") { ArdiaCoreHost.displayMediaSources }.runOnQueue(.main)
     AsyncFunction("listTasks") { (promise: Promise) in ArdiaCoreServices.tasks { promise.resolve($0) } }.runOnQueue(.main)
     AsyncFunction("systemState") { SystemState.shared.snapshot }.runOnQueue(.main)

@@ -46,6 +46,9 @@ export const Cef = requireNativeModule<{
   isTracing(): Promise<boolean>;
   setDisplayMediaPicker(enabled: boolean): Promise<void>;
   setAutoPictureInPicture?(enabled: boolean): Promise<void>;
+  setVideoUpscaling?(enabled: boolean): Promise<void>;
+  setVideoUpscalingTestConditions?(conditions: { lowPower?: boolean; thermalPressure?: boolean }): Promise<void>;
+  videoUpscalingState?(): Promise<{ enabled: boolean; lowPower: boolean; thermalPressure: boolean; appActive: boolean; tabs: { tabId: number; allowed: boolean }[] } | null>;
   setSearchEngineName(name: string): Promise<void>;
   displayMediaSources(): Promise<DisplayMediaSource[]>;
   listTasks(): Promise<EngineTask[]>;

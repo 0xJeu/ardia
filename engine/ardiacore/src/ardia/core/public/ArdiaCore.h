@@ -68,6 +68,9 @@ ARDIACORE_EXPORT
 + (void)closeCastDialog:(int)dialogId;
 + (void)terminateCastRoute:(NSString*)routeId;
 + (void)setAutoPictureInPicture:(BOOL)enabled;
++ (void)setVideoUpscaling:(BOOL)enabled;
++ (void)setVideoUpscalingTestConditions:(NSDictionary<NSString*, NSNumber*>*)conditions;
+@property(class, readonly) NSDictionary<NSString*, id>* videoUpscalingState;
 + (void)reservedShortcutsChanged;
 + (BOOL)isReservedGlobalShortcut:(NSString*)shortcut;
 + (void)selectDevice:(int)chooserId index:(int)index;

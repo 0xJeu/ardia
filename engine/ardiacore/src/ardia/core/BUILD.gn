@@ -65,6 +65,10 @@ source_set("core") {
     "ac_test_system_permissions.mm",
     "ac_tab_info.mm",
     "ac_seams.h",
+    "ac_video_upscaler.h",
+    "ac_video_upscaler.mm",
+    "ac_video_upscaling.h",
+    "ac_video_upscaling.mm",
     "ac_seams.mm",
     "ardiacore_api.mm",
     "ardiacore_internal.h",
@@ -140,6 +144,13 @@ source_set("core") {
   frameworks = [
     "AppKit.framework",
     "Carbon.framework",
+    "CoreMedia.framework",
+    "CoreVideo.framework",
     "Foundation.framework",
+    "IOSurface.framework",
+    "Metal.framework",
+    "VideoToolbox.framework",
   ]
+
+  weak_frameworks = [ "MetalFX.framework" ]
 }

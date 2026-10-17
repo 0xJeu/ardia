@@ -52,6 +52,7 @@
 #include "ardia/core/ac_fake_media.h"
 #include "ardia/core/ac_installed_bubble.h"
 #include "ardia/core/ac_modal_dialog_host.h"
+#include "ardia/core/ac_video_upscaling.h"
 #include "ardia/core/ac_page_channel.h"
 #include "ardia/core/ac_tab_info.h"
 #include "ardia/core/ac_autofill_trigger.h"
@@ -373,6 +374,7 @@ void WindowHost::SetActiveProfile(Profile* profile) {
   Browser* old_browser =
       active_profile_ ? ExistingBrowserFor(active_profile_) : nullptr;
   active_profile_ = profile;
+  VideoUpscalingInputsChanged();
   if (old_browser) {
     BrowserActiveStateManager::From(old_browser)->DidBecomeInactive();
   }
@@ -633,6 +635,7 @@ void WindowHost::ActiveTabChanged(Browser* browser,
   if (!contents) {
     return;
   }
+  VideoUpscalingInputsChanged();
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&ShowWaitingInstalledBubbles));
   base::AutoReset<int> notifying(&g_tab_strip_notifying,

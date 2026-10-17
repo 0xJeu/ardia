@@ -40,6 +40,7 @@
 #include "third_party/blink/public/common/switches.h"
 #include "content/public/common/result_codes.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
+#include "ardia/core/ac_video_upscaler.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_lifetime.h"
@@ -364,6 +365,9 @@ void ACMainDelegate::PreSandboxStartup() {
                                 dir.Append(FILE_PATH_LITERAL("Crashpad")));
     component_updater::RegisterPathProvider(chrome::DIR_COMPONENTS,
                                             chrome::DIR_USER_DATA);
+  }
+  if (process_type == switches::kGpuProcess) {
+    g_ardia_create_video_upscaler = &ardiacore::CreateVideoUpscaler;
   }
   if (process_type.empty()) {
     InstallAppOverrides();

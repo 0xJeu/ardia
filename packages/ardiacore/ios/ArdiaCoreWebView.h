@@ -45,6 +45,10 @@ NS_ASSUME_NONNULL_BEGIN
                                browser:(int)browserId NS_SWIFT_NAME(devScrollZoom(_:browserId:));
 + (void)setDisplayMediaPicker:(BOOL)enabled;
 + (void)setAutoPictureInPictureEnabled:(BOOL)enabled NS_SWIFT_NAME(setAutoPictureInPictureEnabled(_:));
++ (void)setVideoUpscalingEnabled:(BOOL)enabled NS_SWIFT_NAME(setVideoUpscalingEnabled(_:));
++ (void)setVideoUpscalingTestConditions:(NSDictionary<NSString *, NSNumber *> *)conditions
+    NS_SWIFT_NAME(setVideoUpscalingTestConditions(_:));
++ (NSDictionary<NSString *, id> *)videoUpscalingState;
 + (NSArray<NSDictionary<NSString *, id> *> *)devEventsForBrowser:(int)browserId NS_SWIFT_NAME(devEvents(browserId:));
 + (NSInteger)devWindowNumberForBrowser:(int)browserId NS_SWIFT_NAME(devWindowNumber(browserId:));
 + (NSArray<NSDictionary<NSString *, id> *> *)devPictureInPicture NS_SWIFT_NAME(devPictureInPicture());

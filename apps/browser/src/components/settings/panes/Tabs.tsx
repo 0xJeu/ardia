@@ -52,6 +52,11 @@ export function TabsPane() {
           "When a tab you're not looking at plays sound, a player appears at the bottom of the sidebar. Pinned tabs that are playing show one when you hover them.",
         )}
         {toggle("autoPictureInPicture", "Automatic Picture in Picture", "A video or call you're watching pops out when you switch tabs or leave the window, and returns when you come back.")}
+        {toggle(
+          "videoUpscaling",
+          "Video upscaling",
+          "Sharpens low-resolution videos shown larger than they are, on Apple silicon. Only in the tab you're watching, never in the background, in Low Power Mode or when the Mac runs hot.",
+        )}
       </Group>
 
       <SectionHeader title="Tab groups" />

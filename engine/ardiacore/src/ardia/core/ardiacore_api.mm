@@ -84,6 +84,7 @@
 #include "ardia/core/ac_installed_bubble.h"
 #include "ardia/core/ac_lifetime.h"
 #include "ardia/core/ac_main_delegate.h"
+#include "ardia/core/ac_video_upscaling.h"
 #include "ardia/core/ac_navigation_hold.h"
 #include "ardia/core/ac_page_channel.h"
 #include "ardia/core/ac_password_prompt.h"
@@ -669,6 +670,7 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
         ardiacore::InstallExternalAppPrompts();
         ardiacore::StartPictureInPictureObserver();
         ardiacore::StartHostVisibility();
+        ardiacore::StartVideoUpscaling();
         [g_delegate engineDidStart];
       }),
       .shutting_down = base::BindOnce([] {
@@ -896,6 +898,22 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 
 + (BOOL)isReservedGlobalShortcut:(NSString*)shortcut {
   return ardiacore::IsReservedGlobalShortcut(shortcut);
+}
+
++ (void)setVideoUpscaling:(BOOL)enabled {
+  ardiacore::SetVideoUpscalingEnabled(enabled);
+}
+
++ (void)setVideoUpscalingTestConditions:(NSDictionary<NSString*, NSNumber*>*)conditions {
+  NSNumber* low_power = conditions[@"lowPower"];
+  NSNumber* thermal = conditions[@"thermalPressure"];
+  ardiacore::SetVideoUpscalingTestConditions(
+      low_power ? std::optional<bool>(low_power.boolValue) : std::nullopt,
+      thermal ? std::optional<bool>(thermal.boolValue) : std::nullopt);
+}
+
++ (NSDictionary<NSString*, id>*)videoUpscalingState {
+  return ardiacore::VideoUpscalingState();
 }
 
 + (void)setAutoPictureInPicture:(BOOL)enabled {

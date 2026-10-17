@@ -40,6 +40,7 @@ export type Settings = {
   mutedSites: string[];
   neverTranslateSites: Record<string, string[]>;
   autoPictureInPicture: boolean;
+  videoUpscaling: boolean;
   sidebarMediaControls: boolean;
   sidebarWidth: number;
   batterySaver: boolean;
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mutedSites: [],
   neverTranslateSites: {},
   autoPictureInPicture: true,
+  videoUpscaling: true,
   sidebarMediaControls: true,
   sidebarWidth: 190,
   batterySaver: true,

@@ -332,6 +332,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   private func configureSmall(_ window: NSWindow) {
+    window.identifier = NSUserInterfaceItemIdentifier("ardia.window.small")
     window.minSize = NSSize(width: 420, height: 300)
     window.tabbingMode = .disallowed
     window.collectionBehavior.insert(.moveToActiveSpace)

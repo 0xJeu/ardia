@@ -10,6 +10,7 @@
 #include "content/public/browser/web_contents_user_data.h"
 #include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_picture_in_picture.h"
+#include "ardia/core/ac_video_upscaling.h"
 
 namespace ardiacore {
 
@@ -49,6 +50,7 @@ void NoteTabShownByHost(content::WebContents* contents, bool shown) {
   }
   HostVisibility::CreateForWebContents(contents);
   HostVisibility::FromWebContents(contents)->set_shown(shown);
+  VideoUpscalingInputsChanged();
   TraceAutoPictureInPictureInputs(contents, shown ? "host shows tab" : "host hides tab");
   ArdiaAutoPictureInPictureHostVisibilityChanged(contents);
   if (auto* prompts = permissions::PermissionRequestManager::FromWebContents(contents)) {

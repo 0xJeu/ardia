@@ -32,6 +32,7 @@ holds the rest.
 | Hover layout | `node apps/browser/scripts/hover-shift-test.mjs <Debug app>` | Hovering moves nothing: every hover-tracked view in the sidebar, the tab strip and the downloads popover (below) |
 | Sync | `node packages/sync/scripts/e2e.mjs <Debug app>` | Two and three hidden instances through one folder (`docs/sync.md`) |
 | Import | `node packages/import/scripts/e2e.mjs <Debug app> <scratch dir>` | Cookies, addresses and cards from a fake Chrome home (`packages/import/README.md`) |
+| Video upscaling | `node apps/browser/scripts/video-upscaling-test.mjs <Debug app> [--keep] [check…]` (`--list`) | What the GPU process upscales in every state the gate decides (playing, paused, native size, background tab, app inactive, occluded, Low Power, thermal, PiP, HDR, full screen, Little Ardia, setting off), from its `ArdiaVSR.*` trace events and `videoUpscalingState()` |
 | Engine patches | `python3 engine/patches/series.py check` | The patch series reproduces the Chromium tree (`docs/engine-build.md`) |
 | Engine (ArdiaCore) | `node packages/ardiacore/scripts/acceptance.mjs <Debug app> <scratch dir> [--keep] [check…]` | The app on ArdiaCore, hidden (`docs/ardiacore-parity.md`). `--keep` leaves the instance up and `--attach <scratch dir> [check…]` re-runs checks on it in seconds; `--list` gives each check's section and what it needs (brought along automatically) |
 | Focus (ArdiaCore) | `node packages/ardiacore/scripts/activation-acceptance.mjs <Debug app> <scratch dir> [check…]` | The panes shown, Chrome's active tab and native focus agree |

@@ -1509,6 +1509,18 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   if ([ArdiaCoreEngine respondsToSelector:@selector(setAutoPictureInPicture:)]) [ArdiaCoreEngine setAutoPictureInPicture:enabled];
 }
 
++ (void)setVideoUpscalingEnabled:(BOOL)enabled {
+  if ([ArdiaCoreEngine respondsToSelector:@selector(setVideoUpscaling:)]) [ArdiaCoreEngine setVideoUpscaling:enabled];
+}
+
++ (void)setVideoUpscalingTestConditions:(NSDictionary<NSString *, NSNumber *> *)conditions {
+  if ([ArdiaCoreEngine respondsToSelector:@selector(setVideoUpscalingTestConditions:)]) [ArdiaCoreEngine setVideoUpscalingTestConditions:conditions];
+}
+
++ (NSDictionary<NSString *, id> *)videoUpscalingState {
+  return [ArdiaCoreEngine respondsToSelector:@selector(videoUpscalingState)] ? ArdiaCoreEngine.videoUpscalingState : nil;
+}
+
 + (void)setSearchEngineName:(NSString *)name {
   gSearchEngineName = name.length ? [name copy] : @"Google";
 }
