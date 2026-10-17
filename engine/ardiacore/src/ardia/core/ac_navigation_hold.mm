@@ -26,6 +26,7 @@
 #include "extensions/browser/api/declarative_net_request/rules_monitor_service.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_manager.h"
 #include "content/public/common/url_constants.h"
+#include "net/base/net_errors.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_id.h"
 #include "url/gurl.h"
@@ -35,7 +36,7 @@ namespace ardiacore {
 
 namespace {
 
-constexpr base::TimeDelta kDeadline = base::Seconds(10);
+constexpr base::TimeDelta kHeldNavigationDeadline = base::Seconds(10);
 
 class HoldThrottle;
 
@@ -62,7 +63,6 @@ class Hold : public ProfileObserver {
   const base::TimeTicks since_ = base::TimeTicks::Now();
   base::TimeTicks first_deferred_;
   std::vector<base::WeakPtr<HoldThrottle>> throttles_;
-  base::OneShotTimer deadline_;
   base::ScopedObservation<Profile, ProfileObserver> observation_{this};
 };
 
@@ -96,22 +96,32 @@ class HoldThrottle : public content::NavigationThrottle {
       return PROCEED;
     }
     hold->Defer(weak_factory_.GetWeakPtr());
+    extension_id_ = hold->extension_id();
+    deadline_.Start(FROM_HERE, kHeldNavigationDeadline, base::BindOnce(&HoldThrottle::GiveUp, base::Unretained(this)));
     return DEFER;
   }
   const char* GetNameForLogging() override { return "ACNavigationHoldThrottle"; }
 
-  void ResumeHeld() { Resume(); }
+  void ResumeHeld() {
+    deadline_.Stop();
+    Resume();
+  }
 
  private:
+  void GiveUp() {
+    LOG(ERROR) << "ArdiaCore: " << extension_id_ << " still isn't ready after "
+               << kHeldNavigationDeadline.InSeconds() << " s; a held navigation is blocked rather than loaded without it";
+    CancelDeferredNavigation(ThrottleCheckResult(BLOCK_REQUEST, net::ERR_BLOCKED_BY_CLIENT));
+  }
+
+  std::string extension_id_;
+  base::OneShotTimer deadline_;
   base::WeakPtrFactory<HoldThrottle> weak_factory_{this};
 };
 
 Hold::Hold(Profile* profile, std::string extension_id)
     : profile_(profile), extension_id_(std::move(extension_id)) {
   observation_.Observe(profile);
-  deadline_.Start(FROM_HERE, kDeadline,
-                  base::BindOnce(&Hold::Release, base::Unretained(this), false,
-                                 std::string("timed out")));
 }
 
 Hold::~Hold() = default;
