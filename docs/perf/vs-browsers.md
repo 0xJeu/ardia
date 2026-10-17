@@ -138,6 +138,19 @@ isn't worth an engine project for about 20 MB, so it's parked. Our base is highe
 at 1 tab) mostly because the window is drawn in the browser process: two 16 MB IOSurfaces that Chrome keeps in
 its GPU process (ours 52-131 MB, Helium's 132-209).
 
+Update (2026-10-17, unparked): the two IOSurfaces were the hidden Metal view of each window's backdrop (vibrancy draws
+it with an NSVisualEffectView): its CAMetalLayer kept two 2560×1600 drawables, 31.8 MB. While hidden its drawable is
+now 1×1 (26a7a7fb, `ARDIA_BACKDROP_DRAWABLES=keep` turns it off). The retention after closing was mostly Hermes, not
+PartitionAlloc: its heap grows from 8 to 29 MB over the session and keeps the freed segments (9 MB live), and each
+forced full GC compacts one segment. lib/memoryTrim.ts (25c2d1da) runs gc() until the heap stops shrinking, 5 s after
+the tab count settles and only while Ardia isn't taking input, then `ac_memory_trim` (PartitionAlloc's ReclaimAll,
+off the main thread). `ARDIA_MEMORY_TRIM=off` (or `_HEAP=off`, `_ENGINE=off`) turns it off. Browser process, hidden
+Release, the session's flow: 1 tab 122 → 90 MB, back to 1 tab 121 (trim off) → 105 MB. xbench session A/B against
+0.2.38-nightly.4 (`/tmp/ac-mem/xb1`, 3 rounds, totals): 1 tab 338 → 306, 10 tabs 773 → 739, 20 tabs 1142 → 1116,
+back to 1 tab 423 → 391 MB; idle CPU and wakeups equal or lower. That build also carried an uncommitted launch-picture
+capture that adds about 17 MB to the browser process after closing; without it the trim's own build reads 105 MB
+back at 1 tab.
+
 **Idle CPU at 20 tabs (+0.80 points).** Wakeups are the same (Ardia 29.8, Chrome 30.9 /s): every page's 1 s timer
 wakes it in every browser. Ardia's renderers spend about 3× the CPU per wakeup: renderer CPU 1.17 % against
 Chrome's 0.39 %. Helium, with uBlock Origin, is at 0.89 %. The same suspects as memory. Chrome may also be applying
