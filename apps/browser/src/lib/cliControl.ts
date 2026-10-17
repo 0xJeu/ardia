@@ -98,20 +98,31 @@ let started = false;
 export function startCliControl() {
   if (started) return;
   started = true;
-  const setServer = (server: CliControlStatus) => {
+  let latest = 0;
+  let inFlight = 0;
+  let newest = 0;
+  const apply = (server: CliControlStatus, mayReconcile: boolean) => {
+    if ((server.generation ?? newest) < newest) return;
+    newest = Math.max(newest, server.generation ?? 0);
     useCli.setState({ server });
     const stoppedItself = server.state === "off" && !!server.reason;
-    if (stoppedItself && useBrowser.getState().settings.cliControl) useBrowser.getState().updateSettings({ cliControl: false });
+    if (mayReconcile && stoppedItself && useBrowser.getState().settings.cliControl) useBrowser.getState().updateSettings({ cliControl: false });
   };
-  onCliControlChanged(setServer);
+  onCliControlChanged((server) => apply(server, inFlight === 0));
   let applied: boolean | null = null;
   const sync = () => {
     const on = useBrowser.getState().settings.cliControl ?? false;
     if (on === applied) return;
     const first = applied === null;
     applied = on;
+    const request = ++latest;
+    inFlight++;
+    const settle = (server: CliControlStatus) => {
+      inFlight--;
+      if (request === latest) apply(server, true);
+    };
     const call = first && !on ? cliControlStatus() : setCliControl(on);
-    void call.then(setServer, (e: unknown) => setServer({ state: "off", reason: e instanceof Error ? e.message : String(e) }));
+    void call.then(settle, (e: unknown) => settle({ state: "off", reason: e instanceof Error ? e.message : String(e) }));
   };
   sync();
   useBrowser.subscribe(sync);
