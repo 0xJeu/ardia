@@ -1,11 +1,9 @@
 # GN args for the Ardia engine build, all of them (02-gn-args.sh writes args.gn from this list).
 _gn_args=(
-  # Fast release build: no official/LTO/PGO, no DCHECKs, no symbols.
-  is_official_build=false
+  is_official_build=true
+  chrome_pgo_phase=2
   is_debug=false
   dcheck_always_on=false
-  use_thin_lto=false
-  chrome_pgo_phase=0
   symbol_level=0 blink_symbol_level=0 v8_symbol_level=0
   is_component_build=false
   forbid_non_component_debug_builds=false
@@ -24,9 +22,8 @@ _gn_args=(
   fatal_linker_warnings=false
   clang_use_chrome_plugins=false
   enable_precompiled_headers=false
-  # ungoogled-chromium flags.gn (154.0.8037.97-1), as the CEF-era build had them.
-  # Not used: safe_browsing_mode=0, enable_mdns/enable_service_discovery/enable_reporting=false
-  # (kept as in the CEF-era build; domain substitution already cuts their Google endpoints).
+  safe_browsing_mode=0
+  enable_reporting=false
   disable_fieldtrial_testing_config=true
   enable_hangout_services_extension=false
   enable_remoting=false
@@ -45,8 +42,6 @@ _gn_args=(
   enable_resource_allowlist_generation=false
   enable_rlz=true
   optimize_webui=true
-  # Was is_debug || enable_cef: Release logs to chrome_debug.log, which our diagnostics read.
-  chrome_enable_logging_by_default=true
   # Ardia's bundle and team id (webauthn/payments keychain access groups);
   # product names stay "Chromium" (chromium-branding.patch).
   'branding_file_path="//chrome/app/theme/ardia/BRANDING"'

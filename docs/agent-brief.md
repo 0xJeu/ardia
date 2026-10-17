@@ -12,7 +12,7 @@ The user is demanding: no sloppy work, every hover state/animation/detail matter
   inline styles.
 - Native code lives in Expo modules under `packages/*/ios` (Swift / Objective-C++):
   - `packages/ardiacore`: the web engine, **ArdiaCore**: Chrome's own framework (`Chromium Framework.framework`, plain
-    Chromium 154.0.8037.97 + ungoogled-chromium + our patch series, `docs/engine-build.md`) with our layer linked
+    Chromium 155.0.8059.84 + ungoogled-chromium + our patch series, `docs/engine-build.md`) with our layer linked
     in, and the Expo modules and JS API the app uses (`docs/ardiacore-spike.md`, `docs/ardiacore-parity.md`).
     - **Chromium runs the process.** `main.swift` calls `ArdiaCoreHost.run`: `ChromeMain` starts with our
       `ACMainDelegate`, `NSApp` is Chrome's `BrowserCrApplication`, and the React Native host (`AppDelegate`) starts

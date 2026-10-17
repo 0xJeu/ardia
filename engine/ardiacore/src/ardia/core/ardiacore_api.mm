@@ -2090,7 +2090,7 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(_contents);
   ExclusiveAccessManager* manager =
-      browser ? browser->GetFeatures().exclusive_access_manager() : nullptr;
+      browser ? ExclusiveAccessManager::From(browser) : nullptr;
   if (manager) {
     manager->OnTabDeactivated(_contents);
   }

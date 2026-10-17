@@ -11,9 +11,9 @@ export DEPOT_TOOLS_UPDATE=0
 export PATH="$CB/depot_tools:$PATH"
 # The Chromium tag step 1 checks out, and the ungoogled-chromium tags made for exactly it
 # (its patches and domain substitution lists are version-specific).
-export CHROMIUM_VERSION=154.0.8037.97
-export UNGOOGLED_TAG=154.0.8037.97-1
-export UNGOOGLED_MACOS_TAG=154.0.8037.97-1.1
+export CHROMIUM_VERSION=155.0.8059.84
+export UNGOOGLED_TAG=155.0.8059.84-1
+export UNGOOGLED_MACOS_TAG=155.0.8059.39-1.1
 export GN_OUT_CONFIGS=Release_GN_arm64
 # Low priority for everything heavy. CPU-bound steps (compile/link) run in the
 # background QoS band (-b): on this M5 Pro that confines them to the 10

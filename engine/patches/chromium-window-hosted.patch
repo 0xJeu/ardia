@@ -74,9 +74,9 @@
    // first responder for the key NSWindow, NativeWidgetMacNSWindowHost's
 --- a/chrome/browser/ui/browser.cc
 +++ b/chrome/browser/ui/browser.cc
-@@ -604,7 +604,18 @@
+@@ -609,7 +609,18 @@
+   OnActiveTabChanged(change, selection);
  }
- 
  
 +// Ardia: ArdiaCore (engine/ardiacore) keeps its windows open without tabs.
 +bool (*g_ardia_keeps_window_without_tabs)(
@@ -103,7 +103,7 @@
  
  #include <algorithm>
  
-@@ -577,6 +578,12 @@
+@@ -578,6 +579,12 @@
  }
  
  void UnloadController::TabStripEmpty() {

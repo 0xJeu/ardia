@@ -1,7 +1,7 @@
 # Building the engine from source
 
 Ardia runs on ArdiaCore: Chrome's own framework (`//chrome:chrome_framework`) built from our Chromium tree, with our
-layers linked in (`docs/ardiacore-spike.md`). The tree is plain **Chromium 154.0.8037.97** (`CHROMIUM_VERSION` in
+layers linked in (`docs/ardiacore-spike.md`). The tree is plain **Chromium 155.0.8059.84** (`CHROMIUM_VERSION` in
 `env.sh`), then ungoogled-chromium, then our patch series. Nothing of CEF's is checked out or built. CEF left the tree
 on 2026-10-09: its 117 patches to Chrome are gone, except a few kept as `chromium-cef-carryover.patch`
 ([below](#cefs-117-patches)), and the seams of theirs ArdiaCore used are our own hooks H1–H6
@@ -11,7 +11,9 @@ What the build adds:
 
 - **H.264 / AAC.** Set with `proprietary_codecs=true` and `ffmpeg_branding="Chrome"`; H.264 decodes
   through VideoToolbox.
-- **ungoogled-chromium** 154.0.8037.97-1 (macOS 154.0.8037.97-1.1). Its patch series and domain substitution strip
+- **Chrome's release optimisations**, as Helium ships them: an official build with ThinLTO and PGO (Chromium's own
+  mac-arm profile). See [Helium](#helium) for what else came from Helium and what didn't.
+- **ungoogled-chromium** 155.0.8059.84-1 (macOS 155.0.8059.39-1.1). Its patch series and domain substitution strip
   Google background services; see [ungoogled-chromium](#ungoogled-chromium). The Chrome Web Store and
   extension auto-updates are deliberately kept working.
 - **Our patches**, in `engine/patches/`, applied in the order `engine/patches/series` gives (see
@@ -41,6 +43,8 @@ What the build adds:
 | `chromium-extension-installed-bubble.patch` | Chrome's "<extension> has been added" bubble (`ShowInfoDialog`): a window without Chrome's toolbar (every client window) gets it as a bubble under the top-right corner of the window, with a close button, closing on Esc and when the window is clicked. Chrome fell back to a browser-modal sheet there, with no buttons and no way to dismiss it. The app renames "Chromium" in Chrome's strings itself (`ac_strings.cc`) |
 | `chromium-tab-sharing-capturer.patch` | Each tab-sharing infobar remembers the frame whose capture it's for (`TabSharingInfoBarDelegate::capturer_id()`): a tab shows one infobar per share, and "Share this tab instead" moves only that share, never another call's |
 | `chromium-video-super-resolution.patch` | Video upscaling on Apple silicon: a per-compositor gate (`RenderWidgetHostView::SetVideoSuperResolutionAllowed` → `BrowserCompositorMac`, kept across its compositors → `ui::Compositor` → `DisplayPrivate.SetVideoSuperResolutionAllowed` → `viz::Display`, which redraws once on a change → `gfx::FrameData`) reaches the GPU process's `ImageTransportSurfaceOverlayMac::Present`, where `CALayerTreeCoordinator::UpscaleVideo` hands the frame's video layers to ArdiaCore's upscaler (`g_ardia_create_video_upscaler`, set in the GPU process; `//ardia/core` `ac_video_upscaler.mm`). A frame whose upscale has just started holds its CA commit until the job completes (at most 0.6 of a display frame, 4–10 ms, posted, never blocking the GPU thread); a later finish replaces the committed layer's contents in a small CA commit, a redraw of the same frame takes the cached output at once, and the contents are a `CALayer`'s IOSurface or an `AVSampleBufferDisplayLayer`'s buffer alike. The browser side decides the gate (`ac_video_upscaling.mm`) |
+| `chromium-safe-browsing-off-file-types.patch` | With `safe_browsing_mode=0`, `components_resources` still builds the download file types protobuf the download code reads (Helium carries the same fix) |
+| `chromium-background-features-off.patch` | Background work Helium turns off, off by default here too: history clustering (Journeys), the Topics API, the Protected Audience (FLEDGE) runtime feature, Live Caption (so no on-device speech model download) and the outdated build check's timer |
 | `chromium-ardia-layer.patch` | The macOS `//chrome:chrome_dll` (ArdiaCore's framework) links `//chrome/browser/ardia` and exports its `ac_*` calls |
 | `chromium-pip-overlay-window.patch` | Chrome makes our `ArdiaVideoOverlayWindow` (`chrome/browser/ardia/pip/`, a `VideoOverlayWindowViews` subclass with its own buttons, progress bar, fade and bounds memory; the hook makes six methods virtual): Dia's video Picture in Picture window (measured in `docs/dia-spec.md` › Picture in Picture): nothing but the video at rest (the origin shows only with the controls); on hover a 35 % black scrim, back to tab (top left) and close (top right) as 28 pt rounded squares with 1 pt line glyphs, the origin centred in 13 pt, a bare play/pause glyph and a 5 pt progress bar that seeks; no skip, time, mute, captions or minimize controls (the keyboard shortcuts stay). Controls fade in 200 ms ease-in-out. The window shows at once and fades out in Core Animation (100 ms from the close button, 70 ms otherwise, smooth while the tab is being shown), and a new window opens where the last one was left, sized to the new video and kept on screen (`ArdiaPictureInPicture.plist` in the user data dir). Closing it, by its button or by the window going away any other way, never pauses the video, which keeps playing in its tab, as in Dia and Arc (`OnCloseButtonPressed` asks for `kCloseWindowOnly`, and the subclass's `OnNativeWidgetDestroyed` tells the controller not to pause; Chrome paused whenever the window had a play/pause button) |
 
@@ -244,33 +248,48 @@ tree is patched).
 
 | Step | Script | Time (M5 Pro, shared machine) |
 |---|---|---|
-| 1. `gclient sync --no-history` of Chromium's tag (`CHROMIUM_VERSION` in `env.sh`) for the Mac, then its hooks; clears the series base | `01-sync.sh` | ~40 min, 30 GB |
+| 1. Fetch Chromium's tag (`CHROMIUM_VERSION` in `env.sh`) at depth 1 and check it out, then `gclient sync --no-history` of its deps for the Mac with the PGO profiles (`checkout_pgo_profiles`), then its hooks; clears the series base | `01-sync.sh` | ~40 min, 30 GB (deps alone, re-cloned: 7 min) |
 | 2. Write `out/Release_GN_arm64/args.gn` from `gn_defines.sh`, then `gn gen` | `02-gn-args.sh` | ~1 min |
 | 3. ungoogled-chromium's series, with the exceptions below | `03-ungoogled.py` | 2 min |
 | 4. Domain substitution, minus the store files (`domsub-keep-store.txt`), then our series: `apply-chromium-patches.sh` (`series.py capture-base` and `apply --phase chromium`, then the layers `engine/chromium/apply.sh` and `engine/ardiacore/apply.sh`) | `04-domain-substitution.sh` | 5 min |
-| 5. Regenerate the offline page (`game-resource.sh`), compile `chrome_framework` (ArdiaCore; the app's build stages it from `out/Release_GN_arm64`) | `05-build.sh` | first build about 2 h; incremental 20 s–2 min |
+| 5. Regenerate the offline page (`game-resource.sh`), compile `chrome_framework` (ArdiaCore; the app's build stages it from `out/Release_GN_arm64`) | `05-build.sh` | first build 2.5 h (official, ThinLTO, PGO; 2026-10-18); incremental: the compile, then a ThinLTO relink of the framework, about 7 min (its cache, `thinlto-cache`, keeps that short) |
 
-Disk: about 43 GB in total. That's 40 GB for the checkout with its 10 GB out dir and 0.2 GB for the
-domain-substitution cache.
+Disk: about 45 GB in total. That's 40 GB for the checkout with its 13 GB out dir, the PGO profiles (170 MB) and
+0.2 GB for the domain-substitution cache.
 
 Rules for editing the tree after the first build:
 
 - **GN args** live in `gn_defines.sh`, the complete list (the args CEF's `gn_args.py` used to merge in are there
-  too): a non-official Release build (no ThinLTO/PGO, no DCHECKs, no symbols), proprietary codecs, Widevine (DRM
-  still needs Google's VMP signing), Ardia branding, and ungoogled's `flags.gn` minus the exceptions below.
+  too): an official build (`is_official_build=true`, which turns on ThinLTO and stripping) with PGO
+  (`chrome_pgo_phase=2`, the profile `chrome/build/mac-arm.pgo.txt` names), no DCHECKs, no symbols, proprietary
+  codecs, Widevine (DRM still needs Google's VMP signing), Ardia branding, and ungoogled's and Helium's `flags.gn`
+  minus the exceptions below. Official builds don't allow `chrome_enable_logging_by_default`, so Chrome writes no
+  `chrome_debug.log` unless it's started with `--enable-logging` (a test instance:
+  `ARDIA_CHROMIUM_SWITCHES=--enable-logging`).
   After changing them, run step 2 again.
-- **Moving to a new Chromium version.**
-  1. Revert domain substitution:
-     `python3 ungoogled/utils/domain_substitution.py revert -c domsubcache.tar.gz chromium_git/chromium/src`.
+- **Moving to a new Chromium version.** It deletes `out/` and costs a full build (official, ThinLTO, PGO), so it
+  needs the owner's OK.
+  1. Domain substitution doesn't need reverting: its cache never matches a tree our series has patched (the revert
+     fails on the hashes). Set `domsubcache.tar.gz` aside instead, and reset every repo of the checkout to its
+     commit (`git reset --hard` and `git clean -ffd` in `src` and through `gclient recurse`). `01-sync.sh` runs
+     `gclient sync --reset --force -D` too.
   2. Set `CHROMIUM_VERSION`, `UNGOOGLED_TAG` and `UNGOOGLED_MACOS_TAG` in `env.sh` (ungoogled's lists are made
-     for exactly one Chromium version) and check those tags out in `~/chromium-build/ungoogled{,-macos}`.
-  3. Re-run `01-sync.sh`, then steps 3, 4, 2 and 5.
-  4. Our patches and the hooks may need their context refreshed; `series.py check` and `apply.sh --check` say
-     which.
+     for exactly one Chromium version) and check those tags out in `~/chromium-build/ungoogled{,-macos}`. The macOS
+     repo is often a few patch releases behind; its tag for the same milestone is fine, since only
+     `fix-disabling-safebrowsing.patch` comes from it.
+  3. Delete `out/`, re-run `01-sync.sh`, then steps 3, 4, 2 and 5.
+  4. `src` is an unmanaged, shallow solution. gclient never moves it to a new tag, and a plain `git fetch` of it
+     (or of a shallow dep) asks for the whole history of every branch: the server builds that pack for an hour
+     without sending a byte. So `01-sync.sh` fetches the tag itself at depth 1. If deps stall the same way
+     (`STALL DETECTED`, `git fetch --prune --no-tags origin` at 0 % CPU), delete the dep checkouts listed in
+     `.gclient_entries` and sync again: gclient clones them fresh at depth 1.
+  5. Our patches and the hooks may need their context refreshed; `series.py check` and `apply.sh --check` say
+     which. A patch whose file moved is rewritten for the new path, and the new path's file goes into the series
+     base (`series-base/`) as steps 3 and 4 left it.
 
 ## ungoogled-chromium
 
-The patch set comes from the 154.0.8037.97-1 series plus the macOS repo's (154.0.8037.97-1.1)
+The patch set comes from the 155.0.8059.84-1 series plus the macOS repo's (155.0.8059.39-1.1)
 `fix-disabling-safebrowsing.patch` (`UNGOOGLED_TAG`, `UNGOOGLED_MACOS_TAG` in `env.sh`). The full list with reasons
 is `engine/patches/ungoogled-status.tsv`; the exceptions are `03-ungoogled.py`'s. `disable-gcm` now applies in full
 (CEF's own GCM stub went with CEF). The other exceptions first made for CEF are kept as the CEF-era build had them:
@@ -289,12 +308,14 @@ a behaviour decision for later, no longer a build need.
   (`chromium-extension-updates.patch`), so Web Store extensions auto-update. The component updater's
   hosts stay unreachable through domain substitution.
 
-**Not applied (they assume `safe_browsing_mode=0` or disabled mdns; Safe Browsing and mdns stay compiled in):**
+**Safe Browsing is compiled out** (`safe_browsing_mode=0`, as in ungoogled and Helium, since 155): its lists could
+never update through domain substitution, yet every navigation and download still went through its checks. So
+`0001-fix-building-without-safebrowsing`, `fix-building-without-safebrowsing` (with fuzz 3, `FUZZ` in
+`03-ungoogled.py`: one `chrome/test/BUILD.gn` hunk sits next to the skipped pruning fix), `remove-unused-preferences-fields`,
+`move-js-optimizer-unfamiliar-sites` and the macOS `fix-disabling-safebrowsing` apply now.
 
-- `0001-fix-building-without-safebrowsing`
-- `remove-unused-preferences-fields`
-- `move-js-optimizer-unfamiliar-sites`
-- `fix-building-without-mdns-and-service-discovery`
+**Not applied:** `fix-building-without-mdns-and-service-discovery`: mDNS and service discovery stay compiled in, since
+the Cast dialog finds devices through them.
 
 **Also not applied:**
 
@@ -310,20 +331,60 @@ a behaviour decision for later, no longer a build need.
 
 - Pruning and its two fixes: a gclient checkout keeps its prebuilt toolchains.
 - Two Linux-only patches.
-- Two build fixes for `safe_browsing_mode=0`.
 
 **Other changes:**
 
-- A fixup guards ChromeContentBrowserClient's ScreenAI sandbox code with
-  `ENABLE_SCREEN_AI_SERVICE`.
-- GN flags not used: `safe_browsing_mode=0`, `enable_mdns=false`, `enable_service_discovery=false`
-  and `enable_reporting=false`. Domain substitution already cuts off their Google endpoints.
+- The ScreenAI sandbox fixup is gone: 155's ChromeContentBrowserClient no longer reaches ScreenAI code there.
+- GN flags not used: `enable_mdns=false` and `enable_service_discovery=false` (the Cast dialog). `safe_browsing_mode=0`
+  and `enable_reporting=false` are used.
 - Domain substitution skips the Web Store and extension-updater sources (`domsub-keep-store.txt`),
   so chromewebstore.google.com, clients2.google.com and clients2.googleusercontent.com work.
   Everything else Google stays substituted. That includes the component updater (the Widevine CDM
   download), spell-check dictionaries, Safe Browsing list updates and the CWS info service.
 - A `--log-net-log` capture of an app session showed no Google hosts. The only attempt was Safe
   Browsing's update to a substituted, blocked host.
+
+## Helium
+
+[Helium](https://github.com/imputnet/helium-chromium) (0.19.4, also on 155.0.8059.84, ungoogled-based) was the model for
+the 155 upgrade. What we took and what we left, with the reason for each. Helium's patches are GPL-3.0, so none is
+copied in: the ones adopted are one-line default changes, made again here.
+
+**GN args** (its `flags.gn` and `helium-macos`'s `flags.macos.gn` and `devutils/shared.sh` release mode):
+
+- Adopted: `is_official_build=true` (ThinLTO, stripping, official optimisation levels) and `chrome_pgo_phase=2` with
+  `checkout_pgo_profiles` (Chromium's own PGO profile, as Chrome's release builds use), `safe_browsing_mode=0` and
+  `enable_reporting=false`.
+- Kept as ours: `symbol_level=0` (Helium has 1, for its crash reporter; we have none), the codecs, Widevine with its
+  CDM storage id, branding.
+- Not adopted: `enable_mdns=false` and `enable_service_discovery=false` (the Cast dialog), `use_siso`/`cc_wrapper`
+  (Helium's own build cache), `enable_sparkle` (the app has its own updater).
+
+**Patches adopted:**
+
+- `disable-history-clusters`, `disable-ad-topics-and-etc`, `disable-live-caption-completely`,
+  `disable-outdated-build-detector`: background work off by default (`chromium-background-features-off.patch`).
+- `fix-building-without-safebrowsing`: the download file types protobuf with `safe_browsing_mode=0`
+  (`chromium-safe-browsing-off-file-types.patch`).
+
+**Patches not adopted:**
+
+- `infinite-tab-freezing`: already on, from the app's command line (`InfiniteTabsFreezing`, with its
+  `ARDIA_TAB_FREEZING=off` kill switch).
+- `memory-saving-by-default`: Ardia sleeps tabs by its own policy (`lib/tabLifecycle`, after Dia); Chrome's Memory
+  Saver would discard tabs on a schedule of its own.
+- `lazy-session-restore`: ArdiaCore restores its own session; Chrome's session restore is off for its Browsers
+  (`should_trigger_session_restore=false`).
+- `prioritize-platform-policy-loading`: ArdiaCore makes no platform policy provider (`CreatePlatformProvider` returns
+  null).
+- `remove-unused-ai-resources`: the AI component extensions it stops loading (glic, contextual tasks) are already
+  off in a Chromium build (feature-gated, Google-branded only), so it only saves pak space.
+- `add-low-power-framerate-flag`: only a flag; Energy Saver's 30 fps default doesn't change.
+- `upstream-fixes/missing-dependencies` and `tab-restore-live-tabs`: already in 155.0.8059.84.
+- `fix-instance-id-stuck`: GCM is off (ungoogled's `disable-gcm`).
+- Everything under `helium/ui`, `helium/settings` and `helium/macos` (UI, settings pages, branding, Sparkle,
+  keychain names, menus), the search, sync, importer, uBlock-as-component, fingerprinting-noise, network-flag and
+  onboarding patches: UI, product features or privacy choices, not speed. AI patches: no AI features.
 
 ## Tab capture
 

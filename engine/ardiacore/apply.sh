@@ -180,9 +180,9 @@ hook(["    // Ardia: ArdiaCore's Browsers have no BrowserView to anchor a toast 
 PY
 
 hook "$src/chrome/browser/ui/browser_commands.cc" "CloseTab's pinned tab toast" <<'PY'
-old = """  ToastController* toast_controller = browser->GetFeatures().toast_controller();
+old = """  ToastController* toast_controller = ToastController::From(browser);
   if (!toast_controller) {"""
-new = """  ToastController* toast_controller = browser->GetFeatures().toast_controller();
+new = """  ToastController* toast_controller = ToastController::From(browser);
   // Ardia: ArdiaCore's Browsers have no BrowserView, so no pinned tab toast.
   if (!toast_controller || (g_ardia_viewless_browsers &&
                             !BrowserView::GetBrowserViewForBrowser(browser))) {"""
@@ -450,8 +450,7 @@ decl = ("// Ardia: ArdiaCore (engine/ardiacore) hears of each dropdown shown.\n"
         "void (*g_ardia_autofill_suggestions_shown)(\n"
         "    content::WebContents* web_contents,\n"
         "    base::span<const Suggestion> suggestions) = nullptr;\n\n")
-old = """  delegate_->OnSuggestionsShown(
-      non_filtered_suggestions_,
+old = """  delegate_->OnSuggestionsShown(non_filtered_suggestions_, GetPopupMetadata());
 """
 new = """  // Ardia: ArdiaCore
   if (g_ardia_autofill_suggestions_shown && IsRootPopup() && web_contents_) {
@@ -930,10 +929,8 @@ hook(["bool (*g_ardia_file_system_restore_prompt)(\n",
 PY
 
 hook "$src/chrome/browser/ui/tabs/tab_dialog_manager.cc" "TabDialogManager's visibility" <<'PY'
-old = """  return GetWidgetVisibility(
-      tab_interface_->IsVisible(),
-      tab_interface_->GetBrowserWindowInterface()->GetWindow()->IsMinimized(),
-      params_->should_show_callback);
+old = """  return GetWidgetVisibility(tab_interface_->IsVisible(), is_minimized,
+                             params_->should_show_callback);
 """
 new = """  // Ardia: ArdiaCore (the host's reading, when it gave one)
   const int shown =
@@ -941,8 +938,7 @@ new = """  // Ardia: ArdiaCore (the host's reading, when it gave one)
           ? g_ardia_tab_shown_by_host(tab_interface_->GetContents())
           : -1;
   return GetWidgetVisibility(
-      shown < 0 ? tab_interface_->IsVisible() : shown == 1,
-      tab_interface_->GetBrowserWindowInterface()->GetWindow()->IsMinimized(),
+      shown < 0 ? tab_interface_->IsVisible() : shown == 1, is_minimized,
       params_->should_show_callback);
 """
 bg_old = """void TabDialogManager::TabWillEnterBackground(TabInterface* tab_interface) {
@@ -1009,7 +1005,7 @@ new = """    const ui::Accelerator& accelerator) {
   return ExtensionKeybindingRegistry::NotifyEventTargets(accelerator);
 """
 def edit(s):
-    assert s.count(old) == 1 and s.count(ctor) == 1
+    assert s.count(old) == 1 and s.count(ctor) >= 1
     i = s.index(ctor)
     return (s[:i] + decl + s[i:]).replace(old, new)
 hook(["bool (*g_ardia_reserved_accelerator)(const ui::Accelerator& accelerator) = nullptr;\n",

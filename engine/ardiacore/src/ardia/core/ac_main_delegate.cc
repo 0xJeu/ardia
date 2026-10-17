@@ -192,7 +192,7 @@ class ACBrowserMainParts : public content::BrowserMainParts {
     chrome_->PostCreateMainMessageLoop();
   }
   int PreCreateThreads() override { return chrome_->PreCreateThreads(); }
-  void PostCreateThreads() override { chrome_->PostCreateThreads(); }
+  int PostCreateThreads() override { return chrome_->PostCreateThreads(); }
   int PreMainMessageLoopRun() override {
     result_ = chrome_->PreMainMessageLoopRun();
     return result_;

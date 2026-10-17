@@ -35,6 +35,8 @@ chromium chromium-pip-overlay-window.patch
 chromium chromium-tab-sharing-capturer.patch
 chromium chromium-video-super-resolution.patch
 chromium chromium-begin-frame-warm-up.patch
+chromium chromium-safe-browsing-off-file-types.patch
+chromium chromium-background-features-off.patch
 chromium chromium-ardia-layer.patch
 
 layer engine/chromium

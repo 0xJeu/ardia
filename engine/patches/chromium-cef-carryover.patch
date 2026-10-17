@@ -15,12 +15,13 @@ Windows-only parts and comments:
   otherwise; the build keeps enable_background_mode=false, as CEF's build had it).
 --- a/chrome/browser/ui/browser_manager_service.cc
 +++ b/chrome/browser/ui/browser_manager_service.cc
-@@ -141,20 +141,28 @@
+@@ -142,10 +142,17 @@
    //
    // TODO(crbug.com/40159237): Use ScopedProfileKeepAlive for Incognito too,
    // instead of separate logic for Incognito and regular profiles.
 -  target_browser_and_subscriptions->browser.reset();
--  if (browsers_and_subscriptions_.empty() && profile_->IsIncognitoProfile() &&
+-  if (browsers_and_subscriptions_.empty() &&
+-      profile_->IsPrimaryOTRProfileWithRegularParent() &&
 -      !profile_->IsSystemProfile()) {
 +  // Capture state from `this` before destroying the Browser. The destruction
 +  // chain may release the last reference keeping the Profile alive (e.g. an
@@ -31,19 +32,21 @@ Windows-only parts and comments:
 +  base::WeakPtr<Profile> weak_profile = profile_->GetWeakPtr();
 +  target_browser_and_subscriptions.reset();
 +  if (is_last_browser && weak_profile &&
-+      weak_profile->IsIncognitoProfile() &&
++      weak_profile->IsPrimaryOTRProfileWithRegularParent() &&
 +      !weak_profile->IsSystemProfile()) {
  #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
      // The Printing Background Manager holds onto preview dialog WebContents
      // whose corresponding print jobs have not yet fully spooled. Make sure
-     // these get destroyed before tearing down the incognito profile so that
-     // their RenderFrameHosts can exit in time - see crbug.com/41235373
+@@ -153,12 +160,12 @@
+     // profile so that their RenderFrameHosts can exit in time - see
+     // crbug.com/41235373
      g_browser_process->background_printing_manager()
 -        ->DeletePreviewContentsForBrowserContext(&profile_.get());
 +        ->DeletePreviewContentsForBrowserContext(weak_profile.get());
  #endif
-     // An incognito profile is no longer needed, this indirectly frees
-     // its cache and cookies once it gets destroyed at the appropriate time.
+     // The incognito or isolated mode profile is no longer needed, this
+     // indirectly frees its cache and cookies once it gets destroyed at the
+     // appropriate time.
 -    ProfileDestroyer::DestroyOTRProfileWhenAppropriate(&profile_.get());
 +    ProfileDestroyer::DestroyOTRProfileWhenAppropriate(weak_profile.get());
    }
@@ -73,7 +76,7 @@ Windows-only parts and comments:
    static constexpr View::FocusBehavior kDefaultFocusBehavior =
 --- a/components/remote_cocoa/app_shim/native_widget_mac_nswindow.mm
 +++ b/components/remote_cocoa/app_shim/native_widget_mac_nswindow.mm
-@@ -771,6 +771,12 @@
+@@ -776,6 +776,12 @@
      // window, swallow the event to prevent the web contents from processing it
      // (and potentially triggering new dialogs).
      if (is_blocked_by_modal && child_modal_window) {
@@ -101,7 +104,7 @@ Windows-only parts and comments:
    void OrderChildren();
 --- a/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.mm
 +++ b/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.mm
-@@ -1485,7 +1485,51 @@
+@@ -1491,7 +1491,51 @@
  }
  
  void NativeWidgetNSWindowBridge::OnWindowDidEndLiveResize() {
@@ -214,7 +217,7 @@ Windows-only parts and comments:
  #endif  // CHROME_BROWSER_CHROME_RESOURCE_BUNDLE_HELPER_H_
 --- a/chrome/browser/extensions/BUILD.gn
 +++ b/chrome/browser/extensions/BUILD.gn
-@@ -3165,10 +3165,10 @@
+@@ -3140,10 +3140,10 @@
  
      if (!is_chromeos) {
        # Chrome OS doesn't use background mode or download bubbles.
@@ -231,7 +234,7 @@ Windows-only parts and comments:
      if (enable_background_mode) {
 --- a/chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl/tab_strip_model_adapter_impl.cc
 +++ b/chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl/tab_strip_model_adapter_impl.cc
-@@ -13,6 +13,8 @@
+@@ -15,6 +15,8 @@
  #include "components/tab_groups/tab_group_visual_data.h"
  #include "components/tabs/public/split_tab_collection.h"
  #include "components/tabs/public/tab_collection.h"
@@ -240,7 +243,7 @@ Windows-only parts and comments:
  #include "components/tabs/public/tab_group.h"
  #include "components/tabs/public/tab_group_tab_collection.h"
  #include "components/tabs/public/tab_interface.h"
-@@ -68,7 +70,11 @@
+@@ -70,7 +72,11 @@
  const ui::ColorProvider& TabStripModelAdapterImpl::GetColorProvider() const {
    content::WebContents* active_contents =
        tab_strip_model_->GetActiveWebContents();

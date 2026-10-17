@@ -12,6 +12,7 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/app/chrome_command_ids.h"
 
 #include "chrome/browser/devtools/devtools_ui_controller.h"
@@ -346,7 +347,7 @@ bool ACBrowserWindow::IsFullscreen() const {
     return true;
   }
   ExclusiveAccessManager* manager =
-      browser_ ? browser_->GetFeatures().exclusive_access_manager() : nullptr;
+      browser_ ? ExclusiveAccessManager::From(browser_) : nullptr;
   return manager && manager->fullscreen_controller()->IsTabFullscreen();
 }
 
@@ -537,7 +538,7 @@ DownloadBubbleUIController* ACBrowserWindow::GetDownloadBubbleUIController() {
 
 void ACBrowserWindow::ConfirmBrowserCloseWithPendingDownloads(
     int download_count,
-    UnloadController::DownloadCloseType dialog_type,
+    DownloadCloseType dialog_type,
     base::OnceCallback<void(bool)> callback) {
   if (host_ && !host_->closing() && !IsQuitting()) {
     host_->ConfirmCloseWithDownloads(download_count, std::move(callback));
@@ -780,7 +781,7 @@ void ACBrowserWindow::OnExclusiveAccessUserInput() {
 }
 
 ExclusiveAccessManager* ACBrowserWindow::GetExclusiveAccessManager() {
-  return browser_ ? browser_->GetFeatures().exclusive_access_manager()
+  return browser_ ? ExclusiveAccessManager::From(browser_)
                   : nullptr;
 }
 
@@ -831,7 +832,7 @@ void ACBrowserWindow::DestroyAnyExclusiveAccessBubble() {
 
 void ACBrowserWindow::ReportFullscreenTab() {
   ExclusiveAccessManager* manager =
-      browser_ ? browser_->GetFeatures().exclusive_access_manager() : nullptr;
+      browser_ ? ExclusiveAccessManager::From(browser_) : nullptr;
   FullscreenController* controller =
       manager ? manager->fullscreen_controller() : nullptr;
   content::WebContents* now = controller && controller->IsTabFullscreen()

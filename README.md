@@ -127,7 +127,7 @@ is newer than the last release's, work from a release tag (`v0.2.30`, say), or r
 cards need our team ID and won't work in a build signed by anyone else.
 
 To change the engine itself (anything under `engine/`), build it from source: Chrome's framework from our patched
-Chromium tree in `~/chromium-build` (plain Chromium 154.0.8037.97, ungoogled-chromium and our patches;
+Chromium tree in `~/chromium-build` (plain Chromium 155.0.8059.84, ungoogled-chromium and our patches;
 `docs/engine-build.md` › "Rebuilding", then `engine/chromium/apply.sh`,
 `engine/ardiacore/apply.sh` and `autoninja -C out/Release_GN_arm64 chrome_framework`; the first build takes about 2
 hours). The app's build stages it from there when it exists.

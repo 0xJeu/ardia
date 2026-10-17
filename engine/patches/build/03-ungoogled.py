@@ -17,6 +17,7 @@ Usage: 03-ungoogled.py [--dry-run]
 """
 import pathlib
 import subprocess
+import tempfile
 import sys
 
 CB = pathlib.Path.home() / 'chromium-build'
@@ -26,18 +27,11 @@ UGMAC = CB / 'ungoogled-macos'
 REPORT = CB / 'logs/ungoogled-patches.tsv'
 dry = '--dry-run' in sys.argv
 
-SB = ('assumes safe_browsing_mode=0 / removed Safe Browsing prefs; Safe Browsing stays compiled in '
-      '(kept as in the CEF-era build; revisit) and domain substitution cuts its Google endpoints')
 SKIP = {
     'core/ungoogled-chromium/fix-building-with-prunned-binaries.patch': 'assumes pruned binaries (not pruned)',
     'core/ungoogled-chromium/build-with-wasm-rollup.patch': 'only needed when prebuilt rollup is pruned',
     'extra/inox-patchset/0016-chromium-sandbox-pie.patch': 'Linux-only',
     'extra/ungoogled-chromium/remove-disable-setuid-sandbox-as-bad-flag.patch': 'Linux-only',
-    'core/inox-patchset/0001-fix-building-without-safebrowsing.patch': SB,
-    'core/ungoogled-chromium/fix-building-without-safebrowsing.patch': SB,
-    'ungoogled-chromium/macos/fix-disabling-safebrowsing.patch': SB,
-    'core/ungoogled-chromium/remove-unused-preferences-fields.patch': SB,
-    'core/ungoogled-chromium/move-js-optimizer-unfamiliar-sites.patch': SB,
     'extra/ungoogled-chromium/fix-building-without-mdns-and-service-discovery.patch':
         'build fix for enable_mdns/enable_service_discovery=false (kept enabled, as in the CEF-era build)',
     # Ardia needs the Chrome Web Store (install + extension auto-updates).
@@ -63,6 +57,10 @@ PARTIAL_EXCLUDE = {
         ['chrome/browser/ui/views/frame/browser_widget.cc'],  # as in the CEF-era build; revisit
 }
 # Small edits after the series: (file, old text, new text).
+FUZZ = {
+    'core/ungoogled-chromium/fix-building-without-safebrowsing.patch': 3,
+}
+
 FIXUPS = [
     # 0006-modify-default-prefs turns off saving/filling passwords, addresses
     # and cards by default; Ardia uses Chrome's password manager and
@@ -73,21 +71,6 @@ FIXUPS = [
      '      kAutofillProfileEnabled, false,', '      kAutofillProfileEnabled, true,'),
     ('components/autofill/core/common/autofill_prefs.cc',
      '      kAutofillCreditCardEnabled, false,', '      kAutofillCreditCardEnabled, true,'),
-    # disable-ai sets enable_screen_ai_service=false, but the macOS sandbox
-    # setup in ChromeContentBrowserClient still calls ScreenAIInstallState
-    # unconditionally.
-    ('chrome/browser/chrome_content_browser_client.cc',
-     '  if (sandbox_type == sandbox::mojom::Sandbox::kScreenAI) {\n',
-     '#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)\n'
-     '  if (sandbox_type == sandbox::mojom::Sandbox::kScreenAI) {\n'),
-    ('chrome/browser/chrome_content_browser_client.cc',
-     '        screen_ai_binary_path.value());\n  }\n',
-     '        screen_ai_binary_path.value());\n  }\n'
-     '#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)\n'),
-    ('chrome/browser/chrome_content_browser_client.cc',
-     '#include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"\n',
-     '#include "services/screen_ai/buildflags/buildflags.h"\n'
-     '#include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"\n'),
 ]
 
 
@@ -103,32 +86,46 @@ def run(cmd):
     return subprocess.run(cmd, cwd=SRC, capture_output=True, text=True)
 
 
+def without_files(path, excluded):
+    kept, keep = [], True
+    for line in pathlib.Path(path).read_text().splitlines(keepends=True):
+        if line.startswith('--- a/') or line.startswith('diff --git '):
+            name = line.split()[-1][2:] if line.startswith('diff') else line[6:].strip()
+            keep = name not in excluded
+        if keep:
+            kept.append(line)
+    out = pathlib.Path(tempfile.mkdtemp()) / pathlib.Path(path).name
+    out.write_text(''.join(kept))
+    return str(out)
+
+
 rows = []
 for base, rel in series():
     path = str(base / rel)
     if rel in SKIP:
         rows.append((rel, 'skipped', SKIP[rel]))
         continue
+    status, how = 'applied', ('exact', 'with fuzz/offset')
     if rel in PARTIAL_EXCLUDE:
-        excl = [f'--exclude={f}' for f in PARTIAL_EXCLUDE[rel]]
-        ok = run(['git', 'apply', '--check', '-p1', *excl, path]).returncode == 0
-        if ok and not dry:
-            run(['git', 'apply', '-p1', *excl, path]).check_returncode()
-        rows.append((rel, 'partial' if ok else 'FAILED', 'without ' + ', '.join(PARTIAL_EXCLUDE[rel])))
-        continue
+        path = without_files(path, PARTIAL_EXCLUDE[rel])
+        status, how = 'partial', ('without ' + ', '.join(PARTIAL_EXCLUDE[rel]),) * 2
     if run(['git', 'apply', '--check', '-p1', path]).returncode == 0:
         if not dry:
             run(['git', 'apply', '-p1', path]).check_returncode()
-        rows.append((rel, 'applied', 'exact'))
+        rows.append((rel, status, how[0]))
         continue
-    p = run(['patch', '-p1', '-F2', '--dry-run', '--forward', '-i', path])
+    fuzz = f'-F{FUZZ.get(rel, 2)}'
+    p = run(['patch', '-p1', fuzz, '--dry-run', '--forward', '-i', path])
     if p.returncode == 0:
         if not dry:
-            run(['patch', '-p1', '-F2', '--forward', '--no-backup-if-mismatch', '-i', path]).check_returncode()
-        rows.append((rel, 'applied', 'with fuzz/offset'))
+            run(['patch', '-p1', fuzz, '--forward', '--no-backup-if-mismatch', '-i', path]).check_returncode()
+        rows.append((rel, status, how[1]))
         continue
     detail = [l for l in (p.stdout + p.stderr).splitlines() if 'failed' in l.lower() or 'No such' in l]
     rows.append((rel, 'FAILED', ' | '.join(detail)[:500]))
+
+if not dry:
+    REPORT.write_text('patch\tstatus\tdetail\n' + ''.join('\t'.join(r) + '\n' for r in rows))
 
 if not dry:
     for rel, old, new in FIXUPS:
@@ -137,9 +134,6 @@ if not dry:
         if new not in s:
             assert s.count(old) == 1, f'fixup anchor missing in {rel}'
             f.write_text(s.replace(old, new, 1))
-
-if not dry:
-    REPORT.write_text('patch\tstatus\tdetail\n' + ''.join('\t'.join(r) + '\n' for r in rows))
 for r in rows:
     if r[1] != 'applied':
         print('%-8s %s  %s' % (r[1], r[0], r[2]))
