@@ -13,6 +13,7 @@
 //     --base <name>=<home> repeatable: its template starts from a copy of this HOME (Dia: a throwaway signed-in home)
 //     --env <name>=K=V     repeatable: extra environment for one browser
 //     --args <name>=<sw>   repeatable: one extra switch for one browser
+//     --setting <name>=K=V repeatable: an Ardia setting in each run's session.json (V is JSON: videoUpscaling=false)
 //     --rounds <n>         default 3
 //     --launches <a,b>     visible,hidden (default both). visible: idle in view, scroll, switch, video; hidden: minimized
 //     --idle <secs>        each idle phase (default 180)
@@ -52,6 +53,7 @@ const { values: opt, positionals } = parseArgs({
     base: { type: "string", multiple: true, default: [] },
     env: { type: "string", multiple: true, default: [] },
     args: { type: "string", multiple: true, default: [] },
+    setting: { type: "string", multiple: true, default: [] },
     rounds: { type: "string", default: "3" },
     launches: { type: "string", default: "visible,hidden" },
     idle: { type: "string", default: "180" },
@@ -613,6 +615,13 @@ function runDir(key, name) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dirname(dir), { recursive: true });
   execFileSync("cp", ["-Rc", templateDir(name), dir]);
+  const settings = perName(opt.setting, name);
+  const file = join(dir, "home/data/session.json");
+  if (settings.length && existsSync(file)) {
+    const session = JSON.parse(readFileSync(file, "utf8"));
+    for (const e of settings) (session.settings ??= {})[e.slice(0, e.indexOf("="))] = JSON.parse(e.slice(e.indexOf("=") + 1));
+    writeFileSync(file, JSON.stringify(session));
+  }
   return dir;
 }
 
