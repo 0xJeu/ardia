@@ -622,6 +622,7 @@
     if (config.displayMediaPicker) installDisplayMedia();
     if (config.fieldTiming) setFieldTiming(true);
     if (config.fixedAudioPoll) fixedAudioPoll = true;
+    if (config.broadThemeObserver) broadThemeObserver = true;
   };
   send("hello", { top: isTop, url: location.href });
 
@@ -702,6 +703,18 @@
     send("theme", { color, source });
   });
   let themeQueued = false;
+  let broadThemeObserver = false;
+  const themeTouched = (records) => {
+    if (broadThemeObserver) return true;
+    for (const r of records) {
+      if (r.type === "childList") {
+        for (const n of r.addedNodes) if (n.nodeName === "META") return true;
+        for (const n of r.removedNodes) if (n.nodeName === "META") return true;
+      } else if (r.target.nodeName === "META") return true;
+      else if ((r.target === document.documentElement || r.target === document.body) && r.oldValue !== r.target.getAttribute(r.attributeName)) return true;
+    }
+    return false;
+  };
   const scheduleTheme = () => {
     if (themeQueued) return;
     themeQueued = true;
@@ -712,7 +725,7 @@
   };
   const startTheme = () => {
     reportTheme();
-    const observer = new MutationObserver(scheduleTheme);
+    const observer = new MutationObserver((records) => themeTouched(records) && scheduleTheme());
     observer.observe(document.head || document.documentElement, {
       childList: true,
       subtree: true,
@@ -720,7 +733,7 @@
       attributeFilter: ["content", "media", "name"],
     });
     for (const el of [document.documentElement, document.body])
-      if (el) observer.observe(el, { attributes: true, attributeFilter: ["class", "style", "data-theme"] });
+      if (el) observer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ["class", "style", "data-theme"] });
     for (const ms of [300, 1000, 3000]) setTimeout(scheduleTheme, ms);
   };
   onReady(startTheme);

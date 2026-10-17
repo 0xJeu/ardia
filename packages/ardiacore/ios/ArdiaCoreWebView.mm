@@ -346,6 +346,8 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
     if (main && ACFieldTimingEnabled()) config[@"fieldTiming"] = @YES;
     static const BOOL fixedAudioPoll = [@(getenv("ARDIA_WEB_AUDIO_POLL") ?: "") isEqualToString:@"fixed"];
     if (fixedAudioPoll) config[@"fixedAudioPoll"] = @YES;
+    static const BOOL broadThemeObserver = [@(getenv("ARDIA_THEME_OBSERVER") ?: "") isEqualToString:@"broad"];
+    if (broadThemeObserver) config[@"broadThemeObserver"] = @YES;
     [to callFrame:frameId kind:@"config" json:JSONString(config)];
   };
   if (origin && [origin hasPrefix:@"http"])
