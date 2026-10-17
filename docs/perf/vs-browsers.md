@@ -177,6 +177,26 @@ opens. The same path serves an extension's `chrome.windows.create`, so this is a
 progress separately. The row is null for Ardia until then; xbench counts a window when the target's window id differs
 from the restored tab's.
 
+**uBlock Origin's own cost (2026-10-17).** An A/B of 0.2.38-nightly.4 with and without its bundled uBO (both
+re-signed ad hoc the same way) puts uBO's cost in memory, not launch: link 695 vs 646 ms and restore 493 vs 503 ms
+are within noise, while 1 tab is 343 vs 262 MB, back to 1 tab 421 vs 337 MB, and idle CPU at 1 tab 0.40 vs 0.07 %
+in a 15 s window right after launch. On a warm profile the uBO process idles like Helium's (40 vs 41 ms of CPU per
+30 s at 20 s after launch, 0 at 120 s; heap after GC 8.05 vs 8.14 MB); our extra xbench idle is about a minute of
+post-launch tail work. A load-after-first-paint deferral for launch was built and parked: it traded launch-time
+blocking for no measured gain. In energy's idleVisible phase uBO is 0.07 mW against Helium's 0.06; the gap there is
+background tabs (YouTube 0.56-0.87 % CPU against Helium's 0.01 %, with timer throttling the same in both: a hidden
+page's 50 ms interval runs 0.5-1.2/s in each, nothing frozen).
+
+Parked: packaged list times. On a fresh install uBO never caches its packaged list copies, so every default list
+looks infinitely old and its updater runs 2 s after launch, downloading all 12 assets (9 lists, badlists, PSL,
+assets.json) and compiling them again. A patch giving uncached packaged assets their own build date and expiry,
+plus a release-time refresh of the bundled lists, was measured over a fresh install's first 10 minutes (uBO process
+CPU, net-log): control 3.27 s and 12 downloads; refreshed lists with the patch 2.66 s and 2 downloads (the two 12 h
+lists, genuinely stale); the patch with today's month-old lists 3.26 s and 12 (unchanged, as intended). All of it is
+in the background and over by about 95 s. 0.6 s of CPU isn't worth a release-time list download step and its
+supply-chain hardening (Codex: the registry must not steer destinations, downgrade and HTML checks, a list
+generation in the manifest version), so it's parked; the diffs and reviews are in /tmp/ac-perfgap.
+
 ### Per process kind (medians over the 5 sessions)
 
 | | Ardia | Dia | Helium | Chrome |
