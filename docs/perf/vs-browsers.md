@@ -66,6 +66,33 @@ native-bench's own switch, which starts in the store, is 31–33 ms, so about 25
 round trip, not Chrome. Every switch pays that before the page is shown (render-census.md: tab switch renders and
 store fan-out).
 
+Update (2026-10-17): the page is now shown natively as JS picks the tab (lib/tabReveal.ts), and xbench reads 10–16 ms
+against Helium's 8.5. A probe with xbench's method (CDP activate, then visibilitychange, then two rAFs) plus a
+Chrome trace (viz, cc, begin_frame, scheduler) of 6 switches each:
+
+| | Ardia | Helium |
+|---|---|---|
+| CDP activate to visibilitychange | 2 ms | 5 ms |
+| display-link callbacks in the 20 ms before the show | 0 every time | 2, in 4 of 6 shows |
+| first display-link callback after the show | 6.3–13.6 ms | 0.9–3.1 ms (9.6 when cold) |
+| first BeginFrame's frame time | about +2 ms ("now") | 6 ms in the past |
+| second BeginFrame arrives | +10.8 ms (median) | +2.4 ms |
+| renderer frame sequence on show | starts again at 1 | continues |
+
+Our pages live in our own NSViews, so each tab's view has its own compositor (`BrowserCompositorMac` in
+HasOwnCompositor), recycled on hide and taken again on show: a new frame sink and begin-frame source each time, off
+the vsync grid. More to the point, the display link is always stopped when the page is shown (it stops after 20
+idle callbacks, about 170 ms, and nothing in Ardia wakes it first), and starting it costs one or two refreshes.
+In Helium the switch first redraws Chrome's own tab strip on the window's compositor, which starts the link before
+the tab is visible. Parked:
+- keeping the link alive longer (`kMaxKeepAliveCount`) would fix the bench row but costs up to 120 wakeups/s for
+  each second it stays up;
+- sharing one compositor per window, as Chrome does, means rewriting how our tab views draw;
+- waking the link on the user's intent (mouse-down on a sidebar row: rows switch on release, 60–120 ms later) has
+  no public engine hook. The workaround is a no-op requestAnimationFrame in the visible page through page_script
+  (`callPage`) from a native mouse-down monitor; it would save 6–13 ms on real sidebar clicks, and xbench's
+  CDP-driven switch wouldn't show it.
+
 **New tab (+26 ms).** In Chrome, `Target.createTarget` adds a tab that is already in its window. In Ardia the
 WebContents is made and starts loading in Chrome's strip, but it is only shown once the JS adopts it and React mounts
 its view. Until then it is hidden, so its first paint waits for the mount. Same cause as the switch: the page isn't
