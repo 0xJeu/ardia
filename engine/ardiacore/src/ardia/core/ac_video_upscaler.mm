@@ -54,6 +54,7 @@ struct ConvertParams {
   float2 scale;
   float2 luma_size;
   float2 detail_size;
+  float2 detail_offset;
   float2 detail_scale;
   float chroma_scale;
   float use_detail;
@@ -84,7 +85,8 @@ kernel void ardia_yuv_to_rgb(texture2d<float, access::sample> luma [[texture(0)]
   float y = luma.sample(s, position).r;
   float2 c = chroma.sample(s, position).rg;
   if (p.use_detail > 0.0) {
-    float y_detail = detail.sample(s, (float2(gid) + 0.5) * p.detail_scale / p.detail_size).r;
+    float y_detail =
+        detail.sample(s, (p.detail_offset + (float2(gid) + 0.5) * p.detail_scale) / p.detail_size).r;
     float saturation = length((c - 128.0 / 255.0) * p.chroma_scale);
     y = mix(y_detail, y, smoothstep(0.30, 0.42, saturation));
   }
@@ -99,6 +101,7 @@ struct ConvertParams {
   simd_float2 scale;
   simd_float2 luma_size;
   simd_float2 detail_size;
+  simd_float2 detail_offset;
   simd_float2 detail_scale;
   float chroma_scale;
   float use_detail;
@@ -252,7 +255,7 @@ std::string SurfaceTags(IOSurfaceRef surface) {
 }
 
 struct VideoKey {
-  gfx::Rect crop;
+  gfx::RectF crop;
   gfx::Size target;
   OSType format = 0;
   gfx::ColorSpace color_space;
@@ -266,6 +269,7 @@ struct KitBox {
 struct Plan {
   VideoKey key;
   gfx::Size surface_size;
+  gfx::Rect region;
   float vt_factor = 0;
   gfx::Size vt_input;
   bool vt_needs_pad = false;
@@ -397,11 +401,10 @@ ArdiaVideoUpscalerKit* BuildKit(ArdiaVideoUpscalerKit* previous, const Plan& pla
       kit.processor = [[VTFrameProcessor alloc] init];
       NSError* error = nil;
       if (![kit.processor startSessionWithConfiguration:kit.configuration error:&error]) {
-        kit.processor = nil;
-        kit.configuration = nil;
+        return nil;
       }
     }
-    if (kit.processor) {
+    {
       const int out_width = (int)std::lround(plan.vt_input.width() * plan.vt_factor);
       const int out_height = (int)std::lround(plan.vt_input.height() * plan.vt_factor);
       CVPixelBufferRef output = CreateBuffer(
@@ -463,6 +466,8 @@ class Upscaler : public VideoUpscaler {
         TRACE_EVENT_INSTANT0("gpu", "ArdiaVSR.GateClosed", TRACE_EVENT_SCOPE_THREAD);
       }
       gate_open_ = false;
+      kit_requested_.reset();
+      setup_in_flight_ = 0;
       Forget();
       return;
     }
@@ -488,7 +493,7 @@ class Upscaler : public VideoUpscaler {
         Forget();
         return;
       }
-      idle_timer_.Stop();
+      ArmIdleTeardown();
       current_source_.reset(best->source, base::scoped_policy::RETAIN);
       current_key_ = best_key;
       if (cache_output_ && cache_source_.get() == best->source &&
@@ -498,6 +503,7 @@ class Upscaler : public VideoUpscaler {
         return;
       }
       if (job_in_flight_) {
+        best->pending = job_in_flight_source_ == best->source;
         return;
       }
       std::optional<Plan> plan = MakePlan(*best, *best_key);
@@ -509,7 +515,7 @@ class Upscaler : public VideoUpscaler {
         return;
       }
       Start(*best, *plan);
-      best->pending = job_in_flight_;
+      best->pending = job_in_flight_ != 0;
     } else {
       Forget();
     }
@@ -536,18 +542,10 @@ class Upscaler : public VideoUpscaler {
     }
     const int width = (int)IOSurfaceGetWidth(candidate.source);
     const int height = (int)IOSurfaceGetHeight(candidate.source);
-    gfx::RectF crop_f = candidate.contents_rect;
-    crop_f.Scale(width, height);
-    gfx::Rect crop(static_cast<int>(std::lround(crop_f.x())),
-                   static_cast<int>(std::lround(crop_f.y())),
-                   static_cast<int>(std::lround(crop_f.width())),
-                   static_cast<int>(std::lround(crop_f.height())));
-    crop.set_x(crop.x() & ~1);
-    crop.set_y(crop.y() & ~1);
-    crop.set_width(crop.width() & ~1);
-    crop.set_height(crop.height() & ~1);
-    crop.Intersect(gfx::Rect(width, height));
-    if (crop.width() < kMinSourceDimension || crop.height() < kMinSourceDimension) {
+    gfx::RectF crop = candidate.contents_rect;
+    crop.Scale(width, height);
+    if (!gfx::RectF(width, height).Contains(crop) || crop.width() < kMinSourceDimension ||
+        crop.height() < kMinSourceDimension) {
       return std::nullopt;
     }
     gfx::Size target(static_cast<int>(std::lround(candidate.target_size.width())),
@@ -566,9 +564,8 @@ class Upscaler : public VideoUpscaler {
     if (disabled_ && disabled_->crop.size() == key.crop.size()) {
       return false;
     }
-    const float ratio =
-        std::min(key.target.width() / (float)key.crop.width(),
-                 key.target.height() / (float)key.crop.height());
+    const float ratio = std::min(key.target.width() / key.crop.width(),
+                                 key.target.height() / key.crop.height());
     if (!active_ || active_->crop.size() != key.crop.size()) {
       active_.reset();
       if (ratio >= kStartRatio) {
@@ -588,12 +585,21 @@ class Upscaler : public VideoUpscaler {
     plan.key = key;
     plan.surface_size = gfx::Size(IOSurfaceGetWidth(candidate.source),
                                   IOSurfaceGetHeight(candidate.source));
-    const float ratio =
-        std::min(key.target.width() / (float)key.crop.width(),
-                 key.target.height() / (float)key.crop.height());
+    const int left = static_cast<int>(std::floor(key.crop.x())) & ~1;
+    const int top = static_cast<int>(std::floor(key.crop.y())) & ~1;
+    const int right = std::min(plan.surface_size.width(),
+                               (static_cast<int>(std::ceil(key.crop.right())) + 1) & ~1);
+    const int bottom = std::min(plan.surface_size.height(),
+                                (static_cast<int>(std::ceil(key.crop.bottom())) + 1) & ~1);
+    plan.region = gfx::Rect(left, top, right - left, bottom - top);
+    if (!gfx::RectF(plan.region).Contains(key.crop)) {
+      return std::nullopt;
+    }
+    const float ratio = std::min(key.target.width() / key.crop.width(),
+                                 key.target.height() / key.crop.height());
     if (VTLowLatencySuperResolutionScalerConfiguration.isSupported &&
         key.format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange) {
-      const gfx::Size aligned(AlignUp16(key.crop.width()), AlignUp16(key.crop.height()));
+      const gfx::Size aligned(AlignUp16(plan.region.width()), AlignUp16(plan.region.height()));
       const CMVideoDimensions max =
           VTLowLatencySuperResolutionScalerConfiguration.maximumDimensions;
       const CMVideoDimensions min =
@@ -610,19 +616,18 @@ class Upscaler : public VideoUpscaler {
         }
         if (plan.vt_factor > 0 && vt_failed_ != aligned) {
           plan.vt_input = aligned;
-          plan.vt_needs_pad = aligned != key.crop.size() || key.crop.origin() != gfx::Point() ||
-                              plan.surface_size != key.crop.size();
+          plan.vt_needs_pad = plan.region != gfx::Rect(plan.surface_size) ||
+                              aligned != plan.surface_size;
         } else {
           plan.vt_factor = 0;
         }
       }
     }
     if (plan.vt_factor > 0) {
-      plan.rgb_size =
-          gfx::Size(static_cast<int>(std::lround(key.crop.width() * plan.vt_factor)),
-                    static_cast<int>(std::lround(key.crop.height() * plan.vt_factor)));
+      plan.rgb_size = key.target;
     } else {
-      plan.rgb_size = key.crop.size();
+      plan.rgb_size = gfx::Size(static_cast<int>(std::ceil(key.crop.width())),
+                                static_cast<int>(std::ceil(key.crop.height())));
     }
     plan.needs_metalfx = plan.vt_factor == 0 && plan.rgb_size != key.target;
     return plan;
@@ -634,7 +639,7 @@ class Upscaler : public VideoUpscaler {
       return;
     }
     kit_requested_ = plan;
-    if (kit_building_) {
+    if (setup_in_flight_) {
       return;
     }
     BuildNextKit();
@@ -642,12 +647,13 @@ class Upscaler : public VideoUpscaler {
 
   API_AVAILABLE(macos(26.0))
   void BuildNextKit() {
-    if (!kit_requested_) {
+    if (!kit_requested_ || !gate_open_) {
+      kit_requested_.reset();
       return;
     }
-    kit_building_ = true;
+    const uint64_t setup = ++last_operation_;
+    setup_in_flight_ = setup;
     const Plan plan = *kit_requested_;
-    const uint64_t generation = generation_;
     ArdiaVideoUpscalerKit* previous = kit_;
     kit_ = nil;
     kit_plan_.reset();
@@ -660,19 +666,23 @@ class Upscaler : public VideoUpscaler {
       auto box = std::make_unique<KitBox>();
       box->kit = BuildKit(previous, plan);
       const base::TimeDelta took = base::TimeTicks::Now() - started;
-      reply_to->PostTask(FROM_HERE, base::BindOnce(&Upscaler::KitBuilt, weak, generation,
-                                                   plan, std::move(box), took));
+      reply_to->PostTask(FROM_HERE, base::BindOnce(&Upscaler::KitBuilt, weak, setup, plan,
+                                                   std::move(box), took));
     });
   }
 
   API_AVAILABLE(macos(26.0))
-  void KitBuilt(uint64_t generation,
+  void KitBuilt(uint64_t setup,
                 Plan plan,
                 std::unique_ptr<KitBox> box,
                 base::TimeDelta took) {
+    if (setup != setup_in_flight_) {
+      TRACE_EVENT_INSTANT0("gpu", "ArdiaVSR.SetupDropped", TRACE_EVENT_SCOPE_THREAD);
+      return;
+    }
+    setup_in_flight_ = 0;
     ArdiaVideoUpscalerKit* kit = box->kit;
-    kit_building_ = false;
-    if (generation != generation_) {
+    if (!gate_open_) {
       kit_requested_.reset();
       return;
     }
@@ -751,8 +761,9 @@ class Upscaler : public VideoUpscaler {
           id<MTLTexture> to = PlaneTexture(kit.device, padded, plane, format,
                                            MTLTextureUsageShaderWrite);
           const int divisor = plane ? 2 : 1;
-          simd_int4 crop = {plan.key.crop.x() / divisor, plan.key.crop.y() / divisor,
-                            plan.key.crop.width() / divisor, plan.key.crop.height() / divisor};
+          simd_int4 crop = {plan.region.x() / divisor, plan.region.y() / divisor,
+                            (plan.region.width() + divisor - 1) / divisor,
+                            (plan.region.height() + divisor - 1) / divisor};
           [encoder setTexture:from atIndex:0];
           [encoder setTexture:to atIndex:1];
           [encoder setBytes:&crop length:sizeof(crop) atIndex:0];
@@ -803,8 +814,15 @@ class Upscaler : public VideoUpscaler {
                                       plan.key.crop.height() / (float)convert_target.height);
       params.luma_size = simd_make_float2(luma.width, luma.height);
       params.detail_size = simd_make_float2(detail.width, detail.height);
-      params.detail_scale = simd_make_float2(plan.rgb_size.width() / (float)convert_target.width,
-                                             plan.rgb_size.height() / (float)convert_target.height);
+      const float factor = plan.vt_factor > 0 ? plan.vt_factor : 1.0f;
+      const gfx::PointF region_origin = plan.vt_needs_pad ? gfx::PointF(plan.region.origin())
+                                                          : gfx::PointF();
+      params.detail_offset =
+          simd_make_float2((plan.key.crop.x() - region_origin.x()) * factor,
+                           (plan.key.crop.y() - region_origin.y()) * factor);
+      params.detail_scale =
+          simd_make_float2(plan.key.crop.width() * factor / convert_target.width,
+                           plan.key.crop.height() * factor / convert_target.height);
       params.chroma_scale = full_range ? 1.0f : 255.0f / 224.0f;
       params.use_detail = detail_source ? 1.0f : 0.0f;
       [encoder setTexture:luma atIndex:0];
@@ -832,7 +850,9 @@ class Upscaler : public VideoUpscaler {
     job->output.reset(output.get(), base::scoped_policy::RETAIN);
     job->started = begin;
     job->encode = base::TimeTicks::Now() - begin;
-    job_in_flight_ = true;
+    const uint64_t operation = ++last_operation_;
+    job_in_flight_ = operation;
+    job_in_flight_source_ = source;
     ++frame_count_;
     const uint64_t generation = generation_;
     const float factor = plan.vt_factor;
@@ -845,19 +865,24 @@ class Upscaler : public VideoUpscaler {
       const double gpu_ms = (completed.GPUEndTime - completed.GPUStartTime) * 1000;
       const double completed_ms = (base::TimeTicks::Now() - started).InMillisecondsF();
       (void)keep_alive;
-      reply_to->PostTask(FROM_HERE, base::BindOnce(&Upscaler::JobDone, weak, generation, job,
-                                                   ok, gpu_ms, completed_ms, factor));
+      reply_to->PostTask(FROM_HERE, base::BindOnce(&Upscaler::JobDone, weak, operation,
+                                                   generation, job, ok, gpu_ms, completed_ms,
+                                                   factor));
     }];
     [buffer commit];
   }
 
-  void JobDone(uint64_t generation,
+  void JobDone(uint64_t operation,
+               uint64_t generation,
                std::shared_ptr<Job> job,
                bool ok,
                double gpu_ms,
                double completed_ms,
                float factor) {
-    job_in_flight_ = false;
+    if (operation == job_in_flight_) {
+      job_in_flight_ = 0;
+      job_in_flight_source_ = nullptr;
+    }
     const base::TimeDelta took = base::TimeTicks::Now() - job->started;
     TRACE_EVENT_INSTANT("gpu", "ArdiaVSR.Job", "ok", ok, "factor", factor, "ms",
                         took.InMillisecondsF(), "gpu_ms", gpu_ms, "completed_ms", completed_ms, "encode_ms",
@@ -901,13 +926,20 @@ class Upscaler : public VideoUpscaler {
   void Forget() {
     current_source_.reset();
     current_key_.reset();
-    if (!idle_timer_.IsRunning() && (kit_ || kit_requested_ || cache_output_ || !outputs_.empty())) {
-      idle_timer_.Start(FROM_HERE, kIdleTeardown,
-                        base::BindOnce(&Upscaler::TearDown, base::Unretained(this)));
+    if (!idle_timer_.IsRunning()) {
+      ArmIdleTeardown();
     }
   }
 
+  void ArmIdleTeardown() {
+    idle_timer_.Start(FROM_HERE, kIdleTeardown,
+                      base::BindOnce(&Upscaler::TearDown, base::Unretained(this)));
+  }
+
   void TearDown() {
+    if (!kit_ && !kit_requested_ && !setup_in_flight_ && !cache_output_ && outputs_.empty()) {
+      return;
+    }
     TRACE_EVENT_INSTANT0("gpu", "ArdiaVSR.TearDown", TRACE_EVENT_SCOPE_THREAD);
     ++generation_;
     ArdiaVideoUpscalerKit* kit = kit_;
@@ -920,8 +952,9 @@ class Upscaler : public VideoUpscaler {
     kit_plan_.reset();
     kit_requested_.reset();
     kit_failed_.reset();
-    kit_building_ = false;
-    job_in_flight_ = false;
+    setup_in_flight_ = 0;
+    job_in_flight_ = 0;
+    job_in_flight_source_ = nullptr;
     cache_source_.reset();
     cache_output_.reset();
     cache_key_.reset();
@@ -941,8 +974,10 @@ class Upscaler : public VideoUpscaler {
   std::optional<Plan> kit_failed_;
   std::optional<Plan> kit_plan_;
   std::optional<Plan> kit_requested_;
-  bool kit_building_ = false;
-  bool job_in_flight_ = false;
+  uint64_t last_operation_ = 0;
+  uint64_t setup_in_flight_ = 0;
+  uint64_t job_in_flight_ = 0;
+  IOSurfaceRef job_in_flight_source_ = nullptr;
   int64_t frame_count_ = 0;
   base::apple::ScopedCFTypeRef<IOSurfaceRef> current_source_;
   std::optional<VideoKey> current_key_;

@@ -201,13 +201,15 @@ diff --git a/content/public/browser/render_widget_host_view.h b/content/public/b
 diff --git a/gpu/ipc/service/image_transport_surface_overlay_mac.h b/gpu/ipc/service/image_transport_surface_overlay_mac.h
 --- a/gpu/ipc/service/image_transport_surface_overlay_mac.h
 +++ b/gpu/ipc/service/image_transport_surface_overlay_mac.h
-@@ -83,6 +83,10 @@
+@@ -83,6 +83,12 @@
        gl::GLSurface::PresentationCallback presentation_callback);
  
    void CommitPresentedFrameToCA();
 +#if BUILDFLAG(IS_MAC)
 +  void CommitAfterVideoUpscale();
-+  bool waiting_for_video_upscale_ = false;
++  void ReleaseVideoUpscaleHold(uint64_t hold);
++  uint64_t video_upscale_hold_ = 0;
++  uint64_t last_video_upscale_hold_ = 0;
 +#endif
  
    std::unique_ptr<ui::CALayerTreeCoordinator> ca_layer_tree_coordinator_;
@@ -255,18 +257,19 @@ diff --git a/gpu/ipc/service/image_transport_surface_overlay_mac.mm b/gpu/ipc/se
    ca_layer_tree_coordinator_->Present(std::move(completion_callback),
                                        std::move(presentation_callback));
  
-@@ -227,12 +239,41 @@
+@@ -227,12 +239,47 @@
        return;
      }
    }
 +
 +  if (wait_for_video_upscale) {
-+    waiting_for_video_upscale_ = true;
++    const uint64_t hold = ++last_video_upscale_hold_;
++    video_upscale_hold_ = hold;
 +    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
 +        FROM_HERE,
 +        base::BindOnce(
-+            &ImageTransportSurfaceOverlayMacEGL::CommitAfterVideoUpscale,
-+            weak_ptr_factory_.GetWeakPtr()),
++            &ImageTransportSurfaceOverlayMacEGL::ReleaseVideoUpscaleHold,
++            weak_ptr_factory_.GetWeakPtr(), hold),
 +        std::clamp((frame_interval_.is_zero() ? base::Hertz(60)
 +                                              : frame_interval_) *
 +                       0.6,
@@ -280,10 +283,15 @@ diff --git a/gpu/ipc/service/image_transport_surface_overlay_mac.mm b/gpu/ipc/se
  
 +#if BUILDFLAG(IS_MAC)
 +void ImageTransportSurfaceOverlayMacEGL::CommitAfterVideoUpscale() {
-+  if (!waiting_for_video_upscale_) {
++  ReleaseVideoUpscaleHold(video_upscale_hold_);
++}
++
++void ImageTransportSurfaceOverlayMacEGL::ReleaseVideoUpscaleHold(
++    uint64_t hold) {
++  if (!hold || hold != video_upscale_hold_) {
 +    return;
 +  }
-+  waiting_for_video_upscale_ = false;
++  video_upscale_hold_ = 0;
 +  if (ca_layer_tree_coordinator_->NumPendingSwaps()) {
 +    CommitPresentedFrameToCA();
 +  }
@@ -292,7 +300,7 @@ diff --git a/gpu/ipc/service/image_transport_surface_overlay_mac.mm b/gpu/ipc/se
 +
  void ImageTransportSurfaceOverlayMacEGL::CommitPresentedFrameToCA() {
 +#if BUILDFLAG(IS_MAC)
-+  waiting_for_video_upscale_ = false;
++  video_upscale_hold_ = 0;
 +#endif
    //  Do a GL fence for flush to apply back-pressure before drawing.
    {
@@ -398,12 +406,10 @@ diff --git a/ui/accelerated_widget_mac/ca_layer_tree_coordinator.mm b/ui/acceler
  namespace ui {
  
  CALayerTreeCoordinator::CALayerTreeCoordinator(
-@@ -77,7 +84,46 @@
-         allow_av_sample_buffer_display_layer_, false, metal_device_);
-   }
+@@ -79,6 +86,46 @@
    return unpresented_ca_renderer_layer_tree_.get();
-+}
-+
+ }
+ 
 +#if BUILDFLAG(IS_MAC)
 +bool CALayerTreeCoordinator::UpscaleVideo(bool allowed) {
 +  video_upscaling_allowed_ = allowed;
@@ -432,19 +438,21 @@ diff --git a/ui/accelerated_widget_mac/ca_layer_tree_coordinator.mm b/ui/acceler
 +    return;
 +  }
 +  TRACE_EVENT0("gpu", "CALayerTreeCoordinator::OnVideoUpscaled");
++  bool still_pending = false;
 +  if (!presented_frames_.empty() && presented_frames_.back().layer_tree) {
 +    ScopedCAActionDisabler disabler;
-+    presented_frames_.back().layer_tree->UpscaleVideo(video_upscaler_.get(),
-+                                                      video_upscaling_allowed_);
++    still_pending = presented_frames_.back().layer_tree->UpscaleVideo(
++        video_upscaler_.get(), video_upscaling_allowed_);
 +  }
-+  if (video_upscaled_callback_) {
++  if (!still_pending && video_upscaled_callback_) {
 +    video_upscaled_callback_.Run();
 +  }
- }
++}
 +#endif
- 
++
  void CALayerTreeCoordinator::EnqueueBackpressureFences(
      std::vector<gfx::MTLSharedEventFence> metal_fences) {
+   pending_backpressure_metal_fences_.insert(
 diff --git a/ui/accelerated_widget_mac/ca_renderer_layer_tree.h b/ui/accelerated_widget_mac/ca_renderer_layer_tree.h
 --- a/ui/accelerated_widget_mac/ca_renderer_layer_tree.h
 +++ b/ui/accelerated_widget_mac/ca_renderer_layer_tree.h

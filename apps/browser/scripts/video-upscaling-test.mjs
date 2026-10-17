@@ -45,6 +45,7 @@ const CHECKS = {
   fullscreen: "page full screen (acted): upscaled to the screen",
   "little-ardia": "a Little Ardia window: nothing",
   teardown: "the gate closing frees the scaler, its session and buffers within a few seconds",
+  "idle-teardown": "a paused video that stops presenting still frees everything after 3 s, with no new frame",
 };
 if (flags.help) {
   console.log(HELP);
@@ -394,6 +395,19 @@ await check("teardown", async () => {
     return `freed ${w.teardowns}×, ${fmt(w)}`;
   } finally {
     await evalApp("ac.store.getState().updateSettings({ videoUpscaling: true }); return true");
+    await closeTab(v.id);
+  }
+});
+
+await check("idle-teardown", async () => {
+  const v = await warm(q480);
+  try {
+    await v.page.eval("document.getElementById('v').pause(), true");
+    const w = await watch(5500);
+    if (w.teardowns < 1) throw new Error(`nothing was freed without a new frame: ${fmt(w)}`);
+    if (w.jobs) throw new Error(`a paused video was processed: ${fmt(w)}`);
+    return `freed ${w.teardowns}×, ${fmt(w)}`;
+  } finally {
     await closeTab(v.id);
   }
 });
