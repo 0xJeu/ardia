@@ -1,7 +1,21 @@
 import os
 import sys
 
-lease = os.environ.pop("ARDIA_CLI_LEASE", None)
+
+def take_lease() -> str | None:
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(sys.executable))))
+    leases = os.path.join(root, ".leases")
+    if not os.path.isdir(leases):
+        return None
+    path = os.path.join(leases, str(os.getpid()))
+    try:
+        os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644))
+    except OSError:
+        return None
+    return path
+
+
+lease = take_lease()
 try:
     from ardia_cli.cli import main
 

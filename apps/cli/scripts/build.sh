@@ -83,11 +83,6 @@ while [ -L "$self" ]; do
   esac
 done
 root=$(cd -P "$(dirname "$self")/.." && pwd -P)
-lease=$root/.leases/$$
-if true 2>/dev/null >"$lease"; then
-  ARDIA_CLI_LEASE=$lease
-  export ARDIA_CLI_LEASE
-fi
 exec "$root/python/bin/python3" -I -m ardia_cli "$@"
 EOF
 chmod 755 "$root/bin/ardia"

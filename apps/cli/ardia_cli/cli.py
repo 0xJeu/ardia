@@ -158,6 +158,9 @@ def _run_exec(args) -> int:
     except KeyboardInterrupt:
         runner.print_err("ardia exec: interrupted")
         return 130
+    except asyncio.CancelledError:
+        runner.print_err("ardia exec: terminated")
+        return 143
     try:
         text = runner.format_value(value, args.json)
     except (TypeError, ValueError) as error:

@@ -4,8 +4,6 @@ import re
 
 MASK = "***"
 _TOKEN_QUERY = re.compile(r"(token=)[^&\s'\"<>]+")
-_OPEN_TOKEN_QUERY = re.compile(r"token=[^&\s'\"<>]*$")
-_TOKEN_KEY = "token="
 _secrets: set[str] = set()
 _installed = False
 
@@ -26,14 +24,11 @@ def redact(text: str) -> str:
 
 def _unsafe_tail(text: str) -> int:
     keep = 0
-    for secret in _secrets | {_TOKEN_KEY}:
+    for secret in _secrets:
         for size in range(min(len(secret) - 1, len(text)), keep, -1):
             if text.endswith(secret[:size]):
                 keep = size
                 break
-    match = _OPEN_TOKEN_QUERY.search(text)
-    if match:
-        keep = max(keep, len(text) - match.start())
     return keep
 
 
@@ -43,16 +38,11 @@ class RedactingStream(io.TextIOBase):
         self._pending = ""
 
     def write(self, text):
-        combined = self._pending + text
-        keep = _unsafe_tail(combined)
-        ready, self._pending = (combined[:-keep], combined[-keep:]) if keep else (combined, "")
+        cleaned = redact(self._pending + text)
+        keep = _unsafe_tail(cleaned)
+        ready, self._pending = (cleaned[:-keep], cleaned[-keep:]) if keep else (cleaned, "")
         if ready:
-            cleaned = redact(ready)
-            keep_masked = _unsafe_tail(cleaned)
-            if keep_masked:
-                self._pending = cleaned[-keep_masked:] + self._pending
-                cleaned = cleaned[:-keep_masked]
-            self._stream.write(cleaned)
+            self._stream.write(ready)
         return len(text)
 
     def drain(self):
@@ -62,7 +52,7 @@ class RedactingStream(io.TextIOBase):
         self._stream.flush()
 
     def flush(self):
-        self._stream.flush()
+        self.drain()
 
     def isatty(self):
         return self._stream.isatty()

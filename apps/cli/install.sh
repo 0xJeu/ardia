@@ -13,8 +13,9 @@
 # the login shell's PATH, it adds one PATH line to ~/.zprofile (~/.bash_profile for bash), once.
 # Re-running it upgrades: a version that is already current is left alone; a new one is verified, staged in
 # <version>.partial, renamed, and `current` is swapped atomically (a running ardia keeps its old dir). It keeps the
-# current and the previous version and prunes the rest, except versions a running ardia uses (its launcher leaves a
-# lease in <version>/.leases/<pid>). Two runs never overlap (a lock in $ARDIA_CLI_HOME/.lock).
+# current and the previous version and prunes the rest, except versions a running ardia uses (it leaves a lease in
+# <version>/.leases/<pid>, live while that pid runs and started before the lease was written). Two runs never overlap:
+# each holds a flock on $ARDIA_CLI_HOME/.lock (lockf), which the kernel drops when the run exits.
 # The installed version is `basename "$(readlink "$ARDIA_CLI_HOME/current")"`.
 # Downloads are https only. ARDIA_CLI_URL overrides the tarball URL (file:// works); without --sha256 its checksum
 # is read from $ARDIA_CLI_URL.sha256.
@@ -35,7 +36,6 @@ pinned_sha=
 uninstall=0
 work=
 reported=0
-locked=0
 
 help() {
   awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
@@ -51,7 +51,6 @@ fail() {
 finish() {
   status=$?
   [ -n "$work" ] && rm -rf "$work"
-  release_lock
   if [ "$status" -ne 0 ] && [ "$reported" -eq 0 ]; then
     printf 'error install stopped (exit %s)\n' "$status"
   fi
@@ -93,49 +92,11 @@ fetch() {
 }
 
 take_lock() {
-  lock=$cli_home/.lock
-  tries=0
-  until mkdir "$lock" 2>/dev/null; do
-    holder=$(cat "$lock/pid" 2>/dev/null || true)
-    if { [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; } || { [ -z "$holder" ] && older_than 30 "$lock"; }; then
-      break_stale "$lock" "$holder"
-      continue
-    fi
-    tries=$((tries + 1))
-    [ "$tries" -le 120 ] || fail "another install is still running (pid ${holder:-unknown})"
-    sleep 1
-  done
-  printf '%s\n' "$$" >"$lock/pid"
-  locked=1
-}
-
-older_than() {
-  modified=$(stat -f %m "$2" 2>/dev/null) || return 1
-  [ $(($(date +%s) - modified)) -gt "$1" ]
-}
-
-break_stale() {
-  takeover=$cli_home/.lock-takeover
-  if mkdir "$takeover" 2>/dev/null; then
-    printf '%s\n' "$$" >"$takeover/pid"
-    if [ -d "$1" ] && [ "$(cat "$1/pid" 2>/dev/null || true)" = "$2" ]; then
-      rm -rf "$1"
-    fi
-    rm -rf "$takeover"
-    return 0
+  if [ -d "$cli_home/.lock" ] && ! [ -L "$cli_home/.lock" ]; then
+    rm -rf "$cli_home/.lock" "$cli_home/.lock-takeover"
   fi
-  owner=$(cat "$takeover/pid" 2>/dev/null || true)
-  if { [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; } || { [ -z "$owner" ] && older_than 30 "$takeover"; }; then
-    rm -rf "$takeover"
-  fi
-  sleep 1
-}
-
-release_lock() {
-  if [ "$locked" -eq 1 ] && [ "$(cat "$cli_home/.lock/pid" 2>/dev/null || true)" = "$$" ]; then
-    rm -rf "$cli_home/.lock"
-  fi
-  locked=0
+  exec 9>>"$cli_home/.lock" || fail "couldn't open $cli_home/.lock"
+  /usr/bin/lockf -s -t 120 9 || fail "another install is still running"
 }
 
 points_into_cli_home() {
@@ -162,14 +123,22 @@ link_bin() {
   mv -fh "$bin_dir/.ardia.$$" "$bin_dir/ardia" || { rm -f "$bin_dir/.ardia.$$"; fail "couldn't link $bin_dir/ardia"; }
 }
 
+lease_live() {
+  holder=${1##*/}
+  case $holder in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  started=$(LC_ALL=C ps -o lstart= -p "$holder" 2>/dev/null) || return 1
+  [ -n "$started" ] || return 1
+  started=$(LC_ALL=C date -j -f "%a %b %e %T %Y" "$started" +%s 2>/dev/null) || return 0
+  leased=$(stat -f %m "$1" 2>/dev/null) || return 1
+  [ "$started" -le $((leased + 1)) ]
+}
+
 in_use() {
   for lease in "$1"/.leases/*; do
     [ -f "$lease" ] || continue
-    holder=${lease##*/}
-    case $holder in
-      ''|*[!0-9]*) continue ;;
-    esac
-    kill -0 "$holder" 2>/dev/null && return 0
+    lease_live "$lease" && return 0
     rm -f "$lease"
   done
   return 1
@@ -235,7 +204,6 @@ if [ "$uninstall" -eq 1 ]; then
       esac
       rm -rf "$entry" || fail "couldn't remove $entry"
     done
-    release_lock
     rmdir "$cli_home" 2>/dev/null || true
   fi
   reported=1
@@ -309,7 +277,7 @@ tar -xzf "$work/cli.tar.gz" -C "$staged" --strip-components 1 --no-same-owner "a
 check_tree "$staged"
 [ -x "$staged/bin/ardia" ] || fail "the tarball has no ardia-cli-$version/bin/ardia"
 xattr -dr com.apple.quarantine "$staged" 2>/dev/null || true
-"$staged/bin/ardia" --version >"$work/check.out" 2>&1 || fail "the downloaded ardia doesn't run: $(tail -n 1 "$work/check.out")"
+"$staged/bin/ardia" --version >"$work/check.out" 2>&1 9>&- || fail "the downloaded ardia doesn't run: $(tail -n 1 "$work/check.out")"
 if [ -d "$dest" ] && ! [ -L "$dest" ] && [ -x "$dest/bin/ardia" ] && in_use "$dest"; then
   rm -rf "$staged"
 else
@@ -335,7 +303,7 @@ link_bin
 if [ "$bin_dir" = "$default_bin_dir" ]; then
   login_shell=$(dscl . -read "/Users/$(id -un)" UserShell 2>/dev/null | awk '{ print $2 }')
   [ -x "${login_shell:-}" ] || login_shell=${SHELL:-/bin/zsh}
-  login_path=$(env -i HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" TERM=dumb "$login_shell" -l -c 'printf "%s" "$PATH"' </dev/null 2>/dev/null || true)
+  login_path=$(env -i HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" TERM=dumb "$login_shell" -l -c 'printf "%s" "$PATH"' </dev/null 2>/dev/null 9>&- || true)
   case :$login_path: in
     *:"$bin_dir":*|*:"$bin_dir/":*) ;;
     *)

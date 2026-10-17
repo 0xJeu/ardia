@@ -24,7 +24,8 @@ the pins into `pyproject.toml`).
   `./.claude/skills`, `./.cursor/skills` or `./.opencode/skills`. It replaces only its own `ardia` folder.
 - `ardia --version`, `ardia --help`, `ardia exec --help`.
 
-`exec` never quits Ardia: it refuses `browser.stop()`, and every WebSocket it opens checks each outgoing message, so
+`exec` never quits Ardia: it refuses `browser.stop()`, and every WebSocket it opens checks each outgoing message (and
+refuses fragmented sends), so
 `Browser.close`, `Browser.crash` and `Browser.crashGpuProcess` never leave the process, whether sent one at a time, in
 an `execute_commands` batch (checked whole before anything is sent) or straight on the socket. On exit (normal, an
 exception or Ctrl-C) it closes only its own page and browser WebSockets. Its WebSockets always connect directly,
@@ -46,7 +47,9 @@ sockets carry the token too. A missing, stale or unsafe file, or a refused conne
 `Ardia isn't running, or "Let the ardia command control Ardia" is off in Settings.` There's no port scanning and no
 `/json` fallback on this path. The token never reaches the output: stdout and stderr are redacted as a stream (a token
 split across writes is held back until it's complete), and so are log records and everything a logging handler
-formats, tracebacks included. pydoll's loggers stay at ERROR.
+formats, tracebacks included. pydoll's loggers stay at ERROR. The stream holds back only a tail that could start a
+registered token and releases everything on `flush()`, at exit and on SIGTERM or SIGHUP (exit 143). A token printed in
+two parts with an explicit flush between them gets through; that gap is accepted.
 
 ## Install and upgrade
 
@@ -59,14 +62,17 @@ formats, tracebacks included. pydoll's loggers stay at ERROR.
 - Verifies the digest, refuses entries outside `ardia-cli-<V>/`, `..` paths, hard links and links pointing outside the
   tree, plus names with control characters, backslashes or ` -> `, extracts to `$ARDIA_CLI_HOME/<V>.partial`, checks
   the extracted tree again (`find`, no line parsing), renames it to `<V>`, and swaps `current` atomically.
-- It keeps the current and the previous version, and any version a running `ardia` uses: the launcher writes
-  `<V>/.leases/<pid>` before it starts Python, which removes it at exit; a lease whose pid is gone doesn't count.
+- It keeps the current and the previous version, and any version a running `ardia` uses: `ardia_cli` writes
+  `<V>/.leases/<pid>` when it starts (from the launcher or `python -m ardia_cli`) and removes it at exit. A lease
+  counts only while a process with that pid runs and started no later than the lease was written (`ps -o lstart`
+  against the lease's mtime), so a reused pid doesn't pin a version.
 - Links `$ARDIA_CLI_BIN_DIR/ardia` (default `~/.local/bin`) to `current/bin/ardia`. It replaces only a link that
   already points into `$ARDIA_CLI_HOME` and refuses anything else. With the default bin dir off the login shell's
   PATH, it adds `export PATH="$HOME/.local/bin:$PATH"` to `~/.zprofile` once.
-- A version that is already current is a no-op. A lock (`$ARDIA_CLI_HOME/.lock`, holding its pid) keeps two runs
-  apart. A lock whose pid is dead is broken only under a second lock (`.lock-takeover`), after checking it still holds
-  that pid, and a run removes only a lock it holds.
+- A version that is already current is a no-op. Two runs never overlap: each takes a flock on
+  `$ARDIA_CLI_HOME/.lock` through fd 9 (`/usr/bin/lockf -s -t 120 9`). The kernel drops it when the run exits, even on
+  SIGKILL; a run that waits 120 s prints `error another install is still running`. Uninstall leaves the empty `.lock`
+  file, since deleting a lock file other runs may have open would split the lock.
 - Output for the app, one line each: `step resolve|download|verify|install|link`, `version <v>`, `path <rc file>`,
   then `installed <bin path>` or `uninstalled`, or `error <message>` with exit 1.
 

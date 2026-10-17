@@ -39,6 +39,8 @@ async def direct_connect(uri, **kwargs):
     send = connection.send
 
     async def guarded_send(message, *args, **send_kwargs):
+        if not isinstance(message, (str, bytes, bytearray, memoryview)):
+            raise ForbiddenCommand("ardia exec only sends whole messages, not fragments")
         check_message(message)
         return await send(message, *args, **send_kwargs)
 

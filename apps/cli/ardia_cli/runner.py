@@ -4,6 +4,7 @@ import builtins
 import inspect
 import json
 import linecache
+import signal
 import sys
 import traceback
 
@@ -211,6 +212,10 @@ def build_namespace(session: Session, filename: str) -> dict:
 
 async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: float | None):
     body, tail, names = compile_code(source, filename)
+    loop = asyncio.get_running_loop()
+    main = asyncio.current_task()
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        loop.add_signal_handler(signum, main.cancel)
     session = Session(endpoint)
     try:
         await session.connect()
