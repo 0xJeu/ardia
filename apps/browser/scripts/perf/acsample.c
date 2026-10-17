@@ -98,7 +98,7 @@ __attribute__((constructor)) static void start(void) {
   uint32_t size = sizeof exe;
   if (_NSGetExecutablePath(exe, &size) != 0) return;
   const size_t len = strlen(exe);
-  if (len < 16 || strcmp(exe + len - 16, "/MacOS/Ardia") != 0) return;
+  if (len < 12 || strcmp(exe + len - 12, "/MacOS/Ardia") != 0) return;
   g_ms = atoi(ms);
   g_main = mach_thread_self();
   g_t0 = mach_absolute_time();
