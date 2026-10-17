@@ -657,6 +657,46 @@ hook(["void (*g_ardia_dnr_rulesets_in_force)(\n",
       "      // Ardia: ArdiaCore. A component extension was never installed, so\n"], edit, CONTENT_HOOKS)
 PY
 
+hook "$src/extensions/browser/api/web_request/web_request_proxying_url_loader_factory.cc" "webRequest's proxying URL loader factory" <<'PY'
+old_ns = "namespace extensions {\nnamespace {\n"
+decl = ("// Ardia: ArdiaCore (engine/ardiacore) holds a profile's subresource requests until its content\n"
+        "// blocker is ready. It returns true when it took the request; it then runs exactly one of the\n"
+        "// two callbacks.\n"
+        "bool (*g_ardia_web_request_held)(content::BrowserContext* browser_context,\n"
+        "                                 const GURL& url,\n"
+        "                                 base::OnceClosure resume,\n"
+        "                                 base::OnceClosure block) = nullptr;\n\n")
+old = """void WebRequestProxyingURLLoaderFactory::InProgressRequest::RestartInternal() {
+  DCHECK_EQ(info_->url, request_.url)
+      << "UpdateRequestInfo must have been called first";
+"""
+new = old + """  // Ardia: ArdiaCore
+  if (g_ardia_web_request_held && !info_->is_navigation_request &&
+      !for_cors_preflight_ &&
+      g_ardia_web_request_held(
+          factory_->browser_context_, request_.url,
+          base::BindOnce(&InProgressRequest::RestartInternal,
+                         weak_factory_.GetWeakPtr()),
+          base::BindOnce(
+              [](base::WeakPtr<InProgressRequest> self) {
+                if (self) {
+                  self->OnRequestError(
+                      self->CreateURLLoaderCompletionStatus(
+                          net::ERR_BLOCKED_BY_CLIENT),
+                      State::kRejectedByOnBeforeRequest);
+                }
+              },
+              weak_factory_.GetWeakPtr()))) {
+    return;
+  }
+"""
+def edit(s):
+    assert s.count(old_ns) == 1 and s.count(old) == 1
+    return s.replace(old_ns, decl + old_ns).replace(old, new)
+hook(["bool (*g_ardia_web_request_held)(content::BrowserContext* browser_context,\n",
+      "      g_ardia_web_request_held(\n"], edit, CONTENT_HOOKS)
+PY
+
 hook "$src/chrome/browser/extensions/browser_window_util.cc" "extensions' browser_window_util" <<'PY'
 old = """  if (restrict_to_normal_browsers &&
       browser.GetType() != BrowserWindowInterface::TYPE_NORMAL) {

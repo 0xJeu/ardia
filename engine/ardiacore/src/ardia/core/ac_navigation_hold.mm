@@ -22,6 +22,7 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/web_contents.h"
+#include "ardia/core/ac_content_hooks.h"
 #include "ardia/core/ac_hooks.h"
 #include "extensions/browser/api/declarative_net_request/rules_monitor_service.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_manager.h"
@@ -40,18 +41,37 @@ constexpr base::TimeDelta kHeldNavigationDeadline = base::Seconds(10);
 
 class HoldThrottle;
 
+struct HeldRequest {
+  base::OnceClosure resume;
+  base::OnceClosure block;
+  base::OneShotTimer deadline;
+};
+
 class Hold : public ProfileObserver {
  public:
   Hold(Profile* profile, std::string extension_id);
   ~Hold() override;
 
   void Defer(base::WeakPtr<HoldThrottle> throttle) {
-    if (throttles_.empty()) {
+    if (throttles_.empty() && requests_.empty()) {
       first_deferred_ = base::TimeTicks::Now();
     }
     throttles_.push_back(std::move(throttle));
   }
   const std::string& extension_id() const { return extension_id_; }
+
+  void HoldRequest(base::OnceClosure resume, base::OnceClosure block) {
+    if (throttles_.empty() && requests_.empty()) {
+      first_deferred_ = base::TimeTicks::Now();
+    }
+    auto held = std::make_unique<HeldRequest>();
+    held->resume = std::move(resume);
+    held->block = std::move(block);
+    HeldRequest* raw = held.get();
+    raw->deadline.Start(FROM_HERE, kHeldNavigationDeadline,
+                        base::BindOnce(&Hold::GiveUpRequest, base::Unretained(this), raw));
+    requests_.push_back(std::move(held));
+  }
 
   void Release(bool in_force, const std::string& why);
 
@@ -62,7 +82,22 @@ class Hold : public ProfileObserver {
   const std::string extension_id_;
   const base::TimeTicks since_ = base::TimeTicks::Now();
   base::TimeTicks first_deferred_;
+  void GiveUpRequest(HeldRequest* held) {
+    for (auto it = requests_.begin(); it != requests_.end(); ++it) {
+      if (it->get() != held) {
+        continue;
+      }
+      std::unique_ptr<HeldRequest> taken = std::move(*it);
+      requests_.erase(it);
+      LOG(ERROR) << "ArdiaCore: " << extension_id_ << " still isn't ready after "
+                 << kHeldNavigationDeadline.InSeconds() << " s; a held request is blocked rather than sent without it";
+      std::move(taken->block).Run();
+      return;
+    }
+  }
+
   std::vector<base::WeakPtr<HoldThrottle>> throttles_;
+  std::vector<std::unique_ptr<HeldRequest>> requests_;
   base::ScopedObservation<Profile, ProfileObserver> observation_{this};
 };
 
@@ -92,7 +127,7 @@ class HoldThrottle : public content::NavigationThrottle {
 
   ThrottleCheckResult WillStartRequest() override {
     Hold* hold = HoldFor(navigation_handle()->GetWebContents()->GetBrowserContext());
-    if (!hold || !IsHeld(navigation_handle()->GetURL())) {
+    if (!hold || !IsHeld(navigation_handle()->GetURL()) || navigation_handle()->IsInPrimaryMainFrame()) {
       return PROCEED;
     }
     hold->Defer(weak_factory_.GetWeakPtr());
@@ -134,28 +169,45 @@ void Hold::Release(bool in_force, const std::string& why) {
   const int64_t ms = (base::TimeTicks::Now() - since_).InMilliseconds();
   if (!in_force) {
     LOG(ERROR) << "ArdiaCore: navigation hold for " << extension_id_ << " ended before it was ready ("
-               << why << ") after " << ms << " ms; " << throttles_.size()
-               << " held navigations go ahead without its blocking";
+               << why << ") after " << ms << " ms; " << throttles_.size() << " held navigations and "
+               << requests_.size() << " held requests go ahead without its blocking";
   } else if (!why.empty()) {
     LOG(ERROR) << "ArdiaCore: " << extension_id_ << " ready after " << ms << " ms, but " << why << "; "
-               << throttles_.size() << " held navigations go ahead without all of its rules";
-  } else if (throttles_.empty()) {
+               << throttles_.size() << " held navigations and " << requests_.size()
+               << " held requests go ahead without all of its rules";
+  } else if (throttles_.empty() && requests_.empty()) {
     NSLog(@"[ardiacore] %s ready %lld ms after the navigation hold began; no navigation waited",
           extension_id_.c_str(), ms);
   } else {
-    NSLog(@"[ardiacore] held %zu navigations for %s, the first %lld ms (ready %lld ms after the hold "
-          @"began)",
-          throttles_.size(), extension_id_.c_str(),
+    NSLog(@"[ardiacore] held %zu navigations and %zu requests for %s, the first %lld ms (ready %lld ms after "
+          @"the hold began)",
+          throttles_.size(), requests_.size(), extension_id_.c_str(),
           (base::TimeTicks::Now() - first_deferred_).InMilliseconds(), ms);
   }
   for (base::WeakPtr<HoldThrottle>& throttle : throttles_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&HoldThrottle::ResumeHeld, std::move(throttle)));
   }
+  for (std::unique_ptr<HeldRequest>& held : self->requests_) {
+    held->deadline.Stop();
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, std::move(held->resume));
+  }
 }
 
 void Hold::OnProfileWillBeDestroyed(Profile* profile) {
   Holds().erase(profile_);
+}
+
+bool HoldWebRequest(content::BrowserContext* context,
+                    const GURL& url,
+                    base::OnceClosure resume,
+                    base::OnceClosure block) {
+  Hold* hold = HoldFor(context);
+  if (!hold || !IsHeld(url)) {
+    return false;
+  }
+  hold->HoldRequest(std::move(resume), std::move(block));
+  return true;
 }
 
 void OnRulesetsInForce(content::BrowserContext* context,
@@ -171,6 +223,7 @@ void OnRulesetsInForce(content::BrowserContext* context,
 
 void HoldNavigationsForRulesets(Profile* profile, const std::string& extension_id) {
   g_ardia_dnr_rulesets_in_force = &OnRulesetsInForce;
+  g_ardia_web_request_held = &HoldWebRequest;
   Profile* original = profile->GetOriginalProfile();
   if (Holds().contains(original)) {
     return;
