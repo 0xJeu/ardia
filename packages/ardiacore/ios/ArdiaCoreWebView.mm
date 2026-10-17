@@ -344,6 +344,8 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
     if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:)])
       config[@"displayMediaPicker"] = @YES;
     if (main && ACFieldTimingEnabled()) config[@"fieldTiming"] = @YES;
+    static const BOOL fixedAudioPoll = [@(getenv("ARDIA_WEB_AUDIO_POLL") ?: "") isEqualToString:@"fixed"];
+    if (fixedAudioPoll) config[@"fixedAudioPoll"] = @YES;
     [to callFrame:frameId kind:@"config" json:JSONString(config)];
   };
   if (origin && [origin hasPrefix:@"http"])

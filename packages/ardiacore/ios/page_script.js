@@ -182,12 +182,21 @@
   const audioContexts = new Set();
   const taps = new WeakMap();
   const samples = new Float32Array(256);
+  const AUDIO_POLL_MS = 500;
+  const SILENT_AUDIO_POLL_MS = 2000;
+  const SILENT_AFTER_MS = 10000;
   let webAudioUntil = 0;
   let audioPoll = 0;
+  let audioPollActiveSince = 0;
+  let fixedAudioPoll = false;
   function webAudible() {
     return Date.now() < webAudioUntil;
   }
+  const nextAudioPollMs = () =>
+    fixedAudioPoll || Date.now() - Math.max(webAudioUntil - QUIET_MS, audioPollActiveSince) < SILENT_AFTER_MS ? AUDIO_POLL_MS : SILENT_AUDIO_POLL_MS;
   const pollWebAudio = guard(() => {
+    clearTimeout(audioPoll);
+    audioPoll = 0;
     let running = false;
     for (const ctx of audioContexts) {
       if (ctx.state === "closed") audioContexts.delete(ctx);
@@ -198,13 +207,14 @@
       for (let i = 0; i < samples.length; i++) peak = Math.max(peak, Math.abs(samples[i]));
       if (peak > 1e-4) webAudioUntil = Date.now() + QUIET_MS;
     }
-    if (!running && !webAudible()) {
-      clearInterval(audioPoll);
-      audioPoll = 0;
-    }
+    if (running || webAudible()) audioPoll = setTimeout(pollWebAudio, nextAudioPollMs());
     reportAudible();
   });
-  const pollAudio = () => audioPoll || (audioPoll = setInterval(pollWebAudio, 500));
+  const pollAudio = () => {
+    if (audioPoll) return;
+    audioPollActiveSince = Date.now();
+    audioPoll = setTimeout(pollWebAudio, AUDIO_POLL_MS);
+  };
   if (window.AudioNode && window.AudioDestinationNode && window.AudioContext) {
     const connect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (target, output) {
@@ -611,6 +621,7 @@
       pauseUnasked([...playingMedia, ...document.querySelectorAll("video, audio")], !!(navigator.userActivation && navigator.userActivation.hasBeenActive));
     if (config.displayMediaPicker) installDisplayMedia();
     if (config.fieldTiming) setFieldTiming(true);
+    if (config.fixedAudioPoll) fixedAudioPoll = true;
   };
   send("hello", { top: isTop, url: location.href });
 
