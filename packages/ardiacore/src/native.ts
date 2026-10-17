@@ -53,6 +53,7 @@ export const Cef = requireNativeModule<{
   displayMediaSources(): Promise<DisplayMediaSource[]>;
   listTasks(): Promise<EngineTask[]>;
   systemState(): Promise<SystemState>;
+  inputIdleSeconds?(): number;
 
   cancelDownload(id: string): Promise<void>;
   pauseDownload(id: string): Promise<void>;

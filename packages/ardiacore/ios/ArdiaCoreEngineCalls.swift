@@ -5,7 +5,7 @@ extension CefModule {
     "ac_tab_restore_load",
     "ac_bookmarks_tree", "ac_bookmarks_apply", "ac_bookmarks_watch",
     "ac_omnibox_opened",
-    "ac_task_manager_open", "ac_battery_saver",
+    "ac_task_manager_open", "ac_battery_saver", "ac_memory_trim",
     "ac_cli_control",
   ]
 }

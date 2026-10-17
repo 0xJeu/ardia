@@ -22,6 +22,7 @@ source_set("ardia") {
     "ac_external_apps.mm",
     "ac_favicons.cc",
     "ac_history.cc",
+    "ac_memory.cc",
     "ac_omnibox.cc",
     "ac_omnibox.h",
     "ac_passwords.cc",

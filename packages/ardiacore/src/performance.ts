@@ -1,4 +1,5 @@
 import { engineCall } from "./engine";
+import { Cef } from "./native";
 
 export type BatterySaverMode = "on" | "off" | "default";
 
@@ -11,3 +12,7 @@ export const hideTaskManager = () => engineCall<{ ok: boolean }>("ac_task_manage
 export const setBatterySaver = (mode: BatterySaverMode) => engineCall<BatterySaverState>("ac_battery_saver", "", { mode });
 
 export const batterySaverState = () => engineCall<BatterySaverState>("ac_battery_saver", "");
+
+export const trimEngineMemory = () => engineCall<{ ok: boolean }>("ac_memory_trim", "");
+
+export const inputIdleSeconds = () => Cef.inputIdleSeconds?.() ?? null;

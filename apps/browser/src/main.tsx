@@ -8,6 +8,7 @@ import { firstWindowCommitted } from "./lib/afterFirstWindow";
 import { startAppIntegration } from "./lib/appIntegration";
 import { startCliControl } from "./lib/cliControl";
 import { startKillSwitches } from "./lib/killSwitchesLaunch";
+import { startMemoryTrim } from "./lib/memoryTrim";
 import { startNativeSync } from "./lib/native";
 import { startPersistence } from "./lib/persist";
 import { perfMark, perfProbeEnabled, probeStore } from "./lib/perfProbe";
@@ -34,6 +35,7 @@ startSync();
 startTelemetry();
 startKillSwitches();
 startCliControl();
+startMemoryTrim();
 if (__DEV__ || perfProbeEnabled) require("./lib/devHarness").startDevHarness();
 
 const devMountDelay = () => (__DEV__ ? ((globalThis as { acDevMountDelayMs?: number }).acDevMountDelayMs ?? 0) : 0);

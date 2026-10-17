@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import AppKit
 import IOKit.ps
 
 public class CefModule: Module {
@@ -68,6 +69,10 @@ public class CefModule: Module {
     AsyncFunction("displayMediaSources") { ArdiaCoreHost.displayMediaSources }.runOnQueue(.main)
     AsyncFunction("listTasks") { (promise: Promise) in ArdiaCoreServices.tasks { promise.resolve($0) } }.runOnQueue(.main)
     AsyncFunction("systemState") { SystemState.shared.snapshot }.runOnQueue(.main)
+    Function("inputIdleSeconds") { () -> Double in
+      guard NSRunningApplication.current.isActive else { return 3600 }
+      return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: UInt32.max)!)
+    }
 
     AsyncFunction("cancelDownload") { (id: String) in ArdiaCoreServices.downloadCommand("cancel", id: id) }.runOnQueue(.main)
     AsyncFunction("pauseDownload") { (id: String) in ArdiaCoreServices.downloadCommand("pause", id: id) }.runOnQueue(.main)
