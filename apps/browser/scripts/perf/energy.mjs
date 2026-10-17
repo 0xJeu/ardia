@@ -489,10 +489,11 @@ class Instance {
   }
 }
 
-function usageDelta(a, b) {
+function usageDelta(a, b, sitePids = new Map()) {
   const before = new Map(a.map((u) => [u.pid, u]));
   const kinds = {};
   const total = { cpu: 0, wakeups: 0, mw: 0, billedMw: 0, gpu: 0 };
+  const sites = {};
   const procs = [];
   for (const u of b) {
     const p = before.get(u.pid);
@@ -508,10 +509,16 @@ function usageDelta(a, b) {
     const k = (kinds[u.kind] ??= { cpu: 0, wakeups: 0, mw: 0, billedMw: 0, gpu: 0, count: 0 });
     for (const f of Object.keys(total)) (k[f] += d[f]), (total[f] += d[f]);
     k.count++;
+    const site = sitePids.get(u.pid);
+    if (site) {
+      const t = (sites[site] ??= { cpu: 0, mw: 0 });
+      t.cpu += d.cpu;
+      t.mw += d.mw;
+    }
     procs.push({ pid: u.pid, kind: u.kind, ...Object.fromEntries(Object.entries(d).map(([f, v]) => [f, Math.round(v * 1000) / 1000])) });
   }
   procs.sort((x, y) => y.mw - x.mw);
-  return { total, kinds, procs: procs.slice(0, 8), processes: b.length };
+  return { total, kinds, sites, procs: procs.slice(0, 8), processes: b.length };
 }
 
 async function measure(app, secs, work) {
@@ -534,7 +541,7 @@ async function measure(app, secs, work) {
     const p = targetsBefore.find((x) => x.id === t.id);
     return p && { url: t.url, type: t.type, busy: Math.round(((t.task - p.task) / secsReal) * 1000) / 10, script: Math.round(((t.script - p.script) / secsReal) * 1000) / 10 };
   }).filter((t) => t && t.busy > 0.05).sort((x, y) => y.busy - x.busy).slice(0, 8);
-  return { ...usageDelta(a, b), secs: secsReal, cover, browserThreads: threads, targets, windowServer, cond: probe("state"), ...(extra ? { extra } : {}) };
+  return { ...usageDelta(a, b, app.sitePids ?? new Map()), secs: secsReal, cover, browserThreads: threads, targets, windowServer, cond: probe("state"), ...(extra ? { extra } : {}) };
 }
 
 async function targetMetrics(app) {
@@ -608,6 +615,20 @@ async function openSites(app) {
   }
   for (const t of await app.cdp.pages()) if (before.has(t.id)) await app.cdp.call("Target.closeTarget", { targetId: t.id }).catch(() => null);
   return ids;
+}
+
+async function mapRenderers(app, ids) {
+  app.sitePids = new Map();
+  const cpu = () => new Map(app.usage().filter((u) => u.kind === "renderer").map((u) => [u.pid, u.cpuNs]));
+  for (const [site, targetId] of Object.entries(ids)) {
+    const a = cpu();
+    await app.cdp.evaluate(targetId, "(() => { const end = performance.now() + 300; while (performance.now() < end) {} })()", 3000);
+    const b = cpu();
+    let best = null;
+    for (const [pid, ns] of b) if (a.has(pid) && ns - a.get(pid) > 200e6 && (!best || ns - a.get(pid) > best[1])) best = [pid, ns - a.get(pid)];
+    if (best && !app.sitePids.has(best[0])) app.sitePids.set(best[0], site);
+  }
+  return Object.fromEntries([...app.sitePids].map(([pid, site]) => [site, pid]));
 }
 
 async function placeWindow(app, targetId) {
@@ -688,6 +709,7 @@ async function visibleItem(name, key) {
     await activate(app, ids[IDLE_TAB]);
     await app.hold(+opt.settle * 1000);
     await activate(app, ids[IDLE_TAB]);
+    r.renderers = await mapRenderers(app, ids);
     await app.hold(10_000);
     r.tabs = await tabStates(app, ids);
     r.phases.idleVisible = await measure(app, +opt.idle);
@@ -731,6 +753,7 @@ async function hiddenItem(name, key) {
     await activate(app, ids[IDLE_TAB]);
     await app.hold(+opt.settle * 1000);
     await activate(app, ids[IDLE_TAB]);
+    r.renderers = await mapRenderers(app, ids);
     await app.hold(5000);
     r.minimize = await minimize(app, ids[IDLE_TAB]);
     await app.hold(30_000);
@@ -819,11 +842,13 @@ function report(names) {
   const metrics = [["mw", "energy mW"], ["cpu", "CPU %"], ["gpu", "GPU %"], ["wakeups", "wakeups/s"]];
   const lines = [];
   const versions = Object.fromEntries(names.map((n) => [n, samples.find((s) => s.browser === n)?.version ?? "?"]));
+  const without = (ph, m) => ph.total[m] - (m === "mw" || m === "cpu" ? ph.sites?.discord?.[m] ?? 0 : 0);
   for (const [m, label] of metrics) {
     lines.push(`\n${label} (median, min–max, n)\n`, `| Phase | ${names.map((n) => `${n} ${versions[n]}`).join(" | ")} |`, `|---|${names.map(() => "---").join("|")}|`);
-    for (const p of phases) {
+    for (const p of [...phases, ...(m === "mw" || m === "cpu" ? phases.map((x) => `${x} without discord.com`) : [])]) {
+      const [phase, minus] = p.endsWith(" without discord.com") ? [p.split(" ")[0], true] : [p, false];
       const cells = names.map((n) => {
-        const xs = samples.filter((s) => s.browser === n && s.phases[p]).map((s) => s.phases[p].total[m]);
+        const xs = samples.filter((s) => s.browser === n && s.phases[phase] && (!minus || s.phases[phase].sites)).map((s) => (minus ? without(s.phases[phase], m) : s.phases[phase].total[m]));
         return xs.length ? `${fmt(median(xs))} (${fmt(Math.min(...xs))}–${fmt(Math.max(...xs))}, n=${xs.length})` : "–";
       });
       if (cells.some((c) => c !== "–")) lines.push(`| ${p} | ${cells.join(" | ")} |`);
