@@ -245,6 +245,7 @@ git tag v<version> && git push origin main v<version>
 gh release create v<version> -R mantrakp04/ardia --title "Ardia <version>" \
   --notes-file dist/<version>/release-notes.md \
   dist/<version>/Ardia-<version>.dmg dist/<version>/Ardia-<version>.zip dist/<version>/appcast.xml \
+  dist/<version>/ardia-cli-<version>-macos-arm64.tar.gz dist/<version>/ardia-cli-<version>-macos-arm64.tar.gz.sha256 \
   $(ls dist/<version>/ArdiaCore-*.tar.xz 2>/dev/null)
 curl -fsL https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml | grep -o 'shortVersionString>[0-9.]*' | head -1
 .claude/skills/release/scripts/feed.sh <version>

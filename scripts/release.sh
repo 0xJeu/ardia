@@ -100,9 +100,9 @@ else
   die "no release notes: write docs/release-notes/$version.md first"
 fi
 
-dirty="$(git -C "$root" status --porcelain -- apps/browser packages engine scripts/dmg | grep -v ' apps/browser/build' || true)"
+dirty="$(git -C "$root" status --porcelain -- apps/browser apps/cli packages engine scripts/dmg | grep -v ' apps/browser/build' || true)"
 if [ -n "$dirty" ]; then
-  [ "$rc" = 1 ] || { echo "$dirty" >&2; die "uncommitted changes under apps/browser, packages, engine or scripts/dmg (above)"; }
+  [ "$rc" = 1 ] || { echo "$dirty" >&2; die "uncommitted changes under apps/browser, apps/cli, packages, engine or scripts/dmg (above)"; }
   echo "warning: the candidate includes uncommitted changes:" >&2
   echo "$dirty" >&2
 fi
@@ -185,6 +185,12 @@ for attempt in 1 2 3 4 5 6; do
   echo "    no timestamp from Apple (attempt $attempt), exporting again"
   sleep 10
 done
+
+echo "==> ardia CLI"
+cli_tarball="$dist/ardia-cli-$version-macos-arm64.tar.gz"
+"$root/apps/cli/scripts/build.sh" "$version" "$dist" >"$dist/cli-build.log" 2>&1 \
+  || { tail -20 "$dist/cli-build.log" >&2; die "building the ardia CLI failed ($dist/cli-build.log)"; }
+awk '{ print $1 }' "$cli_tarball.sha256" >"$app/Contents/Resources/ardia-cli.sha256"
 
 echo "==> Sign Chrome's framework"
 entitlements_dir="$ardiacore/scripts/signing"
@@ -395,4 +401,4 @@ echo
 [ "$rc" = 1 ] && echo "Release candidate: never publish dist/$version-rc."
 [ "$channel" = nightly ] && [ "$rc" = 0 ] && echo "Nightly: publish it with .claude/skills/release/scripts/publish-nightly.sh $version (a prerelease; the feed and ardia.dev/nightly follow)."
 [ -n "$phased" ] && echo "Phased rollout: $phased s between steps (the appcast item has phasedRolloutInterval; the whole release takes $((phased * 7)) s)."
-du -sh "$app" "$dmg" "$zip" "$dist/appcast.xml" "$dist/release-notes.md" ${engine_files[@]+"${engine_files[@]}"}
+du -sh "$app" "$dmg" "$zip" "$cli_tarball" "$dist/appcast.xml" "$dist/release-notes.md" ${engine_files[@]+"${engine_files[@]}"}
