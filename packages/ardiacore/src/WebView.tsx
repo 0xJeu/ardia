@@ -396,8 +396,8 @@ export const WebView = forwardRef<WebViewHandle, WebViewProps>(function WebView(
 
   const nativeProps: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    if (key === "url") {
-      nativeProps.url = typeof value === "string" ? toEngineUrl(value) : value;
+    if (key === "url" || key === "shownUrl") {
+      nativeProps[key] = typeof value === "string" ? toEngineUrl(value) : value;
       continue;
     }
     const map = unwrap[key as Handlers] as ((e: unknown) => unknown[]) | undefined;

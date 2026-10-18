@@ -40,6 +40,9 @@
 @interface ACEarlyVeil : NSObject
 @property(nonatomic, strong) NSView *view;
 @property(nonatomic, strong) id inputBlock;
+@property(nonatomic) BOOL restoreFocus;
+@property(nonatomic, copy) NSString *lastShown;
+@property(nonatomic) CFTimeInterval changedAt;
 @end
 
 @implementation ACEarlyVeil
@@ -56,6 +59,7 @@ constexpr double kPictureAfterContentSeconds = 0.5;
 constexpr CGFloat kMinPage = 100;
 constexpr double kTrimAfterHandoffSeconds = 2;
 constexpr double kWatchAfterAdoptionSeconds = 10;
+constexpr double kVeilFailSafeSeconds = 2;
 
 NSString *gLayoutPath;
 NSString *gDirectory;
@@ -463,11 +467,16 @@ void RecordLayouts(NSDictionary *session, BOOL wait) {
 }
 
 NSString *OriginOfURL(NSString *url) {
-  NSURLComponents *parts = url.length ? [NSURLComponents componentsWithString:url] : nil;
-  NSString *scheme = parts.scheme.lowercaseString, *host = parts.host.lowercaseString;
-  if (!scheme.length || !host.length) return nil;
-  if ([host containsString:@":"] && ![host hasPrefix:@"["]) host = [NSString stringWithFormat:@"[%@]", host];
-  return parts.port ? [NSString stringWithFormat:@"%@://%@:%@", scheme, host, parts.port] : [NSString stringWithFormat:@"%@://%@", scheme, host];
+  if ([url.lowercaseString hasPrefix:@"view-source:"]) url = [url substringFromIndex:12];
+  const NSRange separator = [url rangeOfString:@"://"];
+  if (separator.location == NSNotFound || separator.location == 0) return nil;
+  NSString *scheme = [url substringToIndex:separator.location].lowercaseString;
+  NSString *rest = [url substringFromIndex:NSMaxRange(separator)];
+  const NSRange end = [rest rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#"]];
+  NSString *authority = end.location == NSNotFound ? rest : [rest substringToIndex:end.location];
+  const NSRange user = [authority rangeOfString:@"@" options:NSBackwardsSearch];
+  if (user.location != NSNotFound) authority = [authority substringFromIndex:NSMaxRange(user)];
+  return [NSString stringWithFormat:@"%@://%@", scheme, authority.lowercaseString];
 }
 
 id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered) {
@@ -517,10 +526,12 @@ BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL) {
   return ![tab.securityInfo[@"level"] isEqual:@"certificateError"];
 }
 
-void ReleaseFocusFrom(NSView *page) {
+BOOL ReleaseFocusFrom(NSView *page) {
   NSWindow *window = page.window;
   NSResponder *focused = window.firstResponder;
-  if (page && [focused isKindOfClass:NSView.class] && [(NSView *)focused isDescendantOf:page]) [window makeFirstResponder:nil];
+  if (!page || ![focused isKindOfClass:NSView.class] || ![(NSView *)focused isDescendantOf:page]) return NO;
+  [window makeFirstResponder:nil];
+  return YES;
 }
 
 void PlaceVeil(ArdiaCoreTab *tab, ACEarlyVeil *veil) {
@@ -538,17 +549,44 @@ void PlaceVeil(ArdiaCoreTab *tab, ACEarlyVeil *veil) {
   veil.view.frame = host.bounds;
   [host addSubview:veil.view positioned:NSWindowAbove relativeTo:page];
   [CATransaction commit];
-  ReleaseFocusFrom(page);
+  if (ReleaseFocusFrom(page)) veil.restoreFocus = YES;
 }
 
 void Unveil(ArdiaCoreTab *tab) {
   ACEarlyVeil *veil = [Veils() objectForKey:tab];
   if (!veil) return;
   [Veils() removeObjectForKey:tab];
+  NSView *host = veil.view.superview;
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   [veil.view removeFromSuperview];
   [CATransaction commit];
+  if (!veil.restoreFocus || tab.closed || tab.view.superview != host || ![host isKindOfClass:ArdiaCoreWebView.class]) return;
+  ArdiaCoreWebView *web = (ArdiaCoreWebView *)host;
+  NSWindow *window = web.window;
+  NSResponder *focused = window.firstResponder;
+  if (web.visible && !web.isHiddenOrHasHiddenAncestor && (!focused || focused == window)) [tab focus];
+}
+
+void Reconcile(ArdiaCoreTab *tab) {
+  NSView *host = tab.view.superview;
+  if ([host isKindOfClass:ArdiaCoreWebView.class]) [ArdiaCoreEarlyWindow page:tab shownURL:((ArdiaCoreWebView *)host).shownURL];
+}
+
+void WatchVeil(ArdiaCoreTab *tab, ACEarlyVeil *veil, double after) {
+  __weak ArdiaCoreTab *weakTab = tab;
+  __weak ACEarlyVeil *weakVeil = veil;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(after * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    ArdiaCoreTab *page = weakTab;
+    ACEarlyVeil *still = weakVeil;
+    if (!page || !still || [Veils() objectForKey:page] != still) return;
+    const double left = still.changedAt + kVeilFailSafeSeconds - CACurrentMediaTime();
+    if (left > 0.05) return WatchVeil(page, still, left);
+    BOOL answered = NO;
+    NSLog(@"[ardiacore] page veil lifted after %.1f s without a match: shown %@, committed %@, visible %@", kVeilFailSafeSeconds,
+          still.lastShown ?: @"(none)", TabCall(page, @"committedOrigin", &answered) ?: @"(none)", page.url ?: @"(none)");
+    Unveil(page);
+  });
 }
 
 void CarryShield(ArdiaCoreTab *tab, id inputBlock) {
@@ -556,13 +594,16 @@ void CarryShield(ArdiaCoreTab *tab, id inputBlock) {
   ACEarlyVeil *veil = [Veils() objectForKey:tab];
   if (!veil) {
     veil = [ACEarlyVeil new];
+    veil.changedAt = CACurrentMediaTime();
     [Veils() setObject:veil forKey:tab];
+    WatchVeil(tab, veil, kVeilFailSafeSeconds);
   }
   if (!veil.inputBlock) {
     BOOL answered = NO;
     veil.inputBlock = inputBlock ?: TabCall(tab, @"suppressInput", &answered);
   }
   PlaceVeil(tab, veil);
+  Reconcile(tab);
 }
 
 void DropCover(ACEarlyShown *s) {
@@ -1009,7 +1050,10 @@ CGImageRef TakePrefetched(NSString *windowId) {
 
 + (void)pageMoved:(ArdiaCoreTab *)tab {
   if (!tab) return;
-  if (ACEarlyVeil *veil = [Veils() objectForKey:tab]) PlaceVeil(tab, veil);
+  if (ACEarlyVeil *veil = [Veils() objectForKey:tab]) {
+    PlaceVeil(tab, veil);
+    Reconcile(tab);
+  }
   for (ACEarlyShown *s in [Shown() copy]) {
     if (s.tab != tab || tab.view.superview == s.cover) continue;
     if (s.claimed) Forget(s);
@@ -1022,9 +1066,18 @@ CGImageRef TakePrefetched(NSString *windowId) {
   return tab && [Veils() objectForKey:tab] != nil;
 }
 
++ (void)requestFocus:(ArdiaCoreTab *)tab {
+  if (tab) [Veils() objectForKey:tab].restoreFocus = YES;
+}
+
 + (void)page:(ArdiaCoreTab *)tab shownURL:(NSString *)url {
   if (!tab) return;
-  const BOOL veiled = [Veils() objectForKey:tab] != nil;
+  ACEarlyVeil *veil = [Veils() objectForKey:tab];
+  if (veil && ![veil.lastShown ?: @"" isEqualToString:url ?: @""]) {
+    veil.lastShown = url;
+    veil.changedAt = CACurrentMediaTime();
+  }
+  const BOOL veiled = veil != nil;
   if (!veiled && ![Watched() containsObject:tab]) return;
   if (tab.closed) {
     [Watched() removeObject:tab];

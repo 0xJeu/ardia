@@ -1675,9 +1675,13 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
         @"isLoading" : @(_tab.loading),
         @"themeColor" : theme ?: NSNull.null,
         @"themeColorSource" : themeSource ?: NSNull.null,
-        @"initialDocumentAccessed" : @([_tab respondsToSelector:@selector(initialDocumentAccessed)] && _tab.initialDocumentAccessed),
-        @"committedInitial" : @([_tab respondsToSelector:@selector(committedInitial)] && _tab.committedInitial),
   };
+  if ([_tab respondsToSelector:@selector(initialDocumentAccessed)] && [_tab respondsToSelector:@selector(committedInitial)]) {
+    NSMutableDictionary *withInitial = [navigation mutableCopy];
+    withInitial[@"initialDocumentAccessed"] = @(_tab.initialDocumentAccessed);
+    withInitial[@"committedInitial"] = @(_tab.committedInitial);
+    navigation = withInitial;
+  }
   if (_crashed && _tab.loading) {
     _crashed = NO;
     NSMutableDictionary *gone = [navigation mutableCopy];
@@ -2052,7 +2056,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)focusPage {
-  if ([ArdiaCoreEarlyWindow veils:_tab]) return;
+  if ([ArdiaCoreEarlyWindow veils:_tab]) return [ArdiaCoreEarlyWindow requestFocus:_tab];
   [_tab focus];
 }
 

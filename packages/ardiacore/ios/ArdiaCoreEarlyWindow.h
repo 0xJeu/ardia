@@ -28,6 +28,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)pageMoved:(ArdiaCoreTab *)tab;
 + (void)pageNavigated:(nullable ArdiaCoreTab *)tab launchURL:(nullable NSString *)launchURL;
 + (BOOL)veils:(nullable ArdiaCoreTab *)tab;
++ (void)requestFocus:(nullable ArdiaCoreTab *)tab;
 + (void)page:(nullable ArdiaCoreTab *)tab shownURL:(nullable NSString *)url;
 + (void)pageCommitted:(nullable ArdiaCoreTab *)tab shownURL:(nullable NSString *)url;
 + (void)dropPage:(nullable ArdiaCoreTab *)tab;
