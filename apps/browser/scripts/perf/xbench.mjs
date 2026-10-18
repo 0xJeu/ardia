@@ -317,7 +317,7 @@ class Cdp {
     }
     try {
       const r = await s.send("Runtime.evaluate", {
-        expression: "JSON.stringify(Object.assign({}, window.__ac, { visibility: document.visibilityState, w: innerWidth, h: innerHeight }))",
+        expression: "JSON.stringify(Object.assign({}, window.__ac, { visibility: document.visibilityState, w: innerWidth, h: innerHeight, origin: performance.timeOrigin }))",
         returnByValue: true,
       }, 3000);
       return JSON.parse(r?.result?.result?.value ?? "null");
@@ -678,6 +678,8 @@ async function launchItem(name, item, kind) {
       window: windowAt - app.t0,
       firstPaint: (page?.state.fcp ?? NaN) - app.t0,
       firstFrame: (page?.state.frame ?? NaN) - app.t0,
+      navigationStart: (page?.state.origin ?? NaN) - app.t0,
+      visibleAt: (page?.state.vis?.find(([, v]) => v === "visible")?.[0] ?? NaN) - app.t0,
       viewport: page ? [page.state.w, page.state.h] : null,
       pages: (await app.cdp.pages()).length,
       focusTaken: app.focusTaken() || !!app.focusSeen,
