@@ -1179,6 +1179,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 }
 
 - (void)window:(ArdiaCoreWindow *)window didRemoveTab:(ArdiaCoreTab *)tab {
+  [ArdiaCoreTabStrip removed:tab fromWindow:self];
   if (ArdiaCoreProfile *profile = tab.profile) [ArdiaCoreTabStrip changedInWindow:self profile:profile];
   [[self viewFor:tab] tabRemovedFromWindow:window];
   if (_stray || _standalone || _awaitingApp) {
@@ -1523,7 +1524,10 @@ NSView *ACWindowRootView(NSWindow *window) {
     if (!p || !coreWindow || !shown) return;
     coreWindow.activeProfile = p;
     ArdiaCoreTab *tab = [ArdiaCoreTabStrip activeTabInWindow:shown profile:p];
-    if (tab) [[ArdiaCoreTabs viewForTab:tab] requestFocusRestore];
+    ArdiaCoreWebView *view = tab ? [ArdiaCoreTabs viewForTab:tab] : nil;
+    NSWindow *shownWindow = coreWindow.window;
+    if (view && shownWindow && view.window == shownWindow && [[coreWindow tabsForProfile:p] containsObject:tab])
+      [view requestFocusRestoreIn:shownWindow];
   });
 }
 

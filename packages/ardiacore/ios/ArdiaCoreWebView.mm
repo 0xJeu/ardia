@@ -1382,10 +1382,14 @@ static BOOL InTabPage(NSView *view) {
 }
 
 - (void)requestFocusRestore {
-  if (_standalone || !_tab) return;
+  [self requestFocusRestoreIn:self.window];
+}
+
+- (void)requestFocusRestoreIn:(NSWindow *)window {
+  if (_standalone || !_tab || !window) return;
   _focusOnActivate = YES;
   _focusActivatedAt = CACurrentMediaTime();
-  _focusActivatedIn = self.window;
+  _focusActivatedIn = window;
   [self restoreFocusIfDue];
   if (_focusOnActivate) [self schedulePainting];
 }
