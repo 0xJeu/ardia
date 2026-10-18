@@ -1,5 +1,5 @@
 diff --git a/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-index 18bbe64f657a36596563b3eb6d135284e28c674a..21eb199977f8d79e3a290c8b8593796d89f8cea1 100644
+index 18bbe64f657a36596563b3eb6d135284e28c674a..d749124efd6f5b0331ac6415845255ff59e3ea94 100644
 --- a/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
 +++ b/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
 @@ -14,6 +14,20 @@
@@ -7,13 +7,13 @@ index 18bbe64f657a36596563b3eb6d135284e28c674a..21eb199977f8d79e3a290c8b8593796d
  static void *TextFieldSelectionObservingContext = &TextFieldSelectionObservingContext;
  
 +#if TARGET_OS_OSX // [Ardia: Return and Escape reach a field as commands, never as key equivalents, so keyDownEvents asking for them went unheard
-+static BOOL ArdiaCommandKeyHandledByJS(id<RCTBackedTextInputDelegate> textInputDelegate, SEL commandSelector)
++static BOOL ArdiaCommandKeyHandledByJS(id<RCTBackedTextInputDelegate> textInputDelegate, NSTextView *editor, SEL commandSelector)
 +{
 +  NSString *key = commandSelector == @selector(cancelOperation:) ? @"Escape"
 +      : commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:) ? @"Enter"
 +      : nil;
 +  NSEvent *event = NSApp.currentEvent;
-+  if (key == nil || textInputDelegate == nil || event.type != NSEventTypeKeyDown || ![textInputDelegate hasKeyDownEventOrKeyUpEvent:key]) {
++  if (key == nil || textInputDelegate == nil || editor.hasMarkedText || event.type != NSEventTypeKeyDown || ![textInputDelegate hasKeyDownEventOrKeyUpEvent:key]) {
 +    return NO;
 +  }
 +  return ![textInputDelegate textInputShouldHandleKeyEvent:event];
@@ -27,7 +27,7 @@ index 18bbe64f657a36596563b3eb6d135284e28c674a..21eb199977f8d79e3a290c8b8593796d
  - (BOOL)control:(NSControl *)control textView:(NSTextView *)fieldEditor doCommandBySelector:(SEL)commandSelector
  {
    id<RCTBackedTextInputDelegate> textInputDelegate = [_backedTextInputView textInputDelegate];
-+  if (ArdiaCommandKeyHandledByJS(textInputDelegate, commandSelector)) { // [Ardia]
++  if (ArdiaCommandKeyHandledByJS(textInputDelegate, fieldEditor, commandSelector)) { // [Ardia]
 +    return YES;
 +  }
    BOOL commandHandled = NO;
@@ -37,7 +37,7 @@ index 18bbe64f657a36596563b3eb6d135284e28c674a..21eb199977f8d79e3a290c8b8593796d
  {
    BOOL commandHandled = NO;
    id<RCTBackedTextInputDelegate> textInputDelegate = [_backedTextInputView textInputDelegate];
-+  if (ArdiaCommandKeyHandledByJS(textInputDelegate, commandSelector)) { // [Ardia]
++  if (ArdiaCommandKeyHandledByJS(textInputDelegate, textView, commandSelector)) { // [Ardia]
 +    return YES;
 +  }
    // enter/return
