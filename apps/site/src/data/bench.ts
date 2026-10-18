@@ -74,7 +74,8 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 type Kind = { word: string; speed: boolean };
 function kindOf(row: RawRow): Kind {
   const text = `${row.id} ${row.label} ${row.unit}`.toLowerCase();
-  if (!row.lowerIsBetter) return { word: "higher", speed: true };
+  if (!row.lowerIsBetter) return { word: /speedometer/.test(text) ? "faster" : "higher", speed: true };
+  if (/power|energy/.test(text) || /^m?w$/i.test(row.unit)) return { word: "less power", speed: false };
   if (/wake/.test(text)) return { word: "fewer wakeups", speed: false };
   if (/cpu/.test(text) || row.unit === "%") return { word: "less CPU", speed: false };
   if (/download|size|dmg|disk/.test(text)) return { word: "smaller download", speed: false };
@@ -199,21 +200,21 @@ function shapeRow(row: RawRow): Omit<Row, "sub"> | null {
 }
 
 function groupRows(rows: RawRow[]): Group[] {
-  const groups = new Map<string, { label: string; rows: Row[] }>();
+  const groups = new Map<string, { label: string; rows: Row[]; power: boolean }>();
   const keyed = rows.flatMap((raw) => {
     const row = shapeRow(raw);
     if (!row) return [];
     const split = raw.label.match(/^(.+?)(?:,\s+|\s+\(|\s+·\s+)(.+?)\)?$/);
     const key = raw.group ?? (split ? split[1] : raw.label);
     const sub = raw.group ? raw.label : split ? split[2] : null;
-    return [{ key, sub, row }];
+    return [{ key, sub, row, power: kindOf(raw).word === "less power" }];
   });
   const keys = new Set(keyed.map((k) => k.key));
   for (const k of keyed) {
     const parent = [...keys].find((p) => p !== k.key && k.key.startsWith(`${p} `));
     const key = parent ?? k.key;
     const sub = parent ? k.key.slice(parent.length + 1) : k.sub;
-    if (!groups.has(key)) groups.set(key, { label: key, rows: [] });
+    if (!groups.has(key)) groups.set(key, { label: key, rows: [], power: k.power });
     groups.get(key)!.rows.push({ ...k.row, sub: sub ? capitalize(sub) : null });
   }
   const byLead = (a: { lead: number }, b: { lead: number }) => b.lead - a.lead;
@@ -225,10 +226,11 @@ function groupRows(rows: RawRow[]): Group[] {
         label: g.label,
         rows: rows.length === 1 ? [{ ...rows[0], sub: null }] : rows,
         lead: rows[0].lead,
+        power: g.power,
       };
     })
-    .sort(byLead)
-    .map(({ lead: _lead, ...g }) => g);
+    .sort((a, b) => Number(a.power) - Number(b.power) || byLead(a, b))
+    .map(({ lead: _lead, power: _power, ...g }) => g);
 }
 
 function versionsOf(rows: RawRow[]): string {
