@@ -39,7 +39,6 @@ function labels(s: Suggestion): [string, string | null] {
 
 export type RowActions = {
   choose(s: Suggestion): void;
-  hover(index: number): void;
   remove(url: string): void;
 };
 
@@ -62,7 +61,6 @@ export const SuggestionList = memo(function SuggestionList({
       {items.map((s, i) => (
         <SuggestionRow
           key={i}
-          index={i}
           suggestion={s}
           selected={i === selectedIndex}
           trailing={i === 0 ? trailing : null}
@@ -84,13 +82,11 @@ export const isRemovable = (s: Suggestion | undefined): s is Extract<Suggestion,
 const SuggestionRow = memo(
   function SuggestionRow({
     suggestion: s,
-    index,
     selected,
     trailing,
     actions,
   }: {
     suggestion: Suggestion;
-    index: number;
     selected: boolean;
     trailing: string | null;
     actions: RowActions;
@@ -102,13 +98,7 @@ const SuggestionRow = memo(
     const onRemove = isRemovable(s) ? () => actions.remove(s.url) : undefined;
     const removable = !!onRemove && (hovered || selected);
     return (
-      <View
-        onMouseEnter={() => {
-          hoverProps.onMouseEnter();
-          actions.hover(index);
-        }}
-        onMouseLeave={hoverProps.onMouseLeave}
-      >
+      <View {...hoverProps}>
         <Pressable onPress={() => actions.choose(s)}>
           <View
             style={{
@@ -119,7 +109,7 @@ const SuggestionRow = memo(
               alignItems: "center",
               paddingHorizontal: 13,
               gap: 11,
-              backgroundColor: selected ? theme.rowSelected : hovered ? theme.rowHover : undefined,
+              backgroundColor: selected ? theme.commandBarSelected : hovered ? theme.commandBarHover : undefined,
             }}
           >
             <SuggestionIcon suggestion={s} />
@@ -142,5 +132,5 @@ const SuggestionRow = memo(
       </View>
     );
   },
-  (a, b) => a.index === b.index && a.selected === b.selected && a.trailing === b.trailing && a.actions === b.actions && sameSuggestion(a.suggestion, b.suggestion),
+  (a, b) => a.selected === b.selected && a.trailing === b.trailing && a.actions === b.actions && sameSuggestion(a.suggestion, b.suggestion),
 );

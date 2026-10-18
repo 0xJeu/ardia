@@ -403,7 +403,6 @@ export function Omnibox({
   }));
   const [rowActions] = useState<RowActions>(() => ({
     choose: (s) => latest.current.choose(s),
-    hover: setSelected,
     remove: (url) => useBrowser.getState().removeHistory(latest.current.profileId, [url]),
   }));
   const suggestionList = (
