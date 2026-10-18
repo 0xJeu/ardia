@@ -58,7 +58,7 @@ NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   return views;
 }
 
-enum class ACPageFocus { Unknown, Page, Elsewhere };
+enum class ACPageFocus { Unknown, Page, DevTools, Elsewhere };
 
 constexpr CFTimeInterval kFocusRestoreWindow = 1;
 
@@ -500,6 +500,7 @@ static BOOL HeldSelector(SEL selector) {
   __weak NSView *_frontedPage;
   NSUInteger _frontGeneration;
   ACPageFocus _pageFocus;
+  __weak NSView *_focusedDevTools;
   BOOL _focusOnActivate;
   CFTimeInterval _focusActivatedAt;
   __weak NSWindow *_focusActivatedIn;
@@ -1364,12 +1365,16 @@ static BOOL InWebView(NSView *view) {
 
 - (void)storePageFocus {
   _focusOnActivate = NO;
+  _focusedDevTools = nil;
   NSWindow *window = self.window;
   if (!window || !_tab) return;
   NSResponder *responder = window.firstResponder;
   NSView *view = [responder isKindOfClass:NSView.class] ? (NSView *)responder : nil;
-  if (view && [view isDescendantOf:self]) {
+  if (view && _tab.view && [view isDescendantOf:_tab.view]) {
     _pageFocus = ACPageFocus::Page;
+  } else if (view && _devtoolsView && [view isDescendantOf:_devtoolsView]) {
+    _pageFocus = ACPageFocus::DevTools;
+    _focusedDevTools = view;
   } else if (!responder || responder == window || (view && InWebView(view))) {
     _pageFocus = ACPageFocus::Unknown;
   } else {
@@ -1392,7 +1397,12 @@ static BOOL InWebView(NSView *view) {
   NSView *view = [responder isKindOfClass:NSView.class] ? (NSView *)responder : nil;
   if (view && [view isDescendantOf:self]) return;
   if (responder && responder != window && !(view && InWebView(view))) return;
-  if (_pageFocus != ACPageFocus::Elsewhere) [self focusPage];
+  NSView *devTools = _focusedDevTools;
+  if (_pageFocus == ACPageFocus::DevTools && devTools.window == window && _devtoolsView && [devTools isDescendantOf:_devtoolsView]) {
+    [window makeFirstResponder:devTools];
+  } else if (_pageFocus != ACPageFocus::Elsewhere) {
+    [self focusPage];
+  }
 }
 
 static ArdiaCoreWebView *ViewForKey(NSString *key) {
