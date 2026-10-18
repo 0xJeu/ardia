@@ -11,6 +11,9 @@ for later, not a build need any more):
   - PARTIAL_EXCLUDE: applied without the listed files (git apply --exclude);
   - FIXUPS: small edits after the series;
   - everything else: `git apply` exactly, falling back to `patch -F2`.
+A patch in FUZZ is checked as soon as it applies: every hunk's result (its context and
+added lines) must be in its file, except the hunks FUZZED_HUNKS names, which must
+satisfy their own present/absent checks instead. A misplaced hunk fails the step.
 Run once on a fresh tree.
 
 Usage: 03-ungoogled.py [--dry-run]
@@ -56,11 +59,21 @@ PARTIAL_EXCLUDE = {
     'extra/ungoogled-chromium/add-flag-for-incognito-themes.patch':
         ['chrome/browser/ui/views/frame/browser_widget.cc'],  # as in the CEF-era build; revisit
 }
-# Small edits after the series: (file, old text, new text).
 FUZZ = {
     'core/ungoogled-chromium/fix-building-without-safebrowsing.patch': 3,
 }
 
+FUZZED_HUNKS = {
+    'core/ungoogled-chromium/fix-building-without-safebrowsing.patch': {
+        ('chrome/test/BUILD.gn', '@@ -5343,7 +5341,6 @@'): (
+            ['    "//components/safe_browsing/content/browser",\n'
+             '    "//components/safe_browsing/content/browser/notification_content_detection",\n'],
+            ['"//components/safe_browsing/content/browser:client_side_detection_images_cache"'],
+        ),
+    },
+}
+
+# Small edits after the series: (file, old text, new text).
 FIXUPS = [
     # 0006-modify-default-prefs turns off saving/filling passwords, addresses
     # and cards by default; Ardia uses Chrome's password manager and
@@ -80,6 +93,58 @@ def series():
         if line and not line.startswith('#'):
             yield UG / 'patches', line
     yield UGMAC / 'patches', 'ungoogled-chromium/macos/fix-disabling-safebrowsing.patch'
+
+
+def patch_hunks(text):
+    hunk, target = None, None
+    for line in text.splitlines():
+        if line.startswith('+++ '):
+            target = line[4:].split('\t')[0].removeprefix('b/')
+            continue
+        if line.startswith(('--- ', 'diff ', 'index ')):
+            continue
+        if line.startswith('@@'):
+            if hunk:
+                yield hunk
+            hunk = (target, line.split(' @@')[0] + ' @@', [])
+            continue
+        if hunk is None or line.startswith(('-', '\\')):
+            continue
+        hunk[2].append(line[1:])
+    if hunk:
+        yield hunk
+
+
+def contains_block(lines, block):
+    n = len(block)
+    return any(lines[i:i + n] == block for i in range(len(lines) - n + 1))
+
+
+def misplaced_hunks(patch_text, read, fuzzed=None):
+    fuzzed = fuzzed or {}
+    seen, problems = set(), []
+    for target, header, result in patch_hunks(patch_text):
+        if target == '/dev/null':
+            continue
+        text = read(target)
+        if text is None:
+            problems.append(f'{target}: missing')
+            continue
+        if (target, header) in fuzzed:
+            seen.add((target, header))
+            present, absent = fuzzed[(target, header)]
+            problems += [f'{target} {header}: lacks {p!r}' for p in present if p not in text]
+            problems += [f'{target} {header}: still has {a!r}' for a in absent if a in text]
+            continue
+        if not contains_block(text.splitlines(), result):
+            problems.append(f'{target} {header}: result not found')
+    problems += [f'{t} {h}: no such hunk in the patch' for t, h in fuzzed.keys() - seen]
+    return problems
+
+
+def read_tree(rel):
+    f = SRC / rel
+    return f.read_text() if f.exists() else None
 
 
 def run(cmd):
@@ -119,6 +184,11 @@ for base, rel in series():
     if p.returncode == 0:
         if not dry:
             run(['patch', '-p1', fuzz, '--forward', '--no-backup-if-mismatch', '-i', path]).check_returncode()
+            if rel in FUZZ:
+                problems = misplaced_hunks(pathlib.Path(path).read_text(), read_tree, FUZZED_HUNKS.get(rel))
+                if problems:
+                    rows.append((rel, 'FAILED', 'misplaced: ' + ' | '.join(problems)[:500]))
+                    continue
         rows.append((rel, status, how[1]))
         continue
     detail = [l for l in (p.stdout + p.stderr).splitlines() if 'failed' in l.lower() or 'No such' in l]
