@@ -2369,7 +2369,7 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
 }
 
 - (void)closeNow {
-  if (ardiacore::IsNotifyingTabStrip()) {
+  if (ardiacore::IsNotifyingTabStrip() || ardiacore::IsNotifyingNavigation()) {
     dispatch_async(dispatch_get_main_queue(), ^{
       [self closeNow];
     });
@@ -2398,7 +2398,7 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
 }
 
 - (void)close {
-  if (ardiacore::IsNotifyingTabStrip()) {
+  if (ardiacore::IsNotifyingTabStrip() || ardiacore::IsNotifyingNavigation()) {
     dispatch_async(dispatch_get_main_queue(), ^{
       [self close];
     });

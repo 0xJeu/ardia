@@ -22,6 +22,7 @@ chromium chromium-extension-install-prompt-hook.patch
 chromium chromium-extension-updates.patch
 chromium chromium-extension-omaha-attributes.patch
 chromium chromium-extension-window-hidden.patch
+chromium chromium-component-extension-restricted-urls.patch
 chromium chromium-neterror-game.patch
 chromium chromium-branding.patch
 # Load-bearing for every user's data: the Safe Storage item ("Ardia Safe Storage" / "Ardia") holds the key to

@@ -69,6 +69,12 @@ EngineCallbacks& Callbacks() {
 
 bool g_browser_started = false;
 
+constexpr char kBundledContentBlockerId[] = "fajbdaomknpkicfjcpipdmcpoamdmilh";
+
+bool IsBundledComponentExtension(const extensions::ExtensionId& extension_id) {
+  return extension_id == kBundledContentBlockerId;
+}
+
 constexpr const char* kSwitchesThatOpenTheProfile[] = {
     "allow-insecure-localhost",
     "auto-open-devtools-for-tabs",
@@ -288,6 +294,7 @@ void ReleaseAppKeepAlive() {
 ACMainDelegate::ACMainDelegate(const StartupTimestamps& timestamps)
     : ChromeMainDelegate(timestamps) {
   g_ardia_embedder = true;
+  g_ardia_restricted_component_extension = &IsBundledComponentExtension;
   g_ardia_resource_bundle_delegate = ProductStrings();
 }
 

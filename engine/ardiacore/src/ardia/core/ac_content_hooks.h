@@ -29,6 +29,9 @@ extern int g_ardia_disk_space_check_seconds;
 
 extern bool g_ardia_lazy_storage_usage;
 
+extern bool (*g_ardia_restricted_component_extension)(
+    const extensions::ExtensionId& extension_id);
+
 extern bool g_ardia_begin_frame_bridge;
 
 extern int (*g_ardia_permission_tab_shown)(content::WebContents*);

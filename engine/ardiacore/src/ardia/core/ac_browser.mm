@@ -601,10 +601,15 @@ void WindowHost::BrowserWindowDestroyed(ACBrowserWindow* window) {
 
 namespace {
 int g_tab_strip_notifying = 0;
+int g_navigation_notifying = 0;
 }
 
 bool IsNotifyingTabStrip() {
   return g_tab_strip_notifying > 0;
+}
+
+bool IsNotifyingNavigation() {
+  return g_navigation_notifying > 0;
 }
 
 bool OnlyShowedBlank(content::WebContents* contents) {
@@ -1208,6 +1213,8 @@ const char* TerminationName(base::TerminationStatus status) {
 
 void TabBridge::PrimaryMainFrameRenderProcessGone(
     base::TerminationStatus status) {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   if (status == base::TERMINATION_STATUS_NORMAL_TERMINATION ||
       status == base::TERMINATION_STATUS_STILL_RUNNING) {
     return;
@@ -1231,6 +1238,8 @@ void TabBridge::CheckSecurity() {
 }
 
 void TabBridge::DidChangeVisibleSecurityState() {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   CheckSecurity();
 }
 
@@ -1331,6 +1340,8 @@ void TabBridge::WasDiscarded() {
 }
 
 void TabBridge::DidStartNavigation(content::NavigationHandle* handle) {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   if (handle->IsInPrimaryMainFrame() && !handle->IsSameDocument()) {
     rule_blocked_urls_.clear();
   }
@@ -1392,16 +1403,22 @@ void TabBridge::DidUpdateAudioMutingState(bool muted) {
 }
 
 void TabBridge::TitleWasSet(content::NavigationEntry* entry) {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   [tab_ notify:@selector(tabDidChangeTitle:)];
 }
 
 void TabBridge::DidStartLoading() {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   EnsureFaviconObserved();
   EnsurePopupsObserved();
   [tab_ notify:@selector(tabDidChangeLoading:)];
 }
 
 void TabBridge::DidStopLoading() {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   base::WeakPtr<TabBridge> alive = weak_factory_.GetWeakPtr();
   [tab_ notify:@selector(tabDidChangeLoading:)];
   if (alive) {
@@ -1410,6 +1427,8 @@ void TabBridge::DidStopLoading() {
 }
 
 void TabBridge::LoadProgressChanged(double progress) {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   [tab_ notify:@selector(tabDidChangeProgress:)];
 }
 
@@ -1504,6 +1523,8 @@ void TabBridge::ReportBlocked() {
 }
 
 void TabBridge::DidFinishNavigation(content::NavigationHandle* handle) {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   EnsureFaviconObserved();
   EnsureZoomObserved();
   if (made_ahead_ && handle->IsInPrimaryMainFrame() && handle->HasCommitted() &&
@@ -1558,6 +1579,8 @@ void TabBridge::DidFinishNavigation(content::NavigationHandle* handle) {
 
 void TabBridge::NavigationEntryCommitted(
     const content::LoadCommittedDetails& load_details) {
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
   [tab_ notify:@selector(tabDidChangeNavigationState:)];
 }
 
