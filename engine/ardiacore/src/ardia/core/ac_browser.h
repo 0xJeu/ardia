@@ -163,6 +163,7 @@ class WindowHost : public TabStripModelObserver,
 
 bool IsNotifyingTabStrip();
 bool IsNotifyingNavigation();
+void InitialMainDocumentAccessed(content::WebContents* contents);
 
 bool OnlyShowedBlank(content::WebContents* contents);
 void CloseBlankTabsBeforeWindowCloses(Browser* browser);

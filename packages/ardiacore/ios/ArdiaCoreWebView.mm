@@ -1671,6 +1671,8 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
         @"isLoading" : @(_tab.loading),
         @"themeColor" : theme ?: NSNull.null,
         @"themeColorSource" : themeSource ?: NSNull.null,
+        @"initialDocumentAccessed" : @([_tab respondsToSelector:@selector(initialDocumentAccessed)] && _tab.initialDocumentAccessed),
+        @"committedInitial" : @([_tab respondsToSelector:@selector(committedInitial)] && _tab.committedInitial),
   };
   if (_crashed && _tab.loading) {
     _crashed = NO;

@@ -95,6 +95,7 @@ void InstallChromeHooks() {
   g_ardia_keeps_window_without_tabs = &KeepsWindowWithoutTabs;
   g_ardia_devtools_dock_changed = &DevToolsDockChanged;
   g_ardia_create_web_contents_delegate = &CreateWebContentsDelegate;
+  g_ardia_initial_main_document_accessed = &InitialMainDocumentAccessed;
   g_ardia_viewless_browsers = true;
 }
 

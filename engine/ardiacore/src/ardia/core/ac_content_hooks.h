@@ -20,6 +20,8 @@ class RenderFrameHost;
 class WebContents;
 
 extern bool g_ardia_opacity_from_default_color;
+
+bool ArdiaHasAccessedInitialMainDocument(WebContents* contents);
 }
 
 namespace extensions {
@@ -39,6 +41,9 @@ extern bool (*g_ardia_restricted_component_extension)(
     const extensions::ExtensionId& extension_id);
 
 extern bool g_ardia_begin_frame_bridge;
+
+extern void (*g_ardia_initial_main_document_accessed)(
+    content::WebContents* contents);
 
 extern int (*g_ardia_permission_tab_shown)(content::WebContents*);
 

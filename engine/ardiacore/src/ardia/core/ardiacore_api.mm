@@ -81,6 +81,7 @@
 #include "ardia/core/ac_hooks.h"
 #include "ardia/core/ac_autofill_prompt.h"
 #include "ardia/core/ac_browser.h"
+#include "ardia/core/ac_content_hooks.h"
 #include "ardia/core/ac_browser_window.h"
 #include "ardia/core/ac_extension_view.h"
 #include "ardia/core/ac_installed_bubble.h"
@@ -1658,6 +1659,18 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 
 - (int)browserId {
   return _browserId;
+}
+
+- (BOOL)initialDocumentAccessed {
+  return _contents && content::ArdiaHasAccessedInitialMainDocument(_contents);
+}
+
+- (BOOL)committedInitial {
+  if (!_contents) {
+    return NO;
+  }
+  content::NavigationEntry* entry = _contents->GetController().GetLastCommittedEntry();
+  return !entry || entry->IsInitialEntry();
 }
 
 - (NSString*)committedOrigin {

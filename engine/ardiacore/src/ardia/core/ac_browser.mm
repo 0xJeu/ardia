@@ -612,6 +612,18 @@ bool IsNotifyingNavigation() {
   return g_navigation_notifying > 0;
 }
 
+void InitialMainDocumentAccessed(content::WebContents* contents) {
+  TabBridge* bridge = contents ? TabBridge::FromWebContents(contents) : nullptr;
+  if (!bridge) {
+    return;
+  }
+  ArdiaCoreTab* tab = bridge->tab();
+  base::AutoReset<int> notifying(&g_navigation_notifying,
+                                 g_navigation_notifying + 1);
+  [tab notify:@selector(tabDidChangeURL:)];
+  [tab notify:@selector(tabDidChangeNavigationState:)];
+}
+
 bool OnlyShowedBlank(content::WebContents* contents) {
   TabBridge* bridge = TabBridge::FromWebContents(contents);
   if (!bridge || !bridge->made_ahead()) {
