@@ -574,11 +574,14 @@ static void StartEarlyWindow() {
   const bool thawFrozenTabsRarely = !(slowTabThaw && !strcmp(slowTabThaw, "off"));
   const char *mainFrameThrottle = getenv("ARDIA_MAIN_FRAME_THROTTLE");
   const bool throttleMainFramesTo60Hz = !(mainFrameThrottle && !strcmp(mainFrameThrottle, "off"));
+  const char *walletPasses = getenv("ARDIA_WALLET_PASSES");
+  const bool biometricsCheckPerTab = walletPasses && !strcmp(walletPasses, "on");
   std::vector<std::string> extra = {
       "--user-data-dir=" + std::string(gDataDirectory.UTF8String),
       "--enable-smooth-scrolling",
       "--disable-stack-profiler",
-      "--disable-features=MacAppCodeSignClone,DevToolsAcceptDebuggingConnections",
+      std::string("--disable-features=MacAppCodeSignClone,DevToolsAcceptDebuggingConnections") +
+          (biometricsCheckPerTab ? "" : ",AutofillAiWalletPrivatePasses"),
       std::string("--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
                   "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s") +
           (freezeLeastRecentTabs ? (thawFrozenTabsRarely ? ",InfiniteTabsFreezing:unfreeze_interval/600s" : ",InfiniteTabsFreezing") : "") + (throttleMainFramesTo60Hz ? ",ThrottleMainFrameTo60Hz" : ""),
