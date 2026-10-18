@@ -283,6 +283,7 @@ ARDIACORE_EXPORT
 @property(nonatomic) BOOL muted;
 @property(readonly) int browserId;
 @property(readonly, nullable) NSString* committedOrigin;
++ (nullable NSString*)originForURL:(NSString*)url;
 @property(readonly) BOOL initialDocumentAccessed;
 @property(readonly) BOOL committedInitial;
 - (nullable id)suppressInput;

@@ -69,6 +69,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
+#include "url/gurl.h"
 #include "url/origin.h"
 #include "url/scheme_host_port.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -1671,6 +1672,16 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   }
   content::NavigationEntry* entry = _contents->GetController().GetLastCommittedEntry();
   return !entry || entry->IsInitialEntry();
+}
+
++ (NSString*)originForURL:(NSString*)url {
+  GURL gurl(base::SysNSStringToUTF8(url ?: @""));
+  if (!gurl.is_valid()) {
+    return nil;
+  }
+  const url::Origin origin = url::Origin::Create(gurl);
+  const url::SchemeHostPort& tuple = origin.GetTupleOrPrecursorTupleIfOpaque();
+  return tuple.IsValid() ? base::SysUTF8ToNSString(tuple.Serialize()) : @"";
 }
 
 - (NSString*)committedOrigin {
