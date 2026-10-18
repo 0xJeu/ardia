@@ -7,6 +7,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openedTab:(ArdiaCoreTab *)tab adoptId:(NSString *)adoptId disposition:(NSString *)disposition;
 - (void)tabRemovedFromWindow:(ArdiaCoreWindow *)window;
 - (void)tabActivatedByChrome:(BOOL)chromes;
+- (void)requestFocusRestore;
 - (void)devToolsChanged:(nullable NSView *)devToolsView;
 - (void)emit:(NSString *)name payload:(NSDictionary<NSString *, id> *)payload;
 - (void)exitPictureInPictureInFrame:(nullable NSString *)frameId;

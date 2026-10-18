@@ -189,6 +189,10 @@ NSArray<ArdiaCoreProfile *> *ProfilesWithTabs(ArdiaCoreWindowController *control
   if (profile) [ActiveTabs(controller) setObject:tab forKey:profile];
 }
 
++ (ArdiaCoreTab *)activeTabInWindow:(ArdiaCoreWindowController *)controller profile:(ArdiaCoreProfile *)profile {
+  return profile ? [ActiveTabs(controller) objectForKey:profile] : nil;
+}
+
 + (void)setPinned:(BOOL)pinned tab:(ArdiaCoreTab *)tab {
   [Pinned() setObject:@(pinned) forKey:tab];
 }

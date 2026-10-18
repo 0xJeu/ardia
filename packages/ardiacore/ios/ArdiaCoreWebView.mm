@@ -1141,11 +1141,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
 - (void)tabActivatedByChrome:(BOOL)chromes {
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ chrome-activated tab=%d byChrome=%d", _transferKey, _tab ? (int)_tab.tabId : -1, chromes);
   if (_standalone) return;
-  _focusOnActivate = YES;
-  _focusActivatedAt = CACurrentMediaTime();
-  _focusActivatedIn = self.window;
-  [self restoreFocusIfDue];
-  if (_focusOnActivate) [self schedulePainting];
+  [self requestFocusRestore];
   [self emit:@"tabStrip"
       payload:@{
         @"index" : @(MAX(_tabIndex, 0)),
@@ -1380,6 +1376,15 @@ static BOOL InWebView(NSView *view) {
   } else {
     _pageFocus = ACPageFocus::Elsewhere;
   }
+}
+
+- (void)requestFocusRestore {
+  if (_standalone || !_tab) return;
+  _focusOnActivate = YES;
+  _focusActivatedAt = CACurrentMediaTime();
+  _focusActivatedIn = self.window;
+  [self restoreFocusIfDue];
+  if (_focusOnActivate) [self schedulePainting];
 }
 
 - (void)restoreFocusIfDue {

@@ -65,6 +65,7 @@ extern NSNotificationName const ArdiaCoreWindowSeenDidChange;
 + (void)changedInWindow:(ArdiaCoreWindowController *)controller profile:(ArdiaCoreProfile *)profile cause:(nullable id)cause;
 + (void)windowClosed:(ArdiaCoreWindowController *)controller;
 + (void)activated:(ArdiaCoreTab *)tab inWindow:(ArdiaCoreWindowController *)controller;
++ (nullable ArdiaCoreTab *)activeTabInWindow:(ArdiaCoreWindowController *)controller profile:(ArdiaCoreProfile *)profile;
 + (void)setPinned:(BOOL)pinned tab:(ArdiaCoreTab *)tab;
 @end
 

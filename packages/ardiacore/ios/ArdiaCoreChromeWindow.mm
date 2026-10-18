@@ -1517,9 +1517,13 @@ NSView *ACWindowRootView(NSWindow *window) {
   ArdiaCoreWindowController *controller = [ArdiaCoreWindowController forNSWindow:window];
   if (!controller) return;
   __weak ArdiaCoreWindow *coreWindow = controller.coreWindow;
+  __weak ArdiaCoreWindowController *weakController = controller;
   ardiacore_host::WithProfile(profile ?: @"", ^(ArdiaCoreProfile *p) {
-    if (!p || !coreWindow) return;
+    ArdiaCoreWindowController *shown = weakController;
+    if (!p || !coreWindow || !shown) return;
     coreWindow.activeProfile = p;
+    ArdiaCoreTab *tab = [ArdiaCoreTabStrip activeTabInWindow:shown profile:p];
+    if (tab) [[ArdiaCoreTabs viewForTab:tab] requestFocusRestore];
   });
 }
 
