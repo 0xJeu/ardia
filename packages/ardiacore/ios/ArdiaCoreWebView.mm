@@ -1692,6 +1692,12 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 
 - (void)tabDidChangeURL:(ArdiaCoreTab *)tab {
   [self queueNavigation];
+  [ArdiaCoreEarlyWindow page:tab shownURL:_shownURL];
+}
+
+- (void)setShownURL:(NSString *)shownURL {
+  _shownURL = [shownURL copy];
+  [ArdiaCoreEarlyWindow page:_tab shownURL:_shownURL];
 }
 
 - (void)tabDidChangeLoading:(ArdiaCoreTab *)tab {
@@ -1918,6 +1924,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)tabWillClose:(ArdiaCoreTab *)tab {
+  [ArdiaCoreEarlyWindow dropPage:tab];
   if (_closing || tab != _tab) return;
   [self detach];
   [self emit:@"windowClose" payload:@{}];
@@ -2030,6 +2037,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)focusPage {
+  if ([ArdiaCoreEarlyWindow veils:_tab]) return;
   [_tab focus];
 }
 

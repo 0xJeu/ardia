@@ -388,14 +388,14 @@ const TabPane = memo(function TabPane({
 });
 
 const paneTab = (t: Tab | undefined) => ({ exists: !!t, url: t?.url ?? "", zoom: t?.zoom ?? 1 });
-const webViewTab = (t: Tab | undefined) => ({ navigation: t?.navigation, adoptId: t?.adoptId, profileId: t?.profileId ?? "" });
+const webViewTab = (t: Tab | undefined) => ({ navigation: t?.navigation, adoptId: t?.adoptId, profileId: t?.profileId ?? "", shownUrl: t?.url ?? "" });
 
 const isBlank = (url: string) => !url || url === "about:blank";
 const pageKey = (url: string) => url.replace(/#.*$/, "");
 const hostOf = (url: string) => url.match(/^[a-z][\w+.-]*:\/\/([^/?#]*)/i)?.[1]?.toLowerCase() ?? "";
 
 const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: string; visible: boolean; warm: boolean }) {
-  const { navigation, adoptId, profileId } = useTabValue(tabId, webViewTab, shallowEqual);
+  const { navigation, adoptId, profileId, shownUrl } = useTabValue(tabId, webViewTab, shallowEqual);
   const neighbour = useBrowser((s) => warm && s.windows[s.tabs[tabId]?.windowId ?? ""]?.profileId !== profileId);
   const tab = () => useBrowser.getState().tabs[tabId];
   const store = () => useBrowser.getState();
@@ -455,6 +455,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       neighbour={neighbour}
       autoPictureInPicture={autoPictureInPicture}
       pageColor={pageColor}
+      shownUrl={shownUrl}
       onReady={(browserId, chromeTabId) => {
         setBrowserId(tabId, browserId);
         noteChromeTab(tabId, chromeTabId);

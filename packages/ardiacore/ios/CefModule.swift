@@ -236,6 +236,7 @@ public class CefModule: Module {
       Prop("neighbour") { (view: CefWebView, neighbour: Bool?) in view.browser.neighbour = neighbour ?? false }
       Prop("pageBackgroundColor") { (view: CefWebView, color: NSColor?) in view.browser.pageBackgroundColor = color }
       Prop("pageColor") { (view: CefWebView, color: String?) in view.browser.pageColor = color }
+      Prop("shownUrl") { (view: CefWebView, url: String?) in view.browser.shownURL = url }
       Prop("autoPictureInPicture") { (view: CefWebView, enabled: Bool?) in
         view.browser.autoPictureInPicture = enabled ?? false
       }

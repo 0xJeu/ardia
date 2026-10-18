@@ -147,6 +147,7 @@ export type WebViewProps = ViewProps & {
   neighbour?: boolean;
   pageBackgroundColor?: string;
   pageColor?: string;
+  shownUrl?: string;
   autoPictureInPicture?: boolean;
   onNavigationChange?: (state: NavigationState) => void;
   onProgress?: (progress: number) => void;

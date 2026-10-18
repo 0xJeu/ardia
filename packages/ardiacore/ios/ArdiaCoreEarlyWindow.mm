@@ -29,11 +29,20 @@
 @property(nonatomic) BOOL claimed;
 @property(nonatomic) BOOL expired;
 @property(nonatomic) BOOL shielded;
+@property(nonatomic, strong) id inputBlock;
 @property(nonatomic, strong) id contentObserver;
 @property(nonatomic, strong) id closeObserver;
 @end
 
 @implementation ACEarlyShown
+@end
+
+@interface ACEarlyVeil : NSObject
+@property(nonatomic, strong) NSView *view;
+@property(nonatomic, strong) id inputBlock;
+@end
+
+@implementation ACEarlyVeil
 @end
 
 namespace {
@@ -46,6 +55,7 @@ constexpr double kUntakenAfterContentSeconds = 2;
 constexpr double kPictureAfterContentSeconds = 0.5;
 constexpr CGFloat kMinPage = 100;
 constexpr double kTrimAfterHandoffSeconds = 2;
+constexpr double kWatchAfterAdoptionSeconds = 10;
 
 NSString *gLayoutPath;
 NSString *gDirectory;
@@ -58,6 +68,17 @@ BOOL gPrefetchDiscarded;
 NSString *gPrefetchedWindow;
 dispatch_group_t gPrefetch;
 BOOL gPictureCurrent;
+NSString *gLaunchURL;
+
+NSMapTable<ArdiaCoreTab *, ACEarlyVeil *> *Veils() {
+  static NSMapTable *veils = [NSMapTable weakToStrongObjectsMapTable];
+  return veils;
+}
+
+NSHashTable<ArdiaCoreTab *> *Watched() {
+  static NSHashTable *watched = [NSHashTable weakObjectsHashTable];
+  return watched;
+}
 
 NSMutableSet<NSString *> *Dismissed() {
   static NSMutableSet *dismissed = [NSMutableSet set];
@@ -441,18 +462,113 @@ void RecordLayouts(NSDictionary *session, BOOL wait) {
   Write(data);
 }
 
+NSString *OriginOfURL(NSString *url) {
+  NSURLComponents *parts = url.length ? [NSURLComponents componentsWithString:url] : nil;
+  NSString *scheme = parts.scheme.lowercaseString, *host = parts.host.lowercaseString;
+  if (!scheme.length || !host.length) return nil;
+  if ([host containsString:@":"] && ![host hasPrefix:@"["]) host = [NSString stringWithFormat:@"[%@]", host];
+  return parts.port ? [NSString stringWithFormat:@"%@://%@:%@", scheme, host, parts.port] : [NSString stringWithFormat:@"%@://%@", scheme, host];
+}
+
+id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered) {
+  const SEL selector = NSSelectorFromString(name);
+  *answered = [tab respondsToSelector:selector];
+  return *answered ? ((id (*)(id, SEL))objc_msgSend)(tab, selector) : nil;
+}
+
+NSString *LiveOrigin(ArdiaCoreTab *tab) {
+  BOOL answered = NO;
+  NSString *committed = TabCall(tab, @"committedOrigin", &answered);
+  if (answered && committed) return committed.length ? committed : nil;
+  return OriginOfURL(tab.url);
+}
+
+BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL) {
+  NSString *launch = OriginOfURL(launchURL);
+  if (!launch) return NO;
+  BOOL engineKnows = NO;
+  NSString *committed = TabCall(tab, @"committedOrigin", &engineKnows);
+  if (committed && ![committed isEqualToString:launch]) return NO;
+  NSString *url = tab.url;
+  if (!url.length) return YES;
+  if ([url isEqualToString:@"about:blank"]) return engineKnows;
+  NSString *live = OriginOfURL(url);
+  if (![live isEqualToString:launch]) return NO;
+  if (![live hasPrefix:@"https:"] || ![tab respondsToSelector:@selector(securityInfo)]) return YES;
+  return ![tab.securityInfo[@"level"] isEqual:@"certificateError"];
+}
+
+void ReleaseFocusFrom(NSView *page) {
+  NSWindow *window = page.window;
+  NSResponder *focused = window.firstResponder;
+  if (page && [focused isKindOfClass:NSView.class] && [(NSView *)focused isDescendantOf:page]) [window makeFirstResponder:nil];
+}
+
+void PlaceVeil(ArdiaCoreTab *tab, ACEarlyVeil *veil) {
+  NSView *page = tab.view, *host = page.superview;
+  if (!host || host == veil.view.superview) return;
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  if (!veil.view) {
+    veil.view = [[NSView alloc] initWithFrame:host.bounds];
+    veil.view.wantsLayer = YES;
+    veil.view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+  }
+  NSColor *fill = [host isKindOfClass:ArdiaCoreWebView.class] ? ((ArdiaCoreWebView *)host).pageBackgroundColor : nil;
+  veil.view.layer.backgroundColor = (fill ?: NSColor.windowBackgroundColor).CGColor;
+  veil.view.frame = host.bounds;
+  [host addSubview:veil.view positioned:NSWindowAbove relativeTo:page];
+  [CATransaction commit];
+  ReleaseFocusFrom(page);
+}
+
+void Unveil(ArdiaCoreTab *tab) {
+  ACEarlyVeil *veil = [Veils() objectForKey:tab];
+  if (!veil) return;
+  [Veils() removeObjectForKey:tab];
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  [veil.view removeFromSuperview];
+  [CATransaction commit];
+}
+
+void CarryShield(ArdiaCoreTab *tab, id inputBlock) {
+  if (!tab || tab.closed) return;
+  ACEarlyVeil *veil = [Veils() objectForKey:tab];
+  if (!veil) {
+    veil = [ACEarlyVeil new];
+    [Veils() setObject:veil forKey:tab];
+  }
+  if (!veil.inputBlock) {
+    BOOL answered = NO;
+    veil.inputBlock = inputBlock ?: TabCall(tab, @"suppressInput", &answered);
+  }
+  PlaceVeil(tab, veil);
+}
+
 void DropCover(ACEarlyShown *s) {
   if (s.contentObserver) [NSNotificationCenter.defaultCenter removeObserver:s.contentObserver];
   s.contentObserver = nil;
   ArdiaCoreTab *tab = s.tab;
   NSView *cover = s.cover;
+  id inputBlock = s.inputBlock;
   s.tab = nil;
   s.cover = nil;
+  s.inputBlock = nil;
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   if (tab && tab.view.superview == cover) [tab.view removeFromSuperview];
   [cover removeFromSuperview];
   [CATransaction commit];
+  if (s.shielded) CarryShield(tab, inputBlock);
+  else if (tab && !tab.closed && [tab.view.superview isKindOfClass:ArdiaCoreWebView.class]) {
+    [Watched() addObject:tab];
+    __weak ArdiaCoreTab *watched = tab;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kWatchAfterAdoptionSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      if (ArdiaCoreTab *still = watched) [Watched() removeObject:still];
+    });
+    [ArdiaCoreEarlyWindow page:tab shownURL:((ArdiaCoreWebView *)tab.view.superview).shownURL];
+  }
 }
 
 bool EnvOff(const char *name) {
@@ -531,28 +647,11 @@ NSView *Cover(NSView *host, NSDictionary *layout, NSRect *pageRect) {
   return cover;
 }
 
-NSString *OriginOfURL(NSString *url) {
-  NSURLComponents *parts = url.length ? [NSURLComponents componentsWithString:url] : nil;
-  NSString *scheme = parts.scheme.lowercaseString, *host = parts.host.lowercaseString;
-  if (!scheme.length || !host.length) return nil;
-  return parts.port ? [NSString stringWithFormat:@"%@://%@:%@", scheme, host, parts.port] : [NSString stringWithFormat:@"%@://%@", scheme, host];
-}
-
-BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL) {
-  NSString *url = tab.url;
-  if (!url.length || [url isEqualToString:@"about:blank"]) return YES;
-  NSString *live = OriginOfURL(url), *launch = OriginOfURL(launchURL);
-  if (!live || !launch || ![live isEqualToString:launch]) return NO;
-  if (![live hasPrefix:@"https:"] || ![tab respondsToSelector:@selector(securityInfo)]) return YES;
-  return ![tab.securityInfo[@"level"] isEqual:@"certificateError"];
-}
-
 void Shield(ACEarlyShown *s) {
   s.shielded = YES;
-  NSWindow *window = s.window;
-  NSView *page = s.tab.view;
-  NSResponder *focused = window.firstResponder;
-  if (page && [focused isKindOfClass:NSView.class] && [(NSView *)focused isDescendantOf:page]) [window makeFirstResponder:nil];
+  BOOL answered = NO;
+  s.inputBlock = TabCall(s.tab, @"suppressInput", &answered);
+  ReleaseFocusFrom(s.tab.view);
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   s.cover.hidden = YES;
@@ -674,6 +773,8 @@ CGImageRef TakePrefetched(NSString *windowId) {
   if (![layout isKindOfClass:NSDictionary.class] || !state || ![layout[@"state"] isEqual:state]) return NO;
   NSString *content = ContentOf(session, windowId);
   gPictureCurrent = content.length && [layout[@"pictureContent"] isEqual:content];
+  NSDictionary *hint = [session[@"launchTab"] isKindOfClass:NSDictionary.class] ? session[@"launchTab"] : nil;
+  gLaunchURL = [hint[@"url"] isKindOfClass:NSString.class] ? [hint[@"url"] copy] : nil;
   return YES;
 }
 
@@ -817,6 +918,7 @@ CGImageRef TakePrefetched(NSString *windowId) {
     [s.cover addSubview:page];
     [CATransaction commit];
     s.tab = tab;
+    if (!ShowsLaunchOrigin(tab, gLaunchURL)) Shield(s);
     return;
   }
 }
@@ -888,12 +990,39 @@ CGImageRef TakePrefetched(NSString *windowId) {
 
 + (void)pageMoved:(ArdiaCoreTab *)tab {
   if (!tab) return;
+  if (ACEarlyVeil *veil = [Veils() objectForKey:tab]) PlaceVeil(tab, veil);
   for (ACEarlyShown *s in [Shown() copy]) {
     if (s.tab != tab || tab.view.superview == s.cover) continue;
     if (s.claimed) Forget(s);
     else if (s.expired) Abandon(s);
     else DropCover(s);
   }
+}
+
++ (BOOL)veils:(ArdiaCoreTab *)tab {
+  return tab && [Veils() objectForKey:tab] != nil;
+}
+
++ (void)page:(ArdiaCoreTab *)tab shownURL:(NSString *)url {
+  if (!tab) return;
+  const BOOL veiled = [Veils() objectForKey:tab] != nil;
+  if (!veiled && ![Watched() containsObject:tab]) return;
+  if (tab.closed) {
+    [Watched() removeObject:tab];
+    return Unveil(tab);
+  }
+  NSString *shown = OriginOfURL(url), *live = LiveOrigin(tab);
+  const BOOL matches = shown && live && [shown isEqualToString:live];
+  if (veiled) {
+    if (matches) Unveil(tab);
+    return;
+  }
+  if (!url.length) return;
+  if (!matches) {
+    [Watched() removeObject:tab];
+    return CarryShield(tab, nil);
+  }
+  if (!tab.loading) [Watched() removeObject:tab];
 }
 
 + (void)pageNavigated:(ArdiaCoreTab *)tab launchURL:(NSString *)launchURL {
@@ -904,6 +1033,8 @@ CGImageRef TakePrefetched(NSString *windowId) {
 
 + (void)dropPage:(ArdiaCoreTab *)tab {
   if (!tab) return;
+  [Watched() removeObject:tab];
+  Unveil(tab);
   for (ACEarlyShown *s in [Shown() copy])
     if (s.tab == tab) {
       if (s.claimed) Forget(s);
