@@ -478,3 +478,96 @@ diff --git a/content/browser/devtools/devtools_agent_host_impl.cc b/content/brow
    session->SetAgentHost(this);
    if (!AttachSession(session)) {
      return false;
+diff --git a/content/browser/devtools/protocol/input_handler.cc b/content/browser/devtools/protocol/input_handler.cc
+--- a/content/browser/devtools/protocol/input_handler.cc
++++ b/content/browser/devtools/protocol/input_handler.cc
+@@ -56,10 +56,43 @@
+ #include "ui/gfx/geometry/point_f.h"
+ #include "ui/gfx/range/range.h"
+ 
++#include "ardia/core/ac_content_hooks.h"  // nogncheck
++#include "content/browser/devtools/devtools_session.h"
++#include "content/public/browser/web_contents.h"
++
++bool (*g_ardia_devtools_may_input)(content::DevToolsAgentHostClient* root_client,
++                                   content::RenderFrameHost* frame) = nullptr;
++
+ namespace content::protocol {
+ 
+ namespace {
+ 
++bool ArdiaMayInject(DevToolsSession* session,
++                    RenderFrameHostImpl* host,
++                    RenderWidgetHostImpl* widget) {
++  if (!g_ardia_devtools_may_input) {
++    return true;
++  }
++  WebContents* contents = host ? WebContents::FromRenderFrameHost(host) : nullptr;
++  if (!session || !widget || !contents) {
++    return false;
++  }
++  DevToolsAgentHostClient* client = session->GetRootSession()->GetClient();
++  bool found = false;
++  bool allowed = true;
++  contents->ForEachRenderFrameHost([&](RenderFrameHost* frame) {
++    if (frame->GetRenderWidgetHost() == widget) {
++      found = true;
++      allowed = allowed && g_ardia_devtools_may_input(client, frame);
++    }
++  });
++  return found && allowed;
++}
++
++}  // namespace
++
++namespace {
++
+ gfx::PointF CssPixelsToPointF(double x, double y, float scale_factor) {
+   return gfx::PointF(x * scale_factor, y * scale_factor);
+ }
+@@ -1267,6 +1300,11 @@
+       widget_host = target_host;
+   }
+ 
++  if (!ArdiaMayInject(session(), host_, widget_host)) {
++    callback->sendFailure(Response::InvalidParams("Not allowed"));
++    return;
++  }
++
+   // We do not pass events to browser if there is no native key event
+   // due to Mac needing the actual os_event.
+   if (event.native_key_code && allow_sending_input_to_browser_)
+@@ -1294,6 +1332,11 @@
+       widget_host = target_host;
+   }
+ 
++  if (!ArdiaMayInject(session(), host_, widget_host)) {
++    callback->sendFailure(Response::InvalidParams("Not allowed"));
++    return;
++  }
++
+   base::OnceClosure closure =
+       base::BindOnce(&InsertTextCallback::sendSuccess, std::move(callback));
+ 
+@@ -1643,6 +1686,10 @@
+ 
+   RenderWidgetHostImpl* widget_host =
+       RenderWidgetHostImpl::From(target->GetRenderWidgetHost());
++  if (!ArdiaMayInject(session(), host_, widget_host)) {
++    callback->sendFailure(Response::InvalidParams("Not allowed"));
++    return;
++  }
+   if (event->GetType() == blink::WebInputEvent::Type::kMouseWheel) {
+     EnsureInjector(widget_host)
+         ->InjectWheelEvent(static_cast<blink::WebMouseWheelEvent*>(event.get()),
+@@ -1744,6 +1791,10 @@
+   }
+   RenderWidgetHostImpl* widget_host =
+       RenderWidgetHostImpl::From(target->GetRenderWidgetHost());
++  if (!ArdiaMayInject(session(), host_, widget_host)) {
++    callback->sendFailure(Response::InvalidParams("Not allowed"));
++    return;
++  }
+ 
+   RenderWidgetHostViewBase* root_view = target->GetRootView();
+   if (!root_view) {

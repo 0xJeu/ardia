@@ -95,4 +95,8 @@ extern bool (*g_ardia_devtools_may_attach)(
     content::DevToolsAgentHostClient* root_client,
     content::DevToolsAgentHost* host);
 
+extern bool (*g_ardia_devtools_may_input)(
+    content::DevToolsAgentHostClient* root_client,
+    content::RenderFrameHost* frame);
+
 #endif

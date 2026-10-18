@@ -120,18 +120,39 @@ const std::set<std::string_view>& AllowedMethods() {
   return *methods;
 }
 
-const std::set<std::string_view>& TrackedMethods() {
-  static const base::NoDestructor<std::set<std::string_view>> methods({
-      "DOM.resolveNode",
-      "Page.createIsolatedWorld",
-      "Runtime.awaitPromise",
-      "Runtime.callFunctionOn",
-      "Runtime.evaluate",
-      "Runtime.getProperties",
-      "Target.getTargetInfo",
-      "Target.getTargets",
-  });
-  return *methods;
+bool NeedsResponse(const std::string& method, const base::DictValue& params) {
+  if (method == "Target.getTargets" || method == "Target.getTargetInfo" ||
+      method == "Page.createIsolatedWorld") {
+    return true;
+  }
+  if (method == "Runtime.evaluate") {
+    return !params.Find("contextId") && !params.Find("uniqueContextId");
+  }
+  if (method == "DOM.resolveNode") {
+    return !params.Find("executionContextId");
+  }
+  return false;
+}
+
+std::optional<int> ParseResponseId(std::string_view view) {
+  constexpr std::string_view kResponse = R"({"id":)";
+  if (!view.starts_with(kResponse)) {
+    return std::nullopt;
+  }
+  size_t end = kResponse.size();
+  if (end < view.size() && view[end] == '-') {
+    ++end;
+  }
+  while (end < view.size() && base::IsAsciiDigit(view[end])) {
+    ++end;
+  }
+  int id = 0;
+  if (end >= view.size() || (view[end] != ',' && view[end] != '}') ||
+      !base::StringToInt(view.substr(kResponse.size(), end - kResponse.size()),
+                         &id)) {
+    return std::nullopt;
+  }
+  return id;
 }
 
 const std::set<std::string_view>& SecretHeaders() {
@@ -250,16 +271,18 @@ bool IsWebTarget(const std::string* target_id) {
          IsWebHost(content::DevToolsAgentHost::GetForId(*target_id).get());
 }
 
-std::optional<std::string> ContextOfObjectId(std::string_view object_id) {
+std::optional<int> ContextOfObjectId(std::string_view object_id) {
   std::vector<std::string_view> parts = base::SplitStringPiece(
       object_id, ".", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
   int64_t isolate = 0;
   int context = 0;
+  int64_t serial = 0;
   if (parts.size() != 3 || !base::StringToInt64(parts[0], &isolate) ||
-      !base::StringToInt(parts[1], &context)) {
+      !base::StringToInt(parts[1], &context) ||
+      !base::StringToInt64(parts[2], &serial)) {
     return std::nullopt;
   }
-  return base::StrCat({parts[0], ".", parts[1]});
+  return context;
 }
 
 int ProcessOf(content::DevToolsAgentHost* host) {
@@ -375,11 +398,14 @@ class TokenClient : public ArdiaDevToolsTokenClient {
                         " isn't allowed for the ardia command"}));
       return false;
     }
-    if (TrackedMethods().contains(*method)) {
-      if (pending_.size() > kMaxPending) {
-        pending_.clear();
+    if (NeedsResponse(*method, params)) {
+      if (pending_count_ >= kMaxPending) {
+        *reply = ErrorReply(*id, session, kRefused,
+                            "ardia: too many commands are waiting for replies");
+        return false;
       }
       pending_[*id].push_back({session, *method});
+      ++pending_count_;
     }
     message = base::WriteJson(command).value_or(std::string());
     return !message.empty();
@@ -409,21 +435,25 @@ class TokenClient : public ArdiaDevToolsTokenClient {
       }
       return method != "Target.receivedMessageFromTarget";
     }
-    constexpr std::string_view kResponse = R"({"id":)";
-    if (pending_.empty() || !view.starts_with(kResponse)) {
+    if (pending_.empty()) {
       return true;
     }
-    size_t digits = kResponse.size();
-    while (digits < view.size() && base::IsAsciiDigit(view[digits])) {
-      ++digits;
+    std::optional<int> id = ParseResponseId(view);
+    if (!id) {
+      std::optional<base::Value> parsed =
+          base::JSONReader::Read(message, base::JSON_PARSE_RFC);
+      if (!parsed || !parsed->is_dict()) {
+        return false;
+      }
+      id = parsed->GetDict().FindInt("id");
+      if (!id) {
+        return !parsed->GetDict().Find("id");
+      }
     }
-    int id = 0;
-    if (!base::StringToInt(view.substr(kResponse.size(), digits - kResponse.size()),
-                           &id) ||
-        !pending_.contains(id)) {
+    if (!pending_.contains(*id)) {
       return true;
     }
-    return FilterResponse(id, message);
+    return FilterResponse(*id, message);
   }
 
   bool MayAttachToURL(const GURL& url, bool is_webui) override {
@@ -438,7 +468,6 @@ class TokenClient : public ArdiaDevToolsTokenClient {
   struct Contexts {
     std::map<int, int> ids;
     std::set<std::string> unique_ids;
-    std::set<std::string> objects;
   };
   struct Pending {
     std::string session;
@@ -480,8 +509,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
   }
 
   bool ObjectAllowed(const std::string& session, const std::string& object_id) {
-    std::optional<std::string> context = ContextOfObjectId(object_id);
-    return context && sessions_[session].objects.contains(*context);
+    return ContextAllowed(session, ContextOfObjectId(object_id));
   }
 
   bool ObjectIdsAllowed(const std::string& session, const base::Value& value) {
@@ -584,31 +612,20 @@ class TokenClient : public ArdiaDevToolsTokenClient {
       if (params.FindBool("includeCommandLineAPI").value_or(false)) {
         return "with the command line API";
       }
+    } else if (method == "Input.dispatchKeyEvent") {
+      params.Remove("nativeVirtualKeyCode");
+      params.Remove("isSystemKey");
     }
     return std::string();
   }
 
-  void LearnObjectContexts(const std::string& session,
-                           const base::Value& value) {
-    if (const base::ListValue* list = value.GetIfList()) {
-      for (const base::Value& item : *list) {
-        LearnObjectContexts(session, item);
-      }
-      return;
-    }
-    const base::DictValue* dict = value.GetIfDict();
-    if (!dict) {
-      return;
-    }
-    for (auto [key, item] : *dict) {
-      if (key == "objectId" && item.is_string()) {
-        if (std::optional<std::string> context =
-                ContextOfObjectId(item.GetString())) {
-          sessions_[session].objects.insert(*context);
-        }
-        continue;
-      }
-      LearnObjectContexts(session, item);
+  void LearnDefaultContext(const std::string& session,
+                           const base::DictValue* remote_object) {
+    const std::string* object_id =
+        remote_object ? remote_object->FindString("objectId") : nullptr;
+    if (std::optional<int> context =
+            object_id ? ContextOfObjectId(*object_id) : std::nullopt) {
+      AllowContext(session, *context);
     }
   }
 
@@ -616,7 +633,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     std::optional<base::Value> parsed =
         base::JSONReader::Read(message, base::JSON_PARSE_RFC);
     if (!parsed || !parsed->is_dict()) {
-      return true;
+      return false;
     }
     base::DictValue& response = parsed->GetDict();
     const std::string* session_id = response.FindString("sessionId");
@@ -629,6 +646,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     }
     const std::string method = match->method;
     waiting.erase(match);
+    --pending_count_;
     if (waiting.empty()) {
       pending_.erase(id);
     }
@@ -662,7 +680,11 @@ class TokenClient : public ArdiaDevToolsTokenClient {
       }
       return true;
     }
-    LearnObjectContexts(session, base::Value(result->Clone()));
+    if (method == "Runtime.evaluate") {
+      LearnDefaultContext(session, result->FindDict("result"));
+    } else if (method == "DOM.resolveNode") {
+      LearnDefaultContext(session, result->FindDict("object"));
+    }
     return true;
   }
 
@@ -775,6 +797,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
   std::map<std::string, std::string> targets_;
   std::map<std::string, Contexts> sessions_;
   std::map<int, std::vector<Pending>> pending_;
+  size_t pending_count_ = 0;
 };
 
 }
@@ -788,6 +811,11 @@ std::unique_ptr<ArdiaDevToolsTokenClient> CreateTokenClient(
 bool TokenClientMayAttach(content::DevToolsAgentHostClient* root_client,
                           content::DevToolsAgentHost* host) {
   return !Registry().contains(root_client) || IsWebHost(host);
+}
+
+bool TokenClientMayInput(content::DevToolsAgentHostClient* root_client,
+                         content::RenderFrameHost* frame) {
+  return !Registry().contains(root_client) || IsWebFrame(frame);
 }
 
 }

@@ -10,6 +10,7 @@
 namespace content {
 class DevToolsAgentHost;
 class DevToolsAgentHostClient;
+class RenderFrameHost;
 }
 
 namespace ardia {
@@ -20,6 +21,9 @@ std::unique_ptr<ArdiaDevToolsTokenClient> CreateTokenClient(
 
 bool TokenClientMayAttach(content::DevToolsAgentHostClient* root_client,
                           content::DevToolsAgentHost* host);
+
+bool TokenClientMayInput(content::DevToolsAgentHostClient* root_client,
+                         content::RenderFrameHost* frame);
 
 }
 
