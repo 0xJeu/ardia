@@ -58,6 +58,8 @@ NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   return views;
 }
 
+enum class ACPageFocus { Unknown, Held, Elsewhere };
+
 NSHashTable<ArdiaCoreWebView *> *PendingPainting() {
   static NSHashTable *views = [NSHashTable weakObjectsHashTable];
   return views;
@@ -410,6 +412,12 @@ static BOOL HeldSelector(SEL selector) {
     if (url.length) ardiacore_host::NoteNavigationDownload(url, _profile ?: @"");
     if (_url.length && ![_url isEqualToString:url ?: @""]) ardiacore_host::NoteNavigationDownload(_url, _profile ?: @"");
   }
+  if (invocation.selector == @selector(tabDidChangeURL:) || invocation.selector == @selector(tabDidCommitDocument:) ||
+      invocation.selector == @selector(tabDidChangeSecurity:)) {
+    __unsafe_unretained ArdiaCoreTab *tab = nil;
+    [invocation getArgument:&tab atIndex:2];
+    [ArdiaCoreEarlyWindow pageNavigated:tab launchURL:_url];
+  }
   if (!_calls) _calls = [NSMutableArray array];
   if (_calls.count >= 2000) return;
   __unsafe_unretained id none = nil;
@@ -489,6 +497,8 @@ static BOOL HeldSelector(SEL selector) {
   CGFloat _loweredPaneZ;
   __weak NSView *_frontedPage;
   NSUInteger _frontGeneration;
+  ACPageFocus _pageFocus;
+  BOOL _focusOnShow;
 }
 
 + (void)prepareTransfer:(NSString *)transferKey {
@@ -1273,7 +1283,9 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
 
 - (void)setVisible:(BOOL)visible {
   if (_visible == visible) return;
+  if (!visible) [self storePageFocus];
   _visible = visible;
+  _focusOnShow = visible;
   if (visible) [self settleRevealsInWindow];
   if (!visible && [_tab respondsToSelector:@selector(exitExclusiveAccess)]) [_tab exitExclusiveAccess];
   if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) self.alphaValue = 1;
@@ -1332,6 +1344,34 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   }
   for (ArdiaCoreWebView *view in views)
     if (view->_visible) [view applyPainting];
+  for (ArdiaCoreWebView *view in views)
+    if (view->_visible) [view restorePageFocus];
+}
+
+- (void)storePageFocus {
+  NSWindow *window = self.window;
+  if (!window || !_tab) return;
+  NSResponder *responder = window.firstResponder;
+  if (!responder || responder == window) _pageFocus = ACPageFocus::Unknown;
+  else if ([responder isKindOfClass:NSView.class] && [(NSView *)responder isDescendantOf:self]) _pageFocus = ACPageFocus::Held;
+  else _pageFocus = ACPageFocus::Elsewhere;
+}
+
+static BOOL FirstResponderIsFree(NSWindow *window) {
+  NSResponder *responder = window.firstResponder;
+  if (!responder || responder == window) return YES;
+  if (![responder isKindOfClass:NSView.class]) return NO;
+  for (NSView *v = (NSView *)responder; v; v = v.superview)
+    if ([v isKindOfClass:ArdiaCoreWebView.class]) return !((ArdiaCoreWebView *)v)->_visible;
+  return NO;
+}
+
+- (void)restorePageFocus {
+  if (!_focusOnShow) return;
+  _focusOnShow = NO;
+  NSWindow *window = self.window;
+  if (!window || !_tab || _standalone || _tab.view.superview != self) return;
+  if (_pageFocus != ACPageFocus::Elsewhere && FirstResponderIsFree(window)) [self focusPage];
 }
 
 static ArdiaCoreWebView *ViewForKey(NSString *key) {
