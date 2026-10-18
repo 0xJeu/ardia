@@ -18,6 +18,14 @@ NS_ASSUME_NONNULL_BEGIN
            profile:(NSString *)profile
           backdrop:(NSDictionary *)backdrop;
 + (void)attachPage:(ArdiaCoreTab *)tab key:(NSString *)key;
++ (BOOL)showLittleWindowForLink:(ArdiaCoreTab *)tab
+                           mark:(NSString *)mark
+                            url:(NSString *)url
+                          frame:(NSArray<NSNumber *> *)frame
+                        profile:(NSString *)profile
+                       backdrop:(NSDictionary *)backdrop
+                           like:(nullable NSString *)windowId;
++ (nullable NSWindow *)claimLittleWindowForLink:(NSString *)mark profile:(nullable NSString *)profile;
 + (void)forgetPictures;
 + (void)forgetPicturesNow;
 + (BOOL)holdsPage:(ArdiaCoreTab *)tab;

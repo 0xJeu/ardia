@@ -14,6 +14,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)exitPictureInPictureInFrame:(nullable NSString *)frameId;
 + (void)keepTransfersOfWindow:(NSWindow *)window;
 @property(class, nonatomic, readonly, nullable) ArdiaCoreTab *launchTab;
+@property(class, nonatomic, readonly, nullable) ArdiaCoreTab *firstLinkTab;
++ (nullable NSString *)linkMarkForTab:(ArdiaCoreTab *)tab;
++ (void)dismissLinkTab:(ArdiaCoreTab *)tab;
 @end
 
 NS_ASSUME_NONNULL_END

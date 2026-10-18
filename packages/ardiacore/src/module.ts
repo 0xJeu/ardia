@@ -92,7 +92,7 @@ export const claimLaunchTab = (transferKey: string, url: string, profile: string
 export const revealTab = (transferKey: string) => Cef.revealTab?.(transferKey);
 export const dropTabReveals = (transferKey: string) => Cef.dropTabReveals?.(transferKey);
 export const revealOffered = (adoptId: string, overTransferKey: string) => Cef.revealOffered?.(adoptId, overTransferKey);
-export type LinkRoute = { profile?: string; adoptIds?: (string | null)[] };
+export type LinkRoute = { profile?: string; adoptIds?: (string | null)[]; dismissed?: number[] };
 export const routeLinkTabs = (urls: string[]): Promise<LinkRoute> => Cef.routeLinkTabs?.(urls) ?? Promise.resolve({});
 export const listComponents = () => Cef.components();
 

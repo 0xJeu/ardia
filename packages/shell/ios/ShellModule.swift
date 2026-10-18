@@ -204,7 +204,8 @@ public class ShellModule: Module {
         profile: options["profile"] as? String,
         size: options["size"] as? [Double],
         behind: options["behind"] as? String,
-        chromeWindow: options["chromeWindow"] as? String)
+        chromeWindow: options["chromeWindow"] as? String,
+        claim: options["claim"] as? String)
     }.runOnQueue(.main)
 
     AsyncFunction("closeWindow") { (id: String) in WindowManager.shared.close(id: id) }.runOnQueue(.main)

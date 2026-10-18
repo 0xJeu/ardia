@@ -95,7 +95,8 @@ export function startNativeSync() {
       open.add(id);
       titles.set(id, windowTitle(s, id));
       const profile = engineProfile(w.profileId);
-      const small = w.kind === "small" ? { kind: "small" as const, size: s.settings.littleArdiaSize } : {};
+      const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
+      const small = w.kind === "small" ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}) } : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
       void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
     }

@@ -1,4 +1,4 @@
-import { routeLinkTabs } from "@ardia/ardiacore";
+import { type LinkRoute, routeLinkTabs } from "@ardia/ardiacore";
 import { focus, openWindow } from "../../lib/actions";
 import { routedLinks, type RoutedLinks } from "../../lib/linkRoutes";
 import { runsJavaScript } from "../../lib/scriptUrls";
@@ -21,8 +21,19 @@ export function openExternalUrls(given: string[]) {
   const urls = settings.allowJavaScriptFromAppleEvents ? given : given.filter((url) => !runsJavaScript(url, settings));
   if (!urls.length) return;
   void routeLinkTabs(urls).then(
-    (route) => openUrlsFromApps(urls, routedLinks(route, urls.length)),
+    (route) => openRoutedUrls(urls, route),
     () => openUrlsFromApps(urls, routedLinks({}, urls.length)),
+  );
+}
+
+function openRoutedUrls(urls: string[], route: LinkRoute) {
+  const dismissed = new Set(route.dismissed ?? []);
+  const kept = urls.map((_, i) => i).filter((i) => !dismissed.has(i));
+  if (!kept.length) return;
+  const marks = route.adoptIds ?? [];
+  openUrlsFromApps(
+    kept.map((i) => urls[i]!),
+    routedLinks({ ...route, adoptIds: kept.map((i) => marks[i] ?? null) }, kept.length),
   );
 }
 

@@ -1491,10 +1491,13 @@ NSView *ACWindowRootView(NSWindow *window) {
 }
 
 + (NSWindow *)makeWindowForProfile:(NSString *)profile chromeWindow:(NSString *)chromeWindow appWindow:(NSString *)appWindow {
-  NSWindow *window = chromeWindow.length ? nil : [ArdiaCoreEarlyWindow claimForAppWindow:appWindow profile:profile];
+  const BOOL link = [appWindow hasPrefix:@"link:"];
+  NSWindow *window = chromeWindow.length ? nil
+                     : link ? [ArdiaCoreEarlyWindow claimLittleWindowForLink:appWindow profile:profile]
+                            : [ArdiaCoreEarlyWindow claimForAppWindow:appWindow profile:profile];
   if (window) [self showProfile:profile ?: @"" inWindow:window];
   else window = [self makeWindowForProfile:profile chromeWindow:chromeWindow];
-  if (window && appWindow.length) [ArdiaCoreWindowController forNSWindow:window].appWindowId = appWindow;
+  if (window && appWindow.length && !link) [ArdiaCoreWindowController forNSWindow:window].appWindowId = appWindow;
   return window;
 }
 

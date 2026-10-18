@@ -564,6 +564,14 @@ static NSMutableDictionary<NSNumber *, NSString *> *LinkURLs() {
   static NSMutableDictionary *urls = [NSMutableDictionary dictionary];
   return urls;
 }
+static NSMutableArray<NSString *> *DismissedLinks() {
+  static NSMutableArray *urls = [NSMutableArray array];
+  return urls;
+}
+static NSMutableSet<NSString *> *DismissedLinkMarks() {
+  static NSMutableSet *marks = [NSMutableSet set];
+  return marks;
+}
 static NSString *gLinkProfile;
 static BOOL gLinkTabsStarted;
 constexpr NSUInteger kMaxLinkTabs = 4;
@@ -573,7 +581,10 @@ static void CloseLinkTabs() {
   NSArray<ArdiaCoreTab *> *left = LinkTabs().allValues;
   [LinkTabs() removeAllObjects];
   [LinkURLs() removeAllObjects];
-  for (ArdiaCoreTab *tab in left) CloseTab(tab);
+  for (ArdiaCoreTab *tab in left) {
+    [ArdiaCoreEarlyWindow dropPage:tab];
+    CloseTab(tab);
+  }
 }
 
 static void ExpireLaunchTab(ArdiaCoreTab *tab) {
@@ -636,12 +647,42 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   });
 }
 
++ (ArdiaCoreTab *)firstLinkTab {
+  return LinkTabs()[@0];
+}
+
++ (NSString *)linkMarkForTab:(ArdiaCoreTab *)tab {
+  for (NSNumber *index in LinkTabs())
+    if (LinkTabs()[index] == tab && LinkURLs()[index]) return [NSString stringWithFormat:@"link:%@", index];
+  return nil;
+}
+
++ (void)dismissLinkTab:(ArdiaCoreTab *)tab {
+  for (NSNumber *index in LinkTabs().allKeys) {
+    if (LinkTabs()[index] != tab) continue;
+    [LinkTabs() removeObjectForKey:index];
+    if (NSString *url = LinkURLs()[index]) [DismissedLinks() addObject:url];
+    [DismissedLinkMarks() addObject:[NSString stringWithFormat:@"link:%@", index]];
+    [LinkURLs() removeObjectForKey:index];
+    [ArdiaCoreEarlyWindow dropPage:tab];
+    CloseTab(tab);
+    return;
+  }
+}
+
 + (NSDictionary<NSString *, id> *)routeLinkTabs:(NSArray<NSString *> *)urls {
   NSMutableArray *marks = [NSMutableArray array];
   NSMutableSet<NSNumber *> *used = [NSMutableSet set];
+  NSMutableArray<NSNumber *> *dismissed = [NSMutableArray array];
   BOOL any = NO;
   for (NSString *url in urls) {
     id mark = NSNull.null;
+    if (const NSUInteger at = [DismissedLinks() indexOfObject:url]; at != NSNotFound) {
+      [DismissedLinks() removeObjectAtIndex:at];
+      [dismissed addObject:@(marks.count)];
+      [marks addObject:mark];
+      continue;
+    }
     for (NSNumber *index in [LinkURLs().allKeys sortedArrayUsingSelector:@selector(compare:)]) {
       if ([used containsObject:index] || ![LinkURLs()[index] isEqualToString:url] || !LinkTabs()[index]) continue;
       [used addObject:index];
@@ -651,9 +692,9 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
     }
     [marks addObject:mark];
   }
-  if (!any) return @{};
+  if (!any) return dismissed.count ? @{@"dismissed" : dismissed} : @{};
   for (NSNumber *index in used) [LinkURLs() removeObjectForKey:index];
-  return @{@"profile" : gLinkProfile ?: @"", @"adoptIds" : marks};
+  return @{@"profile" : gLinkProfile ?: @"", @"adoptIds" : marks, @"dismissed" : dismissed};
 }
 
 - (BOOL)takeLinkTab:(NSString *)adoptId {
@@ -664,6 +705,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   Parked()[_transferKey] = tab;
   if ([self takeTransferredTab]) return YES;
   if (Parked()[_transferKey] == tab) [Parked() removeObjectForKey:_transferKey];
+  [ArdiaCoreEarlyWindow dropPage:tab];
   CloseTab(tab);
   return NO;
 }
@@ -777,6 +819,15 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   if ([_adoptId hasPrefix:@"link:"]) {
     NSString *link = _adoptId;
     _adoptId = nil;
+    if ([DismissedLinkMarks() containsObject:link]) {
+      [DismissedLinkMarks() removeObject:link];
+      _offerClosed = YES;
+      __weak ArdiaCoreWebView *weakSelf = self;
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf emit:@"windowClose" payload:@{}];
+      });
+      return;
+    }
     if (!_standalone && !_extensionHost.length && [self takeLinkTab:link]) return;
   }
   if ([_adoptId hasPrefix:@"ardiacore:"] || [_adoptId hasPrefix:@"tab:"]) {

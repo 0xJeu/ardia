@@ -25,6 +25,7 @@
 @property(nonatomic, strong) NSView *backdrop;
 @property(nonatomic, strong) ArdiaCoreTab *tab;
 @property(nonatomic, copy) NSString *key;
+@property(nonatomic, copy) NSString *expectedURL;
 @property(nonatomic) NSRect pageRect;
 @property(nonatomic) BOOL claimed;
 @property(nonatomic) BOOL expired;
@@ -87,6 +88,8 @@ NSString *gPrefetchedWindow;
 dispatch_group_t gPrefetch;
 BOOL gPictureCurrent;
 NSString *gLaunchURL;
+NSDictionary *gLittleLayout;
+NSString *const kLittleWindow = @"ardia.early.little-ardia";
 
 NSMapTable<ArdiaCoreTab *, ACEarlyVeil *> *Veils() {
   static NSMapTable *veils = [NSMapTable weakToStrongObjectsMapTable];
@@ -716,10 +719,10 @@ void DropCover(ACEarlyShown *s) {
   if (tab && tab.view.superview == cover) [tab.view removeFromSuperview];
   [cover removeFromSuperview];
   [CATransaction commit];
-  if (s.shielded) {
+  if (s.shielded || s.expectedURL) {
     NSView *host = tab.view.superview;
     NSString *shown = [host isKindOfClass:ArdiaCoreWebView.class] ? ((ArdiaCoreWebView *)host).shownURL : nil;
-    CarryShield(tab, inputBlock, shown.length ? shown : gLaunchURL);
+    CarryShield(tab, inputBlock, shown.length ? shown : (s.expectedURL ?: gLaunchURL));
   }
   else if (tab && !tab.closed && [tab.view.superview isKindOfClass:ArdiaCoreWebView.class]) {
     [Watched() addObject:tab];
@@ -981,11 +984,11 @@ CGImageRef TakePrefetched(NSString *windowId) {
            profile:(NSString *)profile
           backdrop:(NSDictionary *)backdrop
            picture:(CGImageRef)picture {
-  if (!gLayoutPath || !windowId.length || !key.length || frame.count != 4 || Shown().count) return NO;
+  if (!gLayoutPath || !windowId.length || !key.length || frame.count != 4 || (Shown().count && !gLittleLayout)) return NO;
   Class backdropClass = NSClassFromString(@"ArdiaEarlyBackdrop");
   const SEL make = NSSelectorFromString(@"make:");
   if (![backdropClass respondsToSelector:make]) return NO;
-  NSDictionary *layout = gLayouts[windowId];
+  NSDictionary *layout = gLittleLayout ?: gLayouts[windowId];
   if (![layout isKindOfClass:NSDictionary.class]) return NO;
   for (int i = 0; i < 4; i++)
     if (![frame[i] isKindOfClass:NSNumber.class] || !std::isfinite(frame[i].doubleValue)) return NO;
@@ -1047,6 +1050,10 @@ CGImageRef TakePrefetched(NSString *windowId) {
                                                                      ArdiaCoreTab *page = closing.tab;
                                                                      if (page && page == ArdiaCoreWebView.launchTab)
                                                                        [ArdiaCoreWebView claimLaunchTab:@"" url:@"" profile:@""];
+                                                                     else if (page && closing.expectedURL) {
+                                                                       [Dismissed() addObject:closing.key];
+                                                                       [ArdiaCoreWebView dismissLinkTab:page];
+                                                                     }
                                                                      else if (page)
                                                                        [ArdiaCoreWebView releaseTransfer:closing.key];
                                                                    }
@@ -1078,9 +1085,60 @@ CGImageRef TakePrefetched(NSString *windowId) {
     [s.cover addSubview:page];
     [CATransaction commit];
     s.tab = tab;
-    if (!ShowsLaunchOrigin(tab, gLaunchURL)) Shield(s);
+    if (!ShowsLaunchOrigin(tab, s.expectedURL ?: gLaunchURL)) Shield(s);
     return;
   }
+}
+
++ (BOOL)showLittleWindowForLink:(ArdiaCoreTab *)tab
+                           mark:(NSString *)mark
+                            url:(NSString *)url
+                          frame:(NSArray<NSNumber *> *)frame
+                        profile:(NSString *)profile
+                       backdrop:(NSDictionary *)backdrop
+                           like:(NSString *)windowId {
+  if (!gLayoutPath || !tab || tab.closed || !url.length || !mark.length) return NO;
+  for (ACEarlyShown *s in Shown())
+    if ([s.appWindow isEqualToString:kLittleWindow]) return NO;
+  LoadLayouts();
+  NSDictionary *main = windowId.length && [gLayouts[windowId] isKindOfClass:NSDictionary.class] ? gLayouts[windowId] : @{};
+  NSMutableDictionary *layout = [@{
+    @"page" : @[ @6, @38, @6, @6 ],
+    @"card" : @[ @6, @38, @6, @6 ],
+    @"radius" : [main[@"radius"] isKindOfClass:NSNumber.class] ? main[@"radius"] : @10,
+    @"curve" : [main[@"curve"] isKindOfClass:NSString.class] ? main[@"curve"] : kCACornerCurveCircular,
+    @"lights" : @[ @20, @19 ],
+  } mutableCopy];
+  if ([main[@"appearance"] isKindOfClass:NSString.class]) layout[@"appearance"] = main[@"appearance"];
+  gLittleLayout = layout;
+  const BOOL shown = [self showWindow:kLittleWindow frame:frame key:mark profile:profile backdrop:backdrop picture:nullptr];
+  gLittleLayout = nil;
+  if (!shown) return NO;
+  ACEarlyShown *little = Shown().lastObject;
+  little.window.identifier = @"ardia.window.small";
+  little.expectedURL = url;
+  [self attachPage:tab key:mark];
+  if (little.tab == tab && !little.inputBlock) {
+    BOOL answered = NO;
+    little.inputBlock = TabCall(tab, @"suppressInput", &answered);
+    ReleaseFocusFrom(tab.view);
+  }
+  __weak ACEarlyShown *weakLittle = little;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kUnclaimedSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    ACEarlyShown *still = weakLittle;
+    if (still && !still.claimed && [Shown() containsObject:still]) Abandon(still);
+  });
+  return YES;
+}
+
++ (NSWindow *)claimLittleWindowForLink:(NSString *)mark profile:(NSString *)profile {
+  BOOL pending = NO;
+  for (ACEarlyShown *s in Shown())
+    if ([s.appWindow isEqualToString:kLittleWindow] && !s.claimed && [s.key isEqualToString:mark]) pending = YES;
+  if (!pending) return nil;
+  NSWindow *window = [self claimForAppWindow:kLittleWindow profile:profile];
+  if (window) [ArdiaCoreWindowController forNSWindow:window].appWindowId = nil;
+  return window;
 }
 
 + (NSWindow *)claimForAppWindow:(NSString *)windowId profile:(NSString *)profile {

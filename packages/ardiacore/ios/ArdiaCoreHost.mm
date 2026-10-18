@@ -95,6 +95,8 @@ bool IsTeamSigned() {
 @property(nonatomic, readonly) NSMutableArray<NSURL *> *urls;
 @end
 
+static void TryEarlyLittleWindow();
+
 @implementation ArdiaCoreBootstrapDelegate
 - (instancetype)init {
   if ((self = [super init])) _urls = [NSMutableArray array];
@@ -102,6 +104,7 @@ bool IsTeamSigned() {
 }
 - (void)application:(NSApplication *)application openURLs:(NSArray<NSURL *> *)urls {
   [_urls addObjectsFromArray:urls];
+  TryEarlyLittleWindow();
 }
 @end
 
@@ -239,9 +242,67 @@ static void TryEarlyWindow() {
   if (ArdiaCoreTab *tab = ArdiaCoreWebView.launchTab) [ArdiaCoreEarlyWindow attachPage:tab key:key];
 }
 
+static NSArray<NSNumber *> *LittleArdiaFrame(id size) {
+  const NSPoint mouse = NSEvent.mouseLocation;
+  NSScreen *screen = nil;
+  for (NSScreen *each in NSScreen.screens)
+    if (NSMouseInRect(mouse, each.frame, NO)) {
+      screen = each;
+      break;
+    }
+  screen = screen ?: NSScreen.mainScreen;
+  if (!screen) return nil;
+  const NSRect visible = screen.visibleFrame;
+  double width = 900, height = 640;
+  if ([size isKindOfClass:NSArray.class] && [size count] == 2 && [size[0] isKindOfClass:NSNumber.class] && [size[1] isKindOfClass:NSNumber.class]) {
+    width = [size[0] doubleValue];
+    height = [size[1] doubleValue];
+  }
+  width = MIN(MAX(width, 420), NSWidth(visible));
+  height = MIN(MAX(height, 300), NSHeight(visible));
+  const double lift = MIN(NSHeight(visible) * 0.05, (NSHeight(visible) - height) / 2);
+  return @[ @(round(NSMidX(visible) - width / 2)), @(round(NSMidY(visible) - height / 2 + lift)), @(round(width)), @(round(height)) ];
+}
+
+static bool EarlyLittleWindowOff() {
+  const char *env = getenv("ARDIA_EARLY_LINK_WINDOW");
+  return env && (!strcmp(env, "off") || !strcmp(env, "0") || !strcmp(env, "false"));
+}
+
+static bool gEarlyLittleTried;
+
+static void TryEarlyLittleWindow() {
+  if (gEarlyLittleTried || !gStarted || gJSStarted || gBootstrap.urls.count != 1) return;
+  gEarlyLittleTried = true;
+  if (EarlyLittleWindowOff() || ArdiaCoreEarlyWindow.switchedOff) return;
+  NSURL *link = gBootstrap.urls.firstObject;
+  NSString *scheme = link.scheme.lowercaseString;
+  if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return;
+  NSString *dir = AppDataDirectory();
+  if (gLaunchedHidden || NSApp.isHidden || LaunchTabSwitchedOff(dir) || OnboardingPending(dir)) return;
+  NSDictionary *session = SavedSession(dir);
+  NSDictionary *settings = [session[@"settings"] isKindOfClass:NSDictionary.class] ? session[@"settings"] : @{};
+  if ([settings[@"openLinksInLittleArdia"] isEqual:@NO]) return;
+  NSString *profile = [session[@"linkProfile"] isKindOfClass:NSString.class] ? session[@"linkProfile"] : nil;
+  NSDictionary *backdrop = [session[@"launchBackdrop"] isKindOfClass:NSDictionary.class] ? session[@"launchBackdrop"] : nil;
+  const bool dark = [[NSApp.effectiveAppearance bestMatchFromAppearancesWithNames:@[ NSAppearanceNameDarkAqua, NSAppearanceNameAqua ]]
+      isEqualToString:NSAppearanceNameDarkAqua];
+  if (!profile || !backdrop || ![backdrop[@"dark"] isKindOfClass:NSNumber.class] || [backdrop[@"dark"] boolValue] != dark) return;
+  if (!ardiacore_host::LoadedProfile(profile)) return;
+  NSArray<NSNumber *> *frame = LittleArdiaFrame(settings[@"littleArdiaSize"]);
+  if (!frame) return;
+  NSString *url = link.absoluteString;
+  [ArdiaCoreWebView startLinkTabs:@[ url ] profile:profile];
+  ArdiaCoreTab *tab = ArdiaCoreWebView.firstLinkTab;
+  NSString *mark = tab ? [ArdiaCoreWebView linkMarkForTab:tab] : nil;
+  NSString *focused = [session[@"focusedWindowId"] isKindOfClass:NSString.class] ? session[@"focusedWindowId"] : nil;
+  if (mark) [ArdiaCoreEarlyWindow showLittleWindowForLink:tab mark:mark url:url frame:frame profile:profile backdrop:backdrop like:focused];
+}
+
 static void StartEarlyWindow() {
   @autoreleasepool {
     TryEarlyWindow();
+    TryEarlyLittleWindow();
     [ArdiaCoreEarlyWindow discardPrefetch];
   }
 }
