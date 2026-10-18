@@ -6,7 +6,7 @@ vendor="$(cd "$(dirname "$0")/.." && pwd)/vendor"
 UBO_VERSION="1.75.0"
 UBO_SHA256="393cf95709d1074d4022970e9014e434395c53a822387f1e25f43be97cf4b582"
 UBO_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv1MPdIgJjIsN4Y0N/20GDNPfN4J//aknk5dsH8Y1LBxSnz3Jp/BT187Gub5cv6lee5CUVDmVBa3Yiqow8GMna5KwX+ZP+yc1pt/ewzyNxm2BzoQPgWz+1DgZaahz56/szi1EEtWVYxd3wNxFN4wPDqwV6aqlnV4R3RnxlF1ocw1kDgJ+8BxR1EY+MB+H8bymdef+xB3TNifBZIVmZt81cC3UMOG6KWRTU1wtIXsW+ZqSv5zaeFHLkjG4MPB7EfcMGrvO80ElJBZZLdrTmYOL4uUPsz2Wy6GiPWzpDmzzI9RfsZm11sLiJo63blcPF0Cz3sM0wQfxJPPcQuqkZDReswIDAQAB"
-UBO_PATCH="10"
+UBO_PATCH="9"
 ubo="$vendor/ubo"
 stamp="$UBO_VERSION-$UBO_PATCH"
 installed() { [ -f "$ubo/.version" ] && [ "$(cat "$ubo/.version")" = "$stamp" ]; }
@@ -74,12 +74,6 @@ patch("js/storage.js",
       "                .map(lang => (/^[a-z]+/.exec(lang) || [])[0]).filter(Boolean));\n"
       "            if ( langs.size !== 0 ) {\n"
       "                re = new RegExp('\\\\b(?:' + Array.from(langs).join('|') + ')\\\\b');")
-patch("js/resources/json-edit.js",
-      "    const editObj = obj => {\n        let clone;\n",
-      "    const editObj = obj => {\n"
-      "        if ( typeof obj !== 'object' || obj === null ) { return; }\n"
-      "        if ( typeof obj.toJSON !== 'function' && jsonp.evaluate(obj).length === 0 ) { return; }\n"
-      "        let clone;\n")
 PY
   [ -d "$ubo/ext" ] && mv "$ubo/ext" "$ubo/ext.old"
   mv "$ubo/ext.new" "$ubo/ext"
