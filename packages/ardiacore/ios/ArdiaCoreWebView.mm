@@ -1739,6 +1739,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 
 - (void)tabDidCommitDocument:(ArdiaCoreTab *)tab {
   ACFieldMarkNow(_transferKey, @"commit");
+  [ArdiaCoreEarlyWindow pageCommitted:tab shownURL:_shownURL];
   _pageTheme = nil;
   _pageThemeSource = nil;
   [self queueNavigation];

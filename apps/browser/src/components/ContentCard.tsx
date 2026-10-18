@@ -462,14 +462,16 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
         noteReady(tabId);
         if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
       }}
-      onNavigationChange={({ url, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource }) => {
+      onNavigationChange={({ url: reported, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource, initialDocumentAccessed, committedInitial }) => {
+        const url = initialDocumentAccessed && committedInitial ? "about:blank" : reported;
+        const untouched = committedInitial === undefined ? reported === "" && !(tab()?.openerId && adoptId) : committedInitial && !initialDocumentAccessed;
         const target = pending.current ?? (lastPage.current === null ? (tab()?.navigation?.url ?? null) : null);
         if (target === null && prewarmOnly()) {
           if (isBlank(url)) return;
           adopted.current = url;
           store().updateTab(tabId, { navigation: navigationTo(url) });
         }
-        if (target !== null && isBlank(url) && !target.startsWith("about:")) {
+        if (target !== null && isBlank(url) && !target.startsWith("about:") && untouched) {
           store().updateLive(tabId, { isLoading: true });
           return;
         }

@@ -483,6 +483,25 @@ NSString *LiveOrigin(ArdiaCoreTab *tab) {
   return OriginOfURL(tab.url);
 }
 
+BOOL Untitled(NSString *url) {
+  return !url.length || [url isEqualToString:@"about:blank"];
+}
+
+BOOL ShownMatches(NSString *shownURL, ArdiaCoreTab *tab) {
+  NSString *shown = OriginOfURL(shownURL);
+  if (shown) {
+    NSString *live = LiveOrigin(tab);
+    return live && [shown isEqualToString:live];
+  }
+  NSString *url = tab.url;
+  return Untitled(shownURL) ? Untitled(url) : [shownURL isEqualToString:url];
+}
+
+bool PageVeilOff() {
+  static const bool off = [@(getenv("ARDIA_PAGE_VEIL") ?: "") isEqualToString:@"off"];
+  return off;
+}
+
 BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL) {
   NSString *launch = OriginOfURL(launchURL);
   if (!launch) return NO;
@@ -1011,8 +1030,7 @@ CGImageRef TakePrefetched(NSString *windowId) {
     [Watched() removeObject:tab];
     return Unveil(tab);
   }
-  NSString *shown = OriginOfURL(url), *live = LiveOrigin(tab);
-  const BOOL matches = shown && live && [shown isEqualToString:live];
+  const BOOL matches = ShownMatches(url, tab);
   if (veiled) {
     if (matches) Unveil(tab);
     return;
@@ -1023,6 +1041,11 @@ CGImageRef TakePrefetched(NSString *windowId) {
     return CarryShield(tab, nil);
   }
   if (!tab.loading) [Watched() removeObject:tab];
+}
+
++ (void)pageCommitted:(ArdiaCoreTab *)tab shownURL:(NSString *)url {
+  if (!tab || !url.length || PageVeilOff() || [Veils() objectForKey:tab] || ShownMatches(url, tab)) return;
+  CarryShield(tab, nil);
 }
 
 + (void)pageNavigated:(ArdiaCoreTab *)tab launchURL:(NSString *)launchURL {

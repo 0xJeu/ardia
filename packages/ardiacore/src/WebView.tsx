@@ -13,6 +13,8 @@ export type NavigationState = {
   isLoading: boolean;
   themeColor: string | null;
   themeColorSource: "meta" | "header" | "background" | null;
+  initialDocumentAccessed?: boolean;
+  committedInitial?: boolean;
 };
 
 export type MediaState = { playing: boolean; muted: boolean };
