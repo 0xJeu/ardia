@@ -388,6 +388,7 @@ public class AppModule: Module {
   private static let killSwitchNames: Set<String> = [
     "ARDIA_SWITCHES", "ARDIA_EXTENSION_ACTION_POLL", "ARDIA_SLOW_TIMERS",
     "ARDIA_MEMORY_TRIM", "ARDIA_MEMORY_TRIM_HEAP", "ARDIA_MEMORY_TRIM_ENGINE",
+    "ARDIA_EARLY_NAVIGATE",
   ]
   private static let scriptQueue = DispatchQueue(label: "ardia.dev-applescript")
 

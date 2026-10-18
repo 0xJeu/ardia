@@ -1,6 +1,7 @@
 import { resolveInput } from "@ardia/core";
 import type { StateCreator } from "zustand";
 import { fromLegacyUrl } from "../legacy";
+import { startNavigation } from "../lib/earlyNavigate";
 import type { BrowserState } from "./browser";
 import { leaveGroups, syncGroupOrder } from "./groups";
 import {
@@ -364,7 +365,9 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
     }
     const { unloaded: _, wakeAdoptId: _kept, ...rest } = tab;
     const base = userInitiated && tab.url ? forgetOpeners(s, tab.windowId) : s;
-    set(apply(base, { tabs: { ...base.tabs, [id]: { ...rest, openerId: base.tabs[id]!.openerId, navigation: navigationTo(url, userInitiated), url: tab.url || url } } }));
+    const navigation = navigationTo(url, userInitiated);
+    startNavigation(id, navigation);
+    set(apply(base, { tabs: { ...base.tabs, [id]: { ...rest, openerId: base.tabs[id]!.openerId, navigation, url: tab.url || url } } }));
     const ui = get().windowUi[tab.windowId];
     if (ui?.panel.open) get().closePanel(tab.windowId);
   },

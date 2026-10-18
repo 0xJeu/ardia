@@ -50,6 +50,20 @@ the updater both read it). A test instance has no updater, so it never fetches.
 | `sidebarSlide` | hiding or showing the sidebar jumps instead of sliding (it stays mounted either way); with the address bar in the sidebar, a hidden sidebar's bar moves to a toolbar on the card and the peek is Dia's | yes |
 | `sidebarSlideLean` | every step of the slide lays the traffic lights out (AppKit then rewalks the window's views); read natively, once a launch: `ChromeWindows.swift` | no |
 
+## Environment-only switches (launch and new tab, 2026-10-19)
+
+Read once at launch from the environment, for a bench or a bisect; each falls back to the behaviour before it.
+
+| Variable | Off means |
+|---|---|
+| `ARDIA_EARLY_WINDOW_FIRST=off` | the launch tab starts before the early window is made, as before (`ArdiaCoreHost.mm`) |
+| `ARDIA_LAUNCH_SPARE_RENDERER=off` | no spare renderer is started for the launch tab; its navigation launches one |
+| `ARDIA_SCRIPT_LOADER_AT_ONCE=off` | a content-script loader made after extensions are ready waits one task to start (engine) |
+| `ARDIA_SCRIPTS_WAIT_AT_RESPONSE=off` | a navigation waits for content scripts before its request, not before its commit (engine) |
+| `ARDIA_WALLET_PASSES=on` | Chrome's `AutofillAiWalletPrivatePasses` stays on, and every new tab asks LocalAuthentication about Touch ID |
+| `ARDIA_SYSTEM_FONTS=on` | expo-constants lists every font family at launch (`patches/expo-constants@18.0.14.patch`) |
+| `ARDIA_EARLY_NAVIGATE=off` | a navigation is sent to the engine by its view's effect after React re-renders, not by the store action (`lib/earlyNavigate.ts`) |
+
 ## Staged rollout
 
 A release can also reach people in steps: `scripts/release.sh <version> --phased <seconds>` and the release skill's step 5b.

@@ -114,6 +114,17 @@ WebContents is made and starts loading in Chrome's strip, but it is only shown o
 its view. Until then it is hidden, so its first paint waits for the mount. Same cause as the switch: the page isn't
 on screen until a React commit puts it there.
 
+Update (2026-10-19): a trace of `Target.createTarget` in nightly.7 shows the page already shown natively 2 ms after its
+navigation starts (fab7aa20), well before it commits. What the bench row paid was the 11 ms from `createTarget` to the
+navigation: 7 ms of it a synchronous LocalAuthentication XPC per tab (`ChromeAutofillClient` checking Touch ID for
+`AutofillAiWalletPrivatePasses`). With that feature off (`ARDIA_WALLET_PASSES=on` restores it), navigation starts
+1.5 ms after `createTarget` and the median first paint in a one-window probe is 46-53 ms against 56-59 with it on, same
+build, interleaved. The user path (⌘T, then Enter) prewarms its tab, so it never paid that; there the store action now
+sends the navigation to the engine (`lib/earlyNavigate.ts`, `ARDIA_EARLY_NAVIGATE=off`) instead of the view's effect
+after React re-renders, and the request leaves 5 ms after Enter instead of 24 (uBO's webRequest round trip used to
+queue behind the New Tab page's teardown on the main thread). First paint 46 against 51 ms. What's left there is that
+teardown: the response is handled only once React Native's ~14 ms of view updates on Enter are done.
+
 **Memory at 10 and 20 tabs (+71 / +264 MB).** Every browser has the same process count, 1 renderer per tab: Ardia 25
 processes at 20 tabs, Chrome 27. GPU (142 against 291 MB) and network/storage are smaller in Ardia; the browser
 process is 168 against 132 MB. The gap is the renderers: 827 MB in Ardia against 475 MB in Chrome, 41 against

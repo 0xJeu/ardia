@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { focus, switchToTab } from "../lib/actions";
 import { noteFavicon } from "../lib/favicons";
 import { noteChromeTab } from "../lib/cliControl";
+import { takeStartedNavigation } from "../lib/earlyNavigate";
 import { isQuitting } from "../lib/native";
 import { layout, useTheme } from "../lib/theme";
 import { startChromeTabs } from "../lib/chromeTabs";
@@ -416,6 +417,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
     }
     pending.current = navigation.url;
     if (pageOf(tabId).newTabShown) patchPage(tabId, { newTabShown: null });
+    if (takeStartedNavigation(tabId, navigation.seq)) return;
     void webviews.get(tabId)?.loadUrl(navigation.url, { userInitiated: !!navigation.userInitiated });
   }, [seq]);
   const fromNewTab = useRef(pageOf(tabId).wasNewTab && !adoptId);
