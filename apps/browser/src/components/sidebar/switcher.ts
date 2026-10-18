@@ -59,8 +59,9 @@ function stopPointerWatch() {
 export function commitSwitcher(index?: number) {
   const s = sidebarUi().switcher;
   if (!s) return;
+  const pointed = s.visible && hoveredRow !== null && hoveredRow < s.ids.length && switcherPointerMoved() ? hoveredRow : null;
   endSwitcher();
-  const id = s.ids[index ?? s.index];
+  const id = s.ids[index ?? pointed ?? s.index];
   if (id && useBrowser.getState().tabs[id]) useBrowser.getState().activate(id);
 }
 
