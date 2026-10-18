@@ -4,7 +4,10 @@ import { recentTabIds } from "../../store/organize";
 import { setSidebarUi, sidebarUi } from "./state";
 
 const SHOW_AFTER_MS = 140;
+const POINTER_POLL_MS = 50;
 let showTimer: ReturnType<typeof setTimeout> | undefined;
+let pointerTimer: ReturnType<typeof setInterval> | undefined;
+let hoveredRow: number | null = null;
 
 export function switcherStep(windowId: string, backward: boolean) {
   const current = sidebarUi().switcher;
@@ -33,7 +36,24 @@ export function focusSwitcherRow(index: number) {
 }
 
 export function hoverSwitcherRow(index: number) {
-  if (switcherPointerMoved()) focusSwitcherRow(index);
+  hoveredRow = index;
+  if (switcherPointerMoved()) return focusSwitcherRow(index);
+  pointerTimer ??= setInterval(() => {
+    if (!sidebarUi().switcher || hoveredRow === null) return stopPointerWatch();
+    if (!switcherPointerMoved()) return;
+    const row = hoveredRow;
+    stopPointerWatch();
+    focusSwitcherRow(row);
+  }, POINTER_POLL_MS);
+}
+
+export function leaveSwitcherRow(index: number) {
+  if (hoveredRow === index) hoveredRow = null;
+}
+
+function stopPointerWatch() {
+  clearInterval(pointerTimer);
+  pointerTimer = undefined;
 }
 
 export function commitSwitcher(index?: number) {
@@ -50,6 +70,8 @@ export function cancelSwitcher() {
 
 function endSwitcher() {
   clearTimeout(showTimer);
+  stopPointerWatch();
+  hoveredRow = null;
   setSwitcherCapture(false);
   setSidebarUi({ switcher: null });
 }

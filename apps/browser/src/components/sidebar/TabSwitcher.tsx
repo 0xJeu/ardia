@@ -5,7 +5,7 @@ import { hex, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { tabTitle } from "./actions";
 import { useSidebarUi } from "./state";
-import { commitSwitcher, hoverSwitcherRow } from "./switcher";
+import { commitSwitcher, hoverSwitcherRow, leaveSwitcherRow } from "./switcher";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";
 
@@ -49,6 +49,7 @@ function SwitcherRow({ tabId, focused, index, focusFill, outline }: { tabId: str
     <Pressable onPressIn={() => commitSwitcher(index)}>
       <View
         onMouseEnter={() => hoverSwitcherRow(index)}
+        onMouseLeave={() => leaveSwitcherRow(index)}
         style={{
           height: ROW,
           borderRadius: 10,
