@@ -134,6 +134,84 @@ bool NeedsResponse(const std::string& method, const base::DictValue& params) {
   return false;
 }
 
+const std::set<std::string>& AllowedEditingCommands() {
+  static const base::NoDestructor<std::set<std::string>> commands({
+      "deletebackward",
+      "deleteforward",
+      "deletetobeginningofline",
+      "deletetoendofline",
+      "deletewordbackward",
+      "deletewordforward",
+      "insertbacktab",
+      "insertlinebreak",
+      "insertnewline",
+      "inserttab",
+      "movebackward",
+      "movedown",
+      "moveforward",
+      "moveleft",
+      "moveright",
+      "movetobeginningofdocument",
+      "movetobeginningofline",
+      "movetoendofdocument",
+      "movetoendofline",
+      "moveup",
+      "movewordbackward",
+      "movewordforward",
+      "movewordleft",
+      "movewordright",
+      "movebackwardandmodifyselection",
+      "movedownandmodifyselection",
+      "moveforwardandmodifyselection",
+      "moveleftandmodifyselection",
+      "moverightandmodifyselection",
+      "movetobeginningofdocumentandmodifyselection",
+      "movetobeginningoflineandmodifyselection",
+      "movetoendofdocumentandmodifyselection",
+      "movetoendoflineandmodifyselection",
+      "moveupandmodifyselection",
+      "movewordbackwardandmodifyselection",
+      "movewordforwardandmodifyselection",
+      "movewordleftandmodifyselection",
+      "movewordrightandmodifyselection",
+      "redo",
+      "selectall",
+      "undo",
+  });
+  return *commands;
+}
+
+bool EditingCommandsAllowed(const base::Value* commands) {
+  if (!commands) {
+    return true;
+  }
+  if (!commands->is_list()) {
+    return false;
+  }
+  for (const base::Value& command : commands->GetList()) {
+    if (!command.is_string() ||
+        !AllowedEditingCommands().contains(
+            base::ToLowerASCII(command.GetString()))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string_view ReplySession(std::string_view view) {
+  constexpr std::string_view kKey = R"(,"sessionId":")";
+  if (view.size() < kKey.size() + 2 || !view.ends_with("\"}")) {
+    return std::string_view();
+  }
+  const size_t end = view.size() - 2;
+  const size_t open = view.rfind('"', end - 1);
+  if (open == std::string_view::npos || open + 1 < kKey.size() ||
+      view.substr(open + 1 - kKey.size(), kKey.size()) != kKey) {
+    return std::string_view();
+  }
+  return view.substr(open + 1, end - open - 1);
+}
+
 std::optional<int> ParseResponseId(std::string_view view) {
   constexpr std::string_view kResponse = R"({"id":)";
   if (!view.starts_with(kResponse)) {
@@ -398,15 +476,20 @@ class TokenClient : public ArdiaDevToolsTokenClient {
                         " isn't allowed for the ardia command"}));
       return false;
     }
-    if (NeedsResponse(*method, params)) {
-      if (pending_count_ >= kMaxPending) {
-        *reply = ErrorReply(*id, session, kRefused,
-                            "ardia: too many commands are waiting for replies");
-        return false;
-      }
-      pending_[*id].push_back({session, *method});
-      ++pending_count_;
+    const std::pair<std::string, int> key(session, *id);
+    if (outstanding_.contains(key)) {
+      *reply = ErrorReply(*id, session, kInvalidRequest,
+                          "ardia: a command with that id is still waiting for "
+                          "its reply");
+      return false;
     }
+    if (outstanding_.size() >= kMaxPending) {
+      *reply = ErrorReply(*id, session, kRefused,
+                          "ardia: too many commands are waiting for replies");
+      return false;
+    }
+    outstanding_[key] =
+        NeedsResponse(*method, params) ? *method : std::string();
     message = base::WriteJson(command).value_or(std::string());
     return !message.empty();
   }
@@ -435,11 +518,14 @@ class TokenClient : public ArdiaDevToolsTokenClient {
       }
       return method != "Target.receivedMessageFromTarget";
     }
-    if (pending_.empty()) {
+    if (outstanding_.empty()) {
       return true;
     }
     std::optional<int> id = ParseResponseId(view);
-    if (!id) {
+    std::string session;
+    if (id) {
+      session = std::string(ReplySession(view));
+    } else {
       std::optional<base::Value> parsed =
           base::JSONReader::Read(message, base::JSON_PARSE_RFC);
       if (!parsed || !parsed->is_dict()) {
@@ -449,11 +535,20 @@ class TokenClient : public ArdiaDevToolsTokenClient {
       if (!id) {
         return !parsed->GetDict().Find("id");
       }
+      if (const std::string* found = parsed->GetDict().FindString("sessionId")) {
+        session = *found;
+      }
     }
-    if (!pending_.contains(*id)) {
+    auto it = outstanding_.find({session, *id});
+    if (it == outstanding_.end()) {
       return true;
     }
-    return FilterResponse(*id, message);
+    const std::string method = std::move(it->second);
+    outstanding_.erase(it);
+    if (method.empty()) {
+      return true;
+    }
+    return FilterResponse(*id, method, message);
   }
 
   bool MayAttachToURL(const GURL& url, bool is_webui) override {
@@ -468,10 +563,6 @@ class TokenClient : public ArdiaDevToolsTokenClient {
   struct Contexts {
     std::map<int, int> ids;
     std::set<std::string> unique_ids;
-  };
-  struct Pending {
-    std::string session;
-    std::string method;
   };
 
   content::DevToolsAgentHost* HostOf(const std::string& session) {
@@ -613,6 +704,9 @@ class TokenClient : public ArdiaDevToolsTokenClient {
         return "with the command line API";
       }
     } else if (method == "Input.dispatchKeyEvent") {
+      if (!EditingCommandsAllowed(params.Find("commands"))) {
+        return "with those editing commands";
+      }
       params.Remove("nativeVirtualKeyCode");
       params.Remove("isSystemKey");
     }
@@ -629,7 +723,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     }
   }
 
-  bool FilterResponse(int id, std::string& message) {
+  bool FilterResponse(int id, const std::string& method, std::string& message) {
     std::optional<base::Value> parsed =
         base::JSONReader::Read(message, base::JSON_PARSE_RFC);
     if (!parsed || !parsed->is_dict()) {
@@ -638,18 +732,6 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     base::DictValue& response = parsed->GetDict();
     const std::string* session_id = response.FindString("sessionId");
     const std::string session = session_id ? *session_id : std::string();
-    std::vector<Pending>& waiting = pending_[id];
-    auto match = std::find_if(waiting.begin(), waiting.end(),
-                              [&](const Pending& p) { return p.session == session; });
-    if (match == waiting.end()) {
-      return true;
-    }
-    const std::string method = match->method;
-    waiting.erase(match);
-    --pending_count_;
-    if (waiting.empty()) {
-      pending_.erase(id);
-    }
     base::DictValue* result = response.FindDict("result");
     if (!result) {
       return true;
@@ -775,6 +857,8 @@ class TokenClient : public ArdiaDevToolsTokenClient {
               params ? params->FindString("sessionId") : nullptr) {
         targets_.erase(*child);
         sessions_.erase(*child);
+        std::erase_if(outstanding_,
+                      [&](const auto& entry) { return entry.first.first == *child; });
       }
       return true;
     }
@@ -796,8 +880,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
   const scoped_refptr<content::DevToolsAgentHost> root_host_;
   std::map<std::string, std::string> targets_;
   std::map<std::string, Contexts> sessions_;
-  std::map<int, std::vector<Pending>> pending_;
-  size_t pending_count_ = 0;
+  std::map<std::pair<std::string, int>, std::string> outstanding_;
 };
 
 }
