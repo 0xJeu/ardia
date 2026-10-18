@@ -1581,6 +1581,77 @@ def edit(s):
 hook(["  if (g_ardia_embedder) {\n    ExtensionActionDispatcher::Get(browser_context_)\n"], edit, HOOKS)
 PY
 
+hook "$src/extensions/browser/extension_user_script_loader.cc" "a script loader made once extensions are ready starts at once" <<'PY'
+at = "namespace extensions {\n"
+decl = """bool g_ardia_script_loader_ready_at_once = false;
+
+"""
+old = """  ExtensionSystem::Get(browser_context)
+      ->ready()
+      .Post(FROM_HERE,
+            base::BindOnce(&ExtensionUserScriptLoader::OnExtensionSystemReady,
+                           weak_factory_.GetWeakPtr()));
+}
+"""
+new = """  if (g_ardia_script_loader_ready_at_once &&
+      ExtensionSystem::Get(browser_context)->ready().is_signaled()) {
+    OnExtensionSystemReady();
+    return;
+  }
+  ExtensionSystem::Get(browser_context)
+      ->ready()
+      .Post(FROM_HERE,
+            base::BindOnce(&ExtensionUserScriptLoader::OnExtensionSystemReady,
+                           weak_factory_.GetWeakPtr()));
+}
+"""
+def edit(s):
+    assert s.count(at) == 1 and s.count(old) == 1
+    i = s.index(at)
+    return s[:i] + decl + s[i:].replace(old, new)
+hook(["bool g_ardia_script_loader_ready_at_once = false;\n",
+      "  if (g_ardia_script_loader_ready_at_once &&\n"], edit, CONTENT_HOOKS)
+PY
+
+hook "$src/chrome/browser/extensions/user_script_listener.cc" "navigations wait for content scripts at the response, not the request" <<'PY'
+at = "namespace extensions {\n"
+decl = """bool g_ardia_scripts_wait_at_response = false;
+
+"""
+old = """  ThrottleCheckResult WillStartRequest() override {
+    // Only defer requests if Resume has not yet been called.
+    if (should_defer_) {
+      did_defer_ = true;
+      return DEFER;
+    }
+    return PROCEED;
+  }
+"""
+new = """  ThrottleCheckResult WillStartRequest() override {
+    // Only defer requests if Resume has not yet been called.
+    if (should_defer_ && !g_ardia_scripts_wait_at_response) {
+      did_defer_ = true;
+      return DEFER;
+    }
+    return PROCEED;
+  }
+
+  ThrottleCheckResult WillProcessResponse() override {
+    if (should_defer_ && g_ardia_scripts_wait_at_response) {
+      did_defer_ = true;
+      return DEFER;
+    }
+    return PROCEED;
+  }
+"""
+def edit(s):
+    assert s.count(at) == 1 and s.count(old) == 1
+    i = s.index(at)
+    return s[:i] + decl + s[i:].replace(old, new)
+hook(["bool g_ardia_scripts_wait_at_response = false;\n",
+      "  ThrottleCheckResult WillProcessResponse() override {\n    if (should_defer_ && g_ardia_scripts_wait_at_response) {\n"], edit, CONTENT_HOOKS)
+PY
+
 if [[ $mode == check ]]; then
   exit "$drift"
 fi

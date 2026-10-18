@@ -37,6 +37,10 @@ extern int g_ardia_disk_space_check_seconds;
 
 extern bool g_ardia_lazy_storage_usage;
 
+extern bool g_ardia_script_loader_ready_at_once;
+
+extern bool g_ardia_scripts_wait_at_response;
+
 extern bool g_ardia_bluetooth_poll_on_demand;
 
 extern bool g_ardia_hybrid_scan_on_demand;

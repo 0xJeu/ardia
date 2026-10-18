@@ -123,6 +123,14 @@ deletion used to let it succeed. uBlock
 Origin keeps ~30 MB in `chrome.storage.local`, and its first write of a session (its request counts, ~4 minutes after
 launch) cost ~180 ms on a performance core. Kill switch: `ARDIA_LAZY_STORAGE_USAGE=off`.
 
+Two hooks take uBlock Origin's content scripts off a restored page's request (set by `ACMainDelegate`):
+- `extension_user_script_loader.cc`: with `g_ardia_script_loader_ready_at_once`, a loader made once the extension system
+  is ready starts loading at once instead of posting a task first (Chromium's own TODO, crbug.com/415850597). At launch
+  that posted task waited behind the early window. Kill switch: `ARDIA_SCRIPT_LOADER_AT_ONCE=off`.
+- `user_script_listener.cc`: with `g_ardia_scripts_wait_at_response`, a navigation whose URL a content script wants waits
+  for the scripts at `WillProcessResponse` instead of `WillStartRequest`, so its request overlaps the wait and the
+  scripts still reach the renderer before the document commits. Kill switch: `ARDIA_SCRIPTS_WAIT_AT_RESPONSE=off`.
+
 `bluetooth_adapter_mac.{h,mm}` and `bluetooth_low_energy_adapter_apple.{h,mm}`: with `g_ardia_bluetooth_poll_on_demand`
 (set by `ACMainDelegate`), the Mac Bluetooth adapter polls IOBluetooth every 500 ms only while a discovery session runs.
 Otherwise it polls once when something uses the adapter (any call that initializes it: `IsPowered`, `GetDevices`, a
