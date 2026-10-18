@@ -58,7 +58,9 @@ NSHashTable<ArdiaCoreWebView *> *LiveViews() {
   return views;
 }
 
-enum class ACPageFocus { Unknown, Held, Elsewhere };
+enum class ACPageFocus { Unknown, Page, Elsewhere };
+
+constexpr CFTimeInterval kFocusRestoreWindow = 1;
 
 NSHashTable<ArdiaCoreWebView *> *PendingPainting() {
   static NSHashTable *views = [NSHashTable weakObjectsHashTable];
@@ -498,7 +500,9 @@ static BOOL HeldSelector(SEL selector) {
   __weak NSView *_frontedPage;
   NSUInteger _frontGeneration;
   ACPageFocus _pageFocus;
-  BOOL _focusOnShow;
+  BOOL _focusOnActivate;
+  CFTimeInterval _focusActivatedAt;
+  __weak NSWindow *_focusActivatedIn;
 }
 
 + (void)prepareTransfer:(NSString *)transferKey {
@@ -1136,6 +1140,11 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
 - (void)tabActivatedByChrome:(BOOL)chromes {
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ chrome-activated tab=%d byChrome=%d", _transferKey, _tab ? (int)_tab.tabId : -1, chromes);
   if (_standalone) return;
+  _focusOnActivate = YES;
+  _focusActivatedAt = CACurrentMediaTime();
+  _focusActivatedIn = self.window;
+  [self restoreFocusIfDue];
+  if (_focusOnActivate) [self schedulePainting];
   [self emit:@"tabStrip"
       payload:@{
         @"index" : @(MAX(_tabIndex, 0)),
@@ -1285,7 +1294,6 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   if (_visible == visible) return;
   if (!visible) [self storePageFocus];
   _visible = visible;
-  _focusOnShow = visible;
   if (visible) [self settleRevealsInWindow];
   if (!visible && [_tab respondsToSelector:@selector(exitExclusiveAccess)]) [_tab exitExclusiveAccess];
   if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) self.alphaValue = 1;
@@ -1345,33 +1353,46 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   for (ArdiaCoreWebView *view in views)
     if (view->_visible) [view applyPainting];
   for (ArdiaCoreWebView *view in views)
-    if (view->_visible) [view restorePageFocus];
+    if (view->_visible) [view restoreFocusIfDue];
 }
 
-- (void)storePageFocus {
-  NSWindow *window = self.window;
-  if (!window || !_tab) return;
-  NSResponder *responder = window.firstResponder;
-  if (!responder || responder == window) _pageFocus = ACPageFocus::Unknown;
-  else if ([responder isKindOfClass:NSView.class] && [(NSView *)responder isDescendantOf:self]) _pageFocus = ACPageFocus::Held;
-  else _pageFocus = ACPageFocus::Elsewhere;
-}
-
-static BOOL FirstResponderIsFree(NSWindow *window) {
-  NSResponder *responder = window.firstResponder;
-  if (!responder || responder == window) return YES;
-  if (![responder isKindOfClass:NSView.class]) return NO;
-  for (NSView *v = (NSView *)responder; v; v = v.superview)
-    if ([v isKindOfClass:ArdiaCoreWebView.class]) return !((ArdiaCoreWebView *)v)->_visible;
+static BOOL InWebView(NSView *view) {
+  for (NSView *v = view; v; v = v.superview)
+    if ([v isKindOfClass:ArdiaCoreWebView.class]) return YES;
   return NO;
 }
 
-- (void)restorePageFocus {
-  if (!_focusOnShow) return;
-  _focusOnShow = NO;
+- (void)storePageFocus {
+  _focusOnActivate = NO;
   NSWindow *window = self.window;
-  if (!window || !_tab || _standalone || _tab.view.superview != self) return;
-  if (_pageFocus != ACPageFocus::Elsewhere && FirstResponderIsFree(window)) [self focusPage];
+  if (!window || !_tab) return;
+  NSResponder *responder = window.firstResponder;
+  NSView *view = [responder isKindOfClass:NSView.class] ? (NSView *)responder : nil;
+  if (view && [view isDescendantOf:self]) {
+    _pageFocus = ACPageFocus::Page;
+  } else if (!responder || responder == window || (view && InWebView(view))) {
+    _pageFocus = ACPageFocus::Unknown;
+  } else {
+    _pageFocus = ACPageFocus::Elsewhere;
+  }
+}
+
+- (void)restoreFocusIfDue {
+  if (!_focusOnActivate) return;
+  NSWindow *window = self.window;
+  NSView *page = _tab.view;
+  if (!window || window != _focusActivatedIn || !page || _standalone || page.superview != self ||
+      CACurrentMediaTime() - _focusActivatedAt > kFocusRestoreWindow) {
+    _focusOnActivate = NO;
+    return;
+  }
+  if (!_visible || page.isHiddenOrHasHiddenAncestor) return;
+  _focusOnActivate = NO;
+  NSResponder *responder = window.firstResponder;
+  NSView *view = [responder isKindOfClass:NSView.class] ? (NSView *)responder : nil;
+  if (view && [view isDescendantOf:self]) return;
+  if (responder && responder != window && !(view && InWebView(view))) return;
+  if (_pageFocus != ACPageFocus::Elsewhere) [self focusPage];
 }
 
 static ArdiaCoreWebView *ViewForKey(NSString *key) {
