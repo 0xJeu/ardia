@@ -252,6 +252,7 @@ export const removeDocument = (name: string) => Shell.removeDocument(name);
 
 export const startDictation = () => Shell.startDictation();
 export const setSwitcherCapture = (active: boolean) => void Shell.setSwitcherCapture(active);
+export const restartSwitcherPointer = () => Shell.setSwitcherCapture(true);
 export const switcherPointerMoved = () => Shell.switcherPointerMoved?.() ?? true;
 export const pickFiles = () => Shell.pickFiles();
 
