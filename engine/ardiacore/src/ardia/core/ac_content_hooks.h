@@ -81,6 +81,7 @@ class ArdiaDevToolsTokenClient {
   virtual ~ArdiaDevToolsTokenClient() = default;
   virtual bool FilterCommand(std::string& message, std::string* reply) = 0;
   virtual bool FilterEvent(std::string& message) = 0;
+  virtual bool ShouldClose() const = 0;
   virtual bool MayAttachToURL(const GURL& url, bool is_webui) = 0;
   virtual bool MayAttachToRenderFrameHost(
       content::RenderFrameHost* render_frame_host) = 0;

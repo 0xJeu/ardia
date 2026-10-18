@@ -455,6 +455,19 @@ class TokenClient : public ArdiaDevToolsTokenClient {
                           "ardia: a command needs an id and a method");
       return false;
     }
+    for (auto [key, value] : command) {
+      if (key != "id" && key != "method" && key != "params" &&
+          key != "sessionId") {
+        *reply = ErrorReply(*id, session, kInvalidRequest,
+                            base::StrCat({"ardia: a command can't carry ", key}));
+        return false;
+      }
+    }
+    if (session_id && !targets_.contains(session)) {
+      *reply = ErrorReply(*id, std::string(), kInvalidRequest,
+                          "ardia: no attached session has that sessionId");
+      return false;
+    }
     if (!AllowedMethods().contains(*method)) {
       *reply = ErrorReply(
           *id, session, kMethodNotAllowed,
@@ -485,7 +498,9 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     }
     if (outstanding_.size() >= kMaxPending) {
       *reply = ErrorReply(*id, session, kRefused,
-                          "ardia: too many commands are waiting for replies");
+                          "ardia: too many commands are waiting for replies; "
+                          "closing the connection");
+      wedged_ = true;
       return false;
     }
     outstanding_[key] =
@@ -515,6 +530,10 @@ class TokenClient : public ArdiaDevToolsTokenClient {
           method == "Target.attachedToTarget" ||
           method == "Target.detachedFromTarget") {
         return FilterTargetEvent(method, message);
+      }
+      if (method == "Inspector.targetCrashed" ||
+          method == "Inspector.detached") {
+        ForgetSessionOf(message);
       }
       return method != "Target.receivedMessageFromTarget";
     }
@@ -551,6 +570,8 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     return FilterResponse(*id, method, message);
   }
 
+  bool ShouldClose() const override { return wedged_; }
+
   bool MayAttachToURL(const GURL& url, bool is_webui) override {
     return !is_webui && IsWebUrl(url);
   }
@@ -564,6 +585,21 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     std::map<int, int> ids;
     std::set<std::string> unique_ids;
   };
+
+  void ForgetSession(const std::string& session) {
+    std::erase_if(outstanding_,
+                  [&](const auto& entry) { return entry.first.first == session; });
+  }
+
+  void ForgetSessionOf(const std::string& message) {
+    std::optional<base::Value> parsed =
+        base::JSONReader::Read(message, base::JSON_PARSE_RFC);
+    if (!parsed || !parsed->is_dict()) {
+      return;
+    }
+    const std::string* session = parsed->GetDict().FindString("sessionId");
+    ForgetSession(session ? *session : std::string());
+  }
 
   content::DevToolsAgentHost* HostOf(const std::string& session) {
     if (session.empty()) {
@@ -857,8 +893,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
               params ? params->FindString("sessionId") : nullptr) {
         targets_.erase(*child);
         sessions_.erase(*child);
-        std::erase_if(outstanding_,
-                      [&](const auto& entry) { return entry.first.first == *child; });
+        ForgetSession(*child);
       }
       return true;
     }
@@ -881,6 +916,7 @@ class TokenClient : public ArdiaDevToolsTokenClient {
   std::map<std::string, std::string> targets_;
   std::map<std::string, Contexts> sessions_;
   std::map<std::pair<std::string, int>, std::string> outstanding_;
+  bool wedged_ = false;
 };
 
 }
