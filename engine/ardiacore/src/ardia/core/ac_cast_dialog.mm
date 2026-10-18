@@ -68,8 +68,12 @@ bool IsHostTab(content::WebContents* contents) {
 
 class CastDialog : public media_router::CastDialogController::Observer {
  public:
-  CastDialog(content::WebContents* initiator, media_router::MediaRouterUI* ui)
-      : initiator_(initiator->GetWeakPtr()), ui_(ui->GetWeakPtr()) {
+  CastDialog(content::WebContents* initiator,
+             media_router::MediaRouterUI* ui,
+             base::ScopedClosureRunner fullscreen_blocker)
+      : initiator_(initiator->GetWeakPtr()),
+        ui_(ui->GetWeakPtr()),
+        fullscreen_blocker_(std::move(fullscreen_blocker)) {
     static int last_id = 0;
     id_ = ++last_id;
   }
@@ -173,6 +177,7 @@ class CastDialog : public media_router::CastDialogController::Observer {
       ui_.reset();
     }
     open_ = false;
+    fullscreen_blocker_.RunAndReset();
   }
 
   void Forget() {
@@ -182,6 +187,7 @@ class CastDialog : public media_router::CastDialogController::Observer {
 
   base::WeakPtr<content::WebContents> initiator_;
   base::WeakPtr<media_router::MediaRouterUI> ui_;
+  base::ScopedClosureRunner fullscreen_blocker_;
   int id_;
   bool open_ = true;
   bool announced_ = false;
@@ -269,11 +275,13 @@ bool WantsCastDialog(content::WebContents* initiator) {
 }
 
 bool HandleCastDialog(content::WebContents* initiator,
-                      media_router::MediaRouterUI* ui) {
-  if (!ui || !WantsCastDialog(initiator)) {
+                      media_router::MediaRouterUI* ui,
+                      base::ScopedClosureRunner* fullscreen_blocker) {
+  if (!ui || !fullscreen_blocker || !WantsCastDialog(initiator)) {
     return false;
   }
-  auto dialog = std::make_unique<CastDialog>(initiator, ui);
+  auto dialog =
+      std::make_unique<CastDialog>(initiator, ui, std::move(*fullscreen_blocker));
   CastDialog* raw = dialog.get();
   Live()[raw->id()] = std::move(dialog);
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(

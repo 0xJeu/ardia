@@ -128,7 +128,8 @@ extern bool (*g_ardia_device_chooser)(
 extern bool (*g_ardia_wants_cast_dialog)(content::WebContents* initiator);
 
 extern bool (*g_ardia_cast_dialog)(content::WebContents* initiator,
-                                   media_router::MediaRouterUI* ui);
+                                   media_router::MediaRouterUI* ui,
+                                   base::ScopedClosureRunner* fullscreen_blocker);
 
 extern bool (*g_ardia_hidden_from_extensions)(
     const BrowserWindowInterface* browser);

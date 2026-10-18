@@ -8,43 +8,38 @@
  
  #include <memory>
  
-@@ -31,6 +32,13 @@
+@@ -31,6 +32,12 @@
  
  using content::WebContents;
  
-+// Ardia: ArdiaCore (engine/ardiacore) shows its own Cast dialog for the tabs it
-+// hosts.
-+bool (*g_ardia_wants_cast_dialog)(content::WebContents* initiator) =
-+    nullptr;
++bool (*g_ardia_wants_cast_dialog)(content::WebContents* initiator) = nullptr;
 +bool (*g_ardia_cast_dialog)(content::WebContents* initiator,
-+                                media_router::MediaRouterUI* ui) = nullptr;
++                            media_router::MediaRouterUI* ui,
++                            base::ScopedClosureRunner* fullscreen_blocker) =
++    nullptr;
 +
  namespace media_router {
  
  namespace {
-@@ -50,6 +58,13 @@
+@@ -50,6 +57,10 @@
  
  bool MediaRouterDialogControllerViews::ShowMediaRouterDialogForPresentation(
      std::unique_ptr<StartPresentationContext> context) {
-+  // Ardia: ArdiaCore's own Cast dialog takes Presentation API requests too
-+  // (CreateMediaRouterDialog with the start presentation context).
-+  if (g_ardia_wants_cast_dialog &&
-+      g_ardia_wants_cast_dialog(initiator())) {
++  if (g_ardia_wants_cast_dialog && g_ardia_wants_cast_dialog(initiator())) {
 +    return MediaRouterDialogController::ShowMediaRouterDialogForPresentation(
 +        std::move(context));
 +  }
    // Block tab fullscreen to prevent UI spoofing. The GMC device picker is a
    // trusted browser surface that should not coexist with attacker-controlled
    // fullscreen content.
-@@ -87,6 +102,11 @@
-       Profile::FromBrowserContext(initiator()->GetBrowserContext());
- 
-   InitializeMediaRouterUI();
-+  // Ardia: ArdiaCore may show its own Cast dialog, driven by |ui_|.
+@@ -115,6 +126,10 @@
+     return;
+   }
+   browser = browser_after_drop;
 +  if (g_ardia_cast_dialog &&
-+      g_ardia_cast_dialog(initiator(), ui_.get())) {
++      g_ardia_cast_dialog(initiator(), ui_.get(), &*blocker)) {
 +    return;
 +  }
-   BrowserWindowInterface* browser =
-       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(initiator());
+   fullscreen_blocker_ = std::move(*blocker);
  
+   BrowserView* browser_view =
