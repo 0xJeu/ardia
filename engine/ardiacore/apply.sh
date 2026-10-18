@@ -1167,6 +1167,64 @@ hook(["int g_ardia_disk_space_check_seconds = 0;\n",
       "  if (g_ardia_disk_space_check_seconds > 0) {\n"], edit, CONTENT_HOOKS)
 PY
 
+hook "$src/extensions/browser/api/storage/settings_storage_quota_enforcer.cc" "unlimited storage writes skip the usage scan" <<'PY'
+at = "namespace extensions {\n"
+decl = """bool g_ardia_lazy_storage_usage = false;
+
+"""
+edits = [
+    ("""    WriteOptions options, const std::string& key, const base::Value& value) {
+  LazyCalculateUsage();
+""", """    WriteOptions options, const std::string& key, const base::Value& value) {
+  if (g_ardia_lazy_storage_usage && !usage_calculated_ &&
+      (options & IGNORE_QUOTA)) {
+    return HandleResult(delegate_->Set(options, key, value));
+  }
+  LazyCalculateUsage();
+"""),
+    ("""    const base::DictValue& values) {
+  LazyCalculateUsage();
+""", """    const base::DictValue& values) {
+  if (g_ardia_lazy_storage_usage && !usage_calculated_ &&
+      (options & IGNORE_QUOTA)) {
+    return HandleResult(delegate_->Set(options, values));
+  }
+  LazyCalculateUsage();
+"""),
+    ("""    const std::string& key) {
+  LazyCalculateUsage();
+  WriteResult result = HandleResult(delegate_->Remove(key));
+""", """    const std::string& key) {
+  if (g_ardia_lazy_storage_usage && !usage_calculated_) {
+    return HandleResult(delegate_->Remove(key));
+  }
+  LazyCalculateUsage();
+  WriteResult result = HandleResult(delegate_->Remove(key));
+"""),
+    ("""ValueStore::WriteResult SettingsStorageQuotaEnforcer::Clear() {
+  LazyCalculateUsage();
+""", """ValueStore::WriteResult SettingsStorageQuotaEnforcer::Clear() {
+  if (g_ardia_lazy_storage_usage && !usage_calculated_) {
+    return HandleResult(delegate_->Clear());
+  }
+  LazyCalculateUsage();
+"""),
+]
+def edit(s):
+    assert s.count(at) == 1
+    for old, _ in edits:
+        assert s.count(old) == 1, old
+    i = s.index(at)
+    s = s[:i] + decl + s[i:]
+    for old, new in edits:
+        s = s.replace(old, new)
+    return s
+hook(["bool g_ardia_lazy_storage_usage = false;\n",
+      "    return HandleResult(delegate_->Set(options, key, value));\n",
+      "    return HandleResult(delegate_->Set(options, values));\n",
+      "    return HandleResult(delegate_->Clear());\n"], edit, CONTENT_HOOKS)
+PY
+
 hook "$src/chrome/browser/extensions/extension_action_storage_manager.cc" "restored browser action defaults notify" <<'PY'
 old = """  SetDefaultsFromValue(value->GetDict(), action);
 }

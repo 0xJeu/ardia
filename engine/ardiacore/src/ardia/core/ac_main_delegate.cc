@@ -342,6 +342,7 @@ void QuietIdleTimers(base::CommandLine* command_line) {
     disk_check_seconds = 0;
   }
   g_ardia_disk_space_check_seconds = std::clamp(disk_check_seconds, 0, 3600);
+  g_ardia_lazy_storage_usage = !EnvIs("ARDIA_LAZY_STORAGE_USAGE", "off");
 }
 
 }

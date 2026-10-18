@@ -110,6 +110,13 @@ apply.sh also has three hooks for idle wakeups:
 `PartitionAllocAdaptiveMemoryReclaimInterval`. Kill switches: `ARDIA_CPU_HEALTH_SAMPLING=on`,
 `ARDIA_DISK_CHECK_SECONDS=5`, `ARDIA_PA_RECLAIM=fixed`. HangWatcher stays on; `ARDIA_HANG_WATCHER=off` turns it off.
 
+`settings_storage_quota_enforcer.cc`: with `g_ardia_lazy_storage_usage` (set by `ACMainDelegate`), a write that ignores
+the quota (an extension with `unlimitedStorage`, or sync) and any `remove` or `clear` go straight to the store while
+usage hasn't been counted yet, instead of first reading and re-serializing every stored value to count it. The count is
+still made, from the store as it is then, when something needs it (`getBytesInUse`, a quota-checked write). uBlock
+Origin keeps ~30 MB in `chrome.storage.local`, and its first write of a session (its request counts, ~4 minutes after
+launch) cost ~180 ms on a performance core. Kill switch: `ARDIA_LAZY_STORAGE_USAGE=off`.
+
 ## The offline page
 
 Wherever Chrome would start the dino (`LocalizedError::IsOfflineError`: `ERR_INTERNET_DISCONNECTED`, or a DNS
