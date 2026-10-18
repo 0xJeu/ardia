@@ -1,17 +1,12 @@
 #import "ArdiaCoreServices.h"
 #import "ArdiaCoreInternal.h"
 
-#import <CommonCrypto/CommonDigest.h>
-#include <sys/clonefile.h>
-#include <sys/stat.h>
-
 #include <utility>
 
 namespace {
 NSString *ExtensionId() { return @"fajbdaomknpkicfjcpipdmcpoamdmilh"; }
 NSString *const kLiteId = @"bnjeokpoejhioagiokhkhmdogkhbnbki";
-NSString *const kCopyName = @"ublock";
-NSString *const kOldCopyName = @"ublock-lite";
+NSString *const kBundledName = @"ublock";
 NSString *const kLiteReaderName = @"ublock-lite-settings";
 NSString *const kLiteMovedMarker = @"uBlock Origin Lite settings moved";
 bool gFailNextMessage = false;
@@ -53,8 +48,13 @@ double gDelayNextLoadMs = 0;
   [self next];
 }
 
+- (void)leftOwnPage {
+  [self fail:[@"not the extension page: " stringByAppendingString:_tab.url ?: @""]];
+}
+
 - (void)next {
   if (_dead || !_loaded || _busy || !_calls.count) return;
+  if (!self.onOwnPage) return [self leftOwnPage];
   NSArray *call = _calls.firstObject;
   [_calls removeObjectAtIndex:0];
   _inflight = call[1];
@@ -63,6 +63,7 @@ double gDelayNextLoadMs = 0;
       completion:^(NSString *json) {
         void (^completion)(id, NSString *) = self->_inflight;
         if (!completion) return;
+        if (!self.onOwnPage) return [self leftOwnPage];
         self->_inflight = nil;
         self->_busy = NO;
         NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
@@ -83,15 +84,26 @@ double gDelayNextLoadMs = 0;
   _calls = nil;
   void (^inflight)(id, NSString *) = _inflight;
   _inflight = nil;
-  [_tab closeNow];
-  if (inflight) inflight(nil, error);
-  for (NSArray *call in calls) ((void (^)(id, NSString *))call[1])(nil, error);
+  ArdiaCoreTab *tab = _tab;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [tab closeNow];
+    if (inflight) inflight(nil, error);
+    for (NSArray *call in calls) ((void (^)(id, NSString *))call[1])(nil, error);
+  });
 }
 
 - (void)tabDidChangeLoading:(ArdiaCoreTab *)tab {
   _started = _started || tab.loading;
   _loaded = _started && !tab.loading;
   [self next];
+}
+
+- (void)tabDidChangeURL:(ArdiaCoreTab *)tab {
+  if (tab.url.length && !self.onOwnPage) [self leftOwnPage];
+}
+
+- (void)tabDidCommitDocument:(ArdiaCoreTab *)tab {
+  if (!self.onOwnPage) [self leftOwnPage];
 }
 
 - (void)tabWillClose:(ArdiaCoreTab *)tab {
@@ -122,8 +134,6 @@ double gDelayNextLoadMs = 0;
 @end
 
 namespace {
-
-NSString *ExtensionPath();
 
 NSString *ScriptWith(NSString *format, NSArray *args) {
   NSMutableString *out = [NSMutableString string];
@@ -174,122 +184,26 @@ ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p) {
   return HiddenPage(profile, profile, p, ExtensionId(), @"blank.html");
 }
 
-NSString *Fingerprint(NSString *dir) {
-  NSString *stamped = [NSString stringWithContentsOfFile:[dir stringByAppendingString:@".fingerprint"]
-                                                encoding:NSUTF8StringEncoding
-                                                   error:nil];
-  stamped = [stamped stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-  if (stamped.length) return stamped;
-  NSData *manifest = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"manifest.json"]];
-  if (!manifest) return nil;
-  unsigned char digest[CC_SHA256_DIGEST_LENGTH];
-  CC_SHA256(manifest.bytes, (CC_LONG)manifest.length, digest);
-  NSMutableString *fingerprint = [NSMutableString string];
-  for (unsigned char byte : digest) [fingerprint appendFormat:@"%02x", byte];
-  unsigned long long files = 0, bytes = 0;
-  NSDirectoryEnumerator<NSURL *> *entries = [NSFileManager.defaultManager enumeratorAtURL:[NSURL fileURLWithPath:dir]
-                                                               includingPropertiesForKeys:@[ NSURLFileSizeKey ]
-                                                                                  options:0
-                                                                             errorHandler:nil];
-  for (NSURL *entry in entries) {
-    if ([entry.lastPathComponent isEqualToString:@"_metadata"]) {
-      [entries skipDescendants];
-      continue;
-    }
-    NSNumber *size;
-    [entry getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
-    files++;
-    bytes += size.unsignedLongLongValue;
-  }
-  [fingerprint appendFormat:@"-%llu-%llu", files, bytes];
-  return fingerprint;
-}
-
 NSString *BundledExtension() {
-  NSString *bundled = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[@"Extensions" stringByAppendingPathComponent:kCopyName]];
+  NSString *bundled = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[@"Extensions" stringByAppendingPathComponent:kBundledName]];
   return [NSFileManager.defaultManager fileExistsAtPath:[bundled stringByAppendingPathComponent:@"manifest.json"]] ? bundled : nil;
 }
 
-NSString *CopiesDirectory() {
-  return [[ArdiaCoreHost.dataDirectory stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Built-in Extensions"];
-}
-
-NSString *UpToDateCopy(NSString *bundled, NSString *fingerprint) {
-  NSString *dir = CopiesDirectory();
-  NSString *copy = [dir stringByAppendingPathComponent:kCopyName];
-  NSString *stamp = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:[kCopyName stringByAppendingString:@".source"]]
-                                              encoding:NSUTF8StringEncoding
-                                                 error:nil];
-  return fingerprint && [stamp isEqualToString:fingerprint] &&
-                 [NSFileManager.defaultManager fileExistsAtPath:[copy stringByAppendingPathComponent:@"manifest.json"]]
-             ? copy
-             : nil;
-}
-
-NSString *WritableCopy(NSString *bundled) {
-  NSFileManager *fm = NSFileManager.defaultManager;
-  NSString *dir = CopiesDirectory();
-  NSString *copy = [dir stringByAppendingPathComponent:kCopyName];
-  NSString *stampPath = [dir stringByAppendingPathComponent:[kCopyName stringByAppendingString:@".source"]];
-  NSString *fingerprint = Fingerprint(bundled);
-  if (NSString *current = UpToDateCopy(bundled, fingerprint)) return current;
-
-  NSError *error;
-  if (![fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:&error]) {
-    NSLog(@"[blocker] %@: %@", dir, error);
-    return nil;
-  }
-  [fm removeItemAtPath:[dir stringByAppendingPathComponent:kOldCopyName] error:nil];
-  [fm removeItemAtPath:[dir stringByAppendingPathComponent:[kOldCopyName stringByAppendingString:@".source"]] error:nil];
-  for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:nil])
-    if ([name hasPrefix:@".ublock"]) [fm removeItemAtPath:[dir stringByAppendingPathComponent:name] error:nil];
-  NSString *staging = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@".%@-%d", kCopyName, getpid()]];
-  bool cloned = clonefile(bundled.fileSystemRepresentation, staging.fileSystemRepresentation, 0) == 0;
-  if (!cloned) [fm removeItemAtPath:staging error:nil];
-  if (!cloned && ![fm copyItemAtPath:bundled toPath:staging error:&error]) {
-    NSLog(@"[blocker] copying %@: %@", bundled, error);
-    [fm removeItemAtPath:staging error:nil];
-    return nil;
-  }
-  NSDirectoryEnumerator<NSString *> *entries = [fm enumeratorAtPath:staging];
-  for (NSString *entry = @""; entry; entry = entries.nextObject) {
-    NSString *path = [staging stringByAppendingPathComponent:entry];
-    struct stat info;
-    if (lstat(path.fileSystemRepresentation, &info) == 0 && !S_ISLNK(info.st_mode) && !(info.st_mode & S_IWUSR))
-      chmod(path.fileSystemRepresentation, info.st_mode | S_IWUSR);
-  }
-  [fm removeItemAtPath:[staging stringByAppendingPathComponent:@"_metadata"] error:nil];
-
-  NSString *old = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@".%@-old-%d", kCopyName, getpid()]];
-  bool hadCopy = [fm fileExistsAtPath:copy];
-  if ((hadCopy && ![fm moveItemAtPath:copy toPath:old error:&error]) || ![fm moveItemAtPath:staging toPath:copy error:&error]) {
-    NSLog(@"[blocker] installing %@: %@", copy, error);
-    [fm removeItemAtPath:staging error:nil];
-    return nil;
-  }
-  if (hadCopy) [fm removeItemAtPath:old error:nil];
-  [fingerprint writeToFile:stampPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-  return copy;
-}
-
 NSString *gExtensionPath;
-dispatch_group_t Preparing() {
-  static dispatch_group_t group = dispatch_group_create();
-  return group;
-}
 
 void StartPreparing() {
   static dispatch_once_t once;
   dispatch_once(&once, ^{
-    dispatch_group_async(Preparing(), dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-      if (NSString *bundled = BundledExtension()) gExtensionPath = WritableCopy(bundled);
+    gExtensionPath = BundledExtension();
+    NSString *oldCopies = [[ArdiaCoreHost.dataDirectory stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Built-in Extensions"];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+      if ([NSFileManager.defaultManager fileExistsAtPath:oldCopies]) [NSFileManager.defaultManager removeItemAtPath:oldCopies error:nil];
     });
   });
 }
 
 NSString *ExtensionPath() {
   StartPreparing();
-  dispatch_group_wait(Preparing(), DISPATCH_TIME_FOREVER);
   return gExtensionPath;
 }
 
@@ -314,8 +228,8 @@ void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
       then(nil);
     });
   };
-  if (NSThread.isMainThread && dispatch_group_wait(Preparing(), DISPATCH_TIME_NOW) == 0) load();
-  else dispatch_group_notify(Preparing(), dispatch_get_main_queue(), load);
+  if (NSThread.isMainThread) load();
+  else dispatch_async(dispatch_get_main_queue(), load);
 }
 
 NSString *const kOffDirective = @"/^(?:ardia-blocking-off|)/";
@@ -336,6 +250,7 @@ constexpr double kOpSeconds = 20;
 NSString *const kPrelude =
     @"let failing = %@;"
      "const offDirective = %@;"
+     "const extensionOrigin = %@;"
      "const deadline = Date.now() + %@;"
      "const left = () => Math.max(0, deadline - Date.now());"
      "let expired = false;"
@@ -391,7 +306,7 @@ NSString *const kPrelude =
      "const applyLists = (toSelect) => local.set({ardiaReloadPending: true})"
      "  .then(() => send({what: 'applyFilterListSelection', toSelect})).then(reloadLists);"
      "const settlePending = () => local.get('ardiaReloadPending').then((b) => b.ardiaReloadPending ? reloadLists() : null);"
-     "Promise.resolve().then(() => { if (location.protocol !== 'chrome-extension:') throw new Error(`not the extension page: ${location.href}`); })"
+     "Promise.resolve().then(() => { if (location.origin !== extensionOrigin) throw new Error(`not the extension page: ${location.href}`); })"
      ".then(() => withDeadline(ready(), 'uBlock Origin'))"
      ".then(() => withDeadline(settlePending().then(() => (%@)), 'the call'))"
      ".then((v) => post('result', JSON.stringify({value: v === undefined ? null : v})),"
@@ -457,7 +372,7 @@ void Attempt(ACContentBlockerOp *op) {
   if (!page) return Finish(op, nil, @"not loaded");
   const double leftMs = MAX(0, (op.deadline - NSDate.timeIntervalSinceReferenceDate) * 1000);
   NSString *script = [NSString stringWithFormat:kPrelude, op.failNext ? @"true" : @"false", ScriptWith(@"%@", @[ kOffDirective ]),
-                                                @((long long)leftMs), op.expression];
+                                                ScriptWith(@"%@", @[ [@"chrome-extension://" stringByAppendingString:ExtensionId()] ]), @((long long)leftMs), op.expression];
   const NSUInteger attempt = ++op.attempt;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((leftMs + 2000) * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
     if (op.attempt == attempt && Queues()[profile].firstObject == op) [page fail:@"the call timed out"];
