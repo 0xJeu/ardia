@@ -15,6 +15,24 @@ const root = document.querySelector<HTMLElement>("[data-demo]");
 const stage = root?.querySelector<HTMLElement>("[data-demo-stage]");
 const poster = root?.querySelector<HTMLElement>("[data-demo-poster]");
 const bar = document.querySelector<HTMLElement>("[data-demo-controls]");
+const tilt = root?.closest<HTMLElement>("[data-settle]");
+const settles = matchMedia("(prefers-reduced-motion: no-preference)");
+
+function afterSettling(el: HTMLElement | null | undefined, run: () => void) {
+  if (!el || !settles.matches) return run();
+  const wait = () => {
+    const moving = el.getAnimations().filter((a) => a.playState === "running");
+    if (!moving.length) return run();
+    void Promise.allSettled(moving.map((a) => a.finished)).then(run);
+  };
+  if (el.classList.contains("in")) return wait();
+  const watch = new MutationObserver(() => {
+    if (!el.classList.contains("in")) return;
+    watch.disconnect();
+    requestAnimationFrame(wait);
+  });
+  watch.observe(el, { attributes: true, attributeFilter: ["class"] });
+}
 
 function minLogicalWidth(boxWidth: number) {
   const t = Math.min(1, Math.max(0, (boxWidth - PHONE_BOX_WIDTH) / (DESKTOP_BOX_WIDTH - PHONE_BOX_WIDTH)));
@@ -139,7 +157,13 @@ function mount(box: HTMLElement, src: string) {
 
   let ready = false;
   let loaded = false;
+  let revealing = false;
   const reveal = () => {
+    if (revealing) return;
+    revealing = true;
+    afterSettling(tilt, show);
+  };
+  const show = () => {
     if (!root || root.dataset.live === "") return;
     root.dataset.live = "";
     poster?.setAttribute("inert", "");
