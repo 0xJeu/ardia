@@ -1353,9 +1353,9 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
     if (view->_visible) [view restoreFocusIfDue];
 }
 
-static BOOL InWebView(NSView *view) {
+static BOOL InTabPage(NSView *view) {
   for (NSView *v = view; v; v = v.superview)
-    if ([v isKindOfClass:ArdiaCoreWebView.class]) return YES;
+    if ([v isKindOfClass:ArdiaCoreWebView.class]) return !((ArdiaCoreWebView *)v)->_standalone;
   return NO;
 }
 
@@ -1371,7 +1371,7 @@ static BOOL InWebView(NSView *view) {
   } else if (view && _devtoolsView && [view isDescendantOf:_devtoolsView]) {
     _pageFocus = ACPageFocus::DevTools;
     _focusedDevTools = view;
-  } else if (!responder || responder == window || (view && InWebView(view))) {
+  } else if (!responder || responder == window || (view && InTabPage(view))) {
     _pageFocus = ACPageFocus::Unknown;
   } else {
     _pageFocus = ACPageFocus::Elsewhere;
@@ -1401,7 +1401,7 @@ static BOOL InWebView(NSView *view) {
   NSResponder *responder = window.firstResponder;
   NSView *view = [responder isKindOfClass:NSView.class] ? (NSView *)responder : nil;
   if (view && [view isDescendantOf:self]) return;
-  if (responder && responder != window && !(view && InWebView(view))) return;
+  if (responder && responder != window && !(view && InTabPage(view))) return;
   NSView *devTools = _focusedDevTools;
   if (_pageFocus == ACPageFocus::DevTools && devTools.window == window && _devtoolsView && [devTools isDescendantOf:_devtoolsView]) {
     [window makeFirstResponder:devTools];
