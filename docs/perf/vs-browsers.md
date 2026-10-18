@@ -203,10 +203,13 @@ browsers run 120 main frames a second on the YouTube watch page at 120 Hz, and o
 its comments, so each frame costs more (9.4k nodes and 437 layers against 4.9k and 243). Chrome's
 `ThrottleMainFrameTo60Hz` (Android ships it on) is now on: main frames at 60 Hz, compositor scrolling and animations at
 120 (draws during wheel, trackpad and smooth scrolls and a CSS animation: 119-120/s either way), and 120 for the first
-second after a tab is shown or created (`chromium-main-frame-throttle-after-show.patch`). Side by side on nightly.7 the
+second after a tab is shown or created (`chromium-main-frame-throttle-after-show.patch`). Input asks for an urgent frame
+(`UrgentMainFrameForInput`): keypress to next frame median 0.5 ms and max 8.5 against 9.5 and 16.7 without it, a
+drag at 118 frames/s against 61. Side by side on nightly.7 the
 video renderer went 79 -> 54 mW. The hidden row is mostly frozen tabs thawing: Chrome thaws each for 5 s every
-minute, and the thaws held YouTube at 3.35 mW, The Verge 0.82 and CNN 0.68 in one 180 s window. Frozen tabs now thaw
-every 10 min. Kill switches: `ARDIA_MAIN_FRAME_THROTTLE=off`, `ARDIA_SLOW_TAB_THAW=off`.
+minute, and the thaws held YouTube at 3.35 mW, The Verge 0.82 and CNN 0.68 in one 180 s window. Frozen tabs that never
+opened a WebSocket, WebTransport or WebRTC connection now thaw every 10 min; tabs that did are never frozen, since
+Chrome's freeze drops their WebSocket at the next thaw (`chromium-thaw-live-connections.patch`). Kill switches: `ARDIA_MAIN_FRAME_THROTTLE=off`, `ARDIA_SLOW_TAB_THAW=off`.
 
 Parked: packaged list times. On a fresh install uBO never caches its packaged list copies, so every default list
 looks infinitely old and its updater runs 2 s after launch, downloading all 12 assets (9 lists, badlists, PSL,

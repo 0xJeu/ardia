@@ -176,6 +176,24 @@ static void LinksArrived(NSArray<NSURL *> *urls) {
   ParkLaunchLinks(urls, dir, SavedSession(dir));
 }
 
+static std::vector<std::string> MergeFeatureLists(const std::vector<const char *> &args) {
+  std::vector<std::string> rest;
+  std::string enable, disable;
+  auto prepend = [](std::string &list, const char *value) {
+    if (!*value) return;
+    list = list.empty() ? std::string(value) : std::string(value) + "," + list;
+  };
+  for (size_t i = 1; i < args.size(); i++) {
+    const char *arg = args[i];
+    if (!strncmp(arg, "--enable-features=", 18)) prepend(enable, arg + 18);
+    else if (!strncmp(arg, "--disable-features=", 19)) prepend(disable, arg + 19);
+    else rest.push_back(arg);
+  }
+  if (!enable.empty()) rest.push_back("--enable-features=" + enable);
+  if (!disable.empty()) rest.push_back("--disable-features=" + disable);
+  return rest;
+}
+
 static void ReportLoweredWindowOcclusion() {
   void (^report)(NSWindow *) = ^(NSWindow *window) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
@@ -584,7 +602,7 @@ static void StartEarlyWindow() {
           (biometricsCheckPerTab ? "" : ",AutofillAiWalletPrivatePasses"),
       std::string("--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
                   "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s") +
-          (freezeLeastRecentTabs ? (thawFrozenTabsRarely ? ",InfiniteTabsFreezing:unfreeze_interval/600s" : ",InfiniteTabsFreezing") : "") + (throttleMainFramesTo60Hz ? ",ThrottleMainFrameTo60Hz" : ""),
+          (freezeLeastRecentTabs ? (thawFrozenTabsRarely ? ",InfiniteTabsFreezing:ardia_unconnected_unfreeze_interval/600s" : ",InfiniteTabsFreezing") : "") + (throttleMainFramesTo60Hz ? ",ThrottleMainFrameTo60Hz,UrgentMainFrameForInput" : ""),
       "--profile-directory=Default",
       "--js-flags=--no-memory-reducer",
   };
@@ -634,6 +652,10 @@ static void StartEarlyWindow() {
     if (autoAccepts(arg)) continue;
     args.push_back(arg);
   }
+  static std::vector<std::string> merged;
+  merged = MergeFeatureLists(args);
+  args.resize(1);
+  for (const std::string &s : merged) args.push_back(s.c_str());
   static ArdiaCoreHostEngineDelegate *engineDelegate = [ArdiaCoreHostEngineDelegate new];
   return [ArdiaCoreEngine runWithArgc:(int)args.size() argv:args.data() delegate:engineDelegate];
 }
