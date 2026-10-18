@@ -37,7 +37,10 @@ export function focusSwitcherRow(index: number) {
 
 export function hoverSwitcherRow(index: number) {
   hoveredRow = index;
-  if (switcherPointerMoved()) return focusSwitcherRow(index);
+  if (switcherPointerMoved()) {
+    stopPointerWatch();
+    return focusSwitcherRow(index);
+  }
   pointerTimer ??= setInterval(() => {
     if (!sidebarUi().switcher || hoveredRow === null) return stopPointerWatch();
     if (!switcherPointerMoved()) return;

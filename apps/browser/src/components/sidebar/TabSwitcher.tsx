@@ -1,4 +1,5 @@
 import { FadeLabel, Surface } from "@ardia/shell";
+import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../../lib/theme";
@@ -44,6 +45,7 @@ export function TabSwitcher({ windowId, windowWidth, windowHeight }: { windowId:
 function SwitcherRow({ tabId, focused, index, focusFill, outline }: { tabId: string; focused: boolean; index: number; focusFill: string; outline: string }) {
   const theme = useTheme();
   const tab = useBrowser((s) => s.tabs[tabId]);
+  useEffect(() => () => leaveSwitcherRow(index), [index]);
   if (!tab) return null;
   return (
     <Pressable onPressIn={() => commitSwitcher(index)}>
