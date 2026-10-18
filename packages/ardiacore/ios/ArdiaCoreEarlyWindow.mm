@@ -43,10 +43,21 @@
 @property(nonatomic) BOOL restoreFocus;
 @property(nonatomic, copy) NSString *lastShown;
 @property(nonatomic) CFTimeInterval changedAt;
-@property(nonatomic) BOOL acknowledged;
+@property(nonatomic) NSUInteger armedGeneration;
+@property(nonatomic, copy) NSString *armedShown;
 @end
 
 @implementation ACEarlyVeil
+@end
+
+@interface ACPageEmits : NSObject
+@property(nonatomic) NSUInteger generation;
+@property(nonatomic, strong) NSMutableSet<NSString *> *current;
+@property(nonatomic, strong) NSMutableOrderedSet<NSString *> *older;
+@property(nonatomic) CFTimeInterval firstEmitAt;
+@end
+
+@implementation ACPageEmits
 @end
 
 namespace {
@@ -61,6 +72,7 @@ constexpr CGFloat kMinPage = 100;
 constexpr double kTrimAfterHandoffSeconds = 2;
 constexpr double kWatchAfterAdoptionSeconds = 10;
 constexpr double kVeilFailSafeSeconds = 2;
+constexpr NSUInteger kOlderEmitsKept = 256;
 
 NSString *gLayoutPath;
 NSString *gDirectory;
@@ -78,6 +90,23 @@ NSString *gLaunchURL;
 NSMapTable<ArdiaCoreTab *, ACEarlyVeil *> *Veils() {
   static NSMapTable *veils = [NSMapTable weakToStrongObjectsMapTable];
   return veils;
+}
+
+NSMapTable<ArdiaCoreTab *, ACPageEmits *> *Emits() {
+  static NSMapTable *emits = [NSMapTable weakToStrongObjectsMapTable];
+  return emits;
+}
+
+ACPageEmits *EmitsOf(ArdiaCoreTab *tab) {
+  ACPageEmits *emits = [Emits() objectForKey:tab];
+  if (!emits && tab) {
+    emits = [ACPageEmits new];
+    emits.generation = 1;
+    emits.current = [NSMutableSet set];
+    emits.older = [NSMutableOrderedSet orderedSet];
+    [Emits() setObject:emits forKey:tab];
+  }
+  return emits;
 }
 
 NSHashTable<ArdiaCoreTab *> *Watched() {
@@ -485,8 +514,14 @@ NSString *ParsedOrigin(NSString *url) {
   return [NSString stringWithFormat:@"%@://%@", scheme, authority.lowercaseString];
 }
 
-NSString *EngineOrigin(NSString *url) {
-  return ((NSString * (*)(id, SEL, NSString *)) objc_msgSend)(NSClassFromString(@"ArdiaCoreTab"), NSSelectorFromString(@"originForURL:"), url);
+NSString *EngineOrigin(NSString *url, BOOL *failed) {
+  @try {
+    id origin = ((id (*)(id, SEL, NSString *))objc_msgSend)(NSClassFromString(@"ArdiaCoreTab"), NSSelectorFromString(@"originForURL:"), url);
+    if (!origin || [origin isKindOfClass:NSString.class]) return origin;
+  } @catch (id) {
+  }
+  *failed = YES;
+  return nil;
 }
 
 BOOL EngineOriginsWork() {
@@ -503,8 +538,10 @@ BOOL EngineOriginsWork() {
       @"data:text/html,a://b" : @"",
     };
     works = YES;
-    for (NSString *url in known)
-      if (![EngineOrigin(url) isEqual:known[url]]) works = NO;
+    for (NSString *url in known) {
+      BOOL failed = NO;
+      if (![EngineOrigin(url, &failed) isEqual:known[url]] || failed) works = NO;
+    }
     NSLog(works ? @"[ardiacore] page veil: the engine's originForURL: passed its self-check"
                 : @"[ardiacore] page veil: the engine's originForURL: failed its self-check; origins are parsed instead");
   });
@@ -516,7 +553,9 @@ NSString *OriginOfURL(NSString *url) {
   if ([url.lowercaseString hasPrefix:@"view-source:"]) url = [url substringFromIndex:12];
   NSString *parsed = ParsedOrigin(url);
   if (!EngineOriginsWork()) return parsed;
-  NSString *engine = EngineOrigin(url);
+  BOOL failed = NO;
+  NSString *engine = EngineOrigin(url, &failed);
+  if (failed) return parsed;
   static NSSet<NSString *> *const network = [NSSet setWithArray:@[ @"http", @"https", @"ws", @"wss" ]];
   NSString *scheme = parsed.length ? [parsed substringToIndex:[parsed rangeOfString:@":"].location] : nil;
   if (!engine || (!engine.length && scheme && [network containsObject:scheme])) return parsed;
@@ -539,9 +578,15 @@ BOOL Untitled(NSString *url) {
   return !url.length || [url isEqualToString:@"about:blank"];
 }
 
+BOOL IsFile(NSString *url) {
+  if ([url.lowercaseString hasPrefix:@"view-source:"]) url = [url substringFromIndex:12];
+  return [url.lowercaseString hasPrefix:@"file:"];
+}
+
 BOOL ShownMatches(NSString *shownURL, ArdiaCoreTab *tab) {
+  if (shownURL.length && [[Emits() objectForKey:tab].current containsObject:shownURL]) return YES;
   NSString *shown = OriginOfURL(shownURL), *live = LiveOrigin(tab);
-  if (shown.length && live.length && ![shown isEqualToString:@"file://"] && ![live isEqualToString:@"file://"]) return [shown isEqualToString:live];
+  if (shown.length && live.length && !IsFile(shownURL) && !IsFile(tab.url)) return [shown isEqualToString:live];
   NSString *url = tab.url;
   return Untitled(shownURL) ? Untitled(url) : [shownURL isEqualToString:url];
 }
@@ -620,10 +665,11 @@ void WatchVeil(ArdiaCoreTab *tab, ACEarlyVeil *veil, double after) {
     ArdiaCoreTab *page = weakTab;
     ACEarlyVeil *still = weakVeil;
     if (!page || !still || [Veils() objectForKey:page] != still) return;
+    if (still.armedGeneration != EmitsOf(page).generation || ![still.armedShown ?: @"" isEqualToString:still.lastShown ?: @""]) return;
     const double left = still.changedAt + kVeilFailSafeSeconds - CACurrentMediaTime();
     if (left > 0.05) return WatchVeil(page, still, left);
     BOOL answered = NO;
-    NSLog(@"[ardiacore] page veil lifted %.1f s after the bar changed without a match: shown %@, committed %@, visible %@", kVeilFailSafeSeconds,
+    NSLog(@"[ardiacore] page veil lifted %.1f s after the bar showed a URL the engine never sent: shown %@, committed %@, visible %@", kVeilFailSafeSeconds,
           still.lastShown ?: @"(none)", TabCall(page, @"committedOrigin", &answered) ?: @"(none)", page.url ?: @"(none)");
     Unveil(page);
   });
@@ -1120,9 +1166,15 @@ CGImageRef TakePrefetched(NSString *windowId) {
   if (veil && ![veil.lastShown ?: @"" isEqualToString:url ?: @""]) {
     veil.lastShown = url;
     veil.changedAt = CACurrentMediaTime();
-    if (!veil.acknowledged) {
-      veil.acknowledged = YES;
-      WatchVeil(tab, veil, kVeilFailSafeSeconds);
+    ACPageEmits *emits = EmitsOf(tab);
+    const BOOL unknown = url.length && ![emits.current containsObject:url] && ![emits.older containsObject:url];
+    if (unknown && emits.firstEmitAt > 0 && veil.changedAt > emits.firstEmitAt) {
+      const BOOL armed = veil.armedGeneration == emits.generation && veil.armedShown;
+      veil.armedGeneration = emits.generation;
+      veil.armedShown = url;
+      if (!armed) WatchVeil(tab, veil, kVeilFailSafeSeconds);
+    } else {
+      veil.armedShown = nil;
     }
   }
   const BOOL veiled = veil != nil;
@@ -1145,8 +1197,32 @@ CGImageRef TakePrefetched(NSString *windowId) {
 }
 
 + (void)pageCommitted:(ArdiaCoreTab *)tab shownURL:(NSString *)url {
-  if (!tab || !url.length || PageVeilOff() || [Veils() objectForKey:tab] || ShownMatches(url, tab)) return;
+  if (!tab) return;
+  ACPageEmits *emits = EmitsOf(tab);
+  for (NSString *each in emits.current) {
+    [emits.older removeObject:each];
+    [emits.older addObject:each];
+  }
+  while (emits.older.count > kOlderEmitsKept) [emits.older removeObjectAtIndex:0];
+  emits.generation++;
+  [emits.current removeAllObjects];
+  emits.firstEmitAt = 0;
+  if (NSString *visible = tab.url; visible.length) [emits.current addObject:visible];
+  if (ACEarlyVeil *veil = [Veils() objectForKey:tab]) {
+    veil.armedShown = nil;
+    return Reconcile(tab);
+  }
+  if (!url.length || PageVeilOff() || ShownMatches(url, tab)) return;
   CarryShield(tab, nil, url);
+}
+
++ (void)page:(ArdiaCoreTab *)tab emitted:(NSString *)url {
+  if (!tab || !url) return;
+  ACPageEmits *emits = EmitsOf(tab);
+  if (!emits.firstEmitAt) emits.firstEmitAt = CACurrentMediaTime();
+  if ([emits.current containsObject:url]) return;
+  [emits.current addObject:url];
+  if ([Veils() objectForKey:tab]) Reconcile(tab);
 }
 
 + (void)pageNavigated:(ArdiaCoreTab *)tab launchURL:(NSString *)launchURL {

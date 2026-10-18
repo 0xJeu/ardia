@@ -1667,6 +1667,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   NSString *themeSource = _pageTheme ? _pageThemeSource : (theme ? @"meta" : nil);
   NSString *url = _tab.url ?: @"";
   if (IsRendererDebugURL(url)) url = _sentNavigation[@"url"] ?: @"";
+  [ArdiaCoreEarlyWindow page:_tab emitted:url];
   NSDictionary *navigation = @{
         @"url" : url,
         @"title" : ReportedTitle(_tab.title, url, _tab.loading),
