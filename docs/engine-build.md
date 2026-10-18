@@ -28,10 +28,11 @@ What the build adds:
 | `chromium-branding.patch` | Ardia's bundle and team id (`branding_file_path`), for the passkey and payments keychain access groups; product names stay "Chromium" |
 | `chromium-safe-storage-name.patch` | The Safe Storage key lives in its own "Ardia Safe Storage" keychain item, account "Ardia". **Load-bearing:** it's Chromium's own `os_crypt` code, so ArdiaCore uses it too, and every user's saved passwords and cookies are encrypted with that item's key. Keep it, unchanged, through every re-sync and version bump; without it Chrome reads "Chromium Safe Storage" and nothing decrypts |
 | `chromium-device-chooser-hook.patch` | `chrome::ShowDeviceChooserDialog` (and its extension-page variant) asks ArdiaCore (`g_ardia_device_chooser`) once Chrome's `DropFullscreenForChooserDialog` has dropped the page's full screen and revalidated the frame and active tab: ArdiaCore gets that WebContents and the full-screen blocker, which its chooser holds until it closes |
-| `chromium-cast-dialog-hook.patch` | The Media Router's Cast dialog (and Presentation API requests) asks ArdiaCore first (`g_ardia_wants_cast_dialog`, `g_ardia_cast_dialog`) |
+| `chromium-cast-dialog-hook.patch` | The Media Router's Cast dialog (and Presentation API requests) asks ArdiaCore first (`g_ardia_wants_cast_dialog`, `g_ardia_cast_dialog`). Both paths reach `CreateMediaRouterDialog`, which asks ArdiaCore only after Chrome's `ForSecurityDropFullscreen` has dropped the page's full screen and the window has survived the drop; ArdiaCore gets the full-screen blocker and its Cast dialog (`ac_cast_dialog.mm`) holds it until it closes, so a page can't re-enter full screen over the picker |
 | `chromium-side-panel-hook.patch` | `side_panel_util` asks ArdiaCore first for an extension's side panel (`g_ardia_extension_side_panel`) |
 | `chromium-hidden-window-current-window.patch` | Extension pages in hidden windows (our popups and side panels) take the last active window as their current window |
 | `chromium-extension-updates.patch` | Undoes ungoogled's early `return` in `UpdateCheckerImpl::CheckForUpdates`, which left every update check pending: Web Store extensions never updated |
+| `chromium-extension-omaha-attributes.patch` | Google's kill switch for extensions works again: the update check's `_malware`, `_policy_violation` and `_potentially_uws` answers reach `ExtensionService::PerformActionBasedOnOmahaAttributes` and its `OmahaAttributesHandler`, which blocklist (malware: unloaded, "This extension contains malware.") or greylist (disabled) the extension, as in Chrome. It restores what `fix-building-without-safebrowsing` cut with Safe Browsing: the handler in `chrome/browser/extensions/BUILD.gn` and `ExtensionService`, `ChromeExtensionSystem`'s forwarding, `UpdateService::OnCrxStateChange`'s call, and the bodies of `ExtensionRegistrar::OnBlocklistState*`/`OnGreylistState*`. Safe Browsing's own verdict handlers stay cut |
 | `chromium-window-docked-devtools.patch` | `DevtoolsUIController::UpdateDevtools` tells ArdiaCore of every change to a tab's docked DevTools (`g_ardia_devtools_dock_changed`). DevTools may dock in any Browser, as in stock Chrome (CEF had turned docking off for every Browser but ArdiaCore's own) |
 | `chromium-devtools-redock-display.patch` | A `RenderWidgetHostViewMac` that a `views::WebView` gives up (`SetParentUiLayer(nullptr)`) draws into its own NSView again. Chrome switched it to the Views compositor for good the first time it was attached, so DevTools docked back from their own window stayed blank in the client's view |
 | `chromium-window-hosted.patch` | `BridgedContentView.ardiaEmbeddedView`: hit testing and accessibility ask the embedder's subview of a Chrome window's content view first. A Browser ArdiaCore says so of (`g_ardia_keeps_window_without_tabs`) stays open when its last tab closes, unless the window is closing |
@@ -321,7 +322,12 @@ a behaviour decision for later, no longer a build need.
 never update through domain substitution, yet every navigation and download still went through its checks. So
 `0001-fix-building-without-safebrowsing`, `fix-building-without-safebrowsing` (with fuzz 3, `FUZZ` in
 `03-ungoogled.py`: one `chrome/test/BUILD.gn` hunk sits next to the skipped pruning fix), `remove-unused-preferences-fields`,
-`move-js-optimizer-unfamiliar-sites` and the macOS `fix-disabling-safebrowsing` apply now.
+`move-js-optimizer-unfamiliar-sites` and the macOS `fix-disabling-safebrowsing` apply now. A patch applied with fuzz is
+checked as soon as it applies (`misplaced_hunks`): every hunk's result, its context and added lines, must be in its
+file, and the hunks fuzz is known to move (`FUZZED_HUNKS`, the `chrome/test/BUILD.gn` one) must pass their own
+present/absent checks instead; anything else fails step 3, so a hunk fuzz put in the wrong place on a Chromium bump
+is caught there. `fix-building-without-safebrowsing` also cuts the extension kill switch (Omaha attributes);
+`chromium-extension-omaha-attributes.patch` puts it back.
 
 **Not applied:** `fix-building-without-mdns-and-service-discovery`: mDNS and service discovery stay compiled in, since
 the Cast dialog finds devices through them.
