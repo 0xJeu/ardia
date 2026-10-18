@@ -15,7 +15,7 @@ the pins into `pyproject.toml`).
   top-level `await`. In scope: `browser` (pydoll `Chrome`), `tab` (the page shown in Ardia's last focused window,
   from `GET /ardia/active?token=…` on the token path, so it holds while the window is covered; `--port`/`--ws` test
   servers fall back to visible and focused, else visible; with no page, as on New Tab, it's a placeholder that raises
-  `NoPageTab` on first use), `tabs` (http, https, file, about, data and blob pages, plus what `new_tab` opens, minus
+  `NoPageTab` on first use), `tabs` (http, https, about, data and blob pages, plus what `new_tab` opens, minus
   the New Tab's prewarmed `about:blank`: on the token path every `about:blank` that isn't the active page, on test
   servers the hidden ones),
   `new_tab(url, background=True)`, `js(expression, tab=None)` (default: `tab`, else the last `new_tab`), `By`, `Key`,

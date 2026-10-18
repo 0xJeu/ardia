@@ -123,6 +123,10 @@ The full pydoll 3.0 API is in `references/pydoll.md`.
 - Tab and element methods are coroutines: `await tab.title()`, `await tab.current_url()`, `await el.text()`.
   `el.get_attribute("href")` is a plain call and `el.tag_name` a plain property, both read when the element was found.
 - `ardia exec` refuses `browser.stop()` and `Browser.close`. It never quits Ardia.
+- It reaches web pages only (http, https, `about:blank`, `data:`, `blob:`), not `file://`, `chrome://`, extension
+  pages or Ardia's own views. Ardia also refuses DevTools calls that read cookies, storage or saved data, change
+  browser settings or permissions, intercept requests or touch local files; those fail with
+  `ardia: <Method> isn't allowed for the ardia command`. Network events come without cookie and authorization headers.
 - Background tabs are hidden, so pages there may throttle timers and animations. Screenshots still work.
 - An `await` inside a generator expression makes it async, so `next(... await ...)` fails. Use a list comprehension.
 - Type with `type_text` (real key events) when a page listens for keys; `insert_text` is faster for plain fields.

@@ -3,14 +3,20 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <string>
 #include <string_view>
 
 #include "extensions/common/extension_id.h"
 
+class GURL;
+
 namespace content {
 class BrowserContext;
+class DevToolsAgentHost;
+class DevToolsAgentHostClient;
 class DevToolsSocketFactory;
+class RenderFrameHost;
 class WebContents;
 
 extern bool g_ardia_opacity_from_default_color;
@@ -64,5 +70,24 @@ extern bool (*g_ardia_devtools_active_target)(
     const content::DevToolsSocketFactory* factory,
     std::string_view token,
     std::string* target_id);
+
+class ArdiaDevToolsTokenClient {
+ public:
+  virtual ~ArdiaDevToolsTokenClient() = default;
+  virtual bool FilterCommand(std::string& message, std::string* reply) = 0;
+  virtual bool FilterEvent(std::string& message) = 0;
+  virtual bool MayAttachToURL(const GURL& url, bool is_webui) = 0;
+  virtual bool MayAttachToRenderFrameHost(
+      content::RenderFrameHost* render_frame_host) = 0;
+};
+
+extern std::unique_ptr<ArdiaDevToolsTokenClient> (*g_ardia_devtools_token_client)(
+    const content::DevToolsSocketFactory* factory,
+    content::DevToolsAgentHostClient* client,
+    content::DevToolsAgentHost* host);
+
+extern bool (*g_ardia_devtools_may_attach)(
+    content::DevToolsAgentHostClient* root_client,
+    content::DevToolsAgentHost* host);
 
 #endif

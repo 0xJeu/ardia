@@ -37,6 +37,7 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ardia/ac_cli_token_policy.h"
 #include "chrome/browser/ardia/ac_engine.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/termination_notification.h"
@@ -176,6 +177,8 @@ class ControlServer {
     g_ardia_devtools_token_accepts = &Accepts;
     g_ardia_devtools_token_server = &ServerChanged;
     g_ardia_devtools_active_target = &ActiveTarget;
+    g_ardia_devtools_token_client = &TokenClientFor;
+    g_ardia_devtools_may_attach = &TokenClientMayAttach;
     terminating_ = browser_shutdown::AddAppTerminatingCallback(
         base::BindOnce(&ControlServer::Quit, base::Unretained(this)));
     if (PrefService* local_state = LocalState()) {
@@ -286,6 +289,18 @@ class ControlServer {
     ControlServer& self = Get();
     return factory && factory == self.factory_ &&
            self.state_ == State::kStarting;
+  }
+
+  static std::unique_ptr<ArdiaDevToolsTokenClient> TokenClientFor(
+      const content::DevToolsSocketFactory* factory,
+      content::DevToolsAgentHostClient* client,
+      content::DevToolsAgentHost* host) {
+    ControlServer& self = Get();
+    if (!factory || factory != self.factory_ ||
+        self.state_ != State::kRunning) {
+      return nullptr;
+    }
+    return CreateTokenClient(client, host);
   }
 
   static bool Accepts(const content::DevToolsSocketFactory* factory,

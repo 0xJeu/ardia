@@ -12,7 +12,7 @@ from ardia_cli import guard
 from ardia_cli.endpoint import NOT_REACHABLE, Endpoint, EndpointError
 from ardia_cli.redact import redact
 
-PAGE_SCHEMES = ("http:", "https:", "file:", "about:", "data:", "blob:")
+PAGE_SCHEMES = ("http:", "https:", "about:", "data:", "blob:")
 CONNECT_TIMEOUT = 10
 PROBE_TIMEOUT = 1.5
 CLOSE_TIMEOUT = 3
