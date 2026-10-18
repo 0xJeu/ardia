@@ -412,12 +412,6 @@ static BOOL HeldSelector(SEL selector) {
     if (url.length) ardiacore_host::NoteNavigationDownload(url, _profile ?: @"");
     if (_url.length && ![_url isEqualToString:url ?: @""]) ardiacore_host::NoteNavigationDownload(_url, _profile ?: @"");
   }
-  if (invocation.selector == @selector(tabDidChangeURL:) || invocation.selector == @selector(tabDidCommitDocument:) ||
-      invocation.selector == @selector(tabDidChangeSecurity:)) {
-    __unsafe_unretained ArdiaCoreTab *tab = nil;
-    [invocation getArgument:&tab atIndex:2];
-    [ArdiaCoreEarlyWindow pageNavigated:tab launchURL:_url];
-  }
   if (!_calls) _calls = [NSMutableArray array];
   if (_calls.count >= 2000) return;
   __unsafe_unretained id none = nil;
