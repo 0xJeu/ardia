@@ -37,6 +37,12 @@ extern int g_ardia_disk_space_check_seconds;
 
 extern bool g_ardia_lazy_storage_usage;
 
+extern bool g_ardia_bluetooth_poll_on_demand;
+
+extern bool g_ardia_hybrid_scan_on_demand;
+
+void ArdiaSetHybridUiShown(const void* model, bool shown);
+
 extern bool (*g_ardia_restricted_component_extension)(
     const extensions::ExtensionId& extension_id);
 

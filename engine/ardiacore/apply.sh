@@ -1245,6 +1245,325 @@ hook(["bool g_ardia_lazy_storage_usage = false;\n",
       "        [&] { return HandleResult(delegate_->Clear()); });\n"], edit, CONTENT_HOOKS)
 PY
 
+hook "$src/device/fido/cable/v2_discovery.h" "hybrid WebAuthn scans only while its sheet shows" <<'PY'
+edits = [
+    ("""  void StartInternal() override;
+
+""", """  void StartInternal() override;
+
+  static void SetHybridUiShown(const void* model, bool shown);
+
+"""),
+    ("""  bool device_committed_ = false;
+""", """  bool device_committed_ = false;
+  bool scan_wanted_ = false;
+"""),
+]
+def edit(s):
+    for old, _ in edits:
+        assert s.count(old) == 1, old
+    for old, new in edits:
+        s = s.replace(old, new)
+    return s
+hook(["  static void SetHybridUiShown(const void* model, bool shown);\n", "  bool scan_wanted_ = false;\n"], edit)
+PY
+
+hook "$src/device/fido/cable/v2_discovery.cc" "hybrid WebAuthn scans only while its sheet shows" <<'PY'
+edits = [
+    ("""#include "base/metrics/histogram_functions.h"
+""", """#include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
+"""),
+    ("""namespace device::cablev2 {
+
+namespace {
+""", """bool g_ardia_hybrid_scan_on_demand = false;
+
+namespace device::cablev2 {
+
+namespace {
+
+base::flat_set<const void*>& ModelsShowingHybrid() {
+  static base::NoDestructor<base::flat_set<const void*>> models;
+  return *models;
+}
+
+std::vector<base::WeakPtr<Discovery>>& ScanWaiters() {
+  static base::NoDestructor<std::vector<base::WeakPtr<Discovery>>> waiters;
+  return *waiters;
+}
+"""),
+    ("""      event_callback_));
+}
+
+void Discovery::PairingIsInvalid(""", """      event_callback_));
+  if (g_ardia_hybrid_scan_on_demand && scan_wanted_ && !discovery_session_) {
+    StartCableDiscovery();
+  }
+}
+
+void Discovery::PairingIsInvalid("""),
+    ("""void Discovery::StartCableDiscovery() {
+""", """void Discovery::SetHybridUiShown(const void* model, bool shown) {
+  base::flat_set<const void*>& models = ModelsShowingHybrid();
+  const bool was_shown = !models.empty();
+  if (shown) {
+    models.insert(model);
+  } else {
+    models.erase(model);
+  }
+  if (was_shown == !models.empty()) {
+    return;
+  }
+  std::vector<base::WeakPtr<Discovery>> live;
+  for (const base::WeakPtr<Discovery>& waiter : ScanWaiters()) {
+    if (waiter) {
+      live.push_back(waiter);
+    }
+  }
+  ScanWaiters() = live;
+  for (const base::WeakPtr<Discovery>& discovery : live) {
+    if (!discovery) {
+      continue;
+    }
+    if (!models.empty()) {
+      discovery->StartCableDiscovery();
+    } else if (discovery->tunnels_pending_advert_.empty()) {
+      discovery->discovery_session_.reset();
+    }
+  }
+}
+
+void Discovery::StartCableDiscovery() {
+  if (g_ardia_hybrid_scan_on_demand) {
+    if (!scan_wanted_) {
+      scan_wanted_ = true;
+      std::erase_if(ScanWaiters(),
+                    [](const base::WeakPtr<Discovery>& waiter) { return !waiter; });
+      ScanWaiters().push_back(weak_factory_.GetWeakPtr());
+    }
+    if (ModelsShowingHybrid().empty() && tunnels_pending_advert_.empty()) {
+      return;
+    }
+  }
+"""),
+    ("""  FIDO_LOG(DEBUG) << "Discovery session started.";
+  SetDiscoverySession(std::move(session));
+""", """  FIDO_LOG(DEBUG) << "Discovery session started.";
+  if (g_ardia_hybrid_scan_on_demand && ModelsShowingHybrid().empty() &&
+      tunnels_pending_advert_.empty()) {
+    return;
+  }
+  SetDiscoverySession(std::move(session));
+"""),
+    ("""Discovery::~Discovery() {
+  if (adapter_) {
+""", """Discovery::~Discovery() {
+  if (scan_wanted_) {
+    std::erase_if(ScanWaiters(), [this](const base::WeakPtr<Discovery>& waiter) {
+      return !waiter || waiter.get() == this;
+    });
+  }
+  if (adapter_) {
+"""),
+    ("""}  // namespace device::cablev2
+""", """}  // namespace device::cablev2
+
+void ArdiaSetHybridUiShown(const void* model, bool shown) {
+  device::cablev2::Discovery::SetHybridUiShown(model, shown);
+}
+"""),
+]
+def edit(s):
+    for old, _ in edits:
+        assert s.count(old) == 1, old
+    for old, new in edits:
+        s = s.replace(old, new)
+    return s
+hook(["bool g_ardia_hybrid_scan_on_demand = false;\n",
+      "base::flat_set<const void*>& ModelsShowingHybrid() {\n",
+      "void Discovery::SetHybridUiShown(const void* model, bool shown) {\n",
+      "  if (g_ardia_hybrid_scan_on_demand && scan_wanted_ && !discovery_session_) {\n",
+      "  if (g_ardia_hybrid_scan_on_demand && ModelsShowingHybrid().empty() &&\n",
+      "void ArdiaSetHybridUiShown(const void* model, bool shown) {\n",
+      "      return !waiter || waiter.get() == this;\n"], edit, CONTENT_HOOKS)
+PY
+
+hook "$src/chrome/browser/webauthn/authenticator_request_dialog_model.cc" "hybrid WebAuthn scans only while its sheet shows" <<'PY'
+edits = [
+    ("""AuthenticatorRequestDialogModel::~AuthenticatorRequestDialogModel() {
+""", """AuthenticatorRequestDialogModel::~AuthenticatorRequestDialogModel() {
+  ArdiaSetHybridUiShown(this, false);
+"""),
+    ("""  const StepUIType previous_ui_type = step_ui_type(step_);
+  step_ = step;
+""", """  const StepUIType previous_ui_type = step_ui_type(step_);
+  step_ = step;
+  if (g_ardia_hybrid_scan_on_demand) {
+    ArdiaSetHybridUiShown(this, step_ == Step::kCableV2QRCode ||
+                                    step_ == Step::kCableV2Connecting ||
+                                    step_ == Step::kCableV2Connected);
+  }
+"""),
+]
+def edit(s):
+    for old, _ in edits:
+        assert s.count(old) == 1, old
+    for old, new in edits:
+        s = s.replace(old, new)
+    return s
+hook(["  ArdiaSetHybridUiShown(this, false);\n",
+      "    ArdiaSetHybridUiShown(this, step_ == Step::kCableV2QRCode ||\n"], edit, CONTENT_HOOKS)
+PY
+
+hook "$src/device/bluetooth/bluetooth_low_energy_adapter_apple.h" "Bluetooth LE state updates reach the Mac adapter" <<'PY'
+old = """  virtual void TriggerSystemPermissionPrompt() = 0;
+"""
+new = """  virtual void TriggerSystemPermissionPrompt() = 0;
+  virtual void OnLowEnergyCentralManagerStateUpdated() {}
+"""
+def edit(s):
+    assert s.count(old) == 1
+    return s.replace(old, new)
+hook(["  virtual void OnLowEnergyCentralManagerStateUpdated() {}\n"], edit)
+PY
+
+hook "$src/device/bluetooth/bluetooth_low_energy_adapter_apple.mm" "Bluetooth LE state updates reach the Mac adapter" <<'PY'
+old = """        device_mac->DidDisconnectPeripheral(nullptr);
+      }
+    }
+  }
+}
+"""
+new = """        device_mac->DidDisconnectPeripheral(nullptr);
+      }
+    }
+  }
+  OnLowEnergyCentralManagerStateUpdated();
+}
+"""
+def edit(s):
+    assert s.count(old) == 1
+    return s.replace(old, new)
+hook(["  OnLowEnergyCentralManagerStateUpdated();\n}\n"], edit)
+PY
+
+hook "$src/device/bluetooth/bluetooth_adapter_mac.h" "the Bluetooth adapter polls on demand" <<'PY'
+old = """  void PollAdapter();
+  void OnBackgroundPollComplete(AdapterState state);
+"""
+new = """  void PollAdapter();
+  void OnBackgroundPollComplete(AdapterState state);
+  void PollAdapterOnDemand();
+  void OnLowEnergyCentralManagerStateUpdated() override;
+
+  bool poll_pending_ = false;
+  bool poll_dirty_ = false;
+  base::TimeTicks last_poll_completed_;
+"""
+def edit(s):
+    assert s.count(old) == 1
+    return s.replace(old, new)
+hook(["  void PollAdapterOnDemand();\n", "  bool poll_dirty_ = false;\n", "  base::TimeTicks last_poll_completed_;\n"], edit)
+PY
+
+hook "$src/device/bluetooth/bluetooth_adapter_mac.mm" "the Bluetooth adapter polls on demand" <<'PY'
+at = "namespace device {\n"
+decl = """bool g_ardia_bluetooth_poll_on_demand = false;
+
+"""
+edits = [
+    ("""void BluetoothAdapterMac::LazyInitialize() {
+  if (lazy_initialized_)
+    return;
+""", """void BluetoothAdapterMac::LazyInitialize() {
+  if (lazy_initialized_) {
+    if (g_ardia_bluetooth_poll_on_demand) {
+      PollAdapterOnDemand();
+    }
+    return;
+  }
+"""),
+    ("""void BluetoothAdapterMac::PollAdapter() {
+  base::ThreadPool::PostTaskAndReplyWithResult(
+""", """void BluetoothAdapterMac::PollAdapter() {
+  poll_pending_ = true;
+  poll_dirty_ = false;
+  base::ThreadPool::PostTaskAndReplyWithResult(
+"""),
+    ("""  RemoveTimedOutDevices();
+
+  ui_task_runner_->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&BluetoothAdapterMac::PollAdapter,
+                     weak_ptr_factory_.GetWeakPtr()),
+      base::Milliseconds(kPollIntervalMs));
+""", """  RemoveTimedOutDevices();
+
+  if (g_ardia_bluetooth_poll_on_demand && !IsDiscovering()) {
+    poll_pending_ = false;
+    last_poll_completed_ = base::TimeTicks::Now();
+    if (poll_dirty_) {
+      PollAdapterOnDemand();
+    }
+  } else {
+    ui_task_runner_->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&BluetoothAdapterMac::PollAdapter,
+                       weak_ptr_factory_.GetWeakPtr()),
+        base::Milliseconds(kPollIntervalMs));
+  }
+"""),
+    ("""void BluetoothAdapterMac::OnConnectedDeviceStateRetrieved(
+""", """void BluetoothAdapterMac::PollAdapterOnDemand() {
+  if (poll_pending_) {
+    return;
+  }
+  poll_pending_ = true;
+  const base::TimeDelta wait = last_poll_completed_ +
+                               base::Milliseconds(kPollIntervalMs) -
+                               base::TimeTicks::Now();
+  if (wait.is_positive()) {
+    ui_task_runner_->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&BluetoothAdapterMac::PollAdapter,
+                       weak_ptr_factory_.GetWeakPtr()),
+        wait);
+    return;
+  }
+  PollAdapter();
+}
+
+void BluetoothAdapterMac::OnLowEnergyCentralManagerStateUpdated() {
+  if (!g_ardia_bluetooth_poll_on_demand || !lazy_initialized_) {
+    return;
+  }
+  if (poll_pending_) {
+    poll_dirty_ = true;
+    return;
+  }
+  PollAdapterOnDemand();
+}
+
+void BluetoothAdapterMac::OnConnectedDeviceStateRetrieved(
+"""),
+]
+def edit(s):
+    assert s.count(at) >= 1
+    for old, _ in edits:
+        assert s.count(old) == 1, old
+    i = s.index(at)
+    s = s[:i] + decl + s[i:]
+    for old, new in edits:
+        s = s.replace(old, new)
+    return s
+hook(["bool g_ardia_bluetooth_poll_on_demand = false;\n",
+      "  if (g_ardia_bluetooth_poll_on_demand && !IsDiscovering()) {\n",
+      "void BluetoothAdapterMac::PollAdapterOnDemand() {\n",
+      "void BluetoothAdapterMac::OnLowEnergyCentralManagerStateUpdated() {\n",
+      "    poll_dirty_ = true;\n"], edit)
+PY
+
 hook "$src/chrome/browser/extensions/extension_action_storage_manager.cc" "restored browser action defaults notify" <<'PY'
 old = """  SetDefaultsFromValue(value->GetDict(), action);
 }

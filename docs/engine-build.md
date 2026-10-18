@@ -122,6 +122,23 @@ deletion used to let it succeed. uBlock
 Origin keeps ~30 MB in `chrome.storage.local`, and its first write of a session (its request counts, ~4 minutes after
 launch) cost ~180 ms on a performance core. Kill switch: `ARDIA_LAZY_STORAGE_USAGE=off`.
 
+`bluetooth_adapter_mac.{h,mm}` and `bluetooth_low_energy_adapter_apple.{h,mm}`: with `g_ardia_bluetooth_poll_on_demand`
+(set by `ACMainDelegate`), the Mac Bluetooth adapter polls IOBluetooth every 500 ms only while a discovery session runs.
+Otherwise it polls once when something uses the adapter (any call that initializes it: `IsPowered`, `GetDevices`, a
+scan…), when CoreBluetooth reports a power or permission change, and when a device connects, never sooner than
+500 ms after the last poll. Chrome polls for as long as anything holds the adapter, and a page with a pending WebAuthn
+request (Google's sign-in page asks for passkeys as soon as it loads) holds it through `BleAdapterManager` once the
+app has the Bluetooth permission: each poll asks `bluetoothd` for the paired devices over XPC, ~2 % of a core on a
+background worker, for as long as the tab is open. Kill switch: `ARDIA_BLUETOOTH_POLL_ON_DEMAND=off`.
+
+`v2_discovery.{h,cc}` and `authenticator_request_dialog_model.cc`: with `g_ardia_hybrid_scan_on_demand` (set by
+`ACMainDelegate`), the hybrid (caBLE v2) discovery listens for a phone's BLE advert only while some request's sheet shows
+the QR code or a phone connecting (`kCableV2QRCode`, `kCableV2Connecting`, `kCableV2Connected`), or while it has contacted
+a linked phone, instead of from the moment a request starts. Chrome starts it with every request once the app has the
+Bluetooth permission, a conditional (passkey autofill) one included, so a sign-in page left open scanned for as long as it
+was open, and the scan kept the adapter's 500 ms poll running. The scan stops again when no sheet shows those steps; the
+request itself and its other transports are untouched. Kill switch: `ARDIA_HYBRID_SCAN_ON_DEMAND=off`.
+
 ## The offline page
 
 Wherever Chrome would start the dino (`LocalizedError::IsOfflineError`: `ERR_INTERNET_DISCONNECTED`, or a DNS

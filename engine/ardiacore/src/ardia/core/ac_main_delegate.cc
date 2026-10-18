@@ -350,6 +350,8 @@ void QuietIdleTimers(base::CommandLine* command_line) {
   }
   g_ardia_disk_space_check_seconds = std::clamp(disk_check_seconds, 0, 3600);
   g_ardia_lazy_storage_usage = !EnvIs("ARDIA_LAZY_STORAGE_USAGE", "off");
+  g_ardia_bluetooth_poll_on_demand = !EnvIs("ARDIA_BLUETOOTH_POLL_ON_DEMAND", "off");
+  g_ardia_hybrid_scan_on_demand = !EnvIs("ARDIA_HYBRID_SCAN_ON_DEMAND", "off");
 }
 
 }
