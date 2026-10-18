@@ -888,31 +888,31 @@
           "name": "Ardia",
           "version": "0.2.38-nightly.7",
           "chromium": "155.0.8059.84",
-          "median": 12.1,
-          "min": 11.4,
-          "max": 12.9,
+          "median": 4,
+          "min": 3.3,
+          "max": 4.7,
           "n": 2
         },
         "helium": {
           "name": "Helium",
           "version": "0.19.3.1",
           "chromium": "155.0.8059.79",
-          "median": 5,
-          "min": 4.6,
-          "max": 5.3,
+          "median": 4.7,
+          "min": 4.5,
+          "max": 4.9,
           "n": 2
         },
         "dia": {
           "name": "Dia",
           "version": "1.53.0",
           "chromium": "155.0.8059.80",
-          "median": 696,
-          "min": 668,
-          "max": 724,
+          "median": 848,
+          "min": 274,
+          "max": 1421,
           "n": 2
         }
       },
-      "best": "helium"
+      "best": "ardia"
     },
     {
       "id": "power-idle-hidden",
@@ -925,27 +925,27 @@
           "name": "Ardia",
           "version": "0.2.38-nightly.7",
           "chromium": "155.0.8059.84",
-          "median": 10.5,
-          "min": 9.5,
-          "max": 11.5,
+          "median": 4.2,
+          "min": 3.2,
+          "max": 5.2,
           "n": 2
         },
         "helium": {
           "name": "Helium",
           "version": "0.19.3.1",
           "chromium": "155.0.8059.79",
-          "median": 3.7,
-          "min": 2.9,
-          "max": 4.6,
+          "median": 3,
+          "min": 2.7,
+          "max": 3.3,
           "n": 2
         },
         "dia": {
           "name": "Dia",
           "version": "1.53.0",
           "chromium": "155.0.8059.80",
-          "median": 952,
-          "min": 925,
-          "max": 978,
+          "median": 1223,
+          "min": 959,
+          "max": 1487,
           "n": 2
         }
       },
@@ -962,27 +962,27 @@
           "name": "Ardia",
           "version": "0.2.38-nightly.7",
           "chromium": "155.0.8059.84",
-          "median": 47.7,
-          "min": 44.6,
-          "max": 50.8,
+          "median": 38.9,
+          "min": 38.8,
+          "max": 38.9,
           "n": 2
         },
         "helium": {
           "name": "Helium",
           "version": "0.19.3.1",
           "chromium": "155.0.8059.79",
-          "median": 50.7,
-          "min": 50.5,
-          "max": 50.9,
+          "median": 49.6,
+          "min": 49.3,
+          "max": 50,
           "n": 2
         },
         "dia": {
           "name": "Dia",
           "version": "1.53.0",
           "chromium": "155.0.8059.80",
-          "median": 954,
-          "min": 939,
-          "max": 969,
+          "median": 626,
+          "min": 297,
+          "max": 954,
           "n": 2
         }
       },
@@ -999,8 +999,8 @@
           "name": "Ardia",
           "version": "0.2.38-nightly.7",
           "chromium": "155.0.8059.84",
-          "median": 178,
-          "min": 175,
+          "median": 175,
+          "min": 169,
           "max": 181,
           "n": 2
         },
@@ -1008,18 +1008,18 @@
           "name": "Helium",
           "version": "0.19.3.1",
           "chromium": "155.0.8059.79",
-          "median": 185,
-          "min": 174,
-          "max": 196,
+          "median": 176,
+          "min": 166,
+          "max": 185,
           "n": 2
         },
         "dia": {
           "name": "Dia",
           "version": "1.53.0",
           "chromium": "155.0.8059.80",
-          "median": 998,
-          "min": 968,
-          "max": 1029,
+          "median": 763,
+          "min": 423,
+          "max": 1104,
           "n": 2
         }
       },
@@ -1036,27 +1036,27 @@
           "name": "Ardia",
           "version": "0.2.38-nightly.7",
           "chromium": "155.0.8059.84",
-          "median": 121,
-          "min": 115,
-          "max": 127,
+          "median": 103,
+          "min": 101,
+          "max": 105,
           "n": 2
         },
         "helium": {
           "name": "Helium",
           "version": "0.19.3.1",
           "chromium": "155.0.8059.79",
-          "median": 111,
-          "min": 97.3,
-          "max": 124,
+          "median": 95.4,
+          "min": 95.2,
+          "max": 95.7,
           "n": 2
         },
         "dia": {
           "name": "Dia",
           "version": "1.53.0",
           "chromium": "155.0.8059.80",
-          "median": 1112,
-          "min": 1098,
-          "max": 1125,
+          "median": 779,
+          "min": 432,
+          "max": 1126,
           "n": 2
         }
       },
@@ -1075,6 +1075,6 @@
     "Median, min–max and n over runs; a row is a win when the ranges don't overlap.",
     "Ardia and Helium both run as ad-hoc signed copies (a Developer ID signature adds about 30 ms to a cold launch on macOS 27), measured in the same session.",
     "Speedometer 3: six runs each in turn, the same day, on the dev build (Chromium 155.0.8059.84).",
-    "Power: macOS's own per-process energy counter (ri_energy_nj), summed over every process of the browser, with 11 public, logged-out sites open, two runs each; Ardia's power rows are from 0.2.38-nightly.6 and get replaced by nightly.7's run when it finishes."
+    "Power: macOS's own per-process energy counter (ri_energy_nj), summed over every process of the browser, with 11 public, logged-out sites open, two runs each, interleaved, the same day."
   ]
 }
