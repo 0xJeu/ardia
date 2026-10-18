@@ -28,6 +28,7 @@
 @property(nonatomic) NSRect pageRect;
 @property(nonatomic) BOOL claimed;
 @property(nonatomic) BOOL expired;
+@property(nonatomic) BOOL shielded;
 @property(nonatomic, strong) id contentObserver;
 @property(nonatomic, strong) id closeObserver;
 @end
@@ -530,6 +531,34 @@ NSView *Cover(NSView *host, NSDictionary *layout, NSRect *pageRect) {
   return cover;
 }
 
+NSString *OriginOfURL(NSString *url) {
+  NSURLComponents *parts = url.length ? [NSURLComponents componentsWithString:url] : nil;
+  NSString *scheme = parts.scheme.lowercaseString, *host = parts.host.lowercaseString;
+  if (!scheme.length || !host.length) return nil;
+  return parts.port ? [NSString stringWithFormat:@"%@://%@:%@", scheme, host, parts.port] : [NSString stringWithFormat:@"%@://%@", scheme, host];
+}
+
+BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL) {
+  NSString *url = tab.url;
+  if (!url.length || [url isEqualToString:@"about:blank"]) return YES;
+  NSString *live = OriginOfURL(url), *launch = OriginOfURL(launchURL);
+  if (!live || !launch || ![live isEqualToString:launch]) return NO;
+  if (![live hasPrefix:@"https:"] || ![tab respondsToSelector:@selector(securityInfo)]) return YES;
+  return ![tab.securityInfo[@"level"] isEqual:@"certificateError"];
+}
+
+void Shield(ACEarlyShown *s) {
+  s.shielded = YES;
+  NSWindow *window = s.window;
+  NSView *page = s.tab.view;
+  NSResponder *focused = window.firstResponder;
+  if (page && [focused isKindOfClass:NSView.class] && [(NSView *)focused isDescendantOf:page]) [window makeFirstResponder:nil];
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  s.cover.hidden = YES;
+  [CATransaction commit];
+}
+
 void ApplyLights(NSWindow *window, NSDictionary *layout) {
   NSArray *lights = layout[@"lights"];
   if ([lights isKindOfClass:NSArray.class] && lights.count == 2 && [lights[0] isKindOfClass:NSNumber.class] && [lights[1] isKindOfClass:NSNumber.class])
@@ -865,6 +894,12 @@ CGImageRef TakePrefetched(NSString *windowId) {
     else if (s.expired) Abandon(s);
     else DropCover(s);
   }
+}
+
++ (void)pageNavigated:(ArdiaCoreTab *)tab launchURL:(NSString *)launchURL {
+  if (!tab) return;
+  for (ACEarlyShown *s in Shown())
+    if (s.tab == tab && !s.shielded && tab.view.superview == s.cover && !ShowsLaunchOrigin(tab, launchURL)) Shield(s);
 }
 
 + (void)dropPage:(ArdiaCoreTab *)tab {

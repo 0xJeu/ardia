@@ -26,6 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable NSView *)coverInWindow:(nullable NSWindow *)window;
 + (void)rootEmbedded:(NSView *)root inWindow:(NSWindow *)window;
 + (void)pageMoved:(ArdiaCoreTab *)tab;
++ (void)pageNavigated:(nullable ArdiaCoreTab *)tab launchURL:(nullable NSString *)launchURL;
 + (void)dropPage:(nullable ArdiaCoreTab *)tab;
 @end
 
