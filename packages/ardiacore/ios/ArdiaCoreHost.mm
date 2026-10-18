@@ -11,6 +11,7 @@
 
 #include <cctype>
 #include <cstring>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -176,22 +177,47 @@ static void LinksArrived(NSArray<NSURL *> *urls) {
   ParkLaunchLinks(urls, dir, SavedSession(dir));
 }
 
+static std::string FeatureEntryName(const std::string &entry) {
+  const size_t start = !entry.empty() && entry[0] == '*' ? 1 : 0;
+  const size_t end = entry.find_first_of("<:", start);
+  return entry.substr(start, end == std::string::npos ? std::string::npos : end - start);
+}
+
 static std::vector<std::string> MergeFeatureLists(const std::vector<const char *> &args) {
-  std::vector<std::string> rest;
-  std::string enable, disable;
-  auto prepend = [](std::string &list, const char *value) {
-    if (!*value) return;
-    list = list.empty() ? std::string(value) : std::string(value) + "," + list;
-  };
+  std::vector<std::string> switches, positional;
+  std::vector<std::pair<bool, std::string>> entries;
+  bool terminated = false;
   for (size_t i = 1; i < args.size(); i++) {
     const char *arg = args[i];
-    if (!strncmp(arg, "--enable-features=", 18)) prepend(enable, arg + 18);
-    else if (!strncmp(arg, "--disable-features=", 19)) prepend(disable, arg + 19);
-    else rest.push_back(arg);
+    if (terminated || !strcmp(arg, "--")) {
+      terminated = true;
+      positional.push_back(arg);
+      continue;
+    }
+    const bool enable = !strncmp(arg, "--enable-features=", 18);
+    if (!enable && strncmp(arg, "--disable-features=", 19)) {
+      switches.push_back(arg);
+      continue;
+    }
+    std::string list(arg + (enable ? 18 : 19));
+    for (size_t from = 0; from <= list.size();) {
+      size_t comma = list.find(',', from);
+      if (comma == std::string::npos) comma = list.size();
+      if (comma > from) entries.emplace_back(enable, list.substr(from, comma - from));
+      from = comma + 1;
+    }
   }
-  if (!enable.empty()) rest.push_back("--enable-features=" + enable);
-  if (!disable.empty()) rest.push_back("--disable-features=" + disable);
-  return rest;
+  std::set<std::string> decided;
+  std::string enabled, disabled;
+  for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry) {
+    if (!decided.insert(FeatureEntryName(entry->second)).second) continue;
+    std::string &list = entry->first ? enabled : disabled;
+    list = list.empty() ? entry->second : entry->second + "," + list;
+  }
+  if (!enabled.empty()) switches.push_back("--enable-features=" + enabled);
+  if (!disabled.empty()) switches.push_back("--disable-features=" + disabled);
+  switches.insert(switches.end(), positional.begin(), positional.end());
+  return switches;
 }
 
 static void ReportLoweredWindowOcclusion() {
