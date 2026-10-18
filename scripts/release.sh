@@ -206,6 +206,7 @@ sign() {
 fw="$app/Contents/Frameworks/Chromium Framework.framework"
 fwv="$(cd "$fw/Versions/Current" && pwd -P)" || die "no Chromium Framework.framework in the export"
 "$ardiacore/scripts/strip-engine.sh" "$app" "$dist/symbols"
+"$ardiacore/scripts/prune-bundle.sh" "$app"
 for lib in "$fwv"/Libraries/*.dylib; do sign "$lib"; done
 for helper in "$fwv"/Helpers/*.app; do
   case "$(basename "$helper")" in
@@ -219,6 +220,8 @@ sign --options restrict,library,kill,runtime "$fwv/Helpers/app_mode_loader"
 [ -e "$fwv/Helpers/web_app_shortcut_copier" ] && sign --options restrict,library,kill,runtime \
   --identifier com.ardia.browser.web_app_shortcut_copier "$fwv/Helpers/web_app_shortcut_copier"
 sign "$fw"
+[ -d "$app/Contents/Frameworks/hermes.framework" ] \
+  && sign --preserve-metadata=identifier,entitlements,flags,runtime "$app/Contents/Frameworks/hermes.framework"
 sign --preserve-metadata=entitlements,requirements,flags,runtime "$app"
 
 echo "==> Verify"
@@ -338,7 +341,9 @@ for attempt in 1 2 3 4 5; do
   [ "$attempt" = 5 ] && { hdiutil detach "$dmg_mnt" -force >/dev/null || die "couldn't eject $dmg_mnt"; }
   sleep 2
 done
-hdiutil convert "$dmg_rw" -format ULMO -ov -o "$dmg" >/dev/null
+dmg_chunks=(-imagekey udif-chunk-size=8192)
+[ "${ARDIA_DMG_CHUNK:-on}" = off ] && dmg_chunks=()
+hdiutil convert "$dmg_rw" -format ULMO ${dmg_chunks[@]+"${dmg_chunks[@]}"} -ov -o "$dmg" >/dev/null
 rm -rf "$dmg_rw" "$dmg_mnt"
 sign "$dmg"
 if [ "$notarize" = 1 ]; then

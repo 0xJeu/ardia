@@ -99,6 +99,15 @@ every copy on Stable sees only stable items. A copy on Nightly allows `nightly` 
    appcast, or if the build number isn't above every build in it. It writes `dist/<version>/`:
    - archives the Release configuration of `apps/browser/macos` (arm64 only), staging the engine into its own
      derived data so a development build restaging can't change it mid-build, and exports it with Developer ID,
+   - leaves out what Ardia never loads (`packages/ardiacore/scripts/prune-bundle.sh`, after `strip-engine.sh`): Chrome's
+     locales other than English and the app's own languages (Chrome takes its locale from the app bundle's
+     localizations, and Ardia has none, so it runs in en-US whatever the Mac's language), SwiftShader and its Vulkan
+     loader (WebGL and WebGPU run on Metal; Chrome dropped SwiftShader's WebGL fallback), Chrome's first-run sounds
+     and pictures inside `resources.pak` (blanked by hash, `first-run-resources.sha256`; Ardia always passes
+     `--no-first-run`), uBlock Origin's other locales, React Native's `@3x` images (Macs draw at 1x or 2x) and hermes's
+     local symbols. Each step has a kill switch: `ARDIA_PRUNE_LOCALES`, `ARDIA_PRUNE_SWIFTSHADER`,
+     `ARDIA_PRUNE_FIRST_RUN`, `ARDIA_PRUNE_UBO_LOCALES`, `ARDIA_PRUNE_RN_3X`, `ARDIA_STRIP_HERMES` (or `ARDIA_PRUNE` for
+     all) set to `off`,
    - signs Chrome's framework inside out as Chrome signs its own (`chrome/installer/mac/signing/parts.py`): the
      helpers under the hardened runtime with library validation, except the renderer and GPU ones (Aperitif's too),
      which get `allow-jit` (`packages/ardiacore/scripts/signing`) instead; then the framework, then the app again with
@@ -111,7 +120,8 @@ every copy on Stable sees only stable items. A copy on Nightly allows `nightly` 
    - launches the app once in the background (throwaway data dir), waits for uBlock's rulesets to be indexed,
      quits it and checks the signature again: the app must never write into its own bundle,
    - notarizes and staples the app and the DMG,
-   - packages the DMG and the zip, and signs `appcast.xml` with the Sparkle key. It starts from the
+   - packages the DMG (lzma in 4 MB chunks, `udif-chunk-size=8192`, hdiutil's largest; `ARDIA_DMG_CHUNK=off` goes back
+     to its 1 MB default) and the zip, and signs `appcast.xml` with the Sparkle key. It starts from the
      published appcast, so earlier versions and the other channel's items stay listed; a nightly's item gets
      `<sparkle:channel>nightly</sparkle:channel>`. The new item embeds the notes' headline and body
      (Markdown, shown in Sparkle's update dialog) and links the page as its full release notes
