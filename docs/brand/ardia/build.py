@@ -236,6 +236,7 @@ print("tinted marks")
 import shutil  # noqa: E402
 
 XCASSETS = Path("apps/browser/macos/Ardia-macOS/Assets.xcassets")
+PLATE_MARK_PX = 512
 IMAGESET = '{\n  "images" : [\n    {\n      "filename" : "mark.png",\n      "idiom" : "universal"\n    }\n  ],\n  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n'
 slots = {"AppIconMark": OUT / "plate-mark-1024.png"}
 for name, im in tinted_marks(Image.open(slots["AppIconMark"]), ("plum", "blue", "neutral")):
@@ -244,7 +245,7 @@ for name, im in tinted_marks(Image.open(slots["AppIconMark"]), ("plum", "blue", 
 for slot, path in slots.items():
     folder = XCASSETS / f"{slot}.imageset"
     folder.mkdir(exist_ok=True)
-    shutil.copyfile(path, folder / "mark.png")
+    Image.open(path).resize((PLATE_MARK_PX, PLATE_MARK_PX), LZ).save(folder / "mark.png", optimize=True)
     (folder / "Contents.json").write_text(IMAGESET)
 print("plate marks")
 
@@ -297,7 +298,7 @@ with tempfile.TemporaryDirectory() as tmp:
     appicon.mkdir(parents=True)
     (catalog / "Contents.json").write_text('{\n  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n')
     entries = []
-    for pt in (16, 32, 128, 256, 512):
+    for pt in (16, 32, 128):
         for scale in (1, 2):
             name = f"icon_{pt}x{pt}_{scale}x.png"
             icon.resize((pt * scale, pt * scale), LZ).save(appicon / name)
