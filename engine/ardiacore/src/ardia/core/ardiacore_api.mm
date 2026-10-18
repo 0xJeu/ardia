@@ -69,6 +69,8 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
+#include "url/origin.h"
+#include "url/scheme_host_port.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_action.h"
@@ -1616,6 +1618,27 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 
 }
 
+@interface ArdiaCoreInputSuppression : NSObject
+- (instancetype)initWithContents:(content::WebContents*)contents;
+@end
+
+@implementation ArdiaCoreInputSuppression {
+  std::optional<content::WebContents::ScopedIgnoreInputEvents> _ignoring;
+}
+
+- (instancetype)initWithContents:(content::WebContents*)contents {
+  if ((self = [super init])) {
+    _ignoring.emplace(contents->IgnoreInputEvents(std::nullopt));
+  }
+  return self;
+}
+
+- (void)dealloc {
+  _ignoring.reset();
+}
+
+@end
+
 @implementation ArdiaCoreTab {
   raw_ptr<content::WebContents> _contents;
   int _browserId;
@@ -1635,6 +1658,23 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 
 - (int)browserId {
   return _browserId;
+}
+
+- (NSString*)committedOrigin {
+  if (!_contents) {
+    return nil;
+  }
+  content::NavigationEntry* entry = _contents->GetController().GetLastCommittedEntry();
+  if (!entry || entry->IsInitialEntry()) {
+    return nil;
+  }
+  const url::SchemeHostPort& tuple =
+      _contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().GetTupleOrPrecursorTupleIfOpaque();
+  return tuple.IsValid() ? base::SysUTF8ToNSString(tuple.Serialize()) : @"";
+}
+
+- (id)suppressInput {
+  return _contents ? [[ArdiaCoreInputSuppression alloc] initWithContents:_contents] : nil;
 }
 
 - (NSString*)faviconURL {

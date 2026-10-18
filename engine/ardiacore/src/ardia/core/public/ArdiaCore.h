@@ -282,6 +282,8 @@ ARDIACORE_EXPORT
 @property(readonly) BOOL audible;
 @property(nonatomic) BOOL muted;
 @property(readonly) int browserId;
+@property(readonly, nullable) NSString* committedOrigin;
+- (nullable id)suppressInput;
 - (void)loadURL:(NSString*)url userInitiated:(BOOL)userInitiated;
 - (void)goToOffset:(int)offset;
 - (void)reloadIgnoringCache;
