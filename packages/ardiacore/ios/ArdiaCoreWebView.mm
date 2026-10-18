@@ -1018,6 +1018,9 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [self endReveal];
   [self dropFront];
   _tab = nil;
+  _focusOnActivate = NO;
+  _pageFocus = ACPageFocus::Unknown;
+  _focusedDevTools = nil;
   _handingOff = NO;
   _leaving = NO;
   _leaveGeneration++;
