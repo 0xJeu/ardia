@@ -628,7 +628,16 @@ enum KeyEquivalents {
     NSApp.postEvent(event, atStart: true)
     let current = NSApp.nextEvent(matching: .keyDown, until: .distantPast, inMode: .default, dequeue: true) ?? event
     var result: [String: Any] = ["firstResponder": window.firstResponder.map { String(describing: type(of: $0)) } ?? "nil"]
-    if !window.isKeyWindow, let page = window.firstResponder, String(describing: type(of: page)) == "RenderWidgetHostViewCocoa" {
+    if press["send"] as? Bool == true {
+      NSApp.sendEvent(current)
+      if let up = NSEvent.keyEvent(
+        with: .keyUp, location: .zero, modifierFlags: mods, timestamp: ProcessInfo.processInfo.systemUptime,
+        windowNumber: window.windowNumber, context: nil, characters: press["characters"] as? String ?? key,
+        charactersIgnoringModifiers: key, isARepeat: false, keyCode: UInt16(press["keyCode"] as? Int ?? 0)) {
+        NSApp.sendEvent(up)
+      }
+      result["handledBy"] = "sent"
+    } else if !window.isKeyWindow, let page = window.firstResponder, String(describing: type(of: page)) == "RenderWidgetHostViewCocoa" {
       let selector = NSSelectorFromString("keyEvent:wasKeyEquivalent:")
       typealias KeyEvent = @convention(c) (AnyObject, Selector, NSEvent, ObjCBool) -> Void
       unsafeBitCast(page.method(for: selector), to: KeyEvent.self)(page, selector, current, true)
@@ -644,6 +653,7 @@ enum KeyEquivalents {
       result["handledBy"] = "none"
     }
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(press["wait"] as? Int ?? 250)) {
+      result["firstResponderAfter"] = window.firstResponder.map { String(describing: type(of: $0)) } ?? "nil"
       restoreKeyWindow?()
       end(dry: dry)
       result["fired"] = fired

@@ -1,3 +1,48 @@
+diff --git a/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+index 18bbe64f657a36596563b3eb6d135284e28c674a..21eb199977f8d79e3a290c8b8593796d89f8cea1 100644
+--- a/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
++++ b/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+@@ -14,6 +14,20 @@
+ 
+ static void *TextFieldSelectionObservingContext = &TextFieldSelectionObservingContext;
+ 
++#if TARGET_OS_OSX // [Ardia: Return and Escape reach a field as commands, never as key equivalents, so keyDownEvents asking for them went unheard
++static BOOL ArdiaCommandKeyHandledByJS(id<RCTBackedTextInputDelegate> textInputDelegate, SEL commandSelector)
++{
++  NSString *key = commandSelector == @selector(cancelOperation:) ? @"Escape"
++      : commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:) ? @"Enter"
++      : nil;
++  NSEvent *event = NSApp.currentEvent;
++  if (key == nil || textInputDelegate == nil || event.type != NSEventTypeKeyDown || ![textInputDelegate hasKeyDownEventOrKeyUpEvent:key]) {
++    return NO;
++  }
++  return ![textInputDelegate textInputShouldHandleKeyEvent:event];
++}
++#endif // Ardia]
++
+ #if !TARGET_OS_OSX // [macOS]
+ @interface RCTBackedTextFieldDelegateAdapter () <UITextFieldDelegate, UITextDropDelegate>
+ #else // [macOS
+@@ -235,6 +249,9 @@ - (BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
+ - (BOOL)control:(NSControl *)control textView:(NSTextView *)fieldEditor doCommandBySelector:(SEL)commandSelector
+ {
+   id<RCTBackedTextInputDelegate> textInputDelegate = [_backedTextInputView textInputDelegate];
++  if (ArdiaCommandKeyHandledByJS(textInputDelegate, commandSelector)) { // [Ardia]
++    return YES;
++  }
+   BOOL commandHandled = NO;
+   // enter/return
+   if (commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:)) {
+@@ -490,6 +507,9 @@ - (BOOL)textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
+ {
+   BOOL commandHandled = NO;
+   id<RCTBackedTextInputDelegate> textInputDelegate = [_backedTextInputView textInputDelegate];
++  if (ArdiaCommandKeyHandledByJS(textInputDelegate, commandSelector)) { // [Ardia]
++    return YES;
++  }
+   // enter/return
+   if ((commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:))) {
+     if ([textInputDelegate textInputShouldSubmitOnReturn]) {
 diff --git a/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8178fcb41 100644
 --- a/Libraries/Text/TextInput/RCTBaseTextInputView.mm
