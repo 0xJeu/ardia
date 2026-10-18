@@ -65,8 +65,10 @@ two parts with an explicit flush between them gets through; that gap is accepted
 
 - Downloads `https://github.com/mantrakp04/ardia/releases/download/v<V>/ardia-cli-<V>-macos-arm64.tar.gz` (https only)
   into a private temp dir. Without `--version` it takes the latest release that has the asset. `--sha256` is the only
-  digest it trusts when given (the app passes `Ardia.app/Contents/Resources/ardia-cli.sha256`); otherwise it reads the
-  `.sha256` asset.
+  digest it trusts (the app passes `Ardia.app/Contents/Resources/ardia-cli.sha256`, which the signed bundle pins), and
+  a download needs it: a `.sha256` from the same release would only prove the tarball came from wherever the tarball
+  came from. Only a `file://` `ARDIA_CLI_URL` (tests) may go without it, reading `<url>.sha256`. A Debug build has no
+  pinned digest, so it installs only that way.
 - Verifies the digest, refuses entries outside `ardia-cli-<V>/`, `..` paths, hard links and links pointing outside the
   tree, plus names with control characters, backslashes or ` -> `, extracts to `$ARDIA_CLI_HOME/<V>.partial`, checks
   the extracted tree again (`find`, no line parsing), renames it to `<V>`, and swaps `current` atomically.

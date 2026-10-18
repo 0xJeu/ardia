@@ -11,7 +11,7 @@ const MONO = "Menlo";
 export function CliStep() {
   const next = useOnboarding((s) => s.next);
   const colors = useOnboardingColors();
-  const [control, setControl] = useState(true);
+  const [control, setControl] = useState(false);
   const [started, setStarted] = useState(false);
   const installing = useCli((s) => !!s.installing);
   const failed = useCli((s) => !s.installing && !!s.error);

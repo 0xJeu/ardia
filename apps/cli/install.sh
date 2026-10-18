@@ -5,7 +5,7 @@
 #   install.sh -h | --help
 #
 # --version V        install that release (default: the latest release that ships the CLI).
-# --sha256 DIGEST    trust only this digest of the tarball (the .sha256 asset isn't downloaded).
+# --sha256 DIGEST    the tarball's digest; required for a download (the app passes the one pinned in its signed bundle).
 # --uninstall        remove the installed CLI and its ardia link.
 #
 # Installs into ${ARDIA_CLI_HOME:-~/Library/Application Support/Ardia/CLI}/<version>, points its `current` link
@@ -17,8 +17,9 @@
 # <version>/.leases/<pid>, live while that pid runs and started before the lease was written). Two runs never overlap:
 # each holds a flock on $ARDIA_CLI_HOME/.lock (lockf), which the kernel drops when the run exits.
 # The installed version is `basename "$(readlink "$ARDIA_CLI_HOME/current")"`.
-# Downloads are https only. ARDIA_CLI_URL overrides the tarball URL (file:// works); without --sha256 its checksum
-# is read from $ARDIA_CLI_URL.sha256.
+# Downloads are https only, and never trust a checksum from the same place as the tarball: without --sha256 it refuses
+# to download. ARDIA_CLI_URL overrides the tarball URL; a file:// one may go without --sha256, and its checksum is read
+# from $ARDIA_CLI_URL.sha256.
 #
 # Prints one line per event: `step resolve|download|verify|install|link`, `version <v>`, `path <rc file>`,
 # then `installed <bin path>` (or `uninstalled`), or `error <message>` and exits 1.
@@ -236,6 +237,10 @@ else
   version=${version%"$asset_suffix"}
 fi
 is_version "$version" || fail "bad version: $version"
+case $url in
+  file://*) ;;
+  *) [ -n "$pinned_sha" ] || fail "no --sha256: install the ardia command from Ardia (Settings › Advanced), which pins its digest" ;;
+esac
 printf 'version %s\n' "$version"
 check_bin_free
 
