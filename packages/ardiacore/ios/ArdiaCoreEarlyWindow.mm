@@ -43,6 +43,7 @@
 @property(nonatomic) BOOL restoreFocus;
 @property(nonatomic, copy) NSString *lastShown;
 @property(nonatomic) CFTimeInterval changedAt;
+@property(nonatomic) BOOL acknowledged;
 @end
 
 @implementation ACEarlyVeil
@@ -466,17 +467,60 @@ void RecordLayouts(NSDictionary *session, BOOL wait) {
   Write(data);
 }
 
-NSString *OriginOfURL(NSString *url) {
-  if ([url.lowercaseString hasPrefix:@"view-source:"]) url = [url substringFromIndex:12];
-  const NSRange separator = [url rangeOfString:@"://"];
-  if (separator.location == NSNotFound || separator.location == 0) return nil;
-  NSString *scheme = [url substringToIndex:separator.location].lowercaseString;
-  NSString *rest = [url substringFromIndex:NSMaxRange(separator)];
+NSString *ParsedOrigin(NSString *url) {
+  for (NSString *wrapper in @[ @"blob:", @"filesystem:" ])
+    if ([url.lowercaseString hasPrefix:wrapper]) url = [url substringFromIndex:wrapper.length];
+  const NSRange colon = [url rangeOfString:@":"];
+  if (colon.location == NSNotFound || colon.location == 0) return nil;
+  NSString *scheme = [url substringToIndex:colon.location].lowercaseString;
+  NSCharacterSet *schemeChars = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyz0123456789+.-"];
+  if ([scheme rangeOfCharacterFromSet:schemeChars.invertedSet].location != NSNotFound) return nil;
+  NSString *rest = [url substringFromIndex:NSMaxRange(colon)];
+  if (![rest hasPrefix:@"//"]) return @"";
+  rest = [rest substringFromIndex:2];
   const NSRange end = [rest rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#"]];
   NSString *authority = end.location == NSNotFound ? rest : [rest substringToIndex:end.location];
   const NSRange user = [authority rangeOfString:@"@" options:NSBackwardsSearch];
   if (user.location != NSNotFound) authority = [authority substringFromIndex:NSMaxRange(user)];
   return [NSString stringWithFormat:@"%@://%@", scheme, authority.lowercaseString];
+}
+
+NSString *EngineOrigin(NSString *url) {
+  return ((NSString * (*)(id, SEL, NSString *)) objc_msgSend)(NSClassFromString(@"ArdiaCoreTab"), NSSelectorFromString(@"originForURL:"), url);
+}
+
+BOOL EngineOriginsWork() {
+  static BOOL works;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    if (![NSClassFromString(@"ArdiaCoreTab") respondsToSelector:NSSelectorFromString(@"originForURL:")]) return;
+    NSDictionary<NSString *, NSString *> *known = @{
+      @"https://a.test/x" : @"https://a.test",
+      @"http://EXAMPLE.com:80/" : @"http://example.com",
+      @"http://[0:0:0:0:0:0:0:1]:8080/" : @"http://[::1]:8080",
+      @"chrome://version/" : @"chrome://version",
+      @"blob:https://a.test/id" : @"https://a.test",
+      @"data:text/html,a://b" : @"",
+    };
+    works = YES;
+    for (NSString *url in known)
+      if (![EngineOrigin(url) isEqual:known[url]]) works = NO;
+    NSLog(works ? @"[ardiacore] page veil: the engine's originForURL: passed its self-check"
+                : @"[ardiacore] page veil: the engine's originForURL: failed its self-check; origins are parsed instead");
+  });
+  return works;
+}
+
+NSString *OriginOfURL(NSString *url) {
+  if (!url.length) return nil;
+  if ([url.lowercaseString hasPrefix:@"view-source:"]) url = [url substringFromIndex:12];
+  NSString *parsed = ParsedOrigin(url);
+  if (!EngineOriginsWork()) return parsed;
+  NSString *engine = EngineOrigin(url);
+  static NSSet<NSString *> *const network = [NSSet setWithArray:@[ @"http", @"https", @"ws", @"wss" ]];
+  NSString *scheme = parsed.length ? [parsed substringToIndex:[parsed rangeOfString:@":"].location] : nil;
+  if (!engine || (!engine.length && scheme && [network containsObject:scheme])) return parsed;
+  return engine;
 }
 
 id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered) {
@@ -488,8 +532,7 @@ id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered) {
 NSString *LiveOrigin(ArdiaCoreTab *tab) {
   BOOL answered = NO;
   NSString *committed = TabCall(tab, @"committedOrigin", &answered);
-  if (answered && committed) return committed.length ? committed : nil;
-  return OriginOfURL(tab.url);
+  return answered ? committed : OriginOfURL(tab.url);
 }
 
 BOOL Untitled(NSString *url) {
@@ -497,11 +540,8 @@ BOOL Untitled(NSString *url) {
 }
 
 BOOL ShownMatches(NSString *shownURL, ArdiaCoreTab *tab) {
-  NSString *shown = OriginOfURL(shownURL);
-  if (shown) {
-    NSString *live = LiveOrigin(tab);
-    return live && [shown isEqualToString:live];
-  }
+  NSString *shown = OriginOfURL(shownURL), *live = LiveOrigin(tab);
+  if (shown.length && live.length && ![shown isEqualToString:@"file://"] && ![live isEqualToString:@"file://"]) return [shown isEqualToString:live];
   NSString *url = tab.url;
   return Untitled(shownURL) ? Untitled(url) : [shownURL isEqualToString:url];
 }
@@ -565,7 +605,7 @@ void Unveil(ArdiaCoreTab *tab) {
   ArdiaCoreWebView *web = (ArdiaCoreWebView *)host;
   NSWindow *window = web.window;
   NSResponder *focused = window.firstResponder;
-  if (web.visible && !web.isHiddenOrHasHiddenAncestor && (!focused || focused == window)) [tab focus];
+  if (window.isVisible && !window.isMiniaturized && web.visible && !web.isHiddenOrHasHiddenAncestor && (!focused || focused == window)) [tab focus];
 }
 
 void Reconcile(ArdiaCoreTab *tab) {
@@ -583,20 +623,20 @@ void WatchVeil(ArdiaCoreTab *tab, ACEarlyVeil *veil, double after) {
     const double left = still.changedAt + kVeilFailSafeSeconds - CACurrentMediaTime();
     if (left > 0.05) return WatchVeil(page, still, left);
     BOOL answered = NO;
-    NSLog(@"[ardiacore] page veil lifted after %.1f s without a match: shown %@, committed %@, visible %@", kVeilFailSafeSeconds,
+    NSLog(@"[ardiacore] page veil lifted %.1f s after the bar changed without a match: shown %@, committed %@, visible %@", kVeilFailSafeSeconds,
           still.lastShown ?: @"(none)", TabCall(page, @"committedOrigin", &answered) ?: @"(none)", page.url ?: @"(none)");
     Unveil(page);
   });
 }
 
-void CarryShield(ArdiaCoreTab *tab, id inputBlock) {
+void CarryShield(ArdiaCoreTab *tab, id inputBlock, NSString *shownAtPlacement) {
   if (!tab || tab.closed) return;
   ACEarlyVeil *veil = [Veils() objectForKey:tab];
   if (!veil) {
     veil = [ACEarlyVeil new];
+    veil.lastShown = shownAtPlacement;
     veil.changedAt = CACurrentMediaTime();
     [Veils() setObject:veil forKey:tab];
-    WatchVeil(tab, veil, kVeilFailSafeSeconds);
   }
   if (!veil.inputBlock) {
     BOOL answered = NO;
@@ -620,7 +660,11 @@ void DropCover(ACEarlyShown *s) {
   if (tab && tab.view.superview == cover) [tab.view removeFromSuperview];
   [cover removeFromSuperview];
   [CATransaction commit];
-  if (s.shielded) CarryShield(tab, inputBlock);
+  if (s.shielded) {
+    NSView *host = tab.view.superview;
+    NSString *shown = [host isKindOfClass:ArdiaCoreWebView.class] ? ((ArdiaCoreWebView *)host).shownURL : nil;
+    CarryShield(tab, inputBlock, shown.length ? shown : gLaunchURL);
+  }
   else if (tab && !tab.closed && [tab.view.superview isKindOfClass:ArdiaCoreWebView.class]) {
     [Watched() addObject:tab];
     __weak ArdiaCoreTab *watched = tab;
@@ -1076,6 +1120,10 @@ CGImageRef TakePrefetched(NSString *windowId) {
   if (veil && ![veil.lastShown ?: @"" isEqualToString:url ?: @""]) {
     veil.lastShown = url;
     veil.changedAt = CACurrentMediaTime();
+    if (!veil.acknowledged) {
+      veil.acknowledged = YES;
+      WatchVeil(tab, veil, kVeilFailSafeSeconds);
+    }
   }
   const BOOL veiled = veil != nil;
   if (!veiled && ![Watched() containsObject:tab]) return;
@@ -1091,14 +1139,14 @@ CGImageRef TakePrefetched(NSString *windowId) {
   if (!url.length) return;
   if (!matches) {
     [Watched() removeObject:tab];
-    return CarryShield(tab, nil);
+    return CarryShield(tab, nil, url);
   }
   if (!tab.loading) [Watched() removeObject:tab];
 }
 
 + (void)pageCommitted:(ArdiaCoreTab *)tab shownURL:(NSString *)url {
   if (!tab || !url.length || PageVeilOff() || [Veils() objectForKey:tab] || ShownMatches(url, tab)) return;
-  CarryShield(tab, nil);
+  CarryShield(tab, nil, url);
 }
 
 + (void)pageNavigated:(ArdiaCoreTab *)tab launchURL:(NSString *)launchURL {
