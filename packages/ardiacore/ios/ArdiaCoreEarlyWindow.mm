@@ -52,8 +52,9 @@
 
 @interface ACPageEmits : NSObject
 @property(nonatomic) NSUInteger generation;
-@property(nonatomic, strong) NSMutableSet<NSString *> *current;
+@property(nonatomic, strong) NSMutableOrderedSet<NSString *> *current;
 @property(nonatomic, strong) NSMutableOrderedSet<NSString *> *older;
+@property(nonatomic) BOOL forgot;
 @property(nonatomic) CFTimeInterval firstEmitAt;
 @end
 
@@ -102,11 +103,20 @@ ACPageEmits *EmitsOf(ArdiaCoreTab *tab) {
   if (!emits && tab) {
     emits = [ACPageEmits new];
     emits.generation = 1;
-    emits.current = [NSMutableSet set];
+    emits.current = [NSMutableOrderedSet orderedSet];
     emits.older = [NSMutableOrderedSet orderedSet];
     [Emits() setObject:emits forKey:tab];
   }
   return emits;
+}
+
+void Archive(ACPageEmits *emits, NSString *url) {
+  [emits.older removeObject:url];
+  [emits.older addObject:url];
+  while (emits.older.count > kOlderEmitsKept) {
+    [emits.older removeObjectAtIndex:0];
+    emits.forgot = YES;
+  }
 }
 
 NSHashTable<ArdiaCoreTab *> *Watched() {
@@ -1168,7 +1178,7 @@ CGImageRef TakePrefetched(NSString *windowId) {
     veil.changedAt = CACurrentMediaTime();
     ACPageEmits *emits = EmitsOf(tab);
     const BOOL unknown = url.length && ![emits.current containsObject:url] && ![emits.older containsObject:url];
-    if (unknown && emits.firstEmitAt > 0 && veil.changedAt > emits.firstEmitAt) {
+    if (unknown && !emits.forgot && emits.firstEmitAt > 0 && veil.changedAt > emits.firstEmitAt) {
       const BOOL armed = veil.armedGeneration == emits.generation && veil.armedShown;
       veil.armedGeneration = emits.generation;
       veil.armedShown = url;
@@ -1199,11 +1209,7 @@ CGImageRef TakePrefetched(NSString *windowId) {
 + (void)pageCommitted:(ArdiaCoreTab *)tab shownURL:(NSString *)url {
   if (!tab) return;
   ACPageEmits *emits = EmitsOf(tab);
-  for (NSString *each in emits.current) {
-    [emits.older removeObject:each];
-    [emits.older addObject:each];
-  }
-  while (emits.older.count > kOlderEmitsKept) [emits.older removeObjectAtIndex:0];
+  for (NSString *each in emits.current) Archive(emits, each);
   emits.generation++;
   [emits.current removeAllObjects];
   emits.firstEmitAt = 0;
@@ -1222,6 +1228,10 @@ CGImageRef TakePrefetched(NSString *windowId) {
   if (!emits.firstEmitAt) emits.firstEmitAt = CACurrentMediaTime();
   if ([emits.current containsObject:url]) return;
   [emits.current addObject:url];
+  while (emits.current.count > kOlderEmitsKept) {
+    Archive(emits, emits.current.firstObject);
+    [emits.current removeObjectAtIndex:0];
+  }
   if ([Veils() objectForKey:tab]) Reconcile(tab);
 }
 
