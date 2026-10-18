@@ -17,7 +17,13 @@ export function FindBar({ tabId }: { tabId: string }) {
 }
 
 const handledFocus = new Map<string, number>();
-const FIND_KEYS = [{ key: "Escape" }, { key: "Enter" }, { key: "Enter", shiftKey: true }];
+const FIND_KEYS = [
+  { key: "Escape" },
+  { key: "Enter" },
+  { key: "Enter", shiftKey: true },
+  { key: "Enter", altKey: true },
+  { key: "Enter", altKey: true, shiftKey: true },
+];
 
 function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
   const theme = useTheme();
@@ -101,8 +107,9 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
             onSubmitEditing={() => run(false)}
             keyDownEvents={FIND_KEYS}
             onKeyDown={(e) => {
-              if (e.nativeEvent.key === "Escape") close();
-              else if (e.nativeEvent.key === "Enter") run(!!e.nativeEvent.shiftKey);
+              const { key, shiftKey, ctrlKey, metaKey } = e.nativeEvent;
+              if (key === "Escape") close();
+              else if (key === "Enter" && !ctrlKey && !metaKey) run(!!shiftKey);
             }}
             style={{ flex: 1, fontSize: 14, color: theme.textPrimary, paddingVertical: 0 }}
           />
