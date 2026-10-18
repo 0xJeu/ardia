@@ -1,4 +1,4 @@
-import { setSwitcherCapture } from "@ardia/shell";
+import { setSwitcherCapture, switcherPointerMoved } from "@ardia/shell";
 import { useBrowser } from "../../store/browser";
 import { recentTabIds } from "../../store/organize";
 import { setSidebarUi, sidebarUi } from "./state";
@@ -30,6 +30,10 @@ export function focusSwitcherRow(index: number) {
   if (!s) return;
   const n = s.ids.length;
   setSidebarUi({ switcher: { ...s, index: (index + n) % n } });
+}
+
+export function hoverSwitcherRow(index: number) {
+  if (switcherPointerMoved()) focusSwitcherRow(index);
 }
 
 export function commitSwitcher(index?: number) {

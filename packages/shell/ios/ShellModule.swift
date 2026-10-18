@@ -133,6 +133,7 @@ public class ShellModule: Module {
   private var sidebarObservers: [(NotificationCenter, NSObjectProtocol)] = []
   private var flagsMonitor: Any?
   private var switcherMonitor: Any?
+  private let switcherPointer = SwitcherPointer()
 
   public func definition() -> ModuleDefinition {
     Name("ArdiaShell")
@@ -358,6 +359,7 @@ public class ShellModule: Module {
       guard let self else { return }
       if let monitor = self.switcherMonitor { NSEvent.removeMonitor(monitor) }
       self.switcherMonitor = nil
+      self.switcherPointer.start(active ? NSEvent.mouseLocation : nil)
       guard active else { return }
       let emit: ([String: Any]) -> Void = { [weak self] body in self?.sendEvent("onAppEvent", body) }
       self.switcherMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseUp, .rightMouseUp, .otherMouseUp]) { event in
@@ -375,6 +377,8 @@ public class ShellModule: Module {
         return nil
       }
     }.runOnQueue(.main)
+
+    Function("switcherPointerMoved") { [weak self] () -> Bool in self?.switcherPointer.moved(to: NSEvent.mouseLocation) ?? true }
 
     Function("copyText") { (text: String) in
       DispatchQueue.main.async {
@@ -1148,5 +1152,26 @@ final class Surface: ExpoView {
       shadowLayer.isHidden = true
     }
     CATransaction.commit()
+  }
+}
+
+final class SwitcherPointer {
+  private let lock = NSLock()
+  private var origin: NSPoint?
+  private var hasMoved = false
+
+  func start(_ point: NSPoint?) {
+    lock.lock()
+    origin = point
+    hasMoved = false
+    lock.unlock()
+  }
+
+  func moved(to point: NSPoint) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let origin else { return true }
+    if hypot(point.x - origin.x, point.y - origin.y) >= 1 { hasMoved = true }
+    return hasMoved
   }
 }

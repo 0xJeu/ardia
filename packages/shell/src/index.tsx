@@ -214,6 +214,7 @@ const Shell = requireNativeModule<{
   showMenu(items: MenuItem[]): Promise<string | null>;
   copyText(text: string): void;
   setSwitcherCapture(active: boolean): Promise<void>;
+  switcherPointerMoved?(): boolean;
   startDictation(): void;
   pickFiles(): Promise<string[]>;
   readDocument(name: string): string | null;
@@ -251,6 +252,7 @@ export const removeDocument = (name: string) => Shell.removeDocument(name);
 
 export const startDictation = () => Shell.startDictation();
 export const setSwitcherCapture = (active: boolean) => void Shell.setSwitcherCapture(active);
+export const switcherPointerMoved = () => Shell.switcherPointerMoved?.() ?? true;
 export const pickFiles = () => Shell.pickFiles();
 
 export function copyText(text: string) {
