@@ -1171,6 +1171,20 @@ hook "$src/extensions/browser/api/storage/settings_storage_quota_enforcer.cc" "u
 at = "namespace extensions {\n"
 decl = """bool g_ardia_lazy_storage_usage = false;
 
+namespace {
+
+template <typename Write>
+value_store::ValueStore::WriteResult ArdiaWriteAfterValueRestore(Write write) {
+  value_store::ValueStore::WriteResult result = write();
+  if (result.status().restore_status ==
+      value_store::ValueStore::VALUE_RESTORE_DELETE_SUCCESS) {
+    result = write();
+  }
+  return result;
+}
+
+}
+
 """
 edits = [
     ("""    WriteOptions options, const std::string& key, const base::Value& value) {
@@ -1178,7 +1192,8 @@ edits = [
 """, """    WriteOptions options, const std::string& key, const base::Value& value) {
   if (g_ardia_lazy_storage_usage && !usage_calculated_ &&
       (options & IGNORE_QUOTA)) {
-    return HandleResult(delegate_->Set(options, key, value));
+    return ArdiaWriteAfterValueRestore(
+        [&] { return HandleResult(delegate_->Set(options, key, value)); });
   }
   LazyCalculateUsage();
 """),
@@ -1187,7 +1202,8 @@ edits = [
 """, """    const base::DictValue& values) {
   if (g_ardia_lazy_storage_usage && !usage_calculated_ &&
       (options & IGNORE_QUOTA)) {
-    return HandleResult(delegate_->Set(options, values));
+    return ArdiaWriteAfterValueRestore(
+        [&] { return HandleResult(delegate_->Set(options, values)); });
   }
   LazyCalculateUsage();
 """),
@@ -1196,7 +1212,8 @@ edits = [
   WriteResult result = HandleResult(delegate_->Remove(key));
 """, """    const std::string& key) {
   if (g_ardia_lazy_storage_usage && !usage_calculated_) {
-    return HandleResult(delegate_->Remove(key));
+    return ArdiaWriteAfterValueRestore(
+        [&] { return HandleResult(delegate_->Remove(key)); });
   }
   LazyCalculateUsage();
   WriteResult result = HandleResult(delegate_->Remove(key));
@@ -1205,7 +1222,8 @@ edits = [
   LazyCalculateUsage();
 """, """ValueStore::WriteResult SettingsStorageQuotaEnforcer::Clear() {
   if (g_ardia_lazy_storage_usage && !usage_calculated_) {
-    return HandleResult(delegate_->Clear());
+    return ArdiaWriteAfterValueRestore(
+        [&] { return HandleResult(delegate_->Clear()); });
   }
   LazyCalculateUsage();
 """),
@@ -1220,9 +1238,11 @@ def edit(s):
         s = s.replace(old, new)
     return s
 hook(["bool g_ardia_lazy_storage_usage = false;\n",
-      "    return HandleResult(delegate_->Set(options, key, value));\n",
-      "    return HandleResult(delegate_->Set(options, values));\n",
-      "    return HandleResult(delegate_->Clear());\n"], edit, CONTENT_HOOKS)
+      "value_store::ValueStore::WriteResult ArdiaWriteAfterValueRestore(Write write) {\n",
+      "        [&] { return HandleResult(delegate_->Set(options, key, value)); });\n",
+      "        [&] { return HandleResult(delegate_->Set(options, values)); });\n",
+      "        [&] { return HandleResult(delegate_->Remove(key)); });\n",
+      "        [&] { return HandleResult(delegate_->Clear()); });\n"], edit, CONTENT_HOOKS)
 PY
 
 hook "$src/chrome/browser/extensions/extension_action_storage_manager.cc" "restored browser action defaults notify" <<'PY'
