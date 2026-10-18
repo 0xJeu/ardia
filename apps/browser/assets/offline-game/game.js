@@ -441,6 +441,9 @@
   const stage = $("stage");
   const canvas = $("canvas");
   const ctx = canvas.getContext("2d", { alpha: false });
+  const scene = document.createElement("canvas");
+  const sceneCtx = scene.getContext("2d", { alpha: false });
+  let sceneView = null;
   let dpr = 1, vw = 1, vh = 1;
   const cam = { k: 1, x: 0, y: 0 };
   let camTween = null;
@@ -504,6 +507,7 @@
   const toWorldPt = (sx, sy) => ({ x: (sx - cam.x) / cam.k, y: (sy - cam.y) / cam.k });
 
   const effects = [];
+  const REVEAL_MS = 1200;
   let hint = null;
   let reveal = null;
   let confetti = [];
@@ -515,37 +519,60 @@
     outElastic: (t) => (t === 0 || t === 1 ? t : Math.pow(2, -9 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / 3.2) + 1),
   };
 
-  function drawPerson(p, scale = 1, lift = 0) {
+  function drawPerson(g, p, scale = 1, lift = 0) {
     const img = p.sprite.img;
     const s = (p.h / img.height) * scale;
     const c = Math.cos(p.rot), sn = Math.sin(p.rot);
     const K = cam.k * dpr;
     const ax = (p.x * cam.k + cam.x) * dpr;
     const ay = ((p.y - lift) * cam.k + cam.y) * dpr;
-    ctx.setTransform(K * c * s * p.flip, K * sn * s * p.flip, -K * sn * s, K * c * s, ax, ay);
-    ctx.drawImage(img, -img.width / 2, -img.height);
+    g.setTransform(K * c * s * p.flip, K * sn * s * p.flip, -K * sn * s, K * c * s, ax, ay);
+    g.drawImage(img, -img.width / 2, -img.height);
+  }
+
+  function sceneIsCurrent(L, revealing) {
+    const v = sceneView;
+    return !!v && v.level === L && v.bg === L.bg.img && v.color === stageColor && v.revealing === revealing &&
+      v.k === cam.k && v.x === cam.x && v.y === cam.y && v.dpr === dpr && v.w === canvas.width && v.h === canvas.height;
+  }
+
+  function drawScene(L, revealing) {
+    if (scene.width !== canvas.width || scene.height !== canvas.height) {
+      scene.width = canvas.width;
+      scene.height = canvas.height;
+    }
+    const g = sceneCtx;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = stageColor;
+    g.fillRect(0, 0, scene.width, scene.height);
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = "medium";
+    g.setTransform(cam.k * dpr, 0, 0, cam.k * dpr, cam.x * dpr, cam.y * dpr);
+    g.drawImage(L.bg.img, 0, 0, L.W, L.H);
+
+    const view = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (vw - cam.x) / cam.k, y1: (vh - cam.y) / cam.k };
+    for (const p of L.people) {
+      if (revealing && p === L.lamb) continue;
+      const r = p.h * 0.8;
+      if (p.x + r < view.x0 || p.x - r > view.x1 || p.y - p.h > view.y1 || p.y < view.y0) continue;
+      drawPerson(g, p);
+    }
+    sceneView = { level: L, bg: L.bg.img, color: stageColor, revealing, k: cam.k, x: cam.x, y: cam.y, dpr, w: canvas.width, h: canvas.height };
   }
 
   function render(now) {
     const L = level;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = stageColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (!L) return;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-
-    ctx.setTransform(cam.k * dpr, 0, 0, cam.k * dpr, cam.x * dpr, cam.y * dpr);
-    ctx.drawImage(L.bg.img, 0, 0, L.W, L.H);
-
-    const view = { x0: -cam.x / cam.k, y0: -cam.y / cam.k, x1: (vw - cam.x) / cam.k, y1: (vh - cam.y) / cam.k };
-    const revealing = reveal && state !== "over";
-    for (const p of L.people) {
-      if (revealing && p === L.lamb) continue;
-      const r = p.h * 0.8;
-      if (p.x + r < view.x0 || p.x - r > view.x1 || p.y - p.h > view.y1 || p.y < view.y0) continue;
-      drawPerson(p);
+    if (!L) {
+      ctx.fillStyle = stageColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return;
     }
+    const revealing = !!reveal && state !== "over";
+    if (!sceneIsCurrent(L, revealing)) drawScene(L, revealing);
+    ctx.drawImage(scene, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "medium";
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -600,7 +627,7 @@
         ctx.fillRect(0, 0, vw, vh);
         const rot = Y.rot;
         Y.rot = rot + (reduceMotion ? 0 : Math.sin(t * 9) * 0.06 * Math.max(0, 1 - t));
-        drawPerson(Y, scale, lift);
+        drawPerson(ctx, Y, scale, lift);
         Y.rot = rot;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       } else if (state === "over") {
@@ -699,23 +726,26 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), 1500);
   }
 
-  let shownTime = "";
+  const hudShown = new Map();
+  function setHud(el, value, write) {
+    if (hudShown.get(el) === value) return;
+    hudShown.set(el, value);
+    write(value);
+  }
   function updateHud() {
     const tl = Math.max(0, timeLeft);
-    const txt = tl.toFixed(1);
-    if (txt !== shownTime) {
-      shownTime = txt;
-      hud.time.textContent = txt;
-      const low = state === "playing" && tl < 10;
+    const low = state === "playing" && tl < 10;
+    setHud(hud.time, `${tl.toFixed(1)} ${low} ${level ? level.time : 0}`, () => {
+      hud.time.textContent = tl.toFixed(1);
       hud.time.classList.toggle("low", low);
       hud.bar.classList.toggle("low", low);
       hud.bar.style.transform = `scaleX(${level ? clamp(tl / level.time, 0, 1) : 1})`;
-    }
-    hud.score.textContent = String(score);
-    hud.best.textContent = String(best);
-    hud.level.textContent = level ? `Level ${level.n} · ${level.people.length} in the flock` : "Level 1";
-    hud.hint.disabled = state !== "playing" || hintsUsed >= 3;
-    hud.pause.disabled = !(state === "playing" || state === "paused");
+    });
+    setHud(hud.score, String(score), (v) => { hud.score.textContent = v; });
+    setHud(hud.best, String(best), (v) => { hud.best.textContent = v; });
+    setHud(hud.level, level ? `Level ${level.n} · ${level.people.length} in the flock` : "Level 1", (v) => { hud.level.textContent = v; });
+    setHud(hud.hint, state !== "playing" || hintsUsed >= 3, (v) => { hud.hint.disabled = v; });
+    setHud(hud.pause, !(state === "playing" || state === "paused"), (v) => { hud.pause.disabled = v; });
   }
 
   function startGame() {
@@ -979,7 +1009,8 @@
       if (k >= 1) camTween = null;
       dirty = true;
     }
-    const animating = hint || reveal || effects.length || confetti.length || camTween;
+    const revealMoving = reveal && (state === "over" || now - reveal.start < REVEAL_MS);
+    const animating = state !== "paused" && (hint || revealMoving || effects.length || confetti.length || camTween);
     if (dirty || animating) {
       render(now);
       dirty = false;
