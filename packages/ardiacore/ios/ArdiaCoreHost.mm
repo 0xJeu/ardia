@@ -236,9 +236,19 @@ static void TryEarlyWindow() {
       isEqualToString:NSAppearanceNameDarkAqua];
   if (!backdrop || ![backdrop[@"dark"] isKindOfClass:NSNumber.class] || [backdrop[@"dark"] boolValue] != dark) return;
   if (![ArdiaCoreEarlyWindow canShowWindow:focused session:session]) return;
-  if (!ardiacore_host::LoadedProfile(profile)) return;
-  [ArdiaCoreWebView startLaunchTab:key url:url profile:profile];
-  if (![ArdiaCoreEarlyWindow showWindow:focused frame:window[@"frame"] key:key profile:profile backdrop:backdrop]) return;
+  ArdiaCoreProfile *loaded = ardiacore_host::LoadedProfile(profile);
+  if (!loaded) return;
+  const char *spare = getenv("ARDIA_LAUNCH_SPARE_RENDERER");
+  if (!(spare && !strcmp(spare, "off")) && [loaded respondsToSelector:@selector(warmSpareRenderer)]) [loaded warmSpareRenderer];
+  const char *windowFirst = getenv("ARDIA_EARLY_WINDOW_FIRST");
+  if (windowFirst && !strcmp(windowFirst, "off")) {
+    [ArdiaCoreWebView startLaunchTab:key url:url profile:profile];
+    if (![ArdiaCoreEarlyWindow showWindow:focused frame:window[@"frame"] key:key profile:profile backdrop:backdrop]) return;
+  } else {
+    const BOOL shown = [ArdiaCoreEarlyWindow showWindow:focused frame:window[@"frame"] key:key profile:profile backdrop:backdrop];
+    [ArdiaCoreWebView startLaunchTab:key url:url profile:profile];
+    if (!shown) return;
+  }
   if (ArdiaCoreTab *tab = ArdiaCoreWebView.launchTab) [ArdiaCoreEarlyWindow attachPage:tab key:key];
 }
 

@@ -252,3 +252,26 @@ handoff makes no second window.
 The content blocker's launch hold (84e75272) is separate. Restored pages wait for uBlock Origin, about 200 to 240 ms
 on a warm launch, and the leak probe's escaped ad-host beacons go from 6 to 0. `ARDIA_BLOCKER_LAUNCH_HOLD=off` turns
 it off.
+
+## Restored tab paint (2026-10-19)
+
+nightly.7 put the window on screen at 327 ms but painted the restored page 50 to 70 ms later. A launch probe (the xbench
+page, its Navigation Timing, CDP startup traces and a main-thread stack sampler injected into an ad hoc copy) split the
+gap:
+- The launch tab's request was held 40 to 55 ms by Chrome's `UserScriptListener`: uBlock Origin's content scripts load
+  through a task posted on the main thread, which waited behind `engineDidStart` (the uBO load, the hidden keeper window,
+  the navigation, the early window).
+- The keeper ("stray") window that owns the parked tab was the process's first `NSWindow`: 25 to 50 ms of WindowServer
+  setup before the navigation, and before the early window.
+- Each tab's creation spent ~7 ms in a synchronous LocalAuthentication XPC (`ChromeAutofillClient` asks about Touch ID
+  for Chrome's `AutofillAiWalletPrivatePasses`, Google Wallet passes for Autofill AI).
+- React Native's bridge setup read expo-constants' `systemFonts` (every font family, 15 to 40 ms on the main thread)
+  while the page's response waited to commit. Nothing reads it.
+
+Shipped, each with an environment switch (`docs/kill-switches.md`): the early window is made and shown before the launch
+tab starts, and a spare renderer is warmed for it first; the two content-script hooks (`docs/engine-build.md`); the
+wallet-passes feature off; expo-constants' font list empty. Interleaved on one build (n=5, all on vs all off, medians,
+ms from `open`): window 269 vs 295, navigation start 270 vs 254, request 290 vs 291, commit 302 vs 311, first paint
+341 vs 347, and the off arm's slow launches (386 to 390) are gone. Looked at and dropped: starting React Native 100 ms
+later (first paint unchanged) and the old navigation-first order with the engine fixes on (same first paint, later
+window).

@@ -73,6 +73,7 @@
 #include "url/origin.h"
 #include "url/scheme_host_port.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/spare_render_process_host_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
@@ -1181,6 +1182,12 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
   }
   const std::string extension_id = loader->AddOrReplace(root);
   return extension_id.empty() ? nil : NS(extension_id);
+}
+
+- (void)warmSpareRenderer {
+  if (_profile) {
+    content::SpareRenderProcessHostManager::Get().WarmupSpare(_profile.get());
+  }
 }
 
 - (void)unloadComponentExtension:(NSString*)extensionId {
