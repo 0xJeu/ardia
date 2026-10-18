@@ -187,6 +187,16 @@ blocking for no measured gain. In energy's idleVisible phase uBO is 0.07 mW agai
 background tabs (YouTube 0.56-0.87 % CPU against Helium's 0.01 %, with timer throttling the same in both: a hidden
 page's 50 ms interval runs 0.5-1.2/s in each, nothing frozen).
 
+**Power: video and hidden (2026-10-19).** The video row's gap (103 vs 95.4 mW, nightly.7) was all renderers. Both
+browsers run 120 main frames a second on the YouTube watch page at 120 Hz, and our taller viewport makes YouTube load
+its comments, so each frame costs more (9.4k nodes and 437 layers against 4.9k and 243). Chrome's
+`ThrottleMainFrameTo60Hz` (Android ships it on) is now on: main frames at 60 Hz, compositor scrolling and animations at
+120 (draws during wheel, trackpad and smooth scrolls and a CSS animation: 119-120/s either way), and 120 for the first
+second after a tab is shown or created (`chromium-main-frame-throttle-after-show.patch`). Side by side on nightly.7 the
+video renderer went 79 -> 54 mW. The hidden row is mostly frozen tabs thawing: Chrome thaws each for 5 s every
+minute, and the thaws held YouTube at 3.35 mW, The Verge 0.82 and CNN 0.68 in one 180 s window. Frozen tabs now thaw
+every 10 min. Kill switches: `ARDIA_MAIN_FRAME_THROTTLE=off`, `ARDIA_SLOW_TAB_THAW=off`.
+
 Parked: packaged list times. On a fresh install uBO never caches its packaged list copies, so every default list
 looks infinitely old and its updater runs 2 s after launch, downloading all 12 assets (9 lists, badlists, PSL,
 assets.json) and compiling them again. A patch giving uncached packaged assets their own build date and expiry,
