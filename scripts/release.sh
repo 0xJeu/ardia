@@ -206,6 +206,8 @@ sign() {
 fw="$app/Contents/Frameworks/Chromium Framework.framework"
 fwv="$(cd "$fw/Versions/Current" && pwd -P)" || die "no Chromium Framework.framework in the export"
 "$ardiacore/scripts/strip-engine.sh" "$app" "$dist/symbols"
+unpruned_engine="$dist/engine-unpruned"
+rm -rf "$unpruned_engine" && mkdir -p "$unpruned_engine" && cp -cR "$fw" "$unpruned_engine/"
 "$ardiacore/scripts/prune-bundle.sh" "$app"
 for lib in "$fwv"/Libraries/*.dylib; do sign "$lib"; done
 for helper in "$fwv"/Helpers/*.app; do
@@ -270,14 +272,17 @@ if [ "$rc" = 0 ] && [ -z "${ARDIACORE_FRAMEWORK:-}" ] \
   (
     set -e
     if command -v xz >/dev/null; then
-      tar --no-mac-metadata -cf - -C "$app/Contents/Frameworks" "Chromium Framework.framework" | xz -T0 -9 >"$engine_archive"
+      tar --no-mac-metadata -cf - -C "$unpruned_engine" "Chromium Framework.framework" | xz -T0 -9 >"$engine_archive"
     else
-      tar --no-mac-metadata -cJf "$engine_archive" -C "$app/Contents/Frameworks" "Chromium Framework.framework"
+      tar --no-mac-metadata -cJf "$engine_archive" -C "$unpruned_engine" "Chromium Framework.framework"
     fi
+    rm -rf "$unpruned_engine"
     printf '%s\t%s\t%s\n' "$engine_tree" "$version" "$(shasum -a 256 "$engine_archive" | awk '{ print $1 }')" \
       >"$dist/prebuilt-engine.tsv"
   ) >"$dist/engine-pack.log" 2>&1 &
   engine_pack=$!
+else
+  rm -rf "$unpruned_engine"
 fi
 
 echo "==> Launch check"

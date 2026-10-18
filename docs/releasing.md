@@ -107,7 +107,12 @@ every copy on Stable sees only stable items. A copy on Nightly allows `nightly` 
      `--no-first-run`), uBlock Origin's other locales, React Native's `@3x` images (Macs draw at 1x or 2x) and hermes's
      local symbols. Each step has a kill switch: `ARDIA_PRUNE_LOCALES`, `ARDIA_PRUNE_SWIFTSHADER`,
      `ARDIA_PRUNE_FIRST_RUN`, `ARDIA_PRUNE_UBO_LOCALES`, `ARDIA_PRUNE_RN_3X`, `ARDIA_STRIP_HERMES` (or `ARDIA_PRUNE` for
-     all) set to `off`,
+     all) set to `off`. Chrome's opt-in software GPU modes are unsupported in a release build: with
+     `--use-angle=swiftshader`, `--enable-unsafe-swiftshader --disable-gpu` or WebGPU's
+     `requestAdapter({forceFallbackAdapter: true})` under `--enable-unsafe-webgpu`, WebGL and WebGPU are unavailable
+     (chrome://gpu says Disabled, the adapter is null) while pages, video and the GPU process carry on, with no crash or
+     restart. The prebuilt engine archive is packed from a copy taken before pruning, so a checkout that fetches it
+     gets every locale, SwiftShader and the first-run resources, and the kill switches work there too,
    - signs Chrome's framework inside out as Chrome signs its own (`chrome/installer/mac/signing/parts.py`): the
      helpers under the hardened runtime with library validation, except the renderer and GPU ones (Aperitif's too),
      which get `allow-jit` (`packages/ardiacore/scripts/signing`) instead; then the framework, then the app again with
