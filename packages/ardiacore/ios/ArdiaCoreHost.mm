@@ -560,6 +560,10 @@ static void StartEarlyWindow() {
 
   const char *tabFreezing = getenv("ARDIA_TAB_FREEZING");
   const bool freezeLeastRecentTabs = !(tabFreezing && !strcmp(tabFreezing, "off"));
+  const char *slowTabThaw = getenv("ARDIA_SLOW_TAB_THAW");
+  const bool thawFrozenTabsRarely = !(slowTabThaw && !strcmp(slowTabThaw, "off"));
+  const char *mainFrameThrottle = getenv("ARDIA_MAIN_FRAME_THROTTLE");
+  const bool throttleMainFramesTo60Hz = !(mainFrameThrottle && !strcmp(mainFrameThrottle, "off"));
   std::vector<std::string> extra = {
       "--user-data-dir=" + std::string(gDataDirectory.UTF8String),
       "--enable-smooth-scrolling",
@@ -567,7 +571,7 @@ static void StartEarlyWindow() {
       "--disable-features=MacAppCodeSignClone,DevToolsAcceptDebuggingConnections",
       std::string("--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
                   "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s") +
-          (freezeLeastRecentTabs ? ",InfiniteTabsFreezing" : ""),
+          (freezeLeastRecentTabs ? (thawFrozenTabsRarely ? ",InfiniteTabsFreezing:unfreeze_interval/600s" : ",InfiniteTabsFreezing") : "") + (throttleMainFramesTo60Hz ? ",ThrottleMainFrameTo60Hz" : ""),
       "--profile-directory=Default",
       "--js-flags=--no-memory-reducer",
   };
