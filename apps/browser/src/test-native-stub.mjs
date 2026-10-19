@@ -227,3 +227,14 @@ export const onCliControlChanged = (listener) => ((globalThis.acTestCliEvents ??
 export const installCli = () => Promise.resolve({ ok: false, appVersion: "1.0", error: "stub", lines: [] });
 export const installedCliVersion = () => null;
 export const onCliInstallLine = () => ({ remove() {} });
+const userScripts = () => globalThis.acTestUserScripts;
+export const userScriptsAvailable = () => !!userScripts();
+export const watchUserScripts = (on) => userScripts()?.watching.push(on);
+export const readUserScripts = () => userScripts().read();
+export const readUserScriptsStatus = async () => userScripts().status;
+export const writeUserScriptsStatus = async (json) => void (userScripts().status = json, userScripts().writes.push(JSON.parse(json)));
+export const onUserScriptsChange = (listener) => (userScripts().change = listener, { remove() {} });
+export const listExtensions = (profile) => userScripts().engine.list(profile);
+export const installExtension = (pkg, profile) => userScripts().engine.install(pkg.path, profile);
+export const reloadExtension = (id, profile) => userScripts().engine.reload(id, profile);
+export const uninstallExtension = (id, profile) => userScripts().engine.uninstall(id, profile);

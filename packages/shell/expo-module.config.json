@@ -22,7 +22,8 @@
       "InlineCompletionModule",
       "TranslateModule",
       "WindowProfileModule",
-      "CliModule"
+      "CliModule",
+      "UserScriptsModule"
     ]
   }
 }
