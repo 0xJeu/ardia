@@ -114,9 +114,11 @@ looks in the cwd.
   matching `/foo`. `apps/cli/tests` runs both against cases taken from `url_pattern_unittest.cc` and
   `pattern_unittest.cc`, and they agreed with a real Ardia on the glob and percent-encoding cases. Console output and uncaught exceptions count
   as the script's when a stack frame is the script's `sourceURL`; positions map back to the sources through esbuild's
-  source map. Cross-origin iframes are reached by `Target.setAutoAttach` with `waitForDebuggerOnStart`; the token
-  policy only attaches frames whose URL is http(s) at attach time, so over the token path they're out of reach and the
-  report says how many iframes never reported. After the top frame ran (or skipped) and the page loaded (at most 10 s
+  source map. Cross-origin iframes are reached by `Target.setAutoAttach` with `waitForDebuggerOnStart`, on the token
+  path too: the token policy attaches a web frame while it waits to commit, so the script runs at its document start.
+  Frames that show an extension's page (a password manager's inline menu, say), a `chrome://` or DevTools page are
+  never attached over the token path; a frame that starts loading one cuts off the page's session, as Chrome does for
+  `chrome.debugger`. The report says how many iframes never reported. After the top frame ran (or skipped) and the page loaded (at most 10 s
   more, 30 s in all), it listens `--wait` seconds (default 2; Chrome reports unhandled rejections about a second
   late), retrying `--expect` every 100 ms until `Boolean(value)` is true in the page (the report shows the value too). A
   first pass that starts and never finishes, in any frame, fails the test; when the top frame's doesn't finish in 30 s
@@ -257,7 +259,7 @@ HOME=/tmp/ardia-cli-home ARDIA_CLI_URL=file:///tmp/ardia-cli-out/ardia-cli-0.0.1
 HOME=/tmp/ardia-cli-home ardia skills install --target claude-code
 ```
 
-`ardia scripts test` needs a running instance; over `--port` it also reaches cross-origin iframes. Install and the
+`ardia scripts test` needs a running instance; it reaches cross-origin iframes on both paths, and over `--port` also frames that show an extension's page. Install and the
 helpers need the token path: an instance launched without `ARDIA_REMOTE_DEBUGGING_PORT` (the app doesn't start its
 control server when the port switch is set) and with control on, for example a scratch dir whose `session.json` has
 `"settings": {"cliControl": true}`, opened with `open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR=<dir>`.

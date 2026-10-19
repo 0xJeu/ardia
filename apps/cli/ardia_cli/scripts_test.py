@@ -349,8 +349,9 @@ async def check_frames(cdp: Cdp, session: str, report: Report):
     reported = sum(1 for frame in report.frames if not frame["top"] and frame["state"] in ("done", "skip"))
     if frames > reported:
         report.warnings.append(
-            f"{frames - reported} of the page's {frames} iframes never reported back: cross-origin iframes are out of "
-            "reach over Ardia's control connection (a --port test server reaches them), or they hadn't loaded"
+            f"{frames - reported} of the page's {frames} iframes never reported back: they hadn't loaded, or they show "
+            "an extension's or the browser's own page, which Ardia's control connection never reaches (a --port test "
+            "server does)"
         )
 
 

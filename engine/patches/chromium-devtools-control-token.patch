@@ -602,3 +602,31 @@ diff --git a/content/browser/devtools/protocol/input_handler.cc b/content/browse
  
    RenderWidgetHostViewBase* root_view = target->GetRootView();
    if (!root_view) {
+diff --git a/content/browser/devtools/render_frame_devtools_agent_host.cc b/content/browser/devtools/render_frame_devtools_agent_host.cc
+--- a/content/browser/devtools/render_frame_devtools_agent_host.cc
++++ b/content/browser/devtools/render_frame_devtools_agent_host.cc
+@@ -532,6 +532,24 @@
+     return;
+   }
+   NavigationRequest* request = NavigationRequest::From(navigation_handle);
++  scoped_refptr<RenderFrameDevToolsAgentHost> protect(this);
++  if (request->frame_tree_node() == frame_tree_node_ &&
++      !request->IsSameDocument()) {
++    RenderFrameHostImpl* committing = request->GetRenderFrameHost();
++    const bool is_webui = committing && committing->web_ui();
++    std::vector<DevToolsSession*> restricted_sessions;
++    for (DevToolsSession* session : sessions()) {
++      if (!session->GetClient()->MayAttachToURL(request->GetURL(), is_webui)) {
++        restricted_sessions.push_back(session);
++      }
++    }
++    if (!restricted_sessions.empty()) {
++      ForceDetachRestrictedSessions(restricted_sessions);
++    }
++    if (!frame_tree_node_) {
++      return;
++    }
++  }
+   for (auto* tracing : protocol::TracingHandler::ForAgentHost(this)) {
+     tracing->ReadyToCommitNavigation(request);
+   }

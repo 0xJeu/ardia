@@ -24,11 +24,16 @@
 #include "base/values.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/devtools_agent_host_client.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/security_principal.h"
+#include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
+#include "extensions/browser/process_map.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "url/scheme_host_port.h"
@@ -300,16 +305,80 @@ bool IsPrivilegedContents(content::WebContents* contents) {
          g_ardia_hidden_from_extensions(browser);
 }
 
+bool IsWebProcess(content::RenderProcessHost* process) {
+  if (!process) {
+    return false;
+  }
+  const int id = process->GetDeprecatedID();
+  if (content::ChildProcessSecurityPolicy::GetInstance()->HasWebUIBindings(
+          id)) {
+    return false;
+  }
+  extensions::ProcessMap* extension_processes =
+      extensions::ProcessMap::Get(process->GetBrowserContext());
+  return extension_processes && !extension_processes->Contains(id);
+}
+
+bool IsWebSite(content::RenderFrameHost* frame, bool main_frame) {
+  content::SiteInstance* site = frame->GetSiteInstance();
+  if (!site) {
+    return false;
+  }
+  const content::SecurityPrincipal& principal = site->GetSecurityPrincipal();
+  if (principal.IsWebUI() || principal.IsGuest()) {
+    return false;
+  }
+  if (principal.SchemeIs(url::kHttpScheme) ||
+      principal.SchemeIs(url::kHttpsScheme) ||
+      principal.SchemeIs(url::kDataScheme)) {
+    return true;
+  }
+  return main_frame && (principal.GetDeprecatedSiteURL().is_empty() ||
+                        principal.SchemeIs(content::kChromeErrorScheme));
+}
+
 bool IsWebFrame(content::RenderFrameHost* frame) {
   if (!frame ||
-      IsPrivilegedContents(content::WebContents::FromRenderFrameHost(frame))) {
+      IsPrivilegedContents(content::WebContents::FromRenderFrameHost(frame)) ||
+      !IsWebProcess(frame->GetProcess())) {
     return false;
   }
   if (!IsWebOrigin(frame->GetLastCommittedOrigin())) {
     return false;
   }
   const GURL& url = frame->GetLastCommittedURL();
-  return url.is_empty() || IsWebUrl(url);
+  if (!url.is_empty()) {
+    return IsWebUrl(url);
+  }
+  content::RenderFrameHost* parent = frame->GetParentOrOuterDocument();
+  return IsWebSite(frame, !parent) && (!parent || IsWebFrame(parent));
+}
+
+content::RenderFrameHost* FrameWithToken(content::WebContents* contents,
+                                         const std::string& token) {
+  content::RenderFrameHost* found = nullptr;
+  contents->ForEachRenderFrameHostWithAction(
+      [&](content::RenderFrameHost* frame) {
+        if (frame->GetDevToolsFrameToken().ToString() != token) {
+          return content::RenderFrameHost::FrameIterationAction::kContinue;
+        }
+        found = frame;
+        return content::RenderFrameHost::FrameIterationAction::kStop;
+      });
+  return found;
+}
+
+bool IsPendingWebFrameHost(content::DevToolsAgentHost* host) {
+  if (!host || host->GetType() != content::DevToolsAgentHost::kTypeFrame ||
+      !host->GetURL().is_empty()) {
+    return false;
+  }
+  content::WebContents* contents = host->GetWebContents();
+  if (IsPrivilegedContents(contents) || !IsWebProcess(host->GetProcessHost())) {
+    return false;
+  }
+  const std::string parent = host->GetParentFrameId();
+  return !parent.empty() && IsWebFrame(FrameWithToken(contents, parent));
 }
 
 bool IsWebWorkerUrl(const GURL& url) {
@@ -530,6 +599,14 @@ class TokenClient : public ArdiaDevToolsTokenClient {
           method == "Target.attachedToTarget" ||
           method == "Target.detachedFromTarget") {
         return FilterTargetEvent(method, message);
+      }
+      if (method == "Page.frameNavigated" ||
+          method == "Page.documentOpened" ||
+          method == "Page.navigatedWithinDocument" ||
+          method == "Page.frameRequestedNavigation" ||
+          method == "Page.frameScheduledNavigation" ||
+          method == "Page.frameStartedNavigating") {
+        return FilterPageEvent(message);
       }
       if (method == "Inspector.targetCrashed" ||
           method == "Inspector.detached") {
@@ -900,15 +977,32 @@ class TokenClient : public ArdiaDevToolsTokenClient {
     const base::DictValue* info =
         params ? params->FindDict("targetInfo") : nullptr;
     const std::string* target_id = info ? info->FindString("targetId") : nullptr;
-    if (!IsWebTarget(target_id)) {
+    if (method == "Target.attachedToTarget") {
+      const std::string* child =
+          params ? params->FindString("sessionId") : nullptr;
+      if (!target_id || !child) {
+        return false;
+      }
+      targets_[*child] = *target_id;
+      return true;
+    }
+    return IsWebTarget(target_id);
+  }
+
+  bool FilterPageEvent(const std::string& message) {
+    std::optional<base::Value> parsed =
+        base::JSONReader::Read(message, base::JSON_PARSE_RFC);
+    if (!parsed || !parsed->is_dict()) {
       return false;
     }
-    if (method == "Target.attachedToTarget") {
-      if (const std::string* child = params->FindString("sessionId")) {
-        targets_[*child] = *target_id;
-      }
+    const base::DictValue* params = parsed->GetDict().FindDict("params");
+    if (!params) {
+      return false;
     }
-    return true;
+    const base::DictValue* frame = params->FindDict("frame");
+    const std::string* url =
+        frame ? frame->FindString("url") : params->FindString("url");
+    return !url || url->empty() || IsWebUrl(GURL(*url));
   }
 
   const raw_ptr<content::DevToolsAgentHostClient> client_;
@@ -929,7 +1023,8 @@ std::unique_ptr<ArdiaDevToolsTokenClient> CreateTokenClient(
 
 bool TokenClientMayAttach(content::DevToolsAgentHostClient* root_client,
                           content::DevToolsAgentHost* host) {
-  return !Registry().contains(root_client) || IsWebHost(host);
+  return !Registry().contains(root_client) || IsWebHost(host) ||
+         IsPendingWebFrameHost(host);
 }
 
 bool TokenClientMayInput(content::DevToolsAgentHostClient* root_client,
