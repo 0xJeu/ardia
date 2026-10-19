@@ -685,6 +685,41 @@ test("a new mirror takes the baseline of the copy it was made from, not of anoth
   }
 });
 
+test("a copy whose page was never sent still sends it after a rename from the other Mac", async () => {
+  const base = await world(false);
+  wall = base.wall;
+  const folder = base.folder.clone();
+  const a = base.a.fork(folder);
+  const b = base.b.fork(folder);
+  const P = "https://p.example/";
+  const Q = "https://p.example/q";
+  let key;
+  let w1;
+  let w2;
+  const copyIn = (w) => Object.values(S().tabs).find((t) => t.windowId === w && keyOf(t) === key);
+  b.with(() => {
+    w1 = Object.values(S().windows).find((x) => x.profileId === "default").id;
+    S().setFocusedWindow(w1);
+    key = S().newTab(w1, { url: P, background: true });
+    S().groupTabs([key], { pinned: true, name: "Fresh" });
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [key]: { ...s.tabs[key], unloaded: undefined, navigation: { url: P, seq: 1 } } } }));
+    w2 = S().createWindow({ url: "https://second.example/" });
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copyIn(w2).id]: { ...copyIn(w2), url: Q, unloaded: undefined, navigation: { url: Q, seq: 2 } } } }));
+    S().setFocusedWindow(w1);
+  });
+  await b.sync();
+  await a.sync();
+  assert.equal(record(a, "default", `pin:t:${key}`).u, P);
+  a.with(() => S().updateTab(tabFor(key).id, { customTitle: "Renamed" }));
+  await a.sync();
+  await b.sync();
+  b.with(() => S().setFocusedWindow(w2));
+  for (const m of [b, a, b, a]) await m.sync();
+  assert.equal(record(b, "default", `pin:t:${key}`).u, Q, "W2's navigation syncs once W2 is in front");
+  assert.equal(record(a, "default", `pin:t:${key}`).u, Q);
+  assert.equal(record(a, "default", `pin:t:${key}`).t, "Renamed", "and the rename holds");
+});
+
 test("a Mac that unpinned a group keeps it, its name, style and members, when the other Mac restyles the pinned group", async () => {
   const base = await world(false);
   wall = base.wall;

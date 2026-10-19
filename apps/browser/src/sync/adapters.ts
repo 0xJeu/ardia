@@ -387,7 +387,8 @@ function shownAfterApply(
     const b: Record<string, PinShown> = {};
     for (const [copy, page] of copies.get(key) ?? []) {
       const source = cameFrom(key, copy);
-      b[copy] = pageSet(key, copy) ? page : (was[copy] ?? (source ? was[source] : undefined) ?? page);
+      const known = pageSet(key, copy) ? page : (was[copy] ?? (source ? was[source] : undefined));
+      if (known) b[copy] = known;
     }
     out[key] = { ...entry, b };
   }
@@ -602,7 +603,7 @@ export function pinnedAdapter(profileId: string): Adapter {
             customIcon: v.i,
             ...(takesPage(old) ? { url: v.u, title: v.ti } : {}),
           };
-          if (takesPage(old)) pageSet.add(id);
+          if (takesPage(old) || !contained(id)) pageSet.add(id);
           note(pinKeyOf(tabs[id]!), id);
           continue;
         }
