@@ -74,6 +74,13 @@ function Panel({ windowId, windowWidth }: { windowId: string; windowWidth: numbe
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const scroll = useRef<ScrollView>(null);
+  const field = useRef<TextInput>(null);
+  const focused = useRef(false);
+  const focusOnce = () => {
+    if (focused.current) return;
+    focused.current = true;
+    field.current?.focus();
+  };
   const tabs = useBrowser((s) => s.tabs);
   const closedTabs = useBrowser((s) => s.closedTabs);
   const closedGroups = useBrowser((s) => s.closedGroups);
@@ -121,7 +128,8 @@ function Panel({ windowId, windowWidth }: { windowId: string; windowWidth: numbe
         <View style={{ height: 50, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10 }}>
           <Symbol name="magnifyingglass" size={15} weight="medium" color={theme.textPrimary} style={{ width: 18, height: 18 }} />
           <TextInput
-            autoFocus
+            ref={field}
+            onLayout={focusOnce}
             value={query}
             onChangeText={(text) => {
               setQuery(text);
