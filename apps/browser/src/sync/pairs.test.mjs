@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../store/browser.ts");
-const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
+const { Clock, compact, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
 const stub = await import("../test-native-stub.mjs");
+const { flushPersistence, loadSession, startPersistence } = await import("../lib/persist.ts");
 
 const S = () => useBrowser.getState();
 const PROFILES = ["default", "work"];
 let wall = 1_900_000_000_000;
 const now = () => ++wall;
+const DAY = 86_400_000;
 
 class Folder {
   files = new Map();
@@ -38,11 +40,12 @@ class Folder {
 }
 
 class Mac {
-  constructor(id, folder, browser, scopes = {}) {
+  constructor(id, folder, browser, scopes = {}, legacy = false) {
     this.id = id;
     this.folder = folder;
     this.browser = browser;
     this.scopes = scopes;
+    this.legacy = legacy;
     this.clock = new Clock(id, null, now);
   }
   with(fn) {
@@ -64,9 +67,10 @@ class Mac {
           scope: `p:${p}`,
           state: (this.scopes[p] ??= emptyScope()),
           transport: this.folder.transport(),
-          adapters: [adapters.pinnedRowsAdapter(p), adapters.pinnedAdapter(p)],
+          adapters: this.legacy ? [adapters.pinnedAdapter(p)] : [adapters.pinnedRowsAdapter(p), adapters.pinnedAdapter(p)],
           clock: this.clock,
           device: this.id,
+          now: () => wall,
         });
         published += result.published;
       }
@@ -76,15 +80,36 @@ class Mac {
     return published;
   }
   fork(folder) {
-    return new Mac(this.id, folder, this.browser, structuredClone(this.scopes));
+    return new Mac(this.id, folder, this.browser, structuredClone(this.scopes), this.legacy);
+  }
+  relaunch() {
+    this.with(() => {
+      const saved = S();
+      stub.docs.clear();
+      const stop = startPersistence();
+      useBrowser.setState(saved, true);
+      flushPersistence();
+      stop();
+      S().hydrate(loadSession());
+    });
+    this.scopes = JSON.parse(JSON.stringify(this.scopes));
+    this.clock = new Clock(this.id, null, now);
+  }
+  async compact() {
+    wall += 46 * DAY;
+    for (const p of PROFILES) if (this.scopes[p]) await compact(this.scopes[p], this.folder.transport(), `p:${p}`, this.id, wall, {}, true);
   }
 }
 
 const WORK = { id: "work", name: "Work", color: "blue", icon: null, createdAt: 1 };
-function freshMac(id, folder) {
+function freshMac(id, folder, legacy = false) {
   S().hydrate({});
   useBrowser.setState((s) => ({ profiles: { ...s.profiles, work: WORK }, profileOrder: [...s.profileOrder, "work"] }));
-  const mac = new Mac(id, folder, S());
+  const mac = new Mac(id, folder, S(), {}, legacy);
+  mac.with(() => {
+    S().createWindow({ url: `https://${id}-home.example/` });
+    S().createWindow({ profileId: "work", url: `https://${id}-work.example/` });
+  });
   return mac;
 }
 
@@ -104,9 +129,10 @@ async function world(startRow) {
   const folder = new Folder();
   const a = freshMac("devA", folder);
   const b = freshMac("devB", folder);
+  const old = freshMac("devOld", folder, true);
   const k = {};
   a.with(() => {
-    const wd = S().createWindow({ url: "https://home.example/" });
+    const wd = Object.values(S().windows).find((x) => x.profileId === "default").id;
     k.T = S().newTab(wd, { url: "https://t.example/" });
     k.X = S().newTab(wd, { url: "https://x.example/" });
     k.M = S().newTab(wd, { url: "https://m.example/" });
@@ -114,21 +140,29 @@ async function world(startRow) {
     S().pinTabs([k.T], true);
     S().pinTabs([k.X], true, startRow);
     k.G = S().groupTabs([k.M], { pinned: true, name: "G" });
-    const ww = S().createWindow({ profileId: "work", url: "https://work-home.example/" });
+    const ww = Object.values(S().windows).find((x) => x.profileId === "work").id;
     k.W1 = S().newTab(ww, { url: "https://w1.example/" });
     S().pinTabs([k.W1], true, true);
   });
-  b.with(() => {
-    S().createWindow({ url: "https://b-home.example/" });
-    S().createWindow({ profileId: "work", url: "https://b-work.example/" });
-  });
-  for (let i = 0; i < 3; i++) for (const m of [a, b]) await m.sync();
-  const w = { folder, a, b, k, startRow };
+  for (let i = 0; i < 3; i++) for (const m of [a, b, old]) await m.sync();
+  const w = { folder, a, b, old, k, startRow };
   worlds.set(startRow, w);
   return w;
 }
 
 const X_OTHER = "https://x.example/other";
+const record = (mac, p, key) => mac.scopes[p]?.records[key]?.v;
+function loadX(k) {
+  const t = tabFor(k.X);
+  if (t) useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], unloaded: undefined, navigation: { url: t.url, seq: 1 } } } }));
+}
+function parkAndReopen() {
+  for (const w of Object.values(S().windows)) if (w.profileId === "default") S().closeWindow(w.id);
+  S().createWindow({ url: "https://reopened.example/" });
+}
+function mirrorWindow() {
+  S().createWindow({ url: "https://mirror.example/" });
+}
 const done = (k, name) => k.done.add(`${name}@${stub.current.device}`);
 const did = (k, op, mac) => k.done?.has(`${op.name}@${mac.id}`);
 const OPS = [
@@ -181,8 +215,33 @@ const OPS = [
     final: (k) => assert.ok(groupFor(k.G)?.pinned && groupFor(k.G).tabIds.some((id) => keyOf(S().tabs[id]) === k.M), "G pinned with M"),
   },
   { name: "deleteG", steps: [(k) => { const g = groupFor(k.G); if (g) (S().deleteGroup(g.id), done(k, "deleteG")); }], touches: ["G", "M"], unpins: ["G", "M"], final: (k) => assert.equal(!!groupFor(k.G)?.pinned, false, "G deleted") },
-  { name: "renameX", steps: [(k) => { const t = tabFor(k.X); if (t) S().updateTab(t.id, { customTitle: "Renamed" }); }], touches: ["X"] },
-  { name: "loadX", steps: [(k) => { const t = tabFor(k.X); if (!t) return; useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], unloaded: undefined, navigation: { url: t.url, seq: 1 } } } })); }], touches: [] },
+  {
+    name: "renameX",
+    steps: [(k) => { const t = tabFor(k.X); if (t) (S().updateTab(t.id, { customTitle: "Renamed" }), done(k, "renameX")); }],
+    touches: ["X"],
+    final: (k, mac) => {
+      const t = tabFor(k.X);
+      if (!t || !inContainer(S(), t)) return;
+      assert.equal(t.customTitle, "Renamed", "X renamed");
+      assert.equal(record(mac, "default", `pin:t:${k.X}`)?.t, "Renamed", "X renamed in its record");
+    },
+  },
+  { name: "loadX", steps: [loadX], touches: [] },
+  { name: "loadXThenPark", steps: [loadX, parkAndReopen], touches: [] },
+  { name: "loadXThenMirror", steps: [loadX, mirrorWindow], touches: [] },
+  { name: "park", steps: [parkAndReopen], touches: [] },
+  { name: "mirror", steps: [mirrorWindow], touches: [] },
+  { name: "relaunch", steps: [{ lifecycle: (k, mac) => mac.relaunch() }], touches: [] },
+  {
+    name: "unpinGThenCompact",
+    steps: [(k) => { const g = groupFor(k.G); if (g?.pinned) (S().moveGroup(g.id, { pinned: false }), done(k, "unpinGThenCompact")); }, { lifecycle: (k, mac) => mac.compact() }],
+    touches: ["G", "M"],
+    unpins: ["G", "M"],
+    keeps: ["G", "M"],
+    lastEdit: 0,
+    collects: true,
+    final: (k) => assert.equal(!!groupFor(k.G)?.pinned, false, "G unpinned"),
+  },
   {
     name: "navXIntoG",
     steps: [
@@ -195,7 +254,10 @@ const OPS = [
       },
     ],
     touches: ["X", "G"],
-    final: (k) => assert.ok(tabFor(k.X) && inContainer(S(), tabFor(k.X)), "X pinned, in G or on its own once G is gone"),
+    final: (k, mac) => {
+      assert.ok(tabFor(k.X) && inContainer(S(), tabFor(k.X)), "X pinned, in G or on its own once G is gone");
+      assert.equal(record(mac, "default", `pin:t:${k.X}`)?.u, X_OTHER, "X's record has the page it was moved with");
+    },
   },
   {
     name: "workRoundTrip",
@@ -216,9 +278,14 @@ const OPS = [
 
 const stepOf = (s) => (typeof s === "function" ? { run: s } : s);
 
+async function runStep(mac, step, k) {
+  if (step.run) mac.with(() => step.run(k));
+  if (step.lifecycle) await step.lifecycle(k, mac);
+}
+
 async function runOp(mac, op, k, { syncs = true, hideFirst = false, folder } = {}) {
   for (const [i, step] of op.steps.map(stepOf).entries()) {
-    mac.with(() => step.run(k));
+    await runStep(mac, step, k);
     if (!syncs) continue;
     const before = new Set(folder.files.keys());
     await mac.sync(step.sync);
@@ -234,13 +301,14 @@ const SCHEDULES = {
     return "B";
   },
   "both, A syncs first": async (w, opA, opB) => {
-    w.a.with(() => stepOf(opA.steps[0]).run(w.k));
-    w.b.with(() => stepOf(opB.steps[0]).run(w.k));
+    await runStep(w.a, stepOf(opA.steps[0]), w.k);
+    await runStep(w.b, stepOf(opB.steps[0]), w.k);
     await w.a.sync();
     await w.b.sync();
     await runOp(w.a, { steps: opA.steps.slice(1) }, w.k, { folder: w.folder });
     await runOp(w.b, { steps: opB.steps.slice(1) }, w.k, { folder: w.folder });
-    return opA.steps.length > 1 ? "A" : opB.steps.length > 1 ? "B" : "B";
+    const lastEdit = (op) => op.lastEdit ?? op.steps.length - 1;
+    return lastEdit(opA) > 0 ? "A" : "B";
   },
   "B's log delayed": async (w, opA, opB) => {
     const before = new Set(w.folder.files.keys());
@@ -249,6 +317,10 @@ const SCHEDULES = {
     await runOp(w.a, opA, w.k, { folder: w.folder });
     w.folder.hidden.clear();
     return "A";
+  },
+  "both, with an older Mac": async (w, opA, opB) => {
+    w.withOld = true;
+    return SCHEDULES["both, A syncs first"](w, opA, opB);
   },
   "A's first log delayed": async (w, opA, opB) => {
     await runOp(w.a, opA, w.k, { folder: w.folder, hideFirst: true });
@@ -278,26 +350,41 @@ function structure(mac) {
   });
 }
 
-function signature(mac) {
+function signature(mac, { rows = true } = {}) {
   return mac.with(() => {
     const s = S();
     const out = {};
+    const meta = (t) => `${keyOf(t)}|${t.customTitle ?? ""}|${t.customIcon ?? ""}|${t.pinned ? (t.pinnedUrl ?? "") : ""}`;
+    const parked = (t) => `${t.id}|${t.customTitle ?? ""}|${t.customIcon ?? ""}|${t.groupId ? "" : (t.pinnedUrl ?? "")}`;
     for (const p of PROFILES) {
       const win = Object.values(s.windows).find((w) => w.profileId === p);
       const ids = win ? win.tabIds.filter((id) => s.tabs[id]?.profileId === p) : [];
       const park = s.parkedPins[p];
+      const isRow = (t) => rows && !!t.pinnedAsRow;
       out[p] = {
-        tiles: ids.filter((id) => s.tabs[id].pinned && !s.tabs[id].pinnedAsRow).map((id) => keyOf(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && !t.pinnedAsRow).map((t) => t.id)),
-        rows: ids.filter((id) => s.tabs[id].pinned && s.tabs[id].pinnedAsRow).map((id) => keyOf(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && t.pinnedAsRow).map((t) => t.id)),
+        tiles: ids.filter((id) => s.tabs[id].pinned && !isRow(s.tabs[id])).map((id) => meta(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && !isRow(t)).map(parked)),
+        rows: ids.filter((id) => s.tabs[id].pinned && isRow(s.tabs[id])).map((id) => meta(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && isRow(t)).map(parked)),
         groups: Object.values(s.groups)
           .filter((g) => g.pinned && g.profileId === p && g.windowId === win?.id)
           .sort((x, z) => ids.indexOf(x.tabIds[0]) - ids.indexOf(z.tabIds[0]))
-          .map((g) => [keyOf(g), g.name, g.tabIds.map((id) => keyOf(s.tabs[id]))])
-          .concat((park?.groups ?? []).map((g) => [g.id, g.name, park.tabs.filter((t) => t.groupId === g.id).map((t) => t.id)])),
+          .map((g) => [keyOf(g), g.name, g.tabIds.map((id) => meta(s.tabs[id]))])
+          .concat((park?.groups ?? []).map((g) => [g.id, g.name, park.tabs.filter((t) => t.groupId === g.id).map(parked)])),
       };
     }
     return out;
   });
+}
+
+function records(mac, { rows = true } = {}) {
+  const out = {};
+  for (const p of PROFILES)
+    out[p] = Object.fromEntries(
+      Object.entries(mac.scopes[p]?.records ?? {})
+        .filter(([key, r]) => r.v !== null && (rows || !key.startsWith("pinrow:")))
+        .map(([key, r]) => [key, JSON.stringify(r.v)])
+        .sort(([x], [z]) => (x < z ? -1 : 1)),
+    );
+  return out;
 }
 
 const touched = (op) => new Set(op.touches);
@@ -308,11 +395,32 @@ async function runPair(startRow, opA, opB, schedule) {
   const folder = base.folder.clone();
   const w = { folder, a: base.a.fork(folder), b: base.b.fork(folder), k: { ...base.k, done: new Set() } };
   const later = await SCHEDULES[schedule](w, opA, opB);
-  for (let i = 0; i < 4; i++) for (const m of [w.a, w.b]) await m.sync();
-  const idle = (await w.a.sync()) + (await w.b.sync());
-  for (const m of [w.a, w.b]) structure(m);
+  const macs = w.withOld ? [w.a, w.b, base.old.fork(folder)] : [w.a, w.b];
+  for (let i = 0; i < 4; i++) for (const m of macs) await m.sync();
+  let idle = 0;
+  for (const m of macs) idle += await m.sync();
+  for (const m of macs) structure(m);
   assert.deepEqual(signature(w.b), signature(w.a), "both Macs converge");
+  assert.deepEqual(records(w.b), records(w.a), "both Macs hold the same records");
   assert.equal(idle, 0, "nothing more is sent once settled");
+  for (const p of PROFILES) {
+    const live = records(w.a)[p];
+    for (const [key, json] of Object.entries(live)) {
+      const g = key.startsWith("pin:t:") && JSON.parse(json).g;
+      if (g) assert.ok(live[`pin:g:${g}`], `${key} is in a group that exists`);
+    }
+  }
+  if (w.withOld) {
+    assert.deepEqual(signature(macs[2], { rows: false }), signature(w.a, { rows: false }), "the older Mac converges, rows as tiles");
+    assert.deepEqual(records(macs[2], { rows: false }), records(w.a, { rows: false }), "and holds the same pin records");
+  }
+  if (schedule === "B's log delayed") {
+    const fresh = freshMac("devC", folder);
+    for (let i = 0; i < 3; i++) for (const m of [fresh, w.a, w.b]) await m.sync();
+    assert.deepEqual(signature(fresh), signature(w.a), "a Mac joining afterwards gets the same pins");
+    assert.deepEqual(records(fresh), records(w.a), "and the same records");
+    assert.equal((await fresh.sync()) + (await w.a.sync()) + (await w.b.sync()), 0, "and nothing is sent once it has joined");
+  }
   const removed = new Set([...(did(w.k, opA, w.a) ? (opA.unpins ?? []) : []), ...(did(w.k, opB, w.b) ? (opB.unpins ?? []) : [])]);
   for (const m of [w.a, w.b]) {
     m.with(() => {
@@ -334,8 +442,9 @@ async function runPair(startRow, opA, opB, schedule) {
   }
   const ran = [[opA, w.a], [opB, w.b]].filter(([op, m]) => did(w.k, op, m) || !op.final);
   const later_ = later === "A" ? opA : opB;
-  const finals = overlap(opA, opB) && ran.some(([op]) => op === later_) ? [later_] : ran.map(([op]) => op);
-  for (const op of finals) for (const m of [w.a, w.b]) if (op.final) m.with(() => op.final(w.k));
+  const collected = (opA.collects || opB.collects) && overlap(opA, opB);
+  const finals = collected ? [] : overlap(opA, opB) && ran.some(([op]) => op === later_) ? [later_] : ran.map(([op]) => op);
+  for (const op of finals) for (const m of [w.a, w.b]) if (op.final) m.with(() => op.final(w.k, m));
 }
 
 const cases = [];
