@@ -12,9 +12,9 @@ In scope:
   tabs           every web page tab (http, https, about, data, blob), plus the ones new_tab opens
   new_tab(url, background=True)   open a tab and return it once the page has loaded
   js(expression, tab=None)        evaluate JavaScript in tab (else the user's tab, else the last new_tab) and return its value
-  pinned()       the user's favorites and pinned tabs from Ardia's saved session, as dicts
+  await pinned() the user's favorites and pinned tabs from Ardia's saved session, as dicts
                  (title, url, pinned_url, kind favorite|pinned, folder, profile, parked); no incognito
-  history(days=1, limit=200, profile=None, domains=False)
+  await history(days=1, limit=200, profile=None, domains=False)
                  recent history per URL, newest first: url, title, visits (in the window), total_visits,
                  last_visit (ISO, local time), profile; domains=True rolls it up per domain.
                  profile is a profile name or its folder under Chromium/ (default: all). Only http(s) pages.
@@ -31,7 +31,7 @@ Examples:
   ardia exec 't = await new_tab("https://example.com"); await t.title()'
   ardia exec -f script.py --json
   echo 'len(tabs)' | ardia exec -
-  ardia exec 'history(days=1, domains=True)' --json
+  ardia exec 'await history(days=1, domains=True)' --json
 """
 EXEC_EPILOG = """\
 Endpoint: --ws, else --port (plain DevTools servers only), else $ARDIA_CDP_URL, else

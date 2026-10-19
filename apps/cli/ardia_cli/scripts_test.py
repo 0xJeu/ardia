@@ -22,6 +22,25 @@ MAX_PAGE_ERRORS = 5
 MAX_TEXT = 2000
 LEVELS = {"warning": "warn", "startGroup": "group", "startGroupCollapsed": "groupCollapsed", "endGroup": "groupEnd"}
 
+MATCHER = """(rules, href) => {
+const defaultPorts = { "http:": "80", "https:": "443", "ws:": "80", "wss:": "443", "ftp:": "21" };
+let url = null;
+try { url = new URL(href); } catch {}
+const matches = (p) => {
+if (!url || !p.schemes.includes(url.protocol.slice(0, -1))) return false;
+if (p.all) return true;
+if (url.protocol !== "file:") {
+const host = url.hostname.toLowerCase().replace(/\\.$/, "");
+if (!(p.host === "" || host === p.host || (p.sub && host.endsWith("." + p.host)))) return false;
+if (p.port !== "*" && (url.port || defaultPorts[url.protocol] || "") !== p.port) return false;
+}
+return new RegExp(p.path).test((url.pathname || "/") + url.search);
+};
+const globbed = (list) => list.some((source) => new RegExp(source).test(href));
+const included = rules.match.some(matches) || (/^https?:/.test(href) && globbed(rules.include));
+if (!included) return "no rule matches";
+return rules.excludeMatch.some(matches) || globbed(rules.exclude) ? "excluded" : "run";
+}"""
 PRELUDE = """\
 (() => {{
 const mark = {mark};
@@ -29,12 +48,9 @@ const rules = {rules};
 const debug = console.debug.bind(console);
 const href = location.href;
 const top = window.top === window;
-const test = (list, url) => list.some((source) => new RegExp(source).test(url));
-const page = href.split("#")[0];
-const included = test(rules.match, page) || (/^https?:/.test(href) && test(rules.include, href));
-const excluded = test(rules.excludeMatch, page) || test(rules.exclude, href);
+const verdict = ({matcher})(rules, href);
 if (rules.noframes && !top) {{ debug(mark, "skip", href, top, "@noframes"); return; }}
-if (!included || excluded) {{ debug(mark, "skip", href, top, included ? "excluded" : "no rule matches"); return; }}
+if (verdict !== "run") {{ debug(mark, "skip", href, top, verdict); return; }}
 const run = () => {{
 debug(mark, "start", href, top, "");
 try {{
@@ -81,15 +97,22 @@ class Report:
         return any(frame["state"] in ("start", "done") for frame in self.frames)
 
     @property
+    def unsettled(self) -> int:
+        starts = sum(1 for frame in self.frames if frame["state"] == "start")
+        dones = sum(1 for frame in self.frames if frame["state"] == "done")
+        return max(0, starts - dones)
+
+    @property
     def ok(self) -> bool:
-        if self.error or not self.ran or self.exceptions:
+        if self.error or not self.ran or self.exceptions or self.unsettled:
             return False
-        return self.expect is None or (not self.expect.get("error") and bool(self.expect.get("value")))
+        return self.expect is None or (not self.expect.get("error") and bool(self.expect.get("truthy")))
 
     def to_dict(self) -> dict:
         return {
             "ok": self.ok,
             "ran": self.ran,
+            "unfinished_passes": self.unsettled,
             "script": self.script,
             "url": self.url,
             "final_url": self.final_url,
@@ -109,7 +132,7 @@ class Report:
 
 def wrap(build: Build, mark: str) -> tuple[str, str, int]:
     source_url = f"{SOURCE_URL_PREFIX}{build.meta.id}.user.js"
-    head = PRELUDE.format(mark=json.dumps(mark), rules=json.dumps(rules(build.meta)))
+    head = PRELUDE.format(mark=json.dumps(mark), rules=json.dumps(rules(build.meta)), matcher=MATCHER)
     body = build.js if build.js.endswith("\n") else build.js + "\n"
     tail = POSTLUDE.format(source_url=source_url)
     return head + body + tail, source_url, head.count("\n")
@@ -292,6 +315,13 @@ async def run_test(build: Build, url: str, endpoint: Endpoint, expect: str | Non
                 report.error = f"couldn't open {url}: {navigated['errorText']}"
                 return report
             await settle(run, cdp)
+            if not run.top_settled.is_set():
+                report.error = (
+                    f"the script's first pass in the top frame didn't finish within {RUN_TIMEOUT}s (an endless loop?)"
+                    if report.unsettled
+                    else f"the top frame didn't run or skip the script within {RUN_TIMEOUT}s"
+                )
+                return report
             report.final_url = await final_url(cdp, target)
             report.expect = await listen(cdp, session, expect, wait)
             if not build.meta.noframes:
@@ -316,7 +346,6 @@ async def settle(run: Run, cdp: Cdp):
         if cdp.closed.is_set():
             raise ConnectionLost()
         if not run.top_settled.is_set():
-            run.report.warnings.append(f"the page's top frame didn't run the script within {RUN_TIMEOUT}s (still loading, or it replaced the document)")
             return
         remaining = max(0.0, min(LOAD_GRACE, RUN_TIMEOUT - (time.monotonic() - started)))
         loaded = asyncio.ensure_future(run.loaded.wait())
@@ -332,8 +361,8 @@ async def settle(run: Run, cdp: Cdp):
 
 
 async def check_frames(cdp: Cdp, session: str, report: Report):
-    counted = await evaluate(cdp, session, 'document.querySelectorAll("iframe, frame").length')
-    frames = counted.get("value") if isinstance(counted.get("value"), int) else 0
+    counted = await evaluate_plain(cdp, session, 'document.querySelectorAll("iframe, frame").length')
+    frames = counted if isinstance(counted, int) else 0
     reported = sum(1 for frame in report.frames if not frame["top"] and frame["state"] in ("done", "skip"))
     if frames > reported:
         report.warnings.append(
@@ -358,22 +387,41 @@ async def final_url(cdp: Cdp, target: str) -> str | None:
     return (info.get("targetInfo") or {}).get("url")
 
 
+EXPECT_WRAPPER = """(async () => {{
+const value = await (
+{expression}
+);
+let shown;
+if (value === undefined) shown = {{ undefined: true }};
+else if (value === null || ["string", "number", "boolean"].includes(typeof value)) shown = {{ value }};
+else if (typeof value === "bigint" || typeof value === "symbol" || typeof value === "function") shown = {{ value: String(value) }};
+else {{
+try {{ shown = {{ value: JSON.parse(JSON.stringify(value)) }}; }} catch {{ shown = {{ value: Object.prototype.toString.call(value) }}; }}
+if (typeof Node !== "undefined" && value instanceof Node) shown = {{ value: value.nodeName ? `<${{value.nodeName.toLowerCase()}}>` : String(value) }};
+}}
+return {{ truthy: Boolean(value), ...shown }};
+}})()"""
+
+
 async def evaluate(cdp: Cdp, session: str, expression: str) -> dict:
     result = await cdp.send(
         "Runtime.evaluate",
-        {"expression": expression, "returnByValue": True, "awaitPromise": True, "userGesture": False},
+        {"expression": EXPECT_WRAPPER.format(expression=expression), "returnByValue": True, "awaitPromise": True, "userGesture": False},
         session=session,
     )
     if "exceptionDetails" in result:
         details = result["exceptionDetails"]
         exception = details.get("exception") or {}
         return {"error": clip(exception.get("description") or details.get("text") or "threw")}
-    value = result.get("result") or {}
-    if "value" in value:
-        return {"value": value["value"]}
-    if value.get("type") == "undefined":
-        return {"value": None, "undefined": True}
-    return {"value": value.get("description") or value.get("type")}
+    value = (result.get("result") or {}).get("value")
+    if not isinstance(value, dict):
+        return {"error": "the expression's value couldn't be read"}
+    return {"truthy": bool(value.get("truthy")), "value": value.get("value"), **({"undefined": True} if value.get("undefined") else {})}
+
+
+async def evaluate_plain(cdp: Cdp, session: str, expression: str):
+    result = await cdp.send("Runtime.evaluate", {"expression": expression, "returnByValue": True}, session=session)
+    return (result.get("result") or {}).get("value")
 
 
 async def listen(cdp: Cdp, session: str, expression: str | None, wait: float) -> dict | None:
@@ -382,7 +430,7 @@ async def listen(cdp: Cdp, session: str, expression: str | None, wait: float) ->
     while expression is not None:
         outcome = await evaluate(cdp, session, expression)
         outcome["expression"] = expression
-        if (not outcome.get("error") and outcome.get("value")) or time.monotonic() >= deadline:
+        if (not outcome.get("error") and outcome.get("truthy")) or time.monotonic() >= deadline:
             break
         await sleep_or_lost(cdp, EXPECT_POLL)
     remaining = deadline - time.monotonic()
@@ -438,7 +486,7 @@ def format_report(report: Report) -> str:
         if last["state"] == "skip":
             lines.append(f"top frame: skipped ({last['detail']})")
         elif last["state"] == "start":
-            lines.append(f"top frame: ran at {report.run_at}, still running its first pass (it threw or is stuck)")
+            lines.append(f"top frame: ran at {report.run_at}, but its first pass never finished")
         else:
             lines.append(f"top frame: ran at {report.run_at}")
     elif not report.error:
@@ -461,13 +509,12 @@ def format_report(report: Report) -> str:
             lines.append(f"expect: {report.expect['expression']} threw {report.expect['error']}")
         else:
             value = "undefined" if report.expect.get("undefined") else json.dumps(report.expect.get("value"), ensure_ascii=False)
-            lines.append(f"expect: {report.expect['expression']} -> {clip(value)}")
+            verdict = "truthy" if report.expect.get("truthy") else "falsy"
+            lines.append(f"expect: {report.expect['expression']} -> {clip(value)} ({verdict})")
     if report.screenshot:
         lines.append(f"screenshot: {report.screenshot}")
     if report.kept:
         lines.append(f"kept the tab open (target {report.kept})")
-    if report.error:
-        lines.append(f"error: {report.error}")
     lines.append("ok" if report.ok else f"failed: {failure(report)}")
     return redact("\n".join(lines))
 
@@ -479,4 +526,6 @@ def failure(report: Report) -> str:
         return "the script didn't run on this page"
     if report.exceptions:
         return f"{len(report.exceptions)} uncaught exception{'s' if len(report.exceptions) > 1 else ''}"
+    if report.unsettled:
+        return "the script's first pass never finished in some frame (an endless loop?)"
     return "--expect wasn't truthy"

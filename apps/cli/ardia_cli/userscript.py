@@ -10,14 +10,17 @@ from pathlib import Path
 RUN_AT = ("document-start", "document-end", "document-idle")
 INJECT_INTO = {"page": "MAIN", "auto": "MAIN", "content": "ISOLATED"}
 MATCH_SCHEMES = ("*", "http", "https", "file", "ftp", "ws", "wss")
-ALL_URLS_REGEX = r"^(?:https?|wss?|ftp|file)://"
+ALL_URLS_SCHEMES = ("http", "https", "file", "ftp", "ws", "wss")
+DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21}
 INCLUDE_MATCHES = ["*://*/*"]
 SOURCE_URL_PREFIX = "ardia-userscript:///"
 CHROME_TARGET = "chrome130"
 _HEADER = re.compile(r"^\s*//\s*==UserScript==\s*$")
 _FOOTER = re.compile(r"^\s*//\s*==/UserScript==\s*$")
 _ENTRY = re.compile(r"^\s*//\s*@([\w-]+(?::[\w-]+)?)(?:\s+(.*?))?\s*$")
-_HOST = re.compile(r"^(?:\*|(?:\*\.)?[^*/:]+)(?::(?:\d{1,5}|\*))?$")
+_HOST = re.compile(
+    r"^(?P<name>\*|(?:\*\.)?[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.?|\[[0-9A-Fa-f:.]+\])(?::(?P<port>\d{1,5}|\*))?$"
+)
 _SLUG = re.compile(r"[^a-z0-9]+")
 
 
@@ -109,20 +112,33 @@ def parse_meta(source: str, filename: str) -> Meta:
     return meta
 
 
-def check_match(pattern: str, key: str) -> str:
+def parse_match(pattern: str, key: str = "match") -> dict:
     if pattern == "<all_urls>":
-        return pattern
+        return {"all": True, "schemes": list(ALL_URLS_SCHEMES), "host": "", "sub": True, "port": "*", "path": "*"}
     scheme, sep, rest = pattern.partition("://")
     if not sep or scheme not in MATCH_SCHEMES:
         raise ScriptError(f"@{key} {pattern!r}: a match pattern is <all_urls> or scheme://host/path, scheme one of {', '.join(MATCH_SCHEMES)}")
     host, slash, path = rest.partition("/")
     if not slash:
         raise ScriptError(f"@{key} {pattern!r}: add a path, like {pattern}/*")
+    schemes = ["http", "https"] if scheme == "*" else [scheme]
     if scheme == "file":
         if host:
             raise ScriptError(f"@{key} {pattern!r}: file patterns have no host (file:///path)")
-    elif not _HOST.match(host):
-        raise ScriptError(f"@{key} {pattern!r}: the host is *, *.example.com or example.com")
+        return {"all": False, "schemes": schemes, "host": "", "sub": False, "port": "*", "path": "/" + path}
+    found = _HOST.match(host)
+    if not found:
+        raise ScriptError(f"@{key} {pattern!r}: the host is *, *.example.com or example.com (ASCII; use punycode), with an optional :port")
+    name, port = found.group("name"), found.group("port") or "*"
+    if port != "*" and int(port) > 65535:
+        raise ScriptError(f"@{key} {pattern!r}: the port must be 0 to 65535")
+    sub = name == "*" or name.startswith("*.")
+    name = "" if name == "*" else name[2:] if name.startswith("*.") else name
+    return {"all": False, "schemes": schemes, "host": name.lower().rstrip("."), "sub": sub, "port": str(int(port)) if port != "*" else "*", "path": "/" + path}
+
+
+def check_match(pattern: str, key: str) -> str:
+    parse_match(pattern, key)
     return pattern
 
 
@@ -131,44 +147,40 @@ def check_glob(glob: str, key: str) -> None:
         raise ScriptError(f"@{key} {glob!r}: regular expressions aren't supported; use @match patterns or * globs")
     if not glob:
         raise ScriptError(f"@{key} needs a value")
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in glob):
+        raise ScriptError(f"@{key} {glob!r}: has control characters")
 
 
 def _escape(text: str) -> str:
-    return "".join("\\" + char if char in ".^$+?()[]{}|\\/-" else char for char in text)
+    return "".join("\\" + char if char in ".^$+?*()[]{}|\\/-" else char for char in text)
 
 
-def match_regex(pattern: str) -> str:
-    if pattern == "<all_urls>":
-        return ALL_URLS_REGEX
-    scheme, _, rest = pattern.partition("://")
-    host, _, path = rest.partition("/")
-    scheme_re = "https?" if scheme == "*" else _escape(scheme)
-    host, _, port = host.lower().partition(":")
-    if host == "*":
-        host_re = "[^/:]*"
-    elif host.startswith("*."):
-        host_re = "(?:[^/:]*\\.)?" + _escape(host[2:])
-    else:
-        host_re = _escape(host)
-    if port == "*" or (not port and scheme != "file"):
-        port_re = "(?::\\d+)?"
-    else:
-        port_re = ":" + port if port else ""
-    path_re = "/" + ".*".join(_escape(part) for part in path.split("*"))
-    return f"^{scheme_re}://{host_re}{port_re}{path_re}$"
+def wildcard_regex(text: str) -> str:
+    return "^" + "[\\s\\S]*".join(_escape(part) for part in text.split("*")) + "$"
 
 
 def glob_regex(glob: str) -> str:
     out = []
-    for char in glob:
-        out.append(".*" if char == "*" else "." if char == "?" else _escape(char))
+    index = 0
+    while index < len(glob):
+        char = glob[index]
+        if char == "\\" and index + 1 < len(glob):
+            out.append(_escape(glob[index + 1]))
+            index += 2
+            continue
+        out.append("[\\s\\S]*" if char == "*" else "[\\s\\S]?" if char == "?" else _escape(char))
+        index += 1
     return "^" + "".join(out) + "$"
+
+
+def _compiled(pattern: dict) -> dict:
+    return {**pattern, "path": wildcard_regex(pattern["path"])}
 
 
 def rules(meta: Meta) -> dict:
     return {
-        "match": [match_regex(p) for p in meta.matches],
-        "excludeMatch": [match_regex(p) for p in meta.exclude_matches],
+        "match": [_compiled(parse_match(p)) for p in meta.matches],
+        "excludeMatch": [_compiled(parse_match(p)) for p in meta.exclude_matches],
         "include": [glob_regex(g) for g in meta.includes],
         "exclude": [glob_regex(g) for g in meta.excludes],
         "runAt": meta.run_at,
@@ -176,12 +188,38 @@ def rules(meta: Meta) -> dict:
     }
 
 
+def _matches(pattern: dict, url) -> bool:
+    if url is None or url.scheme not in pattern["schemes"]:
+        return False
+    if pattern["all"]:
+        return True
+    if url.scheme != "file":
+        host = (url.hostname or "").rstrip(".")
+        host = f"[{host}]" if ":" in host else host
+        if not (pattern["host"] == "" or host == pattern["host"] or (pattern["sub"] and host.endswith("." + pattern["host"]))):
+            return False
+        if pattern["port"] != "*":
+            try:
+                port = url.port or DEFAULT_PORTS.get(url.scheme)
+            except ValueError:
+                return False
+            if str(port) != pattern["port"]:
+                return False
+    path = (url.path or "/") + (f"?{url.query}" if url.query else "")
+    return re.search(pattern["path"], path) is not None
+
+
 def url_runs(meta: Meta, url: str) -> bool:
-    page = url.split("#")[0]
-    found = lambda regexes, text: any(re.search(r, text) for r in regexes)
+    from urllib.parse import urlsplit
+
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        parsed = None
     spec = rules(meta)
-    included = found(spec["match"], page) or (re.match(r"^https?:", url) is not None and found(spec["include"], url))
-    excluded = found(spec["excludeMatch"], page) or found(spec["exclude"], url)
+    globbed = lambda regexes: any(re.search(r, url) for r in regexes)
+    included = any(_matches(p, parsed) for p in spec["match"]) or (url.startswith(("http:", "https:")) and globbed(spec["include"]))
+    excluded = any(_matches(p, parsed) for p in spec["excludeMatch"]) or globbed(spec["exclude"])
     return included and not excluded
 
 
@@ -235,11 +273,17 @@ def manifest_entries(meta: Meta, js: str) -> list[dict]:
     return entries
 
 
+def installed() -> bool:
+    return "site-packages" in Path(__file__).resolve().parts
+
+
 def find_esbuild() -> str | None:
     here = Path(__file__).resolve().parent
     bundled = here / "bin" / "esbuild"
-    if os.access(bundled, os.X_OK):
+    if os.access(bundled, os.X_OK) and not bundled.is_symlink():
         return str(bundled)
+    if installed():
+        return None
     for parent in here.parents:
         modules = parent / "node_modules"
         native = modules / "@esbuild" / "darwin-arm64" / "bin" / "esbuild"
@@ -261,7 +305,40 @@ class Build:
     warnings: list[str]
 
 
-def build(path: str | Path, sourcemap: bool = False) -> Build:
+def forbidden_roots(data_dirs) -> list[Path]:
+    from ardia_cli.endpoint import INSTALLED_DATA_DIR
+
+    roots = [INSTALLED_DATA_DIR, *data_dirs]
+    if os.environ.get("ARDIA_DATA_DIR"):
+        roots.append(Path(os.environ["ARDIA_DATA_DIR"]).expanduser())
+    return [Path(os.path.realpath(root)) for root in roots]
+
+
+def _inside(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def check_inputs(inputs, base: Path, entry: Path, data_dirs) -> None:
+    tree = entry.parent
+    roots = forbidden_roots(data_dirs)
+    shallow = tree == Path(os.path.realpath(Path.home())) or tree.parent == tree
+    for name in inputs:
+        if name.startswith("<data:"):
+            continue
+        if name.startswith("<"):
+            raise ScriptError(f"refusing to bundle {name}: only files in the script's folder can be imported")
+        real = Path(os.path.realpath(base / name))
+        if any(_inside(real, root) for root in roots):
+            raise ScriptError(f"refusing to bundle {real}: it's in Ardia's data folder")
+        if real == entry:
+            continue
+        if shallow:
+            raise ScriptError(f"refusing to bundle {real}: a script in {tree} may only import files in a folder of its own; move it into one")
+        if not _inside(real, tree):
+            raise ScriptError(f"refusing to bundle {real}: imports must stay inside {tree} (symlinks resolved)")
+
+
+def build(path: str | Path, sourcemap: bool = False, data_dirs=()) -> Build:
     path = Path(path)
     try:
         source = path.read_text(encoding="utf-8")
@@ -272,12 +349,17 @@ def build(path: str | Path, sourcemap: bool = False) -> Build:
     meta = parse_meta(source, path.name)
     esbuild = find_esbuild()
     if not esbuild:
-        raise ScriptError("esbuild isn't available: reinstall the ardia command, or put esbuild on PATH")
+        hint = "reinstall the ardia command" if installed() else "run pnpm install, or put esbuild on PATH"
+        raise ScriptError(f"esbuild isn't available: {hint}")
+    entry = Path(os.path.realpath(path))
+    if any(_inside(entry, root) for root in forbidden_roots(data_dirs)):
+        raise ScriptError(f"refusing to build {entry}: it's in Ardia's data folder")
     with tempfile.TemporaryDirectory(prefix="ardia-script-") as work:
         out = Path(work) / "script.js"
+        metafile = Path(work) / "meta.json"
         command = [
             esbuild,
-            str(path.resolve()),
+            str(entry),
             "--bundle",
             "--format=iife",
             "--platform=browser",
@@ -286,12 +368,14 @@ def build(path: str | Path, sourcemap: bool = False) -> Build:
             "--legal-comments=none",
             "--log-level=warning",
             "--color=false",
+            "--tsconfig-raw={}",
+            f"--metafile={metafile}",
             f"--outfile={out}",
         ]
         if sourcemap:
             command.append("--sourcemap=external")
         try:
-            done = subprocess.run(command, capture_output=True, text=True, timeout=60, cwd=str(path.resolve().parent))
+            done = subprocess.run(command, capture_output=True, text=True, timeout=60, cwd=str(entry.parent), stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired:
             raise ScriptError("esbuild took over 60 s") from None
         except OSError as error:
@@ -299,6 +383,11 @@ def build(path: str | Path, sourcemap: bool = False) -> Build:
         messages = done.stderr.strip()
         if done.returncode != 0:
             raise ScriptError(f"esbuild couldn't build {path}:\n{messages}" if messages else f"esbuild couldn't build {path}")
+        try:
+            inputs = json.loads(metafile.read_text(encoding="utf-8")).get("inputs") or {}
+        except (OSError, ValueError):
+            raise ScriptError("esbuild didn't say which files it bundled") from None
+        check_inputs(inputs, entry.parent, entry, data_dirs)
         js = out.read_text(encoding="utf-8")
         mapping = None
         if sourcemap and out.with_suffix(".js.map").exists():

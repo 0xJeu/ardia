@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import sqlite3
 import stat
 import tempfile
@@ -16,6 +15,7 @@ WEBKIT_EPOCH_OFFSET = 11644473600
 SUBFRAME_TRANSITIONS = (3, 4)
 BUSY_TIMEOUT_MS = 500
 COPY_ATTEMPTS = 3
+HISTORY_BUDGET = 20
 MAX_SESSION_BYTES = 256 * 1024 * 1024
 PRIVATE_PREFIXES = ("incognito", "guest", "private", "System Profile", "Guest Profile")
 NO_DATA_DIR = (
@@ -164,20 +164,24 @@ def pick_profiles(found: list[tuple[str, Path]], profile: str | None) -> list[tu
     return chosen
 
 
-def snapshot(history: Path, work: Path) -> tuple[Path, str]:
+class OutOfTime(Exception):
+    pass
+
+
+def snapshot(history: Path, work: Path, deadline: float) -> tuple[Path, str]:
     target = work / "History"
     uri = f"file:{quote(str(history))}?mode=ro"
+    backup_deadline = min(deadline, time.monotonic() + BUSY_TIMEOUT_MS / 1000)
+
+    def give_up(_status, _remaining, _total):
+        if time.monotonic() > backup_deadline:
+            raise sqlite3.OperationalError("Ardia holds History locked")
+
     try:
         source = sqlite3.connect(uri, uri=True, timeout=BUSY_TIMEOUT_MS / 1000)
         try:
             source.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
             copy = sqlite3.connect(target)
-            deadline = time.monotonic() + BUSY_TIMEOUT_MS / 1000
-
-            def give_up(status, _remaining, _total):
-                if status != sqlite3.SQLITE_OK and time.monotonic() > deadline:
-                    raise sqlite3.OperationalError("Ardia holds History locked")
-
             try:
                 source.backup(copy, pages=256, progress=give_up, sleep=0.05)
             finally:
@@ -187,33 +191,46 @@ def snapshot(history: Path, work: Path) -> tuple[Path, str]:
         check(target)
         return target, "backup"
     except (sqlite3.Error, OSError):
-        for leftover in work.iterdir():
-            leftover.unlink()
+        clear(work)
     last = None
     for attempt in range(COPY_ATTEMPTS):
+        if time.monotonic() >= deadline:
+            break
         try:
-            copy_file(history, target)
+            copy_file(history, target, deadline)
             for suffix in ("-wal", "-journal"):
                 side = Path(str(history) + suffix)
                 if side.is_file() and not side.is_symlink():
-                    copy_file(side, Path(str(target) + suffix))
+                    copy_file(side, Path(str(target) + suffix), deadline)
             check(target)
             return target, "copy"
-        except (sqlite3.Error, OSError) as error:
+        except (sqlite3.Error, OSError, OutOfTime) as error:
             last = error
-            for leftover in work.iterdir():
-                leftover.unlink()
-            time.sleep(0.2 * (attempt + 1))
-    raise BrowsingDataError(f"can't read {history} ({last})")
+            clear(work)
+            if isinstance(error, OutOfTime):
+                break
+            time.sleep(min(0.2 * (attempt + 1), max(0.0, deadline - time.monotonic())))
+    raise BrowsingDataError(f"can't read {history} ({last or 'out of time'})")
 
 
-def copy_file(source: Path, target: Path) -> None:
+def clear(work: Path) -> None:
+    for leftover in work.iterdir():
+        try:
+            leftover.unlink()
+        except OSError:
+            pass
+
+
+def copy_file(source: Path, target: Path, deadline: float) -> None:
     fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise OSError(f"{source} isn't a regular file")
-        with os.fdopen(fd, "rb", closefd=False) as reader, open(target, "xb") as writer:
-            shutil.copyfileobj(reader, writer, 1024 * 1024)
+        with open(target, "xb") as writer:
+            while chunk := os.read(fd, 1024 * 1024):
+                if time.monotonic() > deadline:
+                    raise OutOfTime(f"copying {source.name} took over the time limit")
+                writer.write(chunk)
     finally:
         os.close(fd)
 
@@ -231,7 +248,7 @@ def iso(webkit_us: int) -> str:
     return datetime.fromtimestamp(webkit_us / 1_000_000 - WEBKIT_EPOCH_OFFSET).astimezone().isoformat(timespec="seconds")
 
 
-def history(root: Path | None, days: float = 1, limit: int | None = 200, profile: str | None = None, domains: bool = False) -> list[dict]:
+def history(root: Path | None, days: float = 1, limit: int | None = 200, profile: str | None = None, domains: bool = False, budget: float = HISTORY_BUDGET) -> list[dict]:
     root = checked_root(root, "history")
     if not isinstance(days, (int, float)) or days <= 0:
         raise BrowsingDataError("days must be a positive number")
@@ -240,11 +257,12 @@ def history(root: Path | None, days: float = 1, limit: int | None = 200, profile
     session = read_session(root)
     profiles = pick_profiles(profile_dirs(root, session), profile)
     cutoff = int((time.time() - days * 86400 + WEBKIT_EPOCH_OFFSET) * 1_000_000)
+    deadline = time.monotonic() + budget
     rows: list[dict] = []
     for label, folder in profiles:
         with tempfile.TemporaryDirectory(prefix="ardia-history-") as work:
             os.chmod(work, 0o700)
-            path, _ = snapshot(folder / "History", Path(work))
+            path, _ = snapshot(folder / "History", Path(work), deadline)
             connection = sqlite3.connect(path)
             try:
                 found = connection.execute(

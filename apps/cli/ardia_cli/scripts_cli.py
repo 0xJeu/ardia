@@ -9,12 +9,13 @@ A script is a .ts or .js file (a .user.js from Violentmonkey or Tampermonkey wor
 // ==UserScript== block. Keys Ardia reads:
   @name @namespace @version @description
   @match, @exclude-match        Chrome match patterns (https://*.example.com/*, <all_urls>)
-  @include, @exclude            globs with * and ? over the whole URL (http and https pages only)
+  @include, @exclude            globs over the whole URL: * any run, ? zero or one character, \\ escapes (http(s) only)
   @run-at                       document-start | document-end (default) | document-idle
   @inject-into                  page (default, the page's own JavaScript world) | content (an isolated world) | auto (page)
   @noframes                     top frame only (default: every frame)
 @grant other than none, @require and @resource are ignored with a warning: there are no GM_* APIs, and relative
-imports are bundled by esbuild instead (one IIFE, recent Chrome, not minified; types are stripped, not checked).
+imports are bundled by esbuild instead (one IIFE, recent Chrome, not minified; types are stripped, not checked; no
+tsconfig.json is read). Imports must stay inside the script's own folder, and nothing from Ardia's data folder.
 
 Commands:
   new NAME           scaffold NAME.user.ts in the current directory
@@ -182,11 +183,11 @@ def test(args) -> int:
     import asyncio
 
     from ardia_cli import scripts_test
-    from ardia_cli.endpoint import EndpointError, resolve
+    from ardia_cli.endpoint import EndpointError, data_root, resolve
     from ardia_cli.userscript import ScriptError, build, default_url, url_runs
 
     try:
-        built = build(args.file, sourcemap=True)
+        built = build(args.file, sourcemap=True, data_dirs=[data_root(args.data_dir)])
     except ScriptError as error:
         return report_build_error(args, str(error))
     url = args.url or default_url(built.meta)
@@ -228,10 +229,11 @@ def change(args) -> int:
     from ardia_cli.scripts_store import Store, StoreError
     from ardia_cli.userscript import ScriptError, build
 
+    root = data_root(args.data_dir)
     built = None
     if args.scripts_command == "install":
         try:
-            built = build(args.file)
+            built = build(args.file, data_dirs=[root])
         except ScriptError as error:
             complain(f"ardia scripts: {error}")
             return 1
@@ -240,7 +242,6 @@ def change(args) -> int:
         if not built.meta.matches and not built.meta.includes:
             complain("ardia scripts: add an @match or @include line so the script runs somewhere")
             return 1
-    root = data_root(args.data_dir)
     try:
         require_control(root)
     except EndpointError as error:
@@ -250,40 +251,43 @@ def change(args) -> int:
     try:
         with store:
             if built is not None:
-                record, updated = store.save(built)
-                summary = f"{'updated' if updated else 'installed'} {describe(record)}"
+                record, generation = store.apply(add=built)
+                summary = f"{'updated' if record.get('updated') else 'installed'} {describe(record)}"
             else:
-                record = store.find(args.name)
-                if record is None:
+                found = store.find(args.name)
+                if found is None:
                     names = ", ".join(m.get("name", m["id"]) for m in store.installed()) or "none"
                     complain(f"ardia scripts: no installed script is named {args.name!r} (installed: {names})")
                     return 1
-                store.remove(record["id"])
+                record, generation = store.apply(remove=found["id"])
                 summary = f"uninstalled {record.get('name')} ({record['id']})"
-            generation = store.regenerate()
+            removed_all = not store.extension_present()
+        say(summary)
+        say(f"generation {generation}")
+
+        def alive() -> bool:
+            try:
+                require_control(root)
+            except EndpointError:
+                return False
+            return True
+
+        outcome, status = store.wait_status(generation, alive)
     except (StoreError, OSError) as error:
         complain(f"ardia scripts: {error}")
         return 1
-    say(summary)
-    say(f"generation {generation}")
-
-    def alive() -> bool:
-        try:
-            require_control(root)
-        except EndpointError:
-            return False
-        return True
-
-    outcome, status = store.wait_status(generation, alive)
+    finally:
+        store.close()
     if outcome == "quit":
-        say("Ardia quit (or control was turned off) before loading it; it loads the scripts on its next launch")
+        say("Ardia quit (or control was turned off) before applying it; it applies the change on its next launch")
         return 0
     if outcome == "timeout":
-        say(f"Ardia hasn't reported generation {generation} after 10 s: the outcome is unknown, it may still be loading it (see ardia scripts list)")
+        say(f"Ardia hasn't reported generation {generation} after 10 s: the outcome is unknown, it may still be applying it (see ardia scripts list)")
         return UNKNOWN_EXIT
     if outcome == "superseded":
         say(f"a newer change (generation {status.get('generation')}) replaced this one; Ardia reported that one:")
-    return print_profiles(status)
+        removed_all = False
+    return print_profiles(status, removed_all)
 
 
 def describe(record: dict) -> str:
@@ -292,7 +296,7 @@ def describe(record: dict) -> str:
     return f"{record.get('name')}{version} ({record['id']}): {where} [{record.get('run_at')}, {record.get('world', 'MAIN').lower()} world]"
 
 
-def profile_lines(status: dict) -> tuple[list[str], bool]:
+def profile_lines(status: dict, removed: bool = False) -> tuple[list[str], bool]:
     profiles = status.get("profiles") if isinstance(status, dict) else None
     lines, failed = [], False
     if not isinstance(profiles, dict) or not profiles:
@@ -306,14 +310,14 @@ def profile_lines(status: dict) -> tuple[list[str], bool]:
         elif result.get("disabled"):
             lines.append(f"{name}: turned off in Extensions, so the scripts don't run there")
         elif result.get("ok"):
-            lines.append(f"{name}: loaded")
+            lines.append(f"{name}: {'removed' if removed else 'loaded'}")
         else:
             lines.append(f"{name}: unknown result")
     return lines, failed
 
 
-def print_profiles(status: dict) -> int:
-    lines, failed = profile_lines(status)
+def print_profiles(status: dict, removed: bool = False) -> int:
+    lines, failed = profile_lines(status, removed)
     for line in lines:
         say(line)
     return 1 if failed else 0
@@ -321,12 +325,20 @@ def print_profiles(status: dict) -> int:
 
 def listing(args) -> int:
     from ardia_cli.endpoint import data_root
-    from ardia_cli.scripts_store import Store, read_int
+    from ardia_cli.scripts_store import Store, StoreError
 
     store = Store(data_root(args.data_dir))
-    scripts = store.installed()
-    generation = read_int(store.generation_file)
-    status = store.status()
+    try:
+        store.open(False)
+        scripts = store.installed()
+        generation = store.generation()
+        status = store.status()
+        removed = generation > 0 and not store.extension_present()
+    except (StoreError, OSError) as error:
+        complain(f"ardia scripts: {error}")
+        return 1
+    finally:
+        store.close()
     if args.json:
         say(json.dumps({"scripts": scripts, "generation": generation, "status": status}, indent=2, ensure_ascii=False))
         return 0
@@ -338,7 +350,7 @@ def listing(args) -> int:
     if generation:
         reported = status.get("generation") if status else None
         if reported == generation:
-            lines, _ = profile_lines(status)
+            lines, _ = profile_lines(status, removed)
             say(f"generation {generation}, reported by Ardia:")
             for line in lines:
                 say(f"  {line}")
