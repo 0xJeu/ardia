@@ -492,6 +492,39 @@ for (const row of [true, false]) {
   });
 }
 
+for (const fresh of [false, true]) {
+  test(`a ${fresh ? "new tab" : "pin"} added to a pinned group while another Mac unpins that group stays pinned on both`, async () => {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const b = new Device("devB", folder);
+    let aw, group;
+    a.with(() => {
+      aw = S().createWindow({ url: "https://home.example/" });
+      group = S().groupTabs([S().newTab(aw, { url: "https://one.example/" })], { pinned: true, name: "Team" });
+      if (!fresh) S().pinTabs([S().newTab(aw, { url: "https://z.example/" })], true);
+    });
+    b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+    await syncAll([a, b]);
+    await later();
+    a.with(() => {
+      const z = fresh ? S().newTab(aw, { url: "https://z.example/" }) : tabAt("https://z.example/");
+      S().placeTabs([z], { pinned: false, groupId: group });
+    });
+    b.with(() => S().moveGroup(Object.values(S().groups).find((g) => g.name === "Team").id, { pinned: false }));
+    const zPinned = (d) => d.with(() => Object.values(S().tabs).filter((t) => (t.url === "https://z.example/" || t.pinnedUrl === "https://z.example/") && t.pinned).length);
+    await a.sync();
+    await b.sync();
+    assert.equal(zPinned(b), 1, "B, whose group is no longer pinned, keeps the page as a standalone pin at once");
+    await b.sync();
+    await a.sync();
+    await syncAll([a, b]);
+    assert.equal(zPinned(b), 1, "B has the page as a pin");
+    assert.equal(zPinned(a), 1, "and A keeps its pin");
+    assert.ok(b.with(() => !Object.values(S().groups).some((g) => g.tabIds.some((id) => S().tabs[id].pinned))), "out of B's regular group");
+    assert.equal((await b.sync()).published + (await a.sync()).published, 0, "settled");
+  });
+}
+
 test("a row mark held up in transit doesn't undo a later choice of a tile on another Mac", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);

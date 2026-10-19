@@ -478,7 +478,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           : { id, ...pinKeyField(id), windowId: newPinWindow, profileId, name: v.n, icon: v.i, color: v.c, collapsed: false, pinned: true, tabIds: [], createdAt: Date.now() };
       }
       for (const [id, v] of pins) {
-        const group = v.g && groups[v.g] ? groups[v.g]! : null;
+        const group = v.g && groupValues.has(v.g) && groups[v.g] ? groups[v.g]! : null;
         const old = tabs[id];
         if (old) {
           tabs[id] = {
