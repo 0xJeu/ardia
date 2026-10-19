@@ -17,6 +17,7 @@ export const deploy = ({ secret, service, hexclave }: any) => ({
         CLICKHOUSE_PASSWORD: secret("TELEMETRY_CLICKHOUSE_READER_PASSWORD"),
         REPLAYS_HOST: service("ph-objects").hostname(),
         DASHBOARD_ALLOWED_EMAILS: "mantrakp@gmail.com",
+        GITHUB_TOKEN: secret("DASHBOARD_GITHUB_TOKEN"),
       },
     },
   },
