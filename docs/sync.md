@@ -110,12 +110,19 @@ The JSON is one of:
 
 ```jsonc
 // A log: a batch of one device's changes. seq counts up per device and scope.
-{ "v": 1, "kind": "log", "device": "<id>", "seq": 7, "at": 1790000000000,
+// vv is what the writer had applied when it wrote it (its acknowledgement); ops may be empty.
+{ "v": 1, "kind": "log", "device": "<id>", "seq": 7, "at": 1790000000000, "vv": { "<device>": 7, … },
   "ops": [{ "k": "bm:<uuid>", "h": "<hlc>", "v": { … } }, { "k": "h:https://…", "h": "…", "v": null }] }
 // A snapshot: a device's whole merged replica, and the seqs it covers per device.
 { "v": 1, "kind": "snapshot", "device": "<id>", "at": …, "vv": { "<device>": 41, … },
-  "seen": { "<device>": <ms> }, "records": { "<key>": { "h": "<hlc>", "v": …, "o": ["<device>", <seq>] } } }
+  "seen": { "<device>": <ms> }, "records": { "<key>": { "h": "<hlc>", "v": …, "o": ["<device>", <seq>] } },
+  "extra": { "<device>": [44, 45] }, "gaps": { "<device>": <ms> },
+  "acks": { "<device>": [{ "s": 12, "vv": { … } }] }, "retired": { "<device>": <ms> } }
 ```
+
+`vv` in logs and the snapshot's `extra`, `gaps`, `acks` and `retired` came after
+0.2.39-nightly.1. Older versions ignore fields they don't know, so they still read every file. A device id gets a
+`~<n>` suffix after it rebases (see Compaction); the device list strips it.
 
 Writing:
 - A device only ever creates files, each under a fresh random name, and never changes one. Two
@@ -173,16 +180,50 @@ Each scope holds a replica: `key → { h: HLC, v: value | null, o: [device, seq]
 
 - **When.** A device writes a snapshot of its replica when a scope has more than 40 files and no
   snapshot has been written in 10 minutes.
-- **What it leaves out.** Tombstones older than 45 days are dropped from the snapshot, and so are
-  history records older than 90 days.
+- **What it leaves out.** History records older than 90 days, and tombstones that are older than
+  45 days and stable (below).
+- **Stable tombstones.** A tombstone could come back if an older write to its key arrived after
+  it was dropped (a log delivered late, an edit made offline). So it's dropped only once every
+  device still syncing has applied it and everything written before it:
+  - Every log carries the writer's version vector, its acknowledgement, and every snapshot
+    carries the acknowledgements its writer knows (`acks`).
+  - The stable vector is the smallest, per device, of this replica's version vector and each
+    device's latest acknowledgement. A device's acknowledgement counts once the stable vector
+    covers the log it came in, so everything that device wrote before it has reached everyone.
+  - A tombstone is stable when this replica's own version vector and every device's counted
+    acknowledgement cover its origin.
+  - A device acknowledges by writing: any log does, and a device that has nothing to send
+    writes an empty one once a day when its version vector has moved, and every 30 days
+    regardless. So a Mac that only reads still lets tombstones go.
+  - Snapshots carry the gaps too (`extra`, and when each was first seen in `gaps`), so a Mac
+    that joins from a snapshot still waits for the logs its writer was missing (tested).
+- **Retirement.** A device with no file for 180 days is retired: its gaps, acknowledgements and
+  files stop holding anything, and any file of its that shows up later is ignored. The list is
+  in every snapshot (`retired`). A gap open for 180 days is closed the same way: the missing logs
+  count as lost, and if they turn up they're ignored (tested).
+- **Coming back after retirement.** A Mac that finds itself retired starts over as a new replica
+  under `<device id>~<n>`: it drops its base, records and pending batches, reads the folder again,
+  and applies everything before it publishes anything. Edits it made while it was silent that
+  long are lost, the ones still waiting to be sent and the local ones alike (tested).
 - **What it removes.** Then it removes, once they're an hour old, the files the snapshot covers:
-  logs `(d, s)` with `s ≤ vv[d]`, and snapshots whose `vv` it dominates.
+  logs `(d, s)` with `s ≤ vv[d]`, snapshots whose `vv` it dominates, and every file of a retired
+  device.
 - **Why that's safe.** A snapshot is self-contained, so any device can start from it, and
   concurrent compactions only remove files covered by their own snapshot.
-- **Missing logs keep tombstones.** While a replica is missing a log that a later one from the
-  same device skipped past (its version vector has a gap), compaction keeps tombstones up to
-  90 days instead of 45, since that log could hold an older write that would otherwise come
-  back. A log that never shows up holds them for 90 days at most (tested).
+- **Storage.** A tombstone is held at most until every live device has synced once after it
+  (normally 45 days, as before), and at most 180 days past the age limit while a device stays
+  silent or a log stays missing; then the device retires or the gap closes. Each device keeps the
+  acknowledgements not yet counted, about one a day. A device's empty acknowledgement logs are at
+  most one a day per scope and are removed by the next compaction.
+- **Older versions (up to 0.2.39-nightly.1).** They write no acknowledgements, so they don't hold
+  tombstones on newer Macs, and they still drop tombstones at 45 days. Two cheap defences remain:
+  - A newer Mac doesn't drop a tombstone because an older Mac's snapshot (one without `acks`)
+    leaves it out; it keeps it and sends it again, so Macs joining later get it too (tested).
+  - When a snapshot holds an older value for a key whose newer record the snapshot claims to have
+    applied (an older Mac that dropped a tombstone and then got the late write), the newer Mac
+    sends its record again, which deletes it there too (tested).
+  - What's left: the older Mac itself can show a deleted record again, from a log that reached
+    it more than 45 days late, until a newer Mac's record reaches it.
 - **Collected tombstones.** A device that missed a deletion whose tombstone has since been
   collected still learns of it. Applying a snapshot drops every local record whose origin file
   the snapshot covers but which the snapshot doesn't contain (`ingestSnapshot`). A log a snapshot
@@ -194,9 +235,9 @@ Each scope holds a replica: `key → { h: HLC, v: value | null, o: [device, seq]
   back (tested). There's no format change. A 0.2.10 Mac still takes such records in, but the
   next snapshot from a newer Mac covers them and leaves them out, which removes them there again.
 - **A device offline for weeks.** It reads the newest snapshot and whatever logs came after,
-  applies them, and publishes its offline edits (tested). The one gap: an edit made offline to a
-  record that was deleted elsewhere, whose tombstone was collected more than 45 days ago, comes
-  back as a new record.
+  applies them, and publishes its offline edits (tested). While it's offline it holds every
+  tombstone made since, so an edit it made offline to a record deleted elsewhere still loses to
+  the deletion. Past 180 days it's retired instead (above).
 
 ### Order
 
@@ -223,7 +264,7 @@ Profiles).
 | `bm:<sync key>` | profile | `{ k, p (parent: its sync key, "bar" or "other"), t, u, a (added), pos }` | Bookmarks are Chrome's (BookmarkModel). A node's sync key is its Chrome UUID, or, for a bookmark synced before 0.2.20, its old id (`bm-…`, kept on Chrome's node as meta info `ac_sync_key`); every Mac makes an old key the node `bookmarkUuidFor` gives it, so Macs on either version name a bookmark alike (no renames, no duplicates; tested). Favicons stay local. A node whose folder was deleted elsewhere lands in Other Bookmarks; a cycle from two concurrent moves is broken the same way on every Mac (tested). Nothing is published or applied until the tree has been read from Chrome |
 | `h:<url>` | profile | `{ t, n (visits), vt (last 50 visit times) }` for pages visited in the last 90 days | History is Chrome's (HistoryService). Applying a record adds the visits Chrome lacks; a local edit is a visit the record doesn't have, so Macs settle on the union of their visits (tested). Not deletions: older history (it stays on the Mac that has it and is dropped from snapshots), Chrome's 90-day expiry, URLs past the newest 5,000 the app reads, and pages Chrome doesn't keep (`ardia://`) |
 | `tabs:<device id>` | profile | `{ n (device name), tabs: [{ u, t }] }`: that device's 30 most recent open tabs | only its device writes it. It feeds the overflow menu's "Your Devices" |
-| `pin:t:<tab id>`, `pin:g:<group id>` | profile | pinned tabs `{ g, u, t, i, ti, pos }` and pinned groups `{ n, i, c, pos }` (Dia's pinned container) | they arrive as unloaded tiles in the window showing the profile and load when selected; when no window shows the profile they join its parked pins. A pinned group's members always live in the group's window, and sync never moves a tab between two open windows: a pin synced into a parked group is parked with it, a parked member joins a group open in a window, a group whose member is open in another window moves to that page's window (the mirror then gives the profile's other windows unloaded copies), and a member open in a third window stays there as a regular tab while the group gets an unloaded copy. A key resolves to the profile's pinned tab or pinned-group member; only when there is none does it fall back to a regular tab that still carries the key (a pin unpinned on this Mac, kept open), preferring one with a page, so another Mac's re-pin takes that page back instead of adding a second tab. A tab sync pins as a tile or row leaves any regular group it was in, as pinning it here would. A member whose pinned group has a tombstone (unpinned or deleted elsewhere) becomes a standalone pin, even if a regular group with that id is still here; one whose group has no record yet (its batch hasn't arrived) shows as a standalone pin meanwhile, its record keeps that group and position while local edits to its other fields (a rename, a new icon) still publish, and it joins the group when the group arrives. A missing group counts as not arrived only when this Mac never had it, has no record of it, and first saw the wait less than 45 days ago, by its own clock (the deadline is saved with the session). Past it the member publishes as a standalone pin, checked on every sync, so an idle Mac gets there too (tested). A tombstone removes only what is still in the pinned container: a group or tab this Mac already kept as regular stays. Pinning, unpinning into or out of a pinned group, moving a tab between tiles, rows and groups, re-pinning a group or moving a pin to another profile records a pending placement choice (`pinChoices`, like the row choices), so the next sync republishes that record with a fresh timestamp even when its value is unchanged and a later explicit choice outranks an older edit still in transit. A member's or pin's URL and title follow the page only on a real local change. Each copy of a pin (a window's tab, or the parked copy) has a baseline: the page it showed when the record was last applied, or when the copy last published. The copy being published sends its page only when it differs from its own baseline, and its baseline moves once that's on disk. So two Macs with different pages loaded don't overwrite each other forever, and going back to an earlier page still syncs (tested). A copy new since then (reopened from parking, a new window's mirror) takes its page as its baseline when that matches another copy's, since it came from it. The baselines and the group a member waits for live in `pinSync`, a side table by profile and pin key saved with the session and pruned like `pinChoices`, so parking, reopening, mirroring and relaunching keep them. Unpinning on one Mac removes the tile on the others. A record's key is matched only to that profile's tabs and groups: when the id is already another profile's tab or group on this Mac (a pin moved between profiles), the pin gets a new local id with the key kept as `pinKey`, so neither profile's records touch the other's pin |
+| `pin:t:<tab id>`, `pin:g:<group id>` | profile | pinned tabs `{ g, u, t, i, ti, pos }` and pinned groups `{ n, i, c, pos }` (Dia's pinned container) | they arrive as unloaded tiles in the window showing the profile and load when selected; when no window shows the profile they join its parked pins. A pinned group's members always live in the group's window, and sync never moves a tab between two open windows: a pin synced into a parked group is parked with it, a parked member joins a group open in a window, a group whose member is open in another window moves to that page's window (the mirror then gives the profile's other windows unloaded copies), and a member open in a third window stays there as a regular tab while the group gets an unloaded copy. A key resolves to the profile's pinned tab or pinned-group member; only when there is none does it fall back to a regular tab that still carries the key (a pin unpinned on this Mac, kept open), preferring one with a page, so another Mac's re-pin takes that page back instead of adding a second tab. A tab sync pins as a tile or row leaves any regular group it was in, as pinning it here would. A member whose pinned group has a tombstone (unpinned or deleted elsewhere) becomes a standalone pin, even if a regular group with that id is still here; one whose group has no record yet (its batch hasn't arrived) shows as a standalone pin meanwhile, its record keeps that group and position while local edits to its other fields (a rename, a new icon) still publish, and it joins the group when the group arrives. A missing group counts as not arrived only when this Mac never had it, has no record of it, and first saw the wait less than 180 days ago, by its own clock (the deadline is saved with the session). That's as long as a late log can still be delivered (Compaction). Past it the member publishes as a standalone pin, checked on every sync, so an idle Mac gets there too (tested). A tombstone removes only what is still in the pinned container: a group or tab this Mac already kept as regular stays. Pinning, unpinning into or out of a pinned group, moving a tab between tiles, rows and groups, re-pinning a group or moving a pin to another profile records a pending placement choice (`pinChoices`, like the row choices), so the next sync republishes that record with a fresh timestamp even when its value is unchanged and a later explicit choice outranks an older edit still in transit. A member's or pin's URL and title follow the page only on a real local change. Each copy of a pin (a window's tab, or the parked copy) has a baseline: the page it showed when the record was last applied, or when the copy last published. The copy being published sends its page only when it differs from its own baseline, and its baseline moves once that's on disk. So two Macs with different pages loaded don't overwrite each other forever, and going back to an earlier page still syncs (tested). A copy new since then (reopened from parking, a new window's mirror) takes its page as its baseline when that matches another copy's, since it came from it. The baselines and the group a member waits for live in `pinSync`, a side table by profile and pin key saved with the session and pruned like `pinChoices`, so parking, reopening, mirroring and relaunching keep them. Unpinning on one Mac removes the tile on the others. A record's key is matched only to that profile's tabs and groups: when the id is already another profile's tab or group on this Mac (a pin moved between profiles), the pin gets a new local id with the key kept as `pinKey`, so neither profile's records touch the other's pin |
 | `pinrow:<tab id>` | profile | `1` for a pinned tab shown as a row, `0` for one this Mac chose as a tile | Rows are pinned tabs: their `pin:t:` record is the same as a tile's (order included), so a Mac on a version before rows shows them as tiles, and since it never writes `pinrow:` keys its edits can't turn a row into a tile. A Mac publishes `0` for a tile once it has seen a mark for it. Each tile or row the user chooses there (pins it, or moves it between tiles and rows) is a pending choice kept per profile and pin key (`pinChoices`, saved with the session, so closing windows, parking and mirroring can't lose it); the next sync republishes its mark with a fresh timestamp even when the value is unchanged (unless that mark is already queued in the scope's outbox or journal), and drops the choice only once that batch is on disk, so a later choice outranks an older mark still in transit and survives a crash. A pin moved to another profile takes a new choice there, and the source keeps its own while a window there (or the parked set) still has the pin; a choice goes when its pin is unpinned or its profile deleted (also when loading a session, which also raises the generation counter above every loaded choice); a tile it only received publishes nothing, and a mark for a tab it has never had is never deleted. A mark that arrives before its tab is applied when the tab's `pin:t:` record lands, also when that tab is still open there from before an unpin. Unpinning deletes the mark (the rows adapter runs before `pin:`, so it still sees the tab's `pin:t:` record). A tab unpinned on an older Mac leaves its mark behind, unused unless that tab id is pinned again |
 | `pw:<origin>\n<username>` | profile | `{ o, u, p }` | see below |
 
@@ -315,10 +356,13 @@ bookmark, settings, profile or group edit, and on Sync Now. A cycle:
   - `swift test`: 5 tests. BIP39 reference vectors; tampering and truncation are detected; the
     wrong phrase opens nothing; the folder holds no plaintext in names or contents; deleting one
     chain leaves another.
-  - `node --test`: 9 tests. Concurrent edits converge in any order; deletes, re-adds and
+  - `node --test`: 15 tests. Concurrent edits converge in any order; deletes, re-adds and
     edit-after-delete; clock skew; late, out-of-order and half-copied files; an edit during a read;
-    an old snapshot put back after its tombstones were collected; a tombstone kept past its age
-    limit while an older log is missing, for twice the limit at most; a write that fails before or
+    an old snapshot put back after its tombstones were collected; a Mac joining from a snapshot
+    keeps its gaps; a log 91 days late; tombstones collected once every Mac has them, a Mac that
+    only reads included; retirement after 180 days of silence; a retired Mac coming back; an older
+    Mac (the shipped 0.2.38 scope, `src/fixtures`) that drops a tombstone and brings the record
+    back, and one whose snapshot leaves a tombstone out; a write that fails before or
     after the file lands; 40 randomized three-device runs with flaky delivery, compaction and crashes.
 - `pnpm --filter @ardia/browser test` runs `src/sync/adapters.test.mjs` (4 tests against the real
   store: delete versus add, concurrent moves that would make a cycle, parked pinned tabs, passwords
