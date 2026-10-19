@@ -417,6 +417,39 @@ test("a tab kept open after an unpin and pinned again as a row elsewhere comes b
   assert.deepEqual(rowsOf(a).rows, ["https://docs.example/"], "and A keeps its row");
 });
 
+test("a mirrored row kept open after a local unpin is the tab another Mac's re-pin takes back", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  let x;
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    x = S().newTab(w, { url: "https://docs.example/" });
+    S().pinTabs([x], true, true);
+  });
+  let b1;
+  b.with(() => (b1 = S().createWindow({ url: "https://b-home.example/" })));
+  await syncAll([a, b]);
+  b.with(() => {
+    const b2 = S().createWindow({ url: "https://b-two.example/" });
+    const copy = S().windows[b2].tabIds.find((id) => S().tabs[id].pinnedUrl === "https://docs.example/");
+    assert.ok(copy && S().tabs[copy].pinKey, "B's second window has its own copy of the row");
+    S().activate(copy);
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], navigation: { url: "https://docs.example/", seq: 1 } } } }));
+    S().closeWindow(b1);
+    S().pinTabs([copy], false);
+  });
+  await syncAll([b, a]);
+  assert.deepEqual(rowsOf(a), { tiles: [], rows: [] }, "A sees the unpin");
+  await later();
+  a.with(() => S().pinTabs([tabAt("https://docs.example/")], true, true));
+  await syncAll([a, b, a, b]);
+  const docs = b.with(() => Object.values(S().tabs).filter((t) => t.url === "https://docs.example/" || t.pinnedUrl === "https://docs.example/"));
+  assert.equal(docs.length, 1, "one tab for the page on B, not an unloaded row beside it");
+  assert.equal(docs[0].pinned && docs[0].pinnedAsRow, true, "and it is the row again");
+  assert.ok(docs[0].navigation, "with its page");
+});
+
 test("a row mark held up in transit doesn't undo a later choice of a tile on another Mac", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);
@@ -580,11 +613,12 @@ test("a tile choice whose journal write failed is sent once when the write is re
   assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
 });
 
-const pinnedGroupMembers = (d, profileId) =>
+const pinnedGroupMembers = (d, profileId, ordered = false) =>
   d.with(() => {
-    const live = Object.values(S().groups).filter((g) => g.pinned && g.profileId === profileId).map((g) => [g.name, g.tabIds.map((id) => S().tabs[id].url).sort()]);
+    const order = (urls) => (ordered ? urls : urls.sort());
+    const live = Object.values(S().groups).filter((g) => g.pinned && g.profileId === profileId).map((g) => [g.name, order(g.tabIds.map((id) => S().tabs[id].url))]);
     const park = S().parkedPins[profileId];
-    const parked = (park?.groups ?? []).map((g) => [g.name, park.tabs.filter((t) => t.groupId === g.id).map((t) => t.url).sort()]);
+    const parked = (park?.groups ?? []).map((g) => [g.name, order(park.tabs.filter((t) => t.groupId === g.id).map((t) => t.url))]);
     return [...live, ...parked];
   });
 
@@ -816,7 +850,14 @@ test("a pinned group whose members are open in two windows of a Mac keeps both p
   await syncAll([a, b]);
   await later();
   a.with(() => S().groupTabs([x, y], { pinned: true, name: "Team" }));
-  await syncAll([a, b, a, b]);
+  await a.sync();
+  assert.deepEqual(pinnedGroupMembers(a, "default", true), [["Team", ["https://x.example/", "https://y.example/"]]]);
+  await b.sync();
+  assert.ok(pinnedGroupMembers(b, "default", true).every(([, urls]) => urls.join() === "https://x.example/,https://y.example/"), JSON.stringify(pinnedGroupMembers(b, "default", true)));
+  assert.equal((await b.sync()).published, 0, "B sends nothing back after receiving the group");
+  assert.equal((await b.sync()).published, 0, "nor on its next sync");
+  await syncAll([a, b]);
+  assert.deepEqual(pinnedGroupMembers(a, "default", true), [["Team", ["https://x.example/", "https://y.example/"]]], "A keeps its order");
   windowsWhole(b);
   const pages = b.with(() => Object.values(S().tabs).filter((t) => t.navigation).map((t) => `${t.url}@${t.windowId === b1 ? "b1" : t.windowId === b2 ? "b2" : "?"}`).sort());
   assert.ok(pages.includes("https://x.example/@b1") && pages.includes("https://y.example/@b2"), JSON.stringify(pages));

@@ -416,12 +416,21 @@ export function pinnedAdapter(profileId: string): Adapter {
       const tabOfKey = new Map<string, string>();
       const groupOfKey = new Map<string, string>();
       const pinnedMember = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
-      for (const wid of [...scope, ...Object.keys(s.windows).filter((w) => !scope.has(w))]) {
+      const searchOrder = [...scope, ...Object.keys(s.windows).filter((w) => !scope.has(w))];
+      const kept = new Map<string, Tab>();
+      for (const wid of searchOrder) {
         for (const id of s.windows[wid]?.tabIds ?? []) {
           const t = s.tabs[id];
-          if (t?.profileId === profileId && (t.pinned || pinnedMember.has(id)) && !tabOfKey.has(pinKeyOf(t))) tabOfKey.set(pinKeyOf(t), id);
+          if (t?.profileId !== profileId) continue;
+          if (t.pinned || pinnedMember.has(id)) {
+            if (!tabOfKey.has(pinKeyOf(t))) tabOfKey.set(pinKeyOf(t), id);
+          } else if (t.pinKey) {
+            const other = kept.get(t.pinKey);
+            if (!other || (!hasPage(other) && hasPage(t))) kept.set(t.pinKey, t);
+          }
         }
       }
+      for (const [key, t] of kept) if (!tabOfKey.has(key)) tabOfKey.set(key, t.id);
       for (const g of Object.values(s.groups)) if (g.profileId === profileId && scope.has(g.windowId) && !groupOfKey.has(pinKeyOf(g))) groupOfKey.set(pinKeyOf(g), g.id);
       const keyOfLocal = new Map<string, string>();
       const local = (ofKey: Map<string, string>, taken: (id: string) => boolean, key: string) => {
@@ -505,6 +514,7 @@ export function pinnedAdapter(profileId: string): Adapter {
         groups[g.id] = { ...g, tabIds: wanted };
       }
       for (const g of Object.values(groups)) if (g.profileId === profileId && !g.tabIds.length) delete groups[g.id];
+      const copied = new Map<string, string>();
       for (const g of Object.values(groups)) {
         if (g.profileId !== profileId || !g.pinned) continue;
         const real = (w: string) => w !== PARK && !!windows[w];
@@ -530,12 +540,13 @@ export function pinnedAdapter(profileId: string): Adapter {
             tabs[id] = { ...t, pinKey: undefined };
             windows[windowId] = { ...windows[windowId]!, tabIds: [...windows[windowId]!.tabIds, copy.id] };
             tabIds.push(copy.id);
+            copied.set(id, copy.id);
           }
         }
         groups[g.id] = { ...g, windowId, tabIds };
       }
 
-      const sequence = [...tileOrder, ...groupOrder.flatMap((g) => memberOrder.get(g) ?? [])];
+      const sequence = [...tileOrder, ...groupOrder.flatMap((g) => memberOrder.get(g) ?? [])].map((id) => copied.get(id) ?? id);
       const rank = new Map(sequence.map((id, i) => [id, i]));
       for (const w of Object.values(windows)) {
         if (w.incognito) continue;
