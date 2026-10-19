@@ -309,6 +309,8 @@ def profile_lines(status: dict, removed: bool = False) -> tuple[list[str], bool]
             lines.append(f"{name}: error {result['error']}")
         elif result.get("disabled"):
             lines.append(f"{name}: turned off in Extensions, so the scripts don't run there")
+        elif result.get("removed"):
+            lines.append(f"{name}: removed")
         elif result.get("ok"):
             lines.append(f"{name}: {'removed' if removed else 'loaded'}")
         else:

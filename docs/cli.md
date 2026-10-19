@@ -137,7 +137,7 @@ The data dir is `--data-dir`, else `$ARDIA_DATA_DIR`, else `~/Library/Applicatio
    repaired by the next install or uninstall. `extension/generation` holds the same number. A bumped generation with
    no `extension/` means every script was uninstalled.
 5. It drops the lock, then polls `Scripts/status.json` for up to 10 s: `{"generation": N, "profiles": {"<profile>":
-   {"ok": true} | {"error": "…"} | {"disabled": true}}}`. With `extension/` gone, `ok` reads as "removed". Exit 0 when every profile loaded or is turned off, 1 on any
+   {"ok": true} | {"error": "…"} | {"disabled": true} | {"removed": true}}}`; `removed` means no scripts are left and the extension is gone from that profile. Exit 0 when every profile loaded or is turned off, 1 on any
    error, 3 when Ardia didn't report in 10 s (the outcome is unknown; it may still be loading), and 0 with "loads on
    its next launch" when Ardia quit or turned control off while it waited. A newer generation in `status.json` means
    another change replaced this one, and its result is printed.
