@@ -243,8 +243,8 @@ export const deviceName = () => SyncNative?.deviceName() ?? "This Mac";
 
 const inTodaysNames = (adapter: Adapter): Adapter => ({
   ...adapter,
-  apply: (visible, changed, base, known) =>
-    adapter.apply(new Map([...visible].map(([key, value]) => [key, fromLegacy(value)])), changed, (key) => fromLegacy(base(key)), known),
+  apply: (visible, changed, base, records) =>
+    adapter.apply(new Map([...visible].map(([key, value]) => [key, fromLegacy(value)])), changed, (key) => fromLegacy(base(key)), records),
 });
 
 function appAdapters(retiring: boolean): Adapter[] {

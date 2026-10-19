@@ -73,15 +73,15 @@ export type Extraction = {
   published?: (keys: Set<string>) => void;
 };
 
+export type ApplyRecords = {
+  age(key: string): number | undefined;
+  horizon: number;
+};
+
 export interface Adapter {
   prefix: string;
   extract(base: (key: string) => unknown, queued: (key: string) => boolean): Extraction | null | Promise<Extraction | null>;
-  apply(
-    visible: Map<string, unknown>,
-    changed: Set<string>,
-    base: (key: string) => unknown,
-    known: (key: string) => boolean,
-  ): boolean | void | Promise<boolean | void>;
+  apply(visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown, records: ApplyRecords): boolean | void | Promise<boolean | void>;
   editedAt?(value: unknown): number | undefined;
   adoptRemoteOnJoin?: boolean;
 }
@@ -312,13 +312,14 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   return changed;
 }
 
-async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>): Promise<boolean> {
+async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>, now: number, horizon: number): Promise<boolean> {
   const mine = new Set([...keys].filter((k) => k.startsWith(adapter.prefix)));
   if (!mine.size) return true;
   const view = visible(state, adapter.prefix);
   let ok: boolean | void = false;
   try {
-    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), (key) => key in state.records);
+    const age = (key: string) => (key in state.records ? now - hlcWall(state.records[key]!.h) : undefined);
+    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { age, horizon });
   } catch (error) {
     console.warn(`[sync] applying ${adapter.prefix} failed`, error);
   }
@@ -386,7 +387,7 @@ export async function syncScope(args: {
     const late = await publishAdapter(state, adapter, clock, device);
     published += late.size;
     for (const key of late) keys.delete(key);
-    if (!(await applyAdapter(state, adapter, keys))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
+    if (!(await applyAdapter(state, adapter, keys, now(), options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
   }
   state.unapplied = [...unapplied, ...[...keys].filter((k) => !adapters.some((a) => k.startsWith(a.prefix)))];
   if (!state.awaitRemote || Object.keys(state.seen).some((d) => d !== device)) {

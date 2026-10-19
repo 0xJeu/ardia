@@ -4,7 +4,7 @@ import { changedIds } from "./changes";
 import { createGroupsSlice, type GroupsSlice } from "./groups";
 import { createHistorySlice, type HistorySlice } from "./history";
 import { IDLE_LIVE, isIncognitoProfile, pinnedFirst } from "./model";
-import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, livePinChoices, notePinChoices, type OrganizeSlice } from "./organize";
+import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, livePinTable, notePinChoices, type OrganizeSlice } from "./organize";
 import { mirrorPins } from "./pinMirror";
 import { createProfilesSlice, DEFAULT_PROFILE, engineIdOf, type ProfilesSlice } from "./profiles";
 import { createSettingsSlice, DEFAULT_SETTINGS, type SettingsSlice } from "./settings";
@@ -43,6 +43,7 @@ export type HydrateData = Partial<
     | "closedWindows"
     | "parkedPins"
     | "pinChoices"
+    | "pinSync"
     | "closedGroups"
     | "deletedGroups"
     | "cleanedTabs"
@@ -150,6 +151,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       closedWindows: data.closedWindows ?? [],
       parkedPins: Object.fromEntries(Object.entries(data.parkedPins ?? {}).filter(([p]) => profiles[p])),
       pinChoices: Object.fromEntries(Object.entries(data.pinChoices ?? {}).filter(([p]) => profiles[p])),
+      pinSync: Object.fromEntries(Object.entries(data.pinSync ?? {}).filter(([p]) => profiles[p])),
       closedGroups: data.closedGroups ?? [],
       deletedGroups: keptDeletedGroups(data.deletedGroups ?? []),
       cleanedTabs: (data.cleanedTabs ?? []).filter((c) => !isIncognitoProfile(c.tab.profileId)),
@@ -181,9 +183,10 @@ useBrowser.subscribe((s, prev) => {
 });
 
 useBrowser.subscribe((s, prev) => {
-  if (s.pinChoices === prev.pinChoices && s.tabs === prev.tabs && s.groups === prev.groups && s.parkedPins === prev.parkedPins && s.profiles === prev.profiles) return;
-  const live = livePinChoices(s);
-  if (live !== s.pinChoices) useBrowser.setState({ pinChoices: live });
+  if (s.pinChoices === prev.pinChoices && s.pinSync === prev.pinSync && s.tabs === prev.tabs && s.groups === prev.groups && s.parkedPins === prev.parkedPins && s.profiles === prev.profiles) return;
+  const pinChoices = livePinTable(s.pinChoices, s);
+  const pinSync = livePinTable(s.pinSync, s);
+  if (pinChoices !== s.pinChoices || pinSync !== s.pinSync) useBrowser.setState({ pinChoices, pinSync });
 });
 
 let mirroring = 0;

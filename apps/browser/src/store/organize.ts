@@ -26,9 +26,12 @@ export function notePinChoices(choices: PinChoices) {
   for (const mine of Object.values(choices)) for (const n of Object.values(mine)) if (n > lastPinChoice) lastPinChoice = n;
 }
 
-export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" | "tabs" | "groups" | "parkedPins">): PinChoices {
-  const profiles = Object.keys(s.pinChoices);
-  if (!profiles.length) return s.pinChoices;
+export type PinSyncEntry = { u?: string[]; ti?: string[]; g?: string };
+export type PinSync = Record<string, Record<string, PinSyncEntry>>;
+
+export function livePinTable<T>(table: Record<string, Record<string, T>>, s: Pick<BrowserState, "profiles" | "tabs" | "groups" | "parkedPins">): Record<string, Record<string, T>> {
+  const profiles = Object.keys(table);
+  if (!profiles.length) return table;
   const pinned = new Map<string, Set<string>>();
   const add = (profileId: string, key: string) => {
     let keys = pinned.get(profileId);
@@ -47,21 +50,22 @@ export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" |
     for (const g of park.groups) add(profileId, groupChoiceKey(g.id));
   }
   let changed = false;
-  const out: PinChoices = {};
+  const out: Record<string, Record<string, T>> = {};
   for (const profileId of profiles) {
-    const mine = s.pinChoices[profileId]!;
+    const mine = table[profileId]!;
     const keys = s.profiles[profileId] ? pinned.get(profileId) : undefined;
     const kept = Object.fromEntries(Object.entries(mine).filter(([key]) => keys?.has(key)));
     const n = Object.keys(kept).length;
     if (!n || n !== Object.keys(mine).length) changed = true;
-    if (n) out[profileId] = n === Object.keys(mine).length ? mine : kept;
+    if (n) out[profileId] = n === Object.keys(mine).length ? mine : (kept as Record<string, T>);
   }
-  return changed ? out : s.pinChoices;
+  return changed ? out : table;
 }
 
 export type OrganizeSlice = {
   selection: Record<string, string[]>;
   pinChoices: PinChoices;
+  pinSync: PinSync;
   cleanedTabs: ClosedTab[];
   privateCleanedTabs: Record<string, ClosedTab[]>;
   privateSiteMutes: Record<string, Record<string, boolean>>;
@@ -429,6 +433,7 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
 
   const tabs = { ...s.tabs };
   let chosen: Record<string, number> | null = null;
+  let pinSync = s.pinSync;
   const pinnedGroupOf = (id: string) => Object.values(s.groups).find((g) => g.pinned && g.tabIds.includes(id))?.id ?? null;
   const intoPinnedGroup = target?.pinned ? target.id : null;
   for (const id of moving) {
@@ -437,8 +442,13 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
     const row = p.pinned && (p.row ?? (t.pinned && !!t.pinnedAsRow));
     const placed = t.pinned !== p.pinned || (!p.pinned && pinnedGroupOf(id) !== intoPinnedGroup);
     if (placed || !!t.pinnedAsRow !== row) {
-      const { pinnedAsRow: _, awaitingGroup: __, ...rest } = tabs[id]!;
-      tabs[id] = { ...rest, ...(row ? { pinnedAsRow: true as const } : {}), ...(placed || !t.awaitingGroup ? {} : { awaitingGroup: t.awaitingGroup }) };
+      const { pinnedAsRow: _, ...rest } = tabs[id]!;
+      tabs[id] = row ? { ...rest, pinnedAsRow: true } : rest;
+      const entry = placed ? pinSync[t.profileId]?.[t.pinKey ?? t.id] : undefined;
+      if (entry?.g) {
+        const { g: __, ...kept } = entry;
+        pinSync = { ...pinSync, [t.profileId]: { ...pinSync[t.profileId], [t.pinKey ?? t.id]: kept } };
+      }
       if ((p.pinned || intoPinnedGroup) && !isIncognitoProfile(t.profileId)) {
         chosen ??= { ...s.pinChoices[t.profileId] };
         if (p.pinned) chosen[t.pinKey ?? t.id] = nextPinChoice();
@@ -468,7 +478,7 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
   tabIds = orderSections(tabIds, tabs, groups);
   const window: BrowserWindow = { ...w, tabIds };
   const pinChoices = chosen ? { ...s.pinChoices, [first.profileId]: chosen } : s.pinChoices;
-  return { ...s, tabs, pinChoices, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } };
+  return { ...s, tabs, pinChoices, pinSync, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } };
 }
 
 export function forgetClosedPrivateWindows(s: BrowserState): Partial<BrowserState> | null {
@@ -482,6 +492,7 @@ export function forgetClosedPrivateWindows(s: BrowserState): Partial<BrowserStat
 export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSlice> = (set, get) => ({
   selection: {},
   pinChoices: {},
+  pinSync: {},
   cleanedTabs: [],
   privateCleanedTabs: {},
   privateSiteMutes: {},

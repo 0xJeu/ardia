@@ -39,7 +39,7 @@ const DOCS: Doc[] = [
   },
   {
     name: "session.json",
-    sources: (s) => [s.profiles, s.profileOrder, s.orphanedProfileData, s.windows, s.windowOrder, s.tabs, s.groups, s.splits, s.closedTabs, s.closedWindows, s.parkedPins, s.pinChoices, s.settings, s.ui.focusedWindowId, s.ui.lastProfileId, s.ui.appDark, s.closedGroups, s.deletedGroups, s.cleanedTabs],
+    sources: (s) => [s.profiles, s.profileOrder, s.orphanedProfileData, s.windows, s.windowOrder, s.tabs, s.groups, s.splits, s.closedTabs, s.closedWindows, s.parkedPins, s.pinChoices, s.pinSync, s.settings, s.ui.focusedWindowId, s.ui.lastProfileId, s.ui.appDark, s.closedGroups, s.deletedGroups, s.cleanedTabs],
     json: serialized((s) => {
       const windows = Object.values(s.windows).filter((w) => !w.incognito && w.kind !== "small").map(({ chromeWindow: _c, ...w }) => w);
       const kept = new Set(windows.map((w) => w.id));
@@ -64,6 +64,7 @@ const DOCS: Doc[] = [
         closedWindows: s.closedWindows.filter((c) => c.tabs.every(publicTab)),
         parkedPins: Object.fromEntries(Object.entries(s.parkedPins).filter(([profileId]) => publicTab({ profileId }))),
         pinChoices: Object.fromEntries(Object.entries(s.pinChoices).filter(([profileId]) => publicTab({ profileId }))),
+        pinSync: Object.fromEntries(Object.entries(s.pinSync).filter(([profileId]) => publicTab({ profileId }))),
         closedGroups: s.closedGroups.filter((c) => c.tabs.every(publicTab)),
         deletedGroups: s.deletedGroups.filter((c) => c.tabs.every(publicTab)),
         cleanedTabs: s.cleanedTabs.filter((c) => publicTab(c.tab)),
@@ -109,6 +110,7 @@ type SessionV2 = {
   closedWindows: BrowserState["closedWindows"];
   parkedPins?: BrowserState["parkedPins"];
   pinChoices?: BrowserState["pinChoices"];
+  pinSync?: BrowserState["pinSync"];
   closedGroups?: BrowserState["closedGroups"];
   deletedGroups?: BrowserState["deletedGroups"];
   cleanedTabs?: BrowserState["cleanedTabs"];
@@ -140,6 +142,7 @@ export function loadSession(): HydrateData | null {
     closedWindows: session.closedWindows,
     parkedPins: session.parkedPins ?? {},
     pinChoices: session.pinChoices ?? {},
+    pinSync: session.pinSync ?? {},
     closedGroups: session.closedGroups ?? [],
     deletedGroups: session.deletedGroups ?? [],
     cleanedTabs: session.cleanedTabs ?? [],
