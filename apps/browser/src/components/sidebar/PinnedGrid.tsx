@@ -23,6 +23,7 @@ import { useSidebarTokens } from "./tokens";
 
 const SELECTION_STROKE = 3;
 const GLASS_RIM = 1;
+const TILE_SPACING = { marginRight: TILE_GAP };
 
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth }: { tabs: string[]; innerWidth: number }) {
   const controller = useDragController();
@@ -161,7 +162,7 @@ const PinnedTile = memo(function PinnedTile({ tabId, width }: { tabId: string; w
   const radius = 10;
 
   return (
-    <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
+    <Animated.View ref={wrapper.ref} style={[TILE_SPACING, wrapper.style]} {...handle}>
       <View
         ref={(v) => registerRow(windowId, tabId, v)}
         {...hoverProps}

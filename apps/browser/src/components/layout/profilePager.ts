@@ -55,6 +55,8 @@ class ProfilePager {
   };
 
   private selectExternal(profileId: string, order: string[]) {
+    const index = order.indexOf(profileId);
+    if (index >= 0) this.pos.setValue(index);
     const generation = ++this.externalGeneration;
     this.external = generation;
     const done = (ok: boolean) => {

@@ -513,7 +513,7 @@ export function useDragItem(key: string, spec: ItemSpec, selection: () => string
   const tailOffset = useMemo(() => item && Animated.add(item.gap, -ROW_GAP), [item]);
   const style = item
     ? {
-        ...(horizontal ? { marginRight: TILE_GAP } : { marginTop: spec.kind === "tail" ? tailOffset! : item.gap }),
+        ...(horizontal ? null : { marginTop: spec.kind === "tail" ? tailOffset! : item.gap }),
         ...(source
           ? horizontal
             ? {
