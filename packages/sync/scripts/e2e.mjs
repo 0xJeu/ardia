@@ -77,6 +77,8 @@ async function state(name) {
       history: (s.history.default || []).map((h) => h.url).sort(),
       settings: { appearance: s.settings.appearance, searchEngine: s.settings.searchEngine, showFullUrl: s.settings.showFullUrl, cleanUp: s.settings.cleanUpInactiveTabsAfterHours },
       pinned: Object.values(s.tabs).filter((t) => t.pinned).map((t) => t.pinnedUrl || t.url).sort(),
+      rows: Object.values(s.tabs).filter((t) => t.pinned && t.pinnedAsRow).map((t) => t.pinnedUrl || t.url).sort(),
+      groups: Object.values(s.groups).filter((g) => g.pinned).map((g) => g.name + ": " + g.tabIds.map((id) => s.tabs[id].url).join(", ")).sort(),
       unloadedPins: Object.values(s.tabs).filter((t) => t.pinned && t.unloaded).length,
       passwords: (pw || []).map((p) => p.origin + " " + p.username + "=" + p.password).sort(),
       chromePasswords: ((list && list.passwords) || []).map((p) => p.origin + " " + p.username).sort(),
@@ -88,7 +90,7 @@ async function state(name) {
   `,
   );
 }
-const data = (x) => ({ bookmarks: x.bookmarks, history: x.history, settings: x.settings, pinned: x.pinned, passwords: x.passwords });
+const data = (x) => ({ bookmarks: x.bookmarks, history: x.history, settings: x.settings, pinned: x.pinned, rows: x.rows, groups: x.groups, passwords: x.passwords });
 const same = (a, b) => JSON.stringify(data(a)) === JSON.stringify(data(b));
 const text = (x) => JSON.stringify(x);
 
@@ -211,6 +213,8 @@ try {
     s.updateSettings({ appearance: "light", cleanUpInactiveTabsAfterHours: null });
     const w = ac.store.getState().windowOrder[0];
     ac.store.getState().pinTabs([s.newTab(w, { url: "${W}/beta.html?nne2e=pin2" })], true);
+    ac.store.getState().pinTabs([s.newTab(w, { url: "${W}/row.html?nne2e=row1" })], true, true);
+    ac.store.getState().groupTabs([s.newTab(w, { url: "${W}/member.html?nne2e=grp1" })], { pinned: true, name: "ACE2E Pinned Group" });
     return true;`,
   );
   await ev("A", savePassword("https://nne2e-mail.example", "nne2e-carol", "ACE2E-mail-from-A"));
@@ -219,6 +223,13 @@ try {
   check("A's move, folder delete and new bookmark reach B", text(b.bookmarks).includes("ACE2E Second from A") && !text(b.bookmarks).includes("ACE2E Folder"), text(b.bookmarks));
   check("A's new pinned tab and settings reach B", b.pinned.some((u) => u.includes("pin2")) && b.settings.appearance === "light" && b.settings.cleanUp === null, text(b.settings));
   check("A's new password reaches B", b.passwords.some((p) => p.includes("ACE2E-mail-from-A")));
+  check("A's new row arrives as a row and its tiles stay tiles", text(b.rows) === text([`${W}/row.html?nne2e=row1`]) && b.pinned.filter((u) => !b.rows.includes(u)).some((u) => u.includes("pin2")), text({ pinned: b.pinned, rows: b.rows }));
+  check("A's pinned group arrives with its member", text(b.groups) === text([`ACE2E Pinned Group: ${W}/member.html?nne2e=grp1`]), text(b.groups));
+
+  await ev("A", `const s = ac.store.getState(); s.pinTabs(Object.values(s.tabs).filter((t) => t.pinned && (t.pinnedUrl || t.url).includes("pin2")).map((t) => t.id), false); return true;`);
+  await sync("A", "B", "A", "B");
+  b = await state("B");
+  check("A's unpinned tab leaves B's pinned tabs", !b.pinned.some((u) => u.includes("pin2")) && b.rows.length === 1 && b.groups.length === 1, text({ pinned: b.pinned, rows: b.rows, groups: b.groups }));
 
   await ev("A", `const s = ac.store.getState(); s.updateBookmark(Object.values(s.bookmarks.nodes).find((n) => n.title === "ACE2E Beta Renamed on B").id, { title: "ACE2E Concurrent A" }); s.updateSettings({ searchEngine: "bing" }); return true;`);
   await ev("A", savePassword("https://nne2e-bank.example", "nne2e-alice", "ACE2E-concurrent-A"));
@@ -264,6 +275,27 @@ try {
   check("every file is padded to 1 KiB steps", files.filter((f) => f.endsWith(".nns")).every((f) => (fs.statSync(f).size - 32) % 1024 === 0));
   const local = ["A", "B"].flatMap((n) => ["sync.json", "sync-state.nns", "sync-journal.nns"].map((f) => `${DEV[n].dir}/${f}`)).filter((f) => fs.existsSync(f));
   check("this Mac's own sync state holds no plaintext password", local.every((f) => !fs.readFileSync(f).includes("ACE2E-concurrent-B")));
+
+  await apps.B.quit();
+  delete apps.B;
+  await ev(
+    "A",
+    `
+    const s = ac.store.getState();
+    s.addBookmark({ profileId: "default", url: "${W}/alpha.html?nne2e=whileQuit", title: "ACE2E Made While B Was Quit" });
+    s.removeBookmark(Object.values(s.bookmarks.nodes).find((n) => n.title === "ACE2E Second from A").id);
+    s.placeTabs(Object.values(s.tabs).filter((t) => t.pinned && t.pinnedAsRow).map((t) => t.id), { pinned: true, row: false });
+    const g = Object.values(s.groups).find((x) => x.pinned && x.name === "ACE2E Pinned Group");
+    s.updateGroup(g.id, { name: "ACE2E Group Renamed", color: "green" });
+    return true;`,
+  );
+  await sync("A");
+  await sleep(5000);
+  await start("B");
+  await sync("B", "A", "B");
+  [a, b] = [await state("A"), await state("B")];
+  check("B, quit and relaunched, catches up: a new and a deleted bookmark, a row made a tile, a renamed group", text(b.bookmarks).includes("Made While B Was Quit") && !text(b.bookmarks).includes("ACE2E Second from A") && b.rows.length === 0 && b.pinned.some((u) => u.includes("row1")) && text(b.groups).includes("ACE2E Group Renamed"), text(data(b)));
+  check("A and B converge after B's relaunch", same(a, b), text({ a: data(a), b: data(b) }));
 
   await start("C");
   await ev("C", `ac.store.getState().newTab(ac.store.getState().windowOrder[0], { url: "${W}/openc.html?nne2e=tabC" }); return true`);
