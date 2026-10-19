@@ -19,7 +19,9 @@
 // (acperf postscroll: phases, then momentum events, at 120 events/s unless the case says 90 or 60; wheel is 12 notches
 // 90 ms apart), so they take AppKit's and Chrome's own path (RenderWidgetHostViewMac, the renderer's
 // InputHandlerProxy);
-// keys are CDP key events (3 Page Down, then a held Down arrow; a hidden instance's page never has the key window's
+// track/hold presses the mouse on a scroller's scrollbar track below its thumb for 3 s without moving it (acperf
+// postmouse), so the scrollbar pages on with no further input events. panes has two panes kept in step by a scroll
+// handler that also dirties layout, so each frame has two scroll events with layout dirty between them. keys are CDP key events (3 Page Down, then a held Down arrow; a hidden instance's page never has the key window's
 // focus for posted keys), so they skip AppKit: Battery Saver's input hold, which watches NSEvents, doesn't see them.
 // Each gesture starts from the top, 1.5 s after the last.
 // idle is no input for 3 s on a page that draws in rAF (what a video or an idle animation costs).
@@ -72,6 +74,8 @@ const CASES = [
   { id: "reveal/trackpad", page: "reveal", src: "trackpad" },
   { id: "inner/trackpad", page: "inner", src: "trackpad" },
   { id: "nonpassive/trackpad", page: "nonpassive", src: "trackpad" },
+  { id: "track/hold", page: "track", src: "trackhold" },
+  { id: "panes/trackpad", page: "panes", src: "trackpad" },
 ];
 
 if (opt.help || (!opt.list && (!opt.out || !opt.arm.length))) {
@@ -108,6 +112,11 @@ const PAGES = {
     `<script>const io=new IntersectionObserver(es=>es.forEach(e=>e.target.classList.toggle("in",e.isIntersecting)),{rootMargin:"0px 0px -10% 0px"});document.querySelectorAll(".r").forEach(e=>io.observe(e));</script>`,
   inner: () => head("inner", "body{max-width:none;padding:0}#s{position:absolute;inset:20px;overflow:auto;border:1px solid #ccc}#s>div{max-width:720px;margin:0 auto}#hdr{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:6px}") +
     `<div id=s data-scroller><div><div id=hdr>Inner <span id=pos></span></div>${filler(120)}</div></div><script>const s=document.getElementById("s"),pos=document.getElementById("pos");s.addEventListener("scroll",()=>{pos.textContent=s.scrollTop|0});</script>`,
+  track: () => head("track", "body{max-width:none;padding:0}#s{position:fixed;left:0;top:0;width:50vw;height:100vh;overflow-y:scroll}#s::-webkit-scrollbar{width:16px;background:#eee}#s::-webkit-scrollbar-thumb{background:#888}#s>div{padding:0 24px}") +
+    `<div id=s data-scroller><div>${filler(200)}</div></div><canvas id=c width=200 height=100 style="position:fixed;right:12px;bottom:12px"></canvas><script>const cx=c.getContext("2d");function d(){const y=s.scrollTop;cx.clearRect(0,0,200,100);cx.fillStyle="hsl("+(y/4%360)+",70%,50%)";cx.fillRect(0,0,200,100);requestAnimationFrame(d)}requestAnimationFrame(d)</script>`,
+  panes: () => head("panes", "body{max-width:none;padding:0}.p{position:fixed;top:0;height:100vh;overflow-y:scroll}#a{left:0;width:60vw}#b{left:60vw;width:40vw}.p>div{padding:0 24px}#mark{height:4px;background:#e33}") +
+    `<div id=a class=p data-scroller><div><div id=mark></div>${filler(120)}</div></div><div id=b class=p><div>${filler(120)}</div></div>` +
+    `<script>const a=document.getElementById("a"),b=document.getElementById("b"),mark=document.getElementById("mark");a.addEventListener("scroll",()=>{b.scrollTop=a.scrollTop;mark.style.width=(a.scrollTop%100)+"%"});</script>`,
   nonpassive: () => head("nonpassive") + filler(120) + `<script>let n=0;addEventListener("wheel",e=>{n++;if(e.deltaY===12345)e.preventDefault()},{passive:false});</script>`,
 };
 
@@ -310,6 +319,10 @@ try {
             const now0 = await d.eval(`(__probe.start(${!c.noRaf}), performance.mark(${JSON.stringify(mark)}), performance.now())`);
             if (c.src === "idle") await sleep(3000);
             else if (c.src === "keys") await keys(d);
+            else if (c.src === "trackhold") {
+              const p = spawnSync(acperf, ["postmouse", String(inst.pid), String(w.id), String(at.x - 8), String(at.y), String(w.b.X), String(w.b.Y), "3000"], { encoding: "utf8", timeout: 20000 });
+              if (p.status !== 0) throw new Error(`acperf postmouse: ${p.stderr}`);
+            }
             else {
               const p = spawnSync(acperf, ["postscroll", String(inst.pid), String(w.id), String(at.x), String(at.y), String(w.b.X), String(w.b.Y), c.src, String(c.rate ?? 120)], { encoding: "utf8", timeout: 20000 });
               if (p.status !== 0) throw new Error(`acperf postscroll: ${p.stderr}`);

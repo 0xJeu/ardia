@@ -253,7 +253,27 @@ case "postscroll":
     exit(64)
   }
   printJSON(["events": events, "ms": Int((Date().timeIntervalSince1970 - start) * 1000)])
+case "postmouse":
+  guard args.count >= 9, let pid = pid_t(args[2]), pid > 1, let window = Int64(args[3]), let x = Double(args[4]), let y = Double(args[5]),
+        let windowX = Double(args[6]), let windowY = Double(args[7]), let holdMs = Double(args[8]) else {
+    FileHandle.standardError.write("usage: acperf postmouse <pid> <window id> <x> <y> <window x> <window y> <hold ms> [left|middle]\n".data(using: .utf8)!)
+    exit(64)
+  }
+  let middle = args.count > 9 && args[9] == "middle"
+  typealias SetWindowLocation = @convention(c) (CGEvent, CGPoint) -> Void
+  let setWindowLocation = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventSetWindowLocation").map { unsafeBitCast($0, to: SetWindowLocation.self) }
+  func click(_ type: CGEventType) {
+    guard let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: CGPoint(x: x, y: y), mouseButton: middle ? .center : .left) else { return }
+    event.setIntegerValueField(.mouseEventClickState, value: 1)
+    event.setIntegerValueField(CGEventField(rawValue: 51)!, value: window)
+    setWindowLocation?(event, CGPoint(x: x - windowX, y: y - windowY))
+    event.postToPid(pid)
+  }
+  click(middle ? .otherMouseDown : .leftMouseDown)
+  usleep(useconds_t(holdMs * 1000))
+  click(middle ? .otherMouseUp : .leftMouseUp)
+  printJSON(["heldMs": holdMs])
 default:
-  FileHandle.standardError.write("usage: acperf rusage <pid>... | windows <pid> | quit <pid> | waitwindow <pid> <secs> | newwindow <pid> <secs> | input <pid> <secs> | postkeys <pid> <gap ms> <spec>... | postscroll <pid> <window id> <x> <y> <window x> <window y> <gesture> [events/s]\n".data(using: .utf8)!)
+  FileHandle.standardError.write("usage: acperf rusage <pid>... | windows <pid> | quit <pid> | waitwindow <pid> <secs> | newwindow <pid> <secs> | input <pid> <secs> | postkeys <pid> <gap ms> <spec>... | postscroll <pid> <window id> <x> <y> <window x> <window y> <gesture> [events/s] | postmouse <pid> <window id> <x> <y> <window x> <window y> <hold ms> [left|middle]\n".data(using: .utf8)!)
   exit(64)
 }
