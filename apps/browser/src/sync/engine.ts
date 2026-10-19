@@ -1,11 +1,9 @@
 import { readDocument, saveDocument, writeDocument } from "@ardia/shell";
 import {
   Clock,
-  baseDevice,
   emptyScope,
   folderTransport,
   restoreJournal,
-  scopeDevice,
   syncScope,
   SyncNative,
   visible,
@@ -164,17 +162,15 @@ async function loadState() {
   journalOnDisk = Object.keys(journal).length > 0;
   const clock = new Clock(doc.deviceId ?? "", doc.clock);
   for (const scope of new Set([...Object.keys(doc.seqs ?? {}), ...Object.keys(journal)])) {
-    const state = (scopes[scope] ??= emptyScope());
-    const mine = (journal[scope] ?? []).filter((f) => f.device === scopeDevice(state, doc.deviceId ?? ""));
-    restoreJournal(state, mine, clock, doc.seqs?.[scope]);
+    const mine = (journal[scope] ?? []).filter((f) => f.device === doc.deviceId);
+    restoreJournal((scopes[scope] ??= emptyScope()), mine, clock, doc.seqs?.[scope]);
   }
   if (doc.deviceId && Object.keys(journal).length) doc.clock = clock.last;
   doc.scopes = scopes;
 }
 
 const persistJournal = (scope: string) => async (batches: LogFile[]) => {
-  const device = batches[0]?.device;
-  const list = (journal[scope] = (journal[scope] ?? []).filter((f) => f.device === device));
+  const list = (journal[scope] ??= []);
   for (const file of batches) if (!list.some((f) => f.seq === file.seq)) list.push(file);
   const sealed = await SyncNative!.sealLocal(JSON.stringify({ journal }));
   await saveDocument(JOURNAL, sealed);
@@ -399,7 +395,7 @@ function summarize(): Pick<SyncUi, "devices" | "remoteTabs" | "remoteProfiles"> 
   if (!app) return { devices: [], remoteTabs: {}, remoteProfiles: [] };
   const lastSeen = new Map<string, number>();
   for (const scope of Object.values(doc.scopes)) {
-    for (const [device, at] of Object.entries(scope.seen)) lastSeen.set(baseDevice(device), Math.max(at, lastSeen.get(baseDevice(device)) ?? 0));
+    for (const [device, at] of Object.entries(scope.seen)) lastSeen.set(device, Math.max(at, lastSeen.get(device) ?? 0));
   }
   const names = new Map([...visible(app, "dev:")].map(([k, v]) => [k.slice(4), (v as DeviceRecord).n]));
   const devices: SyncedDevice[] = [...names].map(([id, name]) => ({ id, name, lastSeen: lastSeen.get(id) ?? null, current: id === doc.deviceId }));

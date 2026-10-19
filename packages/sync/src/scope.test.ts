@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Clock } from "./hlc.ts";
-import * as shipped from "./fixtures/scope-v0.2.38.ts";
 import { compact, emptyScope, restoreJournal, syncScope, type Adapter, type Listing, type LogFile, type ScopeOptions, type ScopeState, type Transport } from "./scope.ts";
 
 type Entry = { payload: string; hiddenFrom: Set<string>; partialFor: Set<string>; at: number };
@@ -53,16 +52,11 @@ class Device {
   readonly id: string;
   readonly folder: Folder;
   readonly options: ScopeOptions;
-  readonly shipped: boolean;
-  constructor(id: string, folder: Folder, options: ScopeOptions = {}, isShipped = false) {
+  constructor(id: string, folder: Folder, options: ScopeOptions = {}) {
     this.id = id;
     this.folder = folder;
     this.options = options;
-    this.shipped = isShipped;
     this.clock = new Clock(id, null, () => this.time());
-  }
-  compact() {
-    return (this.shipped ? shipped.compact : compact)(this.state, this.folder.transport(this.id), "s", this.id, this.time(), { pruneGrace: 0, ...this.options }, true);
   }
   time() {
     return this.folder.now + this.offset;
@@ -104,7 +98,7 @@ class Device {
         return listing;
       },
     };
-    return ((this.shipped ? shipped.syncScope : syncScope) as typeof syncScope)({
+    return syncScope({
       scope: "s",
       state: this.state,
       transport,
@@ -333,162 +327,44 @@ test("an old snapshot put back after its tombstones were collected doesn't bring
   assert.deepEqual(snapshot(c), snapshot(a));
 });
 
-const day = 86_400_000;
-const rare: ScopeOptions = { compactAfterFiles: 1000, compactInterval: 0 };
-const logsIn = (folder: Folder) => [...folder.scope("s").values()].filter((e) => e.payload.includes('"kind":"log"'));
-
-async function deleteWithFirstLogLate(folder: Folder, lateFor: string[]) {
-  const a = new Device("devA", folder, rare);
+test("a tombstone outlives its age limit while an older log is still missing", async () => {
+  const folder = new Folder();
+  const day = 86_400_000;
+  const opts: ScopeOptions = { compactAfterFiles: 1000, compactInterval: 0, tombstoneTTL: 7 * day };
+  const a = new Device("devA", folder, opts);
+  const b = new Device("devB", folder, opts);
   a.store.set("x:gone", "old");
   await a.sync();
-  const first = logsIn(folder).find((e) => e.payload.includes('"old"'))!;
-  for (const id of lateFor) first.hiddenFrom.add(id);
   a.store.delete("x:gone");
   await a.sync();
-  return { a, first };
-}
-
-test("a Mac that joins from a snapshot keeps its gaps, so a late log can't bring a deletion back", async () => {
-  const folder = new Folder();
-  const { first } = await deleteWithFirstLogLate(folder, ["devB", "devC"]);
-  const b = new Device("devB", folder, rare);
+  const [first] = [...folder.scope("s").values()];
+  first!.hiddenFrom.add("devB");
   await b.sync();
   assert.deepEqual(b.state.extra.devA, [2]);
-  folder.now += 46 * day;
-  await b.compact();
-  for (const e of logsIn(folder)) e.hiddenFrom.add("devC");
-  const c = new Device("devC", folder, rare);
-  await c.sync();
-  assert.deepEqual(c.state.extra.devA, [2], "the gap comes with the snapshot");
-  await c.compact();
-  for (const e of folder.scope("s").values()) e.hiddenFrom.clear();
-  await syncAll([c, b]);
-  assert.equal(c.store.has("x:gone"), false, "C");
-  assert.equal(b.store.has("x:gone"), false, "B");
-});
-
-test("a log that turns up 91 days late can't bring a deletion back either", async () => {
-  const folder = new Folder();
-  const { first } = await deleteWithFirstLogLate(folder, ["devB"]);
-  const b = new Device("devB", folder, rare);
-  await b.sync();
-  folder.now += 91 * day;
-  await b.compact();
+  folder.now += 8 * day;
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
   assert.equal(b.state.records["x:gone"]?.v, null, "kept while log 1 is missing");
-  first.hiddenFrom.clear();
+  first!.hiddenFrom.clear();
   await b.sync();
   assert.equal(b.store.has("x:gone"), false);
-});
+  assert.equal(b.state.vv.devA, 2);
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:gone"], undefined, "collected once nothing is missing");
 
-test("tombstones are collected once every Mac has them, and a Mac that only reads still counts", async () => {
-  const folder = new Folder();
-  const a = new Device("devA", folder, rare);
-  const b = new Device("devB", folder, rare);
-  const c = new Device("devC", folder, rare);
-  a.store.set("x:gone", "old");
-  await syncAll([a, b, c]);
-  a.store.delete("x:gone");
-  await syncAll([a, b]);
-  folder.now += 46 * day;
-  await syncAll([a, b]);
-  for (const d of [a, b]) await d.compact();
-  assert.equal(a.state.records["x:gone"]?.v, null, "C hasn't seen the deletion yet");
-  await syncAll([c, a, b]);
-  folder.now += day;
-  await syncAll([c, a, b]);
-  for (const d of [a, b, c]) await d.compact();
-  for (const d of [a, b, c]) assert.equal(d.state.records["x:gone"], undefined, `${d.id} collected it`);
-  for (const d of [a, b, c]) assert.equal(d.store.has("x:gone"), false);
-});
-
-test("a Mac silent for 180 days is retired: its gaps and logs stop holding anything, and its late logs are ignored", async () => {
-  const folder = new Folder();
-  const a = new Device("gapA", folder, rare);
-  const b = new Device("gapB", folder, rare);
-  for (let i = 0; i <= 100; i++) {
-    a.store.set("x:counter", i);
-    await a.sync();
-  }
-  const first = logsIn(folder)[0]!;
-  first.hiddenFrom.add("gapB");
-  await b.sync();
-  assert.equal(b.state.extra.gapA?.length, 100);
-  folder.now += 200 * day;
-  await b.compact();
-  assert.ok(b.state.retired?.gapA);
-  assert.equal(b.state.extra.gapA, undefined);
-  const fromA = () => logsIn(folder).filter((e) => e.payload.includes('"gapA"')).length;
-  assert.equal(fromA(), 1, "only the log it never saw is left");
-  first.hiddenFrom.clear();
-  await b.sync();
-  assert.equal(b.store.get("x:counter"), 100, "its late first log is ignored");
-  await b.compact();
-  assert.equal(fromA(), 0);
-  assert.ok(folder.fileCount() <= 3, `${folder.fileCount()} files left`);
-});
-
-test("a retired Mac that comes back starts over from the folder and keeps syncing", async () => {
-  const folder = new Folder();
-  const a = new Device("devA", folder, rare);
-  const b = new Device("devB", folder, rare);
-  a.store.set("x:1", "a");
-  a.store.set("x:old", "kept");
-  await syncAll([a, b]);
-  a.store.set("x:1", "offline");
-  a.store.set("x:new", "made offline");
-  a.store.delete("x:old");
-  folder.now += 181 * day;
-  b.store.set("x:2", "b");
-  await b.sync();
-  await b.compact();
-  assert.ok(b.state.retired?.devA);
-  await a.sync();
-  assert.equal(a.state.epoch, 1, "it rebased");
-  await syncAll([a, b]);
-  assert.deepEqual(snapshot(a), { "x:1": "a", "x:2": "b", "x:old": "kept" }, "edits made while retired are dropped");
-  assert.deepEqual(snapshot(b), snapshot(a));
-  a.store.set("x:3", "after");
-  await syncAll([a, b]);
-  assert.equal(b.store.get("x:3"), "after");
-  const sent = [await a.sync(), await b.sync()].reduce((n, r) => n + r.published, 0);
-  assert.equal(sent, 0, "nothing more is sent");
-});
-
-test("a deletion an older Mac collected and then brought back is put back", async () => {
-  const folder = new Folder();
-  const { first } = await deleteWithFirstLogLate(folder, ["devB", "old"]);
-  const b = new Device("devB", folder, rare);
-  const old = new Device("old", folder, rare, true);
-  await b.sync();
-  await old.sync();
-  folder.now += 46 * day;
-  await old.compact();
-  first.hiddenFrom.delete("old");
-  await old.sync();
-  assert.equal(old.store.get("x:gone"), "old", "the older Mac brought it back");
-  await old.compact();
-  const c = new Device("devC", folder, rare);
-  await syncAll([b, c, old], 3);
-  for (const d of [b, c, old]) assert.equal(d.store.has("x:gone"), false, d.id);
-});
-
-test("an older Mac's snapshot can't make a newer one drop a tombstone it still needs", async () => {
-  const folder = new Folder();
-  const { first } = await deleteWithFirstLogLate(folder, ["devB", "devC"]);
-  const b = new Device("devB", folder, rare);
-  const old = new Device("old", folder, rare, true);
-  await old.sync();
-  await b.sync();
-  folder.now += 46 * day;
-  await old.compact();
-  await b.sync();
-  assert.equal(b.state.records["x:gone"]?.v, null, "B keeps its tombstone");
-  const c = new Device("devC", folder, rare);
+  const c = new Device("devC", folder, opts);
+  c.store.set("x:lost", "old");
   await c.sync();
-  first.hiddenFrom.clear();
-  await syncAll([b, c]);
-  assert.equal(b.store.has("x:gone"), false, "B");
-  assert.equal(c.store.has("x:gone"), false, "C");
+  c.store.delete("x:lost");
+  await c.sync();
+  const lost = [...folder.scope("s").values()].find((e) => e.payload.includes('"devC"') && e.payload.includes('"old"'))!;
+  lost.hiddenFrom.add("devB");
+  await b.sync();
+  folder.now += 8 * day;
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:lost"]?.v, null);
+  folder.now += 7 * day;
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:lost"], undefined, "a log that never shows up holds tombstones for twice the limit at most");
 });
 
 test("a failed write is retried as the same batch, even when the file did land", async () => {
