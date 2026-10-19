@@ -327,6 +327,46 @@ test("an old snapshot put back after its tombstones were collected doesn't bring
   assert.deepEqual(snapshot(c), snapshot(a));
 });
 
+test("a tombstone outlives its age limit while an older log is still missing", async () => {
+  const folder = new Folder();
+  const day = 86_400_000;
+  const opts: ScopeOptions = { compactAfterFiles: 1000, compactInterval: 0, tombstoneTTL: 7 * day };
+  const a = new Device("devA", folder, opts);
+  const b = new Device("devB", folder, opts);
+  a.store.set("x:gone", "old");
+  await a.sync();
+  a.store.delete("x:gone");
+  await a.sync();
+  const [first] = [...folder.scope("s").values()];
+  first!.hiddenFrom.add("devB");
+  await b.sync();
+  assert.deepEqual(b.state.extra.devA, [2]);
+  folder.now += 8 * day;
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:gone"]?.v, null, "kept while log 1 is missing");
+  first!.hiddenFrom.clear();
+  await b.sync();
+  assert.equal(b.store.has("x:gone"), false);
+  assert.equal(b.state.vv.devA, 2);
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:gone"], undefined, "collected once nothing is missing");
+
+  const c = new Device("devC", folder, opts);
+  c.store.set("x:lost", "old");
+  await c.sync();
+  c.store.delete("x:lost");
+  await c.sync();
+  const lost = [...folder.scope("s").values()].find((e) => e.payload.includes('"devC"') && e.payload.includes('"old"'))!;
+  lost.hiddenFrom.add("devB");
+  await b.sync();
+  folder.now += 8 * day;
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:lost"]?.v, null);
+  folder.now += 7 * day;
+  await compact(b.state, folder.transport("devB"), "s", "devB", folder.now, opts, true);
+  assert.equal(b.state.records["x:lost"], undefined, "a log that never shows up holds tombstones for twice the limit at most");
+});
+
 test("a failed write is retried as the same batch, even when the file did land", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);

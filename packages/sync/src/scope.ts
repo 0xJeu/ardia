@@ -338,8 +338,9 @@ export async function compact(state: ScopeState, transport: Transport, scope: st
   if (!force && (count <= o.compactAfterFiles || now - newestSnapshot < o.compactInterval)) return false;
   await flush(state, transport, scope, device, now, options);
   const records: Record<string, SyncRecord> = {};
+  const tombstoneTTL = Object.keys(state.extra).length ? 2 * o.tombstoneTTL : o.tombstoneTTL;
   for (const [key, record] of Object.entries(state.records)) {
-    const drop = record.v === null ? now - hlcWall(record.h) > o.tombstoneTTL : o.expired(key, record.v, now);
+    const drop = record.v === null ? now - hlcWall(record.h) > tombstoneTTL : o.expired(key, record.v, now);
     if (drop) delete state.records[key];
     else records[key] = record;
   }

@@ -179,6 +179,10 @@ Each scope holds a replica: `key → { h: HLC, v: value | null, o: [device, seq]
   logs `(d, s)` with `s ≤ vv[d]`, and snapshots whose `vv` it dominates.
 - **Why that's safe.** A snapshot is self-contained, so any device can start from it, and
   concurrent compactions only remove files covered by their own snapshot.
+- **Missing logs keep tombstones.** While a replica is missing a log that a later one from the
+  same device skipped past (its version vector has a gap), compaction keeps tombstones up to
+  90 days instead of 45, since that log could hold an older write that would otherwise come
+  back. A log that never shows up holds them for 90 days at most (tested).
 - **Collected tombstones.** A device that missed a deletion whose tombstone has since been
   collected still learns of it. Applying a snapshot drops every local record whose origin file
   the snapshot covers but which the snapshot doesn't contain (`ingestSnapshot`). A log a snapshot
@@ -311,9 +315,10 @@ bookmark, settings, profile or group edit, and on Sync Now. A cycle:
   - `swift test`: 5 tests. BIP39 reference vectors; tampering and truncation are detected; the
     wrong phrase opens nothing; the folder holds no plaintext in names or contents; deleting one
     chain leaves another.
-  - `node --test`: 8 tests. Concurrent edits converge in any order; deletes, re-adds and
+  - `node --test`: 9 tests. Concurrent edits converge in any order; deletes, re-adds and
     edit-after-delete; clock skew; late, out-of-order and half-copied files; an edit during a read;
-    an old snapshot put back after its tombstones were collected; a write that fails before or
+    an old snapshot put back after its tombstones were collected; a tombstone kept past its age
+    limit while an older log is missing, for twice the limit at most; a write that fails before or
     after the file lands; 40 randomized three-device runs with flaky delivery, compaction and crashes.
 - `pnpm --filter @ardia/browser test` runs `src/sync/adapters.test.mjs` (4 tests against the real
   store: delete versus add, concurrent moves that would make a cycle, parked pinned tabs, passwords
