@@ -54,7 +54,7 @@ run gh release upload "$stable_tag" -R "$repo" --clobber "$dist/appcast.xml"
 
 [ "$dry" = 1 ] && { echo "dry run: nothing published"; exit 0; }
 status=0
-for _ in 1 2 3 4 5 6; do
+for _ in $(seq 1 18); do
   feed="$(curl -fsSL --max-time 20 "$feed_url" 2>/dev/null || true)"
   grep -q "<sparkle:shortVersionString>$version<" <<<"$feed" && break
   sleep 10
