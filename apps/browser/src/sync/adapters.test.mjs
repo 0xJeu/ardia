@@ -57,7 +57,7 @@ class Device {
     const run = (scope, list, options) =>
       syncScope({
         scope,
-        state: this.scopes[scope],
+        state: (this.scopes[scope] ??= emptyScope()),
         transport: this.folder.transport(),
         adapters: list,
         clock: this.clock,
@@ -67,7 +67,7 @@ class Device {
     try {
       const app = await run("app", [adapters.settingsAdapter]);
       const p = await run(
-        "p",
+        profileId === "default" ? "p" : `p:${profileId}`,
         [
           ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId)]),
           adapters.pinnedAdapter(profileId),
@@ -578,6 +578,70 @@ test("a tile choice whose journal write failed is sent once when the write is re
   folder.hidden.clear();
   await syncAll([b, a, b, a]);
   assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
+});
+
+const withWork = (d) =>
+  d.with(() =>
+    useBrowser.setState((s) => ({
+      profiles: { ...s.profiles, work: { id: "work", name: "Work", color: "blue", icon: null, createdAt: 1 } },
+      profileOrder: [...s.profileOrder, "work"],
+      historyReady: { ...s.historyReady, work: true },
+      bookmarksReady: { ...s.bookmarksReady, work: true },
+    })),
+  );
+const pinsIn = (d, profileId) => d.with(() => Object.values(S().tabs).filter((t) => t.pinned && t.profileId === profileId).map((t) => `${t.pinnedUrl}${t.pinnedAsRow ? " row" : ""}`).sort());
+
+test("a pin moved to another profile keeps its key there without touching the other profile's pin of the same key", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  withWork(a);
+  withWork(b);
+  let x;
+  a.with(() => {
+    const w1 = S().createWindow({ url: "https://docs.example/" });
+    x = S().windows[w1].tabIds[0];
+    S().pinTabs([x], true, true);
+    S().createWindow({ url: "https://home.example/" });
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.deepEqual(pinsIn(b, "default"), ["https://docs.example/ row"]);
+  a.with(() => S().moveTabToProfile(x, "work"));
+  assert.deepEqual(pinsIn(a, "default"), ["https://docs.example/ row"], "A's other Personal window keeps its pin");
+  assert.deepEqual(pinsIn(a, "work"), ["https://docs.example/ row"]);
+  for (const d of [a, b, b, a]) await d.sync("work");
+  for (const d of [a, b]) await d.sync();
+  assert.deepEqual({ a: pinsIn(a, "work"), b: pinsIn(b, "work") }, { a: ["https://docs.example/ row"], b: ["https://docs.example/ row"] }, "B gets the Work pin and doesn't delete A's");
+  assert.deepEqual(pinsIn(b, "default"), ["https://docs.example/ row"], "B's Personal pin is untouched");
+  assert.deepEqual(pinsIn(a, "default"), ["https://docs.example/ row"]);
+  assert.equal((await b.sync("work")).published + (await a.sync("work")).published, 0, "settled");
+});
+
+test("a pinned group whose key is another profile's group there lands as its own group", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  withWork(a);
+  withWork(b);
+  let g, docs;
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    docs = S().newTab(w, { url: "https://docs.example/" });
+    g = S().groupTabs([docs], { pinned: true, name: "Docs" });
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  const groupsIn = (d, profileId) => d.with(() => Object.values(S().groups).filter((x) => x.pinned && x.profileId === profileId).map((x) => `${x.name}:${x.tabIds.map((id) => S().tabs[id].url).join(",")}`));
+  assert.deepEqual(groupsIn(b, "default"), ["Docs:https://docs.example/"]);
+  a.with(() => useBrowser.setState((s) => ({
+    groups: { ...s.groups, [g]: { ...s.groups[g], profileId: "work" } },
+    tabs: { ...s.tabs, [docs]: { ...s.tabs[docs], profileId: "work" } },
+  })));
+  for (const d of [a, b, b, a]) await d.sync("work");
+  assert.deepEqual({ a: groupsIn(a, "work"), b: groupsIn(b, "work") }, { a: ["Docs:https://docs.example/"], b: ["Docs:https://docs.example/"] });
+  assert.deepEqual(groupsIn(b, "default"), ["Docs:https://docs.example/"], "B's Personal group is untouched");
+  assert.equal((await b.sync("work")).published + (await a.sync("work")).published, 0, "settled");
 });
 
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {

@@ -4,7 +4,7 @@ import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../store/bookmarks
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { orderSections, syncGroupOrder } from "../store/groups";
-import { engineProfile, makeTab, pinnedFirst, without } from "../store/model";
+import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/model";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
@@ -412,8 +412,18 @@ export function pinnedAdapter(profileId: string): Adapter {
       const groupOfKey = new Map<string, string>();
       for (const wid of scope) for (const id of s.windows[wid]?.tabIds ?? []) if (s.tabs[id]?.profileId === profileId && !tabOfKey.has(pinKeyOf(s.tabs[id]!))) tabOfKey.set(pinKeyOf(s.tabs[id]!), id);
       for (const g of Object.values(s.groups)) if (g.profileId === profileId && scope.has(g.windowId) && !groupOfKey.has(pinKeyOf(g))) groupOfKey.set(pinKeyOf(g), g.id);
-      const tid = (key: string) => tabOfKey.get(key) ?? key;
-      const gid = (key: string) => groupOfKey.get(key) ?? key;
+      const keyOfLocal = new Map<string, string>();
+      const local = (ofKey: Map<string, string>, taken: (id: string) => boolean, key: string) => {
+        const known = ofKey.get(key);
+        if (known) return known;
+        const id = taken(key) ? newId("tab") : key;
+        ofKey.set(key, id);
+        if (id !== key) keyOfLocal.set(id, key);
+        return id;
+      };
+      const tid = (key: string) => local(tabOfKey, (id) => !!s.tabs[id] && s.tabs[id]!.profileId !== profileId, key);
+      const gid = (key: string) => local(groupOfKey, (id) => !!s.groups[id] && s.groups[id]!.profileId !== profileId, key);
+      const pinKeyField = (id: string) => (keyOfLocal.has(id) ? { pinKey: keyOfLocal.get(id)! } : {});
       const pins = new Map<string, PinValue>();
       const groupValues = new Map<string, PinGroupValue>();
       for (const [k, v] of visible) {
@@ -445,7 +455,7 @@ export function pinnedAdapter(profileId: string): Adapter {
         const old = groups[id];
         groups[id] = old
           ? { ...old, name: v.n, icon: v.i, color: v.c, pinned: true }
-          : { id, windowId: home.id, profileId, name: v.n, icon: v.i, color: v.c, collapsed: false, pinned: true, tabIds: [], createdAt: Date.now() };
+          : { id, ...pinKeyField(id), windowId: home.id, profileId, name: v.n, icon: v.i, color: v.c, collapsed: false, pinned: true, tabIds: [], createdAt: Date.now() };
       }
       for (const [id, v] of pins) {
         const group = v.g && groups[v.g] ? groups[v.g]! : null;
@@ -468,8 +478,9 @@ export function pinnedAdapter(profileId: string): Adapter {
         const tab: Tab = {
           ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
           id,
+          ...pinKeyField(id),
           pinnedUrl: group ? null : v.u,
-          ...(!group && marked(id) ? { pinnedAsRow: true as const } : {}),
+          ...(!group && marked(keyOfLocal.get(id) ?? id) ? { pinnedAsRow: true as const } : {}),
           navigation: null,
           unloaded: true,
         };
