@@ -81,13 +81,11 @@ export function KpiTile({ kpi, buckets, color, compareLabel, source }: { kpi: Kp
   const scrubValue = scrub === null ? null : kpi.spark[scrub];
   return (
     <Card className="relative gap-0 overflow-hidden py-0 shadow-none">
-      <div className="flex items-center justify-between gap-2 px-4 pt-3.5">
-        <span className="label-mono min-w-0 truncate text-muted-foreground">{kpi.label}</span>
-        <span className="flex shrink-0 items-center gap-1.5">
-        <SourceBadges source={source} />
+      <div className="flex items-start justify-between gap-2 px-4 pt-3.5">
+        <span className="label-mono min-w-0 text-muted-foreground">{kpi.label}</span>
         <Tooltip delayDuration={100}>
           <TooltipTrigger asChild>
-            <button type="button" className="rounded-full text-muted-foreground/60 hover:text-foreground" aria-label={`About ${kpi.label}`}>
+            <button type="button" className="mt-px shrink-0 rounded-full text-muted-foreground/60 hover:text-foreground" aria-label={`About ${kpi.label}`}>
               <Info className="size-3.5" />
             </button>
           </TooltipTrigger>
@@ -95,23 +93,25 @@ export function KpiTile({ kpi, buckets, color, compareLabel, source }: { kpi: Kp
             {kpi.hint}
           </TooltipContent>
         </Tooltip>
-        </span>
       </div>
-      <div className="flex min-h-[3.25rem] items-end gap-2 px-4 pt-1">
+      <div className="flex min-h-[3.25rem] items-start gap-2 px-4 pt-1.5">
         {scrubValue !== null && scrubValue !== undefined ? (
-          <div className="grid">
+          <div className="grid min-w-0">
             <span className="text-[1.7rem] leading-none font-semibold tracking-[-0.02em] tnum">{fmt(scrubValue)}</span>
             <span className="mt-1 text-[11px] text-muted-foreground">{formatBucket(sparkBuckets[scrub!] ?? 0, kpi.sparkStep)}</span>
           </div>
         ) : (
-          <div className="grid">
+          <div className="grid min-w-0">
             <span className="text-[1.7rem] leading-none font-semibold tracking-[-0.02em]">{kpi.display ?? fmt(kpi.value)}</span>
-            <span className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
               <Delta value={kpi.value} previous={kpi.previous} format={kpi.format} goodWhenUp={kpi.goodWhenUp} />
               {kpi.previous !== null ? <span className="truncate">vs {fmt(kpi.previous)} {compareLabel}</span> : <span>&nbsp;</span>}
             </span>
           </div>
         )}
+      </div>
+      <div className="flex flex-wrap gap-1 px-4 pt-2">
+        <SourceBadges source={source} />
       </div>
       <SparkChart data={kpi.spark} color={color} height={46} onScrub={setScrub} className="mt-2" label={`${kpi.label} trend`} />
     </Card>
@@ -127,6 +127,7 @@ export function KpiTileSkeleton() {
       <div className="grid gap-2 px-4 pt-3">
         <Skeleton className="h-7 w-20" />
         <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-[18px] w-16" />
       </div>
       <Skeleton className="mx-0 mt-3 h-[46px] rounded-none opacity-50" />
     </Card>
