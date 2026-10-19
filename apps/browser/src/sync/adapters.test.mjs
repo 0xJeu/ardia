@@ -580,6 +580,14 @@ test("a tile choice whose journal write failed is sent once when the write is re
   assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
 });
 
+const pinnedGroupMembers = (d, profileId) =>
+  d.with(() => {
+    const live = Object.values(S().groups).filter((g) => g.pinned && g.profileId === profileId).map((g) => [g.name, g.tabIds.map((id) => S().tabs[id].url).sort()]);
+    const park = S().parkedPins[profileId];
+    const parked = (park?.groups ?? []).map((g) => [g.name, park.tabs.filter((t) => t.groupId === g.id).map((t) => t.url).sort()]);
+    return [...live, ...parked];
+  });
+
 const withWork = (d) =>
   d.with(() =>
     useBrowser.setState((s) => ({
@@ -589,7 +597,13 @@ const withWork = (d) =>
       bookmarksReady: { ...s.bookmarksReady, work: true },
     })),
   );
-const pinsIn = (d, profileId) => d.with(() => Object.values(S().tabs).filter((t) => t.pinned && t.profileId === profileId).map((t) => `${t.pinnedUrl}${t.pinnedAsRow ? " row" : ""}`).sort());
+const pinsIn = (d, profileId) =>
+  d.with(() =>
+    [
+      ...Object.values(S().tabs).filter((t) => t.pinned && t.profileId === profileId),
+      ...(S().parkedPins[profileId]?.tabs ?? []).filter((t) => !t.groupId),
+    ].map((t) => `${t.pinnedUrl}${t.pinnedAsRow ? " row" : ""}`).sort(),
+  );
 
 test("a pin moved to another profile keeps its key there without touching the other profile's pin of the same key", async () => {
   const folder = new Folder();
@@ -632,7 +646,7 @@ test("a pinned group whose key is another profile's group there lands as its own
   });
   b.with(() => S().createWindow({ url: "https://b-home.example/" }));
   await syncAll([a, b]);
-  const groupsIn = (d, profileId) => d.with(() => Object.values(S().groups).filter((x) => x.pinned && x.profileId === profileId).map((x) => `${x.name}:${x.tabIds.map((id) => S().tabs[id].url).join(",")}`));
+  const groupsIn = (d, profileId) => pinnedGroupMembers(d, profileId).map(([name, urls]) => `${name}:${urls.join(",")}`);
   assert.deepEqual(groupsIn(b, "default"), ["Docs:https://docs.example/"]);
   a.with(() => useBrowser.setState((s) => ({
     groups: { ...s.groups, [g]: { ...s.groups[g], profileId: "work" } },
@@ -642,6 +656,83 @@ test("a pinned group whose key is another profile's group there lands as its own
   assert.deepEqual({ a: groupsIn(a, "work"), b: groupsIn(b, "work") }, { a: ["Docs:https://docs.example/"], b: ["Docs:https://docs.example/"] });
   assert.deepEqual(groupsIn(b, "default"), ["Docs:https://docs.example/"], "B's Personal group is untouched");
   assert.equal((await b.sync("work")).published + (await a.sync("work")).published, 0, "settled");
+});
+
+for (const [parkedOn, row] of [["the receiving Mac", false], ["both Macs", false], ["the receiving Mac", true]]) {
+  test(`a ${row ? "pinned row" : "pin"} moved into a pinned group that is parked on ${parkedOn} stays in the group, and nothing is deleted`, async () => {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const b = new Device("devB", folder);
+    withWork(a);
+    withWork(b);
+    let group, aw;
+    a.with(() => {
+      aw = S().createWindow({ profileId: "work", url: "https://work-home.example/" });
+      const m1 = S().newTab(aw, { url: "https://one.example/" });
+      group = S().groupTabs([m1], { pinned: true, name: "Team" });
+      S().createWindow({ url: "https://home.example/" });
+    });
+    let bw;
+    b.with(() => {
+      bw = S().createWindow({ profileId: "work", url: "https://b-work.example/" });
+      S().createWindow({ url: "https://b-home.example/" });
+    });
+    for (const d of [a, b, a, b]) await d.sync("work");
+    assert.deepEqual(pinnedGroupMembers(b, "work"), [["Team", ["https://one.example/"]]]);
+    b.with(() => S().closeWindow(bw));
+    if (parkedOn === "both Macs") a.with(() => S().closeWindow(aw));
+    assert.ok(b.with(() => S().parkedPins.work?.groups.length), "B parked Work's group");
+    let p2;
+    a.with(() => {
+      const w = S().windowOrder.find((id) => S().windows[id].profileId === "work") ?? S().createWindow({ profileId: "work", url: "https://work-again.example/" });
+      aw = w;
+      p2 = S().newTab(w, { url: "https://two.example/" });
+      S().pinTabs([p2], true, row);
+    });
+    for (const d of [a, b, b, a]) await d.sync("work");
+    a.with(() => S().placeTabs([p2], { pinned: false, groupId: Object.values(S().groups).find((g) => g.pinned && g.profileId === "work" && g.name === "Team").id }));
+    for (const d of [a, b]) await d.sync("work");
+    assert.equal((await b.sync("work")).published, 0, "B publishes no tombstone");
+    await a.sync("work");
+    assert.deepEqual(pinnedGroupMembers(b, "work"), [["Team", ["https://one.example/", "https://two.example/"]]], "B keeps both members");
+    assert.deepEqual(pinnedGroupMembers(a, "work"), [["Team", ["https://one.example/", "https://two.example/"]]], "and so does A");
+  });
+}
+
+test("a parked pin moved into a pinned group that is live in a window joins it there", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  withWork(a);
+  withWork(b);
+  let aw, p3;
+  a.with(() => {
+    aw = S().createWindow({ profileId: "work", url: "https://work-home.example/" });
+    S().groupTabs([S().newTab(aw, { url: "https://one.example/" })], { pinned: true, name: "Team" });
+    p3 = S().newTab(aw, { url: "https://three.example/" });
+    S().pinTabs([p3], true);
+  });
+  b.with(() => S().createWindow({ profileId: "work", url: "https://b-work.example/" }));
+  for (const d of [a, b, a, b]) await d.sync("work");
+  b.with(() =>
+    useBrowser.setState((s) => {
+      const t = Object.values(s.tabs).find((x) => x.pinnedUrl === "https://three.example/");
+      const w = s.windows[t.windowId];
+      const { [t.id]: _, ...tabs } = s.tabs;
+      return {
+        tabs,
+        windows: { ...s.windows, [w.id]: { ...w, tabIds: w.tabIds.filter((id) => id !== t.id) } },
+        parkedPins: { ...s.parkedPins, work: { tabs: [{ ...model.snapshotTab(t), id: t.pinKey ?? t.id, groupId: null }], groups: [] } },
+      };
+    }),
+  );
+  a.with(() => S().placeTabs([p3], { pinned: false, groupId: Object.values(S().groups).find((g) => g.pinned && g.name === "Team").id }));
+  for (const d of [a, b]) await d.sync("work");
+  assert.equal((await b.sync("work")).published, 0, "B publishes no tombstone");
+  await a.sync("work");
+  assert.deepEqual(pinnedGroupMembers(b, "work"), [["Team", ["https://one.example/", "https://three.example/"]]]);
+  assert.deepEqual(pinnedGroupMembers(a, "work"), [["Team", ["https://one.example/", "https://three.example/"]]]);
+  assert.ok(b.with(() => { const g = Object.values(S().groups).find((x) => x.name === "Team"); return g.tabIds.every((id) => S().tabs[id].windowId === g.windowId); }), "members live in the group's window");
 });
 
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {
