@@ -54,7 +54,7 @@ export async function startRename(windowId: string, target: Target) {
   if (target.kind === "tab") {
     const tab = s.tabs[target.id];
     if (!tab) return;
-    if (tab.pinned) {
+    if (tab.pinned && !tab.pinnedAsRow) {
       const name = await prompt({
         title: "Rename Tab",
         value: tab.customTitle ?? tab.title,

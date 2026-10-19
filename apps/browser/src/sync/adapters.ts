@@ -397,7 +397,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       });
       return { values } satisfies Extraction;
     },
-    apply: (visible, changed) => {
+    apply: (visible, changed, base) => {
       let s = store();
       const home = homeWindow(s, profileId);
       if (!home) return false;
@@ -434,7 +434,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       });
       s = removeTabs(s, removable, false);
       const tabs = { ...s.tabs };
-      for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinKey: undefined };
+      for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinKey: undefined };
       let groups = { ...s.groups };
       for (const k of changed) if (k.startsWith("pin:g:") && !visible.has(k) && scope.has(groups[gid(k.slice(6))]?.windowId ?? "")) delete groups[gid(k.slice(6))];
       const windows = { ...s.windows };
@@ -454,6 +454,7 @@ export function pinnedAdapter(profileId: string): Adapter {
             ...old,
             pinned: !group,
             pinnedUrl: group ? null : v.u,
+            ...(group ? { pinnedAsRow: undefined } : {}),
             customTitle: v.t,
             customIcon: v.i,
             ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
@@ -467,6 +468,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
           id,
           pinnedUrl: group ? null : v.u,
+          ...(!group && base(`${PIN_ROW}${id}`) !== undefined ? { pinnedAsRow: true as const } : {}),
           navigation: null,
           unloaded: true,
         };
@@ -504,6 +506,73 @@ export function pinnedAdapter(profileId: string): Adapter {
       }
       const { find, splits, selection, windowOrder, windowUi } = s;
       useBrowser.setState({ tabs, windows, groups, live, find, splits, selection, windowOrder, windowUi, parkedPins });
+    },
+  };
+}
+
+const PIN_ROW = "pinrow:";
+
+export function pinnedRowsAdapter(profileId: string): Adapter {
+  const keyOf = (k: string) => k.slice(PIN_ROW.length);
+  return {
+    prefix: PIN_ROW,
+    extract: (base) => {
+      const s = store();
+      const values = new Map<string, unknown>();
+      const known = new Set<string>();
+      const home = homeWindow(s, profileId);
+      for (const w of home ? [home, ...openWindows(s).filter((w) => w.id !== home.id)] : openWindows(s)) {
+        for (const id of w.tabIds) {
+          const t = s.tabs[id];
+          if (!t?.pinned || t.profileId !== profileId || known.has(pinKeyOf(t))) continue;
+          known.add(pinKeyOf(t));
+          if (t.pinnedAsRow) values.set(`${PIN_ROW}${pinKeyOf(t)}`, 1);
+        }
+      }
+      for (const p of s.parkedPins[profileId]?.tabs ?? []) {
+        if (p.groupId || known.has(p.id)) continue;
+        known.add(p.id);
+        if (p.pinnedAsRow) values.set(`${PIN_ROW}${p.id}`, 1);
+      }
+      return { values, ignore: (k) => !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined } satisfies Extraction;
+    },
+    apply: (visible, changed, base) => {
+      const s = store();
+      const rows = new Set([...visible.keys()].map(keyOf));
+      const pos = (t: Tab | undefined) => (t ? (base(`pin:t:${pinKeyOf(t)}`) as PinValue | undefined)?.pos : undefined);
+      const touched = new Set([...changed].map(keyOf));
+      const wants = (key: string, row: boolean | undefined) => touched.has(key) && !!row !== rows.has(key);
+      const tabs = { ...s.tabs };
+      const windows = { ...s.windows };
+      let edited = false;
+      for (const w of openWindows(s)) {
+        let moved = false;
+        for (const id of w.tabIds) {
+          const t = tabs[id];
+          if (!t?.pinned || t.profileId !== profileId || !wants(pinKeyOf(t), t.pinnedAsRow)) continue;
+          tabs[id] = rows.has(pinKeyOf(t)) ? { ...t, pinnedAsRow: true } : { ...t, pinnedAsRow: undefined };
+          moved = true;
+        }
+        if (!moved) continue;
+        const ids = [...w.tabIds];
+        const slots = ids.map((id, i) => (tabs[id]?.pinned && tabs[id]!.profileId === profileId && pos(tabs[id]) !== undefined ? i : -1)).filter((i) => i >= 0);
+        const sorted = slots.map((i) => ids[i]!).sort((a, z) => (pos(tabs[a])! < pos(tabs[z])! ? -1 : pos(tabs[a])! > pos(tabs[z])! ? 1 : 0));
+        slots.forEach((slot, i) => (ids[slot] = sorted[i]!));
+        windows[w.id] = { ...w, tabIds: orderSections(pinnedFirst(ids, tabs), tabs, s.groups) };
+        edited = true;
+      }
+      const park = s.parkedPins[profileId];
+      const parked = park?.tabs.map((p) =>
+        p.groupId || !wants(p.id, p.pinnedAsRow) ? p : rows.has(p.id) ? { ...p, pinnedAsRow: true as const } : (({ pinnedAsRow: _, ...rest }) => rest)(p),
+      );
+      const parkEdited = !!park && parked!.some((p, i) => p !== park.tabs[i]);
+      if (!edited && !parkEdited) return true;
+      useBrowser.setState({
+        tabs,
+        windows,
+        ...(parkEdited ? { parkedPins: { ...s.parkedPins, [profileId]: { ...park!, tabs: parked! } } } : {}),
+      });
+      return true;
     },
   };
 }

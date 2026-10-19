@@ -274,7 +274,7 @@ type PageRowsProps = {
 
 function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, topGap, innerWidth, controller, geometry, onListHeight }: PageRowsProps) {
   const [captured] = useState(newCapture);
-  const { tiles, pinnedGroups, list: all } = useBrowser((s) => {
+  const { tiles, pinnedRows, pinnedGroups, list: all } = useBrowser((s) => {
     const entries = sidebarEntries(s, windowId, profileId);
     return capture(captured, s, entries.list, entries);
   });
@@ -300,6 +300,7 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
   const list = limit === undefined ? all : all.slice(0, limit);
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
   const divided = !offScreen && all.length > 0;
+  const pinnedSection = pinnedRows.length + pinnedGroups.length > 0;
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
   const animated = current && !offScreen;
   const motion = useListMotion(windowId, profileId, all, captured, animated);
@@ -326,19 +327,23 @@ function PageRows({ windowId, profileId, current, rows, inlineNewTab, glowRoom, 
           onLayout={geometry ? (e) => void (geometry.current.regions.pinnedGroups = e.nativeEvent.layout.y) : undefined}
           style={{ marginTop: tiles.length ? 6 : topGap, gap: layout.rowGap }}
         >
+          {(offScreen ? NONE : pinnedRows).map((id) => (
+            <TabRowItem key={id} tabId={id} section="pinnedRows" />
+          ))}
+          <Tail id="tail:pinnedRows" section="pinnedRows" />
           {(offScreen ? NONE : pinnedGroups).map((id) => (
             <GroupBlock key={id} groupId={id} section="pinnedGroups" />
           ))}
           <Tail id="tail:pinnedGroups" section="pinnedGroups" />
         </View>
-        {offScreen ? null : <LiveFolders windowId={windowId} spaced={pinnedGroups.length > 0} />}
-        {divided ? <ClearDivider windowId={windowId} spaced={pinnedGroups.length > 0} /> : null}
+        {offScreen ? null : <LiveFolders windowId={windowId} spaced={pinnedSection} />}
+        {divided ? <ClearDivider windowId={windowId} spaced={pinnedSection} /> : null}
         <View
           ref={(v) => {
             controller?.regions.set("list", v);
           }}
           onLayout={geometry ? (e) => void (geometry.current.regions.list = e.nativeEvent.layout.y) : undefined}
-          style={{ marginTop: pinnedGroups.length && !divided ? 7 : 0, gap: layout.rowGap }}
+          style={{ marginTop: pinnedSection && !divided ? 7 : 0, gap: layout.rowGap }}
         >
           {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
           {motion.fading
@@ -371,7 +376,7 @@ const ListEntry = memo(function ListEntry({ entry, motion }: { entry: string; mo
   return <TabRowItem tabId={id} section="list" motion={motion} />;
 });
 
-const Tail = memo(function Tail({ id, section }: { id: string; section: "list" | "pinnedGroups" }) {
+const Tail = memo(function Tail({ id, section }: { id: string; section: "list" | "pinnedRows" | "pinnedGroups" }) {
   const { wrapper } = useDragItem(id, { kind: "tail", tabIds: [], section });
   return <Animated.View ref={wrapper.ref} style={wrapper.style} />;
 });

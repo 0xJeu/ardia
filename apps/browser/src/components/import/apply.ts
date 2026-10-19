@@ -94,7 +94,11 @@ export function openInWebStore(profileId: string, urls: string[]) {
   urls.forEach((url, i) => useBrowser.getState().newTab(windowId, { url, profileId, background: i > 0 }));
 }
 
-export function importTabs(profileId: string, tabs: Pick<ImportedTab, "url" | "title" | "pinned" | "customTitle">[], group: string | null): number {
+export function importTabs(
+  profileId: string,
+  tabs: (Pick<ImportedTab, "url" | "title" | "pinned" | "customTitle"> & { row?: boolean })[],
+  group: string | null,
+): number {
   const usable = tabs.filter((t) => /^(https?|file):/.test(t.url));
   if (!usable.length) return 0;
   const windowId = windowFor(profileId);
@@ -107,7 +111,7 @@ export function importTabs(profileId: string, tabs: Pick<ImportedTab, "url" | "t
       profileId,
       background: true,
       pinned: t.pinned,
-      snapshot: { title: t.title, customTitle: t.customTitle ?? null },
+      snapshot: { title: t.title, customTitle: t.customTitle ?? null, ...(t.pinned && t.row ? { pinnedAsRow: true as const } : {}) },
       index: after ? s.windows[windowId]!.tabIds.indexOf(after) + 1 : undefined,
     });
     if (!id) continue;
@@ -124,7 +128,7 @@ export function importArcSpace(profileId: string, space: SpaceSuggestion, spaceN
   const folders = space.pinned.filter((n) => n.type === "folder");
   let tabs = importTabs(
     profileId,
-    links.map((n) => ({ url: n.url!, title: n.pageTitle ?? n.title, pinned: true, customTitle: n.pageTitle ? n.title : undefined })),
+    links.map((n) => ({ url: n.url!, title: n.pageTitle ?? n.title, pinned: true, row: true, customTitle: n.pageTitle ? n.title : undefined })),
     null,
   );
   tabs += importTabs(profileId, space.tabs.map((t) => ({ ...t, pinned: false })), "Imported");

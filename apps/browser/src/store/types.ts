@@ -40,6 +40,7 @@ export type Tab = {
   customTitle: string | null;
   customIcon: string | null;
   pinnedUrl: string | null;
+  pinnedAsRow?: true;
   navigation: { url: string; seq: number; userInitiated?: boolean } | null;
   adoptId?: string;
   openerId: string | null;
@@ -110,7 +111,7 @@ export type TabSnapshot = Pick<
   Tab,
   "url" | "title" | "favicon" | "pinned" | "muted" | "zoom" | "customTitle" | "customIcon" | "profileId"
 > &
-  Partial<Pick<Tab, "pinnedUrl">>;
+  Partial<Pick<Tab, "pinnedUrl" | "pinnedAsRow">>;
 
 export type ClosedTab = {
   kind: "tab";

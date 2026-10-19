@@ -8,6 +8,7 @@ import type { BrowserWindow, ClosedGroup, ClosedTab, Tab, TabGroup } from "./typ
 
 export type TabPlacement = {
   pinned: boolean;
+  row?: boolean;
   beforeId?: string | null;
   groupId?: string | null;
 };
@@ -24,7 +25,7 @@ export type OrganizeSlice = {
 
   setSelection(windowId: string, ids: string[]): void;
   placeTabs(ids: string[], placement: TabPlacement): void;
-  pinTabs(ids: string[], pinned: boolean): void;
+  pinTabs(ids: string[], pinned: boolean, row?: boolean): void;
   returnToPinnedUrl(tabId: string): void;
   setPinnedUrl(tabId: string, url?: string): void;
   setMuted(ids: string[], muted: boolean): void;
@@ -385,6 +386,11 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
   for (const id of moving) {
     const t = tabs[id]!;
     if (t.pinned !== p.pinned) tabs[id] = { ...t, pinned: p.pinned, pinnedUrl: p.pinned ? t.url || null : null };
+    const row = p.pinned && (p.row ?? (t.pinned && !!t.pinnedAsRow));
+    if (!!tabs[id]!.pinnedAsRow !== row) {
+      const { pinnedAsRow: _, ...rest } = tabs[id]!;
+      tabs[id] = row ? { ...rest, pinnedAsRow: true } : rest;
+    }
   }
   const rest = w.tabIds.filter((id) => !movingSet.has(id));
   let at: number;
@@ -392,8 +398,10 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
   else if (target) {
     const kept = target.tabIds.filter((id) => !movingSet.has(id));
     at = kept.length ? rest.indexOf(kept.at(-1)!) + 1 : Math.min(order.get(target.tabIds[0]!)!, rest.length);
-  } else if (p.pinned) at = rest.reduce((last, id, i) => (tabs[id]?.pinned ? i + 1 : last), 0);
-  else at = rest.length;
+  } else if (p.pinned) {
+    const toRow = !!tabs[moving[0]!]!.pinnedAsRow;
+    at = rest.reduce((last, id, i) => (tabs[id]?.pinned && (toRow || !tabs[id]!.pinnedAsRow) ? i + 1 : last), 0);
+  } else at = rest.length;
   rest.splice(at, 0, ...moving);
 
   let groups = leaveGroups(s.groups, movingSet);
@@ -438,14 +446,14 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     set((s) => placing(s, ids, placement));
   },
 
-  pinTabs(ids, pinned) {
+  pinTabs(ids, pinned, row) {
     const s = get();
     const first = s.tabs[ids[0] ?? ""];
     const w = first && s.windows[first.windowId];
     if (!w) return;
     const pinnedGroupMembers = new Set(Object.values(s.groups).filter((g) => g.pinned).flatMap((g) => g.tabIds));
     const beforeId = pinned ? null : w.tabIds.find((id) => !s.tabs[id]?.pinned && !pinnedGroupMembers.has(id) && !ids.includes(id));
-    set(placing(s, ids, { pinned, beforeId }));
+    set(placing(s, ids, { pinned, row, beforeId }));
   },
 
   returnToPinnedUrl(tabId) {

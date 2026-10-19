@@ -6,7 +6,9 @@ import { hex, layout, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { useIsActiveTab, usePageProfileId, useTab, useWindowId } from "../../store/hooks";
 import { HoverSlot } from "../HoverSlot";
-import { IconButton } from "../primitives";
+import { IconButton, useHover } from "../primitives";
+import { isPinnedRow } from "../../store/model";
+import { awayFromPin } from "../../store/organize";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "./actions";
 import { useDragItem, useDropOnto } from "./dnd";
 import { useShift, type EntryMotion } from "./entryMotion";
@@ -32,7 +34,7 @@ export const TabRowItem = memo(function TabRowItem({
   motion = null,
 }: {
   tabId: string;
-  section: "list" | "pinnedGroups";
+  section: "list" | "pinnedRows" | "pinnedGroups";
   parentGroup?: string;
   motion?: EntryMotion | null;
 }) {
@@ -59,8 +61,11 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const renaming = useSidebarUi((u) => u.renaming?.kind === "tab" && u.renaming.id === tabId);
   const { hovered, hoverProps } = useRowHover(windowId, renaming ? null : { kind: "tab", id: tabId });
   const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
+  const backToPin = useHover();
   if (!tab) return null;
-  const title = tabTitle(tab);
+  const resettable = isPinnedRow(tab) && awayFromPin(tab);
+  const resetting = resettable && backToPin.hovered && !renaming;
+  const title = resetting ? "Back to Pinned URL" : tabTitle(tab);
   const fill = active ? theme.tabSelected : selected ? tokens.multiSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)";
   const border = active || selected ? 0.5 : 0;
 
@@ -98,10 +103,27 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                 shadowOffset={[0, 0.5]}
                 style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9 - border, paddingRight: 6 - border }}
               >
-                <View>
-                  <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} profileId={tab.profileId} />
-                  <TabBadges tabId={tab.id} />
-                </View>
+                {resettable ? (
+                  <View {...backToPin.hoverProps}>
+                    <Pressable onPress={() => useBrowser.getState().returnToPinnedUrl(tab.id)} tooltip="Back to Pinned URL (⌘↩)">
+                      {resetting ? (
+                        <View style={{ width: 16, height: 16, alignItems: "center", justifyContent: "center" }}>
+                          <Symbol name="arrow.uturn.backward" size={11} weight="semibold" color={active ? theme.tabSelectedText : theme.textTab} style={{ width: 16, height: 16 }} />
+                        </View>
+                      ) : (
+                        <View>
+                          <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} profileId={tab.profileId} />
+                          <TabBadges tabId={tab.id} />
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View>
+                    <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} profileId={tab.profileId} />
+                    <TabBadges tabId={tab.id} />
+                  </View>
+                )}
                 {(playingAudio || tab.muted) && (
                   <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: 6 }} tooltip={tab.muted ? "Unmute Site" : "Mute Site"}>
                     <Symbol name={tab.muted ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16 }} />

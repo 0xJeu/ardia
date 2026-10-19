@@ -9,7 +9,7 @@ import {
 } from "@ardia/shell";
 import { markdownLink } from "@ardia/core";
 import { useBrowser } from "../store/browser";
-import { activeTabId, bookmarkProfileId, resolveWindowId } from "../store/model";
+import { activeTabId, bookmarkProfileId, isPinnedRow, pinSection, resolveWindowId } from "../store/model";
 import {
   closeTab,
   createProfile,
@@ -215,11 +215,13 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return id ? s.activate(id) : undefined;
     }
     case "togglePin":
-      return tab ? s.togglePin(tab.id) : undefined;
+      if (!tab) return;
+      if (arg === "row") return s.pinTabs([tab.id], true, !isPinnedRow(tab));
+      return s.togglePin(tab.id);
     case "moveTabDown":
     case "moveTabUp": {
       if (!tab) return;
-      const section = s.windows[windowId]!.tabIds.filter((id) => s.tabs[id]?.profileId === tab.profileId && !!s.tabs[id]?.pinned === tab.pinned);
+      const section = s.windows[windowId]!.tabIds.filter((id) => s.tabs[id]?.profileId === tab.profileId && pinSection(s.tabs[id]) === pinSection(tab));
       const at = section.indexOf(tab.id) + (command === "moveTabDown" ? 1 : -1);
       return at >= 0 && at < section.length ? s.moveTab(tab.id, at) : undefined;
     }

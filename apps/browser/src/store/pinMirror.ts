@@ -29,7 +29,7 @@ function sectionOf(s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow, p
   return { tiles, groups };
 }
 
-const tileSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}`;
+const tileSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}\u0001${t.pinnedAsRow ? "r" : ""}`;
 const memberSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}`;
 const signature = (x: Section) =>
   [
@@ -54,7 +54,7 @@ function hasDuplicates(x: Section): boolean {
   return new Set(tabs).size < tabs.length || new Set(groups).size < groups.length;
 }
 
-const PIN_FIELDS = ["pinned", "pinnedUrl", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
+const PIN_FIELDS = ["pinned", "pinnedUrl", "pinnedAsRow", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
 function pinsMayDiffer(s: BrowserState, prev: BrowserState): boolean {
   if (s.windows !== prev.windows || s.groups !== prev.groups) return true;
   if (s.tabs === prev.tabs) return false;
@@ -107,6 +107,7 @@ function copyOf(src: Tab, windowId: string, tile: boolean): Tab {
       favicon: atSource ? src.favicon : null,
       pinned: tile,
       pinnedUrl: tile ? src.pinnedUrl || src.url || null : null,
+      ...(tile && src.pinnedAsRow ? { pinnedAsRow: true as const } : {}),
       customTitle: src.customTitle,
       customIcon: src.customIcon,
       muted: src.muted,
@@ -139,7 +140,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
       return copy.id;
     }
     used.add(t.id);
-    const patch: Partial<Tab> = { ...keyField(t.id, key), pinned: tile, customTitle: src.customTitle, customIcon: src.customIcon };
+    const patch: Partial<Tab> = { ...keyField(t.id, key), pinned: tile, pinnedAsRow: tile && src.pinnedAsRow ? true : undefined, customTitle: src.customTitle, customIcon: src.customIcon };
     if (tile) {
       patch.pinnedUrl = src.pinnedUrl || src.url || null;
       if (!hasPage(t) && !samePage(t.url, homeOf(src))) Object.assign(patch, { url: homeOf(src), title: src.title, favicon: src.favicon });
@@ -171,7 +172,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   const leaving = mine.filter((t) => !used.has(t.id));
   const demoted = leaving.filter((t) => hasPage(t) || shown.has(t.id)).map((t) => t.id);
   const gone = leaving.filter((t) => !demoted.includes(t.id)).map((t) => t.id);
-  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinKey: undefined };
+  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinKey: undefined };
   for (const { group } of cur.groups) {
     if (usedGroups.has(group.id)) continue;
     const left = groups[group.id]!.tabIds.filter((id) => demoted.includes(id));

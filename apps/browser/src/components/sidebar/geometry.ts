@@ -55,9 +55,9 @@ export function rowSpan(
   tabId: string,
   newTabAtTop: boolean,
 ): { section: Section; top: number; height: number } | null {
-  const { pinnedGroups, list } = sidebarEntries(s, windowId, profileId);
+  const { pinnedRows, pinnedGroups, list } = sidebarEntries(s, windowId, profileId);
   const sections: [Section, string[], number][] = [
-    ["pinnedGroups", pinnedGroups.map((id) => `g:${id}`), 0],
+    ["pinnedGroups", [...pinnedRows.map((id) => `t:${id}`), ...pinnedGroups.map((id) => `g:${id}`)], 0],
     ["list", list, newTabAtTop ? ROW + GAP : 0],
   ];
   for (const [section, entries, start] of sections) {

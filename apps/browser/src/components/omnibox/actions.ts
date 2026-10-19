@@ -3,7 +3,7 @@ import type { BrowserCommand } from "@ardia/shell";
 import { runCommand } from "../../lib/commands";
 import { isBookmarked } from "../../store/bookmarks";
 import { useBrowser, type BrowserState } from "../../store/browser";
-import { activeTab, bookmarkProfileId } from "../../store/model";
+import { activeTab, bookmarkProfileId, isPinnedRow } from "../../store/model";
 import type { Tab } from "../../store/types";
 
 type Context = { s: BrowserState; windowId: string; tab: Tab | undefined };
@@ -29,9 +29,17 @@ const DEFS: ActionDef[] = [
   { command: "reopenClosedTab", title: "Reopen Closed Tab", icon: "arrow.uturn.backward", hint: "⇧⌘T", keywords: ["undo close", "restore tab"] },
   {
     command: "togglePin",
-    title: ({ tab }) => (tab?.pinned ? "Unpin from Top Apps" : "Move to Top Apps"),
+    title: ({ tab }) => (isPinnedRow(tab) ? "Unpin Tab" : tab?.pinned ? "Unpin from Top Apps" : "Move to Top Apps"),
     icon: "pin",
     keywords: ["pin", "unpin", "pin tab", "unpin tab", "remove from top apps", "favorites"],
+    needs: "tab",
+  },
+  {
+    command: "togglePin",
+    arg: "row",
+    title: ({ s, tab }) => (isPinnedRow(tab) ? "Move to Top Apps" : `Move to Pinned in ${s.profiles[tab?.profileId ?? ""]?.name ?? "Profile"}`),
+    icon: "list.bullet",
+    keywords: ["pin", "pinned tabs", "pin as row", "move to pinned", "favorites"],
     needs: "tab",
   },
   { command: "duplicateTab", title: "Duplicate Tab", icon: "plus.square.on.square", needs: "tab" },

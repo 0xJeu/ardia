@@ -2,7 +2,7 @@ import { showMenu, type MenuItem } from "@ardia/shell";
 import { closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId, isIncognitoProfile, plural, tabLabel, viewTabIds, windowTitle } from "../../store/model";
+import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, plural, tabLabel, viewTabIds, windowTitle } from "../../store/model";
 import { awayFromPin, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds } from "../../store/organize";
 import { splitOf } from "../../store/splits";
 import type { GroupColor, Tab } from "../../store/types";
@@ -103,6 +103,9 @@ export async function openTabMenu(windowId: string, tab: Tab) {
     ...(tab.customIcon ? [{ id: "resetIcon", title: "Reset Icon", symbol: "arrow.counterclockwise" }] : []),
     sep,
     { id: "pin", title: tab.pinned ? "Unpin" : "Pin", symbol: tab.pinned ? "pin.slash" : "pin" },
+    isPinnedRow(tab)
+      ? { id: "pinTile", title: "Move to Top Apps", symbol: "app" }
+      : { id: "pinRow", title: "Move to Pinned Tabs", symbol: "list.bullet" },
     { id: "duplicate", title: "Duplicate", symbol: "plus.square.on.square" },
     ...(tab.pinned
       ? []
@@ -140,6 +143,8 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   else if (choice === "icon") void openIconPicker(windowId, t);
   else if (choice === "resetIcon") s.updateTab(tab.id, { customIcon: null });
   else if (choice === "pin") s.togglePin(tab.id);
+  else if (choice === "pinTile") s.pinTabs([tab.id], true, false);
+  else if (choice === "pinRow") s.pinTabs([tab.id], true, true);
   else if (choice === "duplicate") s.duplicateTab(tab.id);
   else if (choice === "ungroupTab") s.removeTabsFromGroup([tab.id]);
   else if (choice === "newGroup") newGroupWithSelection(windowId, [tab.id]);
@@ -168,6 +173,7 @@ async function openMultiMenu(windowId: string, ids: string[]) {
   const groups = moveToGroupItems(windowId, undefined);
   const choice = await showMenu([
     { id: "pin", title: allPinned ? `Unpin ${n} Tabs` : `Pin ${n} Tabs`, symbol: allPinned ? "pin.slash" : "pin" },
+    ...(tabs.every(isPinnedRow) ? [] : [{ id: "pinRows", title: `Move ${n} Tabs to Pinned Tabs`, symbol: "list.bullet" }]),
     { id: "duplicate", title: `Duplicate ${n} Tabs`, symbol: "plus.square.on.square" },
     { id: "newGroup", title: `New Group with ${n} Tabs`, symbol: "plus.rectangle.on.rectangle", enabled: !allPinned, ...hint("n", "control", "command") },
     ...(groups.length ? [{ id: "moveToGroup", title: "Move to Group", symbol: "rectangle.stack", children: groups }] : []),
@@ -184,6 +190,7 @@ async function openMultiMenu(windowId: string, ids: string[]) {
   ]);
   if (!choice) return;
   if (choice === "pin") s.pinTabs(ids, !allPinned);
+  else if (choice === "pinRows") s.pinTabs(ids, true, true);
   else if (choice === "duplicate") ids.forEach((id) => store().duplicateTab(id));
   else if (choice === "newGroup") newGroupWithSelection(windowId, ids);
   else if (choice.startsWith("group:")) s.placeTabs(ids, { pinned: false, groupId: choice.slice(6) });

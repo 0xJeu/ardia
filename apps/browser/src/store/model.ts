@@ -85,11 +85,21 @@ export const snapshotTab = (t: Tab): TabSnapshot => ({
   customTitle: t.customTitle,
   customIcon: t.customIcon,
   pinnedUrl: t.pinnedUrl,
+  ...(isPinnedRow(t) ? { pinnedAsRow: true as const } : {}),
   profileId: t.profileId,
 });
 
+export const isPinnedRow = (t: Pick<Tab, "pinned" | "pinnedAsRow"> | undefined): boolean => !!t?.pinned && !!t.pinnedAsRow;
+
+export type PinSection = "tile" | "row" | "none";
+export const pinSection = (t: Pick<Tab, "pinned" | "pinnedAsRow"> | undefined): PinSection => (!t?.pinned ? "none" : t.pinnedAsRow ? "row" : "tile");
+
 export function pinnedFirst(ids: string[], tabs: Record<string, Tab>): string[] {
-  return [...ids.filter((id) => tabs[id]?.pinned), ...ids.filter((id) => !tabs[id]?.pinned)];
+  return [
+    ...ids.filter((id) => pinSection(tabs[id]) === "tile"),
+    ...ids.filter((id) => pinSection(tabs[id]) === "row"),
+    ...ids.filter((id) => !tabs[id]?.pinned),
+  ];
 }
 
 export function inPinnedContainer(s: Pick<BrowserState, "tabs" | "groups">, id: string): boolean {

@@ -13,7 +13,7 @@ import { suppressHover } from "./hover";
 import { overPins, pinGridHeight, pinSlot, TILE_GAP } from "./pinZone";
 
 type Frame = { x: number; y: number; w: number; h: number };
-type Section = "tiles" | "pinnedGroups" | "list";
+type Section = "tiles" | "pinnedRows" | "pinnedGroups" | "list";
 
 type ItemSpec = {
   kind: "tile" | "row" | "group" | "split" | "tail";
@@ -231,7 +231,7 @@ class DragController {
 
   private landingSpot(drop: Drop): Promise<{ x: number; y: number } | null> | null {
     const source = this.sources[0]!;
-    if (drop.type === "tabs" && drop.placement.pinned) return null;
+    if (drop.type === "tabs" && drop.placement.pinned && !drop.placement.row) return null;
     const target = drop.type !== "none" && this.gapKey ? this.items.get(this.gapKey) : undefined;
     const ref = target ?? source;
     const top = ref.frame?.y;
@@ -279,8 +279,14 @@ class DragController {
 
   private pinFloor(live: Item[], tiles: Frame): number {
     const list = this.at(this.regionFrames.get("list") ?? null);
-    const groups = live.filter((i) => i.kind === "group" && i.section === "pinnedGroups").map((g) => this.at(g.frame)!.y);
-    return Math.min(list?.y ?? tiles.y + tiles.h + TILE_GAP, ...groups);
+    const pinnedArea = this.at(this.regionFrames.get("pinnedGroups") ?? null);
+    const rows = live.filter((i) => i.kind !== "tail" && (i.section === "pinnedRows" || i.section === "pinnedGroups")).map((i) => this.at(i.frame)!.y);
+    return Math.min(list?.y ?? tiles.y + tiles.h + TILE_GAP, pinnedArea?.y ?? Infinity, ...rows);
+  }
+
+  private overPinnedRows(y: number): boolean {
+    const list = this.at(this.regionFrames.get("list") ?? null);
+    return !!list && overPins(y, list.y, this.rowPinning);
   }
 
   private retarget() {
@@ -313,7 +319,7 @@ class DragController {
       drop = { type: "none" };
     } else if (overTiles && tiles) {
       const before = this.gridBase ? cells[Math.min(cells.length, pinSlot(tiles, cells.length + dragged.size, layout.pinnedHeight, x, y))] : undefined;
-      drop = { type: "tabs", placement: { pinned: true, beforeId: firstTab(before) } };
+      drop = { type: "tabs", placement: { pinned: true, row: false, beforeId: firstTab(before) } };
       gapKey = before?.key ?? "tail:tiles";
       pitch = this.gridBase ? dragged.size : PIN_SLOT;
     } else {
@@ -335,6 +341,11 @@ class DragController {
         const before = members.find((m) => cy(m) > y);
         drop = { type: "tabs", placement: { pinned: false, groupId: box.groupId!, beforeId: firstTab(before) } };
         gapKey = before?.key ?? `tail:group:${box.groupId}`;
+      } else if (tabsDrag && this.overPinnedRows(y)) {
+        const rows = live.filter((i) => i.section === "pinnedRows" && i.kind === "row").sort(byY);
+        const before = rows.find((r) => cy(r) > y && firstTab(r) !== null);
+        drop = { type: "tabs", placement: { pinned: true, row: true, beforeId: firstTab(before) } };
+        gapKey = before?.key ?? "tail:pinnedRows";
       } else if ((onto = tabsDrag ? this.ontoTarget(live, y) : null)) {
         drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
         gapKey = this.gapKey;
@@ -365,7 +376,7 @@ class DragController {
     this.dropKey = key;
     this.drop = drop;
     this.into = into;
-    const pins = drop.type === "tabs" && drop.placement.pinned;
+    const pins = drop.type === "tabs" && drop.placement.pinned && !drop.placement.row;
     this.marks.setState({ dropInto: into, onto, pins, pinCount: pins ? dragged.size : 0 });
     if (gapKey !== this.gapKey) {
       const prev = this.gapKey && this.items.get(this.gapKey);
@@ -379,7 +390,11 @@ class DragController {
   }
 
   private get pinning() {
-    return this.drop.type === "tabs" && this.drop.placement.pinned;
+    return this.drop.type === "tabs" && this.drop.placement.pinned && !this.drop.placement.row;
+  }
+
+  private get rowPinning() {
+    return this.drop.type === "tabs" && this.drop.placement.pinned && !!this.drop.placement.row;
   }
 
   private shown(i: Item): Frame {

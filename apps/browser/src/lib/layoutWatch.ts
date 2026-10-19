@@ -36,8 +36,8 @@ function missingRows(): string[] {
   for (const windowId of s.windowOrder) {
     const w = s.windows[windowId];
     if (!w || !w.sidebarOpen) continue;
-    const { tiles, pinnedGroups, list } = sidebarEntries(s, windowId, w.profileId);
-    const ids = [...tiles, ...pinnedGroups, ...list.map((e) => (e.startsWith("s:") ? e : e.slice(2)))];
+    const { tiles, pinnedRows, pinnedGroups, list } = sidebarEntries(s, windowId, w.profileId);
+    const ids = [...tiles, ...pinnedRows, ...pinnedGroups, ...list.map((e) => (e.startsWith("s:") ? e : e.slice(2)))];
     for (const id of ids) if (!rowView(windowId, id)) missing.push(`${windowId}|${id}`);
   }
   return missing;

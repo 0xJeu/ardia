@@ -15,6 +15,7 @@ import {
   newId,
   pendingRestore,
   pinnedFirst,
+  pinSection,
   snapshotTab,
   viewTabIds,
   wake,
@@ -430,7 +431,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       const tab = s.tabs[id];
       const w = tab && s.windows[tab.windowId];
       if (!tab || !w) return {};
-      const inSection = (t: string) => s.tabs[t]?.profileId === tab.profileId && !!s.tabs[t]?.pinned === tab.pinned;
+      const inSection = (t: string) => s.tabs[t]?.profileId === tab.profileId && pinSection(s.tabs[t]) === pinSection(tab);
       const section = w.tabIds.filter(inSection);
       const moved = section.filter((t) => t !== id);
       moved.splice(Math.min(Math.max(toIndex, 0), moved.length), 0, id);

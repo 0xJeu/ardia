@@ -10,6 +10,7 @@ const S = () => useBrowser.getState();
 
 class Folder {
   files = new Map();
+  hidden = new Set();
   counter = 0;
   transport() {
     return {
@@ -19,8 +20,9 @@ class Folder {
         return id;
       },
       read: async (scope, known) => {
-        const files = [...this.files].filter(([id, f]) => f.scope === scope && !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload }));
-        return { files, pending: [], damaged: [], present: [...this.files].filter(([, f]) => f.scope === scope).map(([id]) => id) };
+        const shown = [...this.files].filter(([id, f]) => f.scope === scope && !this.hidden.has(id));
+        const files = shown.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload }));
+        return { files, pending: [], damaged: [], present: shown.map(([id]) => id) };
       },
       remove: async (_scope, ids) => ids.forEach((id) => this.files.delete(id)),
     };
@@ -28,9 +30,10 @@ class Folder {
 }
 
 class Device {
-  constructor(id, folder) {
+  constructor(id, folder, { legacy = false } = {}) {
     this.id = id;
     this.folder = folder;
+    this.legacy = legacy;
     S().hydrate({});
     useBrowser.setState({ historyReady: { default: true }, bookmarksReady: { default: true } });
     this.browser = S();
@@ -65,6 +68,7 @@ class Device {
     const p = await run(
       "p",
       [
+        ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId)]),
         adapters.pinnedAdapter(profileId),
         adapters.bookmarksAdapter(profileId),
         adapters.historyAdapter(profileId),
@@ -281,6 +285,106 @@ test("pinned tabs sync once however many windows show them; a closed window or a
   const m = a.with(() => S().createWindow());
   assert.deepEqual(tiles(a, m), ["https://mail.example/ Mail"], "and the next window too");
   assert.equal((await a.sync()).published, 0, "copies publish nothing new");
+});
+
+const rowsOf = (d) =>
+  d.with(() => {
+    const w = S().windowOrder.find((id) => !S().windows[id].incognito);
+    const ids = model.viewTabIds(S(), w).filter((id) => S().tabs[id].pinned);
+    const at = (row) => ids.filter((id) => !!S().tabs[id].pinnedAsRow === row).map((id) => `${S().tabs[id].pinnedUrl}${S().tabs[id].customTitle ? ` ${S().tabs[id].customTitle}` : ""}`);
+    return { tiles: at(false), rows: at(true) };
+  });
+
+test("pinned rows sync as rows, keep their order, and move between rows and tiles on every Mac", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => {
+    const w = S().createWindow({ url: "https://mail.example/" });
+    const mail = model.viewTabIds(S(), w)[0];
+    const docs = S().newTab(w, { url: "https://docs.example/" });
+    const cal = S().newTab(w, { url: "https://cal.example/" });
+    S().pinTabs([mail], true);
+    S().pinTabs([docs, cal], true, true);
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.deepEqual(rowsOf(b), { tiles: ["https://mail.example/"], rows: ["https://docs.example/", "https://cal.example/"] });
+
+  b.with(() => {
+    const cal = Object.values(S().tabs).find((t) => t.pinnedUrl === "https://cal.example/").id;
+    const mail = Object.values(S().tabs).find((t) => t.pinnedUrl === "https://mail.example/").id;
+    S().placeTabs([cal], { pinned: true, row: false });
+    S().placeTabs([mail], { pinned: true, row: true });
+  });
+  await syncAll([b, a]);
+  assert.deepEqual(rowsOf(a), { tiles: ["https://cal.example/"], rows: ["https://docs.example/", "https://mail.example/"] });
+  assert.equal((await a.sync()).published, 0, "settled");
+  assert.equal((await b.sync()).published, 0, "settled");
+
+  const marks = (d) => Object.entries(d.scopes.p.records).filter(([k, r]) => k.startsWith("pinrow:") && r.v !== null).length;
+  assert.equal(marks(a), 2);
+  a.with(() => S().pinTabs([Object.values(S().tabs).find((t) => t.pinnedUrl === "https://docs.example/").id], false));
+  await syncAll([a, b]);
+  assert.deepEqual(rowsOf(b), { tiles: ["https://cal.example/"], rows: ["https://mail.example/"] });
+  assert.equal(marks(b), 1, "unpinning a row deletes its mark");
+});
+
+test("a Mac on an older version sees rows as tiles, and its edits never turn a row into a tile elsewhere", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const old = new Device("devOld", folder, { legacy: true });
+  a.with(() => {
+    const w = S().createWindow({ url: "https://mail.example/" });
+    const mail = model.viewTabIds(S(), w)[0];
+    const docs = S().newTab(w, { url: "https://docs.example/" });
+    S().pinTabs([mail], true);
+    S().pinTabs([docs], true, true);
+  });
+  old.with(() => S().createWindow({ url: "https://old-home.example/" }));
+  await syncAll([a, old]);
+  assert.deepEqual(rowsOf(old), { tiles: ["https://mail.example/", "https://docs.example/"], rows: [] }, "the older Mac shows both as tiles");
+
+  old.with(() => {
+    const docs = Object.values(S().tabs).find((t) => t.pinnedUrl === "https://docs.example/").id;
+    S().updateTab(docs, { customTitle: "Docs" });
+  });
+  await syncAll([old, a]);
+  assert.deepEqual(rowsOf(a), { tiles: ["https://mail.example/"], rows: ["https://docs.example/ Docs"] }, "renamed there, still a row here");
+  assert.equal((await old.sync()).published, 0, "the older Mac settles");
+  assert.equal((await a.sync()).published, 0);
+
+  const c = new Device("devC", folder);
+  c.with(() => S().createWindow({ url: "https://c-home.example/" }));
+  await syncAll([c]);
+  assert.deepEqual(rowsOf(c), { tiles: ["https://mail.example/"], rows: ["https://docs.example/ Docs"] }, "a new Mac gets the row");
+});
+
+test("a row mark that arrives before its pinned tab still makes a row, and isn't deleted meanwhile", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => {
+    const w = S().createWindow({ url: "https://mail.example/" });
+    const docs = S().newTab(w, { url: "https://docs.example/" });
+    S().pinTabs([docs], true);
+  });
+  await a.sync();
+  const pinFiles = [...folder.files.keys()];
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await b.sync();
+  b.with(() => S().placeTabs([Object.values(S().tabs).find((t) => t.pinnedUrl === "https://docs.example/").id], { pinned: true, row: true }));
+  await b.sync();
+
+  const c = new Device("devC", folder);
+  c.with(() => S().createWindow({ url: "https://c-home.example/" }));
+  pinFiles.forEach((id) => folder.hidden.add(id));
+  await syncAll([c]);
+  assert.deepEqual(rowsOf(c), { tiles: [], rows: [] }, "only B's mark has arrived, not the tab");
+  assert.equal((await c.sync()).published, 0, "and C doesn't delete the mark of a tab it hasn't seen");
+  folder.hidden.clear();
+  await syncAll([c, a, b]);
+  for (const d of [a, b, c]) assert.deepEqual(rowsOf(d), { tiles: [], rows: ["https://docs.example/"] });
 });
 
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {
