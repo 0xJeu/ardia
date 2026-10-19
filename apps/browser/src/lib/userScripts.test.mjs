@@ -21,17 +21,15 @@ const fake = (globalThis.acTestUserScripts = {
       if (gate) await gate;
       const exts = installed.get(profile) ?? new Map();
       const prior = exts.get("abc");
-      exts.set("abc", { errors: [], ...prior, id: "abc", path, enabled: prior ? prior.enabled : true, state: prior && !prior.enabled ? "DISABLED" : "ENABLED" });
+      const next = { errors: [], ...prior, id: "abc", path };
+      if (prior?.blockedByPolicy && prior.liftsOnInstall) Object.assign(next, { blockedByPolicy: false, enabled: !prior.userDisabled });
+      else next.enabled = prior ? prior.enabled : true;
+      next.state = next.enabled ? "ENABLED" : "DISABLED";
+      exts.set("abc", next);
       installed.set(profile, exts);
       return "abc";
     },
     reload: async (id, profile) => void calls.push(["reload", profile]),
-    setEnabled: async (id, profile, on) => {
-      calls.push(["enable", profile]);
-      const ext = installed.get(profile).get(id);
-      if (ext.policyAllows === false) throw new Error("Ardia Scripts can only hold content scripts: permissions");
-      Object.assign(ext, { enabled: on, state: on ? "ENABLED" : "DISABLED", blockedByPolicy: false });
-    },
     uninstall: async (id, profile) => void (calls.push(["uninstall", profile]), installed.get(profile)?.delete(id)),
   },
 });
@@ -88,22 +86,34 @@ test("a profile the user disabled it in stays disabled", async () => {
   installed.get("").get("abc").enabled = true;
 });
 
-test("a copy the engine blocked is lifted once the folder is valid, and reported when it stays blocked", async () => {
+test("installing a now-valid folder over a copy the engine blocked loads it, and a block that stays is an error", async () => {
   calls.length = 0;
-  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true });
+  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true, liftsOnInstall: true });
   folder = { state: "ready", generation: 31, path: PATH };
   fake.change();
   await settle();
-  assert.deepEqual(calls, [["install", ""], ["enable", ""]]);
+  assert.deepEqual(calls, [["install", ""]]);
   assert.equal(installed.get("").get("abc").enabled, true);
   assert.deepEqual(lastWrite(), { generation: 31, profiles: { Personal: { ok: true } } });
   calls.length = 0;
-  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true, policyAllows: false });
+  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true, liftsOnInstall: false, errors: [] });
   folder = { state: "ready", generation: 32, path: PATH };
   fake.change();
   await settle();
-  assert.deepEqual(lastWrite(), { generation: 32, profiles: { Personal: { error: "Ardia Scripts can only hold content scripts: permissions" } } });
-  Object.assign(installed.get("").get("abc"), { enabled: true, state: "ENABLED", blockedByPolicy: false, policyAllows: true });
+  assert.deepEqual(calls, [["install", ""]]);
+  assert.match(lastWrite().profiles.Personal.error, /^Ardia Scripts can only hold content scripts/);
+  Object.assign(installed.get("").get("abc"), { enabled: true, state: "ENABLED", blockedByPolicy: false });
+});
+
+test("a copy the user disabled and the engine then blocked comes back disabled once valid", async () => {
+  calls.length = 0;
+  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true, liftsOnInstall: true, userDisabled: true });
+  folder = { state: "ready", generation: 33, path: PATH };
+  fake.change();
+  await settle();
+  assert.deepEqual(calls, [["install", ""]]);
+  assert.deepEqual(lastWrite(), { generation: 33, profiles: { Personal: { disabled: true } } });
+  Object.assign(installed.get("").get("abc"), { enabled: true, state: "ENABLED", userDisabled: false });
 });
 
 test("a refused manifest is never loaded, removes the copy Chrome read from disk, and reports the error", async () => {
@@ -147,13 +157,13 @@ test("a newer generation mid-load drops the stale status and reconciles once mor
   assert.deepEqual(fake.writes.slice(writes).map((w) => w.generation), [7]);
 });
 
-test("removal uninstalls everywhere", async () => {
+test("removal uninstalls everywhere and says so", async () => {
   calls.length = 0;
   folder = { state: "absent", generation: 8, path: PATH };
   fake.change();
   await settle();
   assert.deepEqual(calls.filter(([k]) => k === "uninstall").map(([, p]) => p).sort(), ["", "work"]);
-  assert.equal(lastWrite().generation, 8);
+  assert.deepEqual(lastWrite(), { generation: 8, profiles: { Personal: { removed: true }, "Personal (2)": { removed: true }, Side: { removed: true } } });
 });
 
 test("turning the setting off stops watching and ignores changes", async () => {

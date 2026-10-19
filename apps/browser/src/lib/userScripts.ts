@@ -1,4 +1,4 @@
-import { installExtension, listExtensions, reloadExtension, setExtensionEnabled, uninstallExtension, type InstalledExtension } from "@ardia/ardiacore";
+import { installExtension, listExtensions, reloadExtension, uninstallExtension, type InstalledExtension } from "@ardia/ardiacore";
 import {
   onUserScriptsChange,
   readUserScripts,
@@ -11,7 +11,7 @@ import {
 import { useBrowser, type BrowserState } from "../store/browser";
 import { engineProfile, isIncognitoProfile } from "../store/model";
 
-export type ScriptsOutcome = { ok: true } | { disabled: true } | { error: string };
+export type ScriptsOutcome = { ok: true } | { disabled: true } | { removed: true } | { error: string };
 type Status = { generation: number; profiles: Record<string, ScriptsOutcome> };
 
 const enabled = () => useBrowser.getState().settings.cliControl ?? false;
@@ -50,15 +50,10 @@ async function load(profile: string, path: string): Promise<ScriptsOutcome> {
       return { disabled: true };
     }
     const id = await installExtension({ path }, profile);
-    let loaded = await find((x) => x.id === id);
-    let refusal: string | null = null;
-    if (loaded && !loaded.enabled && loaded.blockedByPolicy) {
-      refusal = await setExtensionEnabled(id, profile, true).then(() => null, message);
-      loaded = await find((x) => x.id === id);
-    }
+    const loaded = await find((x) => x.id === id);
     if (!loaded) return { error: "The extension didn't load." };
     if (loaded.enabled) return { ok: true };
-    if (loaded.blockedByPolicy) return { error: refusal ?? loaded.errors[0] ?? BLOCKED };
+    if (loaded.blockedByPolicy) return { error: loaded.errors[0] ?? BLOCKED };
     return loaded.state === "DISABLED" ? { disabled: true } : { error: `The extension is ${loaded.state.toLowerCase()}.` };
   } catch (error) {
     return { error: message(error) };
@@ -68,7 +63,7 @@ async function load(profile: string, path: string): Promise<ScriptsOutcome> {
 async function unload(profile: string, path: string): Promise<ScriptsOutcome> {
   try {
     for (const ext of (await listExtensions(profile)).filter((x) => loadedFrom(x, path))) await uninstallExtension(ext.id, profile);
-    return { ok: true };
+    return { removed: true };
   } catch (error) {
     return { error: message(error) };
   }
