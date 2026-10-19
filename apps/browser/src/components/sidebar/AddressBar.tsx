@@ -11,7 +11,6 @@ import { useHistoryAvailability } from "../layout/history";
 import { toolbarPalette, type ToolbarPalette } from "../layout/toolbarColors";
 import { ToolbarButton, type ButtonHit } from "../layout/controls";
 import { addressBarInSidebar, setUrlAnchor, SIDEBAR_FIELD } from "../layout/windowLayout";
-import { focusHeroBar } from "../omnibox/barState";
 import { GlassFill, liquidGlass } from "../glass";
 import { useHover } from "../primitives";
 import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../Toolbar";
@@ -149,9 +148,7 @@ function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeo
 function EmptyField({ windowId }: { windowId: string }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
-  const open = () => {
-    if (!focusHeroBar(windowId)) useBrowser.getState().openPanel(windowId, "");
-  };
+  const open = () => useBrowser.getState().openPanel(windowId, "");
   return (
     <View {...hoverProps}>
       <Pressable onPress={open}>

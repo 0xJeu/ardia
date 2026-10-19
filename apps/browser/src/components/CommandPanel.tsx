@@ -10,6 +10,7 @@ import { usePage } from "./layout/pageState";
 import { dismissHover, setRowsCovered } from "./sidebar/hover";
 import { useUrlAnchors } from "./layout/windowLayout";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
+import { focusHeroBar } from "./omnibox/barState";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "./Toolbar";
 
 const RIGHT_OF_URL = 40;
@@ -51,6 +52,11 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);
   const onCancel = () => useBrowser.getState().closePanel(windowId);
+  const onDone = () => {
+    onCancel();
+    const s = useBrowser.getState();
+    if (activeTabId(s, windowId) === activeId && !s.tabs[activeId]?.url) focusHeroBar(windowId);
+  };
   const surface = (radius: number) => ({
     fill: hex(theme.panel),
     cornerRadius: radius,
@@ -70,7 +76,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
     return (
       <Grow from={from} frame={{ left, top: anchor.top, width }} openHeight={anchor.sidebar.height} radius={DROPDOWN_RADIUS} surface={surface(DROPDOWN_RADIUS)}>
         <OutsidePressArea onOutsidePress={onCancel}>
-          <Omnibox key={activeId} variant="sidebar" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} />
+          <Omnibox key={activeId} variant="sidebar" tabId={activeId} initialText={panel.initialText} onCancel={onDone} />
         </OutsidePressArea>
       </Grow>
     );
@@ -84,7 +90,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   return (
     <Grow from={from} frame={{ left, top, width }} openHeight={PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
       <OutsidePressArea onOutsidePress={onCancel}>
-        <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} />
+        <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onDone} />
       </OutsidePressArea>
     </Grow>
   );

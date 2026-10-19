@@ -127,7 +127,8 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return arg ? s.restoreClosed(arg, windowId) : undefined;
     case "focusCommandBar":
       if (page) return s.openPanel(windowId, page.url);
-      return focusHeroBar(windowId) ? undefined : tab ? s.openPanel(windowId, "") : undefined;
+      if (!focusHeroBar(windowId)) return tab ? s.openPanel(windowId, "") : undefined;
+      return ui?.panel.open ? s.closePanel(windowId) : undefined;
     case "closeTab":
       if (ui?.panel.open) return s.closePanel(windowId);
       if (tabId && find?.open) return closeFind(tabId);
