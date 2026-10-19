@@ -450,6 +450,48 @@ test("a mirrored row kept open after a local unpin is the tab another Mac's re-p
   assert.ok(docs[0].navigation, "with its page");
 });
 
+for (const row of [true, false]) {
+  test(`a page kept open after a local unpin and put in a regular group leaves the group when another Mac pins it again as a ${row ? "row" : "tile"}`, async () => {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const b = new Device("devB", folder);
+    let x;
+    a.with(() => {
+      const w = S().createWindow({ url: "https://home.example/" });
+      x = S().newTab(w, { url: "https://docs.example/" });
+      S().pinTabs([x], true, row);
+    });
+    let b1;
+    b.with(() => (b1 = S().createWindow({ url: "https://b-home.example/" })));
+    await syncAll([a, b]);
+    let copy, mates;
+    b.with(() => {
+      const b2 = S().createWindow({ url: "https://b-two.example/" });
+      copy = S().windows[b2].tabIds.find((id) => S().tabs[id].pinnedUrl === "https://docs.example/");
+      S().activate(copy);
+      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], navigation: { url: "https://docs.example/", seq: 1 } } } }));
+      S().closeWindow(b1);
+      S().pinTabs([copy], false);
+      const other = S().newTab(b2, { url: "https://mate.example/" });
+      mates = S().groupTabs([copy, other], { pinned: false, name: "Reading" });
+    });
+    await syncAll([b, a]);
+    await later();
+    a.with(() => S().pinTabs([tabAt("https://docs.example/")], true, row));
+    await syncAll([a, b, a, b]);
+    b.with(() => {
+      const t = S().tabs[copy];
+      assert.equal(t.pinned, true, "B pins its open page again");
+      assert.equal(!!t.pinnedAsRow, row);
+      assert.ok(!Object.values(S().groups).some((g) => g.tabIds.includes(copy)), "and takes it out of its regular group");
+      assert.deepEqual(S().groups[mates]?.tabIds.map((id) => S().tabs[id].url), ["https://mate.example/"], "which keeps its other tab");
+    });
+    b.with(() => S().closeGroup(mates));
+    await syncAll([b, a, b]);
+    assert.equal(a.with(() => S().tabs[tabAt("https://docs.example/")]?.pinned), true, "closing that group on B leaves A's pin alone");
+  });
+}
+
 test("a row mark held up in transit doesn't undo a later choice of a tile on another Mac", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);

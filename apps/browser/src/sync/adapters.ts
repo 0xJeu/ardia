@@ -3,7 +3,7 @@ import { assignPositions, SyncNative, type Adapter, type Extraction, type SavedL
 import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../store/bookmarks";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser, type BrowserState } from "../store/browser";
-import { orderSections, syncGroupOrder } from "../store/groups";
+import { leaveGroups, orderSections, syncGroupOrder } from "../store/groups";
 import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/model";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { pinKeyOf } from "../store/pinMirror";
@@ -507,6 +507,11 @@ export function pinnedAdapter(profileId: string): Adapter {
         tabs[id] = tab;
         windows[windowId] = { ...w, tabIds: [...w.tabIds, id] };
       }
+      const standalone = new Set(tileOrder.filter((id) => tabs[id]?.pinned));
+      groups = {
+        ...Object.fromEntries(Object.entries(groups).filter(([, g]) => g.pinned)),
+        ...leaveGroups(Object.fromEntries(Object.entries(groups).filter(([, g]) => !g.pinned)), standalone),
+      };
       const inGroup = new Set([...memberOrder.values()].flat().filter((id) => tabs[id]));
       for (const g of Object.values(groups)) {
         if (g.profileId !== profileId) continue;
