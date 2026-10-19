@@ -14,6 +14,7 @@ const entries = (w) => {
   const e = sidebarEntries(S(), w);
   return { tiles: urls(e.tiles), rows: urls(e.pinnedRows) };
 };
+const kindChoices = (profileId = "default") => Object.keys(S().pinChoices[profileId] ?? {}).filter((k) => !k.includes(":"));
 const tileOf = (w, u) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === u);
 
 function windowWith(...hosts) {
@@ -98,7 +99,7 @@ test("rows park with the last window and come back as rows, and survive a relaun
   stop();
   S().hydrate(loadSession());
   assert.deepEqual(entries(w), { tiles: ["https://a.com/"], rows: ["https://b.com/"] });
-  assert.deepEqual(Object.keys(S().pinChoices.default).sort(), [a, b].sort(), "the choices not yet synced survive a relaunch");
+  assert.deepEqual(kindChoices().sort(), [a, b].sort(), "the choices not yet synced survive a relaunch");
   S().closeWindow(w);
   assert.deepEqual(S().parkedPins.default.tabs.map((t) => [t.pinnedUrl, !!t.pinnedAsRow]), [["https://a.com/", false], ["https://b.com/", true]]);
   const n = S().createWindow();
@@ -149,9 +150,10 @@ test("choices go with unpinned pins and deleted profiles, also after a relaunch,
   const { w, ids: [a, b, c] } = windowWith("a", "b", "c");
   S().pinTabs([a, b], true);
   S().pinTabs([b], false);
-  assert.deepEqual(Object.keys(S().pinChoices.default), [a], "unpinning drops its choice");
+  assert.deepEqual(kindChoices(), [a], "unpinning drops its choice");
+  assert.deepEqual(Object.keys(S().pinChoices.default).filter((k) => k.startsWith("place:")), [`place:${a}`], "and its placement choice");
   S().closeWindow(w);
-  assert.deepEqual(Object.keys(S().pinChoices.default), [a], "a parked pin keeps its choice");
+  assert.deepEqual(kindChoices(), [a], "a parked pin keeps its choice");
   const ww = S().createWindow({ profileId: work, url: "https://w.com/" });
   const x = S().windows[ww].tabIds[0];
   S().pinTabs([x], true);

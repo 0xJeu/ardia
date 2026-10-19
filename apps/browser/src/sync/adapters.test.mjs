@@ -665,7 +665,7 @@ test("a tile choice whose batch never reached the disk survives a crash and stil
   const { folder, a, b } = await tileWithMarkOnBoth();
   const durable = structuredClone(b.scopes.p);
   await assert.rejects(b.sync("default", { persist: async () => { throw new Error("disk full"); } }));
-  assert.equal(Object.keys(b.with(() => S().pinChoices.default ?? {})).length, 1, "the choice stays pending until its batch is on disk");
+  assert.equal(Object.keys(b.with(() => S().pinChoices.default ?? {})).filter((k) => !k.includes(":")).length, 1, "the choice stays pending until its batch is on disk");
   b.scopes.p = durable;
   await b.sync();
   folder.hidden.clear();

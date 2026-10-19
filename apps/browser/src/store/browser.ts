@@ -181,7 +181,7 @@ useBrowser.subscribe((s, prev) => {
 });
 
 useBrowser.subscribe((s, prev) => {
-  if (s.pinChoices === prev.pinChoices && s.tabs === prev.tabs && s.parkedPins === prev.parkedPins && s.profiles === prev.profiles) return;
+  if (s.pinChoices === prev.pinChoices && s.tabs === prev.tabs && s.groups === prev.groups && s.parkedPins === prev.parkedPins && s.profiles === prev.profiles) return;
   const live = livePinChoices(s);
   if (live !== s.pinChoices) useBrowser.setState({ pinChoices: live });
 });

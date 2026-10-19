@@ -17,7 +17,7 @@ import {
   viewTabIds,
   without,
 } from "./model";
-import { nextPinChoice, restoringGroup } from "./organize";
+import { nextPinChoice, placeChoiceKey, restoringGroup } from "./organize";
 import { adoptParkedPins, parkWindowPins } from "./parkedPins";
 import { settleMovedPins } from "./pinMirror";
 import { isSmall, isSmallWindow, lastActiveProfile, mainWindowFor, originalProfile } from "./small";
@@ -253,10 +253,10 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     const loaded = !!tab.url && (!!tab.navigation || !!tab.adoptId);
     const { adoptId: _, wakeAdoptId: _w, ...rest } = tab;
     const moved: Tab = { ...rest, profileId, navigation: loaded ? navigationTo(tab.url) : null, lastActiveAt: Date.now() };
-    const key = tab.pinKey ?? tab.id;
-    const pending = tab.pinned ? s.pinChoices[tab.profileId]?.[key] : undefined;
-    const pinChoices =
-      pending === undefined ? next.pinChoices : { ...next.pinChoices, [profileId]: { ...next.pinChoices[profileId], [moved.pinKey ?? moved.id]: nextPinChoice() } };
+    const movedKey = moved.pinKey ?? moved.id;
+    const pinChoices = tab.pinned
+      ? { ...next.pinChoices, [profileId]: { ...next.pinChoices[profileId], [movedKey]: nextPinChoice(), [placeChoiceKey(movedKey)]: nextPinChoice() } }
+      : next.pinChoices;
     const tabs = { ...next.tabs, [tabId]: moved };
     const index = Math.min(w.tabIds.indexOf(tabId), base.tabIds.length);
     const tabIds = [...base.tabIds];

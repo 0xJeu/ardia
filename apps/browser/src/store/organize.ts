@@ -19,11 +19,14 @@ export type PinChoices = Record<string, Record<string, number>>;
 
 let lastPinChoice = 0;
 export const nextPinChoice = () => (lastPinChoice = Math.max(Date.now(), lastPinChoice + 1));
+export const groupChoiceKey = (key: string) => `group:${key}`;
+export const placeChoiceKey = (key: string) => `place:${key}`;
+
 export function notePinChoices(choices: PinChoices) {
   for (const mine of Object.values(choices)) for (const n of Object.values(mine)) if (n > lastPinChoice) lastPinChoice = n;
 }
 
-export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" | "tabs" | "parkedPins">): PinChoices {
+export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" | "tabs" | "groups" | "parkedPins">): PinChoices {
   const profiles = Object.keys(s.pinChoices);
   if (!profiles.length) return s.pinChoices;
   const pinned = new Map<string, Set<string>>();
@@ -32,8 +35,17 @@ export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" |
     if (!keys) pinned.set(profileId, (keys = new Set()));
     keys.add(key);
   };
-  for (const t of Object.values(s.tabs)) if (t.pinned) add(t.profileId, t.pinKey ?? t.id);
-  for (const [profileId, park] of Object.entries(s.parkedPins)) for (const p of park.tabs) if (!p.groupId) add(profileId, p.id);
+  const members = new Set<string>();
+  for (const g of Object.values(s.groups)) {
+    if (!g.pinned) continue;
+    add(g.profileId, groupChoiceKey(g.pinKey ?? g.id));
+    for (const id of g.tabIds) members.add(id);
+  }
+  for (const t of Object.values(s.tabs)) if (t.pinned || members.has(t.id)) (add(t.profileId, t.pinKey ?? t.id), add(t.profileId, placeChoiceKey(t.pinKey ?? t.id)));
+  for (const [profileId, park] of Object.entries(s.parkedPins)) {
+    for (const p of park.tabs) (add(profileId, p.id), add(profileId, placeChoiceKey(p.id)));
+    for (const g of park.groups) add(profileId, groupChoiceKey(g.id));
+  }
   let changed = false;
   const out: PinChoices = {};
   for (const profileId of profiles) {
@@ -417,17 +429,20 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
 
   const tabs = { ...s.tabs };
   let chosen: Record<string, number> | null = null;
+  const pinnedGroupOf = (id: string) => Object.values(s.groups).find((g) => g.pinned && g.tabIds.includes(id))?.id ?? null;
+  const intoPinnedGroup = target?.pinned ? target.id : null;
   for (const id of moving) {
     const t = tabs[id]!;
     if (t.pinned !== p.pinned) tabs[id] = { ...t, pinned: p.pinned, pinnedUrl: p.pinned ? t.url || null : null };
     const row = p.pinned && (p.row ?? (t.pinned && !!t.pinnedAsRow));
-    if (t.pinned !== p.pinned || !!t.pinnedAsRow !== row) {
-      const { pinnedAsRow: _, ...rest } = tabs[id]!;
-      tabs[id] = row ? { ...rest, pinnedAsRow: true } : rest;
-      if (p.pinned && !isIncognitoProfile(t.profileId)) {
+    const placed = t.pinned !== p.pinned || (!p.pinned && pinnedGroupOf(id) !== intoPinnedGroup);
+    if (placed || !!t.pinnedAsRow !== row) {
+      const { pinnedAsRow: _, awaitingGroup: __, ...rest } = tabs[id]!;
+      tabs[id] = { ...rest, ...(row ? { pinnedAsRow: true as const } : {}), ...(placed || !t.awaitingGroup ? {} : { awaitingGroup: t.awaitingGroup }) };
+      if ((p.pinned || intoPinnedGroup) && !isIncognitoProfile(t.profileId)) {
         chosen ??= { ...s.pinChoices[t.profileId] };
-        const key = t.pinKey ?? t.id;
-        chosen[key] = nextPinChoice();
+        if (p.pinned) chosen[t.pinKey ?? t.id] = nextPinChoice();
+        if (placed) chosen[placeChoiceKey(t.pinKey ?? t.id)] = nextPinChoice();
       }
     }
   }
@@ -573,6 +588,12 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       const w = g && s.windows[g.windowId];
       if (!g || !w || (p.beforeId && g.tabIds.includes(p.beforeId))) return {};
       const groups = { ...s.groups, [groupId]: { ...g, pinned: p.pinned } };
+      let pinChoices = s.pinChoices;
+      if (p.pinned && !g.pinned && !isIncognitoProfile(g.profileId)) {
+        const mine = { ...pinChoices[g.profileId], [groupChoiceKey(g.pinKey ?? g.id)]: nextPinChoice() };
+        for (const id of g.tabIds) if (s.tabs[id]) mine[placeChoiceKey(s.tabs[id]!.pinKey ?? id)] = nextPinChoice();
+        pinChoices = { ...pinChoices, [g.profileId]: mine };
+      }
       const rest = w.tabIds.filter((id) => !g.tabIds.includes(id));
       let at: number;
       if (p.beforeId && rest.includes(p.beforeId)) {
@@ -584,7 +605,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       } else at = rest.length;
       rest.splice(at, 0, ...g.tabIds);
       const window = { ...w, tabIds: orderSections(rest, s.tabs, groups) };
-      return { groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } };
+      return { groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window }, pinChoices };
     });
   },
 
