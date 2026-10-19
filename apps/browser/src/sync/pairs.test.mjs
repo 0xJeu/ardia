@@ -5,6 +5,8 @@ const { Clock, compact, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
 const stub = await import("../test-native-stub.mjs");
 const { flushPersistence, loadSession, startPersistence } = await import("../lib/persist.ts");
+const shipped = await import("../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
+const { pinnedAdapter: shippedPinnedAdapter } = await import("./fixtures/pinned-v0.2.38.ts");
 
 const S = () => useBrowser.getState();
 const PROFILES = ["default", "work"];
@@ -63,11 +65,11 @@ class Mac {
     let published = 0;
     try {
       for (const p of profiles) {
-        const result = await syncScope({
+        const result = await (this.legacy ? shipped.syncScope : syncScope)({
           scope: `p:${p}`,
           state: (this.scopes[p] ??= emptyScope()),
           transport: this.folder.transport(),
-          adapters: this.legacy ? [adapters.pinnedAdapter(p)] : [adapters.pinnedRowsAdapter(p), adapters.pinnedAdapter(p)],
+          adapters: this.legacy ? [shippedPinnedAdapter(p)] : [adapters.pinnedRowsAdapter(p), adapters.pinnedAdapter(p)],
           clock: this.clock,
           device: this.id,
           now: () => wall,
@@ -95,9 +97,9 @@ class Mac {
     this.scopes = JSON.parse(JSON.stringify(this.scopes));
     this.clock = new Clock(this.id, null, now);
   }
-  async compact() {
-    wall += 46 * DAY;
-    for (const p of PROFILES) if (this.scopes[p]) await compact(this.scopes[p], this.folder.transport(), `p:${p}`, this.id, wall, {}, true);
+  async compact(days = 46) {
+    wall += days * DAY;
+    for (const p of PROFILES) if (this.scopes[p]) await (this.legacy ? shipped.compact : compact)(this.scopes[p], this.folder.transport(), `p:${p}`, this.id, wall, {}, true);
   }
 }
 
@@ -145,12 +147,20 @@ async function world(startRow) {
     S().pinTabs([k.W1], true, true);
   });
   for (let i = 0; i < 3; i++) for (const m of [a, b, old]) await m.sync();
-  const w = { folder, a, b, old, k, startRow };
+  const w = { folder, a, b, old, k, startRow, wall };
   worlds.set(startRow, w);
   return w;
 }
 
 const X_OTHER = "https://x.example/other";
+const M_REMOTE = "https://m.example/remote";
+const M_THIRD = "https://m.example/third";
+const inPinnedGroup = (key) => Object.values(S().groups).some((g) => g.pinned && g.tabIds.includes(tabFor(key)?.id));
+function navigate(key, url) {
+  const t = tabFor(key);
+  if (t) useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], url, unloaded: undefined, navigation: { url, seq: (s.tabs[t.id].navigation?.seq ?? 0) + 1 } } } }));
+  return !!t;
+}
 const record = (mac, p, key) => mac.scopes[p]?.records[key]?.v;
 function loadX(k) {
   const t = tabFor(k.X);
@@ -260,6 +270,36 @@ const OPS = [
     },
   },
   {
+    name: "styleG",
+    steps: [(k) => { const g = groupFor(k.G); if (g?.pinned) (S().updateGroup(g.id, { icon: "star", color: "green" }), done(k, "styleG")); }],
+    touches: ["G"],
+    edits: true,
+    final: (k, mac) => {
+      const g = groupFor(k.G);
+      if (!g?.pinned) return;
+      assert.deepEqual([g.icon, g.color], ["star", "green"], "G restyled");
+      assert.deepEqual([record(mac, "default", `pin:g:${k.G}`)?.i, record(mac, "default", `pin:g:${k.G}`)?.c], ["star", "green"], "G restyled in its record");
+    },
+  },
+  {
+    name: "navM",
+    steps: [(k) => { if (navigate(k.M, M_REMOTE)) done(k, "navM"); }],
+    touches: ["M"],
+    edits: true,
+    final: (k, mac) => { if (inPinnedGroup(k.M)) assert.equal(record(mac, "default", `pin:t:${k.M}`)?.u, M_REMOTE, "M's record has its new page"); },
+  },
+  {
+    name: "navMThereAndBack",
+    steps: [
+      (k) => { const t = tabFor(k.M); if (t) (navigate(k.M, t.url), (k.mStart = t.url)); },
+      (k) => { if (k.mStart) navigate(k.M, M_THIRD); },
+      (k) => { if (k.mStart && navigate(k.M, k.mStart)) done(k, "navMThereAndBack"); },
+    ],
+    touches: ["M"],
+    edits: true,
+    final: (k, mac) => { if (inPinnedGroup(k.M)) assert.equal(record(mac, "default", `pin:t:${k.M}`)?.u, k.mStart, "M's record follows it back to where it started"); },
+  },
+  {
     name: "workRoundTrip",
     steps: [
       { run: (k) => { const t = tabFor(k.W1, "work"); if (t?.pinned) (S().moveTabToProfile(t.id, "default"), (k.moved = true), (k.w1Row = !!t.pinnedAsRow)); }, sync: ["default"] },
@@ -322,6 +362,18 @@ const SCHEDULES = {
     w.withOld = true;
     return SCHEDULES["both, A syncs first"](w, opA, opB);
   },
+  "A's first log 91 days late, C joins meanwhile": async (w, opA, opB) => {
+    await runOp(w.a, opA, w.k, { folder: w.folder, hideFirst: true });
+    await w.b.sync();
+    await runOp(w.b, opB, w.k, { folder: w.folder });
+    await w.b.compact(46);
+    w.c = freshMac("devC", w.folder);
+    await w.c.sync();
+    await w.c.compact(45);
+    await w.b.compact(0);
+    w.folder.hidden.clear();
+    return "B";
+  },
   "A's first log delayed": async (w, opA, opB) => {
     await runOp(w.a, opA, w.k, { folder: w.folder, hideFirst: true });
     await w.b.sync();
@@ -367,8 +419,8 @@ function signature(mac, { rows = true } = {}) {
         groups: Object.values(s.groups)
           .filter((g) => g.pinned && g.profileId === p && g.windowId === win?.id)
           .sort((x, z) => ids.indexOf(x.tabIds[0]) - ids.indexOf(z.tabIds[0]))
-          .map((g) => [keyOf(g), g.name, g.tabIds.map((id) => meta(s.tabs[id]))])
-          .concat((park?.groups ?? []).map((g) => [g.id, g.name, park.tabs.filter((t) => t.groupId === g.id).map(parked)])),
+          .map((g) => [keyOf(g), g.name, g.icon, g.color, g.tabIds.map((id) => meta(s.tabs[id]))])
+          .concat((park?.groups ?? []).map((g) => [g.id, g.name, g.icon, g.color, park.tabs.filter((t) => t.groupId === g.id).map(parked)])),
       };
     }
     return out;
@@ -392,16 +444,21 @@ const overlap = (a, b) => [...touched(a)].some((t) => touched(b).has(t));
 
 async function runPair(startRow, opA, opB, schedule) {
   const base = await world(startRow);
+  wall = base.wall;
   const folder = base.folder.clone();
   const w = { folder, a: base.a.fork(folder), b: base.b.fork(folder), k: { ...base.k, done: new Set() } };
   const later = await SCHEDULES[schedule](w, opA, opB);
-  const macs = w.withOld ? [w.a, w.b, base.old.fork(folder)] : [w.a, w.b];
+  const macs = [w.a, w.b, ...(w.c ? [w.c] : []), ...(w.withOld ? [base.old.fork(folder)] : [])];
   for (let i = 0; i < 4; i++) for (const m of macs) await m.sync();
   let idle = 0;
   for (const m of macs) idle += await m.sync();
   for (const m of macs) structure(m);
   assert.deepEqual(signature(w.b), signature(w.a), "both Macs converge");
   assert.deepEqual(records(w.b), records(w.a), "both Macs hold the same records");
+  if (w.c) {
+    assert.deepEqual(signature(w.c), signature(w.a), "the Mac that joined from the snapshot converges");
+    assert.deepEqual(records(w.c), records(w.a), "and holds the same records");
+  }
   assert.equal(idle, 0, "nothing more is sent once settled");
   for (const p of PROFILES) {
     const live = records(w.a)[p];
@@ -411,8 +468,9 @@ async function runPair(startRow, opA, opB, schedule) {
     }
   }
   if (w.withOld) {
-    assert.deepEqual(signature(macs[2], { rows: false }), signature(w.a, { rows: false }), "the older Mac converges, rows as tiles");
-    assert.deepEqual(records(macs[2], { rows: false }), records(w.a, { rows: false }), "and holds the same pin records");
+    const old = macs.at(-1);
+    assert.deepEqual(signature(old, { rows: false }), signature(w.a, { rows: false }), "the older Mac converges, rows as tiles");
+    assert.deepEqual(records(old, { rows: false }), records(w.a, { rows: false }), "and holds the same pin records");
   }
   if (schedule === "B's log delayed") {
     const fresh = freshMac("devC", folder);
@@ -431,8 +489,9 @@ async function runPair(startRow, opA, opB, schedule) {
       }
     });
   }
+  const later_ = later === "A" ? opA : opB;
   for (const [m, op] of [[w.a, opA], [w.b, opB]]) {
-    if (!did(w.k, op, m)) continue;
+    if (!did(w.k, op, m) || (overlap(opA, opB) && op !== later_ && later_.edits)) continue;
     m.with(() => {
       for (const name of op.keeps ?? []) {
         if (name === "G") assert.ok(groupFor(w.k.G), `${m.id}: keeps the group it unpinned`);
@@ -441,7 +500,6 @@ async function runPair(startRow, opA, opB, schedule) {
     });
   }
   const ran = [[opA, w.a], [opB, w.b]].filter(([op, m]) => did(w.k, op, m) || !op.final);
-  const later_ = later === "A" ? opA : opB;
   const collected = (opA.collects || opB.collects) && overlap(opA, opB);
   const finals = collected ? [] : overlap(opA, opB) && ran.some(([op]) => op === later_) ? [later_] : ran.map(([op]) => op);
   for (const op of finals) for (const m of [w.a, w.b]) if (op.final) m.with(() => op.final(w.k, m));
@@ -466,3 +524,50 @@ test(`concurrent pinned-tab edits on two Macs converge (${cases.length} runs)`, 
   assert.equal(failures.length, 0, `${failures.length} runs failed:\n${failures.slice(0, 40).join("\n")}`);
 });
 
+test("a pin waiting for a group that never arrives stands alone once the wait is over, even on an idle Mac", async () => {
+  wall += DAY;
+  const folder = new Folder();
+  const b = freshMac("waitB", folder);
+  const remote = new Clock("remote", null, () => wall);
+  const value = { g: "never-seen", u: "https://wait.example/", t: null, i: null, ti: "Wait", pos: "V" };
+  await folder.transport().write("p:default", JSON.stringify({ v: 1, kind: "log", device: "remote", seq: 1, at: wall, ops: [{ k: "pin:t:wait", h: remote.tick(), v: value }] }));
+  await b.sync();
+  assert.equal(record(b, "default", "pin:t:wait").g, "never-seen", "it waits at first");
+  b.relaunch();
+  wall += 181 * DAY;
+  for (let i = 0; i < 3; i++) await b.sync();
+  assert.equal(record(b, "default", "pin:t:wait").g, null, "it stops waiting without any new change");
+  b.relaunch();
+  await b.sync();
+  assert.equal(record(b, "default", "pin:t:wait").g, null, "and stays a standalone pin after a relaunch");
+  b.with(() => assert.ok(tabFor("wait")?.pinned, "shown as a pin"));
+});
+
+test("a log that never arrives stops holding the folder after 180 days", async () => {
+  wall += DAY;
+  const folder = new Folder();
+  const a = freshMac("gapA", folder);
+  const b = freshMac("gapB", folder);
+  let key;
+  a.with(() => {
+    const wd = Object.values(S().windows).find((x) => x.profileId === "default").id;
+    key = S().newTab(wd, { url: "https://gap.example/" });
+    S().pinTabs([key], true);
+  });
+  const before = new Set(folder.files.keys());
+  await a.sync();
+  for (const id of folder.files.keys()) if (!before.has(id)) folder.hidden.add(id);
+  for (let i = 0; i < 30; i++) {
+    a.with(() => S().updateTab(key, { customTitle: `Edit ${i}` }));
+    await a.sync();
+  }
+  await b.sync();
+  assert.ok(b.scopes.default.extra.gapA?.length, "B notices the missing log");
+  wall += 200 * DAY;
+  await a.sync();
+  await b.sync();
+  await b.compact(0);
+  assert.deepEqual(b.scopes.default.extra, {}, "the gap is closed");
+  const logs = [...folder.files.values()].filter((f) => f.scope === "p:default" && JSON.parse(f.payload).kind === "log");
+  assert.ok(logs.length <= 4, `${logs.length} logs left`);
+});
