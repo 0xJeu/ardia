@@ -144,10 +144,12 @@ The data dir is `--data-dir`, else `$ARDIA_DATA_DIR`, else `~/Library/Applicatio
    `extension/` exists the new folder replaces it with `renamex_np(RENAME_SWAP)` and the old one is deleted, so the
    path never goes missing; a plain rename only when there's none. With no scripts left, `extension/` is removed.
 4. It writes `Scripts/generation` (temp file and rename): one more than the largest of `Scripts/generation`,
-   `extension/generation` and the last reported one. Every `ardia scripts` command repairs a crashed run before it
-   does anything else: `list` and `test` take the lock, rebuild the extension from the records if they disagree
-   (`manifest.json` entries, the `js/` files and their bytes), and otherwise publish `Scripts/generation =
-   extension/generation` when the extension is ahead; install and uninstall rebuild from the records anyway. `extension/generation` holds the same number. A bumped generation with
+   `extension/generation` and the last reported one. A crashed run is repaired by the next install or
+   uninstall (they rebuild from the records) or `list`: when its data dir was named (`--data-dir`,
+   `$ARDIA_DATA_DIR`) or has a live control file, it takes the lock, rebuilds the extension from the records if
+   they disagree (`manifest.json` entries, the `js/` files and their bytes), and otherwise publishes
+   `Scripts/generation = extension/generation` when the extension is ahead. `scripts test` never writes to any
+   `Scripts/` folder, and nothing creates `Scripts/` under a data dir that wasn't named or live. `extension/generation` holds the same number. A bumped generation with
    no `extension/` means every script was uninstalled.
 5. It drops the lock, then polls `Scripts/status.json` for up to 10 s: `{"generation": N, "profiles": {"<profile>":
    {"ok": true} | {"error": "…"} | {"disabled": true} | {"removed": true}}}`; `removed` means no scripts are left and the extension is gone from that profile. Exit 0 when every profile loaded or is turned off, 1 on any

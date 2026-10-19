@@ -10,7 +10,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from ardia_cli import browsing, scripts_store, scripts_test, urlmatch, userscript
+from ardia_cli import browsing, cli, endpoint, scripts_store, scripts_test, urlmatch, userscript
 from ardia_cli.scripts_store import Store, StoreError
 from ardia_cli.userscript import Meta, ScriptError, build, parse_meta, url_runs
 
@@ -379,6 +379,75 @@ class Stores(unittest.TestCase):
             self.assertEqual(store.generation(), 1)
 
 
+class ReadOnlyDefaults(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="ardia-cli-default-")).resolve()
+        self.default = self.root / "com.ardia.browser"
+        self.default.mkdir()
+        self.work = self.root / "work"
+        self.work.mkdir()
+        self.script = self.work / "s.user.js"
+        self.script.write_text("// ==UserScript==\n// @name s\n// @match https://example.com/*\n// ==/UserScript==\nconsole.log(1);\n")
+        patches = [
+            mock.patch.object(endpoint, "INSTALLED_DATA_DIR", self.default),
+            mock.patch.dict(os.environ, {}, clear=False),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        for name in ("ARDIA_DATA_DIR", "ARDIA_CDP_URL"):
+            os.environ.pop(name, None)
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def run_cli(self, *argv) -> int:
+        import contextlib
+        import io
+
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return cli.main(list(argv))
+
+    def snapshot(self) -> dict:
+        found = {}
+        for path in sorted(self.default.rglob("*")):
+            found[str(path.relative_to(self.default))] = path.read_bytes() if path.is_file() else None
+        return found
+
+    def crash(self):
+        source = self.script.read_text()
+        built = userscript.Build(parse_meta(source, self.script.name), source, self.script, "console.log(1);\n", None, [])
+        with Store(self.default) as store:
+            store.apply(add=built)
+        (self.default / "Scripts" / "generation").write_text("0\n")
+
+    @unittest.skipUnless(userscript.find_esbuild(), "esbuild isn't available")
+    def test_test_against_a_test_server_creates_nothing(self):
+        self.assertEqual(self.run_cli("scripts", "test", str(self.script), "--port", "1"), 2)
+        self.assertFalse((self.default / "Scripts").exists())
+
+    @unittest.skipUnless(userscript.find_esbuild(), "esbuild isn't available")
+    def test_test_never_repairs(self):
+        self.crash()
+        before = self.snapshot()
+        self.run_cli("scripts", "test", str(self.script), "--port", "1")
+        self.run_cli("scripts", "test", str(self.script), "--port", "1", "--data-dir", str(self.default))
+        self.assertEqual(self.snapshot(), before)
+
+    def test_list_repairs_only_a_trusted_data_dir(self):
+        self.crash()
+        before = self.snapshot()
+        self.assertEqual(self.run_cli("scripts", "list"), 0)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.run_cli("scripts", "list", "--data-dir", str(self.default)), 0)
+        self.assertEqual((self.default / "Scripts" / "generation").read_text().strip(), "1")
+
+    def test_list_without_scripts_creates_nothing(self):
+        self.assertEqual(self.run_cli("scripts", "list"), 0)
+        self.assertEqual(self.run_cli("scripts", "list", "--data-dir", str(self.default)), 0)
+        self.assertFalse((self.default / "Scripts").exists())
+
+
 class Deadlines(unittest.TestCase):
     def test_progress_handler_interrupts(self):
         import sqlite3
@@ -386,6 +455,7 @@ class Deadlines(unittest.TestCase):
 
         connection = browsing.connect(":memory:", time.monotonic() + 0.2)
         started = time.monotonic()
+        self.addCleanup(connection.close)
         with self.assertRaises(sqlite3.OperationalError):
             connection.execute("WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT count(*) FROM n").fetchone()
         self.assertLess(time.monotonic() - started, 2)

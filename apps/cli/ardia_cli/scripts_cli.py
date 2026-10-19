@@ -195,14 +195,6 @@ def test(args) -> int:
         return report_build_error(args, "no @match gives a concrete page to open; pass --url URL")
     if args.wait < 0:
         return report_build_error(args, "--wait can't be negative")
-    from ardia_cli.scripts_store import StoreError, repair_if_present
-
-    try:
-        note = repair_if_present(data_root(args.data_dir))
-    except (StoreError, OSError) as error:
-        note = f"couldn't check the installed scripts ({error})"
-    if note:
-        built.meta.warnings.append(f"installed scripts: {note}")
     if not url_runs(built.meta, url):
         built.meta.warnings.append(f"{url} doesn't match the script's @match/@include rules, so it won't run there")
     try:
@@ -334,18 +326,25 @@ def print_profiles(status: dict, removed: bool = False) -> int:
 
 
 def listing(args) -> int:
-    from ardia_cli.endpoint import data_root
-    from ardia_cli.scripts_store import Store, StoreError
+    from ardia_cli.endpoint import EndpointError, data_root, explicit_data_root, require_control
+    from ardia_cli.scripts_store import Store, StoreError, repair_if_present
 
-    from ardia_cli.scripts_store import repair_if_present
-
-    try:
-        note = repair_if_present(data_root(args.data_dir))
-    except (StoreError, OSError) as error:
-        complain(f"ardia scripts: can't check the installed scripts ({error})")
-        return 1
-    if note:
-        say(f"repaired: {note}")
+    root = data_root(args.data_dir)
+    trusted = explicit_data_root(args.data_dir) is not None
+    if not trusted:
+        try:
+            require_control(root)
+            trusted = True
+        except EndpointError:
+            trusted = False
+    if trusted:
+        try:
+            note = repair_if_present(root)
+        except (StoreError, OSError) as error:
+            complain(f"ardia scripts: can't check the installed scripts ({error})")
+            return 1
+        if note:
+            say(f"repaired: {note}")
     store = Store(data_root(args.data_dir))
     try:
         store.open(False)
