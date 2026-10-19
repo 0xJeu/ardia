@@ -2,20 +2,12 @@ import type { BrowserState } from "./browser";
 import { changedIds } from "./changes";
 import { orderSections, syncGroupOrder } from "./groups";
 import { IDLE_LIVE, isIncognitoProfile, makeTab, newId, pinnedFirst } from "./model";
-import { samePage, type PinSync } from "./organize";
+import { samePage } from "./organize";
 import { removeTabs } from "./tabs";
 import type { BrowserWindow, Tab, TabGroup } from "./types";
 
 type Keyed = { id: string; pinKey?: string };
 export const pinKeyOf = (x: Keyed) => x.pinKey ?? x.id;
-export const PARKED_COPY = "park";
-
-export function carryShown(pinSync: PinSync, profileId: string, key: string, from: string, to: string): PinSync {
-  const entry = pinSync[profileId]?.[key];
-  const mark = entry?.b?.[from];
-  if (!entry || !mark) return pinSync;
-  return { ...pinSync, [profileId]: { ...pinSync[profileId], [key]: { ...entry, b: { ...entry.b, [to]: mark } } } };
-}
 const homeOf = (t: Pick<Tab, "url" | "pinnedUrl">) => t.pinnedUrl || t.url;
 const hasPage = (t: Tab) => !!t.navigation || !!t.adoptId;
 const mirrored = (w: BrowserWindow | undefined): w is BrowserWindow => !!w && !w.incognito && w.kind !== "small";
@@ -135,7 +127,6 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   const tabs = { ...s.tabs };
   const live = { ...s.live };
   let groups = { ...s.groups };
-  let pinSync = s.pinSync;
   const reuse = (src: Tab, tile: boolean): string => {
     const key = pinKeyOf(src);
     const same = mine.filter((m) => !used.has(m.id) && pinKeyOf(m) === key);
@@ -145,7 +136,6 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
       const copy = copyOf(src, windowId, tile);
       tabs[copy.id] = copy;
       live[copy.id] = IDLE_LIVE;
-      pinSync = carryShown(pinSync, src.profileId, key, src.id, copy.id);
       used.add(copy.id);
       return copy.id;
     }
@@ -194,7 +184,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   const ids = [...tileIds, ...memberIds, ...demoted, ...w.tabIds.filter((id) => !section.has(id))];
   const window = { ...w, tabIds: orderSections(pinnedFirst(ids, tabs), tabs, groups) };
   groups = syncGroupOrder(groups, window);
-  const next: BrowserState = { ...s, tabs, live, groups, pinSync, windows: { ...s.windows, [windowId]: window } };
+  const next: BrowserState = { ...s, tabs, live, groups, windows: { ...s.windows, [windowId]: window } };
   return gone.length ? removeTabs(next, gone, false) : next;
 }
 
@@ -243,7 +233,6 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
   const live = { ...after.live };
   const windows = { ...after.windows };
   const groups = { ...after.groups };
-  let pinSync = after.pinSync;
   for (const sourceId of new Set(pins.map((t) => t.windowId))) {
     const src = windows[sourceId];
     if (!mirrored(src) || !mirrored(before.windows[sourceId])) continue;
@@ -253,7 +242,6 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
       const copy = copyOf(t, sourceId, t.pinned);
       tabs[copy.id] = copy;
       live[copy.id] = IDLE_LIVE;
-      pinSync = carryShown(pinSync, t.profileId, pinKeyOf(t), t.id, copy.id);
       swap.set(t.id, copy.id);
     }
     const present = new Set([...src.tabIds, ...swap.values()]);
@@ -281,6 +269,6 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
     } else gone.push(copy);
   }
   windows[targetId] = { ...target, tabIds: orderSections(pinnedFirst(tabIds, tabs), tabs, groups) };
-  const next: BrowserState = { ...after, tabs, live, windows, groups, pinSync };
+  const next: BrowserState = { ...after, tabs, live, windows, groups };
   return gone.length ? removeTabs(next, gone, false) : next;
 }

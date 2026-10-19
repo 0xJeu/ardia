@@ -26,8 +26,7 @@ export function notePinChoices(choices: PinChoices) {
   for (const mine of Object.values(choices)) for (const n of Object.values(mine)) if (n > lastPinChoice) lastPinChoice = n;
 }
 
-export type PinShown = { u: string; ti: string };
-export type PinSyncEntry = { g?: string; w?: number; b?: Record<string, PinShown> };
+export type PinSyncEntry = { g?: string; w?: number };
 export type PinSync = Record<string, Record<string, PinSyncEntry>>;
 
 export function livePinTable<T>(table: Record<string, Record<string, T>>, s: Pick<BrowserState, "profiles" | "tabs" | "groups" | "parkedPins">): Record<string, Record<string, T>> {

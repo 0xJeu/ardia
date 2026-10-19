@@ -4,7 +4,7 @@ import { useBrowser, type BrowserState, type HydrateData } from "../store/browse
 import { inPinnedContainer, isIncognitoProfile, newId, privateSession, snapshotTab } from "../store/model";
 import { earlyLaunchTabOn, launchTab, linkProfile, type LaunchTab } from "../store/launchTab";
 import { launchBackdrop, type LaunchBackdrop } from "./launchBackdrop";
-import { parkedShown, parkWindowPins } from "../store/parkedPins";
+import { parkWindowPins } from "../store/parkedPins";
 import type { BrowserWindow, ClosedTab, Tab } from "../store/types";
 import { downloadSession } from "../store/ui";
 import { startFavicons } from "./favicons";
@@ -151,11 +151,7 @@ export function loadSession(): HydrateData | null {
   if (session.settings && session.settings.restoreSession === false) {
     const now = Date.now();
     const pinSource = { tabs: data.tabs ?? {}, groups: data.groups ?? {}, history: {} };
-    for (const w of session.windows) {
-      const parked = parkWindowPins(data.parkedPins ?? {}, w, pinSource);
-      data.pinSync = parkedShown(data.pinSync ?? {}, w, pinSource.tabs, data.parkedPins ?? {}, parked);
-      data.parkedPins = parked;
-    }
+    for (const w of session.windows) data.parkedPins = parkWindowPins(data.parkedPins ?? {}, w, pinSource);
     data.closedWindows = [
       ...(data.closedWindows ?? []),
       ...session.windows.map((w) => ({

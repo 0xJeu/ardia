@@ -5,9 +5,9 @@ import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { leaveGroups, orderSections, syncGroupOrder } from "../store/groups";
 import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/model";
-import { groupChoiceKey, placeChoiceKey, type PinShown, type PinSyncEntry } from "../store/organize";
-import { adoptParkedPins, parkedShown, parkWindowPins } from "../store/parkedPins";
-import { PARKED_COPY, pinKeyOf } from "../store/pinMirror";
+import { groupChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
+import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
+import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
 import type { BookmarkNode, HistoryEntry, Profile, Tab, TabGroup } from "../store/types";
@@ -353,56 +353,12 @@ function homeWindow(s: BrowserState, profileId: string): Window | undefined {
 }
 
 
-function pinCopies(s: Pick<BrowserState, "tabs" | "groups" | "parkedPins">, profileId: string) {
-  const copies = new Map<string, Map<string, PinShown>>();
-  const add = (key: string, copy: string, t: Pick<Tab, "url" | "title">) => {
-    let mine = copies.get(key);
-    if (!mine) copies.set(key, (mine = new Map()));
-    mine.set(copy, { u: t.url, ti: t.title });
-  };
-  const members = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
-  for (const t of Object.values(s.tabs)) if (t.profileId === profileId && (t.pinned || members.has(t.id))) add(pinKeyOf(t), t.id, t);
-  for (const t of s.parkedPins[profileId]?.tabs ?? []) add(t.id, PARKED_COPY, t);
-  return copies;
-}
-
-type AppliedPin = { entry: PinSyncEntry; applied: boolean };
-
-function shownAfterApply(
-  noted: Map<string, AppliedPin>,
-  prev: Record<string, PinSyncEntry>,
-  s: Pick<BrowserState, "tabs" | "groups" | "parkedPins">,
-  profileId: string,
-  pageSet: (key: string, copy: string) => boolean,
-  cameFrom: (key: string, copy: string) => string | undefined,
-) {
-  const copies = pinCopies(s, profileId);
-  const out: Record<string, PinSyncEntry> = {};
-  for (const [key, { entry, applied }] of noted) {
-    const was = prev[key]?.b ?? {};
-    if (!applied) {
-      out[key] = { ...entry, ...(prev[key]?.b ? { b: was } : {}) };
-      continue;
-    }
-    const b: Record<string, PinShown> = {};
-    for (const [copy, page] of copies.get(key) ?? []) {
-      const source = cameFrom(key, copy);
-      const known = pageSet(key, copy) ? page : (was[copy] ?? (source ? was[source] : undefined));
-      if (known) b[copy] = known;
-    }
-    out[key] = { ...entry, b };
-  }
-  return out;
-}
-
-const sameShown = (a: Record<string, PinShown> = {}, b: Record<string, PinShown>) => JSON.stringify(a) === JSON.stringify(b);
-
 export function pinnedAdapter(profileId: string): Adapter {
   return {
     prefix: "pin:",
     extract: (base, queued, now) => {
       const s = store();
-      type Pin = Pick<Tab, "id" | "url" | "title" | "customTitle" | "customIcon"> & Partial<Pick<Tab, "pinnedUrl">> & { copy: string };
+      type Pin = Pick<Tab, "id" | "url" | "title" | "customTitle" | "customIcon"> & Partial<Pick<Tab, "pinnedUrl">>;
       const tiles: Pin[] = [];
       const groups: Pick<TabGroup, "id" | "name" | "icon" | "color">[] = [];
       const members = new Map<string, Pin[]>();
@@ -415,55 +371,38 @@ export function pinnedAdapter(profileId: string): Adapter {
           const t = s.tabs[id];
           if (!t || t.profileId !== profileId || seen.has(pinKeyOf(t))) continue;
           const g = pinnedGroupOf.get(id);
-          if (t.pinned) tiles.push({ ...t, id: pinKeyOf(t), copy: t.id });
+          if (t.pinned) tiles.push({ ...t, id: pinKeyOf(t) });
           else if (g) {
             const key = pinKeyOf(g);
             if (!members.has(key)) {
               members.set(key, []);
               groups.push({ ...g, id: key });
             }
-            members.get(key)!.push({ ...t, id: pinKeyOf(t), copy: t.id });
+            members.get(key)!.push({ ...t, id: pinKeyOf(t) });
           } else continue;
           seen.add(pinKeyOf(t));
         }
       }
       const park = s.parkedPins[profileId];
       for (const g of park?.groups ?? []) if (!members.has(g.id)) (members.set(g.id, []), groups.push(g));
-      for (const p of park?.tabs ?? []) (p.groupId ? members.get(p.groupId) : tiles)?.push({ ...p, copy: PARKED_COPY });
+      for (const p of park?.tabs ?? []) (p.groupId ? members.get(p.groupId) : tiles)?.push(p);
       const values = new Map<string, unknown>();
       const chosen = s.pinChoices[profileId] ?? {};
       const sync = s.pinSync[profileId] ?? {};
-      const copies = pinCopies(s, profileId);
-      const shown: Record<string, Record<string, PinShown>> = {};
-      const later = new Map<string, { copy: string; shown: PinShown }>();
       const place = (tabs: Pin[], group: string | null) => {
         const positions = assignPositions(tabs.map((t) => ((base(`pin:t:${t.id}`) as PinValue | undefined)?.g ?? null) === group ? (base(`pin:t:${t.id}`) as PinValue | undefined)?.pos : undefined));
         tabs.forEach((t, i) => {
           const was = base(`pin:t:${t.id}`) as PinValue | undefined;
           const entry = was ? sync[t.id] : undefined;
-          const marks = entry?.b ?? {};
-          const own = marks[t.copy];
-          const unchanged = (field: keyof PinShown, value: string) => (own ? own[field] === value : Object.values(marks).some((m) => m[field] === value));
           const waiting = !group && !!was?.g && entry?.g === was.g && now < (entry.w ?? 0);
-          const u = (group ? t.url : t.pinnedUrl || t.url) || "";
-          const value: PinValue = {
+          values.set(`pin:t:${t.id}`, {
             g: waiting ? was!.g : group,
-            u: group && unchanged("u", t.url) ? was!.u : u,
+            u: (group ? t.url : t.pinnedUrl || t.url) || "",
             t: t.customTitle,
             i: t.customIcon,
-            ti: unchanged("ti", t.title) ? was!.ti : t.title,
+            ti: t.title,
             pos: waiting ? was!.pos : positions[i]!,
-          };
-          values.set(`pin:t:${t.id}`, value);
-          if (!was) return;
-          const current = { u: t.url, ti: t.title };
-          const settled = value.u === was.u && value.ti === was.ti;
-          const next: Record<string, PinShown> = {};
-          for (const copy of copies.get(t.id)?.keys() ?? []) if (copy !== t.copy && marks[copy]) next[copy] = marks[copy]!;
-          if (settled) next[t.copy] = current;
-          else if (own) next[t.copy] = own;
-          if (!settled) later.set(`pin:t:${t.id}`, { copy: t.copy, shown: current });
-          if (!sameShown(marks, next)) shown[t.id] = next;
+          } satisfies PinValue);
         });
       };
       place(tiles, null);
@@ -473,19 +412,14 @@ export function pinnedAdapter(profileId: string): Adapter {
         place(members.get(g.id)!, g.id);
       });
       const choiceOf = (k: string) => (k.startsWith("pin:g:") ? groupChoiceKey(k.slice(6)) : placeChoiceKey(k.slice(6)));
-      if (Object.keys(shown).length) notePinsShown(profileId, shown);
       return {
         values,
         republish: (k) => choiceOf(k) in chosen && !queued(k),
-        published: (keys) => {
-          settleChoices(profileId, Object.fromEntries([...keys].map(choiceOf).filter((c) => c in chosen).map((c) => [c, chosen[c]!])));
-          const done = Object.fromEntries([...keys].filter((k) => later.has(k)).map((k) => [k.slice(6), later.get(k)!] as const));
-          if (Object.keys(done).length) notePinsShown(profileId, done, true);
-        },
+        published: (keys) => settleChoices(profileId, Object.fromEntries([...keys].map(choiceOf).filter((c) => c in chosen).map((c) => [c, chosen[c]!]))),
       } satisfies Extraction;
     },
     apply: (visible, changed, base, records) => {
-      let sync = store().pinSync[profileId] ?? {};
+      const sync = store().pinSync[profileId] ?? {};
       let s = store();
       const home = homeWindow(s, profileId);
       if (!home) return false;
@@ -497,7 +431,6 @@ export function pinnedAdapter(profileId: string): Adapter {
         s = { ...s, windows: { ...s.windows, [PARK]: stand } };
         if (s.parkedPins[profileId]) s = adoptParkedPins(s, PARK, profileId);
       }
-      sync = s.pinSync[profileId] ?? {};
       const newPinWindow = shown ? home.id : PARK;
       const scope = new Set([home.id, PARK]);
       const tabOfKey = new Map<string, string>();
@@ -576,19 +509,12 @@ export function pinnedAdapter(profileId: string): Adapter {
           ? { ...old, name: v.n, icon: v.i, color: v.c, pinned: true }
           : { id, ...pinKeyField(id), windowId: newPinWindow, profileId, name: v.n, icon: v.i, color: v.c, collapsed: false, pinned: true, tabIds: [], createdAt: Date.now() };
       }
-      const noted = new Map<string, AppliedPin>();
-      const applied = new Set([...changed].filter((k) => k.startsWith("pin:t:")).map((k) => k.slice(6)));
-      const pageSet = new Set<string>();
-      const takesPage = (t: Tab) => {
-        if (!t.unloaded || !applied.has(pinKeyOf(t))) return false;
-        const mark = sync[pinKeyOf(t)]?.b?.[t.id];
-        return !mark || (mark.u === t.url && mark.ti === t.title);
-      };
+      const noted = new Map<string, PinSyncEntry>();
       const note = (key: string, id: string) => {
         const g = awaiting.get(id);
         const was = sync[key];
-        if (!applied.has(key) && (was?.g ?? undefined) === g) return;
-        noted.set(key, { entry: g ? { g, w: was?.g === g && was.w !== undefined ? was.w : records.now + records.horizon } : {}, applied: applied.has(key) });
+        if ((was?.g ?? undefined) === g) return;
+        noted.set(key, g ? { g, w: was?.g === g && was.w !== undefined ? was.w : records.now + records.horizon } : {});
       };
       for (const [id, v] of pins) {
         const group = v.g && groupValues.has(v.g) && groups[v.g] ? groups[v.g]! : null;
@@ -601,9 +527,8 @@ export function pinnedAdapter(profileId: string): Adapter {
             ...(group ? { pinnedAsRow: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)) }),
             customTitle: v.t,
             customIcon: v.i,
-            ...(takesPage(old) ? { url: v.u, title: v.ti } : {}),
+            ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
           };
-          if (takesPage(old) || !contained(id)) pageSet.add(id);
           note(pinKeyOf(tabs[id]!), id);
           continue;
         }
@@ -620,7 +545,6 @@ export function pinnedAdapter(profileId: string): Adapter {
           unloaded: true,
         };
         note(keyOfLocal.get(id) ?? id, id);
-        pageSet.add(id);
         tabs[id] = tab;
         windows[windowId] = { ...w, tabIds: [...w.tabIds, id] };
       }
@@ -659,7 +583,6 @@ export function pinnedAdapter(profileId: string): Adapter {
               unloaded: true,
             };
             tabs[copy.id] = copy;
-            if (pageSet.has(id)) pageSet.add(copy.id);
             tabs[id] = { ...t, pinKey: undefined };
             windows[windowId] = { ...windows[windowId]!, tabIds: [...windows[windowId]!.tabIds, copy.id] };
             tabIds.push(copy.id);
@@ -683,21 +606,15 @@ export function pinnedAdapter(profileId: string): Adapter {
       }
       let { live, parkedPins } = s;
       const parkWindow = windows[PARK];
-      const parkedFrom = new Map((parkWindow?.tabIds ?? []).filter((id) => tabs[id]).map((id) => [pinKeyOf(tabs[id]!), id]));
-      const copiedFrom = new Map([...copied].map(([source, copy]) => [copy, source]));
       if (parkWindow) {
-        const before = parkedPins;
         parkedPins = parkWindowPins(parkedPins, parkWindow, { tabs, groups, history: s.history });
-        s = { ...s, pinSync: parkedShown(s.pinSync, parkWindow, tabs, before, parkedPins) };
         for (const id of parkWindow.tabIds) delete tabs[id];
         live = without(live, parkWindow.tabIds);
         groups = Object.fromEntries(Object.entries(groups).filter(([, g]) => g.windowId !== PARK));
         delete windows[PARK];
       }
       const { find, splits, selection, windowOrder, windowUi } = s;
-      const fresh = (key: string, copy: string) => pageSet.has(copy === PARKED_COPY ? (parkedFrom.get(key) ?? "") : copy);
-      const cameFrom = (key: string, copy: string) => (copy === PARKED_COPY ? parkedFrom.get(key) : copiedFrom.get(copy));
-      const pinSync = noted.size ? { ...s.pinSync, [profileId]: { ...s.pinSync[profileId], ...shownAfterApply(noted, sync, { tabs, groups, parkedPins }, profileId, fresh, cameFrom) } } : s.pinSync;
+      const pinSync = noted.size ? { ...s.pinSync, [profileId]: { ...s.pinSync[profileId], ...Object.fromEntries(noted) } } : s.pinSync;
       useBrowser.setState({ tabs, windows, groups, live, find, splits, selection, windowOrder, windowUi, parkedPins, pinSync });
     },
   };
@@ -706,21 +623,6 @@ export function pinnedAdapter(profileId: string): Adapter {
 const PIN_ROW = "pinrow:";
 const ROW = 1;
 const TILE = 0;
-
-function notePinsShown(profileId: string, updates: Record<string, Record<string, PinShown> | { copy: string; shown: PinShown }>, merge = false) {
-  useBrowser.setState((s) => {
-    const mine = { ...s.pinSync[profileId] };
-    for (const [key, update] of Object.entries(updates)) {
-      const entry = mine[key];
-      if (!merge) mine[key] = { ...entry, b: update as Record<string, PinShown> };
-      else if (entry) {
-        const { copy, shown } = update as { copy: string; shown: PinShown };
-        mine[key] = { ...entry, b: { ...entry.b, [copy]: shown } };
-      }
-    }
-    return { pinSync: { ...s.pinSync, [profileId]: mine } };
-  });
-}
 
 function settleChoices(profileId: string, published: Record<string, number>) {
   const now = store().pinChoices;

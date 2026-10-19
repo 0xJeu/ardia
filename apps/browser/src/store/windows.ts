@@ -18,7 +18,7 @@ import {
   without,
 } from "./model";
 import { nextPinChoice, placeChoiceKey, restoringGroup } from "./organize";
-import { adoptParkedPins, parkedShown, parkWindowPins } from "./parkedPins";
+import { adoptParkedPins, parkWindowPins } from "./parkedPins";
 import { settleMovedPins } from "./pinMirror";
 import { isSmall, isSmallWindow, lastActiveProfile, mainWindowFor, originalProfile } from "./small";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
@@ -179,15 +179,13 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
       closedWindows = [...closedWindows, entry].slice(-MAX_CLOSED_WINDOWS);
     }
     const next = removeTabs(s, w.tabIds, small);
-    const parkedPins = small ? s.parkedPins : parkWindowPins(s.parkedPins, w, s);
     set({
       ...next,
       windows: without(next.windows, [id]),
       windowOrder: next.windowOrder.filter((w) => w !== id),
       windowUi: without(next.windowUi, [id]),
       closedWindows,
-      parkedPins,
-      pinSync: parkedShown(s.pinSync, w, s.tabs, s.parkedPins, parkedPins),
+      parkedPins: small ? s.parkedPins : parkWindowPins(s.parkedPins, w, s),
       closedTabs: w.incognito ? next.closedTabs.filter((c) => c.windowId !== id) : next.closedTabs,
       ui: {
         ...next.ui,

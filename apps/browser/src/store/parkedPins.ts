@@ -1,8 +1,8 @@
 import type { BrowserState } from "./browser";
 import { orderSections, syncGroupOrder } from "./groups";
 import { IDLE_LIVE, isIncognitoProfile, makeTab, newId, pendingRestore, pinnedFirst, restoreId, snapshotTab, without } from "./model";
-import { samePage, type PinSync } from "./organize";
-import { carryShown, PARKED_COPY, pinKeyOf } from "./pinMirror";
+import { samePage } from "./organize";
+import { pinKeyOf } from "./pinMirror";
 import type { BrowserWindow, HistoryEntry, ParkedPins, Tab, TabGroup } from "./types";
 
 
@@ -60,20 +60,6 @@ export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWin
   return next;
 }
 
-export function parkedShown(pinSync: PinSync, w: BrowserWindow, tabs: Record<string, Tab>, before: Record<string, ParkedPins>, after: Record<string, ParkedPins>): PinSync {
-  let next = pinSync;
-  for (const [profileId, park] of Object.entries(after)) {
-    if (park === before[profileId]) continue;
-    const had = new Set((before[profileId]?.tabs ?? []).map((p) => p.id));
-    for (const p of park.tabs) {
-      if (had.has(p.id)) continue;
-      const source = w.tabIds.find((id) => tabs[id]?.profileId === profileId && pinKeyOf(tabs[id]!) === p.id);
-      if (source) next = carryShown(next, profileId, p.id, source, PARKED_COPY);
-    }
-  }
-  return next;
-}
-
 export function adoptParkedPins(s: BrowserState, windowId: string, profileId: string): BrowserState {
   const park = s.parkedPins[profileId];
   const w = s.windows[windowId];
@@ -83,7 +69,6 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
   const homes = w.tabIds.map((id) => tabs[id]).filter((t): t is Tab => !!t?.pinned && t.profileId === profileId).map(homeOf);
   const members = new Map<string, string[]>();
   const added: string[] = [];
-  let pinSync = s.pinSync;
   for (const { id, groupId, restoreFrom, ...snap } of park.tabs) {
     const home = homeOf(snap);
     if (!groupId && homes.some((h) => samePage(h, home))) continue;
@@ -96,7 +81,6 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
     };
     tabs[tab.id] = tab;
     live[tab.id] = IDLE_LIVE;
-    pinSync = carryShown(pinSync, profileId, id, PARKED_COPY, tab.id);
     added.push(tab.id);
     if (groupId) members.set(groupId, [...(members.get(groupId) ?? []), tab.id]);
   }
@@ -109,5 +93,5 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
   }
   const window = { ...w, tabIds: orderSections(pinnedFirst([...added, ...w.tabIds], tabs), tabs, groups) };
   groups = syncGroupOrder(groups, window);
-  return { ...s, tabs, live, groups, pinSync, windows: { ...s.windows, [windowId]: window }, parkedPins: without(s.parkedPins, [profileId]) };
+  return { ...s, tabs, live, groups, windows: { ...s.windows, [windowId]: window }, parkedPins: without(s.parkedPins, [profileId]) };
 }
