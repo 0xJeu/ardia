@@ -1,19 +1,21 @@
 diff --git a/chrome/browser/performance_manager/public/user_tuning/battery_saver_mode_manager.h b/chrome/browser/performance_manager/public/user_tuning/battery_saver_mode_manager.h
 --- a/chrome/browser/performance_manager/public/user_tuning/battery_saver_mode_manager.h
 +++ b/chrome/browser/performance_manager/public/user_tuning/battery_saver_mode_manager.h
-@@ -43,6 +43,7 @@
+@@ -43,6 +43,8 @@
     public:
      virtual void StartThrottlingAllFrameSinks() = 0;
      virtual void StopThrottlingAllFrameSinks() = 0;
 +    virtual void HoldFullFrameRateForInput() {}
++    virtual void SetFullFrameRateInputInProgress(bool in_progress) {}
  
      virtual ~FrameThrottlingDelegate() = default;
    };
-@@ -134,6 +135,8 @@
+@@ -134,6 +136,9 @@
    // decisions based on the most up-to-date state.
    bool IsBatterySaverActive() const;
  
 +  void HoldFullFrameRateForInput();
++  void SetFullFrameRateInputInProgress(bool in_progress);
 +
    // Returns true if the device is unplugged and using battery power.
    bool IsUsingBatteryPower() const;
@@ -29,19 +31,20 @@ diff --git a/chrome/browser/performance_manager/user_tuning/battery_saver_mode_m
  #include "base/values.h"
  #include "components/performance_manager/freezing/freezing_policy.h"
  #include "components/performance_manager/performance_manager_impl.h"
-@@ -74,14 +75,42 @@
+@@ -74,14 +75,55 @@
            FrameThrottlingDelegate {
   public:
    void StartThrottlingAllFrameSinks() override {
 -    content::StartThrottlingAllFrameSinks(base::Hertz(30));
 +    throttling_wanted_ = true;
-+    if (!input_hold_.IsRunning()) {
++    if (!held_for_input_) {
 +      content::StartThrottlingAllFrameSinks(base::Hertz(30));
 +    }
    }
  
    void StopThrottlingAllFrameSinks() override {
 +    throttling_wanted_ = false;
++    held_for_input_ = false;
 +    input_hold_.Stop();
      content::StopThrottlingAllFrameSinks();
    }
@@ -50,7 +53,8 @@ diff --git a/chrome/browser/performance_manager/user_tuning/battery_saver_mode_m
 +    if (!throttling_wanted_) {
 +      return;
 +    }
-+    if (!input_hold_.IsRunning()) {
++    if (!held_for_input_) {
++      held_for_input_ = true;
 +      content::StopThrottlingAllFrameSinks();
 +    }
 +    input_hold_.Start(
@@ -59,26 +63,44 @@ diff --git a/chrome/browser/performance_manager/user_tuning/battery_saver_mode_m
 +                       base::Unretained(this)));
 +  }
 +
++  void SetFullFrameRateInputInProgress(bool in_progress) override {
++    input_in_progress_ = in_progress;
++    HoldFullFrameRateForInput();
++  }
++
    ~FrameThrottlingDelegateImpl() override = default;
 +
 + private:
 +  void ResumeThrottling() {
++    if (input_in_progress_) {
++      return;
++    }
++    held_for_input_ = false;
 +    if (throttling_wanted_) {
 +      content::StartThrottlingAllFrameSinks(base::Hertz(30));
 +    }
 +  }
 +
 +  bool throttling_wanted_ = false;
++  bool held_for_input_ = false;
++  bool input_in_progress_ = false;
 +  base::OneShotTimer input_hold_;
  };
  
  class ChildProcessTuningDelegateImpl
-@@ -542,6 +571,10 @@
+@@ -540,8 +582,17 @@
+ bool BatterySaverModeManager::IsBatterySaverActive() const {
+   return battery_saver_provider_ &&
           battery_saver_provider_->IsBatterySaverActive();
- }
- 
++}
++
 +void BatterySaverModeManager::HoldFullFrameRateForInput() {
 +  frame_throttling_delegate_->HoldFullFrameRateForInput();
+ }
+ 
++void BatterySaverModeManager::SetFullFrameRateInputInProgress(
++    bool in_progress) {
++  frame_throttling_delegate_->SetFullFrameRateInputInProgress(in_progress);
 +}
 +
  bool BatterySaverModeManager::IsUsingBatteryPower() const {

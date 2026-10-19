@@ -42,30 +42,30 @@ diff --git a/cc/scheduler/scheduler_state_machine.cc b/cc/scheduler/scheduler_st
        throttle_repeated_no_damage_frames_(base::FeatureList::IsEnabled(
            features::kThrottleRepeatedNoDamageFrames)) {}
  
-@@ -1277,8 +1284,13 @@
+@@ -1277,7 +1284,12 @@
    last_begin_impl_frame_time_ = args.frame_time;
    if (ardia_unthrottle_after_show_pending_) {
      ardia_unthrottle_after_show_pending_ = false;
 -    ardia_unthrottled_main_frames_until_ = args.frame_time + base::Seconds(1);
 +    ArdiaKeepMainFramesUnthrottledUntil(args.frame_time + base::Seconds(1));
-   }
++  }
 +  if (ardia_input_since_last_frame_ || is_scrolling_) {
 +    ardia_input_since_last_frame_ = false;
 +    ArdiaKeepMainFramesUnthrottledUntil(args.frame_time +
 +                                        ardia_full_rate_after_input_);
-+  }
+   }
  
    // Cache the values from the previous impl frame before reseting them for this
-   // frame.
-@@ -1654,8 +1666,21 @@
+@@ -1654,8 +1666,22 @@
    // regressions on input when we do actually want to unthrottle.
    consecutive_no_damage_main_frames_ = 0;
    UpdateConsecutiveNoDamageThrottlingInterval();
 +  if (ardia_full_rate_after_input_.is_positive()) {
-+    ardia_input_since_last_frame_ = true;
 +    if (begin_impl_frame_state_ != BeginImplFrameState::IDLE) {
 +      ArdiaKeepMainFramesUnthrottledUntil(last_begin_impl_frame_time_ +
 +                                          ardia_full_rate_after_input_);
++    } else {
++      ardia_input_since_last_frame_ = true;
 +    }
 +  }
  }
@@ -82,10 +82,12 @@ diff --git a/cc/scheduler/scheduler_state_machine.cc b/cc/scheduler/scheduler_st
 diff --git a/cc/scheduler/scheduler_state_machine_unittest.cc b/cc/scheduler/scheduler_state_machine_unittest.cc
 --- a/cc/scheduler/scheduler_state_machine_unittest.cc
 +++ b/cc/scheduler/scheduler_state_machine_unittest.cc
-@@ -1565,7 +1565,100 @@
+@@ -1563,9 +1563,107 @@
+ 
    state.SetVisible(true);
-   EXPECT_EQ(CountMainFramesIn120HzFrames(state, 10), 5);
- }
+   state.SetVisible(true);
++  EXPECT_EQ(CountMainFramesIn120HzFrames(state, 10), 5);
++}
 +
 +TEST(SchedulerStateMachineTest, MainFrameThrottlingWaitsOneSecondAfterInput) {
 +  base::test::ScopedFeatureList scoped_feature_list_{
@@ -112,7 +114,7 @@ diff --git a/cc/scheduler/scheduler_state_machine_unittest.cc b/cc/scheduler/sch
 +     MainFrameThrottlingInputDuringAFrameCountsFromThatFrame) {
 +  base::test::ScopedFeatureList scoped_feature_list_{
 +      features::kThrottleMainFrameTo60Hz};
- 
++
 +  SchedulerSettings default_scheduler_settings;
 +  StateMachine state(default_scheduler_settings);
 +  SET_UP_STATE(state);
@@ -134,6 +136,11 @@ diff --git a/cc/scheduler/scheduler_state_machine_unittest.cc b/cc/scheduler/sch
 +  EXPECT_TRUE(state.ShouldThrottleSendBeginMainFrame());
 +  state.NotifyInputEvent();
 +  EXPECT_FALSE(state.ShouldThrottleSendBeginMainFrame());
++
++  state.OnBeginImplFrameDeadline();
++  state.OnBeginImplFrameIdle();
++  state.AdvanceTimeBy(base::Milliseconds(1100));
++  EXPECT_EQ(CountMainFramesIn120HzFrames(state, 10), 5);
 +}
 +
 +TEST(SchedulerStateMachineTest,
@@ -156,9 +163,9 @@ diff --git a/cc/scheduler/scheduler_state_machine_unittest.cc b/cc/scheduler/sch
 +  state.AdvanceTimeBy(base::Milliseconds(800));
 +  EXPECT_EQ(CountMainFramesIn120HzFrames(state, 10), 10);
 +  state.AdvanceTimeBy(base::Milliseconds(200));
-+  EXPECT_EQ(CountMainFramesIn120HzFrames(state, 10), 5);
-+}
-+
+   EXPECT_EQ(CountMainFramesIn120HzFrames(state, 10), 5);
+ }
+ 
 +TEST(SchedulerStateMachineTest,
 +     MainFrameThrottlingIgnoresInputAndScrollsWithoutAnInputTail) {
 +  base::test::ScopedFeatureList scoped_feature_list_;
