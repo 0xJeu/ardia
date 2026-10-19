@@ -39,9 +39,11 @@ ignoring `http_proxy`, `ws_proxy` and the like, so no proxy sees the token.
 
 ## Browsing data
 
-For daily reports, `exec` has two helpers that read files in Ardia's data dir. They're coroutines that run in a worker
-thread, so the event loop and the browser socket stay live (`await history()`; a bare last expression is awaited
-anyway). The data dir is the token path's
+For daily reports, `exec` has two helpers that read files in Ardia's data dir. They're coroutines that run in a daemon
+thread with one 20 s deadline from the call (the session read, the snapshot, every SQLite connection through a
+progress handler that aborts past it, row fetching capped at 200,000), so the event loop and the browser socket stay
+live (`await history()`; a bare last expression is awaited anyway), `exec --timeout` returns promptly even if a call
+is stuck, and the worker deletes its temp snapshot in its own `finally` (plus an exit hook). The data dir is the token path's
 (`--data-dir`, `$ARDIA_DATA_DIR`, else the installed app's); with `--port`, `--ws` or `$ARDIA_CDP_URL` it's only
 `--data-dir` or `$ARDIA_DATA_DIR`, and without one they raise `BrowsingDataError`. Both run the same
 `ArdiaControl.json` checks as the token path first (regular file, owned, 0600, live pid), so they work only while
@@ -60,25 +62,30 @@ Ardia runs with control on. Neither reads cookies, passwords, Login Data or Web 
   read-only (`mode=ro`) and copies it with SQLite's backup API into a private temp dir; the progress callback ends
   the backup once 0.5 s have passed. Chromium keeps `History` exclusively locked while Ardia runs, so that usually
   fails, and it falls back to copying `History` plus its `-wal`/`-journal` (no symlinks, regular files only), checking
-  the copy opens, up to 3 tries. A copy taken mid-write can miss the last few visits. The whole call has a 20 s
-  budget, checked between 1 MB chunks, and the temp copy is deleted after the query.
+  the copy opens, up to 3 tries. A copy taken mid-write can miss the last few visits. The copy checks the deadline
+  between 1 MB chunks.
 
 ## Userscripts
 
 `ardia scripts` runs Violentmonkey-style userscripts written in TypeScript or JavaScript. A `.user.js` from
 Violentmonkey or Tampermonkey works as is. Keys read from the `// ==UserScript==` block: `@name` (the id is its slug),
-`@namespace`, `@version`, `@description`, `@match`/`@exclude-match` (Chrome match patterns, checked when parsed:
-ASCII hosts, ports up to 65535), `@include`/`@exclude` (globs over the whole URL with `base::MatchPattern` rules: `*`
-any run, `?` zero or one character, `\` escapes; regexes are refused),
+`@namespace`, `@version`, `@description`, `@match`/`@exclude-match` (Chrome match patterns for content scripts:
+`*`, `http`, `https`, `file`, `ftp` schemes, checked when parsed the way `URLPattern::Parse` does, a bit stricter:
+ASCII hosts (punycode), valid IPv4/IPv6 literals, ports 0 to 65535 without leading zeros and none with scheme `*`),
+`@include`/`@exclude` (globs over the whole URL with `base::MatchPattern`: `*` any run, `?` zero or one character,
+`\` escapes, matched left to right without backtracking; regexes are refused),
 `@run-at` (`document-start`, `document-end` default, `document-idle`), `@inject-into` (`page` default and `auto` run
 in the page's world, `content` in an isolated world), `@noframes`. `@grant` other than `none`, `@require` and
 `@resource` are ignored with a warning. `@match` and `@include` add up, as in Violentmonkey.
 
 Builds go through esbuild: `--bundle --format=iife --platform=browser --target=chrome130 --tsconfig-raw={}`, not
 minified, so relative imports bundle in and no `tsconfig.json` is read (no `paths` aliases). Types are stripped, not
-checked. Every input esbuild reports in its metafile must resolve (symlinks followed) inside the script's own folder
-tree, and nothing may come from Ardia's data dir (the `--data-dir`/`$ARDIA_DATA_DIR` one and the installed app's),
-even inside the tree; a script directly in the home folder or `/` may import nothing. Otherwise the build fails
+checked. Every input esbuild reports in its metafile must be a `.ts .tsx .mts .cts .js .jsx .mjs .cjs .css` source
+(JSON, text and other loader types are refused), a regular file with no other hard links, and inside the script's
+own folder tree; nothing may come from Ardia's data dir (the `--data-dir`/`$ARDIA_DATA_DIR` one and the installed
+app's), even inside the tree. Both are decided by file identity (`st_dev`, `st_ino` of each ancestor after
+resolving symlinks), not by path spelling, since APFS is case-insensitive. A script directly in the home folder or
+`/` may import nothing. Otherwise the build fails
 before anything is injected or published, so a script can't bundle `ArdiaControl.json` or other files and send
 them to a page. `data:` imports are allowed. The tarball ships esbuild in `ardia_cli/bin/esbuild` and an installed
 CLI uses only that one; from the repo (`python -m ardia_cli`) it falls back to
@@ -93,10 +100,13 @@ looks in the cwd.
   (no `worldName`: the token policy refuses named worlds), and only then navigates to `--url` (default: the first
   `@match` whose host has no wildcard, path up to its first `*`). The registered source is a wrapper around the
   build that applies the `@match`/`@include`/excludes rules, `@noframes` and `@run-at` like the extension would, and
-  reports start/skip/done through `console.debug` with a random marker. Match patterns are compared on the parsed
-  URL as Chrome's URLPattern does: scheme, host lowercased without a trailing dot (`*.` takes subdomains), port
-  against the effective port (`:443` matches `https://example.com/`; no port matches any), and path plus query with
-  `*` wildcards. `apps/cli/tests` checks the wrapper and the Python matcher against the same cases. Console output and uncaught exceptions count
+  reports start/skip/done through `console.debug` with a random marker. Matching is a port of Chromium's
+  `URLPattern::MatchesURL` (`extensions/common/url_pattern.cc`) and `base::MatchPattern` (`base/strings/pattern.cc`)
+  in both the wrapper and Python: canonical hosts without trailing dots (`*.` takes subdomains, never of IP
+  addresses), the effective port (`:443` matches `https://example.com/`; no port matches any), the path plus query
+  unescaped by `UnescapeURLComponent` rules (`/café/*` matches `/caf%C3%A9`) with a raw fallback, and `/foo/*`
+  matching `/foo`. `apps/cli/tests` runs both against cases taken from `url_pattern_unittest.cc` and
+  `pattern_unittest.cc`, and they agreed with a real Ardia on the glob and percent-encoding cases. Console output and uncaught exceptions count
   as the script's when a stack frame is the script's `sourceURL`; positions map back to the sources through esbuild's
   source map. Cross-origin iframes are reached by `Target.setAutoAttach` with `waitForDebuggerOnStart`; the token
   policy only attaches frames whose URL is http(s) at attach time, so over the token path they're out of reach and the
@@ -128,13 +138,16 @@ The data dir is `--data-dir`, else `$ARDIA_DATA_DIR`, else `~/Library/Applicatio
    `js/<id>.js`; and `generation`. Each content script entry has exactly `matches`, `exclude_matches`,
    `include_globs`, `exclude_globs`, `js`, `run_at`, `all_frames` (false with `@noframes`) and `world` (`MAIN` or
    `ISOLATED`). The whole manifest is checked (keys, every pattern and glob, files, values) before it's published, so
-   one bad script can't make the shared extension unloadable. A script with `@match` gets one entry; one with `@include` gets an entry with `matches` `*://*/*` and
+   one bad script can't make the shared extension unloadable, along with the engine's limits: at most 256 content
+   script entries, 256 files per entry, 512 distinct files, and a 256 KB manifest. A script with `@match` gets one entry; one with `@include` gets an entry with `matches` `*://*/*` and
    the globs, excluding its `@match` patterns so no page runs it twice. Entries follow install order. When
    `extension/` exists the new folder replaces it with `renamex_np(RENAME_SWAP)` and the old one is deleted, so the
    path never goes missing; a plain rename only when there's none. With no scripts left, `extension/` is removed.
 4. It writes `Scripts/generation` (temp file and rename): one more than the largest of `Scripts/generation`,
-   `extension/generation` and the last reported one, so a run that crashed between the swap and this write is
-   repaired by the next install or uninstall. `extension/generation` holds the same number. A bumped generation with
+   `extension/generation` and the last reported one. Every `ardia scripts` command repairs a crashed run before it
+   does anything else: `list` and `test` take the lock, rebuild the extension from the records if they disagree
+   (`manifest.json` entries, the `js/` files and their bytes), and otherwise publish `Scripts/generation =
+   extension/generation` when the extension is ahead; install and uninstall rebuild from the records anyway. `extension/generation` holds the same number. A bumped generation with
    no `extension/` means every script was uninstalled.
 5. It drops the lock, then polls `Scripts/status.json` for up to 10 s: `{"generation": N, "profiles": {"<profile>":
    {"ok": true} | {"error": "…"} | {"disabled": true} | {"removed": true}}}`; `removed` means no scripts are left and the extension is gone from that profile. Exit 0 when every profile loaded or is turned off, 1 on any

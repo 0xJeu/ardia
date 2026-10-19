@@ -16,6 +16,10 @@ STATUS_TIMEOUT = 10
 STATUS_POLL = 0.1
 RENAME_SWAP = 0x2
 MAX_FILE = 64 * 1024 * 1024
+MAX_MANIFEST = 256 * 1024
+MAX_ENTRIES = 256
+MAX_FILES_PER_ENTRY = 256
+MAX_FILES = 512
 EXTENSION_NAME = "Ardia Scripts"
 EXTENSION_DESCRIPTION = "Userscripts installed with the ardia command."
 EXTENSION = "extension"
@@ -181,6 +185,10 @@ class Store:
 
     def __enter__(self):
         self.open(True)
+        self.lock()
+        return self
+
+    def lock(self):
         fd = os.open(".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=self.root_fd)
         deadline = time.monotonic() + LOCK_TIMEOUT
         while True:
@@ -193,7 +201,6 @@ class Store:
                     raise StoreError(f"another ardia scripts command or Ardia has held {self.path / '.lock'} for {LOCK_TIMEOUT}s") from None
                 time.sleep(0.05)
         self.lock_fd = fd
-        return self
 
     def __exit__(self, *_exc):
         self.unlock()
@@ -326,7 +333,10 @@ class Store:
                 "content_scripts": entries,
             }
             validate_manifest(manifest, {f"js/{meta['id']}.js" for meta, _ in records})
-            write_file(fd, "manifest.json", (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+            text = (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+            if len(text) > MAX_MANIFEST:
+                raise StoreError(f"the generated manifest would be {len(text)} bytes, over the {MAX_MANIFEST} limit; uninstall some scripts")
+            write_file(fd, "manifest.json", text)
             write_file(fd, GENERATION, f"{generation}\n".encode())
         except BaseException:
             os.close(fd)
@@ -370,9 +380,12 @@ class Store:
             staged_record, record = self.stage_record(add)
             kept = [(m, m["id"]) for m in current if m["id"] != record["id"]]
             plan = sorted(kept + [(record, staged_record)], key=lambda item: (item[0].get("installed_at", 0), item[0]["id"]))
-        else:
+        elif remove is not None:
             record = next(m for m in current if m["id"] == remove)
             plan = [(m, m["id"]) for m in current if m["id"] != remove]
+        else:
+            record = None
+            plan = [(m, m["id"]) for m in current]
         staged_extension = None
         old_extension = None
         published = False
@@ -380,7 +393,8 @@ class Store:
             staged_extension = self.build_extension(plan, generation) if plan else None
             old_extension = self.publish_extension(staged_extension)
             published = True
-            self.commit_record(staged_record, record["id"], removing=add is None)
+            if record is not None:
+                self.commit_record(staged_record, record["id"], removing=add is None)
         except BaseException:
             if published:
                 try:
@@ -412,6 +426,52 @@ class Store:
             remove_tree(self.records_fd, staged)
         else:
             os.rename(staged, record_id, src_dir_fd=self.records_fd, dst_dir_fd=self.records_fd)
+
+    def expected_manifest(self, records: list[dict], generation: int) -> list:
+        entries = []
+        for meta in records:
+            entries.extend(manifest_entries(meta_from_record(meta), f"js/{meta['id']}.js"))
+        return entries
+
+    def consistent(self, records: list[dict]) -> bool:
+        if not records:
+            return not self.extension_present()
+        if not self.extension_present():
+            return False
+        fd = open_dir(self.root_fd, EXTENSION, False)
+        try:
+            manifest = json.loads(read_file(fd, "manifest.json") or b"null")
+            if not isinstance(manifest, dict) or manifest.get("content_scripts") != self.expected_manifest(records, 0):
+                return False
+            js_fd = open_dir(fd, "js", False)
+            try:
+                if sorted(os.listdir(js_fd)) != sorted(f"{meta['id']}.js" for meta in records):
+                    return False
+                for meta in records:
+                    record_fd = open_dir(self.records_fd, meta["id"], False)
+                    try:
+                        if read_file(record_fd, "script.js") != read_file(js_fd, f"{meta['id']}.js"):
+                            return False
+                    finally:
+                        os.close(record_fd)
+            finally:
+                os.close(js_fd)
+        except (ValueError, OSError, StoreError):
+            return False
+        finally:
+            os.close(fd)
+        return True
+
+    def repair(self) -> str | None:
+        records = self.installed()
+        if not self.consistent(records):
+            _, generation = self.apply()
+            return f"the installed scripts and the extension disagreed; rebuilt it as generation {generation}"
+        published = self.extension_generation()
+        if published > self.generation():
+            write_atomic(self.root_fd, GENERATION, f"{published}\n".encode())
+            return f"a run stopped before publishing generation {published}; published it"
+        return None
 
     def wait_status(self, generation: int, alive) -> tuple[str, dict | None]:
         deadline = time.monotonic() + STATUS_TIMEOUT
@@ -447,6 +507,11 @@ def validate_manifest(manifest: dict, js_files: set[str]) -> None:
     entries = manifest["content_scripts"]
     if not isinstance(entries, list) or not entries:
         fail("no content scripts")
+    if len(entries) > MAX_ENTRIES:
+        fail(f"{len(entries)} content script entries, over Ardia's limit of {MAX_ENTRIES}; uninstall some scripts")
+    files = {js for entry in entries if isinstance(entry, dict) and isinstance(entry.get("js"), list) for js in entry["js"]}
+    if len(files) > MAX_FILES:
+        fail(f"{len(files)} script files, over Ardia's limit of {MAX_FILES}; uninstall some scripts")
     for entry in entries:
         if not isinstance(entry, dict) or set(entry) != ENTRY_KEYS:
             fail("a content script has unexpected keys")
@@ -465,7 +530,20 @@ def validate_manifest(manifest: dict, js_files: set[str]) -> None:
                     check_glob(glob, key)
         except ScriptError as error:
             fail(str(error))
-        if not isinstance(entry["js"], list) or not entry["js"] or any(js not in js_files for js in entry["js"]):
+        if not isinstance(entry["js"], list) or not entry["js"] or len(entry["js"]) > MAX_FILES_PER_ENTRY or any(js not in js_files for js in entry["js"]):
             fail("a content script names a file that isn't there")
         if entry["run_at"] not in RUN_AT or entry["world"] not in WORLDS or not isinstance(entry["all_frames"], bool):
             fail("bad run_at, world or all_frames")
+
+
+def repair_if_present(data_root: Path) -> str | None:
+    store = Store(data_root)
+    try:
+        if not store.open(False) or store.records_fd is None and not store.extension_present() and not store.generation():
+            return None
+        store.lock()
+        if store.records_fd is None:
+            store.records_fd = open_dir(store.root_fd, "scripts", True)
+        return store.repair()
+    finally:
+        store.close()

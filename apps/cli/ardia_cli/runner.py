@@ -269,11 +269,10 @@ def build_namespace(session: Session, filename: str, data_root=None) -> dict:
     from ardia_cli import browsing
 
     async def pinned():
-        return await asyncio.wait_for(asyncio.to_thread(browsing.pinned, data_root), browsing.HISTORY_BUDGET)
+        return await browsing.run_bounded(browsing.pinned, data_root)
 
     async def history(days: float = 1, limit: int | None = 200, profile: str | None = None, domains: bool = False):
-        work = asyncio.to_thread(browsing.history, data_root, days=days, limit=limit, profile=profile, domains=domains)
-        return await asyncio.wait_for(work, browsing.HISTORY_BUDGET + 5)
+        return await browsing.run_bounded(browsing.history, data_root, days=days, limit=limit, profile=profile, domains=domains)
 
     namespace["js"] = js
     namespace["pinned"] = pinned

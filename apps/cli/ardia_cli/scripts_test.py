@@ -11,6 +11,7 @@ from pathlib import Path
 from ardia_cli.cdp import Cdp, CdpError, ConnectionLost
 from ardia_cli.endpoint import NOT_REACHABLE, Endpoint, EndpointError
 from ardia_cli.redact import redact
+from ardia_cli import urlmatch
 from ardia_cli.userscript import SOURCE_URL_PREFIX, Build, SourceMap, rules
 
 CONNECT_TIMEOUT = 10
@@ -22,25 +23,7 @@ MAX_PAGE_ERRORS = 5
 MAX_TEXT = 2000
 LEVELS = {"warning": "warn", "startGroup": "group", "startGroupCollapsed": "groupCollapsed", "endGroup": "groupEnd"}
 
-MATCHER = """(rules, href) => {
-const defaultPorts = { "http:": "80", "https:": "443", "ws:": "80", "wss:": "443", "ftp:": "21" };
-let url = null;
-try { url = new URL(href); } catch {}
-const matches = (p) => {
-if (!url || !p.schemes.includes(url.protocol.slice(0, -1))) return false;
-if (p.all) return true;
-if (url.protocol !== "file:") {
-const host = url.hostname.toLowerCase().replace(/\\.$/, "");
-if (!(p.host === "" || host === p.host || (p.sub && host.endsWith("." + p.host)))) return false;
-if (p.port !== "*" && (url.port || defaultPorts[url.protocol] || "") !== p.port) return false;
-}
-return new RegExp(p.path).test((url.pathname || "/") + url.search);
-};
-const globbed = (list) => list.some((source) => new RegExp(source).test(href));
-const included = rules.match.some(matches) || (/^https?:/.test(href) && globbed(rules.include));
-if (!included) return "no rule matches";
-return rules.excludeMatch.some(matches) || globbed(rules.exclude) ? "excluded" : "run";
-}"""
+MATCHER = urlmatch.JS
 PRELUDE = """\
 (() => {{
 const mark = {mark};
