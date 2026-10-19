@@ -12,6 +12,13 @@ In scope:
   tabs           every web page tab (http, https, about, data, blob), plus the ones new_tab opens
   new_tab(url, background=True)   open a tab and return it once the page has loaded
   js(expression, tab=None)        evaluate JavaScript in tab (else the user's tab, else the last new_tab) and return its value
+  pinned()       the user's favorites and pinned tabs from Ardia's saved session, as dicts
+                 (title, url, pinned_url, kind favorite|pinned, folder, profile, parked); no incognito
+  history(days=1, limit=200, profile=None, domains=False)
+                 recent history per URL, newest first: url, title, visits (in the window), total_visits,
+                 last_visit (ISO, local time), profile; domains=True rolls it up per domain.
+                 profile is a profile name or its folder under Chromium/ (default: all). Only http(s) pages.
+                 Both read Ardia's data dir (the token path's, or --data-dir/$ARDIA_DATA_DIR) and need control on.
   By, Key, asyncio and pydoll's exports (Tab, WebElement, PageEvent, NetworkEvent, ...)
 
 The value of the last expression is printed (strings as is, other values as repr, or JSON with --json).
@@ -24,6 +31,7 @@ Examples:
   ardia exec 't = await new_tab("https://example.com"); await t.title()'
   ardia exec -f script.py --json
   echo 'len(tabs)' | ardia exec -
+  ardia exec 'history(days=1, domains=True)' --json
 """
 EXEC_EPILOG = """\
 Endpoint: --ws, else --port (plain DevTools servers only), else $ARDIA_CDP_URL, else
@@ -75,6 +83,10 @@ def build_parser():
 
     install.add_argument("--target", action="append", choices=sorted(TARGETS), metavar="TARGET", help="general, codex, claude-code, cursor or opencode; repeat for several (default: general)")
     install.add_argument("--project", action="store_true", help="install into the current directory's project folders")
+
+    from ardia_cli import scripts_cli
+
+    scripts_cli.add_parser(commands, argparse.RawDescriptionHelpFormatter)
     return parser
 
 
@@ -93,6 +105,10 @@ def main(argv: list[str] | None = None) -> int:
         from ardia_cli.skills import install
 
         return install(args.target or ["general"], args.project)
+    if args.command == "scripts":
+        from ardia_cli import scripts_cli
+
+        return scripts_cli.run(args, parser)
     parser.print_help()
     return 0
 
@@ -128,7 +144,7 @@ def run_exec(args, parser) -> int:
 def _run_exec(args) -> int:
     import asyncio
 
-    from ardia_cli.endpoint import EndpointError, resolve
+    from ardia_cli.endpoint import EndpointError, data_root, explicit_data_root, resolve
 
     try:
         source, filename = read_source(args)
@@ -145,7 +161,8 @@ def _run_exec(args) -> int:
         return 1
     try:
         endpoint = resolve(ws=args.ws, port=args.port, data_dir=args.data_dir)
-        value = asyncio.run(runner.run_code(source, filename, endpoint, args.timeout or None))
+        root = explicit_data_root(args.data_dir) if endpoint.explicit else data_root(args.data_dir)
+        value = asyncio.run(runner.run_code(source, filename, endpoint, args.timeout or None, root))
     except EndpointError as error:
         runner.print_err(f"ardia: {error}")
         return 2

@@ -226,7 +226,7 @@ class Session:
             pass
 
 
-def build_namespace(session: Session, filename: str) -> dict:
+def build_namespace(session: Session, filename: str, data_root=None) -> dict:
     import pydoll
     from pydoll.constants import By, Key
 
@@ -266,12 +266,23 @@ def build_namespace(session: Session, filename: str) -> dict:
             raise RuntimeError(f"JavaScript error: {message}")
         return result["result"].get("value")
 
+    from ardia_cli import browsing
+
+    def pinned():
+        return browsing.pinned(data_root)
+
+    def history(days: float = 1, limit: int | None = 200, profile: str | None = None, domains: bool = False):
+        return browsing.history(data_root, days=days, limit=limit, profile=profile, domains=domains)
+
     namespace["js"] = js
+    namespace["pinned"] = pinned
+    namespace["history"] = history
+    namespace["BrowsingDataError"] = browsing.BrowsingDataError
     namespace["NoPageTab"] = NoPageTab
     return namespace
 
 
-async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: float | None):
+async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: float | None, data_root=None):
     body, tail, names = compile_code(source, filename)
     loop = asyncio.get_running_loop()
     main = asyncio.current_task()
@@ -280,7 +291,7 @@ async def run_code(source: str, filename: str, endpoint: Endpoint, timeout: floa
     session = Session(endpoint)
     try:
         await session.connect()
-        namespace = build_namespace(session, filename)
+        namespace = build_namespace(session, filename, data_root)
         active = await session.active_target()
         tabs = await session.page_tabs(active)
         namespace["tabs"].extend(tabs)

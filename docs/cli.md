@@ -18,7 +18,8 @@ the pins into `pyproject.toml`).
   `NoPageTab` on first use), `tabs` (http, https, about, data and blob pages, plus what `new_tab` opens, minus
   the New Tab's prewarmed `about:blank`: on the token path every `about:blank` that isn't the active page, on test
   servers the hidden ones),
-  `new_tab(url, background=True)`, `js(expression, tab=None)` (default: `tab`, else the last `new_tab`), `By`, `Key`,
+  `new_tab(url, background=True)`, `js(expression, tab=None)` (default: `tab`, else the last `new_tab`), `pinned()`,
+  `history(days=1, limit=200, profile=None, domains=False)` (see Browsing data), `By`, `Key`,
   `asyncio`, pydoll's exports and its common exceptions. It prints the last expression's value. Exit 0 done, 1 the
   code raised or timed out (default 300 s), 2 Ardia can't be reached or closed the browser socket (it watches the
   socket, so turning the setting off ends an idle run at once), 130 interrupted.
@@ -26,7 +27,8 @@ the pins into `pyproject.toml`).
   agent skill (`ardia_cli/skill`: `SKILL.md` and `references/pydoll.md`) into `~/.agents/skills` (general, codex),
   `~/.claude/skills`, `~/.cursor/skills` or `~/.config/opencode/skills`; with `--project`, into `./.agents/skills`,
   `./.claude/skills`, `./.cursor/skills` or `./.opencode/skills`. It replaces only its own `ardia` folder.
-- `ardia --version`, `ardia --help`, `ardia exec --help`.
+- `ardia scripts new|test|install|uninstall|list` writes, tests and installs userscripts (see Userscripts).
+- `ardia --version`, `ardia --help`, `ardia exec --help`, `ardia scripts <command> --help`.
 
 `exec` never quits Ardia: it refuses `browser.stop()`, and every WebSocket it opens checks each outgoing message (and
 refuses fragmented sends), so
@@ -34,6 +36,91 @@ refuses fragmented sends), so
 an `execute_commands` batch (checked whole before anything is sent) or straight on the socket. On exit (normal, an
 exception or Ctrl-C) it closes only its own page and browser WebSockets. Its WebSockets always connect directly,
 ignoring `http_proxy`, `ws_proxy` and the like, so no proxy sees the token.
+
+## Browsing data
+
+For daily reports, `exec` has two helpers that read files in Ardia's data dir. The data dir is the token path's
+(`--data-dir`, `$ARDIA_DATA_DIR`, else the installed app's); with `--port`, `--ws` or `$ARDIA_CDP_URL` it's only
+`--data-dir` or `$ARDIA_DATA_DIR`, and without one they raise `BrowsingDataError`. Both run the same
+`ArdiaControl.json` checks as the token path first (regular file, owned, 0600, live pid), so they work only while
+Ardia runs with control on. Neither reads cookies, passwords, Login Data or Web Data.
+
+- `pinned()` reads `<data dir>/session.json` (the app's persisted state, `apps/browser/src/lib/persist.ts`) and returns
+  one dict per pin: `title` (custom title first), `url` (else the pinned URL), `pinned_url`, `kind` (`favorite` for a
+  tile, `pinned` for a tab in a pinned folder), `folder`, `profile` (its name) and `parked` (pins of a profile no
+  window shows, from `parkedPins`). Pins mirrored across windows count once. Incognito profiles are skipped.
+- `history(days=1, limit=200, profile=None, domains=False)` reads Chromium's `History` for each `Default` and
+  `Profile <id>` folder under `<data dir>/Chromium/` (never incognito, guest or system profiles; `profile` must be a
+  profile name or one of those folder names, never a path). Rows per URL, newest first: `url`, `title`, `visits` in
+  the window, `total_visits`, `last_visit` (ISO 8601, local time), `profile`. Only http(s) pages; subframe
+  navigations and hidden URLs are left out. `domains=True` rolls rows up per domain (`domain`, `visits`, `pages`,
+  `last_visit`, `top_title`, `profile`), most visited first. It never touches the live file for writing: it opens it
+  read-only (`mode=ro`) and copies it with SQLite's backup API into a private temp dir, with a 0.5 s budget. Chromium
+  keeps `History` exclusively locked while Ardia runs, so that usually fails, and it falls back to copying `History`
+  plus its `-wal`/`-journal` (no symlinks, regular files only), checking the copy opens, up to 3 tries. A copy taken
+  mid-write can miss the last few visits. The temp copy is deleted after the query.
+
+## Userscripts
+
+`ardia scripts` runs Violentmonkey-style userscripts written in TypeScript or JavaScript. A `.user.js` from
+Violentmonkey or Tampermonkey works as is. Keys read from the `// ==UserScript==` block: `@name` (the id is its slug),
+`@namespace`, `@version`, `@description`, `@match`/`@exclude-match` (Chrome match patterns, checked when parsed so a
+bad one never reaches the extension), `@include`/`@exclude` (`*`/`?` globs over the whole URL; regexes are refused),
+`@run-at` (`document-start`, `document-end` default, `document-idle`), `@inject-into` (`page` default and `auto` run
+in the page's world, `content` in an isolated world), `@noframes`. `@grant` other than `none`, `@require` and
+`@resource` are ignored with a warning. `@match` and `@include` add up, as in Violentmonkey.
+
+Builds go through esbuild: `--bundle --format=iife --platform=browser --target=chrome130`, not minified, so relative
+imports bundle in. Types are stripped, not checked. The tarball ships esbuild in `ardia_cli/bin/esbuild`; from the
+repo (`python -m ardia_cli`) it falls back to `node_modules/@esbuild/darwin-arm64/bin/esbuild` in a parent folder of
+the package, then `esbuild` on PATH. It never looks in the cwd.
+
+- `ardia scripts new NAME [--match PATTERN]…` writes `NAME.user.ts` in the cwd (default match
+  `https://example.com/*`), never over an existing file.
+- `ardia scripts test FILE [--url URL] [--expect JS] [--wait S] [--screenshot PATH] [--keep] [--json] [--data-dir DIR]
+  [--port N] [--ws URL]` finds Ardia like `exec` (same exit 2), opens its own background target at `about:blank`,
+  attaches a flat session, turns on Runtime and Page, registers the script with `Page.addScriptToEvaluateOnNewDocument`
+  (no `worldName`: the token policy refuses named worlds), and only then navigates to `--url` (default: the first
+  `@match` whose host has no wildcard, path up to its first `*`). The registered source is a wrapper around the
+  build that applies the `@match`/`@include`/excludes rules, `@noframes` and `@run-at` like the extension would, and
+  reports start/skip/done through `console.debug` with a random marker. Console output and uncaught exceptions count
+  as the script's when a stack frame is the script's `sourceURL`; positions map back to the sources through esbuild's
+  source map. Cross-origin iframes are reached by `Target.setAutoAttach` with `waitForDebuggerOnStart`; the token
+  policy only attaches frames whose URL is http(s) at attach time, so over the token path they're out of reach and the
+  report says how many iframes never reported. After the top frame ran (or skipped) and the page loaded (at most 10 s
+  more, 30 s in all), it listens `--wait` seconds (default 2; Chrome reports unhandled rejections about a second
+  late), retrying `--expect` every 100 ms until truthy. Then, in a bounded cleanup, it removes the registration and
+  closes the target it made, unless `--keep`. `@inject-into content` is tested in the page's world, with a warning.
+  Exit 0 ran without uncaught exceptions and `--expect` truthy, 1 otherwise, 2 Ardia unreachable.
+- `ardia scripts install FILE [--data-dir DIR]`, `ardia scripts uninstall NAME [--data-dir DIR]` (by `@name` or id),
+  `ardia scripts list [--json] [--data-dir DIR]`. Install and uninstall need control on (the `ArdiaControl.json`
+  checks, else the exit-2 line); list doesn't.
+
+### Install contract with the app
+
+The data dir is `--data-dir`, else `$ARDIA_DATA_DIR`, else `~/Library/Application Support/com.ardia.browser`.
+
+1. The CLI takes an exclusive `flock` on `<data dir>/Scripts/.lock` (polled, 30 s deadline). The app takes a shared
+   one while it reads and validates.
+2. It keeps its record in `Scripts/scripts/<id>/`: `meta.json` (the parsed metadata, `id`, `world`, `source_file`,
+   `installed_at`, `updated_at`), `script.js` (the build) and `source.<ext>` (a copy of the entry file). Each record
+   is staged in a temp sibling and swapped in.
+3. It regenerates `Scripts/extension/` in a temp sibling: `manifest.json` with only `manifest_version` 3, `name`
+   "Ardia Scripts", `version` (`1.<generation / 65536>.<generation % 65536>`), `description` and `content_scripts`;
+   `js/<id>.js`; and `generation`. Each content script entry has exactly `matches`, `exclude_matches`,
+   `include_globs`, `exclude_globs`, `js`, `run_at`, `all_frames` (false with `@noframes`) and `world` (`MAIN` or
+   `ISOLATED`). A script with `@match` gets one entry; one with `@include` gets an entry with `matches` `*://*/*` and
+   the globs, excluding its `@match` patterns so no page runs it twice. Entries follow install order. When
+   `extension/` exists the new folder replaces it with `renamex_np(RENAME_SWAP)` and the old one is deleted, so the
+   path never goes missing; a plain rename only when there's none. With no scripts left, `extension/` is removed.
+4. It writes `Scripts/generation` (temp file and rename): one more than the larger of the old value and the last
+   reported one. `extension/generation` holds the same number. A bumped generation with no `extension/` means every
+   script was uninstalled.
+5. It drops the lock, then polls `Scripts/status.json` for up to 10 s: `{"generation": N, "profiles": {"<profile>":
+   {"ok": true} | {"error": "…"} | {"disabled": true}}}`. Exit 0 when every profile loaded or is turned off, 1 on any
+   error, 3 when Ardia didn't report in 10 s (the outcome is unknown; it may still be loading), and 0 with "loads on
+   its next launch" when Ardia quit or turned control off while it waited. A newer generation in `status.json` means
+   another change replaced this one, and its result is printed.
 
 ## How it finds Ardia
 
@@ -96,8 +183,9 @@ updates itself.
 `apps/cli/scripts/build.sh <version> <out dir>` writes `ardia-cli-<version>-macos-arm64.tar.gz` and its `.sha256`:
 python-build-standalone CPython 3.13 (release and sha256 pinned in the script), the locked dependencies and
 `ardia_cli` in its site-packages, pruned of tests, idlelib, Tk, ensurepip, the unused libpython dylib and
-`__pycache__`, plus `bin/ardia`, an sh launcher that resolves its links and runs `python3 -I -m ardia_cli`. About
-14 MB; 41 MB installed. `ardia --version` takes about 10 ms; the first `exec` about 1 s while Python writes its
+`__pycache__`, plus `bin/ardia`, an sh launcher that resolves its links and runs `python3 -I -m ardia_cli`, and
+esbuild (the npm `@esbuild/darwin-arm64` tarball, version, sha256 and sha512 pinned in the script) in
+`ardia_cli/bin/esbuild`. About 18 MB; 52 MB installed. `ardia --version` takes about 10 ms; the first `exec` about 1 s while Python writes its
 bytecode cache, later ones about 0.15 s.
 
 `scripts/release.sh` builds it into the release's dist dir after the export and writes its digest to
@@ -123,3 +211,9 @@ HOME=/tmp/ardia-cli-home ARDIA_CLI_URL=file:///tmp/ardia-cli-out/ardia-cli-0.0.1
   /bin/sh apps/cli/install.sh
 HOME=/tmp/ardia-cli-home ardia skills install --target claude-code
 ```
+
+`ardia scripts test` needs a running instance; over `--port` it also reaches cross-origin iframes. Install and the
+helpers need the token path: an instance launched without `ARDIA_REMOTE_DEBUGGING_PORT` (the app doesn't start its
+control server when the port switch is set) and with control on, for example a scratch dir whose `session.json` has
+`"settings": {"cliControl": true}`, opened with `open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR=<dir>`.
+Until the app reports `status.json`, a writer that answers each `Scripts/generation` stands in for it.

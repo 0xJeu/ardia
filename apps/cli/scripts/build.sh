@@ -1,12 +1,12 @@
 #!/bin/sh
-# Builds the ardia CLI tarball: a relocatable CPython 3.13 with ardia_cli and its pinned dependencies.
+# Builds the ardia CLI tarball: a relocatable CPython 3.13 with ardia_cli, its pinned dependencies and esbuild.
 #
 #   apps/cli/scripts/build.sh <version> <out dir>
 #   apps/cli/scripts/build.sh -h | --help
 #
 # Writes <out dir>/ardia-cli-<version>-macos-arm64.tar.gz and its .sha256. Needs the network (python-build-standalone
-# from GitHub, wheels from PyPI) and uv (~/.local/bin/uv or on PATH). The Python download is pinned by sha256 and
-# cached in ~/Library/Caches/ardia-cli-build.
+# from GitHub, wheels and esbuild from npm) and uv (~/.local/bin/uv or on PATH). The Python and esbuild downloads are
+# pinned by sha256 (esbuild also by npm's sha512 integrity) and cached in ~/Library/Caches/ardia-cli-build.
 set -eu
 
 python_release=20261013
@@ -14,6 +14,11 @@ python_version=3.13.16
 python_sha256=16a5332fb0dcb77f163fc8f8cbccd95be1644cc53e68e5d2a79f50afd6680a0e
 python_asset=cpython-$python_version+$python_release-aarch64-apple-darwin-install_only_stripped.tar.gz
 python_url=https://github.com/astral-sh/python-build-standalone/releases/download/$python_release/$(printf %s "$python_asset" | sed 's/+/%2B/')
+esbuild_version=0.28.2
+esbuild_sha256=1980cde09749094452b20d36ff267585ccb3f72749c7bc97291cd9996ccf5a2a
+esbuild_sha512=n4KqkOQrraxHJcgjM1RvwbigfQKIKJVpM7xp+KsxiyUSrRdIXnt73VhrPAx0fV44hgfmIVKjxMN9J1t5jySVkw==
+esbuild_asset=esbuild-darwin-arm64-$esbuild_version.tgz
+esbuild_url=https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-$esbuild_version.tgz
 
 case ${1:-} in
   -h|--help) awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 0 ;;
@@ -38,6 +43,14 @@ if ! [ -f "$cache/$python_asset" ] || [ "$(shasum -a 256 "$cache/$python_asset" 
 fi
 actual=$(shasum -a 256 "$cache/$python_asset" | awk '{ print $1 }')
 [ "$actual" = "$python_sha256" ] || { echo "build.sh: $python_asset checksum mismatch ($actual)" >&2; exit 1; }
+if ! [ -f "$cache/$esbuild_asset" ] || [ "$(shasum -a 256 "$cache/$esbuild_asset" | awk '{ print $1 }')" != "$esbuild_sha256" ]; then
+  curl -fsSL --proto =https -o "$cache/$esbuild_asset.part" "$esbuild_url"
+  mv "$cache/$esbuild_asset.part" "$cache/$esbuild_asset"
+fi
+actual=$(shasum -a 256 "$cache/$esbuild_asset" | awk '{ print $1 }')
+[ "$actual" = "$esbuild_sha256" ] || { echo "build.sh: $esbuild_asset checksum mismatch ($actual)" >&2; exit 1; }
+actual=$(openssl dgst -sha512 -binary "$cache/$esbuild_asset" | base64)
+[ "$actual" = "$esbuild_sha512" ] || { echo "build.sh: $esbuild_asset sha512 mismatch ($actual)" >&2; exit 1; }
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/ardia-cli-build.XXXXXX")
 trap 'rm -rf "$work"' EXIT
@@ -53,6 +66,12 @@ UV_CACHE_DIR=$cache/uv "$uv" pip install --quiet --python "$python" --break-syst
   --no-build --require-hashes -r "$cli_dir/requirements.lock"
 cp -R "$cli_dir/ardia_cli" "$site/ardia_cli"
 printf '__version__ = "%s"\n' "$version" >"$site/ardia_cli/__init__.py"
+mkdir "$work/esbuild" "$site/ardia_cli/bin"
+tar -xzf "$cache/$esbuild_asset" -C "$work/esbuild" package/bin/esbuild
+cp "$work/esbuild/package/bin/esbuild" "$site/ardia_cli/bin/esbuild"
+chmod 755 "$site/ardia_cli/bin/esbuild"
+rm -rf "$work/esbuild"
+[ "$("$site/ardia_cli/bin/esbuild" --version)" = "$esbuild_version" ] || { echo "build.sh: the bundled esbuild doesn't run" >&2; exit 1; }
 
 rm -rf "$lib/test" "$lib/idlelib" "$lib/tkinter" "$lib/turtledemo" "$lib/ensurepip" "$lib/lib2to3" \
   "$lib/turtle.py" "$lib/pydoc_data" "$lib"/config-* "$lib/lib-dynload"/_tkinter* \
@@ -70,7 +89,7 @@ find "$root" -type l | while IFS= read -r link; do
     /*|..|../*|*/../*|*/..) rm -f "$link" ;;
   esac
 done
-"$python" -I -c 'import ardia_cli.cli, pydoll, sqlite3, ssl, zoneinfo, ctypes, lzma' >/dev/null
+"$python" -I -c 'import ardia_cli.cli, ardia_cli.scripts_cli, ardia_cli.scripts_test, ardia_cli.scripts_store, ardia_cli.browsing, pydoll, sqlite3, ssl, zoneinfo, ctypes, lzma; from ardia_cli.userscript import find_esbuild; assert find_esbuild().endswith("ardia_cli/bin/esbuild")' >/dev/null
 
 cat >"$root/bin/ardia" <<'EOF'
 #!/bin/sh

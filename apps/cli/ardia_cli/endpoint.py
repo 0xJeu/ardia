@@ -39,9 +39,21 @@ def resolve(ws: str | None = None, port: int | None = None, data_dir: str | None
     env_ws = os.environ.get("ARDIA_CDP_URL")
     if env_ws:
         return _from_ws(env_ws, "ARDIA_CDP_URL")
+    return from_control_file(data_root(data_dir) / "Chromium" / CONTROL_FILE)
+
+
+def data_root(data_dir: str | None = None) -> Path:
     root = data_dir or os.environ.get("ARDIA_DATA_DIR")
-    base = Path(root).expanduser() if root else INSTALLED_DATA_DIR
-    return from_control_file(base / "Chromium" / CONTROL_FILE)
+    return Path(root).expanduser() if root else INSTALLED_DATA_DIR
+
+
+def explicit_data_root(data_dir: str | None = None) -> Path | None:
+    root = data_dir or os.environ.get("ARDIA_DATA_DIR")
+    return Path(root).expanduser() if root else None
+
+
+def require_control(root: Path) -> Endpoint:
+    return from_control_file(root / "Chromium" / CONTROL_FILE)
 
 
 def _from_ws(url: str, source: str) -> Endpoint:
