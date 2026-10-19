@@ -687,9 +687,11 @@
     return null;
   };
   let lastTheme;
+  let metaCache;
+  const cachedMetaColor = () => (metaCache === undefined ? (metaCache = metaColor()) : metaCache);
   const reportTheme = guard(() => {
     if (!document.documentElement) return;
-    let color = metaColor();
+    let color = cachedMetaColor();
     let source = color ? "meta" : null;
     if (!color && document.body) {
       const page = pageBackground();
@@ -716,6 +718,7 @@
     return false;
   };
   const scheduleTheme = () => {
+    metaCache = undefined;
     if (themeQueued) return;
     themeQueued = true;
     requestAnimationFrame(() => {
@@ -739,12 +742,38 @@
   onReady(startTheme);
   const resendTheme = () => {
     lastTheme = undefined;
+    metaCache = undefined;
     reportTheme();
   };
   addEventListener("pageshow", (e) => e.persisted && resendTheme());
   document.addEventListener("prerenderingchange", resendTheme);
   addEventListener("load", scheduleTheme);
-  addEventListener("scroll", scheduleTheme, { passive: true, capture: true });
+  let scrollSampleQueued = false;
+  let scrollSampledAt = -Infinity;
+  let scrolledPastTop = false;
+  let scrollSettle = 0;
+  const sampleAfterFrame = () => {
+    if (scrollSampleQueued) return;
+    scrollSampleQueued = true;
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        scrollSampleQueued = false;
+        reportTheme();
+      }, 0),
+    );
+  };
+  const scrollTheme = guard(() => {
+    if (!document.documentElement || cachedMetaColor()) return;
+    const past = window.scrollY > 4;
+    const now = performance.now();
+    clearTimeout(scrollSettle);
+    scrollSettle = setTimeout(sampleAfterFrame, 150);
+    if (past === scrolledPastTop && now - scrollSampledAt < 150) return;
+    scrolledPastTop = past;
+    scrollSampledAt = now;
+    sampleAfterFrame();
+  });
+  addEventListener("scroll", scrollTheme, { passive: true, capture: true });
   addEventListener("resize", scheduleTheme);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", scheduleTheme);
 
