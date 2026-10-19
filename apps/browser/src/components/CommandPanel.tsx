@@ -52,7 +52,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);
   const onCancel = () => useBrowser.getState().closePanel(windowId);
-  const onDone = () => closePanelToHeroBar(windowId);
+  const onDone = () => closePanelToHeroBar(windowId, activeId);
   const surface = (radius: number) => ({
     fill: hex(theme.panel),
     cornerRadius: radius,

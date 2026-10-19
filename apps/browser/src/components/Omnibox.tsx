@@ -134,7 +134,7 @@ export function Omnibox({
       focusField();
       setPendingSelection({ start: 0, end: fieldText.current.length });
     };
-    const unregister = registerHeroBar(windowId, focus);
+    const unregister = registerHeroBar(windowId, tabId, focus);
     return () => {
       unregister();
       saveNtpQuery(tabId, snapshot.current);

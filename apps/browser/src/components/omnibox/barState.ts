@@ -19,25 +19,25 @@ export function saveNtpQuery(tabId: string, snapshot: BarSnapshot | null) {
   else ntpQueries.delete(tabId);
 }
 
-const heroBars = new Map<string, () => void>();
+const heroBars = new Map<string, { tabId: string; focus: () => void }>();
 
-export function registerHeroBar(windowId: string, focus: () => void): () => void {
-  heroBars.set(windowId, focus);
+export function registerHeroBar(windowId: string, tabId: string, focus: () => void): () => void {
+  const bar = { tabId, focus };
+  heroBars.set(windowId, bar);
   return () => {
-    if (heroBars.get(windowId) === focus) heroBars.delete(windowId);
+    if (heroBars.get(windowId) === bar) heroBars.delete(windowId);
   };
 }
 
-export function focusHeroBar(windowId: string): boolean {
-  const focus = heroBars.get(windowId);
-  focus?.();
-  return !!focus;
+export function focusHeroBar(windowId: string, tabId: string | undefined): boolean {
+  const bar = heroBars.get(windowId);
+  if (!bar || bar.tabId !== tabId) return false;
+  bar.focus();
+  return true;
 }
 
-export function closePanelToHeroBar(windowId: string) {
-  const s = useBrowser.getState();
-  const tabId = activeTabId(s, windowId);
-  s.closePanel(windowId);
+export function closePanelToHeroBar(windowId: string, tabId: string) {
+  useBrowser.getState().closePanel(windowId);
   const now = useBrowser.getState();
-  if (tabId && activeTabId(now, windowId) === tabId && !now.tabs[tabId]?.url) focusHeroBar(windowId);
+  if (activeTabId(now, windowId) === tabId && !now.tabs[tabId]?.url) focusHeroBar(windowId, tabId);
 }
