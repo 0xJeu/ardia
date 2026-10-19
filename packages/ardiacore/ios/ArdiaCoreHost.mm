@@ -618,6 +618,8 @@ static void StartEarlyWindow() {
   const bool thawFrozenTabsRarely = !(slowTabThaw && !strcmp(slowTabThaw, "off"));
   const char *mainFrameThrottle = getenv("ARDIA_MAIN_FRAME_THROTTLE");
   const bool throttleMainFramesTo60Hz = !(mainFrameThrottle && !strcmp(mainFrameThrottle, "off"));
+  const char *scrollFullRate = getenv("ARDIA_SCROLL_FULL_RATE");
+  const bool fullRateAfterInput = !(scrollFullRate && !strcmp(scrollFullRate, "off"));
   const char *walletPasses = getenv("ARDIA_WALLET_PASSES");
   const bool biometricsCheckPerTab = walletPasses && !strcmp(walletPasses, "on");
   std::vector<std::string> extra = {
@@ -628,7 +630,7 @@ static void StartEarlyWindow() {
           (biometricsCheckPerTab ? "" : ",AutofillAiWalletPrivatePasses"),
       std::string("--enable-features=WebContentsDiscard,ImprovedStartupBestEffortDelay:StartupDelayStopOnLoadingTimedOut/true,"
                   "CPUMeasurementInFreezingPolicy:freezing_visible_protection_time/0s") +
-          (freezeLeastRecentTabs ? (thawFrozenTabsRarely ? ",InfiniteTabsFreezing:ardia_unconnected_unfreeze_interval/600s" : ",InfiniteTabsFreezing") : "") + (throttleMainFramesTo60Hz ? ",ThrottleMainFrameTo60Hz,UrgentMainFrameForInput" : ""),
+          (freezeLeastRecentTabs ? (thawFrozenTabsRarely ? ",InfiniteTabsFreezing:ardia_unconnected_unfreeze_interval/600s" : ",InfiniteTabsFreezing") : "") + (throttleMainFramesTo60Hz ? (fullRateAfterInput ? ",ThrottleMainFrameTo60Hz,UrgentMainFrameForInput" : ",ThrottleMainFrameTo60Hz:ardia_full_rate_after_input/0s,UrgentMainFrameForInput") : ""),
       "--profile-directory=Default",
       "--js-flags=--no-memory-reducer",
   };

@@ -60,6 +60,7 @@ Read once at launch from the environment, for a bench or a bisect; each falls ba
 | `ARDIA_LAUNCH_SPARE_RENDERER=off` | no spare renderer is started for the launch tab; its navigation launches one |
 | `ARDIA_SCRIPT_LOADER_AT_ONCE=off` | a content-script loader made after extensions are ready waits one task to start (engine) |
 | `ARDIA_SCRIPTS_WAIT_AT_RESPONSE=off` | a navigation waits for content scripts before its request, not before its commit (engine) |
+| `ARDIA_SCROLL_FULL_RATE=off` | as in 0.2.38: main frames drop to 60 Hz during a scroll and right after input on a 120 Hz display (the engine's `ardia_full_rate_after_input` is 0 s), and on battery Battery Saver's 30 Hz cap holds through scrolling and typing (no input monitor); `ARDIA_MAIN_FRAME_THROTTLE=off` turns the whole 60 Hz throttle off |
 | `ARDIA_WALLET_PASSES=on` | Chrome's `AutofillAiWalletPrivatePasses` stays on, and every new tab asks LocalAuthentication about Touch ID |
 | `ARDIA_SYSTEM_FONTS=on` | expo-constants lists every font family at launch (`patches/expo-constants@18.0.14.patch`) |
 | `ARDIA_EARLY_NAVIGATE=off` | a navigation is sent to the engine by its view's effect after React re-renders, not by the store action (`lib/earlyNavigate.ts`) |

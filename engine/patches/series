@@ -41,7 +41,9 @@ chromium chromium-tab-sharing-capturer.patch
 chromium chromium-video-super-resolution.patch
 chromium chromium-begin-frame-warm-up.patch
 chromium chromium-main-frame-throttle-after-show.patch
+chromium chromium-main-frame-full-rate-on-input.patch
 chromium chromium-thaw-live-connections.patch
+chromium chromium-battery-saver-full-rate-on-input.patch
 chromium chromium-safe-browsing-off-file-types.patch
 chromium chromium-background-features-off.patch
 chromium chromium-ardia-layer.patch
