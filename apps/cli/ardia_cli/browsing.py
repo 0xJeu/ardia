@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import stat
 import tempfile
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -20,7 +21,11 @@ COPY_ATTEMPTS = 3
 HISTORY_BUDGET = 20
 MAX_ROWS = 200_000
 PROGRESS_STEPS = 1000
+EXIT_JOIN = 1.0
 _work_dirs: set[str] = set()
+_workers: set = set()
+_state = threading.Lock()
+_closing = False
 MAX_SESSION_BYTES = 256 * 1024 * 1024
 PRIVATE_PREFIXES = ("incognito", "guest", "private", "System Profile", "Guest Profile")
 NO_DATA_DIR = (
@@ -38,25 +43,50 @@ class OutOfTime(BrowsingDataError):
 
 
 def out_of_time(deadline: float, what: str) -> None:
+    if _closing:
+        raise OutOfTime(f"{what} stopped: the command is exiting")
     if time.monotonic() > deadline:
         raise OutOfTime(f"{what} ran out of time")
 
 
 def connect(target, deadline: float, **kwargs) -> sqlite3.Connection:
     connection = sqlite3.connect(target, **kwargs)
-    connection.set_progress_handler(lambda: 1 if time.monotonic() > deadline else 0, PROGRESS_STEPS)
+    connection.set_progress_handler(lambda: 1 if _closing or time.monotonic() > deadline else 0, PROGRESS_STEPS)
     return connection
 
 
+def new_work_dir() -> str:
+    with _state:
+        if _closing:
+            raise OutOfTime("stopped: the command is exiting")
+        work = tempfile.mkdtemp(prefix="ardia-history-")
+        _work_dirs.add(work)
+    return work
+
+
+def drop_work_dir(work: str) -> None:
+    shutil.rmtree(work, ignore_errors=True)
+    with _state:
+        _work_dirs.discard(work)
+
+
 @atexit.register
-def _remove_work_dirs() -> None:
-    for work in list(_work_dirs):
+def _shut_down() -> None:
+    global _closing
+    with _state:
+        _closing = True
+        workers = list(_workers)
+    deadline = time.monotonic() + EXIT_JOIN
+    for worker in workers:
+        worker.join(max(0.0, deadline - time.monotonic()))
+    with _state:
+        leftovers = list(_work_dirs)
+    for work in leftovers:
         shutil.rmtree(work, ignore_errors=True)
 
 
 def run_bounded(function, *args, budget: float = HISTORY_BUDGET, **kwargs):
     import asyncio
-    import threading
 
     loop = asyncio.get_running_loop()
     future = loop.create_future()
@@ -75,12 +105,20 @@ def run_bounded(function, *args, budget: float = HISTORY_BUDGET, **kwargs):
             outcome, error = function(*args, deadline=deadline, **kwargs), None
         except BaseException as caught:
             outcome, error = None, caught
+        finally:
+            with _state:
+                _workers.discard(threading.current_thread())
         try:
             loop.call_soon_threadsafe(settle, outcome, error)
         except RuntimeError:
             pass
 
-    threading.Thread(target=work, name=f"ardia-{function.__name__}", daemon=True).start()
+    worker = threading.Thread(target=work, name=f"ardia-{function.__name__}", daemon=True)
+    with _state:
+        if _closing:
+            raise OutOfTime(f"{function.__name__}() stopped: the command is exiting")
+        _workers.add(worker)
+    worker.start()
 
     async def wait():
         try:
@@ -241,9 +279,10 @@ def snapshot(history: Path, work: Path, deadline: float) -> tuple[Path, str]:
     backup_deadline = min(deadline, time.monotonic() + BUSY_TIMEOUT_MS / 1000)
 
     def give_up(_status, _remaining, _total):
-        if time.monotonic() > backup_deadline:
+        if _closing or time.monotonic() > backup_deadline:
             raise sqlite3.OperationalError("Ardia holds History locked")
 
+    out_of_time(deadline, "history()")
     try:
         source = connect(uri, backup_deadline, uri=True, timeout=BUSY_TIMEOUT_MS / 1000)
         try:
@@ -261,7 +300,7 @@ def snapshot(history: Path, work: Path, deadline: float) -> tuple[Path, str]:
         clear(work)
     last = None
     for attempt in range(COPY_ATTEMPTS):
-        if time.monotonic() >= deadline:
+        if _closing or time.monotonic() >= deadline:
             break
         try:
             copy_file(history, target, deadline)
@@ -295,8 +334,7 @@ def copy_file(source: Path, target: Path, deadline: float) -> None:
             raise OSError(f"{source} isn't a regular file")
         with open(target, "xb") as writer:
             while chunk := os.read(fd, 1024 * 1024):
-                if time.monotonic() > deadline:
-                    raise OutOfTime(f"copying {source.name} took over the time limit")
+                out_of_time(deadline, f"copying {source.name}")
                 writer.write(chunk)
     finally:
         os.close(fd)
@@ -328,8 +366,7 @@ def history(root: Path | None, days: float = 1, limit: int | None = 200, profile
     rows: list[dict] = []
     for label, folder in profiles:
         out_of_time(deadline, "history()")
-        work = tempfile.mkdtemp(prefix="ardia-history-")
-        _work_dirs.add(work)
+        work = new_work_dir()
         try:
             os.chmod(work, 0o700)
             path, _ = snapshot(folder / "History", Path(work), deadline)
@@ -358,8 +395,7 @@ def history(root: Path | None, days: float = 1, limit: int | None = 200, profile
             finally:
                 connection.close()
         finally:
-            shutil.rmtree(work, ignore_errors=True)
-            _work_dirs.discard(work)
+            drop_work_dir(work)
         for url, title, visits, last, total in found:
             rows.append({"url": url, "title": title or "", "visits": visits, "total_visits": total, "last_visit": last, "profile": label})
     rows.sort(key=lambda row: row["last_visit"], reverse=True)

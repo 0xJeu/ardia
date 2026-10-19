@@ -337,13 +337,14 @@ def listing(args) -> int:
             trusted = True
         except EndpointError:
             trusted = False
+    note = None
     if trusted:
         try:
             note = repair_if_present(root)
         except (StoreError, OSError) as error:
             complain(f"ardia scripts: can't check the installed scripts ({error})")
             return 1
-        if note:
+        if note and not args.json:
             say(f"repaired: {note}")
     store = Store(data_root(args.data_dir))
     try:
@@ -358,7 +359,7 @@ def listing(args) -> int:
     finally:
         store.close()
     if args.json:
-        say(json.dumps({"scripts": scripts, "generation": generation, "status": status}, indent=2, ensure_ascii=False))
+        say(json.dumps({"scripts": scripts, "generation": generation, "status": status, "repaired": note}, indent=2, ensure_ascii=False))
         return 0
     if not scripts:
         say("no scripts installed")

@@ -391,6 +391,8 @@ class Store:
         published = False
         try:
             staged_extension = self.build_extension(plan, generation) if plan else None
+            if not plan and self.extension_present():
+                write_atomic(self.root_fd, GENERATION, f"{generation}\n".encode())
             old_extension = self.publish_extension(staged_extension)
             published = True
             if record is not None:
@@ -467,10 +469,23 @@ class Store:
         if not self.consistent(records):
             _, generation = self.apply()
             return f"the installed scripts and the extension disagreed; rebuilt it as generation {generation}"
-        published = self.extension_generation()
-        if published > self.generation():
-            write_atomic(self.root_fd, GENERATION, f"{published}\n".encode())
-            return f"a run stopped before publishing generation {published}; published it"
+        current = self.generation()
+        if self.extension_present():
+            published = self.extension_generation()
+            if published > current:
+                write_atomic(self.root_fd, GENERATION, f"{published}\n".encode())
+                return f"a run stopped before publishing generation {published}; published it"
+            if published < current:
+                _, generation = self.apply()
+                return f"the extension was older than generation {current}; rebuilt it as generation {generation}"
+            return None
+        status = self.status() or {}
+        reported = status.get("generation")
+        profiles = status.get("profiles") if isinstance(status.get("profiles"), dict) else {}
+        still_loaded = any(isinstance(result, dict) and result.get("ok") for result in profiles.values())
+        if isinstance(reported, int) and not isinstance(reported, bool) and reported >= current and still_loaded:
+            _, generation = self.apply()
+            return f"the last uninstall stopped before telling Ardia; published generation {generation}"
         return None
 
     def wait_status(self, generation: int, alive) -> tuple[str, dict | None]:

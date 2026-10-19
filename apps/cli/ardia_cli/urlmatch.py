@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import re
 from urllib.parse import urlsplit
 
@@ -9,9 +10,16 @@ SCRIPT_SCHEMES = ("http", "https", "file", "ftp")
 WILDCARD_SCHEMES = ("http", "https")
 DEFAULT_PORTS = {"http": 80, "https": 443, "ftp": 21}
 UNESCAPED_ASCII = frozenset(b'"-<>_~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')
-SPOOFY = frozenset({0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x061C, 0x2066, 0x2067, 0x2068, 0x2069, 0x1F50F, 0x1F510, 0x1F512})
+BANNED_RANGES = (
+    (0x0085, 0x0085), (0x00A0, 0x00A0), (0x00AD, 0x00AD), (0x034F, 0x034F), (0x0600, 0x0605), (0x061C, 0x061C),
+    (0x06DD, 0x06DD), (0x070F, 0x070F), (0x08E2, 0x08E2), (0x115F, 0x1160), (0x1680, 0x1680), (0x17B4, 0x17B5),
+    (0x180B, 0x180E), (0x2000, 0x200F), (0x2028, 0x202F), (0x205F, 0x206F), (0x2800, 0x2800), (0x3000, 0x3000),
+    (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFFB), (0x110BD, 0x110BD),
+    (0x110CD, 0x110CD), (0x13430, 0x13438), (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0x1F50F, 0x1F510),
+    (0x1F512, 0x1F513), (0xE0000, 0xE0FFF),
+)
+IDNA_DEVIATIONS = frozenset("\u00df\u03c2\u200c\u200d")
 _LABEL = re.compile(r"^[a-z0-9_-]+$")
-_NUMERIC = re.compile(r"^(?:0x[0-9a-f]*|[0-9]+)$")
 
 
 class PatternError(ValueError):
@@ -69,7 +77,7 @@ def _escaped_byte(data: bytes, index: int) -> int | None:
 def _should_unescape(point: int) -> bool:
     if point < 0x80:
         return point in UNESCAPED_ASCII
-    return point not in SPOOFY and not 0xE0000 <= point <= 0xE0FFF
+    return not any(low <= point <= high for low, high in BANNED_RANGES)
 
 
 def unescape(data: bytes) -> bytes:
@@ -151,7 +159,65 @@ def match_pattern(string: list[int], pattern: list[int]) -> bool:
             return True
 
 
+def _ipv4_part(text: str) -> int | None:
+    if text[:2] in ("0x", "0X"):
+        digits, base = text[2:], 16
+    elif len(text) > 1 and text.startswith("0"):
+        digits, base = text[1:], 8
+    else:
+        digits, base = text, 10
+    if digits == "":
+        return 0 if base != 10 else None
+    try:
+        return int(digits, base) if digits.isascii() and digits.isalnum() else None
+    except ValueError:
+        return None
+
+
+def ipv4(host: str) -> str | None:
+    parts = host.split(".")
+    if parts and parts[-1] == "" and len(parts) > 1:
+        parts = parts[:-1]
+    last = parts[-1]
+    if not (last.isascii() and (last.isdigit() or (last[:2] in ("0x", "0X") and all(c in "0123456789abcdefABCDEF" for c in last[2:])))):
+        return None
+    if len(parts) > 4:
+        raise PatternError("not a valid IPv4 address")
+    numbers = [_ipv4_part(part) for part in parts]
+    if any(number is None for number in numbers) or any(number > 255 for number in numbers[:-1]):
+        raise PatternError("not a valid IPv4 address")
+    if numbers[-1] >= 256 ** (5 - len(numbers)):
+        raise PatternError("not a valid IPv4 address")
+    value = numbers[-1]
+    for index, number in enumerate(numbers[:-1]):
+        value += number * 256 ** (3 - index)
+    return str(ipaddress.IPv4Address(value))
+
+
+def idna(host: str) -> str:
+    labels = []
+    for label in host.split("."):
+        if label.isascii():
+            lowered = label.lower()
+            if lowered.startswith("xn--"):
+                try:
+                    lowered[4:].encode("ascii").decode("punycode")
+                except (UnicodeError, ValueError):
+                    raise PatternError(f"{label} isn't valid punycode") from None
+            labels.append(lowered)
+            continue
+        if IDNA_DEVIATIONS & set(label):
+            raise PatternError("the host has ß, ς or a joiner, which browsers convert differently; write it in punycode")
+        try:
+            labels.append(label.encode("idna").decode("ascii"))
+        except UnicodeError:
+            raise PatternError("the host isn't a valid internationalized name") from None
+    return ".".join(labels)
+
+
 def canonical_host(host: str) -> str:
+    if "%" in host:
+        raise PatternError("hosts can't have % (no IPv6 scope ids or escapes)")
     if host.startswith("["):
         if not host.endswith("]") or host.count("[") != 1 or host.count("]") != 1:
             raise PatternError("invalid IPv6 host")
@@ -159,20 +225,13 @@ def canonical_host(host: str) -> str:
             return f"[{ipaddress.IPv6Address(host[1:-1]).compressed}]"
         except ValueError:
             raise PatternError("invalid IPv6 address") from None
-    if not host.isascii():
-        raise PatternError("non-ASCII host: write it in punycode (xn--…)")
-    lowered = host.lower()
+    address = ipv4(host)
+    if address is not None:
+        return address
+    lowered = idna(host)
     labels = lowered.rstrip(".").split(".")
     if not labels or any(not _LABEL.match(label) for label in labels):
         raise PatternError("the host has characters a hostname can't have")
-    if _NUMERIC.match(labels[-1]):
-        try:
-            address = ipaddress.IPv4Address(lowered.rstrip("."))
-        except ValueError:
-            raise PatternError("a numeric host must be a dotted IPv4 address like 127.0.0.1") from None
-        if str(address) != lowered.rstrip("."):
-            raise PatternError("write the IPv4 address in plain dotted form")
-        return str(address)
     return lowered
 
 
@@ -296,11 +355,11 @@ def split(url: str) -> dict | None:
     except ValueError:
         return None
     scheme = parts.scheme.lower()
-    host = (parts.hostname or "").lower()
-    if ":" in host:
+    host = parts.hostname or ""
+    if host:
         try:
-            host = f"[{ipaddress.IPv6Address(host).compressed}]"
-        except ValueError:
+            host = canonical_host(f"[{host}]" if ":" in host else host)
+        except PatternError:
             return None
     before_fragment = url.split("#", 1)[0]
     path = parts.path or "/"
@@ -330,7 +389,7 @@ JS = r"""(rules, href) => {
 const SENTINEL = -1;
 const defaultPorts = { "http:": "80", "https:": "443", "ftp:": "21" };
 const unescapedAscii = new Set(Array.from('"-<>_~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', (c) => c.charCodeAt(0)));
-const spoofy = new Set([0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x061C, 0x2066, 0x2067, 0x2068, 0x2069, 0x1F50F, 0x1F510, 0x1F512]);
+const banned = __BANNED__;
 const leadLength = (b) => (b >= 0xC2 && b <= 0xDF ? 2 : b >= 0xE0 && b <= 0xEF ? 3 : b >= 0xF0 && b <= 0xF4 ? 4 : 0);
 const firstChar = (bytes, start, end) => {
   if (start >= end) return null;
@@ -358,7 +417,7 @@ const decode = (bytes) => {
 };
 const hex = (b) => (b >= 48 && b <= 57) || (b >= 65 && b <= 70) || (b >= 97 && b <= 102);
 const escapedByte = (bytes, i) => (i + 2 >= bytes.length || bytes[i] !== 37 || !hex(bytes[i + 1]) || !hex(bytes[i + 2]) ? null : parseInt(String.fromCharCode(bytes[i + 1], bytes[i + 2]), 16));
-const shouldUnescape = (p) => (p < 0x80 ? unescapedAscii.has(p) : !spoofy.has(p) && !(p >= 0xE0000 && p <= 0xE0FFF));
+const shouldUnescape = (p) => (p < 0x80 ? unescapedAscii.has(p) : !banned.some(([low, high]) => p >= low && p <= high));
 const encoder = new TextEncoder();
 const unescape = (bytes) => {
   const out = [];
@@ -455,4 +514,4 @@ const globbed = (list) => list.some((points) => matchPattern(hrefPoints, points)
 const included = rules.match.some(matches) || ((scheme === "http" || scheme === "https") && globbed(rules.include));
 if (!included) return "no rule matches";
 return rules.excludeMatch.some(matches) || globbed(rules.exclude) ? "excluded" : "run";
-}"""
+}""".replace("__BANNED__", json.dumps([list(pair) for pair in BANNED_RANGES]))

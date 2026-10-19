@@ -43,7 +43,9 @@ For daily reports, `exec` has two helpers that read files in Ardia's data dir. T
 thread with one 20 s deadline from the call (the session read, the snapshot, every SQLite connection through a
 progress handler that aborts past it, row fetching capped at 200,000), so the event loop and the browser socket stay
 live (`await history()`; a bare last expression is awaited anyway), `exec --timeout` returns promptly even if a call
-is stuck, and the worker deletes its temp snapshot in its own `finally` (plus an exit hook). The data dir is the token path's
+is stuck, and the worker deletes its temp snapshot in its own `finally`. At exit a hook sets a closing flag first
+(workers check it before making a temp folder and at every backup or copy step), waits up to 1 s for live workers,
+then deletes any temp folder still registered. The data dir is the token path's
 (`--data-dir`, `$ARDIA_DATA_DIR`, else the installed app's); with `--port`, `--ws` or `$ARDIA_CDP_URL` it's only
 `--data-dir` or `$ARDIA_DATA_DIR`, and without one they raise `BrowsingDataError`. Both run the same
 `ArdiaControl.json` checks as the token path first (regular file, owned, 0600, live pid), so they work only while
@@ -71,7 +73,9 @@ Ardia runs with control on. Neither reads cookies, passwords, Login Data or Web 
 Violentmonkey or Tampermonkey works as is. Keys read from the `// ==UserScript==` block: `@name` (the id is its slug),
 `@namespace`, `@version`, `@description`, `@match`/`@exclude-match` (Chrome match patterns for content scripts:
 `*`, `http`, `https`, `file`, `ftp` schemes, checked when parsed the way `URLPattern::Parse` does, a bit stricter:
-ASCII hosts (punycode), valid IPv4/IPv6 literals, ports 0 to 65535 without leading zeros and none with scheme `*`),
+hosts canonicalized as the browser does: lowercase, IDN to punycode (refused when it has ß, ς or a joiner, which
+IDNA versions treat differently), WHATWG IPv4 forms like `127.1` or `2130706433` to dotted, compressed IPv6, no `%`
+anywhere (so no IPv6 scope ids); ports 0 to 65535 without leading zeros and none with scheme `*`),
 `@include`/`@exclude` (globs over the whole URL with `base::MatchPattern`: `*` any run, `?` zero or one character,
 `\` escapes, matched left to right without backtracking; regexes are refused),
 `@run-at` (`document-start`, `document-end` default, `document-idle`), `@inject-into` (`page` default and `auto` run
@@ -104,7 +108,9 @@ looks in the cwd.
   `URLPattern::MatchesURL` (`extensions/common/url_pattern.cc`) and `base::MatchPattern` (`base/strings/pattern.cc`)
   in both the wrapper and Python: canonical hosts without trailing dots (`*.` takes subdomains, never of IP
   addresses), the effective port (`:443` matches `https://example.com/`; no port matches any), the path plus query
-  unescaped by `UnescapeURLComponent` rules (`/café/*` matches `/caf%C3%A9`) with a raw fallback, and `/foo/*`
+  unescaped by `UnescapeURLComponent`'s `NORMAL` rule, including its full list of characters left escaped (BiDi
+  controls, spaces, default-ignorable and format characters, lock emoji) (`/café/*` matches `/caf%C3%A9`), with a
+  raw fallback, and `/foo/*`
   matching `/foo`. `apps/cli/tests` runs both against cases taken from `url_pattern_unittest.cc` and
   `pattern_unittest.cc`, and they agreed with a real Ardia on the glob and percent-encoding cases. Console output and uncaught exceptions count
   as the script's when a stack frame is the script's `sourceURL`; positions map back to the sources through esbuild's
@@ -148,8 +154,12 @@ The data dir is `--data-dir`, else `$ARDIA_DATA_DIR`, else `~/Library/Applicatio
    uninstall (they rebuild from the records) or `list`: when its data dir was named (`--data-dir`,
    `$ARDIA_DATA_DIR`) or has a live control file, it takes the lock, rebuilds the extension from the records if
    they disagree (`manifest.json` entries, the `js/` files and their bytes), and otherwise publishes
-   `Scripts/generation = extension/generation` when the extension is ahead. `scripts test` never writes to any
-   `Scripts/` folder, and nothing creates `Scripts/` under a data dir that wasn't named or live. `extension/generation` holds the same number. A bumped generation with
+   `Scripts/generation = extension/generation` when the extension is ahead, rebuilds when it is behind, and
+   publishes the next generation when there are no records and no `extension/` but `status.json` still reports the
+   current generation as loaded. Uninstalling the last script writes `Scripts/generation` before it removes
+   `extension/`, so a crash between them looks like an old extension, not a finished uninstall. `list --json` puts
+   any repair in its `repaired` key, never ahead of the JSON. `scripts test` never writes to any `Scripts/` folder,
+   and nothing creates `Scripts/` under a data dir that wasn't named or live. `extension/generation` holds the same number. A bumped generation with
    no `extension/` means every script was uninstalled.
 5. It drops the lock, then polls `Scripts/status.json` for up to 10 s: `{"generation": N, "profiles": {"<profile>":
    {"ok": true} | {"error": "…"} | {"disabled": true} | {"removed": true}}}`; `removed` means no scripts are left and the extension is gone from that profile. Exit 0 when every profile loaded or is turned off, 1 on any

@@ -64,6 +64,22 @@ CHROMIUM_URL_CASES = [
     ("http://*.example.com/*", "http://127.0.0.1/", False),
     ("https://example.com/foo/*", "https://example.com/foo", True),
     ("https://example.com/foo/*", "https://example.com/foobar", False),
+    ("http://127.1/*", "http://127.0.0.1/", True),
+    ("http://2130706433/*", "http://127.0.0.1/", True),
+    ("http://127.0.0.1/*", "http://127.1/", True),
+    ("http://0x7f.1/*", "http://127.0.0.1/", True),
+    ("https://bücher.example/*", "https://xn--bcher-kva.example/", True),
+    ("https://xn--bcher-kva.example/*", "https://bücher.example/x", True),
+    ("https://BÜCHER.example/*", "https://xn--bcher-kva.example/", True),
+    ("https://example.com/%E2%80%8B*", "https://example.com/%E2%80%8Bx", True),
+    ("https://example.com/\u200b*", "https://example.com/%E2%80%8Bx", False),
+    ("https://example.com/\u00a0*", "https://example.com/%C2%A0x", False),
+    ("https://example.com/%C2%A0*", "https://example.com/%C2%A0x", True),
+    ("https://example.com/\u00e9*", "https://example.com/%C3%A9x", True),
+    ("https://example.com/\u2800*", "https://example.com/%E2%A0%80", False),
+    ("https://example.com/\u3164*", "https://example.com/%E3%85%A4", False),
+    ("https://example.com/\U0001f511*", "https://example.com/%F0%9F%94%91", True),
+    ("https://example.com/\U0001f513*", "https://example.com/%F0%9F%94%93", False),
 ]
 
 CHROMIUM_PATTERN_CASES = [
@@ -129,9 +145,15 @@ INVALID_PATTERNS = [
     "wss://example.com/*",
     "chrome://settings/*",
     "https://exa mple.com/*",
-    "https://é.com/*",
     "https://999.1.1.1/*",
     "https://example.com:070/*",
+    "http://[fe80::1%25en0]/*",
+    "http://[fe80::1%en0]/*",
+    "http://exa%6Dple.com/*",
+    "http://1.2.3.4.5/*",
+    "http://example.123/*",
+    "http://256.1.1.1/*",
+    "https://stra\u00dfe.de/*",
 ]
 
 VALID_PATTERNS = [
@@ -146,6 +168,9 @@ VALID_PATTERNS = [
     "http://[2607:f8b0:4005:805::200e]/",
     "http://[2607:f8b0:4005:805::200e]:8888/*",
     "file://localhost/foo*",
+    "http://127.1/*",
+    "https://bücher.example/*",
+    "https://é.com/*",
     "<all_urls>",
 ]
 
@@ -368,6 +393,45 @@ class Stores(unittest.TestCase):
         self.assertIsNone(scripts_store.repair_if_present(self.root))
         self.assertFalse((self.root / "Scripts").exists())
 
+    def test_uninstall_last_publishes_before_removing(self):
+        with Store(self.root) as store:
+            store.apply(add=self.built("a"))
+            calls = []
+            original = scripts_store.write_atomic
+
+            def write_once(*args):
+                calls.append(args)
+                if len(calls) > 1:
+                    raise OSError("crash")
+                return original(*args)
+
+            with mock.patch.object(scripts_store, "write_atomic", side_effect=write_once), self.assertRaises(OSError):
+                store.apply(remove="a")
+            self.assertEqual(store.generation(), 2)
+            self.assertFalse(store.extension_present())
+            self.assertEqual(store.installed(), [])
+        self.assertIsNone(scripts_store.repair_if_present(self.root))
+
+    def test_repair_republishes_a_stranded_uninstall(self):
+        with Store(self.root) as store:
+            store.apply(add=self.built("a"))
+        shutil.rmtree(self.root / "Scripts" / "extension")
+        shutil.rmtree(self.root / "Scripts" / "scripts" / "a")
+        (self.root / "Scripts" / "status.json").write_text(json.dumps({"generation": 1, "profiles": {"Personal": {"ok": True}}}))
+        self.assertIn("uninstall", scripts_store.repair_if_present(self.root))
+        self.assertEqual((self.root / "Scripts" / "generation").read_text().strip(), "2")
+        (self.root / "Scripts" / "status.json").write_text(json.dumps({"generation": 2, "profiles": {"Personal": {"removed": True}}}))
+        self.assertIsNone(scripts_store.repair_if_present(self.root))
+
+    def test_repair_rebuilds_an_old_extension(self):
+        with Store(self.root) as store:
+            store.apply(add=self.built("a"))
+        (self.root / "Scripts" / "generation").write_text("5\n")
+        self.assertIn("older", scripts_store.repair_if_present(self.root))
+        with Store(self.root) as store:
+            self.assertEqual(store.generation(), 6)
+            self.assertEqual(store.extension_generation(), 6)
+
     def test_invalid_manifest_never_published(self):
         with Store(self.root) as store:
             store.apply(add=self.built("a"))
@@ -442,6 +506,17 @@ class ReadOnlyDefaults(unittest.TestCase):
         self.assertEqual(self.run_cli("scripts", "list", "--data-dir", str(self.default)), 0)
         self.assertEqual((self.default / "Scripts" / "generation").read_text().strip(), "1")
 
+    def test_list_json_is_pure_json(self):
+        import contextlib
+        import io
+
+        self.crash()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cli.main(["scripts", "list", "--json", "--data-dir", str(self.default)]), 0)
+        data = json.loads(out.getvalue())
+        self.assertIn("published", data["repaired"])
+
     def test_list_without_scripts_creates_nothing(self):
         self.assertEqual(self.run_cli("scripts", "list"), 0)
         self.assertEqual(self.run_cli("scripts", "list", "--data-dir", str(self.default)), 0)
@@ -459,6 +534,33 @@ class Deadlines(unittest.TestCase):
         with self.assertRaises(sqlite3.OperationalError):
             connection.execute("WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT count(*) FROM n").fetchone()
         self.assertLess(time.monotonic() - started, 2)
+
+    def test_exit_hook_stops_workers_and_cleans(self):
+        import threading
+        import time
+
+        self.addCleanup(setattr, browsing, "_closing", False)
+        work = browsing.new_work_dir()
+        stopped = threading.Event()
+
+        def worker():
+            while not browsing._closing:
+                time.sleep(0.01)
+            with self.assertRaises(browsing.OutOfTime):
+                browsing.new_work_dir()
+            stopped.set()
+            with browsing._state:
+                browsing._workers.discard(thread)
+
+        thread = threading.Thread(target=worker, daemon=True)
+        with browsing._state:
+            browsing._workers.add(thread)
+        thread.start()
+        browsing._shut_down()
+        self.assertTrue(stopped.is_set())
+        self.assertFalse(Path(work).exists())
+        with self.assertRaises(browsing.OutOfTime):
+            browsing.out_of_time(time.monotonic() + 10, "x")
 
     def test_run_bounded_returns_promptly(self):
         import asyncio
