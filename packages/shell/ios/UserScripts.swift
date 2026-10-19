@@ -116,20 +116,35 @@ final class UserScripts {
     guard locked else { return ["state": "busy"] }
     defer { flock(lock, LOCK_UN) }
 
+    var folder = snapshot(dir)
+    folder["token"] = token(dir)
+    return folder
+  }
+
+  private func token(_ dir: URL) -> String {
+    var st = stat()
+    let folder = lstat(dir.path, &st) == 0 ? "\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec):\(st.st_ino)" : "-"
+    let generation = (try? String(contentsOf: dir.appendingPathComponent("generation"), encoding: .utf8)) ?? "-"
+    let ext = dir.appendingPathComponent("extension")
+    let inner = (try? String(contentsOf: ext.appendingPathComponent("generation"), encoding: .utf8)) ?? "-"
+    let node = lstat(ext.path, &st) == 0 ? "\(st.st_ino)" : "-"
+    return "\(folder)|\(generation)|\(inner)|\(node)"
+  }
+
+  private func snapshot(_ dir: URL) -> [String: Any] {
     let path = realPath(dir.deletingLastPathComponent()) + "/Scripts/extension"
-    let generation = readGeneration(dir.appendingPathComponent("generation"))
+    let written = readGeneration(dir.appendingPathComponent("generation"))
     var st = stat()
     guard lstat(dir.path, &st) == 0, st.st_mode & S_IFMT == S_IFDIR else {
-      return ["state": "invalid", "generation": generation ?? 0, "path": path, "error": "Scripts isn't a plain folder"]
+      return ["state": "invalid", "generation": written ?? 0, "path": path, "error": "Scripts isn't a plain folder"]
     }
     let ext = dir.appendingPathComponent("extension")
     guard lstat(ext.path, &st) == 0 else {
-      return generation.map { ["state": "absent", "generation": $0, "path": path] } ?? ["state": "empty"]
+      return written.map { ["state": "absent", "generation": $0, "path": path] } ?? ["state": "empty"]
     }
-    guard let generation else { return ["state": "pending"] }
-    guard readGeneration(ext.appendingPathComponent("generation")) == generation else {
-      return ["state": "pending", "generation": generation]
-    }
+    guard let inner = readGeneration(ext.appendingPathComponent("generation")) else { return ["state": "pending"] }
+    guard inner >= (written ?? Int.min) else { return ["state": "pending", "generation": written ?? 0] }
+    let generation = inner
     guard st.st_mode & S_IFMT == S_IFDIR else {
       return ["state": "invalid", "generation": generation, "path": path, "error": "Scripts/extension isn't a plain folder"]
     }

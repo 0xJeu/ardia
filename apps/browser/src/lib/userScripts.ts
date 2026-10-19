@@ -110,11 +110,19 @@ async function reconcile() {
   const unloadPath = folder.state === "absent" || folder.state === "invalid" ? folder.path : null;
   for (const engine of targets.keys()) {
     const done = applied.get(engine);
-    if (refused !== null) outcomes.set(engine, unloadPath ? withError(await unload(engine, unloadPath), refused) : { error: refused });
-    else if (done?.generation === generation) outcomes.set(engine, done.outcome);
-    else if (loadPath) outcomes.set(engine, await load(engine, loadPath));
-    else if (unloadPath) outcomes.set(engine, await unload(engine, unloadPath));
-    const outcome = outcomes.get(engine)!;
+    const cached = refused === null && done?.generation === generation ? done.outcome : null;
+    let outcome: ScriptsOutcome;
+    if (cached) outcome = cached;
+    else if (refused !== null) outcome = unloadPath ? withError(await unload(engine, unloadPath), refused) : { error: refused };
+    else if (loadPath) outcome = await load(engine, loadPath);
+    else if (unloadPath) outcome = await unload(engine, unloadPath);
+    else outcome = { removed: true };
+    if (!cached && (await readUserScripts()).token !== folder.token) {
+      applied.delete(engine);
+      again = true;
+      return;
+    }
+    outcomes.set(engine, outcome);
     if (!("error" in outcome)) applied.set(engine, { generation, outcome });
     if (!enabled()) return;
   }

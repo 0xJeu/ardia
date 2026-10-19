@@ -157,6 +157,37 @@ test("a newer generation mid-load drops the stale status and reconciles once mor
   assert.deepEqual(fake.writes.slice(writes).map((w) => w.generation), [7]);
 });
 
+test("a folder swapped while Chrome was reading it isn't cached, and the load runs again", async () => {
+  calls.length = 0;
+  const writes = fake.writes.length;
+  let open;
+  gate = new Promise((r) => (open = r));
+  folder = { state: "ready", generation: 71, path: PATH, token: "g71-a" };
+  fake.change();
+  await settle();
+  folder = { state: "ready", generation: 71, path: PATH, token: "g71-b" };
+  gate = null;
+  open();
+  await settle();
+  assert.deepEqual(calls.filter(([k]) => k === "install").map(([, p]) => p), ["", "", "work"]);
+  assert.deepEqual(fake.writes.slice(writes).map((w) => w.generation), [71]);
+});
+
+test("a load the folder changed under forgets what that profile had, so the old generation loads again", async () => {
+  calls.length = 0;
+  let open;
+  gate = new Promise((r) => (open = r));
+  folder = { state: "ready", generation: 72, path: PATH, token: "g72" };
+  fake.change();
+  await settle();
+  folder = { state: "ready", generation: 71, path: PATH, token: "g71-c" };
+  gate = null;
+  open();
+  await settle();
+  assert.deepEqual(calls.filter(([k]) => k === "install").map(([, p]) => p), ["", ""]);
+  assert.equal(lastWrite().generation, 71);
+});
+
 test("removal uninstalls everywhere and says so", async () => {
   calls.length = 0;
   folder = { state: "absent", generation: 8, path: PATH };
