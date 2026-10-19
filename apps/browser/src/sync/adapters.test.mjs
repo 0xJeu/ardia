@@ -447,6 +447,82 @@ test("a row mark held up in transit doesn't undo a later choice of a tile on ano
   assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] }, "and A follows it");
 });
 
+test("an unpin and pin as a tile before the next sync still outranks an older row mark in transit", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    const docs = S().newTab(w, { url: "https://docs.example/" });
+    S().pinTabs([docs], true, true);
+    S().placeTabs([docs], { pinned: true, row: false });
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.deepEqual(rowsOf(b).tiles, ["https://docs.example/"]);
+  await later();
+  const before = new Set(folder.files.keys());
+  a.with(() => S().placeTabs([tabAt("https://docs.example/")], { pinned: true, row: true }));
+  await a.sync();
+  [...folder.files.keys()].filter((id) => !before.has(id)).forEach((id) => folder.hidden.add(id));
+  await later();
+  b.with(() => {
+    const docs = tabAt("https://docs.example/");
+    S().activate(docs);
+    S().pinTabs([docs], false);
+    S().pinTabs([docs], true);
+  });
+  await b.sync();
+  folder.hidden.clear();
+  await syncAll([b, a, b, a]);
+  assert.deepEqual(rowsOf(b), { tiles: ["https://docs.example/"], rows: [] }, "B's later tile stands");
+  assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
+  assert.deepEqual(b.with(() => S().pinChoices), {}, "the published choice is settled");
+  assert.equal((await b.sync()).published + (await a.sync()).published, 0, "and nothing is sent again");
+});
+
+for (const [how, move] of [
+  ["parked with the last window", (w) => (S().closeWindow(w), S().createWindow({ url: "https://b-next.example/" }))],
+  ["left in a closed window while another mirrors it", (w) => (S().createWindow({ url: "https://b-next.example/" }), S().closeWindow(w))],
+]) {
+  test(`a tile chosen before the next sync outranks an older row mark when the choice was ${how}`, async () => {
+    const folder = new Folder();
+    const old = new Device("devOld", folder, { legacy: true });
+    const a = new Device("devA", folder);
+    const b = new Device("devB", folder);
+    old.with(() => {
+      const w = S().createWindow({ url: "https://old-home.example/" });
+      S().pinTabs([S().newTab(w, { url: "https://docs.example/" })], true);
+    });
+    a.with(() => S().createWindow({ url: "https://a-home.example/" }));
+    let bw;
+    b.with(() => (bw = S().createWindow({ url: "https://b-home.example/" })));
+    await syncAll([old, a, b]);
+    await later();
+    const before = new Set(folder.files.keys());
+    a.with(() => S().placeTabs([tabAt("https://docs.example/")], { pinned: true, row: true }));
+    await a.sync();
+    [...folder.files.keys()].filter((id) => !before.has(id)).forEach((id) => folder.hidden.add(id));
+    await later();
+    b.with(() => {
+      const docs = tabAt("https://docs.example/");
+      S().activate(docs);
+      S().pinTabs([docs], false);
+    });
+    await b.sync();
+    await later();
+    b.with(() => {
+      S().pinTabs([tabAt("https://docs.example/")], true);
+      move(bw);
+    });
+    await b.sync();
+    folder.hidden.clear();
+    await syncAll([b, a, b, a]);
+    assert.deepEqual(rowsOf(b), { tiles: ["https://docs.example/"], rows: [] }, "B's later tile stands");
+    assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
+  });
+}
+
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);

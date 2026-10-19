@@ -41,7 +41,6 @@ export type Tab = {
   customIcon: string | null;
   pinnedUrl: string | null;
   pinnedAsRow?: true;
-  pinChosenAt?: number;
   navigation: { url: string; seq: number; userInitiated?: boolean } | null;
   adoptId?: string;
   openerId: string | null;

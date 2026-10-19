@@ -98,6 +98,7 @@ test("rows park with the last window and come back as rows, and survive a relaun
   stop();
   S().hydrate(loadSession());
   assert.deepEqual(entries(w), { tiles: ["https://a.com/"], rows: ["https://b.com/"] });
+  assert.deepEqual(Object.keys(S().pinChoices.default).sort(), [a, b].sort(), "the choices not yet synced survive a relaunch");
   S().closeWindow(w);
   assert.deepEqual(S().parkedPins.default.tabs.map((t) => [t.pinnedUrl, !!t.pinnedAsRow]), [["https://a.com/", false], ["https://b.com/", true]]);
   const n = S().createWindow();

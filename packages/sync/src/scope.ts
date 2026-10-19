@@ -69,6 +69,8 @@ export type Listing = {
 export type Extraction = {
   values: Map<string, unknown>;
   ignore?: (key: string) => boolean;
+  republish?: (key: string) => boolean;
+  published?: (keys: Set<string>) => void;
 };
 
 export interface Adapter {
@@ -186,7 +188,7 @@ async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock,
   for (const [key, value] of extraction.values) {
     if (value === null || value === undefined) throw new Error(`[sync] ${key}: a live value can't be null`);
     const json = canonical(value);
-    if (state.base[key] === json) continue;
+    if (state.base[key] === json && !extraction.republish?.(key)) continue;
     state.base[key] = json;
     put(key, value);
   }
@@ -195,6 +197,7 @@ async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock,
     delete state.base[key];
     put(key, null);
   }
+  extraction.published?.(published);
   return published;
 }
 
