@@ -1,4 +1,4 @@
-import { installExtension, listExtensions, reloadExtension, uninstallExtension, type InstalledExtension } from "@ardia/ardiacore";
+import { installExtension, listExtensions, reloadExtension, setExtensionEnabled, uninstallExtension, type InstalledExtension } from "@ardia/ardiacore";
 import {
   onUserScriptsChange,
   readUserScripts,
@@ -39,18 +39,27 @@ const loadedFrom = (ext: InstalledExtension, path: string) => !!ext.path && with
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+const BLOCKED = "Ardia Scripts can only hold content scripts, and the engine blocked this copy.";
+
 async function load(profile: string, path: string): Promise<ScriptsOutcome> {
   try {
-    const existing = (await listExtensions(profile)).find((x) => loadedFrom(x, path));
-    if (existing && !existing.enabled) {
+    const find = async (match: (x: InstalledExtension) => boolean) => (await listExtensions(profile)).find(match);
+    const existing = await find((x) => loadedFrom(x, path));
+    if (existing && !existing.enabled && !existing.blockedByPolicy) {
       await reloadExtension(existing.id, profile);
       return { disabled: true };
     }
     const id = await installExtension({ path }, profile);
-    const loaded = (await listExtensions(profile)).find((x) => x.id === id);
+    let loaded = await find((x) => x.id === id);
+    let refusal: string | null = null;
+    if (loaded && !loaded.enabled && loaded.blockedByPolicy) {
+      refusal = await setExtensionEnabled(id, profile, true).then(() => null, message);
+      loaded = await find((x) => x.id === id);
+    }
     if (!loaded) return { error: "The extension didn't load." };
-    if (!loaded.enabled) return loaded.state === "DISABLED" ? { disabled: true } : { error: `The extension is ${loaded.state.toLowerCase()}.` };
-    return { ok: true };
+    if (loaded.enabled) return { ok: true };
+    if (loaded.blockedByPolicy) return { error: refusal ?? loaded.errors[0] ?? BLOCKED };
+    return loaded.state === "DISABLED" ? { disabled: true } : { error: `The extension is ${loaded.state.toLowerCase()}.` };
   } catch (error) {
     return { error: message(error) };
   }

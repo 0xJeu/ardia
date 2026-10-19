@@ -21,6 +21,7 @@ export type InstalledExtension = {
   incognitoSplit?: boolean;
   fileAccess: boolean;
   mayModify: boolean;
+  blockedByPolicy?: boolean;
   errors: string[];
   location: string;
   path: string | null;

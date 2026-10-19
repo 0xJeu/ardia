@@ -21,11 +21,17 @@ const fake = (globalThis.acTestUserScripts = {
       if (gate) await gate;
       const exts = installed.get(profile) ?? new Map();
       const prior = exts.get("abc");
-      exts.set("abc", { id: "abc", path, enabled: prior ? prior.enabled : true, state: prior && !prior.enabled ? "DISABLED" : "ENABLED" });
+      exts.set("abc", { errors: [], ...prior, id: "abc", path, enabled: prior ? prior.enabled : true, state: prior && !prior.enabled ? "DISABLED" : "ENABLED" });
       installed.set(profile, exts);
       return "abc";
     },
     reload: async (id, profile) => void calls.push(["reload", profile]),
+    setEnabled: async (id, profile, on) => {
+      calls.push(["enable", profile]);
+      const ext = installed.get(profile).get(id);
+      if (ext.policyAllows === false) throw new Error("Ardia Scripts can only hold content scripts: permissions");
+      Object.assign(ext, { enabled: on, state: on ? "ENABLED" : "DISABLED", blockedByPolicy: false });
+    },
     uninstall: async (id, profile) => void (calls.push(["uninstall", profile]), installed.get(profile)?.delete(id)),
   },
 });
@@ -80,6 +86,24 @@ test("a profile the user disabled it in stays disabled", async () => {
   assert.equal(installed.get("").get("abc").enabled, false);
   assert.deepEqual(lastWrite(), { generation: 3, profiles: { Personal: { disabled: true } } });
   installed.get("").get("abc").enabled = true;
+});
+
+test("a copy the engine blocked is lifted once the folder is valid, and reported when it stays blocked", async () => {
+  calls.length = 0;
+  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true });
+  folder = { state: "ready", generation: 31, path: PATH };
+  fake.change();
+  await settle();
+  assert.deepEqual(calls, [["install", ""], ["enable", ""]]);
+  assert.equal(installed.get("").get("abc").enabled, true);
+  assert.deepEqual(lastWrite(), { generation: 31, profiles: { Personal: { ok: true } } });
+  calls.length = 0;
+  Object.assign(installed.get("").get("abc"), { enabled: false, state: "DISABLED", blockedByPolicy: true, policyAllows: false });
+  folder = { state: "ready", generation: 32, path: PATH };
+  fake.change();
+  await settle();
+  assert.deepEqual(lastWrite(), { generation: 32, profiles: { Personal: { error: "Ardia Scripts can only hold content scripts: permissions" } } });
+  Object.assign(installed.get("").get("abc"), { enabled: true, state: "ENABLED", blockedByPolicy: false, policyAllows: true });
 });
 
 test("a refused manifest is never loaded, removes the copy Chrome read from disk, and reports the error", async () => {

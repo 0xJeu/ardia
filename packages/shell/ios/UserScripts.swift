@@ -116,17 +116,20 @@ final class UserScripts {
     guard locked else { return ["state": "busy"] }
     defer { flock(lock, LOCK_UN) }
 
+    let path = realPath(dir.deletingLastPathComponent()) + "/Scripts/extension"
     let generation = readGeneration(dir.appendingPathComponent("generation"))
-    let ext = dir.appendingPathComponent("extension")
     var st = stat()
+    guard lstat(dir.path, &st) == 0, st.st_mode & S_IFMT == S_IFDIR else {
+      return ["state": "invalid", "generation": generation ?? 0, "path": path, "error": "Scripts isn't a plain folder"]
+    }
+    let ext = dir.appendingPathComponent("extension")
     guard lstat(ext.path, &st) == 0 else {
-      return generation.map { ["state": "absent", "generation": $0, "path": realPath(dir) + "/extension"] } ?? ["state": "empty"]
+      return generation.map { ["state": "absent", "generation": $0, "path": path] } ?? ["state": "empty"]
     }
     guard let generation else { return ["state": "pending"] }
     guard readGeneration(ext.appendingPathComponent("generation")) == generation else {
       return ["state": "pending", "generation": generation]
     }
-    let path = realPath(dir) + "/extension"
     guard st.st_mode & S_IFMT == S_IFDIR else {
       return ["state": "invalid", "generation": generation, "path": path, "error": "Scripts/extension isn't a plain folder"]
     }
