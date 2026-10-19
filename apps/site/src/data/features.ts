@@ -120,7 +120,7 @@ export const extras: { title: string; body: string }[] = [
   { title: "Tidies up", body: "⌥⌘K sweeps the tabs you haven’t touched into Recently Cleaned." },
   { title: "Clean links", body: "Copy a link and the tracking junk stays behind." },
   { title: "Keeps secrets", body: "Passwords and passkeys per profile, and a strong new password when you sign up somewhere." },
-  { title: "Naps when you do", body: "Background tabs sleep after half an hour. On battery, the greedy ones get frozen." },
+  { title: "Naps when you do", body: "Background tabs past your latest five freeze, and sleep after half an hour." },
   { title: "Knows your shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
   { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
   { title: "Sits still", body: "Idles under half a percent of CPU with a tab open." },

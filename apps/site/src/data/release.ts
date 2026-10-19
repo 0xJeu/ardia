@@ -1,5 +1,5 @@
-export const VERSION = "0.2.37";
-export const DMG_SIZE = "187 MB";
+export const VERSION = "0.2.38";
+export const DMG_SIZE = "109 MB";
 export const REPO = "https://github.com/mantrakp04/ardia";
 export const DISCORD = "https://discord.gg/TdhuXrbcA6";
 export const RELEASES = `${REPO}/releases/latest`;

@@ -7,6 +7,6 @@ Ardia builds on and ships third-party software under its own licenses, including
 - Chromium (BSD-3-Clause and others; see chrome://credits in the app)
 - Chromium Embedded Framework (BSD-3-Clause): a few of its patches to Chromium
 - ungoogled-chromium (BSD-3-Clause)
-- uBlock Origin Lite (GPL-3.0), bundled unmodified as a separate extension
+- uBlock Origin (GPL-3.0), bundled as a separate extension with the small patches in packages/ardiacore/scripts/ubo.sh
 - Sparkle (MIT)
 - React Native and React Native macOS (MIT)

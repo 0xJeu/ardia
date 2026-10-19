@@ -10,11 +10,11 @@
 </p>
 
 <h3 align="center">
-  <a href="https://github.com/mantrakp04/ardia/releases/latest/download/Ardia-0.2.37.dmg">Download Ardia 0.2.37 for Mac</a>
+  <a href="https://github.com/mantrakp04/ardia/releases/latest/download/Ardia-0.2.38.dmg">Download Ardia 0.2.38 for Mac</a>
 </h3>
 
 <p align="center">
-  187 MB DMG · macOS 14 Sonoma or later · Apple Silicon · Notarized by Apple<br>
+  109 MB DMG · macOS 14 Sonoma or later · Apple Silicon · Notarized by Apple<br>
   Like your paint wet? <a href="https://ardia.dev/nightly">The nightly</a> has every fix the day it’s made, smudges and all.<br>
   <a href="https://ardia.dev">ardia.dev</a> · <a href="https://ardia.dev/release-notes">What’s new</a> · <a href="https://github.com/mantrakp04/ardia/releases">All releases</a> · <a href="https://discord.gg/TdhuXrbcA6">Discord</a>
 </p>
@@ -49,7 +49,7 @@ The Chrome Web Store just works, and its button says Add to Ardia.
 
 ## Ads and trackers stay out.
 
-uBlock Origin Lite is built in, cookie banners included. Google’s pings are compiled out. Crash reports are
+The full uBlock Origin is built in, cookie banners included. Google’s pings are compiled out. Crash reports are
 opt-in and never carry your sites or searches.
 
 ## Also in there
@@ -62,7 +62,7 @@ opt-in and never carry your sites or searches.
 - **Command bar.** ⌘L finds tabs, history and bookmarks, does your sums, and knows doc.new and 16 friends.
 - **Tidies up.** ⌥⌘K sweeps the tabs you haven’t touched into Recently Cleaned.
 - **Clean links.** Copy a link and the tracking junk stays behind.
-- **Naps when you do.** Background tabs sleep after half an hour. On battery, the greedy ones get frozen.
+- **Naps when you do.** Background tabs past your latest five freeze, and sleep after half an hour.
 - **Sits still.** Idles under half a percent of CPU with a tab open.
 - **Updates itself.** Quietly, then shows you what changed.
 
@@ -72,7 +72,7 @@ Not WebKit. Not Electron. Every window is Chrome’s own, so sites, extensions a
 
 | Part | Details | Status |
 | --- | --- | --- |
-| Engine | Chromium 154, on Chrome’s own framework. | ✓ Yes |
+| Engine | Chromium 155, on Chrome’s own framework. | ✓ Yes |
 | De-Googled | ungoogled-chromium underneath. | ✓ Yes |
 | H.264 and AAC | The codecs Chromium leaves out. | ✓ Yes |
 | DevTools | Docked, with device mode. Like Chrome. | ✓ Yes |
@@ -83,11 +83,11 @@ Not WebKit. Not Electron. Every window is Chrome’s own, so sites, extensions a
 | Intel Macs | Apple Silicon only. | ✗ No |
 
 <h3 align="center">
-  <a href="https://github.com/mantrakp04/ardia/releases/latest/download/Ardia-0.2.37.dmg">Download Ardia 0.2.37</a>
+  <a href="https://github.com/mantrakp04/ardia/releases/latest/download/Ardia-0.2.38.dmg">Download Ardia 0.2.38</a>
 </h3>
 
 <p align="center">
-  It’s 187 MB and one drag into Applications.<br>
+  It’s 109 MB and one drag into Applications.<br>
   Not on a Mac? Watch › Custom › Releases up top and GitHub tells you when it is.
 </p>
 
@@ -103,7 +103,7 @@ reconstructed from Dia's own New Tab effects.
 apps/
   browser/            Expo + react-native-macos app (UI in src/, Xcode project in macos/)
 packages/
-  ardiacore/             The engine: Chromium 154's framework with our layer (Chrome tabs hosted in our views), JS API in src/
+  ardiacore/             The engine: Chromium 155's framework with our layer (Chrome tabs hosted in our views), JS API in src/
   shell/              Native menu bar + shortcuts → JS, windows, SF Symbols, native primitives
   shaders/            Metal: New Tab effects + grained OKLab window backdrop
   import/             Import from other browsers (bookmarks, history, passwords, Arc spaces)
@@ -223,5 +223,5 @@ Feature parity with Dia (everything but its AI) is tracked row by row in
 ## License
 
 Ardia is licensed under the [Apache License 2.0](LICENSE). It builds on Chromium and ungoogled-chromium,
-carries a few of the Chromium Embedded Framework's patches to Chromium (BSD-3-Clause), and bundles uBlock Origin
-Lite, each under its own license; see [NOTICE](NOTICE).
+carries a few of the Chromium Embedded Framework's patches to Chromium (BSD-3-Clause), and bundles uBlock Origin,
+each under its own license; see [NOTICE](NOTICE).
