@@ -857,7 +857,9 @@ extension NSColor {
 }
 
 let installTextFieldSelectAll: Void = {
-  let block: @convention(block) (NSTextField, Any?) -> Void = { field, sender in field.selectText(sender) }
+  let block: @convention(block) (NSTextField, Any?) -> Void = { field, sender in
+    if let editor = field.currentEditor() { editor.selectAll(sender) } else { field.selectText(sender) }
+  }
   class_addMethod(NSTextField.self, #selector(NSText.selectAll(_:)), imp_implementationWithBlock(block), "v@:@")
 }()
 

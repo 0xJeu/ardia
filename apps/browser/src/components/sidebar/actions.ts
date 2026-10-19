@@ -2,8 +2,8 @@ import { cleanUrl, markdownLink } from "@ardia/core";
 import { copyText, prompt } from "@ardia/shell";
 import { updateFolder } from "../../live/store";
 import { useBrowser } from "../../store/browser";
-import { activeTabId, bookmarkProfileId, viewTabIds } from "../../store/model";
-import { groupOf, selectedTabIds } from "../../store/organize";
+import { activeTabId, bookmarkProfileId, tabLayoutOf, viewTabIds } from "../../store/model";
+import { groupLabel, groupOf, selectedTabIds } from "../../store/organize";
 import type { Tab } from "../../store/types";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./state";
 
@@ -68,7 +68,23 @@ export async function startRename(windowId: string, target: Target) {
     const group = groupOf(s, tab.id);
     if (group?.collapsed && activeTabId(s, windowId) !== tab.id) s.updateGroup(group.id, { collapsed: false });
   }
+  if (target.kind === "group" && !sidebarShows(windowId)) return renameGroupInSheet(windowId, target.id);
   setSidebarUi({ renaming: { windowId, ...target } });
+}
+
+const sidebarShows = (windowId: string) => tabLayoutOf(store(), windowId) === "sidebar" && !!store().windows[windowId]?.sidebarOpen;
+
+async function renameGroupInSheet(windowId: string, groupId: string) {
+  const g = store().groups[groupId];
+  if (!g) return;
+  const name = await prompt({
+    title: "Rename Group",
+    value: g.name,
+    placeholder: groupLabel(store(), g),
+    confirmTitle: "Update",
+    windowId,
+  });
+  if (name !== null && store().groups[groupId]) store().updateGroup(groupId, { name: name.trim() });
 }
 
 export function commitRename(target: Target, text: string) {
@@ -98,7 +114,7 @@ export function setIcon(target: Target, icon: string | null) {
 
 export function newGroupWithSelection(windowId: string, ids = selectedTabIds(store(), windowId)) {
   const groupId = store().groupTabs(ids.filter((id) => !store().tabs[id]?.pinned));
-  if (groupId) void startRename(windowId, { kind: "group", id: groupId });
+  if (groupId && sidebarShows(windowId)) void startRename(windowId, { kind: "group", id: groupId });
   return groupId;
 }
 
