@@ -342,8 +342,8 @@ bookmark, settings, profile or group edit, and on Sync Now. A cycle:
   them; nothing is published before its journal is on disk).
 - End to end: `node packages/sync/scripts/e2e.mjs [Debug app] [work dir]` drives two hidden
   instances (then a third) with their own data folders through a temporary sync folder, never
-  iCloud Drive, over the dev harness. It checks 40 things, and all 40 passed on 2026-09-26 (Debug
-  build; the Release build was built and started hidden).
+  iCloud Drive, over the dev harness. It checks 45 things, and all 45 passed on 2026-10-20 (Debug
+  build), including pinned rows, tiles and a pinned group, an unpin, and B quit and relaunched.
   - B rejects four wrong phrases: someone else's valid phrase ("mismatch"), two words swapped
     (checksum), a word not on the list, and 23 words. Then it joins with the kit's numbered, upper-case lines.
   - After joining: A's bookmarks, history, pinned tab (unloaded) and password (in Chrome's password
