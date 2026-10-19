@@ -74,13 +74,14 @@ export type Extraction = {
 };
 
 export type ApplyRecords = {
-  age(key: string): number | undefined;
+  known(key: string): boolean;
+  now: number;
   horizon: number;
 };
 
 export interface Adapter {
   prefix: string;
-  extract(base: (key: string) => unknown, queued: (key: string) => boolean): Extraction | null | Promise<Extraction | null>;
+  extract(base: (key: string) => unknown, queued: (key: string) => boolean, now: number): Extraction | null | Promise<Extraction | null>;
   apply(visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown, records: ApplyRecords): boolean | void | Promise<boolean | void>;
   editedAt?(value: unknown): number | undefined;
   adoptRemoteOnJoin?: boolean;
@@ -191,12 +192,12 @@ function settleDurable(state: ScopeState) {
   for (const settle of queue) settle();
 }
 
-async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string): Promise<Set<string>> {
+async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number): Promise<Set<string>> {
   const published = new Set<string>();
   if (adapter.adoptRemoteOnJoin && !state.joined) return published;
   let pending: Set<string> | null = null;
   const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
-  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued);
+  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now);
   if (!extraction) return published;
   const put = (key: string, value: unknown) => {
     const known = state.records[key];
@@ -224,9 +225,9 @@ async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock,
   return published;
 }
 
-export async function publish(state: ScopeState, adapters: Adapter[], clock: Clock, device: string): Promise<Set<string>> {
+export async function publish(state: ScopeState, adapters: Adapter[], clock: Clock, device: string, now = Date.now()): Promise<Set<string>> {
   const published = new Set<string>();
-  for (const adapter of adapters) for (const key of await publishAdapter(state, adapter, clock, device)) published.add(key);
+  for (const adapter of adapters) for (const key of await publishAdapter(state, adapter, clock, device, now)) published.add(key);
   return published;
 }
 
@@ -318,8 +319,7 @@ async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<strin
   const view = visible(state, adapter.prefix);
   let ok: boolean | void = false;
   try {
-    const age = (key: string) => (key in state.records ? now - hlcWall(state.records[key]!.h) : undefined);
-    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { age, horizon });
+    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, now, horizon });
   } catch (error) {
     console.warn(`[sync] applying ${adapter.prefix} failed`, error);
   }
@@ -379,13 +379,13 @@ export async function syncScope(args: {
 }): Promise<CycleResult> {
   const { scope, state, transport, adapters, clock, device, options } = args;
   const now = args.now ?? Date.now;
-  let published = (await publish(state, adapters, clock, device)).size;
+  let published = (await publish(state, adapters, clock, device, now())).size;
   await flush(state, transport, scope, device, now(), options);
   const changed = await pull(state, transport, scope, clock, now(), options);
   const keys = new Set([...state.unapplied, ...changed]);
   const unapplied: string[] = [];
   for (const adapter of adapters) {
-    const late = await publishAdapter(state, adapter, clock, device);
+    const late = await publishAdapter(state, adapter, clock, device, now());
     published += late.size;
     for (const key of late) keys.delete(key);
     if (!(await applyAdapter(state, adapter, keys, now(), options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));

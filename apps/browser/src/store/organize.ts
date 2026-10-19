@@ -26,7 +26,8 @@ export function notePinChoices(choices: PinChoices) {
   for (const mine of Object.values(choices)) for (const n of Object.values(mine)) if (n > lastPinChoice) lastPinChoice = n;
 }
 
-export type PinSyncEntry = { u?: string[]; ti?: string[]; g?: string };
+export type PinShown = { u: string; ti: string };
+export type PinSyncEntry = { g?: string; w?: number; b?: Record<string, PinShown> };
 export type PinSync = Record<string, Record<string, PinSyncEntry>>;
 
 export function livePinTable<T>(table: Record<string, Record<string, T>>, s: Pick<BrowserState, "profiles" | "tabs" | "groups" | "parkedPins">): Record<string, Record<string, T>> {
@@ -446,7 +447,7 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
       tabs[id] = row ? { ...rest, pinnedAsRow: true } : rest;
       const entry = placed ? pinSync[t.profileId]?.[t.pinKey ?? t.id] : undefined;
       if (entry?.g) {
-        const { g: __, ...kept } = entry;
+        const { g: __, w: ___, ...kept } = entry;
         pinSync = { ...pinSync, [t.profileId]: { ...pinSync[t.profileId], [t.pinKey ?? t.id]: kept } };
       }
       if ((p.pinned || intoPinnedGroup) && !isIncognitoProfile(t.profileId)) {
