@@ -185,6 +185,29 @@ the same as top"), so if a Dia capture ever differs, the owner's equal insets wi
   over a 0.16 hover fill. It sits one row gap (3 pt) under the tab above it, background to background.
 - Pinned tile hover: a custom tooltip showing the title and URL.
 
+### Tab hover card motion (Dia's binary, 2026-10-20)
+
+`TabPreviewUI.TabHoverMenuController` and its private `TabHoverMenuPresenter`, the same card for sidebar rows and pinned
+tiles. The card is a child window (`TabHoverMenuPopoverWindow`, no shadow of its own, 22 pt margin for the drawn one)
+whose content layer has `anchorPoint (0, 0)` at the card's corner in a flipped root view: it scales from its **top-left
+corner**, the corner nearest the row.
+- Show (`0x103d90d30`): opacity 0 → 1, `CABasicAnimation` 0.10 s on `cubic-bezier(0.25, 0.46, 0.45, 0.94)`
+  (`0x100546020`), plus `CASpringAnimation` on `transform` from scale **0.92** to 1, damping ratio **0.75**, response
+  **0.25 s** (`0x100593830` turns a response and ratio into mass 1 stiffness (2π/response)², damping 4πζ/response).
+  Both start from the presentation layer's current values, so a card that was leaving comes back from where it is.
+- Dismiss (`0x103d919dc`): opacity → 0, 0.10 s on the same curve, and a spring to scale 0.92, ratio **0.6**, response
+  **0.2 s**; not removed on completion, the window closes in the completion block.
+- Row to row: the open window is moved with `setFrame:display:` and its content swapped; the show animation runs only for
+  a new presentation, so the card jumps to the new row with no glide or fade (read from the code path, not yet seen in a
+  recording).
+- Show delay: the controller sleeps **0.5 s** or **0.1 s** before presenting (a flag in the hover source picks which;
+  not identified) and **0** when another card is already up. A click or key down dismisses it (local event monitor).
+  The leave delay comes from the hover source's dismissal behaviour; no value in the binary. Both need a recording.
+- Ours (`components/sidebar/hoverMotion.ts`): the same curve, spring and scale, anchored at the card's top-left, row to
+  row without animation, 0.5 s show delay, 160 ms leave delay. Measured on the native driver's own per-frame values
+  (120 Hz, a hidden instance): opacity within 0.007 of Dia's curve over its 12 frames, scale within 0.001 of the spring
+  (peak 1.0022 at 180 ms, settled by 340 ms); the fade out takes 12 frames.
+
 ### Opening and closing tabs (owner's 2× recording, 120 fps, 2026-10-15)
 
 Regular rows on the 37 pt pitch; the same for "+ New Tab" and ⌘T, and for the hover ✕ and ⌘W.

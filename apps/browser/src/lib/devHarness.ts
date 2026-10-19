@@ -58,6 +58,9 @@ export function startDevHarness() {
     get sidebarRows(): typeof import("../components/sidebar/state") {
       return require("../components/sidebar/state");
     },
+    get sidebarHover(): typeof import("../components/sidebar/hover") & typeof import("../components/sidebar/hoverMotion") {
+      return { ...require("../components/sidebar/hover"), ...require("../components/sidebar/hoverMotion") };
+    },
     get toolbarAutoHide(): typeof import("../components/layout/toolbarAutoHide") {
       return require("../components/layout/toolbarAutoHide");
     },

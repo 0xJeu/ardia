@@ -3,11 +3,12 @@ import { create } from "zustand";
 
 export type Anchor = { x: number; y: number; width: number; height: number };
 export type Target = { kind: "tab" | "group" | "live"; id: string };
+export type Hover = Target & { windowId: string; anchor: Anchor };
 
 type SidebarUi = {
   renaming: (Target & { windowId: string }) | null;
   iconPicker: (Target & { windowId: string; anchor: Anchor | null }) | null;
-  hover: (Target & { windowId: string; anchor: Anchor }) | null;
+  hover: Hover | null;
   searchTabs: string | null;
   switcher: { windowId: string; ids: string[]; index: number; visible: boolean } | null;
   dragWidth: Record<string, number>;

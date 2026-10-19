@@ -4,7 +4,7 @@ import { useBrowser } from "../../store/browser";
 import { PageProfileContext } from "../../store/hooks";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./state";
 
-const SHOW_DELAY_MS = 650;
+const SHOW_DELAY_MS = 500;
 const HIDE_DELAY_MS = 160;
 let showTimer: ReturnType<typeof setTimeout> | undefined;
 let hideTimer: ReturnType<typeof setTimeout> | undefined;

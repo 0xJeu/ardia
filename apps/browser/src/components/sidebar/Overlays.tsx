@@ -12,15 +12,15 @@ import { useSidebarWidth } from "./tokens";
 export function SidebarOverlays({ windowWidth }: { windowWidth: number }) {
   const windowId = useWindowId();
   const sidebarWidth = useSidebarWidth(windowId);
-  const [height, setHeight] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(startSidebarEffects, []);
   return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
-      <HoverCard windowId={windowId} />
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill} onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
+      <HoverCard windowId={windowId} width={size.width} height={size.height} />
       <MeetingAlert windowId={windowId} windowWidth={windowWidth} />
       <IconPicker windowId={windowId} sidebarWidth={sidebarWidth} />
       <SearchTabs windowId={windowId} windowWidth={windowWidth} />
-      <TabSwitcher windowId={windowId} windowWidth={windowWidth} windowHeight={height} />
+      <TabSwitcher windowId={windowId} windowWidth={windowWidth} windowHeight={size.height} />
     </View>
   );
 }

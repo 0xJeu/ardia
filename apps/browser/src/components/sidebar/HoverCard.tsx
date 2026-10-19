@@ -1,6 +1,6 @@
 import { FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { useLayoutEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
@@ -15,22 +15,36 @@ import { useIsSleeping } from "../../lib/tabLifecycle";
 import { useHover } from "../primitives";
 import { clickTab, tabTitle } from "./actions";
 import { dismissHover, hoverLeave, keepHover } from "./hover";
-import { useSidebarUi, type Anchor } from "./state";
+import { hoverCardOrigin, useHoverCardMotion, useHoverCardPlacement } from "./hoverMotion";
+import { useSidebarUi, type Anchor, type Hover } from "./state";
 import { TabIcon } from "./TabIcon";
-import { HoverPlayer, useShowsMiniPlayer } from "../media/HoverPlayer";
+import { HoverPlayer, usePlayerEdge, useShowsMiniPlayer } from "../media/HoverPlayer";
 import { useMedia, usePictureInPicture } from "../media/state";
 
 const WIDTH = 264;
 
-export function HoverCard({ windowId }: { windowId: string }) {
+export function HoverCard({ windowId, width, height }: { windowId: string; width: number; height: number }) {
   const hover = useSidebarUi((u) => (u.hover?.windowId === windowId ? u.hover : null));
-  const player = useShowsMiniPlayer(hover?.kind === "tab" ? hover.id : undefined);
-  const calendar = useIsCalendarTab(hover?.kind === "tab" ? hover.id : null);
   const orphaned = useStoreWhile(useBrowser, !!hover, (s) => (hover?.kind === "tab" && !s.tabs[hover.id]) || (hover?.kind === "group" && !s.groups[hover.id]));
   useLayoutEffect(() => {
     if (orphaned) dismissHover();
   }, [orphaned]);
-  if (!hover || orphaned) return null;
+  const target = orphaned ? null : hover;
+  const { drawn, leaving, motion } = useHoverCardMotion(windowId, target);
+  const shown = drawn ?? target;
+  const player = useShowsMiniPlayer(shown?.kind === "tab" ? shown.id : undefined);
+  const edge = usePlayerEdge(windowId, shown?.anchor);
+  useHoverCardPlacement(motion, shown ? hoverCardOrigin(shown.anchor, player ? edge : undefined) : null, { width, height });
+  if (!shown) return null;
+  return (
+    <Animated.View pointerEvents={leaving ? "none" : "box-none"} style={[StyleSheet.absoluteFill, motion.style]}>
+      <HoverContent hover={shown} windowId={windowId} player={player} />
+    </Animated.View>
+  );
+}
+
+function HoverContent({ hover, windowId, player }: { hover: Hover; windowId: string; player: boolean }) {
+  const calendar = useIsCalendarTab(hover.kind === "tab" ? hover.id : null);
   if (hover.kind === "live") return <LiveItemCard id={hover.id} windowId={windowId} anchor={hover.anchor} />;
   if (hover.kind === "tab" && player) return <HoverPlayer tabId={hover.id} windowId={windowId} anchor={hover.anchor} />;
   if (hover.kind === "tab" && calendar) return <CalendarPreview tabId={hover.id} windowId={windowId} anchor={hover.anchor} />;
@@ -51,7 +65,7 @@ function Card({ anchor, children }: { anchor: Anchor; children: React.ReactNode 
       shadowOpacity={theme.panelShadowOpacity * 0.8}
       shadowRadius={16}
       shadowOffset={[0, 6]}
-      style={{ position: "absolute", left: anchor.x + anchor.width + 8, top: Math.max(8, anchor.y - 6), width: WIDTH, padding: 10 }}
+      style={{ position: "absolute", ...hoverCardOrigin(anchor), width: WIDTH, padding: 10 }}
     >
       {children}
     </Surface>
