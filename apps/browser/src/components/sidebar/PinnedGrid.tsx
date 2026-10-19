@@ -8,9 +8,10 @@ import { GlassFill, liquidGlass } from "../glass";
 import { listTopGap, useAddressBarInSidebar } from "../layout/windowLayout";
 import { useBrowser } from "../../store/browser";
 import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../store/hooks";
+import { activeTabId } from "../../store/model";
 import { awayFromPin } from "../../store/organize";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
-import { clickTab, startRename } from "./actions";
+import { clickTab } from "./actions";
 import { PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, usePinnedCount } from "./dnd";
 import { dismissHover, useRowHover } from "./hover";
 import { openTabMenu } from "./menus";
@@ -142,6 +143,11 @@ function PinGlyph({ color }: { color: string }) {
   return <Symbol name="pin" size={13} color={color} style={{ width: 16, height: 16 }} />;
 }
 
+function backToPinnedUrl(windowId: string, tabId: string) {
+  const s = useBrowser.getState();
+  if (activeTabId(s, windowId) === tabId) s.returnToPinnedUrl(tabId);
+}
+
 const PinnedTile = memo(function PinnedTile({ tabId, width }: { tabId: string; width: number }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
@@ -166,7 +172,7 @@ const PinnedTile = memo(function PinnedTile({ tabId, width }: { tabId: string; w
       <View
         ref={(v) => registerRow(windowId, tabId, v)}
         {...hoverProps}
-        onDoubleClick={() => void startRename(windowId, { kind: "tab", id: tabId })}
+        onDoubleClick={() => backToPinnedUrl(windowId, tabId)}
       >
         <MouseArea onMiddleClick={() => void closeTab(tabId)}>
           <ContextMenuArea
