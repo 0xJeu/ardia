@@ -735,6 +735,96 @@ test("a parked pin moved into a pinned group that is live in a window joins it t
   assert.ok(b.with(() => { const g = Object.values(S().groups).find((x) => x.name === "Team"); return g.tabIds.every((id) => S().tabs[id].windowId === g.windowId); }), "members live in the group's window");
 });
 
+const windowsWhole = (d) =>
+  d.with(() => {
+    const s = S();
+    for (const w of Object.values(s.windows)) {
+      assert.ok(w.tabIds.length, `window ${w.id} has tabs`);
+      for (const id of w.tabIds) assert.equal(s.tabs[id]?.windowId, w.id, `${id} belongs to ${w.id}`);
+      for (const [p, id] of Object.entries(w.activeTabIds)) assert.equal(s.tabs[id]?.windowId, w.id, `${w.id}'s active ${p} tab is in it`);
+    }
+    for (const v of Object.values(s.splits)) for (const id of v.tabIds) assert.equal(s.tabs[id]?.windowId, v.windowId, `split ${v.id} keeps ${id} in its window`);
+    for (const g of Object.values(s.groups)) for (const id of g.tabIds) assert.equal(s.tabs[id]?.windowId, g.windowId, `group ${g.name} keeps ${id} in its window`);
+  });
+
+for (const split of [false, true]) {
+  test(`a page open in one window that another Mac puts in a pinned group stays in its window${split ? ", split included" : ""}`, async () => {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const b = new Device("devB", folder);
+    let x;
+    a.with(() => {
+      const w = S().createWindow({ url: "https://home.example/" });
+      x = S().newTab(w, { url: "https://x.example/" });
+      S().pinTabs([x], true);
+    });
+    let b1;
+    b.with(() => (b1 = S().createWindow({ url: "https://b-home.example/" })));
+    await syncAll([a, b]);
+    b.with(() => {
+      const bx = tabAt("https://x.example/");
+      S().activate(bx);
+      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [bx]: { ...s.tabs[bx], navigation: { url: "https://x.example/", seq: 1 } } } }));
+    });
+    a.with(() => S().pinTabs([x], false));
+    await syncAll([a, b]);
+    b.with(() => {
+      const bx = tabAt("https://x.example/");
+      assert.equal(S().tabs[bx].pinned, false, "B keeps its open page as a regular tab");
+      const other = S().windows[b1].tabIds.find((id) => id !== bx);
+      if (split) S().createSplit([bx, other]);
+      else S().closeTab(other);
+      S().createWindow({ url: "https://b-two.example/" });
+    });
+    await later();
+    a.with(() => S().groupTabs([x], { pinned: true, name: "Team" }));
+    await syncAll([a, b]);
+    windowsWhole(b);
+    assert.equal(b.with(() => S().tabs[tabAt("https://x.example/")]?.windowId), b1, "the open page stays in its window");
+    assert.ok(pinnedGroupMembers(b, "default").some(([name, urls]) => name === "Team" && urls.includes("https://x.example/")), "and B has the group with it");
+    assert.equal((await b.sync()).published + (await a.sync()).published, 0, "settled");
+    assert.deepEqual(pinnedGroupMembers(a, "default"), [["Team", ["https://x.example/"]]]);
+  });
+}
+
+test("a pinned group whose members are open in two windows of a Mac keeps both pages where they are", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  let x, y;
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    x = S().newTab(w, { url: "https://x.example/" });
+    y = S().newTab(w, { url: "https://y.example/" });
+    S().pinTabs([x, y], true);
+  });
+  let b1, b2;
+  b.with(() => (b1 = S().createWindow({ url: "https://b-home.example/" })));
+  await syncAll([a, b]);
+  const open = (url) => {
+    const id = tabAt(url);
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [id]: { ...s.tabs[id], navigation: { url, seq: 1 } } } }));
+    return id;
+  };
+  b.with(() => {
+    open("https://x.example/");
+    b2 = S().createWindow({ url: "https://b-two.example/" });
+    const yb2 = S().windows[b2].tabIds.find((id) => S().tabs[id].pinnedUrl === "https://y.example/");
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [yb2]: { ...s.tabs[yb2], navigation: { url: "https://y.example/", seq: 1 } } } }));
+  });
+  a.with(() => S().pinTabs([x, y], false));
+  await syncAll([a, b]);
+  await later();
+  a.with(() => S().groupTabs([x, y], { pinned: true, name: "Team" }));
+  await syncAll([a, b, a, b]);
+  windowsWhole(b);
+  const pages = b.with(() => Object.values(S().tabs).filter((t) => t.navigation).map((t) => `${t.url}@${t.windowId === b1 ? "b1" : t.windowId === b2 ? "b2" : "?"}`).sort());
+  assert.ok(pages.includes("https://x.example/@b1") && pages.includes("https://y.example/@b2"), JSON.stringify(pages));
+  assert.ok(pinnedGroupMembers(b, "default").every(([name, urls]) => name === "Team" && urls.join() === "https://x.example/,https://y.example/"));
+  assert.equal((await b.sync()).published + (await a.sync()).published + (await b.sync()).published, 0, "settled");
+  assert.deepEqual(pinnedGroupMembers(a, "default"), [["Team", ["https://x.example/", "https://y.example/"]]]);
+});
+
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);

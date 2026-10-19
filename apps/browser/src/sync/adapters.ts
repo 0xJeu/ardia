@@ -341,6 +341,8 @@ type PinGroupValue = { n: string; i: string | null; c: TabGroup["color"]; pos: s
 
 type Window = BrowserState["windows"][string];
 
+const hasPage = (t: Tab) => !!t.navigation || !!t.adoptId;
+
 const openWindows = (s: BrowserState) => s.windowOrder.map((id) => s.windows[id]).filter((w): w is Window => !!w && !w.incognito && w.kind !== "small");
 
 function homeWindow(s: BrowserState, profileId: string): Window | undefined {
@@ -413,7 +415,13 @@ export function pinnedAdapter(profileId: string): Adapter {
       const scope = new Set([home.id, PARK]);
       const tabOfKey = new Map<string, string>();
       const groupOfKey = new Map<string, string>();
-      for (const wid of scope) for (const id of s.windows[wid]?.tabIds ?? []) if (s.tabs[id]?.profileId === profileId && !tabOfKey.has(pinKeyOf(s.tabs[id]!))) tabOfKey.set(pinKeyOf(s.tabs[id]!), id);
+      const pinnedMember = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
+      for (const wid of [...scope, ...Object.keys(s.windows).filter((w) => !scope.has(w))]) {
+        for (const id of s.windows[wid]?.tabIds ?? []) {
+          const t = s.tabs[id];
+          if (t?.profileId === profileId && (t.pinned || pinnedMember.has(id)) && !tabOfKey.has(pinKeyOf(t))) tabOfKey.set(pinKeyOf(t), id);
+        }
+      }
       for (const g of Object.values(s.groups)) if (g.profileId === profileId && scope.has(g.windowId) && !groupOfKey.has(pinKeyOf(g))) groupOfKey.set(pinKeyOf(g), g.id);
       const keyOfLocal = new Map<string, string>();
       const local = (ofKey: Map<string, string>, taken: (id: string) => boolean, key: string) => {
@@ -499,16 +507,32 @@ export function pinnedAdapter(profileId: string): Adapter {
       for (const g of Object.values(groups)) if (g.profileId === profileId && !g.tabIds.length) delete groups[g.id];
       for (const g of Object.values(groups)) {
         if (g.profileId !== profileId || !g.pinned) continue;
-        const live = g.windowId === PARK ? g.tabIds.map((id) => tabs[id]!.windowId).find((w) => w !== PARK && windows[w]) : undefined;
-        const windowId = live ?? g.windowId;
-        if (windowId !== g.windowId) groups[g.id] = { ...g, windowId };
+        const real = (w: string) => w !== PARK && !!windows[w];
+        const homes = g.tabIds.map((id) => tabs[id]!).filter((t) => real(t.windowId));
+        const windowId = !homes.length || homes.some((t) => t.windowId === g.windowId) ? g.windowId : (homes.find(hasPage) ?? homes[0]!).windowId;
+        const tabIds: string[] = [];
         for (const id of g.tabIds) {
-          const from = tabs[id]!.windowId;
-          if (from === windowId || !windows[windowId]) continue;
-          if (windows[from]) windows[from] = { ...windows[from]!, tabIds: windows[from]!.tabIds.filter((t) => t !== id), activeTabIds: Object.fromEntries(Object.entries(windows[from]!.activeTabIds).filter(([, t]) => t !== id)) };
-          windows[windowId] = { ...windows[windowId]!, tabIds: [...windows[windowId]!.tabIds, id] };
-          tabs[id] = { ...tabs[id]!, windowId };
+          const t = tabs[id]!;
+          if (t.windowId === windowId) tabIds.push(id);
+          else if (t.windowId === PARK && windows[windowId]) {
+            windows[PARK] = { ...windows[PARK]!, tabIds: windows[PARK]!.tabIds.filter((x) => x !== id) };
+            windows[windowId] = { ...windows[windowId]!, tabIds: [...windows[windowId]!.tabIds, id] };
+            tabs[id] = { ...t, windowId };
+            tabIds.push(id);
+          } else if (windows[windowId]) {
+            const copy: Tab = {
+              ...makeTab(windowId, profileId, t.url, { title: t.title, favicon: t.favicon, customTitle: t.customTitle, customIcon: t.customIcon }),
+              pinKey: pinKeyOf(t),
+              navigation: null,
+              unloaded: true,
+            };
+            tabs[copy.id] = copy;
+            tabs[id] = { ...t, pinKey: undefined };
+            windows[windowId] = { ...windows[windowId]!, tabIds: [...windows[windowId]!.tabIds, copy.id] };
+            tabIds.push(copy.id);
+          }
         }
+        groups[g.id] = { ...g, windowId, tabIds };
       }
 
       const sequence = [...tileOrder, ...groupOrder.flatMap((g) => memberOrder.get(g) ?? [])];
