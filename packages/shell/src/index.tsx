@@ -149,6 +149,7 @@ export type MenuItem =
       title: string;
       symbol?: string;
       swatch?: string;
+      swatchDark?: string;
       key?: string;
       modifiers?: ("command" | "shift" | "option" | "control")[];
       enabled?: boolean;

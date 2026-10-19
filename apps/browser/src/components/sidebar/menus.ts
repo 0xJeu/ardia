@@ -24,7 +24,7 @@ import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../../sync/menu";
 import { setSidebarUi } from "./state";
-import { GROUP_COLORS, nearestGroupColor } from "./tokens";
+import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, nearestGroupColor } from "./tokens";
 
 const store = () => useBrowser.getState();
 const sep = { separator: true } as const;
@@ -214,7 +214,7 @@ export async function openGroupMenu(windowId: string, groupId: string) {
       title: "Color",
       symbol: "paintpalette",
       children: [
-        { id: "color:", title: "Neutral", checked: !g.color },
+        { id: "color:", title: "Neutral", swatch: NEUTRAL_GROUP_SWATCH.light, swatchDark: NEUTRAL_GROUP_SWATCH.dark, checked: !g.color },
         { id: `color:${matched ?? ""}`, title: "Match Site Color", enabled: !!matched, swatch: matched ? GROUP_COLORS[matched].hex : undefined },
         sep,
         ...colors.map((c) => ({ id: `color:${c}`, title: GROUP_COLORS[c].name, swatch: GROUP_COLORS[c].hex, checked: g.color === c })),

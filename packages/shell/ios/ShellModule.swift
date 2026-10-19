@@ -471,8 +471,10 @@ public class ShellModule: Module {
       entry.state = item["checked"] as? Bool == true ? .on : .off
       if let symbol = item["symbol"] as? String {
         entry.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-      } else if let hex = item["swatch"] as? String, let color = NSColor(hex: hex) {
-        entry.image = swatch(color)
+      } else if let hex = item["swatch"] as? String, let light = NSColor(hex: hex) {
+        let dark = (item["swatchDark"] as? String).flatMap { NSColor(hex: $0) } ?? light
+        entry.image = swatch(NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })
+        if #available(macOS 27.0, *) { entry.preferredImageVisibility = .visible }
       }
       menu.addItem(entry)
     }

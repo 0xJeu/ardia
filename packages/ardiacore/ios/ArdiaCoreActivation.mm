@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <unistd.h>
 
+#import <objc/message.h>
 #import <objc/runtime.h>
 
 #include <initializer_list>
@@ -161,11 +162,50 @@ void InterceptFilePanels() {
   }
 }
 
+NSString *ImageCentreColour(NSImage *image, NSAppearanceName appearance) {
+  uint8_t pixels[12 * 12 * 4] = {};
+  CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+  CGContextRef context = CGBitmapContextCreate(pixels, 12, 12, 8, 12 * 4, space, (CGBitmapInfo)kCGImageAlphaPremultipliedLast);
+  CGColorSpaceRelease(space);
+  if (!context) return @"?";
+  [[NSAppearance appearanceNamed:appearance] performAsCurrentDrawingAppearance:^{
+    [NSGraphicsContext saveGraphicsState];
+    NSGraphicsContext.currentContext = [NSGraphicsContext graphicsContextWithCGContext:context flipped:NO];
+    [image drawInRect:NSMakeRect(0, 0, 12, 12)];
+    [NSGraphicsContext restoreGraphicsState];
+  }];
+  CGContextRelease(context);
+  const uint8_t *p = pixels + (6 * 12 + 6) * 4;
+  auto unpremultiplied = [&](int i) { return p[3] ? (int)lround(p[i] * 255.0 / p[3]) : 0; };
+  return [NSString stringWithFormat:@"#%02X%02X%02X%02X", unpremultiplied(0), unpremultiplied(1), unpremultiplied(2), p[3]];
+}
+
+NSString *DescribeMenuItem(NSMenuItem *item) {
+  NSMutableString *text = [item.title mutableCopy];
+  if (item.state == NSControlStateValueOn) [text appendString:@" ✓"];
+  if (!item.image) return text;
+  SEL applicable = NSSelectorFromString(@"_applicableImage");
+  bool shown = ![item respondsToSelector:applicable] || ((id (*)(id, SEL))objc_msgSend)(item, applicable) != nil;
+  [text appendFormat:@" [image %@ %.0fx%.0f light %@ dark %@]", shown ? @"shown" : @"hidden", item.image.size.width, item.image.size.height,
+                     ImageCentreColour(item.image, NSAppearanceNameAqua), ImageCentreColour(item.image, NSAppearanceNameDarkAqua)];
+  return text;
+}
+
+void ReportMenuItems(NSMenu *menu, NSString *path) {
+  NSMutableArray<NSString *> *items = [NSMutableArray array];
+  for (NSMenuItem *item in menu.itemArray)
+    if (!item.isSeparatorItem && item.title.length) [items addObject:DescribeMenuItem(item)];
+  Log([NSString stringWithFormat:@"menu items: %@: %@", path, [items componentsJoinedByString:@" | "]], @[]);
+  for (NSMenuItem *item in menu.itemArray)
+    if (item.submenu.numberOfItems) ReportMenuItems(item.submenu, [NSString stringWithFormat:@"%@ › %@", path, item.title]);
+}
+
 void ReportMenu(NSMenu *menu, NSString *kind) {
   NSMutableArray<NSString *> *titles = [NSMutableArray array];
   for (NSMenuItem *item in menu.itemArray)
     if (!item.isSeparatorItem && item.title.length) [titles addObject:item.title];
   Log([NSString stringWithFormat:@"%@ (not shown): %@", kind, [titles componentsJoinedByString:@" | "]], @[]);
+  ReportMenuItems(menu, kind);
   id<NSMenuDelegate> delegate = menu.delegate;
   if ([delegate respondsToSelector:@selector(menuWillOpen:)]) [delegate menuWillOpen:menu];
   if ([delegate respondsToSelector:@selector(menuDidClose:)]) [delegate menuDidClose:menu];

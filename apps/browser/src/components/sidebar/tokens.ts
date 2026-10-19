@@ -67,6 +67,8 @@ export const GROUP_COLORS: Record<GroupColor, { name: string; hex: string }> = {
   orange: { name: "Orange", hex: "#EE8434" },
 };
 
+export const NEUTRAL_GROUP_SWATCH = { light: "#0000004D", dark: "#FFFFFF4D" };
+
 export function nearestGroupColor(color: string): GroupColor | null {
   const m = color.trim().match(/^#?([0-9a-f]{6})/i) ?? color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (!m) return null;
