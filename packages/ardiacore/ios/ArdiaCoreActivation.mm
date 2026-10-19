@@ -161,6 +161,39 @@ void InterceptFilePanels() {
   }
 }
 
+void ReportMenu(NSMenu *menu, NSString *kind) {
+  NSMutableArray<NSString *> *titles = [NSMutableArray array];
+  for (NSMenuItem *item in menu.itemArray)
+    if (!item.isSeparatorItem && item.title.length) [titles addObject:item.title];
+  Log([NSString stringWithFormat:@"%@ (not shown): %@", kind, [titles componentsJoinedByString:@" | "]], @[]);
+  id<NSMenuDelegate> delegate = menu.delegate;
+  if ([delegate respondsToSelector:@selector(menuWillOpen:)]) [delegate menuWillOpen:menu];
+  if ([delegate respondsToSelector:@selector(menuDidClose:)]) [delegate menuDidClose:menu];
+}
+
+NSModalResponse AnswerAlert(NSAlert *alert, NSString *how) {
+  NSArray<NSButton *> *buttons = alert.buttons;
+  NSUInteger pick = 0;
+  for (NSUInteger i = 0; i < buttons.count; i++)
+    if ([buttons[i].keyEquivalent isEqualToString:@"\e"]) pick = i;
+  NSMutableArray<NSString *> *titles = [NSMutableArray array];
+  for (NSButton *button in buttons) [titles addObject:button.title];
+  NSString *chosen = buttons.count ? buttons[pick].title : @"OK";
+  Log([NSString stringWithFormat:@"alert (not shown): %@ | \"%@\" | \"%@\" | buttons %@ | chose %@", how, alert.messageText,
+                                 alert.informativeText, [titles componentsJoinedByString:@", "], chosen],
+      @[]);
+  return NSAlertFirstButtonReturn + (NSModalResponse)pick;
+}
+
+void InterceptAlerts() {
+  Swizzle(NSAlert.class, @selector(runModal), ^NSModalResponse(NSAlert *alert) { return AnswerAlert(alert, @"app-modal"); });
+  Swizzle(NSAlert.class, @selector(beginSheetModalForWindow:completionHandler:),
+          ^(NSAlert *alert, NSWindow *, void (^handler)(NSModalResponse)) {
+            NSModalResponse response = AnswerAlert(alert, @"sheet");
+            if (handler) dispatch_async(dispatch_get_main_queue(), ^{ handler(response); });
+          });
+}
+
 }
 
 bool Background() {
@@ -371,17 +404,17 @@ void InstallActivationGuardsEarly() {
     return originalPolicy(app, @selector(setActivationPolicy:), NSApplicationActivationPolicyProhibited);
   });
   ObserveActivation();
-  Method popUp = class_getClassMethod(NSMenu.class, @selector(popUpContextMenu:withEvent:forView:));
-  method_setImplementation(popUp, imp_implementationWithBlock(^(id, NSMenu *menu, NSEvent *, NSView *) {
-    NSMutableArray<NSString *> *titles = [NSMutableArray array];
-    for (NSMenuItem *item in menu.itemArray)
-      if (!item.isSeparatorItem && item.title.length) [titles addObject:item.title];
-    Log([NSString stringWithFormat:@"context menu (not shown): %@", [titles componentsJoinedByString:@" | "]], @[]);
-    id<NSMenuDelegate> delegate = menu.delegate;
-    if ([delegate respondsToSelector:@selector(menuWillOpen:)]) [delegate menuWillOpen:menu];
-    if ([delegate respondsToSelector:@selector(menuDidClose:)]) [delegate menuDidClose:menu];
-  }));
+  Class menuMeta = object_getClass(NSMenu.class);
+  Swizzle(menuMeta, @selector(popUpContextMenu:withEvent:forView:),
+          ^(id, NSMenu *menu, NSEvent *, NSView *) { ReportMenu(menu, @"context menu"); });
+  Swizzle(menuMeta, @selector(popUpContextMenu:withEvent:forView:withFont:),
+          ^(id, NSMenu *menu, NSEvent *, NSView *, NSFont *) { ReportMenu(menu, @"context menu"); });
+  Swizzle(NSMenu.class, @selector(popUpMenuPositioningItem:atLocation:inView:), ^BOOL(NSMenu *menu, NSMenuItem *, NSPoint, NSView *) {
+    ReportMenu(menu, @"pop-up menu");
+    return NO;
+  });
   InterceptFilePanels();
+  InterceptAlerts();
 }
 
 namespace {
