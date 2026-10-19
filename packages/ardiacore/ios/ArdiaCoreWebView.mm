@@ -1385,7 +1385,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [PendingPainting() addObject:self];
   if (gPaintingScheduled) return;
   gPaintingScheduled = true;
-  CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(nil, kCFRunLoopBeforeWaiting, false, 0, ^(CFRunLoopObserverRef, CFRunLoopActivity) {
+  CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(nil, kCFRunLoopBeforeWaiting | kCFRunLoopExit, false, 0, ^(CFRunLoopObserverRef, CFRunLoopActivity) {
     [ArdiaCoreWebView drainPainting];
   });
   CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes);
