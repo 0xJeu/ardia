@@ -1,8 +1,9 @@
 import { permissionWarnings, WebView, type InstalledExtension, type WebViewHandle } from "@ardia/ardiacore";
 import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Animated, Easing, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { hex, useTheme } from "../../lib/theme";
+import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { useWindowId } from "../../store/hooks";
@@ -218,7 +219,7 @@ function InstallDialog({ request }: { request: InstallRequest }) {
   }
 
   return (
-    <Dialog onDismiss={busy ? undefined : cancelInstall}>
+    <Dialog windowId={request.windowId} onDismiss={busy ? undefined : cancelInstall} onSubmit={request.status === "error" ? cancelInstall : () => void confirmInstall()}>
       {body}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
         {request.status === "error" ? (
@@ -240,7 +241,7 @@ function PinDialog({ windowId }: { windowId: string }) {
   const list = useWindowExtensions(windowId);
   const close = () => useExtensions.setState({ pinDialog: null });
   return (
-    <Dialog onDismiss={close}>
+    <Dialog windowId={windowId} onDismiss={close} onSubmit={close}>
       <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Pin Extensions</Text>
       <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 4, marginBottom: 12 }}>
         Pinned extensions appear in the toolbar, next to the address.
@@ -274,16 +275,22 @@ function PinRow({ ext, onChange }: { ext: InstalledExtension; onChange: (pinned:
   );
 }
 
-function Dialog({ onDismiss, children }: { onDismiss?: () => void; children: ReactNode }) {
+function Dialog({ windowId, onDismiss, onSubmit, children }: { windowId: string; onDismiss?: () => void; onSubmit?: () => void; children: ReactNode }) {
   const theme = useTheme();
   const appear = useRef(new Animated.Value(0)).current;
+  const keys = useRef<View>(null);
   useEffect(() => {
     Animated.timing(appear, { toValue: 1, duration: 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    keys.current?.focus();
+    return () => {
+      const tabId = activeTabId(useBrowser.getState(), windowId);
+      if (tabId) void webviews.get(tabId)?.focus();
+    };
   }, []);
   return (
     <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: appear, backgroundColor: theme.dark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.15)" }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
+        <Pressable focusable={false} style={StyleSheet.absoluteFill} onPress={onDismiss} />
       </Animated.View>
       <Animated.View style={{ opacity: appear, transform: [{ scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }}>
         <Surface
@@ -295,11 +302,26 @@ function Dialog({ onDismiss, children }: { onDismiss?: () => void; children: Rea
           shadowOpacity={theme.panelShadowOpacity}
           shadowRadius={30}
           shadowOffset={[0, 12]}
-          style={{ width: 380, padding: 20 }}
+          style={{ width: 380 }}
         >
-          {children}
+          <View
+            ref={keys}
+            focusable
+            enableFocusRing={false}
+            keyDownEvents={DIALOG_KEYS}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.key === "Escape") onDismiss?.();
+              else if (e.nativeEvent.key === "Enter" && targetTag(e.nativeEvent) === findNodeHandle(keys.current)) onSubmit?.();
+            }}
+            style={{ padding: 20 }}
+          >
+            {children}
+          </View>
         </Surface>
       </Animated.View>
     </View>
   );
 }
+
+const DIALOG_KEYS = [{ key: "Escape" }, { key: "Enter" }, { key: "Tab" }, { key: "Tab", shiftKey: true }];
+const targetTag = (event: object) => (event as { target?: number }).target;
