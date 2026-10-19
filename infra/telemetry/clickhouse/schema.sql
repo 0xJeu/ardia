@@ -49,6 +49,31 @@ ORDER BY (event, toDate(timestamp), uuid);
 ALTER TABLE telemetry.otel_logs MODIFY SETTING min_bytes_for_wide_part = 1073741824;
 ALTER TABLE telemetry.posthog_events MODIFY SETTING min_bytes_for_wide_part = 1073741824;
 
+ALTER TABLE telemetry.otel_logs
+    ADD COLUMN IF NOT EXISTS ServiceVersion LowCardinality(String) MATERIALIZED ResourceAttributes['service.version'],
+    ADD COLUMN IF NOT EXISTS Lib LowCardinality(String) MATERIALIZED LogAttributes['$lib'],
+    ADD COLUMN IF NOT EXISTS Host LowCardinality(String) MATERIALIZED LogAttributes['$host'],
+    ADD COLUMN IF NOT EXISTS Os LowCardinality(String) MATERIALIZED LogAttributes['$os'],
+    ADD COLUMN IF NOT EXISTS DeviceType LowCardinality(String) MATERIALIZED LogAttributes['$device_type'],
+    ADD COLUMN IF NOT EXISTS Browser LowCardinality(String) MATERIALIZED LogAttributes['$browser'],
+    ADD COLUMN IF NOT EXISTS AppVersion LowCardinality(String) MATERIALIZED LogAttributes['$app_version'],
+    ADD COLUMN IF NOT EXISTS Version LowCardinality(String) MATERIALIZED LogAttributes['version'],
+    ADD COLUMN IF NOT EXISTS Pathname LowCardinality(String) MATERIALIZED LogAttributes['$pathname'],
+    ADD COLUMN IF NOT EXISTS ReferringDomain LowCardinality(String) MATERIALIZED LogAttributes['$referring_domain'],
+    ADD COLUMN IF NOT EXISTS Country LowCardinality(String) MATERIALIZED LogAttributes['$geoip_country_code'];
+
+ALTER TABLE telemetry.posthog_events
+    ADD COLUMN IF NOT EXISTS lib LowCardinality(String) MATERIALIZED properties['$lib'],
+    ADD COLUMN IF NOT EXISTS host LowCardinality(String) MATERIALIZED properties['$host'],
+    ADD COLUMN IF NOT EXISTS os LowCardinality(String) MATERIALIZED properties['$os'],
+    ADD COLUMN IF NOT EXISTS device_type LowCardinality(String) MATERIALIZED properties['$device_type'],
+    ADD COLUMN IF NOT EXISTS browser LowCardinality(String) MATERIALIZED properties['$browser'],
+    ADD COLUMN IF NOT EXISTS app_version LowCardinality(String) MATERIALIZED properties['$app_version'],
+    ADD COLUMN IF NOT EXISTS version LowCardinality(String) MATERIALIZED properties['version'],
+    ADD COLUMN IF NOT EXISTS pathname LowCardinality(String) MATERIALIZED properties['$pathname'],
+    ADD COLUMN IF NOT EXISTS referring_domain LowCardinality(String) MATERIALIZED properties['$referring_domain'],
+    ADD COLUMN IF NOT EXISTS country LowCardinality(String) MATERIALIZED properties['$geoip_country_code'];
+
 CREATE OR REPLACE VIEW telemetry.events AS
 SELECT
     Uuid AS uuid,
@@ -59,11 +84,21 @@ SELECT
     CAST(LogAttributes, 'Map(String, String)') AS properties,
     LogAttributes['$elements_chain'] AS elements_chain,
     toString(ServiceName) AS source,
-    ResourceAttributes['service.version'] AS source_version
+    toString(ServiceVersion) AS source_version,
+    Lib AS lib,
+    Host AS host,
+    Os AS os,
+    DeviceType AS device_type,
+    Browser AS browser,
+    AppVersion AS app_version,
+    Version AS version,
+    Pathname AS pathname,
+    ReferringDomain AS referring_domain,
+    Country AS country
 FROM telemetry.otel_logs FINAL
 WHERE Event != ''
   AND ServiceName NOT IN ('ardia-selftest', 'netnyahoo-selftest')
-  AND ResourceAttributes['service.version'] != '0.0.0-selftest'
+  AND ServiceVersion != '0.0.0-selftest'
 UNION ALL
 SELECT
     uuid,
@@ -74,7 +109,17 @@ SELECT
     properties,
     elements_chain,
     'posthog-cloud' AS source,
-    '' AS source_version
+    '' AS source_version,
+    lib AS lib,
+    host AS host,
+    os AS os,
+    device_type AS device_type,
+    browser AS browser,
+    app_version AS app_version,
+    version AS version,
+    pathname AS pathname,
+    referring_domain AS referring_domain,
+    country AS country
 FROM telemetry.posthog_events;
 
 CREATE OR REPLACE VIEW telemetry.logs AS
