@@ -459,7 +459,14 @@ export function pinnedAdapter(profileId: string): Adapter {
           const current = { u: t.url, ti: t.title };
           const settled = value.u === was.u && value.ti === was.ti;
           const next: Record<string, PinShown> = {};
-          for (const [copy, seen] of copies.get(t.id) ?? []) if (copy !== t.copy) next[copy] = marks[copy] ?? seen;
+          const others = copies.get(t.id) ?? new Map<string, PinShown>();
+          const sourceOf = (page: PinShown) => [...others].find(([copy, at]) => marks[copy] && at.u === page.u && at.ti === page.ti)?.[0];
+          for (const [copy, page] of others) {
+            if (copy === t.copy) continue;
+            const source = marks[copy] ? copy : sourceOf(page);
+            if (source) next[copy] = marks[source]!;
+            else if (Object.values(marks).some((m) => m.u === page.u && m.ti === page.ti)) next[copy] = page;
+          }
           if (settled) next[t.copy] = current;
           else if (own) next[t.copy] = own;
           if (!settled) later.set(`pin:t:${t.id}`, { copy: t.copy, shown: current });
@@ -578,6 +585,11 @@ export function pinnedAdapter(profileId: string): Adapter {
       const noted = new Map<string, AppliedPin>();
       const applied = new Set([...changed].filter((k) => k.startsWith("pin:t:")).map((k) => k.slice(6)));
       const pageSet = new Set<string>();
+      const takesPage = (t: Tab) => {
+        if (!t.unloaded || !applied.has(pinKeyOf(t))) return false;
+        const mark = sync[pinKeyOf(t)]?.b?.[t.id];
+        return !mark || (mark.u === t.url && mark.ti === t.title);
+      };
       const note = (key: string, id: string) => {
         const g = awaiting.get(id);
         const was = sync[key];
@@ -595,9 +607,9 @@ export function pinnedAdapter(profileId: string): Adapter {
             ...(group ? { pinnedAsRow: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)) }),
             customTitle: v.t,
             customIcon: v.i,
-            ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
+            ...(takesPage(old) ? { url: v.u, title: v.ti } : {}),
           };
-          if (old.unloaded) pageSet.add(id);
+          if (takesPage(old)) pageSet.add(id);
           note(pinKeyOf(tabs[id]!), id);
           continue;
         }

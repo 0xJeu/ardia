@@ -217,7 +217,7 @@ const OPS = [
       assert.ok(hs.some((h) => h.tabIds.includes(tabFor(k.X)?.id)), "X in H");
     },
   },
-  { name: "unpinG", steps: [(k) => { const g = groupFor(k.G); if (g?.pinned) (S().moveGroup(g.id, { pinned: false }), done(k, "unpinG")); }], touches: ["G", "M"], unpins: ["G", "M"], keeps: ["G", "M"], losesGroupTo: ["navM", "navMThereAndBack"], final: (k) => assert.equal(!!groupFor(k.G)?.pinned, false, "G unpinned") },
+  { name: "unpinG", steps: [(k) => { const g = groupFor(k.G); if (g?.pinned) (S().moveGroup(g.id, { pinned: false }), done(k, "unpinG")); }], touches: ["G", "M"], unpins: ["G", "M"], keeps: ["G", "M"], losesGroupTo: ["navM", "navMThereAndBack", "navMThenMirrorAndClose"], final: (k) => assert.equal(!!groupFor(k.G)?.pinned, false, "G unpinned") },
   {
     name: "repinG",
     steps: [(k) => { const g = groupFor(k.G); if (g) (S().moveGroup(g.id, { pinned: false }), S().moveGroup(g.id, { pinned: true }), done(k, "repinG")); }],
@@ -248,7 +248,7 @@ const OPS = [
     touches: ["G", "M"],
     unpins: ["G", "M"],
     keeps: ["G", "M"],
-    losesGroupTo: ["navM", "navMThereAndBack"],
+    losesGroupTo: ["navM", "navMThereAndBack", "navMThenMirrorAndClose"],
     lastEdit: 0,
     collects: true,
     final: (k) => assert.equal(!!groupFor(k.G)?.pinned, false, "G unpinned"),
@@ -296,6 +296,22 @@ const OPS = [
     ],
     touches: ["M"],
     final: (k, mac) => { if (inPinnedGroup(k.M)) assert.equal(record(mac, "default", `pin:t:${k.M}`)?.u, k.mStart, "M's record follows it back to where it started"); },
+  },
+  {
+    name: "navMThenMirrorAndClose",
+    steps: [
+      (k) => { const t = tabFor(k.M); if (t && inPinnedGroup(k.M)) (k.mHome = t.windowId), (k.mOlder = S().createWindow({ url: "https://old-mirror.example/" })); },
+      (k) => {
+        if (!k.mHome || !S().windows[k.mHome] || !inPinnedGroup(k.M)) return;
+        S().setFocusedWindow(k.mHome);
+        navigate(k.M, M_THIRD);
+        k.mNewer = S().createWindow({ url: "https://new-mirror.example/", background: true });
+        S().setFocusedWindow(k.mOlder);
+      },
+      (k) => { if (k.mNewer && S().windows[k.mHome]) (S().closeWindow(k.mHome), S().setFocusedWindow(k.mNewer), done(k, "navMThenMirrorAndClose")); },
+    ],
+    touches: ["M"],
+    final: (k, mac) => { if (inPinnedGroup(k.M)) assert.equal(record(mac, "default", `pin:t:${k.M}`)?.u, M_THIRD, "M's page, copied to a new mirror before it was sent, still syncs"); },
   },
   {
     name: "workRoundTrip",
@@ -346,7 +362,7 @@ const SCHEDULES = {
     await runOp(w.a, { steps: opA.steps.slice(1) }, w.k, { folder: w.folder });
     await runOp(w.b, { steps: opB.steps.slice(1) }, w.k, { folder: w.folder });
     const lastEdit = (op) => op.lastEdit ?? op.steps.length - 1;
-    return lastEdit(opA) > 0 ? "A" : "B";
+    return lastEdit(opB) > 0 || lastEdit(opA) === 0 ? "B" : "A";
   },
   "B's log delayed": async (w, opA, opB) => {
     const before = new Set(w.folder.files.keys());
@@ -574,6 +590,47 @@ test("a copy's unsent page isn't marked synced when another record arrives", asy
     for (const m of [b, a, b, a]) await m.sync();
     assert.equal(record(b, "default", `pin:t:${k.M}`).u, "https://m.example/local-new", `the navigation syncs${remote ? " after another record arrived" : ""}`);
     assert.equal(record(a, "default", `pin:t:${k.M}`).u, "https://m.example/local-new");
+  }
+});
+
+test("an unsent page survives being copied to a new mirror and its source window closing", async () => {
+  for (const restyle of [false, true]) {
+    const base = await world(false);
+    wall = base.wall;
+    const folder = base.folder.clone();
+    const a = base.a.fork(folder);
+    const b = base.b.fork(folder);
+    const k = base.k;
+    const UNSENT = "https://m.example/unsent-copy";
+    let original;
+    let older;
+    let newer;
+    b.with(() => {
+      original = tabFor(k.M).windowId;
+      older = S().createWindow({ url: "https://old-mirror.example/" });
+    });
+    for (const m of [b, a, b]) await m.sync();
+    b.with(() => {
+      S().setFocusedWindow(original);
+      navigate(k.M, UNSENT);
+      newer = S().createWindow({ url: "https://new-mirror.example/", background: true });
+      S().setFocusedWindow(older);
+    });
+    await b.sync();
+    b.with(() => {
+      S().closeWindow(original);
+      S().setFocusedWindow(newer);
+    });
+    if (restyle) {
+      a.with(() => S().updateGroup(groupFor(k.G).id, { icon: "star" }));
+      await a.sync();
+    }
+    await b.sync();
+    const label = restyle ? " after a restyle from the other Mac" : "";
+    b.with(() => assert.equal(Object.values(S().tabs).find((t) => t.windowId === newer && keyOf(t) === k.M)?.url, UNSENT, `the new mirror keeps the page${label}`));
+    for (const m of [b, a, b, a]) await m.sync();
+    assert.equal(record(b, "default", `pin:t:${k.M}`).u, UNSENT, `B publishes the copied page${label}`);
+    assert.equal(record(a, "default", `pin:t:${k.M}`).u, UNSENT);
   }
 });
 
