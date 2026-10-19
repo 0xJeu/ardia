@@ -16,6 +16,4 @@ export const setCliActiveTab = (chromeTabId: number) => engineCall<CliControlSta
 export const cliControlStatus = () => engineCall<CliControlStatus>("ac_cli_control", "");
 
 export const onCliControlChanged = (listener: (status: CliControlStatus) => void) =>
-  onEngineEvent((topic, payload) => {
-    if (topic === "cliControl") listener(payload as unknown as CliControlStatus);
-  });
+  onEngineEvent("cliControl", (payload) => listener(payload as unknown as CliControlStatus));

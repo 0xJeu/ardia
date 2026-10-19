@@ -4,6 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
+import { useStoreWhile } from "../../store/tabWatch";
 import { useIsBookmarked } from "../../store/hooks";
 import { activeTabId, bookmarkProfileId } from "../../store/model";
 import { awayFromPin, groupLabel } from "../../store/organize";
@@ -25,7 +26,7 @@ export function HoverCard({ windowId }: { windowId: string }) {
   const hover = useSidebarUi((u) => (u.hover?.windowId === windowId ? u.hover : null));
   const player = useShowsMiniPlayer(hover?.kind === "tab" ? hover.id : undefined);
   const calendar = useIsCalendarTab(hover?.kind === "tab" ? hover.id : null);
-  const orphaned = useBrowser((s) => (hover?.kind === "tab" && !s.tabs[hover.id]) || (hover?.kind === "group" && !s.groups[hover.id]));
+  const orphaned = useStoreWhile(useBrowser, !!hover, (s) => (hover?.kind === "tab" && !s.tabs[hover.id]) || (hover?.kind === "group" && !s.groups[hover.id]));
   useLayoutEffect(() => {
     if (orphaned) dismissHover();
   }, [orphaned]);

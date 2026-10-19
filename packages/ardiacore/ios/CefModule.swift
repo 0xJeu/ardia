@@ -25,6 +25,7 @@ public class CefModule: Module {
     }
 
     AsyncFunction("engineInfo") { ArdiaCoreHost.engineInfo }.runOnQueue(.main)
+    AsyncFunction("forwardEngineTopics") { (topics: [String]) in ArdiaCoreEngineBridge.forwardTopics(topics) }.runOnQueue(.main)
     AsyncFunction("chromeWindows") { ArdiaCoreHost.chromeWindows }.runOnQueue(.main)
     AsyncFunction("devExternalLaunches") { ArdiaCoreHost.testExternalLaunches() }.runOnQueue(.main)
     AsyncFunction("devEvents") { (browserId: Int) in ArdiaCoreWebView.devEvents(browserId: Int32(browserId)) }.runOnQueue(.main)

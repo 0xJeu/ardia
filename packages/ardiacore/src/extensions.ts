@@ -203,9 +203,8 @@ export const extensionActionChange = (p: { profile: string } & Record<string, un
 });
 
 export const onExtensionActionChanged = (listener: (e: ExtensionActionChange) => void) =>
-  onEngineEvent((topic, p) => {
-    if (topic !== "extensions.action" || typeof p.id !== "string") return;
-    listener(extensionActionChange(p));
+  onEngineEvent("extensions.action", (p) => {
+    if (typeof p.id === "string") listener(extensionActionChange(p));
   });
 export const onExtensionInstallPrompt = (listener: (e: ExtensionInstallPrompt) => void) => Native.addListener("onInstallPrompt", listener);
 export const resolveExtensionInstallPrompt = (requestId: string, accepted: boolean) => Native.resolveInstallPrompt(requestId, accepted);

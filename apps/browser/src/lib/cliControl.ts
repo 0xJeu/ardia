@@ -158,8 +158,10 @@ export function startCliControl() {
     void call.then(settle, (e: unknown) => settle({ state: "off", reason: e instanceof Error ? e.message : String(e) }));
   };
   sync();
-  useBrowser.subscribe(sync);
-  useBrowser.subscribe(pushActiveTab);
+  useBrowser.subscribe(() => {
+    sync();
+    pushActiveTab();
+  });
   useCli.subscribe(pushActiveTab);
   usePages.subscribe(pushActiveTab);
   afterFirstWindow(() => setTimeout(upgradeIfBehind, UPGRADE_DELAY_MS));

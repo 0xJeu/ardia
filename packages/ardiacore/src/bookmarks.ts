@@ -16,6 +16,4 @@ export const applyBookmarkOps = (profile: string, ops: BookmarkOp[]) =>
 export const watchBookmarks = (profile: string) => engineCall("ac_bookmarks_watch", profile);
 
 export const onBookmarksChanged = (listener: (profile: string) => void) =>
-  onEngineEvent((topic, p) => {
-    if (topic === "bookmarks.changed") listener(p.profile);
-  });
+  onEngineEvent("bookmarks.changed", (p) => listener(p.profile));

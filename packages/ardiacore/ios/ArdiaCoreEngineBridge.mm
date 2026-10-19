@@ -10,6 +10,8 @@
 namespace {
 
 void (^gEventHandler)(NSString *, NSString *);
+NSSet<NSString *> *gForwardedTopics;
+NSMutableArray<NSArray *> *gPendingForwards;
 
 void *Symbol(const char *name) {
   return dlsym(RTLD_DEFAULT, name);
@@ -51,13 +53,49 @@ NSMutableDictionary<NSString *, NSMutableArray *> *Observers() {
   return observers;
 }
 
+bool ForwardsEveryEngineEvent() {
+  static const bool every = [] {
+    const char *value = getenv("ARDIA_ENGINE_EVENT_FORWARD");
+    return value && !strcmp(value, "all");
+  }();
+  return every;
+}
+
+bool Forwarded(NSString *topic) {
+  return gEventHandler && (ForwardsEveryEngineEvent() || !gForwardedTopics || [gForwardedTopics containsObject:topic]);
+}
+
+void FlushForwards() {
+  NSArray<NSArray *> *events = gPendingForwards;
+  gPendingForwards = nil;
+  for (NSArray *event in events)
+    if (gEventHandler) gEventHandler(event[0], JSON(event[1]));
+}
+
+void Forward(NSString *topic, NSDictionary *payload) {
+  if (ForwardsEveryEngineEvent()) return gEventHandler(topic, JSON(payload));
+  NSArray *event = @[ topic, [payload copy] ];
+  if (gPendingForwards) {
+    if (![gPendingForwards.lastObject isEqualToArray:event]) [gPendingForwards addObject:event];
+    return;
+  }
+  gPendingForwards = [NSMutableArray arrayWithObject:event];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    FlushForwards();
+  });
+}
+
 void Dispatch(void *, const char *topic, const char *json) {
   if (!topic) return;
+  NSString *name = @(topic);
+  NSArray *observers = [Observers()[name] copy];
+  bool forwarded = Forwarded(name);
+  if (!observers.count && !forwarded) return;
   NSData *data = [@(json ?: "{}") dataUsingEncoding:NSUTF8StringEncoding];
   NSMutableDictionary *payload = [[NSJSONSerialization JSONObjectWithData:data options:0 error:nil] mutableCopy] ?: [NSMutableDictionary dictionary];
   if ([payload[@"profile"] isKindOfClass:NSString.class]) payload[@"profile"] = ProfileNamed(payload[@"profile"]);
-  for (void (^observer)(NSDictionary *) in [Observers()[@(topic)] copy]) observer(payload);
-  if (gEventHandler) gEventHandler(@(topic), JSON(payload));
+  for (void (^observer)(NSDictionary *) in observers) observer(payload);
+  if (forwarded) Forward(name, payload);
 }
 
 void InstallSink() {
@@ -131,6 +169,10 @@ void InstallSink() {
 + (void)setEventHandler:(void (^)(NSString *, NSString *))handler {
   gEventHandler = [handler copy];
   InstallSink();
+}
+
++ (void)forwardTopics:(NSArray<NSString *> *)topics {
+  gForwardedTopics = [NSSet setWithArray:topics];
 }
 
 + (void)observe:(NSString *)topic handler:(void (^)(NSDictionary<NSString *, id> *))handler {

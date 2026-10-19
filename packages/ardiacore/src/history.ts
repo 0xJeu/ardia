@@ -41,8 +41,7 @@ export const watchHistory = (profile: string) => engineCall("ac_history_watch", 
 type RawChange = Record<string, unknown>;
 
 export const onHistoryChanged = (listener: (change: HistoryChange) => void) =>
-  onEngineEvent((topic, p) => {
-    if (topic !== "history.changed") return;
+  onEngineEvent("history.changed", (p) => {
     const profile = p.profile;
     const one = (c: RawChange) => {
       if (c.kind === "visit") listener({ kind: "visit", profile, url: c.u as string, title: c.t as string, visits: c.n as number, at: c.at as number });

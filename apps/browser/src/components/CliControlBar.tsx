@@ -11,17 +11,23 @@ const BAR_HEIGHT = 38;
 const useControlled = () => useCli((s) => s.server?.state === "on" && (s.server.connections ?? 0) > 0);
 
 export function CliControlBar() {
-  const theme = useTheme();
   const visible = useControlled();
-  const height = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
   useEffect(() => {
     if (visible) setMounted(true);
-    Animated.timing(height, { toValue: visible ? BAR_HEIGHT : 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(
-      ({ finished }) => finished && !visible && setMounted(false),
-    );
   }, [visible]);
   if (!mounted && !visible) return null;
+  return <ShownCliControlBar visible={visible} onHidden={() => setMounted(false)} />;
+}
+
+function ShownCliControlBar({ visible, onHidden }: { visible: boolean; onHidden: () => void }) {
+  const theme = useTheme();
+  const height = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(height, { toValue: visible ? BAR_HEIGHT : 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(
+      ({ finished }) => finished && !visible && onHidden(),
+    );
+  }, [visible]);
   return (
     <Animated.View style={{ height, overflow: "hidden" }}>
       <View

@@ -54,6 +54,7 @@ export const Cef = requireNativeModule<{
   listTasks(): Promise<EngineTask[]>;
   systemState(): Promise<SystemState>;
   inputIdleSeconds?(): number;
+  forwardEngineTopics?(topics: string[]): Promise<void>;
 
   cancelDownload(id: string): Promise<void>;
   pauseDownload(id: string): Promise<void>;

@@ -32,10 +32,12 @@ export function startMedia() {
     const on = useBrowser.getState().settings.videoUpscaling ?? true;
     if (on !== upscaling) void setVideoUpscaling((upscaling = on));
   };
-  syncAutoPip();
-  syncUpscaling();
-  useBrowser.subscribe(syncAutoPip);
-  useBrowser.subscribe(syncUpscaling);
+  const syncSettings = () => {
+    syncAutoPip();
+    syncUpscaling();
+  };
+  syncSettings();
+  useBrowser.subscribe(syncSettings);
   cancelDisplayMediaOnNavigation();
   startTabShareCleanup();
   startCast();
