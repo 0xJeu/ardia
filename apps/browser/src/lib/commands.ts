@@ -25,7 +25,7 @@ import { bookmarkActivePage, bookmarkAllTabs } from "../components/bookmarks/act
 import { useClearDataRequest } from "../components/pages/ClearDataDialog";
 import { openInternalPage } from "../components/pages/urls";
 import { isUtilityWindowId, openImport, openSettings } from "../components/settings/windows";
-import { focusHeroBar } from "../components/omnibox/barState";
+import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barState";
 import { webviews } from "./webviews";
 import { goBack, goForward } from "../components/layout/history";
 import { openSplitPane } from "../components/layout/splitActions";
@@ -130,7 +130,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       if (!focusHeroBar(windowId)) return tab ? s.openPanel(windowId, "") : undefined;
       return ui?.panel.open ? s.closePanel(windowId) : undefined;
     case "closeTab":
-      if (ui?.panel.open) return s.closePanel(windowId);
+      if (ui?.panel.open) return closePanelToHeroBar(windowId);
       if (tabId && find?.open) return closeFind(tabId);
       return tabId ? void closeTab(tabId) : undefined;
     case "print":

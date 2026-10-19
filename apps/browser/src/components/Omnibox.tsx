@@ -53,11 +53,13 @@ export function Omnibox({
   tabId,
   initialText = "",
   onCancel,
+  onDone = onCancel,
 }: {
   variant: Variant;
   tabId: string;
   initialText?: string;
   onCancel?(): void;
+  onDone?(): void;
 }) {
   const theme = useTheme();
   const windowId = useWindowId();
@@ -155,7 +157,7 @@ export function Omnibox({
     selection.current = { start: 0, end: 0 };
   };
 
-  const dismiss = () => (hero ? reset() : onCancel?.());
+  const dismiss = () => (hero ? reset() : onDone?.());
 
   const go = (url: string, disposition: Disposition = "current") => {
     if (!url) return;
@@ -228,7 +230,7 @@ export function Omnibox({
     const { key, metaKey, altKey, shiftKey, ctrlKey } = e.nativeEvent;
     if (key === "Escape") {
       if (scope) return leaveScope(null);
-      if (!hero) return onCancel?.();
+      if (!hero) return onDone?.();
       if (shownCompletion) return setSuppressCompletion(true);
       return reset();
     }

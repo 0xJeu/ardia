@@ -1,4 +1,6 @@
 import type { SearchScope } from "@ardia/core";
+import { useBrowser } from "../../store/browser";
+import { activeTabId } from "../../store/model";
 
 export type BarSnapshot = {
   typed: string;
@@ -30,4 +32,12 @@ export function focusHeroBar(windowId: string): boolean {
   const focus = heroBars.get(windowId);
   focus?.();
   return !!focus;
+}
+
+export function closePanelToHeroBar(windowId: string) {
+  const s = useBrowser.getState();
+  const tabId = activeTabId(s, windowId);
+  s.closePanel(windowId);
+  const now = useBrowser.getState();
+  if (tabId && activeTabId(now, windowId) === tabId && !now.tabs[tabId]?.url) focusHeroBar(windowId);
 }
