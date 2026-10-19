@@ -256,9 +256,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     const key = tab.pinKey ?? tab.id;
     const pending = tab.pinned ? s.pinChoices[tab.profileId]?.[key] : undefined;
     const pinChoices =
-      pending === undefined
-        ? next.pinChoices
-        : { ...next.pinChoices, [tab.profileId]: without(next.pinChoices[tab.profileId] ?? {}, [key]), [profileId]: { ...next.pinChoices[profileId], [moved.pinKey ?? moved.id]: nextPinChoice() } };
+      pending === undefined ? next.pinChoices : { ...next.pinChoices, [profileId]: { ...next.pinChoices[profileId], [moved.pinKey ?? moved.id]: nextPinChoice() } };
     const tabs = { ...next.tabs, [tabId]: moved };
     const index = Math.min(w.tabIds.indexOf(tabId), base.tabIds.length);
     const tabIds = [...base.tabIds];

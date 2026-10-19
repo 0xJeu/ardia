@@ -4,7 +4,7 @@ import { changedIds } from "./changes";
 import { createGroupsSlice, type GroupsSlice } from "./groups";
 import { createHistorySlice, type HistorySlice } from "./history";
 import { IDLE_LIVE, isIncognitoProfile, pinnedFirst } from "./model";
-import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, livePinChoices, type OrganizeSlice } from "./organize";
+import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, livePinChoices, notePinChoices, type OrganizeSlice } from "./organize";
 import { mirrorPins } from "./pinMirror";
 import { createProfilesSlice, DEFAULT_PROFILE, engineIdOf, type ProfilesSlice } from "./profiles";
 import { createSettingsSlice, DEFAULT_SETTINGS, type SettingsSlice } from "./settings";
@@ -100,6 +100,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
     const settings = { ...DEFAULT_SETTINGS, ...saved, chosen: legacy ?? saved?.chosen ?? [], inferred: legacy ?? saved?.inferred ?? [] };
     if (!profiles[settings.defaultProfileId]) settings.defaultProfileId = profileOrder[0]!;
 
+    notePinChoices(data.pinChoices ?? {});
     const rawWindows = data.windows ?? {};
     const profileOk = (p: string) => !!profiles[p] || isIncognitoProfile(p);
     const tabs: Record<string, Tab> = {};

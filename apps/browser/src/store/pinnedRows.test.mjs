@@ -172,3 +172,38 @@ test("a choice made again after its pin was unpinned never reuses a generation",
   S().pinTabs([a], true);
   assert.ok(S().pinChoices.default[a] > first);
 });
+
+test("a session's pending choices raise the generation counter, so a later choice can't reuse one after a clock rollback", () => {
+  reset();
+  const { w, ids: [a] } = windowWith("a", "b");
+  S().pinTabs([a], true);
+  const ahead = Date.now() + 1e9;
+  S().hydrate({ ...S(), pinChoices: { default: { [a]: ahead } } });
+  assert.equal(S().pinChoices.default[a], ahead);
+  S().pinTabs([a], false);
+  S().pinTabs([a], true);
+  assert.ok(S().pinChoices.default[a] > ahead, `${S().pinChoices.default[a]} after ${ahead}`);
+  assert.ok(w);
+});
+
+test("moving a pin to another profile keeps the source's choice while another window there still has the pin", () => {
+  reset();
+  const work = S().createProfile({ name: "Work" });
+  const w1 = S().createWindow({ url: "https://x.com/" });
+  const [x] = S().windows[w1].tabIds;
+  S().pinTabs([x], true);
+  const w2 = S().createWindow({ url: "https://y.com/" });
+  assert.ok(S().windows[w2].tabIds.some((id) => S().tabs[id].pinned), "w2 mirrors the pin");
+  const before = S().pinChoices.default[x];
+  S().moveTabToProfile(x, work);
+  assert.ok(S().windows[w2].tabIds.some((id) => S().tabs[id].pinned && (S().tabs[id].pinKey ?? id) === x), "w2 keeps its pin");
+  assert.ok(S().pinChoices.default?.[x] >= before, "and Personal keeps the pending choice for it");
+  assert.ok(S().pinChoices[work]?.[x] > S().pinChoices.default[x], "Work gets its own, newer one");
+});
+
+test("empty and deleted profiles' choice entries are dropped", () => {
+  reset();
+  windowWith("a");
+  S().hydrate({ ...S(), pinChoices: { default: {}, gone: {} } });
+  assert.deepEqual(S().pinChoices, {});
+});

@@ -19,6 +19,9 @@ export type PinChoices = Record<string, Record<string, number>>;
 
 let lastPinChoice = 0;
 export const nextPinChoice = () => (lastPinChoice = Math.max(Date.now(), lastPinChoice + 1));
+export function notePinChoices(choices: PinChoices) {
+  for (const mine of Object.values(choices)) for (const n of Object.values(mine)) if (n > lastPinChoice) lastPinChoice = n;
+}
 
 export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" | "tabs" | "parkedPins">): PinChoices {
   const profiles = Object.keys(s.pinChoices);
@@ -38,7 +41,7 @@ export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" |
     const keys = s.profiles[profileId] ? pinned.get(profileId) : undefined;
     const kept = Object.fromEntries(Object.entries(mine).filter(([key]) => keys?.has(key)));
     const n = Object.keys(kept).length;
-    if (n !== Object.keys(mine).length) changed = true;
+    if (!n || n !== Object.keys(mine).length) changed = true;
     if (n) out[profileId] = n === Object.keys(mine).length ? mine : kept;
   }
   return changed ? out : s.pinChoices;
