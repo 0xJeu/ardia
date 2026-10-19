@@ -81,7 +81,8 @@ std::optional<mode_t> LinkType(const base::FilePath& path) {
   return info.st_mode & S_IFMT;
 }
 
-base::FilePath LexicallyAbsolute(const base::FilePath& path) {
+std::optional<std::vector<std::string>> AbsoluteParts(
+    const base::FilePath& path) {
   std::string value = path.value();
   if (value == "~" || value.starts_with("~/")) {
     if (const char* home = getenv("HOME")) {
@@ -91,25 +92,32 @@ base::FilePath LexicallyAbsolute(const base::FilePath& path) {
   if (value.empty() || value.front() != '/') {
     char cwd[PATH_MAX];
     if (!getcwd(cwd, sizeof(cwd))) {
-      return base::FilePath();
+      return std::nullopt;
     }
     value = std::string(cwd) + "/" + value;
   }
   std::vector<std::string> parts;
   for (std::string& part : base::SplitString(
            value, "/", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-    if (part == ".") {
-      continue;
+    if (part != ".") {
+      parts.push_back(std::move(part));
     }
-    if (part == "..") {
-      if (!parts.empty()) {
-        parts.pop_back();
-      }
-      continue;
-    }
-    parts.push_back(std::move(part));
   }
-  return base::FilePath("/" + base::JoinString(parts, "/"));
+  return parts;
+}
+
+base::FilePath Collapsed(base::FilePath base,
+                         const std::vector<std::string>& parts,
+                         size_t from) {
+  for (size_t i = from; i < parts.size(); ++i) {
+    base = parts[i] == ".." ? base.DirName() : base.Append(parts[i]);
+  }
+  return base;
+}
+
+base::FilePath LexicallyAbsolute(const base::FilePath& path) {
+  const std::optional<std::vector<std::string>> parts = AbsoluteParts(path);
+  return parts ? Collapsed(base::FilePath("/"), *parts, 0) : base::FilePath();
 }
 
 std::string Lowered(const base::FilePath& path) {
@@ -444,10 +452,36 @@ class ScriptsPagesThrottle : public content::NavigationThrottle {
   }
 };
 
+bool ResolvedPrefixNamesScripts(const base::FilePath& scripts,
+                                const base::FilePath& requested) {
+  const std::optional<std::vector<std::string>> parts = AbsoluteParts(requested);
+  if (!parts || parts->size() > kMaxPathComponents) {
+    return true;
+  }
+  const std::optional<base::FilePath> real_scripts = RealPath(scripts);
+  base::FilePath prefix("/");
+  for (size_t i = 0; i <= parts->size(); ++i) {
+    if (i > 0) {
+      prefix = prefix.Append((*parts)[i - 1]);
+    }
+    const std::optional<base::FilePath> real = RealPath(prefix);
+    if (!real) {
+      continue;
+    }
+    const base::FilePath candidate = Collapsed(*real, *parts, i);
+    if (IsSameOrInsideIgnoringCase(scripts, candidate) ||
+        (real_scripts && IsSameOrInsideIgnoringCase(*real_scripts, candidate))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool RequestNamesScripts(const base::FilePath& scripts,
                          const base::FilePath& requested) {
   const base::FilePath absolute = LexicallyAbsolute(requested);
-  if (absolute.empty() || IsSameOrInsideIgnoringCase(scripts, absolute)) {
+  if (absolute.empty() || IsSameOrInsideIgnoringCase(scripts, absolute) ||
+      ResolvedPrefixNamesScripts(scripts, requested)) {
     return true;
   }
   std::vector<base::FilePath::StringType> rest;
