@@ -7,7 +7,9 @@
 #include <sys/stat.h>
 
 #include <memory>
+#include <algorithm>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -38,6 +40,10 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "url/gurl.h"
 
+extern bool (*g_ardia_unpacked_path_allowed)(const base::FilePath& requested,
+                                             const base::FilePath& resolved,
+                                             std::u16string* error);
+
 namespace ardia {
 namespace {
 
@@ -45,6 +51,9 @@ using extensions::Extension;
 
 constexpr size_t kMaxContentScripts = 256;
 constexpr size_t kMaxFilesPerList = 256;
+constexpr size_t kMaxDistinctFiles = 512;
+constexpr size_t kMaxPathComponents = 4096;
+constexpr size_t kMaxVerdicts = 16;
 
 constexpr auto kManifestKeys = base::MakeFixedFlatSet<std::string_view>(
     {"content_scripts", "description", "manifest_version", "name",
@@ -69,6 +78,17 @@ std::optional<mode_t> LinkType(const base::FilePath& path) {
     return std::nullopt;
   }
   return info.st_mode & S_IFMT;
+}
+
+std::string Lowered(const base::FilePath& path) {
+  return base::ToLowerASCII(path.StripTrailingSeparators().value());
+}
+
+bool IsSameOrInsideIgnoringCase(const base::FilePath& dir,
+                                const base::FilePath& path) {
+  const base::FilePath lowered_dir(Lowered(dir));
+  const base::FilePath lowered_path(Lowered(path));
+  return lowered_dir == lowered_path || lowered_dir.IsParent(lowered_path);
 }
 
 bool IsEmpty(const extensions::PermissionSet& permissions) {
@@ -160,7 +180,7 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
     if (!IsScriptsExtension(*extension)) {
       return true;
     }
-    const std::optional<std::string> problem = Problem(*extension);
+    const std::optional<std::string> problem = CachedProblem(*extension);
     if (!problem) {
       return true;
     }
@@ -287,27 +307,55 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
       const base::FilePath& root) const {
     const base::ListValue* entries =
         extension.manifest()->value()->FindList("content_scripts");
+    std::set<std::string> files;
     for (const base::Value& item : *entries) {
       for (std::string_view key : {"js", "css"}) {
-        const base::ListValue* files = item.GetDict().FindList(key);
-        if (!files) {
-          continue;
-        }
-        for (const base::Value& file : *files) {
-          if (std::optional<std::string> problem =
-                  ScriptFileProblem(root, file.GetString())) {
-            return problem;
+        if (const base::ListValue* list = item.GetDict().FindList(key)) {
+          for (const base::Value& file : *list) {
+            files.insert(file.GetString());
           }
         }
       }
     }
+    if (files.size() > kMaxDistinctFiles) {
+      return "content_scripts names too many files";
+    }
+    size_t components = 0;
+    for (const std::string& file : files) {
+      components += std::ranges::count(file, '/') + 1;
+    }
+    if (components > kMaxPathComponents) {
+      return "content_scripts file paths are too deep";
+    }
+    for (const std::string& file : files) {
+      if (std::optional<std::string> problem = ScriptFileProblem(root, file)) {
+        return problem;
+      }
+    }
     return std::nullopt;
+  }
+
+  std::optional<std::string> CachedProblem(const Extension& extension) const {
+    for (const auto& [seen, problem] : verdicts_) {
+      if (seen.get() == &extension) {
+        return problem;
+      }
+    }
+    std::optional<std::string> problem = Problem(extension);
+    if (verdicts_.size() >= kMaxVerdicts) {
+      verdicts_.erase(verdicts_.begin());
+    }
+    verdicts_.emplace_back(base::WrapRefCounted(&extension), problem);
+    return problem;
   }
 
   base::FilePath scripts_;
   base::FilePath folder_;
   std::string designated_id_;
   int installs_pending_ = 0;
+  mutable std::vector<
+      std::pair<scoped_refptr<const Extension>, std::optional<std::string>>>
+      verdicts_;
 };
 
 ScriptsPolicyProvider& Scripts() {
@@ -347,10 +395,37 @@ class ScriptsPagesThrottle : public content::NavigationThrottle {
   }
 };
 
+bool UnpackedPathAllowed(const base::FilePath& requested,
+                         const base::FilePath& resolved,
+                         std::u16string* error) {
+  const base::FilePath scripts = Scripts().scripts();
+  const base::FilePath folder = Scripts().folder();
+  if (scripts.empty()) {
+    return true;
+  }
+  const std::optional<base::FilePath> real_scripts = RealPath(scripts);
+  const bool names_scripts =
+      IsSameOrInsideIgnoringCase(scripts, requested) ||
+      IsSameOrInsideIgnoringCase(scripts, resolved) ||
+      (real_scripts && IsSameOrInsideIgnoringCase(*real_scripts, resolved));
+  if (!names_scripts) {
+    return true;
+  }
+  if (LinkType(scripts) == S_IFDIR && LinkType(folder) == S_IFDIR &&
+      resolved.StripTrailingSeparators() == folder &&
+      RealPath(folder) == std::optional<base::FilePath>(folder)) {
+    return true;
+  }
+  *error = Refusal(
+      "only the Scripts/extension folder itself loads, as a plain folder");
+  return false;
+}
+
 }
 
 void RegisterManagementPolicyProviders(Profile*,
                                        extensions::ManagementPolicy* policy) {
+  g_ardia_unpacked_path_allowed = &UnpackedPathAllowed;
   policy->RegisterProvider(&Scripts());
 }
 
