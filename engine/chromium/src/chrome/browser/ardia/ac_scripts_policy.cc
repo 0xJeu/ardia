@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <memory>
 #include <algorithm>
@@ -78,6 +79,37 @@ std::optional<mode_t> LinkType(const base::FilePath& path) {
     return std::nullopt;
   }
   return info.st_mode & S_IFMT;
+}
+
+base::FilePath LexicallyAbsolute(const base::FilePath& path) {
+  std::string value = path.value();
+  if (value == "~" || value.starts_with("~/")) {
+    if (const char* home = getenv("HOME")) {
+      value = std::string(home) + value.substr(1);
+    }
+  }
+  if (value.empty() || value.front() != '/') {
+    char cwd[PATH_MAX];
+    if (!getcwd(cwd, sizeof(cwd))) {
+      return base::FilePath();
+    }
+    value = std::string(cwd) + "/" + value;
+  }
+  std::vector<std::string> parts;
+  for (std::string& part : base::SplitString(
+           value, "/", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+    if (part == ".") {
+      continue;
+    }
+    if (part == "..") {
+      if (!parts.empty()) {
+        parts.pop_back();
+      }
+      continue;
+    }
+    parts.push_back(std::move(part));
+  }
+  return base::FilePath("/" + base::JoinString(parts, "/"));
 }
 
 std::string Lowered(const base::FilePath& path) {
@@ -180,7 +212,7 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
     if (!IsScriptsExtension(*extension)) {
       return true;
     }
-    const std::optional<std::string> problem = CachedProblem(*extension);
+    const std::optional<std::string> problem = Problem(*extension);
     if (!problem) {
       return true;
     }
@@ -231,8 +263,8 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
 
  private:
   std::optional<std::string> Problem(const Extension& extension) const {
-    if (!extensions::Manifest::IsUnpackedLocation(extension.location())) {
-      return "it must be loaded unpacked from Scripts/extension";
+    if (std::optional<std::string> problem = CachedShapeProblem(extension)) {
+      return problem;
     }
     if (LinkType(scripts_) != S_IFDIR || LinkType(folder_) != S_IFDIR) {
       return "Scripts/extension must be a plain folder";
@@ -242,6 +274,19 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
         RealPath(extension.path());
     if (!real_folder || !real_path || *real_folder != *real_path) {
       return "the extension must be the Scripts/extension folder itself";
+    }
+    for (const std::string& file : ScriptFiles(extension)) {
+      if (std::optional<std::string> problem =
+              ScriptFileProblem(*real_folder, file)) {
+        return problem;
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::optional<std::string> ShapeProblem(const Extension& extension) const {
+    if (!extensions::Manifest::IsUnpackedLocation(extension.location())) {
+      return "it must be loaded unpacked from Scripts/extension";
     }
     if (std::optional<std::string> problem = ManifestProblem(extension)) {
       return problem;
@@ -254,7 +299,18 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
         !IsEmpty(extension.permissions_data()->withheld_permissions())) {
       return "it may not ask for permissions or host permissions";
     }
-    return ScriptFilesProblem(extension, *real_folder);
+    const std::set<std::string> files = ScriptFiles(extension);
+    if (files.size() > kMaxDistinctFiles) {
+      return "content_scripts names too many files";
+    }
+    size_t components = 0;
+    for (const std::string& file : files) {
+      components += std::ranges::count(file, '/') + 1;
+    }
+    if (components > kMaxPathComponents) {
+      return "content_scripts file paths are too deep";
+    }
+    return std::nullopt;
   }
 
   std::optional<std::string> ManifestProblem(const Extension& extension) const {
@@ -302,46 +358,39 @@ class ScriptsPolicyProvider : public extensions::ManagementPolicy::Provider {
     return std::nullopt;
   }
 
-  std::optional<std::string> ScriptFilesProblem(
-      const Extension& extension,
-      const base::FilePath& root) const {
+  std::set<std::string> ScriptFiles(const Extension& extension) const {
+    std::set<std::string> files;
     const base::ListValue* entries =
         extension.manifest()->value()->FindList("content_scripts");
-    std::set<std::string> files;
+    if (!entries) {
+      return files;
+    }
     for (const base::Value& item : *entries) {
+      const base::DictValue* entry = item.GetIfDict();
+      if (!entry) {
+        continue;
+      }
       for (std::string_view key : {"js", "css"}) {
-        if (const base::ListValue* list = item.GetDict().FindList(key)) {
+        if (const base::ListValue* list = entry->FindList(key)) {
           for (const base::Value& file : *list) {
-            files.insert(file.GetString());
+            if (const std::string* name = file.GetIfString()) {
+              files.insert(*name);
+            }
           }
         }
       }
     }
-    if (files.size() > kMaxDistinctFiles) {
-      return "content_scripts names too many files";
-    }
-    size_t components = 0;
-    for (const std::string& file : files) {
-      components += std::ranges::count(file, '/') + 1;
-    }
-    if (components > kMaxPathComponents) {
-      return "content_scripts file paths are too deep";
-    }
-    for (const std::string& file : files) {
-      if (std::optional<std::string> problem = ScriptFileProblem(root, file)) {
-        return problem;
-      }
-    }
-    return std::nullopt;
+    return files;
   }
 
-  std::optional<std::string> CachedProblem(const Extension& extension) const {
+  std::optional<std::string> CachedShapeProblem(
+      const Extension& extension) const {
     for (const auto& [seen, problem] : verdicts_) {
       if (seen.get() == &extension) {
         return problem;
       }
     }
-    std::optional<std::string> problem = Problem(extension);
+    std::optional<std::string> problem = ShapeProblem(extension);
     if (verdicts_.size() >= kMaxVerdicts) {
       verdicts_.erase(verdicts_.begin());
     }
@@ -395,6 +444,30 @@ class ScriptsPagesThrottle : public content::NavigationThrottle {
   }
 };
 
+bool RequestNamesScripts(const base::FilePath& scripts,
+                         const base::FilePath& requested) {
+  const base::FilePath absolute = LexicallyAbsolute(requested);
+  if (absolute.empty() || IsSameOrInsideIgnoringCase(scripts, absolute)) {
+    return true;
+  }
+  std::vector<base::FilePath::StringType> rest;
+  for (base::FilePath ancestor = absolute;; ancestor = ancestor.DirName()) {
+    if (std::optional<base::FilePath> real = RealPath(ancestor)) {
+      base::FilePath candidate = *real;
+      for (auto part = rest.rbegin(); part != rest.rend(); ++part) {
+        candidate = candidate.Append(*part);
+      }
+      if (IsSameOrInsideIgnoringCase(scripts, candidate)) {
+        return true;
+      }
+    }
+    if (ancestor.DirName() == ancestor) {
+      return false;
+    }
+    rest.push_back(ancestor.BaseName().value());
+  }
+}
+
 bool UnpackedPathAllowed(const base::FilePath& requested,
                          const base::FilePath& resolved,
                          std::u16string* error) {
@@ -405,7 +478,7 @@ bool UnpackedPathAllowed(const base::FilePath& requested,
   }
   const std::optional<base::FilePath> real_scripts = RealPath(scripts);
   const bool names_scripts =
-      IsSameOrInsideIgnoringCase(scripts, requested) ||
+      RequestNamesScripts(scripts, requested) ||
       IsSameOrInsideIgnoringCase(scripts, resolved) ||
       (real_scripts && IsSameOrInsideIgnoringCase(*real_scripts, resolved));
   if (!names_scripts) {
@@ -425,7 +498,9 @@ bool UnpackedPathAllowed(const base::FilePath& requested,
 
 void RegisterManagementPolicyProviders(Profile*,
                                        extensions::ManagementPolicy* policy) {
-  g_ardia_unpacked_path_allowed = &UnpackedPathAllowed;
+  if (!g_ardia_unpacked_path_allowed) {
+    g_ardia_unpacked_path_allowed = &UnpackedPathAllowed;
+  }
   policy->RegisterProvider(&Scripts());
 }
 
