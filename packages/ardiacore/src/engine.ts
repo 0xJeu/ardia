@@ -20,14 +20,26 @@ function deliverEngineEvent({ topic, payload }: { topic: string; payload: string
   for (const listener of listeners) listener(parsed);
 }
 
+const forwardEngineTopics = () => void Cef.forwardEngineTopics?.([...engineListeners.keys()]);
+
+function stopListening(topic: string, listeners: Set<EngineListener>, listener: EngineListener) {
+  if (!listeners.delete(listener) || listeners.size || engineListeners.get(topic) !== listeners) return;
+  engineListeners.delete(topic);
+  forwardEngineTopics();
+  if (engineListeners.size) return;
+  engineSubscription?.remove();
+  engineSubscription = null;
+}
+
 export function onEngineEvent(topic: string, listener: EngineListener): EventSubscription {
   let listeners = engineListeners.get(topic);
   if (!listeners) {
     listeners = new Set();
     engineListeners.set(topic, listeners);
-    void Cef.forwardEngineTopics?.([...engineListeners.keys()]);
+    forwardEngineTopics();
   }
   listeners.add(listener);
   engineSubscription ??= Cef.addListener("onEngineEvent", deliverEngineEvent);
-  return { remove: () => void listeners.delete(listener) };
+  const subscribed = listeners;
+  return { remove: () => stopListening(topic, subscribed, listener) };
 }
