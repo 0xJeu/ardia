@@ -388,7 +388,7 @@ export async function syncScope(args: {
     const late = await publishAdapter(state, adapter, clock, device, now());
     published += late.size;
     for (const key of late) keys.delete(key);
-    if (!(await applyAdapter(state, adapter, keys, now(), options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
+    if (!(await applyAdapter(state, adapter, keys, now(), 2 * (options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL)))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
   }
   state.unapplied = [...unapplied, ...[...keys].filter((k) => !adapters.some((a) => k.startsWith(a.prefix)))];
   if (!state.awaitRemote || Object.keys(state.seen).some((d) => d !== device)) {
