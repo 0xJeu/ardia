@@ -119,6 +119,9 @@ export function Omnibox({
   fieldText.current = value;
   const editing = useRef(false);
   const focusEcho = useRef(false);
+  const panelOpen = useBrowser((s) => hero && !!s.windowUi[windowId]?.panel.open);
+  const [listAway, setListAway] = useState(false);
+  if (panelOpen && !listAway) setListAway(true);
   const focusField = () => {
     if (!editing.current && fieldText.current) focusEcho.current = true;
     input.current?.focus();
@@ -376,6 +379,7 @@ export function Omnibox({
       onSubmitEditing={() => choose(current)}
       onFocus={() => {
         editing.current = true;
+        setListAway(false);
       }}
       onBlur={() => {
         editing.current = false;
@@ -488,7 +492,7 @@ export function Omnibox({
           {field}
         </View>
       </ContextMenuArea>
-      {suggestionList}
+      {listAway ? null : suggestionList}
       {bottomRow}
     </View>
   );
