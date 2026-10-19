@@ -172,7 +172,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Spe
   const leaving = mine.filter((t) => !used.has(t.id));
   const demoted = leaving.filter((t) => hasPage(t) || shown.has(t.id)).map((t) => t.id);
   const gone = leaving.filter((t) => !demoted.includes(t.id)).map((t) => t.id);
-  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinKey: undefined };
+  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinChosenAt: undefined, pinKey: undefined };
   for (const { group } of cur.groups) {
     if (usedGroups.has(group.id)) continue;
     const left = groups[group.id]!.tabIds.filter((id) => demoted.includes(id));

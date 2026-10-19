@@ -387,9 +387,9 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
     const t = tabs[id]!;
     if (t.pinned !== p.pinned) tabs[id] = { ...t, pinned: p.pinned, pinnedUrl: p.pinned ? t.url || null : null };
     const row = p.pinned && (p.row ?? (t.pinned && !!t.pinnedAsRow));
-    if (!!tabs[id]!.pinnedAsRow !== row) {
-      const { pinnedAsRow: _, ...rest } = tabs[id]!;
-      tabs[id] = row ? { ...rest, pinnedAsRow: true } : rest;
+    if (t.pinned !== p.pinned || !!t.pinnedAsRow !== row) {
+      const { pinnedAsRow: _, pinChosenAt: __, ...rest } = tabs[id]!;
+      tabs[id] = p.pinned ? { ...rest, ...(row ? { pinnedAsRow: true as const } : {}), pinChosenAt: Date.now() } : rest;
     }
   }
   const rest = w.tabIds.filter((id) => !movingSet.has(id));

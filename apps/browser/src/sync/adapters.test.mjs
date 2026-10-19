@@ -322,7 +322,7 @@ test("pinned rows sync as rows, keep their order, and move between rows and tile
   assert.equal((await a.sync()).published, 0, "settled");
   assert.equal((await b.sync()).published, 0, "settled");
 
-  const marks = (d) => Object.entries(d.scopes.p.records).filter(([k, r]) => k.startsWith("pinrow:") && r.v !== null).length;
+  const marks = (d) => Object.entries(d.scopes.p.records).filter(([k, r]) => k.startsWith("pinrow:") && r.v === 1).length;
   assert.equal(marks(a), 2);
   a.with(() => S().pinTabs([Object.values(S().tabs).find((t) => t.pinnedUrl === "https://docs.example/").id], false));
   await syncAll([a, b]);
@@ -385,6 +385,66 @@ test("a row mark that arrives before its pinned tab still makes a row, and isn't
   folder.hidden.clear();
   await syncAll([c, a, b]);
   for (const d of [a, b, c]) assert.deepEqual(rowsOf(d), { tiles: [], rows: ["https://docs.example/"] });
+});
+
+const later = () => new Promise((r) => setTimeout(r, 5));
+const tabAt = (url) => Object.values(S().tabs).find((t) => t.url === url || t.pinnedUrl === url)?.id;
+
+test("a tab kept open after an unpin and pinned again as a row elsewhere comes back as a row", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    const docs = S().newTab(w, { url: "https://docs.example/" });
+    S().pinTabs([docs], true, true);
+    S().activate(docs);
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  b.with(() => S().activate(tabAt("https://docs.example/")));
+  await later();
+  a.with(() => S().pinTabs([tabAt("https://docs.example/")], false));
+  await syncAll([a, b]);
+  assert.equal(b.with(() => S().tabs[tabAt("https://docs.example/")].pinned), false, "B keeps its open copy as a regular tab");
+  await later();
+  a.with(() => S().pinTabs([tabAt("https://docs.example/")], true, true));
+  await syncAll([a, b, a, b]);
+  assert.deepEqual(rowsOf(b).rows, ["https://docs.example/"], "B pins it again as a row");
+  assert.deepEqual(rowsOf(a).rows, ["https://docs.example/"], "and A keeps its row");
+});
+
+test("a row mark held up in transit doesn't undo a later choice of a tile on another Mac", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    S().pinTabs([S().newTab(w, { url: "https://docs.example/" })], true);
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await a.sync();
+  await b.sync();
+  await later();
+  const before = new Set(folder.files.keys());
+  a.with(() => S().placeTabs([tabAt("https://docs.example/")], { pinned: true, row: true }));
+  await a.sync();
+  const delayed = [...folder.files.keys()].filter((id) => !before.has(id));
+  delayed.forEach((id) => folder.hidden.add(id));
+  await later();
+  b.with(() => {
+    const docs = tabAt("https://docs.example/");
+    S().activate(docs);
+    S().pinTabs([docs], false);
+  });
+  await b.sync();
+  await later();
+  b.with(() => S().pinTabs([tabAt("https://docs.example/")], true));
+  await b.sync();
+  folder.hidden.clear();
+  await syncAll([b, a, b, a]);
+  assert.deepEqual(rowsOf(b), { tiles: ["https://docs.example/"], rows: [] }, "B's later tile stands");
+  assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] }, "and A follows it");
 });
 
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {

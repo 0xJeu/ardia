@@ -401,6 +401,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       let s = store();
       const home = homeWindow(s, profileId);
       if (!home) return false;
+      const marked = (key: string) => (base(`${PIN_ROW}${key}`) === ROW ? (true as const) : undefined);
       const PARK = `park:${profileId}`;
       if (s.parkedPins[profileId]) {
         const stand: Window = { id: PARK, profileId, incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 };
@@ -434,7 +435,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       });
       s = removeTabs(s, removable, false);
       const tabs = { ...s.tabs };
-      for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinKey: undefined };
+      for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinChosenAt: undefined, pinKey: undefined };
       let groups = { ...s.groups };
       for (const k of changed) if (k.startsWith("pin:g:") && !visible.has(k) && scope.has(groups[gid(k.slice(6))]?.windowId ?? "")) delete groups[gid(k.slice(6))];
       const windows = { ...s.windows };
@@ -454,7 +455,7 @@ export function pinnedAdapter(profileId: string): Adapter {
             ...old,
             pinned: !group,
             pinnedUrl: group ? null : v.u,
-            ...(group ? { pinnedAsRow: undefined } : {}),
+            ...(group ? { pinnedAsRow: undefined, pinChosenAt: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)), pinChosenAt: undefined }),
             customTitle: v.t,
             customIcon: v.i,
             ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
@@ -468,7 +469,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
           id,
           pinnedUrl: group ? null : v.u,
-          ...(!group && base(`${PIN_ROW}${id}`) !== undefined ? { pinnedAsRow: true as const } : {}),
+          ...(!group && marked(id) ? { pinnedAsRow: true as const } : {}),
           navigation: null,
           unloaded: true,
         };
@@ -511,6 +512,8 @@ export function pinnedAdapter(profileId: string): Adapter {
 }
 
 const PIN_ROW = "pinrow:";
+const ROW = 1;
+const TILE = 0;
 
 export function pinnedRowsAdapter(profileId: string): Adapter {
   const keyOf = (k: string) => k.slice(PIN_ROW.length);
@@ -520,25 +523,32 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       const s = store();
       const values = new Map<string, unknown>();
       const known = new Set<string>();
+      const chosen = new Set<string>();
       const home = homeWindow(s, profileId);
-      for (const w of home ? [home, ...openWindows(s).filter((w) => w.id !== home.id)] : openWindows(s)) {
+      const mark = (key: string, row: boolean | undefined) => {
+        if (row) values.set(`${PIN_ROW}${key}`, ROW);
+        else if (chosen.has(key) || base(`${PIN_ROW}${key}`) !== undefined) values.set(`${PIN_ROW}${key}`, TILE);
+      };
+      const windows = home ? [home, ...openWindows(s).filter((w) => w.id !== home.id)] : openWindows(s);
+      for (const w of windows) for (const id of w.tabIds) if (s.tabs[id]?.pinChosenAt && s.tabs[id]!.pinned) chosen.add(pinKeyOf(s.tabs[id]!));
+      for (const w of windows) {
         for (const id of w.tabIds) {
           const t = s.tabs[id];
           if (!t?.pinned || t.profileId !== profileId || known.has(pinKeyOf(t))) continue;
           known.add(pinKeyOf(t));
-          if (t.pinnedAsRow) values.set(`${PIN_ROW}${pinKeyOf(t)}`, 1);
+          mark(pinKeyOf(t), t.pinnedAsRow);
         }
       }
       for (const p of s.parkedPins[profileId]?.tabs ?? []) {
         if (p.groupId || known.has(p.id)) continue;
         known.add(p.id);
-        if (p.pinnedAsRow) values.set(`${PIN_ROW}${p.id}`, 1);
+        mark(p.id, p.pinnedAsRow);
       }
       return { values, ignore: (k) => !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined } satisfies Extraction;
     },
     apply: (visible, changed, base) => {
       const s = store();
-      const rows = new Set([...visible.keys()].map(keyOf));
+      const rows = new Set([...visible].filter(([, v]) => v === ROW).map(([k]) => keyOf(k)));
       const pos = (t: Tab | undefined) => (t ? (base(`pin:t:${pinKeyOf(t)}`) as PinValue | undefined)?.pos : undefined);
       const touched = new Set([...changed].map(keyOf));
       const wants = (key: string, row: boolean | undefined) => touched.has(key) && !!row !== rows.has(key);
