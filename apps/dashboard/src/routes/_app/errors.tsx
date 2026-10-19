@@ -35,7 +35,7 @@ function ErrorsPage() {
     <>
       <PageHeader
         title="Errors"
-        description={`${rangeSentence(range)}. Exceptions from the site and the app, grouped by type and message. Known noise (extensions, in-app browsers, network drops) is hidden unless you ask for it.`}
+        description={`${rangeSentence(range)}. Exceptions from the site (always on, anonymous) and the app (opt-in only), grouped by type and message. Known noise (extensions, in-app browsers, network drops) is hidden unless you ask for it.`}
       >
         <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
           <input id="show-noise" type="checkbox" checked={showNoise} onChange={(e) => setShowNoise(e.target.checked)} className="size-3.5 accent-[var(--primary)]" />
@@ -49,10 +49,10 @@ function ErrorsPage() {
         <Loaded query={exceptions} skeleton={<div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4"><StatsSkeleton count={4} /></div>}>
           {() => (
             <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-              <Stat label="App exceptions" value={formatExact(sum(real.filter((g) => g.where === "app"), (g) => g.count))} sub={`${real.filter((g) => g.where === "app").length} groups`} />
-              <Stat label="Site exceptions" value={formatExact(sum(real.filter((g) => g.where === "site"), (g) => g.count))} sub={`${real.filter((g) => g.where === "site").length} groups`} />
-              <Stat label="New groups" value={formatExact(real.filter((g) => g.firstSeen >= w.start).length)} sub="first seen in the range" />
-              <Stat label="Noise" value={formatExact(sum(noise, (g) => g.count))} sub={`${noise.length} groups, not ours`} />
+              <Stat source="app" label="App exceptions" value={formatExact(sum(real.filter((g) => g.where === "app"), (g) => g.count))} sub={`${real.filter((g) => g.where === "app").length} groups`} />
+              <Stat source="site" label="Site exceptions" value={formatExact(sum(real.filter((g) => g.where === "site"), (g) => g.count))} sub={`${real.filter((g) => g.where === "site").length} groups`} />
+              <Stat source={["site", "app"]} label="New groups" value={formatExact(real.filter((g) => g.firstSeen >= w.start).length)} sub="first seen in the range" />
+              <Stat source="site" label="Noise" value={formatExact(sum(noise, (g) => g.count))} sub={`${noise.length} groups, not ours`} />
             </div>
           )}
         </Loaded>
@@ -65,7 +65,7 @@ function ErrorsPage() {
               buckets={d.window.buckets}
               series={d.series
                 .filter((s) => showNoise || s.key !== "noise")
-                .map((s) => ({ ...s, color: s.key === "app" ? "var(--chart-3)" : s.key === "site" ? "var(--chart-2)" : "var(--chart-other)" }))}
+                .map((s) => ({ ...s, source: s.key === "app" ? ("app" as const) : ("site" as const), color: s.key === "app" ? "var(--chart-3)" : s.key === "site" ? "var(--chart-2)" : "var(--chart-other)" }))}
               step={d.window.step}
               height={200}
               area={false}
@@ -74,7 +74,7 @@ function ErrorsPage() {
         </Loaded>
       </Panel>
 
-      <Panel title="Groups" description="Click a row for versions and recent occurrences with their stacks.">
+      <Panel source={["site", "app"]} title="Groups" description="Click a row for versions and recent occurrences with their stacks.">
         <Loaded query={exceptions} skeleton={<TableSkeleton rows={6} columns={7} />}>
           {(d) => (
             <DataTable
@@ -136,7 +136,7 @@ function ErrorsPage() {
         </Loaded>
       </Panel>
 
-      <Panel title="Logged warnings and errors" description="Console warnings and errors the site and app sent to telemetry.logs, grouped by message.">
+      <Panel source={["site", "app"]} title="Logged warnings and errors" description="Console warnings and errors sent to telemetry.logs, grouped by message. Site logs are always on; app logs come only from opted-in users.">
         <Loaded query={logs} skeleton={<TableSkeleton rows={6} columns={5} />}>
           {(rows) => (
             <DataTable

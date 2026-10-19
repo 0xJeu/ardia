@@ -1,4 +1,4 @@
-import { gunzipSync } from "node:zlib";
+import { createGunzip } from "node:zlib";
 import { windowFor, type RangeKey } from "../lib/range";
 import { num, query, str } from "./clickhouse";
 import { serverEnv } from "./env";
@@ -99,93 +99,185 @@ function replayHeaders(): Record<string, string> {
 }
 
 const TIMELINE_EVENTS = ["$pageview", "$autocapture", "$rageclick", "$dead_click", "$exception", "download_clicked", "github_clicked", "screenshot_opened", "release_notes_viewed", "send_to_mac_clicked", "notify_clicked"];
+const SESSION_CACHE = { freshMs: 60_000, keepMs: 5 * 60_000 };
+const FETCH_TIMEOUT_MS = 10_000;
+const DEADLINE_MS = 30_000;
+const MAX_CHUNK_COMPRESSED = 4 * 1024 * 1024;
+const MAX_CHUNK_DECOMPRESSED = 32 * 1024 * 1024;
+const MAX_SESSION_BYTES = 150 * 1024 * 1024;
+const MAX_SESSION_EVENTS = 400_000;
 
-export async function getReplay(sessionId: string, signal?: AbortSignal) {
-  if (!SESSION_ID.test(sessionId)) throw new Error("Not a session id");
-  const keptFrom = Math.floor((Date.now() - (KEPT_DAYS + 1) * DAY) / DAY) * DAY;
-  const [meta] = await query(
-    `SELECT groupUniqArray(toString(toDate(timestamp))), min(toInt64OrZero(properties['first_timestamp'])), max(toInt64OrZero(properties['last_timestamp'])), count(),
-       sum(toUInt32OrZero(properties['clicks'])), sum(toUInt64OrZero(properties['bytes']))
-     FROM telemetry.events WHERE event = '$replay_chunk' AND ${since(keptFrom)} AND session_id = '${sessionId}'`,
-    signal,
-  );
-  const days = ((meta?.[0] as string[] | undefined) ?? []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-  if (!days.length) return { found: false as const, sessionId };
+class TooLarge extends Error {}
 
-  const start = num(meta![1]);
-  const end = num(meta![2]);
-  const lastDay = days.slice().sort().at(-1)!;
-  const dayList = [...new Set([...days, new Date(Date.parse(`${lastDay}T00:00:00Z`) + DAY).toISOString().slice(0, 10)])];
+async function readCapped(res: Response, cap: number): Promise<Buffer> {
+  const declared = Number(res.headers.get("content-length") ?? NaN);
+  if (Number.isFinite(declared) && declared > cap) {
+    await res.body?.cancel();
+    throw new TooLarge();
+  }
+  if (!res.body) return Buffer.alloc(0);
+  const reader = res.body.getReader();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > cap) {
+      await reader.cancel();
+      throw new TooLarge();
+    }
+    parts.push(value);
+  }
+  return Buffer.concat(parts);
+}
 
-  const timelinePromise = query(
-    `SELECT toUnixTimestamp64Milli(timestamp), event, properties['$current_url'], properties['$el_text'], properties['$event_type'],
-       properties['$exception_values'], properties['location'], ${prop("$device_type")}, ${prop("$os")}, ${prop("$browser")}, ${prop("$geoip_country_code")},
-       properties['$referring_domain'], properties['$screen_width'], properties['$screen_height']
-     FROM telemetry.events
-     WHERE event IN (${TIMELINE_EVENTS.map((e) => `'${e}'`).join(", ")}) AND timestamp >= ${`toDateTime64(${(Date.parse(`${days.slice().sort()[0]}T00:00:00Z`) - DAY) / 1000}, 3, 'UTC')`}
-       AND session_id = '${sessionId}'
-     ORDER BY timestamp LIMIT 2000`,
-    signal,
-  );
+function gunzipCapped(input: Buffer, cap: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const stream = createGunzip();
+    const parts: Buffer[] = [];
+    let total = 0;
+    stream.on("data", (part: Buffer) => {
+      total += part.length;
+      if (total > cap) {
+        stream.destroy();
+        reject(new TooLarge());
+        return;
+      }
+      parts.push(part);
+    });
+    stream.on("end", () => resolve(Buffer.concat(parts)));
+    stream.on("error", reject);
+    stream.end(input);
+  });
+}
 
+async function loadChunks(sessionId: string, days: string[], signal: AbortSignal) {
   const base = replaysBase();
   const headers = replayHeaders();
-  const storage = async (url: string, init: RequestInit) => {
+  const get = async (url: string, accept?: string) => {
     try {
-      return await fetch(url, init);
+      return await fetch(url, { headers: accept ? { ...headers, Accept: accept } : headers, signal: AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]) });
     } catch (error) {
+      if (signal.aborted) throw new Error("Loading the replay took too long and was stopped.");
       const cause = (error as { cause?: { code?: string; message?: string } }).cause;
       throw new Error(`Replay storage unreachable (${cause?.code ?? cause?.message ?? (error as Error).message})`);
     }
   };
-  const chunks: { seq: number; events: unknown[] }[] = [];
-  for (const day of dayList) {
-    const listing = await storage(`${base}${day}/${sessionId}/?limit=1000`, { headers: { ...headers, Accept: "application/json" }, signal });
+
+  const files = new Map<number, { day: string; name: string; gz: boolean }>();
+  for (const day of days) {
+    const listing = await get(`${base}${day}/${sessionId}/?limit=1000`, "application/json");
     if (listing.status === 404) continue;
     if (!listing.ok) throw new Error(`Replay storage: ${listing.status}`);
     const entries = ((await listing.json()) as { Entries?: { FullPath: string }[] | null }).Entries ?? [];
-    const files = entries
-      .map((e) => /(\d+)\.json(\.gz)?$/.exec(e.FullPath.split("/").pop() ?? ""))
-      .filter((m): m is RegExpExecArray => m !== null);
-    for (let i = 0; i < files.length; i += 4) {
-      const loaded = await Promise.all(
-        files.slice(i, i + 4).map(async (m) => {
-          const res = await storage(`${base}${day}/${sessionId}/${m[0]}`, { headers, signal });
-          if (!res.ok) throw new Error(`Replay storage: ${res.status} for chunk ${m[1]}`);
-          const bytes = Buffer.from(await res.arrayBuffer());
-          const body = JSON.parse((m[2] ? gunzipSync(bytes) : bytes).toString("utf8")) as { events?: unknown[] };
-          return { seq: Number(m[1]), events: body.events ?? [] };
-        }),
-      );
-      chunks.push(...loaded);
+    for (const entry of entries) {
+      const match = /^(\d+)\.json(\.gz)?$/.exec(entry.FullPath.split("/").pop() ?? "");
+      if (match && !files.has(Number(match[1]))) files.set(Number(match[1]), { day, name: match[0], gz: Boolean(match[2]) });
     }
   }
-  const timeline = (await timelinePromise).map((r) => ({
-    at: num(r[0]),
-    event: str(r[1]),
-    url: str(r[2]),
-    text: str(r[3]).slice(0, 120),
-    kind: str(r[4]),
-    message: str(r[5]).slice(0, 200),
-    location: str(r[6]),
-  }));
-  const first = (await timelinePromise).find((r) => str(r[1]) === "$pageview");
-  chunks.sort((a, b) => a.seq - b.seq);
-  const events = chunks.flatMap((c) => c.events as { timestamp: number }[]).sort((a, b) => a.timestamp - b.timestamp);
-  return {
-    found: events.length > 0,
-    sessionId,
-    start,
-    end,
-    chunks: chunks.length,
-    clicks: num(meta![4]),
-    bytes: num(meta![5]),
-    device: first ? deviceName(str(first[7]), str(first[8])) : "Unknown",
-    browser: first ? str(first[9]) : "",
-    country: first ? str(first[10]) : "",
-    referrer: first ? str(first[11]) : "",
-    screen: first && str(first[12]) ? `${str(first[12])}×${str(first[13])}` : "",
-    timeline,
-    events: JSON.stringify(events),
-  };
+
+  const ordered = [...files].sort((a, b) => a[0] - b[0]);
+  const events: { timestamp: number }[] = [];
+  let bytes = 0;
+  let stoppedAt: number | null = null;
+  for (const [seq, file] of ordered) {
+    const res = await get(`${base}${file.day}/${sessionId}/${file.name}`);
+    if (!res.ok) throw new Error(`Replay storage: ${res.status} for chunk ${seq}`);
+    let body: Buffer;
+    try {
+      const raw = await readCapped(res, MAX_CHUNK_COMPRESSED);
+      if (!file.gz && raw.length > MAX_CHUNK_DECOMPRESSED) throw new TooLarge();
+      body = file.gz ? await gunzipCapped(raw, MAX_CHUNK_DECOMPRESSED) : raw;
+    } catch (error) {
+      if (error instanceof TooLarge) {
+        stoppedAt = seq;
+        break;
+      }
+      throw error;
+    }
+    if (bytes + body.length > MAX_SESSION_BYTES) {
+      stoppedAt = seq;
+      break;
+    }
+    const chunk = (JSON.parse(body.toString("utf8")) as { events?: { timestamp: number }[] }).events ?? [];
+    if (events.length + chunk.length > MAX_SESSION_EVENTS) {
+      stoppedAt = seq;
+      break;
+    }
+    bytes += body.length;
+    for (const event of chunk) events.push(event);
+  }
+  events.sort((a, b) => a.timestamp - b.timestamp);
+  return { events, chunks: ordered.length, loadedChunks: stoppedAt === null ? ordered.length : ordered.findIndex(([seq]) => seq === stoppedAt), truncated: stoppedAt !== null };
+}
+
+export async function getReplay(sessionId: string, signal?: AbortSignal) {
+  if (!SESSION_ID.test(sessionId)) throw new Error("Not a session id");
+  const local = new AbortController();
+  const bounded = AbortSignal.any([local.signal, AbortSignal.timeout(DEADLINE_MS), ...(signal ? [signal] : [])]);
+  try {
+    const keptFrom = Math.floor((Date.now() - (KEPT_DAYS + 1) * DAY) / DAY) * DAY;
+    const [meta] = await query(
+      `SELECT groupUniqArray(toString(toDate(timestamp))), min(toInt64OrZero(properties['first_timestamp'])), max(toInt64OrZero(properties['last_timestamp'])), count(),
+         sum(toUInt32OrZero(properties['clicks'])), sum(toUInt64OrZero(properties['bytes']))
+       FROM telemetry.events WHERE event = '$replay_chunk' AND ${since(keptFrom)} AND session_id = '${sessionId}'`,
+      bounded,
+      SESSION_CACHE,
+    );
+    const days = ((meta?.[0] as string[] | undefined) ?? []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+    if (!days.length) return { found: false as const, sessionId };
+
+    const firstDay = Date.parse(`${days[0]}T00:00:00Z`);
+    const lastDay = Date.parse(`${days.at(-1)}T00:00:00Z`);
+    const dayList = [...new Set([...days, new Date(lastDay + DAY).toISOString().slice(0, 10)])];
+
+    const [timelineRows, loaded] = await Promise.all([
+      query(
+        `SELECT toUnixTimestamp64Milli(timestamp), event, properties['$current_url'], properties['$el_text'], properties['$event_type'],
+           properties['$exception_values'], properties['location'], ${prop("$device_type")}, ${prop("$os")}, ${prop("$browser")}, ${prop("$geoip_country_code")},
+           properties['$referring_domain'], properties['$screen_width'], properties['$screen_height']
+         FROM telemetry.events
+         WHERE event IN (${TIMELINE_EVENTS.map((e) => `'${e}'`).join(", ")}) AND ${since(firstDay - DAY)} AND session_id = '${sessionId}'
+         ORDER BY timestamp LIMIT 2000`,
+        bounded,
+        SESSION_CACHE,
+      ),
+      loadChunks(sessionId, dayList, bounded),
+    ]);
+
+    const first = timelineRows.find((r) => str(r[1]) === "$pageview");
+    const events = loaded.events;
+    const shownMinutes = events.length > 1 ? Math.max(1, Math.round((events.at(-1)!.timestamp - events[0]!.timestamp) / 60_000)) : 0;
+    return {
+      found: events.length > 0 || loaded.truncated,
+      sessionId,
+      start: num(meta![1]),
+      end: num(meta![2]),
+      chunks: loaded.chunks,
+      clicks: num(meta![4]),
+      bytes: num(meta![5]),
+      device: first ? deviceName(str(first[7]), str(first[8])) : "Unknown",
+      browser: first ? str(first[9]) : "",
+      country: first ? str(first[10]) : "",
+      referrer: first ? str(first[11]) : "",
+      screen: first && str(first[12]) ? `${str(first[12])}×${str(first[13])}` : "",
+      truncated: loaded.truncated ? `This replay is too large to load whole, so it shows the first ${shownMinutes} min (${loaded.loadedChunks} of ${loaded.chunks} chunks).` : null,
+      timeline: timelineRows.map((r) => ({
+        at: num(r[0]),
+        event: str(r[1]),
+        url: str(r[2]),
+        text: str(r[3]).slice(0, 120),
+        kind: str(r[4]),
+        message: str(r[5]).slice(0, 200),
+        location: str(r[6]),
+      })),
+      events: JSON.stringify(events),
+    };
+  } catch (error) {
+    if (bounded.aborted && !signal?.aborted) throw new Error("Loading the replay took longer than 30 s and was stopped.");
+    throw error;
+  } finally {
+    local.abort();
+  }
 }

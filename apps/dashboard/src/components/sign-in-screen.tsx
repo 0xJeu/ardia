@@ -4,6 +4,7 @@ import { FormButton, FormField, FormGroup, GlassForm } from "@/components/ruixen
 import PasswordField from "@/components/ruixen/password-field";
 import ScrambleText from "@/components/ruixen/scramble-text";
 import { hexclaveClientApp } from "@/lib/hexclave";
+import { safeNext } from "@/lib/safe-next";
 
 export function SignInScreen({ next }: { next: string }) {
   const [email, setEmail] = useState("");
@@ -22,7 +23,7 @@ export function SignInScreen({ next }: { next: string }) {
         setBusy(false);
         return;
       }
-      window.location.replace(next);
+      window.location.replace(safeNext(next));
     } catch {
       setError("Couldn't reach the sign-in service. Try again.");
       setBusy(false);

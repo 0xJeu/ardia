@@ -3,6 +3,8 @@ import { serverEnv } from "./env";
 const FRESH_MS = 5 * 60_000;
 const KEEP_MS = 6 * 60 * 60_000;
 const MAX_IN_FLIGHT = 2;
+const MAX_CACHE_ENTRIES = 300;
+const MAX_CACHE_BYTES = 64 * 1024 * 1024;
 const SETTINGS = {
   max_execution_time: "15",
   cancel_http_readonly_queries_on_client_close: "1",
@@ -12,8 +14,15 @@ const SETTINGS = {
 
 type Rows = unknown[][];
 
+export type CachePolicy = { freshMs: number; keepMs: number };
+
+const DEFAULT_POLICY: CachePolicy = { freshMs: FRESH_MS, keepMs: KEEP_MS };
+
+type Entry = { at: number; rows: Rows; bytes: number; policy: CachePolicy };
+
 type Job = {
   sql: string;
+  policy: CachePolicy;
   label: string;
   waiters: number;
   controller: AbortController;
@@ -23,7 +32,8 @@ type Job = {
   reject: (error: unknown) => void;
 };
 
-const cache = new Map<string, { at: number; rows: Rows }>();
+const cache = new Map<string, Entry>();
+let cacheBytes = 0;
 const inFlight = new Map<string, Job>();
 const queue: Job[] = [];
 let running = 0;
@@ -67,7 +77,7 @@ function pump() {
   while (running < MAX_IN_FLIGHT && queue.length) {
     const job = queue.shift()!;
     if (job.waiters <= 0) {
-      inFlight.delete(job.sql);
+      if (inFlight.get(job.sql) === job) inFlight.delete(job.sql);
       job.reject(new DOMException("Aborted", "AbortError"));
       continue;
     }
@@ -75,37 +85,56 @@ function pump() {
     job.started = true;
     execute(job)
       .then((rows) => {
-        cache.set(job.sql, { at: Date.now(), rows });
+        remember(job.sql, rows, job.policy);
         job.resolve(rows);
       }, job.reject)
       .finally(() => {
         running--;
-        inFlight.delete(job.sql);
+        if (inFlight.get(job.sql) === job) inFlight.delete(job.sql);
         pump();
       });
   }
 }
 
-function prune(now: number) {
-  if (cache.size < 400) return;
-  for (const [key, entry] of cache) if (now - entry.at >= KEEP_MS) cache.delete(key);
+function forget(sql: string) {
+  const entry = cache.get(sql);
+  if (!entry) return;
+  cacheBytes -= entry.bytes;
+  cache.delete(sql);
 }
 
-function refreshInBackground(sql: string) {
+function remember(sql: string, rows: Rows, policy: CachePolicy) {
+  forget(sql);
+  const bytes = JSON.stringify(rows).length * 2 + sql.length * 2;
+  if (bytes > MAX_CACHE_BYTES / 4) return;
+  cache.set(sql, { at: Date.now(), rows, bytes, policy });
+  cacheBytes += bytes;
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (cache.size <= MAX_CACHE_ENTRIES && cacheBytes <= MAX_CACHE_BYTES && now - entry.at < entry.policy.keepMs) break;
+    forget(key);
+  }
+}
+
+function refreshInBackground(sql: string, policy: CachePolicy) {
   if (inFlight.has(sql)) return;
-  const controller = new AbortController();
-  query(sql, controller.signal, true).catch(() => undefined);
+  run(sql, new AbortController().signal, policy).catch(() => undefined);
 }
 
-export function query(sql: string, signal?: AbortSignal, background = false): Promise<Rows> {
+export function query(sql: string, signal?: AbortSignal, policy: CachePolicy = DEFAULT_POLICY): Promise<Rows> {
   const now = Date.now();
   const hit = cache.get(sql);
-  if (!background && hit && now - hit.at < KEEP_MS) {
-    if (now - hit.at >= FRESH_MS) refreshInBackground(sql);
+  if (hit && now - hit.at < hit.policy.keepMs) {
+    cache.delete(sql);
+    cache.set(sql, hit);
+    if (now - hit.at >= hit.policy.freshMs) refreshInBackground(sql, policy);
     return Promise.resolve(hit.rows);
   }
-  prune(now);
+  if (hit) forget(sql);
+  return run(sql, signal, policy);
+}
 
+function run(sql: string, signal: AbortSignal | undefined, policy: CachePolicy): Promise<Rows> {
   let job = inFlight.get(sql);
   if (!job) {
     let resolve!: (rows: Rows) => void;
@@ -115,7 +144,7 @@ export function query(sql: string, signal?: AbortSignal, background = false): Pr
       reject = rej;
     });
     promise.catch(() => undefined);
-    job = { sql, label: sql.replace(/\s+/g, " ").trim().slice(0, 70), waiters: 0, controller: new AbortController(), started: false, promise, resolve, reject };
+    job = { sql, policy, label: sql.replace(/\s+/g, " ").trim().slice(0, 70), waiters: 0, controller: new AbortController(), started: false, promise, resolve, reject };
     inFlight.set(sql, job);
     queue.push(job);
   }

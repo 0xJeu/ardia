@@ -78,7 +78,7 @@ function ReplaysPage() {
     <>
       <PageHeader
         title="Replays"
-        description={`Recorded ardia.dev sessions. ${rangeSentence(range)}, up to the 30 days replays are kept. Inputs and private text are masked at record time.`}
+        description={`Always-on, anonymous recordings of ardia.dev sessions. ${rangeSentence(range)}, up to the 30 days replays are kept. Inputs and private text are masked at record time.`}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -149,6 +149,7 @@ function ReplaysPage() {
       </div>
 
       <Panel
+        source="replay"
         title="Sessions"
         description={query.data ? `${formatExact(query.data.total)} sessions match. Click one to watch it.` : "Loading sessions…"}
         bodyClassName="px-0 sm:px-0"

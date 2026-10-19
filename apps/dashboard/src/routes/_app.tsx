@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { AppShell, ShellSkeleton } from "@/components/app-shell";
 import { getViewer } from "@/lib/api";
 import { parseRange, type RangeKey } from "@/lib/range";
+import { safeNext } from "@/lib/safe-next";
 import { cachedViewer, rememberViewer } from "@/lib/viewer-cache";
 
 export const Route = createFileRoute("/_app")({
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/_app")({
     const cached = cachedViewer();
     if (cached) return { email: cached };
     const viewer = await getViewer();
-    if (viewer.state === "signed-out") throw redirect({ to: "/sign-in", search: { next: location.href } });
+    if (viewer.state === "signed-out") throw redirect({ to: "/sign-in", search: { next: safeNext(location.href) } });
     if (viewer.state === "denied") throw redirect({ to: "/not-allowed" });
     rememberViewer(viewer.email);
     return { email: viewer.email };

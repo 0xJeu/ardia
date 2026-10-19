@@ -7,6 +7,7 @@ import { DataTable } from "@/components/data-table";
 import { Card } from "@/components/ui/card";
 import { ChartSkeleton, ListSkeleton, Loaded, StatsSkeleton, TableSkeleton, useRange, useSection } from "@/components/section";
 import type { SectionData } from "@/server/sections";
+import { SourceBadge } from "@/components/source-badge";
 import { compareLabel, compareSentence, rangeSentence } from "@/lib/compare";
 import { formatAgo, formatExact, formatMs, formatPercent } from "@/lib/format";
 import { windowFor } from "@/lib/range";
@@ -40,9 +41,10 @@ function SitePage() {
 
   return (
     <>
-      <PageHeader title="Site" description={`ardia.dev. ${rangeSentence(range)}${compareSentence(range)}. Times in UTC.`} />
+      <PageHeader title="Site" description={`ardia.dev, from always-on, anonymous site analytics. ${rangeSentence(range)}${compareSentence(range)}. Times in UTC.`} />
 
-      <Card className="px-4 py-4 shadow-none sm:px-5">
+      <Card className="relative px-4 py-4 shadow-none sm:px-5">
+        <div className="absolute top-3 right-3"><SourceBadge source="site" /></div>
         <Loaded query={traffic} skeleton={<div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5"><StatsSkeleton count={5} /></div>}>
           {(d) => (
             <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
@@ -67,12 +69,12 @@ function SitePage() {
       </Card>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-5">
-        <Panel className="xl:col-span-3" title="Visitors over time" description={`Distinct visitors per ${w.step === "hour" ? "hour" : "day"}.`}>
+        <Panel source="site" className="xl:col-span-3" title="Visitors over time" description={`Distinct visitors per ${w.step === "hour" ? "hour" : "day"}.`}>
           <Loaded query={traffic} skeleton={<ChartSkeleton height={260} legend />}>
             {(d) => <TimeSeriesChart buckets={d.window.buckets} series={d.trend} step={d.window.step} height={260} />}
           </Loaded>
         </Panel>
-        <Panel className="xl:col-span-2" title="Download funnel" description="Distinct people in the range. The Download button only ships a Mac app, so the funnel follows Macs.">
+        <Panel source="site" className="xl:col-span-2" title="Download funnel" description="Distinct people in the range. The Download button only ships a Mac app, so the funnel follows Macs.">
           <Loaded query={clicks} skeleton={<ListSkeleton rows={4} />}>
             {(d) => {
               const mac = traffic.data?.kpis.mac.value ?? null;
@@ -112,7 +114,7 @@ function SitePage() {
             ["utm", "Campaigns", "utm_source / medium / campaign, from the page or the session's entry.", "Source / medium / campaign", true, "var(--chart-1)", "No tagged traffic in this range"],
           ] as const
         ).map(([key, title, description, dimension, views, color, empty]) => (
-          <Panel key={key} title={title} description={description}>
+          <Panel source="site" key={key} title={title} description={description}>
             <Loaded query={breakdowns} skeleton={<ListSkeleton />}>
               {(d) => <BarList items={d[key]} dimension={dimension} secondaryLabel={views ? "Views" : undefined} color={color} empty={empty} />}
             </Loaded>
@@ -121,12 +123,12 @@ function SitePage() {
       </div>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Panel title="Clicks" description={`Tracked clicks. Change compares people with ${compare || "the period before"}.`}>
+        <Panel source="site" title="Clicks" description={`Tracked clicks. Change compares people with ${compare || "the period before"}.`}>
           <Loaded query={clicks} skeleton={<TableSkeleton rows={8} columns={4} />}>
             {(d) => <ClicksTable rows={d.clicks} />}
           </Loaded>
         </Panel>
-        <Panel title="Rage and dead clicks" description="Grouped by the element's text and the page. Images have no text.">
+        <Panel source="site" title="Rage and dead clicks" description="Grouped by the element's text and the page. Images have no text.">
           <Loaded query={clicks} skeleton={<TableSkeleton rows={8} columns={6} />}>
             {(d) => <DeadClicks rows={d.deadClicks} />}
           </Loaded>
@@ -134,19 +136,19 @@ function SitePage() {
       </div>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Panel title="Experiment: download-band" description="Mac visitors exposed to each variant in the range, and how many clicked Download after exposure. Stop at 300+ per variant and 7+ days.">
+        <Panel source="site" title="Experiment: download-band" description="Mac visitors exposed to each variant in the range, and how many clicked Download after exposure. Stop at 300+ per variant and 7+ days.">
           <Loaded query={experiment} skeleton={<TableSkeleton rows={2} columns={5} />}>
             {(d) => <Experiment data={d} />}
           </Loaded>
         </Panel>
-        <Panel title="Send to my Mac" description="The phone panel: taps, how the link got out, and Macs that opened a sent link.">
+        <Panel source="site" title="Send to my Mac" description="The phone panel: taps, how the link got out, and Macs that opened a sent link.">
           <Loaded query={clicks} skeleton={<ListSkeleton rows={4} />}>
             {(d) => <SendToMac rows={d.sendToMac} />}
           </Loaded>
         </Panel>
       </div>
 
-      <Panel title="Web vitals" description="75th percentile of real visits in the range, against Google's thresholds.">
+      <Panel source="site" title="Web vitals" description="75th percentile of real visits in the range, against Google's thresholds.">
         <Loaded query={vitals} skeleton={<div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4"><StatsSkeleton count={4} /></div>}>
           {(d) => <Vitals rows={d} />}
         </Loaded>

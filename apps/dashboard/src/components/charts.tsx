@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from "recharts";
+import { SourceBadge, type Source } from "@/components/source-badge";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatBucket, formatCompact, formatExact, formatTick } from "@/lib/format";
 import type { Step } from "@/lib/range";
@@ -8,7 +9,7 @@ import { cn } from "@/lib/utils";
 export const SERIES_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)"];
 export const OTHER_COLOR = "var(--chart-other)";
 
-export type ChartSeries = { key: string; label: string; values: number[]; color?: string };
+export type ChartSeries = { key: string; label: string; values: number[]; color?: string; source?: Source };
 
 type TooltipRow = { dataKey?: string | number; value?: unknown; color?: string; name?: string | number };
 
@@ -56,7 +57,7 @@ function SeriesTooltip({
   );
 }
 
-export function Legend({ items, className }: { items: { label: string; color: string; shape?: "line" | "box" }[]; className?: string }) {
+export function Legend({ items, className }: { items: { label: string; color: string; shape?: "line" | "box"; source?: Source }[]; className?: string }) {
   return (
     <ul className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground", className)}>
       {items.map((item) => (
@@ -66,6 +67,7 @@ export function Legend({ items, className }: { items: { label: string; color: st
             style={{ backgroundColor: item.color }}
           />
           {item.label}
+          {item.source ? <SourceBadge source={item.source} className="ml-0.5" /> : null}
         </li>
       ))}
     </ul>
@@ -77,7 +79,9 @@ function useRows(buckets: number[], series: ChartSeries[]) {
     () =>
       buckets.map((t, i) => {
         const row: Record<string, number> = { t };
-        for (const s of series) row[s.key] = s.values[i] ?? 0;
+        series.forEach((s, j) => {
+          row[`s${j}`] = s.values[i] ?? 0;
+        });
         return row;
       }),
     [buckets, series],
@@ -85,7 +89,7 @@ function useRows(buckets: number[], series: ChartSeries[]) {
 }
 
 function configOf(series: ChartSeries[]): ChartConfig {
-  return Object.fromEntries(series.map((s, i) => [s.key, { label: s.label, color: s.color ?? SERIES_COLORS[i % SERIES_COLORS.length] }]));
+  return Object.fromEntries(series.map((s, i) => [`s${i}`, { label: s.label, color: s.color ?? SERIES_COLORS[i % SERIES_COLORS.length] }]));
 }
 
 const axisProps = {
@@ -119,7 +123,7 @@ export function TimeSeriesChart({
   const Chart = filled ? AreaChart : LineChart;
   return (
     <div className="grid gap-3">
-      {series.length > 1 ? <Legend items={series.map((s, i) => ({ label: s.label, color: s.color ?? SERIES_COLORS[i]! }))} /> : null}
+      {series.length > 1 ? <Legend items={series.map((s, i) => ({ label: s.label, color: s.color ?? SERIES_COLORS[i]!, source: s.source }))} /> : null}
       <ChartContainer config={config} className="aspect-auto w-full" style={{ height }}>
         <Chart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} accessibilityLayer>
           <CartesianGrid vertical={false} stroke="var(--grid)" />
@@ -139,15 +143,15 @@ export function TimeSeriesChart({
             cursor={{ stroke: "var(--axis)", strokeWidth: 1 }}
             content={<SeriesTooltip step={step} config={config} format={format} />}
           />
-          {series.map((s) =>
+          {series.map((s, i) =>
             filled ? (
               <Area
                 key={s.key}
-                dataKey={s.key}
+                dataKey={`s${i}`}
                 type="monotone"
-                stroke={`var(--color-${s.key})`}
+                stroke={`var(--color-s${i})`}
                 strokeWidth={2}
-                fill={`var(--color-${s.key})`}
+                fill={`var(--color-s${i})`}
                 fillOpacity={0.1}
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }}
@@ -156,9 +160,9 @@ export function TimeSeriesChart({
             ) : (
               <Line
                 key={s.key}
-                dataKey={s.key}
+                dataKey={`s${i}`}
                 type="monotone"
-                stroke={`var(--color-${s.key})`}
+                stroke={`var(--color-s${i})`}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }}
@@ -212,15 +216,15 @@ export function StackedAreaChart({
             cursor={{ stroke: "var(--axis)", strokeWidth: 1 }}
             content={<SeriesTooltip step={step} config={config} format={format} total />}
           />
-          {series.map((s) => (
+          {series.map((s, i) => (
             <Area
               key={s.key}
-              dataKey={s.key}
+              dataKey={`s${i}`}
               stackId="stack"
               type="linear"
               stroke="var(--card)"
               strokeWidth={1.5}
-              fill={`var(--color-${s.key})`}
+              fill={`var(--color-s${i})`}
               fillOpacity={0.85}
               activeDot={false}
               isAnimationActive={false}

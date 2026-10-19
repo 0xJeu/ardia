@@ -38,7 +38,7 @@ export async function currentViewer(): Promise<Viewer> {
   const request = getRequest();
   const user = await serverApp().getUser({ tokenStore: request });
   if (!user) return { state: "signed-out" };
-  const email = user.primaryEmail?.toLowerCase() ?? null;
+  const email = user.primaryEmail?.trim().toLowerCase() || null;
   if (!email || !user.primaryEmailVerified || !allowedEmails().has(email)) return { state: "denied", email };
   return { state: "allowed", email };
 }

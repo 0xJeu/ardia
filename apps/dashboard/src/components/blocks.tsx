@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, Info, Minus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { SparkChart } from "@/components/ruixen/spark-chart";
+import { SourceBadges, type Source } from "@/components/source-badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -15,9 +16,11 @@ export function Panel({
   children,
   className,
   bodyClassName,
+  source,
 }: {
   title: ReactNode;
   description?: ReactNode;
+  source?: Source | Source[];
   action?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -27,7 +30,10 @@ export function Panel({
     <Card className={cn("gap-0 overflow-hidden py-0 shadow-none", className)}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pt-4 pb-3 sm:px-5">
         <div className="min-w-0">
-          <h2 className="text-[0.95rem] font-semibold tracking-[-0.01em]">{title}</h2>
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.95rem] font-semibold tracking-[-0.01em]">
+            {title}
+            <SourceBadges source={source} />
+          </h2>
           {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
         </div>
         {action}
@@ -68,7 +74,7 @@ export type KpiData = {
   hint: string;
 };
 
-export function KpiTile({ kpi, buckets, color, compareLabel }: { kpi: KpiData; buckets: number[]; color: string; compareLabel: string }) {
+export function KpiTile({ kpi, buckets, color, compareLabel, source }: { kpi: KpiData; buckets: number[]; color: string; compareLabel: string; source: Source | Source[] }) {
   const [scrub, setScrub] = useState<number | null>(null);
   const fmt = (n: number | null) => (kpi.format === "percent" ? formatPercent(n) : formatCount(n));
   const sparkBuckets = buckets.slice(buckets.length - kpi.spark.length);
@@ -76,7 +82,9 @@ export function KpiTile({ kpi, buckets, color, compareLabel }: { kpi: KpiData; b
   return (
     <Card className="relative gap-0 overflow-hidden py-0 shadow-none">
       <div className="flex items-center justify-between gap-2 px-4 pt-3.5">
-        <span className="label-mono text-muted-foreground">{kpi.label}</span>
+        <span className="label-mono min-w-0 truncate text-muted-foreground">{kpi.label}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+        <SourceBadges source={source} />
         <Tooltip delayDuration={100}>
           <TooltipTrigger asChild>
             <button type="button" className="rounded-full text-muted-foreground/60 hover:text-foreground" aria-label={`About ${kpi.label}`}>
@@ -87,6 +95,7 @@ export function KpiTile({ kpi, buckets, color, compareLabel }: { kpi: KpiData; b
             {kpi.hint}
           </TooltipContent>
         </Tooltip>
+        </span>
       </div>
       <div className="flex min-h-[3.25rem] items-end gap-2 px-4 pt-1">
         {scrubValue !== null && scrubValue !== undefined ? (
@@ -124,10 +133,13 @@ export function KpiTileSkeleton() {
   );
 }
 
-export function Stat({ label, value, sub, delta }: { label: string; value: ReactNode; sub?: ReactNode; delta?: ReactNode }) {
+export function Stat({ label, value, sub, delta, source }: { label: string; value: ReactNode; sub?: ReactNode; delta?: ReactNode; source?: Source | Source[] }) {
   return (
     <div className="grid content-start gap-1">
-      <span className="label-mono text-muted-foreground">{label}</span>
+      <span className="flex flex-wrap items-center gap-1.5">
+        <span className="label-mono text-muted-foreground">{label}</span>
+        <SourceBadges source={source} />
+      </span>
       <span className="text-2xl leading-none font-semibold tracking-[-0.02em]">{value}</span>
       {sub || delta ? (
         <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">

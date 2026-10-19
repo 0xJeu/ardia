@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { KpiTile, KpiTileSkeleton, PageHeader, Panel, type KpiData } from "@/components/blocks";
 import { SERIES_COLORS, TimeSeriesChart } from "@/components/charts";
 import { ChartSkeleton, SectionError, useRange, useSection } from "@/components/section";
+import type { Source } from "@/components/source-badge";
 import { compareLabel, compareSentence, rangeSentence } from "@/lib/compare";
 import { windowFor } from "@/lib/range";
 import { ratio } from "@/lib/ratio";
@@ -11,7 +12,7 @@ export const Route = createFileRoute("/_app/")({
   component: Overview,
 });
 
-type TileSpec = { kpi: KpiData | null; error: unknown; retry: () => void; color: string; buckets: number[]; key: string };
+type TileSpec = { kpi: KpiData | null; error: unknown; retry: () => void; color: string; buckets: number[]; key: string; source: Source | Source[] };
 
 function Overview() {
   const range = useRange();
@@ -28,6 +29,7 @@ function Overview() {
   const tiles: TileSpec[] = [
     {
       key: "visitors",
+      source: "site",
       color: SERIES_COLORS[0]!,
       buckets: w.buckets,
       error: site.error,
@@ -36,6 +38,7 @@ function Overview() {
     },
     {
       key: "mac",
+      source: "site",
       color: SERIES_COLORS[0]!,
       buckets: w.buckets,
       error: site.error,
@@ -44,6 +47,7 @@ function Overview() {
     },
     {
       key: "clickers",
+      source: "site",
       color: SERIES_COLORS[1]!,
       buckets: w.buckets,
       error: site.error,
@@ -52,6 +56,7 @@ function Overview() {
     },
     {
       key: "rate",
+      source: "site",
       color: SERIES_COLORS[1]!,
       buckets: w.buckets,
       error: site.error,
@@ -70,6 +75,7 @@ function Overview() {
     },
     {
       key: "first",
+      source: "feed",
       color: SERIES_COLORS[2]!,
       buckets: days,
       error: installs.error,
@@ -89,6 +95,7 @@ function Overview() {
     },
     {
       key: "active",
+      source: "feed",
       color: SERIES_COLORS[2]!,
       buckets: days,
       error: installs.error,
@@ -109,6 +116,7 @@ function Overview() {
     },
     {
       key: "app",
+      source: "app",
       color: SERIES_COLORS[3]!,
       buckets: w.buckets,
       error: app.error,
@@ -119,6 +127,7 @@ function Overview() {
     },
     {
       key: "errors",
+      source: ["site", "app"],
       color: "var(--bad)",
       buckets: w.buckets,
       error: errors.error,
@@ -133,11 +142,11 @@ function Overview() {
 
   return (
     <>
-      <PageHeader title="Overview" description={`${rangeSentence(range)}${compareSentence(range)}. Times in UTC.`} />
+      <PageHeader title="Overview" description={`${rangeSentence(range)}${compareSentence(range)}. Site analytics and update checks are always on and anonymous; app users are opt-in only. Times in UTC.`} />
       <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-label="Key numbers">
         {tiles.map((t) =>
           t.kpi ? (
-            <KpiTile key={t.key} kpi={t.kpi} buckets={t.buckets} color={t.color} compareLabel={compare} />
+            <KpiTile key={t.key} kpi={t.kpi} buckets={t.buckets} color={t.color} compareLabel={compare} source={t.source} />
           ) : t.error ? (
             <div key={t.key} className="rounded-xl border bg-card p-3">
               <SectionError error={t.error} onRetry={t.retry} />
@@ -148,7 +157,7 @@ function Overview() {
         )}
       </section>
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-5">
-        <Panel className="xl:col-span-3" title="Visitors" description={`Distinct visitors per ${w.step === "hour" ? "hour" : "day"}, all devices and Macs.`}>
+        <Panel className="xl:col-span-3" title="Visitors" source="site" description={`Distinct visitors per ${w.step === "hour" ? "hour" : "day"}, all devices and Macs.`}>
           {s ? (
             <TimeSeriesChart
               buckets={s.window.buckets}
@@ -167,6 +176,7 @@ function Overview() {
         </Panel>
         <Panel
           className="xl:col-span-2"
+          source={w.step === "hour" ? "site" : undefined}
           title="Downloads and installs"
           description={w.step === "hour" ? "Download clickers per hour. First launches are counted per UTC day; pick 7d or longer to see them." : "Download clickers and first launches per day."}
         >
@@ -176,8 +186,8 @@ function Overview() {
               step={s.window.step}
               height={280}
               series={[
-                { key: "clickers", label: "Download clickers", values: s.clickers.series, color: "var(--chart-2)" },
-                ...(firstOnBuckets && s.window.step === "day" ? [{ key: "first", label: "First launches", values: firstOnBuckets, color: "var(--chart-3)" }] : []),
+                { key: "clickers", label: "Download clickers", values: s.clickers.series, color: "var(--chart-2)", source: "site" as const },
+                ...(firstOnBuckets && s.window.step === "day" ? [{ key: "first", label: "First launches", values: firstOnBuckets, color: "var(--chart-3)", source: "feed" as const }] : []),
               ]}
             />
           ) : site.error ? (

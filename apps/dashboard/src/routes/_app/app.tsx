@@ -8,6 +8,7 @@ import { ChartSkeleton, ListSkeleton, Loaded, StatsSkeleton, TableSkeleton, useR
 import { compareLabel, compareSentence, rangeSentence } from "@/lib/compare";
 import { formatAgo, formatExact, formatMs, formatPercent } from "@/lib/format";
 import { windowFor } from "@/lib/range";
+import { SourceBadge } from "@/components/source-badge";
 
 export const Route = createFileRoute("/_app/app")({
   head: () => ({ meta: [{ title: "App · Ardia" }] }),
@@ -21,16 +22,29 @@ function AppPage() {
   const trend = useSection("app.trend");
   const breakdowns = useSection("app.breakdowns");
   const perf = useSection("app.perf");
+  const installs = useSection("overview.installs");
+  const share = (() => {
+    const t = trend.data;
+    const checks = installs.data?.checks.yesterday;
+    if (!t || !checks) return null;
+    const users = t.window.step === "day" ? (t.users.at(-2) ?? 0) : t.kpis.users.value;
+    const low = Math.ceil(checks / 3);
+    const high = checks;
+    if (!users || !low) return null;
+    const pct = (n: number) => Math.min(100, Math.round((100 * users) / n));
+    return `${users} opted-in users yesterday against ${low}–${high} copies running, so roughly ${pct(high)}–${pct(low)}% of installs share usage.`;
+  })();
   const vs = (previous: number | null, format: (n: number) => string) => (previous !== null ? <span className="tnum">vs {format(previous)} {compare}</span> : null);
 
   return (
     <>
       <PageHeader
         title="App"
-        description={`Opt-in telemetry from the Mac app (Settings › Privacy). ${rangeSentence(range)}${compareSentence(range)}. Only people who turned it on are here.`}
+        description={`Opt-in only: Mac app telemetry from users who turned on usage sharing, so every number here undercounts. ${share ?? ""} ${rangeSentence(range)}${compareSentence(range)}.`}
       />
 
-      <Card className="px-4 py-4 shadow-none sm:px-5">
+      <Card className="relative px-4 py-4 shadow-none sm:px-5">
+        <div className="absolute top-3 right-3"><SourceBadge source="app" /></div>
         <Loaded query={trend} skeleton={<div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5"><StatsSkeleton count={5} /></div>}>
           {({ kpis: k }) => (
             <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
@@ -50,12 +64,12 @@ function AppPage() {
       </Card>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Panel title="Opted-in users" description={`Distinct installs sending telemetry per ${w.step === "hour" ? "hour" : "day"}.`}>
+        <Panel source="app" title="Opted-in users" description={`Distinct installs sending telemetry per ${w.step === "hour" ? "hour" : "day"}.`}>
           <Loaded query={trend} skeleton={<ChartSkeleton height={220} />}>
             {(d) => <TimeSeriesChart buckets={d.window.buckets} series={[{ key: "users", label: "Opted-in users", values: d.users, color: "var(--chart-4)" }]} step={d.window.step} height={220} />}
           </Loaded>
         </Panel>
-        <Panel title="Launches" description={`App launches per ${w.step === "hour" ? "hour" : "day"}.`}>
+        <Panel source="app" title="Launches" description={`App launches per ${w.step === "hour" ? "hour" : "day"}.`}>
           <Loaded query={trend} skeleton={<ChartSkeleton height={220} />}>
             {(d) => <TimeSeriesChart buckets={d.window.buckets} series={[{ key: "launches", label: "Launches", values: d.launches, color: "var(--chart-2)" }]} step={d.window.step} height={220} />}
           </Loaded>
@@ -63,30 +77,30 @@ function AppPage() {
       </div>
 
       <div className="grid gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <Panel title="Versions">
+        <Panel source="app" title="Versions">
           <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.versions} dimension="App version" valueLabel="Users" secondaryLabel="Events" color="var(--chart-4)" />}</Loaded>
         </Panel>
-        <Panel title="macOS">
+        <Panel source="app" title="macOS">
           <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.osVersions} dimension="Version" valueLabel="Users" color="var(--chart-4)" />}</Loaded>
         </Panel>
-        <Panel title="Engine and chip">
+        <Panel source="app" title="Engine and chip">
           <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.engines} dimension="Engine" valueLabel="Users" color="var(--chart-4)" limit={4} />}</Loaded>
           <div className="mt-4 border-t pt-4">
             <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.arch} dimension="Architecture" valueLabel="Users" color="var(--chart-4)" />}</Loaded>
           </div>
         </Panel>
-        <Panel title="Session length" description="From the session-ended event.">
+        <Panel source="app" title="Session length" description="From the session-ended event.">
           <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.sessionLengths} dimension="Length" valueLabel="Sessions" color="var(--chart-2)" />}</Loaded>
         </Panel>
-        <Panel title="Settings sections opened">
+        <Panel source="app" title="Settings sections opened">
           <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.sections} dimension="Section" valueLabel="Users" secondaryLabel="Opens" color="var(--chart-2)" />}</Loaded>
         </Panel>
-        <Panel title="Omnibox suggestions chosen">
+        <Panel source="app" title="Omnibox suggestions chosen">
           <Loaded query={breakdowns} skeleton={<ListSkeleton />}>{(data) => <BarList items={data.suggestions} dimension="Type" valueLabel="Users" secondaryLabel="Picks" color="var(--chart-2)" />}</Loaded>
         </Panel>
       </div>
 
-      <Panel title="Performance by version" description="Medians across the samples each version sent in the range.">
+      <Panel source="app" title="Performance by version" description="Medians across the samples each version sent in the range.">
         <Loaded query={perf} skeleton={<TableSkeleton rows={8} columns={8} />}>
           {(rows) => (
             <DataTable
@@ -110,7 +124,7 @@ function AppPage() {
       </Panel>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-5">
-        <Panel className="xl:col-span-3" title="Events" description="Everything the app sent in the range.">
+        <Panel source="app" className="xl:col-span-3" title="Events" description="Everything the app sent in the range.">
           <Loaded query={breakdowns} skeleton={<TableSkeleton rows={8} columns={4} />}>
             {(d) => (
               <DataTable
@@ -138,7 +152,7 @@ function AppPage() {
             )}
           </Loaded>
         </Panel>
-        <Panel className="xl:col-span-2" title="Updates" description="From version → to version, as the app reported after updating.">
+        <Panel source="app" className="xl:col-span-2" title="Updates" description="From version → to version, as the app reported after updating.">
           <Loaded query={breakdowns} skeleton={<TableSkeleton rows={8} columns={3} />}>
             {(u) => (
               <DataTable

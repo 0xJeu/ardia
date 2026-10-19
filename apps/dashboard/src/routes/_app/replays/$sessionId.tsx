@@ -85,14 +85,15 @@ function ReplayPage() {
       {query.isError ? (
         <SectionError error={query.error} onRetry={() => query.refetch()} />
       ) : data && !data.found ? (
-        <Panel title="This replay isn't available">
+        <Panel source="replay" title="This replay isn't available">
           <p className="text-sm text-muted-foreground">
             No recording was found for this session. Replays are kept for 30 days, and sessions shorter than about 4 seconds aren't recorded.
           </p>
         </Panel>
       ) : (
         <div className="grid items-start gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <Panel title="Recording" description={data && data.found ? `${formatDateTime(data.start)} · ${clock(data.end - data.start)} long · inactivity is skipped` : "Loading the recording…"} bodyClassName="px-3 pb-3 sm:px-4">
+          <Panel source="replay" title="Recording" description={data && data.found ? `${formatDateTime(data.start)} · ${clock(data.end - data.start)} long · inactivity is skipped` : "Loading the recording…"} bodyClassName="px-3 pb-3 sm:px-4">
+            {data && data.found && data.truncated ? <p className="mb-3 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{data.truncated}</p> : null}
             {data && data.found ? (
               events.length > 1 ? (
                 <Suspense fallback={<Skeleton className="aspect-[16/10] w-full rounded-lg" />}>
@@ -107,7 +108,7 @@ function ReplayPage() {
           </Panel>
 
           <div className="grid gap-3 sm:gap-4">
-            <Panel title="Session">
+            <Panel source="replay" title="Session">
               {data && data.found ? (
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
                   {(
@@ -135,7 +136,7 @@ function ReplayPage() {
                 </div>
               )}
             </Panel>
-            <Panel title="Timeline" description="Click an event to jump there." bodyClassName="px-2 pb-2 sm:px-2">
+            <Panel source="replay" title="Timeline" description="Click an event to jump there." bodyClassName="px-2 pb-2 sm:px-2">
               {data && data.found ? (
                 data.timeline.length ? (
                   <ol className="grid max-h-[420px] gap-0.5 overflow-y-auto pr-1">

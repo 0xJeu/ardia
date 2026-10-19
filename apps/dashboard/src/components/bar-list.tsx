@@ -30,7 +30,7 @@ export function BarList({
   const total = shareOf ?? items.reduce((s, i) => s + i.value, 0);
   const shown = expanded ? items : items.slice(0, limit);
   return (
-    <div className="grid gap-1">
+    <div className="grid min-w-0 gap-1">
       <div className="flex items-center justify-between pb-1 label-mono text-muted-foreground">
         <span>{dimension}</span>
         <span className="flex gap-4">
@@ -38,9 +38,9 @@ export function BarList({
           <span className="w-12 text-right">{valueLabel}</span>
         </span>
       </div>
-      <ul className="grid gap-1">
+      <ul className="grid min-w-0 gap-1">
         {shown.map((item) => (
-          <li key={item.key}>
+          <li key={item.key} className="min-w-0">
             <Tooltip delayDuration={80}>
               <TooltipTrigger asChild>
                 <div

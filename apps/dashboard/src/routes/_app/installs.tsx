@@ -23,19 +23,20 @@ function InstallsPage() {
     <>
       <PageHeader
         title="Installs & updates"
-        description={`${rangeSentence(range)}, by UTC day. Counted from the update checks Sparkle makes: 1–3 a day per running copy, with the very first one flagged.`}
+        description={`${rangeSentence(range)}, by UTC day. From the always-on, anonymous update checks every installed copy makes (1–3 a day per running copy, the very first one flagged). Download counts are public GitHub data.`}
       />
 
       <Card className="grid grid-cols-2 gap-x-4 gap-y-5 px-4 py-4 shadow-none sm:px-5 lg:grid-cols-4">
         <Loaded query={daily} skeleton={<StatsSkeleton count={1} />}>
-          {(d) => <Stat label="First launches" value={formatExact(d.firstInRange)} sub={versions.data ? `${formatExact(versions.data.firstAllTime)} all time` : <Skeleton className="h-3 w-20" />} />}
+          {(d) => <Stat source="feed" label="First launches" value={formatExact(d.firstInRange)} sub={versions.data ? `${formatExact(versions.data.firstAllTime)} all time` : <Skeleton className="h-3 w-20" />} />}
         </Loaded>
         <Loaded query={daily} skeleton={<StatsSkeleton count={1} />}>
-          {(d) => <Stat label="Copies running yesterday" value={d.yesterday ? `${d.yesterday.low}–${d.yesterday.high}` : "–"} sub="checks ÷ 3 to checks" />}
+          {(d) => <Stat source="feed" label="Copies running yesterday" value={d.yesterday ? `${d.yesterday.low}–${d.yesterday.high}` : "–"} sub="checks ÷ 3 to checks" />}
         </Loaded>
         <Loaded query={daily} skeleton={<StatsSkeleton count={1} />}>
           {(d) => (
             <Stat
+              source="feed"
               label="Update checks"
               value={formatExact(d.channel.stable + d.channel.nightly)}
               sub={`${formatPercent(d.channel.nightly / Math.max(1, d.channel.stable + d.channel.nightly))} from nightlies`}
@@ -45,6 +46,7 @@ function InstallsPage() {
         <Loaded query={versions} skeleton={<StatsSkeleton count={1} />}>
           {(v) => (
             <Stat
+              source="github"
               label="Nightly DMG"
               value={v.nightlyRelease ? formatExact(v.nightlyRelease.dmg) : "–"}
               sub={v.nightlyRelease ? `rolling build, ${formatExact(v.nightlyRelease.zip)} update zips` : "no nightly release"}
@@ -54,12 +56,12 @@ function InstallsPage() {
       </Card>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
-        <Panel title="First launches" description="Copies that opened for the first time and checked for updates, per UTC day.">
+        <Panel source="feed" title="First launches" description="Copies that opened for the first time and checked for updates, per UTC day.">
           <Loaded query={daily} skeleton={<ChartSkeleton height={240} />}>
             {(d) => <TimeSeriesChart buckets={d.days} series={[{ key: "first", label: "First launches", values: d.firstLaunches, color: "var(--chart-3)" }]} step="day" height={240} />}
           </Loaded>
         </Panel>
-        <Panel title="Active installs" description="Update checks per day by channel. A running copy checks 1–3 times a day, so copies running sit between a third of the checks and all of them.">
+        <Panel source="feed" title="Active installs" description="Update checks per day by channel. A running copy checks 1–3 times a day, so copies running sit between a third of the checks and all of them.">
           <Loaded query={daily} skeleton={<ChartSkeleton height={240} legend />}>
             {(d) => (
               <TimeSeriesChart buckets={d.days} series={d.checks.map((s) => ({ ...s, color: s.key === "stable" ? "var(--chart-1)" : "var(--chart-6)" }))} step="day" height={240} />
@@ -68,7 +70,7 @@ function InstallsPage() {
         </Panel>
       </div>
 
-      <Panel title="Version adoption" description="Update checks per day by the version that made them. The five busiest stable versions in the range; nightlies and older versions are grouped.">
+      <Panel source="feed" title="Version adoption" description="Update checks per day by the version that made them. The five busiest stable versions in the range; nightlies and older versions are grouped.">
         <Loaded query={daily} skeleton={<ChartSkeleton height={300} legend />}>
           {(d) => (
             <StackedAreaChart
@@ -82,7 +84,7 @@ function InstallsPage() {
       </Panel>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-5">
-        <Panel className="xl:col-span-2" title="Download to running" description="All time for versions since 0.2.14, the first with counted checks. A download isn't an install, and an install isn't a user.">
+        <Panel className="xl:col-span-2" source={["github", "feed"]} title="Download to running" description="All time for versions since 0.2.14, the first with counted checks. A download isn't an install, and an install isn't a user.">
           <Loaded query={versions} skeleton={<ListSkeleton rows={3} />}>
             {(v) => (
               <Funnel
@@ -101,7 +103,7 @@ function InstallsPage() {
             )}
           </Loaded>
         </Panel>
-        <Panel className="xl:col-span-3" title="Channel split" description="Update checks in the range, stable against nightly.">
+        <Panel className="xl:col-span-3" source="feed" title="Channel split" description="Update checks in the range, stable against nightly.">
           <Loaded query={daily} skeleton={<Skeleton className="h-3 w-full rounded-full" />}>
             {(d) => (
               <SplitBar
@@ -116,7 +118,7 @@ function InstallsPage() {
         </Panel>
       </div>
 
-      <Panel title="Versions" description="Per release: GitHub downloads, first launches (installs), and update checks. Sorted newest first.">
+      <Panel source={["github", "feed"]} title="Versions" description="Per release: GitHub downloads, first launches (installs), and update checks. Sorted newest first.">
         <Loaded query={versions} skeleton={<TableSkeleton rows={10} columns={8} />}>
           {(v) => (
             <DataTable
