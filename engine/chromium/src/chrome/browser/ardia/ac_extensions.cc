@@ -9,11 +9,13 @@
 #include <utility>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback_helpers.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/ardia/ac_scripts_policy.h"
 #include "chrome/browser/extensions/api/developer_private/extension_info_generator.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_management.h"
@@ -107,6 +109,7 @@ base::DictValue Entry(const developer::ExtensionInfo& info) {
       .Set("fileAccess", info.file_access.is_active)
       .Set("pinned", info.pinned_to_toolbar.value_or(false))
       .Set("mayModify", info.user_may_modify)
+      .Set("blockedByPolicy", info.disable_reasons.blocked_by_policy)
       .Set("errors", std::move(errors));
 }
 
@@ -188,7 +191,16 @@ class ExtensionsState : public ProfileState {
     base::ListValue list;
     for (const auto& info : infos) {
       if (info.type == developer::ExtensionType::kExtension) {
-        list.Append(Entry(info));
+        base::DictValue entry = Entry(info);
+        const Extension* extension = Find(profile(), info.id);
+        if (extension && !info.disable_reasons.blocked_by_policy &&
+            info.state != developer::ExtensionState::kEnabled &&
+            extensions::ExtensionSystem::Get(profile())
+                ->management_policy()
+                ->MustRemainDisabled(extension, nullptr)) {
+          entry.Set("blockedByPolicy", true);
+        }
+        list.Append(std::move(entry));
       }
     }
     reply.Send(base::DictValue().Set("extensions", std::move(list)));
@@ -267,6 +279,27 @@ bool UserMayModify(Profile* profile, const Extension* extension) {
       ->UserMayModifySettings(extension, nullptr);
 }
 
+void LiftPolicyBlockIfAllowed(Profile* profile, const std::string& id) {
+  const Extension* extension = Find(profile, id);
+  extensions::ExtensionPrefs* prefs = extensions::ExtensionPrefs::Get(profile);
+  if (!extension ||
+      !prefs->HasDisableReason(
+          id, extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY) ||
+      extensions::ExtensionSystem::Get(profile)
+          ->management_policy()
+          ->MustRemainDisabled(extension, nullptr)) {
+    return;
+  }
+  if (prefs->GetDisableReasons(id) ==
+      extensions::DisableReasonSet(
+          {extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY})) {
+    extensions::ExtensionRegistrar::Get(profile)->EnableExtension(id);
+    return;
+  }
+  prefs->RemoveDisableReason(
+      id, extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY);
+}
+
 }
 }
 
@@ -297,22 +330,52 @@ AC_ENGINE_CALL(ac_extensions_install) {
     return call.TakeReply().Error(
         "Extension installation is blocked by policy.");
   }
+  base::FilePath load_path(path);
+  const bool scripts = ardia::NamesScriptsFolder(load_path);
+  base::ScopedClosureRunner scripts_install;
+  if (scripts) {
+    if (std::optional<std::string> problem =
+            ardia::ScriptsFolderInstallProblem(load_path)) {
+      return call.TakeReply().Error(*problem);
+    }
+    load_path = ardia::ScriptsFolder();
+    scripts_install = ardia::BeginScriptsInstall();
+  }
   extensions::util::SetDeveloperModeForProfile(profile, true);
   scoped_refptr<extensions::UnpackedInstaller> installer =
       extensions::UnpackedInstaller::Create(profile);
   installer->set_be_noisy_on_failure(false);
   installer->set_completion_callback(base::BindOnce(
-      [](Reply reply, const extensions::Extension* extension,
-         const base::FilePath&, const std::u16string& error) {
+      [](base::WeakPtr<Profile> profile, bool scripts,
+         base::ScopedClosureRunner scripts_install, Reply reply,
+         const extensions::Extension* extension, const base::FilePath&,
+         const std::u16string& error) {
+        scripts_install.RunAndReset();
         if (!extension) {
           return reply.Error(error.empty()
                                  ? std::string("Could not load the extension")
                                  : base::UTF16ToUTF8(error));
         }
-        reply.Send(base::DictValue().Set("id", extension->id()));
+        const std::string id = extension->id();
+        if (!profile) {
+          return reply.Error("The profile closed");
+        }
+        if (scripts && extension->path() != ardia::ScriptsFolder()) {
+          std::u16string ignored;
+          ardia::ManagementDelegate(profile.get())
+              ->UninstallExtension(profile.get(), id,
+                                   extensions::UNINSTALL_REASON_INTERNAL_MANAGEMENT,
+                                   &ignored);
+          return reply.Error(
+              "Ardia Scripts: Scripts/extension changed while it was "
+              "installing");
+        }
+        ardia::LiftPolicyBlockIfAllowed(profile.get(), id);
+        reply.Send(base::DictValue().Set("id", id));
       },
+      profile->GetWeakPtr(), scripts, std::move(scripts_install),
       call.TakeReply()));
-  installer->Load(base::FilePath(path));
+  installer->Load(load_path);
 }
 
 AC_ENGINE_CALL(ac_extensions_install_crx) {

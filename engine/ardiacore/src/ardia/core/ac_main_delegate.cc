@@ -28,6 +28,7 @@
 #include "chrome/browser/browser_process_impl.h"
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
+#include "chrome/browser/ardia/ac_scripts_policy.h"  // nogncheck
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_paths_internal.h"
@@ -246,6 +247,7 @@ class ACContentBrowserClient : public ChromeContentBrowserClient {
     ChromeContentBrowserClient::CreateThrottlesForNavigation(registry);
     AddAppSchemeThrottle(registry);
     MaybeAddNavigationHoldThrottle(registry);
+    ardia::AddScriptsPagesThrottle(registry);
   }
   std::optional<base::TimeDelta> GetSpareRendererDelayForSiteURL(
       const GURL& site_url) override {
