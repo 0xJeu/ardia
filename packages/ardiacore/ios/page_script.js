@@ -647,15 +647,31 @@
     probe.remove();
     return c && c.a > 0 ? hex(c) : null;
   };
-  const metaColor = () => {
+  const setTimer = window.setTimeout;
+  const clearTimer = window.clearTimeout;
+  const NativeMutationObserver = window.MutationObserver;
+  const after = (fn, ms) => apply(setTimer, window, [fn, ms]);
+  const nextFrame = (fn) => apply(raf, window, [fn]);
+  let metaMedia = [];
+  let metaMediaKey = "";
+  const watchMetaMedia = (queries, onChange) => {
+    const key = queries.join("\n");
+    if (key === metaMediaKey) return;
+    metaMediaKey = key;
+    for (const q of metaMedia) apply(unlisten, q, ["change", onChange]);
+    metaMedia = queries.map((media) => matchMedia(media));
+    for (const q of metaMedia) apply(listen, q, ["change", onChange]);
+  };
+  const metaColor = (onMediaChange) => {
+    const queries = [];
+    let color = null;
     for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
       const media = m.getAttribute("media");
-      if (!media || matchMedia(media).matches) {
-        const c = normalize(m.getAttribute("content") || "");
-        if (c) return c;
-      }
+      if (media && !queries.includes(media)) queries.push(media);
+      if (!color && (!media || matchMedia(media).matches)) color = normalize(m.getAttribute("content") || "");
     }
-    return null;
+    watchMetaMedia(queries, onMediaChange);
+    return color;
   };
   const backgroundOf = (el) => el && parse(getComputedStyle(el).backgroundColor);
   const pageBackground = () => {
@@ -688,7 +704,7 @@
   };
   let lastTheme;
   let metaCache;
-  const cachedMetaColor = () => (metaCache === undefined ? (metaCache = metaColor()) : metaCache);
+  const cachedMetaColor = () => (metaCache === undefined ? (metaCache = metaColor(scheduleTheme)) : metaCache);
   const reportTheme = guard(() => {
     if (!document.documentElement) return;
     let color = cachedMetaColor();
@@ -721,14 +737,14 @@
     metaCache = undefined;
     if (themeQueued) return;
     themeQueued = true;
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       themeQueued = false;
       reportTheme();
     });
   };
   const startTheme = () => {
     reportTheme();
-    const observer = new MutationObserver((records) => themeTouched(records) && scheduleTheme());
+    const observer = new NativeMutationObserver((records) => themeTouched(records) && scheduleTheme());
     observer.observe(document.head || document.documentElement, {
       childList: true,
       subtree: true,
@@ -737,7 +753,7 @@
     });
     for (const el of [document.documentElement, document.body])
       if (el) observer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ["class", "style", "data-theme"] });
-    for (const ms of [300, 1000, 3000]) setTimeout(scheduleTheme, ms);
+    for (const ms of [300, 1000, 3000]) after(scheduleTheme, ms);
   };
   onReady(startTheme);
   const resendTheme = () => {
@@ -752,27 +768,37 @@
   let scrollSampledAt = -Infinity;
   let scrolledPastTop = false;
   let scrollSettle = 0;
-  const sampleAfterFrame = () => {
-    if (scrollSampleQueued) return;
-    scrollSampleQueued = true;
-    requestAnimationFrame(() =>
-      setTimeout(() => {
-        scrollSampleQueued = false;
-        reportTheme();
-      }, 0),
-    );
-  };
-  const scrollTheme = guard(() => {
+  let scrollSettled = false;
+  const sampleScroll = guard((settled) => {
     if (!document.documentElement || cachedMetaColor()) return;
     const past = window.scrollY > 4;
     const now = performance.now();
-    clearTimeout(scrollSettle);
-    scrollSettle = setTimeout(sampleAfterFrame, 150);
-    if (past === scrolledPastTop && now - scrollSampledAt < 150) return;
+    if (!settled && past === scrolledPastTop && now - scrollSampledAt < 150) return;
     scrolledPastTop = past;
     scrollSampledAt = now;
-    sampleAfterFrame();
+    reportTheme();
   });
+  const queueScrollSample = () => {
+    if (scrollSampleQueued) return;
+    scrollSampleQueued = true;
+    nextFrame(() =>
+      after(() => {
+        scrollSampleQueued = false;
+        const settled = scrollSettled;
+        scrollSettled = false;
+        sampleScroll(settled);
+      }, 0),
+    );
+  };
+  const scrollTheme = () => {
+    if (metaCache) return;
+    apply(clearTimer, window, [scrollSettle]);
+    scrollSettle = after(() => {
+      scrollSettled = true;
+      queueScrollSample();
+    }, 150);
+    queueScrollSample();
+  };
   addEventListener("scroll", scrollTheme, { passive: true, capture: true });
   addEventListener("resize", scheduleTheme);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", scheduleTheme);
