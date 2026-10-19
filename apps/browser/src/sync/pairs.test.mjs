@@ -634,6 +634,57 @@ test("an unsent page survives being copied to a new mirror and its source window
   }
 });
 
+test("a new mirror takes the baseline of the copy it was made from, not of another copy on the same page", async () => {
+  for (const rename of [false, true]) {
+    const base = await world(false);
+    wall = base.wall;
+    const folder = base.folder.clone();
+    const a = base.a.fork(folder);
+    const b = base.b.fork(folder);
+    const k = base.k;
+    const P = "https://m.example/p";
+    const Q = "https://m.example/q";
+    const copyIn = (w) => Object.values(S().tabs).find((t) => t.windowId === w && keyOf(t) === k.M);
+    let w1;
+    let w2;
+    let w3;
+    b.with(() => {
+      w1 = tabFor(k.M).windowId;
+      w2 = S().createWindow({ url: "https://second.example/" });
+      S().setFocusedWindow(w1);
+      navigate(k.M, Q);
+    });
+    for (const m of [b, a]) await m.sync();
+    a.with(() => navigate(k.M, P));
+    await a.sync();
+    b.with(() => S().setFocusedWindow(w2));
+    await b.sync();
+    b.with(() => {
+      assert.deepEqual([copyIn(w1).url, copyIn(w2).url], [Q, P], "W1 keeps Q, W2 took P");
+      assert.equal(record(b, "default", `pin:t:${k.M}`).u, P);
+      S().setFocusedWindow(w2);
+      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copyIn(w2).id]: { ...copyIn(w2), url: Q, unloaded: undefined, navigation: { url: Q, seq: 5 } } } }));
+      w3 = S().createWindow({ url: "https://third.example/", background: true });
+      S().setFocusedWindow(w1);
+    });
+    await b.sync();
+    b.with(() => {
+      S().closeWindow(w2);
+      S().setFocusedWindow(w3);
+    });
+    if (rename) {
+      a.with(() => S().updateTab(tabFor(k.M).id, { customTitle: "Renamed" }));
+      await a.sync();
+      await b.sync();
+      b.with(() => assert.equal(copyIn(w3)?.url, Q, "a rename from the other Mac doesn't overwrite W3's unsent page"));
+    }
+    for (const m of [b, a, b, a]) await m.sync();
+    const label = rename ? " (with a rename from the other Mac)" : "";
+    assert.equal(record(b, "default", `pin:t:${k.M}`).u, Q, `W3's page, copied from W2 before it was sent, syncs${label}`);
+    assert.equal(record(a, "default", `pin:t:${k.M}`).u, Q);
+  }
+});
+
 test("a Mac that unpinned a group keeps it, its name, style and members, when the other Mac restyles the pinned group", async () => {
   const base = await world(false);
   wall = base.wall;
