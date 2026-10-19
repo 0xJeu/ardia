@@ -82,3 +82,36 @@ export function scopedSearchUrl(scope: SearchScope, query: string, defaultEngine
   if (scope.kind === "history") return searchUrl(defaultEngine, `site:${scope.host} ${query.trim()}`);
   return searchUrlFor(scope.url, query);
 }
+
+export function offeredSiteSearch(typed: string, completion: string, sources: ScopeSources): SearchScope | null {
+  const t = typed.trim();
+  if (!t || /\s/.test(t)) return null;
+  return findScope(typed + completion, sources);
+}
+
+export type SiteSearchKeyState = {
+  typed: string;
+  completion: string;
+  scope: SearchScope | null;
+  offered: SearchScope | null;
+  scopeFrom: string;
+};
+
+export type SiteSearchKey =
+  | { kind: "enter"; scope: SearchScope; from: string }
+  | { kind: "leave"; text: string }
+  | { kind: "accept"; text: string };
+
+export function leavesSiteSearchOnBackspace(scope: SearchScope | null, typed: string): boolean {
+  return !!scope && !typed;
+}
+
+export function siteSearchKey(key: string, shiftKey: boolean, state: SiteSearchKeyState): SiteSearchKey | null {
+  if (key === "Tab" && !shiftKey) {
+    if (!state.scope && state.offered) return { kind: "enter", scope: state.offered, from: state.typed + state.completion };
+    if (state.completion) return { kind: "accept", text: state.typed + state.completion };
+    return null;
+  }
+  if (key === "Backspace" && !shiftKey && leavesSiteSearchOnBackspace(state.scope, state.typed)) return { kind: "leave", text: state.scopeFrom };
+  return null;
+}

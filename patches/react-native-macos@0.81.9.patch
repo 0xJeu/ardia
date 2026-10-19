@@ -1,16 +1,18 @@
 diff --git a/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-index 18bbe64f657a36596563b3eb6d135284e28c674a..d749124efd6f5b0331ac6415845255ff59e3ea94 100644
+index 18bbe64f657a36596563b3eb6d135284e28c674a..cc2104e50d877806f35c18768ccc3c4ebd9b979a 100644
 --- a/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
 +++ b/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-@@ -14,6 +14,20 @@
+@@ -14,6 +14,22 @@
  
  static void *TextFieldSelectionObservingContext = &TextFieldSelectionObservingContext;
  
-+#if TARGET_OS_OSX // [Ardia: Return and Escape reach a field as commands, never as key equivalents, so keyDownEvents asking for them went unheard
++#if TARGET_OS_OSX // [Ardia: Return, Escape, Tab and Backspace reach a field as commands, never as key equivalents, so keyDownEvents asking for them went unheard
 +static BOOL ArdiaCommandKeyHandledByJS(id<RCTBackedTextInputDelegate> textInputDelegate, NSTextView *editor, SEL commandSelector)
 +{
 +  NSString *key = commandSelector == @selector(cancelOperation:) ? @"Escape"
 +      : commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:) ? @"Enter"
++      : commandSelector == @selector(insertTab:) || commandSelector == @selector(insertBacktab:) ? @"Tab"
++      : commandSelector == @selector(deleteBackward:) ? @"Backspace"
 +      : nil;
 +  NSEvent *event = NSApp.currentEvent;
 +  if (key == nil || textInputDelegate == nil || editor.hasMarkedText || event.type != NSEventTypeKeyDown || ![textInputDelegate hasKeyDownEventOrKeyUpEvent:key]) {
@@ -23,7 +25,7 @@ index 18bbe64f657a36596563b3eb6d135284e28c674a..d749124efd6f5b0331ac6415845255ff
  #if !TARGET_OS_OSX // [macOS]
  @interface RCTBackedTextFieldDelegateAdapter () <UITextFieldDelegate, UITextDropDelegate>
  #else // [macOS
-@@ -235,6 +249,9 @@ - (BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
+@@ -235,6 +251,9 @@ - (BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor
  - (BOOL)control:(NSControl *)control textView:(NSTextView *)fieldEditor doCommandBySelector:(SEL)commandSelector
  {
    id<RCTBackedTextInputDelegate> textInputDelegate = [_backedTextInputView textInputDelegate];
@@ -33,7 +35,7 @@ index 18bbe64f657a36596563b3eb6d135284e28c674a..d749124efd6f5b0331ac6415845255ff
    BOOL commandHandled = NO;
    // enter/return
    if (commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:)) {
-@@ -490,6 +507,9 @@ - (BOOL)textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
+@@ -490,6 +509,9 @@ - (BOOL)textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
  {
    BOOL commandHandled = NO;
    id<RCTBackedTextInputDelegate> textInputDelegate = [_backedTextInputView textInputDelegate];

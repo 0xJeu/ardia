@@ -3,6 +3,7 @@ import {
   createSuggestFetcher,
   engineById,
   findScope,
+  offeredSiteSearch,
   prepareSuggestions,
   type SearchEngine,
   type SearchScope,
@@ -40,10 +41,18 @@ function profileBookmarks(b: Bookmarks, profileId: string): BookmarkRow[] {
   return rows;
 }
 
-export function scopeFor(text: string, windowId: string): SearchScope | null {
+function scopeSources(windowId: string) {
   const s = useBrowser.getState();
   const profileId = s.windows[windowId]?.profileId ?? "";
-  return findScope(text, { engines: searchEngines(s.settings), hosts: knownHosts(s, profileId) });
+  return { engines: searchEngines(s.settings), hosts: knownHosts(s, profileId) };
+}
+
+export function scopeFor(text: string, windowId: string): SearchScope | null {
+  return findScope(text, scopeSources(windowId));
+}
+
+export function offeredScope(typed: string, completion: string, windowId: string): SearchScope | null {
+  return offeredSiteSearch(typed, completion, scopeSources(windowId));
 }
 
 export function keywordScope(text: string, windowId: string): SearchScope | null {

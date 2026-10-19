@@ -1,4 +1,4 @@
-import { displayUrl, resolveInput, searchUrl, scopedSearchUrl, type SearchScope, type Suggestion } from "@ardia/core";
+import { displayUrl, leavesSiteSearchOnBackspace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -18,7 +18,7 @@ import { ScopeChip } from "./omnibox/ScopeChip";
 import { SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./omnibox/SuggestionRow";
 import { useDropdownStart } from "./omnibox/dropdownStart";
 import { useInlineCompletion } from "./omnibox/useInlineCompletion";
-import { keywordScope, scopeFor, useSuggestions } from "./omnibox/useSuggestions";
+import { keywordScope, offeredScope, useSuggestions } from "./omnibox/useSuggestions";
 import { setPopover } from "./layout/pageState";
 import { IconButton, useHover } from "./primitives";
 
@@ -36,6 +36,7 @@ const BASE_KEYS = [
   { key: "PageUp" },
   { key: "PageDown" },
   { key: "Tab" },
+  { key: "Tab", shiftKey: true },
   { key: "n", ctrlKey: true },
   { key: "p", ctrlKey: true },
   { key: "Enter", metaKey: true },
@@ -107,8 +108,10 @@ export function Omnibox({
   const value = typed + shownCompletion;
   const selectedIndex = Math.min(selected, items.length - 1);
   const current = items[selectedIndex];
-  const canScope = !scope && edited && !!typed.trim() && !/\s/.test(typed.trim());
-  const tabScope = useMemo(() => (canScope ? scopeFor(value, windowId) : null), [canScope, value, windowId]);
+  const tabScope = useMemo(
+    () => (!scope && edited ? offeredScope(typed, shownCompletion, windowId) : null),
+    [scope, edited, typed, shownCompletion, windowId],
+  );
 
   const snapshot = useRef<BarSnapshot | null>(null);
   snapshot.current = { typed, edited, selection: selection.current, selected, scope };
@@ -195,8 +198,8 @@ export function Omnibox({
     go(scope ? scopedSearchUrl(scope, text, engine) : searchUrl(engine, text));
   };
 
-  const enterScope = (next: SearchScope) => {
-    scopeFrom.current = typed;
+  const enterScope = (next: SearchScope, from: string) => {
+    scopeFrom.current = from;
     setScope(next);
     setTyped("");
     setEdited(true);
@@ -204,9 +207,13 @@ export function Omnibox({
     setSuppressCompletion(true);
   };
 
-  const leaveScope = (restoreText: boolean) => {
+  const leaveScope = (restore: string | null) => {
     setScope(null);
-    if (restoreText) setTyped(scopeFrom.current);
+    if (restore !== null) {
+      setTyped(restore);
+      setEdited(true);
+      setPendingSelection({ start: restore.length, end: restore.length });
+    }
     setSelected(0);
     setSuppressCompletion(true);
   };
@@ -217,7 +224,7 @@ export function Omnibox({
   const onKeyDown = (e: { nativeEvent: { key: string; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean; ctrlKey?: boolean } }) => {
     const { key, metaKey, altKey, shiftKey, ctrlKey } = e.nativeEvent;
     if (key === "Escape") {
-      if (scope) return leaveScope(false);
+      if (scope) return leaveScope(null);
       if (!hero) return onCancel?.();
       if (shownCompletion) return setSuppressCompletion(true);
       return reset();
@@ -227,18 +234,18 @@ export function Omnibox({
     if (key === "PageUp") return setSelected(0);
     if (key === "PageDown") return setSelected(Math.max(0, items.length - 1));
     if (key === "Delete" && shiftKey) return isRemovable(current) ? rowActions.remove(current.url) : undefined;
-    if (key === "Tab" && !ctrlKey) {
-      if (shiftKey) return move(-1);
-      if (tabScope) return enterScope(tabScope);
-      if (shownCompletion) {
-        setTyped(value);
+    if ((key === "Tab" && !ctrlKey) || key === "Backspace") {
+      const action = siteSearchKey(key, !!shiftKey, { typed, completion: shownCompletion, scope, offered: tabScope, scopeFrom: scopeFrom.current });
+      if (action?.kind === "enter") return enterScope(action.scope, action.from);
+      if (action?.kind === "leave") return leaveScope(action.text);
+      if (action?.kind === "accept") {
+        setTyped(action.text);
         setSuppressCompletion(true);
-        setPendingSelection({ start: value.length, end: value.length });
+        setPendingSelection({ start: action.text.length, end: action.text.length });
         return;
       }
-      return move(1);
+      if (key === "Tab") return move(shiftKey ? -1 : 1);
     }
-    if (key === "Backspace" && scope && !typed) return leaveScope(true);
     if (key === "Enter") {
       if (metaKey && shiftKey) return forceSearch();
       if (ctrlKey && !/[\s./:]/.test(typed.trim()) && typed.trim())
@@ -302,7 +309,7 @@ export function Omnibox({
     keyAt.current = Date.now();
     journeyKeystroke(tabId);
     const keyword = !scope && next === typed + " " ? keywordScope(typed, windowId) : null;
-    if (keyword) return enterScope(keyword);
+    if (keyword) return enterScope(keyword, typed);
     setEdited(true);
     setTyped(change.typed);
     setSuppressCompletion(change.suppress);
@@ -375,7 +382,7 @@ export function Omnibox({
         focusEcho.current = false;
         onCancel?.();
       }}
-      keyDownEvents={scope && !typed ? SCOPE_KEYS : isRemovable(current) ? REMOVE_KEYS : BASE_KEYS}
+      keyDownEvents={leavesSiteSearchOnBackspace(scope, typed) ? SCOPE_KEYS : isRemovable(current) ? REMOVE_KEYS : BASE_KEYS}
       onKeyDown={onKeyDown}
       style={{
         flex: 1,
