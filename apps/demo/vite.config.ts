@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
@@ -6,6 +8,7 @@ import { defineConfig, type Plugin } from "vite";
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 const repo = here("../../");
 const shims = here("./src/shims/");
+const reactNativeWeb = dirname(createRequire(import.meta.url).resolve("react-native-web/package.json"));
 
 const realPackages: Record<string, string> = {
   shell: `${repo}packages/shell/src/index.tsx`,
@@ -93,9 +96,10 @@ export default defineConfig({
     global: "globalThis",
   },
   resolve: {
+    dedupe: ["react", "react-dom", "react-native-web"],
     extensions: [".web.tsx", ".web.ts", ".web.js", ".tsx", ".ts", ".mjs", ".js", ".jsx", ".json"],
     alias: [
-      { find: /^react-native\/Libraries\/Animated\/useAnimatedProps$/, replacement: "react-native-web/dist/vendor/react-native/Animated/useAnimatedProps.js" },
+      { find: /^react-native\/Libraries\/Animated\/useAnimatedProps$/, replacement: `${reactNativeWeb}/dist/vendor/react-native/Animated/useAnimatedProps.js` },
       { find: /^react-native(-macos)?$/, replacement: `${shims}react-native.tsx` },
       { find: /^expo-modules-core$/, replacement: `${shims}expo-modules-core.ts` },
       { find: /^@ardia\/(shell|ardiacore|shaders|sync|import)$/, replacement: `${shims}$1.tsx` },
