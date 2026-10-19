@@ -55,10 +55,11 @@ run gh release upload "$stable_tag" -R "$repo" --clobber "$dist/appcast.xml"
 [ "$dry" = 1 ] && { echo "dry run: nothing published"; exit 0; }
 status=0
 for _ in 1 2 3 4 5 6; do
-  curl -fsSL --max-time 20 "$feed_url" 2>/dev/null | grep -q "<sparkle:shortVersionString>$version<" && break
+  feed="$(curl -fsSL --max-time 20 "$feed_url" 2>/dev/null || true)"
+  grep -q "<sparkle:shortVersionString>$version<" <<<"$feed" && break
   sleep 10
 done
-curl -fsSL --max-time 20 "$feed_url" | grep -q "<sparkle:shortVersionString>$version<" \
+grep -q "<sparkle:shortVersionString>$version<" <<<"$feed" \
   && echo "PASS  the feed lists $version (on $stable_tag's appcast.xml)" || { echo "FAIL  the feed lists $version"; status=1; }
 size="$(curl -fsSLI --max-time 30 "$nightly_dmg_url" | awk 'tolower($1) == "content-length:" { n = $2 } END { print n + 0 }')"
 [ "$size" = "$(stat -f %z "$dmg")" ] && echo "PASS  $nightly_dmg_url is $version's DMG" \
