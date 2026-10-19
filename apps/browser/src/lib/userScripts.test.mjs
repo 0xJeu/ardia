@@ -188,6 +188,27 @@ test("a load the folder changed under forgets what that profile had, so the old 
   assert.equal(lastWrite().generation, 71);
 });
 
+test("extension/ gone at the generation it was loaded at still unloads, stays unloaded, and loads again if extension/ comes back", async () => {
+  folder = { state: "ready", generation: 73, path: PATH };
+  fake.change();
+  await settle();
+  calls.length = 0;
+  folder = { state: "absent", generation: 73, path: PATH };
+  fake.change();
+  await settle();
+  assert.deepEqual(calls.filter(([k]) => k === "uninstall").map(([, p]) => p).sort(), ["", "work"]);
+  assert.deepEqual(lastWrite().profiles.Personal, { removed: true });
+  calls.length = 0;
+  folder = { state: "absent", generation: 73, path: PATH };
+  fake.change();
+  await settle();
+  assert.equal(calls.length, 0);
+  folder = { state: "ready", generation: 73, path: PATH };
+  fake.change();
+  await settle();
+  assert.deepEqual(calls.filter(([k]) => k === "install").map(([, p]) => p), ["", "work"]);
+});
+
 test("removal uninstalls everywhere and says so", async () => {
   calls.length = 0;
   folder = { state: "absent", generation: 8, path: PATH };

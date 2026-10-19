@@ -72,7 +72,9 @@ async function unload(profile: string, path: string): Promise<ScriptsOutcome> {
 const withError = (unloaded: ScriptsOutcome, refused: string): ScriptsOutcome =>
   "error" in unloaded ? { error: `${refused} (and the loaded copy couldn't be removed: ${unloaded.error})` } : { error: refused };
 
-const applied = new Map<string, { generation: number; outcome: ScriptsOutcome }>();
+type Wanted = "present" | "absent";
+const wantedBy = (outcome: ScriptsOutcome): Wanted => ("removed" in outcome ? "absent" : "present");
+const applied = new Map<string, { generation: number; wanted: Wanted; outcome: ScriptsOutcome }>();
 let seeded = false;
 let lastStatus: string | null = null;
 let running: Promise<void> | null = null;
@@ -89,7 +91,7 @@ async function seed() {
       const outcomes = names.map((n) => status.profiles[n]);
       const outcome = outcomes[0];
       if (!outcome || "error" in outcome || outcomes.some((o) => JSON.stringify(o) !== JSON.stringify(outcome))) continue;
-      applied.set(engine, { generation: status.generation, outcome });
+      applied.set(engine, { generation: status.generation, wanted: wantedBy(outcome), outcome });
     }
   } catch (error) {
     console.warn("[scripts] couldn't read status.json", error);
@@ -108,9 +110,10 @@ async function reconcile() {
   const refused = folder.state === "invalid" ? folder.error : null;
   const loadPath = folder.state === "ready" ? folder.path : null;
   const unloadPath = folder.state === "absent" || folder.state === "invalid" ? folder.path : null;
+  const wanted: Wanted = loadPath ? "present" : "absent";
   for (const engine of targets.keys()) {
     const done = applied.get(engine);
-    const cached = refused === null && done?.generation === generation ? done.outcome : null;
+    const cached = refused === null && done?.generation === generation && done.wanted === wanted ? done.outcome : null;
     let outcome: ScriptsOutcome;
     if (cached) outcome = cached;
     else if (refused !== null) outcome = unloadPath ? withError(await unload(engine, unloadPath), refused) : { error: refused };
@@ -123,7 +126,7 @@ async function reconcile() {
       return;
     }
     outcomes.set(engine, outcome);
-    if (!("error" in outcome)) applied.set(engine, { generation, outcome });
+    if (!("error" in outcome)) applied.set(engine, { generation, wanted, outcome });
     if (!enabled()) return;
   }
   if (again || !enabled()) return;
