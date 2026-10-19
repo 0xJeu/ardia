@@ -76,7 +76,12 @@ export type Extraction = {
 export interface Adapter {
   prefix: string;
   extract(base: (key: string) => unknown, queued: (key: string) => boolean): Extraction | null | Promise<Extraction | null>;
-  apply(visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown): boolean | void | Promise<boolean | void>;
+  apply(
+    visible: Map<string, unknown>,
+    changed: Set<string>,
+    base: (key: string) => unknown,
+    known: (key: string) => boolean,
+  ): boolean | void | Promise<boolean | void>;
   editedAt?(value: unknown): number | undefined;
   adoptRemoteOnJoin?: boolean;
 }
@@ -313,7 +318,7 @@ async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<strin
   const view = visible(state, adapter.prefix);
   let ok: boolean | void = false;
   try {
-    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]));
+    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), (key) => key in state.records);
   } catch (error) {
     console.warn(`[sync] applying ${adapter.prefix} failed`, error);
   }
