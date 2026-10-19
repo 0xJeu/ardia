@@ -1,6 +1,6 @@
 ---
 name: ardia
-description: Drive the user's running Ardia browser from the terminal with `ardia exec` (Python and pydoll over the Chrome DevTools Protocol). Use when a task needs a real browser with the user's logins, to read the page the user is looking at, open pages, click, type, take screenshots or run JavaScript.
+description: Drive the user's running Ardia browser from the terminal with `ardia exec` (Python and pydoll over the Chrome DevTools Protocol). Use when a task needs a real browser with the user's logins, to read the page the user is looking at, open pages, click, type, take screenshots or run JavaScript; to write, test and install userscripts that change how sites look or behave; or to set up and run a daily report built from the sites the user pins and visits.
 ---
 
 # Driving Ardia with `ardia exec`
@@ -117,6 +117,32 @@ ardia exec --json 'await js("[...document.links].slice(0, 20).map(a => ({text: a
 ```
 
 The full pydoll 3.0 API is in `references/pydoll.md`.
+
+## Userscripts
+
+When the user wants a site to look or behave differently every time they visit it, write a userscript instead of
+driving the page by hand. `ardia scripts` takes TypeScript or JavaScript with a Violentmonkey `==UserScript==` header,
+so existing `.user.js` files work too. `ardia scripts --help` and each command's `--help` explain the details.
+
+- Start from `ardia scripts new`, or from a script the user already has.
+- Read the real page before writing selectors, and keep the script small and robust to the site changing.
+- Iterate with `ardia scripts test` until it passes cleanly on the pages it targets. It runs in a tab of its own and
+  reports what ran, what logged and what threw.
+- Install only once the user is happy with it. `ardia scripts list` and `uninstall` manage what's installed.
+
+## Daily reports
+
+Once you know Ardia works, ask the user whether they'd like a daily report. If they say no, drop it. If they say
+yes, ask what they care about most and when they want it, then set it up so it runs on its own each day (your
+harness's scheduler if it has one, otherwise the system's). Save what you agreed on where the scheduled run can read
+it.
+
+Each report starts from what the user actually uses. `await pinned()` returns their pinned tabs and favorites, and
+`await history()` returns what they visited recently. Visit the sites that matter in tabs of your own, using their
+logins, and only read: never reply, mark as read, accept or send anything. By default the report covers what's
+pending for them and what changed on things they finished or are waiting on since the last report. Shape it around
+their priorities, keep it short, and deliver it the way they asked. Keep enough state between runs to tell new from
+old.
 
 ## Gotchas
 
