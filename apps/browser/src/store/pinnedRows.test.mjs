@@ -130,3 +130,45 @@ test("a closed row comes back as a row from its snapshot", () => {
   S().pinTabs([a], false);
   assert.equal(model.snapshotTab(S().tabs[a]).pinnedAsRow, undefined);
 });
+
+test("a pending tile or row choice moves with its pin to another profile, with a new generation", () => {
+  reset();
+  const work = S().createProfile({ name: "Work" });
+  const { ids: [a] } = windowWith("a", "b");
+  S().pinTabs([a], true);
+  const before = S().pinChoices.default[a];
+  assert.ok(before);
+  S().moveTabToProfile(a, work);
+  assert.equal(S().pinChoices.default?.[a], undefined, "gone from the source profile");
+  assert.ok(S().pinChoices[work]?.[a] > before, "pending in the destination under the same pin key");
+});
+
+test("choices go with unpinned pins and deleted profiles, also after a relaunch, and parked pins keep theirs", () => {
+  reset();
+  const work = S().createProfile({ name: "Work" });
+  const { w, ids: [a, b, c] } = windowWith("a", "b", "c");
+  S().pinTabs([a, b], true);
+  S().pinTabs([b], false);
+  assert.deepEqual(Object.keys(S().pinChoices.default), [a], "unpinning drops its choice");
+  S().closeWindow(w);
+  assert.deepEqual(Object.keys(S().pinChoices.default), [a], "a parked pin keeps its choice");
+  const ww = S().createWindow({ profileId: work, url: "https://w.com/" });
+  const x = S().windows[ww].tabIds[0];
+  S().pinTabs([x], true);
+  S().deleteProfile(work);
+  assert.equal(S().pinChoices[work], undefined, "a deleted profile's choices go");
+  S().hydrate({ ...S(), pinChoices: { default: { [a]: 5, ghost: 6 }, gone: { y: 7 } } });
+  assert.deepEqual(S().pinChoices, { default: { [a]: 5 } }, "stale choices from disk are dropped");
+  const first = (S().pinTabs([c], true), S().pinChoices.default?.[c]);
+  assert.equal(first, undefined, "c closed with its window");
+});
+
+test("a choice made again after its pin was unpinned never reuses a generation", () => {
+  reset();
+  const { ids: [a] } = windowWith("a", "b");
+  S().pinTabs([a], true);
+  const first = S().pinChoices.default[a];
+  S().pinTabs([a], false);
+  S().pinTabs([a], true);
+  assert.ok(S().pinChoices.default[a] > first);
+});

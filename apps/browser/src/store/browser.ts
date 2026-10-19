@@ -4,7 +4,7 @@ import { changedIds } from "./changes";
 import { createGroupsSlice, type GroupsSlice } from "./groups";
 import { createHistorySlice, type HistorySlice } from "./history";
 import { IDLE_LIVE, isIncognitoProfile, pinnedFirst } from "./model";
-import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, type OrganizeSlice } from "./organize";
+import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, livePinChoices, type OrganizeSlice } from "./organize";
 import { mirrorPins } from "./pinMirror";
 import { createProfilesSlice, DEFAULT_PROFILE, engineIdOf, type ProfilesSlice } from "./profiles";
 import { createSettingsSlice, DEFAULT_SETTINGS, type SettingsSlice } from "./settings";
@@ -177,6 +177,12 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
 useBrowser.subscribe((s, prev) => {
   const patch = s.windows !== prev.windows && forgetClosedPrivateWindows(s);
   if (patch) useBrowser.setState(patch);
+});
+
+useBrowser.subscribe((s, prev) => {
+  if (s.pinChoices === prev.pinChoices && s.tabs === prev.tabs && s.parkedPins === prev.parkedPins && s.profiles === prev.profiles) return;
+  const live = livePinChoices(s);
+  if (live !== s.pinChoices) useBrowser.setState({ pinChoices: live });
 });
 
 let mirroring = 0;

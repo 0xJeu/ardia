@@ -75,7 +75,7 @@ export type Extraction = {
 
 export interface Adapter {
   prefix: string;
-  extract(base: (key: string) => unknown): Extraction | null | Promise<Extraction | null>;
+  extract(base: (key: string) => unknown, queued: (key: string) => boolean): Extraction | null | Promise<Extraction | null>;
   apply(visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown): boolean | void | Promise<boolean | void>;
   editedAt?(value: unknown): number | undefined;
   adoptRemoteOnJoin?: boolean;
@@ -171,10 +171,27 @@ export function visible(state: ScopeState, prefix: string): Map<string, unknown>
 
 const parseBase = (json: string | undefined) => (json === undefined ? undefined : (JSON.parse(json) as unknown));
 
+const settling = new WeakMap<ScopeState, (() => void)[]>();
+
+function settleWhenDurable(state: ScopeState, settle: () => void) {
+  const queue = settling.get(state);
+  if (queue) queue.push(settle);
+  else settling.set(state, [settle]);
+}
+
+function settleDurable(state: ScopeState) {
+  const queue = settling.get(state);
+  if (!queue) return;
+  settling.delete(state);
+  for (const settle of queue) settle();
+}
+
 async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string): Promise<Set<string>> {
   const published = new Set<string>();
   if (adapter.adoptRemoteOnJoin && !state.joined) return published;
-  const extraction = await adapter.extract((key) => parseBase(state.base[key]));
+  let pending: Set<string> | null = null;
+  const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
+  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued);
   if (!extraction) return published;
   const put = (key: string, value: unknown) => {
     const known = state.records[key];
@@ -197,7 +214,8 @@ async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock,
     delete state.base[key];
     put(key, null);
   }
-  extraction.published?.(published);
+  const { published: settle } = extraction;
+  if (settle && published.size) settleWhenDurable(state, () => settle(published));
   return published;
 }
 
@@ -214,7 +232,10 @@ export async function flush(state: ScopeState, transport: Transport, scope: stri
     state.outbox = [];
   }
   if (!state.journal?.length) return;
-  await options.persist?.(state.journal);
+  if (options.persist) {
+    await options.persist(state.journal);
+    settleDurable(state);
+  }
   while (state.journal.length) {
     const file = state.journal[0]!;
     const id = await transport.write(scope, JSON.stringify(file));
@@ -224,6 +245,7 @@ export async function flush(state: ScopeState, transport: Transport, scope: stri
     see(state, file.device, now);
   }
   delete state.journal;
+  settleDurable(state);
 }
 
 export function restoreJournal(state: ScopeState, batches: LogFile[], clock: Clock, written = 0) {

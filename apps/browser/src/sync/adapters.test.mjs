@@ -51,7 +51,7 @@ class Device {
       this.browser = S();
     }
   }
-  async sync(profileId = "default") {
+  async sync(profileId = "default", options = {}) {
     stub.current.device = this.id;
     useBrowser.setState(this.browser, true);
     const run = (scope, list, options) =>
@@ -64,21 +64,24 @@ class Device {
         device: this.id,
         options,
       });
-    const app = await run("app", [adapters.settingsAdapter]);
-    const p = await run(
-      "p",
-      [
-        ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId)]),
-        adapters.pinnedAdapter(profileId),
-        adapters.bookmarksAdapter(profileId),
-        adapters.historyAdapter(profileId),
-        adapters.deviceTabsAdapter(profileId, this.id, () => `${this.id}'s MacBook Pro`),
-        this.passwords,
-      ],
-      { expired: adapters.historyExpired },
-    );
-    this.browser = S();
-    return { published: app.published + p.published };
+    try {
+      const app = await run("app", [adapters.settingsAdapter]);
+      const p = await run(
+        "p",
+        [
+          ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId)]),
+          adapters.pinnedAdapter(profileId),
+          adapters.bookmarksAdapter(profileId),
+          adapters.historyAdapter(profileId),
+          adapters.deviceTabsAdapter(profileId, this.id, () => `${this.id}'s MacBook Pro`),
+          this.passwords,
+        ],
+        { expired: adapters.historyExpired, ...options },
+      );
+      return { published: app.published + p.published };
+    } finally {
+      this.browser = S();
+    }
   }
 }
 
@@ -522,6 +525,60 @@ for (const [how, move] of [
     assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
   });
 }
+
+async function tileWithMarkOnBoth() {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    const docs = S().newTab(w, { url: "https://docs.example/" });
+    S().pinTabs([docs], true, true);
+    S().placeTabs([docs], { pinned: true, row: false });
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  await later();
+  const before = new Set(folder.files.keys());
+  a.with(() => S().placeTabs([tabAt("https://docs.example/")], { pinned: true, row: true }));
+  await a.sync();
+  [...folder.files.keys()].filter((id) => !before.has(id)).forEach((id) => folder.hidden.add(id));
+  await later();
+  b.with(() => {
+    const docs = tabAt("https://docs.example/");
+    S().activate(docs);
+    S().pinTabs([docs], false);
+    S().pinTabs([docs], true);
+  });
+  return { folder, a, b };
+}
+
+test("a tile choice whose batch never reached the disk survives a crash and still outranks an older row mark", async () => {
+  const { folder, a, b } = await tileWithMarkOnBoth();
+  const durable = structuredClone(b.scopes.p);
+  await assert.rejects(b.sync("default", { persist: async () => { throw new Error("disk full"); } }));
+  assert.equal(Object.keys(b.with(() => S().pinChoices.default ?? {})).length, 1, "the choice stays pending until its batch is on disk");
+  b.scopes.p = durable;
+  await b.sync();
+  folder.hidden.clear();
+  await syncAll([b, a, b, a]);
+  assert.deepEqual(rowsOf(b), { tiles: ["https://docs.example/"], rows: [] }, "B's later tile stands");
+  assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
+});
+
+test("a tile choice whose journal write failed is sent once when the write is retried", async () => {
+  const { folder, a, b } = await tileWithMarkOnBoth();
+  await assert.rejects(b.sync("default", { persist: async () => { throw new Error("disk full"); } }));
+  const marks = () => b.scopes.p.journal?.flatMap((f) => f.ops).filter((op) => op.k.startsWith("pinrow:")).length ?? 0;
+  assert.equal(marks(), 1);
+  await b.sync();
+  assert.equal(marks(), 0, "the held batch is written");
+  assert.deepEqual(b.with(() => S().pinChoices), {}, "and the choice settles");
+  assert.equal((await b.sync()).published, 0, "nothing more is sent");
+  folder.hidden.clear();
+  await syncAll([b, a, b, a]);
+  assert.deepEqual(rowsOf(a), { tiles: ["https://docs.example/"], rows: [] });
+});
 
 test("passwords: saved on one Mac, changed or deleted on another; the newer edit of a login wins", async () => {
   const folder = new Folder();

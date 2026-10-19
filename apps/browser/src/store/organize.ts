@@ -17,6 +17,33 @@ export type GroupPlacement = { pinned: boolean; beforeId?: string | null };
 
 export type PinChoices = Record<string, Record<string, number>>;
 
+let lastPinChoice = 0;
+export const nextPinChoice = () => (lastPinChoice = Math.max(Date.now(), lastPinChoice + 1));
+
+export function livePinChoices(s: Pick<BrowserState, "pinChoices" | "profiles" | "tabs" | "parkedPins">): PinChoices {
+  const profiles = Object.keys(s.pinChoices);
+  if (!profiles.length) return s.pinChoices;
+  const pinned = new Map<string, Set<string>>();
+  const add = (profileId: string, key: string) => {
+    let keys = pinned.get(profileId);
+    if (!keys) pinned.set(profileId, (keys = new Set()));
+    keys.add(key);
+  };
+  for (const t of Object.values(s.tabs)) if (t.pinned) add(t.profileId, t.pinKey ?? t.id);
+  for (const [profileId, park] of Object.entries(s.parkedPins)) for (const p of park.tabs) if (!p.groupId) add(profileId, p.id);
+  let changed = false;
+  const out: PinChoices = {};
+  for (const profileId of profiles) {
+    const mine = s.pinChoices[profileId]!;
+    const keys = s.profiles[profileId] ? pinned.get(profileId) : undefined;
+    const kept = Object.fromEntries(Object.entries(mine).filter(([key]) => keys?.has(key)));
+    const n = Object.keys(kept).length;
+    if (n !== Object.keys(mine).length) changed = true;
+    if (n) out[profileId] = n === Object.keys(mine).length ? mine : kept;
+  }
+  return changed ? out : s.pinChoices;
+}
+
 export type OrganizeSlice = {
   selection: Record<string, string[]>;
   pinChoices: PinChoices;
@@ -397,7 +424,7 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
       if (p.pinned && !isIncognitoProfile(t.profileId)) {
         chosen ??= { ...s.pinChoices[t.profileId] };
         const key = t.pinKey ?? t.id;
-        chosen[key] = (chosen[key] ?? 0) + 1;
+        chosen[key] = nextPinChoice();
       }
     }
   }

@@ -529,7 +529,7 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
   const keyOf = (k: string) => k.slice(PIN_ROW.length);
   return {
     prefix: PIN_ROW,
-    extract: (base) => {
+    extract: (base, queued) => {
       const s = store();
       const values = new Map<string, unknown>();
       const known = new Set<string>();
@@ -556,8 +556,8 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       return {
         values,
         ignore: (k) => !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined,
-        republish: (k) => keyOf(k) in chosen,
-        published: () => settleChoices(profileId, chosen),
+        republish: (k) => keyOf(k) in chosen && !queued(k),
+        published: (keys) => settleChoices(profileId, Object.fromEntries([...keys].map(keyOf).filter((k) => k in chosen).map((k) => [k, chosen[k]!]))),
       } satisfies Extraction;
     },
     apply: (visible, changed, base) => {
