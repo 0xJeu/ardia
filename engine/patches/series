@@ -22,6 +22,7 @@ chromium chromium-devtools-control-token.patch
 chromium chromium-extension-install-prompt-hook.patch
 chromium chromium-extension-updates.patch
 chromium chromium-extension-omaha-attributes.patch
+chromium chromium-extension-management-policy-hook.patch
 chromium chromium-extension-window-hidden.patch
 chromium chromium-component-extension-restricted-urls.patch
 chromium chromium-neterror-game.patch

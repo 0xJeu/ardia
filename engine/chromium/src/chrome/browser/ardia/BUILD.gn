@@ -35,6 +35,8 @@ source_set("ardia") {
     "ac_process.h",
     "ac_reauth.cc",
     "ac_reauth.h",
+    "ac_scripts_policy.cc",
+    "ac_scripts_policy.h",
     "ac_search_engines.cc",
     "ac_search_engines.h",
     "ac_sensitive_args.cc",
