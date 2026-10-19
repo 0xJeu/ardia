@@ -10,6 +10,7 @@ const PHONE_BOX_WIDTH = 400;
 const DESKTOP_BOX_WIDTH = 860;
 const REVEAL_FALLBACK_MS = 1500;
 const NUDGE_DELAY_MS = 900;
+const FAR_SCREENS = 1;
 
 const root = document.querySelector<HTMLElement>("[data-demo]");
 const stage = root?.querySelector<HTMLElement>("[data-demo-stage]");
@@ -146,6 +147,25 @@ function watchForNudge(frame: HTMLIFrameElement, box: HTMLElement) {
   seen.observe(box);
 }
 
+function restWhileFar(box: HTMLElement) {
+  let top = 0;
+  let bottom = 0;
+  const update = () => {
+    const margin = innerHeight * FAR_SCREENS;
+    const far = bottom < scrollY - margin || top > scrollY + innerHeight + margin;
+    if (far !== box.hasAttribute("data-far")) box.toggleAttribute("data-far", far);
+  };
+  const measure = () => {
+    const rect = box.getBoundingClientRect();
+    top = rect.top + scrollY;
+    bottom = rect.bottom + scrollY;
+    update();
+  };
+  addEventListener("scroll", update, { passive: true });
+  addEventListener("resize", measure, { passive: true });
+  new ResizeObserver(measure).observe(document.body);
+}
+
 function mount(box: HTMLElement, src: string) {
   const frame = document.createElement("iframe");
   frame.src = src;
@@ -154,6 +174,7 @@ function mount(box: HTMLElement, src: string) {
   box.append(frame);
   fit(frame, box);
   new ResizeObserver(() => fit(frame, box)).observe(box);
+  restWhileFar(box);
 
   let ready = false;
   let loaded = false;

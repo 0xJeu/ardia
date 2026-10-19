@@ -205,6 +205,9 @@ const demoSrc = `${import.meta.env.DEV ? (import.meta.env.PUBLIC_DEMO_URL ?? "ht
     transform-origin: 0 0;
     background: transparent;
   }
+  .demo-stage[data-far] :global(.demo-frame) {
+    content-visibility: auto;
+  }
   .demo-controls {
     display: flex;
     flex-wrap: wrap;
