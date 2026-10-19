@@ -1,6 +1,6 @@
 import type { Step, Window } from "../lib/range";
 
-const TYPED_COLUMNS_LIVE = false;
+const TYPED_COLUMNS_LIVE = true;
 
 const TYPED_COLUMNS: Record<string, string> = {
   $lib: "lib",
