@@ -179,7 +179,81 @@ case "postkeys":
     printJSON(["spec": spec, "at": (first * 10).rounded() / 10])
     fflush(stdout)
   }
+case "postscroll":
+  guard args.count >= 9, let pid = pid_t(args[2]), pid > 1, let window = Int64(args[3]), let x = Double(args[4]), let y = Double(args[5]),
+        let windowX = Double(args[6]), let windowY = Double(args[7]) else {
+    FileHandle.standardError.write("usage: acperf postscroll <pid> <window id> <x> <y> <window x> <window y> trackpad|fingers|wheel [events/s]\n".data(using: .utf8)!)
+    exit(64)
+  }
+  let gesture = args[8]
+  let rate = args.count > 9 ? Double(args[9]) ?? 120 : 120
+  let point = CGPoint(x: x, y: y)
+  typealias SetWindowLocation = @convention(c) (CGEvent, CGPoint) -> Void
+  let setWindowLocation = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventSetWindowLocation").map { unsafeBitCast($0, to: SetWindowLocation.self) }
+  func scroll(_ dy: Double, phase: Int64 = 0, momentum: Int64 = 0, continuous: Bool = true) {
+    guard let event = CGEvent(scrollWheelEvent2Source: nil, units: continuous ? .pixel : .line, wheelCount: 1,
+                              wheel1: Int32(continuous ? dy.rounded() : (dy < 0 ? -1 : 1)), wheel2: 0, wheel3: 0) else { return }
+    event.location = point
+    event.setIntegerValueField(.scrollWheelEventIsContinuous, value: continuous ? 1 : 0)
+    if continuous {
+      event.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: dy)
+      event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: dy)
+      event.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64(max(-10, min(10, (dy / 10).rounded()))))
+      event.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+      event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
+    }
+    event.setIntegerValueField(CGEventField(rawValue: 51)!, value: window)
+    setWindowLocation?(event, CGPoint(x: x - windowX, y: y - windowY))
+    event.postToPid(pid)
+  }
+  let tick = 1 / rate
+  let start = Date().timeIntervalSince1970
+  var elapsed = 0.0
+  func wait(_ seconds: Double) {
+    elapsed += seconds
+    var left = start + elapsed - Date().timeIntervalSince1970
+    while left > 0 {
+      if left > 0.002 { usleep(useconds_t((left - 0.0015) * 1e6)) }
+      left = start + elapsed - Date().timeIntervalSince1970
+    }
+  }
+  var events = 0
+  switch gesture {
+  case "trackpad", "fingers":
+    scroll(0, phase: 128)
+    wait(tick)
+    let fingerEvents = Int((0.3 * rate).rounded())
+    for i in 0..<fingerEvents {
+      scroll(-(4 + 22 * sin(Double(i) / Double(fingerEvents) * .pi * 0.85)) * 120 / rate, phase: i == 0 ? 1 : 2)
+      events += 1
+      wait(tick)
+    }
+    scroll(0, phase: 4)
+    wait(tick)
+    if gesture == "trackpad" {
+      var velocity = -24.0 * 120 / rate
+      var first = true
+      while abs(velocity) > 0.4 * 120 / rate {
+        scroll(velocity, momentum: first ? 1 : 2)
+        first = false
+        events += 1
+        velocity *= pow(0.972, 120 / rate)
+        wait(tick)
+      }
+      scroll(0, momentum: 3)
+    }
+  case "wheel":
+    for _ in 0..<12 {
+      scroll(-1, continuous: false)
+      events += 1
+      wait(0.09)
+    }
+  default:
+    FileHandle.standardError.write("acperf postscroll: no gesture \(gesture)\n".data(using: .utf8)!)
+    exit(64)
+  }
+  printJSON(["events": events, "ms": Int((Date().timeIntervalSince1970 - start) * 1000)])
 default:
-  FileHandle.standardError.write("usage: acperf rusage <pid>... | windows <pid> | quit <pid> | waitwindow <pid> <secs> | newwindow <pid> <secs> | input <pid> <secs> | postkeys <pid> <gap ms> <spec>...\n".data(using: .utf8)!)
+  FileHandle.standardError.write("usage: acperf rusage <pid>... | windows <pid> | quit <pid> | waitwindow <pid> <secs> | newwindow <pid> <secs> | input <pid> <secs> | postkeys <pid> <gap ms> <spec>... | postscroll <pid> <window id> <x> <y> <window x> <window y> <gesture> [events/s]\n".data(using: .utf8)!)
   exit(64)
 }
