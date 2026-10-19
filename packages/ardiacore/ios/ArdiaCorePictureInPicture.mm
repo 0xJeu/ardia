@@ -10,6 +10,7 @@
 @interface NSWindow (ACPreventsActivation)
 - (void)_setPreventsActivation:(BOOL)prevents;
 - (BOOL)_preventsActivation;
+- (NSInteger)_resizeDirectionForMouseLocation:(NSPoint)location;
 @end
 
 namespace {
@@ -804,6 +805,53 @@ void InstallMenuMonitor() {
                                                   }];
 }
 
+NSPoint ScreenLocation(NSEvent *event) {
+  CGPoint point = CGEventGetLocation(event.CGEvent);
+  return NSMakePoint(point.x, NSMaxY(NSScreen.screens.firstObject.frame) - point.y);
+}
+
+BOOL GrabsWindowBackground(NSWindow *window, NSEvent *event) {
+  if (!window || ![ACPiPController forWindow:window] || event.clickCount > 1 || (event.modifierFlags & NSEventModifierFlagControl))
+    return NO;
+  if ([window respondsToSelector:@selector(_resizeDirectionForMouseLocation:)] &&
+      [window _resizeDirectionForMouseLocation:event.locationInWindow] != -1)
+    return NO;
+  NSView *frameView = window.contentView.superview;
+  return frameView && [frameView hitTest:event.locationInWindow] == frameView;
+}
+
+__weak NSWindow *gDragged;
+NSPoint gGrab;
+
+void InstallDragMonitor() {
+  static id monitor;
+  if (monitor) return;
+  monitor = [NSEvent
+      addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown | NSEventMaskLeftMouseDragged | NSEventMaskLeftMouseUp
+                                   handler:^NSEvent *(NSEvent *event) {
+                                     if (event.type == NSEventTypeLeftMouseDown) {
+                                       NSWindow *window = event.window;
+                                       gDragged = GrabsWindowBackground(window, event) ? window : nil;
+                                       if (!gDragged) return event;
+                                       NSPoint mouse = ScreenLocation(event);
+                                       gGrab = NSMakePoint(mouse.x - NSMinX(window.frame), mouse.y - NSMinY(window.frame));
+                                       return nil;
+                                     }
+                                     NSWindow *window = gDragged;
+                                     if (!window) return event;
+                                     if (event.type == NSEventTypeLeftMouseUp) {
+                                       gDragged = nil;
+                                       return nil;
+                                     }
+                                     NSPoint mouse = ScreenLocation(event);
+                                     NSRect frame = window.frame;
+                                     frame.origin = NSMakePoint(mouse.x - gGrab.x, mouse.y - gGrab.y);
+                                     frame.origin.y = MIN(NSMinY(frame), NSMaxY(ScreenFor(frame).visibleFrame) - NSHeight(frame));
+                                     [window setFrameOrigin:frame.origin];
+                                     return nil;
+                                   }];
+}
+
 void InstallZoomMonitor() {
   static id monitor;
   if (monitor) return;
@@ -830,6 +878,7 @@ bool Attach(ArdiaCoreWebView *view, NSString *host, NSString *frameId) {
       window.ignoresMouseEvents = YES;
     }
     InstallMenuMonitor();
+    InstallDragMonitor();
     InstallZoomMonitor();
     NSString *selfTest = NSProcessInfo.processInfo.environment[@"ARDIA_PIP_SELFTEST"];
     if (fresh && [@[ @"close", @"backToTab" ] containsObject:selfTest]) [controller runButtonSelfTest:selfTest];
