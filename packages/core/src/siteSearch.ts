@@ -97,21 +97,25 @@ export type SiteSearchKeyState = {
   scopeFrom: string;
 };
 
+export type SiteSearchKeyModifiers = { shiftKey?: boolean; altKey?: boolean; metaKey?: boolean; ctrlKey?: boolean };
+
 export type SiteSearchKey =
   | { kind: "enter"; scope: SearchScope; from: string }
   | { kind: "leave"; text: string }
   | { kind: "accept"; text: string };
 
-export function leavesSiteSearchOnBackspace(scope: SearchScope | null, typed: string): boolean {
-  return !!scope && !typed;
+export function asksForBackspace(scope: SearchScope | null): boolean {
+  return !!scope;
 }
 
-export function siteSearchKey(key: string, shiftKey: boolean, state: SiteSearchKeyState): SiteSearchKey | null {
-  if (key === "Tab" && !shiftKey) {
+export function siteSearchKey(key: string, modifiers: SiteSearchKeyModifiers, state: SiteSearchKeyState): SiteSearchKey | null {
+  const { shiftKey, altKey, metaKey, ctrlKey } = modifiers;
+  if (key === "Tab" && !shiftKey && !ctrlKey) {
     if (!state.scope && state.offered) return { kind: "enter", scope: state.offered, from: state.typed + state.completion };
     if (state.completion) return { kind: "accept", text: state.typed + state.completion };
     return null;
   }
-  if (key === "Backspace" && !shiftKey && leavesSiteSearchOnBackspace(state.scope, state.typed)) return { kind: "leave", text: state.scopeFrom };
+  const plain = !shiftKey && !altKey && !metaKey && !ctrlKey;
+  if (key === "Backspace" && plain && state.scope) return { kind: "leave", text: state.scopeFrom };
   return null;
 }

@@ -1,4 +1,4 @@
-import { displayUrl, leavesSiteSearchOnBackspace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
+import { displayUrl, asksForBackspace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -235,7 +235,7 @@ export function Omnibox({
     if (key === "PageDown") return setSelected(Math.max(0, items.length - 1));
     if (key === "Delete" && shiftKey) return isRemovable(current) ? rowActions.remove(current.url) : undefined;
     if ((key === "Tab" && !ctrlKey) || key === "Backspace") {
-      const action = siteSearchKey(key, !!shiftKey, { typed, completion: shownCompletion, scope, offered: tabScope, scopeFrom: scopeFrom.current });
+      const action = siteSearchKey(key, { shiftKey, altKey, metaKey, ctrlKey }, { typed, completion: shownCompletion, scope, offered: tabScope, scopeFrom: scopeFrom.current });
       if (action?.kind === "enter") return enterScope(action.scope, action.from);
       if (action?.kind === "leave") return leaveScope(action.text);
       if (action?.kind === "accept") {
@@ -382,7 +382,7 @@ export function Omnibox({
         focusEcho.current = false;
         onCancel?.();
       }}
-      keyDownEvents={leavesSiteSearchOnBackspace(scope, typed) ? SCOPE_KEYS : isRemovable(current) ? REMOVE_KEYS : BASE_KEYS}
+      keyDownEvents={asksForBackspace(scope) ? SCOPE_KEYS : isRemovable(current) ? REMOVE_KEYS : BASE_KEYS}
       onKeyDown={onKeyDown}
       style={{
         flex: 1,
