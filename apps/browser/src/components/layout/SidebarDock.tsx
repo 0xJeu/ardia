@@ -1,4 +1,4 @@
-import { onWindowEvent, setTrafficLightsCenter, Surface, watchLeftEdge } from "@ardia/shell";
+import { onWindowEvent, setTrafficLightsCenter, Surface, watchLeftEdge, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
@@ -121,6 +121,7 @@ export function DockedLayout({
               }
         }
       >
+        {!fullscreen && <WindowDragRegion style={StyleSheet.absoluteFill} />}
         {children}
       </Animated.View>
       {!topTabs && <SidebarDock dock={dock} open={open} width={width} fullscreen={fullscreen} arc={arc} />}
