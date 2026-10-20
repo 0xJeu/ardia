@@ -10,6 +10,7 @@ import { type ToolbarPalette } from "../layout/toolbarColors";
 import { useHover } from "../primitives";
 
 export const ZoomIndicator = memo(function ZoomIndicator({ tabId, zoom, palette, onFocus }: { tabId: string; zoom: number; palette: ToolbarPalette; onFocus: () => void }) {
+  const open = usePages((p) => p.popover[tabId] === "zoom");
   if (Math.abs(zoom - 1) < 0.001) return null;
   return (
     <ToolbarButton
@@ -22,6 +23,7 @@ export const ZoomIndicator = memo(function ZoomIndicator({ tabId, zoom, palette,
         onFocus();
         setPopover(tabId, usePages.getState().popover[tabId] === "zoom" ? null : "zoom");
       }}
+      active={open}
       tooltip={`Zoom: ${Math.round(zoom * 100)}%`}
     />
   );

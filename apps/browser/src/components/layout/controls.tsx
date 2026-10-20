@@ -18,6 +18,7 @@ export function ToolbarButton({
   onLongPress,
   onContextMenu,
   disabled,
+  active,
   size = 15,
   box = 30,
   radius = 7,
@@ -33,6 +34,7 @@ export function ToolbarButton({
   onLongPress?: () => void;
   onContextMenu?: () => void;
   disabled?: boolean;
+  active?: boolean;
   size?: number;
   box?: number;
   radius?: number;
@@ -55,7 +57,7 @@ export function ToolbarButton({
         borderRadius: radius,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: disabled ? undefined : pressed ? palette.pressed : hovered ? palette.hover : undefined,
+        backgroundColor: disabled ? undefined : pressed || active ? palette.pressed : hovered ? palette.hover : undefined,
       }}
     >
       <Symbol name={icon} size={size} weight={weight} color={color ?? (disabled ? palette.iconDisabled : palette.icon)} style={{ width: box, height: box }} />
@@ -67,6 +69,7 @@ export function ToolbarButton({
       onLongPress={onLongPress}
       delayLongPress={450}
       disabled={disabled}
+      accessibilityLabel={tooltip}
       style={hit ? { width: hit.width, height: hit.height } : undefined}
     >
       {({ pressed }) => plate(pressed)}

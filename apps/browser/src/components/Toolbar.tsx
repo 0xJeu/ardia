@@ -270,7 +270,9 @@ export const UrlField = memo(function UrlField({
     onFocus();
     setPopover(tab.id, currentPopover(tab.id) === "siteControls" ? null : "siteControls");
   };
-  const { hovered, hoverProps } = useHover();
+  const { hovered: pointerOver, hoverProps } = useHover();
+  const popover = usePages((p) => p.popover[tab.id] ?? null);
+  const hovered = pointerOver || popover === "siteControls";
   const isFile = tab.url.startsWith("file:");
   const host = isFile ? "File" : breadcrumb(tab.url).host;
   const full = isFile ? ` ${safeDecode(tab.url.slice("file://".length))}` : urlForDisplay(tab.url);
@@ -351,6 +353,7 @@ export const UrlField = memo(function UrlField({
               onFocus();
               setPopover(tab.id, currentPopover(tab.id) === "popups" ? null : "popups");
             }}
+            active={popover === "popups"}
             tooltip="Pop-ups blocked on this page"
           />
         )}
@@ -368,7 +371,7 @@ export const UrlField = memo(function UrlField({
                 tooltip="Open Split View (⌃⇧=)"
               />
             )}
-            <ToolbarButton palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={6} onPress={toggleSiteControls} tooltip="Site Controls" />
+            <ToolbarButton palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={6} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
           </>
         )}
         {sidebar?.accessory}
