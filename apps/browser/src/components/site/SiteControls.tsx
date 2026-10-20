@@ -9,36 +9,45 @@ import {
   type SiteSettingValue,
   type SiteSettings,
 } from "@ardia/ardiacore";
-import { cleanUrl, displayHost } from "@ardia/core";
-import { confirm, copyText, showMenu, Symbol } from "@ardia/shell";
+import { displayHost } from "@ardia/core";
+import { confirm, showMenu } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { useSettings, useTab } from "../../store/hooks";
 import { engineProfile, tabLabel } from "../../store/model";
 import { Favicon } from "../primitives";
-import { PANEL, PanelHeader, Popover, PopoverRow, PopoverSeparator, PopoverValue, Toggle } from "../layout/controls";
-import { patchPage, setPopover, usePage } from "../layout/pageState";
+import { PANEL, PanelHeader, Popover, PopoverRow, PopoverSeparator, PopoverValue, Toggle, usePopoverPresence } from "../layout/controls";
+import { pageOf, patchPage, setPopover, usePage } from "../layout/pageState";
 import { showToast } from "../layout/splitActions";
 import { toggleCastPicker } from "../media/cast";
 import { useMedia, usePictureInPicture } from "../media/state";
-import { shareTab } from "./share";
+import { openSettings } from "../settings/windows";
+import { copyPageUrl } from "./selection";
+import { canShare, shareTab } from "./share";
+import { ActionTile, FooterChip, MoreButton, SectionTitle, SettingRow, SITE_PANEL } from "./SiteControlsParts";
+import { SiteExtensions } from "./SiteExtensions";
 import { TranslateRows } from "./TranslateControls";
 import { ZoomStepper } from "./ZoomControls";
 
-const PERMISSIONS: { type: SiteSettingType; title: string; icon: string; choices: SiteSettingValue[] }[] = [
-  { type: "popups", title: "Pop-ups and Redirects", icon: "macwindow.on.rectangle", choices: ["allow", "block"] },
-  { type: "camera", title: "Camera", icon: "video", choices: ["ask", "allow", "block"] },
-  { type: "microphone", title: "Microphone", icon: "mic", choices: ["ask", "allow", "block"] },
-  { type: "location", title: "Location", icon: "location", choices: ["ask", "allow", "block"] },
-  { type: "notifications", title: "Notifications", icon: "bell", choices: ["ask", "allow", "block"] },
-  { type: "sound", title: "Sound", icon: "speaker.wave.2", choices: ["allow", "block"] },
+type Permission = { type: SiteSettingType; title: string; icon: string; badge: string; choices: SiteSettingValue[] };
+
+const PERMISSIONS: Permission[] = [
+  { type: "camera", title: "Camera", icon: "video", badge: "video.fill", choices: ["ask", "allow", "block"] },
+  { type: "microphone", title: "Microphone", icon: "mic", badge: "mic.fill", choices: ["ask", "allow", "block"] },
+  { type: "location", title: "Location", icon: "location", badge: "location.fill", choices: ["ask", "allow", "block"] },
+  { type: "notifications", title: "Notifications", icon: "bell", badge: "bell.fill", choices: ["ask", "allow", "block"] },
+  { type: "popups", title: "Pop-ups and Redirects", icon: "macwindow.on.rectangle", badge: "macwindow.on.rectangle", choices: ["allow", "block"] },
+  { type: "sound", title: "Sound", icon: "speaker.wave.2", badge: "speaker.wave.2.fill", choices: ["allow", "block"] },
 ];
 
 const choiceTitle = (type: SiteSettingType, value: SiteSettingValue) =>
   type === "sound" ? (value === "block" ? "Muted" : "Allowed") : value === "allow" ? "Allowed" : value === "block" ? "Blocked" : "Ask";
+
+type Expanded = "connection" | "more" | null;
+type Blocker = { enabled: boolean; allowed: boolean };
 
 function originOf(url: string): string | null {
   try {
@@ -49,17 +58,50 @@ function originOf(url: string): string | null {
   }
 }
 
-export function SiteControls({ tabId, right, left, top }: { tabId: string; right?: number; left?: number; top: number }) {
+export function SiteControls({ tabId, open, right, left, top }: { tabId: string; open: boolean; right?: number; left?: number; top: number }) {
+  const presence = usePopoverPresence(open);
+  if (!presence.shown) return null;
+  return <SiteControlsPanel tabId={tabId} right={right} left={left} top={top} closing={presence.closing} onClosed={presence.onClosed} />;
+}
+
+function featuredPermissions(tabId: string, settings: SiteSettings): Set<SiteSettingType> {
+  const s = useBrowser.getState();
+  const tab = s.tabs[tabId];
+  const access = pageOf(tabId).mediaAccess;
+  const inUse: Partial<Record<SiteSettingType, boolean>> = {
+    camera: !!access?.camera,
+    microphone: !!access?.microphone,
+    sound: !!tab?.muted || !!s.live[tabId]?.playingAudio,
+  };
+  return new Set(PERMISSIONS.filter((p) => !settings[p.type]?.isDefault || inUse[p.type]).map((p) => p.type));
+}
+
+function SiteControlsPanel({
+  tabId,
+  right,
+  left,
+  top,
+  closing,
+  onClosed,
+}: {
+  tabId: string;
+  right?: number;
+  left?: number;
+  top: number;
+  closing: boolean;
+  onClosed: () => void;
+}) {
   const tab = useTab(tabId);
+  const theme = useTheme();
   const security = usePage(tabId, (p) => p.security);
   const blocked = usePage(tabId, (p) => p.blocked);
   const showFullUrl = useSettings((s) => s.showFullUrl);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [blocker, setBlocker] = useState<{ enabled: boolean; allowed: boolean } | null>(null);
-  const [certOpen, setCertOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [featured, setFeatured] = useState<Set<SiteSettingType> | null>(null);
+  const [blocker, setBlocker] = useState<Blocker | null>(null);
+  const [expanded, setExpanded] = useState<Expanded>(null);
   const [cleared, setCleared] = useState<string | null>(null);
-  const shareRow = useRef<View>(null);
+  const shareTile = useRef<View>(null);
   const url = tab?.url ?? "";
   const origin = originOf(url);
   const host = origin ? new URL(origin).hostname : "";
@@ -71,7 +113,11 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
   useEffect(() => {
     if (!origin) return;
     let live = true;
-    void getSiteSettings(profile, origin).then((s) => live && setSettings(s));
+    void getSiteSettings(profile, origin).then((s) => {
+      if (!live) return;
+      setSettings(s);
+      setFeatured((f) => f ?? featuredPermissions(tabId, s));
+    });
     void Promise.all([getContentBlocker(), isContentBlockerAllowed(host)]).then(([state, allowed]) => live && setBlocker({ enabled: state.enabled, allowed }));
     void webviews.get(tabId)?.getSecurityInfo().then((info) => live && info && patchPage(tabId, { security: info }));
     return () => {
@@ -118,102 +164,183 @@ export function SiteControls({ tabId, right, left, top }: { tabId: string; right
     void webviews.get(tabId)?.reload();
   };
   const share = () =>
-    shareRow.current?.measureInWindow((x, y, width, height) => void shareTab(tab, tab.windowId, null, [x, y, width, height]).then(close));
-  const copyClean = () => {
-    copyText(cleanUrl(url));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
+    shareTile.current?.measureInWindow((x, y, width, height) => {
+      close();
+      void shareTab(tab, tab.windowId, null, [x, y, width, height]);
+    });
+  const cast = () => {
+    close();
+    void toggleCastPicker(tab.windowId);
   };
+  const toggle = (section: Exclude<Expanded, null>) => setExpanded((e) => (e === section ? null : section));
+
+  const findable = /^(https?|file):/i.test(url);
+  const castTile = !video && !!origin;
+  const tiles = [
+    canShare(tab) ? <ActionTile key="share" ref={shareTile} stretch icon="square.and.arrow.up" label="Share…" onPress={share} /> : null,
+    <ActionTile
+      key="copy"
+      stretch
+      icon="link"
+      label="Copy Clean Link"
+      onPress={() => {
+        close();
+        void copyPageUrl(tabId);
+      }}
+    />,
+    findable ? (
+      <ActionTile
+        key="find"
+        stretch
+        icon="text.magnifyingglass"
+        label="Find on Page"
+        onPress={() => {
+          close();
+          useBrowser.getState().setFind(tabId, { open: true, replace: false, focusRequest: Date.now() });
+        }}
+      />
+    ) : null,
+    video ? (
+      <ActionTile
+        key="pip"
+        stretch
+        icon={pip ? "pip.exit" : "pip.enter"}
+        label={pip ? "Exit Picture in Picture" : "Picture in Picture"}
+        active={pip}
+        onPress={() => {
+          togglePip();
+          close();
+        }}
+      />
+    ) : castTile ? (
+      <ActionTile key="cast" stretch icon="tv.and.mediabox" label="Cast…" onPress={cast} />
+    ) : null,
+  ].filter(Boolean);
+
+  const blockerValue = !blocker
+    ? "…"
+    : !blocker.enabled
+      ? "Off in Settings"
+      : blocker.allowed
+        ? "Off for this site"
+        : blocked > 0
+          ? `On · ${blocked} blocked on this page`
+          : "On";
+  const shownPermissions = featured ? PERMISSIONS.filter((p) => featured.has(p.type)) : [];
+  const otherPermissions = PERMISSIONS.filter((p) => !featured?.has(p.type));
+  const value = (p: Permission) => (settings ? choiceTitle(p.type, settings[p.type]?.value ?? "ask") : "…");
 
   return (
-    <Popover width={306} top={top} right={right} left={left} onDismiss={close} fitHeight>
-      <View style={{ paddingBottom: PANEL.listPadding }}>
-        <PanelHeader
-          icon={<Favicon url={url} favicon={tab.favicon} size={PANEL.iconSlot} profileId={tab.profileId} />}
-          title={host ? displayHost(host) : tabLabel(tab)}
-          subtitle={tab.title}
-        />
+    <Popover width={SITE_PANEL.width} top={top} right={right} left={left} onDismiss={close} fitHeight closing={closing} onClosed={onClosed}>
+      <View style={{ paddingTop: PANEL.inset }}>
+        <View style={{ flexDirection: "row", gap: SITE_PANEL.gap, paddingHorizontal: PANEL.inset }}>{tiles}</View>
 
-        <ConnectionRow security={security} open={certOpen} onToggle={() => setCertOpen((o) => !o)} />
-        {certOpen && security?.certificate ? <CertificateDetails security={security} /> : null}
-        <PopoverSeparator />
+        <SiteExtensions windowId={tab.windowId} onClose={close} />
 
-        <ZoomRow tabId={tabId} zoom={tab.zoom} />
-        <PopoverSeparator />
-
-        {video ? (
-          <PopoverRow
-            icon={pip ? "pip.exit" : "pip.enter"}
-            title={pip ? "Exit Picture in Picture" : "Picture in Picture"}
-            onPress={() => {
-              togglePip();
-              close();
-            }}
-          />
-        ) : null}
         {origin ? (
-          <PopoverRow
-            icon="tv.and.mediabox"
-            title="Cast…"
-            onPress={() => {
-              close();
-              if (tab) void toggleCastPicker(tab.windowId);
-            }}
-          />
-        ) : null}
-        {video || origin ? <PopoverSeparator /> : null}
-        {origin ? <TranslateRows tabId={tabId} onClose={close} /> : null}
-
-        {origin && (
           <>
-            <PopoverRow
+            <SectionTitle title="Settings" tight />
+            <SettingRow
               icon="shield.lefthalf.filled"
               title="Block Ads & Trackers"
-              detail={
+              value={blockerValue}
+              on={!!blocker?.enabled && !blocker.allowed}
+              onPress={
                 !blocker
                   ? undefined
-                  : !blocker.enabled
-                    ? "The built-in ad blocker is off. You can change this in Settings."
-                    : blocker.allowed
-                      ? "The built-in ad blocker is disabled for this site."
-                      : blocked > 0
-                        ? `${blocked} blocked on this page`
-                        : "The built-in ad blocker is turned on for this site."
+                  : blocker.enabled
+                    ? () => void toggleBlocker(blocker.allowed)
+                    : () => {
+                        close();
+                        openSettings("privacy");
+                      }
               }
-              accessory={blocker?.enabled ? <Toggle value={!blocker.allowed} onChange={(on) => void toggleBlocker(on)} /> : null}
             />
-            <PopoverSeparator />
-            {PERMISSIONS.map((p) => (
-              <PopoverRow
+            {shownPermissions.map((p) => (
+              <SettingRow
                 key={p.type}
-                icon={p.icon}
+                icon={p.badge}
                 title={p.title}
-                accessory={<PopoverValue title={settings ? choiceTitle(p.type, settings[p.type]?.value ?? "ask") : "…"} onPress={() => void pickPermission(p.type, p.choices)} />}
+                value={value(p)}
+                on={settings?.[p.type]?.value === "allow"}
+                onPress={() => void pickPermission(p.type, p.choices)}
               />
             ))}
-            <PopoverSeparator />
-            <PopoverRow icon="trash" title="Clear Cookies and Site Data…" detail={cleared ?? undefined} onPress={() => void clearData()} />
           </>
-        )}
-        <PopoverRow icon={copied ? "checkmark" : "link"} title={copied ? "Copied a clean link without trackers" : "Copy Clean Link"} onPress={copyClean} />
-        {origin ? (
-          <View ref={shareRow} collapsable={false}>
-            <PopoverRow icon="square.and.arrow.up" title="Share…" onPress={share} />
-          </View>
         ) : null}
-        <PopoverRow
-          icon="text.alignleft"
-          title="Show Full URL"
-          accessory={<Toggle value={showFullUrl} onChange={(v) => useBrowser.getState().updateSettings({ showFullUrl: v })} />}
-        />
+
+        {expanded === "connection" ? (
+          <>
+            <PopoverSeparator />
+            <PanelHeader
+              icon={<Favicon url={url} favicon={tab.favicon} size={PANEL.iconSlot} profileId={tab.profileId} />}
+              title={host ? displayHost(host) : tabLabel(tab)}
+              subtitle={tab.title}
+            />
+            <ConnectionRow security={security} />
+            {security?.certificate ? <CertificateDetails security={security} /> : null}
+          </>
+        ) : null}
+
+        {expanded === "more" ? (
+          <>
+            <PopoverSeparator />
+            <PopoverRow icon="plus.magnifyingglass" title="Zoom" accessory={<ZoomStepper tabId={tabId} zoom={tab.zoom} />} />
+            {origin && !castTile ? <PopoverRow icon="tv.and.mediabox" title="Cast…" onPress={cast} /> : null}
+            {origin ? (
+              <>
+                <PopoverSeparator />
+                <TranslateRows tabId={tabId} onClose={close} />
+                {otherPermissions.map((p) => (
+                  <PopoverRow
+                    key={p.type}
+                    icon={p.icon}
+                    title={p.title}
+                    accessory={<PopoverValue title={value(p)} onPress={() => void pickPermission(p.type, p.choices)} />}
+                  />
+                ))}
+                {otherPermissions.length ? <PopoverSeparator /> : null}
+                <PopoverRow icon="trash" title="Clear Cookies and Site Data…" detail={cleared ?? undefined} onPress={() => void clearData()} />
+              </>
+            ) : null}
+            <PopoverRow
+              icon="text.alignleft"
+              title="Show Full URL"
+              accessory={<Toggle value={showFullUrl} onChange={(v) => useBrowser.getState().updateSettings({ showFullUrl: v })} />}
+            />
+          </>
+        ) : null}
+
+        <View style={{ height: StyleSheet.hairlineWidth, marginTop: origin ? 8 : 14, marginHorizontal: PANEL.inset, backgroundColor: theme.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: PANEL.inset, paddingTop: 10, paddingBottom: 12 }}>
+          <ConnectionChip security={security} open={expanded === "connection"} onPress={() => toggle("connection")} />
+          <MoreButton open={expanded === "more"} onPress={() => toggle("more")} />
+        </View>
       </View>
     </Popover>
   );
 }
 
-function ConnectionRow({ security, open, onToggle }: { security: SecurityInfo | null; open: boolean; onToggle: () => void }) {
-  const theme = useTheme();
+const WARNING = "#FF6B63";
+const CAUTION = "#F2B33D";
+
+function connectionLook(security: SecurityInfo | null) {
   const level = security?.level ?? "none";
+  if (level === "secure") return { level, chip: "Secure", icon: "lock.fill", color: undefined };
+  if (level === "local" || level === "none") return { level, chip: "Local Page", icon: "info.circle", color: undefined };
+  if (level === "mixed") return { level, chip: "Not Fully Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: CAUTION };
+  return { level, chip: "Not Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: WARNING };
+}
+
+function ConnectionChip({ security, open, onPress }: { security: SecurityInfo | null; open: boolean; onPress: () => void }) {
+  const look = connectionLook(security);
+  return <FooterChip icon={look.icon} title={look.chip} color={look.color} open={open} onPress={onPress} />;
+}
+
+function ConnectionRow({ security }: { security: SecurityInfo | null }) {
+  const theme = useTheme();
+  const look = connectionLook(security);
+  const { level } = look;
   const secure = level === "secure";
   const local = level === "local" || level === "none";
   const title = secure ? "Connection is secure" : local ? "This is a local or internal page" : "Connection is not secure";
@@ -227,16 +354,7 @@ function ConnectionRow({ security, open, onToggle }: { security: SecurityInfo | 
           : secure && security?.certificate
             ? `Certificate issued by ${security.certificate.issuer.organizations[0] || security.certificate.issuer.commonName}`
             : undefined;
-  return (
-    <PopoverRow
-      icon={secure ? "lock.fill" : local ? "info.circle" : "lock.open.trianglebadge.exclamationmark.fill"}
-      iconColor={level === "certificateError" || level === "insecure" ? "#FF6B63" : level === "mixed" ? "#F2B33D" : theme.icon}
-      title={title}
-      detail={detail}
-      onPress={security?.certificate ? onToggle : undefined}
-      accessory={security?.certificate ? <Symbol name={open ? "chevron.up" : "chevron.down"} size={10} color={theme.textSecondary} style={{ width: 10, height: 14 }} /> : null}
-    />
-  );
+  return <PopoverRow icon={look.icon} iconColor={look.color ?? theme.icon} title={title} detail={detail} />;
 }
 
 function CertificateDetails({ security }: { security: SecurityInfo }) {
@@ -264,8 +382,4 @@ function CertificateDetails({ security }: { security: SecurityInfo }) {
       ))}
     </View>
   );
-}
-
-function ZoomRow({ tabId, zoom }: { tabId: string; zoom: number }) {
-  return <PopoverRow icon="plus.magnifyingglass" title="Zoom" accessory={<ZoomStepper tabId={tabId} zoom={zoom} />} />;
 }

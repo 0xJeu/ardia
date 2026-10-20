@@ -371,7 +371,7 @@ const TabPane = memo(function TabPane({
                 <PasswordPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
                 <AutofillPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
                 {!newTabShown && <ExternalAppPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, frame.width - 348))} top={POPOVER_MARGIN} />}
-                {popover === "siteControls" && <SiteControls tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
+                <SiteControls tabId={tabId} open={popover === "siteControls"} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />
                 {popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
                 {popover === "zoom" && <ZoomPopover tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
                 <SharePicker tabId={tabId} paneWidth={frame.width} />
@@ -563,6 +563,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
       onCommand={({ command, text, modifiers }) => {
         if (command === "search") searchSelection(tabId, text, modifiers);
         else if (command === "copyLinkToHighlight") void copyLinkToSelection(tabId);
+        else if (command === "escape" && usePages.getState().popover[tabId]) setPopover(tabId, null);
         else if (command === "escape") closeLittleArdiaOnEscape(tabId);
       }}
       onPageMessage={(kind, data) => {
