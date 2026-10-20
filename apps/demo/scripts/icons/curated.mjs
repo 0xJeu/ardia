@@ -253,6 +253,8 @@ export const CURATED = {
   "text.alignleft": "L:text-align-start T:align-left P:text-align-left I:align-left M:format-align-left L:align-left",
   "text.badge.checkmark": "L:list-checks T:list-check P:list-checks M:format-list-checks L:list-todo",
   "text.magnifyingglass": "L:text-search T:file-search P:magnifying-glass M:text-search",
+  terminal: "L:square-terminal T:terminal-2 P:terminal-window M:console I:terminal",
+  "terminal.fill": "PF:terminal-window-fill TF:terminal-2 M:console L:square-terminal",
   textformat: "L:a-large-small T:typography P:text-aa M:format-size L:type",
   trash: "L:trash T:trash P:trash I:trash M:trash-can-outline L:trash-2",
   tree: "L:tree-deciduous T:tree P:tree M:tree-outline I:tree",
