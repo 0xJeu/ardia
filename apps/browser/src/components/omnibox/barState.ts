@@ -8,6 +8,7 @@ export type BarSnapshot = {
   selection: { start: number; end: number };
   selected: number;
   scope: SearchScope | null;
+  scopeFrom: string;
 };
 
 const ntpQueries = new Map<string, BarSnapshot>();

@@ -75,7 +75,7 @@ export function Omnibox({
   const [suppressCompletion, setSuppressCompletion] = useState(true);
   const [selected, setSelected] = useState(restored?.selected ?? 0);
   const [scope, setScope] = useState<SearchScope | null>(restored?.scope ?? null);
-  const scopeFrom = useRef("");
+  const scopeFrom = useRef(restored?.scopeFrom ?? "");
   const [pendingSelection, setPendingSelection] = useState<Selection | null>(
     restored?.selection ?? (initialText ? { start: 0, end: initialText.length } : null),
   );
@@ -116,7 +116,7 @@ export function Omnibox({
   );
 
   const snapshot = useRef<BarSnapshot | null>(null);
-  snapshot.current = { typed, edited, selection: selection.current, selected, scope };
+  snapshot.current = { typed, edited, selection: selection.current, selected, scope, scopeFrom: scopeFrom.current };
   const fieldText = useRef(value);
   fieldText.current = value;
   const editing = useRef(false);
