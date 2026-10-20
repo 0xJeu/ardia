@@ -200,6 +200,8 @@ export function Popover({
   children,
   modal = true,
   fitHeight = false,
+  closing = false,
+  onClosed,
 }: {
   width: number;
   top: number;
@@ -209,19 +211,27 @@ export function Popover({
   children: ReactNode;
   modal?: boolean;
   fitHeight?: boolean;
+  closing?: boolean;
+  onClosed?: () => void;
 }) {
   const theme = useTheme();
   const appear = useRef(new Animated.Value(0)).current;
   const [room, setRoom] = useState<number | null>(null);
+  const closed = useRef(onClosed);
+  closed.current = onClosed;
   useEffect(() => {
-    Animated.timing(appear, { toValue: 1, duration: 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, []);
+    const motion = closing ? POPOVER_MOTION.close : POPOVER_MOTION.open;
+    Animated.timing(appear, { toValue: closing ? 0 : 1, duration: motion.duration, easing: motion.easing, useNativeDriver: true }).start(
+      ({ finished }) => finished && closing && closed.current?.(),
+    );
+  }, [closing]);
   const origin = right !== undefined ? "top right" : "top left";
   return (
     <>
       {fitHeight && <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={(e) => setRoom(e.nativeEvent.layout.height)} />}
-      {modal && onDismiss && <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />}
+      {modal && onDismiss && !closing && <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />}
       <Animated.View
+        pointerEvents={closing ? "none" : "auto"}
         style={{
           position: "absolute",
           top,
@@ -253,6 +263,17 @@ export function Popover({
       </Animated.View>
     </>
   );
+}
+
+export const POPOVER_MOTION = {
+  open: { duration: 150, easing: Easing.out(Easing.cubic) },
+  close: { duration: 100, easing: Easing.in(Easing.quad) },
+} as const;
+
+export function usePopoverPresence(open: boolean) {
+  const [shown, setShown] = useState(open);
+  if (open && !shown) setShown(true);
+  return { shown: open || shown, closing: !open, onClosed: () => setShown(false) };
 }
 
 export function PopoverRow({
