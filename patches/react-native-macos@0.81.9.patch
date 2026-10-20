@@ -135,6 +135,20 @@ index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8
  }
  
  - (void)reactBlur
+diff --git a/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+index 137d0ee9f51616ea27c397a8bf595fe2c0ff5e91..919fc6f23ad364814fe4dad680042df032d31362 100644
+--- a/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
++++ b/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+@@ -330,7 +330,9 @@ - (void)setPlaceholder:(NSString *)placeholder
+ #if !TARGET_OS_OSX // [macOS]
+   [super setPlaceholder:placeholder];
+ #else // [macOS
++  _isUpdatingPlaceholderText = YES; // [Ardia: AppKit ends and restarts the edit of an empty field whose placeholder changes, so this needs the same guard as _updatePlaceholder: unguarded, React Native reported a blur, and the real blur after it went unheard (Backspace out of site search closed the command bar) Ardia]
+   [super setPlaceholderString:placeholder];
++  _isUpdatingPlaceholderText = NO; // [Ardia]
+ #endif // macOS]
+   [self _updatePlaceholder];
+ }
 diff --git a/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm b/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm
 index 6f332dc1701cada0aff0e9a2678fa7bdcea0ef85..462853ec8b76f004cd5b9e92291473bc673a7ed1 100644
 --- a/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm
