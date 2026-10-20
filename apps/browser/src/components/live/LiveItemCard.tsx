@@ -9,7 +9,7 @@ import { useLive } from "../../live/store";
 import type { LiveItem, PullRequestCheck } from "../../live/types";
 import { useBrowser } from "../../store/browser";
 import { useHover } from "../primitives";
-import { dismissHover, hoverLeave, keepHover } from "../sidebar/hover";
+import { cardHoverProps, dismissHover } from "../sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
 import type { Anchor } from "../sidebar/state";
 import { TabIcon } from "../sidebar/TabIcon";
@@ -18,10 +18,10 @@ import { useLiveColors, type LiveColors } from "./colors";
 export function HoverSurface({ anchor, width, children }: { anchor: Anchor; width: number; children: ReactNode }) {
   const theme = useTheme();
   return (
-    <View style={{ position: "absolute", ...hoverCardOrigin(anchor), width }}>
+    <View onLayout={cardHoverProps.onLayout} style={{ position: "absolute", ...hoverCardOrigin(anchor), width }}>
       <Surface
-        onMouseEnter={keepHover}
-        onMouseLeave={hoverLeave}
+        onMouseEnter={cardHoverProps.onMouseEnter}
+        onMouseLeave={cardHoverProps.onMouseLeave}
         fill={hex(theme.panel)}
         cornerRadius={12}
         borderColor={hex(theme.panelBorder)}

@@ -2,7 +2,7 @@ import { Surface } from "@ardia/shell";
 import { hex, layout, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { clickTab } from "../sidebar/actions";
-import { dismissHover, hoverLeave, keepHover } from "../sidebar/hover";
+import { cardHoverProps, dismissHover } from "../sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
 import { measureRow, setSidebarUi, type Anchor } from "../sidebar/state";
 import { useSidebarWidth } from "../sidebar/tokens";
@@ -30,8 +30,7 @@ export function HoverPlayer({ tabId, windowId, anchor }: { tabId: string; window
   const edge = usePlayerEdge(windowId, anchor);
   return (
     <Surface
-      onMouseEnter={keepHover}
-      onMouseLeave={hoverLeave}
+      {...cardHoverProps}
       fill={tokens.background}
       cornerRadius={12}
       borderColor={hex(tokens.border)}

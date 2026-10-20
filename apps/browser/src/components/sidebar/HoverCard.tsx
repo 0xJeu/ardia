@@ -14,7 +14,7 @@ import { LiveItemCard } from "../live/LiveItemCard";
 import { useIsSleeping } from "../../lib/tabLifecycle";
 import { useHover } from "../primitives";
 import { clickTab, tabTitle } from "./actions";
-import { dismissHover, hoverLeave, keepHover } from "./hover";
+import { cardHoverProps, dismissHover, setHoverSpace } from "./hover";
 import { hoverCardOrigin, useHoverCardMotion, useHoverCardPlacement } from "./hoverMotion";
 import { useSidebarUi, type Anchor, type Hover } from "./state";
 import { TabIcon } from "./TabIcon";
@@ -29,6 +29,7 @@ export function HoverCard({ windowId, width, height }: { windowId: string; width
   useLayoutEffect(() => {
     if (orphaned) dismissHover();
   }, [orphaned]);
+  useLayoutEffect(() => setHoverSpace(windowId, height), [windowId, height]);
   const target = orphaned ? null : hover;
   const { drawn, leaving, motion } = useHoverCardMotion(windowId, target);
   const shown = drawn ?? target;
@@ -55,8 +56,7 @@ function Card({ anchor, children }: { anchor: Anchor; children: React.ReactNode 
   const theme = useTheme();
   return (
     <Surface
-      onMouseEnter={keepHover}
-      onMouseLeave={hoverLeave}
+      {...cardHoverProps}
       fill={hex(theme.panel)}
       cornerRadius={12}
       borderColor={hex(theme.panelBorder)}
