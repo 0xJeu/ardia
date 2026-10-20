@@ -26,6 +26,7 @@ import { useClearDataRequest } from "../components/pages/ClearDataDialog";
 import { openInternalPage } from "../components/pages/urls";
 import { isUtilityWindowId, openImport, openSettings } from "../components/settings/windows";
 import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barState";
+import { addressBarInSidebar } from "../components/layout/windowLayout";
 import { webviews } from "./webviews";
 import { goBack, goForward } from "../components/layout/history";
 import { openSplitPane } from "../components/layout/splitActions";
@@ -127,6 +128,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return arg ? s.restoreClosed(arg, windowId) : undefined;
     case "focusCommandBar":
       if (page) return s.openPanel(windowId, page.url);
+      if (tab && addressBarInSidebar(s, windowId)) return s.openPanel(windowId, "");
       if (!focusHeroBar(windowId, tabId)) return tab ? s.openPanel(windowId, "") : undefined;
       return ui?.panel.open ? s.closePanel(windowId) : undefined;
     case "closeTab":
