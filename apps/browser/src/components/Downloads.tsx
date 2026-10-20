@@ -12,7 +12,7 @@ import { PROFILE_DOTS_HEIGHT } from "./profiles/ProfileDots";
 import { openInternalPage } from "./pages/urls";
 import { useSidebarWidth } from "./sidebar/tokens";
 import { HoverSlot } from "./HoverSlot";
-import { PANEL } from "./layout/controls";
+import { PANEL, POPOVER_MOTION, usePopoverPresence } from "./layout/controls";
 import { IconButton, useHover } from "./primitives";
 
 function formatBytes(n: number) {
@@ -126,24 +126,33 @@ const TEXT_BUTTON_PAD = 7;
 const progressTrack = (dark: boolean) => (dark ? "#717782" : "#CED7E7");
 
 export function DownloadsPopover() {
-  const theme = useTheme();
   const windowId = useWindowId();
-  const open = useWindowUi().downloadsOpen;
-  const ids = useBrowser(useShallow((s) => (s.windowUi[windowId]?.downloadsOpen ? downloadsIn(s, windowId).map((d) => d.id) : [])));
-  const clearable = useBrowser((s) => !!s.windowUi[windowId]?.downloadsOpen && downloadsIn(s, windowId).some((d) => d.state !== "downloading"));
+  const { shown, closing, onClosed } = usePopoverPresence(useWindowUi().downloadsOpen);
+  return shown ? <DownloadsPanel windowId={windowId} closing={closing} onClosed={onClosed} /> : null;
+}
+
+function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; closing: boolean; onClosed: () => void }) {
+  const theme = useTheme();
+  const liveIds = useBrowser(useShallow((s) => downloadsIn(s, windowId).map((d) => d.id)));
+  const liveClearable = useBrowser((s) => downloadsIn(s, windowId).some((d) => d.state !== "downloading"));
+  const shownList = useRef({ ids: liveIds, clearable: liveClearable });
+  if (!closing) shownList.current = { ids: liveIds, clearable: liveClearable };
+  const { ids, clearable } = shownList.current;
   const top = useTabLayout() === "top";
   const addressBar = useAddressBarInSidebar();
   const setOpen = (value: boolean) => useBrowser.getState().setDownloadsOpen(windowId, value);
   const appear = useRef(new Animated.Value(0)).current;
+  const closed = useRef(onClosed);
+  closed.current = onClosed;
   useEffect(() => {
-    if (!open) return;
-    appear.setValue(0);
-    Animated.timing(appear, { toValue: 1, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, [open]);
-  if (!open) return null;
+    const motion = closing ? POPOVER_MOTION.close : POPOVER_MOTION.open;
+    Animated.timing(appear, { toValue: closing ? 0 : 1, duration: motion.duration, easing: motion.easing, useNativeDriver: true }).start(
+      ({ finished }) => finished && closing && closed.current(),
+    );
+  }, [closing]);
 
   return (
-    <View style={StyleSheet.absoluteFill}>
+    <View pointerEvents={closing ? "none" : "auto"} style={StyleSheet.absoluteFill}>
       <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
       <Animated.View
         style={{
@@ -151,7 +160,11 @@ export function DownloadsPopover() {
           ...(addressBar ? { bottom: PROFILE_DOTS_HEIGHT + 2 } : { top: 44 }),
           ...(top ? { right: 8 } : { left: 10 }),
           opacity: appear,
-          transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: addressBar ? [4, 0] : [-4, 0] }) }],
+          transformOrigin: `${addressBar ? "bottom" : "top"} ${top ? "right" : "left"}`,
+          transform: [
+            { scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+            { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: addressBar ? [4, 0] : [-4, 0] }) },
+          ],
         }}
       >
         <Surface
@@ -232,8 +245,10 @@ function FooterButton({ title, onPress }: { title: string; onPress: () => void }
 }
 
 const DownloadRowItem = memo(function DownloadRowItem({ id, windowId }: { id: string; windowId: string }) {
-  const d = useBrowser((s) => s.downloads.find((x) => x.id === id));
-  return d ? <DownloadRow d={d} windowId={windowId} /> : null;
+  const live = useBrowser((s) => s.downloads.find((x) => x.id === id));
+  const last = useRef(live);
+  if (live) last.current = live;
+  return last.current ? <DownloadRow d={last.current} windowId={windowId} /> : null;
 });
 
 function DownloadRow({ d, windowId }: { d: Download; windowId: string }) {
