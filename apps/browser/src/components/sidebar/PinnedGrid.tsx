@@ -1,5 +1,5 @@
 import { ContextMenuArea, DockSelection, MouseArea, Surface, Symbol } from "@ardia/shell";
-import { Fragment, memo, useEffect, useMemo, useRef } from "react";
+import { Fragment, memo, useMemo } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { closeTab } from "../../lib/actions";
 import { hex, layout, useTheme } from "../../lib/theme";
@@ -9,7 +9,6 @@ import { listTopGap, useAddressBarInSidebar } from "../layout/windowLayout";
 import { useBrowser } from "../../store/browser";
 import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../store/hooks";
 import { activeTabId } from "../../store/model";
-import { awayFromPin } from "../../store/organize";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
 import { clickTab } from "./actions";
 import { PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, usePinnedCount } from "./dnd";
@@ -158,12 +157,7 @@ const PinnedTile = memo(function PinnedTile({ tabId, width }: { tabId: string; w
   const playing = useTabLive(tabId, (l) => l.playingAudio);
   const { hovered, hoverProps } = useRowHover(windowId, { kind: "tab", id: tabId });
   const { wrapper, handle } = useDragItem(`t:${tabId}`, { kind: "tile", tabIds: [tabId], section: "tiles" }, () => useBrowser.getState().selection[windowId] ?? []);
-  const away = !!tab && awayFromPin(tab);
   const tileTheme = useTileTheme(tab?.url ?? "", tab?.favicon, tab?.customIcon, tab?.profileId ?? "");
-  const badge = useRef(new Animated.Value(away ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.spring(badge, { toValue: away ? 1 : 0, speed: 18, bounciness: 8, useNativeDriver: true }).start();
-  }, [away]);
   if (!tab) return null;
   const radius = 10;
 
@@ -261,16 +255,6 @@ const PinnedTile = memo(function PinnedTile({ tabId, width }: { tabId: string; w
             </Pressable>
           </ContextMenuArea>
         </MouseArea>
-        <Animated.View
-          pointerEvents={away ? "auto" : "none"}
-          style={{ position: "absolute", top: 3, right: 3, opacity: badge, transform: [{ scale: badge.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }}
-        >
-          <Pressable onPress={() => useBrowser.getState().returnToPinnedUrl(tabId)} tooltip="Back to Pinned URL (⌘↩)">
-            <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: tokens.badge, alignItems: "center", justifyContent: "center" }}>
-              <Symbol name="arrow.uturn.backward" size={7} weight="bold" color={tokens.badgeGlyph} style={{ width: 10, height: 10 }} />
-            </View>
-          </Pressable>
-        </Animated.View>
         <NextMeetingBadge tabId={tabId} />
         {playing || tab.muted ? (
           <View pointerEvents="none" style={{ position: "absolute", bottom: 3, right: 4 }}>
