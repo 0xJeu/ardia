@@ -104,6 +104,13 @@ export type SiteSearchKey =
   | { kind: "leave"; text: string }
   | { kind: "accept"; text: string };
 
+export type KeywordBySpace = { keyword: string; from: string };
+
+export function keywordBySpace(typed: string, next: string): KeywordBySpace | null {
+  if (!typed.trim() || /\s$/.test(typed) || next !== `${typed} `) return null;
+  return { keyword: typed, from: next };
+}
+
 export function asksForBackspace(scope: SearchScope | null): boolean {
   return !!scope;
 }

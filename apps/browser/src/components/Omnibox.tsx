@@ -1,4 +1,4 @@
-import { displayUrl, asksForBackspace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
+import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -313,8 +313,9 @@ export function Omnibox({
     focusEcho.current = false;
     keyAt.current = Date.now();
     journeyKeystroke(tabId);
-    const keyword = !scope && next === typed + " " ? keywordScope(typed, windowId) : null;
-    if (keyword) return enterScope(keyword, typed);
+    const bySpace = scope ? null : keywordBySpace(typed, next);
+    const keyword = bySpace ? keywordScope(bySpace.keyword, windowId) : null;
+    if (bySpace && keyword) return enterScope(keyword, bySpace.from);
     setEdited(true);
     setTyped(change.typed);
     setSuppressCompletion(change.suppress);

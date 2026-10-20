@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BUILT_IN_ENGINES } from "./engines.ts";
-import { asksForBackspace, offeredSiteSearch, siteSearchKey, type SearchScope, type SiteSearchKeyState } from "./siteSearch.ts";
+import { asksForBackspace, keywordBySpace, offeredSiteSearch, siteSearchKey, type SearchScope, type SiteSearchKeyState } from "./siteSearch.ts";
 
 const sources = { engines: BUILT_IN_ENGINES };
 
@@ -52,6 +52,23 @@ test("Backspace in an empty site search field leaves it and restores the text th
   const x = bar("x.com").offered!;
   const state = bar("", "", x, "x.com");
   assert.deepEqual(siteSearchKey("Backspace", {}, state), { kind: "leave", text: "x.com" });
+});
+
+test("site search entered by typing a space leaves with the space: 'x.com ' then Backspace gives 'x.com '", () => {
+  const entry = keywordBySpace("x.com", "x.com ");
+  assert.deepEqual(entry, { keyword: "x.com", from: "x.com " });
+  const x = bar("x.com").offered!;
+  assert.deepEqual(siteSearchKey("Backspace", {}, bar("", "", x, entry!.from)), { kind: "leave", text: "x.com " });
+});
+
+test("a space typed after the restored 'x.com ' is a plain space, it doesn't enter site search again", () => {
+  assert.equal(keywordBySpace("x.com ", "x.com  "), null);
+});
+
+test("only a space typed at the end of the text enters site search by keyword", () => {
+  assert.equal(keywordBySpace("x.com", "x.coma"), null);
+  assert.equal(keywordBySpace("x.com", " x.com"), null);
+  assert.equal(keywordBySpace("", " "), null);
 });
 
 test("site search asks for Backspace the whole time it is on, so typing never races the registration", () => {
