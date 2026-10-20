@@ -120,7 +120,9 @@ function ExtensionButton({ ext, windowId, browserId, palette }: { ext: Installed
               }}
             >
               {icon ? (
-                <Image source={{ uri: icon }} style={{ width: 16, height: 16, opacity: dimmed ? 0.45 : 1 }} />
+                <View pointerEvents="none">
+                  <Image source={{ uri: icon }} style={{ width: 16, height: 16, opacity: dimmed ? 0.45 : 1 }} />
+                </View>
               ) : (
                 <Symbol name="puzzlepiece.extension" size={14} color={palette.icon} style={{ width: 18, height: 18 }} />
               )}
