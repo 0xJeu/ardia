@@ -13,7 +13,7 @@ import { commitRename, endRename, startRename } from "./actions";
 import { useDragItem, useDropInto } from "./dnd";
 import { useShift, type EntryMotion } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
-import { GROUP_BORDER, GROUP_PAD, keptEntry } from "./geometry";
+import { GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_PAD, GROUP_RADIUS, keptEntry } from "./geometry";
 import { groupEntries } from "./entries";
 import { dismissHover, useRowHover } from "./hover";
 import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./listMotion";
@@ -58,8 +58,8 @@ export const GroupBlock = memo(function GroupBlock({ groupId, section, motion: o
 
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style}>
-      <View {...moved} ref={movedRef} style={[{ borderRadius: 12, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }, moved.style as object]}>
-        <View ref={headerRef} {...handle}>
+      <View {...moved} ref={movedRef} style={[{ borderRadius: GROUP_RADIUS, backgroundColor: fill, borderWidth: GROUP_BORDER, borderColor: stroke, paddingHorizontal: PAD }, moved.style as object]}>
+        <View ref={headerRef} {...handle} style={{ marginHorizontal: -PAD }}>
           <GroupHeader groupId={groupId} windowId={windowId} collapsed={collapsed} open={fold.open} />
         </View>
         <Fold
@@ -131,8 +131,8 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
           {({ pressed }) => (
             <Surface
               fill={hex(dropInto || pressed ? theme.tabPressed : hovered ? tokens.groupHeaderHover : "rgba(0,0,0,0)")}
-              cornerRadius={10}
-              style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9, paddingRight: 6 - PAD }}
+              cornerRadius={GROUP_HEADER_RADIUS}
+              style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9 + PAD, paddingRight: 6 }}
             >
               {group.icon || firstTab ? (
                 <TabIcon url={firstTab?.url ?? ""} favicon={firstTab?.favicon} icon={group.icon ?? firstTab?.customIcon} profileId={firstTab?.profileId} />

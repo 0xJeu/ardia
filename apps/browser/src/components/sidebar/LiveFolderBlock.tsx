@@ -19,13 +19,14 @@ import { IconButton, useHover } from "../primitives";
 import { useLiveColors, type LiveColors } from "../live/colors";
 import { clickMods, TabRow } from "./TabRow";
 import { Fold, useFold, type FoldEntry } from "./Fold";
+import { GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_PAD, GROUP_RADIUS } from "./geometry";
 import { dismissHover, useRowHover } from "./hover";
 import { openLiveFolderMenu, openLiveItemMenu } from "./liveMenus";
 import { registerRow } from "./state";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";
 
-const PAD = 2;
+const PAD = GROUP_PAD;
 const EMPTY: LiveItem[] = [];
 const NONE: string[] = [];
 
@@ -78,7 +79,7 @@ function LiveFolderBlock({ folderId, windowId }: { folderId: string; windowId: s
       : (rows.find((r) => (r.kind === "item" && r.item.id === activeItem) || (r.kind === "stack" && r.items.some((i) => i.id === activeItem)))?.key ?? null);
 
   return (
-    <View style={{ borderRadius: 12, backgroundColor: tokens.groupFill, borderWidth: 0.5, borderColor: tokens.groupStroke, paddingHorizontal: PAD }}>
+    <View style={{ borderRadius: GROUP_RADIUS, backgroundColor: tokens.groupFill, borderWidth: GROUP_BORDER, borderColor: tokens.groupStroke, paddingHorizontal: PAD }}>
       <FolderHeader folderId={folderId} windowId={windowId} collapsed={collapsed} />
       <Fold fold={fold} collapsed={collapsed} entries={entries} keep={keep} gap={layout.rowGap} padBottom={PAD} />
     </View>
@@ -121,7 +122,7 @@ function FolderHeader({ folderId, windowId, collapsed }: { folderId: string; win
   const icon = folder.icon ?? (folder.sources.length > 1 && folder.kind === "documents" ? "symbol:doc.text" : null);
 
   return (
-    <View ref={(v) => registerRow(windowId, `livefolder|${folderId}`, v)} {...hoverProps}>
+    <View ref={(v) => registerRow(windowId, `livefolder|${folderId}`, v)} {...hoverProps} style={{ marginHorizontal: -PAD }}>
       <ContextMenuArea
         onContextMenu={() => {
           dismissHover();
@@ -137,8 +138,8 @@ function FolderHeader({ folderId, windowId, collapsed }: { folderId: string; win
           {({ pressed }) => (
             <Surface
               fill={hex(pressed ? theme.tabPressed : hovered ? tokens.groupHeaderHover : "rgba(0,0,0,0)")}
-              cornerRadius={10}
-              style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9, paddingRight: 6 - PAD }}
+              cornerRadius={GROUP_HEADER_RADIUS}
+              style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9 + PAD, paddingRight: 6 }}
             >
               <TabIcon url={sourceSite} icon={icon} />
               <FadeLabel text={folder.name} fontSize={13} weight="medium" color={tokens.groupTitle} style={{ flex: 1, height: 18, marginLeft: 5 }} />

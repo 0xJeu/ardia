@@ -5,6 +5,8 @@ import { groupEntries, sidebarEntries } from "./entries";
 
 export const GROUP_PAD = 2;
 export const GROUP_BORDER = 0.5;
+export const GROUP_RADIUS = 12;
+export const GROUP_HEADER_RADIUS = GROUP_RADIUS - GROUP_BORDER;
 const ROW = layout.rowHeight;
 const GAP = layout.rowGap;
 
