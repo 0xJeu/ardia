@@ -15,6 +15,8 @@ import type { BrowserState } from "./browser";
 
 export type SearchEngineId = string;
 
+export type BatterySaverWhen = "lowBattery" | "unplugged" | "never";
+
 export type Settings = {
   warnBeforeQuitting: boolean;
   warnBeforeClosingWindow: boolean;
@@ -43,7 +45,7 @@ export type Settings = {
   videoUpscaling: boolean;
   sidebarMediaControls: boolean;
   sidebarWidth: number;
-  batterySaver: boolean;
+  batterySaverWhen: BatterySaverWhen;
   extensionSidePanelWidth: number;
 
   showFullUrl: boolean;
@@ -95,7 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   videoUpscaling: true,
   sidebarMediaControls: true,
   sidebarWidth: 190,
-  batterySaver: true,
+  batterySaverWhen: "lowBattery",
   extensionSidePanelWidth: 360,
   showFullUrl: false,
   allowJavaScriptFromAppleEvents: false,
@@ -153,6 +155,19 @@ export function choose(settings: Settings, patch: Partial<Settings>): Settings {
   const added = Object.keys(patch).filter((k) => k !== "chosen" && k !== "inferred" && !chosen.includes(k));
   const inferred = settings.inferred?.filter((k) => !(k in patch));
   return { ...settings, ...patch, ...(added.length ? { chosen: [...chosen, ...added] } : {}), ...(inferred ? { inferred } : {}) };
+}
+
+export function migrateSavedSettings(saved: (Partial<Settings> & { batterySaver?: unknown }) | undefined): Partial<Settings> | undefined {
+  if (!saved || !("batterySaver" in saved)) return saved;
+  const { batterySaver, ...rest } = saved;
+  const explicit = typeof batterySaver === "boolean" && !!rest.chosen?.includes("batterySaver") && !rest.inferred?.includes("batterySaver");
+  const without = (keys: string[]) => keys.filter((k) => k !== "batterySaver");
+  return {
+    ...rest,
+    ...(rest.chosen ? { chosen: explicit ? [...new Set([...without(rest.chosen), "batterySaverWhen"])] : without(rest.chosen) } : {}),
+    ...(rest.inferred ? { inferred: without(rest.inferred) } : {}),
+    ...(explicit && rest.batterySaverWhen === undefined ? { batterySaverWhen: batterySaver ? "unplugged" : "never" } : {}),
+  };
 }
 
 export type SettingsSlice = {

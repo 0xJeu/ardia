@@ -215,7 +215,7 @@ Chrome's freeze drops their WebSocket at the next thaw (`chromium-thaw-live-conn
 main frames at 60 Hz while the compositor scrolled at 120, and a trackpad scroll got main frames at the cadence of its
 input events. Whatever script or rAF placed from the scroll position lagged a draw behind in 38-47 % of frames
 (`scroll-frames.mjs`). Main frames now stay at the display rate while a scroll is active and for 1 s after it or after
-any input (`chromium-main-frame-full-rate-on-input.patch`). On battery, Battery Saver, which Ardia turns on there,
+any input (`chromium-main-frame-full-rate-on-input.patch`). On battery, Battery Saver, which Ardia turned on there until 0.2.39 (now at 20 % battery or less by default),
 capped every frame at 30 Hz, scrolling included. Input now lifts that cap for 1 s
 (`chromium-battery-saver-full-rate-on-input.patch`). Cost: nothing measurable in energy.mjs's mains rows (idle, scroll,
 switch, video, 3 rounds against `ARDIA_SCROLL_FULL_RATE=off`). On battery, an idle page is unchanged (18-19 mW) and

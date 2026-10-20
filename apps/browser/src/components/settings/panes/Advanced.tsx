@@ -5,7 +5,14 @@ import { describeCliInstall, installCliInBackground, useCli } from "../../../lib
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { openInternalPage } from "../../pages/urls";
-import { Button, Group, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import type { BatterySaverWhen } from "../../../store/settings";
+import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+
+const BATTERY_SAVER_DESCRIPTIONS: Record<BatterySaverWhen, string> = {
+  lowBattery: "At 20% battery or less, or in Low Power Mode, busy background tabs pause and animations slow down.",
+  unplugged: "On battery or in Low Power Mode, busy background tabs pause and animations slow down.",
+  never: "Background tabs and animations run at full speed on battery.",
+};
 
 export function AdvancedPane() {
   const theme = useTheme();
@@ -38,8 +45,17 @@ export function AdvancedPane() {
 
       <SectionHeader title="Performance" />
       <Group>
-        <Row title="Battery Saver" description="On battery or in Low Power Mode, pause background tabs that keep the processor busy.">
-          <Toggle value={settings.batterySaver} onChange={(v) => update({ batterySaver: v })} />
+        <Row title="Battery Saver" description={BATTERY_SAVER_DESCRIPTIONS[settings.batterySaverWhen]}>
+          <PopUp
+            value={settings.batterySaverWhen}
+            options={[
+              { value: "lowBattery", title: "When battery is low" },
+              { value: "unplugged", title: "When unplugged" },
+              { value: "never", title: "Never" },
+            ]}
+            onChange={(v) => update({ batterySaverWhen: v })}
+            minWidth={190}
+          />
         </Row>
       </Group>
 

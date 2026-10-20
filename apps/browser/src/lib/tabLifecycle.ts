@@ -7,6 +7,7 @@ import { useMedia } from "../components/media/state";
 import { isInternalTab } from "../components/pages";
 import { openSettings } from "../components/settings/windows";
 import { useBrowser, type BrowserState } from "../store/browser";
+import type { BatterySaverWhen } from "../store/settings";
 import { activeTabId, engineProfile, isIncognitoProfile, wake } from "../store/model";
 import { splitOf } from "../store/splits";
 import { switchOn } from "./killSwitches";
@@ -241,9 +242,17 @@ export async function syncChromeBatterySaver(): Promise<boolean> {
   return chromeSaver;
 }
 
+const LOW_BATTERY_PERCENT = 20;
+
+export function batterySaverWanted(when: BatterySaverWhen, sys: SystemState | null): boolean {
+  if (when === "never" || !sys) return false;
+  if (sys.lowPowerMode) return true;
+  if (!sys.onBattery) return false;
+  return when === "unplugged" || (sys.batteryLevel !== null && Math.round(sys.batteryLevel * 100) <= LOW_BATTERY_PERCENT);
+}
+
 function updateBatterySaver(announce: boolean) {
-  const sys = currentSystem();
-  const on = store().settings.batterySaver && !!sys && (sys.onBattery || sys.lowPowerMode);
+  const on = batterySaverWanted(store().settings.batterySaverWhen, currentSystem());
   if (on === useLifecycle.getState().batterySaver) return;
   useLifecycle.setState({ batterySaver: on });
   void syncChromeBatterySaver();
@@ -358,7 +367,7 @@ export function startTabLifecycle() {
   track(store());
   useBrowser.subscribe((s, prev) => {
     if (s.windows !== prev.windows || s.splits !== prev.splits) track(s);
-    if (s.settings.batterySaver !== prev.settings.batterySaver) updateBatterySaver(false);
+    if (s.settings.batterySaverWhen !== prev.settings.batterySaverWhen) updateBatterySaver(false);
   });
 
   const onSystem = (state: SystemState) => {
