@@ -50,7 +50,7 @@ export function Switch({
       }}
       style={{ opacity: disabled ? 0.45 : 1 }}
     >
-      <View style={{ width: look.width, height: look.height, borderRadius: radius, backgroundColor: look.offColor, overflow: "hidden" }}>
+      <View pointerEvents="none" style={{ width: look.width, height: look.height, borderRadius: radius, backgroundColor: look.offColor, overflow: "hidden" }}>
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: look.onColor, opacity: progress }]} />
         <Animated.View
           style={{
