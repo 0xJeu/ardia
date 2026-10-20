@@ -88,6 +88,18 @@ test("the sidebar's own button (address bar in the sidebar) always fits; back, f
   }
 });
 
+test("with the sidebar button hidden (Settings › Tabs), back, forward and reload take its place and all fit at the default width", () => {
+  assert.deepEqual(dm.navButtonsFitting(190, 30, false), { buttons: ["back", "forward", "reload"], step: 35 });
+  assert.deepEqual(dm.navButtonsFitting(150, 30, false).buttons, ["back", "forward"]);
+  for (let w = 120; w <= 400; w += 0.5) {
+    const { buttons, step } = dm.navButtonsFitting(w, 30, false);
+    if (!buttons.length) continue;
+    const first = w - dm.HEADER_TOOLS.edge - 15 - (buttons.length - 1) * step;
+    assert.ok(first - 15 >= dm.HEADER_TOOLS.lightsRight + dm.HEADER_MIN_GAP - 1e-9, `${w}: first plate clears the traffic lights`);
+    assert.ok(step >= 30 + dm.HEADER_MIN_GAP - 1e-9, `${w}: plates apart`);
+  }
+});
+
 test("hidden or shown is each window's own, and survives a quit and relaunch; new windows open with it shown", () => {
   stub.docs.clear();
   S().hydrate({});

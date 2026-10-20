@@ -67,6 +67,7 @@ export function ContentCard() {
   const addressInSidebar = useAddressBarInSidebar();
   const small = useBrowser((s) => isSmallWindow(s.windows[windowId]));
   const hideWhileScrolling = useBrowser((s) => s.settings.hideToolbarWhileScrolling);
+  const showSidebarButton = useBrowser((s) => s.settings.showSidebarButton !== false);
   const barMode = useBookmarksBarMode(windowId);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -187,7 +188,7 @@ export function ContentCard() {
   const geometryFor = (rect: Rect | undefined): ToolbarGeometry => {
     if (addressInSidebar || small) return NO_TOOLBAR;
     const leading = !!rect && rect.x === 0 && rect.y === 0;
-    return toolbarGeometry({ sidebarButton: leading && tabLayout === "sidebar" });
+    return toolbarGeometry({ sidebarButton: leading && tabLayout === "sidebar" && showSidebarButton });
   };
 
   const focusedRect = activeId ? panes[activeId] : undefined;
@@ -204,7 +205,7 @@ export function ContentCard() {
     return useToolbarExtensionsWidths.subscribe((w, prev) => {
       if (w[windowId] !== prev[windowId]) place(w[windowId]);
     });
-  }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split]);
+  }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split, showSidebarButton]);
 
   const settled = useRef<{ width: number; height: number } | null>(null);
   const measure = (width: number, height: number) => {

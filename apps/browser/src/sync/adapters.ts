@@ -24,6 +24,7 @@ export const SYNCED_SETTINGS = [
   "commandBarPreference",
   "tabLayout",
   "hideToolbarWhileScrolling",
+  "showSidebarButton",
   "newTabPosition",
   "warnBeforeClosingLastTab",
   "warnBeforeMovingTabsToProfile",

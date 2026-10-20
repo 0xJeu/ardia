@@ -45,6 +45,7 @@ export type Settings = {
   videoUpscaling: boolean;
   sidebarMediaControls: boolean;
   sidebarWidth: number;
+  showSidebarButton: boolean;
   batterySaverWhen: BatterySaverWhen;
   extensionSidePanelWidth: number;
 
@@ -97,6 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
   videoUpscaling: true,
   sidebarMediaControls: true,
   sidebarWidth: 190,
+  showSidebarButton: true,
   batterySaverWhen: "lowBattery",
   extensionSidePanelWidth: 360,
   showFullUrl: false,

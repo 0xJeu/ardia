@@ -36,6 +36,7 @@ export function TabsPane() {
           "Hide toolbar while scrolling",
           "Scrolling down tucks the toolbar into a thin strip with the site's name. Scroll up, or click the strip, to bring it back.",
         )}
+        {!top && toggle("showSidebarButton", "Show sidebar button", "⌘S and View › Auto-Hide Tabs still hide and show the sidebar.")}
       </Group>
 
       <SectionHeader title="General" />

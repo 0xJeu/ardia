@@ -35,25 +35,29 @@ export function SidebarHeaderTools({ width }: { width: number }) {
   const windowId = useWindowId();
   const tab = useToolbarTab(useActiveTabId());
   const palette = toolbarPalette(useTheme(), null);
-  const { buttons, step } = navButtonsFitting(width, BUTTON);
+  const toggle = useBrowser((s) => s.settings.showSidebarButton !== false);
+  const { buttons, step } = navButtonsFitting(width, BUTTON, toggle);
   const shown = tab ? buttons : [];
   const last = width - EDGE - BUTTON / 2;
-  const at = slots([TOGGLE_X, ...shown.map((_, i) => last - (shown.length - 1 - i) * step)], width);
+  const centres = shown.map((_, i) => last - (shown.length - 1 - i) * step);
+  const at = slots(toggle ? [TOGGLE_X, ...centres] : centres, width);
   const place = (s: Slot) => ({
     style: { position: "absolute" as const, top: HIT_TOP, left: s.left },
     hit: { width: s.right - s.left, height: HIT_BOTTOM - HIT_TOP, plateX: s.center - BUTTON / 2 - s.left, plateY: LIGHTS_Y - BUTTON / 2 - HIT_TOP },
   });
   return (
     <>
-      <ToolbarButton
-        {...place(at[0]!)}
-        palette={palette}
-        icon="sidebar.left"
-        size={GLYPH}
-        onPress={() => useBrowser.getState().toggleSidebar(windowId)}
-        tooltip="Auto-Hide Tabs (⌘S)"
-      />
-      {tab ? <NavigationButtons tab={tab} palette={palette} buttons={shown} slots={at.slice(1).map(place)} /> : null}
+      {toggle && (
+        <ToolbarButton
+          {...place(at[0]!)}
+          palette={palette}
+          icon="sidebar.left"
+          size={GLYPH}
+          onPress={() => useBrowser.getState().toggleSidebar(windowId)}
+          tooltip="Auto-Hide Tabs (⌘S)"
+        />
+      )}
+      {tab ? <NavigationButtons tab={tab} palette={palette} buttons={shown} slots={at.slice(toggle ? 1 : 0).map(place)} /> : null}
     </>
   );
 }
