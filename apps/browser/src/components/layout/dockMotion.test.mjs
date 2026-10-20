@@ -69,10 +69,10 @@ test("the toolbar's buttons don't move with the sidebar: the hidden sidebar's to
   assert.deepEqual([g.sidebarButton, g.back, g.forward, g.reload], [21, 56, 92, 127]);
 });
 
-test("the sidebar's own button (address bar in the sidebar) always fits; back, reload and forward as there's room, never overlapping", () => {
+test("the sidebar's own button (address bar in the sidebar) always fits; back, forward and reload as there's room, never overlapping", () => {
   assert.deepEqual(dm.navButtonsFitting(160).buttons, ["back"]);
   const narrow = dm.navButtonsFitting(190);
-  assert.deepEqual(narrow.buttons, ["back", "reload"], "the default width keeps reload; forward gives way first");
+  assert.deepEqual(narrow.buttons, ["back", "forward"], "the default width keeps the back and forward pair, as Arc and Dia show it; reload gives way first");
   assert.equal(narrow.step, 35, "Dia's pitch");
   const closing = dm.navButtonsFitting(220);
   assert.deepEqual(closing.buttons, ["back", "forward", "reload"]);

@@ -64,6 +64,6 @@ export function navButtonsFitting(width: number, button = 30): { buttons: Header
   const { toggleX, pitch, edge } = HEADER_TOOLS;
   const span = width - edge - button / 2 - toggleX;
   const count = Math.max(0, Math.min(3, Math.floor(span / (button + HEADER_MIN_GAP))));
-  const buttons: HeaderButton[] = count === 3 ? ["back", "forward", "reload"] : count === 2 ? ["back", "reload"] : count === 1 ? ["back"] : [];
+  const buttons: HeaderButton[] = count === 3 ? ["back", "forward", "reload"] : count === 2 ? ["back", "forward"] : count === 1 ? ["back"] : [];
   return { buttons, step: count ? Math.min(pitch, span / count) : pitch };
 }
