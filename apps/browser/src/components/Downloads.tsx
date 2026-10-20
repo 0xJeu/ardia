@@ -120,8 +120,11 @@ export const FileIcon = memo(function FileIcon({ path, size = 28 }: { path: stri
 });
 
 const HEADER = 28;
-const CAPS = 8;
 const TEXT_BUTTON_PAD = 7;
+const INK_INSET = PANEL.inset + 1;
+const HEADER_CAP_TOP = 9.5;
+const FOOTER_TEXT_DROP = 12;
+const CHEVRON_BEARING = 3;
 
 const progressTrack = (dark: boolean) => (dark ? "#717782" : "#CED7E7");
 
@@ -176,7 +179,7 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
           shadowOpacity={theme.panelShadowOpacity}
           shadowRadius={20}
           shadowOffset={[0, 8]}
-          style={{ width: 340, paddingTop: PANEL.inset - (HEADER - CAPS) / 2, paddingBottom: PANEL.listPadding }}
+          style={{ width: 340, paddingTop: INK_INSET - HEADER_CAP_TOP, paddingBottom: INK_INSET - FOOTER_TEXT_DROP }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: PANEL.inset, paddingRight: PANEL.inset - TEXT_BUTTON_PAD, height: HEADER }}>
             <Text style={{ flex: 1, fontSize: 11, fontWeight: "600", letterSpacing: 0.4, color: theme.dark ? "rgba(247,245,255,0.6)" : "rgba(0,0,0,0.6)" }}>
@@ -237,7 +240,7 @@ function FooterButton({ title, onPress }: { title: string; onPress: () => void }
       <Pressable onPress={onPress}>
         <View style={{ height: PANEL.rowHeight, paddingHorizontal: PANEL.rowPadding, borderRadius: PANEL.rowRadius, flexDirection: "row", alignItems: "center", backgroundColor: hovered ? theme.rowHover : undefined }}>
           <Text style={{ flex: 1, fontSize: 13, color: hovered ? theme.textPrimary : theme.textSecondary }}>{title}</Text>
-          <Symbol name="chevron.right" size={9} weight="semibold" color={theme.textTertiary} style={{ width: 12, height: 12 }} />
+          <Symbol name="chevron.right" size={9} weight="semibold" color={theme.textTertiary} style={{ width: 12, height: 12, marginRight: -CHEVRON_BEARING }} />
         </View>
       </Pressable>
     </View>
