@@ -270,10 +270,13 @@ function useMotion({ devKey, entries, from, planner, height, enabled, native, be
       timing.start(({ finished }) => {
         if (!finished) return;
         slide.landed = true;
-        if (!clips || clipping.current !== token) return;
-        clipping.current = null;
-        clipped.clear();
-        announce();
+        if (!clips) return;
+        queueMicrotask(() => {
+          if (clipping.current !== token) return;
+          clipping.current = null;
+          clipped.clear();
+          announce();
+        });
       });
     }
     for (const g of plan.ghosts) {
