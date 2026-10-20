@@ -169,7 +169,15 @@ export function DownloadsPopover() {
             <Text style={{ flex: 1, fontSize: 11, fontWeight: "600", letterSpacing: 0.4, color: theme.dark ? "rgba(247,245,255,0.6)" : "rgba(0,0,0,0.6)" }}>
               RECENT DOWNLOADS
             </Text>
-            {clearable && <TextButton title="Clear" onPress={() => useBrowser.getState().clearDownloads(windowId)} />}
+            {clearable && (
+              <TextButton
+                title="Clear"
+                onPress={() => {
+                  setOpen(false);
+                  useBrowser.getState().clearDownloads(windowId);
+                }}
+              />
+            )}
           </View>
           {ids.length === 0 ? (
             <Text style={{ paddingHorizontal: PANEL.inset, paddingVertical: 12, fontSize: 13, color: theme.textTertiary }}>No downloads yet</Text>
