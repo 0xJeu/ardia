@@ -244,15 +244,18 @@ export async function syncChromeBatterySaver(): Promise<boolean> {
 
 const LOW_BATTERY_PERCENT = 20;
 
-export function batterySaverWanted(when: BatterySaverWhen, sys: SystemState | null): boolean {
-  if (when === "never" || !sys) return false;
-  if (sys.lowPowerMode) return true;
-  if (!sys.onBattery) return false;
-  return when === "unplugged" || (sys.batteryLevel !== null && Math.round(sys.batteryLevel * 100) <= LOW_BATTERY_PERCENT);
+export function batterySaverWanted(when: BatterySaverWhen, sys: SystemState | null, lowBatteryHeld = false): { on: boolean; lowBatteryHeld: boolean } {
+  if (when === "never" || !sys) return { on: false, lowBatteryHeld: false };
+  const low = when === "lowBattery" && sys.onBattery && (lowBatteryHeld || (sys.batteryLevel !== null && Math.round(sys.batteryLevel * 100) <= LOW_BATTERY_PERCENT));
+  return { on: sys.lowPowerMode || (sys.onBattery && when === "unplugged") || low, lowBatteryHeld: low };
 }
 
+let lowBatteryHeld = false;
+
 function updateBatterySaver(announce: boolean) {
-  const on = batterySaverWanted(store().settings.batterySaverWhen, currentSystem());
+  const wanted = batterySaverWanted(store().settings.batterySaverWhen, currentSystem(), lowBatteryHeld);
+  lowBatteryHeld = wanted.lowBatteryHeld;
+  const on = wanted.on;
   if (on === useLifecycle.getState().batterySaver) return;
   useLifecycle.setState({ batterySaver: on });
   void syncChromeBatterySaver();
@@ -367,7 +370,10 @@ export function startTabLifecycle() {
   track(store());
   useBrowser.subscribe((s, prev) => {
     if (s.windows !== prev.windows || s.splits !== prev.splits) track(s);
-    if (s.settings.batterySaverWhen !== prev.settings.batterySaverWhen) updateBatterySaver(false);
+    if (s.settings.batterySaverWhen !== prev.settings.batterySaverWhen) {
+      lowBatteryHeld = false;
+      updateBatterySaver(false);
+    }
   });
 
   const onSystem = (state: SystemState) => {

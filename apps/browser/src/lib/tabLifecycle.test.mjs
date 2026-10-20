@@ -108,7 +108,7 @@ test("an older reply landing last doesn't override the newer one", async () => {
 
 test("Battery Saver turns on at 20% battery or lower, in Low Power Mode, or whenever unplugged when asked to", () => {
   const sys = (onBattery, batteryLevel, lowPowerMode = false) => ({ onBattery, batteryLevel, lowPowerMode, memoryPressure: "normal", physicalMemory: 16 * 2 ** 30 });
-  const wanted = lifecycle.batterySaverWanted;
+  const wanted = (when, state) => lifecycle.batterySaverWanted(when, state).on;
   assert.equal(wanted("lowBattery", sys(true, 0.8)), false, "on battery with charge left");
   assert.equal(wanted("lowBattery", sys(true, 0.2)), true);
   assert.equal(wanted("lowBattery", sys(true, 0.204)), true, "shows as 20%");
@@ -122,7 +122,23 @@ test("Battery Saver turns on at 20% battery or lower, in Low Power Mode, or when
   assert.equal(wanted("lowBattery", null), false);
 });
 
-test("Battery Saver's old switch: a choice is kept, the old default moves to When battery is low", () => {
+test("Battery Saver turned on by low battery stays on through 20%/21% readings until the Mac is plugged in", () => {
+  const sys = (onBattery, batteryLevel) => ({ onBattery, batteryLevel, lowPowerMode: false, memoryPressure: "normal", physicalMemory: 16 * 2 ** 30 });
+  let held = false;
+  const step = (when, state) => {
+    const next = lifecycle.batterySaverWanted(when, state, held);
+    held = next.lowBatteryHeld;
+    return next.on;
+  };
+  assert.deepEqual([0.21, 0.2, 0.21, 0.2, 0.21, 0.5].map((level) => step("lowBattery", sys(true, level))), [false, true, true, true, true, true]);
+  assert.equal(step("lowBattery", sys(false, 0.21)), false, "plugged in");
+  assert.equal(step("lowBattery", sys(true, 0.21)), false, "unplugged again above 20%");
+  assert.equal(step("lowBattery", sys(true, 0.2)), true);
+  assert.equal(step("never", sys(true, 0.2)), false);
+  assert.equal(step("lowBattery", sys(true, 0.21)), false, "a changed setting starts over");
+});
+
+test("Battery Saver's old switch: a choice and any off are kept, the old default moves to When battery is low", () => {
   const hydrated = (settings) => (S().hydrate({ settings }), S().settings);
   const untouched = hydrated({ batterySaver: true, showFullUrl: true, chosen: ["showFullUrl"], inferred: [] });
   assert.equal(untouched.batterySaverWhen, "lowBattery");
@@ -132,7 +148,9 @@ test("Battery Saver's old switch: a choice is kept, the old default moves to Whe
   assert.equal(off.batterySaverWhen, "never");
   assert.deepEqual(off.chosen, ["batterySaverWhen"]);
   assert.equal(hydrated({ batterySaver: true, chosen: ["batterySaver"], inferred: [] }).batterySaverWhen, "unplugged");
-  assert.equal(hydrated({ batterySaver: false, chosen: ["batterySaver"], inferred: ["batterySaver"] }).batterySaverWhen, "lowBattery", "saved before choices were tracked");
-  assert.equal(hydrated({ batterySaver: true }).batterySaverWhen, "lowBattery", "legacy save");
+  assert.equal(hydrated({ batterySaver: false, chosen: ["batterySaver"], inferred: ["batterySaver"] }).batterySaverWhen, "never", "off was never the default, so it was chosen");
+  assert.equal(hydrated({ batterySaver: false }).batterySaverWhen, "never", "legacy save turned off");
+  assert.equal(hydrated({ batterySaver: true, chosen: ["batterySaver"], inferred: ["batterySaver"] }).batterySaverWhen, "lowBattery", "on, saved before choices were tracked");
+  assert.equal(hydrated({ batterySaver: true }).batterySaverWhen, "lowBattery", "legacy save left on");
   assert.equal(hydrated({ batterySaverWhen: "never", chosen: ["batterySaverWhen"] }).batterySaverWhen, "never");
 });

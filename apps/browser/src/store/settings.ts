@@ -162,7 +162,7 @@ export function choose(settings: Settings, patch: Partial<Settings>): Settings {
 export function migrateSavedSettings(saved: (Partial<Settings> & { batterySaver?: unknown }) | undefined): Partial<Settings> | undefined {
   if (!saved || !("batterySaver" in saved)) return saved;
   const { batterySaver, ...rest } = saved;
-  const explicit = typeof batterySaver === "boolean" && !!rest.chosen?.includes("batterySaver") && !rest.inferred?.includes("batterySaver");
+  const explicit = batterySaver === false || (batterySaver === true && !!rest.chosen?.includes("batterySaver") && !rest.inferred?.includes("batterySaver"));
   const without = (keys: string[]) => keys.filter((k) => k !== "batterySaver");
   return {
     ...rest,
