@@ -47,9 +47,12 @@ const items = (id) => win(id).then((n) => { const xs = []; for (let x = 70; x < 
     hits.forEach((h, i) => { const on = /ContextMenuArea|ImageView|Symbol|FadeLabel/.test(h); if (on && !cur) cur = [xs[i], xs[i]]; else if (on) cur[1] = xs[i]; else if (cur) { runs.push(cur); cur = null; } });
     if (cur) runs.push(cur); return runs; }); });
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+const loose = (id) => st().windows[id].tabIds.filter((t) => !st().tabs[t].pinned);
+const tabItems = (id) => items(id).then((xs) => xs.slice(st().windows[id].tabIds.length - loose(id).length));
 `;
 const run = (body) => app.eval(`${HELPERS}\n${body}`);
 const order = (w) => run(`return st().windows.${w}.tabIds;`);
+const tabsOf = (w) => run(`return loose("${w}");`);
 const drag = (w, points) => run(`return act("${w}", "windowDrags").then(() => act("${w}", "drag:${points.map((p) => p.join(",")).join(";")}")).then(() => settle(${points.length * 12 * 16 + 700})).then(() => act("${w}", "windowDrags")).then((t) => Number(t.split("\\n")[0]));`);
 
 function readPng(path) {
@@ -83,10 +86,11 @@ function readPng(path) {
   }
   return { width, height, channels, data };
 }
-function contrast(png, [x0, y0, x1, y1]) {
+function contrast(png, windowWidth, [x0, y0, x1, y1]) {
+  const scale = Math.round(png.width / windowWidth);
   const values = [];
-  for (let y = y0 * 2; y < y1 * 2; y++)
-    for (let x = x0 * 2; x < x1 * 2; x++) {
+  for (let y = y0 * scale; y < y1 * scale; y++)
+    for (let x = x0 * scale; x < x1 * scale; x++) {
       const i = (y * png.width + x) * png.channels;
       values.push(0.2126 * png.data[i] + 0.7152 * png.data[i + 1] + 0.0722 * png.data[i + 2]);
     }
@@ -173,7 +177,8 @@ try {
       act("w1", "drag:${x0},21;${x0 + 10},21;${x1},21;${x1},21;${x1},21;${x1},21");
       return settle(150 + 12 * 16 * 2 + 200).then(() => ac.shell.devSnapshotWindow("w1", ${JSON.stringify(shots[1])}));
     }).then(() => settle(1500));`);
-    const [alone, over] = shots.map((path) => contrast(readPng(path), icon));
+    const windowWidth = await run(`return st().windows.w1.frame[2];`);
+    const [alone, over] = shots.map((path) => contrast(readPng(path), windowWidth, icon));
     assert.ok(alone > 12, `the box holds the icon: ${alone}`);
     assert.ok(over < 3, `the neighbour's icon shows through the dragged tab: contrast alone ${alone.toFixed(1)}, held over ${over.toFixed(1)}`);
     rep.log(`the neighbour's icon: contrast ${alone.toFixed(1)} alone, ${over.toFixed(1)} under the dragged tab`);
@@ -182,10 +187,12 @@ try {
 
   await check("a lone tab dragged doesn't move its window", async () => {
     const lone = await run(`return items("w2");`);
-    const x = Math.round((lone[0][0] + lone[0][1]) / 2);
+    const before = await order("w2");
+    assert.equal(before.at(-1), "l1", "the profile's pinned tiles, then its one tab");
+    const x = Math.round((lone.at(-1)[0] + lone.at(-1)[1]) / 2);
     const drags = await drag("w2", [[x, 21], [x + 60, 24], [x + 140, 26]]);
     assert.equal(drags, 0, "window drags");
-    assert.deepEqual(await order("w2"), ["l1"]);
+    assert.deepEqual(await order("w2"), before);
   });
 
   await check("a pinned tile trades places with the other pinned tile", async () => {
@@ -222,26 +229,26 @@ try {
   });
 
   await check("a group's member trades places inside the group, and a tab moves past the whole group", async () => {
-    const items = await run(`return items("w3");`);
+    const items = await run(`return tabItems("w3");`);
     assert.equal(items.length, 4, JSON.stringify(items));
     const at = (i) => Math.round((items[i][0] + items[i][1]) / 2);
     assert.equal(await drag("w3", [[at(2), 21], [at(1), 21], [at(1) - 40, 21]]), 0, "window drags");
-    assert.deepEqual(await run(`return [st().windows.w3.tabIds, st().groups.grp.tabIds];`), [["g2", "g1", "x1"], ["g2", "g1"]]);
-    await drag("w3", [[at(3), 21], [at(1), 21], [at(0) - 30, 21]]);
-    assert.deepEqual(await run(`return [st().windows.w3.tabIds, st().groups.grp.tabIds];`), [["x1", "g2", "g1"], ["g2", "g1"]]);
+    assert.deepEqual(await run(`return [loose("w3"), st().groups.grp.tabIds];`), [["g2", "g1", "x1"], ["g2", "g1"]]);
+    await drag("w3", [[items[3][0] + 10, 21], [at(1), 21], [items[0][0] + 10, 21]]);
+    assert.deepEqual(await run(`return [loose("w3"), st().groups.grp.tabIds];`), [["x1", "g2", "g1"], ["g2", "g1"]]);
   });
 
   await check("a group dragged by its chip moves along the strip as one", async () => {
-    const items = await run(`return items("w3");`);
+    const items = await run(`return tabItems("w3");`);
     const at = (i) => Math.round((items[i][0] + items[i][1]) / 2);
     assert.equal(await drag("w3", [[Math.round(items[1][0] + 15), 21], [at(0), 21], [items[0][0] - 20, 21]]), 0, "window drags");
-    assert.deepEqual(await run(`return [st().windows.w3.tabIds, st().groups.grp.tabIds];`), [["g2", "g1", "x1"], ["g2", "g1"]]);
+    assert.deepEqual(await run(`return [loose("w3"), st().groups.grp.tabIds];`), [["g2", "g1", "x1"], ["g2", "g1"]]);
   });
 
   await check("a tab dragged onto another window's tabs: the strip makes room at the pointer, and it lands there", async () => {
     await run(`ac.store.setState((s) => ({ ui: { ...s.ui, focusOrder: ["w6", "w5", ...s.ui.focusOrder.filter((id) => id !== "w6" && id !== "w5")] } })); return 1;`);
-    const from = await run(`return items("w5");`);
-    const into = await run(`return items("w6");`);
+    const from = await run(`return tabItems("w5");`);
+    const into = await run(`return tabItems("w6");`);
     const dx = 600;
     const a1 = Math.round((from[0][0] + from[0][1]) / 2);
     const between = dx + Math.round((into[0][1] + into[1][1]) / 2);
@@ -251,8 +258,8 @@ try {
       return act("w5", "drag:${a1},21;${a1},-20;${dx - 30},-20;${between},21;${between + 2},22;${between + 3},21").then(() => settle(1400)).then(() => { clearInterval(iv); return seen; });`);
     assert.ok(seen.some((s) => s.over === "w6" && s.insert?.windowId === "w6" && s.insert.beforeId === "b2"), JSON.stringify(seen.slice(-4)));
     assert.ok(seen.some((s) => s.insert && s.shape === "pill"), "the pill over the strip");
-    assert.deepEqual(await order("w6"), ["b1", "a1", "b2", "b3"]);
-    assert.deepEqual(await order("w5"), ["a2"]);
+    assert.deepEqual(await tabsOf("w6"), ["b1", "a1", "b2", "b3"]);
+    assert.deepEqual(await tabsOf("w5"), ["a2"]);
   });
 
   await check("a background tab's card shows its own page: its last picture, else its icon and title", async () => {
@@ -306,7 +313,7 @@ try {
     assert.ok(seen.every((p) => !p.key && !p.activeApp && (p.shape === "hidden" || p.ignoresMouse)), "never key or active, takes no mouse");
     assert.ok(seen.some((p) => p.shape === "card" && p.frame[2] === 209 && p.frame[3] === 110), "a 209 × 110 card");
     assert.equal(seen.at(-1).visible, false, "gone after the drop");
-    const after = await run(`return Object.values(st().windows).map((w) => w.tabIds);`);
+    const after = await run(`return Object.keys(st().windows).map(loose);`);
     assert.equal(after.length, windows + 1, JSON.stringify(after));
     assert.ok(after.some((ids) => ids.length === 1 && ids[0] === id), JSON.stringify(after));
     assert.deepEqual(await run(`return Object.values(st().splits).map((v) => v.tabIds);`), splits);
@@ -323,13 +330,13 @@ try {
     assert.ok(outside.length, "a card outside the window");
     assert.ok(outside.some((p) => p.frame[1] + p.frame[3] / 2 > frame[1] + frame[3]), JSON.stringify(outside.at(-1)));
     assert.ok(seen.some((p) => p.visible && p.frame[2] === frame[2] && p.frame[3] === frame[3]), "grew to the new window");
-    const after = await run(`return Object.values(st().windows).map((w) => w.tabIds);`);
+    const after = await run(`return Object.keys(st().windows).map(loose);`);
     assert.equal(after.length, windows + 1, JSON.stringify(after));
     assert.ok(after.some((ids) => ids.length === 1 && ids[0] === id), JSON.stringify(after));
   });
 
   await check("a split moves along the strip as one, and a pane pulled out of the window leaves it", async () => {
-    await run(`st().newTab("w1"); return settle(800);`);
+    await run(`for (const id of Object.keys(st().windows)) if (id !== "w1") st().closeWindow(id); st().newTab("w1"); return settle(800);`);
     const ids = await order("w1");
     const fresh = ids.at(-1);
     assert.deepEqual(ids.slice(0, 4), ["p2", "p1", "t1", "t3"]);
@@ -341,7 +348,7 @@ try {
     const moved = await run(`return items("w1");`);
     const pane = Math.round(moved[3][0] + (moved[3][1] - moved[3][0]) * 0.75);
     await drag("w1", [[pane, y], [pane, -40], [pane + 40, -90]]);
-    const state = await run(`return { windows: Object.values(st().windows).map((w) => w.tabIds), splits: Object.values(st().splits).map((v) => v.tabIds) };`);
+    const state = await run(`return { windows: Object.keys(st().windows).map(loose), splits: Object.values(st().splits).map((v) => v.tabIds) };`);
     assert.ok(state.windows.some((w) => w.length === 1 && w[0] === "t3"), JSON.stringify(state));
     assert.ok(!state.splits.some((v) => v.includes("t3")), JSON.stringify(state));
   });
@@ -357,6 +364,17 @@ try {
     const cell = Math.round((now[0][0] + now[0][1]) / 2);
     await drag("w1", [[cell, 21], [now[3][0], 21], [now[3][1] - 20, 21]]);
     assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${fresh}"].pinned];`), [["p2", "p1", "t1", fresh], false]);
+  });
+
+  await check("a tab let go just past the last pinned tile is pinned after it", async () => {
+    const ids = await order("w1");
+    const now = await run(`return items("w1");`);
+    const x = Math.round((now[2][0] + now[2][1]) / 2);
+    const past = now[1][1] + 17;
+    assert.equal(await drag("w1", [[x, 21], [x - 20, 21], [past, 21]]), 0, "window drags");
+    assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${ids[2]}"].pinned];`), [ids, true]);
+    await run(`st().placeTabs(["${ids[2]}"], { pinned: false, beforeId: ${JSON.stringify(ids[3] ?? null)} }); return settle(500);`);
+    assert.deepEqual(await order("w1"), ids);
   });
 
   await check("sidebar: a row dragged onto the page's left target splits", async () => {

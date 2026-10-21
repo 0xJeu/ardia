@@ -413,6 +413,8 @@ function pinOut(strip: () => Strip | null, from: number): Cross {
   };
 }
 
+const dockCellLeft = ({ lefts }: DragGeometry, j: number) => (j < lefts.length ? lefts[j]! : (lefts.at(-1) ?? -CELL_STEP) + CELL_STEP);
+
 function tabInIndex({ dock, top }: Strip, from: number, dx: number, grab: number): number | null {
   if (!dock || from < 0) return null;
   const left = top.lefts[from]! + dx;
@@ -436,7 +438,7 @@ function tabIn(strip: () => Strip | null, from: number, width: number): Cross {
       const s = strip();
       const j = s ? tabInIndex(s, from, dx, grab) : null;
       if (!s?.dock || j === null) return null;
-      const target = s.dock.left + s.dock.geometry.lefts[j]!;
+      const target = s.dock.left + dockCellLeft(s.dock.geometry, j);
       return {
         dx: target - (s.top.lefts[from]! + grab - PINNED_CELL / 2),
         commit: () => {
