@@ -51,16 +51,24 @@ const center = (id) => new Promise((r) => {
 const point = (x, y) => ac.shell.devSetPointer("w1", { x, y });
 const click = (x, y) => act("mouse:down:" + x + "," + y).then(() => settle(70)).then(() => act("mouse:up:" + x + "," + y));
 const clickTab = (id) => center(id).then(([x, y]) => point(x, y).then(() => click(x, y))).then(() => settle(450)).then(() => shown());
-const clickAsCardMounts = (hoverId, clickId) => Promise.all([center(hoverId), center(clickId)]).then(([[hx, hy], [cx, cy]]) =>
+const clickAsCardMounts = (hoverId, clickId) => Promise.all([center(hoverId), center(clickId), win()]).then(([[hx, hy], [cx, cy], n]) =>
   point(700, 500).then(() => settle(400)).then(() => new Promise((done) => {
+    const fadeMs = ac.sidebarHover.HOVER_CARD_FADE_MS;
     let stop = ac.sidebarRows.useSidebarUi.subscribe((u) => {
       if (!u.hover || !stop) return;
       stop();
       stop = null;
-      click(cx, cy).then(() => settle(450)).then(() => done({ card: u.hover.id, shown: shown() }));
+      const before = shown();
+      if (u.hover.id !== hoverId) return done({ card: u.hover.id, before, shown: before });
+      const set = Date.now();
+      C.devWindow(n, "mouse:down:" + cx + "," + cy).then((hit) => {
+        const downMs = Date.now() - set;
+        return settle(70).then(() => C.devWindow(n, "mouse:up:" + cx + "," + cy)).then(() => settle(450))
+          .then(() => done({ card: u.hover.id, before, downMs, fading: downMs < fadeMs, hit, shown: shown() }));
+      });
     });
     point(hx, hy);
-    setTimeout(() => { if (stop) { stop(); stop = null; done({ card: null, shown: shown() }); } }, 2500);
+    setTimeout(() => { if (stop) { stop(); stop = null; done({ card: null, before: shown(), shown: shown() }); } }, 2500);
   })));
 `;
 const run = (body) => app.eval(`${HELPERS}\n${body}`, { timeout: 20000 });
@@ -70,14 +78,15 @@ const clickTab = (id) => run(`return clickTab(${JSON.stringify(id)});`);
 async function asCardMounts(hoverId, clickId, rounds) {
   const misses = [];
   let clicked = 0;
-  for (let tries = 0; clicked < rounds && tries < rounds * 3; tries++) {
-    await clickTab("c");
+  for (let tries = 0; clicked < rounds && tries < rounds * 4; tries++) {
+    assert.equal(await clickTab("c"), "c", "c opens before each round");
     const r = await run(`return clickAsCardMounts(${JSON.stringify(hoverId)}, ${JSON.stringify(clickId)});`);
-    if (!r.card) continue;
+    rep.log(`${hoverId} -> ${clickId}: ${JSON.stringify(r)}`);
+    if (r.card !== hoverId || r.before === clickId || !r.fading) continue;
     clicked++;
     if (r.shown !== clickId) misses.push(r.shown);
   }
-  assert.equal(clicked, rounds, `the card for ${hoverId} showed in ${clicked} of ${rounds} rounds`);
+  assert.equal(clicked, rounds, `a click reached ${clickId} while ${hoverId}'s card faded in on ${clicked} of ${rounds} rounds`);
   assert.deepEqual(misses, [], `${misses.length} of ${rounds} clicks on ${clickId} did nothing`);
   return `${rounds} clicks`;
 }
