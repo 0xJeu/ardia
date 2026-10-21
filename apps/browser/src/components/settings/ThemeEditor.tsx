@@ -7,9 +7,12 @@ import {
   flatColors,
   MAX_THEME_STOPS,
   PAD_LIGHTNESS,
+  resolveTheme,
   startingTheme,
   THEME_TEXTURES,
   themeAccent,
+  themeDark,
+  themeGrainAlpha,
   withAddedStop,
   withoutStop,
   withStopAt,
@@ -60,8 +63,10 @@ function useLiveTheme(profileId: string, theme: ProfileTheme | null | undefined)
 export function ThemeSection({ profileId }: { profileId: string }) {
   const profile = useBrowser((s) => s.profiles[profileId]);
   const live = useLiveTheme(profileId, profile?.theme);
+  const appDark = useBrowser((s) => s.ui.appDark);
   if (!profile) return null;
-  const custom = live.theme;
+  const stored = live.theme;
+  const custom = stored?.dark ? resolveTheme(stored, themeDark(stored, appDark)) : stored;
   const choosePreset = (color: ProfileColor) =>
     useBrowser.getState().updateProfile(profileId, profile.theme ? { color, theme: null } : { color });
   const chooseCustom = () => {
@@ -75,7 +80,16 @@ export function ThemeSection({ profileId }: { profileId: string }) {
         action={<Button title="Import from Arc…" onPress={() => void importArcTheme(profileId)} />}
       />
       <Group>
-        <Row title="Colour" description={custom ? "Custom gradient" : PROFILE_COLORS[profile.color]?.name}>
+        <Row
+          title="Colour"
+          description={
+            stored?.dark
+              ? `Separate light and dark looks. Editing keeps the ${themeDark(stored, appDark) ? "dark" : "light"} one.`
+              : custom
+                ? "Custom gradient"
+                : PROFILE_COLORS[profile.color]?.name
+          }
+        >
           <View style={{ flexDirection: "row", gap: 7 }}>
             {(Object.keys(PROFILE_COLORS) as ProfileColor[]).map((c) => (
               <Pressable key={c} onPress={() => choosePreset(c)} tooltip={PROFILE_COLORS[c].name}>
@@ -207,7 +221,7 @@ function Preview({ theme }: { theme: ProfileTheme }) {
   const ui = useTheme();
   return (
     <View style={{ height: 58, borderRadius: 9, overflow: "hidden" }}>
-      <ThemeSwatch colors={flatColors(theme)} grain={theme.grain} style={StyleSheet.absoluteFill} />
+      <ThemeSwatch colors={flatColors(theme)} grain={themeGrainAlpha(theme)} texture={theme.texture} style={StyleSheet.absoluteFill} />
       <View style={{ position: "absolute", left: 8, top: 10, width: 34, gap: 5 }}>
         {[1, 0.7, 0.85].map((w, i) => (
           <View key={i} style={{ width: `${w * 100}%`, height: 4, borderRadius: 2, backgroundColor: ui.dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)" }} />

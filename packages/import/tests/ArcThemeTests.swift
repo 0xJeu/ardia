@@ -33,4 +33,10 @@ final class ArcThemeTests: XCTestCase {
     let spaces = arc.profiles.flatMap { $0.spaces ?? [] }
     XCTAssertEqual(Set(spaces.filter { $0.theme != nil }.map(\.id)), ["S-PERSONAL", "S-WORK"])
   }
+
+  func testAnOversizedThemeIsLeftOut() {
+    let huge: [String: Any] = ["background": ["blob": String(repeating: "x", count: ArcSidebar.maxThemeBytes)]]
+    XCTAssertNil(ArcSidebar.json(huge))
+    XCTAssertNotNil(ArcSidebar.json(["background": [:]]))
+  }
 }

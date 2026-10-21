@@ -167,6 +167,7 @@ struct ThemeGradient: Equatable {
   var opacity: CGFloat = 1
   var baseAlpha: CGFloat = 0
   var grain: CGFloat = 0
+  var texture = "grain"
   var appearance = "auto"
 
   var isEmpty: Bool { colors.isEmpty }
@@ -288,39 +289,81 @@ final class ArcGradientLayer: CALayer {
 }
 
 final class GrainLayer: CALayer {
-  static let tile: CGImage? = {
-    let side = 128
-    var state: UInt32 = 0x9E3779B9
-    var bytes = [UInt8](repeating: 0, count: side * side * 4)
-    for i in 0..<(side * side) {
-      state ^= state << 13
-      state ^= state >> 17
-      state ^= state << 5
-      let u = Double(state % 10_000) / 10_000
-      bytes[i * 4 + 3] = UInt8(min(255, u * u * 255))
-    }
-    guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
-    return CGImage(width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: side * 4,
-                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
-  }()
+  static let side = 128
+  private static var patterns: [String: CGColor] = [:]
+
+  var texture = "grain" { didSet { if texture != oldValue { backgroundColor = Self.pattern(texture) } } }
 
   override init() {
     super.init()
-    needsDisplayOnBoundsChange = true
-    actions = ["bounds": NSNull(), "position": NSNull(), "opacity": NSNull(), "contents": NSNull()]
+    actions = ["bounds": NSNull(), "position": NSNull(), "opacity": NSNull(), "backgroundColor": NSNull()]
+    backgroundColor = Self.pattern(texture)
   }
 
   override init(layer: Any) { super.init(layer: layer) }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-  override func draw(in ctx: CGContext) {
-    guard opacity > 0, let tile = Self.tile else { return }
-    ctx.interpolationQuality = .none
-    let side = CGFloat(tile.width) / max(contentsScale, 1)
-    ctx.draw(tile, in: CGRect(x: 0, y: 0, width: side, height: side), byTiling: true)
+  static func pattern(_ texture: String) -> CGColor? {
+    if let cached = patterns[texture] { return cached }
+    guard let tile = tile(texture) else { return nil }
+    let image = NSImage(cgImage: tile, size: NSSize(width: side / 2, height: side / 2))
+    let color = NSColor(patternImage: image).cgColor
+    patterns[texture] = color
+    return color
+  }
+
+  static func tile(_ texture: String) -> CGImage? {
+    let n = side
+    var alpha = [Float](repeating: 0, count: n * n)
+    var state: UInt32 = 0x9E3779B9
+    func random() -> Float {
+      state ^= state << 13
+      state ^= state >> 17
+      state ^= state << 5
+      return Float(state % 10_000) / 10_000
+    }
+    func add(_ x: Int, _ y: Int, _ v: Float) {
+      let i = ((y % n + n) % n) * n + (x % n + n) % n
+      alpha[i] = min(1, alpha[i] + v)
+    }
+    switch texture {
+    case "sand":
+      for i in 0..<(n * n) { alpha[i] = random() * 0.25 }
+      for _ in 0..<(n * n / 18) {
+        let x = Int(random() * Float(n)), y = Int(random() * Float(n)), v = 0.5 + random() * 0.5
+        add(x, y, v)
+        add(x + 1, y, v * 0.6)
+        add(x, y + 1, v * 0.6)
+        add(x + 1, y + 1, v * 0.4)
+      }
+    case "denim":
+      for y in 0..<n {
+        for x in 0..<n {
+          let twill: Float = (x + y) % 4 < 2 ? 0.75 : 0.15
+          alpha[y * n + x] = min(1, twill * (0.6 + random() * 0.4) + (y % 2 == 0 ? 0.08 : 0))
+        }
+      }
+    case "tweed":
+      for i in 0..<(n * n) { alpha[i] = random() * 0.15 }
+      for _ in 0..<(n * n / 40) {
+        let x = Int(random() * Float(n)), y = Int(random() * Float(n)), v = 0.4 + random() * 0.6
+        let horizontal = random() < 0.5
+        for k in 0..<(3 + Int(random() * 4)) { horizontal ? add(x + k, y, v) : add(x, y + k, v) }
+      }
+    default:
+      for i in 0..<(n * n) {
+        let u = random()
+        alpha[i] = u * u
+      }
+    }
+    var bytes = [UInt8](repeating: 0, count: n * n * 4)
+    for i in 0..<(n * n) { bytes[i * 4 + 3] = UInt8(min(255, alpha[i] * 255)) }
+    guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
+    return CGImage(width: n, height: n, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: n * 4,
+                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
   }
 }
 
@@ -391,12 +434,6 @@ final class WindowTreatmentView: NSView {
     updateGrain()
   }
 
-  override func viewDidChangeBackingProperties() {
-    super.viewDidChangeBackingProperties()
-    grain.contentsScale = window?.backingScaleFactor ?? 2
-    grain.setNeedsDisplay()
-  }
-
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     needsLayout = true
@@ -424,11 +461,8 @@ final class WindowTreatmentView: NSView {
   private func updateGrain() {
     guard let custom else { return grain.opacity = 0 }
     let active = activity.isActive || WindowActivity.override == true
-    let next = Float(min(max(custom.grain, 0), 1) * (active ? 1 : Self.inactiveGrain))
-    guard next != grain.opacity else { return }
-    let wasHidden = grain.opacity == 0
-    grain.opacity = next
-    if wasHidden { grain.setNeedsDisplay() }
+    grain.texture = custom.texture
+    grain.opacity = Float(min(max(custom.grain, 0), 1) * (active ? 1 : Self.inactiveGrain))
   }
 
   private func updateTint() {
@@ -496,7 +530,10 @@ final class ThemeSwatchView: ExpoView {
 
   func setGrain(_ value: Double) {
     grain.opacity = Float(min(max(value, 0), 1))
-    grain.setNeedsDisplay()
+  }
+
+  func setTexture(_ value: String) {
+    grain.texture = value
   }
 
   func setPadLightness(_ value: Double) {
@@ -510,12 +547,6 @@ final class ThemeSwatchView: ExpoView {
     super.layout()
     for sub in [themeLayer, pad, grain] as [CALayer] { sub.frame = bounds }
     themeLayer.flipped = isFlipped
-  }
-
-  override func viewDidChangeBackingProperties() {
-    super.viewDidChangeBackingProperties()
-    grain.contentsScale = window?.backingScaleFactor ?? 2
-    grain.setNeedsDisplay()
   }
 
   static func hsl(_ h: Double, _ s: Double, _ l: Double) -> (Double, Double, Double) {

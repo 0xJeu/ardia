@@ -3,7 +3,7 @@ import { createContext, createElement, useContext, type ReactNode } from "react"
 import { useBrowser, type BrowserState } from "../store/browser";
 import { PageProfileContext, WindowContext } from "../store/hooks";
 import type { Profile, ProfileColor, ProfileTheme } from "../store/types";
-import { opaqueThemeTint, PRESET_BACKDROP, rgbToHsl, themeAccent, themeBackdrop, themeDark, themePalette, type ThemeBackdropProps } from "./profileTheme";
+import { opaqueThemeTint, PRESET_BACKDROP, resolveTheme, rgbToHsl, themeAccent, themeBackdrop, themeDark, themePalette, type ThemeBackdropProps } from "./profileTheme";
 import { backdropTint, opaqueTint, tintForHue, type BackdropTint } from "./windowTint";
 
 export type Theme = typeof dark & {
@@ -157,7 +157,7 @@ const INCOGNITO_TINT = "#3A3A3C";
 
 export function profileNameColor(profile: Pick<Profile, "color" | "theme">, dark: boolean): string {
   const spec = PROFILE_COLORS[profile.color] ?? PROFILE_COLORS.plum;
-  const base = profile.theme ? themeAccent(profile.theme) : (spec.action ?? spec.swatch);
+  const base = profile.theme ? themeAccent(resolveTheme(profile.theme, dark)) : (spec.action ?? spec.swatch);
   return dark ? mix(base, "#FFFFFF", 0.6) : mix(base, "#000000", 0.4);
 }
 
@@ -217,13 +217,14 @@ function customTheme(custom: ProfileTheme, color: ProfileColor, appDark: boolean
   let theme = byKey.get(key);
   if (!theme) {
     const preset = themeFor(key);
-    const accent = themeAccent(custom);
-    const palette = themePalette(custom);
+    const look = resolveTheme(custom, dark);
+    const accent = themeAccent(look);
+    const palette = themePalette(look);
     theme = {
       ...preset,
       profileColor: nearestPreset(accent),
-      backdrop: { ...backdropTint(accent, false), ...themeBackdrop(custom, dark) },
-      windowTint: opaqueThemeTint(custom, dark),
+      backdrop: { ...backdropTint(accent, false), ...themeBackdrop(look, dark) },
+      windowTint: opaqueThemeTint(look, dark),
       powerUpColor: accent,
       powerUpPalette: palette.length > 1 ? palette : [palette[0] ?? accent],
       custom,

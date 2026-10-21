@@ -1,4 +1,4 @@
-import type { ProfileTheme, ThemeColor, ThemeMode, ThemeStop, ThemeTexture } from "../store/types";
+import type { ProfileTheme, ThemeColor, ThemeLook, ThemeMode, ThemeStop, ThemeTexture } from "../store/types";
 
 export const MAX_THEME_STOPS = 3;
 export const PAD_LIGHTNESS = 0.6;
@@ -12,6 +12,7 @@ export type ThemeBackdropProps = {
   themeOpacity: number;
   themeBaseAlpha: number;
   themeGrain: number;
+  themeTexture: ThemeTexture;
   themeAppearance: ThemeMode;
 };
 
@@ -20,6 +21,7 @@ export const PRESET_BACKDROP: ThemeBackdropProps = {
   themeOpacity: 1,
   themeBaseAlpha: 0,
   themeGrain: 0,
+  themeTexture: "grain",
   themeAppearance: "auto",
 };
 
@@ -119,6 +121,11 @@ export function themeDark(theme: ProfileTheme, appDark: boolean): boolean {
   return theme.mode === "auto" ? appDark : theme.mode === "dark";
 }
 
+export function resolveTheme(theme: ProfileTheme, dark: boolean): ProfileTheme {
+  const { dark: darkLook, ...base } = theme;
+  return dark && darkLook ? { ...base, ...darkLook } : base;
+}
+
 export function arcLayerAlpha(intensity: number): number {
   return 0.2 + 0.55 * clamp01(intensity);
 }
@@ -146,6 +153,7 @@ export function themeBackdrop(theme: ProfileTheme, dark: boolean): ThemeBackdrop
     themeOpacity: themeLayerAlpha(theme),
     themeBaseAlpha: themeUnderlayAlpha(theme, dark),
     themeGrain: themeGrainAlpha(theme),
+    themeTexture: theme.texture,
     themeAppearance: theme.mode,
   };
 }
@@ -207,12 +215,15 @@ function sanitizeColor(v: unknown): ThemeColor | null {
   return { r: c.r as number, g: c.g as number, b: c.b as number, a: clamp01(num(c.a, 1)) };
 }
 
-export function sanitizeTheme(v: unknown): ProfileTheme | null {
+const MAX_SANITIZED_STOPS = 16;
+
+function sanitizeLook(v: unknown): ThemeLook | null {
   if (!v || typeof v !== "object") return null;
   const t = v as Record<string, unknown>;
   if (!Array.isArray(t.stops)) return null;
   const stops: ThemeStop[] = [];
-  for (const raw of t.stops.slice(0, MAX_THEME_STOPS)) {
+  for (const raw of t.stops.slice(0, MAX_SANITIZED_STOPS)) {
+    if (stops.length >= MAX_THEME_STOPS) break;
     const s = raw as Record<string, unknown> | null;
     const color = sanitizeColor(s?.color);
     if (color) stops.push({ color, x: clamp01(num(s!.x, 0.5)), y: clamp01(num(s!.y, 0.5)) });
@@ -221,9 +232,16 @@ export function sanitizeTheme(v: unknown): ProfileTheme | null {
   return {
     stops,
     intensity: clamp01(num(t.intensity, 0.6)),
-    mode: t.mode === "light" || t.mode === "dark" ? t.mode : "auto",
     grain: clamp01(num(t.grain, 0)),
     texture: THEME_TEXTURES.includes(t.texture as ThemeTexture) ? (t.texture as ThemeTexture) : "grain",
     translucency: clamp01(num(t.translucency, 1)),
   };
+}
+
+export function sanitizeTheme(v: unknown): ProfileTheme | null {
+  const look = sanitizeLook(v);
+  if (!look) return null;
+  const t = v as Record<string, unknown>;
+  const dark = sanitizeLook(t.dark);
+  return { ...look, mode: t.mode === "light" || t.mode === "dark" ? t.mode : "auto", ...(dark ? { dark } : {}) };
 }

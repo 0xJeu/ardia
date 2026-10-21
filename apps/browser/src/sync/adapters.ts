@@ -83,8 +83,18 @@ export const settingsAdapter: Adapter = {
 
 export type ProfileRecord = { n: string; c: Profile["color"]; i: string | null; d?: true; th?: ProfileTheme | null };
 
-export function profileThemePatch(record: ProfileRecord): Pick<Profile, "theme"> | Record<string, never> {
-  return "th" in record ? { theme: record.th === null ? null : sanitizeTheme(record.th) } : {};
+export type ProfileThemeRecord = { t: ProfileTheme } | { preset: true };
+
+export function themeFromRecord(record: unknown): Pick<Profile, "theme"> | null {
+  if (!record || typeof record !== "object") return null;
+  if ("preset" in record && record.preset === true) return { theme: null };
+  const theme = "t" in record ? sanitizeTheme(record.t) : null;
+  return theme ? { theme } : null;
+}
+
+export function legacyThemeOf(record: ProfileRecord): Pick<Profile, "theme"> | null {
+  const theme = record.th ? sanitizeTheme(record.th) : null;
+  return theme ? { theme } : null;
 }
 
 export function profilesAdapter(links: () => Record<string, { syncId: string }>): Adapter {
@@ -101,7 +111,6 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
           c: p.color,
           i: p.icon,
           ...(id === DEFAULT_PROFILE_ID ? { d: true } : {}),
-          ...(p.theme !== undefined ? { th: p.theme } : {}),
         } satisfies ProfileRecord);
       }
       const mine = new Set(values.keys());
@@ -111,7 +120,33 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
       for (const [id, { syncId }] of linked()) {
         const record = visible.get(`prof:${syncId}`) as ProfileRecord | undefined;
         if (!record || !changed.has(`prof:${syncId}`)) continue;
-        store().updateProfile(id, { name: record.n, color: record.c, icon: record.i, ...profileThemePatch(record) });
+        const legacy = store().profiles[id]!.theme === undefined ? legacyThemeOf(record) : null;
+        store().updateProfile(id, { name: record.n, color: record.c, icon: record.i, ...legacy });
+      }
+    },
+  };
+}
+
+export function profileThemesAdapter(links: () => Record<string, { syncId: string }>): Adapter {
+  const linked = () => Object.entries(links()).filter(([id]) => store().profiles[id]);
+  return {
+    prefix: "pth:",
+    adoptRemoteOnJoin: true,
+    extract: () => {
+      const values = new Map<string, unknown>();
+      for (const [id, { syncId }] of linked()) {
+        const theme = store().profiles[id]!.theme;
+        if (theme === undefined) continue;
+        values.set(`pth:${syncId}`, (theme ? { t: theme } : { preset: true }) satisfies ProfileThemeRecord);
+      }
+      const mine = new Set(values.keys());
+      return { values, ignore: (key) => !mine.has(key) };
+    },
+    apply: (visible, changed) => {
+      for (const [id, { syncId }] of linked()) {
+        if (!changed.has(`pth:${syncId}`)) continue;
+        const patch = themeFromRecord(visible.get(`pth:${syncId}`));
+        if (patch) store().updateProfile(id, patch);
       }
     },
   };

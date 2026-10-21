@@ -45,6 +45,7 @@ public class WindowBackdropModule: Module {
       Prop("themeOpacity") { (view: WindowBackdropView, v: Double) in view.setCustom { $0.opacity = v } }
       Prop("themeBaseAlpha") { (view: WindowBackdropView, v: Double) in view.setCustom { $0.baseAlpha = v } }
       Prop("themeGrain") { (view: WindowBackdropView, v: Double) in view.setCustom { $0.grain = v } }
+      Prop("themeTexture") { (view: WindowBackdropView, v: String) in view.setCustom { $0.texture = v } }
       Prop("themeAppearance") { (view: WindowBackdropView, v: String) in view.setCustom { $0.appearance = v } }
     }
   }
@@ -57,6 +58,7 @@ public class ThemeSwatchModule: Module {
     View(ThemeSwatchView.self) {
       Prop("colors") { (view: ThemeSwatchView, flat: [Double]) in view.setColors(flat) }
       Prop("grain") { (view: ThemeSwatchView, v: Double) in view.setGrain(v) }
+      Prop("texture") { (view: ThemeSwatchView, v: String) in view.setTexture(v) }
       Prop("padLightness") { (view: ThemeSwatchView, v: Double) in view.setPadLightness(v) }
     }
   }

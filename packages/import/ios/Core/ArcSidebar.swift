@@ -60,9 +60,12 @@ public struct ArcSidebar: Equatable {
     return out
   }
 
+  static let maxThemeBytes = 64 * 1024
+
   static func json(_ any: Any?) -> String? {
     guard let any, JSONSerialization.isValidJSONObject(any),
-          let data = try? JSONSerialization.data(withJSONObject: any, options: [.sortedKeys]) else { return nil }
+          let data = try? JSONSerialization.data(withJSONObject: any, options: [.sortedKeys]),
+          data.count <= maxThemeBytes else { return nil }
     return String(data: data, encoding: .utf8)
   }
 

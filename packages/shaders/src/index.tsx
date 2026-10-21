@@ -20,6 +20,7 @@ export type WindowBackdropProps = ViewProps & {
   themeOpacity?: number;
   themeBaseAlpha?: number;
   themeGrain?: number;
+  themeTexture?: "grain" | "sand" | "denim" | "tweed";
   themeAppearance?: "auto" | "light" | "dark";
 };
 
@@ -58,6 +59,7 @@ export function PowerUp({ palette = "pink", halo = null, ...props }: PowerUpProp
 export type ThemeSwatchProps = ViewProps & {
   colors: number[];
   grain?: number;
+  texture?: "grain" | "sand" | "denim" | "tweed";
   padLightness?: number;
 };
 

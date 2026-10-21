@@ -5,7 +5,7 @@ import { test } from "node:test";
 globalThis.__DEV__ = false;
 
 const { parseArcTheme } = await import("./arcTheme.ts");
-const { themeArea, themeLayerAlpha, themeUnderlayAlpha, themeBackdrop, sanitizeTheme, padColor, padPosition } = await import("../../lib/profileTheme.ts");
+const { themeArea, themeLayerAlpha, themeUnderlayAlpha, themeBackdrop, sanitizeTheme, padColor, padPosition, resolveTheme } = await import("../../lib/profileTheme.ts");
 
 const fixtures = new URL("../../../../../packages/import/fixtures/", import.meta.url);
 const fixture = (name) => JSON.parse(readFileSync(new URL(`arc-themes/${name}.json`, fixtures), "utf8"));
@@ -62,12 +62,32 @@ test("single colour, extended range and a texture", () => {
   assert.equal(themeBackdrop(theme, true).themeGrain, 0.15);
 });
 
-test("an opaque basic colour per appearance", () => {
+test("an opaque basic colour per appearance keeps both looks and picks one when rendering", () => {
   const theme = parseArcTheme(fixture("basic-appearance"));
   assert.equal(theme.mode, "auto");
   assert.deepEqual(theme.stops[0].color, { r: 0.86, g: 0.9, b: 0.97, a: 1 });
+  assert.deepEqual(theme.dark.stops[0].color, { r: 0.08, g: 0.1, b: 0.16, a: 1 });
   assert.equal(theme.translucency, 0);
   assert.equal(themeLayerAlpha(theme), 1);
+  assert.deepEqual(resolveTheme(theme, false).stops[0].color, theme.stops[0].color);
+  assert.deepEqual(resolveTheme(theme, true).stops[0].color, theme.dark.stops[0].color);
+  assert.equal(resolveTheme(theme, true).dark, undefined);
+  const forcedDark = parseArcTheme({ ...fixture("basic-appearance"), windowAppearance: { single: { _0: "dark" } } });
+  assert.equal(forcedDark.mode, "dark");
+  assert.deepEqual(forcedDark.stops[0].color, { r: 0.08, g: 0.1, b: 0.16, a: 1 });
+  assert.equal(forcedDark.dark, undefined);
+});
+
+test("oversized input is capped before it is walked", () => {
+  const raw = fixture("green-pink");
+  const g = gradientOf(raw);
+  g.baseColors = [...g.baseColors, ...Array.from({ length: 100_000 }, () => g.baseColors[0])];
+  g.overlayColors = Array.from({ length: 100_000 }, () => g.baseColors[1]);
+  const theme = parseArcTheme(raw);
+  assert.equal(theme.stops.length, 3);
+  assert.equal(parseArcTheme(JSON.stringify(raw)), null);
+  assert.equal(parseArcTheme("x".repeat(70 * 1024)), null);
+  assert.equal(sanitizeTheme({ stops: Array.from({ length: 1e5 }, () => 7), mode: "auto" }), null);
 });
 
 test("Arc's intensity maps to its layer alpha at full translucency", () => {
