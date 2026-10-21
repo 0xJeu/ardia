@@ -41,7 +41,7 @@ import {
   themeFromRecord,
   type ShareRecord,
 } from "./adapters";
-import { extensionsAdapterFor, watchExtensionIntents } from "./extensions";
+import { extensionsAdapterFor, extensionSyncAvailable, probeExtensionSync, watchExtensionIntents } from "./extensions";
 
 type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "extensions" | "settings";
 
@@ -285,15 +285,15 @@ function profileAdapters(profileId: string, retiring: boolean): Adapter[] {
     ...(t.history && ownsData ? [inTodaysNames(historyAdapter(profileId))] : []),
     inTodaysNames(deviceTabsAdapter(profileId, id, deviceName, !t.tabs)),
     ...(t.passwords && ownsData ? [passwords] : []),
-    ...(t.extensions && ownsData ? [extensionsOf(profileId)] : []),
+    ...(t.extensions && ownsData && extensionSyncAvailable() ? [extensionsOf(profileId)] : []),
   ];
 }
 
-function watchExtensions() {
+async function watchExtensions() {
   if (!doc.enabled || !doc.types.extensions) return;
   const s = useBrowser.getState();
-  const profiles = Object.entries(doc.profiles).filter(([id, l]) => l.enabled && s.profiles[id] && !s.profiles[id]!.dataId);
-  watchExtensionIntents([...new Set(profiles.map(([id]) => engineProfile(id)))]);
+  const profiles = [...new Set(Object.entries(doc.profiles).filter(([id, l]) => l.enabled && s.profiles[id] && !s.profiles[id]!.dataId).map(([id]) => engineProfile(id)))];
+  if (profiles.length && (await probeExtensionSync(profiles[0]!))) watchExtensionIntents(profiles);
 }
 
 function extensionsOf(profileId: string): ExtensionsAdapter {
@@ -322,9 +322,9 @@ async function runCycle({ retiring = false } = {}) {
   }
   running = true;
   clearTimeout(timer);
-  watchExtensions();
   const slow = setTimeout(() => useSync.getState().status === "updated" && publishUi({ status: "updating" }), 1000);
   try {
+    await watchExtensions();
     const status = await native.chainStatus(doc.folder);
     if (status === "unavailable") return publishUi({ status: "offline", error: null });
     if (status === "missing") return await resetFromElsewhere();
@@ -360,7 +360,7 @@ async function runCycle({ retiring = false } = {}) {
         options: { expired: historyExpired, persist: persistJournal(scope) },
       });
       pending += state.pending;
-      if (!retire && doc.types.extensions && !s.profiles[profileId]?.dataId) await extensionsOf(profileId).reconcile(visible(state, "ext:"), Date.now());
+      if (!retire && doc.types.extensions && !s.profiles[profileId]?.dataId && extensionSyncAvailable()) await extensionsOf(profileId).reconcile(visible(state, "ext:"), Date.now());
       if (retire) {
         delete link.retire;
         if (!exists) {
@@ -627,7 +627,7 @@ export function startSync() {
   if (!SyncNative) return;
   load();
   publishUi({ status: doc.enabled ? "starting" : "off" });
-  watchExtensions();
+  void watchExtensions();
   if (doc.enabled && doc.deviceId) {
     void SyncNative.unlock(doc.deviceId).then(async (ok) => {
       if (!ok) return publishUi({ status: "locked", error: "Enter your recovery phrase to keep syncing on this Mac." });

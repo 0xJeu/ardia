@@ -29,14 +29,34 @@ function note(profile: string, id: string, kind: ExtensionIntent["kind"]) {
   save();
 }
 
+async function stateOf(profile: string): Promise<LocalExtensions> {
+  const state = await engineCall<EngineState>("ac_extensions_sync_state", profile);
+  for (const i of state.intents ?? []) note(profile, i.id, i.kind);
+  return { ready: !!state.ready, extensions: state.extensions ?? [], pending: state.pending ?? [], settling: state.settling ?? [] };
+}
+
 async function readLocal(profile: string): Promise<LocalExtensions | null> {
   try {
-    const state = await engineCall<EngineState>("ac_extensions_sync_state", profile);
-    for (const i of state.intents ?? []) note(profile, i.id, i.kind);
-    return { ready: !!state.ready, extensions: state.extensions ?? [], pending: state.pending ?? [], settling: state.settling ?? [] };
+    return await stateOf(profile);
   } catch {
     return null;
   }
+}
+
+const MISSING_CALL = /not an engine call|the engine has no/;
+let available: boolean | null = null;
+
+export const extensionSyncAvailable = () => available === true;
+
+export async function probeExtensionSync(profile: string): Promise<boolean> {
+  if (available !== null) return available;
+  try {
+    await stateOf(profile);
+    available = true;
+  } catch (error) {
+    if (MISSING_CALL.test(error instanceof Error ? error.message : String(error))) available = false;
+  }
+  return available === true;
 }
 
 function refreshList(profile: string) {
