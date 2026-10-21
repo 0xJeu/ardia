@@ -31,9 +31,11 @@ import {
   pinnedRowsAdapter,
   profilesAdapter,
   settingsAdapter,
+  sharedDataAdapter,
   type DeviceRecord,
   type DeviceTabs,
   type ProfileRecord,
+  type ShareRecord,
 } from "./adapters";
 
 type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "settings";
@@ -95,7 +97,7 @@ export type SyncStatus = "off" | "starting" | "updating" | "updated" | "stalled"
 
 type SyncedDevice = { id: string; name: string; lastSeen: number | null; current: boolean };
 export type RemoteTabs = { deviceId: string; name: string; tabs: { url: string; title: string }[] };
-type RemoteProfile = { syncId: string; name: string; color: Profile["color"]; icon: string | null };
+type RemoteProfile = { syncId: string; name: string; color: Profile["color"]; icon: string | null; sharesWith?: { name: string; added: boolean } };
 
 type SyncUi = {
   status: SyncStatus;
@@ -250,9 +252,11 @@ const inTodaysNames = (adapter: Adapter): Adapter => ({
 function appAdapters(retiring: boolean): Adapter[] {
   const id = doc.deviceId!;
   if (retiring) return [deviceAdapter(id, deviceName, true)];
+  const enabledLinks = () => Object.fromEntries(Object.entries(doc.profiles).filter(([, l]) => l.enabled));
   return [
     ...(doc.types.settings ? [inTodaysNames(settingsAdapter)] : []),
-    profilesAdapter(() => Object.fromEntries(Object.entries(doc.profiles).filter(([, l]) => l.enabled))),
+    profilesAdapter(enabledLinks),
+    sharedDataAdapter(enabledLinks),
     deviceAdapter(id, deviceName),
   ];
 }
@@ -412,7 +416,20 @@ function summarize(): Pick<SyncUi, "devices" | "remoteTabs" | "remoteProfiles"> 
   const linked = new Set(Object.values(doc.profiles).map((l) => l.syncId));
   const remoteProfiles = [...visible(app, "prof:")]
     .filter(([k]) => !linked.has(k.slice(5)))
-    .map(([k, v]) => ({ syncId: k.slice(5), name: (v as ProfileRecord).n, color: (v as ProfileRecord).c, icon: (v as ProfileRecord).i }));
+    .map(([k, v]): RemoteProfile => {
+      const syncId = k.slice(5);
+      const record = v as ProfileRecord;
+      const owner = sharedDataOwner(syncId);
+      const ownerHere = owner ? linkedProfileId(owner) : null;
+      const ownerName = ownerHere ? useBrowser.getState().profiles[ownerHere]?.name : owner ? remoteProfileRecord(owner)?.n : undefined;
+      return {
+        syncId,
+        name: record.n,
+        color: record.c,
+        icon: record.i,
+        ...(ownerName !== undefined ? { sharesWith: { name: ownerName, added: !ownerHere } } : {}),
+      };
+    });
   return { devices, remoteTabs, remoteProfiles };
 }
 
@@ -515,10 +532,25 @@ export function setProfileSynced(profileId: string, enabled: boolean) {
   scheduleSync(0);
 }
 
-export function addRemoteProfile(syncId: string): string | null {
-  const record = doc.scopes[APP_SCOPE]?.records[`prof:${syncId}`]?.v as ProfileRecord | undefined;
-  if (!record) return null;
-  const id = useBrowser.getState().createProfile({ name: record.n, color: record.c, icon: record.i });
+const remoteProfileRecord = (syncId: string) => (doc.scopes[APP_SCOPE]?.records[`prof:${syncId}`]?.v ?? undefined) as ProfileRecord | undefined;
+
+const sharedDataOwner = (syncId: string): string | null => {
+  const owner = (doc.scopes[APP_SCOPE]?.records[`share:${syncId}`]?.v as ShareRecord | null | undefined)?.o;
+  return owner && owner !== syncId ? owner : null;
+};
+
+const linkedProfileId = (syncId: string): string | null => {
+  const profiles = useBrowser.getState().profiles;
+  return Object.entries(doc.profiles).find(([id, link]) => link.syncId === syncId && !link.retire && profiles[id])?.[0] ?? null;
+};
+
+export function addRemoteProfile(syncId: string, adding = new Set<string>()): string | null {
+  const record = remoteProfileRecord(syncId);
+  if (!record || adding.has(syncId)) return null;
+  adding.add(syncId);
+  const owner = sharedDataOwner(syncId);
+  const shareWith = owner ? (linkedProfileId(owner) ?? addRemoteProfile(owner, adding)) : null;
+  const id = useBrowser.getState().createProfile({ name: record.n, color: record.c, icon: record.i, shareWith });
   doc.profiles[id] = { syncId, enabled: true };
   doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
   save();

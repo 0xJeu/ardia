@@ -105,6 +105,27 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
   };
 }
 
+export type ShareRecord = { o: string };
+
+export function sharedDataAdapter(links: () => Record<string, { syncId: string }>): Adapter {
+  return {
+    prefix: "share:",
+    adoptRemoteOnJoin: true,
+    extract: () => {
+      const values = new Map<string, unknown>();
+      const all = links();
+      for (const [id, { syncId }] of Object.entries(all)) {
+        const ownerId = store().profiles[id]?.dataId;
+        const owner = ownerId && ownerId !== id && store().profiles[ownerId] ? all[ownerId] : undefined;
+        if (owner) values.set(`share:${syncId}`, { o: owner.syncId } satisfies ShareRecord);
+      }
+      const mine = new Set(values.keys());
+      return { values, ignore: (key) => !mine.has(key) };
+    },
+    apply: () => true,
+  };
+}
+
 export type DeviceRecord = { n: string };
 
 export function deviceAdapter(deviceId: string, name: () => string, retired = false): Adapter {

@@ -316,7 +316,7 @@ string doesn't matter. Afterwards: `kill %1` for the server, quit the app, `rm -
 | Dock menu: New Window per profile | ✓ | ✅ | |
 | Unload unused profiles | ✓ | ✅ | a profile no window has shown for 10 min: its tabs' browsers close (unlike sleeping, their history is lost), then its engine context is released (checked every 15 s). Whether Chrome then unloads the profile itself (ghost, hidden WebUI pages) hasn't been measured on the new engine |
 | Per‑profile extensions | ✓ | ✅ | every extension call takes the profile; Settings › Extensions has a profile picker ("Each profile has its own"); uBOL runs in every profile (ledger 11) |
-| Per‑profile sync | ✓ | ✅ | each profile syncs on its own (its own scope in the sync folder), turned on or off per profile in Settings › Sync. Joining pairs Personal with the synced default and other profiles by name; a synced profile this Mac lacks is offered as "Add to This Mac"; profiles that share data sync their tabs, the data with its owner (`docs/sync.md`) |
+| Per‑profile sync | ✓ | ✅ | each profile syncs on its own (its own scope in the sync folder), turned on or off per profile in Settings › Sync. Joining pairs Personal with the synced default and other profiles by name; a synced profile this Mac lacks is offered as "Add to This Mac"; profiles that share data sync their tabs, the data with its owner, and one added from sync shares that owner's data on the new Mac too (`docs/sync.md`) |
 | Per‑profile Morning Brief | ✓ | ⏸ | |
 | Spaces (colour, rename) | flag-gated; changelog says Dia has no Spaces | — | Dia ships without Spaces |
 | Warn before closing last tab in a profile | ✓ | ✅ | with "Don't ask again" |

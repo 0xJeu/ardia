@@ -230,7 +230,7 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
           );
         })}
         {remoteProfiles.map((p) => (
-          <Row key={p.syncId} icon={<ProfileBadge profile={{ name: p.name, color: p.color, icon: p.icon }} size={24} />} title={p.name} description="On your other devices">
+          <Row key={p.syncId} icon={<ProfileBadge profile={{ name: p.name, color: p.color, icon: p.icon }} size={24} />} title={p.name} description={remoteProfileDescription(p)}>
             <Button title="Add to This Mac" onPress={() => addRemoteProfile(p.syncId)} />
           </Row>
         ))}
@@ -262,6 +262,12 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
       </Group>
     </>
   );
+}
+
+function remoteProfileDescription(p: { sharesWith?: { name: string; added: boolean } }): string {
+  if (!p.sharesWith) return "On your other devices";
+  const { name, added } = p.sharesWith;
+  return added ? `On your other devices. Shares data with ${name}, which is added too.` : `On your other devices. Shares data with ${name}.`;
 }
 
 export function ago(at: number, now = Date.now()): string {
