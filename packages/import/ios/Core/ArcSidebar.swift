@@ -36,7 +36,7 @@ public struct ArcSidebar: Equatable {
         untitled += 1
         name = "Space \(untitled)"
       }
-      let theme = info?["windowTheme"]
+      let theme = bounded(info?["windowTheme"])
       out.spaces.append(SpaceSuggestion(
         id: id,
         name: name,
@@ -61,6 +61,30 @@ public struct ArcSidebar: Equatable {
   }
 
   static let maxThemeBytes = 64 * 1024
+  static let maxThemeDepth = 12
+  static let maxThemeArray = 4
+  static let maxThemeKeys = 32
+  static let maxThemeString = 256
+
+  static func bounded(_ any: Any?, depth: Int = 0) -> Any? {
+    guard let any, depth < maxThemeDepth else { return nil }
+    switch any {
+    case let d as [String: Any]:
+      var out: [String: Any] = [:]
+      for key in d.keys.sorted().prefix(maxThemeKeys) where key.count <= maxThemeString {
+        if let v = bounded(d[key], depth: depth + 1) { out[key] = v }
+      }
+      return out
+    case let a as [Any]:
+      return a.prefix(maxThemeArray).compactMap { bounded($0, depth: depth + 1) }
+    case let s as String:
+      return String(s.prefix(maxThemeString))
+    case let n as NSNumber:
+      return n
+    default:
+      return nil
+    }
+  }
 
   static func json(_ any: Any?) -> String? {
     guard let any, JSONSerialization.isValidJSONObject(any),

@@ -119,11 +119,11 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
       const mine = new Set(values.keys());
       return { values, ignore: (key) => !mine.has(key) };
     },
-    apply: (visible, changed) => {
+    apply: (visible, changed, _base, records) => {
       for (const [id, { syncId }] of linked()) {
         const record = visible.get(`prof:${syncId}`) as ProfileRecord | undefined;
         if (!record || !changed.has(`prof:${syncId}`)) continue;
-        const legacy = store().profiles[id]!.theme === undefined ? legacyThemeOf(record) : null;
+        const legacy = store().profiles[id]!.theme === undefined && !records.known(`pth:${syncId}`) ? legacyThemeOf(record) : null;
         store().updateProfile(id, { name: record.n, color: record.c, icon: record.i, ...legacy });
       }
     },

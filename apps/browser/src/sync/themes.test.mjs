@@ -175,3 +175,47 @@ test("a malformed theme record is ignored", () => {
   assert.equal(adapters.themeFromRecord(null), null);
   assert.deepEqual(adapters.themeFromRecord({ preset: true }), { theme: null });
 });
+
+for (const [label, newer, expected] of [
+  ["a newer theme", { t: THEME }, THEME],
+  ["a reset to the preset", { preset: true }, null],
+]) {
+  test(`a legacy th and ${label} in the same pull: the pth: record wins`, async () => {
+    const folder = new Folder();
+    const dev = new Mac("dev", folder, { legacy: true });
+    const older = { ...THEME, intensity: 0.2 };
+    dev.adapters = [
+      { ...profilesAdapterV0238(LINKS), extract: () => ({ values: new Map([["prof:s1", { n: "Personal", c: "plum", i: null, d: true, th: older }]]) }) },
+      { prefix: "pth:", extract: () => ({ values: new Map([["pth:s1", newer]]) }), apply: () => {} },
+    ];
+    await dev.sync();
+    const fresh = new Mac("new", folder, { joining: true });
+    await rounds([fresh], 3);
+    assert.deepEqual(fresh.profile().theme, expected);
+    const pth = Object.entries(fresh.scope.records).filter(([k]) => k === "pth:s1").map(([, r]) => r.v);
+    assert.deepEqual(pth, [newer], "nothing older is published over it");
+  });
+}
+
+test("a legacy th arriving after a pth: record never publishes the older theme over it", async () => {
+  const folder = new Folder();
+  const newer = { ...THEME, intensity: 0.9 };
+  const older = { ...THEME, intensity: 0.2 };
+  const dev = new Mac("dev", folder, { legacy: true });
+  let devTheme = null;
+  dev.adapters = [
+    { ...profilesAdapterV0238(LINKS), extract: () => ({ values: new Map([["prof:s1", { n: "Personal", c: "plum", i: null, d: true, ...(devTheme ? { th: devTheme } : {}) }]]) }) },
+    { prefix: "pth:", extract: () => ({ values: new Map([["pth:s1", { t: newer }]]) }), apply: () => {} },
+  ];
+  await dev.sync();
+  let links = {};
+  const fresh = new Mac("new", folder, { joining: true });
+  fresh.adapters = [adapters.profilesAdapter(() => links), adapters.profileThemesAdapter(() => links)];
+  await fresh.sync();
+  links = LINKS();
+  devTheme = older;
+  await dev.sync();
+  await rounds([fresh], 3);
+  assert.notDeepEqual(fresh.profile().theme, older, "the legacy th doesn't replace a known pth:");
+  assert.deepEqual(fresh.scope.records["pth:s1"].v, { t: newer }, "nothing older is published over it");
+});

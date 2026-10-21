@@ -39,4 +39,19 @@ final class ArcThemeTests: XCTestCase {
     XCTAssertNil(ArcSidebar.json(huge))
     XCTAssertNotNil(ArcSidebar.json(["background": [:]]))
   }
+
+  func testThemesAreBoundedBeforeTheyAreWalked() throws {
+    let color: [String: Any] = ["red": 0.1, "green": 0.2, "blue": 0.3, "alpha": 1, "colorSpace": "extendedSRGB"]
+    let many = Array(repeating: color, count: 200_000)
+    let theme: [String: Any] = ["background": ["single": ["_0": ["style": ["color": ["_0": ["blendedGradient": ["_0": [
+      "baseColors": many, "overlayColors": many, "note": String(repeating: "y", count: 1_000_000),
+    ]]]]]]]]]
+    let bounded = try XCTUnwrap(ArcSidebar.bounded(theme))
+    let json = try XCTUnwrap(ArcSidebar.json(bounded))
+    XCTAssertLessThan(json.utf8.count, 4_096)
+    XCTAssertEqual(ArcSidebar.gradient(bounded)?.count, ArcSidebar.maxThemeArray)
+    var deep: Any = ["x": 1]
+    for _ in 0..<5_000 { deep = ["d": deep] }
+    XCTAssertNotNil(ArcSidebar.json(ArcSidebar.bounded(deep)))
+  }
 }

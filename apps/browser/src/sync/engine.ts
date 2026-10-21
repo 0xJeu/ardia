@@ -394,6 +394,13 @@ async function runCycle({ retiring = false } = {}) {
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+function pairedTheme(app: ScopeState, syncId: string): Pick<Profile, "theme"> | null {
+  const record = app.records[`pth:${syncId}`]?.v;
+  if (record) return themeFromRecord(record);
+  const profile = app.records[`prof:${syncId}`]?.v as ProfileRecord | null | undefined;
+  return profile ? legacyThemeOf(profile) : null;
+}
+
 function linkProfiles(app: ScopeState) {
   const s = useBrowser.getState();
   const remote = [...visible(app, "prof:")].map(([k, v]) => [k.slice(5), v as ProfileRecord] as const);
@@ -407,7 +414,11 @@ function linkProfiles(app: ScopeState) {
     const syncId = match ?? SyncNative!.newDeviceId();
     doc.profiles[id] = { syncId, enabled: true };
     taken.add(syncId);
-    if (match) doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
+    if (match) {
+      doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
+      const theme = pairedTheme(app, syncId);
+      if (theme) useBrowser.getState().updateProfile(id, theme);
+    }
   }
   for (const [id, link] of Object.entries(doc.profiles)) if (!s.profiles[id] && !link.retire) link.retire = true;
 }
@@ -604,7 +615,8 @@ export function addRemoteProfile(syncId: string): string | null {
 
 function addLinkedProfile(syncId: string, record: ProfileRecord, shareWith: string | null): string {
   const id = useBrowser.getState().createProfile({ name: record.n, color: record.c, icon: record.i, shareWith });
-  const theme = themeFromRecord(doc.scopes[APP_SCOPE]?.records[`pth:${syncId}`]?.v) ?? legacyThemeOf(record);
+  const app = doc.scopes[APP_SCOPE];
+  const theme = app ? pairedTheme(app, syncId) : legacyThemeOf(record);
   if (theme) useBrowser.getState().updateProfile(id, theme);
   doc.profiles[id] = { syncId, enabled: true };
   doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
