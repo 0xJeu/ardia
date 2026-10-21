@@ -33,6 +33,7 @@ export type ScopeState = {
   seen: Record<string, number>;
   joined: boolean;
   awaitRemote?: boolean;
+  applyAs?: Record<string, "joined" | "joining">;
   snapshotAt: number;
   pending: number;
 };
@@ -77,6 +78,7 @@ export type ApplyRecords = {
   known(key: string): boolean;
   now: number;
   horizon: number;
+  joined: boolean;
 };
 
 export interface Adapter {
@@ -326,13 +328,16 @@ async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<strin
   const mine = new Set([...keys].filter((k) => k.startsWith(adapter.prefix)));
   if (!mine.size) return true;
   const view = visible(state, adapter.prefix);
+  const applyAs = (state.applyAs ??= {});
+  applyAs[adapter.prefix] ??= state.joined ? "joined" : "joining";
   let ok: boolean | void = false;
   try {
-    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, now, horizon });
+    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, now, horizon, joined: applyAs[adapter.prefix] === "joined" });
   } catch (error) {
     console.warn(`[sync] applying ${adapter.prefix} failed`, error);
   }
   if (ok === false) return false;
+  applyAs[adapter.prefix] = "joined";
   for (const key of mine) {
     if (view.has(key)) state.base[key] = canonical(view.get(key));
     else delete state.base[key];

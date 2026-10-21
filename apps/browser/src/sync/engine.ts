@@ -9,6 +9,7 @@ import {
   visible,
   writtenSeq,
   type Adapter,
+  type ExtensionsAdapter,
   type FolderInfo,
   type LogFile,
   type PhraseResult,
@@ -17,7 +18,7 @@ import {
 import { create } from "zustand";
 import { useBrowser } from "../store/browser";
 import { fromLegacy } from "../legacy";
-import { isIncognitoProfile } from "../store/model";
+import { engineProfile, isIncognitoProfile } from "../store/model";
 import { DEFAULT_PROFILE_ID } from "../store/settings";
 import type { Profile } from "../store/types";
 import {
@@ -40,8 +41,9 @@ import {
   themeFromRecord,
   type ShareRecord,
 } from "./adapters";
+import { extensionsAdapterFor, watchExtensionIntents } from "./extensions";
 
-type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "settings";
+type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "extensions" | "settings";
 
 export const DATA_TYPES: { id: DataType; title: string; description: string }[] = [
   { id: "bookmarks", title: "Bookmarks", description: "Each synced profile’s bookmarks bar and other bookmarks." },
@@ -80,7 +82,7 @@ const APP_SCOPE = "app";
 const CYCLE_MS = 15_000;
 const AFTER_EDIT_MS = 3_000;
 
-const defaultTypes = (): Record<DataType, boolean> => ({ bookmarks: true, history: true, tabs: true, pinned: true, passwords: true, settings: true });
+const defaultTypes = (): Record<DataType, boolean> => ({ bookmarks: true, history: true, tabs: true, pinned: true, passwords: true, extensions: true, settings: true });
 
 const emptyDoc = (): SyncDoc => ({
   v: 1,
@@ -137,11 +139,15 @@ let again = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let forcePasswords = false;
 const passwordAdapters = new Map<string, Adapter>();
+const extensionAdapters = new Map<string, ExtensionsAdapter>();
 
 function load() {
   try {
     const json = readDocument(DOC);
-    if (json) doc = { ...emptyDoc(), ...(JSON.parse(json) as SyncDoc), scopes: {} };
+    if (json) {
+      const saved = JSON.parse(json) as SyncDoc;
+      doc = { ...emptyDoc(), ...saved, types: { ...defaultTypes(), ...saved.types }, scopes: {} };
+    }
     savedJson = json ?? "";
   } catch (error) {
     console.warn("[sync] couldn't read sync.json", error);
@@ -279,7 +285,21 @@ function profileAdapters(profileId: string, retiring: boolean): Adapter[] {
     ...(t.history && ownsData ? [inTodaysNames(historyAdapter(profileId))] : []),
     inTodaysNames(deviceTabsAdapter(profileId, id, deviceName, !t.tabs)),
     ...(t.passwords && ownsData ? [passwords] : []),
+    ...(t.extensions && ownsData ? [extensionsOf(profileId)] : []),
   ];
+}
+
+function watchExtensions() {
+  if (!doc.enabled || !doc.types.extensions) return;
+  const s = useBrowser.getState();
+  const profiles = Object.entries(doc.profiles).filter(([id, l]) => l.enabled && s.profiles[id] && !s.profiles[id]!.dataId);
+  watchExtensionIntents([...new Set(profiles.map(([id]) => engineProfile(id)))]);
+}
+
+function extensionsOf(profileId: string): ExtensionsAdapter {
+  let adapter = extensionAdapters.get(profileId);
+  if (!adapter) extensionAdapters.set(profileId, (adapter = extensionsAdapterFor(profileId)));
+  return adapter;
 }
 
 function scheduleSync(delay = AFTER_EDIT_MS) {
@@ -302,6 +322,7 @@ async function runCycle({ retiring = false } = {}) {
   }
   running = true;
   clearTimeout(timer);
+  watchExtensions();
   const slow = setTimeout(() => useSync.getState().status === "updated" && publishUi({ status: "updating" }), 1000);
   try {
     const status = await native.chainStatus(doc.folder);
@@ -339,6 +360,7 @@ async function runCycle({ retiring = false } = {}) {
         options: { expired: historyExpired, persist: persistJournal(scope) },
       });
       pending += state.pending;
+      if (!retire && doc.types.extensions && !s.profiles[profileId]?.dataId) await extensionsOf(profileId).reconcile(visible(state, "ext:"), Date.now());
       if (retire) {
         delete link.retire;
         if (!exists) {
@@ -515,6 +537,7 @@ export async function stopSync({ deleteData = false } = {}) {
   if (doc.deviceId) await native.forget(doc.deviceId);
   doc = { ...emptyDoc(), folder, types: doc.types };
   passwordAdapters.clear();
+  extensionAdapters.clear();
   clearJournal();
   save();
   publishUi({ status: "off", error: null });
@@ -592,6 +615,7 @@ export function startSync() {
   if (!SyncNative) return;
   load();
   publishUi({ status: doc.enabled ? "starting" : "off" });
+  watchExtensions();
   if (doc.enabled && doc.deviceId) {
     void SyncNative.unlock(doc.deviceId).then(async (ok) => {
       if (!ok) return publishUi({ status: "locked", error: "Enter your recovery phrase to keep syncing on this Mac." });
