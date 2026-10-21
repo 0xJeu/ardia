@@ -237,8 +237,9 @@ Profiles).
   alike. A profile already here keeps the data it has.
 - A profile's sharing is fixed for its life, so `share:` is written once: a Mac publishes it for a profile that shares a
   synced owner's data only while the scope has no record of that key (one a 0.2.38 Mac kept unapplied counts), and
-  only once this session has pulled the app scope with nothing left to download and no damaged file still unresolved
-  (`publishAfterPull`; a damaged file is given up after a day, as the scope does), so a Mac back on an older saved
+  only once this session has pulled the app scope with no download and no damaged file still unresolved
+  (`publishAfterPull`; either stops counting after a day, a download from when the scope first saw it pending, kept as
+  `pendingSince`, so a file iCloud never brings down can't hold it back for good), so a Mac back on an older saved
   state sees what's out there first. A sharing profile's `prof:` goes out with its `share:`, in the same batch, so no
   Mac offers it without its sharing. Never as a tombstone, so a deleted profile offered again by "Add to This Mac"
   shares as before, and never over a value this Mac has. Known residual: a value another Mac published that this Mac

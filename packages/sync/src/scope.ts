@@ -27,6 +27,7 @@ export type ScopeState = {
   extra: Record<string, number[]>;
   files: Record<string, FileMeta>;
   damaged: Record<string, number>;
+  pendingSince?: Record<string, number>;
   seq: number;
   outbox: Op[];
   journal?: LogFile[];
@@ -186,7 +187,7 @@ export function visible(state: ScopeState, prefix: string): Map<string, unknown>
 const parseBase = (json: string | undefined) => (json === undefined ? undefined : (JSON.parse(json) as unknown));
 
 const settling = new WeakMap<ScopeState, (() => void)[]>();
-const pulledThisSession = new WeakSet<ScopeState>();
+const waitingAfterPull = new WeakMap<ScopeState, boolean>();
 
 function settleWhenDurable(state: ScopeState, settle: () => void) {
   const queue = settling.get(state);
@@ -204,7 +205,7 @@ function settleDurable(state: ScopeState) {
 async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number): Promise<Set<string>> {
   const published = new Set<string>();
   if (adapter.adoptRemoteOnJoin && !state.joined) return published;
-  if (adapter.publishAfterPull && (!pulledThisSession.has(state) || state.pending > 0 || Object.keys(state.damaged).length > 0)) return published;
+  if (adapter.publishAfterPull && waitingAfterPull.get(state) !== false) return published;
   let pending: Set<string> | null = null;
   const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
   const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records);
@@ -320,7 +321,12 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   for (const id of Object.keys(state.files)) if (!present.has(id)) delete state.files[id];
   for (const id of Object.keys(state.damaged)) if (!present.has(id)) delete state.damaged[id];
   state.pending = listing.pending.length;
-  pulledThisSession.add(state);
+  const pendingSince: Record<string, number> = {};
+  for (const id of listing.pending) pendingSince[id] = state.pendingSince?.[id] ?? now;
+  if (listing.pending.length) state.pendingSince = pendingSince;
+  else delete state.pendingSince;
+  const downloading = Object.values(pendingSince).some((at) => now - at <= damagedGiveUp);
+  waitingAfterPull.set(state, downloading || Object.keys(state.damaged).length > 0);
   return changed;
 }
 

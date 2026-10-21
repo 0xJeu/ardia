@@ -445,3 +445,22 @@ test("a profile that shares data publishes prof: and share: together, so no Mac 
   const batch = batchesBy("A").find((f) => f.ops?.some((op) => op.k === "prof:sWork"));
   assert.ok(batch?.ops.some((op) => op.k === "share:sWork" && op.v?.o === "sPersonal"), "prof:Work and share:Work go out in one batch");
 });
+
+test("a download that never finishes holds a sharing profile back for a day, then no longer", async () => {
+  const { emptyScope, run, mac, sentBy, batchesBy, pending, advance } = await scopeLevel();
+  const a = mac("A");
+  const state = emptyScope();
+  pending.add("never-current");
+  await run(a, state);
+  await run(a, state);
+  advance(86_400_000 - 1_000);
+  await run(a, state);
+  assert.deepEqual(sentBy("A"), [], "within the day it waits for the download");
+  assert.ok(!sentBy("A", "prof:").some((op) => op.k === "prof:sWork"));
+  advance(2_000);
+  await run(a, state);
+  assert.ok(state.pendingSince?.["never-current"], "the download is still pending");
+  const batch = batchesBy("A").find((f) => f.ops?.some((op) => op.k === "prof:sWork"));
+  assert.ok(batch?.ops.some((op) => op.k === "share:sWork" && op.v?.o === "sPersonal"), "after the day both go out, in one batch");
+  pending.delete("never-current");
+});
