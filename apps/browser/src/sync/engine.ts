@@ -1,5 +1,6 @@
 import { readDocument, saveDocument, writeDocument } from "@ardia/shell";
 import {
+  canonical,
   Clock,
   emptyScope,
   folderTransport,
@@ -333,6 +334,7 @@ async function runCycle({ retiring = false } = {}) {
     const clock = new Clock(doc.deviceId, doc.clock);
     const device = doc.deviceId;
     const app = (doc.scopes[APP_SCOPE] ??= { ...emptyScope(), awaitRemote: doc.joining });
+    settleAppliedThemes(app);
     await syncScope({
       scope: APP_SCOPE,
       state: app,
@@ -415,8 +417,20 @@ function pairTheme(app: ScopeState, profileId: string, link: ProfileLink) {
   else link.themeAdopting = true;
 }
 
+function settleAppliedThemes(app: ScopeState | undefined) {
+  if (!app) return;
+  for (const link of Object.values(doc.profiles)) {
+    if (!link.themeAdopting) continue;
+    const key = `pth:${link.syncId}`;
+    const record = app.records[key]?.v;
+    if (record && themeFromRecord(record) && app.base[key] === canonical(record)) delete link.themeAdopting;
+  }
+}
+
 function confirmThemes(app: ScopeState) {
+  settleAppliedThemes(app);
   if (app.pending > 0 || Object.keys(app.damaged).length > 0) return;
+  if (Object.values(app.files).some((f) => f.k === "bad")) return;
   for (const link of Object.values(doc.profiles)) {
     if (!link.themeAdopting) continue;
     const record = app.records[`pth:${link.syncId}`];
@@ -599,7 +613,9 @@ export function setTypeSynced(type: DataType, enabled: boolean) {
 export function setProfileSynced(profileId: string, enabled: boolean) {
   const link = doc.profiles[profileId];
   if (!link) return;
-  doc.profiles[profileId] = enabled ? { syncId: link.syncId, enabled } : { ...link, enabled, retire: true };
+  doc.profiles[profileId] = enabled
+    ? { syncId: link.syncId, enabled, ...(link.themeAdopting ? { themeAdopting: true as const } : {}) }
+    : { ...link, enabled, retire: true };
   save();
   publishUi();
   scheduleSync(0);
@@ -671,6 +687,7 @@ export function startSync() {
     void SyncNative.unlock(doc.deviceId).then(async (ok) => {
       if (!ok) return publishUi({ status: "locked", error: "Enter your recovery phrase to keep syncing on this Mac." });
       await loadState();
+      settleAppliedThemes(doc.scopes[APP_SCOPE]);
       publishUi();
       scheduleSync(500);
     });

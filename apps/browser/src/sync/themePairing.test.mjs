@@ -7,6 +7,7 @@ globalThis.__DEV__ = false;
 
 const folder = new Map();
 const downloading = new Set();
+const damaged = new Set();
 let ids = 0;
 globalThis.acTestNativeModules = {
   ArdiaSync: {
@@ -25,8 +26,9 @@ globalThis.acTestNativeModules = {
     },
     read: async (_folder, scope, known) => {
       const here = [...folder].filter(([id, f]) => f.scope === scope && !downloading.has(id));
-      const files = here.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload }));
-      return { files, pending: [...downloading], damaged: [], present: here.map(([id]) => id) };
+      const readable = here.filter(([id]) => !damaged.has(id));
+      const files = readable.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload }));
+      return { files, pending: [...downloading], damaged: [...damaged].map((id) => ({ id, age: 0 })), present: here.map(([id]) => id) };
     },
     remove: async (_folder, _scope, list) => list.forEach((id) => folder.delete(id)),
     sealLocal: async (text) => `sealed:${text}`,
@@ -119,9 +121,10 @@ const lastFile = () => [...folder.keys()].at(-1);
 const themesFrom = () => published("pth:").map((op) => JSON.stringify(op.v));
 const realNow = Date.now;
 
-async function joinWhileThemeDownloads(tag) {
+async function joinWhileThemeDownloads(tag, hold = downloading) {
   folder.clear();
   downloading.clear();
+  damaged.clear();
   const a = new Mac("A");
   const c = new Mac("C");
   const engineA = await import(`./engine.ts?dlA${tag}`);
@@ -134,7 +137,7 @@ async function joinWhileThemeDownloads(tag) {
     await engineA.syncNow();
     const themeFile = [...folder].find(([, f]) => f.payload.includes('"pth:'))?.[0];
     assert.ok(themeFile);
-    downloading.add(themeFile);
+    hold.add(themeFile);
     S().updateProfile("default", { name: "Home" });
     await engineA.syncNow();
   });
@@ -229,4 +232,86 @@ test("an established profile's theme edit publishes while unrelated files are st
     await engineC.syncNow();
   });
   assert.ok(themesFrom().includes(JSON.stringify({ t: edited })), "published despite the pending file");
+});
+
+const neverPublished = (theme) => !themesFrom().includes(JSON.stringify({ t: theme }));
+
+test("turning a profile's sync off and on again keeps it adopting", async () => {
+  const { c, engineC } = await joinWhileThemeDownloads("3");
+  await c.with(async () => {
+    engineC.setProfileSynced("default", false);
+    await engineC.syncNow();
+    engineC.setProfileSynced("default", true);
+    await engineC.syncNow();
+    await engineC.syncNow();
+  });
+  assert.ok(neverPublished(THEME_A), "its inherited theme isn't published after re-enabling");
+});
+
+test("a theme file given up as damaged after a day doesn't end adoption", async () => {
+  const { c, engineC } = await joinWhileThemeDownloads("4", damaged);
+  try {
+    Date.now = () => realNow() + 2 * 86_400_000;
+    await c.with(async () => {
+      for (let i = 0; i < 3; i++) await engineC.syncNow();
+    });
+    assert.ok(neverPublished(THEME_A), "giving up on the file never authorises publication");
+    const edited = { ...THEME_A, intensity: 0.71 };
+    await c.with(async () => {
+      engineC.adoptProfileTheme("default");
+      S().updateProfile("default", { theme: edited });
+      await engineC.syncNow();
+    });
+    assert.ok(!neverPublished(edited), "an explicit edit still does");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("picking a preset while adopting keeps the preset when the late theme arrives", async () => {
+  const { a, c, engineA, engineC } = await joinWhileThemeDownloads("5");
+  const { choosePresetColor } = await import("../lib/profileThemeActions.ts");
+  await c.with(async () => {
+    S().updateProfile("default", { theme: undefined });
+    choosePresetColor("default", "blue", engineC.adoptProfileTheme);
+    await engineC.syncNow();
+  });
+  downloading.clear();
+  await c.with(async () => {
+    await engineC.syncNow();
+    await engineC.syncNow();
+    assert.equal(S().profiles.default.theme, null, "the user's preset stays");
+    assert.equal(S().profiles.default.color, "blue");
+  });
+  await a.with(async () => {
+    await engineA.syncNow();
+    assert.equal(S().profiles.default.theme, null, "and reaches the other Mac");
+  });
+});
+
+test("a leftover adoption flag on a theme that's already applied is cleared at startup", async () => {
+  const { a, c, engineA, engineC } = await joinWhileThemeDownloads("6");
+  downloading.clear();
+  await c.with(async () => {
+    await engineC.syncNow();
+    assert.deepEqual(S().profiles.default.theme, THEME_B);
+  });
+  const edited = { ...THEME_B, intensity: 0.33 };
+  await c.with(async () => {
+    const saved = JSON.parse(shell.docs.get("sync.json"));
+    saved.profiles.default.themeAdopting = true;
+    shell.docs.set("sync.json", JSON.stringify(saved));
+    S().updateProfile("default", { theme: edited });
+  });
+  const restarted = await import("./engine.ts?leftover6");
+  await c.with(async () => {
+    restarted.startSync();
+    await new Promise((r) => setImmediate(r));
+    await restarted.syncNow();
+  });
+  assert.ok(!neverPublished(edited), "the edit made where the flag was left behind publishes");
+  await a.with(async () => {
+    await engineA.syncNow();
+    assert.deepEqual(S().profiles.default.theme, edited);
+  });
 });

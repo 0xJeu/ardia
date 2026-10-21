@@ -19,7 +19,7 @@ import {
 } from "../../lib/profileTheme";
 import { PROFILE_COLORS, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
-import { adoptProfileTheme } from "../../sync/engine";
+import { choosePresetColor, setProfileTheme } from "../../lib/profileThemeActions";
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../store/types";
 import { parseArcTheme } from "../import/arcTheme";
 import { importModule } from "../import/module";
@@ -68,10 +68,7 @@ export function ThemeSection({ profileId }: { profileId: string }) {
   if (!profile) return null;
   const stored = live.theme;
   const custom = stored?.dark ? resolveTheme(stored, themeDark(stored, appDark)) : stored;
-  const choosePreset = (color: ProfileColor) => {
-    if (profile.theme) setProfileTheme(profileId, null);
-    useBrowser.getState().updateProfile(profileId, { color });
-  };
+  const choosePreset = (color: ProfileColor) => choosePresetColor(profileId, color);
   const chooseCustom = () => {
     if (!custom) live.change(startingTheme(PROFILE_COLORS[profile.color]?.swatch ?? PROFILE_COLORS.plum.swatch), true);
   };
@@ -421,8 +418,4 @@ export async function importArcTheme(profileId: string): Promise<boolean> {
   return true;
 }
 
-export function setProfileTheme(profileId: string, theme: ProfileTheme | null) {
-  adoptProfileTheme(profileId);
-  useBrowser.getState().updateProfile(profileId, { theme });
-}
 
