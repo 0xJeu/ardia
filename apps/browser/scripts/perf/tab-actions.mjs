@@ -29,7 +29,8 @@
 //                       Core Animation doesn't commit within 60 ms had nothing to draw)
 //   page                event → the shown page's second requestAnimationFrame after it turned visible (CDP; switches)
 //   total               the later of ui and page
-// Counts per action (perf probe): React commits, renders (host wrappers included), store updates.
+// Counts per action (perf probe): React commits, renders (host wrappers included), store updates; with
+// --side-env <label>:AC_BENCH_COUNT_ADDS=1, the subviews added again (already in place) and added new (reAdds, newAdds).
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -382,10 +383,12 @@ async function runAction(rig, ctx, name) {
   const shape = () => S(`const s = S(), w = s.windows[${JSON.stringify(w1)}]; const a = w.activeTabIds[w.profileId]; return { count: w.tabIds.length, pinned: !!s.tabs[a]?.pinned, index: w.tabIds.indexOf(a), active: a };`);
   const was = await shape();
   const before = await active();
+  if (ctx.countAdds) await rig.op({ op: "adds", reset: true });
   const t0 = await rig.begin();
   const sent = await send();
   await sleep(1000);
   const got = await rig.collect();
+  const adds = ctx.countAdds ? await rig.op({ op: "adds", reset: true }) : null;
   const after = await active();
   const now = await shape();
   const worked = {
@@ -413,7 +416,7 @@ async function runAction(rig, ctx, name) {
     await S(`const s = S(), w = s.windows[${JSON.stringify(w1)}]; for (const id of w.tabIds) if (s.tabs[id].url.includes("-child")) S().closeTab(id); return true;`);
   }
   return {
-    action: name, worked, ...timing, press: start === "up" ? startAt - sent.down : 0, switched: after !== before, expect: expectTab, landed: after,
+    action: name, worked, ...(adds ? { reAdds: adds.reAdds, newAdds: adds.newAdds } : {}), ...timing, press: start === "up" ? startAt - sent.down : 0, switched: after !== before, expect: expectTab, landed: after,
     renders: got.renders, commits: got.commits.length, storeUpdates: got.storeUpdates, hostUpdates: got.hostUpdates, mounts: got.mounts, top: got.top,
   };
 }
@@ -436,7 +439,7 @@ async function oneLaunch(side, opts, out) {
     await rig.install();
     await sleep(3000);
     const win = await windowNumber(rig, fx.session.windows[0].frame);
-    const ctx = { ...fx, origin, win, frame: fx.session.windows[0].frame, skip: new Set(), iter: 0 };
+    const ctx = { ...fx, origin, win, frame: fx.session.windows[0].frame, skip: new Set(), iter: 0, countAdds: !!side.env.AC_BENCH_COUNT_ADDS };
     const warm = await rig.store(`const s = S(), w = s.windows["w-tabs-1"]; return w.tabIds.filter((id) => s.tabs[id].profileId === w.profileId && !s.tabs[id].url.includes("/slow/"));`);
     for (const id of warm) {
       await rig.store(`S().activate(${JSON.stringify(id)}); return true;`);
