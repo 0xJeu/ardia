@@ -8,7 +8,6 @@ import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/mo
 import { groupChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { pinKeyOf } from "../store/pinMirror";
-import { dataGroups } from "../store/profiles";
 import { removeTabs } from "../store/tabs";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
 import { sanitizeTheme } from "../lib/profileTheme";
@@ -121,40 +120,21 @@ export type ShareRecord = { o: string };
 
 type ShareLink = { syncId: string; enabled: boolean; retire?: boolean };
 
-function sharedDataOwners(links: Record<string, ShareLink>): Map<string, string | null> {
-  const s = store();
-  const synced = (id: string) => !!s.profiles[id] && !!links[id]?.enabled && !links[id]?.retire;
-  const owners = new Map<string, string | null>();
-  for (const { dataId, profileIds } of dataGroups(s)) {
-    const members = profileIds.filter(synced);
-    const owner = members.includes(dataId) ? dataId : members[0];
-    for (const id of members) owners.set(id, id === owner ? null : links[owner!]!.syncId);
-  }
-  return owners;
-}
-
-export function sharedDataAdapter(links: () => Record<string, ShareLink>, published: Record<string, string>): Adapter {
+export function sharedDataAdapter(links: () => Record<string, ShareLink>): Adapter {
   return {
     prefix: "share:",
     adoptRemoteOnJoin: true,
     extract: (base) => {
       const all = links();
+      const synced = (id: string) => !!store().profiles[id] && !!all[id]?.enabled && !all[id]?.retire;
       const values = new Map<string, unknown>();
-      const cleared = new Set<string>();
-      for (const [id, owner] of sharedDataOwners(all)) {
-        const key = `share:${all[id]!.syncId}`;
-        const changed = key in published ? published[key] !== (owner ?? "") : !!owner;
-        published[key] = owner ?? "";
-        if (owner && (changed || base(key) === undefined)) values.set(key, { o: owner } satisfies ShareRecord);
-        else if (!owner && changed) cleared.add(key);
-      }
       for (const [id, link] of Object.entries(all)) {
-        if (store().profiles[id] && !link.retire) continue;
+        const ownerId = store().profiles[id]?.dataId;
+        if (!synced(id) || !ownerId || ownerId === id || !synced(ownerId)) continue;
         const key = `share:${link.syncId}`;
-        cleared.add(key);
-        delete published[key];
+        if (base(key) === undefined) values.set(key, { o: all[ownerId]!.syncId } satisfies ShareRecord);
       }
-      return { values, ignore: (key) => !values.has(key) && !cleared.has(key) };
+      return { values, ignore: (key) => !values.has(key) };
     },
     apply: () => true,
   };

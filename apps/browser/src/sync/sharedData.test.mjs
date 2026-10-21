@@ -245,7 +245,7 @@ test("share: records that form a cycle resolve the same way whichever profile a 
   assert.deepEqual(await outcome(d, engineD, "Beta"), { ownerData: null, sharerData: true });
 });
 
-test("when a shared data's owner is deleted, the profiles left still share it on the next Mac, and a deleted profile's share: goes", async () => {
+test("a profile that shares a deleted owner's data doesn't advertise sharing; one that shared before keeps its record", async () => {
   folder.clear();
   const a = new Mac("A");
   const c = new Mac("C");
@@ -253,30 +253,86 @@ test("when a shared data's owner is deleted, the profiles left still share it on
   const engineC = await import("./engine.ts?goneC");
   const ids = await a.with(() => {
     const owner = S().createProfile({ name: "Owner" });
-    const child = S().createProfile({ name: "Child", shareWith: owner });
-    const temp = S().createProfile({ name: "Temp", shareWith: owner });
-    return { owner, child, temp };
+    return { owner, child: S().createProfile({ name: "Child", shareWith: owner }) };
   });
   await turnOn(a, engineA);
-  const tempSync = await a.with(() => engineA.useSync.getState().profiles[ids.temp].syncId);
   await a.with(async () => {
     S().deleteProfile(ids.owner);
-    S().deleteProfile(ids.temp);
     S().createProfile({ name: "Another", shareWith: ids.child });
     await engineA.syncNow();
     await engineA.syncNow();
-    assert.equal(shareRecords(engineA)[tempSync], null, "the deleted profile's share: is a tombstone");
   });
   await join(c, engineC);
   await c.with(() => {
     const remote = engineC.useSync.getState().remoteProfiles;
     const another = remote.find((p) => p.name === "Another");
-    assert.deepEqual(another?.sharesWith, { name: "Child", added: true });
+    assert.ok(another);
+    assert.equal(another.sharesWith, undefined, "no Mac would sync that data group's data, so Another gets its own");
+    assert.deepEqual(remote.find((p) => p.name === "Child")?.sharesWith, { name: "Owner", added: true }, "Child's record stays as it was written");
     const id = engineC.addRemoteProfile(another.syncId);
-    const child = named("Child");
-    assert.ok(child);
-    assert.equal(S().profiles[id].dataId, child);
-    assert.equal(S().profiles[child].dataId, undefined, "Child stands in as the owner");
-    assert.equal(named("Owner"), undefined, "the deleted owner isn't brought back");
+    assert.equal(S().profiles[id].dataId, undefined);
   });
+});
+
+test("a profile deleted and added back from sync shares its owner's data again", async () => {
+  folder.clear();
+  const a = new Mac("A");
+  const engineA = await import("./engine.ts?readdA");
+  const work = await a.with(() => S().createProfile({ name: "Work", shareWith: "default" }));
+  await turnOn(a, engineA);
+  await a.with(async () => {
+    S().deleteProfile(work);
+    await engineA.syncNow();
+    await engineA.syncNow();
+    const offered = engineA.useSync.getState().remoteProfiles.find((p) => p.name === "Work");
+    assert.deepEqual(offered?.sharesWith, { name: "Personal", added: false }, "its share: record wasn't deleted with it");
+    const again = engineA.addRemoteProfile(offered.syncId);
+    assert.equal(S().profiles[again].dataId, "default");
+  });
+});
+
+test("a profile whose owner hasn't synced here yet waits instead of getting data of its own", async () => {
+  folder.clear();
+  const a = new Mac("A");
+  const c = new Mac("C");
+  const engineA = await import("./engine.ts?waitA");
+  const engineC = await import("./engine.ts?waitC");
+  await a.with(() => S().createProfile({ name: "Child", shareWith: S().createProfile({ name: "Owner" }) }));
+  await turnOn(a, engineA);
+  await join(c, engineC);
+  await c.with(async () => {
+    const records = engineC.appScopeRecords();
+    const child = engineC.useSync.getState().remoteProfiles.find((p) => p.name === "Child");
+    const ownerKey = `prof:${records[`share:${child.syncId}`].v.o}`;
+    const ownerRecord = records[ownerKey];
+    delete records[ownerKey];
+    await engineC.syncNow();
+    const waiting = engineC.useSync.getState().remoteProfiles.find((p) => p.name === "Child");
+    assert.equal(waiting.waiting, true);
+    const before = S().profileOrder.length;
+    assert.equal(engineC.addRemoteProfile(child.syncId), null);
+    assert.equal(S().profileOrder.length, before, "nothing is created while the chain is unresolved");
+    records[ownerKey] = ownerRecord;
+    await engineC.syncNow();
+    const id = engineC.addRemoteProfile(child.syncId);
+    assert.equal(S().profiles[id].dataId, named("Owner"));
+  });
+});
+
+test("share: is written once: never over another Mac's value, never as a tombstone, and again after a crash lost it", async () => {
+  const { sharedDataAdapter } = await import("./adapters.ts");
+  new Mac("unit");
+  const work = S().createProfile({ name: "Work", shareWith: "default" });
+  const links = { default: { syncId: "sP", enabled: true }, [work]: { syncId: "sW", enabled: true } };
+  const adapter = sharedDataAdapter(() => links);
+  const extract = (base) => adapter.extract((key) => base[key], () => false, 0);
+  const fresh = extract({});
+  assert.deepEqual([...fresh.values], [["share:sW", { o: "sP" }]]);
+  assert.deepEqual([...extract({}).values], [["share:sW", { o: "sP" }]], "nothing remembered outside the scope: a lost batch is extracted again");
+  const theirs = extract({ "share:sW": { o: "sOther" } });
+  assert.equal(theirs.values.size, 0, "another Mac's value stands");
+  assert.equal(theirs.ignore("share:sW"), true, "and is never tombstoned");
+  S().deleteProfile(work);
+  const gone = extract({ "share:sW": { o: "sP" } });
+  assert.equal(gone.ignore("share:sW"), true, "deleting a profile keeps its record");
 });
