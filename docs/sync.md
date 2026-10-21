@@ -236,8 +236,10 @@ Profiles).
   different Macs can disagree, even into a cycle; the lowest sync id in a cycle owns the data, so every Mac resolves it
   alike. A profile already here keeps the data it has.
 - A profile's sharing is fixed for its life, so `share:` is written once: a Mac publishes it for a profile that shares a
-  synced owner's data only while the scope holds no value for that key, never over another Mac's value and never as a
-  tombstone, so a deleted profile offered again by "Add to This Mac" shares as before.
+  synced owner's data only while the scope has no record of that key (one a 0.2.38 Mac kept unapplied counts), and
+  only once this session has pulled the app scope with nothing left to download (`publishAfterPull`), so a Mac back on
+  an older saved state sees what's out there first. Never over another Mac's value and never as a tombstone, so a
+  deleted profile offered again by "Add to This Mac" shares as before.
 - Limit: a profile that shares the data of an owner deleted on its Mac publishes no `share:`; on other Macs it gets
   data of its own, as before 0.2.39. That data group's bookmarks, history and passwords no longer sync from that Mac
   anyway: only a profile without `dataId` syncs data.
@@ -245,8 +247,7 @@ Profiles).
 | Key | Scope | What | Notes |
 |---|---|---|---|
 | `set:<name>` | app | the settings that follow the user (`SYNCED_SETTINGS`: search engine and custom engines, appearance, address bar, tab layout and behaviour, bookmarks bar, full URL, muted sites, clean-up, keyboard shortcuts…) | not window sizes, battery saver, extension engines or the default profile id |
-| `prof:<sync id>` | app | a profile's name, colour, icon (`d` for the default) | deleting a profile on one Mac doesn't delete it on another. A `th` field written by development builds of 0.2.40 is read once, as the profile's theme, when it has none |
-| `pth:<sync id>` | app | a profile's custom theme `{ t }`, or `{ preset: true }` after going back to a preset colour | its own record, so a rename and a theme change on two Macs both survive, and Macs before 0.2.40, which rebuild `prof:` from what they know, never strip or republish it (tested with a 0.2.38 adapter). Written once a profile has had a custom theme. Older Macs keep showing the preset colour, which choosing a custom theme doesn't change |
+| `prof:<sync id>` | app | a profile's name, colour, icon (`d` for the default) and custom theme (`th`) | deleting a profile on one Mac doesn't delete it on another. `th` is written once a profile has had a custom theme (`null` after going back to a preset), so other records are unchanged. A record without `th` (from a Mac before 0.2.40) leaves the theme as it is, and that Mac keeps showing the preset colour, which choosing a custom theme doesn't change |
 | `share:<sync id>` | app | `{ o }`: the sync id of the profile whose data this one shares | its own key, not a field of `prof:`, so Macs before 0.2.39 keep it untouched instead of republishing `prof:` without it on every cycle; written once, while both sync; never deleted |
 | `dev:<device id>` | app | a device's name | removed when it stops syncing |
 | `bm:<sync key>` | profile | `{ k, p (parent: its sync key, "bar" or "other"), t, u, a (added), pos }` | Bookmarks are Chrome's (BookmarkModel). A node's sync key is its Chrome UUID, or, for a bookmark synced before 0.2.20, its old id (`bm-…`, kept on Chrome's node as meta info `ac_sync_key`); every Mac makes an old key the node `bookmarkUuidFor` gives it, so Macs on either version name a bookmark alike (no renames, no duplicates; tested). Favicons stay local. A node whose folder was deleted elsewhere lands in Other Bookmarks; a cycle from two concurrent moves is broken the same way on every Mac (tested). Nothing is published or applied until the tree has been read from Chrome |

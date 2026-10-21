@@ -81,10 +81,16 @@ export type ApplyRecords = {
 
 export interface Adapter {
   prefix: string;
-  extract(base: (key: string) => unknown, queued: (key: string) => boolean, now: number): Extraction | null | Promise<Extraction | null>;
+  extract(
+    base: (key: string) => unknown,
+    queued: (key: string) => boolean,
+    now: number,
+    known: (key: string) => boolean,
+  ): Extraction | null | Promise<Extraction | null>;
   apply(visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown, records: ApplyRecords): boolean | void | Promise<boolean | void>;
   editedAt?(value: unknown): number | undefined;
   adoptRemoteOnJoin?: boolean;
+  publishAfterPull?: boolean;
 }
 
 export type ScopeOptions = {
@@ -178,6 +184,7 @@ export function visible(state: ScopeState, prefix: string): Map<string, unknown>
 const parseBase = (json: string | undefined) => (json === undefined ? undefined : (JSON.parse(json) as unknown));
 
 const settling = new WeakMap<ScopeState, (() => void)[]>();
+const pulledThisSession = new WeakSet<ScopeState>();
 
 function settleWhenDurable(state: ScopeState, settle: () => void) {
   const queue = settling.get(state);
@@ -195,9 +202,10 @@ function settleDurable(state: ScopeState) {
 async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number): Promise<Set<string>> {
   const published = new Set<string>();
   if (adapter.adoptRemoteOnJoin && !state.joined) return published;
+  if (adapter.publishAfterPull && (!pulledThisSession.has(state) || state.pending > 0)) return published;
   let pending: Set<string> | null = null;
   const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
-  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now);
+  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records);
   if (!extraction) return published;
   const put = (key: string, value: unknown) => {
     const known = state.records[key];
@@ -310,6 +318,7 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   for (const id of Object.keys(state.files)) if (!present.has(id)) delete state.files[id];
   for (const id of Object.keys(state.damaged)) if (!present.has(id)) delete state.damaged[id];
   state.pending = listing.pending.length;
+  pulledThisSession.add(state);
   return changed;
 }
 

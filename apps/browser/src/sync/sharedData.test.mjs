@@ -319,20 +319,73 @@ test("a profile whose owner hasn't synced here yet waits instead of getting data
   });
 });
 
-test("share: is written once: never over another Mac's value, never as a tombstone, and again after a crash lost it", async () => {
+const scopeLevel = async () => {
+  const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
+  const shipped = await import("../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
   const { sharedDataAdapter } = await import("./adapters.ts");
-  new Mac("unit");
-  const work = S().createProfile({ name: "Work", shareWith: "default" });
-  const links = { default: { syncId: "sP", enabled: true }, [work]: { syncId: "sW", enabled: true } };
-  const adapter = sharedDataAdapter(() => links);
-  const extract = (base) => adapter.extract((key) => base[key], () => false, 0);
-  const fresh = extract({});
-  assert.deepEqual([...fresh.values], [["share:sW", { o: "sP" }]]);
-  assert.deepEqual([...extract({}).values], [["share:sW", { o: "sP" }]], "nothing remembered outside the scope: a lost batch is extracted again");
-  const theirs = extract({ "share:sW": { o: "sOther" } });
-  assert.equal(theirs.values.size, 0, "another Mac's value stands");
-  assert.equal(theirs.ignore("share:sW"), true, "and is never tombstoned");
-  S().deleteProfile(work);
-  const gone = extract({ "share:sW": { o: "sP" } });
-  assert.equal(gone.ignore("share:sW"), true, "deleting a profile keeps its record");
+  const files = new Map();
+  let wall = 1_900_000_000_000;
+  const transport = {
+    write: async (scope, payload) => {
+      const id = `s${files.size + 1}`;
+      files.set(id, { scope, payload });
+      return id;
+    },
+    read: async (scope, known) => {
+      const here = [...files].filter(([, f]) => f.scope === scope);
+      return { files: here.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload })), pending: [], damaged: [], present: here.map(([id]) => id) };
+    },
+    remove: async (_scope, ids) => ids.forEach((id) => files.delete(id)),
+  };
+  const mac = (device, ownerName) => {
+    S().hydrate({});
+    const owner = ownerName ? S().createProfile({ name: ownerName }) : "default";
+    const work = S().createProfile({ name: "Work", shareWith: owner });
+    return { device, browser: S(), clock: new Clock(device, null, () => ++wall), links: { [owner]: { syncId: ownerName ? "sHome" : "sPersonal", enabled: true }, [work]: { syncId: "sWork", enabled: true } } };
+  };
+  const run = async (m, state, legacy = false) => {
+    useBrowser.setState(m.browser, true);
+    const sync = legacy ? shipped.syncScope : syncScope;
+    await sync({ scope: "app", state, transport, adapters: legacy ? [] : [sharedDataAdapter(() => m.links)], clock: m.clock, device: m.device, now: () => wall });
+  };
+  const sentBy = (device) =>
+    [...files.values()].map((f) => JSON.parse(f.payload)).filter((f) => f.device === device).flatMap((f) => f.ops ?? []).filter((op) => op.k.startsWith("share:"));
+  return { emptyScope, run, mac, sentBy };
+};
+
+test("share: a Mac back on an already-joined state from before the record existed doesn't write over it", async () => {
+  const { emptyScope, run, mac, sentBy } = await scopeLevel();
+  const a = mac("A");
+  const stateA = emptyScope();
+  await run(a, stateA);
+  await run(a, stateA);
+  assert.deepEqual(stateA.records["share:sWork"]?.v, { o: "sPersonal" });
+
+  const b = mac("B", "Home");
+  const restored = { ...emptyScope(), joined: true };
+  await run(b, restored);
+  await run(b, restored);
+  assert.deepEqual(sentBy("B"), [], "B publishes nothing over the record it pulled");
+  assert.deepEqual(restored.records["share:sWork"]?.v, { o: "sPersonal" });
+  await run(a, stateA);
+  assert.deepEqual(stateA.records["share:sWork"]?.v, { o: "sPersonal" });
+});
+
+test("share: a Mac that held the record unapplied on 0.2.38 doesn't write over it once it upgrades", async () => {
+  const { emptyScope, run, mac, sentBy } = await scopeLevel();
+  const a = mac("A");
+  const stateA = emptyScope();
+  await run(a, stateA);
+  await run(a, stateA);
+
+  const b = mac("B", "Home");
+  const old = emptyScope();
+  await run(b, old, true);
+  await run(b, old, true);
+  assert.ok("share:sWork" in old.records && old.base["share:sWork"] === undefined, "0.2.38 keeps the record without a base");
+  const upgraded = structuredClone(old);
+  await run(b, upgraded);
+  await run(b, upgraded);
+  assert.deepEqual(sentBy("B"), []);
+  assert.deepEqual(upgraded.records["share:sWork"]?.v, { o: "sPersonal" });
 });
