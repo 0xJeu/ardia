@@ -233,6 +233,11 @@ test("a joining Mac with its own theme waits for a pth: file still downloading i
 
   const own = { ...THEME, intensity: 0.15, stops: [THEME.stops[1]] };
   const joining = new Mac("joining", folder, { joining: true });
+  const link = { syncId: "s1", themeAdopting: true };
+  joining.adapters = [
+    adapters.profilesAdapter(LINKS),
+    adapters.profileThemesAdapter(() => ({ default: link }), () => joining.scope.records, () => delete link.themeAdopting),
+  ];
   joining.with(() => S().updateProfile("default", { theme: own }));
   await rounds([joining], 3);
   assert.equal(joining.profile().name, "Home", "prof: arrived");
@@ -241,6 +246,7 @@ test("a joining Mac with its own theme waits for a pth: file still downloading i
   folder.downloading.delete(themeFile);
   await rounds([joining, first], 3);
   assert.deepEqual(joining.profile().theme, THEME, "the downloaded theme applies");
+  assert.equal(link.themeAdopting, undefined, "and the profile is adopted");
   assert.deepEqual(first.profile().theme, THEME, "and the first Mac keeps it");
   assert.equal(await rounds([joining, first], 3), 0);
 });

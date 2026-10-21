@@ -6,6 +6,7 @@ import { engineProfile, isIncognitoProfile } from "../../store/model";
 import { withNewTab } from "../../store/tabs";
 import type { ProfileColor } from "../../store/types";
 import { importModule } from "./module";
+import { adoptProfileTheme } from "../../sync/engine";
 import { parseArcTheme } from "./arcTheme";
 
 export type ImportCounts = { bookmarks: number; history: number; tabs: number; passwords: number; cookies: number; addresses: number; cards: number };
@@ -134,7 +135,10 @@ export function importArcSpace(profileId: string, space: SpaceSuggestion, spaceN
   );
   tabs += importTabs(profileId, space.tabs.map((t) => ({ ...t, pinned: false })), "Imported");
   const theme = space.theme ? parseArcTheme(space.theme) : null;
-  if (theme) useBrowser.getState().updateProfile(profileId, { theme });
+  if (theme) {
+    adoptProfileTheme(profileId);
+    useBrowser.getState().updateProfile(profileId, { theme });
+  }
   let bookmarks = 0;
   if (folders.length) {
     const roots = useBrowser.getState().bookmarks.roots[profileId];

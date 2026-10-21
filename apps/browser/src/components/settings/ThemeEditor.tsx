@@ -19,6 +19,7 @@ import {
 } from "../../lib/profileTheme";
 import { PROFILE_COLORS, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
+import { adoptProfileTheme } from "../../sync/engine";
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../store/types";
 import { parseArcTheme } from "../import/arcTheme";
 import { importModule } from "../import/module";
@@ -47,7 +48,7 @@ function useLiveTheme(profileId: string, theme: ProfileTheme | null | undefined)
   useEffect(() => () => void (frame.current !== null && cancelAnimationFrame(frame.current)), []);
   const flush = () => {
     frame.current = null;
-    if (pending.current) useBrowser.getState().updateProfile(profileId, { theme: pending.current });
+    if (pending.current) setProfileTheme(profileId, pending.current);
   };
   const change = (next: ProfileTheme, settle = false) => {
     pending.current = next;
@@ -67,8 +68,10 @@ export function ThemeSection({ profileId }: { profileId: string }) {
   if (!profile) return null;
   const stored = live.theme;
   const custom = stored?.dark ? resolveTheme(stored, themeDark(stored, appDark)) : stored;
-  const choosePreset = (color: ProfileColor) =>
-    useBrowser.getState().updateProfile(profileId, profile.theme ? { color, theme: null } : { color });
+  const choosePreset = (color: ProfileColor) => {
+    if (profile.theme) setProfileTheme(profileId, null);
+    useBrowser.getState().updateProfile(profileId, { color });
+  };
   const chooseCustom = () => {
     if (!custom) live.change(startingTheme(PROFILE_COLORS[profile.color]?.swatch ?? PROFILE_COLORS.plum.swatch), true);
   };
@@ -414,7 +417,12 @@ export async function importArcTheme(profileId: string): Promise<boolean> {
   const choice = await showMenu(items);
   const picked = choices.find((c) => c.id === choice);
   if (!picked) return false;
-  useBrowser.getState().updateProfile(profileId, { theme: picked.theme });
+  setProfileTheme(profileId, picked.theme);
   return true;
+}
+
+export function setProfileTheme(profileId: string, theme: ProfileTheme | null) {
+  adoptProfileTheme(profileId);
+  useBrowser.getState().updateProfile(profileId, { theme });
 }
 

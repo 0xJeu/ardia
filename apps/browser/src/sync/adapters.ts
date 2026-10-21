@@ -130,7 +130,11 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
   };
 }
 
-export function profileThemesAdapter(links: () => Record<string, { syncId: string }>, records: () => Record<string, { v: unknown }> | undefined): Adapter {
+export function profileThemesAdapter(
+  links: () => Record<string, { syncId: string; themeAdopting?: true }>,
+  records: () => Record<string, { v: unknown }> | undefined,
+  adopted: (profileId: string) => void = () => {},
+): Adapter {
   const linked = () => Object.entries(links()).filter(([id]) => store().profiles[id]);
   const unapplied = (key: string, base: (key: string) => unknown) => {
     const record = records()?.[key];
@@ -139,13 +143,12 @@ export function profileThemesAdapter(links: () => Record<string, { syncId: strin
   return {
     prefix: "pth:",
     adoptRemoteOnJoin: true,
-    publishAfterPull: true,
     extract: (base) => {
       const values = new Map<string, unknown>();
-      for (const [id, { syncId }] of linked()) {
+      for (const [id, { syncId, themeAdopting }] of linked()) {
         const theme = store().profiles[id]!.theme;
         const key = `pth:${syncId}`;
-        if (theme === undefined || unapplied(key, base)) continue;
+        if (theme === undefined || themeAdopting || unapplied(key, base)) continue;
         values.set(key, (theme ? { t: theme } : { preset: true }) satisfies ProfileThemeRecord);
       }
       const mine = new Set(values.keys());
@@ -155,7 +158,9 @@ export function profileThemesAdapter(links: () => Record<string, { syncId: strin
       for (const [id, { syncId }] of linked()) {
         if (!changed.has(`pth:${syncId}`)) continue;
         const patch = themeFromRecord(visible.get(`pth:${syncId}`));
-        if (patch) store().updateProfile(id, patch);
+        if (!patch) continue;
+        store().updateProfile(id, patch);
+        adopted(id);
       }
     },
   };

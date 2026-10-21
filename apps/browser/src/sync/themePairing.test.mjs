@@ -6,6 +6,7 @@ globalThis.clearTimeout = () => {};
 globalThis.__DEV__ = false;
 
 const folder = new Map();
+const downloading = new Set();
 let ids = 0;
 globalThis.acTestNativeModules = {
   ArdiaSync: {
@@ -23,9 +24,9 @@ globalThis.acTestNativeModules = {
       return id;
     },
     read: async (_folder, scope, known) => {
-      const here = [...folder].filter(([, f]) => f.scope === scope);
+      const here = [...folder].filter(([id, f]) => f.scope === scope && !downloading.has(id));
       const files = here.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload }));
-      return { files, pending: [], damaged: [], present: here.map(([id]) => id) };
+      return { files, pending: [...downloading], damaged: [], present: here.map(([id]) => id) };
     },
     remove: async (_folder, _scope, list) => list.forEach((id) => folder.delete(id)),
     sealLocal: async (text) => `sealed:${text}`,
@@ -113,3 +114,119 @@ async function pairAgainstExistingTheme(local, tag) {
 test("a Mac joining sync pairs its profile and takes the synced theme", () => pairAgainstExistingTheme(null, "1"));
 
 test("a Mac joining sync with its own theme takes the synced one instead of publishing over it", () => pairAgainstExistingTheme(THEME_A, "2"));
+
+const lastFile = () => [...folder.keys()].at(-1);
+const themesFrom = () => published("pth:").map((op) => JSON.stringify(op.v));
+const realNow = Date.now;
+
+async function joinWhileThemeDownloads(tag) {
+  folder.clear();
+  downloading.clear();
+  const a = new Mac("A");
+  const c = new Mac("C");
+  const engineA = await import(`./engine.ts?dlA${tag}`);
+  const engineC = await import(`./engine.ts?dlC${tag}`);
+  await a.with(async () => {
+    S().updateProfile("default", { theme: THEME_B });
+    engineA.startSync();
+    assert.ok("ok" in (await engineA.turnOnSync("/sync")));
+    await engineA.syncNow();
+    await engineA.syncNow();
+    const themeFile = [...folder].find(([, f]) => f.payload.includes('"pth:'))?.[0];
+    assert.ok(themeFile);
+    downloading.add(themeFile);
+    S().updateProfile("default", { name: "Home" });
+    await engineA.syncNow();
+  });
+  await c.with(async () => {
+    S().updateProfile("default", { theme: THEME_A });
+    engineC.startSync();
+    assert.ok("ok" in (await engineC.enterRecoveryPhrase("/sync", "words")));
+    await engineC.syncNow();
+    await engineC.syncNow();
+    assert.ok(engineC.useSync.getState().remoteProfiles.every((p) => p.name !== "Personal"), "Personal paired");
+    assert.deepEqual(S().profiles.default.theme, THEME_A);
+  });
+  return { a, c, engineA, engineC };
+}
+
+test("a joining Mac never publishes its theme while the synced one is still downloading, even after a day", async () => {
+  const { c, engineC } = await joinWhileThemeDownloads("1");
+  try {
+    Date.now = () => realNow() + 2 * 86_400_000;
+    await c.with(async () => {
+      for (let i = 0; i < 3; i++) await engineC.syncNow();
+      assert.deepEqual(S().profiles.default.theme, THEME_A, "still its own until the synced one arrives");
+    });
+    assert.ok(!themesFrom().includes(JSON.stringify({ t: THEME_A })), "its own theme was never published while adopting");
+    const edited = { ...THEME_A, intensity: 0.66 };
+    await c.with(async () => {
+      engineC.adoptProfileTheme("default");
+      S().updateProfile("default", { theme: edited });
+      await engineC.syncNow();
+    });
+    assert.ok(themesFrom().includes(JSON.stringify({ t: edited })), "an explicit edit adopts and publishes");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("a joining Mac keeps adopting across a restart and takes the theme when its file arrives", async () => {
+  const { a, c, engineA } = await joinWhileThemeDownloads("2");
+  const restarted = await import("./engine.ts?dlC2restart");
+  await c.with(async () => {
+    restarted.startSync();
+    await restarted.syncNow();
+    await restarted.syncNow();
+  });
+  assert.ok(!themesFrom().includes(JSON.stringify({ t: THEME_A })), "nothing published before or after the restart");
+  downloading.clear();
+  await c.with(async () => {
+    await restarted.syncNow();
+    assert.deepEqual(S().profiles.default.theme, THEME_B, "the synced theme applies once its file arrives");
+  });
+  const edited = { ...THEME_B, intensity: 0.55 };
+  await c.with(async () => {
+    S().updateProfile("default", { theme: edited });
+    await restarted.syncNow();
+  });
+  await a.with(async () => {
+    await engineA.syncNow();
+    assert.deepEqual(S().profiles.default.theme, edited, "once adopted, its edits publish and reach the other Mac");
+  });
+});
+
+test("an established profile's theme edit publishes while unrelated files are still downloading", async () => {
+  folder.clear();
+  downloading.clear();
+  const a = new Mac("A");
+  const c = new Mac("C");
+  const engineA = await import("./engine.ts?estA");
+  const engineC = await import("./engine.ts?estC");
+  await a.with(async () => {
+    S().updateProfile("default", { theme: THEME_B });
+    engineA.startSync();
+    assert.ok("ok" in (await engineA.turnOnSync("/sync")));
+    await engineA.syncNow();
+    await engineA.syncNow();
+  });
+  await c.with(async () => {
+    engineC.startSync();
+    assert.ok("ok" in (await engineC.enterRecoveryPhrase("/sync", "words")));
+    await engineC.syncNow();
+    await engineC.syncNow();
+    assert.deepEqual(S().profiles.default.theme, THEME_B);
+  });
+  await a.with(async () => {
+    S().updateProfile("default", { name: "Elsewhere" });
+    await engineA.syncNow();
+  });
+  downloading.add(lastFile());
+  await c.with(() => engineC.syncNow());
+  const edited = { ...THEME_B, intensity: 0.42 };
+  await c.with(async () => {
+    S().updateProfile("default", { theme: edited });
+    await engineC.syncNow();
+  });
+  assert.ok(themesFrom().includes(JSON.stringify({ t: edited })), "published despite the pending file");
+});

@@ -58,6 +58,7 @@ type ProfileLink = {
   syncId: string;
   enabled: boolean;
   retire?: boolean;
+  themeAdopting?: true;
 };
 
 type SyncDoc = {
@@ -266,7 +267,7 @@ function appAdapters(retiring: boolean): Adapter[] {
     ...(doc.types.settings ? [inTodaysNames(settingsAdapter)] : []),
     sharedDataAdapter(() => doc.profiles),
     profilesAdapter(enabledLinks),
-    profileThemesAdapter(enabledLinks, () => doc.scopes[APP_SCOPE]?.records),
+    profileThemesAdapter(enabledLinks, () => doc.scopes[APP_SCOPE]?.records, themeAdopted),
     deviceAdapter(id, deviceName),
   ];
 }
@@ -342,6 +343,7 @@ async function runCycle({ retiring = false } = {}) {
       options: { persist: persistJournal(APP_SCOPE) },
     });
     if (app.joined) linkProfiles(app);
+    confirmThemes(app);
     let pending = app.pending;
     const s = useBrowser.getState();
     for (const [profileId, link] of Object.entries(doc.profiles)) {
@@ -401,6 +403,40 @@ function pairedTheme(app: ScopeState, syncId: string): Pick<Profile, "theme"> | 
   return profile ? legacyThemeOf(profile) : null;
 }
 
+function settledTheme(app: ScopeState, syncId: string): boolean {
+  const record = app.records[`pth:${syncId}`]?.v;
+  return !!record && !!themeFromRecord(record);
+}
+
+function pairTheme(app: ScopeState, profileId: string, link: ProfileLink) {
+  const theme = pairedTheme(app, link.syncId);
+  if (theme) useBrowser.getState().updateProfile(profileId, theme);
+  if (settledTheme(app, link.syncId)) delete link.themeAdopting;
+  else link.themeAdopting = true;
+}
+
+function confirmThemes(app: ScopeState) {
+  if (app.pending > 0 || Object.keys(app.damaged).length > 0) return;
+  for (const link of Object.values(doc.profiles)) {
+    if (!link.themeAdopting) continue;
+    const record = app.records[`pth:${link.syncId}`];
+    if (!record || record.v === null) delete link.themeAdopting;
+  }
+}
+
+function themeAdopted(profileId: string) {
+  const link = doc.profiles[profileId];
+  if (link?.themeAdopting) delete link.themeAdopting;
+}
+
+export function adoptProfileTheme(profileId: string) {
+  const link = doc.profiles[profileId];
+  if (!link?.themeAdopting) return;
+  delete link.themeAdopting;
+  save();
+  if (doc.enabled) scheduleSync(AFTER_EDIT_MS);
+}
+
 function linkProfiles(app: ScopeState) {
   const s = useBrowser.getState();
   const remote = [...visible(app, "prof:")].map(([k, v]) => [k.slice(5), v as ProfileRecord] as const);
@@ -416,8 +452,7 @@ function linkProfiles(app: ScopeState) {
     taken.add(syncId);
     if (match) {
       doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
-      const theme = pairedTheme(app, syncId);
-      if (theme) useBrowser.getState().updateProfile(id, theme);
+      pairTheme(app, id, doc.profiles[id]!);
     }
   }
   for (const [id, link] of Object.entries(doc.profiles)) if (!s.profiles[id] && !link.retire) link.retire = true;
@@ -616,9 +651,13 @@ export function addRemoteProfile(syncId: string): string | null {
 function addLinkedProfile(syncId: string, record: ProfileRecord, shareWith: string | null): string {
   const id = useBrowser.getState().createProfile({ name: record.n, color: record.c, icon: record.i, shareWith });
   const app = doc.scopes[APP_SCOPE];
-  const theme = app ? pairedTheme(app, syncId) : legacyThemeOf(record);
-  if (theme) useBrowser.getState().updateProfile(id, theme);
   doc.profiles[id] = { syncId, enabled: true };
+  if (app) pairTheme(app, id, doc.profiles[id]!);
+  else {
+    const theme = legacyThemeOf(record);
+    if (theme) useBrowser.getState().updateProfile(id, theme);
+    doc.profiles[id]!.themeAdopting = true;
+  }
   doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
   return id;
 }
