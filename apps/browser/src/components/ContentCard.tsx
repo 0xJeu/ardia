@@ -52,8 +52,9 @@ import { ShareBar } from "./media/ShareBar";
 import { CastPicker } from "./media/CastPicker";
 import { DeviceChooser } from "./site/DeviceChooser";
 import { setNowPlaying, setPictureInPictureState } from "./media/state";
-import { Toolbar, urlFieldRight } from "./Toolbar";
-import { AutoHideToolbar, useToolbarMode, useToolbarMotion } from "./AutoHideToolbar";
+import { Toolbar, ToolbarBackdrop, urlFieldRight } from "./Toolbar";
+import { AutoHideBackdrop, AutoHideToolbar, useToolbarMode, useToolbarMotion } from "./AutoHideToolbar";
+import { publishPaneChrome, WindowToolbar } from "./WindowToolbar";
 import { noteScroll, revealToolbar } from "./layout/toolbarAutoHide";
 import { NavigationOverlays } from "./layout/SwipeOverlay";
 import "./layout/devExpose";
@@ -232,6 +233,8 @@ export function ContentCard() {
     [windowId],
   );
 
+  const windowToolbar = !split && !fullscreenTab && !addressInSidebar && !small;
+
   return (
     <View
       ref={container}
@@ -266,9 +269,13 @@ export function ContentCard() {
               mounted={mountedIds.has(tabId)}
               warm={warmPanes[tabId]}
               barMode={barMode}
+              windowToolbar={windowToolbar}
             />
           );
         })}
+      {size.width > 0 && windowToolbar && activeId && panes[activeId] && (
+        <WindowToolbar windowId={windowId} tabId={activeId} geometry={geometryFor(panes[activeId])} autoHide={hideWhileScrolling} />
+      )}
       {size.width > 0 && !split && !fullscreenTab && (
         <FrozenPage windowId={windowId} tabId={activeId} top={(!addressInSidebar && !small && !hideWhileScrolling ? layout.toolbarHeight : 0) + (barMode === "always" && !small && !hideWhileScrolling ? BOOKMARKS_BAR_HEIGHT : 0)} />
       )}
@@ -297,6 +304,7 @@ const TabPane = memo(function TabPane({
   mounted,
   warm,
   barMode,
+  windowToolbar,
 }: {
   tabId: string;
   windowId: string;
@@ -315,6 +323,7 @@ const TabPane = memo(function TabPane({
   mounted: boolean;
   warm: Rect | undefined;
   barMode: BookmarksBarMode;
+  windowToolbar: boolean;
 }) {
   const theme = useTheme();
   const visible = !!rect;
@@ -341,6 +350,10 @@ const TabPane = memo(function TabPane({
   useEffect(() => {
     if (visible) revealToolbar(tabId);
   }, [visible]);
+  const chromeInWindow = hideBar && windowToolbar;
+  useLayoutEffect(() => {
+    if (chromeInWindow) publishPaneChrome(windowId, { tabId, mode, bar: motion.bar, fade: motion.fade });
+  });
 
   return (
     <View
@@ -357,8 +370,10 @@ const TabPane = memo(function TabPane({
         backgroundColor: visible && !fullscreen ? theme.card : undefined,
       }}
     >
-      {!toolbar || fullscreen || autoLayout ? null : visible ? (
+      {!toolbar || fullscreen || autoLayout ? null : visible && !windowToolbar ? (
         <Toolbar tabId={tabId} geometry={geometry} windowId={windowId} inSplit={inSplit} focused={focused || !inSplit} />
+      ) : visible ? (
+        <ToolbarBackdrop tabId={tabId} />
       ) : (
         <View style={{ height: layout.toolbarHeight }} />
       )}
@@ -397,7 +412,8 @@ const TabPane = memo(function TabPane({
           </View>
         </View>
       </Animated.View>
-      {hideBar && <AutoHideToolbar tabId={tabId} geometry={geometry} windowId={windowId} inSplit={inSplit} focused={focused || !inSplit} mode={mode} motion={motion} />}
+      {hideBar && <AutoHideBackdrop tabId={tabId} mode={mode} motion={motion} />}
+      {hideBar && !windowToolbar && <AutoHideToolbar tabId={tabId} geometry={geometry} windowId={windowId} inSplit={inSplit} focused={focused || !inSplit} mode={mode} motion={motion} />}
     </View>
   );
 });
