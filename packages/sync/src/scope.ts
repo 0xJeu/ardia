@@ -202,7 +202,7 @@ function settleDurable(state: ScopeState) {
 async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number): Promise<Set<string>> {
   const published = new Set<string>();
   if (adapter.adoptRemoteOnJoin && !state.joined) return published;
-  if (adapter.publishAfterPull && (!pulledThisSession.has(state) || state.pending > 0)) return published;
+  if (adapter.publishAfterPull && (!pulledThisSession.has(state) || state.pending > 0 || Object.keys(state.damaged).length > 0)) return published;
   let pending: Set<string> | null = null;
   const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
   const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records);

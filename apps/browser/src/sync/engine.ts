@@ -258,9 +258,9 @@ function appAdapters(retiring: boolean): Adapter[] {
   const enabledLinks = () => Object.fromEntries(Object.entries(doc.profiles).filter(([, l]) => l.enabled));
   return [
     ...(doc.types.settings ? [inTodaysNames(settingsAdapter)] : []),
+    sharedDataAdapter(() => doc.profiles),
     profilesAdapter(enabledLinks),
     profileThemesAdapter(enabledLinks),
-    sharedDataAdapter(() => doc.profiles),
     deviceAdapter(id, deviceName),
   ];
 }

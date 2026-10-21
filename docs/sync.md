@@ -237,9 +237,13 @@ Profiles).
   alike. A profile already here keeps the data it has.
 - A profile's sharing is fixed for its life, so `share:` is written once: a Mac publishes it for a profile that shares a
   synced owner's data only while the scope has no record of that key (one a 0.2.38 Mac kept unapplied counts), and
-  only once this session has pulled the app scope with nothing left to download (`publishAfterPull`), so a Mac back on
-  an older saved state sees what's out there first. Never over another Mac's value and never as a tombstone, so a
-  deleted profile offered again by "Add to This Mac" shares as before.
+  only once this session has pulled the app scope with nothing left to download and no damaged file still unresolved
+  (`publishAfterPull`; a damaged file is given up after a day, as the scope does), so a Mac back on an older saved
+  state sees what's out there first. A sharing profile's `prof:` goes out with its `share:`, in the same batch, so no
+  Mac offers it without its sharing. Never as a tombstone, so a deleted profile offered again by "Add to This Mac"
+  shares as before, and never over a value this Mac has. Known residual: a value another Mac published that this Mac
+  hasn't pulled yet can lose to this Mac's, when a profile's owner starts syncing here mid-session (the cycle's first
+  publish runs before its pull); both Macs then keep their own data.
 - Limit: a profile that shares the data of an owner deleted on its Mac publishes no `share:`; on other Macs it gets
   data of its own, as before 0.2.39. That data group's bookmarks, history and passwords no longer sync from that Mac
   anyway: only a profile without `dataId` syncs data.

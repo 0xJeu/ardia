@@ -102,10 +102,13 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
   return {
     prefix: "prof:",
     adoptRemoteOnJoin: true,
-    extract: () => {
+    extract: (_base, _queued, _now, known) => {
       const values = new Map<string, unknown>();
+      const all = links();
       for (const [id, { syncId }] of linked()) {
         const p = store().profiles[id]!;
+        const sharesSyncedData = !!p.dataId && p.dataId !== id && !!all[p.dataId] && !!store().profiles[p.dataId];
+        if (sharesSyncedData && !known(`share:${syncId}`)) continue;
         values.set(`prof:${syncId}`, {
           n: p.name,
           c: p.color,

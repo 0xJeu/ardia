@@ -322,8 +322,10 @@ test("a profile whose owner hasn't synced here yet waits instead of getting data
 const scopeLevel = async () => {
   const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
   const shipped = await import("../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
-  const { sharedDataAdapter } = await import("./adapters.ts");
+  const { profilesAdapter, sharedDataAdapter } = await import("./adapters.ts");
   const files = new Map();
+  const damaged = new Set();
+  const pending = new Set();
   let wall = 1_900_000_000_000;
   const transport = {
     write: async (scope, payload) => {
@@ -333,7 +335,13 @@ const scopeLevel = async () => {
     },
     read: async (scope, known) => {
       const here = [...files].filter(([, f]) => f.scope === scope);
-      return { files: here.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload })), pending: [], damaged: [], present: here.map(([id]) => id) };
+      const readable = here.filter(([id]) => !known.includes(id) && !damaged.has(id) && !pending.has(id));
+      return {
+        files: readable.map(([id, f]) => ({ id, payload: f.payload })),
+        pending: [...pending],
+        damaged: [...damaged].map((id) => ({ id, age: 0 })),
+        present: [...here.map(([id]) => id), ...pending],
+      };
     },
     remove: async (_scope, ids) => ids.forEach((id) => files.delete(id)),
   };
@@ -346,11 +354,14 @@ const scopeLevel = async () => {
   const run = async (m, state, legacy = false) => {
     useBrowser.setState(m.browser, true);
     const sync = legacy ? shipped.syncScope : syncScope;
-    await sync({ scope: "app", state, transport, adapters: legacy ? [] : [sharedDataAdapter(() => m.links)], clock: m.clock, device: m.device, now: () => wall });
+    const adapters = legacy ? [] : [sharedDataAdapter(() => m.links), profilesAdapter(() => m.links)];
+    await sync({ scope: "app", state, transport, adapters, clock: m.clock, device: m.device, now: () => wall });
   };
-  const sentBy = (device) =>
-    [...files.values()].map((f) => JSON.parse(f.payload)).filter((f) => f.device === device).flatMap((f) => f.ops ?? []).filter((op) => op.k.startsWith("share:"));
-  return { emptyScope, run, mac, sentBy };
+  const batchesBy = (device) => [...files].filter(([id]) => !damaged.has(id)).map(([, f]) => JSON.parse(f.payload)).filter((f) => f.device === device);
+  const sentBy = (device, prefix = "share:") => batchesBy(device).flatMap((f) => f.ops ?? []).filter((op) => op.k.startsWith(prefix));
+  const lastFile = () => [...files.keys()].at(-1);
+  const advance = (ms) => (wall += ms);
+  return { emptyScope, run, mac, sentBy, batchesBy, damaged, pending, lastFile, advance };
 };
 
 test("share: a Mac back on an already-joined state from before the record existed doesn't write over it", async () => {
@@ -388,4 +399,49 @@ test("share: a Mac that held the record unapplied on 0.2.38 doesn't write over i
   await run(b, upgraded);
   assert.deepEqual(sentBy("B"), []);
   assert.deepEqual(upgraded.records["share:sWork"]?.v, { o: "sPersonal" });
+});
+
+test("share: a Mac back on an older state waits while the file with the record is damaged, until it's read or given up", async () => {
+  const { emptyScope, run, mac, sentBy, damaged, lastFile, advance } = await scopeLevel();
+  const a = mac("A");
+  const stateA = emptyScope();
+  await run(a, stateA);
+  await run(a, stateA);
+  const withRecord = lastFile();
+  damaged.add(withRecord);
+
+  const b = mac("B", "Home");
+  const restored = { ...emptyScope(), joined: true };
+  await run(b, restored);
+  await run(b, restored);
+  assert.deepEqual(sentBy("B"), [], "nothing over a record that may be in the damaged file");
+  damaged.delete(withRecord);
+  await run(b, restored);
+  assert.deepEqual(sentBy("B"), []);
+  assert.deepEqual(restored.records["share:sWork"]?.v, { o: "sPersonal" }, "the record arrives once the file is readable");
+
+  const c = mac("C", "Home");
+  const lost = { ...emptyScope(), joined: true };
+  damaged.add(withRecord);
+  await run(c, lost);
+  advance(86_400_001);
+  await run(c, lost);
+  await run(c, lost);
+  assert.equal(sentBy("C").length, 1, "once the damaged file is given up, as the scope's policy says, it publishes its own");
+});
+
+test("a profile that shares data publishes prof: and share: together, so no Mac sees it without its sharing", async () => {
+  const { emptyScope, run, mac, sentBy, batchesBy, pending } = await scopeLevel();
+  const a = mac("A");
+  const state = emptyScope();
+  pending.add("stuck-download");
+  await run(a, state);
+  await run(a, state);
+  await run(a, state);
+  assert.deepEqual(sentBy("A", "prof:").map((op) => op.k), ["prof:sPersonal"], "Work waits with its share:");
+  assert.deepEqual(sentBy("A"), []);
+  pending.delete("stuck-download");
+  await run(a, state);
+  const batch = batchesBy("A").find((f) => f.ops?.some((op) => op.k === "prof:sWork"));
+  assert.ok(batch?.ops.some((op) => op.k === "share:sWork" && op.v?.o === "sPersonal"), "prof:Work and share:Work go out in one batch");
 });
