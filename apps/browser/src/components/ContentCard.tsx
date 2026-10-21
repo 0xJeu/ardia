@@ -9,7 +9,7 @@ import { takeStartedNavigation } from "../lib/earlyNavigate";
 import { isQuitting } from "../lib/native";
 import { layout, useTheme } from "../lib/theme";
 import { startChromeTabs } from "../lib/chromeTabs";
-import { handOff, wantsPage } from "../lib/tabPages";
+import { handOff, isHandedOff, wantsPage } from "../lib/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../lib/tabLifecycle";
 import { usePrewarm } from "../lib/preload";
 import { webviewRef, webviews } from "../lib/webviews";
@@ -35,6 +35,8 @@ import { SplitEmptyState } from "./layout/SplitEmptyState";
 import { pagerFor } from "./layout/profilePager";
 import { openFromPage } from "./layout/openFromPage";
 import { dockMoving, useDockMotion } from "./layout/dockMotion";
+import { FrozenPage } from "./layout/frozenPage";
+import { holderOf } from "../store/pinShare";
 import { setCardAnchor, setUrlAnchor, useAddressBarInSidebar, useTabLayout, useToolbarExtensionsWidths } from "./layout/windowLayout";
 import { NewTabPage } from "./NewTabPage";
 import { EmptyCard } from "./EmptyCard";
@@ -125,7 +127,9 @@ export function ContentCard() {
     const s = useBrowser.getState();
     for (const id of Object.keys(panes)) {
       const t = s.tabs[id];
-      if (t?.url && !t.navigation && !t.adoptId) s.updateTab(id, wake(t));
+      if (!t?.url || t.navigation || t.adoptId || t.pageIn) continue;
+      const holder = holderOf(s, id);
+      s.updateTab(id, holder ? { pageIn: holder.id, unloaded: undefined } : wake(t));
     }
   }, [panes]);
 
@@ -265,6 +269,9 @@ export function ContentCard() {
             />
           );
         })}
+      {size.width > 0 && !split && !fullscreenTab && (
+        <FrozenPage windowId={windowId} tabId={activeId} top={(!addressInSidebar && !small && !hideWhileScrolling ? layout.toolbarHeight : 0) + (barMode === "always" && !small && !hideWhileScrolling ? BOOKMARKS_BAR_HEIGHT : 0)} />
+      )}
       {split && !fullscreenTab && <SplitDividers split={split} dividers={dividers} width={size.width} height={size.height} />}
       {!fullscreenTab && <DropTargets panes={panes} origin={origin} />}
       <SplitToast windowId={windowId} />
@@ -416,8 +423,13 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm }: { tabId: s
 
   const seq = navigation?.seq;
   const adopted = useRef<string | null>(null);
+  const arrived = useRef(isHandedOff(tabId));
   useEffect(() => {
     if (!navigation) return;
+    if (arrived.current) {
+      arrived.current = false;
+      return;
+    }
     if (navigation.url === adopted.current) {
       adopted.current = null;
       return;

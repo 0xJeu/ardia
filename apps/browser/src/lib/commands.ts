@@ -29,6 +29,7 @@ import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barStat
 import { closeNewTabBar, isEmptyCardTab, showNewTabBar, toggleNewTabBar } from "../components/omnibox/newTabBar";
 import { NEW_TAB_BAR_POLICY } from "../store/newTabBar";
 import { addressBarInSidebar } from "../components/layout/windowLayout";
+import { withLivePage } from "./livePage";
 import { webviews } from "./webviews";
 import { goBack, goForward } from "../components/layout/history";
 import { openSplitPane } from "../components/layout/splitActions";
@@ -182,9 +183,9 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       if (!find?.query) return s.setFind(page.id, { open: true });
       return void web?.find(find.query, command === "findNext", true);
     case "reload":
-      return void web?.reload();
+      return void (tabId && withLivePage(tabId, (page) => page.reload()));
     case "forceReload":
-      return void web?.forceReload();
+      return void (tabId && withLivePage(tabId, (page) => page.forceReload()));
     case "toggleTabLayout":
       return s.toggleTabLayout(windowId);
     case "openSplitPane":

@@ -428,8 +428,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   func windowShouldClose(_ sender: NSWindow) -> Bool {
-    guard let id = id(of: sender), auxKinds[id] == nil, !smallIds.contains(id), MenuState.current.warnBeforeClosingWindow,
-          appEventsObserved, let emit else { return true }
+    guard let id = id(of: sender), auxKinds[id] == nil, !smallIds.contains(id), appEventsObserved, let emit else { return true }
     emit("onWindowEvent", ["type": "closeRequest", "id": id])
     return false
   }

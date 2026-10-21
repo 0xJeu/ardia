@@ -70,6 +70,7 @@ export type Tab = {
   liveItem?: { folderId: string; itemId: string };
   unloaded?: boolean;
   pinKey?: string;
+  pageIn?: string;
   createdAt: number;
   lastActiveAt: number;
 };

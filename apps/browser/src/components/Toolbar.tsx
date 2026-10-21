@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "r
 import { useShallow } from "zustand/react/shallow";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { layout, useTheme } from "../lib/theme";
+import { withLivePage } from "../lib/livePage";
 import { webviews } from "../lib/webviews";
 import { useBrowser } from "../store/browser";
 import { useIsBookmarked, useSettings, useTabLive } from "../store/hooks";
@@ -149,7 +150,7 @@ export const ReloadButton = memo(function ReloadButton({
         onFocus();
         if (loading) return void web()?.stopLoading();
         if (m.metaKey) return void useBrowser.getState().newTab(tab.windowId, { url: tab.url, background: true, openerId: tab.id });
-        void (m.shiftKey ? web()?.forceReload() : web()?.reload());
+        void withLivePage(tab.id, (page) => (m.shiftKey ? page.forceReload() : page.reload()));
       }}
       tooltip={loading ? "Stop Loading This Page" : "Refresh (⌘R)"}
     />
