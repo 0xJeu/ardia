@@ -930,10 +930,49 @@ index eb79ff32614392cb16e6eb3dbec6cc5b037fe27a..e0aee0c66030a8e29c279133399f1b0d
      [defaultCenter addObserver:self
                        selector:@selector(scrollViewDocumentViewBoundsDidChange:)
 diff --git a/React/Views/UIView+React.m b/React/Views/UIView+React.m
-index 30c4f1e53e7b94016c8ed1b425587753fc80c2ce..1090fa65bc64e943dd360b4298ce21364e157894 100644
+index 30c4f1e53e7b94016c8ed1b425587753fc80c2ce..1fe8dd641c9c0135f43960e4cc57a0fae4cc8655 100644
 --- a/React/Views/UIView+React.m
 +++ b/React/Views/UIView+React.m
-@@ -306,7 +306,15 @@ static void updateTransform(RCTPlatformView *view) // [macOS]
+@@ -191,9 +191,38 @@ - (void)setReactZIndex:(NSInteger)reactZIndex
+ 
+ - (void)didUpdateReactSubviews
+ {
++#if TARGET_OS_OSX // [macOS
++  // [Ardia: -addSubview: on a view that is already a subview takes it out and puts it back (it leaves and re-enters
++  // the window, its layer is rebuilt), so re-adding every child whenever one was inserted or removed cost a closed
++  // tab ~58 of them, 7-9 ms. The children end up in the same order, after any non-React subviews, as before; the
++  // ones already in place are left alone and the rest are put in order by -setSubviews:. Ardia]
++  NSArray<RCTPlatformView *> *wanted = self.reactSubviews;
++  NSArray<NSView *> *current = self.subviews;
++  if (current.count >= wanted.count &&
++      [[current subarrayWithRange:NSMakeRange(current.count - wanted.count, wanted.count)] isEqualToArray:wanted]) {
++    return;
++  }
++  NSMutableArray<NSView *> *unique = [NSMutableArray arrayWithCapacity:wanted.count];
++  NSMutableSet<NSView *> *react = [NSMutableSet setWithCapacity:wanted.count];
++  for (NSView *view in wanted.reverseObjectEnumerator) {
++    if (![react containsObject:view]) {
++      [react addObject:view];
++      [unique insertObject:view atIndex:0];
++    }
++  }
++  NSMutableArray<NSView *> *order = [NSMutableArray arrayWithCapacity:current.count + wanted.count];
++  for (NSView *view in current) {
++    if (![react containsObject:view]) {
++      [order addObject:view];
++    }
++  }
++  [order addObjectsFromArray:unique];
++  [self setSubviews:order];
++#else // macOS]
+   for (RCTPlatformView *subview in self.reactSubviews) { // [macOS]
+     [self addSubview:subview];
+   }
++#endif // [macOS]
+ }
+ 
+ - (void)didSetProps:(__unused NSArray<NSString *> *)changedProps
+@@ -306,7 +335,15 @@ static void updateTransform(RCTPlatformView *view) // [macOS]
      transform = view.reactTransform;
    }
  
