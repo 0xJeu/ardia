@@ -221,7 +221,7 @@ index 6f332dc1701cada0aff0e9a2678fa7bdcea0ef85..462853ec8b76f004cd5b9e92291473bc
  
  #endif // TARGET_OS_OSX
 diff --git a/React/Base/macOS/RCTUIKit.m b/React/Base/macOS/RCTUIKit.m
-index a37a1c106a04752c1baeb6dd2170402ce5f34f71..757bd744096aa5c3451544260b7dac3b31e08602 100644
+index a37a1c106a04752c1baeb6dd2170402ce5f34f71..be88b42f1cd4bc0521055d97eb948c28e012c402 100644
 --- a/React/Base/macOS/RCTUIKit.m
 +++ b/React/Base/macOS/RCTUIKit.m
 @@ -284,20 +284,53 @@ - (CATransform3D)transform3D
@@ -286,7 +286,20 @@ index a37a1c106a04752c1baeb6dd2170402ce5f34f71..757bd744096aa5c3451544260b7dac3b
  
  - (NSView *)hitTest:(NSPoint)point
  {
-@@ -331,8 +364,8 @@ - (void)updateLayer
+@@ -308,7 +341,11 @@ - (NSView *)hitTest:(NSPoint)point
+   if (self.layer.superlayer) {
+     localPoint = [self.layer convertPoint:point fromLayer:self.layer.superlayer];
+   } else {
+-    localPoint = point;
++    // [Ardia: a view React Native just mounted has no layer in the tree until AppKit's next display pass; hit-testing
++    // the superview's point as a local one put it at its superview's origin for those frames (a new sidebar hover card
++    // took clicks meant for the pinned tiles). Its frame says where it is.
++    localPoint = self.superview != nil ? [self convertPoint:point fromView:self.superview] : point;
++    // Ardia]
+   }
+   return [self hitTest:localPoint withEvent:nil];
+ }
+@@ -331,8 +368,8 @@ - (void)updateLayer
    // On macOS, AppKit's layer-backed view system resets layer.transform to identity
    // during its layout/display cycle because NSView has no built-in transform property
    // (unlike UIView on iOS). We must re-apply the stored transform after each cycle.
@@ -297,7 +310,7 @@ index a37a1c106a04752c1baeb6dd2170402ce5f34f71..757bd744096aa5c3451544260b7dac3b
    }
  
    if (_respondsToDisplayLayer) {
-@@ -822,6 +855,13 @@ - (instancetype)initWithFrame:(CGRect)frame
+@@ -822,6 +859,13 @@ - (instancetype)initWithFrame:(CGRect)frame
    return self;
  }
  
