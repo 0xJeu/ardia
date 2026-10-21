@@ -46,7 +46,8 @@ public struct ArcSidebar: Equatable {
         icon: icon?["icon"] as? String,
         profileId: profile,
         pinned: pinned,
-        tabs: today
+        tabs: today,
+        theme: json(theme)
       ))
     }
 
@@ -57,6 +58,12 @@ public struct ArcSidebar: Equatable {
       if !tabs.isEmpty { out.favorites[profile, default: []] += tabs }
     }
     return out
+  }
+
+  static func json(_ any: Any?) -> String? {
+    guard let any, JSONSerialization.isValidJSONObject(any),
+          let data = try? JSONSerialization.data(withJSONObject: any, options: [.sortedKeys]) else { return nil }
+    return String(data: data, encoding: .utf8)
   }
 
   static func objects(_ any: Any?) -> [[String: Any]] {

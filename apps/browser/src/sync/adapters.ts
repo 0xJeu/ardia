@@ -11,7 +11,8 @@ import { pinKeyOf } from "../store/pinMirror";
 import { dataGroups } from "../store/profiles";
 import { removeTabs } from "../store/tabs";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
-import type { BookmarkNode, HistoryEntry, Profile, Tab, TabGroup } from "../store/types";
+import { sanitizeTheme } from "../lib/profileTheme";
+import type { BookmarkNode, HistoryEntry, Profile, ProfileTheme, Tab, TabGroup } from "../store/types";
 
 const store = () => useBrowser.getState();
 
@@ -80,7 +81,11 @@ export const settingsAdapter: Adapter = {
   },
 };
 
-export type ProfileRecord = { n: string; c: Profile["color"]; i: string | null; d?: true };
+export type ProfileRecord = { n: string; c: Profile["color"]; i: string | null; d?: true; th?: ProfileTheme | null };
+
+export function profileThemePatch(record: ProfileRecord): Pick<Profile, "theme"> | Record<string, never> {
+  return "th" in record ? { theme: record.th === null ? null : sanitizeTheme(record.th) } : {};
+}
 
 export function profilesAdapter(links: () => Record<string, { syncId: string }>): Adapter {
   const linked = () => Object.entries(links()).filter(([id]) => store().profiles[id]);
@@ -91,7 +96,13 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
       const values = new Map<string, unknown>();
       for (const [id, { syncId }] of linked()) {
         const p = store().profiles[id]!;
-        values.set(`prof:${syncId}`, { n: p.name, c: p.color, i: p.icon, ...(id === DEFAULT_PROFILE_ID ? { d: true } : {}) } satisfies ProfileRecord);
+        values.set(`prof:${syncId}`, {
+          n: p.name,
+          c: p.color,
+          i: p.icon,
+          ...(id === DEFAULT_PROFILE_ID ? { d: true } : {}),
+          ...(p.theme !== undefined ? { th: p.theme } : {}),
+        } satisfies ProfileRecord);
       }
       const mine = new Set(values.keys());
       return { values, ignore: (key) => !mine.has(key) };
@@ -100,7 +111,7 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
       for (const [id, { syncId }] of linked()) {
         const record = visible.get(`prof:${syncId}`) as ProfileRecord | undefined;
         if (!record || !changed.has(`prof:${syncId}`)) continue;
-        store().updateProfile(id, { name: record.n, color: record.c, icon: record.i });
+        store().updateProfile(id, { name: record.n, color: record.c, icon: record.i, ...profileThemePatch(record) });
       }
     },
   };

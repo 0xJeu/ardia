@@ -84,10 +84,10 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
 
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setSize(e.nativeEvent.layout)}>
-      {playIntro && theme.powerUpColor && (
+      {playIntro && theme.powerUpPalette && (
         <PowerUp
           style={StyleSheet.absoluteFill}
-          palette={[theme.powerUpColor]}
+          palette={theme.powerUpPalette}
           speed={1}
           origin={0.5}
           cornerRadius={20}

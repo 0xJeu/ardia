@@ -35,6 +35,7 @@ import {
   type DeviceRecord,
   type DeviceTabs,
   type ProfileRecord,
+  profileThemePatch,
   type ShareRecord,
 } from "./adapters";
 
@@ -576,6 +577,8 @@ export function addRemoteProfile(syncId: string): string | null {
 
 function addLinkedProfile(syncId: string, record: ProfileRecord, shareWith: string | null): string {
   const id = useBrowser.getState().createProfile({ name: record.n, color: record.c, icon: record.i, shareWith });
+  const theme = profileThemePatch(record);
+  if ("theme" in theme) useBrowser.getState().updateProfile(id, theme);
   doc.profiles[id] = { syncId, enabled: true };
   doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
   return id;
