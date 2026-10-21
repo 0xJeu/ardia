@@ -13,6 +13,8 @@ import { runBarAction } from "./omnibox/actions";
 import { traceOmnibox, useOmniboxDriver } from "./omnibox/devDriver";
 import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarSnapshot } from "./omnibox/barState";
 import { dispositionFor, openFromBar, switchFromBar, type Disposition } from "./omnibox/open";
+import { openFromNewTabBar } from "./omnibox/newTabBar";
+import type { NewTabTarget } from "../store/types";
 import { clipboardPasteAction, pasteMenuItem, pasteTarget, readClipboard } from "./omnibox/paste";
 import { ScopeChip } from "./omnibox/ScopeChip";
 import { SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./omnibox/SuggestionRow";
@@ -54,10 +56,12 @@ export function Omnibox({
   initialText = "",
   onCancel,
   onDone = onCancel,
+  opensTab,
 }: {
   variant: Variant;
   tabId: string;
   initialText?: string;
+  opensTab?: NewTabTarget;
   onCancel?(): void;
   onDone?(): void;
 }) {
@@ -65,7 +69,7 @@ export function Omnibox({
   const windowId = useWindowId();
   const profileId = useWindowProfileId();
   const engine = useBrowser((s) => defaultSearchEngine(s.settings));
-  const currentUrl = useBrowser((s) => s.tabs[tabId]?.url ?? "");
+  const currentUrl = useBrowser((s) => (opensTab ? "" : (s.tabs[tabId]?.url ?? "")));
   const hero = variant === "hero";
   const dropdown = variant === "sidebar";
 
@@ -161,6 +165,7 @@ export function Omnibox({
 
   const go = (url: string, disposition: Disposition = "current") => {
     if (!url) return;
+    if (opensTab && disposition !== "newWindow") return openFromNewTabBar(windowId, opensTab, url);
     if (disposition === "current") journeyNavigate(tabId);
     openFromBar(url, tabId, disposition);
     if (disposition !== "current") dismiss();
@@ -175,7 +180,7 @@ export function Omnibox({
     }
     switch (s.kind) {
       case "page":
-        if (s.tabId) {
+        if (s.tabId && !(opensTab && disposition === "newTab")) {
           switchFromBar(s.tabId, s.url, tabId, disposition);
           if (hero && disposition === "current") reset();
           return;

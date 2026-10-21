@@ -17,6 +17,7 @@ import { modifiersOf } from "./controls";
 import { usePageStyle, usePagerPages } from "./profilePager";
 import { ProfileSwipeArea } from "./ProfileSwipe";
 import { openNewTabInSplit } from "./splitActions";
+import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { setMeasuredWidth, useMeasuredWidths } from "./measuredWidths";
 import { usePeek } from "./usePeek";
 import { lightsCenter } from "./dockMotion";
@@ -1296,7 +1297,7 @@ function NewTabButton({ windowId, geometry }: { windowId: string; geometry: Drag
       <Pressable
         onPress={(e) => {
           if (modifiersOf(e).altKey) openNewTabInSplit(windowId);
-          else useBrowser.getState().newTab(windowId);
+          else toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId);
         }}
       >
         {({ pressed }) => (

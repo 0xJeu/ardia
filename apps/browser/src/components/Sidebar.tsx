@@ -34,6 +34,7 @@ import { entriesHeight, firstPaintEntries, rowSpan, startsOffScreen, type Sectio
 import { measureRow } from "./sidebar/state";
 import { SplitRowItem, TabRowItem } from "./sidebar/TabRow";
 import { useSidebarTokens } from "./sidebar/tokens";
+import { toggleNewTabBar } from "./omnibox/newTabBar";
 
 const GLOW_ROOM = 24;
 const ROW_PITCH = layout.rowHeight + layout.rowGap;
@@ -244,7 +245,7 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
                         onListHeight={onListHeight}
                       />
                       <ContextMenuArea style={{ flexGrow: 1, minHeight: inlineNewTab ? 24 : 0 }} onContextMenu={() => void openSidebarMenu(windowId)}>
-                        <WindowDragRegion style={{ flex: 1 }} titleBarDoubleClick={false} onRegionDoubleClick={() => useBrowser.getState().newTab(windowId)} />
+                        <WindowDragRegion style={{ flex: 1 }} titleBarDoubleClick={false} onRegionDoubleClick={() => toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId)} />
                       </ContextMenuArea>
                     </Animated.ScrollView>
                   </Animated.View>
@@ -468,7 +469,7 @@ const NewTabRow = memo(function NewTabRow({ windowId, shift = null, clip = null 
         style={{ flex: 1 }}
         onPress={(e) => {
           if ((e.nativeEvent as unknown as { altKey?: boolean }).altKey) openNewTabInSplit(windowId);
-          else useBrowser.getState().newTab(windowId);
+          else toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId);
         }}
       >
         {({ pressed }) => (

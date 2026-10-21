@@ -25,6 +25,7 @@ import { forgetOpeners, insertionIndex, openerSuccessor, switchKeepsOpeners } fr
 import { groupWithOpener, onUrlChange, pruneSelection, samePage } from "./organize";
 import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
+import { leavesEmptyWindow } from "./newTabBar";
 import { removeFromSplits, splitOf } from "./splits";
 import type { BrowserWindow, ClosedTab, Tab, TabLive, TabSnapshot } from "./types";
 
@@ -316,6 +317,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
     const w = tab && s.windows[tab.windowId];
     if (!tab || !w) return;
     if (inPinnedContainer(s, id)) return set(unloadPinnedTabs(s, [id]));
+    if (leavesEmptyWindow(s, id)) return set(removeTabs(withNewTab(s, w.id)[0], [id], true));
     if (closesWindow(s, id)) return get().closeWindow(w.id);
     set(removeTabs(s, [id], true));
   },

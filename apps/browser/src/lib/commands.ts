@@ -26,6 +26,8 @@ import { useClearDataRequest } from "../components/pages/ClearDataDialog";
 import { openInternalPage } from "../components/pages/urls";
 import { isUtilityWindowId, openImport, openSettings } from "../components/settings/windows";
 import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barState";
+import { closeNewTabBar, isEmptyCardTab, showNewTabBar, toggleNewTabBar } from "../components/omnibox/newTabBar";
+import { NEW_TAB_BAR_POLICY } from "../store/newTabBar";
 import { addressBarInSidebar } from "../components/layout/windowLayout";
 import { webviews } from "./webviews";
 import { goBack, goForward } from "../components/layout/history";
@@ -121,6 +123,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
 
   switch (command) {
     case "newTab":
+      if (toggleNewTabBar(windowId)) return;
       return void s.newTab(windowId);
     case "reopenClosedTab":
       return s.reopenClosed(windowId);
@@ -128,10 +131,16 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return arg ? s.restoreClosed(arg, windowId) : undefined;
     case "focusCommandBar":
       if (page) return s.openPanel(windowId, page.url);
+      if (isEmptyCardTab(s, tab) && showNewTabBar(windowId)) return;
       if (tab && addressBarInSidebar(s, windowId)) return s.openPanel(windowId, "");
       if (!focusHeroBar(windowId, tabId)) return tab ? s.openPanel(windowId, "") : undefined;
       return ui?.panel.open ? s.closePanel(windowId) : undefined;
     case "closeTab":
+      if (ui?.panel.newTab) {
+        closeNewTabBar(windowId);
+        if (NEW_TAB_BAR_POLICY.closeTabKeyOnlyDismissesBar || !tabId) return;
+        return void closeTab(tabId);
+      }
       if (ui?.panel.open) return tabId ? closePanelToHeroBar(windowId, tabId) : s.closePanel(windowId);
       if (tabId && find?.open) return closeFind(tabId);
       return tabId ? void closeTab(tabId) : undefined;

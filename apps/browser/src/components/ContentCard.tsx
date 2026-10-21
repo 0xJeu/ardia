@@ -35,8 +35,9 @@ import { SplitEmptyState } from "./layout/SplitEmptyState";
 import { pagerFor } from "./layout/profilePager";
 import { openFromPage } from "./layout/openFromPage";
 import { dockMoving, useDockMotion } from "./layout/dockMotion";
-import { setUrlAnchor, useAddressBarInSidebar, useTabLayout, useToolbarExtensionsWidths } from "./layout/windowLayout";
+import { setCardAnchor, setUrlAnchor, useAddressBarInSidebar, useTabLayout, useToolbarExtensionsWidths } from "./layout/windowLayout";
 import { NewTabPage } from "./NewTabPage";
+import { EmptyCard } from "./EmptyCard";
 import { InternalPage } from "./pages";
 import { AutofillPrompt, BlockedPopupsPrompt, ExternalAppPrompt, PasswordPrompt, PermissionPrompt, answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "./site/Prompts";
 import { SiteControls } from "./site/SiteControls";
@@ -207,6 +208,10 @@ export function ContentCard() {
     });
   }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split, showSidebarButton]);
 
+  useEffect(() => {
+    if (origin && size.width > 0) setCardAnchor(windowId, { left: origin.x, top: origin.y, width: size.width, height: size.height });
+  }, [origin, size.width, size.height, windowId]);
+
   const settled = useRef<{ width: number; height: number } | null>(null);
   const measure = (width: number, height: number) => {
     setSize({ width, height });
@@ -309,6 +314,7 @@ const TabPane = memo(function TabPane({
   const live = visible || !!warm;
   const own = useTabValue(tabId, paneTab, shallowEqual);
   const isNewTab = !own.url;
+  const emptyCard = useBrowser((s) => isNewTab && s.settings.newTabOpens === "commandBar");
   const zoom = own.zoom;
   const popover = useStoreWhile(usePages, visible, (s) => s.popover[tabId] ?? null);
   const newTabShown = useStoreWhile(usePages, live, (s) => !!s.pages[tabId]?.newTabShown);
@@ -318,7 +324,7 @@ const TabPane = memo(function TabPane({
   useEffect(() => {
     if (visible && isNewTab && !mounted) patchPage(tabId, { wasNewTab: true });
   }, [visible, isNewTab, mounted]);
-  const prewarmed = usePrewarm(visible && isNewTab && !mounted && !small && !inSplit);
+  const prewarmed = usePrewarm(visible && isNewTab && !emptyCard && !mounted && !small && !inSplit);
   const hideBar = autoHide && visible && !fullscreen;
   const mode = useToolbarMode(tabId, windowId, hideBar);
   const bookmarksBar = bookmarksBarShown(barMode, own.exists ? own : undefined) && !fullscreen && !inSplit && !small;
@@ -357,7 +363,7 @@ const TabPane = memo(function TabPane({
           {visible && !fullscreen && <ShareBar tabId={tabId} />}
           <View style={{ flex: 1 }}>
             {(mounted || prewarmed) && <TabWebView tabId={tabId} visible={visible && !newTabShown && !isNewTab} warm={!!warm && !newTabShown && !isNewTab} />}
-            {visible && isNewTab && !small && (inSplit ? <SplitEmptyState tabId={tabId} focused={focused} /> : <NewTabPage key={tabId} tabId={tabId} toolbar={toolbar} />)}
+            {visible && isNewTab && !small && (inSplit ? <SplitEmptyState tabId={tabId} focused={focused} /> : emptyCard ? <EmptyCard windowId={windowId} tabId={tabId} /> : <NewTabPage key={tabId} tabId={tabId} toolbar={toolbar} />)}
             {visible && <InternalPage tabId={tabId} />}
             {visible && (
               <>

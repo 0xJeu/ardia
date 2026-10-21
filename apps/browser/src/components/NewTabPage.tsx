@@ -39,7 +39,7 @@ let reduceMotion = false;
 AccessibilityInfo.isReduceMotionEnabled().then((on) => (reduceMotion = on), () => {});
 AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => (reduceMotion = on));
 
-function barWidth(viewWidth: number) {
+export function barWidth(viewWidth: number) {
   const content = viewWidth < 708 ? (viewWidth <= 636 ? viewWidth - 20 : 616) : viewWidth < 1700 ? 652 : 774;
   return Math.min(content, viewWidth - 28);
 }

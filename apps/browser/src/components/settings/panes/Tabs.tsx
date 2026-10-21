@@ -41,6 +41,20 @@ export function TabsPane() {
 
       <SectionHeader title="General" />
       <Group>
+        <Row
+          title="New tab opens"
+          description="With Command Bar, ⌘T and New Tab open the command bar over the page, as in Arc. The tab appears when you pick a result; Esc leaves everything as it was."
+        >
+          <PopUp
+            value={settings.newTabOpens}
+            options={[
+              { value: "page", title: "New Tab Page" },
+              { value: "commandBar", title: "Command Bar" },
+            ]}
+            onChange={(v) => update({ newTabOpens: v })}
+            minWidth={160}
+          />
+        </Row>
         <Row title={top ? "Add new tabs to the left" : "Add new tabs to the top"}>
           <Toggle value={settings.newTabPosition === "top"} onChange={(v) => update({ newTabPosition: v ? "top" : "bottom" })} />
         </Row>
