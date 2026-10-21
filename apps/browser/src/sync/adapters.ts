@@ -1,5 +1,5 @@
 import { addHistoryVisits, deleteHistoryUrls, deletePassword, savePassword } from "@ardia/ardiacore";
-import { assignPositions, SyncNative, type Adapter, type Extraction, type SavedLogin } from "@ardia/sync";
+import { assignPositions, canonical, SyncNative, type Adapter, type Extraction, type SavedLogin } from "@ardia/sync";
 import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../store/bookmarks";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser, type BrowserState } from "../store/browser";
@@ -130,17 +130,23 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
   };
 }
 
-export function profileThemesAdapter(links: () => Record<string, { syncId: string }>): Adapter {
+export function profileThemesAdapter(links: () => Record<string, { syncId: string }>, records: () => Record<string, { v: unknown }> | undefined): Adapter {
   const linked = () => Object.entries(links()).filter(([id]) => store().profiles[id]);
+  const unapplied = (key: string, base: (key: string) => unknown) => {
+    const record = records()?.[key];
+    return !!record && record.v !== null && canonical(record.v) !== canonical(base(key) ?? null);
+  };
   return {
     prefix: "pth:",
     adoptRemoteOnJoin: true,
-    extract: () => {
+    publishAfterPull: true,
+    extract: (base) => {
       const values = new Map<string, unknown>();
       for (const [id, { syncId }] of linked()) {
         const theme = store().profiles[id]!.theme;
-        if (theme === undefined) continue;
-        values.set(`pth:${syncId}`, (theme ? { t: theme } : { preset: true }) satisfies ProfileThemeRecord);
+        const key = `pth:${syncId}`;
+        if (theme === undefined || unapplied(key, base)) continue;
+        values.set(key, (theme ? { t: theme } : { preset: true }) satisfies ProfileThemeRecord);
       }
       const mine = new Set(values.keys());
       return { values, ignore: (key) => !mine.has(key) };

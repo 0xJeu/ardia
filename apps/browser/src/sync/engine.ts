@@ -266,7 +266,7 @@ function appAdapters(retiring: boolean): Adapter[] {
     ...(doc.types.settings ? [inTodaysNames(settingsAdapter)] : []),
     sharedDataAdapter(() => doc.profiles),
     profilesAdapter(enabledLinks),
-    profileThemesAdapter(enabledLinks),
+    profileThemesAdapter(enabledLinks, () => doc.scopes[APP_SCOPE]?.records),
     deviceAdapter(id, deviceName),
   ];
 }

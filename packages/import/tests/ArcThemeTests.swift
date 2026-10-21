@@ -50,6 +50,16 @@ final class ArcThemeTests: XCTestCase {
     let json = try XCTUnwrap(ArcSidebar.json(bounded))
     XCTAssertLessThan(json.utf8.count, 4_096)
     XCTAssertEqual(ArcSidebar.gradient(bounded)?.count, ArcSidebar.maxThemeArray)
+    func wide(_ level: Int) -> Any {
+      level == 0 ? String(repeating: "z", count: 256)
+        : Dictionary(uniqueKeysWithValues: (0..<32).map { ("k\($0)", wide(level - 1)) })
+    }
+    let tree = wide(3)
+    let started = Date()
+    XCTAssertNil(ArcSidebar.bounded(tree), "a theme over the shared budget is dropped whole")
+    XCTAssertLessThan(Date().timeIntervalSince(started), 0.5)
+    let crowded = Dictionary(uniqueKeysWithValues: (0..<100_000).map { ("k\($0)", 1) })
+    XCTAssertNil(ArcSidebar.bounded(["background": crowded]).flatMap { ($0 as? [String: Any])?["background"] })
     var deep: Any = ["x": 1]
     for _ in 0..<5_000 { deep = ["d": deep] }
     XCTAssertNotNil(ArcSidebar.json(ArcSidebar.bounded(deep)))

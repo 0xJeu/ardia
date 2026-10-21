@@ -65,20 +65,47 @@ public struct ArcSidebar: Equatable {
   static let maxThemeArray = 4
   static let maxThemeKeys = 32
   static let maxThemeString = 256
+  static let maxThemeNodes = 2_048
 
-  static func bounded(_ any: Any?, depth: Int = 0) -> Any? {
-    guard let any, depth < maxThemeDepth else { return nil }
+  final class ThemeBudget {
+    var nodes = ArcSidebar.maxThemeNodes
+    var bytes = ArcSidebar.maxThemeBytes
+
+    func spend(nodes: Int = 1, bytes: Int = 0) -> Bool {
+      self.nodes -= nodes
+      self.bytes -= bytes
+      return self.nodes >= 0 && self.bytes >= 0
+    }
+  }
+
+  static func bounded(_ any: Any?) -> Any? {
+    let budget = ThemeBudget()
+    guard let out = bounded(any, depth: 0, budget: budget), budget.nodes >= 0, budget.bytes >= 0 else { return nil }
+    return out
+  }
+
+  private static func bounded(_ any: Any?, depth: Int, budget: ThemeBudget) -> Any? {
+    guard let any, depth < maxThemeDepth, budget.spend(bytes: 8) else { return nil }
     switch any {
     case let d as [String: Any]:
+      guard d.count <= maxThemeKeys else { return nil }
       var out: [String: Any] = [:]
-      for key in d.keys.sorted().prefix(maxThemeKeys) where key.count <= maxThemeString {
-        if let v = bounded(d[key], depth: depth + 1) { out[key] = v }
+      for key in d.keys.sorted() {
+        guard key.utf8.count <= maxThemeString, budget.spend(nodes: 0, bytes: key.utf8.count) else { return nil }
+        if let v = bounded(d[key], depth: depth + 1, budget: budget) { out[key] = v }
+        if budget.nodes < 0 || budget.bytes < 0 { return nil }
       }
       return out
     case let a as [Any]:
-      return a.prefix(maxThemeArray).compactMap { bounded($0, depth: depth + 1) }
+      var out: [Any] = []
+      for item in a.prefix(maxThemeArray) {
+        if let v = bounded(item, depth: depth + 1, budget: budget) { out.append(v) }
+        if budget.nodes < 0 || budget.bytes < 0 { return nil }
+      }
+      return out
     case let s as String:
-      return String(s.prefix(maxThemeString))
+      let cut = String(s.utf8.prefix(maxThemeString)) ?? ""
+      return budget.spend(nodes: 0, bytes: cut.utf8.count) ? cut : nil
     case let n as NSNumber:
       return n
     default:

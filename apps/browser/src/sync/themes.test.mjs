@@ -48,6 +48,7 @@ function profilesAdapterV0238(links) {
 
 class Folder {
   files = new Map();
+  downloading = new Set();
   counter = 0;
   transport() {
     return {
@@ -57,9 +58,9 @@ class Folder {
         return id;
       },
       read: async (scope, known) => {
-        const here = [...this.files].filter(([, f]) => f.scope === scope);
+        const here = [...this.files].filter(([id, f]) => f.scope === scope && !this.downloading.has(id));
         const files = here.filter(([id]) => !known.includes(id)).map(([id, f]) => ({ id, payload: f.payload }));
-        return { files, pending: [], damaged: [], present: here.map(([id]) => id) };
+        return { files, pending: [...this.downloading], damaged: [], present: here.map(([id]) => id) };
       },
       remove: async (_scope, ids) => ids.forEach((id) => this.files.delete(id)),
     };
@@ -75,7 +76,7 @@ class Mac {
     this.scope = emptyScope();
     this.scope.joined = !joining;
     this.clock = new Clock(id);
-    this.adapters = legacy ? [profilesAdapterV0238(LINKS)] : [adapters.profilesAdapter(LINKS), adapters.profileThemesAdapter(LINKS)];
+    this.adapters = legacy ? [profilesAdapterV0238(LINKS)] : [adapters.profilesAdapter(LINKS), adapters.profileThemesAdapter(LINKS, () => this.scope.records)];
   }
   with(fn) {
     useBrowser.setState(this.browser, true);
@@ -210,7 +211,7 @@ test("a legacy th arriving after a pth: record never publishes the older theme o
   await dev.sync();
   let links = {};
   const fresh = new Mac("new", folder, { joining: true });
-  fresh.adapters = [adapters.profilesAdapter(() => links), adapters.profileThemesAdapter(() => links)];
+  fresh.adapters = [adapters.profilesAdapter(() => links), adapters.profileThemesAdapter(() => links, () => fresh.scope.records)];
   await fresh.sync();
   links = LINKS();
   devTheme = older;
@@ -218,4 +219,28 @@ test("a legacy th arriving after a pth: record never publishes the older theme o
   await rounds([fresh], 3);
   assert.notDeepEqual(fresh.profile().theme, older, "the legacy th doesn't replace a known pth:");
   assert.deepEqual(fresh.scope.records["pth:s1"].v, { t: newer }, "nothing older is published over it");
+});
+
+test("a joining Mac with its own theme waits for a pth: file still downloading instead of publishing over it", async () => {
+  const folder = new Folder();
+  const first = new Mac("first", folder);
+  first.with(() => S().updateProfile("default", { theme: THEME }));
+  await first.sync();
+  const themeFile = `f${folder.counter}`;
+  first.with(() => S().updateProfile("default", { name: "Home" }));
+  await first.sync();
+  folder.downloading.add(themeFile);
+
+  const own = { ...THEME, intensity: 0.15, stops: [THEME.stops[1]] };
+  const joining = new Mac("joining", folder, { joining: true });
+  joining.with(() => S().updateProfile("default", { theme: own }));
+  await rounds([joining], 3);
+  assert.equal(joining.profile().name, "Home", "prof: arrived");
+  assert.equal(joining.scope.records["pth:s1"], undefined, "nothing went out while the theme's file was downloading");
+
+  folder.downloading.delete(themeFile);
+  await rounds([joining, first], 3);
+  assert.deepEqual(joining.profile().theme, THEME, "the downloaded theme applies");
+  assert.deepEqual(first.profile().theme, THEME, "and the first Mac keeps it");
+  assert.equal(await rounds([joining, first], 3), 0);
 });
