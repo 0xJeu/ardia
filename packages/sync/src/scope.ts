@@ -290,7 +290,7 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   const changed = new Set<string>();
   const parsed: { id: string; file: SyncFile }[] = [];
   const bad = (id: string) => {
-    state.damaged[id] ??= now;
+    state.damaged[id] = Math.min(state.damaged[id] ?? now, now);
     if (now - state.damaged[id]! > damagedGiveUp) {
       state.files[id] = { d: "", k: "bad", at: now };
       delete state.damaged[id];
@@ -322,7 +322,7 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   for (const id of Object.keys(state.damaged)) if (!present.has(id)) delete state.damaged[id];
   state.pending = listing.pending.length;
   const pendingSince: Record<string, number> = {};
-  for (const id of listing.pending) pendingSince[id] = state.pendingSince?.[id] ?? now;
+  for (const id of listing.pending) pendingSince[id] = Math.min(state.pendingSince?.[id] ?? now, now);
   if (listing.pending.length) state.pendingSince = pendingSince;
   else delete state.pendingSince;
   const downloading = Object.values(pendingSince).some((at) => now - at <= damagedGiveUp);

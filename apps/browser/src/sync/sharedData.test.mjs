@@ -464,3 +464,31 @@ test("a download that never finishes holds a sharing profile back for a day, the
   assert.ok(batch?.ops.some((op) => op.k === "share:sWork" && op.v?.o === "sPersonal"), "after the day both go out, in one batch");
   pending.delete("never-current");
 });
+
+test("a pending or damaged file first seen while the clock ran ahead still stops counting a day after now", async () => {
+  const { emptyScope, run, mac, sentBy, pending, damaged, advance, lastFile } = await scopeLevel();
+  const MONTH = 30 * 86_400_000;
+  const a = mac("A");
+  const state = emptyScope();
+  await run(a, state);
+  pending.add("never-current");
+  state.pendingSince = { "never-current": advance(0) + MONTH };
+  await run(a, state);
+  assert.ok(state.pendingSince["never-current"] <= advance(0), "a first-seen time in the future is brought back to now");
+  advance(86_400_001);
+  await run(a, state);
+  await run(a, state);
+  assert.ok(sentBy("A").some((op) => op.k === "share:sWork"), "a day after now, not a month and a day");
+  pending.delete("never-current");
+
+  const b = mac("B", "Home");
+  const restored = { ...emptyScope(), joined: true };
+  const file = lastFile();
+  damaged.add(file);
+  restored.damaged = { [file]: advance(0) + MONTH };
+  await run(b, restored);
+  advance(86_400_001);
+  await run(b, restored);
+  assert.equal(restored.damaged[file], undefined, "the damaged file is given up a day after now");
+  damaged.delete(file);
+});
