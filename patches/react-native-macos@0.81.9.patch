@@ -136,7 +136,7 @@ index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8
  
  - (void)reactBlur
 diff --git a/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
-index 137d0ee9f51616ea27c397a8bf595fe2c0ff5e91..919fc6f23ad364814fe4dad680042df032d31362 100644
+index 137d0ee9f51616ea27c397a8bf595fe2c0ff5e91..a7c532f3f77e38595e92764d05148cb988eb8ea9 100644
 --- a/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 +++ b/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 @@ -330,7 +330,9 @@ - (void)setPlaceholder:(NSString *)placeholder
@@ -148,6 +148,16 @@ index 137d0ee9f51616ea27c397a8bf595fe2c0ff5e91..919fc6f23ad364814fe4dad680042df0
 +  _isUpdatingPlaceholderText = NO; // [Ardia]
  #endif // macOS]
    [self _updatePlaceholder];
+ }
+@@ -385,6 +387,9 @@ - (void)_updatePlaceholder
+   _isUpdatingPlaceholderText = YES;
+   self.placeholderAttributedString = [[NSAttributedString alloc] initWithString:self.placeholder ?: @""
+ 																	 attributes:[self _placeholderTextAttributes]];
++  if (self.currentEditor) { // [Ardia: the field editor keeps the placeholder it was set up with while it holds text, so a colour change (dark to light) left the old one, invisible, once the field was emptied Ardia]
++    [self.cell setUpFieldEditorAttributes:self.currentEditor];
++  } // [Ardia]
+   _isUpdatingPlaceholderText = NO;
+ #endif // macOS]
  }
 diff --git a/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm b/Libraries/Text/TextInput/Singleline/macOS/RCTUISecureTextField.mm
 index 6f332dc1701cada0aff0e9a2678fa7bdcea0ef85..462853ec8b76f004cd5b9e92291473bc673a7ed1 100644
