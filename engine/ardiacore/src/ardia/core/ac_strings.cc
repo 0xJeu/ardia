@@ -9,6 +9,7 @@
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/no_destructor.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/image/image.h"
@@ -47,6 +48,10 @@ class Strings : public ui::ResourceBundle::Delegate {
     if (message_id == IDS_EXTENSION_INSTALLED_MANAGE_INFO) {
       *value = kManageExtensions;
       return true;
+    }
+    if (message_id == IDS_ABOUT_VERSION_COPYRIGHT ||
+        message_id == IDS_ABOUT_VERSION_COMPANY_NAME) {
+      return false;
     }
     static const bool mangled = base::CommandLine::ForCurrentProcess()->HasSwitch(
         switches::kMangleLocalizedStrings);
