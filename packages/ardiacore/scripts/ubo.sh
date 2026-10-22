@@ -6,7 +6,7 @@ vendor="$(cd "$(dirname "$0")/.." && pwd)/vendor"
 UBO_VERSION="1.75.0"
 UBO_SHA256="393cf95709d1074d4022970e9014e434395c53a822387f1e25f43be97cf4b582"
 UBO_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv1MPdIgJjIsN4Y0N/20GDNPfN4J//aknk5dsH8Y1LBxSnz3Jp/BT187Gub5cv6lee5CUVDmVBa3Yiqow8GMna5KwX+ZP+yc1pt/ewzyNxm2BzoQPgWz+1DgZaahz56/szi1EEtWVYxd3wNxFN4wPDqwV6aqlnV4R3RnxlF1ocw1kDgJ+8BxR1EY+MB+H8bymdef+xB3TNifBZIVmZt81cC3UMOG6KWRTU1wtIXsW+ZqSv5zaeFHLkjG4MPB7EfcMGrvO80ElJBZZLdrTmYOL4uUPsz2Wy6GiPWzpDmzzI9RfsZm11sLiJo63blcPF0Cz3sM0wQfxJPPcQuqkZDReswIDAQAB"
-UBO_PATCH="18"
+UBO_PATCH="19"
 ubo="$vendor/ubo"
 stamp="$UBO_VERSION-$UBO_PATCH"
 installed() { [ -f "$ubo/.version" ] && [ "$(cat "$ubo/.version")" = "$stamp" ]; }
@@ -50,7 +50,57 @@ ARDIA_MIRROR_HELPERS = r"""const ardiaMirrorRoot = 'https://services.helium.impu
 const ardiaMirrorURLs = new Map(Object.entries(ARDIA_MIRROR_MAP));
 const ardiaBundledSizes = new Map(Object.entries(ARDIA_MIRROR_BUNDLED_SIZES));
 const ardiaMinimumFilterLines = ARDIA_MIRROR_MIN_LINES;
+const ardiaUpstreamAtLeastEvery = 4 * 86400000;
 const ardiaIsMirrorURL = url => typeof url === 'string' && url.startsWith(ardiaMirrorRoot);
+const ardiaIsMirrored = assetKey => ardiaMirrorURLs.has(assetKey);
+const ardiaTrustPrefixesChanged = ( ) =>
+    µb.hiddenSettings.trustedListPrefixes !== µb.hiddenSettingsDefault.trustedListPrefixes;
+let ardiaCopies;
+let ardiaCopiesReadable = false;
+const ardiaCopiesLoaded = vAPI.storage.get('ardiaMirrorCopies').then(bin => {
+    const value = bin instanceof Object ? bin.ardiaMirrorCopies : undefined;
+    ardiaCopiesReadable = value === undefined ||
+        (value instanceof Object && Array.isArray(value) === false);
+    ardiaCopies = ardiaCopiesReadable && value instanceof Object ? value : {};
+}).catch(( ) => {
+    ardiaCopies = {};
+    ardiaCopiesReadable = false;
+});
+const ardiaSaveCopies = ( ) => {
+    if ( ardiaCopies === undefined ) { return; }
+    ardiaCopiesReadable = true;
+    vAPI.storage.set({ ardiaMirrorCopies: ardiaCopies });
+};
+const ardiaNoteUpstreamTry = assetKey => {
+    if ( ardiaIsMirrored(assetKey) === false || ardiaCopies === undefined ) { return; }
+    ardiaCopies[assetKey] = { ...(ardiaCopies[assetKey] || {}), upstreamTriedAt: Date.now() };
+    ardiaSaveCopies();
+};
+const ardiaNoteCopy = (assetKey, url) => {
+    if ( ardiaIsMirrored(assetKey) === false || ardiaCopies === undefined ) { return; }
+    ardiaCopies[assetKey] = { ...(ardiaCopies[assetKey] || {}), mirror: ardiaIsMirrorURL(url) };
+    ardiaSaveCopies();
+};
+const ardiaMayHoldMirrorCopy = assetKey => {
+    if ( ardiaIsMirrored(assetKey) === false ) { return false; }
+    if ( ardiaCopies === undefined || ardiaCopiesReadable === false ) { return true; }
+    const entry = ardiaCopies[assetKey];
+    return entry instanceof Object === false || entry.mirror !== false;
+};
+const ardiaMirrorURL = assetKey => {
+    const url = ardiaMirrorURLs.get(assetKey);
+    if ( ardiaIsMirrorURL(url) === false ) { return; }
+    if ( ardiaCopies === undefined || ardiaCopiesReadable === false ) { return; }
+    if ( ardiaTrustPrefixesChanged() || µb.isTrustedList(assetKey) ) { return; }
+    const entry = ardiaCopies[assetKey];
+    const triedAt = entry instanceof Object && typeof entry.upstreamTriedAt === 'number' ? entry.upstreamTriedAt : 0;
+    if ( Date.now() - triedAt > ardiaUpstreamAtLeastEvery ) { return; }
+    return url;
+};
+const ardiaStripMetadata = text => text.replace(
+    /^(?:! *|# +)(?:diff(?: +|-)path|diff(?: +|-)name|diff(?: +|-)expires|expires|last(?: +|-)modified|timeupdated|checksum) *:.*$/gim,
+    ''
+);
 const ardiaIsFilterLine = line => {
     const s = line.trim();
     if ( s === '' || s.startsWith('!') || /^#(?:\s|$)/.test(s) ) { return false; }
@@ -61,9 +111,12 @@ const ardiaLooksLikeFilterList = text => {
     if ( start.startsWith('{') || start.startsWith('<') ) { return false; }
     return start.startsWith('[') === false || /^\[adblock/i.test(start);
 };
+const ardiaTrustedNow = assetKey => ardiaTrustPrefixesChanged() || µb.isTrustedList(assetKey);
 async function ardiaMirrorCopyUnusable(assetKey, text) {
+    if ( ardiaTrustedNow(assetKey) ) { return 'the list is trusted now'; }
     if ( ardiaLooksLikeFilterList(text) === false ) { return 'the mirror copy is not a filter list'; }
     const cached = await assetCacheRead(assetKey);
+    if ( ardiaTrustedNow(assetKey) ) { return 'the list is trusted now'; }
     const floor = stringIsNotEmpty(cached.content)
         ? cached.content.length
         : ardiaBundledSizes.get(assetKey) || 0;
@@ -78,12 +131,6 @@ async function ardiaMirrorCopyUnusable(assetKey, text) {
     }
     return 'the mirror copy has too few filters';
 }
-const ardiaMirrorURL = assetKey => {
-    const url = ardiaMirrorURLs.get(assetKey);
-    if ( ardiaIsMirrorURL(url) === false ) { return; }
-    if ( µb.isTrustedList(assetKey) ) { return; }
-    return url;
-};
 const ardiaSameOrigin = (requested, received) => {
     if ( typeof received !== 'string' || received === '' ) { return false; }
     try {
@@ -100,10 +147,27 @@ const ardiaCachedURL = (assetKey, url) => {
         : [];
     return own.find(u => typeof u === 'string' && reIsExternalPath.test(u)) || assetKey;
 };
+const ardiaContentURLs = (assetKey, entry, options) => {
+    const own = typeof entry.contentURL === 'string'
+        ? [ entry.contentURL ]
+        : Array.isArray(entry.contentURL) ? entry.contentURL : [];
+    const upstream = own.filter(url => reIsExternalPath.test(url));
+    const local = own.filter(url => reIsExternalPath.test(url) === false);
+    const cdn = Array.isArray(entry.cdnURLs)
+        ? entry.cdnURLs.filter(url => upstream.includes(url) === false)
+        : [];
+    for ( let i = cdn.length - 1; i > 0; i-- ) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ cdn[i], cdn[j] ] = [ cdn[j], cdn[i] ];
+    }
+    const mirrorURL = options.favorOrigin === true ? undefined : ardiaMirrorURL(assetKey);
+    const network = mirrorURL === undefined ? [ ...upstream, ...cdn ] : [ mirrorURL, ...upstream, ...cdn ];
+    return options.favorLocal ? [ ...local, ...network ] : [ ...network, ...local ];
+};
 
 const getContentURLs = (assetKey, options = {}) => {
 """
-ARDIA_MIRROR_ON = False
+ARDIA_MIRROR_ON = True
 def ardia_mirror_map(ext):
     if not ARDIA_MIRROR_ON:
         return {}, {}, 0
@@ -188,11 +252,6 @@ patch("js/assets.js",
       "            contentURLs.unshift(...cdnURLs);\n"
       "        }\n"
       "    }\n"
-      "    const mirrorURL = ardiaMirrorURL(assetKey);\n"
-      "    if ( mirrorURL !== undefined ) {\n"
-      "        const firstRemote = contentURLs.findIndex(url => reIsExternalPath.test(url));\n"
-      "        contentURLs.splice(firstRemote === -1 ? contentURLs.length : firstRemote, 0, mirrorURL);\n"
-      "    }\n"
       "    return contentURLs;\n"
       "};\n")
 patch("js/assets.js",
@@ -244,6 +303,8 @@ patch("js/assets.js",
       "                error = unusable;\n"
       "                continue;\n"
       "            }\n"
+      "            result.content = ardiaStripMetadata(result.content);\n"
+      "            result.resourceTime = 0;\n"
       "        }\n"
       "\n"
       "        error = undefined;\n"
@@ -259,8 +320,110 @@ patch("js/assets.js",
       "                error = unusable;\n"
       "                continue;\n"
       "            }\n"
+      "            details.content = ardiaStripMetadata(details.content);\n"
       "        }\n"
       "        if ( reIsExternalPath.test(contentURL) && options.dontCache !== true ) {\n")
+patch("js/assets.js",
+      "    const entry = assetSourceRegistry[assetKey];\n"
+      "    if ( entry instanceof Object === false ) { return contentURLs; }\n",
+      "    const entry = assetSourceRegistry[assetKey];\n"
+      "    if ( entry instanceof Object === false ) { return contentURLs; }\n"
+      "    if ( ardiaIsMirrored(assetKey) ) { return ardiaContentURLs(assetKey, entry, options); }\n")
+patch("js/assets.js",
+      "    for ( const contentURL of getContentURLs(assetKey, options) ) {\n"
+      "        if ( reIsExternalPath.test(contentURL) === false ) { continue; }\n",
+      "    for ( const contentURL of getContentURLs(assetKey, options) ) {\n"
+      "        if ( reIsExternalPath.test(contentURL) === false ) { continue; }\n"
+      "        if ( ardiaIsMirrorURL(contentURL) === false ) { ardiaNoteUpstreamTry(assetKey); }\n")
+patch("js/assets.js",
+      "    for ( const contentURL of contentURLs ) {\n"
+      "        ubolog(`Fetching ${contentURL} from remote server `);\n",
+      "    for ( const contentURL of contentURLs ) {\n"
+      "        ubolog(`Fetching ${contentURL} from remote server `);\n"
+      "        if ( reIsExternalPath.test(contentURL) && ardiaIsMirrorURL(contentURL) === false ) { ardiaNoteUpstreamTry(assetKey); }\n")
+patch("js/assets.js",
+      "        // Success\n"
+      "        assetCacheWrite(assetKey, result.content, {\n",
+      "        // Success\n"
+      "        ardiaNoteCopy(assetKey, contentURL);\n"
+      "        assetCacheWrite(assetKey, result.content, {\n")
+patch("js/assets.js",
+      "        if ( reIsExternalPath.test(contentURL) && options.dontCache !== true ) {\n"
+      "            assetCacheWrite(assetKey, details.content, {\n",
+      "        if ( reIsExternalPath.test(contentURL) && options.dontCache !== true ) {\n"
+      "            ardiaNoteCopy(assetKey, contentURL);\n"
+      "            assetCacheWrite(assetKey, details.content, {\n")
+patch("js/assets.js",
+      "const getAssetDiffDetails = assetKey => {\n",
+      "const getAssetDiffDetails = assetKey => {\n"
+      "    if ( ardiaIsMirrored(assetKey) ) { return; }\n")
+patch("js/assets.js",
+      "assets.purge = assetCacheMarkAsDirty;\n",
+      "assets.purge = assetCacheMarkAsDirty;\n"
+      "\n"
+      "assets.ardiaRefuseTrustedMirrorCopy = async function(assetKey) {\n"
+      "    if ( ardiaIsMirrored(assetKey) === false || µb.isTrustedList(assetKey) === false ) { return false; }\n"
+      "    await ardiaCopiesLoaded;\n"
+      "    if ( ardiaMayHoldMirrorCopy(assetKey) === false ) { return false; }\n"
+      "    await assetCacheRemove(assetKey);\n"
+      "    return true;\n"
+      "};\n"
+      "\n"
+      "assets.ardiaIsTrustedMirrorCopy = assetKey =>\n"
+      "    ardiaIsMirrored(assetKey) && µb.isTrustedList(assetKey) && ardiaMayHoldMirrorCopy(assetKey);\n")
+patch("js/storage.js",
+      "    const rawDetails = await io.get(assetKey, {\n"
+      "        favorLocal: this.readyToFilter !== true,\n",
+      "    await io.ardiaRefuseTrustedMirrorCopy(assetKey);\n"
+      "    const rawDetails = await io.get(assetKey, {\n"
+      "        favorLocal: this.readyToFilter !== true,\n")
+patch("js/storage.js",
+      "            if ( cached ) {\n"
+      "                if ( this.selectedFilterLists.indexOf(details.assetKey) !== -1 ) {\n",
+      "            if ( cached && io.ardiaIsTrustedMirrorCopy(details.assetKey) ) {\n"
+      "                io.remove(details.assetKey);\n"
+      "                this.removeCompiledFilterList(details.assetKey);\n"
+      "            } else if ( cached ) {\n"
+      "                if ( this.selectedFilterLists.indexOf(details.assetKey) !== -1 ) {\n")
+patch("js/diff-updater.js",
+      "const resolveURL = (path, url) => {\n",
+      "const ardiaPatchAllowed = (patchPath, base, patchURL) => {\n"
+      "    if ( typeof patchPath !== 'string' || /^(?:[a-z][a-z0-9+.-]*:|[\\\\/])/i.test(patchPath) ) { return false; }\n"
+      "    let baseURL;\n"
+      "    try { baseURL = new URL(base); } catch { return false; }\n"
+      "    if ( patchURL.origin !== baseURL.origin ) { return false; }\n"
+      "    const directory = baseURL.pathname.slice(0, baseURL.pathname.lastIndexOf('/') + 1);\n"
+      "    const parent = directory.slice(0, directory.slice(0, -1).lastIndexOf('/') + 1) || '/';\n"
+      "    return patchURL.pathname.startsWith(parent);\n"
+      "};\n"
+      "\n"
+      "const ardiaPatchCacheKey = assetDetails =>\n"
+      "    [ assetDetails.assetKey, assetDetails.patchPath, ...(assetDetails.patchURLs || assetDetails.cdnURLs || []) ].join('\\n');\n"
+      "\n"
+      "const resolveURL = (path, url) => {\n")
+patch("js/diff-updater.js",
+      "    const patchFile = basename(patchPath);\n"
+      "    return patchFile !== '' && patches.has(patchFile);\n",
+      "    const patchFile = basename(patchPath);\n"
+      "    return patchFile !== '' && patches.has(ardiaPatchCacheKey(assetDetails));\n")
+patch("js/diff-updater.js",
+      "    if ( patches.has(patchFile) ) {\n"
+      "        return patches.get(patchFile);\n"
+      "    }\n"
+      "    const patchDetailsPromise = fetchPatchDetailsFromCDNs(assetDetails);\n"
+      "    patches.set(patchFile, patchDetailsPromise);\n",
+      "    const patchCacheKey = ardiaPatchCacheKey(assetDetails);\n"
+      "    if ( patches.has(patchCacheKey) ) {\n"
+      "        return patches.get(patchCacheKey);\n"
+      "    }\n"
+      "    const patchDetailsPromise = fetchPatchDetailsFromCDNs(assetDetails);\n"
+      "    patches.set(patchCacheKey, patchDetailsPromise);\n")
+patch("js/diff-updater.js",
+      "        const patchURL = resolveURL(patchPath, cdnURL);\n"
+      "        if ( patchURL === undefined ) { continue; }\n",
+      "        const patchURL = resolveURL(patchPath, cdnURL);\n"
+      "        if ( patchURL === undefined ) { continue; }\n"
+      "        if ( ardiaPatchAllowed(patchPath, cdnURL, patchURL) === false ) { continue; }\n")
 patch("js/diff-updater.js",
       "        const response = await fetch(patchURL).catch(reason => {\n"
       "            console.error(reason, patchURL);\n"
