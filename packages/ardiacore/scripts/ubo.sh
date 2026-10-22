@@ -6,7 +6,7 @@ vendor="$(cd "$(dirname "$0")/.." && pwd)/vendor"
 UBO_VERSION="1.75.0"
 UBO_SHA256="393cf95709d1074d4022970e9014e434395c53a822387f1e25f43be97cf4b582"
 UBO_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv1MPdIgJjIsN4Y0N/20GDNPfN4J//aknk5dsH8Y1LBxSnz3Jp/BT187Gub5cv6lee5CUVDmVBa3Yiqow8GMna5KwX+ZP+yc1pt/ewzyNxm2BzoQPgWz+1DgZaahz56/szi1EEtWVYxd3wNxFN4wPDqwV6aqlnV4R3RnxlF1ocw1kDgJ+8BxR1EY+MB+H8bymdef+xB3TNifBZIVmZt81cC3UMOG6KWRTU1wtIXsW+ZqSv5zaeFHLkjG4MPB7EfcMGrvO80ElJBZZLdrTmYOL4uUPsz2Wy6GiPWzpDmzzI9RfsZm11sLiJo63blcPF0Cz3sM0wQfxJPPcQuqkZDReswIDAQAB"
-UBO_PATCH="11"
+UBO_PATCH="13"
 ubo="$vendor/ubo"
 stamp="$UBO_VERSION-$UBO_PATCH"
 installed() { [ -f "$ubo/.version" ] && [ "$(cat "$ubo/.version")" = "$stamp" ]; }
@@ -46,6 +46,70 @@ if len(kept) != len(scripts) - 2:
     sys.exit("ubo.sh: manifest.json no longer has the subscriber and updater content scripts")
 manifest["content_scripts"] = kept
 json.dump(manifest, open(path, "w"), indent=2)
+ARDIA_MIRROR_HELPERS = r"""const ardiaMirror = 'https://services.helium.imput.net/ubo/';
+const ardiaURLs = value => typeof value === 'string' ? [ value ] : Array.isArray(value) ? value : [];
+const ardiaIsRemote = url => /^https?:\/\//.test(url);
+const ardiaIsMirror = url => url.startsWith(ardiaMirror);
+
+function ardiaAssetsJsonFirstFromMirror(entry) {
+    const urls = ardiaURLs(entry.contentURL);
+    if ( urls.some(ardiaIsMirror) === false ) {
+        entry.contentURL = [ `${ardiaMirror}assets.json`, ...urls ];
+    }
+    entry.cdnURLs = null;
+    return entry;
+}
+
+function ardiaListFirstFromMirror(entry, mirrorEntry) {
+    const own = ardiaURLs(entry.contentURL);
+    const mirrored = ardiaURLs(mirrorEntry && mirrorEntry.contentURL).filter(ardiaIsMirror);
+    if ( mirrored.length === 0 ) { return entry; }
+    entry.contentURL = [ ...new Set([
+        ...mirrored,
+        ...own.filter(ardiaIsRemote),
+        ...ardiaURLs(entry.cdnURLs),
+        ...own.filter(url => ardiaIsRemote(url) === false),
+    ]) ];
+    entry.cdnURLs = null;
+    entry.patchURLs = Array.isArray(mirrorEntry.patchURLs) ? mirrorEntry.patchURLs.slice() : null;
+    return entry;
+}
+
+async function ardiaRegistry(json) {
+    let dict;
+    try { dict = JSON.parse(json); } catch { return json; }
+    if ( dict instanceof Object === false || dict['assets.json'] instanceof Object === false ) { return json; }
+    if ( ardiaURLs(dict['assets.json'].contentURL).some(ardiaIsMirror) === false ) {
+        ardiaAssetsJsonFirstFromMirror(dict['assets.json']);
+        return JSON.stringify(dict);
+    }
+    let base;
+    try { base = JSON.parse((await assets.fetchText(µb.assetsJsonPath)).content); } catch { return ''; }
+    if ( base instanceof Object === false || base['assets.json'] instanceof Object === false ) { return ''; }
+    for ( const [ assetKey, entry ] of Object.entries(base) ) {
+        if ( assetKey === 'assets.json' ) {
+            ardiaAssetsJsonFirstFromMirror(entry);
+        } else {
+            ardiaListFirstFromMirror(entry, dict[assetKey]);
+        }
+    }
+    return JSON.stringify(base);
+}
+
+function ardiaAdoptMirror() {
+    const entry = assetSourceRegistry['assets.json'];
+    if ( entry instanceof Object === false ) { return; }
+    const merged = Object.entries(assetSourceRegistry).some(([ assetKey, details ]) =>
+        assetKey !== 'assets.json' && ardiaURLs(details.contentURL).some(ardiaIsMirror)
+    );
+    if ( merged && ardiaURLs(entry.contentURL).some(ardiaIsMirror) ) { return; }
+    ardiaAssetsJsonFirstFromMirror(entry);
+    saveAssetSourceRegistry(true);
+    assetCacheMarkAsDirty('assets.json');
+}
+
+let assetSourceRegistryPromise;
+"""
 def patch(rel, old, new):
     path = os.path.join(ext, rel)
     source = open(path).read()
@@ -70,6 +134,21 @@ patch("js/start.js",
 patch("js/vapi-background.js",
       "    if ( webext.storage.managed instanceof Object === false ) {\n        return {",
       "    if ( true ) {\n        return {")
+patch("js/assets.js", "let assetSourceRegistryPromise;\n", ARDIA_MIRROR_HELPERS)
+patch("js/assets.js",
+      "                    assetSourceRegistry = bin.assetSourceRegistry;\n"
+      "                    ubolog('Loaded assetSourceRegistry');\n",
+      "                    assetSourceRegistry = bin.assetSourceRegistry;\n"
+      "                    ardiaAdoptMirror();\n"
+      "                    ubolog('Loaded assetSourceRegistry');\n")
+patch("js/assets.js",
+      "            }).then(details => {\n"
+      "                updateAssetSourceRegistry(details.content, true);\n",
+      "            }).then(async details => {\n"
+      "                updateAssetSourceRegistry(await ardiaRegistry(details.content), true);\n")
+patch("js/assets.js",
+      "            updateAssetSourceRegistry(result.content);\n",
+      "            updateAssetSourceRegistry(await ardiaRegistry(result.content));\n")
 patch("js/storage.js",
       "            const match = /^[a-z]+/.exec(i18n.getUILanguage());\n"
       "            if ( match !== null ) {\n"
