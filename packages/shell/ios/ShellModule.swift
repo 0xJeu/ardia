@@ -698,8 +698,9 @@ enum ServerWindowDrag {
 
   private static let lastWindow = NSMapTable<NSView, NSWindow>.weakToWeakObjects()
 
-  static func track(_ region: NSView) {
+  static func track(_ region: NSView, bridge: AnyObject? = nil) {
     guard enabled, capable else { return }
+    if let bridge { observeMounting(bridge) }
     if let old = lastWindow.object(forKey: region), old !== region.window { refresh(old) }
     if let window = region.window {
       regions.add(region)
@@ -731,15 +732,58 @@ enum ServerWindowDrag {
     closing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
       targets[key] = nil
       refreshedAt[key] = nil
+      pending[key]?.cancel()
+      pending[key] = nil
       if let closing { NotificationCenter.default.removeObserver(closing) }
     }
   }
 
   static func pointerMoved(in window: NSWindow, at point: NSPoint) {
     guard point.y >= window.frame.height - band(window) else { return }
+    scheduleRefresh(window)
     let now = CACurrentMediaTime()
     if let last = refreshedAt[ObjectIdentifier(window)], now - last < refreshEvery { return }
     refresh(window)
+  }
+
+  private static var pending: [ObjectIdentifier: DispatchWorkItem] = [:]
+
+  static func scheduleRefresh(_ window: NSWindow) {
+    let key = ObjectIdentifier(window)
+    pending[key]?.cancel()
+    let work = DispatchWorkItem { [weak window] in
+      pending[key] = nil
+      if let window { refresh(window) }
+    }
+    pending[key] = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + refreshEvery, execute: work)
+  }
+
+  static func scheduleRefreshAll() {
+    var seen = Set<ObjectIdentifier>()
+    for region in regions.allObjects {
+      guard let window = region.window, seen.insert(ObjectIdentifier(window)).inserted else { continue }
+      scheduleRefresh(window)
+    }
+  }
+
+  private static var mounting: MountWatcher?
+  private static var eventMonitor: Any?
+
+  private static func observeMounting(_ bridge: AnyObject) {
+    guard mounting == nil,
+          let manager = bridge.value(forKey: "uiManager") as AnyObject?,
+          let coordinator = manager.value(forKey: "observerCoordinator") as AnyObject?
+    else { return }
+    let watcher = MountWatcher()
+    let add = NSSelectorFromString("addObserver:")
+    guard coordinator.responds(to: add) else { return }
+    _ = coordinator.perform(add, with: watcher)
+    mounting = watcher
+    eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp, .otherMouseUp, .keyUp, .flagsChanged]) { event in
+      if let window = event.window { scheduleRefresh(window) }
+      return event
+    }
   }
 
   static func band(_ window: NSWindow) -> CGFloat {
@@ -750,8 +794,26 @@ enum ServerWindowDrag {
     let height = window.frame.height
     let strip = NSRect(x: 0, y: height - band(window), width: window.frame.width, height: band(window))
     return regions.allObjects.filter { $0.window === window && !$0.isHiddenOrHasHiddenAncestor }
-      .map { $0.convert($0.bounds, to: nil).intersection(strip) }
+      .map { windowRect($0).intersection(strip) }
       .filter { !$0.isEmpty }
+  }
+
+  private static func topLayer(_ window: NSWindow?) -> CALayer? { window?.contentView?.superview?.layer }
+
+  static func windowRect(_ view: NSView) -> NSRect {
+    if let layer = view.layer, let top = topLayer(view.window) { return layer.convert(layer.bounds, to: top) }
+    return view.convert(view.bounds, to: nil)
+  }
+
+  private static func transformed(_ view: NSView) -> Bool {
+    guard let layer = view.layer else { return false }
+    return !CATransform3DIsIdentity(layer.transform) || !layer.affineTransform().isIdentity
+  }
+
+  private static func zOrdered(_ view: NSView) -> [NSView] {
+    let sorted = NSSelectorFromString("reactZIndexSortedSubviews")
+    if view.responds(to: sorted), let subviews = view.perform(sorted)?.takeUnretainedValue() as? [NSView] { return subviews }
+    return view.subviews
   }
 
   private enum Layer { case region, beneath, above, inert }
@@ -766,15 +828,20 @@ enum ServerWindowDrag {
       guard let rn, view.isKind(of: rn) else { return 0 }
       return (view.value(forKey: "pointerEvents") as? NSNumber)?.intValue ?? 0
     }
+    var moving = false
     func visit(_ view: NSView, _ layer: Layer) {
-      let frame = view.convert(view.bounds, to: nil)
-      guard !view.isHidden, open.contains(where: { $0.intersects(frame) }) else { return }
+      let frame = windowRect(view)
+      guard !moving, !view.isHidden, open.contains(where: { $0.intersects(frame) }) else { return }
+      if transformed(view) {
+        moving = true
+        return
+      }
       var children = layer
       switch leadsToRegion(view) ? .region : layer {
       case .region:
         blocking[ObjectIdentifier(view)] = false
         var passed = false
-        for child in view.subviews {
+        for child in zOrdered(view) {
           if leadsToRegion(child) {
             passed = true
             visit(child, .region)
@@ -796,9 +863,13 @@ enum ServerWindowDrag {
           blocking[ObjectIdentifier(view)] = false
         }
       }
-      for child in view.subviews { visit(child, children) }
+      for child in zOrdered(view) { visit(child, children) }
     }
     if let root = embeddedRoot(window), leadsToRegion(root) { visit(root, .region) }
+    if moving {
+      targets[key] = ([:], [])
+      return ([:], [])
+    }
     targets[key] = (blocking, open)
     return (blocking, open)
   }
@@ -811,7 +882,8 @@ enum ServerWindowDrag {
       for i in 0..<5 {
         for j in 0..<3 {
           let point = NSPoint(x: area.minX + area.width * (CGFloat(i) + 0.5) / 5, y: area.minY + area.height * (CGFloat(j) + 0.5) / 3)
-          if view.hitTest(parent.convert(point, from: nil)) === view { return true }
+          let local = parent.layer.flatMap { layer in topLayer(view.window).map { layer.convert(point, from: $0) } } ?? parent.convert(point, from: nil)
+          if view.hitTest(local) === view { return true }
         }
       }
     }
@@ -921,6 +993,12 @@ enum ServerWindowDrag {
   }
 }
 
+final class MountWatcher: NSObject {
+  @objc func uiManagerDidPerformMounting(_ manager: AnyObject) {
+    DispatchQueue.main.async { ServerWindowDrag.scheduleRefreshAll() }
+  }
+}
+
 final class PointerWatcher: NSObject {
   private weak var view: NSView?
   private var area: NSTrackingArea?
@@ -969,7 +1047,7 @@ final class WindowDragRegion: ExpoView {
 
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
-    ServerWindowDrag.track(self)
+    ServerWindowDrag.track(self, bridge: appContext?.reactBridge)
     if let monitor { NSEvent.removeMonitor(monitor) }
     monitor = nil
     doubleClickDown = false
