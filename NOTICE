@@ -9,4 +9,6 @@ Ardia builds on and ships third-party software under its own licenses, including
 - ungoogled-chromium (BSD-3-Clause)
 - uBlock Origin (GPL-3.0), bundled as a separate extension with the small patches in packages/ardiacore/scripts/ubo.sh
 - Sparkle (MIT)
+- The !bang list by Kagi Search and imput (MIT, see third_party/bangs/LICENSE), from Helium's
+  services.helium.imput.net/bangs.json: a snapshot in packages/core/src/bangList.ts
 - React Native and React Native macOS (MIT)

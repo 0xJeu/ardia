@@ -1,4 +1,4 @@
-import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
+import { bangUrl, displayUrl, asksForBackspace, findBang, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { findNodeHandle, Pressable, Text, TextInput, View } from "react-native";
@@ -10,6 +10,7 @@ import { useWindowId, useWindowProfileId } from "../store/hooks";
 import { activeTabId, viewTabIds } from "../store/model";
 import { defaultSearchEngine } from "../store/settings";
 import { runBarAction } from "./omnibox/actions";
+import { bangsFor } from "./omnibox/bangs";
 import { traceOmnibox, useOmniboxDriver } from "./omnibox/devDriver";
 import { claimFocusTag, commandBarFocus, heroBarFocus } from "../lib/focusClaims";
 import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarDismissal, type BarSnapshot } from "./omnibox/barState";
@@ -178,7 +179,8 @@ export function Omnibox({
     if (!s) {
       if (scope) return;
       const text = edited ? value : initialText || value;
-      return go(resolveInput(text, engine.url), disposition);
+      const bang = findBang(text, bangsFor(text));
+      return go(bang ? bangUrl(bang) : resolveInput(text, engine.url), disposition);
     }
     switch (s.kind) {
       case "page":

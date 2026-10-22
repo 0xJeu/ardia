@@ -55,6 +55,9 @@ export function startDevHarness() {
     get themes(): typeof import("../components/import/apply") & typeof import("../components/settings/ThemeEditor") {
       return { ...require("../components/import/apply"), ...require("../components/settings/ThemeEditor") };
     },
+    get bangs(): typeof import("../components/omnibox/bangs") {
+      return require("../components/omnibox/bangs");
+    },
     get switcher(): typeof import("../components/sidebar/switcher") {
       return require("../components/sidebar/switcher");
     },
