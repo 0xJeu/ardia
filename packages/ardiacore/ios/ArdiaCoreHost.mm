@@ -378,6 +378,7 @@ static void StartEarlyWindow() {
   ardiacore_host::LoadContentBlocker(@"");
   [ArdiaCoreWebView installScrollZoom];
   [ArdiaCoreWebView installSwitchPrewarm];
+  [ArdiaCoreWebView installOutgoingFocusSnapshots];
   [ArdiaCoreServices watchDownloads:@""];
 
   NSBundle *bundle = [NSBundle bundleForClass:ArdiaCoreHostEngineDelegate.class];

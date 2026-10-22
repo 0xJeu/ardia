@@ -1,6 +1,7 @@
 import type { SearchScope } from "@ardia/core";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
+import { expectFocus, heroBarFocus } from "../../lib/focusClaims";
 
 export type BarSnapshot = {
   typed: string;
@@ -33,6 +34,7 @@ export function registerHeroBar(windowId: string, tabId: string, focus: () => vo
 export function focusHeroBar(windowId: string, tabId: string | undefined): boolean {
   const bar = heroBars.get(windowId);
   if (!bar || bar.tabId !== tabId) return false;
+  expectFocus(windowId, heroBarFocus(tabId));
   bar.focus();
   return true;
 }

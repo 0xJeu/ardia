@@ -17,7 +17,7 @@ const rep = reporter(join(scratch, "shortcuts-test.log"), { name: "shortcuts-tes
 const server = createServer((req, res) => {
   const name = new URL(req.url, "http://x").search.slice(1) || "page";
   res.writeHead(200, { "content-type": "text/html" });
-  res.end(`<!doctype html><title>${name}</title><body style="font:20px system-ui"><h1>${name}</h1><input id=f value="hello field">`);
+  res.end(`<!doctype html><title>${name}</title><body style="font:20px system-ui"><h1>${name}</h1><input id=f value="hello field" style="position:fixed;left:20px;top:120px;width:300px;height:30px">`);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const pages = `http://127.0.0.1:${server.address().port}`;
@@ -353,6 +353,118 @@ await press(cmd("a", 0), page);
 const selection = await cdp("?t3", "(f => [f.selectionStart, f.selectionEnd, f.value.length].join())(document.getElementById('f'))");
 check("⌘A selects all of a page's text field", selection === "0,11,11", selection);
 
+const devWindow = (action) =>
+  ac(`const f = ac.store.getState().windows.w1.frame, C = globalThis.expo.modules.ArdiaCEF;
+    return C.chromeWindows().then((ws) => ws.filter((w) => w.hasRoot).find((w) => {
+      const r = w.frame.match(/[-\\d.]+/g).map(Number); return Math.abs(r[0] - f[0]) < 2 && Math.abs(r[2] - f[2]) < 2; }))
+      .then((w) => C.devWindow(w.window, ${JSON.stringify(action)}));`);
+const postKeys = (presses) => ac(`return globalThis.expo.modules.ArdiaApp.devPostKeys("w1", ${JSON.stringify(presses)});`);
+const keyPress = (key, keyCode, after = 0, modifiers = ["command"]) => ({ key, keyCode, modifiers, after });
+const post = (key, keyCode, modifiers = ["command"]) => ac(`return globalThis.expo.modules.ArdiaApp.devPostKey("w1", ${JSON.stringify(key)}, ${keyCode}, ${JSON.stringify(modifiers)});`);
+const clipboard = {
+  set: (text) => ac(`globalThis.nativeModuleProxy.Clipboard.setString(${JSON.stringify(text)}); return 1;`),
+  get: () => ac(`return globalThis.nativeModuleProxy.Clipboard.getString();`),
+};
+const busyJsOnce = (ms) => ac(`const off = ac.store.subscribe(() => { off(); const t = Date.now(); while (Date.now() - t < ${ms}); }); return 1;`);
+const fieldInAx = async (text) => (await devWindow("ax")).split("\n").some((l) => /AXTextField|AXTextArea/.test(l) && l.includes(text));
+const pageField = (expr) => cdp("?t3", `(f => ${expr})(document.getElementById('f'))`);
+await devWindow("fakeActiveClicks");
+const resetToPageField = async (value, selection) => {
+  await ac(`const s = ac.store.getState(), w = s.windows.w1; s.closePanel("w1");
+    for (const id of w.tabIds) if (!${JSON.stringify(ids)}.includes(id)) s.closeTab(id);
+    s.setFind("t3", { open: false }); s.activate("t3"); return 1;`);
+  await sleep(500);
+  await ac(`return ac.shell.devClick("w1", { in: "page", x: 60, y: 135, wait: 150 });`);
+  await pageField(`(f.value = ${JSON.stringify(value)}, f.focus(), f.setSelectionRange(${selection[0]}, ${selection[1]}), true)`);
+  await sleep(100);
+};
+const handoffs = [
+  ["⌘T", "t", 17],
+  ["⌘L", "l", 37],
+  ["⌘F", "f", 3],
+];
+let token = 0;
+for (const busy of [0, 120]) {
+  for (const [name, key, code] of handoffs) {
+    for (const gap of [0, 20, 40, 80]) {
+      const label = `${name} then +${gap} ms${busy ? `, JS busy ${busy} ms` : ""}`;
+      const pasted = `paste-${++token}`;
+      await resetToPageField("", [0, 0]);
+      await clipboard.set(pasted);
+      if (busy) await busyJsOnce(busy);
+      const postedAt = await postKeys([keyPress(key, code), keyPress("v", 9, gap)]);
+      await sleep(900);
+      const inPage = await pageField("f.value");
+      const inDestination = await fieldInAx(pasted);
+      const held = postedAt[1] - postedAt[0];
+      check(`${label} ⌘V pastes into the new field, not the page`, inDestination && !String(inPage).includes(pasted) && held >= gap - 1 && held < gap + 30,
+        `page "${inPage}", destination ${inDestination}, keys ${held.toFixed(1)} ms apart`);
+
+      await resetToPageField("page-text", [0, 9]);
+      await clipboard.set(`sentinel-${token}`);
+      if (busy) await busyJsOnce(busy);
+      await postKeys([keyPress(key, code), keyPress("c", 8, gap), keyPress("x", 7), keyPress("a", 0)]);
+      await sleep(900);
+      const copied = await clipboard.get();
+      const page = await pageField("[f.value, f.selectionStart, f.selectionEnd].join()");
+      const untouched = key === "f" ? page.startsWith("page-text,") : page === "page-text,0,9";
+      check(`${label} ⌘C ⌘X ⌘A stay out of the page`, copied !== "page-text" && untouched, `clipboard "${copied}", page field ${page}`);
+    }
+  }
+}
+for (let run = 1; run <= 5; run++) {
+  const pasted = `race-${run}`;
+  await resetToPageField("", [0, 0]);
+  await clipboard.set(pasted);
+  await busyJsOnce(60);
+  await postKeys([keyPress("f", 3), keyPress("l", 37), keyPress("v", 9)]);
+  await sleep(1500);
+  const bar = (await devWindow("ax")).split("\n").filter((l) => /AXTextField/.test(l) && l.includes(pasted)).length;
+  const panelOpen = (await state()).panel;
+  const findQuery = await ac(`return ac.store.getState().find.t3?.query ?? "";`);
+  check(`⌘F ⌘L ⌘V back to back (run ${run}): the paste goes to the command bar`,
+    panelOpen && bar > 0 && !findQuery.includes(pasted) && (await pageField("f.value")) === "", `panel ${panelOpen}, fields with the paste ${bar}, find "${findQuery}"`);
+}
+const countPastes = () => Promise.all(ids.map((id) => cdp(`?${id}`, "(window.pastes ??= (addEventListener('paste', () => window.pastes.n++, true), { n: 0 })).n = 0, true")));
+const pastesIn = (id) => cdp(`?${id}`, "window.pastes?.n ?? 0");
+const pastesElsewhere = async (except) => (await Promise.all(ids.filter((id) => id !== except).map(pastesIn))).reduce((a, n) => a + (n ?? 0), 0);
+const activeId = () => ac(`const s = ac.store.getState(), w = s.windows.w1; return w.activeTabIds[w.profileId];`);
+const handoffEnds = [
+  ["⌘L ⌘W before the bar mounts", [keyPress("l", 37), keyPress("w", 13, 30), keyPress("v", 9, 30)], 150, 0],
+  ["⌘F, Find shown, Esc", [keyPress("f", 3), keyPress("\u001b", 53, 300, []), keyPress("v", 9, 30)], 0, 1],
+  ["⌘T ⌘W", [keyPress("t", 17), keyPress("w", 13), keyPress("v", 9, 30)], 0, 1],
+  ["⌘L, ⌘W at 300 ms, JS busy 450 ms", [keyPress("l", 37), keyPress("w", 13, 300), keyPress("v", 9, 30)], 450, 0],
+  ["⌘L ⌘V, JS busy 500 ms", [keyPress("l", 37), keyPress("v", 9)], 500, 0],
+];
+for (const [name, keys, busy, firstExpected] of handoffEnds) {
+  await resetToPageField("", [0, 0]);
+  await countPastes();
+  await clipboard.set(`ended-${name.replace(/\W+/g, "")}`);
+  if (busy) await busyJsOnce(busy);
+  await postKeys(keys);
+  await sleep(1200);
+  await ac(`const s = ac.store.getState(); if (s.windowUi.w1?.panel.open) s.closePanel("w1"); return 1;`);
+  if (name.startsWith("⌘L ⌘V")) await ac(`return ac.shell.devClick("w1", { in: "page", x: 60, y: 135, wait: 150 });`);
+  const active = await activeId();
+  const first = await pastesIn(active);
+  const strays = await pastesElsewhere(active);
+  await postKeys([keyPress("v", 9)]);
+  await sleep(600);
+  const second = await pastesIn(active);
+  const responder = await devWindow("responder");
+  const trace = first === firstExpected ? "" : `; trace ${(await ac(`return globalThis.expo.modules.ArdiaApp.devFocusHandoffTrace();`)).slice(-8).join(" / ")}`;
+  check(`${name} then ⌘V: ${firstExpected ? "pastes once into the page that has the focus" : "dropped with a beep, nowhere else"}; the next ⌘V pastes`,
+    first === firstExpected && strays === 0 && second === firstExpected + 1 && responder.startsWith("RenderWidgetHostViewCocoa"),
+    `active ${active}, pastes ${first} then ${second}, elsewhere ${strays}, first responder ${responder}${trace}`);
+}
+await resetToPageField("", [0, 0]);
+await countPastes();
+await devWindow("responder");
+await ac(`ac.shell.devKeyEquivalent("w1", { key: "x", keyCode: 7, modifiers: [], focus: "window", dry: true, wait: 0 }); return 1;`);
+await postKeys([keyPress("v", 9)]);
+await ac(`ac.store.getState().activate("t4"); return 1;`);
+await sleep(1000);
+check("⌘V with nothing focused, then another tab shown: nothing is pasted", (await pastesElsewhere("none")) === 0, `pastes ${await pastesElsewhere("none")}`);
 await press(cmd("q", 12), { focus: "window", wait: 0 });
 let quit = false;
 for (let i = 0; i < 150 && !quit; i++) {

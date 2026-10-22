@@ -5,7 +5,7 @@ import ExpoModulesCore
 public class AppModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaApp")
-    Constant("apiVersion") { () -> Int in 11 }
+    Constant("apiVersion") { () -> Int in 12 }
     Events("onNotificationResponse", "onScriptCommand")
 
     OnCreate {
@@ -411,6 +411,14 @@ public class AppModule: Module {
       KeyEquivalents.press(windowId: windowId, press) { promise.resolve($0) }
       #else
       promise.resolve(["error": "DEV builds only"])
+      #endif
+    }.runOnQueue(.main)
+
+    AsyncFunction("devFocusHandoffTrace") { () -> [String] in
+      #if DEBUG
+      return FocusHandoff.shared.trace
+      #else
+      return []
       #endif
     }.runOnQueue(.main)
 

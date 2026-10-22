@@ -146,9 +146,16 @@ public class ShellModule: Module {
       DispatchQueue.main.async { [weak self] in
         MenuTarget.shared.handler = { command, arg, windowId in
           if command == "closeTab", WindowManager.shared.closeForeignKeyWindow() { return }
-          self?.sendEvent("onCommand", ["command": command, "arg": arg as Any, "windowId": windowId as Any])
+          self?.sendEvent("onCommand", [
+            "command": command, "arg": arg as Any, "windowId": windowId as Any,
+            "focusGeneration": FocusHandoff.shared.takeBegun() as Any,
+          ])
         }
         WindowManager.shared.emit = { name, body in self?.sendEvent(name, body) }
+        FocusHandoff.shared.install()
+        if let queue = self?.appContext?.reactBridge?.uiManager.methodQueue {
+          FocusHandoff.shared.afterPendingUI = { block in queue.async { DispatchQueue.main.async(execute: block) } }
+        }
         LeftEdgeWatcher.shared.emit = { name, body in self?.sendEvent(name, body) }
         WindowManager.shared.runtime = self.map(ObjectIdentifier.init)
         NSApp.mainMenu = MainMenu.build()
@@ -355,6 +362,15 @@ public class ShellModule: Module {
         if let error { promise.reject("ERR_SAVE_DOCUMENT", error.localizedDescription) } else { promise.resolve(nil) }
       }
     }
+
+    AsyncFunction("cancelFocusMove") { (generation: Int, restoringSource: Bool) in
+      FocusHandoff.shared.cancel(generation, restoringSource: restoringSource)
+    }.runOnQueue(.main)
+
+    AsyncFunction("claimFocus") { [weak self] (generation: Int, tag: Int) in
+      guard let view = self?.appContext?.findView(withTag: tag, ofType: NSView.self) else { return }
+      FocusHandoff.shared.claim(generation, destination: view)
+    }.runOnQueue(.main)
 
     AsyncFunction("setSwitcherCapture") { [weak self] (active: Bool) in
       guard let self else { return }

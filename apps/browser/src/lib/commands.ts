@@ -46,6 +46,7 @@ import { openProfileMenu } from "../components/ProfileIndicator";
 import { groupOf } from "../store/organize";
 import { isSmall, mainWindowFor, originalProfile } from "../store/small";
 import { closeLittleArdia, openInMainWindow, openLittleArdia } from "../components/littleArdia/actions";
+import { expectFocus, findFocus } from "./focusClaims";
 
 export function runCommand({ command, arg, windowId: requested }: CommandEvent) {
   const s = useBrowser.getState();
@@ -169,6 +170,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "copyUrlAsMarkdown":
       return page ? copyText(markdownLink(page.customTitle || page.title, page.url)) : undefined;
     case "findInPage":
+      if (page) expectFocus(windowId, findFocus(page.id));
       return page ? s.setFind(page.id, { open: true, replace: false, focusRequest: Date.now() }) : undefined;
     case "findAndReplace":
       return page ? s.setFind(page.id, { open: true, replace: true, focusRequest: Date.now() }) : undefined;

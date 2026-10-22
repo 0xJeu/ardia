@@ -612,6 +612,247 @@ final class WindowManager: NSObject, NSWindowDelegate {
 }
 
 
+final class FocusHandoff {
+  static let shared = FocusHandoff()
+  static let outgoingFocus = Notification.Name("ArdiaOutgoingFocus")
+  static let handoffEnded = Notification.Name("ArdiaFocusHandoffEnded")
+  static let editActions: Set<Selector> = [
+    #selector(NSText.cut(_:)), #selector(NSText.copy(_:)), #selector(NSText.paste(_:)), #selector(NSText.selectAll(_:)),
+    Selector(("pasteAndMatchStyle:")),
+  ]
+
+  private final class Generation {
+    let id: Int
+    weak var destination: NSView?
+    var claimed = false
+    var actions: [Selector] = []
+    init(_ id: Int) { self.id = id }
+  }
+
+  private final class Gate {
+    weak var window: NSWindow?
+    weak var resigned: NSView?
+    var restoresSource = true
+    var deadline: CFTimeInterval = 0
+    var generations: [Generation] = []
+    var watches: [NSObjectProtocol] = []
+    init(_ window: NSWindow) { self.window = window }
+  }
+
+  private static let lifetime: CFTimeInterval = 0.4
+  private static let capacity = 8
+  private var gates: [ObjectIdentifier: Gate] = [:]
+  private var generations = 0
+  private var begun: Int?
+  private var monitor: Any?
+  private let editKeys = NSMapTable<NSEvent, NSArray>(keyOptions: .weakMemory, valueOptions: .strongMemory)
+  private var epochs: [Int: Int] = [:]
+  private(set) var trace: [String] = []
+  var afterPendingUI: (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) }
+
+  var gatesKeyWindow: Bool { NSApp.keyWindow.map { gates[ObjectIdentifier($0)] != nil } ?? false }
+
+  @discardableResult
+  func begin(in window: NSWindow) -> Int? {
+    guard window.isKeyWindow, WindowManager.shared.id(of: window) != nil else { return nil }
+    let focused = window.firstResponder
+    let existing = gates[ObjectIdentifier(window)]
+    guard existing != nil || Self.isPage(focused) else { return nil }
+    if Self.isPage(focused), let input = focused as? NSTextInputClient, input.hasMarkedText() { return nil }
+    let gate = existing ?? open(in: window)
+    if let page = focused as? NSView, Self.isPage(page) {
+      NotificationCenter.default.post(name: Self.outgoingFocus, object: page)
+      gate.resigned = page
+      window.makeFirstResponder(nil)
+    }
+    gate.generations.forEach { drop(&$0.actions) }
+    generations += 1
+    gate.generations.append(Generation(generations))
+    begun = generations
+    note("begin \(generations)")
+    return generations
+  }
+
+  func takeBegun() -> Int? {
+    defer { begun = nil }
+    return begun
+  }
+
+  func defers(_ action: Selector) -> Bool {
+    guard let window = NSApp.keyWindow, let gate = gates[ObjectIdentifier(window)], live(gate) else { return false }
+    note("defer \(action)")
+    guard let newest = gate.generations.last else {
+      settle(gate)
+      return false
+    }
+    if newest.actions.count < Self.capacity { newest.actions.append(action) } else { NSSound.beep() }
+    return true
+  }
+
+  func claim(_ id: Int, destination: NSView) {
+    note("claim \(id) \(type(of: destination))")
+    guard let gate = gate(of: id), live(gate), let newest = gate.generations.last, newest.id == id else { return }
+    newest.destination = destination
+    newest.claimed = true
+    deliverIfReady(gate)
+  }
+
+  func cancel(_ id: Int, restoringSource: Bool) {
+    note("cancel \(id) restoring=\(restoringSource)")
+    guard let gate = gate(of: id), let index = gate.generations.firstIndex(where: { $0.id == id }) else { return }
+    if !restoringSource { gate.restoresSource = false }
+    drop(&gate.generations[index].actions)
+    gate.generations.remove(at: index)
+    settle(gate)
+  }
+
+  func refusesUnhandledKey(_ event: NSEvent, in window: NSWindow) -> Bool {
+    guard let tag = editKeys.object(forKey: event) as? [Int], tag.count == 2 else { return false }
+    let current = [window.windowNumber, epochs[window.windowNumber] ?? 0]
+    guard tag != current || NSApp.keyWindow !== window else { return false }
+    NSSound.beep()
+    return true
+  }
+
+  func install() {
+    guard monitor == nil else { return }
+    monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+      guard let self, let window = event.window else { return event }
+      if event.type != .keyDown {
+        if let gate = self.gates[ObjectIdentifier(window)] { self.end(gate, restoring: false) }
+        return event
+      }
+      if Self.isEditKey(event) {
+        self.editKeys.setObject([window.windowNumber, self.epochs[window.windowNumber] ?? 0] as NSArray, forKey: event)
+      }
+      return event
+    }
+    NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] note in
+      guard let self, let window = note.object as? NSWindow else { return }
+      self.epochs[window.windowNumber, default: 0] += 1
+    }
+  }
+
+  func noteForwarded(_ action: Selector) { note("forward \(action)") }
+
+  private func open(in window: NSWindow) -> Gate {
+    let gate = Gate(window)
+    let key = ObjectIdentifier(window)
+    gates[key] = gate
+    gate.deadline = CACurrentMediaTime() + Self.lifetime
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.lifetime) { [weak self, weak gate] in
+      guard let self, let gate, self.gates[key] === gate else { return }
+      self.note("deadline")
+      self.end(gate, restoring: true)
+    }
+    gate.watches.append(window.observe(\.firstResponder) { [weak self, weak gate] _, _ in
+      DispatchQueue.main.async {
+        guard let self, let gate, self.gates[key] === gate else { return }
+        self.deliverIfReady(gate)
+      }
+    })
+    for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+      gate.watches.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self, weak gate] _ in
+        guard let self, let gate, self.gates[key] === gate else { return }
+        self.end(gate, restoring: false)
+      })
+    }
+    return gate
+  }
+
+  private func live(_ gate: Gate) -> Bool {
+    if CACurrentMediaTime() < gate.deadline { return true }
+    note("expired")
+    end(gate, restoring: true)
+    return false
+  }
+
+  private func settle(_ gate: Gate) {
+    if gate.generations.isEmpty || CACurrentMediaTime() >= gate.deadline { end(gate, restoring: true) }
+  }
+
+  private func deliverIfReady(_ gate: Gate) {
+    guard ready(gate) != nil else { return }
+    afterPendingUI { [weak self, weak gate] in
+      guard let self, let gate, let window = gate.window, self.gates[ObjectIdentifier(window)] === gate, self.live(gate),
+        let (newest, responder) = self.ready(gate) else { return }
+      let actions = newest.actions
+      newest.actions = []
+      self.close(gate)
+      self.deliver(actions, to: responder)
+    }
+  }
+
+  private func ready(_ gate: Gate) -> (Generation, NSView)? {
+    guard let window = gate.window, let newest = gate.generations.last, newest.claimed, let destination = newest.destination,
+      let responder = window.firstResponder as? NSView, responder === destination || responder.isDescendant(of: destination)
+    else { return nil }
+    return (newest, responder)
+  }
+
+  private func end(_ gate: Gate, restoring: Bool) {
+    note("end restoring=\(restoring && gate.restoresSource)")
+    for index in gate.generations.indices { drop(&gate.generations[index].actions) }
+    close(gate)
+    guard restoring, gate.restoresSource, let window = gate.window, Self.unfocused(window), let page = gate.resigned,
+      page.window === window, !page.isHiddenOrHasHiddenAncestor else { return }
+    window.makeFirstResponder(page)
+  }
+
+  private func close(_ gate: Gate) {
+    guard let window = gate.window else { return }
+    let key = ObjectIdentifier(window)
+    if gates[key] === gate { gates[key] = nil }
+    gate.watches.forEach { ($0 as? NSKeyValueObservation)?.invalidate() ?? NotificationCenter.default.removeObserver($0) }
+    gate.watches = []
+    if let resigned = gate.resigned { NotificationCenter.default.post(name: Self.handoffEnded, object: resigned) }
+  }
+
+  private func gate(of id: Int) -> Gate? {
+    gates.values.first { $0.generations.contains { $0.id == id } }
+  }
+
+  private func deliver(_ actions: [Selector], to responder: NSResponder) {
+    guard !actions.isEmpty else { return }
+    note("deliver \(actions) to \(type(of: responder))")
+    for action in actions {
+      var selector = action
+      if selector == Selector(("pasteAndMatchStyle:")), !responder.responds(to: selector) {
+        selector = #selector(NSTextView.pasteAsPlainText(_:))
+      }
+      NSApp.sendAction(selector, to: responder, from: nil)
+    }
+  }
+
+  private func drop(_ actions: inout [Selector]) {
+    guard !actions.isEmpty else { return }
+    note("drop \(actions)")
+    actions = []
+    NSSound.beep()
+  }
+
+  private func note(_ event: @autoclosure () -> String) {
+    #if DEBUG
+    let responder = NSApp.keyWindow?.firstResponder.map { String(describing: type(of: $0)) } ?? "nil"
+    trace.append(String(format: "%.1f ", CACurrentMediaTime() * 1000) + event() + " fr=" + responder)
+    if trace.count > 200 { trace.removeFirst(trace.count - 200) }
+    #endif
+  }
+
+  private static func isEditKey(_ event: NSEvent) -> Bool {
+    guard event.modifierFlags.contains(.command), !event.modifierFlags.contains(.control) else { return false }
+    return ["x", "c", "v", "a"].contains(event.charactersIgnoringModifiers?.lowercased() ?? "")
+  }
+
+  static func isPage(_ responder: NSResponder?) -> Bool {
+    responder.map { String(describing: type(of: $0)) == "RenderWidgetHostViewCocoa" } ?? false
+  }
+
+  private static func unfocused(_ window: NSWindow) -> Bool {
+    window.firstResponder == nil || window.firstResponder === window
+  }
+}
+
 final class DragPreview {
   static let shared = DragPreview()
 

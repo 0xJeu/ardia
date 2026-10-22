@@ -1,7 +1,7 @@
 import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { findNodeHandle, Pressable, Text, TextInput, View } from "react-native";
 import { useTheme } from "../lib/theme";
 import { journeyBarCommitted, journeyBarFocused, journeyKeystroke, journeyNavigate, journeySuggestions } from "../telemetry/journeys";
 import { sampleOmniboxLatency, trackSuggestionChosen } from "../telemetry/track";
@@ -11,6 +11,7 @@ import { activeTabId, viewTabIds } from "../store/model";
 import { defaultSearchEngine } from "../store/settings";
 import { runBarAction } from "./omnibox/actions";
 import { traceOmnibox, useOmniboxDriver } from "./omnibox/devDriver";
+import { claimFocusTag, commandBarFocus, heroBarFocus } from "../lib/focusClaims";
 import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarSnapshot } from "./omnibox/barState";
 import { dispositionFor, openFromBar, switchFromBar, type Disposition } from "./omnibox/open";
 import { openFromNewTabBar } from "./omnibox/newTabBar";
@@ -150,6 +151,7 @@ export function Omnibox({
     input.current?.setSelection(pendingSelection.start, pendingSelection.end);
     noteSelection(pendingSelection);
     setPendingSelection(null);
+    if (editing.current) claimFocusTag(windowId, hero ? heroBarFocus(tabId) : commandBarFocus, () => findNodeHandle(input.current));
   }, [pendingSelection]);
 
   const reset = () => {
@@ -354,6 +356,7 @@ export function Omnibox({
     focusField();
     const { start, end } = selection.current;
     input.current?.setSelection(start, end);
+    claimFocusTag(windowId, hero ? heroBarFocus(tabId) : commandBarFocus, () => findNodeHandle(input.current));
     journeyBarFocused(tabId);
   };
 

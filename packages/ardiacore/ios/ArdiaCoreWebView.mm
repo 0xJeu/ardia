@@ -502,6 +502,7 @@ static BOOL HeldSelector(SEL selector) {
   ACPageFocus _pageFocus;
   __weak NSView *_focusedDevTools;
   BOOL _focusOnActivate;
+  BOOL _keepsOutgoingFocus;
   CFTimeInterval _focusActivatedAt;
   __weak NSWindow *_focusActivatedIn;
 }
@@ -1413,12 +1414,45 @@ static BOOL InTabPage(NSView *view) {
   return NO;
 }
 
++ (void)installOutgoingFocusSnapshots {
+  static id snapshots, ends;
+  if (snapshots) return;
+  NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+  snapshots = [center addObserverForName:@"ArdiaOutgoingFocus" object:nil queue:nil usingBlock:^(NSNotification *note) {
+    if (ArdiaCoreWebView *view = [ArdiaCoreWebView holding:note.object]) {
+      [view storePageFocusFrom:note.object];
+      view->_keepsOutgoingFocus = YES;
+    }
+  }];
+  ends = [center addObserverForName:@"ArdiaFocusHandoffEnded" object:nil queue:nil usingBlock:^(NSNotification *note) {
+    if (ArdiaCoreWebView *view = [ArdiaCoreWebView holding:note.object]) view->_keepsOutgoingFocus = NO;
+  }];
+}
+
++ (ArdiaCoreWebView *)holding:(id)responder {
+  NSView *outgoing = [responder isKindOfClass:NSView.class] ? responder : nil;
+  for (ArdiaCoreWebView *view in LiveViews().allObjects)
+    if (outgoing && view.window == outgoing.window && [outgoing isDescendantOf:view]) return view;
+  return nil;
+}
+
 - (void)storePageFocus {
+  NSResponder *responder = self.window.firstResponder;
+  const BOOL unfocused = !responder || responder == self.window;
+  const BOOL snapshotted = _keepsOutgoingFocus;
+  _keepsOutgoingFocus = NO;
+  if (snapshotted && unfocused) {
+    _focusOnActivate = NO;
+    return;
+  }
+  [self storePageFocusFrom:responder];
+}
+
+- (void)storePageFocusFrom:(NSResponder *)responder {
   _focusOnActivate = NO;
   _focusedDevTools = nil;
   NSWindow *window = self.window;
   if (!window || !_tab) return;
-  NSResponder *responder = window.firstResponder;
   NSView *view = [responder isKindOfClass:NSView.class] ? (NSView *)responder : nil;
   if (view && _tab.view && [view isDescendantOf:_tab.view]) {
     _pageFocus = ACPageFocus::Page;

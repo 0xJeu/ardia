@@ -1,5 +1,7 @@
 import { onDownload, releaseProfile } from "@ardia/ardiacore";
 import {
+  cancelFocusMove,
+  claimFocus,
   closeWindow,
   isDarkAppearance,
   onAppEvent,
@@ -32,6 +34,8 @@ import { windowOpens } from "./windowOpenOrder";
 import { openExternalUrls } from "../components/littleArdia/actions";
 import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
 import { runCommand } from "./commands";
+import { setFocusSenders } from "./focusClaims";
+import { cancelAbandonedFocusMoves, settlingCommandFocus } from "./focusHandoff";
 import { flushPersistence, resumePersistence } from "./persist";
 import { startWindowCloseGuard } from "./windowClose";
 import { startExtensionsBridge } from "../components/extensions/bridge";
@@ -44,7 +48,9 @@ export function startNativeSync() {
   const store = useBrowser;
   if (!store.getState().windowOrder.length) store.getState().createWindow();
 
-  onCommand(runCommand);
+  setFocusSenders(claimFocus, cancelFocusMove);
+  cancelAbandonedFocusMoves();
+  onCommand((e) => settlingCommandFocus(e, runCommand));
   startWindowCloseGuard();
   startExtensionsBridge();
   onOpenURLs((urls) => openExternalUrls(urls));

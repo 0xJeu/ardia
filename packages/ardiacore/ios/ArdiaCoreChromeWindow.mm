@@ -14,6 +14,7 @@
 namespace {
 
 BOOL (^gShouldClose)(NSWindow *);
+BOOL (^gRefusesUnhandledKey)(NSWindow *, NSEvent *);
 void (^gSwapped)(NSWindow *, NSWindow *);
 
 NSMapTable<NSWindow *, ArdiaCoreWindowController *> *Controllers() {
@@ -1272,7 +1273,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
     }
     [target emit:@"command" payload:@{@"command" : @"escape", @"text" : @""}];
   }
-  return NO;
+  return gRefusesUnhandledKey && gRefusesUnhandledKey(window.window, event);
 }
 
 @end
@@ -1588,6 +1589,14 @@ NSView *ACWindowRootView(NSWindow *window) {
 
 + (BOOL)windowShouldClose:(NSWindow *)window {
   return gShouldClose ? gShouldClose(window) : YES;
+}
+
++ (void)setRefusesUnhandledKeyHandler:(BOOL (^)(NSWindow *, NSEvent *))handler {
+  gRefusesUnhandledKey = [handler copy];
+}
+
++ (BOOL (^)(NSWindow *, NSEvent *))refusesUnhandledKeyHandler {
+  return gRefusesUnhandledKey;
 }
 
 + (void)embedRootView:(NSView *)root inWindow:(NSWindow *)window {

@@ -41,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)setSearchEngineName:(NSString *)name;
 + (void)installScrollZoom;
 + (void)installSwitchPrewarm;
++ (void)installOutgoingFocusSnapshots;
 + (NSDictionary<NSString *, id> *)devSwitchPrewarm:(int)browserId at:(NSString *)where NS_SWIFT_NAME(devSwitchPrewarm(browserId:at:));
 + (NSArray<NSNumber *> *)devScrollZoom:(NSArray<NSDictionary<NSString *, id> *> *)steps
                                browser:(int)browserId NS_SWIFT_NAME(devScrollZoom(_:browserId:));

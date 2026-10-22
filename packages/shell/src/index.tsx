@@ -115,6 +115,7 @@ export type CommandEvent = {
   command: BrowserCommand;
   arg: string | null;
   windowId: string | null;
+  focusGeneration?: number | null;
 };
 
 export type WindowEvent =
@@ -217,6 +218,8 @@ const Shell = requireNativeModule<{
   showMenu(items: MenuItem[]): Promise<string | null>;
   copyText(text: string): void;
   setSwitcherCapture(active: boolean): Promise<void>;
+  cancelFocusMove(generation: number, restoringSource: boolean): Promise<void>;
+  claimFocus(generation: number, tag: number): Promise<void>;
   switcherPointerMoved?(): boolean;
   startDictation(): void;
   pickFiles(): Promise<string[]>;
@@ -255,6 +258,9 @@ export const removeDocument = (name: string) => Shell.removeDocument(name);
 
 export const startDictation = () => Shell.startDictation();
 export const setSwitcherCapture = (active: boolean) => void Shell.setSwitcherCapture(active);
+export const cancelFocusMove = (generation: number, restoringSource: boolean) =>
+  void Shell.cancelFocusMove(generation, restoringSource);
+export const claimFocus = (generation: number, tag: number) => void Shell.claimFocus(generation, tag);
 export const restartSwitcherPointer = () => Shell.setSwitcherCapture(true);
 export const switcherPointerMoved = () => Shell.switcherPointerMoved?.() ?? true;
 export const pickFiles = () => Shell.pickFiles();
