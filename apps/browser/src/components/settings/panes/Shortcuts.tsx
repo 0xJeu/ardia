@@ -6,7 +6,7 @@ import { useBrowser } from "../../../store/browser";
 import { openUrls } from "../../../lib/actions";
 import { IconButton, useHover } from "../../primitives";
 import { matchesQuery } from "../../pages/PageLayout";
-import { Button, Group, PopUp, Row, SearchField, SectionHeader, useFormColors } from "../controls";
+import { Anchor, Button, Group, PopUp, Row, SearchField, SectionHeader, useFormColors } from "../controls";
 import { shortcutItems } from "../paneData";
 import { useResource } from "../resources";
 
@@ -107,7 +107,7 @@ export function ShortcutsPane() {
       <Text style={{ marginTop: 20, fontSize: 12.5, lineHeight: 17, color: theme.textSecondary }}>
         Perform common actions in Ardia faster and from anywhere. Select an action to customize its keyboard shortcut.
       </Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 }}>
+      <Anchor id="shortcuts.actions" radius={8} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 }}>
         <SearchField value={query} onChangeText={setQuery} placeholder="Search actions" style={{ flex: 1 }} />
         <PopUp
           value={filter}
@@ -120,7 +120,7 @@ export function ShortcutsPane() {
           minWidth={170}
         />
         <Button title="Reset All Shortcuts" disabled={!customizedCount} onPress={() => useBrowser.getState().updateSettings({ shortcuts: {} })} />
-      </View>
+      </Anchor>
       {items !== null && shown.length === 0 && (
         <Text style={{ marginTop: 30, textAlign: "center", fontSize: 13, color: theme.textTertiary }}>No matching actions</Text>
       )}
@@ -166,7 +166,7 @@ export function ShortcutsPane() {
         <>
           <SectionHeader title="Extensions" />
           <Group>
-            <Row title="Extension shortcuts" description="Shortcuts that extensions add, like opening their popup.">
+            <Row anchor="shortcuts.extensionShortcuts">
               <Button title="Edit…" onPress={() => openUrls(["chrome://extensions/shortcuts"])} />
             </Row>
           </Group>

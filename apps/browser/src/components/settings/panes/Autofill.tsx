@@ -51,16 +51,16 @@ export function AutofillPane({ profileId: initial }: { profileId?: string | null
         }
       />
       <Group>
-        <Row title="Save and fill addresses" description="Names, addresses, email addresses and phone numbers.">
+        <Row anchor="autofill.addresses">
           <Toggle value={enabled?.addresses ?? true} disabled={!enabled} onChange={(v) => toggle("addresses", v)} />
         </Row>
-        <Row title="Save and fill credit cards" description="Filling in or showing a card number asks for Touch ID or your password.">
+        <Row anchor="autofill.cards">
           <Toggle value={enabled?.cards ?? true} disabled={!enabled} onChange={(v) => toggle("cards", v)} />
         </Row>
       </Group>
 
       <SectionHeader
-        title="Addresses"
+        anchor="autofill.addressList"
         action={<Button title="Add Address…" onPress={() => showSettingsSheet(<AddressSheet profile={profile} onChanged={load} />)} />}
       />
       <Group>
@@ -80,7 +80,7 @@ export function AutofillPane({ profileId: initial }: { profileId?: string | null
       </Group>
 
       <SectionHeader
-        title="Credit Cards"
+        anchor="autofill.cardList"
         action={<Button title="Add Card…" onPress={() => showSettingsSheet(<CardSheet profile={profile} onChanged={load} />)} />}
       />
       <Group>

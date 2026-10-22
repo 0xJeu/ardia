@@ -43,7 +43,7 @@ export function ProfilesPane() {
 
       <SectionHeader title="New windows open with" />
       <Group>
-        <Row title="Default profile" description="Used for new windows. Links from other apps open in the profile you used last.">
+        <Row anchor="profiles.defaultProfile">
           <PopUp
             value={defaultId}
             options={profiles.map((p) => ({ value: p.id, title: p.name }))}
@@ -54,7 +54,7 @@ export function ProfilesPane() {
       </Group>
 
       <SectionHeader
-        title="Profiles"
+        anchor="profiles.list"
         description="Drag to reorder. ⌃1–⌃9 switch to the first nine."
         action={<Button title="Create Profile" icon="plus" onPress={() => void createProfile()} />}
       />

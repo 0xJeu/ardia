@@ -103,7 +103,7 @@ function compare({ first, settled }) {
   return problems;
 }
 
-const SEARCH = (query, id) => `
+const SEARCH = (query, id, downs = 0) => `
 const s = ac.settingsSearch;
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -111,7 +111,7 @@ const until = (test, ms) => { const end = Date.now() + ms; const loop = () => (t
 ac.openSettings("general");
 const before = s.useSettingsSearch.getState().focusRequest;
 return wait(400)
-  .then(() => ac.shell.devKeyEquivalent("settings", { key: "f", keyCode: 3, modifiers: ["command"] }))
+  .then(() => ac.shell.devKeyEquivalent("settings", { key: "f", keyCode: 3, modifiers: ["command"], asKey: true }))
   .then(() => until(() => s.useSettingsSearch.getState().focusRequest !== before, 2000))
   .then((focused) => {
     if (!focused) throw new Error("⌘F didn't focus the search field");
@@ -121,8 +121,14 @@ return wait(400)
   .then((typed) => {
     if (!typed) throw new Error("typing didn't reach the search field: " + JSON.stringify(s.useSettingsSearch.getState().query));
     const results = s.settingsResults(${JSON.stringify(query)}).map((e) => e.id);
-    if (results[0] !== ${JSON.stringify(id)}) throw new Error("best match is " + results[0] + ", not ${id}");
-    return ac.shell.devTypeKeys("settings", "\\r", 15).then(() => until(() => !!s.useSettingsSearch.getState().flash?.id, 3000)).then(() => results);
+    if (results[${downs}] !== ${JSON.stringify(id)}) throw new Error("result ${downs + 1} is " + results[${downs}] + ", not ${id}");
+    const press = (key, keyCode) => ac.shell.devKeyEquivalent("settings", { key, keyCode, modifiers: [], send: true, asKey: true, wait: 30 });
+    const downs = Array.from({ length: ${downs} }).reduce((p) => p.then(() => press("\\uF701", 125)), Promise.resolve());
+    const asked = Date.now();
+    return downs
+      .then(() => press("\\r", 36))
+      .then(() => until(() => (s.useSettingsSearch.getState().flash?.at ?? 0) >= asked, 3000))
+      .then(() => results);
   })
   .then((results) => {
     const flash = s.useSettingsSearch.getState().flash;
@@ -130,7 +136,11 @@ return wait(400)
     const view = s.anchorView(${JSON.stringify(id)});
     return new Promise((r) => view.measureInWindow((x, y, w, h) => r([x, y, w, h]))).then((frame) => ({ results, frame, nav: ac.settingsNav.getState().pane }));
   })
-  .then((out) => ac.shell.devTypeKeys("settings", "\\u001b", 15).then(() => wait(200)).then(() => ({ ...out, cleared: s.useSettingsSearch.getState().query === "" })));`;
+  .then((out) =>
+    ac.shell.devKeyEquivalent("settings", { key: "\\u001b", keyCode: 53, modifiers: [], send: true, asKey: true, wait: 30 })
+      .then(() => wait(200))
+      .then(() => ({ ...out, cleared: s.useSettingsSearch.getState().query === "" })),
+  );`;
 
 let app;
 try {
@@ -159,6 +169,16 @@ try {
     from = pane;
   }
 
+  for (const [query, id, downs] of [["cookies", "privacy.blockCookieBanners", 0], ["dark", "appearance.theme", 0], ["licenses", "advanced.licenses", 0], ["password", "passwords.offerToSave", 1]]) {
+    await rep.check(`search "${query}"${downs ? ` ↓×${downs}` : ""} opens ${id}`, async () => {
+      const out = await ac(SEARCH(query, id, downs));
+      const [, y, , h] = out.frame;
+      if (out.nav !== id.split(".")[0]) throw new Error(`opened ${out.nav}`);
+      if (!(y >= 52 && y + h <= 640)) throw new Error(`row isn't in view: y ${y}, height ${h}`);
+      if (!out.cleared) throw new Error("Escape didn't clear the field");
+      return `${out.results.length} results, row at y ${y}`;
+    });
+  }
 } catch (error) {
   rep.record("setup", { error });
 } finally {

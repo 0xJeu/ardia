@@ -92,7 +92,7 @@ function SyncOff({ info }: { info: FolderInfo | null }) {
       <Group style={{ marginTop: 18 }}>
         <Row
           icon={<SyncIcon on={false} />}
-          title="Sync"
+          anchor="sync.sync"
           description={
             status === "reset" && error
               ? error
@@ -113,7 +113,7 @@ function SyncOff({ info }: { info: FolderInfo | null }) {
             </>
           )}
         </Row>
-        <Row title="Sync folder" description={info ? folderLabel(info) : " "}>
+        <Row anchor="sync.folder" description={info ? folderLabel(info) : " "}>
           <Button title="Choose…" onPress={() => void chooseSyncFolder()} />
         </Row>
         {noICloud ? (
@@ -195,7 +195,7 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
   return (
     <>
       <Group style={{ marginTop: 18 }}>
-        <Row icon={<SyncIcon on={!locked} />} title="Sync" description={statusLine(status, lastSyncedAt, pending)}>
+        <Row icon={<SyncIcon on={!locked} />} anchor="sync.sync" description={statusLine(status, lastSyncedAt, pending)}>
           {locked ? (
             <Button title="Enter Recovery Phrase…" kind="primary" onPress={() => showPhraseEntry(info)} />
           ) : (
@@ -203,7 +203,7 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
           )}
           <Button title="Advanced…" onPress={() => void advanced()} />
         </Row>
-        <Row title="Sync folder" description={info ? folderLabel(info) : " "} />
+        <Row anchor="sync.folder" description={info ? folderLabel(info) : " "} />
       </Group>
       {error && status !== "updated" ? (
         <View style={{ flexDirection: "row", gap: 6, marginTop: 8, paddingHorizontal: 2 }}>

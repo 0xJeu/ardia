@@ -56,7 +56,7 @@ export function ExtensionsPane() {
   return (
     <View>
       <SectionHeader
-        title="Extensions"
+        anchor="extensions.installed"
         description="Add features to Ardia with extensions from the Chrome Web Store. Each profile has its own."
         action={
           profiles.length > 1 ? (
@@ -91,7 +91,7 @@ export function ExtensionsPane() {
 
       <SectionHeader title="Add extensions" />
       <Group>
-        <Row title="Chrome Web Store" description="Browse the store; its Add to Ardia button installs here.">
+        <Row anchor="extensions.webStore">
           <Button
             title="Open Web Store"
             onPress={() => {
@@ -100,13 +100,13 @@ export function ExtensionsPane() {
             }}
           />
         </Row>
-        <Row title="Add from a link" description="Paste a Chrome Web Store link or extension ID.">
+        <Row anchor="extensions.addLink">
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <TextField value={link} onChangeText={setLink} placeholder="chromewebstore.google.com/detail/…" onSubmit={addLink} style={{ width: 210 }} />
             <Button title="Add" disabled={!link.trim()} onPress={addLink} />
           </View>
         </Row>
-        <Row title="Load unpacked extension" description="For developers: load an extension folder with a manifest.json.">
+        <Row anchor="extensions.unpacked">
           <Button
             title="Choose Folder…"
             onPress={() => {

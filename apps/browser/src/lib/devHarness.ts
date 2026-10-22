@@ -70,6 +70,12 @@ export function startDevHarness() {
     get hoverShift(): typeof import("./hoverShift") {
       return require("./hoverShift");
     },
+    get settingsSearch(): typeof import("../components/settings/searchState") & typeof import("../components/settings/SettingsSearch") {
+      return { ...require("../components/settings/searchState"), ...require("../components/settings/SettingsSearch") };
+    },
+    get settingsNav(): typeof import("../components/settings/windows").useSettingsNav {
+      return require("../components/settings/windows").useSettingsNav;
+    },
     get preload(): typeof import("./preload") {
       return require("./preload");
     },

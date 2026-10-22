@@ -23,7 +23,7 @@ export function AppearancePane() {
   };
   return (
     <View>
-      <SectionHeader title="Appearance Theme" description="Also in View › Appearance. Incognito windows are always dark." />
+      <SectionHeader anchor="appearance.theme" description="Also in View › Appearance. Incognito windows are always dark." />
       <View style={{ flexDirection: "row", gap: 14 }}>
         {MODES.map((m) => (
           <ModeChoice key={m.value} mode={m.value} title={m.title} description={m.description} selected={appearance === m.value} onPress={() => choose(m.value)} />
@@ -42,7 +42,7 @@ function AddressBarPicker() {
   return (
     <>
       <SectionHeader
-        title="Address Bar"
+        anchor="appearance.addressBar"
         description={
           topTabs
             ? "Tabs are across the top of the window, so the address bar stays in the toolbar. Also in View › Show Address Bar in Sidebar."
@@ -113,7 +113,7 @@ function AppIconPicker() {
   };
   return (
     <>
-      <SectionHeader title="App Icon" description="Shown in the Dock and the app switcher. The Dock keeps it after you quit." />
+      <SectionHeader anchor="appearance.appIcon" description="Shown in the Dock and the app switcher. The Dock keeps it after you quit." />
       <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 6, rowGap: 10 }}>
         {icons.map((icon) => (
           <IconChoice key={icon.id} icon={icon} selected={icon.id === current} onPress={() => choose(icon.id)} />

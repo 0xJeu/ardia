@@ -104,16 +104,16 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
         }
       />
       <Group>
-        <Row title="Offer to save and fill passwords" description="Offers to save a login after you sign in, and suggests saved ones when you click a login field.">
+        <Row anchor="passwords.offerToSave">
           <Toggle value={autofill} onChange={(v) => void setPasswordAutofill(v, profile).then(() => store(passwordAutofill, [profile], v))} />
         </Row>
-        <Row title="Import passwords" description={importStatus || "From a CSV exported by Chrome, Safari, Firefox, 1Password, Bitwarden…"}>
+        <Row anchor="passwords.importPasswords" description={importStatus || "From a CSV exported by Chrome, Safari, Firefox, 1Password, Bitwarden…"}>
           <Button title="Import CSV…" onPress={() => void importCsv()} />
         </Row>
-        <Row title="Export passwords" description={exportStatus || "To a CSV file. Anyone who can open the file can read your passwords."}>
+        <Row anchor="passwords.exportPasswords" description={exportStatus || "To a CSV file. Anyone who can open the file can read your passwords."}>
           <Button title="Export CSV…" onPress={() => void exportCsv()} />
         </Row>
-        <Row title="Password manager apps" description={passwordManagerAppsNote()} />
+        <Row anchor="passwords.managerApps" description={passwordManagerAppsNote()} />
       </Group>
 
       {!unlocked ? (

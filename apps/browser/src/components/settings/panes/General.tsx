@@ -13,7 +13,7 @@ import { AppState, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { SHARING_COPY } from "../../../telemetry/copy";
-import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { Anchor, Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
 import { defaultBrowser, loginItem, updater } from "../paneData";
 import { store, useResource } from "../resources";
 import { openImport } from "../windows";
@@ -32,7 +32,7 @@ export function GeneralPane() {
       <SectionHeader title="General" />
       <Group>
         <Row
-          title={`Open ${APP} at login`}
+          anchor="general.openAtLogin"
           description={loginStatus === "requiresApproval" ? "Allow it in System Settings › General › Login Items." : undefined}
         >
           <Toggle
@@ -40,14 +40,14 @@ export function GeneralPane() {
             onChange={(on) => void setLaunchAtLogin(on).catch(() => {}).finally(refreshLogin)}
           />
         </Row>
-        <Row title="Warn before quitting" description={`Asks before ${APP} quits with ⌘Q.`}>
+        <Row anchor="general.warnBeforeQuitting">
           <Toggle value={settings.warnBeforeQuitting} onChange={(v) => update({ warnBeforeQuitting: v })} />
         </Row>
-        <Row title="Warn before closing a window with multiple tabs" description="Asks before ⇧⌘W or the close button closes its tabs.">
+        <Row anchor="general.warnBeforeClosingWindow">
           <Toggle value={settings.warnBeforeClosingWindow} onChange={(v) => update({ warnBeforeClosingWindow: v })} />
         </Row>
         <Row
-          title="Open links from other apps in"
+          anchor="general.openLinksFrom"
           description={
             settings.openLinksInLittleArdia
               ? `A link from Discord, Slack or Mail opens in Little Ardia, a small window of its own. ⌘O moves it into ${APP}; closing it throws it away.`
@@ -68,7 +68,7 @@ export function GeneralPane() {
 
       <SectionHeader title={`When quitting ${APP}:`} />
       <Group>
-        <Row title="Windows and tabs" description="What you see the next time you open it. Closed windows stay in History › Recently Closed.">
+        <Row anchor="general.windowsAndTabs">
           <PopUp
             value={settings.restoreSession ? "keep" : "close"}
             options={[
@@ -83,7 +83,7 @@ export function GeneralPane() {
 
       <SectionHeader title="Command bar" description="What happens when what you type could be a website or a search." />
       <Group>
-        <Row title="When input looks like a website">
+        <Row anchor="general.commandBarPreference">
           <PopUp
             value={settings.commandBarPreference}
             options={[
@@ -100,7 +100,7 @@ export function GeneralPane() {
 
       <SectionHeader title="Import" />
       <Group>
-        <Row title="Import from another browser" description="Bookmarks, history, passwords, tabs and Arc spaces from Chrome, Arc, Safari, Firefox and more.">
+        <Row anchor="general.importBrowser">
           <Button title="Import…" onPress={openImport} />
         </Row>
       </Group>
@@ -130,10 +130,10 @@ function UpdatesSection() {
     <>
       <SectionHeader title="Updates" description={ready ? undefined : "Updates aren't set up for this build."} />
       <Group>
-        <Row title="Check for updates automatically" description={`${SHARING_COPY.updateChecks} ${SHARING_COPY.switchFile}`}>
+        <Row anchor="general.updateChecks" description={`${SHARING_COPY.updateChecks} ${SHARING_COPY.switchFile}`}>
           <Toggle value={ready && state.automaticChecks} disabled={!ready} onChange={(v) => set({ automaticChecks: v })} />
         </Row>
-        <Row title={`Automatically update ${APP}`} description="Downloads updates in the background and installs them the next time it restarts.">
+        <Row anchor="general.autoUpdate">
           <Toggle
             value={ready && state.automaticChecks && state.automaticDownloads}
             disabled={!ready || !state.automaticChecks}
@@ -141,7 +141,7 @@ function UpdatesSection() {
           />
         </Row>
         {state.channel && (
-          <Row title="Update channel" description="Nightly gets every fix first. Switching back to Stable never downgrades.">
+          <Row anchor="general.updateChannel">
             <PopUp
               value={state.channel}
               options={[
@@ -154,7 +154,7 @@ function UpdatesSection() {
             />
           </Row>
         )}
-        <Row title={`${APP} ${state.displayVersion ?? state.version}`} description={ready ? lastCheck : undefined}>
+        <Row anchor="general.checkNow" title={`${APP} ${state.displayVersion ?? state.version}`} description={ready ? lastCheck : undefined}>
           <Button title="Check Now" disabled={ready && (!state.canCheck || state.sessionInProgress)} onPress={() => void checkForUpdates().finally(refresh)} />
         </Row>
       </Group>
@@ -171,7 +171,9 @@ function DefaultBrowserBanner() {
     return () => sub.remove();
   }, []);
   return (
-    <View
+    <Anchor
+      id="general.defaultBrowser"
+      radius={12}
       style={{
         marginTop: 20,
         padding: 14,
@@ -194,6 +196,6 @@ function DefaultBrowserBanner() {
         {isDefault ? `${APP} is your default browser` : `${APP} works best as your default browser`}
       </Text>
       {!isDefault && <Button title={`Set ${APP} as Default`} kind="primary" onPress={() => void setAsDefaultBrowser().then((v) => store(defaultBrowser, [], v))} />}
-    </View>
+    </Anchor>
   );
 }

@@ -24,7 +24,8 @@ import {
 import { bookmarkActivePage, bookmarkAllTabs } from "../components/bookmarks/actions";
 import { useClearDataRequest } from "../components/pages/ClearDataDialog";
 import { openInternalPage } from "../components/pages/urls";
-import { isUtilityWindowId, openImport, openSettings } from "../components/settings/windows";
+import { isUtilityWindowId, openImport, openSettings, SETTINGS_WINDOW_ID } from "../components/settings/windows";
+import { focusSettingsSearch } from "../components/settings/searchState";
 import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barState";
 import { closeNewTabBar, isEmptyCardTab, showNewTabBar, toggleNewTabBar } from "../components/omnibox/newTabBar";
 import { NEW_TAB_BAR_POLICY } from "../store/newTabBar";
@@ -51,6 +52,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
 
   if (isUtilityWindowId(requested)) {
     if (command === "closeTab") return void closeNativeWindow(requested!);
+    if (command === "findInPage" && requested === SETTINGS_WINDOW_ID) return focusSettingsSearch();
     requested = null;
   }
   if (isSmall(s, requested) && runLittleArdiaCommand(command, requested!)) return;

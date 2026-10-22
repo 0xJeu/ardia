@@ -30,10 +30,10 @@ import { useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../sheet";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 
-const CATEGORIES: { id: FilterListCategory; toggle: string; section: string }[] = [
-  { id: "ads", toggle: "Block ads", section: "Ad blockers" },
-  { id: "trackers", toggle: "Block trackers", section: "Trackers" },
-  { id: "cookies", toggle: "Block cookie banners", section: "Cookie banners" },
+const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: string }[] = [
+  { id: "ads", toggle: "Block ads", section: "Ad blockers", anchor: "privacy.blockAds" },
+  { id: "trackers", toggle: "Block trackers", section: "Trackers", anchor: "privacy.blockTrackers" },
+  { id: "cookies", toggle: "Block cookie banners", section: "Cookie banners", anchor: "privacy.blockCookieBanners" },
   { id: "annoyances", toggle: "", section: "Annoyances" },
   { id: "security", toggle: "", section: "Malware and scams" },
   { id: "regional", toggle: "", section: "Regional blockers" },
@@ -88,11 +88,11 @@ export function PrivacyPane() {
       <SectionHeader title="Content blocking" description="Built on EasyList and EasyPrivacy. Blocking happens on this Mac." />
       <Group>
         {CATEGORIES.filter((c) => c.toggle).map((c) => (
-          <Row key={c.id} title={c.toggle}>
+          <Row key={c.id} anchor={c.anchor} title={c.toggle}>
             <Toggle value={!!blocker && categoryOn(blocker, c.id)} disabled={!blocker} onChange={(v) => void toggleCategory(c.id, v)} />
           </Row>
         ))}
-        <Row title="Advanced Settings" description="Block common components found across the web by using additional rules and filters.">
+        <Row anchor="privacy.filterLists">
           <Button title="Advanced…" disabled={!blocker} onPress={() => showSettingsSheet(<FilterListsSheet />)} />
         </Row>
       </Group>
@@ -236,7 +236,7 @@ function SitePermissions() {
   return (
     <>
       <SectionHeader
-        title="Site permissions"
+        anchor="privacy.sitePermissions"
         description="Pop-ups, camera, location and other permissions you've set for sites."
         action={
           profiles.length > 1 ? (
@@ -274,7 +274,7 @@ function AppLinks() {
   return (
     <>
       <SectionHeader
-        title="Apps allowed to open links"
+        anchor="privacy.appLinks"
         description="Sites that open another app without asking first."
         action={
           profiles.length > 1 ? (

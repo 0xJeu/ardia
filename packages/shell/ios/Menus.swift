@@ -220,6 +220,7 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
     if item.keyEquivalent == "\r", NSApp.keyWindow?.firstResponder is NSText { return false }
     if item.keyEquivalent == MainMenu.leftArrow || item.keyEquivalent == MainMenu.rightArrow,
        item.keyEquivalentModifierMask == .command, NSApp.keyWindow?.firstResponder is NSText { return false }
+    if item.command == "findInPage", WindowManager.shared.keyWindowId == "settings" { return true }
     return !state.disabled.contains(item.stateKey) && !state.disabled.contains(item.command)
   }
 

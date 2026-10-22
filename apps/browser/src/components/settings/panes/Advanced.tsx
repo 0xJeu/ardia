@@ -31,20 +31,20 @@ export function AdvancedPane() {
     <View>
       <SectionHeader title="Browsing" />
       <Group>
-        <Row title="Show full URL in the address bar" description="Instead of the site alone.">
+        <Row anchor="advanced.showFullUrl">
           <Toggle value={settings.showFullUrl} onChange={(v) => update({ showFullUrl: v })} />
         </Row>
-        <Row title="Warn before moving tabs between profiles" description="Some site data doesn't come along.">
+        <Row anchor="advanced.warnMovingTabs">
           <Toggle value={settings.warnBeforeMovingTabsToProfile} onChange={(v) => update({ warnBeforeMovingTabsToProfile: v })} />
         </Row>
-        <Row title="Show the Import bookmarks button" description="On an empty bookmarks bar.">
+        <Row anchor="advanced.bookmarksImport">
           <Toggle value={!settings.hideBookmarksBarImport} onChange={(v) => update({ hideBookmarksBarImport: !v })} />
         </Row>
       </Group>
 
       <SectionHeader title="Performance" />
       <Group>
-        <Row title="Battery Saver" description={BATTERY_SAVER_DESCRIPTIONS[settings.batterySaverWhen]}>
+        <Row anchor="advanced.batterySaver" description={BATTERY_SAVER_DESCRIPTIONS[settings.batterySaverWhen]}>
           <PopUp
             value={settings.batterySaverWhen}
             options={[
@@ -60,10 +60,10 @@ export function AdvancedPane() {
 
       <SectionHeader title="Data" />
       <Group>
-        <Row title="History" description="Every page you visited, by day.">
+        <Row anchor="advanced.history">
           <Button title="Show History" onPress={() => openInternalPage("history")} />
         </Row>
-        <Row title="Downloads" description="Files you downloaded, with where they're saved.">
+        <Row anchor="advanced.downloads">
           <Button title="Show Downloads" onPress={() => openInternalPage("downloads")} />
         </Row>
       </Group>
@@ -72,13 +72,13 @@ export function AdvancedPane() {
 
       <SectionHeader title="Web engine" />
       <Group>
-        <Row title="Chromium" description={info ? "ArdiaCore" : undefined}>
+        <Row anchor="advanced.chromium" description={info ? "ArdiaCore" : undefined}>
           <Text selectable style={{ fontSize: 13, color: theme.textSecondary }}>
             {info?.chromiumVersion ?? "…"}
           </Text>
         </Row>
         <Row
-          title="Widevine (protected video)"
+          anchor="advanced.widevine"
           description={
             widevine === undefined
               ? "Checking…"
@@ -91,10 +91,10 @@ export function AdvancedPane() {
 
       <SectionHeader title="Source and licenses" />
       <Group>
-        <Row title="Source code" description={SOURCE_NOTICE}>
+        <Row anchor="advanced.source" description={SOURCE_NOTICE}>
           <Button title="Show on GitHub" onPress={() => openUrls([`${REPOSITORY}/tree/v${systemInfo().appVersion}`])} />
         </Row>
-        <Row title="Licenses" description="Every open-source part of the engine, with its copyright and license.">
+        <Row anchor="advanced.licenses">
           <Button title="Show Licenses" onPress={() => openUrls(["chrome://credits"])} />
         </Row>
       </Group>
@@ -123,11 +123,11 @@ function CommandLineSection() {
     <>
       <SectionHeader title="Command line" />
       <Group>
-        <Row title="Let the ardia command control Ardia" description={serverNote}>
+        <Row anchor="advanced.cliControl" description={serverNote}>
           <Toggle value={on} onChange={(v) => update({ cliControl: v })} />
         </Row>
         <Row
-          title="The ardia command"
+          anchor="advanced.cliInstall"
           description={
             <Text selectable style={{ fontSize: 11.5, marginTop: 2, lineHeight: 15, color: cli.error && !cli.installing ? colors.destructive : theme.textSecondary }}>
               {describeCliInstall(cli)}
