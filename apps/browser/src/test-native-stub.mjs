@@ -1,6 +1,8 @@
 export const docs = new Map();
 export const readDocument = (name) => docs.get(name) ?? null;
 export const writeDocument = (name, contents) => docs.set(name, contents);
+export const bangListServer = { reply: null };
+export const fetchBangList = (etag) => (bangListServer.reply ? bangListServer.reply(etag) : null);
 export const heldSaves = { on: false, queue: [] };
 export const saveDocument = (name, contents) =>
   new Promise((resolve) => {

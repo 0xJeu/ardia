@@ -1,21 +1,18 @@
-import { bangTable, joinBangTables, slimBangs, type BangTable } from "@ardia/core";
-import { readDocument, writeDocument } from "@ardia/shell";
+import { bangDocument, bangTable, checkedBangTable, findBang, joinBangTables, readBangDocument, slimBangs, type BangTable } from "@ardia/core";
+import { fetchBangList, readDocument, saveDocument, writeDocument } from "@ardia/shell";
 import { useEffect, useSyncExternalStore } from "react";
 import { loadBundledBangs, refreshesBangs } from "./bangPlatform";
 
-export const BANGS_URL = "https://services.helium.imput.net/bangs.json";
 const LIST_DOC = "bangs.txt";
 const STATE_DOC = "bangs-state.json";
 const REFRESH_EVERY_MS = 86_400_000;
-const FETCH_TIMEOUT_MS = 30_000;
-const MAX_BYTES = 5_000_000;
-const MIN_TRIGGERS = 1000;
 
-type RefreshState = { etag: string | null; checkedAt: number };
+type RefreshState = { checkedAt: number };
 export type BangRefresh = { at: number; status: number | "skipped" | "failed"; result: "updated" | "unchanged" | "failed" | "fresh" };
 
 let table: BangTable | null = null;
 let tableSource: "bundled" | "stored" | "fetched" | null = null;
+let storedEtag: string | null = null;
 let loading: Promise<BangTable> | null = null;
 let refreshing: Promise<BangRefresh> | null = null;
 const refreshes: BangRefresh[] = [];
@@ -30,8 +27,7 @@ function setTable(next: BangTable, source: NonNullable<typeof tableSource>) {
 function readState(): RefreshState | null {
   try {
     const state = JSON.parse(readDocument(STATE_DOC) ?? "null") as Partial<RefreshState> | null;
-    if (!state || typeof state.checkedAt !== "number") return null;
-    return { etag: typeof state.etag === "string" ? state.etag : null, checkedAt: state.checkedAt };
+    return state && typeof state.checkedAt === "number" ? { checkedAt: state.checkedAt } : null;
   } catch {
     return null;
   }
@@ -43,11 +39,9 @@ function writeState(state: RefreshState) {
   } catch {}
 }
 
-function storedTable(): BangTable | null {
+function storedList(): { etag: string | null; table: BangTable } | null {
   try {
-    const text = readDocument(LIST_DOC);
-    const stored = text ? bangTable(text) : null;
-    return stored && stored.size >= MIN_TRIGGERS ? stored : null;
+    return readBangDocument(readDocument(LIST_DOC));
   } catch {
     return null;
   }
@@ -56,9 +50,12 @@ function storedTable(): BangTable | null {
 export function loadBangs(): Promise<BangTable> {
   if (table) return Promise.resolve(table);
   return (loading ??= (async () => {
-    const stored = storedTable();
+    const stored = storedList();
     if (stored) {
-      if (!table) setTable(stored, "stored");
+      if (!table) {
+        storedEtag = stored.etag;
+        setTable(stored.table, "stored");
+      }
       return table!;
     }
     const { BANG_LIST, BANG_LIST_UNICODE } = await loadBundledBangs();
@@ -70,6 +67,14 @@ export function loadBangs(): Promise<BangTable> {
 export function bangsFor(text: string): BangTable | null {
   if (!table && text.includes("!")) void loadBangs();
   return table;
+}
+
+export function resolveTypedBang(text: string): Promise<string | null> {
+  if (!text.includes("!")) return Promise.resolve(null);
+  return loadBangs().then(
+    (loaded) => findBang(text, loaded)?.url ?? null,
+    () => null,
+  );
 }
 
 const subscribe = (listener: () => void) => {
@@ -92,7 +97,7 @@ export function refreshBangsOnce(): Promise<BangRefresh> {
   return (refreshing ??= refreshBangs());
 }
 
-export async function refreshBangs(fetchFn: typeof fetch = fetch): Promise<BangRefresh> {
+export async function refreshBangs(): Promise<BangRefresh> {
   const now = Date.now();
   const note = (status: BangRefresh["status"], result: BangRefresh["result"]): BangRefresh => {
     const entry = { at: now, status, result };
@@ -102,41 +107,34 @@ export async function refreshBangs(fetchFn: typeof fetch = fetch): Promise<BangR
   if (!refreshesBangs) return note("skipped", "fresh");
   const stored = readState();
   if (stored && now >= stored.checkedAt && now - stored.checkedAt < REFRESH_EVERY_MS) return note("skipped", "fresh");
-  writeState({ etag: stored?.etag ?? null, checkedAt: now });
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), FETCH_TIMEOUT_MS);
   try {
     await loadBangs();
-    const etag = tableSource === "bundled" ? (await loadBundledBangs()).BANG_LIST_ETAG : stored?.etag;
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (etag) headers["If-None-Match"] = etag;
-    const response = await fetchFn(BANGS_URL, { method: "GET", credentials: "omit", headers, signal: abort.signal });
-    if (response.status === 304) {
-      writeState({ etag: etag ?? null, checkedAt: now });
-      return note(304, "unchanged");
-    }
-    if (!response.ok || !/json/i.test(response.headers.get("content-type") ?? "")) return note(response.status, "failed");
-    const body = await response.text();
-    if (body.length > MAX_BYTES) return note(response.status, "failed");
+    const etag = tableSource === "bundled" ? (await loadBundledBangs()).BANG_LIST_ETAG : storedEtag;
+    const request = fetchBangList(etag);
+    if (!request) return note("skipped", "fresh");
+    writeState({ checkedAt: now });
+    const reply = await request;
+    if (reply.status === 304) return note(304, "unchanged");
+    if (reply.status !== 200 || !reply.body || !/json/i.test(reply.contentType ?? "")) return note(reply.status, "failed");
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const slim = slimBangs(body);
-    if (!slim) return note(response.status, "failed");
-    writeDocument(LIST_DOC, slim);
-    writeState({ etag: response.headers.get("etag"), checkedAt: now });
-    setTable(bangTable(slim), "fetched");
-    return note(response.status, "updated");
+    const slim = slimBangs(reply.body);
+    const next = slim && checkedBangTable(slim);
+    if (!slim || !next) return note(reply.status, "failed");
+    await saveDocument(LIST_DOC, bangDocument(reply.etag, slim));
+    storedEtag = reply.etag;
+    setTable(next, "fetched");
+    return note(reply.status, "updated");
   } catch {
     return note("failed", "failed");
-  } finally {
-    clearTimeout(timer);
   }
 }
 
-export const bangStatus = () => ({ loaded: !!table, source: tableSource, size: table?.size ?? 0, refreshes: refreshes.slice(), state: readState() });
+export const bangStatus = () => ({ loaded: !!table, source: tableSource, size: table?.size ?? 0, etag: storedEtag, refreshes: refreshes.slice(), state: readState() });
 
 export function resetBangsForTests() {
   table = null;
   tableSource = null;
+  storedEtag = null;
   loading = null;
   refreshing = null;
   refreshes.length = 0;

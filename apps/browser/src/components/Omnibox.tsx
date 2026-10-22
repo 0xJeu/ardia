@@ -1,4 +1,4 @@
-import { bangUrl, displayUrl, asksForBackspace, findBang, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
+import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { findNodeHandle, Pressable, Text, TextInput, View } from "react-native";
@@ -10,7 +10,7 @@ import { useWindowId, useWindowProfileId } from "../store/hooks";
 import { activeTabId, viewTabIds } from "../store/model";
 import { defaultSearchEngine } from "../store/settings";
 import { runBarAction } from "./omnibox/actions";
-import { bangsFor } from "./omnibox/bangs";
+import { resolveTypedBang } from "./omnibox/bangs";
 import { traceOmnibox, useOmniboxDriver } from "./omnibox/devDriver";
 import { claimFocusTag, commandBarFocus, heroBarFocus } from "../lib/focusClaims";
 import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarDismissal, type BarSnapshot } from "./omnibox/barState";
@@ -174,13 +174,21 @@ export function Omnibox({
     if (disposition !== "current") dismiss();
   };
 
-  const choose = (s: Suggestion | undefined, disposition: Disposition = "current") => {
+  const choose = (s: Suggestion | undefined, disposition: Disposition = "current", byEnter = false) => {
     if (s || !scope) trackSuggestionChosen(s);
+    const typedSearch = !s || (byEnter && selectedIndex === 0 && s.kind === "search" && !s.bang && !s.suggested);
+    if (!scope && typedSearch) {
+      const text = edited ? value : initialText || value;
+      if (text.includes("!")) {
+        const fallback = s?.kind === "search" ? s.url : resolveInput(text, engine.url);
+        void resolveTypedBang(text).then((url) => go(url ?? fallback, disposition));
+        return;
+      }
+    }
     if (!s) {
       if (scope) return;
       const text = edited ? value : initialText || value;
-      const bang = findBang(text, bangsFor(text));
-      return go(bang ? bangUrl(bang) : resolveInput(text, engine.url), disposition);
+      return go(resolveInput(text, engine.url), disposition);
     }
     switch (s.kind) {
       case "page":
@@ -264,7 +272,7 @@ export function Omnibox({
       if (metaKey && shiftKey) return forceSearch();
       if (ctrlKey && !/[\s./:]/.test(typed.trim()) && typed.trim())
         return go(`https://www.${typed.trim()}.com`, shiftKey ? "newWindow" : "current");
-      if (metaKey || altKey || shiftKey) return choose(current, dispositionFor({ metaKey, altKey, shiftKey }));
+      if (metaKey || altKey || shiftKey) return choose(current, dispositionFor({ metaKey, altKey, shiftKey }), true);
     }
   };
 
@@ -339,7 +347,7 @@ export function Omnibox({
     clear: reset,
     key: (key, mods) => onKeyDown({ nativeEvent: { key, ...mods } }),
     select: (start, end) => noteSelection({ start, end }),
-    submit: () => choose(current),
+    submit: () => choose(current, "current", true),
     measure: () => new Promise((resolve) => root.current?.measureInWindow((x, y, width, height) => resolve({ x, y, width, height }))),
     state: () => ({ typed, value, selection: selection.current, completion: shownCompletion, suggested: completion, preventInline: suppressCompletion, selectionBefore: selectionBefore.current, selected: selectedIndex, scope, scopeFrom: scopeFrom.current, tabScope, items }),
   });
@@ -389,7 +397,7 @@ export function Omnibox({
       placeholderTextColor={theme.placeholder}
       selectionColor={theme.selection}
       enableFocusRing={false}
-      onSubmitEditing={() => choose(current)}
+      onSubmitEditing={() => choose(current, "current", true)}
       onFocus={() => {
         editing.current = true;
         setListAway(false);
@@ -415,7 +423,7 @@ export function Omnibox({
   latest.current = { choose, profileId, go, current, onCancel, tabId };
   const [barActions] = useState(() => ({
     go: (url: string) => latest.current.go(url),
-    choose: () => latest.current.choose(latest.current.current),
+    choose: () => latest.current.choose(latest.current.current, "current", true),
     dictate: () => {
       focusField();
       startDictation();

@@ -3931,7 +3931,6 @@ rstc rosettacode	RosettaCode.org	rosettacode.org/w/index.php?search={s}&title=Sp
 rsuk	RadioSpare UK	uk.rs-online.com/web/c/?sra=oss&r=t&searchTerm={s}
 rsza	RS Components South Africa	za.rs-online.com/web/c/?sra=oss&r=t&searchTerm={s}
 rtbf	RTBF Info	www.rtbf.be/info/recherche?q={s}
-rtfd	Read the Docs	{s}.rtfd.io/
 rtfr	Rakuten France	fr.shopping.rakuten.com/s/{s}
 rusr	Reddit Users	www.reddit.com/user/{s}/
 rust rustd rustdoc ruststd	RustDocs	doc.rust-lang.org/std/?search={s}
@@ -5767,7 +5766,6 @@ cvmcia	Consulta de Documentos de Companhias Abertas (CVM)	cvmweb.cvm.gov.br/SWB/
 cymath	Cymath	www.cymath.com/answer.php?q={s}
 daccaa	DACCAA	daccaa.com/results/?q={s}
 dafont	DaFont	www.dafont.com/search.php?psize=m&q={s}
-dauser	DeviantArt User	{s}.deviantart.com/
 dawiki	Dragon Age wiki	dragonage.fandom.com/wiki/Special:Search?query={s}
 dbbook	Douban (book)	book.douban.com/subject_search?search_text={s}&cat=1001
 dbread	read.douban	read.douban.com/search?q={s}
@@ -6666,7 +6664,6 @@ wmphab	Wikimedia Phabricator installation	phabricator.wikimedia.org/search/?quer
 wookie starwars	Wookiepedia	starwars.wikia.com/wiki/Special:Search?search={s}&go=&fulltext=Search
 worten	Worten	www.worten.es/?qs={s}
 wowtrk	WOW TRK	www.wowtrk.com/offers/?keyword={s}
-wpblog	WordPress.com	{s}.wordpress.com/
 wrdefr wrfrde	WordReference DE -> FR	www.wordreference.com/frde/{s}
 wrende	WordReference en->de	www.wordreference.com/ende/{s}
 wrenes	WordReference (enes)	www.wordreference.com/redirect/translation.aspx?w={s}&dict=enes
@@ -8042,7 +8039,6 @@ hsozkult	H-Soz-Kult	www.hsozkult.de/searching/page?q={s}
 html2txt	Html2Txt	www.w3.org/services/html2txt?url={s}
 huffpost huffingtonpost	Huffington Post	www.huffingtonpost.com/search?keywords={s}&sortBy=recency&sortOrder=desc
 hvnorman	Harvey Norman	www.harveynorman.com.au/catalogsearch/result/?q={s}
-hypestat	hypestat	www.{s}.hypestat.com/
 iarchive	archive.org	www.archive.org/search.php?query={s}
 iasutoya irasutoya	Irasutoya	www.irasutoya.com/search?q={s}
 identica	Identi.ca	identi.ca/search/people?q={s}&search=Search

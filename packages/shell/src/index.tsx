@@ -227,6 +227,7 @@ const Shell = requireNativeModule<{
   writeDocument(name: string, contents: string): void;
   saveDocument(name: string, contents: string): Promise<void>;
   removeDocument(name: string): void;
+  fetchBangList?(etag: string | null): Promise<BangListReply>;
   openWindow(id: string, options: OpenWindowOptions): Promise<void>;
   closeWindow(id: string): Promise<void>;
   focusWindow(id: string): Promise<void>;
@@ -255,6 +256,9 @@ export const readDocument = (name: string) => Shell.readDocument(name);
 export const writeDocument = (name: string, contents: string) => Shell.writeDocument(name, contents);
 export const saveDocument = (name: string, contents: string) => Shell.saveDocument(name, contents);
 export const removeDocument = (name: string) => Shell.removeDocument(name);
+
+export type BangListReply = { status: number; etag: string | null; contentType: string | null; body: string | null; bytes: number };
+export const fetchBangList = (etag: string | null): Promise<BangListReply> | null => Shell.fetchBangList?.(etag) ?? null;
 
 export const startDictation = () => Shell.startDictation();
 export const setSwitcherCapture = (active: boolean) => void Shell.setSwitcherCapture(active);

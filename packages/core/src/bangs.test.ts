@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BANG_LIST, BANG_LIST_UNICODE } from "./bangList.ts";
-import { bangTable, bangUrl, joinBangTables, escapeSearchTerms, fillBangTemplate, findBang, parseLooseJson, slimBangs } from "./bangs.ts";
+import { bangDocument, bangTable, checkedBangTable, escapeSearchTerms, fillBangTemplate, findBang, joinBangTables, parseLooseJson, readBangDocument, slimBangs, staysOnSite } from "./bangs.ts";
 import { buildSuggestions } from "./suggest.ts";
 
 const filler = Array.from({ length: 1000 }, (_, i) => ({ s: `Site ${i}`, ts: [`site${i}`], u: `https://site${i}.example/?q={searchTerms}` }));
@@ -23,13 +23,18 @@ const fixture = slimBangs(
     { s: "Microsoft Copilot", ts: ["copilot"], u: "https://copilot.microsoft.com/?q={searchTerms}" },
     { s: "DuckDuckGo AI Chat", ts: ["ddg-chat"], u: "https://duckduckgo.com/?q={searchTerms}&ia=chat&bang=true" },
     { s: "Not a web page", ts: ["ftp"], u: "ftp://example.com/{searchTerms}" },
+    { s: "Read the Docs", ts: ["rtfd"], u: "https://{searchTerms}.rtfd.io/" },
+    { s: "hypestat", ts: ["hypestat"], u: "https://www.{searchTerms}.hypestat.com/" },
+    { s: "No slash", ts: ["noslash"], u: "https://example.com{searchTerms}" },
+    { s: "Port", ts: ["port"], u: "https://example.com:{searchTerms}/" },
+    { s: "User", ts: ["user"], u: "https://{searchTerms}@example.com/" },
     { s: "Taken", ts: ["gh"], u: "https://taken.example/?q={searchTerms}" },
   ]),
 )!;
 const table = bangTable(fixture);
 const url = (text: string) => {
   const match = findBang(text, table);
-  return match && bangUrl(match);
+  return match && match.url;
 };
 
 test("a bang at the start or the end of the text picks the site, any case", () => {
@@ -77,6 +82,31 @@ test("terms in the path keep '/' and escape what would end the path, spaces as %
   assert.equal(fillBangTemplate("https://a.example/{searchTerms}/x?q={searchTerms}", "p q"), "https://a.example/p%20q/x?q=p%20q");
 });
 
+test("a template with the terms in its scheme, host, port or user is left out, so the query can't pick the host", () => {
+  for (const t of ["rtfd", "hypestat", "noslash", "port", "user"]) assert.equal(table.get(t), undefined, t);
+  for (const text of ["!rtfd evil.example/", "!hypestat @evil.example/", "!rtfd evil.example#", "!rtfd evil.example\\", "!hypestat //evil.example", "!rtfd evil.example%2F", "!rtfd", "!noslash @evil.example"]) {
+    assert.equal(findBang(text, table), null, text);
+  }
+  const stored = bangTable("rtfd\tRead the Docs\t{s}.rtfd.io/\nhs\thypestat\twww.{s}.hypestat.com/\nus\tUser\t{s}@example.com/");
+  for (const t of ["rtfd", "hs", "us"]) assert.equal(stored.get(t), undefined, t);
+});
+
+test("the resolved URL must keep the template's scheme, host and port", () => {
+  assert.ok(staysOnSite("https://github.com/search?q=a", "https://github.com/search?q={searchTerms}"));
+  assert.ok(staysOnSite("https://GitHub.com/a", "https://github.com/{searchTerms}"));
+  assert.ok(staysOnSite("https://github.com\\@evil.example/", "https://github.com/{searchTerms}"));
+  for (const url of ["https://github.com@evil.example/", "https://evil.example/github.com/", "http://github.com/a", "https://github.com:444/a", "https://github.com.evil.example/", "https://github.com/a\tb", "https://github.com/a\nb"]) {
+    assert.ok(!staysOnSite(url, "https://github.com/{searchTerms}"), url);
+  }
+  const sneaky = { size: 1, get: () => ({ trigger: "x", name: "X", template: "https://x.example{searchTerms}", home: "https://x.example/" }) };
+  assert.equal(findBang("!x @evil.example", sneaky), null);
+  assert.equal(findBang("!x", sneaky), null);
+});
+
+test("'?' forces a plain search even with a bang at either end", () => {
+  for (const text of ["?!gh react", "?!gh react !w", "? react !w", "  ?react !w"]) assert.equal(findBang(text, table), null, text);
+});
+
 test("templates that aren't web pages are left out; every other bang stays, and a trigger keeps its first site", () => {
   assert.equal(table.get("ftp"), undefined);
   assert.equal(table.get("t3")?.name, "T3 Chat");
@@ -89,6 +119,26 @@ test("Helium's file format: comments, trailing commas and '//' inside strings", 
   assert.deepEqual(parseLooseJson('["a\\\\", "b,]", "c\\"//"]'), ["a\\", "b,]", 'c"//']);
 });
 
+test("a stored list is checked whole: every line valid, enough of them, the common triggers there, and not too big", () => {
+  assert.ok(checkedBangTable(fixture));
+  const broken = Array.from({ length: 1200 }, (_, i) => `bad${i}\tBroken\thttps://bad host/`).join("\n");
+  assert.equal(checkedBangTable(broken), null);
+  assert.equal(checkedBangTable(`${fixture}\nbad\tBroken\thttps://bad host/`), null);
+  assert.equal(checkedBangTable(`${fixture}\nbad\tBroken`), null);
+  assert.equal(checkedBangTable(`${fixture}\nbad\tBroken\tx.example/{s}\textra`), null);
+  assert.equal(checkedBangTable(fixture.split("\n").filter((l) => !l.startsWith("yt ")).join("\n")), null);
+  assert.equal(checkedBangTable(fixture.split("\n").slice(0, 900).join("\n")), null);
+  assert.equal(checkedBangTable(`${fixture}\n${"x".repeat(4_000_000)}\tBig\tbig.example/{s}`), null);
+});
+
+test("the stored document carries its ETag with the list it belongs to", () => {
+  const doc = bangDocument('"v2"', fixture);
+  assert.equal(readBangDocument(doc)?.etag, '"v2"');
+  assert.equal(readBangDocument(doc)?.table.get("gh")?.name, "GitHub");
+  assert.equal(readBangDocument(bangDocument(null, fixture))?.etag, null);
+  for (const bad of [null, "", fixture, doc.slice(0, 2000), `ardia-bangs 2\t"v2"\n${fixture}`, `ardia-bangs 1\t"v2"\tx\n${fixture}`]) assert.equal(readBangDocument(bad), null);
+});
+
 test("a broken, empty or tiny response is not a bang list", () => {
   for (const body of ["", "<html>oops</html>", "{}", "[]", '[{"s":"A","ts":["a"],"u":"https://a.example/{searchTerms}"}]', heliumFile([]).slice(0, 5000)]) {
     assert.equal(slimBangs(body), null, body.slice(0, 40));
@@ -99,10 +149,10 @@ test("the bundled list has the common bangs", () => {
   assert.match(BANG_LIST, /^[\x00-\x7f]*$/);
   const bundled = joinBangTables([bangTable(BANG_LIST), bangTable(BANG_LIST_UNICODE)]);
   assert.ok(bundled.size > 13000, String(bundled.size));
-  assert.equal(bangUrl(findBang("!ют cats", bundled)!), "https://www.youtube.com/results?search_query=cats");
-  assert.equal(bangUrl(findBang("!gh react", bundled)!), "https://github.com/search?q=react");
-  assert.equal(bangUrl(findBang("react !w", bundled)!), "https://wikipedia.org/w/index.php?search=react");
-  assert.equal(bangUrl(findBang("!yt", bundled)!), "https://www.youtube.com/");
+  assert.equal(findBang("!ют cats", bundled)!.url, "https://www.youtube.com/results?search_query=cats");
+  assert.equal(findBang("!gh react", bundled)!.url, "https://github.com/search?q=react");
+  assert.equal(findBang("react !w", bundled)!.url, "https://wikipedia.org/w/index.php?search=react");
+  assert.equal(findBang("!yt", bundled)!.url, "https://www.youtube.com/");
   assert.equal(bundled.get("t3")?.name, "T3 Chat");
 });
 
