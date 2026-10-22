@@ -1,0 +1,185 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import DownloadButton from "../components/DownloadButton.astro";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<Base
+  title="Switching from Arc · Ardia"
+  description="What Ardia keeps from Arc, what it doesn’t, and how to bring your bookmarks, history, logins and spaces over. Free and open source, on Chromium."
+>
+  <Header home={`${base}/`} />
+  <main class="arc">
+    <section class="intro" aria-labelledby="arc-title">
+      <div class="wrap">
+        <p class="label kicker">Coming from Arc</p>
+        <h1 class="poster title" id="arc-title">Still a sidebar.<br />Now on Chromium.</h1>
+        <p class="lede">
+          Ardia is a free, open-source browser for the Mac with an Arc-style sidebar, built on Chromium, the engine
+          under Chrome. It’s young (version 0.2.39) and it isn’t Arc. Here is what carries over, what doesn’t, and how
+          to move across.
+        </p>
+        <div class="get">
+          <DownloadButton location="switch-from-arc" class="sun-btn" />
+          <p class="label fine">109 MB · Apple Silicon · macOS 14 Sonoma or later</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="keeps-title">
+      <div class="wrap">
+        <h2 class="poster" id="keeps-title">What carries over</h2>
+        <ul class="list">
+          <li><strong>The sidebar.</strong> Tabs down the side, with the address bar in it if you want the page to run to the top of the window.</li>
+          <li><strong>Pinned tabs.</strong> Pinned tabs sit as tiles or as rows above your tabs. Clear empties the unpinned tabs and keeps the pinned ones.</li>
+          <li><strong>Split view.</strong> Up to three pages in one window, side by side or stacked.</li>
+          <li><strong>Little Ardia.</strong> ⌥⌘N opens a small window with one page and no sidebar, like Little Arc.</li>
+          <li><strong>Profiles.</strong> Each one keeps its own logins, history, extensions and colour.</li>
+          <li><strong>A command bar.</strong> ⌘L finds tabs, history and bookmarks, and does your sums.</li>
+          <li><strong>Themes.</strong> A gradient per profile, up to three colours, with some grain or blur.</li>
+          <li><strong>Extensions.</strong> Chrome Web Store extensions work, and their Add to Ardia button does the install.</li>
+          <li><strong>Picture in Picture.</strong> A video keeps playing in a small window while you switch tabs.</li>
+          <li><strong>Ads and trackers.</strong> The full uBlock Origin is built in, cookie banners included.</li>
+          <li><strong>iCloud sync.</strong> Syncs between your Macs through your own iCloud Drive, end to end encrypted, with no server of ours in the middle.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="differs-title">
+      <div class="wrap">
+        <h2 class="poster" id="differs-title">What’s different or missing</h2>
+        <ul class="list">
+          <li><strong>No Boosts.</strong> Ardia doesn’t have Arc’s Boosts.</li>
+          <li><strong>Spaces aren’t how Ardia splits work.</strong> Profiles do that job. Arc spaces come across on import (see below).</li>
+          <li><strong>No AI features.</strong> That’s a deliberate choice by Ardia’s owner.</li>
+          <li><strong>Mac only, and only Apple Silicon.</strong> No Intel Macs, Windows or Linux, and macOS 14 Sonoma or later.</li>
+          <li><strong>Translate needs macOS 26.</strong> It runs on your Mac and nothing leaves it.</li>
+          <li><strong>No Netflix.</strong> Widevine, the protected-video system, isn’t allowed yet. Google hasn’t signed off.</li>
+          <li><strong>Passkeys are partly there.</strong> Touch ID works. Passkeys in iCloud Keychain wait on Apple.</li>
+          <li><strong>It’s young.</strong> Expect rough edges. The full checklist, row by row, is in the repo’s <a class="link" href="https://github.com/mantrakp04/ardia/blob/main/docs/dia-feature-parity.md" rel="noopener">dia-feature-parity.md</a>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="move-title">
+      <div class="wrap">
+        <h2 class="poster" id="move-title">Moving over</h2>
+        <ol class="steps">
+          <li>
+            <strong>With Arc still on your Mac:</strong> open Ardia, then Settings › General › Import…, and pick Arc.
+            It brings across bookmarks, history, logins, cookies and autofill, plus Arc’s pinned tabs, favourites, open
+            tabs and spaces. Each space comes across as its tabs, a bookmark folder for it, and its colours as that profile’s theme.
+            macOS may ask before Ardia reads Arc’s saved-password key.
+          </li>
+          <li>
+            <strong>Without Arc:</strong> the same import window has a “Bookmarks HTML File…” button. A standard bookmarks
+            HTML file works.
+          </li>
+          <li>
+            <strong>Extensions:</strong> the import lists them but doesn’t install them. Install each one again from the
+            Chrome Web Store.
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="end" aria-labelledby="get-title">
+      <div class="wrap">
+        <h2 class="poster" id="get-title">Try it on a Mac.</h2>
+        <p class="lede">Free, no account, Apache 2.0. Download it, import what you need, and keep Arc until you’re sure.</p>
+        <div class="get">
+          <DownloadButton location="switch-from-arc" class="sun-btn" />
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .arc {
+    background: var(--paper);
+  }
+  .wrap {
+    max-width: 880px;
+  }
+  .intro {
+    padding: clamp(120px, 14vw, 180px) 0 clamp(56px, 7vw, 96px);
+  }
+  .title {
+    font-size: var(--t-h2);
+    line-height: 0.86;
+    margin-left: -0.04em;
+  }
+  .lede {
+    margin-top: clamp(20px, 2.4vw, 32px);
+    max-width: 30em;
+    font-size: var(--t-lede);
+    color: var(--ink-2);
+  }
+  .get {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .fine {
+    color: var(--ink-3);
+  }
+  .block,
+  .end {
+    padding: clamp(56px, 7vw, 96px) 0;
+    border-top: 2px solid var(--ink);
+  }
+  h2 {
+    font-size: var(--t-h3);
+    line-height: 0.9;
+    margin-bottom: 28px;
+  }
+  .list,
+  .steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0;
+  }
+  .list li,
+  .steps li {
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-2);
+    font-size: var(--t-body);
+  }
+  .list strong,
+  .steps strong {
+    color: var(--ink);
+    font-weight: 640;
+  }
+  .steps {
+    counter-reset: step;
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr);
+  }
+  .steps li::before {
+    counter-increment: step;
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: var(--t-label);
+    color: var(--ink-3);
+    line-height: 2.2;
+  }
+  .link {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .end .lede {
+    margin-bottom: 0;
+  }
+</style>
