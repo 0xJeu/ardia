@@ -1,7 +1,7 @@
 import { devtools, sleep } from "./instance.mjs";
 
 const [port, seconds = "90"] = process.argv.slice(2);
-const extensionIds = ["blockjmkbacgjkknlgpkjjiijinjdanf", "fajbdaomknpkicfjcpipdmcpoamdmilh"];
+const extensionId = "fajbdaomknpkicfjcpipdmcpoamdmilh";
 const adUrl = "https://ib.adnxs.com/ut/v3?ardia-release-check";
 const deadline = Date.now() + Number(seconds) * 1000;
 const left = () => Math.max(1, deadline - Date.now());
@@ -26,7 +26,7 @@ async function connect(target) {
 async function readiness() {
   while (Date.now() < deadline) {
     const list = await getJson("/json/list").catch(() => []);
-    const background = list.find((t) => t.type === "background_page" && extensionIds.some((id) => t.url.startsWith(`chrome-extension://${id}/`)));
+    const background = list.find((t) => t.type === "background_page" && t.url.includes(extensionId));
     if (background) {
       const session = await connect(background).catch(() => null);
       try {
@@ -34,7 +34,7 @@ async function readiness() {
           `self.µBlock?.isReadyPromise ? µBlock.isReadyPromise.then(() => ({ ready: µBlock.supportStats.allReadyAfter ?? "ready" })) : null`,
           { timeout: Math.min(10000, left()) },
         ).catch(() => null));
-        if (state) return { ...state, id: new URL(background.url).host };
+        if (state) return state;
       } finally {
         session?.close();
       }
@@ -59,20 +59,13 @@ async function blocks() {
     const session = await connect(page);
     try {
       const failures = [];
-      const neutered = [];
       session.on("Network.loadingFailed", (p) => failures.push(p.errorText));
-      session.on("Network.requestWillBeSent", (p) => {
-        const from = p.redirectResponse?.url ?? "";
-        const to = p.request.url;
-        if (from.startsWith(adUrl) && (to.startsWith("data:") || /^chrome-extension:\/\/[a-p]{32}\/web_accessible_resources\//.test(to))) neutered.push(to.slice(0, 60));
-      });
       await session.send("Network.enable", {}, { timeout: Math.min(10000, left()) });
       const fetched = await session.eval(`fetch(${JSON.stringify(adUrl)}, { mode: "no-cors" }).then(() => "loaded", () => "failed")`, { timeout: Math.min(15000, left()) });
       await sleep(300);
       const blocked = failures.find((e) => /ERR_BLOCKED_BY_CLIENT/.test(e));
-      if (fetched === "failed" && blocked) return blocked;
-      if (neutered.length) return `redirected to ${neutered[0]}`;
-      throw new Error(`an ad request wasn't blocked (${fetched}; ${failures.join(", ") || "no failure"})`);
+      if (fetched !== "failed" || !blocked) throw new Error(`an ad request wasn't blocked (${fetched}; ${failures.join(", ") || "no failure"})`);
+      return blocked;
     } finally {
       session.close();
     }
@@ -85,7 +78,7 @@ async function blocks() {
 try {
   const state = await readiness();
   const blocked = await bounded(blocks(), "the blocking check");
-  console.log(`uBlock Origin ${state.id} ready (${state.ready}) and blocking (${blocked})`);
+  console.log(`uBlock Origin ready (${state.ready}) and blocking (${blocked})`);
   process.exit(0);
 } catch (e) {
   console.error(`error: ${e.message}`);

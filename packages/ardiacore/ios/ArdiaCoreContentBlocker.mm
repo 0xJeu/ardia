@@ -4,8 +4,7 @@
 #include <utility>
 
 namespace {
-NSString *const kAppBlockerId = @"fajbdaomknpkicfjcpipdmcpoamdmilh";
-NSString *const kEngineBlockerId = @"blockjmkbacgjkknlgpkjjiijinjdanf";
+NSString *ExtensionId() { return @"fajbdaomknpkicfjcpipdmcpoamdmilh"; }
 NSString *const kLiteId = @"bnjeokpoejhioagiokhkhmdogkhbnbki";
 NSString *const kBundledName = @"ublock";
 NSString *const kLiteReaderName = @"ublock-lite-settings";
@@ -123,7 +122,6 @@ double gDelayNextLoadMs = 0;
 
 @interface ACContentBlockerOp : NSObject
 @property(copy) NSString *profile;
-@property(copy) NSString *extensionId;
 @property(copy) NSString *expression;
 @property(copy) void (^completion)(id value, NSString *error);
 @property int attemptsLeft;
@@ -182,80 +180,8 @@ ACContentBlockerPage *HiddenPage(NSString *key, NSString *profile, ArdiaCoreProf
   return Pages()[key] = tab ? [[ACContentBlockerPage alloc] initWithTab:tab origin:OriginOf(extensionId)] : nil;
 }
 
-bool HasEngineBlocker(ArdiaCoreProfile *p) {
-  return [p respondsToSelector:@selector(hasInstalledExtension:)] && [p hasInstalledExtension:kEngineBlockerId];
-}
-
-bool MoveToEnginePending(ArdiaCoreProfile *p);
-
-NSHashTable<ArdiaCoreProfile *> *AppBlockerFallbacks() {
-  static NSHashTable *profiles = [NSHashTable weakObjectsHashTable];
-  return profiles;
-}
-
-bool UsesEngineBlocker(ArdiaCoreProfile *p) {
-  return HasEngineBlocker(p) && !MoveToEnginePending(p) && ![AppBlockerFallbacks() containsObject:p];
-}
-
-NSString *const kEngineBlockerOffMarker = @"uBlock Origin of the engine turned off by Ardia";
-
-NSString *ProfileFile(ArdiaCoreProfile *p, NSString *name) { return [p.path stringByAppendingPathComponent:name]; }
-
-bool CanMoveToEngine(ArdiaCoreProfile *p) {
-  return [p respondsToSelector:@selector(commitPendingPreferenceWrites:)] && [p respondsToSelector:@selector(hasEnabledExtension:)];
-}
-
-bool EngineBlockerOn(ArdiaCoreProfile *p) {
-  return ![p respondsToSelector:@selector(hasEnabledExtension:)] || [p hasEnabledExtension:kEngineBlockerId];
-}
-
-NSString *BlockerId(ArdiaCoreProfile *p) { return UsesEngineBlocker(p) ? kEngineBlockerId : kAppBlockerId; }
-
-void SetEngineBlockerEnabled(NSString *profile, BOOL enabled, void (^done)(NSString *error)) {
-  done = [done copy];
-  [ArdiaCoreServices setExtension:kEngineBlockerId enabled:enabled profile:profile completion:^(NSDictionary<NSString *, id> *result) {
-    done([result[@"error"] isKindOfClass:NSString.class] ? result[@"error"] : nil);
-  }];
-}
-
-void TurnOffEngineBlocker(NSString *profile, ArdiaCoreProfile *p, void (^done)(void)) {
-  done = [done copy];
-  [@"" writeToFile:ProfileFile(p, kEngineBlockerOffMarker) atomically:YES encoding:NSUTF8StringEncoding error:nil];
-  SetEngineBlockerEnabled(profile, NO, ^(NSString *error) {
-    if (error) NSLog(@"[blocker] the engine's uBlock Origin didn't turn off (%@)", error);
-    done();
-  });
-}
-
-void TurnOnEngineBlocker(NSString *profile, ArdiaCoreProfile *p, void (^done)(bool on)) {
-  done = [done copy];
-  if (EngineBlockerOn(p)) {
-    [NSFileManager.defaultManager removeItemAtPath:ProfileFile(p, kEngineBlockerOffMarker) error:nil];
-    return done(true);
-  }
-  if (![NSFileManager.defaultManager fileExistsAtPath:ProfileFile(p, kEngineBlockerOffMarker)]) return done(false);
-  SetEngineBlockerEnabled(profile, YES, ^(NSString *error) {
-    if (error) NSLog(@"[blocker] the engine's uBlock Origin didn't turn back on (%@)", error);
-    const bool on = EngineBlockerOn(p);
-    if (on) [NSFileManager.defaultManager removeItemAtPath:ProfileFile(p, kEngineBlockerOffMarker) error:nil];
-    done(on);
-  });
-}
-
-void ClosePages(NSString *profile) {
-  for (NSString *key in @[ profile, [NSString stringWithFormat:@"%@:%@", kAppBlockerId, profile],
-                           [NSString stringWithFormat:@"%@:%@", kEngineBlockerId, profile] ]) {
-    [Pages()[key] fail:@"switched blockers"];
-    [Pages() removeObjectForKey:key];
-  }
-}
-
-NSString *PageKey(NSString *profile, ArdiaCoreProfile *p, NSString *extensionId) {
-  return [extensionId isEqualToString:BlockerId(p)] ? profile : [NSString stringWithFormat:@"%@:%@", extensionId, profile];
-}
-
-ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p, NSString *extensionId) {
-  return HiddenPage(PageKey(profile, p, extensionId), profile, p, extensionId, @"blank.html");
+ACContentBlockerPage *PageFor(NSString *profile, ArdiaCoreProfile *p) {
+  return HiddenPage(profile, profile, p, ExtensionId(), @"blank.html");
 }
 
 NSString *BundledExtension() {
@@ -284,15 +210,6 @@ NSString *ExtensionPath() {
 void FollowDefault(NSArray<NSString *> *profiles, void (^done)(NSString *error));
 void WhenDefaultSettled(void (^then)(void));
 
-bool LoadAppBlocker(ArdiaCoreProfile *p) {
-  NSString *path = gExtensionPath;
-  if (!path || ![p respondsToSelector:@selector(loadComponentExtension:)]) return false;
-  NSString *loaded = [p loadComponentExtension:path];
-  if ([loaded isEqualToString:kAppBlockerId]) return true;
-  NSLog(@"[blocker] component load failed (%@)", loaded);
-  return false;
-}
-
 void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
   then = [then copy];
   StartPreparing();
@@ -300,31 +217,15 @@ void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
     if ([LoadedProfiles() containsObject:profile]) return then(nil);
     ardiacore_host::WithProfile(profile, ^(ArdiaCoreProfile *p) {
       if ([LoadedProfiles() containsObject:profile]) return then(nil);
-      if (!p) return then(@"not loaded");
-      void (^loadOwn)(void) = ^{
-        if (!LoadAppBlocker(p)) {
-          NSLog(@"[blocker] profile \"%@\" has no content blocker: the bundled uBlock Origin didn't load", profile);
-          return then(@"not loaded");
-        }
-        NSLog(@"[blocker] profile \"%@\" blocks with the bundled uBlock Origin", profile);
-        [LoadedProfiles() addObject:profile];
-        then(nil);
-      };
-      if (!HasEngineBlocker(p)) return loadOwn();
-      if (MoveToEnginePending(p)) {
-        if (CanMoveToEngine(p)) return loadOwn();
-        return TurnOffEngineBlocker(profile, p, loadOwn);
+      NSString *path = gExtensionPath;
+      if (!p || !path || ![p respondsToSelector:@selector(loadComponentExtension:)]) return then(@"not loaded");
+      NSString *loaded = [p loadComponentExtension:path];
+      if (![loaded isEqualToString:ExtensionId()]) {
+        NSLog(@"[blocker] component load failed (%@)", loaded);
+        return then(@"not loaded");
       }
-      TurnOnEngineBlocker(profile, p, ^(bool on) {
-        if (!on) {
-          NSLog(@"[blocker] profile \"%@\": the engine's uBlock Origin is off and Ardia didn't turn it off; the bundled one blocks instead", profile);
-          [AppBlockerFallbacks() addObject:p];
-          return loadOwn();
-        }
-        NSLog(@"[blocker] profile \"%@\" blocks with the engine's uBlock Origin", profile);
-        [LoadedProfiles() addObject:profile];
-        then(nil);
-      });
+      [LoadedProfiles() addObject:profile];
+      then(nil);
     });
   };
   if (NSThread.isMainThread) load();
@@ -450,14 +351,11 @@ void Finish(ACContentBlockerOp *op, id value, NSString *error) {
   if (!Queues()[op.profile].count) CloseWhenIdle(op.profile);
 }
 
-bool TransportError(NSString *error) {
-  for (NSString *sign in @[ @"no reply", @"no answer", @"context invalidated", @"not the extension page", @"renderer ", @"closed", @"uBlock Origin restarting" ])
+bool Retriable(NSString *error, ACContentBlockerPage *page) {
+  if (!page.onOwnPage) return true;
+  for (NSString *sign in @[ @"no reply", @"no answer", @"context invalidated", @"not the extension page", @"renderer ", @"closed" ])
     if ([error containsString:sign]) return true;
   return false;
-}
-
-bool Retriable(NSString *error, ACContentBlockerPage *page) {
-  return !page.onOwnPage || TransportError(error);
 }
 
 void Attempt(ACContentBlockerOp *op) {
@@ -470,12 +368,11 @@ void Attempt(ACContentBlockerOp *op) {
     });
   }
   ArdiaCoreProfile *p = ardiacore_host::LoadedProfile(profile);
-  NSString *extensionId = op.extensionId ?: BlockerId(p);
-  ACContentBlockerPage *page = p ? PageFor(profile, p, extensionId) : nil;
+  ACContentBlockerPage *page = p ? PageFor(profile, p) : nil;
   if (!page) return Finish(op, nil, @"not loaded");
   const double leftMs = MAX(0, (op.deadline - NSDate.timeIntervalSinceReferenceDate) * 1000);
   NSString *script = [NSString stringWithFormat:kPrelude, op.failNext ? @"true" : @"false", ScriptWith(@"%@", @[ kOffDirective ]),
-                                                ScriptWith(@"%@", @[ [@"chrome-extension://" stringByAppendingString:extensionId] ]), @((long long)leftMs), op.expression];
+                                                ScriptWith(@"%@", @[ [@"chrome-extension://" stringByAppendingString:ExtensionId()] ]), @((long long)leftMs), op.expression];
   const NSUInteger attempt = ++op.attempt;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((leftMs + 2000) * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
     if (op.attempt == attempt && Queues()[profile].firstObject == op) [page fail:@"the call timed out"];
@@ -507,13 +404,12 @@ void Pump(NSString *profile) {
   Attempt(op);
 }
 
-void CallBlocker(NSString *profile, NSString *extensionId, int attempts, NSString *expression, void (^completion)(id value, NSString *error)) {
+void Call(NSString *profile, NSString *expression, void (^completion)(id value, NSString *error)) {
   ACContentBlockerOp *op = [ACContentBlockerOp new];
   op.profile = profile;
-  op.extensionId = extensionId;
   op.expression = expression;
   op.completion = completion;
-  op.attemptsLeft = attempts;
+  op.attemptsLeft = kAttempts;
   op.deadline = NSDate.timeIntervalSinceReferenceDate + kOpSeconds;
   if (gFailNextMessage && ![expression isEqualToString:@"null"]) {
     op.failNext = YES;
@@ -522,10 +418,6 @@ void CallBlocker(NSString *profile, NSString *extensionId, int attempts, NSStrin
   NSMutableArray *queue = Queues()[profile] ?: (Queues()[profile] = [NSMutableArray array]);
   [queue addObject:op];
   Pump(profile);
-}
-
-void Call(NSString *profile, NSString *expression, void (^completion)(id value, NSString *error)) {
-  CallBlocker(profile, nil, kAttempts, expression, completion);
 }
 
 NSString *const kRead =
@@ -698,177 +590,6 @@ void MoveLiteSettings(NSString *profile, ArdiaCoreProfile *p, void (^done)(void)
   });
 }
 
-NSString *const kMovedToEngineMarker = @"uBlock Origin settings moved to the engine's";
-NSString *const kEngineBlockerSetUpMarker = @"uBlock Origin set up for Ardia";
-NSString *AppBlockerStore(ArdiaCoreProfile *p) {
-  return [p.path stringByAppendingPathComponent:[@"Local Extension Settings" stringByAppendingPathComponent:kAppBlockerId]];
-}
-
-bool MoveToEnginePending(ArdiaCoreProfile *p) {
-  if (!p.path.length || !HasEngineBlocker(p) || !ExtensionPath()) return false;
-  NSFileManager *files = NSFileManager.defaultManager;
-  return ![files fileExistsAtPath:[p.path stringByAppendingPathComponent:kMovedToEngineMarker]] &&
-         [files fileExistsAtPath:AppBlockerStore(p)];
-}
-
-bool MarkMovedToEngine(ArdiaCoreProfile *p, NSString *summary) {
-#if DEBUG
-  if (getenv("ARDIA_BLOCKER_MOVE_MARKER_FAILS")) return false;
-#endif
-  if (![summary writeToFile:ProfileFile(p, kMovedToEngineMarker) atomically:YES encoding:NSUTF8StringEncoding error:nil]) return false;
-  NSLog(@"[blocker] uBlock Origin settings for %@: %@", p.path.lastPathComponent, summary);
-  return true;
-}
-
-NSString *const kBackupAppBlocker =
-    @"Promise.all([send({what: 'backupUserData'}), fetch('/assets/assets.json').then((r) => r.json())]).then(([backup, assets]) => {"
-     "  const data = backup && backup.userData;"
-     "  if (!data || !Array.isArray(data.selectedFilterLists) || typeof data.userFilters !== 'string') throw new Error('backupUserData: no user data');"
-     "  const ublock = chrome.extension.getBackgroundPage().µBlock;"
-     "  const byEnvironment = (id) => assets[id].off === true && ublock.listMatchesEnvironment(assets[id]);"
-     "  const defaults = Object.keys(assets).filter((id) => assets[id].content === 'filters' && (assets[id].off !== true || byEnvironment(id)));"
-     "  const picked = data.selectedFilterLists.filter((id) => id !== 'user-filters');"
-     "  const customLists = !sameSet(picked, defaults) || !data.selectedFilterLists.includes('user-filters');"
-     "  return {userData: data, customLists, regional: defaults.filter(byEnvironment)};"
-     "})";
-
-NSString *const kRestoreIntoEngineBlocker =
-    @"Promise.resolve(chrome.extension.getBackgroundPage().performance.timeOrigin).then((before) =>"
-     "  send({what: 'restoreUserData', userData: %@, file: %@}).catch((e) => { if (!String(e && e.message).includes('no reply')) throw e; })"
-     "    .then(() => before))";
-
-NSString *const kRestartedEngineBlocker =
-    @"local.get(['lastRestoreFile']).then((stored) => {"
-     "  const want = %@;"
-     "  const background = chrome.extension.getBackgroundPage();"
-     "  if (stored.lastRestoreFile !== want.restoreFile) throw new Error('uBlock Origin restarting: the restore has not landed');"
-     "  if (!background || !(background.performance.timeOrigin > want.restoreStartedAt)) throw new Error('uBlock Origin restarting: not restarted since the restore');"
-     "  return lists();"
-     "}).then((l) => {"
-     "  const want = %@;"
-     "  const chosen = selected(l);"
-     "  const missing = (want.regional || []).filter((id) => l.available[id] && !chosen.includes(id));"
-     "  return missing.length ? applyLists(chosen.concat(missing)) : null;"
-     "})";
-
-NSString *const kVerifyEngineBlocker =
-    @"Promise.all([lists(), trusted(), send({what: 'readUserFilters'}), send({what: 'userSettings'}), send({what: 'getRules'}), send({what: 'readHiddenSettings'})])"
-     ".then(([l, t, f, settings, rules, hidden]) => {"
-     "  const want = %@;"
-     "  const missing = [];"
-     "  if (!sameSet(t.whitelist, want.whitelist || [])) missing.push('trusted sites');"
-     "  if ((f && f.content || '').trim() !== (want.userFilters || '').trim()) missing.push('my filters');"
-     "  const chosen = selected(l).filter((id) => id !== 'user-filters');"
-     "  const lists = (want.lists || want.regional || []).filter((id) => id !== 'user-filters' && l.available[id]);"
-     "  if (Array.isArray(want.lists) ? !sameSet(chosen, lists) : lists.some((id) => !chosen.includes(id))) missing.push('filter lists');"
-     "  if (Array.isArray(want.lists) && want.lists.includes('user-filters') !== !!(f && f.enabled)) missing.push('my filters on/off');"
-     "  const have = new Set(rules && Array.isArray(rules.permanentRules) ? rules.permanentRules : []);"
-     "  const lines = [want.dynamicFilteringString, want.hostnameSwitchesString, want.urlFilteringString]"
-     "    .flatMap((s) => typeof s === 'string' ? s.split('\\n') : []).map((s) => s.trim()).filter(Boolean);"
-     "  if (lines.some((line) => !have.has(line))) missing.push('per-site switches and rules');"
-     "  const drifted = Object.keys(want.userSettings || {}).filter((k) => k in settings && JSON.stringify(settings[k]) !== JSON.stringify(want.userSettings[k]));"
-     "  if (drifted.length) missing.push('settings ' + drifted.join(' '));"
-     "  const current = hidden && hidden.current || {};"
-     "  const defaults = hidden && hidden.default || {};"
-     "  const hiddenDrifted = Object.keys(want.hiddenSettings || {}).filter((k) => k in defaults &&"
-     "    JSON.stringify(want.hiddenSettings[k]) !== JSON.stringify(defaults[k]) && JSON.stringify(current[k]) !== JSON.stringify(want.hiddenSettings[k]));"
-     "  if (hiddenDrifted.length) missing.push('advanced settings ' + hiddenDrifted.join(' '));"
-     "  if (missing.length) throw new Error('not carried over: ' + missing.join(', '));"
-     "  return {trusted: t.whitelist.length, filters: (want.userFilters || '').split('\\n').filter((s) => s.trim()).length,"
-     "    lists: want.lists ? lists.length : 'engine defaults', regional: (want.regional || []).length, rules: lines.length,"
-     "    settings: Object.keys(want.userSettings || {}).length, advanced: Object.keys(want.hiddenSettings || {}).length};"
-     "})";
-
-
-void MoveToEngine(NSString *profile, ArdiaCoreProfile *p, void (^done)(void)) {
-  done = [done copy];
-  if (!MoveToEnginePending(p)) return done();
-  if (!CanMoveToEngine(p)) {
-    NSLog(@"[blocker] this engine can't save the switch to its uBlock Origin; the bundled one keeps blocking");
-    return done();
-  }
-  void (^failed)(NSString *) = ^(NSString *error) {
-    NSLog(@"[blocker] uBlock Origin settings didn't move to the engine's (%@); the bundled one keeps blocking, trying again next launch", error);
-    ClosePages(profile);
-    TurnOffEngineBlocker(profile, p, done);
-  };
-  CallBlocker(profile, kAppBlockerId, kAttempts, kBackupAppBlocker, ^(NSDictionary *backup, NSString *error) {
-    NSMutableDictionary *userData = [backup isKindOfClass:NSDictionary.class] && [backup[@"userData"] isKindOfClass:NSDictionary.class]
-                                        ? [backup[@"userData"] mutableCopy]
-                                        : nil;
-    if (error || !userData) return failed(error ?: @"no backup");
-    const bool customLists = [backup[@"customLists"] boolValue];
-    if (!customLists) [userData removeObjectForKey:@"selectedFilterLists"];
-    NSMutableDictionary *want = [userData mutableCopy];
-    want[@"lists"] = userData[@"selectedFilterLists"] ?: NSNull.null;
-    want[@"regional"] = !customLists && [backup[@"regional"] isKindOfClass:NSArray.class] ? backup[@"regional"] : @[];
-    want[@"restoreFile"] = [NSString stringWithFormat:@"Ardia %.0f", floor(NSDate.date.timeIntervalSince1970 * 1000)];
-#if DEBUG
-    const char *forcedMismatch = getenv("ARDIA_BLOCKER_MOVE_MISMATCH");
-    if (forcedMismatch && !strcmp(forcedMismatch, "filters")) want[@"userFilters"] = [want[@"userFilters"] stringByAppendingString:@"\n||mismatch.invalid^"];
-    if (forcedMismatch && !strcmp(forcedMismatch, "lists") && [want[@"lists"] isKindOfClass:NSArray.class]) want[@"lists"] = [want[@"lists"] arrayByAddingObject:@"adguard-generic"];
-#endif
-    [NSFileManager.defaultManager removeItemAtPath:ProfileFile(p, kEngineBlockerSetUpMarker) error:nil];
-    SetEngineBlockerEnabled(profile, YES, ^(NSString *onError) {
-      if (onError) return failed([@"the engine's uBlock Origin didn't turn on: " stringByAppendingString:onError]);
-      CallBlocker(profile, kEngineBlockerId, kAttempts, @"null", ^(id, NSString *readyError) {
-        if (readyError) return failed([@"the engine's uBlock Origin didn't start: " stringByAppendingString:readyError]);
-        CallBlocker(profile, kEngineBlockerId, 0, ScriptWith(kRestoreIntoEngineBlocker, @[ userData, want[@"restoreFile"] ]), ^(NSNumber *before, NSString *restoreError) {
-          if (restoreError || ![before isKindOfClass:NSNumber.class]) return failed([@"restoreUserData: " stringByAppendingString:restoreError ?: @"no answer"]);
-          want[@"restoreStartedAt"] = before;
-          CallBlocker(profile, kEngineBlockerId, kAttempts, ScriptWith(kRestartedEngineBlocker, @[ want, want ]), ^(id, NSString *restartError) {
-            if (restartError) return failed(restartError);
-            CallBlocker(profile, kEngineBlockerId, kAttempts, ScriptWith(kVerifyEngineBlocker, @[ want ]), ^(id moved, NSString *verifyError) {
-              if (verifyError) return failed(verifyError);
-              [p commitPendingPreferenceWrites:^{
-                if (!EngineBlockerOn(p)) return failed(@"the engine's uBlock Origin went off before the switch was saved");
-                if (!MarkMovedToEngine(p, [NSString stringWithFormat:@"moved (%@)", moved])) return failed(@"the moved marker didn't save");
-                [NSFileManager.defaultManager removeItemAtPath:ProfileFile(p, kEngineBlockerOffMarker) error:nil];
-#if DEBUG
-                if (getenv("ARDIA_BLOCKER_MOVE_EXIT_AFTER_MARKER")) _exit(9);
-#endif
-                ClosePages(profile);
-                [p unloadComponentExtension:kAppBlockerId];
-                NSLog(@"[blocker] profile \"%@\" blocks with the engine's uBlock Origin", profile);
-                done();
-              }];
-            });
-          });
-        });
-      });
-    });
-  });
-}
-
-NSString *const kSetUpEngineBlocker =
-    @"send({what: 'userSettings', name: 'contextMenuEnabled', value: false})"
-     ".then(() => send({what: 'userSettings', name: 'showIconBadge', value: false}))"
-     ".then(() => send({what: 'userSettings'}))"
-     ".then((settings) => {"
-     "  if (!settings || settings.contextMenuEnabled !== false || settings.showIconBadge !== false) throw new Error('userSettings: not applied');"
-     "  return null;"
-     "})";
-
-bool EngineBlockerSetUpPending(ArdiaCoreProfile *p) {
-  return p.path.length && UsesEngineBlocker(p) &&
-         ![NSFileManager.defaultManager fileExistsAtPath:[p.path stringByAppendingPathComponent:kEngineBlockerSetUpMarker]];
-}
-
-void SetUpEngineBlocker(NSString *profile, ArdiaCoreProfile *p, void (^done)(void)) {
-  done = [done copy];
-  if (!EngineBlockerSetUpPending(p)) return done();
-  Call(profile, kSetUpEngineBlocker, ^(id, NSString *error) {
-    if (error) NSLog(@"[blocker] the engine's uBlock Origin keeps its context menu and badge (%@); trying again next launch", error);
-    else [@"context menu and badge off" writeToFile:[p.path stringByAppendingPathComponent:kEngineBlockerSetUpMarker] atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    done();
-  });
-}
-
-void PrepareEngineBlocker(NSString *profile, ArdiaCoreProfile *p, void (^done)(void)) {
-  done = [done copy];
-  MoveToEngine(profile, p, ^{ SetUpEngineBlocker(profile, p, done); });
-}
-
 NSMutableArray<void (^)(void)> *SettledWaiters() {
   static NSMutableArray *waiters = [NSMutableArray array];
   return waiters;
@@ -910,8 +631,8 @@ void LoadHeld(NSString *profile) {
   const bool isDefault = profile.length == 0;
   const bool firstLoad = p && ![LoadedProfiles() containsObject:profile];
   const bool hold = firstLoad && [p respondsToSelector:@selector(holdNavigationsUntilRulesetsOf:)] &&
-                    (isDefault ? LiteSettingsPending(p) || MoveToEnginePending(p) : !gLaunching);
-  if (hold) [p holdNavigationsUntilRulesetsOf:BlockerId(p)];
+                    (isDefault ? LiteSettingsPending(p) : !gLaunching);
+  if (hold) [p holdNavigationsUntilRulesetsOf:ExtensionId()];
   void (^release)(NSString *) = ^(NSString *why) {
     if (!hold) return;
     if (!why && [p respondsToSelector:@selector(releaseNavigationHoldReady)]) [p releaseNavigationHoldReady];
@@ -924,30 +645,24 @@ void LoadHeld(NSString *profile) {
         return release([@"the content blocker didn't load: " stringByAppendingString:error]);
       }
       if (!isDefault) {
-        return PrepareEngineBlocker(profile, ardiacore_host::LoadedProfile(profile), ^{
-          WhenDefaultSettled(^{
-            Inherit(profile, 0, ^(NSString *followError) {
-              release(followError ? [@"the default profile's settings didn't apply: " stringByAppendingString:followError] : nil);
-            });
+        return WhenDefaultSettled(^{
+          Inherit(profile, 0, ^(NSString *followError) {
+            release(followError ? [@"the default profile's settings didn't apply: " stringByAppendingString:followError] : nil);
           });
         });
       }
       void (^settle)(void) = ^{
         ArdiaCoreProfile *current = ardiacore_host::LoadedProfile(profile);
-        if (!hold && current && SettleWithoutPage() && !LiteSettingsPending(current) && !MoveToEnginePending(current) &&
-            !EngineBlockerSetUpPending(current))
-          return DefaultSettled();
+        if (!hold && current && SettleWithoutPage() && !LiteSettingsPending(current)) return DefaultSettled();
         Call(profile, @"null", ^(id, NSString *readyError) {
           ArdiaCoreProfile *loaded = ardiacore_host::LoadedProfile(profile);
           if (readyError || !loaded) {
             DefaultSettled();
             return release(readyError ? [@"uBlock Origin isn't ready: " stringByAppendingString:readyError] : nil);
           }
-          PrepareEngineBlocker(profile, loaded, ^{
-            MoveLiteSettings(profile, loaded, ^{
-              DefaultSettled();
-              release(nil);
-            });
+          MoveLiteSettings(profile, loaded, ^{
+            DefaultSettled();
+            release(nil);
           });
         });
       };
@@ -963,7 +678,6 @@ void LoadHeld(NSString *profile) {
 NSString *Category(NSString *listId, NSString *group) {
   if ([group isEqual:@"regions"]) return @"regional";
   if ([listId containsString:@"cookie"]) return @"cookies";
-  if ([listId hasSuffix:@"-annoyances"]) return @"annoyances";
   if ([group isEqual:@"privacy"] || [listId isEqual:@"ublock-privacy"]) return @"trackers";
   if ([group isEqual:@"malware"] || [listId isEqual:@"ublock-badware"]) return @"security";
   if ([group isEqual:@"annoyances"] || [group isEqual:@"social"]) return @"annoyances";
@@ -996,7 +710,6 @@ NSString *const kState =
      "    cosmeticFilters: l.cosmeticFilterCount || 0,"
      "    enabled: !t.whitelist.includes(offDirective),"
      "    allowedHosts: t.whitelist.filter((d) => !d.includes('/') && !d.startsWith('#') && !(t.whitelistDefault || []).includes(d)),"
-     "    version: chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,"
      "  };"
      "})";
 
@@ -1029,7 +742,7 @@ void State(void (^completion)(NSDictionary *state)) {
     const BOOL on = [read[@"enabled"] boolValue];
     completion(@{
       @"enabled" : @(on),
-      @"version" : [read[@"version"] isKindOfClass:NSString.class] ? read[@"version"] : BundledVersion(),
+      @"version" : BundledVersion(),
       @"lists" : lists,
       @"allowedHosts" : allowed,
       @"stats" : @{
@@ -1069,10 +782,6 @@ void LoadContentBlocker(NSString *profile) {
 }
 
 + (void)setEnabled:(BOOL)enabled completion:(void (^)(NSString *))completion {
-  if (!gDefaultSettled && ArdiaCoreHost.isStarted) {
-    completion = [completion copy];
-    return WhenDefaultSettled(^{ [self setEnabled:enabled completion:completion]; });
-  }
   NSString *script = @"trusted().then((t) => {"
                       "  const on = %@;"
                       "  const kept = t.whitelist.filter((d) => d !== offDirective);"
@@ -1084,10 +793,6 @@ void LoadContentBlocker(NSString *profile) {
 }
 
 + (void)setList:(NSString *)listId enabled:(BOOL)enabled completion:(void (^)(NSString *))completion {
-  if (!gDefaultSettled && ArdiaCoreHost.isStarted) {
-    completion = [completion copy];
-    return WhenDefaultSettled(^{ [self setList:listId enabled:enabled completion:completion]; });
-  }
   NSString *script = @"lists().then((l) => {"
                       "  const [id, on] = [%@, %@];"
                       "  if (!l.available[id]) throw new Error(`no list ${id}`);"
@@ -1107,10 +812,6 @@ void LoadContentBlocker(NSString *profile) {
 }
 
 + (void)setAllowed:(BOOL)allowed onHost:(NSString *)host completion:(void (^)(NSString *))completion {
-  if (!gDefaultSettled && ArdiaCoreHost.isStarted) {
-    completion = [completion copy];
-    return WhenDefaultSettled(^{ [self setAllowed:allowed onHost:host completion:completion]; });
-  }
   NSString *script = @"trusted().then((t) => {"
                       "  const [allowed, host] = [%@, %@];"
                       "  const kept = t.whitelist.filter((d) => allowed ? d !== host : !covers(d, host));"

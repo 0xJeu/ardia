@@ -2466,7 +2466,7 @@ try {
         };
         return { adnxs: await reached(`http://ib.adnxs.com/ut/v3?${tag}`), gpt: await reached(`http://securepubads.g.doubleclick.net/tag/js/gpt.js?${tag}`), adsbygoogle: await script() };
       };
-      const stopped = (r) => !r.adnxs.reached && !r.gpt.reached && !r.adsbygoogle.reached && r.adsbygoogle.script === "stand-in";
+      const stopped = (r) => !r.adnxs.reached && !r.gpt.reached && r.adnxs.fetch === "failed" && !r.adsbygoogle.reached && r.adsbygoogle.script === "stand-in";
       const blocked = await round("blocked");
       await cef(`setContentBlockerAllowed("adpage.test", true)`);
       const allowed = await round("allowed");

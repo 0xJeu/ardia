@@ -74,9 +74,6 @@ extern NSNotificationName const ArdiaCoreWindowSeenDidChange;
 - (nullable NSString *)loadComponentExtension:(NSString *)path;
 - (void)releaseNavigationHoldReady;
 - (void)unloadComponentExtension:(NSString *)extensionId;
-- (BOOL)hasInstalledExtension:(NSString *)extensionId;
-- (BOOL)hasEnabledExtension:(NSString *)extensionId;
-- (void)commitPendingPreferenceWrites:(void (^)(void))completion;
 @end
 
 namespace ardiacore_host {

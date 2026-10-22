@@ -145,10 +145,8 @@ export async function searchEngineList(profile: string): Promise<unknown> {
   return unwrap(await Native.searchEngineList(profile)).list;
 }
 
-const engineContentBlockerId = "blockjmkbacgjkknlgpkjjiijinjdanf";
-
 export async function listExtensions(profile: string): Promise<InstalledExtension[]> {
-  return unwrap(await Native.list(profile)).extensions.filter((e) => e.id !== engineContentBlockerId);
+  return unwrap(await Native.list(profile)).extensions;
 }
 
 export async function inspectUnpackedExtension(path: string): Promise<ExtensionPackage> {
