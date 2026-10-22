@@ -4,7 +4,7 @@
 // 4 groups (one expanded), audible and loading tabs, 2 windows.
 //
 //   node tab-actions.mjs run --app <Release Ardia.app> --side <label>=<main.jsbundle> [--side <label>=<bundle>]
-//        [--side-env <label>:K=V] [--launches 4] [--n 5] [--actions a,b] [--out dir] [--port 9317] [--page-port 47917]
+//        [--side-env <label>:K=V] [--side-app <label>=<Release Ardia.app>] [--launches 4] [--n 5] [--actions a,b] [--out dir] [--port 9317] [--page-port 47917]
 //       Each launch runs every action --n times; launches alternate between the sides (A B B A ...), so the sides
 //       share the machine. Writes <out>/samples.jsonl, one line per action.
 //   node tab-actions.mjs fixture <session.json> [--page-port 47917]   the session alone; serve: its pages alone
@@ -41,12 +41,13 @@ import { launch } from "../../../../scripts/lib/instance.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const [command, ...rest] = process.argv.slice(2);
-const flags = { side: [], "side-env": [] };
+const flags = { side: [], "side-env": [], "side-app": [] };
 const positional = [];
 for (let i = 0; i < rest.length; i++) {
   if (!rest[i].startsWith("--")) positional.push(rest[i]);
   else if (rest[i] === "--side") flags.side.push(rest[++i]);
   else if (rest[i] === "--side-env") flags["side-env"].push(rest[++i]);
+  else if (rest[i] === "--side-app") flags["side-app"].push(rest[++i]);
   else flags[rest[i].slice(2)] = rest[++i];
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -476,7 +477,8 @@ async function run() {
   const sides = flags.side.map((s) => {
     const [label, bundle] = s.split("=");
     const env = Object.fromEntries(flags["side-env"].filter((e) => e.startsWith(`${label}:`)).map((e) => e.slice(label.length + 1).split("=")));
-    return { label, bundle: resolve(bundle), env, app: prepare(app, resolve(bundle), join(out, "apps", label)) };
+    const own = flags["side-app"].find((e) => e.startsWith(`${label}=`))?.slice(label.length + 1);
+    return { label, bundle: resolve(bundle), env, app: prepare(own ? resolve(own) : app, resolve(bundle), join(out, "apps", label)) };
   });
   const server = await serve(+(flags["page-port"] ?? 47917));
   const launches = +(flags.launches ?? 4);
