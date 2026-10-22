@@ -15,7 +15,9 @@ import {
   devPeeks,
   DOCK_SPRING,
   lightsCenter,
+  PEEK_BOTTOM,
   PEEK_ORIGIN,
+  PEEK_RADIUS,
   peekShown,
   setDockMoving,
   setPeekShown,
@@ -242,7 +244,7 @@ function SidebarDock({
           position: "absolute",
           left: away ? -10_000 : peeking ? PEEK_ORIGIN[0] : 0,
           top: peeking ? PEEK_ORIGIN[1] : 0,
-          bottom: peeking ? layout.cardInset : 0,
+          bottom: peeking ? PEEK_BOTTOM : 0,
           width,
           transform: [{ translateX: slideOut }],
         }}
@@ -254,7 +256,7 @@ function SidebarDock({
           >
             <Surface
               fill={hex(theme.windowTint[0])}
-              cornerRadius={12}
+              cornerRadius={PEEK_RADIUS}
               borderColor={hex(theme.panelBorder)}
               borderWidth={0.5}
               shadowColor="#000000"
@@ -265,7 +267,7 @@ function SidebarDock({
             />
           </Animated.View>
         )}
-        <Animated.View style={[{ flex: 1 }, peekStyle, peeking ? { borderRadius: 12, overflow: "hidden" } : null]}>
+        <Animated.View style={[{ flex: 1 }, peekStyle, peeking ? { borderRadius: PEEK_RADIUS, overflow: "hidden" } : null]}>
           {sidebar}
         </Animated.View>
       </Animated.View>

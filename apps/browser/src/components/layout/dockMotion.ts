@@ -26,7 +26,9 @@ export function springAt(
 
 export const LIGHTS_CENTER: readonly [number, number] = [25, 27];
 
-export const PEEK_ORIGIN: readonly [number, number] = [6, 6];
+export const PEEK_ORIGIN: readonly [number, number] = [5, 5];
+export const PEEK_BOTTOM = 5;
+export const PEEK_RADIUS = 12;
 
 export function lightsCenter(offset: number, down = 0): [number, number] | null {
   const dx = Math.round(offset * 2) / 2;
