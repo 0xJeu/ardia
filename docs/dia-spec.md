@@ -675,6 +675,13 @@ than ours at the same cap height.
 - `TabView` (`0x103dbd2f4`): the background is the row inset (1.5, 0, 1.5, 0), i.e. 34 tall; `TabShapeView` radius
   `min(h/3, 10)`, continuous corners. `TabContentView` (`0x103da24c4`): favicon 16 × 16 at x 9, centred; title at
   favicon.maxX + 7 (+ 4 with a badge slot); trailing affordance at W − 8 − size.
+- **Scroll edge** (1.53.0 binary): `TabList.TabListView` lays out the pinned dock (`TabDockView`) at its top, fixed, then a
+  `topSeparatorView` (an `ARCUI.BackgroundColorView`, colour `Primitives/Primary1200`: Display P3 black 0.09 light, white
+  0.09 dark) at (0, dock.maxY + 4, full width, **1 pt**), then the tab list's scroll view from dock.maxY + 5 with a 1 pt
+  top content inset (`SidebarLayoutGuide.tabListTopInset`); without a dock the line sits at the header's foot. The header
+  doesn't scroll either. The line starts at alpha 0; on every clip-view bounds change it targets 1 when the visible
+  rect's minY > −inset (any scroll past the top) and 0 otherwise (the top, or rubber-banding above it), animated by
+  `NSAnimationContext` over **0.1 s** with the hover card's curve (0.25, 0.46, 0.45, 0.94). Ours: sidebar/ScrollEdge.tsx.
 - A New Tab tab's icon (the favicon of a tab showing the NTP, not the "+ New Tab" row) is the Dia mark (the NTP logo's
   shape), 16 pt wide, white 0.28 in dark over any row state (measured; which asset draws it wasn't traced).
 - The clean-tabs upsell is a borderless child window (not a popover), 316 wide: title at (24, 24), a 21 × 26
