@@ -10,7 +10,7 @@ import { useWindowId, useWindowProfileId } from "../store/hooks";
 import { activeTabId, viewTabIds } from "../store/model";
 import { defaultSearchEngine } from "../store/settings";
 import { runBarAction } from "./omnibox/actions";
-import { resolveTypedBang } from "./omnibox/bangs";
+import { createBangSubmitter, mayBeBang } from "./omnibox/bangs";
 import { traceOmnibox, useOmniboxDriver } from "./omnibox/devDriver";
 import { claimFocusTag, commandBarFocus, heroBarFocus } from "../lib/focusClaims";
 import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarDismissal, type BarSnapshot } from "./omnibox/barState";
@@ -97,6 +97,9 @@ export function Omnibox({
     selection.current = next;
   };
   const input = useRef<TextInput>(null);
+  const [bangEnter] = useState(createBangSubmitter);
+  useEffect(() => () => bangEnter.cancel(), [bangEnter]);
+  useEffect(() => bangEnter.cancel(), [bangEnter, typed, selected, scope]);
   const root = useRef<View>(null);
 
   const { items: suggested, completion } = useSuggestions({
@@ -156,6 +159,7 @@ export function Omnibox({
   }, [pendingSelection]);
 
   const reset = () => {
+    bangEnter.cancel();
     setTyped("");
     setEdited(false);
     setScope(null);
@@ -164,9 +168,13 @@ export function Omnibox({
     selection.current = { start: 0, end: 0 };
   };
 
-  const dismiss = () => (hero ? reset() : onDone?.());
+  const dismiss = () => {
+    bangEnter.cancel();
+    return hero ? reset() : onDone?.();
+  };
 
   const go = (url: string, disposition: Disposition = "current") => {
+    bangEnter.cancel();
     if (!url) return;
     if (opensTab && disposition !== "newWindow") return openFromNewTabBar(windowId, opensTab, url);
     if (disposition === "current") journeyNavigate(tabId);
@@ -175,13 +183,14 @@ export function Omnibox({
   };
 
   const choose = (s: Suggestion | undefined, disposition: Disposition = "current", byEnter = false) => {
+    bangEnter.cancel();
     if (s || !scope) trackSuggestionChosen(s);
     const typedSearch = !s || (byEnter && selectedIndex === 0 && s.kind === "search" && !s.bang && !s.suggested);
     if (!scope && typedSearch) {
       const text = edited ? value : initialText || value;
-      if (text.includes("!")) {
+      if (mayBeBang(text)) {
         const fallback = s?.kind === "search" ? s.url : resolveInput(text, engine.url);
-        void resolveTypedBang(text).then((url) => go(url ?? fallback, disposition));
+        bangEnter.submit(text, (url) => go(url ?? fallback, disposition));
         return;
       }
     }
@@ -245,6 +254,7 @@ export function Omnibox({
 
   const onKeyDown = (e: { nativeEvent: { key: string; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean; ctrlKey?: boolean } }) => {
     const { key, metaKey, altKey, shiftKey, ctrlKey } = e.nativeEvent;
+    bangEnter.cancel();
     if (key === "Escape") {
       if (scope) return leaveScope(null);
       if (!hero) return onDone?.("escape");
@@ -327,6 +337,7 @@ export function Omnibox({
       if (!change.stale) noteSelection({ start: change.inline.typed.length, end: next.length });
       return;
     }
+    bangEnter.cancel();
     focusEcho.current = false;
     keyAt.current = Date.now();
     journeyKeystroke(tabId);

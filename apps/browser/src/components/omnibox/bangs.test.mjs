@@ -8,7 +8,7 @@ globalThis.require = (id) => {
   assert.equal(id, "@ardia/core/src/bangList.ts");
   return bundledList;
 };
-const { bangStatus, bangsFor, loadBangs, refreshBangs, refreshBangsOnce, resetBangsForTests, resolveTypedBang } = await import("./bangs.ts");
+const { bangStatus, bangsFor, createBangSubmitter, loadBangs, mayBeBang, refreshBangs, refreshBangsOnce, resetBangsForTests } = await import("./bangs.ts");
 
 const DAY = 86_400_000;
 const entries = (prefix) => [
@@ -51,17 +51,78 @@ test("nothing loads until the text has a '!', then the bundled list arrives", as
   assert.equal(bangStatus().source, "bundled");
 });
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function slowLoad() {
+  let release;
+  const load = () => new Promise((resolve) => (release = () => resolve(loadBangs())));
+  return { load, release: () => release() };
+}
+
+test("only text with a bang-shaped first or last word waits for the list on Enter", () => {
+  for (const text of ["!gh react", "react !w", "  !yt ", "!nope react", "a b !x"]) assert.ok(mayBeBang(text), text);
+  for (const text of ["hello!", "wow ! nice", "!", "! gh", "?react !w", "?!gh react", " ?!yt", "say !gh in the middle", "hi!gh", "!gh!", "plain"]) {
+    assert.ok(!mayBeBang(text), text);
+  }
+});
+
 test("Enter on a cold session waits for the local list, never for the refresh", async () => {
-  server([{ status: 304 }]);
   let releaseRefresh;
   bangListServer.reply = () => new Promise((resolve) => (releaseRefresh = () => resolve({ status: 304 })));
   void refreshBangsOnce();
-  assert.equal(await resolveTypedBang("!gh react"), "https://github.com/search?q=react");
-  assert.equal(await resolveTypedBang("react !w"), "https://wikipedia.org/w/index.php?search=react");
-  assert.equal(await resolveTypedBang("?!gh react !w"), null);
-  assert.equal(await resolveTypedBang("hello!"), null);
-  assert.equal(await resolveTypedBang("no bang"), null);
+  const opened = [];
+  const enter = createBangSubmitter();
+  enter.submit("!gh react", (url) => opened.push(url));
+  await wait(20);
+  enter.submit("?!gh react !w", (url) => opened.push(url));
+  await wait(20);
+  enter.submit("react !nope", (url) => opened.push(url));
+  await wait(20);
+  assert.deepEqual(opened, ["https://github.com/search?q=react", null, null]);
   releaseRefresh?.();
+});
+
+test("a later edit, pick, dismiss or Enter wins over a pending one, and each Enter opens at most once", async () => {
+  const slow = slowLoad();
+  const opened = [];
+  const enter = createBangSubmitter(slow.load);
+  enter.submit("!gh react", (url) => opened.push(["first", url]));
+  enter.cancel();
+  slow.release();
+  await wait(20);
+  assert.deepEqual(opened, []);
+
+  const slow2 = slowLoad();
+  const enter2 = createBangSubmitter(slow2.load);
+  enter2.submit("!gh react", (url) => opened.push(["one", url]));
+  enter2.submit("react !w", (url) => opened.push(["two", url]));
+  slow2.release();
+  await wait(20);
+  assert.deepEqual(opened, [["two", "https://wikipedia.org/w/index.php?search=react"]]);
+  enter2.cancel();
+  await wait(20);
+  assert.equal(opened.length, 1);
+});
+
+test("a list that doesn't load in time gives the plain search, unless something newer happened", async () => {
+  const opened = [];
+  const never = () => new Promise(() => {});
+  const enter = createBangSubmitter(never, 30);
+  enter.submit("!gh react", (url) => opened.push(url));
+  await wait(60);
+  assert.deepEqual(opened, [null]);
+  enter.submit("!gh react", (url) => opened.push(url));
+  await wait(10);
+  enter.cancel();
+  await wait(60);
+  assert.deepEqual(opened, [null]);
+  const failing = createBangSubmitter(() => Promise.reject(new Error("no list")), 30);
+  failing.submit("!gh react", (url) => opened.push(url));
+  const throwing = createBangSubmitter(() => {
+    throw new Error("no list");
+  }, 30);
+  throwing.submit("!gh react", (url) => opened.push(url));
+  await wait(60);
+  assert.deepEqual(opened, [null, null, null]);
 });
 
 test("the first refresh sends only the bundled list's ETag; 304 keeps the list", async () => {

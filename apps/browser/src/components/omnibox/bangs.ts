@@ -69,12 +69,49 @@ export function bangsFor(text: string): BangTable | null {
   return table;
 }
 
-export function resolveTypedBang(text: string): Promise<string | null> {
-  if (!text.includes("!")) return Promise.resolve(null);
-  return loadBangs().then(
-    (loaded) => findBang(text, loaded)?.url ?? null,
-    () => null,
-  );
+const BANG_WORD = /^![^\s!]+$/;
+
+export function mayBeBang(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed.includes("!") || trimmed.startsWith("?")) return false;
+  const words = trimmed.split(/\s+/);
+  return BANG_WORD.test(words[0]!) || BANG_WORD.test(words[words.length - 1]!);
+}
+
+export const BANG_ENTER_TIMEOUT_MS = 1500;
+
+export type BangSubmitter = { submit(text: string, commit: (url: string | null) => void): void; cancel(): void };
+
+export function createBangSubmitter(load: () => Promise<BangTable> = loadBangs, timeoutMs = BANG_ENTER_TIMEOUT_MS): BangSubmitter {
+  let current = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => {
+    current++;
+    clearTimeout(timer);
+  };
+  return {
+    cancel,
+    submit(text, commit) {
+      cancel();
+      const mine = current;
+      const finish = (url: string | null) => {
+        if (mine !== current) return;
+        cancel();
+        commit(url);
+      };
+      timer = setTimeout(() => finish(null), timeoutMs);
+      let loaded: Promise<BangTable>;
+      try {
+        loaded = load();
+      } catch {
+        return finish(null);
+      }
+      loaded.then(
+        (table) => finish(findBang(text, table)?.url ?? null),
+        () => finish(null),
+      );
+    },
+  };
 }
 
 const subscribe = (listener: () => void) => {
