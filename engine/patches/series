@@ -21,6 +21,7 @@ chromium chromium-devtools-window-title.patch
 chromium chromium-devtools-control-token.patch
 chromium chromium-extension-install-prompt-hook.patch
 chromium chromium-extension-updates.patch
+chromium chromium-component-updater-security-only.patch
 chromium chromium-extension-omaha-attributes.patch
 chromium chromium-extension-management-policy-hook.patch
 chromium chromium-unpacked-load-path-hook.patch
