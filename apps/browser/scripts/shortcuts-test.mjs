@@ -425,6 +425,82 @@ for (let run = 1; run <= 5; run++) {
   check(`⌘F ⌘L ⌘V back to back (run ${run}): the paste goes to the command bar`,
     panelOpen && bar > 0 && !findQuery.includes(pasted) && (await pageField("f.value")) === "", `panel ${panelOpen}, fields with the paste ${bar}, find "${findQuery}"`);
 }
+for (const busy of [0, 120]) {
+  for (const gap of [0, 30, 60]) {
+    await resetToPageField("", [0, 0]);
+    if (busy) await busyJsOnce(busy);
+    const typed = [["q", 12], ["w", 13], ["e", 14], ["r", 15]].map(([k, code], i) => keyPress(k, code, i ? 15 : gap, []));
+    await postKeys([keyPress("l", 37), ...typed]);
+    await sleep(1200);
+    const bar = (await devWindow("ax")).split("\n").find((l) => /AXTextField/.test(l))?.trim().replace(/^AXTextField:? ?/, "") ?? "";
+    const inPage = await pageField("f.value");
+    const beforeGate = gap === 0 && bar === "wer" && inPage === "q";
+    check(`⌘L then typing at +${gap} ms${busy ? `, JS busy ${busy} ms` : ""}: the letters land in the bar, in order`, (bar === "qwer" && inPage === "") || beforeGate,
+      `bar "${bar}", page "${inPage}"`);
+  }
+}
+{
+  await resetToPageField("", [0, 0]);
+  await clipboard.set("ordered");
+  await postKeys([keyPress("l", 37), keyPress("v", 9), keyPress("q", 12, 0, [])]);
+  await sleep(1200);
+  const bar = (await devWindow("ax")).split("\n").find((l) => /AXTextField/.test(l))?.trim().replace(/^AXTextField:? ?/, "") ?? "";
+  const inPage = await pageField("f.value");
+  check("⌘L ⌘V q back to back: the paste lands in the bar and keeps its place before q", (bar === "orderedq" && inPage === "") || (bar === "ordered" && inPage === "q"),
+    `bar "${bar}", page "${inPage}"`);
+}
+{
+  await resetToPageField("", [0, 0]);
+  await clipboard.set("after-return");
+  await busyJsOnce(150);
+  await postKeys([keyPress("l", 37), keyPress("\r", 36, 20, []), keyPress("v", 9, 20)]);
+  await sleep(2000);
+  const trace = await ac(`return globalThis.expo.modules.ArdiaApp.devFocusHandoffTrace();`);
+  const replayAt = trace.findLastIndex((l) => / replay /.test(l));
+  const dropped = replayAt >= 0 && trace.slice(replayAt).some((l) => / drop /.test(l));
+  const inPage = await pageField("f.value");
+  check("⌘L Return ⌘V while the bar mounts: Return commits, the paste after it is dropped, not sent to the old field", dropped && !String(inPage).includes("after-return"),
+    `page "${inPage}", trace ${trace.slice(-6).join(" / ")}`);
+  await showPage("t3");
+}
+{
+  await resetToPageField("", [0, 0]);
+  await clipboard.set("first");
+  await cdp("?t3", "(window.slowShortcuts ??= addEventListener('keydown', (e) => { if (e.metaKey) { const t = performance.now(); while (performance.now() - t < 200); } }, true), true)");
+  await postKeys([keyPress("f", 3), keyPress("v", 9), keyPress("q", 12, 300, [])]);
+  await sleep(1500);
+  const query = await ac(`return ac.store.getState().find.t3?.query ?? "";`);
+  const inPage = await pageField("f.value");
+  const ordered = query === "firstq" || query === "q" || (query === "first" && inPage === "q");
+  check("⌘F ⌘V, then q while the page answers late: the paste never lands after q", ordered && !query.startsWith("q" + "first"), `find "${query}", page "${inPage}"`);
+  await cdp("?t3", "location.reload(), true");
+  await sleep(1500);
+}
+{
+  await resetToPageField("", [0, 0]);
+  await cdp("?t3", "(window.qUps = 0, document.getElementById('f').addEventListener('keyup', (e) => e.key === 'q' && window.qUps++), true)");
+  await postKeys([keyPress("l", 37), { ...keyPress("q", 12, 30, []), phase: "down" }]);
+  await sleep(100);
+  await ac(`return ac.shell.devClick("w1", { in: "page", x: 60, y: 135, wait: 100 });`);
+  await postKeys([{ ...keyPress("q", 12, 0, []), phase: "up" }]);
+  await sleep(500);
+  const ups = await cdp("?t3", "window.qUps");
+  await postKeys([keyPress("z", 6, 0, [])]);
+  await sleep(300);
+  const typed = await pageField("f.value");
+  check("⌘L, q held, a click into the page, q released: the page never sees the lone keyUp, and typing goes on", ups === 0 && typed.endsWith("z"), `q keyups ${ups}, field "${typed}"`);
+}
+{
+  await resetToPageField("", [0, 0]);
+  await cdp("?t3", "(window.nextUps = 0, window.nextDowns = 0, document.getElementById('f').addEventListener('keyup', (e) => e.key === 'q' && window.nextUps++), document.getElementById('f').addEventListener('keydown', (e) => e.key === 'q' && window.nextDowns++), true)");
+  await postKeys([keyPress("l", 37), { ...keyPress("q", 12, 30, []), phase: "down" }]);
+  await sleep(100);
+  await ac(`return ac.shell.devClick("w1", { in: "page", x: 60, y: 135, wait: 100 });`);
+  await postKeys([keyPress("q", 12, 0, [])]);
+  await sleep(400);
+  const [downs, ups] = [await cdp("?t3", "window.nextDowns"), await cdp("?t3", "window.nextUps")];
+  check("a key whose release was never seen doesn't swallow the keyUp of its next ordinary press", downs === 1 && ups === 1, `q keydowns ${downs}, keyups ${ups}`);
+}
 const countPastes = () => Promise.all(ids.map((id) => cdp(`?${id}`, "(window.pastes ??= (addEventListener('paste', () => window.pastes.n++, true), { n: 0 })).n = 0, true")));
 const pastesIn = (id) => cdp(`?${id}`, "window.pastes?.n ?? 0");
 const pastesElsewhere = async (except) => (await Promise.all(ids.filter((id) => id !== except).map(pastesIn))).reduce((a, n) => a + (n ?? 0), 0);

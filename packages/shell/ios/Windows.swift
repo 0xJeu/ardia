@@ -621,11 +621,25 @@ final class FocusHandoff {
     Selector(("pasteAndMatchStyle:")),
   ]
 
+  private enum Input {
+    case action(Selector)
+    case key(NSEvent, up: NSEvent?)
+  }
+
+  private struct Held {
+    var input: Input
+    var generation: Int?
+    let at: TimeInterval
+  }
+
+  private final class Release {
+    weak var target: NSResponder?
+  }
+
   private final class Generation {
     let id: Int
     weak var destination: NSView?
     var claimed = false
-    var actions: [Selector] = []
     init(_ id: Int) { self.id = id }
   }
 
@@ -635,18 +649,23 @@ final class FocusHandoff {
     var restoresSource = true
     var deadline: CFTimeInterval = 0
     var generations: [Generation] = []
+    var held: [Held] = []
     var watches: [NSObjectProtocol] = []
     init(_ window: NSWindow) { self.window = window }
   }
 
   private static let lifetime: CFTimeInterval = 0.4
-  private static let capacity = 8
+  private static let capacity = 64
   private var gates: [ObjectIdentifier: Gate] = [:]
   private var generations = 0
   private var begun: Int?
   private var monitor: Any?
   private let editKeys = NSMapTable<NSEvent, NSArray>(keyOptions: .weakMemory, valueOptions: .strongMemory)
   private var epochs: [Int: Int] = [:]
+  private var releases: [UInt16: Release] = [:]
+  private var closedAt: [Int: TimeInterval] = [:]
+  private var typedAfterGate: [Int: TimeInterval] = [:]
+  private weak var acknowledged: NSEvent?
   private(set) var trace: [String] = []
   var afterPendingUI: (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) }
 
@@ -665,8 +684,8 @@ final class FocusHandoff {
       gate.resigned = page
       window.makeFirstResponder(nil)
     }
-    gate.generations.forEach { drop(&$0.actions) }
     generations += 1
+    drop(in: gate) { _ in true }
     gate.generations.append(Generation(generations))
     begun = generations
     note("begin \(generations)")
@@ -679,14 +698,45 @@ final class FocusHandoff {
   }
 
   func defers(_ action: Selector) -> Bool {
-    guard let window = NSApp.keyWindow, let gate = gates[ObjectIdentifier(window)], live(gate) else { return false }
+    guard let window = NSApp.keyWindow, let gate = gates[ObjectIdentifier(window)], live(gate) else {
+      return dropsLateAcknowledgement(action, in: NSApp.keyWindow)
+    }
     note("defer \(action)")
-    guard let newest = gate.generations.last else {
+    guard !gate.generations.isEmpty else {
       settle(gate)
       return false
     }
-    if newest.actions.count < Self.capacity { newest.actions.append(action) } else { NSSound.beep() }
+    if let at = Self.origin(of: acknowledged ?? NSApp.currentEvent) {
+      hold(.action(action), at: at, in: gate)
+    } else if gate.held.isEmpty {
+      hold(.action(action), at: ProcessInfo.processInfo.systemUptime, in: gate)
+    } else {
+      note("drop \(action): no origin")
+      NSSound.beep()
+    }
     return true
+  }
+
+  private func noteTyped(_ down: NSEvent, in window: NSWindow) {
+    guard let closed = closedAt[window.windowNumber], ProcessInfo.processInfo.systemUptime - closed < 1 else { return }
+    typedAfterGate[window.windowNumber] = max(typedAfterGate[window.windowNumber] ?? 0, down.timestamp)
+  }
+
+  private func dropsLateAcknowledgement(_ action: Selector, in window: NSWindow?) -> Bool {
+    guard let window, let event = acknowledged, let closed = closedAt[window.windowNumber], event.timestamp < closed,
+      let typed = typedAfterGate[window.windowNumber], typed > event.timestamp else { return false }
+    note("drop \(action): acknowledged after later keys were replayed")
+    NSSound.beep()
+    return true
+  }
+
+  private static func origin(of event: NSEvent?) -> TimeInterval? {
+    guard let event else { return nil }
+    switch event.type {
+    case .keyDown where event.modifierFlags.contains(.command): return event.timestamp
+    case .leftMouseDown, .leftMouseUp: return event.timestamp
+    default: return nil
+    }
   }
 
   func claim(_ id: Int, destination: NSView) {
@@ -701,7 +751,7 @@ final class FocusHandoff {
     note("cancel \(id) restoring=\(restoringSource)")
     guard let gate = gate(of: id), let index = gate.generations.firstIndex(where: { $0.id == id }) else { return }
     if !restoringSource { gate.restoresSource = false }
-    drop(&gate.generations[index].actions)
+    drop(in: gate) { $0.generation == id }
     gate.generations.remove(at: index)
     settle(gate)
   }
@@ -709,31 +759,72 @@ final class FocusHandoff {
   func refusesUnhandledKey(_ event: NSEvent, in window: NSWindow) -> Bool {
     guard let tag = editKeys.object(forKey: event) as? [Int], tag.count == 2 else { return false }
     let current = [window.windowNumber, epochs[window.windowNumber] ?? 0]
-    guard tag != current || NSApp.keyWindow !== window else { return false }
+    guard tag != current || NSApp.keyWindow !== window else {
+      acknowledged = event
+      DispatchQueue.main.async { [weak self] in if self?.acknowledged === event { self?.acknowledged = nil } }
+      return false
+    }
     NSSound.beep()
     return true
   }
 
   func install() {
     guard monitor == nil else { return }
-    monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+    monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .leftMouseDown, .rightMouseDown]) { [weak self] event in
       guard let self, let window = event.window else { return event }
-      if event.type != .keyDown {
-        if let gate = self.gates[ObjectIdentifier(window)] { self.end(gate, restoring: false) }
+      let gate = self.gates[ObjectIdentifier(window)]
+      if event.type == .leftMouseDown || event.type == .rightMouseDown {
+        if let gate { self.end(gate, restoring: false) }
         return event
       }
-      if Self.isEditKey(event) {
+      if event.type == .keyDown, Self.isEditKey(event) {
         self.editKeys.setObject([window.windowNumber, self.epochs[window.windowNumber] ?? 0] as NSArray, forKey: event)
       }
-      return event
+      if event.type == .keyUp { return self.releases(event, in: gate) ? nil : event }
+      if gate == nil, !event.modifierFlags.contains(.command) { self.noteTyped(event, in: window) }
+      guard let gate, !event.modifierFlags.contains(.command), self.live(gate), !gate.generations.isEmpty else {
+        if !event.isARepeat { self.releases[event.keyCode] = nil }
+        return event
+      }
+      self.releases[event.keyCode] = Release()
+      self.hold(.key(event, up: nil), at: event.timestamp, in: gate)
+      return nil
     }
-    NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] note in
+    let center = NotificationCenter.default
+    center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] note in
       guard let self, let window = note.object as? NSWindow else { return }
       self.epochs[window.windowNumber, default: 0] += 1
+    }
+    for name in [NSApplication.didResignActiveNotification, NSWindow.didResignKeyNotification] {
+      center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.releases.removeAll() }
+    }
+    center.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { [weak self] note in
+      guard let self, let window = note.object as? NSWindow else { return }
+      self.closedAt[window.windowNumber] = nil
+      self.typedAfterGate[window.windowNumber] = nil
     }
   }
 
   func noteForwarded(_ action: Selector) { note("forward \(action)") }
+
+  private func releases(_ up: NSEvent, in gate: Gate?) -> Bool {
+    guard let release = releases.removeValue(forKey: up.keyCode) else { return false }
+    if let gate, let index = gate.held.lastIndex(where: {
+      if case .key(let down, nil) = $0.input { return down.keyCode == up.keyCode }
+      return false
+    }), case .key(let down, _) = gate.held[index].input {
+      gate.held[index].input = .key(down, up: up)
+    } else {
+      release.target?.keyUp(with: up)
+    }
+    return true
+  }
+
+  private func hold(_ input: Input, at: TimeInterval, in gate: Gate) {
+    guard gate.held.count < Self.capacity else { return NSSound.beep() }
+    let index = gate.held.lastIndex { $0.at <= at }.map { $0 + 1 } ?? 0
+    gate.held.insert(Held(input: input, generation: gate.generations.last?.id, at: at), at: index)
+  }
 
   private func open(in window: NSWindow) -> Gate {
     let gate = Gate(window)
@@ -776,10 +867,11 @@ final class FocusHandoff {
     afterPendingUI { [weak self, weak gate] in
       guard let self, let gate, let window = gate.window, self.gates[ObjectIdentifier(window)] === gate, self.live(gate),
         let (newest, responder) = self.ready(gate) else { return }
-      let actions = newest.actions
-      newest.actions = []
+      let mine = gate.held.filter { $0.generation == newest.id }
+      self.drop(in: gate) { $0.generation != newest.id }
+      gate.held = []
       self.close(gate)
-      self.deliver(actions, to: responder)
+      if let destination = newest.destination { self.replay(mine, into: destination, in: window) }
     }
   }
 
@@ -792,7 +884,7 @@ final class FocusHandoff {
 
   private func end(_ gate: Gate, restoring: Bool) {
     note("end restoring=\(restoring && gate.restoresSource)")
-    for index in gate.generations.indices { drop(&gate.generations[index].actions) }
+    drop(in: gate) { _ in true }
     close(gate)
     guard restoring, gate.restoresSource, let window = gate.window, Self.unfocused(window), let page = gate.resigned,
       page.window === window, !page.isHiddenOrHasHiddenAncestor else { return }
@@ -801,6 +893,8 @@ final class FocusHandoff {
 
   private func close(_ gate: Gate) {
     guard let window = gate.window else { return }
+    closedAt[window.windowNumber] = ProcessInfo.processInfo.systemUptime
+    typedAfterGate[window.windowNumber] = nil
     let key = ObjectIdentifier(window)
     if gates[key] === gate { gates[key] = nil }
     gate.watches.forEach { ($0 as? NSKeyValueObservation)?.invalidate() ?? NotificationCenter.default.removeObserver($0) }
@@ -812,22 +906,42 @@ final class FocusHandoff {
     gates.values.first { $0.generations.contains { $0.id == id } }
   }
 
-  private func deliver(_ actions: [Selector], to responder: NSResponder) {
-    guard !actions.isEmpty else { return }
-    note("deliver \(actions) to \(type(of: responder))")
-    for action in actions {
-      var selector = action
-      if selector == Selector(("pasteAndMatchStyle:")), !responder.responds(to: selector) {
-        selector = #selector(NSTextView.pasteAsPlainText(_:))
+  private func replay(_ held: [Held], into destination: NSView, in window: NSWindow) {
+    guard !held.isEmpty else { return }
+    note("replay \(held.count) into \(type(of: destination))")
+    for entry in held { if case .key(let down, _) = entry.input { noteTyped(down, in: window) } }
+    for (index, entry) in held.enumerated() {
+      guard let responder = window.firstResponder as? NSView, responder === destination || responder.isDescendant(of: destination) else {
+        return beep(Array(held[index...]))
       }
-      NSApp.sendAction(selector, to: responder, from: nil)
+      switch entry.input {
+      case .key(let down, let up):
+        NSApp.sendEvent(down)
+        if let up {
+          responder.keyUp(with: up)
+        } else if let release = releases[down.keyCode] {
+          release.target = responder
+        }
+      case .action(let action):
+        var selector = action
+        if selector == Selector(("pasteAndMatchStyle:")), !responder.responds(to: selector) {
+          selector = #selector(NSTextView.pasteAsPlainText(_:))
+        }
+        NSApp.sendAction(selector, to: responder, from: nil)
+      }
     }
   }
 
-  private func drop(_ actions: inout [Selector]) {
-    guard !actions.isEmpty else { return }
-    note("drop \(actions)")
-    actions = []
+  private func drop(in gate: Gate, where dropped: (Held) -> Bool) {
+    let gone = gate.held.filter(dropped)
+    guard !gone.isEmpty else { return }
+    gate.held.removeAll(where: dropped)
+    beep(gone)
+  }
+
+  private func beep(_ held: [Held]) {
+    guard !held.isEmpty else { return }
+    note("drop \(held.count)")
     NSSound.beep()
   }
 

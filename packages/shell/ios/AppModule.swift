@@ -201,7 +201,9 @@ public class AppModule: Module {
         let send = {
           let key = press["key"] as? String ?? ""
           let mods = NSEvent.ModifierFlags((press["modifiers"] as? [String] ?? []).compactMap { names[$0] })
-          for type in [NSEvent.EventType.keyDown, .keyUp] {
+          let phase = press["phase"] as? String
+          let types: [NSEvent.EventType] = phase == "down" ? [.keyDown] : phase == "up" ? [.keyUp] : [.keyDown, .keyUp]
+          for type in types {
             if let event = NSEvent.keyEvent(
               with: type, location: .zero, modifierFlags: mods, timestamp: ProcessInfo.processInfo.systemUptime,
               windowNumber: window.windowNumber, context: nil, characters: key, charactersIgnoringModifiers: key,
