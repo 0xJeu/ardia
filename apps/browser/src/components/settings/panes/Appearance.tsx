@@ -1,5 +1,4 @@
-import { appIcons, currentAppIcon, setAppearance, setAppIcon, Symbol, type AppIcon } from "@ardia/shell";
-import { useEffect, useState } from "react";
+import { setAppearance, setAppIcon, Symbol, type AppIcon } from "@ardia/shell";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
@@ -7,6 +6,8 @@ import { tabLayoutOf } from "../../../store/model";
 import type { Settings } from "../../../store/settings";
 import { useHover } from "../../primitives";
 import { SectionHeader, useFormColors } from "../controls";
+import { APP_ICON_SIZE, appIconChoices } from "../paneData";
+import { store, useResource } from "../resources";
 
 const MODES: { value: Settings["appearance"]; title: string; description: string }[] = [
   { value: "auto", title: "Automatic", description: "Follow the system appearance setting" },
@@ -102,17 +103,12 @@ function AddressBarChoice({ value, title, selected, onPress }: { value: Settings
 }
 
 function AppIconPicker() {
-  const [icons, setIcons] = useState<AppIcon[]>([]);
-  const [current, setCurrent] = useState<string | null>(null);
-  useEffect(() => {
-    void Promise.all([appIcons(ICON_SIZE), currentAppIcon()]).then(([list, id]) => {
-      setIcons(list);
-      setCurrent(id);
-    });
-  }, []);
+  const [choices] = useResource(appIconChoices);
+  const icons = choices?.icons ?? [];
+  const current = choices?.current ?? null;
   if (icons.length < 2) return null;
   const choose = (id: string) => {
-    setCurrent(id);
+    store(appIconChoices, [], { icons, current: id });
     void setAppIcon(id);
   };
   return (
@@ -127,7 +123,7 @@ function AppIconPicker() {
   );
 }
 
-const ICON_SIZE = 56;
+const ICON_SIZE = APP_ICON_SIZE;
 
 function IconChoice({ icon, selected, onPress }: { icon: AppIcon; selected: boolean; onPress: () => void }) {
   const theme = useTheme();

@@ -1,23 +1,21 @@
 import {
   checkForUpdates,
-  isDefaultBrowser,
-  launchAtLoginStatus,
   setAsDefaultBrowser,
   setAutomaticUpdateChecks,
   setAutomaticUpdateDownloads,
   setLaunchAtLogin,
   setUpdateChannel,
   Symbol,
-  updaterState,
   type UpdateChannel,
-  type UpdaterState,
 } from "@ardia/shell";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AppState, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { SHARING_COPY } from "../../../telemetry/copy";
 import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { defaultBrowser, loginItem, updater } from "../paneData";
+import { store, useResource } from "../resources";
 import { openImport } from "../windows";
 
 const APP = "Ardia";
@@ -25,10 +23,7 @@ const APP = "Ardia";
 export function GeneralPane() {
   const settings = useBrowser((s) => s.settings);
   const update = useBrowser((s) => s.updateSettings);
-  const [loginStatus, setLoginStatus] = useState<string>("notRegistered");
-
-  const refreshLogin = () => void launchAtLoginStatus().then(setLoginStatus);
-  useEffect(refreshLogin, []);
+  const [loginStatus = "notRegistered", refreshLogin] = useResource(loginItem);
 
   return (
     <View>
@@ -114,17 +109,16 @@ export function GeneralPane() {
 }
 
 function UpdatesSection() {
-  const [state, setState] = useState<UpdaterState | null>(null);
-  const refresh = () => void updaterState().then(setState, () => setState({ available: false }));
+  const [state, reload] = useResource(updater);
+  const refresh = () => void reload();
   useEffect(() => {
-    refresh();
     const sub = AppState.addEventListener("change", refresh);
     return () => sub.remove();
   }, []);
   if (!state?.available) return null;
   const ready = state.configured;
   const set = (patch: { automaticChecks?: boolean; automaticDownloads?: boolean; channel?: UpdateChannel }) => {
-    setState({ ...state, ...patch });
+    store(updater, [], { ...state, ...patch });
     if (patch.automaticChecks !== undefined) void setAutomaticUpdateChecks(patch.automaticChecks).finally(refresh);
     if (patch.automaticDownloads !== undefined) void setAutomaticUpdateDownloads(patch.automaticDownloads).finally(refresh);
     if (patch.channel !== undefined) void setUpdateChannel(patch.channel).finally(refresh);
@@ -171,14 +165,11 @@ function UpdatesSection() {
 function DefaultBrowserBanner() {
   const theme = useTheme();
   const colors = useFormColors();
-  const [isDefault, setIsDefault] = useState<boolean | null>(null);
-  const refresh = () => void isDefaultBrowser().then(setIsDefault);
+  const [isDefault, reload] = useResource(defaultBrowser);
   useEffect(() => {
-    refresh();
-    const sub = AppState.addEventListener("change", refresh);
+    const sub = AppState.addEventListener("change", () => void reload());
     return () => sub.remove();
   }, []);
-  if (isDefault === null) return <View style={{ height: 20 }} />;
   return (
     <View
       style={{
@@ -202,7 +193,7 @@ function DefaultBrowserBanner() {
       <Text style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
         {isDefault ? `${APP} is your default browser` : `${APP} works best as your default browser`}
       </Text>
-      {!isDefault && <Button title={`Set ${APP} as Default`} kind="primary" onPress={() => void setAsDefaultBrowser().then(setIsDefault)} />}
+      {!isDefault && <Button title={`Set ${APP} as Default`} kind="primary" onPress={() => void setAsDefaultBrowser().then((v) => store(defaultBrowser, [], v))} />}
     </View>
   );
 }

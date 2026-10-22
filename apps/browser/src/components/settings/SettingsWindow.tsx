@@ -1,11 +1,12 @@
 import { Symbol, VisualEffect, WindowDragRegion } from "@ardia/shell";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { trackSettingsSection } from "../../telemetry/track";
 import { IconButton, useHover } from "../primitives";
 import { useFormColors } from "./controls";
+import { preparePane, usePaneLoaded } from "./paneData";
 import { AdvancedPane } from "./panes/Advanced";
 import { AppearancePane } from "./panes/Appearance";
 import { CalendarPane } from "./panes/Calendar";
@@ -42,14 +43,50 @@ const PANES: { id: SettingsPane; title: string; icon: string }[] = [
 
 const SIDEBAR = 214;
 const TOOLBAR = 52;
+const HOLD_CAP_MS = 250;
+
+type Shown = { pane: SettingsPane; profileId: string | null };
+const shownKey = (s: Shown) => `${s.pane}:${s.profileId ?? ""}`;
+
+function useShownPane(): Shown | null {
+  const nav = useSettingsNav();
+  const target = { pane: nav.pane, profileId: nav.profileId };
+  const key = shownKey(target);
+  const loaded = usePaneLoaded(nav.pane, nav.profileId);
+  const [expired, setExpired] = useState<string | null>(null);
+  const [last, setLast] = useState<Shown | null>(null);
+  const ready = loaded || expired === key;
+  useEffect(() => {
+    if (ready) return setLast(target);
+    void preparePane(target.pane, target.profileId);
+    const timer = setTimeout(() => setExpired(key), HOLD_CAP_MS);
+    return () => clearTimeout(timer);
+  }, [key, ready]);
+  return ready ? target : last;
+}
+
+function usePrefetchAllPanes(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setTimeout(() => {
+      for (const p of PANES) void preparePane(p.id, null);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [enabled]);
+}
 
 export function SettingsWindow() {
   const theme = useTheme();
   const nav = useSettingsNav();
-  const profileName = useBrowser((s) => (nav.profileId ? s.profiles[nav.profileId]?.name : undefined));
-  const title = nav.pane === "profiles" && profileName ? profileName : PANES.find((p) => p.id === nav.pane)!.title;
+  const shown = useShownPane();
+  usePrefetchAllPanes(!!shown);
+  const profileName = useBrowser((s) => (shown?.profileId ? s.profiles[shown.profileId]?.name : undefined));
+  const title = shown ? (shown.pane === "profiles" && profileName ? profileName : PANES.find((p) => p.id === shown.pane)!.title) : "";
   const sheet = useSettingsSheet((s) => s.sheet);
   useEffect(() => trackSettingsSection(nav.pane), [nav.pane]);
+  const scroller = useRef<ScrollView>(null);
+  const key = shown ? shownKey(shown) : "";
+  useLayoutEffect(() => scroller.current?.scrollTo({ y: 0, animated: false }), [key]);
 
   return (
     <View style={{ flex: 1, flexDirection: "row", backgroundColor: theme.dark ? "#1E1E1E" : "#F2F2F2" }}>
@@ -70,9 +107,9 @@ export function SettingsWindow() {
           <IconButton icon="chevron.right" size={13} box={28} radius={6} disabled={!nav.forward.length} onPress={nav.goForward} tooltip="Forward" />
           <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{title}</Text>
         </View>
-        <ScrollView key={`${nav.pane}:${nav.profileId}`} contentContainerStyle={{ alignItems: "center", paddingBottom: 40 }}>
-          <View style={{ width: "100%", maxWidth: 600, paddingHorizontal: 24 }}>
-            <Pane pane={nav.pane} profileId={nav.profileId} />
+        <ScrollView ref={scroller} contentContainerStyle={{ alignItems: "center", paddingBottom: 40 }}>
+          <View key={key} style={{ width: "100%", maxWidth: 600, paddingHorizontal: 24 }}>
+            {shown ? <Pane pane={shown.pane} profileId={shown.profileId} /> : null}
           </View>
         </ScrollView>
       </View>

@@ -1,6 +1,8 @@
 import { showMenu, Symbol } from "@ardia/shell";
 import { SyncNative, type FolderInfo } from "@ardia/sync";
 import { useEffect, useState } from "react";
+import { syncFolder } from "../paneData";
+import { useResource } from "../resources";
 import { Linking, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
@@ -26,14 +28,11 @@ export function SyncPane() {
   const enabled = useSync((s) => s.enabled);
   const status = useSync((s) => s.status);
   const folder = useSync((s) => s.folder);
-  const [info, setInfo] = useState<FolderInfo | null>(null);
+  const [loaded, reload] = useResource(syncFolder, folder ?? null);
+  const info = loaded ?? null;
   useEffect(() => {
-    let live = true;
-    void folderInfo(folder).then((i) => live && setInfo(i));
-    return () => {
-      live = false;
-    };
-  }, [folder, enabled, status]);
+    void reload();
+  }, [enabled, status]);
 
   if (status === "unavailable") {
     return <Text style={{ marginTop: 20, fontSize: 12.5, color: theme.textSecondary }}>Sync isn’t available in this build.</Text>;

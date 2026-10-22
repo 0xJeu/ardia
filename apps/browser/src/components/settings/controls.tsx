@@ -50,6 +50,7 @@ export function Toggle({ value, onChange, disabled }: { value: boolean; onChange
       value={value}
       onChange={onChange}
       disabled={disabled}
+      animateExternalChanges={false}
       look={{ width: 32, height: 18, knob: 15, inset: 1.5, offColor: colors.switchOff, onColor: colors.accent, knobBorder: "rgba(0,0,0,0.12)", duration: 160, easing: switchEasing.cubicOut }}
     />
   );

@@ -1,5 +1,5 @@
 import { reloadExtension, type InstalledExtension } from "@ardia/ardiacore";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Image, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
@@ -17,6 +17,8 @@ import {
   useExtensionList,
 } from "../../extensions/state";
 import { Button, Group, PopUp, Row, SectionHeader, TextField, Toggle } from "../controls";
+import { extensionList } from "../paneData";
+import { useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../sheet";
 import { SETTINGS_WINDOW_ID } from "../windows";
 
@@ -37,9 +39,7 @@ export function ExtensionsPane() {
   const list = useExtensionList(profile);
   const [detail, setDetail] = useState<string | null>(null);
   const [link, setLink] = useState("");
-  useEffect(() => {
-    void refreshExtensions(profile);
-  }, [profile]);
+  useResource(extensionList, profile);
 
   const showInstall = () =>
     showSettingsSheet(<InstallDialogHost windowId={SETTINGS_WINDOW_ID} onClosed={closeSettingsSheet} />);

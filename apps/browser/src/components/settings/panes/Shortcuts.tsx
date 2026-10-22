@@ -1,4 +1,4 @@
-import { cancelShortcutRecording, menuShortcuts, recordShortcut, Symbol, type MenuShortcut } from "@ardia/shell";
+import { cancelShortcutRecording, recordShortcut, Symbol, type MenuShortcut } from "@ardia/shell";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
@@ -7,6 +7,8 @@ import { openUrls } from "../../../lib/actions";
 import { IconButton, useHover } from "../../primitives";
 import { matchesQuery } from "../../pages/PageLayout";
 import { Button, Group, PopUp, Row, SearchField, SectionHeader, useFormColors } from "../controls";
+import { shortcutItems } from "../paneData";
+import { useResource } from "../resources";
 
 type Combo = { key: string; modifiers: string[] };
 type Filter = "all" | "customized" | "conflicts";
@@ -45,15 +47,13 @@ const comboId = (c: Combo) => (c.key ? `${[...c.modifiers].sort().join("+")}+${c
 export function ShortcutsPane() {
   const theme = useTheme();
   const overrides = useBrowser((s) => s.settings.shortcuts);
-  const [items, setItems] = useState<MenuShortcut[] | null>(null);
+  const [loaded] = useResource(shortcutItems);
+  const items = loaded ?? null;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [recording, setRecording] = useState<string | null>(null);
 
-  useEffect(() => {
-    void menuShortcuts().then(setItems);
-    return () => void cancelShortcutRecording();
-  }, []);
+  useEffect(() => () => void cancelShortcutRecording(), []);
 
   const effective = (item: MenuShortcut): Combo => {
     const o = overrides[item.id];

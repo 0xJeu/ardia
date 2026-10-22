@@ -1,5 +1,3 @@
-import { engineInfo, listComponents, WIDEVINE_COMPONENT_ID, type EngineComponent, type EngineInfo } from "@ardia/ardiacore";
-import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { systemInfo } from "@ardia/shell";
 import { describeCliInstall, installCliInBackground, useCli } from "../../../lib/cliControl";
@@ -9,6 +7,8 @@ import { useBrowser } from "../../../store/browser";
 import { openInternalPage } from "../../pages/urls";
 import type { BatterySaverWhen } from "../../../store/settings";
 import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { engineVersion, widevine as widevineComponent } from "../paneData";
+import { useResource } from "../resources";
 
 const REPOSITORY = "https://github.com/mantrakp04/ardia";
 const SOURCE_NOTICE = "Ardia is open source under the Apache License 2.0.";
@@ -23,14 +23,8 @@ export function AdvancedPane() {
   const theme = useTheme();
   const settings = useBrowser((s) => s.settings);
   const update = useBrowser((s) => s.updateSettings);
-  const [info, setInfo] = useState<EngineInfo | null>(null);
-  const [widevine, setWidevine] = useState<EngineComponent | null | undefined>(undefined);
-  useEffect(() => {
-    void engineInfo().then(setInfo).catch(() => {});
-    void listComponents()
-      .then((list) => setWidevine(list.find((c) => c.id === WIDEVINE_COMPONENT_ID) ?? null))
-      .catch(() => setWidevine(null));
-  }, []);
+  const [info] = useResource(engineVersion);
+  const [widevine] = useResource(widevineComponent);
   const widevineVersion = widevine && widevine.version !== "0.0.0.0" ? widevine.version : null;
 
   return (
