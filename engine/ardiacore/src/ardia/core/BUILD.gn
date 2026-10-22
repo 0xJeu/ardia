@@ -81,7 +81,6 @@ source_set("core") {
 
   deps = [
     "//base",
-    "//chrome/app:branded_strings",
     "//chrome/app:command_ids",
     "//chrome/app:generated_resources",
     "//chrome/browser",
