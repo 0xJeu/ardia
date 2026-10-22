@@ -412,3 +412,59 @@ test("Clear with nothing pinned opens a New Tab page, and undo puts the tabs bac
   assert.equal(S().clearUnpinnedTabs(w).entries.length, 1);
   assert.equal(S().clearUnpinnedTabs(w).entries.length, 0, "a lone New Tab page has nothing to bring back");
 });
+
+test("⌘T opens the new tab right after the current one, and closing it returns there", () => {
+  reset();
+  const [w, a] = setup("a", "b", "c");
+  const n = S().newTab(w, { url: "n.com", fromCurrent: true });
+  assert.deepEqual(hosts(w), ["a", "n", "b", "c"]);
+  assert.equal(shown(w), "n");
+  S().closeTab(n);
+  assert.equal(shown(w), "a");
+});
+
+test("⌘T with New tabs at the end keeps the old order", () => {
+  reset({ newTabNextToCurrent: false });
+  const [w] = setup("a", "b", "c");
+  S().activate(S().windows[w].tabIds[0]);
+  S().newTab(w, { url: "n.com", fromCurrent: true });
+  assert.deepEqual(hosts(w), ["a", "b", "c", "n"]);
+});
+
+test("⌘T from a grouped tab joins its group", () => {
+  reset();
+  const [w, a, , c] = setup("a", "b", "c");
+  const g = S().createGroup([a, c], { name: "G" });
+  S().activate(a);
+  S().newTab(w, { url: "n.com", fromCurrent: true });
+  assert.deepEqual(S().groups[g].tabIds.map((id) => short(S().tabs[id].url)), ["a", "n", "c"]);
+  assert.deepEqual(hosts(w), ["a", "n", "c", "b"]);
+});
+
+test("⌘T from a pinned tab opens just after the pinned tabs", () => {
+  reset();
+  const [w, pin, home] = setup("pin", "home");
+  S().togglePin(pin);
+  S().activate(pin);
+  S().newTab(w, { url: "n.com", fromCurrent: true });
+  assert.deepEqual(hosts(w), ["pin", "n", "home"]);
+  assert.equal(shown(w), "n");
+});
+
+test("⌘T from a split pane opens after the whole split", () => {
+  reset();
+  const [w, a] = setup("a", "b", "c");
+  S().createSplit([a, S().windows[w].tabIds[1]]);
+  S().activate(a);
+  S().newTab(w, { url: "n.com", fromCurrent: true });
+  assert.deepEqual(hosts(w), ["a", "b", "n", "c"]);
+});
+
+test("⌘T doesn't forget the opener of a link opened behind", () => {
+  reset();
+  const [w, a] = setup("a", "b");
+  const c = open(w, "c", a);
+  S().activate(a);
+  S().newTab(w, { url: "n.com", fromCurrent: true });
+  assert.equal(S().tabs[c].openerId, a);
+});

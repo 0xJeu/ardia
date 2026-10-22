@@ -278,7 +278,7 @@ export async function openSidebarMenu(windowId: string) {
   ]);
   if (choice && runNewLiveFolder(windowId, choice)) return;
   if (choice === "newTab") {
-    if (!toggleNewTabBar(windowId)) s.newTab(windowId);
+    if (!toggleNewTabBar(windowId)) s.newTab(windowId, { fromCurrent: true });
   }
   else if (choice === "search") setSidebarUi({ searchTabs: windowId });
   else if (choice === "clean") s.cleanUpTabs(windowId);

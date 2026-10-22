@@ -16,7 +16,7 @@ export function runSidebarCommand(command: BrowserCommand, arg: string | null, w
     case "newTabInGroup": {
       const group = groupOf(s, tabId);
       if (toggleNewTabBar(windowId, group ? { kind: "group", groupId: group.id } : undefined)) return true;
-      const id = group ? s.newTabInGroup(group.id) : s.newTab(windowId);
+      const id = group ? s.newTabInGroup(group.id) : s.newTab(windowId, { fromCurrent: true });
       if (id) useBrowser.getState().activate(id);
       return true;
     }

@@ -107,6 +107,11 @@ const ROWS: Record<SettingsPane, Section[]> = {
           description: "With Command Bar, ⌘T and New Tab open the command bar over the page, as in Arc. The tab appears when you pick a result; Esc leaves everything as it was.",
           keywords: ["new tab page", "command bar", "cmd t"],
         },
+        newTabNextToCurrent: {
+          title: "Where new tabs open",
+          description: "⌘T, the + button and New Tab open the new tab right after the current one, in its group or after its pinned tabs. Choose At the end for the old order.",
+          keywords: ["next to current", "beside", "order", "position", "end"],
+        },
         newTabPosition: { title: "Add new tabs to the top", keywords: ["new tab position", "left", "bottom", "order"] },
         warnBeforeClosingLastTab: { title: "Warn before closing last tab in a Profile", keywords: ["confirm", "close tab"] },
         tabReorderHaptics: { title: "Haptic feedback when reordering tabs", keywords: ["trackpad", "vibration", "drag"] },

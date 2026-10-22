@@ -128,7 +128,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
   switch (command) {
     case "newTab":
       if (toggleNewTabBar(windowId)) return;
-      return void s.newTab(windowId);
+      return void s.newTab(windowId, { fromCurrent: true });
     case "reopenClosedTab":
       return s.reopenClosed(windowId);
     case "restoreClosed":

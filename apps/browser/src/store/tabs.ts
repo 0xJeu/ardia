@@ -21,7 +21,7 @@ import {
   wake,
   without,
 } from "./model";
-import { forgetOpeners, insertionIndex, openerSuccessor, switchKeepsOpeners } from "./openers";
+import { besideCurrent, forgetOpeners, insertionIndex, openerSuccessor, switchKeepsOpeners } from "./openers";
 import { groupWithOpener, onUrlChange, pruneSelection, samePage } from "./organize";
 import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
@@ -40,6 +40,7 @@ export type NewTabOptions = {
   snapshot?: Partial<TabSnapshot>;
   index?: number;
   wakeAdoptId?: string;
+  fromCurrent?: boolean;
 };
 
 let pinHandoff: (tabId: string, commit: () => void) => void = (_, commit) => commit();
@@ -264,7 +265,7 @@ function lastLivePinnedTab(s: BrowserState, w: BrowserWindow, id: string, closin
 }
 
 export function withNewTab(s: BrowserState, windowId: string, o: NewTabOptions = {}): [BrowserState, string] {
-  if (o.openerId && !o.background) s = forgetOpeners(s, windowId);
+  if (o.openerId && !o.background && !o.fromCurrent) s = forgetOpeners(s, windowId);
   const w = s.windows[windowId];
   if (!w) return [s, ""];
   const profileId = w.incognito ? w.profileId : o.profileId && s.profiles[o.profileId] ? o.profileId : w.profileId;
@@ -316,8 +317,9 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       return get().newTab(main, { ...options, profileId, index: undefined });
     }
     if (options?.url && !options.adoptId && openOutsideTab(resolveInput(fromLegacyUrl(options.url.trim()), searchUrlPrefix(get().settings)), windowId)) return "";
-    let [next, id] = withNewTab(get(), windowId, options);
-    if (id && options?.openerId) next = groupWithOpener(next, id, options.openerId, !!options.background);
+    const placed = besideCurrent(get(), windowId, options);
+    let [next, id] = withNewTab(get(), windowId, placed);
+    if (id && placed?.openerId) next = groupWithOpener(next, id, placed.openerId, !!placed.background);
     set(next);
     return id;
   },

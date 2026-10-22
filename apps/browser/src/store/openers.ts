@@ -1,10 +1,23 @@
 import type { BrowserState } from "./browser";
-import { inPinnedContainer } from "./model";
+import { activeTabId, inPinnedContainer } from "./model";
 import { groupOf, pinnedChildGroup } from "./organize";
 import { splitOf } from "./splits";
+import type { NewTabOptions } from "./tabs";
 import type { BrowserWindow, Tab } from "./types";
 
 const regular = (s: BrowserState, id: string) => !inPinnedContainer(s, id);
+
+export function besideCurrent(s: BrowserState, windowId: string, options?: NewTabOptions): NewTabOptions | undefined {
+  if (!options?.fromCurrent || options.openerId || options.index !== undefined || !s.settings.newTabNextToCurrent) return options;
+  const w = s.windows[windowId];
+  const currentId = activeTabId(s, windowId);
+  const current = currentId ? s.tabs[currentId] : undefined;
+  if (!w || !current || (options.profileId && options.profileId !== current.profileId)) return options;
+  if (inPinnedContainer(s, current.id) && !pinnedChildGroup(s, current.id, current.profileId)) {
+    return { ...options, openerId: current.id, index: firstRegular(s, w, current) };
+  }
+  return { ...options, openerId: current.id };
+}
 
 export function insertionIndex(s: BrowserState, w: BrowserWindow, tab: Tab, background: boolean): number {
   const opener = tab.openerId ? s.tabs[tab.openerId] : undefined;
@@ -25,7 +38,7 @@ export function insertionIndex(s: BrowserState, w: BrowserWindow, tab: Tab, back
   return outsideSplit(s, w, index);
 }
 
-function firstRegular(s: BrowserState, w: BrowserWindow, tab: Tab): number {
+export function firstRegular(s: BrowserState, w: BrowserWindow, tab: Tab): number {
   const first = w.tabIds.findIndex((id) => s.tabs[id]?.profileId === tab.profileId && regular(s, id));
   return first >= 0 ? first : w.tabIds.length;
 }

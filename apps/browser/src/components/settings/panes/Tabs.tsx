@@ -48,6 +48,17 @@ export function TabsPane() {
             minWidth={160}
           />
         </Row>
+        <Row anchor="tabs.newTabNextToCurrent">
+          <PopUp
+            value={settings.newTabNextToCurrent ? "beside" : "end"}
+            options={[
+              { value: "beside", title: "Next to current tab" },
+              { value: "end", title: "At the end" },
+            ]}
+            onChange={(v) => update({ newTabNextToCurrent: v === "beside" })}
+            minWidth={160}
+          />
+        </Row>
         <Row anchor="tabs.newTabPosition" title={top ? "Add new tabs to the left" : "Add new tabs to the top"}>
           <Toggle value={settings.newTabPosition === "top"} onChange={(v) => update({ newTabPosition: v ? "top" : "bottom" })} />
         </Row>
