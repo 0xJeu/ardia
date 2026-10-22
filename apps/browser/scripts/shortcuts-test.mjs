@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { launch, reporter, session, sleep } from "../../../scripts/lib/instance.mjs";
+import { isAlive, launch, reporter, session, sleep } from "../../../scripts/lib/instance.mjs";
 
 const [appArg, port] = process.argv.slice(2);
 const appPath = appArg && resolve(appArg);
@@ -11,6 +11,7 @@ if (!appPath) {
   console.error("usage: node shortcuts-test.mjs <Debug Ardia.app> [cdpPort]");
   process.exit(2);
 }
+const startedAt = Date.now();
 const scratch = mkdtempSync(join(tmpdir(), "ac-shortcuts-"));
 const data = join(scratch, "data");
 const rep = reporter(join(scratch, "shortcuts-test.log"), { name: "shortcuts-test" });
@@ -60,12 +61,20 @@ const ac = (body, timeout = 60000) => app.eval(body, { timeout }).catch(async (e
   throw error;
 });
 async function diagnoseHang() {
+  let pending = "?", landed = "?";
+  try { pending = readFileSync(join(data, "dev-eval.js"), "utf8").split("\n")[0]; } catch {}
+  try { landed = readFileSync(join(data, "dev-eval-result.json"), "utf8").slice(0, 60); } catch {}
   const sampleFile = join(scratch, "hang-sample.txt");
   spawnSync("sample", [String(app.pid), "2", "-mayDie", "-file", sampleFile], { timeout: 15000 });
-  const js = await app.eval("return 1", { timeout: 3000 }).then(() => "the JS thread answers", () => "the JS thread doesn't answer either");
+  const js = await app.eval("return Math.round(performance.now() / 1000)", { timeout: 3000 })
+    .then((up) => `the JS thread answers (JS context up ${up} s, test up ${Math.round((Date.now() - startedAt) / 1000)} s)`, () => "the JS thread doesn't answer either");
+  try { copyFileSync(join(data, "app.out.log"), join(scratch, "app.out.log")); } catch {}
   const main = await app.eval("return globalThis.expo.modules.ArdiaApp.devFocusHandoffTrace().then(() => 1)", { timeout: 3000 })
     .then(() => "the main thread answers", () => "the main thread doesn't answer");
-  return `hang: ${js}; ${main}; main-thread sample in ${sampleFile} (kept: ${scratch})`;
+  const presses = await app.eval("return globalThis.expo.modules.ArdiaApp.devKeyEquivalentTrace()", { timeout: 3000 }).catch(() => []);
+  const seen = await app.eval("return (globalThis.__devEvalLog ?? []).join(' | ')", { timeout: 3000 }).catch(() => null);
+  const proxy = app.js?.pid ? (isAlive(app.js.pid) ? `Metro proxy ${app.js.pid} alive` : `Metro proxy ${app.js.pid} gone`) : "no Metro proxy";
+  return `hang: ${js}; ${main}; ${proxy}; pending eval ${pending}, result file ${landed}, JS evals: ${seen}; native presses: ${presses.slice(-6).join(" / ")}; main-thread sample in ${sampleFile} (kept: ${scratch})`;
 }
 async function cdp(urlPart, expression) {
   if (!(await app.pageTarget(urlPart))) return undefined;

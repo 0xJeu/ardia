@@ -407,6 +407,14 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
+    AsyncFunction("devKeyEquivalentTrace") { () -> [String] in
+      #if DEBUG
+      return KeyEquivalents.trace
+      #else
+      return []
+      #endif
+    }.runOnQueue(.main)
+
     AsyncFunction("devFocusHandoffTrace") { () -> [String] in
       #if DEBUG
       return FocusHandoff.shared.trace
@@ -656,9 +664,16 @@ enum KeyEquivalents {
   private static var pressing = 0, dryPressing = 0
   private static var handler: ((String, String?, String?) -> Void)?
   private static var menuKeyIMP: IMP?
+  private(set) static var trace: [String] = []
+
+  private static func note(_ line: String) {
+    trace.append(String(format: "%.1f ", CACurrentMediaTime() * 1000) + line)
+    if trace.count > 40 { trace.removeFirst(trace.count - 40) }
+  }
 
   static func press(windowId: String, _ press: [String: Any], _ done: @escaping ([String: Any]) -> Void) {
     guard let window = WindowManager.shared.windows[windowId] else { return done(["error": "no window \(windowId)"]) }
+    note("press \(press["key"] ?? "") \(press["modifiers"] ?? "") focus=\(press["focus"] ?? "-")")
     watch()
     let key = press["key"] as? String ?? ""
     let mods = NSEvent.ModifierFlags((press["modifiers"] as? [String] ?? []).compactMap { modifierNames[$0] })
@@ -714,12 +729,14 @@ enum KeyEquivalents {
     } else {
       result["handledBy"] = "none"
     }
+    note("dispatched \(result["handledBy"] ?? "")")
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(press["wait"] as? Int ?? 250)) {
       result["firstResponderAfter"] = window.firstResponder.map { String(describing: type(of: $0)) } ?? "nil"
       restoreKeyWindow?()
       if !throughAppKit { end(dry: dry) }
       result["fired"] = fired
       result["matched"] = matched
+      note("resolved")
       done(result)
     }
   }
