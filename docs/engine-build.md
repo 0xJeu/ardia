@@ -283,6 +283,28 @@ with `ProgramArguments` `/usr/bin/python3`, `<repo>/engine/patches/series.py`, `
 needs only the repo plus a copy of the base and the tree's touched files: `CHROMIUM_SRC` and `AC_SERIES_BASE` say
 where they are.
 
+## Blocking a compromised certificate
+
+Our component updater can't be trusted to deliver CRLSets in time, so a compromised CA goes into the engine itself,
+as `chromium-emudhra-distrust.patch` did on 2026-10-21. Download the certificates into their own directory and,
+working from outside it, compute each one's SHA-256 and SPKI SHA-256 with openssl
+(`openssl x509 -noout -pubkey | openssl pkey -pubin -outform DER | openssl dgst -sha256`). Check the SPKIs against
+an independent published list (Go's `distrustedSPKIHashes`, Mozilla's OneCRL entries). Add the SPKIs to
+`kSPKIBlockList` in `net/cert/cert_verify_proc_blocklist.inc`, without comments, and add the PEMs and a README
+section to `net/data/ssl/blocklist`. One SPKI covers every cross-sign of the same key. `CRLSet::Parse` merges
+that list into every CRLSet, the built-in one included, and `CertVerifyProcBuiltin` checks it against every
+certificate of every valid path, locally trusted anchors too. A compromised root goes on the list by its SPKI
+as well. If Chrome removes the root, also take it out of `root_store.textproto` and its PEM out of
+`root_store.certs` (`root_store_tool` fails on an unused certificate). Leave `version_major` alone: Chrome
+applies a component root store only if its version is strictly greater, so a bumped number freezes out
+Google's real updates. Put the patch in the series (capture its files' base first), build with `engine-build`,
+then check the result in a hidden instance on a train build with CDP. The bad hosts must fail and ordinary
+sites must still load. A host whose root is gone fails as `ERR_CERT_AUTHORITY_INVALID` before the blocklist is
+consulted, so check the blocklist itself with `engine-build --as <you> cert_verify_tool`, then
+`out/Release_GN_arm64/cert_verify_tool --impls=builtin,pathbuilder --no-system-roots --roots=<root PEM>
+--hostname=<host> --no-net-fetcher <served chain>`. Expect `ERR_CERT_REVOKED` from builtin and a valid path from
+pathbuilder, which doesn't read CRLSets.
+
 ## Rebuilding
 
 Everything lives outside the repo in `~/chromium-build`, which carries `.metadata_never_index`.
