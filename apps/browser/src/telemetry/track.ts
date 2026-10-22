@@ -24,6 +24,9 @@ export const trackSuggestionChosen = (s: SuggestionLike) => capture("suggestion_
 
 export const trackSettingsSection = (section: string) => capture("settings_section_opened", { section });
 
+export const trackLittleArdiaOpened = (source: "menu" | "link", profileChosen: boolean) =>
+  capture("little_ardia_opened", { source, profile_chosen: profileChosen });
+
 const SAMPLE_EVERY = 5;
 const MAX_SAMPLES = 500;
 const latency: number[] = [];

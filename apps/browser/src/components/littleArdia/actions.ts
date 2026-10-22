@@ -5,6 +5,7 @@ import { runsJavaScript } from "../../lib/scriptUrls";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
+import { trackLittleArdiaOpened } from "../../telemetry/track";
 
 const store = () => useBrowser.getState();
 
@@ -40,7 +41,10 @@ function openRoutedUrls(urls: string[], route: LinkRoute) {
 function openUrlsFromApps(urls: string[], routed: RoutedLinks) {
   const [url] = urls;
   const profileId = routed.profileId ?? lastActiveProfile(store());
-  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) return void openLittleArdia(url, profileId, routed.adoptIds[0]);
+  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) {
+    trackLittleArdiaOpened("link", !!routed.profileId);
+    return void openLittleArdia(url, profileId, routed.adoptIds[0]);
+  }
   openLinksInMainWindow(urls, profileId, routed.adoptIds);
 }
 

@@ -46,6 +46,7 @@ import { openProfileMenu } from "../components/ProfileIndicator";
 import { groupOf } from "../store/organize";
 import { isSmall, mainWindowFor, originalProfile } from "../store/small";
 import { closeLittleArdia, openInMainWindow, openLittleArdia } from "../components/littleArdia/actions";
+import { trackLittleArdiaOpened } from "../telemetry/track";
 import { expectFocus, findFocus } from "./focusClaims";
 
 export function runCommand({ command, arg, windowId: requested }: CommandEvent) {
@@ -64,7 +65,8 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "newIncognitoWindow":
       return void openWindow({ incognito: true, profileId: originalProfile(s, s.windows[requested ?? ""]) });
     case "newLittleArdia":
-      return void openLittleArdia();
+      trackLittleArdiaOpened("menu", !!arg);
+      return void openLittleArdia(undefined, arg ?? undefined);
     case "toggleOpenLinksInLittleArdia":
       return s.updateSettings({ openLinksInLittleArdia: !s.settings.openLinksInLittleArdia });
     case "reopenClosedWindow":
