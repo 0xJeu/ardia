@@ -21,6 +21,7 @@ import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
 import { ClearDivider } from "./sidebar/ClearDivider";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragItem, type Ghost } from "./sidebar/dnd";
+import { SidebarDropArea } from "./sidebar/fileDrop";
 import { useClipped, useShift, type ClipSource, type EntryMotion } from "./sidebar/entryMotion";
 import { sidebarEntries } from "./sidebar/entries";
 import { GroupBlock } from "./sidebar/GroupBlock";
@@ -77,7 +78,7 @@ export function Sidebar({ width }: { width: number }) {
   return (
     <DragProvider>
       {(ghost: Ghost | null, controller) => (
-        <View
+        <SidebarDropArea
           ref={(v) => {
             controller.root = v;
           }}
@@ -168,7 +169,7 @@ export function Sidebar({ width }: { width: number }) {
             )
           ) : null}
           {ghost ? <DragGhost ghost={ghost} /> : null}
-        </View>
+        </SidebarDropArea>
       )}
     </DragProvider>
   );
