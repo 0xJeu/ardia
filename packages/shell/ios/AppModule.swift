@@ -266,24 +266,6 @@ public class AppModule: Module {
       #endif
     }.runOnQueue(.main)
 
-    AsyncFunction("devDragBlockedRects") { (windowId: String) -> [[Double]] in
-      #if DEBUG
-      guard let window = WindowManager.shared.windows[windowId] else { return [] }
-      return ServerWindowDrag.blockedRects(window)
-      #else
-      return []
-      #endif
-    }.runOnQueue(.main)
-
-    AsyncFunction("devDragChain") { (windowId: String) -> [String] in
-      #if DEBUG
-      guard let window = WindowManager.shared.windows[windowId] else { return [] }
-      return ServerWindowDrag.chain(window)
-      #else
-      return []
-      #endif
-    }.runOnQueue(.main)
-
     AsyncFunction("devSnapshotWindow") { (windowId: String, path: String, transparent: Bool?) -> Bool in
       #if DEBUG
       return Self.snapshot(windowId: windowId, path: path, transparent: transparent ?? false)
