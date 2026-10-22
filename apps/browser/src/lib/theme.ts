@@ -59,7 +59,7 @@ const dark = {
   chipText: "#FFFFFF99",
   goButton: "#DCCBD8",
   goButtonText: "#1A1418",
-  sendIdle: "rgba(255,255,255,0.08)",
+  goButtonIdle: "rgba(255,255,255,0.08)",
 
   ntpBarSolid: "#2D2D2D",
   ntpBarBorder: "rgba(120,125,134,0.32)",
@@ -110,7 +110,7 @@ const light: typeof dark = {
   chipText: "#00000099",
   goButton: "#0F182C",
   goButtonText: "#FFFFFF",
-  sendIdle: "rgba(0,0,0,0.06)",
+  goButtonIdle: "rgba(0,0,0,0.06)",
 
   ntpBarSolid: "#FEFFFF",
   ntpBarBorder: "rgba(0,0,0,0.07)",
