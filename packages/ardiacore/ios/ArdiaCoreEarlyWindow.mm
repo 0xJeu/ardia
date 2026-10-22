@@ -330,49 +330,96 @@ CGContextRef MakeBitmap(size_t w, size_t h) {
   return context;
 }
 
-CALayer *MaskedStandIn(CALayer *layer, CGFloat scale) {
+BOOL CastsPathShadowOnly(CALayer *layer) {
+  return layer.shadowPath && layer.shadowOpacity > 0 && layer.shadowColor && !layer.masksToBounds && !layer.backgroundColor && !layer.contents;
+}
+
+CGRect StandInExtent(CALayer *layer) {
   CALayer *mask = layer.mask;
-  const CGRect bounds = layer.bounds;
-  const size_t w = (size_t)ceil(bounds.size.width * scale), h = (size_t)ceil(bounds.size.height * scale);
-  if (!mask || layer.hidden || !layer.superlayer || w < 1 || h < 1 || w > 8192 || h > 8192) return nil;
-  CGContextRef content = MakeBitmap(w, h), shape = MakeBitmap(w, h);
-  if (!content || !shape) {
+  CGRect extent = layer.bounds;
+  if (layer.shadowOpacity > 0 && layer.shadowColor && !layer.masksToBounds) {
+    const CGFloat spread = 2 * layer.shadowRadius + MAX(fabs(layer.shadowOffset.width), fabs(layer.shadowOffset.height)) + 1;
+    const CGRect caster = layer.shadowPath ? CGPathGetBoundingBox(layer.shadowPath) : layer.bounds;
+    extent = CGRectUnion(extent, CGRectInset(caster, -spread, -spread));
+  }
+  if (mask) {
+    CGRect shown = mask.frame;
+    if ([mask isKindOfClass:CAShapeLayer.class] && ((CAShapeLayer *)mask).path)
+      shown = CGRectUnion(shown, [mask convertRect:CGPathGetBoundingBox(((CAShapeLayer *)mask).path) toLayer:layer]);
+    extent = CGRectIntersection(extent, shown);
+  }
+  return CGRectIntegral(extent);
+}
+
+void DrawPathShadow(CGContextRef context, CALayer *layer, CGFloat scale) {
+  CGPathRef path = layer.shadowPath;
+  const CGRect box = CGPathGetBoundingBox(path);
+  const CGFloat far = box.size.width + 4 * layer.shadowRadius + fabs(layer.shadowOffset.width) + 64;
+  const CGSize shift = CGSizeApplyAffineTransform(CGSizeMake(far, 0), CGContextGetCTM(context));
+  const CGSize offset = CGSizeApplyAffineTransform(layer.shadowOffset, CGContextGetCTM(context));
+  CGColorRef color = CGColorCreateCopyWithAlpha(layer.shadowColor, CGColorGetAlpha(layer.shadowColor) * layer.shadowOpacity);
+  CGContextSaveGState(context);
+  CGContextSetShadowWithColor(context, CGSizeMake(offset.width - shift.width, offset.height - shift.height), 2 * layer.shadowRadius * scale, color);
+  CGContextTranslateCTM(context, far, 0);
+  CGContextAddPath(context, path);
+  CGContextSetFillColorWithColor(context, CGColorGetConstantColor(kCGColorBlack));
+  CGContextFillPath(context);
+  CGContextRestoreGState(context);
+  CGColorRelease(color);
+}
+
+CALayer *StandIn(CALayer *layer, CGFloat scale) {
+  CALayer *mask = layer.mask;
+  if (layer.hidden || !layer.superlayer) return nil;
+  const CGRect extent = StandInExtent(layer);
+  const size_t w = (size_t)ceil(extent.size.width * scale), h = (size_t)ceil(extent.size.height * scale);
+  if (w < 1 || h < 1 || w > 8192 || h > 8192) return nil;
+  CGContextRef content = MakeBitmap(w, h), shape = mask ? MakeBitmap(w, h) : nullptr;
+  if (!content || (mask && !shape)) {
     if (content) CGContextRelease(content);
     if (shape) CGContextRelease(shape);
     return nil;
   }
   for (CGContextRef each : {content, shape}) {
+    if (!each) continue;
     CGContextScaleCTM(each, scale, scale);
     if (layer.contentsAreFlipped) {
-      CGContextTranslateCTM(each, 0, bounds.size.height);
+      CGContextTranslateCTM(each, 0, extent.size.height);
       CGContextScaleCTM(each, 1, -1);
     }
-    CGContextTranslateCTM(each, -bounds.origin.x, -bounds.origin.y);
+    CGContextTranslateCTM(each, -extent.origin.x, -extent.origin.y);
   }
+  if (CastsPathShadowOnly(layer)) DrawPathShadow(content, layer, scale);
   layer.mask = nil;
   [layer renderInContext:content];
   layer.mask = mask;
-  CGContextTranslateCTM(shape, mask.frame.origin.x, mask.frame.origin.y);
-  [mask renderInContext:shape];
-  CGImageRef shapeImage = CGBitmapContextCreateImage(shape);
-  CGContextRelease(shape);
-  CGContextSaveGState(content);
-  CGContextConcatCTM(content, CGAffineTransformInvert(CGContextGetCTM(content)));
-  CGContextSetBlendMode(content, kCGBlendModeDestinationIn);
-  if (shapeImage) CGContextDrawImage(content, CGRectMake(0, 0, w, h), shapeImage);
-  CGContextRestoreGState(content);
-  CGImageRelease(shapeImage);
+  if (shape) {
+    CGContextTranslateCTM(shape, mask.frame.origin.x - mask.bounds.origin.x, mask.frame.origin.y - mask.bounds.origin.y);
+    [mask renderInContext:shape];
+    CGImageRef shapeImage = CGBitmapContextCreateImage(shape);
+    CGContextRelease(shape);
+    CGContextSaveGState(content);
+    CGContextConcatCTM(content, CGAffineTransformInvert(CGContextGetCTM(content)));
+    CGContextSetBlendMode(content, kCGBlendModeDestinationIn);
+    if (shapeImage) CGContextDrawImage(content, CGRectMake(0, 0, w, h), shapeImage);
+    CGContextRestoreGState(content);
+    CGImageRelease(shapeImage);
+  }
   CGImageRef composed = CGBitmapContextCreateImage(content);
   CGContextRelease(content);
   if (!composed) return nil;
   CALayer *standIn = [CALayer layer];
   standIn.anchorPoint = layer.anchorPoint;
-  standIn.bounds = bounds;
+  standIn.bounds = layer.bounds;
   standIn.position = layer.position;
   standIn.transform = layer.transform;
-  standIn.contents = (__bridge id)composed;
-  standIn.contentsScale = scale;
-  standIn.contentsGravity = kCAGravityResize;
+  standIn.geometryFlipped = layer.geometryFlipped;
+  CALayer *drawing = [CALayer layer];
+  drawing.frame = extent;
+  drawing.contents = (__bridge id)composed;
+  drawing.contentsScale = scale;
+  drawing.contentsGravity = kCAGravityResize;
+  [standIn addSublayer:drawing];
   CGImageRelease(composed);
   [layer.superlayer insertSublayer:standIn above:layer];
   return standIn;
@@ -432,7 +479,7 @@ BOOL CapturePicture(ArdiaCoreWindowController *controller, NSString *windowId, N
   for (NSUInteger i = 0; i < layers.count && i < 20000; i++) {
     CALayer *each = layers[i];
     if ([backdrops containsObject:each] || [glassLayers containsObject:each]) continue;
-    if (each.mask || each.filters.count || each.compositingFilter || each.backgroundFilters.count) {
+    if (each.mask || each.filters.count || each.compositingFilter || each.backgroundFilters.count || CastsPathShadowOnly(each)) {
       [effected addObject:each];
       [effects addObject:@[ each.mask ?: NSNull.null, each.filters ?: @[], each.compositingFilter ?: NSNull.null, each.backgroundFilters ?: @[] ]];
     }
@@ -451,18 +498,18 @@ BOOL CapturePicture(ArdiaCoreWindowController *controller, NSString *windowId, N
     each.compositingFilter = nil;
     each.backgroundFilters = nil;
   }
-  NSMutableArray<CALayer *> *maskedHidden = [NSMutableArray array];
+  NSMutableArray<CALayer *> *replacedHidden = [NSMutableArray array];
   for (CALayer *each in effected.reverseObjectEnumerator) {
-    if (!each.mask) continue;
-    if (CALayer *standIn = each == drawnLayer ? nil : MaskedStandIn(each, scale)) {
+    if (!each.mask && !CastsPathShadowOnly(each)) continue;
+    if (CALayer *standIn = each == drawnLayer ? nil : StandIn(each, scale)) {
       [standIns addObject:standIn];
-      [maskedHidden addObject:each];
+      [replacedHidden addObject:each];
       each.hidden = YES;
     }
     each.mask = nil;
   }
   [drawnLayer renderInContext:context];
-  for (CALayer *each in maskedHidden) each.hidden = NO;
+  for (CALayer *each in replacedHidden) each.hidden = NO;
   for (NSUInteger i = 0; i < effected.count; i++) {
     NSArray *saved = effects[i];
     effected[i].mask = saved[0] == NSNull.null ? nil : saved[0];
@@ -911,10 +958,13 @@ void ReleaseOnceCovered(NSView *picture, NSView *backdrop, NSView *root, NSColor
   __weak NSView *weakRoot = root;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCoverCheckSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     NSView *drawnRoot = weakRoot;
-    if (drawnRoot && !Covered(drawnRoot) && CACurrentMediaTime() < deadline)
-      return ReleaseOnceCovered(picture, backdrop, drawnRoot, fill, restoreFill, deadline);
+    const BOOL covered = drawnRoot && Covered(drawnRoot);
+    if (drawnRoot && !covered && CACurrentMediaTime() < deadline) return ReleaseOnceCovered(picture, backdrop, drawnRoot, fill, restoreFill, deadline);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kOnScreenAfterCoveredSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      ReleasePictures(picture, backdrop, restoreFill ? weakRoot : nil, fill);
+      NSView *shownRoot = weakRoot;
+      if (covered && shownRoot && !Covered(shownRoot))
+        return ReleaseOnceCovered(picture, backdrop, shownRoot, fill, restoreFill, MAX(deadline, CACurrentMediaTime() + kCoveredFailSafeSeconds));
+      ReleasePictures(picture, backdrop, restoreFill ? shownRoot : nil, fill);
     });
   });
 }
