@@ -581,6 +581,35 @@ const afterEscape = await pageField("f.value");
 check("Escape out of the command bar gives the page its focus back", responder.startsWith("RenderWidgetHostViewCocoa") && afterEscape === "after-escape", `first responder ${responder}, page field "${afterEscape}"`);
 await resetToPageField("", [0, 0]);
 
+for (const where of ["the find field", "the page"]) {
+  await resetToPageField("", [0, 0]);
+  await ac(`const s = ac.store.getState(), id = s.newTab("w1"); s.navigate(id, "${pages}/?findclose"); s.closePanel("w1"); s.activate(id); return 1;`);
+  await sleep(1500);
+  await ac(`return ac.shell.devClick("w1", { in: "page", x: 200, y: 300, wait: 150 });`);
+  const findState = () => ac(`const s = ac.store.getState(), w = s.windows.w1, a = w.activeTabIds[w.profileId];
+    return { tabs: w.tabIds.length, active: a, url: s.tabs[a]?.url ?? "", find: !!s.find[a]?.open };`);
+  const before = await findState();
+  await postKeys([keyPress("f", 3), ...[..."hello"].map((c) => keyPress(c, 0, 30, []))]);
+  await sleep(800);
+  if (where === "the page") await ac(`return ac.shell.devClick("w1", { in: "page", x: 200, y: 300, wait: 150 });`);
+  const opened = await findState();
+  await postKeys([keyPress("w", 13)]);
+  await sleep(800);
+  const after = await findState();
+  check(`⌘W with the find bar open and the focus in ${where} closes the tab in one press, and the next tab has no find bar`,
+    opened.find && after.tabs === before.tabs - 1 && !after.find, `before ${JSON.stringify(before)}, open ${opened.find}, after ${JSON.stringify(after)}`);
+  await postKeys([keyPress("T", 17, 0, ["command", "shift"])]);
+  await sleep(1500);
+  const reopened = await findState();
+  check(`…and ⇧⌘T brings it back without its find bar (${where})`, reopened.url === before.url && !reopened.find, JSON.stringify(reopened));
+}
+{
+  await resetToPageField("", [0, 0]);
+  await postKeys([keyPress("f", 3), ...[..."hello"].map((c) => keyPress(c, 0, 30, [])), keyPress("\u001b", 53, 300, [])]);
+  await sleep(800);
+  const after = await ac(`const s = ac.store.getState(), w = s.windows.w1, a = w.activeTabIds[w.profileId]; return { active: a, find: !!s.find[a]?.open };`);
+  check("Esc closes only the find bar", after.active === "t3" && !after.find, JSON.stringify(after));
+}
 await press(cmd("q", 12), { focus: "window", wait: 0 });
 let quit = false;
 for (let i = 0; i < 150 && !quit; i++) {

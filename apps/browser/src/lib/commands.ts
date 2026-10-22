@@ -146,7 +146,6 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
         return void closeTab(tabId);
       }
       if (ui?.panel.open) return tabId ? closePanelToHeroBar(windowId, tabId, "closeKey") : s.closePanel(windowId);
-      if (tabId && find?.open) return closeFind(tabId);
       return tabId ? void closeTab(tabId) : undefined;
     case "print":
       return void web?.print();
@@ -313,7 +312,6 @@ function runLittleArdiaCommand(command: string, windowId: string): boolean {
   switch (command) {
     case "closeTab":
       if (s.windowUi[windowId]?.panel.open && tab?.url) s.closePanel(windowId);
-      else if (tabId && s.find[tabId]?.open) closeFind(tabId);
       else closeLittleArdia(windowId);
       return true;
     case "focusCommandBar":
@@ -324,12 +322,6 @@ function runLittleArdiaCommand(command: string, windowId: string): boolean {
       return true;
   }
   return false;
-}
-
-function closeFind(tabId: string) {
-  useBrowser.getState().setFind(tabId, { open: false, count: null, active: 0 });
-  void webviews.get(tabId)?.stopFinding(false);
-  void webviews.get(tabId)?.focus();
 }
 
 async function addBookmarkToFolder(windowId: string, folder: string) {
