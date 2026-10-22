@@ -1,12 +1,17 @@
 import { engineInfo, listComponents, WIDEVINE_COMPONENT_ID, type EngineComponent, type EngineInfo } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
+import { systemInfo } from "@ardia/shell";
 import { describeCliInstall, installCliInBackground, useCli } from "../../../lib/cliControl";
+import { openUrls } from "../../../lib/actions";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { openInternalPage } from "../../pages/urls";
 import type { BatterySaverWhen } from "../../../store/settings";
 import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+
+const REPOSITORY = "https://github.com/mantrakp04/ardia";
+const SOURCE_NOTICE = "Ardia is open source under the Apache License 2.0.";
 
 const BATTERY_SAVER_DESCRIPTIONS: Record<BatterySaverWhen, string> = {
   lowBattery: "At 20% battery or less, or in Low Power Mode, busy background tabs pause and animations slow down.",
@@ -88,6 +93,16 @@ export function AdvancedPane() {
                 : "Not available in this build: video that needs it, like Netflix or Disney+, won't play."
           }
         />
+      </Group>
+
+      <SectionHeader title="Source and licenses" />
+      <Group>
+        <Row title="Source code" description={SOURCE_NOTICE}>
+          <Button title="Show on GitHub" onPress={() => openUrls([`${REPOSITORY}/tree/v${systemInfo().appVersion}`])} />
+        </Row>
+        <Row title="Licenses" description="Every open-source part of the engine, with its copyright and license.">
+          <Button title="Show Licenses" onPress={() => openUrls(["chrome://credits"])} />
+        </Row>
       </Group>
     </View>
   );
