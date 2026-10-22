@@ -206,6 +206,17 @@ test("a peek that's out is remembered per window (Arc docks from it at once)", (
   assert.equal(dm.peekShown("w1"), false);
 });
 
+test("the peek panel covers the page up to its right edge, only while it's out", () => {
+  assert.equal(dm.overPeek("w1", 0), false);
+  dm.setPeekShown("w1", true, 5 + 240);
+  assert.equal(dm.overPeek("w1", 120), true);
+  assert.equal(dm.overPeek("w1", 244.5), true);
+  assert.equal(dm.overPeek("w1", 245), false);
+  assert.equal(dm.overPeek("w2", 120), false);
+  dm.setPeekShown("w1", false);
+  assert.equal(dm.overPeek("w1", 120), false);
+});
+
 test("Arc's layout keeps the address bar in a hidden sidebar (no toolbar on the card); Dia's layout and the switch off don't", async () => {
   const { addressBarInSidebar } = await import("./windowLayout.ts");
   const { reloadSwitches } = await import("../../lib/killSwitches.ts");

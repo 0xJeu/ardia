@@ -26,6 +26,7 @@ import {
   springConfig,
   useDockMotion,
 } from "./dockMotion";
+import { useTabDrag } from "./tabDrag";
 import { usePeek } from "./usePeek";
 
 let reduceMotion = false;
@@ -163,7 +164,8 @@ function SidebarDock({
   const shown = fullscreen ? "fullscreen" : open ? "docked" : peek.live ? "peek" : "away";
   useLayoutEffect(() => () => dismissHoverIn(windowId), [windowId, shown]);
   const watching = !open && !fullscreen && !moving;
-  const nativeHold = peeking ? holdWidth : 0;
+  const draggingTab = useTabDrag((d) => d.windowId === windowId && d.tabIds.length > 0);
+  const nativeHold = peeking ? holdWidth : draggingTab ? STRIP_WIDTH : 0;
   useEffect(() => {
     if (!watching) return;
     const sub = onWindowEvent((e) => {
@@ -179,7 +181,7 @@ function SidebarDock({
       edgeOver.current = false;
     };
   }, [windowId, watching, nativeHold]);
-  useEffect(() => setPeekShown(windowId, peek.live), [windowId, peek.live]);
+  useEffect(() => setPeekShown(windowId, peek.live, PEEK_ORIGIN[0] + width), [windowId, peek.live, width]);
   if (__DEV__) devPeeks[windowId] = peek;
   useEffect(() => () => setPeekShown(windowId, false), [windowId]);
   const panel = useRef(false);

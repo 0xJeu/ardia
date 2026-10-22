@@ -135,7 +135,8 @@ export type AppEvent =
   | { type: "screenLocked" }
   | { type: "switcherReleased" }
   | { type: "switcherKey"; key: "escape" | "next" | "previous" }
-  | { type: "switcherMouseUp" };
+  | { type: "switcherMouseUp" }
+  | { type: "dragEscape" };
 
 type ShellEvents = {
   onCommand: (e: CommandEvent) => void;
@@ -218,6 +219,7 @@ const Shell = requireNativeModule<{
   showMenu(items: MenuItem[]): Promise<string | null>;
   copyText(text: string): void;
   setSwitcherCapture(active: boolean): Promise<void>;
+  setDragEscapeCapture?(active: boolean): Promise<void>;
   cancelFocusMove(generation: number, restoringSource: boolean): Promise<void>;
   claimFocus(generation: number, tag: number): Promise<void>;
   switcherPointerMoved?(): boolean;
@@ -262,6 +264,7 @@ export const fetchBangList = (etag: string | null): Promise<BangListReply> | nul
 
 export const startDictation = () => Shell.startDictation();
 export const setSwitcherCapture = (active: boolean) => void Shell.setSwitcherCapture(active);
+export const setDragEscapeCapture = (active: boolean) => void Shell.setDragEscapeCapture?.(active);
 export const cancelFocusMove = (generation: number, restoringSource: boolean) =>
   void Shell.cancelFocusMove(generation, restoringSource);
 export const claimFocus = (generation: number, tag: number) => void Shell.claimFocus(generation, tag);

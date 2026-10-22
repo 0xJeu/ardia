@@ -53,9 +53,10 @@ export function setDockMoving(windowId: string, moving: boolean) {
   });
 }
 
-const peeking = new Set<string>();
-export const setPeekShown = (windowId: string, shown: boolean) => void (shown ? peeking.add(windowId) : peeking.delete(windowId));
+const peeking = new Map<string, number>();
+export const setPeekShown = (windowId: string, shown: boolean, rightEdge = 0) => void (shown ? peeking.set(windowId, rightEdge) : peeking.delete(windowId));
 export const peekShown = (windowId: string) => peeking.has(windowId);
+export const overPeek = (windowId: string, x: number) => x < (peeking.get(windowId) ?? -Infinity);
 export const devPeeks: Record<string, { show(): void; hide(): void }> = {};
 
 export const HEADER_TOOLS = { toggleX: 70.75 + 27, pitch: 35, edge: 7, lightsRight: 70.75 + 7 } as const;

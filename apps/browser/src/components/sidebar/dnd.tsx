@@ -1,4 +1,4 @@
-import { hapticTick } from "@ardia/shell";
+import { hapticTick, onAppEvent, setDragEscapeCapture } from "@ardia/shell";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Animated, Easing, PanResponder, type ScrollView, type View } from "react-native";
 import { create, useStore } from "zustand";
@@ -91,6 +91,7 @@ class DragController {
   private gridGrowth = 0;
   private token: object | null = null;
   private external = 0;
+  private escapable = false;
   landed: { key: string; x: number; y: number } | null = null;
 
   create(key: string): Item {
@@ -111,6 +112,8 @@ class DragController {
       : [item];
     const token = (this.token = {});
     suppressHover(true);
+    this.escapable = true;
+    setDragEscapeCapture(true);
     let seq = 0;
     if (item.kind === "row" || item.kind === "tile") {
       const single = this.sources.length === 1 ? (item.tabIds[0] ?? null) : null;
@@ -203,6 +206,7 @@ class DragController {
 
   end(commit: boolean) {
     if (this.external) return void this.finishExternal(false);
+    if (!this.sources.length) return;
     const sources = this.sources;
     const drop = this.drop;
     const ghost = this.ghost;
@@ -261,6 +265,8 @@ class DragController {
     this.gridBase = null;
     this.gridGrowth = 0;
     this.external = 0;
+    if (this.escapable) setDragEscapeCapture(false);
+    this.escapable = false;
     suppressHover(false);
     this.setSources(new Set());
     this.marks.setState({ dropInto: null, onto: null, pins: false, pinCount: 0 });
@@ -480,6 +486,10 @@ export function DragProvider({ children }: { children: (ghost: Ghost | null, con
   const [ghost, setGhost] = useState<Ghost | null>(null);
   controller.setGhost = setGhost;
   useEffect(() => () => void (controller.active && controller.end(false)), [controller]);
+  useEffect(() => {
+    const sub = onAppEvent((e) => e.type === "dragEscape" && controller.active && controller.end(false));
+    return () => sub.remove();
+  }, [controller]);
   return (
     <DragContext.Provider value={controller}>
       {children(ghost, controller)}

@@ -229,6 +229,7 @@ public class ShellModule: Module {
   private var sidebarObservers: [(NotificationCenter, NSObjectProtocol)] = []
   private var flagsMonitor: Any?
   private var switcherMonitor: Any?
+  private var dragEscapeMonitor: Any?
   private let switcherPointer = SwitcherPointer()
 
   public func definition() -> ModuleDefinition {
@@ -274,6 +275,8 @@ public class ShellModule: Module {
       self.flagsMonitor = nil
       if let monitor = self.switcherMonitor { NSEvent.removeMonitor(monitor) }
       self.switcherMonitor = nil
+      if let monitor = self.dragEscapeMonitor { NSEvent.removeMonitor(monitor) }
+      self.dragEscapeMonitor = nil
       let gone = ObjectIdentifier(self)
       DispatchQueue.main.async {
         WindowManager.shared.runtimeGone(gone)
@@ -485,6 +488,20 @@ public class ShellModule: Module {
         case 123: emit(["type": "switcherKey", "key": "previous"])
         default: break
         }
+        return nil
+      }
+    }.runOnQueue(.main)
+
+    AsyncFunction("setDragEscapeCapture") { [weak self] (active: Bool) in
+      guard let self else { return }
+      if let monitor = self.dragEscapeMonitor { NSEvent.removeMonitor(monitor) }
+      self.dragEscapeMonitor = nil
+      guard active else { return }
+      let emit: ([String: Any]) -> Void = { [weak self] body in self?.sendEvent("onAppEvent", body) }
+      self.dragEscapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        guard event.keyCode == 53 || event.charactersIgnoringModifiers == "\u{1b}", modifiers.isEmpty else { return event }
+        emit(["type": "dragEscape"])
         return nil
       }
     }.runOnQueue(.main)
