@@ -14,8 +14,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)forgetLaunchPictures;
 + (BOOL)takeDismissedAppWindow:(NSString *)appWindow;
 
-+ (nullable NSWindow *)makePopupWindowForProfile:(NSString *)profile root:(NSView *)root;
-
 + (void)embedRootView:(NSView *)root inWindow:(NSWindow *)window;
 
 + (nullable NSView *)rootViewOfWindow:(NSWindow *)window;

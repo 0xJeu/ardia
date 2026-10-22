@@ -27,7 +27,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) BOOL discarded;
 @property (nonatomic) BOOL frozen;
 @property (nonatomic, readonly) int browserId;
-@property (nonatomic, readonly) int chromeTabId;
 
 + (void)prepareTransfer:(NSString *)transferKey;
 + (void)releaseTransfer:(NSString *)transferKey;
@@ -42,7 +41,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)installScrollZoom;
 + (void)installSwitchPrewarm;
 + (void)installOutgoingFocusSnapshots;
-+ (NSDictionary<NSString *, id> *)devSwitchPrewarm:(int)browserId at:(NSString *)where NS_SWIFT_NAME(devSwitchPrewarm(browserId:at:));
 + (NSArray<NSNumber *> *)devScrollZoom:(NSArray<NSDictionary<NSString *, id> *> *)steps
                                browser:(int)browserId NS_SWIFT_NAME(devScrollZoom(_:browserId:));
 + (void)setDisplayMediaPicker:(BOOL)enabled;
@@ -59,7 +57,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)loadURL:(NSString *)url;
 - (void)loadURL:(NSString *)url userInitiated:(BOOL)userInitiated NS_SWIFT_NAME(loadURL(_:userInitiated:));
-- (void)loadOpenedURL:(NSInteger)openedId url:(NSString *)url NS_SWIFT_NAME(loadOpenedURL(_:url:));
 - (void)goBack;
 - (void)goForward;
 - (void)goToHistoryOffset:(NSInteger)offset;
@@ -99,7 +96,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)resolvePasswordPrompt:(NSString *)action username:(nullable NSString *)username password:(nullable NSString *)password
     NS_SWIFT_NAME(resolvePasswordPrompt(_:username:password:));
 - (void)resolveAutofillPrompt:(NSInteger)promptId action:(NSString *)action NS_SWIFT_NAME(resolveAutofillPrompt(_:action:));
-- (void)setTabStripIndex:(NSInteger)index pinned:(BOOL)pinned NS_SWIFT_NAME(setTabStrip(index:pinned:));
 - (nullable NSString *)executeExtensionAction:(NSString *)extensionId NS_SWIFT_NAME(executeExtensionAction(_:));
 
 - (void)resolveDisplayMedia:(NSString *)requestId sourceId:(nullable NSString *)sourceId

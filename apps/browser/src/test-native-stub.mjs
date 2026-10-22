@@ -105,7 +105,6 @@ export const faviconsFor = async (profile, pages) => ({
   pages: new Map(pages.filter((p) => chromeFavicons.has(`${profile}|${p}`)).map((p) => [p, { uri: chromeFavicons.get(`${profile}|${p}`), icon: "" }])),
   icons: new Map(),
 });
-export const removeLegacyFavicons = () => Promise.resolve();
 export const removeDocument = (name) => docs.delete(name);
 
 export const chromeWindows = () => Promise.resolve([]);

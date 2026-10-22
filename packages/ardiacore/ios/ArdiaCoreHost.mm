@@ -802,10 +802,6 @@ static void StartEarlyWindow() {
   return ArdiaCoreEngine.testExternalLaunches ?: @[];
 }
 
-+ (BOOL)devReservedGlobalShortcut:(NSString *)shortcut {
-  return [ArdiaCoreEngine respondsToSelector:@selector(isReservedGlobalShortcut:)] && [ArdiaCoreEngine isReservedGlobalShortcut:shortcut];
-}
-
 + (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized {
   ArdiaCoreTab *tab = ardiacore_host::TabWithBrowserId(browserId);
   return [tab respondsToSelector:@selector(devShowBluetoothChooser:)] && [tab devShowBluetoothChooser:unauthorized];

@@ -781,10 +781,6 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   return _tab ? ardiacore_host::BrowserId(_tab) : 0;
 }
 
-- (int)chromeTabId {
-  return _tab ? _tab.tabId : 0;
-}
-
 - (ArdiaCoreWindowController *)controller {
   return [ArdiaCoreWindowController forNSWindow:self.window];
 }
@@ -2110,10 +2106,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   return NO;
 }
 
-- (void)loadOpenedURL:(NSInteger)openedId url:(NSString *)url {
-  [self loadURL:url userInitiated:NO];
-}
-
 - (void)goBack {
   [_tab goBack];
 }
@@ -2369,13 +2361,6 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   if ([_tab respondsToSelector:@selector(resolveAutofillPrompt:action:)]) [_tab resolveAutofillPrompt:promptId action:action];
 }
 
-- (void)setTabStripIndex:(NSInteger)index pinned:(BOOL)pinned {
-  _tabIndex = index;
-  _pinned = pinned;
-  if (_tab) [ArdiaCoreTabStrip setPinned:pinned tab:_tab];
-  [self placeTab];
-}
-
 - (NSString *)executeExtensionAction:(NSString *)extensionId {
   return [_tab respondsToSelector:@selector(executeExtensionAction:)] ? [_tab executeExtensionAction:extensionId] : nil;
 }
@@ -2517,7 +2502,6 @@ namespace {
 
 int gDevTrackpad = -1;
 NSUInteger gZoomScrolls = 0;
-NSUInteger gSwitchPrewarms = 0;
 constexpr NSTimeInterval kSwitchPrewarmGapSeconds = 0.1;
 
 bool SwitchPrewarmOff() {
@@ -2588,7 +2572,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
   if (target) {
     [target callFrame:@"" kind:@"wakeFrames" json:@"{}"];
     [lastByDisplay setObject:@(event.timestamp) forKey:display];
-    gSwitchPrewarms++;
     return YES;
   }
   return NO;
@@ -2601,32 +2584,6 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
     [ArdiaCoreWebView prewarmForMouseEvent:event];
     return event;
   }];
-}
-
-+ (NSDictionary<NSString *, id> *)devSwitchPrewarm:(int)browserId at:(NSString *)where {
-  ArdiaCoreWebView *view = nil;
-  for (ArdiaCoreWebView *v in LiveViews())
-    if (v.window && v.canWakeFrames &&
-        (!browserId || ardiacore_host::BrowserId(v->_tab) == browserId))
-      view = v;
-  if (!view) return @{@"woke" : @NO, @"reason" : @"no shown page"};
-  NSWindow *window = view.window;
-  const NSRect frame = [view convertRect:view.bounds toView:nil];
-  const NSRect bounds = window.contentView.bounds;
-  const NSPoint point = [where isEqualToString:@"titlebar"] ? NSMakePoint(NSMidX(bounds), NSMaxY(bounds) - 6)
-                        : [where isEqualToString:@"edge"]   ? NSMakePoint(1, NSMidY(bounds))
-                                                            : NSMakePoint(MAX(1, NSMinX(frame) - 8), NSMidY(frame));
-  NSEvent *event = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:point modifierFlags:0
-                                     timestamp:NSProcessInfo.processInfo.systemUptime windowNumber:window.windowNumber
-                                       context:nil eventNumber:0 clickCount:1 pressure:1];
-  const NSUInteger before = gSwitchPrewarms;
-  const CFTimeInterval start = CACurrentMediaTime();
-  const BOOL woke = !SwitchPrewarmOff() && [ArdiaCoreWebView prewarmForMouseEvent:event];
-  const double micros = (CACurrentMediaTime() - start) * 1e6;
-  return @{
-    @"woke" : @(woke), @"prewarms" : @(gSwitchPrewarms), @"counted" : @(gSwitchPrewarms > before), @"off" : @(SwitchPrewarmOff()),
-    @"micros" : @(micros)
-  };
 }
 
 + (void)installScrollZoom {

@@ -1514,10 +1514,6 @@ NSView *ACWindowRootView(NSWindow *window) {
   return [ArdiaCoreEarlyWindow takeDismissed:appWindow];
 }
 
-+ (NSWindow *)makePopupWindowForProfile:(NSString *)profile root:(NSView *)root {
-  return nil;
-}
-
 + (void)showProfile:(NSString *)profile inWindow:(NSWindow *)window {
   ArdiaCoreWindowController *controller = [ArdiaCoreWindowController forNSWindow:window];
   if (!controller) return;

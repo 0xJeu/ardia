@@ -216,9 +216,6 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("closeWindow") { (id: String) in WindowManager.shared.close(id: id) }.runOnQueue(.main)
-    AsyncFunction("setWindowProfile") { (id: String, profile: String, neighbours: [String]) in
-      WindowManager.shared.setProfile(id: id, profile: profile, neighbours: neighbours)
-    }.runOnQueue(.main)
     AsyncFunction("setTrafficLightsCenter") { (id: String, center: [Double]?) in
       WindowManager.shared.setTrafficLightsCenter(id: id, center: center.flatMap { $0.count == 2 ? NSPoint(x: $0[0], y: $0[1]) : nil })
     }.runOnQueue(.main)
@@ -273,13 +270,6 @@ public class ShellModule: Module {
       return [:]
       #endif
     }.runOnQueue(.main)
-    AsyncFunction("devDragPreviewWrite") { (dir: String) -> Bool in
-      #if DEBUG
-      return DragPreview.shared.debugWrite(dir: dir)
-      #else
-      return false
-      #endif
-    }.runOnQueue(.main)
     AsyncFunction("dragPreviewEnd") { (windowId: String?, frame: [Double]?) in
       DragPreview.shared.end(windowId: windowId, fallback: frame.flatMap { $0.count == 4 ? NSRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) : nil })
     }.runOnQueue(.main)
@@ -287,7 +277,6 @@ public class ShellModule: Module {
       WindowManager.shared.setTitle(id: id, title: title)
     }.runOnQueue(.main)
     AsyncFunction("windowIds") { () -> [String] in Array(WindowManager.shared.windows.keys) }.runOnQueue(.main)
-    AsyncFunction("keyWindowId") { () -> String? in WindowManager.shared.keyWindowId }.runOnQueue(.main)
 
     AsyncFunction("setAppearance") { (mode: String) in
       NSApp.appearance = mode == "light" ? NSAppearance(named: .aqua) : mode == "dark" ? NSAppearance(named: .darkAqua) : nil
