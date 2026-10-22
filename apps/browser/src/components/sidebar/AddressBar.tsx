@@ -14,11 +14,11 @@ import { addressBarInSidebar, setUrlAnchor, SIDEBAR_FIELD } from "../layout/wind
 import { GlassFill, liquidGlass } from "../glass";
 import { useHover } from "../primitives";
 import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../Toolbar";
-import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../layout/dockMotion";
+import { ARC_LIGHTS_CENTER, HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../layout/dockMotion";
 
 const BUTTON = layout.toolbarButton;
 const { toggleX: TOGGLE_X, edge: EDGE, lightsRight: LIGHTS_RIGHT } = HEADER_TOOLS;
-const LIGHTS_Y = 26.75;
+const LIGHTS_Y = ARC_LIGHTS_CENTER[1];
 const HIT_TOP = 0;
 const HIT_BOTTOM = SIDEBAR_FIELD.top - 2;
 

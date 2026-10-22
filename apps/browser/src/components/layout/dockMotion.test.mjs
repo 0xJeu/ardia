@@ -62,6 +62,15 @@ test("the peek panel covers the card's rounded corners, so no sliver of the page
   }
 });
 
+test("with the address field in the sidebar the lights sit Arc's 3 pt higher, docked, sliding and in the peek", () => {
+  const arc = dm.ARC_LIGHTS_CENTER;
+  assert.deepEqual(arc, [dm.LIGHTS_CENTER[0], dm.LIGHTS_CENTER[1] - 3]);
+  assert.deepEqual(dm.lightsCenter(0, 0, arc), [25, 24], "docked: placed, not left at AppKit's default");
+  assert.deepEqual(dm.lightsCenter(95, 0, arc), [25 - 95, 24], "half way out on the same row");
+  const [px, py] = dm.PEEK_ORIGIN;
+  assert.deepEqual(dm.lightsCenter(-px, py, arc), [25 + px, 24 + py], "in the peek panel");
+});
+
 test("the card's left edge runs from the inset to the sidebar's width", () => {
   assert.equal(dm.cardLeft(1, 190, 7), 190);
   assert.equal(dm.cardLeft(0, 190, 7), 7);
