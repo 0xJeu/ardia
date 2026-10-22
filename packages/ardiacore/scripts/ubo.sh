@@ -6,7 +6,7 @@ vendor="$(cd "$(dirname "$0")/.." && pwd)/vendor"
 UBO_VERSION="1.75.0"
 UBO_SHA256="393cf95709d1074d4022970e9014e434395c53a822387f1e25f43be97cf4b582"
 UBO_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv1MPdIgJjIsN4Y0N/20GDNPfN4J//aknk5dsH8Y1LBxSnz3Jp/BT187Gub5cv6lee5CUVDmVBa3Yiqow8GMna5KwX+ZP+yc1pt/ewzyNxm2BzoQPgWz+1DgZaahz56/szi1EEtWVYxd3wNxFN4wPDqwV6aqlnV4R3RnxlF1ocw1kDgJ+8BxR1EY+MB+H8bymdef+xB3TNifBZIVmZt81cC3UMOG6KWRTU1wtIXsW+ZqSv5zaeFHLkjG4MPB7EfcMGrvO80ElJBZZLdrTmYOL4uUPsz2Wy6GiPWzpDmzzI9RfsZm11sLiJo63blcPF0Cz3sM0wQfxJPPcQuqkZDReswIDAQAB"
-UBO_PATCH="13"
+UBO_PATCH="15"
 ubo="$vendor/ubo"
 stamp="$UBO_VERSION-$UBO_PATCH"
 installed() { [ -f "$ubo/.version" ] && [ "$(cat "$ubo/.version")" = "$stamp" ]; }
@@ -46,70 +46,56 @@ if len(kept) != len(scripts) - 2:
     sys.exit("ubo.sh: manifest.json no longer has the subscriber and updater content scripts")
 manifest["content_scripts"] = kept
 json.dump(manifest, open(path, "w"), indent=2)
-ARDIA_MIRROR_HELPERS = r"""const ardiaMirror = 'https://services.helium.imput.net/ubo/';
-const ardiaURLs = value => typeof value === 'string' ? [ value ] : Array.isArray(value) ? value : [];
-const ardiaIsRemote = url => /^https?:\/\//.test(url);
-const ardiaIsMirror = url => url.startsWith(ardiaMirror);
-
-function ardiaAssetsJsonFirstFromMirror(entry) {
-    const urls = ardiaURLs(entry.contentURL);
-    if ( urls.some(ardiaIsMirror) === false ) {
-        entry.contentURL = [ `${ardiaMirror}assets.json`, ...urls ];
+ARDIA_MIRROR_HELPERS = r"""const ardiaMirrorRoot = 'https://services.helium.imput.net/ubo/';
+const ardiaMirrorURLs = new Map(Object.entries(ARDIA_MIRROR_MAP));
+const ardiaIsMirrorURL = url => typeof url === 'string' && url.startsWith(ardiaMirrorRoot);
+const ardiaMirrorURL = assetKey => {
+    const url = ardiaMirrorURLs.get(assetKey);
+    if ( ardiaIsMirrorURL(url) === false ) { return; }
+    if ( µb.isTrustedList(assetKey) ) { return; }
+    return url;
+};
+const ardiaSameOrigin = (requested, received) => {
+    if ( typeof received !== 'string' || received === '' ) { return false; }
+    try {
+        return new URL(requested).origin === new URL(received).origin;
+    } catch {
+        return false;
     }
-    entry.cdnURLs = null;
-    return entry;
-}
+};
+const ardiaCachedURL = (assetKey, url) => {
+    if ( ardiaIsMirrorURL(url) === false ) { return url; }
+    const entry = assetSourceRegistry[assetKey];
+    const own = entry instanceof Object
+        ? (Array.isArray(entry.contentURL) ? entry.contentURL : [ entry.contentURL ])
+        : [];
+    return own.find(u => typeof u === 'string' && reIsExternalPath.test(u)) || assetKey;
+};
 
-function ardiaListFirstFromMirror(entry, mirrorEntry) {
-    const own = ardiaURLs(entry.contentURL);
-    const mirrored = ardiaURLs(mirrorEntry && mirrorEntry.contentURL).filter(ardiaIsMirror);
-    if ( mirrored.length === 0 ) { return entry; }
-    entry.contentURL = [ ...new Set([
-        ...mirrored,
-        ...own.filter(ardiaIsRemote),
-        ...ardiaURLs(entry.cdnURLs),
-        ...own.filter(url => ardiaIsRemote(url) === false),
-    ]) ];
-    entry.cdnURLs = null;
-    entry.patchURLs = Array.isArray(mirrorEntry.patchURLs) ? mirrorEntry.patchURLs.slice() : null;
-    return entry;
-}
-
-async function ardiaRegistry(json) {
-    let dict;
-    try { dict = JSON.parse(json); } catch { return json; }
-    if ( dict instanceof Object === false || dict['assets.json'] instanceof Object === false ) { return json; }
-    if ( ardiaURLs(dict['assets.json'].contentURL).some(ardiaIsMirror) === false ) {
-        ardiaAssetsJsonFirstFromMirror(dict['assets.json']);
-        return JSON.stringify(dict);
-    }
-    let base;
-    try { base = JSON.parse((await assets.fetchText(µb.assetsJsonPath)).content); } catch { return ''; }
-    if ( base instanceof Object === false || base['assets.json'] instanceof Object === false ) { return ''; }
-    for ( const [ assetKey, entry ] of Object.entries(base) ) {
-        if ( assetKey === 'assets.json' ) {
-            ardiaAssetsJsonFirstFromMirror(entry);
-        } else {
-            ardiaListFirstFromMirror(entry, dict[assetKey]);
-        }
-    }
-    return JSON.stringify(base);
-}
-
-function ardiaAdoptMirror() {
-    const entry = assetSourceRegistry['assets.json'];
-    if ( entry instanceof Object === false ) { return; }
-    const merged = Object.entries(assetSourceRegistry).some(([ assetKey, details ]) =>
-        assetKey !== 'assets.json' && ardiaURLs(details.contentURL).some(ardiaIsMirror)
-    );
-    if ( merged && ardiaURLs(entry.contentURL).some(ardiaIsMirror) ) { return; }
-    ardiaAssetsJsonFirstFromMirror(entry);
-    saveAssetSourceRegistry(true);
-    assetCacheMarkAsDirty('assets.json');
-}
-
-let assetSourceRegistryPromise;
+const getContentURLs = (assetKey, options = {}) => {
 """
+def ardia_mirror_map(ext):
+    import hashlib, posixpath, struct
+    from urllib.parse import urlparse
+    registry = json.load(open(os.path.join(ext, "assets", "assets.json")))
+    def urls(value):
+        return [value] if isinstance(value, str) else value if isinstance(value, list) else []
+    mirrored = {}
+    for key, entry in registry.items():
+        if entry.get("content") != "filters" or key.startswith("ublock-") or key == "user-filters":
+            continue
+        sources = [u for u in urls(entry.get("contentURL")) + urls(entry.get("cdnURLs"))
+                   if isinstance(u, str) and urlparse(u).scheme in ("http", "https")]
+        if not sources:
+            continue
+        name = posixpath.basename(urlparse(sources[0]).path)
+        if not (name.endswith(".txt") or name.endswith(".dat")):
+            name = "filters.txt"
+        first, second = struct.unpack("<II", hashlib.sha256(sources[0].encode()).digest()[:8])
+        mirrored[key] = f"https://services.helium.imput.net/ubo/{key}/{first:x}/{second:x}/{name}"
+    if len(mirrored) < 40:
+        sys.exit(f"ubo.sh: only {len(mirrored)} lists for the mirror; assets.json changed shape")
+    return mirrored
 def patch(rel, old, new):
     path = os.path.join(ext, rel)
     source = open(path).read()
@@ -134,21 +120,99 @@ patch("js/start.js",
 patch("js/vapi-background.js",
       "    if ( webext.storage.managed instanceof Object === false ) {\n        return {",
       "    if ( true ) {\n        return {")
-patch("js/assets.js", "let assetSourceRegistryPromise;\n", ARDIA_MIRROR_HELPERS)
+patch("js/assets.js", "const getContentURLs = (assetKey, options = {}) => {\n",
+      ARDIA_MIRROR_HELPERS.replace("ARDIA_MIRROR_MAP", json.dumps(ardia_mirror_map(ext), sort_keys=True)))
 patch("js/assets.js",
-      "                    assetSourceRegistry = bin.assetSourceRegistry;\n"
-      "                    ubolog('Loaded assetSourceRegistry');\n",
-      "                    assetSourceRegistry = bin.assetSourceRegistry;\n"
-      "                    ardiaAdoptMirror();\n"
-      "                    ubolog('Loaded assetSourceRegistry');\n")
+      "            contentURLs.unshift(...cdnURLs);\n"
+      "        }\n"
+      "    }\n"
+      "    return contentURLs;\n"
+      "};\n",
+      "            contentURLs.unshift(...cdnURLs);\n"
+      "        }\n"
+      "    }\n"
+      "    const mirrorURL = ardiaMirrorURL(assetKey);\n"
+      "    if ( mirrorURL !== undefined ) {\n"
+      "        const firstRemote = contentURLs.findIndex(url => reIsExternalPath.test(url));\n"
+      "        contentURLs.splice(firstRemote === -1 ? contentURLs.length : firstRemote, 0, mirrorURL);\n"
+      "    }\n"
+      "    return contentURLs;\n"
+      "};\n")
 patch("js/assets.js",
-      "            }).then(details => {\n"
-      "                updateAssetSourceRegistry(details.content, true);\n",
-      "            }).then(async details => {\n"
-      "                updateAssetSourceRegistry(await ardiaRegistry(details.content), true);\n")
+      "            statusText: this.statusText || ''\n"
+      "        };\n",
+      "            statusText: this.statusText || '',\n"
+      "            responseURL: this.responseURL || '',\n"
+      "        };\n")
 patch("js/assets.js",
-      "            updateAssetSourceRegistry(result.content);\n",
-      "            updateAssetSourceRegistry(await ardiaRegistry(result.content));\n")
+      "        timeoutTimer.off();\n"
+      "    };\n",
+      "        timeoutTimer.off();\n"
+      "        clearTimeout(deadlineTimer);\n"
+      "    };\n")
+patch("js/assets.js",
+      "    const timeoutTimer = vAPI.defer.create(onTimeout);\n",
+      "    const timeoutTimer = vAPI.defer.create(onTimeout);\n"
+      "    const deadlineTimer = ardiaIsMirrorURL(url) ? setTimeout(onTimeout, timeoutAfter * 1000) : undefined;\n")
+patch("js/assets.js",
+      "        details = await assets.fetch(actualUrl);\n",
+      "        details = await assets.fetch(actualUrl);\n"
+      "        if ( isExternal && ardiaSameOrigin(actualUrl, details.responseURL) === false ) {\n"
+      "            details.content = '';\n"
+      "            details.error = 'assets.fetchText(): redirected to another origin';\n"
+      "        }\n")
+patch("js/assets.js",
+      "                url: contentURL,\n"
+      "                silent: options.silent === true,\n",
+      "                url: ardiaCachedURL(assetKey, contentURL),\n"
+      "                silent: options.silent === true,\n")
+patch("js/assets.js",
+      "            url: contentURL,\n"
+      "            resourceTime: result.resourceTime || 0,\n",
+      "            url: ardiaCachedURL(assetKey, contentURL),\n"
+      "            resourceTime: result.resourceTime || 0,\n")
+patch("js/assets.js",
+      "            continue;\n"
+      "        }\n"
+      "\n"
+      "        error = undefined;\n"
+      "\n"
+      "        // If fetched resource is older than cached one, ignore\n",
+      "            continue;\n"
+      "        }\n"
+      "\n"
+      "        if ( ardiaIsMirrorURL(contentURL) ) {\n"
+      "            const cached = await assetCacheRead(assetKey);\n"
+      "            if ( stringIsNotEmpty(cached.content) && result.content.length * 2 < cached.content.length ) {\n"
+      "                error = 'the mirror copy is much smaller than the cached one';\n"
+      "                continue;\n"
+      "            }\n"
+      "        }\n"
+      "\n"
+      "        error = undefined;\n"
+      "\n"
+      "        // If fetched resource is older than cached one, ignore\n")
+patch("js/diff-updater.js",
+      "        const response = await fetch(patchURL).catch(reason => {\n"
+      "            console.error(reason, patchURL);\n"
+      "        });\n"
+      "        if ( response === undefined ) { continue; }\n"
+      "        if ( response.status === 404 ) { break; }\n"
+      "        if ( response.ok !== true ) { continue; }\n"
+      "        const patchText = await response.text();\n",
+      "        const controller = new AbortController();\n"
+      "        const deadline = setTimeout(( ) => { controller.abort(); }, 30000);\n"
+      "        const response = await fetch(patchURL, { signal: controller.signal }).catch(reason => {\n"
+      "            console.error(reason, patchURL);\n"
+      "        });\n"
+      "        const sameOrigin = response !== undefined && typeof response.url === 'string' &&\n"
+      "            response.url.startsWith(patchURL.origin + '/');\n"
+      "        if ( response === undefined || sameOrigin === false ) { clearTimeout(deadline); continue; }\n"
+      "        if ( response.status === 404 ) { clearTimeout(deadline); break; }\n"
+      "        if ( response.ok !== true ) { clearTimeout(deadline); continue; }\n"
+      "        const patchText = await response.text().catch(( ) => undefined);\n"
+      "        clearTimeout(deadline);\n"
+      "        if ( patchText === undefined ) { continue; }\n")
 patch("js/storage.js",
       "            const match = /^[a-z]+/.exec(i18n.getUILanguage());\n"
       "            if ( match !== null ) {\n"
