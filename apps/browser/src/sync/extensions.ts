@@ -32,7 +32,7 @@ function note(profile: string, id: string, kind: ExtensionIntent["kind"]) {
 async function stateOf(profile: string): Promise<LocalExtensions> {
   const state = await engineCall<EngineState>("ac_extensions_sync_state", profile);
   for (const i of state.intents ?? []) note(profile, i.id, i.kind);
-  return { ready: !!state.ready, extensions: state.extensions ?? [], pending: state.pending ?? [], settling: state.settling ?? [] };
+  return { ready: !!state.ready, extensions: state.extensions ?? [], pending: state.pending ?? [], settling: state.settling ?? [], queued: state.queued ?? [] };
 }
 
 async function readLocal(profile: string): Promise<LocalExtensions | null> {

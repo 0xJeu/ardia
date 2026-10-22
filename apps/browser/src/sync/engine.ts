@@ -52,6 +52,7 @@ export const DATA_TYPES: { id: DataType; title: string; description: string }[] 
   { id: "tabs", title: "Open Tabs", description: "Your other devices’ tabs show in the tab overflow menu." },
   { id: "pinned", title: "Pinned Tabs and Groups", description: "Pinned tabs and pinned tab groups." },
   { id: "passwords", title: "Passwords", description: "Saved passwords. Turning sync off never removes them from this Mac." },
+  { id: "extensions", title: "Extensions", description: "Extensions from the Chrome Web Store, whether they’re on, and whether they’re pinned." },
   { id: "settings", title: "Settings", description: "Search engine, appearance, tab and keyboard settings." },
 ];
 

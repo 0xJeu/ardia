@@ -11,7 +11,7 @@ export type LocalExtension = {
   pinned?: boolean;
 };
 
-export type LocalExtensions = { ready: boolean; extensions: LocalExtension[]; pending: string[]; settling?: string[] };
+export type LocalExtensions = { ready: boolean; extensions: LocalExtension[]; pending: string[]; settling?: string[]; queued?: string[] };
 
 export type ExtensionState = { on: boolean; inc: boolean; pin: boolean };
 export type ExtensionRemoval = { removed: true };
@@ -112,6 +112,7 @@ export function extensionsAdapter(host: ExtensionsHost): ExtensionsAdapter {
   ) => {
     const e = local.extensions.find((x) => x.id === id);
     const pending = local.pending.includes(id);
+    const queued = !!local.queued?.includes(id);
     const approval = isApproval(approvalValue) ? approvalValue : null;
     if (isRemoval(record)) {
       if (intents[id]?.kind === "installed") return true;
@@ -119,7 +120,7 @@ export function extensionsAdapter(host: ExtensionsHost): ExtensionsAdapter {
         host.keepInstalled(id);
         return true;
       }
-      return !e && pending ? run({ kind: "cancel", id }) : true;
+      return !e && (pending || queued) ? run({ kind: "cancel", id }) : true;
     }
     if (!isExtensionState(record)) return true;
     if (e) {

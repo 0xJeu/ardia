@@ -262,6 +262,45 @@ Profiles).
 | `pin:t:<tab id>`, `pin:g:<group id>` | profile | pinned tabs `{ g, u, t, i, ti, pos }` and pinned groups `{ n, i, c, pos }` (Dia's pinned container) | they arrive as unloaded tiles in the window showing the profile and load when selected; when no window shows the profile they join its parked pins. A pinned group's members always live in the group's window, and sync never moves a tab between two open windows: a pin synced into a parked group is parked with it, a parked member joins a group open in a window, a group whose member is open in another window moves to that page's window (the mirror then gives the profile's other windows unloaded copies), and a member open in a third window stays there as a regular tab while the group gets an unloaded copy. A key resolves to the profile's pinned tab or pinned-group member; only when there is none does it fall back to a regular tab that still carries the key (a pin unpinned on this Mac, kept open), preferring one with a page, so another Mac's re-pin takes that page back instead of adding a second tab. A tab sync pins as a tile or row leaves any regular group it was in, as pinning it here would. A member whose pinned group has a tombstone (unpinned or deleted elsewhere) becomes a standalone pin, even if a regular group with that id is still here; one whose group has no record yet (its batch hasn't arrived) shows as a standalone pin meanwhile, its record keeps that group and position while local edits to its other fields (a rename, a new icon) still publish, and it joins the group when the group arrives. A missing group counts as not arrived only when this Mac never had it, has no record of it, and first saw the wait less than 90 days ago, by its own clock (the deadline is saved with the session), as long as a gap holds tombstones (Compaction). Past it the member publishes as a standalone pin, checked on every sync, so an idle Mac gets there too (tested). A tombstone removes only what is still in the pinned container: a group or tab this Mac already kept as regular stays. A pinned group record for a group this Mac keeps as regular (it unpinned it, and another Mac restyled or re-pinned the pinned one) becomes a separate pinned group, so the regular group keeps its name, style and tabs (tested); a member record that names such a group while its pinned group has a tombstone leaves the regular member where it is. One conflict is left: a page change on a member made while another Mac unpins its group can win the member's record. Depending on which Mac syncs first, the member then either follows the unpin, or stays pinned on its own and the unpinning Mac's regular group goes if that was its only tab; both Macs agree and the tab is kept (tested). Settling it needs placement times in the records. Pinning, unpinning into or out of a pinned group, moving a tab between tiles, rows and groups, re-pinning a group or moving a pin to another profile records a pending placement choice (`pinChoices`, like the row choices), so the next sync republishes that record with a fresh timestamp even when its value is unchanged and a later explicit choice outranks an older edit still in transit. A pin's page is published as 0.2.38 does: a member sends the page its copy shows, a tile sends its home URL, both send the copy's title, and applying a record sets the page of a copy that isn't loaded. The copy published is the one in the profile's frontmost window. Known residual: two Macs with the same pin loaded at different pages keep sending their own page on each sync, so the record moves back and forth between them (tested). Nothing is lost, and it stops once either copy unloads or both show the same page. Earlier builds held a page back until it changed locally, but every version of that (a per-copy baseline) let a real navigation go unsent in some case, so it's gone. The group a member waits for and its deadline live in `pinSync`, a side table by profile and pin key saved with the session and pruned like `pinChoices`, so parking, reopening, mirroring and relaunching keep them. Unpinning on one Mac removes the tile on the others. A record's key is matched only to that profile's tabs and groups: when the id is already another profile's tab or group on this Mac (a pin moved between profiles), the pin gets a new local id with the key kept as `pinKey`, so neither profile's records touch the other's pin |
 | `pinrow:<tab id>` | profile | `1` for a pinned tab shown as a row, `0` for one this Mac chose as a tile | Rows are pinned tabs: their `pin:t:` record is the same as a tile's (order included), so a Mac on a version before rows shows them as tiles, and since it never writes `pinrow:` keys its edits can't turn a row into a tile. A Mac publishes `0` for a tile once it has seen a mark for it. Each tile or row the user chooses there (pins it, or moves it between tiles and rows) is a pending choice kept per profile and pin key (`pinChoices`, saved with the session, so closing windows, parking and mirroring can't lose it); the next sync republishes its mark with a fresh timestamp even when the value is unchanged (unless that mark is already queued in the scope's outbox or journal), and drops the choice only once that batch is on disk, so a later choice outranks an older mark still in transit and survives a crash. A pin moved to another profile takes a new choice there, and the source keeps its own while a window there (or the parked set) still has the pin; a choice goes when its pin is unpinned or its profile deleted (also when loading a session, which also raises the generation counter above every loaded choice); a tile it only received publishes nothing, and a mark for a tab it has never had is never deleted. A mark that arrives before its tab is applied when the tab's `pin:t:` record lands, also when that tab is still open there from before an unpin. Unpinning deletes the mark (the rows adapter runs before `pin:`, so it still sees the tab's `pin:t:` record). A tab unpinned on an older Mac leaves its mark behind, unused unless that tab id is pinned again |
 | `pw:<origin>\n<username>` | profile | `{ o, u, p }` | see below |
+| `ext:<id>`, `ext:v:<id>` | profile | an extension: `{ on, inc, pin }`, or `{ removed: true }` once the user removes it; and the newest version approved anywhere with its permissions, `{ v, fps }` | Chrome Web Store extensions only; see below |
+
+### Extensions
+
+What Chrome Sync does for extensions, through our folder (`packages/sync/src/extensions.ts`, the app's host in
+`apps/browser/src/sync/extensions.ts`, Chrome's side in `engine/chromium/…/ardia/ac_extensions_sync.cc`).
+- **What syncs.** Extensions from the Chrome Web Store that Chrome itself would sync (`sync_util::ShouldSync`:
+  installed by the user from the store, not by default, policy or a component, not blocklisted, no other update
+  URL), and not themes or apps. Unpacked extensions, Ardia Scripts and uBlock Origin (bundled) stay on their Mac. Per
+  extension: on or off (the user's choice, Chrome's `DISABLE_USER_ACTION`), allowed in private windows, pinned to
+  the toolbar (Chrome's saved pin, not whether it shows now). Not synced: its data and settings (`storage.sync`
+  included), site access.
+- **Installing.** A record for an extension this Mac lacks hands Chrome a sync install
+  (`PendingExtensionManager::AddFromSync`, as `ExtensionSyncService` does); its updater fetches it from the Web
+  Store with no prompt. Chrome 155's updater would grant the permissions of whatever version it fetched, so the
+  install goes in with no version and Chrome installs it disabled whenever it has permission warnings. It is turned
+  on only when the fetched version is the one approved on another Mac and its permissions (Chrome's permission ids
+  and their hosts, `fps`) are among those approved for it (`ext:v:`); otherwise it stays off for its new permissions
+  and the user turns it on with Chrome's prompt. A Mac publishes `ext:v:` only for a version whose permissions are
+  granted there: a newer version replaces the record, the same version read with other permissions (another Chrome
+  version) adds its reading to `fps`. The record is last-writer-wins, so two Macs approving different versions at
+  once can briefly regress it; the newer Mac republishes its version on its next cycle. A record that arrives while
+  an install is pending changes it before it lands, and an install isn't published until it has taken the synced
+  state (its pin, which Chrome may have set by default). One that never lands is retried once per session, then
+  hourly.
+- **Removing.** Only the user's own removal (Settings › Extensions, the extension's menu, the Web Store, Chrome's
+  extension page) is recorded, from the event Chrome reports (never from an extension going missing), with a
+  revision Chrome's side mints so a quick remove and reinstall isn't lost. The record becomes `{ removed: true }`, a
+  live value rather than a tombstone, so compaction and older Macs keep it. Sync never uninstalls anything: the
+  other Macs keep their copy, stop installing it, cancel a sync install of it that's still waiting, and don't
+  publish their copy back. An install of it that was already downloading still lands there, and isn't counted as
+  the user's. Installing it again anywhere writes a newer record, which wins.
+- **Joining** is a union: a joining Mac takes the synced state for extensions both have, keeps its own (and
+  publishes them, also one the record says was removed). A Mac that was already syncing before this version
+  doesn't publish an extension it holds a record for until it has applied that record.
+- **Older Macs** (0.2.38, the 0.2.39 nightlies) keep `ext:` records in their replica and snapshots without
+  applying them. A build whose engine lacks `ac_extensions_sync_*` publishes and applies nothing for extensions.
+- Settings › Sync › What Syncs › Extensions turns it off; a profile that shares another's data has its owner's
+  extensions.
 
 ### Passwords
 
@@ -318,7 +357,7 @@ Settings › Sync. Dia puts sync in Account › Sync, with the section icon
   - **Advanced…** has Save Recovery Kit…, Copy Recovery Code (Dia's ⌥ item, copied as
     `org.nspasteboard.ConcealedType`), Sync Now, Show Sync Folder in Finder and Stop Syncing….
   - Then Profiles (toggles, and Add to This Mac), What Syncs (Bookmarks, History, Open Tabs,
-    Pinned Tabs and Groups, Passwords, Settings) and Devices (each with "last synced …").
+    Pinned Tabs and Groups, Passwords, Extensions, Settings) and Devices (each with "last synced …").
 - **Stop Syncing This Device?** Dia's copy, plus "Everything on this Mac stays as it is", with
   Save Recovery Kit / Cancel / Stop Syncing.
   - Then **Delete Sync Data?**: "Would you also like to permanently delete your synced data
@@ -351,7 +390,15 @@ bookmark, settings, profile or group edit, and on Sync Now. A cycle:
   - `swift test`: 5 tests. BIP39 reference vectors; tampering and truncation are detected; the
     wrong phrase opens nothing; the folder holds no plaintext in names or contents; deleting one
     chain leaves another.
-  - `node --test`: 9 tests. Concurrent edits converge in any order; deletes, re-adds and
+  - `node --test`: 28 tests. Extensions (19): install with state and approval, no echo; on/off,
+    incognito and pin both ways; a removal as a live record, never reinstalled, beaten by a reinstall; an uninstall and
+    reinstall before publishing; union on joining; a joiner takes the synced state; no grant for a newer store version
+    or other permissions; a grant for a Mac that already has the approved version; a missing or null record and an
+    ineligible extension never remove anything; nothing before Chrome is ready; a lost pending install retried; a
+    change while pending; a removal cancels a pending install; an older Mac keeps the records through its snapshots;
+    an upgraded Mac doesn't republish a copy whose removal it held; another Chrome's reading of the same version's
+    permissions is added without a loop; an install still settling isn't published; on a framework without the engine
+    calls nothing is published or applied and the records wait. The rest (9): Concurrent edits converge in any order; deletes, re-adds and
     edit-after-delete; clock skew; late, out-of-order and half-copied files; an edit during a read;
     an old snapshot put back after its tombstones were collected; a tombstone kept past its age
     limit while an older log is missing, for twice the limit at most; a write that fails before or
@@ -363,8 +410,14 @@ bookmark, settings, profile or group edit, and on Sync Now. A cycle:
   them; nothing is published before its journal is on disk).
 - End to end: `node packages/sync/scripts/e2e.mjs [Debug app] [work dir]` drives two hidden
   instances (then a third) with their own data folders through a temporary sync folder, never
-  iCloud Drive, over the dev harness. It checks 45 things, and all 45 passed on 2026-10-20 (Debug
+  iCloud Drive, over the dev harness. It checks 54 things, and all 54 passed on 2026-10-21 (Debug
   build), including pinned rows, tiles and a pinned group, an unpin, and B quit and relaunched.
+  - Extensions, with real Chrome Web Store extensions over the network (Picture-in-Picture by Google, Google
+    Translate): A installs one through Chrome's updater with no prompt; it comes in off for its permissions until
+    A's user accepts Chrome's prompt; then it reaches B approved and on (same version, same permissions). A's
+    disable turns it off on B; B's enable and pin reach A. B quit while an install was pending installs it after
+    relaunching. B's removal makes the record `{ removed: true }` on both; B doesn't install it again, and A keeps its
+    copy without publishing it back.
   - B rejects four wrong phrases: someone else's valid phrase ("mismatch"), two words swapped
     (checksum), a word not on the list, and 23 words. Then it joins with the kit's numbered, upper-case lines.
   - After joining: A's bookmarks, history, pinned tab (unloaded) and password (in Chrome's password

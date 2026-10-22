@@ -57,6 +57,7 @@ class Chrome {
   changes: ExtensionChange[] = [];
   ready = true;
   settling: string[] = [];
+  queued: string[] = [];
   failing = false;
   readonly folder: Folder;
   constructor(folder: Folder) {
@@ -90,12 +91,13 @@ class Chrome {
   }
   host() {
     return {
-      read: async () => ({ ready: this.ready, extensions: [...this.installed.values()].map((e) => ({ ...e })), pending: [...this.pending.keys()], settling: [...this.settling] }),
+      read: async () => ({ ready: this.ready, extensions: [...this.installed.values()].map((e) => ({ ...e })), pending: [...this.pending.keys()], settling: [...this.settling], queued: [...this.queued] }),
       change: async (change: ExtensionChange) => {
         this.changes.push(change);
         if (this.failing) return false;
         if (change.kind === "cancel") {
           this.pending.delete(change.id);
+          this.queued = this.queued.filter((id) => id !== change.id);
         } else if (change.kind === "install") {
           this.pending.set(change.id, change);
         } else {
@@ -495,4 +497,22 @@ test("a change Chrome refuses isn't acknowledged: the edit stays to apply and th
   b.chrome.failing = false;
   await rounds([b, a]);
   assert.deepEqual([a.chrome.installed.get(E1)!.pinned, b.chrome.installed.get(E1)!.pinned], [true, true]);
+});
+
+test("a removal reaching an install that a restart left queued cancels it", async () => {
+  const folder = new Folder();
+  const a = new Mac("devA", folder);
+  const b = new Mac("devB", folder, { joining: true });
+  a.chrome.userInstall(E1);
+  await a.sync();
+  b.chrome.finishInstalls = () => {};
+  await b.sync();
+  assert.equal(b.chrome.pending.has(E1), true);
+  b.chrome.pending.clear();
+  b.chrome.queued = [E1];
+  a.chrome.userUninstall(E1);
+  await a.sync();
+  await b.sync();
+  assert.deepEqual(b.chrome.queued, []);
+  assert.ok(b.chrome.changes.some((c) => c.kind === "cancel" && c.id === E1));
 });
