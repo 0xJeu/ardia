@@ -274,8 +274,8 @@ void ConfigureWindow(NSWindow *window) {
 NSSet<NSString *> *ReservedIdentifiers() {
   static NSSet<NSString *> *reserved = [NSSet setWithArray:@[
     @"ardia.command.newTab", @"ardia.command.reopenClosedTab", @"ardia.command.closeTab", @"ardia.command.newWindow",
-    @"ardia.command.newIncognitoWindow", @"ardia.command.tabSwitcher", @"ardia.shortcut.std:closeWindow:",
-    @"ardia.shortcut.std:quit:"
+    @"ardia.command.newIncognitoWindow", @"ardia.command.tabSwitcher", @"ardia.command.nextTab", @"ardia.command.previousTab",
+    @"ardia.shortcut.std:closeWindow:", @"ardia.shortcut.std:quit:"
   ]];
   return reserved;
 }
