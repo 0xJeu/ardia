@@ -145,7 +145,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
         if (NEW_TAB_BAR_POLICY.closeTabKeyOnlyDismissesBar || !tabId) return;
         return void closeTab(tabId);
       }
-      if (ui?.panel.open) return tabId ? closePanelToHeroBar(windowId, tabId) : s.closePanel(windowId);
+      if (ui?.panel.open) return tabId ? closePanelToHeroBar(windowId, tabId, "closeKey") : s.closePanel(windowId);
       if (tabId && find?.open) return closeFind(tabId);
       return tabId ? void closeTab(tabId) : undefined;
     case "print":

@@ -12,7 +12,7 @@ import { defaultSearchEngine } from "../store/settings";
 import { runBarAction } from "./omnibox/actions";
 import { traceOmnibox, useOmniboxDriver } from "./omnibox/devDriver";
 import { claimFocusTag, commandBarFocus, heroBarFocus } from "../lib/focusClaims";
-import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarSnapshot } from "./omnibox/barState";
+import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarDismissal, type BarSnapshot } from "./omnibox/barState";
 import { dispositionFor, openFromBar, switchFromBar, type Disposition } from "./omnibox/open";
 import { openFromNewTabBar } from "./omnibox/newTabBar";
 import type { NewTabTarget } from "../store/types";
@@ -64,7 +64,7 @@ export function Omnibox({
   initialText?: string;
   opensTab?: NewTabTarget;
   onCancel?(): void;
-  onDone?(): void;
+  onDone?(reason?: BarDismissal): void;
 }) {
   const theme = useTheme();
   const windowId = useWindowId();
@@ -237,7 +237,7 @@ export function Omnibox({
     const { key, metaKey, altKey, shiftKey, ctrlKey } = e.nativeEvent;
     if (key === "Escape") {
       if (scope) return leaveScope(null);
-      if (!hero) return onDone?.();
+      if (!hero) return onDone?.("escape");
       if (shownCompletion) return setSuppressCompletion(true);
       return reset();
     }

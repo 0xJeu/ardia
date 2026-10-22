@@ -431,6 +431,7 @@ const pastesElsewhere = async (except) => (await Promise.all(ids.filter((id) => 
 const activeId = () => ac(`const s = ac.store.getState(), w = s.windows.w1; return w.activeTabIds[w.profileId];`);
 const handoffEnds = [
   ["⌘L ⌘W before the bar mounts", [keyPress("l", 37), keyPress("w", 13, 30), keyPress("v", 9, 30)], 150, 0],
+  ["⌘L, the bar shown, ⌘W", [keyPress("l", 37), keyPress("w", 13, 300), keyPress("v", 9, 30)], 0, 1],
   ["⌘F, Find shown, Esc", [keyPress("f", 3), keyPress("\u001b", 53, 300, []), keyPress("v", 9, 30)], 0, 1],
   ["⌘T ⌘W", [keyPress("t", 17), keyPress("w", 13), keyPress("v", 9, 30)], 0, 1],
   ["⌘L, ⌘W at 300 ms, JS busy 450 ms", [keyPress("l", 37), keyPress("w", 13, 300), keyPress("v", 9, 30)], 450, 0],
@@ -465,6 +466,19 @@ await postKeys([keyPress("v", 9)]);
 await ac(`ac.store.getState().activate("t4"); return 1;`);
 await sleep(1000);
 check("⌘V with nothing focused, then another tab shown: nothing is pasted", (await pastesElsewhere("none")) === 0, `pastes ${await pastesElsewhere("none")}`);
+await resetToPageField("", [0, 0]);
+await clipboard.set("after-escape");
+await post("l", 37);
+await sleep(500);
+await post("\u001b", 53, []);
+await sleep(500);
+const responder = await devWindow("responder");
+await post("v", 9);
+await sleep(600);
+const afterEscape = await pageField("f.value");
+check("Escape out of the command bar gives the page its focus back", responder.startsWith("RenderWidgetHostViewCocoa") && afterEscape === "after-escape", `first responder ${responder}, page field "${afterEscape}"`);
+await resetToPageField("", [0, 0]);
+
 await press(cmd("q", 12), { focus: "window", wait: 0 });
 let quit = false;
 for (let i = 0; i < 150 && !quit; i++) {
