@@ -665,7 +665,7 @@ enum KeyEquivalents {
     switch press["focus"] as? String {
     case "window": window.makeFirstResponder(nil)
     case "page": if let page = pageViews(in: window).first { window.makeFirstResponder(page) }
-    case "devtools": if let devTools = pageViews(in: window).dropFirst().first { window.makeFirstResponder(devTools) }
+    case "devtools": if let devTools = pageViews(in: window).first(where: isDevTools) { window.makeFirstResponder(devTools) }
     default: break
     }
     if let settle = press["settle"] as? Int, settle > 0 {
@@ -849,7 +849,15 @@ enum KeyEquivalents {
     }
     window.contentView.map(walk)
     let area = { (v: NSView) in v.visibleRect.width * v.visibleRect.height }
-    return views.sorted { area($0) > area($1) }
+    let devTools = views.filter(isDevTools)
+    return views.filter { !isDevTools($0) }.sorted { area($0) > area($1) } + devTools.sorted { area($0) > area($1) }
+  }
+
+  private static func isDevTools(_ view: NSView) -> Bool {
+    var tab: NSView? = view.superview
+    while let current = tab, String(describing: type(of: current)) != "ArdiaCoreWebView" { tab = current.superview }
+    guard let tab, let devTools = tab.value(forKey: "devtoolsView") as? NSView else { return false }
+    return view.isDescendant(of: devTools)
   }
 }
 #endif

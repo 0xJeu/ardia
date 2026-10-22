@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -53,10 +54,19 @@ app = await launch(appPath, {
 rep.log(`instance: pid ${app.pid}, DevTools port ${app.port}, data ${data}`);
 await sleep(3000);
 
-const ac = (body, timeout = 60000) => app.eval(body, { timeout }).catch((error) => {
+const ac = (body, timeout = 60000) => app.eval(body, { timeout }).catch(async (error) => {
   error.message += `\n${body}`;
+  if (/timed out/.test(error.message) && app.alive) error.message += `\n${await diagnoseHang()}`;
   throw error;
 });
+async function diagnoseHang() {
+  const sampleFile = join(scratch, "hang-sample.txt");
+  spawnSync("sample", [String(app.pid), "2", "-mayDie", "-file", sampleFile], { timeout: 15000 });
+  const js = await app.eval("return 1", { timeout: 3000 }).then(() => "the JS thread answers", () => "the JS thread doesn't answer either");
+  const main = await app.eval("return globalThis.expo.modules.ArdiaApp.devFocusHandoffTrace().then(() => 1)", { timeout: 3000 })
+    .then(() => "the main thread answers", () => "the main thread doesn't answer");
+  return `hang: ${js}; ${main}; main-thread sample in ${sampleFile} (kept: ${scratch})`;
+}
 async function cdp(urlPart, expression) {
   if (!(await app.pageTarget(urlPart))) return undefined;
   const page = await app.page(urlPart);
@@ -78,6 +88,10 @@ const F = (code) => String.fromCharCode(code);
 const K = (key, keyCode, ...modifiers) => ({ key, keyCode, modifiers });
 const cmd = (key, keyCode, ...more) => K(key, keyCode, "command", ...more);
 
+const devToolsOwn = new Set([
+  "⌘O", "⌘P", "⇧⌘C", "⌘F", "⌥⌘F", "⌘G", "⇧⌘G", "⌘R", "⇧⌘R", "⌘0", "⌘+", "⌘=", "⌘-", "⌥⌘C", "⌘[", "⌘]",
+  "⌃⇧⇟", "⌃⇧⇞", "⌘↩", "⌥⌘B", "⇧⌘M",
+]);
 const shortcuts = [
   ["⌘,", cmd(",", 43), { command: "openSettings" }, "⌘,"],
   ["⌘Q", cmd("q", 12), { title: /^Quit/ }, "⌘Q", "window-only"],
@@ -220,7 +234,7 @@ const focuses = {
       await ac(`ac.runCommand({ command: "devTools", arg: null, windowId: "w1" });`);
       await sleep(3000);
     },
-    teardown: () => ac(`ac.runCommand({ command: "devTools", arg: null, windowId: "w1" });`),
+    teardown: () => ac(`ac.runCommand({ command: "toggleDevTools", arg: null, windowId: "w1" });`),
   },
 };
 
@@ -242,13 +256,16 @@ function recordFocus(focusName) {
 const results = new Map(shortcuts.map(([name]) => [name, {}]));
 let failures = 0;
 await showPage("t3");
+const onlyFocuses = process.env.SHORTCUTS_FOCUSES?.split(",").filter(Boolean);
 for (const [focusName, focus] of Object.entries(focuses)) {
+  if (onlyFocuses && !onlyFocuses.includes(focusName)) continue;
   await focus.setup?.();
   for (const [name, key, expect, , only] of shortcuts) {
     if (focusName !== "sidebar" && (only === "window-only" || only === "clipboard")) continue;
     const inField =
-      (only === "not-field" && (focusName === "field" || focusName === "commandBar")) || (only === "page-field" && focusName === "field") ||
-      (only === "devtools-own" && focusName === "devTools");
+      (only === "not-field" && (focusName === "field" || focusName === "commandBar" || focusName === "devTools")) ||
+      (only === "page-field" && (focusName === "field" || focusName === "devTools")) ||
+      ((only === "devtools-own" || devToolsOwn.has(name)) && focusName === "devTools");
     await focus.before?.();
     const r = await press(key, { ...focus.press, dry: true });
     const result = verdict(r, inField ? null : expect);
