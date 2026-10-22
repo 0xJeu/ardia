@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "srvx";
+import { siteSummaryResponse } from "./summary.mjs";
 import { staticMiddleware } from "srvx/static";
 import start from "./dist/server/server.js";
 
@@ -49,6 +50,7 @@ serve({
       if (pathname === null) return new Response("Bad request", { status: 400, headers: SECURITY_HEADERS });
       if (pathname.startsWith("/_serverFn/")) return withHeaders(await start.fetch(request));
       if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405, headers: SECURITY_HEADERS });
+      if (pathname === "/api/site-summary") return siteSummaryResponse(request, SECURITY_HEADERS);
       if (pathname.toLowerCase().includes("_shell.html")) return new Response("Not found", { status: 404, headers: SECURITY_HEADERS });
       if (!pathname.startsWith("/assets/") && !/^\/[\w.-]+\.(png|ico|svg|webp|txt)$/.test(pathname)) return shellResponse();
       const response = await staticFiles(request, () => new Response("Not found", { status: 404 }));
