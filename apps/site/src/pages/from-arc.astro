@@ -1,0 +1,239 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { DMG, MIN_MACOS, REPO, VERSION } from "../data/release";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const home = new URL(import.meta.env.BASE_URL, Astro.site).href;
+const description =
+  "What carries over from Arc to Ardia, what doesn’t yet, and how to move your tabs, bookmarks and passwords over.";
+---
+
+<Base title="Coming from Arc? · Ardia" description={description}>
+  <Header home={`${base}/`} />
+  <main class="from-arc">
+    <section class="intro" aria-labelledby="from-arc-title">
+      <div class="wrap">
+        <h1 class="poster" id="from-arc-title">Coming from Arc?</h1>
+        <p class="lede">
+          Ardia is a free, open-source Chromium browser for Mac with an Arc-style sidebar. Here is what carries over,
+          what doesn’t yet, and how to move your things across.
+        </p>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="keep-title">
+      <div class="wrap">
+        <h2 class="poster" id="keep-title">What you keep</h2>
+        <ul class="list">
+          <li>
+            <strong>The sidebar.</strong> Tabs live in it, and the address bar can sit there too, so the page runs to
+            the top of the window.
+          </li>
+          <li>
+            <strong>Pinned tabs.</strong> Pinned as tiles or as rows, and they belong to the profile.
+          </li>
+          <li>
+            <strong>Split view.</strong> Drag a tab onto the page. Up to three panes, side by side or stacked.
+          </li>
+          <li>
+            <strong>Little Arc.</strong> ⌥⌘N opens a small window with one page and no sidebar.
+          </li>
+          <li>
+            <strong>Tab groups.</strong> Drop a tab on another tab and they become a group.
+          </li>
+          <li>
+            <strong>The command bar.</strong> ⌘L finds tabs, history and bookmarks, does sums, and runs shortcuts like
+            doc.new.
+          </li>
+          <li>
+            <strong>Profiles and themes.</strong> Each profile keeps its own logins, history, extensions and colour.
+            Arc’s theme can be imported.
+          </li>
+          <li>
+            <strong>Live folders.</strong> GitHub pull requests and documents, shown in the sidebar. They need your own
+            token or OAuth app to connect.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="differs-title">
+      <div class="wrap">
+        <h2 class="poster" id="differs-title">What differs</h2>
+        <ul class="list">
+          <li>
+            <strong>No Arc spaces yet.</strong> Ardia uses profiles for the same job: a profile is a separate set of
+            logins, history and extensions, switched by swiping the sidebar.
+          </li>
+          <li>
+            <strong>No Boosts.</strong> Ardia doesn’t restyle sites for you.
+          </li>
+          <li>
+            <strong>Extensions are reinstalled, not copied.</strong> The Chrome Web Store works, and its button says
+            Add to Ardia. Arc’s extensions show up in the import as a list to reinstall.
+          </li>
+          <li>
+            <strong>No Netflix yet.</strong> Protected video needs a Widevine license that Google hasn’t granted.
+          </li>
+          <li>
+            <strong>Passkeys in iCloud Keychain are not yet.</strong> Touch ID works. Apple has to approve browsers
+            before iCloud Keychain passkeys work.
+          </li>
+          <li>
+            <strong>Sync is a folder, not an account.</strong> It’s end-to-end encrypted and goes through a folder you
+            pick, by default in your own iCloud Drive. There is no Ardia account and no server of ours.
+          </li>
+          <li>
+            <strong>Mac only, Apple Silicon only.</strong> It needs {MIN_MACOS} or later. No Intel Macs.
+          </li>
+          <li>
+            <strong>No AI features.</strong> That’s on purpose.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="move-title">
+      <div class="wrap">
+        <h2 class="poster" id="move-title">How to move over</h2>
+
+        <div class="step">
+          <h3>1. Download Ardia</h3>
+          <p>
+            Version {VERSION}, notarized by Apple. Needs {MIN_MACOS} or later on Apple Silicon.
+          </p>
+          <p>
+            <a
+              class="btn"
+              href={DMG}
+              data-download
+              data-track="download_clicked"
+              data-track-version={VERSION}
+              data-track-location="from_arc"
+            >Download for Mac</a>
+          </p>
+        </div>
+
+        <div class="step">
+          <h3>2. Import from Arc</h3>
+          <p>
+            If Arc is still on this Mac, open Ardia’s menu and choose Import from Another Browser…, then pick Arc.
+            You can bring bookmarks, history, passwords, cookies, addresses and cards, tabs, pinned tabs, favorites
+            and spaces.
+          </p>
+          <p>
+            Arc’s spaces come in as pinned tabs and an Imported group in the profile you choose. Their pinned folders
+            become a bookmarks folder named for the space, and a space’s theme becomes that profile’s theme. Passwords, cookies and cards
+            are encrypted, so macOS asks you to unlock Arc’s keychain item first.
+          </p>
+        </div>
+
+        <div class="step">
+          <h3>3. Or move by hand</h3>
+          <p>
+            If Arc isn’t on this Mac, import a bookmarks HTML file from the import window, or from Import Bookmarks…
+            on the bookmarks page. Import a passwords CSV from Settings › Passwords.
+          </p>
+          <p>
+            Extensions aren’t imported. Reinstall them from the Chrome Web Store, and each one’s button says Add to
+            Ardia.
+          </p>
+        </div>
+
+        <p class="fine">
+          Questions or something missing? <a class="link" href={`${REPO}/issues`} rel="noopener">Open an issue on GitHub</a>.
+          Ardia isn’t affiliated with Arc or The Browser Company.
+        </p>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .from-arc {
+    padding-bottom: var(--section);
+  }
+  .intro {
+    padding: clamp(72px, 9vw, 140px) 0 clamp(40px, 5vw, 72px);
+  }
+  h1 {
+    font-size: clamp(2.6rem, 1.2rem + 4.6vw, 6rem);
+    max-width: 14ch;
+  }
+  .lede {
+    margin-top: 28px;
+    max-width: 38em;
+    font-size: var(--t-lede);
+    color: var(--ink-2);
+  }
+  .block {
+    padding: clamp(40px, 5vw, 72px) 0;
+    border-top: 2px solid var(--ink);
+  }
+  h2 {
+    font-size: clamp(2rem, 1rem + 3vw, 4rem);
+    margin-bottom: 28px;
+  }
+  .list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 44em;
+  }
+  .list li {
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-2);
+    font-size: var(--t-body);
+  }
+  .list strong {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  .step {
+    max-width: 44em;
+    padding: 22px 0 6px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 8px;
+  }
+  h3 {
+    font-size: var(--t-h3);
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .step p {
+    color: var(--ink-2);
+    margin-bottom: 14px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 18px;
+    font-family: var(--poster);
+    font-weight: 740;
+    font-stretch: 85%;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 3px;
+  }
+  .btn:hover {
+    background: var(--accent);
+  }
+  .fine {
+    margin-top: 40px;
+    max-width: 44em;
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+  .fine a {
+    color: var(--ink);
+  }
+</style>
