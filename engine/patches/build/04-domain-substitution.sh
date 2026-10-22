@@ -4,7 +4,8 @@
 # contents are kept in domsubcache.tar.gz so it can be reverted:
 #   python3 ungoogled/utils/domain_substitution.py revert -c domsubcache.tar.gz <src>
 set -euo pipefail
-source ~/chromium-build/scripts/env.sh
+source "$(dirname "$0")/step-guard.sh" "$@"
+source "$(dirname "$0")/env.sh"
 src="$CB/chromium_git/chromium/src"
 cache="$CB/domsubcache.tar.gz"
 if [ -e "$cache" ]; then echo "already substituted ($cache exists)"; else
@@ -21,4 +22,4 @@ PY
 lowprio python3 utils/domain_substitution.py apply \
   -r domain_regex.list -f "$CB/domain_substitution.filtered.list" -c "$cache" "$src"
 fi
-"$CB/scripts/apply-chromium-patches.sh"
+"$(dirname "$0")/apply-chromium-patches.sh" --apply

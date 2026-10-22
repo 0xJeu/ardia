@@ -1,6 +1,6 @@
 # Shared environment for the Ardia engine build: plain Chromium + ungoogled-chromium + our
 # series (docs/engine-build.md). Source this file.
-export CB=~/chromium-build
+export CB="${AC_CHROMIUM_BUILD:-$HOME/chromium-build}"
 # The Ardia checkout (game-resource.sh reads the offline game from it): the one this file is in, or
 # ~/Documents/ardia for the copy in ~/chromium-build/scripts that the step scripts source.
 _ac_repo="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../../.." && pwd)"

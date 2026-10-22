@@ -16,19 +16,45 @@ added lines) must be in its file, except the hunks FUZZED_HUNKS names, which mus
 satisfy their own present/absent checks instead. A misplaced hunk fails the step.
 Run once on a fresh tree.
 
-Usage: 03-ungoogled.py [--dry-run]
+Usage: 03-ungoogled.py --apply | --dry-run | --help
 """
+import os
 import pathlib
 import subprocess
 import tempfile
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pathguard  # noqa: E402
 
-CB = pathlib.Path.home() / 'chromium-build'
+CB = pathlib.Path(os.environ.get('AC_CHROMIUM_BUILD') or pathlib.Path.home() / 'chromium-build')
 SRC = CB / 'chromium_git/chromium/src'
 UG = CB / 'ungoogled'
 UGMAC = CB / 'ungoogled-macos'
 REPORT = CB / 'logs/ungoogled-patches.tsv'
 dry = '--dry-run' in sys.argv
+if {'-h', '--help'} & set(sys.argv[1:]):
+    print(__doc__)
+    sys.exit(0)
+if not dry and '--apply' not in sys.argv[1:]:
+    sys.exit('03-ungoogled.py: it changes ~/chromium-build: pass --apply (or --dry-run) (--help for usage)')
+
+
+def holds_lock_for(path):
+    if pathguard.reaches(path):
+        return pathguard.real_lock_held()
+    return pathguard.chromium_lock_held()
+
+
+def real_chromium_build():
+    return pathguard.real_chromium_build()
+
+
+if not dry and not holds_lock_for(CB):
+    sys.exit('03-ungoogled.py: hold the chromium lock (the real one for the real ~/chromium-build): '
+             'scripts/agent/locked chromium --as <you> -- ... --apply')
+if not dry and (SRC / 'chrome/browser/ungoogled_flag_choices.h').exists():
+    sys.exit(f'{SRC} already has ungoogled-chromium applied (a second run duplicates hunks); this step runs once, '
+             f'on a fresh checkout')
 
 SKIP = {
     'core/ungoogled-chromium/fix-building-with-prunned-binaries.patch': 'assumes pruned binaries (not pruned)',
@@ -85,6 +111,14 @@ FIXUPS = [
     ('components/autofill/core/common/autofill_prefs.cc',
      '      kAutofillCreditCardEnabled, false,', '      kAutofillCreditCardEnabled, true,'),
 ]
+
+
+def patch_targets(path):
+    for line in pathlib.Path(path).read_text(errors='replace').splitlines():
+        if line.startswith('+++ ') or line.startswith('--- '):
+            name = line[4:].split('\t')[0].strip()
+            if name != '/dev/null':
+                yield name.split('/', 1)[1] if '/' in name else name
 
 
 def series():
@@ -164,6 +198,9 @@ def without_files(path, excluded):
     return str(out)
 
 
+pathguard.require_tree_writable(str(SRC), sorted({t for base, rel in series() for t in patch_targets(base / rel)}),
+                                '03-ungoogled.py') if not dry else None
+pathguard.require_writable([str(REPORT)], '03-ungoogled.py') if not dry else None
 rows = []
 for base, rel in series():
     path = str(base / rel)
