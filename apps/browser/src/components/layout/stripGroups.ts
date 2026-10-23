@@ -1,7 +1,10 @@
+import type { MenuItem } from "@ardia/shell";
 import type { BrowserState } from "../../store/browser";
-import { viewTabIds } from "../../store/model";
+import { tabLabel, viewTabIds } from "../../store/model";
 import { hiddenEmptyCard } from "../../store/newTabBar";
+import { groupLabel } from "../../store/organize";
 import { groupIndex, splitIndex, stableList } from "../../store/structure";
+import { groupEntries } from "../sidebar/entries";
 import { springParams } from "./swipeMotion";
 
 export const GROUP_MARGIN_LEFT = 3.5;
@@ -43,12 +46,13 @@ export function stripTabWidth(o: {
   dockWidth: number;
   groups: { chip: number; expanded: boolean; shown: boolean }[];
   tabUnits: number;
+  fixed: number;
   gap: number;
   plus: number;
   min: number;
   max: number;
 }): number {
-  let room = o.pageWidth - o.dockWidth - o.plus - o.gap;
+  let room = o.pageWidth - o.dockWidth - o.plus - o.gap - o.fixed;
   for (const g of o.groups) {
     const parts = g.expanded ? MEMBERS_INSET + TAIL_EXPANDED : g.shown ? MEMBERS_INSET + TAIL_COLLAPSED : 0;
     room -= GROUP_MARGIN_LEFT + GROUP_MARGIN_RIGHT + g.chip + parts + o.gap;
@@ -121,12 +125,22 @@ export function memberInteractive(shown: boolean, expanded: boolean, moving: boo
 
 const stripMemo = new Map<string, { inputs: unknown[]; result: string[] }>();
 
+function foldersUnderRoots(groups: BrowserState["groups"]): Map<string, string> {
+  const folderOf = new Map<string, string>();
+  for (const g of Object.values(groups)) {
+    if (!g.parentId || groups[g.parentId]?.parentId) continue;
+    for (const id of g.tabIds) folderOf.set(id, g.id);
+  }
+  return folderOf;
+}
+
 export function stripEntries(s: BrowserState, windowId: string, profileId: string): string[] {
   const key = `${windowId}|${profileId}`;
   const inputs = [s.tabs, s.windows, s.groups, s.splits, s.settings.newTabOpens];
   const cached = stripMemo.get(key);
   if (cached && cached.inputs.every((v, i) => v === inputs[i])) return cached.result;
   const groups = groupIndex(s.groups);
+  const folders = foldersUnderRoots(s.groups);
   const splits = splitIndex(s.splits);
   const seen = new Set<string>();
   const dock: string[] = [];
@@ -143,6 +157,12 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
       seen.add(group.id);
       out.push(`group:${group.id}:${group.collapsed ? 1 : 0}`);
     }
+    const folder = group && folders.get(id);
+    if (folder) {
+      if (!seen.has(folder)) out.push(`folder:${folder}:${s.groups[folder]!.tabIds.join(",")}:${group.id}`);
+      seen.add(folder);
+      continue;
+    }
     const split = splits.get(id)?.[0];
     if (split) {
       if (!seen.has(split.id)) out.push(`split:${split.id}:${split.tabIds.join(",")}:${group?.id ?? ""}`);
@@ -155,4 +175,16 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
   stripMemo.set(key, { inputs, result });
   if (stripMemo.size > 8) for (const k of stripMemo.keys()) if (!s.windows[k.split("|")[0]!]) stripMemo.delete(k);
   return result;
+}
+
+export function folderMenuItems(s: BrowserState, groupId: string, activeId: string | undefined): MenuItem[] {
+  return groupEntries(s, groupId).flatMap((entry): MenuItem[] => {
+    const id = entry.slice(2);
+    if (entry.startsWith("g:")) {
+      const g = s.groups[id];
+      return g ? [{ id: entry, title: groupLabel(s, g), symbol: "folder", children: folderMenuItems(s, id, activeId) }] : [];
+    }
+    const tabIds = entry.startsWith("s:") ? (s.splits[id]?.tabIds ?? []) : [id];
+    return tabIds.flatMap((t): MenuItem[] => (s.tabs[t] ? [{ id: `t:${t}`, title: tabLabel(s.tabs[t]!), checked: t === activeId }] : []));
+  });
 }

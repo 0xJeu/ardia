@@ -10,6 +10,7 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton, useHover } from "../primitives";
 import { clickTab } from "../sidebar/actions";
 import { openGroupMenu, openTabMenu } from "../sidebar/menus";
+import { groupLabel } from "../../store/organize";
 import { TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
@@ -18,7 +19,8 @@ import { usePageStyle, usePagerPages } from "./profilePager";
 import { ProfileSwipeArea } from "./ProfileSwipe";
 import { openNewTabInSplit } from "./splitActions";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
-import { setMeasuredWidth, useMeasuredWidths } from "./measuredWidths";
+import { setMeasuredWidth, useMeasuredWidth, useMeasuredWidths } from "./measuredWidths";
+import { openFolderMenu } from "./stripFolderMenu";
 import { usePeek } from "./usePeek";
 import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "./dockMotion";
 import {
@@ -64,13 +66,15 @@ const DOCK_GAP = 4.5;
 const MIN_CHIP = 96;
 const MAX_CHIP = 173;
 const GAP = 4;
+const FOLDER_HEIGHT = 24;
+const FOLDER_RADIUS = 7;
 const LIFT_SLOP = 12;
 const LIFT_MS = 150;
 const LIGHTS_GAP = 8;
 
 const FloatingStrip = createContext(false);
 
-type Member = { kind: "tab"; id: string; group: string | null } | { kind: "split"; id: string; tabIds: string[]; group: string | null };
+type Member = { kind: "tab"; id: string; group: string | null } | { kind: "split" | "folder"; id: string; tabIds: string[]; group: string | null };
 type GroupEntry = { kind: "group"; id: string; collapsed: boolean; members: Member[] };
 type Entry = { kind: "dock"; ids: string[] } | GroupEntry | Member;
 
@@ -238,22 +242,27 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   const chipWidths = useMeasuredWidths(groupIds.map(chipKey));
   const chipOf = (groupId: string) => chipWidths[groupIds.indexOf(groupId)];
   const visible = parsed.flatMap((e): Member[] => (e.kind === "group" ? (e.collapsed ? e.members.filter((m) => holds(m, activeId)) : e.members) : e.kind === "dock" ? [] : [e]));
+  const folderIds = parsed.flatMap((e) => (e.kind === "group" ? e.members.flatMap((m) => (m.kind === "folder" ? [m.id] : [])) : []));
+  const folderWidths = useMeasuredWidths(folderIds.map(folderKey));
+  const folderChip = (groupId: string) => folderWidths[folderIds.indexOf(groupId)];
   const pinnedCount = parsed.reduce((n, e) => n + (e.kind === "dock" ? e.ids.length : 0), 0);
   const chip = stripTabWidth({
     pageWidth,
     dockWidth: pinnedCount ? pinnedCount * (PINNED_CELL + PINNED_SPACING) - PINNED_SPACING + DOCK_GAP : 0,
     groups: parsed.flatMap((e) => (e.kind === "group" ? [{ chip: chipOf(e.id) ?? 0, expanded: !e.collapsed, shown: e.members.some((m) => holds(m, activeId)) }] : [])),
-    tabUnits: visible.reduce((n, m) => n + units(m), 0),
+    tabUnits: visible.reduce((n, m) => n + units(m, activeId), 0),
+    fixed: visible.reduce((n, m) => n + (m.kind === "folder" ? (folderChip(m.id) ?? 0) + (holds(m, activeId) ? MEMBERS_INSET : GAP) : 0), 0),
     gap: GAP,
     plus: ITEM_HEIGHT,
     min: MIN_CHIP,
     max: MAX_CHIP,
   });
+  const memberWidth = (m: Member) => (m.kind === "folder" ? (folderChip(m.id) ?? 0) + (holds(m, activeId) ? MEMBERS_INSET + chip : 0) : chip * units(m, activeId));
   const top = dragGeometry(
     parsed.flatMap((e): DragSlot[] => {
       if (e.kind === "dock") return [];
-      if (e.kind !== "group") return [{ tabIds: tabsOf(e), width: chip * units(e) }];
-      const widths = e.members.map((m) => chip * units(m));
+      if (e.kind !== "group") return [{ tabIds: tabsOf(e), width: chip * units(e, activeId) }];
+      const widths = e.members.map(memberWidth);
       const shown = e.members.findIndex((m) => holds(m, activeId));
       const width = groupLayout(chipOf(e.id) ?? 0, widths, GAP, !e.collapsed, shown).width;
       return [{ tabIds: e.members.flatMap(tabsOf), width, marginLeft: GROUP_MARGIN_LEFT, marginRight: GROUP_MARGIN_RIGHT }];
@@ -298,6 +307,8 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
                       activeId={activeId}
                       chipWidth={chipOf(e.id)}
                       onChipWidth={(width) => setMeasuredWidth(chipKey(e.id), width)}
+                      memberWidth={memberWidth}
+                      folderMeasured={(groupId) => folderChip(groupId) !== undefined}
                     />,
                   ];
                 if (e.kind === "split")
@@ -331,7 +342,7 @@ function parseEntries(keys: string[]): Entry[] {
       out.push(group);
       continue;
     }
-    const member: Member = kind === "split" ? { kind, id: id!, tabIds: a!.split(","), group: b || null } : { kind: "tab", id: id!, group: a || null };
+    const member: Member = kind === "split" || kind === "folder" ? { kind, id: id!, tabIds: a!.split(","), group: b || null } : { kind: "tab", id: id!, group: a || null };
     const group = member.group ? groups.get(member.group) : undefined;
     if (group) group.members.push(member);
     else out.push(member);
@@ -340,9 +351,10 @@ function parseEntries(keys: string[]): Entry[] {
 }
 
 const chipKey = (groupId: string) => `strip-group-chip|${groupId}`;
-const holds = (m: Member, tabId: string) => (m.kind === "split" ? m.tabIds.includes(tabId) : m.id === tabId);
-const tabsOf = (m: Member) => (m.kind === "split" ? m.tabIds : [m.id]);
-const units = (m: Member) => (m.kind === "split" ? Math.min(m.tabIds.length, 2) : 1);
+const folderKey = (groupId: string) => `strip-folder-chip|${groupId}`;
+const holds = (m: Member, tabId: string) => (m.kind === "tab" ? m.id === tabId : m.tabIds.includes(tabId));
+const tabsOf = (m: Member) => (m.kind === "tab" ? [m.id] : m.tabIds);
+const units = (m: Member, activeId: string) => (m.kind === "split" ? Math.min(m.tabIds.length, 2) : m.kind === "folder" ? (holds(m, activeId) ? 1 : 0) : 1);
 
 type StripDrag = {
   tabId: string | null;
@@ -1060,6 +1072,8 @@ function StripGroup({
   activeId,
   chipWidth,
   onChipWidth,
+  memberWidth,
+  folderMeasured,
 }: {
   entry: GroupEntry;
   geometry: DragGeometry;
@@ -1068,6 +1082,8 @@ function StripGroup({
   activeId: string;
   chipWidth: number | undefined;
   onChipWidth: (width: number) => void;
+  memberWidth: (m: Member) => number;
+  folderMeasured: (groupId: string) => boolean;
 }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
@@ -1076,11 +1092,11 @@ function StripGroup({
   const group = useBrowser((s) => s.groups[entry.id]);
   const { hovered, hoverProps } = useHover();
   const expanded = !entry.collapsed;
-  const widths = entry.members.map((m) => chip * units(m));
+  const widths = entry.members.map(memberWidth);
   const shown = entry.members.findIndex((m) => holds(m, activeId));
   const chipSize = chipWidth ?? 0;
   const { offsets, width } = groupLayout(chipSize, widths, GAP, expanded, shown);
-  const members = useMemo(() => dragGeometry(entry.members.map((m, i) => ({ tabIds: tabsOf(m), width: widths[i]! })), GAP), [entry.members, chip]);
+  const members = useMemo(() => dragGeometry(entry.members.map((m, i) => ({ tabIds: tabsOf(m), width: widths[i]! })), GAP), [entry.members, widths.join()]);
   const tuckable = useBrowser((s) => !expanded && shown >= 0 && !!tuckTarget(s, windowId, profileId, entry.id));
   const open = useRef(new Animated.Value(expanded ? 1 : 0)).current;
   const size = useRef(new Animated.Value(width)).current;
@@ -1164,6 +1180,9 @@ function StripGroup({
           shown={i === shown}
           geometry={members}
           from={expanded ? i : -1}
+          chip={chip}
+          activeId={activeId}
+          measured={m.kind !== "folder" || folderMeasured(m.id)}
           tuck={tuckable && i === shown ? tuck : undefined}
           out={{ top: geometry, slot: from, chip: chipSize, expanded, left: (geometry.lefts[from] ?? 0) + chipSize + MEMBERS_INSET + (expanded ? offsets[i]! : 0) }}
         />
@@ -1206,6 +1225,9 @@ function GroupMember({
   shown,
   geometry,
   from,
+  chip,
+  activeId,
+  measured,
   tuck,
   out,
 }: {
@@ -1218,6 +1240,9 @@ function GroupMember({
   shown: boolean;
   geometry: DragGeometry;
   from: number;
+  chip: number;
+  activeId: string;
+  measured: boolean;
   tuck?: () => void;
   out: GroupOut;
 }) {
@@ -1236,13 +1261,76 @@ function GroupMember({
     [],
   );
   return (
-    <Animated.View pointerEvents={interactive ? "box-none" : "none"} style={{ position: "absolute", top: 0, left, width, height: TOP_STRIP_HEIGHT, opacity, zIndex: shown ? 2 : 1 }}>
-      {member.kind === "split" ? (
+    <Animated.View pointerEvents={interactive ? "box-none" : "none"} style={{ position: "absolute", top: 0, left, width, height: TOP_STRIP_HEIGHT, opacity: measured ? opacity : 0, zIndex: shown ? 2 : 1 }}>
+      {member.kind === "folder" ? (
+        <FolderMember groupId={member.id} chip={chip} shownTab={member.tabIds.includes(activeId) ? activeId : null} tuck={tuck} />
+      ) : member.kind === "split" ? (
         <SplitChip tabIds={member.tabIds} width={width} geometry={geometry} from={from} group={member.group} />
       ) : (
         <DraggableChip tabId={member.id} width={width} geometry={geometry} from={from} group={member.group} tuck={tuck} out={out} />
       )}
     </Animated.View>
+  );
+}
+
+function FolderMember({ groupId, chip, shownTab, tuck }: { groupId: string; chip: number; shownTab: string | null; tuck?: () => void }) {
+  const width = useMeasuredWidth(folderKey(groupId)) ?? 0;
+  return (
+    <View pointerEvents="box-none" style={{ height: TOP_STRIP_HEIGHT }}>
+      <FolderChip groupId={groupId} holding={!!shownTab} />
+      {shownTab && (
+        <View style={{ position: "absolute", top: 0, left: width + MEMBERS_INSET }}>
+          <TabChip tabId={shownTab} width={chip} tuck={tuck} dragged={false} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function FolderChip({ groupId, holding }: { groupId: string; holding: boolean }) {
+  const theme = useTheme();
+  const tokens = useSidebarTokens();
+  const windowId = useWindowId();
+  const group = useBrowser((s) => s.groups[groupId]);
+  const label = useBrowser((s) => (s.groups[groupId] ? groupLabel(s, s.groups[groupId]!) : ""));
+  const { hovered, hoverProps } = useHover();
+  if (!group) return null;
+  const tint = group.color ? GROUP_COLORS[group.color].hex : null;
+  const ink = tint ?? (holding ? theme.tabSelectedText : theme.textTab);
+  return (
+    <View
+      {...hoverProps}
+      mouseDownCanMoveWindow={false}
+      tooltip={`${label}\nShow Folder`}
+      onLayout={(e) => setMeasuredWidth(folderKey(groupId), Math.ceil(e.nativeEvent.layout.width * 2) / 2)}
+      style={{ position: "absolute", left: 0, top: MID - FOLDER_HEIGHT / 2, height: FOLDER_HEIGHT }}
+    >
+      <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, groupId)}>
+        <Pressable onPress={() => void openFolderMenu(windowId, groupId)}>
+          {({ pressed }) => (
+            <View
+              style={{
+                height: FOLDER_HEIGHT,
+                flexDirection: "row",
+                alignItems: "center",
+                paddingLeft: 7,
+                paddingRight: 6,
+                borderRadius: FOLDER_RADIUS,
+                borderWidth: 0.5,
+                borderColor: theme.pinnedRestingStroke,
+                backgroundColor: pressed ? theme.tabPressed : tint ? withAlpha(tint, hovered ? 0.3 : 0.22) : hovered ? tokens.groupHeaderHover : tokens.groupFill,
+              }}
+            >
+              {group.icon ? <Text style={{ width: 13, fontSize: 12, textAlign: "center" }}>{group.icon}</Text> : <GroupGlyph color={tint ?? (theme.dark ? NEUTRAL_GROUP_SWATCH.dark : NEUTRAL_GROUP_SWATCH.light)} />}
+              <Text numberOfLines={1} style={{ marginLeft: 7, maxWidth: 110, fontSize: 12, fontWeight: "600", color: ink }}>
+                {label}
+              </Text>
+              <Symbol name="chevron.down" size={8} weight="semibold" color={withAlpha(ink, 0.6)} style={{ marginLeft: 5, width: 9, height: 9 }} />
+            </View>
+          )}
+        </Pressable>
+      </ContextMenuArea>
+    </View>
   );
 }
 
