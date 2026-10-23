@@ -1,6 +1,6 @@
 import { useBrowser, type BrowserState } from "../store/browser";
-import { bookmarkDraft, hasLinks, opens, withDraftGroups, type GroupDraft } from "../store/draftGroups";
-import { bookmarkProfileId } from "../store/model";
+import { bookmarkDraft, hasLinks, MAX_DRAFT_LINKS, withDraftGroups, type DraftGroups, type GroupDraft } from "../store/draftGroups";
+import { bookmarkProfileId, plural } from "../store/model";
 import { mainWindowFor } from "../store/small";
 
 export const ARC_HOLDER = " (Arc)";
@@ -11,12 +11,13 @@ function sidebarWindow(s: BrowserState, profileId: string, near?: string | null)
   return mainWindowFor(s, profileId);
 }
 
-export function addGroupsFromDrafts(profileId: string, drafts: GroupDraft[], near?: string | null): string[] {
+export function addGroupsFromDrafts(profileId: string, drafts: GroupDraft[], near?: string | null): DraftGroups {
   const s = useBrowser.getState();
   const windowId = sidebarWindow(s, profileId, near) ?? s.createWindow({ profileId });
-  const [next, made] = withDraftGroups(useBrowser.getState(), windowId, profileId, drafts);
-  if (made.length) useBrowser.setState(next);
-  return made;
+  const [next, result] = withDraftGroups(useBrowser.getState(), windowId, profileId, drafts);
+  if (result.made.length) useBrowser.setState(next);
+  if (result.skipped) (require("../components/layout/splitActions") as typeof import("../components/layout/splitActions")).showToast(windowId, `${plural(result.skipped, "link")} left out`, `A group takes up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")} links at a time.`);
+  return result;
 }
 
 export function profileOfWindow(windowId: string | null | undefined): string {
@@ -32,7 +33,7 @@ export function makesGroup(s: Pick<BrowserState, "bookmarks">, folderId: string)
 export function addFolderToSidebar(folderId: string, windowId: string | null): string[] {
   const s = useBrowser.getState();
   const draft = bookmarkDraft(s.bookmarks, folderId);
-  return draft ? addGroupsFromDrafts(profileOfWindow(windowId), [draft], windowId) : [];
+  return draft ? addGroupsFromDrafts(profileOfWindow(windowId), [draft], windowId).made : [];
 }
 
 function holderProfile(s: Pick<BrowserState, "bookmarks">, folderId: string, prefer?: string): string | undefined {
@@ -55,11 +56,11 @@ export function arcHolders(s: Pick<BrowserState, "bookmarks">, profileId: string
   return root?.kind === "folder" ? root.children.filter((id) => restorableArcHolder(s, id)) : [];
 }
 
-function converted(b: BrowserState["bookmarks"], id: string): { whole: boolean; ids: string[] } {
+function carriedOver(b: BrowserState["bookmarks"], id: string, carried: Set<string>): { whole: boolean; ids: string[] } {
   const node = b.nodes[id];
   if (!node) return { whole: false, ids: [] };
-  if (node.kind === "url") return opens(node.url) ? { whole: true, ids: [id] } : { whole: false, ids: [] };
-  const parts = node.children.map((c) => converted(b, c));
+  if (node.kind === "url") return carried.has(id) ? { whole: true, ids: [id] } : { whole: false, ids: [] };
+  const parts = node.children.map((c) => carriedOver(b, c, carried));
   return node.children.length && parts.every((p) => p.whole) ? { whole: true, ids: [id] } : { whole: false, ids: parts.flatMap((p) => p.ids) };
 }
 
@@ -71,9 +72,9 @@ export function restoreArcFolders(holderId: string, windowId: string | null): st
   const holder = s.bookmarks.nodes[holderId];
   const folders = holder?.kind === "folder" ? holder.children.filter((id) => makesGroup(s, id)) : [];
   const near = windowId && s.windows[windowId]?.profileId === profileId ? windowId : null;
-  const made = addGroupsFromDrafts(profileId, folders.map((id) => bookmarkDraft(s.bookmarks, id)!), near);
+  const { made, carried } = addGroupsFromDrafts(profileId, folders.map((id) => bookmarkDraft(s.bookmarks, id)!), near);
   const b = useBrowser.getState();
-  b.removeBookmarks(folders.flatMap((id) => converted(b.bookmarks, id).ids));
+  b.removeBookmarks(folders.flatMap((id) => carriedOver(b.bookmarks, id, carried).ids));
   const left = useBrowser.getState().bookmarks.nodes[holderId];
   if (left?.kind === "folder" && !left.children.length) useBrowser.getState().removeBookmark(holderId);
   return made;

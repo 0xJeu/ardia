@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { autoGroupName } from "./groupNames";
-import { ancestorIds, canNest, commonGroup, descendantIds, innermostGroupOf, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
+import { ancestorIds, canNest, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
 import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, pendingRestore, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup } from "./types";
@@ -521,7 +521,7 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
     const pinnedGroup = toRow && p.last ? new Set(Object.values(s.groups).filter((g) => g.pinned).flatMap((g) => g.tabIds)) : null;
     at = rest.reduce((last, id, i) => ((tabs[id]?.pinned && (toRow || !tabs[id]!.pinnedAsRow)) || pinnedGroup?.has(id) ? i + 1 : last), 0);
   } else at = rest.length;
-  rest.splice(at, 0, ...moving);
+  insertAll(rest, at, moving);
 
   let groups = leaveGroups(s.groups, movingSet);
   if (target) {
@@ -583,7 +583,7 @@ export function movingGroup(s: BrowserState, groupId: string, p: GroupPlacement)
     const pinnedGroup = new Set(Object.values(groups).filter((x) => x.pinned && !moving.has(x.tabIds[0] ?? "")).flatMap((x) => x.tabIds));
     at = rest.reduce((last, id, i) => (s.tabs[id]?.pinned || pinnedGroup.has(id) ? i + 1 : last), 0);
   } else at = rest.length;
-  rest.splice(at, 0, ...g.tabIds);
+  insertAll(rest, at, g.tabIds);
   const window = { ...w, tabIds: orderSections(placeGroups(rest, groups, w.id), s.tabs, groups) };
   return { groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window }, pinChoices };
 }

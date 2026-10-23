@@ -6,6 +6,7 @@ import { allArcHolders, restoreArcFolders } from "../../lib/bookmarkGroups";
 import { useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { useProfiles } from "../../store/hooks";
+import { MAX_DRAFT_LINKS } from "../../store/draftGroups";
 import { plural } from "../../store/model";
 import type { ProfileColor } from "../../store/types";
 import { useHover } from "../primitives";
@@ -244,6 +245,7 @@ export function ImportWindow() {
           first ??= dest;
           const r = importArcSpace(dest, space);
           add({ ...emptyCounts(), tabs: r.tabs, bookmarks: r.bookmarks });
+          if (r.skipped) left.push(`${plural(r.skipped, "link")} in ${name}'s folders weren't imported: a space's folders bring up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")}.`);
         }
         const dest = first ?? (await destination(destinationIndex++, result.profile?.name ?? profile.name, result.profile?.color));
         add(await applyResult(dest, result, source.name, refused));

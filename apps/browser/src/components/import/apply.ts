@@ -5,6 +5,7 @@ import type { BookmarkDraft } from "../../store/bookmarks";
 import type { GroupDraft } from "../../store/draftGroups";
 import { useBrowser } from "../../store/browser";
 import { engineProfile, isIncognitoProfile } from "../../store/model";
+import { openPages, pageKey, pinnedPages } from "../../store/pageKeys";
 import { withNewTab } from "../../store/tabs";
 import type { ProfileColor } from "../../store/types";
 import { importModule } from "./module";
@@ -103,29 +104,14 @@ export function openInWebStore(profileId: string, urls: string[]) {
   urls.forEach((url, i) => useBrowser.getState().newTab(windowId, { url, profileId, background: i > 0 }));
 }
 
-const pageKeys = (tabs: { url: string; pinnedUrl?: string | null }[]): Set<string> =>
-  new Set(tabs.flatMap((t) => [t.url, t.pinnedUrl].filter((u): u is string => !!u).map(pageKey)));
-
-function pinnedPages(profileId: string): Set<string> {
-  const s = useBrowser.getState();
-  const inPinnedGroup = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
-  const pinned = Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pinned || inPinnedGroup.has(t.id)));
-  return pageKeys([...pinned, ...(s.parkedPins[profileId]?.tabs ?? [])]);
-}
-
-function openPages(profileId: string): Set<string> {
-  const s = useBrowser.getState();
-  const open = Object.values(s.tabs).filter((t) => t.profileId === profileId);
-  return pageKeys([...open, ...(s.parkedPins[profileId]?.tabs ?? [])]);
-}
-
 export function importTabs(
   profileId: string,
   tabs: (Pick<ImportedTab, "url" | "title" | "pinned" | "customTitle"> & { row?: boolean })[],
   group: string | null,
 ): number {
-  const pinned = pinnedPages(profileId);
-  const open = openPages(profileId);
+  const s = useBrowser.getState();
+  const pinned = pinnedPages(s, profileId);
+  const open = openPages(s, profileId);
   const usable = tabs.filter((t) => {
     if (!/^(https?|file):/i.test(t.url)) return false;
     const seen = t.pinned ? pinned : open;
@@ -136,28 +122,28 @@ export function importTabs(
   });
   if (!usable.length) return 0;
   const windowId = windowFor(profileId);
-  let s = useBrowser.getState();
+  let next = useBrowser.getState();
   const unpinned: string[] = [];
   for (const t of usable) {
     const after = t.pinned ? undefined : unpinned.at(-1);
-    const [next, id] = withNewTab(s, windowId, {
+    const [made, id] = withNewTab(next, windowId, {
       url: t.url,
       profileId,
       background: true,
       pinned: t.pinned,
       snapshot: { title: t.title, customTitle: t.customTitle ?? null, ...(t.pinned && t.row ? { pinnedAsRow: true as const } : {}) },
-      index: after ? s.windows[windowId]!.tabIds.indexOf(after) + 1 : undefined,
+      index: after ? next.windows[windowId]!.tabIds.indexOf(after) + 1 : undefined,
     });
     if (!id) continue;
-    s = { ...next, tabs: { ...next.tabs, [id]: { ...next.tabs[id]!, navigation: null } } };
+    next = { ...made, tabs: { ...made.tabs, [id]: { ...made.tabs[id]!, navigation: null } } };
     if (!t.pinned) unpinned.push(id);
   }
-  useBrowser.setState(s);
+  useBrowser.setState(next);
   if (group && unpinned.length) useBrowser.getState().createGroup(unpinned, { name: group });
   return usable.length;
 }
 
-export function importArcSpace(profileId: string, space: SpaceSuggestion): { tabs: number; bookmarks: number } {
+export function importArcSpace(profileId: string, space: SpaceSuggestion): { tabs: number; bookmarks: number; skipped: number } {
   const links = space.pinned.filter((n) => n.type === "url" && n.url);
   const folders = space.pinned.filter((n) => n.type === "folder");
   let tabs = importTabs(
@@ -171,23 +157,15 @@ export function importArcSpace(profileId: string, space: SpaceSuggestion): { tab
     adoptProfileTheme(profileId);
     useBrowser.getState().updateProfile(profileId, { theme });
   }
-  if (folders.length) {
-    const made = addGroupsFromDrafts(profileId, folders.map(toGroupDraft), windowFor(profileId));
-    const groups = useBrowser.getState().groups;
-    tabs += made.reduce((n, id) => n + (groups[id]?.tabIds.length ?? 0), 0);
-  }
-  return { tabs, bookmarks: 0 };
-}
-
-function pageKey(url: string): string {
-  const m = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/i.exec(url.trim());
-  if (!m) return url;
-  const rest = m[3]!.startsWith("/") ? m[3]! : `/${m[3]}`;
-  return `${m[1]!.toLowerCase()}${m[2]!.toLowerCase()}${rest.replace(/#$/, "")}`;
+  if (!folders.length) return { tabs, bookmarks: 0, skipped: 0 };
+  const { made, skipped } = addGroupsFromDrafts(profileId, folders.map(toGroupDraft), windowFor(profileId));
+  const groups = useBrowser.getState().groups;
+  tabs += made.reduce((n, id) => n + (groups[id]?.tabIds.length ?? 0), 0);
+  return { tabs, bookmarks: 0, skipped };
 }
 
 export function importDiaProfile(profileId: string, profile: DiaTabsProfile, what: { pinned: boolean; open: boolean }): number {
-  const have = openPages(profileId);
+  const have = openPages(useBrowser.getState(), profileId);
   const fresh = (tabs: ImportedTab[]) => tabs.filter((t) => !have.has(pageKey(t.url)));
   let n = what.pinned ? importTabs(profileId, fresh(profile.pinned), null) : 0;
   if (what.open) n += importTabs(profileId, fresh(profile.tabs).map((t) => ({ ...t, pinned: false })), "Imported");

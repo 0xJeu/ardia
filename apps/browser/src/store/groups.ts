@@ -38,12 +38,18 @@ export function orderSections(ids: string[], tabs: Record<string, Tab>, groups: 
   return out.every((id, i) => id === ids[i]) ? ids : out;
 }
 
+export function insertAll(list: string[], at: number, items: string[]) {
+  const tail = list.splice(at);
+  for (const x of items) list.push(x);
+  for (const x of tail) list.push(x);
+}
+
 export function placeBlock(tabIds: string[], block: string[]): string[] {
   const members = new Set(block);
   const at = tabIds.findIndex((id) => members.has(id));
   const rest = tabIds.filter((id) => !members.has(id));
   const before = tabIds.slice(0, at).filter((id) => !members.has(id)).length;
-  rest.splice(before, 0, ...block);
+  insertAll(rest, before, block);
   return rest;
 }
 
@@ -55,7 +61,8 @@ export function placeGroups(tabIds: string[], groups: Record<string, TabGroup>, 
   let at = new Map(tabIds.map((id, i) => [id, i]));
   for (const [g] of own) {
     const spots = g.tabIds.flatMap((id) => at.get(id) ?? []);
-    if (!spots.length || Math.max(...spots) - Math.min(...spots) + 1 === spots.length) continue;
+    const [low, high] = spots.reduce(([a, z], i) => [Math.min(a, i), Math.max(z, i)], [Infinity, -Infinity]);
+    if (!spots.length || high - low + 1 === spots.length) continue;
     const members = new Set(g.tabIds);
     tabIds = placeBlock(tabIds, tabIds.filter((id) => members.has(id)));
     at = new Map(tabIds.map((id, i) => [id, i]));
@@ -147,22 +154,54 @@ export function canNest(groups: Record<string, TabGroup>, groupId: string, paren
   return !ancestorIds(groups, parentId).includes(groupId);
 }
 
+function lineage(groups: Record<string, TabGroup>) {
+  const above = new Map<string, Set<string>>();
+  const of = (id: string): Set<string> => {
+    const known = above.get(id);
+    if (known) return known;
+    const chain: string[] = [];
+    let at: string | undefined = id;
+    while (at && groups[at] && !above.has(at) && !chain.includes(at)) {
+      chain.push(at);
+      at = groups[at]!.parentId;
+    }
+    let up = at && above.has(at) ? new Set([at, ...above.get(at)!]) : new Set<string>();
+    for (const g of chain.reverse()) {
+      above.set(g, up);
+      up = new Set([g, ...up]);
+    }
+    return above.get(id)!;
+  };
+  return of;
+}
+
+const nested = new WeakMap<Record<string, TabGroup>, Record<string, TabGroup>>();
+
 export function nestGroups(groups: Record<string, TabGroup>): Record<string, TabGroup> {
+  const known = nested.get(groups);
+  if (known) return known;
+  const settled = nestOnce(groups);
+  nested.set(groups, settled);
+  return settled;
+}
+
+function nestOnce(groups: Record<string, TabGroup>): Record<string, TabGroup> {
   const all = Object.values(groups);
   if (!all.some((g) => g.parentId)) return groups;
   let next: Record<string, TabGroup> | null = null;
   const edit = (g: TabGroup) => ((next ??= { ...groups })[g.id] = g);
   const cur = (id: string) => (next ?? groups)[id]!;
+  const ancestorsBefore = lineage(groups);
   for (const g of all) {
     if (!g.parentId) continue;
     const p = groups[g.parentId];
-    const broken = !p || p.windowId !== g.windowId || p.profileId !== g.profileId || ancestorIds(groups, g.parentId).includes(g.id);
+    const broken = !p || p.windowId !== g.windowId || p.profileId !== g.profileId || ancestorsBefore(g.parentId).has(g.id);
     if (broken) edit(withParent(cur(g.id), undefined));
   }
-  const view = next ?? groups;
-  const byDepth = Object.values(view)
+  const ancestors = lineage(next ?? groups);
+  const byDepth = Object.values(next ?? groups)
     .filter((g) => g.parentId)
-    .map((g) => [g.id, depthOf(view, g.id)] as const)
+    .map((g) => [g.id, ancestors(g.id).size] as const)
     .sort((a, z) => z[1] - a[1]);
   for (const [id] of byDepth) {
     const g = cur(id);
@@ -178,13 +217,14 @@ export function nestGroups(groups: Record<string, TabGroup>): Record<string, Tab
   }
   const holders = new Map<string, string[]>();
   for (const g of Object.values(next ?? groups)) for (const t of g.tabIds) holders.get(t)?.push(g.id) ?? holders.set(t, [g.id]);
+  const leaving = new Map<string, Set<string>>();
   for (const [t, ids] of holders) {
     if (ids.length < 2) continue;
-    const view = next ?? groups;
-    const deepest = ids.reduce((a, z) => (depthOf(view, z) > depthOf(view, a) ? z : a));
-    const chain = new Set([deepest, ...ancestorIds(view, deepest)]);
-    for (const id of ids) if (!chain.has(id)) edit({ ...cur(id), tabIds: cur(id).tabIds.filter((x) => x !== t) });
+    const deepest = ids.reduce((a, z) => (ancestors(z).size > ancestors(a).size ? z : a));
+    const chain = ancestors(deepest);
+    for (const id of ids) if (id !== deepest && !chain.has(id)) leaving.get(id)?.add(t) ?? leaving.set(id, new Set([t]));
   }
+  for (const [id, gone] of leaving) edit({ ...cur(id), tabIds: cur(id).tabIds.filter((x) => !gone.has(x)) });
   const settled = next ?? groups;
   const emptied = Object.values(settled).filter((g) => !g.tabIds.length && groups[g.id]?.tabIds.length);
   if (!emptied.length) return settled;
