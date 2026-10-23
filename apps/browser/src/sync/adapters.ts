@@ -845,9 +845,11 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
       const departures: Record<string, PinSyncEntry> = {};
       for (const [group, a] of anchors) {
         const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
-        if (was?.a && dropped(`pin:t:${was.a}`) && sync[orderChoiceKey(group)]?.g !== was.a) departures[orderChoiceKey(group)] = { g: was.a };
-        const departed = !!was?.a && (departures[orderChoiceKey(group)] ?? sync[orderChoiceKey(group)])?.g === was.a;
         const since = stamp(`${PIN_ORDER}${group}`);
+        const noted = sync[orderChoiceKey(group)];
+        if (was?.a && since && dropped(`pin:t:${was.a}`) && (noted?.g !== was.a || noted.h !== since)) departures[orderChoiceKey(group)] = { g: was.a, h: since };
+        const evidence = departures[orderChoiceKey(group)] ?? noted;
+        const departed = !!was?.a && evidence?.g === was.a && evidence.h === since;
         const changedSince = (key: string) => since !== undefined && (stamp(key) ?? "") > since;
         const pin = was?.a ? (remote(`pin:t:${was.a}`) as PinValue | null | undefined) : undefined;
         const leftRows = !!was?.a && changedSince(`pin:t:${was.a}`) && (pin === null || (!!pin && pin.g !== null));

@@ -206,15 +206,19 @@ function settleDurable(state: ScopeState) {
   for (const settle of queue) settle();
 }
 
-const NONE_DROPPED = new Set<string>();
+const NONE = new Set<string>();
 
-async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number, dropped = NONE_DROPPED): Promise<Set<string>> {
-  const published = new Set<string>();
-  if (adapter.adoptRemoteOnJoin && !state.joined) return published;
-  if (adapter.publishAfterPull && waitingAfterPull.get(state) !== false) return published;
+async function extractFrom(state: ScopeState, adapter: Adapter, now: number, dropped: Set<string>): Promise<Extraction | null> {
+  if (adapter.adoptRemoteOnJoin && !state.joined) return null;
+  if (adapter.publishAfterPull && waitingAfterPull.get(state) !== false) return null;
   let pending: Set<string> | null = null;
   const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
-  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records, (key) => state.records[key]?.v, (key) => state.records[key]?.h, (key) => dropped.has(key));
+  return adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records, (key) => state.records[key]?.v, (key) => state.records[key]?.h, (key) => dropped.has(key));
+}
+
+async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number, dropped = NONE, held = NONE): Promise<Set<string>> {
+  const published = new Set<string>();
+  const extraction = await extractFrom(state, adapter, now, dropped);
   if (!extraction) return published;
   const put = (key: string, value: unknown) => {
     const known = state.records[key];
@@ -228,12 +232,12 @@ async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock,
   for (const [key, value] of extraction.values) {
     if (value === null || value === undefined) throw new Error(`[sync] ${key}: a live value can't be null`);
     const json = canonical(value);
-    if (state.base[key] === json && !extraction.republish?.(key)) continue;
+    if (held.has(key) || (state.base[key] === json && !extraction.republish?.(key))) continue;
     state.base[key] = json;
     put(key, value);
   }
   for (const key of Object.keys(state.base)) {
-    if (!key.startsWith(adapter.prefix) || extraction.values.has(key) || extraction.ignore?.(key)) continue;
+    if (!key.startsWith(adapter.prefix) || extraction.values.has(key) || extraction.ignore?.(key) || held.has(key)) continue;
     delete state.base[key];
     put(key, null);
   }
@@ -336,7 +340,7 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   return changed;
 }
 
-async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>, now: number, horizon: number, dropped = NONE_DROPPED): Promise<boolean> {
+async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>, now: number, horizon: number, dropped = NONE): Promise<boolean> {
   const mine = new Set([...keys].filter((k) => k.startsWith(adapter.prefix)));
   if (!mine.size) return true;
   const view = visible(state, adapter.prefix);
@@ -410,13 +414,20 @@ export async function syncScope(args: {
   const changed = await pull(state, transport, scope, clock, now(), options);
   const keys = new Set([...state.unapplied, ...changed]);
   const dropped = new Set([...changed].filter((key) => !(key in state.records)));
+  const deleted = [...changed].filter((key) => state.records[key]?.v == null);
+  const held = new Map<Adapter, Set<string>>();
+  for (const adapter of adapters) {
+    const mine = deleted.filter((key) => key.startsWith(adapter.prefix));
+    const extraction = mine.length ? await extractFrom(state, adapter, now(), dropped) : null;
+    if (!extraction) continue;
+    const local = (key: string) => (extraction.values.has(key) ? canonical(extraction.values.get(key)) : undefined);
+    held.set(adapter, new Set(mine.filter((key) => local(key) === state.base[key])));
+  }
   const unapplied: string[] = [];
   for (const adapter of adapters) {
-    const late = await publishAdapter(state, adapter, clock, device, now(), dropped);
+    const late = await publishAdapter(state, adapter, clock, device, now(), dropped, held.get(adapter));
     published += late.size;
     for (const key of late) keys.delete(key);
-  }
-  for (const adapter of adapters) {
     if (!(await applyAdapter(state, adapter, keys, now(), 2 * (options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL), dropped))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
   }
   state.unapplied = [...unapplied, ...[...keys].filter((k) => !adapters.some((a) => k.startsWith(a.prefix)))];

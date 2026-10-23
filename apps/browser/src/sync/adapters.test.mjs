@@ -1800,3 +1800,49 @@ test("a group anchored to a row whose tombstone was collected shows the same ord
   const { a, c } = await deletedWhileAway(PreInterleaveMac, true);
   assert.deepEqual(pinnedAreaOf(a), pinnedAreaOf(c));
 });
+
+test("a bookmark made while another adapter is still reading survives that sync", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.with(() => S().addBookmark({ profileId: "default", url: "https://first.example/", title: "First" }));
+  for (const d of [a, b]) d.with(() => S().createWindow({ url: `https://${d.id}.example/` }));
+  await syncAll([a, b]);
+  a.with(() => {
+    const node = Object.values(S().bookmarks.nodes).find((n) => n.kind === "url" && n.url === "https://first.example/");
+    S().updateBookmark(node.id, { title: "First, renamed" });
+  });
+  await a.sync();
+  let reads = 0;
+  b.passwords = adapters.passwordsAdapter("default", () => true, async () => {
+    if (++reads === 2) S().addBookmark({ profileId: "default", url: "https://second.example/", title: "Made during the sync" });
+    return stub.readLogins();
+  });
+  await b.sync();
+  assert.equal(reads >= 2, true, "the password read ran after the bookmarks' catch-up");
+  const has = (d) => d.with(() => Object.values(S().bookmarks.nodes).some((n) => n.kind === "url" && n.url === "https://second.example/"));
+  assert.ok(has(b), "B keeps the bookmark made during its sync");
+  await syncAll([b, a], 2);
+  assert.ok(has(b), "after more syncs");
+  assert.ok(has(a), "and A gets it");
+  assert.ok(a.with(() => Object.values(S().bookmarks.nodes).some((n) => n.kind === "url" && n.title === "First, renamed")));
+});
+
+test("a departure noted for one order record doesn't settle a newer one", () => {
+  S().hydrate({});
+  const w = S().createWindow({ url: "https://home.example/" });
+  const row = S().newTab(w, { url: "https://row.example/", background: true });
+  S().pinTabs([row], true, true);
+  const group = S().groupTabs([S().newTab(w, { url: "https://member.example/", background: true })], { pinned: true, name: "Group" });
+  const orderKey = `pord:g:${group}`;
+  const settledOrder = "0mvlhz4qh.0005.devA";
+  const newerOrder = "0mvlhz4qh.0009.devB";
+  useBrowser.setState({ pinSync: { default: { [`order:${group}`]: { g: "x", h: settledOrder } } } });
+  const decide = (orderStamp) => {
+    const records = { [orderKey]: { v: { a: "x" }, h: orderStamp } };
+    const extraction = adapters.pinnedOrderAdapter("default").extract((k) => (k === orderKey ? { a: "x" } : undefined), () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h, () => false);
+    return extraction.values.get(orderKey);
+  };
+  assert.deepEqual(decide(settledOrder), { a: row }, "the record the departure was noted for settles");
+  assert.deepEqual(decide(newerOrder), { a: "x" }, "a newer record naming the same row waits for it");
+});
