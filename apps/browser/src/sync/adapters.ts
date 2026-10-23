@@ -8,6 +8,7 @@ import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/mo
 import { groupChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { isPeekTab } from "../store/peek";
+import { arrangePinnedArea, parkedAnchors, pinnedAnchors } from "../store/pinnedArea";
 import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
@@ -450,7 +451,7 @@ export function pinnedAdapter(profileId: string): Adapter {
     prefix: "pin",
     extract: (base, queued, now) => {
       const s = store();
-      type Pin = Pick<Tab, "id" | "url" | "title" | "customTitle" | "customIcon"> & Partial<Pick<Tab, "pinnedUrl">>;
+      type Pin = Pick<Tab, "id" | "url" | "title" | "customTitle" | "customIcon"> & Partial<Pick<Tab, "pinnedUrl" | "pinnedAsRow">>;
       type Node = { pin: Pin } | { group: string };
       const area: Node[] = [];
       const inside = new Map<string, Node[]>();
@@ -521,6 +522,8 @@ export function pinnedAdapter(profileId: string): Adapter {
           nest(n.group);
         }
       };
+      const legacyRank = (n: Node) => ("pin" in n ? (n.pin.pinnedAsRow ? 1 : 0) : 2);
+      area.sort((a, z) => legacyRank(a) - legacyRank(z));
       const areaPositions = assignPositions(area.map((n) => ("pin" in n ? ((baseTab(n.pin.id)?.g ?? null) === null ? baseTab(n.pin.id)?.pos : undefined) : baseGroup(n.group)?.pos)));
       area.forEach((n, i) => {
         if ("pin" in n) {
@@ -793,7 +796,8 @@ export function pinnedAdapter(profileId: string): Adapter {
         const slots = ids.map((id, i) => (rank.has(id) ? i : -1)).filter((i) => i >= 0);
         const sorted = slots.map((i) => ids[i]!).sort((a, z) => rank.get(a)! - rank.get(z)!);
         slots.forEach((slot, i) => (ids[slot] = sorted[i]!));
-        const window = { ...w, tabIds: orderSections(pinnedFirst(ids, tabs, groups), tabs, groups) };
+        const sectioned = { ...w, tabIds: orderSections(pinnedFirst(ids, tabs, groups), tabs, groups) };
+        const window = { ...sectioned, tabIds: arrangePinnedArea({ tabs, groups }, sectioned, profileId, (group) => anchorIn(base(`${PIN_ORDER}${group}`))) };
         windows[w.id] = window;
         groups = syncGroupOrder(groups, window);
       }
@@ -809,6 +813,39 @@ export function pinnedAdapter(profileId: string): Adapter {
       const { find, splits, selection, windowOrder, windowUi } = s;
       const pinSync = noted.size ? { ...s.pinSync, [profileId]: { ...s.pinSync[profileId], ...Object.fromEntries(noted) } } : s.pinSync;
       useBrowser.setState({ tabs, windows, groups, live, find, splits, selection, windowOrder, windowUi, parkedPins, pinSync });
+    },
+  };
+}
+
+const PIN_ORDER = "pord:g:";
+type PinOrderValue = { a: string | null };
+const anchorIn = (value: unknown) => (value as PinOrderValue | undefined)?.a;
+
+export function pinnedOrderAdapter(profileId: string): Adapter {
+  const shownIn = (s: BrowserState) => openWindows(s).filter((w) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId));
+  return {
+    prefix: PIN_ORDER,
+    extract: () => {
+      const s = store();
+      const home = homeWindow(s, profileId);
+      const shown = !!home && shownIn(s).includes(home);
+      if (!shown && !s.parkedPins[profileId]) return { values: new Map(), ignore: () => true } satisfies Extraction;
+      const anchors = shown ? pinnedAnchors(s, home!, profileId) : parkedAnchors(s, profileId);
+      return { values: new Map([...anchors].map(([group, a]) => [`${PIN_ORDER}${group}`, { a } satisfies PinOrderValue])) } satisfies Extraction;
+    },
+    apply: (visible) => {
+      const s = store();
+      let windows = s.windows;
+      let groups = s.groups;
+      for (const w of shownIn(s)) {
+        const tabIds = arrangePinnedArea(s, w, profileId, (group) => anchorIn(visible.get(`${PIN_ORDER}${group}`)));
+        if (tabIds === w.tabIds) continue;
+        const window = { ...w, tabIds };
+        windows = { ...windows, [w.id]: window };
+        groups = syncGroupOrder(groups, window);
+      }
+      if (windows !== s.windows) useBrowser.setState({ windows, groups });
+      return true;
     },
   };
 }

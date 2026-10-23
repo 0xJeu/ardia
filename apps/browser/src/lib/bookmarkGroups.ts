@@ -16,7 +16,7 @@ export function addGroupsFromDrafts(profileId: string, drafts: GroupDraft[], nea
   const windowId = sidebarWindow(s, profileId, near) ?? s.createWindow({ profileId });
   const [next, result] = withDraftGroups(useBrowser.getState(), windowId, profileId, drafts);
   if (result.made.length) useBrowser.setState(next);
-  if (result.skipped) (require("../components/layout/splitActions") as typeof import("../components/layout/splitActions")).showToast(windowId, `${plural(result.skipped, "link")} left out`, `A group takes up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")} links at a time.`);
+  if (result.skipped) (require("../components/layout/splitActions") as typeof import("../components/layout/splitActions")).showToast(windowId, `${plural(result.skipped, "link")} left out`, `A folder brings up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")} links.`);
   return result;
 }
 

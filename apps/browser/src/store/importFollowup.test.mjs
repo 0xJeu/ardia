@@ -56,6 +56,14 @@ test("a folder past the link limit imports up to it and reports the rest", () =>
   assert.equal(skipped, 25);
 });
 
+test("the link limit counts each folder on its own", () => {
+  const { w } = start();
+  const links = (prefix, n) => Array.from({ length: n }, (_, i) => ({ title: `${prefix}${i}`, url: `https://${prefix}${i}.example/` }));
+  const [, { made, skipped }] = withDraftGroups(S(), w, P, [{ title: "One", children: links("one", 3000) }, { title: "Two", children: links("two", 3000) }]);
+  assert.equal(made.length, 2);
+  assert.equal(skipped, 0);
+});
+
 test("a folder with more links than a call can take as arguments doesn't throw", () => {
   const { w } = start();
   const draft = { title: "Wide", children: Array.from({ length: 140_000 }, (_, i) => ({ title: `L${i}`, url: `https://w${i}.example/` })) };

@@ -69,7 +69,7 @@ class Device {
       const p = await run(
         profileId === "default" ? "p" : `p:${profileId}`,
         [
-          ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId)]),
+          ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId), adapters.pinnedOrderAdapter(profileId)]),
           adapters.pinnedAdapter(profileId),
           adapters.bookmarksAdapter(profileId),
           adapters.historyAdapter(profileId),
@@ -1313,3 +1313,64 @@ test("a nested pinned group ungrouped, deleted or emptied on one Mac goes on the
   assert.deepEqual(pinnedAreaOf(b), pinnedAreaOf(a));
   assert.equal((await a.sync()).published + (await b.sync()).published, 0, "settled");
 });
+
+const preInterleave = await import("./fixtures/pinned-v0.2.40.ts");
+
+class PreInterleaveMac extends Device {
+  async sync() {
+    stub.current.device = this.id;
+    useBrowser.setState(this.browser, true);
+    try {
+      return await syncScope({ scope: "p", state: this.scopes.p, transport: this.folder.transport(), adapters: [preInterleave.pinnedRowsAdapter("default"), preInterleave.pinnedAdapter("default")], clock: this.clock, device: this.id });
+    } finally {
+      this.browser = S();
+    }
+  }
+}
+
+function groupBeforeRow(d) {
+  return d.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    const open = (h) => S().newTab(w, { url: `https://${h}.example/`, background: true });
+    const [tile, row, member] = ["tile", "row", "member"].map(open);
+    S().pinTabs([tile], true);
+    S().pinTabs([row], true, true);
+    S().groupTabs([member], { pinned: true, name: "Group" });
+    S().placeTabs([row], { pinned: true, row: true, beforeId: null, last: true });
+    return w;
+  });
+}
+
+for (const [label, Old, rows] of [["a build from before the interleaved order", PreInterleaveMac, true], ["v0.2.38", OldMac, false]]) {
+  test(`an idle Mac on ${label} doesn't put rows back ahead of pinned groups, and its own edits still come through`, async () => {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const old = new Old("devOld", folder);
+    groupBeforeRow(a);
+    const order = ["tile:tile", "Group:member", "row:row"];
+    assert.deepEqual(pinnedAreaOf(a), order);
+    old.with(() => S().createWindow({ url: "https://old-home.example/" }));
+    for (let i = 0; i < 4; i++) await syncAll([a, old]);
+    assert.deepEqual(pinnedAreaOf(a), order, "the idle older Mac's normalized order doesn't win");
+    old.with(() => {
+      const w = S().windowOrder[0];
+      S().pinTabs([S().newTab(w, { url: "https://added.example/", background: true })], true, true);
+    });
+    for (let i = 0; i < 3; i++) await syncAll([old, a]);
+    const after = pinnedAreaOf(a);
+    assert.ok(after.some((x) => x.endsWith(":added")), "the older Mac's new pin arrives");
+    assert.deepEqual(after.filter((x) => !x.endsWith(":added")), order, "and the interleaving stays");
+    for (let i = 0; i < 2; i++) await syncAll([a, old]);
+    assert.deepEqual(pinnedAreaOf(a).filter((x) => !x.endsWith(":added")), order, "still after more idle rounds");
+    if (!rows) return;
+    assert.deepEqual(pinnedAreaOf(a), ["tile:tile", "Group:member", "row:row", "row:added"]);
+    old.with(() => {
+      const at = (url) => Object.values(S().tabs).find((t) => (t.pinnedUrl || t.url) === url).id;
+      S().placeTabs([at("https://added.example/")], { pinned: true, row: true, beforeId: at("https://row.example/") });
+      const g = Object.values(S().groups).find((x) => x.name === "Group");
+      S().updateGroup(g.id, { name: "Renamed" });
+    });
+    for (let i = 0; i < 3; i++) await syncAll([old, a]);
+    assert.deepEqual(pinnedAreaOf(a), ["tile:tile", "Renamed:member", "row:added", "row:row"], "the older Mac's reorder and rename come through, the group keeps its place");
+  });
+}

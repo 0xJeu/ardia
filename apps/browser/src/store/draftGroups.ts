@@ -38,6 +38,7 @@ export function withDraftGroups(s: BrowserState, windowId: string, profileId: st
   const all: string[] = [];
   const now = Date.now();
   let skipped = 0;
+  let taken = 0;
   const make = (d: GroupDraft, parentId?: string): string[] => {
     const id = newId("g");
     const tabIds: string[] = [];
@@ -47,11 +48,12 @@ export function withDraftGroups(s: BrowserState, windowId: string, profileId: st
         continue;
       }
       if (!opens(c.url) || seen.has(pageKey(c.url))) continue;
-      if (order.length >= MAX_DRAFT_LINKS) {
+      if (taken >= MAX_DRAFT_LINKS) {
         skipped++;
         continue;
       }
       seen.add(pageKey(c.url));
+      taken++;
       const t = { ...makeTab(windowId, profileId, c.url, { title: c.title, customTitle: c.customTitle ?? null }), navigation: null, unloaded: true as const };
       tabs[t.id] = t;
       live[t.id] = IDLE_LIVE;
@@ -65,7 +67,10 @@ export function withDraftGroups(s: BrowserState, windowId: string, profileId: st
     if (!parentId) made.push(id);
     return tabIds;
   };
-  for (const d of drafts) make(d);
+  for (const d of drafts) {
+    taken = 0;
+    make(d);
+  }
   if (!made.length) return [s, { made, carried, skipped }];
   const pinnedArea = new Set(Object.values(s.groups).filter((g) => g.pinned).flatMap((g) => g.tabIds));
   const at = w.tabIds.reduce((last, id, i) => (s.tabs[id]?.pinned || pinnedArea.has(id) ? i + 1 : last), 0);

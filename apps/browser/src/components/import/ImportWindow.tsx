@@ -245,7 +245,7 @@ export function ImportWindow() {
           first ??= dest;
           const r = importArcSpace(dest, space);
           add({ ...emptyCounts(), tabs: r.tabs, bookmarks: r.bookmarks });
-          if (r.skipped) left.push(`${plural(r.skipped, "link")} in ${name}'s folders weren't imported: a space's folders bring up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")}.`);
+          if (r.skipped) left.push(`${plural(r.skipped, "link")} in ${name}'s folders weren't imported: each folder brings up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")} links.`);
         }
         const dest = first ?? (await destination(destinationIndex++, result.profile?.name ?? profile.name, result.profile?.color));
         add(await applyResult(dest, result, source.name, refused));

@@ -398,6 +398,16 @@ function restoreTarget(s: BrowserState, original: string, requested?: string | n
   return s.ui.focusOrder.find((id) => ok(id)) ?? s.windowOrder.find((id) => ok(id));
 }
 
+function atSavedIndex(s: BrowserState, windowId: string, block: string[], index: number): BrowserState {
+  const w = s.windows[windowId];
+  if (!w) return s;
+  const members = new Set(block);
+  const rest = w.tabIds.filter((id) => !members.has(id));
+  insertAll(rest, Math.min(index, rest.length), block);
+  const window = { ...w, tabIds: orderSections(rest, s.tabs, s.groups) };
+  return { ...s, windows: { ...s.windows, [windowId]: window }, groups: syncGroupOrder(s.groups, window) };
+}
+
 export function restoringGroup(s: BrowserState, entry: ClosedGroup, requested?: string | null): BrowserState {
   const windowId = restoreTarget(s, entry.windowId, requested);
   if (!windowId) return s;
@@ -420,6 +430,7 @@ export function restoringGroup(s: BrowserState, entry: ClosedGroup, requested?: 
   if (groupId && next.groups[groupId]) {
     next = { ...next, groups: { ...next.groups, [groupId]: { ...next.groups[groupId]!, icon: entry.group.icon, color: entry.group.color } } };
     next = rebuildNested(next, groupId, entry.group.id, ids, entry.nested);
+    if (index !== undefined && entry.group.pinned && !parent) next = atSavedIndex(next, windowId, next.groups[groupId]!.tabIds, index);
   }
   return ids[0] ? apply(next, activated(next, ids[0])) : next;
 }

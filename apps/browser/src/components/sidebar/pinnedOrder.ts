@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { arrangeFolders, live, updateFolder, useLive } from "../../live/store";
+import { arrangeFolders, live, useLive } from "../../live/store";
 import type { LiveFolder } from "../../live/types";
 import { useBrowser, type BrowserState } from "../../store/browser";
+import { pinnedAreaKeys } from "../../store/pinnedArea";
 import { pinKeyOf } from "../../store/pinMirror";
 import { mainWindowFor } from "../../store/small";
 import { sidebarEntries } from "./entries";
@@ -44,9 +45,16 @@ export function pinnedSequence(s: BrowserState, folders: Record<string, LiveFold
   return withLiveFolders(pinned, pinned.map((e) => anchorKey(s, e)), foldersOf(folders, order, profileId));
 }
 
+const stillPinned = (s: Pick<BrowserState, "tabs" | "groups">, entry: string): boolean => {
+  const id = entry.slice(2);
+  if (entry.startsWith("t:")) return !!s.tabs[id]?.pinned && !!s.tabs[id]!.pinnedAsRow;
+  if (entry.startsWith("g:")) return !!s.groups[id]?.pinned && !s.groups[id]!.parentId;
+  return true;
+};
+
 export function arrangeLive(sequence: string[]) {
   const s = useBrowser.getState();
-  arrangeFolders(liveAnchors(sequence, (e) => anchorKey(s, e)));
+  arrangeFolders(liveAnchors(sequence.filter((e) => stillPinned(s, e)), (e) => anchorKey(s, e)));
 }
 
 export function moveLiveFolder(windowId: string, folderId: string, delta: -1 | 1) {
@@ -60,25 +68,21 @@ export function moveLiveFolder(windowId: string, folderId: string, delta: -1 | 1
   arrangeLive(sequence);
 }
 
-const lastAnchors = new Map<string, string[]>();
-
 export function keepLiveAnchors(s: BrowserState, prev: BrowserState) {
   if (s.tabs === prev.tabs && s.groups === prev.groups && s.windows === prev.windows) return;
   const { folders, folderOrder } = live();
   for (const profileId of new Set(folderOrder.map((id) => folders[id]?.profileId))) {
     const windowId = profileId && mainWindowFor(s, profileId);
-    if (!profileId || !windowId) continue;
-    const keys = sidebarEntries(s, windowId, profileId).pinned.map((e) => anchorKey(s, e));
-    const was = lastAnchors.get(profileId);
+    const before = windowId ? prev.windows[windowId] : undefined;
+    if (!profileId || !windowId || !before) continue;
+    const keys = pinnedAreaKeys(s, s.windows[windowId]!, profileId);
     if (!keys.length) continue;
-    lastAnchors.set(profileId, keys);
-    if (!was) continue;
     const now = new Set(keys);
-    for (const f of foldersOf(folders, folderOrder, profileId)) {
-      const at = f.after ? was.indexOf(f.after) : -1;
-      if (at < 0 || now.has(f.after!)) continue;
-      updateFolder(f.id, { after: was.slice(0, at).reverse().find((k) => now.has(k)) ?? null });
-    }
+    const was = pinnedAreaKeys(prev, before, profileId);
+    const mine = foldersOf(folders, folderOrder, profileId);
+    if (!mine.some((f) => f.after && !now.has(f.after) && was.includes(f.after))) continue;
+    const shown = withLiveFolders(was, was, mine).filter((e) => e.startsWith(LIVE) || now.has(e));
+    arrangeFolders(liveAnchors(shown, (e) => e));
   }
 }
 

@@ -72,7 +72,7 @@ class Mac {
           scope: `p:${p}`,
           state: (this.scopes[p] ??= emptyScope()),
           transport: this.folder.transport(),
-          adapters: this.legacy ? [shippedPinnedAdapter(p)] : [adapters.pinnedRowsAdapter(p), adapters.pinnedAdapter(p)],
+          adapters: this.legacy ? [shippedPinnedAdapter(p)] : [adapters.pinnedRowsAdapter(p), adapters.pinnedOrderAdapter(p), adapters.pinnedAdapter(p)],
           clock: this.clock,
           device: this.id,
           now: () => wall,
