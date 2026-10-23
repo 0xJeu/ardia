@@ -29,6 +29,10 @@ namespace crypto::apple {
 class KeychainV2;
 }
 
+namespace sessions {
+class LiveTab;
+}
+
 namespace extensions {
 struct WebRequestInfo;
 namespace declarative_net_request {
@@ -64,6 +68,8 @@ extern bool g_ardia_begin_frame_bridge;
 
 extern void (*g_ardia_initial_main_document_accessed)(
     content::WebContents* contents);
+
+extern bool (*g_ardia_live_tab_skips_restore)(sessions::LiveTab* live_tab);
 
 extern int (*g_ardia_permission_tab_shown)(content::WebContents*);
 

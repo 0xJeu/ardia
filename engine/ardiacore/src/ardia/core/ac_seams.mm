@@ -7,6 +7,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "components/permissions/chooser_controller.h"
+#include "components/sessions/core/live_tab.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_install_prompt_client.h"
@@ -42,6 +43,10 @@ bool HandleExtensionSidePanel(BrowserWindowInterface* browser_window,
     return false;
   }
   return HostExtensionSidePanel(contents, extension_id, open);
+}
+
+bool LiveTabSkipsRestore(sessions::LiveTab* live_tab) {
+  return live_tab && IsTemporaryTabId(live_tab->GetSessionID().id());
 }
 
 bool IsHiddenFromExtensions(const BrowserWindowInterface* browser) {
@@ -96,6 +101,7 @@ void InstallChromeHooks() {
   g_ardia_devtools_dock_changed = &DevToolsDockChanged;
   g_ardia_create_web_contents_delegate = &CreateWebContentsDelegate;
   g_ardia_initial_main_document_accessed = &InitialMainDocumentAccessed;
+  g_ardia_live_tab_skips_restore = &LiveTabSkipsRestore;
   g_ardia_viewless_browsers = true;
 }
 

@@ -1,0 +1,26 @@
+diff --git a/components/sessions/core/tab_restore_service_helper.cc b/components/sessions/core/tab_restore_service_helper.cc
+--- a/components/sessions/core/tab_restore_service_helper.cc
++++ b/components/sessions/core/tab_restore_service_helper.cc
+@@ -46,6 +46,10 @@
+ #include "components/tab_groups/tab_group_visual_data.h"
+ #include "ui/base/mojom/window_show_state.mojom.h"
+ #include "ui/base/window_open_disposition.h"
++
++#include "ardia/core/ac_content_hooks.h"  // nogncheck
++
++bool (*g_ardia_live_tab_skips_restore)(sessions::LiveTab* live_tab) = nullptr;
+ 
+ namespace sessions {
+ namespace {
+@@ -1513,7 +1517,10 @@
+                                           LiveTabContext* context,
+                                           LiveTab* live_tab) {
+   tab->current_navigation_index = 0;
+-  if (!live_tab->IsInitialBlankNavigation() && live_tab->GetEntryCount() > 0) {
++  const bool skips_restore =
++      g_ardia_live_tab_skips_restore && g_ardia_live_tab_skips_restore(live_tab);
++  if (!skips_restore && !live_tab->IsInitialBlankNavigation() &&
++      live_tab->GetEntryCount() > 0) {
+     AddSerializedNavigationEntries(
+         live_tab, AddBehavior::kCurrentAndPreceedingEntries, tab->navigations);
+     if (!tab->navigations.empty()) {

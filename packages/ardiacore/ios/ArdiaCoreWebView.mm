@@ -1115,6 +1115,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   _tab = tab;
   tab.delegate = self;
   [ArdiaCoreTabs setView:self forTab:tab];
+  [self markTemporary];
   [self bindRestoreKey];
   [self takePageReports];
   [self userSightChanged];
@@ -1240,12 +1241,6 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [self detach];
   if ([tab respondsToSelector:@selector(closeNow)]) [tab closeNow];
   else [tab close];
-  if (_temporary && _transferKey.length && !ardiacore_host::IsIncognito(_profile) && ArdiaCoreHost.isStarted) {
-    NSString *profile = _profile, *key = _transferKey;
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [ArdiaCoreServices call:@"ac_tab_restore_take" profile:profile args:@{@"key" : key} completion:^(NSDictionary *) {}];
-    });
-  }
 }
 
 - (void)placeTab {
@@ -1443,6 +1438,15 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
     ArdiaCoreWebView *now = [ArdiaCoreTabs viewForTab:tab];
     if (!now.seenByUser) [tab noteShownByHost:NO];
   });
+}
+
+- (void)setTemporary:(BOOL)temporary {
+  _temporary = temporary;
+  [self markTemporary];
+}
+
+- (void)markTemporary {
+  if ([_tab respondsToSelector:@selector(setTemporary:)] && _tab.temporary != _temporary) _tab.temporary = _temporary;
 }
 
 - (void)setVisible:(BOOL)visible {

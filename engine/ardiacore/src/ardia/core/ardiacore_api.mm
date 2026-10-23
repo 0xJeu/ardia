@@ -2477,6 +2477,16 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   }
 }
 
+- (BOOL)temporary {
+  return _contents && ardiacore::TabBridge::GetOrCreate(_contents)->temporary();
+}
+
+- (void)setTemporary:(BOOL)temporary {
+  if (_contents) {
+    ardiacore::TabBridge::GetOrCreate(_contents)->SetTemporary(temporary);
+  }
+}
+
 - (void)closeNow {
   if (ardiacore::IsNotifyingTabStrip() || ardiacore::IsNotifyingNavigation()) {
     dispatch_async(dispatch_get_main_queue(), ^{

@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/containers/flat_set.h"
 #include "base/no_destructor.h"
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -106,6 +108,11 @@ namespace {
 std::vector<WindowHost*>& Hosts() {
   static base::NoDestructor<std::vector<WindowHost*>> hosts;
   return *hosts;
+}
+
+base::flat_set<int32_t>& TemporaryTabIds() {
+  static base::NoDestructor<base::flat_set<int32_t>> ids;
+  return *ids;
 }
 
 class HostClientView : public views::ClientView {
@@ -1624,7 +1631,24 @@ void TabBridge::WebContentsDestroyed() {
     }
     observing_favicon_ = false;
   }
+  SetTemporary(false);
   [tab_ contentsDestroyed];
+}
+
+void TabBridge::SetTemporary(bool temporary) {
+  if (temporary_id_) {
+    TemporaryTabIds().erase(temporary_id_);
+    temporary_id_ = 0;
+  }
+  const int32_t id = sessions::SessionTabHelper::IdForTab(web_contents()).id();
+  if (temporary && id > 0) {
+    temporary_id_ = id;
+    TemporaryTabIds().insert(id);
+  }
+}
+
+bool IsTemporaryTabId(int32_t session_id) {
+  return session_id > 0 && TemporaryTabIds().contains(session_id);
 }
 
 void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
