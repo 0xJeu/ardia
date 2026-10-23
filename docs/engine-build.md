@@ -339,10 +339,7 @@ order 1, 3, 4, 2, 5 on a fresh checkout (`gn gen` once the tree is patched). Hel
 `~/chromium-build/helium` and `~/chromium-build/helium-macos` (`HELIUM_DIR`, `HELIUM_MACOS_DIR`), at the commits
 `helium-pins.ini` names.
 
-The live tree in `~/chromium-build` is the Helium one, since 2026-10-23. 0.2.40-nightly.5's framework was built
-from this series in an APFS clone of the old ungoogled tree. The clone was then renamed into place, with siso's
-`.siso_fs_state` paths rewritten to the new location, so the build cache carried over: a dry run there has no work
-to do. The ungoogled tree is gone.
+The live tree in `~/chromium-build` has been Helium's since 2026-10-23 (0.2.40-nightly.5's framework).
 
 | Step | Script | Time (M5 Pro, shared machine) |
 |---|---|---|
