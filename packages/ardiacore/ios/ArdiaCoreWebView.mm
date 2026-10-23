@@ -475,14 +475,27 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
   NSMutableArray<NSInvocation *> *_calls;
   NSMutableDictionary<NSString *, NSDictionary *> *_pageState;
   NSUInteger _pageStateBytes;
+  NSUInteger _pageStateOrder;
 }
 
 static const NSUInteger kHeldPageStateEntries = 64;
 static const NSUInteger kHeldPageStateBytes = 16 * 1024;
 static const NSUInteger kHeldPageStateTotalBytes = 256 * 1024;
 
+- (void)forgetHeldPageStateWhere:(BOOL (^)(NSDictionary *held))matches {
+  for (NSString *key in _pageState.allKeys)
+    if (matches(_pageState[key])) {
+      _pageStateBytes -= [_pageState[key][@"bytes"] unsignedIntegerValue];
+      [_pageState removeObjectForKey:key];
+    }
+}
+
 - (void)holdPageMessage:(NSString *)kind json:(NSString *)json frame:(NSString *)frame main:(BOOL)main origin:(NSString *)origin {
   if (![@[ @"hello", @"theme", @"media", @"nowPlaying" ] containsObject:kind ?: @""]) return;
+  if ([kind isEqualToString:@"hello"]) {
+    NSString *from = frame ?: @"";
+    [self forgetHeldPageStateWhere:^BOOL(NSDictionary *held) { return main || [held[@"frame"] isEqualToString:from]; }];
+  }
   const NSUInteger bytes = [json lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
   if (bytes > kHeldPageStateBytes) return;
   NSString *key = [NSString stringWithFormat:@"%@|%@", frame ?: @"", kind];
@@ -502,7 +515,15 @@ static const NSUInteger kHeldPageStateTotalBytes = 256 * 1024;
   if (_pageStateBytes - replaced + bytes > kHeldPageStateTotalBytes) return;
   if (!_pageState) _pageState = [NSMutableDictionary dictionary];
   _pageStateBytes = _pageStateBytes - replaced + bytes;
-  _pageState[key] = @{@"kind" : kind, @"json" : json ?: @"null", @"frame" : frame ?: @"", @"main" : @(main), @"origin" : origin ?: @"", @"bytes" : @(bytes)};
+  _pageState[key] = @{
+    @"kind" : kind,
+    @"json" : json ?: @"null",
+    @"frame" : frame ?: @"",
+    @"main" : @(main),
+    @"origin" : origin ?: @"",
+    @"bytes" : @(bytes),
+    @"order" : @(++_pageStateOrder)
+  };
 }
 
 static BOOL HeldSelector(SEL selector) {
@@ -549,6 +570,7 @@ static BOOL HeldSelector(SEL selector) {
     if (url.length) ardiacore_host::NoteNavigationDownload(url, _profile ?: @"");
     if (_url.length && ![_url isEqualToString:url ?: @""]) ardiacore_host::NoteNavigationDownload(_url, _profile ?: @"");
   }
+  if (invocation.selector == @selector(tabDidCommitDocument:)) [self forgetHeldPageStateWhere:^BOOL(NSDictionary *held) { return YES; }];
   if (invocation.selector == @selector(tabDidChangeURL:) || invocation.selector == @selector(tabDidCommitDocument:) ||
       invocation.selector == @selector(tabDidChangeSecurity:)) {
     __unsafe_unretained ArdiaCoreTab *tab = nil;
@@ -580,15 +602,19 @@ static BOOL HeldSelector(SEL selector) {
   NSDictionary<NSString *, NSDictionary *> *state = _pageState;
   _pageState = nil;
   _pageStateBytes = 0;
-  for (NSString *kind in @[ @"hello", @"theme", @"media", @"nowPlaying" ])
-    for (NSDictionary *held in state.allValues)
-      if ([held[@"kind"] isEqualToString:kind])
-        [view tab:tab
-            didReceivePageMessage:kind
-                             json:held[@"json"]
-                            frame:held[@"frame"]
-                             main:[held[@"main"] boolValue]
-                           origin:[held[@"origin"] length] ? held[@"origin"] : nil];
+  NSArray<NSDictionary *> *ordered = [state.allValues sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+    return [a[@"order"] compare:b[@"order"]];
+  }];
+  for (NSDictionary *held in ordered) {
+    NSString *frame = held[@"frame"];
+    if (frame.length && [tab respondsToSelector:@selector(hasLiveFrame:)] && ![tab hasLiveFrame:frame]) continue;
+    [view tab:tab
+        didReceivePageMessage:held[@"kind"]
+                         json:held[@"json"]
+                        frame:frame
+                         main:[held[@"main"] boolValue]
+                       origin:[held[@"origin"] length] ? held[@"origin"] : nil];
+  }
 }
 
 @end
@@ -2591,50 +2617,33 @@ static NSEventModifierFlags PeekModifierFlag() {
 }
 
 - (void)requestPictureInPicture:(void (^)(BOOL))completion {
-  if (![_tab respondsToSelector:@selector(enterPictureInPicture:)]) return completion(NO);
+  if (_inPictureInPicture) return completion(YES);
+  if (![_tab respondsToSelector:@selector(enterPictureInPicture)]) return completion(NO);
   [self thawHiddenPage];
-  [_tab enterPictureInPicture:completion];
+  [_tab enterPictureInPicture];
+  [self awaitPictureInPicture:20 completion:completion];
+}
+
+- (void)awaitPictureInPicture:(int)tries completion:(void (^)(BOOL))completion {
+  if (_inPictureInPicture || tries <= 0) return completion(_inPictureInPicture);
+  __weak ArdiaCoreWebView *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+    ArdiaCoreWebView *view = weakSelf;
+    if (!view) return completion(NO);
+    [view awaitPictureInPicture:tries - 1 completion:completion];
+  });
 }
 
 - (void)updateAutoPictureInPicture {
   if (!_tab) return;
   NSDictionary *np = _nowPlaying[_nowPlayingFrame ?: @""];
-  const BOOL playingVideo = [np[@"hasVideo"] boolValue] && [np[@"playbackState"] isEqual:@"playing"];
-  const BOOL handles = [np[@"actions"] isKindOfClass:NSArray.class] && [np[@"actions"] containsObject:@"enterpictureinpicture"];
-  const BOOL wantsDocument = handles && (_capturing || [np[@"playbackState"] isEqual:@"playing"]);
-  if (!_seenByUser && _autoPictureInPicture && wantsDocument) {
-    __weak ArdiaCoreWebView *weakSelf = self;
-    ArdiaCoreTab *tab = _tab;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 450 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-      ArdiaCoreWebView *view = weakSelf;
-      if (!view || view->_seenByUser || view->_tab != tab || !view->_autoPictureInPicture) return;
-      if ([tab respondsToSelector:@selector(autoPictureInPictureIsChromes)] && tab.autoPictureInPictureIsChromes) {
-        [view traceAutoPictureInPicture:@"app: auto PiP left to Chrome"];
-        return;
-      }
-      if (!playingVideo) {
-        [view traceAutoPictureInPicture:@"app: no auto PiP (the page's handler isn't eligible in Chrome)"];
-        return;
-      }
-      [view traceAutoPictureInPicture:@"app: auto PiP by the app (the video; the page's handler isn't eligible in Chrome)"];
-      [view enterAutoPictureInPictureOfVideo];
-    });
-  } else if (!_seenByUser && _autoPictureInPicture && playingVideo) {
-    [self traceAutoPictureInPicture:@"app: auto PiP by the app (the video)"];
-    [self enterAutoPictureInPictureOfVideo];
+  const BOOL playing = [np[@"playbackState"] isEqual:@"playing"] || _capturing;
+  if (!_seenByUser && _autoPictureInPicture && playing) {
+    [self traceAutoPictureInPicture:@"app: auto PiP left to Chrome"];
   } else if (_seenByUser && (_autoPictureInPictureActive || _inPictureInPicture)) {
     _autoPictureInPictureActive = NO;
     [self exitPictureInPicture];
   }
-}
-
-- (void)enterAutoPictureInPictureOfVideo {
-  _autoPictureInPictureActive = YES;
-  __weak ArdiaCoreWebView *weakSelf = self;
-  [self requestPictureInPicture:^(BOOL ok) {
-    ArdiaCoreWebView *view = weakSelf;
-    if (ok && view && view->_seenByUser) [view exitPictureInPicture];
-  }];
 }
 
 - (void)exitPictureInPictureInFrame:(NSString *)frameId {

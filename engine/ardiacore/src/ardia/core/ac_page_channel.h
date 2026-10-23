@@ -61,7 +61,7 @@ class PageChannel : public content::WebContentsObserver,
   void ExecuteInFrame(const std::string& frame_id, const std::string& code);
   void Evaluate(const std::string& code,
                 base::OnceCallback<void(const std::optional<std::string>&)> callback);
-  void EnterPictureInPicture(base::OnceCallback<void(bool)> callback);
+  bool HasFrame(const std::string& frame_id);
 
   static std::string FrameId(content::RenderFrameHost* frame);
 

@@ -305,7 +305,8 @@ ARDIACORE_EXPORT
 - (void)executeJavaScript:(NSString*)code;
 - (void)executeJavaScript:(NSString*)code frame:(NSString*)frameId;
 - (void)evaluate:(NSString*)code completion:(void (^)(NSString* _Nullable json))completion;
-- (void)enterPictureInPicture:(void (^)(BOOL requested))completion;
+- (void)enterPictureInPicture;
+- (BOOL)hasLiveFrame:(NSString*)frameId;
 - (void)callPage:(NSString*)kind json:(NSString*)json;
 
 @property(readonly) NSDictionary<NSString*, id>* securityInfo;

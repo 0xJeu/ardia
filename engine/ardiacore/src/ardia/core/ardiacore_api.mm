@@ -65,6 +65,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "content/public/browser/media_session.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -2317,14 +2318,16 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
           completion));
 }
 
-- (void)enterPictureInPicture:(void (^)(BOOL))completion {
-  if (!_contents) {
-    completion(NO);
-    return;
+- (void)enterPictureInPicture {
+  if (_contents) {
+    content::MediaSession::Get(_contents)->EnterPictureInPicture();
   }
-  ardiacore::PageChannel::GetOrCreate(_contents)->EnterPictureInPicture(
-      base::BindOnce([](void (^completion)(BOOL), bool requested) { completion(requested); },
-                     completion));
+}
+
+- (BOOL)hasLiveFrame:(NSString*)frameId {
+  return _contents && (!frameId.length ||
+                       ardiacore::PageChannel::GetOrCreate(_contents)->HasFrame(
+                           base::SysNSStringToUTF8(frameId)));
 }
 
 - (void)callPage:(NSString*)kind json:(NSString*)json {

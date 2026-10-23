@@ -7,13 +7,10 @@
 #include <tuple>
 #include <utility>
 
-#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
-#include "base/values.h"
-#include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -35,10 +32,7 @@
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
-#include "third_party/blink/public/mojom/script/script_evaluation_params.mojom.h"
-#include "third_party/blink/public/web/web_script_execution_callback.h"
 #include "third_party/blink/public/web/web_script_source.h"
-#include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
 #include "url/gurl.h"
 #include "v8/include/v8-context.h"
 #include "v8/include/v8-function.h"
@@ -56,16 +50,10 @@ std::string& PageScript() {
   return *script;
 }
 
-constexpr char kPictureInPictureScript[] =
-    "(() => {"
-    "  const videos = [...document.querySelectorAll('video')].filter((v) => "
-    "v.readyState > 0 && !v.disablePictureInPicture);"
-    "  videos.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || "
-    "b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight);"
-    "  if (!videos.length) return false;"
-    "  if (document.pictureInPictureElement === videos[0]) return true;"
-    "  return videos[0].requestPictureInPicture().then(() => true, () => false);"
-    "})()";
+bool FitsUtf8(v8::Isolate* isolate, v8::Local<v8::String> text, size_t limit) {
+  return static_cast<size_t>(text->Length()) <= limit &&
+         text->Utf8Length(isolate) <= limit;
+}
 
 blink::WebScriptSource Source(const std::string& code, const char* url) {
   return blink::WebScriptSource(blink::WebString::FromUtf8(code),
@@ -198,35 +186,6 @@ class ACPageObserver : public content::RenderFrameObserver,
         Source(code, "ardia://execute"));
   }
 
-  void EnterPictureInPicture(EnterPictureInPictureCallback callback) override {
-    blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
-    v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
-    v8::HandleScope handle_scope(isolate);
-    base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
-    const blink::WebScriptSource source =
-        Source(kPictureInPictureScript, "ardia://picture-in-picture");
-    frame->NotifyUserActivation(
-        blink::mojom::UserActivationNotificationType::kInteraction);
-    frame->RequestExecuteScript(
-        ISOLATED_WORLD_ID_CHROME_INTERNAL, base::span_from_ref(source),
-        blink::mojom::UserActivationOption::kDoNotActivate,
-        blink::mojom::EvaluationTiming::kSynchronous,
-        blink::mojom::LoadEventBlockingOption::kDoNotBlock,
-        base::BindOnce(
-            [](EnterPictureInPictureCallback callback,
-               std::optional<base::Value> result, base::TimeTicks) {
-              std::move(callback).Run(result && result->is_bool() &&
-                                      result->GetBool());
-            },
-            std::move(callback)),
-        blink::BackForwardCacheAware::kAllow,
-        blink::mojom::WantResultOption::kWantResult,
-        blink::mojom::PromiseResultOption::kAwait, blink::WebString());
-    if (alive) {
-      frame->ConsumeTransientUserActivation();
-    }
-  }
-
   void Evaluate(const std::string& code, EvaluateCallback callback) override {
     blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
     v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
@@ -315,23 +274,28 @@ class ACPageObserver : public content::RenderFrameObserver,
   }
 
   void Post(std::optional<int> evaluation, gin::Arguments* args) {
+    v8::Isolate* isolate = args->isolate();
     v8::Local<v8::Value> kind_value;
     if (!args->GetNext(&kind_value) || !kind_value->IsString() ||
-        kind_value.As<v8::String>()->Length() > kMaxPageMessageKind) {
+        !FitsUtf8(isolate, kind_value.As<v8::String>(), kMaxPageMessageKind)) {
       return;
     }
-    const std::string kind = gin::V8ToString(args->isolate(), kind_value);
+    const std::string kind = gin::V8ToString(isolate, kind_value);
+    const bool result = evaluation && kind == "result";
+    const size_t limit =
+        result ? kMaxEvaluationResultBytes : MaxPageMessageBytes(kind);
     std::string json = "null";
     v8::Local<v8::Value> value;
     if (args->GetNext(&value) && value->IsString()) {
-      v8::Local<v8::String> text = value.As<v8::String>();
-      if (static_cast<size_t>(text->Length()) > MaxPageMessageBytes(kind) ||
-          text->Utf8Length(args->isolate()) > MaxPageMessageBytes(kind)) {
+      if (!FitsUtf8(isolate, value.As<v8::String>(), limit)) {
+        if (result) {
+          Answer(*evaluation, std::nullopt);
+        }
         return;
       }
-      json = gin::V8ToString(args->isolate(), value);
+      json = gin::V8ToString(isolate, value);
     }
-    if (evaluation && kind == "result") {
+    if (result) {
       Answer(*evaluation, std::move(json));
       return;
     }
