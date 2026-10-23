@@ -1734,7 +1734,7 @@ test("only evidence that the anchor left the rows after the order record ends th
   const orderKey = `pord:g:${group}`;
   const decide = (records) => {
     const base = (k) => (k === orderKey ? { a: "x" } : undefined);
-    const extraction = adapters.pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
+    const extraction = adapters.pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h, () => false);
     return extraction.values.get(orderKey);
   };
   const order = { v: { a: "x" }, h: "0mvlhz4qh.0005.devA" };
@@ -1796,7 +1796,7 @@ test("a pinned row deleted while a Mac was away past tombstone retention stays d
   for (const d of [a, c, other]) assert.deepEqual(pinnedAreaOf(d), ["row:r", "row:y"], d.id);
 });
 
-test.skip("known: a group anchored to a row whose tombstone was collected shows the same order on every Mac", async () => {
+test("a group anchored to a row whose tombstone was collected shows the same order on every Mac", async () => {
   const { a, c } = await deletedWhileAway(PreInterleaveMac, true);
   assert.deepEqual(pinnedAreaOf(a), pinnedAreaOf(c));
 });

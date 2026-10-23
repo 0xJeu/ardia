@@ -445,3 +445,48 @@ test("a local edit typed while files are read still wins over a deletion in that
   await syncAll([a, b]);
   assert.equal(a.store.get("x:k"), "B, typed during the read");
 });
+
+class Watcher extends Device {
+  droppedSeen: string[] = [];
+  extractSeen: string[] = [];
+  override adapters(): Adapter[] {
+    const [items, ...rest] = super.adapters();
+    return [
+      {
+        ...items!,
+        extract: (base, queued, now, known, remote, stamp, dropped) => {
+          if (dropped("x:gone")) this.extractSeen.push("x:gone");
+          return items!.extract(base, queued, now, known, remote, stamp, dropped);
+        },
+        apply: (visible, changed, base, records) => {
+          for (const k of changed) if (records.dropped(k)) this.droppedSeen.push(k);
+          return items!.apply(visible, changed, base, records);
+        },
+      },
+      ...rest,
+    ];
+  }
+}
+
+test("a record a snapshot drops is reported to the adapters as dropped, and a tombstone isn't", async () => {
+  const folder = new Folder();
+  const day = 86_400_000;
+  const opts: ScopeOptions = { compactAfterFiles: 1000, compactInterval: 0, tombstoneTTL: 7 * day, pruneGrace: 0 };
+  const a = new Device("devA", folder, opts);
+  const b = new Watcher("devB", folder, opts);
+  a.store.set("x:gone", "old");
+  a.store.set("x:tomb", "old");
+  await syncAll([a, b]);
+  a.store.delete("x:tomb");
+  await syncAll([a, b]);
+  assert.deepEqual(b.droppedSeen, [], "a tombstone isn't a drop");
+  a.store.delete("x:gone");
+  await a.sync();
+  folder.now += 30 * day;
+  await a.sync();
+  await compact(a.state, folder.transport("devA"), "s", "devA", folder.now, opts, true);
+  await b.sync();
+  assert.equal(b.store.has("x:gone"), false);
+  assert.deepEqual(b.droppedSeen.sort(), ["x:gone", "x:tomb"], "the deleted record, and the tombstone the snapshot collected");
+  assert.deepEqual(b.extractSeen, ["x:gone"], "and the cycle's catch-up publish sees it too");
+});
