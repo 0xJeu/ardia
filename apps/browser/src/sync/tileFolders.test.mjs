@@ -308,3 +308,56 @@ test("a fresh Mac joining takes the folder and its name and publishes nothing, e
   assert.deepEqual(grid(late), ["mail", "Reading list[cal,docs]"]);
   assert.deepEqual(grid(a), ["mail", "Reading list[cal,docs]"]);
 });
+
+async function folderMemberDeletedWhileAway(members) {
+  const { compact } = await import("@ardia/sync");
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  try {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const other = new Device("devOther", folder);
+    seed(a, ["mail", ...members]);
+    a.with(() => act((s) => folders.newTileFolder(s, members.map(tile), "Away").state));
+    const xKey = a.with(() => tile(members[0]));
+    other.with(() => S().createWindow({ url: "https://other-home.example/" }));
+    await syncAll([a, other], 3);
+    other.with(() => {
+      const x = tile(members[0]);
+      S().pinTabs([x], false);
+      S().closeTab(x);
+    });
+    await other.sync();
+    await other.sync();
+    shift = 50 * 86_400_000;
+    await other.sync();
+    await other.with(() => compact(other.scope, folder.transport(), "p", "devOther", Date.now(), {}, true));
+    const published = [];
+    for (let i = 0; i < 3; i++) published.push((await a.sync()).published);
+    const c = new Device("devC", folder);
+    c.with(() => S().createWindow({ url: "https://c-home.example/" }));
+    await syncAll([c, a, other], 3);
+    const dropped = !(`pin:t:${xKey}` in a.scope.records) && !(`tilefold:${xKey}` in a.scope.records);
+    return { a, c, other, published, dropped };
+  } finally {
+    Date.now = realNow;
+  }
+}
+
+const liveKeys = (d, key) => Object.entries(d.scope.records).filter(([k, r]) => k.endsWith(key) && r.v !== null).map(([k]) => k);
+
+test("a folder member deleted while a Mac was away past tombstone retention stays deleted, and the folder keeps the rest", async () => {
+  const { a, c, other, published, dropped } = await folderMemberDeletedWhileAway(["x", "m", "k"]);
+  assert.ok(dropped, "the snapshot left out both of x's records: no tombstone reached the returning Mac");
+  for (const d of [a, c, other]) assert.deepEqual(grid(d), ["mail", "Away[m,k]"], d.id);
+  assert.deepEqual(published, [0, 0, 0], "the returning Mac publishes nothing for the deletion it pulled");
+  assert.ok(a.with(() => Object.values(S().tabs).every((t) => !(t.pinned && (t.pinnedUrl || t.url) === "https://x.example/"))), "x isn't pinned again");
+});
+
+test("a folder of two whose member was deleted while a Mac was away is a plain tile there too", async () => {
+  const { a, c, other, dropped } = await folderMemberDeletedWhileAway(["x", "m"]);
+  assert.ok(dropped);
+  for (const d of [a, c, other]) assert.deepEqual(grid(d), ["mail", "m"], d.id);
+  for (const d of [a, c, other]) assert.deepEqual(liveKeys(d, ":x").length + Object.entries(d.scope.records).filter(([k, r]) => k.startsWith("tilefold:") && r.v !== null).length, 0, d.id);
+});
