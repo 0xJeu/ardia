@@ -17,6 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) NSString *transferKey;
 @property (nonatomic) BOOL standalone;
 @property (nonatomic) BOOL temporary;
+@property (nonatomic, copy, nullable) NSString *temporarySource;
 @property (nonatomic, copy, nullable) NSString *extensionHost;
 @property (nonatomic, strong, nullable) NSColor *pageBackgroundColor;
 @property (nonatomic, strong, nullable) NSColor *contentsBackgroundColor;

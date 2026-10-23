@@ -226,6 +226,7 @@ public class CefModule: Module {
       Prop("transferKey") { (view: CefWebView, key: String?) in view.browser.transferKey = key }
       Prop("standalone") { (view: CefWebView, standalone: Bool?) in view.browser.standalone = standalone ?? false }
       Prop("temporary") { (view: CefWebView, temporary: Bool?) in view.browser.temporary = temporary ?? false }
+      Prop("temporarySource") { (view: CefWebView, source: String?) in view.browser.temporarySource = source }
       Prop("extensionHost") { (view: CefWebView, kind: String?) in view.browser.extensionHost = kind }
       Prop("visible") { (view: CefWebView, visible: Bool?) in view.browser.visible = visible ?? true }
       Prop("warm") { (view: CefWebView, warm: Bool?) in view.browser.warm = warm ?? false }

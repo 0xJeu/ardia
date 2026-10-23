@@ -46,7 +46,7 @@ export function PeekOverlay({
   height: number;
   origin: { x: number; y: number } | null;
   fullscreen: boolean;
-  page: (tabId: string, width: number) => ReactNode;
+  page: (tabId: string, sourceId: string, width: number) => ReactNode;
 }) {
   const peek = useBrowser((s) => s.peeks[windowId]);
   if (!peek || width <= 0 || height <= 0) return null;
@@ -68,7 +68,7 @@ function PeekCard({
   height: number;
   origin: { x: number; y: number } | null;
   fullscreen: boolean;
-  page: (tabId: string, width: number) => ReactNode;
+  page: (tabId: string, sourceId: string, width: number) => ReactNode;
 }) {
   const theme = useTheme();
   const windowFrame = theme.dark ? SMALL_WINDOW_FRAME.dark : SMALL_WINDOW_FRAME.light;
@@ -192,7 +192,7 @@ function PeekCard({
                   : { flex: 1, marginLeft: SMALL_INSET, marginRight: SMALL_INSET, marginBottom: SMALL_INSET, borderRadius: layout.cardRadius, overflow: "hidden", backgroundColor: theme.card }
               }
             >
-              {page(peek.tabId, fullscreen ? width : frame.width - 2 * SMALL_INSET)}
+              {page(peek.tabId, peek.sourceId, fullscreen ? width : frame.width - 2 * SMALL_INSET)}
             </View>
           </View>
         </MagnifyArea>

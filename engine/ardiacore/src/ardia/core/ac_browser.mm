@@ -7,7 +7,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
-#include "base/containers/flat_set.h"
+#include "base/containers/flat_map.h"
 #include "base/no_destructor.h"
 #include "base/functional/bind.h"
 #include "base/strings/sys_string_conversions.h"
@@ -110,8 +110,8 @@ std::vector<WindowHost*>& Hosts() {
   return *hosts;
 }
 
-base::flat_set<int32_t>& TemporaryTabIds() {
-  static base::NoDestructor<base::flat_set<int32_t>> ids;
+base::flat_map<int32_t, int32_t>& TemporaryTabIds() {
+  static base::NoDestructor<base::flat_map<int32_t, int32_t>> ids;
   return *ids;
 }
 
@@ -1643,12 +1643,26 @@ void TabBridge::SetTemporary(bool temporary) {
   const int32_t id = sessions::SessionTabHelper::IdForTab(web_contents()).id();
   if (temporary && id > 0) {
     temporary_id_ = id;
-    TemporaryTabIds().insert(id);
+    TemporaryTabIds()[id] = temporary_source_id_;
   }
 }
 
-bool IsTemporaryTabId(int32_t session_id) {
-  return session_id > 0 && TemporaryTabIds().contains(session_id);
+void TabBridge::SetTemporarySource(int32_t source_id) {
+  temporary_source_id_ = source_id > 0 ? source_id : 0;
+  if (temporary_id_) {
+    TemporaryTabIds()[temporary_id_] = temporary_source_id_;
+  }
+}
+
+bool IsTemporaryTabId(int32_t session_id, int32_t* source_id) {
+  auto it = TemporaryTabIds().find(session_id);
+  if (session_id <= 0 || it == TemporaryTabIds().end()) {
+    return false;
+  }
+  if (source_id) {
+    *source_id = it->second;
+  }
+  return true;
 }
 
 void TabBridge::OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,

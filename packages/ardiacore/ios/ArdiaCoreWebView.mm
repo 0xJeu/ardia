@@ -1445,8 +1445,19 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [self markTemporary];
 }
 
+- (void)setTemporarySource:(NSString *)temporarySource {
+  _temporarySource = [temporarySource copy];
+  [self markTemporary];
+}
+
 - (void)markTemporary {
   if ([_tab respondsToSelector:@selector(setTemporary:)] && _tab.temporary != _temporary) _tab.temporary = _temporary;
+  if (![_tab respondsToSelector:@selector(setTemporarySource:)]) return;
+  ArdiaCoreTab *source = nil;
+  if (_temporary && _temporarySource.length)
+    for (ArdiaCoreWebView *view in LiveViews().allObjects)
+      if ([view.transferKey isEqualToString:_temporarySource]) source = view->_tab;
+  [_tab setTemporarySource:source];
 }
 
 - (void)setVisible:(BOOL)visible {

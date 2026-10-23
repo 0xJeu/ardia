@@ -297,7 +297,7 @@ export function ContentCard() {
           height={size.height}
           origin={origin}
           fullscreen={peekFullscreen}
-          page={(tabId, width) => <PeekPage tabId={tabId} windowId={windowId} width={width} fullscreen={peekFullscreen} />}
+          page={(tabId, sourceId, width) => <PeekPage tabId={tabId} sourceId={sourceId} windowId={windowId} width={width} fullscreen={peekFullscreen} />}
         />
       )}
       <SplitToast windowId={windowId} />
@@ -470,10 +470,10 @@ function PageOverlays({
   );
 }
 
-function PeekPage({ tabId, windowId, width, fullscreen }: { tabId: string; windowId: string; width: number; fullscreen: boolean }) {
+function PeekPage({ tabId, sourceId, windowId, width, fullscreen }: { tabId: string; sourceId: string; windowId: string; width: number; fullscreen: boolean }) {
   return (
     <>
-      <TabWebView tabId={tabId} visible warm={false} temporary />
+      <TabWebView tabId={tabId} visible warm={false} peekOf={sourceId} />
       <PageOverlays tabId={tabId} windowId={windowId} width={width} geometry={NO_TOOLBAR} toolbar={false} fullscreen={fullscreen} newTabShown={false} />
     </>
   );
@@ -486,7 +486,7 @@ const isBlank = (url: string) => !url || url === "about:blank";
 const pageKey = (url: string) => url.replace(/#.*$/, "");
 const hostOf = (url: string) => url.match(/^[a-z][\w+.-]*:\/\/([^/?#]*)/i)?.[1]?.toLowerCase() ?? "";
 
-const TabWebView = memo(function TabWebView({ tabId, visible, warm, temporary = false }: { tabId: string; visible: boolean; warm: boolean; temporary?: boolean }) {
+const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { tabId: string; visible: boolean; warm: boolean; peekOf?: string }) {
   const { navigation, adoptId, profileId, shownUrl } = useTabValue(tabId, webViewTab, shallowEqual);
   const neighbour = useStoreWhile(useBrowser, warm, (s) => warm && s.windows[s.tabs[tabId]?.windowId ?? ""]?.profileId !== profileId);
   const tab = () => useBrowser.getState().tabs[tabId];
@@ -550,7 +550,8 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, temporary = 
       profile={engineProfile(profileId)}
       adoptId={adoptId}
       transferKey={tabId}
-      temporary={temporary}
+      temporary={peekOf !== undefined}
+      temporarySource={peekOf}
       visible={visible}
       warm={warm}
       neighbour={neighbour}

@@ -144,6 +144,7 @@ export type WebViewProps = ViewProps & {
   adoptId?: string;
   transferKey?: string;
   temporary?: boolean;
+  temporarySource?: string;
   standalone?: boolean;
   extensionHost?: "popup" | "sidePanel";
   visible?: boolean;

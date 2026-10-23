@@ -8,6 +8,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "components/permissions/chooser_controller.h"
 #include "components/sessions/core/live_tab.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_install_prompt_client.h"
@@ -45,8 +46,19 @@ bool HandleExtensionSidePanel(BrowserWindowInterface* browser_window,
   return HostExtensionSidePanel(contents, extension_id, open);
 }
 
-bool LiveTabSkipsRestore(sessions::LiveTab* live_tab) {
-  return live_tab && IsTemporaryTabId(live_tab->GetSessionID().id());
+bool LiveTabSkipsRestore(sessions::LiveTab* live_tab, SessionID* source) {
+  int32_t source_id = 0;
+  if (!live_tab || !IsTemporaryTabId(live_tab->GetSessionID().id(), &source_id)) {
+    return false;
+  }
+  if (source && source_id > 0) {
+    *source = SessionID::FromSerializedValue(source_id);
+  }
+  return true;
+}
+
+bool OmitsFromSessionService(const BrowserWindowInterface* browser) {
+  return ACBrowserWindow::IsOurs(browser);
 }
 
 bool IsHiddenFromExtensions(const BrowserWindowInterface* browser) {
@@ -102,6 +114,7 @@ void InstallChromeHooks() {
   g_ardia_create_web_contents_delegate = &CreateWebContentsDelegate;
   g_ardia_initial_main_document_accessed = &InitialMainDocumentAccessed;
   g_ardia_live_tab_skips_restore = &LiveTabSkipsRestore;
+  g_ardia_omits_from_session_service = &OmitsFromSessionService;
   g_ardia_viewless_browsers = true;
 }
 
