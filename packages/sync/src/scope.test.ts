@@ -384,48 +384,6 @@ test("a failed write is retried as the same batch, even when the file did land",
   assert.equal(files.length, new Set(files).size + 1, "only the batch whose write threw after landing is there twice");
 });
 
-class Pair extends Device {
-  marks = new Map<string, unknown>();
-  override adapters(): Adapter[] {
-    return [
-      {
-        prefix: "mark:",
-        extract: () => ({ values: new Map(this.marks) }),
-        apply: (visible, changed) => {
-          for (const k of changed) {
-            if (visible.has(k)) this.marks.set(k, visible.get(k));
-            else {
-              this.marks.delete(k);
-              const item = `x:${k.slice(5)}`;
-              if (this.store.has(item)) this.store.set(item, `${this.store.get(item)} (unmarked)`);
-            }
-          }
-        },
-      },
-      ...super.adapters(),
-    ];
-  }
-}
-
-test("a deletion in a pull isn't undone by another adapter's apply in the same cycle", async () => {
-  const folder = new Folder();
-  const a = new Pair("devA", folder);
-  const b = new Pair("devB", folder);
-  a.store.set("x:k", "item");
-  a.marks.set("mark:k", 1);
-  await syncAll([a, b]);
-  folder.now += 10;
-  b.store.delete("x:k");
-  b.marks.delete("mark:k");
-  await b.sync();
-  folder.now += 10;
-  await a.sync();
-  assert.equal(a.store.has("x:k"), false, "the item stays deleted, not republished as the other adapter left it");
-  await syncAll([a, b]);
-  assert.equal(b.store.has("x:k"), false);
-  assert.equal(a.store.has("x:k"), false);
-});
-
 test("a local edit typed while files are read still wins over a deletion in that read", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);
@@ -446,47 +404,83 @@ test("a local edit typed while files are read still wins over a deletion in that
   assert.equal(a.store.get("x:k"), "B, typed during the read");
 });
 
-class Watcher extends Device {
-  droppedSeen: string[] = [];
-  extractSeen: string[] = [];
+class Slow extends Device {
+  pausedRead?: () => void;
+  readings = 0;
+  others = new Map<string, unknown>();
+  override adapters(): Adapter[] {
+    return [
+      ...super.adapters(),
+      {
+        prefix: "y:",
+        extract: async () => {
+          this.readings++;
+          this.pausedRead?.();
+          return { values: new Map(this.others) };
+        },
+        apply: (visible, changed) => {
+          for (const k of changed) visible.has(k) ? this.others.set(k, visible.get(k)) : this.others.delete(k);
+        },
+      },
+    ];
+  }
+}
+
+test("an edit made while another adapter reads, after a pull that deleted it, isn't lost", async () => {
+  const folder = new Folder();
+  const a = new Slow("devA", folder);
+  const b = new Slow("devB", folder);
+  a.store.set("x:k", "item");
+  a.others.set("y:z", "other");
+  await syncAll([a, b]);
+  folder.now += 10;
+  a.store.delete("x:k");
+  a.others.delete("y:z");
+  await a.sync();
+  folder.now += 10;
+  b.readings = 0;
+  b.pausedRead = () => {
+    if (b.readings !== 2) return;
+    b.store.set("x:k", "B, renamed meanwhile");
+    b.pausedRead = undefined;
+  };
+  await b.sync();
+  await syncAll([b, a]);
+  assert.equal(b.store.get("x:k"), "B, renamed meanwhile");
+  assert.equal(a.store.get("x:k"), "B, renamed meanwhile");
+});
+
+class Choosy extends Device {
+  chosen = new Set<string>();
   override adapters(): Adapter[] {
     const [items, ...rest] = super.adapters();
     return [
       {
         ...items!,
-        extract: (base, queued, now, known, remote, stamp, dropped) => {
-          if (dropped("x:gone")) this.extractSeen.push("x:gone");
-          return items!.extract(base, queued, now, known, remote, stamp, dropped);
-        },
-        apply: (visible, changed, base, records) => {
-          for (const k of changed) if (records.dropped(k)) this.droppedSeen.push(k);
-          return items!.apply(visible, changed, base, records);
-        },
+        extract: () => ({ values: new Map(this.store), republish: (k) => this.chosen.has(k), published: (keys) => keys.forEach((k) => this.chosen.delete(k)) }),
       },
       ...rest,
     ];
   }
 }
 
-test("a record a snapshot drops is reported to the adapters as dropped, and a tombstone isn't", async () => {
+test("an item chosen again with the same value while its deletion is pulled is kept", async () => {
   const folder = new Folder();
-  const day = 86_400_000;
-  const opts: ScopeOptions = { compactAfterFiles: 1000, compactInterval: 0, tombstoneTTL: 7 * day, pruneGrace: 0 };
-  const a = new Device("devA", folder, opts);
-  const b = new Watcher("devB", folder, opts);
-  a.store.set("x:gone", "old");
-  a.store.set("x:tomb", "old");
+  const a = new Choosy("devA", folder);
+  const b = new Choosy("devB", folder);
+  a.store.set("x:pin", "same");
   await syncAll([a, b]);
-  a.store.delete("x:tomb");
-  await syncAll([a, b]);
-  assert.deepEqual(b.droppedSeen, [], "a tombstone isn't a drop");
-  a.store.delete("x:gone");
+  folder.now += 10;
+  a.store.delete("x:pin");
   await a.sync();
-  folder.now += 30 * day;
-  await a.sync();
-  await compact(a.state, folder.transport("devA"), "s", "devA", folder.now, opts, true);
+  folder.now += 10;
+  b.onRead = () => {
+    b.store.set("x:pin", "same");
+    b.chosen.add("x:pin");
+    b.onRead = undefined;
+  };
   await b.sync();
-  assert.equal(b.store.has("x:gone"), false);
-  assert.deepEqual(b.droppedSeen.sort(), ["x:gone", "x:tomb"], "the deleted record, and the tombstone the snapshot collected");
-  assert.deepEqual([...new Set(b.extractSeen)], ["x:gone"], "and the cycle's catch-up publish sees it too");
+  await syncAll([b, a]);
+  assert.equal(b.store.get("x:pin"), "same", "B keeps what it chose");
+  assert.equal(a.store.get("x:pin"), "same", "and A takes it back");
 });

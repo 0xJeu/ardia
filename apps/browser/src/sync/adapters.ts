@@ -829,7 +829,7 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
   const shownIn = (s: BrowserState) => openWindows(s).filter((w) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId));
   return {
     prefix: PIN_ORDER,
-    extract: (base, queued, _now, _known, remote, stamp, dropped) => {
+    extract: (base, queued, _now, _known, remote, stamp) => {
       const s = store();
       const home = homeWindow(s, profileId);
       const shown = !!home && shownIn(s).includes(home);
@@ -841,24 +841,17 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
       const choiceOf = (k: string) => orderChoiceKey(k.slice(PIN_ORDER.length));
       const rows = new Set((shown ? pinnedAreaKeys(s, home!, profileId) : parkedAreaKeys(s, profileId)).filter((k) => k.startsWith("t:")).map((k) => k.slice(2)));
       const values = new Map<string, unknown>();
-      const sync = s.pinSync[profileId] ?? {};
-      const departures: Record<string, PinSyncEntry> = {};
       for (const [group, a] of anchors) {
         const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
         const since = stamp(`${PIN_ORDER}${group}`);
-        const noted = sync[orderChoiceKey(group)];
-        if (was?.a && since && dropped(`pin:t:${was.a}`) && (noted?.g !== was.a || noted.h !== since)) departures[orderChoiceKey(group)] = { g: was.a, h: since };
-        const evidence = departures[orderChoiceKey(group)] ?? noted;
-        const departed = !!was?.a && evidence?.g === was.a && evidence.h === since;
         const changedSince = (key: string) => since !== undefined && (stamp(key) ?? "") > since;
         const pin = was?.a ? (remote(`pin:t:${was.a}`) as PinValue | null | undefined) : undefined;
         const leftRows = !!was?.a && changedSince(`pin:t:${was.a}`) && (pin === null || (!!pin && pin.g !== null));
         const madeTile = !!was?.a && changedSince(`${PIN_ROW}${was.a}`) && remote(`${PIN_ROW}${was.a}`) !== ROW;
-        const settled = leftRows || madeTile || departed;
+        const settled = leftRows || madeTile;
         const waiting = !(orderChoiceKey(group) in chosen) && !!was?.a && was.a !== a && !rows.has(was.a) && !settled;
         values.set(`${PIN_ORDER}${group}`, waiting ? was! : ({ a } satisfies PinOrderValue));
       }
-      if (Object.keys(departures).length) useBrowser.setState({ pinSync: { ...s.pinSync, [profileId]: { ...sync, ...departures } } });
       return {
         values,
         ignore,

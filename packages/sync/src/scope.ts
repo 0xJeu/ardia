@@ -77,7 +77,6 @@ export type Extraction = {
 
 export type ApplyRecords = {
   known(key: string): boolean;
-  dropped(key: string): boolean;
   now: number;
   horizon: number;
   joined: boolean;
@@ -92,7 +91,6 @@ export interface Adapter {
     known: (key: string) => boolean,
     remote: (key: string) => unknown,
     stamp: (key: string) => HLC | undefined,
-    dropped: (key: string) => boolean,
   ): Extraction | null | Promise<Extraction | null>;
   apply(visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown, records: ApplyRecords): boolean | void | Promise<boolean | void>;
   editedAt?(value: unknown): number | undefined;
@@ -206,19 +204,13 @@ function settleDurable(state: ScopeState) {
   for (const settle of queue) settle();
 }
 
-const NONE = new Set<string>();
-
-async function extractFrom(state: ScopeState, adapter: Adapter, now: number, dropped: Set<string>): Promise<Extraction | null> {
-  if (adapter.adoptRemoteOnJoin && !state.joined) return null;
-  if (adapter.publishAfterPull && waitingAfterPull.get(state) !== false) return null;
+async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number): Promise<Set<string>> {
+  const published = new Set<string>();
+  if (adapter.adoptRemoteOnJoin && !state.joined) return published;
+  if (adapter.publishAfterPull && waitingAfterPull.get(state) !== false) return published;
   let pending: Set<string> | null = null;
   const queued = (key: string) => (pending ??= new Set([...state.outbox, ...(state.journal ?? []).flatMap((f) => f.ops)].map((op) => op.k))).has(key);
-  return adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records, (key) => state.records[key]?.v, (key) => state.records[key]?.h, (key) => dropped.has(key));
-}
-
-async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock, device: string, now: number, dropped = NONE, held = NONE): Promise<Set<string>> {
-  const published = new Set<string>();
-  const extraction = await extractFrom(state, adapter, now, dropped);
+  const extraction = await adapter.extract((key) => parseBase(state.base[key]), queued, now, (key) => key in state.records, (key) => state.records[key]?.v, (key) => state.records[key]?.h);
   if (!extraction) return published;
   const put = (key: string, value: unknown) => {
     const known = state.records[key];
@@ -232,12 +224,12 @@ async function publishAdapter(state: ScopeState, adapter: Adapter, clock: Clock,
   for (const [key, value] of extraction.values) {
     if (value === null || value === undefined) throw new Error(`[sync] ${key}: a live value can't be null`);
     const json = canonical(value);
-    if (held.has(key) || (state.base[key] === json && !extraction.republish?.(key))) continue;
+    if (state.base[key] === json && !extraction.republish?.(key)) continue;
     state.base[key] = json;
     put(key, value);
   }
   for (const key of Object.keys(state.base)) {
-    if (!key.startsWith(adapter.prefix) || extraction.values.has(key) || extraction.ignore?.(key) || held.has(key)) continue;
+    if (!key.startsWith(adapter.prefix) || extraction.values.has(key) || extraction.ignore?.(key)) continue;
     delete state.base[key];
     put(key, null);
   }
@@ -340,7 +332,7 @@ export async function pull(state: ScopeState, transport: Transport, scope: strin
   return changed;
 }
 
-async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>, now: number, horizon: number, dropped = NONE): Promise<boolean> {
+async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<string>, now: number, horizon: number): Promise<boolean> {
   const mine = new Set([...keys].filter((k) => k.startsWith(adapter.prefix)));
   if (!mine.size) return true;
   const view = visible(state, adapter.prefix);
@@ -348,7 +340,7 @@ async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<strin
   applyAs[adapter.prefix] ??= state.joined ? "joined" : "joining";
   let ok: boolean | void = false;
   try {
-    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, dropped: (key) => dropped.has(key), now, horizon, joined: applyAs[adapter.prefix] === "joined" });
+    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, now, horizon, joined: applyAs[adapter.prefix] === "joined" });
   } catch (error) {
     console.warn(`[sync] applying ${adapter.prefix} failed`, error);
   }
@@ -413,22 +405,12 @@ export async function syncScope(args: {
   await flush(state, transport, scope, device, now(), options);
   const changed = await pull(state, transport, scope, clock, now(), options);
   const keys = new Set([...state.unapplied, ...changed]);
-  const dropped = new Set([...changed].filter((key) => !(key in state.records)));
-  const deleted = [...changed].filter((key) => state.records[key]?.v == null);
-  const held = new Map<Adapter, Set<string>>();
-  for (const adapter of adapters) {
-    const mine = deleted.filter((key) => key.startsWith(adapter.prefix));
-    const extraction = mine.length ? await extractFrom(state, adapter, now(), dropped) : null;
-    if (!extraction) continue;
-    const local = (key: string) => (extraction.values.has(key) ? canonical(extraction.values.get(key)) : undefined);
-    held.set(adapter, new Set(mine.filter((key) => local(key) === state.base[key])));
-  }
   const unapplied: string[] = [];
   for (const adapter of adapters) {
-    const late = await publishAdapter(state, adapter, clock, device, now(), dropped, held.get(adapter));
+    const late = await publishAdapter(state, adapter, clock, device, now());
     published += late.size;
     for (const key of late) keys.delete(key);
-    if (!(await applyAdapter(state, adapter, keys, now(), 2 * (options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL), dropped))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
+    if (!(await applyAdapter(state, adapter, keys, now(), 2 * (options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL)))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
   }
   state.unapplied = [...unapplied, ...[...keys].filter((k) => !adapters.some((a) => k.startsWith(a.prefix)))];
   if (!state.awaitRemote || Object.keys(state.seen).some((d) => d !== device)) {
