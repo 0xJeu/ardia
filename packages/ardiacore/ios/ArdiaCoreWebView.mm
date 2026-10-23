@@ -1119,6 +1119,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [self pushPeekModifier];
   [self bindRestoreKey];
   [self takePageReports];
+  if ([tab respondsToSelector:@selector(deliverHeldPageMessages)]) [tab deliverHeldPageMessages];
   [self userSightChanged];
   [self adoptIntoWindow];
   NSView *page = tab.view;
@@ -2038,6 +2039,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   NSDictionary *dict = [data isKindOfClass:NSDictionary.class] ? data : nil;
   frameId = frameId ?: @"";
   if ([kind isEqualToString:@"hello"]) {
+    PeekTrace(@{@"event" : @"hello", @"main" : @(main), @"frame" : frameId ?: @"", @"url" : Text(dict, @"url", 8192) ?: @""});
     if (main) [self resetPageMedia];
     if (main && ![(Text(dict, @"url", 8192) ?: @"about:") hasPrefix:@"about:"]) _requestedURL = nil;
     [self noteScriptFrame:frameId main:main];

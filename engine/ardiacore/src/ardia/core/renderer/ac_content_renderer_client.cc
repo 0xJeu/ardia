@@ -97,10 +97,12 @@ class ACPageObserver : public content::RenderFrameObserver,
     blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
     v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
     v8::HandleScope handle_scope(isolate);
+    base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
     v8::Local<v8::Context> context = frame->MainWorldScriptContext();
-    if (!context.IsEmpty()) {
-      InstallPageScript(context);
+    if (!alive || installed_for_web_ || context.IsEmpty()) {
+      return;
     }
+    InstallPageScript(context);
   }
 
   bool IsWebDocument() {
@@ -109,9 +111,18 @@ class ACPageObserver : public content::RenderFrameObserver,
   }
 
   void InstallPageScript(v8::Local<v8::Context> context) {
-    if (PageScript().empty()) {
+    if (PageScript().empty() || installing_ || installed_for_web_) {
       return;
     }
+    installing_ = true;
+    base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
+    RunPageScript(context);
+    if (alive) {
+      installing_ = false;
+    }
+  }
+
+  void RunPageScript(v8::Local<v8::Context> context) {
     blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
     v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
     v8::HandleScope handle_scope(isolate);
@@ -316,6 +327,7 @@ class ACPageObserver : public content::RenderFrameObserver,
   int last_evaluation_ = 0;
   std::string page_color_;
   bool installed_for_web_ = false;
+  bool installing_ = false;
   raw_ptr<content::RenderFrame> registered_frame_;
   base::WeakPtrFactory<ACPageObserver> weak_factory_{this};
 };

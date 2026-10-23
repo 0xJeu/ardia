@@ -2487,6 +2487,12 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   }
 }
 
+- (void)deliverHeldPageMessages {
+  if (_contents) {
+    ardiacore::PageChannel::GetOrCreate(_contents)->DeliverHeld();
+  }
+}
+
 - (void)setTemporarySource:(ArdiaCoreTab*)source {
   if (_contents) {
     ardiacore::TabBridge::GetOrCreate(_contents)->SetTemporarySource(

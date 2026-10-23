@@ -2,6 +2,7 @@
 #define ARDIA_CORE_AC_PAGE_CHANNEL_H_
 
 #include <memory>
+#include <map>
 #include <optional>
 #include <string>
 
@@ -69,9 +70,13 @@ class PageChannel : public content::WebContentsObserver,
 
   void Post(const std::string& kind, const std::string& json) override;
 
+  void DeliverHeld();
+
   void PrimaryPageChanged(content::Page& page) override;
   void ReadyToCommitNavigation(content::NavigationHandle* navigation) override;
   void RenderFrameCreated(content::RenderFrameHost* frame) override;
+  void RenderFrameDeleted(content::RenderFrameHost* frame) override;
+  void DidFinishNavigation(content::NavigationHandle* navigation) override;
 
  private:
   friend class content::WebContentsUserData<PageChannel>;
@@ -79,6 +84,20 @@ class PageChannel : public content::WebContentsObserver,
 
   mojom::ACPage* MainPage();
   content::RenderFrameHost* FindFrame(const std::string& frame_id);
+  bool Deliver(content::RenderFrameHost& frame,
+               const std::string& kind,
+               const std::string& json);
+  void Hold(content::RenderFrameHost& frame,
+            const std::string& kind,
+            const std::string& json);
+  void ForgetHeld(const std::string& frame_id);
+
+  struct Held {
+    std::string frame_id;
+    std::string kind;
+    std::string json;
+  };
+  std::map<std::string, Held> held_;
 
   content::RenderFrameHostReceiverSet<mojom::ACPageHost> receivers_;
   mojo::AssociatedRemote<mojom::ACPage> main_page_;

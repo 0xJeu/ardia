@@ -294,6 +294,7 @@ ARDIACORE_EXPORT
 - (void)closeNow;
 @property(nonatomic) BOOL temporary;
 - (void)setTemporarySource:(nullable ArdiaCoreTab*)source;
+- (void)deliverHeldPageMessages;
 @property(readonly) NSArray<NSDictionary<NSString*, id>*>* navigationEntries;
 - (void)executeJavaScript:(NSString*)code;
 - (void)executeJavaScript:(NSString*)code userGesture:(BOOL)userGesture;
