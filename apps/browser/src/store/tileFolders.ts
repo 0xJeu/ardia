@@ -42,8 +42,7 @@ export function folderMembers(s: Pick<BrowserState, "tabs" | "windows">, windowI
   });
 }
 
-const newer = (a: TileFolder, b: TileFolder) => (a.renamedAt ?? 0) - (b.renamedAt ?? 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
-const sameFolder = (a: TileFolder | undefined, b: TileFolder | undefined) => a?.id === b?.id && a?.name === b?.name && a?.renamedAt === b?.renamedAt;
+
 
 export function folderIn(s: Pick<BrowserState, "tabs" | "windows">, windowId: string, folderId: string): TileFolder | undefined {
   const first = folderMembers(s, windowId, folderId)[0];
@@ -149,7 +148,6 @@ export function settleTileFolders(s: BrowserState, prev: BrowserState): BrowserS
   if (s.tabs === prev.tabs) return parkedPins ? { ...s, parkedPins } : null;
   let tabs: Record<string, Tab> | null = null;
   const shrunk = new Set<string>();
-  const touched = new Set<string>();
   for (const id of changedIds(s.tabs, prev.tabs)) {
     const now = s.tabs[id];
     const was = prev.tabs[id];
@@ -159,7 +157,6 @@ export function settleTileFolders(s: BrowserState, prev: BrowserState): BrowserS
     if (now?.tileFolder && (!tileFolderOf(now) || otherProfile)) (tabs ??= { ...s.tabs })[id] = withTileFolder(now, undefined);
     const isIn = tileFolderOf((tabs ?? s.tabs)[id])?.id;
     if (wasIn && (isIn !== wasIn || moved)) shrunk.add(wasIn);
-    if (isIn && (tabs ?? s.tabs)[id]!.tileFolder !== was?.tileFolder) touched.add(isIn);
   }
   if (shrunk.size) {
     const current = tabs ?? s.tabs;
@@ -167,14 +164,6 @@ export function settleTileFolders(s: BrowserState, prev: BrowserState): BrowserS
     for (const [key, ids] of membersByWindow(current, s.windows, shrunk)) {
       if (ids.length !== 1 || (before.get(key)?.length ?? 0) < 2) continue;
       (tabs ??= { ...s.tabs })[ids[0]!] = withTileFolder(current[ids[0]!]!, undefined);
-    }
-  }
-  if (touched.size) {
-    const current = tabs ?? s.tabs;
-    for (const ids of membersByWindow(current, s.windows, touched).values()) {
-      const name = ids.map((id) => current[id]!.tileFolder!).reduce((a, b) => (newer(a, b) >= 0 ? a : b));
-      if (name.renamedAt === undefined) continue;
-      for (const id of ids) if (!sameFolder(current[id]!.tileFolder, name)) (tabs ??= { ...s.tabs })[id] = withTileFolder(current[id]!, name);
     }
   }
   if (!tabs && !parkedPins) return null;

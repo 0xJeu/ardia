@@ -194,18 +194,6 @@ test("a member moved to another profile leaves the folder; a folder left with on
   assert.deepEqual(folders.folderMembers(S(), w, id).map(host), ["a", "c"], "another profile's tab with the same folder id isn't a member");
 });
 
-test("members of one folder agree on its name: the newest rename wins, whichever member carries it", () => {
-  reset();
-  const { w, ids: [a, b, c] } = pinnedWindow();
-  act((s) => folders.addToTileFolder(s, [b], a));
-  act((s) => folders.renameTileFolder(s, w, folderOf(a).id, "Old"));
-  const stale = folderOf(a);
-  act((s) => folders.renameTileFolder(s, w, stale.id, "Renamed"));
-  act((s) => ({ ...s, tabs: { ...s.tabs, [c]: { ...s.tabs[c], tileFolder: stale } } }));
-  assert.deepEqual([a, b, c].map((t) => folderOf(t)?.name), ["Renamed", "Renamed", "Renamed"], "a member joining with an older name takes the folder's");
-  assert.equal(folders.folderIn(S(), w, stale.id).name, "Renamed");
-});
-
 test("a parked folder that drops to one tab is that tile when it comes back", () => {
   reset();
   const { w, ids: [a, b] } = pinnedWindow();

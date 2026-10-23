@@ -8,7 +8,6 @@ const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
 const shipped = await import("../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
 const { pinnedAdapter: shippedPinnedAdapter } = await import("./fixtures/pinned-v0.2.38.ts");
-const { tileFoldersAdapter: firstTileFoldersAdapter } = await import("./fixtures/tileFolders-a6475c68.ts");
 
 const S = () => useBrowser.getState();
 
@@ -34,11 +33,10 @@ class Folder {
 }
 
 class Device {
-  constructor(id, folder, { legacy = false, first = false } = {}) {
+  constructor(id, folder, { legacy = false } = {}) {
     this.id = id;
     this.folder = folder;
     this.legacy = legacy;
-    this.first = first;
     S().hydrate({});
     this.browser = S();
     this.scope = emptyScope();
@@ -57,7 +55,7 @@ class Device {
     try {
       const list = this.legacy
         ? [shippedPinnedAdapter("default")]
-        : [(this.first ? firstTileFoldersAdapter : adapters.tileFoldersAdapter)("default"), adapters.pinnedRowsAdapter("default"), adapters.pinnedAdapter("default")];
+        : [adapters.tileFoldersAdapter("default"), adapters.pinnedRowsAdapter("default"), adapters.pinnedAdapter("default")];
       const r = await (this.legacy ? shipped.syncScope : syncScope)({ scope: "p", state: this.scope, transport: this.folder.transport(), adapters: list, clock: this.clock, device: this.id });
       return { published: r.published };
     } finally {
@@ -255,25 +253,58 @@ test("a parked folder an older Mac unpins down to one tab comes back as that til
   assert.deepEqual(grid(a, true), ["mail", "cal"]);
 });
 
-test("a rename on a Mac with the first folder build and an add on an updated one end with the rename, and both go quiet", async () => {
+test("two updated Macs rename at once and one Mac's file is delayed: the later rename wins on both", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);
-  const first = new Device("devFirst", folder, { first: true });
-  seed(a, ["mail", "cal", "docs"]);
-  a.with(() => act((s) => folders.newTileFolder(s, [tile("mail"), tile("cal")], "Zebra").state));
-  first.with(() => S().createWindow({ url: "https://first-home.example/" }));
-  await syncAll([a, first]);
-  assert.deepEqual(grid(first), ["Zebra[mail,cal]", "docs"]);
+  const b = new Device("devB", folder);
+  seed(a, ["mail", "cal"]);
+  a.with(() => act((s) => folders.newTileFolder(s, [tile("mail"), tile("cal")], "Start").state));
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.deepEqual(grid(b), ["Start[mail,cal]"]);
+  const rename = (d, name) => d.with(() => act((s) => folders.renameTileFolder(s, S().windowOrder[0], S().tabs[tile("mail")].tileFolder.id, name)));
+  rename(a, "Earlier");
+  await a.sync();
+  const delayed = [...folder.files.keys()];
   await new Promise((r) => setTimeout(r, 5));
-  first.with(() => {
-    const w = S().windowOrder[0];
-    const id = S().tabs[tile("mail")].tileFolder.id;
-    useBrowser.setState({ tabs: Object.fromEntries(Object.entries(S().tabs).map(([k, t]) => [k, t.tileFolder?.id === id && t.windowId === w ? { ...t, tileFolder: { id, name: "Alpha" } } : t])) });
-  });
-  a.with(() => act((s) => folders.addToTileFolder(s, [tile("docs")], tile("cal"))));
-  await syncAll([first, a, first, a, first, a]);
-  assert.deepEqual(grid(a), ["Alpha[mail,cal,docs]"]);
-  assert.deepEqual(grid(first), ["Alpha[mail,cal,docs]"]);
-  assert.equal((await a.sync()).published, 0, "the updated Mac settles");
-  assert.equal((await first.sync()).published, 0, "and so does the first build, which never sees a field it would strip");
+  rename(b, "Later");
+  await b.sync();
+  const shown = [...folder.files.keys()].filter((id) => !delayed.includes(id));
+  delayed.forEach((id) => folder.hidden.add(id));
+  await syncAll([b, a]);
+  assert.deepEqual(grid(a), ["Later[mail,cal]"], "A takes the later rename while its own file is still in transit");
+  folder.hidden.clear();
+  await syncAll([a, b, a, b]);
+  assert.deepEqual(grid(a), ["Later[mail,cal]"]);
+  assert.deepEqual(grid(b), ["Later[mail,cal]"], "the earlier rename arriving late changes nothing");
+  assert.equal((await a.sync()).published, 0, "settled");
+  assert.equal((await b.sync()).published, 0, "settled");
+  assert.ok(shown.length);
+});
+
+test("a fresh Mac joining takes the folder and its name and publishes nothing, even when the name arrives after the tabs", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  seed(a, ["mail", "cal", "docs"]);
+  a.with(() => act((s) => folders.newTileFolder(s, [tile("cal"), tile("docs")]).state));
+  await a.sync();
+  const tabFiles = [...folder.files.keys()];
+  a.with(() => act((s) => folders.renameTileFolder(s, S().windowOrder[0], S().tabs[tile("cal")].tileFolder.id, "Reading list")));
+  await a.sync();
+  const nameFiles = [...folder.files.keys()].filter((id) => !tabFiles.includes(id));
+  const fresh = new Device("devFresh", folder);
+  fresh.with(() => S().createWindow({ url: "https://fresh-home.example/" }));
+  await syncAll([fresh, fresh]);
+  assert.deepEqual(grid(fresh), ["mail", "Reading list[cal,docs]"]);
+  assert.equal((await fresh.sync()).published, 0, "a joining Mac writes no name of its own");
+  const late = new Device("devLate", folder);
+  late.with(() => S().createWindow({ url: "https://late-home.example/" }));
+  nameFiles.forEach((id) => folder.hidden.add(id));
+  await syncAll([late, late]);
+  assert.deepEqual(grid(late), ["mail", "?[cal,docs]"], "the tabs arrive in their folder before its name");
+  assert.equal((await late.sync()).published, 0, "and the waiting Mac doesn't publish a name for it");
+  folder.hidden.clear();
+  await syncAll([late]);
+  assert.deepEqual(grid(late), ["mail", "Reading list[cal,docs]"]);
+  assert.deepEqual(grid(a), ["mail", "Reading list[cal,docs]"]);
 });
