@@ -30,6 +30,7 @@ import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barStat
 import { closeNewTabBar, isEmptyCardTab, showNewTabBar, toggleNewTabBar } from "../components/omnibox/newTabBar";
 import { NEW_TAB_BAR_POLICY } from "../store/newTabBar";
 import { addressBarInSidebar } from "../components/layout/windowLayout";
+import { addFolderToSidebar, restoreArcFolders } from "./bookmarkGroups";
 import { withLivePage } from "./livePage";
 import { webviews } from "./webviews";
 import { goBack, goForward } from "../components/layout/history";
@@ -103,9 +104,17 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     }
   }
 
+  const invokedFrom = requested;
   if (isSmall(s, requested) && !LITTLE_ARDIA_PAGE_COMMANDS.has(command)) {
     requested = mainWindowFor(s, s.windows[requested!]!.profileId) ?? null;
     if (requested) focus(requested);
+  }
+
+  if (command === "addFolderToSidebar" || command === "restoreArcFolders") {
+    const target = resolveWindowId(s, invokedFrom) ?? null;
+    if (arg && command === "addFolderToSidebar") addFolderToSidebar(arg, target);
+    else if (arg) restoreArcFolders(arg, target);
+    return;
   }
 
   const windowId = resolveWindowId(s, requested);
