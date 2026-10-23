@@ -44,6 +44,8 @@ struct RequestAction;
 
 extern int g_ardia_disk_space_check_seconds;
 
+extern bool g_ardia_auto_picture_in_picture_off;
+
 extern bool (*g_ardia_safe_storage_key_may_be_created)();
 
 extern void (*g_ardia_safe_storage_unreadable)(int status,

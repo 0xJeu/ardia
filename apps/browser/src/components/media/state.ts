@@ -1,5 +1,6 @@
 import type { DisplayMediaRequest, MediaCommand, NowPlaying, PictureInPictureState } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
+import type { GestureResponderEvent } from "react-native";
 import { create } from "zustand";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
@@ -145,14 +146,14 @@ export function exitPictureInPicture(tabId: string) {
   setPip(tabId, null);
 }
 
-async function togglePictureInPicture(tabId: string): Promise<boolean> {
+async function togglePictureInPicture(tabId: string, clickAt: number): Promise<boolean> {
   const view = webviews.get(tabId);
   if (!view) return false;
   if (useMedia.getState().pipOpen[tabId] || (await inPictureInPicture(tabId))) {
     exitPictureInPicture(tabId);
     return false;
   }
-  const ok = await view.requestPictureInPicture();
+  const ok = await view.requestPictureInPicture(clickAt);
   if (ok) setPip(tabId, "manual");
   return ok;
 }
@@ -167,9 +168,9 @@ function setPip(tabId: string, kind: Store["pip"][string] | null) {
   });
 }
 
-export function usePictureInPicture(tabId: string): [boolean, () => void] {
+export function usePictureInPicture(tabId: string): [boolean, (press: GestureResponderEvent) => void] {
   const on = useMedia((s) => !!s.pipOpen[tabId]);
-  return [on, () => void togglePictureInPicture(tabId)];
+  return [on, (press) => void togglePictureInPicture(tabId, press.nativeEvent.timestamp)];
 }
 
 useBrowser.subscribe((s, prev) => {

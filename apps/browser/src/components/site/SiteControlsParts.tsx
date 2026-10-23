@@ -1,6 +1,6 @@
 import { ContextMenuArea, Symbol } from "@ardia/shell";
 import { Children, forwardRef, type ReactNode } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import { useTheme, type Theme } from "../../lib/theme";
 import { PANEL } from "../layout/controls";
 import { useHover } from "../primitives";
@@ -69,7 +69,7 @@ export function TileRow({ children }: { children: ReactNode }) {
   return <View style={{ flexDirection: "row", gap: SITE_PANEL.gap, paddingHorizontal: PANEL.inset }}>{children}</View>;
 }
 
-export const ActionTile = forwardRef<View, { icon: string; label: string; active?: boolean; onPress: () => void }>(function ActionTile(
+export const ActionTile = forwardRef<View, { icon: string; label: string; active?: boolean; onPress: (press: GestureResponderEvent) => void }>(function ActionTile(
   { icon, label, active, onPress },
   ref,
 ) {

@@ -125,6 +125,7 @@ source_set("core") {
     "//pdf:buildflags",
     "//printing/buildflags",
     "//services/network/public/cpp",
+    "//services/media_session/public/mojom",
     "//services/network/public/mojom",
     "//content/public/browser",
     "//chrome/renderer",

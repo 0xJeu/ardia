@@ -281,8 +281,8 @@ public class CefModule: Module {
       AsyncFunction("mediaCommand") { (view: CefWebView, action: String, seconds: Double?) in
         view.browser.mediaCommand(action, seconds: seconds ?? 0)
       }.runOnQueue(.main)
-      AsyncFunction("requestPictureInPicture") { (view: CefWebView, promise: Promise) in
-        view.browser.requestPictureInPicture { promise.resolve($0) }
+      AsyncFunction("requestPictureInPicture") { (view: CefWebView, clickAt: Double?, promise: Promise) in
+        view.browser.requestPictureInPicture(clickAt: clickAt ?? 0) { promise.resolve($0) }
       }.runOnQueue(.main)
       AsyncFunction("exitPictureInPicture") { (view: CefWebView) in view.browser.exitPictureInPicture() }.runOnQueue(.main)
 

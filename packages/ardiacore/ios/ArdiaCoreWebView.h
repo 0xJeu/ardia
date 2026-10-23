@@ -91,7 +91,8 @@ NS_ASSUME_NONNULL_BEGIN
     NS_SWIFT_NAME(downloadImage(_:maxPixels:completion:));
 
 - (void)mediaCommand:(NSString *)action seconds:(double)seconds NS_SWIFT_NAME(mediaCommand(_:seconds:));
-- (void)requestPictureInPicture:(void (^)(BOOL ok))completion NS_SWIFT_NAME(requestPictureInPicture(_:));
+- (void)requestPictureInPictureForClickAt:(double)clickMs
+                               completion:(void (^)(BOOL ok))completion NS_SWIFT_NAME(requestPictureInPicture(clickAt:_:));
 - (void)exitPictureInPicture;
 
 - (void)securityInfo:(void (^)(NSDictionary<NSString *, id> *info))completion NS_SWIFT_NAME(securityInfo(_:));

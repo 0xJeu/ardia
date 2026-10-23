@@ -56,17 +56,24 @@ std::string& PageScript() {
   return *script;
 }
 
-constexpr char kPictureInPictureForUserScript[] =
-    "(() => {"
-    "  const videos = [...document.querySelectorAll('video')].filter((v) => "
+constexpr char kPictureInPictureCandidates[] =
+    "const videos = [...document.querySelectorAll('video')].filter((v) => "
     "v.readyState > 0 && !v.disablePictureInPicture && v.clientWidth * "
-    "v.clientHeight > 0);"
-    "  videos.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || "
+    "v.clientHeight > 0);";
+
+constexpr char kHasPictureInPictureCandidateScript[] =
+    "return videos.length > 0;";
+
+constexpr char kPictureInPictureForUserScript[] =
+    "videos.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || "
     "b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight);"
-    "  if (!videos.length) return false;"
-    "  if (document.pictureInPictureElement === videos[0]) return true;"
-    "  return videos[0].requestPictureInPicture().then(() => true, () => false);"
-    "})()";
+    "if (!videos.length) return false;"
+    "if (document.pictureInPictureElement === videos[0]) return true;"
+    "return videos[0].requestPictureInPicture().then(() => true, () => false);";
+
+std::string PictureInPictureScript(const char* body) {
+  return std::string("(() => {") + kPictureInPictureCandidates + body + "})()";
+}
 
 bool FitsUtf8(v8::Isolate* isolate, v8::Local<v8::String> text, size_t limit) {
   return static_cast<size_t>(text->Length()) <= limit &&
@@ -204,13 +211,46 @@ class ACPageObserver : public content::RenderFrameObserver,
         Source(code, "ardia://execute"));
   }
 
+  bool HasPictureInPictureCandidate(blink::WebLocalFrame* frame) {
+    v8::HandleScope handle_scope(frame->GetAgentGroupScheduler()->Isolate());
+    v8::Local<v8::Value> found = frame->ExecuteScriptInIsolatedWorldAndReturnValue(
+        ISOLATED_WORLD_ID_CHROME_INTERNAL,
+        Source(PictureInPictureScript(kHasPictureInPictureCandidateScript),
+               "ardia://picture-in-picture-candidate"),
+        blink::BackForwardCacheAware::kAllow);
+    return !found.IsEmpty() && found->IsTrue();
+  }
+
+  void PictureInPictureDocument(
+      PictureInPictureDocumentCallback callback) override {
+    blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+    base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
+    const std::string document = frame->GetDocument().Token().ToString();
+    if (!frame->IsOutermostMainFrame() || !HasPictureInPictureCandidate(frame) ||
+        !alive || frame->GetDocument().Token().ToString() != document) {
+      std::move(callback).Run(std::nullopt);
+      return;
+    }
+    std::move(callback).Run(document);
+  }
+
   void EnterPictureInPictureForUser(
+      const std::string& document,
       EnterPictureInPictureForUserCallback callback) override {
     blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
-    v8::HandleScope handle_scope(frame->GetAgentGroupScheduler()->Isolate());
     base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
-    const blink::WebScriptSource source = Source(
-        kPictureInPictureForUserScript, "ardia://picture-in-picture-for-user");
+    if (!frame->IsOutermostMainFrame() ||
+        frame->GetDocument().Token().ToString() != document ||
+        !HasPictureInPictureCandidate(frame) || !alive ||
+        frame->GetDocument().Token().ToString() != document) {
+      std::move(callback).Run(false);
+      return;
+    }
+    v8::HandleScope handle_scope(frame->GetAgentGroupScheduler()->Isolate());
+    const std::string script =
+        PictureInPictureScript(kPictureInPictureForUserScript);
+    const blink::WebScriptSource source =
+        Source(script, "ardia://picture-in-picture-for-user");
     frame->NotifyUserActivation(
         blink::mojom::UserActivationNotificationType::kInteraction);
     frame->RequestExecuteScript(

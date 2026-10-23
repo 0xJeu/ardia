@@ -216,7 +216,7 @@ export type WebViewHandle = {
   downloadImage(url: string, maxPixels: number): Promise<FaviconImage | null>;
 
   mediaCommand(action: MediaCommand, seconds?: number): Promise<void>;
-  requestPictureInPicture(): Promise<boolean>;
+  requestPictureInPicture(clickAt: number): Promise<boolean>;
   exitPictureInPicture(): Promise<void>;
 
   getSecurityInfo(): Promise<SecurityInfo | null>;
@@ -382,7 +382,7 @@ export const WebView = forwardRef<WebViewHandle, WebViewProps>(function WebView(
       downloadImage: (url, maxPixels) => call(null, (n) => n.downloadImage(url, maxPixels)),
       downloadFavicon: (url) => call(null, (n) => n.downloadFavicon(url)),
       mediaCommand: (action, seconds) => call(undefined, (n) => n.mediaCommand(action, seconds)),
-      requestPictureInPicture: () => call(false, (n) => n.requestPictureInPicture()),
+      requestPictureInPicture: (clickAt) => call(false, (n) => n.requestPictureInPicture(clickAt)),
       exitPictureInPicture: () => call(undefined, (n) => n.exitPictureInPicture()),
       getSecurityInfo: () => call(null, (n) => n.getSecurityInfo()),
       openBlockedPopup: (id, always) => call(undefined, (n) => n.openBlockedPopup(id, always)),

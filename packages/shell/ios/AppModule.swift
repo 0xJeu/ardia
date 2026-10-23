@@ -746,7 +746,11 @@ enum KeyEquivalents {
       return done(["error": "no window \(windowId)"])
     }
     var origin = NSPoint.zero
-    if click["in"] as? String == "page" {
+    if let label = click["label"] as? String {
+      guard let target = labeledView(label, in: content) else { return done(["error": "no view labeled \(label)"]) }
+      let frame = target.convert(target.bounds, to: content)
+      origin = NSPoint(x: frame.midX, y: content.isFlipped ? frame.midY : content.bounds.height - frame.midY)
+    } else if click["in"] as? String == "page" {
       guard let page = pageViews(in: window).first else { return done(["error": "no page in \(windowId)"]) }
       let frame = page.convert(page.bounds, to: content)
       origin = NSPoint(x: frame.minX, y: content.isFlipped ? frame.minY : content.bounds.height - frame.maxY)
@@ -762,7 +766,8 @@ enum KeyEquivalents {
         with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
         windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)
       else { return done(["error": "no mouse event"]) }
-      NSApp.sendEvent(event)
+      if type == .leftMouseUp { result["at"] = event.timestamp * 1000 }
+      if click["queued"] as? Bool == true { NSApp.postEvent(event, atStart: false) } else { NSApp.sendEvent(event) }
     }
     result["firstResponderOnClick"] = responderName()
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(click["wait"] as? Int ?? 250)) {
@@ -855,6 +860,15 @@ enum KeyEquivalents {
     return { [weak window, weak previous] in
       if let window, NSApp.keyWindow === window, previous !== window { previous?.makeKey() }
     }
+  }
+
+  private static func labeledView(_ label: String, in root: NSView) -> NSView? {
+    guard !root.isHidden, root.alphaValue > 0 else { return nil }
+    if root.accessibilityLabel() == label, !root.visibleRect.isEmpty { return root }
+    for child in root.subviews.reversed() {
+      if let found = labeledView(label, in: child) { return found }
+    }
+    return nil
   }
 
   private static func pageViews(in window: NSWindow) -> [NSView] {

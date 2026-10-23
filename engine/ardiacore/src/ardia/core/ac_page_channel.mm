@@ -25,6 +25,7 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/media_session.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_descriptor_util.h"
@@ -206,9 +207,36 @@ void AddAppSchemeThrottle(content::NavigationThrottleRegistry& registry) {
 PageChannel::PageChannel(content::WebContents* contents)
     : content::WebContentsObserver(contents),
       content::WebContentsUserData<PageChannel>(*contents),
-      receivers_(contents, this) {}
+      receivers_(contents, this),
+      main_document_at_(base::TimeTicks::Now()) {
+  content::MediaSession::Get(contents)->AddObserver(
+      session_observer_.BindNewPipeAndPassRemote());
+}
+
+void PageChannel::MediaSessionActionsChanged(
+    const std::vector<media_session::mojom::MediaSessionAction>& actions) {
+  session_offers_picture_in_picture_ = std::ranges::contains(
+      actions, media_session::mojom::MediaSessionAction::kEnterPictureInPicture);
+}
+
+void PageChannel::MainDocumentChanged() {
+  main_document_at_ = base::TimeTicks::Now();
+}
+
+bool PageChannel::MainDocumentUnchangedSince(base::TimeTicks click) {
+  return main_commits_pending_.empty() && main_document_at_ < click;
+}
+
+void PageChannel::PrimaryMainFrameRenderProcessGone(
+    base::TerminationStatus status) {
+  MainDocumentChanged();
+  main_page_.reset();
+  held_.clear();
+  held_bytes_ = 0;
+}
 
 void PageChannel::PrimaryPageChanged(content::Page& page) {
+  MainDocumentChanged();
   main_page_.reset();
   held_.clear();
   held_bytes_ = 0;
@@ -219,6 +247,10 @@ void PageChannel::PrimaryPageChanged(content::Page& page) {
 
 void PageChannel::ReadyToCommitNavigation(
     content::NavigationHandle* navigation) {
+  if (navigation->IsInPrimaryMainFrame() && !navigation->IsSameDocument()) {
+    MainDocumentChanged();
+    main_commits_pending_.insert(navigation->GetNavigationId());
+  }
   content::RenderFrameHost* frame = navigation->GetRenderFrameHost();
   if (frame && !frame->GetParentOrOuterDocument()) {
     if (auto remote = PageOf(frame)) {
@@ -228,6 +260,9 @@ void PageChannel::ReadyToCommitNavigation(
 }
 
 void PageChannel::RenderFrameCreated(content::RenderFrameHost* frame) {
+  if (frame->IsInPrimaryMainFrame()) {
+    MainDocumentChanged();
+  }
   if (!page_color_.empty() && !frame->GetParentOrOuterDocument()) {
     if (auto remote = PageOf(frame)) {
       remote->SetPageColor(page_color_);
@@ -400,7 +435,7 @@ void PageChannel::DeliverHeld() {
         continue;
       }
       content::RenderFrameHost* frame = FindFrame(entry.frame_id);
-      if (frame && frame->GetPage().IsPrimary() &&
+      if (frame && frame->IsRenderFrameLive() && frame->GetPage().IsPrimary() &&
           !Deliver(*frame, entry.kind, entry.json)) {
         Hold(*frame, entry.kind, entry.json);
       }
@@ -409,10 +444,18 @@ void PageChannel::DeliverHeld() {
 }
 
 void PageChannel::RenderFrameDeleted(content::RenderFrameHost* frame) {
+  if (frame->IsInPrimaryMainFrame()) {
+    MainDocumentChanged();
+  }
   ForgetHeld(FrameId(frame));
 }
 
 void PageChannel::DidFinishNavigation(content::NavigationHandle* navigation) {
+  main_commits_pending_.erase(navigation->GetNavigationId());
+  if (navigation->IsInPrimaryMainFrame() && !navigation->IsSameDocument() &&
+      navigation->HasCommitted()) {
+    MainDocumentChanged();
+  }
   if (navigation->HasCommitted() && !navigation->IsSameDocument() &&
       navigation->GetRenderFrameHost()) {
     ForgetHeld(FrameId(navigation->GetRenderFrameHost()));
@@ -484,19 +527,49 @@ void PageChannel::Execute(const std::string& code) {
 }
 
 bool PageChannel::HasFrame(const std::string& frame_id) {
-  return FindFrame(frame_id) != nullptr;
+  content::RenderFrameHost* frame = FindFrame(frame_id);
+  return frame && frame->IsRenderFrameLive();
 }
 
-void PageChannel::EnterPictureInPictureForUser(
-    base::OnceCallback<void(bool)> callback) {
-  auto answer = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
-      base::BindPostTaskToCurrentDefault(std::move(callback)), false);
+PictureInPictureRoute PageChannel::EnterPictureInPictureForClick(
+    std::optional<base::TimeTicks> click,
+    base::OnceCallback<void(bool)> element_opened) {
+  if (!click || !MainDocumentUnchangedSince(*click)) {
+    return PictureInPictureRoute::kNone;
+  }
+  if (session_offers_picture_in_picture_) {
+    content::MediaSession::Get(&GetWebContents())->EnterPictureInPicture();
+    return PictureInPictureRoute::kMediaSession;
+  }
   mojom::ACPage* page = MainPage();
   if (!page) {
-    std::move(answer).Run(false);
+    return PictureInPictureRoute::kNone;
+  }
+  auto opened = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      base::BindPostTaskToCurrentDefault(std::move(element_opened)), false);
+  page->PictureInPictureDocument(base::BindOnce(
+      &PageChannel::EnterPictureInPictureInDocument, weak_factory_.GetWeakPtr(),
+      GetWebContents().GetPrimaryMainFrame()->GetGlobalId(), *click,
+      std::move(opened)));
+  return PictureInPictureRoute::kElement;
+}
+
+void PageChannel::EnterPictureInPictureInDocument(
+    content::GlobalRenderFrameHostId frame,
+    base::TimeTicks click,
+    base::OnceCallback<void(bool)> opened,
+    const std::optional<std::string>& document) {
+  content::RenderFrameHost* main = GetWebContents().GetPrimaryMainFrame();
+  mojom::ACPage* page = nullptr;
+  if (document && main->GetGlobalId() == frame &&
+      MainDocumentUnchangedSince(click)) {
+    page = MainPage();
+  }
+  if (!page) {
+    std::move(opened).Run(false);
     return;
   }
-  page->EnterPictureInPictureForUser(std::move(answer));
+  page->EnterPictureInPictureForUser(*document, std::move(opened));
 }
 
 void PageChannel::Evaluate(

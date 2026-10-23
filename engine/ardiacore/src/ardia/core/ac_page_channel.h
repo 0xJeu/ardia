@@ -4,15 +4,20 @@
 #include <memory>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 
 #include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "content/public/browser/render_frame_host_receiver_set.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "content/public/browser/global_routing_id.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "services/media_session/public/mojom/media_session.mojom.h"
 #include "url/gurl.h"
 #include "ardia/core/mojom/ardiacore.mojom.h"
 
@@ -42,9 +47,12 @@ void ReportAppURLRequest(content::WebContents* contents,
                          const GURL& url,
                          bool user_gesture);
 
+enum class PictureInPictureRoute { kNone, kMediaSession, kElement };
+
 class PageChannel : public content::WebContentsObserver,
                     public content::WebContentsUserData<PageChannel>,
-                    public mojom::ACPageHost {
+                    public mojom::ACPageHost,
+                    public media_session::mojom::MediaSessionObserver {
  public:
   ~PageChannel() override;
 
@@ -62,7 +70,9 @@ class PageChannel : public content::WebContentsObserver,
   void Evaluate(const std::string& code,
                 base::OnceCallback<void(const std::optional<std::string>&)> callback);
   bool HasFrame(const std::string& frame_id);
-  void EnterPictureInPictureForUser(base::OnceCallback<void(bool)> callback);
+  PictureInPictureRoute EnterPictureInPictureForClick(
+      std::optional<base::TimeTicks> click,
+      base::OnceCallback<void(bool)> element_opened);
 
   static std::string FrameId(content::RenderFrameHost* frame);
 
@@ -78,6 +88,22 @@ class PageChannel : public content::WebContentsObserver,
   void RenderFrameCreated(content::RenderFrameHost* frame) override;
   void RenderFrameDeleted(content::RenderFrameHost* frame) override;
   void DidFinishNavigation(content::NavigationHandle* navigation) override;
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override;
+
+  void MediaSessionInfoChanged(
+      media_session::mojom::MediaSessionInfoPtr info) override {}
+  void MediaSessionMetadataChanged(
+      const std::optional<media_session::MediaMetadata>& metadata) override {}
+  void MediaSessionActionsChanged(
+      const std::vector<media_session::mojom::MediaSessionAction>& actions)
+      override;
+  void MediaSessionImagesChanged(
+      const base::flat_map<media_session::mojom::MediaSessionImageType,
+                           std::vector<media_session::MediaImage>>& images)
+      override {}
+  void MediaSessionPositionChanged(
+      const std::optional<media_session::MediaPosition>& position) override {}
 
  private:
   friend class content::WebContentsUserData<PageChannel>;
@@ -92,6 +118,13 @@ class PageChannel : public content::WebContentsObserver,
             const std::string& kind,
             const std::string& json);
   void ForgetHeld(const std::string& frame_id);
+  void MainDocumentChanged();
+  bool MainDocumentUnchangedSince(base::TimeTicks click);
+  void EnterPictureInPictureInDocument(
+      content::GlobalRenderFrameHostId frame,
+      base::TimeTicks click,
+      base::OnceCallback<void(bool)> opened,
+      const std::optional<std::string>& document);
 
   struct Held {
     std::string frame_id;
@@ -105,6 +138,12 @@ class PageChannel : public content::WebContentsObserver,
   mojo::AssociatedRemote<mojom::ACPage> main_page_;
   content::GlobalRenderFrameHostId main_page_frame_;
   std::string page_color_;
+  mojo::Receiver<media_session::mojom::MediaSessionObserver> session_observer_{
+      this};
+  bool session_offers_picture_in_picture_ = false;
+  base::TimeTicks main_document_at_;
+  std::set<int64_t> main_commits_pending_;
+  base::WeakPtrFactory<PageChannel> weak_factory_{this};
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
 

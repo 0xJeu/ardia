@@ -204,8 +204,8 @@ function SiteControlsPanel({
         icon={pip ? "pip.exit" : "pip.enter"}
         label={pip ? "Exit Picture in Picture" : "Picture in Picture"}
         active={pip}
-        onPress={() => {
-          togglePip();
+        onPress={(press) => {
+          togglePip(press);
           close();
         }}
       />

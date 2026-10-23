@@ -260,28 +260,52 @@ static ArdiaCoreWebView *PageViewUnder(NSEvent *event) {
   return nil;
 }
 
-static CFTimeInterval gUserInputAt = -1;
-static const CFTimeInterval kUserInputLifetime = 1.5;
+static const NSUInteger kControlClicksKept = 8;
+static const NSTimeInterval kControlClickLifetime = 10;
+static const double kControlClickMatchMs = 1;
 
-static void InstallUserInputMonitor() {
-  static id monitor;
-  static id menuObserver;
-  if (monitor) return;
-  monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseUp | NSEventMaskKeyDown
-                                                  handler:^NSEvent *(NSEvent *event) {
-                                                    gUserInputAt = CACurrentMediaTime();
-                                                    return event;
-                                                  }];
-  menuObserver = [NSNotificationCenter.defaultCenter addObserverForName:NSMenuDidSendActionNotification
-                                                                 object:nil
-                                                                  queue:nil
-                                                             usingBlock:^(NSNotification *) {
-                                                               gUserInputAt = CACurrentMediaTime();
-                                                             }];
+static NSMutableArray<NSMutableDictionary *> *ControlClicks() {
+  static NSMutableArray<NSMutableDictionary *> *clicks = [NSMutableArray array];
+  return clicks;
 }
 
-static BOOL RecentUserInput() {
-  return gUserInputAt >= 0 && CACurrentMediaTime() - gUserInputAt <= kUserInputLifetime;
+static BOOL LandsInWebContent(NSEvent *event) {
+  NSView *frame = event.window.contentView.superview ?: event.window.contentView;
+  NSView *hit = [frame hitTest:event.locationInWindow];
+  if (!hit) return YES;
+  for (NSView *view = hit; view; view = view.superview)
+    if ([view isKindOfClass:ArdiaCoreWebView.class] || [NSStringFromClass(view.class) hasPrefix:@"RenderWidgetHostView"]) return YES;
+  return NO;
+}
+
+static void InstallControlClickMonitor() {
+  static id monitor;
+  if (monitor) return;
+  monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseUp
+                                                  handler:^NSEvent *(NSEvent *event) {
+                                                    if (!event.window || LandsInWebContent(event)) return event;
+                                                    NSMutableArray<NSMutableDictionary *> *clicks = ControlClicks();
+                                                    [clicks addObject:[@{
+                                                      @"at" : @(event.timestamp),
+                                                      @"window" : @(event.windowNumber),
+                                                    } mutableCopy]];
+                                                    if (clicks.count > kControlClicksKept) [clicks removeObjectAtIndex:0];
+                                                    return event;
+                                                  }];
+}
+
+static NSTimeInterval TakeControlClick(double clickMs, NSWindow *window) {
+  if (!window || !(clickMs > 0)) return 0;
+  const NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+  NSMutableArray<NSMutableDictionary *> *clicks = ControlClicks();
+  for (NSMutableDictionary *click in clicks) {
+    const NSTimeInterval at = [click[@"at"] doubleValue];
+    if ([click[@"window"] integerValue] != window.windowNumber || fabs(at * 1000 - clickMs) > kControlClickMatchMs || now - at > kControlClickLifetime)
+      continue;
+    [clicks removeObject:click];
+    return at;
+  }
+  return 0;
 }
 
 static void InstallPeekMonitor() {
@@ -497,6 +521,7 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
 
 @implementation ArdiaCoreLaunchTabHolder {
   NSMutableArray<NSInvocation *> *_calls;
+  NSMutableArray<NSNumber *> *_callOrder;
   NSMutableDictionary<NSString *, NSDictionary *> *_pageState;
   NSUInteger _pageStateBytes;
   NSUInteger _pageStateOrder;
@@ -594,7 +619,8 @@ static BOOL HeldSelector(SEL selector) {
     if (url.length) ardiacore_host::NoteNavigationDownload(url, _profile ?: @"");
     if (_url.length && ![_url isEqualToString:url ?: @""]) ardiacore_host::NoteNavigationDownload(_url, _profile ?: @"");
   }
-  if (invocation.selector == @selector(tabDidCommitDocument:)) [self forgetHeldPageStateWhere:^BOOL(NSDictionary *held) { return YES; }];
+  if (invocation.selector == @selector(tabDidCommitDocument:) || invocation.selector == @selector(tab:rendererGone:code:))
+    [self forgetHeldPageStateWhere:^BOOL(NSDictionary *held) { return YES; }];
   if (invocation.selector == @selector(tabDidChangeURL:) || invocation.selector == @selector(tabDidCommitDocument:) ||
       invocation.selector == @selector(tabDidChangeSecurity:)) {
     __unsafe_unretained ArdiaCoreTab *tab = nil;
@@ -602,12 +628,14 @@ static BOOL HeldSelector(SEL selector) {
     [ArdiaCoreEarlyWindow pageNavigated:tab launchURL:_url];
   }
   if (!_calls) _calls = [NSMutableArray array];
+  if (!_callOrder) _callOrder = [NSMutableArray array];
   if (_calls.count >= 2000) return;
   __unsafe_unretained id none = nil;
   [invocation setArgument:&none atIndex:2];
   invocation.target = nil;
   [invocation retainArguments];
   [_calls addObject:invocation];
+  [_callOrder addObject:@(++_pageStateOrder)];
 }
 
 - (void)tabWillClose:(ArdiaCoreTab *)tab {
@@ -617,28 +645,36 @@ static BOOL HeldSelector(SEL selector) {
 
 - (void)replayTo:(ArdiaCoreWebView *)view tab:(ArdiaCoreTab *)tab {
   NSArray<NSInvocation *> *calls = _calls;
+  NSArray<NSNumber *> *callOrder = _callOrder;
   _calls = nil;
-  __unsafe_unretained ArdiaCoreTab *named = tab;
-  for (NSInvocation *call in calls) {
-    [call setArgument:&named atIndex:2];
-    [call invokeWithTarget:view];
-  }
+  _callOrder = nil;
   NSDictionary<NSString *, NSDictionary *> *state = _pageState;
   _pageState = nil;
   _pageStateBytes = 0;
   NSArray<NSDictionary *> *ordered = [state.allValues sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
     return [a[@"order"] compare:b[@"order"]];
   }];
-  for (NSDictionary *held in ordered) {
-    NSString *frame = held[@"frame"];
-    if (frame.length && [tab respondsToSelector:@selector(hasLiveFrame:)] && ![tab hasLiveFrame:frame]) continue;
-    [view tab:tab
-        didReceivePageMessage:held[@"kind"]
-                         json:held[@"json"]
-                        frame:frame
-                         main:[held[@"main"] boolValue]
-                       origin:[held[@"origin"] length] ? held[@"origin"] : nil];
+  __unsafe_unretained ArdiaCoreTab *named = tab;
+  NSUInteger next = 0;
+  auto replayHeldBefore = [&](NSUInteger order) {
+    for (; next < ordered.count && [ordered[next][@"order"] unsignedIntegerValue] < order; next++) {
+      NSDictionary *held = ordered[next];
+      NSString *frame = held[@"frame"];
+      if (frame.length && [tab respondsToSelector:@selector(hasLiveFrame:)] && ![tab hasLiveFrame:frame]) continue;
+      [view tab:tab
+          didReceivePageMessage:held[@"kind"]
+                           json:held[@"json"]
+                          frame:frame
+                           main:[held[@"main"] boolValue]
+                         origin:[held[@"origin"] length] ? held[@"origin"] : nil];
+    }
+  };
+  for (NSUInteger i = 0; i < calls.count; i++) {
+    replayHeldBefore(callOrder[i].unsignedIntegerValue);
+    [calls[i] setArgument:&named atIndex:2];
+    [calls[i] invokeWithTarget:view];
   }
+  replayHeldBefore(NSUIntegerMax);
 }
 
 @end
@@ -1209,7 +1245,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
 - (void)attach:(ArdiaCoreTab *)tab {
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ attach tab=%d visible=%d", _transferKey, (int)tab.tabId, _visible);
   [LiveViews() addObject:self];
-  InstallUserInputMonitor();
+  InstallControlClickMonitor();
   _tab = tab;
   tab.delegate = self;
   [ArdiaCoreTabs setView:self forTab:tab];
@@ -1584,6 +1620,11 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   _seenByUser = seen;
   [self traceAutoPictureInPicture:seen ? @"app: the user sees the tab" : @"app: the user left the tab"];
   [self updateAutoPictureInPicture];
+}
+
+- (void)traceManualPictureInPicture:(NSString *)what {
+  if (TracingPictureInPicture() && [_tab respondsToSelector:@selector(tracePictureInPicture:withInputs:)])
+    [_tab tracePictureInPicture:[@"app: manual PiP " stringByAppendingString:what] withInputs:NO];
 }
 
 - (void)traceAutoPictureInPicture:(NSString *)what {
@@ -2641,20 +2682,22 @@ static NSEventModifierFlags PeekModifierFlag() {
   [self callFrame:_nowPlayingFrame ?: @"" kind:@"media" json:JSONString(@{@"action" : action ?: @"", @"seconds" : @(seconds)})];
 }
 
-- (void)requestPictureInPicture:(void (^)(BOOL))completion {
+- (void)requestPictureInPictureForClickAt:(double)clickMs completion:(void (^)(BOOL))completion {
   if (_inPictureInPicture) return completion(YES);
-  if (![_tab respondsToSelector:@selector(enterPictureInPicture)]) return completion(NO);
-  const BOOL fromUser = RecentUserInput();
+  if (![_tab respondsToSelector:@selector(enterPictureInPictureForClickAt:completion:)]) return completion(NO);
+  const NSTimeInterval clickAt = TakeControlClick(clickMs, self.window);
+  [self traceManualPictureInPicture:clickAt > 0 ? @"click verified" : @"click not verified"];
+  if (clickAt <= 0) return completion(NO);
   [self thawHiddenPage];
-  [_tab enterPictureInPicture];
   __weak ArdiaCoreWebView *weakSelf = self;
-  [self awaitPictureInPicture:8
-                   completion:^(BOOL opened) {
-                     ArdiaCoreWebView *view = weakSelf;
-                     ArdiaCoreTab *tab = view ? view->_tab : nil;
-                     if (opened || !fromUser || ![tab respondsToSelector:@selector(enterPictureInPictureForUser:)]) return completion(opened);
-                     [tab enterPictureInPictureForUser:completion];
-                   }];
+  [_tab enterPictureInPictureForClickAt:clickAt
+                             completion:^(NSString *route, BOOL opened) {
+                               ArdiaCoreWebView *view = weakSelf;
+                               if (!view) return completion(NO);
+                               [view traceManualPictureInPicture:[NSString stringWithFormat:@"route %@ opened=%d", route, opened]];
+                               if (![route isEqualToString:@"session"]) return completion(opened || view->_inPictureInPicture);
+                               [view awaitPictureInPicture:8 completion:completion];
+                             }];
 }
 
 - (void)awaitPictureInPicture:(int)tries completion:(void (^)(BOOL))completion {
@@ -2824,7 +2867,12 @@ static NSEventModifierFlags PeekModifierFlag() {
 }
 
 - (void)tab:(ArdiaCoreTab *)tab didChangePictureInPicture:(NSDictionary<NSString *, id> *)state {
-  if (![state[@"kind"] isEqual:@"document"]) return;
+  if (![state[@"kind"] isEqual:@"document"]) {
+    if ([state[@"active"] boolValue] || !_inPictureInPicture) return;
+    _inPictureInPicture = NO;
+    [self emit:@"pictureInPicture" payload:@{@"kind" : @"video", @"active" : @NO}];
+    return;
+  }
   _inPictureInPicture = [state[@"active"] boolValue];
   [self emit:@"pictureInPicture" payload:@{@"kind" : @"document", @"active" : @([state[@"active"] boolValue])}];
 }

@@ -1147,6 +1147,7 @@ TabBridge::TabBridge(content::WebContents* contents)
       content::WebContentsUserData<TabBridge>(*contents) {
   content::g_ardia_opacity_from_default_color = true;
   tab_ = [[ArdiaCoreTab alloc] initWithContents:contents];
+  PageChannel::GetOrCreate(contents);
 }
 
 TabBridge::~TabBridge() = default;

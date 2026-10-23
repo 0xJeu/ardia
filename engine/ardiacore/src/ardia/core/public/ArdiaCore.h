@@ -305,8 +305,8 @@ ARDIACORE_EXPORT
 - (void)executeJavaScript:(NSString*)code;
 - (void)executeJavaScript:(NSString*)code frame:(NSString*)frameId;
 - (void)evaluate:(NSString*)code completion:(void (^)(NSString* _Nullable json))completion;
-- (void)enterPictureInPicture;
-- (void)enterPictureInPictureForUser:(void (^)(BOOL opened))completion;
+- (void)enterPictureInPictureForClickAt:(NSTimeInterval)clickTime
+                             completion:(void (^)(NSString* route, BOOL opened))completion;
 - (BOOL)hasLiveFrame:(NSString*)frameId;
 - (void)callPage:(NSString*)kind json:(NSString*)json;
 

@@ -1,6 +1,6 @@
 import { FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { useLayoutEffect, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
@@ -148,12 +148,12 @@ function TabCard({ tabId, windowId, anchor }: { tabId: string; windowId: string;
   );
 }
 
-function Action({ icon, label, onPress }: { icon: string; label: string; onPress(): void }) {
+function Action({ icon, label, onPress }: { icon: string; label: string; onPress(press: GestureResponderEvent): void }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   return (
     <View {...hoverProps} style={{ flex: 1 }}>
-      <Pressable onPress={onPress}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
         {({ pressed }) => (
           <View
             style={{

@@ -271,6 +271,7 @@ NSString* PngDataURL(const gfx::Image& image) {
 bool g_auto_picture_in_picture = true;
 
 void ApplyAutoPictureInPicture(Profile* profile) {
+  g_ardia_auto_picture_in_picture_off = !g_auto_picture_in_picture;
   HostContentSettingsMapFactory::GetForProfile(profile)->SetDefaultContentSetting(
       ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
       g_auto_picture_in_picture ? CONTENT_SETTING_ALLOW : CONTENT_SETTING_BLOCK);
@@ -927,6 +928,7 @@ void WatchTracingStart(std::shared_ptr<TracingStart> start, int checks_left) {
 
 + (void)setAutoPictureInPicture:(BOOL)enabled {
   g_auto_picture_in_picture = enabled;
+  g_ardia_auto_picture_in_picture_off = !enabled;
   for (Profile* profile : g_browser_process->profile_manager()->GetLoadedProfiles()) {
     if (!profile->IsOffTheRecord()) {
       ApplyAutoPictureInPicture(profile);
@@ -2218,7 +2220,8 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
   }
   const GURL& url = _contents->GetLastCommittedURL();
   Profile* profile = Profile::FromBrowserContext(_contents->GetBrowserContext());
-  return helper->HasAutoPictureInPictureBeenRegistered() &&
+  return !g_ardia_auto_picture_in_picture_off &&
+         helper->HasAutoPictureInPictureBeenRegistered() &&
          (url.SchemeIs(url::kHttpsScheme) || url.SchemeIsFile()) &&
          MediaCaptureDevicesDispatcher::GetInstance()
              ->GetMediaStreamCaptureIndicator()
@@ -2318,20 +2321,27 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
           completion));
 }
 
-- (void)enterPictureInPicture {
-  if (_contents) {
-    content::MediaSession::Get(_contents)->EnterPictureInPicture();
-  }
-}
-
-- (void)enterPictureInPictureForUser:(void (^)(BOOL))completion {
+- (void)enterPictureInPictureForClickAt:(NSTimeInterval)clickTime
+                             completion:(void (^)(NSString* route, BOOL opened))completion {
   if (!_contents) {
-    completion(NO);
+    completion(@"none", NO);
     return;
   }
-  ardiacore::PageChannel::GetOrCreate(_contents)->EnterPictureInPictureForUser(
-      base::BindOnce([](void (^completion)(BOOL), bool opened) { completion(opened); },
-                     completion));
+  const ardiacore::PictureInPictureRoute route =
+      ardiacore::PageChannel::GetOrCreate(_contents)->EnterPictureInPictureForClick(
+          clickTime > 0 ? std::optional<base::TimeTicks>(base::TimeTicks() +
+                                                         base::Seconds(clickTime))
+                        : std::nullopt,
+          base::BindOnce(
+              [](void (^completion)(NSString*, BOOL), bool opened) {
+                completion(@"element", opened);
+              },
+              completion));
+  if (route == ardiacore::PictureInPictureRoute::kMediaSession) {
+    completion(@"session", NO);
+  } else if (route == ardiacore::PictureInPictureRoute::kNone) {
+    completion(@"none", NO);
+  }
 }
 
 - (BOOL)hasLiveFrame:(NSString*)frameId {
