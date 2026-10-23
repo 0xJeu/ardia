@@ -5,10 +5,11 @@ import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { ancestorIds, depthOf, leaveGroups, orderSections, syncGroupOrder, withParent } from "../store/groups";
 import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/model";
-import { groupChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
+import { groupChoiceKey, orderChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { isPeekTab } from "../store/peek";
-import { arrangeParked, arrangePinnedArea, parkedAnchors, parkedAreaKeys, pinnedAnchors, pinnedAreaKeys } from "../store/pinnedArea";
+import { arrangeParked, arrangePinnedArea, parkedAnchors, pinnedAnchors } from "../store/pinnedArea";
+import { fromSync } from "../store/pinOrderChoices";
 import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
@@ -815,13 +816,12 @@ export function pinnedAdapter(profileId: string): Adapter {
       }
       const { find, splits, selection, windowOrder, windowUi } = s;
       const pinSync = noted.size ? { ...s.pinSync, [profileId]: { ...s.pinSync[profileId], ...Object.fromEntries(noted) } } : s.pinSync;
-      useBrowser.setState({ tabs, windows, groups, live, find, splits, selection, windowOrder, windowUi, parkedPins, pinSync });
+      fromSync(() => useBrowser.setState({ tabs, windows, groups, live, find, splits, selection, windowOrder, windowUi, parkedPins, pinSync }));
     },
   };
 }
 
 const PIN_ORDER = "pord:g:";
-const ANCHOR_WAIT_MS = 90 * 86_400_000;
 type PinOrderValue = { a: string | null };
 const anchorIn = (value: unknown) => (value as PinOrderValue | undefined)?.a;
 
@@ -829,18 +829,16 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
   const shownIn = (s: BrowserState) => openWindows(s).filter((w) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId));
   return {
     prefix: PIN_ORDER,
-    extract: (base, _queued, now, _known, remote) => {
+    extract: (base, queued, _now, _known, remote) => {
       const s = store();
       const home = homeWindow(s, profileId);
       const shown = !!home && shownIn(s).includes(home);
       const gone = (key: string) => remote(key) === null;
       const ignore = (k: string) => !gone(`pin:g:${k.slice(PIN_ORDER.length)}`);
       if (!shown && !s.parkedPins[profileId]) return { values: new Map(), ignore } satisfies Extraction;
-      const keys = shown ? pinnedAreaKeys(s, home!, profileId) : parkedAreaKeys(s, profileId);
       const anchors = shown ? pinnedAnchors(s, home!, profileId) : parkedAnchors(s, profileId);
-      const fallback = keys.filter((k) => k.startsWith("t:")).at(-1)?.slice(2) ?? null;
-      const sync = s.pinSync[profileId] ?? {};
-      const waits: Record<string, PinSyncEntry> = {};
+      const chosen = s.pinChoices[profileId] ?? {};
+      const choiceOf = (k: string) => orderChoiceKey(k.slice(PIN_ORDER.length));
       const pinnedGroup = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
       const here = new Set([
         ...Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pinned || pinnedGroup.has(t.id))).map(pinKeyOf),
@@ -849,17 +847,15 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
       const values = new Map<string, unknown>();
       for (const [group, a] of anchors) {
         const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
-        let waiting = !!was?.a && was.a !== a && a === fallback && !here.has(was.a) && !gone(`pin:t:${was.a}`);
-        if (waiting) {
-          const entry = sync[groupChoiceKey(group)];
-          const deadline = entry?.g === was!.a && entry.w !== undefined ? entry.w : now + ANCHOR_WAIT_MS;
-          if (entry?.g !== was!.a || entry.w === undefined) waits[groupChoiceKey(group)] = { g: was!.a!, w: deadline };
-          waiting = now < deadline;
-        }
+        const waiting = !(orderChoiceKey(group) in chosen) && !!was?.a && was.a !== a && !here.has(was.a) && !gone(`pin:t:${was.a}`);
         values.set(`${PIN_ORDER}${group}`, waiting ? was! : ({ a } satisfies PinOrderValue));
       }
-      if (Object.keys(waits).length) useBrowser.setState({ pinSync: { ...s.pinSync, [profileId]: { ...sync, ...waits } } });
-      return { values, ignore } satisfies Extraction;
+      return {
+        values,
+        ignore,
+        republish: (k) => choiceOf(k) in chosen && !queued(k),
+        published: (published) => settleChoices(profileId, Object.fromEntries([...published].map(choiceOf).filter((c) => c in chosen).map((c) => [c, chosen[c]!]))),
+      } satisfies Extraction;
     },
     apply: (visible) => {
       const s = store();
@@ -876,7 +872,7 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
       const park = s.parkedPins[profileId];
       const parked = park && arrangeParked(park, anchorOf);
       if (windows === s.windows && parked === park) return true;
-      useBrowser.setState({ windows, groups, ...(park && parked !== park ? { parkedPins: { ...s.parkedPins, [profileId]: parked! } } : {}) });
+      fromSync(() => useBrowser.setState({ windows, groups, ...(park && parked !== park ? { parkedPins: { ...s.parkedPins, [profileId]: parked! } } : {}) }));
       return true;
     },
   };
@@ -962,11 +958,13 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       );
       const parkEdited = !!park && parked!.some((p, i) => p !== park.tabs[i]);
       if (!edited && !parkEdited) return true;
-      useBrowser.setState({
-        tabs,
-        windows,
-        ...(parkEdited ? { parkedPins: { ...s.parkedPins, [profileId]: { ...park!, tabs: parked! } } } : {}),
-      });
+      fromSync(() =>
+        useBrowser.setState({
+          tabs,
+          windows,
+          ...(parkEdited ? { parkedPins: { ...s.parkedPins, [profileId]: { ...park!, tabs: parked! } } } : {}),
+        }),
+      );
       return true;
     },
   };

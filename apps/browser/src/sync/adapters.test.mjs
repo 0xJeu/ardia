@@ -1504,7 +1504,102 @@ test("a reorder made while an order record waits for its row wins over the wait"
   assert.deepEqual(pinnedAreaOf(a), ["Group:member", "row:fresh", "row:row"]);
 });
 
-test("an order record whose row never arrives stops waiting after the tombstone horizon", async () => {
+async function freshDelayed({ bFirst = false } = {}) {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  const { w } = rowAndGroup(a, bFirst);
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  const known = new Set(folder.files.keys());
+  a.with(() => {
+    const fresh = S().newTab(w, { url: "https://fresh.example/", background: true });
+    const row = Object.values(S().tabs).find((t) => t.pinnedAsRow && t.pinnedUrl === "https://row.example/");
+    S().placeTabs([fresh], { pinned: true, row: true, beforeId: row.id });
+  });
+  await a.sync();
+  const freshFiles = [...folder.files.keys()].filter((id) => !known.has(id));
+  moveGroupAbove(a, "https://row.example/");
+  await a.sync();
+  freshFiles.forEach((id) => folder.hidden.add(id));
+  await b.sync();
+  await b.sync();
+  return { folder, a, b };
+}
+
+const orderRecordOf = (d) => Object.entries(d.scopes.p.records).find(([k]) => k.startsWith("pord:"))?.[1];
+
+test("a group moved away and back while its order record waits keeps the user's final place", async () => {
+  const { folder, a, b } = await freshDelayed();
+  assert.deepEqual(pinnedAreaOf(b), ["row:row", "Group:member"]);
+  moveGroupAbove(b, "https://row.example/");
+  moveGroupToEnd(b);
+  assert.deepEqual(pinnedAreaOf(b), ["row:row", "Group:member"]);
+  assert.ok((await b.sync()).published > 0, "the move goes out even though the group ended where it was");
+  folder.hidden.clear();
+  await syncAll([b, a], 3);
+  assert.deepEqual(pinnedAreaOf(a), ["row:fresh", "row:row", "Group:member"]);
+  assert.deepEqual(pinnedAreaOf(b), ["row:fresh", "row:row", "Group:member"]);
+});
+
+test("a Mac whose group already sits where a waiting record wants it leaves the record alone", async () => {
+  const { folder, a, b } = await freshDelayed({ bFirst: true });
+  assert.deepEqual(pinnedAreaOf(a), ["row:fresh", "Group:member", "row:row"]);
+  assert.deepEqual(pinnedAreaOf(b), ["Group:member", "row:row"]);
+  const before = orderRecordOf(b);
+  await b.sync();
+  await b.sync();
+  assert.deepEqual(orderRecordOf(b), before, "no idle write");
+  folder.hidden.clear();
+  await syncAll([b, a], 3);
+  assert.deepEqual(pinnedAreaOf(a), ["row:fresh", "Group:member", "row:row"]);
+  assert.deepEqual(pinnedAreaOf(b), ["row:fresh", "Group:member", "row:row"]);
+});
+
+test("a row added below a waiting group doesn't count as moving the group", async () => {
+  const { folder, a, b } = await freshDelayed();
+  b.with(() => {
+    const w = S().windowOrder[0];
+    const x = S().newTab(w, { url: "https://x.example/", background: true });
+    S().placeTabs([x], { pinned: true, row: true, beforeId: null, last: true });
+  });
+  assert.deepEqual(pinnedAreaOf(b), ["row:row", "Group:member", "row:x"]);
+  const before = orderRecordOf(b);
+  await b.sync();
+  assert.deepEqual(orderRecordOf(b)?.v, before?.v, "the group's record is unchanged");
+  folder.hidden.clear();
+  await syncAll([b, a], 3);
+  assert.deepEqual(pinnedAreaOf(a), ["row:fresh", "Group:member", "row:row", "row:x"]);
+  assert.deepEqual(pinnedAreaOf(b), ["row:fresh", "Group:member", "row:row", "row:x"]);
+});
+
+for (const [label, jump] of [["a clock jump of 100 days", 100], ["a wait started with a clock a year fast", -365]]) {
+  test(`a waiting order record doesn't expire on the local clock: ${label}`, async () => {
+    const realNow = Date.now;
+    const { folder, a, b } = await (async () => {
+      if (jump < 0) Date.now = () => realNow() + 365 * 86_400_000;
+      try {
+        return await freshDelayed();
+      } finally {
+        Date.now = realNow;
+      }
+    })();
+    if (jump > 0) Date.now = () => realNow() + jump * 86_400_000;
+    try {
+      await b.sync();
+      await b.sync();
+    } finally {
+      Date.now = realNow;
+    }
+    assert.equal(orderRecordOf(b)?.v.a !== null, true, "the record still waits for its row");
+    folder.hidden.clear();
+    await syncAll([b, a], 3);
+    assert.deepEqual(pinnedAreaOf(a), ["row:fresh", "Group:member", "row:row"]);
+    assert.deepEqual(pinnedAreaOf(b), ["row:fresh", "Group:member", "row:row"]);
+  });
+}
+
+test("an order record whose row never arrives keeps every Mac on the same order until someone moves the group", async () => {
   const folder = new Folder();
   const a = new Device("devA", folder);
   const b = new Device("devB", folder);
@@ -1524,20 +1619,9 @@ test("an order record whose row never arrives stops waiting after the tombstone 
   });
   await b.sync();
   await b.sync();
-  assert.deepEqual(pinnedAreaOf(b), ["row:fresh", "Group:member"]);
-  const record = () => Object.entries(b.scopes.p.records).find(([k]) => k.startsWith("pord:"))?.[1].v;
-  assert.ok(record()?.a, "B keeps waiting for the row while it may still come");
-  assert.ok(b.with(() => Object.keys(S().pinSync.default ?? {}).some((k) => k.startsWith("group:"))), "the wait's deadline is kept with the session");
-  const fresh = b.with(() => {
-    const t = Object.values(S().tabs).find((x) => x.pinnedUrl === "https://fresh.example/");
-    return t.pinKey ?? t.id;
-  });
-  const realNow = Date.now;
-  Date.now = () => realNow() + 100 * 86_400_000;
-  try {
-    await b.sync();
-  } finally {
-    Date.now = realNow;
-  }
-  assert.deepEqual(record(), { a: fresh }, "past the horizon B publishes the order it shows");
+  assert.deepEqual(pinnedAreaOf(b), ["row:fresh", "Group:member"], "the group waits after the last row");
+  assert.ok(orderRecordOf(b)?.v.a, "and its record keeps the row it follows");
+  moveGroupAbove(b, "https://fresh.example/");
+  await b.sync();
+  assert.deepEqual(orderRecordOf(b)?.v, { a: null }, "moving the group settles it");
 });

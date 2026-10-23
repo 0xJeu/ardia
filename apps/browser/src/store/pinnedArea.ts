@@ -36,7 +36,7 @@ function pinnedBlocks(s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow
 
 export type Anchors = Map<string, string | null>;
 
-function anchorsOf(keys: string[]): Anchors {
+export function anchorsOf(keys: string[]): Anchors {
   const anchors: Anchors = new Map();
   let row: string | null = null;
   for (const key of keys) {
