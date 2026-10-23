@@ -1687,3 +1687,64 @@ test("Macs holding the same waiting record show the same order, whatever they sh
   assert.deepEqual(pinnedAreaOf(b), pinnedAreaOf(c));
   assert.deepEqual(pinnedAreaOf(b), ["row:row", "Group:member"]);
 });
+
+for (const [label, edit] of [
+  ["a title change", (t) => S().updateTab(t.id, { customTitle: "Renamed X" })],
+  ["a favicon change", (t) => S().updateTab(t.id, { customIcon: "symbol:star" })],
+]) {
+  test(`${label} on a row whose marker is on its way doesn't end the wait for it`, async () => {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const b = new Device("devB", folder);
+    a.with(() => {
+      const w = S().createWindow({ url: "https://home.example/" });
+      const open = (h) => S().newTab(w, { url: `https://${h}.example/`, background: true });
+      const [x, row, member] = ["x", "row", "member"].map(open);
+      S().pinTabs([x], true);
+      S().pinTabs([row], true, true);
+      S().groupTabs([member], { pinned: true, name: "Group" });
+    });
+    b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+    await syncAll([a, b]);
+    const known = new Set(folder.files.keys());
+    const at = (url) => Object.values(S().tabs).find((t) => t.pinnedUrl === url);
+    a.with(() => S().placeTabs([at("https://x.example/").id], { pinned: true, row: true, beforeId: at("https://row.example/").id }));
+    await a.sync();
+    const promotion = [...folder.files.keys()].filter((id) => !known.has(id));
+    moveGroupAbove(a, "https://row.example/");
+    await a.sync();
+    a.with(() => edit(at("https://x.example/")));
+    await a.sync();
+    promotion.forEach((id) => folder.hidden.add(id));
+    await b.sync();
+    await b.sync();
+    folder.hidden.clear();
+    await syncAll([b, a], 3);
+    assert.deepEqual(pinnedAreaOf(a), ["row:x", "Group:member", "row:row"]);
+    assert.deepEqual(pinnedAreaOf(b), ["row:x", "Group:member", "row:row"]);
+  });
+}
+
+test("only evidence that the anchor left the rows after the order record ends the wait", () => {
+  S().hydrate({});
+  const w = S().createWindow({ url: "https://home.example/" });
+  const row = S().newTab(w, { url: "https://row.example/", background: true });
+  S().pinTabs([row], true, true);
+  const group = S().groupTabs([S().newTab(w, { url: "https://member.example/", background: true })], { pinned: true, name: "Group" });
+  const orderKey = `pord:g:${group}`;
+  const decide = (records) => {
+    const base = (k) => (k === orderKey ? { a: "x" } : undefined);
+    const extraction = adapters.pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
+    return extraction.values.get(orderKey);
+  };
+  const order = { v: { a: "x" }, h: "0mvlhz4qh.0005.devA" };
+  const before = "0mvlhz4qh.0001.devA";
+  const after = "0mvlhz4qh.0009.devA";
+  assert.deepEqual(decide({ [orderKey]: order }), { a: "x" }, "an anchor this Mac never heard of is waited for");
+  assert.deepEqual(decide({ [orderKey]: order, "pin:t:x": { v: null, h: before } }), { a: "x" }, "an older tombstone doesn't end it");
+  assert.deepEqual(decide({ [orderKey]: order, "pin:t:x": { v: { g: null, u: "https://x.example/", t: "New title" }, h: after } }), { a: "x" }, "a newer title change doesn't end it");
+  assert.deepEqual(decide({ [orderKey]: order, "pin:t:x": { v: null, h: after } }), { a: row }, "a newer tombstone does");
+  assert.deepEqual(decide({ [orderKey]: order, "pin:t:x": { v: { g: "other", u: "https://x.example/" }, h: after } }), { a: row }, "so does moving into a group afterwards");
+  assert.deepEqual(decide({ [orderKey]: order, "pinrow:x": { v: 0, h: after } }), { a: row }, "and turning into a tile afterwards");
+  assert.deepEqual(decide({ [orderKey]: order, "pinrow:x": { v: 1, h: after } }), { a: "x" }, "but a newer row marker means it's still a row");
+});

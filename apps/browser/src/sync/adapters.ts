@@ -845,7 +845,10 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
         const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
         const since = stamp(`${PIN_ORDER}${group}`);
         const changedSince = (key: string) => since !== undefined && (stamp(key) ?? "") > since;
-        const settled = !!was?.a && (gone(`pin:t:${was.a}`) || changedSince(`pin:t:${was.a}`) || changedSince(`${PIN_ROW}${was.a}`));
+        const pin = was?.a ? (remote(`pin:t:${was.a}`) as PinValue | null | undefined) : undefined;
+        const leftRows = !!was?.a && changedSince(`pin:t:${was.a}`) && (pin === null || (!!pin && pin.g !== null));
+        const madeTile = !!was?.a && changedSince(`${PIN_ROW}${was.a}`) && remote(`${PIN_ROW}${was.a}`) !== ROW;
+        const settled = leftRows || madeTile;
         const waiting = !(orderChoiceKey(group) in chosen) && !!was?.a && was.a !== a && !rows.has(was.a) && !settled;
         values.set(`${PIN_ORDER}${group}`, waiting ? was! : ({ a } satisfies PinOrderValue));
       }
