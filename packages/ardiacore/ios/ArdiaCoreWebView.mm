@@ -1116,6 +1116,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   tab.delegate = self;
   [ArdiaCoreTabs setView:self forTab:tab];
   [self markTemporary];
+  [self pushPeekModifier];
   [self bindRestoreKey];
   [self takePageReports];
   [self userSightChanged];
