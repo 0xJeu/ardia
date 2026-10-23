@@ -4,12 +4,13 @@ import { rootOf } from "./groups";
 import { engineProfile, pinnedFirst } from "./model";
 import { forgetOpeners, switchKeepsOpeners } from "./openers";
 import { groupOf, placing, withGroup } from "./organize";
+import { isPeekTab, withoutPeek } from "./peek";
 import { settleMovedPins } from "./pinMirror";
 import { splitOf } from "./splits";
 import { activated, apply, removeTabs } from "./tabs";
 
 type Keyed = StripTab & { key: string };
-const known = (s: BrowserState, t: StripTab | undefined): t is Keyed => !!t?.key && !!s.tabs[t.key];
+const known = (s: BrowserState, t: StripTab | undefined): t is Keyed => !!t?.key && !!s.tabs[t.key] && !isPeekTab(s, t.key);
 
 const chromeGroupOf = (s: BrowserState, key: string | undefined) => {
   const g = groupOf(s, key);
@@ -270,7 +271,7 @@ function show(s: BrowserState, key: string): BrowserState {
   const w = s.windows[tab.windowId];
   if (!w || w.profileId !== tab.profileId) return s;
   const shown = w.activeTabIds[tab.profileId];
-  if (shown === key || (shown && splitOf(s, shown)?.tabIds.includes(key))) return s;
+  if (shown === key || (shown && splitOf(s, shown)?.tabIds.includes(key))) return s.peeks[w.id] ? withoutPeek(s, w.id) : s;
   let next = apply(s, activated(s, key));
   if (shown && !switchKeepsOpeners(s, shown, key)) next = forgetOpeners(next, w.id);
   return next;
@@ -288,7 +289,8 @@ export function stripPlan(s: BrowserState, strip: StripState): StripPlan | null 
   const keys = w.tabIds.filter((id) => inStrip.has(id));
   const pinned = keys.filter((id) => s.tabs[id]!.pinned);
   const profiles = [w.profileId, ...new Set(keys.map((id) => s.tabs[id]!.profileId))];
-  const active = profiles.map((p) => w.activeTabIds[p]).find((id) => !!id && inStrip.has(id)) ?? null;
+  const peek = s.peeks[windowId]?.tabId;
+  const active = peek && strip.tabs.some((t) => t.key === peek) ? peek : (profiles.map((p) => w.activeTabIds[p]).find((id) => !!id && inStrip.has(id)) ?? null);
   return { keys: [...pinned, ...keys.filter((id) => !s.tabs[id]!.pinned)], pinned: pinned.length, active };
 }
 

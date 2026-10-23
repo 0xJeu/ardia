@@ -623,3 +623,19 @@ test("a nested group's tab moved by Chrome to the end of the strip, still in its
   assert.ok(token);
   assert.deepEqual(["c", "e", "d"].map((u) => chromeGroupOf(win.strip, u)), [token, token, token], "the moved tab keeps the root's Chrome group");
 });
+
+test("Chrome selecting a Peek's source dismisses the Peek instead of bouncing back to it", async () => {
+  const win = windowWith("a", "b");
+  await settle(win);
+  const [a] = S().windows[win.w].tabIds;
+  const peek = S().openPeek(a, "https://p.com/");
+  chrome.create(win.strip, peek);
+  await settle(win);
+  assert.equal(chromeShown(win.strip), "p");
+  chrome.activate(a);
+  await settle(win);
+  assert.equal(S().peeks[win.w], undefined);
+  assert.equal(S().tabs[peek], undefined);
+  assert.equal(shown(win.w), "a");
+  assert.equal(chromeShown(win.strip), "a");
+});

@@ -5,6 +5,7 @@ import { createGroupsSlice, settleNesting, type GroupsSlice } from "./groups";
 import { createHistorySlice, type HistorySlice } from "./history";
 import { IDLE_LIVE, isIncognitoProfile, pinnedFirst } from "./model";
 import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, livePinTable, notePinChoices, type OrganizeSlice } from "./organize";
+import { createPeekSlice, settlePeeks, type PeekSlice } from "./peek";
 import { mirrorPins } from "./pinMirror";
 import { settleSharedPins } from "./pinShare";
 import { createProfilesSlice, DEFAULT_PROFILE, engineIdOf, type ProfilesSlice } from "./profiles";
@@ -25,7 +26,8 @@ export type BrowserState = ProfilesSlice &
   HistorySlice &
   BookmarksSlice &
   SettingsSlice &
-  UiSlice & {
+  UiSlice &
+  PeekSlice & {
     hydrate(data: HydrateData): void;
   };
 
@@ -88,6 +90,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
   ...createBookmarksSlice(...a),
   ...createSettingsSlice(...a),
   ...createUiSlice(...a),
+  ...createPeekSlice(...a),
 
   hydrate(data) {
     const [set, get] = a;
@@ -165,6 +168,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       bookmarksReady: Object.fromEntries(Object.keys(data.bookmarks?.roots ?? {}).filter((p) => profiles[p]).map((p) => [p, true as const])),
       downloads: data.downloads ?? [],
       windowUi: {},
+      peeks: {},
       find: {},
       ui: {
         ...s.ui,
@@ -194,6 +198,11 @@ useBrowser.subscribe((s, prev) => {
   const pinChoices = livePinTable(s.pinChoices, s);
   const pinSync = livePinTable(s.pinSync, s);
   if (pinChoices !== s.pinChoices || pinSync !== s.pinSync) useBrowser.setState({ pinChoices, pinSync });
+});
+
+useBrowser.subscribe((s, prev) => {
+  const next = settlePeeks(s, prev);
+  if (next) useBrowser.setState(next);
 });
 
 let mirroring = 0;
