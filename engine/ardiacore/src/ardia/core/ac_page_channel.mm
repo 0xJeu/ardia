@@ -35,6 +35,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "ardia/core/ac_browser.h"
+#include "ardia/core/ac_page_limits.h"
 #import "ardia/core/ardiacore_internal.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
@@ -57,12 +58,6 @@ constexpr size_t kMaxHeld = 64;
 constexpr size_t kMaxHeldBytes = 16 * 1024;
 constexpr size_t kMaxHeldTotalBytes = 256 * 1024;
 
-size_t MaxMessageBytes(const std::string& kind) {
-  if (kind == "notification" || kind == "nowPlaying") {
-    return 1280 * 1024;
-  }
-  return 64 * 1024;
-}
 
 const std::vector<std::string_view>* HeldFields(const std::string& kind) {
   static const base::NoDestructor<std::map<std::string, std::vector<std::string_view>>>
@@ -279,7 +274,8 @@ void PageChannel::Bind(content::RenderFrameHost* frame,
 
 void PageChannel::Post(const std::string& kind, const std::string& json) {
   content::RenderFrameHost& frame = receivers_.CurrentTargetFrame();
-  if (kind.size() > 32 || json.size() > MaxMessageBytes(kind)) {
+  if (kind.size() > kMaxPageMessageKind ||
+      json.size() > MaxPageMessageBytes(kind)) {
     return;
   }
   if (kind == "notification" && !MayShowNotification(frame)) {

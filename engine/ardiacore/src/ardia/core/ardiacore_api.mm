@@ -65,7 +65,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/sessions/content/session_tab_helper.h"
-#include "content/public/browser/media_session.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -2326,12 +2325,6 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   ardiacore::PageChannel::GetOrCreate(_contents)->EnterPictureInPicture(
       base::BindOnce([](void (^completion)(BOOL), bool requested) { completion(requested); },
                      completion));
-}
-
-- (void)enterAutoPictureInPicture {
-  if (_contents) {
-    content::MediaSession::Get(_contents)->EnterAutoPictureInPicture();
-  }
 }
 
 - (void)callPage:(NSString*)kind json:(NSString*)json {
