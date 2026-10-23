@@ -4,7 +4,7 @@ import { autoGroupName } from "./groupNames";
 import { ancestorIds, canNest, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
 import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, pendingRestore, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
-import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup } from "./types";
+import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup, TileFolder } from "./types";
 
 export type TabPlacement = {
   pinned: boolean;
@@ -12,6 +12,7 @@ export type TabPlacement = {
   beforeId?: string | null;
   groupId?: string | null;
   last?: boolean;
+  tileFolder?: TileFolder | null;
 };
 
 export type GroupPlacement = { pinned: boolean; beforeId?: string | null; parentId?: string | null };
@@ -519,6 +520,11 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
         if (p.pinned) chosen[t.pinKey ?? t.id] = nextPinChoice();
         if (placed) chosen[placeChoiceKey(t.pinKey ?? t.id)] = nextPinChoice();
       }
+    }
+    const folder = p.pinned && !row ? (p.tileFolder === undefined ? tabs[id]!.tileFolder : (p.tileFolder ?? undefined)) : undefined;
+    if (tabs[id]!.tileFolder !== folder) {
+      const { tileFolder: _, ...kept } = tabs[id]!;
+      tabs[id] = folder ? { ...kept, tileFolder: folder } : kept;
     }
   }
   const rest = w.tabIds.filter((id) => !movingSet.has(id));

@@ -63,6 +63,7 @@ export type Tab = {
   customIcon: string | null;
   pinnedUrl: string | null;
   pinnedAsRow?: true;
+  tileFolder?: TileFolder;
   navigation: { url: string; seq: number; userInitiated?: boolean } | null;
   adoptId?: string;
   openerId: string | null;
@@ -74,6 +75,8 @@ export type Tab = {
   createdAt: number;
   lastActiveAt: number;
 };
+
+export type TileFolder = { id: string; name: string };
 
 export type TabLive = {
   isLoading: boolean;
@@ -135,7 +138,7 @@ export type TabSnapshot = Pick<
   Tab,
   "url" | "title" | "favicon" | "pinned" | "muted" | "zoom" | "customTitle" | "customIcon" | "profileId"
 > &
-  Partial<Pick<Tab, "pinnedUrl" | "pinnedAsRow">>;
+  Partial<Pick<Tab, "pinnedUrl" | "pinnedAsRow" | "tileFolder">>;
 
 export type ClosedTab = {
   kind: "tab";

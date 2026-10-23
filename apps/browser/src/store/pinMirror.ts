@@ -61,7 +61,8 @@ function chainOf(x: Pick<Section, "groups">, key: string | null): string[] {
   return out;
 }
 
-const tileSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}\u0001${t.pinnedAsRow ? "r" : ""}`;
+const tileSig = (t: Tab) =>
+  `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}\u0001${t.pinnedAsRow ? "r" : ""}\u0001${t.tileFolder?.id ?? ""}\u0001${t.tileFolder?.name ?? ""}`;
 const memberSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}`;
 function signature(x: Section): string {
   const shown = new Set<string>();
@@ -94,7 +95,7 @@ function hasDuplicates(x: Section): boolean {
   return !!x.duplicate || new Set(tabs).size < tabs.length;
 }
 
-const PIN_FIELDS = ["pinned", "pinnedUrl", "pinnedAsRow", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
+const PIN_FIELDS = ["pinned", "pinnedUrl", "pinnedAsRow", "tileFolder", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
 function pinsMayDiffer(s: BrowserState, prev: BrowserState): boolean {
   if (s.windows !== prev.windows || s.groups !== prev.groups) return true;
   if (s.tabs === prev.tabs) return false;
@@ -174,6 +175,7 @@ function copyOf(src: Tab, windowId: string, tile: boolean): Tab {
       pinned: tile,
       pinnedUrl: tile ? src.pinnedUrl || src.url || null : null,
       ...(tile && src.pinnedAsRow ? { pinnedAsRow: true as const } : {}),
+      ...(tile && !src.pinnedAsRow && src.tileFolder ? { tileFolder: src.tileFolder } : {}),
       customTitle: src.customTitle,
       customIcon: src.customIcon,
       muted: src.muted,
@@ -208,7 +210,14 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
       return copy.id;
     }
     used.add(t.id);
-    const patch: Partial<Tab> = { ...keyField(t.id, key), pinned: tile, pinnedAsRow: tile && src.pinnedAsRow ? true : undefined, customTitle: src.customTitle, customIcon: src.customIcon };
+    const patch: Partial<Tab> = {
+      ...keyField(t.id, key),
+      pinned: tile,
+      pinnedAsRow: tile && src.pinnedAsRow ? true : undefined,
+      tileFolder: tile && !src.pinnedAsRow ? src.tileFolder : undefined,
+      customTitle: src.customTitle,
+      customIcon: src.customIcon,
+    };
     if (tile) {
       patch.pinnedUrl = src.pinnedUrl || src.url || null;
       if (!hasPage(t) && !samePage(t.url, homeOf(src))) Object.assign(patch, { url: homeOf(src), title: src.title, favicon: src.favicon });
@@ -241,7 +250,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
   const demoted = leaving.filter((t) => hasPage(t) || shown.has(t.id)).map((t) => t.id);
   const stays = new Set(demoted);
   const gone = leaving.filter((t) => !stays.has(t.id)).map((t) => t.id);
-  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, pinKey: undefined };
+  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, tileFolder: undefined, pinKey: undefined };
   const kept = new Set<string>();
   for (const group of cur.own) {
     if (usedGroups.has(group.id)) continue;

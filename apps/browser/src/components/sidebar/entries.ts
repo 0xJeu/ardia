@@ -2,8 +2,9 @@ import type { BrowserState } from "../../store/browser";
 import { activeTabId, viewTabIds } from "../../store/model";
 import { hiddenEmptyCard } from "../../store/newTabBar";
 import { splitIndex, stableList } from "../../store/structure";
+import { tileCells } from "../../store/tileFolders";
 
-type SidebarEntries = { tiles: string[]; pinned: string[]; list: string[] };
+type SidebarEntries = { tiles: string[]; cells: string[]; pinned: string[]; list: string[] };
 
 const memo = new Map<string, { inputs: unknown[]; result: SidebarEntries }>();
 
@@ -17,9 +18,10 @@ export function sidebarEntries(s: BrowserState, windowId: string, profileId?: st
     const was = cached.result;
     const same = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
     const tiles = same(result.tiles, was.tiles) ? was.tiles : result.tiles;
+    const cells = same(result.cells, was.cells) ? was.cells : result.cells;
     const pinned = same(result.pinned, was.pinned) ? was.pinned : result.pinned;
     const list = same(result.list, was.list) ? was.list : result.list;
-    result = tiles === was.tiles && pinned === was.pinned && list === was.list ? was : { tiles, pinned, list };
+    result = tiles === was.tiles && cells === was.cells && pinned === was.pinned && list === was.list ? was : { tiles, cells, pinned, list };
   }
   memo.set(key, { inputs, result });
   if (memo.size > 8) for (const k of memo.keys()) if (!s.windows[k.split("|")[0]!]) memo.delete(k);
@@ -49,7 +51,7 @@ function computeEntries(s: BrowserState, windowId: string, profileId?: string): 
     if (groupId && s.groups[groupId]!.pinned) pinned.push(entry);
     else list.push(entry);
   }
-  return { tiles, pinned, list };
+  return { tiles, cells: tileCells(s.tabs, tiles), pinned, list };
 }
 
 export function numberedTabs(s: BrowserState, windowId: string): string[] {

@@ -27,6 +27,7 @@ import { DragProvider, DragScope, useDragController, useDragging, useDragItem, u
 import { SidebarDropArea } from "./sidebar/fileDrop";
 import { useClipped, useShift, type ClipSource, type EntryMotion } from "./sidebar/entryMotion";
 import { sidebarEntries } from "./sidebar/entries";
+import { FolderPanel } from "./sidebar/FolderPanel";
 import { GroupBlock } from "./sidebar/GroupBlock";
 import { dismissHover, dismissHoverIn } from "./sidebar/hover";
 import { capture, GhostSlot, ListMotionContext, newCapture, useListMotion } from "./sidebar/listMotion";
@@ -40,6 +41,7 @@ import { SCROLL_EDGE, ScrollEdgeLine, useScrollEdge } from "./sidebar/ScrollEdge
 import { entriesHeight, firstPaintEntries, rowSpan, startsOffScreen, type Section } from "./sidebar/geometry";
 import { measureRow } from "./sidebar/state";
 import { SplitRowItem, TabRowItem } from "./sidebar/TabRow";
+import { closeFolderPanel } from "./sidebar/tileFolderUi";
 import { useSidebarTokens } from "./sidebar/tokens";
 import { toggleNewTabBar } from "./omnibox/newTabBar";
 
@@ -124,6 +126,7 @@ export function Sidebar({ width }: { width: number }) {
                   scrollY.current = y;
                   controller.scrollY = y;
                   dismissHover();
+                  closeFolderPanel();
                 }}
               />
             ))}
@@ -176,6 +179,7 @@ export function Sidebar({ width }: { width: number }) {
               <PinSlotZone />
             )
           ) : null}
+          <FolderPanel windowId={windowId} />
           {ghost ? <DragGhost ghost={ghost} /> : null}
         </SidebarDropArea>
       )}
@@ -211,7 +215,7 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
     return () => cancelAnimationFrame(frame);
   }, [beside]);
   const offScreen = beside && !current;
-  const tiles = useBrowser((s) => (offScreen ? NONE : sidebarEntries(s, windowId, profileId).tiles));
+  const tiles = useBrowser((s) => (offScreen ? NONE : sidebarEntries(s, windowId, profileId).cells));
   const innerWidth = width - layout.sidebarInset * 2;
   const dragging = useDragging() && current;
   const previewed = usePinnedCount(tiles);

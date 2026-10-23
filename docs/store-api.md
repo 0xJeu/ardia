@@ -32,6 +32,12 @@ modules before using them — this is a summary from the agent that built it.
   that differ at launch). Copies it makes are unloaded; a copy it drops goes if it never loaded, else stays as a regular
   tab. Moving a pinned tab between windows (`moveTabsInto`, an extension's move) leaves a copy behind
   (`settleMovedPins`). Sync keys pins by `pinKey` and changes the home window's copy.
+- Tile folders (store/tileFolders.ts): a pinned tile's `tileFolder` (`{ id, name }`) puts it in a folder tile in Top Apps; a
+  folder is the tiles of a window that share an id, kept next to each other in the window's order. `addToTileFolder`,
+  `newTileFolder`, `leaveTileFolder`, `renameTileFolder` and `dissolveTileFolder` are pure (state in, state out);
+  `placeTabs({ tileFolder })` sets it, `null` takes a tab out, and leaving it out keeps it. A tab that stops being a tile
+  loses it, and a folder that drops to one tab dissolves (`settleTileFolders`, run with the pin mirror). It never reaches
+  Chrome: members are plain pinned tabs there. Mirrored, parked and synced with the pins (`tilefold:` records).
 - UI: `ui.focusedWindowId`, `ui.focusOrder`, `ui.lastProfileId` (the regular profile of the window used last, a private
   window counting as its `originalProfileId`; saved with the session; read it through `lastActiveProfile(s)`, store/small.ts),
   `ui.appDark`, `windowUi[windowId]` (command panel, downloads popover), `find[tabId]`.

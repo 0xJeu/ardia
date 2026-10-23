@@ -35,6 +35,7 @@ import {
   profilesAdapter,
   settingsAdapter,
   sharedDataAdapter,
+  tileFoldersAdapter,
   type DeviceRecord,
   type DeviceTabs,
   type ProfileRecord,
@@ -284,6 +285,7 @@ function profileAdapters(profileId: string, retiring: boolean): Adapter[] {
   let passwords = passwordAdapters.get(profileId);
   if (!passwords) passwordAdapters.set(profileId, (passwords = passwordsAdapter(profileId, () => forcePasswords)));
   return [
+    ...(t.pinned ? [tileFoldersAdapter(profileId)] : []),
     ...(t.pinned ? [pinnedRowsAdapter(profileId), pinnedOrderAdapter(profileId), inTodaysNames(pinnedAdapter(profileId))] : []),
     ...(t.bookmarks && ownsData ? [inTodaysNames(bookmarksAdapter(profileId))] : []),
     ...(t.history && ownsData ? [inTodaysNames(historyAdapter(profileId))] : []),

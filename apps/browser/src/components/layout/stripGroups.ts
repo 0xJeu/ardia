@@ -4,6 +4,7 @@ import { tabLabel, viewTabIds } from "../../store/model";
 import { hiddenEmptyCard } from "../../store/newTabBar";
 import { groupLabel } from "../../store/organize";
 import { groupIndex, splitIndex, stableList } from "../../store/structure";
+import { folderMembers, tileFolderOf } from "../../store/tileFolders";
 import { groupEntries } from "../sidebar/entries";
 import { springParams } from "./swipeMotion";
 
@@ -145,9 +146,17 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
   const seen = new Set<string>();
   const dock: string[] = [];
   const out: string[] = [];
+  const activeId = s.windows[windowId]?.activeTabIds[profileId];
   for (const id of viewTabIds(s, windowId, profileId)) {
     const t = s.tabs[id]!;
     if (hiddenEmptyCard(s, t)) continue;
+    const tileFolder = tileFolderOf(t);
+    if (tileFolder) {
+      if (!seen.has(`tf:${tileFolder.id}`)) dock.push(`tilefolder:${tileFolder.id}:${folderMembers(s, windowId, tileFolder.id).join(",")}`);
+      seen.add(`tf:${tileFolder.id}`);
+      if (id === activeId) dock.push(`pinned:${id}`);
+      continue;
+    }
     if (t.pinned) {
       dock.push(`pinned:${id}`);
       continue;
@@ -175,6 +184,14 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
   stripMemo.set(key, { inputs, result });
   if (stripMemo.size > 8) for (const k of stripMemo.keys()) if (!s.windows[k.split("|")[0]!]) stripMemo.delete(k);
   return result;
+}
+
+export function tileFolderMenuItems(s: BrowserState, windowId: string, folderId: string, activeId: string | undefined): MenuItem[] {
+  return [
+    ...folderMembers(s, windowId, folderId).map((id): MenuItem => ({ id: `t:${id}`, title: tabLabel(s.tabs[id]!), checked: id === activeId })),
+    { separator: true },
+    { id: "rename", title: "Rename Folder…", symbol: "character.cursor.ibeam" },
+  ];
 }
 
 export function folderMenuItems(s: BrowserState, groupId: string, activeId: string | undefined): MenuItem[] {

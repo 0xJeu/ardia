@@ -8,6 +8,7 @@ import { createOrganizeSlice, forgetClosedPrivateWindows, keptDeletedGroups, liv
 import { createPeekSlice, settlePeeks, type PeekSlice } from "./peek";
 import { mirrorPins } from "./pinMirror";
 import { settleSharedPins } from "./pinShare";
+import { settleTileFolders } from "./tileFolders";
 import { createProfilesSlice, DEFAULT_PROFILE, engineIdOf, type ProfilesSlice } from "./profiles";
 import { createSettingsSlice, DEFAULT_SETTINGS, migrateSavedSettings, type SettingsSlice } from "./settings";
 import { createSplitsSlice, sanitizeSplits, type SplitsSlice } from "./splits";
@@ -112,8 +113,14 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
     for (const t of Object.values(data.tabs ?? {})) {
       if (!rawWindows[t.windowId] || !profileOk(t.profileId)) continue;
       const { adoptId: _, pageIn: _held, ...rest } = t;
-      const { pinnedAsRow, ...kept } = rest;
-      tabs[t.id] = { ...kept, ...(pinnedAsRow && kept.pinned ? { pinnedAsRow } : {}), navigation: null, pinnedUrl: kept.pinnedUrl ?? (kept.pinned ? kept.url || null : null) };
+      const { pinnedAsRow, tileFolder, ...kept } = rest;
+      tabs[t.id] = {
+        ...kept,
+        ...(pinnedAsRow && kept.pinned ? { pinnedAsRow } : {}),
+        ...(tileFolder && kept.pinned && !pinnedAsRow ? { tileFolder } : {}),
+        navigation: null,
+        pinnedUrl: kept.pinnedUrl ?? (kept.pinned ? kept.url || null : null),
+      };
     }
     const windows: Record<string, BrowserWindow> = {};
     for (const w of Object.values(rawWindows)) {
@@ -208,7 +215,8 @@ useBrowser.subscribe((s, prev) => {
 let mirroring = 0;
 useBrowser.subscribe((s, prev) => {
   if (mirroring > 3) return;
-  const settled = settleSharedPins(s, prev);
+  const shared = settleSharedPins(s, prev);
+  const settled = settleTileFolders(shared ?? s, prev) ?? shared;
   const next = mirrorPins(settled ?? s, prev) ?? settled;
   if (!next) return;
   mirroring++;

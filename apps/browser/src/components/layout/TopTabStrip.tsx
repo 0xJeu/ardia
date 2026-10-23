@@ -20,7 +20,10 @@ import { ProfileSwipeArea } from "./ProfileSwipe";
 import { openNewTabInSplit } from "./splitActions";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { setMeasuredWidth, useMeasuredWidth, useMeasuredWidths } from "./measuredWidths";
-import { openFolderMenu } from "./stripFolderMenu";
+import { openFolderMenu, openTileFolderStripMenu } from "./stripFolderMenu";
+import { FolderMosaic } from "../sidebar/FolderTile";
+import { openTileFolderMenu } from "../sidebar/tileFolderUi";
+import { folderCell, folderIdOfCell, folderIn, folderLabel } from "../../store/tileFolders";
 import { usePeek } from "./usePeek";
 import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "./dockMotion";
 import {
@@ -76,7 +79,7 @@ const FloatingStrip = createContext(false);
 
 type Member = { kind: "tab"; id: string; group: string | null } | { kind: "split" | "folder"; id: string; tabIds: string[]; group: string | null };
 type GroupEntry = { kind: "group"; id: string; collapsed: boolean; members: Member[] };
-type Entry = { kind: "dock"; ids: string[] } | GroupEntry | Member;
+type Entry = { kind: "dock"; ids: string[]; members: Map<string, string[]> } | GroupEntry | Member;
 
 const PROFILE_ROOM = 140;
 const DOWNLOADS_BOX = 34;
@@ -271,8 +274,9 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   );
   const slotOf = (id: string) => top.slots.findIndex((slot) => slot.tabIds[0] === id);
   const dockIds = parsed.flatMap((e) => (e.kind === "dock" ? e.ids : []));
+  const dockTabs = (cell: string) => parsed.find((e) => e.kind === "dock")?.members.get(cell) ?? [cell];
   const grow = useRef(new Animated.Value(0)).current;
-  const dockGeometry = useMemo(() => dragGeometry(dockIds.map((id) => ({ tabIds: [id], width: PINNED_CELL })), PINNED_SPACING), [dockIds.join()]);
+  const dockGeometry = useMemo(() => dragGeometry(dockIds.map((id) => ({ tabIds: dockTabs(id), width: PINNED_CELL })), PINNED_SPACING), [entries.filter((e) => e.startsWith("pinned:") || e.startsWith("tilefolder:")).join()]);
   const strip: Strip = { top, chip, grow, dock: dockIds.length ? { ids: dockIds, left: -(dockWidth(dockIds.length) + DOCK_GAP), geometry: dockGeometry } : null };
   const incoming = useIncomingTab(windowId, current, top);
   let slotIndex = 0;
@@ -330,10 +334,13 @@ function parseEntries(keys: string[]): Entry[] {
   const groups = new Map<string, GroupEntry>();
   for (const key of keys) {
     const [kind, id, a, b] = key.split(":");
-    if (kind === "pinned") {
+    if (kind === "pinned" || kind === "tilefolder") {
+      const cell = kind === "tilefolder" ? folderCell(id!) : id!;
       const last = out[out.length - 1];
-      if (last?.kind === "dock") last.ids.push(id!);
-      else out.push({ kind: "dock", ids: [id!] });
+      const dock = last?.kind === "dock" ? last : { kind: "dock" as const, ids: [], members: new Map<string, string[]>() };
+      if (dock !== last) out.push(dock);
+      dock.ids.push(cell);
+      if (kind === "tilefolder") dock.members.set(cell, a!.split(","));
       continue;
     }
     if (kind === "group") {
@@ -474,7 +481,7 @@ function tabIn(strip: () => Strip | null, from: number, width: number): Cross {
         dx: target - (s.top.lefts[from]! + grab - PINNED_CELL / 2),
         commit: () => {
           settleStrip(s);
-          useBrowser.getState().placeTabs(ids, { pinned: true, beforeId: s.dock!.ids[j] ?? null });
+          useBrowser.getState().placeTabs(ids, { pinned: true, beforeId: s.dock!.geometry.slots[j]?.tabIds[0] ?? null });
         },
       };
     },
@@ -985,9 +992,14 @@ function PinnedDock({ tabIds }: { tabIds: string[] }) {
         }}
       />
       <View style={{ flexDirection: "row", gap: PINNED_SPACING }}>
-        {tabIds.map((id, i) => (
-          <PinnedCell key={id} tabId={id} geometry={geometry} from={i} />
-        ))}
+        {tabIds.map((id, i) => {
+          const folderId = folderIdOfCell(id);
+          return folderId ? (
+            <FolderCell key={id} folderId={folderId} tabIds={geometry.slots[i]?.tabIds ?? []} geometry={geometry} from={i} />
+          ) : (
+            <PinnedCell key={id} tabId={id} geometry={geometry} from={i} />
+          );
+        })}
       </View>
     </View>
   );
@@ -1060,6 +1072,46 @@ function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGe
           <TabChip tabId={tabId} width={strip.chip} dragged />
         </FadeIn>
       )}
+    </Animated.View>
+  );
+}
+
+function FolderCell({ folderId, tabIds, geometry, from }: { folderId: string; tabIds: string[]; geometry: DragGeometry; from: number }) {
+  const theme = useTheme();
+  const windowId = useWindowId();
+  const label = useBrowser((s) => folderLabel(folderIn(s, windowId, folderId)));
+  const { hovered, hoverProps } = useHover();
+  const drag = useStripDrag({
+    tabId: null,
+    ids: () => tabIds,
+    pinned: true,
+    groupId: null,
+    geometry,
+    from,
+    width: PINNED_CELL,
+    gap: PINNED_SPACING,
+    levels: 2,
+    local: true,
+    drop: (dx, ids) => reorder(ids, { tabId: null, ids: () => ids, pinned: true, groupId: null, geometry, from, width: PINNED_CELL, gap: PINNED_SPACING }, dx),
+  });
+  return (
+    <Animated.View ref={drag.ref} {...drag.panHandlers} mouseDownCanMoveWindow={false} style={drag.style}>
+      <View {...hoverProps} tooltip={`${label}\nShow Folder`}>
+        <ContextMenuArea onContextMenu={() => void openTileFolderMenu(windowId, folderId)}>
+          <Pressable onPress={() => void openTileFolderStripMenu(windowId, folderId)}>
+            {({ pressed }) => (
+              <View style={{ width: PINNED_CELL, height: ITEM_HEIGHT - 1, alignItems: "center", justifyContent: "center" }}>
+                {(hovered || pressed) && (
+                  <View style={{ position: "absolute", left: 2, right: 2, top: 2, bottom: 2, borderRadius: 8, backgroundColor: pressed ? theme.tabPressed : theme.tabHover }} />
+                )}
+                <View pointerEvents="none">
+                  <FolderMosaic tabIds={tabIds} />
+                </View>
+              </View>
+            )}
+          </Pressable>
+        </ContextMenuArea>
+      </View>
     </Animated.View>
   );
 }

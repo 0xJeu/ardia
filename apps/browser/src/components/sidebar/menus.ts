@@ -2,7 +2,7 @@ import { showMenu, type MenuItem } from "@ardia/shell";
 import { closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, plural, tabLabel, viewTabIds, windowTitle } from "../../store/model";
+import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinSection, plural, tabLabel, viewTabIds, windowTitle } from "../../store/model";
 import { awayFromPin, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds } from "../../store/organize";
 import { groupPath } from "../../store/groups";
 import { splitOf } from "../../store/splits";
@@ -25,6 +25,7 @@ import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../../sync/menu";
 import { setSidebarUi } from "./state";
+import { newFolderWithTab, removeFromFolder } from "./tileFolderUi";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, nearestGroupColor } from "./tokens";
 
@@ -110,6 +111,11 @@ export async function openTabMenu(windowId: string, tab: Tab) {
     isPinnedRow(tab)
       ? { id: "pinTile", title: "Move to Top Apps", symbol: "app" }
       : { id: "pinRow", title: "Move to Pinned Tabs", symbol: "list.bullet" },
+    ...(pinSection(tab) !== "tile"
+      ? []
+      : tab.tileFolder
+        ? [{ id: "leaveFolder", title: "Remove from Folder", symbol: "folder.badge.minus" }]
+        : [{ id: "newFolder", title: "New Folder with Tab", symbol: "folder.badge.plus" }]),
     { id: "duplicate", title: "Duplicate", symbol: "plus.square.on.square" },
     ...(tab.pinned
       ? []
@@ -149,6 +155,8 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   else if (choice === "pin") s.togglePin(tab.id);
   else if (choice === "pinTile") s.pinTabs([tab.id], true, false);
   else if (choice === "pinRow") s.pinTabs([tab.id], true, true);
+  else if (choice === "newFolder") newFolderWithTab(windowId, tab.id);
+  else if (choice === "leaveFolder") removeFromFolder(tab.id);
   else if (choice === "duplicate") s.duplicateTab(tab.id);
   else if (choice === "ungroupTab") s.removeTabsFromGroup([tab.id]);
   else if (choice === "newGroup") newGroupWithSelection(windowId, [tab.id]);
