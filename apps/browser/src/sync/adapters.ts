@@ -933,7 +933,8 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       const s = store();
       const rows = new Set([...visible].filter(([, v]) => v === ROW).map(([k]) => keyOf(k)));
       const pos = (t: Tab | undefined) => (t ? (base(`pin:t:${pinKeyOf(t)}`) as PinValue | undefined)?.pos : undefined);
-      const touched = new Set([...changed].map(keyOf));
+      const stillMarked = new Set([...visible.keys()].map(keyOf));
+      const touched = new Set([...changed].map(keyOf).filter((key) => stillMarked.has(key)));
       const wants = (key: string, row: boolean | undefined) => touched.has(key) && !!row !== rows.has(key);
       const tabs = { ...s.tabs };
       const windows = { ...s.windows };
