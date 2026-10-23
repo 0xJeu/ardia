@@ -26,7 +26,7 @@ const tree = (groupId) => {
   }
   return out;
 };
-const roots = (w) => sidebarEntries(S(), w).pinnedGroups;
+const roots = (w) => sidebarEntries(S(), w).pinned.filter((e) => e.startsWith("g:")).map((e) => e.slice(2));
 
 function start() {
   S().hydrate({ bookmarks: { nodes: {}, roots: {} } });

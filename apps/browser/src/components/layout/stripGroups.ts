@@ -129,12 +129,13 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
   const groups = groupIndex(s.groups);
   const splits = splitIndex(s.splits);
   const seen = new Set<string>();
+  const dock: string[] = [];
   const out: string[] = [];
   for (const id of viewTabIds(s, windowId, profileId)) {
     const t = s.tabs[id]!;
     if (hiddenEmptyCard(s, t)) continue;
     if (t.pinned) {
-      out.push(`pinned:${id}`);
+      dock.push(`pinned:${id}`);
       continue;
     }
     const group = groups.get(id);
@@ -150,7 +151,7 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
     }
     out.push(`tab:${id}:${group?.id ?? ""}`);
   }
-  const result = stableList(cached?.result, out);
+  const result = stableList(cached?.result, [...dock, ...out]);
   stripMemo.set(key, { inputs, result });
   if (stripMemo.size > 8) for (const k of stripMemo.keys()) if (!s.windows[k.split("|")[0]!]) stripMemo.delete(k);
   return result;

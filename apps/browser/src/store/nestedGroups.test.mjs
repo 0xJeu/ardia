@@ -4,6 +4,8 @@ const { useBrowser } = await import("./browser.ts");
 const { groupEntries, sidebarEntries, numberedTabs } = await import("../components/sidebar/entries.ts");
 const { nestGroups, orderSections } = await import("./groups.ts");
 const { canMoveGroup } = await import("./organize.ts");
+const { liveAnchors, withLiveFolders } = await import("../components/sidebar/pinnedOrder.ts");
+const { createFolder, removeFolder, updateFolder, useLive } = await import("../live/store.ts");
 
 const S = () => useBrowser.getState();
 const reset = () => S().hydrate({});
@@ -99,7 +101,7 @@ test("a group moves into another group, and never into its own subtree", () => {
   S().moveGroup(two, { pinned: true, parentId: null });
   S().moveGroup(one, { pinned: false, parentId: two });
   assert.equal(S().groups[one].pinned, true, "a nested group takes its root's pin");
-  assert.deepEqual(sidebarEntries(S(), w).pinnedGroups, [two]);
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`g:${two}`]);
 });
 
 test("closing a group closes its subtree, and Recently Closed brings the tree back", () => {
@@ -151,6 +153,29 @@ test("New Nested Group adds a group with a new tab at the end of its parent", ()
   assert.equal(S().windows[w].tabIds.indexOf(S().groups[child].tabIds[0]), 4);
 });
 
+test("pinned rows and pinned groups keep one interleaved order", () => {
+  reset();
+  const { w, ids } = windowWith("a", "b", "c", "d");
+  const [a, b, c] = ids;
+  const g = S().groupTabs([a]);
+  S().pinTabs([b], true, true);
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`t:${b}`, `g:${g}`], "a new row goes after the last row");
+  S().placeTabs([b], { pinned: true, row: true, beforeId: null, last: true });
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`g:${g}`, `t:${b}`], "dropped at the end of the pinned area, after the groups");
+  S().moveGroup(g, { pinned: true, beforeId: b });
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`g:${g}`, `t:${b}`], "a group above every row");
+  S().placeTabs([b], { pinned: true, row: true, beforeId: a });
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`t:${b}`, `g:${g}`]);
+  S().pinTabs([c], true, true);
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`t:${b}`, `t:${c}`, `g:${g}`]);
+  S().placeTabs([c], { pinned: true, row: true, beforeId: null });
+  S().moveGroup(g, { pinned: true, beforeId: c });
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`t:${b}`, `g:${g}`, `t:${c}`]);
+  S().newTab(w, { url: "https://x.com/" });
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`t:${b}`, `g:${g}`, `t:${c}`], "opening a tab keeps the order");
+  assert.deepEqual(hosts(numberedTabs(S(), w)).slice(0, 3), ["b", "a", "c"]);
+});
+
 test("saved groups without parentId load as before; a dangling parentId is dropped", () => {
   reset();
   const { w, outer, inner } = nested();
@@ -160,6 +185,25 @@ test("saved groups without parentId load as before; a dangling parentId is dropp
   assert.equal(S().groups[inner].parentId, undefined);
   assert.deepEqual(sidebarEntries(S(), w).list[0], `t:${S().windows[w].tabIds[0]}`);
   assert.ok(sidebarEntries(S(), w).list.includes(`g:${inner}`));
+});
+
+test("live folders sit after their anchor, at the top for null, at the end when the anchor is gone", () => {
+  const entries = ["t:r1", "g:g1", "t:r2"];
+  const keys = ["t:R1", "g:G1", "t:R2"];
+  const folders = [
+    { id: "top", after: null },
+    { id: "mid", after: "g:G1" },
+    { id: "old" },
+    { id: "lost", after: "t:gone" },
+  ];
+  assert.deepEqual(withLiveFolders(entries, keys, folders), ["lf:top", "t:r1", "g:g1", "lf:mid", "t:r2", "lf:old", "lf:lost"]);
+  const keyOf = (e) => keys[entries.indexOf(e)];
+  assert.deepEqual(liveAnchors(["t:r1", "lf:mid", "lf:top", "g:g1", "t:r2", "lf:old"], keyOf), [
+    { id: "mid", after: "t:R1" },
+    { id: "top", after: "t:R1" },
+    { id: "old", after: "t:R2" },
+  ]);
+  assert.deepEqual(liveAnchors(["lf:a", "t:r1"], keyOf), [{ id: "a", after: null }]);
 });
 
 const chainsOf = (url) =>
@@ -359,4 +403,17 @@ test("nesting repair breaks a parent cycle without leaving an empty group", () =
   assert.ok(Object.values(looped).every((v) => !v.parentId || looped[v.parentId]));
   const holders = Object.values(looped).filter((v) => v.tabIds.includes(ids[1]));
   assert.ok(holders.length >= 1);
+});
+
+test("a live folder whose pinned anchor goes keeps its place under the item above it", () => {
+  reset();
+  const liveStore = useLive.getState;
+  const folder = createFolder("default", "pullRequests");
+  const { w, ids } = windowWith("home", "r1", "r2", "r3");
+  S().placeTabs([ids[1], ids[2], ids[3]], { pinned: true, row: true, beforeId: null });
+  updateFolder(folder, { after: `t:${ids[2]}` });
+  S().placeTabs([ids[2]], { pinned: false, beforeId: null });
+  assert.equal(liveStore().folders[folder].after, `t:${ids[1]}`, "it stays under r1, not at the end");
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`t:${ids[1]}`, `t:${ids[3]}`]);
+  removeFolder(folder);
 });

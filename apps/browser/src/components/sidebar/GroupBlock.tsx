@@ -10,7 +10,7 @@ import { MeetingTimeLabel, useMeetingCountdown } from "../live/MeetingCountdown"
 import { HoverSlot } from "../HoverSlot";
 import { IconButton } from "../primitives";
 import { commitRename, endRename, startRename } from "./actions";
-import { useDragItem, useDropInto } from "./dnd";
+import { useDragFolded, useDragItem, useDropInto } from "./dnd";
 import { useShift, type EntryMotion } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
 import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_PAD, GROUP_RADIUS, keptEntry } from "./geometry";
@@ -39,7 +39,8 @@ export const GroupBlock = memo(function GroupBlock({
 }) {
   const windowId = useWindowId();
   const tokens = useSidebarTokens();
-  const collapsed = useBrowser((s) => !!s.groups[groupId]?.collapsed);
+  const stored = useBrowser((s) => !!s.groups[groupId]?.collapsed);
+  const collapsed = useDragFolded(`g:${groupId}`) || stored;
   const color = useBrowser((s) => s.groups[groupId]?.color ?? null);
   const tabIds = useBrowser((s) => s.groups[groupId]?.tabIds.join(",") ?? "");
   const [captured] = useState(newCapture);
@@ -55,7 +56,12 @@ export const GroupBlock = memo(function GroupBlock({
   });
   const profileId = usePageProfileId();
   const activeEntry = useBrowser((s) => keptEntry(s, windowId, profileId, entries));
-  const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed, parentGroup }, undefined, own?.clip);
+  const foldedHeight = () => {
+    const s = useBrowser.getState();
+    const kept = keptEntry(s, windowId, profileId, groupEntries(s, groupId));
+    return GROUP_BORDER * 2 + layout.rowHeight + (kept ? entryHeight(s, windowId, profileId, kept) + PAD : 0);
+  };
+  const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed: stored, foldedHeight, parentGroup }, undefined, own?.clip);
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
 
   const fold = useFold(collapsed);
