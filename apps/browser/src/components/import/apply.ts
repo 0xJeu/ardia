@@ -96,12 +96,37 @@ export function openInWebStore(profileId: string, urls: string[]) {
   urls.forEach((url, i) => useBrowser.getState().newTab(windowId, { url, profileId, background: i > 0 }));
 }
 
+const pageKeys = (tabs: { url: string; pinnedUrl?: string | null }[]): Set<string> =>
+  new Set(tabs.flatMap((t) => [t.url, t.pinnedUrl].filter((u): u is string => !!u).map(pageKey)));
+
+function pinnedPages(profileId: string): Set<string> {
+  const s = useBrowser.getState();
+  const inPinnedGroup = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
+  const pinned = Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pinned || inPinnedGroup.has(t.id)));
+  return pageKeys([...pinned, ...(s.parkedPins[profileId]?.tabs ?? [])]);
+}
+
+function openPages(profileId: string): Set<string> {
+  const s = useBrowser.getState();
+  const open = Object.values(s.tabs).filter((t) => t.profileId === profileId);
+  return pageKeys([...open, ...(s.parkedPins[profileId]?.tabs ?? [])]);
+}
+
 export function importTabs(
   profileId: string,
   tabs: (Pick<ImportedTab, "url" | "title" | "pinned" | "customTitle"> & { row?: boolean })[],
   group: string | null,
 ): number {
-  const usable = tabs.filter((t) => /^(https?|file):/.test(t.url));
+  const pinned = pinnedPages(profileId);
+  const open = openPages(profileId);
+  const usable = tabs.filter((t) => {
+    if (!/^(https?|file):/i.test(t.url)) return false;
+    const seen = t.pinned ? pinned : open;
+    const key = pageKey(t.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   if (!usable.length) return 0;
   const windowId = windowFor(profileId);
   let s = useBrowser.getState();
@@ -158,11 +183,7 @@ function pageKey(url: string): string {
 }
 
 export function importDiaProfile(profileId: string, profile: DiaTabsProfile, what: { pinned: boolean; open: boolean }): number {
-  const have = new Set(
-    Object.values(useBrowser.getState().tabs)
-      .filter((t) => t.profileId === profileId)
-      .flatMap((t) => [t.url, t.pinnedUrl ?? ""].filter(Boolean).map(pageKey)),
-  );
+  const have = openPages(profileId);
   const fresh = (tabs: ImportedTab[]) => tabs.filter((t) => !have.has(pageKey(t.url)));
   let n = what.pinned ? importTabs(profileId, fresh(profile.pinned), null) : 0;
   if (what.open) n += importTabs(profileId, fresh(profile.tabs).map((t) => ({ ...t, pinned: false })), "Imported");
