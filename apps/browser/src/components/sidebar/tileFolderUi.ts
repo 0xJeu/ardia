@@ -12,13 +12,32 @@ export const useFolderPanel = create<{ open: Open | null }>()(() => ({ open: nul
 
 export const folderPanel = () => useFolderPanel.getState().open;
 
+const SAME_CLICK_MS = 500;
+let pressedAway: { folderId: string; at: number } | null = null;
+
 export function closeFolderPanel() {
   if (useFolderPanel.getState().open) useFolderPanel.setState({ open: null });
+}
+
+export function closeFolderPanelIn(windowId: string | undefined): boolean {
+  if (!windowId || folderPanel()?.windowId !== windowId) return false;
+  closeFolderPanel();
+  return true;
+}
+
+export function closeFolderPanelOnPress() {
+  const open = folderPanel();
+  if (!open) return;
+  pressedAway = { folderId: open.folderId, at: Date.now() };
+  closeFolderPanel();
 }
 
 export async function toggleFolderPanel(windowId: string, folderId: string) {
   const open = folderPanel();
   if (open?.windowId === windowId && open.folderId === folderId) return closeFolderPanel();
+  const closedBySameClick = pressedAway?.folderId === folderId && Date.now() - pressedAway.at < SAME_CLICK_MS;
+  pressedAway = null;
+  if (closedBySameClick) return;
   dismissHover();
   const anchor = await measureRow(windowId, folderId);
   if (anchor) useFolderPanel.setState({ open: { windowId, folderId, anchor } });

@@ -38,6 +38,7 @@ import { openFromPage } from "./layout/openFromPage";
 import { dockMoving, useDockMotion } from "./layout/dockMotion";
 import { FrozenPage } from "./layout/frozenPage";
 import { holderOf } from "../store/pinShare";
+import { closeFolderPanelIn } from "./sidebar/tileFolderUi";
 import { setCardAnchor, setUrlAnchor, useAddressBarInSidebar, useTabLayout, useToolbarExtensionsWidths } from "./layout/windowLayout";
 import { NewTabPage } from "./NewTabPage";
 import { EmptyCard } from "./EmptyCard";
@@ -664,7 +665,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { 
         if (command === "search") searchSelection(tabId, text, modifiers);
         else if (command === "copyLinkToHighlight") void copyLinkToSelection(tabId);
         else if (command === "escape" && usePages.getState().popover[tabId]) setPopover(tabId, null);
-        else if (command === "escape" && !closePeekOnEscape(tabId)) closeLittleArdiaOnEscape(tabId);
+        else if (command === "escape" && !closeFolderPanelIn(tab()?.windowId) && !closePeekOnEscape(tabId)) closeLittleArdiaOnEscape(tabId);
       }}
       onPageMessage={(kind, data) => {
         if (kind === "selection") setPageSelection(tabId, data as PageSelection | null);

@@ -1,6 +1,6 @@
-import { ContextMenuArea, FadeLabel, Surface } from "@ardia/shell";
+import { ContextMenuArea, FadeLabel, onAppEvent, OutsidePressArea, setDragEscapeCapture, Surface } from "@ardia/shell";
 import { useEffect, useMemo, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { hex, layout, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
@@ -10,10 +10,10 @@ import { folderIn, folderLabel, folderMembers } from "../../store/tileFolders";
 import { SLIDE } from "../layout/stripReorder";
 import { useHover } from "../primitives";
 import { clickTab, tabTitle } from "./actions";
-import { useDragController, useDragItem, useFolderAway } from "./dnd";
+import { useDragController, useDragging, useDragItem, useFolderAway } from "./dnd";
 import { openTabMenu } from "./menus";
 import { TabIcon } from "./TabIcon";
-import { closeFolderPanel, openTileFolderMenu, useFolderPanel } from "./tileFolderUi";
+import { closeFolderPanel, closeFolderPanelOnPress, openTileFolderMenu, useFolderPanel } from "./tileFolderUi";
 
 const PANEL_GAP = 6;
 const PANEL_PAD = 6;
@@ -32,6 +32,7 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
   const members = useBrowser(useShallow((s) => folderMembers(s, windowId, folderId)));
   const label = useBrowser((s) => folderLabel(folderIn(s, windowId, folderId)));
   const away = useFolderAway();
+  const dragging = useDragging();
   const [root, setRoot] = useState<Frame | null>(null);
   const shown = useMemo(() => new Animated.Value(0), []);
   const tail = useDragItem("tail:folder", { kind: "tail", tabIds: [], section: "folder" });
@@ -48,6 +49,15 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
   useEffect(() => {
     if (!members.length) closeFolderPanel();
   }, [members.length]);
+  useEffect(() => {
+    if (dragging) return;
+    setDragEscapeCapture(true);
+    const sub = onAppEvent((e) => e.type === "dragEscape" && !controller?.active && closeFolderPanel());
+    return () => {
+      sub.remove();
+      if (!controller?.active) setDragEscapeCapture(false);
+    };
+  }, [dragging, controller]);
   useEffect(
     () =>
       useBrowser.subscribe((s, prev) => {
@@ -66,22 +76,21 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
   if (!root) return null;
 
   return (
-    <>
-      <Pressable pointerEvents={away ? "none" : "auto"} style={StyleSheet.absoluteFill} onPress={closeFolderPanel} />
-      <Animated.View
-        ref={(v: View | null) => {
-          controller?.regions.set("folder", v);
-        }}
-        pointerEvents={away ? "none" : "box-none"}
-        style={{
-          position: "absolute",
-          left: layout.sidebarInset,
-          width: root.w - layout.sidebarInset * 2,
-          top: anchor.y + anchor.height + PANEL_GAP - root.y,
-          opacity: away ? 0 : shown,
-          transform: [{ scale: shown.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
-        }}
-      >
+    <Animated.View
+      ref={(v: View | null) => {
+        controller?.regions.set("folder", v);
+      }}
+      pointerEvents={away ? "none" : "box-none"}
+      style={{
+        position: "absolute",
+        left: layout.sidebarInset,
+        width: root.w - layout.sidebarInset * 2,
+        top: anchor.y + anchor.height + PANEL_GAP - root.y,
+        opacity: away ? 0 : shown,
+        transform: [{ scale: shown.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
+      }}
+    >
+      <OutsidePressArea onOutsidePress={closeFolderPanelOnPress}>
         <Surface
           fill={hex(theme.panel)}
           cornerRadius={12}
@@ -105,8 +114,8 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
             <Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />
           </View>
         </Surface>
-      </Animated.View>
-    </>
+      </OutsidePressArea>
+    </Animated.View>
   );
 }
 
