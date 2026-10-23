@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
 #include "content/public/common/isolated_world_ids.h"
@@ -27,6 +28,7 @@
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
+#include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_script_source.h"
@@ -57,13 +59,17 @@ class ACPageObserver : public content::RenderFrameObserver,
                        public mojom::ACPage {
  public:
   explicit ACPageObserver(content::RenderFrame* frame)
-      : content::RenderFrameObserver(frame) {
+      : content::RenderFrameObserver(frame), registered_frame_(frame) {
+    Observers()[frame] = this;
     frame->GetAssociatedInterfaceRegistry()->AddInterface<mojom::ACPage>(
         base::BindRepeating(&ACPageObserver::BindPage,
                             weak_factory_.GetWeakPtr()));
   }
 
-  ~ACPageObserver() override { AnswerAll(); }
+  ~ACPageObserver() override {
+    Observers().erase(registered_frame_);
+    AnswerAll();
+  }
 
   void OnDestruct() override { delete this; }
 
@@ -76,6 +82,33 @@ class ACPageObserver : public content::RenderFrameObserver,
       render_frame()->GetWebFrame()->ExecuteScript(
           Source(PageColorScript(), "ardia://page-color"));
     }
+    InstallPageScript(context);
+  }
+
+  static ACPageObserver* For(content::RenderFrame* frame) {
+    auto it = Observers().find(frame);
+    return it == Observers().end() ? nullptr : it->second;
+  }
+
+  void RunAtDocumentStart() {
+    if (installed_for_web_ || !IsWebDocument()) {
+      return;
+    }
+    blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+    v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
+    v8::HandleScope handle_scope(isolate);
+    v8::Local<v8::Context> context = frame->MainWorldScriptContext();
+    if (!context.IsEmpty()) {
+      InstallPageScript(context);
+    }
+  }
+
+  bool IsWebDocument() {
+    const GURL url = render_frame()->GetWebFrame()->GetDocument().Url();
+    return url.SchemeIsHTTPOrHTTPS() || url.SchemeIsFile();
+  }
+
+  void InstallPageScript(v8::Local<v8::Context> context) {
     if (PageScript().empty()) {
       return;
     }
@@ -84,6 +117,7 @@ class ACPageObserver : public content::RenderFrameObserver,
     v8::HandleScope handle_scope(isolate);
     v8::Context::Scope context_scope(context);
     receive_.Reset();
+    installed_for_web_ = IsWebDocument();
     base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
     v8::Local<v8::Value> install = frame->ExecuteScriptAndReturnValue(
         Source(PageScript(), "ardia://page-script"));
@@ -112,6 +146,7 @@ class ACPageObserver : public content::RenderFrameObserver,
     }
     receive_.Reset();
     receive_context_.Reset();
+    installed_for_web_ = false;
     AnswerAll();
   }
 
@@ -192,6 +227,12 @@ class ACPageObserver : public content::RenderFrameObserver,
   }
 
  private:
+  static std::map<content::RenderFrame*, ACPageObserver*>& Observers() {
+    static base::NoDestructor<std::map<content::RenderFrame*, ACPageObserver*>>
+        observers;
+    return *observers;
+  }
+
   bool IsMainErrorDocument() {
     if (!render_frame()->IsMainFrame()) {
       return false;
@@ -274,6 +315,8 @@ class ACPageObserver : public content::RenderFrameObserver,
   std::map<int, EvaluateCallback> evaluations_;
   int last_evaluation_ = 0;
   std::string page_color_;
+  bool installed_for_web_ = false;
+  raw_ptr<content::RenderFrame> registered_frame_;
   base::WeakPtrFactory<ACPageObserver> weak_factory_{this};
 };
 
@@ -318,6 +361,14 @@ void ACContentRendererClient::RenderFrameCreated(
     content::RenderFrame* render_frame) {
   ChromeContentRendererClient::RenderFrameCreated(render_frame);
   new ACPageObserver(render_frame);
+}
+
+void ACContentRendererClient::RunScriptsAtDocumentStart(
+    content::RenderFrame* render_frame) {
+  if (ACPageObserver* observer = ACPageObserver::For(render_frame)) {
+    observer->RunAtDocumentStart();
+  }
+  ChromeContentRendererClient::RunScriptsAtDocumentStart(render_frame);
 }
 
 }
