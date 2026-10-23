@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import ExpoModulesCore
 
 public enum OpenURLInbox {
@@ -238,6 +239,7 @@ public class ShellModule: Module {
 
     OnCreate {
       _ = installTextFieldSelectAll
+      _ = installInputSourceKeys
       _ = installScrollViewInsetFix
       _ = installOutsidePressMonitor
       DispatchQueue.main.async { [weak self] in
@@ -1340,6 +1342,26 @@ let installTextFieldSelectAll: Void = {
     if let editor = field.currentEditor() { editor.selectAll(sender) } else { field.selectText(sender) }
   }
   class_addMethod(NSTextField.self, #selector(NSText.selectAll(_:)), imp_implementationWithBlock(block), "v@:@")
+}()
+
+let installInputSourceKeys: Void = {
+  let processKeyBindings = NSSelectorFromString("processInputKeyBindings:")
+  let keyDown = #selector(NSResponder.keyDown(with:))
+  guard NSTextInputContext.responds(to: processKeyBindings), let method = class_getInstanceMethod(NSTextView.self, keyDown) else { return }
+  typealias KeyDown = @convention(c) (NSTextView, Selector, NSEvent) -> Void
+  typealias ProcessKeyBindings = @convention(c) (AnyClass, Selector, NSEvent) -> ObjCBool
+  let original = unsafeBitCast(method_getImplementation(method), to: KeyDown.self)
+  let process = unsafeBitCast(NSTextInputContext.method(for: processKeyBindings), to: ProcessKeyBindings.self)
+  let inputSourceKeys: Set<UInt16> = [UInt16(kVK_JIS_Eisu), UInt16(kVK_JIS_Kana)]
+  let block: @convention(block) (NSTextView, NSEvent) -> Void = { view, event in
+    if inputSourceKeys.contains(event.keyCode) {
+      _ = process(NSTextInputContext.self, processKeyBindings, event)
+    } else {
+      original(view, keyDown, event)
+    }
+  }
+  let imp = imp_implementationWithBlock(block)
+  if !class_addMethod(NSTextView.self, keyDown, imp, method_getTypeEncoding(method)) { method_setImplementation(method, imp) }
 }()
 
 let installScrollViewInsetFix: Void = {
