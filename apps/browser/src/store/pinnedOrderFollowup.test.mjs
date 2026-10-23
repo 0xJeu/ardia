@@ -100,3 +100,14 @@ test("a drop doesn't bring back an anchor that moved to another profile while th
   order.arrangeLive(held);
   assert.deepEqual(sequence(w), ["a", "LF", "c"]);
 });
+
+test("deleting another folder during a held drag doesn't move the folder that's left", () => {
+  const { w, ids } = rows("a", "b", "c");
+  const lf1 = folder("LF1", `t:${ids.a}`);
+  const lf2 = folder("LF2", `t:${ids.b}`);
+  assert.deepEqual(sequence(w), ["a", "LF1", "b", "LF2", "c"]);
+  const held = [`t:${ids.a}`, `lf:${lf1}`, `t:${ids.b}`, `lf:${lf2}`, `t:${ids.c}`];
+  removeFolder(lf1);
+  order.arrangeLive(held);
+  assert.deepEqual(sequence(w), ["a", "b", "LF2", "c"]);
+});

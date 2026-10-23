@@ -54,8 +54,7 @@ const stillPinned = (s: Pick<BrowserState, "tabs" | "groups">, entry: string, pr
 
 export function arrangeLive(sequence: string[]) {
   const s = useBrowser.getState();
-  const folder = sequence.find((e) => e.startsWith(LIVE));
-  const profileId = folder ? live().folders[folder.slice(LIVE.length)]?.profileId : undefined;
+  const profileId = sequence.flatMap((e) => (e.startsWith(LIVE) ? (live().folders[e.slice(LIVE.length)]?.profileId ?? []) : []))[0];
   arrangeFolders(liveAnchors(sequence.filter((e) => stillPinned(s, e, profileId)), (e) => anchorKey(s, e)));
 }
 
