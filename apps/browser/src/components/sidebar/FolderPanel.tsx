@@ -1,4 +1,4 @@
-import { ContextMenuArea, FadeLabel, onAppEvent, OutsidePressArea, setDragEscapeCapture, Surface } from "@ardia/shell";
+import { ContextMenuArea, FadeLabel, OutsidePressArea, Surface } from "@ardia/shell";
 import { useEffect, useMemo, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
@@ -10,7 +10,7 @@ import { folderIn, folderLabel, folderMembers } from "../../store/tileFolders";
 import { SLIDE } from "../layout/stripReorder";
 import { useHover } from "../primitives";
 import { clickTab, tabTitle } from "./actions";
-import { useDragController, useDragging, useDragItem, useFolderAway } from "./dnd";
+import { useDragController, useDragItem, useFolderAway } from "./dnd";
 import { openTabMenu } from "./menus";
 import { TabIcon } from "./TabIcon";
 import { closeFolderPanel, closeFolderPanelOnPress, openTileFolderMenu, useFolderPanel } from "./tileFolderUi";
@@ -32,7 +32,6 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
   const members = useBrowser(useShallow((s) => folderMembers(s, windowId, folderId)));
   const label = useBrowser((s) => folderLabel(folderIn(s, windowId, folderId)));
   const away = useFolderAway();
-  const dragging = useDragging();
   const [root, setRoot] = useState<Frame | null>(null);
   const shown = useMemo(() => new Animated.Value(0), []);
   const tail = useDragItem("tail:folder", { kind: "tail", tabIds: [], section: "folder" });
@@ -49,15 +48,6 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
   useEffect(() => {
     if (!members.length) closeFolderPanel();
   }, [members.length]);
-  useEffect(() => {
-    if (dragging) return;
-    setDragEscapeCapture(true);
-    const sub = onAppEvent((e) => e.type === "dragEscape" && !controller?.active && closeFolderPanel());
-    return () => {
-      sub.remove();
-      if (!controller?.active) setDragEscapeCapture(false);
-    };
-  }, [dragging, controller]);
   useEffect(
     () =>
       useBrowser.subscribe((s, prev) => {

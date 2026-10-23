@@ -1283,7 +1283,7 @@ final class OutsidePressArea: ExpoView {
   fileprivate func pressed(_ event: NSEvent) {
     guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return }
     if let hit = window.contentView?.superview?.hitTest(event.locationInWindow), hit.isDescendant(of: self) { return }
-    onOutsidePress([:])
+    onOutsidePress(["timestamp": event.timestamp * 1000])
   }
 }
 
