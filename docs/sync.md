@@ -208,6 +208,13 @@ Each scope holds a replica: `key → { h: HLC, v: value | null, o: [device, seq]
   the folder after its tombstones were collected (a replay, a late backup restore) brings nothing
   back (tested). There's no format change. A 0.2.10 Mac still takes such records in, but the
   next snapshot from a newer Mac covers them and leaves them out, which removes them there again.
+- **One cycle, publish before apply.** After a pull every adapter publishes what changed locally since the
+  last cycle, and only then do the adapters apply what the pull brought, in order. So a change one adapter's
+  apply makes to state another adapter publishes (the `pinrow:` adapter turning a row whose marker was
+  dropped into a tile) waits for the next cycle, after that adapter has applied the pull too; it can't be
+  published as a local edit over a deletion in the same pull (a pinned row deleted on another Mac while
+  this one was away past tombstone retention came back as a tile; tested). An edit the user makes during
+  the pull is still published before the applies, so it wins over that pull's deletion as before (tested).
 - **A device offline for weeks.** It reads the newest snapshot and whatever logs came after,
   applies them, and publishes its offline edits (tested). The one gap: an edit made offline to a
   record that was deleted elsewhere, whose tombstone was collected more than 45 days ago, comes

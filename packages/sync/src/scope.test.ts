@@ -383,3 +383,65 @@ test("a failed write is retried as the same batch, even when the file did land",
   const files = [...folder.scope("s").values()].map((e) => e.payload);
   assert.equal(files.length, new Set(files).size + 1, "only the batch whose write threw after landing is there twice");
 });
+
+class Pair extends Device {
+  marks = new Map<string, unknown>();
+  override adapters(): Adapter[] {
+    return [
+      {
+        prefix: "mark:",
+        extract: () => ({ values: new Map(this.marks) }),
+        apply: (visible, changed) => {
+          for (const k of changed) {
+            if (visible.has(k)) this.marks.set(k, visible.get(k));
+            else {
+              this.marks.delete(k);
+              const item = `x:${k.slice(5)}`;
+              if (this.store.has(item)) this.store.set(item, `${this.store.get(item)} (unmarked)`);
+            }
+          }
+        },
+      },
+      ...super.adapters(),
+    ];
+  }
+}
+
+test("a deletion in a pull isn't undone by another adapter's apply in the same cycle", async () => {
+  const folder = new Folder();
+  const a = new Pair("devA", folder);
+  const b = new Pair("devB", folder);
+  a.store.set("x:k", "item");
+  a.marks.set("mark:k", 1);
+  await syncAll([a, b]);
+  folder.now += 10;
+  b.store.delete("x:k");
+  b.marks.delete("mark:k");
+  await b.sync();
+  folder.now += 10;
+  await a.sync();
+  assert.equal(a.store.has("x:k"), false, "the item stays deleted, not republished as the other adapter left it");
+  await syncAll([a, b]);
+  assert.equal(b.store.has("x:k"), false);
+  assert.equal(a.store.has("x:k"), false);
+});
+
+test("a local edit typed while files are read still wins over a deletion in that read", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  a.store.set("x:k", "old");
+  await syncAll([a, b]);
+  folder.now += 10;
+  a.store.delete("x:k");
+  await a.sync();
+  folder.now += 10;
+  b.onRead = () => {
+    b.store.set("x:k", "B, typed during the read");
+    b.onRead = undefined;
+  };
+  await b.sync();
+  assert.equal(b.store.get("x:k"), "B, typed during the read");
+  await syncAll([a, b]);
+  assert.equal(a.store.get("x:k"), "B, typed during the read");
+});

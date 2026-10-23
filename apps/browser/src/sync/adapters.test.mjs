@@ -1791,7 +1791,7 @@ async function deletedWhileAway(OldMac, withGroup) {
   }
 }
 
-test.skip("known: a pinned row deleted while a Mac was away past tombstone retention stays deleted when it comes back", async () => {
+test("a pinned row deleted while a Mac was away past tombstone retention stays deleted when it comes back", async () => {
   const { a, c, other } = await deletedWhileAway(Device, false);
   for (const d of [a, c, other]) assert.deepEqual(pinnedAreaOf(d), ["row:r", "row:y"], d.id);
 });
