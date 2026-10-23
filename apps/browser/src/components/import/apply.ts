@@ -1,5 +1,5 @@
-import { savePassword } from "@ardia/ardiacore";
-import type { BookmarkNode as ImportedNode, Credential, DiaTabsProfile, ImportedTab, ImportKind, ImportResult, SafariExport, SpaceSuggestion } from "@ardia/import";
+import { savePassword, storeFavicon } from "@ardia/ardiacore";
+import type { BookmarkNode as ImportedNode, Credential, DiaTabsProfile, ImportedFavicon, ImportedTab, ImportKind, ImportResult, SafariExport, SpaceSuggestion } from "@ardia/import";
 import { addGroupsFromDrafts } from "../../lib/bookmarkGroups";
 import type { BookmarkDraft } from "../../store/bookmarks";
 import type { GroupDraft } from "../../store/draftGroups";
@@ -14,6 +14,7 @@ import { parseArcTheme } from "./arcTheme";
 import { newProfileLiveFolder } from "../../live/engine";
 import { live } from "../../live/store";
 import type { LiveSourceId } from "../../live/types";
+import { pageKey as faviconPageKey } from "../../lib/favicons";
 
 export type ImportCounts = { bookmarks: number; history: number; tabs: number; passwords: number; cookies: number; addresses: number; cards: number };
 
@@ -124,6 +125,24 @@ export function openInWebStore(profileId: string, urls: string[]) {
   urls.forEach((url, i) => useBrowser.getState().newTab(windowId, { url, profileId, background: i > 0 }));
 }
 
+export async function importFavicons(profileId: string, favicons: ImportedFavicon[]): Promise<void> {
+  if (!favicons.length || isIncognitoProfile(profileId) || !useBrowser.getState().profiles[profileId]) return;
+  for (const { page, icon, png } of favicons) {
+    try {
+      await storeFavicon(engineProfile(profileId), faviconPageKey(page), icon, png);
+    } catch {}
+  }
+}
+
+function fallbackFavicon(url: string): string | null {
+  try {
+    const page = new URL(url);
+    return page.protocol === "http:" || page.protocol === "https:" ? `${page.origin}/favicon.ico` : null;
+  } catch {
+    return null;
+  }
+}
+
 export function importTabs(
   profileId: string,
   tabs: (Pick<ImportedTab, "url" | "title" | "pinned" | "customTitle"> & { row?: boolean })[],
@@ -151,7 +170,7 @@ export function importTabs(
       profileId,
       background: true,
       pinned: t.pinned,
-      snapshot: { title: t.title, customTitle: t.customTitle ?? null, ...(t.pinned && t.row ? { pinnedAsRow: true as const } : {}) },
+      snapshot: { favicon: fallbackFavicon(t.url), title: t.title, customTitle: t.customTitle ?? null, ...(t.pinned && t.row ? { pinnedAsRow: true as const } : {}) },
       index: after ? next.windows[windowId]!.tabIds.indexOf(after) + 1 : undefined,
     });
     if (!id) continue;
@@ -199,6 +218,7 @@ export async function applyResult(
   browserName: string,
   onFailed?: (kind: ImportKind) => void,
 ): Promise<ImportCounts> {
+  await importFavicons(profileId, result.favicons);
   const counts = emptyCounts();
   counts.bookmarks += importBookmarks(profileId, result.bookmarks, browserName);
   if (result.history.length) counts.history += importHistory(profileId, result.history);
