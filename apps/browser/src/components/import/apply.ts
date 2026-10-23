@@ -125,11 +125,16 @@ export function openInWebStore(profileId: string, urls: string[]) {
   urls.forEach((url, i) => useBrowser.getState().newTab(windowId, { url, profileId, background: i > 0 }));
 }
 
-export async function importFavicons(profileId: string, favicons: ImportedFavicon[]): Promise<void> {
+export async function importFavicons(profileId: string, favicons: ImportedFavicon[], pages: string[], written: Set<string>): Promise<void> {
   if (!favicons.length || isIncognitoProfile(profileId) || !useBrowser.getState().profiles[profileId]) return;
+  const wanted = new Set(pages.map(faviconPageKey));
   for (const { page, icon, png } of favicons) {
+    const key = faviconPageKey(page);
+    const entry = JSON.stringify([profileId, key]);
+    if (!wanted.has(key) || written.has(entry)) continue;
+    written.add(entry);
     try {
-      await storeFavicon(engineProfile(profileId), faviconPageKey(page), icon, png);
+      await storeFavicon(engineProfile(profileId), key, icon, png);
     } catch {}
   }
 }
@@ -182,6 +187,11 @@ export function importTabs(
   return usable.length;
 }
 
+export function arcSpacePages(space: SpaceSuggestion): string[] {
+  const urls = (nodes: ImportedNode[]): string[] => nodes.flatMap((n) => n.type === "url" ? (n.url ? [n.url] : []) : urls(n.children ?? []));
+  return [...urls(space.pinned), ...space.tabs.map((t) => t.url)];
+}
+
 export function importArcSpace(profileId: string, space: SpaceSuggestion): { tabs: number; bookmarks: number; skipped: number } {
   const links = space.pinned.filter((n) => n.type === "url" && n.url);
   importPullRequestsFolders(profileId, space.pinned);
@@ -217,8 +227,10 @@ export async function applyResult(
   result: ImportResult,
   browserName: string,
   onFailed?: (kind: ImportKind) => void,
+  written: Set<string> = new Set(),
 ): Promise<ImportCounts> {
-  await importFavicons(profileId, result.favicons);
+  const pages = [...result.favorites, ...(result.spaces.length ? [] : result.tabs)].map((t) => t.url);
+  await importFavicons(profileId, result.favicons, pages, written);
   const counts = emptyCounts();
   counts.bookmarks += importBookmarks(profileId, result.bookmarks, browserName);
   if (result.history.length) counts.history += importHistory(profileId, result.history);
