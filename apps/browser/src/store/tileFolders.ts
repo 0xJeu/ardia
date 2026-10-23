@@ -173,6 +173,7 @@ export function settleTileFolders(s: BrowserState, prev: BrowserState): BrowserS
     const current = tabs ?? s.tabs;
     for (const ids of membersByWindow(current, s.windows, touched).values()) {
       const name = ids.map((id) => current[id]!.tileFolder!).reduce((a, b) => (newer(a, b) >= 0 ? a : b));
+      if (name.renamedAt === undefined) continue;
       for (const id of ids) if (!sameFolder(current[id]!.tileFolder, name)) (tabs ??= { ...s.tabs })[id] = withTileFolder(current[id]!, name);
     }
   }

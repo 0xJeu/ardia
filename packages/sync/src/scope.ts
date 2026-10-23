@@ -77,6 +77,7 @@ export type Extraction = {
 
 export type ApplyRecords = {
   known(key: string): boolean;
+  stamp(key: string): HLC | undefined;
   now: number;
   horizon: number;
   joined: boolean;
@@ -340,7 +341,7 @@ async function applyAdapter(state: ScopeState, adapter: Adapter, keys: Set<strin
   applyAs[adapter.prefix] ??= state.joined ? "joined" : "joining";
   let ok: boolean | void = false;
   try {
-    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, now, horizon, joined: applyAs[adapter.prefix] === "joined" });
+    ok = await adapter.apply(view, mine, (key) => parseBase(state.base[key]), { known: (key) => key in state.records, stamp: (key) => state.records[key]?.h, now, horizon, joined: applyAs[adapter.prefix] === "joined" });
   } catch (error) {
     console.warn(`[sync] applying ${adapter.prefix} failed`, error);
   }

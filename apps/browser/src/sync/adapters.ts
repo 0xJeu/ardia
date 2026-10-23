@@ -1,5 +1,5 @@
 import { addHistoryVisits, deleteHistoryUrls, deletePassword, savePassword } from "@ardia/ardiacore";
-import { assignPositions, canonical, SyncNative, type Adapter, type Extraction, type SavedLogin } from "@ardia/sync";
+import { assignPositions, canonical, hlcWall, SyncNative, type Adapter, type Extraction, type SavedLogin } from "@ardia/sync";
 import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../store/bookmarks";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser, type BrowserState } from "../store/browser";
@@ -975,18 +975,25 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
 }
 
 const TILE_FOLDER = "tilefold:";
-type TileFolderValue = { f: string; n: string; t?: number };
+const FOLDER_NAME = `${TILE_FOLDER}n:`;
+type TileFolderValue = { f: string; n: string };
+type FolderNameValue = { n: string };
 
 const syncedFolder = (value: unknown): TileFolder | undefined => {
   const v = value as TileFolderValue | undefined;
-  if (!v || typeof v.f !== "string") return undefined;
-  return { id: v.f, name: typeof v.n === "string" ? v.n : "", ...(typeof v.t === "number" ? { renamedAt: v.t } : {}) };
+  return v && typeof v.f === "string" ? { id: v.f, name: typeof v.n === "string" ? v.n : "" } : undefined;
 };
-const newerName = (a: TileFolder, b: TileFolder) => (a.renamedAt ?? 0) - (b.renamedAt ?? 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+const syncedName = (value: unknown) => {
+  const v = value as FolderNameValue | undefined;
+  return v && typeof v.n === "string" ? v.n : undefined;
+};
 const folderMark = (base: (key: string) => unknown, key: string) => {
   const folder = syncedFolder(base(`${TILE_FOLDER}${key}`));
-  return folder ? { tileFolder: folder } : {};
+  if (!folder) return {};
+  const name = syncedName(base(`${FOLDER_NAME}${folder.id}`));
+  return { tileFolder: name === undefined ? folder : { ...folder, name } };
 };
+const localFolders = new Map<string, Set<string>>();
 
 export function tileFoldersAdapter(profileId: string): Adapter {
   const keyOf = (k: string) => k.slice(TILE_FOLDER.length);
@@ -996,9 +1003,12 @@ export function tileFoldersAdapter(profileId: string): Adapter {
       const s = store();
       const values = new Map<string, unknown>();
       const known = new Set<string>();
+      const named = new Map<string, string>();
       const mark = (key: string, folder: TileFolder | undefined) => {
         known.add(key);
-        if (folder) values.set(`${TILE_FOLDER}${key}`, { f: folder.id, n: folder.name, ...(folder.renamedAt !== undefined ? { t: folder.renamedAt } : {}) } satisfies TileFolderValue);
+        if (!folder) return;
+        values.set(`${TILE_FOLDER}${key}`, { f: folder.id, n: folder.name } satisfies TileFolderValue);
+        if (!named.has(folder.id)) named.set(folder.id, folder.name);
       };
       const unpinned = (key: string) => recorded(`pin:t:${key}`) && remote(`pin:t:${key}`) === null;
       const home = homeWindow(s, profileId);
@@ -1009,36 +1019,53 @@ export function tileFoldersAdapter(profileId: string): Adapter {
         }
       }
       for (const p of s.parkedPins[profileId]?.tabs ?? []) if (!p.groupId && !known.has(p.id)) mark(p.id, p.pinnedAsRow ? undefined : p.tileFolder);
-      return { values, ignore: (k) => !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined && !unpinned(keyOf(k)) } satisfies Extraction;
-    },
-    apply: (visible, changed) => {
-      const s = store();
-      const touched = new Set([...changed].map(keyOf));
-      const named = new Map<string, TileFolder>();
-      for (const v of visible.values()) {
-        const folder = syncedFolder(v);
-        const was = folder && named.get(folder.id);
-        if (folder && (!was || newerName(folder, was) > 0)) named.set(folder.id, folder);
-      }
-      const wanted = (key: string) => {
-        const folder = syncedFolder(visible.get(`${TILE_FOLDER}${key}`));
-        return folder && named.get(folder.id);
+      for (const [folderId, n] of named) values.set(`${FOLDER_NAME}${folderId}`, { n } satisfies FolderNameValue);
+      const had = localFolders.get(profileId) ?? new Set();
+      localFolders.set(profileId, new Set(named.keys()));
+      const ignore = (k: string) => {
+        if (k.startsWith(FOLDER_NAME)) return !had.has(k.slice(FOLDER_NAME.length));
+        return !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined && !unpinned(keyOf(k));
       };
-      const differs = (a: TileFolder | undefined, b: TileFolder | undefined) => a?.id !== b?.id || a?.name !== b?.name || a?.renamedAt !== b?.renamedAt;
+      return { values, ignore } satisfies Extraction;
+    },
+    apply: (visible, changed, base, records) => {
+      const s = store();
+      const touched = new Set([...changed].filter((k) => !k.startsWith(FOLDER_NAME)).map(keyOf));
+      const latest = new Map<string, { name: string; at: string }>();
+      const offer = (folderId: string, name: string, at: string | undefined) => {
+        const was = latest.get(folderId);
+        if (at !== undefined && (!was || at > was.at)) latest.set(folderId, { name, at });
+      };
+      for (const [k, v] of visible) {
+        if (k.startsWith(FOLDER_NAME)) {
+          const name = syncedName(v);
+          if (name !== undefined) offer(k.slice(FOLDER_NAME.length), name, records.stamp(k));
+          continue;
+        }
+        const folder = syncedFolder(v);
+        const before = changed.has(k) ? syncedFolder(base(k)) : undefined;
+        if (folder && before?.id === folder.id && before.name !== folder.name) offer(folder.id, folder.name, records.stamp(k));
+      }
+      const wanted = (folder: TileFolder | undefined): TileFolder | undefined => {
+        const name = folder && latest.get(folder.id);
+        return folder && name ? { id: folder.id, name: name.name, renamedAt: hlcWall(name.at) } : folder;
+      };
+      const differs = (a: TileFolder | undefined, b: TileFolder | undefined) => a?.id !== b?.id || a?.name !== b?.name;
       let tabs: Record<string, Tab> | null = null;
       for (const w of openWindows(s)) {
         for (const id of w.tabIds) {
           const t = s.tabs[id];
-          if (!t?.pinned || t.pinnedAsRow || t.profileId !== profileId || !touched.has(pinKeyOf(t))) continue;
-          const folder = wanted(pinKeyOf(t));
+          if (!t?.pinned || t.pinnedAsRow || t.profileId !== profileId) continue;
+          const folder = touched.has(pinKeyOf(t)) ? wanted(syncedFolder(visible.get(`${TILE_FOLDER}${pinKeyOf(t)}`))) : wanted(t.tileFolder);
           if (differs(t.tileFolder, folder)) (tabs ??= { ...s.tabs })[id] = withTileFolder(t, folder);
         }
       }
       const park = s.parkedPins[profileId];
       const parked = park?.tabs.map((p) => {
-        if (p.groupId || p.pinnedAsRow || !touched.has(p.id) || !differs(p.tileFolder, wanted(p.id))) return p;
+        if (p.groupId || p.pinnedAsRow) return p;
+        const folder = touched.has(p.id) ? wanted(syncedFolder(visible.get(`${TILE_FOLDER}${p.id}`))) : wanted(p.tileFolder);
+        if (!differs(p.tileFolder, folder)) return p;
         const { tileFolder: _, ...rest } = p;
-        const folder = wanted(p.id);
         return folder ? { ...rest, tileFolder: folder } : rest;
       });
       const parkEdited = !!park && parked!.some((p, i) => p !== park.tabs[i]);

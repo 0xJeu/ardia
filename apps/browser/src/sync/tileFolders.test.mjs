@@ -8,6 +8,7 @@ const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
 const shipped = await import("../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
 const { pinnedAdapter: shippedPinnedAdapter } = await import("./fixtures/pinned-v0.2.38.ts");
+const { tileFoldersAdapter: firstTileFoldersAdapter } = await import("./fixtures/tileFolders-a6475c68.ts");
 
 const S = () => useBrowser.getState();
 
@@ -33,10 +34,11 @@ class Folder {
 }
 
 class Device {
-  constructor(id, folder, { legacy = false } = {}) {
+  constructor(id, folder, { legacy = false, first = false } = {}) {
     this.id = id;
     this.folder = folder;
     this.legacy = legacy;
+    this.first = first;
     S().hydrate({});
     this.browser = S();
     this.scope = emptyScope();
@@ -55,7 +57,7 @@ class Device {
     try {
       const list = this.legacy
         ? [shippedPinnedAdapter("default")]
-        : [adapters.tileFoldersAdapter("default"), adapters.pinnedRowsAdapter("default"), adapters.pinnedAdapter("default")];
+        : [(this.first ? firstTileFoldersAdapter : adapters.tileFoldersAdapter)("default"), adapters.pinnedRowsAdapter("default"), adapters.pinnedAdapter("default")];
       const r = await (this.legacy ? shipped.syncScope : syncScope)({ scope: "p", state: this.scope, transport: this.folder.transport(), adapters: list, clock: this.clock, device: this.id });
       return { published: r.published };
     } finally {
@@ -193,7 +195,8 @@ test("a parked folder syncs and comes back as a folder", async () => {
   assert.ok(model);
 });
 
-const liveMarks = (d) => Object.entries(d.scope.records).filter(([k, r]) => k.startsWith("tilefold:") && r.v !== null).map(([k]) => k);
+const liveMarks = (d) => Object.entries(d.scope.records).filter(([k, r]) => k.startsWith("tilefold:") && !k.startsWith("tilefold:n:") && r.v !== null).map(([k]) => k);
+const liveNames = (d) => Object.entries(d.scope.records).filter(([k, r]) => k.startsWith("tilefold:n:") && r.v !== null).map(([, r]) => r.v.n);
 
 test("an older Mac's unpin deletes the folder mark too, so no record outlives its pin", async () => {
   const folder = new Folder();
@@ -208,6 +211,7 @@ test("an older Mac's unpin deletes the folder mark too, so no record outlives it
   await syncAll([old, a, old, a]);
   assert.deepEqual(grid(a), ["mail", "cal"], "docs unpinned, cal alone is a tile");
   assert.deepEqual(liveMarks(a), [], "both marks are gone");
+  assert.deepEqual(liveNames(a), [], "and so is the folder's name");
   assert.equal((await a.sync()).published, 0, "and nothing more to send");
 });
 
@@ -249,4 +253,27 @@ test("a parked folder an older Mac unpins down to one tab comes back as that til
   assert.ok(a.with(() => S().parkedPins.default.tabs.every((p) => !p.tileFolder)), JSON.stringify(a.with(() => S().parkedPins.default.tabs.map((p) => [p.url, p.tileFolder ?? null]))));
   a.with(() => S().createWindow({ profileId: "default" }));
   assert.deepEqual(grid(a, true), ["mail", "cal"]);
+});
+
+test("a rename on a Mac with the first folder build and an add on an updated one end with the rename, and both go quiet", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const first = new Device("devFirst", folder, { first: true });
+  seed(a, ["mail", "cal", "docs"]);
+  a.with(() => act((s) => folders.newTileFolder(s, [tile("mail"), tile("cal")], "Zebra").state));
+  first.with(() => S().createWindow({ url: "https://first-home.example/" }));
+  await syncAll([a, first]);
+  assert.deepEqual(grid(first), ["Zebra[mail,cal]", "docs"]);
+  await new Promise((r) => setTimeout(r, 5));
+  first.with(() => {
+    const w = S().windowOrder[0];
+    const id = S().tabs[tile("mail")].tileFolder.id;
+    useBrowser.setState({ tabs: Object.fromEntries(Object.entries(S().tabs).map(([k, t]) => [k, t.tileFolder?.id === id && t.windowId === w ? { ...t, tileFolder: { id, name: "Alpha" } } : t])) });
+  });
+  a.with(() => act((s) => folders.addToTileFolder(s, [tile("docs")], tile("cal"))));
+  await syncAll([first, a, first, a, first, a]);
+  assert.deepEqual(grid(a), ["Alpha[mail,cal,docs]"]);
+  assert.deepEqual(grid(first), ["Alpha[mail,cal,docs]"]);
+  assert.equal((await a.sync()).published, 0, "the updated Mac settles");
+  assert.equal((await first.sync()).published, 0, "and so does the first build, which never sees a field it would strip");
 });
