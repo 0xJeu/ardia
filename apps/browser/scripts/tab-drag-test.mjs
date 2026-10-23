@@ -549,6 +549,33 @@ try {
     await run(`st().pinTabs(${JSON.stringify(folderTabs)}, false); st().closeTabs(${JSON.stringify(folderTabs)}); return settle(900);`);
   });
 
+  await check("sidebar: a folder tile dragged along the grid takes one slot: no row moves and the grid doesn't grow", async () => {
+    const made = await run(`const ids = ["ga", "gb", "gc", "gd", "ge"].map((n) => st().newTab("w1", { url: "data:text/html,<title>" + n + "</title>" + n, background: true }));
+      const others = st().windows.w1.tabIds.filter((id) => st().tabs[id].pinned && !ids.includes(id)); st().pinTabs(others, false);
+      st().pinTabs(ids, true); st().placeTabs(ids.slice(0, 3), { pinned: true, row: false, beforeId: ids[3], tileFolder: { id: "tf-drag", name: "Drag" } });
+      return settle(1000).then(() => ({ ids, others }));`);
+    try {
+      const tiles = (await run(`${FOLDERS} return cells();`)).filter((t) => t.section === "tiles");
+      assert.equal(tiles.length, 3, JSON.stringify(tiles));
+      assert.ok(tiles.every((t) => t.y === tiles[0].y), "one row");
+      const folder = tiles.find((t) => t.folder === "tf-drag");
+      const last = tiles.at(-1);
+      const seen = await run(`${FOLDERS} const seen = []; const grid = () => new Promise((r) => c.regions.get("tiles").measureInWindow((x, y, w, h) => r(h)));
+        const iv = setInterval(() => Promise.all([cells(), grid()]).then(([l, h]) => seen.push({ count: c.marks.getState().pinCount, h, ys: l.filter((t) => t.section === "tiles" && !c.marks.getState().sources.has(t.key)).map((t) => t.y) })), 30);
+        return act("w1", "windowDrags").then(() => act("w1", "drag:${[centre(folder), [centre(folder)[0] + 8, centre(folder)[1]], [last.x + last.w - 4, centre(folder)[1]], [last.x + last.w - 3, centre(folder)[1]]].map((p) => p.join(",")).join(";")}"))
+          .then(() => settle(1400)).then(() => { clearInterval(iv); return seen; });`);
+      const during = seen.filter((x) => x.count > 0);
+      assert.ok(during.length, "the drag reserved a slot");
+      assert.deepEqual([...new Set(during.map((x) => x.count))], [1], "one slot for the folder");
+      assert.deepEqual([...new Set(seen.flatMap((x) => x.ys))], [tiles[0].y], `no tile leaves the row: ${JSON.stringify(seen.slice(-3))}`);
+      assert.deepEqual([...new Set(seen.map((x) => x.h))], [tiles[0].h], "the grid keeps its height");
+      const after = (await run(`${FOLDERS} return cells();`)).filter((t) => t.section === "tiles");
+      assert.equal(after.at(-1).folder, "tf-drag", "the folder went to the end, still a folder");
+    } finally {
+      await run(`st().pinTabs(${JSON.stringify(made.ids)}, false); st().closeTabs(${JSON.stringify(made.ids)}); st().pinTabs(${JSON.stringify(made.others)}, true); return settle(900);`);
+    }
+  });
+
   const drops = join(scratch, "drops");
   mkdirSync(drops, { recursive: true });
   const crc = (buf) => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; };

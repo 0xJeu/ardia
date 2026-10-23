@@ -76,7 +76,7 @@ export type Tab = {
   lastActiveAt: number;
 };
 
-export type TileFolder = { id: string; name: string };
+export type TileFolder = { id: string; name: string; renamedAt?: number };
 
 export type TabLive = {
   isLoading: boolean;

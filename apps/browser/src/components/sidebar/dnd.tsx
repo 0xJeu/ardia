@@ -448,7 +448,7 @@ class DragController {
     const dragged = new Set(this.sources.flatMap((s) => s.tabIds));
     const firstTab = (i: Item | undefined) => i?.tabIds.find((id) => !dragged.has(id)) ?? null;
     const tabsDrag = source.kind === "row" || source.kind === "tile";
-    const count = this.external || dragged.size;
+    const count = this.external || (source.folderId ? 1 : dragged.size);
     const rowPitch = (boxed(source) ? (source.foldedHeight?.() ?? this.ghost?.height ?? layout.rowHeight) : layout.rowHeight * Math.max(1, this.ghost?.count ?? this.external ?? 1)) + ROW_GAP;
     const blocks = live.filter(pinnedBlock).sort(byY);
     const rest = blocks.map((b) => b.key);

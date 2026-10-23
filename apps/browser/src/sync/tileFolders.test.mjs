@@ -69,9 +69,9 @@ async function syncAll(devices, rounds = 2) {
 }
 
 const host = (t) => new URL(t.pinnedUrl || t.url).hostname.replace(".example", "");
-const grid = (device) =>
+const grid = (device, last = false) =>
   device.with(() => {
-    const w = S().windowOrder[0];
+    const w = last ? S().windowOrder.at(-1) : S().windowOrder[0];
     return sidebarEntries(S(), w).cells.map((c) => {
       const f = folders.folderIdOfCell(c);
       if (!f) return host(S().tabs[c]);
@@ -191,4 +191,62 @@ test("a parked folder syncs and comes back as a folder", async () => {
   b.with(() => S().createWindow());
   assert.deepEqual(grid(b), ["Two[mail,docs,cal]"]);
   assert.ok(model);
+});
+
+const liveMarks = (d) => Object.entries(d.scope.records).filter(([k, r]) => k.startsWith("tilefold:") && r.v !== null).map(([k]) => k);
+
+test("an older Mac's unpin deletes the folder mark too, so no record outlives its pin", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const old = new Device("devOld", folder, { legacy: true });
+  seed(a, ["mail", "cal", "docs"]);
+  a.with(() => act((s) => folders.newTileFolder(s, [tile("cal"), tile("docs")], "Two").state));
+  old.with(() => S().createWindow({ url: "https://old-home.example/" }));
+  await syncAll([a, old]);
+  assert.equal(liveMarks(a).length, 2);
+  old.with(() => S().pinTabs([tile("docs")], false));
+  await syncAll([old, a, old, a]);
+  assert.deepEqual(grid(a), ["mail", "cal"], "docs unpinned, cal alone is a tile");
+  assert.deepEqual(liveMarks(a), [], "both marks are gone");
+  assert.equal((await a.sync()).published, 0, "and nothing more to send");
+});
+
+test("a rename on one Mac and an add on another at the same time end with one name", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  seed(a, ["mail", "cal", "docs"]);
+  a.with(() => act((s) => folders.newTileFolder(s, [tile("mail"), tile("cal")], "Old").state));
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.deepEqual(grid(b), ["Old[mail,cal]", "docs"]);
+  await new Promise((r) => setTimeout(r, 5));
+  a.with(() => act((s) => folders.renameTileFolder(s, S().windowOrder[0], S().tabs[tile("mail")].tileFolder.id, "Renamed")));
+  b.with(() => act((s) => folders.addToTileFolder(s, [tile("docs")], tile("cal"))));
+  await syncAll([b, a, b, a]);
+  assert.deepEqual(grid(a), ["Renamed[mail,cal,docs]"]);
+  assert.deepEqual(grid(b), ["Renamed[mail,cal,docs]"]);
+  b.with(() => S().placeTabs([tile("docs")], { pinned: true, row: false, beforeId: tile("mail") }));
+  assert.deepEqual(grid(b), ["Renamed[docs,mail,cal]"], "whichever member comes first, the name is the folder's");
+});
+
+test("a parked folder an older Mac unpins down to one tab comes back as that tile", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const old = new Device("devOld", folder, { legacy: true });
+  seed(a, ["mail", "cal", "docs"]);
+  a.with(() => act((s) => folders.newTileFolder(s, [tile("cal"), tile("docs")], "Two").state));
+  old.with(() => S().createWindow({ url: "https://old-home.example/" }));
+  await syncAll([a, old]);
+  a.with(() => {
+    const work = S().createProfile({ name: "Work" });
+    S().createWindow({ profileId: work, url: "https://work.example/" });
+    S().closeWindow(S().windowOrder[0]);
+  });
+  assert.ok(a.with(() => S().parkedPins.default.tabs.filter((p) => p.tileFolder).length === 2), "parked as a folder");
+  old.with(() => S().pinTabs([tile("docs")], false));
+  await syncAll([old, a, old, a]);
+  assert.ok(a.with(() => S().parkedPins.default.tabs.every((p) => !p.tileFolder)), JSON.stringify(a.with(() => S().parkedPins.default.tabs.map((p) => [p.url, p.tileFolder ?? null]))));
+  a.with(() => S().createWindow({ profileId: "default" }));
+  assert.deepEqual(grid(a, true), ["mail", "cal"]);
 });
