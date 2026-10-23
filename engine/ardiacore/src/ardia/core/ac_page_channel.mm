@@ -3,10 +3,14 @@
 #import <Foundation/Foundation.h>
 
 #include <algorithm>
+#include <map>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
 #include "base/values.h"
 #include "base/task/bind_post_task.h"
 #include "base/no_destructor.h"
@@ -50,6 +54,30 @@ std::string& Script() {
 }
 
 constexpr size_t kMaxHeld = 64;
+constexpr size_t kMaxHeldBytes = 16 * 1024;
+constexpr size_t kMaxHeldTotalBytes = 256 * 1024;
+
+size_t MaxMessageBytes(const std::string& kind) {
+  if (kind == "notification" || kind == "nowPlaying") {
+    return 1280 * 1024;
+  }
+  return 64 * 1024;
+}
+
+const std::vector<std::string_view>* HeldFields(const std::string& kind) {
+  static const base::NoDestructor<std::map<std::string, std::vector<std::string_view>>>
+      fields({
+          {"hello", {"top", "url"}},
+          {"theme", {"color", "source"}},
+          {"media", {"frame", "playing"}},
+          {"nowPlaying",
+           {"frame", "title", "artist", "album", "artwork", "playbackState",
+            "position", "duration", "playbackRate", "hasVideo", "actions",
+            "controllable", "timestamp"}},
+      });
+  auto it = fields->find(kind);
+  return it == fields->end() ? nullptr : &it->second;
+}
 
 bool MayShowNotification(content::RenderFrameHost& frame) {
   return frame.GetBrowserContext()
@@ -188,6 +216,7 @@ PageChannel::PageChannel(content::WebContents* contents)
 void PageChannel::PrimaryPageChanged(content::Page& page) {
   main_page_.reset();
   held_.clear();
+  held_bytes_ = 0;
   if (auto remote = PageOf(&page.GetMainDocument())) {
     remote->SetPageColor(page_color_);
   }
@@ -250,6 +279,9 @@ void PageChannel::Bind(content::RenderFrameHost* frame,
 
 void PageChannel::Post(const std::string& kind, const std::string& json) {
   content::RenderFrameHost& frame = receivers_.CurrentTargetFrame();
+  if (kind.size() > 32 || json.size() > MaxMessageBytes(kind)) {
+    return;
+  }
   if (kind == "notification" && !MayShowNotification(frame)) {
     return;
   }
@@ -269,6 +301,17 @@ bool PageChannel::Deliver(content::RenderFrameHost& frame,
   id<ArdiaCoreTabDelegate> delegate = tab.delegate;
   NSString* ns_kind = base::SysUTF8ToNSString(kind);
   NSString* ns_json = base::SysUTF8ToNSString(json);
+  if ([delegate respondsToSelector:@selector
+                (tab:didReceivePageMessage:json:frame:main:origin:)]) {
+    [delegate tab:tab
+        didReceivePageMessage:ns_kind
+                         json:ns_json
+                        frame:base::SysUTF8ToNSString(FrameId(&frame))
+                         main:main
+                       origin:base::SysUTF8ToNSString(
+                                  frame.GetLastCommittedOrigin().Serialize())];
+    return true;
+  }
   if ([delegate respondsToSelector:@selector
                 (tab:didReceivePageMessage:json:frame:main:)]) {
     [delegate tab:tab
@@ -292,37 +335,69 @@ void PageChannel::Hold(content::RenderFrameHost& frame,
   if (!frame.GetPage().IsPrimary()) {
     return;
   }
-  std::string key;
+  const std::vector<std::string_view>* fields = HeldFields(kind);
+  if (!fields || json.size() > kMaxHeldBytes) {
+    return;
+  }
+  std::optional<base::Value> value =
+      base::JSONReader::Read(json, base::JSON_PARSE_RFC);
+  if (kind == "nowPlaying" && value && value->is_none()) {
+    const std::string cleared = base::StrCat({FrameId(&frame), "|", kind});
+    if (auto it = held_.find(cleared); it != held_.end()) {
+      held_bytes_ -= it->second.json.size();
+      held_.erase(it);
+    }
+    return;
+  }
+  if (!value || !value->is_dict()) {
+    return;
+  }
+  base::DictValue kept;
+  for (std::string_view field : *fields) {
+    if (const base::Value* found = value->GetDict().Find(field)) {
+      kept.Set(field, found->Clone());
+    }
+  }
+  std::string kept_json;
+  if (!base::JSONWriter::Write(kept, &kept_json) ||
+      kept_json.size() > kMaxHeldBytes) {
+    return;
+  }
   const std::string frame_id = FrameId(&frame);
-  if (kind == "hello" || kind == "theme" || kind == "nowPlaying") {
-    key = base::StrCat({frame_id, "|", kind});
-  } else if (kind == "media") {
-    std::optional<base::Value> value =
-        base::JSONReader::Read(json, base::JSON_PARSE_RFC);
-    const std::string* media_frame =
-        value && value->is_dict() ? value->GetDict().FindString("frame")
-                                  : nullptr;
+  std::string key = base::StrCat({frame_id, "|", kind});
+  if (kind == "media") {
+    const std::string* media_frame = kept.FindString("frame");
     if (!media_frame || media_frame->size() > 64) {
       return;
     }
-    key = base::StrCat({frame_id, "|media|", *media_frame});
-  } else {
+    key = base::StrCat({key, "|", *media_frame});
+  }
+  auto it = held_.find(key);
+  const size_t replaced = it == held_.end() ? 0 : it->second.json.size();
+  if (it == held_.end() && held_.size() >= kMaxHeld) {
     return;
   }
-  if (!held_.contains(key) && held_.size() >= kMaxHeld) {
+  if (held_bytes_ - replaced + kept_json.size() > kMaxHeldTotalBytes) {
     return;
   }
-  held_[key] = Held{frame_id, kind, json};
+  held_bytes_ = held_bytes_ - replaced + kept_json.size();
+  held_[key] = Held{frame_id, kind, std::move(kept_json)};
 }
 
 void PageChannel::ForgetHeld(const std::string& frame_id) {
-  std::erase_if(held_,
-                [&](const auto& entry) { return entry.second.frame_id == frame_id; });
+  std::erase_if(held_, [&](const auto& entry) {
+    if (entry.second.frame_id != frame_id) {
+      return false;
+    }
+    held_bytes_ -= entry.second.json.size();
+    return true;
+  });
 }
 
 void PageChannel::DeliverHeld() {
   std::map<std::string, Held> held = std::move(held_);
   held_.clear();
+  held_bytes_ = 0;
   for (const char* kind : {"hello", "theme", "media", "nowPlaying"}) {
     for (const auto& [key, entry] : held) {
       if (entry.kind != kind) {
@@ -388,7 +463,7 @@ void PageChannel::ExecuteInFrame(const std::string& frame_id,
   if (target->IsInPrimaryMainFrame()) {
     Execute(code);
   } else if (auto page = PageOf(target)) {
-    page->Execute(code, false);
+    page->Execute(code);
   }
 }
 
@@ -406,15 +481,25 @@ void PageChannel::CallFrame(const std::string& frame_id,
   }
 }
 
-void PageChannel::Execute(const std::string& code, bool user_gesture) {
+void PageChannel::Execute(const std::string& code) {
   if (mojom::ACPage* page = MainPage()) {
-    page->Execute(code, user_gesture);
+    page->Execute(code);
   }
+}
+
+void PageChannel::EnterPictureInPicture(base::OnceCallback<void(bool)> callback) {
+  auto answer = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      base::BindPostTaskToCurrentDefault(std::move(callback)), false);
+  mojom::ACPage* page = MainPage();
+  if (!page) {
+    std::move(answer).Run(false);
+    return;
+  }
+  page->EnterPictureInPicture(std::move(answer));
 }
 
 void PageChannel::Evaluate(
     const std::string& code,
-    bool user_gesture,
     base::OnceCallback<void(const std::optional<std::string>&)> callback) {
   auto answer = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       base::BindPostTaskToCurrentDefault(std::move(callback)), std::nullopt);
@@ -423,7 +508,7 @@ void PageChannel::Evaluate(
     std::move(answer).Run(std::nullopt);
     return;
   }
-  page->Evaluate(code, user_gesture, std::move(answer));
+  page->Evaluate(code, std::move(answer));
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(PageChannel);

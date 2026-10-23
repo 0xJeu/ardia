@@ -65,6 +65,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "content/public/browser/media_session.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -1795,14 +1796,10 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
 }
 
 - (void)executeJavaScript:(NSString*)code {
-  [self executeJavaScript:code userGesture:NO];
-}
-
-- (void)executeJavaScript:(NSString*)code userGesture:(BOOL)userGesture {
   if (_contents) {
     ardiacore::EndAheadBlank(_contents);
     ardiacore::PageChannel::GetOrCreate(_contents)->Execute(
-        base::SysNSStringToUTF8(code), userGesture);
+        base::SysNSStringToUTF8(code));
   }
 }
 
@@ -2307,24 +2304,34 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
 }
 
 - (void)evaluate:(NSString*)code completion:(void (^)(NSString*))completion {
-  [self evaluate:code userGesture:NO completion:completion];
-}
-
-- (void)evaluate:(NSString*)code
-     userGesture:(BOOL)userGesture
-      completion:(void (^)(NSString*))completion {
   if (!_contents) {
     completion(nil);
     return;
   }
   ardiacore::EndAheadBlank(_contents);
   ardiacore::PageChannel::GetOrCreate(_contents)->Evaluate(
-      base::SysNSStringToUTF8(code), userGesture,
+      base::SysNSStringToUTF8(code),
       base::BindOnce(
           [](void (^completion)(NSString*), const std::optional<std::string>& json) {
             completion(json ? NS(*json) : nil);
           },
           completion));
+}
+
+- (void)enterPictureInPicture:(void (^)(BOOL))completion {
+  if (!_contents) {
+    completion(NO);
+    return;
+  }
+  ardiacore::PageChannel::GetOrCreate(_contents)->EnterPictureInPicture(
+      base::BindOnce([](void (^completion)(BOOL), bool requested) { completion(requested); },
+                     completion));
+}
+
+- (void)enterAutoPictureInPicture {
+  if (_contents) {
+    content::MediaSession::Get(_contents)->EnterAutoPictureInPicture();
+  }
 }
 
 - (void)callPage:(NSString*)kind json:(NSString*)json {

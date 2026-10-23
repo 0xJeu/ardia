@@ -16,7 +16,11 @@ const shown = new Map<string, string>();
 
 const macId = (n: WebNotification) => (n.tag ? `web:${n.origin}#${n.tag}` : `web:${n.id}`);
 
+const received: WebNotification[] = [];
+if (__DEV__) (globalThis as { acWebNotifications?: unknown }).acWebNotifications = { received };
+
 export function showWebNotification(tabId: string, n: WebNotification) {
+  if (__DEV__) received.push(n);
   const s = useBrowser.getState();
   const tab = s.tabs[tabId];
   const window = tab ? s.windows[tab.windowId] : undefined;

@@ -492,7 +492,8 @@ static BOOL HeldSelector(SEL selector) {
 
 - (void)forwardInvocation:(NSInvocation *)invocation {
   if (!HeldSelector(invocation.selector) || invocation.methodSignature.numberOfArguments < 3) return [super forwardInvocation:invocation];
-  if (invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:)) {
+  if (invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:) ||
+      invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:origin:)) {
     __unsafe_unretained ArdiaCoreTab *tab = nil;
     __unsafe_unretained NSString *kind = nil;
     __unsafe_unretained NSString *json = nil;
@@ -2035,6 +2036,16 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 - (void)tab:(ArdiaCoreTab *)tab didReceivePageMessage:(NSString *)kind json:(NSString *)json frame:(NSString *)frameId main:(BOOL)main {
+  [self tab:tab didReceivePageMessage:kind json:json frame:frameId main:main origin:nil];
+}
+
+- (void)tab:(ArdiaCoreTab *)tab
+    didReceivePageMessage:(NSString *)kind
+                     json:(NSString *)json
+                    frame:(NSString *)frameId
+                     main:(BOOL)main
+                   origin:(NSString *)verifiedOrigin {
+  NSString *sender = verifiedOrigin.length && ![verifiedOrigin isEqualToString:@"null"] ? verifiedOrigin : main ? OriginOf(tab.url) : nil;
   id data = JSONValue(json);
   NSDictionary *dict = [data isKindOfClass:NSDictionary.class] ? data : nil;
   frameId = frameId ?: @"";
@@ -2130,7 +2141,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     if ([pipKind isEqual:@"video"]) ardiacore_pip::VideoChanged(self, [NSURL URLWithString:tab.url ?: @""].host ?: @"", frameId, active.boolValue);
   } else if ([kind isEqualToString:@"notification"] && dict) {
     NSString *nid = Text(dict, @"id", 128);
-    NSString *origin = OriginOf(tab.url);
+    NSString *origin = sender;
     if (!nid.length || !Text(dict, @"title", 1024) || !origin) return;
     if (!_notificationFrames || _notificationFrames.count > 500) _notificationFrames = [NSMutableDictionary dictionary];
     _notificationFrames[nid] = frameId;
@@ -2154,13 +2165,19 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     [self emit:@"notificationClose" payload:@{@"id" : nid}];
   } else if ([kind isEqualToString:@"displayMedia"] && dict) {
     double pageId;
-    if (!Finite(dict, @"id", &pageId) || pageId < 1 || pageId > INT_MAX || pageId != floor(pageId)) return;
+    if (!Finite(dict, @"id", &pageId) || pageId < 1 || pageId > INT_MAX || pageId != floor(pageId) || !sender) return;
     if (!_displayRequests) _displayRequests = [NSMutableDictionary dictionary];
     if (_displayRequests.count >= 16) return;
     NSString *requestId = NSUUID.UUID.UUIDString;
-    _displayRequests[requestId] = @{@"frame" : frameId, @"id" : @((int)pageId), @"audio" : @(Flag(dict, @"audio"))};
+    _displayRequests[requestId] = @{@"frame" : frameId, @"id" : @((int)pageId), @"audio" : @(Flag(dict, @"audio")), @"origin" : sender};
     [self emit:@"displayMediaRequest"
-        payload:@{@"id" : requestId, @"origin" : OriginOf(tab.url) ?: @"", @"audio" : @(Flag(dict, @"audio")), @"sources" : ArdiaCoreHost.displayMediaSources}];
+        payload:@{
+          @"id" : requestId,
+          @"origin" : OriginOf(tab.url) ?: sender,
+          @"frameOrigin" : sender,
+          @"audio" : @(Flag(dict, @"audio")),
+          @"sources" : ArdiaCoreHost.displayMediaSources
+        }];
   }
 }
 
@@ -2527,21 +2544,9 @@ static NSEventModifierFlags PeekModifierFlag() {
 }
 
 - (void)requestPictureInPicture:(void (^)(BOOL))completion {
-  if (![_tab respondsToSelector:@selector(evaluate:completion:)]) return completion(NO);
-  [self evaluateWithGesture:@"(async () => {"
-                  "  const videos = [...document.querySelectorAll('video')].filter(v => v.readyState > 0 && !v.disablePictureInPicture);"
-                  "  videos.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight);"
-                  "  if (!videos.length) return post('result', 'false');"
-                  "  if (document.pictureInPictureElement === videos[0]) return post('result', 'true');"
-                  "  try { await videos[0].requestPictureInPicture(); post('result', 'true'); } catch (e) { post('result', 'false'); }"
-                  "})()"
-      completion:^(NSString *json) { completion([json isEqualToString:@"true"]); }];
-}
-
-- (void)evaluateWithGesture:(NSString *)code completion:(void (^)(NSString *))completion {
+  if (![_tab respondsToSelector:@selector(enterPictureInPicture:)]) return completion(NO);
   [self thawHiddenPage];
-  if ([_tab respondsToSelector:@selector(evaluate:userGesture:completion:)]) return [_tab evaluate:code userGesture:YES completion:completion];
-  [_tab evaluate:code completion:completion];
+  [_tab enterPictureInPicture:completion];
 }
 
 - (void)updateAutoPictureInPicture {
@@ -2561,11 +2566,10 @@ static NSEventModifierFlags PeekModifierFlag() {
         return;
       }
       [view traceAutoPictureInPicture:@"app: auto PiP by the app (the page's handler)"];
+      if (![tab respondsToSelector:@selector(enterAutoPictureInPicture)]) return;
       view->_autoPictureInPictureActive = YES;
-      [view evaluateWithGesture:@"post('result', '0')" completion:^(NSString *) {
-        ArdiaCoreWebView *now = weakSelf;
-        if (now && !now->_seenByUser && now->_autoPictureInPictureActive) [now mediaCommand:@"enterpictureinpicture" seconds:0];
-      }];
+      [view thawHiddenPage];
+      [tab enterAutoPictureInPicture];
     });
   } else if (!_seenByUser && _autoPictureInPicture && playingVideo) {
     [self traceAutoPictureInPicture:@"app: auto PiP by the app (the video)"];
@@ -2655,7 +2659,7 @@ static NSEventModifierFlags PeekModifierFlag() {
     [ArdiaCoreEngine allowDesktopCapture:sourceId
                                   tab:_tab
                                 frame:[request[@"frame"] length] ? request[@"frame"] : nil
-                               origin:nil];
+                               origin:request[@"origin"]];
   [self callFrame:request[@"frame"] kind:@"displayMedia"
              json:JSONString(@{@"id" : request[@"id"], @"sourceId" : sourceId.length ? sourceId : NSNull.null})];
 }

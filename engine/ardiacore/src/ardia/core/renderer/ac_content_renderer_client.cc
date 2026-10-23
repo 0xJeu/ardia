@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
+#include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -49,6 +50,18 @@ std::string& PageScript() {
   static base::NoDestructor<std::string> script;
   return *script;
 }
+
+constexpr char kPictureInPictureScript[] =
+    "(() => {"
+    "  const videos = [...document.querySelectorAll('video')].filter((v) => "
+    "v.readyState > 0 && !v.disablePictureInPicture);"
+    "  videos.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || "
+    "b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight);"
+    "  if (!videos.length) return false;"
+    "  if (document.pictureInPictureElement === videos[0]) return true;"
+    "  videos[0].requestPictureInPicture().catch(() => {});"
+    "  return true;"
+    "})()";
 
 blink::WebScriptSource Source(const std::string& code, const char* url) {
   return blink::WebScriptSource(blink::WebString::FromUtf8(code),
@@ -176,20 +189,31 @@ class ACPageObserver : public content::RenderFrameObserver,
         receive_.Get(isolate), v8::Undefined(isolate), 2, args);
   }
 
-  void Execute(const std::string& code, bool user_gesture) override {
-    if (user_gesture) {
-      NotifyUserActivation();
-    }
+  void Execute(const std::string& code) override {
     render_frame()->GetWebFrame()->ExecuteScript(
         Source(code, "ardia://execute"));
   }
 
-  void Evaluate(const std::string& code,
-                bool user_gesture,
-                EvaluateCallback callback) override {
-    if (user_gesture) {
-      NotifyUserActivation();
+  void EnterPictureInPicture(EnterPictureInPictureCallback callback) override {
+    blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+    v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
+    v8::HandleScope handle_scope(isolate);
+    base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
+    frame->NotifyUserActivation(
+        blink::mojom::UserActivationNotificationType::kInteraction);
+    v8::Local<v8::Value> result =
+        frame->ExecuteScriptInIsolatedWorldAndReturnValue(
+            ISOLATED_WORLD_ID_CHROME_INTERNAL,
+            Source(kPictureInPictureScript, "ardia://picture-in-picture"),
+            blink::BackForwardCacheAware::kAllow);
+    if (!alive) {
+      return;
     }
+    frame->ConsumeTransientUserActivation();
+    std::move(callback).Run(!result.IsEmpty() && result->IsTrue());
+  }
+
+  void Evaluate(const std::string& code, EvaluateCallback callback) override {
     blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
     v8::Isolate* isolate = frame->GetAgentGroupScheduler()->Isolate();
     v8::HandleScope handle_scope(isolate);
@@ -259,11 +283,6 @@ class ACPageObserver : public content::RenderFrameObserver,
             ? std::string("delete window.ardiaPageColor;")
             : "window.ardiaPageColor = \"" + page_color_ + "\";";
     return set + " window.dispatchEvent(new Event(\"ardiapagecolor\"));";
-  }
-
-  void NotifyUserActivation() {
-    render_frame()->GetWebFrame()->NotifyUserActivation(
-        blink::mojom::UserActivationNotificationType::kInteraction);
   }
 
   void BindPage(mojo::PendingAssociatedReceiver<mojom::ACPage> receiver) {

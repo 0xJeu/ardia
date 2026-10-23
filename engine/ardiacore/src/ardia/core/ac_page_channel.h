@@ -57,11 +57,11 @@ class PageChannel : public content::WebContentsObserver,
   void CallFrame(const std::string& frame_id,
                  const std::string& kind,
                  const std::string& json);
-  void Execute(const std::string& code, bool user_gesture = false);
+  void Execute(const std::string& code);
   void ExecuteInFrame(const std::string& frame_id, const std::string& code);
   void Evaluate(const std::string& code,
-                bool user_gesture,
                 base::OnceCallback<void(const std::optional<std::string>&)> callback);
+  void EnterPictureInPicture(base::OnceCallback<void(bool)> callback);
 
   static std::string FrameId(content::RenderFrameHost* frame);
 
@@ -98,6 +98,7 @@ class PageChannel : public content::WebContentsObserver,
     std::string json;
   };
   std::map<std::string, Held> held_;
+  size_t held_bytes_ = 0;
 
   content::RenderFrameHostReceiverSet<mojom::ACPageHost> receivers_;
   mojo::AssociatedRemote<mojom::ACPage> main_page_;
