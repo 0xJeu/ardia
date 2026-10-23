@@ -1748,3 +1748,55 @@ test("only evidence that the anchor left the rows after the order record ends th
   assert.deepEqual(decide({ [orderKey]: order, "pinrow:x": { v: 0, h: after } }), { a: row }, "and turning into a tile afterwards");
   assert.deepEqual(decide({ [orderKey]: order, "pinrow:x": { v: 1, h: after } }), { a: "x" }, "but a newer row marker means it's still a row");
 });
+
+const { compact } = await import("@ardia/sync");
+
+async function deletedWhileAway(OldMac, withGroup) {
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  try {
+    const folder = new Folder();
+    const a = new Device("devA", folder);
+    const other = new OldMac("devOther", folder);
+    const w = a.with(() => {
+      const w = S().createWindow({ url: "https://home.example/" });
+      const open = (h) => S().newTab(w, { url: `https://${h}.example/`, background: true });
+      const [r, x, m] = ["r", "x", "member"].map(open);
+      S().placeTabs([r, x], { pinned: true, row: true, beforeId: null });
+      if (withGroup) S().groupTabs([m], { pinned: true, name: "Group" });
+      return w;
+    });
+    other.with(() => S().createWindow({ url: "https://other-home.example/" }));
+    await syncAll([a, other], 3);
+    other.with(() => {
+      const x = Object.values(S().tabs).find((t) => t.pinnedUrl === "https://x.example/").id;
+      S().placeTabs([x], { pinned: false, beforeId: null });
+      S().closeTab(x);
+    });
+    await other.sync();
+    await other.sync();
+    shift = 50 * 86_400_000;
+    await other.sync();
+    await other.with(() => compact(other.scopes.p, folder.transport(), "p", "devOther", Date.now(), {}, true));
+    await a.sync();
+    await a.sync();
+    a.with(() => S().placeTabs([S().newTab(w, { url: "https://y.example/", background: true })], { pinned: true, row: true, beforeId: null, last: true }));
+    const c = new Device("devC", folder);
+    c.with(() => S().createWindow({ url: "https://c-home.example/" }));
+    await syncAll([c, a, other], 3);
+    return { a, c, other };
+  } finally {
+    Date.now = realNow;
+  }
+}
+
+test.skip("known: a pinned row deleted while a Mac was away past tombstone retention stays deleted when it comes back", async () => {
+  const { a, c, other } = await deletedWhileAway(Device, false);
+  for (const d of [a, c, other]) assert.deepEqual(pinnedAreaOf(d), ["row:r", "row:y"], d.id);
+});
+
+test.skip("known: a group anchored to a row whose tombstone was collected shows the same order on every Mac", async () => {
+  const { a, c } = await deletedWhileAway(PreInterleaveMac, true);
+  assert.deepEqual(pinnedAreaOf(a), pinnedAreaOf(c));
+});
