@@ -8,7 +8,7 @@ import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/mo
 import { groupChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { isPeekTab } from "../store/peek";
-import { arrangePinnedArea, parkedAnchors, pinnedAnchors } from "../store/pinnedArea";
+import { arrangeParked, arrangePinnedArea, parkedAnchors, pinnedAnchors } from "../store/pinnedArea";
 import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../store/settings";
@@ -825,26 +825,43 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
   const shownIn = (s: BrowserState) => openWindows(s).filter((w) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId));
   return {
     prefix: PIN_ORDER,
-    extract: () => {
+    extract: (base, _queued, _now, _known, remote) => {
       const s = store();
       const home = homeWindow(s, profileId);
       const shown = !!home && shownIn(s).includes(home);
-      if (!shown && !s.parkedPins[profileId]) return { values: new Map(), ignore: () => true } satisfies Extraction;
+      const gone = (key: string) => remote(key) === null;
+      const ignore = (k: string) => !gone(`pin:g:${k.slice(PIN_ORDER.length)}`);
+      if (!shown && !s.parkedPins[profileId]) return { values: new Map(), ignore } satisfies Extraction;
       const anchors = shown ? pinnedAnchors(s, home!, profileId) : parkedAnchors(s, profileId);
-      return { values: new Map([...anchors].map(([group, a]) => [`${PIN_ORDER}${group}`, { a } satisfies PinOrderValue])) } satisfies Extraction;
+      const pinnedGroup = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
+      const here = new Set([
+        ...Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pinned || pinnedGroup.has(t.id))).map(pinKeyOf),
+        ...(s.parkedPins[profileId]?.tabs ?? []).map((t) => t.id),
+      ]);
+      const values = new Map<string, unknown>();
+      for (const [group, a] of anchors) {
+        const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
+        const waiting = !!was?.a && was.a !== a && !here.has(was.a) && !gone(`pin:t:${was.a}`);
+        values.set(`${PIN_ORDER}${group}`, waiting ? was! : ({ a } satisfies PinOrderValue));
+      }
+      return { values, ignore } satisfies Extraction;
     },
     apply: (visible) => {
       const s = store();
+      const anchorOf = (group: string) => anchorIn(visible.get(`${PIN_ORDER}${group}`));
       let windows = s.windows;
       let groups = s.groups;
       for (const w of shownIn(s)) {
-        const tabIds = arrangePinnedArea(s, w, profileId, (group) => anchorIn(visible.get(`${PIN_ORDER}${group}`)));
+        const tabIds = arrangePinnedArea(s, w, profileId, anchorOf);
         if (tabIds === w.tabIds) continue;
         const window = { ...w, tabIds };
         windows = { ...windows, [w.id]: window };
         groups = syncGroupOrder(groups, window);
       }
-      if (windows !== s.windows) useBrowser.setState({ windows, groups });
+      const park = s.parkedPins[profileId];
+      const parked = park && arrangeParked(park, anchorOf);
+      if (windows === s.windows && parked === park) return true;
+      useBrowser.setState({ windows, groups, ...(park && parked !== park ? { parkedPins: { ...s.parkedPins, [profileId]: parked! } } : {}) });
       return true;
     },
   };

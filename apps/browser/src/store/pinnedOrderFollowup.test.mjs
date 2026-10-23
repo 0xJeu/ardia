@@ -77,3 +77,26 @@ test("a drop doesn't bring back an anchor that was unpinned while the folder was
   order.arrangeLive(held);
   assert.deepEqual(sequence(w), ["a", "LF", "c"]);
 });
+
+test("unpinning the last row a live folder follows moves the folder to the top, so a new row goes after it", () => {
+  const { w, ids } = rows("row", "fresh");
+  S().pinTabs([ids.fresh], false);
+  folder("LF", `t:${ids.row}`);
+  assert.deepEqual(sequence(w), ["row", "LF"]);
+  S().pinTabs([ids.row], false);
+  assert.deepEqual(sequence(w), ["LF"]);
+  S().placeTabs([ids.fresh], { pinned: true, row: true, beforeId: null, last: true });
+  assert.deepEqual(sequence(w), ["LF", "fresh"]);
+});
+
+test("a drop doesn't bring back an anchor that moved to another profile while the folder was held", () => {
+  const { w, ids } = rows("a", "b", "c");
+  const lf = folder("LF", `t:${ids.b}`);
+  const other = S().createProfile({ name: "Work" });
+  const held = [`t:${ids.a}`, `t:${ids.b}`, `lf:${lf}`, `t:${ids.c}`];
+  S().moveTabToProfile(ids.b, other);
+  assert.equal(S().tabs[ids.b].profileId, other);
+  assert.ok(S().tabs[ids.b].pinned && S().tabs[ids.b].pinnedAsRow, "still a pinned row, in the other profile");
+  order.arrangeLive(held);
+  assert.deepEqual(sequence(w), ["a", "LF", "c"]);
+});

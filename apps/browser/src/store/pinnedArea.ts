@@ -1,7 +1,7 @@
 import type { BrowserState } from "./browser";
 import { rootOf } from "./groups";
 import { pinKeyOf } from "./pinMirror";
-import type { BrowserWindow, TabGroup } from "./types";
+import type { BrowserWindow, ParkedPins, TabGroup } from "./types";
 
 type Block = { key: string; row: boolean; ids: string[] };
 
@@ -46,9 +46,7 @@ function anchorsOf(keys: string[]): Anchors {
   return anchors;
 }
 
-export function parkedAnchors(s: Pick<BrowserState, "parkedPins">, profileId: string): Anchors {
-  const park = s.parkedPins[profileId];
-  if (!park) return new Map();
+function parkedBlocks(park: ParkedPins): Block[] {
   const parentOf = new Map(park.groups.map((g) => [g.id, g.parentId]));
   const rootOf = (id: string) => {
     const seen = new Set([id]);
@@ -59,12 +57,35 @@ export function parkedAnchors(s: Pick<BrowserState, "parkedPins">, profileId: st
     }
     return root;
   };
-  const keys: string[] = [];
+  const blocks: Block[] = [];
+  const byKey = new Map<string, Block>();
   for (const t of park.tabs) {
     const key = t.groupId ? `g:${rootOf(t.groupId)}` : t.pinnedAsRow ? `t:${t.id}` : null;
-    if (key && !keys.includes(key)) keys.push(key);
+    if (!key) continue;
+    const known = byKey.get(key);
+    if (known) known.ids.push(t.id);
+    else {
+      const block = { key, row: !t.groupId, ids: [t.id] };
+      byKey.set(key, block);
+      blocks.push(block);
+    }
   }
-  return anchorsOf(keys);
+  return blocks;
+}
+
+export function parkedAreaKeys(s: Pick<BrowserState, "parkedPins">, profileId: string): string[] {
+  const park = s.parkedPins[profileId];
+  return park ? parkedBlocks(park).map((b) => b.key) : [];
+}
+
+export const parkedAnchors = (s: Pick<BrowserState, "parkedPins">, profileId: string): Anchors => anchorsOf(parkedAreaKeys(s, profileId));
+
+export function arrangeParked(park: ParkedPins, anchorOf: (groupKey: string) => string | null | undefined): ParkedPins {
+  const order = orderBlocks(parkedBlocks(park), anchorOf);
+  if (!order) return park;
+  const byId = new Map(park.tabs.map((t) => [t.id, t]));
+  const ids = rearranged(park.tabs.map((t) => t.id), order);
+  return ids === null ? park : { ...park, tabs: ids.map((id) => byId.get(id)!) };
 }
 
 export const pinnedAreaKeys = (s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow, profileId: string): string[] =>
@@ -72,8 +93,7 @@ export const pinnedAreaKeys = (s: Pick<BrowserState, "tabs" | "groups">, w: Brow
 
 export const pinnedAnchors = (s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow, profileId: string): Anchors => anchorsOf(pinnedAreaKeys(s, w, profileId));
 
-export function arrangePinnedArea(s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow, profileId: string, anchorOf: (groupKey: string) => string | null | undefined): string[] {
-  const blocks = pinnedBlocks(s, w, profileId);
+function orderBlocks(blocks: Block[], anchorOf: (groupKey: string) => string | null | undefined): string[] | null {
   const rows = blocks.filter((b) => b.row);
   const groups = blocks.filter((b) => !b.row);
   const rowKeys = new Set(rows.map((r) => r.key.slice(2)));
@@ -84,11 +104,19 @@ export function arrangePinnedArea(s: Pick<BrowserState, "tabs" | "groups">, w: B
     if (anchor === null || (anchor !== undefined && rowKeys.has(anchor))) placed.get(anchor)?.push(g) ?? placed.set(anchor, [g]);
     else last.push(g);
   }
-  if (!placed.size) return w.tabIds;
-  const order = [...(placed.get(null) ?? []), ...rows.flatMap((r) => [r, ...(placed.get(r.key.slice(2)) ?? [])]), ...last].flatMap((b) => b.ids);
+  if (!placed.size) return null;
+  return [...(placed.get(null) ?? []), ...rows.flatMap((r) => [r, ...(placed.get(r.key.slice(2)) ?? [])]), ...last].flatMap((b) => b.ids);
+}
+
+function rearranged(ids: string[], order: string[]): string[] | null {
   const area = new Set(order);
-  const at = w.tabIds.findIndex((id) => area.has(id));
-  const rest = w.tabIds.filter((id) => !area.has(id));
+  const at = ids.findIndex((id) => area.has(id));
+  const rest = ids.filter((id) => !area.has(id));
   const next = [...rest.slice(0, at), ...order, ...rest.slice(at)];
-  return next.every((id, i) => id === w.tabIds[i]) ? w.tabIds : next;
+  return next.every((id, i) => id === ids[i]) ? null : next;
+}
+
+export function arrangePinnedArea(s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow, profileId: string, anchorOf: (groupKey: string) => string | null | undefined): string[] {
+  const order = orderBlocks(pinnedBlocks(s, w, profileId), anchorOf);
+  return (order && rearranged(w.tabIds, order)) ?? w.tabIds;
 }

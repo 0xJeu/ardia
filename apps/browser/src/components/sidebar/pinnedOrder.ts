@@ -45,16 +45,18 @@ export function pinnedSequence(s: BrowserState, folders: Record<string, LiveFold
   return withLiveFolders(pinned, pinned.map((e) => anchorKey(s, e)), foldersOf(folders, order, profileId));
 }
 
-const stillPinned = (s: Pick<BrowserState, "tabs" | "groups">, entry: string): boolean => {
+const stillPinned = (s: Pick<BrowserState, "tabs" | "groups">, entry: string, profileId: string | undefined): boolean => {
   const id = entry.slice(2);
-  if (entry.startsWith("t:")) return !!s.tabs[id]?.pinned && !!s.tabs[id]!.pinnedAsRow;
-  if (entry.startsWith("g:")) return !!s.groups[id]?.pinned && !s.groups[id]!.parentId;
+  if (entry.startsWith("t:")) return !!s.tabs[id]?.pinned && !!s.tabs[id]!.pinnedAsRow && s.tabs[id]!.profileId === profileId;
+  if (entry.startsWith("g:")) return !!s.groups[id]?.pinned && !s.groups[id]!.parentId && s.groups[id]!.profileId === profileId;
   return true;
 };
 
 export function arrangeLive(sequence: string[]) {
   const s = useBrowser.getState();
-  arrangeFolders(liveAnchors(sequence.filter((e) => stillPinned(s, e)), (e) => anchorKey(s, e)));
+  const folder = sequence.find((e) => e.startsWith(LIVE));
+  const profileId = folder ? live().folders[folder.slice(LIVE.length)]?.profileId : undefined;
+  arrangeFolders(liveAnchors(sequence.filter((e) => stillPinned(s, e, profileId)), (e) => anchorKey(s, e)));
 }
 
 export function moveLiveFolder(windowId: string, folderId: string, delta: -1 | 1) {
@@ -75,9 +77,7 @@ export function keepLiveAnchors(s: BrowserState, prev: BrowserState) {
     const windowId = profileId && mainWindowFor(s, profileId);
     const before = windowId ? prev.windows[windowId] : undefined;
     if (!profileId || !windowId || !before) continue;
-    const keys = pinnedAreaKeys(s, s.windows[windowId]!, profileId);
-    if (!keys.length) continue;
-    const now = new Set(keys);
+    const now = new Set(pinnedAreaKeys(s, s.windows[windowId]!, profileId));
     const was = pinnedAreaKeys(prev, before, profileId);
     const mine = foldersOf(folders, folderOrder, profileId);
     if (!mine.some((f) => f.after && !now.has(f.after) && was.includes(f.after))) continue;
