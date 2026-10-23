@@ -260,6 +260,30 @@ static ArdiaCoreWebView *PageViewUnder(NSEvent *event) {
   return nil;
 }
 
+static CFTimeInterval gUserInputAt = -1;
+static const CFTimeInterval kUserInputLifetime = 1.5;
+
+static void InstallUserInputMonitor() {
+  static id monitor;
+  static id menuObserver;
+  if (monitor) return;
+  monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseUp | NSEventMaskKeyDown
+                                                  handler:^NSEvent *(NSEvent *event) {
+                                                    gUserInputAt = CACurrentMediaTime();
+                                                    return event;
+                                                  }];
+  menuObserver = [NSNotificationCenter.defaultCenter addObserverForName:NSMenuDidSendActionNotification
+                                                                 object:nil
+                                                                  queue:nil
+                                                             usingBlock:^(NSNotification *) {
+                                                               gUserInputAt = CACurrentMediaTime();
+                                                             }];
+}
+
+static BOOL RecentUserInput() {
+  return gUserInputAt >= 0 && CACurrentMediaTime() - gUserInputAt <= kUserInputLifetime;
+}
+
 static void InstallPeekMonitor() {
   static id monitor;
   if (monitor) return;
@@ -1185,6 +1209,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
 - (void)attach:(ArdiaCoreTab *)tab {
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ attach tab=%d visible=%d", _transferKey, (int)tab.tabId, _visible);
   [LiveViews() addObject:self];
+  InstallUserInputMonitor();
   _tab = tab;
   tab.delegate = self;
   [ArdiaCoreTabs setView:self forTab:tab];
@@ -2619,9 +2644,17 @@ static NSEventModifierFlags PeekModifierFlag() {
 - (void)requestPictureInPicture:(void (^)(BOOL))completion {
   if (_inPictureInPicture) return completion(YES);
   if (![_tab respondsToSelector:@selector(enterPictureInPicture)]) return completion(NO);
+  const BOOL fromUser = RecentUserInput();
   [self thawHiddenPage];
   [_tab enterPictureInPicture];
-  [self awaitPictureInPicture:20 completion:completion];
+  __weak ArdiaCoreWebView *weakSelf = self;
+  [self awaitPictureInPicture:8
+                   completion:^(BOOL opened) {
+                     ArdiaCoreWebView *view = weakSelf;
+                     ArdiaCoreTab *tab = view ? view->_tab : nil;
+                     if (opened || !fromUser || ![tab respondsToSelector:@selector(enterPictureInPictureForUser:)]) return completion(opened);
+                     [tab enterPictureInPictureForUser:completion];
+                   }];
 }
 
 - (void)awaitPictureInPicture:(int)tries completion:(void (^)(BOOL))completion {

@@ -7,10 +7,13 @@
 #include <tuple>
 #include <utility>
 
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
+#include "base/values.h"
+#include "chrome/common/chrome_isolated_world_ids.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -32,6 +35,9 @@
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
+#include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
+#include "third_party/blink/public/mojom/script/script_evaluation_params.mojom.h"
+#include "third_party/blink/public/web/web_script_execution_callback.h"
 #include "third_party/blink/public/web/web_script_source.h"
 #include "url/gurl.h"
 #include "v8/include/v8-context.h"
@@ -49,6 +55,18 @@ std::string& PageScript() {
   static base::NoDestructor<std::string> script;
   return *script;
 }
+
+constexpr char kPictureInPictureForUserScript[] =
+    "(() => {"
+    "  const videos = [...document.querySelectorAll('video')].filter((v) => "
+    "v.readyState > 0 && !v.disablePictureInPicture && v.clientWidth * "
+    "v.clientHeight > 0);"
+    "  videos.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || "
+    "b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight);"
+    "  if (!videos.length) return false;"
+    "  if (document.pictureInPictureElement === videos[0]) return true;"
+    "  return videos[0].requestPictureInPicture().then(() => true, () => false);"
+    "})()";
 
 bool FitsUtf8(v8::Isolate* isolate, v8::Local<v8::String> text, size_t limit) {
   return static_cast<size_t>(text->Length()) <= limit &&
@@ -184,6 +202,35 @@ class ACPageObserver : public content::RenderFrameObserver,
   void Execute(const std::string& code) override {
     render_frame()->GetWebFrame()->ExecuteScript(
         Source(code, "ardia://execute"));
+  }
+
+  void EnterPictureInPictureForUser(
+      EnterPictureInPictureForUserCallback callback) override {
+    blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+    v8::HandleScope handle_scope(frame->GetAgentGroupScheduler()->Isolate());
+    base::WeakPtr<ACPageObserver> alive = weak_factory_.GetWeakPtr();
+    const blink::WebScriptSource source = Source(
+        kPictureInPictureForUserScript, "ardia://picture-in-picture-for-user");
+    frame->NotifyUserActivation(
+        blink::mojom::UserActivationNotificationType::kInteraction);
+    frame->RequestExecuteScript(
+        ISOLATED_WORLD_ID_CHROME_INTERNAL, base::span_from_ref(source),
+        blink::mojom::UserActivationOption::kDoNotActivate,
+        blink::mojom::EvaluationTiming::kSynchronous,
+        blink::mojom::LoadEventBlockingOption::kDoNotBlock,
+        base::BindOnce(
+            [](EnterPictureInPictureForUserCallback callback,
+               std::optional<base::Value> result, base::TimeTicks) {
+              std::move(callback).Run(result && result->is_bool() &&
+                                      result->GetBool());
+            },
+            std::move(callback)),
+        blink::BackForwardCacheAware::kAllow,
+        blink::mojom::WantResultOption::kWantResult,
+        blink::mojom::PromiseResultOption::kAwait, blink::WebString());
+    if (alive) {
+      frame->ConsumeTransientUserActivation();
+    }
   }
 
   void Evaluate(const std::string& code, EvaluateCallback callback) override {

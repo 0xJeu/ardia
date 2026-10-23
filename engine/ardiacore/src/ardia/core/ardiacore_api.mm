@@ -2324,6 +2324,16 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   }
 }
 
+- (void)enterPictureInPictureForUser:(void (^)(BOOL))completion {
+  if (!_contents) {
+    completion(NO);
+    return;
+  }
+  ardiacore::PageChannel::GetOrCreate(_contents)->EnterPictureInPictureForUser(
+      base::BindOnce([](void (^completion)(BOOL), bool opened) { completion(opened); },
+                     completion));
+}
+
 - (BOOL)hasLiveFrame:(NSString*)frameId {
   return _contents && (!frameId.length ||
                        ardiacore::PageChannel::GetOrCreate(_contents)->HasFrame(

@@ -12,5 +12,6 @@ interface ACPage {
   CallPage(string kind, string json);
   Execute(string code);
   Evaluate(string code) => (string? json);
+  EnterPictureInPictureForUser() => (bool opened);
   SetPageColor(string color);
 };

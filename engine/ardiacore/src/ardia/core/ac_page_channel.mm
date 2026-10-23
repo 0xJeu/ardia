@@ -487,6 +487,18 @@ bool PageChannel::HasFrame(const std::string& frame_id) {
   return FindFrame(frame_id) != nullptr;
 }
 
+void PageChannel::EnterPictureInPictureForUser(
+    base::OnceCallback<void(bool)> callback) {
+  auto answer = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      base::BindPostTaskToCurrentDefault(std::move(callback)), false);
+  mojom::ACPage* page = MainPage();
+  if (!page) {
+    std::move(answer).Run(false);
+    return;
+  }
+  page->EnterPictureInPictureForUser(std::move(answer));
+}
+
 void PageChannel::Evaluate(
     const std::string& code,
     base::OnceCallback<void(const std::optional<std::string>&)> callback) {
