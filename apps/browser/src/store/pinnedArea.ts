@@ -104,7 +104,7 @@ function orderBlocks(blocks: Block[], anchorOf: (groupKey: string) => string | n
     if (anchor === null || (anchor !== undefined && rowKeys.has(anchor))) placed.get(anchor)?.push(g) ?? placed.set(anchor, [g]);
     else last.push(g);
   }
-  if (!placed.size) return null;
+  if (!groups.some((g) => anchorOf(g.key.slice(2)) !== undefined)) return null;
   return [...(placed.get(null) ?? []), ...rows.flatMap((r) => [r, ...(placed.get(r.key.slice(2)) ?? [])]), ...last].flatMap((b) => b.ids);
 }
 

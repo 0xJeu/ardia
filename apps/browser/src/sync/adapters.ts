@@ -8,7 +8,7 @@ import { engineProfile, makeTab, newId, pinnedFirst, without } from "../store/mo
 import { groupChoiceKey, orderChoiceKey, placeChoiceKey, type PinSyncEntry } from "../store/organize";
 import { adoptParkedPins, parkWindowPins } from "../store/parkedPins";
 import { isPeekTab } from "../store/peek";
-import { arrangeParked, arrangePinnedArea, parkedAnchors, pinnedAnchors } from "../store/pinnedArea";
+import { arrangeParked, arrangePinnedArea, parkedAnchors, parkedAreaKeys, pinnedAnchors, pinnedAreaKeys } from "../store/pinnedArea";
 import { fromSync } from "../store/pinOrderChoices";
 import { pinKeyOf } from "../store/pinMirror";
 import { removeTabs } from "../store/tabs";
@@ -829,7 +829,7 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
   const shownIn = (s: BrowserState) => openWindows(s).filter((w) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId));
   return {
     prefix: PIN_ORDER,
-    extract: (base, queued, _now, _known, remote) => {
+    extract: (base, queued, _now, _known, remote, stamp) => {
       const s = store();
       const home = homeWindow(s, profileId);
       const shown = !!home && shownIn(s).includes(home);
@@ -839,15 +839,14 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
       const anchors = shown ? pinnedAnchors(s, home!, profileId) : parkedAnchors(s, profileId);
       const chosen = s.pinChoices[profileId] ?? {};
       const choiceOf = (k: string) => orderChoiceKey(k.slice(PIN_ORDER.length));
-      const pinnedGroup = new Set(Object.values(s.groups).filter((g) => g.pinned && g.profileId === profileId).flatMap((g) => g.tabIds));
-      const here = new Set([
-        ...Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pinned || pinnedGroup.has(t.id))).map(pinKeyOf),
-        ...(s.parkedPins[profileId]?.tabs ?? []).map((t) => t.id),
-      ]);
+      const rows = new Set((shown ? pinnedAreaKeys(s, home!, profileId) : parkedAreaKeys(s, profileId)).filter((k) => k.startsWith("t:")).map((k) => k.slice(2)));
       const values = new Map<string, unknown>();
       for (const [group, a] of anchors) {
         const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
-        const waiting = !(orderChoiceKey(group) in chosen) && !!was?.a && was.a !== a && !here.has(was.a) && !gone(`pin:t:${was.a}`);
+        const since = stamp(`${PIN_ORDER}${group}`);
+        const changedSince = (key: string) => since !== undefined && (stamp(key) ?? "") > since;
+        const settled = !!was?.a && (gone(`pin:t:${was.a}`) || changedSince(`pin:t:${was.a}`) || changedSince(`${PIN_ROW}${was.a}`));
+        const waiting = !(orderChoiceKey(group) in chosen) && !!was?.a && was.a !== a && !rows.has(was.a) && !settled;
         values.set(`${PIN_ORDER}${group}`, waiting ? was! : ({ a } satisfies PinOrderValue));
       }
       return {
@@ -949,13 +948,15 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
         const slots = ids.map((id, i) => (tabs[id]?.pinned && tabs[id]!.profileId === profileId && pos(tabs[id]) !== undefined ? i : -1)).filter((i) => i >= 0);
         const sorted = slots.map((i) => ids[i]!).sort((a, z) => (pos(tabs[a])! < pos(tabs[z])! ? -1 : pos(tabs[a])! > pos(tabs[z])! ? 1 : 0));
         slots.forEach((slot, i) => (ids[slot] = sorted[i]!));
-        windows[w.id] = { ...w, tabIds: orderSections(pinnedFirst(ids, tabs, s.groups), tabs, s.groups) };
+        const sectioned = { ...w, tabIds: orderSections(pinnedFirst(ids, tabs, s.groups), tabs, s.groups) };
+        windows[w.id] = { ...sectioned, tabIds: arrangePinnedArea({ tabs, groups: s.groups }, sectioned, profileId, (group) => anchorIn(base(`${PIN_ORDER}${group}`))) };
         edited = true;
       }
       const park = s.parkedPins[profileId];
-      const parked = park?.tabs.map((p) =>
+      const marked = park?.tabs.map((p) =>
         p.groupId || !wants(p.id, p.pinnedAsRow) ? p : rows.has(p.id) ? { ...p, pinnedAsRow: true as const } : (({ pinnedAsRow: _, ...rest }) => rest)(p),
       );
+      const parked = park && marked && arrangeParked({ ...park, tabs: marked }, (group) => anchorIn(base(`${PIN_ORDER}${group}`))).tabs;
       const parkEdited = !!park && parked!.some((p, i) => p !== park.tabs[i]);
       if (!edited && !parkEdited) return true;
       fromSync(() =>

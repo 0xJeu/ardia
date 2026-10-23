@@ -2,6 +2,7 @@ import { useBrowser, type BrowserState } from "./browser";
 import { isIncognitoProfile } from "./model";
 import { nextPinChoice, orderChoiceKey } from "./organize";
 import { anchorsOf, pinnedAreaKeys } from "./pinnedArea";
+import type { TabGroup } from "./types";
 
 let remote = 0;
 
@@ -24,16 +25,29 @@ function homes(s: BrowserState): Map<string, string> {
   return out;
 }
 
+const orderShape = (g: TabGroup) => `${g.pinned}|${g.parentId ?? ""}|${g.windowId}|${g.profileId}|${g.pinKey ?? ""}`;
+
+function groupsReordered(s: BrowserState, prev: BrowserState): boolean {
+  if (s.groups === prev.groups) return false;
+  for (const id of new Set([...Object.keys(s.groups), ...Object.keys(prev.groups)])) {
+    const g = s.groups[id];
+    const was = prev.groups[id];
+    if (!g || !was || g.tabIds !== was.tabIds || orderShape(g) !== orderShape(was)) return true;
+  }
+  return false;
+}
+
 export function noteOrderChoices(s: BrowserState, prev: BrowserState) {
   if (remote) return;
-  if (s.groups === prev.groups && Object.values(s.windows).every((w) => w.tabIds === prev.windows[w.id]?.tabIds)) return;
+  if (!groupsReordered(s, prev) && Object.values(s.windows).every((w) => w.tabIds === prev.windows[w.id]?.tabIds)) return;
   const homesBefore = homes(prev);
   let pinChoices = s.pinChoices;
   for (const [profileId, windowId] of homes(s)) {
     if (homesBefore.get(profileId) !== windowId) continue;
     const before = pinnedAreaKeys(prev, prev.windows[windowId]!, profileId);
     const after = pinnedAreaKeys(s, s.windows[windowId]!, profileId);
-    const kept = new Set(before.filter((k) => after.includes(k)));
+    const now = new Set(after);
+    const kept = new Set(before.filter((k) => now.has(k)));
     const was = anchorsOf(before.filter((k) => kept.has(k)));
     const moved = [...anchorsOf(after.filter((k) => kept.has(k)))].filter(([group, a]) => was.get(group) !== a).map(([group]) => orderChoiceKey(group));
     if (moved.length) pinChoices = { ...pinChoices, [profileId]: { ...pinChoices[profileId], ...Object.fromEntries(moved.map((k) => [k, nextPinChoice()])) } };
