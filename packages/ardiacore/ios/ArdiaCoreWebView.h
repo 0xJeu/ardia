@@ -18,6 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) BOOL standalone;
 @property (nonatomic, copy, nullable) NSString *extensionHost;
 @property (nonatomic, strong, nullable) NSColor *pageBackgroundColor;
+@property (nonatomic, strong, nullable) NSColor *contentsBackgroundColor;
 @property (nonatomic, copy, nullable) NSString *pageColor;
 @property (nonatomic, copy, nullable) NSString *shownURL;
 @property (nonatomic) BOOL visible;

@@ -1030,6 +1030,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [self applyPainting];
   if (_muted && [tab respondsToSelector:@selector(setMuted:)]) tab.muted = YES;
   if (_pageBackgroundColor && [tab respondsToSelector:@selector(setPageBackgroundColor:)]) tab.pageBackgroundColor = _pageBackgroundColor;
+  if (_contentsBackgroundColor && [tab respondsToSelector:@selector(setContentsBackgroundColor:)]) tab.contentsBackgroundColor = _contentsBackgroundColor;
   if (_pageColor && [tab respondsToSelector:@selector(setPageColor:)]) tab.pageColor = _pageColor;
   if (_pendingURL) {
     [self loadNow:_pendingURL userInitiated:_pendingUserInitiated];
@@ -1669,6 +1670,11 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 - (void)setPageBackgroundColor:(NSColor *)color {
   _pageBackgroundColor = color;
   if ([_tab respondsToSelector:@selector(setPageBackgroundColor:)]) _tab.pageBackgroundColor = color;
+}
+
+- (void)setContentsBackgroundColor:(NSColor *)color {
+  _contentsBackgroundColor = color;
+  if ([_tab respondsToSelector:@selector(setContentsBackgroundColor:)]) _tab.contentsBackgroundColor = color;
 }
 
 - (void)setPageColor:(NSString *)color {

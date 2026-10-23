@@ -148,6 +148,7 @@ export type WebViewProps = ViewProps & {
   warm?: boolean;
   neighbour?: boolean;
   pageBackgroundColor?: string;
+  contentsBackgroundColor?: string;
   pageColor?: string;
   shownUrl?: string;
   autoPictureInPicture?: boolean;
