@@ -174,3 +174,22 @@ test("a fresh split from a pinned row still leaves the new tab unpinned", () => 
   const r = S().openSplitPane(w, { anchorTabId: a, url: "https://e.com/" });
   assert.equal(S().tabs[r.tabId].pinned, false);
 });
+
+test("parking keeps both panes of a pinned split even at the same page, or at a pinned tile's page", () => {
+  reset();
+  const { w, ids } = windowWith("a", "b", "b", "b");
+  const [, b1, b2, t] = ids;
+  S().pinTabs([t], true);
+  S().createSplit([b1, b2]);
+  S().pinTabs([b1], true);
+  const parked = parkWindowPins({}, S().windows[w], S());
+  assert.deepEqual(parked.default.splits?.map((v) => v.ids), [[b1, b2]], "both panes parked, by identity");
+  S().hydrate({});
+  const n = S().createWindow({ url: "https://z.com/" });
+  useBrowser.setState({ parkedPins: parked });
+  useBrowser.setState(adoptParkedPins(S(), n, "default"));
+  assert.deepEqual(panesOf(n), [["b", "b"]]);
+  const v = Object.values(S().splits).find((x) => x.windowId === n);
+  assert.deepEqual(sidebarEntries(S(), n).pinned, [`s:${v.id}`]);
+  assert.equal(sidebarEntries(S(), n).tiles.length, 1, "the tile at the same page stays too");
+});

@@ -38,6 +38,7 @@ export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWin
     const tiles: ParkedPins["tabs"] = [];
     const rest: ParkedPins["tabs"] = [];
     const paneIds = new Map<string, string>();
+    const splitPanes = new Set(Object.values(s.splits ?? {}).filter((v) => v.windowId === w.id).flatMap((v) => v.tabIds));
     const pending = (t: Tab, moved: boolean) => {
       const from = !moved && !isIncognitoProfile(t.profileId) ? pendingRestore(t) : undefined;
       return from ? { restoreFrom: from } : {};
@@ -49,7 +50,7 @@ export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWin
       if (t.pinned) {
         const back = atPin(t, s.history[profileId] ?? []);
         const tile = { ...snapshotTab(t), ...back, ...pending(t, !!back.url), id: pinKeyOf(t), groupId: null };
-        if (homes.some((h) => samePage(h, homeOf(tile)))) {
+        if (!splitPanes.has(t.id) && homes.some((h) => samePage(h, homeOf(tile)))) {
           paneIds.delete(t.id);
           continue;
         }
@@ -89,9 +90,10 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
   const keyOf = new Map<string, string>();
   const tabOf = new Map<string, string>();
   const added: string[] = [];
+  const splitPanes = new Set((park.splits ?? []).flatMap((v) => v.ids));
   for (const { id, groupId, restoreFrom, ...snap } of park.tabs) {
     const home = homeOf(snap);
-    if (!groupId && homes.some((h) => samePage(h, home))) continue;
+    if (!groupId && !splitPanes.has(id) && homes.some((h) => samePage(h, home))) continue;
     const tab: Tab = {
       ...makeTab(windowId, profileId, snap.url, { ...snap, profileId, pinned: !groupId, pinnedUrl: groupId ? null : home || null }),
       ...(tabs[id] ? { id: newId("tab"), pinKey: id } : { id }),
