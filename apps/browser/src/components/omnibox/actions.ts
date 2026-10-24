@@ -6,6 +6,7 @@ import { useBrowser, type BrowserState } from "../../store/browser";
 import { activeTab, bookmarkProfileId, isPinnedRow } from "../../store/model";
 import { canTidyPins } from "../../store/tidyPins";
 import type { Tab } from "../../store/types";
+import { organizeActions, runOrganizeAction } from "./organizeActions";
 
 type Context = { s: BrowserState; windowId: string; tab: Tab | undefined };
 
@@ -111,13 +112,15 @@ export function barActions(s: BrowserState, windowId: string): CommandAction[] {
     s.profileOrder.forEach((id, i) => {
       if (id === w.profileId) return;
       const name = s.profiles[id]?.name ?? "";
-      out.push({ id: `switchProfile:${id}`, title: `Switch to ${name}`, icon: "person.crop.circle", hint: i < 9 ? `⌃${i + 1}` : undefined, keywords: [name, "profile"] });
+      out.push({ id: `switchProfile:${id}`, title: `Switch to ${name}`, icon: "person.crop.circle", hint: i < 9 ? `⌃${i + 1}` : undefined, keywords: [name, "profile", "space"] });
     });
   }
+  out.push(...organizeActions(s, windowId));
   return out;
 }
 
 export function runBarAction(id: string, windowId: string) {
+  if (runOrganizeAction(id, windowId)) return;
   const i = id.indexOf(":");
   const command = (i < 0 ? id : id.slice(0, i)) as BrowserCommand;
   const arg = i < 0 ? null : id.slice(i + 1);
