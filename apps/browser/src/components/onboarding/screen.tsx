@@ -28,6 +28,8 @@ export function useAccent() {
   return (PROFILE_COLORS[color] ?? PROFILE_COLORS.plum).swatch;
 }
 
+const MOCK_SIZE = { width: 420, height: 300 } as const;
+
 export function MockPanel({ settings, focus, overlay }: { settings: Partial<Settings>; focus: PreviewId | null; overlay?: ReactNode }) {
   const accent = useAccent();
   const t = useRef(new Animated.Value(overlay ? 1 : 0)).current;
@@ -40,7 +42,7 @@ export function MockPanel({ settings, focus, overlay }: { settings: Partial<Sett
   }, [!!overlay]);
   return (
     <View style={{ alignItems: "center", justifyContent: "center" }}>
-      <Animated.View style={{ opacity: t.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
+      <Animated.View style={{ width: MOCK_SIZE.width, height: MOCK_SIZE.height, opacity: t.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
         <MockWindow settings={settings} accent={accent} focus={focus} />
       </Animated.View>
       {overlay || shown ? (
