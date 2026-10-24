@@ -2440,14 +2440,14 @@ static NSString *LinkKeyAction(NSString *key) {
   NSString *scheme = (url.length ? [NSURL URLWithString:url].scheme.lowercaseString : nil) ?: @"";
   const BOOL fresh = gPeekUpAt >= 0 && CACurrentMediaTime() - gPeekUpAt <= kPeekFallbackLifetime && !gPeekPressedSinceUp;
   const BOOL userClicked = test || (fresh && gPeekUpSeq != gPeekUsedSeq && gPeekUpView == self && gPeekUpKeys == pageFlag);
-  const BOOL fallsBack = pageFlag && [@[ @"http", @"https" ] containsObject:scheme] && userClicked;
+  const BOOL fallsBack = !split && pageFlag && [@[ @"http", @"https" ] containsObject:scheme] && userClicked;
   NSString *origin = Text(dict, @"origin", 1024).lowercaseString;
   const BOOL sameOrigin = origin.length && [OriginOf(url).lowercaseString isEqualToString:origin];
-  NSString *action = !fallsBack ? @"none" : split ? @"split" : pageFlag == NSEventModifierFlagShift ? @"new window" : sameOrigin ? @"page download" : @"background tab";
-  PeekTrace(@{@"event" : @"fallback", @"url" : url ?: @"", @"key" : key, @"reason" : reason, @"userClicked" : @(userClicked), @"action" : action});
+  NSString *action = !fallsBack ? @"none" : pageFlag == NSEventModifierFlagShift ? @"new window" : sameOrigin ? @"page download" : @"background tab";
+  PeekTrace(@{@"event" : @"fallback", @"url" : url ?: @"", @"key" : key, @"reason" : reason, @"userClicked" : @(userClicked), @"split" : @(split), @"action" : action});
+  if (split && userClicked && !test) gPeekUsedSeq = gPeekUpSeq;
   if (!fallsBack) return;
   if (!test) gPeekUsedSeq = gPeekUpSeq;
-  if (split) return [self emit:@"openWindow" payload:@{@"url" : url, @"disposition" : @"split", @"userGesture" : @YES}];
   if (pageFlag == NSEventModifierFlagShift) return [self emit:@"openWindow" payload:@{@"url" : url, @"disposition" : @"window", @"userGesture" : @YES}];
   if (sameOrigin) return [self callFrame:frameId kind:@"peekRefused" json:JSONString(@{@"url" : url, @"reason" : reason, @"download" : @YES})];
   [self emit:@"openWindow" payload:@{@"url" : url, @"disposition" : @"background", @"userGesture" : @YES}];
