@@ -53,6 +53,8 @@ export const widevine = resource("widevine", () =>
 
 const defaultProfile = () => engineProfile(useBrowser.getState().settings.defaultProfileId);
 
+export const extensionsProfileId = (profileId: string | null): string => profileId ?? useBrowser.getState().settings.defaultProfileId;
+
 export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[] {
   const profile = profileId ? engineProfile(profileId) : defaultProfile();
   switch (pane) {
@@ -69,7 +71,7 @@ export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[
     case "autofill":
       return [need(addresses, profile), need(cards, profile), need(autofillEnabled, profile)];
     case "extensions":
-      return [need(extensionList, defaultProfile())];
+      return [need(extensionList, engineProfile(extensionsProfileId(profileId)))];
     case "shortcuts":
       return [need(shortcutItems)];
     case "advanced":
