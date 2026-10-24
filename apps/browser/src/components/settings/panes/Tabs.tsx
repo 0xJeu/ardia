@@ -12,6 +12,18 @@ const PEEK_WITH: { value: PeekModifier; title: string }[] = [
   { value: "off", title: "Off" },
 ];
 
+const NEW_TABS_DOWN: { value: Settings["newTabPosition"]; title: string }[] = [
+  { value: "bottom", title: "At the bottom" },
+  { value: "top", title: "At the top" },
+  { value: "nextToCurrent", title: "Below the current tab" },
+];
+
+const NEW_TABS_ACROSS: { value: Settings["newTabPosition"]; title: string }[] = [
+  { value: "bottom", title: "On the right" },
+  { value: "top", title: "On the left" },
+  { value: "nextToCurrent", title: "Next to the current tab" },
+];
+
 const CLEAN_UP = [
   { value: "12", title: "12 hours" },
   { value: "24", title: "24 hours" },
@@ -55,8 +67,8 @@ export function TabsPane() {
             minWidth={160}
           />
         </Row>
-        <Row anchor="tabs.newTabPosition" title={top ? "Add new tabs to the left" : "Add new tabs to the top"}>
-          <Toggle value={settings.newTabPosition === "top"} onChange={(v) => update({ newTabPosition: v ? "top" : "bottom" })} />
+        <Row anchor="tabs.newTabPosition">
+          <PopUp value={settings.newTabPosition} options={top ? NEW_TABS_ACROSS : NEW_TABS_DOWN} onChange={(newTabPosition) => update({ newTabPosition })} minWidth={190} />
         </Row>
         {toggle("shareTabsAcrossWindows", "tabs.shareTabsAcrossWindows")}
         {toggle("warnBeforeClosingLastTab", "tabs.warnBeforeClosingLastTab")}

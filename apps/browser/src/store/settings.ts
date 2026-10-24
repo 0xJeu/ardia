@@ -30,7 +30,7 @@ export type Settings = {
 
   tabLayout: "sidebar" | "top";
   hideToolbarWhileScrolling: boolean;
-  newTabPosition: "top" | "bottom";
+  newTabPosition: "top" | "bottom" | "nextToCurrent";
   newTabOpens: "page" | "commandBar";
   warnBeforeClosingLastTab: boolean;
   undoReopensClosedTab: boolean;

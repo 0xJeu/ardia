@@ -21,7 +21,7 @@ import {
   wake,
   without,
 } from "./model";
-import { forgetOpeners, insertionIndex, openerSuccessor, switchKeepsOpeners } from "./openers";
+import { forgetOpeners, insertionIndex, nextToActive, openerSuccessor, switchKeepsOpeners } from "./openers";
 import { groupWithOpener, onUrlChange, pruneSelection, samePage } from "./organize";
 import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
@@ -40,6 +40,7 @@ export type NewTabOptions = {
   snapshot?: Partial<TabSnapshot>;
   index?: number;
   wakeAdoptId?: string;
+  newTabCommand?: boolean;
 };
 
 let pinHandoff: (tabId: string, commit: () => void) => void = (_, commit) => commit();
@@ -318,8 +319,10 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       return get().newTab(main, { ...options, profileId, index: undefined });
     }
     if (options?.url && !options.adoptId && openOutsideTab(resolveInput(fromLegacyUrl(options.url.trim()), searchUrlPrefix(get().settings)), windowId)) return "";
-    let [next, id] = withNewTab(get(), windowId, options);
+    const beside = options?.newTabCommand && !options.openerId ? nextToActive(get(), windowId, options.profileId) : undefined;
+    let [next, id] = withNewTab(get(), windowId, beside ? { ...options, ...beside } : options);
     if (id && options?.openerId) next = groupWithOpener(next, id, options.openerId, !!options.background);
+    else if (id && beside && !inPinnedContainer(next, beside.openerId)) next = groupWithOpener(next, id, beside.openerId, false);
     set(next);
     return id;
   },
