@@ -30,14 +30,30 @@ public final class AppUpdater: NSObject {
     #if canImport(Sparkle)
     guard started else { return }
     userDriver.leaveOffChannelUpdate()
-    guard updater.automaticallyChecksForUpdates else { return }
     if updater.sessionInProgress {
       channelChangePending = true
     } else {
-      updater.resetUpdateCycle()
+      applyChannelChange()
     }
     #endif
   }
+
+  #if canImport(Sparkle)
+  private func applyChannelChange() {
+    if hasOffChannelStagedUpdate {
+      updater.checkForUpdatesInBackground()
+    } else if updater.automaticallyChecksForUpdates {
+      updater.resetUpdateCycle()
+    }
+  }
+
+  private var hasOffChannelStagedUpdate: Bool {
+    UpdatePrewarm.stagedApps().contains { staged in
+      let built = staged.bundle.object(forInfoDictionaryKey: "ACUpdateChannel") as? String
+      return built == "nightly" && !allowedChannels.contains("nightly")
+    }
+  }
+  #endif
 
   var allowedChannels: Set<String> {
     channel == "nightly" ? ["nightly"] : []
@@ -218,7 +234,7 @@ extension AppUpdater: SPUUpdaterDelegate {
   public func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
     guard channelChangePending else { return }
     channelChangePending = false
-    updater.resetUpdateCycle()
+    applyChannelChange()
   }
 
   public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
@@ -313,23 +329,29 @@ enum UpdatePrewarm {
   }
 
   static func stagedApp(version: String, bundleId: String? = Bundle.main.bundleIdentifier, root: URL? = nil) -> Bundle? {
+    stagedApps(bundleId: bundleId, root: root)
+      .filter { $0.bundle.infoDictionary?["CFBundleVersion"] as? String == version }
+      .max { $0.modified < $1.modified }?.bundle
+  }
+
+  static func stagedApps(bundleId: String? = Bundle.main.bundleIdentifier, root: URL? = nil) -> [(bundle: Bundle, modified: Date)] {
     guard let bundleId,
       let root = root ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
         .appendingPathComponent(bundleId).appendingPathComponent("org.sparkle-project.Sparkle/Installation")
-    else { return nil }
+    else { return [] }
     guard let walk = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey],
-                                                     options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return nil }
-    var found: [(Bundle, Date)] = []
+                                                     options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
+    var found: [(bundle: Bundle, modified: Date)] = []
     for case let url as URL in walk {
       if walk.level > 4 { walk.skipDescendants(); continue }
       guard url.pathExtension == "app", let bundle = Bundle(url: url), let info = bundle.infoDictionary,
-        info["CFBundleIdentifier"] as? String == bundleId, info["CFBundleVersion"] as? String == version,
+        info["CFBundleIdentifier"] as? String == bundleId,
         let executable = bundle.executableURL, FileManager.default.isExecutableFile(atPath: executable.path)
       else { continue }
       let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
       found.append((bundle, date))
     }
-    return found.max { $0.1 < $1.1 }?.0
+    return found
   }
 }
 
