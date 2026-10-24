@@ -129,6 +129,12 @@ if (flag("--list")) listChecks();
 const attaching = argv[0] === "--attach";
 if (attaching) argv.shift();
 const keep = flag("--keep") || attaching;
+const audioOutputOf = (browserPid) => {
+  const utilities = execFileSync("ps", ["-A", "-ww", "-o", "ppid=,command="], { encoding: "utf8" }).split("\n")
+    .filter((line) => line.trim().split(/\s+/)[0] === String(browserPid) && line.includes("--type=utility"));
+  if (!utilities.length) return null;
+  return utilities.some((line) => line.includes(" --disable-audio-output")) ? "fake" : "speakers";
+};
 let kept = null;
 if (attaching || keep) {
   try {
@@ -139,7 +145,12 @@ if (attaching || keep) {
       process.exit(66);
     }
   }
-  if (kept && !attaching && kept.app !== resolve(argv[0])) {
+  if (kept && attaching && audioOutputOf(kept.pid) !== "fake") {
+    console.error(`--attach: pid ${kept.pid} plays sound through this Mac's speakers (started without --disable-audio-output); ` +
+      `quit it (scripts/agent/ac quit ${join(resolve(argv[0]), "data")}) and start a new run`);
+    process.exit(65);
+  }
+  if (kept && !attaching && (kept.app !== resolve(argv[0]) || audioOutputOf(kept.pid) !== "fake")) {
     await kept.quit();
     kept = null;
   }
@@ -404,6 +415,15 @@ async function launch(logName = "app.out.log", env = {}, args = [], opts = {}) {
     meta: { http: server.address().port, https: tlsServer.address().port },
   });
   adopt(instance);
+  let output = null;
+  for (const deadline = Date.now() + 15000; !output && Date.now() < deadline; ) {
+    output = audioOutputOf(pid);
+    if (!output) await sleep(200);
+  }
+  if (output === "speakers") {
+    await instance.quit();
+    throw new Error(`pid ${pid} would play sound through this Mac's speakers: Chrome didn't get --disable-audio-output`);
+  }
 }
 function adopt(i) {
   instance = i;
