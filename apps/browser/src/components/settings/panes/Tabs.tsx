@@ -58,6 +58,7 @@ export function TabsPane() {
         <Row anchor="tabs.newTabPosition" title={top ? "Add new tabs to the left" : "Add new tabs to the top"}>
           <Toggle value={settings.newTabPosition === "top"} onChange={(v) => update({ newTabPosition: v ? "top" : "bottom" })} />
         </Row>
+        {toggle("shareTabsAcrossWindows", "tabs.shareTabsAcrossWindows")}
         {toggle("warnBeforeClosingLastTab", "tabs.warnBeforeClosingLastTab")}
         {toggle("tabReorderHaptics", "tabs.tabReorderHaptics")}
         {toggle("extendWebsiteColor", "tabs.extendWebsiteColor")}

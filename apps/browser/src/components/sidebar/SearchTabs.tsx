@@ -7,6 +7,7 @@ import { hex, useTheme } from "../../lib/theme";
 import { useBrowser, type BrowserState } from "../../store/browser";
 import { tabLabel } from "../../store/model";
 import { isPeekTab } from "../../store/peek";
+import { sharedCopyHere, sharesTabs } from "../../store/tabShare";
 import { tabTitle } from "./actions";
 import { setSidebarUi, useSidebarUi } from "./state";
 import { TabIcon } from "./TabIcon";
@@ -23,9 +24,10 @@ function candidates(s: BrowserState, windowId: string): { open: Row[]; closed: R
   const w = s.windows[windowId];
   if (!w) return { open: [], closed: [] };
   const profileId = w.profileId;
+  const copyHere = sharesTabs(s) ? sharedCopyHere(s.tabs, windowId) : null;
   const windowNumber = (id: string) => s.windowOrder.filter((x) => !s.windows[x]?.incognito || x === windowId).indexOf(id) + 1;
   const open: Row[] = Object.values(s.tabs)
-    .filter((t) => t.profileId === profileId && !isPeekTab(s, t.id))
+    .filter((t) => t.profileId === profileId && !isPeekTab(s, t.id) && !copyHere?.(t))
     .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
     .map((t) => ({
       kind: "tab",

@@ -8,6 +8,7 @@ import { createOrganizeSlice, forgetClosedPrivateWindows, keptCleanedTabs, keptD
 import { createPeekSlice, settlePeeks, type PeekSlice } from "./peek";
 import { mirrorPins } from "./pinMirror";
 import { settleSharedPins } from "./pinShare";
+import { mirrorTabs, unshareTabs } from "./tabShare";
 import { settleTileFolders } from "./tileFolders";
 import { createProfilesSlice, DEFAULT_PROFILE, engineIdOf, type ProfilesSlice } from "./profiles";
 import { createSettingsSlice, DEFAULT_SETTINGS, migrateSavedSettings, type SettingsSlice } from "./settings";
@@ -215,9 +216,12 @@ useBrowser.subscribe((s, prev) => {
 let mirroring = 0;
 useBrowser.subscribe((s, prev) => {
   if (mirroring > 3) return;
-  const shared = settleSharedPins(s, prev);
-  const settled = settleTileFolders(shared ?? s, prev) ?? shared;
-  const next = mirrorPins(settled ?? s, prev) ?? settled;
+  const unshared = unshareTabs(s, prev);
+  const base = unshared ?? s;
+  const shared = settleSharedPins(base, prev) ?? unshared;
+  const settled = settleTileFolders(shared ?? base, prev) ?? shared;
+  const pinned = mirrorPins(settled ?? base, prev) ?? settled;
+  const next = mirrorTabs(pinned ?? base, prev) ?? pinned;
   if (!next) return;
   mirroring++;
   try {

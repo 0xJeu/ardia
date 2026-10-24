@@ -4,6 +4,7 @@ import { autoGroupName } from "./groupNames";
 import { ancestorIds, canNest, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
 import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, newId, pendingRestore, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { splitOf, splitRowHead, splitRowPanes, withSplitRows } from "./splits";
+import { lastUsedOf, sharedLastUsed } from "./tabShare";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup, TileFolder } from "./types";
 
@@ -471,6 +472,7 @@ export function cleanUpCandidates(s: BrowserState, windowId: string, inactiveFor
   const grouped = new Set(Object.values(s.groups).flatMap((g) => g.tabIds));
   const inSplit = new Set(Object.values(s.splits).flatMap((v) => v.tabIds));
   const keep = (t: Tab) => t.id === active || inPinnedContainer(s, t.id) || s.live[t.id]?.playingAudio;
+  const used = sharedLastUsed(s);
   const out = new Set<string>();
   const byPage = new Map<string, Tab[]>();
   for (const id of view) {
@@ -481,13 +483,13 @@ export function cleanUpCandidates(s: BrowserState, windowId: string, inactiveFor
   }
   for (const same of byPage.values()) {
     if (same.length < 2) continue;
-    const keeper = same.find((t) => t.pinned) ?? same.find((t) => t.id === active) ?? [...same].sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0]!;
+    const keeper = same.find((t) => t.pinned) ?? same.find((t) => t.id === active) ?? [...same].sort((a, b) => lastUsedOf(used, b) - lastUsedOf(used, a))[0]!;
     for (const t of same) if (t !== keeper && !keep(t) && !inSplit.has(t.id)) out.add(t.id);
   }
   for (const id of view) {
     const t = s.tabs[id]!;
     if (keep(t) || grouped.has(id) || inSplit.has(id)) continue;
-    if (now - t.lastActiveAt >= inactiveForMs) out.add(id);
+    if (now - lastUsedOf(used, t) >= inactiveForMs) out.add(id);
   }
   return view.filter((id) => out.has(id));
 }

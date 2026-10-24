@@ -22,6 +22,7 @@ import { nextPinChoice, placeChoiceKey, restoringGroup } from "./organize";
 import { adoptParkedPins, parkWindowPins } from "./parkedPins";
 import { settleMovedPins } from "./pinMirror";
 import { holderOf, returnSharedPages, swapPinPage } from "./pinShare";
+import { sharedElsewhere, sharesTabs } from "./tabShare";
 import { isSmall, isSmallWindow, lastActiveProfile, linkProfileOf, mainWindowFor } from "./small";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedTab, ClosedWindow, Frame, ParkedPins, Tab, TabGroup } from "./types";
@@ -164,7 +165,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     const s = returnSharedPages(get(), id);
     const w = s.windows[id];
     if (!w) return;
-    const tabs = w.tabIds.map((t) => s.tabs[t]).filter((t): t is Tab => !!t && !inPinnedContainer(s, t.id));
+    const tabs = w.tabIds.map((t) => s.tabs[t]).filter((t): t is Tab => !!t && !inPinnedContainer(s, t.id) && !sharedElsewhere(s, t));
     const tabIds = tabs.map((t) => t.id);
     const small = isSmallWindow(w);
     let closedWindows = s.closedWindows;
@@ -176,7 +177,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
         window: { profileId: w.profileId, sidebarOpen: w.sidebarOpen, frame: w.frame },
         tabs: tabs.map((t) => ({ ...snapshotTab(t), active: active.has(t.id), ...(t.url && (t.navigation || t.adoptId) ? { tabId: t.id } : pendingRestore(t) ? { tabId: pendingRestore(t) } : {}) })),
         groups: Object.values(s.groups)
-          .filter((g) => g.windowId === id && !g.pinned)
+          .filter((g) => g.windowId === id && !g.pinned && (!sharesTabs(s) || g.tabIds.some((t) => tabIds.includes(t))))
           .map(({ tabIds: members, windowId: _, ...g }) => ({ ...g, tabIndexes: members.map((t) => tabIds.indexOf(t)) })),
         closedAt: Date.now(),
       };

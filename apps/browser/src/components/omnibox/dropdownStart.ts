@@ -1,6 +1,7 @@
 import { recentTabSuggestions, type Suggestion } from "@ardia/core";
 import { useMemo } from "react";
 import { useBrowser } from "../../store/browser";
+import { sharedCopyHere } from "../../store/tabShare";
 import type { HistoryEntry } from "../../store/types";
 import { tabTitle } from "../sidebar/actions";
 
@@ -33,12 +34,14 @@ const NO_TABS: Suggestion[] = [];
 export function useOpenTabsStart(enabled: boolean, windowId: string, profileId: string): Suggestion[] {
   const tabs = useBrowser((s) => (enabled ? s.tabs : null));
   const peeks = useBrowser((s) => (enabled ? s.peeks : null));
+  const shared = useBrowser((s) => !!s.settings.shareTabsAcrossWindows);
   const active = useBrowser((s) => (enabled ? s.windows[windowId]?.activeTabIds[profileId] : undefined));
   return useMemo(() => {
     if (!tabs || !peeks) return NO_TABS;
+    const copyHere = shared ? sharedCopyHere(tabs, windowId) : null;
     const rows = Object.values(tabs)
-      .filter((t) => t.profileId === profileId && peeks[t.windowId]?.tabId !== t.id)
+      .filter((t) => t.profileId === profileId && peeks[t.windowId]?.tabId !== t.id && !copyHere?.(t))
       .map((t) => ({ id: t.id, url: t.url, title: tabTitle(t), favicon: t.favicon, lastActiveAt: t.lastActiveAt }));
     return recentTabSuggestions(rows, { exclude: active });
-  }, [tabs, peeks, active, profileId]);
+  }, [tabs, peeks, active, profileId, shared, windowId]);
 }

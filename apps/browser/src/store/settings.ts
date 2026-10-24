@@ -35,6 +35,7 @@ export type Settings = {
   warnBeforeClosingLastTab: boolean;
   undoReopensClosedTab: boolean;
   warnBeforeMovingTabsToProfile: boolean;
+  shareTabsAcrossWindows: boolean;
   tabReorderHaptics: boolean;
   extendWebsiteColor: boolean;
   cmdClickCreatesTabGroup: boolean;
@@ -98,6 +99,7 @@ export const DEFAULT_SETTINGS: Settings = {
   warnBeforeClosingLastTab: true,
   undoReopensClosedTab: false,
   warnBeforeMovingTabsToProfile: true,
+  shareTabsAcrossWindows: false,
   tabReorderHaptics: true,
   extendWebsiteColor: true,
   cmdClickCreatesTabGroup: true,

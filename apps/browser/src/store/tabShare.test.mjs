@@ -1,0 +1,143 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+const { useBrowser } = await import("./browser.ts");
+const model = await import("./model.ts");
+const { pinKeyOf } = await import("./pinMirror.ts");
+
+const S = () => useBrowser.getState();
+const reset = () => S().hydrate({});
+const loaded = (id) => !!S().tabs[id]?.navigation || !!S().tabs[id]?.adoptId;
+const shown = (w) => model.activeTabId(S(), w);
+const list = (w) => model.viewTabIds(S(), w).filter((id) => !S().tabs[id].pinned && S().tabs[id].url);
+const urls = (w) => list(w).map((id) => S().tabs[id].url);
+const keys = (w) => list(w).map((id) => pinKeyOf(S().tabs[id]));
+const rowOf = (w, url) => list(w).find((id) => S().tabs[id].url === url);
+const pages = (url) => Object.values(S().tabs).filter((t) => t.url === url && (t.navigation || t.adoptId) && !t.pageIn);
+const share = (on) => S().updateSettings({ shareTabsAcrossWindows: on });
+
+function twoWindows() {
+  const a = S().createWindow({ url: "https://a1.com" });
+  const [a1] = S().windows[a].tabIds;
+  const a2 = S().newTab(a, { url: "https://a2.com" });
+  S().activate(a1);
+  const b = S().createWindow({ url: "https://b1.com" });
+  const [b1] = S().windows[b].tabIds;
+  return { a, b, a1, a2, b1 };
+}
+
+test("off by default: each window keeps its own unpinned tabs, as before", () => {
+  reset();
+  assert.equal(S().settings.shareTabsAcrossWindows, false);
+  const { a, b } = twoWindows();
+  assert.deepEqual(urls(a), ["https://a1.com", "https://a2.com"]);
+  assert.deepEqual(urls(b), ["https://b1.com"]);
+  assert.equal(Object.values(S().tabs).some((t) => t.pageIn || t.pinKey), false);
+});
+
+test("turning it on gives every window of the profile the same list; each keeps its selection", () => {
+  reset();
+  const { a, b, a1, b1 } = twoWindows();
+  share(true);
+  assert.deepEqual(urls(a), ["https://a1.com", "https://a2.com", "https://b1.com"]);
+  assert.deepEqual(keys(b), keys(a), "same tabs, same order");
+  assert.equal(shown(a), a1);
+  assert.equal(shown(b), b1);
+  assert.equal(pages("https://a1.com").length, 1, "a copy loads nothing");
+  assert.equal(pages("https://b1.com").length, 1);
+});
+
+test("a tab opened in one window shows up in the other, and closing it in either closes it in both", () => {
+  reset();
+  const { a, b } = twoWindows();
+  share(true);
+  const t = S().newTab(a, { url: "https://new.com", background: true });
+  assert.ok(rowOf(b, "https://new.com"), "B lists it");
+  assert.equal(loaded(rowOf(b, "https://new.com")), false, "without loading it");
+  S().closeTab(rowOf(b, "https://new.com"));
+  assert.equal(S().tabs[t], undefined, "gone from A too");
+  assert.equal(rowOf(a, "https://new.com"), undefined);
+});
+
+test("selecting a tab that is live in another window moves its page here; that window shows it frozen", () => {
+  reset();
+  const { a, b, a1 } = twoWindows();
+  share(true);
+  const copy = rowOf(b, "https://a1.com");
+  S().activate(copy);
+  assert.equal(S().tabs[a1].windowId, b, "the live tab (same id, same page) is now in B");
+  assert.equal(shown(b), a1);
+  assert.equal(S().tabs[shown(a)].pageIn, a1, "A keeps that row selected, showing the page frozen");
+  assert.equal(pages("https://a1.com").length, 1, "one live page");
+  assert.deepEqual(keys(a), keys(b), "the lists didn't change");
+  S().activate(shown(a));
+  assert.equal(S().tabs[a1].windowId, a, "clicking it in A pulls it back");
+});
+
+test("rows of a tab live elsewhere follow its title and address", () => {
+  reset();
+  const { a, b, a1 } = twoWindows();
+  share(true);
+  S().navigated(a1, { url: "https://a1.com/page", title: "Page" }, {});
+  const copy = S().tabs[list(b)[0]];
+  assert.equal(copy.pageIn, a1);
+  assert.equal(copy.url, "https://a1.com/page");
+  assert.equal(copy.title, "Page");
+});
+
+test("closing one window keeps its tabs in the other and doesn't record them as a closed window", () => {
+  reset();
+  const { a, b, b1 } = twoWindows();
+  share(true);
+  S().closeWindow(b);
+  assert.deepEqual(urls(a), ["https://a1.com", "https://a2.com", "https://b1.com"]);
+  assert.equal(S().tabs[rowOf(a, "https://b1.com")].id, b1, "B's live page came back to A");
+  assert.equal(S().closedWindows.length, 0);
+});
+
+test("Move to Window brings the page there and leaves the row where it was", () => {
+  reset();
+  const { a, b, a2 } = twoWindows();
+  share(true);
+  S().moveTabsToWindow([a2], b);
+  assert.equal(S().tabs[a2].windowId, b);
+  assert.equal(shown(b), a2);
+  assert.deepEqual(keys(a), keys(b));
+  assert.equal(list(b).filter((id) => pinKeyOf(S().tabs[id]) === pinKeyOf(S().tabs[a2])).length, 1, "no second row in B");
+});
+
+test("a tab group is shared too", () => {
+  reset();
+  const { a, b, a1, a2 } = twoWindows();
+  share(true);
+  S().groupTabs([a1, a2], { pinned: false });
+  const groupsIn = (w) => Object.values(S().groups).filter((g) => g.windowId === w && !g.pinned);
+  assert.equal(groupsIn(b).length, 1);
+  assert.deepEqual(groupsIn(b)[0].tabIds.map((id) => pinKeyOf(S().tabs[id])), [a1, a2]);
+});
+
+test("clean up treats a tab as used when any window used it", () => {
+  reset();
+  const { a, b, a2 } = twoWindows();
+  share(true);
+  const copy = rowOf(b, "https://a2.com");
+  const day = 24 * 3_600_000;
+  useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], lastActiveAt: Date.now() - 2 * day } } }));
+  S().cleanUpTabs(b, { inactiveForMs: day });
+  assert.ok(S().tabs[a2], "A just used it, so B's clean up keeps it");
+});
+
+test("turning it off leaves each tab in one window: the live one, nothing duplicated", () => {
+  reset();
+  const { a, b, a1, b1 } = twoWindows();
+  share(true);
+  S().activate(rowOf(b, "https://a1.com"));
+  share(false);
+  const all = [...list(a), ...list(b)];
+  assert.equal(all.length, 3, "three tabs, once each");
+  assert.equal(S().tabs[a1].windowId, b, "a1's page stays where it is live");
+  assert.ok(list(b).includes(b1));
+  assert.equal(Object.values(S().tabs).some((t) => t.pageIn || t.pinKey), false);
+  assert.ok(S().windows[a], "no window closed");
+  S().newTab(a, { url: "https://after.com" });
+  assert.equal(rowOf(b, "https://after.com"), undefined, "and windows are separate again");
+});
