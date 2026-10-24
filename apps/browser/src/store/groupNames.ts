@@ -54,7 +54,9 @@ export const siteKey = (url: string) => hostLabel(hostOf(url)).toLowerCase();
 export function siteName(members: Member[]): string {
   const host = members.map((m) => hostOf(m.url)).find(Boolean) ?? "";
   const titles = members.flatMap((m) => (m.title && m.title !== m.url ? [m.title] : []));
-  return (titles.length ? siteFromTitles(host, titles) : undefined) ?? tidyHost(host);
+  const label = squash(hostLabel(host));
+  const titledLikeHost = label ? titles.find((t) => squash(t) === label)?.trim() : undefined;
+  return (titles.length ? siteFromTitles(host, titles) : undefined) ?? titledLikeHost ?? tidyHost(host);
 }
 
 function pageOf(title: string, site: string | undefined): string {

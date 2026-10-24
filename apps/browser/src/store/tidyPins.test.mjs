@@ -150,6 +150,16 @@ test("two or more loose pins of one site make a folder where the first was, name
   assert.equal(done.folders, 1);
 });
 
+test("a new folder takes the site's own spelling from a title that is just the site's name", () => {
+  reset();
+  const { w, ids: [l1, l2] } = windowWith("https://www.linkedin.com/1", "https://www.linkedin.com/2");
+  S().pinTabs([l1, l2], true, true);
+  S().updateTab(l1, { title: "LinkedIn" });
+  S().updateTab(l2, { title: "LinkedIn" });
+  tidy(w);
+  assert.equal(innermost(l1).name, "LinkedIn");
+});
+
 test("Tidy shows only with something to tidy, and a tidy sidebar has nothing left", () => {
   reset();
   const { w, ids: [a, b, c] } = windowWith("https://a.com/1", "https://b.com/1", "https://a.com/2");
