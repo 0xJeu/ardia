@@ -2,7 +2,7 @@ import { showMenu, type MenuItem } from "@ardia/shell";
 import { closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinSection, plural, tabLabel, viewTabIds, windowTitle } from "../../store/model";
+import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
 import { awayFromPin, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds } from "../../store/organize";
 import { groupPath } from "../../store/groups";
 import { splitOf, splitRowPanes } from "../../store/splits";
@@ -109,13 +109,13 @@ export async function openTabMenu(windowId: string, tab: Tab) {
     { id: "icon", title: "Change Icon…", symbol: "face.smiling" },
     ...(tab.customIcon ? [{ id: "resetIcon", title: "Reset Icon", symbol: "arrow.counterclockwise" }] : []),
     sep,
-    { id: "pin", title: tab.pinned ? "Unpin" : "Pin", symbol: tab.pinned ? "pin.slash" : "pin" },
+    { id: "pin", title: togglePinTitle(tab), symbol: tab.pinned ? "pin.slash" : "pin" },
     ...(splitRow
       ? []
       : [
           isPinnedRow(tab)
             ? { id: "pinTile", title: "Move to Top Apps", symbol: "app" }
-            : { id: "pinRow", title: "Move to Pinned Tabs", symbol: "list.bullet" },
+            : { id: "pinRow", title: `Move to ${pinnedSectionTitle(s, tab)}`, symbol: "list.bullet" },
         ]),
     ...(pinSection(tab) !== "tile"
       ? []
@@ -191,8 +191,8 @@ async function openMultiMenu(windowId: string, ids: string[]) {
   const incognito = tabs.some((t) => isIncognitoProfile(t.profileId));
   const groups = moveToGroupItems(windowId, undefined);
   const choice = await showMenu([
-    { id: "pin", title: allPinned ? `Unpin ${n} Tabs` : `Pin ${n} Tabs`, symbol: allPinned ? "pin.slash" : "pin" },
-    ...(tabs.every(isPinnedRow) ? [] : [{ id: "pinRows", title: `Move ${n} Tabs to Pinned Tabs`, symbol: "list.bullet" }]),
+    { id: "pin", title: allPinned ? `Unpin ${n} Tabs` : `Move ${n} Tabs to Top Apps`, symbol: allPinned ? "pin.slash" : "pin" },
+    ...(tabs.every(isPinnedRow) ? [] : [{ id: "pinRows", title: `Move ${n} Tabs to ${pinnedSectionTitle(s, tabs[0])}`, symbol: "list.bullet" }]),
     { id: "duplicate", title: `Duplicate ${n} Tabs`, symbol: "plus.square.on.square" },
     { id: "newGroup", title: `New Group with ${n} Tabs`, symbol: "plus.rectangle.on.rectangle", enabled: !allTiles, ...hint("n", "control", "command") },
     ...(groups.length ? [{ id: "moveToGroup", title: "Move to Group", symbol: "rectangle.stack", children: groups }] : []),
