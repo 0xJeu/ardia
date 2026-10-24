@@ -643,55 +643,78 @@ index 3edcc9670a8ccb5eef44524e78445117d2416ed8..1f7951f616996941706f11b380c12051
    if (sendIdleEvents) {
      [self startTimers];
 diff --git a/React/Modules/RCTUIManager.mm b/React/Modules/RCTUIManager.mm
-index 7f1aeff436b8a51514254b72d1fb1fd1ee3b1553..b6d35c34afb8f0aee3e881fe931b7739e8dab84f 100644
+index 7f1aeff436b8a51514254b72d1fb1fd1ee3b1553..6690f2f914e50ce3205509b57e5d339156726943 100644
 --- a/React/Modules/RCTUIManager.mm
 +++ b/React/Modules/RCTUIManager.mm
 @@ -7,6 +7,8 @@
  
  #import "RCTUIManager.h"
  
-+#import <atomic> // [Ardia]
++#import <mutex> // [Ardia]
 +
  #import <AVFoundation/AVFoundation.h>
  #import <React/RCTSurfacePresenterStub.h>
  #import <react/featureflags/ReactNativeFeatureFlags.h>
-@@ -181,6 +183,8 @@ @implementation RCTUIManager {
+@@ -181,6 +183,11 @@ @implementation RCTUIManager {
  
    // Keyed by viewName
    NSMutableDictionary *_componentDataByName;
 +
-+  std::atomic<NSInteger> _queuedMainQueueMounts; // [Ardia]
++  // [Ardia
++  std::mutex _mainQueueMountsLock;
++  NSMutableArray<dispatch_block_t> *_mainQueueMounts;
++  // Ardia]
  }
  
  @synthesize bridge = _bridge;
-@@ -1321,7 +1325,12 @@ - (void)flushUIBlocksWithCompletion:(void (^)(void))completion
+@@ -1321,7 +1328,8 @@ - (void)flushUIBlocksWithCompletion:(void (^)(void))completion
  
    // Execute the previously queued UI blocks
    RCTProfileBeginFlowEvent();
 -  RCTExecuteOnMainQueue(^{
-+  // [Ardia: a live-resize layout on the main thread mounts behind the mounts already queued there, never before them.
-+  const BOOL mountsNow = RCTIsMainQueue() && _queuedMainQueueMounts.load() == 0;
-+  if (!mountsNow) {
-+    _queuedMainQueueMounts++;
-+  }
-+  void (^mount)(void) = ^{
++  // [Ardia: mounts land in layout order: a live-resize layout on the main thread mounts every older queued mount first.
++  [self enqueueMainQueueMount:^{
      RCTProfileEndFlowEvent();
      RCT_PROFILE_BEGIN_EVENT(RCTProfileTagAlways, @"-[UIManager flushUIBlocks]", (@{
                                @"count" : [@(previousPendingUIBlocks.count) stringValue],
-@@ -1331,8 +1340,17 @@ - (void)flushUIBlocksWithCompletion:(void (^)(void))completion
- 
+@@ -1332,7 +1340,41 @@ - (void)flushUIBlocksWithCompletion:(void (^)(void))completion
      RCT_PROFILE_END_EVENT(RCTProfileTagAlways, @"");
  
-+    if (!mountsNow) {
-+      self->_queuedMainQueueMounts--;
-+    }
      RCTExecuteOnUIManagerQueue(completion);
 -  });
-+  };
-+  if (mountsNow) {
-+    mount();
++  }];
++  if (RCTIsMainQueue()) {
++    [self drainMainQueueMounts];
 +  } else {
-+    dispatch_async(dispatch_get_main_queue(), mount);
++    dispatch_async(dispatch_get_main_queue(), ^{
++      [self drainMainQueueMounts];
++    });
++  }
++}
++
++- (void)enqueueMainQueueMount:(dispatch_block_t)mount
++{
++  std::lock_guard<std::mutex> guard(_mainQueueMountsLock);
++  if (!_mainQueueMounts) {
++    _mainQueueMounts = [NSMutableArray new];
++  }
++  [_mainQueueMounts addObject:[mount copy]];
++}
++
++- (void)drainMainQueueMounts
++{
++  RCTAssertMainQueue();
++  for (;;) {
++    dispatch_block_t mount;
++    {
++      std::lock_guard<std::mutex> guard(_mainQueueMountsLock);
++      mount = _mainQueueMounts.firstObject;
++      if (!mount) {
++        return;
++      }
++      [_mainQueueMounts removeObjectAtIndex:0];
++    }
++    mount();
 +  }
 +  // Ardia]
  }
