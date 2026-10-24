@@ -250,3 +250,17 @@ test("a pane of a pinned split is never closed as a duplicate, so the split surv
   assert.equal(S().tabs[p2].pinned && S().tabs[p2].pinnedAsRow, true);
   assert.deepEqual(Object.values(S().groups).find((g) => g.name === "F").tabIds, [member]);
 });
+
+test("Undo puts a pinned split back in its place, as one row", () => {
+  reset();
+  const { w, ids: [a1, b, z, a2, c] } = windowWith("https://a.com/1", "https://b.com/1", "https://z.com/1", "https://a.com/2", "https://c.com/1");
+  const splitId = S().createSplit([a1, b]);
+  S().pinTabs([a1, z, a2, c], true, true);
+  const before = pinnedArea(w);
+  assert.deepEqual(before, ["row:a/1", "row:b/1", "row:z/1", "row:a/2", "row:c/1"]);
+  const done = tidy(w);
+  assert.ok(done);
+  undo(done);
+  assert.deepEqual(pinnedArea(w), before);
+  assert.deepEqual(S().splits[splitId]?.tabIds, [a1, b]);
+});

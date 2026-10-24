@@ -135,11 +135,17 @@ export function untidyingPins(s: BrowserState, tidied: TidiedPins): BrowserState
   back.forEach((e, i) => ids[i] && e.tabId && now.set(e.tabId, ids[i]!));
   const inWindow = (id: string) => next.tabs[id]?.windowId === w.id;
   const returning = tidied.order.filter((id) => now.has(id)).reverse();
+  const placed = new Set<string>();
   for (const id of returning) {
     const tabId = now.get(id)!;
+    if (placed.has(tabId)) continue;
+    const block = new Set(withSplitRows(next, [tabId]));
     const later = tidied.order.slice(tidied.order.indexOf(id) + 1).map((o) => now.get(o) ?? o);
-    const beforeId = later.find(inWindow) ?? null;
+    const beforeId = later.find((o) => inWindow(o) && !block.has(o)) ?? null;
     next = placing(next, [tabId], { pinned: true, row: true, beforeId, last: !beforeId });
+    block.forEach((pane) => placed.add(pane));
+  }
+  for (const [id, tabId] of now) {
     const home = tidied.homes[id];
     if (id in tidied.homes && home && next.tabs[tabId]) next = { ...next, tabs: { ...next.tabs, [tabId]: { ...next.tabs[tabId]!, pinnedUrl: home } } };
   }
