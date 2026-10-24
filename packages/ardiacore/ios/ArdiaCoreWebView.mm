@@ -531,14 +531,14 @@ void AcceptDrops(NSView *root, BOOL accept) {
 static NSDictionary *DisplayMediaAudioOffer(NSDictionary *message) {
   if (!Flag(message, @"audio")) return nil;
   NSDictionary *support = [ArdiaCoreEngine respondsToSelector:@selector(desktopCaptureAudio)] ? ArdiaCoreEngine.desktopCaptureAudio : @{};
-  const bool system = Flag(support, @"system") && Flag(message, @"systemAudio"), application = Flag(support, @"application");
+  const bool system = Flag(support, @"system"), application = Flag(support, @"application");
   NSString *preference = Text(message, @"windowAudio", 16);
   NSString *window = nil;
   if ([preference isEqualToString:@"window"])
     window = application ? @"application" : system ? @"system" : nil;
   else if ([preference isEqualToString:@"system"])
     window = system ? @"system" : nil;
-  return @{@"tab" : @YES, @"screen" : @(system), @"window" : window ?: NSNull.null};
+  return @{@"tab" : @YES, @"screen" : @(system && Flag(message, @"systemAudio")), @"window" : window ?: NSNull.null};
 }
 
 static NSString *DisplayMediaAudioFor(NSDictionary *offer, NSString *sourceId) {

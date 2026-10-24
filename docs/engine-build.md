@@ -519,8 +519,7 @@ In the app:
   script asks for desktop audio when the answer says so.
 - What audio the picker offers follows Chrome's picker: tab audio (checked by default), system audio for a
   screen, and for a window system audio, or the app's own audio when the page asks `windowAudio: "window"`
-  (both unchecked by default). `systemAudio: "exclude"` hides every system audio checkbox (a screen's, and a window's unless it offers the app's
-  audio), and `windowAudio: "exclude"` hides a window's. System
+  (both unchecked by default). `systemAudio: "exclude"` and `windowAudio: "exclude"` hide the checkbox. System
   audio needs Core Audio taps (macOS 14.2+, `DesktopMediaPickerController::IsSystemAudioCaptureSupported`), app
   audio also `kApplicationAudioCaptureMac` (`media::IsApplicationLoopbackCaptureSupported`); the engine reports
   both (`ArdiaCoreEngine.desktopCaptureAudio`). macOS asks for System Audio Recording the first time
