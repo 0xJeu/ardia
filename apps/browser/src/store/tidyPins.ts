@@ -3,7 +3,7 @@ import { siteKey, siteName } from "./groupNames";
 import { depthOf, innermostGroupOf } from "./groups";
 import { activeTabId, isPinnedRow } from "./model";
 import { placing, restoreSnapshots, samePage, withRowsGrouped } from "./organize";
-import { withSplitRows } from "./splits";
+import { splitOf, splitRowPanes, withSplitRows } from "./splits";
 import { activated, apply, removeTabs } from "./tabs";
 import type { ClosedTab, Tab, TabGroup } from "./types";
 
@@ -46,7 +46,7 @@ function folderSites(s: Pick<BrowserState, "tabs" | "groups">, g: TabGroup): str
   return [...counts].filter(([, n]) => n === most).map(([site]) => site);
 }
 
-export function tidyPlan(s: Pick<BrowserState, "tabs" | "groups" | "windows">, windowId: string, profileId?: string): TidyPlan | null {
+export function tidyPlan(s: Pick<BrowserState, "tabs" | "groups" | "windows" | "splits">, windowId: string, profileId?: string): TidyPlan | null {
   const w = s.windows[windowId];
   if (!w || w.incognito || w.kind === "small") return null;
   const profile = profileId ?? w.profileId;
@@ -61,7 +61,8 @@ export function tidyPlan(s: Pick<BrowserState, "tabs" | "groups" | "windows">, w
   for (const id of rows) {
     const t = s.tabs[id]!;
     const home = homeOf(t);
-    const twin = home ? (filed.find((f) => homeOf(f) && samePage(homeOf(f), home)) ?? kept.find((k) => samePage(homeOf(k), home))) : undefined;
+    const inSplitRow = splitRowPanes(s, splitOf(s, id)).includes(id);
+    const twin = home && !inSplitRow ? (filed.find((f) => homeOf(f) && samePage(homeOf(f), home)) ?? kept.find((k) => samePage(homeOf(k), home))) : undefined;
     if (twin) closes.push({ tabId: id, keeperId: twin.id });
     else kept.push(t);
   }
@@ -85,15 +86,15 @@ export function tidyPlan(s: Pick<BrowserState, "tabs" | "groups" | "windows">, w
   return closes.length || files.length || newGroups.length ? { closes, files, newGroups } : null;
 }
 
-const plans = new Map<string, { tabs: object; groups: object; window: object | undefined; can: boolean }>();
+const plans = new Map<string, { tabs: object; groups: object; splits: object; window: object | undefined; can: boolean }>();
 
-export function canTidyPins(s: Pick<BrowserState, "tabs" | "groups" | "windows">, windowId: string, profileId?: string): boolean {
+export function canTidyPins(s: Pick<BrowserState, "tabs" | "groups" | "windows" | "splits">, windowId: string, profileId?: string): boolean {
   const key = `${windowId}\n${profileId ?? ""}`;
   const window = s.windows[windowId];
   const known = plans.get(key);
-  if (known && known.tabs === s.tabs && known.groups === s.groups && known.window === window) return known.can;
+  if (known && known.tabs === s.tabs && known.groups === s.groups && known.splits === s.splits && known.window === window) return known.can;
   const can = !!tidyPlan(s, windowId, profileId);
-  plans.set(key, { tabs: s.tabs, groups: s.groups, window, can });
+  plans.set(key, { tabs: s.tabs, groups: s.groups, splits: s.splits, window, can });
   if (plans.size > 64) plans.delete(plans.keys().next().value!);
   return can;
 }

@@ -215,6 +215,8 @@ test("private windows have nothing to tidy and write nothing", () => {
   assert.equal(tidyingPins(s, p)[0], s);
 });
 
+const splitOfTab = (id) => Object.values(S().splits).find((v) => v.tabIds.includes(id));
+
 test("Undo gives a split pane that Tidy moved along with its partner its own pinned URL back", () => {
   reset();
   const { w, ids: [a1, b, a2] } = windowWith("https://a.com/1", "https://b.com/home", "https://a.com/2");
@@ -230,4 +232,21 @@ test("Undo gives a split pane that Tidy moved along with its partner its own pin
   assert.equal(S().tabs[b].pinned && S().tabs[b].pinnedAsRow, true);
   assert.equal(S().tabs[a1].pinned && S().tabs[a1].pinnedAsRow, true);
   assert.deepEqual(S().splits[splitId]?.tabIds, [a1, b], "still a split");
+});
+
+test("a pane of a pinned split is never closed as a duplicate, so the split survives Tidy and its Undo", () => {
+  reset();
+  const { w, ids: [p1, p2, member] } = windowWith("https://a.com/1", "https://a.com/2", "https://a.com/1");
+  S().groupTabs([member], { pinned: true, name: "F" });
+  const splitId = S().createSplit([p1, p2]);
+  S().pinTabs([p1], true, true);
+  assert.equal(S().tabs[p2].pinnedAsRow, true);
+  const done = tidy(w);
+  assert.ok(S().tabs[p1], "the pane stays");
+  assert.deepEqual(splitOfTab(p1)?.tabIds, [p1, p2], "the split stays");
+  if (done) undo(done);
+  assert.deepEqual(S().splits[splitId]?.tabIds, [p1, p2]);
+  assert.equal(S().tabs[p1].pinned && S().tabs[p1].pinnedAsRow, true);
+  assert.equal(S().tabs[p2].pinned && S().tabs[p2].pinnedAsRow, true);
+  assert.deepEqual(Object.values(S().groups).find((g) => g.name === "F").tabIds, [member]);
 });
