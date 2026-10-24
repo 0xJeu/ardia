@@ -194,6 +194,7 @@ export type MenuState = {
   recentlyClosedGroups?: MenuEntry[];
   warnBeforeQuitting: boolean;
   warnBeforeClosingWindow?: boolean;
+  undoReopensClosedTab?: boolean;
   downloadsInProgress?: number;
   extensions?: { id: string; title: string; icon?: string | null; enabled: boolean }[];
   shortcuts?: Record<string, string[]>;

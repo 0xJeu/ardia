@@ -302,6 +302,7 @@ export function menuState(s: BrowserState): MenuState {
     recentlyClosedGroups: sidebar.recentlyClosedGroups,
     warnBeforeQuitting: s.settings.warnBeforeQuitting,
     warnBeforeClosingWindow: s.settings.warnBeforeClosingWindow,
+    undoReopensClosedTab: s.settings.undoReopensClosedTab,
     downloadsInProgress: s.downloads.filter((d) => d.state === "downloading").length,
     shortcuts: s.settings.shortcuts,
     extensions: extensionMenu(s, windowId),

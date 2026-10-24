@@ -275,7 +275,17 @@ const ROWS: Record<SettingsPane, Section[]> = {
     { section: "Suggestions", rows: { suggestions: { title: "Show search suggestions", description: "Sends what you type to your search engine to suggest searches.", keywords: ["autocomplete"] } } },
   ],
   shortcuts: [
-    { section: "Keyboard Shortcuts", rows: { actions: { title: "Customize keyboard shortcuts", keywords: ["hotkeys", "keybindings", "remap", "menu shortcuts"] } } },
+    {
+      section: "Keyboard Shortcuts",
+      rows: {
+        undoReopensClosedTab: {
+          title: "⌘Z reopens closed tabs",
+          description: "Outside text fields, as in Arc; press it again for the tab closed before. In a text field ⌘Z still undoes typing.",
+          keywords: ["undo", "undo close tab", "reopen", "restore tab", "arc", "cmd z"],
+        },
+        actions: { title: "Customize keyboard shortcuts", keywords: ["hotkeys", "keybindings", "remap", "menu shortcuts"] },
+      },
+    },
     { section: "Extensions", rows: { extensionShortcuts: { title: "Extension shortcuts", description: "Shortcuts that extensions add, like opening their popup.", keywords: ["hotkeys"] } } },
   ],
   liveFolders: [

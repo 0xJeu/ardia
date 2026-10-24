@@ -30,6 +30,7 @@ struct MenuState {
   var recentlyClosedGroups: [Entry] = []
   var warnBeforeQuitting = false
   var warnBeforeClosingWindow = false
+  var undoReopensClosedTab = false
   var downloadsInProgress = 0
   var shortcuts: [String: [String]] = [:]
   var extensions: [(id: String, title: String, icon: String?)] = []
@@ -90,6 +91,7 @@ struct MenuState {
     recentlyClosedGroups = entries("recentlyClosedGroups")
     warnBeforeQuitting = d["warnBeforeQuitting"] as? Bool ?? false
     warnBeforeClosingWindow = d["warnBeforeClosingWindow"] as? Bool ?? false
+    undoReopensClosedTab = d["undoReopensClosedTab"] as? Bool ?? false
     downloadsInProgress = d["downloadsInProgress"] as? Int ?? 0
     shortcuts = d["shortcuts"] as? [String: [String]] ?? [:]
     fromApp = true
@@ -216,6 +218,24 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
   @objc(paste:) func pasteEdit(_ sender: Any?) { forwardEdit(#selector(NSText.paste(_:)), from: sender) }
   @objc(selectAll:) func selectAllEdit(_ sender: Any?) { forwardEdit(#selector(NSText.selectAll(_:)), from: sender) }
 
+  static let undoAction = Selector(("undo:"))
+
+  @objc(undo:) func undoOrReopenClosedTab(_ sender: Any?) {
+    if Self.undoReopensClosedTab {
+      handler?("reopenClosedTab", nil, WindowManager.shared.keyWindowId)
+    } else {
+      NSApp.sendAction(Self.undoAction, to: nil, from: sender)
+    }
+  }
+
+  private static var undoReopensClosedTab: Bool {
+    let state = MenuState.current
+    guard state.undoReopensClosedTab, !state.disabled.contains("reopenClosedTab"),
+      WindowManager.shared.keyWindowId != "settings", let window = WindowManager.shared.keyBrowserWindow
+    else { return false }
+    return !MainMenu.editsText(window.firstResponder)
+  }
+
   private func forwardEdit(_ action: Selector, from sender: Any?) {
     if FocusHandoff.shared.defers(action) { return }
     FocusHandoff.shared.noteForwarded(action)
@@ -245,6 +265,12 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
       guard let window = WindowManager.shared.keyBrowserWindow else { return false }
       menuItem.state = window.level == .floating ? .on : .off
       return true
+    }
+    if menuItem.action == Self.undoAction {
+      let reopens = Self.undoReopensClosedTab
+      let title = reopens ? "Undo Close Tab" : (menuItem as? StandardItem)?.defaultTitle ?? menuItem.title
+      if menuItem.title != title { menuItem.title = title }
+      return reopens || Self.validateForwarded(menuItem, Self.undoAction)
     }
     guard let item = menuItem as? CommandItem else { return true }
     let state = MenuState.current
@@ -287,6 +313,7 @@ enum MainMenu {
   private static var history = NSMenu(title: "History")
   private static var extensions = NSMenu(title: "Extensions")
   private static var extensionIcons: [String: NSImage] = [:]
+  private static var undo: StandardItem?
 
   static func build() -> NSMenu {
     let appName = ProcessInfo.processInfo.processName
@@ -378,8 +405,10 @@ enum MainMenu {
       std("Paste", #selector(NSText.paste(_:)), "v"), std("Select All", #selector(NSText.selectAll(_:)), "a"),
     ]
     edits.forEach { $0.target = MenuTarget.shared }
+    let undo = std("Undo", MenuTarget.undoAction, "z")
+    Self.undo = undo
     _ = top("Edit", [
-      std("Undo", Selector(("undo:")), "z"),
+      undo,
       std("Redo", Selector(("redo:")), "z", [.command, .shift]),
       .separator(),
       edits[0],
@@ -700,6 +729,10 @@ enum MainMenu {
     if state.bookmarksRevision == nil || last?.bookmarks != state.bookmarksRevision { buildBookmarkMenus(state) }
     if last?.extensions != extensionKeys { buildExtensions(state) }
     if last?.history != history { buildHistory(state) }
+    if let undo, (undo.target != nil) != state.undoReopensClosedTab {
+      undo.target = state.undoReopensClosedTab ? MenuTarget.shared : nil
+      undo.title = undo.defaultTitle
+    }
     applyShortcuts(state.shortcuts)
   }
 

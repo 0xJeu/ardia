@@ -34,6 +34,7 @@ export const SYNCED_SETTINGS = [
   "newTabPosition",
   "newTabOpens",
   "warnBeforeClosingLastTab",
+  "undoReopensClosedTab",
   "warnBeforeMovingTabsToProfile",
   "tabReorderHaptics",
   "extendWebsiteColor",
