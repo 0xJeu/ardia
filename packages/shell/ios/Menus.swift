@@ -143,6 +143,7 @@ final class CommandItem: NSMenuItem, Rebindable {
   let defaultTitle: String
   var windowless = false
   var tracksChecked = true
+  var hidesWhenDisabled = false
   private(set) var commandAlternateOf: CommandItem?
   let defaultKey: String
   let defaultModifiers: NSEvent.ModifierFlags
@@ -170,6 +171,12 @@ final class CommandItem: NSMenuItem, Rebindable {
 
   func hiddenShortcut() -> CommandItem {
     isHidden = true
+    allowsKeyEquivalentWhenHidden = true
+    return self
+  }
+
+  func hiddenWhenDisabled() -> CommandItem {
+    hidesWhenDisabled = true
     allowsKeyEquivalentWhenHidden = true
     return self
   }
@@ -297,7 +304,9 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
     if item.keyEquivalent == "\r", NSApp.keyWindow?.firstResponder is NSText { return false }
     if MainMenu.movesCaret(item), NSApp.currentEvent?.type == .keyDown, MainMenu.editsText(NSApp.keyWindow?.firstResponder) { return false }
     if item.command == "findInPage", WindowManager.shared.keyWindowId == "settings" { return true }
-    return !state.disabled.contains(item.stateKey) && !state.disabled.contains(item.command)
+    let enabled = !state.disabled.contains(item.stateKey) && !state.disabled.contains(item.command)
+    if item.hidesWhenDisabled, item.isHidden == enabled { item.isHidden = !enabled }
+    return enabled
   }
 
   @objc func quit(_ sender: Any?) { WindowManager.shared.confirmQuit() }
@@ -563,6 +572,7 @@ enum MainMenu {
       cmd("Select Last Tab", "selectLastTab", "9").hiddenShortcut(),
       .separator(),
       cmd("Move to Top Apps", "togglePin"),
+      cmd("Move Pinned Tab to Top Apps", "togglePin", arg: "tile").hiddenWhenDisabled(),
       cmd("Move to Pinned", "togglePinnedRow", "d", [.command, .option, .shift]),
       cmd("Duplicate", "duplicateTab"),
       cmd("New Group with Tab", "newGroupWithTabs", "n", [.command, .control]),

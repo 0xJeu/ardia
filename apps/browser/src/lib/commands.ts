@@ -252,6 +252,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "togglePin":
       if (!tab) return;
       if (arg === "row") return s.pinTabs([tab.id], true, !isPinnedRow(tab));
+      if (arg === "tile") return isPinnedRow(tab) ? s.pinTabs([tab.id], true, false) : undefined;
       return s.togglePin(tab.id);
     case "moveTabDown":
     case "moveTabUp": {
