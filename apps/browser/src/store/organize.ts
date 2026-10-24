@@ -105,7 +105,14 @@ export type OrganizeSlice = {
   closeAbandonedNewTabs(): void;
 };
 
-export type ClearedTabs = { windowId: string; entries: ClosedTab[]; closedEntryIds: string[]; groups: TabGroup[]; groupsAfter: Record<string, TabGroup> };
+export type ClearedTabs = {
+  windowId: string;
+  entries: ClosedTab[];
+  closedEntryIds: string[];
+  tabIds: string[];
+  groups: TabGroup[];
+  fingerprint: string;
+};
 
 export function unpinnedTabIds(s: BrowserState, windowId: string): string[] {
   return viewTabIds(s, windowId).filter((id) => !inPinnedContainer(s, id));
@@ -291,69 +298,39 @@ export function withRowsGrouped(s: BrowserState, asked: string[], o: { name?: st
   return [{ ...next, pinChoices: { ...next.pinChoices, [g.profileId]: mine } }, id];
 }
 
-function groupsHolding(s: BrowserState, ids: string[]): TabGroup[] {
-  const closing = new Set(ids);
-  const touched = new Set<string>();
-  for (const g of Object.values(s.groups)) {
-    if (!g.tabIds.some((id) => closing.has(id))) continue;
-    const root = ancestorIds(s.groups, g.id).at(-1) ?? g.id;
-    [root, ...descendantIds(s.groups, root)].forEach((id) => touched.add(id));
-  }
-  const depth = (id: string) => ancestorIds(s.groups, id).length;
-  return [...touched].sort((a, b) => depth(a) - depth(b)).map((id) => s.groups[id]!);
+function windowFingerprint(s: BrowserState, windowId: string): string {
+  const w = s.windows[windowId];
+  if (!w) return "";
+  const inWindow = (id: string) => s.tabs[id]?.windowId === windowId;
+  const tabs = w.tabIds.map((id) => {
+    const t = s.tabs[id];
+    return t ? [id, t.profileId, pinSection(t), t.tileFolder?.id ?? ""].join(" ") : id;
+  });
+  const groups = Object.values(s.groups)
+    .filter((g) => g.windowId === windowId)
+    .map((g) => [g.id, g.parentId ?? "", g.pinned, g.tabIds.join(",")].join(" "))
+    .sort();
+  const splits = Object.values(s.splits)
+    .filter((v) => v.tabIds.some(inWindow))
+    .map((v) => v.tabIds.join(","))
+    .sort();
+  return [...tabs, "", ...groups, "", ...splits].join("\n");
 }
 
-function regroupCleared(
-  s: BrowserState,
-  windowId: string,
-  before: TabGroup[],
-  after: Record<string, TabGroup>,
-  renamed: Map<string | undefined, string | undefined>,
-  placed: { id: string | undefined; index?: number }[],
-): BrowserState {
-  const w = s.windows[windowId]!;
-  const made = new Map<string, string>();
-  const restored = new Set(renamed.values());
-  const state = (g: TabGroup | undefined) => (g ? [g.parentId ?? "", g.pinned, [...g.tabIds].sort().join(",")].join("\n") : null);
-  const groupUntouched = (id: string) => !!after[id] && state(s.groups[id]) === state(after[id]);
-  const chain = (groups: Record<string, TabGroup>, id: string) => {
-    const inner = innermostGroupOf(groups, id);
-    return inner ? [inner.id, ...ancestorIds(groups, inner.id)] : [];
+function undoable(before: BrowserState, after: BrowserState, windowId: string, entries: ClosedTab[]): ClearedTabs {
+  return {
+    windowId,
+    entries,
+    closedEntryIds: newClosedEntryIds(before, after),
+    tabIds: before.windows[windowId]!.tabIds,
+    groups: Object.values(before.groups).filter((g) => g.windowId === windowId),
+    fingerprint: windowFingerprint(after, windowId),
   };
-  const tabUntouched = (id: string) => {
-    const now = chain(s.groups, id);
-    return now.join("\n") === chain(after, id).join("\n") && now.every(groupUntouched);
-  };
-  let groups = s.groups;
-  for (const g of before) {
-    const live = groups[g.id]?.windowId === windowId && groups[g.id]!.profileId === g.profileId ? groups[g.id] : undefined;
-    const members = g.tabIds
-      .map((id) => renamed.get(id) ?? id)
-      .filter((id) => {
-        const t = s.tabs[id];
-        if (!t || t.windowId !== windowId || t.profileId !== g.profileId) return false;
-        return restored.has(id) || tabUntouched(id);
-      });
-    const parentId = g.parentId ? made.get(g.parentId) : undefined;
-    if (live) {
-      if (!groupUntouched(g.id)) continue;
-      const tabIds = [...live.tabIds, ...members.filter((id) => !live.tabIds.includes(id))];
-      groups = { ...groups, [live.id]: withParent({ ...live, tabIds }, parentId ?? live.parentId) };
-      made.set(g.id, live.id);
-      continue;
-    }
-    if (after[g.id] || !members.length) continue;
-    const id = groups[g.id] ? newId("g") : g.id;
-    groups = { ...groups, [id]: withParent({ ...g, id, windowId, tabIds: members }, parentId) };
-    made.set(g.id, id);
-  }
-  groups = nestGroups(groups);
-  const atIndex = placed.filter((p): p is { id: string; index: number } => !!p.id && p.index !== undefined).sort((a, b) => a.index - b.index);
-  const moving = new Set(atIndex.map((p) => p.id));
-  const order = w.tabIds.filter((id) => !moving.has(id));
-  for (const p of atIndex) order.splice(Math.min(p.index, order.length), 0, p.id);
-  const window = { ...w, tabIds: orderSections(placeGroups(order, groups, windowId), s.tabs, groups) };
-  return { ...s, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [windowId]: window } };
+}
+
+export function canUndoClear(s: BrowserState, cleared: ClearedTabs): boolean {
+  const closed = new Set(s.closedTabs.map((c) => c.id));
+  return cleared.closedEntryIds.every((id) => closed.has(id)) && windowFingerprint(s, cleared.windowId) === cleared.fingerprint;
 }
 
 function newClosedEntryIds(before: BrowserState, after: BrowserState): string[] {
@@ -940,37 +917,40 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     if (!ids.length) return null;
     const entries = closedEntries(s, ids);
     get().closeTabs(ids);
-    return { windowId, entries, closedEntryIds: newClosedEntryIds(s, get()), groups: groupsHolding(s, ids), groupsAfter: get().groups };
+    return undoable(s, get(), windowId, entries);
   },
 
-  undoClearTabs({ windowId, entries, closedEntryIds, groups, groupsAfter }) {
+  undoClearTabs(cleared) {
     const s = get();
-    const target = s.windows[windowId] ? windowId : restoreTarget(s, windowId);
-    const back = target ? entries.filter((e) => !isIncognitoProfile(e.tab.profileId) || e.windowId === target) : [];
-    if (!target || !back.length) return;
-    const cleared = new Set(back.map((e) => e.tabId));
-    const undone = (c: ClosedTab) => closedEntryIds.includes(c.id) && cleared.has(c.tabId);
+    if (!canUndoClear(s, cleared)) return;
+    const { windowId, entries } = cleared;
+    const undone = new Set(cleared.closedEntryIds);
     const [restored, ids] = restoreSnapshots(
-      { ...s, closedTabs: s.closedTabs.filter((c) => !undone(c)) },
-      target,
-      back.map((e) => ({ tab: e.tab, tabId: e.restoreFrom ?? e.tabId, index: target === e.windowId ? e.index : undefined })),
+      { ...s, closedTabs: s.closedTabs.filter((c) => !undone.has(c.id)) },
+      windowId,
+      entries.map((e) => ({ tab: e.tab, tabId: e.restoreFrom ?? e.tabId })),
     );
-    const renamed = new Map(back.map((e, i) => [e.tabId, ids[i]]));
+    const renamed = new Map(entries.map((e, i) => [e.tabId, ids[i]]));
+    const now = (id: string) => renamed.get(id) ?? id;
+    const back = cleared.tabIds.map(now).filter((id) => restored.tabs[id]?.windowId === windowId);
+    const w = restored.windows[windowId]!;
+    const window = { ...w, tabIds: [...back, ...w.tabIds.filter((id) => !back.includes(id))] };
+    const groups = Object.fromEntries(Object.entries(restored.groups).filter(([, g]) => g.windowId !== windowId));
+    for (const g of cleared.groups) groups[g.id] = { ...g, tabIds: g.tabIds.map(now).filter((id) => restored.tabs[id]) };
     const closedTabs = restored.closedTabs.map((c) => {
-      const now = c.tabId ? renamed.get(c.tabId) : undefined;
-      return now ? { ...c, tabId: now, restoreFrom: c.restoreFrom ?? c.tabId } : c;
+      const moved = c.tabId ? renamed.get(c.tabId) : undefined;
+      return moved ? { ...c, tabId: moved, restoreFrom: c.restoreFrom ?? c.tabId } : c;
     });
-    const placed = back.map((e, i) => ({ id: ids[i], index: target === e.windowId ? e.index : undefined }));
-    set(regroupCleared({ ...restored, closedTabs }, target, groups, groupsAfter, renamed, placed));
+    set({ ...restored, closedTabs, groups: syncGroupOrder(groups, window), windows: { ...restored.windows, [windowId]: window } });
   },
 
   removeClosedPin(id) {
     const s = get();
     if (!isClosedPin(s, id)) return null;
-    const next = removeTabs(s, [id], true);
-    set(next);
-    const closedEntryIds = newClosedEntryIds(s, next);
-    return { windowId: s.tabs[id]!.windowId, entries: next.closedTabs.filter((c) => closedEntryIds.includes(c.id)), closedEntryIds, groups: groupsHolding(s, [id]), groupsAfter: get().groups };
+    const windowId = s.tabs[id]!.windowId;
+    set(removeTabs(s, [id], true));
+    const after = get();
+    return undoable(s, after, windowId, after.closedTabs.filter((c) => !s.closedTabs.includes(c)));
   },
 
   closeAbandonedNewTabs() {

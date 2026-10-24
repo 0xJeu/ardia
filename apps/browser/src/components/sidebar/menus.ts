@@ -3,7 +3,7 @@ import { closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } 
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
 import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
-import { awayFromPin, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds } from "../../store/organize";
+import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../../store/organize";
 import { groupPath } from "../../store/groups";
 import { splitOf, splitRowPanes } from "../../store/splits";
 import type { GroupColor, Tab } from "../../store/types";
@@ -20,7 +20,7 @@ import {
 } from "./actions";
 import { isCalendarUrl } from "../../live/meetings";
 import { bookmarkTab } from "../bookmarks/actions";
-import { showToast } from "../layout/splitActions";
+import { hideKeyedToast, showToast, useToasts } from "../layout/splitActions";
 import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../../sync/menu";
@@ -310,23 +310,39 @@ export async function openSidebarMenu(windowId: string) {
   else if (choice === "closeAll") closeAllTabs(windowId);
 }
 
+let undoToasts = 0;
+
+function showUndoToast(cleared: ClearedTabs, title: string, icon: string) {
+  const { windowId } = cleared;
+  const key = `undo-clear-${++undoToasts}`;
+  showToast(windowId, title, undefined, { icon, key, action: { title: "Undo", run: () => store().undoClearTabs(cleared) } });
+  let seen: unknown[] = [];
+  const stop = () => {
+    stopWatchingStore();
+    stopWatchingToast();
+  };
+  const stopWatchingStore = useBrowser.subscribe((s) => {
+    const now = [s.windows[windowId], s.tabs, s.groups, s.splits, s.closedTabs];
+    if (now.every((x, i) => x === seen[i])) return;
+    seen = now;
+    if (canUndoClear(s, cleared)) return;
+    hideKeyedToast(windowId, key);
+    stop();
+  });
+  const stopWatchingToast = useToasts.subscribe((t) => {
+    if (t.toasts[windowId]?.key !== key) stop();
+  });
+}
+
 export function closeAllTabs(windowId: string) {
   const cleared = store().clearUnpinnedTabs(windowId);
-  if (!cleared?.entries.length) return;
-  showToast(windowId, `Cleared ${plural(cleared.entries.length, "Tab")}`, undefined, {
-    icon: "arrow.down",
-    action: { title: "Undo", run: () => store().undoClearTabs(cleared) },
-  });
+  if (cleared?.entries.length) showUndoToast(cleared, `Cleared ${plural(cleared.entries.length, "Tab")}`, "arrow.down");
 }
 
 export function middleClickTab(tabId: string) {
   const removed = store().removeClosedPin(tabId);
   if (!removed) return void closeTab(tabId);
-  if (!removed.entries.length) return;
-  showToast(removed.windowId, "Removed Pinned Tab", undefined, {
-    icon: "pin.slash",
-    action: { title: "Undo", run: () => store().undoClearTabs(removed) },
-  });
+  if (removed.entries.length) showUndoToast(removed, "Removed Pinned Tab", "pin.slash");
 }
 
 export async function openOverflowMenu(windowId: string) {

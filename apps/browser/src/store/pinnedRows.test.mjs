@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
 const model = await import("./model.ts");
+const organize = await import("./organize.ts");
 const { sidebarEntries, numberedTabs } = await import("../components/sidebar/entries.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../lib/persist.ts");
 const stub = await import("../test-native-stub.mjs");
@@ -174,10 +175,28 @@ test("undoing a pin removal leaves alone a group sync brought back after it", ()
   const synced = { ...removed.groups.find((g) => g.id === c), tabIds: [d] };
   delete synced.parentId;
   useBrowser.setState((s) => ({ groups: { ...s.groups, [c]: synced } }));
+  const before = JSON.stringify({ tabs: S().windows[w].tabIds, groups: S().groups });
   S().undoClearTabs(removed);
-  assert.equal(S().groups[c].parentId, undefined, "the synced group keeps its own place");
-  assert.deepEqual(S().groups[c].tabIds, [d]);
-  assert.ok(!S().groups[p].tabIds.includes(d), "its tab isn't dragged into P");
+  assert.equal(JSON.stringify({ tabs: S().windows[w].tabIds, groups: S().groups }), before, "Undo does nothing");
+});
+
+test("undoing a pin removal does nothing once the pinned groups were reordered", () => {
+  reset();
+  const { w, ids: [a, b, c, x] } = windowWith("a", "b", "c", "x");
+  S().groupTabs([a, b], { name: "P" });
+  S().groupTabs([c], { name: "Q" });
+  const w2 = S().createWindow({ url: "https://y.com/" });
+  S().activate(x);
+  S().closeTab(a);
+  const removed = S().removeClosedPin(a);
+  const p = organize.groupOf(S(), b).id;
+  S().moveGroup(p, { pinned: true, beforeId: null });
+  const order = (win) => model.viewTabIds(S(), win).map(url).filter((u) => u === "https://b.com/" || u === "https://c.com/");
+  assert.deepEqual(order(w), ["https://c.com/", "https://b.com/"]);
+  S().undoClearTabs(removed);
+  assert.deepEqual(order(w), ["https://c.com/", "https://b.com/"]);
+  assert.deepEqual(order(w2), ["https://c.com/", "https://b.com/"]);
+  assert.equal(model.viewTabIds(S(), w).some((id) => url(id) === "https://a.com/"), false, "the removed pin stays removed");
 });
 
 test("rows are the profile's: a second window mirrors them, a change in one shows in the other", () => {
