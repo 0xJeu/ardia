@@ -1493,6 +1493,7 @@ let installWindowMoveFallback: Void = {
 enum WindowMove {
   static let replacesNativeDrag = ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0))
   private static var following = false
+  private static let staleAfter: TimeInterval = 0.012
 
   static func follow(_ window: NSWindow, from event: NSEvent) -> Bool {
     guard !following, event.type == .leftMouseDown, event.clickCount < 2,
@@ -1501,26 +1502,33 @@ enum WindowMove {
     following = true
     defer { following = false }
     let start = screenPoint(event)
-    var origin = window.frame.origin
-    var expected = origin
+    let origin = window.frame.origin
     var wasActive = NSApp.isActive
+    func move(to event: NSEvent) {
+      let target = place(window, origin, start, screenPoint(event))
+      guard !near(window.frame.origin, target) else { return }
+      window.setFrameOrigin(target)
+    }
     while window.isVisible {
       if NSApp.isActive { wasActive = true } else if wasActive { return true }
-      guard let next = nextGestureEvent() else {
+      guard var next = nextGestureEvent() else {
         if NSEvent.pressedMouseButtons & 1 == 0 { return true }
         continue
       }
-      guard next.type == .leftMouseDragged, next.windowNumber == window.windowNumber else {
+      var latest: NSEvent?
+      while next.type == .leftMouseDragged, next.windowNumber == window.windowNumber {
+        latest = next
+        guard ProcessInfo.processInfo.systemUptime - next.timestamp > staleAfter,
+              let queued = NSApp.nextEvent(matching: gestureEvents, until: .distantPast, inMode: .eventTracking, dequeue: true)
+        else { break }
+        next = queued
+      }
+      if next.type == .leftMouseUp, next.windowNumber == window.windowNumber { latest = next }
+      if let latest { move(to: latest) }
+      if next.type != .leftMouseDragged || next.windowNumber != window.windowNumber {
         NSApp.postEvent(next, atStart: true)
         return true
       }
-      let current = window.frame.origin
-      origin = NSPoint(x: origin.x + current.x - expected.x, y: origin.y + current.y - expected.y)
-      let target = place(window, origin, start, screenPoint(next))
-      if !near(current, target) { window.setFrameOrigin(target) }
-      let placed = window.frame.origin
-      origin = NSPoint(x: origin.x + placed.x - target.x, y: origin.y + placed.y - target.y)
-      expected = placed
     }
     return true
   }
@@ -1528,16 +1536,15 @@ enum WindowMove {
   private static let gestureEvents: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
 
   private static func nextGestureEvent() -> NSEvent? {
-    if let queued = NSApp.nextEvent(matching: gestureEvents, until: .distantPast, inMode: .eventTracking, dequeue: true) { return queued }
-    if NSEvent.pressedMouseButtons & 1 == 0 { return nil }
-    return NSApp.nextEvent(matching: gestureEvents, until: Date(timeIntervalSinceNow: 0.1), inMode: .eventTracking, dequeue: true)
+    let pressed = NSEvent.pressedMouseButtons & 1 != 0
+    return NSApp.nextEvent(matching: gestureEvents, until: pressed ? Date(timeIntervalSinceNow: 0.1) : .distantPast, inMode: .eventTracking, dequeue: true)
   }
 
   private static func place(_ window: NSWindow, _ origin: NSPoint, _ start: NSPoint, _ pointer: NSPoint) -> NSPoint {
     let target = NSRect(origin: NSPoint(x: origin.x + pointer.x - start.x, y: origin.y + pointer.y - start.y), size: window.frame.size)
-    guard let screen = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) }) ?? window.screen else { return target.origin }
+    guard let screen = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) }) ?? window.screen else { return NSPoint(x: target.minX.rounded(), y: target.minY.rounded()) }
     let constrained = window.constrainFrameRect(target, to: screen)
-    return NSPoint(x: constrained.minX, y: constrained.maxY - target.height)
+    return NSPoint(x: constrained.minX.rounded(), y: (constrained.maxY - target.height).rounded())
   }
 
   private static func screenPoint(_ event: NSEvent) -> NSPoint {
