@@ -112,6 +112,37 @@ test("a second middle click removes a closed row or pinned group tab, a tile or 
   assert.deepEqual(S().groups[g].tabIds.map(url), ["https://d.com/"], "back in its pinned group");
 });
 
+test("undoing the removal of a pinned group's last tab brings the group back pinned, and so does ⇧⌘T", () => {
+  reset();
+  const { w, ids: [a, b] } = windowWith("a", "b");
+  const g = S().groupTabs([a], { name: "P" });
+  S().activate(b);
+  S().closeTab(a);
+  const removed = S().removeClosedPin(a);
+  assert.ok(removed);
+  assert.equal(S().groups[g], undefined, "the emptied group goes");
+  S().undoClearTabs(removed);
+  const back = Object.values(S().groups).find((x) => x.name === "P");
+  assert.equal(back?.pinned, true);
+  assert.equal(model.inPinnedContainer(S(), back.tabIds[0]), true);
+  S().removeClosedPin(back.tabIds[0]);
+  S().reopenClosedTab(w);
+  assert.equal(Object.values(S().groups).find((x) => x.name === "P")?.pinned, true, "⇧⌘T");
+});
+
+test("remove, undo, then reopening the row's earlier close wakes it with its own back/forward list", () => {
+  reset();
+  const { w, ids: [a, b] } = windowWith("a", "b");
+  S().pinTabs([a], true, true);
+  S().activate(b);
+  S().closeTab(a);
+  S().undoClearTabs(S().removeClosedPin(a));
+  const back = model.viewTabIds(S(), w).find((id) => S().tabs[id].pinnedUrl === "https://a.com/");
+  const lastPage = S().closedTabs.find((x) => x.tabId === back);
+  S().restoreClosed(lastPage.id, w);
+  assert.equal(S().tabs[back].adoptId, model.restoreId(a));
+});
+
 test("rows are the profile's: a second window mirrors them, a change in one shows in the other", () => {
   reset();
   const { w: a, ids: [mail, docs] } = windowWith("mail", "docs", "x");

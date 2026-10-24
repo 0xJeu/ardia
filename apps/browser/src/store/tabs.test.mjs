@@ -413,6 +413,23 @@ test("Clear keeps the selected tab's split and tabs playing media, and does noth
   assert.equal(shown(w), "a");
 });
 
+test("Clear and undo bring an automatic group back whole, with the member Clear kept", () => {
+  reset({ cmdClickCreatesTabGroup: true });
+  const [w, a] = setup("a", "c");
+  const b = open(w, "b", a);
+  assert.equal(Object.values(S().groups)[0].autoUngroup, true);
+  S().activate(b);
+  const cleared = S().clearUnpinnedTabs(w);
+  assert.deepEqual(hosts(w), ["b"]);
+  assert.equal(Object.keys(S().groups).length, 0, "with one member left the automatic group dissolves");
+  S().undoClearTabs(cleared);
+  assert.deepEqual(hosts(w), ["a", "b", "c"]);
+  const groups = Object.values(S().groups);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].tabIds.map((id) => short(S().tabs[id].url)), ["a", "b"]);
+  assert.equal(groups[0].autoUngroup, true);
+});
+
 test("Clear on a lone selected tab closes nothing and opens no New Tab page", () => {
   reset({ newTabPosition: "top" });
   const [w, a] = setup("a");

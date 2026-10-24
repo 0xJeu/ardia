@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { autoGroupName } from "./groupNames";
-import { ancestorIds, canNest, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
+import { ancestorIds, canNest, closedGroupInfo, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
 import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, newId, pendingRestore, pinSection, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { holderOf } from "./pinShare";
 import { splitOf, splitRowHead, splitRowPanes, withSplitRows } from "./splits";
@@ -105,7 +105,7 @@ export type OrganizeSlice = {
   closeAbandonedNewTabs(): void;
 };
 
-export type ClearedTabs = { windowId: string; entries: ClosedTab[]; closedEntryIds: string[] };
+export type ClearedTabs = { windowId: string; entries: ClosedTab[]; closedEntryIds: string[]; groups: TabGroup[] };
 
 export function unpinnedTabIds(s: BrowserState, windowId: string): string[] {
   return viewTabIds(s, windowId).filter((id) => !inPinnedContainer(s, id));
@@ -291,6 +291,47 @@ export function withRowsGrouped(s: BrowserState, asked: string[], o: { name?: st
   return [{ ...next, pinChoices: { ...next.pinChoices, [g.profileId]: mine } }, id];
 }
 
+function groupsHolding(s: BrowserState, ids: string[]): TabGroup[] {
+  const closing = new Set(ids);
+  const touched = new Set<string>();
+  for (const g of Object.values(s.groups)) {
+    if (g.tabIds.some((id) => closing.has(id))) [g.id, ...ancestorIds(s.groups, g.id)].forEach((id) => touched.add(id));
+  }
+  const depth = (id: string) => ancestorIds(s.groups, id).length;
+  return [...touched].sort((a, b) => depth(a) - depth(b)).map((id) => s.groups[id]!);
+}
+
+function regroupCleared(s: BrowserState, windowId: string, before: TabGroup[], renamed: Map<string | undefined, string | undefined>): BrowserState {
+  const w = s.windows[windowId]!;
+  const made = new Map<string, string>();
+  let groups = s.groups;
+  for (const g of before) {
+    const ours = new Set(made.values());
+    const live = groups[g.id]?.windowId === windowId && groups[g.id]!.profileId === g.profileId ? groups[g.id] : undefined;
+    const members = g.tabIds
+      .map((id) => renamed.get(id) ?? id)
+      .filter((id) => {
+        const t = s.tabs[id];
+        if (!t || t.windowId !== windowId || t.profileId !== g.profileId) return false;
+        const inside = innermostGroupOf(groups, id);
+        return !inside || inside.id === live?.id || ours.has(inside.id);
+      });
+    if (live) {
+      groups = { ...groups, [live.id]: { ...live, tabIds: [...live.tabIds, ...members.filter((id) => !live.tabIds.includes(id))] } };
+      made.set(g.id, live.id);
+      continue;
+    }
+    if (!members.length) continue;
+    const id = groups[g.id] ? newId("g") : g.id;
+    const parentId = g.parentId ? made.get(g.parentId) : undefined;
+    groups = { ...groups, [id]: withParent({ ...g, id, windowId, tabIds: members }, parentId) };
+    made.set(g.id, id);
+  }
+  groups = nestGroups(groups);
+  const window = { ...w, tabIds: orderSections(placeGroups(w.tabIds, groups, windowId), s.tabs, groups) };
+  return { ...s, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [windowId]: window } };
+}
+
 function newClosedEntryIds(before: BrowserState, after: BrowserState): string[] {
   return after.closedTabs.filter((c) => !before.closedTabs.includes(c)).map((c) => c.id);
 }
@@ -302,7 +343,7 @@ function closedEntries(s: BrowserState, ids: string[]): ClosedTab[] {
     .filter((t): t is Tab => !!t && !!t.url)
     .map((t) => {
       const group = groupOf(s, t.id);
-      const parents = group ? ancestorIds(s.groups, group.id).map((id) => s.groups[id]!).map((p) => ({ id: p.id, name: p.name, icon: p.icon, color: p.color })) : [];
+      const parents = group ? ancestorIds(s.groups, group.id).map((id) => closedGroupInfo(s.groups[id]!)) : [];
       return {
         kind: "tab" as const,
         id: newId("ct"),
@@ -311,7 +352,7 @@ function closedEntries(s: BrowserState, ids: string[]): ClosedTab[] {
         ...(pendingRestore(t) ? { restoreFrom: pendingRestore(t) } : {}),
         windowId: t.windowId,
         index: s.windows[t.windowId]?.tabIds.indexOf(t.id) ?? 0,
-        group: group ? { id: group.id, name: group.name, icon: group.icon, color: group.color } : null,
+        group: group ? closedGroupInfo(group) : null,
         ...(parents.length ? { parents } : {}),
         closedAt: now,
       };
@@ -875,10 +916,10 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     if (!ids.length) return null;
     const entries = closedEntries(s, ids);
     get().closeTabs(ids);
-    return { windowId, entries, closedEntryIds: newClosedEntryIds(s, get()) };
+    return { windowId, entries, closedEntryIds: newClosedEntryIds(s, get()), groups: groupsHolding(s, ids) };
   },
 
-  undoClearTabs({ windowId, entries, closedEntryIds }) {
+  undoClearTabs({ windowId, entries, closedEntryIds, groups }) {
     const s = get();
     const target = s.windows[windowId] ? windowId : restoreTarget(s, windowId);
     const back = target ? entries.filter((e) => !isIncognitoProfile(e.tab.profileId) || e.windowId === target) : [];
@@ -893,9 +934,9 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const renamed = new Map(back.map((e, i) => [e.tabId, ids[i]]));
     const closedTabs = restored.closedTabs.map((c) => {
       const now = c.tabId ? renamed.get(c.tabId) : undefined;
-      return now ? { ...c, tabId: now } : c;
+      return now ? { ...c, tabId: now, restoreFrom: c.restoreFrom ?? c.tabId } : c;
     });
-    set(regroupRestored({ ...restored, closedTabs }, target, back, ids));
+    set(regroupCleared({ ...restored, closedTabs }, target, groups, renamed));
   },
 
   removeClosedPin(id) {
@@ -904,7 +945,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const next = removeTabs(s, [id], true);
     set(next);
     const closedEntryIds = newClosedEntryIds(s, next);
-    return { windowId: s.tabs[id]!.windowId, entries: next.closedTabs.filter((c) => closedEntryIds.includes(c.id)), closedEntryIds };
+    return { windowId: s.tabs[id]!.windowId, entries: next.closedTabs.filter((c) => closedEntryIds.includes(c.id)), closedEntryIds, groups: groupsHolding(s, [id]) };
   },
 
   closeAbandonedNewTabs() {

@@ -3,7 +3,7 @@ import type { StateCreator } from "zustand";
 import { fromLegacyUrl } from "../legacy";
 import { startNavigation } from "../lib/earlyNavigate";
 import type { BrowserState } from "./browser";
-import { ancestorIds, innermostGroupOf, leaveGroups, syncGroupOrder } from "./groups";
+import { ancestorIds, closedGroupInfo, innermostGroupOf, leaveGroups, syncGroupOrder } from "./groups";
 import {
   activeTabId,
   closesWindow,
@@ -124,7 +124,7 @@ export function removeTabs(s: BrowserState, ids: string[], record: boolean): Bro
         const t = s.tabs[id];
         if (!t || !gone.has(id) || (!t.url && !t.pinned)) return;
         const group = innermostGroupOf(s.groups, id);
-        const parents = group ? ancestorIds(s.groups, group.id).map((x) => s.groups[x]!).map((p) => ({ id: p.id, name: p.name, icon: p.icon, color: p.color })) : [];
+        const parents = group ? ancestorIds(s.groups, group.id).map((x) => closedGroupInfo(s.groups[x]!)) : [];
         closed.push({
           kind: "tab",
           id: newId("ct"),
@@ -133,7 +133,7 @@ export function removeTabs(s: BrowserState, ids: string[], record: boolean): Bro
           ...(pendingRestore(t) ? { restoreFrom: pendingRestore(t) } : {}),
           windowId: w.id,
           index,
-          group: group ? { id: group.id, name: group.name, icon: group.icon, color: group.color } : null,
+          group: group ? closedGroupInfo(group) : null,
           ...(parents.length ? { parents } : {}),
           closedAt: now,
           ...(w.kind === "small" ? { small: true } : {}),
