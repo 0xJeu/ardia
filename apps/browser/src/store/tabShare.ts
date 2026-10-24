@@ -74,6 +74,24 @@ function swapPlaces(s: BrowserState, a: string, b: string): BrowserState {
   return { ...s, tabs, windows, groups: swapAll(s.groups), splits: swapAll(s.splits) };
 }
 
+export function pagesIntoSplits(s: BrowserState, prev: BrowserState): BrowserState | null {
+  if (!sharesTabs(s) || s.splits === prev.splits) return null;
+  const inSplit = (st: BrowserState, id: string) => Object.values(st.splits).some((v) => v.tabIds.includes(id));
+  let next = s;
+  for (const v of Object.values(s.splits)) {
+    for (const id of v.tabIds) {
+      const t = next.tabs[id];
+      if (!t?.pageIn || hasPage(t) || !sharedListTab(next, t)) continue;
+      const holder = next.tabs[t.pageIn];
+      if (!holder || holder.pinned || !hasPage(holder) || holder.pageIn || holder.windowId === t.windowId || holder.profileId !== t.profileId || pinKeyOf(holder) !== pinKeyOf(t) || inSplit(next, holder.id)) continue;
+      next = swapPlaces(next, holder.id, t.id);
+      const { pageIn: _, ...left } = next.tabs[t.id]!;
+      next = { ...next, tabs: { ...next.tabs, [t.id]: left } };
+    }
+  }
+  return next === s ? null : next;
+}
+
 function keepLeavingPages(s: BrowserState, windowId: string, profileId: string, spec: Section, sourceId: string | undefined): BrowserState {
   const wanted = new Set(spec.items.map((i) => pinKeyOf(i.tab)));
   const section = listSection(s, windowId, profileId);

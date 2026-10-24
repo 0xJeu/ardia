@@ -187,3 +187,28 @@ test("the ⌘T bar's open tabs rank a shared tab by its last use in any window, 
   assert.ok(order.includes(x) && order.indexOf(x) < order.indexOf(y), "A used X last, so X ranks above Y");
   assert.equal(order.includes(a1), false, "listed once, as B's own row");
 });
+
+for (const how of ["openSplitPane", "replaceSplitPane"]) {
+  test(`${how} with a shared tab live in another window brings its page into the split`, () => {
+    reset();
+    const { a, b, a1, b1 } = twoWindows();
+    share(true);
+    const copy = rowOf(b, "https://a1.com");
+    assert.equal(S().tabs[copy].pageIn, a1);
+    const seq = S().tabs[a1].navigation.seq;
+    if (how === "openSplitPane") S().openSplitPane(b, { anchorTabId: b1, tabId: copy });
+    else {
+      const b2 = S().newTab(b, { url: "https://b2.com", background: true });
+      S().createSplit([b1, b2]);
+      S().replaceSplitPane(b2, copy);
+    }
+    assert.ok(S().tabs[a1], "the live tab is still there");
+    assert.equal(S().tabs[a1].windowId, b, "in B");
+    assert.ok(Object.values(S().splits).some((v) => v.windowId === b && v.tabIds.includes(a1) && v.tabIds.includes(b1)), "as a pane of the split");
+    assert.equal(shown(b), a1, "shown there");
+    assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
+    assert.equal(rowOf(a, "https://a1.com"), undefined, "A's list follows B's");
+    assert.equal(pages("https://a1.com").length, 1, "no second page loaded");
+    assert.equal(S().tabs[a1].navigation.seq, seq, "the page itself, not a reload");
+  });
+}
