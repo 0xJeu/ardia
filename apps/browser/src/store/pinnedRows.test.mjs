@@ -160,6 +160,26 @@ test("undoing a pinned group tab's removal puts it back in its place in the grou
   assert.deepEqual(order(w2), ["https://a.com/", "https://b.com/"]);
 });
 
+test("undoing a pin removal leaves alone a group sync brought back after it", () => {
+  reset();
+  const { w, ids: [a, b, x] } = windowWith("a", "b", "x");
+  const p = S().groupTabs([a, b], { name: "P" });
+  const c = S().groupTabs([a], { name: "C" });
+  assert.equal(S().groups[c].parentId, p);
+  S().activate(x);
+  S().closeTab(a);
+  const removed = S().removeClosedPin(a);
+  assert.equal(S().groups[c], undefined, "the emptied nested group goes");
+  const d = S().newTab(w, { url: "https://d.com/", background: true });
+  const synced = { ...removed.groups.find((g) => g.id === c), tabIds: [d] };
+  delete synced.parentId;
+  useBrowser.setState((s) => ({ groups: { ...s.groups, [c]: synced } }));
+  S().undoClearTabs(removed);
+  assert.equal(S().groups[c].parentId, undefined, "the synced group keeps its own place");
+  assert.deepEqual(S().groups[c].tabIds, [d]);
+  assert.ok(!S().groups[p].tabIds.includes(d), "its tab isn't dragged into P");
+});
+
 test("rows are the profile's: a second window mirrors them, a change in one shows in the other", () => {
   reset();
   const { w: a, ids: [mail, docs] } = windowWith("mail", "docs", "x");

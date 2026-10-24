@@ -479,6 +479,17 @@ test("undoing Clear doesn't bring back a group the user ungrouped after Clear", 
   assert.equal(organize.groupOf(S(), b), undefined, "b stays loose");
 });
 
+test("undoing Clear leaves a group the user pinned after Clear pinned and on its own", () => {
+  const { b, child, cleared } = nestedInAutomatic();
+  S().moveGroup(child, { pinned: true });
+  assert.equal(S().groups[child].pinned, true);
+  S().undoClearTabs(cleared);
+  assert.equal(S().groups[child].pinned, true, "the later pin stands");
+  assert.equal(S().groups[child].parentId, undefined);
+  assert.deepEqual(S().groups[child].tabIds, [b]);
+  assert.ok(Object.values(S().groups).every((g) => g.id === child || !g.tabIds.includes(b)), "b stays only in C");
+});
+
 test("Clear on a lone selected tab closes nothing and opens no New Tab page", () => {
   reset({ newTabPosition: "top" });
   const [w, a] = setup("a");

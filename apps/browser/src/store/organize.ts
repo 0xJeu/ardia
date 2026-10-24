@@ -314,11 +314,16 @@ function regroupCleared(
   const w = s.windows[windowId]!;
   const made = new Map<string, string>();
   const restored = new Set(renamed.values());
+  const state = (g: TabGroup | undefined) => (g ? [g.parentId ?? "", g.pinned, [...g.tabIds].sort().join(",")].join("\n") : null);
+  const groupUntouched = (id: string) => !!after[id] && state(s.groups[id]) === state(after[id]);
   const chain = (groups: Record<string, TabGroup>, id: string) => {
     const inner = innermostGroupOf(groups, id);
-    return inner ? [inner.id, ...ancestorIds(groups, inner.id)].join("\n") : "";
+    return inner ? [inner.id, ...ancestorIds(groups, inner.id)] : [];
   };
-  const untouchedSince = (id: string) => chain(s.groups, id) === chain(after, id);
+  const tabUntouched = (id: string) => {
+    const now = chain(s.groups, id);
+    return now.join("\n") === chain(after, id).join("\n") && now.every(groupUntouched);
+  };
   let groups = s.groups;
   for (const g of before) {
     const live = groups[g.id]?.windowId === windowId && groups[g.id]!.profileId === g.profileId ? groups[g.id] : undefined;
@@ -327,13 +332,13 @@ function regroupCleared(
       .filter((id) => {
         const t = s.tabs[id];
         if (!t || t.windowId !== windowId || t.profileId !== g.profileId) return false;
-        return restored.has(id) || untouchedSince(id);
+        return restored.has(id) || tabUntouched(id);
       });
     const parentId = g.parentId ? made.get(g.parentId) : undefined;
     if (live) {
+      if (!groupUntouched(g.id)) continue;
       const tabIds = [...live.tabIds, ...members.filter((id) => !live.tabIds.includes(id))];
-      const edgeUntouched = live.parentId === after[g.id]?.parentId;
-      groups = { ...groups, [live.id]: withParent({ ...live, tabIds }, edgeUntouched && parentId ? parentId : live.parentId) };
+      groups = { ...groups, [live.id]: withParent({ ...live, tabIds }, parentId ?? live.parentId) };
       made.set(g.id, live.id);
       continue;
     }
