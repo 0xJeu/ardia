@@ -81,12 +81,14 @@ export function pagesIntoSplits(s: BrowserState, prev: BrowserState): BrowserSta
   for (const v of Object.values(s.splits)) {
     for (const id of v.tabIds) {
       const t = next.tabs[id];
-      if (!t?.pageIn || hasPage(t) || !sharedListTab(next, t)) continue;
+      const was = prev.tabs[id];
+      if (!t?.pageIn || hasPage(t) || !(sharedListTab(next, t) || (was && sharedListTab(prev, was)))) continue;
       const holder = next.tabs[t.pageIn];
       if (!holder || holder.pinned || !hasPage(holder) || holder.pageIn || holder.windowId === t.windowId || holder.profileId !== t.profileId || pinKeyOf(holder) !== pinKeyOf(t) || inSplit(next, holder.id)) continue;
       next = swapPlaces(next, holder.id, t.id);
-      const { pageIn: _, ...left } = next.tabs[t.id]!;
-      next = { ...next, tabs: { ...next.tabs, [t.id]: left } };
+      const left = next.windows[holder.windowId]!;
+      if (left.tabIds.length === 1) next = withNewTab(next, left.id, { profileId: holder.profileId, background: true })[0];
+      next = removeTabs(next, [t.id], false);
     }
   }
   return next === s ? null : next;

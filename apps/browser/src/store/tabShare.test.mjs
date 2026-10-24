@@ -212,3 +212,31 @@ for (const how of ["openSplitPane", "replaceSplitPane"]) {
     assert.equal(S().tabs[a1].navigation.seq, seq, "the page itself, not a reload");
   });
 }
+
+for (const where of ["pinned split", "split in a pinned group"]) {
+  for (const how of ["openSplitPane", "replaceSplitPane"]) {
+    test(`${how} into a ${where} with a shared tab live in another window brings its page into the split`, () => {
+      reset();
+      const { b, a1, b1 } = twoWindows();
+      share(true);
+      const b2 = S().newTab(b, { url: "https://b2.com", background: true });
+      const b3 = S().newTab(b, { url: "https://b3.com", background: true });
+      const splitId = S().createSplit([b2, b3]);
+      if (where === "pinned split") S().pinTabs([b2], true);
+      else S().placeTabs([b2], { pinned: false, groupId: S().groupTabs([b1], { pinned: true, name: "P" }) });
+      assert.equal(model.inPinnedContainer(S(), b2), true);
+      const copy = rowOf(b, "https://a1.com");
+      assert.equal(S().tabs[copy].pageIn, a1);
+      const seq = S().tabs[a1].navigation.seq;
+      if (how === "openSplitPane") S().openSplitPane(b, { anchorTabId: b2, tabId: copy });
+      else S().replaceSplitPane(b3, copy);
+      assert.ok(S().tabs[a1], "the live tab is still there");
+      assert.equal(S().tabs[a1].windowId, b, "in B");
+      assert.ok(S().splits[splitId].tabIds.includes(a1), "as a pane of the split");
+      assert.equal(model.inPinnedContainer(S(), a1), true, "pinned with the split");
+      assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
+      assert.equal(pages("https://a1.com").length, 1, "no second page loaded");
+      assert.equal(S().tabs[a1].navigation.seq, seq, "the page itself, not a reload");
+    });
+  }
+}
