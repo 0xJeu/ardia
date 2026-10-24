@@ -278,8 +278,21 @@ export function copyText(text: string) {
   Shell.copyText(text);
 }
 
+let menusShown = 0;
+const menuWatchers = new Set<() => void>();
+const menusChanged = (by: number) => {
+  menusShown += by;
+  for (const watcher of menuWatchers) watcher();
+};
+export const menuShown = () => menusShown > 0;
+export function watchMenus(watcher: () => void): () => void {
+  menuWatchers.add(watcher);
+  return () => void menuWatchers.delete(watcher);
+}
+
 export function showMenu(items: MenuItem[]): Promise<string | null> {
-  return Shell.showMenu(items);
+  menusChanged(1);
+  return Promise.resolve(Shell.showMenu(items)).finally(() => menusChanged(-1));
 }
 
 export const openWindow = (id: string, options: OpenWindowOptions = {}) => Shell.openWindow(id, options);
