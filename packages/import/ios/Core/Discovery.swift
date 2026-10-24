@@ -194,7 +194,18 @@ public struct BrowserDiscovery {
     return dir
   }
 
-  func chromiumProfiles(_ def: BrowserDefinition) -> [BrowserProfile] {
+  public func profile(_ def: BrowserDefinition, _ profileId: String) -> BrowserProfile? {
+    switch def.family {
+    case .chromium, .arc:
+      return chromiumProfiles(def, only: profileId).first
+    case .firefox:
+      return firefoxProfiles(def).first { $0.id == profileId }
+    case .safari, .automation:
+      return nil
+    }
+  }
+
+  func chromiumProfiles(_ def: BrowserDefinition, only: String? = nil) -> [BrowserProfile] {
     guard let root = dataDirectory(def) else { return [] }
     let fm = FileManager.default
     var infoCache: [String: [String: Any]] = [:]
@@ -229,6 +240,7 @@ public struct BrowserDiscovery {
       guard isProfile(path) else { continue }
       let info = infoCache[dir] ?? (dir == "." ? infoCache["Default"] ?? infoCache[""] : nil) ?? [:]
       fallbackIndex += 1
+      if let only, only != dir { continue }
       var name = (info["name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
       if name == nil {
         name = dir == "Default" || dir == "." ? "Default" : "Profile \(fallbackIndex)"

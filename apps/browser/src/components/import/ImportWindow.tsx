@@ -252,11 +252,11 @@ export function ImportWindow() {
           if (r.skipped) left.push(`${plural(r.skipped, "link")} in ${name}'s folders weren't imported: each folder brings up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")} links.`);
         }
         const dest = first ?? (await destination(destinationIndex++, result.profile?.name ?? profile.name, result.profile?.color));
-        add(await applyResult(dest, result, source.name, refused));
+        add(await applyResult(dest, result, source.name, profileKinds, refused));
         extensionsProfile ||= dest;
       } else {
         const dest = await destination(destinationIndex++, result.profile?.name ?? profile.name, result.profile?.color ?? profile.color);
-        add(await applyResult(dest, result, source.name, refused));
+        add(await applyResult(dest, result, source.name, profileKinds, refused));
         extensionsProfile ||= dest;
       }
       if (source.family === "chromium" || source.family === "arc") {

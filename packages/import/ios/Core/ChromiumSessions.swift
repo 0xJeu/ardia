@@ -52,9 +52,19 @@ public enum ChromiumSessions {
   public static func needsKey(profile: URL) -> Bool {
     let files = sessionFiles(profile: profile)
     guard files.contains(where: \.encrypted) else { return false }
-    return !files.contains { file in
-      !file.encrypted && (try? Data(contentsOf: file.url)).flatMap { try? parse($0, key: nil) } != nil
+    return !files.contains { !$0.encrypted && isComplete(cleartext: $0.url) }
+  }
+
+  static func isComplete(cleartext url: URL) -> Bool {
+    guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
+    var reader = ByteReader(data)
+    guard reader.u32() == signature, let version = reader.u32() else { return false }
+    if version == 1 { return true }
+    guard version == 3 else { return false }
+    while let size = reader.u16(), size >= 1, let body = reader.bytes(Int(size)) {
+      if size == 1, body[body.startIndex] == markerCommand { return true }
     }
+    return false
   }
 
   public static func load(profile: URL, key: Data?) throws -> OpenTabs {

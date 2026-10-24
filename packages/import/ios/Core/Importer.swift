@@ -65,7 +65,7 @@ public final class Importer: @unchecked Sendable {
     guard def.family != .safari else { throw ImportError.unsupported("Safari imports come from its export archive") }
     let dir = try discovery.profileDirectory(def, profileId)
     var result = ImportResult(browserId: browserId, profileId: profileId)
-    if let info = discovery.source(def)?.profiles.first(where: { $0.id == profileId }) {
+    if let info = discovery.profile(def, profileId) {
       result.profile = ProfileSuggestion(name: info.name, color: info.color, avatarPath: info.avatarPath)
     }
 

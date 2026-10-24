@@ -111,6 +111,23 @@ final class ChromiumChannelTests: XCTestCase {
     XCTAssertEqual(try ChromiumSessions.load(profile: profile, key: Fixtures.chromiumKey).tabs.count, 2)
   }
 
+  func testOneProfileLookupMatchesTheFullListing() throws {
+    let d = Fixtures.discovery()
+    for (id, profileId) in [("braveBeta", "Default"), ("braveBeta", "Profile 1"), ("chrome", "Default"), ("chrome", "Profile 1")] {
+      let def = try XCTUnwrap(BrowserDefinition.find(id))
+      let listed = try XCTUnwrap(d.source(def)?.profiles.first { $0.id == profileId })
+      XCTAssertEqual(d.profile(def, profileId), listed)
+    }
+    XCTAssertNil(d.profile(BrowserDefinition.find("braveBeta")!, "Nope"))
+  }
+
+  func testCompletenessProbeAgreesWithTheParser() throws {
+    let chrome = Fixtures.support("Google/Chrome/Default/Sessions")
+    XCTAssertTrue(ChromiumSessions.isComplete(cleartext: chrome.appendingPathComponent("Session_13432694400000000")))
+    XCTAssertFalse(ChromiumSessions.isComplete(cleartext: chrome.appendingPathComponent("Session_13432608000000000")))
+    XCTAssertFalse(ChromiumSessions.isComplete(cleartext: encryptedOnly.appendingPathComponent("Sessions_Encrypted/Session_13432694400000000")))
+  }
+
   func testSessionFilesWithoutTheMarkerAreSkipped() throws {
     var header = Data("SNSS".utf8)
     header.append(contentsOf: [3, 0, 0, 0])
