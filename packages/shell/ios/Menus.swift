@@ -252,8 +252,7 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
     let title = state.titles[item.stateKey] ?? item.defaultTitle
     if item.title != title { item.title = title }
     if item.keyEquivalent == "\r", NSApp.keyWindow?.firstResponder is NSText { return false }
-    if item.keyEquivalent == MainMenu.leftArrow || item.keyEquivalent == MainMenu.rightArrow,
-       item.keyEquivalentModifierMask == .command, NSApp.keyWindow?.firstResponder is NSText { return false }
+    if MainMenu.movesCaret(item), NSApp.currentEvent?.type == .keyDown, MainMenu.editsText(NSApp.keyWindow?.firstResponder) { return false }
     if item.command == "findInPage", WindowManager.shared.keyWindowId == "settings" { return true }
     return !state.disabled.contains(item.stateKey) && !state.disabled.contains(item.command)
   }
@@ -615,6 +614,22 @@ enum MainMenu {
 
   private static func functionKey(_ key: Int) -> String { String(Character(UnicodeScalar(UInt16(key))!)) }
   static let leftArrow = functionKey(NSLeftArrowFunctionKey), rightArrow = functionKey(NSRightArrowFunctionKey)
+  private static let caretArrows: Set<String> = [
+    leftArrow, rightArrow, functionKey(NSUpArrowFunctionKey), functionKey(NSDownArrowFunctionKey),
+  ]
+
+  static func movesCaret(_ item: NSMenuItem) -> Bool {
+    let mods = item.keyEquivalentModifierMask.intersection([.command, .shift, .option, .control])
+    return caretArrows.contains(item.keyEquivalent) && (mods == .command || mods == [.command, .shift])
+  }
+
+  static func editsText(_ responder: NSResponder?) -> Bool {
+    if responder is NSText { return true }
+    let textInputType = NSSelectorFromString("textInputType")
+    guard let page = responder, FocusHandoff.isPage(page), page.responds(to: textInputType) else { return false }
+    typealias Getter = @convention(c) (AnyObject, Selector) -> Int32
+    return unsafeBitCast(page.method(for: textInputType), to: Getter.self)(page, textInputType) != 0
+  }
 
   private static func aboutItem(_ title: String) -> NSMenuItem {
     let item = NSMenuItem(title: title, action: #selector(AppUpdater.showAbout(_:)), keyEquivalent: "")
