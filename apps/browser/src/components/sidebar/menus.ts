@@ -25,6 +25,7 @@ import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../../sync/menu";
 import { setSidebarUi } from "./state";
+import { hasOwnGroupIcon } from "./TabIcon";
 import { newFolderWithTab, removeFromFolder } from "./tileFolderUi";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, nearestGroupColor } from "./tokens";
@@ -233,7 +234,7 @@ export async function openGroupMenu(windowId: string, groupId: string) {
   const matched = siteColor ? nearestGroupColor(siteColor) : null;
   const choice = await showMenu([
     { id: "rename", title: "Rename…", symbol: "character.cursor.ibeam" },
-    { id: "icon", title: g.icon ? "Change Icon…" : "Add Icon…", symbol: "face.smiling" },
+    { id: "icon", title: hasOwnGroupIcon(g.icon) ? "Change Icon…" : "Add Icon…", symbol: "face.smiling" },
     {
       id: "color",
       title: "Color",
