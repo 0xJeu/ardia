@@ -681,6 +681,10 @@ enum KeyEquivalents {
     case "window": window.makeFirstResponder(nil)
     case "page": if let page = pageViews(in: window).first { window.makeFirstResponder(page) }
     case "devtools": if let devTools = pageViews(in: window).first(where: isDevTools) { window.makeFirstResponder(devTools) }
+    case let focus? where focus.hasPrefix("label:"):
+      var control = window.contentView.flatMap { labeledView(String(focus.dropFirst(6)), in: $0) }
+      while let view = control, !view.acceptsFirstResponder { control = view.superview }
+      guard let control, window.makeFirstResponder(control) else { return done(["error": "can't focus \(focus)"]) }
     default: break
     }
     if let settle = press["settle"] as? Int, settle > 0 {
@@ -864,11 +868,10 @@ enum KeyEquivalents {
 
   private static func labeledView(_ label: String, in root: NSView) -> NSView? {
     guard !root.isHidden, root.alphaValue > 0 else { return nil }
-    if root.accessibilityLabel() == label, !root.visibleRect.isEmpty { return root }
     for child in root.subviews.reversed() {
       if let found = labeledView(label, in: child) { return found }
     }
-    return nil
+    return root.accessibilityLabel() == label && !root.visibleRect.isEmpty ? root : nil
   }
 
   private static func pageViews(in window: NSWindow) -> [NSView] {

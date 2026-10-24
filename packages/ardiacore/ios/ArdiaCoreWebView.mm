@@ -260,49 +260,72 @@ static ArdiaCoreWebView *PageViewUnder(NSEvent *event) {
   return nil;
 }
 
-static const NSUInteger kControlClicksKept = 8;
+static const NSUInteger kControlPressesKept = 8;
 static const NSTimeInterval kControlClickLifetime = 10;
+static const NSTimeInterval kControlKeyLifetime = 2;
 static const double kControlClickMatchMs = 1;
 
-static NSMutableArray<NSMutableDictionary *> *ControlClicks() {
-  static NSMutableArray<NSMutableDictionary *> *clicks = [NSMutableArray array];
-  return clicks;
+static NSMutableArray<NSDictionary *> *ControlPresses() {
+  static NSMutableArray<NSDictionary *> *presses = [NSMutableArray array];
+  return presses;
+}
+
+static BOOL InWebContent(NSView *view) {
+  for (; view; view = view.superview)
+    if ([view isKindOfClass:ArdiaCoreWebView.class] || [NSStringFromClass(view.class) hasPrefix:@"RenderWidgetHostView"]) return YES;
+  return NO;
 }
 
 static BOOL LandsInWebContent(NSEvent *event) {
   NSView *frame = event.window.contentView.superview ?: event.window.contentView;
   NSView *hit = [frame hitTest:event.locationInWindow];
-  if (!hit) return YES;
-  for (NSView *view = hit; view; view = view.superview)
-    if ([view isKindOfClass:ArdiaCoreWebView.class] || [NSStringFromClass(view.class) hasPrefix:@"RenderWidgetHostView"]) return YES;
-  return NO;
+  return !hit || InWebContent(hit);
 }
 
-static void InstallControlClickMonitor() {
+static NSNumber *ControlKeyTarget(NSEvent *event) {
+  const NSEventModifierFlags chord = NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption;
+  if ((event.keyCode != 49 && event.keyCode != 36 && event.keyCode != 76) || (event.modifierFlags & chord)) return nil;
+  NSResponder *responder = event.window.firstResponder;
+  if (![responder isKindOfClass:NSView.class] || InWebContent((NSView *)responder)) return nil;
+  if (![responder respondsToSelector:NSSelectorFromString(@"reactTag")]) return nil;
+  id tag = [responder valueForKey:@"reactTag"];
+  return [tag isKindOfClass:NSNumber.class] && [tag integerValue] > 0 ? tag : nil;
+}
+
+static void RecordControlPress(NSEvent *event, NSNumber *target) {
+  NSMutableArray<NSDictionary *> *presses = ControlPresses();
+  NSMutableDictionary *press = [@{@"at" : @(event.timestamp), @"window" : @(event.windowNumber)} mutableCopy];
+  if (target) press[@"target"] = target;
+  [presses addObject:press];
+  if (presses.count > kControlPressesKept) [presses removeObjectAtIndex:0];
+}
+
+static void InstallControlPressMonitor() {
   static id monitor;
   if (monitor) return;
-  monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseUp
+  monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseUp | NSEventMaskKeyDown
                                                   handler:^NSEvent *(NSEvent *event) {
-                                                    if (!event.window || LandsInWebContent(event)) return event;
-                                                    NSMutableArray<NSMutableDictionary *> *clicks = ControlClicks();
-                                                    [clicks addObject:[@{
-                                                      @"at" : @(event.timestamp),
-                                                      @"window" : @(event.windowNumber),
-                                                    } mutableCopy]];
-                                                    if (clicks.count > kControlClicksKept) [clicks removeObjectAtIndex:0];
+                                                    if (!event.window) return event;
+                                                    if (event.type == NSEventTypeKeyDown) {
+                                                      if (NSNumber *target = ControlKeyTarget(event)) RecordControlPress(event, target);
+                                                    } else if (!LandsInWebContent(event)) {
+                                                      RecordControlPress(event, nil);
+                                                    }
                                                     return event;
                                                   }];
 }
 
-static NSTimeInterval TakeControlClick(double clickMs, NSWindow *window) {
-  if (!window || !(clickMs > 0)) return 0;
+static NSTimeInterval TakeControlPress(double clickMs, NSInteger target, NSWindow *window) {
+  if (!window || (!(clickMs > 0) && target <= 0)) return 0;
   const NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
-  NSMutableArray<NSMutableDictionary *> *clicks = ControlClicks();
-  for (NSMutableDictionary *click in clicks) {
-    const NSTimeInterval at = [click[@"at"] doubleValue];
-    if ([click[@"window"] integerValue] != window.windowNumber || fabs(at * 1000 - clickMs) > kControlClickMatchMs || now - at > kControlClickLifetime)
-      continue;
-    [clicks removeObject:click];
+  NSMutableArray<NSDictionary *> *presses = ControlPresses();
+  for (NSDictionary *press in presses) {
+    const NSTimeInterval at = [press[@"at"] doubleValue];
+    if ([press[@"window"] integerValue] != window.windowNumber) continue;
+    const BOOL matches = clickMs > 0 ? !press[@"target"] && fabs(at * 1000 - clickMs) <= kControlClickMatchMs && now - at <= kControlClickLifetime
+                                     : [press[@"target"] integerValue] == target && now - at <= kControlKeyLifetime;
+    if (!matches) continue;
+    [presses removeObject:press];
     return at;
   }
   return 0;
@@ -1245,7 +1268,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
 - (void)attach:(ArdiaCoreTab *)tab {
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ attach tab=%d visible=%d", _transferKey, (int)tab.tabId, _visible);
   [LiveViews() addObject:self];
-  InstallControlClickMonitor();
+  InstallControlPressMonitor();
   _tab = tab;
   tab.delegate = self;
   [ArdiaCoreTabs setView:self forTab:tab];
@@ -2682,11 +2705,11 @@ static NSEventModifierFlags PeekModifierFlag() {
   [self callFrame:_nowPlayingFrame ?: @"" kind:@"media" json:JSONString(@{@"action" : action ?: @"", @"seconds" : @(seconds)})];
 }
 
-- (void)requestPictureInPictureForClickAt:(double)clickMs completion:(void (^)(BOOL))completion {
+- (void)requestPictureInPictureForClickAt:(double)clickMs control:(NSInteger)target completion:(void (^)(BOOL))completion {
   if (_inPictureInPicture) return completion(YES);
   if (![_tab respondsToSelector:@selector(enterPictureInPictureForClickAt:completion:)]) return completion(NO);
-  const NSTimeInterval clickAt = TakeControlClick(clickMs, self.window);
-  [self traceManualPictureInPicture:clickAt > 0 ? @"click verified" : @"click not verified"];
+  const NSTimeInterval clickAt = TakeControlPress(clickMs, target, self.window);
+  [self traceManualPictureInPicture:[NSString stringWithFormat:@"%@ %@ (control %ld)", clickMs > 0 ? @"click" : @"key press", clickAt > 0 ? @"verified" : @"not verified", (long)target]];
   if (clickAt <= 0) return completion(NO);
   [self thawHiddenPage];
   __weak ArdiaCoreWebView *weakSelf = self;

@@ -4,7 +4,6 @@
 #include <memory>
 #include <map>
 #include <optional>
-#include <set>
 #include <string>
 
 #include "base/functional/callback.h"
@@ -16,8 +15,7 @@
 #include "content/public/browser/global_routing_id.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "services/media_session/public/mojom/media_session.mojom.h"
+#include "content/public/browser/frame_tree_node_id.h"
 #include "url/gurl.h"
 #include "ardia/core/mojom/ardiacore.mojom.h"
 
@@ -51,8 +49,7 @@ enum class PictureInPictureRoute { kNone, kMediaSession, kElement };
 
 class PageChannel : public content::WebContentsObserver,
                     public content::WebContentsUserData<PageChannel>,
-                    public mojom::ACPageHost,
-                    public media_session::mojom::MediaSessionObserver {
+                    public mojom::ACPageHost {
  public:
   ~PageChannel() override;
 
@@ -91,20 +88,6 @@ class PageChannel : public content::WebContentsObserver,
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
 
-  void MediaSessionInfoChanged(
-      media_session::mojom::MediaSessionInfoPtr info) override {}
-  void MediaSessionMetadataChanged(
-      const std::optional<media_session::MediaMetadata>& metadata) override {}
-  void MediaSessionActionsChanged(
-      const std::vector<media_session::mojom::MediaSessionAction>& actions)
-      override;
-  void MediaSessionImagesChanged(
-      const base::flat_map<media_session::mojom::MediaSessionImageType,
-                           std::vector<media_session::MediaImage>>& images)
-      override {}
-  void MediaSessionPositionChanged(
-      const std::optional<media_session::MediaPosition>& position) override {}
-
  private:
   friend class content::WebContentsUserData<PageChannel>;
   explicit PageChannel(content::WebContents* contents);
@@ -119,7 +102,10 @@ class PageChannel : public content::WebContentsObserver,
             const std::string& json);
   void ForgetHeld(const std::string& frame_id);
   void MainDocumentChanged();
+  void FrameDocumentChanged(content::RenderFrameHost* frame);
   bool MainDocumentUnchangedSince(base::TimeTicks click);
+  bool FrameDocumentUnchangedSince(content::RenderFrameHost* frame,
+                                   base::TimeTicks click);
   void EnterPictureInPictureInDocument(
       content::GlobalRenderFrameHostId frame,
       base::TimeTicks click,
@@ -138,11 +124,9 @@ class PageChannel : public content::WebContentsObserver,
   mojo::AssociatedRemote<mojom::ACPage> main_page_;
   content::GlobalRenderFrameHostId main_page_frame_;
   std::string page_color_;
-  mojo::Receiver<media_session::mojom::MediaSessionObserver> session_observer_{
-      this};
-  bool session_offers_picture_in_picture_ = false;
   base::TimeTicks main_document_at_;
-  std::set<int64_t> main_commits_pending_;
+  std::map<content::GlobalRenderFrameHostId, base::TimeTicks> document_at_;
+  std::map<int64_t, content::FrameTreeNodeId> commits_pending_;
   base::WeakPtrFactory<PageChannel> weak_factory_{this};
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

@@ -97,6 +97,7 @@ export type WebNotification = {
 };
 
 export type PictureInPictureState = { kind: "video" | "document"; active: boolean };
+export type ControlPress = { clickAt: number; control: number };
 export type ActivateRequest = { reason: "pictureInPicture" };
 export type DisplayMediaSource = {
   id: string;
@@ -216,7 +217,7 @@ export type WebViewHandle = {
   downloadImage(url: string, maxPixels: number): Promise<FaviconImage | null>;
 
   mediaCommand(action: MediaCommand, seconds?: number): Promise<void>;
-  requestPictureInPicture(clickAt: number): Promise<boolean>;
+  requestPictureInPicture(press: ControlPress): Promise<boolean>;
   exitPictureInPicture(): Promise<void>;
 
   getSecurityInfo(): Promise<SecurityInfo | null>;
@@ -317,8 +318,9 @@ const unwrap: { [K in Handlers]: (e: NativeEvents[K]) => Parameters<NonNullable<
 
 type NativeHandle = Omit<
   WebViewHandle,
-  "evaluate" | "loadUrl" | "downloadFavicon" | "resolvePasswordPrompt" | "discard" | "nativeTag"
+  "evaluate" | "loadUrl" | "downloadFavicon" | "resolvePasswordPrompt" | "discard" | "nativeTag" | "requestPictureInPicture"
 > & {
+  requestPictureInPicture(clickAt: number, control: number): Promise<boolean>;
   evaluate(code: string): Promise<string | null>;
   downloadFavicon(url: string): Promise<FaviconImage | null>;
   loadUrl(url: string, userInitiated?: boolean): Promise<void>;
@@ -382,7 +384,7 @@ export const WebView = forwardRef<WebViewHandle, WebViewProps>(function WebView(
       downloadImage: (url, maxPixels) => call(null, (n) => n.downloadImage(url, maxPixels)),
       downloadFavicon: (url) => call(null, (n) => n.downloadFavicon(url)),
       mediaCommand: (action, seconds) => call(undefined, (n) => n.mediaCommand(action, seconds)),
-      requestPictureInPicture: (clickAt) => call(false, (n) => n.requestPictureInPicture(clickAt)),
+      requestPictureInPicture: (press) => call(false, (n) => n.requestPictureInPicture(press.clickAt, press.control)),
       exitPictureInPicture: () => call(undefined, (n) => n.exitPictureInPicture()),
       getSecurityInfo: () => call(null, (n) => n.getSecurityInfo()),
       openBlockedPopup: (id, always) => call(undefined, (n) => n.openBlockedPopup(id, always)),

@@ -209,22 +209,37 @@ PageChannel::PageChannel(content::WebContents* contents)
       content::WebContentsUserData<PageChannel>(*contents),
       receivers_(contents, this),
       main_document_at_(base::TimeTicks::Now()) {
-  content::MediaSession::Get(contents)->AddObserver(
-      session_observer_.BindNewPipeAndPassRemote());
-}
-
-void PageChannel::MediaSessionActionsChanged(
-    const std::vector<media_session::mojom::MediaSessionAction>& actions) {
-  session_offers_picture_in_picture_ = std::ranges::contains(
-      actions, media_session::mojom::MediaSessionAction::kEnterPictureInPicture);
+  contents->ForEachRenderFrameHost(
+      [&](content::RenderFrameHost* frame) { FrameDocumentChanged(frame); });
 }
 
 void PageChannel::MainDocumentChanged() {
   main_document_at_ = base::TimeTicks::Now();
 }
 
+void PageChannel::FrameDocumentChanged(content::RenderFrameHost* frame) {
+  document_at_[frame->GetGlobalId()] = base::TimeTicks::Now();
+}
+
+bool PageChannel::FrameDocumentUnchangedSince(content::RenderFrameHost* frame,
+                                              base::TimeTicks click) {
+  if (!frame || !frame->IsRenderFrameLive() || !frame->GetPage().IsPrimary()) {
+    return false;
+  }
+  auto it = document_at_.find(frame->GetGlobalId());
+  if (it == document_at_.end() || it->second >= click) {
+    return false;
+  }
+  const content::FrameTreeNodeId node = frame->GetFrameTreeNodeId();
+  return std::ranges::none_of(commits_pending_, [&](const auto& pending) {
+    return pending.second == node;
+  });
+}
+
 bool PageChannel::MainDocumentUnchangedSince(base::TimeTicks click) {
-  return main_commits_pending_.empty() && main_document_at_ < click;
+  return main_document_at_ < click &&
+         FrameDocumentUnchangedSince(GetWebContents().GetPrimaryMainFrame(),
+                                     click);
 }
 
 void PageChannel::PrimaryMainFrameRenderProcessGone(
@@ -247,11 +262,17 @@ void PageChannel::PrimaryPageChanged(content::Page& page) {
 
 void PageChannel::ReadyToCommitNavigation(
     content::NavigationHandle* navigation) {
-  if (navigation->IsInPrimaryMainFrame() && !navigation->IsSameDocument()) {
-    MainDocumentChanged();
-    main_commits_pending_.insert(navigation->GetNavigationId());
-  }
   content::RenderFrameHost* frame = navigation->GetRenderFrameHost();
+  if (!navigation->IsSameDocument()) {
+    commits_pending_[navigation->GetNavigationId()] =
+        navigation->GetFrameTreeNodeId();
+    if (frame) {
+      FrameDocumentChanged(frame);
+    }
+    if (navigation->IsInPrimaryMainFrame()) {
+      MainDocumentChanged();
+    }
+  }
   if (frame && !frame->GetParentOrOuterDocument()) {
     if (auto remote = PageOf(frame)) {
       remote->SetPageColor(page_color_);
@@ -260,6 +281,7 @@ void PageChannel::ReadyToCommitNavigation(
 }
 
 void PageChannel::RenderFrameCreated(content::RenderFrameHost* frame) {
+  FrameDocumentChanged(frame);
   if (frame->IsInPrimaryMainFrame()) {
     MainDocumentChanged();
   }
@@ -444,6 +466,7 @@ void PageChannel::DeliverHeld() {
 }
 
 void PageChannel::RenderFrameDeleted(content::RenderFrameHost* frame) {
+  document_at_.erase(frame->GetGlobalId());
   if (frame->IsInPrimaryMainFrame()) {
     MainDocumentChanged();
   }
@@ -451,10 +474,14 @@ void PageChannel::RenderFrameDeleted(content::RenderFrameHost* frame) {
 }
 
 void PageChannel::DidFinishNavigation(content::NavigationHandle* navigation) {
-  main_commits_pending_.erase(navigation->GetNavigationId());
-  if (navigation->IsInPrimaryMainFrame() && !navigation->IsSameDocument() &&
-      navigation->HasCommitted()) {
-    MainDocumentChanged();
+  commits_pending_.erase(navigation->GetNavigationId());
+  if (!navigation->IsSameDocument() && navigation->HasCommitted()) {
+    if (navigation->GetRenderFrameHost()) {
+      FrameDocumentChanged(navigation->GetRenderFrameHost());
+    }
+    if (navigation->IsInPrimaryMainFrame()) {
+      MainDocumentChanged();
+    }
   }
   if (navigation->HasCommitted() && !navigation->IsSameDocument() &&
       navigation->GetRenderFrameHost()) {
@@ -537,8 +564,14 @@ PictureInPictureRoute PageChannel::EnterPictureInPictureForClick(
   if (!click || !MainDocumentUnchangedSince(*click)) {
     return PictureInPictureRoute::kNone;
   }
-  if (session_offers_picture_in_picture_) {
-    content::MediaSession::Get(&GetWebContents())->EnterPictureInPicture();
+  content::MediaSession* session = content::MediaSession::Get(&GetWebContents());
+  if (std::ranges::contains(
+          session->GetMediaSessionActionsSync(),
+          media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
+    if (!FrameDocumentUnchangedSince(session->GetRoutedFrame(), *click)) {
+      return PictureInPictureRoute::kNone;
+    }
+    session->EnterPictureInPicture();
     return PictureInPictureRoute::kMediaSession;
   }
   mojom::ACPage* page = MainPage();

@@ -229,7 +229,7 @@ export type KeyPress = {
   keyCode: number;
   modifiers?: ("command" | "shift" | "option" | "control" | "function")[];
   characters?: string;
-  focus?: "window" | "page" | "devtools";
+  focus?: "window" | "page" | "devtools" | `label:${string}`;
   asKey?: boolean;
   settle?: number;
   wait?: number;

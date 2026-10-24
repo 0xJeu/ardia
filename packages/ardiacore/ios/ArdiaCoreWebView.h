@@ -92,7 +92,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)mediaCommand:(NSString *)action seconds:(double)seconds NS_SWIFT_NAME(mediaCommand(_:seconds:));
 - (void)requestPictureInPictureForClickAt:(double)clickMs
-                               completion:(void (^)(BOOL ok))completion NS_SWIFT_NAME(requestPictureInPicture(clickAt:_:));
+                                  control:(NSInteger)target
+                               completion:(void (^)(BOOL ok))completion NS_SWIFT_NAME(requestPictureInPicture(clickAt:control:_:));
 - (void)exitPictureInPicture;
 
 - (void)securityInfo:(void (^)(NSDictionary<NSString *, id> *info))completion NS_SWIFT_NAME(securityInfo(_:));

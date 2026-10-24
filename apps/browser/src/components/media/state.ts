@@ -1,4 +1,4 @@
-import type { DisplayMediaRequest, MediaCommand, NowPlaying, PictureInPictureState } from "@ardia/ardiacore";
+import type { ControlPress, DisplayMediaRequest, MediaCommand, NowPlaying, PictureInPictureState } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
 import type { GestureResponderEvent } from "react-native";
 import { create } from "zustand";
@@ -146,14 +146,14 @@ export function exitPictureInPicture(tabId: string) {
   setPip(tabId, null);
 }
 
-async function togglePictureInPicture(tabId: string, clickAt: number): Promise<boolean> {
+async function togglePictureInPicture(tabId: string, press: ControlPress): Promise<boolean> {
   const view = webviews.get(tabId);
   if (!view) return false;
   if (useMedia.getState().pipOpen[tabId] || (await inPictureInPicture(tabId))) {
     exitPictureInPicture(tabId);
     return false;
   }
-  const ok = await view.requestPictureInPicture(clickAt);
+  const ok = await view.requestPictureInPicture(press);
   if (ok) setPip(tabId, "manual");
   return ok;
 }
@@ -168,9 +168,15 @@ function setPip(tabId: string, kind: Store["pip"][string] | null) {
   });
 }
 
+function controlPress(press: GestureResponderEvent): ControlPress {
+  const native = press.nativeEvent as { key?: unknown; target?: unknown; timestamp?: unknown };
+  if (native.key === " " || native.key === "Enter") return { clickAt: 0, control: typeof native.target === "number" ? native.target : 0 };
+  return { clickAt: typeof native.timestamp === "number" ? native.timestamp : 0, control: 0 };
+}
+
 export function usePictureInPicture(tabId: string): [boolean, (press: GestureResponderEvent) => void] {
   const on = useMedia((s) => !!s.pipOpen[tabId]);
-  return [on, (press) => void togglePictureInPicture(tabId, press.nativeEvent.timestamp)];
+  return [on, (press) => void togglePictureInPicture(tabId, controlPress(press))];
 }
 
 useBrowser.subscribe((s, prev) => {
