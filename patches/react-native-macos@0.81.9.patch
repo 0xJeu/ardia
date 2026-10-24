@@ -49,10 +49,10 @@ index 18bbe64f657a36596563b3eb6d135284e28c674a..a4046a33e13d35cac155e306f368e04e
    if ((commandSelector == @selector(insertNewline:) || commandSelector == @selector(insertNewlineIgnoringFieldEditor:))) {
      if ([textInputDelegate textInputShouldSubmitOnReturn]) {
 diff --git a/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8178fcb41 100644
+index cac171e70c9fa225cdec45b205086342a0d50f06..17c3a781c5243fdf33d0f03ea75ac123b2eb3f03 100644
 --- a/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 +++ b/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-@@ -47,6 +47,10 @@ @implementation RCTBaseTextInputView {
+@@ -47,6 +47,11 @@ @implementation RCTBaseTextInputView {
  #if TARGET_OS_OSX // [macOS avoids duplicating effects of textInputDid(Begin|End)Editing calls
    BOOL _isCurrentlyEditing;
  #endif // macOS]
@@ -60,10 +60,40 @@ index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8
 +  NSUInteger _editSession;
 +  BOOL _clickFocused;
 +#endif // Ardia]
++  __weak NSUndoManager *_undoManagerWithActions; // [Ardia: where its text undos are, so they go when it does Ardia]
  }
  
  #if !TARGET_OS_OSX // [macOS]
-@@ -521,6 +525,11 @@ - (void)textInputDidBeginEditing
+@@ -76,6 +81,11 @@ - (void)reactUpdateResponderOffsetForScrollView:(RCTScrollView *)scrollView
+ }
+ #endif // [macOS]
+ 
++- (void)dealloc // [Ardia]
++{
++  [_undoManagerWithActions removeAllActionsWithTarget:self];
++} // Ardia]
++
+ - (instancetype)initWithBridge:(RCTBridge *)bridge
+ {
+   RCTAssertParam(bridge);
+@@ -238,7 +248,15 @@ - (void)setAttributedText:(NSAttributedString *)attributedText
+       // If there was ghost text previously, we don't want it showing up if we undo.
+       // If something goes wrong when trying to remove it, just stick with oldAttributedText.
+       NSAttributedString *oldAttributedTextWithoutGhostText = [self removingGhostTextFromString:oldAttributedText strict:YES] ?: oldAttributedText;
+-      [self.backedTextInputView.undoManager registerUndoWithTarget:self handler:^(RCTBaseTextInputView *strongSelf) {
++      // [Ardia: an undo manager doesn't retain its targets, and the window's outlives this view: ⌘Z after the view
++      // was gone ran a dead object's undo (a crash after the command bar closed)
++      NSUndoManager *undoManager = self.backedTextInputView.undoManager;
++      if (_undoManagerWithActions && _undoManagerWithActions != undoManager) {
++        [_undoManagerWithActions removeAllActionsWithTarget:self];
++      }
++      _undoManagerWithActions = undoManager;
++      // Ardia]
++      [undoManager registerUndoWithTarget:self handler:^(RCTBaseTextInputView *strongSelf) {
+         strongSelf.attributedText = oldAttributedTextWithoutGhostText;
+         [strongSelf textInputDidChange];
+       }];
+@@ -521,6 +539,11 @@ - (void)textInputDidBeginEditing
      return;
    }
    _isCurrentlyEditing = YES;
@@ -75,7 +105,7 @@ index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8
  #endif // macOS]
    
    [_eventDispatcher sendTextEventWithType:RCTTextEventTypeFocus
-@@ -894,8 +903,49 @@ - (RCTUIView *)reactAccessibilityElement // [macOS]
+@@ -894,8 +917,49 @@ - (RCTUIView *)reactAccessibilityElement // [macOS]
  
  #pragma mark - Focus Control
  
@@ -125,7 +155,7 @@ index cac171e70c9fa225cdec45b205086342a0d50f06..b9fefeceb4400f181c5a1c39b73404f8
    [self.backedTextInputView reactFocus];
  
    if (_clearTextOnFocus) {
-@@ -909,6 +959,9 @@ - (void)reactFocus
+@@ -909,6 +973,9 @@ - (void)reactFocus
      [self.backedTextInputView setSelectedTextRange:NSMakeRange(NSNotFound, 0) notifyDelegate:NO];
  #endif // macOS]
    }
