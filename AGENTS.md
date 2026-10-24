@@ -91,7 +91,7 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   stable releases too.
   - **Nightly** is for fast iteration. Each fix is reproduced, fixed and verified, its adjacent tests run, then it
     is built and released as a nightly (`scripts/release.sh <version> --channel nightly`). Run only the focused
-    checks for what changed: no full suite, no perf gate, no tweet, no landing-page refresh. A nightly is a GitHub
+    checks for what changed: no full suite, no perf gate, no landing-page refresh. A nightly is a GitHub
     prerelease and never reaches stable users.
   - **Stable** gets the full run (about 1.5 h): smoke, update test, perf ratchet and perf gate. Its perf is
     compared against the previous stable release, never against a nightly.
@@ -106,10 +106,7 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
 
   The owner has authorized releases to go all the way through. After an update, the app opens the
   release notes on ardia.dev.
-- **Every release gets a tweet draft**: a version line, 4–5 short, witty, simple bullets and
-  the URL, under 280 characters. Add a 1600×1000 image in the site's style built from
-  real captures of neutral pages (no random user posts or personal data) at `output/tweets/<version>.png`.
-  Only the owner posts it.
+- **No tweet drafts.** Don't write announcement drafts or make tweet images for a release.
 - **Other public actions** (a site deploy outside a release, posting anywhere) need the owner's OK first.
 
 ## Site and videos
