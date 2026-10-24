@@ -135,6 +135,15 @@ const audioOutputOf = (browserPid) => {
   if (!utilities.length) return null;
   return utilities.some((line) => line.includes(" --disable-audio-output")) ? "fake" : "speakers";
 };
+const settledAudioOutput = async (browserPid) => {
+  for (const deadline = Date.now() + 15000; Date.now() < deadline; await sleep(200)) {
+    const output = audioOutputOf(browserPid);
+    if (output) return output;
+  }
+  return null;
+};
+const unproven = (output) => (output === "speakers" ? "plays sound through this Mac's speakers (started without --disable-audio-output)"
+  : "showed no Chrome helper within 15 s, so its audio output is unknown");
 let kept = null;
 if (attaching || keep) {
   try {
@@ -145,12 +154,12 @@ if (attaching || keep) {
       process.exit(66);
     }
   }
-  if (kept && attaching && audioOutputOf(kept.pid) !== "fake") {
-    console.error(`--attach: pid ${kept.pid} plays sound through this Mac's speakers (started without --disable-audio-output); ` +
-      `quit it (scripts/agent/ac quit ${join(resolve(argv[0]), "data")}) and start a new run`);
+  const keptOutput = kept && (attaching || kept.app === resolve(argv[0])) ? await settledAudioOutput(kept.pid) : null;
+  if (kept && attaching && keptOutput !== "fake") {
+    console.error(`--attach: pid ${kept.pid} ${unproven(keptOutput)}; quit it (scripts/agent/ac quit ${join(resolve(argv[0]), "data")}) and start a new run`);
     process.exit(65);
   }
-  if (kept && !attaching && (kept.app !== resolve(argv[0]) || audioOutputOf(kept.pid) !== "fake")) {
+  if (kept && !attaching && (kept.app !== resolve(argv[0]) || keptOutput !== "fake")) {
     await kept.quit();
     kept = null;
   }
@@ -415,14 +424,10 @@ async function launch(logName = "app.out.log", env = {}, args = [], opts = {}) {
     meta: { http: server.address().port, https: tlsServer.address().port },
   });
   adopt(instance);
-  let output = null;
-  for (const deadline = Date.now() + 15000; !output && Date.now() < deadline; ) {
-    output = audioOutputOf(pid);
-    if (!output) await sleep(200);
-  }
-  if (output === "speakers") {
+  const output = await settledAudioOutput(pid);
+  if (output !== "fake") {
     await instance.quit();
-    throw new Error(`pid ${pid} would play sound through this Mac's speakers: Chrome didn't get --disable-audio-output`);
+    throw new Error(`pid ${pid} ${unproven(output)}: quit before any check plays sound`);
   }
 }
 function adopt(i) {
