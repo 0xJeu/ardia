@@ -1492,6 +1492,8 @@ let installWindowMoveFallback: Void = {
 
 enum WindowMove {
   private static var following = false
+  private static let nativeTolerance: CGFloat = 2
+  private static let nativeConfirmations = 2
 
   static func follow(_ window: NSWindow, from event: NSEvent) {
     guard !following, event.type == .leftMouseDown, event.clickCount < 2, NSEvent.pressedMouseButtons & 1 != 0,
@@ -1500,29 +1502,44 @@ enum WindowMove {
     following = true
     defer { following = false }
     let start = screenPoint(event)
-    let origin = window.frame.origin
+    var origin = window.frame.origin
     var expected = origin
-    var serverMoves = false
-    while true {
-      guard let next = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: Date(timeIntervalSinceNow: 0.1), inMode: .eventTracking, dequeue: true) else {
+    var nativeFollows = 0
+    var wasActive = NSApp.isActive
+    while window.isVisible {
+      if NSApp.isActive { wasActive = true } else if wasActive { return }
+      guard let next = NSApp.nextEvent(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp], until: Date(timeIntervalSinceNow: 0.1), inMode: .eventTracking, dequeue: true) else {
         if NSEvent.pressedMouseButtons & 1 == 0 { return }
         continue
       }
-      if next.type == .leftMouseUp {
+      guard next.type == .leftMouseDragged, next.windowNumber == window.windowNumber else {
         NSApp.postEvent(next, atStart: true)
         return
       }
-      let current = window.frame.origin
-      if !serverMoves, !near(current, expected) { serverMoves = true }
-      if serverMoves { continue }
       let pointer = screenPoint(next)
-      var target = NSRect(origin: NSPoint(x: origin.x + pointer.x - start.x, y: origin.y + pointer.y - start.y), size: window.frame.size)
-      if let screen = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) }) ?? window.screen {
-        target = window.constrainFrameRect(target, to: screen)
+      let current = window.frame.origin
+      if !near(current, expected, 0.5) {
+        let tracksPointer = [pointer, NSEvent.mouseLocation].contains { near(current, place(window, origin, start, $0), nativeTolerance) }
+        if tracksPointer {
+          nativeFollows += 1
+          if nativeFollows >= nativeConfirmations { return }
+          expected = current
+          continue
+        }
+        origin = NSPoint(x: origin.x + current.x - expected.x, y: origin.y + current.y - expected.y)
       }
-      if !near(current, target.origin) { window.setFrameOrigin(target.origin) }
+      nativeFollows = 0
+      let target = place(window, origin, start, pointer)
+      if !near(current, target, 0.5) { window.setFrameOrigin(target) }
       expected = window.frame.origin
     }
+  }
+
+  private static func place(_ window: NSWindow, _ origin: NSPoint, _ start: NSPoint, _ pointer: NSPoint) -> NSPoint {
+    let target = NSRect(origin: NSPoint(x: origin.x + pointer.x - start.x, y: origin.y + pointer.y - start.y), size: window.frame.size)
+    guard let screen = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) }) ?? window.screen else { return target.origin }
+    let constrained = window.constrainFrameRect(target, to: screen)
+    return NSPoint(x: constrained.minX, y: constrained.maxY - target.height)
   }
 
   private static func screenPoint(_ event: NSEvent) -> NSPoint {
@@ -1530,7 +1547,7 @@ enum WindowMove {
     return NSPoint(x: location.x, y: primary.frame.maxY - location.y)
   }
 
-  private static func near(_ a: NSPoint, _ b: NSPoint) -> Bool { abs(a.x - b.x) < 0.5 && abs(a.y - b.y) < 0.5 }
+  private static func near(_ a: NSPoint, _ b: NSPoint, _ tolerance: CGFloat) -> Bool { abs(a.x - b.x) < tolerance && abs(a.y - b.y) < tolerance }
 }
 
 let installScrollViewInsetFix: Void = {
