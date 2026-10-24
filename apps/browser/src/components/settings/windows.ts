@@ -48,7 +48,10 @@ export const useSettingsNav = create<Nav>((set, get) => ({
     set({ pane, profileId, detail, back: [...current.back, placeOf(current)].slice(-30), forward: [] });
   },
   replace(profileId, detail = null) {
-    set({ profileId, detail });
+    const { pane, back } = get();
+    const prev = back.at(-1);
+    const same = prev?.pane === pane && prev.profileId === profileId && prev.detail === detail;
+    set({ profileId, detail, back: same ? back.slice(0, -1) : back, forward: [] });
   },
   goBack() {
     const current = get();
