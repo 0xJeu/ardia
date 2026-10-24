@@ -72,7 +72,7 @@ export function SourceStep() {
         <StepActions
           disabled={!source}
           onContinue={done}
-          onSkip={() => useOnboarding.getState().skip("source", [])}
+          onSkip={() => useOnboarding.getState().skip()}
         />
       }
       preview={<SourcePreview tile={chosen ?? null} fresh={source === "fresh"} found={found} />}
