@@ -220,7 +220,8 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
   const dragging = useDragging() && current;
   const previewed = usePinnedCount(tiles);
   const dockRoom = height ? height * DOCK_SHARE - topGap - SCROLL_EDGE.gap - SCROLL_EDGE.line : Infinity;
-  const gridHeight = (count: number) => pinGridHeight(count, innerWidth, layout.pinnedHeight);
+  const balanced = useBrowser((s) => s.settings.balancedTopApps);
+  const gridHeight = (count: number) => pinGridHeight(count, innerWidth, layout.pinnedHeight, balanced);
   const placedFixed = useRef(true);
   if (!dragging) placedFixed.current = !tiles.length || gridHeight(tiles.length) <= dockRoom;
   const dockFixed = placedFixed.current;

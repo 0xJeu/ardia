@@ -345,13 +345,14 @@ class DragController {
     if (!marks.pins && home === null) count = 0;
     const total = cells.length + count;
     if (!total) return null;
-    const slot = pinSlot(tiles, total, layout.pinnedHeight, x, y);
+    const balanced = useBrowser.getState().settings.balancedTopApps;
+    const slot = pinSlot(tiles, total, layout.pinnedHeight, x, y, balanced);
     const found = !marks.pins ? (home ?? cells.length) : marks.pinBefore === "tail:tiles" ? cells.length : cells.findIndex((c) => c.key === marks.pinBefore);
     const gap = found < 0 ? cells.length : found;
     const index = slot < gap ? slot : slot >= gap + count ? slot - count : -1;
     const cell = index >= 0 ? cells[index] : undefined;
     if (!cell) return { cell: null, index: gap, gap, part: "gap" };
-    const { columns, width } = pinGrid(total, tiles.w);
+    const { columns, width } = pinGrid(total, tiles.w, balanced);
     const mid = tiles.x + (slot % columns) * (width + TILE_GAP) + width / 2;
     const top = tiles.y + Math.floor(slot / columns) * PIN_SLOT;
     const reach = this.holdReady === cell.key ? 0.45 : 0.3;
@@ -473,11 +474,12 @@ class DragController {
 
     const sidebar = this.viewport ?? this.rootFrame;
     const tiles = this.at(this.regionFrames.get("tiles") ?? null, this.tilesFixed);
+    const balanced = useBrowser.getState().settings.balancedTopApps;
     const away = x > sidebar.x + sidebar.w + 40 || x < sidebar.x - 40 || useTabDrag.getState().outside;
     const cells = live.filter((i) => i.kind === "tile").sort(byY);
     const overTiles = !away && tabsDrag && !!tiles && (this.gridBase ? overPins(y, this.pinFloor(live, tiles), this.pinning) : inside(tiles, x, y, 6));
     if (this.gridBase)
-      this.gridGrowth = Math.min(pinGridHeight(cells.length + (overTiles ? count : 0), this.gridBase.w, layout.pinnedHeight), this.tilesFixed ? this.tilesRoom : Infinity) - this.gridBase.h;
+      this.gridGrowth = Math.min(pinGridHeight(cells.length + (overTiles ? count : 0), this.gridBase.w, layout.pinnedHeight, balanced), this.tilesFixed ? this.tilesRoom : Infinity) - this.gridBase.h;
     const list = this.at(this.regionFrames.get("list") ?? null);
     const inPinned = !!list && y < list.y;
     const panel = folderPanel();
@@ -505,7 +507,7 @@ class DragController {
       pitch = this.pitch;
       folderTarget = target.key;
     } else if (overTiles && tiles) {
-      const index = !spot ? Math.min(cells.length, pinSlot(tiles, cells.length + count, layout.pinnedHeight, x, y)) : spot.part === "after" ? spot.index + 1 : spot.part === "before" ? spot.index : spot.gap;
+      const index = !spot ? Math.min(cells.length, pinSlot(tiles, cells.length + count, layout.pinnedHeight, x, y, balanced)) : spot.part === "after" ? spot.index + 1 : spot.part === "before" ? spot.index : spot.gap;
       const before = this.gridBase ? cells[index] : undefined;
       drop = { type: "tabs", placement: { pinned: true, row: false, beforeId: firstTab(before), ...(source.folderId ? {} : { tileFolder: null }) }, sequence: rest };
       gapKey = before?.key ?? "tail:tiles";
