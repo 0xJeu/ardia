@@ -35,7 +35,7 @@ import { DropTargets, SplitDividers, SplitToast } from "./layout/SplitChrome";
 import { SplitEmptyState } from "./layout/SplitEmptyState";
 import { pagerFor } from "./layout/profilePager";
 import { openFromPage } from "./layout/openFromPage";
-import { dockMoving, useDockMotion } from "./layout/dockMotion";
+import { dockMoving, useDockMotion, usePeekEdge } from "./layout/dockMotion";
 import { FrozenPage } from "./layout/frozenPage";
 import { holderOf } from "../store/pinShare";
 import { closeFolderPanelIn } from "./sidebar/tileFolderUi";
@@ -280,6 +280,7 @@ export function ContentCard() {
               warm={warmPanes[tabId]}
               barMode={barMode}
               windowToolbar={windowToolbar}
+              cardLeft={origin?.x}
             />
           );
         })}
@@ -325,6 +326,7 @@ const TabPane = memo(function TabPane({
   warm,
   barMode,
   windowToolbar,
+  cardLeft,
 }: {
   tabId: string;
   windowId: string;
@@ -344,6 +346,7 @@ const TabPane = memo(function TabPane({
   warm: Rect | undefined;
   barMode: BookmarksBarMode;
   windowToolbar: boolean;
+  cardLeft: number | undefined;
 }) {
   const theme = useTheme();
   const visible = !!rect;
@@ -415,6 +418,7 @@ const TabPane = memo(function TabPane({
                 fullscreen={fullscreen}
                 newTabShown={newTabShown}
                 statusStyle={autoLayout ? motion.bottomStyle : undefined}
+                paneLeft={cardLeft === undefined ? undefined : cardLeft + frame.x}
               />
             )}
           </View>
@@ -435,6 +439,7 @@ function PageOverlays({
   fullscreen,
   newTabShown,
   statusStyle,
+  paneLeft,
 }: {
   tabId: string;
   windowId: string;
@@ -444,9 +449,13 @@ function PageOverlays({
   fullscreen: boolean;
   newTabShown: boolean;
   statusStyle?: Animated.WithAnimatedValue<ViewStyle>;
+  paneLeft?: number;
 }) {
   const popover = usePages((s) => s.popover[tabId] ?? null);
   const zoom = useTabValue(tabId, (t) => t?.zoom ?? 1);
+  const peekEdge = usePeekEdge(windowId);
+  const peekCover = !toolbar && peekEdge !== undefined && paneLeft !== undefined ? Math.max(0, peekEdge - paneLeft) : 0;
+  const popoverSide = toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN + peekCover };
   return (
     <>
       <FindBar tabId={tabId} />
@@ -459,9 +468,9 @@ function PageOverlays({
       <PasswordPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
       <AutofillPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
       {!newTabShown && <ExternalAppPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 348))} top={POPOVER_MARGIN} />}
-      <SiteControls tabId={tabId} open={popover === "siteControls"} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />
-      {popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
-      {popover === "zoom" && <ZoomPopover tabId={tabId} {...(toolbar ? { right: POPOVER_MARGIN } : { left: POPOVER_MARGIN })} top={POPOVER_MARGIN} />}
+      <SiteControls tabId={tabId} open={popover === "siteControls"} {...popoverSide} top={POPOVER_MARGIN} />
+      {popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...popoverSide} top={POPOVER_MARGIN} />}
+      {popover === "zoom" && <ZoomPopover tabId={tabId} {...popoverSide} top={POPOVER_MARGIN} />}
       <SharePicker tabId={tabId} paneWidth={width} />
       {!newTabShown && <DeviceChooser tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 348))} top={POPOVER_MARGIN} />}
       <CastPicker tabId={tabId} paneWidth={width} />
