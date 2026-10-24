@@ -96,7 +96,7 @@ make an instance a test instance; the rest are hooks for one test.
   window shows a tab at once instead of after Chrome's 1 s delay, with `--disable-backgrounding-occluded-windows`;
   PiP windows stay at alpha 0 and click-through; the drag preview stays above its own window only.
 - **Media:** `--mute-audio` (Chrome then reports no tab as audible, so the speaker never lights; the ArdiaCore
-  acceptance run sets `ARDIA_ALLOW_AUDIO=1` and plays its fixtures at -60 dBFS into muted tabs), no intro music, `--use-fake-device-for-media-stream` with the microphone kept on a fake
+  acceptance run sets `ARDIA_ALLOW_AUDIO=1` with `--disable-audio-output`, so Chrome still hears its -60 dBFS fixtures and the speakers get nothing), no intro music, `--use-fake-device-for-media-stream` with the microphone kept on a fake
   input (`ac_fake_media.mm`), and `--disable-modal-animations` (a locked screen never ends a dialog's close animation).
 - **Other:** macOS re-auth prompts never show; requests are refused unless `ARDIA_TEST_REAUTH=granted` in a build that
   honours it (above). Nothing system-wide changes: Set as Default (onboarding, whose checkbox starts unticked, and

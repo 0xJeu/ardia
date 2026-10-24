@@ -15,8 +15,9 @@
 // Output: one line per check (PASS/FAIL, ms); a failure adds its first lines; the rest (evidence, state at a failure,
 // diagnostics) goes to <scratch dir>/data/acceptance.log, results to <scratch dir>/results.json. It never takes focus
 // and never touches a real profile: the data dir is <scratch dir>/data, wiped first (not when attaching).
-// Its instance keeps Chrome's audio (ARDIA_ALLOW_AUDIO=1) so Chrome reports audible tabs; the fixtures play at
-// -60 dBFS (Chrome's audible threshold is -72), into tabs the checks mute first.
+// Its instance keeps Chrome's audio (ARDIA_ALLOW_AUDIO=1) so Chrome reports audible tabs, and sends it to a fake output
+// (--disable-audio-output): nothing reaches the speakers. The fixtures play at -60 dBFS (Chrome's audible threshold is
+// -72); the automatic Picture in Picture checks need ffmpeg for their clip (made once into <scratch dir>/media).
 //
 // Sections (// MARK:): Fixtures (the HTTP/HTTPS fixture server, extensions, a CRX) · The app (launch, evalApp, cdp)
 // · Helpers · Checks (in run order: windows and tabs, pages, choosers and Cast, capture, restore, extensions, content
@@ -174,6 +175,17 @@ const adServed = [];
 const served = new Map();
 const siteDataDomain = "ardia-sitedata.com";
 const siteDataSecureHosts = [`s.${siteDataDomain}`, "embed.ardia-thirdparty.com", "top.ardia-elsewhere.com"];
+let clipBytes = null;
+const fixtureClip = () => {
+  const path = join(scratch, "media", "clip.webm");
+  if (!existsSync(path)) {
+    mkdirSync(join(scratch, "media"), { recursive: true });
+    execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=30",
+      "-f", "lavfi", "-i", "aevalsrc=0.001*sin(2*PI*440*t):s=48000", "-t", "30", "-c:v", "libvpx", "-b:v", "200k", "-c:a", "libopus",
+      "-shortest", path], { stdio: "ignore" });
+  }
+  return (clipBytes ??= readFileSync(path));
+};
 const server = createServer((req, res) => {
   if (!req.headers.host?.startsWith("127.0.0.1")) adServed.push(`${req.headers.host}${req.url}`);
   served.set(req.url, (served.get(req.url) ?? 0) + 1);
@@ -222,6 +234,11 @@ const server = createServer((req, res) => {
   if (url.pathname === "/webstore/crx") {
     res.writeHead(200, { "content-type": "application/x-chrome-extension" });
     return res.end(fixtureCrx());
+  }
+  if (url.pathname === "/clip.webm") {
+    const clip = fixtureClip();
+    res.writeHead(200, { "content-type": "video/webm", "content-length": String(clip.length) });
+    return res.end(clip);
   }
   if (url.pathname === "/tone.wav") {
     const rate = 8000, n = rate;
@@ -287,6 +304,12 @@ const server = createServer((req, res) => {
       const g = c.getContext("2d"); let n = 0;
       setInterval(() => { g.fillStyle = "hsl(" + ((n++ * 7) % 360) + ", 70%, 50%)"; g.fillRect(0, 0, 320, 180); }, 33);
       window.start = (audio) => {
+        if (location.search.includes("file")) {
+          const clip = document.getElementById("v");
+          clip.src = "/clip.webm";
+          clip.loop = true;
+          return clip.play().then(() => "ok", (e) => e.name);
+        }
         const stream = c.captureStream(30);
         if (audio) {
           const ac = new AudioContext(), osc = ac.createOscillator(), quiet = new GainNode(ac, { gain: 0.001 }), out = ac.createMediaStreamDestination();
@@ -367,6 +390,7 @@ process.env.ARDIA_CHROMIUM_SWITCHES += ` --host-resolver-rules=${["ib.adnxs.com"
   .map((host) => `MAP ${host} 127.0.0.1:${server.address().port}`).concat([`one.${siteDataDomain}`, `two.${siteDataDomain}`, ...siteDataSecureHosts].map((host) => `MAP ${host} 127.0.0.1:${tlsServer.address().port}`)).join(", ")}`;
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --apps-gallery-update-url=${base}/webstore/crx`;
 process.env.ARDIA_CHROMIUM_SWITCHES += ` --ignore-certificate-errors-spki-list=${tlsSpki}`;
+process.env.ARDIA_CHROMIUM_SWITCHES += " --disable-audio-output";
 async function launch(logName = "app.out.log", env = {}, args = [], opts = {}) {
   instance = await launchInstance(opts.app ?? app, {
     data, log: join(scratch, logName), args, ready: false,
@@ -579,7 +603,7 @@ const lastEvent = async (tabId, name, test = () => true) => (await eventsOf(tabI
 const live = (tabId) => evalApp(`return ac.store.getState().live["${tabId}"] ?? null`);
 const pipWindows = () => cef(`devPictureInPicture()`).catch(() => null);
 const startVideo = async (tabId, audio) => {
-  const t = await pageFor(tabId, `${base}/video`);
+  const t = await pageFor(tabId, "/video");
   const r = await cdp(t, "Runtime.evaluate", { expression: `start(${audio})`, awaitPromise: true, userGesture: true, returnByValue: true });
   if (r.result?.value !== "ok") throw new Error(`the video didn't play: ${JSON.stringify(r.result ?? r)}`);
   await until("the video's first frames", async () => (await cdp(t, "Runtime.evaluate", { expression: "document.getElementById('v').videoWidth", returnByValue: true })).result?.value > 0, 8000);
@@ -3208,10 +3232,9 @@ try {
 
   await check("auto-picture-in-picture", async () => {
     const results = {};
-    for (const [path, kind] of [["/video?auto", "video"], ["/video?docpip", "document"]]) {
-      const tab = await openTab(`${base}${path}`, "Video");
+    for (const [path, kind] of [["/video?auto&file", "video"], ["/video?docpip", "document"]]) {
+      const tab = await openTab(`${secureBase}${path}`, "Video");
       try {
-        await evalApp(`return ac.webviews.get("${tab.id}").setMuted(true)`);
         await startVideo(tab.id, true);
         await until("live.playingAudio", async () => (await live(tab.id))?.playingAudio === true, 8000);
         await until("onNowPlaying with video", async () => lastEvent(tab.id, "nowPlaying", (p) => p.state?.hasVideo && p.state?.playbackState === "playing"), 5000);
@@ -3665,10 +3688,9 @@ try {
     try {
       await win("fakeOcclusion:visible");
       await win("fakeFullScreenMs:700");
-      for (const [path, name] of [["/video?fkey", "plain"], ["/video?fkey&handlers", "handlers"]]) {
-        const tab = await openTab(`${base}${path}`, "Video");
+      for (const [path, name] of [["/video?fkey&file", "plain"], ["/video?fkey&handlers", "handlers"]]) {
+        const tab = await openTab(`${secureBase}${path}`, "Video");
         try {
-          await evalApp(`return ac.webviews.get("${tab.id}").setMuted(true)`);
           const t = await startVideo(tab.id, true);
           await until("live.playingAudio", async () => (await live(tab.id))?.playingAudio === true, 8000);
           await until("onNowPlaying playing", async () => lastEvent(tab.id, "nowPlaying", (p) => p.state?.hasVideo && p.state?.playbackState === "playing"), 5000);
