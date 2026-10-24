@@ -318,6 +318,16 @@ export function closeAllTabs(windowId: string) {
   });
 }
 
+export function middleClickTab(tabId: string) {
+  const removed = store().removeClosedPin(tabId);
+  if (!removed) return void closeTab(tabId);
+  if (!removed.entries.length) return;
+  showToast(removed.windowId, "Removed Pinned Tab", undefined, {
+    icon: "pin.slash",
+    action: { title: "Undo", run: () => store().undoClearTabs(removed) },
+  });
+}
+
 export async function openOverflowMenu(windowId: string) {
   const s = store();
   const w = s.windows[windowId];

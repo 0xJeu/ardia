@@ -76,6 +76,42 @@ test("closing a row unloads it and keeps it; Close All Tabs keeps rows", () => {
   assert.equal(S().tabs[c], undefined);
 });
 
+test("a second middle click removes a closed row or pinned group tab, a tile or an open pin stays, and undo puts it back closed", () => {
+  reset();
+  const { w, ids: [a, b, c, d, e] } = windowWith("a", "b", "c", "d", "e");
+  S().pinTabs([a], true);
+  S().pinTabs([b, c], true, true);
+  const g = S().groupTabs([d], { name: "P" });
+  S().activate(e);
+  assert.equal(S().removeClosedPin(b), null, "an open row only closes");
+  S().closeTabs([a, b, c, d]);
+  assert.equal(S().removeClosedPin(a), null, "a tile stays");
+  assert.equal(S().removeClosedPin(e), null, "an unpinned tab isn't a pin");
+  const closedBefore = S().closedTabs.length;
+  const removed = S().removeClosedPin(b);
+  assert.equal(removed.entries.length, 1);
+  assert.equal(S().tabs[b], undefined);
+  assert.deepEqual(entries(w).rows, ["https://c.com/"]);
+  assert.equal(S().closedTabs.length, closedBefore + 1, "it goes to Recently Closed");
+  S().undoClearTabs(removed);
+  assert.deepEqual(entries(w).rows, ["https://b.com/", "https://c.com/"]);
+  assert.equal(S().closedTabs.length, closedBefore);
+  const back = model.viewTabIds(S(), w).find((id) => S().tabs[id].pinnedUrl === "https://b.com/");
+  assert.equal(!!S().tabs[back].navigation || !!S().tabs[back].adoptId, false, "back closed, not loaded");
+  assert.equal(model.activeTabId(S(), w), e);
+  const lastPage = S().closedTabs.find((x) => x.tabId === back);
+  assert.ok(lastPage, "the row's earlier close now points at the row that came back");
+  S().restoreClosed(lastPage.id, w);
+  assert.deepEqual(entries(w).rows, ["https://b.com/", "https://c.com/"], "reopening it loads the row, no second copy");
+  assert.equal(model.activeTabId(S(), w), back);
+  S().activate(e);
+  const fromGroup = S().removeClosedPin(d);
+  assert.ok(fromGroup);
+  assert.equal(S().tabs[d], undefined);
+  S().undoClearTabs(fromGroup);
+  assert.deepEqual(S().groups[g].tabIds.map(url), ["https://d.com/"], "back in its pinned group");
+});
+
 test("rows are the profile's: a second window mirrors them, a change in one shows in the other", () => {
   reset();
   const { w: a, ids: [mail, docs] } = windowWith("mail", "docs", "x");

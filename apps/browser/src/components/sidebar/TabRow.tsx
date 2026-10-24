@@ -14,7 +14,7 @@ import { clickTab, commitRename, endRename, startRename, tabTitle } from "./acti
 import { useDragItem, useDropOnto } from "./dnd";
 import { useShift, type EntryMotion } from "./entryMotion";
 import { dismissHover, useRowHover } from "./hover";
-import { openTabMenu } from "./menus";
+import { middleClickTab, openTabMenu } from "./menus";
 import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
 import { registerRow, useSidebarUi } from "./state";
 import { TabIcon } from "./TabIcon";
@@ -78,7 +78,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
       style={moved.style as object}
       onDoubleClick={() => void startRename(windowId, { kind: "tab", id: tabId })}
     >
-      <MouseArea onMiddleClick={() => void closeTab(tabId)}>
+      <MouseArea onMiddleClick={() => middleClickTab(tabId)}>
         <ContextMenuArea
           onContextMenu={() => {
             dismissHover();
