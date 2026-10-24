@@ -284,6 +284,9 @@ public class CefModule: Module {
       AsyncFunction("requestPictureInPicture") { (view: CefWebView, clickAt: Double?, control: Int?, promise: Promise) in
         view.browser.requestPictureInPicture(clickAt: clickAt ?? 0, control: control ?? 0) { promise.resolve($0) }
       }.runOnQueue(.main)
+      AsyncFunction("takeControlPress") { (view: CefWebView, clickAt: Double?, control: Int?) -> Bool in
+        view.browser.takeControlPress(clickAt: clickAt ?? 0, control: control ?? 0)
+      }.runOnQueue(.main)
       AsyncFunction("exitPictureInPicture") { (view: CefWebView) in view.browser.exitPictureInPicture() }.runOnQueue(.main)
 
       AsyncFunction("getSecurityInfo") { (view: CefWebView, promise: Promise) in

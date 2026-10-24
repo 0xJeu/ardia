@@ -1,6 +1,6 @@
 import type { ControlPress, DisplayMediaRequest, MediaCommand, NowPlaying, PictureInPictureState } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
-import type { GestureResponderEvent } from "react-native";
+import type { AccessibilityActionEvent, GestureResponderEvent } from "react-native";
 import { create } from "zustand";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
@@ -150,6 +150,7 @@ async function togglePictureInPicture(tabId: string, press: ControlPress): Promi
   const view = webviews.get(tabId);
   if (!view) return false;
   if (useMedia.getState().pipOpen[tabId] || (await inPictureInPicture(tabId))) {
+    if (!press.clickAt && !(await view.takeControlPress(press))) return false;
     exitPictureInPicture(tabId);
     return false;
   }
@@ -168,13 +169,14 @@ function setPip(tabId: string, kind: Store["pip"][string] | null) {
   });
 }
 
-function controlPress(press: GestureResponderEvent): ControlPress {
-  const native = press.nativeEvent as { key?: unknown; target?: unknown; timestamp?: unknown };
+function controlPress(press: GestureResponderEvent | AccessibilityActionEvent): ControlPress {
+  const native = press.nativeEvent as { key?: unknown; target?: unknown; timestamp?: unknown; actionName?: unknown; actionTarget?: unknown };
+  if (native.actionName === "activate") return { clickAt: 0, control: typeof native.actionTarget === "number" ? native.actionTarget : 0 };
   if (native.key === " " || native.key === "Enter") return { clickAt: 0, control: typeof native.target === "number" ? native.target : 0 };
   return { clickAt: typeof native.timestamp === "number" ? native.timestamp : 0, control: 0 };
 }
 
-export function usePictureInPicture(tabId: string): [boolean, (press: GestureResponderEvent) => void] {
+export function usePictureInPicture(tabId: string): [boolean, (press: GestureResponderEvent | AccessibilityActionEvent) => void] {
   const on = useMedia((s) => !!s.pipOpen[tabId]);
   return [on, (press) => void togglePictureInPicture(tabId, controlPress(press))];
 }

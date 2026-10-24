@@ -218,6 +218,7 @@ export type WebViewHandle = {
 
   mediaCommand(action: MediaCommand, seconds?: number): Promise<void>;
   requestPictureInPicture(press: ControlPress): Promise<boolean>;
+  takeControlPress(press: ControlPress): Promise<boolean>;
   exitPictureInPicture(): Promise<void>;
 
   getSecurityInfo(): Promise<SecurityInfo | null>;
@@ -318,9 +319,10 @@ const unwrap: { [K in Handlers]: (e: NativeEvents[K]) => Parameters<NonNullable<
 
 type NativeHandle = Omit<
   WebViewHandle,
-  "evaluate" | "loadUrl" | "downloadFavicon" | "resolvePasswordPrompt" | "discard" | "nativeTag" | "requestPictureInPicture"
+  "evaluate" | "loadUrl" | "downloadFavicon" | "resolvePasswordPrompt" | "discard" | "nativeTag" | "requestPictureInPicture" | "takeControlPress"
 > & {
   requestPictureInPicture(clickAt: number, control: number): Promise<boolean>;
+  takeControlPress(clickAt: number, control: number): Promise<boolean>;
   evaluate(code: string): Promise<string | null>;
   downloadFavicon(url: string): Promise<FaviconImage | null>;
   loadUrl(url: string, userInitiated?: boolean): Promise<void>;
@@ -385,6 +387,7 @@ export const WebView = forwardRef<WebViewHandle, WebViewProps>(function WebView(
       downloadFavicon: (url) => call(null, (n) => n.downloadFavicon(url)),
       mediaCommand: (action, seconds) => call(undefined, (n) => n.mediaCommand(action, seconds)),
       requestPictureInPicture: (press) => call(false, (n) => n.requestPictureInPicture(press.clickAt, press.control)),
+      takeControlPress: (press) => call(false, (n) => n.takeControlPress(press.clickAt, press.control)),
       exitPictureInPicture: () => call(undefined, (n) => n.exitPictureInPicture()),
       getSecurityInfo: () => call(null, (n) => n.getSecurityInfo()),
       openBlockedPopup: (id, always) => call(undefined, (n) => n.openBlockedPopup(id, always)),

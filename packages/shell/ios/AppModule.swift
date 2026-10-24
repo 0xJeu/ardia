@@ -5,7 +5,7 @@ import ExpoModulesCore
 public class AppModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaApp")
-    Constant("apiVersion") { () -> Int in 12 }
+    Constant("apiVersion") { () -> Int in 13 }
     Events("onNotificationResponse", "onScriptCommand")
 
     OnCreate {
@@ -711,11 +711,23 @@ enum KeyEquivalents {
     var result: [String: Any] = ["firstResponder": window.firstResponder.map { String(describing: type(of: $0)) } ?? "nil"]
     if press["send"] as? Bool == true {
       NSApp.sendEvent(current)
-      if let up = NSEvent.keyEvent(
-        with: .keyUp, location: .zero, modifierFlags: mods, timestamp: ProcessInfo.processInfo.systemUptime,
-        windowNumber: window.windowNumber, context: nil, characters: press["characters"] as? String ?? key,
-        charactersIgnoringModifiers: key, isARepeat: false, keyCode: UInt16(press["keyCode"] as? Int ?? 0)) {
-        NSApp.sendEvent(up)
+      let keyEvent = { (type: NSEvent.EventType, repeated: Bool) in
+        NSEvent.keyEvent(
+          with: type, location: .zero, modifierFlags: mods, timestamp: ProcessInfo.processInfo.systemUptime,
+          windowNumber: window.windowNumber, context: nil, characters: press["characters"] as? String ?? key,
+          charactersIgnoringModifiers: key, isARepeat: repeated, keyCode: UInt16(press["keyCode"] as? Int ?? 0))
+      }
+      let repeats = press["repeats"] as? Int ?? 0
+      let every = press["repeatEvery"] as? Int ?? 50
+      if repeats > 0 {
+        for index in 1...repeats {
+          DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(index * every)) {
+            keyEvent(.keyDown, true).map { NSApp.sendEvent($0) }
+            if index == repeats { keyEvent(.keyUp, false).map { NSApp.sendEvent($0) } }
+          }
+        }
+      } else {
+        keyEvent(.keyUp, false).map { NSApp.sendEvent($0) }
       }
       result["handledBy"] = "sent"
     } else if !window.isKeyWindow, let page = window.firstResponder, String(describing: type(of: page)) == "RenderWidgetHostViewCocoa" {

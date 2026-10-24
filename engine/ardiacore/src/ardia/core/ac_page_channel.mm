@@ -567,10 +567,8 @@ PictureInPictureRoute PageChannel::EnterPictureInPictureForClick(
   content::MediaSession* session = content::MediaSession::Get(&GetWebContents());
   if (std::ranges::contains(
           session->GetMediaSessionActionsSync(),
-          media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
-    if (!FrameDocumentUnchangedSince(session->GetRoutedFrame(), *click)) {
-      return PictureInPictureRoute::kNone;
-    }
+          media_session::mojom::MediaSessionAction::kEnterPictureInPicture) &&
+      session->GetRoutedFrame() == GetWebContents().GetPrimaryMainFrame()) {
     session->EnterPictureInPicture();
     return PictureInPictureRoute::kMediaSession;
   }

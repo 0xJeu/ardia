@@ -230,6 +230,8 @@ export type KeyPress = {
   modifiers?: ("command" | "shift" | "option" | "control" | "function")[];
   characters?: string;
   focus?: "window" | "page" | "devtools" | `label:${string}`;
+  repeats?: number;
+  repeatEvery?: number;
   asKey?: boolean;
   settle?: number;
   wait?: number;

@@ -282,34 +282,51 @@ static BOOL LandsInWebContent(NSEvent *event) {
   return !hit || InWebContent(hit);
 }
 
-static NSNumber *ControlKeyTarget(NSEvent *event) {
-  const NSEventModifierFlags chord = NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption;
-  if ((event.keyCode != 49 && event.keyCode != 36 && event.keyCode != 76) || (event.modifierFlags & chord)) return nil;
-  NSResponder *responder = event.window.firstResponder;
-  if (![responder isKindOfClass:NSView.class] || InWebContent((NSView *)responder)) return nil;
+static NSNumber *ControlTag(NSResponder *responder) {
+  if (![responder isKindOfClass:NSView.class] || !((NSView *)responder).window || InWebContent((NSView *)responder)) return nil;
   if (![responder respondsToSelector:NSSelectorFromString(@"reactTag")]) return nil;
   id tag = [responder valueForKey:@"reactTag"];
   return [tag isKindOfClass:NSNumber.class] && [tag integerValue] > 0 ? tag : nil;
 }
 
-static void RecordControlPress(NSEvent *event, NSNumber *target) {
+static NSNumber *ControlKeyTarget(NSEvent *event) {
+  const NSEventModifierFlags chord = NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption;
+  if (event.isARepeat || (event.keyCode != 49 && event.keyCode != 36 && event.keyCode != 76) || (event.modifierFlags & chord)) return nil;
+  return ControlTag(event.window.firstResponder);
+}
+
+static void RecordControlPress(NSTimeInterval at, NSInteger window, NSNumber *target) {
   NSMutableArray<NSDictionary *> *presses = ControlPresses();
-  NSMutableDictionary *press = [@{@"at" : @(event.timestamp), @"window" : @(event.windowNumber)} mutableCopy];
+  NSMutableDictionary *press = [@{@"at" : @(at), @"window" : @(window)} mutableCopy];
   if (target) press[@"target"] = target;
   [presses addObject:press];
   if (presses.count > kControlPressesKept) [presses removeObjectAtIndex:0];
 }
 
+static BOOL (*gReactPerformPress)(id, SEL);
+
+static void InstallAccessibilityPressRecord() {
+  Class reactView = NSClassFromString(@"RCTView");
+  Method method = reactView ? class_getInstanceMethod(reactView, @selector(accessibilityPerformPress)) : nil;
+  if (!method || gReactPerformPress) return;
+  IMP recording = imp_implementationWithBlock(^BOOL(NSView *view) {
+    if (NSNumber *target = ControlTag(view)) RecordControlPress(NSProcessInfo.processInfo.systemUptime, view.window.windowNumber, target);
+    return gReactPerformPress(view, @selector(accessibilityPerformPress));
+  });
+  gReactPerformPress = (BOOL (*)(id, SEL))method_setImplementation(method, recording);
+}
+
 static void InstallControlPressMonitor() {
   static id monitor;
   if (monitor) return;
+  InstallAccessibilityPressRecord();
   monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseUp | NSEventMaskKeyDown
                                                   handler:^NSEvent *(NSEvent *event) {
                                                     if (!event.window) return event;
                                                     if (event.type == NSEventTypeKeyDown) {
-                                                      if (NSNumber *target = ControlKeyTarget(event)) RecordControlPress(event, target);
+                                                      if (NSNumber *target = ControlKeyTarget(event)) RecordControlPress(event.timestamp, event.windowNumber, target);
                                                     } else if (!LandsInWebContent(event)) {
-                                                      RecordControlPress(event, nil);
+                                                      RecordControlPress(event.timestamp, event.windowNumber, nil);
                                                     }
                                                     return event;
                                                   }];
@@ -2705,11 +2722,17 @@ static NSEventModifierFlags PeekModifierFlag() {
   [self callFrame:_nowPlayingFrame ?: @"" kind:@"media" json:JSONString(@{@"action" : action ?: @"", @"seconds" : @(seconds)})];
 }
 
+- (BOOL)takeControlPressAt:(double)clickMs control:(NSInteger)target {
+  const BOOL taken = TakeControlPress(clickMs, target, self.window) > 0;
+  [self traceManualPictureInPicture:[NSString stringWithFormat:@"exit press %@ (control %ld)", taken ? @"verified" : @"not verified", (long)target]];
+  return taken;
+}
+
 - (void)requestPictureInPictureForClickAt:(double)clickMs control:(NSInteger)target completion:(void (^)(BOOL))completion {
   if (_inPictureInPicture) return completion(YES);
   if (![_tab respondsToSelector:@selector(enterPictureInPictureForClickAt:completion:)]) return completion(NO);
   const NSTimeInterval clickAt = TakeControlPress(clickMs, target, self.window);
-  [self traceManualPictureInPicture:[NSString stringWithFormat:@"%@ %@ (control %ld)", clickMs > 0 ? @"click" : @"key press", clickAt > 0 ? @"verified" : @"not verified", (long)target]];
+  [self traceManualPictureInPicture:[NSString stringWithFormat:@"%@ %@ (control %ld)", clickMs > 0 ? @"click" : @"key or accessibility press", clickAt > 0 ? @"verified" : @"not verified", (long)target]];
   if (clickAt <= 0) return completion(NO);
   [self thawHiddenPage];
   __weak ArdiaCoreWebView *weakSelf = self;
