@@ -55,13 +55,19 @@ test("applyResult stores favicons before creating favorite tabs and survives ind
   }
 });
 
-test("Arc rows and open tabs carry only their own origin favicon fallback", () => {
+test("Arc rows, folder tabs and open tabs carry only their own origin favicon fallback", () => {
   S().hydrate({});
+  S().createWindow();
   importArcSpace("default", {
-    pinned: [{ type: "url", title: "Row", url: "https://x.test/page" }, { type: "url", title: "File", url: "file:///tmp/a.html" }],
+    pinned: [
+      { type: "url", title: "Row", url: "https://x.test/page" },
+      { type: "url", title: "File", url: "file:///tmp/a.html" },
+      { type: "folder", title: "Nested", children: [{ type: "folder", title: "Inner", children: [{ type: "url", title: "Child", url: "https://y.test/child" }] }] },
+    ],
     tabs: [{ title: "Open", url: "http://open.test:8080/path", pinned: false }],
-  }, "Space");
+  });
   assert.equal(Object.values(S().tabs).find((t) => t.title === "Row").favicon, "https://x.test/favicon.ico");
+  assert.equal(Object.values(S().tabs).find((t) => t.title === "Child").favicon, "https://y.test/favicon.ico");
   assert.equal(Object.values(S().tabs).find((t) => t.title === "File").favicon, null);
   assert.equal(Object.values(S().tabs).find((t) => t.title === "Open").favicon, "http://open.test:8080/favicon.ico");
 });

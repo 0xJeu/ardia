@@ -27,7 +27,7 @@ const toDraft = (n: ImportedNode): BookmarkDraft =>
 
 const toGroupDraft = (n: ImportedNode): GroupDraft =>
   n.type === "url"
-    ? { title: n.pageTitle ?? n.title, url: n.url ?? "", ...(n.pageTitle ? { customTitle: n.title } : {}) }
+    ? { title: n.pageTitle ?? n.title, url: n.url ?? "", favicon: fallbackFavicon(n.url ?? ""), ...(n.pageTitle ? { customTitle: n.title } : {}) }
     : { title: n.title, children: (n.children ?? []).map(toGroupDraft) };
 
 const LIVE_SOURCES: Partial<Record<NonNullable<ImportedNode["role"]>, LiveSourceId>> = {
