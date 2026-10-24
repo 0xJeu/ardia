@@ -354,7 +354,8 @@ class DragController {
     const { columns, width } = pinGrid(total, tiles.w);
     const mid = tiles.x + (slot % columns) * (width + TILE_GAP) + width / 2;
     const top = tiles.y + Math.floor(slot / columns) * PIN_SLOT;
-    const centre = folders && Math.abs(x - mid) < width * 0.3 && Math.abs(y - (top + layout.pinnedHeight / 2)) < layout.pinnedHeight * 0.35;
+    const reach = this.holdReady === cell.key ? 0.45 : 0.3;
+    const centre = folders && Math.abs(x - mid) < width * reach && Math.abs(y - (top + layout.pinnedHeight / 2)) <= (layout.pinnedHeight + TILE_GAP) / 2;
     return { cell, index, gap, part: centre ? "centre" : x < mid ? "before" : "after" };
   }
 
