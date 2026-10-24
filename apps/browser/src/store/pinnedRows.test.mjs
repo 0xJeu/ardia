@@ -69,6 +69,7 @@ test("closing a row unloads it and keeps it; Close All Tabs keeps rows", () => {
   assert.ok(S().tabs[a], "still there");
   assert.equal(!!S().tabs[a].navigation || !!S().tabs[a].adoptId, false, "unloaded");
   assert.deepEqual(entries(w).rows, ["https://a.com/"]);
+  S().activate(a);
   S().clearUnpinnedTabs(w);
   assert.deepEqual(entries(w).rows, ["https://a.com/"]);
   assert.equal(S().tabs[b], undefined);
