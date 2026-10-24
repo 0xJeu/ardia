@@ -446,6 +446,17 @@ public class ShellModule: Module {
       }
     }.runOnQueue(.main)
 
+    AsyncFunction("pickFolder") { (current: String?, prompt: String?, promise: Promise) in
+      let panel = NSOpenPanel()
+      panel.canChooseFiles = false
+      panel.canChooseDirectories = true
+      panel.canCreateDirectories = true
+      panel.allowsMultipleSelection = false
+      if let prompt { panel.prompt = prompt }
+      if let current { panel.directoryURL = URL(fileURLWithPath: current, isDirectory: true) }
+      panel.begin { response in promise.resolve(response == .OK ? panel.url?.path : nil) }
+    }.runOnQueue(.main)
+
     Function("readDocument") { (name: String) -> String? in DocumentStore.read(name) }
 
     Function("writeDocument") { (name: String, contents: String) in try DocumentStore.write(name, contents) }

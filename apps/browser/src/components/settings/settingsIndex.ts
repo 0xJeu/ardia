@@ -54,6 +54,18 @@ const ROWS: Record<SettingsPane, Section[]> = {
       rows: { commandBarPreference: { title: "When input looks like a website", keywords: ["omnibox", "address", "url", "search", "website first"] } },
     },
     {
+      section: "Downloads",
+      rows: {
+        downloadsFolder: { title: "Downloads folder", description: "Where downloaded files are saved.", keywords: ["download location", "save to", "path", "folder"] },
+        askWhereToSave: { title: "Ask where to save each file", keywords: ["download location", "save as", "prompt", "choose folder"] },
+        downloadsAllProfiles: {
+          title: "Use these settings for every profile",
+          description: "Gives every profile this folder and choice.",
+          keywords: ["all profiles", "global", "download location"],
+        },
+      },
+    },
+    {
       section: "Updates",
       rows: {
         updateChecks: { title: "Check for updates automatically", keywords: ["update", "sparkle"] },

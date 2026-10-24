@@ -228,6 +228,7 @@ const Shell = requireNativeModule<{
   switcherPointerMoved?(): boolean;
   startDictation(): void;
   pickFiles(): Promise<string[]>;
+  pickFolder?(current: string | null, prompt: string | null): Promise<string | null>;
   readDocument(name: string): string | null;
   writeDocument(name: string, contents: string): void;
   saveDocument(name: string, contents: string): Promise<void>;
@@ -274,6 +275,7 @@ export const claimFocus = (generation: number, tag: number) => void Shell.claimF
 export const restartSwitcherPointer = () => Shell.setSwitcherCapture(true);
 export const switcherPointerMoved = () => Shell.switcherPointerMoved?.() ?? true;
 export const pickFiles = () => Shell.pickFiles();
+export const pickFolder = (current: string | null, prompt: string | null = null) => Shell.pickFolder?.(current, prompt) ?? Promise.resolve(null);
 
 export function copyText(text: string) {
   Shell.copyText(text);
