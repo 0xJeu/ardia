@@ -1479,60 +1479,58 @@ let installInputSourceKeys: Void = {
 }()
 
 let installWindowMoveFallback: Void = {
+  guard WindowMove.replacesNativeDrag else { return }
   let selector = #selector(NSWindow.performDrag(with:))
   guard let method = class_getInstanceMethod(NSWindow.self, selector) else { return }
   typealias PerformDrag = @convention(c) (NSWindow, Selector, NSEvent) -> Void
   let original = unsafeBitCast(method_getImplementation(method), to: PerformDrag.self)
   let block: @convention(block) (NSWindow, NSEvent) -> Void = { window, event in
-    original(window, selector, event)
-    WindowMove.follow(window, from: event)
+    if !WindowMove.follow(window, from: event) { original(window, selector, event) }
   }
   method_setImplementation(method, imp_implementationWithBlock(block))
 }()
 
 enum WindowMove {
+  static let replacesNativeDrag = ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0))
   private static var following = false
-  private static let nativeTolerance: CGFloat = 2
-  private static let nativeConfirmations = 2
 
-  static func follow(_ window: NSWindow, from event: NSEvent) {
-    guard !following, event.type == .leftMouseDown, event.clickCount < 2, NSEvent.pressedMouseButtons & 1 != 0,
+  static func follow(_ window: NSWindow, from event: NSEvent) -> Bool {
+    guard !following, event.type == .leftMouseDown, event.clickCount < 2,
           window.isMovable, !window.styleMask.contains(.fullScreen), window.isVisible
-    else { return }
+    else { return false }
     following = true
     defer { following = false }
     let start = screenPoint(event)
     var origin = window.frame.origin
     var expected = origin
-    var nativeFollows = 0
     var wasActive = NSApp.isActive
     while window.isVisible {
-      if NSApp.isActive { wasActive = true } else if wasActive { return }
-      guard let next = NSApp.nextEvent(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp], until: Date(timeIntervalSinceNow: 0.1), inMode: .eventTracking, dequeue: true) else {
-        if NSEvent.pressedMouseButtons & 1 == 0 { return }
+      if NSApp.isActive { wasActive = true } else if wasActive { return true }
+      guard let next = nextGestureEvent() else {
+        if NSEvent.pressedMouseButtons & 1 == 0 { return true }
         continue
       }
       guard next.type == .leftMouseDragged, next.windowNumber == window.windowNumber else {
         NSApp.postEvent(next, atStart: true)
-        return
+        return true
       }
-      let pointer = screenPoint(next)
       let current = window.frame.origin
-      if !near(current, expected, 0.5) {
-        let tracksPointer = [pointer, NSEvent.mouseLocation].contains { near(current, place(window, origin, start, $0), nativeTolerance) }
-        if tracksPointer {
-          nativeFollows += 1
-          if nativeFollows >= nativeConfirmations { return }
-          expected = current
-          continue
-        }
-        origin = NSPoint(x: origin.x + current.x - expected.x, y: origin.y + current.y - expected.y)
-      }
-      nativeFollows = 0
-      let target = place(window, origin, start, pointer)
-      if !near(current, target, 0.5) { window.setFrameOrigin(target) }
-      expected = window.frame.origin
+      origin = NSPoint(x: origin.x + current.x - expected.x, y: origin.y + current.y - expected.y)
+      let target = place(window, origin, start, screenPoint(next))
+      if !near(current, target) { window.setFrameOrigin(target) }
+      let placed = window.frame.origin
+      origin = NSPoint(x: origin.x + placed.x - target.x, y: origin.y + placed.y - target.y)
+      expected = placed
     }
+    return true
+  }
+
+  private static let gestureEvents: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+
+  private static func nextGestureEvent() -> NSEvent? {
+    if let queued = NSApp.nextEvent(matching: gestureEvents, until: .distantPast, inMode: .eventTracking, dequeue: true) { return queued }
+    if NSEvent.pressedMouseButtons & 1 == 0 { return nil }
+    return NSApp.nextEvent(matching: gestureEvents, until: Date(timeIntervalSinceNow: 0.1), inMode: .eventTracking, dequeue: true)
   }
 
   private static func place(_ window: NSWindow, _ origin: NSPoint, _ start: NSPoint, _ pointer: NSPoint) -> NSPoint {
@@ -1547,7 +1545,7 @@ enum WindowMove {
     return NSPoint(x: location.x, y: primary.frame.maxY - location.y)
   }
 
-  private static func near(_ a: NSPoint, _ b: NSPoint, _ tolerance: CGFloat) -> Bool { abs(a.x - b.x) < tolerance && abs(a.y - b.y) < tolerance }
+  private static func near(_ a: NSPoint, _ b: NSPoint) -> Bool { abs(a.x - b.x) < 0.5 && abs(a.y - b.y) < 0.5 }
 }
 
 let installScrollViewInsetFix: Void = {
