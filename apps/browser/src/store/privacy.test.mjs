@@ -79,7 +79,7 @@ test("cleaning up a private window keeps its tabs in memory, out of session.json
 test("private entries an older build saved are dropped when the session loads, and never written again", () => {
   stub.docs.clear();
   const privateEntry = {
-    kind: "tab", id: "ct-old", windowId: "w-private", index: 0, group: null, closedAt: 1,
+    kind: "tab", id: "ct-old", windowId: "w-private", index: 0, group: null, closedAt: Date.now(),
     tab: { url: "https://secret.example/", title: "Secret", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "incognito:w-private" },
   };
   const publicEntry = { ...privateEntry, id: "ct-ok", tab: { ...privateEntry.tab, url: "https://public.example/", profileId: "default" } };

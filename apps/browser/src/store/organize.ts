@@ -110,8 +110,13 @@ export function unpinnedTabIds(s: BrowserState, windowId: string): string[] {
 const CLEAN_UP_AFTER_MS = 12 * 60 * 60 * 1000;
 const MAX_CLEANED = 100;
 const MAX_CLOSED_GROUPS = 20;
-const DELETED_GROUP_MS = 7 * 86_400_000;
-export const keptDeletedGroups = (list: ClosedGroup[], now = Date.now()) => list.filter((c) => now - c.closedAt < DELETED_GROUP_MS);
+const PURGED_AFTER_MS = 7 * 86_400_000;
+function keptAWeek<T extends { closedAt: number }>(list: T[], now: number): T[] {
+  const kept = list.filter((c) => now - c.closedAt < PURGED_AFTER_MS);
+  return kept.length === list.length ? list : kept;
+}
+export const keptDeletedGroups = (list: ClosedGroup[], now = Date.now()) => keptAWeek(list, now);
+export const keptCleanedTabs = (list: ClosedTab[], now = Date.now()) => keptAWeek(list, now);
 
 export const groupOf = (s: Pick<BrowserState, "groups">, tabId: string | undefined): TabGroup | undefined =>
   tabId ? innermostGroupOf(s.groups, tabId) : undefined;
@@ -161,7 +166,7 @@ function isSiteMuted(s: Pick<BrowserState, "settings" | "privateSiteMutes">, tab
 }
 
 export const cleanedTabsFor = (s: Pick<BrowserState, "windows" | "cleanedTabs" | "privateCleanedTabs">, windowId: string): ClosedTab[] =>
-  s.windows[windowId]?.incognito ? (s.privateCleanedTabs[windowId] ?? NO_CLEANED) : s.cleanedTabs;
+  keptCleanedTabs(s.windows[windowId]?.incognito ? (s.privateCleanedTabs[windowId] ?? NO_CLEANED) : s.cleanedTabs);
 const NO_CLEANED: ClosedTab[] = [];
 
 export function onUrlChange(s: BrowserState, tab: Tab, url: string): Partial<Tab> {
@@ -791,10 +796,10 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const entries = closedEntries(s, ids);
     const next = closeQuietly(s, ids);
     if (s.windows[windowId]?.incognito) {
-      const own = [...(next.privateCleanedTabs[windowId] ?? []), ...entries].slice(-MAX_CLEANED);
+      const own = [...keptCleanedTabs(next.privateCleanedTabs[windowId] ?? []), ...entries].slice(-MAX_CLEANED);
       set({ ...next, privateCleanedTabs: { ...next.privateCleanedTabs, [windowId]: own } });
     } else {
-      set({ ...next, cleanedTabs: [...next.cleanedTabs, ...entries].slice(-MAX_CLEANED) });
+      set({ ...next, cleanedTabs: [...keptCleanedTabs(next.cleanedTabs), ...entries].slice(-MAX_CLEANED) });
     }
     return ids.length;
   },
@@ -804,7 +809,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const privateId = fromWindowId && s.windows[fromWindowId]?.incognito
       ? fromWindowId
       : Object.keys(s.privateCleanedTabs).find((id) => !!entryId && s.privateCleanedTabs[id]!.some((c) => c.id === entryId));
-    const list = privateId ? (s.privateCleanedTabs[privateId] ?? []) : s.cleanedTabs;
+    const list = keptCleanedTabs(privateId ? (s.privateCleanedTabs[privateId] ?? []) : s.cleanedTabs);
     const entries = list.filter((c) => !entryId || c.id === entryId);
     if (!entries.length) return;
     const left = list.filter((c) => !entries.includes(c));
