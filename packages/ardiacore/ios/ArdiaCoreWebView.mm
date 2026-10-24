@@ -2776,6 +2776,7 @@ static NSEventModifierFlags PeekModifierFlag() {
 }
 
 - (void)exitPictureInPicture {
+  if ([_tab respondsToSelector:@selector(exitPictureInPicture)]) return [_tab exitPictureInPicture];
   [self executeJavaScript:@"document.pictureInPictureElement && document.exitPictureInPicture();"
                            "window.documentPictureInPicture && documentPictureInPicture.window && documentPictureInPicture.window.close()"];
 }
