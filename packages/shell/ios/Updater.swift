@@ -29,17 +29,16 @@ public final class AppUpdater: NSObject {
     UserDefaults.standard.set(channel, forKey: Self.channelDefaultsKey)
     #if canImport(Sparkle)
     guard started else { return }
+    channelChangePending = true
     userDriver.leaveOffChannelUpdate()
-    if updater.sessionInProgress {
-      channelChangePending = true
-    } else {
-      applyChannelChange()
-    }
+    applyChannelChangeWhenIdle()
     #endif
   }
 
   #if canImport(Sparkle)
-  private func applyChannelChange() {
+  private func applyChannelChangeWhenIdle() {
+    guard channelChangePending, !updater.sessionInProgress else { return }
+    channelChangePending = false
     if hasOffChannelStagedUpdate {
       updater.checkForUpdatesInBackground()
     } else if updater.automaticallyChecksForUpdates {
@@ -113,6 +112,7 @@ public final class AppUpdater: NSObject {
   private lazy var updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: userDriver, delegate: self)
   private var deferredUpdate = false
   private var channelChangePending = false
+  private var sessionObservation: NSKeyValueObservation?
   private var firstCheckPending = false
   #endif
   private var started = false
@@ -144,6 +144,10 @@ public final class AppUpdater: NSObject {
       try updater.start()
     } catch {
       NSLog("Ardia: couldn't start the updater: \(error.localizedDescription)")
+    }
+    sessionObservation = updater.observe(\.sessionInProgress, options: [.new]) { [weak self] _, change in
+      guard change.newValue == false else { return }
+      DispatchQueue.main.async { self?.applyChannelChangeWhenIdle() }
     }
     NotificationCenter.default.addObserver(self, selector: #selector(fullScreenChanged), name: NSWindow.didExitFullScreenNotification, object: nil)
     #endif
@@ -229,12 +233,6 @@ extension AppUpdater: SPUUpdaterDelegate {
 
   public func allowedChannels(for updater: SPUUpdater) -> Set<String> {
     allowedChannels
-  }
-
-  public func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
-    guard channelChangePending else { return }
-    channelChangePending = false
-    applyChannelChange()
   }
 
   public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
@@ -355,13 +353,23 @@ enum UpdatePrewarm {
   }
 }
 
+enum SkippedUpdateDefaults {
+  static let keys = ["SUSkippedVersion", "SUSkippedMajorVersion", "SUSkippedMajorSubreleaseVersion"]
+
+  static func unchanged(by answer: () -> Void) {
+    let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+    answer()
+    DispatchQueue.main.async {
+      for (key, value) in zip(keys, saved) { UserDefaults.standard.set(value, forKey: key) }
+    }
+  }
+}
+
 final class PendingChoice {
   private var reply: ((SPUUserUpdateChoice) -> Void)?
-  let onLeavingChannel: SPUUserUpdateChoice
 
-  init(_ reply: @escaping (SPUUserUpdateChoice) -> Void, onLeavingChannel: SPUUserUpdateChoice) {
+  init(_ reply: @escaping (SPUUserUpdateChoice) -> Void) {
     self.reply = reply
-    self.onLeavingChannel = onLeavingChannel
   }
 
   func answer(_ choice: SPUUserUpdateChoice) {
@@ -392,35 +400,37 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
   }
 
   func showUpdateFound(with appcastItem: SUAppcastItem, state: SPUUserUpdateState, reply: @escaping (SPUUserUpdateChoice) -> Void) {
-    guard isOnChannel(appcastItem) else {
-      NSLog("Ardia: dropping update \(appcastItem.displayVersionString) (build \(appcastItem.versionString)): its channel isn't this copy's any more")
-      UpdatePrewarm.stop()
-      return reply(.skip)
-    }
+    guard isOnChannel(appcastItem) else { return drop(appcastItem, answering: reply) }
     shownItem = appcastItem
-    standard.showUpdateFound(with: appcastItem, state: state, reply: awaiting(reply, onLeavingChannel: state.stage == .notDownloaded ? .dismiss : .skip))
+    standard.showUpdateFound(with: appcastItem, state: state, reply: awaiting(reply))
   }
 
   func leaveOffChannelUpdate() {
     guard let item = shownItem, !isOnChannel(item) else { return }
-    NSLog("Ardia: dropping update \(item.displayVersionString) (build \(item.versionString)): its channel isn't this copy's any more")
-    UpdatePrewarm.stop()
     if let choice = pendingChoice {
       pendingChoice = nil
-      choice.answer(choice.onLeavingChannel)
+      drop(item, answering: choice.answer)
     } else if let cancel = pendingCancellation {
       pendingCancellation = nil
-      cancel()
+      drop(item) { _ in cancel() }
     }
   }
 
-  private func awaiting(_ reply: @escaping (SPUUserUpdateChoice) -> Void, onLeavingChannel: SPUUserUpdateChoice) -> (SPUUserUpdateChoice) -> Void {
-    let choice = PendingChoice(reply, onLeavingChannel: onLeavingChannel)
+  private func drop(_ item: SUAppcastItem, answering reply: (SPUUserUpdateChoice) -> Void) {
+    NSLog("Ardia: dropping update \(item.displayVersionString) (build \(item.versionString)): its channel isn't this copy's any more")
+    UpdatePrewarm.stop()
+    SkippedUpdateDefaults.unchanged { reply(.skip) }
+  }
+
+  private func awaiting(_ reply: @escaping (SPUUserUpdateChoice) -> Void) -> (SPUUserUpdateChoice) -> Void {
+    let choice = PendingChoice(reply)
     pendingChoice = choice
     return { [weak self] picked in
       if self?.pendingChoice === choice { self?.pendingChoice = nil }
-      let leftChannel = self.flatMap { driver in driver.shownItem.map { !driver.isOnChannel($0) } } ?? false
-      choice.answer(picked == .install && leftChannel ? choice.onLeavingChannel : picked)
+      if picked == .install, let self, let item = self.shownItem, !self.isOnChannel(item) {
+        return self.drop(item, answering: choice.answer)
+      }
+      choice.answer(picked)
     }
   }
 
@@ -471,7 +481,7 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
   }
 
   func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
-    standard.showReady(toInstallAndRelaunch: awaiting(reply, onLeavingChannel: .skip))
+    standard.showReady(toInstallAndRelaunch: awaiting(reply))
     leaveOffChannelUpdate()
   }
 
