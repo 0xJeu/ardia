@@ -12,7 +12,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
   var emit: ((String, [String: Any]) -> Void)?
   private var closingFromJS = Set<String>()
   private weak var lastPlaced: NSWindow?
-  private var legacyFrame = UserDefaults.standard.string(forKey: "NSWindow Frame BrowserWindow")
+  private static let lastFrameKey = "ArdiaLastWindowFrame"
+  private var lastFrame = UserDefaults.standard.string(forKey: WindowManager.lastFrameKey) ?? UserDefaults.standard.string(forKey: "NSWindow Frame BrowserWindow")
   private(set) var auxKinds: [String: String] = [:]
   private(set) var smallIds = Set<String>()
 
@@ -385,9 +386,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
       window.setFrame(NSRect(origin: .zero, size: source.frame.size), display: false)
       let topLeft = NSPoint(x: source.frame.minX, y: source.frame.maxY)
       window.setFrameTopLeftPoint(window.cascadeTopLeft(from: topLeft))
-    } else if let legacy = legacyFrame, windows.isEmpty {
-      window.setFrame(from: legacy)
-      legacyFrame = nil
+    } else if let lastFrame {
+      window.setFrame(from: lastFrame)
     } else {
       window.center()
     }
@@ -463,9 +463,17 @@ final class WindowManager: NSObject, NSWindowDelegate {
     }
   }
 
+  private static let resizeReportDelay: TimeInterval = 0.25
+
   @objc private func sizeChanged(_ notification: Notification) {
     guard let window = notification.object as? NSWindow, !window.inLiveResize else { return }
     relayoutRoot(window)
+    NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(reportResized(_:)), object: window)
+    perform(#selector(reportResized(_:)), with: window, afterDelay: Self.resizeReportDelay)
+  }
+
+  @objc private func reportResized(_ window: NSWindow) {
+    reportFrame(window)
   }
 
   private var contentSizers: [String: NSObjectProtocol] = [:]
@@ -515,6 +523,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   private func reportFrame(_ window: NSWindow) {
     guard let id = id(of: window), !window.styleMask.contains(.fullScreen), window.parent == nil else { return }
+    if isMainWindow(window) {
+      lastFrame = window.frameDescriptor
+      UserDefaults.standard.set(lastFrame, forKey: Self.lastFrameKey)
+    }
     let f = window.frame
     emit?("onWindowEvent", ["type": "frame", "id": id, "frame": [f.minX, f.minY, f.width, f.height]])
   }
