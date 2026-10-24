@@ -559,10 +559,16 @@ final class WindowManager: NSObject, NSWindowDelegate {
       return .terminateLater
     }
     guard confirmActiveDownloads() else { return .terminateCancel }
+    quitAttempt += 1
+    quitStep = .saving
     emit("onAppEvent", ["type": "willQuit"])
     waitForSave()
     return .terminateLater
   }
+
+  private enum QuitStep { case none, saving, waitingForUpdater }
+  private var quitStep = QuitStep.none
+  private var quitAttempt = 0
 
   private var saveWait: Timer?
   private var lateSaveAlert: NSAlert?
@@ -592,6 +598,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     switch response {
     case .alertFirstButtonReturn: waitForSave()
     case .alertSecondButtonReturn:
+      guard quitStep == .saving else { return }
       DocumentStore.close()
       quitAfterUpdaterSettles()
     default: break
@@ -612,24 +619,27 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   func replyToTerminate(_ ok: Bool) {
+    guard quitStep != .waitingForUpdater else { return }
     saveWait?.invalidate()
     saveWait = nil
     if lateSaveAlert != nil { NSApp.stopModal(withCode: .abort) }
     guard ok else {
-      terminateReplies += 1
+      quitStep = .none
+      quitAttempt += 1
       return NSApp.reply(toApplicationShouldTerminate: false)
     }
+    guard quitStep == .saving else { return }
     if DocumentStore.flush() { ChromeWindows.recordLaunchLayout() } else { ChromeWindows.forgetLaunchPictures() }
     quitAfterUpdaterSettles()
   }
 
-  private var terminateReplies = 0
-
   private func quitAfterUpdaterSettles() {
-    terminateReplies += 1
-    let reply = terminateReplies
+    if quitStep == .none { quitAttempt += 1 }
+    quitStep = .waitingForUpdater
+    let attempt = quitAttempt
     AppUpdater.shared.dropOffChannelStagedUpdateBeforeQuit { [weak self] in
-      guard self?.terminateReplies == reply else { return }
+      guard let self, self.quitAttempt == attempt, self.quitStep == .waitingForUpdater else { return }
+      self.quitStep = .none
       NSApp.reply(toApplicationShouldTerminate: true)
     }
   }
