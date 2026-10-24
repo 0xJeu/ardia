@@ -68,7 +68,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "newIncognitoWindow":
       return void openWindow({ incognito: true, profileId: originalProfile(s, s.windows[requested ?? ""]) });
     case "newLittleArdia":
-      return void openLittleArdia();
+      return void openLittleArdia(undefined, arg ?? undefined);
     case "toggleOpenLinksInLittleArdia":
       return s.updateSettings({ openLinksInLittleArdia: !s.settings.openLinksInLittleArdia });
     case "reopenClosedWindow":
