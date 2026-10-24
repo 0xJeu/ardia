@@ -54,6 +54,43 @@ public final class AppUpdater: NSObject {
   }
   #endif
 
+  static let quitWaitLimit: TimeInterval = 8
+  static let quitWaitAfterIdle: TimeInterval = 1
+
+  public var holdsQuitForStagedUpdate: Bool {
+    #if canImport(Sparkle)
+    started && hasOffChannelStagedUpdate
+    #else
+    false
+    #endif
+  }
+
+  public func dropOffChannelStagedUpdateBeforeQuit(then quit: @escaping () -> Void) {
+    #if canImport(Sparkle)
+    guard holdsQuitForStagedUpdate else { return quit() }
+    applyChannelChangeWhenIdle()
+    let deadline = Date().addingTimeInterval(Self.quitWaitLimit)
+    var idleSince: Date?
+    func settle() {
+      guard hasOffChannelStagedUpdate else { return quit() }
+      let busy = channelChangePending || updater.sessionInProgress
+      idleSince = busy ? nil : idleSince ?? Date()
+      if let idleSince, Date().timeIntervalSince(idleSince) >= Self.quitWaitAfterIdle {
+        NSLog("Ardia: a staged nightly is still in Sparkle's cache with nothing left to drop it; quitting")
+        return quit()
+      }
+      if Date() >= deadline {
+        NSLog("Ardia: Sparkle didn't drop the staged nightly within \(Int(Self.quitWaitLimit)) s; quitting, and it may install")
+        return quit()
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { settle() }
+    }
+    settle()
+    #else
+    quit()
+    #endif
+  }
+
   var allowedChannels: Set<String> {
     channel == "nightly" ? ["nightly"] : []
   }

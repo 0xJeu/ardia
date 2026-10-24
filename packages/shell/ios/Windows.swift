@@ -553,7 +553,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   func shouldTerminate() -> NSApplication.TerminateReply {
-    guard appEventsObserved, let emit else { return .terminateNow }
+    guard appEventsObserved, let emit else {
+      guard AppUpdater.shared.holdsQuitForStagedUpdate else { return .terminateNow }
+      quitAfterUpdaterSettles()
+      return .terminateLater
+    }
     guard confirmActiveDownloads() else { return .terminateCancel }
     emit("onAppEvent", ["type": "willQuit"])
     waitForSave()
@@ -589,7 +593,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     case .alertFirstButtonReturn: waitForSave()
     case .alertSecondButtonReturn:
       DocumentStore.close()
-      NSApp.reply(toApplicationShouldTerminate: true)
+      quitAfterUpdaterSettles()
     default: break
     }
   }
@@ -611,10 +615,23 @@ final class WindowManager: NSObject, NSWindowDelegate {
     saveWait?.invalidate()
     saveWait = nil
     if lateSaveAlert != nil { NSApp.stopModal(withCode: .abort) }
-    if ok {
-      if DocumentStore.flush() { ChromeWindows.recordLaunchLayout() } else { ChromeWindows.forgetLaunchPictures() }
+    guard ok else {
+      terminateReplies += 1
+      return NSApp.reply(toApplicationShouldTerminate: false)
     }
-    NSApp.reply(toApplicationShouldTerminate: ok)
+    if DocumentStore.flush() { ChromeWindows.recordLaunchLayout() } else { ChromeWindows.forgetLaunchPictures() }
+    quitAfterUpdaterSettles()
+  }
+
+  private var terminateReplies = 0
+
+  private func quitAfterUpdaterSettles() {
+    terminateReplies += 1
+    let reply = terminateReplies
+    AppUpdater.shared.dropOffChannelStagedUpdateBeforeQuit { [weak self] in
+      guard self?.terminateReplies == reply else { return }
+      NSApp.reply(toApplicationShouldTerminate: true)
+    }
   }
 
   func reopen() {
