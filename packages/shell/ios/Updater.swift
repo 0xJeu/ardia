@@ -28,7 +28,9 @@ public final class AppUpdater: NSObject {
     guard Self.channels.contains(channel) else { return }
     UserDefaults.standard.set(channel, forKey: Self.channelDefaultsKey)
     #if canImport(Sparkle)
-    guard started, updater.automaticallyChecksForUpdates else { return }
+    guard started else { return }
+    userDriver.leaveOffChannelUpdate()
+    guard updater.automaticallyChecksForUpdates else { return }
     if updater.sessionInProgress {
       channelChangePending = true
     } else {
@@ -216,7 +218,7 @@ extension AppUpdater: SPUUpdaterDelegate {
   public func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
     guard channelChangePending else { return }
     channelChangePending = false
-    DispatchQueue.main.async { updater.resetUpdateCycle() }
+    updater.resetUpdateCycle()
   }
 
   public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
@@ -331,9 +333,28 @@ enum UpdatePrewarm {
   }
 }
 
+final class PendingChoice {
+  private var reply: ((SPUUserUpdateChoice) -> Void)?
+  let onLeavingChannel: SPUUserUpdateChoice
+
+  init(_ reply: @escaping (SPUUserUpdateChoice) -> Void, onLeavingChannel: SPUUserUpdateChoice) {
+    self.reply = reply
+    self.onLeavingChannel = onLeavingChannel
+  }
+
+  func answer(_ choice: SPUUserUpdateChoice) {
+    guard let reply else { return }
+    self.reply = nil
+    reply(choice)
+  }
+}
+
 final class ChannelUserDriver: NSObject, SPUUserDriver {
   private let standard: SPUStandardUserDriver
   private let isOnChannel: (SUAppcastItem) -> Bool
+  private var shownItem: SUAppcastItem?
+  private var pendingChoice: PendingChoice?
+  private var pendingCancellation: (() -> Void)?
 
   init(standard: SPUStandardUserDriver, isOnChannel: @escaping (SUAppcastItem) -> Bool) {
     self.standard = standard
@@ -354,7 +375,31 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
       UpdatePrewarm.stop()
       return reply(.skip)
     }
-    standard.showUpdateFound(with: appcastItem, state: state, reply: reply)
+    shownItem = appcastItem
+    standard.showUpdateFound(with: appcastItem, state: state, reply: awaiting(reply, onLeavingChannel: state.stage == .notDownloaded ? .dismiss : .skip))
+  }
+
+  func leaveOffChannelUpdate() {
+    guard let item = shownItem, !isOnChannel(item) else { return }
+    NSLog("Ardia: dropping update \(item.displayVersionString) (build \(item.versionString)): its channel isn't this copy's any more")
+    UpdatePrewarm.stop()
+    if let choice = pendingChoice {
+      pendingChoice = nil
+      choice.answer(choice.onLeavingChannel)
+    } else if let cancel = pendingCancellation {
+      pendingCancellation = nil
+      cancel()
+    }
+  }
+
+  private func awaiting(_ reply: @escaping (SPUUserUpdateChoice) -> Void, onLeavingChannel: SPUUserUpdateChoice) -> (SPUUserUpdateChoice) -> Void {
+    let choice = PendingChoice(reply, onLeavingChannel: onLeavingChannel)
+    pendingChoice = choice
+    return { [weak self] picked in
+      if self?.pendingChoice === choice { self?.pendingChoice = nil }
+      let leftChannel = self.flatMap { driver in driver.shownItem.map { !driver.isOnChannel($0) } } ?? false
+      choice.answer(picked == .install && leftChannel ? choice.onLeavingChannel : picked)
+    }
   }
 
   func show(_ request: SPUUpdatePermissionRequest, reply: @escaping (SUUpdatePermissionResponse) -> Void) {
@@ -382,6 +427,7 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
   }
 
   func showDownloadInitiated(cancellation: @escaping () -> Void) {
+    pendingCancellation = cancellation
     standard.showDownloadInitiated(cancellation: cancellation)
   }
 
@@ -394,6 +440,7 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
   }
 
   func showDownloadDidStartExtractingUpdate() {
+    pendingCancellation = nil
     standard.showDownloadDidStartExtractingUpdate()
   }
 
@@ -402,7 +449,8 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
   }
 
   func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
-    standard.showReady(toInstallAndRelaunch: reply)
+    standard.showReady(toInstallAndRelaunch: awaiting(reply, onLeavingChannel: .skip))
+    leaveOffChannelUpdate()
   }
 
   func showInstallingUpdate(withApplicationTerminated applicationTerminated: Bool, retryTerminatingApplication: @escaping () -> Void) {
@@ -418,6 +466,9 @@ final class ChannelUserDriver: NSObject, SPUUserDriver {
   }
 
   func dismissUpdateInstallation() {
+    shownItem = nil
+    pendingChoice = nil
+    pendingCancellation = nil
     standard.dismissUpdateInstallation()
   }
 }
