@@ -2,7 +2,7 @@ import type { ActionState, ExtensionInstallPrompt, ExtensionPackage, InstalledEx
 import { useMemo } from "react";
 import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../../store/browser";
-import { activeTabId, engineProfile, privateSession } from "../../store/model";
+import { activeTabId, engineProfile, incognitoOriginal, isIncognitoProfile, privateSession } from "../../store/model";
 import { shownPageId } from "../../store/peek";
 import { usePages } from "../layout/pageState";
 
@@ -41,6 +41,13 @@ const EMPTY: InstalledExtension[] = [];
 export function extensionProfile(s: BrowserState, windowId: string | null | undefined): string {
   const w = windowId ? s.windows[windowId] : undefined;
   return !w ? "" : (privateSession(w.profileId) ?? engineProfile(w.profileId));
+}
+
+export function settingsProfileOf(s: BrowserState, windowId: string | null | undefined): string | null {
+  const own = windowId ? s.windows[windowId]?.profileId : undefined;
+  if (!own) return null;
+  const profileId = isIncognitoProfile(own) ? incognitoOriginal(own) : own;
+  return s.profiles[profileId] ? profileId : null;
 }
 
 export const isPrivate = (s: BrowserState, windowId: string) => !!s.windows[windowId]?.incognito;

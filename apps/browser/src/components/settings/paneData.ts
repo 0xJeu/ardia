@@ -14,10 +14,10 @@ import {
 } from "@ardia/ardiacore";
 import { appIcons, currentAppIcon, isDefaultBrowser, launchAtLoginStatus, menuShortcuts, updaterState, type UpdaterState } from "@ardia/shell";
 import { useBrowser } from "../../store/browser";
-import { engineProfile } from "../../store/model";
+import { engineProfile, resolveWindowId } from "../../store/model";
 import { folderInfo } from "../../sync/engine";
 import { useSync } from "../../sync/engine";
-import { refreshExtensions } from "../extensions/state";
+import { refreshExtensions, settingsProfileOf } from "../extensions/state";
 import { load, loadAll, need, resource, useAllLoaded, type Needed } from "./resources";
 import type { SettingsPane } from "./windows";
 
@@ -53,7 +53,11 @@ export const widevine = resource("widevine", () =>
 
 const defaultProfile = () => engineProfile(useBrowser.getState().settings.defaultProfileId);
 
-export const extensionsProfileId = (profileId: string | null): string => profileId ?? useBrowser.getState().settings.defaultProfileId;
+export function extensionsProfileId(profileId: string | null): string {
+  const s = useBrowser.getState();
+  if (profileId && s.profiles[profileId]) return profileId;
+  return settingsProfileOf(s, resolveWindowId(s)) ?? s.settings.defaultProfileId;
+}
 
 export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[] {
   const profile = profileId ? engineProfile(profileId) : defaultProfile();
