@@ -1,4 +1,4 @@
-import { onDownload, releaseProfile } from "@ardia/ardiacore";
+import { lastTabClosesWindow, onDownload, releaseProfile } from "@ardia/ardiacore";
 import {
   cancelFocusMove,
   claimFocus,
@@ -22,6 +22,7 @@ import { Appearance } from "react-native";
 import { folderChildren, isBookmarked } from "../store/bookmarks";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTab, bookmarkProfileId, engineProfile, IDLE_LIVE, tabLabel, windowTitle } from "../store/model";
+import { setLastTabKeepsWindow } from "../store/newTabBar";
 import { peekTabId } from "../store/peek";
 import { splitOf } from "../store/splits";
 import { canGoBack, canGoForward } from "../components/layout/history";
@@ -55,6 +56,7 @@ export function startNativeSync() {
   startWindowCloseGuard();
   startExtensionsBridge();
   onOpenURLs((urls) => openExternalUrls(urls));
+  void lastTabClosesWindow().then((closes) => setLastTabKeepsWindow(!closes));
   onDownload((d) => store.getState().upsertDownload(d));
 
   store.getState().setAppDark(Appearance.getColorScheme() === "dark");
