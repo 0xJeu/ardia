@@ -27,7 +27,7 @@ import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
 import { leavesEmptyWindow } from "./newTabBar";
 import { holderOf, swapPinPage, withSharedFamily } from "./pinShare";
-import { removeFromSplits, splitOf } from "./splits";
+import { removeFromSplits, splitOf, withPinnedPanes } from "./splits";
 import type { BrowserWindow, ClosedTab, Tab, TabLive, TabSnapshot } from "./types";
 
 export type NewTabOptions = {
@@ -196,7 +196,7 @@ function adoptOrphans(tabs: Record<string, Tab>, before: Record<string, Tab>, go
 }
 
 export function unloadPinnedTabs(s: BrowserState, requested: string[]): BrowserState {
-  const ids = withSharedFamily(s, requested.filter((id) => inPinnedContainer(s, id)));
+  const ids = withSharedFamily(s, withPinnedPanes(s, requested.filter((id) => inPinnedContainer(s, id))));
   const closing = new Set([...requested, ...ids]);
   const pinned = ids.filter((id) => inPinnedContainer(s, id));
   if (!pinned.length) return s;
@@ -222,7 +222,7 @@ export function unloadPinnedTabs(s: BrowserState, requested: string[]): BrowserS
     tabs,
     live,
     find: without(s.find, gone),
-    splits: removeFromSplits(s.splits, gone),
+    splits: removeFromSplits(s.splits, new Set(pinned.filter((id) => !splitOf(s, id)?.tabIds.every((pane) => gone.has(pane))))),
     selection: pruneSelection(s.selection, gone),
     closedTabs: closed.length ? [...s.closedTabs, ...closed].slice(-MAX_CLOSED_TABS) : s.closedTabs,
   };
