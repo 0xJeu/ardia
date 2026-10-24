@@ -900,11 +900,13 @@ enum MainMenu {
 
   private static func applyShortcuts(_ overrides: [String: [String]]) {
     defer { announceShortcuts() }
-    let taken = Set(overrides.values.compactMap { o -> String? in
-      guard let key = o.first, !key.isEmpty else { return nil }
+    let groups = shortcutGroups()
+    let liveIds = Set(groups.map(\.id))
+    let taken = Set(overrides.compactMap { id, o -> String? in
+      guard liveIds.contains(id), let key = o.first, !key.isEmpty else { return nil }
       return comboKey(key, modifiers(o.dropFirst()))
     })
-    for (id, group) in shortcutGroups() {
+    for (id, group) in groups {
       let carriesOverride: (Rebindable) -> Bool = { $0 === group.primary || !$0.isHidden }
       for item in group.items {
         if let o = overrides[id] {
