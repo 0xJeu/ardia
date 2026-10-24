@@ -141,3 +141,33 @@ test("turning it off leaves each tab in one window: the live one, nothing duplic
   S().newTab(a, { url: "https://after.com" });
   assert.equal(rowOf(b, "https://after.com"), undefined, "and windows are separate again");
 });
+
+test("pinning a shared tab from a window showing it frozen keeps its live page", () => {
+  reset();
+  const { a, b, a1 } = twoWindows();
+  share(true);
+  const copy = rowOf(b, "https://a1.com");
+  assert.equal(S().tabs[copy].pageIn, a1);
+  S().pinTabs([copy], true);
+  assert.ok(S().tabs[a1], "the live tab is still there");
+  assert.equal(loaded(a1), true, "with its page");
+  assert.equal(S().tabs[a1].pinned, true, "now as A's copy of the pin");
+  assert.equal(S().tabs[a1].windowId, a);
+  assert.equal(shown(a), a1, "A keeps showing it");
+  assert.equal(pages("https://a1.com").length, 1, "one live page");
+});
+
+test("making a split from a shared tab live in another window brings its page into the split", () => {
+  reset();
+  const { a, b, a1, b1 } = twoWindows();
+  share(true);
+  const copy = rowOf(b, "https://a1.com");
+  S().createSplit([b1, copy]);
+  assert.ok(S().tabs[a1], "the live tab is still there");
+  assert.equal(loaded(a1), true, "with its page");
+  assert.equal(S().tabs[a1].windowId, b, "in B");
+  assert.ok(Object.values(S().splits).some((v) => v.windowId === b && v.tabIds.includes(a1) && v.tabIds.includes(b1)), "as a pane of the split");
+  assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
+  assert.equal(rowOf(a, "https://a1.com"), undefined, "A's list follows B's");
+  assert.equal(pages("https://a1.com").length, 1);
+});

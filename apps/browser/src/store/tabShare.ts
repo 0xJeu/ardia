@@ -46,7 +46,52 @@ function listMayDiffer(s: BrowserState, prev: BrowserState): boolean {
 
 type Leaving = "close" | "keepPages";
 
-function conformList(s: BrowserState, windowId: string, profileId: string, spec: Section, leaving: Leaving): BrowserState {
+const swapIn = (ids: string[], a: string, b: string) => (ids.includes(a) || ids.includes(b) ? ids.map((x) => (x === a ? b : x === b ? a : x)) : ids);
+
+function swapPlaces(s: BrowserState, a: string, b: string): BrowserState {
+  const ta = s.tabs[a]!;
+  const tb = s.tabs[b]!;
+  const key = pinKeyOf(ta);
+  const moved = ta.windowId !== tb.windowId;
+  const windows = { ...s.windows };
+  for (const id of new Set([ta.windowId, tb.windowId])) {
+    const w = windows[id]!;
+    const activeTabIds = moved ? Object.fromEntries(Object.entries(w.activeTabIds).map(([p, x]) => [p, x === a ? b : x === b ? a : x])) : w.activeTabIds;
+    windows[id] = { ...w, tabIds: swapIn(w.tabIds, a, b), activeTabIds };
+  }
+  const swapAll = <T extends { tabIds: string[] }>(all: Record<string, T>): Record<string, T> => {
+    let out = all;
+    for (const [id, x] of Object.entries(all)) {
+      const tabIds = swapIn(x.tabIds, a, b);
+      if (tabIds !== x.tabIds) (out === all ? (out = { ...all }) : out)[id] = { ...x, tabIds };
+    }
+    return out;
+  };
+  const slotOf = (t: Tab): Partial<Tab> => ({ windowId: t.windowId, pinned: t.pinned, pinnedUrl: t.pinnedUrl, pinnedAsRow: t.pinnedAsRow, tileFolder: t.tileFolder });
+  const tabs = { ...s.tabs };
+  tabs[a] = { ...ta, ...slotOf(tb), ...keyField(a, key), ...(moved && ta.navigation ? { navigation: { ...ta.navigation, url: ta.url || ta.navigation.url } } : {}) };
+  tabs[b] = { ...tb, ...slotOf(ta), ...keyField(b, key) };
+  return { ...s, tabs, windows, groups: swapAll(s.groups), splits: swapAll(s.splits) };
+}
+
+function keepLeavingPages(s: BrowserState, windowId: string, profileId: string, spec: Section, sourceId: string | undefined): BrowserState {
+  const wanted = new Set(spec.items.map((i) => pinKeyOf(i.tab)));
+  const section = listSection(s, windowId, profileId);
+  const inList = new Set(section.items.map((i) => i.tab.id));
+  let next = s;
+  for (const { tab: t } of section.items) {
+    if (!hasPage(t) || t.pageIn || wanted.has(pinKeyOf(t))) continue;
+    const key = pinKeyOf(t);
+    const pageless = (id: string | undefined) =>
+      id ? next.windows[id]?.tabIds.map((x) => next.tabs[x]).find((u) => !!u && u.id !== t.id && !inList.has(u.id) && u.profileId === t.profileId && pinKeyOf(u) === key && !hasPage(u)) : undefined;
+    const place = pageless(windowId) ?? (sourceId !== windowId ? pageless(sourceId) : undefined);
+    if (place) next = swapPlaces(next, t.id, place.id);
+  }
+  return next;
+}
+
+function conformList(input: BrowserState, windowId: string, profileId: string, spec: Section, leaving: Leaving, sourceId?: string): BrowserState {
+  const s = leaving === "close" ? keepLeavingPages(input, windowId, profileId, spec, sourceId) : input;
   const w = s.windows[windowId]!;
   const cur = listSection(s, windowId, profileId);
   const mine = cur.items.map((i) => i.tab);
@@ -203,7 +248,7 @@ export function mirrorTabs(s: BrowserState, prev: BrowserState): BrowserState | 
     const want = source ? sigs.get(source)! : null;
     for (const id of ids) {
       if (id === source || (want !== null && sigs.get(id) === want) || !next.windows[id]) continue;
-      next = conformList(next, id, profileId, spec, source ? "close" : "keepPages");
+      next = conformList(next, id, profileId, spec, source ? "close" : "keepPages", source);
     }
   }
   next = linkCopies(next, byProfile);
