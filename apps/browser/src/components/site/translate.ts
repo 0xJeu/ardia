@@ -21,8 +21,8 @@ export const translateStateOf = stateOf;
 const patch = (tabId: string, p: Partial<TranslateState>) => useTranslate.setState((s) => ({ [tabId]: { ...(s[tabId] ?? IDLE), ...p } }));
 export const useTranslateState = (tabId: string) => useTranslate((s) => s[tabId] ?? IDLE);
 
-const BATCH = 8;
-const BATCH_CHARS = 2000;
+const BATCH = 16;
+const BATCH_CHARS = 4000;
 const FOLLOW_MS = 600;
 const PROGRESS_AFTER_MS = 1200;
 const PROGRESS_TOAST = "translate-progress";
