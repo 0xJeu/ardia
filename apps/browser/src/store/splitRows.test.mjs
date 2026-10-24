@@ -193,3 +193,24 @@ test("parking keeps both panes of a pinned split even at the same page, or at a 
   assert.deepEqual(sidebarEntries(S(), n).pinned, [`s:${v.id}`]);
   assert.equal(sidebarEntries(S(), n).tiles.length, 1, "the tile at the same page stays too");
 });
+
+test("merging two windows' pins never folds a pinned split's panes into another window's pin at the same page", () => {
+  reset();
+  const profiles = S().profiles;
+  const tab = (id, windowId, url, pinned) => ({ ...model.makeTab(windowId, "default", url, pinned ? { pinned: true, pinnedUrl: url, pinnedAsRow: true } : {}), id, ...(pinned ? { pinnedAsRow: true } : {}) });
+  const win = (id, tabIds, active) => ({ id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: active }, sidebarOpen: true, frame: null, createdAt: 0 });
+  const tabs = Object.fromEntries(
+    [tab("a1", "wA", "https://x.com/", true), tab("a2", "wA", "https://y.com/"), tab("b1", "wB", "https://x.com/", true), tab("b2", "wB", "https://x.com/", true), tab("b3", "wB", "https://z.com/")].map((t) => [t.id, t]),
+  );
+  S().hydrate({
+    profiles,
+    windows: { wA: win("wA", ["a1", "a2"], "a2"), wB: win("wB", ["b1", "b2", "b3"], "b3") },
+    windowOrder: ["wB", "wA"],
+    tabs,
+    splits: { sp: { id: "sp", windowId: "wB", tabIds: ["b1", "b2"], orientation: "horizontal", sizes: [0.5, 0.5] } },
+  });
+  assert.deepEqual(S().splits.sp?.tabIds, ["b1", "b2"], "B's split keeps its own two panes");
+  assert.deepEqual(panesOf("wA").map((p) => p.length), [2], "A gets the split too");
+  assert.equal(sidebarEntries(S(), "wB").pinned.filter((e) => e.startsWith("s:")).length, 1);
+  for (const w of ["wA", "wB"]) assert.equal(model.viewTabIds(S(), w).filter((id) => S().tabs[id].pinned).length, 3, "A's own pin and the split's two panes, in each window");
+});

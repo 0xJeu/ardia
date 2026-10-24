@@ -149,6 +149,7 @@ export function union(sections: Section[], samePages = true): Section {
   const lastIn = (key: string) => lastIndex(spec.items, (i) => within(i, key));
   for (const x of sections) {
     const earlier = spec.items.filter((i) => !i.group).map((i) => i.tab);
+    const paired = new Set((x.splits ?? []).flatMap((v) => v.keys));
     for (const [key, g] of x.groups) if (!spec.groups.has(key)) spec.groups.set(key, g);
     let anchor = -1;
     for (const item of x.items) {
@@ -157,7 +158,7 @@ export function union(sections: Section[], samePages = true): Section {
         anchor = spec.items.findIndex((i) => pinKeyOf(i.tab) === key);
         continue;
       }
-      if (samePages && !item.group && earlier.some((o) => samePage(homeOf(o), homeOf(item.tab)))) continue;
+      if (samePages && !item.group && !paired.has(key) && earlier.some((o) => samePage(homeOf(o), homeOf(item.tab)))) continue;
       keys.add(key);
       const host = chainOf(spec, item.group).reverse().find((k) => lastIn(k) >= 0);
       const at = host
@@ -220,13 +221,14 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
   const tabs = { ...s.tabs };
   const live = { ...s.live };
   let groups = { ...s.groups };
+  const wantedKeys = new Set(spec.items.map((i) => pinKeyOf(i.tab)));
   const byKey = new Map<string, Tab[]>();
   for (const m of mine) byKey.get(pinKeyOf(m))?.push(m) ?? byKey.set(pinKeyOf(m), [m]);
   const reuse = (src: Tab, tile: boolean): string => {
     const key = pinKeyOf(src);
     const same = (byKey.get(key) ?? []).filter((m) => !used.has(m.id));
     let t = same.find(hasPage) ?? same[0];
-    if (!t && tile) t = mine.find((m) => m.pinned && !used.has(m.id) && samePage(homeOf(m), homeOf(src)));
+    if (!t && tile) t = mine.find((m) => m.pinned && !used.has(m.id) && !wantedKeys.has(pinKeyOf(m)) && samePage(homeOf(m), homeOf(src)));
     if (!t) {
       const copy = copyOf(src, windowId, tile);
       tabs[copy.id] = copy;
