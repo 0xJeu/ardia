@@ -294,6 +294,7 @@ export function ContentCard() {
       {size.width > 0 && !split && !fullscreenTab && (
         <FrozenPage windowId={windowId} tabId={activeId} top={(!addressInSidebar && !small && !hideWhileScrolling ? layout.toolbarHeight : 0) + (barMode === "always" && !small && !hideWhileScrolling ? BOOKMARKS_BAR_HEIGHT : 0)} />
       )}
+      {split && !fullscreenTab && <SplitDividers split={split} dividers={dividers} width={size.width} height={size.height} />}
       {size.width > 0 && popoversOverCard && origin && activeRect && peekEdge !== undefined && (
         <BesidePeekPopovers
           tabId={popoversOverCard}
@@ -302,7 +303,6 @@ export function ContentCard() {
           room={size.width}
         />
       )}
-      {split && !fullscreenTab && <SplitDividers split={split} dividers={dividers} width={size.width} height={size.height} />}
       {!fullscreenTab && <DropTargets panes={panes} origin={origin} />}
       {(!fullscreenTab || peekFullscreen) && !small && (
         <PeekOverlay
