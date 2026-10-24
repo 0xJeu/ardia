@@ -5,7 +5,7 @@ import { useBrowser } from "../../store/browser";
 import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinSection, plural, tabLabel, viewTabIds, windowTitle } from "../../store/model";
 import { awayFromPin, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds } from "../../store/organize";
 import { groupPath } from "../../store/groups";
-import { splitOf } from "../../store/splits";
+import { splitOf, splitRowPanes } from "../../store/splits";
 import type { GroupColor, Tab } from "../../store/types";
 import {
   allMuted,
@@ -82,6 +82,7 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   const others = list.filter((id) => id !== tab.id);
   const group = groupOf(s, tab.id);
   const split = splitOf(s, tab.id);
+  const splitRow = splitRowPanes(s, split).includes(tab.id);
   const incognito = isIncognitoProfile(tab.profileId);
   const across = (s.windows[windowId]?.tabLayout ?? s.settings.tabLayout) === "top";
   const away = awayFromPin(tab);
@@ -108,9 +109,13 @@ export async function openTabMenu(windowId: string, tab: Tab) {
     ...(tab.customIcon ? [{ id: "resetIcon", title: "Reset Icon", symbol: "arrow.counterclockwise" }] : []),
     sep,
     { id: "pin", title: tab.pinned ? "Unpin" : "Pin", symbol: tab.pinned ? "pin.slash" : "pin" },
-    isPinnedRow(tab)
-      ? { id: "pinTile", title: "Move to Top Apps", symbol: "app" }
-      : { id: "pinRow", title: "Move to Pinned Tabs", symbol: "list.bullet" },
+    ...(splitRow
+      ? []
+      : [
+          isPinnedRow(tab)
+            ? { id: "pinTile", title: "Move to Top Apps", symbol: "app" }
+            : { id: "pinRow", title: "Move to Pinned Tabs", symbol: "list.bullet" },
+        ]),
     ...(pinSection(tab) !== "tile"
       ? []
       : tab.tileFolder

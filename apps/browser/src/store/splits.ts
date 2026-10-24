@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { innermostGroupOf, leaveGroups, syncGroupOrder } from "./groups";
-import { newId } from "./model";
+import { isPinnedRow, newId } from "./model";
 import { choose } from "./settings";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, SplitView, Tab } from "./types";
@@ -62,6 +62,28 @@ export function splitOf(s: Pick<BrowserState, "splits">, tabId: string | undefin
   if (!tabId) return undefined;
   for (const v of Object.values(s.splits)) if (v.tabIds.includes(tabId)) return v;
   return undefined;
+}
+
+export function splitRowPanes(s: Pick<BrowserState, "tabs">, split: SplitView | undefined): string[] {
+  if (!split) return [];
+  const unpinned = split.tabIds.filter((id) => s.tabs[id] && !s.tabs[id]!.pinned);
+  if (unpinned.length >= 2) return unpinned;
+  const rows = split.tabIds.filter((id) => isPinnedRow(s.tabs[id]));
+  return rows.length >= 2 ? rows : [];
+}
+
+export function withSplitRows(s: Pick<BrowserState, "tabs" | "splits">, ids: string[]): string[] {
+  const out = new Set(ids);
+  for (const id of ids) {
+    const panes = splitRowPanes(s, splitOf(s, id));
+    if (panes.includes(id)) panes.forEach((pane) => out.add(pane));
+  }
+  return out.size === ids.length ? ids : [...out];
+}
+
+export function splitRowHead(s: Pick<BrowserState, "tabs" | "splits">, order: string[], id: string): string {
+  const panes = splitRowPanes(s, splitOf(s, id));
+  return panes.includes(id) ? (order.find((x) => panes.includes(x)) ?? id) : id;
 }
 
 export function removeFromSplits(splits: Record<string, SplitView>, gone: Set<string>): Record<string, SplitView> {

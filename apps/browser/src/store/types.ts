@@ -168,6 +168,7 @@ export type ClosedWindow = {
 export type ParkedPins = {
   tabs: (TabSnapshot & { id: string; groupId: string | null; restoreFrom?: string })[];
   groups: (Pick<TabGroup, "id" | "name" | "icon" | "color" | "collapsed"> & { parentId?: string })[];
+  splits?: (Pick<SplitView, "orientation" | "sizes" | "stack"> & { ids: string[] })[];
 };
 
 export type NestedGroupSnapshot = Pick<TabGroup, "id" | "name" | "icon" | "color" | "collapsed"> & { parentId: string; tabIndexes: number[] };

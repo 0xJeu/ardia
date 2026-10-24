@@ -51,7 +51,7 @@ type Drop =
   | { type: "folder"; ontoId: string; beforeId?: string | null }
   | { type: "none" };
 
-const blockKind = (i: Item) => i.kind === "row" || i.kind === "group" || i.kind === "live";
+const blockKind = (i: Item) => i.kind === "row" || i.kind === "group" || i.kind === "live" || i.kind === "split";
 const pinnedBlock = (i: Item) => (i.section === "pinnedRows" || i.section === "pinnedGroups") && !i.parentGroup && blockKind(i);
 const boxed = (i: Item) => i.kind === "group" || i.kind === "live";
 const apart = (a: Item, b: Item) => a.section !== b.section && (a.section === "folder" || b.section === "folder");
@@ -451,13 +451,13 @@ class DragController {
     const firstTab = (i: Item | undefined) => i?.tabIds.find((id) => !dragged.has(id)) ?? null;
     const tabsDrag = source.kind === "row" || source.kind === "tile";
     const count = this.external || (source.folderId ? 1 : dragged.size);
-    const rowPitch = (boxed(source) ? (source.foldedHeight?.() ?? this.ghost?.height ?? layout.rowHeight) : layout.rowHeight * Math.max(1, this.ghost?.count ?? this.external ?? 1)) + ROW_GAP;
+    const rowPitch = (boxed(source) ? (source.foldedHeight?.() ?? this.ghost?.height ?? layout.rowHeight) : layout.rowHeight * (source.kind === "split" ? 1 : Math.max(1, this.ghost?.count ?? this.external ?? 1))) + ROW_GAP;
     const blocks = live.filter(pinnedBlock).sort(byY);
     const rest = blocks.map((b) => b.key);
     const moved = this.sources
       .filter((s) => s.frame)
       .sort(byY)
-      .flatMap((s) => (s.kind === "group" || s.kind === "live" ? [s.key] : s.tabIds.map((id) => `t:${id}`)));
+      .flatMap((s) => (s.kind === "group" || s.kind === "live" || s.kind === "split" ? [s.key] : s.tabIds.map((id) => `t:${id}`)));
     const pinnedAt = (): { before: Item | undefined; beforeId: string | null; sequence: string[] } => {
       const before = blocks.find((b) => cy(b) > y);
       const at = before ? blocks.indexOf(before) : blocks.length;
@@ -514,7 +514,7 @@ class DragController {
       pitch = PIN_SLOT;
     } else {
       const hits =
-        tabsDrag || source.kind === "group"
+        tabsDrag || source.kind === "group" || source.kind === "split"
           ? live
               .filter((i) => i.kind === "group")
               .flatMap((g) => {
@@ -529,7 +529,7 @@ class DragController {
           : [];
       const hit = hits[0];
       const nestAt = (groupId: string, beforeId: string | null): Drop =>
-        tabsDrag
+        source.kind !== "group"
           ? { type: "tabs", placement: { pinned: false, groupId, beforeId }, sequence: rest }
           : { type: "group", placement: { pinned: false, parentId: groupId, beforeId }, sequence: rest };
       if (hit?.into) {
@@ -544,7 +544,7 @@ class DragController {
         drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
         gapKey = this.gapKey;
         pitch = this.pitch;
-      } else if (tabsDrag && this.overPinnedRows(y)) {
+      } else if ((tabsDrag || source.kind === "split") && this.overPinnedRows(y)) {
         const { before, beforeId, sequence } = pinnedAt();
         drop = { type: "tabs", placement: { pinned: true, row: true, beforeId, ...(beforeId ? {} : { last: true }) }, sequence };
         gapKey = before?.key ?? "tail:pinnedGroups";
@@ -563,7 +563,7 @@ class DragController {
       }
     }
     const refused = drop.type === "group" && !!source.groupId && !canMoveGroup(useBrowser.getState().groups, source.groupId, drop.placement);
-    if (refused || (source.kind === "split" && drop.type === "tabs" && (drop.placement.pinned || drop.placement.groupId))) {
+    if (refused || (source.kind === "split" && drop.type === "tabs" && drop.placement.pinned && !drop.placement.row)) {
       drop = { type: "none" };
       gapKey = null;
       into = null;

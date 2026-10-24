@@ -441,6 +441,7 @@ const PinnedEntry = memo(function PinnedEntry({ entry, windowId }: { entry: stri
   const id = entry.slice(entry.indexOf(":") + 1);
   if (entry.startsWith(LIVE)) return <LiveFolderBlock folderId={id} windowId={windowId} />;
   if (entry.startsWith("g:")) return <GroupBlock groupId={id} section="pinnedGroups" />;
+  if (entry.startsWith("s:")) return <SplitRowItem splitId={id} section="pinnedRows" />;
   return <TabRowItem tabId={id} section="pinnedRows" />;
 });
 

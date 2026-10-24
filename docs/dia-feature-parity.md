@@ -284,7 +284,7 @@ string doesn't matter. Afterwards: `kill %1` for the server, quit the app, `rm -
 | Documents live folder (Drive, Notion, Confluence) | ✓ | ✅ | same: user-supplied Google OAuth client / Notion / Confluence tokens |
 | Unread pip on live folders | ✓ | ✅ | |
 | Chat with a live folder | ✓ | ⏸ | |
-| Shared split view in sidebar | ✓ | ✅ | one row per split, a segment per pane |
+| Shared split view in sidebar | ✓ | ✅ | one row per split, a segment per pane. A split row moves as one, as Dia's split sidebar item does (2026-10-24, issue #68): Pin / Unpin on a pane pins the split as one pinned row (never Top Apps tiles), Move to Group, New Group with Tab and Remove from Group take both panes, and the row drags into groups, pinned groups and the pinned rows. A pinned split shows as a split in the profile's other windows (separating or flipping it in one follows in the others), is parked with the last window and comes back a split, and survives relaunch. In the top strip a pinned split is two pinned cells |
 
 ## 4. Sidebar & layout
 | Feature | Dia | Ardia | Gap |
