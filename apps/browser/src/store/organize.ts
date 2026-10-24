@@ -105,7 +105,7 @@ export type OrganizeSlice = {
   closeAbandonedNewTabs(): void;
 };
 
-export type ClearedTabs = { windowId: string; entries: ClosedTab[]; closedEntryIds: string[]; groups: TabGroup[] };
+export type ClearedTabs = { windowId: string; entries: ClosedTab[]; closedEntryIds: string[]; groups: TabGroup[]; groupsAfter: Record<string, TabGroup> };
 
 export function unpinnedTabIds(s: BrowserState, windowId: string): string[] {
   return viewTabIds(s, windowId).filter((id) => !inPinnedContainer(s, id));
@@ -307,32 +307,37 @@ function regroupCleared(
   s: BrowserState,
   windowId: string,
   before: TabGroup[],
+  after: Record<string, TabGroup>,
   renamed: Map<string | undefined, string | undefined>,
   placed: { id: string | undefined; index?: number }[],
 ): BrowserState {
   const w = s.windows[windowId]!;
   const made = new Map<string, string>();
-  const saved = new Set(before.map((g) => g.id));
+  const restored = new Set(renamed.values());
+  const chain = (groups: Record<string, TabGroup>, id: string) => {
+    const inner = innermostGroupOf(groups, id);
+    return inner ? [inner.id, ...ancestorIds(groups, inner.id)].join("\n") : "";
+  };
+  const untouchedSince = (id: string) => chain(s.groups, id) === chain(after, id);
   let groups = s.groups;
   for (const g of before) {
-    const ours = new Set(made.values());
     const live = groups[g.id]?.windowId === windowId && groups[g.id]!.profileId === g.profileId ? groups[g.id] : undefined;
     const members = g.tabIds
       .map((id) => renamed.get(id) ?? id)
       .filter((id) => {
         const t = s.tabs[id];
         if (!t || t.windowId !== windowId || t.profileId !== g.profileId) return false;
-        const inside = innermostGroupOf(groups, id);
-        return !inside || saved.has(inside.id) || ours.has(inside.id);
+        return restored.has(id) || untouchedSince(id);
       });
     const parentId = g.parentId ? made.get(g.parentId) : undefined;
     if (live) {
       const tabIds = [...live.tabIds, ...members.filter((id) => !live.tabIds.includes(id))];
-      groups = { ...groups, [live.id]: withParent({ ...live, tabIds }, parentId ?? live.parentId) };
+      const edgeUntouched = live.parentId === after[g.id]?.parentId;
+      groups = { ...groups, [live.id]: withParent({ ...live, tabIds }, edgeUntouched && parentId ? parentId : live.parentId) };
       made.set(g.id, live.id);
       continue;
     }
-    if (!members.length) continue;
+    if (after[g.id] || !members.length) continue;
     const id = groups[g.id] ? newId("g") : g.id;
     groups = { ...groups, [id]: withParent({ ...g, id, windowId, tabIds: members }, parentId) };
     made.set(g.id, id);
@@ -930,10 +935,10 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     if (!ids.length) return null;
     const entries = closedEntries(s, ids);
     get().closeTabs(ids);
-    return { windowId, entries, closedEntryIds: newClosedEntryIds(s, get()), groups: groupsHolding(s, ids) };
+    return { windowId, entries, closedEntryIds: newClosedEntryIds(s, get()), groups: groupsHolding(s, ids), groupsAfter: get().groups };
   },
 
-  undoClearTabs({ windowId, entries, closedEntryIds, groups }) {
+  undoClearTabs({ windowId, entries, closedEntryIds, groups, groupsAfter }) {
     const s = get();
     const target = s.windows[windowId] ? windowId : restoreTarget(s, windowId);
     const back = target ? entries.filter((e) => !isIncognitoProfile(e.tab.profileId) || e.windowId === target) : [];
@@ -951,7 +956,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       return now ? { ...c, tabId: now, restoreFrom: c.restoreFrom ?? c.tabId } : c;
     });
     const placed = back.map((e, i) => ({ id: ids[i], index: target === e.windowId ? e.index : undefined }));
-    set(regroupCleared({ ...restored, closedTabs }, target, groups, renamed, placed));
+    set(regroupCleared({ ...restored, closedTabs }, target, groups, groupsAfter, renamed, placed));
   },
 
   removeClosedPin(id) {
@@ -960,7 +965,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const next = removeTabs(s, [id], true);
     set(next);
     const closedEntryIds = newClosedEntryIds(s, next);
-    return { windowId: s.tabs[id]!.windowId, entries: next.closedTabs.filter((c) => closedEntryIds.includes(c.id)), closedEntryIds, groups: groupsHolding(s, [id]) };
+    return { windowId: s.tabs[id]!.windowId, entries: next.closedTabs.filter((c) => closedEntryIds.includes(c.id)), closedEntryIds, groups: groupsHolding(s, [id]), groupsAfter: get().groups };
   },
 
   closeAbandonedNewTabs() {

@@ -449,6 +449,36 @@ test("Clear and undo keep a nested group inside the automatic group it was in", 
   assert.deepEqual(nested.tabIds.map((id) => short(S().tabs[id].url)), ["b"]);
 });
 
+const nestedInAutomatic = () => {
+  reset({ cmdClickCreatesTabGroup: true });
+  const [w, a] = setup("a", "c");
+  const b = open(w, "b", a);
+  const child = S().groupTabs([b], { pinned: false, name: "C" });
+  S().activate(b);
+  return { w, b, child, cleared: S().clearUnpinnedTabs(w) };
+};
+
+test("undoing Clear leaves a group the user moved after Clear where they put it", () => {
+  const { w, b, child, cleared } = nestedInAutomatic();
+  const q = S().groupTabs([open(w, "d")], { pinned: false, name: "Q" });
+  S().moveGroup(child, { pinned: false, parentId: q });
+  assert.equal(S().groups[child].parentId, q);
+  S().undoClearTabs(cleared);
+  assert.equal(S().groups[child].parentId, q, "the later move stands");
+  assert.deepEqual(S().groups[child].tabIds, [b]);
+  assert.ok(Object.values(S().groups).every((g) => g.id === q || g.id === child || !g.tabIds.includes(b)), "b stays only in Q's tree");
+  assert.equal(organize.groupOf(S(), b).id, child);
+});
+
+test("undoing Clear doesn't bring back a group the user ungrouped after Clear", () => {
+  const { b, child, cleared } = nestedInAutomatic();
+  S().ungroup(child);
+  assert.equal(S().groups[child], undefined);
+  S().undoClearTabs(cleared);
+  assert.equal(Object.values(S().groups).find((g) => g.name === "C"), undefined);
+  assert.equal(organize.groupOf(S(), b), undefined, "b stays loose");
+});
+
 test("Clear on a lone selected tab closes nothing and opens no New Tab page", () => {
   reset({ newTabPosition: "top" });
   const [w, a] = setup("a");
