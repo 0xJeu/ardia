@@ -2,7 +2,7 @@ import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { autoGroupName } from "./groupNames";
 import { ancestorIds, canNest, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
-import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, newId, pendingRestore, restoreId, snapshotTab, viewTabIds, without } from "./model";
+import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, newId, pendingRestore, restoreId, snapshotTab, viewTabIds, without } from "./model";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup, TileFolder } from "./types";
 
@@ -253,6 +253,23 @@ export function withGroup(
   tabIds = orderSections(placeGroups(tabIds, groups, w.id), s.tabs, groups);
   const window = { ...w, tabIds };
   return [{ ...s, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } }, group.id];
+}
+
+function withRowsGrouped(s: BrowserState, ids: string[], o: { name?: string; pinned?: boolean }): [BrowserState, string] {
+  const rows = ids.filter((id) => isPinnedRow(s.tabs[id]));
+  if (!rows.length) return withGroup(s, ids, o);
+  const tabs = { ...s.tabs };
+  for (const id of rows) {
+    const { pinnedAsRow: _, ...rest } = tabs[id]!;
+    tabs[id] = { ...rest, pinned: false, pinnedUrl: null };
+  }
+  const [next, id] = withGroup({ ...s, tabs }, ids, { ...o, pinned: true });
+  const g = next.groups[id];
+  if (!g) return [s, ""];
+  if (isIncognitoProfile(g.profileId)) return [next, id];
+  const mine = { ...next.pinChoices[g.profileId], [groupChoiceKey(g.pinKey ?? g.id)]: nextPinChoice() };
+  for (const tabId of g.tabIds) mine[placeChoiceKey(next.tabs[tabId]?.pinKey ?? tabId)] = nextPinChoice();
+  return [{ ...next, pinChoices: { ...next.pinChoices, [g.profileId]: mine } }, id];
 }
 
 function closedEntries(s: BrowserState, ids: string[]): ClosedTab[] {
@@ -709,7 +726,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
   },
 
   groupTabs(ids, { pinned = true, name } = {}) {
-    const [next, id] = withGroup(get(), ids, { pinned, name });
+    const [next, id] = withRowsGrouped(get(), ids, { pinned, name });
     if (id) set({ ...next, selection: { ...next.selection, [next.groups[id]!.windowId]: [] } });
     return id;
   },
@@ -718,11 +735,11 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const s = get();
     const target = s.tabs[targetId];
     const w = target && s.windows[target.windowId];
-    if (!w || target.pinned || groupOf(s, targetId)) return "";
+    if (!w || (target.pinned && !isPinnedRow(target)) || groupOf(s, targetId)) return "";
     const moving = ids.filter((id) => id !== targetId && s.tabs[id]?.windowId === w.id && s.tabs[id]?.profileId === target.profileId);
     if (!moving.length) return "";
     const after = w.tabIds.slice(w.tabIds.indexOf(targetId) + 1).find((id) => !moving.includes(id)) ?? null;
-    const [next, id] = withGroup(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
+    const [next, id] = withRowsGrouped(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
     if (id) set({ ...next, selection: { ...next.selection, [w.id]: [] } });
     return id;
   },

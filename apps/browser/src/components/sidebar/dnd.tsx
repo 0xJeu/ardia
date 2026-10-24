@@ -538,14 +538,14 @@ class DragController {
         const before = members.find((m) => cy(m) > y);
         drop = nestAt(hit.g.groupId!, firstTab(before));
         gapKey = before?.key ?? `tail:group:${hit.g.groupId}`;
+      } else if ((onto = tabsDrag && !this.external ? this.ontoTarget(live, y, this.overPinnedRows(y) ? "pinnedRows" : "list") : null)) {
+        drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
+        gapKey = this.gapKey;
+        pitch = this.pitch;
       } else if (tabsDrag && this.overPinnedRows(y)) {
         const { before, beforeId, sequence } = pinnedAt();
         drop = { type: "tabs", placement: { pinned: true, row: true, beforeId, ...(beforeId ? {} : { last: true }) }, sequence };
         gapKey = before?.key ?? "tail:pinnedGroups";
-      } else if ((onto = tabsDrag && !this.external ? this.ontoTarget(live, y) : null)) {
-        drop = { type: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
-        gapKey = this.gapKey;
-        pitch = this.pitch;
       } else if ((source.kind === "group" || source.kind === "live") && inPinned) {
         const { before, beforeId, sequence } = pinnedAt();
         drop = source.kind === "live" ? { type: "live", sequence } : { type: "group", placement: { pinned: true, parentId: null, beforeId }, sequence };
@@ -620,9 +620,9 @@ class DragController {
     return { ...f, y: f.y + dy, h: f.h + dh };
   }
 
-  private ontoTarget(live: Item[], y: number): string | null {
+  private ontoTarget(live: Item[], y: number, section: "list" | "pinnedRows"): string | null {
     for (const i of live) {
-      if (i.kind !== "row" || i.parentGroup || i.section !== "list") continue;
+      if (i.kind !== "row" || i.parentGroup || i.section !== section) continue;
       const f = this.shown(i);
       if (y > f.y + f.h * 0.25 && y < f.y + f.h * 0.75) return i.key;
     }
