@@ -29,7 +29,7 @@ import { focusSettingsSearch } from "../components/settings/searchState";
 import { closePanelToHeroBar, focusHeroBar } from "../components/omnibox/barState";
 import { closeNewTabBar, isEmptyCardTab, showNewTabBar, toggleNewTabBar } from "../components/omnibox/newTabBar";
 import { NEW_TAB_BAR_POLICY } from "../store/newTabBar";
-import { addressBarInSidebar } from "../components/layout/windowLayout";
+import { addressBarInSidebar, commandBarCentred } from "../components/layout/windowLayout";
 import { addFolderToSidebar, restoreArcFolders } from "./bookmarkGroups";
 import { withLivePage } from "./livePage";
 import { webviews } from "./webviews";
@@ -148,7 +148,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "focusCommandBar":
       if (page) return s.openPanel(windowId, page.url);
       if (isEmptyCardTab(s, tab) && showNewTabBar(windowId)) return;
-      if (tab && addressBarInSidebar(s, windowId)) return s.openPanel(windowId, "");
+      if (tab && addressBarInSidebar(s, windowId) && !commandBarCentred(s, windowId)) return s.openPanel(windowId, "");
       if (!focusHeroBar(windowId, tabId)) return tab ? s.openPanel(windowId, "") : undefined;
       return ui?.panel.open ? s.closePanel(windowId) : undefined;
     case "closeTab":

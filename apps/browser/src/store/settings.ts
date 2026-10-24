@@ -60,6 +60,7 @@ export type Settings = {
 
   appearance: "auto" | "light" | "dark";
   addressBar: "toolbar" | "sidebar";
+  commandBarPlacement: "field" | "centred";
 
   defaultProfileId: string;
 
@@ -119,6 +120,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hideBookmarksBarImport: false,
   appearance: "auto",
   addressBar: "toolbar",
+  commandBarPlacement: "field",
   defaultProfileId: DEFAULT_PROFILE_ID,
   shortcuts: {},
   openLinksInLittleArdia: true,

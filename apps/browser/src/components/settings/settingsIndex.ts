@@ -171,7 +171,17 @@ const ROWS: Record<SettingsPane, Section[]> = {
       section: "Appearance Theme",
       rows: { theme: { title: "Appearance Theme", description: "Also in View › Appearance. Incognito windows are always dark.", keywords: ["dark mode", "light mode", "automatic", "night", "system"] } },
     },
-    { section: "Address Bar", rows: { addressBar: { title: "Address Bar", description: "In the toolbar or in the sidebar.", keywords: ["url bar", "location bar", "toolbar"] } } },
+    {
+      section: "Address Bar",
+      rows: {
+        addressBar: { title: "Address Bar", description: "In the toolbar or in the sidebar.", keywords: ["url bar", "location bar", "toolbar"] },
+        commandBarPlacement: {
+          title: "⌘L opens the command bar",
+          description: "In the centre, ⌘L and a click on the address show it over the middle of the page, as in Arc.",
+          keywords: ["cmd l", "command bar", "centred", "centered", "arc", "url bar", "location bar"],
+        },
+      },
+    },
     { section: "App Icon", rows: { appIcon: { title: "App Icon", description: "Shown in the Dock and the app switcher. The Dock keeps it after you quit.", keywords: ["dock icon", "logo"] } } },
   ],
   privacy: [
