@@ -909,7 +909,7 @@ enum MainMenu {
       for item in group.items {
         if let o = overrides[id] {
           if carriesOverride(item) { setShortcut(item, o.first ?? "", modifiers(o.dropFirst())) } else { setShortcut(item, "", []) }
-        } else if !carriesOverride(item), !item.defaultKey.isEmpty, taken.contains(comboKey(item.defaultKey, item.defaultModifiers)) {
+        } else if !item.defaultKey.isEmpty, taken.contains(comboKey(item.defaultKey, item.defaultModifiers)) {
           setShortcut(item, "", [])
         } else {
           setShortcut(item, item.defaultKey, item.defaultModifiers)
