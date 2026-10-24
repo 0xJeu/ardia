@@ -192,10 +192,11 @@ export function ImportWindow() {
     return s.createProfile({ name, color: profileColorFor(color) as ProfileColor | undefined, icon: emoji ?? null, shareWith });
   };
 
-  const run = async (wanted: Set<ImportKind>) => {
+  const run = async (wanted: Set<ImportKind>, withoutKey = false) => {
     if (!api || !source) return;
     const selected = source.profiles.filter((p) => sourceProfiles.includes(p.id) || (isArc && p.spaces?.some((s) => spaces.includes(s.id))));
-    const requested: ImportKind[] = [...wanted];
+    const tabsLocked = (p: BrowserProfile) => withoutKey && !!p.tabsNeedKey;
+    const requested: ImportKind[] = [...wanted].filter((k) => k !== "tabs" || !selected.every(tabsLocked));
     if (isArc && requested.includes("tabs")) requested.push("spaces", "pinnedTabs");
     const order = KINDS.map((k) => k.kind).filter((k) => requested.includes(k));
     setStatus(Object.fromEntries(order.map((k) => [k, "pending"])));
@@ -215,8 +216,9 @@ export function ImportWindow() {
 
     for (const profile of selected) {
       let result: ImportResult;
+      const profileKinds = tabsLocked(profile) ? order.filter((k) => k !== "tabs") : order;
       try {
-        result = await api.importData(source.id, profile.id, order, {
+        result = await api.importData(source.id, profile.id, profileKinds, {
           spaceIds: isArc ? spaces : undefined,
           signal: abort.current.signal,
           onProgress: (p) => {
@@ -226,7 +228,7 @@ export function ImportWindow() {
         });
       } catch (e) {
         if ((e as { code?: string }).code === "cancelled") return;
-        for (const k of order) failed.set(k, [...(failed.get(k) ?? []), profile.name]);
+        for (const k of profileKinds) failed.set(k, [...(failed.get(k) ?? []), profile.name]);
         continue;
       }
       for (const k of result.failed) failed.set(k, [...(failed.get(k) ?? []), profile.name]);
@@ -606,7 +608,7 @@ export function ImportWindow() {
             without.delete("passwords");
             without.delete("cookies");
             setKinds(without);
-            void run(without);
+            void run(without, true);
           }}
         />
         <Button title={unlocking ? "Waiting for password..." : "Continue"} kind="primary" disabled={unlocking} onPress={() => void unlock()} />

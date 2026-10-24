@@ -51,7 +51,10 @@ public enum ChromiumSessions {
 
   public static func needsKey(profile: URL) -> Bool {
     let files = sessionFiles(profile: profile)
-    return !files.isEmpty && files.allSatisfy(\.encrypted)
+    guard files.contains(where: \.encrypted) else { return false }
+    return !files.contains { file in
+      !file.encrypted && (try? Data(contentsOf: file.url)).flatMap { try? parse($0, key: nil) } != nil
+    }
   }
 
   public static func load(profile: URL, key: Data?) throws -> OpenTabs {

@@ -93,6 +93,24 @@ final class ChromiumChannelTests: XCTestCase {
     XCTAssertEqual(result.tabs.count, 2)
   }
 
+  func testAnIncompleteCleartextSessionStillAsksForTheKey() throws {
+    let profile = FileManager.default.temporaryDirectory.appendingPathComponent("ardia-sessions-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: profile) }
+    let fm = FileManager.default
+    try fm.createDirectory(at: profile.appendingPathComponent("Sessions"), withIntermediateDirectories: true)
+    try fm.createDirectory(at: profile.appendingPathComponent("Sessions_Encrypted"), withIntermediateDirectories: true)
+    var header = Data("SNSS".utf8)
+    header.append(contentsOf: [3, 0, 0, 0])
+    try header.write(to: profile.appendingPathComponent("Sessions/Session_13432694400000000"))
+    try fm.copyItem(at: encryptedOnly.appendingPathComponent("Sessions_Encrypted/Session_13432694400000000"),
+                    to: profile.appendingPathComponent("Sessions_Encrypted/Session_13432694401000000"))
+
+    XCTAssertTrue(ChromiumSessions.needsKey(profile: profile))
+    XCTAssertFalse(ChromiumSessions.needsKey(profile: beta))
+    XCTAssertThrowsError(try ChromiumSessions.load(profile: profile, key: nil))
+    XCTAssertEqual(try ChromiumSessions.load(profile: profile, key: Fixtures.chromiumKey).tabs.count, 2)
+  }
+
   func testSessionFilesWithoutTheMarkerAreSkipped() throws {
     var header = Data("SNSS".utf8)
     header.append(contentsOf: [3, 0, 0, 0])
