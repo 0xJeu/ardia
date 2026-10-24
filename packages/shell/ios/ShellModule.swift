@@ -7,6 +7,7 @@ public enum OpenURLInbox {
   static var deliver: (([String]) -> Void)?
 
   public static func receive(_ urls: [URL]) {
+    WindowManager.shared.noteLinkArrival()
     let strings = urls.map { $0.isFileURL ? $0.absoluteString : $0.absoluteString }
     if let deliver { deliver(strings) } else { pending += strings }
   }

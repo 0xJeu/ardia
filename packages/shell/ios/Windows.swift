@@ -348,9 +348,23 @@ final class WindowManager: NSObject, NSWindowDelegate {
     window.collectionBehavior.insert(.moveToActiveSpace)
   }
 
+  private static let linkPlacementWindow: TimeInterval = 5
+  private var linkArrival: (pointer: NSPoint, uptime: TimeInterval)?
+
+  func noteLinkArrival() {
+    linkArrival = (NSEvent.mouseLocation, ProcessInfo.processInfo.systemUptime)
+  }
+
+  private func takeLinkPointer() -> NSPoint? {
+    defer { linkArrival = nil }
+    guard let linkArrival, ProcessInfo.processInfo.systemUptime - linkArrival.uptime < Self.linkPlacementWindow else { return nil }
+    return linkArrival.pointer
+  }
+
   private func placeSmall(_ window: NSWindow, size: [Double]) {
-    let mouse = NSEvent.mouseLocation
-    let screen = (NSApp.isActive ? NSApp.keyWindow?.screen : nil)
+    let link = takeLinkPointer()
+    let mouse = link ?? NSEvent.mouseLocation
+    let screen = (link == nil && NSApp.isActive ? NSApp.keyWindow?.screen : nil)
       ?? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
     guard let visible = screen?.visibleFrame else { return window.center() }
     let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)
