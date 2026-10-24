@@ -133,7 +133,8 @@ public struct ArcSidebar: Equatable {
           JSONSerialization.isValidJSONObject([live]),
           let data = try? JSONSerialization.data(withJSONObject: [live]),
           let text = String(data: data, encoding: .utf8)?.lowercased() else { return nil }
-    return text.contains("github") || text.contains("bitbucket") ? "livePullRequests" : nil
+    if text.contains("bitbucket") { return "liveBitbucketPullRequests" }
+    return text.contains("github") ? "liveGitHubPullRequests" : nil
   }
 
   static func objects(_ any: Any?) -> [[String: Any]] {

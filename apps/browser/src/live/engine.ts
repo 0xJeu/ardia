@@ -112,13 +112,13 @@ export function newLiveFolder(windowId: string, kind: LiveFolderKind): string | 
   return newProfileLiveFolder(w.profileId, kind);
 }
 
-export function newProfileLiveFolder(profileId: string, kind: LiveFolderKind): string {
+export function newProfileLiveFolder(profileId: string, kind: LiveFolderKind, sources?: LiveSourceId[]): string {
   const s = live();
-  const sources: LiveSourceId[] =
+  const connected: LiveSourceId[] =
     kind === "pullRequests"
       ? (["github", "bitbucket"] as const).filter((id) => s.accounts[id])
       : (["notion", "confluence", "gdrive"] as const).filter((id) => s.accounts[id]);
-  const id = createFolder(profileId, kind, sources.length ? sources : undefined);
+  const id = createFolder(profileId, kind, sources ?? (connected.length ? connected : undefined));
   void refreshFolder(id);
   return id;
 }
