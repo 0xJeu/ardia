@@ -155,10 +155,8 @@ function conformList(input: BrowserState, windowId: string, profileId: string, s
   const followers = new Map<string | null, string[]>();
   let anchor: string | null = null;
   for (const id of w.tabIds) {
-    if (section.has(id)) {
-      if (kept.has(id)) anchor = id;
-      continue;
-    }
+    if (section.has(id) && kept.has(id)) anchor = id;
+    if (section.has(id) && !gone.includes(id)) continue;
     followers.get(anchor)?.push(id) ?? followers.set(anchor, [id]);
   }
   const ids = [...(followers.get(null) ?? [])];

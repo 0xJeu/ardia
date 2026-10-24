@@ -240,3 +240,30 @@ for (const where of ["pinned split", "split in a pinned group"]) {
     });
   }
 }
+
+for (const where of ["pinned split", "split in a pinned group"]) {
+  test(`handing a page to a ${where} from a New Tab pane leaves the other window a tab to show`, () => {
+    reset();
+    const a = S().createWindow({ url: "https://x.com" });
+    const [x] = S().windows[a].tabIds;
+    const b = S().createWindow({ url: "https://b1.com" });
+    const [b1] = S().windows[b].tabIds;
+    share(true);
+    const y = S().newTab(b, { url: "https://y.com", background: true });
+    const z = S().newTab(b, { background: true });
+    S().navigate(z, "https://z.com");
+    S().navigated(z, { url: "https://z.com/", title: "Z" }, {});
+    const splitId = S().createSplit([y, z]);
+    if (where === "pinned split") S().pinTabs([y], true);
+    else S().placeTabs([y], { pinned: false, groupId: S().groupTabs([b1], { pinned: true, name: "P" }) });
+    S().navigated(z, { url: "", title: "New Tab" }, {});
+    const copy = rowOf(b, "https://x.com");
+    assert.equal(S().tabs[copy].pageIn, x);
+    S().replaceSplitPane(z, copy);
+    assert.equal(S().tabs[x].windowId, b, "the page went to B's split");
+    assert.ok(S().splits[splitId].tabIds.includes(x));
+    const showing = shown(a);
+    assert.ok(showing && S().tabs[showing]?.windowId === a, "A still shows one of its own tabs");
+    assert.equal(S().windows[a].tabIds.includes(showing), true);
+  });
+}
