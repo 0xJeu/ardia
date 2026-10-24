@@ -22,7 +22,7 @@ import { nextPinChoice, placeChoiceKey, restoringGroup } from "./organize";
 import { adoptParkedPins, parkWindowPins } from "./parkedPins";
 import { settleMovedPins } from "./pinMirror";
 import { holderOf, returnSharedPages, swapPinPage } from "./pinShare";
-import { isSmall, isSmallWindow, lastActiveProfile, mainWindowFor, originalProfile } from "./small";
+import { isSmall, isSmallWindow, lastActiveProfile, linkProfileOf, mainWindowFor } from "./small";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, ClosedTab, ClosedWindow, Frame, ParkedPins, Tab, TabGroup } from "./types";
 
@@ -65,13 +65,13 @@ function emptyWindow(id: string, profileId: string, incognito: boolean, frame: F
   return { id, profileId, incognito, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame, createdAt: Date.now() };
 }
 
-const smallWindow = (id: string, profileId: string): BrowserWindow => ({ ...emptyWindow(id, profileId, false), sidebarOpen: false, kind: "small" });
+const smallWindow = (id: string, profileId: string, frame: Frame | null = null): BrowserWindow => ({ ...emptyWindow(id, profileId, false, frame), sidebarOpen: false, kind: "small" });
 
 function lastProfileAfterClosing(s: BrowserState, id: string): string | null {
   const w = s.windows[id];
   if (!w || w.incognito || s.ui.focusedWindowId !== id) return s.ui.lastProfileId;
-  const next = s.ui.focusOrder.find((f) => f !== id && s.windows[f]);
-  return originalProfile(s, next ? s.windows[next] : undefined) ?? s.ui.lastProfileId;
+  const next = s.ui.focusOrder.find((f) => f !== id && linkProfileOf(s, s.windows[f]));
+  return linkProfileOf(s, next ? s.windows[next] : undefined) ?? s.ui.lastProfileId;
 }
 
 function withWindow(s: BrowserState, w: BrowserWindow): BrowserState {
@@ -79,7 +79,7 @@ function withWindow(s: BrowserState, w: BrowserWindow): BrowserState {
     ...s,
     windows: { ...s.windows, [w.id]: w },
     windowOrder: [...s.windowOrder, w.id],
-    ui: { ...s.ui, focusedWindowId: w.id, focusOrder: [w.id, ...s.ui.focusOrder], lastProfileId: originalProfile(s, w) ?? s.ui.lastProfileId },
+    ui: { ...s.ui, focusedWindowId: w.id, focusOrder: [w.id, ...s.ui.focusOrder], lastProfileId: linkProfileOf(s, w) ?? s.ui.lastProfileId },
   };
 }
 
@@ -138,7 +138,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     const profileId = original !== undefined
       ? incognitoProfileId(id, original)
       : (known ?? (small ? lastActiveProfile(s) : s.settings.defaultProfileId));
-    const w = small ? smallWindow(id, profileId) : emptyWindow(id, profileId, !!o.incognito, o.frame ?? null);
+    const w = small ? smallWindow(id, profileId, o.frame ?? null) : emptyWindow(id, profileId, !!o.incognito, o.frame ?? null);
     if (original !== undefined) w.originalProfileId = original;
     if (small && o.linkPointer) w.linkPointer = o.linkPointer;
     if (o.chromeWindow && !small) w.chromeWindow = o.chromeWindow;

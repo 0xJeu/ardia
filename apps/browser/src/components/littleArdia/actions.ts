@@ -1,7 +1,9 @@
 import { type LinkRoute, routeLinkTabs } from "@ardia/ardiacore";
+import { showMenu } from "@ardia/shell";
 import { focus, openWindow } from "../../lib/actions";
 import { routedLinks, type RoutedLinks } from "../../lib/linkRoutes";
 import { runsJavaScript } from "../../lib/scriptUrls";
+import { profileAccent } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
 import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
@@ -77,6 +79,41 @@ export function openInMainWindow(windowId: string) {
   }
   const moved = s.moveTabsToWindow([tab.id], target ?? null);
   if (moved) focus(moved);
+}
+
+export function moveLittleArdiaToProfile(windowId: string, profileId: string) {
+  const s = store();
+  const w = s.windows[windowId];
+  if (!w || !isSmall(s, windowId) || !s.profiles[profileId] || w.profileId === profileId) return;
+  const tabId = activeTabId(s, windowId);
+  const url = (tabId ? s.tabs[tabId]?.url : undefined) || undefined;
+  const id = store().createWindow({ small: true, url, profileId, frame: w.frame });
+  if (!url) store().openPanel(id, "");
+  store().closeWindow(windowId);
+  if (tabId) useBrowser.setState((now) => ({ closedTabs: now.closedTabs.filter((c) => c.tabId !== tabId) }));
+}
+
+export function cycleLittleArdiaProfile(windowId: string, delta: 1 | -1) {
+  const s = store();
+  const w = s.windows[windowId];
+  if (!w || s.profileOrder.length < 2) return;
+  const i = s.profileOrder.indexOf(w.profileId);
+  moveLittleArdiaToProfile(windowId, s.profileOrder[(i + delta + s.profileOrder.length) % s.profileOrder.length]!);
+}
+
+export async function openLittleArdiaProfileMenu(windowId: string) {
+  const s = store();
+  const current = s.windows[windowId]?.profileId;
+  const choice = await showMenu(
+    s.profileOrder.map((id, i) => ({
+      id,
+      title: s.profiles[id]!.name,
+      checked: id === current,
+      swatch: profileAccent(s.profiles[id]),
+      ...(i < 9 ? { key: String(i + 1), modifiers: ["control" as const] } : {}),
+    })),
+  );
+  if (choice) moveLittleArdiaToProfile(windowId, choice);
 }
 
 export function closeLittleArdia(windowId: string) {

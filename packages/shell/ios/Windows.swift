@@ -120,7 +120,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     behind: String? = nil
   ) {
     window.title = title
-    if let smallSize { placeSmall(window, size: smallSize, pointer: smallPointer) } else if frame != nil || !window.isVisible { place(window, frame: frame) }
+    if let smallSize, frame == nil { placeSmall(window, size: smallSize, pointer: smallPointer) } else if frame != nil || !window.isVisible { place(window, frame: frame) }
     relayoutRoot(window)
     windows[id] = window
     if let center = lightsCenters[id] { ChromeWindows.setTrafficLightsCenter(center, in: window) }
