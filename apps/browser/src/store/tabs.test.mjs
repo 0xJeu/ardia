@@ -449,6 +449,21 @@ test("Clear and undo keep a nested group inside the automatic group it was in", 
   assert.deepEqual(nested.tabIds.map((id) => short(S().tabs[id].url)), ["b"]);
 });
 
+test("Undo of Clear keeps a rename or collapse made after Clear", () => {
+  reset();
+  const [w, , , d, e] = setup("a", "b", "d", "e");
+  const g = S().createGroup([d, e], { name: "G" });
+  S().activate(e);
+  const cleared = S().clearUnpinnedTabs(w);
+  S().updateGroup(g, { name: "Renamed", color: "red", collapsed: true });
+  S().undoClearTabs(cleared);
+  assert.deepEqual(hosts(w), ["a", "b", "d", "e"]);
+  assert.deepEqual(S().groups[g].tabIds.map((id) => short(S().tabs[id].url)), ["d", "e"]);
+  assert.equal(S().groups[g].name, "Renamed");
+  assert.equal(S().groups[g].color, "red");
+  assert.equal(S().groups[g].collapsed, true);
+});
+
 const nestedInAutomatic = () => {
   reset({ cmdClickCreatesTabGroup: true });
   const [w, a] = setup("a", "c");
