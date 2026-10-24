@@ -106,8 +106,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)resolveAutofillPrompt:(NSInteger)promptId action:(NSString *)action NS_SWIFT_NAME(resolveAutofillPrompt(_:action:));
 - (nullable NSString *)executeExtensionAction:(NSString *)extensionId NS_SWIFT_NAME(executeExtensionAction(_:));
 
-- (void)resolveDisplayMedia:(NSString *)requestId sourceId:(nullable NSString *)sourceId
-    NS_SWIFT_NAME(resolveDisplayMedia(_:sourceId:));
+- (void)resolveDisplayMedia:(NSString *)requestId sourceId:(nullable NSString *)sourceId audio:(BOOL)audio
+    NS_SWIFT_NAME(resolveDisplayMedia(_:sourceId:audio:));
 @property (nonatomic, readonly, nullable) NSString *mediaCaptureSourceId;
 
 - (void)notificationAction:(NSString *)notificationId action:(NSString *)action NS_SWIFT_NAME(notificationAction(_:action:));

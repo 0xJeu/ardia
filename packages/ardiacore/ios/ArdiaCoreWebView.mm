@@ -523,6 +523,26 @@ void AcceptDrops(NSView *root, BOOL accept) {
 @interface ArdiaCoreWebView () <ArdiaCoreTabDelegate>
 @end
 
+static NSDictionary *DisplayMediaAudioOffer(NSDictionary *message) {
+  if (!Flag(message, @"audio")) return nil;
+  NSDictionary *support = [ArdiaCoreEngine respondsToSelector:@selector(desktopCaptureAudio)] ? ArdiaCoreEngine.desktopCaptureAudio : @{};
+  const bool system = Flag(support, @"system"), application = Flag(support, @"application");
+  NSString *preference = Text(message, @"windowAudio", 16);
+  NSString *window = nil;
+  if ([preference isEqualToString:@"window"])
+    window = application ? @"application" : system ? @"system" : nil;
+  else if ([preference isEqualToString:@"system"])
+    window = system ? @"system" : nil;
+  return @{@"tab" : @YES, @"screen" : @(system && Flag(message, @"systemAudio")), @"window" : window ?: NSNull.null};
+}
+
+static NSString *DisplayMediaAudioFor(NSDictionary *offer, NSString *sourceId) {
+  if ([sourceId hasPrefix:@"screen:"]) return Flag(offer, @"screen") ? @"system" : nil;
+  if ([sourceId hasPrefix:@"window:"]) return Field<NSString>(offer, @"window");
+  if ([sourceId hasPrefix:@"web-contents-media-stream://"]) return Flag(offer, @"tab") ? @"tab" : nil;
+  return nil;
+}
+
 static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hello, NSString *frameId, BOOL main) {
   NSString *frameURL = Text(hello, @"url", 8192) ?: tab.url;
   NSString *origin = OriginOf(main ? frameURL : tab.url);
@@ -532,7 +552,7 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
     if (!frameId.length || ![to respondsToSelector:@selector(callFrame:kind:json:)]) return;
     NSMutableDictionary *config = [NSMutableDictionary dictionary];
     if (blockAutoplay) config[@"blockAutoplay"] = @YES;
-    if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:)])
+    if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:audio:)])
       config[@"displayMediaPicker"] = @YES;
     if (main && ACFieldTimingEnabled()) config[@"fieldTiming"] = @YES;
     config[@"peek"] = gPeekModifier;
@@ -2335,13 +2355,14 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     if (!_displayRequests) _displayRequests = [NSMutableDictionary dictionary];
     if (_displayRequests.count >= 16) return;
     NSString *requestId = NSUUID.UUID.UUIDString;
-    _displayRequests[requestId] = @{@"frame" : frameId, @"id" : @((int)pageId), @"audio" : @(Flag(dict, @"audio")), @"origin" : sender};
+    NSDictionary *audio = DisplayMediaAudioOffer(dict);
+    _displayRequests[requestId] = @{@"frame" : frameId, @"id" : @((int)pageId), @"audio" : audio ?: NSNull.null, @"origin" : sender};
     [self emit:@"displayMediaRequest"
         payload:@{
           @"id" : requestId,
           @"origin" : OriginOf(tab.url) ?: sender,
           @"frameOrigin" : sender,
-          @"audio" : @(Flag(dict, @"audio")),
+          @"audio" : audio ?: NSNull.null,
           @"sources" : ArdiaCoreHost.displayMediaSources
         }];
   }
@@ -2819,17 +2840,19 @@ static NSEventModifierFlags PeekModifierFlag() {
   return [_tab respondsToSelector:@selector(executeExtensionAction:)] ? [_tab executeExtensionAction:extensionId] : nil;
 }
 
-- (void)resolveDisplayMedia:(NSString *)requestId sourceId:(NSString *)sourceId {
+- (void)resolveDisplayMedia:(NSString *)requestId sourceId:(NSString *)sourceId audio:(BOOL)shareAudio {
   NSDictionary *request = requestId ? _displayRequests[requestId] : nil;
   if (!request) return;
   [_displayRequests removeObjectForKey:requestId];
-  if (sourceId.length && _tab && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:)])
+  NSString *audio = shareAudio && sourceId.length ? DisplayMediaAudioFor(Field<NSDictionary>(request, @"audio"), sourceId) : nil;
+  if (sourceId.length && _tab && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:audio:)])
     [ArdiaCoreEngine allowDesktopCapture:sourceId
                                   tab:_tab
                                 frame:[request[@"frame"] length] ? request[@"frame"] : nil
-                               origin:request[@"origin"]];
+                               origin:request[@"origin"]
+                                audio:audio];
   [self callFrame:request[@"frame"] kind:@"displayMedia"
-             json:JSONString(@{@"id" : request[@"id"], @"sourceId" : sourceId.length ? sourceId : NSNull.null})];
+             json:JSONString(@{@"id" : request[@"id"], @"sourceId" : sourceId.length ? sourceId : NSNull.null, @"audio" : @(audio != nil)})];
 }
 
 - (NSString *)mediaCaptureSourceId {

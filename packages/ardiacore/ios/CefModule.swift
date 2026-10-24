@@ -309,8 +309,8 @@ public class CefModule: Module {
         view.browser.executeExtensionAction(extensionId)
       }.runOnQueue(.main)
 
-      AsyncFunction("resolveDisplayMedia") { (view: CefWebView, id: String, sourceId: String?) in
-        view.browser.resolveDisplayMedia(id, sourceId: sourceId)
+      AsyncFunction("resolveDisplayMedia") { (view: CefWebView, id: String, sourceId: String?, audio: Bool) in
+        view.browser.resolveDisplayMedia(id, sourceId: sourceId, audio: audio)
       }.runOnQueue(.main)
       AsyncFunction("mediaCaptureSourceId") { (view: CefWebView) in view.browser.mediaCaptureSourceId }.runOnQueue(.main)
       AsyncFunction("notificationAction") { (view: CefWebView, id: String, action: String) in

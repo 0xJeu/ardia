@@ -8,7 +8,6 @@
   const { keys, setPrototypeOf } = Object;
   const { isArray } = Array;
   const { isFinite } = Number;
-  const startsWith = String.prototype.startsWith;
   const plain = (value, depth) => {
     if (value === null || typeof value === "string" || typeof value === "boolean") return value;
     if (typeof value === "number") return isFinite(value) ? value : null;
@@ -475,13 +474,15 @@
       const self = this;
       return new Promise((resolve, reject) => {
         const id = ++displaySeq;
-        displayRequests.set(id, { self, resolve, reject, constraints: constraints || {} });
-        send("displayMedia", { id, audio: !!(constraints && constraints.audio) });
+        const options = constraints || {};
+        displayRequests.set(id, { self, resolve, reject, constraints: options });
+        const windowAudio = options.windowAudio === "exclude" || options.windowAudio === "window" ? options.windowAudio : "system";
+        send("displayMedia", { id, audio: !!options.audio, systemAudio: options.systemAudio !== "exclude", windowAudio });
       });
     };
     Object.defineProperty(getDisplayMedia, "__ac", { value: true });
     proto.getDisplayMedia = getDisplayMedia;
-    handlers.displayMedia = ({ id, sourceId }) => {
+    handlers.displayMedia = ({ id, sourceId, audio }) => {
       const request = displayRequests.get(id);
       if (!request) return;
       displayRequests.delete(id);
@@ -491,10 +492,9 @@
       }
       const video = request.constraints.video;
       const frameRate = (video && video.frameRate && (video.frameRate.max || video.frameRate.ideal || video.frameRate)) || 30;
-      const tabAudio = !!request.constraints.audio && apply(startsWith, sourceId, ["web-contents-media-stream://"]);
       apply(getUserMedia, request.self, [
         {
-          audio: tabAudio ? { mandatory: { chromeMediaSource: "desktop" } } : false,
+          audio: audio === true ? { mandatory: { chromeMediaSource: "desktop" } } : false,
           video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: sourceId, maxWidth: 3840, maxHeight: 2160, maxFrameRate: +frameRate || 30 } },
         },
       ]).then(request.resolve, request.reject);
