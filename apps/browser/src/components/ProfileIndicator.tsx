@@ -81,22 +81,16 @@ export async function openProfileMenu(windowId: string) {
   const s = useBrowser.getState();
   const current = s.windows[windowId]?.profileId;
   const items: MenuItem[] = [
-    ...s.profileOrder.flatMap((id, i) => [
-      {
-        id: `switch:${id}`,
-        title: s.profiles[id]!.name,
-        checked: id === current,
-        swatch: profileAccent(s.profiles[id]),
-        ...(i < 9 ? { key: String(i + 1), modifiers: ["control" as const] } : {}),
-      },
-      {
-        id: `window:${id}`,
-        title: `${s.profiles[id]!.name} ↗`,
-        alternate: true,
-        swatch: profileAccent(s.profiles[id]),
-        ...(i < 9 ? { key: String(i + 1), modifiers: ["control" as const, "command" as const] } : { modifiers: ["command" as const] }),
-      },
-    ]),
+    ...s.profileOrder.flatMap((id, i): MenuItem[] => {
+      const profile = s.profiles[id]!;
+      const swatch = profileAccent(profile);
+      const key = i < 9 ? { key: String(i + 1) } : {};
+      const modifiers: ("control" | "command")[] = i < 9 ? ["control"] : [];
+      return [
+        { id: `switch:${id}`, title: profile.name, checked: id === current, swatch, ...key, modifiers },
+        { id: `window:${id}`, title: `${profile.name} ↗`, alternate: true, swatch, ...key, modifiers: [...modifiers, "command"] },
+      ];
+    }),
     { separator: true },
     { id: "new", title: "New Profile", symbol: "plus" },
     { id: "edit", title: "Edit Profiles…", symbol: "pencil" },

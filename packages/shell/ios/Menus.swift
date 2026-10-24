@@ -143,6 +143,7 @@ final class CommandItem: NSMenuItem, Rebindable {
   let defaultTitle: String
   var windowless = false
   var tracksChecked = true
+  private(set) var commandAlternateOf: CommandItem?
   let defaultKey: String
   let defaultModifiers: NSEvent.ModifierFlags
 
@@ -176,6 +177,22 @@ final class CommandItem: NSMenuItem, Rebindable {
   func alternate() -> CommandItem {
     isAlternate = true
     return self
+  }
+
+  func commandAlternate(of primary: CommandItem) -> CommandItem {
+    commandAlternateOf = primary
+    isAlternate = true
+    return self
+  }
+
+  func followPrimaryShortcut(taken: Set<String>) {
+    guard let primary = commandAlternateOf else { return }
+    let mods = primary.keyEquivalentModifierMask.union(.command)
+    if keyEquivalent != primary.keyEquivalent { keyEquivalent = primary.keyEquivalent }
+    if keyEquivalentModifierMask != mods { keyEquivalentModifierMask = mods }
+    let collides = !primary.keyEquivalent.isEmpty && taken.contains(MainMenu.comboKey(primary.keyEquivalent, mods))
+    let hidden = primary.keyEquivalentModifierMask.contains(.command) || collides
+    if isHidden != hidden { isHidden = hidden }
   }
 }
 
@@ -755,7 +772,7 @@ enum MainMenu {
       item.tracksChecked = false
       item.state = p.current ? .on : .off
       profiles.addItem(item)
-      let newWindow = CommandItem("\(p.title) ↗", "newWindow", arg: p.id, key: i < 9 ? "\(i + 1)" : "", [.control, .command]).alternate()
+      let newWindow = CommandItem("\(p.title) ↗", "newWindow", arg: p.id, key: "", []).commandAlternate(of: item)
       newWindow.tracksChecked = false
       profiles.addItem(newWindow)
     }
@@ -851,7 +868,7 @@ enum MainMenu {
     return NSEvent.ModifierFlags(modifierNames.filter { names.contains($0.0) }.map(\.1))
   }
 
-  private static func comboKey(_ key: String, _ mods: NSEvent.ModifierFlags) -> String {
+  static func comboKey(_ key: String, _ mods: NSEvent.ModifierFlags) -> String {
     let relevant = mods.intersection([.control, .option, .shift, .command, .function])
     let shift: NSEvent.ModifierFlags = key != key.lowercased() ? .shift : []
     return "\(key.lowercased())|\(relevant.union(shift).rawValue)"
@@ -867,7 +884,7 @@ enum MainMenu {
     var order: [String] = []
     var groups: [String: ShortcutGroup] = [:]
     walk(NSApp.mainMenu) { item, path in
-      guard let item = item as? Rebindable else { return }
+      guard let item = item as? Rebindable, (item as? CommandItem)?.commandAlternateOf == nil else { return }
       let id = item.shortcutId
       if var group = groups[id] {
         group.items.append(item)
@@ -921,6 +938,7 @@ enum MainMenu {
         }
       }
     }
+    for case let item as CommandItem in profiles.items { item.followPrimaryShortcut(taken: taken) }
   }
 
   static func shortcutList() -> [[String: Any]] {
