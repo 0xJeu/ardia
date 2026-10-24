@@ -26,6 +26,7 @@ import { SyncPane } from "./panes/Sync";
 import { TabsPane } from "./panes/Tabs";
 import { useSettingsSheet } from "./sheet";
 import { useSettingsNav, type SettingsPlace } from "./windows";
+import { settingsProfileFor } from "../extensions/store";
 
 
 const SIDEBAR = 214;
@@ -118,7 +119,7 @@ export function SettingsWindow() {
         ) : (
           <ScrollView contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 12, gap: 1 }}>
             {PANES.map((p) => (
-              <SidebarItem key={p.id} title={p.title} icon={p.icon} selected={nav.pane === p.id} onPress={() => nav.go(p.id)} />
+              <SidebarItem key={p.id} title={p.title} icon={p.icon} selected={nav.pane === p.id} onPress={() => nav.go(p.id, settingsProfileFor(p.id, nav))} />
             ))}
           </ScrollView>
         )}

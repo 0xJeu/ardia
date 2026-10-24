@@ -9,6 +9,7 @@ import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
 import {
   addFromWebStore,
   configure,
+  extensionsProfileId,
   loadUnpacked,
   refreshExtensions,
   removeExtension,
@@ -17,7 +18,7 @@ import {
   useExtensionList,
 } from "../../extensions/state";
 import { Button, Group, PopUp, Row, SectionHeader, TextField, Toggle } from "../controls";
-import { extensionList, extensionsProfileId } from "../paneData";
+import { extensionList } from "../paneData";
 import { useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../sheet";
 import { SETTINGS_WINDOW_ID, useSettingsNav } from "../windows";
@@ -80,7 +81,11 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
                 </Text>
               }
               description={ext.errors.length && !ext.enabled ? ext.errors[0] : ext.description}
-              onPress={() => useSettingsNav.getState().go("extensions", profileId, ext.id)}
+              onPress={() => {
+                const nav = useSettingsNav.getState();
+                if (nav.profileId !== profileId) nav.replace(profileId);
+                nav.go("extensions", profileId, ext.id);
+              }}
             >
               <Toggle value={ext.enabled} onChange={(on) => void setEnabled(profile, ext.id, on)} />
             </Row>

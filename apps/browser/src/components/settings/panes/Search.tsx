@@ -5,11 +5,10 @@ import { Text, View } from "react-native";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../store/settings";
-import { setEnabled } from "../../extensions/state";
+import { openManageExtensions, setEnabled } from "../../extensions/state";
 import { Favicon, IconButton } from "../../primitives";
 import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle, useFormColors } from "../controls";
 import { closeSettingsSheet, showSettingsSheet } from "../sheet";
-import { openSettings } from "../windows";
 
 export function SearchPane() {
   const settings = useBrowser((s) => s.settings);
@@ -32,7 +31,7 @@ export function SearchPane() {
             title={`${controlling.extensionName || "An extension"} is controlling this setting`}
             description="To change your default search engine, disable the extension or manage its settings."
           >
-            <Button title="Manage" onPress={() => openSettings("extensions")} />
+            <Button title="Manage" onPress={() => openManageExtensions()} />
             <Button title="Disable" onPress={() => void setEnabled(controlling.profile, controlling.extensionId, false)} />
           </Row>
         )}

@@ -101,7 +101,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "openFile":
       return void openFiles(requested);
     case "manageExtensions":
-      return openManageExtensions();
+      return openManageExtensions(requested);
     case "setBookmarksBar":
       if (arg === "always" || arg === "newTab" || arg === "never") s.updateSettings({ bookmarksBar: arg });
       return;

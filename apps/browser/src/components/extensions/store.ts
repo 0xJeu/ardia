@@ -50,6 +50,16 @@ export function settingsProfileOf(s: BrowserState, windowId: string | null | und
   return s.profiles[profileId] ? profileId : null;
 }
 
+export function extensionsProfileId(profileId?: string | null, windowId?: string | null): string {
+  const s = useBrowser.getState();
+  if (profileId && s.profiles[profileId]) return profileId;
+  const focused = s.ui.focusOrder.find((id) => !!s.windows[id]) ?? s.windowOrder.find((id) => !!s.windows[id]);
+  return settingsProfileOf(s, windowId) ?? settingsProfileOf(s, focused) ?? s.settings.defaultProfileId;
+}
+
+export const settingsProfileFor = (pane: string, current: { pane: string; profileId: string | null }): string | null =>
+  pane === "extensions" ? extensionsProfileId(current.pane === "extensions" ? current.profileId : null) : null;
+
 export const isPrivate = (s: BrowserState, windowId: string) => !!s.windows[windowId]?.incognito;
 
 export const pageProfile = (s: BrowserState, windowId: string) =>
