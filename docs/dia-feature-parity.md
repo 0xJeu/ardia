@@ -631,7 +631,7 @@ Chrome's password manager and autofill fill pages themselves; our Settings panes
 | Notifications (web + app) | ✓ | ✅ | web notifications and meeting alerts via UserNotifications |
 | Services menu, spelling, substitutions, speech, transformations | ✓ | ✅ | in page text fields, spelling/speech menu validation may be affected by Findings 3 |
 | Start Dictation / Emoji & Symbols | ✓ | ✅ | AppKit adds them to our Edit menu; not visually re-verified |
-| Auto‑updates (Sparkle, deferrable) | ✓ | ✅ | Sparkle 2: Check for Updates…, automatic checks every 8 hours, an install that waits until no window is full screen, Settings › General › Updates. The feed is the latest GitHub release's `appcast.xml` (`SUFeedURL`); `scripts/release.sh` signs each update with the EdDSA key and notarizes the app and DMG (since 0.2.1; 0.2.2 shipped this way). The first launch after an update opens its release notes |
+| Auto‑updates (Sparkle, deferrable) | ✓ | ✅ | Sparkle 2: Check for Updates…, automatic checks every 8 hours, a found update that waits to show until no window is full screen, Settings › General › Updates. Install and Relaunch always relaunches: it used to wait silently while any window was full screen, and Sparkle's button only answers once, so it looked dead (issue #60). The feed is the latest GitHub release's `appcast.xml` (`SUFeedURL`); `scripts/release.sh` signs each update with the EdDSA key and notarizes the app and DMG (since 0.2.1; 0.2.2 shipped this way). The first launch after an update opens its release notes |
 
 ## 25. Onboarding, help, plans
 | Feature | Dia | Ardia | Gap |

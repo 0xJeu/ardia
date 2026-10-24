@@ -79,7 +79,6 @@ public final class AppUpdater: NSObject {
   #if canImport(Sparkle)
   private lazy var controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
   private var deferredUpdate = false
-  private var deferredRelaunch: (() -> Void)?
   private var firstCheckPending = false
   #endif
   private var started = false
@@ -183,14 +182,9 @@ public final class AppUpdater: NSObject {
   #if canImport(Sparkle)
   @objc private func fullScreenChanged() {
     DispatchQueue.main.async { [self] in
-      guard !Self.isPresentingFullScreen else { return }
-      if let relaunch = deferredRelaunch {
-        deferredRelaunch = nil
-        relaunch()
-      } else if deferredUpdate {
-        deferredUpdate = false
-        controller.checkForUpdates(nil)
-      }
+      guard !Self.isPresentingFullScreen, deferredUpdate else { return }
+      deferredUpdate = false
+      controller.checkForUpdates(nil)
     }
   }
   #endif
@@ -221,12 +215,6 @@ extension AppUpdater: SPUUpdaterDelegate {
   public func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
     if KillSwitch.isOn("updatePrewarm") { UpdatePrewarm.start(version: item.versionString) }
     return false
-  }
-
-  public func updater(_ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem, untilInvokingBlock installHandler: @escaping () -> Void) -> Bool {
-    guard Self.isPresentingFullScreen else { return false }
-    deferredRelaunch = installHandler
-    return true
   }
 }
 
