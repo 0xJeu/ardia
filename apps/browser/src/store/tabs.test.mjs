@@ -430,6 +430,25 @@ test("Clear and undo bring an automatic group back whole, with the member Clear 
   assert.equal(groups[0].autoUngroup, true);
 });
 
+test("Clear and undo keep a nested group inside the automatic group it was in", () => {
+  reset({ cmdClickCreatesTabGroup: true });
+  const [w, a] = setup("a", "c");
+  const b = open(w, "b", a);
+  const parent = Object.values(S().groups)[0].id;
+  const child = S().groupTabs([b], { pinned: false, name: "C" });
+  assert.equal(S().groups[child].parentId, parent);
+  S().activate(b);
+  const cleared = S().clearUnpinnedTabs(w);
+  assert.equal(S().groups[parent], undefined, "the automatic group dissolves");
+  S().undoClearTabs(cleared);
+  assert.deepEqual(hosts(w), ["a", "b", "c"]);
+  const auto = Object.values(S().groups).find((g) => g.autoUngroup);
+  const nested = Object.values(S().groups).find((g) => g.name === "C");
+  assert.equal(nested.parentId, auto.id);
+  assert.deepEqual(auto.tabIds.map((id) => short(S().tabs[id].url)), ["a", "b"]);
+  assert.deepEqual(nested.tabIds.map((id) => short(S().tabs[id].url)), ["b"]);
+});
+
 test("Clear on a lone selected tab closes nothing and opens no New Tab page", () => {
   reset({ newTabPosition: "top" });
   const [w, a] = setup("a");

@@ -295,15 +295,24 @@ function groupsHolding(s: BrowserState, ids: string[]): TabGroup[] {
   const closing = new Set(ids);
   const touched = new Set<string>();
   for (const g of Object.values(s.groups)) {
-    if (g.tabIds.some((id) => closing.has(id))) [g.id, ...ancestorIds(s.groups, g.id)].forEach((id) => touched.add(id));
+    if (!g.tabIds.some((id) => closing.has(id))) continue;
+    const root = ancestorIds(s.groups, g.id).at(-1) ?? g.id;
+    [root, ...descendantIds(s.groups, root)].forEach((id) => touched.add(id));
   }
   const depth = (id: string) => ancestorIds(s.groups, id).length;
   return [...touched].sort((a, b) => depth(a) - depth(b)).map((id) => s.groups[id]!);
 }
 
-function regroupCleared(s: BrowserState, windowId: string, before: TabGroup[], renamed: Map<string | undefined, string | undefined>): BrowserState {
+function regroupCleared(
+  s: BrowserState,
+  windowId: string,
+  before: TabGroup[],
+  renamed: Map<string | undefined, string | undefined>,
+  placed: { id: string | undefined; index?: number }[],
+): BrowserState {
   const w = s.windows[windowId]!;
   const made = new Map<string, string>();
+  const saved = new Set(before.map((g) => g.id));
   let groups = s.groups;
   for (const g of before) {
     const ours = new Set(made.values());
@@ -314,21 +323,26 @@ function regroupCleared(s: BrowserState, windowId: string, before: TabGroup[], r
         const t = s.tabs[id];
         if (!t || t.windowId !== windowId || t.profileId !== g.profileId) return false;
         const inside = innermostGroupOf(groups, id);
-        return !inside || inside.id === live?.id || ours.has(inside.id);
+        return !inside || saved.has(inside.id) || ours.has(inside.id);
       });
+    const parentId = g.parentId ? made.get(g.parentId) : undefined;
     if (live) {
-      groups = { ...groups, [live.id]: { ...live, tabIds: [...live.tabIds, ...members.filter((id) => !live.tabIds.includes(id))] } };
+      const tabIds = [...live.tabIds, ...members.filter((id) => !live.tabIds.includes(id))];
+      groups = { ...groups, [live.id]: withParent({ ...live, tabIds }, parentId ?? live.parentId) };
       made.set(g.id, live.id);
       continue;
     }
     if (!members.length) continue;
     const id = groups[g.id] ? newId("g") : g.id;
-    const parentId = g.parentId ? made.get(g.parentId) : undefined;
     groups = { ...groups, [id]: withParent({ ...g, id, windowId, tabIds: members }, parentId) };
     made.set(g.id, id);
   }
   groups = nestGroups(groups);
-  const window = { ...w, tabIds: orderSections(placeGroups(w.tabIds, groups, windowId), s.tabs, groups) };
+  const atIndex = placed.filter((p): p is { id: string; index: number } => !!p.id && p.index !== undefined).sort((a, b) => a.index - b.index);
+  const moving = new Set(atIndex.map((p) => p.id));
+  const order = w.tabIds.filter((id) => !moving.has(id));
+  for (const p of atIndex) order.splice(Math.min(p.index, order.length), 0, p.id);
+  const window = { ...w, tabIds: orderSections(placeGroups(order, groups, windowId), s.tabs, groups) };
   return { ...s, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [windowId]: window } };
 }
 
@@ -936,7 +950,8 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       const now = c.tabId ? renamed.get(c.tabId) : undefined;
       return now ? { ...c, tabId: now, restoreFrom: c.restoreFrom ?? c.tabId } : c;
     });
-    set(regroupCleared({ ...restored, closedTabs }, target, groups, renamed));
+    const placed = back.map((e, i) => ({ id: ids[i], index: target === e.windowId ? e.index : undefined }));
+    set(regroupCleared({ ...restored, closedTabs }, target, groups, renamed, placed));
   },
 
   removeClosedPin(id) {

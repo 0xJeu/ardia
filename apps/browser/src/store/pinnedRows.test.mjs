@@ -143,6 +143,23 @@ test("remove, undo, then reopening the row's earlier close wakes it with its own
   assert.equal(S().tabs[back].adoptId, model.restoreId(a));
 });
 
+test("undoing a pinned group tab's removal puts it back in its place in the group, in every window", () => {
+  reset();
+  const { w, ids: [a, b, c] } = windowWith("a", "b", "c");
+  const g = S().groupTabs([a, b], { name: "P" });
+  const w2 = S().createWindow({ url: "https://x.com/" });
+  S().activate(c);
+  S().closeTab(a);
+  S().undoClearTabs(S().removeClosedPin(a));
+  const order = (win) => {
+    const group = Object.values(S().groups).find((x) => x.name === "P" && x.windowId === win);
+    return model.viewTabIds(S(), win).filter((id) => group.tabIds.includes(id)).map(url);
+  };
+  assert.deepEqual(S().groups[g].tabIds.map(url), ["https://a.com/", "https://b.com/"]);
+  assert.deepEqual(order(w), ["https://a.com/", "https://b.com/"]);
+  assert.deepEqual(order(w2), ["https://a.com/", "https://b.com/"]);
+});
+
 test("rows are the profile's: a second window mirrors them, a change in one shows in the other", () => {
   reset();
   const { w: a, ids: [mail, docs] } = windowWith("mail", "docs", "x");
