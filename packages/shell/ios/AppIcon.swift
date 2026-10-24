@@ -136,6 +136,10 @@ enum DockTile {
   @discardableResult
   static func add() -> Bool {
     guard !isInDock else { return true }
+    if FileDropView.background {
+      NSLog("ArdiaSystem: background instance, not adding to the Dock")
+      return false
+    }
     let tile: [String: Any] = [
       "tile-type": "file-tile",
       "tile-data": [
