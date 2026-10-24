@@ -246,6 +246,7 @@ public class ShellModule: Module {
       _ = installInputSourceKeys
       _ = installScrollViewInsetFix
       _ = installOutsidePressMonitor
+      _ = installWindowMoveFallback
       DispatchQueue.main.async { [weak self] in
         MenuTarget.shared.handler = { command, arg, windowId in
           if command == "closeTab", WindowManager.shared.closeForeignKeyWindow() { return }
@@ -1144,13 +1145,13 @@ final class PointerWatcher: NSObject {
     if let area { view?.removeTrackingArea(area) }
   }
 
-  @objc func mouseMoved(with event: NSEvent) {
+  @objc(mouseMoved:) func mouseMoved(with event: NSEvent) {
     guard let window = event.window else { return }
     ServerWindowDrag.pointerMoved(in: window, at: event.locationInWindow)
   }
 
-  @objc func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
-  @objc func mouseExited(with event: NSEvent) {}
+  @objc(mouseEntered:) func mouseEntered(with event: NSEvent) { mouseMoved(with: event) }
+  @objc(mouseExited:) func mouseExited(with event: NSEvent) {}
 }
 
 final class WindowDragRegion: ExpoView {
@@ -1476,6 +1477,61 @@ let installInputSourceKeys: Void = {
   let imp = imp_implementationWithBlock(block)
   if !class_addMethod(NSTextView.self, keyDown, imp, method_getTypeEncoding(method)) { method_setImplementation(method, imp) }
 }()
+
+let installWindowMoveFallback: Void = {
+  let selector = #selector(NSWindow.performDrag(with:))
+  guard let method = class_getInstanceMethod(NSWindow.self, selector) else { return }
+  typealias PerformDrag = @convention(c) (NSWindow, Selector, NSEvent) -> Void
+  let original = unsafeBitCast(method_getImplementation(method), to: PerformDrag.self)
+  let block: @convention(block) (NSWindow, NSEvent) -> Void = { window, event in
+    original(window, selector, event)
+    WindowMove.follow(window, from: event)
+  }
+  method_setImplementation(method, imp_implementationWithBlock(block))
+}()
+
+enum WindowMove {
+  private static var following = false
+
+  static func follow(_ window: NSWindow, from event: NSEvent) {
+    guard !following, event.type == .leftMouseDown, event.clickCount < 2, NSEvent.pressedMouseButtons & 1 != 0,
+          window.isMovable, !window.styleMask.contains(.fullScreen), window.isVisible
+    else { return }
+    following = true
+    defer { following = false }
+    let start = screenPoint(event)
+    let origin = window.frame.origin
+    var expected = origin
+    var serverMoves = false
+    while true {
+      guard let next = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: Date(timeIntervalSinceNow: 0.1), inMode: .eventTracking, dequeue: true) else {
+        if NSEvent.pressedMouseButtons & 1 == 0 { return }
+        continue
+      }
+      if next.type == .leftMouseUp {
+        NSApp.postEvent(next, atStart: true)
+        return
+      }
+      let current = window.frame.origin
+      if !serverMoves, !near(current, expected) { serverMoves = true }
+      if serverMoves { continue }
+      let pointer = screenPoint(next)
+      var target = NSRect(origin: NSPoint(x: origin.x + pointer.x - start.x, y: origin.y + pointer.y - start.y), size: window.frame.size)
+      if let screen = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) }) ?? window.screen {
+        target = window.constrainFrameRect(target, to: screen)
+      }
+      if !near(current, target.origin) { window.setFrameOrigin(target.origin) }
+      expected = window.frame.origin
+    }
+  }
+
+  private static func screenPoint(_ event: NSEvent) -> NSPoint {
+    guard let location = event.cgEvent?.location, let primary = NSScreen.screens.first else { return NSEvent.mouseLocation }
+    return NSPoint(x: location.x, y: primary.frame.maxY - location.y)
+  }
+
+  private static func near(_ a: NSPoint, _ b: NSPoint) -> Bool { abs(a.x - b.x) < 0.5 && abs(a.y - b.y) < 0.5 }
+}
 
 let installScrollViewInsetFix: Void = {
   guard let cls = NSClassFromString("RCTCustomScrollView"),
