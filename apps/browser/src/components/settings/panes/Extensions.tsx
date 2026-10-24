@@ -50,7 +50,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
     setLink("");
   };
 
-  const selected = detail ? list.find((x) => x.id === detail) : undefined;
+  const selected = detail && chosen === profileId ? list.find((x) => x.id === detail) : undefined;
   const gone = !!detail && !selected && loaded !== undefined;
   useEffect(() => {
     if (gone) useSettingsNav.getState().replace(profileId, null);
