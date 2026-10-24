@@ -11,7 +11,7 @@ import { CheckMark, SecondaryButton, SectionLabel, Tag, useOnboardingColors } fr
 
 const ICON = require("../../../assets/app-icon.png");
 
-type Candidate = { id: Exclude<BrowserSourceId, "fresh">; name: string; app: string };
+type Candidate = { id: Exclude<BrowserSourceId, "fresh">; name: string; app: string; importId?: string };
 
 const CANDIDATES: Candidate[][] = [
   [{ id: "arc", name: "Arc", app: "/Applications/Arc.app" }],
@@ -24,17 +24,20 @@ const CANDIDATES: Candidate[][] = [
   [{ id: "firefox", name: "Firefox", app: "/Applications/Firefox.app" }],
   [
     { id: "brave", name: "Brave", app: "/Applications/Brave Browser.app" },
+    { id: "brave", name: "Brave Beta", app: "/Applications/Brave Browser Beta.app", importId: "braveBeta" },
+    { id: "brave", name: "Brave Nightly", app: "/Applications/Brave Browser Nightly.app", importId: "braveNightly" },
     { id: "edge", name: "Edge", app: "/Applications/Microsoft Edge.app" },
+    { id: "edge", name: "Edge Beta", app: "/Applications/Microsoft Edge Beta.app", importId: "edgeBeta" },
   ],
 ];
 
-type Tile = { id: BrowserSourceId; name: string; app: string | null; icon: string | null };
+type Tile = { id: BrowserSourceId; name: string; app: string | null; icon: string | null; importId?: string };
 
 function detect(): Tile[] {
   return CANDIDATES.map((group) => {
     const found = group.find((c) => fileExists(c.app));
-    if (found) return { id: found.id, name: found.name, app: found.app, icon: null };
-    return { id: group[0]!.id, name: [...new Set(group.map((c) => c.name))].join(" or "), app: null, icon: null };
+    if (found) return { id: found.id, name: found.name, app: found.app, icon: null, importId: found.importId };
+    return { id: group[0]!.id, name: [...new Set(group.filter((c) => !c.importId).map((c) => c.name))].join(" or "), app: null, icon: null };
   });
 }
 
@@ -58,7 +61,7 @@ export function SourceStep() {
 
   const startImport = () => {
     if (!chosen) return;
-    openImport(chosen.id);
+    openImport(chosen.importId ?? chosen.id);
     setImporting(chosen.id);
   };
 

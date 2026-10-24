@@ -155,7 +155,8 @@ export function ImportWindow() {
       if (source.requiresExport) return setStep("safari");
       if (source.profiles.length > 1 || (isArc && allSpaces.length > 1)) return setStep("profiles");
     }
-    if ((step === "choose" || step === "profiles") && ENCRYPTED.some((k) => kinds.has(k)) && source.needsKeychain && api && !api.isBrowserUnlocked(source.id)) {
+    const encryptedTabs = kinds.has("tabs") && source.profiles.some((p) => sourceProfiles.includes(p.id) && p.tabsNeedKey);
+    if ((step === "choose" || step === "profiles") && (encryptedTabs || ENCRYPTED.some((k) => kinds.has(k))) && source.needsKeychain && api && !api.isBrowserUnlocked(source.id)) {
       return setStep("unlock");
     }
     void run(kinds);
@@ -588,7 +589,7 @@ export function ImportWindow() {
               : `Some data is encrypted, so macOS will ask for your computer password to bring it securely into ${APP}.`}
           </Text>
           <Text style={{ fontSize: 12, lineHeight: 17, textAlign: "center", color: theme.textSecondary, maxWidth: 420 }}>
-            {`macOS may ask whether ${APP} can use “${source.name} Safe Storage” from your keychain: it's the key ${source.name} encrypts passwords, cookies and cards with. Click Allow. Your data stays on this Mac.`}
+            {`macOS may ask whether ${APP} can use “${source.keychainService ?? `${source.name} Safe Storage`}” from your keychain: it's the key ${source.name} encrypts passwords, cookies, cards and open tabs with. Click Allow. Your data stays on this Mac.`}
           </Text>
         </View>
         {error && <ErrorText text={error} />}

@@ -18,15 +18,28 @@ public final class Importer: @unchecked Sendable {
     guard let def = BrowserDefinition.find(browserId) else { throw ImportError.notFound("Unknown browser \(browserId)") }
     switch def.family {
     case .chromium, .arc:
-      guard let service = def.keychainService, let account = def.keychainAccount else { return }
+      let items = def.keychainItems
+      guard !items.isEmpty else { return }
       let started = lock.withLock { generation }
-      let key = ChromiumCrypto.deriveKey(secret: try secret(service, account))
+      let key = ChromiumCrypto.deriveKey(secret: try Self.firstSecret(items, secret))
       lock.withLock { if generation == started { keys[browserId] = key } }
     case .firefox:
       lock.withLock { firefoxPasswords[browserId] = primaryPassword }
     case .safari, .automation:
       break
     }
+  }
+
+  static func firstSecret(_ items: [BrowserDefinition.KeychainItem], _ secret: SecretProvider) throws -> Data {
+    var missing: Error?
+    for item in items {
+      do {
+        return try secret(item.service, item.account)
+      } catch ImportError.notFound(let message) {
+        missing = missing ?? ImportError.notFound(message)
+      }
+    }
+    throw missing ?? ImportError.notFound("No Safe Storage item in the Keychain")
   }
 
   public func setKey(_ key: Data, for browserId: String) { lock.withLock { keys[browserId] = key } }
@@ -142,6 +155,7 @@ public final class Importer: @unchecked Sendable {
           count = outcome.items.count
           if outcome.undecryptable > 0 {
             result.warnings.append(ImportWarning(kind, "undecryptable", "\(Self.count(outcome.undecryptable, "cookie")) couldn't be decrypted"))
+            if outcome.items.isEmpty { throw ImportError.locked("The \(def.name) key didn't decrypt any cookies") }
           }
         case (.cookies, .firefox):
           let outcome = try Firefox.cookies(profile: dir, cancellation: cancellation)
