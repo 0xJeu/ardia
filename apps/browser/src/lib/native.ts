@@ -55,7 +55,7 @@ export function startNativeSync() {
   onCommand((e) => settlingCommandFocus(e, runCommand));
   startWindowCloseGuard();
   startExtensionsBridge();
-  onOpenURLs((urls) => openExternalUrls(urls));
+  onOpenURLs((urls, pointer) => openExternalUrls(urls, pointer));
   void lastTabClosesWindow().then((closes) => setLastTabKeepsWindow(!closes));
   onDownload((d) => store.getState().upsertDownload(d));
 
@@ -107,7 +107,9 @@ export function startNativeSync() {
       titles.set(id, windowTitle(s, id));
       const profile = engineProfile(w.profileId);
       const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
-      const small = w.kind === "small" ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}) } : {};
+      const small = w.kind === "small"
+        ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}), ...(w.linkPointer ? { pointer: w.linkPointer } : {}) }
+        : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
       if (w.kind !== "small") void setTrafficLightsCenter(id, openingLightsCenter(s, id));
       void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...small, ...made });

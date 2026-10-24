@@ -56,6 +56,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     var frame: [Double]?, incognito: Bool, title: String, kind: String, profile: String?, size: [Double]?, behind: String
     var chromeWindow: String?
     var claim: String?
+    var pointer: NSPoint?
   }
   private var pendingOpens: [String: PendingOpen] = [:]
   private var pendingOrder: [String] = []
@@ -65,7 +66,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   func open(
     id: String, frame: [Double]?, incognito: Bool, title: String, focus: Bool, kind: String = "browser", profile: String? = nil,
-    size: [Double]? = nil, behind: String? = nil, chromeWindow: String? = nil, claim: String? = nil
+    size: [Double]? = nil, behind: String? = nil, chromeWindow: String? = nil, claim: String? = nil, pointer: NSPoint? = nil
   ) {
     if let existing = windows[id] {
       if focus { existing.makeKeyAndOrderFront(nil) }
@@ -75,7 +76,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
       if pendingOpens[id] == nil { pendingOrder.append(id) }
       pendingOpens[id] = PendingOpen(
         frame: frame, incognito: incognito, title: title, kind: kind, profile: profile, size: size, behind: behind, chromeWindow: chromeWindow,
-        claim: claim)
+        claim: claim, pointer: pointer)
       DispatchQueue.main.asyncAfter(deadline: .now() + Self.behindTimeout) { [weak self] in self?.openPending(behind: behind) }
       return
     }
@@ -101,7 +102,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
       ChromeWindows.onSwap { [weak self] from, to in self?.adopt(from: from, to: to) }
       observeDelegateNotifications(chromeWindow)
       if small { configureSmall(chromeWindow) }
-      return show(chromeWindow, id: id, frame: frame, title: title, focus: focus, smallSize: small ? size ?? [] : nil, behind: behind)
+      return show(chromeWindow, id: id, frame: frame, title: title, focus: focus, smallSize: small ? size ?? [] : nil, smallPointer: pointer, behind: behind)
     }
     let window = makeWindow()
     let controller = NSViewController()
@@ -111,12 +112,15 @@ final class WindowManager: NSObject, NSWindowDelegate {
     window.delegate = self
     if incognito { window.appearance = NSAppearance(named: .darkAqua) }
     if small { configureSmall(window) }
-    show(window, id: id, frame: frame, title: title, focus: focus, smallSize: small ? size ?? [] : nil)
+    show(window, id: id, frame: frame, title: title, focus: focus, smallSize: small ? size ?? [] : nil, smallPointer: pointer)
   }
 
-  private func show(_ window: NSWindow, id: String, frame: [Double]?, title: String, focus: Bool, smallSize: [Double]? = nil, behind: String? = nil) {
+  private func show(
+    _ window: NSWindow, id: String, frame: [Double]?, title: String, focus: Bool, smallSize: [Double]? = nil, smallPointer: NSPoint? = nil,
+    behind: String? = nil
+  ) {
     window.title = title
-    if let smallSize { placeSmall(window, size: smallSize) } else if frame != nil || !window.isVisible { place(window, frame: frame) }
+    if let smallSize { placeSmall(window, size: smallSize, pointer: smallPointer) } else if frame != nil || !window.isVisible { place(window, frame: frame) }
     relayoutRoot(window)
     windows[id] = window
     if let center = lightsCenters[id] { ChromeWindows.setTrafficLightsCenter(center, in: window) }
@@ -193,7 +197,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
       contentShown.insert(behind)
       open(
         id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: false, kind: o.kind, profile: o.profile, size: o.size,
-        behind: behind, chromeWindow: o.chromeWindow, claim: o.claim)
+        behind: behind, chromeWindow: o.chromeWindow, claim: o.claim, pointer: o.pointer)
     }
   }
 
@@ -349,23 +353,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
     window.collectionBehavior.insert(.moveToActiveSpace)
   }
 
-  private static let linkPlacementWindow: TimeInterval = 5
-  private var linkArrival: (pointer: NSPoint, uptime: TimeInterval)?
-
-  func noteLinkArrival() {
-    linkArrival = (NSEvent.mouseLocation, ProcessInfo.processInfo.systemUptime)
-  }
-
-  private func takeLinkPointer() -> NSPoint? {
-    defer { linkArrival = nil }
-    guard let linkArrival, ProcessInfo.processInfo.systemUptime - linkArrival.uptime < Self.linkPlacementWindow else { return nil }
-    return linkArrival.pointer
-  }
-
-  private func placeSmall(_ window: NSWindow, size: [Double]) {
-    let link = takeLinkPointer()
-    let mouse = link ?? NSEvent.mouseLocation
-    let screen = (link == nil && NSApp.isActive ? NSApp.keyWindow?.screen : nil)
+  private func placeSmall(_ window: NSWindow, size: [Double], pointer: NSPoint?) {
+    let mouse = pointer ?? NSEvent.mouseLocation
+    let screen = (pointer == nil && NSApp.isActive ? NSApp.keyWindow?.screen : nil)
       ?? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
     guard let visible = screen?.visibleFrame else { return window.center() }
     let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)
@@ -423,7 +413,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
   func focus(id: String) {
     if let o = pendingOpens.removeValue(forKey: id) {
       pendingOrder.removeAll { $0 == id }
-      return open(id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: true, kind: o.kind, profile: o.profile, size: o.size)
+      return open(
+        id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: true, kind: o.kind, profile: o.profile, size: o.size,
+        pointer: o.pointer)
     }
     windows[id]?.makeKeyAndOrderFront(nil)
   }
