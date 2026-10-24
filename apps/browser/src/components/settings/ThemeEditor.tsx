@@ -218,16 +218,17 @@ function ThemeEditor({ theme, onChange }: { theme: ProfileTheme; onChange: (next
 }
 
 function Preview({ theme }: { theme: ProfileTheme }) {
-  const ui = useTheme();
+  const appDark = useBrowser((s) => s.ui.appDark);
+  const dark = themeDark(theme, appDark);
   return (
     <View style={{ height: 58, borderRadius: 9, overflow: "hidden" }}>
       <ThemeSwatch colors={flatColors(theme)} grain={themeGrainAlpha(theme)} texture={theme.texture} style={StyleSheet.absoluteFill} />
       <View style={{ position: "absolute", left: 8, top: 10, width: 34, gap: 5 }}>
         {[1, 0.7, 0.85].map((w, i) => (
-          <View key={i} style={{ width: `${w * 100}%`, height: 4, borderRadius: 2, backgroundColor: ui.dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)" }} />
+          <View key={i} style={{ width: `${w * 100}%`, height: 4, borderRadius: 2, backgroundColor: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)" }} />
         ))}
       </View>
-      <View style={{ position: "absolute", left: 50, top: 6, right: 6, bottom: 6, borderRadius: 6, backgroundColor: ui.dark ? "rgba(18,18,18,0.72)" : "rgba(255,255,255,0.82)" }} />
+      <View style={{ position: "absolute", left: 50, top: 6, right: 6, bottom: 6, borderRadius: 6, backgroundColor: dark ? "rgba(18,18,18,0.72)" : "rgba(255,255,255,0.82)" }} />
     </View>
   );
 }
