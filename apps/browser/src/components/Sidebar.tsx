@@ -22,6 +22,7 @@ import { usePageStyle, usePagerPages } from "./layout/profilePager";
 import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "./profiles/ProfileDots";
 import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
 import { ClearDivider } from "./sidebar/ClearDivider";
+import { canTidyPins } from "../store/tidyPins";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragging, useDragItem, usePinnedCount, type Ghost } from "./sidebar/dnd";
 import { SidebarDropArea } from "./sidebar/fileDrop";
@@ -360,7 +361,9 @@ function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, 
   const limit = cap ?? (growing ? mountedRows : undefined);
   const list = limit === undefined ? all : all.slice(0, limit);
   const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
-  const divided = !offScreen && all.length > 0;
+  const clearable = !offScreen && all.length > 0;
+  const tidy = useBrowser((s) => !offScreen && canTidyPins(s, windowId, profileId));
+  const divided = clearable || tidy;
   const pinned = usePinnedSequence(windowId, profileId, offScreen);
   const pinnedSection = pinned.length > 0;
   const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
@@ -394,7 +397,7 @@ function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, 
           ))}
           <Tail id="tail:pinnedGroups" section="pinnedGroups" />
         </View>
-        {divided ? <ClearDivider windowId={windowId} spaced={pinnedSection} /> : null}
+        {divided ? <ClearDivider windowId={windowId} profileId={profileId} spaced={pinnedSection} clear={clearable} tidy={tidy} /> : null}
         <View
           ref={(v) => {
             controller?.regions.set("list", v);

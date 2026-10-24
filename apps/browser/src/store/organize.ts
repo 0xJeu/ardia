@@ -255,7 +255,7 @@ export function withGroup(
   return [{ ...s, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } }, group.id];
 }
 
-function withRowsGrouped(s: BrowserState, ids: string[], o: { name?: string; pinned?: boolean }): [BrowserState, string] {
+export function withRowsGrouped(s: BrowserState, ids: string[], o: { name?: string; pinned?: boolean }): [BrowserState, string] {
   const rows = ids.filter((id) => isPinnedRow(s.tabs[id]));
   if (!rows.length) return withGroup(s, ids, o);
   const tabs = { ...s.tabs };
@@ -374,7 +374,7 @@ export function rebuildNested(s: BrowserState, rootId: string, rootKey: string, 
   return { ...s, groups: syncGroupOrder(settled, window), windows: { ...s.windows, [w.id]: window } };
 }
 
-function restoreSnapshots(
+export function restoreSnapshots(
   s: BrowserState,
   windowId: string,
   entries: { tab: ClosedTab["tab"]; tabId?: string; index?: number }[],

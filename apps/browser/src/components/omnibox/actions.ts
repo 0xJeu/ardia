@@ -4,6 +4,7 @@ import { runCommand } from "../../lib/commands";
 import { isBookmarked } from "../../store/bookmarks";
 import { useBrowser, type BrowserState } from "../../store/browser";
 import { activeTab, bookmarkProfileId, isPinnedRow } from "../../store/model";
+import { canTidyPins } from "../../store/tidyPins";
 import type { Tab } from "../../store/types";
 
 type Context = { s: BrowserState; windowId: string; tab: Tab | undefined };
@@ -15,7 +16,7 @@ type ActionDef = {
   icon: string;
   hint?: string;
   keywords?: string[];
-  needs?: "page" | "tab" | "profiles";
+  needs?: "page" | "tab" | "profiles" | "pins";
 };
 
 const page = "page" as const;
@@ -46,6 +47,7 @@ const DEFS: ActionDef[] = [
   { command: "renameTab", title: "Rename Tab", icon: "pencil", needs: "tab" },
   { command: "searchTabs", title: "Search Tabs", icon: "magnifyingglass", hint: "⇧⌘A" },
   { command: "cleanUpTabs", title: "Clean Up Tabs", icon: "sparkles", hint: "⌥⌘K", keywords: ["tidy tabs"] },
+  { command: "tidyPins", title: "Tidy Pins", icon: "sparkles", keywords: ["tidy pinned tabs", "organize pins", "pinned folders", "remove duplicate pins"], needs: "pins" },
   { command: "newGroupWithTabs", title: "New Group with Tab", icon: "folder.badge.plus", hint: "⌃⌘N", keywords: ["tab group"], needs: "tab" },
   { command: "reload", title: "Reload Page", icon: "arrow.clockwise", hint: "⌘R", keywords: ["refresh"], needs: page },
   { command: "forceReload", title: "Force Reload Page", icon: "arrow.clockwise", hint: "⇧⌘R", keywords: ["hard reload", "hard refresh"], needs: page },
@@ -96,6 +98,7 @@ export function barActions(s: BrowserState, windowId: string): CommandAction[] {
     if (d.needs === "page" && !tab?.url) continue;
     if (d.needs === "tab" && !tab) continue;
     if (d.needs === "profiles" && w?.incognito) continue;
+    if (d.needs === "pins" && !canTidyPins(s, windowId)) continue;
     out.push({
       id: actionId(d),
       title: typeof d.title === "string" ? d.title : d.title(c),
