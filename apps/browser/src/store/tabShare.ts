@@ -86,9 +86,7 @@ export function pagesIntoSplits(s: BrowserState, prev: BrowserState): BrowserSta
       const holder = next.tabs[t.pageIn];
       if (!holder || holder.pinned || !hasPage(holder) || holder.pageIn || holder.windowId === t.windowId || holder.profileId !== t.profileId || pinKeyOf(holder) !== pinKeyOf(t) || inSplit(next, holder.id)) continue;
       next = swapPlaces(next, holder.id, t.id);
-      const left = next.windows[holder.windowId]!;
-      if (left.tabIds.length === 1) next = withNewTab(next, left.id, { profileId: holder.profileId, background: true })[0];
-      next = removeTabs(next, [t.id], false);
+      next = removeTabs(keepShownProfile(next, holder.windowId, [t.id]), [t.id], false);
     }
   }
   return next === s ? null : next;
@@ -198,8 +196,15 @@ function conformList(input: BrowserState, windowId: string, profileId: string, s
   groups = syncGroupOrder(groups, window);
   let next: BrowserState = { ...s, tabs, live, groups, windows: { ...s.windows, [windowId]: window } };
   if (!gone.length) return next;
-  if (window.tabIds.every((id) => gone.includes(id))) next = withNewTab(next, windowId, { profileId, background: true })[0];
-  return removeTabs(next, gone, false);
+  return removeTabs(keepShownProfile(next, windowId, gone), gone, false);
+}
+
+function keepShownProfile(s: BrowserState, windowId: string, gone: readonly string[]): BrowserState {
+  const w = s.windows[windowId];
+  if (!w || !w.tabIds.some((id) => gone.includes(id))) return s;
+  const shownHere = w.tabIds.filter((id) => s.tabs[id]?.profileId === w.profileId && !gone.includes(id));
+  if (w.tabIds.some((id) => !gone.includes(id)) && shownHere.some((id) => !s.tabs[id]!.unloaded)) return s;
+  return withNewTab(s, windowId, { profileId: w.profileId, background: true })[0];
 }
 
 function linkCopies(s: BrowserState, byProfile: Map<string, string[]>): BrowserState {
@@ -298,9 +303,7 @@ export function unshareTabs(s: BrowserState, prev: BrowserState): BrowserState |
   const groups = { ...s.groups };
   for (const g of listGroupsOf(s)) if (g.pinKey) groups[g.id] = { ...g, pinKey: undefined };
   let next: BrowserState = { ...s, tabs, groups };
-  for (const w of Object.values(s.windows)) {
-    if (w.tabIds.length && w.tabIds.every((id) => gone.includes(id))) next = withNewTab(next, w.id, { profileId: w.profileId, background: true })[0];
-  }
+  for (const w of Object.values(s.windows)) next = keepShownProfile(next, w.id, gone);
   return gone.length ? removeTabs(next, gone, false) : next;
 }
 

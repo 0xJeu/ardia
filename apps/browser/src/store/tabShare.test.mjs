@@ -267,3 +267,41 @@ for (const where of ["pinned split", "split in a pinned group"]) {
     assert.equal(S().windows[a].tabIds.includes(showing), true);
   });
 }
+
+function personalAndWork() {
+  const work = S().createProfile({ name: "Work" });
+  const a = S().createWindow({ url: "https://x.com" });
+  const [x] = S().windows[a].tabIds;
+  const w1 = S().newTab(a, { url: "https://work.com", profileId: work, background: true });
+  S().activate(x);
+  const b = S().createWindow({});
+  share(true);
+  return { work, a, b, x, w1 };
+}
+
+const showsOwnTab = (w, profileId) => {
+  const id = shown(w);
+  return !!id && S().tabs[id]?.windowId === w && S().tabs[id].profileId === profileId;
+};
+
+test("closing a window's last tab of the profile it shows elsewhere leaves it a New Tab of that profile", () => {
+  reset();
+  const { work, a, b, x, w1 } = personalAndWork();
+  S().closeTab(rowOf(b, "https://x.com"));
+  assert.equal(S().tabs[x], undefined);
+  assert.equal(S().windows[a].profileId, "default");
+  assert.ok(showsOwnTab(a, "default"), "A shows a Personal tab");
+  assert.equal(S().tabs[shown(a)].url, "", "a New Tab");
+  assert.equal(S().windows[a].activeTabIds[work], w1, "Work keeps its own selection");
+});
+
+test("turning sharing off leaves a window that only had a copy of the profile it shows a New Tab of it", () => {
+  reset();
+  const { work, a, b, x, w1 } = personalAndWork();
+  S().activate(rowOf(b, "https://x.com"));
+  assert.equal(S().tabs[x].windowId, b);
+  share(false);
+  assert.ok(showsOwnTab(a, "default"), "A shows a Personal tab");
+  assert.equal(S().windows[a].activeTabIds[work], w1);
+  assert.equal(pages("https://x.com").length, 1);
+});
