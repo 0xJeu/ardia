@@ -103,7 +103,13 @@ enum TranslationSessions {
   private static var uses = 0
   private static let idleSeconds = 60.0
 
-  private static var memo: [String: [String]] = [:]
+  private struct PassageKey: Hashable {
+    let source: String
+    let target: String
+    let pieces: [String]
+  }
+
+  private static var memo: [PassageKey: [String]] = [:]
   private static let memoLimit = 5000
 
   static func translations(source: String, target: String, _ requests: [TranslationSession.Request]) async throws -> [TranslationSession.Response] {
@@ -112,11 +118,11 @@ enum TranslationSessions {
 
   @available(macOS 26.4, *)
   static func translateBlocks(source: String, target: String, _ blocks: [[String]]) async -> [[String]?] {
-    let pair = "\(source)>\(target)\u{1E}"
-    let keys = blocks.map { pair + $0.joined(separator: "\u{1F}") }
-    var found: [String: [String]] = [:]
-    var pending: [(key: String, pieces: [String])] = []
-    for (key, pieces) in zip(keys, blocks) where found[key] == nil && !pending.contains(where: { $0.key == key }) {
+    let keys = blocks.map { PassageKey(source: source, target: target, pieces: $0) }
+    var found: [PassageKey: [String]] = [:]
+    var pending: [(key: PassageKey, pieces: [String])] = []
+    var asked = Set<PassageKey>()
+    for (key, pieces) in zip(keys, blocks) where asked.insert(key).inserted {
       if let known = memo[key] { found[key] = known } else { pending.append((key, pieces)) }
     }
     let single = pending.filter { $0.pieces.count == 1 }
@@ -138,7 +144,7 @@ enum TranslationSessions {
     return keys.map { found[$0] }
   }
 
-  private static func remember(_ key: String, _ parts: [String]) {
+  private static func remember(_ key: PassageKey, _ parts: [String]) {
     if memo.count >= memoLimit { memo.removeAll() }
     memo[key] = parts
   }
