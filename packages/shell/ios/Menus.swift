@@ -185,12 +185,12 @@ final class CommandItem: NSMenuItem, Rebindable {
     return self
   }
 
-  func followPrimaryShortcut(taken: Set<String>) {
+  func followPrimaryShortcut(bound: Set<String>) {
     guard let primary = commandAlternateOf else { return }
     let mods = primary.keyEquivalentModifierMask.union(.command)
     if keyEquivalent != primary.keyEquivalent { keyEquivalent = primary.keyEquivalent }
     if keyEquivalentModifierMask != mods { keyEquivalentModifierMask = mods }
-    let collides = !primary.keyEquivalent.isEmpty && taken.contains(MainMenu.comboKey(primary.keyEquivalent, mods))
+    let collides = !primary.keyEquivalent.isEmpty && bound.contains(MainMenu.comboKey(primary.keyEquivalent, mods))
     let hidden = primary.keyEquivalentModifierMask.contains(.command) || collides
     if isHidden != hidden { isHidden = hidden }
   }
@@ -938,7 +938,12 @@ enum MainMenu {
         }
       }
     }
-    for case let item as CommandItem in profiles.items { item.followPrimaryShortcut(taken: taken) }
+    var bound = Set<String>()
+    walk(NSApp.mainMenu) { item, _ in
+      guard !item.keyEquivalent.isEmpty, (item as? CommandItem)?.commandAlternateOf == nil else { return }
+      bound.insert(comboKey(item.keyEquivalent, item.keyEquivalentModifierMask))
+    }
+    for case let item as CommandItem in profiles.items { item.followPrimaryShortcut(bound: bound) }
   }
 
   static func shortcutList() -> [[String: Any]] {
