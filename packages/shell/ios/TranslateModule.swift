@@ -47,21 +47,7 @@ public class TranslateModule: Module {
 
     AsyncFunction("translateBlocks") { (source: String, target: String, blocks: [[String]]) async -> [[String]?] in
       guard #available(macOS 26.4, *) else { return blocks.map { _ in nil } }
-      let texts = blocks.map(Self.linkedPieces)
-      var out: [[String]?] = blocks.map { _ in nil }
-      let requests = texts.enumerated().map { TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset)) }
-      if let responses = try? await TranslationSessions.translations(source: source, target: target, requests) {
-        for response in responses {
-          guard let b = response.clientIdentifier.flatMap(Int.init), blocks.indices.contains(b), let translated = response.attributedTargetText else { continue }
-          out[b] = Self.parts(of: translated, over: blocks[b])
-        }
-        return out
-      }
-      for (b, text) in texts.enumerated() {
-        guard let translated = try? await TranslationSessions.translate(source: source, target: target, text) else { continue }
-        out[b] = Self.parts(of: translated, over: blocks[b])
-      }
-      return out
+      return await TranslationSessions.translateBlocks(source: source, target: target, blocks)
     }
 
     AsyncFunction("translate") { (source: String, target: String, texts: [String]) async throws -> [String] in
@@ -117,13 +103,44 @@ enum TranslationSessions {
   private static var uses = 0
   private static let idleSeconds = 60.0
 
+  private static var memo: [String: [String]] = [:]
+  private static let memoLimit = 5000
+
   static func translations(source: String, target: String, _ requests: [TranslationSession.Request]) async throws -> [TranslationSession.Response] {
     try await run(source: source, target: target) { try await $0.translations(from: requests) }
   }
 
   @available(macOS 26.4, *)
-  static func translate(source: String, target: String, _ text: AttributedString) async throws -> AttributedString? {
-    try await run(source: source, target: target) { try await $0.translate(text).attributedTargetText }
+  static func translateBlocks(source: String, target: String, _ blocks: [[String]]) async -> [[String]?] {
+    let pair = "\(source)>\(target)\u{1E}"
+    let keys = blocks.map { pair + $0.joined(separator: "\u{1F}") }
+    var found: [String: [String]] = [:]
+    var pending: [(key: String, pieces: [String])] = []
+    for (key, pieces) in zip(keys, blocks) where found[key] == nil && !pending.contains(where: { $0.key == key }) {
+      if let known = memo[key] { found[key] = known } else { pending.append((key, pieces)) }
+    }
+    let single = pending.filter { $0.pieces.count == 1 }
+    if !single.isEmpty {
+      let requests = single.enumerated().map { TranslationSession.Request(sourceText: $0.element.pieces[0], clientIdentifier: String($0.offset)) }
+      for response in (try? await translations(source: source, target: target, requests)) ?? [] {
+        guard let i = response.clientIdentifier.flatMap(Int.init), single.indices.contains(i) else { continue }
+        found[single[i].key] = [response.targetText]
+      }
+    }
+    for (key, pieces) in pending where found[key] == nil {
+      let text = TranslateModule.linkedPieces(pieces)
+      guard let translated = try? await run(source: source, target: target, { try await $0.translate(text).attributedTargetText }),
+        let parts = TranslateModule.parts(of: translated, over: pieces)
+      else { continue }
+      found[key] = parts
+    }
+    for (key, _) in pending { if let parts = found[key] { remember(key, parts) } }
+    return keys.map { found[$0] }
+  }
+
+  private static func remember(_ key: String, _ parts: [String]) {
+    if memo.count >= memoLimit { memo.removeAll() }
+    memo[key] = parts
   }
 
   private static func run<T: Sendable>(source: String, target: String, _ work: @escaping @MainActor (TranslationSession) async throws -> T) async throws -> T {
