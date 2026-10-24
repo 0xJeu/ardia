@@ -642,6 +642,61 @@ index 3edcc9670a8ccb5eef44524e78445117d2416ed8..1f7951f616996941706f11b380c12051
    _sendIdleEvents = sendIdleEvents;
    if (sendIdleEvents) {
      [self startTimers];
+diff --git a/React/Modules/RCTUIManager.mm b/React/Modules/RCTUIManager.mm
+index 7f1aeff436b8a51514254b72d1fb1fd1ee3b1553..b6d35c34afb8f0aee3e881fe931b7739e8dab84f 100644
+--- a/React/Modules/RCTUIManager.mm
++++ b/React/Modules/RCTUIManager.mm
+@@ -7,6 +7,8 @@
+ 
+ #import "RCTUIManager.h"
+ 
++#import <atomic> // [Ardia]
++
+ #import <AVFoundation/AVFoundation.h>
+ #import <React/RCTSurfacePresenterStub.h>
+ #import <react/featureflags/ReactNativeFeatureFlags.h>
+@@ -181,6 +183,8 @@ @implementation RCTUIManager {
+ 
+   // Keyed by viewName
+   NSMutableDictionary *_componentDataByName;
++
++  std::atomic<NSInteger> _queuedMainQueueMounts; // [Ardia]
+ }
+ 
+ @synthesize bridge = _bridge;
+@@ -1321,7 +1325,12 @@ - (void)flushUIBlocksWithCompletion:(void (^)(void))completion
+ 
+   // Execute the previously queued UI blocks
+   RCTProfileBeginFlowEvent();
+-  RCTExecuteOnMainQueue(^{
++  // [Ardia: a live-resize layout on the main thread mounts behind the mounts already queued there, never before them.
++  const BOOL mountsNow = RCTIsMainQueue() && _queuedMainQueueMounts.load() == 0;
++  if (!mountsNow) {
++    _queuedMainQueueMounts++;
++  }
++  void (^mount)(void) = ^{
+     RCTProfileEndFlowEvent();
+     RCT_PROFILE_BEGIN_EVENT(RCTProfileTagAlways, @"-[UIManager flushUIBlocks]", (@{
+                               @"count" : [@(previousPendingUIBlocks.count) stringValue],
+@@ -1331,8 +1340,17 @@ - (void)flushUIBlocksWithCompletion:(void (^)(void))completion
+ 
+     RCT_PROFILE_END_EVENT(RCTProfileTagAlways, @"");
+ 
++    if (!mountsNow) {
++      self->_queuedMainQueueMounts--;
++    }
+     RCTExecuteOnUIManagerQueue(completion);
+-  });
++  };
++  if (mountsNow) {
++    mount();
++  } else {
++    dispatch_async(dispatch_get_main_queue(), mount);
++  }
++  // Ardia]
+ }
+ 
+ - (void)setNeedsLayout
 diff --git a/React/Views/RCTView.m b/React/Views/RCTView.m
 index 0a4efc1fff0a6e32ea1634ab5f863c211f452409..34447fbb3fe6fd5e16c1320e5395090665bcc402 100644
 --- a/React/Views/RCTView.m
