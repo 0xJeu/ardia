@@ -72,7 +72,7 @@ export function makeTab(windowId: string, profileId: string, url = "", snapshot?
 }
 
 export function wake(t: Tab): Partial<Tab> {
-  return t.wakeAdoptId ? { adoptId: t.wakeAdoptId, wakeAdoptId: undefined } : { navigation: navigationTo(t.url) };
+  return t.wakeAdoptId ? { adoptId: t.wakeAdoptId, wakeAdoptId: undefined, unloaded: undefined } : { navigation: navigationTo(t.url), unloaded: undefined };
 }
 
 export const snapshotTab = (t: Tab): TabSnapshot => ({

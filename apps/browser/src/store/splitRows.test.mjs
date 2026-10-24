@@ -285,3 +285,17 @@ test("closing the pinned side of a fresh split from a pinned row leaves the unpi
   assert.equal(loaded(r.tabId), true, "the unpinned page stays");
   assert.equal(shown(w), r.tabId);
 });
+
+test("showing a closed pinned split again wakes every pane as a loaded tab", () => {
+  reset();
+  const { w, b, c } = splitWindow();
+  S().pinTabs([b], true);
+  S().activate(b);
+  S().closeTab(b);
+  assert.equal(S().tabs[b].unloaded && S().tabs[c].unloaded, true);
+  S().activate(b);
+  S().updateTab(c, model.wake(S().tabs[c]));
+  assert.equal(shown(w), b);
+  assert.equal(loaded(b) && loaded(c), true);
+  assert.equal(!!S().tabs[b].unloaded || !!S().tabs[c].unloaded, false, "no pane keeps the closed flag once its page loads");
+});
