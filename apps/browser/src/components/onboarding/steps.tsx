@@ -1,8 +1,6 @@
 import {
   addToDock,
   backgroundInstance,
-  fileExists,
-  fileIcon,
   isDefaultBrowser,
   isInDock,
   launchAtLoginStatus,
@@ -10,31 +8,77 @@ import {
   setLaunchAtLogin,
   Symbol,
 } from "@ardia/shell";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { PROFILE_COLORS, themeFor, useTheme } from "../../lib/theme";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBrowser } from "../../store/browser";
 import { Favicon, useHover } from "../primitives";
-import { openImport } from "../settings/windows";
-import { PERSONALIZE_COPY, TabLayoutPicker, ThemeColorPicker } from "./personalize";
+import { CONTENT_WIDTH, ChoicePair, ScrollToEnd } from "./choices";
+import type { PreviewId } from "./previews";
 import { PINNABLE_SITES, pinSites, preselectedSites } from "./sites";
-import { finishOnboarding, recordDefaultBrowserTrial, useOnboarding } from "./state";
-import { CheckMark, CheckRow, PrimaryButton, Reveal, SecondaryButton, StepProgress, StepTitle, useOnboardingColors } from "./ui";
+import { finishOnboarding, recordDefaultBrowserTrial, resolveDraft, STEPS, useOnboarding, type OnboardingStep } from "./state";
+import { BackButton, CheckMark, CheckRow, PrimaryButton, Reveal, SecondaryButton, StepProgress, StepTitle, useOnboardingColors } from "./ui";
 
 const ICON = require("../../../assets/app-icon.png");
 
-export function StepLayout({ children, actions, preview }: { children: ReactNode; actions: ReactNode; preview: ReactNode }) {
+const COLUMN = { width: CONTENT_WIDTH + 56, padding: 28 };
+
+export function StepLayout({
+  title,
+  subtitle,
+  tag,
+  children,
+  actions,
+  preview,
+}: {
+  title: string;
+  subtitle?: string;
+  tag?: ReactNode;
+  children?: ReactNode;
+  actions: ReactNode;
+  preview: ReactNode;
+}) {
   const colors = useOnboardingColors();
+  const scroll = useRef<ScrollView>(null);
+  const [box, setBox] = useState({ height: 0, content: 0, offset: 0 });
+  const [scrollToEnd] = useState(() => () => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 30));
   return (
     <View style={{ flex: 1, flexDirection: "row" }}>
-      <View style={{ width: 460, paddingHorizontal: 40, paddingTop: 34, paddingBottom: 32, justifyContent: "space-between" }}>
-        <View style={{ gap: 20 }}>
+      <View style={{ width: COLUMN.width, paddingTop: 34, paddingBottom: 28 }}>
+        <View style={{ gap: 20, paddingHorizontal: COLUMN.padding }}>
           <Reveal>
             <StepProgress />
           </Reveal>
-          {children}
+          <Reveal delay={60} style={{ gap: 10 }}>
+            <StepTitle title={title} subtitle={subtitle} />
+            {tag ? <View style={{ flexDirection: "row" }}>{tag}</View> : null}
+          </Reveal>
         </View>
-        <Reveal delay={240} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ flex: 1, marginTop: 18 }}>
+          <ScrollView
+            ref={scroll}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: COLUMN.padding, paddingBottom: 12 }}
+            showsVerticalScrollIndicator={false}
+            scrollEventThrottle={32}
+            onLayout={(e) => {
+              const height = e.nativeEvent.layout.height;
+              setBox((b) => ({ ...b, height }));
+            }}
+            onContentSizeChange={(_, content) => setBox((b) => ({ ...b, content }))}
+            onScroll={(e) => {
+              const offset = e.nativeEvent.contentOffset.y;
+              setBox((b) => ({ ...b, offset }));
+            }}
+          >
+            <ScrollToEnd.Provider value={scrollToEnd}>
+              <Reveal delay={140} style={{ gap: 16 }}>
+                {children}
+              </Reveal>
+            </ScrollToEnd.Provider>
+          </ScrollView>
+          {box.content - box.offset - box.height > 4 ? <BottomFade color={colors.card} /> : null}
+        </View>
+        <Reveal delay={240} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: COLUMN.padding, paddingTop: 14 }}>
           {actions}
         </Reveal>
       </View>
@@ -60,34 +104,85 @@ export function StepLayout({ children, actions, preview }: { children: ReactNode
   );
 }
 
+const FADE = [0.06, 0.16, 0.3, 0.48, 0.68, 0.86];
+
+function BottomFade({ color }: { color: string }) {
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
+      {FADE.map((opacity) => (
+        <View key={opacity} style={{ height: 4, backgroundColor: color, opacity }} />
+      ))}
+    </View>
+  );
+}
+
+export function StepActions({
+  onContinue,
+  continueTitle = "Continue",
+  disabled,
+  onSkip,
+  icon,
+}: {
+  onContinue: () => void;
+  continueTitle?: string;
+  disabled?: boolean;
+  onSkip?: () => void;
+  icon?: string;
+}) {
+  const step = useOnboarding((s) => s.step);
+  const back = useOnboarding((s) => s.back);
+  const first = STEPS[STEPS.indexOf(step) - 1] === "intro";
+  return (
+    <>
+      {first ? null : <BackButton onPress={back} />}
+      <PrimaryButton title={continueTitle} icon={icon} onPress={onContinue} disabled={disabled} />
+      {onSkip ? <SecondaryButton title="Skip" onPress={onSkip} /> : null}
+    </>
+  );
+}
+
 type SystemState = { isDefault: boolean; inDock: boolean; loginEnabled: boolean };
 
-export function DefaultBrowserStep() {
-  const next = useOnboarding((s) => s.next);
+const LINK_CHOICES = [
+  { value: true, preview: "links-little" as PreviewId, title: "Little Ardia", subtitle: "A small, passing window" },
+  { value: false, preview: "links-tab" as PreviewId, title: "A new tab", subtitle: "In your main window" },
+];
+
+export function HomeStep() {
+  const draft = useOnboarding((s) => s.draft);
+  const preset = useOnboarding((s) => s.preset);
+  const extras = useOnboarding((s) => s.extras);
+  const settings = useBrowser((s) => s.settings);
+  const { openLinksInLittleArdia: little } = resolveDraft(["openLinksInLittleArdia"], draft, preset, settings);
   const [system, setSystem] = useState<SystemState | null>(null);
-  const [setDefault, setSetDefault] = useState(!backgroundInstance);
-  const [trial, setTrial] = useState(false);
-  const [dock, setDock] = useState(true);
-  const [login, setLogin] = useState(false);
   const [busy, setBusy] = useState(false);
+  const setDefault = extras.setDefault ?? !backgroundInstance;
+  const trial = extras.trial ?? false;
+  const dock = extras.dock ?? true;
+  const login = extras.login ?? system?.loginEnabled ?? false;
+  const { setDraft, setExtras } = useOnboarding.getState();
 
   useEffect(() => {
-    void Promise.all([isDefaultBrowser(), isInDock(), launchAtLoginStatus()]).then(([isDefault, inDock, login]) => {
-      setSystem({ isDefault, inDock, loginEnabled: login === "enabled" });
-      if (login === "enabled") setLogin(true);
-    });
+    void Promise.all([isDefaultBrowser(), isInDock(), launchAtLoginStatus()]).then(([isDefault, inDock, login]) =>
+      setSystem({ isDefault, inDock, loginEnabled: login === "enabled" }),
+    );
   }, []);
 
   const apply = async () => {
     if (!system) return;
     setBusy(true);
+    const picked: string[] = [];
     try {
-      if (!system.isDefault && (setDefault || trial) && (await setAsDefaultBrowser()) && !setDefault) recordDefaultBrowserTrial();
+      if (!system.isDefault && (setDefault || trial) && (await setAsDefaultBrowser())) {
+        if (!setDefault) recordDefaultBrowserTrial();
+        picked.push(setDefault ? "Ardia is your default browser" : "A week as your default browser");
+      }
       if (login !== system.loginEnabled) await setLaunchAtLogin(login).catch(() => {});
       if (dock && !system.inDock) await addToDock();
     } finally {
       setBusy(false);
-      next();
+      if (!picked.length) picked.push(little ? "Links from other apps open in Little Ardia" : "Links from other apps open in a tab");
+      useOnboarding.getState().confirm("home", { openLinksInLittleArdia: little }, picked);
     }
   };
 
@@ -95,20 +190,26 @@ export function DefaultBrowserStep() {
   const trying = !defaultOn && trial;
   return (
     <StepLayout
-      actions={<PrimaryButton title={busy ? "Setting Up…" : "Continue"} onPress={() => void apply()} disabled={!system || busy} />}
-      preview={<SystemPreview isDefault={!!(defaultOn || trying)} dock={!!(system?.inDock || dock)} login={login} />}
+      title="Make it home"
+      subtitle="Ardia works best as your default browser."
+      actions={
+        <StepActions
+          continueTitle={busy ? "Setting Up…" : "Continue"}
+          disabled={!system || busy}
+          onContinue={() => void apply()}
+          onSkip={() => useOnboarding.getState().skip("home", ["openLinksInLittleArdia"])}
+        />
+      }
+      preview={<SystemPreview isDefault={!!(defaultOn || trying)} dock={!!(system?.inDock || dock)} login={login} little={little} />}
     >
-      <Reveal delay={60}>
-        <StepTitle title="Fast, secure, and packed with all your browser essentials" subtitle="Ardia works best as your default browser." />
-      </Reveal>
-      <Reveal delay={140} style={{ gap: 6 }}>
+      <View style={{ gap: 6 }}>
         <CheckRow
           icon="globe"
           title="Set Ardia as default browser"
           subtitle={system?.isDefault ? "Ardia is already your default browser" : "Open links and web pages in Ardia by default"}
-          value={defaultOn}
+          value={!!defaultOn}
           disabled={!system || system.isDefault}
-          onChange={setSetDefault}
+          onChange={(v) => setExtras({ setDefault: v })}
         />
         {system && !defaultOn ? (
           <CheckRow
@@ -116,19 +217,20 @@ export function DefaultBrowserStep() {
             title="Try Ardia as your default for seven days"
             subtitle="We'll check in to make sure you love it."
             value={trial}
-            onChange={setTrial}
+            onChange={(v) => setExtras({ trial: v })}
           />
         ) : null}
         {system && !system.inDock ? (
-          <CheckRow icon="dock.rectangle" title="Add Ardia to Dock" subtitle="Quick access to Ardia whenever you need it" value={dock} onChange={setDock} />
+          <CheckRow icon="dock.rectangle" title="Add Ardia to Dock" subtitle="Quick access whenever you need it" value={dock} onChange={(v) => setExtras({ dock: v })} />
         ) : null}
-        <CheckRow icon="power" title="Open Ardia at login" subtitle="Automatically open Ardia when you sign in" value={login} onChange={setLogin} />
-      </Reveal>
+        <CheckRow icon="power" title="Open Ardia at login" subtitle="Ready when you sign in" value={login} onChange={(v) => setExtras({ login: v })} />
+      </View>
+      <ChoicePair label="Links from other apps open in" options={LINK_CHOICES} value={little} onChange={(v) => setDraft({ openLinksInLittleArdia: v })} />
     </StepLayout>
   );
 }
 
-function SystemPreview({ isDefault, dock, login }: { isDefault: boolean; dock: boolean; login: boolean }) {
+function SystemPreview({ isDefault, dock, login, little }: { isDefault: boolean; dock: boolean; login: boolean; little: boolean }) {
   const colors = useOnboardingColors();
   const chip = (on: boolean, icon: string, label: string) => (
     <View
@@ -159,189 +261,46 @@ function SystemPreview({ isDefault, dock, login }: { isDefault: boolean; dock: b
         {chip(isDefault, "globe", "Default browser")}
         {chip(dock, "dock.rectangle", "In your Dock")}
         {chip(login, "power", "Opens at login")}
+        {chip(true, little ? "macwindow.on.rectangle" : "plus.square.on.square", little ? "Links in Little Ardia" : "Links in a new tab")}
       </View>
     </View>
-  );
-}
-
-export function PersonalizeStep() {
-  const next = useOnboarding((s) => s.next);
-  const windowId = useOnboarding((s) => s.windowId) ?? "";
-  const colors = useOnboardingColors();
-  return (
-    <StepLayout actions={<PrimaryButton title="Continue" onPress={next} />} preview={<WindowPreview windowId={windowId} />}>
-      <Reveal delay={60}>
-        <StepTitle title={PERSONALIZE_COPY.title} subtitle={PERSONALIZE_COPY.subtitle} />
-      </Reveal>
-      <Reveal delay={140} style={{ gap: 18 }}>
-        <ThemeColorPicker windowId={windowId} size={32} />
-        <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 12.5, color: colors.subtitle }}>{PERSONALIZE_COPY.layouts}</Text>
-          <TabLayoutPicker windowId={windowId} />
-        </View>
-      </Reveal>
-    </StepLayout>
-  );
-}
-
-function WindowPreview({ windowId }: { windowId: string }) {
-  const colors = useOnboardingColors();
-  const dark = useTheme().dark;
-  const color = useBrowser((s) => s.profiles[s.windows[windowId]?.profileId ?? ""]?.color ?? "plum");
-  const layout = useBrowser((s) => s.windows[windowId]?.tabLayout ?? s.settings.tabLayout);
-  const theme = themeFor(`${color}:${dark ? "dark" : "light"}`);
-  const swatch = PROFILE_COLORS[color]?.swatch ?? PROFILE_COLORS.plum.swatch;
-  const line = { height: 6, borderRadius: 3, backgroundColor: colors.progressTrack };
-  return (
-    <View
-      style={{
-        width: 280,
-        height: 184,
-        borderRadius: 12,
-        padding: 7,
-        gap: 6,
-        backgroundColor: theme.windowTint[0],
-        borderWidth: StyleSheet.hairlineWidth * 2,
-        borderColor: colors.rowBorder,
-        flexDirection: layout === "sidebar" ? "row" : "column",
-      }}
-    >
-      {layout === "sidebar" ? (
-        <View style={{ width: 70, gap: 6, paddingTop: 4 }}>
-          <View style={{ flexDirection: "row", gap: 4, marginBottom: 6 }}>
-            {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
-              <View key={c} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: c }} />
-            ))}
-          </View>
-          <View style={[line, { width: "90%", height: 16, borderRadius: 5, backgroundColor: theme.card }]} />
-          {[0.8, 0.6, 0.7].map((w, i) => (
-            <View key={i} style={[line, { width: `${w * 100}%` }]} />
-          ))}
-        </View>
-      ) : (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, height: 18 }}>
-          <View style={{ flexDirection: "row", gap: 4, marginRight: 6 }}>
-            {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
-              <View key={c} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: c }} />
-            ))}
-          </View>
-          <View style={[line, { width: 56, height: 14, borderRadius: 5, backgroundColor: theme.card }]} />
-          {[0, 1].map((i) => (
-            <View key={i} style={[line, { width: 44 }]} />
-          ))}
-        </View>
-      )}
-      <View style={{ flex: 1, borderRadius: 7, backgroundColor: theme.card, alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: "62%", height: 22, borderRadius: 7, backgroundColor: colors.card, borderWidth: 1, borderColor: `${swatch}99` }} />
-      </View>
-    </View>
-  );
-}
-
-const BROWSERS = [
-  { name: "Chrome", path: "/Applications/Google Chrome.app" },
-  { name: "Safari", path: "/Applications/Safari.app" },
-  { name: "Arc", path: "/Applications/Arc.app" },
-  { name: "Dia", path: "/Applications/Dia.app" },
-  { name: "Helium", path: "/Applications/Helium.app" },
-  { name: "Firefox", path: "/Applications/Firefox.app" },
-  { name: "Edge", path: "/Applications/Microsoft Edge.app" },
-  { name: "Brave", path: "/Applications/Brave Browser.app" },
-  { name: "Opera", path: "/Applications/Opera.app" },
-  { name: "Vivaldi", path: "/Applications/Vivaldi.app" },
-];
-
-export function ImportStep() {
-  const next = useOnboarding((s) => s.next);
-  const colors = useOnboardingColors();
-  const [opened, setOpened] = useState(false);
-  const [icons, setIcons] = useState<{ name: string; uri: string }[]>([]);
-
-  useEffect(() => {
-    const installed = BROWSERS.filter((b) => fileExists(b.path)).slice(0, 6);
-    void Promise.all(installed.map(async (b) => ({ name: b.name, uri: (await fileIcon(b.path, 56)) ?? "" }))).then((list) =>
-      setIcons(list.filter((i) => i.uri)),
-    );
-  }, []);
-
-  const importNow = () => {
-    openImport();
-    setOpened(true);
-  };
-
-  return (
-    <StepLayout
-      actions={
-        opened ? (
-          <PrimaryButton title="Continue" onPress={next} />
-        ) : (
-          <>
-            <PrimaryButton title="Import…" onPress={importNow} />
-            <SecondaryButton title="Skip" onPress={next} />
-          </>
-        )
-      }
-      preview={
-        <View style={{ alignItems: "center", gap: 22 }}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 14, maxWidth: 300 }}>
-            {icons.map((i) => (
-              <View key={i.name} style={{ alignItems: "center", gap: 6, width: 72 }}>
-                <Image source={{ uri: i.uri }} style={{ width: 56, height: 56 }} />
-                <Text style={{ fontSize: 11, color: colors.subtitle }}>{i.name}</Text>
-              </View>
-            ))}
-          </View>
-          <Symbol name="arrow.down" size={18} weight="medium" color={colors.steps} style={{ width: 24, height: 24 }} />
-          <Image source={ICON} style={{ width: 72, height: 72 }} />
-        </View>
-      }
-    >
-      <Reveal delay={60}>
-        <StepTitle
-          title="Bring your browsing with you"
-          subtitle={
-            opened
-              ? "Finish up in the import window, then continue here. You can import more any time from the Ardia menu."
-              : "Import bookmarks, history, passwords and tabs from the browser you use now, and stay signed in to your sites. It all stays on this Mac."
-          }
-        />
-      </Reveal>
-    </StepLayout>
   );
 }
 
 export function PinnedTabsStep() {
-  const next = useOnboarding((s) => s.next);
   const windowId = useOnboarding((s) => s.windowId);
+  const chosen = useOnboarding((s) => s.extras.pins);
   const history = useBrowser((s) => s.history[s.windows[windowId ?? ""]?.profileId ?? ""]);
-  const initial = useMemo(() => preselectedSites(history ?? []), []);
-  const [selected, setSelected] = useState<string[]>(initial);
+  const suggested = useRef<string[] | null>(null);
+  if (!chosen) suggested.current = preselectedSites(history ?? []);
+  const selected = chosen ?? suggested.current ?? [];
 
-  const toggle = (id: string) => setSelected((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
+  const toggle = (id: string) =>
+    useOnboarding.getState().setExtras({ pins: selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id] });
 
   const pinSelected = () => {
-    if (windowId) pinSites(windowId, selected);
-    next();
+    if (windowId && selected.length) pinSites(windowId, selected);
+    useOnboarding.getState().confirm("pins", {}, selected.length ? [`${selected.length} ${selected.length === 1 ? "app" : "apps"} pinned`] : []);
   };
 
   return (
     <StepLayout
+      title="Keep your favorite apps handy"
+      subtitle="Pin the apps you use most. They stay put when you open Ardia."
       actions={
-        <>
-          <PrimaryButton title={selected.length ? `Pin ${selected.length} ${selected.length === 1 ? "Tab" : "Tabs"}` : "Continue"} onPress={pinSelected} />
-          {selected.length ? <SecondaryButton title="Skip" onPress={next} /> : null}
-        </>
+        <StepActions
+          continueTitle={selected.length ? `Pin ${selected.length} ${selected.length === 1 ? "Tab" : "Tabs"}` : "Continue"}
+          onContinue={pinSelected}
+          onSkip={() => useOnboarding.getState().skip("pins", [])}
+        />
       }
       preview={<PinnedPreview selected={selected} />}
     >
-      <Reveal delay={60}>
-        <StepTitle title="Keep your favorite apps handy" subtitle="Pin important apps so they're always available when you open Ardia." />
-      </Reveal>
-      <Reveal delay={140} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {PINNABLE_SITES.map((site) => (
           <SiteTile key={site.id} title={site.title} url={site.url} selected={selected.includes(site.id)} onPress={() => toggle(site.id)} />
         ))}
-      </Reveal>
+      </View>
     </StepLayout>
   );
 }
@@ -431,20 +390,21 @@ function PinnedPreview({ selected }: { selected: string[] }) {
 
 export function OutroStep() {
   const colors = useOnboardingColors();
+  const picked = useOnboarding((s) => s.picked);
+  const lines = STEPS.flatMap((step: OnboardingStep) => picked[step] ?? []);
   return (
     <StepLayout
+      title={"Welcome to your new\nhome on the internet"}
+      subtitle="Everything you set up is saved. Change any of it later in Settings."
       actions={
         <>
-          <PrimaryButton title="Get Started" icon="arrow.right" onPress={() => finishOnboarding()} />
+          <StepActions icon="arrow.right" continueTitle="Get Started" onContinue={() => finishOnboarding()} />
           <SecondaryButton title="Take the Tour" onPress={() => finishOnboarding({ tour: true })} />
         </>
       }
-      preview={<Postcard />}
+      preview={<Postcard lines={lines} />}
     >
-      <Reveal delay={60}>
-        <StepTitle title={"Welcome to your new\nhome on the internet"} subtitle="Everything you set up is saved. Change any of it later in Settings." />
-      </Reveal>
-      <Reveal delay={140} style={{ gap: 10 }}>
+      <View style={{ gap: 10 }}>
         {[
           ["⌘T", "Open a new tab"],
           ["⌘L", "Go anywhere from the command bar"],
@@ -457,18 +417,19 @@ export function OutroStep() {
             <Text style={{ fontSize: 13, color: colors.subtitle }}>{label}</Text>
           </View>
         ))}
-      </Reveal>
+      </View>
     </StepLayout>
   );
 }
 
-function Postcard() {
+function Postcard({ lines }: { lines: string[] }) {
   const colors = useOnboardingColors();
+  const shown = lines.slice(0, 8);
   return (
     <View
       style={{
-        width: 300,
-        height: 200,
+        width: 340,
+        minHeight: 210,
         borderRadius: 6,
         padding: 18,
         flexDirection: "row",
@@ -478,14 +439,26 @@ function Postcard() {
         transform: [{ rotate: "-3deg" }],
       }}
     >
-      <View style={{ flex: 1, justifyContent: "space-between", paddingRight: 14 }}>
+      <View style={{ flex: 1, gap: 10, paddingRight: 14 }}>
         <Text style={{ fontSize: 20, fontWeight: "300", fontStyle: "italic", color: colors.title }}>Hello!</Text>
-        <Text style={{ fontSize: 12, lineHeight: 17, color: colors.subtitle }}>
-          {"Glad you're here. Make yourself at home. Your tabs, bookmarks and pins are ready."}
-        </Text>
+        {shown.length ? (
+          <View style={{ gap: 4 }}>
+            <Text style={{ fontSize: 11, lineHeight: 15, color: colors.subtitle }}>{"You picked:"}</Text>
+            {shown.map((line) => (
+              <View key={line} style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+                <Symbol name="checkmark" size={8} weight="bold" color={colors.title} style={{ width: 10, height: 15 }} />
+                <Text style={{ flex: 1, fontSize: 11, lineHeight: 15, color: colors.title }}>{line}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={{ fontSize: 12, lineHeight: 17, color: colors.subtitle }}>
+            {"Glad you're here. Make yourself at home. Your tabs, bookmarks and pins are ready."}
+          </Text>
+        )}
       </View>
       <View style={{ width: StyleSheet.hairlineWidth * 2, backgroundColor: colors.separator }} />
-      <View style={{ width: 104, paddingLeft: 14, justifyContent: "space-between", alignItems: "flex-end" }}>
+      <View style={{ width: 96, paddingLeft: 14, justifyContent: "space-between", alignItems: "flex-end" }}>
         <View style={{ padding: 4, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.rowBorder, borderRadius: 3 }}>
           <Image source={ICON} style={{ width: 46, height: 46 }} />
         </View>
@@ -498,7 +471,7 @@ function Postcard() {
       <View
         style={{
           position: "absolute",
-          right: 54,
+          right: 50,
           top: 52,
           width: 44,
           height: 44,

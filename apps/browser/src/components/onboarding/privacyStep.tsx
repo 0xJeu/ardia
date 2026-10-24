@@ -1,29 +1,146 @@
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { getContentBlocker } from "@ardia/ardiacore";
+import { engineHost } from "@ardia/core";
+import { useEffect, useState, type ReactNode } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { searchEngines, type Settings } from "../../store/settings";
+import { useBrowser } from "../../store/browser";
 import { setSharing, useTelemetry } from "../../telemetry/client";
 import { SHARING_COPY } from "../../telemetry/copy";
-import { StepLayout } from "./steps";
+import { Favicon, useHover } from "../primitives";
+import { categoryOn, setCategory } from "../settings/panes/Privacy";
+import { CONTENT_WIDTH, ChoicePair, type ChoiceOption } from "./choices";
+import { MockPanel, useScreen } from "./screen";
 import { useOnboarding } from "./state";
-import { CheckRow, PrimaryButton, Reveal, StepTitle, useOnboardingColors } from "./ui";
+import { StepActions, StepLayout } from "./steps";
+import { CheckMark, CheckRow, SectionLabel, useOnboardingColors } from "./ui";
 
-export function PrivacyStep() {
-  const next = useOnboarding((s) => s.next);
-  const [share, setShare] = useState(() => useTelemetry.getState().sharing);
-  const colors = useOnboardingColors();
+const KEYS = ["searchEngine", "commandBarPreference"] as const;
+const ENGINES = ["google", "duckduckgo", "bing", "kagi", "ecosia", "brave", "startpage"];
+const BLOCKED = ["ads", "trackers", "cookies"] as const;
+
+const TYPED_CHOICES: ChoiceOption<Settings["commandBarPreference"]>[] = [
+  { value: "website", preview: "typed-website", title: "Website first", subtitle: "github → github.com" },
+  { value: "search", preview: "typed-search", title: "Search first", subtitle: "github → a web search" },
+];
+const BLOCK_CHOICES: ChoiceOption<boolean>[] = [
+  { value: true, preview: "block-on", title: "Block", subtitle: "Ads, trackers, banners" },
+  { value: false, preview: "block-off", title: "Allow", subtitle: "Pages as they come" },
+];
+
+async function applyBlocking(on: boolean) {
+  for (const c of BLOCKED) {
+    const state = await getContentBlocker();
+    if (categoryOn(state, c) !== on) await setCategory(state, c, on);
+  }
+}
+
+export function SearchPrivacyStep() {
+  const { values, mock, focus, setFocus } = useScreen(KEYS);
+  const setDraft = useOnboarding((s) => s.setDraft);
+  const extras = useOnboarding((s) => s.extras);
+  const all = useBrowser((s) => searchEngines(s.settings));
+  const [blocking, setBlocking] = useState<boolean | null>(null);
+  const [receipt, setReceipt] = useState(false);
+  const block = extras.block ?? blocking ?? true;
+  const share = extras.share ?? useTelemetry.getState().sharing;
+  const engines = all.filter((e) => ENGINES.includes(e.id) || e.id === values.searchEngine);
+
+  useEffect(() => {
+    void getContentBlocker().then(
+      (s) => setBlocking(categoryOn(s, "ads")),
+      () => {},
+    );
+  }, []);
+
   const done = () => {
+    const engine = all.find((e) => e.id === values.searchEngine);
+    if (blocking === null || block !== blocking || extras.block !== undefined) void applyBlocking(block).catch(() => {});
     setSharing(share, "onboarding");
-    next();
+    const picked = [`Search with ${engine?.name ?? "your engine"}${block ? ", ads blocked" : ""}`];
+    useOnboarding.getState().confirm("searchPrivacy", values, picked);
   };
+
   return (
-    <StepLayout actions={<PrimaryButton title="Continue" onPress={done} />} preview={<Receipt on={share} />}>
-      <Reveal delay={60}>
-        <StepTitle title={SHARING_COPY.onboarding.title} subtitle={SHARING_COPY.onboarding.subtitle} />
-      </Reveal>
-      <Reveal delay={140} style={{ gap: 12 }}>
-        <CheckRow icon="stethoscope" title={SHARING_COPY.toggle} subtitle={SHARING_COPY.onboarding.row} value={share} onChange={setShare} />
-        <Text style={{ fontSize: 11.5, lineHeight: 16, color: colors.footnote }}>{SHARING_COPY.footnote}</Text>
-      </Reveal>
+    <StepLayout
+      title="Search and privacy"
+      subtitle="Where your searches go, and what pages can do."
+      actions={<StepActions onContinue={done} onSkip={() => useOnboarding.getState().skip("searchPrivacy", KEYS)} />}
+      preview={<MockPanel settings={mock} focus={focus} overlay={receipt ? <Receipt on={share} /> : null} />}
+    >
+      <View style={{ gap: 8 }}>
+        <SectionLabel title="Search with" />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Search engine">
+          {engines.map((e) => (
+            <EngineTile key={e.id} title={e.name} url={`https://${engineHost(e)}`} selected={e.id === values.searchEngine} onPress={() => setDraft({ searchEngine: e.id })} />
+          ))}
+        </View>
+      </View>
+      <ChoicePair
+        label="Typing a word"
+        options={TYPED_CHOICES}
+        value={values.commandBarPreference}
+        onChange={(commandBarPreference) => setDraft({ commandBarPreference })}
+        onFocus={setFocus}
+        order={0}
+      />
+      <ChoicePair
+        label="Content blocking"
+        options={BLOCK_CHOICES}
+        value={block}
+        onChange={(v) => useOnboarding.getState().setExtras({ block: v })}
+        onFocus={setFocus}
+        order={2}
+      />
+      <HoverArea onHover={setReceipt}>
+        <CheckRow icon="stethoscope" title={SHARING_COPY.toggle} subtitle={SHARING_COPY.onboarding.row} value={share} onChange={(v) => useOnboarding.getState().setExtras({ share: v })} />
+      </HoverArea>
     </StepLayout>
+  );
+}
+
+function HoverArea({ onHover, children }: { onHover: (on: boolean) => void; children: ReactNode }) {
+  const { hovered, hoverProps } = useHover();
+  useEffect(() => onHover(hovered), [hovered]);
+  return <View {...hoverProps}>{children}</View>;
+}
+
+const TILE = (CONTENT_WIDTH - 8 * 3) / 4;
+
+function EngineTile({ title, url, selected, onPress }: { title: string; url: string; selected: boolean; onPress: () => void }) {
+  const colors = useOnboardingColors();
+  const { hovered, hoverProps } = useHover();
+  return (
+    <View {...hoverProps}>
+      <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={title}>
+        {({ pressed }) => (
+          <View
+            mouseDownCanMoveWindow={false}
+            style={{
+              width: TILE,
+              height: 58,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              backgroundColor: selected || hovered ? colors.button : colors.row,
+              borderWidth: selected ? 1.5 : StyleSheet.hairlineWidth * 2,
+              borderColor: selected ? colors.title : colors.rowBorder,
+              transform: [{ scale: pressed ? 0.96 : 1 }],
+            }}
+          >
+            <Favicon url={url} size={18} />
+            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: "500", color: selected ? colors.title : colors.subtitle }}>
+              {title}
+            </Text>
+            {selected ? (
+              <View style={{ position: "absolute", top: 5, right: 5 }}>
+                <CheckMark on size={12} />
+              </View>
+            ) : null}
+          </View>
+        )}
+      </Pressable>
+    </View>
   );
 }
 

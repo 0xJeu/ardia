@@ -51,9 +51,9 @@ function useContentBlocker() {
   return [state ?? null, refresh] as const;
 }
 
-const categoryOn = (s: ContentBlockerState, c: FilterListCategory) => s.enabled && s.lists.some((l) => l.category === c && l.enabled);
+export const categoryOn = (s: ContentBlockerState, c: FilterListCategory) => s.enabled && s.lists.some((l) => l.category === c && l.enabled);
 
-async function setCategory(s: ContentBlockerState, c: FilterListCategory, on: boolean) {
+export async function setCategory(s: ContentBlockerState, c: FilterListCategory, on: boolean) {
   const lists = s.lists.filter((l) => l.category === c);
   const usual = lists.filter((l) => l.defaultOn || l.enabled);
   const starters = usual.length ? usual : lists.filter((l) => /easylist|fanboy/.test(l.id));

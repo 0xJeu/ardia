@@ -12,7 +12,7 @@ import type { ProfileColor } from "../../store/types";
 import { useHover } from "../primitives";
 import { Button, Checkbox, PopUp, useFormColors } from "../settings/controls";
 import { useOnboarding } from "../onboarding/state";
-import { IMPORT_WINDOW_ID } from "../settings/windows";
+import { IMPORT_WINDOW_ID, takePreferredImportSource } from "../settings/windows";
 import { applyResult, applySafari, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, type ImportCounts } from "./apply";
 import { importModule } from "./module";
 
@@ -107,7 +107,8 @@ export function ImportWindow() {
       .listBrowsers()
       .then((list) => {
         setBrowsers(list);
-        const first = list.find((b) => !b.needsFullDiskAccess && !b.requiresExport && b.family !== "automation") ?? list[0];
+        const preferred = takePreferredImportSource();
+        const first = list.find((b) => b.id === preferred) ?? list.find((b) => !b.needsFullDiskAccess && !b.requiresExport && b.family !== "automation") ?? list[0];
         if (first) choose(first);
         setStep("choose");
       })

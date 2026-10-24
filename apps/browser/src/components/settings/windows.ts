@@ -60,6 +60,15 @@ export function openSettings(pane?: SettingsPane, profileId?: string | null) {
   void openWindow(SETTINGS_WINDOW_ID, { kind: "settings", title: "Settings" });
 }
 
-export function openImport() {
+let preferredImportSource: string | null = null;
+
+export function takePreferredImportSource() {
+  const id = preferredImportSource;
+  preferredImportSource = null;
+  return id;
+}
+
+export function openImport(browserId?: string) {
+  preferredImportSource = browserId ?? null;
   void openWindow(IMPORT_WINDOW_ID, { kind: "import", title: "Import from Another Browser" });
 }
