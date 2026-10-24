@@ -159,8 +159,13 @@ const ROWS: Record<SettingsPane, Section[]> = {
       rows: {
         peekModifier: {
           title: "Peek a link with",
-          description: "Opens the link in a preview over the page. Open as Tab or Split View keeps it; Esc closes it. ⌥⇧-click still opens a split.",
+          description: "Opens the link in a preview over the page. Open as Tab or Split View keeps it; Esc closes it.",
           keywords: ["peek", "preview", "shift click", "option click", "arc"],
+        },
+        splitLinkModifier: {
+          title: "Open a link in split view with",
+          description: "Opens the link in a pane beside the page. ⌥⌘-click splits too, and so does ⌥⇧-click when ⌥-click is chosen. A link that downloads still downloads.",
+          keywords: ["split view", "split screen", "side by side", "option click", "alt click", "option shift click", "download", "dia"],
         },
       },
     },
