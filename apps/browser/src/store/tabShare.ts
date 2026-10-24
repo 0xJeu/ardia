@@ -306,8 +306,28 @@ export function sharedLastUsed(s: BrowserState): Map<string, number> | null {
 
 export const lastUsedOf = (used: Map<string, number> | null, t: Tab) => used?.get(familyKey(t)) ?? t.lastActiveAt;
 
-export function sharedCopyHere(tabs: Record<string, Tab>, windowId: string): (t: Tab) => boolean {
+export function sharedTabsIn(tabs: Record<string, Tab>, windowId: string): { elsewhere(t: Tab): boolean; lastUsed(t: Tab): number } {
   const here = new Set<string>();
-  for (const t of Object.values(tabs)) if (t.windowId === windowId && !t.pinned) here.add(familyKey(t));
-  return (t) => !t.pinned && t.windowId !== windowId && here.has(familyKey(t));
+  const used = new Map<string, number>();
+  for (const t of Object.values(tabs)) {
+    if (t.pinned) continue;
+    const key = familyKey(t);
+    if (t.windowId === windowId) here.add(key);
+    used.set(key, Math.max(used.get(key) ?? 0, t.lastActiveAt));
+  }
+  return {
+    elsewhere: (t) => !t.pinned && t.windowId !== windowId && here.has(familyKey(t)),
+    lastUsed: (t) => (t.pinned ? t.lastActiveAt : (used.get(familyKey(t)) ?? t.lastActiveAt)),
+  };
+}
+
+export function openTabsByUse(
+  tabs: Record<string, Tab>,
+  peeks: BrowserState["peeks"],
+  o: { profileId: string; windowId: string; shared: boolean },
+): { tab: Tab; lastActiveAt: number }[] {
+  const view = o.shared ? sharedTabsIn(tabs, o.windowId) : null;
+  return Object.values(tabs)
+    .filter((t) => t.profileId === o.profileId && peeks[t.windowId]?.tabId !== t.id && !view?.elsewhere(t))
+    .map((t) => ({ tab: t, lastActiveAt: view ? view.lastUsed(t) : t.lastActiveAt }));
 }

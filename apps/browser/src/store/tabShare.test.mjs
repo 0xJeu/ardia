@@ -171,3 +171,19 @@ test("making a split from a shared tab live in another window brings its page in
   assert.equal(rowOf(a, "https://a1.com"), undefined, "A's list follows B's");
   assert.equal(pages("https://a1.com").length, 1);
 });
+
+test("the ⌘T bar's open tabs rank a shared tab by its last use in any window, listing it once", async () => {
+  reset();
+  const { recentTabSuggestions } = await import("@ardia/core");
+  const { openTabsByUse } = await import("./tabShare.ts");
+  const { b, a1, a2 } = twoWindows();
+  share(true);
+  const x = rowOf(b, "https://a1.com");
+  const y = rowOf(b, "https://a2.com");
+  const at = { [x]: 1000, [y]: 2000, [a2]: 2000, [a1]: 3000 };
+  useBrowser.setState((s) => ({ tabs: Object.fromEntries(Object.entries(s.tabs).map(([id, t]) => [id, at[id] ? { ...t, lastActiveAt: at[id] } : t])) }));
+  const rows = openTabsByUse(S().tabs, S().peeks, { profileId: "default", windowId: b, shared: true }).map(({ tab, lastActiveAt }) => ({ id: tab.id, url: tab.url, title: "", favicon: null, lastActiveAt }));
+  const order = recentTabSuggestions(rows).map((r) => r.tabId);
+  assert.ok(order.includes(x) && order.indexOf(x) < order.indexOf(y), "A used X last, so X ranks above Y");
+  assert.equal(order.includes(a1), false, "listed once, as B's own row");
+});
