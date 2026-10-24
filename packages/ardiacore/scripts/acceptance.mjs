@@ -31,6 +31,7 @@
 //   cef(call) · exts(call)         ArdiaCEF / ArdiaExtensions module calls
 //   browserOf(tabId) · eventsOf(tabId) · lastEvent(tabId, name, test) · live(tabId) · pipWindows()
 //   openTab(url, title, background) · closeTab(id) · shownAndMounted(id) · freshTab(url) · backToA() · startVideo(tabId, audio)
+//   pipByHand(tabId)               Site Controls › Picture in Picture, clicked as the user does (manual PiP needs the click)
 //   launch(log, env, args, opts) · appUp(log)   (re)start the app on the run's data dir; `exited` is set once it's gone
 //   onScreenWindows() · firstPixel(png) · writePopupExtension(opts) · fixtureCrx()
 import { execFileSync } from "node:child_process";
@@ -583,6 +584,13 @@ const startVideo = async (tabId, audio) => {
   if (r.result?.value !== "ok") throw new Error(`the video didn't play: ${JSON.stringify(r.result ?? r)}`);
   await until("the video's first frames", async () => (await cdp(t, "Runtime.evaluate", { expression: "document.getElementById('v').videoWidth", returnByValue: true })).result?.value > 0, 8000);
   return t;
+};
+const pipByHand = async (tabId) => {
+  await evalApp(`ac.pageState.setState((s) => ({ popover: { ...s.popover, ${JSON.stringify(tabId)}: "siteControls" } })); return true`);
+  return until("a click on Site Controls › Picture in Picture", async () => {
+    const click = await evalApp(`return ac.shell.devClick(${JSON.stringify(mainWindow)}, { label: "Picture in Picture", queued: true, wait: 300 })`);
+    return click?.error ? null : click;
+  }, 5000);
 };
 const stopApp = async () => {
   if (!exited) await instance.quit();
@@ -3159,8 +3167,7 @@ try {
     try {
       await evalApp(`return ac.webviews.get("${tab.id}").setMuted(true)`);
       const t = await startVideo(tab.id, false);
-      const requested = await evalApp(`return ac.webviews.get("${tab.id}").requestPictureInPicture()`);
-      if (requested !== true) throw new Error(`requestPictureInPicture answered ${requested}`);
+      const click = await pipByHand(tab.id);
       const on = await until("onPictureInPicture video", async () => lastEvent(tab.id, "pictureInPicture", (p) => p.kind === "video" && p.active), 5000);
       const element = (await cdp(t, "Runtime.evaluate", { expression: "document.pictureInPictureElement?.id ?? null", returnByValue: true })).result.value;
       const video = await until("Chrome's PiP window, styled", async () => (await pipWindows())?.find((w) => w.video && w.styled) ?? null, 5000)
@@ -3192,7 +3199,7 @@ try {
         const e = await lastEvent(tab.id, "pictureInPicture");
         return e && e.payload.kind === "document" && !e.payload.active ? e : null;
       }, 5000);
-      return { requested, on: on.payload, element, window: { frame: video.frame, level: video.level, alpha: video.alpha }, menu, off: off.payload,
+      return { clickAt: click.at, on: on.payload, element, window: { frame: video.frame, level: video.level, alpha: video.alpha }, menu, off: off.payload,
         docOn: docOn.payload, docWindow: { title: docWindow.title, alpha: docWindow.alpha }, docOff: docOff.payload };
     } finally {
       await closeTab(tab.id);
@@ -3234,7 +3241,7 @@ try {
       await evalApp(`return ac.webviews.get("${tab.id}").setMuted(true)`);
       const t = await startVideo(tab.id, false);
       const open = async () => {
-        if ((await evalApp(`return ac.webviews.get("${tab.id}").requestPictureInPicture()`)) !== true) throw new Error("requestPictureInPicture failed");
+        await pipByHand(tab.id);
         await until("the styled PiP window", async () => (await pipWindows())?.find((w) => w.video && w.styled && w.visible) ?? null, 5000);
       };
       await open();
@@ -3705,7 +3712,7 @@ try {
               ["tab", () => evalApp(`ac.actions.switchToTab("${first.id}"); return true`), () => evalApp(`ac.actions.switchToTab("${tab.id}"); return true`)],
               ["window", () => win("fakeOcclusion:occluded"), () => win("fakeOcclusion:visible")],
             ]) {
-              if ((await evalApp(`return ac.webviews.get("${tab.id}").requestPictureInPicture()`)) !== true) throw new Error("requestPictureInPicture failed");
+              await pipByHand(tab.id);
               const opened = await until("PiP opened by hand", async () => lastEvent(tab.id, "pictureInPicture", (p) => p.kind === "video" && p.active), 5000);
               await leave();
               await sleep(800);
