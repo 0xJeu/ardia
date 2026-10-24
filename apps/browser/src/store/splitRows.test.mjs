@@ -142,3 +142,35 @@ test("a pinned split survives a relaunch", () => {
   assert.deepEqual(S().splits[splitId]?.tabIds, [b, c]);
   assert.deepEqual(sidebarEntries(S(), w).pinned, [`s:${splitId}`]);
 });
+
+test("a pane added to a pinned split is pinned with it, and the other window's copy follows", () => {
+  reset();
+  const { w, b, c, splitId } = splitWindow();
+  S().pinTabs([b], true);
+  const other = S().createWindow({ url: "https://z.com/" });
+  const r = S().openSplitPane(w, { anchorTabId: c, side: "bottom", url: "https://e.com/" });
+  assert.equal(r.ok, true);
+  assert.equal(S().tabs[r.tabId].pinned && S().tabs[r.tabId].pinnedAsRow, true, "the new pane is a pinned row like the others");
+  assert.deepEqual(S().splits[splitId].tabIds.map(host), ["b", "c", "e"]);
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`s:${splitId}`], "still one pinned row");
+  assert.deepEqual(sidebarEntries(S(), w).list.map((e) => host(e.slice(2))), ["a", "d"]);
+  assert.deepEqual(panesOf(other), [["b", "c", "e"]], "the other window keeps a split, now of three");
+});
+
+test("replacing a pinned split's pane with a tab from the list pins that tab in its place", () => {
+  reset();
+  const { w, a, b, c, splitId } = splitWindow();
+  S().pinTabs([b], true);
+  S().replaceSplitPane(c, a);
+  assert.deepEqual(S().splits[splitId].tabIds, [b, a]);
+  assert.equal(S().tabs[a].pinned && S().tabs[a].pinnedAsRow, true);
+  assert.deepEqual(sidebarEntries(S(), w).pinned, [`s:${splitId}`]);
+});
+
+test("a fresh split from a pinned row still leaves the new tab unpinned", () => {
+  reset();
+  const { w, a } = splitWindow();
+  S().pinTabs([a], true, true);
+  const r = S().openSplitPane(w, { anchorTabId: a, url: "https://e.com/" });
+  assert.equal(S().tabs[r.tabId].pinned, false);
+});

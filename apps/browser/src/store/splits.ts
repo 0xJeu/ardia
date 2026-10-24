@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 import { innermostGroupOf, leaveGroups, syncGroupOrder } from "./groups";
 import { isPinnedRow, newId } from "./model";
+import { placing } from "./organize";
 import { choose } from "./settings";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
 import type { BrowserWindow, SplitView, Tab } from "./types";
@@ -121,10 +122,23 @@ export function sanitizeSplits(splits: Record<string, SplitView>, tabs: Record<s
   return next;
 }
 
+function gatherPinned(s: BrowserState, anchorId: string, members: string[]): BrowserState {
+  const newcomers = members.filter((id) => id !== anchorId && s.tabs[id] && !isPinnedRow(s.tabs[id]));
+  const settled = (splitOf(s, anchorId)?.tabIds ?? []).filter((id) => !newcomers.includes(id) && isPinnedRow(s.tabs[id]));
+  if (!newcomers.length || settled.length < 2) return s;
+  const next = placing(s, newcomers, { pinned: true, row: true, beforeId: anchorId });
+  const w = next.windows[s.tabs[anchorId]!.windowId]!;
+  const block = members.filter((id) => id === anchorId || newcomers.includes(id));
+  const tabIds = w.tabIds.filter((id) => !newcomers.includes(id));
+  tabIds.splice(tabIds.indexOf(anchorId), 1, ...block);
+  return { ...next, windows: { ...next.windows, [w.id]: { ...w, tabIds } } };
+}
+
 function gather(s: BrowserState, anchorId: string, members: string[]): BrowserState {
   const anchor = s.tabs[anchorId];
   const w = anchor && s.windows[anchor.windowId];
-  if (!anchor || !w || anchor.pinned) return s;
+  if (!anchor || !w) return s;
+  if (anchor.pinned) return isPinnedRow(anchor) ? gatherPinned(s, anchorId, members) : s;
   const moving = new Set(members.filter((id) => id !== anchorId && s.tabs[id] && !s.tabs[id]!.pinned));
   if (!moving.size) return s;
   const block = members.filter((id) => id === anchorId || moving.has(id));
