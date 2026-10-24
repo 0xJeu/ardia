@@ -715,17 +715,9 @@ void HideStandardLights(NSWindow *window, BOOL hide) {
   ACFullScreenLightsWatch *watch = [[ACFullScreenLightsWatch alloc] init];
   watch->_window = window;
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-  [center addObserver:watch selector:@selector(willEnter) name:NSWindowWillEnterFullScreenNotification object:window];
   [center addObserver:watch selector:@selector(didEnter) name:NSWindowDidEnterFullScreenNotification object:window];
-  [center addObserver:watch selector:@selector(didEnter) name:NSWindowDidFailToExitFullScreenNotification object:window];
-  [center addObserver:watch selector:@selector(willExit) name:NSWindowWillExitFullScreenNotification object:window];
   [center addObserver:watch selector:@selector(didExit) name:NSWindowDidExitFullScreenNotification object:window];
-  [center addObserver:watch selector:@selector(didExit) name:NSWindowDidFailToEnterFullScreenNotification object:window];
   objc_setAssociatedObject(window, kFullScreenLightsWatchKey, watch, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-- (void)willEnter {
-  if (NSWindow *window = _window) ShowFullScreenLights(window, YES);
 }
 
 - (void)didEnter {
@@ -733,10 +725,6 @@ void HideStandardLights(NSWindow *window, BOOL hide) {
   if (!window) return;
   ShowFullScreenLights(window, YES);
   HideStandardLights(window, YES);
-}
-
-- (void)willExit {
-  if (NSWindow *window = _window) HideStandardLights(window, NO);
 }
 
 - (void)didExit {
