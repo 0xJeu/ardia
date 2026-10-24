@@ -214,3 +214,20 @@ test("private windows have nothing to tidy and write nothing", () => {
   assert.equal(canTidyPins(s, p), false);
   assert.equal(tidyingPins(s, p)[0], s);
 });
+
+test("Undo gives a split pane that Tidy moved along with its partner its own pinned URL back", () => {
+  reset();
+  const { w, ids: [a1, b, a2] } = windowWith("https://a.com/1", "https://b.com/home", "https://a.com/2");
+  const splitId = S().createSplit([a1, b]);
+  S().pinTabs([a1], true, true);
+  assert.equal(S().tabs[b].pinnedUrl, "https://b.com/home");
+  S().updateTab(b, { url: "https://b.com/article" });
+  S().pinTabs([a2], true, true);
+  const done = tidy(w);
+  assert.ok(done);
+  undo(done);
+  assert.equal(S().tabs[b].pinnedUrl, "https://b.com/home", "the pane's home, not the page it's on");
+  assert.equal(S().tabs[b].pinned && S().tabs[b].pinnedAsRow, true);
+  assert.equal(S().tabs[a1].pinned && S().tabs[a1].pinnedAsRow, true);
+  assert.deepEqual(S().splits[splitId]?.tabIds, [a1, b], "still a split");
+});

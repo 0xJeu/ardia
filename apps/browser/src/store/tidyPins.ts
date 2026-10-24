@@ -3,6 +3,7 @@ import { siteKey, siteName } from "./groupNames";
 import { depthOf, innermostGroupOf } from "./groups";
 import { activeTabId, isPinnedRow } from "./model";
 import { placing, restoreSnapshots, samePage, withRowsGrouped } from "./organize";
+import { withSplitRows } from "./splits";
 import { activated, apply, removeTabs } from "./tabs";
 import type { ClosedTab, Tab, TabGroup } from "./types";
 
@@ -102,7 +103,7 @@ export function tidyingPins(s: BrowserState, windowId: string, profileId?: strin
   const w = s.windows[windowId];
   if (!plan || !w) return [s, null];
   const homes: Record<string, string | null> = {};
-  for (const id of [...plan.files.map((f) => f.tabId), ...plan.newGroups.flatMap((g) => g.tabIds)]) homes[id] = s.tabs[id]!.pinnedUrl;
+  for (const id of withSplitRows(s, [...plan.files.map((f) => f.tabId), ...plan.newGroups.flatMap((g) => g.tabIds)])) homes[id] = s.tabs[id]!.pinnedUrl;
   let next = s;
   let closed: ClosedTab[] = [];
   if (plan.closes.length) {
