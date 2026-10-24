@@ -27,6 +27,18 @@ public final class AppUpdater: NSObject {
   public func setChannel(_ channel: String) {
     guard Self.channels.contains(channel) else { return }
     UserDefaults.standard.set(channel, forKey: Self.channelDefaultsKey)
+    #if canImport(Sparkle)
+    guard started, updater.automaticallyChecksForUpdates else { return }
+    if updater.sessionInProgress {
+      channelChangePending = true
+    } else {
+      updater.resetUpdateCycle()
+    }
+    #endif
+  }
+
+  var allowedChannels: Set<String> {
+    channel == "nightly" ? ["nightly"] : []
   }
 
   private func rememberChannel() {
@@ -77,8 +89,12 @@ public final class AppUpdater: NSObject {
   }
 
   #if canImport(Sparkle)
-  private lazy var controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
+  private lazy var userDriver = ChannelUserDriver(standard: SPUStandardUserDriver(hostBundle: .main, delegate: self)) { [unowned self] item in
+    item.channel.map { self.allowedChannels.contains($0) } ?? true
+  }
+  private lazy var updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: userDriver, delegate: self)
   private var deferredUpdate = false
+  private var channelChangePending = false
   private var firstCheckPending = false
   #endif
   private var started = false
@@ -105,9 +121,9 @@ public final class AppUpdater: NSObject {
     rememberChannel()
     guard !started, isConfigured else { return }
     started = true
-    firstCheckPending = controller.updater.lastUpdateCheckDate == nil
+    firstCheckPending = updater.lastUpdateCheckDate == nil
     do {
-      try controller.updater.start()
+      try updater.start()
     } catch {
       NSLog("Ardia: couldn't start the updater: \(error.localizedDescription)")
     }
@@ -124,13 +140,12 @@ public final class AppUpdater: NSObject {
       return showNotSetUp()
     }
     start()
-    controller.checkForUpdates(sender)
+    updater.checkForUpdates()
     #endif
   }
 
   public var state: [String: Any] {
     #if canImport(Sparkle)
-    let updater = controller.updater
     return [
       "available": true,
       "configured": isConfigured,
@@ -152,13 +167,13 @@ public final class AppUpdater: NSObject {
 
   public func setAutomaticChecks(_ on: Bool) {
     #if canImport(Sparkle)
-    controller.updater.automaticallyChecksForUpdates = on
+    updater.automaticallyChecksForUpdates = on
     #endif
   }
 
   public func setAutomaticDownloads(_ on: Bool) {
     #if canImport(Sparkle)
-    controller.updater.automaticallyDownloadsUpdates = on
+    updater.automaticallyDownloadsUpdates = on
     #endif
   }
 
@@ -184,7 +199,7 @@ public final class AppUpdater: NSObject {
     DispatchQueue.main.async { [self] in
       guard !Self.isPresentingFullScreen, deferredUpdate else { return }
       deferredUpdate = false
-      controller.checkForUpdates(nil)
+      updater.checkForUpdates()
     }
   }
   #endif
@@ -195,7 +210,13 @@ extension AppUpdater: SPUUpdaterDelegate {
   public func feedURLString(for updater: SPUUpdater) -> String? { Self.feedOverride }
 
   public func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-    channel == "nightly" ? ["nightly"] : []
+    allowedChannels
+  }
+
+  public func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
+    guard channelChangePending else { return }
+    channelChangePending = false
+    DispatchQueue.main.async { updater.resetUpdateCycle() }
   }
 
   public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
@@ -307,6 +328,97 @@ enum UpdatePrewarm {
       found.append((bundle, date))
     }
     return found.max { $0.1 < $1.1 }?.0
+  }
+}
+
+final class ChannelUserDriver: NSObject, SPUUserDriver {
+  private let standard: SPUStandardUserDriver
+  private let isOnChannel: (SUAppcastItem) -> Bool
+
+  init(standard: SPUStandardUserDriver, isOnChannel: @escaping (SUAppcastItem) -> Bool) {
+    self.standard = standard
+    self.isOnChannel = isOnChannel
+  }
+
+  override func responds(to aSelector: Selector!) -> Bool {
+    super.responds(to: aSelector) || standard.responds(to: aSelector)
+  }
+
+  override func forwardingTarget(for aSelector: Selector!) -> Any? {
+    standard.responds(to: aSelector) ? standard : nil
+  }
+
+  func showUpdateFound(with appcastItem: SUAppcastItem, state: SPUUserUpdateState, reply: @escaping (SPUUserUpdateChoice) -> Void) {
+    guard isOnChannel(appcastItem) else {
+      NSLog("Ardia: dropping update \(appcastItem.displayVersionString) (build \(appcastItem.versionString)): its channel isn't this copy's any more")
+      UpdatePrewarm.stop()
+      return reply(.skip)
+    }
+    standard.showUpdateFound(with: appcastItem, state: state, reply: reply)
+  }
+
+  func show(_ request: SPUUpdatePermissionRequest, reply: @escaping (SUUpdatePermissionResponse) -> Void) {
+    standard.show(request, reply: reply)
+  }
+
+  func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {
+    standard.showUserInitiatedUpdateCheck(cancellation: cancellation)
+  }
+
+  func showUpdateReleaseNotes(with downloadData: SPUDownloadData) {
+    standard.showUpdateReleaseNotes(with: downloadData)
+  }
+
+  func showUpdateReleaseNotesFailedToDownloadWithError(_ error: Error) {
+    standard.showUpdateReleaseNotesFailedToDownloadWithError(error)
+  }
+
+  func showUpdateNotFoundWithError(_ error: Error, acknowledgement: @escaping () -> Void) {
+    standard.showUpdateNotFoundWithError(error, acknowledgement: acknowledgement)
+  }
+
+  func showUpdaterError(_ error: Error, acknowledgement: @escaping () -> Void) {
+    standard.showUpdaterError(error, acknowledgement: acknowledgement)
+  }
+
+  func showDownloadInitiated(cancellation: @escaping () -> Void) {
+    standard.showDownloadInitiated(cancellation: cancellation)
+  }
+
+  func showDownloadDidReceiveExpectedContentLength(_ expectedContentLength: UInt64) {
+    standard.showDownloadDidReceiveExpectedContentLength(expectedContentLength)
+  }
+
+  func showDownloadDidReceiveData(ofLength length: UInt64) {
+    standard.showDownloadDidReceiveData(ofLength: length)
+  }
+
+  func showDownloadDidStartExtractingUpdate() {
+    standard.showDownloadDidStartExtractingUpdate()
+  }
+
+  func showExtractionReceivedProgress(_ progress: Double) {
+    standard.showExtractionReceivedProgress(progress)
+  }
+
+  func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
+    standard.showReady(toInstallAndRelaunch: reply)
+  }
+
+  func showInstallingUpdate(withApplicationTerminated applicationTerminated: Bool, retryTerminatingApplication: @escaping () -> Void) {
+    standard.showInstallingUpdate(withApplicationTerminated: applicationTerminated, retryTerminatingApplication: retryTerminatingApplication)
+  }
+
+  func showUpdateInstalledAndRelaunched(_ relaunched: Bool, acknowledgement: @escaping () -> Void) {
+    standard.showUpdateInstalledAndRelaunched(relaunched, acknowledgement: acknowledgement)
+  }
+
+  func showUpdateInFocus() {
+    standard.showUpdateInFocus()
+  }
+
+  func dismissUpdateInstallation() {
+    standard.dismissUpdateInstallation()
   }
 }
 
