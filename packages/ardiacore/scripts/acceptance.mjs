@@ -3112,9 +3112,9 @@ try {
     if (!media) throw new Error("no onMedia while playing");
     return { title: playing.payload.state.title, artist: playing.payload.state.artist, mediaEvents: media };
     } finally {
-      await evalApp(`return ac.webviews.get("${first.id}").setMuted(false)`).catch(() => null);
       await evalApp(`ac.store.getState().navigate("${first.id}", "${base}/a", { userInitiated: true }); return true`);
       await until("A again", async () => (await state()).tabs.find((t) => t.id === first.id && t.title === "Page A" && !t.loading));
+      await evalApp(`return ac.webviews.get("${first.id}").setMuted(false)`).catch(() => null);
     }
   });
 
@@ -3149,8 +3149,8 @@ try {
       }, 5000);
       return { muted: mutedEvent.payload, playing: on.payload, stopped: off.payload, stoppedAfterMs, unmuted: unmuted.payload };
     } finally {
-      await evalApp(`return ac.webviews.get("${first.id}").setMuted(false)`).catch(() => null);
       await backToA();
+      await evalApp(`return ac.webviews.get("${first.id}").setMuted(false)`).catch(() => null);
     }
   });
 
