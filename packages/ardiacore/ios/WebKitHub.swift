@@ -30,6 +30,14 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   private struct PendingExternal {
     let url: URL
     let allowance: String?
+    let grant: ExternalGrant?
+  }
+
+  private struct ExternalGrant {
+    let origin: String
+    let scheme: String
+    let app: String
+    let appPath: String
   }
 
   private var lastBrowserId: Int32 = -1000
@@ -47,7 +55,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   private var lastPermission = 0
   private var zoomByHost: [String: Double] = [:]
   private var pendingExternal: [String: PendingExternal] = [:]
-  private var externalAllowances = Set<String>()
+  private var externalAllowances: [String: ExternalGrant] = [:]
   private var lastExternal = 0
   private var resumeHosts: [String: WKWebView] = [:]
 
@@ -99,7 +107,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     let prefix = "private@\(name)#\(ended.token)|"
     rememberedPermissions = rememberedPermissions.filter { !$0.key.hasPrefix(prefix) }
     zoomByHost = zoomByHost.filter { !$0.key.hasPrefix(prefix) }
-    externalAllowances = externalAllowances.filter { !$0.hasPrefix(prefix) }
+    externalAllowances = externalAllowances.filter { !$0.key.hasPrefix(prefix) }
     let uses = { (view: WKWebView) in view.configuration.websiteDataStore === ended.store }
     for (key, view) in parked where uses(view) {
       parked.removeValue(forKey: key)
@@ -130,6 +138,17 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
       }
     }
     return "18.6"
+  }()
+
+  static let inspectable: Bool = {
+    if !(ProcessInfo.processInfo.environment["ARDIA_DATA_DIR"] ?? "").isEmpty { return true }
+    var code: SecCode?
+    guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return true }
+    var info: CFDictionary?
+    guard SecCodeCopySigningInformation(code as! SecStaticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+      let info = info as? [String: Any]
+    else { return true }
+    return info[kSecCodeInfoTeamIdentifier as String] == nil
   }()
 
   static let passkeysEntitled: Bool = {
@@ -300,7 +319,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     }
     guard value == "block" else { return }
     let store = dataStore(for: profile)
-    for tab in owners.values.compactMap(\.tab) where tab.webView?.configuration.websiteDataStore === store && tab.origin == origin {
+    for tab in owners.values.compactMap(\.tab) where tab.webView?.configuration.websiteDataStore === store && tab.capturing(kind, from: origin) {
       tab.stopCapture(kind)
     }
   }
@@ -318,9 +337,10 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     }
     let app = NSWorkspace.shared.urlForApplication(toOpen: url)
     let name = app.map { (FileManager.default.displayName(atPath: $0.path) as NSString).deletingPathExtension }
-    let trusted = origin.map { $0.hasPrefix("https://") || $0.hasPrefix("http://localhost") } ?? false
+    let trusted = origin.map(Self.isTrustworthy) ?? false
     let allowance = app != nil && trusted && !Self.isPrivate(profile) ? storeKey(profile) + "|" + origin! + "|" + scheme : nil
-    if let allowance, externalAllowances.contains(allowance) {
+    let grant = allowance != nil ? ExternalGrant(origin: origin!, scheme: scheme, app: name!, appPath: app!.path) : nil
+    if let allowance, externalAllowances[allowance] != nil {
       open(url)
       return nil
     }
@@ -328,7 +348,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     let id = "wk-external-\(lastExternal)"
     if app != nil {
       if pendingExternal.count >= 50 { pendingExternal.removeAll() }
-      pendingExternal[id] = PendingExternal(url: url, allowance: allowance)
+      pendingExternal[id] = PendingExternal(url: url, allowance: allowance, grant: grant)
     }
     let title = name.map { "Open “\($0)”?" } ?? "No application is set to open this link"
     let message = app == nil
@@ -344,8 +364,26 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 
   func resolveExternalApp(_ id: String, open: Bool, remember: Bool) {
     guard let pending = pendingExternal.removeValue(forKey: id), open else { return }
-    if remember, let allowance = pending.allowance { externalAllowances.insert(allowance) }
+    if remember, let allowance = pending.allowance, let grant = pending.grant { externalAllowances[allowance] = grant }
     self.open(pending.url)
+  }
+
+  static func isTrustworthy(_ origin: String) -> Bool {
+    guard let url = URL(string: origin), let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased() else { return false }
+    if scheme == "https" { return true }
+    let loopback = host == "localhost" || host.hasSuffix(".localhost") || host == "127.0.0.1" || host == "::1" || host == "[::1]"
+    return scheme == "http" && loopback
+  }
+
+  func externalAppAllowances(profile: String) -> [[String: Any]] {
+    let prefix = storeKey(profile) + "|"
+    return externalAllowances.filter { $0.key.hasPrefix(prefix) }.values.map { grant in
+      ["origin": grant.origin, "scheme": grant.scheme, "app": grant.app, "icon": Self.iconURI(URL(fileURLWithPath: grant.appPath)) ?? NSNull()]
+    }
+  }
+
+  func removeExternalAppAllowance(profile: String, origin: String, scheme: String) {
+    externalAllowances.removeValue(forKey: storeKey(profile) + "|" + origin + "|" + scheme)
   }
 
   private func open(_ url: URL) {
@@ -377,7 +415,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     if types.contains("siteData") {
       let prefix = storeKey(profile) + "|"
       rememberedPermissions = rememberedPermissions.filter { !$0.key.hasPrefix(prefix) }
-      externalAllowances = externalAllowances.filter { !$0.hasPrefix(prefix) }
+      externalAllowances = externalAllowances.filter { !$0.key.hasPrefix(prefix) }
     }
     guard !kinds.isEmpty else { return completion() }
     dataStore(for: profile).removeData(ofTypes: kinds, modifiedSince: Date(timeIntervalSince1970: since / 1000), completionHandler: completion)
@@ -444,16 +482,20 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
 
   private var items: [String: Item] = [:]
   private var byDownload: [ObjectIdentifier: String] = [:]
-  private var settings: [String: (folder: URL, ask: Bool)] = [:]
   private let fallbackFolder: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
     ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
 
-  func setSettings(profile: String, folder: String, ask: Bool) {
-    settings[profile] = (folder.isEmpty ? fallbackFolder : URL(fileURLWithPath: folder, isDirectory: true), ask)
-  }
-
-  private func destination(for profile: String) -> (folder: URL, ask: Bool) {
-    settings[WebKitHub.regularProfile(profile)] ?? settings[""] ?? (fallbackFolder, false)
+  private func resolveDestination(for profile: String, completion: @escaping (URL, Bool) -> Void) {
+    guard ArdiaCoreEngineBridge.exports("ac_downloads_settings") else { return completion(fallbackFolder, true) }
+    ArdiaCoreEngineBridge.call("ac_downloads_settings", profile: WebKitHub.regularProfile(profile), args: nil) { [weak self] json in
+      let parsed = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any]
+      let folder = (parsed?["folder"] as? String).flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
+      let ask = parsed?["askWhereToSave"] as? Bool ?? (folder == nil)
+      DispatchQueue.main.async {
+        guard let self else { return }
+        completion(folder ?? self.fallbackFolder, ask)
+      }
+    }
   }
 
   func adopt(_ download: WKDownload, profile: String, webView: WKWebView?) {
@@ -512,7 +554,6 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       return completionHandler(URL(fileURLWithPath: item.path))
     }
     let name = Self.safeName(suggestedFilename.isEmpty ? (response.suggestedFilename ?? "download") : suggestedFilename)
-    let place = destination(for: item.profile)
     item.mimeType = response.mimeType ?? ""
     item.total = max(0, response.expectedContentLength)
     let accept = { (target: URL?) in
@@ -525,18 +566,20 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       self.report(item)
       completionHandler(target)
     }
-    guard place.ask, !WebKitHub.background else { return accept(Self.unique(place.folder.appendingPathComponent(name))) }
-    let panel = NSSavePanel()
-    panel.directoryURL = place.folder
-    panel.nameFieldStringValue = name
-    panel.begin { response in
-      if response == .OK, let url = panel.url {
-        try? FileManager.default.removeItem(at: url)
-        accept(url)
-      } else {
-        item.phase = .done
-        item.state = "cancelled"
-        accept(nil)
+    resolveDestination(for: item.profile) { folder, ask in
+      guard ask, !WebKitHub.background else { return accept(Self.unique(folder.appendingPathComponent(name))) }
+      let panel = NSSavePanel()
+      panel.directoryURL = folder
+      panel.nameFieldStringValue = name
+      panel.begin { response in
+        if response == .OK, let url = panel.url {
+          try? FileManager.default.removeItem(at: url)
+          accept(url)
+        } else {
+          item.phase = .done
+          item.state = "cancelled"
+          accept(nil)
+        }
       }
     }
   }

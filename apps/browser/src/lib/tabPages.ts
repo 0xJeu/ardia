@@ -12,10 +12,15 @@ export const wantsPage = (t: Tab | undefined): t is Tab => !!t && !!(t.navigatio
 
 const handedOff = new Map<string, string>();
 
+const handedOffSeqs = new Map<string, number | undefined>();
+
 export const isHandedOff = (tabId: string) => handedOff.has(tabId);
 
-export function handOff(tabId: string, profile: string) {
+export const arrivesHandedOff = (tabId: string, seq: number | undefined) => handedOff.has(tabId) && handedOffSeqs.get(tabId) === seq;
+
+export function handOff(tabId: string, profile: string, seq: number | undefined) {
   handedOff.set(tabId, profile);
+  handedOffSeqs.set(tabId, seq);
   prepareTabTransfer(tabId);
 }
 
@@ -27,10 +32,11 @@ export function startTabPages() {
       const tab = s.tabs[id];
       const before = prev.tabs[id];
       const profile = tab && engineProfile(tab.profileId);
-      if (tab && before && tab.windowId !== before.windowId && webviews.has(id) && profile === engineProfile(before.profileId)) handOff(id, profile!);
+      if (tab && before && tab.windowId !== before.windowId && webviews.has(id) && profile === engineProfile(before.profileId)) handOff(id, profile!, tab.navigation?.seq);
       const kept = handedOff.get(id);
       if (kept !== undefined && !(wantsPage(tab) && profile === kept)) {
         handedOff.delete(id);
+        handedOffSeqs.delete(id);
         releaseTabTransfer(id);
       }
     }
@@ -42,6 +48,9 @@ function claimLaunch() {
   const launch = earlyLaunchTabOn() ? launchTab(s, s.ui.focusedWindowId) : null;
   const tab = launch ? s.tabs[launch.id] : undefined;
   const kept = launch && wantsPage(tab) && tab.navigation?.url === launch.url && tabEngine(s, launch.id) === "chromium" ? launch : null;
-  if (kept) handedOff.set(kept.id, kept.profile);
+  if (kept) {
+    handedOff.set(kept.id, kept.profile);
+    handedOffSeqs.set(kept.id, tab?.navigation?.seq);
+  }
   claimLaunchTab(kept?.id ?? "", kept?.url ?? "", kept?.profile ?? "");
 }

@@ -1,4 +1,4 @@
-import { addHistoryVisits, getDownloadSettings, setWebKitDownloadSettings, type PageEngine } from "@ardia/ardiacore";
+import { addHistoryVisits, type PageEngine } from "@ardia/ardiacore";
 import { confirm } from "@ardia/shell";
 import { create } from "zustand";
 import { useBrowser } from "../store/browser";
@@ -41,12 +41,12 @@ export function persistEngine(tabId: string, engine: PageEngine) {
   if (t && !t.engine) store().updateTab(tabId, { engine });
 }
 
-export async function openPageIn(tabId: string, engine: PageEngine, options: { saveRule?: boolean; checkWork?: boolean } = {}): Promise<boolean> {
+export async function openPageIn(tabId: string, engine: PageEngine, options: { rule?: PageEngine | null; checkWork?: boolean } = {}): Promise<boolean> {
   const t = store().tabs[tabId];
   if (!t) return false;
   const url = t.url || t.navigation?.url || "";
   if (!canSwitchEngine(url)) return false;
-  const saveRule = () => options.saveRule && !isIncognitoProfile(t.profileId) && setWebsiteEngine(url, engine);
+  const saveRule = () => options.rule !== undefined && !isIncognitoProfile(t.profileId) && setWebsiteEngine(url, options.rule);
   clearEngineOffer(tabId);
   if (tabEngine(store(), tabId) === engine) {
     saveRule();
@@ -99,7 +99,7 @@ export function stayOnPage(tabId: string) {
   clearEngineOffer(tabId);
 }
 
-export const acceptEngineOffer = (tabId: string) => openPageIn(tabId, "webkit", { saveRule: true });
+export const acceptEngineOffer = (tabId: string) => openPageIn(tabId, "webkit", { rule: "webkit" });
 
 const visits = new Map<string, { url: string; at: number; recorded: boolean }>();
 
@@ -115,14 +115,4 @@ export function noteWebKitPage(tabId: string, url: string, title: string, isLoad
   visit.recorded = true;
   if (visits.size > 500) for (const id of visits.keys()) if (!store().tabs[id]) visits.delete(id);
   void addHistoryVisits(engineProfile(t.profileId), [{ url, title, visitTimes: [visit.at] }]).catch(() => {});
-}
-
-export function startEngines() {
-  const profiles = new Set(["", ...store().profileOrder.map((id) => engineProfile(id))]);
-  for (const profile of profiles) {
-    void getDownloadSettings(profile).then(
-      (settings) => void setWebKitDownloadSettings(profile, settings.folder ?? "", !!settings.askWhereToSave),
-      () => {},
-    );
-  }
 }

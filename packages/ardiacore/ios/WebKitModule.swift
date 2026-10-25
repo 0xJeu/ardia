@@ -17,8 +17,10 @@ public class WebKitModule: Module {
       WebKitHub.shared.resolvePermission(id, result: result, remember: remember ?? false)
     }.runOnQueue(.main)
     AsyncFunction("downloadCommand") { (action: String, id: String) in WebKitHub.shared.downloads.command(action, id: id) }.runOnQueue(.main)
-    AsyncFunction("setDownloadSettings") { (profile: String, folder: String, ask: Bool) in
-      WebKitHub.shared.downloads.setSettings(profile: profile, folder: folder, ask: ask)
+    AsyncFunction("externalAppAllowances") { (profile: String) in WebKitHub.shared.externalAppAllowances(profile: profile) }
+      .runOnQueue(.main)
+    AsyncFunction("removeExternalAppAllowance") { (profile: String, origin: String, scheme: String) in
+      WebKitHub.shared.removeExternalAppAllowance(profile: profile, origin: origin, scheme: scheme)
     }.runOnQueue(.main)
     AsyncFunction("endPrivateSession") { (session: String) in WebKitHub.shared.endPrivateSession(session) }.runOnQueue(.main)
     AsyncFunction("sitePermissions") { (profile: String, origin: String) in

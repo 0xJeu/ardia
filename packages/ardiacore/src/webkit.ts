@@ -1,6 +1,7 @@
 import { requireOptionalNativeModule, type EventSubscription } from "expo-modules-core";
 import type { BrowsingDataType, Download, PermissionRequest, PermissionResult } from "./module";
 import type { SiteSettings, SiteSettingType, SiteSettingValue } from "./siteSettings";
+import type { ExternalAppAllowance } from "./externalApps";
 
 export type PageEngine = "chromium" | "webkit";
 
@@ -12,7 +13,8 @@ type WebKitNative = {
   releaseTransfer(key: string): void;
   resolvePermission(id: string, result: PermissionResult, remember: boolean): Promise<void>;
   downloadCommand(action: "cancel" | "pause" | "resume", id: string): Promise<void>;
-  setDownloadSettings(profile: string, folder: string, ask: boolean): Promise<void>;
+  externalAppAllowances(profile: string): Promise<ExternalAppAllowance[]>;
+  removeExternalAppAllowance(profile: string, origin: string, scheme: string): Promise<void>;
   endPrivateSession(session: string): Promise<void>;
   sitePermissions(profile: string, origin: string): Promise<Partial<SiteSettings>>;
   setSitePermission(profile: string, origin: string, kind: string, value: string): Promise<void>;
@@ -34,8 +36,6 @@ export const WEBKIT_SITE_SETTINGS: readonly SiteSettingType[] = ["camera", "micr
 export const webKitListener = <T>(name: "onDownload" | "onPermission" | "onPermissionDismissed", listener: (value: T) => void): EventSubscription =>
   WebKit ? WebKit.addListener(name as "onDownload", listener as (d: Download) => void) : NO_SUBSCRIPTION;
 
-export const setWebKitDownloadSettings = (profile: string, folder: string, ask: boolean) =>
-  WebKit?.setDownloadSettings(profile, folder, ask) ?? Promise.resolve();
 export const endWebKitPrivateSession = (session: string) => WebKit?.endPrivateSession(session) ?? Promise.resolve();
 export const getWebKitSiteSettings = async (profile: string, origin: string): Promise<SiteSettings> =>
   ((await WebKit?.sitePermissions(profile, origin)) ?? {}) as SiteSettings;

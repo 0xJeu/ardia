@@ -8,6 +8,10 @@ protocol WebKitTabDelegate: AnyObject {
 
 final class ArdiaWKWebView: WKWebView {
   var onFocus: (() -> Void)?
+  var mediaFrames: [String: WKFrameInfo] = [:]
+  var playingFrames = Set<String>()
+  var nowPlayingFrame: String?
+  var captureOrigins: [String: Set<String>] = [:]
 
   override func becomeFirstResponder() -> Bool {
     let became = super.becomeFirstResponder()
@@ -52,16 +56,24 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   private var started = false
   private var closed = false
   private var navigationQueued = false
-  private var initialLoad: (url: String, at: Date)?
-  private var mediaFrames: [String: WKFrameInfo] = [:]
+  private var mediaFrames: [String: WKFrameInfo] {
+    get { webView?.mediaFrames ?? [:] }
+    set { webView?.mediaFrames = newValue }
+  }
+  private var playingFrames: Set<String> {
+    get { webView?.playingFrames ?? [] }
+    set { webView?.playingFrames = newValue }
+  }
+  private var nowPlayingFrame: String? {
+    get { webView?.nowPlayingFrame }
+    set { webView?.nowPlayingFrame = newValue }
+  }
   private var muted = false
   private var errorURL: URL?
   private var showingError = false
   private var findText = ""
   private var findCount = 0
   private var findActive = 0
-  private var playingFrames = Set<String>()
-  private var nowPlayingFrame: String?
 
   override var isFlipped: Bool { true }
 
@@ -101,10 +113,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     let created = ArdiaWKWebView(frame: bounds, configuration: WebKitHub.shared.configuration(profile: profile))
     attach(created)
     emit("ready", ["browserId": Int(browserId), "tabId": 0])
-    if let url = initialURL, !url.isEmpty {
-      loadURL(url, userInitiated: false)
-      initialLoad = (url, Date())
-    }
+    if let url = initialURL, !url.isEmpty { loadURL(url, userInitiated: false) }
   }
 
   func relinquish() -> ArdiaWKWebView? {
@@ -137,7 +146,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     view.uiDelegate = self
     view.allowsBackForwardNavigationGestures = true
     view.allowsMagnification = true
-    view.isInspectable = true
+    view.isInspectable = WebKitHub.inspectable && !WebKitHub.isPrivate(profile)
     if let color = pageBackgroundColor { view.underPageBackgroundColor = color }
     view.onFocus = { [weak self] in self?.emit("focus") }
     view.frame = bounds
@@ -228,10 +237,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
 
   func loadURL(_ url: String, userInitiated: Bool) {
     guard let view = webView, let target = URL(string: url) else { return }
-    if let first = initialLoad {
-      initialLoad = nil
-      if first.url == url && Date().timeIntervalSince(first.at) < 2 { return }
-    }
     showingError = false
     if target.isFileURL {
       view.loadFileURL(target, allowingReadAccessTo: target.deletingLastPathComponent())
@@ -278,6 +283,8 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard let url = webView?.url, let scheme = url.scheme?.lowercased(), let host = url.host, scheme == "http" || scheme == "https" else { return nil }
     return "\(scheme)://\(host.lowercased())" + (url.port.map { ":\($0)" } ?? "")
   }
+
+  func capturing(_ kind: String, from origin: String) -> Bool { webView?.captureOrigins[kind]?.contains(origin) == true }
 
   func stopCapture(_ kind: String) {
     guard let view = webView else { return }
@@ -559,6 +566,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     playingFrames.removeAll()
     mediaFrames.removeAll()
     nowPlayingFrame = nil
+    self.webView?.captureOrigins.removeAll()
     if !host.isEmpty {
       let zoom = WebKitHub.shared.zoom(profile: profile, host: host)
       if abs(webView.pageZoom - zoom) > 0.001 { webView.pageZoom = zoom }
@@ -641,7 +649,10 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     default: kinds = ["camera", "microphone"]
     }
     let originString = "\(origin.protocol)://\(origin.host)" + (origin.port > 0 ? ":\(origin.port)" : "")
-    WebKitHub.shared.requestPermission(browserId: browserId, profile: profile, origin: originString, kinds: kinds) { allowed in
+    WebKitHub.shared.requestPermission(browserId: browserId, profile: profile, origin: originString, kinds: kinds) { [weak webView] allowed in
+      if allowed, let view = webView as? ArdiaWKWebView {
+        for kind in kinds { view.captureOrigins[kind, default: []].insert(originString) }
+      }
       decisionHandler(allowed ? .grant : .deny)
     }
   }

@@ -1,6 +1,6 @@
 import { engineCall } from "./engine";
 import { Cef } from "./native";
-import { WebKit, isWebKitDownload, isWebKitPermission, setWebKitDownloadSettings, webKitListener } from "./webkit";
+import { WebKit, isWebKitDownload, isWebKitPermission, webKitListener } from "./webkit";
 
 export type DownloadState = "downloading" | "finished" | "failed" | "cancelled";
 
@@ -147,11 +147,8 @@ export const resumeDownload = (id: string) => downloadCommand("resume", id);
 
 export type DownloadSettings = { folder: string; askWhereToSave: boolean; managed: boolean };
 export const getDownloadSettings = (profile = "") => engineCall<DownloadSettings>("ac_downloads_settings", profile);
-export const setDownloadSettings = async (patch: Partial<Pick<DownloadSettings, "folder" | "askWhereToSave">>, profile = "") => {
-  const settings = await engineCall<DownloadSettings>("ac_downloads_set_settings", profile, patch);
-  if (settings?.folder !== undefined) void setWebKitDownloadSettings(profile, settings.folder, !!settings.askWhereToSave);
-  return settings;
-};
+export const setDownloadSettings = (patch: Partial<Pick<DownloadSettings, "folder" | "askWhereToSave">>, profile = "") =>
+  engineCall<DownloadSettings>("ac_downloads_set_settings", profile, patch);
 
 export const onPermission = (listener: (p: PermissionRequest) => void) => {
   const chromium = Cef.addListener("onPermission", listener);

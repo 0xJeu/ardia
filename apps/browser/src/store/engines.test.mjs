@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { engineForUrl, engineMark, ruleFor, siteOf, tabEngine, typedNavigationEngine } from "./engines.ts";
+import { makeTab, snapshotTab } from "./model.ts";
 
 const tab = (id, patch = {}) => ({ id, url: "", navigation: null, openerId: null, ...patch });
 const state = (tabs, settings = {}) => ({
@@ -67,4 +68,13 @@ test("the mark shows only on web pages away from the default engine", () => {
   assert.equal(engineMark(s, "w"), "webkit");
   assert.equal(engineMark(s, "c"), null);
   assert.equal(engineMark(s, "n"), null);
+});
+
+test("a closed WebKit tab reopens in WebKit, whatever restore id it carries", () => {
+  const closed = snapshotTab({ ...makeTab("w1", "default", "https://www.netflix.com/"), engine: "webkit" });
+  assert.equal(closed.engine, "webkit");
+  const reopened = { ...makeTab("w1", "default", closed.url, closed), adoptId: "restore:old", navigation: null };
+  const s = state([reopened]);
+  assert.equal(tabEngine(s, reopened.id), "webkit");
+  assert.equal(snapshotTab(makeTab("w1", "default", "https://a.com/")).engine, undefined);
 });

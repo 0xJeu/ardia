@@ -10,7 +10,7 @@ export function EngineOfferPrompt({ tabId, left, top }: { tabId: string; left: n
     <Popover key={offer.site} width={320} top={top} left={left} modal={false}>
       <View>
         <PromptBody
-          icons={["play.rectangle", "safari"]}
+          icons={["play.circle.fill", "safari"]}
           title={`Play ${offer.host} in WebKit?`}
           message="This site plays protected video, which Chromium in Ardia can't. The page reloads in WebKit, which keeps its own sign-ins."
         >

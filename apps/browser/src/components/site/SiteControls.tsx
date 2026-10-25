@@ -21,8 +21,8 @@ import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { useSettings, useTab } from "../../store/hooks";
 import { engineProfile, isIncognitoProfile, tabLabel } from "../../store/model";
-import { defaultEngine, ENGINE_NAMES, ENGINE_SYMBOLS, engineForUrl, otherEngine, ruleFor, tabEngine } from "../../store/engines";
-import { openPageIn, setWebsiteEngine, togglePageEngine } from "../../lib/engines";
+import { defaultEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, ruleFor, tabEngine } from "../../store/engines";
+import { openPageIn, togglePageEngine } from "../../lib/engines";
 import { Favicon } from "../primitives";
 import { PANEL, PanelHeader, Popover, PopoverRow, PopoverSeparator, PopoverValue, Toggle, usePopoverPresence } from "../layout/controls";
 import { pageOf, patchPage, setPopover, usePage } from "../layout/pageState";
@@ -194,10 +194,11 @@ function SiteControlsPanel({
     ]);
     if (!choice) return;
     close();
-    if (choice === "default") {
-      setWebsiteEngine(url, null);
-      void openPageIn(tabId, engineForUrl(useBrowser.getState(), url));
-    } else void openPageIn(tabId, choice === "webkit" ? "webkit" : "chromium", { saveRule: true });
+    if (choice === "default") void openPageIn(tabId, defaultEngine(useBrowser.getState()), { rule: null });
+    else {
+      const engine = choice === "webkit" ? "webkit" : "chromium";
+      void openPageIn(tabId, engine, { rule: engine });
+    }
   };
   const toggle = (section: Exclude<Expanded, null>) => setExpanded((e) => (e === section ? null : section));
 
