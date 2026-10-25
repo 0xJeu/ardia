@@ -98,6 +98,10 @@ framework_engine="${ARDIACORE_FRAMEWORK_ENGINE:-}"
 provisioning_profile="${RELEASE_PROVISIONING_PROFILE:-}"
 read -r -a extra_build_settings <<<"${RELEASE_BUILD_SETTINGS:-}"
 release_archs="${RELEASE_ARCHS:-$arch}"
+build_input="${RELEASE_BUILD_INPUT:-}"
+if [ "$phase" = sign ] && [ -n "$build_input" ]; then
+  archive="$build_input/Ardia.xcarchive"
+fi
 if [ "$phase" = sign ] || [ "$phase" = check ]; then
   framework_src="$archive/Products/Applications/Ardia.app/Contents/Frameworks/Chromium Framework.framework"
   [ -d "$archive" ] || die "no $archive: run --phase build first"
@@ -251,6 +255,10 @@ if [ "$phase" != sign ]; then
     die "archive failed ($dist/archive.log)"
   }
 fi
+if [ "$phase" = sign ] && [ -n "$build_input" ]; then
+  rm -rf "$dist"
+  mkdir -p "$dist"
+fi
 if [ "$phase" = build ]; then
   build_cli
   echo
@@ -270,7 +278,7 @@ sign() {
 if [ -n "$provisioning_profile" ]; then
   echo "==> Export (Developer ID, $(basename "$provisioning_profile"))"
   "$root/scripts/lib/export-developer-id.sh" "$archive/Products/Applications/Ardia.app" "$app" "$provisioning_profile" \
-    "$macos/Ardia-macOS/Ardia.entitlements" "$identity" > "$dist/export.log" 2>&1 || { cat "$dist/export.log" >&2; exit 1; }
+    "$macos/Ardia-macOS/Ardia.entitlements" "$identity" com.ardia.browser > "$dist/export.log" 2>&1 || { cat "$dist/export.log" >&2; exit 1; }
 else
   echo "==> Export (Developer ID)"
   for attempt in 1 2 3 4 5 6; do
@@ -291,6 +299,12 @@ fi
 if [ "$phase" = all ]; then
   build_cli
 else
+  if [ -n "$build_input" ]; then
+    for file in provenance.txt "$(basename "$cli_tarball")" "$(basename "$cli_tarball").sha256"; do
+      [ -f "$build_input/$file" ] && [ ! -L "$build_input/$file" ] || die "no $file in $build_input"
+      cp "$build_input/$file" "$dist/$file"
+    done
+  fi
   [ -f "$cli_tarball.sha256" ] || die "no $cli_tarball.sha256 from --phase build"
 fi
 awk '{ print $1 }' "$cli_tarball.sha256" >"$app/Contents/Resources/ardia-cli.sha256"

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage="usage: scripts/lib/export-developer-id.sh <archived Ardia.app> <exported Ardia.app> <provisioning profile> <entitlements> <identity>"
+usage="usage: scripts/lib/export-developer-id.sh <archived Ardia.app> <exported Ardia.app> <provisioning profile> <entitlements> <identity> <bundle id>"
 source_app="${1:?$usage}"
 app="${2:?$usage}"
 profile="${3:?$usage}"
 entitlements_template="${4:?$usage}"
 identity="${5:?$usage}"
+bundle_id="${6:?$usage}"
 die() { echo "error: $*" >&2; exit 1; }
 
 [ -d "$source_app" ] || die "no $source_app"
@@ -16,7 +17,10 @@ trap 'rm -rf "$work"' EXIT
 security cms -D -i "$profile" > "$work/profile.plist" 2>/dev/null || die "$profile isn't a signed provisioning profile"
 profile_value() { plutil -extract "$1" raw "$work/profile.plist" 2>/dev/null; }
 team="$(profile_value TeamIdentifier.0)"
-bundle_id="$(plutil -extract CFBundleIdentifier raw "$source_app/Contents/Info.plist")"
+[[ "$team" =~ ^[A-Z0-9]{10}$ ]] || die "$profile has no team identifier"
+[[ "$bundle_id" =~ ^[A-Za-z0-9.-]+$ ]] || die "the bundle id must be letters, digits, dots and hyphens"
+[ "$(plutil -extract CFBundleIdentifier raw "$source_app/Contents/Info.plist" 2>/dev/null)" = "$bundle_id" ] \
+  || die "the archived app's CFBundleIdentifier isn't $bundle_id"
 app_id="$(profile_value 'Entitlements.com\.apple\.application-identifier')"
 [ -n "$team" ] && [ "$app_id" = "$team.$bundle_id" ] || die "$profile is for ${app_id:-no app id}, not $team.$bundle_id"
 [ "$(profile_value ProvisionsAllDevices)" = true ] || die "$profile isn't a Developer ID profile"
@@ -43,7 +47,12 @@ sign() {
 requirement() {
   printf 'designated => anchor apple generic and identifier "%s" and (certificate leaf[field.1.2.840.113635.100.6.1.9] or certificate 1[field.1.2.840.113635.100.6.2.6] and certificate leaf[field.1.2.840.113635.100.6.1.13] and certificate leaf[subject.OU] = %s)' "$1" "$team"
 }
-identifier() { codesign -dv "$1" 2>&1 | sed -n 's/^Identifier=//p'; }
+identifier() {
+  local id
+  id="$(codesign -dv "$1" 2>&1 | sed -n 's/^Identifier=//p')"
+  [[ "$id" =~ ^[A-Za-z0-9._-]+$ ]] || die "$1 has an unexpected code signing identifier"
+  printf '%s' "$id"
+}
 
 rm -rf "$app"
 mkdir -p "$(dirname "$app")"

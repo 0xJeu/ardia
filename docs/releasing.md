@@ -224,18 +224,26 @@ the arm64 engine if `engine/` changed (below).
   the CLI tarball) and uploads them as one tar. Caches: pnpm, Pods with Hermes, uBO, the engine, the CLI's downloads
   and Xcode's compilation cache (per arch, Xcode build and month).
 - **sign**, once per arch, installs nothing and restores no cache, so no dependency code runs next to the keys. It
-  unpacks the build, takes Sparkle's tools from Sparkle's own 2.9.6 release (SHA-256 pinned; `SPARKLE_BIN`), sets up
+  treats the build as untrusted: `.github/release/unpack-build.py` unpacks it into a new directory outside the checkout
+  only if every member is the archive, `provenance.txt` or the CLI tarball and its `.sha256`, with no absolute or `..`
+  path, hard link, device or path through a symlink, and every symlink resolving inside its own app or dSYM bundle;
+  the app's bundle id, executable and version must be `com.ardia.browser`, `Ardia` and the input version.
+  `release.sh --phase sign` reads it from there (`RELEASE_BUILD_INPUT`) into a `dist` it creates fresh, and the export
+  takes the expected bundle id as an argument instead of reading it from the build. It takes Sparkle's tools from Sparkle's own 2.9.6 release (SHA-256 pinned; `SPARKLE_BIN`), sets up
   signing (`.github/release/signing.sh`: a temporary keychain with the Developer ID identity, the provisioning profile,
   the notary and Sparkle key files), and runs `release.sh … --phase sign`: export, sign, verify, notarize and staple the
-  app, the zip and DMG (the DMG signed, notarized and stapled too), the notes and the appcast. Then it deletes the
-  keychain and every key file, and only then runs the launch check (`--phase check`, the final app opened hidden, uBO
+  app, the zip and DMG (the DMG signed, notarized and stapled too), the notes and the appcast. Then a step written in
+  the workflow itself (so nothing in the job can rewrite it) deletes the keychain and every key file, a check fails the
+  run if the checkout changed, and only then it runs the launch check (`--phase check`, the final app opened hidden, uBO
   must be ready, the signature must survive), checks the zip's EdDSA signature against the app's `SUPublicEDKey`
   (`.github/release/check-sparkle.sh`) and uploads the DMG, zip, appcast, notes and CLI tarball. A failed launch check
   fails the run, so nothing publishes. Intel is cross-compiled on Apple silicon and its launch check runs under Rosetta.
   Every `actions/*` step is pinned by commit SHA.
 - **publish** tags the commit and runs `publish.sh` with both arches. A stable without an Intel build (`intel` off)
   carries the latest release's `appcast-x64.xml` over unchanged, so `releases/latest/download/appcast-x64.xml` keeps
-  answering Intel copies; a nightly without one leaves that file where it is. The Homebrew tap needs a token that can push
+  answering Intel copies; a nightly without one leaves that file where it is. Before creating anything, `publish.sh`
+  refuses a build that isn't above every other build in each merged feed, and a stable whose version isn't above the
+  latest stable release, so a stale build never moves `latest` backward (locally too). The Homebrew tap needs a token that can push
   to `mantrakp04/homebrew-tap` (`HOMEBREW_TAP_TOKEN`); without it, run `update-tap.sh <version>` here afterwards.
 
 `dry_run` (on by default) builds a release candidate (`release.sh --rc`: the next build number, no notes needed),

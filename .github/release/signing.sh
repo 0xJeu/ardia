@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Sets up and tears down the release job's signing material on a GitHub macOS runner.
+# Sets up the release sign job's signing material on a GitHub macOS runner. The workflow removes it in its own
+# always() step ("Remove signing"), so nothing the job writes can change what removes the keys.
 #
 #   .github/release/signing.sh setup     a temporary keychain with the Developer ID identity, the provisioning profile,
 #                                        the notary key and the Sparkle key in $RUNNER_TEMP; exports only their paths to
 #                                        $GITHUB_ENV (RELEASE_PROVISIONING_PROFILE, SPARKLE_KEY_FILE, NOTARY_KEY); the
 #                                        step that signs passes NOTARY_KEY_ID and NOTARY_ISSUER itself
-#   .github/release/signing.sh cleanup   deletes the keychain and the files
 #
 # Reads MACOS_CERTIFICATE_P12, MACOS_CERTIFICATE_PASSWORD, MACOS_PROVISIONING_PROFILE, SPARKLE_ED_PRIVATE_KEY and,
 # when all three are set, NOTARY_KEY_P8, NOTARY_KEY_ID, NOTARY_ISSUER from the environment. Without the notary key it
@@ -15,19 +15,6 @@ set -euo pipefail
 secrets="${RUNNER_TEMP:?}/release-signing"
 keychain="$secrets/release.keychain-db"
 die() { echo "::error::$*" >&2; exit 1; }
-
-cleanup() {
-  if [ -f "$keychain" ]; then
-    security delete-keychain "$keychain" || true
-  fi
-  rm -rf "$secrets"
-  [ ! -e "$secrets" ] || die "couldn't remove $secrets"
-  if security find-identity -v -p codesigning | grep -q 'Developer ID Application: .*(U5L5T3NGVV)'; then
-    die "a Developer ID identity is still in the keychain search list"
-  fi
-  [ -z "${GITHUB_ENV:-}" ] || printf '%s=\n' RELEASE_PROVISIONING_PROFILE SPARKLE_KEY_FILE NOTARY_KEY >> "$GITHUB_ENV"
-  echo "signing keychain and key files removed"
-}
 
 decode() { printf '%s' "$1" | base64 -D > "$2"; }
 
@@ -102,6 +89,5 @@ setup() {
 
 case "${1:-}" in
   setup) setup ;;
-  cleanup) cleanup ;;
-  *) echo "usage: .github/release/signing.sh setup|cleanup" >&2; exit 64 ;;
+  *) echo "usage: .github/release/signing.sh setup" >&2; exit 64 ;;
 esac

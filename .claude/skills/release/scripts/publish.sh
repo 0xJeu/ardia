@@ -71,7 +71,28 @@ for arch in "${arches[@]}"; do
     arch_dist="$work/$arch"
   fi
   RELEASE_DIST="$arch_dist" APPCAST_NAME="$feed" "$here/appcast-merge.sh" "$version" "$source"
+  python3 -I - "$arch_dist/$feed" "$version" <<'PY'
+import re, sys
+path, version = sys.argv[1:]
+items = re.findall(r"<item>.*?</item>", open(path).read(), re.S)
+def build_of(item):
+    found = re.search(r"<sparkle:version>([0-9]+)</sparkle:version>", item)
+    return int(found.group(1)) if found else None
+mine = [build_of(i) for i in items if f"<sparkle:shortVersionString>{version}<" in i]
+others = [build_of(i) for i in items if f"<sparkle:shortVersionString>{version}<" not in i and build_of(i) is not None]
+if len(mine) != 1 or mine[0] is None:
+    sys.exit(f"error: {path} has {len(mine)} items for {version}, not one")
+if others and mine[0] <= max(others):
+    sys.exit(f"error: {version} is build {mine[0]}, but the published feed already has build {max(others)}: a stale build would sit below it (and a stable would move latest backward); bump CURRENT_PROJECT_VERSION and rebuild")
+print(f"PASS  {version} (build {mine[0]}) is above every other build in {path.rsplit('/', 1)[-1]} ({max(others) if others else 'none'})")
+PY
 done
+if [ "$channel" = stable ]; then
+  latest_version="${stable_tag#v}"
+  [ "$version" != "$latest_version" ] && [ "$(printf '%s\n%s\n' "$latest_version" "$version" | sort -V | tail -1)" = "$version" ] \
+    || die "$version isn't above the latest stable release ($latest_version): publishing it as latest would move every download and feed backward"
+  echo "PASS  $version is above the latest stable release ($latest_version)"
+fi
 
 carried=""
 if [ "$channel" = stable ] && [ -z "$dist_x64" ] && grep -qx appcast-x64.xml <<<"$published"; then
