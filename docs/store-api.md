@@ -50,8 +50,8 @@ modules before using them — this is a summary from the agent that built it.
   in `lastActiveProfile(s)` unless `profileId` says otherwise; never private.
   `newTab` into it goes to `mainWindowFor(s, profileId)`; `resolveWindowId(s, null)` never picks it; closing it records a
   `ClosedTab` with `small: true` that reopens in a new Little Ardia; it isn't saved with the session.
-- Tabs: `newTab(windowId, { url, background, adoptId, openerId, profileId, pinned, index })`, `closeTab`,
-  `closeTabs`, `activate`, `navigate`, `updateTab(id, patch, live?)` (the live patch lands in the same store update), `updateLive`,
+- Tabs: `newTab(windowId, { url, background, adoptId, openerId, profileId, pinned, index })`, `closeTabs(ids, { lastClosesWindow })`
+  and `closeTab(id)` (the same path with `lastClosesWindow`, for ⌘W and ✕), `activate`, `navigate`, `updateTab(id, patch, live?)` (the live patch lands in the same store update), `updateLive`,
   `togglePin`, `moveTab`, `moveTabBy(id, ±1)` (both within the tab's pin section), `duplicateTab`. The engine's page reports go through `navigated(id, { url, title }, live)` and
   `faviconChanged(id, favicon)`. Chrome records the visit (HistoryService) and keeps the icon (FaviconService) itself.
   Closing a pinned tab only unloads it (`unloadPinnedTabs`, like Dia): the tile stays with `unloaded: true`, back at its
@@ -59,7 +59,11 @@ modules before using them — this is a summary from the agent that built it.
   pinned tab it showed last, else a New Tab page, and ⇧⌘T restores the page into the tile. Closing the last tab closes
   the window, unloaded pinned tiles aside (`closesWindow`), so holding ⌘W ends there instead of waking them. Unpin
   removes a pinned tab. A tab of a pinned group (Dia's pinned container, `inPinnedContainer`) unloads the same way, on
-  the page it showed, and stays in its group.
+  the page it showed, and stays in its group. Both close calls run one rule set (`closingTabs`): a Peek tab ends the Peek,
+  pinned tabs unload, and a window whose shown tabs all go gets a New Tab, or closes when `lastClosesWindow` is set
+  and the New Tab bar policy doesn't keep it (`leavesEmptyWindow`). `closeIntent(s, tabId)` says what ✕ does
+  (close, unload with the pages it shares, or remove a closed pinned row); the last-tab confirmation stays in
+  lib/actions.ts.
   `duplicateTab` and Reopen Closed Tab set `adoptId` to `clone:<tab id>` / `restore:<tab id>` (`ClosedTab.tabId`):
   the engine copies or restores that tab's back/forward list, else the tab loads its URL.
 - Groups: `createGroup`, `addTabsToGroup`, …

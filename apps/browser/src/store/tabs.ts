@@ -6,7 +6,6 @@ import type { BrowserState } from "./browser";
 import { ancestorIds, closedGroupInfo, innermostGroupOf, leaveGroups, syncGroupOrder } from "./groups";
 import {
   activeTabId,
-  closesWindow,
   IDLE_LIVE,
   inPinnedContainer,
   makeTab,
@@ -22,7 +21,8 @@ import {
   without,
 } from "./model";
 import { forgetOpeners, insertionIndex, nextToActive, openerSuccessor, switchKeepsOpeners } from "./openers";
-import { groupWithOpener, onUrlChange, pruneSelection, samePage } from "./organize";
+import { groupWithOpener, isClosedPin, onUrlChange, pruneSelection, samePage } from "./organize";
+import { isPeekTab, withoutPeek } from "./peek";
 import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
 import { leavesEmptyWindow } from "./newTabBar";
@@ -61,7 +61,7 @@ export type TabsSlice = {
 
   newTab(windowId: string, options?: NewTabOptions): string;
   closeTab(id: string): void;
-  closeTabs(ids: string[]): void;
+  closeTabs(ids: string[], options?: CloseOptions): void;
   activate(id: string): void;
   handOffPin(id: string): void;
   activateIndex(windowId: string, index: number): void;
@@ -78,6 +78,48 @@ export type TabsSlice = {
 };
 
 const MAX_CLOSED_TABS = 50;
+
+export type CloseOptions = { lastClosesWindow?: boolean };
+export type CloseKind = "close" | "unload" | "removePin";
+export type CloseIntent = { kind: CloseKind; ids: string[] };
+
+export function closeKind(s: BrowserState, tabId: string): CloseKind {
+  if (!inPinnedContainer(s, tabId)) return "close";
+  return isClosedPin(s, tabId) ? "removePin" : "unload";
+}
+
+export function openPages(s: BrowserState, tabId: string): string[] {
+  const t = s.tabs[tabId];
+  if (!t) return [];
+  if (t.navigation || t.adoptId || t.pageIn) return [tabId];
+  const holder = holderOf(s, tabId);
+  return holder ? [tabId, holder.id] : [];
+}
+
+export function closeIntent(s: BrowserState, tabId: string): CloseIntent {
+  const kind = closeKind(s, tabId);
+  const pages = kind === "unload" ? openPages(s, tabId) : [];
+  return { kind, ids: pages.length ? pages : [tabId] };
+}
+
+export function closingTabs(s: BrowserState, ids: string[], { lastClosesWindow = false }: CloseOptions = {}): [BrowserState, string[]] {
+  let next = s;
+  for (const id of ids) if (isPeekTab(next, id)) next = withoutPeek(next, next.tabs[id]!.windowId);
+  const asked = ids.filter((id) => next.tabs[id]);
+  next = unloadPinnedTabs(next, asked);
+  const gone = asked.filter((id) => !inPinnedContainer(next, id));
+  const closedWindows: string[] = [];
+  for (const w of Object.values(next.windows)) {
+    const view = viewTabIds(next, w.id);
+    const shown = view.filter((id) => gone.includes(id));
+    if (!shown.length || !view.every((id) => gone.includes(id) || next.tabs[id]!.unloaded)) continue;
+    const keepsWindow = !lastClosesWindow || leavesEmptyWindow(shown.length > 1 ? removeTabs(next, shown.slice(1), false) : next, shown[0]!);
+    if (keepsWindow) next = withNewTab(next, w.id)[0];
+    else closedWindows.push(w.id);
+  }
+  const removed = gone.filter((id) => !closedWindows.includes(next.tabs[id]!.windowId));
+  return [removeTabs(next, removed, true), closedWindows];
+}
 
 function pinnedInsertionIndex(s: BrowserState, w: BrowserWindow): number {
   let last = -1;
@@ -339,27 +381,13 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
   },
 
   closeTab(id) {
-    const s = get();
-    const tab = s.tabs[id];
-    const w = tab && s.windows[tab.windowId];
-    if (!tab || !w) return;
-    if (s.peeks[w.id]?.tabId === id) return get().closePeek(w.id);
-    if (inPinnedContainer(s, id)) return set(unloadPinnedTabs(s, [id]));
-    if (leavesEmptyWindow(s, id)) return set(removeTabs(withNewTab(s, w.id)[0], [id], true));
-    if (closesWindow(s, id)) return get().closeWindow(w.id);
-    set(removeTabs(s, [id], true));
+    get().closeTabs([id], { lastClosesWindow: true });
   },
 
-  closeTabs(ids) {
-    let s = unloadPinnedTabs(get(), ids);
-    const closing = ids.filter((id) => !inPinnedContainer(s, id));
-    for (const w of Object.values(s.windows)) {
-      const view = viewTabIds(s, w.id);
-      if (view.some((id) => closing.includes(id)) && view.every((id) => closing.includes(id) || s.tabs[id]!.unloaded)) {
-        s = withNewTab(s, w.id)[0];
-      }
-    }
-    set(removeTabs(s, closing, true));
+  closeTabs(ids, options) {
+    const [next, closedWindows] = closingTabs(get(), ids, options);
+    set(next);
+    for (const windowId of closedWindows) get().closeWindow(windowId);
   },
 
   activate(id) {
