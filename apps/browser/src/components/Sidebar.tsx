@@ -62,7 +62,7 @@ export function Sidebar({ width }: { width: number }) {
   const [available, setAvailable] = useState(0);
   const listHeights = useRef(new Map<string, number>());
   const [, setDockChanges] = useState(0);
-  const newTabAtTop = useSettings((s) => s.newTabPosition === "top");
+  const newTabAtTop = useSettings((s) => s.newTabButtonPosition === "top");
   const dockedPage = (profileId: string) => !newTabAtTop && available > 0 && (listHeights.current.get(profileId) ?? 0) + ROW_PITCH + 12 > available;
   const onListHeight = (profileId: string, height: number) => {
     const before = dockedPage(profileId);
@@ -368,11 +368,11 @@ function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, 
   const divided = clearable || tidy;
   const pinned = usePinnedSequence(windowId, profileId, offScreen);
   const pinnedSection = pinned.length > 0;
-  const newTabsAtTop = useSettings((s) => s.newTabPosition === "top");
+  const newTabButtonAtTop = useSettings((s) => s.newTabButtonPosition === "top");
   const animated = current && !offScreen;
   const motion = useListMotion(windowId, profileId, all, captured, animated);
   const scope = useMemo(() => ({ enabled: animated, slideBelow: motion.slideBelow }), [animated, motion.slideBelow]);
-  if (geometry) geometry.current.newTabAtTop = newTabsAtTop && inlineNewTab;
+  if (geometry) geometry.current.newTabAtTop = newTabButtonAtTop && inlineNewTab;
   return (
     <ListMotionContext.Provider value={scope}>
       <View
@@ -400,7 +400,7 @@ function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, 
           onLayout={geometry ? (e) => void (geometry.current.regions.list = e.nativeEvent.layout.y) : undefined}
           style={{ marginTop: pinnedSection && !divided ? 7 : 0, gap: layout.rowGap }}
         >
-          {newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
+          {newTabButtonAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
           {motion.fading
             ? motion.slots(list).map((slot) =>
                 "ghost" in slot ? (
@@ -412,7 +412,7 @@ function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, 
             : list.map((entry) => <ListEntry key={entry} entry={entry} motion={motion.motion(entry)} />)}
           {pending ? <View style={{ height: pending }} /> : null}
           <Tail id="tail:list" section="list" />
-          {!newTabsAtTop && inlineNewTab ? <NewTabRow windowId={windowId} shift={motion.tail} clip={motion.tailClip} /> : null}
+          {!newTabButtonAtTop && inlineNewTab ? <NewTabRow windowId={windowId} shift={motion.tail} clip={motion.tailClip} /> : null}
         </View>
         {current ? <CleanUpUpsell windowId={windowId} shift={motion.tail} /> : null}
       </View>

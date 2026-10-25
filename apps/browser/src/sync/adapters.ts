@@ -38,6 +38,7 @@ export const SYNCED_SETTINGS = [
   "fadeUnloadedTabs",
   "warnBeforeClosingTabGroup",
   "newTabPosition",
+  "newTabButtonPosition",
   "newTabOpens",
   "warnBeforeClosingLastTab",
   "undoReopensClosedTab",

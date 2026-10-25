@@ -33,6 +33,7 @@ export type Settings = {
   tabLayout: "sidebar" | "top";
   hideToolbarWhileScrolling: boolean;
   newTabPosition: "top" | "bottom" | "nextToCurrent";
+  newTabButtonPosition: "top" | "bottom";
   newTabOpens: "page" | "commandBar";
   warnBeforeClosingLastTab: boolean;
   undoReopensClosedTab: boolean;
@@ -119,6 +120,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tabLayout: "sidebar",
   hideToolbarWhileScrolling: true,
   newTabPosition: "bottom",
+  newTabButtonPosition: "bottom",
   newTabOpens: "page",
   warnBeforeClosingLastTab: true,
   undoReopensClosedTab: false,
@@ -209,6 +211,21 @@ export function choose(settings: Settings, patch: Partial<Settings>): Settings {
 }
 
 export function migrateSavedSettings(saved: (Partial<Settings> & { batterySaver?: unknown }) | undefined): Partial<Settings> | undefined {
+  return withNewTabButtonPosition(withoutBatterySaver(saved));
+}
+
+function withNewTabButtonPosition(saved: Partial<Settings> | undefined): Partial<Settings> | undefined {
+  if (!saved || saved.newTabButtonPosition !== undefined || saved.newTabPosition !== "top") return saved;
+  const alongside = (keys: string[]) => (keys.includes("newTabPosition") ? [...new Set([...keys, "newTabButtonPosition"])] : keys);
+  return {
+    ...saved,
+    newTabButtonPosition: "top",
+    ...(saved.chosen ? { chosen: alongside(saved.chosen) } : {}),
+    ...(saved.inferred ? { inferred: alongside(saved.inferred) } : {}),
+  };
+}
+
+function withoutBatterySaver(saved: (Partial<Settings> & { batterySaver?: unknown }) | undefined): Partial<Settings> | undefined {
   if (!saved || !("batterySaver" in saved)) return saved;
   const { batterySaver, ...rest } = saved;
   const explicit = batterySaver === false || (batterySaver === true && !!rest.chosen?.includes("batterySaver") && !rest.inferred?.includes("batterySaver"));
