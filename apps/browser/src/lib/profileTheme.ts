@@ -46,12 +46,12 @@ export function rgbToHsl(r: number, g: number, b: number): [number, number, numb
   return [h / 6, s, l];
 }
 
-export function padColor(x: number, y: number): ThemeColor {
+export function padColor(x: number, y: number, lightness = PAD_LIGHTNESS): ThemeColor {
   const dx = clamp01(x) - 0.5, dy = clamp01(y) - 0.5;
   let hue = Math.atan2(dy, dx) / (2 * Math.PI);
   if (hue < 0) hue += 1;
   const sat = Math.min(1, Math.hypot(dx, dy) / 0.5);
-  const [r, g, b] = hslToRgb(hue, sat, PAD_LIGHTNESS);
+  const [r, g, b] = hslToRgb(hue, sat, clamp01(lightness));
   return { r, g, b, a: 1 };
 }
 
@@ -177,15 +177,49 @@ export function themeUnderColor(theme: ProfileTheme, dark: boolean): string {
   return toHex([grey, grey, grey]);
 }
 
-export function opaqueThemeTint(theme: ProfileTheme, dark: boolean): [string, string] {
+function composite(theme: ProfileTheme, dark: boolean, x: number, y: number): number[] {
   const a = themeLayerAlpha(theme);
   const under = underGrey(theme, dark);
-  const over = (c: number[]) => toHex(c.map((v) => a * clamp01(v) + (1 - a) * under));
-  return [over(themeArea(theme, 0, 0, 1, 1)), over(themeArea(theme, 1, 1, 1, 1))];
+  return themeArea(theme, x, y, 1, 1).map((v) => a * clamp01(v) + (1 - a) * under);
+}
+
+export function opaqueThemeTint(theme: ProfileTheme, dark: boolean): [string, string] {
+  return [toHex(composite(theme, dark, 0, 0)), toHex(composite(theme, dark, 1, 1))];
+}
+
+const SAMPLE_POINTS = [0, 0.5, 1];
+const MIN_BLACK_TEXT_CONTRAST = 3;
+const MIN_WHITE_TEXT_CONTRAST = 2;
+
+const relativeLuminance = (c: number[]) => {
+  const [r, g, b] = c.map((v) => decode(clamp01(v))) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+export function themeLuminance(theme: ProfileTheme, dark: boolean): number {
+  let sum = 0;
+  for (const x of SAMPLE_POINTS) for (const y of SAMPLE_POINTS) sum += relativeLuminance(composite(theme, dark, x, y));
+  return sum / SAMPLE_POINTS.length ** 2;
+}
+
+export function readableDark(theme: ProfileTheme, dark: boolean): boolean {
+  const y = themeLuminance(theme, dark);
+  const blackText = (y + 0.05) / 0.05, whiteText = 1.05 / (y + 0.05);
+  if (dark) return !(whiteText < MIN_WHITE_TEXT_CONTRAST && blackText > whiteText);
+  return blackText < MIN_BLACK_TEXT_CONTRAST && whiteText > blackText;
+}
+
+export function stopLightness(stop: ThemeStop): number {
+  return rgbToHsl(clamp01(stop.color.r), clamp01(stop.color.g), clamp01(stop.color.b))[2];
 }
 
 export function withStopAt(theme: ProfileTheme, index: number, x: number, y: number): ProfileTheme {
-  const stops = theme.stops.map((s, i) => (i === index ? { x, y, color: padColor(x, y) } : s));
+  const stops = theme.stops.map((s, i) => (i === index ? { x, y, color: { ...padColor(x, y, stopLightness(s)), a: s.color.a } } : s));
+  return { ...theme, stops };
+}
+
+export function withStopLightness(theme: ProfileTheme, index: number, lightness: number): ProfileTheme {
+  const stops = theme.stops.map((s, i) => (i === index ? { ...s, color: { ...padColor(s.x, s.y, lightness), a: s.color.a } } : s));
   return { ...theme, stops };
 }
 

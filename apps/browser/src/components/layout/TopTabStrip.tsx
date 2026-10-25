@@ -9,6 +9,7 @@ import { PageProfileContext, useIsActiveTab, usePageProfileId, useSettings, useT
 import { ProfileIndicator, useProfileIndicatorWidth } from "../ProfileIndicator";
 import { HoverSlot } from "../HoverSlot";
 import { IconButton, useHover } from "../primitives";
+import { DownloadsButton } from "../Downloads";
 import { clickTab } from "../sidebar/actions";
 import { openGroupMenu, openTabMenu } from "../sidebar/menus";
 import { groupLabel } from "../../store/organize";
@@ -121,17 +122,7 @@ export function TopTabStrip({ width, floating = false, hidden = false, swipe = t
         </View>
         <View mouseDownCanMoveWindow={false} style={{ position: "absolute", right: 8, top: MID - 17, flexDirection: "row", alignItems: "center", gap: CONTROLS_GAP }}>
           <ProfileIndicator room={PROFILE_ROOM} />
-          <IconButton
-            icon="arrow.down.circle"
-            size={16}
-            box={DOWNLOADS_BOX}
-            radius={10}
-            tooltip="Downloads (⇧⌘J)"
-            onPress={() => {
-              const s = useBrowser.getState();
-              s.setDownloadsOpen(windowId, !s.windowUi[windowId]?.downloadsOpen);
-            }}
-          />
+          <DownloadsButton windowId={windowId} />
         </View>
         {swipe && <ProfileSwipeArea surface="strip" style={StyleSheet.absoluteFill} pageWidth={pageWidth + flare * 2} />}
         {!floating && <StripDropHighlight left={left} right={right} />}
@@ -1548,7 +1539,11 @@ const PEEK_TOP = 4;
 export function TopStripPeek({ windowWidth, enabled }: { windowWidth: number; enabled: boolean }) {
   const theme = useTheme();
   const windowId = useWindowId();
-  const { slide, live, show, hide } = usePeek(enabled);
+  const downloadsOpen = useBrowser((s) => !!s.windowUi[windowId]?.downloadsOpen);
+  const { slide, live, show, hide, recheck } = usePeek(enabled, false, () => !!useBrowser.getState().windowUi[windowId]?.downloadsOpen);
+  useEffect(() => {
+    if (!downloadsOpen) recheck();
+  }, [downloadsOpen]);
   useEffect(() => {
     if (!enabled) return;
     void setTrafficLightsCenter(windowId, lightsCenter(layout.sidebarWidth));

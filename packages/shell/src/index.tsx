@@ -1,4 +1,4 @@
-import { requireNativeModule, requireNativeViewManager, type EventSubscription } from "expo-modules-core";
+import { requireNativeModule, requireNativeViewManager, requireOptionalNativeModule, type EventSubscription } from "expo-modules-core";
 import type { ViewProps } from "react-native";
 
 export * from "./system";
@@ -451,6 +451,37 @@ const GlassEffectModule = requireNativeModule<{ isLiquidGlass(): boolean }>("Ard
 export const isLiquidGlass = (): boolean => GlassEffectModule.isLiquidGlass();
 
 export const GlassEffect = requireNativeViewManager<GlassEffectProps>("ArdiaGlassEffect");
+
+export type PopoverBubbleProps = ViewProps & {
+  material?: "popover" | "menu" | "hudWindow" | "sheet" | "toolTip";
+  dark?: boolean;
+  cornerRadius?: number;
+  arrowEdge?: "top" | "bottom" | "none";
+  arrowX?: number;
+  arrowWidth?: number;
+  arrowHeight?: number;
+  tint?: string;
+  edgeColor?: string;
+  edgeWidth?: number;
+  shadowOpacity?: number;
+  shadowRadius?: number;
+  shadowOffsetY?: number;
+};
+
+type NativePopoverBubbleProps = Omit<PopoverBubbleProps, "shadowOpacity" | "shadowRadius" | "shadowOffsetY"> & {
+  bubbleShadowOpacity?: number;
+  bubbleShadowRadius?: number;
+  bubbleShadowOffsetY?: number;
+};
+
+export const popoverBubbleAvailable = !!requireOptionalNativeModule<{ isAvailable(): boolean }>("ArdiaPopoverBubble")?.isAvailable();
+
+const NativePopoverBubble = popoverBubbleAvailable ? requireNativeViewManager<NativePopoverBubbleProps>("ArdiaPopoverBubble") : null;
+
+export function PopoverBubble({ shadowOpacity, shadowRadius, shadowOffsetY, ...props }: PopoverBubbleProps) {
+  if (!NativePopoverBubble) return null;
+  return <NativePopoverBubble {...props} bubbleShadowOpacity={shadowOpacity} bubbleShadowRadius={shadowRadius} bubbleShadowOffsetY={shadowOffsetY} />;
+}
 
 export type IconTheme = { kind: "blur" } | { kind: "template"; fill: string; stroke?: string };
 

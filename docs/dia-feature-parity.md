@@ -497,7 +497,7 @@ own sign-ins instead.
 ## 14. Downloads
 | Feature | Dia | Ardia | Gap |
 |---|---|---|---|
-| Downloads panel (⇧⌘J, toolbar button) | ✓ | ✅ | our popover; Chrome's download bubble is off per profile (ledger 25) |
+| Downloads panel (⇧⌘J, toolbar button) | ✓ | ✅ | our popover; Chrome's download bubble is off per profile (ledger 25). Since 2026-10-24 (#221) it hangs from its Downloads button as Dia's `DownloadsMenuPopover` (an NSPopover) does: centred on the button where the window allows (8 pt margin), an arrow on the button's centre, below the sidebar header or top strip button and above the sidebar footer one; the list shrinks to the room left. Its background is one translucent bubble, arrow included (`PopoverBubble`: AppKit's popover material blending the page behind, masked to the body-and-arrow shape, 0.5 pt edge, shadow outside only); the near-opaque plate that hid the blur is gone. The button stays pressed and drops its tooltip while open, and the top strip's peek holds while it is. With no visible button (sidebar hidden, Little Ardia) it opens at the old fixed spot without an arrow. Not measured against Dia: arrow size (20 × 9) and corner radius (Ardia's 12) |
 | Progress, cancel, open, Show in Finder, clear | ✓ | ✅ | |
 | Pause / resume | ✓ | ✅ | |
 | Open when done; move to Trash | ✓ | ✅ | "Open When Done" isn't remembered across a relaunch |
