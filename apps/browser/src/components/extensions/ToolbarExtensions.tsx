@@ -8,7 +8,7 @@ import { toggleCastPicker, useCastRoutes } from "../media/cast";
 import type { ToolbarPalette } from "../layout/toolbarColors";
 import { usePages } from "../layout/pageState";
 import { useHover } from "../primitives";
-import { toolbarAnchors } from "./bridge";
+import { anchorKey, toolbarAnchors } from "./bridge";
 import {
   activateExtension,
   openManageExtensions,
@@ -65,7 +65,7 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
     for (const [id, tab] of Object.entries(p.browsers)) if (tab === tabId) return Number(id);
     return 0;
   });
-  if (!pinned.length && !overflow && !routes.length) return <EmptyAnchor windowId={windowId} top={top} right={right} />;
+  if (!pinned.length && !overflow && !routes.length) return <EmptyAnchor windowId={windowId} tabId={tabId} top={top} right={right} />;
   return (
     <View style={{ position: "absolute", top, right, flexDirection: "row", gap: GAP }}>
       {routes.length ? <CastButton windowId={windowId} tabId={tabId} routes={routes} palette={palette} /> : null}
@@ -77,8 +77,8 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
   );
 });
 
-function EmptyAnchor({ windowId, top, right }: { windowId: string; top: number; right: number }) {
-  const { ref, measure } = useAnchor(`${windowId}|*`);
+function EmptyAnchor({ windowId, tabId, top, right }: { windowId: string; tabId: string; top: number; right: number }) {
+  const { ref, measure } = useAnchor(anchorKey(windowId, tabId, "*"));
   return <View ref={ref} pointerEvents="none" style={{ position: "absolute", top, right, width: BUTTON, height: BUTTON }} onLayout={() => void measure()} />;
 }
 
@@ -115,7 +115,7 @@ function ExtensionButton({ ext, windowId, tabId, browserId, palette }: { ext: In
   const state = held.current;
   const open = useExtensions((e) => e.popup?.windowId === windowId && e.popup.extensionId === ext.id);
   const { hovered, hoverProps } = useHover();
-  const { ref, measure } = useAnchor(`${windowId}|${ext.id}`);
+  const { ref, measure } = useAnchor(anchorKey(windowId, tabId, ext.id));
   const badge = state?.badgeText ?? "";
   const dimmed = state ? !state.enabled : false;
   const title = state?.title || ext.actionTitle || ext.name;
@@ -221,7 +221,7 @@ function CastButton({ windowId, tabId, routes, palette }: { windowId: string; ta
 
 function OverflowButton({ windowId, tabId, palette }: { windowId: string; tabId: string; palette: ToolbarPalette }) {
   const { hovered, hoverProps } = useHover();
-  const { ref, measure } = useAnchor(`${windowId}|*`);
+  const { ref, measure } = useAnchor(anchorKey(windowId, tabId, "*"));
   const onPress = async () => {
     const anchor = await measure();
     const enabled = windowExtensions(useBrowser.getState(), windowId);

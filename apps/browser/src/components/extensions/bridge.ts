@@ -115,12 +115,19 @@ function moveIntoChromeMadeWindow(request: TabsRequest, chromeWindow: string, ta
 
 export function openExtensionFromMenu(windowId: string, extensionId: string, tabId?: string) {
   const ext = findExtension(extensionProfile(useBrowser.getState(), windowId), extensionId);
-  if (ext) void activateExtension(windowId, ext, toolbarAnchor(windowId, ext.id), undefined, tabId);
+  if (ext) void activateExtension(windowId, ext, toolbarAnchor(windowId, ext.id, tabId), undefined, tabId);
 }
 
 export const toolbarAnchors = new Map<string, import("./state").Anchor>();
-function toolbarAnchor(windowId: string, extensionId: string) {
-  return toolbarAnchors.get(`${windowId}|${extensionId}`) ?? toolbarAnchors.get(`${windowId}|*`) ?? { x: 100_000, y: 13, width: 28, height: 28 };
+export const anchorKey = (windowId: string, tabId: string, slot: string) => `${windowId}|${tabId}|${slot}`;
+function toolbarAnchor(windowId: string, extensionId: string, tabId?: string) {
+  const s = useBrowser.getState();
+  for (const pane of new Set([tabId ?? shownPageId(s, windowId), activeTabId(s, windowId)])) {
+    if (!pane) continue;
+    const anchor = toolbarAnchors.get(anchorKey(windowId, pane, extensionId)) ?? toolbarAnchors.get(anchorKey(windowId, pane, "*"));
+    if (anchor) return anchor;
+  }
+  return { x: 100_000, y: 13, width: 28, height: 28 };
 }
 
 const ACTION_POLL_MS = 1500;
@@ -212,7 +219,7 @@ function startActionPopups() {
     const tabId = tabForBrowser(browserId);
     const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
     if (!windowId) return console.warn(`action.openPopup for ${extensionId}: ${tabId ? "its tab has no window" : `no tab for browser ${browserId}`}`);
-    void state.openActionPopup(windowId, extensionId, toolbarAnchor(windowId, extensionId), browserId);
+    void state.openActionPopup(windowId, extensionId, toolbarAnchor(windowId, extensionId, tabId), browserId);
   });
   onExtensionActionShortcut(({ browserId, extensionId }) => {
     const tabId = tabForBrowser(browserId);
