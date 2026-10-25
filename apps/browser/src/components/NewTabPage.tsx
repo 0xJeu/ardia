@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { Surface } from "@ardia/shell";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../lib/theme";
+import { useBrowser } from "../store/browser";
 import { useWindowId } from "../store/hooks";
 import { useCardAnchors } from "./layout/windowLayout";
 import { springParams } from "./layout/swipeMotion";
 import { NewTabExtras } from "./ntp";
+import { IncognitoHeading } from "./ntp/IncognitoHeading";
 import { useOnboarding } from "./onboarding/state";
 import { Omnibox } from "./Omnibox";
 
@@ -55,6 +57,7 @@ export function barWidth(viewWidth: number) {
 export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?: boolean }) {
   const theme = useTheme();
   const windowId = useWindowId();
+  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
   const onboarding = useOnboarding((s) => s.windowId === windowId);
   const card = useCardAnchors((s) => s[windowId]);
   const [size, setSizeState] = useState<Size | null>(() => (lastSize && (!card || sameSize(lastSize.card, card)) ? lastSize.size : null));
@@ -105,6 +108,7 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
           halo={bar}
         />
       )}
+      {!onboarding && incognito && <IncognitoHeading left={x} bottom={top - MARK_ABOVE_BAR} width={width} />}
       <View
         pointerEvents="none"
         style={{
