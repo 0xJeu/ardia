@@ -605,11 +605,12 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { windowI
   const [count, setCount] = useState(0);
   const [hidden, setHidden] = useState(upsellDeclined);
   const daily = useBrowser((s) => s.settings.cleanUpInactiveTabsAfterHours !== null);
+  const win = useBrowser((s) => s.windows[windowId]);
   useEffect(() => {
     const check = () => setCount(cleanUpCandidates(useBrowser.getState(), windowId).length);
     check();
     return everySlowly({ every: 60_000, run: check });
-  }, [windowId]);
+  }, [windowId, win]);
   const [moved, movedRef] = useShift(shift);
   if (hidden || daily || count < UPSELL_MIN) return null;
   const button = (title: string, onPress: () => void, primary = false) => (
