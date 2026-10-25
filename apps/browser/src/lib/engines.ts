@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { useBrowser } from "../store/browser";
 import { canSwitchEngine, ENGINE_NAMES, ruleFor, siteOf, tabEngine, visitRecorder, type WebKitPage } from "../store/engines";
 import { engineProfile, isIncognitoProfile, navigationTo } from "../store/model";
+import { carrySignInToWebKit, signInCarryOn } from "./engineSignIn";
 import { wantsPage } from "./tabPages";
 import { webviews } from "./webviews";
 
@@ -61,6 +62,7 @@ export async function openPageIn(tabId: string, engine: PageEngine, options: { r
     });
     if (!confirmed) return false;
   }
+  if (engine === "webkit" && signInCarryOn()) await carrySignInToWebKit(tabId, url);
   const now = store().tabs[tabId];
   if (!now || (now.url || now.navigation?.url || "") !== url) return false;
   saveRule();

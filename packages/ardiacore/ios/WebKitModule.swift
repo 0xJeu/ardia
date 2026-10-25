@@ -42,6 +42,9 @@ public class WebKitModule: Module {
     AsyncFunction("deleteProfileData") { (profile: String, promise: Promise) in
       WebKitHub.shared.deleteProfileData(profile) { promise.resolve($0) }
     }.runOnQueue(.main)
+    AsyncFunction("importCookies") { (profile: String, cookies: [[String: Any]], promise: Promise) in
+      WebKitHub.shared.importCookies(cookies, profile: profile) { promise.resolve($0) }
+    }.runOnQueue(.main)
     AsyncFunction("info") { () -> [String: Any] in
       [
         "safariVersion": WebKitHub.safariVersion, "userAgentSuffix": "Version/\(WebKitHub.safariVersion) Safari/605.1.15",
@@ -104,6 +107,7 @@ public class WebKitModule: Module {
       AsyncFunction("exitPictureInPicture") { (view: WebKitTabView) in view.tab.setPictureInPicture(false) { _ in } }.runOnQueue(.main)
 
       AsyncFunction("getSecurityInfo") { (view: WebKitTabView) in view.tab.securityInfo() }.runOnQueue(.main)
+      AsyncFunction("pageCookies") { (view: WebKitTabView, urls: [String]) -> [[String: Any]] in [] }.runOnQueue(.main)
       AsyncFunction("openBlockedPopup") { (view: WebKitTabView, id: String, always: Bool?) in }.runOnQueue(.main)
       AsyncFunction("clearSiteData") { (view: WebKitTabView, promise: Promise) in
         view.tab.clearSiteData { promise.resolve($0) }

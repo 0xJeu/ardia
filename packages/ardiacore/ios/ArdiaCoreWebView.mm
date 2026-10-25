@@ -2765,6 +2765,23 @@ static NSString *LinkKeyAction(NSString *key) {
   completion(@{@"level" : level, @"url" : url, @"origin" : NSNull.null});
 }
 
+- (void)pageCookies:(NSArray<NSString *> *)urls completion:(void (^)(NSArray<NSDictionary<NSString *, id> *> *))completion {
+  SEL timed = NSSelectorFromString(@"devToolsCall:params:timeout:completion:");
+  if (!_tab || _tab.closed || !urls.count || ![_tab respondsToSelector:timed]) return completion(nil);
+  __block BOOL answered = NO;
+  void (^answer)(NSArray *) = ^(NSArray *cookies) {
+    if (answered) return;
+    answered = YES;
+    completion(cookies);
+  };
+  void (^done)(NSDictionary *, NSString *) = ^(NSDictionary *result, NSString *error) {
+    NSArray *cookies = result[@"cookies"];
+    answer([cookies isKindOfClass:NSArray.class] ? cookies : nil);
+  };
+  ((void (*)(id, SEL, NSString *, NSDictionary *, NSTimeInterval, id))objc_msgSend)(_tab, timed, @"Network.getCookies", @{@"urls" : urls}, 1.0, done);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1200 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ answer(nil); });
+}
+
 - (void)openBlockedPopup:(NSString *)popupId always:(BOOL)always {
   if ([_tab respondsToSelector:@selector(openBlockedPopup:always:)]) [_tab openBlockedPopup:popupId always:always];
 }

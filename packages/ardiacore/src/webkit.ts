@@ -5,6 +5,20 @@ import type { ExternalAppAllowance } from "./externalApps";
 
 export type PageEngine = "chromium" | "webkit";
 
+export type PageCookie = {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expires: number;
+  session: boolean;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite?: "Strict" | "Lax" | "None";
+  partitionKey?: unknown;
+  partitionKeyOpaque?: boolean;
+};
+
 type WebKitNative = {
   addListener(name: "onDownload", listener: (d: Download) => void): EventSubscription;
   addListener(name: "onPermission", listener: (p: PermissionRequest) => void): EventSubscription;
@@ -22,6 +36,7 @@ type WebKitNative = {
   resolveExternalApp(id: string, open: boolean, remember: boolean): Promise<void>;
   clearBrowsingData(profile: string, types: BrowsingDataType[], since: number | null): Promise<void>;
   deleteProfileData(profile: string): Promise<boolean>;
+  importCookies(profile: string, cookies: PageCookie[]): Promise<number>;
   info(): Promise<{ safariVersion: string; userAgentSuffix: string; passkeys: boolean }>;
 };
 
@@ -55,3 +70,4 @@ export const getWebKitSiteSettings = async (profile: string, origin: string): Pr
 export const setWebKitSiteSetting = (profile: string, origin: string, type: SiteSettingType, value: SiteSettingValue) =>
   WebKit?.setSitePermission(profile, origin, type, value) ?? Promise.resolve();
 export const webKitInfo = () => WebKit?.info() ?? Promise.resolve(null);
+export const importWebKitCookies = (profile: string, cookies: PageCookie[]) => WebKit?.importCookies(profile, cookies) ?? Promise.resolve(0);
