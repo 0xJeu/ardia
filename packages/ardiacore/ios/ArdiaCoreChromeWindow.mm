@@ -183,10 +183,105 @@ void InstallTrafficLightsOrigin(Class frameClass) {
   if (!class_addMethod(frameClass, sel, ours, method_getTypeEncoding(method))) method_setImplementation(method, ours);
 }
 
+const void *kSharingIndicatorTuckedKey = &kSharingIndicatorTuckedKey;
+
+void KeepSharingIndicatorInWindow(NSView *frameView, CGFloat dx) {
+  const SEL sel = NSSelectorFromString(@"sharingIndicator");
+  NSView *indicator = [frameView respondsToSelector:sel] ? ((NSView * (*)(id, SEL))objc_msgSend)(frameView, sel) : nil;
+  if (![indicator isKindOfClass:NSView.class]) return;
+  if (indicator.layer && (dx != 0 || indicator.layer.affineTransform.tx != 0))
+    indicator.layer.affineTransform = CGAffineTransformMakeTranslation(dx, 0);
+  const NSRect shown = NSOffsetRect([indicator convertRect:indicator.bounds toView:frameView], dx, 0);
+  const BOOL outside = !NSContainsRect(frameView.bounds, shown);
+  if (outside == (objc_getAssociatedObject(indicator, kSharingIndicatorTuckedKey) != nil)) return;
+  objc_setAssociatedObject(indicator, kSharingIndicatorTuckedKey, outside ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  indicator.hidden = outside;
+}
+
+void InstallSharingIndicatorBounds(Class frameClass) {
+  static NSMutableSet<Class> *installed = [NSMutableSet set];
+  if (!frameClass || [installed containsObject:frameClass]) return;
+  [installed addObject:frameClass];
+  const SEL sel = NSSelectorFromString(@"_positionSharingIndicator");
+  Method method = class_getInstanceMethod(frameClass, sel);
+  if (!method) return;
+  const IMP standard = method_getImplementation(method);
+  const IMP ours = imp_implementationWithBlock(^(NSView *frameView) {
+    ((void (*)(id, SEL))standard)(frameView, sel);
+    NSButton *close = [frameView.window standardWindowButton:NSWindowCloseButton];
+    KeepSharingIndicatorInWindow(frameView, close.layer ? close.layer.affineTransform.tx : 0);
+  });
+  if (!class_addMethod(frameClass, sel, ours, method_getTypeEncoding(method))) method_setImplementation(method, ours);
+}
+
+const void *kSharingWindowPlacedKey = &kSharingWindowPlacedKey;
+const void *kSharingWindowShiftKey = &kSharingWindowShiftKey;
+const void *kSharingWindowTuckedKey = &kSharingWindowTuckedKey;
+
+void TuckSharingWindow(NSWindow *pill, BOOL outside) {
+  NSDictionary *tucked = objc_getAssociatedObject(pill, kSharingWindowTuckedKey);
+  if (outside) {
+    if (!tucked)
+      objc_setAssociatedObject(pill, kSharingWindowTuckedKey, @{@"alpha" : @(pill.alphaValue), @"ignores" : @(pill.ignoresMouseEvents)},
+                               OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    pill.alphaValue = 0;
+    pill.ignoresMouseEvents = YES;
+    return;
+  }
+  if (!tucked) return;
+  objc_setAssociatedObject(pill, kSharingWindowTuckedKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  pill.alphaValue = [tucked[@"alpha"] doubleValue];
+  pill.ignoresMouseEvents = [tucked[@"ignores"] boolValue];
+}
+
+void KeepSharingWindowOnHost(NSWindow *pill) {
+  const SEL hostSel = NSSelectorFromString(@"hostWindow");
+  NSWindow *host = [pill respondsToSelector:hostSel] ? ((NSWindow * (*)(id, SEL))objc_msgSend)(pill, hostSel) : nil;
+  NSPoint origin = pill.frame.origin;
+  NSValue *placed = objc_getAssociatedObject(pill, kSharingWindowPlacedKey);
+  if (placed && NSEqualPoints(origin, placed.pointValue))
+    origin.x -= [objc_getAssociatedObject(pill, kSharingWindowShiftKey) doubleValue];
+  const BOOL follows = [host isKindOfClass:NSWindow.class] && objc_getAssociatedObject(host, kInsetLightsKey) &&
+                       !(host.styleMask & NSWindowStyleMaskFullScreen);
+  NSButton *close = follows ? [host standardWindowButton:NSWindowCloseButton] : nil;
+  const CGFloat dx = close.layer ? close.layer.affineTransform.tx : 0;
+  const NSPoint target = NSMakePoint(origin.x + dx, origin.y);
+  if (!NSEqualPoints(target, pill.frame.origin)) [pill setFrameOrigin:target];
+  objc_setAssociatedObject(pill, kSharingWindowPlacedKey, [NSValue valueWithPoint:target], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  objc_setAssociatedObject(pill, kSharingWindowShiftKey, @(dx), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  TuckSharingWindow(pill, follows && !NSContainsRect(host.frame, pill.frame));
+}
+
+void InstallSharingWindowBounds() {
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    Class pillClass = NSClassFromString(@"NSLocalWindowSharingWindow");
+    const SEL sel = NSSelectorFromString(@"_syncToWindowControls");
+    Method method = pillClass ? class_getInstanceMethod(pillClass, sel) : nullptr;
+    if (!method) return;
+    const IMP standard = method_getImplementation(method);
+    const IMP ours = imp_implementationWithBlock(^(NSWindow *pill) {
+      ((void (*)(id, SEL))standard)(pill, sel);
+      KeepSharingWindowOnHost(pill);
+    });
+    if (!class_addMethod(pillClass, sel, ours, method_getTypeEncoding(method))) method_setImplementation(method, ours);
+  });
+}
+
+void SyncSharingWindows(NSWindow *window) {
+  Class pillClass = NSClassFromString(@"NSLocalWindowSharingWindow");
+  const SEL sel = NSSelectorFromString(@"_syncToWindowControls");
+  for (NSWindow *child in window.childWindows)
+    if ([child isKindOfClass:pillClass] && [child respondsToSelector:sel]) ((void (*)(id, SEL))objc_msgSend)(child, sel);
+}
+
 void RetileTrafficLights(NSWindow *window) {
   NSView *frameView = window.contentView.superview;
-  const SEL sel = NSSelectorFromString(@"_updateButtonPositions");
-  if ([frameView respondsToSelector:sel]) ((void (*)(id, SEL))objc_msgSend)(frameView, sel);
+  for (NSString *name in @[ @"_updateButtonPositions", @"_positionSharingIndicator" ]) {
+    const SEL sel = NSSelectorFromString(name);
+    if ([frameView respondsToSelector:sel]) ((void (*)(id, SEL))objc_msgSend)(frameView, sel);
+  }
+  SyncSharingWindows(window);
 }
 
 const void *kLightsShownKey = &kLightsShownKey;
@@ -204,10 +299,12 @@ NSPoint LightsCenter(NSValue *center, NSSize size) {
   return center ? center.pointValue : NSMakePoint(kTrafficLightInsetX + size.width / 2, kTrafficLightTop + size.height / 2);
 }
 
-void TranslateTrafficLights(NSArray<NSButton *> *buttons, CGFloat dx) {
+void TranslateTrafficLights(NSWindow *window, CGFloat dx) {
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
-  for (NSButton *button in buttons) button.layer.affineTransform = CGAffineTransformMakeTranslation(dx, 0);
+  for (NSButton *button in TrafficLightButtons(window)) button.layer.affineTransform = CGAffineTransformMakeTranslation(dx, 0);
+  KeepSharingIndicatorInWindow(window.contentView.superview, dx);
+  SyncSharingWindows(window);
   [CATransaction commit];
 }
 
@@ -218,7 +315,7 @@ void SettleTrafficLights(NSWindow *window) {
   objc_setAssociatedObject(window, kLightsCenterKey, shown == NSNull.null ? nil : shown, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
-  TranslateTrafficLights(TrafficLightButtons(window), 0);
+  TranslateTrafficLights(window, 0);
   RetileTrafficLights(window);
   [CATransaction commit];
 }
@@ -232,7 +329,7 @@ bool MoveTrafficLights(NSWindow *window, NSValue *center) {
   const NSSize size = buttons[0].frame.size;
   const NSPoint laidOut = LightsCenter(objc_getAssociatedObject(window, kLightsCenterKey), size), to = LightsCenter(center, size);
   if (to.y != laidOut.y) return false;
-  TranslateTrafficLights(buttons, to.x - laidOut.x);
+  TranslateTrafficLights(window, to.x - laidOut.x);
   if (to.x == laidOut.x) {
     objc_setAssociatedObject(window, kLightsShownKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(window, kLightsMoveKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -252,6 +349,8 @@ bool MoveTrafficLights(NSWindow *window, NSValue *center) {
 void InsetTrafficLights(NSWindow *window) {
   objc_setAssociatedObject(window, kInsetLightsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   InstallTrafficLightsOrigin(object_getClass(window.contentView.superview));
+  InstallSharingIndicatorBounds(object_getClass(window.contentView.superview));
+  InstallSharingWindowBounds();
   RetileTrafficLights(window);
   LogTrafficLightsOf(window);
 }
@@ -1939,7 +2038,7 @@ NSView *ACWindowRootView(NSWindow *window) {
   if (objc_getAssociatedObject(window, kLightsShownKey)) {
     objc_setAssociatedObject(window, kLightsShownKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(window, kLightsMoveKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    TranslateTrafficLights(TrafficLightButtons(window), 0);
+    TranslateTrafficLights(window, 0);
   }
   NSValue *current = objc_getAssociatedObject(window, kLightsCenterKey);
   if (current == center || [current isEqual:center]) return;
