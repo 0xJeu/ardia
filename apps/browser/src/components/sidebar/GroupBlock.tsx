@@ -170,7 +170,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
               ) : (
                 <Animated.View style={{ flex: 1, height: 18, marginLeft: 5, flexDirection: "row", alignItems: "center", transform: [{ rotate: countdown.rotate }] }}>
                   <View style={{ flexShrink: 1, height: 18, paddingRight: 8, justifyContent: "center" }}>
-                    <Text numberOfLines={1} style={{ opacity: 0, fontSize: 13, fontWeight: "500" }}>
+                    <Text numberOfLines={1} style={{ opacity: 0, fontSize: 13, fontWeight: "500", fontVariant: ["tabular-nums"] }}>
                       {label}
                     </Text>
                     <FadeLabel text={label} fontSize={13} weight="medium" color={tokens.groupTitle} style={{ position: "absolute", left: 0, right: 0, top: 0, height: 18 }} />
