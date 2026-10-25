@@ -37,7 +37,8 @@ export type WebKitNative = {
   resolveExternalApp(id: string, open: boolean, remember: boolean): Promise<void>;
   clearBrowsingData(profile: string, types: BrowsingDataType[], since: number | null): Promise<void>;
   deleteProfileData(profile: string): Promise<boolean>;
-  importCookies(profile: string, cookies: PageCookie[]): Promise<number>;
+  cookieStoreKey(profile: string): Promise<string>;
+  importCookies(profile: string, storeKey: string, cookies: PageCookie[]): Promise<number>;
   info(): Promise<{ safariVersion: string; userAgentSuffix: string; passkeys: boolean }>;
   passkeyAccess(): Promise<PasskeyAccess>;
   requestPasskeyAccess(): Promise<PasskeyAccess>;
@@ -78,7 +79,9 @@ export const getWebKitSiteSettings = async (profile: string, origin: string): Pr
 export const setWebKitSiteSetting = (profile: string, origin: string, type: SiteSettingType, value: SiteSettingValue) =>
   WebKit?.setSitePermission(profile, origin, type, value) ?? Promise.resolve();
 export const webKitInfo = () => WebKit?.info() ?? Promise.resolve(null);
-export const importWebKitCookies = (profile: string, cookies: PageCookie[]) => WebKit?.importCookies(profile, cookies) ?? Promise.resolve(0);
+export const webKitCookieStoreKey = (profile: string) => WebKit?.cookieStoreKey(profile) ?? Promise.resolve(null);
+export const importWebKitCookies = (profile: string, storeKey: string, cookies: PageCookie[]) =>
+  WebKit?.importCookies(profile, storeKey, cookies) ?? Promise.resolve(0);
 const askPasskeys = (call: (native: WebKitNative) => Promise<PasskeyAccess>): Promise<PasskeyAccess> =>
   WebKit && typeof WebKit.passkeyAccess === "function" ? call(WebKit).catch(() => NO_PASSKEY_ACCESS) : Promise.resolve(NO_PASSKEY_ACCESS);
 export const getPasskeyAccess = () => askPasskeys((native) => native.passkeyAccess());

@@ -42,8 +42,9 @@ public class WebKitModule: Module {
     AsyncFunction("deleteProfileData") { (profile: String, promise: Promise) in
       WebKitHub.shared.deleteProfileData(profile) { promise.resolve($0) }
     }.runOnQueue(.main)
-    AsyncFunction("importCookies") { (profile: String, cookies: [[String: Any]], promise: Promise) in
-      WebKitHub.shared.importCookies(cookies, profile: profile) { promise.resolve($0) }
+    AsyncFunction("cookieStoreKey") { (profile: String) in WebKitHub.shared.storeKey(profile) }.runOnQueue(.main)
+    AsyncFunction("importCookies") { (profile: String, storeKey: String, cookies: [[String: Any]], promise: Promise) in
+      WebKitHub.shared.importCookies(cookies, profile: profile, storeKey: storeKey) { promise.resolve($0) }
     }.runOnQueue(.main)
     AsyncFunction("info") { () -> [String: Any] in
       [

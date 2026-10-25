@@ -103,6 +103,13 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     return store
   }
 
+  func liveDataStore(for profile: String, storeKey key: String) -> WKWebsiteDataStore? {
+    guard Self.isPrivate(profile) else { return key == profile ? dataStore(for: profile) : nil }
+    let name = Self.privateSession(profile)
+    guard let live = privateSessions[name], key == "private@\(name)#\(live.token)" else { return nil }
+    return live.store
+  }
+
   func endPrivateSession(_ name: String) {
     guard let ended = privateSessions.removeValue(forKey: name) else { return }
     let prefix = "private@\(name)#\(ended.token)|"

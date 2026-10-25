@@ -19,17 +19,16 @@ extension WebKitHub {
       properties[.expires] = Date(timeIntervalSince1970: expires)
     }
     switch cookie["sameSite"] as? String {
+    case "None": break
     case "Strict": properties[.sameSitePolicy] = HTTPCookieStringPolicy.sameSiteStrict.rawValue
-    case "Lax": properties[.sameSitePolicy] = HTTPCookieStringPolicy.sameSiteLax.rawValue
-    default: break
+    default: properties[.sameSitePolicy] = HTTPCookieStringPolicy.sameSiteLax.rawValue
     }
     return HTTPCookie(properties: properties)
   }
 
-  func importCookies(_ cookies: [[String: Any]], profile: String, completion: @escaping (Int) -> Void) {
+  func importCookies(_ cookies: [[String: Any]], profile: String, storeKey: String, completion: @escaping (Int) -> Void) {
     let made = cookies.compactMap(Self.httpCookie(fromEngine:))
-    guard !made.isEmpty else { return completion(0) }
-    let store = dataStore(for: profile).httpCookieStore
+    guard !made.isEmpty, let store = liveDataStore(for: profile, storeKey: storeKey)?.httpCookieStore else { return completion(0) }
     let group = DispatchGroup()
     for cookie in made {
       group.enter()
