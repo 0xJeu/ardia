@@ -2528,6 +2528,12 @@ TabSharingInfoBarDelegate* TabSharingDelegateFor(content::WebContents* contents,
   }
 }
 
+- (void)loadIfNeeded {
+  if (_contents && _contents->GetController().NeedsReload()) {
+    _contents->GetController().LoadIfNecessary();
+  }
+}
+
 - (void)stop {
   if (_contents) {
     _contents->Stop();

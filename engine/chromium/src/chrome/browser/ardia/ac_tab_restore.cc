@@ -1,22 +1,38 @@
 // Copyright 2026 Ardia. Apache-2.0.
 
+#include <algorithm>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/base64.h"
+#include "base/containers/span.h"
+#include "base/files/file_enumerator.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/json/json_writer.h"
 #include "base/no_destructor.h"
 #include "base/pickle.h"
 #include "base/scoped_observation.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/ardia/ac_engine.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sessions/session_common_utils.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
+#include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/sessions/content/content_serialized_navigation_driver.h"
 #include "components/sessions/content/extended_info_handler.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
+#include "components/sessions/core/session_constants.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_service_observer.h"
 #include "components/sessions/core/tab_restore_types.h"
@@ -34,6 +50,10 @@ namespace {
 constexpr int kNavigationStateVersion = 1;
 constexpr int kMaxNavigationEntryBytes = 256 * 1024;
 constexpr char kTabKey[] = "ac_tab";
+constexpr char kTabHistoryDir[] = "Ardia Tab History";
+constexpr int kTabHistoryVersion = 1;
+constexpr base::TimeDelta kTabHistorySaveDelay = base::Milliseconds(2500);
+constexpr base::TimeDelta kTabHistoryKeep = base::Days(90);
 
 using sessions::tab_restore::Entry;
 using sessions::tab_restore::Group;
@@ -70,6 +90,98 @@ void RegisterTabKey() {
                                     std::make_unique<TabKeyHandler>());
 }
 
+std::string PackNavigations(
+    int selected,
+    base::span<const sessions::SerializedNavigationEntry> navigations) {
+  base::Pickle pickle;
+  pickle.WriteInt(kNavigationStateVersion);
+  pickle.WriteInt(selected);
+  pickle.WriteInt(static_cast<int>(navigations.size()));
+  for (const auto& navigation : navigations) {
+    navigation.WriteToPickle(kMaxNavigationEntryBytes, &pickle);
+  }
+  return base::Base64Encode(pickle.AsBytes());
+}
+
+scoped_refptr<base::SequencedTaskRunner> TabHistoryFiles() {
+  static base::NoDestructor<scoped_refptr<base::SequencedTaskRunner>> runner(
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));
+  return *runner;
+}
+
+base::FilePath TabHistoryDir(Profile* profile) {
+  return profile->GetPath().AppendASCII(kTabHistoryDir);
+}
+
+std::optional<std::string> TabHistoryOf(content::WebContents* contents) {
+  content::NavigationController& controller = contents->GetController();
+  const int current = controller.GetLastCommittedEntryIndex();
+  content::NavigationEntry* shown = controller.GetLastCommittedEntry();
+  if (current < 0 || !shown || shown->IsInitialEntry()) {
+    return std::nullopt;
+  }
+  const int first = std::max(0, current - sessions::gMaxPersistNavigationCount);
+  const int end = std::min(controller.GetEntryCount(),
+                           current + sessions::gMaxPersistNavigationCount + 1);
+  std::vector<sessions::SerializedNavigationEntry> navigations;
+  int selected = -1;
+  for (int i = first; i < end; ++i) {
+    content::NavigationEntry* entry = controller.GetEntryAtIndex(i);
+    if (!entry || entry->IsInitialEntry() ||
+        !ShouldTrackURLForRestore(entry->GetVirtualURL())) {
+      continue;
+    }
+    if (i == current) {
+      selected = static_cast<int>(navigations.size());
+    }
+    navigations.push_back(
+        sessions::ContentSerializedNavigationBuilder::FromNavigationEntry(
+            i, entry));
+  }
+  if (selected < 0) {
+    return std::nullopt;
+  }
+  return base::WriteJson(
+      base::DictValue()
+          .Set("version", kTabHistoryVersion)
+          .Set("url", shown->GetURL().spec())
+          .Set("virtualUrl", shown->GetVirtualURL().spec())
+          .Set("state", PackNavigations(selected, navigations)));
+}
+
+void WriteTabHistory(base::FilePath path, std::string data) {
+  base::FilePath temp = path.AddExtensionASCII("new");
+  if (base::CreateDirectory(path.DirName()) && base::WriteFile(temp, data) &&
+      !base::ReplaceFile(temp, path, nullptr)) {
+    base::DeleteFile(temp);
+  }
+}
+
+void DeleteTabHistory(base::FilePath path) {
+  base::DeleteFile(path);
+}
+
+void PruneTabHistory(base::FilePath dir) {
+  const base::Time cutoff = base::Time::Now() - kTabHistoryKeep;
+  base::FileEnumerator files(dir, false, base::FileEnumerator::FILES);
+  for (base::FilePath path = files.Next(); !path.empty(); path = files.Next()) {
+    if (files.GetInfo().GetLastModifiedTime() < cutoff) {
+      base::DeleteFile(path);
+    }
+  }
+}
+
+void PruneTabHistoryOnce(Profile* profile) {
+  static base::NoDestructor<std::set<base::FilePath>> pruned;
+  base::FilePath dir = TabHistoryDir(profile);
+  if (pruned->insert(dir).second) {
+    TabHistoryFiles()->PostTask(FROM_HERE,
+                                base::BindOnce(&PruneTabHistory, dir));
+  }
+}
+
 class TabKeyBinding : public content::WebContentsObserver,
                       public content::WebContentsUserData<TabKeyBinding> {
  public:
@@ -78,11 +190,36 @@ class TabKeyBinding : public content::WebContentsObserver,
   void Bind(std::string key) {
     key_ = std::move(key);
     Stamp();
+    SaveSoon();
   }
 
   void DidStartNavigation(content::NavigationHandle*) override { Stamp(); }
   void NavigationEntryCommitted(const content::LoadCommittedDetails&) override {
     Stamp();
+    SaveSoon();
+  }
+  void NavigationListPruned(const content::PrunedDetails&) override {
+    SaveSoon();
+  }
+  void NavigationEntriesDeleted() override { SaveSoon(); }
+  void NavigationEntryChanged(const content::EntryChangedDetails&) override {
+    SaveSoon();
+  }
+  void WebContentsDestroyed() override {
+    save_timer_.Stop();
+    Profile* profile = SavingProfile();
+    if (!profile) {
+      return;
+    }
+    if (browser_shutdown::IsTryingToQuit() ||
+        browser_shutdown::HasShutdownStarted() || profile->ShutdownStarted()) {
+      if (unsaved_) {
+        Save();
+      }
+      return;
+    }
+    TabHistoryFiles()->PostTask(
+        FROM_HERE, base::BindOnce(&DeleteTabHistory, HistoryFile(profile)));
   }
 
  private:
@@ -108,7 +245,43 @@ class TabKeyBinding : public content::WebContentsObserver,
     }
   }
 
+  Profile* SavingProfile() const {
+    Profile* profile =
+        Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+    return profile && !profile->IsOffTheRecord() && !key_.empty() ? profile
+                                                                  : nullptr;
+  }
+
+  base::FilePath HistoryFile(Profile* profile) const {
+    return TabHistoryDir(profile).AppendASCII(base::HexEncode(key_));
+  }
+
+  void SaveSoon() {
+    unsaved_ = true;
+    if (!save_timer_.IsRunning() && SavingProfile()) {
+      save_timer_.Start(FROM_HERE, kTabHistorySaveDelay,
+                        base::BindOnce(&TabKeyBinding::Save,
+                                       base::Unretained(this)));
+    }
+  }
+
+  void Save() {
+    unsaved_ = false;
+    Profile* profile = SavingProfile();
+    if (!profile) {
+      return;
+    }
+    base::FilePath path = HistoryFile(profile);
+    std::optional<std::string> history = TabHistoryOf(web_contents());
+    TabHistoryFiles()->PostTask(
+        FROM_HERE, history ? base::BindOnce(&WriteTabHistory, std::move(path),
+                                            std::move(*history))
+                           : base::BindOnce(&DeleteTabHistory, std::move(path)));
+  }
+
   std::string key_;
+  bool unsaved_ = false;
+  base::OneShotTimer save_timer_;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
@@ -151,14 +324,7 @@ void Collect(const Entry& entry, std::vector<Candidate>* out) {
 }
 
 std::string NavigationState(const Tab& tab) {
-  base::Pickle pickle;
-  pickle.WriteInt(kNavigationStateVersion);
-  pickle.WriteInt(tab.normalized_navigation_index());
-  pickle.WriteInt(static_cast<int>(tab.navigations.size()));
-  for (const auto& navigation : tab.navigations) {
-    navigation.WriteToPickle(kMaxNavigationEntryBytes, &pickle);
-  }
-  return base::Base64Encode(pickle.AsBytes());
+  return PackNavigations(tab.normalized_navigation_index(), tab.navigations);
 }
 
 void Take(sessions::TabRestoreService* service,
@@ -295,6 +461,9 @@ AC_ENGINE_CALL(ac_tab_restore_tag) {
     return call.TakeReply().Error("no such tab");
   }
   ardia::RegisterTabKey();
+  if (!call.profile()->IsOffTheRecord()) {
+    ardia::PruneTabHistoryOnce(call.profile());
+  }
   ardia::TabKeyBinding::CreateForWebContents(contents);
   ardia::TabKeyBinding::FromWebContents(contents)->Bind(key);
   call.TakeReply().Ok();
