@@ -1238,28 +1238,54 @@ std::optional<WindowOpenDisposition> TabBridge::TakeOpenDisposition() {
   return d;
 }
 
+constexpr base::TimeDelta kCloseStepDeadline = base::Seconds(2);
+
 void TabBridge::CloseAfterUnloadHandlers(bool window_closing) {
   closing_after_unload_ = true;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&TabBridge::EnforceCloseDeadline,
+                     weak_factory_.GetWeakPtr(), false),
+      kCloseStepDeadline);
   if (window_closing) {
-    web_contents()->ClosePage();
+    StartUnload();
     return;
   }
   web_contents()->DispatchBeforeUnload(true);
 }
 
+void TabBridge::StartUnload() {
+  if (unload_started_) {
+    return;
+  }
+  unload_started_ = true;
+  web_contents()->ClosePage();
+}
+
+void TabBridge::EnforceCloseDeadline(bool unload_given) {
+  if (unload_given) {
+    DeleteTabClosedByHost(web_contents());
+    return;
+  }
+  StartUnload();
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&TabBridge::EnforceCloseDeadline,
+                     weak_factory_.GetWeakPtr(), true),
+      kCloseStepDeadline);
+}
+
 void TabBridge::BeforeUnloadFired(bool proceed) {
   if (proceed) {
+    if (closing_after_unload_) {
+      unload_started_ = true;
+    }
     return;
   }
   if (closing_after_unload_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(
-                       [](base::WeakPtr<content::WebContents> contents) {
-                         if (contents) {
-                           contents->ClosePage();
-                         }
-                       },
-                       web_contents()->GetWeakPtr()));
+        FROM_HERE, base::BindOnce(&TabBridge::StartUnload,
+                                  weak_factory_.GetWeakPtr()));
     return;
   }
   closed_by_host_ = false;
