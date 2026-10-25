@@ -5,7 +5,7 @@ import { switchOn } from "../lib/killSwitches";
 import { live } from "../live/store";
 import { everySlowly } from "../lib/slowTimers";
 import { layout, ThemeScope, useTheme } from "../lib/theme";
-import { useBrowser } from "../store/browser";
+import { useBrowser, type BrowserState } from "../store/browser";
 import { PageProfileContext, useSettings, useWindowId, useWindowProfileId } from "../store/hooks";
 import { activeTabId, isIncognitoProfile } from "../store/model";
 import { downloadsIn } from "../store/ui";
@@ -456,6 +456,9 @@ const Tail = memo(function Tail({ id, section }: { id: string; section: "list" |
   return <Animated.View ref={wrapper.ref} style={wrapper.style} />;
 });
 
+const closedAway = (s: BrowserState, prev: BrowserState, tabId: string | undefined) =>
+  !!tabId && (!s.tabs[tabId] || (!!s.tabs[tabId]!.unloaded && !prev.tabs[tabId]?.unloaded));
+
 type SidebarGeometry = { viewport: number; regions: Record<Section, number>; newTabAtTop: boolean; room: number; pad: number; tilesFixed: boolean; laidOut?: () => void };
 
 function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, scrollY: RefObject<number>, geometry: RefObject<SidebarGeometry>) {
@@ -501,7 +504,8 @@ function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, s
     const unsubscribe = useBrowser.subscribe((s, prev) => {
       if (s.windows === prev.windows && s.tabs === prev.tabs) return;
       const active = activeTabId(s, windowId);
-      if (active && active !== activeTabId(prev, windowId)) switched = active;
+      const previous = activeTabId(prev, windowId);
+      if (active && active !== previous && !closedAway(s, prev, previous)) switched = active;
       const w = s.windows[windowId];
       const before = prev.windows[windowId];
       if (w && before && w.tabIds !== before.tabIds) {
