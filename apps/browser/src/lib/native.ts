@@ -13,6 +13,7 @@ import {
   restoreFullScreen,
   setAppearance,
   setMenuStateParts,
+  setThinScrollBars,
   setTrafficLightsCenter,
   setWindowTitle,
   windowIds,
@@ -78,6 +79,7 @@ export function startNativeSync() {
 
   store.getState().setAppDark(Appearance.getColorScheme() === "dark");
   void setAppearance(store.getState().settings.appearance);
+  void setThinScrollBars(store.getState().settings.pageScrollBars === "thin");
   void isDarkAppearance().then((dark) => store.getState().setAppDark(dark));
 
   onAppEvent((e) => {
@@ -131,6 +133,7 @@ export function startNativeSync() {
   });
   store.subscribe((s, prev) => {
     if (s.settings.appearance !== prev.settings.appearance) void setAppearance(s.settings.appearance);
+    if (s.settings.pageScrollBars !== prev.settings.pageScrollBars) void setThinScrollBars(s.settings.pageScrollBars === "thin");
   });
   useExtensions.subscribe((e, prev) => {
     if (e.lists !== prev.lists) menuTimer ??= setTimeout(syncMenu, 120);

@@ -37,6 +37,7 @@ export function AppearancePane() {
       </Group>
       <AddressBarPicker />
       <SelectedTabGlowPicker />
+      <ScrollBarsPicker />
       <AppIconPicker />
     </View>
   );
@@ -94,6 +95,28 @@ function SelectedTabGlowPicker() {
             ]}
             onChange={(v) => useBrowser.getState().updateSettings({ selectedTabGlow: v })}
             minWidth={120}
+          />
+        </Row>
+      </Group>
+    </>
+  );
+}
+
+function ScrollBarsPicker() {
+  const scrollBars = useBrowser((s) => s.settings.pageScrollBars);
+  return (
+    <>
+      <SectionHeader title="Scroll Bars" />
+      <Group>
+        <Row anchor="appearance.pageScrollBars">
+          <PopUp
+            value={scrollBars}
+            options={[
+              { value: "system", title: "Follow macOS" },
+              { value: "thin", title: "Thin" },
+            ]}
+            onChange={(v) => useBrowser.getState().updateSettings({ pageScrollBars: v })}
+            minWidth={140}
           />
         </Row>
       </Group>

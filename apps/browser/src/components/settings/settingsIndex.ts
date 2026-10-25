@@ -252,6 +252,16 @@ const ROWS: Record<SettingsPane, Section[]> = {
         },
       },
     },
+    {
+      section: "Scroll Bars",
+      rows: {
+        pageScrollBars: {
+          title: "Scroll bars",
+          description: "Follow macOS uses System Settings › Appearance › Show scroll bars. Thin shows slim scroll bars over the page only while you scroll, even with a mouse.",
+          keywords: ["scrollbar", "scroll bar", "overlay", "thin", "mouse", "trackpad"],
+        },
+      },
+    },
     { section: "App Icon", rows: { appIcon: { title: "App Icon", description: "Shown in the Dock and the app switcher. The Dock keeps it after you quit.", keywords: ["dock icon", "logo"] } } },
   ],
   privacy: [

@@ -58,6 +58,7 @@ export type Settings = {
   balancedTopApps: boolean;
   pinnedTabIconRing: boolean;
   selectedTabGlow: SelectedTabGlow;
+  pageScrollBars: "system" | "thin";
   fadeUnloadedTabs: boolean;
   warnBeforeClosingTabGroup: boolean;
   batterySaverWhen: BatterySaverWhen;
@@ -146,6 +147,7 @@ export const DEFAULT_SETTINGS: Settings = {
   balancedTopApps: false,
   pinnedTabIconRing: false,
   selectedTabGlow: "full",
+  pageScrollBars: "system",
   fadeUnloadedTabs: false,
   warnBeforeClosingTabGroup: true,
   batterySaverWhen: "lowBattery",

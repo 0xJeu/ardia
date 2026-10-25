@@ -34,6 +34,7 @@ const System = requireNativeModule<{
   menuShortcuts(): Promise<MenuShortcut[]>;
   recordShortcut(): Promise<{ key: string; modifiers: ShortcutModifier[] } | null>;
   cancelRecording(): Promise<void>;
+  setThinScrollBars?(thin: boolean): Promise<void>;
 }>("ArdiaSystem");
 
 export const backgroundInstance = System.backgroundInstance === true;
@@ -52,6 +53,7 @@ export const hapticTick = () => System.hapticTick();
 export const menuShortcuts = () => System.menuShortcuts();
 export const recordShortcut = () => System.recordShortcut();
 export const cancelShortcutRecording = () => System.cancelRecording();
+export const setThinScrollBars = (thin: boolean) => System.setThinScrollBars?.(thin) ?? Promise.resolve();
 
 export type MiddleClickEvent = { shiftKey: boolean; altKey: boolean; metaKey: boolean };
 
