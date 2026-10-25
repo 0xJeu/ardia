@@ -84,27 +84,31 @@ function EmptyAnchor({ windowId, tabId, top, right }: { windowId: string; tabId:
 
 function useAnchor(key: string) {
   const ref = useRef<View>(null);
-  const mine = useRef<Anchor | null>(null);
-  useEffect(
-    () => () => {
-      if (mine.current && toolbarAnchors.get(key) === mine.current) toolbarAnchors.delete(key);
-      mine.current = null;
-    },
-    [key],
-  );
+  const liveKey = useRef(key);
+  liveKey.current = key;
+  const registered = useRef<{ key: string; anchor: Anchor } | null>(null);
   const measure = () =>
     new Promise<Anchor>((resolve) => {
       const view = ref.current;
+      const measuredFor = liveKey.current;
       if (!view) return resolve({ x: 0, y: 0, width: BUTTON, height: BUTTON });
       view.measureInWindow((x, y, width, height) => {
         const anchor = { x, y, width, height };
-        if (ref.current) {
-          mine.current = anchor;
-          toolbarAnchors.set(key, anchor);
+        if (ref.current && liveKey.current === measuredFor) {
+          registered.current = { key: measuredFor, anchor };
+          toolbarAnchors.set(measuredFor, anchor);
         }
         resolve(anchor);
       });
     });
+  useEffect(() => {
+    void measure();
+    return () => {
+      const mine = registered.current;
+      if (mine && toolbarAnchors.get(mine.key) === mine.anchor) toolbarAnchors.delete(mine.key);
+      registered.current = null;
+    };
+  }, [key]);
   return { ref, measure };
 }
 
