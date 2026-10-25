@@ -74,7 +74,6 @@ export function Sidebar({ width }: { width: number }) {
   const geometry = useRef<SidebarGeometry>({ viewport: 0, regions: { pinnedGroups: 0, list: 0 }, newTabAtTop: false, room: 0, pad: 0, tilesFixed: true });
   const addressBar = useAddressBarInSidebar();
   const header = addressBar ? SIDEBAR_HEADER_WITH_FIELD : layout.sidebarHeader;
-  const glowRoom = addressBar ? 0 : GLOW_ROOM;
   const hasDownloads = useBrowser((s) => downloadsIn(s, windowId).length > 0);
   const dots = useProfileDotsShown();
   const footerDownloads = addressBar && hasDownloads;
@@ -100,7 +99,7 @@ export function Sidebar({ width }: { width: number }) {
               position: "absolute",
               left: 0,
               right: 0,
-              top: header - glowRoom,
+              top: header - GLOW_ROOM,
               bottom: footer,
               overflow: paging ? "hidden" : "visible",
             }}
@@ -115,8 +114,7 @@ export function Sidebar({ width }: { width: number }) {
                 current={page.id === current}
                 resting={!!page.resting}
                 docked={dockedPage(page.id)}
-                glowRoom={glowRoom}
-                height={available}
+                height={Math.max(0, available - (addressBar ? GLOW_ROOM : 0))}
                 rows={page.id === current ? undefined : Math.ceil(available / ROW_PITCH) + 1}
                 geometry={page.id === current ? geometry : undefined}
                 onListHeight={onListHeight}
@@ -184,7 +182,6 @@ type PageProps = {
   current: boolean;
   resting: boolean;
   docked: boolean;
-  glowRoom: number;
   height: number;
   rows: number | undefined;
   geometry: RefObject<SidebarGeometry> | undefined;
@@ -193,7 +190,7 @@ type PageProps = {
   onScrollY: (y: number) => void;
 };
 
-function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoom, height, rows, geometry, onListHeight, onScrollView, onScrollY }: PageProps) {
+function SidebarPage({ profileId, slot, width, current, resting, docked, height, rows, geometry, onListHeight, onScrollView, onScrollY }: PageProps) {
   const windowId = useWindowId();
   const topGap = listTopGap(useAddressBarInSidebar());
   const pageStyle = usePageStyle(windowId, slot, width);
@@ -220,10 +217,9 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
   const capped = dockFixed && dragging && gridHeight(previewed) > dockRoom;
   const fixedTiles = dockFixed ? tiles : NONE;
   const scrolledTiles = dockFixed ? NONE : tiles;
-  const room = fixedTiles.length ? 0 : glowRoom;
-  const pad = room + SCROLL_EDGE.inset;
+  const pad = GLOW_ROOM + SCROLL_EDGE.inset;
   if (geometry) {
-    geometry.current.room = room;
+    geometry.current.room = GLOW_ROOM;
     geometry.current.pad = pad;
     geometry.current.tilesFixed = dockFixed;
   }
@@ -240,7 +236,7 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
       },
     }),
   );
-  const edge = useMemo(() => scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, room], extrapolate: "clamp" }), [scrollY, room]);
+  const edge = useMemo(() => scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, GLOW_ROOM], extrapolate: "clamp" }), [scrollY]);
   const fixed = useRef<{ height: number; list: number | null }>({ height: 0, list: null });
   const report = () => {
     if (!resting && fixed.current.list !== null) onListHeight(profileId, fixed.current.height + fixed.current.list + playerHeight);
@@ -267,14 +263,14 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, glowRoo
             <PageContent>
               {(controller) => (
                 <TilesPlacement controller={controller} fixed={dockFixed} room={dockRoom}>
-                  <View onLayout={onFixedLayout} style={{ paddingTop: glowRoom }}>
+                  <View onLayout={onFixedLayout} style={{ paddingTop: GLOW_ROOM, zIndex: fixedTiles.length ? 1 : 0 }}>
                     <View style={[{ paddingHorizontal: layout.sidebarInset }, capped ? { maxHeight: topGap + dockRoom, overflow: "hidden" } : null]}>
                       {dockFixed ? <PinnedGrid tabs={fixedTiles} innerWidth={innerWidth} /> : null}
                     </View>
                     <View style={{ height: fixedTiles.length ? SCROLL_EDGE.gap : topGap - SCROLL_EDGE.inset - SCROLL_EDGE.line }} />
                     <ScrollEdgeLine opacity={scrollEdge.opacity} />
                   </View>
-                  <Animated.View style={{ flex: 1, marginTop: -room, overflow: "hidden", transform: [{ translateY: edge }] }}>
+                  <Animated.View style={{ flex: 1, marginTop: -GLOW_ROOM, overflow: "hidden", transform: [{ translateY: edge }] }}>
                     <Animated.View style={{ flex: 1, transform: [{ translateY: Animated.multiply(edge, -1) }] }}>
                       <Animated.ScrollView
                         ref={current ? onScrollView : undefined}
