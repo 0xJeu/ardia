@@ -18,7 +18,7 @@ import { openGroupMenu, openTabMenu } from "../sidebar/menus";
 import { groupLabel } from "../../store/organize";
 import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
-import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
+import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
 import { modifiersOf } from "./controls";
 import { usePageStyle, usePagerPages } from "./profilePager";
 import { ProfileSwipeArea } from "./ProfileSwipe";
@@ -1268,7 +1268,8 @@ function StripGroup({
   });
   const tail = useMemo(() => Animated.add(size, -(TAIL_EXPANDED - 2.25)), []);
   if (!group) return null;
-  const tint = group.color ? GROUP_COLORS[group.color].hex : null;
+  const tint = groupTint(group.color);
+  const bare = group.color === "none";
   const divider = theme.dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)";
   const tuck = () => {
     const s = useBrowser.getState();
@@ -1290,8 +1291,8 @@ function StripGroup({
           height: ITEM_HEIGHT,
           borderRadius: TAB_RADIUS,
           borderWidth: 0.5,
-          borderColor: theme.pinnedRestingStroke,
-          backgroundColor: tint ? withAlpha(tint, hovered ? 0.24 : 0.18) : hovered ? tokens.groupHeaderHover : tokens.groupFill,
+          borderColor: bare ? "transparent" : theme.pinnedRestingStroke,
+          backgroundColor: tint ? withAlpha(tint, hovered ? 0.24 : 0.18) : hovered ? tokens.groupHeaderHover : bare ? "transparent" : tokens.groupFill,
         }}
       />
       {onto && <OntoRing width={size} />}
@@ -1423,7 +1424,8 @@ function FolderChip({ groupId, holding }: { groupId: string; holding: boolean })
   const label = useBrowser((s) => (s.groups[groupId] ? groupLabel(s, s.groups[groupId]!) : ""));
   const { hovered, hoverProps } = useHover();
   if (!group) return null;
-  const tint = group.color ? GROUP_COLORS[group.color].hex : null;
+  const tint = groupTint(group.color);
+  const bare = group.color === "none";
   const ink = tint ?? (holding ? theme.tabSelectedText : theme.textTab);
   return (
     <View
@@ -1445,8 +1447,8 @@ function FolderChip({ groupId, holding }: { groupId: string; holding: boolean })
                 paddingRight: 6,
                 borderRadius: FOLDER_RADIUS,
                 borderWidth: 0.5,
-                borderColor: theme.pinnedRestingStroke,
-                backgroundColor: pressed ? theme.tabPressed : tint ? withAlpha(tint, hovered ? 0.3 : 0.22) : hovered ? tokens.groupHeaderHover : tokens.groupFill,
+                borderColor: bare ? "transparent" : theme.pinnedRestingStroke,
+                backgroundColor: pressed ? theme.tabPressed : tint ? withAlpha(tint, hovered ? 0.3 : 0.22) : hovered ? tokens.groupHeaderHover : bare ? "transparent" : tokens.groupFill,
               }}
             >
               <StripGroupIcon icon={group.icon} tint={tint} />
