@@ -139,12 +139,12 @@ void ShowLightsForReveal(NSWindow *window) {
 }
 
 void WatchTitlebarReveal(NSWindow *window) {
-  if (!(window.styleMask & NSWindowStyleMaskFullScreen) || objc_getAssociatedObject(window, kTitlebarRevealWatchKey) ||
+  if (objc_getAssociatedObject(window, kTitlebarRevealWatchKey) ||
       ![NSTitlebarAccessoryViewController instancesRespondToSelector:@selector(setRevealAmount:)])
     return;
   ArdiaTitlebarRevealWatch *watch = [[ArdiaTitlebarRevealWatch alloc] init];
   watch.view = [[NSView alloc] initWithFrame:NSZeroRect];
-  watch.layoutAttribute = NSLayoutAttributeBottom;
+  watch.layoutAttribute = NSLayoutAttributeLeading;
   watch.fullScreenMinHeight = 0;
   __weak NSWindow *weakWindow = window;
   __weak ArdiaTitlebarRevealWatch *weakWatch = watch;
@@ -178,9 +178,15 @@ void UnwatchTitlebarReveal(NSWindow *window) {
   ArdiaFullScreenLightsWatch *watch = [[ArdiaFullScreenLightsWatch alloc] init];
   watch->_window = window;
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+  [center addObserver:watch selector:@selector(willEnter) name:NSWindowWillEnterFullScreenNotification object:window];
   [center addObserver:watch selector:@selector(didEnter) name:NSWindowDidEnterFullScreenNotification object:window];
   [center addObserver:watch selector:@selector(didExit) name:NSWindowDidExitFullScreenNotification object:window];
   objc_setAssociatedObject(window, kFullScreenLightsWatchKey, watch, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (void)willEnter {
+  NSWindow *window = _window;
+  if (window && !ardia_host::Background()) WatchTitlebarReveal(window);
 }
 
 - (void)didEnter {
@@ -188,7 +194,6 @@ void UnwatchTitlebarReveal(NSWindow *window) {
   if (!window) return;
   ShowFullScreenLights(window, YES);
   HideStandardLights(window, YES);
-  WatchTitlebarReveal(window);
   ShowLightsForReveal(window);
 }
 
