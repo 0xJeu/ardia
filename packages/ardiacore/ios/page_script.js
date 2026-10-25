@@ -724,23 +724,56 @@
       const protectedSystem = /^com\.(widevine\.alpha|microsoft\.playready|apple\.fps)/;
       const { test } = RegExp.prototype;
       const then = Promise.prototype.then;
+      const REFUSAL_GRACE_MS = 5000;
+      const KEYS_GRACE_MS = 2000;
       let drmSent = false;
+      let refused = "";
+      const needsProtectedPlayback = (keySystem) => {
+        if (drmSent) return;
+        drmSent = true;
+        send("drm", { keySystem });
+      };
+      const pageMedia = () => [...playingMedia, ...document.querySelectorAll("video, audio")];
+      const playsWithoutHelp = () => pageMedia().some((m) => m.readyState >= 2 && m.currentTime > 0);
+      const meansToPlay = (activated) => activated || pageMedia().length > 0;
+      const decideAfterRefusal = (keySystem, activated) =>
+        setTimeout(
+          guard(() => {
+            if (!playsWithoutHelp() && meansToPlay(activated)) needsProtectedPlayback(keySystem);
+          }),
+          REFUSAL_GRACE_MS,
+        );
       const wrapped = {
         requestMediaKeySystemAccess(keySystem, configurations) {
           const result = apply(requestAccess, this, arguments);
-          if (!drmSent && typeof keySystem === "string" && apply(test, protectedSystem, [keySystem])) {
+          if (!drmSent && !refused && typeof keySystem === "string" && apply(test, protectedSystem, [keySystem])) {
+            const activated = !!(navigator.userActivation && navigator.userActivation.isActive);
             apply(then, result, [
               null,
               () => {
-                if (drmSent) return;
-                drmSent = true;
-                send("drm", { keySystem });
+                if (drmSent || refused) return;
+                refused = keySystem;
+                decideAfterRefusal(keySystem, activated);
               },
             ]);
           }
           return result;
         },
       }.requestMediaKeySystemAccess;
+      document.addEventListener(
+        "encrypted",
+        guard((e) => {
+          const m = e.target;
+          if (drmSent || !(m instanceof HTMLMediaElement)) return;
+          setTimeout(
+            guard(() => {
+              if (!m.mediaKeys && !(m.readyState >= 2 && m.currentTime > 0)) needsProtectedPlayback(refused);
+            }),
+            KEYS_GRACE_MS,
+          );
+        }),
+        true,
+      );
       Object.defineProperty(NavigatorType.prototype, "requestMediaKeySystemAccess", {
         ...Object.getOwnPropertyDescriptor(NavigatorType.prototype, "requestMediaKeySystemAccess"),
         value: wrapped,
