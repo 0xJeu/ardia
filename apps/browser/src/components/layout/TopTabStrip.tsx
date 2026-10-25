@@ -16,6 +16,7 @@ import { clickTab } from "../sidebar/actions";
 import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../sidebar/closeControl";
 import { openGroupMenu, openTabMenu } from "../sidebar/menus";
 import { groupLabel } from "../../store/organize";
+import { slotPlacement } from "../../store/drops";
 import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
@@ -43,7 +44,6 @@ import {
   leaveIndex,
   MEMBERS_INSET,
   memberInteractive,
-  moveIndex,
   stripEntries,
   stripTabWidth,
   TAIL_EXPANDED,
@@ -718,24 +718,9 @@ function useStripDrag(item: StripDrag) {
 
 function reorder(ids: string[], { geometry, from, pinned, groupId }: StripDrag, to: number): boolean {
   const s = useBrowser.getState();
-  const tab = s.tabs[ids[0] ?? ""];
-  const w = tab && s.windows[tab.windowId];
-  if (!tab || !w) return false;
-  if (ids.length === 1) {
-    const section = w.tabIds.filter((id) => s.tabs[id]?.profileId === tab.profileId && !!s.tabs[id]?.pinned === pinned);
-    const index = moveIndex(section, tab.id, geometry.slots, from, to);
-    if (index === null) return false;
-    s.moveTab(tab.id, index);
-    return true;
-  }
-  if (to === from) return false;
-  const others = geometry.slots.filter((_, i) => i !== from);
-  let beforeId = others.slice(to).flatMap((slot) => slot.tabIds).find((id) => !ids.includes(id)) ?? null;
-  if (!beforeId) {
-    const last = w.tabIds.indexOf(others.at(-1)?.tabIds.at(-1) ?? "");
-    beforeId = last < 0 ? null : (w.tabIds.slice(last + 1).find((id) => !ids.includes(id)) ?? null);
-  }
-  s.placeTabs(ids, { pinned, beforeId, groupId });
+  const placement = slotPlacement(s, ids, geometry.slots, from, to, { pinned, groupId });
+  if (!placement) return false;
+  s.placeTabs(ids, placement);
   return true;
 }
 

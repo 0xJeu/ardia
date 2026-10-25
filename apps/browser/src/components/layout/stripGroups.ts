@@ -108,16 +108,6 @@ export function aimDrop({ slots, lefts }: DragGeometry, from: number, pointer: n
   return { to, onto };
 }
 
-export function moveIndex(section: string[], tabId: string, slots: DragSlot[], from: number, to: number): number | null {
-  if (to === from) return null;
-  const moved = section.filter((id) => id !== tabId);
-  const others = slots.filter((_, i) => i !== from);
-  const anchor = to < others.length ? others[to]!.tabIds[0] : others[others.length - 1]?.tabIds.at(-1);
-  const at = anchor ? moved.indexOf(anchor) : -1;
-  if (at < 0) return null;
-  return to < others.length ? at : at + 1;
-}
-
 export function leaveIndex({ slots, lefts }: DragGeometry, slot: number, chip: number, expanded: boolean, left: number, width: number): number | null {
   const start = lefts[slot]!;
   const end = start + slots[slot]!.width;
