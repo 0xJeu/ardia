@@ -1,6 +1,7 @@
 // Copyright 2026 Ardia. Apache-2.0.
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -16,18 +17,27 @@
 #include "base/json/json_writer.h"
 #include "base/no_destructor.h"
 #include "base/pickle.h"
+#include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/ardia/ac_engine.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/sessions/session_common_utils.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_service_observer.h"
+#include "components/history/core/browser/history_types.h"
+#include "components/keyed_service/core/service_access_type.h"
 #include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/sessions/content/content_serialized_navigation_driver.h"
 #include "components/sessions/content/extended_info_handler.h"
@@ -163,6 +173,17 @@ void DeleteTabHistory(base::FilePath path) {
   base::DeleteFile(path);
 }
 
+void DeleteAllTabHistory(base::FilePath dir) {
+  base::DeletePathRecursively(dir);
+}
+
+class TabKeyBinding;
+
+std::set<TabKeyBinding*>& LiveBindings() {
+  static base::NoDestructor<std::set<TabKeyBinding*>> bindings;
+  return *bindings;
+}
+
 void PruneTabHistory(base::FilePath dir) {
   const base::Time cutoff = base::Time::Now() - kTabHistoryKeep;
   base::FileEnumerator files(dir, false, base::FileEnumerator::FILES);
@@ -185,7 +206,13 @@ void PruneTabHistoryOnce(Profile* profile) {
 class TabKeyBinding : public content::WebContentsObserver,
                       public content::WebContentsUserData<TabKeyBinding> {
  public:
-  ~TabKeyBinding() override = default;
+  ~TabKeyBinding() override { LiveBindings().erase(this); }
+
+  Profile* profile() const {
+    return Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  }
+
+  void Resave() { SaveSoon(); }
 
   void Bind(std::string key) {
     key_ = std::move(key);
@@ -226,7 +253,9 @@ class TabKeyBinding : public content::WebContentsObserver,
   friend class content::WebContentsUserData<TabKeyBinding>;
   explicit TabKeyBinding(content::WebContents* contents)
       : content::WebContentsObserver(contents),
-        content::WebContentsUserData<TabKeyBinding>(*contents) {}
+        content::WebContentsUserData<TabKeyBinding>(*contents) {
+    LiveBindings().insert(this);
+  }
 
   void StampEntry(content::NavigationEntry* entry) {
     auto* data = static_cast<TabKeyData*>(entry->GetUserData(kTabKeyData));
@@ -287,6 +316,75 @@ class TabKeyBinding : public content::WebContentsObserver,
 };
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(TabKeyBinding);
+
+class TabHistoryCleaner : public history::HistoryServiceObserver,
+                          public ProfileManagerObserver {
+ public:
+  static void Start() { static base::NoDestructor<TabHistoryCleaner> cleaner; }
+
+  TabHistoryCleaner() {
+    ProfileManager* manager =
+        g_browser_process ? g_browser_process->profile_manager() : nullptr;
+    if (!manager) {
+      return;
+    }
+    profiles_.Observe(manager);
+    for (Profile* profile : manager->GetLoadedProfiles()) {
+      Watch(profile);
+    }
+  }
+
+  void OnProfileAdded(Profile* profile) override { Watch(profile); }
+
+  void OnProfileManagerDestroying() override {
+    history_.RemoveAllObservations();
+    dirs_.clear();
+    profiles_.Reset();
+  }
+
+  void OnHistoryDeletions(history::HistoryService* service,
+                          const history::DeletionInfo& info) override {
+    auto it = dirs_.find(service);
+    if (it == dirs_.end() || info.is_from_expiration()) {
+      return;
+    }
+    TabHistoryFiles()->PostTask(
+        FROM_HERE, base::BindOnce(&DeleteAllTabHistory, it->second.second));
+    for (TabKeyBinding* binding : LiveBindings()) {
+      if (binding->profile() == it->second.first) {
+        binding->Resave();
+      }
+    }
+  }
+
+  void HistoryServiceBeingDeleted(history::HistoryService* service) override {
+    if (history_.IsObservingSource(service)) {
+      history_.RemoveObservation(service);
+    }
+    dirs_.erase(service);
+  }
+
+ private:
+  void Watch(Profile* profile) {
+    if (!profile || profile->IsOffTheRecord()) {
+      return;
+    }
+    history::HistoryService* service = HistoryServiceFactory::GetForProfile(
+        profile, ServiceAccessType::EXPLICIT_ACCESS);
+    if (!service || history_.IsObservingSource(service)) {
+      return;
+    }
+    dirs_[service] = {profile, TabHistoryDir(profile)};
+    history_.AddObservation(service);
+  }
+
+  std::map<history::HistoryService*, std::pair<Profile*, base::FilePath>> dirs_;
+  base::ScopedMultiSourceObservation<history::HistoryService,
+                                     history::HistoryServiceObserver>
+      history_{this};
+  base::ScopedObservation<ProfileManager, ProfileManagerObserver> profiles_{
+      this};
+};
 
 bool HasKey(const Tab& tab, const std::string& key) {
   for (const auto& navigation : tab.navigations) {
@@ -462,6 +560,7 @@ AC_ENGINE_CALL(ac_tab_restore_tag) {
   }
   ardia::RegisterTabKey();
   if (!call.profile()->IsOffTheRecord()) {
+    ardia::TabHistoryCleaner::Start();
     ardia::PruneTabHistoryOnce(call.profile());
   }
   ardia::TabKeyBinding::CreateForWebContents(contents);
