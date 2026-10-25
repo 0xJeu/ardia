@@ -65,6 +65,9 @@ const touch = (page: string) => void (watching && touched?.add(page));
 const touchAll = () => void (touched = null);
 
 const queued = new Map<string, Set<string>>();
+const writes = new Map<string, number>();
+let lookupsInFlight = 0;
+const wrote = (key: string, page: string) => void (lookupsInFlight && writes.set(`${key}|${page}`, (writes.get(`${key}|${page}`) ?? 0) + 1));
 const asked = new Set<string>();
 let lookupTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -87,11 +90,14 @@ function lookUp() {
 }
 
 function lookUpPages(key: string, list: string[]) {
+  const started = list.map((page) => writes.get(`${key}|${page}`));
+  lookupsInFlight++;
   void faviconsFor(key, list)
     .then((found) =>
       update(key, (icons) => {
         let next: Record<string, string | null> | undefined;
-        for (const page of list) {
+        for (const [i, page] of list.entries()) {
+          if (writes.get(`${key}|${page}`) !== started[i]) continue;
           const uri = found.pages.get(page)?.uri ?? null;
           if (icons.pages[page] === uri) continue;
           next ??= { ...icons.pages };
@@ -104,6 +110,9 @@ function lookUpPages(key: string, list: string[]) {
     .catch((error) => {
       for (const page of list) asked.delete(`${key}|${page}`);
       console.warn("[favicons] lookup failed", error);
+    })
+    .finally(() => {
+      if (--lookupsInFlight === 0) writes.clear();
     });
 }
 
@@ -136,6 +145,7 @@ function remember(key: string, page: string, src: string, uri: string) {
   if (icons && icons.pages[page] === uri && icons.srcs[src] === uri) return;
   const dark = useBrowser.getState().ui.appDark;
   const swapped = Date.now() - appearanceChangedAt < APPEARANCE_SWAP_MS;
+  wrote(key, page);
   update(key, (icons) => {
     const previous = icons.pages[page];
     if (previous === uri && icons.srcs[src] === uri) return icons;
@@ -155,6 +165,7 @@ export function adoptFavicons(profileId: string, known: KnownFavicon[]) {
   if (isIncognitoProfile(profileId) || !known.length) return;
   const key = cacheKey(profileId);
   const found = new Map(known.map((f) => [pageKey(f.page), f]));
+  for (const page of found.keys()) wrote(key, page);
   update(key, (icons) => {
     const fresh = [...found].filter(([page]) => !icons.pages[page]);
     if (!fresh.length) return icons;
