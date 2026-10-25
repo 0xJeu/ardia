@@ -111,27 +111,20 @@ siso_why() {
   head -n 30 "$out/siso_explain" 2>/dev/null || true
 }
 
-build_phase() {
-  local deadline now stop pid pgid rc=0 limit="${ENGINE_PHASE_MINUTES:-0}" stopped=0 settle explained=0
-  deadline=$(($(started) + (job_minutes - reserve_minutes) * 60))
-  now=$(date +%s)
-  stop=$deadline
-  if [[ "$limit" =~ ^[0-9]+$ ]] && ((limit > 0 && now + limit * 60 < stop)); then stop=$((now + limit * 60)); fi
-  if ((stop - now < min_build_minutes * 60)); then
-    say "no time left to build in this phase: checkpoint now"
-    output status running
-    return 0
-  fi
+run_build() {
+  local stop=$1 begun pid pgid settle explained=0
+  begun=$(date +%s)
+  build_rc=0 build_stopped=0
   say "siso state before the build"
   siso_state
-  say "step 5: build for $(((stop - now) / 60)) min at most"
+  say "step 5: build for $(((stop - begun) / 60)) min at most"
   set -m
   lockf -k "$lockfile" "$build/05-build.sh" --apply &
   pid=$!
   set +m
   pgid=$pid
   while kill -0 "$pid" 2>/dev/null; do
-    if ((!explained && $(date +%s) >= now + 180)); then
+    if ((!explained && $(date +%s) >= begun + 150)); then
       say "why siso runs what it runs (its state load, then the first steps it explains)"
       siso_why
       explained=1
@@ -139,13 +132,13 @@ build_phase() {
     if (($(date +%s) >= stop)); then
       say "phase time is up: stopping the build (siso saves its state on SIGTERM)"
       kill -TERM -- "-$pgid" 2>/dev/null || true
-      stopped=1
+      build_stopped=1
       break
     fi
-    sleep 20
+    sleep 15
   done
-  wait "$pid" || rc=$?
-  if ((stopped)); then
+  wait "$pid" || build_rc=$?
+  if ((build_stopped)); then
     settle=$(($(date +%s) + stop_grace_minutes * 60))
     while pgrep -g "$pgid" >/dev/null; do
       if (($(date +%s) >= settle)); then
@@ -158,13 +151,35 @@ build_phase() {
     done
     say "siso state after the stop"
     siso_state
+  fi
+}
+
+build_phase() {
+  local deadline now stop limit="${ENGINE_PHASE_MINUTES:-0}"
+  [[ "$limit" =~ ^[0-9]+$ ]] || limit=0
+  deadline=$(($(started) + (job_minutes - reserve_minutes) * 60))
+  now=$(date +%s)
+  stop=$deadline
+  if ((limit > 0 && now + limit * 60 < stop)); then
+    stop=$((now + limit * 60))
+  elif ((stop - now < min_build_minutes * 60)); then
+    say "no time left to build in this phase: checkpoint now"
     output status running
-  elif ((rc == 0)); then
+    return 0
+  fi
+  run_build "$stop"
+  if ((build_stopped && limit > 0)); then
+    say "a capped phase: build again in place for 4 min, to show what siso resumes without a checkpoint"
+    run_build $(($(date +%s) + 240))
+  fi
+  if ((build_stopped)); then
+    output status running
+  elif ((build_rc == 0)); then
     say "chrome_framework built"
     output status finished
   else
-    say "the build failed (exit $rc)"
-    exit "$rc"
+    say "the build failed (exit $build_rc)"
+    exit "$build_rc"
   fi
 }
 
