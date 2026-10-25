@@ -3,7 +3,7 @@ import { test } from "node:test";
 const { useBrowser } = await import("../store/browser.ts");
 const { Clock, compact, emptyScope, syncScope } = await import("@ardia/sync");
 const pinnedArea = await import("./pinned.ts");
-const stub = await import("../test-native-stub.mjs");
+const stub = await import("../test-native/index.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../lib/persist.ts");
 const shipped = await import("../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
 const { pinnedAdapter: shippedPinnedAdapter } = await import("./fixtures/pinned-v0.2.38.ts");

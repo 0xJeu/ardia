@@ -3,7 +3,7 @@ import { test } from "node:test";
 const { useBrowser } = await import("./browser.ts");
 const { closeIntent, closeKind } = await import("./tabs.ts");
 const { viewTabIds } = await import("./model.ts");
-await import("../test-native-stub.mjs");
+await import("../test-native/index.ts");
 
 const S = () => useBrowser.getState();
 

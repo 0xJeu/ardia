@@ -5,7 +5,8 @@ const model = await import("../store/model.ts");
 const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
 const pinnedArea = await import("./pinned.ts");
-const stub = await import("../test-native-stub.mjs");
+const stub = await import("../test-native/index.ts");
+const ardiacore = await import("@ardia/ardiacore");
 
 const S = () => useBrowser.getState();
 
@@ -961,8 +962,8 @@ test("passwords: saved on one Mac, changed or deleted on another; the newer edit
   const folder = new Folder();
   const a = new Device("devA", folder);
   const b = new Device("devB", folder);
-  const save = (d, origin, user, password) => d.with(() => stub.savePassword("", origin, user, password));
-  const remove = (d, origin, user) => d.with(() => stub.deletePassword("", origin, user));
+  const save = (d, origin, user, password) => d.with(() => ardiacore.savePassword("", origin, user, password));
+  const remove = (d, origin, user) => d.with(() => ardiacore.deletePassword("", origin, user));
   const list = (d) => [...stub.passwordStores.get(d.id).values()].map((l) => `${l.url} ${l.username}=${l.password}`).sort();
   await save(a, "https://bank.example", "alice", "hunter2");
   await save(a, "https://mail.example", "alice", "m41l");
@@ -984,7 +985,7 @@ test("history: two Macs settle on the union of their visits in Chrome, publish n
   for (const d of [a, b]) stub.historyDbs.delete(d.id);
   const readChrome = async (d) => {
     stub.current.device = d.id;
-    const entries = await stub.queryHistory("");
+    const entries = await ardiacore.queryHistory("");
     d.with(() =>
       useBrowser.setState({
         history: { default: entries.map((e) => ({ ...e, favicon: null, lastVisit: e.visitTimes.at(-1) })) },

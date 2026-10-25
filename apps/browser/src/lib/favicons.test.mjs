@@ -5,7 +5,7 @@ import { mount } from "../test-hooks.mjs";
 
 globalThis.__DEV__ = false;
 
-const native = new URL("../test-native-stub.mjs", import.meta.url).href;
+const native = import.meta.resolve("@ardia/ardiacore");
 const stub = `export * from ${JSON.stringify(native)};
 export const faviconsFor = (profile, pages) => globalThis.faviconsForTest(profile, pages);
 export const storeFavicon = (...args) => (globalThis.storedFavicons.push(args), Promise.resolve({ stored: true }));`;

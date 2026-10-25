@@ -9,7 +9,6 @@ class FakeChrome {
   outbox = [];
   commands = [];
   sent = 0;
-  lastCommand = 0;
   lastGroup = 0;
   nextBrowser = 1;
   listen(listener) {
@@ -19,11 +18,9 @@ class FakeChrome {
   snapshot() {
     return Promise.resolve({ rev: this.rev, cmd: null, strips: [...this.strips.keys()].map((id) => this.state(id)) });
   }
-  command(command) {
+  command(command, id) {
     this.sent++;
-    const id = ++this.lastCommand;
     this.commands.push({ id, command });
-    return id;
   }
   state(id) {
     const s = this.strips.get(id);
