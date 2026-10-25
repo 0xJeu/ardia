@@ -4,6 +4,7 @@ const { useBrowser } = await import("../store/browser.ts");
 const model = await import("../store/model.ts");
 const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
+const pinnedArea = await import("./pinned.ts");
 const stub = await import("../test-native-stub.mjs");
 
 const S = () => useBrowser.getState();
@@ -70,8 +71,8 @@ class Device {
       const p = await run(
         profileId === "default" ? "p" : `p:${profileId}`,
         [
-          ...(this.legacy ? [] : [adapters.pinnedRowsAdapter(profileId), adapters.pinnedOrderAdapter(profileId)]),
-          adapters.pinnedAdapter(profileId),
+          ...(this.legacy ? [] : [pinnedArea.pinnedRowsAdapter(profileId), pinnedArea.pinnedOrderAdapter(profileId)]),
+          pinnedArea.pinnedAdapter(profileId),
           adapters.bookmarksAdapter(profileId),
           adapters.historyAdapter(profileId),
           adapters.deviceTabsAdapter(profileId, this.id, () => `${this.id}'s MacBook Pro`),
@@ -535,7 +536,7 @@ test("a deletion from another Mac applied after a pin removal here takes the rem
   S().closeTab(tab);
   const removed = S().removeClosedPin(tab);
   assert.ok(removed);
-  adapters.pinnedAdapter("default").apply(new Map(), new Set([`pin:t:${pinKey}`, `pin:g:${group}`]), () => undefined, { known: () => true, now: Date.now(), horizon: 0, joined: true });
+  pinnedArea.pinnedAdapter("default").apply(new Map(), new Set([`pin:t:${pinKey}`, `pin:g:${group}`]), () => undefined, { known: () => true, now: Date.now(), horizon: 0, joined: true });
   S().undoClearTabs(removed);
   assert.equal(Object.values(S().groups).some((g) => g.name === "Team"), false, "Undo does nothing");
 });
@@ -1749,7 +1750,7 @@ test("only evidence that the anchor left the rows after the order record ends th
   const orderKey = `pord:g:${group}`;
   const decide = (records) => {
     const base = (k) => (k === orderKey ? { a: "x" } : undefined);
-    const extraction = adapters.pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
+    const extraction = pinnedArea.pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
     return extraction.values.get(orderKey);
   };
   const order = { v: { a: "x" }, h: "0mvlhz4qh.0005.devA" };
@@ -1877,6 +1878,6 @@ test("a snapshot dropping the anchor in the cycle a newer order record arrives d
   const group = S().groupTabs([S().newTab(w, { url: "https://member.example/", background: true })], { pinned: true, name: "Group" });
   const orderKey = `pord:g:${group}`;
   const records = { [orderKey]: { v: { a: "x" }, h: "0mvlhz4qh.0009.devB" } };
-  const extraction = adapters.pinnedOrderAdapter("default").extract((k) => (k === orderKey ? { a: "x" } : undefined), () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
+  const extraction = pinnedArea.pinnedOrderAdapter("default").extract((k) => (k === orderKey ? { a: "x" } : undefined), () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
   assert.deepEqual(extraction.values.get(orderKey), { a: "x" }, "the group keeps waiting for its row");
 });

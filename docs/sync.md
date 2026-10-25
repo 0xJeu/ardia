@@ -26,6 +26,8 @@ Code:
   - `order.ts`: fractional positions.
 - `apps/browser/src/sync`:
   - `adapters.ts`: store ↔ records.
+  - `pinned.ts`: the pinned area (`pin:`, `pinn:`, `pinrow:`, `pord:g:`, `tilefold:`). `pinnedAreaAdapters` gives its
+    four adapters in the order they have to run: tile folders, rows, the row order, then the pins.
   - `engine.ts`: state, setup flows, the cycle.
   - `menu.ts`: the overflow menu's synced devices.
 - `apps/browser/src/components/settings/panes/Sync.tsx` and `SyncSheets.tsx`: Settings › Sync.
@@ -407,7 +409,8 @@ bookmark, settings, profile or group edit, and on Sync Now. A cycle:
     after the file lands; 40 randomized three-device runs with flaky delivery, compaction and crashes.
 - `pnpm --filter @ardia/browser test` runs `src/sync/adapters.test.mjs` (4 tests against the real
   store: delete versus add, concurrent moves that would make a cycle, parked pinned tabs, passwords
-  both ways) and `src/sync/engine.test.mjs` (the engine against a fake native module: a crash the
+  both ways), `src/sync/pinned.test.mjs` (the pinned area's adapters in their order: a row and a tile folder land as
+  such, an unpin deletes the marks with the pin, the app's old names are read as today's) and `src/sync/engine.test.mjs` (the engine against a fake native module: a crash the
   moment a batch lands re-sends the journalled batches byte for byte and numbers the next one after
   them; nothing is published before its journal is on disk).
 - End to end: `node packages/sync/scripts/e2e.mjs [Debug app] [work dir]` drives two hidden
