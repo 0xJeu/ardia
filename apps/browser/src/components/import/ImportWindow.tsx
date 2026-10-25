@@ -247,7 +247,7 @@ export function ImportWindow() {
           const name = space.name || "Space";
           const dest = await destination(destinationIndex++, name, space.color, space.emoji, first);
           first ??= dest;
-          const r = importArcSpace(dest, space);
+          const r = importArcSpace(dest, space, result.favicons);
           add({ ...emptyCounts(), tabs: r.tabs, bookmarks: r.bookmarks });
           if (r.skipped) left.push(`${plural(r.skipped, "link")} in ${name}'s folders weren't imported: each folder brings up to ${MAX_DRAFT_LINKS.toLocaleString("en-US")} links.`);
         }
@@ -344,7 +344,7 @@ export function ImportWindow() {
     const total = emptyCounts();
     for (const [i, p] of selected.entries()) {
       const dest = await destination(i, p.name);
-      total.tabs += importDiaProfile(dest, p, { pinned: wanted.has("pinnedTabs"), open: wanted.has("tabs") });
+      total.tabs += importDiaProfile(dest, p, { pinned: wanted.has("pinnedTabs"), open: wanted.has("tabs") }, result.favicons);
     }
     setStatus(Object.fromEntries(order.map((k) => [k, "done"])));
     setFailures([]);

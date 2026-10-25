@@ -19,12 +19,13 @@ the file and its WAL before opening it.
 | autofill (addresses, cards) | `ChromiumAutofill.swift`: `Web Data` | same as Chromium | none |
 | extensions (listed, never installed) | `ChromiumExtensions.swift`: `Preferences`, `Secure Preferences`, `Extensions/*/manifest.json` | same as Chromium | none |
 | spaces, pinnedTabs, favorites | none | `ArcSidebar.swift`: `<Application Support>/Arc/StorableSidebar.json` | none |
+| favicons (for the imported tabs, favourites and bookmarks-bar links) | `ChromiumFavicons.swift`: `Favicons` (the page's own icon, else another page of the same site's; one PNG near 32 px, 16 KB each, up to 1,000 pages and 6 MB) | same as Chromium | none |
 
 | Source | Files | What it reads |
 |---|---|---|
 | Discovery (which browsers and profiles exist) | `Discovery.swift` (`BrowserDefinition.all`: IDs, data paths, Keychain items; each release channel with its own data folder, like Brave Beta or Edge Canary, is its own source and shares the vendor's Keychain item), `AppIcons.swift` | Chromium `Local State`; Firefox `profiles.ini` (`Firefox.profiles`) |
 | Dia | Same as the Chromium family (`Dia/User Data`) | Dia's sidebar (spaces, pinned tiles) is a SQLCipher `tabs.db` that isn't read |
-| Dia open and pinned tabs (`diaTabs`) | `DiaAppleEvents.swift` (Apple Events, `DiaAutomation` permission) → `DiaTabs.swift` (`DiaTabsImport.build`) | Each Dia window's tabs over AppleScript; needs Dia running and Automation permission |
+| Dia open and pinned tabs (`diaTabs`) | `DiaAppleEvents.swift` (Apple Events, `DiaAutomation` permission) → `DiaTabs.swift` (`DiaTabsImport.build`) | Each Dia window's tabs over AppleScript; needs Dia running and Automation permission; their icons come from every Dia profile's `Favicons` (`Importer.favicons`) |
 | Safari direct (needs Full Disk Access) | `SafariDirect.swift`, `SafariCookies.swift` | `~/Library/Safari/{Bookmarks.plist, History.db, LastSession.plist}`, `~/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies` |
 | Safari export (.zip or folder) | `SafariExport.swift`, `ZipArchive.swift`, `NetscapeBookmarks.swift`, `PasswordsCSV.swift` | `*.html` bookmarks, `*.csv` passwords, `*.json` history and extensions (names only, by `metadata.data_type`), `payment_cards` JSON. No cookies |
 | A bookmarks HTML file or passwords CSV | `NetscapeBookmarks.swift`, `PasswordsCSV.swift` | Any Netscape bookmarks file; any password CSV with url and password columns (Chrome, Firefox, Bitwarden…) |
@@ -48,7 +49,10 @@ Shared code: `Model.swift` (`ImportKind`, `ImportResult` and the other result ty
 5. `apps/browser/src/components/import/ImportWindow.tsx` is the wizard: choose, then profiles, then unlock, then
    progress, then done. `apply.ts` writes the JS-side kinds into the store (bookmarks, history, tabs, Arc spaces,
    Dia profiles) and saves passwords with `savePassword` (`@ardia/ardiacore`). For cookies and autofill it calls
-   `importNative`, which calls `writeImported`. `module.ts` loads the package lazily.
+   `importNative`, which calls `writeImported`. Before any tab is made, the result's `favicons` for the pages that
+   profile gets go to `adoptFavicons` (`apps/browser/src/lib/favicons.ts`): into the sidebar's icon cache at once, and
+   into the profile's Chrome favicon database with `ac_favicons_set`, so they survive a relaunch without a page load.
+   `module.ts` loads the package lazily.
 
 ## Secrets and the Keychain
 

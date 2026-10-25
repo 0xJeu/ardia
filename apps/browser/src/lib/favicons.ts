@@ -1,4 +1,4 @@
-import { faviconsFor, fetchFavicon, onHistoryChanged } from "@ardia/ardiacore";
+import { faviconsFor, fetchFavicon, onHistoryChanged, storeFavicon } from "@ardia/ardiacore";
 import { iconTheme, readDocument, removeDocument, type IconTheme } from "@ardia/shell";
 import { useEffect } from "react";
 import { create } from "zustand";
@@ -147,6 +147,29 @@ function remember(key: string, page: string, src: string, uri: string) {
     const pages = startsOver ? { [page]: uri } : { ...icons.pages, [page]: uri };
     return { pages, srcs: icons.srcs[src] === uri ? icons.srcs : capped(icons.srcs, src, uri), appearances };
   });
+}
+
+export type KnownFavicon = { page: string; icon: string; png: string };
+
+export function adoptFavicons(profileId: string, known: KnownFavicon[]) {
+  if (isIncognitoProfile(profileId) || !known.length) return;
+  const key = cacheKey(profileId);
+  const found = new Map(known.map((f) => [pageKey(f.page), f]));
+  update(key, (icons) => {
+    const fresh = [...found].filter(([page]) => !icons.pages[page]);
+    if (!fresh.length) return icons;
+    const startsOver = Object.keys(icons.pages).length + fresh.length > MAX_ICONS;
+    if (startsOver) touchAll();
+    const pages: Record<string, string | null> = startsOver ? {} : { ...icons.pages };
+    for (const [page, f] of fresh) {
+      pages[page] = `data:image/png;base64,${f.png}`;
+      touch(page);
+    }
+    return { ...icons, pages };
+  }, true);
+  void (async () => {
+    for (const [page, f] of found) await storeFavicon(key, page, f.icon, f.png).catch(() => null);
+  })();
 }
 
 const failedFetches = new Set<string>();

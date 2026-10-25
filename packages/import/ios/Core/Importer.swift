@@ -196,7 +196,17 @@ public final class Importer: @unchecked Sendable {
       }
       if kind != .history || !succeeded { observer.progress(ImportProgress(kind: kind, phase: .end, processed: count, total: count)) }
     }
+    if def.family == .chromium || def.family == .arc {
+      try cancellation.check()
+      result.favicons = ChromiumFavicons.read(profiles: [dir], pages: ChromiumFavicons.pages(of: result))
+    }
     return result
+  }
+
+  public func favicons(browserId: String, pages: [String]) -> [ImportedFavicon] {
+    guard let def = BrowserDefinition.find(browserId), def.family == .chromium || def.family == .arc else { return [] }
+    let dirs = discovery.chromiumProfiles(def).compactMap { try? discovery.profileDirectory(def, $0.id) }
+    return ChromiumFavicons.read(profiles: dirs, pages: pages)
   }
 
   static func count(_ n: Int, _ word: String) -> String { "\(n) \(word)\(n == 1 ? "" : "s")" }
