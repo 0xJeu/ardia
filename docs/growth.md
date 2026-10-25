@@ -134,6 +134,13 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
   geoip processor accepts; the footer carries DB-IP's required link), then drops it. To update it, bump the month,
   the mirror version and the hash in `collector/Dockerfile`. It adds no location to events that carry `$geoip_disable` (the app
   sends it). No IP is ever stored.
+- **Daily count (always on, added 2026-10-25):** besides the opt-in events, every copy sends
+  one `daily_active` event per UTC day (`$lib` `ardia-daily`), sharing on or off, about 30 s after launch and again
+  after UTC midnight if it's still open. It carries `$app_version`, `channel`, `os_major`, `arch`, `$environment`
+  and the flags `first`, `daily`, `weekly`, `monthly`, computed on the Mac from the last day it sent (the only
+  thing it stores, in `telemetry-daily.json`). No install ID: `uuid` and `distinct_id` are a fresh random UUID
+  each day, and `$geoip_disable` keeps the address out. Counting rows gives DAU; counting `weekly`/`monthly`/`first`
+  rows gives WAU, MAU and new installs (Brave's usage-ping model). Sender: `apps/browser/src/telemetry/daily.ts`.
 - **Tables** (`infra/telemetry/clickhouse/schema.sql`): `telemetry.events` is the one to query (PostHog's
   shape: `uuid, event, distinct_id, session_id, timestamp, properties Map, elements_chain, source`). It unions
   `otel_logs` (new data) and `posthog_events` (PostHog Cloud history, 2026-09-29 09:04 → 2026-09-30).
