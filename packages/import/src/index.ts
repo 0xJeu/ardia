@@ -48,6 +48,7 @@ export type BrowserSource = {
   needsFullDiskAccess?: boolean;
   keychainService?: string;
   profiles: BrowserProfile[];
+  sidebar?: "arc" | "zen";
 };
 
 export type BookmarkRole = "toolbar" | "other" | "mobile" | "menu" | "readingList" | "liveGitHubPullRequests" | "liveBitbucketPullRequests";
