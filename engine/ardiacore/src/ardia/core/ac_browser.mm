@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/views/interaction/browser_elements_views_impl.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/find_in_page/find_notification_details.h"
@@ -659,6 +660,27 @@ void CloseBlankTabsBeforeWindowCloses(Browser* browser) {
   }
 }
 
+void DeleteTabClosedByHost(content::WebContents* contents) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  if (!browser) {
+    return;
+  }
+  TabStripModel* model = browser->GetTabStripModel();
+  const int index = model->GetIndexOfWebContents(contents);
+  if (index == TabStripModel::kNoTab) {
+    return;
+  }
+  content::NavigationEntry* committed =
+      contents->GetController().GetLastCommittedEntry();
+  if (!Profile::FromBrowserContext(contents->GetBrowserContext())
+           ->IsOffTheRecord() &&
+      committed && !committed->IsInitialEntry() && !OnlyShowedBlank(contents)) {
+    model->delegate()->CreateHistoricalTab(contents);
+  }
+  model->DetachAndDeleteWebContentsAt(index);
+}
+
 void WindowHost::ActiveTabChanged(Browser* browser,
                                   content::WebContents* contents) {
   if (!contents) {
@@ -1084,6 +1106,20 @@ void ACWebContentsDelegate::RendererResponsive(
   TabBridge::GetOrCreate(source)->SetResponsive(render_widget_host);
 }
 
+void ACWebContentsDelegate::CloseContents(content::WebContents* source) {
+  TabBridge* bridge = source ? TabBridge::FromWebContents(source) : nullptr;
+  if (!bridge || !bridge->closing_after_unload()) {
+    BrowserWebContentsDelegate::CloseContents(source);
+    return;
+  }
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(source);
+  if (!browser || !UnloadController::From(browser)->CanCloseContents(source)) {
+    return;
+  }
+  DeleteTabClosedByHost(source);
+}
+
 namespace {
 
 class MediaCaptureObserver : public MediaStreamCaptureIndicator::Observer {
@@ -1202,10 +1238,31 @@ std::optional<WindowOpenDisposition> TabBridge::TakeOpenDisposition() {
   return d;
 }
 
-void TabBridge::BeforeUnloadFired(bool proceed) {
-  if (!proceed) {
-    closed_by_host_ = false;
+void TabBridge::CloseAfterUnloadHandlers(bool window_closing) {
+  closing_after_unload_ = true;
+  if (window_closing) {
+    web_contents()->ClosePage();
+    return;
   }
+  web_contents()->DispatchBeforeUnload(true);
+}
+
+void TabBridge::BeforeUnloadFired(bool proceed) {
+  if (proceed) {
+    return;
+  }
+  if (closing_after_unload_) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](base::WeakPtr<content::WebContents> contents) {
+                         if (contents) {
+                           contents->ClosePage();
+                         }
+                       },
+                       web_contents()->GetWeakPtr()));
+    return;
+  }
+  closed_by_host_ = false;
 }
 
 void TabBridge::ReportWillClose() {
