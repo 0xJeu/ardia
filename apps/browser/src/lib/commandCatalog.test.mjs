@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-const { shortcutSources, staticShortcutSources } = await import("./commandCatalog.ts");
+const { COMMANDS, shortcutSources, staticShortcutSources } = await import("./commandCatalog.ts");
 const { formatShortcut } = await import("./shortcuts.ts");
 
 const swift = readFileSync(new URL("../../../../packages/shell/ios/Menus.swift", import.meta.url), "utf8");
@@ -23,9 +23,10 @@ const SWIFT_ESCAPES = { "\\t": "\t", "\\r": "\r", "\\u{8}": "\u0008" };
 const section = (from, to) => swift.slice(swift.indexOf(from), swift.indexOf(to));
 const menuSource = [
   section("static func build() -> NSMenu", "static func keyEquivalent("),
-  section("private static func helpItems()", "private static func extensionIcon"),
-  section("private static func buildHistory", "private static let modifierNames"),
+  section("private static func videoTourItem()", "private static func extensionIcon"),
+  section("private static func buildProfileMenus", "private static let modifierNames"),
 ].join("\n");
+const dynamicCommands = new Set([...section("private static let dynamicCommands", "private static func walk").matchAll(/"(\w+)"/g)].map((m) => m[1]));
 
 const ITEM = new RegExp(
   [
@@ -75,7 +76,9 @@ function nativeItems() {
 
 function nativeGroups() {
   const groups = new Map();
-  for (const item of nativeItems()) groups.set(item.id, [...(groups.get(item.id) ?? []), item]);
+  for (const item of nativeItems()) {
+    if (!dynamicCommands.has(item.id.split(":")[0])) groups.set(item.id, [...(groups.get(item.id) ?? []), item]);
+  }
   return new Map(
     [...groups].map(([id, items]) => {
       const primary = items.find((i) => !i.hidden) ?? items[0];
@@ -98,6 +101,15 @@ test("every menu bar shortcut id is in the catalog with the same default keys", 
   for (const [id, native] of nativeGroups()) {
     assert.ok(catalog.has(id), `${id} is missing from commandCatalog.ts`);
     assert.deepEqual(catalog.get(id), native.keys, `${id} default keys`);
+  }
+});
+
+test("every menu bar command has the catalog's title", () => {
+  for (const [id, native] of nativeGroups()) {
+    if (id.startsWith("std:")) continue;
+    const [command, arg] = id.split(":");
+    const spec = COMMANDS[command];
+    assert.equal((arg ? spec?.variants?.[arg] : spec)?.title, native.title, `${id} title`);
   }
 });
 

@@ -37,6 +37,7 @@ import { webviews } from "./webviews";
 import { togglePageEngine } from "./engines";
 import { goBack, goForward } from "../components/layout/history";
 import { openSplitPane } from "../components/layout/splitActions";
+import { LITTLE_ARDIA_PAGE_COMMANDS } from "./commandCatalog";
 import { runSidebarCommand } from "../components/sidebar/commands";
 import { numberedTabs } from "../components/sidebar/entries";
 import { openExtensionFromMenu } from "../components/extensions/bridge";
@@ -316,14 +317,6 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return void createProfile(windowId).then((id) => id && switchProfile(windowId, id));
   }
 }
-
-const LITTLE_ARDIA_PAGE_COMMANDS = new Set<string>([
-  "print", "printWithSystemDialog", "savePage", "caretBrowsing", "emailPageLocation", "stop", "share", "copyUrl",
-  "copyUrlAsMarkdown", "findInPage", "findAndReplace", "jumpToSelection", "useSelectionForFind", "findNext", "findPrevious",
-  "reload", "forceReload", "zoomIn", "zoomOut", "zoomReset", "devTools", "toggleDevTools", "inspectElements",
-  "javaScriptConsole", "viewSource", "back", "forward", "bookmarkPage", "addBookmarkToFolder", "openBookmark", "toggleMute",
-  "cast", "openExtension", "addExtension", "autofill", "reopenClosedTab", "restoreClosed", "downloads",
-]);
 
 function runLittleArdiaCommand(command: string, arg: string | null | undefined, windowId: string): boolean {
   const s = useBrowser.getState();
