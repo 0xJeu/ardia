@@ -4,6 +4,7 @@ const { useBrowser } = await import("../store/browser.ts");
 const folders = await import("../store/tileFolders.ts");
 const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const pinnedArea = await import("./pinned.ts");
+const previous = await import("./fixtures/pinned-v0.2.40.ts");
 
 const S = () => useBrowser.getState();
 
@@ -28,9 +29,10 @@ class Folder {
 }
 
 class Device {
-  constructor(id, folder) {
+  constructor(id, folder, adapters = () => pinnedArea.pinnedAreaAdapters("default")) {
     this.id = id;
     this.folder = folder;
+    this.adapters = adapters;
     S().hydrate({});
     this.browser = S();
     this.scope = emptyScope();
@@ -47,7 +49,7 @@ class Device {
   async sync() {
     useBrowser.setState(this.browser, true);
     try {
-      const adapters = pinnedArea.pinnedAreaAdapters("default");
+      const adapters = this.adapters();
       return await syncScope({ scope: "p", state: this.scope, transport: this.folder.transport(), adapters, clock: this.clock, device: this.id });
     } finally {
       this.browser = S();
@@ -81,10 +83,10 @@ function seed(device) {
   });
 }
 
-test("the pinned area syncs tile folders, then rows, then the row order, then the pins themselves", () => {
+test("the pinned area syncs tile folders, then rows, the row order and pinned group tabs' homes, then the pins themselves", () => {
   assert.deepEqual(
     pinnedArea.pinnedAreaAdapters("default").map((a) => a.prefix),
-    ["tilefold:", "pinrow:", "pord:g:", "pin"],
+    ["tilefold:", "pinrow:", "pord:g:", "pgh:", "pin"],
   );
 });
 
@@ -136,4 +138,61 @@ test("a pin another Mac published under the app's old name arrives with today's"
   folder.files.set("old1", { scope: "p", payload: JSON.stringify({ v: 1, kind: "log", device: "devOld", seq: 1, at: Date.now(), ops: [{ k: "pin:t:oldpin", h, v: value }] }) });
   await b.sync();
   assert.equal(b.with(() => S().tabs.oldpin?.pinnedUrl), "ardia://history");
+});
+
+const previousVersion = () => [previous.pinnedRowsAdapter("default"), previous.pinnedAdapter("default")];
+
+const memberOf = (device, key) =>
+  device.with(() => {
+    const members = new Set(Object.values(S().groups).filter((g) => g.pinned).flatMap((g) => g.tabIds));
+    return Object.values(S().tabs).find((t) => (t.pinKey ?? t.id) === key && !t.pinned && members.has(t.id));
+  });
+
+function seedGroup(device) {
+  return device.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    const m = S().newTab(w, { url: "https://start.example/", background: true });
+    S().groupTabs([m], { pinned: true, name: "Reading" });
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [m]: { ...s.tabs[m], url: "https://later.example/" } } }));
+    return m;
+  });
+}
+
+test("a pinned group tab's home reaches the other Mac in the pull that brings the tab, and a new home follows", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  const m = seedGroup(a);
+  assert.equal(a.with(() => S().tabs[m].pinnedUrl), "https://start.example/");
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.equal(memberOf(b, m)?.pinnedUrl, "https://start.example/", "its home, not the page it was on");
+
+  a.with(() => S().setPinnedUrl(m));
+  await syncAll([a, b]);
+  assert.equal(memberOf(b, m)?.pinnedUrl, "https://later.example/");
+  const fromB = [...folder.files.values()]
+    .map((f) => JSON.parse(f.payload))
+    .filter((f) => f.kind === "log" && f.device === "devB")
+    .flatMap((f) => f.ops)
+    .filter((op) => op.k.startsWith("pgh:"));
+  assert.deepEqual(fromB, [], "B never sends a home of its own over A's");
+});
+
+test("a Mac on the previous version keeps the homes it can't read, and its unpin deletes the home on the others", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const old = new Device("devOld", folder, previousVersion);
+  const m = seedGroup(a);
+  old.with(() => S().createWindow({ url: "https://old-home.example/" }));
+  await syncAll([a, old]);
+  assert.equal(old.scope.records[`pgh:${m}`]?.v, "https://start.example/", "kept in its replica");
+  assert.ok(old.scope.unapplied.includes(`pgh:${m}`), "and left unapplied");
+  const onOld = memberOf(old, m);
+  assert.ok(onOld, "the tab is in its pinned group there");
+
+  old.with(() => S().placeTabs([onOld.id], { pinned: false, beforeId: null }));
+  await syncAll([old, a]);
+  assert.equal(a.scope.records[`pin:t:${m}`]?.v, null);
+  assert.equal(a.scope.records[`pgh:${m}`]?.v, null, "the home goes with the pin");
 });
