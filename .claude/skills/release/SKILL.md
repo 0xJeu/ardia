@@ -191,7 +191,7 @@ First it checks the update from `<previous>` (its export in `dist/<previous>/exp
 Then it launches `dist/<version>/export/Ardia.app` hidden with a data dir that says `<previous>` ran last,
 and a session whose window was left on its second profile, and checks, over CDP and the window list:
 
-- engine is Chromium 154, the after-update release-notes tab opened exactly once;
+- the engine and chrome://version are the Chromium version `engine/patches/build/env.sh` names, and the after-update release-notes tab opened exactly once;
 - the browser's child processes are the bundle's own helpers (Chrome's process checks pass under Developer ID);
 - pages load, uBlock blocks an ad script, H.264/AAC/WebGL2;
 - no hidden full-size Chrome window (since 0.2.0 the app window is Chrome's own; before, a hidden "ghost"
