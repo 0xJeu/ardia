@@ -120,6 +120,11 @@ const ROWS: Record<SettingsPane, Section[]> = {
           keywords: ["dia", "liquid glass", "top apps", "favicon", "colour", "ring", "tint", "selected tile"],
           liquidGlassOnly: true,
         },
+        fadeUnloadedTabs: {
+          title: "Fade icons of unloaded tabs",
+          description: "A tab whose page isn't loaded, like a closed pinned tab or one restored after a relaunch, shows its icon faded, as sleeping tabs do. Clicking it loads the page.",
+          keywords: ["unloaded", "asleep", "sleeping", "discarded", "dim", "grey", "gray", "inactive", "pinned", "closed"],
+        },
       },
     },
     {

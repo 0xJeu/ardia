@@ -79,6 +79,7 @@ export function TabsPane() {
         {!top && toggle("showSidebarButton", "tabs.showSidebarButton")}
         {!top && toggle("balancedTopApps", "tabs.balancedTopApps")}
         {!top && liquidGlass && toggle("pinnedTabIconRing", "tabs.pinnedTabIconRing")}
+        {toggle("fadeUnloadedTabs", "tabs.fadeUnloadedTabs")}
       </Group>
 
       <SectionHeader title="General" />

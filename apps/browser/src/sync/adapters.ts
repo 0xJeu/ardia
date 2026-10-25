@@ -33,6 +33,7 @@ export const SYNCED_SETTINGS = [
   "showSidebarButton",
   "balancedTopApps",
   "pinnedTabIconRing",
+  "fadeUnloadedTabs",
   "newTabPosition",
   "newTabOpens",
   "warnBeforeClosingLastTab",
