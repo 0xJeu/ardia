@@ -52,6 +52,12 @@ enum WebKitPageScript {
     const now = position + (playing ? ((Date.now() - at) / 1000) * playbackRate : 0);
     return Math.max(0, duration > 0 ? Math.min(now, duration) : now);
   };
+  const movePagePosition = (m, state, to) => {
+    if (!pagePosition) return;
+    positionOf(m, state);
+    pagePosition.position = Math.max(0, pagePosition.duration > 0 ? Math.min(to, pagePosition.duration) : to);
+    pagePosition.at = Date.now();
+  };
   let queued = false;
   const report = () => {
     queued = false;
@@ -238,8 +244,16 @@ enum WebKitPageScript {
       else if (action === "previous") call("previoustrack");
       else if (action === "seekBy") {
         const handled = seconds >= 0 ? call("seekforward", { seekOffset: seconds }) : call("seekbackward", { seekOffset: -seconds });
-        if (!handled && m) m.currentTime = Math.max(0, Math.min(m.duration || Infinity, m.currentTime + seconds));
-      } else if (action === "seekTo") call("seekto", { seekTime: seconds }) || (m && (m.currentTime = Math.max(0, seconds)));
+        if (!handled && m) {
+          const state = isPlaying ? "playing" : "paused";
+          const from = pagePosition ? positionOf(m, state) : m.currentTime;
+          m.currentTime = Math.max(0, Math.min(m.duration || Infinity, m.currentTime + seconds));
+          movePagePosition(m, state, from + seconds);
+        }
+      } else if (action === "seekTo" && !call("seekto", { seekTime: seconds }) && m) {
+        m.currentTime = Math.max(0, seconds);
+        movePagePosition(m, isPlaying ? "playing" : "paused", seconds);
+      }
       schedule();
       return !!m || pageActions.length > 0;
     },
