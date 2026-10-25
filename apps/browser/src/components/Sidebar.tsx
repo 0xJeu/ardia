@@ -605,14 +605,18 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { windowI
   const [count, setCount] = useState(0);
   const [hidden, setHidden] = useState(upsellDeclined);
   const daily = useBrowser((s) => s.settings.cleanUpInactiveTabsAfterHours !== null);
-  const win = useBrowser((s) => s.windows[windowId]);
+  const tabIds = useBrowser((s) => s.windows[windowId]?.tabIds);
+  const profileId = useBrowser((s) => s.windows[windowId]?.profileId);
+  const activeId = useBrowser((s) => activeTabId(s, windowId));
+  const off = hidden || daily;
   useEffect(() => {
+    if (off) return;
     const check = () => setCount(cleanUpCandidates(useBrowser.getState(), windowId).length);
     check();
     return everySlowly({ every: 60_000, run: check });
-  }, [windowId, win]);
+  }, [windowId, off, tabIds, profileId, activeId]);
   const [moved, movedRef] = useShift(shift);
-  if (hidden || daily || count < UPSELL_MIN) return null;
+  if (off || count < UPSELL_MIN) return null;
   const button = (title: string, onPress: () => void, primary = false) => (
     <Pressable onPress={onPress}>
       {({ pressed }) => (
