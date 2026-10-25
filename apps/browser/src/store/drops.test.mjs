@@ -38,8 +38,7 @@ const dock = (w) => {
 function dragInDock(w, id, to) {
   const slots = dockSlots(w);
   const from = slots.findIndex((slot) => slot.tabIds[0] === id);
-  const placement = drops.slotPlacement(S(), [id], slots, from, to, { pinned: true, groupId: null });
-  if (placement) S().placeTabs([id], placement);
+  return S().dropTabs([id], drops.slotDrop(S(), [id], slots, from, to, { pinned: true, groupId: null }));
 }
 
 test("top strip dock: a row dragged before the first row lands there, past the tiles", () => {
@@ -68,5 +67,64 @@ test("top strip dock: a row dragged over the tiles stays a row, first among the 
 
 test("a drop on its own slot moves nothing", () => {
   const { w, ids: [, , c] } = dockWith();
-  assert.equal(drops.slotPlacement(S(), [c], dockSlots(w), 2, 2, { pinned: true, groupId: null }), null);
+  assert.deepEqual(drops.slotDrop(S(), [c], dockSlots(w), 2, 2, { pinned: true, groupId: null }), drops.NO_DROP);
+  assert.equal(dragInDock(w, c, 2), false);
+});
+
+test("the tabs that move together: the selection when the dragged tab is in it, else that tab alone", () => {
+  reset();
+  const { w, ids: [a, b, c, d] } = windowWith("a", "b", "c", "d");
+  S().pinTabs([a], true);
+  S().setSelection(w, [d, a]);
+  assert.deepEqual(drops.movingTabIds(S(), d), [a, d], "window order, pinned and unpinned alike");
+  assert.deepEqual(drops.movingTabIds(S(), b), [b]);
+  S().setSelection(w, [c]);
+  assert.deepEqual(drops.movingTabIds(S(), c), [c]);
+});
+
+test("one drop vocabulary: each zone gives the same drop to the sidebar and the strip, and refuses what can't land", () => {
+  reset();
+  const { ids: [a, b] } = windowWith("a", "b");
+  const g = S().groupTabs([a], { name: "G" });
+  const tab = { kind: "tab" };
+  assert.deepEqual(drops.resolveDrop(S(), tab, { zone: "pinnedRows", beforeId: null }), { type: "tabs", placement: { pinned: true, row: true, beforeId: null, last: true } });
+  assert.deepEqual(drops.resolveDrop(S(), tab, { zone: "tiles", beforeId: b }), { type: "tabs", placement: { pinned: true, row: false, beforeId: b, tileFolder: null } });
+  assert.deepEqual(drops.resolveDrop(S(), { kind: "tab", folderId: "f" }, { zone: "tiles", beforeId: null }), { type: "tabs", placement: { pinned: true, row: false, beforeId: null } });
+  assert.deepEqual(drops.resolveDrop(S(), tab, { zone: "group", groupId: g, beforeId: null }), { type: "tabs", placement: { pinned: false, groupId: g, beforeId: null } });
+  assert.deepEqual(drops.resolveDrop(S(), { kind: "group", groupId: g }, { zone: "list", beforeId: b }), { type: "group", groupId: g, placement: { pinned: false, parentId: null, beforeId: b } });
+  assert.deepEqual(drops.resolveDrop(S(), { kind: "live" }, { zone: "pinnedRows", beforeId: null }), { type: "live" });
+  assert.equal(drops.resolveDrop(S(), { kind: "split" }, { zone: "tiles", beforeId: null }).type, "none", "a split never becomes a tile");
+  assert.equal(drops.resolveDrop(S(), { kind: "split" }, { zone: "onto", targetId: b }).type, "none");
+  assert.equal(drops.resolveDrop(S(), { kind: "tab", external: true }, { zone: "folder", ontoId: b }).type, "none");
+  assert.equal(drops.resolveDrop(S(), { kind: "live" }, { zone: "list", beforeId: null }).type, "none");
+  assert.equal(drops.resolveDrop(S(), { kind: "group", groupId: g }, { zone: "group", groupId: g, beforeId: null }).type, "none", "a group can't nest in itself");
+  assert.equal(drops.resolveDrop(S(), tab, null).type, "none");
+});
+
+test("dropping a tab onto another groups them, and an unchanged drop reports nothing moved", () => {
+  reset();
+  const { w, ids: [a, b, c] } = windowWith("a", "b", "c");
+  assert.equal(S().dropTabs([c], drops.resolveDrop(S(), { kind: "tab" }, { zone: "onto", targetId: a })), true);
+  const group = Object.values(S().groups)[0];
+  assert.deepEqual(group.tabIds, [a, c]);
+  assert.deepEqual(S().windows[w].tabIds, [a, c, b]);
+  assert.equal(S().dropTabs([c], drops.NO_DROP), false);
+});
+
+test("clicks: ⌘ adds to the selection from the shown tab, ⇧ selects the range from the last clicked tab, a plain click clears it", () => {
+  reset();
+  const { w, ids: [a, b, c, d] } = windowWith("a", "b", "c", "d");
+  S().clickTab(w, b);
+  assert.equal(S().windows[w].activeTabIds[S().windows[w].profileId], b);
+  S().clickTab(w, d, { metaKey: true });
+  assert.deepEqual(S().selection[w], [b, d]);
+  S().clickTab(w, a, { shiftKey: true });
+  assert.deepEqual(S().selection[w], [a, b, c, d], "the range runs from d, the last ⌘-clicked tab");
+  S().clickTab(w, b, { metaKey: true });
+  assert.deepEqual(S().selection[w], [a, c, d]);
+  S().clickTab(w, c);
+  assert.deepEqual(S().selection[w], []);
+  assert.equal(S().windows[w].activeTabIds[S().windows[w].profileId], c);
+  S().clickTab(w, c, { metaKey: true });
+  assert.deepEqual(S().selection[w], [], "⌘-clicking the shown tab alone selects nothing");
 });

@@ -16,7 +16,7 @@ import { clickTab } from "../sidebar/actions";
 import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../sidebar/closeControl";
 import { openGroupMenu, openTabMenu } from "../sidebar/menus";
 import { groupLabel } from "../../store/organize";
-import { slotPlacement } from "../../store/drops";
+import { firstStaying, movingTabIds, resolveDrop, slotDrop, type DropSpot } from "../../store/drops";
 import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
@@ -442,7 +442,7 @@ function pinOut(strip: () => Strip | null, from: number): Cross {
         dx: target - (s.dock.left + s.dock.geometry.lefts[from]!),
         commit: () => {
           settleStrip(s);
-          useBrowser.getState().placeTabs(ids, { pinned: false, beforeId: s.top.slots[k]?.tabIds[0] ?? null });
+          dropAt(ids, { zone: "list", beforeId: s.top.slots[k]?.tabIds[0] ?? null });
         },
       };
     },
@@ -485,7 +485,7 @@ function tabIn(strip: () => Strip | null, from: number, width: number): Cross {
         dx: target - (s.top.lefts[from]! + grab - PINNED_CELL / 2),
         commit: () => {
           settleStrip(s);
-          useBrowser.getState().placeTabs(ids, { pinned: true, beforeId: s.dock!.geometry.slots[j]?.tabIds[0] ?? null });
+          dropAt(ids, { zone: "pins", beforeId: s.dock!.geometry.slots[j]?.tabIds[0] ?? null });
         },
       };
     },
@@ -718,27 +718,16 @@ function useStripDrag(item: StripDrag) {
 
 function reorder(ids: string[], { geometry, from, pinned, groupId }: StripDrag, to: number): boolean {
   const s = useBrowser.getState();
-  const placement = slotPlacement(s, ids, geometry.slots, from, to, { pinned, groupId });
-  if (!placement) return false;
-  s.placeTabs(ids, placement);
-  return true;
+  return s.dropTabs(ids, slotDrop(s, ids, geometry.slots, from, to, { pinned, groupId }));
 }
 
-function dropOnto(target: DropTarget, ids: string[]): boolean {
+function dropAt(ids: string[], spot: DropSpot): boolean {
   const s = useBrowser.getState();
-  if (target.kind === "tab") return !!s.groupOnto(ids, target.id);
-  const before = s.groups[target.id]?.tabIds;
-  s.placeTabs(ids, { pinned: false, groupId: target.id });
-  return useBrowser.getState().groups[target.id]?.tabIds !== before;
+  return s.dropTabs(ids, resolveDrop(s, { kind: "tab" }, spot));
 }
 
-function withSelection(tabId: string): string[] {
-  const s = useBrowser.getState();
-  const tab = s.tabs[tabId];
-  const selection = tab ? (s.selection[tab.windowId] ?? []) : [];
-  if (selection.length < 2 || !selection.includes(tabId)) return [tabId];
-  return s.windows[tab!.windowId]!.tabIds.filter((id) => selection.includes(id) && !!s.tabs[id]?.pinned === tab!.pinned);
-}
+const dropOnto = (target: DropTarget, ids: string[]) =>
+  dropAt(ids, target.kind === "tab" ? { zone: "onto", targetId: target.id } : { zone: "group", groupId: target.id, beforeId: null });
 
 type GroupOut = { top: DragGeometry; slot: number; chip: number; expanded: boolean; left: number };
 
@@ -773,7 +762,7 @@ function DraggableChip({
       : undefined;
   const drag = useStripDrag({
     tabId,
-    ids: () => withSelection(tabId),
+    ids: () => movingTabIds(useBrowser.getState(), tabId),
     pinned: false,
     groupId: group,
     geometry,
@@ -787,8 +776,7 @@ function DraggableChip({
       if (!member) return false;
       const at = leaveIndex(member.top, member.slot, member.chip, member.expanded, member.left + dx, width);
       if (at === null) return false;
-      const beforeId = member.top.slots.slice(at).flatMap((slot) => slot.tabIds).find((id) => !ids.includes(id)) ?? null;
-      useBrowser.getState().placeTabs(ids, { pinned: false, beforeId, groupId: null });
+      dropAt(ids, { zone: "list", beforeId: firstStaying(member.top.slots.slice(at), ids) });
       return true;
     },
   });
@@ -1104,7 +1092,7 @@ function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGe
   const range: [number, number] | undefined = dock ? [-geometry.lefts[from]!, end - dock.left - geometry.lefts[from]! - PINNED_CELL] : undefined;
   const drag = useStripDrag({
     tabId,
-    ids: () => withSelection(tabId),
+    ids: () => movingTabIds(useBrowser.getState(), tabId),
     pinned: true,
     groupId: null,
     geometry,
@@ -1247,7 +1235,8 @@ function StripGroup({
       if (to === from) return true;
       const others = geometry.slots.filter((_, i) => i !== from);
       const s = useBrowser.getState();
-      s.moveGroup(entry.id, { pinned: !!s.groups[entry.id]?.pinned, beforeId: others[to]?.tabIds[0] ?? null });
+      const beforeId = others[to]?.tabIds[0] ?? null;
+      s.dropTabs([], resolveDrop(s, { kind: "group", groupId: entry.id }, { zone: s.groups[entry.id]?.pinned ? "pinnedRows" : "list", beforeId }));
       return true;
     },
   });

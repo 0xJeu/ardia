@@ -9,7 +9,7 @@ import {
 } from "@ardia/shell";
 import { markdownLink } from "@ardia/core";
 import { useBrowser } from "../store/browser";
-import { activeTabId, bookmarkProfileId, isPinnedRow, pinSection, resolveWindowId } from "../store/model";
+import { activeTabId, bookmarkProfileId, isPinnedRow, resolveWindowId } from "../store/model";
 import {
   closeGroup,
   closeTab,
@@ -257,12 +257,8 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       if (arg === "tile") return isPinnedRow(tab) ? s.pinTabs([tab.id], true, false) : undefined;
       return s.togglePin(tab.id);
     case "moveTabDown":
-    case "moveTabUp": {
-      if (!tab) return;
-      const section = s.windows[windowId]!.tabIds.filter((id) => s.tabs[id]?.profileId === tab.profileId && pinSection(s.tabs[id]) === pinSection(tab));
-      const at = section.indexOf(tab.id) + (command === "moveTabDown" ? 1 : -1);
-      return at >= 0 && at < section.length ? s.moveTab(tab.id, at) : undefined;
-    }
+    case "moveTabUp":
+      return tab ? s.moveTabBy(tab.id, command === "moveTabDown" ? 1 : -1) : undefined;
     case "closeTabGroup": {
       const group = groupOf(s, tabId);
       return group ? void closeGroup(group.id) : undefined;

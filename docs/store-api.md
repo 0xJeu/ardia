@@ -52,7 +52,7 @@ modules before using them — this is a summary from the agent that built it.
   `ClosedTab` with `small: true` that reopens in a new Little Ardia; it isn't saved with the session.
 - Tabs: `newTab(windowId, { url, background, adoptId, openerId, profileId, pinned, index })`, `closeTab`,
   `closeTabs`, `activate`, `navigate`, `updateTab(id, patch, live?)` (the live patch lands in the same store update), `updateLive`,
-  `togglePin`, `moveTab`, `duplicateTab`. The engine's page reports go through `navigated(id, { url, title }, live)` and
+  `togglePin`, `moveTab`, `moveTabBy(id, ±1)` (both within the tab's pin section), `duplicateTab`. The engine's page reports go through `navigated(id, { url, title }, live)` and
   `faviconChanged(id, favicon)`. Chrome records the visit (HistoryService) and keeps the icon (FaviconService) itself.
   Closing a pinned tab only unloads it (`unloadPinnedTabs`, like Dia): the tile stays with `unloaded: true`, back at its
   pinned URL and without a web view until selected; the window selects its last-used regular tab, else the loaded
@@ -64,8 +64,12 @@ modules before using them — this is a summary from the agent that built it.
   the engine copies or restores that tab's back/forward list, else the tab loads its URL.
 - Groups: `createGroup`, `addTabsToGroup`, …
 - Splits: `createSplit`, `openSplitPane(windowId, { tabId | url, anchorTabId, side, background })`, `replaceSplitPane`, `removeTabFromSplit`, `separateSplit`, `flipSplit`, `toggleSplitOrientation`, `movePane`, `focusPane`, `updateSplit`; `toggleTabLayout`. UI entry points with Dia's feedback (max-panes toast, menus): components/layout/splitActions.ts (`openSplitPane`, `openNewTabInSplit`, `openInSplit`, `openLinkInSplit`, `showSplitMenu`). Drag a tab onto the page to split: components/layout/tabDrag.ts.
-- Sidebar organisation (store/organize.ts): `selection[windowId]` (⌘/⇧-click multi-select), `placeTabs(ids, { pinned, row, beforeId, groupId, last })`
-  (drag and drop; `last` puts a row with no `beforeId` after the pinned groups too), `pinTabs(ids, pinned, row?)` (a pinned tab is a Top Apps tile, or a pinned row above the tabs when
+- Sidebar organisation (store/organize.ts): `selection[windowId]` with its ⇧-click anchor `selectionAnchors[windowId]`, both set by
+  `clickTab(windowId, tabId, mods)` (plain, ⌘ and ⇧ clicks, ⌥⇧ into the shown tab's group), `placeTabs(ids, { pinned, row, beforeId, groupId, last })`
+  (`last` puts a row with no `beforeId` after the pinned groups too). Drag and drop in the sidebar and the top strip
+  goes through store/drops.ts: a view turns the pointer into a `DropSpot` (zone plus the tab it lands before),
+  `resolveDrop(s, source, spot)` gives the `Drop` (or refuses it), `dropTabs(ids, drop)` applies it, `movingTabIds` is
+  the set that moves together, and `slotDrop` turns a strip slot index into an anchor. `pinTabs(ids, pinned, row?)` (a pinned tab is a Top Apps tile, or a pinned row above the tabs when
   `tab.pinnedAsRow`; windows order tiles, then pinned rows and pinned groups in one interleaved order, then the rest; `row` omitted keeps a pinned
   tab's kind and pins a new one as a tile). A live folder sits in that pinned order by `LiveFolder.after`, the anchor key
   (`t:` or `g:` plus the pin key) of the row or group just above it, or `null` for the top (components/sidebar/pinnedOrder.ts);

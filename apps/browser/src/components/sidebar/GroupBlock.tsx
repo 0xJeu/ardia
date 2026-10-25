@@ -97,7 +97,7 @@ export const GroupBlock = memo(function GroupBlock({
     const kept = keptEntry(s, windowId, profileId, groupEntries(s, groupId));
     return GROUP_BORDER * 2 + layout.rowHeight + (kept ? headGap(kept) + entryHeight(s, windowId, profileId, kept) + PAD : 0);
   };
-  const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed: stored, foldedHeight, parentGroup }, undefined, own?.clip);
+  const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed: stored, foldedHeight, parentGroup }, own?.clip);
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
 
   const fold = useFold(collapsed);

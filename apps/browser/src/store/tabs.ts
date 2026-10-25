@@ -74,6 +74,7 @@ export type TabsSlice = {
   duplicateTab(id: string): string | undefined;
   togglePin(id: string): void;
   moveTab(id: string, toIndex: number): void;
+  moveTabBy(id: string, delta: 1 | -1): void;
 };
 
 const MAX_CLOSED_TABS = 50;
@@ -82,6 +83,13 @@ function pinnedInsertionIndex(s: BrowserState, w: BrowserWindow): number {
   let last = -1;
   w.tabIds.forEach((id, i) => s.tabs[id]?.pinned && (last = i));
   return last + 1;
+}
+
+function tabSection(s: BrowserState, id: string): string[] {
+  const tab = s.tabs[id];
+  const w = tab && s.windows[tab.windowId];
+  if (!w) return [];
+  return w.tabIds.filter((t) => s.tabs[t]?.profileId === tab.profileId && pinSection(s.tabs[t]) === pinSection(tab));
 }
 
 export function activated(s: BrowserState, id: string, shareLivePins = true): Partial<BrowserState> {
@@ -479,14 +487,20 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       const tab = s.tabs[id];
       const w = tab && s.windows[tab.windowId];
       if (!tab || !w) return {};
-      const inSection = (t: string) => s.tabs[t]?.profileId === tab.profileId && pinSection(s.tabs[t]) === pinSection(tab);
-      const section = w.tabIds.filter(inSection);
+      const section = tabSection(s, id);
+      const inSection = new Set(section);
       const moved = section.filter((t) => t !== id);
       moved.splice(Math.min(Math.max(toIndex, 0), moved.length), 0, id);
       let k = 0;
-      const tabIds = w.tabIds.map((t) => (inSection(t) ? moved[k++]! : t));
+      const tabIds = w.tabIds.map((t) => (inSection.has(t) ? moved[k++]! : t));
       const window = { ...w, tabIds };
       return { windows: { ...s.windows, [w.id]: window }, groups: syncGroupOrder(s.groups, window) };
     });
+  },
+
+  moveTabBy(id, delta) {
+    const section = tabSection(get(), id);
+    const at = section.indexOf(id) + delta;
+    if (section.includes(id) && at >= 0 && at < section.length) get().moveTab(id, at);
   },
 });

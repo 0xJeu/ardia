@@ -170,6 +170,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       privateCleanedTabs: {},
       privateSiteMutes: {},
       selection: {},
+      selectionAnchors: {},
       history: Object.fromEntries(Object.entries(data.history ?? {}).filter(([p]) => profiles[p])),
       historyReady: Object.fromEntries(Object.keys(data.history ?? {}).filter((p) => profiles[p]).map((p) => [p, true as const])),
       bookmarks,

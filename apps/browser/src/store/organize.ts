@@ -7,6 +7,7 @@ import { holderOf } from "./pinShare";
 import { splitOf, splitRowHead, splitRowPanes, withSplitRows } from "./splits";
 import { lastUsedOf, sharedLastUsed } from "./tabShare";
 import { activated, apply, removeTabs, withNewTab } from "./tabs";
+import { clickedSelection, dropping, type ClickMods, type Drop } from "./drops";
 import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup, TileFolder } from "./types";
 
 export type TabPlacement = {
@@ -74,6 +75,7 @@ export function livePinTable<T>(table: Record<string, Record<string, T>>, s: Pic
 
 export type OrganizeSlice = {
   selection: Record<string, string[]>;
+  selectionAnchors: Record<string, string>;
   pinChoices: PinChoices;
   pinSync: PinSync;
   cleanedTabs: ClosedTab[];
@@ -83,7 +85,9 @@ export type OrganizeSlice = {
   deletedGroups: ClosedGroup[];
 
   setSelection(windowId: string, ids: string[]): void;
+  clickTab(windowId: string, tabId: string, mods?: ClickMods): void;
   placeTabs(ids: string[], placement: TabPlacement): void;
+  dropTabs(ids: string[], drop: Drop): boolean;
   pinTabs(ids: string[], pinned: boolean, row?: boolean): void;
   returnToPinnedUrl(tabId: string): void;
   setPinnedUrl(tabId: string, url?: string): void;
@@ -664,6 +668,17 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
   return { ...s, tabs, pinChoices, pinSync, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } };
 }
 
+export function groupingOnto(s: BrowserState, ids: string[], targetId: string): [BrowserState, string] {
+  const target = s.tabs[targetId];
+  const w = target && s.windows[target.windowId];
+  if (!w || (target.pinned && !isPinnedRow(target)) || groupOf(s, targetId)) return [s, ""];
+  const moving = ids.filter((id) => id !== targetId && s.tabs[id]?.windowId === w.id && s.tabs[id]?.profileId === target.profileId);
+  if (!moving.length) return [s, ""];
+  const after = w.tabIds.slice(w.tabIds.indexOf(targetId) + 1).find((id) => !moving.includes(id)) ?? null;
+  const [next, id] = withRowsGrouped(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
+  return id ? [{ ...next, selection: { ...next.selection, [w.id]: [] } }, id] : [s, ""];
+}
+
 export function canMoveGroup(groups: Record<string, TabGroup>, groupId: string, p: Pick<GroupPlacement, "parentId" | "beforeId">): boolean {
   const g = groups[groupId];
   if (!g || (p.beforeId && g.tabIds.includes(p.beforeId))) return false;
@@ -713,6 +728,14 @@ export function movingGroup(s: BrowserState, groupId: string, p: GroupPlacement)
   return { groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window }, pinChoices };
 }
 
+function openInActiveGroup(s: BrowserState, windowId: string, tabId: string) {
+  const active = activeTabId(s, windowId);
+  if (!active || active === tabId || s.tabs[tabId]?.pinned || s.tabs[active]?.pinned) return;
+  const group = groupOf(s, active);
+  if (group) s.addTabsToGroup(group.id, [tabId]);
+  else s.groupTabs([active, tabId]);
+}
+
 export function forgetClosedPrivateWindows(s: BrowserState): Partial<BrowserState> | null {
   const gone = (map: Record<string, unknown>) => Object.keys(map).filter((id) => !s.windows[id]);
   const cleaned = gone(s.privateCleanedTabs);
@@ -723,6 +746,7 @@ export function forgetClosedPrivateWindows(s: BrowserState): Partial<BrowserStat
 
 export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSlice> = (set, get) => ({
   selection: {},
+  selectionAnchors: {},
   pinChoices: {},
   pinSync: {},
   cleanedTabs: [],
@@ -741,8 +765,27 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     });
   },
 
+  clickTab(windowId, tabId, mods = {}) {
+    const s = get();
+    const intoGroup = !!mods.altKey && !!mods.shiftKey && !mods.metaKey && s.settings.optShiftClickOpensInGroup;
+    const picked = intoGroup ? null : clickedSelection(s, windowId, tabId, mods);
+    if (intoGroup) openInActiveGroup(s, windowId, tabId);
+    const anchor = picked ? picked.anchor : tabId;
+    if (anchor && anchor !== get().selectionAnchors[windowId]) set({ selectionAnchors: { ...get().selectionAnchors, [windowId]: anchor } });
+    get().setSelection(windowId, picked?.selection ?? []);
+    if (!picked) get().activate(tabId);
+  },
+
   placeTabs(ids, placement) {
     set((s) => placing(s, ids, placement));
+  },
+
+  dropTabs(ids, drop) {
+    const s = get();
+    const next = dropping(s, ids, drop);
+    if (next === s) return false;
+    set(next);
+    return true;
   },
 
   pinTabs(ids, pinned, row) {
@@ -813,15 +856,8 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
   },
 
   groupOnto(ids, targetId) {
-    const s = get();
-    const target = s.tabs[targetId];
-    const w = target && s.windows[target.windowId];
-    if (!w || (target.pinned && !isPinnedRow(target)) || groupOf(s, targetId)) return "";
-    const moving = ids.filter((id) => id !== targetId && s.tabs[id]?.windowId === w.id && s.tabs[id]?.profileId === target.profileId);
-    if (!moving.length) return "";
-    const after = w.tabIds.slice(w.tabIds.indexOf(targetId) + 1).find((id) => !moving.includes(id)) ?? null;
-    const [next, id] = withRowsGrouped(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
-    if (id) set({ ...next, selection: { ...next.selection, [w.id]: [] } });
+    const [next, id] = groupingOnto(get(), ids, targetId);
+    if (id) set(next);
     return id;
   },
 

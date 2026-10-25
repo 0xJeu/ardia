@@ -28,8 +28,6 @@ export const clickMods = (e: GestureResponderEvent) => {
   return { metaKey: !!n.metaKey, shiftKey: !!n.shiftKey, altKey: !!n.altKey };
 };
 
-const useSelection = (windowId: string) => () => useBrowser.getState().selection[windowId] ?? [];
-
 const CLOSE_SLOT = 22;
 const SPINNER_SLOT = 14;
 
@@ -45,8 +43,7 @@ export const TabRowItem = memo(function TabRowItem({
   motion?: EntryMotion | null;
 }) {
   const windowId = useWindowId();
-  const selection = useSelection(windowId);
-  const { wrapper, handle } = useDragItem(`t:${tabId}`, { kind: "row", tabIds: [tabId], section, parentGroup }, selection, motion?.clip);
+  const { wrapper, handle } = useDragItem(`t:${tabId}`, { kind: "row", tabIds: [tabId], section, parentGroup }, motion?.clip);
   const onto = useDropOnto(`t:${tabId}`);
   return (
     <Animated.View ref={wrapper.ref} style={wrapper.style} {...handle}>
@@ -231,7 +228,7 @@ export const SplitRowItem = memo(function SplitRowItem({
 }) {
   const windowId = useWindowId();
   const tabIds = useBrowser((s) => splitRowPanes(s, s.splits[splitId]).join(",")).split(",").filter(Boolean);
-  const { wrapper, handle } = useDragItem(`s:${splitId}`, { kind: "split", tabIds, section, parentGroup }, undefined, motion?.clip);
+  const { wrapper, handle } = useDragItem(`s:${splitId}`, { kind: "split", tabIds, section, parentGroup }, motion?.clip);
   const theme = useTheme();
   const glow = useSelectedTabGlow();
   const profileId = usePageProfileId();
