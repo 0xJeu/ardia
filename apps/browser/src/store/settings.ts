@@ -84,6 +84,7 @@ export type Settings = {
 
   pageEngine: PageEngine;
   websiteEngines: Record<string, PageEngine>;
+  protectedVideoInWebKit: boolean;
 
   chosen?: string[];
   inferred?: string[];
@@ -167,6 +168,7 @@ export const DEFAULT_SETTINGS: Settings = {
   littleArdiaSize: [900, 640],
   pageEngine: "chromium",
   websiteEngines: {},
+  protectedVideoInWebKit: true,
 };
 
 const NO_CUSTOM_ENGINES: CustomSearchEngine[] = [];

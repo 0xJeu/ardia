@@ -14,7 +14,7 @@ import { startChromeTabs } from "../lib/chromeTabs";
 import { handOff, takeHandOff, wantsPage } from "../lib/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../lib/tabLifecycle";
 import { usePrewarm } from "../lib/preload";
-import { clearEngineOffer, noteWebKitPage, offerWebKit, persistEngine } from "../lib/engines";
+import { clearEngineOffer, followSiteChoice, noteWebKitPage, offerWebKit, persistEngine } from "../lib/engines";
 import { tabEngine } from "../store/engines";
 import { EngineOfferPrompt } from "./site/EnginePrompt";
 import { noteIssued, webviewRef, webviews } from "../lib/webviews";
@@ -660,6 +660,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
           clearEngineOffer(tabId);
           patchPage(tabId, { popups: [], passwordPrompt: null, crashed: null, status: "" });
           revealToolbar(tabId);
+          if (peekOf === undefined) followSiteChoice(tabId, engine, url, lastPage.current);
         }
         lastPage.current = pageKey(url);
         patchPage(tabId, { themeColorSource: themeColorSource ?? null });

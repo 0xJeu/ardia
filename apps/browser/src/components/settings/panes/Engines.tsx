@@ -7,7 +7,7 @@ import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
 import { defaultEngine, ENGINE_NAMES, RECOMMENDED_ENGINE, siteOf } from "../../../store/engines";
 import { Favicon, IconButton } from "../../primitives";
-import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField } from "../controls";
+import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle } from "../controls";
 import { closeSettingsSheet, showSettingsSheet } from "../sheet";
 
 const ENGINE_OPTIONS: { value: PageEngine; title: string }[] = [
@@ -21,6 +21,7 @@ export function EnginesPane() {
   const engine = useBrowser((s) => defaultEngine(s));
   const rules = useBrowser((s) => s.settings.websiteEngines ?? {});
   const sites = Object.keys(rules).sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)));
+  const protectedVideo = useBrowser((s) => s.settings.protectedVideoInWebKit);
   const setDefault = (value: PageEngine) => useBrowser.getState().updateSettings({ pageEngine: value });
 
   return (
@@ -33,6 +34,11 @@ export function EnginesPane() {
         <Row anchor="engines.recommendedDefault">
           <Button title="Use Recommended" disabled={engine === RECOMMENDED_ENGINE} onPress={() => setDefault(RECOMMENDED_ENGINE)} />
         </Row>
+        {engine === "chromium" && (
+          <Row anchor="engines.protectedVideo">
+            <Toggle value={protectedVideo} onChange={(value) => useBrowser.getState().updateSettings({ protectedVideoInWebKit: value })} />
+          </Row>
+        )}
       </Group>
 
       <SectionHeader anchor="engines.websiteRules" action={<Button title="Add Website Rule…" icon="plus" onPress={() => showSettingsSheet(<RuleSheet />)} />} />

@@ -432,6 +432,11 @@ const ROWS: Record<SettingsPane, Section[]> = {
           description: "Chromium runs extensions and the ad blocker. Sites that need protected video can still open in WebKit.",
           keywords: ["reset", "recommended", "chromium"],
         },
+        protectedVideo: {
+          title: "Open streaming sites in WebKit",
+          description: "Netflix, Disney+, Max, Prime Video, Hulu, Apple TV+, Spotify and other sites whose video is protected open in WebKit, which plays it. A website rule wins.",
+          keywords: ["drm", "netflix", "disney", "hbo", "max", "prime video", "hulu", "spotify", "apple tv", "fairplay", "widevine", "streaming"],
+        },
       },
     },
     {
@@ -460,7 +465,7 @@ const ROWS: Record<SettingsPane, Section[]> = {
         passkeys: {
           title: "Passkeys",
           description: "WebKit pages can't use passkeys until Apple grants Ardia its browser passkey entitlement. Sign in with a passkey in Chromium meanwhile.",
-          keywords: ["passkey", "webauthn", "icloud keychain", "security key"],
+          keywords: ["passkey", "webauthn", "icloud keychain", "passwords app", "security key"],
         },
       },
     },

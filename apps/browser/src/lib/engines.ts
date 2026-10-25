@@ -2,7 +2,9 @@ import { addHistoryVisits, type PageEngine } from "@ardia/ardiacore";
 import { confirm } from "@ardia/shell";
 import { create } from "zustand";
 import { useBrowser } from "../store/browser";
-import { canSwitchEngine, ENGINE_NAMES, ruleFor, siteOf, tabEngine, visitRecorder, type WebKitPage } from "../store/engines";
+import { patchPage } from "../components/layout/pageState";
+import { showToast } from "../components/layout/splitActions";
+import { canSwitchEngine, chosenEngine, ENGINE_NAMES, siteOf, tabEngine, visitRecorder, type WebKitPage } from "../store/engines";
 import { engineProfile, isIncognitoProfile, navigationTo } from "../store/model";
 import { carrySignInToWebKit, signInCarryOn } from "./engineSignIn";
 import { wantsPage } from "./tabPages";
@@ -14,6 +16,10 @@ export const useEngineOffers = create<Record<string, EngineOffer>>(() => ({}));
 
 const store = () => useBrowser.getState();
 const declinedSites = new Set<string>();
+const movingTabs = new Set<string>();
+const siteMoves = new Map<string, number>();
+const SITE_MOVE_SPACING_MS = 10_000;
+const hostLabel = (site: string) => new URL(site).hostname.replace(/^www\./, "");
 
 const UNSAVED_WORK = `(() => {
   const fields = Array.from(document.querySelectorAll("input:not([type=hidden]):not([type=password]):not([type=submit]):not([type=button]), textarea, select"));
@@ -58,6 +64,7 @@ export async function openPageIn(tabId: string, engine: PageEngine, options: { r
       title: `Open this page in ${ENGINE_NAMES[engine]}?`,
       message: `The page reloads in ${ENGINE_NAMES[engine]}, so changes you made on it may not be saved.`,
       confirmTitle: `Open in ${ENGINE_NAMES[engine]}`,
+      cancelTitle: "Stay on Page",
       windowId: t.windowId,
     });
     if (!confirmed) return false;
@@ -79,12 +86,12 @@ export function offerWebKit(tabId: string, data: unknown) {
   if (!t || tabEngine(s, tabId) === "webkit") return;
   const site = siteOf(t.url);
   if (!site) return;
-  const rule = ruleFor(s, t.url);
-  if (rule === "chromium") return;
-  if (rule === "webkit") return void openPageIn(tabId, "webkit", { checkWork: false });
-  if (declinedSites.has(site) || useEngineOffers.getState()[tabId]?.site === site) return;
+  const rule = chosenEngine(s, t.url);
+  if (rule === "chromium" || declinedSites.has(site)) return;
+  if (rule === "webkit") return void moveForProtectedVideo(tabId, site);
+  if (useEngineOffers.getState()[tabId]?.site === site) return;
   const keySystem = typeof (data as { keySystem?: unknown } | null)?.keySystem === "string" ? (data as { keySystem: string }).keySystem : "";
-  useEngineOffers.setState({ [tabId]: { site, host: new URL(site).hostname.replace(/^www\./, ""), keySystem } });
+  useEngineOffers.setState({ [tabId]: { site, host: hostLabel(site), keySystem } });
 }
 
 export function clearEngineOffer(tabId: string) {
@@ -102,6 +109,42 @@ export function stayOnPage(tabId: string) {
 }
 
 export const acceptEngineOffer = (tabId: string) => openPageIn(tabId, "webkit", { rule: "webkit" });
+
+async function moveForProtectedVideo(tabId: string, site: string) {
+  if (movingTabs.has(tabId)) return;
+  movingTabs.add(tabId);
+  try {
+    if (!(await openPageIn(tabId, "webkit"))) {
+      declinedSites.add(site);
+      return;
+    }
+  } finally {
+    movingTabs.delete(tabId);
+  }
+  const t = store().tabs[tabId];
+  if (!t) return;
+  showToast(t.windowId, "Opened in WebKit for protected video", `${hostLabel(site)} plays here with FairPlay. WebKit keeps its own sign-ins.`, {
+    icon: "play.rectangle",
+    key: `engine-move:${tabId}`,
+    action: { title: "Move Back", run: () => void openPageIn(tabId, "chromium", { rule: "chromium" }) },
+  });
+}
+
+export function followSiteChoice(tabId: string, engine: PageEngine, url: string, previousUrl: string) {
+  const site = siteOf(url);
+  if (!site || site === siteOf(previousUrl)) return;
+  const s = store();
+  const t = s.tabs[tabId];
+  if (!t || t.openerId) return;
+  const chosen = chosenEngine(s, url);
+  if (!chosen || chosen === engine) return;
+  const now = Date.now();
+  if (now - (siteMoves.get(tabId) ?? 0) < SITE_MOVE_SPACING_MS) return;
+  siteMoves.set(tabId, now);
+  void openPageIn(tabId, chosen, { checkWork: false }).then((moved) => {
+    if (moved && canSwitchEngine(previousUrl)) patchPage(tabId, { engineBack: { engine, url: previousUrl } });
+  });
+}
 
 const visits = visitRecorder(
   (profile, visit) => void addHistoryVisits(profile, [{ url: visit.url, title: visit.title, visitTimes: [visit.at] }]).catch(() => {}),
