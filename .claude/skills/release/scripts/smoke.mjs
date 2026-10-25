@@ -18,7 +18,7 @@ const windows = () =>
   execFileSync(windowsTool, [pid], { encoding: "utf8" }).trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
 
 const browserInfo = await (await fetch(`http://localhost:${port}/json/version`)).json();
-check("engine is Chromium 155", /Chrome\/155\./.test(browserInfo.Browser), browserInfo.Browser);
+check("engine is Chromium 156", /Chrome\/156\./.test(browserInfo.Browser), browserInfo.Browser);
 
 let targets = (await instance.targets()).filter((t) => t.type === "page");
 const notes = targets.filter((t) => new RegExp(`/release-notes/?#${version.replace(/\./g, "\\.")}$`).test(t.url));

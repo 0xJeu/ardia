@@ -8,7 +8,7 @@ entirely: no stage fetches them, and the hunks of Helium's patches that edit the
   pins           the Helium checkouts are at the pinned commits, unmodified, made for this Chromium; deps.ini
                  downloads nothing Ardia doesn't omit
   guard          every skipped patch is still in Helium's series, and no applied patch's added lines touch what a
-                 skip protects (Safe Storage, passwords, Sparkle, the product dir, mDNS) beyond the 0.19.4 allowlist
+                 skip protects (Safe Storage, passwords, Sparkle, the product dir, mDNS) beyond the reviewed allowlist
   patches        helium-chromium's series, then helium-macos's, minus SKIP and minus the omitted downloads' files;
                  patch -p1 -l -N with no fuzz (Helium allows 2; a patch that needs it fails here instead)
   fixups         saving passwords, addresses and cards on by default

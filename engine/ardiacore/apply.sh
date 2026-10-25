@@ -1428,10 +1428,8 @@ PY
 
 hook "$src/device/bluetooth/bluetooth_adapter_mac.h" "the Bluetooth adapter polls on demand" <<'PY'
 old = """  void PollAdapter();
-  void OnBackgroundPollComplete(AdapterState state);
 """
 new = """  void PollAdapter();
-  void OnBackgroundPollComplete(AdapterState state);
   void PollAdapterOnDemand();
   void OnLowEnergyCentralManagerStateUpdated() override;
 
@@ -1463,13 +1461,14 @@ edits = [
   }
 """),
     ("""void BluetoothAdapterMac::PollAdapter() {
-  base::ThreadPool::PostTaskAndReplyWithResult(
+  const bool was_present = IsPresent();
 """, """void BluetoothAdapterMac::PollAdapter() {
   poll_pending_ = true;
   poll_dirty_ = false;
-  base::ThreadPool::PostTaskAndReplyWithResult(
+  const bool was_present = IsPresent();
 """),
     ("""  RemoveTimedOutDevices();
+  AddPairedDevices();
 
   ui_task_runner_->PostDelayedTask(
       FROM_HERE,
@@ -1477,6 +1476,7 @@ edits = [
                      weak_ptr_factory_.GetWeakPtr()),
       base::Milliseconds(kPollIntervalMs));
 """, """  RemoveTimedOutDevices();
+  AddPairedDevices();
 
   if (g_ardia_bluetooth_poll_on_demand && !IsDiscovering()) {
     poll_pending_ = false;
@@ -1492,7 +1492,7 @@ edits = [
         base::Milliseconds(kPollIntervalMs));
   }
 """),
-    ("""void BluetoothAdapterMac::OnConnectedDeviceStateRetrieved(
+    ("""void BluetoothAdapterMac::ClassicDeviceAdded(
 """, """void BluetoothAdapterMac::PollAdapterOnDemand() {
   if (poll_pending_) {
     return;
@@ -1523,7 +1523,7 @@ void BluetoothAdapterMac::OnLowEnergyCentralManagerStateUpdated() {
   PollAdapterOnDemand();
 }
 
-void BluetoothAdapterMac::OnConnectedDeviceStateRetrieved(
+void BluetoothAdapterMac::ClassicDeviceAdded(
 """),
 ]
 def edit(s):

@@ -438,7 +438,7 @@ void WindowHost::ContinueClose() {
   }
   asking_ = nullptr;
   for (Browser* browser : browsers()) {
-    if (UnloadController::From(browser)->TryToCloseWindow(
+    if (UnloadController::From(browser)->RunBeforeUnloadForShutdown(
             false,
             base::BindRepeating(&WindowHost::OnBeforeUnloadAnswered,
                                 GetWeakPtr()))) {
@@ -483,7 +483,7 @@ void WindowHost::CancelClose() {
   asking_ = nullptr;
   ++close_attempt_;
   for (Browser* browser : browsers()) {
-    UnloadController::From(browser)->ResetTryToCloseWindow();
+    UnloadController::From(browser)->ResetBeforeUnloadForShutdown();
   }
   NotifyCloseCancelled();
 }
@@ -920,7 +920,7 @@ void WindowHost::QuitCancelled() {
     asking_ = nullptr;
     ++close_attempt_;
     for (Browser* browser : browsers()) {
-      UnloadController::From(browser)->ResetTryToCloseWindow();
+      UnloadController::From(browser)->ResetBeforeUnloadForShutdown();
     }
   }
   NotifyCloseCancelled();
