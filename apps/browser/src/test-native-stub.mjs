@@ -36,6 +36,8 @@ export const cancelledDownloads = [];
 export const cancelDownload = (id) => (cancelledDownloads.push(id), Promise.resolve());
 export const endedWebKitSessions = [];
 export const endWebKitPrivateSession = (session) => (endedWebKitSessions.push(session), Promise.resolve());
+export const removedStagings = [];
+export const removeLeftDownloadStaging = (download) => void (download.staging && removedStagings.push(download.staging));
 export const deletedProfileData = [];
 export const profileDataLeft = new Map();
 export const deleteProfileData = (profile) => (deletedProfileData.push(profile), Promise.resolve(profileDataLeft.get(profile) ?? []));

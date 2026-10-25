@@ -16,6 +16,7 @@ type WebKitNative = {
   externalAppAllowances(profile: string): Promise<ExternalAppAllowance[]>;
   removeExternalAppAllowance(profile: string, origin: string, scheme: string): Promise<void>;
   endPrivateSession(session: string): Promise<void>;
+  removeDownloadStaging(path: string, uuid: string): Promise<boolean>;
   sitePermissions(profile: string, origin: string): Promise<Partial<SiteSettings>>;
   setSitePermission(profile: string, origin: string, kind: string, value: string): Promise<void>;
   resolveExternalApp(id: string, open: boolean, remember: boolean): Promise<void>;
@@ -36,6 +37,10 @@ export const WEBKIT_SITE_SETTINGS: readonly SiteSettingType[] = ["camera", "micr
 export const webKitListener = <T>(name: "onDownload" | "onPermission" | "onPermissionDismissed", listener: (value: T) => void): EventSubscription =>
   WebKit ? WebKit.addListener(name as "onDownload", listener as (d: Download) => void) : NO_SUBSCRIPTION;
 
+export function removeLeftDownloadStaging(download: Download) {
+  const uuid = download.id.startsWith("wk-download-") ? download.id.slice("wk-download-".length) : "";
+  if (download.staging && uuid && download.state !== "downloading") void WebKit?.removeDownloadStaging(download.staging, uuid).catch(() => false);
+}
 export const endWebKitPrivateSession = (session: string) => WebKit?.endPrivateSession(session) ?? Promise.resolve();
 export const getWebKitSiteSettings = async (profile: string, origin: string): Promise<SiteSettings> =>
   ((await WebKit?.sitePermissions(profile, origin)) ?? {}) as SiteSettings;

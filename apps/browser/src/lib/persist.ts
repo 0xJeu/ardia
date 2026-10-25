@@ -1,4 +1,4 @@
-import { cancelDownload, endWebKitPrivateSession, type Download } from "@ardia/ardiacore";
+import { cancelDownload, endWebKitPrivateSession, removeLeftDownloadStaging, type Download } from "@ardia/ardiacore";
 import { readDocument, writeDocument } from "@ardia/shell";
 import { useBrowser, type BrowserState, type HydrateData } from "../store/browser";
 import { inPinnedContainer, isIncognitoProfile, newId, privateSession, snapshotTab } from "../store/model";
@@ -149,7 +149,11 @@ export function loadSession(): HydrateData | null {
     closedGroups: session.closedGroups ?? [],
     deletedGroups: session.deletedGroups ?? [],
     cleanedTabs: session.cleanedTabs ?? [],
-    downloads: (downloads?.downloads ?? []).filter((d) => downloadSession(d) === null).map((d, i) => ({ ...d, id: `saved-${i}` })),
+    downloads: (downloads?.downloads ?? []).filter((d) => downloadSession(d) === null).map((d, i) => {
+      removeLeftDownloadStaging(d);
+      const { staging: _, ...kept } = d;
+      return { ...kept, id: `saved-${i}` };
+    }),
   };
   if (session.settings && session.settings.restoreSession === false) {
     const now = Date.now();

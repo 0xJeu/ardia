@@ -461,8 +461,14 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 final class WebKitDownloads: NSObject, WKDownloadDelegate {
   private enum Phase { case running, pausing, paused, resuming, done }
 
+  private struct FileIdentity: Equatable {
+    let device: dev_t
+    let inode: ino_t
+  }
+
   private final class Item {
-    let id = "wk-download-" + UUID().uuidString
+    let uuid = UUID().uuidString
+    var id: String { "wk-download-" + uuid }
     var download: WKDownload?
     weak var webView: WKWebView?
     let url: String
@@ -472,7 +478,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     var filename = ""
     var path = ""
     var final: URL?
-    var replacesFinal = false
+    var replaces: FileIdentity?
     var staging: URL?
     var state = "downloading"
     var received: Int64 = 0
@@ -556,17 +562,28 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       "id": item.id, "url": item.url, "filename": item.filename, "path": item.path, "state": item.state,
       "paused": item.phase == .pausing || item.phase == .paused || item.phase == .resuming,
       "received": Double(item.received), "total": Double(item.total), "speed": item.speed, "mimeType": item.mimeType,
-      "profile": item.profile, "offTheRecord": false,
+      "profile": item.profile, "offTheRecord": false, "staging": item.staging?.path ?? NSNull(),
     ])
   }
 
-  static func makeStaging(in folder: URL) -> URL? {
-    for _ in 0..<4 {
-      let staging = folder.appendingPathComponent(".ardia-download-" + UUID().uuidString, isDirectory: true)
-      if mkdir(staging.path, 0o700) == 0 { return staging }
-      if errno != EEXIST { return nil }
-    }
-    return nil
+  static let stagingPrefix = ".ardia-download-"
+
+  static func makeStaging(in folder: URL, uuid: String) -> URL? {
+    let staging = folder.appendingPathComponent(stagingPrefix + uuid, isDirectory: true)
+    return mkdir(staging.path, 0o700) == 0 ? staging : nil
+  }
+
+  static func removeStaging(_ path: String, uuid: String) -> Bool {
+    guard UUID(uuidString: uuid) != nil, (path as NSString).lastPathComponent == stagingPrefix + uuid else { return false }
+    var info = stat()
+    guard lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else { return false }
+    return (try? FileManager.default.removeItem(atPath: path)) != nil
+  }
+
+  private static func identity(_ path: String) -> FileIdentity? {
+    var info = stat()
+    guard lstat(path, &info) == 0 else { return nil }
+    return FileIdentity(device: info.st_dev, inode: info.st_ino)
   }
 
   private static func dropStaging(_ item: Item) {
@@ -575,8 +592,8 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     try? FileManager.default.removeItem(at: staging)
   }
 
-  private static func place(_ file: URL, at final: URL, replacing: Bool) -> URL? {
-    if replacing, rename(file.path, final.path) == 0 { return final }
+  private static func place(_ file: URL, at final: URL, replacing: FileIdentity?) -> URL? {
+    if let replacing, identity(final.path) == replacing, rename(file.path, final.path) == 0 { return final }
     let base = final.deletingPathExtension().lastPathComponent
     let ext = final.pathExtension
     for n in 0...9999 {
@@ -601,7 +618,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     item.mimeType = response.mimeType ?? ""
     item.total = max(0, response.expectedContentLength)
     let accept = { (target: URL?, replacing: Bool) in
-      guard let target, let staging = Self.makeStaging(in: target.deletingLastPathComponent()) else {
+      guard let target, let staging = Self.makeStaging(in: target.deletingLastPathComponent(), uuid: item.uuid) else {
         item.phase = .done
         item.state = target == nil ? "cancelled" : "failed"
         self.report(item)
@@ -609,7 +626,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
         return
       }
       item.final = target
-      item.replacesFinal = replacing
+      item.replaces = replacing ? Self.identity(target.path) : nil
       item.staging = staging
       item.filename = target.lastPathComponent
       let file = staging.appendingPathComponent(item.filename)
@@ -630,7 +647,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     guard let item = item(for: download) else { return }
     item.phase = .done
     detach(item)
-    if let file = item.stagingFile, let final = item.final, let placed = Self.place(file, at: final, replacing: item.replacesFinal) {
+    if let file = item.stagingFile, let final = item.final, let placed = Self.place(file, at: final, replacing: item.replaces) {
       item.path = placed.path
       item.filename = placed.lastPathComponent
       item.state = "finished"
