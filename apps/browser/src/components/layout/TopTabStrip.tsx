@@ -2,7 +2,7 @@ import { ContextMenuArea, FadeLabel, raiseView, setTrafficLightsCenter, Surface,
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { create } from "zustand";
-import { closeTab, toggleMute } from "../../lib/actions";
+import { toggleMute } from "../../lib/actions";
 import { hex, layout, ThemeScope, useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { PageProfileContext, useIsActiveTab, usePageProfileId, useSettings, useTab, useTabLive, useWindowId, useWindowProfileId } from "../../store/hooks";
@@ -11,7 +11,8 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton, useHover } from "../primitives";
 import { DownloadsButton } from "../Downloads";
 import { clickTab } from "../sidebar/actions";
-import { openGroupMenu, openTabMenu } from "../sidebar/menus";
+import { pressGroupClose, useGroupCloseControl, useTabCloseControl } from "../sidebar/closeControl";
+import { middleClickTab, openGroupMenu, openTabMenu } from "../sidebar/menus";
 import { groupLabel } from "../../store/organize";
 import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
@@ -842,6 +843,7 @@ function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width: number
   const floating = useContext(FloatingStrip);
   const playing = useTabLive(tabId, (l) => l.playingAudio);
   const { palette, band } = useWebsiteBand(tabId);
+  const closeControl = useTabCloseControl(tabId);
   const { hovered, hoverProps } = useHover();
   if (!tab) return null;
   const title = tab.customTitle || tab.title || tab.url || "New Tab";
@@ -877,14 +879,14 @@ function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width: number
                 width={20}
                 hover={
                   <IconButton
-                    icon={tuck ? "minus" : "xmark"}
+                    icon={tuck ? "minus" : closeControl.icon}
                     size={9}
                     weight="semibold"
                     box={20}
                     radius={5}
                     color={onBand ? palette.icon : undefined}
-                    onPress={tuck ?? (() => void closeTab(tab.id))}
-                    tooltip={tuck ? "Hide in Group" : "Close Tab"}
+                    onPress={tuck ?? (() => middleClickTab(tab.id))}
+                    tooltip={tuck ? "Hide in Group" : closeControl.tooltip}
                   />
                 }
               />
@@ -1194,6 +1196,7 @@ function StripGroup({
   const windowId = useWindowId();
   const profileId = usePageProfileId();
   const group = useBrowser((s) => s.groups[entry.id]);
+  const groupClose = useGroupCloseControl(entry.id);
   const onto = useOnto({ kind: "group", id: entry.id });
   const { hovered, hoverProps } = useHover();
   const expanded = !entry.collapsed;
@@ -1295,7 +1298,7 @@ function StripGroup({
       ))}
       <Animated.View pointerEvents={expanded ? "box-none" : "none"} mouseDownCanMoveWindow={false} style={{ position: "absolute", top: ITEM_TOP, height: ITEM_HEIGHT, left: tail, flexDirection: "row", alignItems: "center", opacity: fade }}>
         <View style={{ width: 0.5, height: 15, backgroundColor: divider }} />
-        <IconButton icon="xmark" size={9} weight="semibold" box={24} radius={6} style={{ marginLeft: 1 }} onPress={() => useBrowser.getState().closeGroup(entry.id)} tooltip="Close Group" />
+        {groupClose && <IconButton icon={groupClose.icon} size={9} weight="semibold" box={24} radius={6} style={{ marginLeft: 1 }} onPress={() => pressGroupClose(entry.id)} tooltip={groupClose.tooltip} />}
       </Animated.View>
       <View
         {...hoverProps}

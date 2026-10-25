@@ -1,5 +1,5 @@
 import { showMenu, type MenuItem } from "@ardia/shell";
-import { closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
+import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
 import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
@@ -283,7 +283,7 @@ export async function openGroupMenu(windowId: string, groupId: string) {
   else if (choice === "copyMd") copyUrls(g.tabIds, true);
   else if (choice === "ungroup") s.ungroup(groupId);
   else if (choice === "bookmarkBar") s.moveGroupToBookmarksBar(groupId);
-  else if (choice === "close") s.closeGroup(groupId);
+  else if (choice === "close") void closeGroup(groupId);
   else if (choice === "delete") s.deleteGroup(groupId);
 }
 

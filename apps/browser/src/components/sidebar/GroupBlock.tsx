@@ -17,6 +17,7 @@ import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD
 import { groupEntries } from "./entries";
 import { dismissHover, useRowHover } from "./hover";
 import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./listMotion";
+import { pressGroupClose, useGroupCloseControl } from "./closeControl";
 import { openGroupMenu } from "./menus";
 import { registerRow, useSidebarUi } from "./state";
 import { TabIcon } from "./TabIcon";
@@ -129,6 +130,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
   const dropInto = useDropInto() === groupId;
   const { hovered, hoverProps } = useRowHover(windowId, collapsed && !renaming ? { kind: "group", id: groupId } : null);
   const countdown = useMeetingCountdown(groupId);
+  const closeControl = useGroupCloseControl(groupId);
   if (!group) return null;
   const target = { kind: "group" as const, id: groupId };
 
@@ -190,7 +192,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
               <HoverSlot
                 hovered={hovered && !renaming}
                 width={22}
-                hover={<IconButton icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => useBrowser.getState().closeGroup(groupId)} tooltip="Close Group" />}
+                hover={closeControl && <IconButton icon={closeControl.icon} size={10} weight="semibold" box={22} radius={6} onPress={() => pressGroupClose(groupId)} tooltip={closeControl.tooltip} />}
               >
                 {countdown.label && !renaming ? <MeetingTimeLabel label={countdown.label} urgent={countdown.urgent} /> : null}
               </HoverSlot>

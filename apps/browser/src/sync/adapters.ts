@@ -35,6 +35,7 @@ export const SYNCED_SETTINGS = [
   "balancedTopApps",
   "pinnedTabIconRing",
   "fadeUnloadedTabs",
+  "warnBeforeClosingTabGroup",
   "newTabPosition",
   "newTabOpens",
   "warnBeforeClosingLastTab",

@@ -56,6 +56,7 @@ export type Settings = {
   balancedTopApps: boolean;
   pinnedTabIconRing: boolean;
   fadeUnloadedTabs: boolean;
+  warnBeforeClosingTabGroup: boolean;
   batterySaverWhen: BatterySaverWhen;
   extensionSidePanelWidth: number;
 
@@ -135,6 +136,7 @@ export const DEFAULT_SETTINGS: Settings = {
   balancedTopApps: false,
   pinnedTabIconRing: false,
   fadeUnloadedTabs: false,
+  warnBeforeClosingTabGroup: true,
   batterySaverWhen: "lowBattery",
   extensionSidePanelWidth: 360,
   showFullUrl: false,

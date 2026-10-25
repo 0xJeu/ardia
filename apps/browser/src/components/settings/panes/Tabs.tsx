@@ -113,6 +113,7 @@ export function TabsPane() {
 
       <SectionHeader title="Tab groups" />
       <Group>
+        {toggle("warnBeforeClosingTabGroup", "tabs.warnBeforeClosingTabGroup")}
         {toggle("cmdClickCreatesTabGroup", "tabs.cmdClickCreatesTabGroup")}
         {toggle("optShiftClickOpensInGroup", "tabs.optShiftClickOpensInGroup")}
         {toggle("autoGroupMeetingTabs", "tabs.autoGroupMeetingTabs")}

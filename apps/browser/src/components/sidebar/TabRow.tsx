@@ -14,6 +14,7 @@ import { clickTab, commitRename, endRename, startRename, tabTitle } from "./acti
 import { useDragItem, useDropOnto } from "./dnd";
 import { useShift, type EntryMotion } from "./entryMotion";
 import { dismissHover, useRowHover } from "./hover";
+import { useTabCloseControl } from "./closeControl";
 import { middleClickTab, openTabMenu } from "./menus";
 import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
 import { registerRow, useSidebarUi } from "./state";
@@ -64,6 +65,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const { hovered, hoverProps } = useRowHover(windowId, renaming ? null : { kind: "tab", id: tabId });
   const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
   const backToPin = useHover();
+  const closeControl = useTabCloseControl(tabId);
   if (!tab) return null;
   const resettable = isPinnedRow(tab) && awayFromPin(tab);
   const resetting = resettable && backToPin.hovered && !renaming;
@@ -145,7 +147,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                   <HoverSlot
                     hovered={hovered && !renaming}
                     width={22}
-                    hover={<IconButton icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => middleClickTab(tab.id)} tooltip="Close Tab (⌘W)" />}
+                    hover={<IconButton icon={closeControl.icon} size={10} weight="semibold" box={22} radius={6} onPress={() => middleClickTab(tab.id)} tooltip={closeControl.tooltip} />}
                   >
                     {loading && <ActivitySpinner style={{ width: 12, height: 12, marginRight: 2 }} />}
                   </HoverSlot>

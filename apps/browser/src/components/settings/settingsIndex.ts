@@ -188,6 +188,11 @@ const ROWS: Record<SettingsPane, Section[]> = {
     {
       section: "Tab groups",
       rows: {
+        warnBeforeClosingTabGroup: {
+          title: "Warn before closing a tab group",
+          description: "Asks before Close Group closes a group and its tabs. A pinned group's − unloads its tabs instead, and keeps the group.",
+          keywords: ["confirm", "close group", "folder", "accidentally"],
+        },
         cmdClickCreatesTabGroup: { title: "⌘-clicking links creates tab groups", keywords: ["command click", "cmd click"] },
         optShiftClickOpensInGroup: {
           title: "⌥⇧-click opens tab in group",
