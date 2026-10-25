@@ -59,7 +59,7 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: false
-      phase_minutes: ${{ inputs.first_phase_minutes || 0 }}
+      phase_minutes: ${{ fromJSON(inputs.first_phase_minutes || 0) }}
       sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_02:
