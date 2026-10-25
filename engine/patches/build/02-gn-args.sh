@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Step 2: writes out/Release_GN_<cpu>/args.gn from gn_defines.sh (the complete list) and runs
-# `gn gen`; <cpu> is AC_TARGET_CPU, arm64 (the default) or x64, and AC_GN_EXTRA_ARGS adds args.
+# `gn gen`; <cpu> is AC_TARGET_CPU, arm64 (the default) or x64.
 # Run it after step 4 (the branding file our series adds must exist), and again
 # whenever gn_defines.sh changes.
 set -euo pipefail

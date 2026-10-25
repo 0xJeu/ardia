@@ -11,10 +11,6 @@ on:
         description: Stop the first phase's compile after this many minutes (0 = use the whole job), to prove the checkpoint early
         type: number
         default: 0
-      sccache:
-        description: Compile through sccache on the Actions cache
-        type: boolean
-        default: true
   push:
     branches: [main]
     paths:
@@ -60,7 +56,6 @@ jobs:
     with:
       resume: false
       phase_minutes: ${{ fromJSON(inputs.first_phase_minutes || 0) }}
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_02:
     needs: phase_01
@@ -68,7 +63,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_03:
     needs: phase_02
@@ -76,7 +70,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_04:
     needs: phase_03
@@ -84,7 +77,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_05:
     needs: phase_04
@@ -92,7 +84,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_06:
     needs: phase_05
@@ -100,7 +91,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_07:
     needs: phase_06
@@ -108,7 +98,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_08:
     needs: phase_07
@@ -116,7 +105,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_09:
     needs: phase_08
@@ -124,7 +112,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   phase_10:
     needs: phase_09
@@ -132,7 +119,6 @@ jobs:
     uses: ./.github/workflows/engine-x64-phase.yml
     with:
       resume: true
-      sccache: ${{ github.event_name == 'push' || inputs.sccache }}
 
   publish:
     needs: [plan, phase_01, phase_02, phase_03, phase_04, phase_05, phase_06, phase_07, phase_08, phase_09, phase_10]

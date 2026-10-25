@@ -9,9 +9,6 @@ on:
       phase_minutes:
         type: number
         default: 0
-      sccache:
-        type: boolean
-        default: true
     outputs:
       status:
         value: ${{ jobs.phase.outputs.status }}
@@ -29,7 +26,6 @@ jobs:
       run:
         shell: bash
     env:
-      ENGINE_SCCACHE: ${{ inputs.sccache }}
       ENGINE_PHASE_MINUTES: ${{ inputs.phase_minutes }}
     steps:
       - uses: actions/checkout@v7
@@ -37,11 +33,6 @@ jobs:
           persist-credentials: false
       - name: Free disk, pick Xcode 27.1
         run: .github/engine/x64.sh setup
-      - if: inputs.sccache
-        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba
-        with:
-          version: v0.19.0
-          disable_annotations: true
       - if: inputs.resume
         uses: actions/download-artifact@v8
         with:

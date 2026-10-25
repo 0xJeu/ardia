@@ -11,14 +11,12 @@ lockfile=/tmp/ac-chromium.lockf
 job_minutes=350
 reserve_minutes=50
 min_build_minutes=10
+stop_grace_minutes=15
 ckpt="${RUNNER_TEMP:?}/checkpoint"
 dist="${RUNNER_TEMP:?}/dist"
 
 export AC_TARGET_CPU=x64 AC_FULL_PRIORITY=1
 export PATH="/usr/bin:$PATH"
-if [[ "${ENGINE_SCCACHE:-}" == true ]]; then
-  export AC_GN_EXTRA_ARGS='cc_wrapper="sccache"' SCCACHE_GHA_ENABLED=true SCCACHE_GHA_VERSION=engine-x64 SCCACHE_IDLE_TIMEOUT=0
-fi
 
 say() { printf '\n==> %s (%s)\n' "$*" "$(date -u +%H:%M:%S)"; }
 locked() { lockf -k "$lockfile" "$@"; }
@@ -44,7 +42,7 @@ setup() {
   sudo rm -rf "${ANDROID_HOME:-$HOME/Library/Android/sdk}" "$HOME/.dotnet" /usr/local/share/dotnet \
     "${AGENT_TOOLSDIRECTORY:-$HOME/hostedtoolcache}"/{CodeQL,go,Ruby,PyPy,node} &
   (xcrun simctl delete all; xcrun simctl runtime delete all) >/dev/null 2>&1 &
-  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet coreutils xz brotli >/dev/null
+  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet xz brotli >/dev/null
   wait
   xcrun -f metal >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
   say "disk after cleanup"
@@ -101,27 +99,57 @@ restore() {
   df -h /
 }
 
+siso_state() {
+  ls -la "$out"/.siso_* "$out"/siso* 2>/dev/null || true
+  grep -h -m 3 -E 'hashfs loaderr|unable to do incremental' "$out"/siso*.INFO* 2>/dev/null || true
+}
+
 build_phase() {
-  local deadline now budget rc=0 limit="${ENGINE_PHASE_MINUTES:-0}"
+  local deadline now stop pid pgid rc=0 limit="${ENGINE_PHASE_MINUTES:-0}" stopped=0 settle
   deadline=$(($(started) + (job_minutes - reserve_minutes) * 60))
   now=$(date +%s)
-  budget=$((deadline - now))
-  if [[ "$limit" =~ ^[0-9]+$ ]] && ((limit > 0 && limit * 60 < budget)); then budget=$((limit * 60)); fi
-  if ((budget < min_build_minutes * 60)); then
+  stop=$deadline
+  if [[ "$limit" =~ ^[0-9]+$ ]] && ((limit > 0 && now + limit * 60 < stop)); then stop=$((now + limit * 60)); fi
+  if ((stop - now < min_build_minutes * 60)); then
     say "no time left to build in this phase: checkpoint now"
     output status running
     return 0
   fi
-  [[ -z "${AC_GN_EXTRA_ARGS:-}" ]] || sccache --show-stats || true
-  say "step 5: build for $((budget / 60)) min at most"
-  gtimeout -k 10m -s TERM "$budget" lockf -k "$lockfile" "$build/05-build.sh" --apply || rc=$?
-  [[ -z "${AC_GN_EXTRA_ARGS:-}" ]] || sccache --show-stats || true
-  if ((rc == 0)); then
+  say "siso state before the build"
+  siso_state
+  say "step 5: build for $(((stop - now) / 60)) min at most"
+  set -m
+  lockf -k "$lockfile" "$build/05-build.sh" --apply &
+  pid=$!
+  set +m
+  pgid=$pid
+  while kill -0 "$pid" 2>/dev/null; do
+    if (($(date +%s) >= stop)); then
+      say "phase time is up: stopping the build (siso saves its state on SIGTERM)"
+      kill -TERM -- "-$pgid" 2>/dev/null || true
+      stopped=1
+      break
+    fi
+    sleep 20
+  done
+  wait "$pid" || rc=$?
+  if ((stopped)); then
+    settle=$(($(date +%s) + stop_grace_minutes * 60))
+    while pgrep -g "$pgid" >/dev/null; do
+      if (($(date +%s) >= settle)); then
+        say "the build didn't stop in $stop_grace_minutes min: killing it"
+        pgrep -lg "$pgid" || true
+        kill -KILL -- "-$pgid" 2>/dev/null || true
+        break
+      fi
+      sleep 5
+    done
+    say "siso state after the stop"
+    siso_state
+    output status running
+  elif ((rc == 0)); then
     say "chrome_framework built"
     output status finished
-  elif ((rc == 124 || rc == 137)) || (($(date +%s) >= now + budget)); then
-    say "phase time is up (exit $rc): checkpoint and resume in the next phase"
-    output status running
   else
     say "the build failed (exit $rc)"
     exit "$rc"
