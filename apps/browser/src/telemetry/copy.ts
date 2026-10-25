@@ -11,7 +11,7 @@ export const SHARING_COPY = {
     notNow: "Not now",
   },
   dailyCount:
-    "Once a day, one anonymous “opened today” count: app version, update channel, macOS version and chip, and whether it's this copy's first day, week or month. It has no persistent ID (each day's count gets a new random one) and nothing else, and it's sent whether or not this is on.",
+    "One anonymous “opened today” count a day: app version, update channel, macOS version, chip, and whether it's this copy's first day, week or month. No persistent ID.",
   dailyCountShort: "Either way, Ardia sends one anonymous “opened today” count a day, with its version and macOS version and no persistent ID.",
   updateChecks: "ardia.dev counts update checks by version and day, and whether it's this copy's first. Nothing else.",
   switchFile:
