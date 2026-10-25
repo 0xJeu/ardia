@@ -274,7 +274,9 @@ appcasts onto the published feeds, creates the release as latest with the DMGs, 
 both arches, checks `releases/latest/download/appcast.xml`, `appcast-x64.xml` and their ardia.dev URLs list the
 version, and updates the tap when it has `HOMEBREW_TAP_TOKEN` (else run `update-tap.sh <version>`). Locally:
 `git tag v<version> && git push origin main v<version>`, then `.claude/skills/release/scripts/publish.sh <version>`
-(`RELEASE_DIST_X64=dist/<version>-x64` adds an Intel build). `intel=false` ships arm64 alone (a stable then carries the latest release's `appcast-x64.xml` over unchanged, so
+(`RELEASE_DIST_X64=dist/<version>-x64` adds an Intel build). It holds the `release-lock` branch while it publishes, so
+it refuses to run alongside another publish, local or CI, naming the holder; `--break-lock` clears a lock older than
+2 h left by a publish that died. `intel=false` ships arm64 alone (a stable then carries the latest release's `appcast-x64.xml` over unchanged, so
 Intel copies keep their feed). The build job has no secrets; a separate sign job, which installs nothing, holds the
 keys and deletes them before the launch check (`docs/releasing.md` › CI releases).
 

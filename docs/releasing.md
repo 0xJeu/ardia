@@ -243,7 +243,11 @@ the arm64 engine if `engine/` changed (below).
   carries the latest release's `appcast-x64.xml` over unchanged, so `releases/latest/download/appcast-x64.xml` keeps
   answering Intel copies; a nightly without one leaves that file where it is. Before creating anything, `publish.sh`
   refuses a build that isn't above every other build in each merged feed, and a stable whose version isn't above the
-  latest stable release, so a stale build never moves `latest` backward (locally too). The Homebrew tap needs a token that can push
+  latest stable release, so a stale build never moves `latest` backward (locally too). Local and CI publishes share one
+  lock, the branch `release-lock` (created atomically through GitHub's API, its commit message naming the holder and
+  the time): `publish.sh` takes it before it reads the latest release and the feeds and gives it back on exit, so two
+  publishes can't build on the same snapshot. A second publish meanwhile stops, naming the holder; a lock older than
+  2 h (a publish that died) is broken only with `--break-lock`. Dry runs take it too, and write nothing else. The Homebrew tap needs a token that can push
   to `mantrakp04/homebrew-tap` (`HOMEBREW_TAP_TOKEN`); without it, run `update-tap.sh <version>` here afterwards.
 
 `dry_run` (on by default) builds a release candidate (`release.sh --rc`: the next build number, no notes needed),
