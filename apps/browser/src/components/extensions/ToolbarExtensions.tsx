@@ -1,6 +1,6 @@
 import { terminateCastRoute, type ActionState, type CastRoute, type InstalledExtension } from "@ardia/ardiacore";
 import { ContextMenuArea, showMenu, Symbol } from "@ardia/shell";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
@@ -8,7 +8,7 @@ import { toggleCastPicker, useCastRoutes } from "../media/cast";
 import type { ToolbarPalette } from "../layout/toolbarColors";
 import { usePages } from "../layout/pageState";
 import { useHover } from "../primitives";
-import { anchorKey, toolbarAnchors } from "./bridge";
+import { dropToolbarAnchor, setToolbarAnchor } from "./bridge";
 import {
   activateExtension,
   openManageExtensions,
@@ -45,21 +45,27 @@ export function useToolbarExtensionsWidth(windowId: string, limit = Infinity): n
   return count ? count * PITCH - GAP + 6 : 0;
 }
 
-export const ToolbarExtensions = memo(function ToolbarExtensions({
-  tabId,
-  windowId,
-  palette,
-  top,
-  right,
-  limit = Infinity,
-}: {
+type ToolbarExtensionsProps = {
   tabId: string;
   windowId: string;
   palette: ToolbarPalette;
   top: number;
   right: number;
   limit?: number;
-}) {
+};
+
+export const ToolbarExtensions = memo(function ToolbarExtensions(props: ToolbarExtensionsProps) {
+  return <TabToolbarExtensions key={`${props.windowId}|${props.tabId}`} {...props} />;
+});
+
+function TabToolbarExtensions({
+  tabId,
+  windowId,
+  palette,
+  top,
+  right,
+  limit = Infinity,
+}: ToolbarExtensionsProps) {
   const { pinned, overflow, routes } = useToolbarExtensions(windowId, limit);
   const browserId = usePages((p) => {
     for (const [id, tab] of Object.entries(p.browsers)) if (tab === tabId) return Number(id);
@@ -75,40 +81,37 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
       {overflow && <OverflowButton windowId={windowId} tabId={tabId} palette={palette} />}
     </View>
   );
-});
+}
 
 function EmptyAnchor({ windowId, tabId, top, right }: { windowId: string; tabId: string; top: number; right: number }) {
-  const { ref, measure } = useAnchor(anchorKey(windowId, tabId, "*"));
+  const { ref, measure } = useAnchor(windowId, tabId, "*");
   return <View ref={ref} pointerEvents="none" style={{ position: "absolute", top, right, width: BUTTON, height: BUTTON }} onLayout={() => void measure()} />;
 }
 
-function useAnchor(key: string) {
+function useAnchor(windowId: string, tabId: string, slot: string) {
   const ref = useRef<View>(null);
-  const liveKey = useRef(key);
-  liveKey.current = key;
-  const registered = useRef<{ key: string; anchor: Anchor } | null>(null);
+  const [owner] = useState(() => ({ windowId, tabId, slot }));
+  const mine = useRef<Anchor | null>(null);
+  useEffect(
+    () => () => {
+      if (mine.current) dropToolbarAnchor(owner.windowId, owner.tabId, owner.slot, mine.current);
+      mine.current = null;
+    },
+    [owner],
+  );
   const measure = () =>
     new Promise<Anchor>((resolve) => {
       const view = ref.current;
-      const measuredFor = liveKey.current;
       if (!view) return resolve({ x: 0, y: 0, width: BUTTON, height: BUTTON });
       view.measureInWindow((x, y, width, height) => {
         const anchor = { x, y, width, height };
-        if (ref.current && liveKey.current === measuredFor) {
-          registered.current = { key: measuredFor, anchor };
-          toolbarAnchors.set(measuredFor, anchor);
+        if (ref.current) {
+          mine.current = anchor;
+          setToolbarAnchor(owner.windowId, owner.tabId, owner.slot, anchor);
         }
         resolve(anchor);
       });
     });
-  useEffect(() => {
-    void measure();
-    return () => {
-      const mine = registered.current;
-      if (mine && toolbarAnchors.get(mine.key) === mine.anchor) toolbarAnchors.delete(mine.key);
-      registered.current = null;
-    };
-  }, [key]);
   return { ref, measure };
 }
 
@@ -119,7 +122,7 @@ function ExtensionButton({ ext, windowId, tabId, browserId, palette }: { ext: In
   const state = held.current;
   const open = useExtensions((e) => e.popup?.windowId === windowId && e.popup.extensionId === ext.id);
   const { hovered, hoverProps } = useHover();
-  const { ref, measure } = useAnchor(anchorKey(windowId, tabId, ext.id));
+  const { ref, measure } = useAnchor(windowId, tabId, ext.id);
   const badge = state?.badgeText ?? "";
   const dimmed = state ? !state.enabled : false;
   const title = state?.title || ext.actionTitle || ext.name;
@@ -225,7 +228,7 @@ function CastButton({ windowId, tabId, routes, palette }: { windowId: string; ta
 
 function OverflowButton({ windowId, tabId, palette }: { windowId: string; tabId: string; palette: ToolbarPalette }) {
   const { hovered, hoverProps } = useHover();
-  const { ref, measure } = useAnchor(anchorKey(windowId, tabId, "*"));
+  const { ref, measure } = useAnchor(windowId, tabId, "*");
   const onPress = async () => {
     const anchor = await measure();
     const enabled = windowExtensions(useBrowser.getState(), windowId);
