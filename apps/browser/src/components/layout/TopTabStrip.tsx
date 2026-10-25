@@ -1,9 +1,11 @@
-import { ContextMenuArea, FadeLabel, raiseView, setTrafficLightsCenter, Surface, Symbol, WindowDragRegion } from "@ardia/shell";
+import { ContextMenuArea, DockSelection, FadeLabel, raiseView, setTrafficLightsCenter, Surface, Symbol, WindowDragRegion } from "@ardia/shell";
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { create } from "zustand";
 import { toggleMute } from "../../lib/actions";
 import { hex, layout, ThemeScope, useTheme } from "../../lib/theme";
+import { useTileTheme } from "../../lib/tileTheme";
+import { liquidGlass } from "../glass";
 import { useBrowser } from "../../store/browser";
 import { PageProfileContext, useIsActiveTab, usePageProfileId, useSettings, useTab, useTabLive, useWindowId, useWindowProfileId } from "../../store/hooks";
 import { ProfileIndicator, useProfileIndicatorWidth } from "../ProfileIndicator";
@@ -1059,27 +1061,44 @@ function PinnedDock({ tabIds }: { tabIds: string[] }) {
   );
 }
 
+const PINNED_FACE_INSET = 2;
+const PINNED_FACE_RADIUS = 8;
+const PINNED_RING_STROKE = 2;
+
 function PinnedFace({ tabId, active, hovered, pressed }: { tabId: string; active: boolean; hovered: boolean; pressed: boolean }) {
   const theme = useTheme();
   const tab = useTab(tabId);
+  const tileTheme = useTileTheme(tab?.url ?? "", tab?.favicon, tab?.customIcon, tab?.profileId ?? "");
+  const iconRing = useSettings((s) => s.pinnedTabIconRing);
   if (!tab) return null;
+  const ring = active && liquidGlass && iconRing && tileTheme ? tileTheme : null;
+  const template = ring?.theme.kind === "template" ? ring.theme : null;
+  const face = { position: "absolute", left: PINNED_FACE_INSET, right: PINNED_FACE_INSET, top: PINNED_FACE_INSET, bottom: PINNED_FACE_INSET } as const;
   return (
     <View style={{ width: PINNED_CELL, height: ITEM_HEIGHT - 1, alignItems: "center", justifyContent: "center" }}>
-      {(active || hovered || pressed) && (
+      {ring ? (
+        <DockSelection
+          image={ring.image}
+          emoji={ring.emoji}
+          theme={ring.theme.kind}
+          fill={template?.fill}
+          stroke={template?.stroke}
+          cornerRadius={PINNED_FACE_RADIUS}
+          strokeWidth={PINNED_RING_STROKE}
+          dark={theme.dark}
+          style={face}
+        />
+      ) : (active || hovered || pressed) && (
         <View
           style={{
-            position: "absolute",
-            left: 2,
-            right: 2,
-            top: 2,
-            bottom: 2,
-            borderRadius: 8,
+            ...face,
+            borderRadius: PINNED_FACE_RADIUS,
             backgroundColor: pressed ? theme.tabPressed : active ? theme.pinnedSelectedFill : theme.tabHover,
           }}
         />
       )}
       <View pointerEvents="none">
-        <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />
+        {template ? <View style={{ width: 16, height: 16 }} /> : <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />}
         <TabBadges tabId={tab.id} pip={false} />
       </View>
     </View>
