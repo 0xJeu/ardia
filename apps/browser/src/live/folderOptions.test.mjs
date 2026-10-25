@@ -6,7 +6,7 @@ const savedBeforeOptions = { id: "old", profileId: "p", kind: "pullRequests", na
 docs.set("live.json", JSON.stringify({ folders: { old: savedBeforeOptions }, folderOrder: ["old"] }));
 const { manualRefresh, refreshFolder } = await import("./engine.ts");
 const { SOURCES } = await import("./sources.ts");
-const { folderRows } = await import("./rows.ts");
+const { folderRows, liveTabPlace } = await import("./rows.ts");
 const { applyFetch, createFolder, finishCompleting, hideItems, live, setLive, updateFolder } = await import("./store.ts");
 
 const pr = (id, number, headRef, baseRef) => ({
@@ -165,4 +165,15 @@ test("a refresh doesn't ask about hidden pull requests from a source the folder 
   }
   assert.deepEqual(asked, []);
   assert.deepEqual(live().hidden[id].map((it) => it.id), ["x"]);
+});
+
+test("an open tab of a hidden pull request stays out of the folder instead of coming back as a stray row", () => {
+  const id = createFolder("p", "pullRequests", []);
+  applyFetch(id, stacked, {});
+  hideItems(id, [stacked[0]]);
+  const shown = new Set(live().items[id].map((it) => it.id));
+  const hidden = new Set(live().hidden[id].map((it) => it.id));
+  assert.equal(liveTabPlace("a", shown, hidden), "hidden");
+  assert.equal(liveTabPlace("b", shown, hidden), "row");
+  assert.equal(liveTabPlace("gone", shown, hidden), "stray", "a tab whose pull request left the fetch still shows as its own row");
 });

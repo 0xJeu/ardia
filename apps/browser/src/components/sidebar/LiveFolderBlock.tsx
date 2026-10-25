@@ -6,7 +6,7 @@ import { closeTab } from "../../lib/actions";
 import { hex, layout, useTheme } from "../../lib/theme";
 import { COMPLETION_MS, errorText, manualRefresh, openLiveItem, statusText } from "../../live/engine";
 import { prBadge } from "../../live/github";
-import { folderRows, type FolderRow } from "../../live/rows";
+import { folderRows, liveTabPlace, type FolderRow } from "../../live/rows";
 import { liveFolderIcon, SOURCES } from "../../live/sources";
 import { setLive, updateFolder, useLive } from "../../live/store";
 import type { CompletedItem, LiveFolder, LiveItem } from "../../live/types";
@@ -43,13 +43,18 @@ export const LiveFolderBlock = memo(function LiveFolderBlock({ folderId, windowI
   const collapsed = folded || !!folder?.collapsed;
   const rows = useMemo(() => (folder ? folderRows(folder, items, showAll) : []), [folder, items, showAll]);
   const itemIds = useMemo(() => new Set(items.map((i) => i.id)), [items]);
+  const hiddenList = useLive((s) => s.hidden[folderId] ?? EMPTY);
+  const hiddenIds = useMemo(() => new Set(hiddenList.map((i) => i.id)), [hiddenList]);
   const profileId = usePageProfileId();
   const strays = useBrowser(
-    useShallow((s) => viewTabIds(s, windowId, profileId).filter((id) => s.tabs[id]?.liveItem?.folderId === folderId && !itemIds.has(s.tabs[id]!.liveItem!.itemId))),
+    useShallow((s) =>
+      viewTabIds(s, windowId, profileId).filter((id) => s.tabs[id]?.liveItem?.folderId === folderId && liveTabPlace(s.tabs[id]!.liveItem!.itemId, itemIds, hiddenIds) === "stray"),
+    ),
   );
   const activeTab = useBrowser((s) => {
     const id = activeTabId(s, windowId, profileId) ?? "";
-    return s.tabs[id]?.liveItem?.folderId === folderId ? id : null;
+    const liveItem = s.tabs[id]?.liveItem;
+    return liveItem?.folderId === folderId && liveTabPlace(liveItem.itemId, itemIds, hiddenIds) !== "hidden" ? id : null;
   });
   const activeItem = useBrowser((s) => (activeTab ? (s.tabs[activeTab]?.liveItem?.itemId ?? null) : null));
   const completed = useCompletedShown(folderId).length > 0;
