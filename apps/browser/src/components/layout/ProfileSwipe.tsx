@@ -39,7 +39,7 @@ export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "side
       received.push({ at: performance.now(), surface, profile: useBrowser.getState().windows[windowId]?.profileId, ...event });
     }
     const e = pageWidth ? { ...event, width: pageWidth } : event;
-    if (e.phase === "swipe") return pager.step(e.direction === "back" ? -1 : 1);
+    if (e.phase === "swipe" || e.phase === "button") return pager.step(e.direction === "back" ? -1 : 1);
     if (e.phase === "wheel") pager.wheel(e);
   };
 

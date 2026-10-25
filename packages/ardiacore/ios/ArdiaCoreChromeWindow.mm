@@ -2312,7 +2312,7 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
   }
   if ([action hasPrefix:@"mouse:"]) {
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@":"];
-    if (parts.count < 3) return @"mouse:<down|up|dragged|moved|otherdown|otherup>:<x>,<y>[,<clickCount>[,<flags>]]";
+    if (parts.count < 3) return @"mouse:<down|up|dragged|moved|otherdown|otherup>:<x>,<y>[,<clickCount>[,<flags>[,<button>]]]";
     NSDictionary<NSString *, NSNumber *> *types = @{
       @"down" : @(NSEventTypeLeftMouseDown), @"up" : @(NSEventTypeLeftMouseUp),
       @"dragged" : @(NSEventTypeLeftMouseDragged), @"moved" : @(NSEventTypeMouseMoved),
@@ -2331,7 +2331,7 @@ NSDictionary *ProbeFrame(NSWindow *window, ACWindowFullScreen *state, CFTimeInte
     if (other || n.count > 3) {
       CGEventRef cg = event.CGEvent;
       if (n.count > 3) CGEventSetFlags(cg, (CGEventFlags)n[3].longLongValue);
-      if (other) CGEventSetIntegerValueField(cg, kCGMouseEventButtonNumber, kCGMouseButtonCenter);
+      if (other) CGEventSetIntegerValueField(cg, kCGMouseEventButtonNumber, n.count > 4 ? n[4].longLongValue : kCGMouseButtonCenter);
       event = [NSEvent eventWithCGEvent:cg];
     }
     [NSApp postEvent:event atStart:NO];

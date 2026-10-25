@@ -3,7 +3,7 @@ import { forwardRef, useImperativeHandle, useRef } from "react";
 import { Animated, type NativeSyntheticEvent, type ViewProps } from "react-native";
 
 export type SwipeEvent = {
-  phase: "began" | "changed" | "ended" | "cancelled" | "swipe" | "wheel";
+  phase: "began" | "changed" | "ended" | "cancelled" | "swipe" | "wheel" | "button";
   direction: "back" | "forward";
   distance: number;
   dy: number;
