@@ -42,8 +42,9 @@ setup() {
   sudo rm -rf "${ANDROID_HOME:-$HOME/Library/Android/sdk}" "$HOME/.dotnet" /usr/local/share/dotnet \
     "${AGENT_TOOLSDIRECTORY:-$HOME/hostedtoolcache}"/{CodeQL,go,Ruby,PyPy,node} &
   (xcrun simctl delete all; xcrun simctl runtime delete all) >/dev/null 2>&1 &
-  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet xz brotli >/dev/null
+  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --quiet coreutils xz brotli >/dev/null
   wait
+  command -v timeout >/dev/null || { echo "no timeout on PATH: 01-sync.sh needs it" >&2; exit 1; }
   xcrun -f metal >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
   say "disk after cleanup"
   df -h /
