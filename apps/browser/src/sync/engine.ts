@@ -31,6 +31,7 @@ import {
   passwordsAdapter,
   profilesAdapter,
   settingsAdapter,
+  settingsToReapply,
   sharedDataAdapter,
   type DeviceRecord,
   type DeviceTabs,
@@ -330,6 +331,7 @@ async function runCycle({ retiring = false } = {}) {
     const device = doc.deviceId;
     const app = (doc.scopes[APP_SCOPE] ??= { ...emptyScope(), awaitRemote: doc.joining });
     settleAppliedThemes(app);
+    if (doc.types.settings && !retiring) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
     await syncScope({
       scope: APP_SCOPE,
       state: app,

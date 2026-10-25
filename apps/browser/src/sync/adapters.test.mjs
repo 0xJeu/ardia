@@ -33,10 +33,11 @@ class Folder {
 }
 
 class Device {
-  constructor(id, folder, { legacy = false } = {}) {
+  constructor(id, folder, { legacy = false, settings } = {}) {
     this.id = id;
     this.folder = folder;
     this.legacy = legacy;
+    this.settings = settings;
     S().hydrate({});
     useBrowser.setState({ historyReady: { default: true }, bookmarksReady: { default: true } });
     this.browser = S();
@@ -68,7 +69,8 @@ class Device {
         options,
       });
     try {
-      const app = await run("app", [adapters.settingsAdapter]);
+      if (!this.settings) this.scopes.app.unapplied = [...new Set([...this.scopes.app.unapplied, ...adapters.settingsToReapply(this.scopes.app.records)])];
+      const app = await run("app", [this.settings ?? adapters.settingsAdapter]);
       const p = await run(
         profileId === "default" ? "p" : `p:${profileId}`,
         [
@@ -1881,4 +1883,35 @@ test("a snapshot dropping the anchor in the cycle a newer order record arrives d
   const records = { [orderKey]: { v: { a: "x" }, h: "0mvlhz4qh.0009.devB" } };
   const extraction = pinnedArea.pinnedOrderAdapter("default").extract((k) => (k === orderKey ? { a: "x" } : undefined), () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
   assert.deepEqual(extraction.values.get(orderKey), { a: "x" }, "the group keeps waiting for its row");
+});
+
+const settingsWithout = (names) => ({
+  ...adapters.settingsAdapter,
+  extract: (...args) => {
+    const extraction = adapters.settingsAdapter.extract(...args);
+    const values = new Map([...extraction.values].filter(([k]) => !names.includes(k.slice(4))));
+    return { values, ignore: (key) => !values.has(key) };
+  },
+  apply: (visible, changed, base, records) => adapters.settingsAdapter.apply(visible, new Set([...changed].filter((k) => !names.includes(k.slice(4)))), base, records),
+});
+
+test("settings received while this Mac ran a version that didn't sync them take effect once it does, and its own choices stay", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder, { settings: settingsWithout(["selectedTabGlow", "pageScrollBars"]) });
+  for (const d of [a, b]) d.with(() => S().createWindow({ url: `https://${d.id}.example/` }));
+  await syncAll([a, b]);
+  b.with(() => S().updateSettings({ pageScrollBars: "system" }));
+  a.with(() => S().updateSettings({ selectedTabGlow: "off", pageScrollBars: "thin" }));
+  await syncAll([a, b]);
+  assert.equal(b.with(() => S().settings.selectedTabGlow), "full", "the older version leaves it alone");
+  assert.ok("set:selectedTabGlow" in b.scopes.app.base && !b.scopes.app.unapplied.includes("set:selectedTabGlow"), "and counts it as applied");
+
+  b.settings = undefined;
+  await syncAll([b, a]);
+  assert.equal(b.with(() => S().settings.selectedTabGlow), "off", "the synced value takes effect after the upgrade");
+  assert.ok(!b.with(() => S().settings.chosen?.includes("selectedTabGlow")), "as a synced value, not a choice made here");
+  assert.equal(b.with(() => S().settings.pageScrollBars), "system", "a value chosen here stays");
+  assert.equal(a.with(() => S().settings.pageScrollBars), "system", "and goes out as the newer edit");
+  assert.equal((await b.sync()).published, 0, "settled");
 });

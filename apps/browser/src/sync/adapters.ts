@@ -1,5 +1,5 @@
 import { addHistoryVisits, deleteHistoryUrls, deletePassword, savePassword } from "@ardia/ardiacore";
-import { assignPositions, canonical, SyncNative, type Adapter, type SavedLogin } from "@ardia/sync";
+import { assignPositions, canonical, SyncNative, type Adapter, type SavedLogin, type SyncRecord } from "@ardia/sync";
 import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../store/bookmarks";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../store/history";
 import { useBrowser } from "../store/browser";
@@ -97,6 +97,17 @@ export const settingsAdapter: Adapter = {
     if (Object.keys(patch).length) store().updateSettings(patch as Partial<Settings>, { fromSync: true });
   },
 };
+
+export function settingsToReapply(records: Record<string, SyncRecord>): string[] {
+  const settings = store().settings;
+  const chosen = new Set(settings.chosen ?? []);
+  return SYNCED_SETTINGS.flatMap((name) => {
+    const key = `set:${name}`;
+    const value = (fromLegacy(records[key]?.v) as { v?: unknown } | null | undefined)?.v;
+    if (chosen.has(name) || value === undefined || (value === null && DEFAULT_SETTINGS[name] !== null)) return [];
+    return canonical(value) === canonical(settings[name]) ? [] : [key];
+  });
+}
 
 export type ProfileRecord = { n: string; c: Profile["color"]; i: string | null; d?: true; th?: ProfileTheme | null };
 
