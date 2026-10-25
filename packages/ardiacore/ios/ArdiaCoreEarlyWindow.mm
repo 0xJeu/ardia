@@ -3,6 +3,7 @@
 #import "ACChromeWindow.h"
 #import "ArdiaCoreEngineBridge.h"
 #import "ArdiaCoreInternal.h"
+#import "ArdiaCoreTabParking.h"
 #import "ArdiaCoreWebView.h"
 #import "ArdiaCoreWebViewInternal.h"
 
@@ -1267,11 +1268,11 @@ CGImageRef TakePrefetched(NSString *windowId) {
                                                                    if (!closing.claimed) {
                                                                      [Dismissed() addObject:closing.appWindow];
                                                                      ArdiaCoreTab *page = closing.tab;
-                                                                     if (page && page == ArdiaCoreWebView.launchTab)
-                                                                       [ArdiaCoreWebView claimLaunchTab:@"" url:@"" profile:@""];
+                                                                     if (page && page == ArdiaCoreTabParking.launchTab)
+                                                                       [ArdiaCoreTabParking claimLaunchTab:@"" url:@"" profile:@""];
                                                                      else if (page && closing.expectedURL) {
                                                                        [Dismissed() addObject:closing.key];
-                                                                       [ArdiaCoreWebView dismissLinkTab:page];
+                                                                       [ArdiaCoreTabParking dismissLinkTab:page];
                                                                      }
                                                                      else if (page)
                                                                        [ArdiaCoreWebView releaseTransfer:closing.key];
