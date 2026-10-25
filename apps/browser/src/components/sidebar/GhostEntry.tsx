@@ -7,7 +7,7 @@ import { groupLabel } from "../../store/organize";
 import { splitRowPanes } from "../../store/splits";
 import { tabTitle } from "./actions";
 import { groupEntries } from "./entries";
-import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, keptEntry } from "./geometry";
+import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, headGap, keptEntry } from "./geometry";
 import { pointerOnRow } from "./hover";
 import { FaviconFallback, NewTabIcon } from "../primitives";
 import { SYMBOL_PREFIX, TabIcon } from "./TabIcon";
@@ -144,7 +144,7 @@ function GroupGhost({ shot }: { shot: GroupShot }) {
           <Symbol name="chevron.down" size={9} weight="semibold" color={withAlpha(tokens.groupTitle, 0.5)} style={{ width: 10, height: 10 }} />
         </View>
       </View>
-      <View style={{ gap: layout.rowGap, paddingBottom: pad, paddingLeft: GROUP_INDENT }}>{shot.members.map((m) => (m.kind === "split" ? <SplitGhost key={m.key} shot={m} /> : m.kind === "group" ? <GroupGhost key={m.key} shot={m} /> : tabGhost(m, theme)))}</View>
+      <View style={{ gap: layout.rowGap, paddingTop: headGap(shot.members[0]?.key), paddingBottom: pad, paddingLeft: GROUP_INDENT }}>{shot.members.map((m) => (m.kind === "split" ? <SplitGhost key={m.key} shot={m} /> : m.kind === "group" ? <GroupGhost key={m.key} shot={m} /> : tabGhost(m, theme)))}</View>
     </View>
   );
 }
