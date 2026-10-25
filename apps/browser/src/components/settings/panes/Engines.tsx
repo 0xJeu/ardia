@@ -1,7 +1,7 @@
-import type { PageEngine } from "@ardia/ardiacore";
+import { getPasskeyAccess, requestPasskeyAccess, type PageEngine, type PasskeyAccess, type PasskeyAccessStatus } from "@ardia/ardiacore";
 import { resolveInput } from "@ardia/core";
-import { useState } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { AppState, Linking, Text, View } from "react-native";
 import { setWebsiteEngine } from "../../../lib/engines";
 import { useTheme } from "../../../lib/theme";
 import { useBrowser } from "../../../store/browser";
@@ -54,9 +54,45 @@ export function EnginesPane() {
       <Group>
         <Row anchor="engines.separateData" />
         <Row anchor="engines.chromiumOnly" />
-        <Row anchor="engines.passkeys" />
+        <PasskeysRow />
       </Group>
     </View>
+  );
+}
+
+const PASSKEY_STATUS: Record<Exclude<PasskeyAccessStatus, "entitlementRequired">, string> = {
+  deviceNotConfigured: "Passkeys aren't set up on this Mac. Set up iCloud Keychain or another passkey app in System Settings, then reopen Ardia.",
+  notDetermined: "Allow Ardia to use the passkeys saved on this Mac, from the Passwords app and other passkey apps, in WebKit and Chromium pages.",
+  authorized: "Websites can use the passkeys saved on this Mac, in WebKit and Chromium pages.",
+  denied: "Off. Turn Ardia on in System Settings › Privacy & Security › Passkeys Access for Web Browsers.",
+};
+
+function PasskeysRow() {
+  const [access, setAccess] = useState<PasskeyAccess | null>(null);
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => void getPasskeyAccess().then((next) => live && setAccess(next));
+    refresh();
+    const watch = AppState.addEventListener("change", (state) => state === "active" && refresh());
+    return () => {
+      live = false;
+      watch.remove();
+    };
+  }, []);
+  if (!access?.entitled) return <Row anchor="engines.passkeys" />;
+  const ask = async () => {
+    setAsking(true);
+    setAccess(await requestPasskeyAccess());
+    setAsking(false);
+  };
+  return (
+    <Row anchor="engines.passkeys" description={PASSKEY_STATUS[access.status as keyof typeof PASSKEY_STATUS]}>
+      {access.status === "notDetermined" && <Button title="Allow Passkeys…" disabled={asking} onPress={() => void ask()} />}
+      {access.status === "denied" && (
+        <Button title="Open System Settings" onPress={() => void Linking.openURL("x-apple.systempreferences:com.apple.preference.security")} />
+      )}
+    </Row>
   );
 }
 
