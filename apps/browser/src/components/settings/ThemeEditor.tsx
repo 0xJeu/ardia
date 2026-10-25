@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import {
   colorHex,
+  DEFAULT_THEME_ANGLE,
   flatColors,
+  lookAngle,
   MAX_THEME_STOPS,
   PAD_LIGHTNESS,
   padColor,
@@ -19,6 +21,7 @@ import {
   themeLayerAlpha,
   themeUnderColor,
   withAddedStop,
+  withAngle,
   withoutStop,
   withStopAt,
   withStopLightness,
@@ -37,6 +40,9 @@ const KNOB = 22;
 const SWATCH = 20;
 const LABEL = 112;
 const LIGHTNESS_STEPS = 24;
+const DIAL = 28;
+const DIAL_SNAP = 4;
+const DIAL_BORDER = StyleSheet.hairlineWidth * 2;
 
 const MODES: { value: ThemeMode; symbol: string; title: string }[] = [
   { value: "light", symbol: "sun.max", title: "Light" },
@@ -148,7 +154,7 @@ const RAINBOW: ProfileTheme = {
 function CustomSwatch({ theme }: { theme: ProfileTheme | null }) {
   return (
     <View style={{ flex: 1, borderRadius: 8, overflow: "hidden" }}>
-      <ThemeSwatch colors={flatColors(theme ?? RAINBOW)} style={{ flex: 1 }} />
+      <ThemeSwatch colors={flatColors(theme ?? RAINBOW)} angle={theme ? lookAngle(theme) : DEFAULT_THEME_ANGLE} style={{ flex: 1 }} />
     </View>
   );
 }
@@ -209,6 +215,10 @@ function ThemeEditor({ theme, onChange }: { theme: ProfileTheme; onChange: (next
           />
         </Slider>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={{ width: LABEL + 10, fontSize: 12, color: ui.textPrimary }}>Direction</Text>
+          <DirectionDial angle={lookAngle(theme)} onChange={(angle, settle) => onChange(withAngle(theme, angle), settle)} />
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Text style={{ width: LABEL + 10, fontSize: 12, color: ui.textPrimary }}>Appearance</Text>
           <View style={{ flexDirection: "row", borderRadius: 6, backgroundColor: colors.control, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.controlBorder, padding: 1 }}>
             {MODES.map((m) => (
@@ -239,12 +249,61 @@ function ThemeEditor({ theme, onChange }: { theme: ProfileTheme; onChange: (next
   );
 }
 
+function DirectionDial({ angle, onChange }: { angle: number; onChange: (angle: number, settle: boolean) => void }) {
+  const ui = useTheme();
+  const colors = useFormColors();
+  const ref = useRef<View>(null);
+  const centre = useRef({ x: 0, y: 0 });
+  const measure = () => ref.current?.measureInWindow((x, y, width, height) => (centre.current = { x: x + width / 2, y: y + height / 2 }));
+  const at = (e: GestureResponderEvent) => {
+    const dx = e.nativeEvent.pageX - centre.current.x, dy = e.nativeEvent.pageY - centre.current.y;
+    const degrees = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
+    const notch = Math.round(degrees / 45) * 45;
+    return (Math.abs(degrees - notch) <= DIAL_SNAP ? notch : Math.round(degrees)) % 360;
+  };
+  const step = (by: number) => onChange((Math.round(angle / 45) + by) * 45, true);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <View
+        ref={ref}
+        onLayout={measure}
+        onMouseEnter={measure}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel="Direction"
+        accessibilityValue={{ text: `${Math.round(angle)}°` }}
+        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+        onAccessibilityAction={(e) => step(e.nativeEvent.actionName === "increment" ? 1 : -1)}
+        tooltip="Drag to turn the gradient"
+        style={{ width: DIAL, height: DIAL, borderRadius: DIAL / 2, backgroundColor: colors.control, borderWidth: DIAL_BORDER, borderColor: colors.controlBorder }}
+        onStartShouldSetResponder={() => true}
+        onResponderGrant={(e) => {
+          measure();
+          onChange(at(e), false);
+        }}
+        onResponderMove={(e) => onChange(at(e), false)}
+        onResponderRelease={(e) => onChange(at(e), true)}
+        onResponderTerminate={() => onChange(angle, true)}
+      >
+        <View pointerEvents="none" style={{ position: "absolute", left: -DIAL_BORDER, top: -DIAL_BORDER, width: DIAL, height: DIAL, transform: [{ rotate: `${angle}deg` }] }}>
+          <View style={{ position: "absolute", left: DIAL / 2 - 1, top: 4, width: 2, height: DIAL / 2 - 4, borderRadius: 1, backgroundColor: colors.accent }} />
+        </View>
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", left: DIAL / 2 - DIAL_BORDER - 2.5, top: DIAL / 2 - DIAL_BORDER - 2.5, width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.accent }}
+        />
+      </View>
+      <Text style={{ fontSize: 11.5, color: ui.textSecondary, fontVariant: ["tabular-nums"] }}>{Math.round(angle)}°</Text>
+    </View>
+  );
+}
+
 function Preview({ theme }: { theme: ProfileTheme }) {
   const appDark = useBrowser((s) => s.ui.appDark);
   const dark = readableDark(theme, themeDark(theme, appDark));
   return (
     <View style={{ height: 58, borderRadius: 9, overflow: "hidden", backgroundColor: themeUnderColor(theme, dark) }}>
-      <ThemeSwatch colors={flatColors(theme)} style={[StyleSheet.absoluteFill, { opacity: themeLayerAlpha(theme) }]} />
+      <ThemeSwatch colors={flatColors(theme)} angle={lookAngle(theme)} style={[StyleSheet.absoluteFill, { opacity: themeLayerAlpha(theme) }]} />
       <ThemeSwatch colors={[]} grain={themeGrainAlpha(theme)} texture={theme.texture} style={StyleSheet.absoluteFill} />
       <View style={{ position: "absolute", left: 8, top: 10, width: 34, gap: 5 }}>
         {[1, 0.7, 0.85].map((w, i) => (
