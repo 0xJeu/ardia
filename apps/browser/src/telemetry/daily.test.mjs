@@ -35,6 +35,7 @@ test("flags come from the last ping date alone", () => {
   assert.deepEqual(daily.dailyFlags(null, "2026-10-25", false), { first: true, daily: true, weekly: true, monthly: true });
   assert.deepEqual(daily.dailyFlags(null, "2026-10-25", true), { first: false, daily: true, weekly: true, monthly: true });
   assert.equal(daily.dailyFlags("2026-10-25", "2026-10-25", false), null);
+  assert.equal(daily.dailyFlags("2026-10-26", "2026-10-25", false), null);
   assert.deepEqual(daily.dailyFlags("2026-10-24", "2026-10-25", false), { first: false, daily: true, weekly: false, monthly: false });
   assert.deepEqual(daily.dailyFlags("2026-10-25", "2026-10-26", false), { first: false, daily: true, weekly: true, monthly: false });
   assert.deepEqual(daily.dailyFlags("2026-10-31", "2026-11-01", false), { first: false, daily: true, weekly: false, monthly: true });
@@ -88,16 +89,16 @@ test("one anonymous ping a day, marked only after a 2xx", async () => {
   assert.deepEqual([next.first, next.weekly, next.monthly], [false, true, false]);
 });
 
-test("failures don't mark the day, and retries reuse the same event id", async () => {
+test("failures keep the day's ping queued, and retries reuse the same event id", async () => {
   reset("2026-10-24", true);
   status = 503;
   assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
   status = 0;
   assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
-  assert.equal(daily.readLastDay(), "2026-10-24");
+  assert.equal(daily.readDailyState().pending.length, 1);
   status = 204;
   assert.equal(await daily.sendDailyPing(at("2026-10-25")), "sent");
-  assert.equal(daily.readLastDay(), "2026-10-25");
+  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-25", pending: [] });
   const ids = posts.map((p) => attributes(p).uuid);
   assert.equal(new Set(ids).size, 1);
   assert.equal(await daily.sendDailyPing(at("2026-10-25")), "already");
@@ -109,13 +110,13 @@ test("a ping cut off by a quit is resent after relaunch with the same id, and an
   status = 0;
   assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
   const lost = attributes(posts[0]);
-  assert.equal(daily.readDailyState().pending.id, lost.uuid);
+  assert.equal(daily.readDailyState().pending[0].id, lost.uuid);
 
   daily.resetDailyForTests(true);
   status = 200;
   assert.equal(await daily.sendDailyPing(at("2026-10-25")), "sent");
   assert.equal(attributes(posts[1]).uuid, lost.uuid);
-  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-25", pending: null });
+  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-25", pending: [] });
 
   reset("2026-10-24", true);
   status = 503;
@@ -130,7 +131,57 @@ test("a ping cut off by a quit is resent after relaunch with the same id, and an
   const today = attributes(posts[2]);
   assert.notEqual(today.uuid, attributes(older).uuid);
   assert.deepEqual([today.first, today.weekly, today.monthly], [false, true, false]);
-  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-26", pending: null });
+  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-26", pending: [] });
+});
+
+test("a day is only sent once its ping is saved to disk", async () => {
+  reset(null);
+  stub.heldSaves.on = true;
+  const pending = daily.sendDailyPing(at("2026-10-25"));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(posts.length, 0);
+  stub.heldSaves.on = false;
+  for (const land of stub.heldSaves.queue.splice(0)) land();
+  assert.equal(await pending, "sent");
+  assert.equal(posts.length, 1);
+});
+
+test("the last day is a high-water mark: a clock set back sends nothing", async () => {
+  reset(null);
+  assert.equal(await daily.sendDailyPing(at("2026-10-26")), "sent");
+  assert.equal(await daily.sendDailyPing(at("2026-10-25")), "already");
+  assert.equal(await daily.sendDailyPing(at("2026-10-20")), "already");
+  assert.equal(posts.length, 1);
+  assert.equal(daily.readLastDay(), "2026-10-26");
+});
+
+test("every day seen during an outage is counted, oldest first, each with its own id and flags", async () => {
+  reset("2026-10-24", true);
+  status = 0;
+  assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
+  assert.equal(await daily.sendDailyPing(at("2026-10-26")), "failed");
+  daily.resetDailyForTests(true);
+  posts.length = 0;
+  status = 200;
+  assert.equal(await daily.sendDailyPing(at("2026-10-27")), "sent");
+  const sent = posts.map(attributes);
+  assert.deepEqual(sent.map((p) => [p.weekly, p.monthly]), [[false, false], [true, false], [false, false]]);
+  assert.equal(new Set(sent.map((p) => p.uuid)).size, 3);
+  assert.deepEqual(
+    posts.map((p) => new Date(Number(p.body.resourceLogs[0].scopeLogs[0].logRecords[0].timeUnixNano.slice(0, -6))).toISOString().slice(0, 10)),
+    ["2026-10-25", "2026-10-26", "2026-10-27"],
+  );
+  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-27", pending: [] });
+});
+
+test("a month-long outage keeps the last 35 days", async () => {
+  reset("2026-09-30", true);
+  status = 503;
+  for (let d = 1; d <= 40; d++) await daily.sendDailyPing(Date.parse("2026-10-01T12:00:00Z") + (d - 1) * 86_400_000);
+  const { pending } = daily.readDailyState();
+  assert.equal(pending.length, daily.MAX_PENDING);
+  assert.equal(pending[0].day, "2026-10-06");
+  assert.equal(pending.at(-1).day, "2026-11-09");
 });
 
 test("nothing is sent when the pending ping can't be saved first", async () => {

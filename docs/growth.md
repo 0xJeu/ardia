@@ -137,8 +137,10 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
 - **Daily count (always on, added 2026-10-25):** besides the opt-in events, every copy sends
   one `daily_active` event per UTC day (`$lib` `ardia-daily`), sharing on or off, about 30 s after launch and again
   after UTC midnight if it's still open. It carries `$app_version`, `channel`, `os_major`, `arch`, `$environment`
-  and the flags `first`, `daily`, `weekly`, `monthly`, computed on the Mac from the last day it sent. `telemetry-daily.json` stores only that day
-  and, until a 2xx, the unsent ping, so a retry after a relaunch reuses its `uuid` and doesn't count twice. No persistent ID: `uuid` and `distinct_id` are a fresh random UUID
+  and the flags `first`, `daily`, `weekly`, `monthly`, computed on the Mac when it sees a new day, against the last day it counted (never earlier, so a
+  clock set back sends nothing). `telemetry-daily.json` stores only that day and the pings not yet sent (up to 35,
+  saved to disk before sending, sent oldest first), so a retry after a relaunch reuses its `uuid` and doesn't
+  count twice, and every day of an outage still counts. No persistent ID: `uuid` and `distinct_id` are a fresh random UUID
   each day, and `$geoip_disable` keeps the address out. Counting rows gives DAU; counting `weekly`/`monthly`/`first`
   rows gives WAU, MAU and new installs (Brave's usage-ping model). Sender: `apps/browser/src/telemetry/daily.ts`.
 - **Tables** (`infra/telemetry/clickhouse/schema.sql`): `telemetry.events` is the one to query (PostHog's
