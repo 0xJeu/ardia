@@ -333,13 +333,14 @@ the final RC and said ship).
    publish a fixed build with a higher build number: copies that haven't updated yet go straight to it.
 3. **Everyone.** Remove the interval from the published appcast, so every copy sees the update:
    ```bash
-   gh release download v<version> -R mantrakp04/ardia -p appcast.xml -D /tmp/ac-appcast --clobber
-   sed -i '' '/<sparkle:phasedRolloutInterval>/d' /tmp/ac-appcast/appcast.xml
-   gh release upload v<version> -R mantrakp04/ardia /tmp/ac-appcast/appcast.xml --clobber
-   .claude/skills/release/scripts/feed.sh <version>
+   .claude/skills/release/scripts/rollout-everyone.sh <version> --dry-run   # the diff it would upload
+   .claude/skills/release/scripts/rollout-everyone.sh <version>
    ```
-   (The appcast isn't signed as a whole, only its zip's `edSignature`, so editing the line keeps it valid.) The next
-   release's `release.sh` starts from this published appcast, so it doesn't bring the interval back.
+   It holds the publish lock (`release-lock`, the same one `publish.sh` takes), so a nightly published meanwhile can't
+   be overwritten. It edits the feeds on the latest stable release as they are at that moment (`appcast.xml`, and
+   `appcast-x64.xml` when there is one), drops the interval from `<version>`'s item only, uploads them and checks what
+   GitHub serves. (The appcast isn't signed as a whole, only its zip's `edSignature`, so editing the line keeps it
+   valid.) The next release's `release.sh` starts from this published appcast, so it doesn't bring the interval back.
 
 A release without `--phased` goes to everyone at once, as before.
 

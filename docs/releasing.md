@@ -247,7 +247,12 @@ the arm64 engine if `engine/` changed (below).
   lock, the branch `release-lock` (created atomically through GitHub's API, its commit message naming the holder and
   the time): `publish.sh` takes it before it reads the latest release and the feeds and gives it back on exit, so two
   publishes can't build on the same snapshot. A second publish meanwhile stops, naming the holder; a lock older than
-  2 h (a publish that died) is broken only with `--break-lock`. Dry runs take it too, and write nothing else. The Homebrew tap needs a token that can push
+  2 h (a publish that died) is broken only with `--break-lock`, and only when its holder and time can be read. Taking
+  it creates the branch through a push that must find no branch there; breaking and releasing it are pushes that only
+  succeed while the branch is still the commit they expect (`--force-with-lease`, checked by GitHub), so nobody can
+  remove a lock someone else holds. Dry runs take it too, and write nothing else; `PUBLISH_LOCK` renames it for dry
+  runs only. The staged-rollout step that opens a release to everyone (`rollout-everyone.sh`, in the release skill)
+  takes the same lock. The Homebrew tap needs a token that can push
   to `mantrakp04/homebrew-tap` (`HOMEBREW_TAP_TOKEN`); without it, run `update-tap.sh <version>` here afterwards.
 
 `dry_run` (on by default) builds a release candidate (`release.sh --rc`: the next build number, no notes needed),

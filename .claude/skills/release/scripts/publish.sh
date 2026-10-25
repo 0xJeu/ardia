@@ -63,61 +63,12 @@ if ! git -C "$root" ls-remote --exit-code --tags origin "refs/tags/v$version" >/
   [ "$dry" = 1 ] && echo "note: v$version isn't on origin yet (git tag v$version && git push origin main v$version)" \
     || die "push the tag first: git tag v$version && git push origin main v$version"
 fi
-lock_name="${PUBLISH_LOCK:-release-lock}"
-[[ "$lock_name" =~ ^[A-Za-z0-9._-]+$ ]] || die "PUBLISH_LOCK must be a plain branch name"
-lock_api="repos/$repo/git/refs/heads/$lock_name"
-lock_sha=""
-lock_max_age=7200
-if [ -n "${GITHUB_RUN_ID:-}" ]; then
-  holder="CI run ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-$repo}/actions/runs/$GITHUB_RUN_ID"
-else
-  holder="$(id -un)@$(hostname -s)"
-fi
-holder="$(LC_ALL=C tr -cd 'A-Za-z0-9@._:/ -' <<<"$holder")"
-release_lock() {
-  [ -n "$lock_sha" ] || return 0
-  local current
-  current="$(gh api "repos/$repo/git/ref/heads/$lock_name" -q .object.sha 2>/dev/null || true)"
-  if [ "$current" = "$lock_sha" ]; then
-    gh api -X DELETE "$lock_api" >/dev/null && echo "released the publish lock ($lock_name)"
-  fi
-  lock_sha=""
-}
-take_lock() {
-  local tree commit existing message since now age
-  now="$(date -u +%s)"
-  tree="$(gh api "repos/$repo/commits/main" -q .commit.tree.sha)"
-  commit="$(printf '{"message":"publish lock: %s by %s (pid %s) since %s","tree":"%s","parents":[]}' \
-    "$version" "$holder" "$$" "$now" "$tree" | gh api "repos/$repo/git/commits" --input - -q .sha)"
-  if gh api "repos/$repo/git/refs" -f ref="refs/heads/$lock_name" -f sha="$commit" >/dev/null 2>&1; then
-    lock_sha="$commit"
-    echo "took the publish lock ($lock_name) as $holder"
-    return 0
-  fi
-  existing="$(gh api "repos/$repo/git/ref/heads/$lock_name" -q .object.sha 2>/dev/null)" \
-    || die "couldn't take the publish lock ($lock_name), and it isn't there either: check gh's access to $repo"
-  message="$(gh api "repos/$repo/git/commits/$existing" -q .message 2>/dev/null || true)"
-  since="$(sed -n 's/.* since \([0-9][0-9]*\)$/\1/p' <<<"$message")"
-  age=$(( now - ${since:-0} ))
-  if [ "$break_lock" = 1 ] && [ "$age" -ge "$lock_max_age" ]; then
-    echo "breaking a $((age / 60)) min old publish lock: ${message:-no holder recorded}"
-    gh api -X DELETE "$lock_api" >/dev/null || true
-    gh api "repos/$repo/git/refs" -f ref="refs/heads/$lock_name" -f sha="$commit" >/dev/null 2>&1 \
-      || die "someone else took the publish lock ($lock_name) as it was broken"
-    lock_sha="$commit"
-    echo "took the publish lock ($lock_name) as $holder"
-    return 0
-  fi
-  if [ "$age" -ge "$lock_max_age" ]; then
-    die "publishing is locked by ${message:-an unknown holder} ($((age / 60)) min ago, branch $lock_name): if that publish is dead, run again with --break-lock"
-  fi
-  die "publishing is locked by ${message:-an unknown holder} ($((age / 60)) min ago, branch $lock_name): wait for it to finish (a lock under 2 h can't be broken)"
-}
+. "$here/publish-lock.sh"
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/ac-publish.XXXXXX")"
 trap 'release_lock; rm -rf "$work"' EXIT
 trap 'exit 130' INT TERM HUP
-take_lock
+take_lock "$version"
 stable_tag="$(gh release view -R "$repo" --json tagName -q .tagName)"
 [[ "$stable_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "the latest release is $stable_tag, not a stable one: the feed lives on the latest stable release"
 published="$(gh release view "$stable_tag" -R "$repo" --json assets -q '.assets[].name')"
