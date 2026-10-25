@@ -165,6 +165,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     let controller = WKUserContentController()
     controller.addUserScript(WKUserScript(source: WebKitPageScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: Self.world))
     controller.add(self, contentWorld: Self.world, name: "ardia")
+    controller.addUserScript(WKUserScript(source: WebKitPageScript.mediaBridge, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page))
     if !Self.passkeysEntitled {
       controller.addUserScript(WKUserScript(source: Self.hidePasskeys, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page))
     }
