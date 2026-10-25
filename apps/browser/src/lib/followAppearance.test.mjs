@@ -11,16 +11,21 @@ const arcLight = {
   mode: "light",
 };
 
+const arcCream = { ...arcLight, intensity: 1 };
+
 test("a space whose theme says Light goes dark with a dark app when it follows the appearance", () => {
-  const own = profileTheme({ color: "plum", theme: arcLight }, true, "own");
-  const follows = profileTheme({ color: "plum", theme: arcLight }, true, "app");
+  const own = profileTheme({ color: "plum", theme: arcCream }, true, "own");
+  const follows = profileTheme({ color: "plum", theme: arcCream }, true, "app");
   assert.equal(own.dark, false, "off: the theme keeps its own Light");
   assert.equal(follows.dark, true, "on: it follows the dark app");
   const stop = (t) => t.backdrop.themeColors.slice(0, 3);
-  const ownDark = profileTheme({ color: "plum", theme: { ...arcLight, mode: "dark" } }, true, "own");
+  const ownDark = profileTheme({ color: "plum", theme: { ...arcCream, mode: "dark" } }, true, "own");
   assert.deepEqual(stop(ownDark), [0.95, 0.92, 0.89], "a theme's own Dark keeps its colours");
-  stop(follows).forEach((v, i) => assert.ok(Math.abs(v - [0.95, 0.92, 0.89][i] * 0.4) < 1e-9, "its colour stops are darkened to 40% so white text reads"));
+  stop(follows).forEach((v, i) => assert.ok(Math.abs(v - [0.95, 0.92, 0.89][i] * 0.4) < 1e-9, "an opaque cream white text can't read on is darkened to 40%"));
   assert.equal(follows.backdrop.themeAppearance, "auto", "the window follows the app too");
+  const tinted = profileTheme({ color: "plum", theme: arcLight }, true, "app");
+  assert.equal(tinted.dark, true);
+  assert.deepEqual(stop(tinted), [0.95, 0.92, 0.89], "the same cream at 60% intensity already reads with white text over the dark underlay, so it keeps its colours");
 });
 
 test("in a light app nothing changes", () => {
