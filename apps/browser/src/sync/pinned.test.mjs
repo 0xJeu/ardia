@@ -83,10 +83,10 @@ function seed(device) {
   });
 }
 
-test("the pinned area syncs tile folders, then rows, the row order and pinned group tabs' homes, then the pins themselves", () => {
+test("the pinned area syncs tile folders, then rows, the row order, pinned groups' None colour and pinned group tabs' homes, then the pins themselves", () => {
   assert.deepEqual(
     pinnedArea.pinnedAreaAdapters("default").map((a) => a.prefix),
-    ["tilefold:", "pinrow:", "pord:g:", "pgh:", "pin"],
+    ["tilefold:", "pinrow:", "pord:g:", "pgc:", "pgh:", "pin"],
   );
 });
 
@@ -195,4 +195,43 @@ test("a Mac on the previous version keeps the homes it can't read, and its unpin
   await syncAll([old, a]);
   assert.equal(a.scope.records[`pin:t:${m}`]?.v, null);
   assert.equal(a.scope.records[`pgh:${m}`]?.v, null, "the home goes with the pin");
+});
+
+const LEGACY_GROUP_COLORS = [null, "grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
+const pinnedGroupOf = (device, name) => device.with(() => Object.values(S().groups).find((g) => g.pinned && g.name === name));
+
+test("a pinned group set to None reaches the other Macs as None, while its pin:g: record keeps a colour older Macs know", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  const old = new Device("devOld", folder, previousVersion);
+  seedGroup(a);
+  const g = pinnedGroupOf(a, "Reading");
+  a.with(() => S().updateGroup(g.id, { color: "none" }));
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  old.with(() => S().createWindow({ url: "https://old-home.example/" }));
+  await syncAll([a, b, old]);
+  const record = a.scope.records[`pin:g:${g.id}`]?.v;
+  assert.ok(record, "the group is published");
+  assert.ok(LEGACY_GROUP_COLORS.includes(record.c), `pin:g: carries ${JSON.stringify(record.c)}, which a released top strip can't look up`);
+  assert.ok(LEGACY_GROUP_COLORS.includes(pinnedGroupOf(old, "Reading")?.color ?? null), "the older Mac's group has a colour it knows");
+  assert.equal(pinnedGroupOf(b, "Reading")?.color, "none", "a current Mac shows None");
+
+  const onOld = pinnedGroupOf(old, "Reading");
+  old.with(() => S().updateGroup(onOld.id, { name: "Read later" }));
+  await syncAll([old, a, b]);
+  assert.equal(pinnedGroupOf(a, "Read later")?.color, "none", "a rename on the older Mac keeps None");
+  assert.equal(pinnedGroupOf(b, "Read later")?.color, "none");
+
+  old.with(() => S().updateGroup(onOld.id, { color: "blue" }));
+  await syncAll([old, a, b]);
+  assert.equal(pinnedGroupOf(a, "Read later")?.color, "blue", "a colour chosen on the older Mac wins");
+  assert.equal(pinnedGroupOf(b, "Read later")?.color, "blue");
+
+  b.with(() => S().updateGroup(pinnedGroupOf(b, "Read later").id, { color: "none" }));
+  await syncAll([b, a, old]);
+  assert.equal(pinnedGroupOf(a, "Read later")?.color, "none", "None chosen again comes back");
+  b.with(() => S().updateGroup(pinnedGroupOf(b, "Read later").id, { color: null }));
+  await syncAll([b, a, old]);
+  assert.equal(pinnedGroupOf(a, "Read later")?.color, null, "and Neutral after it");
 });
