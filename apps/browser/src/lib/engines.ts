@@ -10,7 +10,7 @@ import { carrySignInToWebKit, signInCarryOn } from "./engineSignIn";
 import { wantsPage } from "./tabPages";
 import { webviews } from "./webviews";
 
-export type EngineOffer = { site: string; host: string; keySystem: string };
+export type EngineOffer = { site: string; host: string; keySystem: string; canRemember: boolean };
 
 export const useEngineOffers = create<Record<string, EngineOffer>>(() => ({}));
 
@@ -91,7 +91,7 @@ export function offerWebKit(tabId: string, data: unknown) {
   if (rule === "webkit") return void moveForProtectedVideo(tabId, site);
   if (useEngineOffers.getState()[tabId]?.site === site) return;
   const keySystem = typeof (data as { keySystem?: unknown } | null)?.keySystem === "string" ? (data as { keySystem: string }).keySystem : "";
-  useEngineOffers.setState({ [tabId]: { site, host: hostLabel(site), keySystem } });
+  useEngineOffers.setState({ [tabId]: { site, host: hostLabel(site), keySystem, canRemember: !isIncognitoProfile(t.profileId) } });
 }
 
 export function clearEngineOffer(tabId: string) {
@@ -102,9 +102,10 @@ export function clearEngineOffer(tabId: string) {
   }, true);
 }
 
-export function stayOnPage(tabId: string) {
+export function stayOnPage(tabId: string, remember = false) {
   const offer = useEngineOffers.getState()[tabId];
   if (offer) declinedSites.add(offer.site);
+  if (offer && remember && offer.canRemember) setWebsiteEngine(offer.site, "chromium");
   clearEngineOffer(tabId);
 }
 
