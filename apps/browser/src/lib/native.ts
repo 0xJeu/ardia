@@ -35,6 +35,7 @@ import { openWindow as createWindow } from "./actions";
 import { windowOpens } from "./windowOpenOrder";
 import { openExternalUrls } from "../components/littleArdia/actions";
 import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
+import { SMALL_LIGHTS_CENTER } from "../components/littleArdia/SmallChrome";
 import { runCommand } from "./commands";
 import { setFocusSenders } from "./focusClaims";
 import { cancelAbandonedFocusMoves, settlingCommandFocus } from "./focusHandoff";
@@ -111,7 +112,7 @@ export function startNativeSync() {
         ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}), ...(w.linkPointer ? { pointer: w.linkPointer } : {}) }
         : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
-      if (w.kind !== "small") void setTrafficLightsCenter(id, openingLightsCenter(s, id));
+      void setTrafficLightsCenter(id, w.kind === "small" ? SMALL_LIGHTS_CENTER : openingLightsCenter(s, id));
       void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
     }
     for (const id of [...open]) {

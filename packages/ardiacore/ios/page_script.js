@@ -534,6 +534,24 @@
     apply(listen, document, ["visibilitychange", state.onVisibility]);
   };
   handlers.fieldTiming = (message) => setFieldTiming(!!(message && message.on));
+  let firstPaintObserver = null;
+  handlers.firstPaint = () => {
+    if (!isTop || firstPaintObserver) return;
+    const painted = () => send("firstPaint", { url: location.href });
+    try {
+      firstPaintObserver = new PO((list) => {
+        for (const e of list.getEntries())
+          if (e.name === "first-contentful-paint") {
+            apply(disconnect, firstPaintObserver, []);
+            return painted();
+          }
+      });
+      firstPaintObserver.observe({ type: "paint", buffered: true });
+    } catch (e) {
+      firstPaintObserver = true;
+      onReady(() => apply(raf, window, [painted]));
+    }
+  };
   handlers.wakeFrames = () => apply(raf, window, [() => {}]);
 
   const pauseUnasked = (media, activated) => {

@@ -323,6 +323,9 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("closeWindow") { (id: String) in WindowManager.shared.close(id: id) }.runOnQueue(.main)
+    AsyncFunction("animateWindowClose") { (id: String, after: String?, promise: Promise) in
+      WindowManager.shared.animateClose(id: id, after: after) { promise.resolve(nil) }
+    }.runOnQueue(.main)
     AsyncFunction("setTrafficLightsCenter") { (id: String, center: [Double]?) in
       WindowManager.shared.setTrafficLightsCenter(id: id, center: center.flatMap { $0.count == 2 ? NSPoint(x: $0[0], y: $0[1]) : nil })
     }.runOnQueue(.main)
@@ -554,8 +557,9 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
 
     View(WindowDragRegion.self) {
-      Events("onRegionDoubleClick")
+      Events("onRegionDoubleClick", "onRegionClick")
       Prop("titleBarDoubleClick") { (view: WindowDragRegion, on: Bool) in view.titleBarDoubleClick = on }
+      Prop("clickable") { (view: WindowDragRegion, on: Bool) in view.clickable = on }
     }
   }
 
@@ -1169,7 +1173,10 @@ final class PointerWatcher: NSObject {
 
 final class WindowDragRegion: ExpoView {
   let onRegionDoubleClick = EventDispatcher()
+  let onRegionClick = EventDispatcher()
   var titleBarDoubleClick = true
+  var clickable = false
+  private static let dragDistance: CGFloat = 3
   private var monitor: Any?
   private var doubleClickDown: PressPlace?
 
@@ -1228,7 +1235,7 @@ final class WindowDragRegion: ExpoView {
     else { return nil }
     if hit === frame { return Self.onTitlebarTopEdge(window, frame, event.locationInWindow) ? .titlebarEdge : nil }
     guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return nil }
-    if hit === self { return .region }
+    if hit === self || (clickable && hit.isDescendant(of: self)) { return .region }
     let background = hit is NSClipView || (hit.superview as? NSClipView)?.documentView === hit
     guard background, let container = superview, hit.isDescendant(of: container) else { return nil }
     var view = hit.superview
@@ -1258,11 +1265,22 @@ final class WindowDragRegion: ExpoView {
     var key = NSApp.keyWindow
     while let k = key, k !== window { key = k.parent }
     if key == nil, window.canBecomeKey, !event.modifierFlags.contains(.command) { window.makeKeyAndOrderFront(nil) }
+    if clickable, place == .region { return clickOrDrag(event, in: window) }
     if event.clickCount == 2 {
       if releaseFollows { doubleClickDown = place } else { doubleClick(event, place) }
       return
     }
     window.performDrag(with: event)
+  }
+
+  private func clickOrDrag(_ down: NSEvent, in window: NSWindow) {
+    let until: Date = NSEvent.pressedMouseButtons & 1 == 0 ? Date() : .distantFuture
+    let start = down.locationInWindow
+    while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: until, inMode: .eventTracking, dequeue: true),
+          next.type == .leftMouseDragged {
+      if hypot(next.locationInWindow.x - start.x, next.locationInWindow.y - start.y) >= Self.dragDistance { return window.performDrag(with: down) }
+    }
+    onRegionClick([:])
   }
 
   private func doubleClick(_ event: NSEvent, _ place: PressPlace) {
