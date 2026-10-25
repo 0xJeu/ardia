@@ -1424,6 +1424,9 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 @end
 
 @interface ArdiaCorePopupWindow : NSObject <ArdiaCoreWindowDelegate, ArdiaCoreTabDelegate>
+@property(nonatomic, readonly) ArdiaCoreTab *tab;
+- (void)askPermission:(NSDictionary *)request;
+- (BOOL)dropPermission:(NSString *)requestId;
 @end
 
 namespace {
@@ -1437,6 +1440,70 @@ NSString *HostOf(NSString *url) {
   return [NSURL URLWithString:url ?: @""].host ?: @"";
 }
 
+NSDictionary<NSString *, NSArray<NSString *> *> *PermissionKinds() {
+  static NSDictionary *kinds = @{
+    @"camera" : @[ @"video", @"camera" ],
+    @"microphone" : @[ @"mic", @"microphone" ],
+    @"cameraPanTiltZoom" : @[ @"video", @"camera's pan, tilt and zoom" ],
+    @"screen" : @[ @"rectangle.on.rectangle", @"", @"Allow %@ to share your screen?" ],
+    @"location" : @[ @"location", @"location" ],
+    @"notifications" : @[ @"bell", @"", @"Allow %@ to send you notifications?" ],
+    @"clipboard" : @[ @"doc.on.clipboard", @"clipboard" ],
+    @"midi" : @[ @"pianokeys", @"MIDI devices" ],
+    @"multipleDownloads" : @[ @"arrow.down.circle", @"", @"Allow %@ to download multiple files?" ],
+    @"localFonts" : @[ @"textformat", @"fonts" ],
+    @"idleDetection" : @[ @"person.crop.circle.badge.clock", @"", @"Allow %@ to know when you're actively using this device?" ],
+    @"storageAccess" : @[ @"externaldrive", @"", @"Allow %@ to use cookies and site data while embedded?" ],
+    @"diskQuota" : @[ @"internaldrive", @"", @"Allow %@ to store files on your device?" ],
+    @"windowManagement" : @[ @"macwindow.on.rectangle", @"displays to open and place windows" ],
+    @"fileSystem" : @[ @"folder", @"files" ],
+    @"keyboardLock" : @[ @"keyboard", @"keyboard" ],
+    @"pointerLock" : @[ @"cursorarrow", @"mouse pointer" ],
+    @"protocolHandler" : @[ @"envelope", @"", @"Make %@ your default mail app?" ],
+    @"sensors" : @[ @"gyroscope", @"motion sensors" ],
+    @"localNetwork" : @[ @"network", @"devices on your local network" ],
+    @"vr" : @[ @"visionpro", @"virtual reality devices" ],
+    @"ar" : @[ @"visionpro", @"augmented reality data" ],
+    @"handTracking" : @[ @"hand.raised", @"hand tracking" ],
+    @"identityProvider" : @[ @"person.badge.key", @"", @"Allow %@ to sign you in with an identity provider?" ],
+    @"webAppInstallation" : @[ @"app.badge", @"", @"Allow %@ to install web apps?" ],
+    @"capturedSurfaceControl" : @[ @"rectangle.on.rectangle", @"", @"Allow %@ to scroll and zoom the tab you share?" ],
+  };
+  return kinds;
+}
+
+NSString *ListOf(NSArray<NSString *> *words) {
+  if (words.count < 2) return words.firstObject ?: @"";
+  NSString *head = [[words subarrayWithRange:NSMakeRange(0, words.count - 1)] componentsJoinedByString:@", "];
+  return [NSString stringWithFormat:@"%@ and %@", head, words.lastObject];
+}
+
+NSString *PermissionQuestion(NSDictionary *request) {
+  NSString *origin = [request[@"origin"] isKindOfClass:NSString.class] ? request[@"origin"] : @"";
+  NSString *site = HostOf(origin);
+  if ([site hasPrefix:@"www."]) site = [site substringFromIndex:4];
+  if (!site.length) site = origin;
+  NSArray<NSString *> *kinds = [request[@"permissions"] isKindOfClass:NSArray.class] ? request[@"permissions"] : @[];
+  if (kinds.count == 1 && PermissionKinds()[kinds[0]].count > 2)
+    return [NSString stringWithFormat:PermissionKinds()[kinds[0]][2], site];
+  NSMutableArray<NSString *> *nouns = [NSMutableArray array];
+  BOOL allNouns = YES;
+  for (NSString *kind in kinds) {
+    NSString *noun = PermissionKinds()[kind][1] ?: kind;
+    allNouns &= noun.length > 0;
+    [nouns addObject:noun.length ? noun : kind];
+  }
+  return allNouns ? [NSString stringWithFormat:@"Allow %@ to access your %@?", site, ListOf(nouns)]
+                  : [NSString stringWithFormat:@"Allow %@ to use %@?", site, ListOf(nouns)];
+}
+
+NSImage *_Nullable PermissionIcon(NSDictionary *request) {
+  NSArray<NSString *> *kinds = [request[@"permissions"] isKindOfClass:NSArray.class] ? request[@"permissions"] : @[];
+  NSString *symbol = PermissionKinds()[kinds.firstObject ?: @""].firstObject ?: @"questionmark.circle";
+  NSImageSymbolConfiguration *config = [NSImageSymbolConfiguration configurationWithPointSize:32 weight:NSFontWeightRegular];
+  return [[NSImage imageWithSystemSymbolName:symbol accessibilityDescription:nil] imageWithSymbolConfiguration:config];
+}
+
 }
 
 @implementation ArdiaCorePopupWindow {
@@ -1445,6 +1512,66 @@ NSString *HostOf(NSString *url) {
   __weak ArdiaCoreWebView *_opener;
   id _closeObserver;
   BOOL _adopting;
+  NSMutableArray<NSDictionary *> *_permissionQueue;
+  NSDictionary *_shownPermission;
+  NSAlert *_permissionAlert;
+}
+
+- (ArdiaCoreTab *)tab {
+  return _tab;
+}
+
+- (void)askPermission:(NSDictionary *)request {
+  if (!_permissionQueue) _permissionQueue = [NSMutableArray array];
+  [_permissionQueue addObject:request];
+  [self showNextPermission];
+}
+
+- (void)showNextPermission {
+  NSWindow *window = _coreWindow.window;
+  if (_shownPermission || !_permissionQueue.count || !window) return;
+  NSDictionary *request = _permissionQueue.firstObject;
+  [_permissionQueue removeObjectAtIndex:0];
+  _shownPermission = request;
+  NSAlert *alert = [[NSAlert alloc] init];
+  alert.messageText = PermissionQuestion(request);
+  alert.informativeText = @"";
+  if (NSImage *icon = PermissionIcon(request)) alert.icon = icon;
+  [alert addButtonWithTitle:@"Allow"];
+  [alert addButtonWithTitle:@"Don't Allow"].keyEquivalent = @"\e";
+  _permissionAlert = alert;
+  NSString *requestId = request[@"id"];
+  __weak ArdiaCorePopupWindow *weakSelf = self;
+  [alert beginSheetModalForWindow:window
+                completionHandler:^(NSModalResponse response) {
+                  [weakSelf permission:requestId answered:response];
+                }];
+}
+
+- (void)permission:(NSString *)requestId answered:(NSModalResponse)response {
+  if (![_shownPermission[@"id"] isEqual:requestId]) return;
+  _shownPermission = nil;
+  _permissionAlert = nil;
+  if (response == NSAlertFirstButtonReturn) [ArdiaCoreHost resolvePermission:requestId result:@"accept" remember:YES];
+  else if (response == NSAlertSecondButtonReturn) [ArdiaCoreHost resolvePermission:requestId result:@"deny" remember:YES];
+  [self showNextPermission];
+}
+
+- (BOOL)dropPermission:(NSString *)requestId {
+  NSUInteger queued = [_permissionQueue indexOfObjectPassingTest:^BOOL(NSDictionary *request, NSUInteger, BOOL *) {
+    return [request[@"id"] isEqual:requestId];
+  }];
+  if (queued != NSNotFound) {
+    [_permissionQueue removeObjectAtIndex:queued];
+    return YES;
+  }
+  if (![_shownPermission[@"id"] isEqual:requestId]) return NO;
+  NSAlert *alert = _permissionAlert;
+  _shownPermission = nil;
+  _permissionAlert = nil;
+  if (alert.window.sheetParent) [alert.window.sheetParent endSheet:alert.window returnCode:NSModalResponseAbort];
+  [self showNextPermission];
+  return YES;
 }
 
 - (instancetype)initWithTab:(ArdiaCoreTab *)tab opener:(ArdiaCoreWebView *)opener {
@@ -1524,6 +1651,11 @@ NSString *HostOf(NSString *url) {
 - (void)windowWillClose {
   if (_closeObserver) [NSNotificationCenter.defaultCenter removeObserver:_closeObserver];
   _closeObserver = nil;
+  [_permissionQueue removeAllObjects];
+  NSAlert *alert = _permissionAlert;
+  _shownPermission = nil;
+  _permissionAlert = nil;
+  if (alert.window.sheetParent) [alert.window.sheetParent endSheet:alert.window returnCode:NSModalResponseAbort];
   if (_tab.delegate == self) _tab.delegate = nil;
   ArdiaCorePopupWindow *me = self;
   dispatch_async(dispatch_get_main_queue(), ^{ [PopupWindows() removeObject:me]; });
@@ -1596,6 +1728,20 @@ void OpenPopupWindow(ArdiaCoreTab *tab, ArdiaCoreWebView *opener) {
 
 NSUInteger PopupWindowCount() {
   return PopupWindows().count;
+}
+
+bool AskPermissionInPopupWindow(ArdiaCoreTab *tab, NSDictionary *request) {
+  for (ArdiaCorePopupWindow *popup in PopupWindows()) {
+    if (popup.tab != tab) continue;
+    [popup askPermission:request];
+    return true;
+  }
+  return false;
+}
+
+void DropPopupWindowPermission(NSString *requestId) {
+  for (ArdiaCorePopupWindow *popup in PopupWindows().allObjects)
+    if ([popup dropPermission:requestId]) return;
 }
 
 void ActToggleFullScreen(NSWindow *window) {
