@@ -1267,12 +1267,12 @@ void TabBridge::EnforceCloseDeadline(bool unload_given) {
     DeleteTabClosedByHost(web_contents());
     return;
   }
-  StartUnload();
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&TabBridge::EnforceCloseDeadline,
                      weak_factory_.GetWeakPtr(), true),
       kCloseStepDeadline);
+  StartUnload();
 }
 
 void TabBridge::BeforeUnloadFired(bool proceed) {
