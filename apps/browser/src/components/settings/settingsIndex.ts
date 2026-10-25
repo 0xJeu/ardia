@@ -222,7 +222,14 @@ const ROWS: Record<SettingsPane, Section[]> = {
   appearance: [
     {
       section: "Appearance Theme",
-      rows: { theme: { title: "Appearance Theme", description: "Also in View › Appearance. Incognito windows are always dark.", keywords: ["dark mode", "light mode", "automatic", "night", "system"] } },
+      rows: {
+        theme: { title: "Appearance Theme", description: "Also in View › Appearance. Incognito windows are always dark.", keywords: ["dark mode", "light mode", "automatic", "night", "system"] },
+        spacesFollowAppearance: {
+          title: "Profile themes follow this appearance",
+          description: "Every profile goes light or dark with this choice, even when its theme (like one imported from an Arc space) says Light. In dark mode a light theme's colours are darkened so white text reads.",
+          keywords: ["space", "profile theme", "arc theme", "follow system", "dark mode", "night"],
+        },
+      },
     },
     {
       section: "Address Bar",
