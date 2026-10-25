@@ -22,6 +22,7 @@ import { PressFeedback } from "./PressFeedback";
 import { TabIcon } from "./TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { useSidebarTokens } from "./tokens";
+import { useShortcutHint, withShortcut } from "../../lib/commandShortcuts";
 
 export const clickMods = (e: GestureResponderEvent) => {
   const n = e.nativeEvent as unknown as { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
@@ -67,6 +68,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
   const backToPin = useHover();
   const closeControl = useTabCloseControl(tabId);
+  const backToPinHint = useShortcutHint("returnToPinnedUrl");
   if (!tab) return null;
   const resettable = (isPinnedRow(tab) || !tab.pinned) && awayFromPin(tab);
   const resetting = resettable && backToPin.hovered && !renaming;
@@ -111,7 +113,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                 >
                   {resettable ? (
                     <View {...backToPin.hoverProps}>
-                      <Pressable onPress={() => useBrowser.getState().returnToPinnedUrl(tab.id)} tooltip="Back to Pinned URL (⌘↩)">
+                      <Pressable onPress={() => useBrowser.getState().returnToPinnedUrl(tab.id)} tooltip={withShortcut("Back to Pinned URL", backToPinHint)}>
                         {resetting ? (
                           <View style={{ width: 16, height: 16, alignItems: "center", justifyContent: "center" }}>
                             <Symbol name="arrow.uturn.backward" size={11} weight="semibold" color={active ? theme.tabSelectedText : theme.textTab} style={{ width: 16, height: 16 }} />

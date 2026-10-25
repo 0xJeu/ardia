@@ -26,6 +26,7 @@ import { openLiveFolderMenu, openLiveItemMenu, openLiveStackMenu } from "./liveM
 import { registerRow } from "./state";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";
+import { useShortcutHint, withShortcut } from "../../lib/commandShortcuts";
 
 const PAD = GROUP_PAD;
 const EMPTY: LiveItem[] = [];
@@ -301,6 +302,7 @@ function StackRow({ folderId, windowId, stack }: { folderId: string; windowId: s
 function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: string; item: LiveItem; windowId: string; inStack?: boolean }) {
   const indent = inStack ? 10 : 0;
   const theme = useTheme();
+  const closeHint = useShortcutHint("closeTab");
   const glow = useSelectedTabGlow();
   const colors = useLiveColors();
   const key = liveRowKey(folderId, item.id);
@@ -364,7 +366,7 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
                 <HoverSlot
                   hovered={closable}
                   width={ITEM_CLOSE_SLOT}
-                  hover={<IconButton icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => tabId && void closeTab(tabId)} tooltip="Close Tab (⌘W)" />}
+                  hover={<IconButton icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => tabId && void closeTab(tabId)} tooltip={withShortcut("Close Tab", closeHint)} />}
                 >
                   <Trailing item={item} completion={completion} colors={colors} />
                 </HoverSlot>

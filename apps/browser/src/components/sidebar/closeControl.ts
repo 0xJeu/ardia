@@ -1,4 +1,5 @@
 import { closeGroup } from "../../lib/actions";
+import { shortcutHint, withShortcut } from "../../lib/commandShortcuts";
 import { useBrowser, type BrowserState } from "../../store/browser";
 import { rootOf } from "../../store/groups";
 import { closeIntent, closeKind, openPages } from "../../store/tabs";
@@ -6,15 +7,24 @@ import { middleClickTab } from "./menus";
 
 export type CloseControl = { icon: "xmark" | "minus"; tooltip: string };
 
-const CLOSE_TAB: CloseControl = { icon: "xmark", tooltip: "Close Tab (⌘W)" };
-const UNLOAD_TAB: CloseControl = { icon: "minus", tooltip: "Unload Tab (⌘W)" };
 const REMOVE_PIN: CloseControl = { icon: "xmark", tooltip: "Remove Pinned Tab" };
 const CLOSE_GROUP: CloseControl = { icon: "xmark", tooltip: "Close Group" };
 const UNLOAD_GROUP: CloseControl = { icon: "minus", tooltip: "Unload Tabs" };
 
-const TAB_CONTROLS = { close: CLOSE_TAB, unload: UNLOAD_TAB, removePin: REMOVE_PIN } as const;
+const CLOSE_KEY_CONTROLS = { close: { icon: "xmark", title: "Close Tab" }, unload: { icon: "minus", title: "Unload Tab" } } as const;
+const keyedControls = new Map<string, CloseControl>();
 
-export const tabCloseControl = (s: BrowserState, tabId: string): CloseControl => TAB_CONTROLS[closeKind(s, tabId)];
+function closeKeyControl({ icon, title }: { icon: CloseControl["icon"]; title: string }, s: BrowserState): CloseControl {
+  const tooltip = withShortcut(title, shortcutHint("closeTab", s));
+  let control = keyedControls.get(tooltip);
+  if (!control) keyedControls.set(tooltip, (control = { icon, tooltip }));
+  return control;
+}
+
+export function tabCloseControl(s: BrowserState, tabId: string): CloseControl {
+  const kind = closeKind(s, tabId);
+  return kind === "removePin" ? REMOVE_PIN : closeKeyControl(CLOSE_KEY_CONTROLS[kind], s);
+}
 
 export const useTabCloseControl = (tabId: string) => useBrowser((s) => tabCloseControl(s, tabId));
 
