@@ -48,6 +48,7 @@ source_set("ardia") {
     "ac_site_settings.cc",
     "ac_site_settings.h",
     "ac_tab_restore.cc",
+    "ac_tab_restore.h",
     "ac_tabs.cc",
     "ac_tabs.h",
     "ac_zoom.cc",

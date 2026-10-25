@@ -840,6 +840,20 @@ static NSMutableSet<NSString *> *BoundRestoreKeys() {
 
 static const NSUInteger kMaxSavedHistoryBytes = 32 * 1024 * 1024;
 
+static double SavedHistoryClearedAt(ArdiaCoreProfile *profile) {
+  NSString *marker = [NSString stringWithContentsOfFile:[profile.path stringByAppendingPathComponent:@"Ardia Tab History Cleared"]
+                                               encoding:NSUTF8StringEncoding
+                                                  error:nil];
+  __block double cleared = marker.doubleValue;
+  __block BOOL answered = NO;
+  [ArdiaCoreServices call:@"ac_tab_history_cleared" profile:ardiacore_host::ProfileName(profile) args:nil
+               completion:^(NSDictionary *result) {
+                 answered = YES;
+                 if ([result[@"clearedAt"] isKindOfClass:NSNumber.class]) cleared = MAX(cleared, [result[@"clearedAt"] doubleValue]);
+               }];
+  return answered ? cleared : INFINITY;
+}
+
 static ArdiaCoreTab *RestoreSavedHistory(ArdiaCoreWindowController *controller, ArdiaCoreProfile *profile, NSString *key, NSString *url) {
   if (!key.length || !url.length || [BoundRestoreKeys() containsObject:key] || !profile.path.length ||
       ([profile respondsToSelector:@selector(offTheRecord)] && profile.offTheRecord) ||
@@ -858,6 +872,8 @@ static ArdiaCoreTab *RestoreSavedHistory(ArdiaCoreWindowController *controller, 
   NSString *committed = [saved[@"url"] isKindOfClass:NSString.class] ? saved[@"url"] : nil;
   NSString *shown = [saved[@"virtualUrl"] isKindOfClass:NSString.class] ? saved[@"virtualUrl"] : nil;
   if (!state.length || !(SamePage(committed, url) || SamePage(shown, url))) return nil;
+  const double savedAt = [saved[@"savedAt"] isKindOfClass:NSNumber.class] ? [saved[@"savedAt"] doubleValue] : 0;
+  if (savedAt <= SavedHistoryClearedAt(profile)) return nil;
   controller.hostChanges++;
   ArdiaCoreTab *tab = [controller.coreWindow restoreTab:state profile:profile foreground:NO];
   controller.hostChanges--;

@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+#include "chrome/browser/ardia/ac_tab_restore.h"
+
 #include "base/base64.h"
 #include "base/containers/span.h"
 #include "base/files/file_enumerator.h"
@@ -61,6 +63,7 @@ constexpr int kNavigationStateVersion = 1;
 constexpr int kMaxNavigationEntryBytes = 256 * 1024;
 constexpr char kTabKey[] = "ac_tab";
 constexpr char kTabHistoryDir[] = "Ardia Tab History";
+constexpr char kTabHistoryCleared[] = "Ardia Tab History Cleared";
 constexpr int kTabHistoryVersion = 1;
 constexpr base::TimeDelta kTabHistorySaveDelay = base::Milliseconds(2500);
 constexpr base::TimeDelta kTabHistoryKeep = base::Days(90);
@@ -158,6 +161,7 @@ std::optional<std::string> TabHistoryOf(content::WebContents* contents) {
           .Set("version", kTabHistoryVersion)
           .Set("url", shown->GetURL().spec())
           .Set("virtualUrl", shown->GetVirtualURL().spec())
+          .Set("savedAt", base::Time::Now().InMillisecondsFSinceUnixEpoch())
           .Set("state", PackNavigations(selected, navigations)));
 }
 
@@ -173,8 +177,16 @@ void DeleteTabHistory(base::FilePath path) {
   base::DeleteFile(path);
 }
 
-void DeleteAllTabHistory(base::FilePath dir) {
+void ClearTabHistory(base::FilePath dir,
+                     base::FilePath marker,
+                     std::string cleared_at) {
+  WriteTabHistory(marker, cleared_at);
   base::DeletePathRecursively(dir);
+}
+
+std::map<base::FilePath, double>& TabHistoryClearedAt() {
+  static base::NoDestructor<std::map<base::FilePath, double>> cleared;
+  return *cleared;
 }
 
 class TabKeyBinding;
@@ -348,10 +360,17 @@ class TabHistoryCleaner : public history::HistoryServiceObserver,
     if (it == dirs_.end() || info.is_from_expiration()) {
       return;
     }
+    Profile* profile = it->second.first;
+    const double now = base::Time::Now().InMillisecondsFSinceUnixEpoch();
+    double& cleared = TabHistoryClearedAt()[profile->GetPath()];
+    cleared = std::max(cleared, now);
     TabHistoryFiles()->PostTask(
-        FROM_HERE, base::BindOnce(&DeleteAllTabHistory, it->second.second));
+        FROM_HERE,
+        base::BindOnce(&ClearTabHistory, it->second.second,
+                       profile->GetPath().AppendASCII(kTabHistoryCleared),
+                       base::NumberToString(cleared)));
     for (TabKeyBinding* binding : LiveBindings()) {
-      if (binding->profile() == it->second.first) {
+      if (binding->profile() == profile) {
         binding->Resave();
       }
     }
@@ -496,6 +515,10 @@ sessions::TabRestoreService* ServiceFor(Profile* profile) {
 
 }
 
+void StartTabHistoryCleaner() {
+  TabHistoryCleaner::Start();
+}
+
 }
 
 using ardia::Call;
@@ -544,6 +567,17 @@ AC_ENGINE_CALL(ac_tab_restore_load) {
       service, base::BindOnce([](Reply reply) { reply.Ok(); }, call.TakeReply()));
 }
 
+AC_ENGINE_CALL(ac_tab_history_cleared) {
+  Call call(profile_dir, args_json, reply, context);
+  if (!call) {
+    return;
+  }
+  auto& cleared = ardia::TabHistoryClearedAt();
+  auto it = cleared.find(call.profile()->GetPath());
+  call.TakeReply().Send(base::DictValue().Set(
+      "clearedAt", it == cleared.end() ? 0.0 : it->second));
+}
+
 AC_ENGINE_CALL(ac_tab_restore_tag) {
   Call call(profile_dir, args_json, reply, context);
   if (!call) {
@@ -560,7 +594,7 @@ AC_ENGINE_CALL(ac_tab_restore_tag) {
   }
   ardia::RegisterTabKey();
   if (!call.profile()->IsOffTheRecord()) {
-    ardia::TabHistoryCleaner::Start();
+    ardia::StartTabHistoryCleaner();
     ardia::PruneTabHistoryOnce(call.profile());
   }
   ardia::TabKeyBinding::CreateForWebContents(contents);

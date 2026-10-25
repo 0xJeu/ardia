@@ -17,6 +17,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/ardia/ac_tab_restore.h"  // nogncheck
 #include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "base/metrics/user_metrics.h"
@@ -684,6 +685,7 @@ extern "C" __attribute__((visibility("default"))) int ArdiaCoreMain(
   ardiacore::SetEngineCallbacks({
       .started = base::BindOnce([] {
         StartApplyingProfilePrefs();
+        ardia::StartTabHistoryCleaner();
         ardiacore::InstallPermissionPrompts();
         ardiacore::StartMediaCaptureObserver();
         ardiacore::InstallExternalAppPrompts();
