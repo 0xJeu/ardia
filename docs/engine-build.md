@@ -539,8 +539,8 @@ What changed in Helium, and what we did:
 - **Skips and guards.** Every `SKIP` entry is still in the series and still a leaf; the `guard` stage finds the same
   four reviewed hits, so `GUARD_ALLOWED` is unchanged. `domsub-keep-store.txt` keeps the same 16 store files, and
   `ardia_resources.txt` and Helium's resource list copy the same 56 files.
-- **Proxy flags.** ungoogled's `add-flags-for-existing-switches` has carried Proxy server and Proxy bypass list
-  flags since before 0.19.4 (0.20.1 only moved their context). On a real profile ArdiaCore drops `--proxy-server`
+- **Proxy flags.** ungoogled's `add-flags-for-existing-switches` already had Proxy server and Proxy bypass list
+  flags in 0.19.4 (0.20.1 only moved their context). On a real profile ArdiaCore drops `--proxy-server`
   after chrome://flags apply, so they never did anything; the branding patch now takes both flags out.
 - **Step 3.** The `patches` stage counted Chromium's own empty `third_party/search_engines_data/resources_internal`
   (a gitlink every checkout has) as an omitted download; only a file or a directory with something in it counts now
