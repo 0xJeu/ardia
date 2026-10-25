@@ -840,18 +840,21 @@ static NSMutableSet<NSString *> *BoundRestoreKeys() {
 
 static const NSUInteger kMaxSavedHistoryBytes = 32 * 1024 * 1024;
 
-static double SavedHistoryClearedAt(ArdiaCoreProfile *profile) {
-  NSString *marker = [NSString stringWithContentsOfFile:[profile.path stringByAppendingPathComponent:@"Ardia Tab History Cleared"]
-                                               encoding:NSUTF8StringEncoding
-                                                  error:nil];
-  __block double cleared = marker.doubleValue;
-  __block BOOL answered = NO;
-  [ArdiaCoreServices call:@"ac_tab_history_cleared" profile:ardiacore_host::ProfileName(profile) args:nil
+static NSString *SavedHistoryGeneration(ArdiaCoreProfile *profile) {
+  __block NSString *generation = nil;
+  [ArdiaCoreServices call:@"ac_tab_history_generation" profile:ardiacore_host::ProfileName(profile) args:nil
                completion:^(NSDictionary *result) {
-                 answered = YES;
-                 if ([result[@"clearedAt"] isKindOfClass:NSNumber.class]) cleared = MAX(cleared, [result[@"clearedAt"] doubleValue]);
+                 if (result[@"error"]) return;
+                 if ([result[@"generation"] isKindOfClass:NSString.class]) {
+                   generation = result[@"generation"];
+                 } else if ([result[@"fromMarker"] isEqual:@YES]) {
+                   NSString *marker = [profile.path stringByAppendingPathComponent:@"Ardia Tab History Cleared"];
+                   NSString *saved = [NSString stringWithContentsOfFile:marker encoding:NSUTF8StringEncoding error:nil];
+                   if (saved || ![NSFileManager.defaultManager fileExistsAtPath:marker])
+                     generation = [saved ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+                 }
                }];
-  return answered ? cleared : INFINITY;
+  return generation;
 }
 
 static ArdiaCoreTab *RestoreSavedHistory(ArdiaCoreWindowController *controller, ArdiaCoreProfile *profile, NSString *key, NSString *url) {
@@ -872,8 +875,8 @@ static ArdiaCoreTab *RestoreSavedHistory(ArdiaCoreWindowController *controller, 
   NSString *committed = [saved[@"url"] isKindOfClass:NSString.class] ? saved[@"url"] : nil;
   NSString *shown = [saved[@"virtualUrl"] isKindOfClass:NSString.class] ? saved[@"virtualUrl"] : nil;
   if (!state.length || !(SamePage(committed, url) || SamePage(shown, url))) return nil;
-  const double savedAt = [saved[@"savedAt"] isKindOfClass:NSNumber.class] ? [saved[@"savedAt"] doubleValue] : 0;
-  if (savedAt <= SavedHistoryClearedAt(profile)) return nil;
+  NSString *generation = SavedHistoryGeneration(profile);
+  if (!generation || ![saved[@"generation"] isEqual:generation]) return nil;
   controller.hostChanges++;
   ArdiaCoreTab *tab = [controller.coreWindow restoreTab:state profile:profile foreground:NO];
   controller.hostChanges--;

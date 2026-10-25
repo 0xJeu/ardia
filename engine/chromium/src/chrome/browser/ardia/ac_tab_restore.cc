@@ -19,9 +19,11 @@
 #include "base/json/json_writer.h"
 #include "base/no_destructor.h"
 #include "base/pickle.h"
+#include "base/rand_util.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -128,7 +130,8 @@ base::FilePath TabHistoryDir(Profile* profile) {
   return profile->GetPath().AppendASCII(kTabHistoryDir);
 }
 
-std::optional<std::string> TabHistoryOf(content::WebContents* contents) {
+std::optional<std::string> TabHistoryOf(content::WebContents* contents,
+                                        const std::string& generation) {
   content::NavigationController& controller = contents->GetController();
   const int current = controller.GetLastCommittedEntryIndex();
   content::NavigationEntry* shown = controller.GetLastCommittedEntry();
@@ -161,7 +164,7 @@ std::optional<std::string> TabHistoryOf(content::WebContents* contents) {
           .Set("version", kTabHistoryVersion)
           .Set("url", shown->GetURL().spec())
           .Set("virtualUrl", shown->GetVirtualURL().spec())
-          .Set("savedAt", base::Time::Now().InMillisecondsFSinceUnixEpoch())
+          .Set("generation", generation)
           .Set("state", PackNavigations(selected, navigations)));
 }
 
@@ -179,14 +182,31 @@ void DeleteTabHistory(base::FilePath path) {
 
 void ClearTabHistory(base::FilePath dir,
                      base::FilePath marker,
-                     std::string cleared_at) {
-  WriteTabHistory(marker, cleared_at);
+                     std::string generation) {
+  WriteTabHistory(marker, generation);
   base::DeletePathRecursively(dir);
 }
 
-std::map<base::FilePath, double>& TabHistoryClearedAt() {
-  static base::NoDestructor<std::map<base::FilePath, double>> cleared;
-  return *cleared;
+std::string ReadTabHistoryGeneration(base::FilePath marker) {
+  std::string generation;
+  base::ReadFileToStringWithMaxSize(marker, &generation, 64);
+  return std::string(base::TrimWhitespaceASCII(generation, base::TRIM_ALL));
+}
+
+base::FilePath TabHistoryMarker(Profile* profile) {
+  return profile->GetPath().AppendASCII(kTabHistoryCleared);
+}
+
+std::map<base::FilePath, std::string>& TabHistoryGenerations() {
+  static base::NoDestructor<std::map<base::FilePath, std::string>> generations;
+  return *generations;
+}
+
+std::optional<std::string> TabHistoryGeneration(Profile* profile) {
+  auto& generations = TabHistoryGenerations();
+  auto it = generations.find(profile->GetPath());
+  return it == generations.end() ? std::nullopt
+                                 : std::optional<std::string>(it->second);
 }
 
 class TabKeyBinding;
@@ -312,8 +332,14 @@ class TabKeyBinding : public content::WebContentsObserver,
     if (!profile) {
       return;
     }
+    std::optional<std::string> generation = TabHistoryGeneration(profile);
+    if (!generation) {
+      SaveSoon();
+      return;
+    }
     base::FilePath path = HistoryFile(profile);
-    std::optional<std::string> history = TabHistoryOf(web_contents());
+    std::optional<std::string> history =
+        TabHistoryOf(web_contents(), *generation);
     TabHistoryFiles()->PostTask(
         FROM_HERE, history ? base::BindOnce(&WriteTabHistory, std::move(path),
                                             std::move(*history))
@@ -361,14 +387,11 @@ class TabHistoryCleaner : public history::HistoryServiceObserver,
       return;
     }
     Profile* profile = it->second.first;
-    const double now = base::Time::Now().InMillisecondsFSinceUnixEpoch();
-    double& cleared = TabHistoryClearedAt()[profile->GetPath()];
-    cleared = std::max(cleared, now);
+    std::string generation = base::NumberToString(base::RandUint64());
+    TabHistoryGenerations()[profile->GetPath()] = generation;
     TabHistoryFiles()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&ClearTabHistory, it->second.second,
-                       profile->GetPath().AppendASCII(kTabHistoryCleared),
-                       base::NumberToString(cleared)));
+        FROM_HERE, base::BindOnce(&ClearTabHistory, it->second.second,
+                                  TabHistoryMarker(profile), generation));
     for (TabKeyBinding* binding : LiveBindings()) {
       if (binding->profile() == profile) {
         binding->Resave();
@@ -395,6 +418,14 @@ class TabHistoryCleaner : public history::HistoryServiceObserver,
     }
     dirs_[service] = {profile, TabHistoryDir(profile)};
     history_.AddObservation(service);
+    TabHistoryFiles()->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(&ReadTabHistoryGeneration, TabHistoryMarker(profile)),
+        base::BindOnce(
+            [](base::FilePath path, std::string generation) {
+              TabHistoryGenerations().try_emplace(path, std::move(generation));
+            },
+            profile->GetPath()));
   }
 
   std::map<history::HistoryService*, std::pair<Profile*, base::FilePath>> dirs_;
@@ -567,15 +598,16 @@ AC_ENGINE_CALL(ac_tab_restore_load) {
       service, base::BindOnce([](Reply reply) { reply.Ok(); }, call.TakeReply()));
 }
 
-AC_ENGINE_CALL(ac_tab_history_cleared) {
+AC_ENGINE_CALL(ac_tab_history_generation) {
   Call call(profile_dir, args_json, reply, context);
   if (!call) {
     return;
   }
-  auto& cleared = ardia::TabHistoryClearedAt();
-  auto it = cleared.find(call.profile()->GetPath());
-  call.TakeReply().Send(base::DictValue().Set(
-      "clearedAt", it == cleared.end() ? 0.0 : it->second));
+  std::optional<std::string> generation =
+      ardia::TabHistoryGeneration(call.profile());
+  call.TakeReply().Send(
+      generation ? base::DictValue().Set("generation", std::move(*generation))
+                 : base::DictValue().Set("fromMarker", true));
 }
 
 AC_ENGINE_CALL(ac_tab_restore_tag) {
