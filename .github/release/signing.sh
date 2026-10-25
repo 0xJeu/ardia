@@ -25,6 +25,7 @@ cleanup() {
   if security find-identity -v -p codesigning | grep -q 'Developer ID Application: .*(U5L5T3NGVV)'; then
     die "a Developer ID identity is still in the keychain search list"
   fi
+  [ -z "${GITHUB_ENV:-}" ] || printf '%s=\n' RELEASE_PROVISIONING_PROFILE SPARKLE_KEY_FILE NOTARY_KEY >> "$GITHUB_ENV"
   echo "signing keychain and key files removed"
 }
 
