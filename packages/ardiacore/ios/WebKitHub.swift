@@ -1,4 +1,5 @@
 import AppKit
+import AuthenticationServices
 import CryptoKit
 import WebKit
 
@@ -157,7 +158,28 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     return (value as? Bool) == true
   }()
 
-  static let hidePasskeys = "(() => { try { delete window.PublicKeyCredential; } catch (e) {} })();"
+  static let hidePasskeys = """
+    (() => {
+      try { delete window.PublicKeyCredential; } catch (e) {}
+      const container = window.CredentialsContainer && CredentialsContainer.prototype;
+      if (!container) return;
+      for (const name of ["create", "get"]) {
+        const original = container[name];
+        if (typeof original !== "function") continue;
+        Object.defineProperty(container, name, {
+          configurable: true, writable: true,
+          value: {
+            [name](options) {
+              if (options && typeof options === "object" && "publicKey" in options) {
+                return Promise.reject(new DOMException("Passkeys aren't available in this browser.", "NotSupportedError"));
+              }
+              return original.apply(this, arguments);
+            },
+          }[name],
+        });
+      }
+    })();
+    """
 
   func configuration(profile: String) -> WKWebViewConfiguration {
     let config = WKWebViewConfiguration()
@@ -455,6 +477,35 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
       self.persistentStores.removeValue(forKey: profile)
       if let host = self.resumeHosts.removeValue(forKey: profile) { Self.close(host) }
       WKWebsiteDataStore.remove(forIdentifier: Self.storeIdentifier(profile)) { error in completion(error == nil) }
+    }
+  }
+}
+
+enum WebKitPasskeys {
+  static func access() -> [String: Any] {
+    guard WebKitHub.passkeysEntitled else { return ["entitled": false, "status": "entitlementRequired"] }
+    return ["entitled": true, "status": status(ASAuthorizationWebBrowserPublicKeyCredentialManager().authorizationStateForPlatformCredentials)]
+  }
+
+  static func requestAccess(_ completion: @escaping ([String: Any]) -> Void) {
+    guard WebKitHub.passkeysEntitled, deviceConfigured() else { return completion(access()) }
+    ASAuthorizationWebBrowserPublicKeyCredentialManager().requestAuthorizationForPublicKeyCredentials { state in
+      DispatchQueue.main.async { completion(["entitled": true, "status": Self.status(state)]) }
+    }
+  }
+
+  private static func deviceConfigured() -> Bool {
+    if #available(macOS 26.2, *) { return ASAuthorizationWebBrowserPublicKeyCredentialManager.isDeviceConfiguredForPasskeys }
+    return true
+  }
+
+  private static func status(_ state: ASAuthorizationWebBrowserPublicKeyCredentialManager.AuthorizationState) -> String {
+    guard deviceConfigured() else { return "deviceNotConfigured" }
+    switch state {
+    case .authorized: return "authorized"
+    case .denied: return "denied"
+    case .notDetermined: return "notDetermined"
+    @unknown default: return "notDetermined"
     }
   }
 }

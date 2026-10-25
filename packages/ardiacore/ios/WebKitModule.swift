@@ -51,6 +51,10 @@ public class WebKitModule: Module {
         "passkeys": WebKitHub.passkeysEntitled,
       ]
     }.runOnQueue(.main)
+    AsyncFunction("passkeyAccess") { () -> [String: Any] in WebKitPasskeys.access() }.runOnQueue(.main)
+    AsyncFunction("requestPasskeyAccess") { (promise: Promise) in
+      WebKitPasskeys.requestAccess { promise.resolve($0) }
+    }.runOnQueue(.main)
 
     View(WebKitTabView.self) {
       Events(CefWebView.events)
