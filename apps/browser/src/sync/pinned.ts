@@ -309,7 +309,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           tabs[id] = {
             ...old,
             pinned: !group,
-            pinnedUrl: group ? null : v.u,
+            pinnedUrl: group ? old.pinnedUrl || v.u || null : v.u,
             ...(group ? { pinnedAsRow: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)) }),
             ...(group ? { tileFolder: undefined } : old.pinned || marked(pinKeyOf(old)) ? {} : folderMark(base, pinKeyOf(old))),
             customTitle: v.t,
@@ -326,7 +326,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
           id,
           ...pinKeyField(id),
-          pinnedUrl: group ? null : v.u,
+          pinnedUrl: v.u || null,
           ...(!group && marked(keyOfLocal.get(id) ?? id) ? { pinnedAsRow: true as const } : {}),
           ...(!group && !marked(keyOfLocal.get(id) ?? id) ? folderMark(base, keyOfLocal.get(id) ?? id) : {}),
           navigation: null,

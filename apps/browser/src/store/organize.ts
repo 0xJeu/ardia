@@ -179,8 +179,7 @@ export function samePage(a: string, b: string): boolean {
   return norm(a) === norm(b);
 }
 
-export const awayFromPin = (t: Pick<Tab, "pinned" | "url" | "pinnedUrl">) =>
-  t.pinned && !!t.pinnedUrl && !!t.url && !samePage(t.url, t.pinnedUrl);
+export const awayFromPin = (t: Pick<Tab, "url" | "pinnedUrl">) => !!t.pinnedUrl && !!t.url && !samePage(t.url, t.pinnedUrl);
 
 const autoLabels = new WeakMap<TabGroup, { tabs: object; members: (Tab | undefined)[]; label: string }>();
 
@@ -214,7 +213,7 @@ export function onUrlChange(s: BrowserState, tab: Tab, url: string): Partial<Tab
     if (isSiteMuted(s, tab, after)) patch.muted = true;
     else if (isSiteMuted(s, tab, before)) patch.muted = false;
   }
-  if (tab.pinned && !tab.pinnedUrl && url) patch.pinnedUrl = url;
+  if (!tab.pinnedUrl && url && inPinnedContainer(s, tab.id)) patch.pinnedUrl = url;
   return patch;
 }
 
@@ -299,7 +298,7 @@ export function withRowsGrouped(s: BrowserState, asked: string[], o: { name?: st
   const tabs = { ...s.tabs };
   for (const id of rows) {
     const { pinnedAsRow: _, ...rest } = tabs[id]!;
-    tabs[id] = { ...rest, pinned: false, pinnedUrl: null };
+    tabs[id] = { ...rest, pinned: false };
   }
   const [next, id] = withGroup({ ...s, tabs }, ids, { ...o, pinned: true });
   const g = next.groups[id];
@@ -616,7 +615,7 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
   const intoPinnedGroup = target?.pinned ? target.id : null;
   for (const id of moving) {
     const t = tabs[id]!;
-    if (t.pinned !== p.pinned) tabs[id] = { ...t, pinned: p.pinned, pinnedUrl: p.pinned ? t.url || null : null };
+    if (t.pinned !== p.pinned) tabs[id] = { ...t, pinned: p.pinned, pinnedUrl: p.pinned || intoPinnedGroup ? t.pinnedUrl || t.url || null : null };
     const row = p.pinned && (paired.has(id) || (p.row ?? (t.pinned && !!t.pinnedAsRow)));
     const placed = t.pinned !== p.pinned || (!p.pinned && pinnedGroupOf(id) !== intoPinnedGroup);
     if (placed || !!t.pinnedAsRow !== row) {
@@ -807,7 +806,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
   setPinnedUrl(tabId, url) {
     const t = get().tabs[tabId];
     const next = url ?? t?.url;
-    if (!t?.pinned || !next) return;
+    if (!t || !next || !inPinnedContainer(get(), tabId)) return;
     get().updateTab(tabId, { pinnedUrl: next });
     if (url && !samePage(t.url, url)) get().navigate(tabId, url);
   },

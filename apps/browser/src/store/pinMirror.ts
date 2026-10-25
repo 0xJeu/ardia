@@ -78,7 +78,7 @@ export function chainOf(x: Pick<Section, "groups">, key: string | null): string[
 
 const tileSig = (t: Tab) =>
   `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}\u0001${t.pinnedAsRow ? "r" : ""}\u0001${t.tileFolder?.id ?? ""}\u0001${t.tileFolder?.name ?? ""}\u0001${t.tileFolder?.renamedAt ?? ""}`;
-const memberSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}`;
+const memberSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}`;
 export function signature(x: Section): string {
   const shown = new Set<string>();
   const lines: string[] = [];
@@ -199,7 +199,7 @@ export function copyOf(src: Tab, windowId: string, tile: boolean): Tab {
       title: atSource ? src.title : "",
       favicon: atSource ? src.favicon : null,
       pinned: tile,
-      pinnedUrl: tile ? src.pinnedUrl || src.url || null : null,
+      pinnedUrl: src.pinnedUrl || (tile ? src.url : null) || null,
       ...(tile && src.pinnedAsRow ? { pinnedAsRow: true as const } : {}),
       ...(tile && !src.pinnedAsRow && src.tileFolder ? { tileFolder: src.tileFolder } : {}),
       customTitle: src.customTitle,
@@ -245,10 +245,8 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
       customTitle: src.customTitle,
       customIcon: src.customIcon,
     };
-    if (tile) {
-      patch.pinnedUrl = src.pinnedUrl || src.url || null;
-      if (!hasPage(t) && !samePage(t.url, homeOf(src))) Object.assign(patch, { url: homeOf(src), title: src.title, favicon: src.favicon });
-    } else patch.pinnedUrl = null;
+    patch.pinnedUrl = src.pinnedUrl || (tile ? src.url : null) || null;
+    if (tile && !hasPage(t) && !samePage(t.url, homeOf(src))) Object.assign(patch, { url: homeOf(src), title: src.title, favicon: src.favicon });
     tabs[t.id] = { ...t, ...patch };
     return t.id;
   };

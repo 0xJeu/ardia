@@ -3,7 +3,7 @@ import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, t
 import { menuShortcut } from "../../lib/commandShortcuts";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
+import { bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
 import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../../store/organize";
 import { groupPath } from "../../store/groups";
 import { splitOf, splitRowPanes } from "../../store/splits";
@@ -77,10 +77,12 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   if (s.selection[windowId]?.length) s.setSelection(windowId, []);
 
   const view = viewTabIds(s, windowId);
-  const list = view.filter((id) => !s.tabs[id]!.pinned);
+  const list = view.filter((id) => !inPinnedContainer(s, id));
+  const housed = inPinnedContainer(s, tab.id);
+  const memberPin = housed && !tab.pinned;
   const index = list.indexOf(tab.id);
-  const above = tab.pinned ? [] : list.slice(0, index);
-  const below = tab.pinned ? [] : list.slice(index + 1);
+  const above = housed ? [] : list.slice(0, index);
+  const below = housed ? [] : list.slice(index + 1);
   const others = list.filter((id) => id !== tab.id);
   const group = groupOf(s, tab.id);
   const split = splitOf(s, tab.id);
@@ -96,59 +98,76 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   const groups = moveToGroupItems(windowId, group?.id);
 
   const choice = await showMenu([
-    ...(tab.pinned
-      ? [
-          { id: "backToPin", title: "Back to Pinned URL", symbol: "arrow.uturn.backward", enabled: away, ...menuShortcut("returnToPinnedUrl") },
-          { id: "replacePin", title: "Replace Pin with Current Page", symbol: "pin", enabled: away },
-          { id: "editPin", title: "Edit Pinned Page…", symbol: "pencil" },
-          ...(isCalendarUrl(tab.pinnedUrl ?? tab.url) ? [calendarMenuItem()] : []),
-          sep,
-        ]
-      : []),
+    { id: "copy", title: "Copy Link", symbol: "link", enabled: !!tab.url, ...menuShortcut("copyUrl") },
+    { id: "share", title: "Share", symbol: "square.and.arrow.up", enabled: canShare(tab), share: true },
+    sep,
     { id: "rename", title: "Rename…", symbol: "character.cursor.ibeam" },
     ...(tab.customTitle ? [{ id: "resetName", title: "Reset Name", symbol: "arrow.counterclockwise" }] : []),
     { id: "icon", title: "Change Icon…", symbol: "face.smiling" },
     ...(tab.customIcon ? [{ id: "resetIcon", title: "Reset Icon", symbol: "arrow.counterclockwise" }] : []),
-    sep,
-    { id: "pin", title: togglePinTitle(tab), symbol: tab.pinned ? "pin.slash" : "pin" },
-    ...(splitRow
-      ? []
-      : [
-          isPinnedRow(tab)
-            ? { id: "pinTile", title: "Move to Top Apps", symbol: "app" }
-            : { id: "pinRow", title: `Move to ${pinnedSectionTitle(s, tab)}`, symbol: "list.bullet" },
-        ]),
-    ...(pinSection(tab) !== "tile"
-      ? []
-      : tab.tileFolder
-        ? [{ id: "leaveFolder", title: "Remove from Folder", symbol: "folder.badge.minus" }]
-        : [{ id: "newFolder", title: "New Folder with Tab", symbol: "folder.badge.plus" }]),
-    { id: "duplicate", title: "Duplicate", symbol: "plus.square.on.square" },
-    ...(pinSection(tab) === "tile"
-      ? []
-      : [
-          group
-            ? { id: "ungroupTab", title: "Remove from Group", symbol: "folder.badge.minus" }
-            : { id: "newGroup", title: "New Group with Tab", symbol: "plus.rectangle.on.rectangle", ...menuShortcut("newGroupWithTabs") },
-          ...(groups.length ? [{ id: "moveToGroup", title: "Move to Group", symbol: "rectangle.stack", children: groups }] : []),
-        ]),
-    ...(split ? [{ id: "unsplit", title: "Remove from Split View", symbol: "rectangle.split.2x1.slash" }] : []),
-    sep,
     { id: "mute", title: tab.muted ? "Unmute Site" : "Mute Site", symbol: tab.muted ? "speaker.wave.2" : "speaker.slash", enabled: !!tab.url },
-    { id: "copy", title: "Copy URL", symbol: "link", enabled: !!tab.url, ...menuShortcut("copyUrl") },
-    { id: "copyMd", title: "Copy Link as Markdown", symbol: "text.badge.checkmark", enabled: !!tab.url, ...menuShortcut("copyUrlAsMarkdown") },
-    { id: "share", title: "Share", symbol: "square.and.arrow.up", enabled: canShare(tab), share: true },
+    ...(housed
+      ? [
+          {
+            id: "pinnedPage",
+            title: "Edit Pinned Page",
+            symbol: "pin",
+            children: [
+              { id: "backToPin", title: "Back to Pinned URL", symbol: "arrow.uturn.backward", enabled: away, ...menuShortcut("returnToPinnedUrl") },
+              { id: "replacePin", title: "Replace Pin with Current Page", symbol: "pin", enabled: away },
+              sep,
+              { id: "editPin", title: "Edit…", symbol: "pencil" },
+            ],
+          },
+        ]
+      : []),
+    ...(tab.pinned && isCalendarUrl(tab.pinnedUrl ?? tab.url) ? [calendarMenuItem()] : []),
+    sep,
+    { id: "duplicate", title: "Duplicate", symbol: "plus.square.on.square" },
     { id: "bookmark", title: "Add to Bookmarks…", symbol: "bookmark", enabled: !!tab.url, ...menuShortcut("bookmarkPage") },
-    { id: "bookmarkTo", title: "Add Bookmark to Folder", symbol: "folder", enabled: !!tab.url, children: bookmarkFolderItems(windowId, "folder:") },
     ...(canSwitchEngine(tab.url) ? [{ id: "engine", title: `Open Page in ${ENGINE_NAMES[otherEngine(tabEngine(s, tab.id))]}`, symbol: ENGINE_SYMBOLS[otherEngine(tabEngine(s, tab.id))] }] : []),
+    ...(split ? [{ id: "unsplit", title: "Remove from Split View", symbol: "rectangle.split.2x1.slash" }] : []),
+    {
+      id: "moveTo",
+      title: "Move to",
+      symbol: "arrow.right.square",
+      children: [
+        ...(splitRow || pinSection(tab) === "tile" ? [] : [{ id: "pinTile", title: "Top Apps", symbol: "app" }]),
+        ...(splitRow || isPinnedRow(tab) ? [] : [{ id: "pinRow", title: pinnedSectionTitle(s, tab), symbol: "list.bullet" }]),
+        ...(pinSection(tab) !== "tile"
+          ? []
+          : tab.tileFolder
+            ? [{ id: "leaveFolder", title: "Out of Folder", symbol: "folder.badge.minus" }]
+            : [{ id: "newFolder", title: "New Folder…", symbol: "folder.badge.plus" }]),
+        ...(pinSection(tab) === "tile"
+          ? []
+          : [
+              { id: "newGroup", title: "New Group", symbol: "plus.rectangle.on.rectangle", ...menuShortcut("newGroupWithTabs") },
+              ...(groups.length ? [{ id: "moveToGroup", title: "Group", symbol: "rectangle.stack", children: groups }] : []),
+              ...(group && !memberPin ? [{ id: "ungroupTab", title: "Out of Group", symbol: "folder.badge.minus" }] : []),
+            ]),
+        sep,
+        { id: "moveToProfile", title: "Profile", symbol: "person.crop.circle", enabled: !incognito, children: moveToProfile },
+        { id: "moveToWindow", title: "Window", symbol: "macwindow", enabled: !incognito, children: moveToWindowItems(windowId) },
+      ],
+    },
     sep,
-    { id: "moveToProfile", title: "Move to Profile", symbol: "person.crop.circle", enabled: !incognito, children: moveToProfile },
-    { id: "moveToWindow", title: "Move to Window", symbol: "macwindow", enabled: !incognito, children: moveToWindowItems(windowId) },
-    sep,
-    { id: "close", title: "Close Tab", symbol: "xmark", ...menuShortcut("closeTab") },
-    { id: "closeOthers", title: "Close Other Tabs", enabled: others.length > 0 },
-    { id: "closeAbove", title: across ? "Close Tabs to the Left" : "Close Tabs Above", enabled: above.length > 0 },
-    { id: "closeBelow", title: across ? "Close Tabs to the Right" : "Close Tabs Below", enabled: below.length > 0 },
+    memberPin ? { id: "unpinMember", title: "Unpin", symbol: "pin.slash" } : { id: "pin", title: togglePinTitle(tab), symbol: tab.pinned ? "pin.slash" : "pin" },
+    ...(housed
+      ? []
+      : [
+          { id: "close", title: "Close Tab", symbol: "xmark", ...menuShortcut("closeTab") },
+          {
+            id: "closeMore",
+            title: "Close Tabs",
+            enabled: others.length > 0,
+            children: [
+              { id: "closeOthers", title: "Other Tabs", enabled: others.length > 0 },
+              { id: "closeAbove", title: across ? "Tabs to the Left" : "Tabs Above", enabled: above.length > 0 },
+              { id: "closeBelow", title: across ? "Tabs to the Right" : "Tabs Below", enabled: below.length > 0 },
+            ],
+          },
+        ]),
   ]);
   if (!choice) return;
   const t = { kind: "tab" as const, id: tab.id };
@@ -161,6 +180,7 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   else if (choice === "icon") void openIconPicker(windowId, t);
   else if (choice === "resetIcon") s.updateTab(tab.id, { customIcon: null });
   else if (choice === "pin") s.togglePin(tab.id);
+  else if (choice === "unpinMember") s.placeTabs([tab.id], { pinned: false, groupId: null });
   else if (choice === "pinTile") s.pinTabs([tab.id], true, false);
   else if (choice === "pinRow") s.pinTabs([tab.id], true, true);
   else if (choice === "newFolder") newFolderWithTab(windowId, tab.id);
@@ -173,10 +193,8 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   else if (choice === "mute") toggleMute(tab.id);
   else if (choice === "engine") void togglePageEngine(tab.id);
   else if (choice === "copy") copyUrls([tab.id], false);
-  else if (choice === "copyMd") copyUrls([tab.id], true);
   else if (choice.startsWith("share:via:")) void shareTab(tab, windowId, choice.slice(10));
   else if (choice === "bookmark") bookmarkTab(windowId, tab.id);
-  else if (choice.startsWith("folder:")) void bookmarkTabs(windowId, [tab.id], choice.slice(7));
   else if (choice.startsWith("profile:")) void moveTabToProfile(tab.id, choice.slice(8));
   else if (choice.startsWith("window:")) moveTabToWindow(tab.id, choice.slice(7));
   else if (choice === "close") void closeTab(tab.id);
