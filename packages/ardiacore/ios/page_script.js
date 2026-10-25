@@ -707,6 +707,7 @@
     if (config.displayMediaPicker) installDisplayMedia();
     if (config.fieldTiming) setFieldTiming(true);
     if (config.broadThemeObserver) broadThemeObserver = true;
+    if (typeof config.selectionPopover === "boolean" && handlers.selectionPopover) handlers.selectionPopover(config.selectionPopover);
   };
   send("hello", { top: isTop, url: location.href });
 
@@ -921,28 +922,44 @@
     selectionShown = true;
     send("selection", { text: text.slice(0, 2000), rect: { x: r.left, y: r.top, width: r.width, height: r.height } });
   });
-  document.addEventListener(
-    "mousedown",
-    (e) => {
-      selecting = e.button === 0;
-      hideSelection();
-    },
-    true,
-  );
-  document.addEventListener(
-    "mouseup",
-    (e) => {
-      if (e.button !== 0 || !selecting) return;
+  const selectionListeners = [
+    [
+      document,
+      "mousedown",
+      (e) => {
+        selecting = e.button === 0;
+        hideSelection();
+      },
+      true,
+    ],
+    [
+      document,
+      "mouseup",
+      (e) => {
+        if (e.button !== 0 || !selecting) return;
+        selecting = false;
+        setTimeout(reportSelection, 0);
+      },
+      true,
+    ],
+    [document, "selectionchange", () => selectionShown && !selecting && getSelection().isCollapsed && hideSelection(), false],
+    [document, "keydown", (e) => e.metaKey || /^(Shift|Meta|Alt|Control)$/.test(e.key) || hideSelection(), true],
+    [window, "scroll", hideSelection, { passive: true, capture: true }],
+    [window, "resize", hideSelection, false],
+    [window, "pagehide", hideSelection, false],
+  ];
+  let selectionListening = false;
+  handlers.selectionPopover = (on) => {
+    if (!on === !selectionListening) return;
+    selectionListening = !!on;
+    if (!on) {
       selecting = false;
-      setTimeout(reportSelection, 0);
-    },
-    true,
-  );
-  document.addEventListener("selectionchange", () => selectionShown && !selecting && getSelection().isCollapsed && hideSelection());
-  document.addEventListener("keydown", (e) => e.metaKey || /^(Shift|Meta|Alt|Control)$/.test(e.key) || hideSelection(), true);
-  addEventListener("scroll", hideSelection, { passive: true, capture: true });
-  addEventListener("resize", hideSelection);
-  addEventListener("pagehide", hideSelection);
+      hideSelection();
+    }
+    for (const [target, type, listener, options] of selectionListeners)
+      on ? target.addEventListener(type, listener, options) : target.removeEventListener(type, listener, options);
+  };
+  handlers.selectionPopover(true);
 
   if (isTop) try {
     const DRAG_MIN = 40;

@@ -241,6 +241,7 @@ NSString *gSearchEngineName = @"Google";
 BOOL gDisplayMediaPicker = NO;
 NSString *gPeekModifier = @"shift";
 NSString *gSplitLinkModifier = @"altShift";
+static BOOL gSelectionPopover = YES;
 static const NSEventModifierFlags kPeekKeyMask = NSEventModifierFlagOption | NSEventModifierFlagShift | NSEventModifierFlagCommand | NSEventModifierFlagControl;
 static NSEventModifierFlags gPeekUpKeys = 0;
 static CFTimeInterval gPeekUpAt = -1;
@@ -560,6 +561,7 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
     if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:audio:)])
       config[@"displayMediaPicker"] = @YES;
     if (main && ACFieldTimingEnabled()) config[@"fieldTiming"] = @YES;
+    if (main) config[@"selectionPopover"] = @(gSelectionPopover);
     config[@"peek"] = gPeekModifier;
     config[@"split"] = SplitLinkModifier();
     if (PeekTracing()) config[@"peekTrace"] = @YES;
@@ -1314,6 +1316,7 @@ static void ExpireLaunchTab(ArdiaCoreTab *tab) {
   [ArdiaCoreTabs setView:self forTab:tab];
   [self markTemporary];
   [self pushPeekModifier];
+  [self pushSelectionPopover];
   [self bindRestoreKey];
   [self takePageReports];
   if ([tab respondsToSelector:@selector(deliverHeldPageMessages)]) [tab deliverHeldPageMessages];
@@ -2066,6 +2069,12 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   for (ArdiaCoreWebView *view in LiveViews().allObjects) [view pushPeekModifier];
 }
 
++ (void)setSelectionPopoverEnabled:(BOOL)enabled {
+  if (enabled == gSelectionPopover) return;
+  gSelectionPopover = enabled;
+  for (ArdiaCoreWebView *view in LiveViews().allObjects) [view pushSelectionPopover];
+}
+
 + (void)setAutoPictureInPictureEnabled:(BOOL)enabled {
   if ([ArdiaCoreEngine respondsToSelector:@selector(setAutoPictureInPicture:)]) [ArdiaCoreEngine setAutoPictureInPicture:enabled];
 }
@@ -2407,6 +2416,10 @@ static NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
 
 - (void)forgetScriptFrame:(NSString *)frameId {
   if (frameId.length) [ScriptFramesOf(_tab) removeObject:frameId];
+}
+
+- (void)pushSelectionPopover {
+  if (_tab) [self callFrame:@"" kind:@"selectionPopover" json:gSelectionPopover ? @"true" : @"false"];
 }
 
 - (void)pushPeekModifier {
