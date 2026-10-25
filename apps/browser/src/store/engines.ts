@@ -86,7 +86,6 @@ export function visitRecorder(write: (profile: string, visit: RecordedVisit) => 
     if (visit.timer !== undefined) timers.clear(visit.timer);
     visit.timer = undefined;
     if (open.get(tabId) === visit) open.delete(tabId);
-    if (done.size > 1000) done.clear();
     done.set(tabId, visit.url);
     if (visit.profile !== null) write(visit.profile, { url: visit.url, title: visit.title, at: visit.at });
   };
@@ -112,5 +111,12 @@ export function visitRecorder(write: (profile: string, visit: RecordedVisit) => 
         if (open.get(tabId) === settling) finish(tabId, settling);
       }, VISIT_SETTLE_MS);
     },
+    close(tabId: string) {
+      const visit = open.get(tabId);
+      if (visit) finish(tabId, visit);
+      open.delete(tabId);
+      done.delete(tabId);
+    },
+    size: () => open.size + done.size,
   };
 }

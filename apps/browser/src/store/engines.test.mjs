@@ -161,3 +161,28 @@ test("a private visit is never written, and a reload of the same page isn't a ne
   advance(1500);
   assert.deepEqual(written.length, 1);
 });
+
+test("closing a tab records its unsettled visit and forgets the tab", () => {
+  const { visits, written, advance, page } = recorder();
+  visits.note("t", "", page("https://a.com/", "Old", true));
+  visits.close("t");
+  assert.deepEqual(written, [{ profile: "", url: "https://a.com/", title: "Old", at: 0 }]);
+  assert.equal(visits.size(), 0);
+  advance(5000);
+  assert.equal(written.length, 1);
+});
+
+test("many tabs don't make an open tab record its page again", () => {
+  const { visits, written, advance, page } = recorder();
+  visits.note("keep", "", page("https://keep.com/", "K", false));
+  advance(1500);
+  for (let i = 0; i < 1200; i++) {
+    visits.note(`t${i}`, "", page(`https://s${i}.com/`, "", false));
+    advance(1500);
+    visits.close(`t${i}`);
+  }
+  visits.note("keep", "", page("https://keep.com/", "K", false));
+  advance(1500);
+  assert.equal(written.filter((v) => v.url === "https://keep.com/").length, 1);
+  assert.equal(visits.size(), 1);
+});

@@ -461,11 +461,6 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 final class WebKitDownloads: NSObject, WKDownloadDelegate {
   private enum Phase { case running, pausing, paused, resuming, done }
 
-  private struct FileIdentity: Equatable {
-    let device: Int
-    let inode: Int
-  }
-
   private final class Item {
     let id = "wk-download-" + UUID().uuidString
     var download: WKDownload?
@@ -476,13 +471,15 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     var phase = Phase.running
     var filename = ""
     var path = ""
+    var final: URL?
+    var replacesFinal = false
+    var staging: URL?
     var state = "downloading"
     var received: Int64 = 0
     var total: Int64 = 0
     var speed: Double = 0
     var mimeType = ""
     var resumeData: Data?
-    var file: FileIdentity?
     var progress: NSKeyValueObservation?
     var sampledAt = Date()
     var sampledBytes: Int64 = 0
@@ -492,6 +489,8 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       self.url = url
       self.profile = profile
     }
+
+    var stagingFile: URL? { staging.map { $0.appendingPathComponent(filename.isEmpty ? "download" : filename) } }
   }
 
   private var items: [String: Item] = [:]
@@ -527,7 +526,6 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     item.progress = download.progress.observe(\.completedUnitCount, options: [.new]) { [weak self, weak item] progress, _ in
       DispatchQueue.main.async {
         guard let self, let item, item.phase == .running else { return }
-        Self.noteFile(item)
         item.received = progress.completedUnitCount
         item.total = max(0, progress.totalUnitCount)
         let now = Date()
@@ -562,58 +560,89 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     ])
   }
 
+  static func makeStaging(in folder: URL) -> URL? {
+    for _ in 0..<4 {
+      let staging = folder.appendingPathComponent(".ardia-download-" + UUID().uuidString, isDirectory: true)
+      if mkdir(staging.path, 0o700) == 0 { return staging }
+      if errno != EEXIST { return nil }
+    }
+    return nil
+  }
+
+  private static func dropStaging(_ item: Item) {
+    guard let staging = item.staging else { return }
+    item.staging = nil
+    try? FileManager.default.removeItem(at: staging)
+  }
+
+  private static func place(_ file: URL, at final: URL, replacing: Bool) -> URL? {
+    if replacing, rename(file.path, final.path) == 0 { return final }
+    let base = final.deletingPathExtension().lastPathComponent
+    let ext = final.pathExtension
+    for n in 0...9999 {
+      let name = n == 0 ? final.lastPathComponent : ext.isEmpty ? "\(base) (\(n))" : "\(base) (\(n)).\(ext)"
+      let candidate = final.deletingLastPathComponent().appendingPathComponent(name)
+      if renamex_np(file.path, candidate.path, UInt32(RENAME_EXCL)) == 0 { return candidate }
+      if errno != EEXIST { return nil }
+    }
+    return nil
+  }
+
   func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String,
                 completionHandler: @escaping (URL?) -> Void) {
     guard let item = item(for: download) else { return completionHandler(nil) }
-    if !item.path.isEmpty {
-      if Self.owns(item) {
-        try? FileManager.default.removeItem(atPath: item.path)
-      } else {
-        let target = Self.unique(URL(fileURLWithPath: item.path))
-        item.path = target.path
-        item.filename = target.lastPathComponent
-      }
-      item.file = nil
+    if let file = item.stagingFile {
+      try? FileManager.default.removeItem(at: file)
+      item.path = file.path
       report(item)
-      return completionHandler(URL(fileURLWithPath: item.path))
+      return completionHandler(file)
     }
     let name = Self.safeName(suggestedFilename.isEmpty ? (response.suggestedFilename ?? "download") : suggestedFilename)
     item.mimeType = response.mimeType ?? ""
     item.total = max(0, response.expectedContentLength)
-    let accept = { (target: URL?) in
-      guard let target else {
+    let accept = { (target: URL?, replacing: Bool) in
+      guard let target, let staging = Self.makeStaging(in: target.deletingLastPathComponent()) else {
+        item.phase = .done
+        item.state = target == nil ? "cancelled" : "failed"
+        self.report(item)
         completionHandler(nil)
         return
       }
+      item.final = target
+      item.replacesFinal = replacing
+      item.staging = staging
       item.filename = target.lastPathComponent
-      item.path = target.path
+      let file = staging.appendingPathComponent(item.filename)
+      item.path = file.path
       self.report(item)
-      completionHandler(target)
+      completionHandler(file)
     }
     resolveDestination(for: item.profile) { folder, ask in
-      guard ask, !WebKitHub.background else { return accept(Self.unique(folder.appendingPathComponent(name))) }
+      guard ask, !WebKitHub.background else { return accept(folder.appendingPathComponent(name), false) }
       let panel = NSSavePanel()
       panel.directoryURL = folder
       panel.nameFieldStringValue = name
-      panel.begin { response in
-        if response == .OK, let url = panel.url {
-          try? FileManager.default.removeItem(at: url)
-          accept(url)
-        } else {
-          item.phase = .done
-          item.state = "cancelled"
-          accept(nil)
-        }
-      }
+      panel.begin { response in accept(response == .OK ? panel.url : nil, true) }
     }
   }
 
   func downloadDidFinish(_ download: WKDownload) {
     guard let item = item(for: download) else { return }
     item.phase = .done
-    item.state = "finished"
-    if item.total < item.received { item.total = item.received }
     detach(item)
+    if let file = item.stagingFile, let final = item.final, let placed = Self.place(file, at: final, replacing: item.replacesFinal) {
+      item.path = placed.path
+      item.filename = placed.lastPathComponent
+      item.state = "finished"
+      let size = ((try? FileManager.default.attributesOfItem(atPath: placed.path))?[.size] as? NSNumber)?.int64Value
+      if let size {
+        item.received = size
+        item.total = size
+      }
+    } else {
+      item.state = "failed"
+    }
+    Self.dropStaging(item)
     report(item)
   }
 
@@ -623,13 +652,13 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     switch item.phase {
     case .pausing, .paused:
       if let resumeData { item.resumeData = resumeData }
-      Self.noteFile(item)
       item.phase = .paused
     case .done:
       break
     case .running, .resuming:
       item.phase = .done
       item.state = (error as NSError).code == NSURLErrorCancelled ? "cancelled" : "failed"
+      Self.dropStaging(item)
     }
     report(item)
   }
@@ -642,19 +671,15 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     case "cancel":
       guard item.phase != .done else { return }
       let download = item.download
-      let partial = item.path
       item.phase = .done
       item.state = "cancelled"
       item.resumeData = nil
       detach(item)
       report(item)
-      let removePartial = {
-        if !partial.isEmpty && Self.owns(item) { try? FileManager.default.removeItem(atPath: partial) }
-      }
       if let download {
-        download.cancel { _ in DispatchQueue.main.async(execute: removePartial) }
+        download.cancel { _ in DispatchQueue.main.async { Self.dropStaging(item) } }
       } else {
-        removePartial()
+        Self.dropStaging(item)
       }
     case "pause":
       guard item.phase == .running, let download = item.download else { return }
@@ -663,7 +688,6 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       download.cancel { [weak self] data in
         DispatchQueue.main.async {
           if let data { item.resumeData = data }
-          Self.noteFile(item)
           if item.download === download { self?.detach(item) }
           if item.phase == .pausing { item.phase = .paused }
         }
@@ -676,6 +700,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       guard data != nil || request != nil else {
         item.phase = .done
         item.state = "failed"
+        Self.dropStaging(item)
         return report(item)
       }
       item.phase = .resuming
@@ -698,38 +723,9 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     }
   }
 
-  private static func identity(atPath path: String) -> FileIdentity? {
-    guard !path.isEmpty, let attributes = try? FileManager.default.attributesOfItem(atPath: path),
-      let device = (attributes[.systemNumber] as? NSNumber)?.intValue, let inode = (attributes[.systemFileNumber] as? NSNumber)?.intValue
-    else { return nil }
-    return FileIdentity(device: device, inode: inode)
-  }
-
-  private static func noteFile(_ item: Item) {
-    if item.file == nil { item.file = identity(atPath: item.path) }
-  }
-
-  private static func owns(_ item: Item) -> Bool {
-    guard let file = item.file else { return false }
-    return identity(atPath: item.path) == file
-  }
-
   static func safeName(_ name: String) -> String {
     let cleaned = name.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: ":", with: "_")
     let trimmed = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: ". ").union(.whitespacesAndNewlines))
     return trimmed.isEmpty ? "download" : trimmed
-  }
-
-  static func unique(_ url: URL) -> URL {
-    let manager = FileManager.default
-    guard manager.fileExists(atPath: url.path) else { return url }
-    let base = url.deletingPathExtension().lastPathComponent
-    let ext = url.pathExtension
-    for n in 1...9999 {
-      let name = ext.isEmpty ? "\(base) (\(n))" : "\(base) (\(n)).\(ext)"
-      let candidate = url.deletingLastPathComponent().appendingPathComponent(name)
-      if !manager.fileExists(atPath: candidate.path) { return candidate }
-    }
-    return url
   }
 }

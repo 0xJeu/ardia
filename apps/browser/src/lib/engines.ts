@@ -107,7 +107,24 @@ const visits = visitRecorder(
   Date.now,
 );
 
+const visitedTabs = new Set<string>();
+let unwatch: (() => void) | null = null;
+
+function watchClosedTabs() {
+  unwatch ??= useBrowser.subscribe((s, prev) => {
+    if (s.tabs === prev.tabs) return;
+    for (const id of visitedTabs) {
+      if (s.tabs[id]) continue;
+      visitedTabs.delete(id);
+      visits.close(id);
+    }
+  });
+}
+
 export function noteWebKitPage(tabId: string, page: WebKitPage) {
   const t = store().tabs[tabId];
-  if (t) visits.note(tabId, isIncognitoProfile(t.profileId) ? null : engineProfile(t.profileId), page);
+  if (!t) return;
+  watchClosedTabs();
+  visitedTabs.add(tabId);
+  visits.note(tabId, isIncognitoProfile(t.profileId) ? null : engineProfile(t.profileId), page);
 }
