@@ -6,6 +6,7 @@ export type ShortcutOverrides = Record<string, string[]>;
 export type ResolvedShortcuts = {
   bindings: ReadonlyMap<string, Shortcut[]>;
   conflictsOf(id: string): string[];
+  holdersOf(shortcut: Shortcut): string[];
 };
 
 const MODIFIER_ORDER: ShortcutModifier[] = ["control", "option", "shift", "command", "function"];
@@ -108,6 +109,7 @@ export function resolveShortcuts(sources: readonly ShortcutSource[], overrides: 
   }
   return {
     bindings,
+    holdersOf: (shortcut) => holders.get(comboKey(shortcut)) ?? [],
     conflictsOf: (id) => [...new Set((bindings.get(id) ?? []).flatMap((k) => holders.get(comboKey(k)) ?? []))].filter((other) => other !== id),
   };
 }

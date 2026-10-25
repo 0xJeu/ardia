@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-const { menuShortcut, resolvedShortcuts, setMenuBarShortcuts, shortcutHint } = await import("./commandShortcuts.ts");
+const { menuBarRevision, menuCommandAlternate, menuShortcut, resolvedShortcuts, setMenuBarShortcuts, shortcutHint } = await import("./commandShortcuts.ts");
 
 const state = (shortcuts, profileOrder = ["work", "home"]) => ({ settings: { shortcuts }, profileOrder });
 const item = (id, defaultKey, defaultModifiers, remappable = true) => ({ id, title: id, path: [], key: defaultKey, modifiers: defaultModifiers, defaultKey, defaultModifiers, remappable, aliases: [] });
@@ -34,7 +34,32 @@ test("once the menu bar list is known, an extension item it no longer lists take
 });
 
 test("the menu bar's fixed system items count for conflicts", () => {
-  setMenuBarShortcuts([item("system:Edit > Emoji & Symbols", "e", ["control", "command"], false)]);
+  setMenuBarShortcuts([item("duplicateTab", "", []), item("system:Edit > Emoji & Symbols", "e", ["control", "command"], false)]);
   const resolved = resolvedShortcuts(state({ duplicateTab: ["e", "control", "command"] }));
   assert.deepEqual(resolved.conflictsOf("duplicateTab"), ["system:Edit > Emoji & Symbols"]);
+});
+
+const menu = (...extra) => [item("newTab", "t", ["command"]), item("closeTab", "w", ["command"]), item("switchProfile:work", "1", ["control"]), ...extra];
+
+test("a newer menu bar snapshot without the extension gives New Tab its ⌘T back, and says so", () => {
+  const s = state({ "openExtension:x": ["t", "command"] });
+  setMenuBarShortcuts(menu(item("openExtension:x", "", [])));
+  assert.equal(shortcutHint("newTab", s), undefined);
+  const revision = menuBarRevision();
+  setMenuBarShortcuts(menu());
+  assert.equal(menuBarRevision(), revision + 1);
+  assert.equal(shortcutHint("newTab", s), "⌘T");
+});
+
+test("an override on an item this build's menu bar doesn't have takes nothing", () => {
+  setMenuBarShortcuts(menu());
+  assert.equal(shortcutHint("newTab", state({ showOnboarding: ["t", "command"] })), "⌘T");
+});
+
+test("a profile's ↗ alternate goes when its ⌘ keys are another binding or its shortcut has ⌘", () => {
+  setMenuBarShortcuts(menu());
+  assert.deepEqual(menuCommandAlternate("switchProfile:work", state({})), { key: "1", modifiers: ["control", "command"] });
+  assert.equal(menuCommandAlternate("switchProfile:work", state({ "switchProfile:work": ["k", "control"], closeTab: ["k", "control", "command"] })), null);
+  assert.equal(menuCommandAlternate("switchProfile:work", state({ "switchProfile:work": ["k", "command"] })), null);
+  assert.deepEqual(menuCommandAlternate("switchProfile:work", state({ "switchProfile:work": [""] })), { modifiers: ["command"] });
 });

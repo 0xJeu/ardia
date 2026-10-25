@@ -1,7 +1,7 @@
 import { Symbol, showMenu, type MenuItem } from "@ardia/shell";
 import { Pressable, Text, View } from "react-native";
 import { createProfile, openWindow, switchProfile } from "../lib/actions";
-import { menuShortcut } from "../lib/commandShortcuts";
+import { menuCommandAlternate, menuShortcut } from "../lib/commandShortcuts";
 import { profileAccent, profileNameColor, useTheme } from "../lib/theme";
 import { useBrowser } from "../store/browser";
 import { useIsIncognito, useProfiles, useWindowId, useWindowProfile } from "../store/hooks";
@@ -86,10 +86,10 @@ export async function openProfileMenu(windowId: string) {
       const profile = s.profiles[id]!;
       const swatch = profileAccent(profile);
       const shortcut = menuShortcut(`switchProfile:${id}`, s);
-      const modifiers = shortcut.modifiers ?? [];
-      const switchItem: MenuItem = { id: `switch:${id}`, title: profile.name, checked: id === current, swatch, ...shortcut, modifiers };
-      if (modifiers.includes("command")) return [switchItem];
-      return [switchItem, { id: `window:${id}`, title: `${profile.name} ↗`, alternate: true, swatch, ...shortcut, modifiers: [...modifiers, "command"] }];
+      const alternate = menuCommandAlternate(`switchProfile:${id}`, s);
+      const switchItem: MenuItem = { id: `switch:${id}`, title: profile.name, checked: id === current, swatch, ...shortcut, modifiers: shortcut.modifiers ?? [] };
+      if (!alternate) return [switchItem];
+      return [switchItem, { id: `window:${id}`, title: `${profile.name} ↗`, alternate: true, swatch, ...alternate }];
     }),
     { separator: true },
     { id: "new", title: "New Profile", symbol: "plus" },

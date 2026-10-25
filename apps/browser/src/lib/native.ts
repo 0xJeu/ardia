@@ -4,6 +4,7 @@ import {
   claimFocus,
   closeWindow,
   isDarkAppearance,
+  menuShortcuts,
   onAppEvent,
   onCommand,
   onOpenURLs,
@@ -40,6 +41,7 @@ import { openExternalUrls } from "../components/littleArdia/actions";
 import { SMALL_LIGHTS_CENTER } from "../components/littleArdia/SmallChrome";
 import { runCommand } from "./commands";
 import { LITTLE_ARDIA_DISABLED_COMMANDS, PAGE_COMMANDS, PAGE_COMMANDS_OFF_INTERNAL_PAGES, WINDOW_COMMANDS } from "./commandCatalog";
+import { setMenuBarShortcuts } from "./commandShortcuts";
 import { finishAnimatedCloses } from "./closeAnimated";
 import { setFocusSenders } from "./focusClaims";
 import { cancelAbandonedFocusMoves, settlingCommandFocus } from "./focusHandoff";
@@ -109,6 +111,7 @@ export function startNativeSync() {
   windows.listen();
 
   let lastMenu = "";
+  let lastMenuItems = "";
   let lastBookmarkMenus: unknown[] = [];
   let menuTimer: ReturnType<typeof setTimeout> | undefined;
   const syncMenu = () => {
@@ -121,7 +124,11 @@ export function startNativeSync() {
     if (json === lastMenu && !bookmarksChanged) return;
     lastMenu = json;
     lastBookmarkMenus = bookmarkMenus;
-    void setMenuStateParts(state, bookmarksChanged);
+    const sent = setMenuStateParts(state, bookmarksChanged);
+    const menuItems = JSON.stringify([state.profiles.map((p) => p.id), (state.extensions ?? []).map((e) => e.id)]);
+    if (menuItems === lastMenuItems) return void sent;
+    lastMenuItems = menuItems;
+    void sent.then(menuShortcuts).then(setMenuBarShortcuts, () => {});
   };
 
   windows.sync(store.getState());

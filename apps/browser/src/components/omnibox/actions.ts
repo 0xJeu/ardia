@@ -5,7 +5,7 @@ import { useBrowser, type BrowserState } from "../../store/browser";
 import { activeTab, bookmarkProfileId, isPinnedRow, pinnedSectionTitle } from "../../store/model";
 import { canTidyPins } from "../../store/tidyPins";
 import { commandBarTitle, commandSymbol } from "../../lib/commandCatalog";
-import { shortcutHint } from "../../lib/commandShortcuts";
+import { menuBarRevision, shortcutHint } from "../../lib/commandShortcuts";
 import type { Tab } from "../../store/types";
 import { organizeActions } from "./organizeActions";
 
@@ -125,7 +125,8 @@ export function currentBarActions(windowId: string): CommandAction[] {
   const s = useBrowser.getState();
   let byWindow = barActionsOf.get(s);
   if (!byWindow) barActionsOf.set(s, (byWindow = new Map()));
-  let actions = byWindow.get(windowId);
-  if (!actions) byWindow.set(windowId, (actions = barActions(s, windowId)));
+  const key = `${windowId}|${menuBarRevision()}`;
+  let actions = byWindow.get(key);
+  if (!actions) byWindow.set(key, (actions = barActions(s, windowId)));
   return actions;
 }
