@@ -1,4 +1,4 @@
-import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
+import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, sanitizePaste, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
 import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { findNodeHandle, Pressable, Text, TextInput, View } from "react-native";
@@ -52,6 +52,7 @@ const BASE_KEYS = [
 ];
 const SCOPE_KEYS = [...BASE_KEYS, { key: "Backspace" }];
 const REMOVE_KEYS = [...BASE_KEYS, { key: "Delete", shiftKey: true }];
+const PASTED_TYPES = ["string" as const];
 
 export function Omnibox({
   variant,
@@ -314,7 +315,7 @@ export function Omnibox({
     if (choice === "pasteAndGo" && paste) return go(pasteTarget(paste));
     if (choice === "copy" || choice === "cut") copyText(value.slice(start, end));
     if (choice === "cut" || choice === "paste") {
-      const insert = choice === "paste" ? (await readClipboard()).replace(/\s*\n\s*/g, " ") : "";
+      const insert = choice === "paste" ? sanitizePaste(await readClipboard()) : "";
       const next = value.slice(0, start) + insert + value.slice(end);
       setTyped(next);
       setEdited(true);
@@ -418,6 +419,7 @@ export function Omnibox({
       onChangeText={onChangeText}
       placeholder={scope ? `Search ${scope.name}` : "Search or enter address"}
       placeholderTextColor={theme.placeholder}
+      pastedTypes={PASTED_TYPES}
       selectionColor={theme.selection}
       enableFocusRing={false}
       onSubmitEditing={() => choose(current, "current", true)}
