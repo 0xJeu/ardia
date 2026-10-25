@@ -302,8 +302,8 @@ export function pinnedAdapter(profileId: string): Adapter {
 
       for (const id of groupOrder) {
         const v = lookOf(id);
-        const color = lookedColor(v.c, base(`${GROUP_LOOK}${keyOf(id)}`));
         const old = groups[id];
+        const color = lookedColor(v.c, base(`${GROUP_LOOK}${old ? pinKeyOf(old) : keyOf(id)}`));
         const made: TabGroup = old
           ? { ...old, name: v.n, icon: v.i, color, pinned: true }
           : { id, ...pinKeyField(id), windowId: newPinWindow, profileId, name: v.n, icon: v.i, color, collapsed: false, pinned: true, tabIds: [], createdAt: Date.now() };

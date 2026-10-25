@@ -261,3 +261,23 @@ test("a pinned group set to None reaches the other Macs as None, while its pin:g
   await syncAll([b, a, old]);
   assert.equal(pinnedGroupOf(a, "Read later")?.color, null, "and Neutral after it");
 });
+
+test("a None group's copy in a second window stays None through a rename from another Mac", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  seedGroup(a);
+  const g = pinnedGroupOf(a, "Reading");
+  a.with(() => S().updateGroup(g.id, { color: "none" }));
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  b.with(() => S().createWindow({ url: "https://b-second.example/" }));
+  const copies = () => b.with(() => Object.values(S().groups).filter((x) => x.pinned && (x.pinKey ?? x.id) === g.id));
+  assert.equal(copies().length, 2, "each window of B has a copy");
+  assert.ok(copies().some((x) => x.id !== g.id), "one with its own id");
+  a.with(() => S().updateGroup(g.id, { name: "Read later" }));
+  await syncAll([a, b]);
+  await syncAll([b, a]);
+  assert.deepEqual(copies().map((x) => [x.name, x.color]), [["Read later", "none"], ["Read later", "none"]], "both copies keep None");
+  assert.equal(pinnedGroupOf(a, "Read later")?.color, "none", "and None isn't deleted for everyone");
+});
