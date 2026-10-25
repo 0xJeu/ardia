@@ -1525,6 +1525,16 @@ void BluetoothAdapterMac::OnLowEnergyCentralManagerStateUpdated() {
 
 void BluetoothAdapterMac::ClassicDeviceAdded(
 """),
+    ("""  for (auto& observer : observers_)
+    observer.AdapterDiscoveringChanged(this, true);
+  DCHECK(callback);
+""", """  for (auto& observer : observers_)
+    observer.AdapterDiscoveringChanged(this, true);
+  if (g_ardia_bluetooth_poll_on_demand) {
+    PollAdapterOnDemand();
+  }
+  DCHECK(callback);
+"""),
 ]
 def edit(s):
     assert s.count(at) >= 1
@@ -1539,7 +1549,8 @@ hook(["bool g_ardia_bluetooth_poll_on_demand = false;\n",
       "  if (g_ardia_bluetooth_poll_on_demand && !IsDiscovering()) {\n",
       "void BluetoothAdapterMac::PollAdapterOnDemand() {\n",
       "void BluetoothAdapterMac::OnLowEnergyCentralManagerStateUpdated() {\n",
-      "    poll_dirty_ = true;\n"], edit)
+      "    poll_dirty_ = true;\n",
+      "  if (g_ardia_bluetooth_poll_on_demand) {\n    PollAdapterOnDemand();\n  }\n  DCHECK(callback);\n"], edit)
 PY
 
 hook "$src/chrome/browser/extensions/extension_action_storage_manager.cc" "restored browser action defaults notify" <<'PY'

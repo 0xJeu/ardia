@@ -539,9 +539,9 @@ What changed in Helium, and what we did:
 - **Skips and guards.** Every `SKIP` entry is still in the series and still a leaf; the `guard` stage finds the same
   four reviewed hits, so `GUARD_ALLOWED` is unchanged. `domsub-keep-store.txt` keeps the same 16 store files, and
   `ardia_resources.txt` and Helium's resource list copy the same 56 files.
-- **New defaults.** ungoogled's `add-flags-for-existing-switches` gained Proxy server and Proxy bypass list flags.
-  On a real profile ArdiaCore drops `--proxy-server` after chrome://flags apply, so the branding patch takes both
-  flags out.
+- **Proxy flags.** ungoogled's `add-flags-for-existing-switches` has carried Proxy server and Proxy bypass list
+  flags since before 0.19.4 (0.20.1 only moved their context). On a real profile ArdiaCore drops `--proxy-server`
+  after chrome://flags apply, so they never did anything; the branding patch now takes both flags out.
 - **Step 3.** The `patches` stage counted Chromium's own empty `third_party/search_engines_data/resources_internal`
   (a gitlink every checkout has) as an omitted download; only a file or a directory with something in it counts now
   (4309c156).
@@ -553,8 +553,10 @@ What changed in Helium, and what we did:
   `IsPeriodicUnfreezingActive()`) and `chromium-video-super-resolution` (`SwapFrameData` carries a `gfx::FrameData`,
   so the flag goes straight into it; `direct_renderer.h` and `skia_renderer.cc` are no longer touched).
 - **Hooks.** Chromium 156 polls the Mac Bluetooth adapter on the UI thread again (no `OnBackgroundPollComplete`), so
-  `engine/ardiacore/apply.sh`'s on-demand polling hook wraps the synchronous `PollAdapter`, with the same markers and
-  behaviour.
+  `engine/ardiacore/apply.sh`'s on-demand polling hook wraps the synchronous `PollAdapter`. Because that poll now
+  runs inside `LazyInitialize`, before `StartScanWithFilter` starts discovery, it sees no discovery and stops; so a
+  scan that starts asks for the next poll itself (`PollAdapterOnDemand` after `AdapterDiscoveringChanged`), and the
+  500 ms loop runs again for as long as discovery does.
 - **ArdiaCore.** `ACBrowserWindow` answers 156's new `BrowserWindow::GetPinnedToolbarActions()` with null (no toolbar),
   and `WindowHost`'s close calls `UnloadController`'s renamed `RunBeforeUnloadForShutdown()` and
   `ResetBeforeUnloadForShutdown()` (155's `TryToCloseWindow()` and `ResetTryToCloseWindow()`); `ACBrowserWindow::Close()`
