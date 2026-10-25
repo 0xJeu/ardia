@@ -642,6 +642,7 @@ static BOOL gPageCoverOff = NO;
 - (NSInteger)covers;
 - (BOOL)transitioning;
 - (BOOL)pageFullScreen;
+- (BOOL)enteredForPage;
 @end
 
 namespace {
@@ -1100,6 +1101,10 @@ static NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
 
 - (BOOL)pageFullScreen {
   return _tab != nil;
+}
+
+- (BOOL)enteredForPage {
+  return _entered;
 }
 
 - (void)uncoverWhenDrawn {
@@ -1962,6 +1967,10 @@ NSView *ACWindowRootView(NSWindow *window) {
   [ArdiaCoreWebView keepTransfersOfWindow:window];
   if (controller) [controller.coreWindow close];
   else [window close];
+}
+
++ (BOOL)windowFullScreenIsForPage:(NSWindow *)window {
+  return [objc_getAssociatedObject(window, kWindowFullScreenKey) enteredForPage];
 }
 
 + (void)setShouldCloseHandler:(BOOL (^)(NSWindow *))handler {
