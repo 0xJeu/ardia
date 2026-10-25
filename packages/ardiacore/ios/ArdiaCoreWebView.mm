@@ -2533,7 +2533,6 @@ static NSString *LinkKeyAction(NSString *key) {
   if (url.length && ![url hasPrefix:@"about:"]) [self holdLittlePage];
   ACFieldMarkNow(_transferKey, @"request");
   [_tab loadURL:url userInitiated:userInitiated];
-  else [_tab loadURL:url];
   [self focusAfterLoad];
 }
 
@@ -2565,8 +2564,6 @@ static NSString *LinkKeyAction(NSString *key) {
 
 - (void)goToHistoryOffset:(NSInteger)offset {
   [_tab goToOffset:(int)offset];
-  else if (offset == -1) [_tab goBack];
-  else if (offset == 1) [_tab goForward];
 }
 
 - (void)reload {
@@ -2575,7 +2572,6 @@ static NSString *LinkKeyAction(NSString *key) {
 
 - (void)reloadIgnoringCache {
   [_tab reloadIgnoringCache];
-  else [_tab reload];
 }
 
 - (void)stopLoading {

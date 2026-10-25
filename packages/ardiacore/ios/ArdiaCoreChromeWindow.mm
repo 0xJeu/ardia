@@ -1680,6 +1680,10 @@ NSString *PopupOriginText(NSString *url) {
   return [scheme stringByAppendingString:@":"];
 }
 
+NSString *HostOf(NSString *url) {
+  return [NSURL URLWithString:url ?: @""].host ?: @"";
+}
+
 NSDictionary<NSString *, NSArray<NSString *> *> *PermissionKinds() {
   static NSDictionary *kinds = @{
     @"camera" : @[ @"video", @"camera" ],
