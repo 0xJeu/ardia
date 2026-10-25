@@ -1,10 +1,10 @@
 import { create } from "zustand";
+import { goBackAcrossEngines } from "../../lib/engines";
 import { livePageId, withLivePage } from "../../lib/livePage";
 import { webviews } from "../../lib/webviews";
 import { useBrowser } from "../../store/browser";
 import { changedIds } from "../../store/changes";
 import { useTabLive } from "../../store/hooks";
-import { navigationTo } from "../../store/model";
 import type { TabLive } from "../../store/types";
 import { internalPageOf, tabDestination } from "../pages/urls";
 import { pageOf, patchPage, usePage } from "./pageState";
@@ -33,15 +33,8 @@ export function goBack(tabId: string): void {
   const live = store().live[tabId];
   if (pageOf(tabId).newTabShown) return;
   if (live?.canGoBack) return void webviews.get(tabId)?.goBack();
-  if (pageOf(tabId).engineBack) return goBackAcrossEngines(tabId);
+  if (pageOf(tabId).engineBack) return void goBackAcrossEngines(tabId);
   if (pageOf(tabId).backToNewTab) showNewTab(tabId);
-}
-
-function goBackAcrossEngines(tabId: string) {
-  const back = pageOf(tabId).engineBack;
-  if (!back || !store().tabs[tabId]) return;
-  patchPage(tabId, { engineBack: null });
-  store().updateTab(tabId, { engine: back.engine, adoptId: undefined, navigation: navigationTo(back.url, true) });
 }
 
 export function goForward(tabId: string): void {

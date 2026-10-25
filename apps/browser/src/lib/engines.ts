@@ -2,10 +2,11 @@ import { addHistoryVisits, type PageEngine } from "@ardia/ardiacore";
 import { confirm } from "@ardia/shell";
 import { create } from "zustand";
 import { useBrowser } from "../store/browser";
-import { patchPage } from "../components/layout/pageState";
-import { showToast } from "../components/layout/splitActions";
+import { pageOf, patchPage } from "../components/layout/pageState";
+import { hideKeyedToast, showToast } from "../components/layout/splitActions";
 import { canSwitchEngine, chosenEngine, ENGINE_NAMES, siteOf, tabEngine, visitRecorder, type WebKitPage } from "../store/engines";
 import { engineProfile, isIncognitoProfile, navigationTo } from "../store/model";
+import type { Tab } from "../store/types";
 import { carrySignInToWebKit, signInCarryOn } from "./engineSignIn";
 import { wantsPage } from "./tabPages";
 import { webviews } from "./webviews";
@@ -48,6 +49,27 @@ export function persistEngine(tabId: string, engine: PageEngine) {
   if (t && !t.engine) store().updateTab(tabId, { engine });
 }
 
+async function mayLeavePage(t: Tab, title: string, message: string, confirmTitle: string): Promise<boolean> {
+  if (!wantsPage(t) || !(await hasUnsavedWork(t.id))) return true;
+  const { confirmed } = await confirm({ title, message, confirmTitle, cancelTitle: "Stay on Page", windowId: t.windowId });
+  return confirmed;
+}
+
+const pageUrl = (t: Tab | undefined) => t?.url || t?.navigation?.url || "";
+
+export async function goBackAcrossEngines(tabId: string): Promise<boolean> {
+  const back = pageOf(tabId).engineBack;
+  const t = store().tabs[tabId];
+  if (!back || !t) return false;
+  const from = pageUrl(t);
+  const leaving = await mayLeavePage(t, "Go back to the previous page?", `It opens in ${ENGINE_NAMES[back.engine]}, so changes you made on this page may not be saved.`, "Go Back");
+  const now = store().tabs[tabId];
+  if (!leaving || !now || pageUrl(now) !== from || pageOf(tabId).engineBack !== back) return false;
+  patchPage(tabId, { engineBack: null });
+  store().updateTab(tabId, { engine: back.engine, adoptId: undefined, navigation: navigationTo(back.url, true) });
+  return true;
+}
+
 export async function openPageIn(tabId: string, engine: PageEngine, options: { rule?: PageEngine | null; checkWork?: boolean } = {}): Promise<boolean> {
   const t = store().tabs[tabId];
   if (!t) return false;
@@ -59,16 +81,7 @@ export async function openPageIn(tabId: string, engine: PageEngine, options: { r
     saveRule();
     return true;
   }
-  if (options.checkWork !== false && wantsPage(t) && (await hasUnsavedWork(tabId))) {
-    const { confirmed } = await confirm({
-      title: `Open this page in ${ENGINE_NAMES[engine]}?`,
-      message: `The page reloads in ${ENGINE_NAMES[engine]}, so changes you made on it may not be saved.`,
-      confirmTitle: `Open in ${ENGINE_NAMES[engine]}`,
-      cancelTitle: "Stay on Page",
-      windowId: t.windowId,
-    });
-    if (!confirmed) return false;
-  }
+  if (options.checkWork !== false && !(await mayLeavePage(t, `Open this page in ${ENGINE_NAMES[engine]}?`, `The page reloads in ${ENGINE_NAMES[engine]}, so changes you made on it may not be saved.`, `Open in ${ENGINE_NAMES[engine]}`))) return false;
   if (engine === "webkit" && signInCarryOn()) await carrySignInToWebKit(tabId, url);
   const now = store().tabs[tabId];
   if (!now || (now.url || now.navigation?.url || "") !== url) return false;
@@ -124,10 +137,17 @@ async function moveForProtectedVideo(tabId: string, site: string) {
   }
   const t = store().tabs[tabId];
   if (!t) return;
+  const key = `engine-move:${tabId}`;
+  const stillThere = () => siteOf(pageUrl(store().tabs[tabId])) === site;
   showToast(t.windowId, "Opened in WebKit for protected video", `${hostLabel(site)} plays here with FairPlay. WebKit keeps its own sign-ins.`, {
     icon: "play.rectangle",
-    key: `engine-move:${tabId}`,
-    action: { title: "Move Back", run: () => void openPageIn(tabId, "chromium", { rule: "chromium" }) },
+    key,
+    action: { title: "Move Back", run: () => void (stillThere() && openPageIn(tabId, "chromium", { rule: "chromium" })) },
+  });
+  const unwatchSite = useBrowser.subscribe((s, prev) => {
+    if (s.tabs[tabId] === prev.tabs[tabId] || stillThere()) return;
+    unwatchSite();
+    hideKeyedToast(t.windowId, key);
   });
 }
 
