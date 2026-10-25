@@ -740,12 +740,15 @@
       const progressed = (m) => m.readyState >= 2 && m.currentTime > 0;
       const anyProgressed = () => [...attempted, ...document.querySelectorAll("video, audio")].some(progressed);
       const after = (ms, fn) => setTimeout(guard(fn), ms);
+      const stalled = (m) => !m.paused && !m.ended && !progressed(m);
+      const judgeAttempt = (m) =>
+        after(GRACE_MS, () => {
+          if (refused && stalled(m)) needsProtectedPlayback(refused);
+        });
       const onAttempt = (m) => {
         if (attempted.size >= 16) attempted.delete(attempted.values().next().value);
         attempted.add(m);
-        after(GRACE_MS, () => {
-          if (refused && !m.paused && !m.ended && !progressed(m)) needsProtectedPlayback(refused);
-        });
+        judgeAttempt(m);
       };
       const onNeedsKey = (m) =>
         after(KEYS_GRACE_MS, () => {
@@ -766,6 +769,7 @@
       const onRefused = (keySystem, activated) => {
         if (drmSent) return;
         if (!refused) refused = keySystem;
+        for (const m of attempted) if (stalled(m)) judgeAttempt(m);
         if (activated)
           after(GRACE_MS, () => {
             if (!anyProgressed()) needsProtectedPlayback(keySystem);

@@ -134,6 +134,30 @@ test("a play attempt before the refusal is judged once the refusal is known", as
   assert.deepEqual(p.sent, drm());
 });
 
+test("a player still stalled when a later refusal arrives prompts after a fresh grace period", async () => {
+  const p = page([]);
+  const video = p.addMedia({ paused: false, readyState: 1 });
+  p.fire(video, "play");
+  p.advance(6000);
+  assert.deepEqual(p.sent, []);
+  await p.refuse();
+  p.advance(4999);
+  assert.deepEqual(p.sent, []);
+  p.advance(1);
+  assert.deepEqual(p.sent, drm());
+});
+
+test("a player that played before a later refusal stays quiet", async () => {
+  const p = page([]);
+  const video = p.addMedia({ paused: false, readyState: 1 });
+  p.fire(video, "play");
+  p.advance(6000);
+  Object.assign(video, { readyState: 4, currentTime: 4 });
+  await p.refuse();
+  p.advance(6000);
+  assert.deepEqual(p.sent, []);
+});
+
 test("a paused or ended attempt isn't a failure", async () => {
   const p = page([]);
   await p.refuse();
