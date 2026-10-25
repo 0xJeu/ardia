@@ -1,4 +1,4 @@
-import { cancelDownload, endWebKitPrivateSession, removeLeftDownloadStaging, type Download } from "@ardia/ardiacore";
+import { cancelDownload, endWebKitPrivateSession, leftDownloadStaging, removeLeftDownloadStaging, type Download } from "@ardia/ardiacore";
 import { readDocument, writeDocument } from "@ardia/shell";
 import { useBrowser, type BrowserState, type HydrateData } from "../store/browser";
 import { inPinnedContainer, isIncognitoProfile, newId, privateSession, snapshotTab } from "../store/model";
@@ -124,6 +124,14 @@ type SessionV2 = {
 
 let droppedPrivateDownloads = false;
 
+function forgetStaging(id: string) {
+  const s = useBrowser.getState();
+  const download = s.downloads.find((d) => d.id === id);
+  if (!download) return;
+  const { staging: _, stagingId: _id, destination: _to, ...kept } = download;
+  s.upsertDownload(kept);
+}
+
 export function loadSession(): HydrateData | null {
   const session = read<SessionV2>("session.json");
   if (session?.version !== 2) return null;
@@ -150,9 +158,12 @@ export function loadSession(): HydrateData | null {
     deletedGroups: session.deletedGroups ?? [],
     cleanedTabs: session.cleanedTabs ?? [],
     downloads: (downloads?.downloads ?? []).filter((d) => downloadSession(d) === null).map((d, i) => {
-      removeLeftDownloadStaging(d);
-      const { staging: _, ...kept } = d;
-      return { ...kept, id: `saved-${i}` };
+      const id = `saved-${i}`;
+      const left = leftDownloadStaging(d);
+      const { staging: _, stagingId: _id, destination: _to, ...kept } = d;
+      if (!left) return { ...kept, id };
+      void removeLeftDownloadStaging(d).then((removed) => removed && forgetStaging(id));
+      return { ...d, id, stagingId: left.uuid };
     }),
   };
   if (session.settings && session.settings.restoreSession === false) {

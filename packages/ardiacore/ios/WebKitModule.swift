@@ -22,7 +22,9 @@ public class WebKitModule: Module {
     AsyncFunction("removeExternalAppAllowance") { (profile: String, origin: String, scheme: String) in
       WebKitHub.shared.removeExternalAppAllowance(profile: profile, origin: origin, scheme: scheme)
     }.runOnQueue(.main)
-    AsyncFunction("removeDownloadStaging") { (path: String, uuid: String) in WebKitDownloads.removeStaging(path, uuid: uuid) }
+    AsyncFunction("removeDownloadStaging") { (path: String, uuid: String, folder: String) in
+      WebKitDownloads.removeStaging(path, uuid: uuid, folder: folder)
+    }
       .runOnQueue(.main)
     AsyncFunction("endPrivateSession") { (session: String) in WebKitHub.shared.endPrivateSession(session) }.runOnQueue(.main)
     AsyncFunction("sitePermissions") { (profile: String, origin: String) in

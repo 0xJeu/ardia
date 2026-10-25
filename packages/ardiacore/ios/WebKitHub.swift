@@ -563,6 +563,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       "paused": item.phase == .pausing || item.phase == .paused || item.phase == .resuming,
       "received": Double(item.received), "total": Double(item.total), "speed": item.speed, "mimeType": item.mimeType,
       "profile": item.profile, "offTheRecord": false, "staging": item.staging?.path ?? NSNull(),
+      "destination": item.final?.path ?? NSNull(),
     ])
   }
 
@@ -573,10 +574,19 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     return mkdir(staging.path, 0o700) == 0 ? staging : nil
   }
 
-  static func removeStaging(_ path: String, uuid: String) -> Bool {
-    guard UUID(uuidString: uuid) != nil, (path as NSString).lastPathComponent == stagingPrefix + uuid else { return false }
+  static func plainAbsolute(_ path: String) -> Bool {
+    let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+    return parts.count > 1 && parts[0].isEmpty && parts.dropFirst().allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." }
+  }
+
+  static func removeStaging(_ path: String, uuid: String, folder: String) -> Bool {
+    guard UUID(uuidString: uuid) != nil, plainAbsolute(path), plainAbsolute(folder),
+      (path as NSString).deletingLastPathComponent == folder, (path as NSString).lastPathComponent == stagingPrefix + uuid
+    else { return false }
     var info = stat()
-    guard lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else { return false }
+    guard lstat(folder, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else { return false }
+    guard lstat(path, &info) == 0 else { return errno == ENOENT }
+    guard info.st_mode & S_IFMT == S_IFDIR else { return false }
     return (try? FileManager.default.removeItem(atPath: path)) != nil
   }
 

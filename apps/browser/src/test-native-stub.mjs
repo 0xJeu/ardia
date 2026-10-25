@@ -37,7 +37,13 @@ export const cancelDownload = (id) => (cancelledDownloads.push(id), Promise.reso
 export const endedWebKitSessions = [];
 export const endWebKitPrivateSession = (session) => (endedWebKitSessions.push(session), Promise.resolve());
 export const removedStagings = [];
-export const removeLeftDownloadStaging = (download) => void (download.staging && removedStagings.push(download.staging));
+export const stagingRemovals = { ok: true };
+export const leftDownloadStaging = (download) => {
+  const uuid = download.stagingId ?? (download.id.startsWith("wk-download-") ? download.id.slice(12) : "");
+  const folder = (download.destination ?? "").slice(0, (download.destination ?? "").lastIndexOf("/"));
+  return download.staging && uuid && folder && download.state !== "downloading" ? { path: download.staging, uuid, folder } : null;
+};
+export const removeLeftDownloadStaging = (download) => (removedStagings.push(download.staging), Promise.resolve(stagingRemovals.ok));
 export const deletedProfileData = [];
 export const profileDataLeft = new Map();
 export const deleteProfileData = (profile) => (deletedProfileData.push(profile), Promise.resolve(profileDataLeft.get(profile) ?? []));
