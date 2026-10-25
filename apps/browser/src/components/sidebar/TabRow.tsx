@@ -30,6 +30,9 @@ export const clickMods = (e: GestureResponderEvent) => {
 
 const useSelection = (windowId: string) => () => useBrowser.getState().selection[windowId] ?? [];
 
+const CLOSE_SLOT = 22;
+const SPINNER_SLOT = 14;
+
 export const TabRowItem = memo(function TabRowItem({
   tabId,
   section,
@@ -142,12 +145,18 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                       onDone={(text) => (text === null ? endRename({ kind: "tab", id: tabId }) : commitRename({ kind: "tab", id: tabId }, text))}
                     />
                   ) : (
-                    <FadeLabel text={title} fontSize={13} color={active ? theme.tabSelectedText : theme.textTab} style={{ flex: 1, height: 18, marginLeft: 5 }} />
+                    <FadeLabel
+                      text={title}
+                      fontSize={13}
+                      color={active ? theme.tabSelectedText : theme.textTab}
+                      fadeInset={hovered ? CLOSE_SLOT : loading ? SPINNER_SLOT : 0}
+                      style={{ flex: 1, height: 18, marginLeft: 5, marginRight: -CLOSE_SLOT }}
+                    />
                   )}
                   <HoverSlot
                     hovered={hovered && !renaming}
-                    width={22}
-                    hover={<IconButton icon={closeControl.icon} size={10} weight="semibold" box={22} radius={6} onPress={() => pressTabClose(tab.id)} tooltip={closeControl.tooltip} />}
+                    width={CLOSE_SLOT}
+                    hover={<IconButton icon={closeControl.icon} size={10} weight="semibold" box={CLOSE_SLOT} radius={6} onPress={() => pressTabClose(tab.id)} tooltip={closeControl.tooltip} />}
                   >
                     {loading && <ActivitySpinner style={{ width: 12, height: 12, marginRight: 2 }} />}
                   </HoverSlot>
