@@ -13,6 +13,11 @@ final class ArdiaWKWebView: WKWebView {
   var nowPlayingFrame: String?
   var captureOrigins: [String: Set<String>] = [:]
 
+  func stopCapture(_ kind: String) {
+    if kind == "camera" { setCameraCaptureState(.none, completionHandler: nil) }
+    if kind == "microphone" { setMicrophoneCaptureState(.none, completionHandler: nil) }
+  }
+
   override func becomeFirstResponder() -> Bool {
     let became = super.becomeFirstResponder()
     if became { onFocus?() }
@@ -154,6 +159,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     addSubview(view)
     updateHidden()
     observe(view)
+    WebKitHub.shared.reconcileCapture(view, profile: profile)
   }
 
   private func observe(_ view: WKWebView) {
@@ -284,13 +290,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     return "\(scheme)://\(host.lowercased())" + (url.port.map { ":\($0)" } ?? "")
   }
 
-  func capturing(_ kind: String, from origin: String) -> Bool { webView?.captureOrigins[kind]?.contains(origin) == true }
-
-  func stopCapture(_ kind: String) {
-    guard let view = webView else { return }
-    if kind == "camera" { view.setCameraCaptureState(.none, completionHandler: nil) }
-    if kind == "microphone" { view.setMicrophoneCaptureState(.none, completionHandler: nil) }
-  }
 
   private func runInWorld(_ code: String, frame: WKFrameInfo? = nil, completion: ((Any?) -> Void)? = nil) {
     guard let view = webView else {

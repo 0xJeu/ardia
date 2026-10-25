@@ -319,8 +319,15 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     }
     guard value == "block" else { return }
     let store = dataStore(for: profile)
-    for tab in owners.values.compactMap(\.tab) where tab.webView?.configuration.websiteDataStore === store && tab.capturing(kind, from: origin) {
-      tab.stopCapture(kind)
+    let views = owners.values.compactMap(\.tab?.webView) + parked.values.compactMap { $0 as? ArdiaWKWebView } + offered.values.compactMap { $0 as? ArdiaWKWebView }
+    for view in views where view.configuration.websiteDataStore === store && view.captureOrigins[kind]?.contains(origin) == true {
+      view.stopCapture(kind)
+    }
+  }
+
+  func reconcileCapture(_ view: ArdiaWKWebView, profile: String) {
+    for (kind, origins) in view.captureOrigins where origins.contains(where: { rememberedPermissions[permissionKey(profile, $0, kind)] == false }) {
+      view.stopCapture(kind)
     }
   }
 

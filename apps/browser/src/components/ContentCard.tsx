@@ -10,13 +10,13 @@ import { isQuitting } from "../lib/native";
 import { layout, useTheme } from "../lib/theme";
 import { opaqueCard } from "../lib/opaqueCard";
 import { startChromeTabs } from "../lib/chromeTabs";
-import { arrivesHandedOff, handOff, isHandedOff, wantsPage } from "../lib/tabPages";
+import { handOff, takeHandOff, wantsPage } from "../lib/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../lib/tabLifecycle";
 import { usePrewarm } from "../lib/preload";
 import { clearEngineOffer, noteWebKitPage, offerWebKit, persistEngine } from "../lib/engines";
 import { tabEngine } from "../store/engines";
 import { EngineOfferPrompt } from "./site/EnginePrompt";
-import { webviewRef, webviews } from "../lib/webviews";
+import { noteIssued, webviewRef, webviews } from "../lib/webviews";
 import { useBrowser } from "../store/browser";
 import { setPageProgress } from "../store/pageProgress";
 import { shallowEqual, useProfilesValue, useStoreWhile, useTabValue } from "../store/tabWatch";
@@ -554,10 +554,12 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
 
   const seq = navigation?.seq;
   const adopted = useRef<string | null>(null);
-  const arrived = useRef(arrivesHandedOff(tabId, navigation?.seq));
-  const loadsOnCreate = useRef(engine === "webkit" && !isHandedOff(tabId) ? navigation?.seq : undefined);
+  const [handoff] = useState(() => takeHandOff(tabId, engine));
+  const arrived = useRef(!!handoff && handoff.seq === navigation?.seq);
+  const loadsOnCreate = useRef(engine === "webkit" && !handoff ? navigation?.seq : undefined);
   useEffect(() => {
     if (!navigation) return;
+    noteIssued(tabId, navigation.seq);
     if (arrived.current) {
       arrived.current = false;
       return;
@@ -585,7 +587,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
     () => () => {
       const t = tab();
       const sameEngine = tabEngine(store(), tabId) === engine;
-      if (wantsPage(t) && sameEngine && engineProfile(t.profileId) === engineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(t.profileId), t.navigation?.seq);
+      if (wantsPage(t) && sameEngine && engineProfile(t.profileId) === engineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(t.profileId), engine);
       else setPageProgress(tabId, 0);
     },
     [],
