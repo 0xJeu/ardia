@@ -2,13 +2,13 @@
 # Checks that a release's appcast item signs its zip with the key the app trusts (SUPublicEDKey), so a Sparkle key
 # from the CI secret that doesn't match the app fails here instead of on every update.
 #
-#   .github/release/check-sparkle.sh <dist dir> <appcast file name> <version> <zip>
+#   .github/release/check-sparkle.sh <dist dir> <version>
 set -euo pipefail
 
-dist="${1:?usage: check-sparkle.sh <dist> <appcast> <version> <zip>}"
-feed="$dist/${2:?}"
-version="${3:?}"
-zip="${4:?}"
+dist="${1:?usage: check-sparkle.sh <dist> <version>}"
+version="${2:?usage: check-sparkle.sh <dist> <version>}"
+feed="$dist/appcast.xml"
+zip="$dist/Ardia-$version.zip"
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/ac-sparkle.XXXXXX")"
 trap 'rm -rf "$work"' EXIT

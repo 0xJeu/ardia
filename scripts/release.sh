@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage="usage: scripts/release.sh <version> [--channel stable|nightly] [--arch arm64|x86_64] [--rc] [--phased <seconds>] [--phase build|sign|check]"
+usage="usage: scripts/release.sh <version> [--channel stable|nightly] [--rc] [--phased <seconds>] [--phase build|sign|check]"
 version="${1:?$usage}"
 shift
 rc=0
 phased=""
 channel=stable
-arch=arm64
 phase=all
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -16,11 +15,6 @@ while [ $# -gt 0 ]; do
       channel="${2:-}"
       shift
       case "$channel" in stable | nightly) ;; *) echo "error: --channel is stable or nightly, got '$channel'" >&2; exit 1 ;; esac
-      ;;
-    --arch)
-      arch="${2:-}"
-      shift
-      case "$arch" in arm64 | x86_64) ;; *) echo "error: --arch is arm64 or x86_64, got '$arch'" >&2; exit 1 ;; esac
       ;;
     --phase)
       phase="${2:-}"
@@ -78,26 +72,18 @@ fi
   exit 1
 }
 die() { echo "error: $*" >&2; exit 1; }
-if [ "$arch" = x86_64 ]; then
-  arch_suffix=-x64 feed_name=appcast-x64.xml
-  [ "$phase" = sign ] || [ "$phase" = check ] || [ -n "${ARDIACORE_FRAMEWORK:-}" ] \
-    || die "an Intel build links a prebuilt x86_64 engine: set ARDIACORE_FRAMEWORK (packages/ardiacore/scripts/fetch-engine.sh --arch x86_64)"
-else
-  arch_suffix="" feed_name=appcast.xml
-fi
-if [ "$rc" = 1 ]; then dist="$root/dist/$version-rc$arch_suffix"; else dist="$root/dist/$version$arch_suffix"; fi
+if [ "$rc" = 1 ]; then dist="$root/dist/$version-rc"; else dist="$root/dist/$version"; fi
 [ "$rc" = 1 ] && [ -n "${RC_DIST:-}" ] && dist="$(cd "$root" && mkdir -p "$RC_DIST" && cd "$RC_DIST" && pwd)"
-build="${RELEASE_BUILD_DIR:-$app_dir/build-release$arch_suffix}"
+build="${RELEASE_BUILD_DIR:-$app_dir/build-release}"
 archive="$dist/Ardia.xcarchive"
 app="$dist/export/Ardia.app"
-zip="$dist/Ardia-$version$arch_suffix.zip"
-dmg="$dist/Ardia-$version$arch_suffix.dmg"
+zip="$dist/Ardia-$version.zip"
+dmg="$dist/Ardia-$version.dmg"
 chromium_src="${CHROMIUM_SRC:-$HOME/chromium-build/chromium_git/chromium/src}"
 framework_src="${ARDIACORE_FRAMEWORK:-$chromium_src/out/Release_GN_arm64/Chromium Framework.framework}"
 framework_engine="${ARDIACORE_FRAMEWORK_ENGINE:-}"
 provisioning_profile="${RELEASE_PROVISIONING_PROFILE:-}"
 read -r -a extra_build_settings <<<"${RELEASE_BUILD_SETTINGS:-}"
-release_archs="${RELEASE_ARCHS:-$arch}"
 build_input="${RELEASE_BUILD_INPUT:-}"
 if [ "$phase" = sign ] && [ -n "$build_input" ]; then
   archive="$build_input/Ardia.xcarchive"
@@ -174,8 +160,8 @@ if [ -n "$dirty" ]; then
 fi
 
 [ -d "$framework_src" ] || die "no ArdiaCore framework at $framework_src (engine/ardiacore/apply.sh, then build chrome_framework)"
-[ "$phase" = sign ] || [[ " $(lipo -archs "$framework_src/Versions/Current/Chromium Framework" 2>/dev/null) " == *" $arch "* ]] \
-  || die "the ArdiaCore framework at $framework_src has no $arch slice"
+[ "$phase" = sign ] || [[ " $(lipo -archs "$framework_src/Versions/Current/Chromium Framework" 2>/dev/null) " == *" arm64 "* ]] \
+  || die "the ArdiaCore framework at $framework_src has no arm64 slice"
 if [ "$phase" = sign ]; then
   [ -n "$provisioning_profile" ] || die "--phase sign exports the ad hoc archive --phase build made: set RELEASE_PROVISIONING_PROFILE"
 elif [ -n "$framework_engine" ]; then
@@ -203,7 +189,7 @@ if [ "$phase" != build ]; then
   fi
 fi
 
-feed_base="${APPCAST_BASE:-https://github.com/$repo/releases/latest/download/$feed_name}"
+feed_base="${APPCAST_BASE:-https://github.com/$repo/releases/latest/download/appcast.xml}"
 base_feed="$(mktemp "${TMPDIR:-/tmp}/ac-appcast.XXXXXX")"
 trap 'rm -f "$base_feed"' EXIT
 case "$feed_base" in
@@ -220,10 +206,10 @@ newest_listed="$(grep -o '<sparkle:version>[0-9]*<' "$base_feed" | tr -dc '0-9\n
 
 build_cli() {
   echo "==> ardia CLI"
-  "$root/apps/cli/scripts/build.sh" "$version" "$dist" "$arch" >"$dist/cli-build.log" 2>&1 \
+  "$root/apps/cli/scripts/build.sh" "$version" "$dist" >"$dist/cli-build.log" 2>&1 \
     || { tail -20 "$dist/cli-build.log" >&2; die "building the ardia CLI failed ($dist/cli-build.log)"; }
 }
-cli_tarball="$dist/ardia-cli-$version-macos-$arch.tar.gz"
+cli_tarball="$dist/ardia-cli-$version-macos-arm64.tar.gz"
 if [ "$phase" != sign ]; then
   rm -rf "$dist"
   mkdir -p "$dist"
@@ -246,7 +232,7 @@ if [ "$phase" != sign ]; then
   echo "==> Archive"
   (cd "$app_dir" && ARDIACORE_FRAMEWORK="$framework_src" "$root/scripts/agent/locked" pod --wait 1800 -- \
     "$root/scripts/agent/locked" xcodebuild --wait 1800 -- xcodebuild -workspace macos/Ardia.xcworkspace -scheme Ardia-macOS \
-    -configuration Release -destination 'generic/platform=macOS' ARCHS="$arch" ARDIACORE_STAGE_DIR="$build/ArdiaCoreFramework" \
+    -configuration Release -destination 'generic/platform=macOS' ARCHS=arm64 ARDIACORE_STAGE_DIR="$build/ArdiaCoreFramework" \
     ${version_settings[@]+"${version_settings[@]}"} AC_UPDATE_CHANNEL="$channel" \
     ${extra_build_settings[@]+"${extra_build_settings[@]}"} \
     -derivedDataPath "$build" -archivePath "$archive" "${archive_signing[@]}" archive) \
@@ -291,10 +277,7 @@ else
     sleep 10
   done
 fi
-[ "$(lipo -archs "$app/Contents/MacOS/Ardia")" = "$arch" ] || die "the app's executable is $(lipo -archs "$app/Contents/MacOS/Ardia"), not $arch"
-if [ "$arch" = x86_64 ]; then
-  plutil -replace SUFeedURL -string "https://ardia.dev/$feed_name" "$app/Contents/Info.plist"
-fi
+[ "$(lipo -archs "$app/Contents/MacOS/Ardia")" = arm64 ] || die "the app's executable is $(lipo -archs "$app/Contents/MacOS/Ardia"), not arm64"
 
 if [ "$phase" = all ]; then
   build_cli
@@ -353,8 +336,6 @@ for key in SUFeedURL SUPublicEDKey NSDockTilePlugIn NSCameraUsageDescription NSM
   NSBluetoothAlwaysUsageDescription NSLocationUsageDescription NSLocalNetworkUsageDescription; do
   [ -n "$(info "$key")" ] || die "Info.plist has no $key"
 done
-[ "$arch" != x86_64 ] || [ "$(info SUFeedURL)" = "https://ardia.dev/$feed_name" ] \
-  || die "an Intel build polls https://ardia.dev/$feed_name, not $(info SUFeedURL)"
 [ -d "$app/Contents/Frameworks/Sparkle.framework" ] || die "no Sparkle.framework"
 [ -d "$app/Contents/PlugIns/ArdiaDockTile.plugin" ] || die "no dock tile plug-in"
 [ -f "$app/Contents/embedded.provisionprofile" ] || die "no Developer ID provisioning profile (keychain groups need it)"
@@ -388,7 +369,7 @@ engine_release="$(awk -v t="$engine_tree" '$1 == t { print $2; exit }' "$ardiaco
 helium_engine=""
 LC_ALL=C grep -q -a -F helium.services.enabled "$framework_src/Versions/Current/Chromium Framework" && helium_engine=1
 engine_pack=""
-if [ "$phase" = all ] && [ "$rc" = 0 ] && [ "$arch" = arm64 ] && { [ -z "${ARDIACORE_FRAMEWORK:-}" ] || [ -n "$framework_engine" ]; } && [ -z "$engine_release" ]; then
+if [ "$phase" = all ] && [ "$rc" = 0 ] && { [ -z "${ARDIACORE_FRAMEWORK:-}" ] || [ -n "$framework_engine" ]; } && [ -z "$engine_release" ]; then
   engine_release="$version"
   echo "==> Pack the engine (background)"
   (
@@ -468,15 +449,10 @@ if [ "$channel" = nightly ]; then
 else
   updates_line="Earlier versions update automatically (Ardia › Check for Updates…). Every release's notes: $notes_page"
 fi
-case "$release_archs" in
-  arm64) macs="Apple Silicon, macOS 14 or later." ;;
-  x86_64) macs="Intel Macs, macOS 14 or later." ;;
-  *) macs="macOS 14 or later: Ardia-$version.dmg for Apple Silicon, Ardia-$version-x64.dmg for Intel Macs." ;;
-esac
 if [ "$notarize" = 1 ]; then
-  install_line="$macs Signed with Developer ID and notarized by Apple: download, drag it to Applications, open it."
+  install_line="Apple Silicon, macOS 14 or later. Signed with Developer ID and notarized by Apple: download, drag it to Applications, open it."
 else
-  install_line="$macs Signed with Developer ID but not notarized: on first launch macOS refuses to open it. Click Done, then System Settings › Privacy & Security › Open Anyway. Or run \`xattr -dr com.apple.quarantine /Applications/Ardia.app\`."
+  install_line="Apple Silicon, macOS 14 or later. Signed with Developer ID but not notarized: on first launch macOS refuses to open it. Click Done, then System Settings › Privacy & Security › Open Anyway. Or run \`xattr -dr com.apple.quarantine /Applications/Ardia.app\`."
 fi
 case "$engine_release" in engine-*) engine_tag="$engine_release" ;; *) engine_tag="v$engine_release" ;; esac
 source_line="This build's source, with the engine's patches and build scripts: https://github.com/$repo/tree/v$version (LICENSE and NOTICE there cover the licenses)."
@@ -501,8 +477,8 @@ echo "==> Appcast"
 updates="$dist/updates"
 mkdir -p "$updates"
 cp "$zip" "$updates/"
-{ printf '**%s**\n\n' "$headline"; notes_body; } > "$updates/$(basename "$zip" .zip).md"
-[ -s "$base_feed" ] && cp "$base_feed" "$updates/$feed_name"
+{ printf '**%s**\n\n' "$headline"; notes_body; } > "$updates/Ardia-$version.md"
+[ -s "$base_feed" ] && cp "$base_feed" "$updates/appcast.xml"
 if [ -n "$sparkle_key_file" ]; then
   key="$sparkle_key_file"
 else
@@ -516,9 +492,9 @@ phased_args=()
 "$sparkle/generate_appcast" --ed-key-file "$key" ${phased_args[@]+"${phased_args[@]}"} \
   --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
   --embed-release-notes --full-release-notes-url "$notes_page" \
-  --link "https://github.com/$repo" -o "$updates/$feed_name" "$updates"
-mv "$updates/$feed_name" "$dist/$feed_name"
-grep -q "<sparkle:shortVersionString>$version<" "$dist/$feed_name" || die "$feed_name has no item for $version"
+  --link "https://github.com/$repo" -o "$updates/appcast.xml" "$updates"
+mv "$updates/appcast.xml" "$dist/appcast.xml"
+grep -q "<sparkle:shortVersionString>$version<" "$dist/appcast.xml" || die "appcast.xml has no item for $version"
 rm -rf "$updates"
 
 engine_files=()
@@ -536,4 +512,4 @@ echo
 [ "$channel" = nightly ] && [ "$rc" = 0 ] && echo "Nightly: publish it with .claude/skills/release/scripts/publish.sh $version (a prerelease; the feed and ardia.dev/nightly follow)."
 [ "$phase" = sign ] && echo "Not launched yet: remove the signing keys, then run the launch check (--phase check)."
 [ -n "$phased" ] && echo "Phased rollout: $phased s between steps (the appcast item has phasedRolloutInterval; the whole release takes $((phased * 7)) s)."
-du -sh "$app" "$dmg" "$zip" "$cli_tarball" "$dist/$feed_name" "$dist/release-notes.md" ${engine_files[@]+"${engine_files[@]}"}
+du -sh "$app" "$dmg" "$zip" "$cli_tarball" "$dist/appcast.xml" "$dist/release-notes.md" ${engine_files[@]+"${engine_files[@]}"}

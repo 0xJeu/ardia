@@ -28,12 +28,10 @@ take_lock "rollout $version"
 stable_tag="$(gh release view -R "$repo" --json tagName -q .tagName)"
 [[ "$stable_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "the latest release is $stable_tag, not a stable one: the feed lives on the latest stable release"
 published="$(gh release view "$stable_tag" -R "$repo" --json assets -q '.assets[].name')"
-changed=()
-for feed in appcast.xml appcast-x64.xml; do
-  grep -qx "$feed" <<<"$published" || continue
-  mkdir -p "$work/live" "$work/new"
-  gh release download "$stable_tag" -R "$repo" -p "$feed" -D "$work/live"
-  python3 -I - "$work/live/$feed" "$work/new/$feed" "$version" <<'PY'
+grep -qx appcast.xml <<<"$published" || die "$stable_tag has no appcast.xml"
+mkdir -p "$work/live" "$work/new"
+gh release download "$stable_tag" -R "$repo" -p appcast.xml -D "$work/live"
+python3 -I - "$work/live/appcast.xml" "$work/new/appcast.xml" "$version" <<'PY'
 import re, sys
 source, out, version = sys.argv[1:]
 feed = open(source).read()
@@ -54,24 +52,17 @@ elif removed == 0:
 open(out, "w").write(result)
 print(f"{source.rsplit('/', 1)[-1]}: removed {removed} phasedRolloutInterval line(s) from {version}'s item")
 PY
-  if ! cmp -s "$work/live/$feed" "$work/new/$feed"; then
-    diff -u "$work/live/$feed" "$work/new/$feed" || true
-    changed+=("$work/new/$feed")
-  fi
-done
-if [ ${#changed[@]} = 0 ]; then
+if cmp -s "$work/live/appcast.xml" "$work/new/appcast.xml"; then
   echo "nothing to change: $version goes to everyone already"
   exit 0
 fi
+diff -u "$work/live/appcast.xml" "$work/new/appcast.xml" || true
 if [ "$dry" = 1 ]; then
-  echo "+ gh release upload $stable_tag -R $repo --clobber ${changed[*]}"
+  echo "+ gh release upload $stable_tag -R $repo --clobber $work/new/appcast.xml"
   echo "dry run: nothing uploaded"
   exit 0
 fi
-gh release upload "$stable_tag" -R "$repo" --clobber "${changed[@]}"
-for file in "${changed[@]}"; do
-  feed="$(basename "$file")"
-  gh release download "$stable_tag" -R "$repo" -p "$feed" -O "$work/check-$feed"
-  cmp -s "$file" "$work/check-$feed" && echo "PASS  $stable_tag's $feed offers $version to everyone" \
-    || die "$stable_tag's $feed isn't what was uploaded"
-done
+gh release upload "$stable_tag" -R "$repo" --clobber "$work/new/appcast.xml"
+gh release download "$stable_tag" -R "$repo" -p appcast.xml -O "$work/check-appcast.xml"
+cmp -s "$work/new/appcast.xml" "$work/check-appcast.xml" && echo "PASS  $stable_tag's appcast.xml offers $version to everyone" \
+  || die "$stable_tag's appcast.xml isn't what was uploaded"

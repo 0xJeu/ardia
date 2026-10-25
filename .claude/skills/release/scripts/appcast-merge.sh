@@ -4,14 +4,13 @@ set -euo pipefail
 version="${1:?usage: appcast-merge.sh <version> [published feed URL, file or none]}"
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 dist="${RELEASE_DIST:-$root/dist/$version}"
-feed="${APPCAST_NAME:-appcast.xml}"
-source="${2:-https://github.com/mantrakp04/ardia/releases/latest/download/$feed}"
-built="$dist/$feed"
+source="${2:-https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml}"
+built="$dist/appcast.xml"
 [ -f "$built" ] || { echo "error: no $built (scripts/release.sh $version first)" >&2; exit 1; }
-built_copy="$dist/${feed%.xml}.built.xml"
+built_copy="$dist/appcast.built.xml"
 [ -f "$built_copy" ] || cp "$built" "$built_copy"
 if [ "$source" = none ]; then
-  echo "PASS  appcast for $version is $feed as built (no published feed to merge onto)"
+  echo "PASS  appcast for $version is appcast.xml as built (no published feed to merge onto)"
   exit 0
 fi
 live="$(mktemp "${TMPDIR:-/tmp}/ac-feed.XXXXXX")"
