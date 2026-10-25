@@ -7,6 +7,7 @@ import { startTranslate } from "./components/site/translate";
 import { afterFirstWindow, firstWindowCommitted } from "./lib/afterFirstWindow";
 import { startAppIntegration } from "./lib/appIntegration";
 import { startCliControl } from "./lib/cliControl";
+import { startEngines } from "./lib/engines";
 import { startUserScripts } from "./lib/userScripts";
 import { startKillSwitches } from "./lib/killSwitchesLaunch";
 import { startMemoryTrim } from "./lib/memoryTrim";
@@ -39,6 +40,7 @@ startTelemetry();
 startKillSwitches();
 startCliControl();
 afterFirstWindow(startUserScripts);
+afterFirstWindow(startEngines);
 startMemoryTrim();
 if (__DEV__ || perfProbeEnabled) require("./lib/devHarness").startDevHarness();
 

@@ -717,6 +717,37 @@
     addEventListener("pagehide", guard((e) => e.isTrusted && send("peekGone", {})));
   } catch (e) {}
 
+  try {
+    const NavigatorType = window.Navigator;
+    const requestAccess = NavigatorType && NavigatorType.prototype.requestMediaKeySystemAccess;
+    if (typeof requestAccess === "function") {
+      const protectedSystem = /^com\.(widevine\.alpha|microsoft\.playready|apple\.fps)/;
+      const { test } = RegExp.prototype;
+      const then = Promise.prototype.then;
+      let drmSent = false;
+      const wrapped = {
+        requestMediaKeySystemAccess(keySystem, configurations) {
+          const result = apply(requestAccess, this, arguments);
+          if (!drmSent && typeof keySystem === "string" && apply(test, protectedSystem, [keySystem])) {
+            apply(then, result, [
+              null,
+              () => {
+                if (drmSent) return;
+                drmSent = true;
+                send("drm", { keySystem });
+              },
+            ]);
+          }
+          return result;
+        },
+      }.requestMediaKeySystemAccess;
+      Object.defineProperty(NavigatorType.prototype, "requestMediaKeySystemAccess", {
+        ...Object.getOwnPropertyDescriptor(NavigatorType.prototype, "requestMediaKeySystemAccess"),
+        value: wrapped,
+      });
+    }
+  } catch (e) {}
+
   handlers.config = (config) => {
     handlers.peekConfig({ modifier: config.peek, split: config.split, trace: config.peekTrace });
     blockAutoplay = !!config.blockAutoplay;

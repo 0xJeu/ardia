@@ -22,6 +22,7 @@ import { Appearance } from "react-native";
 import { folderChildren, isBookmarked } from "../store/bookmarks";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { activeTab, bookmarkProfileId, engineProfile, IDLE_LIVE, isPinnedRow, tabLabel, togglePinTitle, windowTitle } from "../store/model";
+import { canSwitchEngine, tabEngine } from "../store/engines";
 import { setLastTabKeepsWindow } from "../store/newTabBar";
 import { peekTabId } from "../store/peek";
 import { splitOf } from "../store/splits";
@@ -268,6 +269,8 @@ export function menuState(s: BrowserState): MenuState {
   if (isPinnedRow(tab)) titles["togglePin:tile"] = "Move to Top Apps";
   else disabled.push("togglePin:tile");
   if (page?.muted) titles.toggleMute = "Unmute Site";
+  if (page && tabEngine(s, page.id) === "webkit") titles.togglePageEngine = "Open Page in Chromium";
+  if (!canSwitchEngine(page?.url)) disabled.push("togglePageEngine");
   if (page?.url && isBookmarked(s.bookmarks, bookmarkProfile, page.url)) {
     titles.bookmarkPage = "Edit Bookmark…";
   }

@@ -4,6 +4,7 @@ import { useBrowser } from "../store/browser";
 import { changedIds } from "../store/changes";
 import { earlyLaunchTabOn, launchTab } from "../store/launchTab";
 import { engineProfile } from "../store/model";
+import { tabEngine } from "../store/engines";
 import type { Tab } from "../store/types";
 import { webviews } from "./webviews";
 
@@ -40,7 +41,7 @@ function claimLaunch() {
   const s = useBrowser.getState();
   const launch = earlyLaunchTabOn() ? launchTab(s, s.ui.focusedWindowId) : null;
   const tab = launch ? s.tabs[launch.id] : undefined;
-  const kept = launch && wantsPage(tab) && tab.navigation?.url === launch.url ? launch : null;
+  const kept = launch && wantsPage(tab) && tab.navigation?.url === launch.url && tabEngine(s, launch.id) === "chromium" ? launch : null;
   if (kept) handedOff.set(kept.id, kept.profile);
   claimLaunchTab(kept?.id ?? "", kept?.url ?? "", kept?.profile ?? "");
 }

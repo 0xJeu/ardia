@@ -34,6 +34,8 @@ export const storeFavicon = (profile, page, icon, png) => engineCall("ac_favicon
 export const iconTheme = () => Promise.resolve(null);
 export const cancelledDownloads = [];
 export const cancelDownload = (id) => (cancelledDownloads.push(id), Promise.resolve());
+export const endedWebKitSessions = [];
+export const endWebKitPrivateSession = (session) => (endedWebKitSessions.push(session), Promise.resolve());
 export const deletedProfileData = [];
 export const profileDataLeft = new Map();
 export const deleteProfileData = (profile) => (deletedProfileData.push(profile), Promise.resolve(profileDataLeft.get(profile) ?? []));

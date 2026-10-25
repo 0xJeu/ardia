@@ -1,4 +1,4 @@
-import { WebView, type OpenWindowRequest } from "@ardia/ardiacore";
+import { WebView, type OpenWindowRequest, type PageEngine } from "@ardia/ardiacore";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, View, type ViewStyle } from "react-native";
 import { useShallow } from "zustand/react/shallow";
@@ -13,6 +13,9 @@ import { startChromeTabs } from "../lib/chromeTabs";
 import { handOff, isHandedOff, wantsPage } from "../lib/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../lib/tabLifecycle";
 import { usePrewarm } from "../lib/preload";
+import { clearEngineOffer, noteWebKitPage, offerWebKit, persistEngine } from "../lib/engines";
+import { tabEngine } from "../store/engines";
+import { EngineOfferPrompt } from "./site/EnginePrompt";
 import { webviewRef, webviews } from "../lib/webviews";
 import { useBrowser } from "../store/browser";
 import { setPageProgress } from "../store/pageProgress";
@@ -487,6 +490,7 @@ function PageOverlays({
       <PasswordPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
       <AutofillPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
       {!newTabShown && <ExternalAppPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 348))} top={POPOVER_MARGIN} />}
+      {!newTabShown && <EngineOfferPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 348))} top={POPOVER_MARGIN} />}
       {popovers && <SiteControls tabId={tabId} open={popover === "siteControls"} {...popoverSide} top={POPOVER_MARGIN} />}
       {popovers && popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...popoverSide} top={POPOVER_MARGIN} />}
       {popovers && popover === "zoom" && <ZoomPopover tabId={tabId} {...popoverSide} top={POPOVER_MARGIN} />}
@@ -527,7 +531,14 @@ const isBlank = (url: string) => !url || url === "about:blank";
 const pageKey = (url: string) => url.replace(/#.*$/, "");
 const hostOf = (url: string) => url.match(/^[a-z][\w+.-]*:\/\/([^/?#]*)/i)?.[1]?.toLowerCase() ?? "";
 
-const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { tabId: string; visible: boolean; warm: boolean; peekOf?: string }) {
+type TabWebViewProps = { tabId: string; visible: boolean; warm: boolean; peekOf?: string };
+
+const TabWebView = memo(function TabWebView(props: TabWebViewProps) {
+  const engine = useBrowser((s) => tabEngine(s, props.tabId));
+  return <EngineWebView key={engine} engine={engine} {...props} />;
+});
+
+function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps & { engine: PageEngine }) {
   const { navigation, adoptId, profileId, shownUrl } = useTabValue(tabId, webViewTab, shallowEqual);
   const neighbour = useStoreWhile(useBrowser, warm, (s) => warm && s.windows[s.tabs[tabId]?.windowId ?? ""]?.profileId !== profileId);
   const tab = () => useBrowser.getState().tabs[tabId];
@@ -560,17 +571,16 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { 
     void webviews.get(tabId)?.loadUrl(navigation.url, { userInitiated: !!navigation.userInitiated });
   }, [seq]);
   const fromNewTab = useRef(pageOf(tabId).wasNewTab && !adoptId);
-  useEffect(
-    () => () => {
-      noteGone(tabId);
-    },
-    [],
-  );
+  useEffect(() => {
+    persistEngine(tabId, engine);
+    return () => noteGone(tabId);
+  }, []);
   const mountedProfile = useRef(profileId);
   useLayoutEffect(
     () => () => {
       const t = tab();
-      if (wantsPage(t) && engineProfile(t.profileId) === engineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(t.profileId));
+      const sameEngine = tabEngine(store(), tabId) === engine;
+      if (wantsPage(t) && sameEngine && engineProfile(t.profileId) === engineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(t.profileId));
       else setPageProgress(tabId, 0);
     },
     [],
@@ -586,6 +596,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { 
   return (
     <WebView
       ref={ref}
+      engine={engine}
       style={StyleSheet.absoluteFill}
       url={navigation?.url ?? (adoptId ? tab()?.url : undefined)}
       profile={engineProfile(profileId)}
@@ -631,11 +642,13 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { 
         }
         if (fromNewTab.current && url && !isBlank(url)) patchPage(tabId, { backToNewTab: true });
         store().navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor });
+        if (engine === "webkit") noteWebKitPage(tabId, url, title, isLoading);
         if (lastPage.current !== null && pageKey(url) !== lastPage.current) {
           if (pageOf(tabId).externalApp && hostOf(url) !== hostOf(lastPage.current)) answerExternalApp(tabId, false);
           dismissPermissions(tabId);
           setPopover(tabId, null);
           setPageSelection(tabId, null);
+          clearEngineOffer(tabId);
           patchPage(tabId, { popups: [], passwordPrompt: null, crashed: null, status: "" });
           revealToolbar(tabId);
         }
@@ -710,6 +723,7 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { 
       onPageMessage={(kind, data) => {
         if (kind === "selection") setPageSelection(tabId, data as PageSelection | null);
         else if (kind === "scroll") noteScroll(tabId, data);
+        else if (kind === "drm") offerWebKit(tabId, data);
       }}
       onNotificationClose={closeWebNotification}
       onDiscarded={(url) => {
@@ -728,4 +742,4 @@ const TabWebView = memo(function TabWebView({ tabId, visible, warm, peekOf }: { 
       }}
     />
   );
-});
+}

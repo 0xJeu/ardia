@@ -2361,6 +2361,8 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     NSString *state = Text(dict, @"state", 8);
     if ([@[ @"down", @"up", @"top" ] containsObject:state ?: @""])
       [self emit:@"pageMessage" payload:@{@"kind" : @"scroll", @"data" : @{@"state" : state}}];
+  } else if ([kind isEqualToString:@"drm"] && dict) {
+    [self emit:@"pageMessage" payload:@{@"kind" : @"drm", @"data" : @{@"keySystem" : Text(dict, @"keySystem", 64) ?: @"", @"main" : @(main)}}];
   } else if ([kind isEqualToString:@"nowPlaying"]) {
     if (!_nowPlaying) _nowPlaying = [NSMutableDictionary dictionary];
     if (dict) _nowPlaying[frameId] = NowPlayingState(dict);

@@ -21,6 +21,7 @@ import { AutofillPane } from "./panes/Autofill";
 import { PrivacyPane } from "./panes/Privacy";
 import { ProfileDetailsPane, ProfilesPane } from "./panes/Profiles";
 import { SearchPane } from "./panes/Search";
+import { EnginesPane } from "./panes/Engines";
 import { ShortcutsPane } from "./panes/Shortcuts";
 import { SyncPane } from "./panes/Sync";
 import { TabsPane } from "./panes/Tabs";
@@ -170,6 +171,8 @@ function Pane({ pane, profileId, detail }: SettingsPlace): ReactNode {
       return <ExtensionsPane profileId={profileId} detail={detail} />;
     case "search":
       return <SearchPane />;
+    case "engines":
+      return <EnginesPane />;
     case "shortcuts":
       return <ShortcutsPane />;
     case "liveFolders":

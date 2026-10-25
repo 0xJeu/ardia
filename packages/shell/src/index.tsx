@@ -65,6 +65,7 @@ export type BrowserCommand =
   | "addFolderToSidebar"
   | "restoreArcFolders"
   | "toggleMute"
+  | "togglePageEngine"
   | "downloads"
   | "mergeAllWindows"
   | "switchProfile"

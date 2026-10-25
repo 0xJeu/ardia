@@ -12,6 +12,7 @@ export const PANES: { id: SettingsPane; title: string; icon: string }[] = [
   { id: "autofill", title: "Autofill", icon: "creditcard" },
   { id: "extensions", title: "Extensions", icon: "puzzlepiece.extension" },
   { id: "search", title: "Search Engine", icon: "magnifyingglass" },
+  { id: "engines", title: "Engines", icon: "safari" },
   { id: "shortcuts", title: "Keyboard Shortcuts", icon: "keyboard" },
   { id: "liveFolders", title: "Live Folders", icon: "dot.radiowaves.left.and.right" },
   { id: "calendar", title: "Calendar", icon: "calendar" },
@@ -381,6 +382,53 @@ const ROWS: Record<SettingsPane, Section[]> = {
           title: "Automatically group tabs for meetings",
           description: "Joining a call makes a tab group for it; links you open from the meeting join the group.",
           keywords: ["zoom", "meet", "call", "tab groups"],
+        },
+      },
+    },
+  ],
+  engines: [
+    {
+      section: "Default engine",
+      rows: {
+        defaultEngine: {
+          title: "Open pages in",
+          description: "New pages open in this engine unless a website rule says otherwise.",
+          keywords: ["engine", "webkit", "chromium", "safari", "drm", "netflix", "fairplay", "widevine"],
+        },
+        recommendedDefault: {
+          title: "Use Recommended Default",
+          description: "Chromium runs extensions and the ad blocker. Sites that need protected video can still open in WebKit.",
+          keywords: ["reset", "recommended", "chromium"],
+        },
+      },
+    },
+    {
+      section: "Website rules",
+      rows: {
+        websiteRules: {
+          title: "Website rules",
+          description: "Sites that always open in a chosen engine. Links opened from a page stay on that page's engine.",
+          keywords: ["opens in", "site engine", "rule", "webkit", "chromium"],
+        },
+      },
+    },
+    {
+      section: "How engines differ",
+      rows: {
+        separateData: {
+          title: "Separate sign-ins",
+          description: "Each engine keeps its own cookies and site data in every profile. Spaces, tabs, history and settings are shared.",
+          keywords: ["cookies", "site data", "sign in", "logged out"],
+        },
+        chromiumOnly: {
+          title: "Extensions and ad blocking are Chromium only",
+          description: "WebKit pages run without extensions or the ad blocker for now.",
+          keywords: ["extensions", "ad blocker", "ublock", "content blocker"],
+        },
+        passkeys: {
+          title: "Passkeys",
+          description: "WebKit pages can't use passkeys until Apple grants Ardia its browser passkey entitlement. Sign in with a passkey in Chromium meanwhile.",
+          keywords: ["passkey", "webauthn", "icloud keychain", "security key"],
         },
       },
     },

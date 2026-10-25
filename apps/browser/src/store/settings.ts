@@ -10,6 +10,7 @@ import {
   type ExtensionSearchEngine,
   type SearchEngine,
 } from "@ardia/core";
+import type { PageEngine } from "@ardia/ardiacore";
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "./browser";
 
@@ -76,6 +77,9 @@ export type Settings = {
 
   openLinksInLittleArdia: boolean;
   littleArdiaSize: [number, number];
+
+  pageEngine: PageEngine;
+  websiteEngines: Record<string, PageEngine>;
 
   chosen?: string[];
   inferred?: string[];
@@ -151,6 +155,8 @@ export const DEFAULT_SETTINGS: Settings = {
   shortcuts: {},
   openLinksInLittleArdia: true,
   littleArdiaSize: [900, 640],
+  pageEngine: "chromium",
+  websiteEngines: {},
 };
 
 const NO_CUSTOM_ENGINES: CustomSearchEngine[] = [];

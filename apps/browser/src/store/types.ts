@@ -1,3 +1,4 @@
+import type { PageEngine } from "@ardia/ardiacore";
 
 export type Frame = [number, number, number, number];
 
@@ -74,6 +75,7 @@ export type Tab = {
   unloaded?: boolean;
   pinKey?: string;
   pageIn?: string;
+  engine?: PageEngine;
   createdAt: number;
   lastActiveAt: number;
 };

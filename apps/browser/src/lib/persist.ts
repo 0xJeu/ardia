@@ -1,4 +1,4 @@
-import { cancelDownload, type Download } from "@ardia/ardiacore";
+import { cancelDownload, endWebKitPrivateSession, type Download } from "@ardia/ardiacore";
 import { readDocument, writeDocument } from "@ardia/shell";
 import { useBrowser, type BrowserState, type HydrateData } from "../store/browser";
 import { inPinnedContainer, isIncognitoProfile, newId, privateSession, snapshotTab } from "../store/model";
@@ -259,5 +259,6 @@ function forgetClosedIncognito(s: BrowserState, prev: BrowserState) {
     if (Object.values(s.windows).some((o) => o.incognito && privateSession(o.profileId) === session)) continue;
     for (const d of s.downloads) if (downloadSession(d) === session && d.state === "downloading") void cancelDownload(d.id);
     s.forgetDownloads(w.profileId);
+    if (session !== null) void endWebKitPrivateSession(session);
   }
 }
