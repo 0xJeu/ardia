@@ -180,8 +180,21 @@ jobs:
         run: pod install
       - name: Tree is clean
         run: |
+          pods=(apps/browser/macos/Podfile.lock apps/browser/macos/Ardia.xcodeproj/project.pbxproj)
+          normalize() { sed -E 's/^[-+]//; s/"//g; s/^(  ArdiaCore: )[0-9a-f]{40}$/\1checksum/'; }
+          removed=$(git diff -U0 -- "${pods[@]}" | { grep '^-[^-]' || true; } | normalize)
+          added=$(git diff -U0 -- "${pods[@]}" | { grep '^+[^+]' || true; } | normalize)
+          if [ -n "$removed$added" ] && [ "$removed" = "$added" ]; then
+            echo "::notice::pod install only quoted MARKETING_VERSION and rehashed ArdiaCore's podspec (its checksum includes this checkout's path): kept, not counted as changes"
+            git update-index --assume-unchanged "${pods[@]}"
+          fi
           dirty=$(git status --porcelain -- apps/browser apps/cli packages engine scripts/dmg | grep -v ' apps/browser/build' || true)
-          [ -z "$dirty" ] || { echo "::error::installing changed tracked files, so release.sh would refuse the tree:"; echo "$dirty"; exit 1; }
+          [ -z "$dirty" ] || {
+            echo "::error::installing changed tracked files, so release.sh would refuse the tree:"
+            echo "$dirty"
+            git diff -- apps/browser apps/cli packages engine scripts/dmg | head -150
+            exit 1
+          }
       - name: Signing
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
