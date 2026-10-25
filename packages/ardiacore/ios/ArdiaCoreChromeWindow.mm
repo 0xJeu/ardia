@@ -667,7 +667,32 @@ const void *kFullScreenLightsWatchKey = &kFullScreenLightsWatchKey;
 
 @end
 
+@interface NSTitlebarAccessoryViewController (ACRevealAmount)
+- (double)revealAmount;
+- (void)setRevealAmount:(double)revealAmount;
+@end
+
+@interface ACTitlebarRevealWatch : NSTitlebarAccessoryViewController
+@property(nonatomic, copy) void (^revealChanged)(void);
+@end
+
+@implementation ACTitlebarRevealWatch
+
+- (void)setRevealAmount:(double)revealAmount {
+  [super setRevealAmount:revealAmount];
+  if (self.revealChanged) self.revealChanged();
+}
+
+@end
+
 namespace {
+
+const void *kTitlebarRevealWatchKey = &kTitlebarRevealWatchKey;
+
+BOOL FullScreenTitlebarRevealed(NSWindow *window) {
+  ACTitlebarRevealWatch *watch = window ? objc_getAssociatedObject(window, kTitlebarRevealWatchKey) : nil;
+  return watch && (window.styleMask & NSWindowStyleMaskFullScreen) && watch.revealAmount > 0;
+}
 
 void PlaceFullScreenLights(NSWindow *window) {
   ACFullScreenLights *lights = window ? objc_getAssociatedObject(window, kFullScreenLightsKey) : nil;
@@ -675,7 +700,7 @@ void PlaceFullScreenLights(NSWindow *window) {
   NSView *close = lights.subviews.firstObject;
   if (!lights || !frameView || !close) return;
   ACWindowFullScreen *state = objc_getAssociatedObject(window, kWindowFullScreenKey);
-  lights.hidden = state.pageFullScreen;
+  lights.hidden = state.pageFullScreen || FullScreenTitlebarRevealed(window);
   const NSSize size = close.frame.size;
   const NSPoint center = LightsCenter(objc_getAssociatedObject(window, kLightsCenterKey), size);
   const CGFloat top = center.y - size.height / 2;
@@ -699,6 +724,38 @@ void ShowFullScreenLights(NSWindow *window, BOOL show) {
 
 void HideStandardLights(NSWindow *window, BOOL hide) {
   for (NSButton *button in TrafficLightButtons(window)) button.hidden = hide;
+}
+
+void ShowLightsForReveal(NSWindow *window) {
+  if (!objc_getAssociatedObject(window, kFullScreenLightsKey)) return;
+  HideStandardLights(window, !FullScreenTitlebarRevealed(window));
+  PlaceFullScreenLights(window);
+}
+
+void WatchTitlebarReveal(NSWindow *window) {
+  if (!(window.styleMask & NSWindowStyleMaskFullScreen) || objc_getAssociatedObject(window, kTitlebarRevealWatchKey) ||
+      ![NSTitlebarAccessoryViewController instancesRespondToSelector:@selector(setRevealAmount:)])
+    return;
+  ACTitlebarRevealWatch *watch = [[ACTitlebarRevealWatch alloc] init];
+  watch.view = [[NSView alloc] initWithFrame:NSZeroRect];
+  watch.layoutAttribute = NSLayoutAttributeBottom;
+  watch.fullScreenMinHeight = 0;
+  __weak NSWindow *weakWindow = window;
+  __weak ACTitlebarRevealWatch *weakWatch = watch;
+  watch.revealChanged = ^{
+    NSWindow *w = weakWindow;
+    if (w && objc_getAssociatedObject(w, kTitlebarRevealWatchKey) == weakWatch) ShowLightsForReveal(w);
+  };
+  objc_setAssociatedObject(window, kTitlebarRevealWatchKey, watch, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  [window addTitlebarAccessoryViewController:watch];
+}
+
+void UnwatchTitlebarReveal(NSWindow *window) {
+  ACTitlebarRevealWatch *watch = objc_getAssociatedObject(window, kTitlebarRevealWatchKey);
+  if (!watch) return;
+  watch.revealChanged = nil;
+  objc_setAssociatedObject(window, kTitlebarRevealWatchKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  [watch removeFromParentViewController];
 }
 
 }
@@ -725,11 +782,14 @@ void HideStandardLights(NSWindow *window, BOOL hide) {
   if (!window) return;
   ShowFullScreenLights(window, YES);
   HideStandardLights(window, YES);
+  WatchTitlebarReveal(window);
+  ShowLightsForReveal(window);
 }
 
 - (void)didExit {
   NSWindow *window = _window;
   if (!window) return;
+  UnwatchTitlebarReveal(window);
   HideStandardLights(window, NO);
   ShowFullScreenLights(window, NO);
 }
