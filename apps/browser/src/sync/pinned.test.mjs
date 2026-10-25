@@ -197,6 +197,32 @@ test("a Mac on the previous version keeps the homes it can't read, and its unpin
   assert.equal(a.scope.records[`pgh:${m}`]?.v, null, "the home goes with the pin");
 });
 
+test("a tile moved into a pinned group on another Mac takes the home chosen there, and keeps it", async () => {
+  const folder = new Folder();
+  const a = new Device("devA", folder);
+  const b = new Device("devB", folder);
+  const [x, group] = a.with(() => {
+    const w = S().createWindow({ url: "https://home.example/" });
+    const id = S().newTab(w, { url: "https://first.example/", background: true });
+    S().pinTabs([id], true);
+    const mate = S().newTab(w, { url: "https://mate.example/", background: true });
+    return [id, S().groupTabs([mate], { pinned: true, name: "Reading" })];
+  });
+  b.with(() => S().createWindow({ url: "https://b-home.example/" }));
+  await syncAll([a, b]);
+  assert.equal(b.with(() => S().tabs[x]?.pinnedUrl), "https://first.example/", "B has the tile");
+
+  a.with(() => {
+    S().placeTabs([x], { pinned: false, groupId: group });
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [x]: { ...s.tabs[x], url: "https://second.example/" } } }));
+    S().setPinnedUrl(x);
+  });
+  assert.equal(a.with(() => S().tabs[x].pinnedUrl), "https://second.example/");
+  await syncAll([a, b, a, b]);
+  assert.equal(memberOf(b, x)?.pinnedUrl, "https://second.example/", "B takes the home chosen on A");
+  assert.equal(memberOf(a, x)?.pinnedUrl, "https://second.example/", "and doesn't send its tile's home back");
+});
+
 const LEGACY_GROUP_COLORS = [null, "grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
 const pinnedGroupOf = (device, name) => device.with(() => Object.values(S().groups).find((g) => g.pinned && g.name === name));
 

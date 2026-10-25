@@ -323,7 +323,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           tabs[id] = {
             ...old,
             pinned: !group,
-            pinnedUrl: group ? old.pinnedUrl || syncedHomeIn(base, pinKeyOf(old)) || v.u || null : v.u,
+            pinnedUrl: group ? (pinnedMember.has(id) ? old.pinnedUrl || syncedHomeIn(base, pinKeyOf(old)) : syncedHomeIn(base, pinKeyOf(old)) || old.pinnedUrl) || v.u || null : v.u,
             ...(group ? { pinnedAsRow: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)) }),
             ...(group ? { tileFolder: undefined } : old.pinned || marked(pinKeyOf(old)) ? {} : folderMark(base, pinKeyOf(old))),
             customTitle: v.t,
