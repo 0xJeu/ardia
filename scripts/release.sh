@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage="usage: scripts/release.sh <version> [--channel stable|nightly] [--arch arm64|x86_64] [--rc] [--phased <seconds>]"
+usage="usage: scripts/release.sh <version> [--channel stable|nightly] [--arch arm64|x86_64] [--rc] [--phased <seconds>] [--phase build|sign|check]"
 version="${1:?$usage}"
 shift
 rc=0
 phased=""
 channel=stable
 arch=arm64
+phase=all
 while [ $# -gt 0 ]; do
   case "$1" in
     --rc) rc=1 ;;
@@ -20,6 +21,11 @@ while [ $# -gt 0 ]; do
       arch="${2:-}"
       shift
       case "$arch" in arm64 | x86_64) ;; *) echo "error: --arch is arm64 or x86_64, got '$arch'" >&2; exit 1 ;; esac
+      ;;
+    --phase)
+      phase="${2:-}"
+      shift
+      case "$phase" in build | sign | check) ;; *) echo "error: --phase is build, sign or check, got '$phase'" >&2; exit 1 ;; esac
       ;;
     --phased)
       phased="${2:-}"
@@ -51,9 +57,11 @@ if [ -n "${NOTARY_KEY:-}" ]; then
 else
   notary_auth=(--keychain-profile "$notary_profile")
 fi
-sparkle="$macos/Pods/Sparkle/bin"
+sparkle="${SPARKLE_BIN:-$macos/Pods/Sparkle/bin}"
 sparkle_key_file="${SPARKLE_KEY_FILE:-}"
-if [ -n "$sparkle_key_file" ]; then
+if [ "$phase" = build ] || [ "$phase" = check ]; then
+  :
+elif [ -n "$sparkle_key_file" ]; then
   [ -s "$sparkle_key_file" ] || { echo "error: SPARKLE_KEY_FILE ($sparkle_key_file) is missing or empty" >&2; exit 1; }
 elif [ -n "${SPARKLE_ACCOUNT:-}" ]; then
   sparkle_account="$SPARKLE_ACCOUNT"
@@ -64,14 +72,15 @@ else
     if "$sparkle/generate_keys" --account "$account" -p >/dev/null 2>&1; then sparkle_account="$account"; break; fi
   done
 fi
-[ -n "$sparkle_key_file" ] || "$sparkle/generate_keys" --account "$sparkle_account" -p >/dev/null 2>&1 || {
+[ "$phase" = build ] || [ "$phase" = check ] || [ -n "$sparkle_key_file" ] \
+  || "$sparkle/generate_keys" --account "$sparkle_account" -p >/dev/null 2>&1 || {
   echo "error: no Sparkle EdDSA key in the login keychain under account $sparkle_account (SPARKLE_ACCOUNT; docs/releasing.md)" >&2
   exit 1
 }
 die() { echo "error: $*" >&2; exit 1; }
 if [ "$arch" = x86_64 ]; then
   arch_suffix=-x64 feed_name=appcast-x64.xml
-  [ -n "${ARDIACORE_FRAMEWORK:-}" ] \
+  [ "$phase" = sign ] || [ "$phase" = check ] || [ -n "${ARDIACORE_FRAMEWORK:-}" ] \
     || die "an Intel build links a prebuilt x86_64 engine: set ARDIACORE_FRAMEWORK (packages/ardiacore/scripts/fetch-engine.sh --arch x86_64)"
 else
   arch_suffix="" feed_name=appcast.xml
@@ -89,6 +98,39 @@ framework_engine="${ARDIACORE_FRAMEWORK_ENGINE:-}"
 provisioning_profile="${RELEASE_PROVISIONING_PROFILE:-}"
 read -r -a extra_build_settings <<<"${RELEASE_BUILD_SETTINGS:-}"
 release_archs="${RELEASE_ARCHS:-$arch}"
+if [ "$phase" = sign ] || [ "$phase" = check ]; then
+  framework_src="$archive/Products/Applications/Ardia.app/Contents/Frameworks/Chromium Framework.framework"
+  [ -d "$archive" ] || die "no $archive: run --phase build first"
+fi
+
+launch_check() {
+  echo "==> Launch check"
+  check_data="$(mktemp -d "${TMPDIR:-/tmp}/ac-release.XXXXXX")"
+  before="$(pgrep -f "^$app/Contents/MacOS/Ardia" | sort || true)"
+  check_port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+  open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR="$check_data" --env ARDIA_REMOTE_DEBUGGING_PORT="$check_port" "$app"
+  ubo_ok=0
+  node "$root/scripts/lib/ubo-ready.mjs" "$check_port" 90 && ubo_ok=1
+  sleep 5
+  pid=""
+  for p in $(pgrep -f "^$app/Contents/MacOS/Ardia\$" || true); do
+    ps -E -ww -o command= -p "$p" 2>/dev/null | grep -qF "ARDIA_DATA_DIR=$check_data" && { pid="$p"; break; }
+  done
+  [ -n "$pid" ] || pid="$(comm -13 <(echo "$before") <(pgrep -f "^$app/Contents/MacOS/Ardia" | sort || true) | head -1)"
+  [ -n "$pid" ] || die "the app didn't start (or quit)"
+  kill -TERM "$pid"
+  for _ in $(seq 1 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+  kill -KILL "$pid" 2>/dev/null || true
+  codesign --verify --deep --strict "$app" || die "running the app changed its bundle"
+  [ "$ubo_ok" = 1 ] || die "uBlock Origin wasn't ready and blocking in the exported app (90 s)"
+  rm -rf "$check_data"
+}
+if [ "$phase" = check ]; then
+  [ -d "$app" ] || die "no $app: run --phase sign first"
+  launch_check
+  echo "Launch check passed: $app"
+  exit 0
+fi
 
 pbx="$macos/Ardia.xcodeproj/project.pbxproj"
 project_version="$(sed -n 's/.*MARKETING_VERSION = "\{0,1\}\([^";]*\)"\{0,1\};/\1/p' "$pbx" | sort -u)"
@@ -128,29 +170,33 @@ if [ -n "$dirty" ]; then
 fi
 
 [ -d "$framework_src" ] || die "no ArdiaCore framework at $framework_src (engine/ardiacore/apply.sh, then build chrome_framework)"
-[[ " $(lipo -archs "$framework_src/Versions/Current/Chromium Framework" 2>/dev/null) " == *" $arch "* ]] \
+[ "$phase" = sign ] || [[ " $(lipo -archs "$framework_src/Versions/Current/Chromium Framework" 2>/dev/null) " == *" $arch "* ]] \
   || die "the ArdiaCore framework at $framework_src has no $arch slice"
-if [ -n "$framework_engine" ]; then
+if [ "$phase" = sign ]; then
+  [ -n "$provisioning_profile" ] || die "--phase sign exports the ad hoc archive --phase build made: set RELEASE_PROVISIONING_PROFILE"
+elif [ -n "$framework_engine" ]; then
   [ -n "${ARDIACORE_FRAMEWORK:-}" ] || die "ARDIACORE_FRAMEWORK_ENGINE names the engine tree a prebuilt ARDIACORE_FRAMEWORK was built from; set both or neither"
   [ "$framework_engine" = "$(git -C "$root" rev-parse HEAD:engine)" ] \
     || die "ARDIACORE_FRAMEWORK_ENGINE is $framework_engine but HEAD's engine tree is $(git -C "$root" rev-parse HEAD:engine): that framework wasn't built from this commit's engine"
 fi
-if [ -z "${ARDIACORE_FRAMEWORK:-}" ]; then
+if [ "$phase" = all ] && [ -z "${ARDIACORE_FRAMEWORK:-}" ]; then
   "$root/scripts/lib/engine-fresh.sh" "$framework_src" "$chromium_src" || exit 1
 fi
 
 identity_name="Developer ID Application"
-identity="$(security find-identity -v -p codesigning | awk -v n="$identity_name" 'index($0, n) { print $2; exit }')"
-[ -n "$identity" ] || die "no $identity_name identity"
 notarize=0
-if xcrun notarytool history "${notary_auth[@]}" >/dev/null 2>&1; then
-  notarize=1
-elif [ "${ALLOW_UNNOTARIZED:-0}" = 1 ]; then
-  echo "warning: no notarytool credentials; the build won't be notarized" >&2
-else
-  echo "error: notarytool credentials are missing or invalid (scripts/.notary.env or the '$notary_profile' profile):" >&2
-  xcrun notarytool history "${notary_auth[@]}" 2>&1 | head -2 >&2
-  exit 1
+if [ "$phase" != build ]; then
+  identity="$(security find-identity -v -p codesigning | awk -v n="$identity_name" 'index($0, n) { print $2; exit }')"
+  [ -n "$identity" ] || die "no $identity_name identity"
+  if xcrun notarytool history "${notary_auth[@]}" >/dev/null 2>&1; then
+    notarize=1
+  elif [ "${ALLOW_UNNOTARIZED:-0}" = 1 ]; then
+    echo "warning: no notarytool credentials; the build won't be notarized" >&2
+  else
+    echo "error: notarytool credentials are missing or invalid (scripts/.notary.env or the '$notary_profile' profile):" >&2
+    xcrun notarytool history "${notary_auth[@]}" 2>&1 | head -2 >&2
+    exit 1
+  fi
 fi
 
 feed_base="${APPCAST_BASE:-https://github.com/$repo/releases/latest/download/$feed_name}"
@@ -168,35 +214,49 @@ newest_listed="$(grep -o '<sparkle:version>[0-9]*<' "$base_feed" | tr -dc '0-9\n
 [ -z "$newest_listed" ] || [ "$release_build" -gt "$newest_listed" ] \
   || die "the build number ($release_build) must be above every build in the feed, nightly or stable (newest: $newest_listed): bump CURRENT_PROJECT_VERSION"
 
-rm -rf "$dist"
-mkdir -p "$dist"
-{
-  echo "version $version, build $release_build, $channel${version_settings:+ (${version_settings[*]})}"
-  echo "commit $(git -C "$root" rev-parse HEAD)${dirty:+ + uncommitted changes}"
-  echo "framework $(plutil -extract SCMRevision raw "$framework_src/Versions/Current/Resources/Info.plist" 2>/dev/null)"
-  echo "framework built $(stat -f '%Sm' "$framework_src/Versions/Current/Chromium Framework")"
-} > "$dist/provenance.txt"
-
-echo "==> Content blocker"
-"$ardiacore/scripts/ubo.sh"
-[ -f "$ardiacore/vendor/ubo/ext/manifest.json" ] || die "uBlock Origin isn't installed ($ardiacore/scripts/ubo.sh)"
-
-if [ -n "$provisioning_profile" ]; then
-  archive_signing=(-xcconfig macos/AdHoc.xcconfig)
-else
-  archive_signing=(-allowProvisioningUpdates)
-fi
-echo "==> Archive"
-(cd "$app_dir" && ARDIACORE_FRAMEWORK="$framework_src" "$root/scripts/agent/locked" pod --wait 1800 -- \
-  "$root/scripts/agent/locked" xcodebuild --wait 1800 -- xcodebuild -workspace macos/Ardia.xcworkspace -scheme Ardia-macOS \
-  -configuration Release -destination 'generic/platform=macOS' ARCHS="$arch" ARDIACORE_STAGE_DIR="$build/ArdiaCoreFramework" \
-  ${version_settings[@]+"${version_settings[@]}"} AC_UPDATE_CHANNEL="$channel" \
-  ${extra_build_settings[@]+"${extra_build_settings[@]}"} \
-  -derivedDataPath "$build" -archivePath "$archive" "${archive_signing[@]}" archive) \
-  > "$dist/archive.log" 2>&1 || {
-  grep -E "error:|build commands failed" -A2 "$dist/archive.log" | grep -v MACOSX_DEPLOYMENT_TARGET | tail -20 >&2
-  die "archive failed ($dist/archive.log)"
+build_cli() {
+  echo "==> ardia CLI"
+  "$root/apps/cli/scripts/build.sh" "$version" "$dist" "$arch" >"$dist/cli-build.log" 2>&1 \
+    || { tail -20 "$dist/cli-build.log" >&2; die "building the ardia CLI failed ($dist/cli-build.log)"; }
 }
+cli_tarball="$dist/ardia-cli-$version-macos-$arch.tar.gz"
+if [ "$phase" != sign ]; then
+  rm -rf "$dist"
+  mkdir -p "$dist"
+  {
+    echo "version $version, build $release_build, $channel${version_settings:+ (${version_settings[*]})}"
+    echo "commit $(git -C "$root" rev-parse HEAD)${dirty:+ + uncommitted changes}"
+    echo "framework $(plutil -extract SCMRevision raw "$framework_src/Versions/Current/Resources/Info.plist" 2>/dev/null)"
+    echo "framework built $(stat -f '%Sm' "$framework_src/Versions/Current/Chromium Framework")"
+  } > "$dist/provenance.txt"
+
+  echo "==> Content blocker"
+  "$ardiacore/scripts/ubo.sh"
+  [ -f "$ardiacore/vendor/ubo/ext/manifest.json" ] || die "uBlock Origin isn't installed ($ardiacore/scripts/ubo.sh)"
+
+  if [ -n "$provisioning_profile" ] || [ "$phase" = build ]; then
+    archive_signing=(-xcconfig macos/AdHoc.xcconfig)
+  else
+    archive_signing=(-allowProvisioningUpdates)
+  fi
+  echo "==> Archive"
+  (cd "$app_dir" && ARDIACORE_FRAMEWORK="$framework_src" "$root/scripts/agent/locked" pod --wait 1800 -- \
+    "$root/scripts/agent/locked" xcodebuild --wait 1800 -- xcodebuild -workspace macos/Ardia.xcworkspace -scheme Ardia-macOS \
+    -configuration Release -destination 'generic/platform=macOS' ARCHS="$arch" ARDIACORE_STAGE_DIR="$build/ArdiaCoreFramework" \
+    ${version_settings[@]+"${version_settings[@]}"} AC_UPDATE_CHANNEL="$channel" \
+    ${extra_build_settings[@]+"${extra_build_settings[@]}"} \
+    -derivedDataPath "$build" -archivePath "$archive" "${archive_signing[@]}" archive) \
+    > "$dist/archive.log" 2>&1 || {
+    grep -E "error:|build commands failed" -A2 "$dist/archive.log" | grep -v MACOSX_DEPLOYMENT_TARGET | tail -20 >&2
+    die "archive failed ($dist/archive.log)"
+  }
+fi
+if [ "$phase" = build ]; then
+  build_cli
+  echo
+  echo "Built $archive (signed ad hoc) and $(basename "$cli_tarball"); sign it with --phase sign."
+  exit 0
+fi
 
 sign() {
   local attempt
@@ -228,10 +288,11 @@ if [ "$arch" = x86_64 ]; then
   plutil -replace SUFeedURL -string "https://ardia.dev/$feed_name" "$app/Contents/Info.plist"
 fi
 
-echo "==> ardia CLI"
-cli_tarball="$dist/ardia-cli-$version-macos-$arch.tar.gz"
-"$root/apps/cli/scripts/build.sh" "$version" "$dist" "$arch" >"$dist/cli-build.log" 2>&1 \
-  || { tail -20 "$dist/cli-build.log" >&2; die "building the ardia CLI failed ($dist/cli-build.log)"; }
+if [ "$phase" = all ]; then
+  build_cli
+else
+  [ -f "$cli_tarball.sha256" ] || die "no $cli_tarball.sha256 from --phase build"
+fi
 awk '{ print $1 }' "$cli_tarball.sha256" >"$app/Contents/Resources/ardia-cli.sha256"
 
 echo "==> Licenses"
@@ -313,7 +374,7 @@ engine_release="$(awk -v t="$engine_tree" '$1 == t { print $2; exit }' "$ardiaco
 helium_engine=""
 LC_ALL=C grep -q -a -F helium.services.enabled "$framework_src/Versions/Current/Chromium Framework" && helium_engine=1
 engine_pack=""
-if [ "$rc" = 0 ] && [ "$arch" = arm64 ] && { [ -z "${ARDIACORE_FRAMEWORK:-}" ] || [ -n "$framework_engine" ]; } && [ -z "$engine_release" ]; then
+if [ "$phase" = all ] && [ "$rc" = 0 ] && [ "$arch" = arm64 ] && { [ -z "${ARDIACORE_FRAMEWORK:-}" ] || [ -n "$framework_engine" ]; } && [ -z "$engine_release" ]; then
   engine_release="$version"
   echo "==> Pack the engine (background)"
   (
@@ -335,26 +396,7 @@ fi
 [ -z "$helium_engine" ] || [ "$rc" = 1 ] || [ -n "$engine_release" ] \
   || die "no published release carries this engine ($engine_tree) and its source: build it from the Chromium tree, without ARDIACORE_FRAMEWORK, or name the engine tree it was built from in ARDIACORE_FRAMEWORK_ENGINE"
 
-echo "==> Launch check"
-check_data="$(mktemp -d "${TMPDIR:-/tmp}/ac-release.XXXXXX")"
-before="$(pgrep -f "^$app/Contents/MacOS/Ardia" | sort || true)"
-check_port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
-open -g -n --env ARDIA_BACKGROUND=1 --env ARDIA_DATA_DIR="$check_data" --env ARDIA_REMOTE_DEBUGGING_PORT="$check_port" "$app"
-ubo_ok=0
-node "$root/scripts/lib/ubo-ready.mjs" "$check_port" 90 && ubo_ok=1
-sleep 5
-pid=""
-for p in $(pgrep -f "^$app/Contents/MacOS/Ardia\$" || true); do
-  ps -E -ww -o command= -p "$p" 2>/dev/null | grep -qF "ARDIA_DATA_DIR=$check_data" && { pid="$p"; break; }
-done
-[ -n "$pid" ] || pid="$(comm -13 <(echo "$before") <(pgrep -f "^$app/Contents/MacOS/Ardia" | sort || true) | head -1)"
-[ -n "$pid" ] || die "the app didn't start (or quit)"
-kill -TERM "$pid"
-for _ in $(seq 1 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
-kill -KILL "$pid" 2>/dev/null || true
-codesign --verify --deep --strict "$app" || die "running the app changed its bundle"
-[ "$ubo_ok" = 1 ] || die "uBlock Origin wasn't ready and blocking in the exported app (90 s)"
-rm -rf "$check_data"
+[ "$phase" = sign ] || launch_check
 
 notarize_file() {
   echo "Notarizing $(basename "$1")"
@@ -446,7 +488,7 @@ updates="$dist/updates"
 mkdir -p "$updates"
 cp "$zip" "$updates/"
 { printf '**%s**\n\n' "$headline"; notes_body; } > "$updates/$(basename "$zip" .zip).md"
-[ -s "$base_feed" ] && cp "$base_feed" "$updates/appcast.xml"
+[ -s "$base_feed" ] && cp "$base_feed" "$updates/$feed_name"
 if [ -n "$sparkle_key_file" ]; then
   key="$sparkle_key_file"
 else
@@ -460,8 +502,9 @@ phased_args=()
 "$sparkle/generate_appcast" --ed-key-file "$key" ${phased_args[@]+"${phased_args[@]}"} \
   --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
   --embed-release-notes --full-release-notes-url "$notes_page" \
-  --link "https://github.com/$repo" "$updates"
-mv "$updates/appcast.xml" "$dist/$feed_name"
+  --link "https://github.com/$repo" -o "$updates/$feed_name" "$updates"
+mv "$updates/$feed_name" "$dist/$feed_name"
+grep -q "<sparkle:shortVersionString>$version<" "$dist/$feed_name" || die "$feed_name has no item for $version"
 rm -rf "$updates"
 
 engine_files=()
@@ -477,5 +520,6 @@ echo
 [ -n "$engine_pack" ] && echo "New engine: publish $(basename "$engine_archive")${helium_engine:+ and $(basename "$engine_source")} with the release, then add prebuilt-engine.tsv's line to packages/ardiacore/prebuilt-engines.tsv."
 [ "$rc" = 1 ] && echo "Release candidate: never publish dist/$version-rc."
 [ "$channel" = nightly ] && [ "$rc" = 0 ] && echo "Nightly: publish it with .claude/skills/release/scripts/publish.sh $version (a prerelease; the feed and ardia.dev/nightly follow)."
+[ "$phase" = sign ] && echo "Not launched yet: remove the signing keys, then run the launch check (--phase check)."
 [ -n "$phased" ] && echo "Phased rollout: $phased s between steps (the appcast item has phasedRolloutInterval; the whole release takes $((phased * 7)) s)."
 du -sh "$app" "$dmg" "$zip" "$cli_tarball" "$dist/$feed_name" "$dist/release-notes.md" ${engine_files[@]+"${engine_files[@]}"}

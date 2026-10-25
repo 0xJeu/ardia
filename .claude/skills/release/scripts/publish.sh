@@ -73,6 +73,15 @@ for arch in "${arches[@]}"; do
   RELEASE_DIST="$arch_dist" APPCAST_NAME="$feed" "$here/appcast-merge.sh" "$version" "$source"
 done
 
+carried=""
+if [ "$channel" = stable ] && [ -z "$dist_x64" ] && grep -qx appcast-x64.xml <<<"$published"; then
+  echo "note: no Intel build in $version: its release carries $stable_tag's appcast-x64.xml unchanged, so Intel copies keep their feed"
+  gh release download "$stable_tag" -R "$repo" -p appcast-x64.xml -D "$work"
+  grep -q 'xmlns:sparkle' "$work/appcast-x64.xml" || die "$stable_tag's appcast-x64.xml isn't a Sparkle appcast"
+  carried="$work/appcast-x64.xml"
+  assets+=("$carried")
+fi
+
 if [ "$channel" = nightly ]; then
   release_flags=(--prerelease --latest=false)
 else
@@ -112,6 +121,11 @@ for arch in "${arches[@]}"; do
       || { echo "FAIL  $url lists $version"; status=1; }
   done
 done
+if [ -n "$carried" ]; then
+  carried_xml="$(curl -fsSL --max-time 20 "$latest_url/appcast-x64.xml" 2>/dev/null || true)"
+  [ "$carried_xml" = "$(cat "$carried")" ] && echo "PASS  $latest_url/appcast-x64.xml is still the Intel feed" \
+    || { echo "FAIL  $latest_url/appcast-x64.xml is still the Intel feed"; status=1; }
+fi
 if [ "$channel" = nightly ]; then
   for arch in "${arches[@]}"; do
     dmg="$(dmg_of "$arch")" url="$nightly_url/Ardia-Nightly$(suffix_of "$arch").dmg"

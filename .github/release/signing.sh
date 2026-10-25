@@ -2,8 +2,9 @@
 # Sets up and tears down the release job's signing material on a GitHub macOS runner.
 #
 #   .github/release/signing.sh setup     a temporary keychain with the Developer ID identity, the provisioning profile,
-#                                        the notary key and the Sparkle key in $RUNNER_TEMP; exports their paths to
-#                                        $GITHUB_ENV (RELEASE_PROVISIONING_PROFILE, SPARKLE_KEY_FILE, NOTARY_KEY, ...)
+#                                        the notary key and the Sparkle key in $RUNNER_TEMP; exports only their paths to
+#                                        $GITHUB_ENV (RELEASE_PROVISIONING_PROFILE, SPARKLE_KEY_FILE, NOTARY_KEY); the
+#                                        step that signs passes NOTARY_KEY_ID and NOTARY_ISSUER itself
 #   .github/release/signing.sh cleanup   deletes the keychain and the files
 #
 # Reads MACOS_CERTIFICATE_P12, MACOS_CERTIFICATE_PASSWORD, MACOS_PROVISIONING_PROFILE, SPARKLE_ED_PRIVATE_KEY and,
@@ -20,6 +21,11 @@ cleanup() {
     security delete-keychain "$keychain" || true
   fi
   rm -rf "$secrets"
+  [ ! -e "$secrets" ] || die "couldn't remove $secrets"
+  if security find-identity -v -p codesigning | grep -q 'Developer ID Application: .*(U5L5T3NGVV)'; then
+    die "a Developer ID identity is still in the keychain search list"
+  fi
+  echo "signing keychain and key files removed"
 }
 
 decode() { printf '%s' "$1" | base64 -D > "$2"; }
@@ -84,11 +90,7 @@ setup() {
     grep -q 'BEGIN PRIVATE KEY' "$notary" || die "NOTARY_KEY_P8 isn't a base64 .p8 key"
     xcrun notarytool history --key "$notary" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" >/dev/null \
       || die "notarytool refuses NOTARY_KEY_P8, NOTARY_KEY_ID and NOTARY_ISSUER"
-    {
-      echo "NOTARY_KEY=$notary"
-      echo "NOTARY_KEY_ID=$NOTARY_KEY_ID"
-      echo "NOTARY_ISSUER=$NOTARY_ISSUER"
-    } >> "$GITHUB_ENV"
+    echo "NOTARY_KEY=$notary" >> "$GITHUB_ENV"
   elif [ "${ALLOW_MISSING_NOTARY:-0}" = 1 ]; then
     echo "::warning::no notary secrets: this dry run isn't notarized"
     echo "ALLOW_UNNOTARIZED=1" >> "$GITHUB_ENV"

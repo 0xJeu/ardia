@@ -45,7 +45,7 @@ jobs:
       release_archs: ${{ steps.plan.outputs.release_archs }}
       tree: ${{ steps.plan.outputs.tree }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - id: plan
@@ -83,16 +83,16 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .turbo/cache
           key: turbo-${{ github.sha }}
@@ -106,7 +106,7 @@ jobs:
   build:
     needs: preflight
     runs-on: xcode-27
-    timeout-minutes: 180
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -117,7 +117,7 @@ jobs:
       DERIVED_DATA: ${{ github.workspace }}/apps/browser/build-release-ci
       TREE: ${{ needs.preflight.outputs.tree }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - id: paths
@@ -125,7 +125,7 @@ jobs:
           if [ "$ARCH" = x86_64 ]; then suffix=-x64 feed=appcast-x64.xml store=prebuilt-x86_64; else suffix="" feed=appcast.xml store=prebuilt; fi
           if [ "$DRY_RUN" = true ]; then dist="dist/$VERSION-rc$suffix"; else dist="dist/$VERSION$suffix"; fi
           { echo "suffix=$suffix"; echo "feed=$feed"; echo "dist=$dist"; echo "store=apps/browser/build-ardiacore/$store"; } >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ${{ steps.paths.outputs.store }}
           key: engine-${{ matrix.arch }}-${{ env.TREE }}
@@ -145,7 +145,7 @@ jobs:
         name: Rosetta
         run: /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null || sudo softwareupdate --install-rosetta --agree-to-license
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: pnpm
@@ -155,23 +155,23 @@ jobs:
       - id: cas-key
         run: echo "prefix=xcode-cas-release-$ARCH-$(xcodebuild -version | awk '/Build version/ { print $3 }')-$(date -u +%Y-%m)-" >> "$GITHUB_OUTPUT"
       - id: cas
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .xcode-cas
           key: ${{ steps.cas-key.outputs.prefix }}${{ github.sha }}
           restore-keys: ${{ steps.cas-key.outputs.prefix }}
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             apps/browser/macos/Pods
             ~/Library/Caches/CocoaPods
           key: pods-${{ hashFiles('apps/browser/macos/Podfile', 'apps/browser/macos/Podfile.lock', 'pnpm-lock.yaml', 'patches/**') }}
           restore-keys: pods-
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: packages/ardiacore/vendor/ubo
           key: ubo-${{ hashFiles('packages/ardiacore/scripts/ubo.sh') }}
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/Library/Caches/ardia-cli-build
           key: ardia-cli-${{ matrix.arch }}-${{ hashFiles('apps/cli/scripts/build.sh', 'apps/cli/requirements.lock') }}
@@ -195,6 +195,82 @@ jobs:
             git diff -- apps/browser apps/cli packages engine scripts/dmg | head -150
             exit 1
           }
+      - name: Build
+        env:
+          FEED: ${{ steps.paths.outputs.feed }}
+        run: |
+          args=("$VERSION" --channel "$CHANNEL" --arch "$ARCH" --phase build)
+          if [ "$DRY_RUN" = true ]; then args+=(--rc); fi
+          if ! curl -fsIL -o /dev/null "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$FEED"; then
+            echo "::notice::the latest release has no $FEED: this release starts it"
+            export APPCAST_BASE=none
+          fi
+          export RELEASE_BUILD_DIR="$DERIVED_DATA"
+          export RELEASE_BUILD_SETTINGS="COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_CAS_PATH=$CAS_PATH"
+          scripts/release.sh "${args[@]}"
+      - name: Pack the build
+        env:
+          DIST: ${{ steps.paths.outputs.dist }}
+        run: |
+          name=$(basename "$DIST")
+          tar -cf "$RUNNER_TEMP/build-$ARCH.tar" -C dist "$name/Ardia.xcarchive" "$name/provenance.txt" \
+            "$name/ardia-cli-$VERSION-macos-$ARCH.tar.gz" "$name/ardia-cli-$VERSION-macos-$ARCH.tar.gz.sha256"
+      - if: always() && steps.cas.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .xcode-cas
+          key: ${{ steps.cas-key.outputs.prefix }}${{ github.sha }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: build-${{ matrix.arch }}
+          path: ${{ runner.temp }}/build-${{ matrix.arch }}.tar
+          if-no-files-found: error
+          retention-days: 3
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: build-logs-${{ matrix.arch }}
+          path: ${{ steps.paths.outputs.dist }}/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sign:
+    needs: [preflight, build]
+    runs-on: xcode-27
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.preflight.outputs.arches) }}
+    env:
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: paths
+        run: |
+          if [ "$ARCH" = x86_64 ]; then suffix=-x64 feed=appcast-x64.xml; else suffix="" feed=appcast.xml; fi
+          if [ "$DRY_RUN" = true ]; then dist="dist/$VERSION-rc$suffix"; else dist="dist/$VERSION$suffix"; fi
+          { echo "suffix=$suffix"; echo "feed=$feed"; echo "dist=$dist"; } >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: build-${{ matrix.arch }}
+          path: ${{ runner.temp }}
+      - name: Unpack the build
+        run: |
+          mkdir -p dist
+          tar -xf "$RUNNER_TEMP/build-$ARCH.tar" -C dist
+          rm "$RUNNER_TEMP/build-$ARCH.tar"
+      - name: Sparkle's tools
+        run: |
+          tarball="$RUNNER_TEMP/Sparkle-2.9.6.tar.xz"
+          curl -fsSL --retry 3 -o "$tarball" https://github.com/sparkle-project/Sparkle/releases/download/2.9.6/Sparkle-2.9.6.tar.xz
+          [ "$(shasum -a 256 "$tarball" | awk '{ print $1 }')" = 52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192 ] \
+            || { echo "::error::Sparkle-2.9.6.tar.xz didn't match its pinned SHA-256"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/sparkle"
+          tar -xJf "$tarball" -C "$RUNNER_TEMP/sparkle" bin
+          echo "SPARKLE_BIN=$RUNNER_TEMP/sparkle/bin" >> "$GITHUB_ENV"
       - name: Signing
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
@@ -206,20 +282,32 @@ jobs:
           NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
           ALLOW_MISSING_NOTARY: ${{ inputs.dry_run && '1' || '0' }}
         run: .github/release/signing.sh setup
-      - name: Release
+      - name: Sign, notarize, package
         env:
-          GH_TOKEN: ${{ github.token }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
           RELEASE_ARCHS: ${{ needs.preflight.outputs.release_archs }}
           FEED: ${{ steps.paths.outputs.feed }}
         run: |
-          args=("$VERSION" --channel "$CHANNEL" --arch "$ARCH")
+          args=("$VERSION" --channel "$CHANNEL" --arch "$ARCH" --phase sign)
           if [ "$DRY_RUN" = true ]; then args+=(--rc); fi
-          if ! gh release view -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -qx "$FEED"; then
-            echo "::notice::the latest release has no $FEED: this release starts it"
+          if ! curl -fsIL -o /dev/null "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$FEED"; then
             export APPCAST_BASE=none
           fi
-          export RELEASE_BUILD_DIR="$DERIVED_DATA"
-          export RELEASE_BUILD_SETTINGS="COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_CAS_PATH=$CAS_PATH"
+          scripts/release.sh "${args[@]}"
+      - if: always()
+        name: Remove signing
+        run: .github/release/signing.sh cleanup
+      - if: matrix.arch == 'x86_64'
+        name: Rosetta
+        run: /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null || sudo softwareupdate --install-rosetta --agree-to-license
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Launch check
+        run: |
+          args=("$VERSION" --channel "$CHANNEL" --arch "$ARCH" --phase check)
+          if [ "$DRY_RUN" = true ]; then args+=(--rc); fi
           scripts/release.sh "${args[@]}"
       - name: Update signature
         env:
@@ -227,12 +315,7 @@ jobs:
           FEED: ${{ steps.paths.outputs.feed }}
           SUFFIX: ${{ steps.paths.outputs.suffix }}
         run: .github/release/check-sparkle.sh "$DIST" "$FEED" "$VERSION" "$DIST/Ardia-$VERSION$SUFFIX.zip"
-      - if: always() && steps.cas.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: .xcode-cas
-          key: ${{ steps.cas-key.outputs.prefix }}${{ github.sha }}
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-${{ matrix.arch }}
           path: |
@@ -247,18 +330,15 @@ jobs:
           compression-level: 0
           retention-days: 14
       - if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: release-logs-${{ matrix.arch }}
+          name: sign-logs-${{ matrix.arch }}
           path: ${{ steps.paths.outputs.dist }}/*.log
           if-no-files-found: ignore
           retention-days: 14
-      - if: always()
-        name: Remove signing
-        run: .github/release/signing.sh cleanup
 
   publish:
-    needs: [preflight, checks, build]
+    needs: [preflight, checks, sign]
     runs-on: macos-15
     timeout-minutes: 30
     permissions:
@@ -266,13 +346,13 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: release-arm64
           path: dist/${{ inputs.version }}
       - if: inputs.intel
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: release-x86_64
           path: dist/${{ inputs.version }}-x64

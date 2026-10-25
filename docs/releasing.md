@@ -163,7 +163,8 @@ stays up. That's GPL-3.0 §6(d) for the GPL parts (uBlock Origin today), and it'
      quits it and checks the signature again: the app must never write into its own bundle,
    - notarizes and staples the app and the DMG,
    - packages the DMG (lzma in 4 MB chunks, `udif-chunk-size=8192`, hdiutil's largest; `ARDIA_DMG_CHUNK=off` goes back
-     to its 1 MB default) and the zip, and signs `appcast.xml` with the Sparkle key. It starts from the
+     to its 1 MB default) and the zip, and signs `appcast.xml` (`appcast-x64.xml` for Intel; `generate_appcast` names
+     the feed after the app's `SUFeedURL`, so release.sh passes it `-o`) with the Sparkle key. It starts from the
      published appcast, so earlier versions and the other channel's items stay listed; a nightly's item gets
      `<sparkle:channel>nightly</sparkle:channel>`. The new item embeds the notes' headline and body
      (Markdown, shown in Sparkle's update dialog) and links the page as its full release notes
@@ -217,14 +218,24 @@ the arm64 engine if `engine/` changed (below).
 - **preflight** checks the version against the channel, `MARKETING_VERSION`, the notes file and that `v<version>` isn't
   out yet.
 - **checks**: `pnpm typecheck`, `pnpm test`, `pnpm shaders:check`.
-- **build**, once per arch on the `xcode-27` runner (Xcode 27.1, the same build as here): fetches the engine for this
-  exact `engine/` tree (`fetch-engine.sh`, `--arch x86_64` for Intel), sets up signing (`.github/release/signing.sh`: a
-  temporary keychain with the Developer ID identity, the provisioning profile, the notary key, the Sparkle key; all
-  removed at the end), runs `scripts/release.sh <version> --channel <channel> --arch <arch>`, checks the zip's EdDSA
-  signature against the app's `SUPublicEDKey` (`.github/release/check-sparkle.sh`) and uploads the DMG, zip, appcast,
-  notes and CLI tarball. Intel is cross-compiled on Apple silicon and its launch check runs under Rosetta. Caches: pnpm,
-  Pods with Hermes, uBO, the engine, the CLI's downloads and Xcode's compilation cache (per arch, Xcode build and month).
-- **publish** tags the commit and runs `publish.sh` with both arches. The Homebrew tap needs a token that can push
+- **build**, once per arch on the `xcode-27` runner (Xcode 27.1, the same build as here), with no secrets: fetches the
+  engine for this exact `engine/` tree (`fetch-engine.sh`, `--arch x86_64` for Intel), installs (pnpm, Pods, uv),
+  runs `scripts/release.sh <version> --channel <channel> --arch <arch> --phase build` (the archive, signed ad hoc, and
+  the CLI tarball) and uploads them as one tar. Caches: pnpm, Pods with Hermes, uBO, the engine, the CLI's downloads
+  and Xcode's compilation cache (per arch, Xcode build and month).
+- **sign**, once per arch, installs nothing and restores no cache, so no dependency code runs next to the keys. It
+  unpacks the build, takes Sparkle's tools from Sparkle's own 2.9.6 release (SHA-256 pinned; `SPARKLE_BIN`), sets up
+  signing (`.github/release/signing.sh`: a temporary keychain with the Developer ID identity, the provisioning profile,
+  the notary and Sparkle key files), and runs `release.sh … --phase sign`: export, sign, verify, notarize and staple the
+  app, the zip and DMG (the DMG signed, notarized and stapled too), the notes and the appcast. Then it deletes the
+  keychain and every key file, and only then runs the launch check (`--phase check`, the final app opened hidden, uBO
+  must be ready, the signature must survive), checks the zip's EdDSA signature against the app's `SUPublicEDKey`
+  (`.github/release/check-sparkle.sh`) and uploads the DMG, zip, appcast, notes and CLI tarball. A failed launch check
+  fails the run, so nothing publishes. Intel is cross-compiled on Apple silicon and its launch check runs under Rosetta.
+  Every `actions/*` step is pinned by commit SHA.
+- **publish** tags the commit and runs `publish.sh` with both arches. A stable without an Intel build (`intel` off)
+  carries the latest release's `appcast-x64.xml` over unchanged, so `releases/latest/download/appcast-x64.xml` keeps
+  answering Intel copies; a nightly without one leaves that file where it is. The Homebrew tap needs a token that can push
   to `mantrakp04/homebrew-tap` (`HOMEBREW_TAP_TOKEN`); without it, run `update-tap.sh <version>` here afterwards.
 
 `dry_run` (on by default) builds a release candidate (`release.sh --rc`: the next build number, no notes needed),
@@ -246,7 +257,9 @@ Secrets (repository secrets, these names):
 
 A dry run without the notary secrets builds unnotarized; the others are required. `release.sh` reads the same
 material from `RELEASE_PROVISIONING_PROFILE`, `SPARKLE_KEY_FILE` and `NOTARY_KEY`/`NOTARY_KEY_ID`/`NOTARY_ISSUER`, so
-it can run that way here too; with none of them set it works as before (Xcode's export, the login keychain).
+it can run that way here too; with none of them set it works as before (Xcode's export, the login keychain). Without
+`--phase` it does everything in one go, in the same order as before; `--phase build|sign|check` are the CI's three
+steps (the build with no keys, then signing and packaging, then the launch check once the keys are gone).
 
 ### Engines
 
