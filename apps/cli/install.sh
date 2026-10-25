@@ -27,6 +27,7 @@ set -eu
 umask 022
 
 repo=mantrakp04/ardia
+asset_suffix=-macos-arm64.tar.gz
 version_pattern='^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}(-[a-z]{1,16}\.[0-9]{1,4})?$'
 cli_home=${ARDIA_CLI_HOME:-$HOME/Library/Application Support/Ardia/CLI}
 default_bin_dir=$HOME/.local/bin
@@ -212,11 +213,7 @@ if [ "$uninstall" -eq 1 ]; then
 fi
 
 [ "$(uname -s)" = Darwin ] || fail "the ardia CLI runs on macOS only"
-machine=$(uname -m)
-case $machine in
-  arm64|x86_64) asset_suffix=-macos-$machine.tar.gz ;;
-  *) fail "the ardia CLI runs on Apple silicon and Intel Macs, not $machine" ;;
-esac
+[ "$(uname -m)" = arm64 ] || fail "the ardia CLI runs on Apple silicon only, not $(uname -m)"
 
 printf 'step resolve\n'
 if [ -n "${ARDIA_CLI_URL:-}" ]; then
@@ -229,7 +226,7 @@ if [ -n "${ARDIA_CLI_URL:-}" ]; then
 elif [ -n "$version" ]; then
   url=https://github.com/$repo/releases/download/v$version/ardia-cli-$version$asset_suffix
 else
-  pattern="https://github\.com/$repo/releases/download/v[0-9a-z.-]*/ardia-cli-[0-9a-z.-]*-macos-$machine\.tar\.gz"
+  pattern="https://github\.com/$repo/releases/download/v[0-9a-z.-]*/ardia-cli-[0-9a-z.-]*-macos-arm64\.tar\.gz"
   url=$(fetch https://api.github.com/repos/$repo/releases/latest 2>/dev/null | grep -o "$pattern" | head -n 1 || true)
   if [ -z "$url" ]; then
     url=$(fetch "https://api.github.com/repos/$repo/releases?per_page=30" 2>/dev/null | grep -o "$pattern" | head -n 1 || true)
