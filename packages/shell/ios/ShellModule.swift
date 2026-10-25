@@ -319,7 +319,8 @@ public class ShellModule: Module {
         behind: options["behind"] as? String,
         chromeWindow: options["chromeWindow"] as? String,
         claim: options["claim"] as? String,
-        pointer: (options["pointer"] as? [Double]).flatMap { $0.count == 2 ? NSPoint(x: $0[0], y: $0[1]) : nil })
+        pointer: (options["pointer"] as? [Double]).flatMap { $0.count == 2 ? NSPoint(x: $0[0], y: $0[1]) : nil },
+        animated: options["animated"] as? Bool ?? false)
     }.runOnQueue(.main)
 
     AsyncFunction("closeWindow") { (id: String) in WindowManager.shared.close(id: id) }.runOnQueue(.main)

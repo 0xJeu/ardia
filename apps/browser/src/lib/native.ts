@@ -39,6 +39,7 @@ import { openExternalUrls } from "../components/littleArdia/actions";
 import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
 import { SMALL_LIGHTS_CENTER } from "../components/littleArdia/SmallChrome";
 import { runCommand } from "./commands";
+import { finishAnimatedCloses } from "./closeAnimated";
 import { setFocusSenders } from "./focusClaims";
 import { cancelAbandonedFocusMoves, settlingCommandFocus } from "./focusHandoff";
 import { flushPersistence, resumePersistence } from "./persist";
@@ -73,6 +74,7 @@ export function startNativeSync() {
     if (e.type === "quitWarningSuppressed") s.updateSettings({ warnBeforeQuitting: false });
     if (e.type === "willQuit") {
       quitting = true;
+      finishAnimatedCloses();
       flushPersistence({ final: true });
       void replyToTerminate(true);
     }
@@ -116,7 +118,7 @@ export function startNativeSync() {
         : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
       void setTrafficLightsCenter(id, w.kind === "small" ? SMALL_LIGHTS_CENTER : openingLightsCenter(s, id));
-      void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
+      void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...(prev && w.kind !== "small" && !w.chromeWindow ? { animated: true } : {}), ...small, ...made });
     }
     for (const id of [...open]) {
       if (s.windows[id]) continue;
