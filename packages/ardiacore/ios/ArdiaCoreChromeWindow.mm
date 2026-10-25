@@ -1624,7 +1624,6 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
 }
 
 - (void)askPermission:(NSDictionary *)request {
-  if (!_permissionQueue) _permissionQueue = [NSMutableArray array];
   [_permissionQueue addObject:request];
   [self showNextPermission];
 }
@@ -1680,6 +1679,7 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
   if (!(self = [super init])) return nil;
   _tab = tab;
   _opener = opener;
+  _permissionQueue = [NSMutableArray array];
   NSDictionary<NSString *, NSNumber *> *features = tab.popupFeatures ?: @{};
   const NSSize size = NSMakeSize(MAX(features[@"width"] ? features[@"width"].doubleValue : 500, 200),
                                  MAX(features[@"height"] ? features[@"height"].doubleValue : 600, 150));
