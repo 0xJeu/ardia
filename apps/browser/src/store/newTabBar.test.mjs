@@ -58,8 +58,8 @@ for (const [newTabPosition, expected] of [
 ]) {
   test(`a pick makes one selected unpinned tab where new tabs go (${newTabPosition}), outside the selected tab's group`, () => {
     reset("commandBar");
-    S().updateSettings({ newTabPosition });
     const { w, ids: [a, b] } = windowWith("a", "b", "c");
+    S().updateSettings({ newTabPosition });
     S().pinTabs([a], true);
     S().activate(b);
     S().groupTabs([b], { pinned: false });
