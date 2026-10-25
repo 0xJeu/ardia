@@ -13,7 +13,7 @@ import { commitRename, endRename, startRename } from "./actions";
 import { useDragFolded, useDragItem, useDropInto } from "./dnd";
 import { useShift, type EntryMotion } from "./entryMotion";
 import { Fold, useFold } from "./Fold";
-import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_PAD, GROUP_RADIUS, keptEntry } from "./geometry";
+import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, keptEntry } from "./geometry";
 import { groupEntries } from "./entries";
 import { dismissHover, useRowHover } from "./hover";
 import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./listMotion";
@@ -24,7 +24,6 @@ import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
 import { GROUP_COLORS, useSidebarTokens, withAlpha } from "./tokens";
 
 const PAD = GROUP_PAD;
-const NESTED_INDENT = 16;
 
 export const GroupBlock = memo(function GroupBlock({
   groupId,
@@ -96,7 +95,7 @@ export const GroupBlock = memo(function GroupBlock({
           gap={layout.rowGap}
           rowHeight={(key) => entryHeight(useBrowser.getState(), windowId, profileId, key)}
           padBottom={PAD}
-          indent={parentGroup ? NESTED_INDENT : 0}
+          indent={GROUP_INDENT}
           mountClosed={selectedInside}
           footer={<Animated.View ref={tail.wrapper.ref} style={tail.wrapper.style} />}
         />
