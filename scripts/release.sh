@@ -104,7 +104,7 @@ if [ "$phase" = sign ] && [ -n "$build_input" ]; then
 fi
 if [ "$phase" = sign ] || [ "$phase" = check ]; then
   framework_src="$archive/Products/Applications/Ardia.app/Contents/Frameworks/Chromium Framework.framework"
-  [ -d "$archive" ] || die "no $archive: run --phase build first"
+  [ "$phase" = check ] || [ -d "$archive" ] || die "no $archive: run --phase build first"
 fi
 
 launch_check() {
