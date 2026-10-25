@@ -19,7 +19,7 @@ import { openFromNewTabBar } from "./omnibox/newTabBar";
 import type { NewTabTarget } from "../store/types";
 import { clipboardPasteAction, pasteMenuItem, pasteTarget, readClipboard } from "./omnibox/paste";
 import { ScopeChip } from "./omnibox/ScopeChip";
-import { SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./omnibox/SuggestionRow";
+import { SUGGESTION_TEXT_SIZE, SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./omnibox/SuggestionRow";
 import { useDropdownStart, useOpenTabsStart } from "./omnibox/dropdownStart";
 import { useInlineCompletion } from "./omnibox/useInlineCompletion";
 import { keywordScope, offeredScope, useSuggestions } from "./omnibox/useSuggestions";
@@ -61,8 +61,10 @@ export function Omnibox({
   onCancel,
   onDone = onCancel,
   opensTab,
+  floating = false,
 }: {
   variant: Variant;
+  floating?: boolean;
   tabId: string;
   initialText?: string;
   opensTab?: NewTabTarget;
@@ -437,7 +439,7 @@ export function Omnibox({
       onKeyDown={onKeyDown}
       style={{
         flex: 1,
-        fontSize: hero ? 17 : dropdown ? 14 : 13,
+        fontSize: hero ? 17 : dropdown || floating ? SUGGESTION_TEXT_SIZE : 13,
         color: theme.textPrimary,
         paddingVertical: 0,
         marginTop: variant === "panel" ? -3 : 0,
