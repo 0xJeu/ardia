@@ -808,11 +808,14 @@
     return color;
   };
   const backgroundOf = (el) => el && parse(getComputedStyle(el).backgroundColor);
-  const pageBackground = () => {
+  const paintedBackground = () => {
     for (const el of [document.body, document.documentElement]) {
       const c = backgroundOf(el);
       if (c && c.a > 0) return c;
     }
+    return null;
+  };
+  const defaultBackground = () => {
     const dark = /dark/.test(getComputedStyle(document.documentElement).colorScheme) && matchMedia("(prefers-color-scheme: dark)").matches;
     return dark ? { r: 18, g: 18, b: 18, a: 1 } : { r: 255, g: 255, b: 255, a: 1 };
   };
@@ -836,18 +839,37 @@
     }
     return null;
   };
+  const fromHex = (h) => ({ r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16), b: parseInt(h.slice(5, 7), 16), a: 1 });
+  const linear = (v) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const tone = (c) => {
+    const y = 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+    return y >= 0.5 ? 1 : y <= 0.1 ? -1 : 0;
+  };
+  const contradictsPage = (meta, painted, header) => {
+    const metaTone = tone(fromHex(meta));
+    if (!metaTone || (!painted && !header)) return false;
+    return [painted, header].every((c) => !c || tone(c) === -metaTone);
+  };
   let lastTheme;
   let metaCache;
+  let metaOverruled = false;
   const cachedMetaColor = () => (metaCache === undefined ? (metaCache = metaColor(scheduleTheme)) : metaCache);
   const reportTheme = guard(() => {
     if (!document.documentElement) return;
-    let color = cachedMetaColor();
-    let source = color ? "meta" : null;
-    if (!color && document.body) {
-      const page = pageBackground();
+    const meta = cachedMetaColor();
+    let color = meta;
+    let source = meta ? "meta" : null;
+    metaOverruled = false;
+    if (document.body) {
+      const fallback = defaultBackground();
+      const paintedColor = paintedBackground();
+      const page = paintedColor || fallback;
       const header = headerColor(page);
-      color = hex(header || page);
-      source = header ? "header" : "background";
+      metaOverruled = !!meta && contradictsPage(meta, paintedColor && blend(paintedColor, fallback), header);
+      if (!meta || metaOverruled) {
+        color = hex(header || page);
+        source = header ? "header" : "background";
+      }
     }
     const key = color + source;
     if (key === lastTheme) return;
@@ -904,7 +926,7 @@
   let scrollSettle = 0;
   let scrollSettled = false;
   const sampleScroll = guard((settled) => {
-    if (!document.documentElement || cachedMetaColor()) return;
+    if (!document.documentElement || (cachedMetaColor() && !metaOverruled)) return;
     const past = window.scrollY > 4;
     const now = performance.now();
     if (!settled && past === scrolledPastTop && now - scrollSampledAt < 150) return;
@@ -925,7 +947,7 @@
     );
   };
   const scrollTheme = () => {
-    if (metaCache) return;
+    if (metaCache && !metaOverruled) return;
     apply(clearTimer, window, [scrollSettle]);
     scrollSettle = after(() => {
       scrollSettled = true;
