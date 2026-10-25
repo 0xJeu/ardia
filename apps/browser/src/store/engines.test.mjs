@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { engineForUrl, engineMark, ruleFor, siteOf, tabEngine, typedNavigationEngine, visitToRecord } from "./engines.ts";
+import { engineForUrl, engineMark, ruleFor, siteOf, tabEngine, typedNavigationEngine, visitRecorder } from "./engines.ts";
 import { makeTab, snapshotTab } from "./model.ts";
 
 const tab = (id, patch = {}) => ({ id, url: "", navigation: null, openerId: null, ...patch });
@@ -79,27 +79,85 @@ test("a closed WebKit tab reopens in WebKit, whatever restore id it carries", ()
   assert.equal(snapshotTab(makeTab("w1", "default", "https://a.com/")).engine, undefined);
 });
 
-test("a WebKit visit is recorded for the committed page, with that page's own title", () => {
+function recorder() {
+  const written = [];
+  let clock = 0;
+  let next = 0;
+  const pending = new Map();
+  const visits = visitRecorder((profile, visit) => written.push({ profile, ...visit }), { set: (run, ms) => (pending.set(++next, { run, at: clock + ms }), next), clear: (id) => pending.delete(id) }, () => clock);
+  const advance = (ms) => {
+    clock += ms;
+    for (const [id, timer] of [...pending]) if (timer.at <= clock) (pending.delete(id), timer.run());
+  };
   const page = (url, title, isLoading, committedUrl = url) => ({ url, title, isLoading, committedUrl });
-  let step = visitToRecord(undefined, page("https://b.com/", "A's title", true, "https://a.com/"), 1);
-  assert.equal(step.record, false);
-  step = visitToRecord(step.visit, page("https://b.com/", "A's title", true), 2);
-  assert.equal(step.record, false);
-  step = visitToRecord(step.visit, page("https://b.com/", "", true), 3);
-  assert.equal(step.record, false);
-  step = visitToRecord(step.visit, page("https://b.com/", "B's title", true), 4);
-  assert.equal(step.record, true);
-  assert.equal(step.visit.at, 2);
-  step = visitToRecord(step.visit, page("https://b.com/", "B again", false), 5);
-  assert.equal(step.record, false);
+  return { visits, written, advance, page };
+}
+
+test("a WebKit visit is recorded for the committed page, with that page's own title", () => {
+  const { visits, written, advance, page } = recorder();
+  visits.note("t", "", page("https://b.com/", "A's title", true, "https://a.com/"));
+  advance(1);
+  visits.note("t", "", page("https://b.com/", "A's title", true));
+  visits.note("t", "", page("https://b.com/", "", true));
+  assert.deepEqual(written, []);
+  advance(1);
+  visits.note("t", "", page("https://b.com/", "B's title", true));
+  visits.note("t", "", page("https://b.com/", "B again", false));
+  assert.deepEqual(written, [{ profile: "", url: "https://b.com/", title: "B's title", at: 1 }]);
 });
 
-test("a page whose title never changes settles instead of recording the old title at once", () => {
-  const step = visitToRecord(undefined, { url: "https://b.com/", title: "Same", isLoading: false, committedUrl: "https://b.com/" }, 1);
-  assert.deepEqual([step.record, step.settle], [false, true]);
+test("a page whose title never changes is recorded once it settles, not at once", () => {
+  const { visits, written, advance, page } = recorder();
+  visits.note("t", "", page("https://b.com/", "Same", false));
+  assert.deepEqual(written, []);
+  advance(1500);
+  assert.deepEqual(written, [{ profile: "", url: "https://b.com/", title: "Same", at: 0 }]);
 });
 
 test("a navigation that became a download, or an error page, is never recorded", () => {
-  assert.equal(visitToRecord(undefined, { url: "https://f.com/file.zip", title: "", isLoading: false, committedUrl: "" }, 1).record, false);
-  assert.equal(visitToRecord(undefined, { url: "https://f.com/file.zip", title: "x", isLoading: false, committedUrl: "https://a.com/" }, 1).settle, false);
+  const { visits, written, advance, page } = recorder();
+  visits.note("t", "", page("https://f.com/file.zip", "", false, ""));
+  visits.note("t", "", page("https://f.com/file.zip", "x", false, "https://a.com/"));
+  advance(5000);
+  assert.deepEqual(written, []);
+});
+
+test("a visit keeps the profile it was made in, even if the tab moves before it settles", () => {
+  const { visits, written, advance, page } = recorder();
+  visits.note("t", "work", page("https://a.com/", "A", false));
+  visits.note("t", "home", page("https://a.com/", "A", false));
+  advance(1500);
+  assert.deepEqual(written.map((v) => v.profile), ["work"]);
+});
+
+test("one visit's settle timer never records the next visit", () => {
+  const { visits, written, advance, page } = recorder();
+  visits.note("t", "", page("https://a.com/", "A", false));
+  advance(1400);
+  visits.note("t", "", page("https://b.com/", "A", true));
+  advance(100);
+  assert.deepEqual(written, [{ profile: "", url: "https://a.com/", title: "A", at: 0 }]);
+  advance(1000);
+  visits.note("t", "", page("https://b.com/", "B", false));
+  assert.deepEqual(written.at(-1), { profile: "", url: "https://b.com/", title: "B", at: 1400 });
+});
+
+test("a quick next page still records the one before it, with its own title and time", () => {
+  const { visits, written, page, advance } = recorder();
+  visits.note("t", "", page("https://a.com/", "Old", true));
+  advance(200);
+  visits.note("t", "", page("https://a.com/#two", "Old", false));
+  assert.deepEqual(written, [{ profile: "", url: "https://a.com/", title: "Old", at: 0 }]);
+});
+
+test("a private visit is never written, and a reload of the same page isn't a new visit", () => {
+  const { visits, written, page, advance } = recorder();
+  visits.note("p", null, page("https://a.com/", "A", false));
+  advance(1500);
+  visits.note("t", "", page("https://a.com/", "A", false));
+  advance(1500);
+  visits.note("t", "", page("https://a.com/", "A", true));
+  visits.note("t", "", page("https://a.com/", "A", false));
+  advance(1500);
+  assert.deepEqual(written.length, 1);
 });

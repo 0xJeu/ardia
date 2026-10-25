@@ -2,7 +2,7 @@ import { addHistoryVisits, type PageEngine } from "@ardia/ardiacore";
 import { confirm } from "@ardia/shell";
 import { create } from "zustand";
 import { useBrowser } from "../store/browser";
-import { canSwitchEngine, ENGINE_NAMES, ruleFor, siteOf, tabEngine, visitToRecord, type Visit, type WebKitPage } from "../store/engines";
+import { canSwitchEngine, ENGINE_NAMES, ruleFor, siteOf, tabEngine, visitRecorder, type WebKitPage } from "../store/engines";
 import { engineProfile, isIncognitoProfile, navigationTo } from "../store/model";
 import { wantsPage } from "./tabPages";
 import { webviews } from "./webviews";
@@ -101,35 +101,13 @@ export function stayOnPage(tabId: string) {
 
 export const acceptEngineOffer = (tabId: string) => openPageIn(tabId, "webkit", { rule: "webkit" });
 
-const visits = new Map<string, Visit>();
-const latest = new Map<string, WebKitPage>();
-const settling = new Map<string, ReturnType<typeof setTimeout>>();
-const SETTLE_MS = 1500;
-
-function recordVisit(tabId: string, visit: Visit, title: string) {
-  const t = store().tabs[tabId];
-  if (!t) return;
-  if (visits.size > 500) for (const id of visits.keys()) if (!store().tabs[id]) visits.delete(id);
-  void addHistoryVisits(engineProfile(t.profileId), [{ url: visit.url, title, visitTimes: [visit.at] }]).catch(() => {});
-}
+const visits = visitRecorder(
+  (profile, visit) => void addHistoryVisits(profile, [{ url: visit.url, title: visit.title, visitTimes: [visit.at] }]).catch(() => {}),
+  { set: (run, ms) => setTimeout(run, ms), clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>) },
+  Date.now,
+);
 
 export function noteWebKitPage(tabId: string, page: WebKitPage) {
   const t = store().tabs[tabId];
-  if (!t || isIncognitoProfile(t.profileId)) return;
-  latest.set(tabId, page);
-  const { visit, record, settle } = visitToRecord(visits.get(tabId), page, Date.now());
-  if (visit) visits.set(tabId, visit);
-  if (record && visit) return recordVisit(tabId, visit, page.title);
-  if (!settle || settling.has(tabId)) return;
-  settling.set(
-    tabId,
-    setTimeout(() => {
-      settling.delete(tabId);
-      const pending = visits.get(tabId);
-      const now = latest.get(tabId);
-      if (!pending || pending.recorded || !now || now.committedUrl !== pending.url || now.url !== pending.url) return;
-      visits.set(tabId, { ...pending, recorded: true });
-      recordVisit(tabId, pending, now.title);
-    }, SETTLE_MS),
-  );
+  if (t) visits.note(tabId, isIncognitoProfile(t.profileId) ? null : engineProfile(t.profileId), page);
 }

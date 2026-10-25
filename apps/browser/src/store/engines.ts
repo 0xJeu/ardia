@@ -72,15 +72,45 @@ export function engineMark(s: EngineState, tabId: string): PageEngine | null {
   return engine === defaultEngine(s) ? null : engine;
 }
 
-export type Visit = { url: string; at: number; recorded: boolean; staleTitle: string };
-
 export type WebKitPage = { url: string; title: string; isLoading: boolean; committedUrl: string };
+export type RecordedVisit = { url: string; title: string; at: number };
+type Visit = RecordedVisit & { staleTitle: string; profile: string | null; timer?: unknown };
+type VisitTimers = { set(run: () => void, ms: number): unknown; clear(handle: unknown): void };
 
-export function visitToRecord(visit: Visit | undefined, page: WebKitPage, now: number): { visit: Visit | undefined; record: boolean; settle: boolean } {
-  const { url, title, isLoading, committedUrl } = page;
-  if (!/^https?:/i.test(url) || url !== committedUrl) return { visit, record: false, settle: false };
-  const current = visit?.url === url ? visit : { url, at: now, recorded: false, staleTitle: title };
-  if (current.recorded) return { visit: current, record: false, settle: false };
-  const ready = !!title && title !== current.staleTitle;
-  return { visit: ready ? { ...current, recorded: true } : current, record: ready, settle: !ready && !isLoading };
+export const VISIT_SETTLE_MS = 1500;
+
+export function visitRecorder(write: (profile: string, visit: RecordedVisit) => void, timers: VisitTimers, now: () => number) {
+  const open = new Map<string, Visit>();
+  const done = new Map<string, string>();
+  const finish = (tabId: string, visit: Visit) => {
+    if (visit.timer !== undefined) timers.clear(visit.timer);
+    visit.timer = undefined;
+    if (open.get(tabId) === visit) open.delete(tabId);
+    if (done.size > 1000) done.clear();
+    done.set(tabId, visit.url);
+    if (visit.profile !== null) write(visit.profile, { url: visit.url, title: visit.title, at: visit.at });
+  };
+  return {
+    note(tabId: string, profile: string | null, page: WebKitPage) {
+      const { url, title, isLoading, committedUrl } = page;
+      if (!/^https?:/i.test(url) || url !== committedUrl) return;
+      let visit = open.get(tabId);
+      if (visit && visit.url !== url) {
+        finish(tabId, visit);
+        visit = undefined;
+      }
+      if (!visit) {
+        if (done.get(tabId) === url) return;
+        done.delete(tabId);
+        visit = { url, title, at: now(), staleTitle: title, profile };
+        open.set(tabId, visit);
+      } else if (title) visit.title = title;
+      if (title && title !== visit.staleTitle) return finish(tabId, visit);
+      if (isLoading || visit.timer !== undefined) return;
+      const settling = visit;
+      settling.timer = timers.set(() => {
+        if (open.get(tabId) === settling) finish(tabId, settling);
+      }, VISIT_SETTLE_MS);
+    },
+  };
 }

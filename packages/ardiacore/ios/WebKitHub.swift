@@ -461,6 +461,11 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 final class WebKitDownloads: NSObject, WKDownloadDelegate {
   private enum Phase { case running, pausing, paused, resuming, done }
 
+  private struct FileIdentity: Equatable {
+    let device: Int
+    let inode: Int
+  }
+
   private final class Item {
     let id = "wk-download-" + UUID().uuidString
     var download: WKDownload?
@@ -477,6 +482,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     var speed: Double = 0
     var mimeType = ""
     var resumeData: Data?
+    var file: FileIdentity?
     var progress: NSKeyValueObservation?
     var sampledAt = Date()
     var sampledBytes: Int64 = 0
@@ -521,6 +527,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     item.progress = download.progress.observe(\.completedUnitCount, options: [.new]) { [weak self, weak item] progress, _ in
       DispatchQueue.main.async {
         guard let self, let item, item.phase == .running else { return }
+        Self.noteFile(item)
         item.received = progress.completedUnitCount
         item.total = max(0, progress.totalUnitCount)
         let now = Date()
@@ -559,7 +566,15 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
                 completionHandler: @escaping (URL?) -> Void) {
     guard let item = item(for: download) else { return completionHandler(nil) }
     if !item.path.isEmpty {
-      try? FileManager.default.removeItem(atPath: item.path)
+      if Self.owns(item) {
+        try? FileManager.default.removeItem(atPath: item.path)
+      } else {
+        let target = Self.unique(URL(fileURLWithPath: item.path))
+        item.path = target.path
+        item.filename = target.lastPathComponent
+      }
+      item.file = nil
+      report(item)
       return completionHandler(URL(fileURLWithPath: item.path))
     }
     let name = Self.safeName(suggestedFilename.isEmpty ? (response.suggestedFilename ?? "download") : suggestedFilename)
@@ -608,6 +623,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     switch item.phase {
     case .pausing, .paused:
       if let resumeData { item.resumeData = resumeData }
+      Self.noteFile(item)
       item.phase = .paused
     case .done:
       break
@@ -633,7 +649,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       detach(item)
       report(item)
       let removePartial = {
-        if !partial.isEmpty { try? FileManager.default.removeItem(atPath: partial) }
+        if !partial.isEmpty && Self.owns(item) { try? FileManager.default.removeItem(atPath: partial) }
       }
       if let download {
         download.cancel { _ in DispatchQueue.main.async(execute: removePartial) }
@@ -647,6 +663,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       download.cancel { [weak self] data in
         DispatchQueue.main.async {
           if let data { item.resumeData = data }
+          Self.noteFile(item)
           if item.download === download { self?.detach(item) }
           if item.phase == .pausing { item.phase = .paused }
         }
@@ -654,7 +671,8 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     case "resume":
       guard item.phase == .paused else { return }
       let data = item.resumeData
-      let request = item.request ?? URL(string: item.url).map { URLRequest(url: $0) }
+      let saved = item.request ?? URL(string: item.url).map { URLRequest(url: $0) }
+      let request = saved.flatMap { ["GET", "HEAD"].contains(($0.httpMethod ?? "GET").uppercased()) ? $0 : nil }
       guard data != nil || request != nil else {
         item.phase = .done
         item.state = "failed"
@@ -678,6 +696,22 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
       if let data { host.resumeDownload(fromResumeData: data, completionHandler: resumed) } else if let request { host.startDownload(using: request, completionHandler: resumed) }
     default: break
     }
+  }
+
+  private static func identity(atPath path: String) -> FileIdentity? {
+    guard !path.isEmpty, let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+      let device = (attributes[.systemNumber] as? NSNumber)?.intValue, let inode = (attributes[.systemFileNumber] as? NSNumber)?.intValue
+    else { return nil }
+    return FileIdentity(device: device, inode: inode)
+  }
+
+  private static func noteFile(_ item: Item) {
+    if item.file == nil { item.file = identity(atPath: item.path) }
+  }
+
+  private static func owns(_ item: Item) -> Bool {
+    guard let file = item.file else { return false }
+    return identity(atPath: item.path) == file
   }
 
   static func safeName(_ name: String) -> String {
