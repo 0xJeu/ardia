@@ -37,10 +37,19 @@ enum WebKitPageScript {
     return list.find((m) => heard.has(m) && playing(m)) || present(lastHeard) || list.find(playing) || present(lastMedia);
   };
   const sessionState = () => (navigator.mediaSession ? navigator.mediaSession.playbackState : "none");
+  const advancePosition = (state) => {
+    const playingNow = state === "playing";
+    if (playingNow === pagePosition.playing) return;
+    const now = Date.now();
+    if (pagePosition.playing) pagePosition.position += ((now - pagePosition.at) / 1000) * pagePosition.playbackRate;
+    pagePosition.at = now;
+    pagePosition.playing = playingNow;
+  };
   const positionOf = (m, state) => {
     if (!pagePosition) return isFinite(m.currentTime) ? m.currentTime : 0;
-    const { position, duration, playbackRate, at } = pagePosition;
-    const now = position + (state === "playing" ? ((Date.now() - at) / 1000) * playbackRate : 0);
+    advancePosition(state);
+    const { position, duration, playbackRate, at, playing } = pagePosition;
+    const now = position + (playing ? ((Date.now() - at) / 1000) * playbackRate : 0);
     return Math.max(0, duration > 0 ? Math.min(now, duration) : now);
   };
   let queued = false;
@@ -128,10 +137,19 @@ enum WebKitPageScript {
       pageActions = Array.isArray(data.actions) ? knownActions.filter((a) => data.actions.includes(a)) : [];
       const p = data.position;
       const finite = (n) => typeof n === "number" && isFinite(n);
-      pagePosition =
-        p && finite(p.position) && finite(p.duration)
-          ? { position: Math.max(0, p.position), duration: p.duration, playbackRate: finite(p.playbackRate) && p.playbackRate ? p.playbackRate : 1, at: Date.now() }
-          : null;
+      if (!p || !finite(p.position) || !finite(p.duration)) pagePosition = null;
+      else {
+        const sampledAt = finite(p.at) ? p.at : Date.now();
+        if (!pagePosition || pagePosition.sampledAt !== sampledAt)
+          pagePosition = {
+            position: Math.max(0, p.position),
+            duration: p.duration,
+            playbackRate: finite(p.playbackRate) && p.playbackRate ? p.playbackRate : 1,
+            at: sampledAt,
+            sampledAt,
+            playing: p.playing === true,
+          };
+      }
       schedule();
     },
     true,
@@ -262,6 +280,7 @@ enum WebKitPageScript {
   const { stringify, parse } = JSON;
   const Custom = CustomEvent;
   const Mouse = MouseEvent;
+  const now = Date.now;
   const doc = document;
   const handedOver = new WeakSet();
   const mediaProto = HTMLMediaElement.prototype;
@@ -300,7 +319,10 @@ enum WebKitPageScript {
   if (typeof setPositionState === "function") {
     proto.setPositionState = function (state) {
       const result = apply(setPositionState, this, arguments);
-      position = state && typeof state === "object" ? { duration: +state.duration, position: +(state.position || 0), playbackRate: +(state.playbackRate || 1) } : null;
+      position =
+        state && typeof state === "object"
+          ? { duration: +state.duration, position: +(state.position || 0), playbackRate: +(state.playbackRate || 1), at: now(), playing: this.playbackState === "playing" }
+          : null;
       notify();
       return result;
     };
