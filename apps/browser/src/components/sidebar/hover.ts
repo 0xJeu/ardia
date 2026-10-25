@@ -4,7 +4,7 @@ import { markHoverProps } from "../../lib/hoverShift";
 import { useBrowser } from "../../store/browser";
 import { PageProfileContext } from "../../store/hooks";
 import { useFoldedAway } from "./Fold";
-import { cardReach, type Point, type Rect } from "./hoverAim";
+import { cardReach, pointInRect, type Point, type Rect } from "./hoverAim";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./state";
 
 const SHOW_DELAY_MS = 500;
@@ -26,6 +26,7 @@ let cardFrame: Rect | null = null;
 let onCard = false;
 let exitPoint: Point | null = null;
 let waiting: Waiting | null = null;
+let held = false;
 
 export const setHoverSpace = (windowId: string, height: number) => void contentHeights.set(windowId, height);
 
@@ -38,6 +39,7 @@ function pointerIn(windowId: string, event: PointerEvent): Point | null {
 }
 
 function hideCard() {
+  held = false;
   onCard = false;
   exitPoint = null;
   waiting = null;
@@ -73,6 +75,7 @@ function holdFor(next: Waiting) {
 
 export const cardHoverProps = {
   onMouseEnter: () => {
+    if (!sidebarUi().hover) return;
     onCard = true;
     clearTimeout(aimTimer);
     keepHover();
@@ -139,7 +142,7 @@ export function hoverEnter(windowId: string, target: Target) {
 }
 
 export function hoverLeave(from?: unknown) {
-  if (typeof from === "string" && from !== owner) return;
+  if (held || (typeof from === "string" && from !== owner)) return;
   owner = null;
   ticket++;
   clearTimeout(showTimer);
@@ -152,7 +155,19 @@ export const keepHover = () => {
   clearTimeout(aimTimer);
 };
 
+export function holdHover(on: boolean) {
+  if (on === held) return;
+  held = on;
+  if (on) return keepHover();
+  const hover = sidebarUi().hover;
+  if (!hover || onCard) return;
+  if (underPointer !== hover.id) return hoverLeave();
+  owner = hover.id;
+  ownerWindow = hover.windowId;
+}
+
 export function dismissHover() {
+  held = false;
   owner = null;
   ownerWindow = null;
   ticket++;
@@ -189,15 +204,17 @@ export function useRowHover(windowId: string, target: Target | null) {
     if (!onCurrentPage() || latest.current.away) return;
     const { windowId, target } = latest.current;
     pointed(windowId, refresh, true);
+    const at = pointerIn(windowId, event);
+    if (onCard && at && cardFrame && !pointInRect(cardFrame, at)) onCard = false;
     const enter = () => {
       if (latest.current.away) return;
       setHovered(true);
       underPointer = target?.id ?? null;
       if (target) hoverEnter(windowId, target);
     };
-    const held = cardHeldFor(windowId, target, event);
-    if (!held) return enter();
-    if (held === "aiming") setHovered(true);
+    const reach = cardHeldFor(windowId, target, event);
+    if (!reach) return enter();
+    if (reach === "aiming") setHovered(true);
     holdFor({ windowId, target, arrive: enter });
   });
   const [hoverProps] = useState(() =>
