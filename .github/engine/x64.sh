@@ -102,11 +102,17 @@ restore() {
 
 siso_state() {
   ls -la "$out"/.siso_* "$out"/siso* 2>/dev/null || true
-  grep -h -m 3 -E 'hashfs loaderr|unable to do incremental' "$out"/siso*.INFO* 2>/dev/null || true
+}
+
+siso_why() {
+  grep -h -m 3 -E 'hashfs loaderr|unable to do incremental|refresh hashfs' "$out"/siso.INFO 2>/dev/null || true
+  grep -h -o -E 'invalidate [a-z]+|not exist output-needed|old local source|reconcile mtime|keep tainted' \
+    "$out"/siso.INFO 2>/dev/null | sort | uniq -c || true
+  head -n 30 "$out/siso_explain" 2>/dev/null || true
 }
 
 build_phase() {
-  local deadline now stop pid pgid rc=0 limit="${ENGINE_PHASE_MINUTES:-0}" stopped=0 settle
+  local deadline now stop pid pgid rc=0 limit="${ENGINE_PHASE_MINUTES:-0}" stopped=0 settle explained=0
   deadline=$(($(started) + (job_minutes - reserve_minutes) * 60))
   now=$(date +%s)
   stop=$deadline
@@ -125,6 +131,11 @@ build_phase() {
   set +m
   pgid=$pid
   while kill -0 "$pid" 2>/dev/null; do
+    if ((!explained && $(date +%s) >= now + 180)); then
+      say "why siso runs what it runs (its state load, then the first steps it explains)"
+      siso_why
+      explained=1
+    fi
     if (($(date +%s) >= stop)); then
       say "phase time is up: stopping the build (siso saves its state on SIGTERM)"
       kill -TERM -- "-$pgid" 2>/dev/null || true
