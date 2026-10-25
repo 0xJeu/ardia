@@ -104,6 +104,50 @@ test("failures don't mark the day, and retries reuse the same event id", async (
   assert.equal(posts.length, 3);
 });
 
+test("a ping cut off by a quit is resent after relaunch with the same id, and an older day's before today's", async () => {
+  reset("2026-10-24", true);
+  status = 0;
+  assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
+  const lost = attributes(posts[0]);
+  assert.equal(daily.readDailyState().pending.id, lost.uuid);
+
+  daily.resetDailyForTests(true);
+  status = 200;
+  assert.equal(await daily.sendDailyPing(at("2026-10-25")), "sent");
+  assert.equal(attributes(posts[1]).uuid, lost.uuid);
+  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-25", pending: null });
+
+  reset("2026-10-24", true);
+  status = 503;
+  assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
+  const older = posts[0];
+  daily.resetDailyForTests(true);
+  status = 200;
+  assert.equal(await daily.sendDailyPing(at("2026-10-26")), "sent");
+  assert.equal(posts.length, 3);
+  assert.equal(attributes(posts[1]).uuid, attributes(older).uuid);
+  assert.equal(posts[1].body.resourceLogs[0].scopeLogs[0].logRecords[0].timeUnixNano, older.body.resourceLogs[0].scopeLogs[0].logRecords[0].timeUnixNano);
+  const today = attributes(posts[2]);
+  assert.notEqual(today.uuid, attributes(older).uuid);
+  assert.deepEqual([today.first, today.weekly, today.monthly], [false, true, false]);
+  assert.deepEqual(daily.readDailyState(), { lastDay: "2026-10-26", pending: null });
+});
+
+test("nothing is sent when the pending ping can't be saved first", async () => {
+  reset(null);
+  const set = stub.docs.set;
+  stub.docs.set = () => {
+    throw new Error("disk full");
+  };
+  try {
+    assert.equal(await daily.sendDailyPing(at("2026-10-25")), "failed");
+  } finally {
+    stub.docs.set = set;
+  }
+  assert.equal(posts.length, 0);
+  assert.equal(daily.readLastDay(), null);
+});
+
 test("it sends whether or not sharing is on, and leaves the opt-in state alone", async () => {
   reset(null);
   assert.equal(stub.docs.get("telemetry.json"), undefined);

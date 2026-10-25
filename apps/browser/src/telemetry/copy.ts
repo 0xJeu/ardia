@@ -11,8 +11,8 @@ export const SHARING_COPY = {
     notNow: "Not now",
   },
   dailyCount:
-    "Once a day, one anonymous “opened today” count: app version, update channel, macOS version and chip, and whether it's this copy's first day, week or month. No ID, nothing else, sent whether or not this is on.",
-  dailyCountShort: "Either way, Ardia sends one anonymous “opened today” count a day, with its version and macOS version and no ID.",
+    "Once a day, one anonymous “opened today” count: app version, update channel, macOS version and chip, and whether it's this copy's first day, week or month. It has no persistent ID (each day's count gets a new random one) and nothing else, and it's sent whether or not this is on.",
+  dailyCountShort: "Either way, Ardia sends one anonymous “opened today” count a day, with its version and macOS version and no persistent ID.",
   updateChecks: "ardia.dev counts update checks by version and day, and whether it's this copy's first. Nothing else.",
   switchFile:
     "While update checks are on, each launch also reads ardia.dev/switches.json: one small file, the same for everyone, that lets us turn off a speed-up that misbehaves. It sends no ID, no cookies and nothing about you.",
@@ -20,7 +20,7 @@ export const SHARING_COPY = {
     title: "Help us fix what breaks",
     row: "Crashes, errors, feature counts and speed. Never your sites, typing or tabs.",
     subtitle:
-      "Off unless you turn it on; change it any time in Settings › Privacy & Security. Either way, Ardia sends one anonymous “opened today” count a day, with its version and macOS version and no ID.",
+      "Off unless you turn it on; change it any time in Settings › Privacy & Security. Either way, Ardia sends one anonymous “opened today” count a day, with its version and macOS version and no persistent ID.",
   },
 } as const;
 

@@ -43,20 +43,34 @@ export function nextCheckDelay(now: number, jitter = Math.random()) {
   return Math.min(RECHECK_MS, midnight - now + Math.floor(jitter * MIDNIGHT_JITTER_MS));
 }
 
-export const readLastDay = (): string | null => {
-  try {
-    const stored = JSON.parse(readDocument(DAILY_DOC) ?? "null") as { lastDay?: unknown } | null;
-    return validDay(stored?.lastDay) ? stored.lastDay : null;
-  } catch {
-    return null;
-  }
+export type PendingPing = { day: string; id: string; timestamp: string; properties: Record<string, unknown> };
+type DailyState = { lastDay: string | null; pending: PendingPing | null };
+
+const validPending = (p: unknown): p is PendingPing => {
+  const v = p as PendingPing | null;
+  return !!v && validDay(v.day) && typeof v.id === "string" && !!v.id && typeof v.timestamp === "string" && typeof v.properties === "object" && v.properties !== null;
 };
 
-const markSent = (day: string) => {
+export function readDailyState(): DailyState {
   try {
-    writeDocument(DAILY_DOC, JSON.stringify({ version: 1, lastDay: day }));
-  } catch {}
-};
+    const stored = JSON.parse(readDocument(DAILY_DOC) ?? "null") as { lastDay?: unknown; pending?: unknown } | null;
+    return { lastDay: validDay(stored?.lastDay) ? stored.lastDay : null, pending: validPending(stored?.pending) ? stored.pending : null };
+  } catch {
+    return { lastDay: null, pending: null };
+  }
+}
+
+export const readLastDay = () => readDailyState().lastDay;
+
+function writeDailyState(state: DailyState): boolean {
+  const json = JSON.stringify({ version: 1, ...state });
+  try {
+    writeDocument(DAILY_DOC, json);
+    return readDocument(DAILY_DOC) === json;
+  } catch {
+    return false;
+  }
+}
 
 const allowedToSend = () => launchEnvironment(DEV_SEND_ENV) === "1" || (!__DEV__ && appInfo().isolatedInstance === false);
 
@@ -97,10 +111,7 @@ export function dailyBody(id: string, timestamp: string, properties: Record<stri
   return logsRequest(resource, EVENTS_SCOPE, [eventRecord({ uuid: id, event: DAILY_EVENT, distinct_id: id, timestamp, properties })]);
 }
 
-type Attempt = { day: string; id: string; timestamp: string };
-
 let existingInstall = true;
-let attempt: Attempt | null = null;
 let failures = 0;
 let sending = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -122,29 +133,41 @@ async function post(body: string): Promise<number> {
   return entry.status;
 }
 
+type PendingResult = "sent" | "dropped" | "retry";
+
+async function sendPending(state: DailyState, pending: PendingPing): Promise<PendingResult> {
+  const result = outcome(await post(dailyBody(pending.id, pending.timestamp, pending.properties)), 1);
+  if (result === "sent" || result === "drop") {
+    const lastDay = result === "sent" && (!state.lastDay || pending.day > state.lastDay) ? pending.day : state.lastDay;
+    writeDailyState({ lastDay, pending: null });
+    return result === "sent" ? "sent" : "dropped";
+  }
+  return "retry";
+}
+
 export async function sendDailyPing(now = Date.now()): Promise<"sent" | "already" | "failed" | "busy"> {
   if (sending) return "busy";
-  const today = utcDay(now);
-  const flags = dailyFlags(readLastDay(), today, existingInstall);
-  if (!flags) return "already";
   sending = true;
   try {
-    if (attempt?.day !== today) attempt = { day: today, id: uuidv4(), timestamp: new Date(now).toISOString() };
-    const status = await post(dailyBody(attempt.id, attempt.timestamp, dailyProperties(flags, await updateChannel())));
-    const result = outcome(status, 1);
-    if (result === "sent") {
-      markSent(today);
-      attempt = null;
-      failures = 0;
-      return "sent";
+    const today = utcDay(now);
+    let state = readDailyState();
+    if (state.pending && state.pending.day !== today) {
+      const result = await sendPending(state, state.pending);
+      if (result === "retry") return (failures++, "failed");
+      state = readDailyState();
+      if (state.pending) return (failures++, "failed");
     }
-    if (result === "drop") {
-      attempt = null;
-      failures = 0;
-      return "failed";
+    let pending = state.pending;
+    if (!pending) {
+      const flags = dailyFlags(state.lastDay, today, existingInstall);
+      if (!flags) return (failures = 0, "already");
+      pending = { day: today, id: uuidv4(), timestamp: new Date(now).toISOString(), properties: dailyProperties(flags, await updateChannel()) };
+      if (!writeDailyState({ lastDay: state.lastDay, pending })) return (failures++, "failed");
     }
-    failures++;
-    return "failed";
+    const result = await sendPending(state, pending);
+    if (result === "retry") return (failures++, "failed");
+    failures = 0;
+    return result === "sent" ? "sent" : "failed";
   } finally {
     sending = false;
   }
@@ -166,12 +189,11 @@ export function startDaily(installedBefore: boolean) {
   schedule(FIRST_PING_DELAY_MS);
 }
 
-export const devDaily = () => ({ lastDay: readLastDay(), existingInstall, failures, nextAt: nextAt ? new Date(nextAt).toISOString() : null, allowed: allowedToSend() });
+export const devDaily = () => ({ ...readDailyState(), existingInstall, failures, nextAt: nextAt ? new Date(nextAt).toISOString() : null, allowed: allowedToSend() });
 
 export function resetDailyForTests(installedBefore = false) {
   clearTimeout(timer);
   existingInstall = installedBefore;
-  attempt = null;
   failures = 0;
   sending = false;
   nextAt = 0;
