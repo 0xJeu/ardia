@@ -145,14 +145,14 @@ enum WebKitPageScript {
       const finite = (n) => typeof n === "number" && isFinite(n);
       if (!p || !finite(p.position) || !finite(p.duration)) pagePosition = null;
       else {
-        const sampledAt = finite(p.at) ? p.at : Date.now();
-        if (!pagePosition || pagePosition.sampledAt !== sampledAt)
+        const sample = finite(p.id) ? p.id : null;
+        if (!pagePosition || sample === null || pagePosition.sample !== sample)
           pagePosition = {
             position: Math.max(0, p.position),
             duration: p.duration,
             playbackRate: finite(p.playbackRate) && p.playbackRate ? p.playbackRate : 1,
-            at: sampledAt,
-            sampledAt,
+            at: finite(p.at) ? p.at : Date.now(),
+            sample,
             playing: p.playing === true,
           };
       }
@@ -314,6 +314,7 @@ enum WebKitPageScript {
   if (!proto) return;
   const handlers = new Map();
   let position = null;
+  let samples = 0;
   const notify = () => {
     try {
       apply(dispatch, doc, [new Custom("ardia:media-session", { detail: stringify({ actions: Array.from(handlers.keys()), position }) })]);
@@ -335,7 +336,7 @@ enum WebKitPageScript {
       const result = apply(setPositionState, this, arguments);
       position =
         state && typeof state === "object"
-          ? { duration: +state.duration, position: +(state.position || 0), playbackRate: +(state.playbackRate || 1), at: now(), playing: this.playbackState === "playing" }
+          ? { duration: +state.duration, position: +(state.position || 0), playbackRate: +(state.playbackRate || 1), at: now(), id: ++samples, playing: this.playbackState === "playing" }
           : null;
       notify();
       return result;
