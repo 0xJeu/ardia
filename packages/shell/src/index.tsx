@@ -534,7 +534,7 @@ type TranslationModule = {
   status(source: string, target: string): Promise<"installed" | "supported" | "unsupported">;
   supportedLanguages(): Promise<string[]>;
   prepare(source: string, target: string): Promise<void>;
-  translate(source: string, target: string, texts: string[]): Promise<string[]>;
+  translate(source: string, target: string, texts: string[]): Promise<(string | null)[]>;
   translateBlocks(source: string, target: string, blocks: string[][]): Promise<(string[] | null)[]>;
 };
 const TranslationNative = requireNativeModule<TranslationModule>("ArdiaTranslate");
