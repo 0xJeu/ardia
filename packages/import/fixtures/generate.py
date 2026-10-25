@@ -904,11 +904,11 @@ def login_field(value, key):
 
 def logins_json(path, key, rows):
     logins = []
-    for i, (host, action, user, password) in enumerate(rows, 1):
+    for i, (host, action, user, password, *guid) in enumerate(rows, 1):
         logins.append({"id": i, "hostname": host, "httpRealm": None, "formSubmitURL": action,
                        "usernameField": "user", "passwordField": "pass",
                        "encryptedUsername": login_field(user, key), "encryptedPassword": login_field(password, key),
-                       "guid": "{00000000-0000-4000-8000-%012d}" % i, "encType": 1,
+                       "guid": guid[0] if guid else "{00000000-0000-4000-8000-%012d}" % i, "encType": 1,
                        "timeCreated": (BASE_UNIX - 86400) * 1000, "timeLastUsed": BASE_UNIX * 1000,
                        "timePasswordChanged": (BASE_UNIX - 86400) * 1000, "timesUsed": i})
     write_json(path, {"nextId": len(rows) + 1, "logins": logins, "potentiallyVulnerablePasswords": [],
@@ -1256,6 +1256,8 @@ Locked=1
     logins_json(os.path.join(d, "logins.json"), login_key, [
         ("https://zen.example", "https://zen.example", "zen@example.com", "workspace pass"),
         ("https://json-only.example", "https://json-only.example", "json", "only in json"),
+        ("https://gone.example", "https://gone.example", "old", "deleted", "{gone-1}"),
+        ("https://edited.example", "https://edited.example", "editor", "stale json copy", "{edit-1}"),
     ])
 
     legacy = os.path.join(root, "Profiles", "old00000.Legacy")

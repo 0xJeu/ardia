@@ -58,12 +58,12 @@ public enum FirefoxLogins {
     let hasDatabase = fm.fileExists(atPath: database.path)
     guard hasJSON || hasDatabase else { throw ImportError.notFound("No saved logins in this profile") }
     guard fm.fileExists(atPath: key4.path) else { throw ImportError.unsupported("This profile has no key4.db") }
-    var out: [Credential] = []
+    var stored: StoredLogins?
     var databaseFailure: Error?
     if hasDatabase {
       do {
         let key = try masterKey(key4: key4, primaryPassword: primaryPassword, label: loginsDatabaseKeyLabel)
-        out = try logins(database: database, key: key, cancellation: cancellation)
+        stored = try logins(database: database, key: key, cancellation: cancellation)
       } catch ImportError.locked(let message) {
         throw ImportError.locked(message)
       } catch ImportError.cancelled {
@@ -72,21 +72,45 @@ public enum FirefoxLogins {
         databaseFailure = error
       }
     }
-    if hasJSON {
-      let key = try masterKey(key4: key4, primaryPassword: primaryPassword)
-      let known = Set(out.map(identity))
-      out += try logins(json: Data(contentsOf: json), key: key, cancellation: cancellation).filter { !known.contains(identity($0)) }
-    } else if let databaseFailure {
-      throw databaseFailure
+    guard hasJSON else {
+      if let stored { return stored.credentials }
+      throw databaseFailure ?? ImportError.notFound("No saved logins in this profile")
     }
-    return out
+    guard let stored else {
+      let key = try masterKey(key4: key4, primaryPassword: primaryPassword)
+      return try logins(json: Data(contentsOf: json), key: key, cancellation: cancellation)
+    }
+    do {
+      let key = try masterKey(key4: key4, primaryPassword: primaryPassword)
+      let known = Set(stored.credentials.map(identity))
+      let extra = try entries(json: Data(contentsOf: json), key: key, cancellation: cancellation).filter { entry in
+        !(entry.guid.map(stored.guids.contains) ?? false) && !known.contains(identity(entry.credential))
+      }
+      return stored.credentials + extra.map(\.credential)
+    } catch ImportError.cancelled {
+      throw ImportError.cancelled
+    } catch {
+      return stored.credentials
+    }
   }
 
   static func identity(_ c: Credential) -> [String] { [c.realm ?? "", c.url, c.username] }
 
-  public static func logins(database: URL, key: Data, cancellation: Cancellation = .init()) throws -> [Credential] {
+  public struct StoredLogins {
+    public var credentials: [Credential]
+    public var guids: Set<String>
+  }
+
+  public static func logins(database: URL, key: Data, cancellation: Cancellation = .init()) throws -> StoredLogins {
     let db = try SQLiteSnapshot(copying: database)
     guard db.tableExists("loginsL") else { throw ImportError.unreadable("logins.db has no logins") }
+    var guids = Set<String>()
+    for table in ["loginsL", "loginsM"] where db.tableExists(table) {
+      try db.query("SELECT guid FROM \(table)") { row in
+        if let guid = row.text(0) { guids.insert(guid) }
+        return true
+      }
+    }
     let columns = "origin, httpRealm, formActionOrigin, timesUsed, timeCreated, timeLastUsed, secFields"
     let mirror = db.tableExists("loginsM")
       ? " UNION ALL SELECT \(columns) FROM loginsM WHERE is_overridden = 0 AND guid NOT IN (SELECT guid FROM loginsL)"
@@ -111,7 +135,7 @@ public enum FirefoxLogins {
       ))
       return true
     }
-    return out
+    return StoredLogins(credentials: out, guids: guids)
   }
 
   static func decryptJWE(_ compact: String, key: Data) -> Data? {
@@ -132,18 +156,22 @@ public enum FirefoxLogins {
   }
 
   public static func logins(json: Data, key: Data, cancellation: Cancellation = .init()) throws -> [Credential] {
+    try entries(json: json, key: key, cancellation: cancellation).map(\.credential)
+  }
+
+  static func entries(json: Data, key: Data, cancellation: Cancellation = .init()) throws -> [(guid: String?, credential: Credential)] {
     guard let top = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
           let rows = top["logins"] as? [[String: Any]] else {
       throw ImportError.unreadable("logins.json is malformed")
     }
-    var out: [Credential] = []
+    var out: [(guid: String?, credential: Credential)] = []
     for row in rows {
       try cancellation.check()
       guard let host = row["hostname"] as? String, !host.hasPrefix("chrome://"),
             let user = (row["encryptedUsername"] as? String).flatMap({ decryptField($0, key: key) }),
             let pass = (row["encryptedPassword"] as? String).flatMap({ decryptField($0, key: key) }),
             !pass.isEmpty else { continue }
-      out.append(Credential(
+      out.append((row["guid"] as? String, Credential(
         url: (row["formSubmitURL"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? host,
         username: user,
         password: pass,
@@ -151,7 +179,7 @@ public enum FirefoxLogins {
         created: (row["timeCreated"] as? NSNumber)?.doubleValue,
         lastUsed: (row["timeLastUsed"] as? NSNumber)?.doubleValue,
         timesUsed: row["timesUsed"] as? Int
-      ))
+      )))
     }
     return out
   }

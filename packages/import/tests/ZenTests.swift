@@ -121,6 +121,32 @@ final class ZenTests: XCTestCase {
     XCTAssertEqual(first.lastUsed, Double(1788220800) * 1000)
   }
 
+  func testLoginsJSONDoesNotBringBackWhatLoginsDBDeletedOrReplaced() throws {
+    let rows = try FirefoxLogins.logins(profile: profile(main))
+    XCTAssertFalse(rows.contains { $0.password == "deleted" })
+    XCTAssertFalse(rows.contains { $0.password == "stale json copy" })
+    XCTAssertTrue(rows.contains { $0.password == "only in json" })
+  }
+
+  func testAnUnreadableLoginsJSONKeepsTheLoginsDBResults() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("zen-logins-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    for name in ["key4.db", "logins.db"] {
+      try FileManager.default.copyItem(at: profile(main).appendingPathComponent(name), to: dir.appendingPathComponent(name))
+    }
+    try Data("{".utf8).write(to: dir.appendingPathComponent("logins.json"))
+    XCTAssertEqual(try FirefoxLogins.logins(profile: dir).map(\.password), ["workspace pass", "local edit", "from sync"])
+  }
+
+  func testAnExtremeSessionIndexDoesNotTrap() throws {
+    let tab: [String: Any] = ["entries": [["url": "https://x.example/", "title": "X"]], "index": Int.min, "zenWorkspace": "s"]
+    let zen = try JSONSerialization.data(withJSONObject: ["spaces": [["uuid": "s", "name": "S"]], "tabs": [tab]])
+    XCTAssertEqual(try ZenSidebar.parse(zen, profileId: "p").spaces.first?.tabs.map(\.url), ["https://x.example/"])
+    let firefox = try JSONSerialization.data(withJSONObject: ["windows": [["selected": Int.min, "tabs": [tab]]]])
+    XCTAssertEqual(try Firefox.session(firefox).tabs.map(\.url), ["https://x.example/"])
+  }
+
   func testJWERejectsTamperingAndOtherAlgorithms() {
     let key = Data(repeating: 7, count: 32)
     XCTAssertNil(FirefoxLogins.decryptJWE("a.b.c.d.e", key: key))

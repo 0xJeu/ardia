@@ -198,7 +198,7 @@ public struct ZenSidebar: Equatable {
     }
     let entries = objects(tab["entries"])
     guard !entries.isEmpty else { return nil }
-    return entries[min(max((tab["index"] as? Int ?? entries.count) - 1, 0), entries.count - 1)]
+    return entries[Firefox.entryIndex(tab["index"], count: entries.count)]
   }
 
   static func png(_ any: Any?) -> String? {

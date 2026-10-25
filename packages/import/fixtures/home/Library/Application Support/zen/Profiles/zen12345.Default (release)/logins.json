@@ -1,5 +1,5 @@
 {
-  "nextId": 3,
+  "nextId": 5,
   "logins": [
     {
       "id": 1,
@@ -32,6 +32,38 @@
       "timeLastUsed": 1788220800000,
       "timePasswordChanged": 1788134400000,
       "timesUsed": 2
+    },
+    {
+      "id": 3,
+      "hostname": "https://gone.example",
+      "httpRealm": null,
+      "formSubmitURL": "https://gone.example",
+      "usernameField": "user",
+      "passwordField": "pass",
+      "encryptedUsername": "MEMEEPgAAAAAAAAAAAAAAAAAAAEwHQYJYIZIAWUDBAEqBBAwMTIzNDU2Nzg5YWJjZGVmBBBc9BtwT7Cuk9wI7BeG0XaP",
+      "encryptedPassword": "MEMEEPgAAAAAAAAAAAAAAAAAAAEwHQYJYIZIAWUDBAEqBBAwMTIzNDU2Nzg5YWJjZGVmBBAZve8phU3APD4ynnefpgo2",
+      "guid": "{gone-1}",
+      "encType": 1,
+      "timeCreated": 1788134400000,
+      "timeLastUsed": 1788220800000,
+      "timePasswordChanged": 1788134400000,
+      "timesUsed": 3
+    },
+    {
+      "id": 4,
+      "hostname": "https://edited.example",
+      "httpRealm": null,
+      "formSubmitURL": "https://edited.example",
+      "usernameField": "user",
+      "passwordField": "pass",
+      "encryptedUsername": "MEMEEPgAAAAAAAAAAAAAAAAAAAEwHQYJYIZIAWUDBAEqBBAwMTIzNDU2Nzg5YWJjZGVmBBCza4QeFARzYH4Y/kH1EW/N",
+      "encryptedPassword": "MEMEEPgAAAAAAAAAAAAAAAAAAAEwHQYJYIZIAWUDBAEqBBAwMTIzNDU2Nzg5YWJjZGVmBBBXbyyxVrPnN+YX2IdzyzOe",
+      "guid": "{edit-1}",
+      "encType": 1,
+      "timeCreated": 1788134400000,
+      "timeLastUsed": 1788220800000,
+      "timePasswordChanged": 1788134400000,
+      "timesUsed": 4
     }
   ],
   "potentiallyVulnerablePasswords": [],
