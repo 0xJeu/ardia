@@ -77,6 +77,7 @@ export function TabsPane() {
       <Group style={{ marginTop: 14 }}>
         {toggle("hideToolbarWhileScrolling", "tabs.hideToolbarWhileScrolling")}
         {!top && toggle("showSidebarButton", "tabs.showSidebarButton")}
+        {!top && toggle("showClearButton", "tabs.showClearButton")}
         {!top && toggle("balancedTopApps", "tabs.balancedTopApps")}
         {!top && liquidGlass && toggle("pinnedTabIconRing", "tabs.pinnedTabIconRing")}
         {toggle("fadeUnloadedTabs", "tabs.fadeUnloadedTabs")}

@@ -109,6 +109,11 @@ const ROWS: Record<SettingsPane, Section[]> = {
           keywords: ["auto hide", "compact"],
         },
         showSidebarButton: { title: "Show sidebar button", description: "⌘S and View › Auto-Hide Tabs still hide and show the sidebar.", keywords: ["toggle sidebar"] },
+        showClearButton: {
+          title: "Show Clear button",
+          description: "The ↓ Clear between your pinned tabs and your tabs. ⇧⌘K and File › Close All Tabs still clear them.",
+          keywords: ["clear unpinned tabs", "close all tabs", "clear today", "divider", "arc"],
+        },
         balancedTopApps: {
           title: "Grow Top Apps as the sidebar widens",
           description: "As in Arc: up to four tiles across in balanced rows, and a wider sidebar makes them larger. Off, as in Dia, each row fills with as many tiles as fit.",

@@ -52,6 +52,7 @@ export type Settings = {
   sidebarMediaControls: boolean;
   sidebarWidth: number;
   showSidebarButton: boolean;
+  showClearButton: boolean;
   balancedTopApps: boolean;
   pinnedTabIconRing: boolean;
   fadeUnloadedTabs: boolean;
@@ -130,6 +131,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sidebarMediaControls: true,
   sidebarWidth: 190,
   showSidebarButton: true,
+  showClearButton: true,
   balancedTopApps: false,
   pinnedTabIconRing: false,
   fadeUnloadedTabs: false,
