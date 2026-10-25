@@ -53,6 +53,7 @@ export type Settings = {
   sidebarWidth: number;
   showSidebarButton: boolean;
   balancedTopApps: boolean;
+  pinnedTabIconRing: boolean;
   batterySaverWhen: BatterySaverWhen;
   extensionSidePanelWidth: number;
 
@@ -129,6 +130,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sidebarWidth: 190,
   showSidebarButton: true,
   balancedTopApps: false,
+  pinnedTabIconRing: false,
   batterySaverWhen: "lowBattery",
   extensionSidePanelWidth: 360,
   showFullUrl: false,

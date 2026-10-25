@@ -18,7 +18,7 @@ export const PANES: { id: SettingsPane; title: string; icon: string }[] = [
   { id: "advanced", title: "Advanced", icon: "slider.horizontal.3" },
 ];
 
-type Row = { title: string; description?: string; keywords?: string[] };
+type Row = { title: string; description?: string; keywords?: string[]; liquidGlassOnly?: true };
 type Section = { section: string; rows: Record<string, Row> };
 
 const APP = "Ardia";
@@ -113,6 +113,12 @@ const ROWS: Record<SettingsPane, Section[]> = {
           title: "Grow Top Apps as the sidebar widens",
           description: "As in Arc: up to four tiles across in balanced rows, and a wider sidebar makes them larger. Off, as in Dia, each row fills with as many tiles as fit.",
           keywords: ["pinned tiles", "favorites", "grid", "columns", "rows", "arc"],
+        },
+        pinnedTabIconRing: {
+          title: "Highlight pinned tabs in their icon's colors",
+          description: "As in Dia: the Top App you're on gets a ring and tint from its icon instead of the raised glass.",
+          keywords: ["dia", "liquid glass", "top apps", "favicon", "colour", "ring", "tint", "selected tile"],
+          liquidGlassOnly: true,
         },
       },
     },
@@ -405,7 +411,7 @@ const ROWS: Record<SettingsPane, Section[]> = {
   ],
 };
 
-export type SettingEntry = Searchable & { pane: SettingsPane };
+export type SettingEntry = Searchable & { pane: SettingsPane; liquidGlassOnly?: true };
 
 const paneTitle = (pane: SettingsPane) => PANES.find((p) => p.id === pane)!.title;
 
