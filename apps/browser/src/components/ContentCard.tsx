@@ -23,7 +23,7 @@ import { removeTabs } from "../store/tabs";
 import { splitOf } from "../store/splits";
 import type { SplitView, Tab } from "../store/types";
 import { BOOKMARKS_BAR_HEIGHT, BookmarksBar, bookmarksBarShown, useBookmarksBarMode, type BookmarksBarMode } from "./bookmarks/BookmarksBar";
-import { CliControlBar, CliControlPill } from "./CliControlBar";
+import { CliControlPill } from "./CliControlPill";
 import { FindBar } from "./FindBar";
 import { POPOVER_MARGIN } from "./layout/controls";
 import { NO_TOOLBAR, splitGeometry, toolbarGeometry, type Rect, type ToolbarGeometry } from "./layout/geometry";
@@ -285,6 +285,7 @@ export function ContentCard() {
               barMode={barMode}
               windowToolbar={windowToolbar}
               popovers={tabId !== popoversOverCard}
+              peekShown={!!peekId}
             />
           );
         })}
@@ -339,6 +340,7 @@ const TabPane = memo(function TabPane({
   barMode,
   windowToolbar,
   popovers,
+  peekShown,
 }: {
   tabId: string;
   windowId: string;
@@ -359,6 +361,7 @@ const TabPane = memo(function TabPane({
   barMode: BookmarksBarMode;
   windowToolbar: boolean;
   popovers: boolean;
+  peekShown: boolean;
 }) {
   const theme = useTheme();
   const visible = !!rect;
@@ -414,7 +417,6 @@ const TabPane = memo(function TabPane({
       <Animated.View style={autoLayout ? motion.groupStyle : { flex: 1 }}>
         {autoLayout && bookmarksBar && <BookmarksBar placeholder={!visible} />}
         <View style={autoLayout ? { height: motion.pageHeight } : { flex: 1 }}>
-          {visible && !fullscreen && (focused || !inSplit) && <CliControlBar />}
           {visible && !fullscreen && <ShareBar tabId={tabId} />}
           <View style={{ flex: 1 }}>
             {(mounted || prewarmed) && <TabWebView tabId={tabId} visible={visible && !newTabShown && !isNewTab} warm={!!warm && !newTabShown && !isNewTab} />}
@@ -431,6 +433,7 @@ const TabPane = memo(function TabPane({
                 newTabShown={newTabShown}
                 statusStyle={autoLayout ? motion.bottomStyle : undefined}
                 popovers={popovers}
+                cliPill={!peekShown && (fullscreen || focused || !inSplit)}
               />
             )}
           </View>
@@ -452,6 +455,7 @@ function PageOverlays({
   newTabShown,
   statusStyle,
   popovers = true,
+  cliPill = false,
 }: {
   tabId: string;
   windowId: string;
@@ -462,6 +466,7 @@ function PageOverlays({
   newTabShown: boolean;
   statusStyle?: Animated.WithAnimatedValue<ViewStyle>;
   popovers?: boolean;
+  cliPill?: boolean;
 }) {
   const popover = usePages((s) => s.popover[tabId] ?? null);
   const zoom = useTabValue(tabId, (t) => t?.zoom ?? 1);
@@ -469,11 +474,15 @@ function PageOverlays({
   return (
     <>
       <FindBar tabId={tabId} />
-      {fullscreen && <CliControlPill />}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, statusStyle]}>
         <StatusBubble tabId={tabId} maxWidth={Math.max(160, width / 2)} />
       </Animated.View>
       <SadTab tabId={tabId} />
+      {cliPill && (
+        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, statusStyle]}>
+          <CliControlPill />
+        </Animated.View>
+      )}
       {!newTabShown && <PermissionPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 308))} top={POPOVER_MARGIN} />}
       <PasswordPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
       <AutofillPrompt tabId={tabId} right={POPOVER_MARGIN} top={POPOVER_MARGIN} />
@@ -506,7 +515,7 @@ function PeekPage({ tabId, sourceId, windowId, width, fullscreen }: { tabId: str
   return (
     <>
       <TabWebView tabId={tabId} visible warm={false} peekOf={sourceId} />
-      <PageOverlays tabId={tabId} windowId={windowId} width={width} geometry={NO_TOOLBAR} toolbar={false} fullscreen={fullscreen} newTabShown={false} />
+      <PageOverlays tabId={tabId} windowId={windowId} width={width} geometry={NO_TOOLBAR} toolbar={false} fullscreen={fullscreen} newTabShown={false} cliPill />
     </>
   );
 }
