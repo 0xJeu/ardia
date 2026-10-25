@@ -71,3 +71,16 @@ export function engineMark(s: EngineState, tabId: string): PageEngine | null {
   const engine = tabEngine(s, tabId);
   return engine === defaultEngine(s) ? null : engine;
 }
+
+export type Visit = { url: string; at: number; recorded: boolean; staleTitle: string };
+
+export type WebKitPage = { url: string; title: string; isLoading: boolean; committedUrl: string };
+
+export function visitToRecord(visit: Visit | undefined, page: WebKitPage, now: number): { visit: Visit | undefined; record: boolean; settle: boolean } {
+  const { url, title, isLoading, committedUrl } = page;
+  if (!/^https?:/i.test(url) || url !== committedUrl) return { visit, record: false, settle: false };
+  const current = visit?.url === url ? visit : { url, at: now, recorded: false, staleTitle: title };
+  if (current.recorded) return { visit: current, record: false, settle: false };
+  const ready = !!title && title !== current.staleTitle;
+  return { visit: ready ? { ...current, recorded: true } : current, record: ready, settle: !ready && !isLoading };
+}

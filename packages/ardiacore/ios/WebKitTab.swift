@@ -219,6 +219,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     let theme = view.themeColor.flatMap(Self.hex)
     emit("navigation", [
       "url": view.url?.absoluteString ?? "",
+      "committedUrl": showingError ? "" : (view.backForwardList.currentItem?.url.absoluteString ?? ""),
       "title": showingError ? "Can't Open This Page" : (view.title ?? ""),
       "canGoBack": view.canGoBack,
       "canGoForward": view.canGoForward,

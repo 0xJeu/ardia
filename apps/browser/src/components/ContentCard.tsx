@@ -624,7 +624,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         noteReady(tabId);
         if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
       }}
-      onNavigationChange={({ url: reported, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource, initialDocumentAccessed, committedInitial }) => {
+      onNavigationChange={({ url: reported, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource, initialDocumentAccessed, committedInitial, committedUrl }) => {
         const url = initialDocumentAccessed && committedInitial ? "about:blank" : reported;
         const untouched = committedInitial === undefined ? reported === "" && !(tab()?.openerId && adoptId) : committedInitial && !initialDocumentAccessed;
         const target = pending.current ?? (lastPage.current === null ? (tab()?.navigation?.url ?? null) : null);
@@ -649,7 +649,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         }
         if (fromNewTab.current && url && !isBlank(url)) patchPage(tabId, { backToNewTab: true });
         store().navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor });
-        if (engine === "webkit") noteWebKitPage(tabId, url, title, isLoading);
+        if (engine === "webkit") noteWebKitPage(tabId, { url, title, isLoading, committedUrl: committedUrl ?? "" });
         if (lastPage.current !== null && pageKey(url) !== lastPage.current) {
           if (pageOf(tabId).externalApp && hostOf(url) !== hostOf(lastPage.current)) answerExternalApp(tabId, false);
           dismissPermissions(tabId);

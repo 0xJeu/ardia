@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { engineForUrl, engineMark, ruleFor, siteOf, tabEngine, typedNavigationEngine } from "./engines.ts";
+import { engineForUrl, engineMark, ruleFor, siteOf, tabEngine, typedNavigationEngine, visitToRecord } from "./engines.ts";
 import { makeTab, snapshotTab } from "./model.ts";
 
 const tab = (id, patch = {}) => ({ id, url: "", navigation: null, openerId: null, ...patch });
@@ -77,4 +77,29 @@ test("a closed WebKit tab reopens in WebKit, whatever restore id it carries", ()
   const s = state([reopened]);
   assert.equal(tabEngine(s, reopened.id), "webkit");
   assert.equal(snapshotTab(makeTab("w1", "default", "https://a.com/")).engine, undefined);
+});
+
+test("a WebKit visit is recorded for the committed page, with that page's own title", () => {
+  const page = (url, title, isLoading, committedUrl = url) => ({ url, title, isLoading, committedUrl });
+  let step = visitToRecord(undefined, page("https://b.com/", "A's title", true, "https://a.com/"), 1);
+  assert.equal(step.record, false);
+  step = visitToRecord(step.visit, page("https://b.com/", "A's title", true), 2);
+  assert.equal(step.record, false);
+  step = visitToRecord(step.visit, page("https://b.com/", "", true), 3);
+  assert.equal(step.record, false);
+  step = visitToRecord(step.visit, page("https://b.com/", "B's title", true), 4);
+  assert.equal(step.record, true);
+  assert.equal(step.visit.at, 2);
+  step = visitToRecord(step.visit, page("https://b.com/", "B again", false), 5);
+  assert.equal(step.record, false);
+});
+
+test("a page whose title never changes settles instead of recording the old title at once", () => {
+  const step = visitToRecord(undefined, { url: "https://b.com/", title: "Same", isLoading: false, committedUrl: "https://b.com/" }, 1);
+  assert.deepEqual([step.record, step.settle], [false, true]);
+});
+
+test("a navigation that became a download, or an error page, is never recorded", () => {
+  assert.equal(visitToRecord(undefined, { url: "https://f.com/file.zip", title: "", isLoading: false, committedUrl: "" }, 1).record, false);
+  assert.equal(visitToRecord(undefined, { url: "https://f.com/file.zip", title: "x", isLoading: false, committedUrl: "https://a.com/" }, 1).settle, false);
 });

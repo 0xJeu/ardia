@@ -467,6 +467,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     weak var webView: WKWebView?
     let url: String
     let profile: String
+    var request: URLRequest?
     var phase = Phase.running
     var filename = ""
     var path = ""
@@ -508,6 +509,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
   func adopt(_ download: WKDownload, profile: String, webView: WKWebView?) {
     let item = Item(url: download.originalRequest?.url?.absoluteString ?? "", profile: profile)
     item.webView = webView
+    item.request = download.originalRequest
     attach(download, to: item)
     items[item.id] = item
   }
@@ -624,12 +626,20 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     case "cancel":
       guard item.phase != .done else { return }
       let download = item.download
+      let partial = item.path
       item.phase = .done
       item.state = "cancelled"
       item.resumeData = nil
       detach(item)
-      download?.cancel(nil)
       report(item)
+      let removePartial = {
+        if !partial.isEmpty { try? FileManager.default.removeItem(atPath: partial) }
+      }
+      if let download {
+        download.cancel { _ in DispatchQueue.main.async(execute: removePartial) }
+      } else {
+        removePartial()
+      }
     case "pause":
       guard item.phase == .running, let download = item.download else { return }
       item.phase = .pausing
@@ -642,21 +652,30 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
         }
       }
     case "resume":
-      guard item.phase == .paused, let data = item.resumeData else { return }
+      guard item.phase == .paused else { return }
+      let data = item.resumeData
+      let request = item.request ?? URL(string: item.url).map { URLRequest(url: $0) }
+      guard data != nil || request != nil else {
+        item.phase = .done
+        item.state = "failed"
+        return report(item)
+      }
       item.phase = .resuming
       item.resumeData = nil
       let host = item.webView ?? WebKitHub.shared.resumeHost(for: item.profile)
-      host.resumeDownload(fromResumeData: data) { [weak self] download in
+      let resumed: (WKDownload) -> Void = { [weak self] download in
         DispatchQueue.main.async {
           guard let self else { return }
           guard item.phase == .resuming else { return download.cancel(nil) }
           item.phase = .running
+          if data == nil { item.received = 0 }
           item.sampledAt = Date()
           item.sampledBytes = item.received
           self.attach(download, to: item)
           self.report(item)
         }
       }
+      if let data { host.resumeDownload(fromResumeData: data, completionHandler: resumed) } else if let request { host.startDownload(using: request, completionHandler: resumed) }
     default: break
     }
   }

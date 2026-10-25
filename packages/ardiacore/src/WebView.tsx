@@ -16,6 +16,7 @@ export type NavigationState = {
   themeColorSource: "meta" | "header" | "background" | null;
   initialDocumentAccessed?: boolean;
   committedInitial?: boolean;
+  committedUrl?: string;
 };
 
 export type MediaState = { playing: boolean; muted: boolean };
