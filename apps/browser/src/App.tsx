@@ -50,7 +50,6 @@ function BrowserWindow() {
   const theme = useTheme();
   const windowId = useWindowId();
   const topTabs = useTabLayout() === "top";
-  const showStrip = useBrowser((s) => topTabs && !!s.windows[windowId]?.sidebarOpen);
   const fullscreen = !!useFullscreenTab(windowId);
   const arcLayout = useAddressBarInSidebar();
   const [width, setWidth] = useState(0);
@@ -69,20 +68,15 @@ function BrowserWindow() {
       <DockedLayout
         fullscreen={fullscreen}
         topTabs={topTabs}
-        inset={
-          showStrip
-            ? { top: TOP_STRIP_HEIGHT, right: TOP_CARD_INSET, bottom: TOP_CARD_INSET, left: TOP_CARD_INSET }
-            : cardInset(arcLayout)
+        inset={topTabs ? { top: TOP_STRIP_HEIGHT, right: TOP_CARD_INSET, bottom: TOP_CARD_INSET, left: TOP_CARD_INSET } : cardInset(arcLayout)}
+        topStrip={
+          topTabs
+            ? { strip: <TopTabStrip width={width} hidden={fullscreen} />, peek: <TopStripPeek windowWidth={width} enabled={!fullscreen} /> }
+            : undefined
         }
       >
         {card}
       </DockedLayout>
-      {showStrip && (
-        <View pointerEvents={fullscreen ? "none" : "auto"} style={[{ position: "absolute", left: 0, right: 0 }, fullscreen ? { bottom: "100%" } : { top: 0 }]}>
-          <TopTabStrip width={width} hidden={fullscreen} />
-        </View>
-      )}
-      {topTabs && !showStrip && <TopStripPeek windowWidth={width} enabled={!fullscreen} />}
       <CommandPanel windowWidth={width} />
       <DownloadsPopover />
       <ExtensionOverlays />
