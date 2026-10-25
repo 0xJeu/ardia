@@ -21,7 +21,7 @@ import { PROFILE_INDICATOR_X, ProfileIndicator } from "./ProfileIndicator";
 import { usePageStyle, usePagerPages } from "./layout/profilePager";
 import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "./profiles/ProfileDots";
 import { SidebarAddressRow, SidebarHeaderTools } from "./sidebar/AddressBar";
-import { ClearDivider } from "./sidebar/ClearDivider";
+import { ClearDivider, useSidebarHoverProps } from "./sidebar/ClearDivider";
 import { canTidyPins } from "../store/tidyPins";
 import { DragGhost } from "./sidebar/DragGhost";
 import { DragProvider, DragScope, useDragController, useDragging, useDragItem, usePinnedCount, type Ghost } from "./sidebar/dnd";
@@ -79,6 +79,7 @@ export function Sidebar({ width }: { width: number }) {
   const footer = dots || footerDownloads ? PROFILE_DOTS_HEIGHT : 0;
   const nothingPinned = useBrowser((s) => sidebarEntries(s, windowId, current).tiles.length === 0);
 
+  const sidebarHover = useSidebarHoverProps(windowId);
   useRevealTabs(windowId, scroll, scrollY, geometry);
   useLayoutEffect(() => dismissHoverIn(windowId), [windowId, current, paging]);
 
@@ -92,6 +93,7 @@ export function Sidebar({ width }: { width: number }) {
           style={{ width, height: "100%" }}
         >
           <View
+            {...sidebarHover}
             style={{
               position: "absolute",
               left: 0,
