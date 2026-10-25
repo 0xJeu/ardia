@@ -1,6 +1,6 @@
 import { terminateCastRoute, type ActionState, type CastRoute, type InstalledExtension } from "@ardia/ardiacore";
 import { ContextMenuArea, showMenu, Symbol } from "@ardia/shell";
-import { memo, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
@@ -65,7 +65,7 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
     for (const [id, tab] of Object.entries(p.browsers)) if (tab === tabId) return Number(id);
     return 0;
   });
-  if (!pinned.length && !overflow && !routes.length) return null;
+  if (!pinned.length && !overflow && !routes.length) return <EmptyAnchor windowId={windowId} top={top} right={right} />;
   return (
     <View style={{ position: "absolute", top, right, flexDirection: "row", gap: GAP }}>
       {routes.length ? <CastButton windowId={windowId} tabId={tabId} routes={routes} palette={palette} /> : null}
@@ -77,15 +77,31 @@ export const ToolbarExtensions = memo(function ToolbarExtensions({
   );
 });
 
+function EmptyAnchor({ windowId, top, right }: { windowId: string; top: number; right: number }) {
+  const { ref, measure } = useAnchor(`${windowId}|*`);
+  return <View ref={ref} pointerEvents="none" style={{ position: "absolute", top, right, width: BUTTON, height: BUTTON }} onLayout={() => void measure()} />;
+}
+
 function useAnchor(key: string) {
   const ref = useRef<View>(null);
+  const mine = useRef<Anchor | null>(null);
+  useEffect(
+    () => () => {
+      if (mine.current && toolbarAnchors.get(key) === mine.current) toolbarAnchors.delete(key);
+      mine.current = null;
+    },
+    [key],
+  );
   const measure = () =>
     new Promise<Anchor>((resolve) => {
       const view = ref.current;
       if (!view) return resolve({ x: 0, y: 0, width: BUTTON, height: BUTTON });
       view.measureInWindow((x, y, width, height) => {
         const anchor = { x, y, width, height };
-        toolbarAnchors.set(key, anchor);
+        if (ref.current) {
+          mine.current = anchor;
+          toolbarAnchors.set(key, anchor);
+        }
         resolve(anchor);
       });
     });
