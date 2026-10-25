@@ -9,21 +9,17 @@ import { matchesQuery } from "../../pages/PageLayout";
 import { Anchor, Button, Group, PopUp, Row, SearchField, SectionHeader, Toggle, useFormColors } from "../controls";
 import { shortcutItems } from "../paneData";
 import { useResource } from "../resources";
-import { formatShortcut, resolveShortcuts, sameShortcut, storedShortcut, type Shortcut, type ShortcutSource } from "../../../lib/shortcuts";
+import { resolvedShortcuts } from "../../../lib/commandShortcuts";
+import { formatShortcut, sameShortcut, type Shortcut } from "../../../lib/shortcuts";
 
 type Filter = "all" | "customized" | "conflicts";
 
 const NO_SHORTCUT: Shortcut = { key: "", modifiers: [] };
 
-const sourceOf = (item: MenuShortcut): ShortcutSource => ({
-  id: item.id,
-  fixed: !item.remappable,
-  keys: [{ key: item.defaultKey, modifiers: item.defaultModifiers }, ...(item.aliases ?? []).map(storedShortcut)],
-});
-
 export function ShortcutsPane() {
   const theme = useTheme();
   const overrides = useBrowser((s) => s.settings.shortcuts);
+  const profileOrder = useBrowser((s) => s.profileOrder);
   const undoReopensClosedTab = useBrowser((s) => s.settings.undoReopensClosedTab);
   const [loaded] = useResource(shortcutItems);
   const items = loaded ?? null;
@@ -33,7 +29,7 @@ export function ShortcutsPane() {
 
   useEffect(() => () => void cancelShortcutRecording(), []);
 
-  const resolved = useMemo(() => resolveShortcuts((items ?? []).map(sourceOf), overrides), [items, overrides]);
+  const resolved = useMemo(() => resolvedShortcuts({ settings: { shortcuts: overrides }, profileOrder }), [items, overrides, profileOrder]);
   const byId = useMemo(() => new Map((items ?? []).map((item) => [item.id, item])), [items]);
   const effective = (item: MenuShortcut): Shortcut => resolved.bindings.get(item.id)?.[0] ?? NO_SHORTCUT;
   const conflictsOf = (item: MenuShortcut) => resolved.conflictsOf(item.id).flatMap((id) => byId.get(id) ?? []);
