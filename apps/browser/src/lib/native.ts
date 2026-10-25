@@ -22,7 +22,7 @@ import {
 import { Appearance } from "react-native";
 import { folderChildren, isBookmarked } from "../store/bookmarks";
 import { useBrowser, type BrowserState } from "../store/browser";
-import { activeTab, bookmarkProfileId, engineProfile, IDLE_LIVE, isPinnedRow, tabLabel, togglePinTitle, windowTitle } from "../store/model";
+import { activeTab, bookmarkProfileId, IDLE_LIVE, isPinnedRow, tabLabel, togglePinTitle, windowTitle } from "../store/model";
 import { canSwitchEngine, tabEngine } from "../store/engines";
 import { setLastTabKeepsWindow } from "../store/newTabBar";
 import { peekTabId } from "../store/peek";
@@ -34,7 +34,7 @@ import { openingLightsCenter } from "../components/layout/windowLayout";
 import { isInternalTab } from "../components/pages/urls";
 import { sidebarMenuState } from "../components/sidebar/commands";
 import { openWindow as createWindow } from "./actions";
-import { windowOpens } from "./windowOpenOrder";
+import { createWindowSync, type WindowPort } from "./windowSync";
 import { openExternalUrls } from "../components/littleArdia/actions";
 import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
 import { SMALL_LIGHTS_CENTER } from "../components/littleArdia/SmallChrome";
@@ -49,6 +49,19 @@ import { extensionMenu, useExtensions } from "../components/extensions/state";
 
 let quitting = false;
 export const isQuitting = () => quitting;
+
+export const shellWindowPort: WindowPort = {
+  open(id, options, lightsCenter) {
+    void setTrafficLightsCenter(id, lightsCenter);
+    void openWindow(id, options);
+  },
+  close: (id) => void closeWindow(id),
+  setTitle: (id, title) => void setWindowTitle(id, title),
+  windowIds,
+  restoreFullScreen: (ids, focus) => void restoreFullScreen(ids, focus),
+  onEvent: (listener) => void onWindowEvent(listener),
+  releaseProfile: (profile) => void releaseProfile(profile),
+};
 
 export function startNativeSync() {
   const store = useBrowser;
@@ -84,59 +97,14 @@ export function startNativeSync() {
     }
   });
 
-  onWindowEvent((e) => {
-    const s = store.getState();
-    if (e.type === "focus") s.setFocusedWindow(e.id);
-    if (e.type === "frame") s.setWindowFrame(e.id, e.frame);
-    if (e.type === "fullScreen" && !quitting) s.setWindowFullScreen(e.id, e.on);
-    if (e.type === "close") {
-      if (quitting) return;
-      open.delete(e.id);
-      s.closeWindow(e.id);
-      releaseIfIncognito(e.id, s);
-    }
+  const windows = createWindowSync({
+    port: shellWindowPort,
+    getState: store.getState,
+    isQuitting,
+    lightsCenter: (s, id) => (s.windows[id]?.kind === "small" ? SMALL_LIGHTS_CENTER : openingLightsCenter(s, id)),
+    isUtilityWindow: isUtilityWindowId,
   });
-
-  const open = new Set<string>();
-  const titles = new Map<string, string>();
-
-  const releaseIfIncognito = (id: string, s: BrowserState) => {
-    const w = s.windows[id];
-    if (w?.incognito) void releaseProfile(engineProfile(w.profileId));
-  };
-
-  const syncWindows = (s: BrowserState, prev?: BrowserState) => {
-    const opens = windowOpens(s, s.windowOrder.filter((id) => !open.has(id)), !prev);
-    for (const { id, focus, behind } of opens) {
-      const w = s.windows[id]!;
-      open.add(id);
-      titles.set(id, windowTitle(s, id));
-      const profile = engineProfile(w.profileId);
-      const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
-      const small = w.kind === "small"
-        ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}), ...(w.linkPointer ? { pointer: w.linkPointer } : {}) }
-        : {};
-      const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
-      void setTrafficLightsCenter(id, w.kind === "small" ? SMALL_LIGHTS_CENTER : openingLightsCenter(s, id));
-      void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...(prev && w.kind !== "small" && !w.chromeWindow ? { animated: true } : {}), ...small, ...made });
-    }
-    for (const id of [...open]) {
-      if (s.windows[id]) continue;
-      open.delete(id);
-      titles.delete(id);
-      void closeWindow(id);
-      const was = prev?.windows[id];
-      if (was?.incognito) void releaseProfile(engineProfile(was.profileId));
-    }
-    if (prev && s.tabs === prev.tabs && s.windows === prev.windows && s.profiles === prev.profiles) return;
-    for (const id of open) {
-      const title = windowTitle(s, id);
-      if (titles.get(id) !== title) {
-        titles.set(id, title);
-        void setWindowTitle(id, title);
-      }
-    }
-  };
+  windows.listen();
 
   let lastMenu = "";
   let lastBookmarkMenus: unknown[] = [];
@@ -154,11 +122,11 @@ export function startNativeSync() {
     void setMenuStateParts(state, bookmarksChanged);
   };
 
-  syncWindows(store.getState());
+  windows.sync(store.getState());
   syncMenu();
-  restoreFullScreenWindows(store.getState());
+  windows.restoreFullScreen(store.getState());
   store.subscribe((s, prev) => {
-    syncWindows(s, prev);
+    windows.sync(s, prev);
     menuTimer ??= setTimeout(syncMenu, 120);
   });
   store.subscribe((s, prev) => {
@@ -167,24 +135,7 @@ export function startNativeSync() {
   useExtensions.subscribe((e, prev) => {
     if (e.lists !== prev.lists) menuTimer ??= setTimeout(syncMenu, 120);
   });
-  void windowIds().then((ids) => {
-    const s = store.getState();
-    for (const id of ids) {
-      if (!s.windows[id]) {
-        if (!isUtilityWindowId(id)) void closeWindow(id);
-        continue;
-      }
-      const title = windowTitle(s, id);
-      titles.set(id, title);
-      void setWindowTitle(id, title);
-    }
-  });
-}
-
-function restoreFullScreenWindows(s: BrowserState) {
-  const stamp = (id: string) => s.windows[id]?.fullScreen ?? 0;
-  const ids = s.windowOrder.filter((id) => stamp(id) > 0).sort((a, b) => stamp(a) - stamp(b));
-  if (ids.length) void restoreFullScreen(ids, s.ui.focusedWindowId);
+  void windows.sweep();
 }
 
 const PAGE_COMMANDS = [
