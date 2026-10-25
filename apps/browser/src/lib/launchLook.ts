@@ -6,7 +6,8 @@ import type { Tab } from "../store/types";
 import { launchFavicons, pageKey, seedFavicons, type LaunchFavicons } from "./favicons";
 
 const DOCUMENT = "launch-look.json";
-const VERSION = 1;
+const VERSION = 2;
+const DOCUMENT_LIMIT = 1100 * 1024;
 const THEME_LIMIT = 200;
 const COLOR_LENGTH_LIMIT = 64;
 const RESTORED_THEME_GRACE_MS = 1500;
@@ -35,8 +36,9 @@ export function saveLaunchLook(s: BrowserState) {
     })
     .slice(0, THEME_LIMIT);
   const look: LaunchLook = { version: VERSION, themes, favicons: launchFavicons(tabs) };
+  const json = JSON.stringify(look);
   try {
-    writeDocument(DOCUMENT, JSON.stringify(look));
+    writeDocument(DOCUMENT, json.length <= DOCUMENT_LIMIT ? json : JSON.stringify({ ...look, favicons: { images: [], profiles: {}, themes: {} } }));
   } catch (error) {
     console.warn(`Couldn't save ${DOCUMENT}`, error);
   }
