@@ -1582,7 +1582,9 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 }
 
 - (void)window:(ArdiaCoreWindow *)window passwordPrompt:(NSDictionary<NSString *, id> *)prompt forTab:(ArdiaCoreTab *)tab {
-  [[self viewFor:tab] emit:@"passwordPrompt" payload:prompt];
+  ArdiaCoreWebView *view = [self viewFor:tab];
+  if (view) ardiacore_host::NotePasswordPromptSource(view, nil);
+  [view emit:@"passwordPrompt" payload:prompt];
 }
 
 - (void)window:(ArdiaCoreWindow *)window autofillPrompt:(NSDictionary<NSString *, id> *)prompt forTab:(ArdiaCoreTab *)tab {
@@ -1631,15 +1633,51 @@ NSMapTable<ArdiaCoreProfile *, ArdiaCoreWindowController *> *StandaloneWindows()
 - (BOOL)dropPermission:(NSString *)requestId;
 @end
 
+@interface ArdiaCorePopupOriginStrip : NSView
+- (void)showURL:(NSString *)url security:(NSString *)level;
+@end
+
 namespace {
+
+constexpr CGFloat kPopupOriginStripHeight = 28;
 
 NSMutableSet<ArdiaCorePopupWindow *> *PopupWindows() {
   static NSMutableSet *windows = [NSMutableSet set];
   return windows;
 }
 
-NSString *HostOf(NSString *url) {
-  return [NSURL URLWithString:url ?: @""].host ?: @"";
+NSMapTable<ArdiaCoreWebView *, NSPointerArray *> *PasswordPromptSources() {
+  static NSMapTable *sources = [NSMapTable weakToStrongObjectsMapTable];
+  return sources;
+}
+
+NSString *HostAndPort(NSURLComponents *parts) {
+  NSString *host = parts.encodedHost.lowercaseString ?: @"";
+  return parts.port ? [NSString stringWithFormat:@"%@:%@", host, parts.port] : host;
+}
+
+NSString *PopupOriginText(NSString *url) {
+  if (!url.length) return @"about:blank";
+  NSURLComponents *parts = [NSURLComponents componentsWithString:url];
+  NSString *scheme = parts.scheme.lowercaseString;
+  if (!scheme.length) {
+    const NSRange colon = [url rangeOfString:@":"];
+    return colon.location == NSNotFound ? url : [url substringToIndex:colon.location + 1];
+  }
+  if ([scheme isEqualToString:@"blob"] || [scheme isEqualToString:@"filesystem"]) {
+    NSURLComponents *inner = [NSURLComponents componentsWithString:parts.percentEncodedPath ?: @""];
+    NSString *origin = inner.scheme.length && inner.encodedHost.length
+                           ? [NSString stringWithFormat:@"%@://%@", inner.scheme.lowercaseString, HostAndPort(inner)]
+                           : @"";
+    return [NSString stringWithFormat:@"%@:%@", scheme, origin];
+  }
+  if (parts.encodedHost.length) {
+    NSString *hostAndPort = HostAndPort(parts);
+    return [scheme isEqualToString:@"https"] ? hostAndPort : [NSString stringWithFormat:@"%@://%@", scheme, hostAndPort];
+  }
+  if ([scheme isEqualToString:@"about"]) return [@"about:" stringByAppendingString:parts.path ?: @""];
+  if ([scheme isEqualToString:@"file"]) return [@"file://" stringByAppendingString:parts.path ?: @""];
+  return [scheme stringByAppendingString:@":"];
 }
 
 NSDictionary<NSString *, NSArray<NSString *> *> *PermissionKinds() {
@@ -1708,10 +1746,76 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
 
 }
 
+@implementation ArdiaCorePopupOriginStrip {
+  NSImageView *_glyph;
+  NSTextField *_origin;
+}
+
+- (instancetype)initWithFrame:(NSRect)frame {
+  if (!(self = [super initWithFrame:frame])) return nil;
+  _glyph = [[NSImageView alloc] initWithFrame:NSZeroRect];
+  _glyph.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:11 weight:NSFontWeightMedium];
+  _origin = [NSTextField labelWithString:@""];
+  _origin.font = [NSFont systemFontOfSize:12];
+  _origin.textColor = NSColor.labelColor;
+  _origin.lineBreakMode = NSLineBreakByTruncatingHead;
+  [self addSubview:_glyph];
+  [self addSubview:_origin];
+  [self setFrameSize:frame.size];
+  return self;
+}
+
+- (BOOL)isOpaque {
+  return YES;
+}
+
+- (BOOL)mouseDownCanMoveWindow {
+  return YES;
+}
+
+- (void)setFrameSize:(NSSize)size {
+  [super setFrameSize:size];
+  const CGFloat inset = 10, glyph = 16, gap = 5;
+  const CGFloat text = ceil(_origin.intrinsicContentSize.height);
+  _glyph.frame = NSMakeRect(inset, floor((size.height - glyph) / 2), glyph, glyph);
+  const CGFloat left = inset + glyph + gap;
+  _origin.frame = NSMakeRect(left, floor((size.height - text) / 2), MAX(size.width - left - inset, 0), text);
+}
+
+- (void)drawRect:(NSRect)dirtyRect {
+  [NSColor.windowBackgroundColor setFill];
+  NSRectFill(dirtyRect);
+  [NSColor.separatorColor setFill];
+  NSRectFillUsingOperation(NSMakeRect(0, 0, NSWidth(self.bounds), 1 / MAX(self.window.backingScaleFactor, 1)),
+                           NSCompositingOperationSourceOver);
+}
+
+- (void)showURL:(NSString *)url security:(NSString *)level {
+  _origin.stringValue = PopupOriginText(url);
+  NSString *scheme = [NSURLComponents componentsWithString:url].scheme.lowercaseString;
+  if (!level) level = [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"ws"] ? @"insecure" : @"none";
+  const bool secureScheme = [scheme isEqualToString:@"https"] || [scheme isEqualToString:@"wss"];
+  NSString *symbol = @"info.circle", *description = secureScheme ? @"Connection security unknown" : @"Local or internal page";
+  NSColor *tint = NSColor.secondaryLabelColor;
+  if ([level isEqualToString:@"secure"]) {
+    symbol = @"lock.fill";
+    description = @"Connection is secure";
+  } else if ([level isEqualToString:@"insecure"] || [level isEqualToString:@"mixed"] || [level isEqualToString:@"certificateError"]) {
+    symbol = @"lock.open.trianglebadge.exclamationmark.fill";
+    description = @"Connection is not secure";
+    if ([level isEqualToString:@"certificateError"]) tint = [NSColor colorWithSRGBRed:1 green:0x5F / 255.0 blue:0x57 / 255.0 alpha:1];
+  }
+  _glyph.image = [NSImage imageWithSystemSymbolName:symbol accessibilityDescription:description];
+  _glyph.contentTintColor = tint;
+}
+
+@end
+
 @implementation ArdiaCorePopupWindow {
   ArdiaCoreWindow *_coreWindow;
   ArdiaCoreTab *_tab;
   __weak ArdiaCoreWebView *_opener;
+  ArdiaCorePopupOriginStrip *_strip;
   id _closeObserver;
   BOOL _adopting;
   NSMutableArray<NSDictionary *> *_permissionQueue;
@@ -1782,7 +1886,7 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
   _permissionQueue = [NSMutableArray array];
   NSDictionary<NSString *, NSNumber *> *features = tab.popupFeatures ?: @{};
   const NSSize size = NSMakeSize(MAX(features[@"width"] ? features[@"width"].doubleValue : 500, 200),
-                                 MAX(features[@"height"] ? features[@"height"].doubleValue : 600, 150));
+                                 MAX(features[@"height"] ? features[@"height"].doubleValue : 600, 150) + kPopupOriginStripHeight);
   _coreWindow = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, size.width, size.height)];
   NSWindow *window = _coreWindow.window;
   if (!window) return nil;
@@ -1806,7 +1910,10 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
   NSWindow *window = _coreWindow.window;
   NSWindow *parent = _opener.window;
   NSScreen *screen = parent.screen ?: NSScreen.mainScreen;
+  const NSRect visible = screen.visibleFrame;
   NSRect frame = window.frame;
+  if (!NSIsEmptyRect(visible))
+    frame.size = NSMakeSize(MIN(NSWidth(frame), NSWidth(visible)), MIN(NSHeight(frame), NSHeight(visible)));
   if (features[@"x"] || features[@"y"]) {
     const NSRect primary = NSScreen.screens.firstObject.frame;
     const NSRect content = [window contentRectForFrameRect:frame];
@@ -1817,9 +1924,8 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
     frame.origin = NSMakePoint(NSMidX(parent.frame) - NSWidth(frame) / 2, NSMaxY(parent.frame) - NSHeight(frame) - 60);
   } else {
     [window center];
-    frame = window.frame;
+    frame.origin = window.frame.origin;
   }
-  const NSRect visible = screen.visibleFrame;
   frame.origin.x = MAX(NSMinX(visible), MIN(NSMinX(frame), NSMaxX(visible) - NSWidth(frame)));
   frame.origin.y = MAX(NSMinY(visible), MIN(NSMinY(frame), NSMaxY(visible) - NSHeight(frame)));
   [window setFrame:frame display:NO];
@@ -1832,22 +1938,33 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
   _adopting = NO;
   if (ArdiaCoreProfile *profile = _tab.profile) _coreWindow.activeProfile = profile;
   _tab.delegate = self;
-  NSView *page = _tab.view;
+  NSView *page = _tab.view, *host = _coreWindow.hostView;
   [page removeFromSuperview];
-  page.frame = _coreWindow.hostView.bounds;
+  const NSRect bounds = host.bounds;
+  const CGFloat pageHeight = MAX(NSHeight(bounds) - kPopupOriginStripHeight, 0);
+  const BOOL flipped = host.isFlipped;
+  page.frame = NSMakeRect(0, flipped ? kPopupOriginStripHeight : 0, NSWidth(bounds), pageHeight);
   page.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-  [_coreWindow.hostView addSubview:page];
+  [host addSubview:page];
+  _strip = [[ArdiaCorePopupOriginStrip alloc]
+      initWithFrame:NSMakeRect(0, flipped ? 0 : pageHeight, NSWidth(bounds), kPopupOriginStripHeight)];
+  _strip.autoresizingMask = NSViewWidthSizable | (flipped ? NSViewMaxYMargin : NSViewMinYMargin);
+  [host addSubview:_strip positioned:NSWindowAbove relativeTo:page];
   [self updateTitle];
+  [self updateOrigin];
   if (ardiacore_host::Background()) [_coreWindow showInactive];
   else [_coreWindow.window makeKeyAndOrderFront:nil];
   [_tab focus];
 }
 
 - (void)updateTitle {
-  NSString *url = _tab.url ?: @"", *host = HostOf(url), *title = _tab.title;
-  NSWindow *window = _coreWindow.window;
-  window.title = title.length && ![title isEqualToString:url] ? title : host;
-  window.subtitle = [window.title isEqualToString:host] ? @"" : host;
+  NSString *url = _tab.url ?: @"", *title = _tab.title;
+  _coreWindow.window.title = title.length && ![title isEqualToString:url] ? title : PopupOriginText(url);
+}
+
+- (void)updateOrigin {
+  id level = [_tab respondsToSelector:@selector(securityInfo)] ? _tab.securityInfo[@"level"] : nil;
+  [_strip showURL:_tab.url ?: @"" security:[level isKindOfClass:NSString.class] ? level : nil];
 }
 
 - (void)windowWillClose {
@@ -1869,6 +1986,11 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
 
 - (void)tabDidChangeURL:(ArdiaCoreTab *)tab {
   [self updateTitle];
+  [self updateOrigin];
+}
+
+- (void)tabDidChangeSecurity:(ArdiaCoreTab *)tab {
+  [self updateOrigin];
 }
 
 - (void)tab:(ArdiaCoreTab *)tab requestsActivation:(NSString *)reason {
@@ -1886,6 +2008,17 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
   ArdiaCoreWebView *view = _opener ?: [ArdiaCoreWindowController hostingViewForProfile:tab.profile];
   if (view) [view openedTab:tab adoptId:[ArdiaCoreTabs offerTab:tab] disposition:ardiacore_host::AppDisposition(disposition)];
   else [tab closeNow];
+}
+
+- (void)window:(ArdiaCoreWindow *)window passwordPrompt:(NSDictionary<NSString *, id> *)prompt forTab:(ArdiaCoreTab *)tab {
+  ArdiaCoreWebView *opener = _opener;
+  if (tab != _tab) return;
+  if (!opener) {
+    NSLog(@"[ardiacore] dropped a popup's password prompt: its opener is gone");
+    return;
+  }
+  ardiacore_host::NotePasswordPromptSource(opener, tab);
+  [opener emit:@"passwordPrompt" payload:prompt];
 }
 
 - (void)window:(ArdiaCoreWindow *)window didRemoveTab:(ArdiaCoreTab *)tab {
@@ -1944,6 +2077,24 @@ bool AskPermissionInPopupWindow(ArdiaCoreTab *tab, NSDictionary *request) {
 void DropPopupWindowPermission(NSString *requestId) {
   for (ArdiaCorePopupWindow *popup in PopupWindows().allObjects)
     if ([popup dropPermission:requestId]) return;
+}
+
+void NotePasswordPromptSource(ArdiaCoreWebView *view, ArdiaCoreTab *source) {
+  if (!source) {
+    [PasswordPromptSources() removeObjectForKey:view];
+    return;
+  }
+  NSPointerArray *route = [NSPointerArray weakObjectsPointerArray];
+  [route addPointer:(__bridge void *)source];
+  [PasswordPromptSources() setObject:route forKey:view];
+}
+
+ArdiaCoreTab *PasswordPromptTab(ArdiaCoreWebView *view, ArdiaCoreTab *own) {
+  NSPointerArray *route = [PasswordPromptSources() objectForKey:view];
+  if (!route) return own;
+  [PasswordPromptSources() removeObjectForKey:view];
+  ArdiaCoreTab *source = (__bridge ArdiaCoreTab *)[route pointerAtIndex:0];
+  return source.closed ? nil : source;
 }
 
 void ActToggleFullScreen(NSWindow *window) {
