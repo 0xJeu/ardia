@@ -3,6 +3,7 @@ import { changedIds } from "./changes";
 import { ancestorIds, depthOf, orderSections, placeBlock, syncGroupOrder, withParent } from "./groups";
 import { IDLE_LIVE, isIncognitoProfile, makeTab, newId, pinnedFirst, without } from "./model";
 import { samePage } from "./organize";
+import { hasPage } from "./pageSession";
 import { removeFromSplits } from "./splits";
 import { sharedListTab, sharesTabs } from "./tabShare";
 import { removeTabs } from "./tabs";
@@ -11,7 +12,6 @@ import type { BrowserWindow, SplitView, Tab, TabGroup } from "./types";
 type Keyed = { id: string; pinKey?: string };
 export const pinKeyOf = (x: Keyed) => x.pinKey ?? x.id;
 const homeOf = (t: Pick<Tab, "url" | "pinnedUrl">) => t.pinnedUrl || t.url;
-const hasPage = (t: Tab) => !!t.navigation || !!t.adoptId;
 export const mirrored = (w: BrowserWindow | undefined): w is BrowserWindow => !!w && !w.incognito && w.kind !== "small";
 
 type Item = { tab: Tab; group: string | null };

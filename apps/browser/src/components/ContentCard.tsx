@@ -23,6 +23,7 @@ import { setPageProgress } from "../store/pageProgress";
 import { shallowEqual, useProfilesValue, useStoreWhile, useTabValue } from "../store/tabWatch";
 import { useActiveTabId, useWindowId } from "../store/hooks";
 import { activeTabId, engineProfile, isIncognitoProfile, navigationTo, wake } from "../store/model";
+import { needsPage } from "../store/pageSession";
 import { removeTabs } from "../store/tabs";
 import { splitOf } from "../store/splits";
 import type { SplitView, Tab } from "../store/types";
@@ -143,7 +144,7 @@ export function ContentCard() {
     const s = useBrowser.getState();
     for (const id of Object.keys(panes)) {
       const t = s.tabs[id];
-      if (!t?.url || t.navigation || t.adoptId || t.pageIn) continue;
+      if (!t || !needsPage(t)) continue;
       const holder = holderOf(s, id);
       s.updateTab(id, holder ? { pageIn: holder.id, unloaded: undefined } : wake(t));
     }

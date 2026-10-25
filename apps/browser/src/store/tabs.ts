@@ -22,6 +22,7 @@ import {
 } from "./model";
 import { forgetOpeners, insertionIndex, nextToActive, openerSuccessor, switchKeepsOpeners } from "./openers";
 import { groupWithOpener, isClosedPin, onUrlChange, pruneSelection, samePage } from "./organize";
+import { hasOwnOrSharedPage, hasPage, isLazy } from "./pageSession";
 import { isPeekTab, withoutPeek } from "./peek";
 import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
@@ -91,7 +92,7 @@ export function closeKind(s: BrowserState, tabId: string): CloseKind {
 export function openPages(s: BrowserState, tabId: string): string[] {
   const t = s.tabs[tabId];
   if (!t) return [];
-  if (t.navigation || t.adoptId || t.pageIn) return [tabId];
+  if (hasOwnOrSharedPage(t)) return [tabId];
   const holder = holderOf(s, tabId);
   return holder ? [tabId, holder.id] : [];
 }
@@ -138,7 +139,7 @@ export function activated(s: BrowserState, id: string, shareLivePins = true): Pa
   const tab = s.tabs[id];
   const w = tab && s.windows[tab.windowId];
   if (!tab || !w || s.peeks[w.id]?.tabId === id) return {};
-  const lazy = !!tab.url && !tab.navigation && !tab.adoptId;
+  const lazy = isLazy(tab);
   const holder = lazy && shareLivePins ? holderOf(s, id) : undefined;
   const frozen = lazy && (!!holder || !!tab.pageIn);
   const { unloaded: _, ...rest } = tab;
@@ -259,7 +260,7 @@ export function unloadPinnedTabs(s: BrowserState, requested: string[]): BrowserS
   for (const id of pinned) {
     const t = s.tabs[id]!;
     const w = s.windows[t.windowId];
-    const loaded = !!(t.navigation || t.adoptId);
+    const loaded = hasPage(t);
     if (loaded && t.url) {
       closed.push({ kind: "tab", id: newId("ct"), tab: snapshotTab(t), tabId: id, windowId: t.windowId, index: w?.tabIds.indexOf(id) ?? 0, group: null, closedAt: now, pinnedTile: true });
     }
@@ -312,7 +313,7 @@ function lastLivePinnedTab(s: BrowserState, w: BrowserWindow, id: string, closin
   const profileId = s.tabs[id]!.profileId;
   const live = w.tabIds.filter((t) => {
     const tab = s.tabs[t];
-    return !closing.has(t) && tab?.profileId === profileId && inPinnedContainer(s, t) && !!(tab.navigation || tab.adoptId);
+    return !closing.has(t) && tab?.profileId === profileId && inPinnedContainer(s, t) && hasPage(tab);
   });
   return live.reduce<string | undefined>((best, t) => (!best || s.tabs[t]!.lastActiveAt > s.tabs[best]!.lastActiveAt ? t : best), undefined);
 }

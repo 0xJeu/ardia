@@ -3,6 +3,7 @@ import type { BrowserState } from "./browser";
 import { autoGroupName } from "./groupNames";
 import { ancestorIds, canNest, closedGroupInfo, commonGroup, descendantIds, innermostGroupOf, insertAll, leaveGroups, nestGroups, orderSections, placeBlock, placeGroups, rejoinGroups, reparent, syncGroupOrder, withGroupsPlaced, withParent } from "./groups";
 import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, newId, pendingRestore, pinSection, restoreId, snapshotTab, viewTabIds, without } from "./model";
+import { hasPage } from "./pageSession";
 import { holderOf } from "./pinShare";
 import { splitOf, splitRowHead, splitRowPanes, withSplitRows } from "./splits";
 import { lastUsedOf, sharedLastUsed } from "./tabShare";
@@ -133,7 +134,7 @@ export function unpinnedTabIds(s: BrowserState, windowId: string): string[] {
 export function isClosedPin(s: BrowserState, id: string): boolean {
   const t = s.tabs[id];
   if (!t || !inPinnedContainer(s, id) || pinSection(t) === "tile") return false;
-  return !t.navigation && !t.adoptId && activeTabId(s, t.windowId) !== id && !holderOf(s, id);
+  return !hasPage(t) && activeTabId(s, t.windowId) !== id && !holderOf(s, id);
 }
 
 export function clearedTabIds(s: BrowserState, windowId: string): string[] {
