@@ -524,7 +524,7 @@ static void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hell
   __weak ArdiaCoreTab *weakTab = tab;
   void (^answer)(BOOL) = ^(BOOL blockAutoplay) {
     ArdiaCoreTab *to = weakTab;
-    if (!frameId.length || ![to respondsToSelector:@selector(callFrame:kind:json:)]) return;
+    if (!frameId.length || !to) return;
     NSMutableDictionary *config = [NSMutableDictionary dictionary];
     if (blockAutoplay) config[@"blockAutoplay"] = @YES;
     if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:audio:)])
@@ -823,8 +823,7 @@ static NSString *SavedHistoryGeneration(ArdiaCoreProfile *profile) {
 
 static ArdiaCoreTab *RestoreSavedHistory(ArdiaCoreWindowController *controller, ArdiaCoreProfile *profile, NSString *key, NSString *url) {
   if (!key.length || !url.length || [BoundRestoreKeys() containsObject:key] || !profile.path.length ||
-      ([profile respondsToSelector:@selector(offTheRecord)] && profile.offTheRecord) ||
-      ![controller.coreWindow respondsToSelector:@selector(restoreTab:profile:foreground:)])
+      profile.offTheRecord || !controller.coreWindow)
     return nil;
   NSData *keyBytes = [key dataUsingEncoding:NSUTF8StringEncoding];
   const unsigned char *raw = (const unsigned char *)keyBytes.bytes;
@@ -1046,15 +1045,13 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     view->_pendingURL = nil;
     view->_creatingURL = url;
     view->_creatingAt = CACurrentMediaTime();
-    if (view->_extensionHost.length && url.length &&
-        [controller.coreWindow respondsToSelector:@selector(openExtensionView:profile:kind:)]) {
+    if (view->_extensionHost.length && url.length && controller.coreWindow) {
       if (ArdiaCoreTab *tab = [controller.coreWindow openExtensionView:url profile:profile kind:view->_extensionHost])
         return [view attach:tab];
     }
     if (standalone) controller = [ArdiaCoreWindowController standaloneWindowForProfile:profile] ?: controller;
     if (!standalone && [kind isEqualToString:@"clone"] && [view cloneTab:key profile:profile]) return;
-    if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardiacore_host::IsIncognito(view->_profile) &&
-        [controller.coreWindow respondsToSelector:@selector(restoreTab:profile:foreground:)]) {
+    if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardiacore_host::IsIncognito(view->_profile) && controller.coreWindow) {
       view->_creating = YES;
       [ArdiaCoreServices call:@"ac_tab_restore_take" profile:view->_profile args:@{@"key" : key}
                 completion:^(NSDictionary *result) {
@@ -1090,7 +1087,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 
 - (BOOL)cloneTab:(NSString *)sourceKey profile:(ArdiaCoreProfile *)profile {
   ArdiaCoreWindowController *controller = self.controller;
-  if (![controller.coreWindow respondsToSelector:@selector(duplicateTab:profile:foreground:)]) return NO;
+  if (!controller.coreWindow) return NO;
   ArdiaCoreTab *source = nil;
   for (ArdiaCoreWebView *other in LiveViews())
     if (other != self && [other.transferKey isEqualToString:sourceKey] && other->_tab && !other->_tab.closed) source = other->_tab;
@@ -1109,7 +1106,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 
 + (void)keepTransfersOfWindow:(NSWindow *)window {
   ArdiaCoreWindowController *closing = [ArdiaCoreWindowController forNSWindow:window];
-  if (!closing || ![closing.coreWindow respondsToSelector:@selector(adoptTab:)]) return;
+  if (!closing.coreWindow) return;
   for (ArdiaCoreWebView *view in LiveViews().allObjects)
     if (view->_handingOff && view->_tab && !view->_tab.closed && [ArdiaCoreWindowController holding:view->_tab] == closing)
       [view closeBrowser];
@@ -1167,7 +1164,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 - (void)adoptIntoWindow {
   if (_standalone) return;
   ArdiaCoreWindowController *controller = self.controller;
-  if (!controller || ![controller.coreWindow respondsToSelector:@selector(adoptTab:)]) return;
+  if (!controller.coreWindow) return;
   if ([[controller.coreWindow tabsForProfile:_tab.profile] containsObject:_tab]) return;
   ArdiaCoreWindowController *source = [ArdiaCoreWindowController holding:_tab];
   _moving = YES;
@@ -1206,17 +1203,17 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   [self layoutPage];
   [self applyPainting];
   if (!shownEarly && (_creatingURL.length || tab.loading)) [self holdLittlePage];
-  if (_muted && [tab respondsToSelector:@selector(setMuted:)]) tab.muted = YES;
-  if (_pageBackgroundColor && [tab respondsToSelector:@selector(setPageBackgroundColor:)]) tab.pageBackgroundColor = _pageBackgroundColor;
+  if (_muted) tab.muted = YES;
+  if (_pageBackgroundColor) tab.pageBackgroundColor = _pageBackgroundColor;
   if (_contentsBackgroundColor && [tab respondsToSelector:@selector(setContentsBackgroundColor:)]) tab.contentsBackgroundColor = _contentsBackgroundColor;
-  if (_pageColor && [tab respondsToSelector:@selector(setPageColor:)]) tab.pageColor = _pageColor;
+  if (_pageColor) tab.pageColor = _pageColor;
   if (_pendingURL) {
     [self loadNow:_pendingURL userInitiated:_pendingUserInitiated];
     _pendingURL = nil;
   }
   [self emit:@"ready" payload:@{@"browserId" : @(ardiacore_host::BrowserId(tab)), @"tabId" : @(tab.tabId)}];
   [self emitNavigation];
-  if (_extensionHost.length && [tab respondsToSelector:@selector(preferredSize)] && tab.preferredSize.width > 0)
+  if (_extensionHost.length && tab && tab.preferredSize.width > 0)
     [self tab:tab preferredSizeDidChange:tab.preferredSize];
   [self emitMedia];
   [self tabDidChangeFavicon:tab];
@@ -1315,13 +1312,12 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
               completion:^(NSDictionary *) {}];
   [[ArdiaCoreWindowController holding:tab] noteClosing:tab];
   [self detach];
-  if ([tab respondsToSelector:@selector(closeNow)]) [tab closeNow];
-  else [tab close];
+  [tab closeNow];
 }
 
 - (void)placeTab {
   ArdiaCoreWindowController *controller = self.controller;
-  if (!_tab || !controller || ![controller.coreWindow respondsToSelector:@selector(placeTab:index:pinned:)]) return;
+  if (!_tab || !controller.coreWindow) return;
   controller.hostChanges++;
   [controller.coreWindow placeTab:_tab index:(int)_tabIndex pinned:_pinned];
   controller.hostChanges--;
@@ -1544,7 +1540,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 }
 
 + (void)noteShown:(ArdiaCoreTab *)tab {
-  if (![tab respondsToSelector:@selector(noteShownByHost:)]) return;
+  if (!tab) return;
   static NSMapTable<ArdiaCoreTab *, NSNumber *> *changes = [NSMapTable weakToStrongObjectsMapTable];
   const NSUInteger change = [changes objectForKey:tab].unsignedIntegerValue + 1;
   [changes setObject:@(change) forKey:tab];
@@ -1582,7 +1578,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   if (!visible) [self storePageFocus];
   _visible = visible;
   if (visible) [self settleRevealsInWindow];
-  if (!visible && [_tab respondsToSelector:@selector(exitExclusiveAccess)]) [_tab exitExclusiveAccess];
+  if (!visible) [_tab exitExclusiveAccess];
   if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) self.alphaValue = 1;
   [self schedulePainting];
   if (visible) ACFieldMarkAtCommit(_transferKey, @"view");
@@ -1604,12 +1600,11 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 }
 
 - (void)traceManualPictureInPicture:(NSString *)what {
-  if (TracingPictureInPicture() && [_tab respondsToSelector:@selector(tracePictureInPicture:withInputs:)])
-    [_tab tracePictureInPicture:[@"app: manual PiP " stringByAppendingString:what] withInputs:NO];
+  if (TracingPictureInPicture()) [_tab tracePictureInPicture:[@"app: manual PiP " stringByAppendingString:what] withInputs:NO];
 }
 
 - (void)traceAutoPictureInPicture:(NSString *)what {
-  if (!TracingPictureInPicture() || ![_tab respondsToSelector:@selector(tracePictureInPicture:withInputs:)]) return;
+  if (!TracingPictureInPicture() || !_tab) return;
   NSDictionary *np = _nowPlaying[_nowPlayingFrame ?: @""];
   [_tab tracePictureInPicture:[NSString stringWithFormat:@"%@ (%@): autoPictureInPicture=%d capturing=%d nowPlaying=%@ actions=%@",
                                                          what, _tab.url, _autoPictureInPicture, _capturing,
@@ -1907,12 +1902,12 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 
 - (void)setFrozen:(BOOL)frozen {
   _frozen = frozen;
-  if ([_tab respondsToSelector:@selector(setFrozen:)]) _tab.frozen = frozen;
+  _tab.frozen = frozen;
 }
 
 - (void)setPageBackgroundColor:(NSColor *)color {
   _pageBackgroundColor = color;
-  if ([_tab respondsToSelector:@selector(setPageBackgroundColor:)]) _tab.pageBackgroundColor = color;
+  _tab.pageBackgroundColor = color;
 }
 
 - (void)setContentsBackgroundColor:(NSColor *)color {
@@ -1922,7 +1917,7 @@ static NSView *SharedAncestor(NSView *a, NSView *b) {
 
 - (void)setPageColor:(NSString *)color {
   _pageColor = [color copy];
-  if ([_tab respondsToSelector:@selector(setPageColor:)]) _tab.pageColor = color;
+  _tab.pageColor = color;
 }
 
 - (void)emit:(NSString *)name payload:(NSDictionary *)payload {
@@ -1993,19 +1988,19 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 }
 
 + (void)setAutoPictureInPictureEnabled:(BOOL)enabled {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(setAutoPictureInPicture:)]) [ArdiaCoreEngine setAutoPictureInPicture:enabled];
+  [ArdiaCoreEngine setAutoPictureInPicture:enabled];
 }
 
 + (void)setVideoUpscalingEnabled:(BOOL)enabled {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(setVideoUpscaling:)]) [ArdiaCoreEngine setVideoUpscaling:enabled];
+  [ArdiaCoreEngine setVideoUpscaling:enabled];
 }
 
 + (void)setVideoUpscalingTestConditions:(NSDictionary<NSString *, NSNumber *> *)conditions {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(setVideoUpscalingTestConditions:)]) [ArdiaCoreEngine setVideoUpscalingTestConditions:conditions];
+  [ArdiaCoreEngine setVideoUpscalingTestConditions:conditions];
 }
 
 + (NSDictionary<NSString *, id> *)videoUpscalingState {
-  return [ArdiaCoreEngine respondsToSelector:@selector(videoUpscalingState)] ? ArdiaCoreEngine.videoUpscalingState : nil;
+  return ArdiaCoreEngine.videoUpscalingState;
 }
 
 + (void)setSearchEngineName:(NSString *)name {
@@ -2041,7 +2036,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 - (void)emitNavigation {
   _navigationQueued = NO;
   if (!_tab) return;
-  NSString *theme = _pageTheme ?: ([_tab respondsToSelector:@selector(themeColor)] ? _tab.themeColor : nil);
+  NSString *theme = _pageTheme ?: _tab.themeColor;
   NSString *themeSource = _pageTheme ? _pageThemeSource : (theme ? @"meta" : nil);
   NSString *url = _tab.url ?: @"";
   if (IsRendererDebugURL(url)) url = _sentNavigation[@"url"] ?: @"";
@@ -2157,7 +2152,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
 - (void)tabDidChangeFavicon:(ArdiaCoreTab *)tab {
   NSImage *image = tab.favicon;
   if (!image) return;
-  NSString *url = [tab respondsToSelector:@selector(faviconURL)] ? tab.faviconURL : nil;
+  NSString *url = tab.faviconURL;
   if (url.length) [ArdiaCoreFavicons noteImage:image forURL:url profile:_profile];
   else url = PNGDataURL(image);
   if (!url.length || [url isEqualToString:_lastFavicon]) return;
@@ -2260,7 +2255,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
     _pinchScale = MIN(scale, 100);
     [self emitZoom];
   } else if ([kind isEqualToString:@"pipTrace"]) {
-    if (TracingPictureInPicture() && [_tab respondsToSelector:@selector(tracePictureInPicture:withInputs:)])
+    if (TracingPictureInPicture())
       [_tab tracePictureInPicture:[NSString stringWithFormat:@"page (%@): %@", main ? @"main frame" : @"subframe", JSONString(dict ?: @{})]
                        withInputs:NO];
   } else if ([kind isEqualToString:@"pip"] && dict) {
@@ -2450,18 +2445,18 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)callFrame:(NSString *)frameId kind:(NSString *)kind json:(NSString *)json {
-  if (frameId.length && [_tab respondsToSelector:@selector(callFrame:kind:json:)]) [_tab callFrame:frameId kind:kind json:json];
-  else if ([_tab respondsToSelector:@selector(callPage:json:)]) [_tab callPage:kind json:json];
+  if (frameId.length) [_tab callFrame:frameId kind:kind json:json];
+  else [_tab callPage:kind json:json];
 }
 
 - (void)emitMedia {
-  const BOOL playing = [_tab respondsToSelector:@selector(audible)] && _tab.audible;
-  const BOOL muted = [_tab respondsToSelector:@selector(muted)] ? _tab.muted : _muted;
+  const BOOL playing = _tab.audible;
+  const BOOL muted = _tab ? _tab.muted : _muted;
   [self emit:@"media" payload:@{@"playing" : @(playing), @"muted" : @(muted)}];
 }
 
 - (void)emitZoom {
-  const double zoom = [_tab respondsToSelector:@selector(zoomFactor)] ? _tab.zoomFactor : 1;
+  const double zoom = _tab ? _tab.zoomFactor : 1;
   [self emit:@"zoom"
       payload:@{
         @"zoom" : @(round(zoom * 100) / 100),
@@ -2537,7 +2532,7 @@ static NSString *LinkKeyAction(NSString *key) {
   if ([self skipsNavigationDownload:url userInitiated:userInitiated]) return;
   if (url.length && ![url hasPrefix:@"about:"]) [self holdLittlePage];
   ACFieldMarkNow(_transferKey, @"request");
-  if ([_tab respondsToSelector:@selector(loadURL:userInitiated:)]) [_tab loadURL:url userInitiated:userInitiated];
+  [_tab loadURL:url userInitiated:userInitiated];
   else [_tab loadURL:url];
   [self focusAfterLoad];
 }
@@ -2569,7 +2564,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)goToHistoryOffset:(NSInteger)offset {
-  if ([_tab respondsToSelector:@selector(goToOffset:)]) [_tab goToOffset:(int)offset];
+  [_tab goToOffset:(int)offset];
   else if (offset == -1) [_tab goBack];
   else if (offset == 1) [_tab goForward];
 }
@@ -2579,7 +2574,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)reloadIgnoringCache {
-  if ([_tab respondsToSelector:@selector(reloadIgnoringCache)]) [_tab reloadIgnoringCache];
+  [_tab reloadIgnoringCache];
   else [_tab reload];
 }
 
@@ -2594,15 +2589,15 @@ static NSString *LinkKeyAction(NSString *key) {
 
 - (void)setMuted:(BOOL)muted {
   _muted = muted;
-  if ([_tab respondsToSelector:@selector(setMuted:)]) _tab.muted = muted;
+  _tab.muted = muted;
 }
 
 - (void)setZoomFactor:(double)factor {
-  if ([_tab respondsToSelector:@selector(setZoomFactor:)]) _tab.zoomFactor = factor;
+  _tab.zoomFactor = factor;
 }
 
 - (void)zoomStep:(NSInteger)direction {
-  if ([_tab respondsToSelector:@selector(zoomStep:)]) [_tab zoomStep:(int)direction];
+  [_tab zoomStep:(int)direction];
 }
 
 - (void)find:(NSString *)text forward:(BOOL)forward findNext:(BOOL)findNext {
@@ -2618,7 +2613,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)runChromeCommand:(int)command {
-  if ([_tab respondsToSelector:@selector(executeChromeCommand:)]) [_tab executeChromeCommand:command];
+  [_tab executeChromeCommand:command];
 }
 
 - (void)showDevTools {
@@ -2630,7 +2625,7 @@ static NSString *LinkKeyAction(NSString *key) {
                       : [panel isEqualToString:@"inspect"] ? 40023
                       : [panel isEqualToString:@"toggle"]  ? 40237
                                                            : 0;
-  if (command && [_tab respondsToSelector:@selector(executeChromeCommand:)]) [self runChromeCommand:command];
+  if (command && _tab) [self runChromeCommand:command];
   else [_tab showDevTools];
 }
 
@@ -2643,22 +2638,22 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)executeJavaScript:(NSString *)code {
-  if ([_tab respondsToSelector:@selector(executeJavaScript:)]) [_tab executeJavaScript:code];
+  [_tab executeJavaScript:code];
 }
 
 - (void)thawHiddenPage {
-  if (!_visible && !_frozen && [_tab respondsToSelector:@selector(setFrozen:)]) _tab.frozen = NO;
+  if (!_visible && !_frozen) _tab.frozen = NO;
 }
 
 - (void)evaluate:(NSString *)code completion:(void (^)(NSString *))completion {
-  if (![_tab respondsToSelector:@selector(evaluate:completion:)]) return completion(nil);
+  if (!_tab) return completion(nil);
   [self thawHiddenPage];
   [_tab evaluate:code completion:completion];
 }
 
 - (void)capturePicture:(double)scale completion:(void (^)(NSDictionary<NSString *, id> *))completion {
   NSWindow *window = self.window;
-  if (!_tab || !window || self.hidden || ![_tab respondsToSelector:@selector(devToolsCall:params:completion:)]) return completion(nil);
+  if (!_tab || !window || self.hidden) return completion(nil);
   NSRect inWindow = [self convertRect:self.bounds toView:nil];
   CGFloat top = NSHeight(window.contentView.frame);
   NSArray *frame = @[ @(NSMinX(inWindow)), @(top - NSMaxY(inWindow)), @(NSWidth(inWindow)), @(NSHeight(inWindow)) ];
@@ -2673,16 +2668,12 @@ static NSString *LinkKeyAction(NSString *key) {
     NSString *data = shot[@"data"];
     answer([data isKindOfClass:NSString.class] ? @{@"data" : data, @"frame" : frame} : nil);
   };
-  SEL timed = NSSelectorFromString(@"devToolsCall:params:timeout:completion:");
-  if ([_tab respondsToSelector:timed])
-    ((void (*)(id, SEL, NSString *, NSDictionary *, NSTimeInterval, id))objc_msgSend)(_tab, timed, @"Page.captureScreenshot", params, 1.0, done);
-  else
-    [_tab devToolsCall:@"Page.captureScreenshot" params:params completion:done];
+  [_tab devToolsCall:@"Page.captureScreenshot" params:params timeout:1.0 completion:done];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{ answer(nil); });
 }
 
 - (void)navigationEntries:(void (^)(NSArray<NSDictionary<NSString *, id> *> *))completion {
-  completion([_tab respondsToSelector:@selector(navigationEntries)] ? _tab.navigationEntries : @[]);
+  completion(_tab ? _tab.navigationEntries : @[]);
 }
 
 - (void)downloadFavicon:(NSString *)url name:(NSString *)name completion:(void (^)(NSDictionary<NSString *, id> *))completion {
@@ -2745,7 +2736,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)exitPictureInPictureInFrame:(NSString *)frameId {
-  if (frameId.length && [_tab respondsToSelector:@selector(executeJavaScript:frame:)])
+  if (frameId.length && _tab)
     [_tab executeJavaScript:@"document.pictureInPictureElement && document.exitPictureInPicture()" frame:frameId];
   else
     [self exitPictureInPicture];
@@ -2758,7 +2749,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)securityInfo:(void (^)(NSDictionary<NSString *, id> *))completion {
-  if ([_tab respondsToSelector:@selector(securityInfo)] && _tab.securityInfo) return completion(_tab.securityInfo);
+  if (_tab.securityInfo) return completion(_tab.securityInfo);
   NSString *url = _tab.url ?: @"";
   NSString *scheme = [NSURL URLWithString:url].scheme.lowercaseString;
   NSString *level = [scheme isEqualToString:@"https"] ? @"secure" : [scheme isEqualToString:@"http"] ? @"insecure" : @"local";
@@ -2766,8 +2757,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)pageCookies:(NSArray<NSString *> *)urls completion:(void (^)(NSArray<NSDictionary<NSString *, id> *> *))completion {
-  SEL timed = NSSelectorFromString(@"devToolsCall:params:timeout:completion:");
-  if (!_tab || _tab.closed || !urls.count || ![_tab respondsToSelector:timed]) return completion(nil);
+  if (!_tab || _tab.closed || !urls.count) return completion(nil);
   __block BOOL answered = NO;
   void (^answer)(NSArray *) = ^(NSArray *cookies) {
     if (answered) return;
@@ -2778,12 +2768,12 @@ static NSString *LinkKeyAction(NSString *key) {
     NSArray *cookies = result[@"cookies"];
     answer([cookies isKindOfClass:NSArray.class] ? cookies : nil);
   };
-  ((void (*)(id, SEL, NSString *, NSDictionary *, NSTimeInterval, id))objc_msgSend)(_tab, timed, @"Network.getCookies", @{@"urls" : urls}, 1.0, done);
+  [_tab devToolsCall:@"Network.getCookies" params:@{@"urls" : urls} timeout:1.0 completion:done];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1200 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ answer(nil); });
 }
 
 - (void)openBlockedPopup:(NSString *)popupId always:(BOOL)always {
-  if ([_tab respondsToSelector:@selector(openBlockedPopup:always:)]) [_tab openBlockedPopup:popupId always:always];
+  [_tab openBlockedPopup:popupId always:always];
 }
 
 - (void)tab:(ArdiaCoreTab *)tab didBlockRequests:(int)count lastURL:(NSString *)url {
@@ -2821,11 +2811,11 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)resolveAutofillPrompt:(NSInteger)promptId action:(NSString *)action {
-  if ([_tab respondsToSelector:@selector(resolveAutofillPrompt:action:)]) [_tab resolveAutofillPrompt:promptId action:action];
+  [_tab resolveAutofillPrompt:promptId action:action];
 }
 
 - (NSString *)executeExtensionAction:(NSString *)extensionId {
-  return [_tab respondsToSelector:@selector(executeExtensionAction:)] ? [_tab executeExtensionAction:extensionId] : nil;
+  return [_tab executeExtensionAction:extensionId];
 }
 
 - (void)resolveDisplayMedia:(NSString *)requestId sourceId:(NSString *)sourceId audio:(BOOL)shareAudio {
@@ -2844,7 +2834,7 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (NSString *)mediaCaptureSourceId {
-  return [_tab respondsToSelector:@selector(mediaCaptureSourceId)] ? _tab.mediaCaptureSourceId : nil;
+  return _tab.mediaCaptureSourceId;
 }
 
 - (void)tab:(ArdiaCoreTab *)tab navigationBecameDownload:(NSString *)url {
@@ -2932,18 +2922,18 @@ static NSString *LinkKeyAction(NSString *key) {
 }
 
 - (void)resolveUnresponsive:(BOOL)terminate {
-  if ([_tab respondsToSelector:@selector(resolveUnresponsive:)]) [_tab resolveUnresponsive:terminate];
+  [_tab resolveUnresponsive:terminate];
 }
 
 - (NSString *)discard:(BOOL)unload {
   if (unload) return @"unsupported";
-  if (![_tab respondsToSelector:@selector(discard)]) return @"refused";
+  if (!_tab) return @"refused";
   if (_tab.discarded) return @"already";
   return [_tab discard] && _tab.discarded ? @"discarded" : @"refused";
 }
 
 - (BOOL)discarded {
-  return [_tab respondsToSelector:@selector(discarded)] && _tab.discarded;
+  return _tab.discarded;
 }
 
 - (void)tabDidChangeDiscarded:(ArdiaCoreTab *)tab {
