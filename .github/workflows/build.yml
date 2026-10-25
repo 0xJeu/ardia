@@ -1,16 +1,7 @@
 name: Build
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "apps/site/**"
-      - "apps/videos/**"
-      - "apps/dashboard/**"
-      - "docs/**"
-      - "infra/**"
-      - ".claude/**"
-      - "**/*.md"
+  workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
