@@ -76,7 +76,12 @@ export function parseShortcut(text: string): Shortcut {
   return { key, modifiers: ordered(modifiers) };
 }
 
-export const overrideShortcut = (stored: string[]): Shortcut => ({ key: stored[0] ?? "", modifiers: ordered(stored.slice(1).filter(isModifier)) });
+export function storedShortcut(stored: readonly string[]): Shortcut {
+  const key = stored[0] ?? "";
+  const modifiers = stored.slice(1).filter(isModifier);
+  const shifted = Array.from(key).length === 1 && key !== key.toLowerCase();
+  return { key: shifted ? key.toLowerCase() : key, modifiers: ordered(shifted ? [...modifiers, "shift"] : modifiers) };
+}
 
 export function comboKey({ key, modifiers }: Shortcut): string {
   const shifted = key !== key.toLowerCase() ? ["shift"] : [];
@@ -89,13 +94,13 @@ export function resolveShortcuts(sources: readonly ShortcutSource[], overrides: 
   const rebindable = new Set(sources.filter((s) => !s.fixed).map((s) => s.id));
   const taken = new Set<string>();
   for (const [id, stored] of Object.entries(overrides)) {
-    if (rebindable.has(id) && stored[0]) taken.add(comboKey(overrideShortcut(stored)));
+    if (rebindable.has(id) && stored[0]) taken.add(comboKey(storedShortcut(stored)));
   }
   const bindings = new Map<string, Shortcut[]>();
   const holders = new Map<string, string[]>();
   for (const source of sources) {
     const stored = source.fixed ? undefined : overrides[source.id];
-    const candidates = stored ? [overrideShortcut(stored)] : source.keys.filter((k) => source.fixed || !taken.has(comboKey(k)));
+    const candidates = stored ? [storedShortcut(stored)] : source.keys.filter((k) => source.fixed || !taken.has(comboKey(k)));
     const seen = new Set<string>();
     const keys = candidates.filter((k) => k.key && !seen.has(comboKey(k)) && seen.add(comboKey(k)));
     bindings.set(source.id, keys);
