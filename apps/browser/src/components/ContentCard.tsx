@@ -4,6 +4,7 @@ import { Animated, StyleSheet, View, type ViewStyle } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { focus, switchToTab } from "../lib/actions";
 import { noteFavicon } from "../lib/favicons";
+import { restoredThemeColor } from "../lib/launchLook";
 import { noteChromeTab } from "../lib/cliControl";
 import { takeStartedNavigation } from "../lib/earlyNavigate";
 import { isQuitting } from "../lib/native";
@@ -637,18 +638,19 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
           store().updateLive(tabId, { isLoading: true });
           return;
         }
+        const shownTheme = restoredThemeColor(tabId, url, themeColor, isLoading);
         pending.current = null;
         const kept = pageOf(tabId).newTabShown;
         if (kept) {
           if (url === kept.url) {
             patchPage(tabId, { newTabShown: { ...kept, title } });
-            store().updateLive(tabId, { isLoading, canGoBack, canGoForward, themeColor });
+            store().updateLive(tabId, { isLoading, canGoBack, canGoForward, themeColor: shownTheme });
             return;
           }
           patchPage(tabId, { newTabShown: null });
         }
         if (fromNewTab.current && url && !isBlank(url)) patchPage(tabId, { backToNewTab: true });
-        store().navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor });
+        store().navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor: shownTheme });
         if (engine === "webkit") noteWebKitPage(tabId, { url, title, isLoading, committedUrl: committedUrl ?? "" });
         if (lastPage.current !== null && pageKey(url) !== lastPage.current) {
           if (pageOf(tabId).externalApp && hostOf(url) !== hostOf(lastPage.current)) answerExternalApp(tabId, false);

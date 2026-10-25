@@ -236,7 +236,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
   private var exits: [String: [() -> Void]] = [:]
 
   private func holdUntilContent(_ window: NSWindow, id: String, root: NSView) {
-    guard !window.isVisible, entrances[id] != nil || windows.values.contains(where: { $0.isVisible && isBrowserWindow($0) }) else { return }
+    guard !window.isVisible else { return }
     window.alphaValue = 0
     unrevealed[id] = []
     var observer: NSObjectProtocol?

@@ -238,6 +238,63 @@ export function resolveFavicon(url: string, src?: string | null, profileId?: str
   return null;
 }
 
+export type LaunchFavicons = {
+  profiles: Record<string, { pages: Record<string, string>; srcs: Record<string, string> }>;
+  themes: Record<string, IconTheme | null>;
+};
+
+const LAUNCH_ICON_LIMIT = 240;
+const LAUNCH_URI_LIMIT = 16 * 1024;
+const LAUNCH_TOTAL_LIMIT = 1024 * 1024;
+
+export function launchFavicons(tabs: { url: string; favicon: string | null; profileId: string }[]): LaunchFavicons {
+  const { profiles, themes } = useFavicons.getState();
+  const look: LaunchFavicons = { profiles: {}, themes: {} };
+  let count = 0;
+  let total = 0;
+  for (const t of tabs) {
+    if (count >= LAUNCH_ICON_LIMIT || total >= LAUNCH_TOTAL_LIMIT) break;
+    if (!t.url || isIncognitoProfile(t.profileId)) continue;
+    const key = cacheKey(t.profileId);
+    const icons = profiles[key];
+    const page = pageKey(t.url);
+    const uri = icons?.pages[page];
+    if (!icons || !uri || uri.length > LAUNCH_URI_LIMIT || look.profiles[key]?.pages[page]) continue;
+    const entry = (look.profiles[key] ??= { pages: {}, srcs: {} });
+    entry.pages[page] = uri;
+    count++;
+    total += uri.length;
+    const fromSrc = t.favicon ? icons.srcs[t.favicon] : undefined;
+    if (t.favicon && fromSrc && fromSrc.length <= LAUNCH_URI_LIMIT) {
+      entry.srcs[t.favicon] = fromSrc;
+      if (fromSrc !== uri) total += fromSrc.length;
+    }
+    for (const shown of [uri, fromSrc]) if (shown && themes[shown] !== undefined) look.themes[shown] = themes[shown] ?? null;
+  }
+  return look;
+}
+
+const stringsOnly = (map: unknown): Record<string, string> =>
+  map && typeof map === "object" ? Object.fromEntries(Object.entries(map).filter((e): e is [string, string] => typeof e[1] === "string")) : {};
+
+export function seedFavicons(seed: LaunchFavicons) {
+  const seeded = Object.entries(seed.profiles ?? {}).filter(([key]) => !isIncognitoProfile(key));
+  if (!seeded.length) return;
+  useFavicons.setState((f) => {
+    const profiles = { ...f.profiles };
+    for (const [key, saved] of seeded) {
+      const icons = profiles[key] ?? EMPTY;
+      profiles[key] = {
+        pages: { ...stringsOnly(saved?.pages), ...icons.pages },
+        srcs: { ...stringsOnly(saved?.srcs), ...icons.srcs },
+        appearances: icons.appearances,
+      };
+    }
+    const themes = seed.themes && typeof seed.themes === "object" ? seed.themes : {};
+    return { profiles, themes: { ...themes, ...f.themes } };
+  });
+}
+
 export const useAppearanceDark = () => useBrowser((s) => s.ui.appDark);
 
 function answered(url: string, profileId?: string): boolean {
