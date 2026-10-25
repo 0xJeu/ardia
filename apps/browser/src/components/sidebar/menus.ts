@@ -1,5 +1,6 @@
 import { showMenu, type MenuItem } from "@ardia/shell";
 import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
+import { menuShortcut } from "../../lib/commandShortcuts";
 import { folderChildren } from "../../store/bookmarks";
 import { useBrowser } from "../../store/browser";
 import { bookmarkProfileId, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
@@ -34,8 +35,6 @@ import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, nearestGroupColor, type GroupTint }
 
 const store = () => useBrowser.getState();
 const sep = { separator: true } as const;
-type Mods = NonNullable<Extract<MenuItem, { id: string }>["modifiers"]>;
-const hint = (key: string, ...modifiers: Mods) => ({ key, modifiers });
 
 function bookmarkFolderItems(windowId: string, prefix: string): MenuItem[] {
   const s = store();
@@ -99,7 +98,7 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   const choice = await showMenu([
     ...(tab.pinned
       ? [
-          { id: "backToPin", title: "Back to Pinned URL", symbol: "arrow.uturn.backward", enabled: away, ...hint("\r", "command") },
+          { id: "backToPin", title: "Back to Pinned URL", symbol: "arrow.uturn.backward", enabled: away, ...menuShortcut("returnToPinnedUrl") },
           { id: "replacePin", title: "Replace Pin with Current Page", symbol: "pin", enabled: away },
           { id: "editPin", title: "Edit Pinned Page…", symbol: "pencil" },
           ...(isCalendarUrl(tab.pinnedUrl ?? tab.url) ? [calendarMenuItem()] : []),
@@ -130,23 +129,23 @@ export async function openTabMenu(windowId: string, tab: Tab) {
       : [
           group
             ? { id: "ungroupTab", title: "Remove from Group", symbol: "folder.badge.minus" }
-            : { id: "newGroup", title: "New Group with Tab", symbol: "plus.rectangle.on.rectangle", ...hint("n", "control", "command") },
+            : { id: "newGroup", title: "New Group with Tab", symbol: "plus.rectangle.on.rectangle", ...menuShortcut("newGroupWithTabs") },
           ...(groups.length ? [{ id: "moveToGroup", title: "Move to Group", symbol: "rectangle.stack", children: groups }] : []),
         ]),
     ...(split ? [{ id: "unsplit", title: "Remove from Split View", symbol: "rectangle.split.2x1.slash" }] : []),
     sep,
     { id: "mute", title: tab.muted ? "Unmute Site" : "Mute Site", symbol: tab.muted ? "speaker.wave.2" : "speaker.slash", enabled: !!tab.url },
-    { id: "copy", title: "Copy URL", symbol: "link", enabled: !!tab.url, ...hint("c", "shift", "command") },
-    { id: "copyMd", title: "Copy Link as Markdown", symbol: "text.badge.checkmark", enabled: !!tab.url, ...hint("c", "option", "shift", "command") },
+    { id: "copy", title: "Copy URL", symbol: "link", enabled: !!tab.url, ...menuShortcut("copyUrl") },
+    { id: "copyMd", title: "Copy Link as Markdown", symbol: "text.badge.checkmark", enabled: !!tab.url, ...menuShortcut("copyUrlAsMarkdown") },
     { id: "share", title: "Share", symbol: "square.and.arrow.up", enabled: canShare(tab), share: true },
-    { id: "bookmark", title: "Add to Bookmarks…", symbol: "bookmark", enabled: !!tab.url, ...hint("d", "command") },
+    { id: "bookmark", title: "Add to Bookmarks…", symbol: "bookmark", enabled: !!tab.url, ...menuShortcut("bookmarkPage") },
     { id: "bookmarkTo", title: "Add Bookmark to Folder", symbol: "folder", enabled: !!tab.url, children: bookmarkFolderItems(windowId, "folder:") },
     ...(canSwitchEngine(tab.url) ? [{ id: "engine", title: `Open Page in ${ENGINE_NAMES[otherEngine(tabEngine(s, tab.id))]}`, symbol: ENGINE_SYMBOLS[otherEngine(tabEngine(s, tab.id))] }] : []),
     sep,
     { id: "moveToProfile", title: "Move to Profile", symbol: "person.crop.circle", enabled: !incognito, children: moveToProfile },
     { id: "moveToWindow", title: "Move to Window", symbol: "macwindow", enabled: !incognito, children: moveToWindowItems(windowId) },
     sep,
-    { id: "close", title: "Close Tab", symbol: "xmark", ...hint("w", "command") },
+    { id: "close", title: "Close Tab", symbol: "xmark", ...menuShortcut("closeTab") },
     { id: "closeOthers", title: "Close Other Tabs", enabled: others.length > 0 },
     { id: "closeAbove", title: across ? "Close Tabs to the Left" : "Close Tabs Above", enabled: above.length > 0 },
     { id: "closeBelow", title: across ? "Close Tabs to the Right" : "Close Tabs Below", enabled: below.length > 0 },
@@ -198,18 +197,18 @@ async function openMultiMenu(windowId: string, ids: string[]) {
     { id: "pin", title: allPinned ? `Unpin ${n} Tabs` : `Move ${n} Tabs to Top Apps`, symbol: allPinned ? "pin.slash" : "pin" },
     ...(tabs.every(isPinnedRow) ? [] : [{ id: "pinRows", title: `Move ${n} Tabs to ${pinnedSectionTitle(s, tabs[0])}`, symbol: "list.bullet" }]),
     { id: "duplicate", title: `Duplicate ${n} Tabs`, symbol: "plus.square.on.square" },
-    { id: "newGroup", title: `New Group with ${n} Tabs`, symbol: "plus.rectangle.on.rectangle", enabled: !allTiles, ...hint("n", "control", "command") },
+    { id: "newGroup", title: `New Group with ${n} Tabs`, symbol: "plus.rectangle.on.rectangle", enabled: !allTiles, ...menuShortcut("newGroupWithTabs") },
     ...(groups.length ? [{ id: "moveToGroup", title: "Move to Group", symbol: "rectangle.stack", children: groups }] : []),
     ...(tabs.some((t) => groupOf(s, t.id)) ? [{ id: "ungroup", title: "Remove from Group", symbol: "folder.badge.minus" }] : []),
     sep,
-    { id: "copy", title: `Copy ${n} URLs`, symbol: "link", ...hint("c", "shift", "command") },
-    { id: "copyMd", title: `Copy ${n} URLs as Markdown`, symbol: "text.badge.checkmark", ...hint("c", "option", "shift", "command") },
+    { id: "copy", title: `Copy ${n} URLs`, symbol: "link", ...menuShortcut("copyUrl") },
+    { id: "copyMd", title: `Copy ${n} URLs as Markdown`, symbol: "text.badge.checkmark", ...menuShortcut("copyUrlAsMarkdown") },
     { id: "bar", title: `Add ${n} Tabs to Bookmarks Bar`, symbol: "bookmark" },
     { id: "bookmarkTo", title: `Add ${n} Tabs to Bookmarks Folder`, symbol: "folder", children: bookmarkFolderItems(windowId, "folder:") },
     sep,
     { id: "moveToWindow", title: "Move to Window", symbol: "macwindow", enabled: !incognito, children: moveToWindowItems(windowId) },
     sep,
-    { id: "close", title: `Close ${n} Tabs`, symbol: "xmark", ...hint("w", "command") },
+    { id: "close", title: `Close ${n} Tabs`, symbol: "xmark", ...menuShortcut("closeTab") },
   ]);
   if (!choice) return;
   if (choice === "pin") s.pinTabs(ids, !allPinned);
@@ -252,7 +251,7 @@ export async function openGroupMenu(windowId: string, groupId: string) {
       ],
     },
     sep,
-    { id: "newTab", title: "New Tab in Group", symbol: "plus", ...hint("t", "option", "command") },
+    { id: "newTab", title: "New Tab in Group", symbol: "plus", ...menuShortcut("newTabInGroup") },
     { id: "nest", title: "New Nested Group", symbol: "plus.rectangle.on.rectangle" },
     ...(g.parentId ? [] : [{ id: "pin", title: g.pinned ? "Unpin Group" : "Pin Group", symbol: g.pinned ? "pin.slash" : "pin" }]),
     { id: "duplicate", title: "Duplicate Group", symbol: "plus.square.on.square" },
@@ -296,12 +295,12 @@ export async function openSidebarMenu(windowId: string) {
   const s = store();
   const muted = allMuted(windowId);
   const choice = await showMenu([
-    { id: "newTab", title: "New Tab", symbol: "plus", ...hint("t", "command") },
-    { id: "search", title: "Search Tabs…", symbol: "magnifyingglass", ...hint("a", "shift", "command") },
+    { id: "newTab", title: "New Tab", symbol: "plus", ...menuShortcut("newTab") },
+    { id: "search", title: "Search Tabs…", symbol: "magnifyingglass", ...menuShortcut("searchTabs") },
     sep,
-    { id: "clean", title: "Clean Up Tabs", symbol: "wand.and.stars", ...hint("k", "option", "command") },
+    { id: "clean", title: "Clean Up Tabs", symbol: "wand.and.stars", ...menuShortcut("cleanUpTabs") },
     { id: "mute", title: muted ? "Unmute All Tabs" : "Mute All Tabs", symbol: muted ? "speaker.wave.2" : "speaker.slash" },
-    { id: "closeAll", title: "Close All Tabs", symbol: "xmark", ...hint("k", "shift", "command") },
+    { id: "closeAll", title: "Close All Tabs", symbol: "xmark", ...menuShortcut("closeAllTabs") },
     sep,
     newLiveFolderMenuItem(),
   ]);
@@ -373,7 +372,7 @@ export async function openOverflowMenu(windowId: string) {
   const daily = s.settings.cleanUpInactiveTabsAfterHours !== null;
   const synced = syncedDevicesMenuItem(w.profileId);
   const choice = await showMenu([
-    { id: "search", title: "Search Tabs…", symbol: "magnifyingglass", ...hint("a", "shift", "command") },
+    { id: "search", title: "Search Tabs…", symbol: "magnifyingglass", ...menuShortcut("searchTabs") },
     sep,
     {
       id: "open",
@@ -399,11 +398,11 @@ export async function openOverflowMenu(windowId: string) {
     },
     ...(deleted.length ? [{ id: "deleted", title: "Recently Deleted Groups", symbol: "trash", children: deleted }] : []),
     sep,
-    { id: "clean", title: "Clean Up Tabs", symbol: "wand.and.stars", ...hint("k", "option", "command") },
+    { id: "clean", title: "Clean Up Tabs", symbol: "wand.and.stars", ...menuShortcut("cleanUpTabs") },
     { id: "daily", title: "Clean Up Daily", checked: daily },
     sep,
     { id: "mute", title: muted ? "Unmute All Tabs" : "Mute All Tabs", symbol: muted ? "speaker.wave.2" : "speaker.slash" },
-    { id: "closeAll", title: "Close All Tabs", symbol: "xmark", ...hint("k", "shift", "command") },
+    { id: "closeAll", title: "Close All Tabs", symbol: "xmark", ...menuShortcut("closeAllTabs") },
   ]);
   if (!choice) return;
   if (choice === "search") setSidebarUi({ searchTabs: windowId });

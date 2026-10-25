@@ -1,6 +1,7 @@
 import { type LinkRoute, routeLinkTabs } from "@ardia/ardiacore";
 import { showMenu } from "@ardia/shell";
 import { focus, openWindow } from "../../lib/actions";
+import { menuShortcut } from "../../lib/commandShortcuts";
 import { closeWindowAnimated, isWindowClosing } from "../../lib/closeAnimated";
 import { routedLinks, type RoutedLinks } from "../../lib/linkRoutes";
 import { runsJavaScript } from "../../lib/scriptUrls";
@@ -107,12 +108,12 @@ export async function openLittleArdiaProfileMenu(windowId: string) {
   const s = store();
   const current = s.windows[windowId]?.profileId;
   const choice = await showMenu(
-    s.profileOrder.map((id, i) => ({
+    s.profileOrder.map((id) => ({
       id,
       title: s.profiles[id]!.name,
       checked: id === current,
       swatch: profileAccent(s.profiles[id]),
-      ...(i < 9 ? { key: String(i + 1), modifiers: ["control" as const] } : {}),
+      ...menuShortcut(`switchProfile:${id}`, s),
     })),
   );
   if (choice) moveLittleArdiaToProfile(windowId, choice);

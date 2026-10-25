@@ -1,0 +1,182 @@
+import type { BrowserCommand } from "@ardia/shell";
+import { parseShortcut, type ShortcutSource } from "./shortcuts";
+
+type Keys = readonly string[];
+type CommandSpec = { keys?: Keys; variants?: Readonly<Record<string, { keys?: Keys }>> };
+
+export const COMMANDS: Readonly<Record<BrowserCommand, CommandSpec>> = {
+  newTab: { keys: ["⌘T"] },
+  newWindow: { keys: ["⌘N"] },
+  newIncognitoWindow: { keys: ["⇧⌘N"] },
+  newLittleArdia: { keys: ["⌥⌘N"] },
+  toggleOpenLinksInLittleArdia: {},
+  reopenClosedTab: { keys: ["⇧⌘T"] },
+  reopenClosedWindow: {},
+  restoreClosed: {},
+  focusCommandBar: { keys: ["⌘L", "⌃F5"] },
+  closeTab: { keys: ["⌘W"] },
+  closeAllTabs: { keys: ["⇧⌘K"] },
+  print: { keys: ["⌘P"] },
+  copyUrl: { keys: ["⇧⌘C"] },
+  copyUrlAsMarkdown: { keys: ["⌥⇧⌘C"] },
+  findInPage: { keys: ["⌘F"] },
+  findNext: { keys: ["⌘G"] },
+  findPrevious: { keys: ["⇧⌘G"] },
+  setAppearance: { variants: { auto: {}, light: {}, dark: {} } },
+  reload: { keys: ["⌘R"] },
+  forceReload: { keys: ["⇧⌘R"] },
+  toggleTabLayout: { keys: ["⇧⌘S"] },
+  toggleSidebar: { keys: ["⌘S", "⇧⌘L", "⇧⌘F"] },
+  openSplitPane: { keys: ["⌃⇧=", "⌃+"] },
+  useSelectionForFind: { keys: ["⌘E"] },
+  findAndReplace: { keys: ["⌥⌘F"] },
+  jumpToSelection: { keys: ["⌘J"] },
+  focusNextPane: { keys: ["⌃⇧]", "⌃}"] },
+  focusPreviousPane: { keys: ["⌃⇧[", "⌃{"] },
+  toggleFullUrl: {},
+  toggleJavaScriptFromAppleEvents: {},
+  toggleAddressBar: {},
+  cast: {},
+  zoomReset: { keys: ["⌘0"] },
+  zoomIn: { keys: ["⌘+", "⌘="] },
+  zoomOut: { keys: ["⌘-"] },
+  devTools: { keys: ["⌥⌘I"] },
+  toggleDevTools: { keys: ["F12"] },
+  javaScriptConsole: { keys: ["⌥⌘J"] },
+  inspectElements: { keys: ["⌥⌘C"] },
+  viewSource: { keys: ["⌥⌘U"] },
+  back: { keys: ["⌘[", "⌘←"] },
+  forward: { keys: ["⌘]", "⌘→"] },
+  nextTab: { keys: ["⇧⌘]", "⌘}", "⌥⌘→", "⌃⇟", "⌥⌘↓"] },
+  previousTab: { keys: ["⇧⌘[", "⌘{", "⌥⌘←", "⌃⇞", "⌥⌘↑"] },
+  selectTab: { variants: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((n) => [String(n), { keys: [`⌘${n}`] }])) },
+  selectLastTab: { keys: ["⌘9"] },
+  togglePin: { variants: { tile: {} } },
+  togglePinnedRow: { keys: ["⌥⇧⌘D"] },
+  duplicateTab: {},
+  moveTabToProfile: {},
+  moveTabToWindow: {},
+  bookmarkPage: { keys: ["⌘D"] },
+  addBookmarkToFolder: {},
+  openBookmark: {},
+  addFolderToSidebar: {},
+  restoreArcFolders: {},
+  toggleMute: {},
+  togglePageEngine: {},
+  downloads: { keys: ["⇧⌘J", "⌥⌘L"] },
+  mergeAllWindows: {},
+  switchProfile: {},
+  nextProfile: {},
+  previousProfile: {},
+  newProfile: {},
+  openSettings: { keys: ["⌘,"] },
+  importBrowserData: {},
+  showHistory: { keys: ["⌘Y"] },
+  clearBrowsingData: { keys: ["⇧⌘⌫"] },
+  manageBookmarks: { keys: ["⌥⌘B"] },
+  bookmarkAllTabs: { keys: ["⇧⌘D"] },
+  setBookmarksBar: { variants: { always: {}, newTab: {}, never: {} } },
+  toggleBookmarksBar: { keys: ["⇧⌘B"] },
+  newTabInGroup: { keys: ["⌥⌘T", "⌃⌘C"] },
+  newGroupWithTabs: { keys: ["⌃⌘N", "⌃⌘P"] },
+  cleanUpTabs: { keys: ["⌥⌘K"] },
+  tidyPins: {},
+  searchTabs: { keys: ["⇧⌘A"] },
+  renameTab: {},
+  changeTabIcon: {},
+  returnToPinnedUrl: { keys: ["⌘↩"] },
+  tabSwitcher: { variants: { forward: { keys: ["⌃⇥"] }, backward: { keys: ["⌃⇧⇥"] } } },
+  share: {},
+  sendFeedback: { keys: ["⌥⇧⌘I"] },
+  keyboardShortcuts: {},
+  copyDiagnostics: {},
+  recordPerformanceIssue: {},
+  toolTour: {},
+  videoTour: {},
+  releaseNotes: {},
+  showOnboarding: {},
+  taskManager: {},
+  openExtension: {},
+  addExtension: {},
+  manageExtensions: {},
+  pinExtensions: {},
+  autofill: { variants: { contact: {}, passwords: {}, creditCard: {} } },
+  openFile: { keys: ["⌘O"] },
+  savePage: {},
+  emailPageLocation: { keys: ["⇧⌘I"] },
+  printWithSystemDialog: { keys: ["⌥⌘P"] },
+  stop: { keys: ["⌘."] },
+  caretBrowsing: { keys: ["F7"] },
+  moveTabDown: { keys: ["⌃⇧⇟"] },
+  moveTabUp: { keys: ["⌃⇧⇞"] },
+  closeTabGroup: { keys: ["⌃⌘W"] },
+  openProfileMenu: { keys: ["⇧⌘M"] },
+};
+
+export const STANDARD_ITEMS: Readonly<Record<string, { keys?: Keys }>> = {
+  "std:quit:": { keys: ["⌘Q"] },
+  "std:hide:": { keys: ["⌘H"] },
+  "std:hideOtherApplications:": { keys: ["⌥⌘H"] },
+  "std:unhideAllApplications:": {},
+  "std:closeWindow:": { keys: ["⇧⌘W"] },
+  "std:undo:": { keys: ["⌘Z"] },
+  "std:redo:": { keys: ["⇧⌘Z"] },
+  "std:cut:": { keys: ["⌘X"] },
+  "std:copy:": { keys: ["⌘C"] },
+  "std:paste:": { keys: ["⌘V"] },
+  "std:pasteAndMatchStyle:": { keys: ["⇧⌘V"] },
+  "std:delete:": {},
+  "std:selectAll:": { keys: ["⌘A"] },
+  "std:showGuessPanel:": { keys: ["⌘:"] },
+  "std:checkSpelling:": { keys: ["⌘;"] },
+  "std:toggleContinuousSpellChecking:": {},
+  "std:toggleGrammarChecking:": {},
+  "std:toggleAutomaticSpellingCorrection:": {},
+  "std:orderFrontSubstitutionsPanel:": {},
+  "std:toggleSmartInsertDelete:": {},
+  "std:toggleAutomaticQuoteSubstitution:": {},
+  "std:toggleAutomaticDashSubstitution:": {},
+  "std:toggleAutomaticLinkDetection:": {},
+  "std:toggleAutomaticDataDetection:": {},
+  "std:toggleAutomaticTextReplacement:": {},
+  "std:uppercaseWord:": {},
+  "std:lowercaseWord:": {},
+  "std:capitalizeWord:": {},
+  "std:startSpeaking:": {},
+  "std:stopSpeaking:": {},
+  "std:toggleFullScreen:": { keys: ["🌐F", "⌃⌘F"] },
+  "std:performMiniaturize:": { keys: ["⌘M"] },
+  "std:miniaturizeAll:": { keys: ["⌥⌘M"] },
+  "std:performZoom:": {},
+  "std:arrangeWindowsInFront:": {},
+  "std:toggleKeepOnTop:": {},
+};
+
+const PROFILE_SHORTCUT_COUNT = 9;
+const OVERRIDABLE_PER_ITEM_COMMANDS: readonly BrowserCommand[] = ["openExtension"];
+
+const source = (id: string, keys: Keys = []): ShortcutSource => ({ id, keys: keys.map(parseShortcut) });
+
+export function staticShortcutSources(): ShortcutSource[] {
+  const sources: ShortcutSource[] = [];
+  for (const [command, spec] of Object.entries(COMMANDS) as [BrowserCommand, CommandSpec][]) {
+    sources.push(source(command, spec.keys));
+    for (const [arg, variant] of Object.entries(spec.variants ?? {})) sources.push(source(`${command}:${arg}`, variant.keys));
+  }
+  for (const [id, item] of Object.entries(STANDARD_ITEMS)) sources.push(source(id, item.keys));
+  return sources;
+}
+
+const STATIC_SOURCES = staticShortcutSources();
+
+export function shortcutSources(profileIds: readonly string[], overriddenIds: readonly string[]): ShortcutSource[] {
+  const perItem = overriddenIds.filter((id) => OVERRIDABLE_PER_ITEM_COMMANDS.some((command) => id.startsWith(`${command}:`)));
+  return [
+    ...STATIC_SOURCES,
+    ...profileIds.flatMap((id, i) => [
+      source(`switchProfile:${id}`, i < PROFILE_SHORTCUT_COUNT ? [`⌃${i + 1}`] : []),
+      source(`newLittleArdia:${id}`),
+    ]),
+    ...perItem.map((id) => source(id)),
+  ];
+}

@@ -4,6 +4,7 @@ import { isBookmarked } from "../../store/bookmarks";
 import { useBrowser, type BrowserState } from "../../store/browser";
 import { activeTab, bookmarkProfileId, isPinnedRow, pinnedSectionTitle } from "../../store/model";
 import { canTidyPins } from "../../store/tidyPins";
+import { shortcutHint } from "../../lib/commandShortcuts";
 import type { Tab } from "../../store/types";
 import { organizeActions } from "./organizeActions";
 
@@ -14,7 +15,6 @@ type ActionDef = {
   arg?: string;
   title: string | ((c: Context) => string);
   icon: string;
-  hint?: string;
   keywords?: string[];
   needs?: "page" | "tab" | "profiles" | "pins";
 };
@@ -22,12 +22,12 @@ type ActionDef = {
 const page = "page" as const;
 
 const DEFS: ActionDef[] = [
-  { command: "newTab", title: "New Tab", icon: "plus", hint: "⌘T", keywords: ["open tab"] },
-  { command: "newWindow", title: "New Window", icon: "macwindow", hint: "⌘N" },
-  { command: "newIncognitoWindow", title: "New Incognito Window", icon: "eyeglasses", hint: "⇧⌘N", keywords: ["private window", "incognito"] },
-  { command: "closeTab", title: "Close Tab", icon: "xmark", hint: "⌘W", needs: "tab" },
-  { command: "closeAllTabs", title: "Close All Tabs", icon: "xmark.square", hint: "⇧⌘K", keywords: ["clear unpinned tabs", "close unpinned tabs", "clear today"] },
-  { command: "reopenClosedTab", title: "Reopen Closed Tab", icon: "arrow.uturn.backward", hint: "⇧⌘T", keywords: ["undo close", "restore tab"] },
+  { command: "newTab", title: "New Tab", icon: "plus", keywords: ["open tab"] },
+  { command: "newWindow", title: "New Window", icon: "macwindow" },
+  { command: "newIncognitoWindow", title: "New Incognito Window", icon: "eyeglasses", keywords: ["private window", "incognito"] },
+  { command: "closeTab", title: "Close Tab", icon: "xmark", needs: "tab" },
+  { command: "closeAllTabs", title: "Close All Tabs", icon: "xmark.square", keywords: ["clear unpinned tabs", "close unpinned tabs", "clear today"] },
+  { command: "reopenClosedTab", title: "Reopen Closed Tab", icon: "arrow.uturn.backward", keywords: ["undo close", "restore tab"] },
   {
     command: "togglePin",
     title: ({ tab }) => (isPinnedRow(tab) ? "Unpin Tab" : tab?.pinned ? "Unpin from Top Apps" : "Move to Top Apps"),
@@ -45,38 +45,37 @@ const DEFS: ActionDef[] = [
   },
   { command: "duplicateTab", title: "Duplicate Tab", icon: "plus.square.on.square", needs: "tab" },
   { command: "renameTab", title: "Rename Tab", icon: "pencil", needs: "tab" },
-  { command: "searchTabs", title: "Search Tabs", icon: "magnifyingglass", hint: "⇧⌘A" },
-  { command: "cleanUpTabs", title: "Clean Up Tabs", icon: "sparkles", hint: "⌥⌘K", keywords: ["tidy tabs"] },
+  { command: "searchTabs", title: "Search Tabs", icon: "magnifyingglass" },
+  { command: "cleanUpTabs", title: "Clean Up Tabs", icon: "sparkles", keywords: ["tidy tabs"] },
   { command: "tidyPins", title: "Tidy Pins", icon: "sparkles", keywords: ["tidy pinned tabs", "organize pins", "pinned folders", "remove duplicate pins"], needs: "pins" },
-  { command: "newGroupWithTabs", title: "New Group with Tab", icon: "folder.badge.plus", hint: "⌃⌘N", keywords: ["tab group"], needs: "tab" },
-  { command: "reload", title: "Reload Page", icon: "arrow.clockwise", hint: "⌘R", keywords: ["refresh"], needs: page },
-  { command: "forceReload", title: "Force Reload Page", icon: "arrow.clockwise", hint: "⇧⌘R", keywords: ["hard reload", "hard refresh"], needs: page },
+  { command: "newGroupWithTabs", title: "New Group with Tab", icon: "folder.badge.plus", keywords: ["tab group"], needs: "tab" },
+  { command: "reload", title: "Reload Page", icon: "arrow.clockwise", keywords: ["refresh"], needs: page },
+  { command: "forceReload", title: "Force Reload Page", icon: "arrow.clockwise", keywords: ["hard reload", "hard refresh"], needs: page },
   { command: "toggleMute", title: ({ tab }) => (tab?.muted ? "Unmute Site" : "Mute Site"), icon: "speaker.slash", keywords: ["mute", "unmute", "silence"], needs: page },
-  { command: "copyUrl", title: "Copy URL", icon: "link", hint: "⇧⌘C", keywords: ["copy link"], needs: page },
-  { command: "copyUrlAsMarkdown", title: "Copy URL as Markdown", icon: "link", hint: "⌥⇧⌘C", keywords: ["markdown link"], needs: page },
-  { command: "findInPage", title: "Find in Page", icon: "text.magnifyingglass", hint: "⌘F", needs: page },
+  { command: "copyUrl", title: "Copy URL", icon: "link", keywords: ["copy link"], needs: page },
+  { command: "copyUrlAsMarkdown", title: "Copy URL as Markdown", icon: "link", keywords: ["markdown link"], needs: page },
+  { command: "findInPage", title: "Find in Page", icon: "text.magnifyingglass", needs: page },
   {
     command: "bookmarkPage",
     title: ({ s, windowId, tab }) =>
       tab?.url && isBookmarked(s.bookmarks, bookmarkProfileId(s, s.windows[windowId]), tab.url) ? "Remove Bookmark" : "Bookmark This Page",
     icon: "bookmark",
-    hint: "⌘D",
     keywords: ["add bookmark", "bookmark"],
     needs: page,
   },
-  { command: "print", title: "Print", icon: "printer", hint: "⌘P", needs: page },
+  { command: "print", title: "Print", icon: "printer", needs: page },
   { command: "share", title: "Share", icon: "square.and.arrow.up", keywords: ["airdrop", "share link", "send link"], needs: page },
-  { command: "zoomIn", title: "Zoom In", icon: "plus.magnifyingglass", hint: "⌘+", needs: page },
-  { command: "zoomOut", title: "Zoom Out", icon: "minus.magnifyingglass", hint: "⌘-", needs: page },
-  { command: "zoomReset", title: "Actual Size", icon: "1.magnifyingglass", hint: "⌘0", keywords: ["reset zoom"], needs: page },
-  { command: "devTools", title: "Developer Tools", icon: "hammer", hint: "⌥⌘I", keywords: ["inspect", "devtools", "console"], needs: page },
+  { command: "zoomIn", title: "Zoom In", icon: "plus.magnifyingglass", needs: page },
+  { command: "zoomOut", title: "Zoom Out", icon: "minus.magnifyingglass", needs: page },
+  { command: "zoomReset", title: "Actual Size", icon: "1.magnifyingglass", keywords: ["reset zoom"], needs: page },
+  { command: "devTools", title: "Developer Tools", icon: "hammer", keywords: ["inspect", "devtools", "console"], needs: page },
   { command: "toggleFullUrl", title: ({ s }) => (s.settings.showFullUrl ? "Hide Full URL" : "Show Full URL"), icon: "text.alignleft" },
-  { command: "toggleSidebar", title: "Auto-Hide Tabs", icon: "sidebar.left", hint: "⌘S", keywords: ["toggle sidebar", "hide sidebar", "show sidebar", "focus mode"] },
-  { command: "toggleBookmarksBar", title: "Toggle Bookmarks Bar", icon: "menubar.rectangle", hint: "⇧⌘B", keywords: ["bookmarks bar"] },
-  { command: "downloads", title: "Downloads", icon: "arrow.down.circle", hint: "⇧⌘J", keywords: ["show downloads", "dl"] },
-  { command: "showHistory", title: "History", icon: "clock", hint: "⌘Y", keywords: ["show history"] },
-  { command: "manageBookmarks", title: "Bookmarks", icon: "book", hint: "⌥⌘B", keywords: ["manage bookmarks", "show bookmarks"] },
-  { command: "openSettings", title: "Settings", icon: "gearshape", hint: "⌘,", keywords: ["preferences", "prefs", "options"] },
+  { command: "toggleSidebar", title: "Auto-Hide Tabs", icon: "sidebar.left", keywords: ["toggle sidebar", "hide sidebar", "show sidebar", "focus mode"] },
+  { command: "toggleBookmarksBar", title: "Toggle Bookmarks Bar", icon: "menubar.rectangle", keywords: ["bookmarks bar"] },
+  { command: "downloads", title: "Downloads", icon: "arrow.down.circle", keywords: ["show downloads", "dl"] },
+  { command: "showHistory", title: "History", icon: "clock", keywords: ["show history"] },
+  { command: "manageBookmarks", title: "Bookmarks", icon: "book", keywords: ["manage bookmarks", "show bookmarks"] },
+  { command: "openSettings", title: "Settings", icon: "gearshape", keywords: ["preferences", "prefs", "options"] },
   { command: "clearBrowsingData", title: "Clear Browsing Data", icon: "trash", keywords: ["clear history", "clear cache", "clear cookies"] },
   { command: "importBrowserData", title: "Import Browser Data", icon: "square.and.arrow.down", keywords: ["import bookmarks", "import passwords"] },
   { command: "keyboardShortcuts", title: "Keyboard Shortcuts", icon: "keyboard", keywords: ["shortcuts", "hotkeys"] },
@@ -99,19 +98,22 @@ export function barActions(s: BrowserState, windowId: string): CommandAction[] {
     if (d.needs === "tab" && !tab) continue;
     if (d.needs === "profiles" && w?.incognito) continue;
     if (d.needs === "pins" && !canTidyPins(s, windowId)) continue;
+    const id = actionId(d);
+    const hint = shortcutHint(id, s);
     out.push({
-      id: actionId(d),
+      id,
       title: typeof d.title === "string" ? d.title : d.title(c),
       icon: d.icon,
-      ...(d.hint ? { hint: d.hint } : {}),
+      ...(hint ? { hint } : {}),
       ...(d.keywords ? { keywords: d.keywords } : {}),
     });
   }
   if (w && !w.incognito) {
-    s.profileOrder.forEach((id, i) => {
+    s.profileOrder.forEach((id) => {
       if (id === w.profileId) return;
       const name = s.profiles[id]?.name ?? "";
-      out.push({ id: `switchProfile:${id}`, title: `Switch to ${name}`, icon: "person.crop.circle", hint: i < 9 ? `⌃${i + 1}` : undefined, keywords: [name, "profile", "space"] });
+      const action = `switchProfile:${id}`;
+      out.push({ id: action, title: `Switch to ${name}`, icon: "person.crop.circle", hint: shortcutHint(action, s), keywords: [name, "profile", "space"] });
     });
   }
   out.push(...organizeActions(s, windowId));
