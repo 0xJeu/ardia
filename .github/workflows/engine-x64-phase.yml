@@ -50,9 +50,21 @@ jobs:
       - name: Restore the previous phase's tree
         if: inputs.resume
         run: .github/engine/x64.sh restore
-      - name: Sync, Helium, our series, GN args (steps 1, 3, 4, 2)
+      - name: depot_tools and the pinned Helium checkouts
         if: ${{ !inputs.resume }}
-        run: .github/engine/x64.sh prepare
+        run: .github/engine/x64.sh tools
+      - name: Step 1, sync Chromium
+        if: ${{ !inputs.resume }}
+        run: .github/engine/x64.sh sync
+      - name: Step 3, Helium
+        if: ${{ !inputs.resume }}
+        run: .github/engine/x64.sh helium
+      - name: Step 4, our series
+        if: ${{ !inputs.resume }}
+        run: .github/engine/x64.sh series
+      - name: Step 2, GN args
+        if: ${{ !inputs.resume }}
+        run: .github/engine/x64.sh gn
       - name: Build chrome_framework (step 5)
         id: build
         run: .github/engine/x64.sh build

@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 build="$repo/engine/patches/build"
-cb="$HOME/engine-build"
+cb="$HOME/chromium-build"
 src="$cb/chromium_git/chromium/src"
 out="$src/out/Release_GN_x64"
 xcode=/Applications/Xcode_27.1.app
@@ -14,7 +14,7 @@ min_build_minutes=10
 ckpt="${RUNNER_TEMP:?}/checkpoint"
 dist="${RUNNER_TEMP:?}/dist"
 
-export AC_CHROMIUM_BUILD="$cb" AC_TARGET_CPU=x64 AC_FULL_PRIORITY=1
+export AC_TARGET_CPU=x64 AC_FULL_PRIORITY=1
 export PATH="/usr/bin:$PATH"
 if [[ "${ENGINE_SCCACHE:-}" == true ]]; then
   export AC_GN_EXTRA_ARGS='cc_wrapper="sccache"' SCCACHE_GHA_ENABLED=true SCCACHE_GHA_VERSION=engine-x64 SCCACHE_IDLE_TIMEOUT=0
@@ -24,6 +24,10 @@ say() { printf '\n==> %s (%s)\n' "$*" "$(date -u +%H:%M:%S)"; }
 locked() { lockf -k "$lockfile" "$@"; }
 output() { [[ -z "${GITHUB_OUTPUT:-}" ]] || echo "$1=$2" >>"$GITHUB_OUTPUT"; }
 started() { cat "$RUNNER_TEMP/job-start"; }
+pin() {
+  python3 -c 'import configparser, sys; c = configparser.ConfigParser(interpolation=None); c.read(sys.argv[1]); print(c[sys.argv[2]][sys.argv[3]])' \
+    "$build/helium-pins.ini" "$1" "$2"
+}
 
 setup() {
   date +%s >"$RUNNER_TEMP/job-start"
@@ -51,31 +55,39 @@ setup() {
   sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string
 }
 
-prepare() {
+tools() {
   say "depot_tools"
   mkdir -p "$cb"
   git clone -q --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$cb/depot_tools"
+  "$cb/depot_tools/ensure_bootstrap"
   say "Helium checkouts"
-  local section dir url commit
+  local section dir
   for section in helium-chromium:helium helium-macos:helium-macos; do
     dir="$cb/${section#*:}"
-    url=$(python3 -c 'import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read(sys.argv[1]); print(c[sys.argv[2]]["url"])' "$build/helium-pins.ini" "${section%%:*}")
-    commit=$(python3 -c 'import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read(sys.argv[1]); print(c[sys.argv[2]]["commit"])' "$build/helium-pins.ini" "${section%%:*}")
     git init -q "$dir"
-    git -C "$dir" fetch -q --depth 1 "$url" "$commit"
+    git -C "$dir" fetch -q --depth 1 "$(pin "${section%%:*}" url)" "$(pin "${section%%:*}" commit)"
     git -C "$dir" -c advice.detachedHead=false checkout -q FETCH_HEAD
   done
-  say "step 1: sync"
+}
+
+sync() {
   locked "$build/01-sync.sh" --apply
-  say "step 3: Helium"
-  python3 "$build/03-helium.py" --apply --work "$cb/helium-work"
-  say "step 4: our series"
+  df -h /
+}
+
+helium() {
+  locked python3 "$build/03-helium.py" --apply --work "$cb/helium-work"
+  rm -rf "$cb/helium-work"
+}
+
+series() {
   locked "$build/04-series.sh" --apply
-  say "step 2: GN args"
+}
+
+gn_args() {
   locked "$build/02-gn-args.sh" --apply
   cat "$out/args.gn"
-  rm -rf "$cb/helium-work" "$cb/series-base"
-  say "sizes"
+  rm -rf "$cb/series-base"
   df -h /
   du -sh "$src" "$out" "$cb/depot_tools" 2>/dev/null || true
 }
@@ -143,7 +155,8 @@ package() {
 }
 
 case "${1:-}" in
-  setup | prepare | restore | checkpoint | package) "$1" ;;
+  setup | tools | sync | helium | series | restore | checkpoint | package) "$1" ;;
+  gn) gn_args ;;
   build) build_phase ;;
-  *) echo "usage: x64.sh setup|prepare|restore|build|checkpoint|package" >&2; exit 64 ;;
+  *) echo "usage: x64.sh setup|tools|sync|helium|series|gn|restore|build|checkpoint|package" >&2; exit 64 ;;
 esac

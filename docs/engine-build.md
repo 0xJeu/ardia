@@ -408,8 +408,8 @@ of that commit (`git rev-parse HEAD:engine`) with the same step scripts, in the 
 a tree whose x64 engine is already published (the `force` input rebuilds it). The step scripts take three variables
 for it, and without them behave as before: `AC_TARGET_CPU=x64` (`target_cpu` and the out dir, `out/Release_GN_x64`),
 `AC_FULL_PRIORITY=1` (no `taskpolicy` throttling) and `AC_GN_EXTRA_ARGS` (args added to `gn_defines.sh`'s list; CI
-adds `cc_wrapper="sccache"`). The build root is the runner's `~/engine-build`, a scratch root to `pathguard.py`;
-`.github/engine/x64.sh` holds each phase's commands.
+adds `cc_wrapper="sccache"`). The build root is the runner's own `~/chromium-build`, so the guards and the chromium
+lock work as they do here; `.github/engine/x64.sh` holds each phase's commands.
 
 - **Runner.** `xcode-27` (Apple silicon, 3 cores, 7 GB): Xcode 27.1 with the macOS 27.0 SDK, the same as the local
   build, cross-compiling to x64 as Helium's own CI does. The host tools (clang, rust, siso) are the arm64 ones the
