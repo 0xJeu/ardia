@@ -26,7 +26,7 @@ async function copyCookies(tabId: string, url: string): Promise<number> {
   const profile = engineProfile(t.profileId);
   if (!stillChromiumPage(tabId, profile, web)) return 0;
   const storeKey = await webKitCookieStoreKey(profile);
-  if (!storeKey || !stillChromiumPage(tabId, profile, web)) return 0;
+  if (storeKey == null || !stillChromiumPage(tabId, profile, web)) return 0;
   const cookies = carriableCookies(await web.pageCookies(urls), Date.now() / 1000);
   if (!cookies.length || !stillChromiumPage(tabId, profile, web)) return 0;
   return importWebKitCookies(profile, storeKey, cookies);

@@ -7,7 +7,7 @@ globalThis.acTestNativeModules = {
   ArdiaWebKit: {
     addListener: () => ({ remove() {} }),
     endPrivateSession: () => Promise.resolve(),
-    cookieStoreKey: (profile) => (storeKeys.push(profile), Promise.resolve(`key:${profile}`)),
+    cookieStoreKey: (profile) => (storeKeys.push(profile), Promise.resolve(profile)),
     importCookies: (profile, key, cookies) => (imports.push({ profile, key, cookies }), Promise.resolve(cookies.length)),
   },
 };
@@ -28,7 +28,7 @@ function pageWithCookies() {
   return { handle: { pageCookies: () => pending }, answer: () => answer([cookie]) };
 }
 
-test("a regular tab's cookies go to its profile's WebKit store, bound to that store", async () => {
+test("the default profile's cookies go to its WebKit store, whose key is the empty string", async () => {
   S().hydrate({});
   imports.length = 0;
   const w = S().createWindow({ url: "https://video.example/title/1" });
@@ -38,7 +38,7 @@ test("a regular tab's cookies go to its profile's WebKit store, bound to that st
   const carried = carrySignInToWebKit(tabId, "https://video.example/title/1");
   page.answer();
   assert.equal(await carried, 1);
-  assert.deepEqual(imports.map((i) => [i.profile, i.key, i.cookies.length]), [["", "key:", 1]]);
+  assert.deepEqual(imports.map((i) => [i.profile, i.key, i.cookies.length]), [["", "", 1]]);
   webviews.clear();
 });
 
