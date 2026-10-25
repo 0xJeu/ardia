@@ -668,6 +668,14 @@ export function placing(s: BrowserState, ids: string[], p: TabPlacement): Browse
   return { ...s, tabs, pinChoices, pinSync, groups: syncGroupOrder(groups, window), windows: { ...s.windows, [w.id]: window } };
 }
 
+function withHomesOf(s: BrowserState, before: BrowserState, ids: string[]): BrowserState {
+  const kept = ids.filter((id) => before.tabs[id]?.pinnedUrl && s.tabs[id] && s.tabs[id]!.pinnedUrl !== before.tabs[id]!.pinnedUrl);
+  if (!kept.length) return s;
+  const tabs = { ...s.tabs };
+  for (const id of kept) tabs[id] = { ...tabs[id]!, pinnedUrl: before.tabs[id]!.pinnedUrl };
+  return { ...s, tabs };
+}
+
 export function groupingOnto(s: BrowserState, ids: string[], targetId: string): [BrowserState, string] {
   const target = s.tabs[targetId];
   const w = target && s.windows[target.windowId];
@@ -675,7 +683,8 @@ export function groupingOnto(s: BrowserState, ids: string[], targetId: string): 
   const moving = ids.filter((id) => id !== targetId && s.tabs[id]?.windowId === w.id && s.tabs[id]?.profileId === target.profileId);
   if (!moving.length) return [s, ""];
   const after = w.tabIds.slice(w.tabIds.indexOf(targetId) + 1).find((id) => !moving.includes(id)) ?? null;
-  const [next, id] = withRowsGrouped(placing(s, moving, { pinned: false, beforeId: after }), [targetId, ...moving], { pinned: false });
+  const placed = placing(s, moving, { pinned: false, beforeId: after });
+  const [next, id] = withRowsGrouped(isPinnedRow(target) ? withHomesOf(placed, s, moving) : placed, [targetId, ...moving], { pinned: false });
   return id ? [{ ...next, selection: { ...next.selection, [w.id]: [] } }, id] : [s, ""];
 }
 

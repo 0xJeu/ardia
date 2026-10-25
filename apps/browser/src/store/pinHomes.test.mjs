@@ -102,3 +102,14 @@ test("deleting and reopening a pinned group, or duplicating it, keeps each tab's
   assert.equal(back.length, 1);
   assert.equal(S().tabs[back[0].tabIds[0]].pinnedUrl, "https://a.com/", "the reopened group keeps the home");
 });
+
+test("grouping a pinned row onto another keeps the dragged row's home", () => {
+  reset();
+  const { ids: [, a, b] } = windowWith("x", "a", "b");
+  S().pinTabs([a, b], true, true);
+  go(a, "https://a.com/away");
+  const g = S().groupOnto([a], b);
+  assert.ok(g && S().groups[g]?.pinned, "the rows make a pinned group");
+  assert.equal(S().tabs[a].pinnedUrl, "https://a.com/", "the dragged row keeps its home");
+  assert.equal(S().tabs[b].pinnedUrl, "https://b.com/", "and so does the row it went onto");
+});
