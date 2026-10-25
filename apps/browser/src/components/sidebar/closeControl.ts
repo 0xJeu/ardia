@@ -3,7 +3,8 @@ import { useBrowser, type BrowserState } from "../../store/browser";
 import { rootOf } from "../../store/groups";
 import { inPinnedContainer } from "../../store/model";
 import { isClosedPin } from "../../store/organize";
-import type { Tab } from "../../store/types";
+import { holderOf } from "../../store/pinShare";
+import { middleClickTab } from "./menus";
 
 export type CloseControl = { icon: "xmark" | "minus"; tooltip: string };
 
@@ -20,9 +21,15 @@ export function tabCloseControl(s: BrowserState, tabId: string): CloseControl {
 
 export const useTabCloseControl = (tabId: string) => useBrowser((s) => tabCloseControl(s, tabId));
 
-const isOpen = (t: Tab | undefined) => !!(t?.navigation || t?.adoptId || t?.pageIn);
+function openPages(s: BrowserState, tabId: string): string[] {
+  const t = s.tabs[tabId];
+  if (!t) return [];
+  if (t.navigation || t.adoptId || t.pageIn) return [tabId];
+  const holder = holderOf(s, tabId);
+  return holder ? [tabId, holder.id] : [];
+}
 
-const openMembers = (s: BrowserState, groupId: string) => (s.groups[groupId]?.tabIds ?? []).filter((id) => isOpen(s.tabs[id]));
+const openMembers = (s: BrowserState, groupId: string) => (s.groups[groupId]?.tabIds ?? []).flatMap((id) => openPages(s, id));
 
 export function groupCloseControl(s: BrowserState, groupId: string): CloseControl | null {
   if (!s.groups[groupId]) return null;
@@ -37,4 +44,11 @@ export function pressGroupClose(groupId: string) {
   const control = groupCloseControl(s, groupId);
   if (control === UNLOAD_GROUP) s.closeTabs(openMembers(s, groupId));
   else if (control === CLOSE_GROUP) void closeGroup(groupId);
+}
+
+export function pressTabClose(tabId: string) {
+  const s = useBrowser.getState();
+  const pages = tabCloseControl(s, tabId) === UNLOAD_TAB ? openPages(s, tabId) : [];
+  if (pages.length > 1) s.closeTabs(pages);
+  else middleClickTab(tabId);
 }

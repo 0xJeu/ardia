@@ -11,8 +11,8 @@ import { HoverSlot } from "../HoverSlot";
 import { IconButton, useHover } from "../primitives";
 import { DownloadsButton } from "../Downloads";
 import { clickTab } from "../sidebar/actions";
-import { pressGroupClose, useGroupCloseControl, useTabCloseControl } from "../sidebar/closeControl";
-import { middleClickTab, openGroupMenu, openTabMenu } from "../sidebar/menus";
+import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../sidebar/closeControl";
+import { openGroupMenu, openTabMenu } from "../sidebar/menus";
 import { groupLabel } from "../../store/organize";
 import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
@@ -885,7 +885,7 @@ function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width: number
                     box={20}
                     radius={5}
                     color={onBand ? palette.icon : undefined}
-                    onPress={tuck ?? (() => middleClickTab(tab.id))}
+                    onPress={tuck ?? (() => pressTabClose(tab.id))}
                     tooltip={tuck ? "Hide in Group" : closeControl.tooltip}
                   />
                 }
