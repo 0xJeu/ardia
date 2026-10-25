@@ -230,6 +230,16 @@ const ROWS: Record<SettingsPane, Section[]> = {
         },
       },
     },
+    {
+      section: "Selected Tab",
+      rows: {
+        selectedTabGlow: {
+          title: "Glow around the selected tab",
+          description: "The soft light around the selected tab in the sidebar. Full is Dia's.",
+          keywords: ["glow", "shadow", "halo", "highlight", "selected tab", "active tab"],
+        },
+      },
+    },
     { section: "App Icon", rows: { appIcon: { title: "App Icon", description: "Shown in the Dock and the app switcher. The Dock keeps it after you quit.", keywords: ["dock icon", "logo"] } } },
   ],
   privacy: [

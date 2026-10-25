@@ -56,6 +56,7 @@ export type Settings = {
   showClearButton: boolean;
   balancedTopApps: boolean;
   pinnedTabIconRing: boolean;
+  selectedTabGlow: SelectedTabGlow;
   fadeUnloadedTabs: boolean;
   warnBeforeClosingTabGroup: boolean;
   batterySaverWhen: BatterySaverWhen;
@@ -84,6 +85,8 @@ export type Settings = {
   chosen?: string[];
   inferred?: string[];
 };
+
+export type SelectedTabGlow = "full" | "soft" | "off";
 
 export type PeekModifier = "alt" | "shift" | "off";
 export const PEEK_MODIFIERS: readonly PeekModifier[] = ["alt", "shift", "off"];
@@ -139,6 +142,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showClearButton: true,
   balancedTopApps: false,
   pinnedTabIconRing: false,
+  selectedTabGlow: "full",
   fadeUnloadedTabs: false,
   warnBeforeClosingTabGroup: true,
   batterySaverWhen: "lowBattery",

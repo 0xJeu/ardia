@@ -2,6 +2,7 @@ import type { AreaLightPalette } from "@ardia/shaders";
 import { createContext, createElement, useContext, type ReactNode } from "react";
 import { useBrowser, type BrowserState } from "../store/browser";
 import { PageProfileContext, WindowContext } from "../store/hooks";
+import type { SelectedTabGlow } from "../store/settings";
 import type { Profile, ProfileColor, ProfileTheme } from "../store/types";
 import { opaqueThemeTint, PRESET_BACKDROP, readableDark, resolveTheme, rgbToHsl, themeAccent, themeBackdrop, themeDark, themePalette, type ThemeBackdropProps } from "./profileTheme";
 import { backdropTint, opaqueTint, tintForHue, type BackdropTint } from "./windowTint";
@@ -270,6 +271,18 @@ export function useTheme(): Theme {
   if (scoped) return scoped;
   if (__DEV__) console.warn("useTheme outside a ThemeScope");
   return themeOf(useBrowser.getState(), null, null);
+}
+
+const SELECTED_TAB_GLOW: Record<SelectedTabGlow, { opacity: number; radius: number }> = {
+  full: { opacity: 1, radius: 1 },
+  soft: { opacity: 0.45, radius: 0.6 },
+  off: { opacity: 0, radius: 1 },
+};
+
+export function useSelectedTabGlow() {
+  const theme = useTheme();
+  const level = useBrowser((s) => SELECTED_TAB_GLOW[s.settings.selectedTabGlow] ?? SELECTED_TAB_GLOW.full);
+  return { shadowColor: hex(theme.tabSelectedShadow), shadowOpacity: level.opacity, shadowRadius: theme.tabSelectedShadowRadius * level.radius };
 }
 
 export const layout = {

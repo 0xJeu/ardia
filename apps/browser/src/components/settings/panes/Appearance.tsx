@@ -30,6 +30,7 @@ export function AppearancePane() {
         ))}
       </View>
       <AddressBarPicker />
+      <SelectedTabGlowPicker />
       <AppIconPicker />
     </View>
   );
@@ -64,6 +65,29 @@ function AddressBarPicker() {
             ]}
             onChange={(v) => useBrowser.getState().updateSettings({ commandBarPlacement: v })}
             minWidth={160}
+          />
+        </Row>
+      </Group>
+    </>
+  );
+}
+
+function SelectedTabGlowPicker() {
+  const glow = useBrowser((s) => s.settings.selectedTabGlow);
+  return (
+    <>
+      <SectionHeader title="Selected Tab" />
+      <Group>
+        <Row anchor="appearance.selectedTabGlow">
+          <PopUp
+            value={glow}
+            options={[
+              { value: "full", title: "Full" },
+              { value: "soft", title: "Soft" },
+              { value: "off", title: "Off" },
+            ]}
+            onChange={(v) => useBrowser.getState().updateSettings({ selectedTabGlow: v })}
+            minWidth={120}
           />
         </Row>
       </Group>
