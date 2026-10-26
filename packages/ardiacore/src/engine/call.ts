@@ -41,6 +41,7 @@ const domainOf = (name: string) => name.slice(0, name.indexOf("."));
 
 export async function call<N extends CallName>(name: N, ...[args]: {} extends CallArgs<N> ? [CallArgs<N>?] : [CallArgs<N>]): Promise<CallResult<N>> {
   const { profile = "", ...rest } = (args ?? {}) as { profile?: string };
+  if (!name.includes(".")) throw new ArdiaError("ERR_UNKNOWN_CALL", `${name} isn't a call`);
   let reply: string;
   try {
     reply = await domainModule(domainOf(name)).call(name.slice(name.indexOf(".") + 1), profile, JSON.stringify(rest));
