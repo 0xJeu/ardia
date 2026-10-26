@@ -208,7 +208,9 @@ void InstallSharingIndicatorBounds(Class frameClass) {
   const IMP standard = method_getImplementation(method);
   const IMP ours = imp_implementationWithBlock(^(NSView *frameView) {
     ((void (*)(id, SEL))standard)(frameView, sel);
-    NSButton *close = [frameView.window standardWindowButton:NSWindowCloseButton];
+    NSWindow *window = frameView.window;
+    if (!objc_getAssociatedObject(window, kInsetLightsKey)) return;
+    NSButton *close = [window standardWindowButton:NSWindowCloseButton];
     KeepSharingIndicatorInWindow(frameView, close.layer ? close.layer.affineTransform.tx : 0);
   });
   if (!class_addMethod(frameClass, sel, ours, method_getTypeEncoding(method))) method_setImplementation(method, ours);
