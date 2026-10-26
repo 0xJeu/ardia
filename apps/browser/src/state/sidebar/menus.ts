@@ -4,7 +4,7 @@ import { menuShortcut } from "../commands/commandShortcuts";
 import { folderChildren } from "../bookmarks/bookmarks";
 import { useBrowser } from "../browser/store";
 import { bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../browser/model";
-import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../pins/organize";
+import { awayFromPin, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds } from "../pins/organize";
 import { groupPath } from "../groups/groups";
 import { splitOf, splitRowPanes } from "../splits/splits";
 import type { GroupColor, Tab } from "../browser/types";
@@ -21,13 +21,13 @@ import {
 } from "../sidebar/actions";
 import { isCalendarUrl } from "../live/meetings";
 import { bookmarkTab } from "../bookmarks/actions";
-import { hideKeyedToast, showToast, useToasts } from "../splits/actions";
 import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../sync/menu";
 import { setSidebarUi } from "../sidebar/sidebarUi";
 import { hasOwnGroupIcon } from "../groups/groupIcons";
 import { newFolderWithTab, removeFromFolder } from "./tileFolderUi";
+import { closeAllTabs } from "./clearTabs";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { togglePageEngine } from "../engines/actions";
 import { canSwitchEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, tabEngine } from "../engines/engines";
@@ -323,41 +323,6 @@ export async function openSidebarMenu(windowId: string) {
   else if (choice === "clean") s.cleanUpTabs(windowId);
   else if (choice === "mute") muteAll(windowId, !muted);
   else if (choice === "closeAll") closeAllTabs(windowId);
-}
-
-let undoToasts = 0;
-
-function showUndoToast(cleared: ClearedTabs, title: string, icon: string) {
-  const { windowId } = cleared;
-  const key = `undo-clear-${++undoToasts}`;
-  showToast(windowId, title, undefined, { icon, key, action: { title: "Undo", run: () => store().undoClearTabs(cleared) } });
-  let seen: unknown[] = [];
-  const stop = () => {
-    stopWatchingStore();
-    stopWatchingToast();
-  };
-  const stopWatchingStore = useBrowser.subscribe((s) => {
-    const now = [s.windows[windowId], s.tabs, s.groups, s.splits, s.closedTabs];
-    if (now.every((x, i) => x === seen[i])) return;
-    seen = now;
-    if (canUndoClear(s, cleared)) return;
-    hideKeyedToast(windowId, key);
-    stop();
-  });
-  const stopWatchingToast = useToasts.subscribe((t) => {
-    if (t.toasts[windowId]?.key !== key) stop();
-  });
-}
-
-export function closeAllTabs(windowId: string) {
-  const cleared = store().clearUnpinnedTabs(windowId);
-  if (cleared?.entries.length) showUndoToast(cleared, `Cleared ${plural(cleared.entries.length, "Tab")}`, "arrow.down");
-}
-
-export function middleClickTab(tabId: string) {
-  const removed = store().removeClosedPin(tabId);
-  if (!removed) return void closeTab(tabId);
-  if (removed.entries.length) showUndoToast(removed, "Removed Pinned Tab", "pin.slash");
 }
 
 export async function openOverflowMenu(windowId: string) {

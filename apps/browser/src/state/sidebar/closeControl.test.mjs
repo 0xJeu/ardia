@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 const stubs = {
   "../browser/actions": "export const closeGroup = async () => {};",
-  "./menus": "export const middleClickTab = () => {};",
+  "./clearTabs": "export const middleClickTab = () => {};",
 };
 registerHooks({
   resolve(specifier, context, next) {

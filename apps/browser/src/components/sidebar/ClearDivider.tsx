@@ -4,7 +4,7 @@ import { markHoverProps } from "../../lib/hoverMarks";
 import { useTheme } from "../ui/theme";
 import { Symbol, useHover, weight } from "../ui";
 import { SIDEBAR_TYPE } from "./tokens";
-import { closeAllTabs } from "../../state/sidebar/menus";
+import { closeAllTabs } from "../../state/sidebar/clearTabs";
 import { tidyPins } from "../../state/sidebar/tidyPinsUi";
 
 const CLEAR_DIVIDER_HEIGHT = 16;

@@ -3,7 +3,7 @@ import { shortcutHint, withShortcut } from "../commands/commandShortcuts";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { rootOf } from "../groups/groups";
 import { closeIntent, closeKind, openPages } from "../tabs/tabs";
-import { middleClickTab } from "./menus";
+import { middleClickTab } from "./clearTabs";
 
 export type CloseControl = { icon: "xmark" | "minus"; tooltip: string };
 
