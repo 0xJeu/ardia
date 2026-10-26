@@ -19,7 +19,7 @@ import { registerRow } from "../../state/sidebar/sidebarUi";
 import { modifiersOf } from "../../lib/keys";
 import { FolderDropRing, TileFace, useSlotPosition } from "./TileFace";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
-import { sidebarTokens, useSidebarTokens } from "./tokens";
+import { useSidebarTokens } from "./tokens";
 
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth, flush = false }: { tabs: string[]; innerWidth: number; flush?: boolean }) {
   const controller = useDragController();
@@ -123,7 +123,7 @@ export function PinSlotZone() {
           borderWidth: 1.5,
           borderStyle: "dashed",
           borderColor: theme.accent,
-          backgroundColor: sidebarTokens(theme).dropZone,
+          backgroundColor: theme.dropZoneFill,
           alignItems: "center",
           justifyContent: "center",
         }}

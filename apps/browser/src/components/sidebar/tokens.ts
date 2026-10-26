@@ -28,7 +28,6 @@ const DARK = {
   newTabLabel: "#FFFFFF8C",
   newTabIcon: "#FFFFFF40",
   noGroupIcon: "#FFFFFF40",
-  dropZone: "rgba(255,255,255,0.06)",
   folderDropFill: "rgba(255,255,255,0.08)",
   folderMosaic: "rgba(255,255,255,0.1)",
   liveDotRing: "rgba(0,0,0,0.3)",
@@ -60,7 +59,6 @@ const LIGHT: typeof DARK = {
   newTabLabel: "#00000080",
   newTabIcon: "#00000042",
   noGroupIcon: "#00000040",
-  dropZone: "rgba(0,0,0,0.04)",
   folderDropFill: "rgba(0,0,0,0.05)",
   folderMosaic: "rgba(0,0,0,0.06)",
   liveDotRing: "rgba(0,0,0,0.1)",
@@ -93,7 +91,7 @@ export const SELECTED_ROW_SHADOW_OFFSET: [number, number] = [0, 0.5];
 
 export const TILE_GLOW = { opacity: { dark: 0.15, light: 0.12 }, radius: 1.5, offset: [0, 0.5] as [number, number] };
 
-export const SIDEBAR_MOTION = { dropGlow: 140, liveFold: 360, fold: 150, listSlide: 140, listFade: 100, pressIn: 80, pressOut: 180, hoverCardFade: 100 } as const;
+export const SIDEBAR_MOTION = { liveFold: 360, fold: 150, listSlide: 140, listFade: 100, pressIn: 80, pressOut: 180, hoverCardFade: 100 } as const;
 
 export const TABULAR_NUMS: ("tabular-nums")[] = ["tabular-nums"];
 

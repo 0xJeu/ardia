@@ -3,16 +3,14 @@ import { Animated, PanResponder, type View } from "react-native";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { radius } from "../ui";
-import { useTheme } from "../ui/theme";
-import { useWindowId } from "../../state/browser/hooks";
-import { useTabDrag } from "../../state/drag/tabDrag";
 import { useClipped, type ClipSource } from "./EntryMotion";
-import { curve } from "../ui/motion";
 import { noDragMarks } from "../../state/sidebar/dragMarks";
 import { cellKey, RESTING_TAIL, ROW_GAP, type Ghost, type ItemSpec } from "./dragModel";
 import { DragController } from "./dragController";
 import { onAppEvent } from "./dragNative";
-import { SIDEBAR_MOTION, sidebarTokens } from "./tokens";
+import { WindowDropGlow } from "../tabstrip/WindowDropGlow";
+
+const DROP_GLOW_PLACE = { left: 5, right: 5, top: 44, bottom: 6, borderRadius: radius.card } as const;
 
 const DragContext = createContext<DragController | null>(null);
 
@@ -29,35 +27,8 @@ export function DragProvider({ children }: { children: (ghost: Ghost | null, con
   return (
     <DragContext.Provider value={controller}>
       {children(ghost, controller)}
-      <WindowDropHighlight />
+      <WindowDropGlow place={DROP_GLOW_PLACE} />
     </DragContext.Provider>
-  );
-}
-
-function WindowDropHighlight() {
-  const windowId = useWindowId();
-  const theme = useTheme();
-  const over = useTabDrag((d) => d.overWindow === windowId);
-  const glow = useMemo(() => new Animated.Value(0), []);
-  useEffect(() => {
-    Animated.timing(glow, { toValue: over ? 1 : 0, duration: SIDEBAR_MOTION.dropGlow, easing: curve.outQuad, useNativeDriver: true }).start();
-  }, [over]);
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: 5,
-        right: 5,
-        top: 44,
-        bottom: 6,
-        borderRadius: radius.card,
-        borderWidth: 1.5,
-        borderColor: theme.accent,
-        backgroundColor: sidebarTokens(theme).dropZone,
-        opacity: glow,
-      }}
-    />
   );
 }
 
