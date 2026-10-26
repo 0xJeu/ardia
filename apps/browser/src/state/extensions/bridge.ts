@@ -275,7 +275,6 @@ if (!g.__ardiaStore) {
     if (!id) return;
     if (store.waiting) { const w = store.waiting; store.waiting = null; w(id); } else store.queued.push(id);
   };
-  // "Remove from Chrome" would bring up Chrome's own dialog.
   const mg = g.chrome && g.chrome.management;
   if (mg && typeof mg.uninstall === "function") {
     Object.defineProperty(mg, "uninstall", { configurable: true, writable: true, value: (id, options, callback) => {

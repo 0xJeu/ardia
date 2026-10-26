@@ -389,8 +389,6 @@
     "packages/ardiacore/src/zoom.ts": 3
   },
   "comments": {
-    "apps/browser/src/state/extensions/bridge.ts": 1,
-    "apps/browser/src/state/site/selection.ts": 4,
     "packages/core/src/tlds.ts": 2,
     "packages/shaders/ios/MetalSurface.swift": 1,
     "packages/shaders/ios/PowerUpView.swift": 36,

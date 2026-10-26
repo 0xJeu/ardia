@@ -124,7 +124,6 @@ const JUMP_TO_SELECTION = `(() => {
   if (isTextField(el)) {
     const [start, end] = [el.selectionStart, el.selectionEnd];
     el.scrollIntoView({ block: "center", inline: "nearest" });
-    // Re-applying the selection scrolls a focused field to it; a textarea gets there by its line.
     el.setSelectionRange(end, end);
     el.setSelectionRange(start, end);
     if (el.tagName === "TEXTAREA") {
@@ -160,7 +159,6 @@ const REPLACE = `(query, replacement, all) => {
   if (!el || !q) return done(false, 0);
   const doc = el.ownerDocument, win = doc.defaultView;
   if (isTextField(el)) {
-    // Through the editing commands, so the page sees input events and ⌘Z undoes it.
     const insert = (start, end, text) => {
       el.focus();
       el.setSelectionRange(start, end);
@@ -179,7 +177,6 @@ const REPLACE = `(query, replacement, all) => {
       if (count) insert(0, value.length, out + value.slice(last));
       return done(true, count);
     }
-    // The selected match, else the next one after the caret (wrapping).
     const selected = lower.slice(el.selectionStart, el.selectionEnd) === q;
     let at = selected ? el.selectionStart : lower.indexOf(q, el.selectionEnd);
     if (at === -1) at = lower.indexOf(q);
@@ -221,7 +218,6 @@ const REPLACE = `(query, replacement, all) => {
   el.focus();
   const found = matches();
   if (all) {
-    // Last to first keeps the earlier ranges valid.
     for (const r of found.reverse()) replace(r);
     return done(true, found.length);
   }
