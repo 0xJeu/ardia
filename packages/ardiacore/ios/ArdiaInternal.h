@@ -3,6 +3,7 @@
 #import "ArdiaCore.h"
 #import "ArdiaHost.h"
 #import "ArdiaTabStrip.h"
+#import "ArdiaTabRegistry.h"
 
 @class ArdiaWebView;
 
@@ -87,16 +88,6 @@ void LoadContentBlocker(NSString *profile);
 void PrepareContentBlocker();
 bool EngineHasTabModel();
 }
-
-@interface ArdiaTabRegistry : NSObject
-+ (void)setView:(nullable ArdiaWebView *)view forTab:(ArdiaCoreTab *)tab;
-+ (nullable ArdiaWebView *)viewForTab:(ArdiaCoreTab *)tab;
-+ (NSString *)offerTab:(ArdiaCoreTab *)tab;
-+ (NSString *)offerTab:(ArdiaCoreTab *)tab prefix:(NSString *)prefix;
-+ (nullable ArdiaCoreTab *)takeOffered:(NSString *)adoptId;
-+ (nullable ArdiaCoreTab *)offeredTab:(NSString *)adoptId;
-+ (void)forget:(ArdiaCoreTab *)tab;
-@end
 
 @interface ArdiaFavicons (Tabs)
 + (void)noteImage:(nullable NSImage *)image forURL:(nullable NSString *)url profile:(nullable NSString *)profile;
