@@ -1,7 +1,12 @@
 # App store API (apps/browser/src/state)
 
-One zustand store: `useBrowser` (state/browser/store.ts). Actions take explicit ids. Read the
-modules before using them — this is a summary from the agent that built it.
+The workspace store is `useBrowser` (state/browser/store.ts). Actions take explicit ids. Read the
+modules before using them: this is a summary. Smaller stores (pages, media, sidebar UI, onboarding, …) live in their
+`state/<domain>/` and follow the one store shape in docs/conventions.md › State: data only, written by the functions
+exported next to them. `useBrowser` is the exception whose actions are methods; components never call them on the
+store but through `storeAction` wrappers in each domain's `actions.ts` (`newTab` in state/tabs/actions.ts,
+`updateSettings` in state/settings/actions.ts, …). Tests (`S().newTab(…)`) and CDP scripts
+(`ac.store.getState().newTab(…)`) call the methods directly.
 
 ## State
 - `profiles` + `profileOrder`; default profile id is `"default"`.
@@ -103,16 +108,22 @@ modules before using them — this is a summary from the agent that built it.
   an in-memory cache by page, plus the icons live tabs show and the light/dark pick. Settings: `updateSettings`
   (`bookmarksBar`, `shortcuts` = remapped menu keys read by MainMenu+Shortcuts.swift, …).
 
-## Hooks (state/browser/hooks.ts, window-scoped)
-`useWindowId`, `useActiveTab(Id)`, `useTab(id)`,
-`useTabLive(id, select?)`, `useWindowProfile`, `useProfiles`, `useSettings(select)`, `useFind(tabId)`,
-`useWindowUi`, `useIsBookmarked(url)`. Subscribe rows by id with narrow selectors so progress events
-don't re-render every tab.
+## Hooks (state/browser/hooks.ts and state/<domain>/hooks.ts)
+`useWindowId`, `useActiveTab(Id)`, `useTab(id, select?)`, `useTabLive(id, select?)`, `useWindow(id, select)`,
+`useProfile(id, select)`, `useGroup(id, select)`, `useWindowProfile`, `useProfiles`, `useSettings(select)`,
+`useFind(tabId)`, `useWindowUi`, `useIsBookmarked(url)`, plus named hooks per domain (state/sidebar/hooks.ts,
+state/bookmarks/hooks.ts, state/windows/card.ts for ContentCard, …). Components never call `useBrowser(…)`.
+Subscribe rows by id with narrow selectors so progress events don't re-render every tab.
 
 ## Helpers and side effects
 - Pure: state/browser/model.ts — `viewTabIds`, `activeTabId`, `engineProfile` (the WebView `profile` prop), `windowTitle`.
 - Dialogs / native side effects go through state/browser/actions.ts (`closeTab`, `switchToTab`, `moveTabToProfile`,
-  `moveTabToWindow`, `createProfile`, `deleteProfile`, `openWindow`).
+  `moveTabToWindow`, `createProfile`, `deleteProfile`, `openWindow`). `createProfile` puts a request in
+  state/profiles/createProfileRequest.ts that components/profiles/CreateProfile.tsx renders.
+- Event handlers read the current state through state/browser/current.ts (`currentSettings`, `currentTab(id)`, …) or
+  a domain's reader, never `getState()` in a component.
+- Profile colours that state needs (menu swatches, the launch backdrop) come from a resolver App.tsx provides
+  (state/profiles/looks.ts), so state never imports components/ui.
 - Menu commands: state/commands/commands.ts (JS) + packages/shell/ios/MainMenu.swift (native menu bar).
 - Tests: `pnpm --filter @ardia/browser test` (`docs/testing.md`).
 
