@@ -9,7 +9,7 @@ import { useIsBookmarked } from "../../state/browser/hooks";
 import { activeTabId, bookmarkProfileId, plural } from "../../state/browser/model";
 import { folderIn, folderLabel, folderMembers } from "../../state/pins/tileFolders";
 import { useShallow } from "zustand/react/shallow";
-import { useFolderPanel } from "./tileFolderUi";
+import { useFolderPanel } from "../../state/sidebar/tileFolderUi";
 import { awayFromPin } from "../../state/pins/organize";
 import { openInSplit } from "../../state/splits/actions";
 import { CalendarPreview, useIsCalendarTab } from "../live/CalendarPreview";

@@ -2,7 +2,7 @@ import { showMenu } from "@ardia/shell";
 import { useBrowser } from "../../state/browser/store";
 import { activeTabId } from "../../state/browser/model";
 import { clickTab } from "../../state/sidebar/actions";
-import { renameFolder } from "../sidebar/tileFolderUi";
+import { renameFolder } from "../../state/sidebar/tileFolderUi";
 import { folderMenuItems, tileFolderMenuItems } from "./stripGroups";
 
 export async function openFolderMenu(windowId: string, groupId: string) {

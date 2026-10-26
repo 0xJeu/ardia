@@ -1,13 +1,13 @@
 import { showMenu, type MenuItem } from "@ardia/shell";
-import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../state/browser/actions";
-import { menuShortcut } from "../../state/commands/commandShortcuts";
-import { folderChildren } from "../../state/bookmarks/bookmarks";
-import { useBrowser } from "../../state/browser/store";
-import { bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../state/browser/model";
-import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../../state/pins/organize";
-import { groupPath } from "../../state/groups/groups";
-import { splitOf, splitRowPanes } from "../../state/splits/splits";
-import type { GroupColor, Tab } from "../../state/browser/types";
+import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../browser/actions";
+import { menuShortcut } from "../commands/commandShortcuts";
+import { folderChildren } from "../bookmarks/bookmarks";
+import { useBrowser } from "../browser/store";
+import { bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../browser/model";
+import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../pins/organize";
+import { groupPath } from "../groups/groups";
+import { splitOf, splitRowPanes } from "../splits/splits";
+import type { GroupColor, Tab } from "../browser/types";
 import {
   allMuted,
   bookmarkTabs,
@@ -18,20 +18,19 @@ import {
   openIconPicker,
   startRename,
   tabTitle,
-} from "../../state/sidebar/actions";
-import { isCalendarUrl } from "../../state/live/meetings";
-import { bookmarkTab } from "../../state/bookmarks/actions";
-import { hideKeyedToast, showToast, useToasts } from "../../state/splits/actions";
-import { canShare, shareTab } from "../../state/site/share";
+} from "../sidebar/actions";
+import { isCalendarUrl } from "../live/meetings";
+import { bookmarkTab } from "../bookmarks/actions";
+import { hideKeyedToast, showToast, useToasts } from "../splits/actions";
+import { canShare, shareTab } from "../site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
-import { openSyncedTab, syncedDevicesMenuItem } from "../../state/sync/menu";
-import { setSidebarUi } from "../../state/sidebar/sidebarUi";
-import { hasOwnGroupIcon } from "./TabIcon";
+import { openSyncedTab, syncedDevicesMenuItem } from "../sync/menu";
+import { setSidebarUi } from "../sidebar/sidebarUi";
+import { hasOwnGroupIcon } from "../groups/groupIcons";
 import { newFolderWithTab, removeFromFolder } from "./tileFolderUi";
-import { toggleNewTabBar } from "../../state/omnibox/newTabBar";
-import { togglePageEngine } from "../../state/engines/actions";
-import { canSwitchEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, tabEngine } from "../../state/engines/engines";
-import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, nearestGroupColor, type GroupTint } from "./tokens";
+import { toggleNewTabBar } from "../omnibox/newTabBar";
+import { togglePageEngine } from "../engines/actions";
+import { canSwitchEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, tabEngine } from "../engines/engines";
 
 const store = () => useBrowser.getState();
 const sep = { separator: true } as const;
@@ -246,13 +245,13 @@ async function openMultiMenu(windowId: string, ids: string[]) {
   if (choice !== "copy" && choice !== "copyMd") store().setSelection(windowId, []);
 }
 
-export async function openGroupMenu(windowId: string, groupId: string) {
+export type GroupColorMenu = (current: GroupColor | null, siteColor: string | null | undefined) => MenuItem[];
+
+export async function openGroupMenu(windowId: string, groupId: string, colorMenu: GroupColorMenu) {
   const s = store();
   const g = s.groups[groupId];
   if (!g) return;
-  const colors: GroupTint[] = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
   const siteColor = g.tabIds.map((id) => s.live[id]?.themeColor).find(Boolean);
-  const matched = siteColor ? nearestGroupColor(siteColor) : null;
   const choice = await showMenu([
     { id: "rename", title: "Rename…", symbol: "character.cursor.ibeam" },
     { id: "icon", title: hasOwnGroupIcon(g.icon) ? "Change Icon…" : "Add Icon…", symbol: "face.smiling" },
@@ -260,13 +259,7 @@ export async function openGroupMenu(windowId: string, groupId: string) {
       id: "color",
       title: "Color",
       symbol: "paintpalette",
-      children: [
-        { id: "color:none", title: "None", swatch: "#00000000", checked: g.color === "none" },
-        { id: "color:", title: "Neutral", swatch: NEUTRAL_GROUP_SWATCH.light, swatchDark: NEUTRAL_GROUP_SWATCH.dark, checked: !g.color },
-        { id: `color:${matched ?? ""}`, title: "Match Site Color", enabled: !!matched, swatch: matched ? GROUP_COLORS[matched].hex : undefined },
-        sep,
-        ...colors.map((c) => ({ id: `color:${c}`, title: GROUP_COLORS[c].name, swatch: GROUP_COLORS[c].hex, checked: g.color === c })),
-      ],
+      children: colorMenu(g.color, siteColor),
     },
     sep,
     { id: "newTab", title: "New Tab in Group", symbol: "plus", ...menuShortcut("newTabInGroup") },

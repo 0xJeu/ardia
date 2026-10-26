@@ -18,8 +18,9 @@ import { groupEntries } from "../../state/sidebar/entries";
 import { dismissHover, useGroupHover, useRowHover } from "../../state/sidebar/hover";
 import { HOVER_CARD_FADE_CURVE, HOVER_CARD_FADE_MS } from "./hoverMotion";
 import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./ListMotion";
-import { pressGroupClose, useGroupCloseControl } from "./closeControl";
-import { openGroupMenu } from "./menus";
+import { pressGroupClose, useGroupCloseControl } from "../../state/sidebar/closeControl";
+import { openGroupMenu } from "../../state/sidebar/menus";
+import { groupColorMenu } from "./groupColorMenu";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
@@ -184,7 +185,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
       <ContextMenuArea
         onContextMenu={() => {
           dismissHover();
-          void openGroupMenu(windowId, groupId);
+          void openGroupMenu(windowId, groupId, groupColorMenu);
         }}
       >
         <Pressable

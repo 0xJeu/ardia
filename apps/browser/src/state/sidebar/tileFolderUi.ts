@@ -1,10 +1,10 @@
 import { prompt, showMenu } from "@ardia/shell";
 import { create } from "zustand";
-import { useBrowser } from "../../state/browser/store";
-import { plural } from "../../state/browser/model";
-import { dissolveTileFolder, folderIn, folderLabel, folderMembers, leaveTileFolder, newTileFolder, renameTileFolder } from "../../state/pins/tileFolders";
-import { dismissHover } from "../../state/sidebar/hover";
-import { measureRow } from "../../state/sidebar/sidebarUi";
+import { useBrowser } from "../browser/store";
+import { plural } from "../browser/model";
+import { dissolveTileFolder, folderIn, folderLabel, folderMembers, leaveTileFolder, newTileFolder, renameTileFolder } from "../pins/tileFolders";
+import { dismissHover } from "../sidebar/hover";
+import { measureRow } from "../sidebar/sidebarUi";
 
 type Open = { windowId: string; folderId: string; anchor: { x: number; y: number; width: number; height: number } };
 

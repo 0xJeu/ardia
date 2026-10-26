@@ -3,8 +3,7 @@ import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "reac
 import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { closeTab } from "../../state/browser/actions";
-import { hex, layout, useTheme } from "../ui/theme";
-import { useSelectedTabGlow } from "./tokens";
+import { hex, layout, useSelectedTabGlow, useTheme } from "../ui/theme";
 import { COMPLETION_MS, errorText, manualRefresh, openLiveItem, statusText } from "../../state/live/engine";
 import { prBadge } from "../../state/live/github";
 import { folderRows, liveTabPlace, type FolderRow } from "../../state/live/rows";
@@ -24,7 +23,7 @@ import { Fold, useFold, type FoldEntry } from "./Fold";
 import { GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_PAD, GROUP_RADIUS } from "./geometry";
 import { useDragFolded, useDragItem } from "./DragProvider";
 import { dismissHover, useRowHover } from "../../state/sidebar/hover";
-import { openLiveFolderMenu, openLiveItemMenu, openLiveStackMenu } from "./liveMenus";
+import { openLiveFolderMenu, openLiveItemMenu, openLiveStackMenu } from "../../state/sidebar/liveMenus";
 import { registerRow } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";

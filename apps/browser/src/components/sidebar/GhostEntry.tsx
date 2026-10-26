@@ -11,7 +11,8 @@ import { groupEntries } from "../../state/sidebar/entries";
 import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap, keptEntry } from "./geometry";
 import { pointerOnGroup, pointerOnRow } from "../../state/sidebar/hover";
 import { FaviconFallback, NewTabIcon } from "../ui/Primitives";
-import { SYMBOL_PREFIX, TabIcon } from "./TabIcon";
+import { TabIcon } from "./TabIcon";
+import { SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { groupSurface, useSidebarTokens, withAlpha } from "./tokens";
 
 type TabShot = { kind: "tab"; key: string; title: string; url: string; favicon?: string | null; icon?: string | null; profileId: string; uri: string | null; template: boolean; sound: "muted" | "playing" | null; hovered: boolean };

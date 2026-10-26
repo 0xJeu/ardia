@@ -3,7 +3,7 @@ import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, pinSection, plural } from "../browser/model";
 import { awayFromPin, groupOf, selectedTabIds } from "../pins/organize";
 import { newGroupWithSelection, openIconPicker, startRename } from "./actions";
-import { closeAllTabs } from "../../components/sidebar/menus";
+import { closeAllTabs } from "./menus";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { movePinnedTitle, togglePinnedRows } from "./movePinned";
 import { setSidebarUi } from "./sidebarUi";

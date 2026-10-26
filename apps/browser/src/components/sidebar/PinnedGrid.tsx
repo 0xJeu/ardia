@@ -12,7 +12,7 @@ import { clickTab } from "../../state/sidebar/actions";
 import { cellKey, PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./DragProvider";
 import { FolderTile } from "./FolderTile";
 import { dismissHover, useRowHover } from "../../state/sidebar/hover";
-import { openTabMenu } from "./menus";
+import { openTabMenu } from "../../state/sidebar/menus";
 import { pinGrid, pinGridHeight, TILE_GAP } from "./pinZone";
 import { registerRow } from "../../state/sidebar/sidebarUi";
 import { modifiersOf } from "../../lib/keys";

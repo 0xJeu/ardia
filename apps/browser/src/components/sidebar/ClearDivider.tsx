@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { markHoverProps } from "../ui/hoverShift";
 import { useTheme } from "../ui/theme";
 import { useHover } from "../ui/Primitives";
-import { closeAllTabs } from "./menus";
+import { closeAllTabs } from "../../state/sidebar/menus";
 import { tidyPins } from "../../state/sidebar/tidyPinsUi";
 
 const CLEAR_DIVIDER_HEIGHT = 16;

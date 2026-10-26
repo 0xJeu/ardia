@@ -3,8 +3,7 @@ import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useSta
 import { Animated, Easing, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { create } from "zustand";
 import { toggleMute } from "../../state/browser/actions";
-import { hex, layout, useTheme } from "../ui/theme";
-import { ThemeScope } from "../window/ThemeScope";
+import { hex, layout, ThemeScope, useTheme } from "../ui/theme";
 import { useTileTheme } from "../../state/favicons/tileTheme";
 import { liquidGlass } from "../ui/Glass";
 import { useBrowser } from "../../state/browser/store";
@@ -14,11 +13,13 @@ import { HoverSlot } from "../ui/HoverSlot";
 import { IconButton, useHover } from "../ui/Primitives";
 import { DownloadsButton } from "../downloads/Downloads";
 import { clickTab } from "../../state/sidebar/actions";
-import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../sidebar/closeControl";
-import { openGroupMenu, openTabMenu } from "../sidebar/menus";
+import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../../state/sidebar/closeControl";
+import { openGroupMenu, openTabMenu } from "../../state/sidebar/menus";
 import { groupLabel } from "../../state/pins/organize";
 import { firstStaying, movingTabIds, resolveDrop, slotDrop, type DropSpot } from "../../state/drag/drops";
-import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
+import { TabIcon } from "../sidebar/TabIcon";
+import { hasOwnGroupIcon, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
+import { groupColorMenu } from "../sidebar/groupColorMenu";
 import { TabBadges } from "../media/TabBadges";
 import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
 import { modifiersOf } from "../../lib/keys";
@@ -29,7 +30,7 @@ import { toggleNewTabBar } from "../../state/omnibox/newTabBar";
 import { setMeasuredWidth, useMeasuredWidth, useMeasuredWidths } from "../../state/windows/measuredWidths";
 import { openFolderMenu, openTileFolderStripMenu } from "./stripFolderMenu";
 import { FolderMosaic } from "../sidebar/FolderTile";
-import { openTileFolderMenu } from "../sidebar/tileFolderUi";
+import { openTileFolderMenu } from "../../state/sidebar/tileFolderUi";
 import { folderCell, folderIdOfCell, folderIn, folderLabel } from "../../state/pins/tileFolders";
 import { usePeek } from "../window/usePeek";
 import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "../window/dockMotion";
@@ -1337,7 +1338,7 @@ function StripGroup({
         onLayout={(e) => onChipWidth(Math.ceil(e.nativeEvent.layout.width * 2) / 2)}
         style={{ position: "absolute", left: 0, top: ITEM_TOP, height: ITEM_HEIGHT }}
       >
-        <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, entry.id)}>
+        <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, entry.id, groupColorMenu)}>
           <Pressable
             onPress={() => useBrowser.getState().updateGroup(entry.id, { collapsed: expanded })}
             style={{ height: ITEM_HEIGHT, flexDirection: "row", alignItems: "center", paddingLeft: 8.5, paddingRight: 7 }}
@@ -1444,7 +1445,7 @@ function FolderChip({ groupId, holding }: { groupId: string; holding: boolean })
       onLayout={(e) => setMeasuredWidth(folderKey(groupId), Math.ceil(e.nativeEvent.layout.width * 2) / 2)}
       style={{ position: "absolute", left: 0, top: MID - FOLDER_HEIGHT / 2, height: FOLDER_HEIGHT }}
     >
-      <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, groupId)}>
+      <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, groupId, groupColorMenu)}>
         <Pressable onPress={() => void openFolderMenu(windowId, groupId)}>
           {({ pressed }) => (
             <View

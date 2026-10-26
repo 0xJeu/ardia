@@ -2,8 +2,7 @@ import { ActivitySpinner, ContextMenuArea, FadeLabel, MouseArea, Surface, Symbol
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, TextInput, View } from "react-native";
 import { toggleMute } from "../../state/browser/actions";
-import { hex, layout, useTheme } from "../ui/theme";
-import { useSelectedTabGlow } from "./tokens";
+import { hex, layout, useSelectedTabGlow, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useIsActiveTab, usePageProfileId, useTab, useWindowId } from "../../state/browser/hooks";
 import { HoverSlot } from "../ui/HoverSlot";
@@ -15,9 +14,9 @@ import { clickTab, commitRename, endRename, startRename, tabTitle } from "../../
 import { useDragItem, useDropOnto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
 import { dismissHover, useRowHover } from "../../state/sidebar/hover";
-import { pressTabClose, useTabCloseControl } from "./closeControl";
-import { middleClickTab, openTabMenu } from "./menus";
-import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "./rowState";
+import { pressTabClose, useTabCloseControl } from "../../state/sidebar/closeControl";
+import { middleClickTab, openTabMenu } from "../../state/sidebar/menus";
+import { ACTIVE, LOADING, PLAYING, SELECTED, useRowState } from "../../state/sidebar/rowState";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { PressFeedback } from "./PressFeedback";
 import { TabIcon } from "./TabIcon";

@@ -6,12 +6,10 @@ import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { engineMark, ENGINE_NAMES, ENGINE_SYMBOLS } from "../../state/engines/engines";
 import { isPageUnloaded } from "../../state/pins/pinShare";
+import { NO_GROUP_ICON, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { Favicon } from "../ui/Primitives";
 
-export const SYMBOL_PREFIX = "symbol:";
-export const NO_GROUP_ICON = `${SYMBOL_PREFIX}square.stack.fill`;
 export const NO_GROUP_ICON_INK = { light: "#00000040", dark: "#FFFFFF40" };
-export const hasOwnGroupIcon = (icon: string | null | undefined): icon is string => !!icon && icon !== NO_GROUP_ICON;
 
 export const TabIcon = memo(function TabIcon({
   tabId,

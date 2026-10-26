@@ -4,8 +4,7 @@ import { Animated, Pressable, ScrollView, StyleSheet, Text, View, type LayoutCha
 import { switchOn } from "../../platform/killSwitches";
 import { live } from "../../state/live/store";
 import { everySlowly } from "../../platform/slowTimers";
-import { layout, useTheme } from "../ui/theme";
-import { ThemeScope } from "../window/ThemeScope";
+import { layout, ThemeScope, useTheme } from "../ui/theme";
 import { useBrowser, type BrowserState } from "../../state/browser/store";
 import { PageProfileContext, useSettings, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
 import { activeTabId, isIncognitoProfile } from "../../state/browser/model";
@@ -20,7 +19,7 @@ import { HoverSlot } from "../ui/HoverSlot";
 import { IconButton, useHover } from "../ui/Primitives";
 import { DownloadsButton } from "../downloads/Downloads";
 import { PROFILE_INDICATOR_X, ProfileIndicator } from "../profiles/ProfileIndicator";
-import { usePageStyle, usePagerPages } from "../window/profilePager";
+import { usePageStyle, usePagerPages } from "../../state/windows/profilePager";
 import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "../profiles/ProfileDots";
 import { SidebarAddressRow, SidebarHeaderTools } from "./AddressBar";
 import { ClearDivider, useSidebarHoverProps } from "./ClearDivider";

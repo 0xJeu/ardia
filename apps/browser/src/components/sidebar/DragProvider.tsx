@@ -12,11 +12,11 @@ import type { TabPlacement } from "../../state/pins/organize";
 import { SLIDE } from "../tabstrip/stripReorder";
 import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, updateTabDrag, useTabDrag } from "../../state/drag/tabDrag";
 import { useClipped, type ClipSource } from "./EntryMotion";
-import { arrangeLive } from "./pinnedOrder";
+import { arrangeLive } from "../../state/sidebar/pinnedOrder";
 import { suppressHover } from "../../state/sidebar/hover";
 import { overPins, pinGrid, pinGridHeight, pinSlot, TILE_GAP } from "./pinZone";
 import { SCROLL_EDGE } from "./ScrollEdge";
-import { closeFolderPanel, folderPanel } from "./tileFolderUi";
+import { closeFolderPanel, folderPanel } from "../../state/sidebar/tileFolderUi";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
 
 type Frame = { x: number; y: number; w: number; h: number };

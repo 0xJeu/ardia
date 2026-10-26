@@ -6,7 +6,8 @@ import { useLive } from "../../state/live/store";
 import { useBrowser } from "../../state/browser/store";
 import { setIcon } from "../../state/sidebar/actions";
 import { setSidebarUi, useSidebarUi } from "../../state/sidebar/sidebarUi";
-import { NO_GROUP_ICON, NO_GROUP_ICON_INK, SYMBOL_PREFIX } from "./TabIcon";
+import { NO_GROUP_ICON_INK } from "./TabIcon";
+import { NO_GROUP_ICON, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { useSidebarTokens } from "./tokens";
 
 const EMOJI: [string, string][] = [

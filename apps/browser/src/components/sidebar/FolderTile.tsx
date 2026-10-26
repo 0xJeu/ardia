@@ -12,7 +12,7 @@ import { dismissHover, useRowHover } from "../../state/sidebar/hover";
 import { registerRow } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { FolderDropRing, RestingTile, TileFace, useSlotPosition } from "./TileFace";
-import { closedByPress, openTileFolderMenu, toggleFolderPanel, useFolderPanel } from "./tileFolderUi";
+import { closedByPress, openTileFolderMenu, toggleFolderPanel, useFolderPanel } from "../../state/sidebar/tileFolderUi";
 
 const MOSAIC_CELL = 9;
 const MOSAIC_GAP = 2;

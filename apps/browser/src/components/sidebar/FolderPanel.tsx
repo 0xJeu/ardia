@@ -11,9 +11,9 @@ import { SLIDE } from "../tabstrip/stripReorder";
 import { useHover } from "../ui/Primitives";
 import { clickTab, tabTitle } from "../../state/sidebar/actions";
 import { useDragController, useDragItem, useFolderAway } from "./DragProvider";
-import { openTabMenu } from "./menus";
+import { openTabMenu } from "../../state/sidebar/menus";
 import { TabIcon } from "./TabIcon";
-import { closeFolderPanel, closeFolderPanelOnPress, openTileFolderMenu, useFolderPanel } from "./tileFolderUi";
+import { closeFolderPanel, closeFolderPanelOnPress, openTileFolderMenu, useFolderPanel } from "../../state/sidebar/tileFolderUi";
 
 const PANEL_GAP = 6;
 const PANEL_PAD = 6;
