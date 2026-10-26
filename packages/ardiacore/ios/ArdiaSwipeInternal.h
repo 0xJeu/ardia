@@ -52,10 +52,24 @@ extern NSMutableArray *gTrace;
 extern BOOL gWrongRendererHit;
 extern BOOL gLegacyHitRouting;
 extern Gesture gGesture;
-BOOL IsRenderWidgetView(NSView *view);
-NSView *HitView(NSWindow *window, NSPoint locationInWindow);
-NSView<ArdiaSwipeTarget> *TargetAt(NSWindow *window, NSPoint locationInWindow, NSView *hit, NSMutableArray *why = nil);
 NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL ignoreSystemPreference);
 BOOL HandleDiscreteSwipe(NSWindow *window, NSPoint location, CGFloat deltaX);
+
+NSArray *RectValue(NSRect r);
+NSHashTable<NSView<ArdiaSwipeTarget> *> *Targets();
+BOOL IsRenderWidgetView(NSView *view);
+ArdiaRendererScrollObserver *ObserverFor(NSView *hit);
+BOOL InRenderer(NSView *hit);
+NSView *HitView(NSWindow *window, NSPoint locationInWindow);
+NSView<ArdiaSwipeTarget> *TargetAt(NSWindow *window, NSPoint locationInWindow, NSView *hit, NSMutableArray *why = nil);
+NSArray *HitChain(NSView *hit);
+BOOL IsPager(NSView<ArdiaSwipeTarget> *target);
+BOOL HasNativePager(NSView<ArdiaSwipeTarget> *target);
+NSView *FirstRenderer(NSView *view);
+NSView *ReactRoot(NSView *view, NSWindow *window);
+NSView<ArdiaSwipeTarget> *MisroutedRendererTarget(NSWindow *window, NSPoint location, NSView *hit);
+NSView *ResolveHit(NSWindow *window, NSPoint location, NSView<ArdiaSwipeTarget> *__strong *target, BOOL *fallback);
+BOOL NativeContentScrolls(NSView *hit, NSView *container, int direction);
+NSArray *NativeScrollReport(NSView *hit, NSView *container);
 
 }
