@@ -1,9 +1,8 @@
 import AppKit
+import ArdiaCore
 
 final class FocusHandoff {
   static let shared = FocusHandoff()
-  static let outgoingFocus = Notification.Name("ArdiaOutgoingFocus")
-  static let handoffEnded = Notification.Name("ArdiaFocusHandoffEnded")
   static let editActions: Set<Selector> = [
     #selector(NSText.cut(_:)), #selector(NSText.copy(_:)), #selector(NSText.paste(_:)), #selector(NSText.selectAll(_:)),
     Selector(("pasteAndMatchStyle:")),
@@ -68,7 +67,7 @@ final class FocusHandoff {
     if Self.isPage(focused), let input = focused as? NSTextInputClient, input.hasMarkedText() { return nil }
     let gate = existing ?? open(in: window)
     if let page = focused as? NSView, Self.isPage(page) {
-      NotificationCenter.default.post(name: Self.outgoingFocus, object: page)
+      NotificationCenter.default.post(name: .ardiaOutgoingFocus, object: page)
       gate.resigned = page
       window.makeFirstResponder(nil)
     }
@@ -287,7 +286,7 @@ final class FocusHandoff {
     if gates[key] === gate { gates[key] = nil }
     gate.watches.forEach { ($0 as? NSKeyValueObservation)?.invalidate() ?? NotificationCenter.default.removeObserver($0) }
     gate.watches = []
-    if let resigned = gate.resigned { NotificationCenter.default.post(name: Self.handoffEnded, object: resigned) }
+    if let resigned = gate.resigned { NotificationCenter.default.post(name: .ardiaFocusHandoffEnded, object: resigned) }
   }
 
   private func gate(of id: Int) -> Gate? {

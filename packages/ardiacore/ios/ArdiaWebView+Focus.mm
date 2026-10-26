@@ -1,5 +1,6 @@
 #import "ArdiaWebViewInternal.h"
 #import "ArdiaEarlyWindow.h"
+#import "ArdiaNotifications.h"
 
 using namespace ardia_web_view;
 
@@ -20,13 +21,13 @@ static BOOL InTabPage(NSView *view) {
   static id snapshots, ends;
   if (snapshots) return;
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-  snapshots = [center addObserverForName:@"ArdiaOutgoingFocus" object:nil queue:nil usingBlock:^(NSNotification *note) {
+  snapshots = [center addObserverForName:ArdiaOutgoingFocusNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
     if (ArdiaWebView *view = [ArdiaWebView holding:note.object]) {
       [view storePageFocusFrom:note.object];
       view->_keepsOutgoingFocus = YES;
     }
   }];
-  ends = [center addObserverForName:@"ArdiaFocusHandoffEnded" object:nil queue:nil usingBlock:^(NSNotification *note) {
+  ends = [center addObserverForName:ArdiaFocusHandoffEndedNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
     if (ArdiaWebView *view = [ArdiaWebView holding:note.object]) view->_keepsOutgoingFocus = NO;
   }];
 }

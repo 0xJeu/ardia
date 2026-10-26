@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 import ExpoModulesCore
 
 final class WindowProfileView: ExpoView {
@@ -29,7 +30,7 @@ final class WindowProfileView: ExpoView {
     guard let window else { return }
     if applied?.profile != profile { ChromeWindows.showProfile(profile, in: window) }
     if let applied, applied.profile != profile || applied.selection != selection {
-      NotificationCenter.default.post(name: Notification.Name("ArdiaPagerActivity"), object: window)
+      NotificationCenter.default.post(name: .ardiaPagerActivity, object: window)
     }
     if applied?.neighbours != neighbours, let current = self.window { ChromeWindows.prepare(neighbours, for: current) }
     applied = (profile, neighbours, selection)

@@ -20,7 +20,7 @@ export type PromptOptions = {
 };
 
 export const pickFiles = () => Shell.pickFiles();
-export const pickFolder = (current: string | null, prompt: string | null = null) => Shell.pickFolder?.(current, prompt) ?? Promise.resolve(null);
+export const pickFolder = (current: string | null, prompt: string | null = null) => Shell.pickFolder(current, prompt);
 
 export const confirm = (options: ConfirmOptions) => Shell.confirm(options);
 export const prompt = (options: PromptOptions) => Shell.prompt(options);

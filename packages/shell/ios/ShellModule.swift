@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 import Carbon.HIToolbox
 import ExpoModulesCore
 
@@ -53,7 +54,7 @@ public class ShellModule: Module {
         }
         self?.observeForSidebar()
         let quitCancelled = NotificationCenter.default.addObserver(
-          forName: Notification.Name("ArdiaCoreQuitCancelled"), object: nil, queue: .main
+          forName: .ardiaQuitCancelled, object: nil, queue: .main
         ) { _ in self?.sendEvent("onAppEvent", ["type": "quitCancelled"]) }
         self?.sidebarObservers.append((NotificationCenter.default, quitCancelled))
       }

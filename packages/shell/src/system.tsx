@@ -1,7 +1,7 @@
 import { requireNativeViewManager } from "expo-modules-core";
 import { forwardRef, type Ref } from "react";
-import { NativeModules, View, type ViewProps } from "react-native";
-import { nativeModule, optionalNativeModule } from "./nativeModules";
+import type { View, ViewProps } from "react-native";
+import { nativeModule } from "./nativeModules";
 
 export type MenuShortcut = {
   id: string;
@@ -35,7 +35,7 @@ export type SystemNative = {
   menuShortcuts(): Promise<MenuShortcut[]>;
   recordShortcut(): Promise<{ key: string; modifiers: ShortcutModifier[] } | null>;
   cancelRecording(): Promise<void>;
-  setThinScrollBars?(thin: boolean): Promise<void>;
+  setThinScrollBars(thin: boolean): Promise<void>;
 };
 
 const System = nativeModule("ArdiaSystem");
@@ -56,7 +56,7 @@ export const hapticTick = () => System.hapticTick();
 export const menuShortcuts = () => System.menuShortcuts();
 export const recordShortcut = () => System.recordShortcut();
 export const cancelShortcutRecording = () => System.cancelRecording();
-export const setThinScrollBars = (thin: boolean) => System.setThinScrollBars?.(thin) ?? Promise.resolve();
+export const setThinScrollBars = (thin: boolean) => System.setThinScrollBars(thin);
 
 export type MiddleClickEvent = { shiftKey: boolean; altKey: boolean; metaKey: boolean };
 
@@ -67,10 +67,9 @@ export type MouseAreaProps = ViewProps & {
 
 type NativeMouseAreaProps = Omit<MouseAreaProps, "onMiddleClick"> & { onMiddleClick?: (e: { nativeEvent: MiddleClickEvent }) => void };
 
-const NativeMouseArea = System ? requireNativeViewManager<NativeMouseAreaProps>("ArdiaFileDrag") : null;
+const NativeMouseArea = requireNativeViewManager<NativeMouseAreaProps>("ArdiaFileDrag");
 
 export function MouseArea({ path, onMiddleClick, ...props }: MouseAreaProps) {
-  if (!NativeMouseArea) return <View {...props} />;
   return <NativeMouseArea path={path} onMiddleClick={onMiddleClick && ((e) => onMiddleClick(e.nativeEvent))} {...props} />;
 }
 
@@ -85,8 +84,7 @@ type NativeFileDropAreaProps = ViewProps & {
   onDropUpdate?: (e: { nativeEvent: DropUpdate }) => void;
 };
 
-const fileDropBuilt = !!NativeModules.NativeUnimoduleProxy?.viewManagersMetadata?.ArdiaFileDrop;
-const NativeFileDropArea = fileDropBuilt ? requireNativeViewManager<NativeFileDropAreaProps>("ArdiaFileDrop") : null;
+const NativeFileDropArea = requireNativeViewManager<NativeFileDropAreaProps>("ArdiaFileDrop");
 
 export type MagnifyPhase = "began" | "changed" | "ended" | "cancelled";
 export type MagnifyUpdate = { phase: MagnifyPhase; magnification: number };
@@ -97,21 +95,19 @@ export type MagnifyAreaProps = ViewProps & {
 
 type NativeMagnifyAreaProps = ViewProps & { enabled?: boolean; onMagnify?: (e: { nativeEvent: MagnifyUpdate }) => void };
 
-const magnifyBuilt = !!NativeModules.NativeUnimoduleProxy?.viewManagersMetadata?.ArdiaMagnifyArea;
-const NativeMagnifyArea = magnifyBuilt ? requireNativeViewManager<NativeMagnifyAreaProps>("ArdiaMagnifyArea") : null;
+const NativeMagnifyArea = requireNativeViewManager<NativeMagnifyAreaProps>("ArdiaMagnifyArea");
 export type MagnifyAreaNative = {
   devMagnify(windowId: string, x: number, y: number, steps: MagnifyUpdate[]): Promise<{ claimed?: boolean[]; hit?: string; error?: string }>;
 };
 
-const MagnifyModule = optionalNativeModule("ArdiaMagnifyArea");
+const MagnifyModule = nativeModule("ArdiaMagnifyArea");
 
 export function MagnifyArea({ onMagnify, enabled = true, ...props }: MagnifyAreaProps) {
-  if (!NativeMagnifyArea) return <View {...props} />;
   return <NativeMagnifyArea enabled={enabled} onMagnify={onMagnify && ((e) => onMagnify(e.nativeEvent))} {...props} />;
 }
 
 export const devMagnify = (windowId: string, at: { x: number; y: number }, steps: MagnifyUpdate[]) =>
-  MagnifyModule ? MagnifyModule.devMagnify(windowId, at.x, at.y, steps) : Promise.resolve({ error: "MagnifyArea isn't built" });
+  MagnifyModule.devMagnify(windowId, at.x, at.y, steps);
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
   if (typeof ref === "function") ref(value);
@@ -119,7 +115,6 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
 }
 
 export const FileDropArea = forwardRef<View, FileDropAreaProps>(function FileDropArea({ onDropUpdate, ...props }, ref) {
-  if (!NativeFileDropArea) return <View ref={ref} {...props} />;
   return (
     <NativeFileDropArea
       ref={(instance) => assignRef(ref, instance?.nativeRef?.current ?? null)}
@@ -137,10 +132,10 @@ export type FileDropNative = {
   devLastFileDrag(): Promise<string[]>;
 };
 
-const FileDrop = optionalNativeModule("ArdiaFileDrop");
+const FileDrop = nativeModule("ArdiaFileDrop");
 
 export const devFileDrag = {
   drag: (windowId: string, action: DevDragAction, x: number, y: number, payload?: DevDragPayload) =>
-    FileDrop ? FileDrop.devDrag(windowId, action, x, y, payload ?? null) : Promise.resolve("no ArdiaFileDrop"),
-  lastFileDrag: () => (FileDrop ? FileDrop.devLastFileDrag() : Promise.resolve([])),
+    FileDrop.devDrag(windowId, action, x, y, payload ?? null),
+  lastFileDrag: () => FileDrop.devLastFileDrag(),
 };

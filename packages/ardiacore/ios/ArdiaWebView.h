@@ -31,6 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) BOOL frozen;
 @property (nonatomic, readonly) int browserId;
 @property (nonatomic, readonly, nullable) NSString *mediaCaptureSourceId;
+@property (nonatomic, readonly, nullable) NSView *devtoolsView;
 
 + (NSArray<NSDictionary<NSString *, id> *> *)devEventsForBrowser:(int)browserId NS_SWIFT_NAME(devEvents(browserId:));
 + (NSInteger)devWindowNumberForBrowser:(int)browserId NS_SWIFT_NAME(devWindowNumber(browserId:));

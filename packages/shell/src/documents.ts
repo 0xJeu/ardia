@@ -6,4 +6,4 @@ export const saveDocument = (name: string, contents: string) => Shell.saveDocume
 export const removeDocument = (name: string) => Shell.removeDocument(name);
 
 export type BangListReply = { status: number; etag: string | null; contentType: string | null; body: string | null; bytes: number };
-export const fetchBangList = (etag: string | null): Promise<BangListReply> | null => Shell.fetchBangList?.(etag) ?? null;
+export const fetchBangList = (etag: string | null): Promise<BangListReply> => Shell.fetchBangList(etag);

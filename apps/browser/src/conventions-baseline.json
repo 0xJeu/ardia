@@ -533,7 +533,7 @@
     "apps/browser/src/components/AutoHideToolbar.tsx": 5,
     "apps/browser/src/components/CliControlPill.tsx": 9,
     "apps/browser/src/components/CommandPanel.tsx": 3,
-    "apps/browser/src/components/Downloads.tsx": 11,
+    "apps/browser/src/components/Downloads.tsx": 10,
     "apps/browser/src/components/FindBar.tsx": 8,
     "apps/browser/src/components/NewTabPage.tsx": 4,
     "apps/browser/src/components/Sidebar.tsx": 4,

@@ -147,12 +147,6 @@ test("at most one request a day, across sessions", async () => {
   assert.equal(calls.length, 2);
 });
 
-test("a build without the native fetch never asks, and keeps the bundled list", async () => {
-  assert.equal((await refreshBangs()).result, "fresh");
-  assert.equal(state(), null);
-  assert.equal(bangStatus().source, "bundled");
-});
-
 test("a new list and its ETag are saved as one document, replace the table and come back next launch", async () => {
   const calls = server([{ status: 200, body: heliumBody("new"), etag: '"v2"' }, { status: 304 }]);
   assert.equal((await refreshBangs()).result, "updated");

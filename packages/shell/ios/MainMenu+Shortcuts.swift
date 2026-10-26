@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 
 extension MainMenu {
   private static let modifierNames: [(String, NSEvent.ModifierFlags)] = [
@@ -119,7 +120,7 @@ extension MainMenu {
     }
     if bound != announcedShortcuts {
       announcedShortcuts = bound
-      NotificationCenter.default.post(name: .init("ArdiaMenuShortcutsChanged"), object: nil)
+      NotificationCenter.default.post(name: .ardiaMenuShortcutsChanged, object: nil)
     }
   }
 

@@ -9,6 +9,7 @@
 #import "ArdiaTabParking.h"
 #import "ArdiaWebView.h"
 #import "ArdiaWebViewInternal.h"
+#import "ArdiaNotifications.h"
 
 #include <cctype>
 #include <cstring>
@@ -34,7 +35,7 @@ void WatchReservedShortcuts() {
   static dispatch_once_t once;
   dispatch_once(&once, ^{
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-    [center addObserverForName:@"ArdiaMenuShortcutsChanged" object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *) {
+    [center addObserverForName:ArdiaMenuShortcutsChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *) {
       gMenuShortcutsReady = YES;
       SendReservedShortcuts();
     }];
@@ -445,7 +446,7 @@ static void StartEarlyWindow() {
 
 - (void)engineQuitCancelled {
   NSLog(@"[ardiacore] quit cancelled");
-  [NSNotificationCenter.defaultCenter postNotificationName:@"ArdiaCoreQuitCancelled" object:nil];
+  [NSNotificationCenter.defaultCenter postNotificationName:ArdiaQuitCancelledNotification object:nil];
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine permissionRequest:(NSDictionary *)request tab:(ArdiaCoreTab *)tab {

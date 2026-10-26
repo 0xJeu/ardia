@@ -106,7 +106,6 @@ public class AppModule: Module {
         "model": String(cString: model),
         "memoryGB": Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824,
         "locale": Locale.current.identifier,
-        "updates": AppUpdater.shared.isAvailable,
         "feedbackURL": Self.infoString("ACFeedbackURL") as Any,
         "feedbackEmail": Self.infoString("ACFeedbackEmail") as Any,
         "videoTourURL": Self.infoString("ACVideoTourURL") as Any,

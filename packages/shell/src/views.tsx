@@ -1,6 +1,6 @@
 import { requireNativeViewManager } from "expo-modules-core";
 import type { ViewProps } from "react-native";
-import { nativeModule, optionalNativeModule } from "./nativeModules";
+import { nativeModule } from "./nativeModules";
 
 export type WindowProfileProps = ViewProps & {
   profile: string;
@@ -127,14 +127,9 @@ type NativePopoverBubbleProps = Omit<PopoverBubbleProps, "shadowOpacity" | "shad
   bubbleShadowOffsetY?: number;
 };
 
-export type PopoverBubbleNative = { isAvailable(): boolean };
-
-export const popoverBubbleAvailable = !!optionalNativeModule("ArdiaPopoverBubble")?.isAvailable();
-
-const NativePopoverBubble = popoverBubbleAvailable ? requireNativeViewManager<NativePopoverBubbleProps>("ArdiaPopoverBubble") : null;
+const NativePopoverBubble = requireNativeViewManager<NativePopoverBubbleProps>("ArdiaPopoverBubble");
 
 export function PopoverBubble({ shadowOpacity, shadowRadius, shadowOffsetY, ...props }: PopoverBubbleProps) {
-  if (!NativePopoverBubble) return null;
   return <NativePopoverBubble {...props} bubbleShadowOpacity={shadowOpacity} bubbleShadowRadius={shadowRadius} bubbleShadowOffsetY={shadowOffsetY} />;
 }
 

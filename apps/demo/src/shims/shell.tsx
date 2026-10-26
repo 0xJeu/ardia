@@ -32,7 +32,6 @@ const SYSTEM_INFO: SystemInfo = {
   model: "web",
   memoryGB: 8,
   locale: typeof navigator === "undefined" ? "en-US" : navigator.language,
-  updates: false,
 };
 
 provideNativeModule("ArdiaApp", { launchEnvironment: () => null, systemInfo: () => SYSTEM_INFO });
@@ -41,7 +40,8 @@ provideNativeModule("ArdiaCalendar", { authorizationStatus: () => "notDetermined
 const documents = new Map<string, string>();
 export const readDocument = (name: string) => documents.get(name) ?? null;
 export const writeDocument = (name: string, contents: string) => void documents.set(name, contents);
-export const fetchBangList = (_etag: string | null): Promise<{ status: number; etag: string | null; contentType: string | null; body: string | null; bytes: number }> | null => null;
+export const fetchBangList = (_etag: string | null): Promise<{ status: number; etag: string | null; contentType: string | null; body: string | null; bytes: number }> =>
+  Promise.resolve({ status: 304, etag: null, contentType: null, body: null, bytes: 0 });
 export const saveDocument = async (name: string, contents: string) => void documents.set(name, contents);
 export const removeDocument = (name: string) => void documents.delete(name);
 

@@ -6,8 +6,6 @@ public class PopoverBubbleModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaPopoverBubble")
 
-    Function("isAvailable") { () -> Bool in true }
-
     View(PopoverBubble.self) {
       Prop("material") { (view: PopoverBubble, name: String?) in view.setMaterial(name) }
       Prop("dark") { (view: PopoverBubble, dark: Bool?) in view.appearance = dark.map { NSAppearance(named: $0 ? .darkAqua : .aqua) } ?? nil }

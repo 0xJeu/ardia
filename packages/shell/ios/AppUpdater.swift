@@ -138,12 +138,8 @@ public final class AppUpdater: NSObject {
   private var firstCheckPending = false
   private var started = false
 
-  public var isAvailable: Bool {
-    true
-  }
-
   public var isConfigured: Bool {
-    guard isAvailable, !Self.isOff else { return false }
+    guard !Self.isOff else { return false }
     let info = Bundle.main.infoDictionary ?? [:]
     let feed = (Self.feedOverride ?? info["SUFeedURL"] as? String ?? "").trimmingCharacters(in: .whitespaces)
     let key = (info["SUPublicEDKey"] as? String ?? "").trimmingCharacters(in: .whitespaces)

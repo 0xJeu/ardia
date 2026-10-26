@@ -121,8 +121,6 @@ final class SwipeArea: ExpoView, ArdiaSwipeTarget {
   }
 }
 
-private let pagerActivity = Notification.Name("ArdiaPagerActivity")
-
 private func number(_ value: Any?) -> Double? {
   switch value {
   case let v as Double: return v
@@ -531,7 +529,7 @@ final class Pager {
   private func announceActivity(_ info: [String: Any] = [:]) {
     var windows: [NSWindow] = []
     for case let window? in areas.allObjects.map(\.window) where !windows.contains(where: { $0 === window }) { windows.append(window) }
-    for window in windows { NotificationCenter.default.post(name: pagerActivity, object: window, userInfo: info) }
+    for window in windows { NotificationCenter.default.post(name: .ardiaPagerActivity, object: window, userInfo: info) }
   }
 
   private func publish() {

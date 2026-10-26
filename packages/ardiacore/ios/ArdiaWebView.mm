@@ -5,6 +5,7 @@
 
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
+#import "ArdiaNotifications.h"
 
 #include <cmath>
 
@@ -105,7 +106,7 @@ void AcceptDrops(NSView *root, BOOL accept) {
 
 + (void)initialize {
   if (self != ArdiaWebView.class) return;
-  [NSNotificationCenter.defaultCenter addObserverForName:@"ArdiaPagerActivity"
+  [NSNotificationCenter.defaultCenter addObserverForName:ArdiaPagerActivityNotification
                                                   object:nil
                                                    queue:nil
                                               usingBlock:^(NSNotification *note) {

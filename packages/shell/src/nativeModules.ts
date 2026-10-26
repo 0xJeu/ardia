@@ -7,7 +7,7 @@ import type { ShellNative } from "./shellNative";
 import type { FileDropNative, MagnifyAreaNative, SystemNative } from "./system";
 import type { TranslationModule } from "./translation";
 import type { UserScriptsNative } from "./userScripts";
-import type { DockSelectionNative, GlassEffectNative, PopoverBubbleNative } from "./views";
+import type { DockSelectionNative, GlassEffectNative } from "./views";
 
 export type ShellNativeModules = {
   ArdiaShell: ShellNative;
@@ -19,12 +19,11 @@ export type ShellNativeModules = {
   ArdiaDockSelection: DockSelectionNative;
   ArdiaInlineCompletion: InlineCompletionNative;
   ArdiaTranslate: TranslationModule;
+  ArdiaMagnifyArea: MagnifyAreaNative;
+  ArdiaFileDrop: FileDropNative;
 };
 
 export type ShellOptionalNativeModules = {
-  ArdiaPopoverBubble: PopoverBubbleNative;
-  ArdiaMagnifyArea: MagnifyAreaNative;
-  ArdiaFileDrop: FileDropNative;
   ArdiaCli: CliNative;
   ArdiaUserScripts: UserScriptsNative;
 };

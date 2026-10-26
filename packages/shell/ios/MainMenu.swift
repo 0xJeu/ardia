@@ -323,7 +323,6 @@ enum MainMenu {
   private static func updatesItem() -> NSMenuItem {
     let item = NSMenuItem(title: "Check for Updates…", action: #selector(AppUpdater.checkForUpdates(_:)), keyEquivalent: "")
     item.target = AppUpdater.shared
-    item.isHidden = !AppUpdater.shared.isAvailable
     return item
   }
 

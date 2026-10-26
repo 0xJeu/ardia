@@ -148,7 +148,6 @@ export async function refreshBangs(): Promise<BangRefresh> {
     await loadBangs();
     const etag = tableSource === "bundled" ? (await loadBundledBangs()).BANG_LIST_ETAG : storedEtag;
     const request = fetchBangList(etag);
-    if (!request) return note("skipped", "fresh");
     writeState({ checkedAt: now });
     const reply = await request;
     if (reply.status === 304) return note(304, "unchanged");
