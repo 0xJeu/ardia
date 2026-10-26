@@ -6,12 +6,12 @@ import { space } from "../ui/tokens";
 
 const DARK = {
   progressTrack: "#717782",
-  bubbleTint: "rgba(38,36,37,0.3)",
+  bubbleTint: "rgba(38,38,38,0.3)",
 };
 
 const LIGHT: typeof DARK = {
   progressTrack: "#CED7E7",
-  bubbleTint: "rgba(252,251,252,0.3)",
+  bubbleTint: "rgba(255,255,255,0.3)",
 };
 
 export type DownloadsColors = typeof DARK;

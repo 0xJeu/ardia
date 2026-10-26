@@ -59,8 +59,8 @@ const darkRoles = {
   faviconTile: "rgba(247,245,255,0.2)",
   dropZoneFill: "rgba(255,255,255,0.06)",
 
-  popoverFill: "rgba(38,36,37,0.94)",
-  popoverTint: "rgba(38,36,37,0.72)",
+  popoverFill: "rgba(38,38,38,0.94)",
+  popoverTint: "rgba(38,38,38,0.72)",
   popoverBorder: "rgba(255,255,255,0.14)",
   popoverRowPressed: "rgba(255,255,255,0.12)",
   promptFill: "rgba(255,255,255,0.1)",
@@ -155,8 +155,8 @@ const lightRoles: ColorRoles = {
   faviconTile: "rgba(0,0,0,0.13)",
   dropZoneFill: "rgba(0,0,0,0.04)",
 
-  popoverFill: "rgba(252,251,252,0.96)",
-  popoverTint: "rgba(252,251,252,0.7)",
+  popoverFill: "rgba(255,255,255,0.96)",
+  popoverTint: "rgba(255,255,255,0.7)",
   popoverBorder: "rgba(0,0,0,0.12)",
   popoverRowPressed: "rgba(0,0,0,0.1)",
   promptFill: "rgba(0,0,0,0.06)",
