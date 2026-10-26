@@ -5,9 +5,9 @@ import { createServer, request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { forBuild, launchVariables } from "./launchEnv.mjs";
+import { forBuild, launchVariables, mergeLaunchEnv } from "./launchEnv.mjs";
 
-export { launchVariables };
+export { launchVariables, mergeLaunchEnv };
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const here = fileURLToPath(import.meta.url);
@@ -331,14 +331,13 @@ export async function launch(app, opts = {}) {
   }
   const location = jsMode === "pinned" ? `localhost:${js.port}` : jsMode === "live" ? `localhost:${metroPort}` : jsMode === "none" ? null : jsMode;
   const switches = [opts.switches].flat().filter(Boolean).join(" ");
-  const env = appEnv(app, {
+  const env = appEnv(app, mergeLaunchEnv({
     ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: data, ARDIA_REMOTE_DEBUGGING_PORT: String(port),
     ...launchVariables({
       instance: { ...(location ? { jsLocation: location } : {}), ...(switches ? { chromiumSwitches: switches } : {}), ...opts.instance },
       test: opts.test, trace: opts.trace, switchOverrides: opts.switchOverrides,
     }),
-    ...opts.env,
-  });
+  }, opts.env));
   const log = resolve(opts.log ?? join(data, "app.out.log"));
   const before = binaryPids(binary);
   const launchedAt = Date.now();

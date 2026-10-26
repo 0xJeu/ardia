@@ -46,6 +46,32 @@ const commaKeys = new Set(["chromiumSwitches", "downloadsDir", "updateFeed", "cl
 
 export const instanceEntries = (text) => entriesOf(text, knownKeys.instance);
 
+const LIST_VARIABLES = new Set(["ARDIA_INSTANCE", "ARDIA_TEST", "ARDIA_TRACE", "ARDIA_SWITCHES"]);
+
+export function mergeLaunchEnv(...envs) {
+  const out = {};
+  const instance = {}, test = {}, switches = {};
+  const trace = new Set();
+  for (const env of envs) {
+    for (const [name, value] of Object.entries(env ?? {})) {
+      if (!LIST_VARIABLES.has(name) || value === null || value === undefined) {
+        out[name] = value;
+        continue;
+      }
+      if (name === "ARDIA_INSTANCE") Object.assign(instance, entriesOf(value, knownKeys.instance));
+      else if (name === "ARDIA_TEST") Object.assign(test, entriesOf(value, knownKeys.test));
+      else if (name === "ARDIA_TRACE") for (const area of value.split(",").map((a) => a.trim()).filter(Boolean)) trace.add(area);
+      else
+        for (const piece of value.split(",")) {
+          const [switchName, on] = piece.split("=").map((s) => s.trim());
+          if (switchName && on) switches[switchName] = ["on", "1", "true"].includes(on);
+        }
+    }
+  }
+  const bare = (entries) => Object.fromEntries(Object.entries(entries).map(([key, value]) => [key, value === "1" ? true : value]));
+  return { ...out, ...launchVariables({ instance: bare(instance), test: bare(test), trace: [...trace], switchOverrides: switches }) };
+}
+
 function entriesOf(text, known) {
   const entries = {};
   let last = null;

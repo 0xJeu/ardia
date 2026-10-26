@@ -41,7 +41,7 @@ import { loadavg } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { appEnv, launchVariables } from "../../../../scripts/lib/instance.mjs";
+import { appEnv, launchVariables, mergeLaunchEnv } from "../../../../scripts/lib/instance.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../../..");
@@ -435,8 +435,9 @@ class Instance {
       const instance = { updateFeed: `http://127.0.0.1:${opt["page-port"]}/appcast.xml`, ...(this.mode === "hidden" ? { allowOcclusion: true } : {}) };
       Object.assign(env, { ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: join(this.home, "data"), ARDIA_REMOTE_DEBUGGING_PORT: String(port), ...launchVariables({ instance }) });
     }
-    for (const e of perName(opt.env, this.name)) env[e.slice(0, e.indexOf("="))] = e.slice(e.indexOf("=") + 1);
-    return isArdia(this.name) ? appEnv(this.app, env) : env;
+    const extra = perName(opt.env, this.name).map((e) => ({ [e.slice(0, e.indexOf("="))]: e.slice(e.indexOf("=") + 1) }));
+    const merged = mergeLaunchEnv(env, ...extra);
+    return isArdia(this.name) ? appEnv(this.app, merged) : merged;
   }
   args() {
     const extra = perName(opt.args, this.name);
