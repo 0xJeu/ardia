@@ -5,7 +5,7 @@ import { AccessibilityInfo, Animated, Image, Pressable, ScrollView, StyleSheet, 
 import { hex, profileAccent, useTheme } from "../ui/theme";
 import { useWindowProfileValue } from "../../state/profiles/hooks";
 import { useWindowId } from "../../state/browser/hooks";
-import { useHover } from "../ui";
+import { Button, useHover } from "../ui";
 import type { ReleaseNotes } from "../../state/releaseNotes/releaseNotes";
 import { curve } from "../ui/motion";
 
@@ -132,33 +132,9 @@ function Tooltip({ text, onOpen, onClose }: { text: string; onOpen: () => void; 
         <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "500", color: "rgba(255,255,255,0.85)", marginRight: 9 }}>
           {text}
         </Text>
-        <CloseButton onPress={onClose} label="Dismiss release notes" size={22} radius={8} />
+        <Button variant="close" look="art" onPress={onClose} tooltip="Dismiss release notes" label="Dismiss release notes" box={22} radius={8} />
       </View>
     </Pressable>
-  );
-}
-
-function CloseButton({ onPress, label, size, radius }: { onPress: () => void; label: string; size: number; radius: number }) {
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps} tooltip={label}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
-        {({ pressed }) => (
-          <View
-            style={{
-              width: size,
-              height: size,
-              borderRadius: radius,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: `rgba(255,255,255,${pressed ? 0.3 : hovered ? 0.2 : 0.1})`,
-            }}
-          >
-            <Symbol name="xmark" size={11} weight="medium" color="#FFFFFF8C" style={{ width: size, height: size }} />
-          </View>
-        )}
-      </Pressable>
-    </View>
   );
 }
 

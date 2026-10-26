@@ -13,7 +13,6 @@ import { Button } from "../ui";
 import { measureRow, type Anchor } from "../../state/sidebar/sidebarUi";
 import { OverlappingAvatars } from "./CalendarPreview";
 import { useLiveColors } from "./colors";
-import { SmallButton } from "./LiveItemCard";
 
 const WIDTH = 300;
 
@@ -98,9 +97,11 @@ function AlertCard({ event, windowId, windowWidth }: { event: CalendarEvent; win
         ) : null}
         <View style={{ gap: 6, marginTop: 2 }}>
           {link ? (
-            <SmallButton title={joinTitle(link.provider)} icon="video.fill" primary height={30} onPress={() => joinEvent(event, false, windowId)} />
+            <Button variant="pill" tone="chip" title={joinTitle(link.provider)} icon="video.fill" primary height={30} onPress={() => joinEvent(event, false, windowId)} />
           ) : calendarTab ? (
-            <SmallButton
+            <Button
+              variant="pill"
+              tone="chip"
               title="View Event"
               icon="calendar"
               height={30}
@@ -112,7 +113,7 @@ function AlertCard({ event, windowId, windowWidth }: { event: CalendarEvent; win
           ) : null}
           {link && related.length ? (
             <View tooltip={`Opens ${related.length === 1 ? "1 link" : `${related.length} links`} from the invitation, then joins`}>
-              <SmallButton title="Open All and Join" icon="square.stack" height={30} onPress={() => joinEvent(event, true, windowId)} />
+              <Button variant="pill" tone="chip" title="Open All and Join" icon="square.stack" height={30} onPress={() => joinEvent(event, true, windowId)} />
             </View>
           ) : null}
         </View>

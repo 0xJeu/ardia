@@ -278,6 +278,7 @@ export const space = {
   xxs: 2,
   xs: 4,
   s: 6,
+  sm: 7,
   m: 8,
   ml: 10,
   l: 12,

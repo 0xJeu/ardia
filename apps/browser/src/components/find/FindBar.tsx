@@ -152,35 +152,11 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
               style={{ flex: 1, fontSize: 14, color: theme.textPrimary, paddingVertical: 0 }}
             />
             {note && <Text style={{ fontSize: 12, color: note.error ? error : theme.textSecondary, marginRight: 2 }}>{note.text}</Text>}
-            <TextButton title="Replace" disabled={!find.query} onPress={() => void replace(false)} />
-            <TextButton title="All" disabled={!find.query} onPress={() => void replace(true)} />
+            <Button variant="text" height={26} title="Replace" disabled={!find.query} onPress={() => void replace(false)} />
+            <Button variant="text" height={26} title="All" disabled={!find.query} onPress={() => void replace(true)} />
           </View>
         )}
       </Surface>
     </Animated.View>
-  );
-}
-
-function TextButton({ title, disabled, onPress }: { title: string; disabled: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress} disabled={disabled}>
-        {({ pressed }) => (
-          <View
-            style={{
-              height: 26,
-              paddingHorizontal: 8,
-              borderRadius: 6,
-              justifyContent: "center",
-              backgroundColor: disabled ? undefined : pressed ? theme.toolbarPressed : hovered ? theme.toolbarHover : undefined,
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: "500", color: disabled ? theme.iconDisabled : theme.textPrimary }}>{title}</Text>
-          </View>
-        )}
-      </Pressable>
-    </View>
   );
 }

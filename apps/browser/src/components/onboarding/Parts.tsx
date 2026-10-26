@@ -2,7 +2,7 @@ import { Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useHover } from "../ui";
+import { Radio, useHover } from "../ui";
 import { questionsFor, STEPS, useOnboarding, type OnboardingStep } from "../../state/onboarding/onboarding";
 import { curve } from "../ui/motion";
 
@@ -229,13 +229,6 @@ export function CheckMark({ on, size = 18 }: { on: boolean; size?: number }) {
   );
 }
 
-export function Radio({ on }: { on: boolean }) {
-  const colors = useOnboardingColors();
-  return (
-    <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: on ? 5 : 1.5, borderColor: on ? colors.checkboxOn : colors.checkboxBorder, backgroundColor: colors.checkbox }} />
-  );
-}
-
 export function BackButton({ onPress }: { onPress: () => void }) {
   const colors = useOnboardingColors();
   const { hovered, hoverProps } = useHover();
@@ -393,7 +386,7 @@ export function ChoiceRow({
               transform: [{ scale: pressed ? 0.99 : 1 }],
             }}
           >
-            <Radio on={selected} />
+            <Radio on={selected} look="ring" />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontSize: 13, fontWeight: "500", color: colors.title }}>{title}</Text>
               <Text numberOfLines={2} style={{ fontSize: 12, color: colors.rowSubtitle }}>

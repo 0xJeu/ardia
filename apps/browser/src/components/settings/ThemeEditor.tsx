@@ -188,8 +188,12 @@ function ThemeEditor({
             {theme.stops.length} of {MAX_THEME_STOPS} colours
           </Text>
           <View style={{ flexDirection: "row", gap: 4 }}>
-            <SmallButton
-              symbol="minus"
+            <Button
+              variant="pill"
+              tone="control"
+              width={24}
+              height={20}
+              icon="minus"
               tooltip="Remove Colour"
               disabled={theme.stops.length <= 1}
               onPress={() => {
@@ -197,8 +201,12 @@ function ThemeEditor({
                 setSelected(Math.max(0, index - 1));
               }}
             />
-            <SmallButton
-              symbol="plus"
+            <Button
+              variant="pill"
+              tone="control"
+              width={24}
+              height={20}
+              icon="plus"
               tooltip="Add Colour"
               disabled={theme.stops.length >= MAX_THEME_STOPS}
               onPress={() => {
@@ -402,34 +410,6 @@ function ColorPad({
           <View style={{ position: "absolute", left: -3, top: -3, right: -3, bottom: -3, borderRadius: KNOB / 2 + 3, borderWidth: 1, borderColor: "rgba(0,0,0,0.25)" }} />
         </View>
       ))}
-    </View>
-  );
-}
-
-function SmallButton({ symbol, tooltip, disabled, onPress }: { symbol: string; tooltip: string; disabled?: boolean; onPress: () => void }) {
-  const ui = useTheme();
-  const colors = useFormColors();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps} style={{ opacity: disabled ? 0.4 : 1 }}>
-      <Pressable disabled={disabled} onPress={onPress} tooltip={tooltip}>
-        {({ pressed }) => (
-          <View
-            style={{
-              width: 24,
-              height: 20,
-              borderRadius: 5,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? colors.controlPressed : hovered ? colors.controlHover : colors.control,
-              borderWidth: StyleSheet.hairlineWidth * 2,
-              borderColor: colors.controlBorder,
-            }}
-          >
-            <Symbol name={symbol} size={10} weight="semibold" color={ui.icon} style={{ width: 12, height: 12 }} />
-          </View>
-        )}
-      </Pressable>
     </View>
   );
 }

@@ -1,13 +1,12 @@
 import { resolveInput } from "@ardia/core";
-import { Surface } from "@ardia/shell";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { hex, useTheme } from "../ui/theme";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTheme } from "../ui/theme";
 import { currentBookmarks, currentSettings } from "../../state/browser/current";
 import { addBookmark, addBookmarkFolder, moveBookmark, updateBookmark } from "../../state/bookmarks/actions";
 import { useWindowId } from "../../state/browser/hooks";
 import { searchUrlPrefix } from "../../state/settings/settings";
-import { Button, TextField, useFormColors } from "../ui";
+import { Button, Dialog, TextField, useFormColors } from "../ui";
 import { closeBookmarkEditor, useBookmarkEditor, type EditorState } from "../../state/bookmarks/edit";
 import { FolderTree } from "./FolderTree";
 
@@ -47,46 +46,33 @@ function Sheet({ state }: { state: EditorState }) {
   const heading = state.folder ? (node ? "Rename Folder" : "New Folder") : node ? "Edit Bookmark" : "Add Bookmark";
 
   return (
-    <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.15)" }]} onPress={close} />
-      <Surface
-        fill={hex(theme.panel)}
-        cornerRadius={14}
-        borderColor={hex(theme.panelBorder)}
-        borderWidth={0.5}
-        shadowColor="#000000"
-        shadowOpacity={theme.panelShadowOpacity}
-        shadowRadius={30}
-        shadowOffset={[0, 12]}
-        style={{ width: 420, padding: 18 }}
-      >
-        <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{heading}</Text>
-        <Label text="Name" />
-        <TextField value={title} onChangeText={setTitle} autoFocus selectOnFocus onSubmit={save} onEscape={close} />
-        {!state.folder && (
-          <>
-            <Label text="URL" />
-            <TextField value={url} onChangeText={setUrl} placeholder="https://" onSubmit={save} onEscape={close} />
-          </>
-        )}
-        {(!state.folder || !node) && (
-          <>
-            <Label text="Folder" />
-            <View
-              style={{ height: 180, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.fieldBorder, backgroundColor: colors.field }}
-            >
-              <ScrollView contentContainerStyle={{ padding: 4 }}>
-                <FolderTree profileId={state.profileId} selectedId={parentId} onSelect={setParentId} rowHeight={24} />
-              </ScrollView>
-            </View>
-          </>
-        )}
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-          <Button title="Cancel" onPress={close} />
-          <Button title="Save" kind="primary" disabled={!valid} onPress={save} />
-        </View>
-      </Surface>
-    </View>
+    <Dialog width={420} pad="xlx" onDismiss={close}>
+      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{heading}</Text>
+      <Label text="Name" />
+      <TextField value={title} onChangeText={setTitle} autoFocus selectOnFocus onSubmit={save} onEscape={close} />
+      {!state.folder && (
+        <>
+          <Label text="URL" />
+          <TextField value={url} onChangeText={setUrl} placeholder="https://" onSubmit={save} onEscape={close} />
+        </>
+      )}
+      {(!state.folder || !node) && (
+        <>
+          <Label text="Folder" />
+          <View
+            style={{ height: 180, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.fieldBorder, backgroundColor: colors.field }}
+          >
+            <ScrollView contentContainerStyle={{ padding: 4 }}>
+              <FolderTree profileId={state.profileId} selectedId={parentId} onSelect={setParentId} rowHeight={24} />
+            </ScrollView>
+          </View>
+        </>
+      )}
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+        <Button title="Cancel" onPress={close} />
+        <Button title="Save" kind="primary" disabled={!valid} onPress={save} />
+      </View>
+    </Dialog>
   );
 }
 

@@ -6,8 +6,8 @@ import { updateProfile } from "../../state/profiles/actions";
 import { toggleTabLayout } from "../../state/splits/actions";
 import { useWindowTabLayout } from "../../state/windows/hooks";
 import type { ProfileColor } from "../../state/browser/types";
-import { useHover } from "../ui";
-import { Radio, useOnboardingColors } from "./Parts";
+import { Radio, useHover } from "../ui";
+import { useOnboardingColors } from "./Parts";
 
 export const PERSONALIZE_COPY = {
   title: "Make it yours",
@@ -120,7 +120,7 @@ function LayoutButton({ kind, title, subtitle, selected, onPress }: { kind: "sid
               <View style={{ flex: 1, borderRadius: 4, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.previewBorder }} />
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Radio on={selected} />
+              <Radio on={selected} look="ring" />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 12.5, fontWeight: "500", color: colors.title }}>{title}</Text>
                 <Text style={{ fontSize: 11, color: colors.rowSubtitle }}>{subtitle}</Text>

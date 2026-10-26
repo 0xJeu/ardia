@@ -4,7 +4,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../../ui/theme";
 import { useWindowId } from "../../../state/browser/hooks";
 import type { Rect } from "../../window/geometry";
-import { useHover } from "../../ui";
+import { Button, useHover } from "../../ui";
 import { useOnboardingColors } from "../Parts";
 import { locateAnchor } from "./anchors";
 import { endToolTour, openVideoTour, stepToolTour, useTour, videoTourUrl, type TourStop } from "../../../state/onboarding/tour";
@@ -188,7 +188,7 @@ function CoachMark({ stop, index, count, windowId }: { stop: TourStop; index: nu
         <Text style={{ fontSize: 15, fontWeight: "600", letterSpacing: -0.1, color: theme.textPrimary }}>{stop.title}</Text>
         <Text style={{ fontSize: 12.5, lineHeight: 18, color: theme.textSecondary }}>{stop.body}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 7, gap: 6 }}>
-          {last ? null : <TextButton title="Skip Tour" onPress={endToolTour} />}
+          {last ? null : <Button variant="text" plate="none" tone="textTertiary" hoverTone="textPrimary" padY="s" label="Skip Tour" title="Skip Tour" onPress={endToolTour} />}
           <View style={{ flex: 1 }} />
           {video ? <PillButton title="Watch Video Tour" onPress={() => (endToolTour(), openVideoTour(windowId))} /> : null}
           {index > 0 && !last ? <PillButton title="Back" onPress={() => stepToolTour(-1)} /> : null}
@@ -219,18 +219,6 @@ function PillButton({ title, onPress, primary }: { title: string; onPress: () =>
             <Text style={{ fontSize: 12, fontWeight: "600", color: primary ? colors.primaryText : colors.buttonText }}>{title}</Text>
           </View>
         )}
-      </Pressable>
-    </View>
-  );
-}
-
-function TextButton({ title, onPress }: { title: string; onPress: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
-        <Text style={{ fontSize: 12, fontWeight: "500", color: hovered ? theme.textPrimary : theme.textTertiary, paddingVertical: 6 }}>{title}</Text>
       </Pressable>
     </View>
   );

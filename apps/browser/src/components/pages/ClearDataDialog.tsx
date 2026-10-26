@@ -1,13 +1,12 @@
 import { clearBrowsingData, type BrowsingDataType } from "@ardia/ardiacore";
-import { Surface } from "@ardia/shell";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { pruneProfileFavicons } from "../../state/favicons/favicons";
-import { hex, useTheme } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 import { engineProfile, isIncognitoProfile } from "../../state/browser/model";
 import { useProfileName, useProfileOrder } from "../../state/profiles/hooks";
 import { clearHistory } from "../../state/history/actions";
-import { Button, Checkbox, PopUp } from "../ui";
+import { Button, Checkbox, Dialog, PopUp } from "../ui";
 
 const RANGES = [
   { value: "hour", title: "Last hour", ms: 3_600_000 },
@@ -42,40 +41,27 @@ export function ClearDataDialog({ profileId, onClose }: { profileId: string; onC
   };
 
   return (
-    <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.15)" }]} onPress={onClose} />
-      <Surface
-        fill={hex(theme.panel)}
-        cornerRadius={14}
-        borderColor={hex(theme.panelBorder)}
-        borderWidth={0.5}
-        shadowColor="#000000"
-        shadowOpacity={theme.panelShadowOpacity}
-        shadowRadius={30}
-        shadowOffset={[0, 12]}
-        style={{ width: 440, padding: 20 }}
-      >
-        <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Clear Browsing Data</Text>
-        {multipleProfiles && <Text style={{ fontSize: 12, marginTop: 4, color: theme.textSecondary }}>{`From your ${profileName} profile`}</Text>}
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 16, gap: 10 }}>
-          <Text style={{ fontSize: 13, color: theme.textPrimary }}>Time range</Text>
-          <PopUp value={range} options={RANGES.map(({ value, title }) => ({ value, title }))} onChange={setRange} minWidth={150} />
-        </View>
-        <View style={{ marginTop: 16, gap: 12 }}>
-          <Option value={history} onChange={setHistory} title="Browsing history" subtitle="Clears the pages you visited from History and the command bar." />
-          <Option
-            value={siteData}
-            onChange={setSiteData}
-            title="Cookies, site data and cached files"
-            subtitle="Signs you out of most sites."
-          />
-        </View>
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 22 }}>
-          <Button title="Cancel" onPress={onClose} />
-          <Button title="Clear Data" kind="primary" disabled={busy || (!history && !siteData)} onPress={() => void clear()} />
-        </View>
-      </Surface>
-    </View>
+    <Dialog width={440} onDismiss={onClose}>
+      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Clear Browsing Data</Text>
+      {multipleProfiles && <Text style={{ fontSize: 12, marginTop: 4, color: theme.textSecondary }}>{`From your ${profileName} profile`}</Text>}
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 16, gap: 10 }}>
+        <Text style={{ fontSize: 13, color: theme.textPrimary }}>Time range</Text>
+        <PopUp value={range} options={RANGES.map(({ value, title }) => ({ value, title }))} onChange={setRange} minWidth={150} />
+      </View>
+      <View style={{ marginTop: 16, gap: 12 }}>
+        <Option value={history} onChange={setHistory} title="Browsing history" subtitle="Clears the pages you visited from History and the command bar." />
+        <Option
+          value={siteData}
+          onChange={setSiteData}
+          title="Cookies, site data and cached files"
+          subtitle="Signs you out of most sites."
+        />
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 22 }}>
+        <Button title="Cancel" onPress={onClose} />
+        <Button title="Clear Data" kind="primary" disabled={busy || (!history && !siteData)} onPress={() => void clear()} />
+      </View>
+    </Dialog>
   );
 }
 

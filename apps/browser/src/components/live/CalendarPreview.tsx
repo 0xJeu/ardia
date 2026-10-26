@@ -11,7 +11,7 @@ import { activate } from "../../state/tabs/actions";
 import { Button, useHover } from "../ui";
 import { dismissHover } from "../../state/sidebar/hover";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
-import { Avatar, HoverSurface, SmallButton } from "./LiveItemCard";
+import { Avatar, HoverSurface } from "./LiveItemCard";
 import { useLiveColors } from "./colors";
 import { curve } from "../ui/motion";
 
@@ -150,7 +150,7 @@ function EventRow({ event, now, windowId, tabId }: { event: CalendarEvent; now: 
           {others.length && !joinable ? <OverlappingAvatars people={others} /> : null}
           {joinable ? (
             <View tooltip={joinTitle(link!.provider)}>
-              <SmallButton title="Join" icon="video.fill" primary onPress={() => (dismissHover(), joinEvent(event, false, windowId))} />
+              <Button variant="pill" tone="chip" title="Join" icon="video.fill" primary onPress={() => (dismissHover(), joinEvent(event, false, windowId))} />
             </View>
           ) : null}
         </View>

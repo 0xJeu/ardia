@@ -1,9 +1,9 @@
-import { prompt, Surface } from "@ardia/shell";
+import { prompt } from "@ardia/shell";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { hex, layout, useTheme } from "../ui/theme";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { layout, useTheme } from "../ui/theme";
 import { useWindowId } from "../../state/browser/hooks";
-import { Button, TextField, useFormColors } from "../ui";
+import { Button, Dialog, TextField, useFormColors } from "../ui";
 import { addBookmarkFolder, addBookmarkTree, closeBookmarkDialog, moveBookmark, profileOfBookmark, removeBookmark, updateBookmark, useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
 import { useBookmarks } from "../../state/bookmarks/hooks";
 import { currentBookmarks } from "../../state/browser/current";
@@ -60,49 +60,31 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
   const heading = state.kind === "allTabs" ? `Bookmark ${state.tabs.length} Tabs` : "Bookmark Added";
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={done} />
-      <Surface
-        fill={hex(theme.panel)}
-        cornerRadius={14}
-        borderColor={hex(theme.panelBorder)}
-        borderWidth={0.5}
-        shadowColor="#000000"
-        shadowOpacity={theme.panelShadowOpacity}
-        shadowRadius={24}
-        shadowOffset={[0, 10]}
+    <Dialog width={320} pad="lx" onDismiss={done} place={addressBar ? { top: SIDEBAR_HEADER_WITH_FIELD + 4, left: layout.sidebarInset } : { top: layout.cardTop + layout.toolbarHeight - 2, right: layout.cardInset + 10 }}>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>{heading}</Text>
+      <Text style={{ fontSize: 11.5, marginTop: 12, marginBottom: 5, color: theme.textSecondary }}>{state.kind === "allTabs" ? "Folder name" : "Name"}</Text>
+      <TextField value={name} onChangeText={setName} autoFocus selectOnFocus placeholder={state.kind === "allTabs" ? "Tabs" : "Name"} onSubmit={done} onEscape={done} />
+      <Text style={{ fontSize: 11.5, marginTop: 12, marginBottom: 5, color: theme.textSecondary }}>Folder</Text>
+      <View
         style={{
-          position: "absolute",
-          ...(addressBar ? { top: SIDEBAR_HEADER_WITH_FIELD + 4, left: layout.sidebarInset } : { top: layout.cardTop + layout.toolbarHeight - 2, right: layout.cardInset + 10 }),
-          width: 320,
-          padding: 14,
+          height: 176,
+          borderRadius: 7,
+          borderWidth: StyleSheet.hairlineWidth * 2,
+          borderColor: colors.fieldBorder,
+          backgroundColor: colors.field,
+          overflow: "hidden",
         }}
       >
-        <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>{heading}</Text>
-        <Text style={{ fontSize: 11.5, marginTop: 12, marginBottom: 5, color: theme.textSecondary }}>{state.kind === "allTabs" ? "Folder name" : "Name"}</Text>
-        <TextField value={name} onChangeText={setName} autoFocus selectOnFocus placeholder={state.kind === "allTabs" ? "Tabs" : "Name"} onSubmit={done} onEscape={done} />
-        <Text style={{ fontSize: 11.5, marginTop: 12, marginBottom: 5, color: theme.textSecondary }}>Folder</Text>
-        <View
-          style={{
-            height: 176,
-            borderRadius: 7,
-            borderWidth: StyleSheet.hairlineWidth * 2,
-            borderColor: colors.fieldBorder,
-            backgroundColor: colors.field,
-            overflow: "hidden",
-          }}
-        >
-          <ScrollView contentContainerStyle={{ padding: 4 }}>
-            {profileId && <FolderTree profileId={profileId} selectedId={folderId} onSelect={setFolderId} rowHeight={24} />}
-          </ScrollView>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14, gap: 8 }}>
-          <Button title="New Folder" onPress={newFolder} />
-          <View style={{ flex: 1 }} />
-          {state.kind === "page" ? <Button title="Remove" onPress={remove} /> : <Button title="Cancel" onPress={close} />}
-          <Button title={state.kind === "page" ? "Done" : "Save"} kind="primary" onPress={done} />
-        </View>
-      </Surface>
-    </View>
+        <ScrollView contentContainerStyle={{ padding: 4 }}>
+          {profileId && <FolderTree profileId={profileId} selectedId={folderId} onSelect={setFolderId} rowHeight={24} />}
+        </ScrollView>
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14, gap: 8 }}>
+        <Button title="New Folder" onPress={newFolder} />
+        <View style={{ flex: 1 }} />
+        {state.kind === "page" ? <Button title="Remove" onPress={remove} /> : <Button title="Cancel" onPress={close} />}
+        <Button title={state.kind === "page" ? "Done" : "Save"} kind="primary" onPress={done} />
+      </View>
+    </Dialog>
   );
 }

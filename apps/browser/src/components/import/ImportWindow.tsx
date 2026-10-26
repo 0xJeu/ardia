@@ -9,7 +9,7 @@ import { useProfiles } from "../../state/browser/hooks";
 import { MAX_DRAFT_LINKS } from "../../state/groups/draftGroups";
 import { plural } from "../../state/browser/model";
 import type { ProfileColor } from "../../state/browser/types";
-import { Button, Checkbox, PopUp, useFormColors, useHover } from "../ui";
+import { Button, Checkbox, PopUp, Radio, useFormColors, useHover } from "../ui";
 import { useOnboarding } from "../../state/onboarding/onboarding";
 import { IMPORT_WINDOW_ID, takePreferredImportSource } from "../../state/settings/settingsWindows";
 import { applyResult, applySafari, defaultTarget, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, profileNamed, type ImportCounts } from "../../state/import/apply";
@@ -946,7 +946,7 @@ function BrowserRow({ browser, selected, onPress }: { browser: BrowserSource; se
             borderColor: selected ? colors.accent : colors.groupBorder,
           }}
         >
-          <Radio on={selected} />
+          <Radio on={selected} look="form" />
           {browser.iconPath ? (
             <Image source={{ uri: `file://${browser.iconPath}` }} style={{ width: 32, height: 32 }} />
           ) : (
@@ -957,26 +957,6 @@ function BrowserRow({ browser, selected, onPress }: { browser: BrowserSource; se
           {browser.needsKeychain && <Symbol name="lock" size={11} color={theme.textTertiary} style={{ width: 14, height: 14 }} />}
         </View>
       </Pressable>
-    </View>
-  );
-}
-
-function Radio({ on }: { on: boolean }) {
-  const colors = useFormColors();
-  return (
-    <View
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: on ? colors.accent : colors.control,
-        borderWidth: on ? 0 : 1,
-        borderColor: colors.controlBorder,
-      }}
-    >
-      {on && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#FFFFFF" }} />}
     </View>
   );
 }

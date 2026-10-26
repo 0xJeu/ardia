@@ -9,7 +9,7 @@ import { addProfile } from "../../state/profiles/actions";
 import { endCreateProfileRequest, profileNames, takeCreateProfileSheet, useCreateProfileRequest, type CreateProfilePreset } from "../../state/profiles/createProfileRequest";
 import { dataGroups, unusedProfileColor } from "../../state/profiles/profiles";
 import type { ProfileColor } from "../../state/browser/types";
-import { Button, Sheet, TextField, Toggle, useFormColors } from "../ui";
+import { Button, Radio, Sheet, TextField, Toggle, useFormColors } from "../ui";
 import { closeSettingsSheet, showSettingsSheet } from "../../state/settings/sheet";
 
 useCreateProfileRequest.subscribe((s, prev) => {
@@ -86,7 +86,7 @@ function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | n
             {groups.map((g, i) => (
               <Pressable key={g.dataId} onPress={() => setShareWith(g.profileIds[0]!)}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10, height: 32, paddingHorizontal: 10, borderTopWidth: i ? 1 : 0, borderColor: colors.separator }}>
-                  <RadioDot on={g === selectedGroup} />
+                  <Radio on={g === selectedGroup} look="compact" />
                   <ColorStack colors={g.profileIds.map((id) => PROFILE_COLORS[profiles[id]!.color]?.swatch ?? "#888888")} />
                   <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
                     {profileNames(g.profileIds.map((id) => profiles[id]!.name))}
@@ -103,26 +103,6 @@ function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | n
         <Button title="Create Profile" kind="primary" onPress={submit} />
       </View>
     </Sheet>
-  );
-}
-
-function RadioDot({ on }: { on: boolean }) {
-  const colors = useFormColors();
-  return (
-    <View
-      style={{
-        width: 14,
-        height: 14,
-        borderRadius: 7,
-        borderWidth: on ? 0 : 1,
-        borderColor: colors.fieldBorder,
-        backgroundColor: on ? colors.accent : colors.control,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {on && <Symbol name="circle.fill" size={6} color="#FFFFFF" style={{ width: 8, height: 8 }} />}
-    </View>
   );
 }
 

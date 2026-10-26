@@ -15,7 +15,7 @@ import { openInternalPage } from "../../state/pages/urls";
 import { useSidebarWidth } from "../sidebar/tokens";
 import { HoverSlot } from "../ui/HoverSlot";
 import { anchorInside, DOWNLOADS_PANEL, downloadsPlacement, type DownloadsPlacement, type Rect, type Size } from "./downloadsPlacement";
-import { Button, MenuSeparator, PANEL, POPOVER_MOTION, useHover, usePopoverPresence } from "../ui";
+import { Button, MenuSeparator, PANEL, space, useHover, usePopoverMotion, usePopoverMotionStyle, usePopoverPresence } from "../ui";
 import { curve } from "../ui/motion";
 
 function formatBytes(n: number) {
@@ -116,7 +116,7 @@ const FILE_ICON = 24;
 const ROW_BUTTON = 22;
 const ROW_BUTTON_BEARING = (ROW_BUTTON - PANEL.iconSize) / 2;
 const VISIBLE_ROWS = 8;
-const TEXT_BUTTON_PAD = 7;
+const TEXT_BUTTON_PAD = space.sm;
 const INK_INSET = PANEL.inset + 1;
 const HEADER_CAP_TOP = 7.5;
 const FOOTER_TEXT_DROP = 12;
@@ -196,21 +196,10 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
   const setOpen = (value: boolean) => setDownloadsOpen(windowId, value);
   const { root, placement: p, onLayout } = useDownloadsPlacement(windowId, closing, { topStrip, footer: addressBar, footerBottom: PROFILE_DOTS_HEIGHT + 2 });
   const placed = p !== null;
-  const appear = useRef(new Animated.Value(0)).current;
-  const closed = useRef(onClosed);
-  closed.current = onClosed;
-  useEffect(() => {
-    if (!placed) {
-      if (closing) closed.current();
-      return;
-    }
-    const motion = closing ? POPOVER_MOTION.close : POPOVER_MOTION.open;
-    Animated.timing(appear, { toValue: closing ? 0 : 1, duration: motion.duration, easing: motion.easing, useNativeDriver: true }).start(
-      ({ finished }) => finished && closing && closed.current(),
-    );
-  }, [closing, placed]);
+  const appear = usePopoverMotion(closing, onClosed, placed);
 
   const upward = p?.bottom !== undefined;
+  const motion = usePopoverMotionStyle(appear, p ? `${p.arrowX}px ${upward ? "bottom" : "top"}` : "top", upward);
   const arrowRoom = p && p.arrow !== "none" ? DOWNLOADS_PANEL.arrowHeight : 0;
   const listMax = p ? Math.max(ROW, Math.min(VISIBLE_ROWS * ROW, p.room - PANEL_CHROME)) : VISIBLE_ROWS * ROW;
 
@@ -224,12 +213,7 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
             left: p.left,
             ...(upward ? { bottom: p.bottom } : { top: p.top }),
             width: p.width,
-            opacity: appear,
-            transformOrigin: `${p.arrowX}px ${upward ? "bottom" : "top"}`,
-            transform: [
-              { scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
-              { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: upward ? [4, 0] : [-4, 0] }) },
-            ],
+            ...motion,
           }}
         >
           <PanelBackground placement={p} />
@@ -239,7 +223,13 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
                 RECENT DOWNLOADS
               </Text>
               {clearable && (
-                <TextButton
+                <Button
+                  variant="text"
+                  plate="hover"
+                  height={22}
+                  pad="sm"
+                  weight="regular"
+                  tone="textSecondary"
                   title="Clear"
                   onPress={() => {
                     setOpen(false);
@@ -328,20 +318,6 @@ function PanelBackground({ placement }: { placement: DownloadsPlacement }) {
       shadowOffsetY={8}
       style={StyleSheet.absoluteFill}
     />
-  );
-}
-
-function TextButton({ title, onPress }: { title: string; onPress: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress}>
-        <View style={{ height: 22, paddingHorizontal: TEXT_BUTTON_PAD, borderRadius: 6, justifyContent: "center", backgroundColor: hovered ? theme.toolbarHover : undefined }}>
-          <Text style={{ fontSize: 12, color: theme.textSecondary }}>{title}</Text>
-        </View>
-      </Pressable>
-    </View>
   );
 }
 

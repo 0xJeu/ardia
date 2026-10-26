@@ -1,16 +1,14 @@
-import { Surface, Symbol, VisualEffect } from "@ardia/shell";
-import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { useDefaultBrowserCheckIn } from "../../state/onboarding/defaultBrowserCheckIn";
-import { hex, useTheme } from "../ui/theme";
 import { useWindow } from "../../state/browser/hooks";
 import { dismissAsk, setSharing, useTelemetry } from "../../state/telemetry/client";
 import { SHARING_COPY } from "../../state/telemetry/copy";
 import { onboardingCompletedAt, useOnboarding } from "../../state/onboarding/onboarding";
-import { useHover } from "../ui";
+import { Symbol, useHover } from "../ui";
+import { NtpCard, NtpCardSurface, useNtpCardColors } from "./NtpCard";
 import { openSettings } from "../../state/settings/settingsWindows";
 import { usePendingReleaseNotes } from "../../state/releaseNotes/releaseNotes";
-import { curve } from "../ui/motion";
 
 const FRAME = { width: 300 };
 
@@ -41,37 +39,10 @@ export function TelemetryAsk({ windowId }: { windowId: string }) {
 }
 
 function Card({ leaving, onShare, onNotNow, onClose }: { leaving: null | (() => void); onShare: () => void; onNotNow: () => void; onClose: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 300, delay: 600, easing: curve.outQuad, useNativeDriver: true }).start();
-  }, []);
-  useEffect(() => {
-    if (!leaving) return;
-    Animated.parallel([
-      Animated.timing(scale, { toValue: 0.98, duration: 220, easing: curve.outQuad, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 220, easing: curve.outQuad, useNativeDriver: true }),
-    ]).start(() => leaving());
-  }, [leaving]);
-
-  const primary = theme.dark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.8)";
-  const secondary = theme.dark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.53)";
+  const colors = useNtpCardColors();
   return (
-    <Animated.View {...hoverProps} style={{ opacity, transform: [{ scale }] }} pointerEvents={leaving ? "none" : "auto"}>
-      <Surface
-        style={StyleSheet.absoluteFill}
-        fill={theme.dark ? "#FFFFFF17" : "#FFFFFF80"}
-        cornerRadius={10}
-        borderColor={theme.dark ? "#FFFFFF0A" : "#00000014"}
-        borderWidth={1}
-        shadowColor="#000000"
-        shadowOpacity={theme.dark ? 0.3 : 0.1}
-        shadowRadius={24}
-        shadowOffset={[0, 8]}
-      />
+    <NtpCard appearDelay={600} leaving={leaving} onClose={onClose}>
+      <NtpCardSurface />
       <View style={{ padding: 12, gap: 12 }}>
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View
@@ -81,16 +52,16 @@ function Card({ leaving, onShare, onNotNow, onClose }: { leaving: null | (() => 
               borderRadius: 7,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: theme.dark ? "#FFFFFF14" : "#0000000A",
+              backgroundColor: colors.badge,
             }}
           >
-            <Symbol name="stethoscope" size={14} weight="medium" color={theme.dark ? "#FFFFFFCC" : "#000000B3"} style={{ width: 30, height: 30 }} />
+            <Symbol name="stethoscope" size={14} weight="medium" color={colors.badgeGlyph} style={{ width: 30, height: 30 }} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "500", color: primary }}>
+            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "500", color: colors.title }}>
               {SHARING_COPY.ask.title}
             </Text>
-            <Text style={{ fontSize: 11.5, lineHeight: 15, color: secondary }}>
+            <Text style={{ fontSize: 11.5, lineHeight: 15, color: colors.body }}>
               {SHARING_COPY.ask.body}{" "}
               <Text onPress={() => openSettings("privacy")} style={{ textDecorationLine: "underline" }} accessibilityRole="link">
                 {SHARING_COPY.whatsSent}
@@ -103,42 +74,23 @@ function Card({ leaving, onShare, onNotNow, onClose }: { leaving: null | (() => 
           <AskButton title={SHARING_COPY.ask.share} onPress={onShare} />
         </View>
       </View>
-      <View style={{ position: "absolute", right: -8, top: -8, opacity: hovered ? 1 : 0 }} pointerEvents={hovered ? "auto" : "none"}>
-        <CloseButton onPress={onClose} />
-      </View>
-    </Animated.View>
+    </NtpCard>
   );
 }
 
 function AskButton({ title, onPress }: { title: string; onPress: () => void }) {
-  const theme = useTheme();
+  const colors = useNtpCardColors();
   const { hovered, hoverProps } = useHover();
   const [pressed, setPressed] = useState(false);
-  const fill = theme.dark ? (pressed ? "#FFFFFF2E" : hovered ? "#FFFFFF24" : "#FFFFFF17") : pressed ? "#0000001F" : hovered ? "#00000017" : "#0000000D";
+  const fill = pressed ? colors.askFillPressed : hovered ? colors.askFillHover : colors.askFill;
   return (
     <View {...hoverProps} style={{ flex: 1 }}>
       <Pressable onPress={onPress} onPressIn={() => setPressed(true)} onPressOut={() => setPressed(false)} accessibilityRole="button" accessibilityLabel={title}>
         <View style={{ height: 26, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: fill }}>
-          <Text style={{ fontSize: 12, fontWeight: "500", color: theme.dark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.8)" }}>{title}</Text>
+          <Text style={{ fontSize: 12, fontWeight: "500", color: colors.askText }}>{title}</Text>
         </View>
       </Pressable>
     </View>
   );
 }
 
-function CloseButton({ onPress }: { onPress: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  const fill = theme.dark ? (hovered ? "#FFFFFF4D" : "#FFFFFF14") : hovered ? "#0000004D" : "#00000033";
-  return (
-    <View {...hoverProps} tooltip="Dismiss">
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Dismiss">
-        <View style={{ width: 23, height: 23, borderRadius: 11.5, overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-          <VisualEffect material="hudWindow" blendingMode="withinWindow" cornerRadius={11.5} style={StyleSheet.absoluteFill} />
-          <Surface style={StyleSheet.absoluteFill} fill={hex(fill)} cornerRadius={11.5} borderColor={theme.dark ? "#FFFFFF1F" : "#00000014"} borderWidth={1} />
-          <Symbol name="xmark" size={10} weight="medium" color="#FFFFFFE6" style={{ width: 23, height: 23 }} />
-        </View>
-      </Pressable>
-    </View>
-  );
-}

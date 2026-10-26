@@ -8,7 +8,7 @@ import { ago } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
 import type { LiveItem, PullRequestCheck } from "../../state/live/types";
 import { newTab } from "../../state/tabs/actions";
-import { useHover } from "../ui";
+import { Button, useHover } from "../ui";
 import { cardHoverProps, dismissHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
@@ -112,7 +112,7 @@ function PullRequestPreview({ item, folderId, windowId }: { item: LiveItem; fold
           <View style={{ flex: 1 }}>
             <StatusLine symbol="exclamationmark.triangle.fill" color={colors.conflict} text="This branch has conflicts" />
           </View>
-          <SmallButton title="Resolve Conflicts" onPress={() => open(windowId, `${item.url}/conflicts`)} />
+          <Button variant="pill" tone="chip" title="Resolve Conflicts" onPress={() => open(windowId, `${item.url}/conflicts`)} />
         </View>
       ) : null}
 
@@ -207,36 +207,6 @@ function Chip({ text, color }: { text: string; color: string }) {
   return (
     <View style={{ height: 17, borderRadius: 8.5, paddingHorizontal: 7, borderWidth: 0.5, borderColor: color, justifyContent: "center" }}>
       <Text style={{ fontSize: 10.5, fontWeight: "500", color }}>{text}</Text>
-    </View>
-  );
-}
-
-export function SmallButton({ title, onPress, primary, icon, height = 24 }: { title: string; onPress(): void; primary?: boolean; icon?: string; height?: number }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  const fg = primary ? (theme.dark ? "#000000" : "#FFFFFF") : theme.textPrimary;
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress}>
-        {({ pressed }) => (
-          <View
-            style={{
-              height,
-              borderRadius: height > 26 ? 9 : 7,
-              paddingHorizontal: 9,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 5,
-              backgroundColor: primary ? theme.textPrimary : pressed ? theme.toolbarPressed : hovered ? theme.toolbarHover : theme.urlPill,
-              opacity: primary && (pressed || hovered) ? 0.85 : 1,
-            }}
-          >
-            {icon ? <Symbol name={icon} size={10.5} weight="semibold" color={fg} style={{ width: 14, height: 14 }} /> : null}
-            <Text style={{ fontSize: 12, fontWeight: "500", color: fg }}>{title}</Text>
-          </View>
-        )}
-      </Pressable>
     </View>
   );
 }
