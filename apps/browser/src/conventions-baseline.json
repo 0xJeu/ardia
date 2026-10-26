@@ -10,7 +10,7 @@
     "apps/browser/src/components/bookmarks/FolderTree.tsx": 1,
     "apps/browser/src/components/dev/devHarness.ts": 2,
     "apps/browser/src/components/downloads/Downloads.tsx": 2,
-    "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 2,
+    "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 1,
     "apps/browser/src/components/extensions/SidePanel.tsx": 1,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 2,
     "apps/browser/src/components/import/importActions.ts": 1,
@@ -184,9 +184,6 @@
   },
   "tokens": {
     "apps/browser/src/components/bookmarks/FolderTree.tsx": 3,
-    "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 9,
-    "apps/browser/src/components/extensions/SidePanel.tsx": 6,
-    "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 4,
     "apps/browser/src/components/onboarding/Intro.tsx": 1,
     "apps/browser/src/components/onboarding/OnboardingOverlay.tsx": 10,
     "apps/browser/src/components/onboarding/Parts.tsx": 2,

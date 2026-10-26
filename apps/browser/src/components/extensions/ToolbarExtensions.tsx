@@ -1,12 +1,14 @@
 import { terminateCastRoute, type ActionState, type CastRoute, type InstalledExtension } from "@ardia/ardiacore";
 import { ContextMenuArea, showMenu, Symbol } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { toggleCastPicker, useCastRoutes } from "../../state/media/cast";
 import type { ToolbarPalette } from "../ui/toolbarColors";
 import { usePages } from "../../state/tabs/pageState";
-import { useHover } from "../ui";
+import { Button, Text, useHover } from "../ui";
+import { ink, opacity, radius, weight } from "../ui/tokens";
+import { BADGE_FALLBACK_FILL, BADGE_TEXT } from "./tokens";
 import { dropToolbarAnchor, setToolbarAnchor } from "../../state/extensions/bridge";
 import {
   activateExtension,
@@ -139,7 +141,7 @@ function ExtensionButton({ ext, windowId, tabId, browserId, palette }: { ext: In
               style={{
                 width: BUTTON,
                 height: BUTTON,
-                borderRadius: 7,
+                borderRadius: radius.button,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: pressed || open ? palette.pressed : hovered ? palette.hover : undefined,
@@ -147,7 +149,7 @@ function ExtensionButton({ ext, windowId, tabId, browserId, palette }: { ext: In
             >
               {icon ? (
                 <View pointerEvents="none">
-                  <Image source={{ uri: icon }} style={{ width: 16, height: 16, opacity: dimmed ? 0.45 : 1 }} />
+                  <Image source={{ uri: icon }} style={{ width: 16, height: 16, opacity: dimmed ? opacity.disabled : 1 }} />
                 </View>
               ) : (
                 <Symbol name="puzzlepiece.extension" size={14} color={palette.icon} style={{ width: 18, height: 18 }} />
@@ -162,7 +164,7 @@ function ExtensionButton({ ext, windowId, tabId, browserId, palette }: { ext: In
 }
 
 function Badge({ text, color, textColor }: { text: string; color?: string | null; textColor?: string | null }) {
-  const fill = color && color !== "#000000" ? color : "#5F6368";
+  const fill = color && color !== ink.black ? color : BADGE_FALLBACK_FILL;
   return (
     <View
       pointerEvents="none"
@@ -179,7 +181,7 @@ function Badge({ text, color, textColor }: { text: string; color?: string | null
         justifyContent: "center",
       }}
     >
-      <Text numberOfLines={1} style={{ fontSize: 8.5, lineHeight: 11, fontWeight: "700", color: textColor ?? contrastText(fill) }}>
+      <Text numberOfLines={1} weight="bold" style={[BADGE_TEXT, { color: textColor ?? contrastText(fill) }]}>
         {text.slice(0, 4)}
       </Text>
     </View>
@@ -189,12 +191,11 @@ function Badge({ text, color, textColor }: { text: string; color?: string | null
 function contrastText(hex: string) {
   const n = parseInt(hex.slice(1, 7), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? "#000000" : "#FFFFFF";
+  return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? ink.black : ink.white;
 }
 
 function CastButton({ windowId, tabId, routes, palette }: { windowId: string; tabId: string; routes: CastRoute[]; palette: ToolbarPalette }) {
   const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
   const tooltip = routes.map((r) => (r.description ? `${r.description} on ${r.sink}` : `Casting to ${r.sink}`)).join("\n");
   const menu = async () => {
     const choice = await showMenu([
@@ -206,31 +207,13 @@ function CastButton({ windowId, tabId, routes, palette }: { windowId: string; ta
     else if (choice?.startsWith("stop:")) void terminateCastRoute(choice.slice(5));
   };
   return (
-    <View tooltip={tooltip} {...hoverProps}>
-      <ContextMenuArea onContextMenu={() => void menu()}>
-        <Pressable onPress={() => void toggleCastPicker(windowId, tabId)}>
-          {({ pressed }) => (
-            <View
-              style={{
-                width: BUTTON,
-                height: BUTTON,
-                borderRadius: 7,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: pressed ? palette.pressed : hovered ? palette.hover : undefined,
-              }}
-            >
-              <Symbol name="tv.and.mediabox.fill" size={14} color={theme.accent} style={{ width: 18, height: 18 }} />
-            </View>
-          )}
-        </Pressable>
-      </ContextMenuArea>
-    </View>
+    <ContextMenuArea onContextMenu={() => void menu()}>
+      <Button variant="icon" icon="tv.and.mediabox.fill" size={14} box={BUTTON} radius={radius.button} color={theme.accent} palette={palette} tooltip={tooltip} onPress={() => void toggleCastPicker(windowId, tabId)} />
+    </ContextMenuArea>
   );
 }
 
 function OverflowButton({ windowId, tabId, palette }: { windowId: string; tabId: string; palette: ToolbarPalette }) {
-  const { hovered, hoverProps } = useHover();
   const { ref, measure } = useAnchor(windowId, tabId, "*");
   const onPress = async () => {
     const anchor = await measure();
@@ -249,23 +232,8 @@ function OverflowButton({ windowId, tabId, palette }: { windowId: string; tabId:
     if (ext) void activateExtension(windowId, ext, anchor, undefined, tabId);
   };
   return (
-    <View ref={ref} tooltip="Extensions" {...hoverProps} onLayout={() => void measure()}>
-      <Pressable onPress={onPress}>
-        {({ pressed }) => (
-          <View
-            style={{
-              width: BUTTON,
-              height: BUTTON,
-              borderRadius: 7,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? palette.pressed : hovered ? palette.hover : undefined,
-            }}
-          >
-            <Symbol name="puzzlepiece.extension" size={14} color={palette.icon} style={{ width: 18, height: 18 }} />
-          </View>
-        )}
-      </Pressable>
+    <View ref={ref} onLayout={() => void measure()}>
+      <Button variant="icon" icon="puzzlepiece.extension" size={14} box={BUTTON} radius={radius.button} palette={palette} tooltip="Extensions" onPress={() => void onPress()} />
     </View>
   );
 }
