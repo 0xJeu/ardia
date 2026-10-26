@@ -46,7 +46,7 @@ interface Tier {
   brushRadius: number;
 }
 
-type ProgramName = "bakeHeight" | "bakeAux" | "terrain" | "sky" | "grass" | "paint" | "final" | "particles" | "probe";
+type ProgramName = "bakeHeight" | "bakeAux" | "terrain" | "sky" | "grass" | "paint" | "final" | "particles" | "probe" | "cells";
 type Phase = "compile" | "bake" | "live" | "failed";
 type DayMode = "sunrise" | "cycle" | "drag" | "settle" | "rest";
 type Body = "sun" | "moon";
@@ -80,6 +80,17 @@ interface TerrainRead {
   framebuffer: WebGLFramebuffer;
   buffer: WebGLBuffer;
   sync: WebGLSync;
+}
+
+interface CellTable {
+  canvasWidth: number;
+  canvasHeight: number;
+  dpr: number;
+  columns: number;
+  rows: number;
+  shape: WebGLTexture;
+  stroke: WebGLTexture;
+  framebuffer: WebGLFramebuffer;
 }
 
 interface Targets {
@@ -121,6 +132,8 @@ const SUN_MIN_RED = 200;
 const SUN_MAX_BLUE_SHARE = 0.45;
 const MOON_MIN_SUM = 520;
 const MOB_COMPILE_AFTER_FRAMES = 2;
+const STROKE_CELL_PX = 16;
+const CELL_MARGIN = 7;
 const KEEP_OUT_TITLE = ".hero-title .line > span";
 const KEEP_OUT_COPY = ".lede, .welcome, .cta-row > *, .send-more, [data-send-panel], .note";
 const TERRAIN_READ_SIZE: [number, number] = [384, 768];
@@ -173,6 +186,8 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
   let batch: ProgramBatch<ProgramName> | null = null;
   let gpu: Gpu | null = null;
   let targets: Targets | null = null;
+  let cellTable: CellTable | null = null;
+  let cellTablesOff = !gl.getExtension("EXT_color_buffer_float");
   let bakeStrip = 0;
   let raf = 0;
   let ambientTimer = 0;
@@ -249,6 +264,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
         final: [SHADERS.fullscreenVs, SHADERS.finalFs],
         particles: [SHADERS.particleVs, SHADERS.particleFs],
         probe: [SHADERS.fullscreenVs, SHADERS.probeFs],
+        cells: [SHADERS.fullscreenVs, SHADERS.cellFs],
       });
       phase = "compile";
     } catch (error) {
@@ -489,6 +505,43 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     targets = { width: paintWidth, height: paintHeight, sceneColor, sceneFlow, depth, sceneFramebuffer, paint, paintFramebuffer };
     if (gpu) probe = new ColorProbe(gl, gpu.programs.probe, paintWidth, paintHeight);
     probedCycle = -1;
+  };
+
+  const releaseCellTable = () => {
+    if (!cellTable) return;
+    gl.deleteTexture(cellTable.shape);
+    gl.deleteTexture(cellTable.stroke);
+    gl.deleteFramebuffer(cellTable.framebuffer);
+    cellTable = null;
+  };
+
+  const floatTarget = (width: number, height: number) => {
+    const texture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, width, height);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    return texture;
+  };
+
+  const ensureCellTable = (dpr: number) => {
+    if (cellTablesOff) return null;
+    const { width, height } = canvas;
+    if (cellTable && cellTable.canvasWidth === width && cellTable.canvasHeight === height && cellTable.dpr === dpr) return cellTable;
+    releaseCellTable();
+    const cellSize = STROKE_CELL_PX * dpr;
+    const columns = Math.ceil(width / cellSize) + CELL_MARGIN * 2 + 1;
+    const rows = Math.ceil(height / cellSize) + CELL_MARGIN * 2 + 1;
+    const shape = floatTarget(columns, rows);
+    const stroke = floatTarget(columns, rows);
+    const framebuffer = createFramebuffer(gl, [shape, stroke]);
+    const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    cellTable = { canvasWidth: width, canvasHeight: height, dpr, columns, rows, shape, stroke, framebuffer };
+    if (complete) return cellTable;
+    releaseCellTable();
+    cellTablesOff = true;
+    return null;
   };
 
   const grassArea = (aspect: number) => {
@@ -888,6 +941,22 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     captureProbe(now, t);
 
+    const cells = ensureCellTable(dpr);
+    if (cells) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, cells.framebuffer);
+      gl.viewport(0, 0, cells.columns, cells.rows);
+      bindTexture(gl, 1, t.sceneFlow);
+      programs.cells
+        .use()
+        .int("uFlow", 1)
+        .vec2("uResolution", width, height)
+        .float("uDpr", dpr)
+        .vec2("uCellOrigin", -CELL_MARGIN, -CELL_MARGIN);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      bindTexture(gl, 4, cells.shape);
+      bindTexture(gl, 5, cells.stroke);
+    }
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, width, height);
     bindTexture(gl, 0, t.paint);
@@ -914,7 +983,12 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       .vec2("uSunPx", bodies.sun.x * dpr, (cssHeight - bodies.sun.y) * dpr)
       .vec2("uMoonPx", moonPoint ? moonPoint.x * dpr : -9999, moonPoint ? (cssHeight - moonPoint.y) * dpr : -9999)
       .float("uSunRadiusPx", bodies.radius * dpr)
-      .float("uRelief", 1.5 * Math.min(1, Math.max(0.55, dpr / 2)));
+      .float("uRelief", 1.5 * Math.min(1, Math.max(0.55, dpr / 2)))
+      .int("uCellShape", 4)
+      .int("uCellStroke", 5)
+      .int("uCellTable", cells ? 1 : 0)
+      .vec2("uCellOrigin", -CELL_MARGIN, -CELL_MARGIN)
+      .ivec2("uCellCount", cells?.columns ?? 0, cells?.rows ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     if (!reducedMotion) {
@@ -1184,6 +1258,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     ambientTimer = 0;
     gpu = null;
     targets = null;
+    cellTable = null;
     batch = null;
     mobGpu = null;
     mobBatch = null;
@@ -1315,6 +1390,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       delete hero.dataset.brushing;
       tones.reset();
       releaseTargets();
+      releaseCellTable();
     },
   };
 }
