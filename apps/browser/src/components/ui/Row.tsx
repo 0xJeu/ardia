@@ -17,7 +17,7 @@ export function Row({ title, description, children, icon, onPress }: { title?: R
         flexDirection: "row",
         alignItems: "center",
         gap: space.l,
-        backgroundColor: onPress && hovered ? theme.formRowHover : undefined,
+        backgroundColor: onPress && hovered ? theme.rowHover : undefined,
       }}
     >
       {icon}

@@ -8,7 +8,7 @@ import { Button, Checkbox, ContextMenuArea, HoverSlot, MouseArea, radius, space,
 import { historyScroll } from "./historyLayout";
 import { openHistoryRowMenu } from "./historyMenus";
 import { hostLabel, timeLabel } from "./PageLayout";
-import { historyRow, pageType } from "./tokens";
+import { historyRow, pagesColors, pageType } from "./tokens";
 
 const DAY_HEADER = { position: "absolute", left: 0, right: 0, height: historyRow.header, justifyContent: "flex-end", paddingBottom: space.m, paddingHorizontal: historyRow.headerInset } as const;
 const DAY_LABEL = { fontSize: pageType.dayHeader } as const;
@@ -105,7 +105,7 @@ export const HistoryRow = memo(function HistoryRow({
             alignItems: "center",
             paddingHorizontal: space.l,
             gap: space.l,
-            backgroundColor: selected ? theme.formRowHover : hovered ? theme.rowHover : theme.groupFill,
+            backgroundColor: selected ? (theme.dark ? pagesColors.dark : pagesColors.light).rowSelected : hovered ? theme.rowHover : theme.groupFill,
             borderTopLeftRadius: first ? r : 0,
             borderTopRightRadius: first ? r : 0,
             borderBottomLeftRadius: last ? r : 0,

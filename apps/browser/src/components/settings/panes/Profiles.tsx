@@ -202,7 +202,7 @@ function ProfileRow({
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 10,
-                backgroundColor: hovered && !lifted ? theme.formRowHover : undefined,
+                backgroundColor: hovered && !lifted ? theme.rowHover : undefined,
               }}
             >
               <View tooltip="Drag to reorder">

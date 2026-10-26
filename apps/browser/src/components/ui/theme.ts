@@ -191,7 +191,7 @@ const formColorsOf = (roles: ColorRoles): FormColors => ({
   switchOff: roles.switchOff,
   accent: roles.formAccent,
   destructive: roles.destructive,
-  selected: roles.formRowHover,
+  selected: roles.rowHover,
   flash: roles.searchFlash,
 });
 

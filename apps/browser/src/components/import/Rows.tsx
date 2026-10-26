@@ -33,7 +33,7 @@ export function BrowserRow({ browser, selected, onPress }: { browser: BrowserSou
           padX="l"
           gap="l"
           radius="card"
-          fill={hovered ? "formRowHover" : "groupFill"}
+          fill={hovered ? "rowHover" : "groupFill"}
           border="groupBorder"
           style={{
             height: importLayout.browserRow,

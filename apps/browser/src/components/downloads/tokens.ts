@@ -22,7 +22,7 @@ export function useDownloadsColors(): DownloadsColors {
 
 export function downloadsRowFill(theme: Theme, hovered: boolean, pressed: boolean) {
   if (!hovered && !pressed) return undefined;
-  return pressed ? theme.popoverRowPressed : theme.popoverRowHover;
+  return pressed ? theme.popoverRowPressed : theme.rowHover;
 }
 
 const HEADER = 24;

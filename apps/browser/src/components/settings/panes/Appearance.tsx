@@ -188,7 +188,7 @@ function IconChoice({ icon, selected, onPress }: { icon: AppIcon; selected: bool
           justifyContent: "center",
           borderWidth: 2.5,
           borderColor: selected ? theme.formAccent : "transparent",
-          backgroundColor: hovered && !selected ? theme.formRowHover : "transparent",
+          backgroundColor: hovered && !selected ? theme.rowHover : "transparent",
         }}
       >
         {icon.preview ? <Image source={{ uri: icon.preview }} style={{ width: ICON_SIZE, height: ICON_SIZE }} /> : null}

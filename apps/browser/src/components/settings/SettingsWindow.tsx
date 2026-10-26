@@ -199,7 +199,7 @@ function SidebarItem({ title, icon, selected, onPress }: { title: string; icon: 
             alignItems: "center",
             paddingHorizontal: 8,
             gap: 9,
-            backgroundColor: selected ? theme.formAccent : hovered ? theme.formRowHover : undefined,
+            backgroundColor: selected ? theme.formAccent : hovered ? theme.rowHover : undefined,
           }}
         >
           <Symbol name={icon} size={13} color={selected ? theme.onAccent : theme.icon} style={{ width: 20, height: 20 }} />

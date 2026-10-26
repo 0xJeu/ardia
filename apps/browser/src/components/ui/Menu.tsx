@@ -6,7 +6,7 @@ import { useTheme, type Theme } from "./theme";
 import { opacity } from "./tokens";
 import { useHover } from "./useHover";
 
-export const menuRowFill = (theme: Theme, pressed = false) => (pressed ? theme.popoverRowPressed : theme.popoverRowHover);
+export const menuRowFill = (theme: Theme, pressed = false) => (pressed ? theme.popoverRowPressed : theme.rowHover);
 
 export function MenuRow({
   icon,

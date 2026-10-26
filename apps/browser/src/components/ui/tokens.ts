@@ -62,7 +62,6 @@ const darkRoles = {
   popoverFill: "rgba(38,36,37,0.94)",
   popoverTint: "rgba(38,36,37,0.72)",
   popoverBorder: "rgba(255,255,255,0.14)",
-  popoverRowHover: "rgba(255,255,255,0.07)",
   popoverRowPressed: "rgba(255,255,255,0.12)",
   popoverSeparator: "rgba(255,255,255,0.12)",
   promptFill: "rgba(255,255,255,0.1)",
@@ -97,7 +96,6 @@ const darkRoles = {
   formAccentPressed: "#0060D0",
   onAccent: "#FFFFFF",
   destructive: "#FF453A",
-  formRowHover: "rgba(255,255,255,0.1)",
   searchFlash: "rgba(10,132,255,0.22)",
 };
 
@@ -140,7 +138,7 @@ const lightRoles: ColorRoles = {
   panelShadowOpacity: 0.18,
   scrim: "rgba(0,0,0,0.15)",
   rowSelected: "rgba(15,24,44,0.08)",
-  rowHover: "rgba(15,24,44,0.05)",
+  rowHover: "rgba(0,0,0,0.07)",
   commandBarSelected: "rgba(15,24,44,0.08)",
   commandBarHover: "rgba(15,24,44,0.05)",
   selection: "rgba(120,125,134,0.4)",
@@ -162,7 +160,6 @@ const lightRoles: ColorRoles = {
   popoverFill: "rgba(252,251,252,0.96)",
   popoverTint: "rgba(252,251,252,0.7)",
   popoverBorder: "rgba(0,0,0,0.12)",
-  popoverRowHover: "rgba(0,0,0,0.06)",
   popoverRowPressed: "rgba(0,0,0,0.1)",
   popoverSeparator: "rgba(0,0,0,0.1)",
   promptFill: "rgba(0,0,0,0.06)",
@@ -197,7 +194,6 @@ const lightRoles: ColorRoles = {
   formAccentPressed: "#0060D0",
   onAccent: "#FFFFFF",
   destructive: "#FF3B30",
-  formRowHover: "rgba(0,0,0,0.06)",
   searchFlash: "rgba(0,122,255,0.16)",
 };
 

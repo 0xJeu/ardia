@@ -118,7 +118,7 @@ function FolderTreeRow({
             alignItems: "center",
             paddingLeft: folderTree.inset + row.depth * folderTree.indent,
             paddingRight: space.m,
-            backgroundColor: selected ? theme.formAccent : hovered ? theme.formRowHover : undefined,
+            backgroundColor: selected ? theme.formAccent : hovered ? theme.rowHover : undefined,
           }}
         >
           <Pressable onPress={onToggle} disabled={!row.hasChildren} style={{ width: folderTree.chevronBox, height, alignItems: "center", justifyContent: "center" }}>
