@@ -7,6 +7,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   static let shared = WebKitHub()
   static let world = WKContentWorld.world(name: "ardia")
   static let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
+  static let silenced = background && ProcessInfo.processInfo.environment["ARDIA_ALLOW_AUDIO"] != "1"
 
   var events: ((String, [String: Any]) -> Void)?
   let downloads = WebKitDownloads()
