@@ -188,7 +188,6 @@
     "apps/browser/src/state/favicons/favicons.ts": 1,
     "apps/browser/src/state/sync/engine.ts": 1,
     "apps/browser/src/state/sync/pinned.ts": 1,
-    "apps/browser/src/state/tabs/tabLifecycle.ts": 1,
     "engine/ardiacore/src/ardia/core/ac_browser.mm": 1,
     "engine/ardiacore/src/ardia/core/ac_browser_window.mm": 1,
     "engine/ardiacore/src/ardia/core/ac_page_channel.mm": 1,

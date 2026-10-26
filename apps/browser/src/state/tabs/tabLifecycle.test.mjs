@@ -18,7 +18,7 @@ const stubs = {
 };
 registerHooks({
   resolve(specifier, context, next) {
-    if (!context.parentURL?.endsWith("/state/tabs/tabLifecycle.ts") || !(specifier in stubs)) return next(specifier, context);
+    if (!/\/state\/tabs\/(?:tabLifecycle|tabKeepAlive)\.ts$/.test(context.parentURL ?? "") || !(specifier in stubs)) return next(specifier, context);
     return { url: `data:text/javascript,${encodeURIComponent(stubs[specifier])}`, shortCircuit: true };
   },
 });
