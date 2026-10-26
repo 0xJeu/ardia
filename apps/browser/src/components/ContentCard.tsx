@@ -3,7 +3,8 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { Animated, StyleSheet, View, type ViewStyle } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { focus, switchToTab } from "../lib/actions";
-import { adoptIconPage, dropOutlivedFavicon, noteFavicon, noteIconPage } from "../lib/favicons";
+import { noteFavicon } from "../lib/favicons";
+import { adoptIconPage, dropOutlivedFavicon, noteIconPage } from "./layout/iconPage";
 import { restoredThemeColor } from "../lib/launchLook";
 import { noteChromeTab } from "../lib/cliControl";
 import { takeStartedNavigation } from "../lib/earlyNavigate";

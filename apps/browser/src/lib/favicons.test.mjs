@@ -16,7 +16,8 @@ registerHooks({
     return next(specifier, context);
   },
 });
-const { adoptFavicons, adoptIconPage, dropOutlivedFavicon, faviconOutlived, noteIconPage, resolveFavicon, useFavicon } = await import("./favicons.ts");
+const { adoptFavicons, faviconOutlived, resolveFavicon, useFavicon } = await import("./favicons.ts");
+const { adoptIconPage, dropOutlivedFavicon, noteIconPage } = await import("../components/layout/iconPage.ts");
 const { useBrowser } = await import("../store/browser.ts");
 const { engineProfile } = await import("../store/model.ts");
 
