@@ -91,7 +91,10 @@ public class WebViewModule: Module {
         view.browser.openBlockedPopup(id, always: always ?? false)
       }.runOnQueue(.main)
       AsyncFunction("clearSiteData") { (view: ChromiumTabView, promise: Promise) in
-        view.browser.clearSiteData { CallReply(promise: promise).service($0, $1) }
+        view.browser.clearSiteData { result, error in
+          if let error { return promise.reject("ERR_ENGINE", error) }
+          promise.resolve(result)
+        }
       }.runOnQueue(.main)
 
       AsyncFunction("resolvePasswordPrompt") { (view: ChromiumTabView, action: String, username: String?, password: String?) in
