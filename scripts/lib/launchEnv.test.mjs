@@ -20,6 +20,12 @@ test("a later entry for the same key wins, and test, trace and switch lists merg
   assert.equal(merged.ARDIA_SWITCHES, "launchTab=on,webkitSignIn=on");
 });
 
+test("repeated entries of one variable each add their keys", () => {
+  const merged = mergeLaunchEnv({ ARDIA_INSTANCE: "allowAudio" }, { ARDIA_INSTANCE: "allowOcclusion" }, { ARDIA_TEST: "reauth=granted" }, { ARDIA_TEST: "contextMenu" });
+  assert.equal(merged.ARDIA_INSTANCE, "allowAudio,allowOcclusion");
+  assert.equal(merged.ARDIA_TEST, "reauth=granted,contextMenu");
+});
+
 test("other variables pass through, a null one included (it unsets the variable)", () => {
   assert.deepEqual(mergeLaunchEnv({ HOME: "/h", ARDIA_DATA_DIR: "/d" }, { ARDIA_DATA_DIR: null }), { HOME: "/h", ARDIA_DATA_DIR: null });
 });

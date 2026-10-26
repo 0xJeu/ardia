@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const lib = join(dirname(fileURLToPath(import.meta.url)), "../lib/instance.mjs");
-const { attach, launch } = await import(lib);
+const { attach, launch, mergeLaunchEnv } = await import(lib);
 
 const argv = process.argv.slice(2);
 const help = () => {
@@ -58,7 +58,8 @@ try {
     if (!positional[0]) throw new Error("usage: ac launch <app> [--data DIR] …");
     const pairs = (list) => Object.fromEntries((list ?? []).map((kv) => (kv.includes("=") ? [kv.slice(0, kv.indexOf("=")), kv.slice(kv.indexOf("=") + 1)] : [kv, true])));
     const app = await launch(positional[0], {
-      data: flags.data, port: flags.port, js: flags.js, env: pairs(flags.env), switches: flags.switch, onboarded: flags.onboarded,
+      data: flags.data, port: flags.port, js: flags.js, switches: flags.switch, onboarded: flags.onboarded,
+      env: mergeLaunchEnv(...(flags.env ?? []).map((kv) => pairs([kv]))),
       instance: pairs(flags.instance), test: pairs(flags.test), trace: flags.trace ?? [],
       session: flags.session ? JSON.parse(readFileSync(flags.session, "utf8")) : undefined, ready: !flags["no-wait"],
       runsFrom: flags["runs-from"],
