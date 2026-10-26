@@ -3,7 +3,8 @@ import { Animated, StyleSheet, View } from "react-native";
 import { DockSelection, radius, Surface } from "../ui";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useTileTheme, type TileTheme } from "../../state/favicons/tileTheme";
-import { useSettings, useTab } from "../../state/browser/hooks";
+import { useTab } from "../../state/browser/hooks";
+import { useBrowserWhile } from "../../state/tabs/tabWatch";
 import { GlassFill, liquidGlass } from "../ui/Glass";
 import { SLIDE } from "../tabstrip/stripReorder";
 import { TabBadges } from "../media/TabBadges";
@@ -20,7 +21,7 @@ export function TileFace({ tabId, badge, ...state }: FaceState & { tabId: string
   const theme = useTheme();
   const tab = useTab(tabId);
   const tileTheme = useTileTheme(tab?.url ?? "", tab?.favicon, tab?.customIcon, tab?.profileId ?? "");
-  const iconRing = useSettings((s) => s.pinnedTabIconRing);
+  const iconRing = useBrowserWhile(state.active, (s) => state.active && s.settings.pinnedTabIconRing);
   if (!tab) return null;
   const { width, active } = state;
   const icon = (
