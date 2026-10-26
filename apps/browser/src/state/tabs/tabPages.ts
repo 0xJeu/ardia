@@ -1,4 +1,4 @@
-import { claimLaunchTab, prepareTabTransfer, releaseTabTransfer, type PageEngine } from "@ardia/ardiacore";
+import { claimLaunchTab, prepareTabTransfer, releaseTabTransfer, type PageEngine } from "../../platform/tabs";
 import { isInternalTab } from "../pages/urls";
 import { useBrowser } from "../browser/store";
 import { changedIds } from "../browser/changes";

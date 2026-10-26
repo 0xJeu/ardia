@@ -13,8 +13,9 @@ import {
   type ExtensionInstallPrompt,
   type ExtensionPackage,
   type InstalledExtension,
-} from "@ardia/ardiacore";
-import { confirm, showMenu } from "@ardia/shell";
+} from "../../platform/extensions";
+import { confirm } from "../../platform/dialogs";
+import { showMenu } from "../../platform/menus";
 import { openWindow } from "../browser/actions";
 import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";

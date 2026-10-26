@@ -1,4 +1,4 @@
-import type { StripGroup, StripState, StripTab } from "@ardia/ardiacore";
+import type { StripGroup, StripState, StripTab } from "../../platform/tabs";
 import type { BrowserState } from "../browser/store";
 import type { TabGroup } from "../browser/types";
 import { rootOf } from "../groups/groups";

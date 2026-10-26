@@ -1,4 +1,4 @@
-import { showAutofillSuggestions, type CardNetwork } from "@ardia/ardiacore";
+import { showAutofillSuggestions, type CardNetwork } from "../../platform/autofill";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { isTabReady } from "../tabs/pageState";

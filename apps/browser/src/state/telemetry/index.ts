@@ -1,4 +1,4 @@
-import { devCrash } from "@ardia/shell";
+import { devCrash } from "../../platform/app";
 import { onboardingCompletedAt } from "../onboarding/onboarding";
 import { devState, flush, requestLog, setSharing, useTelemetry } from "./client";
 import { devDaily, sendDailyPing, startDaily } from "./daily";

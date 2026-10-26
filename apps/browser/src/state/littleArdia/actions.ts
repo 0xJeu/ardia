@@ -1,5 +1,5 @@
-import { type LinkRoute, routeLinkTabs } from "@ardia/ardiacore";
-import { showMenu } from "@ardia/shell";
+import { type LinkRoute, routeLinkTabs } from "../../platform/tabs";
+import { showMenu } from "../../platform/menus";
 import { focus, openWindow } from "../browser/actions";
 import { menuShortcut } from "../commands/commandShortcuts";
 import { closeWindowAnimated, isWindowClosing } from "../windows/closeAnimated";

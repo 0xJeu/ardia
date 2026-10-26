@@ -1,5 +1,6 @@
-import { cancelDownload, endWebKitPrivateSession, leftDownloadStaging, removeLeftDownloadStaging, type Download } from "@ardia/ardiacore";
-import { readDocument, writeDocument } from "@ardia/shell";
+import { cancelDownload, leftDownloadStaging, removeLeftDownloadStaging, type Download } from "../../platform/downloads";
+import { endWebKitPrivateSession } from "../../platform/webkit";
+import { readDocument, writeDocument } from "../../platform/documents";
 import { useBrowser, type BrowserState, type HydrateData } from "../browser/store";
 import { inPinnedContainer, isIncognitoProfile, newId, privateSession, snapshotTab } from "../browser/model";
 import { earlyLaunchTabOn, launchTab, linkProfile, type LaunchTab } from "../tabs/launchTab";

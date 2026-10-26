@@ -1,4 +1,4 @@
-import { inputIdleSeconds, trimEngineMemory } from "@ardia/ardiacore";
+import { inputIdleSeconds, trimEngineMemory } from "../../platform/performance";
 import { useBrowser } from "../browser/store";
 import { isQuitting } from "../app/nativeSync";
 

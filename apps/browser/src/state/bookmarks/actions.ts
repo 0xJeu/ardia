@@ -1,4 +1,4 @@
-import { confirm } from "@ardia/shell";
+import { confirm } from "../../platform/dialogs";
 import { create } from "zustand";
 import { focus, openWindow } from "../browser/actions";
 import { folderLinks } from "./bookmarks";

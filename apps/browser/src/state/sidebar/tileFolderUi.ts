@@ -1,4 +1,5 @@
-import { prompt, showMenu } from "@ardia/shell";
+import { prompt } from "../../platform/dialogs";
+import { showMenu } from "../../platform/menus";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { activeTabId, plural } from "../browser/model";

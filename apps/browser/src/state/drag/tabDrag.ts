@@ -1,4 +1,5 @@
-import { dragPreview, hapticTick, windowFrame, type DragPreviewShape } from "@ardia/shell";
+import { dragPreview, windowFrame, type DragPreviewShape } from "../../platform/windows";
+import { hapticTick } from "../../platform/haptics";
 import { create } from "zustand";
 import { focus } from "../browser/actions";
 import { lastPicture, startTabPictures } from "../tabs/tabPictures";

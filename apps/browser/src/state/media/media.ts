@@ -1,4 +1,4 @@
-import type { ControlPress, DisplayMediaRequest, MediaCommand, NowPlaying, PictureInPictureState } from "@ardia/ardiacore";
+import type { ControlPress, DisplayMediaRequest, MediaCommand, NowPlaying, PictureInPictureState } from "../../platform/media";
 import { useEffect, useState } from "react";
 import type { AccessibilityActionEvent, GestureResponderEvent } from "react-native";
 import { create } from "zustand";

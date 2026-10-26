@@ -1,4 +1,4 @@
-import type { PageEngine } from "@ardia/ardiacore";
+import type { PageEngine } from "../../platform/tabs";
 import type { ProfileColor, ProfileTheme } from "../../lib/profileLook";
 
 export type { ProfileColor, ProfileTheme, ThemeColor, ThemeLook, ThemeMode, ThemeStop, ThemeTexture } from "../../lib/profileLook";

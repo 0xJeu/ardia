@@ -1,4 +1,5 @@
-import { readDocument, stopIntroMusic, writeDocument } from "@ardia/shell";
+import { readDocument, writeDocument } from "../../platform/documents";
+import { stopIntroMusic } from "../../platform/introMusic";
 import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";

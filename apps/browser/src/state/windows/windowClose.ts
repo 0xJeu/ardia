@@ -1,4 +1,5 @@
-import { confirm, onWindowEvent } from "@ardia/shell";
+import { confirm } from "../../platform/dialogs";
+import { onWindowEvent } from "../../platform/windows";
 import { useBrowser } from "../browser/store";
 import { inPinnedContainer, plural, profileFor } from "../browser/model";
 import { isSmall } from "./small";

@@ -1,12 +1,8 @@
-import {
-  closeWindow as closeNativeWindow,
-  copyText,
-  openExternalURL,
-  pickFiles,
-  prompt,
-  setAppearance,
-  type CommandEvent,
-} from "@ardia/shell";
+import { closeWindow as closeNativeWindow } from "../../platform/windows";
+import { copyText } from "../../platform/clipboard";
+import { openExternalURL, setAppearance } from "../../platform/app";
+import { pickFiles, prompt } from "../../platform/dialogs";
+import type { CommandEvent } from "../../platform/commands";
 import { markdownLink } from "@ardia/core";
 import { useBrowser } from "../browser/store";
 import { activeTabId, bookmarkProfileId, isPinnedRow, resolveWindowId } from "../browser/model";

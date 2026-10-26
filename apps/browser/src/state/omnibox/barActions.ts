@@ -1,5 +1,5 @@
 import type { CommandAction } from "@ardia/core";
-import type { BrowserCommand } from "@ardia/shell";
+import type { BrowserCommand } from "../../platform/commands";
 import { isBookmarked } from "../bookmarks/bookmarks";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTab, bookmarkProfileId, isPinnedRow, pinnedSectionTitle } from "../browser/model";

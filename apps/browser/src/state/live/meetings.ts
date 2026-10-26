@@ -1,4 +1,4 @@
-import type { CalendarParticipant, SystemCalendarEvent } from "@ardia/shell";
+import type { CalendarParticipant, SystemCalendarEvent } from "../../platform/calendar";
 
 export type CalendarEvent = SystemCalendarEvent;
 export type MeetingProvider = "meet" | "zoom" | "teams" | "webex" | "other";

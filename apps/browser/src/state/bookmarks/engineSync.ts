@@ -1,5 +1,5 @@
-import { applyBookmarkOps, bookmarkTree, onBookmarksChanged, watchBookmarks, type BookmarkOp, type EngineBookmark } from "@ardia/ardiacore";
-import { readDocument, removeDocument, writeDocument } from "@ardia/shell";
+import { applyBookmarkOps, bookmarkTree, onBookmarksChanged, watchBookmarks, type BookmarkOp, type EngineBookmark } from "../../platform/bookmarks";
+import { readDocument, removeDocument, writeDocument } from "../../platform/documents";
 import { versionedJson, upgraded, type Migrations } from "../../lib/savedDocument";
 import { bookmarkUuidFor, isBookmarkUuid, rootIdsFor } from "./bookmarks";
 import { applyOps, bookmarkOps, flatFromEngine, flatFromStore, type Flat } from "./flatBookmarks";

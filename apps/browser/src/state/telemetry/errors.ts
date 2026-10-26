@@ -1,4 +1,4 @@
-import { crashReports, systemInfo } from "@ardia/shell";
+import { crashReports, systemInfo } from "../../platform/app";
 import { advanceCrashCursor, capture, crashCursor, isSharing, loadChoice } from "./client";
 import { recordLog } from "./logs";
 import { errorCode, errorMessage, errorType, nativeCrashExceptions, parseStack, type ExceptionFrame } from "./sanitize";

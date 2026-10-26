@@ -1,4 +1,4 @@
-import { readDocument, writeDocument } from "@ardia/shell";
+import { readDocument, writeDocument } from "../../platform/documents";
 import { create } from "zustand";
 import type { CompletedItem, CompletionState, FolderStatus, LiveAccount, LiveFolder, LiveFolderKind, LiveItem, LiveSourceId } from "./types";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";

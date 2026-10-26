@@ -1,4 +1,4 @@
-import { readDocument, writeDocument } from "@ardia/shell";
+import { readDocument, writeDocument } from "../../platform/documents";
 import { versionedJson, upgraded, type Migrations } from "../../lib/savedDocument";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { isIncognitoProfile } from "../browser/model";

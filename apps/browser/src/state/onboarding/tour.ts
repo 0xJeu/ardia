@@ -1,4 +1,4 @@
-import { systemInfo } from "@ardia/shell";
+import { systemInfo } from "../../platform/app";
 import { create } from "zustand";
 import { openUrls } from "../browser/actions";
 import { useBrowser } from "../browser/store";

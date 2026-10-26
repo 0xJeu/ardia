@@ -1,4 +1,11 @@
-import { onPermission, onPermissionDismissed, resolvePermission, type PermissionKind, type PermissionRequest, type PermissionResult } from "@ardia/ardiacore";
+import {
+  onPermission,
+  onPermissionDismissed,
+  resolvePermission,
+  type PermissionKind,
+  type PermissionRequest,
+  type PermissionResult,
+} from "../../platform/permissions";
 import { ensureNotificationPermission } from "./webNotifications";
 import { useBrowser } from "../browser/store";
 import { patchPage, pageOf, usePages } from "../tabs/pageState";

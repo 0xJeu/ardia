@@ -1,4 +1,4 @@
-import { showMenu, type MenuItem } from "@ardia/shell";
+import { showMenu, type MenuItem } from "../../platform/menus";
 import { create } from "zustand";
 import { closeTab } from "../browser/actions";
 import { menuShortcut } from "../commands/commandShortcuts";

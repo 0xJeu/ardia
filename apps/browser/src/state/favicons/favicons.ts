@@ -1,5 +1,6 @@
-import { faviconsFor, fetchFavicon, onHistoryChanged, storeFavicon } from "@ardia/ardiacore";
-import { iconTheme, readDocument, removeDocument, type IconTheme } from "@ardia/shell";
+import { faviconsFor, fetchFavicon, iconTheme, storeFavicon, type IconTheme } from "../../platform/favicons";
+import { onHistoryChanged } from "../../platform/history";
+import { readDocument, removeDocument } from "../../platform/documents";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { batchStoreUpdates, useBrowser, type BrowserState } from "../browser/store";

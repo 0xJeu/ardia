@@ -1,4 +1,4 @@
-import type { LinkRoute } from "@ardia/ardiacore";
+import type { LinkRoute } from "../../platform/tabs";
 import { useBrowser } from "../browser/store";
 import { engineProfile } from "../browser/model";
 import { lastActiveProfile } from "../windows/small";

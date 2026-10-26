@@ -1,26 +1,10 @@
-import { lastTabClosesWindow, onDownload, releaseProfile } from "@ardia/ardiacore";
-import {
-  cancelFocusMove,
-  claimFocus,
-  closeWindow,
-  isDarkAppearance,
-  menuShortcuts,
-  onAppEvent,
-  onCommand,
-  onOpenURLs,
-  onWindowEvent,
-  openWindow,
-  replyToTerminate,
-  restoreFullScreen,
-  setAppearance,
-  setMenuStateParts,
-  setThinScrollBars,
-  setTrafficLightsCenter,
-  setWindowTitle,
-  windowIds,
-  type MenuBookmark,
-  type MenuState,
-} from "@ardia/shell";
+import { lastTabClosesWindow } from "../../platform/tabs";
+import { onDownload } from "../../platform/downloads";
+import { releaseProfile } from "../../platform/profiles";
+import { cancelFocusMove, claimFocus } from "../../platform/focus";
+import { closeWindow, onWindowEvent, openWindow, restoreFullScreen, setTrafficLightsCenter, setWindowTitle, windowIds } from "../../platform/windows";
+import { isDarkAppearance, onAppEvent, onOpenURLs, replyToTerminate, setAppearance, setThinScrollBars } from "../../platform/app";
+import { menuShortcuts, onCommand, setMenuStateParts, type MenuBookmark, type MenuState } from "../../platform/commands";
 import { Appearance } from "react-native";
 import { folderChildren, isBookmarked } from "../bookmarks/bookmarks";
 import { useBrowser, type BrowserState } from "../browser/store";

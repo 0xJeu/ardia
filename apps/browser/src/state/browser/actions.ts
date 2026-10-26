@@ -1,5 +1,8 @@
-import { listExtensions, stepPager } from "@ardia/ardiacore";
-import { confirm, focusWindow, showMenu, type MenuItem } from "@ardia/shell";
+import { listExtensions } from "../../platform/extensions";
+import { stepPager } from "../../platform/pager";
+import { confirm } from "../../platform/dialogs";
+import { focusWindow } from "../../platform/windows";
+import { showMenu, type MenuItem } from "../../platform/menus";
 import { pageToProfile } from "../windows/profilePager";
 import { profileNames, requestCreateProfile, type CreateProfilePreset } from "../profiles/createProfileRequest";
 import { useBrowser, type CreateWindowOptions } from "./store";

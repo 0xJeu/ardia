@@ -5,12 +5,14 @@ import { mount } from "../../test-hooks.mjs";
 
 globalThis.__DEV__ = false;
 
-const ardiacore = import.meta.resolve("@ardia/ardiacore");
+const performance = import.meta.resolve("../../platform/performance.ts");
+const profiles = import.meta.resolve("../../platform/profiles.ts");
 const stubs = {
-  "@ardia/ardiacore": `export * from ${JSON.stringify(ardiacore)};
+  "../../platform/performance": `export * from ${JSON.stringify(performance)};
     export const listTasks = async () => [];
     export const onSystemState = () => ({ remove() {} });
-    export const systemState = async () => null;
+    export const systemState = async () => null;`,
+  "../../platform/profiles": `export * from ${JSON.stringify(profiles)};
     export const releaseProfile = async () => {};`,
   "../splits/actions": "export const showToast = () => {};",
   "../settings/settingsWindows": "export const openSettings = () => {};",

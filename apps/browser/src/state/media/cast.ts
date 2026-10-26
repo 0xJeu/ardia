@@ -1,12 +1,4 @@
-import {
-  closeCastDialog,
-  onCastDialog,
-  onCastRoutes,
-  showCastDialog,
-  watchCastRoutes,
-  type CastDialog,
-  type CastRoute,
-} from "@ardia/ardiacore";
+import { closeCastDialog, onCastDialog, onCastRoutes, showCastDialog, watchCastRoutes, type CastDialog, type CastRoute } from "../../platform/media";
 import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile } from "../browser/model";

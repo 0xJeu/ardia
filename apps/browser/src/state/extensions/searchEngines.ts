@@ -1,4 +1,4 @@
-import { searchEngineList } from "@ardia/ardiacore";
+import { searchEngineList } from "../../platform/extensions";
 import { extensionEnginesFromChrome } from "@ardia/core";
 import { useBrowser } from "../browser/store";
 import { useExtensions } from "./actions";

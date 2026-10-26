@@ -1,4 +1,5 @@
-import { onAppEvent, onWindowEvent } from "@ardia/shell";
+import { onAppEvent } from "../../platform/app";
+import { onWindowEvent } from "../../platform/windows";
 import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";

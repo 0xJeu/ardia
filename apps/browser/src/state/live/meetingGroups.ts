@@ -1,4 +1,4 @@
-import { confirm } from "@ardia/shell";
+import { confirm } from "../../platform/dialogs";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { activeTabId } from "../browser/model";

@@ -1,4 +1,11 @@
-import { cancelDeviceChooser, onDeviceChooser, openBluetoothSettings, refreshDeviceChooser, selectDevice, type DeviceChooser } from "@ardia/ardiacore";
+import {
+  cancelDeviceChooser,
+  onDeviceChooser,
+  openBluetoothSettings,
+  refreshDeviceChooser,
+  selectDevice,
+  type DeviceChooser,
+} from "../../platform/permissions";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 

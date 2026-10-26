@@ -1,5 +1,7 @@
 import type { Suggestion } from "@ardia/core";
-import { prompt, showMenu, type BrowserCommand, type MenuItem } from "@ardia/shell";
+import { prompt } from "../../platform/dialogs";
+import { showMenu, type MenuItem } from "../../platform/menus";
+import type { BrowserCommand } from "../../platform/commands";
 import { moveTabToProfile } from "../browser/actions";
 import { runCommand } from "../commands/commands";
 import { useBrowser } from "../browser/store";

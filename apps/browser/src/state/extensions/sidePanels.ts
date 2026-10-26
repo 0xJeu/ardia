@@ -1,4 +1,4 @@
-import { extensionSidePanelUrl } from "@ardia/ardiacore";
+import { extensionSidePanelUrl } from "../../platform/extensions";
 import { useBrowser } from "../browser/store";
 import { shownReadyTab, extensionProfile, isPrivate, pageProfile, shownIn, useExtensions } from "./store";
 

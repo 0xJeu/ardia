@@ -1,13 +1,13 @@
-import type { WebNotification } from "@ardia/ardiacore";
+import type { WebNotification } from "../../platform/tabs";
+import { confirm } from "../../platform/dialogs";
 import {
-  confirm,
   notificationPermission,
   openNotificationSettings,
   postNotification,
   removeNotifications,
   requestNotificationPermission,
   type NotificationResponse,
-} from "@ardia/shell";
+} from "../../platform/notifications";
 import { useBrowser } from "../browser/store";
 import { focus, switchToTab } from "../browser/actions";
 import { webviews } from "../../platform/webviews";

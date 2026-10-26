@@ -1,5 +1,7 @@
 import { cleanUrl, markdownLink } from "@ardia/core";
-import { copyText, prompt, showMenu, type MenuItem } from "@ardia/shell";
+import { copyText } from "../../platform/clipboard";
+import { prompt } from "../../platform/dialogs";
+import { showMenu, type MenuItem } from "../../platform/menus";
 import { closeTab } from "../browser/actions";
 import { menuShortcut } from "../commands/commandShortcuts";
 import { calendarConnected, connectCalendar, setCalendarHidden, useCalendar } from "../live/calendar";

@@ -1,6 +1,7 @@
-import { addHistoryVisits, deleteHistoryUrls, deletePassword, savePassword } from "@ardia/ardiacore";
+import { addHistoryVisits, deleteHistoryUrls } from "../../platform/history";
+import { deletePassword, savePassword } from "../../platform/passwords";
 import { orWarn } from "../../lib/fallback";
-import { assignPositions, SyncNative, type Adapter, type SavedLogin } from "@ardia/sync";
+import { assignPositions, SyncNative, type Adapter, type SavedLogin } from "../../platform/sync";
 import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../bookmarks/bookmarks";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../history/history";
 import { useBrowser } from "../browser/store";

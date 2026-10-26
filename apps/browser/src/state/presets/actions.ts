@@ -1,4 +1,4 @@
-import { copyToClipboard } from "../../platform/clipboard";
+import { copyText } from "../../platform/clipboard";
 import { useBrowser } from "../browser/store";
 import { resolveWindowId, tabLayoutOf } from "../browser/model";
 import { useOnboarding } from "../onboarding/onboarding";
@@ -25,7 +25,7 @@ export function onboardingSetupCode(): { code: string; lines: string[] } {
   return { code: encodeSetupCode(choices), lines: describeSetupChoices(choices) };
 }
 
-export const copySetupCode = (code: string) => copyToClipboard(code);
+export const copySetupCode = (code: string) => copyText(code);
 
 function applyTabLayout(tabLayout: Settings["tabLayout"]) {
   for (const w of Object.values(useBrowser.getState().windows)) {

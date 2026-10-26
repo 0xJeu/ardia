@@ -1,4 +1,4 @@
-import type { OpenWindowRequest } from "@ardia/ardiacore";
+import type { OpenWindowRequest } from "../../platform/tabs";
 import { openWindow } from "../browser/actions";
 import { useBrowser } from "../browser/store";
 import { engineProfile } from "../browser/model";

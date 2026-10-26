@@ -1,6 +1,6 @@
-import { applyExtensionsSync, extensionsSyncState, onExtensionsSync } from "@ardia/ardiacore";
-import { readDocument, writeDocument } from "@ardia/shell";
-import { extensionsAdapter, type ExtensionChange, type ExtensionIntent, type ExtensionsAdapter, type LocalExtensions } from "@ardia/sync";
+import { applyExtensionsSync, extensionsSyncState, onExtensionsSync } from "../../platform/extensions";
+import { readDocument, writeDocument } from "../../platform/documents";
+import { extensionsAdapter, type ExtensionChange, type ExtensionIntent, type ExtensionsAdapter, type LocalExtensions } from "../../platform/sync";
 import { engineProfile } from "../browser/model";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 

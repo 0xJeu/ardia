@@ -1,4 +1,4 @@
-import { keychainDelete, keychainGet, keychainSet } from "@ardia/shell";
+import { keychainDelete, keychainGet, keychainSet } from "../../platform/keychain";
 import { devTestValue } from "../../platform/launchConfig";
 import { LiveError, type LiveSourceId } from "./types";
 

@@ -10,7 +10,7 @@ import {
   type ExtensionSearchEngine,
   type SearchEngine,
 } from "@ardia/core";
-import type { PageEngine } from "@ardia/ardiacore";
+import type { PageEngine } from "../../platform/tabs";
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 

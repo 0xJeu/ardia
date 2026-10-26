@@ -1,21 +1,12 @@
-import { NativeModules } from "react-native";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { appInfo, capture, isSharing, useTelemetry } from "./client";
 import { jsStartedAt } from "./jsStart";
-
-type NativeTiming = {
-  setEnabled(on: boolean): void;
-  markFrame(key: string, kind: string): void;
-  lastInput(): [at: number, kind: number];
-  drain(): [key: string, kind: string, at: number][];
-};
-
-const native = NativeModules.ACFieldTiming as NativeTiming | undefined;
+import { fieldTiming } from "../../platform/fieldTiming";
 
 let on = false;
 
-const frame = (key: string, kind: string) => native?.markFrame(key, kind);
+const frame = (key: string, kind: string) => fieldTiming?.markFrame(key, kind);
 
 const MAX_SAMPLES = 500;
 const samples = new Map<string, number[]>();
@@ -51,7 +42,7 @@ export function emitJourneys(final = false) {
 }
 
 function lastInput(now = Date.now()): number | null {
-  const [at = 0] = native?.lastInput() ?? [];
+  const [at = 0] = fieldTiming?.lastInput() ?? [];
   return at > 0 && at <= now + 5 && now - at <= 1000 ? at : null;
 }
 
@@ -59,7 +50,7 @@ type Mark = [kind: string, at: number];
 const marks = new Map<string, Mark[]>();
 
 function pullMarks(now: number) {
-  for (const [key, kind, at] of native?.drain() ?? []) {
+  for (const [key, kind, at] of fieldTiming?.drain() ?? []) {
     let list = marks.get(key);
     if (!list) marks.set(key, (list = []));
     list.push([kind, at]);
@@ -229,7 +220,7 @@ export function launchFirstWindow(at: number) {
 function settleLaunch(l: Launch, now: number) {
   const content = mark("launch", "content", l.t0);
   const paints = l.keys.map((k) => mark(k, "fcp", l.t0)).filter((at): at is number => at !== null);
-  const done = l.usable !== undefined && l.firstWindow !== undefined && (content !== null || !native) && (paints.length || !l.keys.length);
+  const done = l.usable !== undefined && l.firstWindow !== undefined && (content !== null || !fieldTiming) && (paints.length || !l.keys.length);
   if (!done && now - (l.commit ?? l.t0) < 30_000) return false;
   sendLaunch(l, content, paints);
   return true;
@@ -327,7 +318,7 @@ let unwatchStore: (() => void) | undefined;
 function setOn(next: boolean, initial = false) {
   if (next === on && !initial) return;
   on = next;
-  native?.setEnabled(next);
+  fieldTiming?.setEnabled(next);
   if (next) {
     unwatchStore ??= useBrowser.subscribe(watchStore);
     return;
@@ -362,7 +353,7 @@ export function journeysEnding() {
 
 export const devJourneys = () => ({
   on,
-  native: !!native,
+  native: !!fieldTiming,
   pending: pending.map((p) => ({ ...p })),
   samples: Object.fromEntries(samples),
   counts: Object.fromEntries(counts),

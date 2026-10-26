@@ -1,6 +1,6 @@
-import { setSearchEngineName, setSelectionPopover } from "@ardia/ardiacore";
+import { setSearchEngineName, setSelectionPopover } from "../../platform/pageOptions";
 import { chooseTextFragment, cleanUrl, searchUrl, withTextFragment, type SelectionContext } from "@ardia/core";
-import { copyText } from "@ardia/shell";
+import { copyText } from "../../platform/clipboard";
 import { create } from "zustand";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";

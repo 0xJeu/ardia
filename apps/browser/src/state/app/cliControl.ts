@@ -1,5 +1,16 @@
-import { cliControlStatus, onCliControlChanged, setCliActiveTab, setCliControl, type CliControlStatus } from "@ardia/ardiacore";
-import { installCli, installedCliVersion, onCliInstallLine, readDocument, systemInfo, writeDocument, type CliInstallResult } from "@ardia/shell";
+import {
+  cliControlStatus,
+  installCli,
+  installedCliVersion,
+  onCliControlChanged,
+  onCliInstallLine,
+  setCliActiveTab,
+  setCliControl,
+  type CliControlStatus,
+  type CliInstallResult,
+} from "../../platform/cli";
+import { readDocument, writeDocument } from "../../platform/documents";
+import { systemInfo } from "../../platform/app";
 import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { hasPage } from "../tabs/pageSession";

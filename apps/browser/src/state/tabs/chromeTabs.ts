@@ -1,14 +1,13 @@
+import { chromeWindows, devWindowAction } from "../../platform/windows";
+import { engineInfo } from "../../platform/app";
 import {
-  chromeWindows,
-  devWindowAction,
-  engineInfo,
   onTabStripTransaction,
   sendTabStripCommand,
   tabStrips,
   type StripState,
   type TabStripCommand,
   type TabStripTransaction,
-} from "@ardia/ardiacore";
+} from "../../platform/tabs";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { chromeChanged, groupStep, stripActual, stripPlan, type GroupBindings } from "./liveTabs";

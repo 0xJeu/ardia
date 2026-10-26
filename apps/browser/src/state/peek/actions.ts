@@ -1,5 +1,5 @@
-import { setPeekModifier, setSplitLinkModifier } from "@ardia/ardiacore";
-import { hapticTick } from "@ardia/shell";
+import { setPeekModifier, setSplitLinkModifier } from "../../platform/pageOptions";
+import { hapticTick } from "../../platform/haptics";
 import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";

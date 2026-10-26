@@ -1,4 +1,5 @@
-import type { BrowserCommand, MenuEntry } from "@ardia/shell";
+import type { BrowserCommand } from "../../platform/commands";
+import type { MenuEntry } from "../../platform/menus";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, pinSection, plural } from "../browser/model";
 import { awayFromPin, groupOf, selectedTabIds } from "../pins/organize";

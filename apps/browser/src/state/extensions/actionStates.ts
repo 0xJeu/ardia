@@ -1,4 +1,4 @@
-import { extensionActionStates } from "@ardia/ardiacore";
+import { extensionActionStates } from "../../platform/extensions";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { extensionProfile, readyTabOf, useExtensions, windowExtensions } from "./store";

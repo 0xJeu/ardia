@@ -1,5 +1,6 @@
-import { addHistoryVisits, type PageEngine } from "@ardia/ardiacore";
-import { confirm } from "@ardia/shell";
+import { addHistoryVisits } from "../../platform/history";
+import type { PageEngine } from "../../platform/tabs";
+import { confirm } from "../../platform/dialogs";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { pageOf, patchPage } from "../tabs/pageState";

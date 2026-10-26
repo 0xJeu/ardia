@@ -1,4 +1,4 @@
-import { readDocument, saveDocument, writeDocument } from "@ardia/shell";
+import { readDocument, saveDocument, writeDocument } from "../../platform/documents";
 import { Clock, emptyScope, restoreJournal, SyncNative, writtenSeq, type LogFile } from "../../platform/sync";
 import { parseSaved, versionedJson } from "../../lib/savedDocument";
 import { DOC, DOC_MIGRATIONS, DOC_VERSION, JOURNAL, STATE, defaultTypes, emptyDoc, type SyncDoc } from "./syncDoc";

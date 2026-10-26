@@ -1,5 +1,6 @@
-import { listTasks, onExtensionsChanged, type EngineTask } from "@ardia/ardiacore";
-import { onAppEvent } from "@ardia/shell";
+import { listTasks, type EngineTask } from "../../platform/performance";
+import { onExtensionsChanged } from "../../platform/extensions";
+import { onAppEvent } from "../../platform/app";
 import { useTranslate } from "../site/translate";
 import { useBrowser } from "../browser/store";
 import { useSync } from "../sync/engine";

@@ -1,5 +1,5 @@
-import { engineInfo } from "@ardia/ardiacore";
-import { readDocument, systemInfo, writeDocument, type SystemInfo } from "@ardia/shell";
+import { engineInfo, systemInfo, type SystemInfo } from "../../platform/app";
+import { readDocument, writeDocument } from "../../platform/documents";
 import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { DEV_SEND_TEST_KEY, LOGS_URL, MAX_BODY_BYTES } from "./config";

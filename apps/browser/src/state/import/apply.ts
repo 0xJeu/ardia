@@ -1,6 +1,17 @@
-import { savePassword } from "@ardia/ardiacore";
+import { savePassword } from "../../platform/passwords";
 import { orWarn } from "../../lib/fallback";
-import type { BookmarkNode as ImportedNode, Credential, DiaTabsProfile, ImportedFavicon, ImportedTab, ImportKind, ImportResult, SafariExport, SpaceSuggestion } from "@ardia/import";
+import {
+  importModule,
+  type BookmarkNode as ImportedNode,
+  type Credential,
+  type DiaTabsProfile,
+  type ImportedFavicon,
+  type ImportedTab,
+  type ImportKind,
+  type ImportResult,
+  type SafariExport,
+  type SpaceSuggestion,
+} from "../../platform/importModule";
 import { addGroupsFromDrafts } from "../bookmarks/bookmarkGroups";
 import { adoptFavicons, pageKey as faviconPage } from "../favicons/favicons";
 import type { BookmarkDraft } from "../bookmarks/bookmarks";
@@ -10,7 +21,6 @@ import { engineProfile, isIncognitoProfile } from "../browser/model";
 import { openPages, pageKey, pinnedPages, tilePages } from "../tabs/pageKeys";
 import { withNewTab } from "../tabs/tabs";
 import type { ProfileColor } from "../browser/types";
-import { importModule } from "../../platform/importModule";
 import { adoptProfileTheme } from "../sync/engine";
 import { parseArcTheme } from "./arcTheme";
 import { newProfileLiveFolder } from "../live/engine";

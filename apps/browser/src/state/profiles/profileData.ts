@@ -1,4 +1,4 @@
-import { deleteProfileData } from "@ardia/ardiacore";
+import { deleteProfileData } from "../../platform/profiles";
 import { useBrowser } from "../browser/store";
 
 const CLOSE_DELAY_MS = 1500;

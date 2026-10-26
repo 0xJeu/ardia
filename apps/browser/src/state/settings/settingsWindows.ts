@@ -1,4 +1,4 @@
-import { focusWindow, openWindow } from "@ardia/shell";
+import { focusWindow, openWindow } from "../../platform/windows";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 

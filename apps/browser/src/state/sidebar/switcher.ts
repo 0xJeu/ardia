@@ -1,4 +1,4 @@
-import { restartSwitcherPointer, setSwitcherCapture, switcherPointerMoved } from "@ardia/shell";
+import { restartSwitcherPointer, setSwitcherCapture, switcherPointerMoved } from "../../platform/focus";
 import { useBrowser } from "../browser/store";
 import { recentTabIds } from "../pins/organize";
 import { setSidebarUi, sidebarUi } from "./sidebarUi";

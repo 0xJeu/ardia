@@ -1,25 +1,13 @@
-import { beginTracing, endTracing, engineInfo, isTracing, openTaskManager } from "@ardia/ardiacore";
-import {
-  confirm,
-  copyText,
-  isDefaultBrowser,
-  onCommand,
-  onNotificationResponse,
-  onScriptCommand,
-  openExternalURL,
-  readDocument,
-  replyToScript,
-  revealFile,
-  saveDocument,
-  setAsDefaultBrowser,
-  setScriptState,
-  setWindowActivity,
-  systemInfo,
-  updaterState,
-  type CommandEvent,
-  type ScriptCommand,
-  type ScriptState,
-} from "@ardia/shell";
+import { beginTracing, endTracing, isTracing, openTaskManager } from "../../platform/performance";
+import { confirm } from "../../platform/dialogs";
+import { copyText } from "../../platform/clipboard";
+import { engineInfo, isDefaultBrowser, openExternalURL, setAsDefaultBrowser, systemInfo, updaterState } from "../../platform/app";
+import { onCommand, type CommandEvent } from "../../platform/commands";
+import { onNotificationResponse } from "../../platform/notifications";
+import { onScriptCommand, replyToScript, setScriptState, type ScriptCommand, type ScriptState } from "../../platform/scripting";
+import { readDocument, saveDocument } from "../../platform/documents";
+import { revealFile } from "../../platform/files";
+import { setWindowActivity } from "../../platform/windows";
 import { maybeStartOnboarding, onboardingCompletedAt, startOnboarding, useOnboarding } from "../onboarding/onboarding";
 import { openVideoTour, startToolTour } from "../onboarding/tour";
 import { trackAppVersion } from "../releaseNotes/releaseNotes";

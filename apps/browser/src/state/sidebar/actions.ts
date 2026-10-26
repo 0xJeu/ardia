@@ -1,5 +1,6 @@
 import { cleanUrl, markdownLink } from "@ardia/core";
-import { copyText, prompt } from "@ardia/shell";
+import { copyText } from "../../platform/clipboard";
+import { prompt } from "../../platform/dialogs";
 import { updateFolder } from "../live/store";
 import { useBrowser } from "../browser/store";
 import { webviews } from "../../platform/webviews";

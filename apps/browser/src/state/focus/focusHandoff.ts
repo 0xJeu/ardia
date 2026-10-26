@@ -1,4 +1,5 @@
-import { cancelFocusMove, type CommandEvent } from "@ardia/shell";
+import { cancelFocusMove } from "../../platform/focus";
+import type { CommandEvent } from "../../platform/commands";
 import { useBrowser } from "../browser/store";
 import { resolveWindowId } from "../browser/model";
 import { peekTabId } from "../peek/peek";

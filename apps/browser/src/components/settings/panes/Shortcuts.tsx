@@ -12,7 +12,7 @@ import { matchesQuery } from "../../pages/PageLayout";
 import { shortcutItems } from "../paneData";
 import { useResource } from "../../../state/settings/resources";
 import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
-import { formatShortcut, sameShortcut, type Shortcut } from "../../../lib/shortcuts";
+import { formatShortcut, sameShortcut, type Shortcut } from "../../../state/commands/shortcuts";
 import { settingsType } from "../tokens";
 
 type Filter = "all" | "customized" | "conflicts";

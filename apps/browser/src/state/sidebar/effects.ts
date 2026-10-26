@@ -1,4 +1,5 @@
-import { onAppEvent, onWindowEvent } from "@ardia/shell";
+import { onAppEvent } from "../../platform/app";
+import { onWindowEvent } from "../../platform/windows";
 import { everySlowly } from "../../platform/slowTimers";
 import { webviews } from "../../platform/webviews";
 import { startLive } from "../live";

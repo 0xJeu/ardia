@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 const { COMMANDS, shortcutSources, staticShortcutSources } = await import("./commandCatalog.ts");
-const { formatShortcut } = await import("../../lib/shortcuts.ts");
+const { formatShortcut } = await import("./shortcuts.ts");
 
 const swift = ["MainMenu.swift", "MainMenu+Shortcuts.swift"]
   .map((name) => readFileSync(new URL(`../../../../../packages/shell/ios/${name}`, import.meta.url), "utf8"))

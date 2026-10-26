@@ -10,7 +10,7 @@ import {
   watchExtensionActions,
   webStoreExtensionId,
   type TabsRequest,
-} from "@ardia/ardiacore";
+} from "../../platform/extensions";
 import { AppState } from "react-native";
 import { openWindow } from "../browser/actions";
 import { webviews } from "../../platform/webviews";

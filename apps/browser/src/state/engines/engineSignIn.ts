@@ -1,8 +1,9 @@
-import { importWebKitCookies, webKitCookieStoreKey, type WebViewHandle } from "@ardia/ardiacore";
+import { importWebKitCookies, webKitCookieStoreKey } from "../../platform/webkit";
+import type { WebViewHandle } from "../../platform/tabs";
 import { useBrowser } from "../browser/store";
 import { tabEngine } from "./engines";
 import { engineProfile } from "../browser/model";
-import { carriableCookies, cookieAddresses } from "../../lib/signInCookies";
+import { carriableCookies, cookieAddresses } from "./signInCookies";
 import { webviews } from "../../platform/webviews";
 import { experimentOn } from "../../platform/killSwitches";
 

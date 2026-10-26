@@ -1,13 +1,13 @@
 import {
   calendarAuthorization,
   onCalendarChanged,
-  readDocument,
   requestCalendarAccess,
   systemCalendarEvents,
   systemCalendars,
   type CalendarAuthorization,
   type SystemCalendar,
-} from "@ardia/shell";
+} from "../../platform/calendar";
+import { readDocument } from "../../platform/documents";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { devTestValue } from "../../platform/launchConfig";

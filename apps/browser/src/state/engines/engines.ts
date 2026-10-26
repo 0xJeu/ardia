@@ -1,4 +1,4 @@
-import type { PageEngine } from "@ardia/ardiacore";
+import type { PageEngine } from "../../platform/tabs";
 import type { BrowserState } from "../browser/store";
 import type { Tab } from "../browser/types";
 

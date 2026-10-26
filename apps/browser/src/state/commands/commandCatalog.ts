@@ -1,5 +1,5 @@
-import type { BrowserCommand } from "@ardia/shell";
-import { parseShortcut, type ShortcutSource } from "../../lib/shortcuts";
+import type { BrowserCommand } from "../../platform/commands";
+import { parseShortcut, type ShortcutSource } from "./shortcuts";
 
 type Keys = readonly string[];
 type Scope = "page" | "window";

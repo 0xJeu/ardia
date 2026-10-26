@@ -1,5 +1,7 @@
-import { listTasks, onSystemState, releaseProfile, setBatterySaver, systemState, type EngineTask, type SystemState } from "@ardia/ardiacore";
-import { onAppEvent, onWindowEvent } from "@ardia/shell";
+import { listTasks, onSystemState, setBatterySaver, systemState, type EngineTask, type SystemState } from "../../platform/performance";
+import { releaseProfile } from "../../platform/profiles";
+import { onAppEvent } from "../../platform/app";
+import { onWindowEvent } from "../../platform/windows";
 import { create } from "zustand";
 import { isTabReady } from "./pageState";
 import { showToast } from "../splits/actions";

@@ -1,4 +1,4 @@
-import { changeCaptureSource, stopCapture, type DisplayMediaRequest } from "@ardia/ardiacore";
+import { changeCaptureSource, stopCapture, type DisplayMediaRequest } from "../../platform/media";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { engineProfile } from "../browser/model";

@@ -1,4 +1,5 @@
-import { readDocument, saveDocument, updaterState } from "@ardia/shell";
+import { readDocument, saveDocument } from "../../platform/documents";
+import { updaterState } from "../../platform/app";
 import { devTestValue } from "../../platform/launchConfig";
 import { appInfo, environment, logRequest, uuidv4, type RequestLogEntry } from "./client";
 import { DEV_SEND_TEST_KEY, LOGS_URL } from "./config";

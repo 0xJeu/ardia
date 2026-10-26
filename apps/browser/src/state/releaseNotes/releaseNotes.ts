@@ -1,4 +1,5 @@
-import { readDocument, systemInfo, writeDocument } from "@ardia/shell";
+import { readDocument, writeDocument } from "../../platform/documents";
+import { systemInfo } from "../../platform/app";
 import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";

@@ -1,4 +1,4 @@
-import { menuShown, watchMenus } from "@ardia/shell";
+import { menuShown, watchMenus } from "../../platform/menus";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { pointerOnCard } from "../sidebar/hover";

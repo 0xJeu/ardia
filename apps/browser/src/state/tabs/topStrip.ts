@@ -1,4 +1,4 @@
-import { showMenu, type MenuItem } from "@ardia/shell";
+import { showMenu, type MenuItem } from "../../platform/menus";
 import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, tabLabel, viewTabIds } from "../browser/model";

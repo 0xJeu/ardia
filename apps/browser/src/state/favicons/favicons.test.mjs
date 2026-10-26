@@ -5,13 +5,13 @@ import { mount } from "../../test-hooks.mjs";
 
 globalThis.__DEV__ = false;
 
-const native = import.meta.resolve("@ardia/ardiacore");
+const native = import.meta.resolve("../../platform/favicons.ts");
 const stub = `export * from ${JSON.stringify(native)};
 export const faviconsFor = (profile, pages) => globalThis.faviconsForTest(profile, pages);
 export const storeFavicon = (...args) => (globalThis.storedFavicons.push(args), Promise.resolve({ stored: true }));`;
 registerHooks({
   resolve(specifier, context, next) {
-    if (specifier === "@ardia/ardiacore" && context.parentURL?.endsWith("/state/favicons/favicons.ts"))
+    if (specifier === "../../platform/favicons" && context.parentURL?.endsWith("/state/favicons/favicons.ts"))
       return { url: `data:text/javascript,${encodeURIComponent(stub)}`, shortCircuit: true };
     return next(specifier, context);
   },

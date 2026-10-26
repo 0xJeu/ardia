@@ -1,4 +1,4 @@
-import { writeDocument } from "@ardia/shell";
+import { writeDocument } from "../../platform/documents";
 import { sidebarEntries } from "./entries";
 import { rowIds, rowView } from "./sidebarUi";
 import { useBrowser } from "../browser/store";

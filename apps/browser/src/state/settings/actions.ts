@@ -1,4 +1,4 @@
-import type { Shortcut } from "../../lib/shortcuts";
+import type { Shortcut } from "../commands/shortcuts";
 import { storeAction, useBrowser } from "../browser/store";
 
 export const updateSettings = storeAction("updateSettings");

@@ -1,4 +1,4 @@
-import { installExtension, listExtensions, reloadExtension, uninstallExtension, type InstalledExtension } from "@ardia/ardiacore";
+import { installExtension, listExtensions, reloadExtension, uninstallExtension, type InstalledExtension } from "../../platform/extensions";
 import {
   onUserScriptsChange,
   readUserScripts,
@@ -7,7 +7,7 @@ import {
   watchUserScripts,
   writeUserScriptsStatus,
   type UserScriptsFolder,
-} from "@ardia/shell";
+} from "../../platform/userScripts";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile, isIncognitoProfile } from "../browser/model";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";

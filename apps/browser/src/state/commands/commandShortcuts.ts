@@ -1,8 +1,9 @@
-import type { MenuItem, MenuShortcut } from "@ardia/shell";
+import type { MenuItem } from "../../platform/menus";
+import type { MenuShortcut } from "../../platform/commands";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { shortcutSources } from "./commandCatalog";
-import { formatShortcut, resolveShortcuts, storedShortcut, type ResolvedShortcuts, type Shortcut, type ShortcutOverrides, type ShortcutSource } from "../../lib/shortcuts";
+import { formatShortcut, resolveShortcuts, storedShortcut, type ResolvedShortcuts, type Shortcut, type ShortcutOverrides, type ShortcutSource } from "./shortcuts";
 
 type MenuModifier = NonNullable<Extract<MenuItem, { id: string }>["modifiers"]>[number];
 type MenuKey = { key?: string; modifiers?: MenuModifier[] };

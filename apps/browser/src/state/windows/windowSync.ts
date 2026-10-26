@@ -1,4 +1,4 @@
-import type { OpenWindowOptions, WindowEvent } from "@ardia/shell";
+import type { OpenWindowOptions, WindowEvent } from "../../platform/windows";
 import type { BrowserState } from "../browser/store";
 import { engineProfile, windowTitle } from "../browser/model";
 import { windowOpens } from "./windowOpenOrder";
