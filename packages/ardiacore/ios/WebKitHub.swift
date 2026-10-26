@@ -5,11 +5,6 @@ import WebKit
 
 final class WebKitHub: NSObject, WKScriptMessageHandler {
   static let shared = WebKitHub()
-
-  private override init() {
-    super.init()
-    WebKitStoreRemovals.runQueued()
-  }
   static let world = WKContentWorld.world(name: "ardia")
   static let background = LaunchConfig.shared.background
   static let silenced = background && !LaunchConfig.shared.instanceFlag("allowAudio")
@@ -65,6 +60,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   private var lastExternal = 0
   private var resumeHosts: [String: WKWebView] = [:]
   private var deletedProfileStores: [String: WKWebsiteDataStore] = [:]
+  private var storesHeldForTest: [String: WKWebsiteDataStore] = [:]
 
   func nextBrowserId() -> Int32 {
     lastBrowserId -= 1
@@ -91,13 +87,8 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   static func storeIdentifier(_ profile: String) -> UUID {
-    storeIdentifier(profile, generation: WebKitStoreRemovals.generation(of: profile))
-  }
-
-  static func storeIdentifier(_ profile: String, generation: Int) -> UUID {
     let scope = LaunchConfig.shared.dataDirectory ?? ""
-    let name = "ardia.webkit|\(scope)|\(profile)" + (generation == 0 ? "" : "\u{0}\(generation)")
-    var bytes = Array(SHA256.hash(data: Data(name.utf8)).prefix(16))
+    var bytes = Array(SHA256.hash(data: Data("ardia.webkit|\(scope)|\(profile)".utf8)).prefix(16))
     bytes[6] = (bytes[6] & 0x0F) | 0x50
     bytes[8] = (bytes[8] & 0x3F) | 0x80
     return bytes.withUnsafeBufferPointer { NSUUID(uuidBytes: $0.baseAddress!) as UUID }
@@ -492,17 +483,13 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   func deleteProfileData(_ profile: String, completion: @escaping (Bool) -> Void) {
     guard !Self.isPrivate(profile) else { return completion(true) }
     let identifier = Self.storeIdentifier(profile)
-    WebKitStoreRemovals.retire(profile)
-    if !profile.isEmpty { deletedProfileStores[profile] = .nonPersistent() }
+    deletedProfileStores[profile] = .nonPersistent()
     downloads.cancelAll(profile: profile)
     if let host = resumeHosts.removeValue(forKey: profile) { Self.close(host) }
     let removeStore = {
-      WebKitStoreRemovals.exists([identifier]) { exists in
+      WebKitStoreRemovals.exists(identifier) { exists in
         guard exists else { return completion(true) }
-        WebKitStoreRemovals.remove(identifier, tries: 12) { removed in
-          if !removed { WebKitStoreRemovals.queue(identifier) }
-          completion(removed)
-        }
+        WebKitStoreRemovals.remove(identifier, tries: 12, done: completion)
       }
     }
     guard let store = persistentStores.removeValue(forKey: profile) else { return removeStore() }
@@ -511,16 +498,10 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   func storeExists(_ profile: String, done: @escaping (Bool) -> Void) {
-    let generations = 0...WebKitStoreRemovals.generation(of: profile)
-    WebKitStoreRemovals.exists(generations.map { Self.storeIdentifier(profile, generation: $0) }, done: done)
+    WebKitStoreRemovals.exists(Self.storeIdentifier(profile), done: done)
   }
 
-  func queueStoreRemoval(_ profile: String) {
-    let identifier = Self.storeIdentifier(profile)
-    persistentStores.removeValue(forKey: profile)
-    WebKitStoreRemovals.retire(profile)
-    WebKitStoreRemovals.queue(identifier)
-  }
+  func holdStoreForTest(_ profile: String) { storesHeldForTest[profile] = dataStore(for: profile) }
 
   func touchStore(_ profile: String, done: @escaping (Bool) -> Void) {
     let cookies = dataStore(for: profile).httpCookieStore

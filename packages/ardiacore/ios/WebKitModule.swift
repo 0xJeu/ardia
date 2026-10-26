@@ -106,8 +106,8 @@ public class WebKitModule: Module {
 
   private static let testInstanceCalls: [String: CallHandler] = [
     "devStoreExists": { args, reply in WebKitHub.shared.storeExists(args.profile) { reply.ok($0) } },
-    "devQueueStoreRemoval": { args, reply in
-      WebKitHub.shared.queueStoreRemoval(args.profile)
+    "devHoldStore": { args, reply in
+      WebKitHub.shared.holdStoreForTest(args.profile)
       reply.ok()
     },
     "devTouchStore": { args, reply in WebKitHub.shared.touchStore(args.profile) { reply.ok($0) } },

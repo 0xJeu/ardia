@@ -81,7 +81,7 @@ const needs = {
   "context-menu-incognito": ["context-menu-log"],
   "context-menu-split": ["context-menu-log"],
   "relaunch-profile": ["last-used-profile", "quit"],
-  "webkit-store-survives-relaunch": ["webkit-removal-queued", "quit"],
+  "profile-data-retried-at-launch": ["profile-data-deletion-fails", "quit"],
 };
 function checkIndex() {
   let section = "Checks";
@@ -4405,18 +4405,20 @@ try {
     return { personal, play };
   });
 
-  const webKitRemovals = () => {
-    const file = join(data, "Chromium", "WebKitStoreRemovals.json");
-    return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { queued: [], generations: {} };
-  };
+  let heldProfile = null;
+  const orphans = () => evalApp(`return ac.store.getState().orphanedProfileData`);
 
-  await check("webkit-removal-queued", async () => {
-    await engine("webKit.devTouchStore", { profile: "" });
-    await engine("webKit.devQueueStoreRemoval", { profile: "" });
-    if (await engine("webKit.devTouchStore", { profile: "" })) throw new Error("the reopened store still has the retired store's cookie");
-    const removals = webKitRemovals();
-    if (removals.queued.length !== 1) throw new Error(`queued ${JSON.stringify(removals)}`);
-    return removals;
+  await check("profile-data-deletion-fails", async () => {
+    const id = await evalApp(`return ac.store.getState().createProfile({ name: "Held" })`);
+    await engine("webKit.devTouchStore", { profile: id });
+    await engine("webKit.devHoldStore", { profile: id });
+    await evalApp(`ac.store.getState().deleteProfile("${id}"); return true`);
+    const log = join(data, "dev-console.log");
+    await until("the cleanup gave up", async () => existsSync(log) && readFileSync(log, "utf8").includes(`Couldn't delete profile data (${id}): WebKit data`), 20000);
+    if (!(await orphans()).includes(id)) throw new Error("a failed deletion left the cleanup list");
+    if (!(await engine("webKit.devStoreExists", { profile: id }))) throw new Error("the held store was removed");
+    heldProfile = id;
+    return { profile: id };
   });
 
   await check("quit", async () => {
@@ -4469,13 +4471,22 @@ try {
     return { cookie, windows: info.map((w) => w.profile) };
   });
 
-  await check("webkit-store-survives-relaunch", async () => {
-    await appUp("app-webkit-store.out.log");
-    await engine("webKit.devStoreExists", { profile: "" });
-    await until("the queued removal ran", async () => webKitRemovals().queued.length === 0, 15000);
+  await check("profile-data-retried-at-launch", async () => {
+    if (!heldProfile) throw new Error("profile-data-deletion-fails didn't run");
+    const file = join(data, "session.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    if (!saved.orphanedProfileData.includes(heldProfile)) throw new Error(`the failed deletion wasn't saved: ${JSON.stringify(saved.orphanedProfileData)}`);
+    writeFileSync(file, JSON.stringify({ ...saved, orphanedProfileData: [...saved.orphanedProfileData, ""] }));
+    await appUp("app-profile-data-retry.out.log");
+    await engine("webKit.devTouchStore", { profile: "" });
+    if ((await orphans()).includes("")) throw new Error("the live original profile came back as orphaned data");
+    await until("the retried deletion", async () => !(await orphans()).includes(heldProfile) && !(await engine("webKit.devStoreExists", { profile: heldProfile })), 20000);
+    await evalApp(`ac.store.setState((s) => ({ orphanedProfileData: [...s.orphanedProfileData, ""] })); return true`);
+    await until("the live profile left the cleanup list", async () => !(await orphans()).includes(""), 10000);
+    await sleep(5000);
     const kept = await engine("webKit.devTouchStore", { profile: "" });
-    if (!kept) throw new Error("the store reopened after the queued removal lost its data");
-    return { kept };
+    if (!kept) throw new Error("the live original profile's WebKit data was deleted");
+    return { retried: heldProfile, kept };
   });
 
   const pressQuit = (windowId) =>
