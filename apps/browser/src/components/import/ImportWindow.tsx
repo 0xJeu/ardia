@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Animated, AppState, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { allArcHolders, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useBookmarks } from "../../state/bookmarks/hooks";
 import { useProfiles } from "../../state/browser/hooks";
 import { MAX_DRAFT_LINKS } from "../../state/groups/draftGroups";
 import { plural } from "../../state/browser/model";
@@ -13,7 +13,8 @@ import { useHover } from "../ui/Primitives";
 import { Button, Checkbox, PopUp, useFormColors } from "../ui/FormControls";
 import { useOnboarding } from "../../state/onboarding/onboarding";
 import { IMPORT_WINDOW_ID, takePreferredImportSource } from "../../state/settings/settingsWindows";
-import { applyResult, applySafari, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, type ImportCounts } from "../../state/import/apply";
+import { applyResult, applySafari, defaultTarget, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, profileNamed, type ImportCounts } from "../../state/import/apply";
+import { addProfile } from "../../state/profiles/actions";
 import { importModule } from "../../platform/importModule";
 import { curve } from "../ui/motion";
 
