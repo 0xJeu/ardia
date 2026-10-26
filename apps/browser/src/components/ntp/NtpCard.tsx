@@ -1,14 +1,37 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, StyleSheet, View, type ViewStyle } from "react-native";
-import { Button, curve, duration, spring, Surface, useHover, useTheme } from "../ui";
-import { NTP_CARD_SHADOW, ntpCardColors } from "./tokens";
+import { Box, Button, curve, duration, radius, spring, Surface, Text, useHover } from "../ui";
+import { NTP_CARD, useNtpColors } from "./tokens";
 
 const LEAVE_SCALE = 0.98;
 const LIFT = spring({ response: 0.2, damping: 0.5 });
 const CLOSE_PLACE = { position: "absolute", right: -8, top: -8 } as const;
 
-export function useNtpCardColors() {
-  return useTheme().dark ? ntpCardColors.dark : ntpCardColors.light;
+export function useCardRetire() {
+  const [leaving, setLeaving] = useState<null | (() => void)>(null);
+  const retire = (action: () => void) =>
+    setLeaving(() => () => {
+      action();
+      setLeaving(null);
+    });
+  return [leaving, retire] as const;
+}
+
+export function NtpCardSlot({ width, height, children }: { width: number; height?: number; children: ReactNode }) {
+  return (
+    <Box pad="m" style={{ position: "absolute", left: 0, top: 0, width, height }} pointerEvents="box-none">
+      {children}
+    </Box>
+  );
+}
+
+export function NtpCardTitle({ children }: { children: string }) {
+  const colors = useNtpColors();
+  return (
+    <Text lines={1} size="body" weight="medium" style={{ color: colors.title }}>
+      {children}
+    </Text>
+  );
 }
 
 export function NtpCard({
@@ -58,19 +81,18 @@ export function NtpCard({
 }
 
 export function NtpCardSurface() {
-  const theme = useTheme();
-  const colors = useNtpCardColors();
+  const colors = useNtpColors();
   return (
     <Surface
       style={StyleSheet.absoluteFill}
       fill={colors.cardFill}
-      cornerRadius={10}
+      cornerRadius={radius.card}
       borderColor={colors.cardBorder}
-      borderWidth={1}
-      shadowColor={NTP_CARD_SHADOW.color}
-      shadowOpacity={theme.dark ? ntpCardColors.dark.cardShadowOpacity : ntpCardColors.light.cardShadowOpacity}
-      shadowRadius={NTP_CARD_SHADOW.radius}
-      shadowOffset={NTP_CARD_SHADOW.offset}
+      borderWidth={NTP_CARD.border}
+      shadowColor={NTP_CARD.shadow.color}
+      shadowOpacity={colors.cardShadowOpacity}
+      shadowRadius={NTP_CARD.shadow.radius}
+      shadowOffset={NTP_CARD.shadow.offset}
     />
   );
 }

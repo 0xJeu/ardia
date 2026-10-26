@@ -1,19 +1,17 @@
 import { PowerUp } from "@ardia/shaders";
 import { useEffect, useState } from "react";
-import { Surface } from "@ardia/shell";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
-import { hex, layout, useTheme } from "../ui/theme";
+import { hex, ink, layout, spring as springOf, Surface, useTheme } from "../ui";
 import { useWindow, useWindowId } from "../../state/browser/hooks";
 import { useCardAnchors } from "../../state/windows/layout";
-import { spring as springOf } from "../ui/motion";
 import { NewTabExtras } from "./NewTabExtras";
 import { IncognitoHeading } from "./IncognitoHeading";
 import { DIA_OFFSET, MARK_ABOVE_BAR, newTabBarTop } from "./newTabLayout";
 import { useOnboarding } from "../../state/onboarding/onboarding";
 import { Omnibox } from "../omnibox/Omnibox";
+import { NTP_BAR } from "./tokens";
 
 const BAR_HEIGHT = 112;
-const BAR_BORDER = 0.5;
 const MARKS = {
   green: { back: require("../../../assets/ntp-mark-back.png"), front: require("../../../assets/ntp-mark-front.png"), sun: require("../../../assets/ntp-mark-sun.png") },
   plum: { back: require("../../../assets/ntp-mark-plum-back.png"), front: require("../../../assets/ntp-mark-plum-front.png"), sun: require("../../../assets/ntp-mark-plum-sun.png") },
@@ -104,7 +102,7 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
           palette={theme.powerUpPalette}
           speed={1}
           origin={0.5}
-          cornerRadius={20}
+          cornerRadius={NTP_BAR.radius}
           halo={bar}
         />
       )}
@@ -134,15 +132,20 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
         ))}
       </View>
       <View onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)} style={{ position: "absolute", left: x, top, width }}>
-        <Surface style={StyleSheet.absoluteFill} fill="#00000000" cornerRadius={20} shadowColor="#000000" shadowOpacity={0.08} shadowRadius={2} shadowOffset={[0, 0.5]} />
-        <Surface style={StyleSheet.absoluteFill} fill="#00000000" cornerRadius={20} shadowColor="#000000" shadowOpacity={0.04} shadowRadius={1} shadowOffset={[0, 2]} />
-        <Surface
-          fill={hex(theme.ntpBarSolid)}
-          cornerRadius={20}
-          borderColor={hex(theme.ntpBarBorder)}
-          borderWidth={BAR_BORDER}
-        >
-          {onboarding ? <View style={{ height: BAR_HEIGHT - 2 * BAR_BORDER }} /> : <Omnibox variant="hero" tabId={tabId} />}
+        {NTP_BAR.shadows.map((level, i) => (
+          <Surface
+            key={i}
+            style={StyleSheet.absoluteFill}
+            fill={ink.clear}
+            cornerRadius={NTP_BAR.radius}
+            shadowColor={level.color}
+            shadowOpacity={level.opacity}
+            shadowRadius={level.radius}
+            shadowOffset={level.offset}
+          />
+        ))}
+        <Surface fill={hex(theme.ntpBarSolid)} cornerRadius={NTP_BAR.radius} borderColor={hex(theme.ntpBarBorder)} borderWidth={NTP_BAR.border}>
+          {onboarding ? <View style={{ height: BAR_HEIGHT - 2 * NTP_BAR.border }} /> : <Omnibox variant="hero" tabId={tabId} />}
         </Surface>
       </View>
       <NewTabExtras size={size} bar={bar} />
