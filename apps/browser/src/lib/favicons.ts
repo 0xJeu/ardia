@@ -2,6 +2,7 @@ import { faviconsFor, fetchFavicon, onHistoryChanged, storeFavicon } from "@ardi
 import { iconTheme, readDocument, removeDocument, type IconTheme } from "@ardia/shell";
 import { useEffect } from "react";
 import { create } from "zustand";
+import { pageOf, patchPage } from "../components/layout/pageState";
 import { batchStoreUpdates, useBrowser, type BrowserState } from "../store/browser";
 import { engineProfile, isIncognitoProfile } from "../store/model";
 import { DEFAULT_PROFILE_ID } from "../store/settings";
@@ -31,6 +32,19 @@ const cacheKey = (profileId: string) => (isIncognitoProfile(profileId) ? profile
 export const pageKey = (url: string) => url.replace(/#.*$/, "");
 const siteOf = (url: string) => /^[a-z][\w+.-]*:\/\/[^/?#]*/i.exec(url)?.[0].toLowerCase() ?? "";
 export const faviconOutlived = (iconPage: string | null, url: string) => !!iconPage && !!url && siteOf(iconPage) !== siteOf(url);
+
+export function adoptIconPage(tabId: string) {
+  if (pageOf(tabId).iconPage === null) patchPage(tabId, { iconPage: useBrowser.getState().tabs[tabId]?.url || null });
+}
+
+export function noteIconPage(tabId: string) {
+  patchPage(tabId, { iconPage: useBrowser.getState().tabs[tabId]?.url || null });
+}
+
+export function dropOutlivedFavicon(tabId: string, url: string, isLoading: boolean) {
+  const tab = useBrowser.getState().tabs[tabId];
+  if (!isLoading && tab?.favicon && faviconOutlived(pageOf(tabId).iconPage, url)) useBrowser.getState().updateTab(tabId, { favicon: null });
+}
 
 type Change = (f: Favicons) => Favicons;
 const FLUSH_MS = 16;
