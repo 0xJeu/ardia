@@ -249,7 +249,7 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 }
 
 + (void)resolvePermission:(NSString *)requestId result:(NSString *)result remember:(BOOL)remember {
-  [ArdiaCoreEngine.sharedEngine resolvePermission:requestId result:result remember:remember];
+  [ArdiaCoreEngine resolvePermission:requestId result:result remember:remember];
 }
 
 + (NSArray<NSDictionary<NSString *, id> *> *)displayMediaSources {

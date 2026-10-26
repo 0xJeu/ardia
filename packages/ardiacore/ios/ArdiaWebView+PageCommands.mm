@@ -84,7 +84,7 @@ using namespace ardia_web_view;
 }
 
 - (void)executeJavaScript:(NSString *)code {
-  [_tab executeJavaScript:code];
+  [_tab executeJavaScript:code frame:nil];
 }
 
 - (void)thawHiddenPage {

@@ -366,20 +366,6 @@ bool PageChannel::Deliver(content::RenderFrameHost& frame,
                                   frame.GetLastCommittedOrigin().Serialize())];
     return true;
   }
-  if ([delegate respondsToSelector:@selector
-                (tab:didReceivePageMessage:json:frame:main:)]) {
-    [delegate tab:tab
-        didReceivePageMessage:ns_kind
-                         json:ns_json
-                        frame:base::SysUTF8ToNSString(FrameId(&frame))
-                         main:main];
-    return true;
-  }
-  if (main && [delegate respondsToSelector:@selector
-                        (tab:didReceivePageMessage:json:)]) {
-    [delegate tab:tab didReceivePageMessage:ns_kind json:ns_json];
-    return true;
-  }
   return false;
 }
 
