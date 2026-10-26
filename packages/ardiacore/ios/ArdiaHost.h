@@ -4,10 +4,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface ArdiaHost : NSObject
 
-+ (int)runWithArgc:(int)argc
-              argv:(char *_Nullable *_Nonnull)argv
-          delegate:(id<NSApplicationDelegate> (^)(void))makeDelegate NS_SWIFT_NAME(run(argc:argv:delegate:));
-
 @property(class, readonly) BOOL isStarted;
 @property(class, readonly) NSString *dataDirectory;
 @property(class, readonly) NSDictionary<NSString *, id> *engineInfo;
@@ -43,6 +39,14 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)showAutofillSuggestions:(int)browserId passwords:(BOOL)passwords NS_SWIFT_NAME(showAutofillSuggestions(browserId:passwords:));
 + (void)resolvePermission:(NSString *)requestId result:(NSString *)result remember:(BOOL)remember
     NS_SWIFT_NAME(resolvePermission(_:result:remember:));
+
+@end
+
+@interface ArdiaHost (Launch)
+
++ (int)runWithArgc:(int)argc
+              argv:(char *_Nullable *_Nonnull)argv
+          delegate:(id<NSApplicationDelegate> (^)(void))makeDelegate NS_SWIFT_NAME(run(argc:argv:delegate:));
 
 @end
 
