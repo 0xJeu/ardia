@@ -16,14 +16,8 @@ const rows: { item: string; detail: string; status: Status; label?: string }[] =
 const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not yet" };
 ---
 
-<section class="engine paint" id="chromium" aria-labelledby="engine-title" data-shot="record">
-  <div class="wrap engine-grid">
-    <header class="engine-head">
-      <p class="label kicker">The engine</p>
-      <h2 class="poster" id="engine-title" data-reveal>It’s actually Chromium.</h2>
-      <p class="lede" data-reveal style="--i: 1">Not WebKit. Not Electron. Every window is Chrome’s own, so sites, extensions and DevTools behave like they do in Chrome.</p>
-    </header>
-
+<section class="engine paint" id="chromium" aria-label="The engine" data-shot="record">
+  <div class="wrap">
     <div class="checklist" role="table" aria-label="What Ardia does and doesn’t do yet">
       <div class="checklist-top label" role="row">
         <span role="columnheader">Part</span>
@@ -57,28 +51,7 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
     --dab: var(--forest);
     padding: 0 0 var(--section);
   }
-  .engine-grid {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    column-gap: var(--gutter);
-    row-gap: clamp(40px, 6vw, 80px);
-  }
-  .engine-head {
-    grid-column: 1 / span 5;
-    align-self: start;
-    position: sticky;
-    top: 100px;
-  }
-  h2 {
-    font-size: clamp(2.6rem, 1.2rem + 4vw, 5.6rem);
-  }
-  .lede {
-    margin-top: 28px;
-    color: var(--ink-2);
-    max-width: 26em;
-  }
   .checklist {
-    grid-column: 7 / -1;
     border-top: 2px solid var(--ink);
   }
   .checklist-top {
@@ -162,13 +135,6 @@ const labels: Record<Status, string> = { yes: "Yes", part: "Partly", no: "Not ye
     }
   }
 
-  @media (max-width: 960px) {
-    .engine-head,
-    .checklist {
-      grid-column: 1 / -1;
-      position: static;
-    }
-  }
   @media (max-width: 600px) {
     .checklist-top {
       display: none;

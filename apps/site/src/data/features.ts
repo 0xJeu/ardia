@@ -111,19 +111,3 @@ export const duo: Feature[] = [
     flip: true,
   },
 ];
-
-export const extras: { title: string; body: string }[] = [
-  { title: "Moves in for you", body: "Bookmarks, history, passwords and logins from Chrome, Safari, Firefox, Arc, Dia and five more. Arc’s spaces, pinned tabs and themes too." },
-  { title: "Paints like Arc", body: "Gradient themes per profile: up to three colours, some grain, some blur." },
-  { title: "Syncs through your iCloud", body: "End-to-end encrypted, in a folder in your own iCloud Drive, so even Apple only sees gibberish. No server of ours in the middle." },
-  { title: "Command bar", body: "⌘L finds tabs, history and bookmarks, does your sums, and knows doc.new and 16 friends." },
-  { title: "Updates itself", body: "Quietly, then shows you what changed." },
-  { title: "Tidies up", body: "⌥⌘K sweeps the tabs you haven’t touched into Recently Cleaned." },
-  { title: "Clean links", body: "Copy a link and the tracking junk stays behind." },
-  { title: "Keeps secrets", body: "Passwords and passkeys per profile, and a strong new password when you sign up somewhere." },
-  { title: "Naps when you do", body: "Background tabs past your latest five freeze, and sleep after half an hour." },
-  { title: "Knows your shortcuts", body: "Chrome’s and Dia’s. Where they disagree, Dia’s wins." },
-  { title: "Now in glass", body: "Pinned tabs and the address bar in Liquid Glass, on macOS 26." },
-  { title: "Sits still", body: "Idles under half a percent of CPU with a tab open." },
-  { title: "Nightly, if you dare", body: "Settings › General puts you on Nightly: every fix the day it’s ready, and every stable release too." },
-];

@@ -1,9 +1,8 @@
 ---
 import Shot from "./Shot.astro";
 import Plate from "./Plate.astro";
-import { duo, extras, features } from "../data/features";
+import { duo, features } from "../data/features";
 const pad = (n: number) => String(n).padStart(2, "0");
-const dabs = ["var(--sun)", "var(--sage)", "var(--forest)", "#d98a6c"];
 ---
 
 <section class="features paint" id="features" aria-label="Features">
@@ -45,20 +44,6 @@ const dabs = ["var(--sun)", "var(--sage)", "var(--forest)", "#d98a6c"];
         ))
       }
     </ul>
-
-    <div class="also" data-shot="also">
-      <p class="label kicker also-head">Also in there, no screenshot needed</p>
-      <ol class="also-list">
-        {
-          extras.map((a, i) => (
-            <li data-reveal style={`--i: ${i % 3}; --dab: ${dabs[i % dabs.length]}`}>
-              <h3 class="also-title">{a.title}</h3>
-              <p class="also-body">{a.body}</p>
-            </li>
-          ))
-        }
-      </ol>
-    </div>
   </div>
 </section>
 
@@ -148,66 +133,6 @@ const dabs = ["var(--sun)", "var(--sage)", "var(--forest)", "#d98a6c"];
   }
   .duo .num {
     --dab: #e98f3c;
-  }
-  .also {
-    margin-top: 0;
-  }
-  .also-list {
-    list-style: none;
-    margin: 18px 0 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: clamp(24px, 4vw, 64px);
-    row-gap: clamp(28px, 3.4vw, 44px);
-    border-top: 2px solid var(--ink);
-    padding-top: clamp(28px, 3.4vw, 44px);
-  }
-  .also-list li {
-    position: relative;
-    padding-left: 30px;
-  }
-  .also-list li::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.42em;
-    width: 16px;
-    height: 12px;
-    border-radius: 55% 45% 60% 40% / 60% 50% 50% 40%;
-    background-color: var(--dab);
-    background-image: var(--impasto);
-    background-size: 120px;
-    background-blend-mode: soft-light;
-    rotate: -10deg;
-    transition: scale 300ms var(--ease-out), rotate 300ms var(--ease-out);
-  }
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    .also-list li:hover::before {
-      scale: 1.5;
-      rotate: 14deg;
-    }
-  }
-  .also-title {
-    font-size: 1.36rem;
-    line-height: 1.15;
-  }
-  .also-body {
-    margin-top: 8px;
-    color: var(--ink-2);
-    font-size: var(--t-small);
-    line-height: 1.5;
-    max-width: 30em;
-  }
-  @media (max-width: 1000px) {
-    .also-list {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 560px) {
-    .also-list {
-      grid-template-columns: 1fr;
-    }
   }
 
   @media (max-width: 760px) {

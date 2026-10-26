@@ -365,8 +365,7 @@ too (both download links, the "Download Ardia <version>" labels and the "<size> 
 
 **Bring the landing page's claims up to date.** The home page makes specific promises; a release can make
 one of them stale or earn a new one. Read the new notes against:
-- `apps/site/src/data/features.ts`: the features with screenshots (`features`), and the ones without (`extras`, one
-  line each);
+- `apps/site/src/data/features.ts`: the features, each with its screenshots (`features` and `duo`);
 - `apps/site/src/components/Engine.astro`: the checklist of what's in and what isn't yet;
 - `Faq.astro` (Q&A), `Hero.astro` and `Closing.astro` (the fine print: macOS version, Apple Silicon,
   Notarized), and `Footer.astro`.
