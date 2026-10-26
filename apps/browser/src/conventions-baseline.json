@@ -14,7 +14,8 @@
     "apps/browser/src/components/extensions/SidePanel.tsx": 1,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 2,
     "apps/browser/src/components/find/FindBar.tsx": 1,
-    "apps/browser/src/components/import/ImportWindow.tsx": 2,
+    "apps/browser/src/components/import/importActions.ts": 1,
+    "apps/browser/src/components/import/model.ts": 1,
     "apps/browser/src/components/littleArdia/LittleArdiaWindow.tsx": 2,
     "apps/browser/src/components/littleArdia/SmallChrome.tsx": 1,
     "apps/browser/src/components/live/CalendarPreview.tsx": 1,
@@ -224,7 +225,6 @@
     "apps/browser/src/components/extensions/SidePanel.tsx": 6,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 4,
     "apps/browser/src/components/find/FindBar.tsx": 6,
-    "apps/browser/src/components/import/ImportWindow.tsx": 13,
     "apps/browser/src/components/littleArdia/SmallChrome.tsx": 5,
     "apps/browser/src/components/live/CalendarPreview.tsx": 1,
     "apps/browser/src/components/live/LiveItemCard.tsx": 5,
@@ -316,10 +316,12 @@
     "apps/browser/src/state/site/webNotifications.ts": 1
   },
   "get-state": {},
+  "set-state": {},
+  "store-reads": {},
+  "store-shape": {},
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,
     "apps/browser/src/components/downloads/Downloads.tsx": 1,
-    "apps/browser/src/components/import/ImportWindow.tsx": 1,
     "apps/browser/src/components/omnibox/Omnibox.tsx": 1,
     "apps/browser/src/components/onboarding/Steps.tsx": 1,
     "apps/browser/src/components/onboarding/previews/Demos.tsx": 1,
@@ -394,8 +396,5 @@
     "packages/shaders/ios/PowerUpView.swift": 36,
     "packages/shaders/ios/WindowBackdropView.swift": 6
   },
-  "file-names": {},
-  "store-shape": {},
-  "set-state": {},
-  "store-reads": {}
+  "file-names": {}
 }
