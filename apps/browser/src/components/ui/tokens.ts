@@ -57,6 +57,7 @@ const darkRoles = {
   ntpBarBorder: "rgba(120,125,134,0.32)",
   accent: "#4A77D4",
   faviconTile: "rgba(247,245,255,0.2)",
+  dropZoneFill: "rgba(255,255,255,0.06)",
 
   popoverFill: "rgba(38,36,37,0.94)",
   popoverTint: "rgba(38,36,37,0.72)",
@@ -158,6 +159,7 @@ const lightRoles: ColorRoles = {
   ntpBarBorder: "rgba(0,0,0,0.07)",
   accent: "#6395FC",
   faviconTile: "rgba(0,0,0,0.13)",
+  dropZoneFill: "rgba(0,0,0,0.04)",
 
   popoverFill: "rgba(252,251,252,0.96)",
   popoverTint: "rgba(252,251,252,0.7)",
