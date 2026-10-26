@@ -36,7 +36,15 @@ lib/                    pure helpers: url, time, keys
 
 - Only `platform/` imports native packages (`@ardia/ardiacore`, `@ardia/shell`, `@ardia/shaders`, `@ardia/import`,
   `@ardia/sync`), `expo-modules-core` or `NativeModules`. `components/ui/` may import native *views* to wrap them.
-- Components never call native functions; they call actions in `state/`.
+- `platform/<domain>.ts` holds one domain's native functions and types (`platform/downloads.ts`, `platform/menus.ts`,
+  `platform/windows.ts`, …), re-exported as the packages define them, so a call returns and throws exactly what the
+  native API does. A name lives in one platform module.
+- Components never call native functions; they call actions in `state/`. Where the action is the native call itself,
+  the domain re-exports it: `state/app/system.ts` (menus, alerts, prompts, the clipboard, haptics, files, external
+  URLs), `state/app/appSettings.ts`, `state/windows/nativeWindow.ts`, `state/downloads/actions.ts`, … Native views
+  come from `components/ui`.
+- The dev harness (`components/dev/devHarness.ts`) is the one component that imports `platform/` itself: it hands the
+  whole shell module to CDP scripts as `ac.shell` (`platform/devShell.ts`).
 - Nothing lives outside these folders except the entry points.
 
 ## UI
