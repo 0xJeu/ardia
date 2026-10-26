@@ -3,7 +3,7 @@ import { claimFocusTag, findFocus } from "../../state/focus/focusClaims";
 import { useEffect, useRef, useState } from "react";
 import { Animated, findNodeHandle, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { useFind, useTab } from "../../state/browser/hooks";
 import { currentTab } from "../../state/browser/current";
 import { setFind as setTabFind } from "../../state/windows/actions";

@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { ViewStyle } from "react-native";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { withLivePage } from "../../state/tabs/livePage";
 import { newTab } from "../../state/tabs/actions";
 import type { Tab } from "../../state/browser/types";

@@ -14,7 +14,7 @@ import { confirm, showMenu } from "../../state/app/system";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { currentLive, currentTab } from "../../state/browser/current";
 import { updateTab } from "../../state/tabs/actions";
 import { setFind } from "../../state/windows/actions";

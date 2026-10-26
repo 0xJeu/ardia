@@ -2,7 +2,7 @@ import { toAppUrl, urlForDisplay } from "@ardia/core";
 import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { Button, font, Panel, radius, space, Symbol, weight } from "../ui";
 import { patchPage, usePage } from "../../state/tabs/pageState";
 import { SAD_TAB_TITLE_SIZE, SHADOWS, STATUS_MOTION, windowColors } from "./tokens";

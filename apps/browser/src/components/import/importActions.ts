@@ -6,7 +6,7 @@ import type { ProfileColor } from "../../state/browser/types";
 import { IMPORT_WINDOW_ID } from "../../state/settings/settingsWindows";
 import { applyResult, emptyCounts, importArcSpace, profileColorFor, profileNamed, type ImportCounts } from "../../state/import/apply";
 import { addProfile } from "../../state/profiles/actions";
-import type { importModule } from "../../platform/importModule";
+import type { importModule } from "../../state/import/importApi";
 import { KINDS, type BrowserProfile, type BrowserSource, type ImportedExtension, type ImportKind, type ImportResult, type SpaceSummary } from "./model";
 import { importMotion } from "./tokens";
 import { NO_EXTENSIONS, type ImportState } from "./useImportState";

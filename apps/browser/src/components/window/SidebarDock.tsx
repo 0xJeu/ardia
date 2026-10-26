@@ -1,7 +1,7 @@
 import { onWindowEvent, setTrafficLightsCenter, watchLeftEdge } from "../../state/windows/nativeWindow";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
-import { switchOn } from "../../platform/killSwitches";
+import { switchOn } from "../../state/app/switches";
 import { layout, useTheme } from "../ui/theme";
 import { spring, curve } from "../ui/motion";
 import { Panel, WindowDragRegion } from "../ui";

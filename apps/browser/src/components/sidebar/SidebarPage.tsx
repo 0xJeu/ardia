@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Animated, ScrollView, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { switchOn } from "../../platform/killSwitches";
+import { switchOn } from "../../state/app/switches";
 import { ContextMenuArea, WindowDragRegion } from "../ui";
 import { layout } from "../ui/theme";
 import { ThemeScope } from "../window/ThemeScope";

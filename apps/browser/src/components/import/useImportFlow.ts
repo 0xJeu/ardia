@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import { importModule } from "../../platform/importModule";
+import { importModule } from "../../state/import/importApi";
 import { takePreferredImportSource } from "../../state/settings/settingsWindows";
 import { diaActions, DIA_POLL_MS } from "./diaActions";
 import { fileImports } from "./fileImports";

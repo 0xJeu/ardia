@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { useTab } from "../../state/browser/hooks";
 import { Button, PANEL, Popover, Symbol, Text, useHover } from "../ui";
 import { useSiteTokens } from "./tokens";

@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
-import { everySlowly } from "../../platform/slowTimers";
+import { everySlowly } from "../../state/app/slowTimers";
 import { font, radius, Symbol, weight } from "../ui";
 import { useTheme } from "../ui/theme";
 import { useSettings, useWindow } from "../../state/browser/hooks";

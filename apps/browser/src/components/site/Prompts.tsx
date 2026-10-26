@@ -12,7 +12,7 @@ import {
 import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { currentTab } from "../../state/browser/current";
 import { engineProfile } from "../../state/browser/model";
 import { Button, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, Symbol, Text, useHover } from "../ui";

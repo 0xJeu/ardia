@@ -15,7 +15,7 @@ import { HomeStep } from "./HomeStep";
 import { OutroStep } from "./OutroStep";
 import { PinnedTabsStep } from "./PinnedTabsStep";
 import { SetupCodeOutro } from "./SetupCodeOutro";
-import { isWebDemo } from "../../platform/webDemo";
+import { isWebDemo } from "../../state/onboarding/demoSteps";
 import { ToolTour } from "./tour/ToolTour";
 import { useOnboardingColors } from "./Parts";
 

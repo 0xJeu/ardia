@@ -21,7 +21,7 @@ import { useTheme } from "../../ui/theme";
 import { currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile, plural } from "../../../state/browser/model";
-import { importModule } from "../../../platform/importModule";
+import { importModule } from "../../../state/import/importApi";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";

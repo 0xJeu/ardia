@@ -1,5 +1,5 @@
 import { AppRegistry, Text, View } from "react-native";
-import { answerWithSkew, openSkewWindow } from "../../platform/nativeApi";
+import { answerWithSkew, openSkewWindow } from "../../state/app/nativeApiSkew";
 import { DEV_ERROR } from "./tokens";
 
 export function startSkewed(message: string) {

@@ -1,5 +1,5 @@
 import { applyResult, applySafari, importArcSpace, importBookmarks, importTabs } from "../../state/import/apply";
-import { importModule } from "../../platform/importModule";
+import { importModule } from "../../state/import/importApi";
 import { openImport, openSettings, useSettingsNav } from "../../state/settings/settingsWindows";
 import { useBookmarkDialog } from "../../state/bookmarks/actions";
 import { useBookmarkEditor } from "../../state/bookmarks/edit";

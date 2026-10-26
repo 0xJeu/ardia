@@ -14,7 +14,7 @@ import type { InstalledExtension } from "../../state/extensions/store";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { hex, useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
+import { webviews } from "../../state/tabs/webviewHandles";
 import { currentShownPageId } from "../../state/peek/actions";
 import { useShownPageId } from "../../state/peek/hooks";
 import { useExtensionProfile } from "../../state/extensions/hooks";

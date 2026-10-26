@@ -1,7 +1,7 @@
 import { memo, useEffect, useLayoutEffect } from "react";
 import { Animated, View } from "react-native";
 import { layout, useTheme } from "../ui/theme";
-import { usePrewarm } from "../../platform/preload";
+import { usePrewarm } from "../../state/tabs/prewarm";
 import { activate } from "../../state/tabs/actions";
 import { shallowEqual, useBrowserWhile, useStoreWhile, useTabValue } from "../../state/tabs/tabWatch";
 import { useSettings } from "../../state/browser/hooks";
