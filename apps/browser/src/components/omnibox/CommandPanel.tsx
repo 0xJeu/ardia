@@ -1,4 +1,4 @@
-import { OutsidePressArea, Surface } from "@ardia/shell";
+import { OutsidePressArea, Surface } from "../ui";
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, View, type LayoutChangeEvent } from "react-native";
 import { hex, useTheme } from "../ui/theme";
@@ -12,11 +12,10 @@ import { barWidth } from "../ntp/NewTabPage";
 import { closeNewTabBar } from "../../state/omnibox/newTabBar";
 import type { NewTabTarget } from "../../state/browser/types";
 import { Omnibox } from "./Omnibox";
-import { PANEL_TEXT_LEFT } from "./tokens";
+import { PANEL_TEXT_LEFT, GROW } from "./tokens";
 import { closePanelToHeroBar, type BarDismissal } from "../../state/omnibox/barState";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "../toolbar/Toolbar";
 import { hairline, shadow } from "../ui/tokens";
-import { GROW } from "./tokens";
 
 const RIGHT_OF_URL = 40;
 const ABOVE_PANE = 5.5;

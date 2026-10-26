@@ -1,9 +1,8 @@
 import { breadcrumb } from "@ardia/core";
-import { WindowBackdrop } from "@ardia/shaders";
+import { WindowBackdrop, ink, MagnifyArea, Surface, type MagnifyUpdate } from "../ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
-import { ink, MagnifyArea, Surface, type MagnifyUpdate } from "../ui";
 import { usePeekSplitFull, usePeeks } from "../../state/peek/hooks";
 import { useTab } from "../../state/browser/hooks";
 import type { Peek } from "../../state/peek/peek";

@@ -1,5 +1,5 @@
 import { breadcrumb } from "@ardia/core";
-import { FadeLabel, Symbol } from "@ardia/shell";
+import { FadeLabel, Symbol, Button, Text, useHover } from "../ui";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
@@ -7,7 +7,6 @@ import { useTabLive } from "../../state/browser/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
 import { usePage } from "../../state/tabs/pageState";
-import { Button, Text, useHover } from "../ui";
 import { font, radius, space } from "../ui/tokens";
 import { PAGE_PROGRESS_GROW } from "./tokens";
 import { Favicon } from "../favicon/Favicon";

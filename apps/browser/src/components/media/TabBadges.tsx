@@ -1,4 +1,4 @@
-import { Symbol } from "@ardia/shell";
+import { Symbol } from "../ui";
 import { memo } from "react";
 import { View } from "react-native";
 import { hex, useTheme } from "../ui/theme";

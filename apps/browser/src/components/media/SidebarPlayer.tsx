@@ -1,4 +1,4 @@
-import { FadeLabel, Surface, Symbol } from "@ardia/shell";
+import { FadeLabel, Surface, Symbol, Button, useHover } from "../ui";
 import { useShallow } from "zustand/react/shallow";
 import { useRef, type ComponentProps } from "react";
 import { Image, Pressable, View } from "react-native";
@@ -6,7 +6,6 @@ import { switchToTab, toggleMute } from "../../state/browser/actions";
 import { hex, useTheme } from "../ui/theme";
 import { font, ink, radius, space } from "../ui/tokens";
 import { useTab } from "../../state/browser/hooks";
-import { Button, useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
 import { useSidebarTokens } from "../sidebar/tokens";
 import { useArtwork } from "../../state/media/artwork";

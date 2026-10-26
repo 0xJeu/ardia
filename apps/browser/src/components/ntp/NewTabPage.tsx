@@ -1,7 +1,6 @@
-import { PowerUp } from "@ardia/shaders";
+import { PowerUp, hex, ink, layout, spring as springOf, Surface, useTheme } from "../ui";
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
-import { hex, ink, layout, spring as springOf, Surface, useTheme } from "../ui";
 import { useWindow, useWindowId } from "../../state/browser/hooks";
 import { useCardAnchors } from "../../state/windows/layout";
 import { NewTabExtras } from "./NewTabExtras";

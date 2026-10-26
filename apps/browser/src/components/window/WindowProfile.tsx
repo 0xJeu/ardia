@@ -1,4 +1,4 @@
-import { WindowProfile as NativeWindowProfile } from "@ardia/shell";
+import { WindowProfile as NativeWindowProfile } from "../ui";
 import { useWindowId } from "../../state/browser/hooks";
 import { useNativeWindowProfile } from "../../state/windows/hooks";
 

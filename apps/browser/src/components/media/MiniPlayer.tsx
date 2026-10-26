@@ -1,4 +1,4 @@
-import { Symbol } from "@ardia/shell";
+import { Symbol, useHover } from "../ui";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, Text, View, type GestureResponderEvent, type TextStyle } from "react-native";
 import { toggleMute } from "../../state/browser/actions";
@@ -6,7 +6,6 @@ import { hex } from "../ui/theme";
 import { duration as motionDuration } from "../ui/motion";
 import { font, ink, radius, weight } from "../ui/tokens";
 import { useTab } from "../../state/browser/hooks";
-import { useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
 import { useArtwork } from "../../state/media/artwork";
 import { useMarqueeGroup, Marquee } from "./Marquee";

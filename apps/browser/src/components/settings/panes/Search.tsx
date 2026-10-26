@@ -1,5 +1,5 @@
 import { engineHost, type SearchEngine } from "@ardia/core";
-import { Symbol } from "@ardia/shell";
+import { Symbol, Button, font, Group, Sheet, TextField, Toggle, weight } from "../../ui";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
@@ -9,7 +9,6 @@ import { addCustomEngine, removeCustomEngine, setSearchEngine, updateCustomEngin
 import { engineProfile } from "../../../state/browser/model";
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
 import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
-import { Button, font, Group, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";

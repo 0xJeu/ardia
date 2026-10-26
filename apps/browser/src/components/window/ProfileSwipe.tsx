@@ -1,5 +1,4 @@
-import { SwipeArea, type SwipeAreaHandle, type SwipeEvent } from "@ardia/ardiacore";
-import { WindowBackdrop } from "@ardia/shaders";
+import { SwipeArea, type SwipeAreaHandle, type SwipeEvent, WindowBackdrop } from "../ui";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { spaceLookSource } from "../../lib/profileLook";

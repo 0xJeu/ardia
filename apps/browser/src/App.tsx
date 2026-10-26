@@ -1,4 +1,4 @@
-import { WindowBackdrop } from "@ardia/shaders";
+import { WindowBackdrop } from "./components/ui";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { CommandPanel } from "./components/omnibox/CommandPanel";

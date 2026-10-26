@@ -1,4 +1,4 @@
-import { WebView } from "@ardia/ardiacore";
+import { WebView, Box, Button, Text } from "../ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, PanResponder, StyleSheet, View } from "react-native";
 import { layout, useTheme } from "../ui/theme";
@@ -6,7 +6,6 @@ import { useSettings, useWindowId } from "../../state/browser/hooks";
 import { currentSettings } from "../../state/browser/current";
 import { updateSettings } from "../../state/settings/actions";
 import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
-import { Box, Button, Text } from "../ui";
 import { space } from "../ui/tokens";
 import { EXTENSION_PAGE_BACKGROUND, SIDE_PANEL_HEADER_PAD_RIGHT } from "./tokens";
 import { closeSidePanel, findExtension, showExtensionMenu, useExtensions, type SidePanel } from "../../state/extensions/actions";

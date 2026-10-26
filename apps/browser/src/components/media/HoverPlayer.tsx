@@ -1,4 +1,4 @@
-import { Surface } from "@ardia/shell";
+import { Surface } from "../ui";
 import { hex, layout, useTheme } from "../ui/theme";
 import { ink } from "../ui/tokens";
 import { clickTab } from "../../state/sidebar/actions";

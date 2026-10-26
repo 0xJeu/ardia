@@ -1,8 +1,7 @@
-import { Symbol } from "@ardia/shell";
+import { Symbol, Button, Text, useTheme } from "../ui";
 import { useEffect, useRef } from "react";
 import { Animated, View } from "react-native";
 import { currentTab } from "../../state/browser/current";
-import { Button, Text, useTheme } from "../ui";
 import { ink, space } from "../ui/tokens";
 import { pageOf } from "../../state/tabs/pageState";
 import { dismissShareBar, shareInstead, stopSharing, useShareFor } from "../../state/media/screenShare";

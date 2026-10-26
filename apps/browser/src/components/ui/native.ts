@@ -8,10 +8,12 @@ export {
   MagnifyArea,
   MouseArea,
   OutsidePressArea,
+  PopoverBubble,
   Surface,
   Symbol,
   VisualEffect,
   WindowDragRegion,
+  WindowProfile,
   type DroppedItem,
   type DropUpdate,
   type MagnifyUpdate,
@@ -19,4 +21,6 @@ export {
   type SymbolProps,
 } from "@ardia/shell";
 
-export { ThemeSwatch } from "@ardia/shaders";
+export { SwipeArea, WebView, type SwipeAreaHandle, type SwipeEvent, type WebViewHandle } from "@ardia/ardiacore";
+
+export { DIA_SPECTRUM, PowerUp, ThemeSwatch, WindowBackdrop } from "@ardia/shaders";

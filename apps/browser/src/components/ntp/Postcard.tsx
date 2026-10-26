@@ -1,10 +1,27 @@
-import { WindowBackdrop } from "@ardia/shaders";
+import {
+  WindowBackdrop,
+  Box,
+  Button,
+  curve,
+  duration,
+  hairline,
+  hex,
+  ink,
+  radius as radii,
+  space,
+  spring,
+  Surface,
+  Symbol,
+  Text,
+  useHover,
+  useTheme,
+  VisualEffect,
+} from "../ui";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { profileAccent } from "../ui/theme";
 import { useWindowProfileValue } from "../../state/profiles/hooks";
 import { useWindowId } from "../../state/browser/hooks";
-import { Box, Button, curve, duration, hairline, hex, ink, radius as radii, space, spring, Surface, Symbol, Text, useHover, useTheme, VisualEffect } from "../ui";
 import type { ReleaseNotes } from "../../state/releaseNotes/releaseNotes";
 import { ntpType, postcard, useNtpColors } from "./tokens";
 

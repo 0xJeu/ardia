@@ -1,7 +1,6 @@
-import { WindowDragRegion } from "@ardia/shell";
+import { WindowDragRegion, Surface, VisualEffect } from "../ui";
 import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, View } from "react-native";
-import { Surface, VisualEffect } from "../ui";
 import { hex } from "../ui/theme";
 import { curve } from "../ui/motion";
 import { hairline } from "../ui/tokens";

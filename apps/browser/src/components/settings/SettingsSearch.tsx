@@ -1,9 +1,8 @@
-import { Symbol } from "@ardia/shell";
+import { Symbol, font, SearchField, weight } from "../ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, type TextInput } from "react-native";
 import { useTheme } from "../ui/theme";
 import { liquidGlass } from "../ui/Glass";
-import { font, SearchField, weight } from "../ui";
 import { groupByPane, search } from "./searchMatch";
 import { currentSettingsSearch, moveSettingsSelection, revealSetting, selectSettingsResult, setSettingsQuery, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, SETTINGS_INDEX, type SettingEntry } from "./settingsIndex";
