@@ -137,7 +137,7 @@ void WatchTitlebarReveal(NSWindow *window) {
     return;
   ArdiaTitlebarRevealWatch *watch = [[ArdiaTitlebarRevealWatch alloc] init];
   watch.view = [[NSView alloc] initWithFrame:NSZeroRect];
-  watch.layoutAttribute = NSLayoutAttributeBottom;
+  watch.layoutAttribute = NSLayoutAttributeLeading;
   watch.fullScreenMinHeight = 0;
   objc_setAssociatedObject(window, kTitlebarRevealWatchKey, watch, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   [window addTitlebarAccessoryViewController:watch];
