@@ -5,15 +5,16 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, findNodeHandle, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
-import { useFind } from "../../state/browser/hooks";
+import { useFind, useTab } from "../../state/browser/hooks";
+import { currentTab } from "../../state/browser/current";
+import { setFind as setTabFind } from "../../state/windows/actions";
 import type { FindState } from "../../state/browser/types";
 import { Button, useHover } from "../ui";
 import { replaceInField } from "../../state/site/selection";
 import { curve } from "../ui/motion";
 
 export function FindBar({ tabId }: { tabId: string }) {
-  const hasPage = useBrowser((s) => !!s.tabs[tabId]?.url);
+  const hasPage = useTab(tabId, (t) => !!t?.url);
   const find = useFind(tabId);
   if (!find.open || !hasPage) return null;
   return <FindBarPanel key={tabId} tabId={tabId} find={find} />;
@@ -43,12 +44,12 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
     handledFocus.set(tabId, request);
     input.current?.focus();
     input.current?.setSelection(0, find.query.length);
-    const windowId = useBrowser.getState().tabs[tabId]?.windowId;
+    const windowId = currentTab(tabId)?.windowId;
     if (windowId) claimFocusTag(windowId, findFocus(tabId), () => findNodeHandle(input.current));
     if (find.query) void webviews.get(tabId)?.find(find.query, true, false);
   }, [find.focusRequest]);
 
-  const setFind = (patch: Partial<FindState>) => useBrowser.getState().setFind(tabId, patch);
+  const setFind = (patch: Partial<FindState>) => setTabFind(tabId, patch);
   const run = (backwards: boolean, query = find.query, findNext = true) => {
     if (!query) setFind({ count: null, active: 0 });
     void webviews.get(tabId)?.find(query, !backwards, findNext);

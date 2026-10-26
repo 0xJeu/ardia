@@ -281,3 +281,7 @@ export function extensionMenu(s: BrowserState, windowId: string | undefined) {
 }
 
 if (__DEV__) (globalThis as { acExtensionsUi?: unknown }).acExtensionsUi = { useExtensions, confirmInstall, cancelInstall, activateExtension };
+
+export const closePinDialog = () => useExtensions.setState({ pinDialog: null });
+
+export const currentWindowExtensions = (windowId: string) => windowExtensions(useBrowser.getState(), windowId);

@@ -3,7 +3,6 @@ import { ContextMenuArea, showMenu, Symbol } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
 import { toggleCastPicker, useCastRoutes } from "../../state/media/cast";
 import type { ToolbarPalette } from "../ui/toolbarColors";
 import { usePages } from "../../state/tabs/pageState";
@@ -17,7 +16,7 @@ import {
   showExtensionMenu,
   useExtensions,
   useWindowExtensions,
-  windowExtensions,
+  currentWindowExtensions,
   type Anchor,
 } from "../../state/extensions/actions";
 
@@ -235,7 +234,7 @@ function OverflowButton({ windowId, tabId, palette }: { windowId: string; tabId:
   const { ref, measure } = useAnchor(windowId, tabId, "*");
   const onPress = async () => {
     const anchor = await measure();
-    const enabled = windowExtensions(useBrowser.getState(), windowId);
+    const enabled = currentWindowExtensions(windowId);
     const choice = await showMenu([
       ...enabled.map((x) => ({ id: `open:${x.id}`, title: x.name, symbol: x.pinned ? "pin.fill" : undefined })),
       ...(enabled.length ? [{ separator: true as const }] : []),

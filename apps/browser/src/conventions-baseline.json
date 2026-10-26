@@ -333,10 +333,6 @@
     "apps/browser/src/state/site/webNotifications.ts": 1
   },
   "get-state": {
-    "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 1,
-    "apps/browser/src/components/extensions/SidePanel.tsx": 3,
-    "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 1,
-    "apps/browser/src/components/find/FindBar.tsx": 2,
     "apps/browser/src/components/media/ShareBar.tsx": 5,
     "apps/browser/src/components/media/SharePicker.tsx": 8,
     "apps/browser/src/components/media/artwork.ts": 2,

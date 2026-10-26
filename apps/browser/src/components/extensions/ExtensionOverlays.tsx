@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
-import { shownPageId } from "../../state/peek/peek";
+import { currentShownPageId } from "../../state/peek/actions";
+import { useShownPageId } from "../../state/peek/hooks";
+import { useExtensionProfile } from "../../state/extensions/hooks";
 import { useWindowId } from "../../state/browser/hooks";
 import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
 import { Button, Checkbox, PANEL } from "../ui";
@@ -13,7 +14,7 @@ import {
   cancelInstall,
   closeExtensionPopup,
   confirmInstall,
-  extensionProfile,
+  closePinDialog,
   setPinned,
   useExtensions,
   useWindowExtensions,
@@ -85,7 +86,7 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
     };
   }, []);
 
-  const tabId = useBrowser((s) => shownPageId(s, windowId));
+  const tabId = useShownPageId(windowId);
   const openedOn = useRef(tabId);
   useEffect(() => {
     if (tabId !== openedOn.current) closeExtensionPopup();
@@ -239,9 +240,9 @@ function InstallDialog({ request }: { request: InstallRequest }) {
 
 function PinDialog({ windowId }: { windowId: string }) {
   const theme = useTheme();
-  const profile = useBrowser((s) => extensionProfile(s, windowId));
+  const profile = useExtensionProfile(windowId);
   const list = useWindowExtensions(windowId);
-  const close = () => useExtensions.setState({ pinDialog: null });
+  const close = closePinDialog;
   return (
     <Dialog windowId={windowId} onDismiss={close} onSubmit={close}>
       <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Pin Extensions</Text>
@@ -285,7 +286,7 @@ function Dialog({ windowId, onDismiss, onSubmit, children }: { windowId: string;
     Animated.timing(appear, { toValue: 1, duration: 170, easing: curve.outCubic, useNativeDriver: true }).start();
     keys.current?.focus();
     return () => {
-      const tabId = shownPageId(useBrowser.getState(), windowId);
+      const tabId = currentShownPageId(windowId);
       if (tabId) void webviews.get(tabId)?.focus();
     };
   }, []);

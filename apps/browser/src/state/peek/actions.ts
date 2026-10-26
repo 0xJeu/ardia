@@ -3,10 +3,10 @@ import { hapticTick } from "@ardia/shell";
 import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
-import { isPeekTab } from "./peek";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type SplitLinkModifier } from "../settings/settings";
 import { MAX_SPLIT_PANES, splitOf } from "../splits/splits";
 import { openSplitPane, showToast } from "../splits/actions";
+import { isPeekTab, shownPageId } from "./peek";
 
 const store = () => useBrowser.getState();
 const closers = new Map<string, () => void>();
@@ -134,3 +134,5 @@ function bumpOnFirstLoad(s: BrowserState, prev: BrowserState) {
     }
   }
 }
+
+export const currentShownPageId = (windowId: string) => shownPageId(useBrowser.getState(), windowId);
