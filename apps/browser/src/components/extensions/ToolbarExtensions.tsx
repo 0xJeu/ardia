@@ -69,16 +69,13 @@ function TabToolbarExtensions({
   limit = Infinity,
 }: ToolbarExtensionsProps) {
   const { pinned, overflow, routes } = useToolbarExtensions(windowId, limit);
-  const browserId = usePages((p) => {
-    for (const [id, tab] of Object.entries(p.browsers)) if (tab === tabId) return Number(id);
-    return 0;
-  });
+  const ready = usePages((p) => !!p.ready[tabId]);
   if (!pinned.length && !overflow && !routes.length) return <EmptyAnchor windowId={windowId} tabId={tabId} top={top} right={right} />;
   return (
     <View style={{ position: "absolute", top, right, flexDirection: "row", gap: GAP }}>
       {routes.length ? <CastButton windowId={windowId} tabId={tabId} routes={routes} palette={palette} /> : null}
       {pinned.map((ext) => (
-        <ExtensionButton key={ext.id} ext={ext} windowId={windowId} tabId={tabId} browserId={browserId} palette={palette} />
+        <ExtensionButton key={ext.id} ext={ext} windowId={windowId} tabId={tabId} ready={ready} palette={palette} />
       ))}
       {overflow && <OverflowButton windowId={windowId} tabId={tabId} palette={palette} />}
     </View>
@@ -121,8 +118,8 @@ function useAnchor(windowId: string, tabId: string, slot: string) {
   return { ref, measure };
 }
 
-function ExtensionButton({ ext, windowId, tabId, browserId, palette }: { ext: InstalledExtension; windowId: string; tabId: string; browserId: number; palette: ToolbarPalette }) {
-  const fetched = useExtensions((e) => (browserId ? e.actions[browserId] : undefined));
+function ExtensionButton({ ext, windowId, tabId, ready, palette }: { ext: InstalledExtension; windowId: string; tabId: string; ready: boolean; palette: ToolbarPalette }) {
+  const fetched = useExtensions((e) => (ready ? e.actions[tabId] : undefined));
   const held = useRef<ActionState | undefined>(undefined);
   if (fetched) held.current = fetched[ext.id];
   const state = held.current;

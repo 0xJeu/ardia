@@ -5,7 +5,7 @@ import { focus, switchToTab } from "../../state/browser/actions";
 import { noteFavicon } from "../../state/favicons/favicons";
 import { adoptIconPage, dropOutlivedFavicon, noteIconPage } from "../../state/favicons/iconPage";
 import { restoredThemeColor } from "../../state/windows/launchLook";
-import { noteChromeTab } from "../../state/app/cliControl";
+import { noteTabReady } from "../../state/app/cliControl";
 import { takeStartedNavigation } from "../../platform/earlyNavigate";
 import { isQuitting } from "../../state/app/nativeSync";
 import { useTheme } from "../ui/theme";
@@ -23,7 +23,7 @@ import { shallowEqual, useBrowserWhile, useProfilesValue, useTabValue } from "..
 import { engineProfile, isIncognitoProfile, navigationTo } from "../../state/browser/model";
 import type { Tab } from "../../state/browser/types";
 import { dismissPermissions } from "../../state/site/permissions";
-import { patchPage, pageOf, popoverOf, setBrowserId, setPopover } from "../../state/tabs/pageState";
+import { markTabReady, patchPage, pageOf, popoverOf, setPopover } from "../../state/tabs/pageState";
 import { openFromPage } from "../../state/tabs/openFromPage";
 import { closeFolderPanelIn } from "../../state/sidebar/tileFolderUi";
 import { answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "../site/Prompts";
@@ -118,7 +118,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       url={navigation?.url ?? (adoptId ? tab()?.url : undefined)}
       profile={engineProfile(profileId)}
       adoptId={adoptId}
-      transferKey={tabId}
+      tabId={tabId}
       temporary={peekOf !== undefined}
       temporarySource={peekOf}
       visible={visible}
@@ -128,9 +128,9 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       pageColor={pageColor}
       contentsBackgroundColor={backdrop}
       shownUrl={shownUrl}
-      onReady={(browserId, chromeTabId) => {
-        setBrowserId(tabId, browserId);
-        noteChromeTab(tabId, chromeTabId);
+      onReady={() => {
+        markTabReady(tabId);
+        noteTabReady(tabId);
         noteReady(tabId);
         if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
       }}

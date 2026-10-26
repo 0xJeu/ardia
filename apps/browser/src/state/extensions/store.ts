@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, engineProfile, incognitoOriginal, isIncognitoProfile, privateSession } from "../browser/model";
 import { shownPageId } from "../peek/peek";
-import { usePages } from "../tabs/pageState";
+import { isTabReady } from "../tabs/pageState";
 
 export type Anchor = { x: number; y: number; width: number; height: number };
 
@@ -20,7 +20,7 @@ export type InstallRequest = {
 
 type ExtensionsStore = {
   lists: Record<string, InstalledExtension[]>;
-  actions: Record<number, Record<string, ActionState>>;
+  actions: Record<string, Record<string, ActionState>>;
   popup: { windowId: string; pageProfile: string; extensionId: string; url: string; anchor: Anchor; opened?: number } | null;
   install: InstallRequest | null;
   pinDialog: { windowId: string } | null;
@@ -86,10 +86,6 @@ export function useExtensionList(profile: string): InstalledExtension[] {
   return useExtensions((e) => e.lists[profile] ?? EMPTY);
 }
 
-export function browserIdOf(tabId: string | undefined): number {
-  if (!tabId) return 0;
-  for (const [browserId, tab] of Object.entries(usePages.getState().browsers)) if (tab === tabId) return Number(browserId);
-  return 0;
-}
+export const readyTabOf = (tabId: string | undefined): string | undefined => (isTabReady(tabId) ? tabId : undefined);
 
-export const shownBrowserId = (windowId: string) => browserIdOf(shownPageId(useBrowser.getState(), windowId));
+export const shownReadyTab = (windowId: string) => readyTabOf(shownPageId(useBrowser.getState(), windowId));

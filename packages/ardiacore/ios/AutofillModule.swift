@@ -31,7 +31,7 @@ public class AutofillModule: Module {
     "remove": { args, reply in ArdiaServices.deleteAutofillEntry(args.text("id"), profile: args.profile) { reply.service($0, $1) } },
     "cardNumber": { args, reply in ArdiaServices.revealCardNumber(args.text("id"), profile: args.profile) { reply.service($0, $1) } },
     "showSuggestions": { args, reply in
-      reply.ok(ArdiaHost.showAutofillSuggestions(browserId: Int32(args.int("browserId") ?? 0), passwords: args.bool("passwords") ?? false))
+      reply.ok(ArdiaHost.showAutofillSuggestions(tabId: args.text("tabId"), passwords: args.bool("passwords") ?? false))
     },
   ])
 }

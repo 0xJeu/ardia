@@ -62,7 +62,8 @@ const char kPageReportsKey = 0;
     [self loadNow:_pendingURL userInitiated:_pendingUserInitiated];
     _pendingURL = nil;
   }
-  [self emit:@"ready" payload:@{@"browserId" : @(ardia_host::BrowserId(tab)), @"tabId" : @(tab.tabId)}];
+  [self emit:@"ready" payload:@{}];
+  ardia_host::ReleaseHeldEvents(tab);
   [self emitNavigation];
   if (_extensionHost.length && tab && tab.preferredSize.width > 0)
     [self tab:tab preferredSizeDidChange:tab.preferredSize];
@@ -240,7 +241,7 @@ const char kPageReportsKey = 0;
 
 - (void)tabDidChangeDiscarded:(ArdiaCoreTab *)tab {
   if (tab.discarded) [self emit:@"discarded" payload:@{@"url" : tab.url ?: @""}];
-  else [self emit:@"ready" payload:@{@"browserId" : @(ardia_host::BrowserId(tab)), @"tabId" : @(tab.tabId)}];
+  else [self emit:@"ready" payload:@{}];
 }
 
 - (void)tabBecameUnresponsive:(ArdiaCoreTab *)tab {

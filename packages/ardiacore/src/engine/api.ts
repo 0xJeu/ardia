@@ -33,19 +33,20 @@ export type EngineCalls = {
   "engine.batterySaver": [{ mode: BatterySaverMode }, BatterySaverState];
   "engine.trimMemory": [{}, { ok: boolean }];
   "engine.openTaskManager": [{}, { ok: boolean }];
-  "engine.cliControl": [{ on?: boolean; active?: number }, CliControlStatus];
+  "engine.cliControl": [{ on?: boolean; activeTab?: string | null }, CliControlStatus];
 
   "tabs.routeLinkTabs": [{ urls: string[] }, LinkRoute];
   "tabs.stripCommand": [{ id: number; command: TabStripCommand }, null];
   "tabs.strips": [{}, TabStripTransaction];
   "tabs.lastTabPolicy": [{}, { closesWindow: boolean }];
-  "tabs.devEvents": [{ browserId: number }, { name: string; payload: unknown }[]];
-  "tabs.devWindowNumber": [{ browserId: number }, number];
-  "tabs.devFocusPage": [{ browserId: number }, boolean];
+  "tabs.devBrowserId": [{ tabId: string }, number];
+  "tabs.devEvents": [{ tabId: string }, { name: string; payload: unknown }[]];
+  "tabs.devWindowNumber": [{ tabId: string }, number];
+  "tabs.devFocusPage": [{ tabId: string }, boolean];
   "tabs.devPictureInPicture": [{}, unknown[]];
   "tabs.devPictureInPictureAction": [{ action: string }, string];
   "tabs.devPostPeekMouseUp": [{ keys: string; tabId: string }, boolean];
-  "tabs.devScrollZoom": [{ steps: Record<string, unknown>[]; browserId?: number }, number[]];
+  "tabs.devScrollZoom": [{ steps: Record<string, unknown>[]; tabId?: string }, number[]];
 
   "windows.list": [{}, ChromeWindowState[]];
   "windows.dev": [{ window: number; action: string }, string];
@@ -91,7 +92,7 @@ export type EngineCalls = {
   "autofill.cards": [Profile, { cards: SavedCard[] }];
   "autofill.remove": [Profile & { id: string }, { ok: true }];
   "autofill.cardNumber": [Profile & { id: string }, { number?: string | null }];
-  "autofill.showSuggestions": [{ browserId: number; passwords: boolean }, boolean];
+  "autofill.showSuggestions": [{ tabId: string; passwords: boolean }, boolean];
 
   "extensions.list": [Profile, { extensions: InstalledExtension[] }];
   "extensions.inspectUnpacked": [{ path: string }, ExtensionPackage];
@@ -103,8 +104,8 @@ export type EngineCalls = {
   "extensions.configure": [Profile & { id: string; options: Record<string, unknown> }, { ok: true }];
   "extensions.chooseFolder": [{}, string | null];
   "extensions.resolveInstallPrompt": [{ requestId: string; accepted: boolean }, null];
-  "extensions.actionStates": [{ browserId: number; ids: string[] }, Record<string, ActionState>];
-  "extensions.sidePanelUrl": [{ browserId: number; extensionId: string }, string | null];
+  "extensions.actionStates": [{ tabId: string; ids: string[] }, Record<string, ActionState>];
+  "extensions.sidePanelUrl": [{ tabId: string; extensionId: string }, string | null];
   "extensions.watchActions": [Profile, Done];
   "extensions.syncState": [Profile, unknown];
   "extensions.syncApply": [Profile & Record<string, unknown>, unknown];
@@ -117,16 +118,16 @@ export type EngineCalls = {
   "media.cancelDeviceChooser": [{ id: number }, null];
   "media.refreshDeviceChooser": [{ id: number }, null];
   "media.openBluetoothSettings": [{ id: number }, null];
-  "media.devShowBluetoothChooser": [{ browserId: number; unauthorized: boolean }, boolean];
+  "media.devShowBluetoothChooser": [{ tabId: string; unauthorized: boolean }, boolean];
   "media.devChooserEvents": [{}, Record<string, unknown>[]];
-  "media.showCastDialog": [{ browserId: number }, boolean];
+  "media.showCastDialog": [{ tabId: string }, boolean];
   "media.startCasting": [{ id: number; sink: string; mode: number }, null];
   "media.stopCasting": [{ id: number; route: string }, null];
   "media.closeCastDialog": [{ id: number }, null];
   "media.watchCastRoutes": [Profile, null];
   "media.terminateCastRoute": [{ route: string }, null];
-  "media.changeCaptureSource": [{ capturer: number; target: number }, boolean];
-  "media.stopCapture": [{ browserId: number }, boolean];
+  "media.changeCaptureSource": [{ capturer: string; target: string }, boolean];
+  "media.stopCapture": [{ tabId: string }, boolean];
 
   "contentBlocker.state": [{}, ContentBlockerState];
   "contentBlocker.setEnabled": [{ enabled: boolean }, null];

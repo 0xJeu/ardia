@@ -79,7 +79,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     }
     let created = WebKitWebView(frame: bounds, configuration: WebKitHub.shared.configuration(profile: profile))
     attach(created)
-    emit("ready", ["browserId": Int(browserId), "tabId": 0])
+    emit("ready", [:])
     if let url = initialURL, !url.isEmpty { loadURL(url, userInitiated: false) }
   }
 
@@ -99,7 +99,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   }
 
   private func emitEverything() {
-    emit("ready", ["browserId": Int(browserId), "tabId": 0])
+    emit("ready", [:])
     queueNavigation()
     emit("progress", ["progress": webView?.estimatedProgress ?? 0])
     emitSecurity()

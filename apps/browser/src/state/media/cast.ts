@@ -11,8 +11,7 @@ import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile } from "../browser/model";
 import { shownPageId } from "../peek/peek";
-import { browserIdOf } from "../extensions/actions";
-import { tabForBrowser } from "../tabs/pageState";
+import { isTabReady } from "../tabs/pageState";
 
 type CastStore = {
   dialogs: Record<string, CastDialog>;
@@ -32,7 +31,7 @@ export function startCast() {
   if (started) return;
   started = true;
   onCastDialog((dialog) => {
-    const tabId = tabForBrowser(dialog.browserId);
+    const tabId = dialog.tabId;
     if (!tabId) {
       if (dialog.open) void closeCastDialog(dialog.id);
       return;
@@ -64,8 +63,7 @@ export async function toggleCastPicker(windowId: string, tabId = shownPageId(use
   if (!tabId) return;
   const open = useCast.getState().dialogs[tabId];
   if (open) return closeCastPicker(tabId);
-  const browserId = browserIdOf(tabId);
-  if (browserId) await showCastDialog(browserId);
+  if (isTabReady(tabId)) await showCastDialog(tabId);
 }
 
 export function closeCastPicker(tabId: string) {

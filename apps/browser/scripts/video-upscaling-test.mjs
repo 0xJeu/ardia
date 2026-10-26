@@ -161,8 +161,7 @@ const until = async (what, test, ms = 15000) => {
   throw new Error(`timed out waiting for ${what}`);
 };
 const main = await store();
-const browserNumber = (tabId) => evalApp(`return Object.entries(ac.pageState.getState().browsers ?? {}).find(([, t]) => t === ${JSON.stringify(tabId)})?.[0] ?? null`);
-const windowNumber = async (tabId) => engine("tabs.devWindowNumber", { browserId: Number(await browserNumber(tabId)) });
+const windowNumber = (tabId) => engine("tabs.devWindowNumber", { tabId });
 const win = async (tabId, action) => engine("windows.dev", { window: await windowNumber(tabId), action });
 
 await win(main.tabs[0].id, "fakeOcclusion:visible");

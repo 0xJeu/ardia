@@ -1,6 +1,6 @@
 import { extensionSidePanelUrl } from "@ardia/ardiacore";
 import { useBrowser } from "../browser/store";
-import { shownBrowserId, extensionProfile, isPrivate, pageProfile, shownIn, useExtensions } from "./store";
+import { shownReadyTab, extensionProfile, isPrivate, pageProfile, shownIn, useExtensions } from "./store";
 
 const wanted = new Map<string, string>();
 const fetches = new Map<string, number>();
@@ -45,14 +45,14 @@ export async function syncSidePanel(windowId: string): Promise<void> {
   const extensionId = wanted.get(windowId);
   if (!extensionId) return;
   const ticket = nextFetch(windowId);
-  const browserId = shownBrowserId(windowId);
+  const readyTab = shownReadyTab(windowId);
   const shown = useExtensions.getState().sidePanels[windowId];
-  if (!browserId && shown?.extensionId === extensionId) return;
+  if (!readyTab && shown?.extensionId === extensionId) return;
   const ext = shownIn(windowId, extensionId);
   const url = !ext
     ? null
-    : browserId
-      ? await extensionSidePanelUrl(browserId, extensionId)
+    : readyTab
+      ? await extensionSidePanelUrl(readyTab, extensionId)
       : !isPrivate(useBrowser.getState(), windowId) && ext.sidePanel
         ? `chrome-extension://${extensionId}/${ext.sidePanel.replace(/^\//, "")}`
         : null;

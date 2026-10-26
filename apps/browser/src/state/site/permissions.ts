@@ -1,11 +1,10 @@
 import { onPermission, onPermissionDismissed, resolvePermission, type PermissionKind, type PermissionRequest, type PermissionResult } from "@ardia/ardiacore";
 import { ensureNotificationPermission } from "./webNotifications";
 import { useBrowser } from "../browser/store";
-import { patchPage, pageOf, tabForBrowser, usePages } from "../tabs/pageState";
+import { patchPage, pageOf, usePages } from "../tabs/pageState";
 import { startDeviceChoosers } from "./deviceChoosers";
 
 const queues = new Map<string, PermissionRequest[]>();
-const orphans: PermissionRequest[] = [];
 let started = false;
 
 export function startPermissionPrompts() {
@@ -13,21 +12,9 @@ export function startPermissionPrompts() {
   started = true;
   startDeviceChoosers();
   onPermission((request) => {
-    const tabId = tabForBrowser(request.browserId);
-    if (!tabId) {
-      orphans.push(request);
-      return;
-    }
-    enqueue(tabId, request);
+    if (request.tabId) enqueue(request.tabId, request);
   });
   onPermissionDismissed(({ id }) => drop(id));
-  usePages.subscribe((s, prev) => {
-    if (s.browsers === prev.browsers || !orphans.length) return;
-    for (const request of orphans.splice(0)) {
-      const tabId = tabForBrowser(request.browserId);
-      if (tabId) enqueue(tabId, request);
-    }
-  });
 }
 
 function enqueue(tabId: string, request: PermissionRequest) {

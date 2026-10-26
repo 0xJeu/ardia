@@ -126,7 +126,6 @@ const js = async (target, expression) => {
 };
 const pageTarget = (urlPart) => until(urlPart, async () => (await targets()).find((t) => t.type === "page" && t.url.includes(urlPart)) ?? null, 10000);
 const engine = (name, args = {}, ms) => evalApp(`return ac.engine.call(${JSON.stringify(name)}, ${JSON.stringify(args)})`, ms);
-const browserOf = (tabId) => evalApp(`return Object.entries(ac.pageState.getState().browsers ?? {}).find(([, t]) => t === "${tabId}")?.[0] ?? null`);
 
 const appState = () => evalApp(`const s = ac.store.getState();
   return { focused: s.ui.focusedWindowId, windows: Object.fromEntries(Object.values(s.windows).map((w) => {
@@ -279,7 +278,7 @@ try {
       const base = (await pipState(call.t)).pip;
       const focusSteps = [];
       for (const [pane, url] of [[notes, "/notes"], [call.tab, "/conf"], [notes, "/notes"], [call.tab, "/conf"], [notes, "/notes"]]) {
-        await engine("tabs.devFocusPage", { browserId: Number(await browserOf(pane)) });
+        await engine("tabs.devFocusPage", { tabId: pane });
         const chrome = await until(`Chrome selects the ${url} pane`, async () => {
           const c = await ext("chromeState()");
           return c.windows.some((w) => w.active?.includes(url)) ? c : null;
@@ -354,7 +353,7 @@ try {
 
   await check("call-window-covered", async () => {
     const call = await joinedCall();
-    const n = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(call.tab)) });
+    const n = await engine("tabs.devWindowNumber", { tabId: call.tab });
     const win = (action) => engine("windows.dev", { window: n, action });
     const out = {};
     try {
@@ -429,7 +428,7 @@ try {
       const other = await openTab(`${origin()}/b?t=B`, "B");
       await evalApp(`return ac.store.getState().createSplit(["${tab}", "${other}"])`);
       await show(other);
-      await engine("tabs.devFocusPage", { browserId: Number(await browserOf(other)) });
+      await engine("tabs.devFocusPage", { tabId: other });
       await until("Chrome selects the other pane", async () => (await ext("chromeState()")).windows.some((w) => w.active?.includes("/b")), 8000);
       await sleep(600);
       await js(t, "ask({ video: true })");
@@ -531,7 +530,7 @@ try {
     try {
       await evalApp(`return ac.store.getState().createSplit(["${call.tab}", "${notes}"])`);
       await show(notes);
-      await engine("tabs.devFocusPage", { browserId: Number(await browserOf(notes)) });
+      await engine("tabs.devFocusPage", { tabId: notes });
       await until("Chrome selects the notes pane", async () => (await ext("chromeState()")).windows.some((w) => w.active?.includes("/notes2")), 8000);
       await sleep(800);
       const base = (await pipState(call.t)).pip;
@@ -584,7 +583,7 @@ try {
     await show(tab);
     const t = await pageTarget(url);
     await evalApp(`ac.actions.focus(${JSON.stringify(mainWindow)}); return true`);
-    await engine("tabs.devFocusPage", { browserId: Number(await browserOf(tab)) });
+    await engine("tabs.devFocusPage", { tabId: tab });
     await js(t, "__keys = ''; true");
     return { tab, t };
   };
@@ -633,11 +632,11 @@ try {
   await check("plain-key-on-page", async () => {
     const url = `${origin()}/plain?t=Plain`;
     const tab = await openTab(url, "Plain");
-    const n = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(tab)) });
+    const n = await engine("tabs.devWindowNumber", { tabId: tab });
     try {
       await show(tab);
       await evalApp(`ac.actions.focus(${JSON.stringify(mainWindow)}); return true`);
-      await engine("tabs.devFocusPage", { browserId: Number(await browserOf(tab)) });
+      await engine("tabs.devFocusPage", { tabId: tab });
       const logFrom = activationLog().length;
       await evalApp(`return ac.shell.devTypeKeys("key", "f", 20)`);
       await sleep(1500);
@@ -688,12 +687,12 @@ try {
         return w.panes.includes(a) && w.panes.includes(b);
       });
       await sleep(600);
-      const bBrowser = await browserOf(b);
+
       for (let i = 0; i < 3; i++) {
         await evalApp(`ac.actions.switchToTab(${JSON.stringify(b)});
           return new Promise((r) => setTimeout(() => { ac.actions.switchToTab(${JSON.stringify(a)}); r(true); }, 40))`);
         await sleep(50);
-        await engine("tabs.devFocusPage", { browserId: Number(bBrowser) });
+        await engine("tabs.devFocusPage", { tabId: b });
         const shown = await until("B active after the click", async () => ((await appState()).windows[mainWindow].shown === b ? b : null), 3000)
           .catch(async () => { throw new Error(`round ${i}: the click into B was dropped (shown ${(await appState()).windows[mainWindow].shown === a ? "A" : "?"})`); });
         rounds.push(shown === b ? "B" : shown);

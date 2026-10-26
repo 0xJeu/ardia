@@ -1,4 +1,5 @@
 #import "ArdiaInternal.h"
+#import "ArdiaWebView.h"
 
 #import <objc/runtime.h>
 
@@ -84,6 +85,58 @@ int BrowserId(ArdiaCoreTab *tab) {
 
 ArdiaCoreTab *TabWithBrowserId(int browserId) {
   return [TabsById() objectForKey:@(browserId)];
+}
+
+NSString *AppTabIdOf(ArdiaCoreTab *tab) {
+  NSString *tabId = tab ? [ArdiaTabRegistry viewForTab:tab].transferKey : nil;
+  return tabId.length ? tabId : nil;
+}
+
+id AppTabIdValue(ArdiaCoreTab *tab) {
+  return AppTabIdOf(tab) ?: NSNull.null;
+}
+
+ArdiaCoreTab *TabWithAppTabId(NSString *tabId) {
+  if (!tabId.length) return nil;
+  for (ArdiaCoreTab *tab in Views().keyEnumerator.allObjects)
+    if ([[Views() objectForKey:tab].transferKey isEqualToString:tabId]) return tab;
+  return nil;
+}
+
+namespace {
+NSMapTable<ArdiaCoreTab *, NSMutableArray<NSArray *> *> *HeldEvents() {
+  static NSMapTable *held = [NSMapTable weakToStrongObjectsMapTable];
+  return held;
+}
+}
+
+void HoldUntilHosted(ArdiaCoreTab *tab, NSString *event, NSDictionary *payload) {
+  NSMutableArray *list = [HeldEvents() objectForKey:tab];
+  if (!list) [HeldEvents() setObject:(list = [NSMutableArray array]) forKey:tab];
+  [list addObject:@[ event, payload ]];
+}
+
+void DropHeldEvent(NSString *event, NSString *eventId) {
+  for (ArdiaCoreTab *tab in HeldEvents().keyEnumerator.allObjects) {
+    NSMutableArray<NSArray *> *list = [HeldEvents() objectForKey:tab];
+    NSIndexSet *dropped = [list indexesOfObjectsPassingTest:^BOOL(NSArray *held, NSUInteger, BOOL *) {
+      return [held[0] isEqualToString:event] && [held[1][@"id"] isEqual:eventId];
+    }];
+    [list removeObjectsAtIndexes:dropped];
+    if (!list.count) [HeldEvents() removeObjectForKey:tab];
+  }
+}
+
+void ReleaseHeldEvents(ArdiaCoreTab *tab) {
+  NSString *tabId = AppTabIdOf(tab);
+  NSArray<NSArray *> *held = tabId ? [HeldEvents() objectForKey:tab] : nil;
+  if (!held) return;
+  [HeldEvents() removeObjectForKey:tab];
+  for (NSArray *event in held) {
+    NSMutableDictionary *payload = [event[1] mutableCopy];
+    payload[@"tabId"] = tabId;
+    [ArdiaEvents emit:event[0] data:payload];
+  }
 }
 
 }

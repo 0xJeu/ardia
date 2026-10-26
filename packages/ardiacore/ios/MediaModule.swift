@@ -29,10 +29,10 @@ public class MediaModule: Module {
     "refreshDeviceChooser": chooser("refresh"),
     "openBluetoothSettings": chooser("settings"),
     "devShowBluetoothChooser": { args, reply in
-      reply.ok(ArdiaHost.devShowBluetoothChooser(browserId: Int32(args.int("browserId") ?? 0), unauthorized: args.bool("unauthorized") ?? false))
+      reply.ok(ArdiaHost.devShowBluetoothChooser(tabId: args.text("tabId"), unauthorized: args.bool("unauthorized") ?? false))
     },
     "devChooserEvents": { _, reply in reply.ok(ArdiaHost.testChooserEvents()) },
-    "showCastDialog": { args, reply in reply.ok(ArdiaHost.showCastDialog(browserId: Int32(args.int("browserId") ?? 0))) },
+    "showCastDialog": { args, reply in reply.ok(ArdiaHost.showCastDialog(tabId: args.text("tabId"))) },
     "startCasting": { args, reply in
       ArdiaHost.castDialog(Int32(args.int("id") ?? 0), start: args.text("sink"), mode: Int32(args.int("mode") ?? 0))
       reply.ok()
@@ -54,8 +54,8 @@ public class MediaModule: Module {
       reply.ok()
     },
     "changeCaptureSource": { args, reply in
-      reply.ok(ArdiaHost.shareTabInstead(capturer: Int32(args.int("capturer") ?? 0), target: Int32(args.int("target") ?? 0)))
+      reply.ok(ArdiaHost.shareTabInstead(capturer: args.text("capturer"), target: args.text("target")))
     },
-    "stopCapture": { args, reply in reply.ok(ArdiaHost.stopCapture(browserId: Int32(args.int("browserId") ?? 0))) },
+    "stopCapture": { args, reply in reply.ok(ArdiaHost.stopCapture(tabId: args.text("tabId"))) },
   ])
 }

@@ -13,17 +13,17 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)deviceChooser:(int)chooserId select:(int)index NS_SWIFT_NAME(deviceChooser(_:select:));
 + (void)deviceChooser:(int)chooserId action:(NSString *)action NS_SWIFT_NAME(deviceChooser(_:action:));
 + (NSArray<NSDictionary *> *)testExternalLaunches;
-+ (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized NS_SWIFT_NAME(devShowBluetoothChooser(browserId:unauthorized:));
++ (BOOL)devShowBluetoothChooser:(NSString *)tabId unauthorized:(BOOL)unauthorized NS_SWIFT_NAME(devShowBluetoothChooser(tabId:unauthorized:));
 + (NSArray<NSDictionary *> *)testChooserEvents;
-+ (BOOL)shareTabInstead:(int)capturerBrowserId target:(int)targetBrowserId NS_SWIFT_NAME(shareTabInstead(capturer:target:));
-+ (BOOL)showCastDialog:(int)browserId NS_SWIFT_NAME(showCastDialog(browserId:));
++ (BOOL)shareTabInstead:(NSString *)capturerTabId target:(NSString *)targetTabId NS_SWIFT_NAME(shareTabInstead(capturer:target:));
++ (BOOL)showCastDialog:(NSString *)tabId NS_SWIFT_NAME(showCastDialog(tabId:));
 + (void)castDialog:(int)dialogId start:(NSString *)sink mode:(int)mode NS_SWIFT_NAME(castDialog(_:start:mode:));
 + (void)castDialog:(int)dialogId stop:(NSString *)route NS_SWIFT_NAME(castDialog(_:stop:));
 + (void)closeCastDialog:(int)dialogId NS_SWIFT_NAME(closeCastDialog(_:));
 + (void)watchCastRoutes:(NSString *)profile NS_SWIFT_NAME(watchCastRoutes(_:));
 + (void)terminateCastRoute:(NSString *)route NS_SWIFT_NAME(terminateCastRoute(_:));
-+ (NSDictionary<NSString *, id> *)actionStates:(int)browserId extensions:(NSArray<NSString *> *)ids NS_SWIFT_NAME(actionStates(browserId:extensions:));
-+ (nullable NSString *)sidePanelURL:(int)browserId extension:(NSString *)extensionId NS_SWIFT_NAME(sidePanelURL(browserId:extension:));
++ (NSDictionary<NSString *, id> *)actionStates:(NSString *)tabId extensions:(NSArray<NSString *> *)ids NS_SWIFT_NAME(actionStates(tabId:extensions:));
++ (nullable NSString *)sidePanelURL:(NSString *)tabId extension:(NSString *)extensionId NS_SWIFT_NAME(sidePanelURL(tabId:extension:));
 + (void)resolveExtensionInstallPrompt:(NSString *)requestId accepted:(BOOL)accepted
     NS_SWIFT_NAME(resolveExtensionInstallPrompt(_:accepted:));
 + (void)replayInstallPrompts;
@@ -33,8 +33,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)deleteProfileData:(NSString *)profile completion:(void (^)(NSArray<NSString *> *remaining))completion
     NS_SWIFT_NAME(deleteProfileData(_:completion:));
 + (void)releaseProfile:(NSString *)profile;
-+ (BOOL)stopCapture:(int)browserId NS_SWIFT_NAME(stopCapture(browserId:));
-+ (BOOL)showAutofillSuggestions:(int)browserId passwords:(BOOL)passwords NS_SWIFT_NAME(showAutofillSuggestions(browserId:passwords:));
++ (BOOL)stopCapture:(NSString *)tabId NS_SWIFT_NAME(stopCapture(tabId:));
++ (BOOL)showAutofillSuggestions:(NSString *)tabId passwords:(BOOL)passwords NS_SWIFT_NAME(showAutofillSuggestions(tabId:passwords:));
++ (int)chromeTabIdOfTab:(NSString *)tabId NS_SWIFT_NAME(chromeTabId(ofTab:));
 + (void)resolvePermission:(NSString *)requestId result:(NSString *)result remember:(BOOL)remember
     NS_SWIFT_NAME(resolvePermission(_:result:remember:));
 

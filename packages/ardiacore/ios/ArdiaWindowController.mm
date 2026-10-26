@@ -135,7 +135,7 @@ NSMutableDictionary<NSString *, ArdiaWindowController *> *ChromeMadeWindows() {
     @"active" : @(!_chromeActive || _chromeActive == tab), @"window" : NSNull.null, @"extensionId" : @"",
     @"chromeWindow" : _chromeToken, @"focused" : @(!_showInactive)
   } mutableCopy];
-  if (moving.length) request[@"tabKey"] = moving;
+  if (moving.length) request[@"tabId"] = moving;
   else if ([ArdiaTabRegistry viewForTab:tab]) return;
   else request[@"adoptId"] = [ArdiaTabRegistry offerTab:tab prefix:@"tab"];
   _announced = YES;

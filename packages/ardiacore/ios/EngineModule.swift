@@ -34,6 +34,11 @@ public class EngineModule: Module {
     "batterySaver": EngineCall.passing("ac_battery_saver"),
     "trimMemory": EngineCall.passing("ac_memory_trim"),
     "openTaskManager": EngineCall.passing("ac_task_manager_open"),
-    "cliControl": EngineCall.passing("ac_cli_control"),
+    "cliControl": { args, reply in
+      guard args.values.keys.contains("activeTab") else { return EngineCall.passing("ac_cli_control")(args, reply) }
+      let tabId = args.string("activeTab")
+      let active = tabId.map { ArdiaHost.chromeTabId(ofTab: $0) } ?? -1
+      EngineCall.passing("ac_cli_control")(CallArgs(profile: args.profile, json: "{\"active\":\(active)}"), reply)
+    },
   ])
 }

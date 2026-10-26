@@ -33,7 +33,7 @@
 //   engine(name, args, ms)         ac.engine.call(name, args); rejects with the engine's error
 //   engineOrError(name, args, ms)  the same, but a failure resolves { error } (the old password, autofill, extension shape)
 //   secret(module, fn, …args)      ArdiaPasswords / ArdiaAutofill calls that carry a secret; a failure resolves { error }
-//   browserOf(tabId) · eventsOf(tabId) · lastEvent(tabId, name, test) · live(tabId) · pipWindows()
+//   browserOf(tabId) (the tab's engine browser, to tell a reload apart) · eventsOf(tabId) · lastEvent(tabId, name, test) · live(tabId) · pipWindows()
 //   openTab(url, title, background) · closeTab(id) · shownAndMounted(id) · freshTab(url) · backToA() · startVideo(tabId, audio)
 //   pipByHand(tabId)               Site Controls › Picture in Picture, clicked as the user does (manual PiP needs the click)
 //   launch(log, test, args, opts) · appUp(log)   (re)start the app on the run's data dir; `exited` is set once it's gone
@@ -581,7 +581,7 @@ function fixtureCrx() {
   return (crxCache = Buffer.concat([prefix, header, zip]));
 }
 const onScreenWindows = () => windowsOf(pid);
-const browserOf = (tabId) => evalApp(`return ac.pageState.getState().browsers ? Object.entries(ac.pageState.getState().browsers).find(([, t]) => t === "${tabId}")?.[0] ?? null : null`);
+const browserOf = async (tabId) => (await engine("tabs.devBrowserId", { tabId })) || null;
 async function pageFor(tabId, urlPart) {
   const candidates = (await targets()).filter((t) => t.type === "page" && t.url.includes(urlPart));
   if (candidates.length <= 1) return candidates[0];
@@ -597,8 +597,7 @@ let mainWindow = null;
 let first;
 let personal = null;
 const eventsOf = async (tabId) => {
-  const browser = await browserOf(tabId);
-  return browser ? engine("tabs.devEvents", { browserId: Number(browser) }) : [];
+  return (await browserOf(tabId)) ? engine("tabs.devEvents", { tabId }) : [];
 };
 const state = () =>
   evalApp(`const s = ac.store.getState(); const w = s.windows[${JSON.stringify(mainWindow)}] ?? Object.values(s.windows).filter((w) => !w.incognito && w.kind !== "small").sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0];
@@ -853,8 +852,7 @@ try {
     await until("A shown", async () => (await state()).active === first.id);
     const t = await pageFor(first.id, `${base}/a`);
     const vis = async () => (await cdp(t, "Runtime.evaluate", { expression: "document.visibilityState", returnByValue: true })).result.value;
-    const browser = await browserOf(first.id);
-    const windowNumber = await engine("tabs.devWindowNumber", { browserId: Number(browser) });
+    const windowNumber = await engine("tabs.devWindowNumber", { tabId: first.id });
     const chromeSees = async () => (await engine("windows.list")).find((x) => x.window === windowNumber);
     await engine("windows.dev", { window: windowNumber, action: "cover" });
     let samples = [], escape = null, w = null;
@@ -1155,7 +1153,7 @@ try {
 
   const chooserOf = (tabId) => evalApp(`return globalThis.acDeviceChoosers?.useChoosers.getState().byTab["${tabId}"] ?? null`);
   const bluetoothChooser = async (unauthorized) => {
-    if (!(await engine("media.devShowBluetoothChooser", { browserId: Number(await browserOf(first.id)), unauthorized }))) throw new Error("devShowBluetoothChooser said no (switch off?)");
+    if (!(await engine("media.devShowBluetoothChooser", { tabId: first.id, unauthorized }))) throw new Error("devShowBluetoothChooser said no (switch off?)");
     return until("the app's Bluetooth chooser", async () => {
       const c = await chooserOf(first.id);
       return c && (unauthorized ? c.unauthorized : c.options?.length) ? c : null;
@@ -1226,8 +1224,7 @@ try {
   });
 
   await check("cast-dialog", async () => {
-    const browser = await browserOf(first.id);
-    const shown = await engine("media.showCastDialog", { browserId: Number(browser) });
+    const shown = await engine("media.showCastDialog", { tabId: first.id });
     if (!shown) throw new Error("showCastDialog said no (media router off?)");
     const dialog = await until("the app's Cast dialog", async () => evalApp(`return globalThis.acCast?.useCast.getState().dialogs["${first.id}"] ?? null`), 10000);
     const routes = await evalApp(`return globalThis.acCast.useCast.getState().routes`);
@@ -1241,7 +1238,7 @@ try {
     const routesNow = () => evalApp(`return Object.values(globalThis.acCast.useCast.getState().routes).flat()`);
     const dialogNow = () => evalApp(`return globalThis.acCast.useCast.getState().dialogs["${first.id}"] ?? null`);
     const openDialog = async () => {
-      if (!(await engine("media.showCastDialog", { browserId: Number(browser) }))) throw new Error("showCastDialog said no");
+      if (!(await engine("media.showCastDialog", { tabId: first.id }))) throw new Error("showCastDialog said no");
       return until("the test sink in the app's dialog", async () => {
         const d = await dialogNow();
         const sink = d?.sinks?.find((s) => s.name === "Ardia Test Sink" && s.state === "available");
@@ -1449,15 +1446,15 @@ try {
         return null;
       }, 8000);
       const sourceId = await evalApp(`return ac.webviews.get("${target.id}")?.mediaCaptureSourceId() ?? null`);
-      const capturer = await browserOf(first.id);
-      const instead = await browserOf(other.id);
-      const changed = await engine("media.changeCaptureSource", { capturer: Number(capturer), target: Number(instead) });
+      const capturer = first.id;
+      const instead = other.id;
+      const changed = await engine("media.changeCaptureSource", { capturer, target: instead });
       if (changed !== true) throw new Error(`changeCaptureSource answered ${changed} (Chrome's last-used profile: ${(await engine("engine.info")).lastUsedProfile})`);
       await sleep(1000);
-      const stopped = await engine("media.stopCapture", { browserId: Number(capturer) });
+      const stopped = await engine("media.stopCapture", { tabId: capturer });
       const ended = await until("the track ended", async () =>
         (await cdp(t, "Runtime.evaluate", { expression: "window.__cap", returnByValue: true })).result.value === "ended" ? true : null, 8000);
-      const windowNumber = await engine("tabs.devWindowNumber", { browserId: Number(capturer) });
+      const windowNumber = await engine("tabs.devWindowNumber", { tabId: capturer });
       const picker = await until("the picker closed", async () => {
         const children = JSON.parse(await engine("windows.dev", { window: windowNumber, action: "children" }));
         return children.some((c) => c.visible && c.title.startsWith("Choose what to share")) ? null : "closed";
@@ -1518,7 +1515,7 @@ try {
       await until("blue shown", async () => (await state()).active === blue.id);
       const changed = hooks.bar
         ? await evalApp(`return globalThis.acShareBar.shareInstead("${callB.id}", "${blue.id}")`)
-        : await engine("media.changeCaptureSource", { capturer: Number(await browserOf(callB.id)), target: Number(await browserOf(blue.id)) });
+        : await engine("media.changeCaptureSource", { capturer: callB.id, target: blue.id });
       if (changed !== true) throw new Error(`share instead answered ${JSON.stringify(changed)}`);
       let after = null;
       try {
@@ -1582,7 +1579,7 @@ try {
       }
     };
     const closeButton = async (tabId) => {
-      const number = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(tabId)) });
+      const number = await engine("tabs.devWindowNumber", { tabId: tabId });
       return engine("windows.dev", { window: number, action: "close-button" });
     };
     const warn = await s(`s.settings.warnBeforeClosingWindow`);
@@ -1660,8 +1657,7 @@ try {
 
   await check("discard-outcomes", async () => {
     const tab = await openTab(`${base}/d?discard`, "Page D", true);
-    const browser = await browserOf(tab.id);
-    const renderer = async () => (await engine("engine.tasks")).some((t) => t.browserIds?.includes(Number(browser)));
+    const renderer = async () => (await engine("engine.tasks")).some((t) => t.tabIds?.includes(tab.id));
     const flags = () => evalApp(`const l = globalThis.acLifecycle.state(); return { sleeping: !!l.discarded["${tab.id}"], loaded: l.loaded.includes("${tab.id}") }`);
     const raw = (opts = "") => evalApp(`return ac.webviews.get("${tab.id}").discard(${opts})`);
     try {
@@ -1752,10 +1748,9 @@ try {
     const tab = await openTab(`${base}/c?tasks`, "Page C", true);
     const call = (args) => engineOrError("engine.openTaskManager", { profile: "", ...args });
     try {
-      const browser = Number(await browserOf(tab.id));
       const task = await until("the tab's task", async () => {
         const tasks = await engine("engine.tasks");
-        return tasks.find((x) => (x.browserIds ?? []).includes(browser)) ?? null;
+        return tasks.find((x) => (x.tabIds ?? []).includes(tab.id)) ?? null;
       }, 10000);
       const opened = await call(null);
       if (!opened.ok) throw new Error(`ac_task_manager_open: ${JSON.stringify(opened)}`);
@@ -1938,8 +1933,7 @@ try {
       await evalApp(`return ac.webviews.get("${first.id}").zoomStep(0)`);
       await until("zoom 100%", async () => ((await zoom()) === 1 ? true : null), 5000);
     };
-    const browser = await browserOf(first.id);
-    const scroll = (steps) => engine("tabs.devScrollZoom", { steps, browserId: Number(browser) });
+    const scroll = (steps) => engine("tabs.devScrollZoom", { steps, tabId: first.id });
     const gesture = (trackpad) => [
       { phase: "mayBegin", dy: 0, trackpad }, { phase: "began", dy: 12, trackpad },
       ...Array.from({ length: 4 }, () => ({ phase: "changed", dy: 40, trackpad })),
@@ -2023,8 +2017,7 @@ try {
 
   await check("traffic-lights-after-profile-switch", async () => {
     const s = await state();
-    const browser = await browserOf(first.id);
-    const windowNumber = await engine("tabs.devWindowNumber", { browserId: Number(browser) });
+    const windowNumber = await engine("tabs.devWindowNumber", { tabId: first.id });
     const lights = () => engine("windows.dev", { window: windowNumber, action: "lights" });
     const before = await lights();
     const id = await evalApp(`return ac.store.getState().createProfile({ name: "Lights" })`);
@@ -2980,7 +2973,7 @@ try {
     });
     const components = await engine("engine.components");
     const allowances = await engine("permissions.externalAppAllowances", { profile: "" });
-    return { tasks: tasks.length, browserTasks: tasks.filter((t) => t.browserIds.length).length, components: components.length, allowances: allowances.length };
+    return { tasks: tasks.length, browserTasks: tasks.filter((t) => t.tabIds.length).length, components: components.length, allowances: allowances.length };
   });
 
   await check("download-navigation", async () => {
@@ -3307,7 +3300,7 @@ try {
       const activate = await lastEvent(tab.id, "activateRequest", (p) => p.reason === "pictureInPicture");
       if (!activate) throw new Error("Back to Tab sent no onActivateRequest");
       await until("PiP closed by Back to Tab", async () => lastEvent(tab.id, "pictureInPicture", (p) => !p.active), 5000);
-      const n = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(first.id)) });
+      const n = await engine("tabs.devWindowNumber", { tabId: first.id });
       const appActive = (on) => engine("windows.dev", { window: n, action: `fakeAppActive:${on ? 1 : 0}` });
       const logLines = () => (existsSync(join(data, "activation.log")) ? readFileSync(join(data, "activation.log"), "utf8").split("\n") : []);
       const clickButton = async (name) => {
@@ -3367,7 +3360,7 @@ try {
       await evalApp(`return ac.webviews.get("${first.id}").focus()`);
       await sleep(600);
       if ((await state()).active !== first.id) throw new Error("the app's focus() switched tabs");
-      const took = await engine("tabs.devFocusPage", { browserId: Number(await browserOf(other.id)) });
+      const took = await engine("tabs.devFocusPage", { tabId: other.id });
       const focus = await until("onPageFocus", async () => {
         const all = (await eventsOf(other.id)).filter((x) => x.name === "focus");
         return all.length > before + fromApp ? all.at(-1) : null;
@@ -3386,7 +3379,7 @@ try {
   // MARK: Page full screen
   const fsFlag = (tabId) => evalApp(`return !!ac.pageState.getState().pages[${JSON.stringify(tabId)}]?.fullscreen`);
   const fsWindow = async (tabId, action = "fullScreen") => {
-    const n = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(tabId)) });
+    const n = await engine("tabs.devWindowNumber", { tabId: tabId });
     const out = await engine("windows.dev", { window: n, action });
     try {
       return JSON.parse(out);
@@ -3478,7 +3471,7 @@ try {
       out.midTransition = { during: mid.pageFullScreen, after: await settled("the window out after the transition", (w) => !w.fullScreen && !w.pageFullScreen?.entered) };
       if (!mid.pageFullScreen?.transitioning) throw new Error(`the transition had ended before the page left: ${JSON.stringify(mid)}`);
       await fsEnter(tab.id, t);
-      const n = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(tab.id)) });
+      const n = await engine("tabs.devWindowNumber", { tabId: tab.id });
       const closing = await until("the window's transition started", async () => {
         const w = JSON.parse(await engine("windows.dev", { window: n, action: "fullScreen" })).pageFullScreen;
         return w?.transitioning ? w : null;
@@ -3532,7 +3525,7 @@ try {
       out.actedToggles = log;
       return out;
     } finally {
-      await engine("windows.dev", { window: await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(first.id)) }), action: "fakeFullScreenMs:0" }).catch(() => null);
+      await engine("windows.dev", { window: await engine("tabs.devWindowNumber", { tabId: first.id }), action: "fakeFullScreenMs:0" }).catch(() => null);
       await closeTab(tab.id).catch(() => null);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     }
@@ -3540,7 +3533,7 @@ try {
 
   await check("fullscreen-transition-picture", async () => {
     const tab = await openTab(`${base}/fs-layout`, "FS layout");
-    const act = async (action) => engine("windows.dev", { window: await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(tab.id)) }), action });
+    const act = async (action) => engine("windows.dev", { window: await engine("tabs.devWindowNumber", { tabId: tab.id }), action });
     try {
       const t = await pageFor(tab.id, "/fs-layout");
       const key = async () => {
@@ -3708,7 +3701,7 @@ try {
   });
 
   await check("fullscreen-pip", async () => {
-    const n = await engine("tabs.devWindowNumber", { browserId: Number(await browserOf(first.id)) });
+    const n = await engine("tabs.devWindowNumber", { tabId: first.id });
     const win = (action) => engine("windows.dev", { window: n, action });
     const pressF = async (t) => {
       for (const type of ["keyDown", "keyUp"])
@@ -3837,8 +3830,7 @@ try {
       await cdp(t, "Runtime.evaluate", { expression: "const c = document.getElementById('c'); c.value = ''; c.blur(); c.focus(); 1", userGesture: true });
       await sleep(400);
       count = await shownCount();
-      const browser = await browserOf(first.id);
-      const shown = await engine("autofill.showSuggestions", { browserId: Number(browser), passwords: false });
+      const shown = await engine("autofill.showSuggestions", { tabId: first.id, passwords: false });
       const command = await until("the dropdown from showAutofillSuggestions", async () => shownSince(count, "Springfield"), 6000)
         .catch((e) => { throw new Error(`${e.message}; showAutofillSuggestions answered ${shown}`); });
       await secret("ArdiaPasswords", "save", "", base, "nnfill", "fill-s3cret");
@@ -3852,7 +3844,7 @@ try {
       await evalApp(`ac.runCommand({ command: "autofill", arg: "passwords", windowId: ${JSON.stringify(mainWindow)} }); return true`);
       const passwords = await until("the saved passwords", async () => shownSince(count, "nnfill"), 6000)
         .catch(async (e) => {
-          const direct = await engine("autofill.showSuggestions", { browserId: Number(browser), passwords: true });
+          const direct = await engine("autofill.showSuggestions", { tabId: first.id, passwords: true });
           await sleep(1500);
           throw new Error(`${e.message}; direct ${direct}; saved ${JSON.stringify(await engineOrError("passwords.list", { profile: "" })).slice(0, 300)}; shown ${JSON.stringify((await eventsOf(first.id)).filter((x) => x.name === "autofillSuggestions").map((x) => x.payload))}`);
         });
@@ -3998,10 +3990,9 @@ try {
   await check("extension-surfaces", async () => {
     const installed = await engineOrError("extensions.install", { profile: "", path: extPath });
     if (installed?.error) throw new Error(installed.error);
-    const browser = await browserOf(first.id);
-    const states = await engine("extensions.actionStates", { browserId: Number(browser), ids: [installed.id] });
+    const states = await engine("extensions.actionStates", { tabId: first.id, ids: [installed.id] });
     if (!states?.[installed.id]) throw new Error(`no action state: ${JSON.stringify(states)}`);
-    const panel = await engine("extensions.sidePanelUrl", { browserId: Number(browser), extensionId: installed.id });
+    const panel = await engine("extensions.sidePanelUrl", { tabId: first.id, extensionId: installed.id });
     const reloaded = await engineOrError("extensions.reload", { profile: "", id: installed.id });
     if (reloaded?.error) throw new Error(`reload: ${reloaded.error}`);
     await sleep(1000);
@@ -4211,9 +4202,8 @@ try {
     const kept = (await cdp(t2, "Runtime.evaluate", { expression: "String(window.__kept)", returnByValue: true })).result.value;
     if (kept !== "42") throw new Error(`the page reloaded or went: ${kept}`);
     const tx = await engine("tabs.strips");
-    const browser = await browserOf(first.id);
-    const windowNumber = await engine("tabs.devWindowNumber", { browserId: Number(browser) });
-    const holding = tx.strips.find((x) => x.tabs.some((tab) => tab.browser === Number(browser)));
+    const windowNumber = await engine("tabs.devWindowNumber", { tabId: first.id });
+    const holding = tx.strips.find((x) => x.tabs.some((tab) => tab.key === first.id));
     if (!holding || holding.window !== windowNumber) throw new Error(`the tab's strip is window ${holding?.window}, its view is in ${windowNumber}`);
     return { windowId, kept, strip: holding.strip, window: holding.window };
   });
@@ -4222,8 +4212,7 @@ try {
 
   await check("title-bar-close", async () => {
     const ids = await evalApp(`return ac.shell.windowIds()`);
-    const browser = await browserOf(first.id);
-    const windowNumber = await engine("tabs.devWindowNumber", { browserId: Number(browser) });
+    const windowNumber = await engine("tabs.devWindowNumber", { tabId: first.id });
     const clicked = await engine("windows.dev", { window: windowNumber, action: "close-button" });
     const after = await until("one window fewer", async () => {
       const now = await evalApp(`return ac.shell.windowIds()`);

@@ -95,7 +95,7 @@ export type WebNotification = {
   silent: boolean;
   requireInteraction: boolean;
   origin: string;
-  browserId: number;
+  tabId: string | null;
   isMainFrame: boolean;
 };
 
@@ -148,7 +148,7 @@ export type WebViewProps = ViewProps & {
   url?: string;
   profile?: string;
   adoptId?: string;
-  transferKey?: string;
+  tabId?: string;
   temporary?: boolean;
   temporarySource?: string;
   standalone?: boolean;
@@ -189,7 +189,7 @@ export type WebViewProps = ViewProps & {
   onCommand?: (command: PageCommand) => void;
   onPageFocus?: () => void;
   onPageMessage?: (kind: string, data: unknown) => void;
-  onReady?: (browserId: number, chromeTabId: number) => void;
+  onReady?: () => void;
   onDiscarded?: (url: string) => void;
   onPasswordPrompt?: (prompt: PasswordPrompt) => void;
   onAutofillPrompt?: (prompt: AutofillPrompt | null, id: number) => void;
@@ -276,7 +276,7 @@ type NativeEvents = {
   onCommand: PageCommand;
   onPageFocus: object;
   onPageMessage: { kind: string; data: unknown };
-  onReady: { browserId: number; tabId?: number };
+  onReady: object;
   onDiscarded: { url: string };
   onPasswordPrompt: PasswordPrompt;
   onAutofillPrompt: AutofillPrompt | { id: number; closed: true };
@@ -315,7 +315,7 @@ const unwrap: { [K in Handlers]: (e: NativeEvents[K]) => Parameters<NonNullable<
   onCommand: (e) => [e],
   onPageFocus: () => [],
   onPageMessage: (e) => [e.kind, e.data],
-  onReady: (e) => [e.browserId, e.tabId ?? 0],
+  onReady: () => [],
   onDiscarded: (e) => [toAppUrl(e.url)],
   onPasswordPrompt: (e) => [e],
   onAutofillPrompt: (e) => ("closed" in e ? [null, e.id] : [e, e.id]),

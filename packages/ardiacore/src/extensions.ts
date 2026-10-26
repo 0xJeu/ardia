@@ -77,7 +77,7 @@ export type TabsRequest = {
   adoptId?: string;
   chromeWindow?: string;
   focused?: boolean;
-  tabKey?: string;
+  tabId?: string;
 };
 
 export type ExtensionInstallPrompt = {
@@ -89,7 +89,7 @@ export type ExtensionInstallPrompt = {
   type: "install" | "re-enable" | "permissions" | "external" | "remote" | "repair" | "other";
   icon: string;
   permissions: string[];
-  browserId: number;
+  tabId: string | null;
 };
 
 export const isExtensionId = (s: string) => /^[a-p]{32}$/.test(s);
@@ -149,9 +149,9 @@ export async function configureExtension(
   await call("extensions.configure", { profile, id, options });
 }
 
-export async function extensionActionStates(browserId: number, ids: string[]): Promise<Record<string, ActionState>> {
-  if (!ids.length || !browserId) return {};
-  return call("extensions.actionStates", { browserId, ids });
+export async function extensionActionStates(tabId: string, ids: string[]): Promise<Record<string, ActionState>> {
+  if (!ids.length) return {};
+  return call("extensions.actionStates", { tabId, ids });
 }
 
 export const onExtensionsChanged = (listener: (e: ExtensionsChange) => void) => on("extensions.changed", listener);

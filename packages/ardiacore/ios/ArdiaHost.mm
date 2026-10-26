@@ -152,13 +152,13 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
   if (p) [engine releaseProfile:p];
 }
 
-+ (BOOL)stopCapture:(int)browserId {
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
++ (BOOL)stopCapture:(NSString *)tabId {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab stopCapture];
 }
 
-+ (BOOL)showAutofillSuggestions:(int)browserId passwords:(BOOL)passwords {
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
++ (BOOL)showAutofillSuggestions:(NSString *)tabId passwords:(BOOL)passwords {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab showAutofillSuggestions:passwords];
 }
 
@@ -179,8 +179,8 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
   return ArdiaCoreEngine.testExternalLaunches ?: @[];
 }
 
-+ (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized {
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
++ (BOOL)devShowBluetoothChooser:(NSString *)tabId unauthorized:(BOOL)unauthorized {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab devShowBluetoothChooser:unauthorized];
 }
 
@@ -188,14 +188,14 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
   return ArdiaCoreEngine.testChooserEvents ?: @[];
 }
 
-+ (BOOL)shareTabInstead:(int)capturerBrowserId target:(int)targetBrowserId {
-  ArdiaCoreTab *capturer = ardia_host::TabWithBrowserId(capturerBrowserId);
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(targetBrowserId);
++ (BOOL)shareTabInstead:(NSString *)capturerTabId target:(NSString *)targetTabId {
+  ArdiaCoreTab *capturer = ardia_host::TabWithAppTabId(capturerTabId);
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(targetTabId);
   return capturer && [tab shareThisTabInsteadFor:capturer];
 }
 
-+ (BOOL)showCastDialog:(int)browserId {
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
++ (BOOL)showCastDialog:(NSString *)tabId {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab showCastDialog];
 }
 
@@ -225,14 +225,19 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
   [ArdiaCoreEngine resolveExternalApp:requestId open:open remember:remember];
 }
 
-+ (NSDictionary *)actionStates:(int)browserId extensions:(NSArray<NSString *> *)ids {
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
++ (NSDictionary *)actionStates:(NSString *)tabId extensions:(NSArray<NSString *> *)ids {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab actionStatesForExtensions:ids] ?: @{};
 }
 
-+ (NSString *)sidePanelURL:(int)browserId extension:(NSString *)extensionId {
-  ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
++ (NSString *)sidePanelURL:(NSString *)tabId extension:(NSString *)extensionId {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab sidePanelURLForExtension:extensionId];
+}
+
++ (int)chromeTabIdOfTab:(NSString *)tabId {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
+  return tab ? tab.tabId : -1;
 }
 
 + (void)resolvePermission:(NSString *)requestId result:(NSString *)result remember:(BOOL)remember {

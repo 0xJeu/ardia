@@ -11,7 +11,7 @@ export type CliControlStatus = {
 
 export const setCliControl = (on: boolean) => call("engine.cliControl", { on });
 
-export const setCliActiveTab = (chromeTabId: number) => call("engine.cliControl", { active: chromeTabId });
+export const setCliActiveTab = (tabId: string | null) => call("engine.cliControl", { activeTab: tabId });
 
 export const cliControlStatus = () => call("engine.cliControl");
 

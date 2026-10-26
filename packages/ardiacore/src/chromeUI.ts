@@ -2,7 +2,7 @@ import { call, on } from "./engine/call";
 
 export type DeviceChooser = {
   id: number;
-  browserId: number;
+  tabId: string | null;
   open: boolean;
   title: string;
   okLabel: string;
@@ -33,7 +33,7 @@ export type CastSink = {
 
 export type CastDialog = {
   id: number;
-  browserId: number;
+  tabId: string | null;
   open: boolean;
   header: string;
   permissionRejected: boolean;
@@ -43,8 +43,8 @@ export type CastDialog = {
 
 export type CastRoute = { id: string; sink: string; description: string; source: string };
 
-export type SidePanelRequest = { browserId: number; extensionId: string; open: boolean };
-export type ActionPopupRequest = { browserId: number; extensionId: string };
+export type SidePanelRequest = { tabId: string | null; extensionId: string; open: boolean };
+export type ActionPopupRequest = { tabId: string | null; extensionId: string };
 
 export const onDeviceChooser = (listener: (e: DeviceChooser) => void) => on("media.deviceChooser", listener);
 export const selectDevice = (id: number, index: number) => call("media.selectDevice", { id, index });
@@ -54,7 +54,7 @@ export const openBluetoothSettings = (id: number) => call("media.openBluetoothSe
 
 export const onCastDialog = (listener: (e: CastDialog) => void) => on("media.castDialog", listener);
 export const onCastRoutes = (listener: (e: { profile: string; routes: CastRoute[] }) => void) => on("media.castRoutes", listener);
-export const showCastDialog = (browserId: number) => call("media.showCastDialog", { browserId });
+export const showCastDialog = (tabId: string) => call("media.showCastDialog", { tabId });
 export const startCasting = (dialogId: number, sinkId: string, mode: number) => call("media.startCasting", { id: dialogId, sink: sinkId, mode });
 export const stopCasting = (dialogId: number, routeId: string) => call("media.stopCasting", { id: dialogId, route: routeId });
 export const closeCastDialog = (dialogId: number) => call("media.closeCastDialog", { id: dialogId });
@@ -66,12 +66,12 @@ export function preferredCastMode(modes: number): number {
 }
 
 export const onExtensionSidePanel = (listener: (e: SidePanelRequest) => void) => on("extensions.sidePanel", listener);
-export const extensionSidePanelUrl = (browserId: number, extensionId: string) => call("extensions.sidePanelUrl", { browserId, extensionId });
+export const extensionSidePanelUrl = (tabId: string, extensionId: string) => call("extensions.sidePanelUrl", { tabId, extensionId });
 export const onExtensionActionPopup = (listener: (e: ActionPopupRequest) => void) => on("extensions.actionPopup", listener);
 export const onExtensionActionShortcut = (listener: (e: ActionPopupRequest) => void) => on("extensions.actionShortcut", listener);
 
-export const changeCaptureSource = (capturer: number, target: number) => call("media.changeCaptureSource", { capturer, target });
-export const stopCapture = (capturer: number) => call("media.stopCapture", { browserId: capturer });
+export const changeCaptureSource = (capturer: string, target: string) => call("media.changeCaptureSource", { capturer, target });
+export const stopCapture = (capturer: string) => call("media.stopCapture", { tabId: capturer });
 
-export const showAutofillSuggestions = (browserId: number, kind: "passwords" | "field") =>
-  call("autofill.showSuggestions", { browserId, passwords: kind === "passwords" });
+export const showAutofillSuggestions = (tabId: string, kind: "passwords" | "field") =>
+  call("autofill.showSuggestions", { tabId, passwords: kind === "passwords" });

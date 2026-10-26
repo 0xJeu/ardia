@@ -102,13 +102,14 @@ using namespace ardia_host;
 - (void)engine:(ArdiaCoreEngine *)engine permissionRequest:(NSDictionary *)request tab:(ArdiaCoreTab *)tab {
   if (tab && ardia_host::AskPermissionInPopupWindow(tab, request)) return;
   NSMutableDictionary *payload = [request mutableCopy];
-  payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
+  if (tab && !ardia_host::AppTabIdOf(tab)) return ardia_host::HoldUntilHosted(tab, @"permissions.requested", payload);
   [ArdiaEvents emit:@"permissions.requested" data:payload];
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine deviceChooser:(NSDictionary *)chooser tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [chooser mutableCopy];
-  payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
   if ([ArdiaEvents listens:@"media"]) [ArdiaEvents emit:@"media.deviceChooser" data:payload];
   else if ([payload[@"open"] boolValue])
     [ArdiaCoreEngine cancelDeviceChooser:[payload[@"id"] intValue]];
@@ -116,7 +117,7 @@ using namespace ardia_host;
 
 - (void)engine:(ArdiaCoreEngine *)engine castDialog:(NSDictionary *)dialog tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [dialog mutableCopy];
-  payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
   if ([ArdiaEvents listens:@"media"]) [ArdiaEvents emit:@"media.castDialog" data:payload];
   else if ([payload[@"open"] boolValue])
     [ArdiaCoreEngine closeCastDialog:[payload[@"id"] intValue]];
@@ -134,7 +135,7 @@ using namespace ardia_host;
 
 - (void)engine:(ArdiaCoreEngine *)engine extensionSidePanel:(NSDictionary *)panel tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [panel mutableCopy];
-  payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
   [ArdiaEvents emit:@"extensions.sidePanel" data:payload];
 }
 
@@ -144,7 +145,7 @@ using namespace ardia_host;
     return NO;
   }
   NSMutableDictionary *payload = [popup mutableCopy];
-  payload[@"browserId"] = @(ardia_host::BrowserId(tab));
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
   [ArdiaEvents emit:@"extensions.actionPopup" data:payload];
   return YES;
 }
@@ -160,14 +161,14 @@ using namespace ardia_host;
 - (BOOL)engine:(ArdiaCoreEngine *)engine extensionActionShortcut:(NSDictionary *)shortcut tab:(ArdiaCoreTab *)tab {
   if (![ArdiaEvents listens:@"extensions"] || !tab) return NO;
   NSMutableDictionary *payload = [shortcut mutableCopy];
-  payload[@"browserId"] = @(ardia_host::BrowserId(tab));
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
   [ArdiaEvents emit:@"extensions.actionShortcut" data:payload];
   return YES;
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine extensionInstallPrompt:(NSDictionary *)prompt tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [prompt mutableCopy];
-  payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
+  payload[@"tabId"] = ardia_host::AppTabIdValue(tab);
   if ([prompt[@"profile"] isKindOfClass:NSString.class]) payload[@"profile"] = ardia_host::ProfileNameOfDirectory(prompt[@"profile"]);
   gInstallPrompts[payload[@"requestId"] ?: @""] = payload;
   [ArdiaEvents emit:@"extensions.installPrompt" data:payload];
@@ -175,6 +176,7 @@ using namespace ardia_host;
 
 - (void)engine:(ArdiaCoreEngine *)engine permissionRequestDismissed:(NSString *)requestId {
   ardia_host::DropPopupWindowPermission(requestId ?: @"");
+  ardia_host::DropHeldEvent(@"permissions.requested", requestId ?: @"");
   [ArdiaEvents emit:@"permissions.dismissed" data:@{@"id" : requestId ?: @""}];
 }
 

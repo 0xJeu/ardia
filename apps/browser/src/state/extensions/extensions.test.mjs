@@ -16,10 +16,10 @@ function setup() {
   const w = S().createWindow({ url: "a.com" });
   const a = S().windows[w].tabIds[0];
   const b = S().newTab(w, { url: "b.com", background: true });
-  usePages.setState({ browsers: { 1: a, 2: b } });
+  usePages.setState({ ready: { [a]: 1, [b]: 2 } });
   useExtensions.setState({ lists: { "": [EXT] }, actions: {}, popup: null, sidePanels: {} });
   const asked = [];
-  const ask = (what) => (browserId) => new Promise((resolve) => asked.push({ what, browserId, resolve }));
+  const ask = (what) => (tabId) => new Promise((resolve) => asked.push({ what, tabId, resolve }));
   native.extensionAnswers.actionStates = ask("states");
   native.extensionAnswers.sidePanelUrl = ask("panel");
   const answer = async (i, value) => {
@@ -33,16 +33,16 @@ test("a tab switch while a tab's states are on their way gets its own states rig
   const { a, b, asked, answer } = setup();
   S().activate(a);
   const first = refreshActionStates();
-  assert.deepEqual(asked.map((x) => x.browserId), [1]);
+  assert.deepEqual(asked.map((x) => x.tabId), [a]);
   S().activate(b);
   const second = refreshActionStates();
   assert.equal(asked.length, 1, "one pass at a time");
   await answer(0, { ext: { badgeText: "A" } });
-  assert.deepEqual(asked.map((x) => x.browserId), [1, 2], "the switch ran a pass as soon as the first ended");
+  assert.deepEqual(asked.map((x) => x.tabId), [a, b], "the switch ran a pass as soon as the first ended");
   await answer(1, { ext: { badgeText: "B" } });
   await Promise.all([first, second]);
-  assert.equal(E().actions[1].ext.badgeText, "A");
-  assert.equal(E().actions[2].ext.badgeText, "B");
+  assert.equal(E().actions[a].ext.badgeText, "A");
+  assert.equal(E().actions[b].ext.badgeText, "B");
 });
 
 test("A→B→A shows A's side panel whatever order Chrome answers in", async () => {
@@ -55,7 +55,7 @@ test("A→B→A shows A's side panel whatever order Chrome answers in", async ()
   void panels.syncSidePanel(w);
   S().activate(a);
   void panels.syncSidePanel(w);
-  assert.deepEqual(asked.map((x) => x.browserId), [1, 2, 1]);
+  assert.deepEqual(asked.map((x) => x.tabId), [a, b, a]);
   await answer(2, "chrome-extension://ext/a.html");
   await answer(1, "chrome-extension://ext/b.html");
   assert.equal(E().sidePanels[w].url, "chrome-extension://ext/a.html", "B's late answer is dropped");

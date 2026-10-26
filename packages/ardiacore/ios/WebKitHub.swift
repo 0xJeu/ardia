@@ -304,7 +304,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 
   private func permissionKey(_ profile: String, _ origin: String, _ kind: String) -> String { storeKey(profile) + "|" + origin + "|" + kind }
 
-  func requestPermission(browserId: Int32, profile: String, origin: String, kinds: [String], decide: @escaping (Bool) -> Void) {
+  func requestPermission(browserId: Int32, tabId: String?, profile: String, origin: String, kinds: [String], decide: @escaping (Bool) -> Void) {
     let keys = kinds.map { permissionKey(profile, origin, $0) }
     let answers = keys.map { rememberedPermissions[$0] }
     if answers.contains(false) { return decide(false) }
@@ -312,7 +312,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     lastPermission += 1
     let id = "wk-permission-\(lastPermission)"
     pendingPermissions[id] = PendingPermission(browserId: browserId, keys: keys, store: dataStore(for: profile), decide: decide)
-    ArdiaEvents.emit("permissions.requested", data: ["id": id, "browserId": Int(browserId), "origin": origin, "permissions": kinds])
+    ArdiaEvents.emit("permissions.requested", data: ["id": id, "tabId": tabId ?? NSNull(), "origin": origin, "permissions": kinds])
   }
 
   func resolvePermission(_ id: String, result: String, remember: Bool) {

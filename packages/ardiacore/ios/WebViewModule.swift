@@ -15,7 +15,7 @@ public class WebViewModule: Module {
       Prop("url") { (view: ChromiumTabView, url: String?) in view.browser.initialURL = url }
       Prop("profile") { (view: ChromiumTabView, profile: String?) in view.browser.profile = profile ?? "" }
       Prop("adoptId") { (view: ChromiumTabView, id: String?) in view.browser.adoptId = id }
-      Prop("transferKey") { (view: ChromiumTabView, key: String?) in view.browser.transferKey = key }
+      Prop("tabId") { (view: ChromiumTabView, tabId: String?) in view.browser.transferKey = tabId }
       Prop("standalone") { (view: ChromiumTabView, standalone: Bool?) in view.browser.standalone = standalone ?? false }
       Prop("temporary") { (view: ChromiumTabView, temporary: Bool?) in view.browser.temporary = temporary ?? false }
       Prop("temporarySource") { (view: ChromiumTabView, source: String?) in view.browser.temporarySource = source }

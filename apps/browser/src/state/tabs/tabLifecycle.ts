@@ -1,7 +1,7 @@
 import { listTasks, onSystemState, releaseProfile, setBatterySaver, systemState, type EngineTask, type SystemState, type WebViewHandle } from "@ardia/ardiacore";
 import { onAppEvent, onWindowEvent } from "@ardia/shell";
 import { create } from "zustand";
-import { pageOf, usePages } from "./pageState";
+import { isTabReady, pageOf, usePages } from "./pageState";
 import { showToast } from "../splits/actions";
 import { useMedia } from "../media/media";
 import { isInternalTab } from "../pages/urls";
@@ -298,13 +298,11 @@ async function freezeBusyTabs(overrides: Partial<typeof POLICY> = {}): Promise<s
     const tasks = await listTasks().catch((): EngineTask[] => []);
     const s = store();
     const shown = shownTabIds(s);
-    const browsers = usePages.getState().browsers;
     const cpu = new Map<string, number>();
     for (const task of tasks) {
-      if (task.cpu < 0 || task.browserIds.some((b) => shown.has(browsers[b] ?? ""))) continue;
-      for (const b of task.browserIds) {
-        const tabId = browsers[b];
-        if (tabId) cpu.set(tabId, Math.max(cpu.get(tabId) ?? 0, task.cpu));
+      if (task.cpu < 0 || task.tabIds.some((t) => !!t && isTabReady(t) && shown.has(t))) continue;
+      for (const tabId of task.tabIds) {
+        if (tabId && isTabReady(tabId)) cpu.set(tabId, Math.max(cpu.get(tabId) ?? 0, task.cpu));
       }
     }
     const now = activeClock();
@@ -445,7 +443,7 @@ export function startTabLifecycle() {
             const byType: Record<string, number> = {};
             const seen = new Set<string>();
             for (const t of tasks) {
-              const key = t.browserIds.length ? `${t.type}:${t.memory}` : `${t.id}`;
+              const key = t.tabIds.length ? `${t.type}:${t.memory}` : `${t.id}`;
               if (t.memory < 0 || seen.has(key)) continue;
               seen.add(key);
               byType[t.type] = (byType[t.type] ?? 0) + t.memory / 2 ** 20;

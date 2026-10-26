@@ -30,7 +30,7 @@ const testGlobals = globalThis as {
   acTestEngineCall?: (name: string, profile: string, args: EngineArgs) => unknown;
   acTestTabStrip?: TabStripHost;
   acTestCliControl?: (on: boolean | null) => Promise<CliControlStatus> | undefined;
-  acTestCliActive?: (chromeTabId: number) => Promise<CliControlStatus> | undefined;
+  acTestCliActive?: (tabId: string | null) => Promise<CliControlStatus> | undefined;
   acTestUserScripts?: { engine: ExtensionEngine };
 };
 
@@ -250,7 +250,7 @@ export function chromeBookmarkEdit(profile: string, ops: BookmarkOp[]) {
 }
 
 function cliControl(args: EngineArgs) {
-  if (args && "active" in args) return testGlobals.acTestCliActive?.(args.active as number) ?? {};
+  if (args && "activeTab" in args) return testGlobals.acTestCliActive?.(args.activeTab as string | null) ?? {};
   const on = args && "on" in args ? (args.on as boolean) : null;
   return testGlobals.acTestCliControl?.(on) ?? { state: on ? "on" : "off" };
 }
@@ -269,8 +269,8 @@ export const profileDataLeft = new Map<string, string[]>();
 export const revealedTabs: string[] = [];
 export const linkRoute: { next: LinkRoute } = { next: {} };
 export const extensionAnswers = {
-  actionStates: async (_browserId: number, _ids: string[]): Promise<Record<string, ActionState>> => ({}),
-  sidePanelUrl: async (_browserId: number, _extensionId: string): Promise<string | null> => null,
+  actionStates: async (_tabId: string, _ids: string[]): Promise<Record<string, ActionState>> => ({}),
+  sidePanelUrl: async (_tabId: string, _extensionId: string): Promise<string | null> => null,
 };
 
 const tabStripHost = () => testGlobals.acTestTabStrip!;
@@ -400,8 +400,8 @@ const fakeModules = {
     configure: () => ({ ok: true }),
     chooseFolder: () => null,
     resolveInstallPrompt: () => null,
-    actionStates: ({ browserId, ids }) => extensionAnswers.actionStates(browserId as number, ids as string[]),
-    sidePanelUrl: ({ browserId, extensionId }) => extensionAnswers.sidePanelUrl(browserId as number, extensionId as string),
+    actionStates: ({ tabId, ids }) => extensionAnswers.actionStates(tabId as string, ids as string[]),
+    sidePanelUrl: ({ tabId, extensionId }) => extensionAnswers.sidePanelUrl(tabId as string, extensionId as string),
     watchActions: passing("ac_extensions_watch_actions"),
     syncState: passing("ac_extensions_sync_state"),
     syncApply: passing("ac_extensions_sync_apply"),

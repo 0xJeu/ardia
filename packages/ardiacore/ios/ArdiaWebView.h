@@ -36,6 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSArray<NSDictionary<NSString *, id> *> *)devEventsForBrowser:(int)browserId NS_SWIFT_NAME(devEvents(browserId:));
 + (NSInteger)devWindowNumberForBrowser:(int)browserId NS_SWIFT_NAME(devWindowNumber(browserId:));
 + (BOOL)devFocusPageOfBrowser:(int)browserId NS_SWIFT_NAME(devFocusPage(browserId:));
++ (int)browserIdOfTab:(nullable NSString *)tabId NS_SWIFT_NAME(browserId(ofTab:));
 
 @end
 

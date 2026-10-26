@@ -51,10 +51,10 @@ public class ExtensionsModule: Module {
       reply.ok()
     },
     "actionStates": { args, reply in
-      reply.ok(ArdiaHost.actionStates(browserId: Int32(args.int("browserId") ?? 0), extensions: args.strings("ids")))
+      reply.ok(ArdiaHost.actionStates(tabId: args.text("tabId"), extensions: args.strings("ids")))
     },
     "sidePanelUrl": { args, reply in
-      reply.ok(ArdiaHost.sidePanelURL(browserId: Int32(args.int("browserId") ?? 0), extension: args.text("extensionId")))
+      reply.ok(ArdiaHost.sidePanelURL(tabId: args.text("tabId"), extension: args.text("extensionId")))
     },
     "watchActions": EngineCall.passing("ac_extensions_watch_actions"),
     "syncState": EngineCall.passing("ac_extensions_sync_state"),

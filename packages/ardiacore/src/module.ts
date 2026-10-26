@@ -29,7 +29,7 @@ export type PermissionKind =
   | "vr" | "ar" | "handTracking" | "identityProvider" | "webAppInstallation" | "capturedSurfaceControl"
   | "diskQuota" | "cameraPanTiltZoom";
 
-export type PermissionRequest = { id: string; browserId: number; origin: string; permissions: PermissionKind[] };
+export type PermissionRequest = { id: string; tabId: string | null; origin: string; permissions: PermissionKind[] };
 export type PermissionResult = "accept" | "deny" | "dismiss";
 
 export type EngineInfo = {
@@ -62,7 +62,7 @@ export type EngineTask = {
   processors: number;
   memory: number;
   gpuMemory: number;
-  browserIds: number[];
+  tabIds: (string | null)[];
 };
 
 export const WIDEVINE_COMPONENT_ID = "oimompecagnajdejgnnjijobebaeigek";
@@ -93,12 +93,12 @@ export type ChromeWindowState = {
 };
 export const chromeWindows = () => call("windows.list");
 export const devWindowAction = (windowNumber: number, action: string) => call("windows.dev", { window: windowNumber, action });
-export const prepareTabTransfer = (transferKey: string) => Tabs.prepareTransfer(transferKey);
-export const releaseTabTransfer = (transferKey: string) => Tabs.releaseTransfer(transferKey);
-export const claimLaunchTab = (transferKey: string, url: string, profile: string) => Tabs.claimLaunchTab(transferKey, url, profile);
-export const revealTab = (transferKey: string) => Tabs.revealTab(transferKey);
-export const dropTabReveals = (transferKey: string) => Tabs.dropTabReveals(transferKey);
-export const revealOffered = (adoptId: string, overTransferKey: string) => Tabs.revealOffered(adoptId, overTransferKey);
+export const prepareTabTransfer = (tabId: string) => Tabs.prepareTransfer(tabId);
+export const releaseTabTransfer = (tabId: string) => Tabs.releaseTransfer(tabId);
+export const claimLaunchTab = (tabId: string, url: string, profile: string) => Tabs.claimLaunchTab(tabId, url, profile);
+export const revealTab = (tabId: string) => Tabs.revealTab(tabId);
+export const dropTabReveals = (tabId: string) => Tabs.dropTabReveals(tabId);
+export const revealOffered = (adoptId: string, overTabId: string) => Tabs.revealOffered(adoptId, overTabId);
 export type LinkRoute = { profile?: string; adoptIds?: (string | null)[]; dismissed?: number[] };
 export const routeLinkTabs = (urls: string[]): Promise<LinkRoute> => call("tabs.routeLinkTabs", { urls });
 export const listComponents = () => call("engine.components");

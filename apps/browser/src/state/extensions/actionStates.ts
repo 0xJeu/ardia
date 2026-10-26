@@ -1,7 +1,7 @@
 import { extensionActionStates } from "@ardia/ardiacore";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
-import { browserIdOf, extensionProfile, useExtensions, windowExtensions } from "./store";
+import { extensionProfile, readyTabOf, useExtensions, windowExtensions } from "./store";
 
 let running: Promise<void> | null = null;
 let again = false;
@@ -39,12 +39,12 @@ async function pass(only: Set<string> | null) {
       const ids = windowExtensions(s, windowId)
         .filter((x) => x.hasAction !== false && (x.pinned || popup?.extensionId === x.id))
         .map((x) => x.id);
-      const browserId = browserIdOf(activeTabId(s, windowId));
-      if (!ids.length || !browserId) return;
-      const states = await extensionActionStates(browserId, ids).catch(() => null);
-      const previous = useExtensions.getState().actions[browserId];
+      const tabId = readyTabOf(activeTabId(s, windowId));
+      if (!ids.length || !tabId) return;
+      const states = await extensionActionStates(tabId, ids).catch(() => null);
+      const previous = useExtensions.getState().actions[tabId];
       if (!states || (previous && JSON.stringify(previous) === JSON.stringify(states))) return;
-      useExtensions.setState((e) => ({ actions: { ...e.actions, [browserId]: states } }));
+      useExtensions.setState((e) => ({ actions: { ...e.actions, [tabId]: states } }));
     }),
   );
 }

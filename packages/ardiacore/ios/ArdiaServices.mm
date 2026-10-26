@@ -429,13 +429,13 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
     for (NSDictionary *task in [result[@"tasks"] isKindOfClass:NSArray.class] ? result[@"tasks"] : @[]) {
       if (![task isKindOfClass:NSDictionary.class]) continue;
       NSMutableDictionary *t = [task mutableCopy];
-      NSMutableArray *browserIds = [NSMutableArray array];
-      for (NSNumber *tabId in [task[@"tabIds"] isKindOfClass:NSArray.class] ? task[@"tabIds"] : @[])
+      NSMutableArray *tabIds = [NSMutableArray array];
+      for (NSNumber *chromeTabId in [task[@"tabIds"] isKindOfClass:NSArray.class] ? task[@"tabIds"] : @[])
         for (ArdiaWindowController *c in ArdiaWindowController.all)
           for (ArdiaCoreProfile *p in ardia_host::LoadedProfiles())
             for (ArdiaCoreTab *tab in [c.coreWindow tabsForProfile:p])
-              if (tab.tabId == tabId.intValue) [browserIds addObject:@(ardia_host::BrowserId(tab))];
-      t[@"browserIds"] = browserIds;
+              if (tab.tabId == chromeTabId.intValue) [tabIds addObject:ardia_host::AppTabIdValue(tab)];
+      t[@"tabIds"] = tabIds;
       [tasks addObject:t];
     }
     return tasks;

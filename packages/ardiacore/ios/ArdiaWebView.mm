@@ -283,6 +283,11 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {
   return RecentEvents()[@(browserId)] ?: @[];
 }
 
++ (int)browserIdOfTab:(NSString *)tabId {
+  ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
+  return tab ? ardia_host::BrowserId(tab) : 0;
+}
+
 + (NSInteger)devWindowNumberForBrowser:(int)browserId {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
   ArdiaWebView *view = tab ? [ArdiaTabRegistry viewForTab:tab] : nil;

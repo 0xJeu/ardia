@@ -16,7 +16,7 @@ public class WebKitModule: Module {
       Prop("url") { (view: WebKitTabView, url: String?) in view.tab.initialURL = url }
       Prop("profile") { (view: WebKitTabView, profile: String?) in view.tab.profile = profile ?? "" }
       Prop("adoptId") { (view: WebKitTabView, id: String?) in view.tab.adoptId = id }
-      Prop("transferKey") { (view: WebKitTabView, key: String?) in view.tab.transferKey = key }
+      Prop("tabId") { (view: WebKitTabView, tabId: String?) in view.tab.transferKey = tabId }
       Prop("visible") { (view: WebKitTabView, visible: Bool?) in view.tab.visible = visible ?? true }
       Prop("warm") { (view: WebKitTabView, warm: Bool?) in view.tab.warm = warm ?? false }
       Prop("pageBackgroundColor") { (view: WebKitTabView, color: NSColor?) in view.tab.pageBackgroundColor = color }

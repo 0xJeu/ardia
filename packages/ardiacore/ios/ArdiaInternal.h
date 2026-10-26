@@ -28,6 +28,12 @@ NSArray<NSString *> *LoadedProfileNames();
 
 int BrowserId(ArdiaCoreTab *tab);
 ArdiaCoreTab *_Nullable TabWithBrowserId(int browserId);
+NSString *_Nullable AppTabIdOf(ArdiaCoreTab *_Nullable tab);
+id AppTabIdValue(ArdiaCoreTab *_Nullable tab);
+ArdiaCoreTab *_Nullable TabWithAppTabId(NSString *_Nullable tabId);
+void HoldUntilHosted(ArdiaCoreTab *tab, NSString *event, NSDictionary *payload);
+void ReleaseHeldEvents(ArdiaCoreTab *tab);
+void DropHeldEvent(NSString *event, NSString *eventId);
 
 NSString *AppDisposition(NSString *chromeDisposition);
 

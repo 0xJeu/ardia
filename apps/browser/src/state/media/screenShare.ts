@@ -2,7 +2,6 @@ import { changeCaptureSource, stopCapture, type DisplayMediaRequest } from "@ard
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { engineProfile } from "../browser/model";
-import { browserIdOf } from "../extensions/actions";
 import { usePages } from "../tabs/pageState";
 import { useMedia, type TabShare } from "./media";
 
@@ -48,7 +47,7 @@ export function startTabShareCleanup() {
 }
 
 export async function shareInstead(capturer: string, tabId: string): Promise<boolean> {
-  const ok = await changeCaptureSource(browserIdOf(capturer), browserIdOf(tabId));
+  const ok = await changeCaptureSource(capturer, tabId);
   if (!ok) return false;
   useMedia.setState((m) => {
     const share = m.tabShares[capturer];
@@ -59,7 +58,7 @@ export async function shareInstead(capturer: string, tabId: string): Promise<boo
 
 if (__DEV__) (globalThis as { acShareBar?: unknown }).acShareBar = { shareInstead, tabShares: () => useMedia.getState().tabShares };
 
-export const stopSharing = (capturer: string) => void stopCapture(browserIdOf(capturer));
+export const stopSharing = (capturer: string) => void stopCapture(capturer);
 
 export function dismissShareBar(capturer: string, tabId: string) {
   useMedia.setState((m) => {
@@ -73,9 +72,9 @@ export function shareableTabs(tabId: string) {
   const tab = s.tabs[tabId];
   if (!tab) return [];
   const profile = engineProfile(tab.profileId);
-  const live = new Set(Object.values(usePages.getState().browsers));
+  const live = usePages.getState().ready;
   return Object.values(s.tabs)
-    .filter((t) => live.has(t.id) && engineProfile(t.profileId) === profile && /^https?:|^file:/.test(t.url))
+    .filter((t) => !!live[t.id] && engineProfile(t.profileId) === profile && /^https?:|^file:/.test(t.url))
     .sort((a, b) => (a.id === tabId ? 1 : b.id === tabId ? -1 : b.lastActiveAt - a.lastActiveAt));
 }
 

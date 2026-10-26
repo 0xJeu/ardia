@@ -22,7 +22,7 @@ import { engineProfile } from "../browser/model";
 import { shownPageId } from "../peek/peek";
 import { goToSettingsPane, openSettings, replaceSettingsPlace, settingsBack, useSettingsNav } from "../settings/settingsWindows";
 import { closeSidePanelsOf, toggleSidePanel } from "./sidePanels";
-import { browserIdOf, extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, type Anchor } from "./store";
+import { extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, readyTabOf, type Anchor } from "./store";
 
 export * from "./sidePanels";
 export * from "./store";
@@ -224,8 +224,8 @@ export async function activateExtension(
   if (!shownIn(windowId, ext.id)) return;
   const web = tabId ? webviews.get(tabId) : undefined;
   const result = web ? await web.executeExtensionAction(ext.id) : null;
-  const browserId = browserIdOf(tabId);
-  if (!state && result === "popup" && browserId) state = (await extensionActionStates(browserId, [ext.id]))[ext.id];
+  const readyTab = readyTabOf(tabId);
+  if (!state && result === "popup" && readyTab) state = (await extensionActionStates(readyTab, [ext.id]))[ext.id];
   const url = state ? state.popup : ext.popup ? `chrome-extension://${ext.id}/${ext.popup.replace(/^\//, "")}` : "";
   if (result === "none") return;
   if (result === "sidePanel") return void toggleSidePanel(windowId, ext.id);
@@ -237,10 +237,10 @@ export const closeExtensionPopup = () => useExtensions.setState({ popup: null })
 
 let popupRequests = 0;
 
-export async function openActionPopup(windowId: string, extensionId: string, anchor: Anchor, browserId: number) {
+export async function openActionPopup(windowId: string, extensionId: string, anchor: Anchor, sourceTabId: string) {
   const request = ++popupRequests;
   const tabId = shownPageId(useBrowser.getState(), windowId);
-  const url = (await extensionActionStates(browserId, [extensionId]))[extensionId]?.popup ?? "";
+  const url = (await extensionActionStates(sourceTabId, [extensionId]))[extensionId]?.popup ?? "";
   if (request !== popupRequests || shownPageId(useBrowser.getState(), windowId) !== tabId)
     return console.warn(`action.openPopup for ${extensionId}: the tab changed or another call came first`);
   if (!url) return console.warn(`action.openPopup for ${extensionId}: no popup for the tab`);

@@ -244,7 +244,7 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
           @"silent" : @(Flag(dict, @"silent")),
           @"requireInteraction" : @(Flag(dict, @"requireInteraction")),
           @"origin" : origin,
-          @"browserId" : @(ardia_host::BrowserId(tab)),
+          @"tabId" : ardia_host::AppTabIdValue(tab),
           @"isMainFrame" : @(main),
         }];
   } else if ([kind isEqualToString:@"notificationClose"] && dict) {

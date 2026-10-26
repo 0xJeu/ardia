@@ -1,7 +1,6 @@
 import { cancelDeviceChooser, onDeviceChooser, openBluetoothSettings, refreshDeviceChooser, selectDevice, type DeviceChooser } from "@ardia/ardiacore";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
-import { tabForBrowser } from "../tabs/pageState";
 
 const useChoosers = create<{ byTab: Record<string, DeviceChooser> }>()(() => ({ byTab: {} }));
 if (__DEV__) (globalThis as { acDeviceChoosers?: unknown }).acDeviceChoosers = { useChoosers, selectDevice, cancelDeviceChooser };
@@ -18,7 +17,7 @@ export function startDeviceChoosers() {
   if (started) return;
   started = true;
   onDeviceChooser((chooser) => {
-    const tabId = tabForBrowser(chooser.browserId);
+    const tabId = chooser.tabId;
     if (!tabId) {
       if (chooser.open) void cancelDeviceChooser(chooser.id);
       return;

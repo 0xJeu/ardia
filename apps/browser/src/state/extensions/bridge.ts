@@ -18,7 +18,7 @@ import { useBrowser, type BrowserState } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { activeTabId, engineProfile } from "../browser/model";
 import { shownPageId } from "../peek/peek";
-import { tabForBrowser, usePages } from "../tabs/pageState";
+import { usePages } from "../tabs/pageState";
 import { refreshActionStates } from "./actionStates";
 import { startExtensionSearchEngines } from "./searchEngines";
 import * as state from "./actions";
@@ -67,7 +67,7 @@ export function startExtensionsBridge() {
 
 function openRequestedTab(request: TabsRequest) {
   if (request.action === "closeWindow") return closeChromeMadeWindow(request.chromeWindow);
-  if (request.chromeWindow && request.tabKey) return moveIntoChromeMadeWindow(request, request.chromeWindow, request.tabKey);
+  if (request.chromeWindow && request.tabId) return moveIntoChromeMadeWindow(request, request.chromeWindow, request.tabId);
   if (request.chromeWindow && request.adoptId) return openChromeMadeTab(request, request.chromeWindow, request.adoptId);
   if (!request.url) return;
   const s = useBrowser.getState();
@@ -220,34 +220,31 @@ function startActionStates() {
     if (e.lists !== prev.lists || e.popup !== prev.popup) void refreshActionStates();
   });
   usePages.subscribe((p, prev) => {
-    if (p.browsers === prev.browsers) return;
+    if (p.ready === prev.ready) return;
     void refreshActionStates();
     const actions = useExtensions.getState().actions;
-    const gone = Object.keys(actions).filter((id) => !p.browsers[Number(id)]);
+    const gone = Object.keys(actions).filter((id) => !p.ready[id]);
     if (!gone.length) return;
     const next = { ...actions };
-    for (const id of gone) delete next[Number(id)];
+    for (const id of gone) delete next[id];
     useExtensions.setState({ actions: next });
   });
 }
 
 function startActionPopups() {
-  onExtensionActionPopup(({ browserId, extensionId }) => {
-    const tabId = tabForBrowser(browserId);
+  onExtensionActionPopup(({ tabId, extensionId }) => {
     const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
-    if (!windowId) return console.warn(`action.openPopup for ${extensionId}: ${tabId ? "its tab has no window" : `no tab for browser ${browserId}`}`);
-    void state.openActionPopup(windowId, extensionId, toolbarAnchor(windowId, extensionId, tabId), browserId);
+    if (!tabId || !windowId) return console.warn(`action.openPopup for ${extensionId}: ${tabId ? "its tab has no window" : "no app tab"}`);
+    void state.openActionPopup(windowId, extensionId, toolbarAnchor(windowId, extensionId, tabId), tabId);
   });
-  onExtensionActionShortcut(({ browserId, extensionId }) => {
-    const tabId = tabForBrowser(browserId);
+  onExtensionActionShortcut(({ tabId, extensionId }) => {
     const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
-    if (windowId) openExtensionFromMenu(windowId, extensionId, tabId);
+    if (windowId) openExtensionFromMenu(windowId, extensionId, tabId ?? undefined);
   });
 }
 
 function startSidePanels() {
-  onExtensionSidePanel(({ browserId, extensionId, open }) => {
-    const tabId = tabForBrowser(browserId);
+  onExtensionSidePanel(({ tabId, extensionId, open }) => {
     const windowId = tabId ? useBrowser.getState().tabs[tabId]?.windowId : undefined;
     if (!windowId) return;
     if (open) void openSidePanel(windowId, extensionId);
@@ -310,7 +307,7 @@ const isStorePage = (url: string | undefined) => !!url && /^https:\/\/chromewebs
 function startWebStoreIntegration() {
   onExtensionInstallPrompt((prompt) => {
     const s = useBrowser.getState();
-    const tabId = prompt.browserId ? tabForBrowser(prompt.browserId) : undefined;
+    const tabId = prompt.tabId ?? undefined;
     const windowId = (tabId && s.tabs[tabId]?.windowId) || s.ui.focusedWindowId || s.windowOrder[0];
     if (windowId) showInstallPrompt(windowId, prompt);
     else void resolveExtensionInstallPrompt(prompt.requestId, false);

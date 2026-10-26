@@ -49,11 +49,11 @@ const IDLE_PAGE: PageState = {
 
 type Store = {
   pages: Record<string, PageState>;
-  browsers: Record<number, string>;
+  ready: Record<string, number>;
   popover: Record<string, "siteControls" | "popups" | "zoom" | null>;
 };
 
-export const usePages = create<Store>()(() => ({ pages: {}, browsers: {}, popover: {} }));
+export const usePages = create<Store>()(() => ({ pages: {}, ready: {}, popover: {} }));
 
 export function patchPage(tabId: string, patch: Partial<PageState>) {
   usePages.setState((s) => {
@@ -73,16 +73,13 @@ export function usePage<T>(tabId: string | undefined, select: (p: PageState) => 
   return usePages((s) => select((tabId && s.pages[tabId]) || IDLE_PAGE));
 }
 
-export function setBrowserId(tabId: string, browserId: number) {
-  usePages.setState((s) => {
-    const browsers = { ...s.browsers };
-    for (const [id, tab] of Object.entries(browsers)) if (tab === tabId) delete browsers[Number(id)];
-    browsers[browserId] = tabId;
-    return { browsers };
-  });
+let readiness = 0;
+
+export function markTabReady(tabId: string) {
+  usePages.setState((s) => ({ ready: { ...s.ready, [tabId]: ++readiness } }));
 }
 
-export const tabForBrowser = (browserId: number): string | undefined => usePages.getState().browsers[browserId];
+export const isTabReady = (tabId: string | null | undefined): tabId is string => !!tabId && !!usePages.getState().ready[tabId];
 
 export const popoverOf = (tabId: string) => usePages.getState().popover[tabId];
 
@@ -107,23 +104,23 @@ export function useFullscreenTab(windowId: string): string | undefined {
 
 useBrowser.subscribe((s, prev) => {
   if (s.tabs === prev.tabs) return;
-  const { pages, browsers, popover } = usePages.getState();
+  const { pages, ready, popover } = usePages.getState();
   const stale = (ids: string[], tabOf: (id: string) => string) => {
     for (let i = 0; i < ids.length; i++) if (!s.tabs[tabOf(ids[i]!)]) return true;
     return false;
   };
   const pageIds = Object.keys(pages);
-  const browserIds = Object.keys(browsers);
-  if (!stale(pageIds, (id) => id) && !stale(browserIds, (id) => browsers[Number(id)]!)) return;
+  const readyIds = Object.keys(ready);
+  if (!stale(pageIds, (id) => id) && !stale(readyIds, (id) => id)) return;
   const gone = pageIds.filter((id) => !s.tabs[id]);
-  const goneBrowsers = Object.entries(browsers).filter(([, id]) => !s.tabs[id]);
+  const goneReady = readyIds.filter((id) => !s.tabs[id]);
   const nextPages = { ...pages };
   const nextPopover = { ...popover };
   for (const id of gone) {
     delete nextPages[id];
     delete nextPopover[id];
   }
-  const nextBrowsers = { ...browsers };
-  for (const [id] of goneBrowsers) delete nextBrowsers[Number(id)];
-  usePages.setState({ pages: nextPages, browsers: nextBrowsers, popover: nextPopover });
+  const nextReady = { ...ready };
+  for (const id of goneReady) delete nextReady[id];
+  usePages.setState({ pages: nextPages, ready: nextReady, popover: nextPopover });
 });

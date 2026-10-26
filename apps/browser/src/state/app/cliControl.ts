@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { hasPage } from "../tabs/pageSession";
 import { shownPageId } from "../peek/peek";
-import { pageOf, usePages } from "../tabs/pageState";
+import { isTabReady, pageOf, usePages } from "../tabs/pageState";
 import { isInternalTab } from "../pages/urls";
 import { afterFirstWindow } from "../../lib/afterFirstWindow";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
@@ -113,33 +113,30 @@ export function describeCliInstall(state: Pick<CliState, "installing" | "step" |
   return "Not installed.";
 }
 
-const chromeTabIds = new Map<string, number>();
-let sentActive: number | null = null;
+let sentActive: string | null | undefined;
 
-function shownChromeTab(s: BrowserState): number {
+function shownReadyTab(s: BrowserState): string | null {
   const windowId = s.ui.focusedWindowId;
   const id = windowId ? shownPageId(s, windowId) : undefined;
   const tab = id ? s.tabs[id] : undefined;
-  if (!id || !tab?.url || pageOf(id).newTabShown || !hasPage(tab) || isInternalTab(tab)) return -1;
-  return chromeTabIds.get(id) ?? -1;
+  if (!id || !tab?.url || pageOf(id).newTabShown || !hasPage(tab) || isInternalTab(tab)) return null;
+  return isTabReady(id) ? id : null;
 }
 
 function pushActiveTab() {
   const state = useCli.getState().server?.state;
   if (state !== "on" && state !== "starting") {
-    sentActive = null;
+    sentActive = undefined;
     return;
   }
-  const active = shownChromeTab(useBrowser.getState());
+  const active = shownReadyTab(useBrowser.getState());
   if (active === sentActive) return;
   sentActive = active;
   void setCliActiveTab(active).catch(() => {});
 }
 
-export function noteChromeTab(tabId: string, chromeTabId: number) {
-  if (chromeTabId > 0) chromeTabIds.set(tabId, chromeTabId);
-  else chromeTabIds.delete(tabId);
-  for (const id of chromeTabIds.keys()) if (!useBrowser.getState().tabs[id]) chromeTabIds.delete(id);
+export function noteTabReady(tabId: string) {
+  if (sentActive === tabId) sentActive = undefined;
   pushActiveTab();
 }
 

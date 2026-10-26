@@ -38,15 +38,16 @@ public class TabsModule: Module {
     },
     "strips": { _, reply in reply.ok(ArdiaTabStrip.allStrips) },
     "lastTabPolicy": EngineCall.passing("ac_tabs_last_tab_policy"),
-    "devEvents": { args, reply in reply.ok(ArdiaWebView.devEvents(browserId: Int32(args.int("browserId") ?? 0))) },
-    "devWindowNumber": { args, reply in reply.ok(ArdiaWebView.devWindowNumber(browserId: Int32(args.int("browserId") ?? 0))) },
-    "devFocusPage": { args, reply in reply.ok(ArdiaWebView.devFocusPage(browserId: Int32(args.int("browserId") ?? 0))) },
+    "devBrowserId": { args, reply in reply.ok(ArdiaWebView.browserId(ofTab: args.string("tabId"))) },
+    "devEvents": { args, reply in reply.ok(ArdiaWebView.devEvents(browserId: ArdiaWebView.browserId(ofTab: args.string("tabId")))) },
+    "devWindowNumber": { args, reply in reply.ok(ArdiaWebView.devWindowNumber(browserId: ArdiaWebView.browserId(ofTab: args.string("tabId")))) },
+    "devFocusPage": { args, reply in reply.ok(ArdiaWebView.devFocusPage(browserId: ArdiaWebView.browserId(ofTab: args.string("tabId")))) },
     "devPictureInPicture": { _, reply in reply.ok(ArdiaWebView.devPictureInPicture()) },
     "devPictureInPictureAction": { args, reply in reply.ok(ArdiaWebView.devPictureInPictureAction(args.text("action"))) },
     "devPostPeekMouseUp": { args, reply in reply.ok(ArdiaWebView.devPostPeekMouseUp(args.text("keys"), over: args.text("tabId"))) },
     "devScrollZoom": { args, reply in
       let steps = args.list("steps").compactMap { $0 as? [String: Any] }
-      reply.ok(ArdiaWebView.devScrollZoom(steps, browserId: Int32(args.int("browserId") ?? 0)))
+      reply.ok(ArdiaWebView.devScrollZoom(steps, browserId: ArdiaWebView.browserId(ofTab: args.string("tabId"))))
     },
   ])
 }
