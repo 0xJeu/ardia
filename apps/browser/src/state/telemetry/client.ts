@@ -5,9 +5,13 @@ import { create } from "zustand";
 import { DEV_SEND_TEST_KEY, LOGS_URL, MAX_BODY_BYTES } from "./config";
 import { EVENTS_SCOPE, eventRecord, LOGS_SCOPE, logRecord, logsRequest, outcome, type OtlpLogRecord, type QueuedEvent } from "./otlp";
 import { cleanProperties } from "./sanitize";
+import { versionedJson, unchanged, upgraded, type Migrations } from "../../lib/savedDocument";
 
 const STATE_DOC = "telemetry.json";
 const QUEUE_DOC = "telemetry-queue.json";
+const STATE_VERSION = 1;
+const STATE_MIGRATIONS: Migrations = { 0: unchanged };
+const QUEUE_VERSION = 1;
 const REQUEST_LOG_DOC = "telemetry-requests.log";
 
 const MAX_EVENTS = 1000;
@@ -56,7 +60,7 @@ let saved: Saved = { ...DEFAULT };
 function save(patch: Partial<Saved>) {
   saved = { ...saved, ...patch };
   try {
-    writeDocument(STATE_DOC, JSON.stringify(saved));
+    writeDocument(STATE_DOC, versionedJson(saved, STATE_VERSION));
   } catch {}
   useTelemetry.setState({ sharing: saved.sharing, decided: saved.decidedAt !== null, askDone: saved.askDoneAt !== null });
 }
@@ -108,7 +112,7 @@ function persistQueue(now = false) {
   persistTimer = undefined;
   const write = () => {
     try {
-      writeDocument(QUEUE_DOC, JSON.stringify(queue));
+      writeDocument(QUEUE_DOC, versionedJson(queue, QUEUE_VERSION));
     } catch {}
   };
   if (now) write();
@@ -331,7 +335,7 @@ let loaded = false;
 export function loadChoice() {
   if (loaded) return;
   loaded = true;
-  saved = { ...DEFAULT, ...readJson<Partial<Saved>>(STATE_DOC) };
+  saved = { ...DEFAULT, ...(upgraded(readJson(STATE_DOC), STATE_VERSION, STATE_MIGRATIONS) as Partial<Saved> | null) };
   useTelemetry.setState({ sharing: saved.sharing, decided: saved.decidedAt !== null, askDone: saved.askDoneAt !== null });
 }
 
@@ -353,8 +357,8 @@ export function startClient(): ClientSession | null {
     if (stale?.events?.length || stale?.logs?.length) clearQueue();
     return null;
   }
-  const stored = readJson<Queue>(QUEUE_DOC);
-  if (stored?.version === 1) queue = { version: 1, events: [...(stored.events ?? []), ...queue.events], logs: [...(stored.logs ?? []), ...queue.logs] };
+  const stored = upgraded(readJson(QUEUE_DOC), QUEUE_VERSION) as Queue | null;
+  if (stored) queue = { version: 1, events: [...(stored.events ?? []), ...queue.events], logs: [...(stored.logs ?? []), ...queue.logs] };
   const previous: PreviousSession = saved.lastVersion === null ? "none" : saved.sessionOpen ? "unclean" : "clean";
   const version = appInfo().appVersion;
   const updatedFrom = saved.lastVersion && saved.lastVersion !== version ? saved.lastVersion : null;

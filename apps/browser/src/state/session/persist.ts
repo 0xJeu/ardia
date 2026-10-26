@@ -13,16 +13,20 @@ import { startFavicons } from "../favicons/favicons";
 import { startBookmarks } from "../bookmarks/engineSync";
 import { startHistory } from "../history/engineSync";
 import { startProfileDataCleanup } from "../profiles/profileData";
+import { versionedJson, unchanged, upgraded, type Migrations } from "../../lib/savedDocument";
 
 const SAVE_DELAY_MS = 800;
-const VERSION = 2;
+const SESSION_VERSION = 2;
+const SESSION_MIGRATIONS: Migrations = {};
+const DOWNLOADS_VERSION = 2;
+const DOWNLOADS_MIGRATIONS: Migrations = { 0: unchanged, 1: unchanged };
 
 type Doc = { name: string; sources: (s: BrowserState) => unknown[]; json: (s: BrowserState) => string };
 
 const serialized =
-  (serialize: (s: BrowserState) => unknown) =>
+  (version: number, serialize: (s: BrowserState) => object) =>
   (s: BrowserState): string =>
-    JSON.stringify(serialize(s));
+    versionedJson(serialize(s), version);
 
 const persistedTab = ({ navigation: _n, adoptId: _a, wakeAdoptId, pageIn, ...tab }: Tab) => {
   const t = pageIn ? { ...tab, unloaded: true as const } : tab;
@@ -34,8 +38,7 @@ const DOCS: Doc[] = [
   {
     name: "downloads.json",
     sources: (s) => [s.downloads],
-    json: serialized((s) => ({
-      version: VERSION,
+    json: serialized(DOWNLOADS_VERSION, (s) => ({
       downloads: s.downloads
         .filter((d) => downloadSession(d) === null)
         .map((d) => (d.state === "downloading" ? { ...d, state: "failed" } : d)),
@@ -44,12 +47,11 @@ const DOCS: Doc[] = [
   {
     name: "session.json",
     sources: (s) => [s.profiles, s.profileOrder, s.orphanedProfileData, s.windows, s.windowOrder, s.tabs, s.groups, s.splits, s.closedTabs, s.closedWindows, s.parkedPins, s.pinChoices, s.pinSync, s.settings, s.ui.focusedWindowId, s.ui.lastProfileId, s.ui.appDark, s.closedGroups, s.deletedGroups, s.cleanedTabs],
-    json: serialized((s) => {
+    json: serialized(SESSION_VERSION, (s) => {
       const windows = Object.values(s.windows).filter((w) => !w.incognito && w.kind !== "small").map(({ chromeWindow: _c, ...w }) => w);
       const kept = new Set(windows.map((w) => w.id));
       const focusedWindowId = s.ui.focusOrder.find((id) => kept.has(id)) ?? null;
       return {
-        version: VERSION,
         profiles: s.profiles,
         profileOrder: s.profileOrder,
         orphanedProfileData: s.orphanedProfileData,
@@ -77,10 +79,10 @@ const DOCS: Doc[] = [
   },
 ];
 
-function read<T>(name: string): T | null {
+function read<T>(name: string, version: number, migrations: Migrations): T | null {
   try {
     const json = readDocument(name);
-    return json ? (JSON.parse(json) as T) : null;
+    return json ? (upgraded(JSON.parse(json), version, migrations) as T | null) : null;
   } catch (error) {
     console.warn(`Couldn't read ${name}`, error);
     return null;
@@ -134,9 +136,9 @@ function forgetStaging(id: string) {
 }
 
 export function loadSession(): HydrateData | null {
-  const session = read<SessionV2>("session.json");
-  if (session?.version !== 2) return null;
-  const downloads = read<{ downloads: Download[] }>("downloads.json");
+  const session = read<SessionV2>("session.json", SESSION_VERSION, SESSION_MIGRATIONS);
+  if (!session) return null;
+  const downloads = read<{ downloads: Download[] }>("downloads.json", DOWNLOADS_VERSION, DOWNLOADS_MIGRATIONS);
   droppedPrivateDownloads = (downloads?.downloads ?? []).some((d) => downloadSession(d) !== null);
   const data: HydrateData = {
     profiles: session.profiles,

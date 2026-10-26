@@ -10,6 +10,7 @@ import {
 } from "@ardia/shell";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile, isIncognitoProfile } from "../browser/model";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 export type ScriptsOutcome = { ok: true } | { disabled: true } | { removed: true } | { error: string };
 type Status = { generation: number; profiles: Record<string, ScriptsOutcome> };
@@ -77,6 +78,9 @@ const wantedBy = (outcome: ScriptsOutcome): Wanted => ("removed" in outcome ? "a
 const applied = new Map<string, { generation: number; wanted: Wanted; outcome: ScriptsOutcome }>();
 let seeded = false;
 let lastStatus: string | null = null;
+const STATUS_VERSION = 1;
+const STATUS_MIGRATIONS: Migrations = { 0: unchanged };
+
 let running: Promise<void> | null = null;
 let again = false;
 
@@ -85,7 +89,7 @@ async function seed() {
   seeded = true;
   try {
     lastStatus = await readUserScriptsStatus();
-    const status = lastStatus ? (JSON.parse(lastStatus) as Status) : null;
+    const status = parseSaved(lastStatus, STATUS_VERSION, STATUS_MIGRATIONS) as Status | null;
     if (!status || typeof status.generation !== "number" || !status.profiles) return;
     for (const [engine, names] of scriptsTargets(useBrowser.getState())) {
       const outcomes = names.map((n) => status.profiles[n]);
@@ -132,7 +136,7 @@ async function reconcile() {
   if (again || !enabled()) return;
   const status: Status = { generation, profiles: {} };
   for (const [engine, names] of targets) for (const name of names) status.profiles[name] = outcomes.get(engine)!;
-  const json = JSON.stringify(status, null, 2);
+  const json = versionedJson(status, STATUS_VERSION, "version", 2);
   if (json === lastStatus) return;
   await writeUserScriptsStatus(json);
   lastStatus = json;

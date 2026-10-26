@@ -1,4 +1,5 @@
 import { readDocument, writeDocument } from "@ardia/shell";
+import { versionedJson, upgraded, type Migrations } from "../../lib/savedDocument";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { isIncognitoProfile } from "../browser/model";
 import { isPeekTab } from "../peek/peek";
@@ -7,13 +8,14 @@ import { launchFavicons, pageKey, seedFavicons, type LaunchFavicons } from "../f
 
 const DOCUMENT = "launch-look.json";
 const VERSION = 2;
+const MIGRATIONS: Migrations = {};
 const DOCUMENT_LIMIT = 1100 * 1024;
 const THEME_LIMIT = 200;
 const COLOR_LENGTH_LIMIT = 64;
 const RESTORED_THEME_GRACE_MS = 1500;
 
 type RestoredTheme = { tab: string; page: string; color: string };
-type LaunchLook = { version: typeof VERSION; themes: RestoredTheme[]; favicons: LaunchFavicons };
+type LaunchLook = { themes: RestoredTheme[]; favicons: LaunchFavicons };
 
 const restored = new Map<string, { page: string; color: string }>();
 const settling = new Map<string, ReturnType<typeof setTimeout>>();
@@ -35,10 +37,10 @@ export function saveLaunchLook(s: BrowserState) {
       return color ? [{ tab: t.id, page: pageKey(t.url), color }] : [];
     })
     .slice(0, THEME_LIMIT);
-  const look: LaunchLook = { version: VERSION, themes, favicons: launchFavicons(tabs) };
-  const json = JSON.stringify(look);
+  const look: LaunchLook = { themes, favicons: launchFavicons(tabs) };
+  const json = versionedJson(look, VERSION);
   try {
-    writeDocument(DOCUMENT, json.length <= DOCUMENT_LIMIT ? json : JSON.stringify({ ...look, favicons: { images: [], profiles: {}, themes: {} } }));
+    writeDocument(DOCUMENT, json.length <= DOCUMENT_LIMIT ? json : versionedJson({ ...look, favicons: { images: [], profiles: {}, themes: {} } }, VERSION));
   } catch (error) {
     console.warn(`Couldn't save ${DOCUMENT}`, error);
   }
@@ -47,8 +49,8 @@ export function saveLaunchLook(s: BrowserState) {
 function readLaunchLook(): LaunchLook | null {
   try {
     const json = readDocument(DOCUMENT);
-    const look = json ? (JSON.parse(json) as Partial<LaunchLook>) : null;
-    if (look?.version !== VERSION || !Array.isArray(look.themes) || !look.favicons || typeof look.favicons !== "object") return null;
+    const look = json ? (upgraded(JSON.parse(json), VERSION, MIGRATIONS) as Partial<LaunchLook> | null) : null;
+    if (!look || !Array.isArray(look.themes) || !look.favicons || typeof look.favicons !== "object") return null;
     return look as LaunchLook;
   } catch (error) {
     console.warn(`Couldn't read ${DOCUMENT}`, error);

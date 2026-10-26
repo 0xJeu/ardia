@@ -121,6 +121,38 @@ export const requestClearData = (windowId: string | null) => useClearDataRequest
 **UI from state.** `state/` never imports `components/`. When an action needs UI (a sheet, a menu anchored to a
 view, an animation), state exposes a request (a store field or an event) and a component renders it.
 
+**Saved documents.** Every JSON document the app keeps in its data folder carries a schema version and reads through
+`lib/savedDocument.ts`:
+
+```ts
+const VERSION = 2;
+const MIGRATIONS: Migrations = { 0: unchanged, 1: (doc) => ({ ...doc, downloads: doc.items }) };
+
+const saved = parseSaved(readDocument(DOC), VERSION, MIGRATIONS);
+writeDocument(DOC, versionedJson(data, VERSION));
+```
+
+- A shape change bumps `VERSION` and adds the step from the old version (`MIGRATIONS[n]` turns version n into
+  n + 1). Never branch on the shape instead.
+- A document without the field is version 0. A version newer than the app knows, a field that isn't a non-negative
+  integer, a missing step, or anything that isn't a plain object reads as nothing (the document's defaults), and is
+  overwritten on the next save. Downgrades aren't supported.
+- `versionedJson` writes the version last, so the payload can't override it. The reader still checks the payload it
+  depends on: a version says which shape to expect, not that the data is valid.
+- The field is `version`, except in `sync.json` (`v`) and `ardia-cli.json` (`schemaVersion`; its `version` is the
+  installed CLI's version).
+- Covered: `session.json` (2), `downloads.json` (2), `launch-look.json` (2), `bookmarks-cache.json`, `telemetry.json`,
+  `telemetry-queue.json`, `telemetry-daily.json`, `release-notes.json`, `onboarding.json`,
+  `default-browser-offer.json`, `sync.json`, `sync-extensions.json`, `live.json`, `ardia-cli.json`,
+  `bangs-state.json` and `Scripts/status.json` (all 1).
+- Not versioned yet: the sealed `sync-state.nns` and `sync-journal.nns`. Each gets its own version in its envelope
+  (`{ version, scopes }`, and inside the journal's `{ journal }`) before its first format change; `sync.json`'s `v`
+  doesn't cover them, because they're written separately.
+- Out of scope: the Keychain token JSON, logs (`dev-console.log`, `telemetry-requests.log`), dev and bench results
+  (`dev-eval-result.json`, `layout-watch.json`), test fixtures (`calendar-fixture.json`), and the legacy
+  `bookmarks.json` / `history.json`, which are migration inputs read once. The sync payload (log and snapshot files,
+  `v: 1`) and `switches-cache.json` have their own versions.
+
 ## Files
 
 - Components are `PascalCase.tsx`; every other module is `camelCase.ts`. Tests sit next to the code as

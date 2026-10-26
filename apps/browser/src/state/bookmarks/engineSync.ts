@@ -1,5 +1,6 @@
 import { applyBookmarkOps, bookmarkTree, onBookmarksChanged, watchBookmarks, type BookmarkOp, type EngineBookmark } from "@ardia/ardiacore";
 import { readDocument, removeDocument, writeDocument } from "@ardia/shell";
+import { versionedJson, upgraded, type Migrations } from "../../lib/savedDocument";
 import { bookmarkUuidFor, isBookmarkUuid, rootIdsFor } from "./bookmarks";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile, isIncognitoProfile } from "../browser/model";
@@ -305,13 +306,16 @@ function push(s: BrowserState) {
   }
 }
 
-type CacheDoc = { version: 1; trees: Record<string, BookmarkNode[]> };
+const CACHE_VERSION = 1;
+const CACHE_MIGRATIONS: Migrations = {};
+
+type CacheDoc = { trees: Record<string, BookmarkNode[]> };
 
 function readCache(): CacheDoc["trees"] {
   try {
     const json = readDocument(CACHE_FILE);
-    const doc = json ? (JSON.parse(json) as CacheDoc) : null;
-    return doc?.version === 1 ? doc.trees : {};
+    const doc = json ? (upgraded(JSON.parse(json), CACHE_VERSION, CACHE_MIGRATIONS) as CacheDoc | null) : null;
+    return doc?.trees ?? {};
   } catch {
     return {};
   }
@@ -362,7 +366,7 @@ function saveCache() {
     trees[engine] = [...flatFromStore(s.bookmarks, engine).nodes.keys()].map((id) => s.bookmarks.nodes[id]!);
   }
   try {
-    writeDocument(CACHE_FILE, JSON.stringify({ version: 1, trees } satisfies CacheDoc));
+    writeDocument(CACHE_FILE, versionedJson({ trees } satisfies CacheDoc, CACHE_VERSION));
   } catch (error) {
     console.warn(`[bookmarks] couldn't save ${CACHE_FILE}`, error);
   }

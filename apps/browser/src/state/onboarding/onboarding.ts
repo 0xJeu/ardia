@@ -8,6 +8,7 @@ import type { ProfileColor } from "../browser/types";
 import { pinSites } from "./sites";
 import { endToolTour, startToolTour } from "./tour";
 import { stepsForThisSurface } from "./demoSteps";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 export type OnboardingStep = "intro" | "source" | "layout" | "tabs" | "look" | "searchPrivacy" | "pins" | "home" | "outro";
 
@@ -280,8 +281,9 @@ export function resolveDraft<K extends keyof Settings>(
 }
 
 const DOC = "onboarding.json";
+const DOC_VERSION = 1;
+const DOC_MIGRATIONS: Migrations = { 0: unchanged };
 type Saved = {
-  version: 1;
   startedAt?: number;
   completedAt: number | null;
   step?: OnboardingStep;
@@ -296,8 +298,7 @@ type Saved = {
 
 function readSaved(): Saved | null {
   try {
-    const json = readDocument(DOC);
-    return json ? (JSON.parse(json) as Saved) : null;
+    return parseSaved(readDocument(DOC), DOC_VERSION, DOC_MIGRATIONS) as Saved | null;
   } catch {
     return null;
   }
@@ -305,7 +306,7 @@ function readSaved(): Saved | null {
 
 function save(patch: Partial<Saved>) {
   try {
-    writeDocument(DOC, JSON.stringify({ version: 1, completedAt: null, ...readSaved(), ...patch } satisfies Saved));
+    writeDocument(DOC, versionedJson({ completedAt: null, ...readSaved(), ...patch } satisfies Saved, DOC_VERSION));
   } catch (error) {
     console.warn("Couldn't save onboarding state", error);
   }

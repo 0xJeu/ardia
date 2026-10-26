@@ -1,6 +1,7 @@
 import { readDocument, writeDocument } from "@ardia/shell";
 import { create } from "zustand";
 import type { CompletedItem, CompletionState, FolderStatus, LiveAccount, LiveFolder, LiveFolderKind, LiveItem, LiveSourceId } from "./types";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 export type LiveConfig = {
   githubClientId: string;
@@ -60,12 +61,13 @@ export const DEFAULT_CALENDAR: CalendarSettings = {
 };
 
 const DOC = "live.json";
+const DOC_VERSION = 1;
+const DOC_MIGRATIONS: Migrations = { 0: unchanged };
 const PERSISTED = ["folders", "folderOrder", "items", "known", "unread", "hidden", "completed", "expandedStacks", "accounts", "config", "calendar", "meetingGroups", "dismissedAlerts"] as const;
 
 function load(): Partial<LiveState> {
   try {
-    const json = readDocument(DOC);
-    return json ? (JSON.parse(json) as Partial<LiveState>) : {};
+    return (parseSaved(readDocument(DOC), DOC_VERSION, DOC_MIGRATIONS) as Partial<LiveState> | null) ?? {};
   } catch {
     return {};
   }
@@ -107,7 +109,7 @@ useLive.subscribe((s, prev) => {
   timer = setTimeout(() => {
     const s = live();
     try {
-      writeDocument(DOC, JSON.stringify(Object.fromEntries(PERSISTED.map((k) => [k, s[k]]))));
+      writeDocument(DOC, versionedJson(Object.fromEntries(PERSISTED.map((k) => [k, s[k]])), DOC_VERSION));
     } catch (error) {
       console.warn("Couldn't save live folders", error);
     }

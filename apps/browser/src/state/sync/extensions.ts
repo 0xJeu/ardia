@@ -2,8 +2,11 @@ import { engineCall, onEngineEvent } from "@ardia/ardiacore";
 import { readDocument, writeDocument } from "@ardia/shell";
 import { extensionsAdapter, type ExtensionChange, type ExtensionIntent, type ExtensionsAdapter, type LocalExtensions } from "@ardia/sync";
 import { engineProfile } from "../browser/model";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 const DOC = "sync-extensions.json";
+const DOC_VERSION = 1;
+const DOC_MIGRATIONS: Migrations = { 0: unchanged };
 
 type Intents = { generation: number; profiles: Record<string, Record<string, ExtensionIntent>> };
 type EngineState = LocalExtensions & { intents?: { id: string; kind: ExtensionIntent["kind"] }[] };
@@ -13,7 +16,7 @@ let intents: Intents | null = null;
 function stored(): Intents {
   if (intents) return intents;
   try {
-    const saved = JSON.parse(readDocument(DOC) || "{}") as Partial<Intents>;
+    const saved = (parseSaved(readDocument(DOC), DOC_VERSION, DOC_MIGRATIONS) ?? {}) as Partial<Intents>;
     intents = { generation: Number(saved.generation) || 0, profiles: saved.profiles ?? {} };
   } catch {
     intents = { generation: 0, profiles: {} };
@@ -21,7 +24,7 @@ function stored(): Intents {
   return intents;
 }
 
-const save = () => writeDocument(DOC, JSON.stringify(stored()));
+const save = () => writeDocument(DOC, versionedJson(stored(), DOC_VERSION));
 
 function note(profile: string, id: string, kind: ExtensionIntent["kind"]) {
   const all = stored();

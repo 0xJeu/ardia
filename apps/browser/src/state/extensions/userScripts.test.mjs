@@ -41,7 +41,11 @@ const settle = async () => {
 };
 const profile = (id, name, dataId) => ({ id, name, color: "blue", icon: null, createdAt: 0, ...(dataId ? { dataId } : {}) });
 useBrowser.setState({ profiles: { default: profile("default", "Personal") }, profileOrder: ["default"] });
-const lastWrite = () => fake.writes.at(-1);
+const lastWrite = () => {
+  const { version, ...status } = fake.writes.at(-1);
+  assert.equal(version, 1);
+  return status;
+};
 
 scripts.startUserScripts();
 

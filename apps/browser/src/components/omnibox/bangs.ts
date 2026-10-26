@@ -2,9 +2,12 @@ import { bangDocument, bangTable, checkedBangTable, findBang, joinBangTables, re
 import { fetchBangList, readDocument, saveDocument, writeDocument } from "@ardia/shell";
 import { useEffect, useSyncExternalStore } from "react";
 import { loadBundledBangs, refreshesBangs } from "./bangPlatform";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 const LIST_DOC = "bangs.txt";
 const STATE_DOC = "bangs-state.json";
+const STATE_VERSION = 1;
+const STATE_MIGRATIONS: Migrations = { 0: unchanged };
 const REFRESH_EVERY_MS = 86_400_000;
 
 type RefreshState = { checkedAt: number };
@@ -26,7 +29,7 @@ function setTable(next: BangTable, source: NonNullable<typeof tableSource>) {
 
 function readState(): RefreshState | null {
   try {
-    const state = JSON.parse(readDocument(STATE_DOC) ?? "null") as Partial<RefreshState> | null;
+    const state = parseSaved(readDocument(STATE_DOC), STATE_VERSION, STATE_MIGRATIONS) as Partial<RefreshState> | null;
     return state && typeof state.checkedAt === "number" ? { checkedAt: state.checkedAt } : null;
   } catch {
     return null;
@@ -35,7 +38,7 @@ function readState(): RefreshState | null {
 
 function writeState(state: RefreshState) {
   try {
-    writeDocument(STATE_DOC, JSON.stringify(state));
+    writeDocument(STATE_DOC, versionedJson(state, STATE_VERSION));
   } catch {}
 }
 

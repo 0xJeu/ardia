@@ -7,8 +7,12 @@ import { shownPageId } from "../peek/peek";
 import { pageOf, usePages } from "../tabs/pageState";
 import { isInternalTab } from "../pages/urls";
 import { afterFirstWindow } from "../../lib/afterFirstWindow";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 const DOC = "ardia-cli.json";
+const DOC_VERSION = 1;
+const DOC_MIGRATIONS: Migrations = { 0: unchanged };
+const SCHEMA_FIELD = "schemaVersion";
 const UPGRADE_DELAY_MS = 8000;
 const INDICATOR_HOLD_MS = 3000;
 
@@ -27,8 +31,7 @@ type CliState = {
 
 function readSaved(): Saved {
   try {
-    const json = readDocument(DOC);
-    return json ? (JSON.parse(json) as Saved) : {};
+    return (parseSaved(readDocument(DOC), DOC_VERSION, DOC_MIGRATIONS, SCHEMA_FIELD) as Saved | null) ?? {};
   } catch {
     return {};
   }
@@ -36,7 +39,7 @@ function readSaved(): Saved {
 
 function save(patch: Saved) {
   try {
-    writeDocument(DOC, JSON.stringify({ ...readSaved(), ...patch, at: Date.now() }));
+    writeDocument(DOC, versionedJson({ ...readSaved(), ...patch, at: Date.now() }, DOC_VERSION, SCHEMA_FIELD));
   } catch (error) {
     console.warn("[cli] couldn't save the install status", error);
   }

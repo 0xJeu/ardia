@@ -44,6 +44,7 @@ import {
 } from "./adapters";
 import { pinnedAreaAdapters } from "./pinned";
 import { extensionsAdapterFor, extensionSyncAvailable, probeExtensionSync, watchExtensionIntents } from "./extensions";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "extensions" | "settings";
 
@@ -80,6 +81,8 @@ type SyncDoc = {
 };
 
 const DOC = "sync.json";
+const DOC_VERSION = 1;
+const DOC_MIGRATIONS: Migrations = { 0: unchanged };
 const STATE = "sync-state.nns";
 const JOURNAL = "sync-journal.nns";
 const APP_SCOPE = "app";
@@ -150,10 +153,8 @@ const extensionAdapters = new Map<string, ExtensionsAdapter>();
 function load() {
   try {
     const json = readDocument(DOC);
-    if (json) {
-      const saved = JSON.parse(json) as SyncDoc;
-      doc = { ...emptyDoc(), ...saved, types: { ...defaultTypes(), ...saved.types }, scopes: {} };
-    }
+    const saved = parseSaved(json, DOC_VERSION, DOC_MIGRATIONS, "v") as SyncDoc | null;
+    if (saved) doc = { ...emptyDoc(), ...saved, types: { ...defaultTypes(), ...saved.types }, scopes: {} };
     savedJson = json ?? "";
   } catch (error) {
     console.warn("[sync] couldn't read sync.json", error);
@@ -214,7 +215,7 @@ let sealing: Promise<void> | null = null;
 
 function save() {
   const { scopes, ...meta } = doc;
-  const json = JSON.stringify({ ...meta, seqs: Object.fromEntries(Object.entries(scopes).map(([k, s]) => [k, writtenSeq(s)])) });
+  const json = versionedJson({ ...meta, seqs: Object.fromEntries(Object.entries(scopes).map(([k, s]) => [k, writtenSeq(s)])) }, DOC_VERSION, "v");
   if (json !== savedJson) {
     savedJson = json;
     writeDocument(DOC, json);

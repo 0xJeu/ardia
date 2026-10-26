@@ -1,6 +1,7 @@
 import { readDocument, systemInfo, writeDocument } from "@ardia/shell";
 import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
+import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 export type ReleaseNotes = {
   version: string;
@@ -30,20 +31,21 @@ const RELEASE_NOTES: ReleaseNotes[] = [
 const POSTCARD_SECONDS = 86_400;
 
 const DOC = "release-notes.json";
-type Saved = { version: 1; lastVersion: string; pending: { version: string; since: number } | null };
+const DOC_VERSION = 1;
+const DOC_MIGRATIONS: Migrations = { 0: unchanged };
+type Saved = { lastVersion: string; pending: { version: string; since: number } | null };
 
 function readSaved(): Saved | null {
   try {
-    const json = readDocument(DOC);
-    return json ? (JSON.parse(json) as Saved) : null;
+    return parseSaved(readDocument(DOC), DOC_VERSION, DOC_MIGRATIONS) as Saved | null;
   } catch {
     return null;
   }
 }
 
-function save(saved: Omit<Saved, "version">) {
+function save(saved: Saved) {
   try {
-    writeDocument(DOC, JSON.stringify({ version: 1, ...saved } satisfies Saved));
+    writeDocument(DOC, versionedJson(saved, DOC_VERSION));
   } catch (error) {
     console.warn("Couldn't save release notes state", error);
   }

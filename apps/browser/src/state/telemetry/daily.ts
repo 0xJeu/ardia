@@ -3,8 +3,11 @@ import { devTestValue } from "../../platform/launchConfig";
 import { appInfo, environment, logRequest, uuidv4, type RequestLogEntry } from "./client";
 import { DEV_SEND_TEST_KEY, LOGS_URL } from "./config";
 import { EVENTS_SCOPE, eventRecord, logsRequest, outcome } from "./otlp";
+import { parseSaved, versionedJson, unchanged, type Migrations } from "../../lib/savedDocument";
 
 export const DAILY_DOC = "telemetry-daily.json";
+const DAILY_VERSION = 1;
+const DAILY_MIGRATIONS: Migrations = { 0: unchanged };
 export const DAILY_EVENT = "daily_active";
 export const DAILY_LIB = "ardia-daily";
 
@@ -55,7 +58,7 @@ const validPending = (p: unknown): p is PendingPing => {
 
 export function readDailyState(): DailyState {
   try {
-    const stored = JSON.parse(readDocument(DAILY_DOC) ?? "null") as { lastDay?: unknown; pending?: unknown } | null;
+    const stored = parseSaved(readDocument(DAILY_DOC), DAILY_VERSION, DAILY_MIGRATIONS) as { lastDay?: unknown; pending?: unknown } | null;
     return {
       lastDay: validDay(stored?.lastDay) ? stored.lastDay : null,
       pending: Array.isArray(stored?.pending) ? stored.pending.filter(validPending) : [],
@@ -71,7 +74,7 @@ let unsaved = false;
 
 async function saveDailyState(state: DailyState): Promise<boolean> {
   try {
-    await saveDocument(DAILY_DOC, JSON.stringify({ version: 1, ...state }));
+    await saveDocument(DAILY_DOC, versionedJson(state, DAILY_VERSION));
     unsaved = false;
     return true;
   } catch {
