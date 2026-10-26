@@ -1,12 +1,12 @@
 import { clearBrowsingData, type BrowsingDataType } from "@ardia/ardiacore";
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { pruneProfileFavicons } from "../../state/favicons/favicons";
-import { useTheme } from "../ui/theme";
 import { engineProfile, isIncognitoProfile } from "../../state/browser/model";
 import { useProfileName, useProfileOrder } from "../../state/profiles/hooks";
 import { clearHistory } from "../../state/history/actions";
-import { Button, Checkbox, Dialog, PopUp } from "../ui";
+import { Box, Button, Checkbox, Dialog, PopUp, space, Text } from "../ui";
+import { clearDataDialog } from "./tokens";
 
 const RANGES = [
   { value: "hour", title: "Last hour", ms: 3_600_000 },
@@ -18,7 +18,6 @@ const RANGES = [
 type Range = (typeof RANGES)[number]["value"];
 
 export function ClearDataDialog({ profileId, onClose }: { profileId: string; onClose: () => void }) {
-  const theme = useTheme();
   const profileName = useProfileName(profileId);
   const multipleProfiles = useProfileOrder((o) => o.length > 1);
   const [range, setRange] = useState<Range>("hour");
@@ -41,14 +40,20 @@ export function ClearDataDialog({ profileId, onClose }: { profileId: string; onC
   };
 
   return (
-    <Dialog width={440} onDismiss={onClose}>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Clear Browsing Data</Text>
-      {multipleProfiles && <Text style={{ fontSize: 12, marginTop: 4, color: theme.textSecondary }}>{`From your ${profileName} profile`}</Text>}
-      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 16, gap: 10 }}>
-        <Text style={{ fontSize: 13, color: theme.textPrimary }}>Time range</Text>
-        <PopUp value={range} options={RANGES.map(({ value, title }) => ({ value, title }))} onChange={setRange} minWidth={150} />
-      </View>
-      <View style={{ marginTop: 16, gap: 12 }}>
+    <Dialog width={clearDataDialog.width} onDismiss={onClose}>
+      <Text size="heading" weight="semibold">
+        Clear Browsing Data
+      </Text>
+      {multipleProfiles && (
+        <Text size="small" tone="textSecondary" style={PROFILE_LINE}>
+          {`From your ${profileName} profile`}
+        </Text>
+      )}
+      <Box row gap="ml" style={RANGE_ROW}>
+        <Text>Time range</Text>
+        <PopUp value={range} options={RANGES.map(({ value, title }) => ({ value, title }))} onChange={setRange} minWidth={clearDataDialog.rangeMinWidth} />
+      </Box>
+      <Box gap="l" style={OPTIONS}>
         <Option value={history} onChange={setHistory} title="Browsing history" subtitle="Clears the pages you visited from History and the command bar." />
         <Option
           value={siteData}
@@ -56,21 +61,28 @@ export function ClearDataDialog({ profileId, onClose }: { profileId: string; onC
           title="Cookies, site data and cached files"
           subtitle="Signs you out of most sites."
         />
-      </View>
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 22 }}>
+      </Box>
+      <Box row gap="m" style={BUTTONS}>
         <Button title="Cancel" onPress={onClose} />
         <Button title="Clear Data" kind="primary" disabled={busy || (!history && !siteData)} onPress={() => void clear()} />
-      </View>
+      </Box>
     </Dialog>
   );
 }
 
+const PROFILE_LINE = { marginTop: space.xs } as const;
+const RANGE_ROW = { alignItems: "center", marginTop: space.xl } as const;
+const OPTIONS = { marginTop: space.xl } as const;
+const BUTTONS = { justifyContent: "flex-end", marginTop: clearDataDialog.buttonsTop } as const;
+const OPTION_NOTE = { marginLeft: clearDataDialog.noteIndent, marginTop: space.xxs } as const;
+
 function Option({ value, onChange, title, subtitle }: { value: boolean; onChange: (v: boolean) => void; title: string; subtitle: string }) {
-  const theme = useTheme();
   return (
     <View>
       <Checkbox value={value} onChange={onChange} label={title} />
-      <Text style={{ fontSize: 11.5, marginLeft: 21, marginTop: 2, color: theme.textSecondary }}>{subtitle}</Text>
+      <Text size="footnote" tone="textSecondary" style={OPTION_NOTE}>
+        {subtitle}
+      </Text>
     </View>
   );
 }
