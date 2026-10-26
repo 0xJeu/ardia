@@ -1716,10 +1716,14 @@ try {
       const busyNow = "-";
       const hung = await until("onUnresponsive", async () => (await eventsOf(busy.id)).find((x) => x.name === "unresponsive"), 35000)
         .catch(async (e) => { throw new Error(`${e.message}; page ${busyNow}; key ${JSON.stringify(sent)}; events ${JSON.stringify((await eventsOf(busy.id)).map((x) => x.name).slice(-8))}; active ${(await state()).active === busy.id}`); });
+      const shown = await until("Page Unresponsive shown", async () => evalApp(`return ac.pageState.getState().pages["${busy.id}"]?.unresponsive === true`), 5000)
+        .catch(() => { throw new Error("the native unresponsive event never reached the tab's page state"); });
       await evalApp(`return ac.webviews.get("${busy.id}").resolveUnresponsive(false)`);
       const back = await until("onResponsive", async () => (await eventsOf(busy.id)).find((x) => x.name === "responsive"), 45000)
         .catch(async (e) => { throw new Error(`${e.message}; events ${JSON.stringify((await eventsOf(busy.id)).map((x) => x.name).slice(-10))}`); });
-      return { unresponsive: !!hung, responsive: !!back };
+      const cleared = await until("Page Unresponsive cleared", async () => evalApp(`return ac.pageState.getState().pages["${busy.id}"]?.unresponsive === false`), 5000)
+        .catch(() => { throw new Error("the responsive event never cleared the tab's page state"); });
+      return { unresponsive: !!hung, shown, responsive: !!back, cleared };
     } finally {
       await closeTab(busy.id);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
