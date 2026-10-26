@@ -28,6 +28,7 @@ export {
   OutsidePressArea,
   Surface,
   Symbol,
+  ThemeSwatch,
   VisualEffect,
   WindowDragRegion,
   type DroppedItem,

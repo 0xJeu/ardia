@@ -18,3 +18,5 @@ export {
   type SurfaceProps,
   type SymbolProps,
 } from "@ardia/shell";
+
+export { ThemeSwatch } from "@ardia/shaders";
