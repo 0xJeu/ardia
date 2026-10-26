@@ -16,7 +16,7 @@ variables) is in `docs/conventions.md`, enforced by `apps/browser/src/convention
   - `packages/ardiacore`: the web engine, **ArdiaCore**: Chrome's own framework (`Chromium Framework.framework`,
     Chromium 156.0.8078.47 + Helium 0.20.1 + our patch series, `docs/engine-build.md`) with our layer linked
     in, and the Expo modules and JS API the app uses (`docs/ardiacore-spike.md`, `docs/ardiacore-parity.md`).
-    - **Chromium runs the process.** `main.swift` calls `ArdiaCoreHost.run`: `ChromeMain` starts with our
+    - **Chromium runs the process.** `main.swift` calls `ArdiaHost.run`: `ChromeMain` starts with our
       `ACMainDelegate`, `NSApp` is Chrome's `BrowserCrApplication`, and the React Native host (`AppDelegate`) starts
       inside Chrome's run loop. Nothing may touch `NSApp` before that.
     - **Every app window is one `ArdiaCoreWindow`** (a Views-backed `NSWindow`, so Chrome's bubbles, dialogs, menus and
@@ -27,7 +27,7 @@ variables) is in `docs/conventions.md`, enforced by `apps/browser/src/convention
       views (`ArdiaWebView`). Popups, `target=_blank` and ⌘-click keep Chrome's own new `WebContents`.
     - Passwords, autofill, extensions, zoom and search engines call Chrome's services directly through our
       own Chromium code, `//chrome/browser/ardia` (`engine/chromium`), exported as plain C
-      (`ArdiaCoreEngineBridge`, `ArdiaCoreServices`); ArdiaCore's own layer is `//ardia/core` (`engine/ardiacore`).
+      (`ArdiaEngineBridge`, `ArdiaServices`); ArdiaCore's own layer is `//ardia/core` (`engine/ardiacore`).
       No chrome:// page is scripted.
     - JS API in `packages/ardiacore/src` (`WebView`, downloads, permissions, profiles, extensions, Chrome UI); its
       native modules keep their CEF-era names: `ArdiaCEF` is `packages/ardiacore/ios/CefModule.swift`, and
@@ -82,39 +82,51 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
 
 | Concern | Engine | App | JS |
 | --- | --- | --- | --- |
-| Windows, tab ownership | `ac_browser.h` (`WindowHost`, `ACWebContentsDelegate`, `TabBridge`), `ac_browser_window.mm` | `ArdiaCoreChromeWindow.mm`, `ArdiaCoreTabStrip.mm` | `lib/chromeTabs.ts`, `store/liveTabs.ts` |
-| Tab activation | `ardiacore_api.mm` `-activateTab:`, `ac_browser.mm` `ActiveTabChanged` | `ArdiaCoreWebView.mm` `-activate`, `ArdiaCoreTabStrip.mm` | same |
-| Focus guard (test instances) | `ac_browser.mm` (`WindowHost` activation) | `ArdiaCoreActivation.mm` (`activation.log`), `ArdiaCoreChromeWindow.mm` | `packages/shell/ios/WindowManager.swift` |
-| Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaCoreChromeWindow.mm` (acted out in test instances) | `components/ContentCard.tsx`, `components/layout/pageState.ts` |
-| Picture in Picture | `ac_picture_in_picture.mm`; Dia's window and controls in `engine/chromium/…/ardia/pip/`; the auto-PiP hook in `engine/ardiacore/apply.sh` | `ArdiaCorePictureInPicture.mm` | `components/media/pip.ts` |
-| Password and autofill bubbles | `ac_password_prompt.mm`, `ac_browser_window.h` (`ACAutofillBubbleHandler`), `ac_autofill_trigger.mm` (dropdown) | `ArdiaCoreChromeWindow.mm` (`window:passwordPrompt:forTab:`) → `ArdiaCoreWebView` event | `components/site/Prompts.tsx`, `site/Autofill.tsx` |
-| Share tab, screen share | `ardiacore_api.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaCoreHost.mm` `shareTabInstead`, `ChromeUIModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
-| Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs) | `ArdiaCoreWebView.mm` (`discard:`, `transferKey`) | `lib/tabLifecycle.ts`, `store/windows.ts` |
-| Permissions | `ac_permissions.mm` | `ArdiaCoreHost.mm` (`permissionRequest`) | `components/site/permissions.ts`, `Prompts.tsx` |
-| Page script | `ac_page_channel.mm`, `renderer/ac_content_renderer_client.cc` | `page_script.js`, `ArdiaCoreWebView.mm` | `onPageMessage` (`packages/ardiacore/src/WebView.tsx`) |
+| Windows, tab ownership | `ac_browser.h` (`WindowHost`, `ACWebContentsDelegate`, `TabBridge`), `ac_browser_window.mm` | `ArdiaWindowController.mm`, `ArdiaChromeWindowHost.mm`, `ArdiaTabStrip.mm` | `lib/chromeTabs.ts`, `store/liveTabs.ts` |
+| Tab activation | `ardiacore_api.mm` `-activateTab:`, `ac_browser.mm` `ActiveTabChanged` | `ArdiaWebView+Tab.mm` `-tabActivatedByChrome:`, `ArdiaTabStrip.mm` | same |
+| Focus guard (test instances) | `ac_browser.mm` (`WindowHost` activation) | `ArdiaActivation.mm` (`activation.log`), `ArdiaWindowFullScreen.mm` (acted-out occlusion), `ArdiaWebView+Focus.mm` | `packages/shell/ios/WindowManager.swift` |
+| Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaWindowFullScreen.mm` (acted out in test instances), `ArdiaFullScreenLights.mm`, `ArdiaPageCover.mm` | `components/ContentCard.tsx`, `components/layout/pageState.ts` |
+| Picture in Picture | `ac_picture_in_picture.mm`; Dia's window and controls in `engine/chromium/…/ardia/pip/`; the auto-PiP hook in `engine/ardiacore/apply.sh` | `ArdiaPictureInPicture.mm` (monitors, `ardia_pip`), `ArdiaPiPController.mm` (+`Swipe`, +`SelfTest`), `ArdiaPiPZoom.mm`, `ArdiaWebView+PictureInPicture.mm` | `components/media/pip.ts` |
+| Password and autofill bubbles | `ac_password_prompt.mm`, `ac_browser_window.h` (`ACAutofillBubbleHandler`), `ac_autofill_trigger.mm` (dropdown) | `ArdiaWindowController.mm` (`window:passwordPrompt:forTab:`) → `ArdiaWebView` event | `components/site/Prompts.tsx`, `site/Autofill.tsx` |
+| Share tab, screen share | `ardiacore_api.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaHost.mm` `shareTabInstead`, `ChromeUIModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
+| Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs) | `ArdiaWebView+Tab.mm` (`discard:`), `ArdiaWebView+Transfer.mm` (`transferKey`), `ArdiaTabParking.mm` | `lib/tabLifecycle.ts`, `store/windows.ts` |
+| Permissions | `ac_permissions.mm` | `ArdiaHostEngineDelegate.mm` (`permissionRequest`), `ArdiaPopupWindow.mm` | `components/site/permissions.ts`, `Prompts.tsx` |
+| Page script | `ac_page_channel.mm`, `renderer/ac_content_renderer_client.cc` | `page_script.js`, `ArdiaWebView+PageMessages.mm`, `ArdiaWebView+Peek.mm` | `onPageMessage` (`packages/ardiacore/src/WebView.tsx`) |
 
-- **Call path:** JS (`packages/ardiacore/src`) → `*Module.swift` → `ArdiaCoreHost` / `ArdiaCoreWebView` → `public/ArdiaCore.h` →
+- **Pod layout** (`packages/ardiacore/ios`): one class per file, or one category per file named `Class+Concern`.
+  A split class shares its ivars, private methods and helpers through one internal header (`ArdiaWebViewInternal.h`,
+  `ArdiaChromeWindowInternal.h`, `ArdiaEarlyWindowInternal.h`, `ArdiaPictureInPictureInternal.h`, `ArdiaSwipeInternal.h`,
+  `ArdiaContentBlockerInternal.h`, `ArdiaHostInternal.h`), and the helpers live in one C++ namespace per family
+  (`ardia_web_view`, `ardia_window`, `ardia_early_window`, `ardia_pip`, `ardia_swipe`, `ardia_content_blocker`,
+  `ardia_host`). Property accessors, `+initialize` and `dealloc` stay in the class's primary file, so no category
+  overrides them. `ArdiaWebView` is split into `+Transfer` (parking, launch and link tabs), `+Tab` (attach, detach,
+  Chrome's tab events, discard), `+Painting`, `+Focus`, `+Reveals`, `+PageMessages`, `+Peek`, `+PictureInPicture`,
+  `+ContextMenu`, `+Navigation`, `+PageCommands`, `+Site` and `+InputMonitors`. `ArdiaTabRegistry.mm` holds tab
+  ↔ view, offered tabs and browser ids. Windows: `ArdiaWindowController`, `ArdiaChromeWindowHost` (+`Dev`, the dev harness),
+  `ArdiaTrafficLights`, `ArdiaWindowFullScreen`, `ArdiaPopupWindow`, `ArdiaReservedKeys`. Launch: `ArdiaHost+Launch`,
+  `ArdiaHostEngineDelegate`, `ArdiaProfiles`, `ArdiaEarlyWindow` (+`Pages`, `Layouts`, `Covers`, `ArdiaLaunchPicture`).
+- **Call path:** JS (`packages/ardiacore/src`) → `*Module.swift` → `ArdiaHost` / `ArdiaWebView` → `public/ArdiaCore.h` →
   `ardiacore_api.mm` → `ac_*.mm`. Events come back through an `ArdiaCore*Delegate` method, `-emit:payload:`, and the event
   switch in `CefModule.swift`.
 - **Adding to `ArdiaCore.h`:** implement it in `ardiacore_api.mm` (a new file goes in `BUILD.gn` `sources`); a new class
   must be named `ArdiaCore*` to be exported (the `ardiacore.exports` wildcard). The pod reads `ArdiaCore.h` from the repo and
   the staged framework may be older, so the app guards new selectors with `respondsToSelector:`.
 - **Adding an engine call** (Chrome's services are `ac_*` C calls in `engine/chromium`, which the app finds with
-  dlsym through `ArdiaCoreEngineBridge`): (1) write `AC_ENGINE_CALL(ac_<domain>_<verb>)` in
+  dlsym through `ArdiaEngineBridge`): (1) write `AC_ENGINE_CALL(ac_<domain>_<verb>)` in
   `engine/chromium/src/chrome/browser/ardia/ac_<domain>.cc` (conventions in `public/ac_engine.h`; a new file goes
   in that `BUILD.gn`; `ac_engine.exports` exports every `ac_*`); (2) `scripts/agent/engine-build`; (3) call it with
-  `ArdiaCoreEngineBridge call:` (`callWithSecret:` for secrets), guarded by `exports:`; for JS's `engineCall`, add it to
-  `ArdiaCoreEngineCalls.swift`.
-- **The page script** is `packages/ardiacore/ios/page_script.js`, a pod resource: `ArdiaCoreHost.mm` hands it to the
+  `ArdiaEngineBridge call:` (`callWithSecret:` for secrets), guarded by `exports:`; for JS's `engineCall`, add it to
+  `CefModule+EngineCalls.swift`.
+- **The page script** is `packages/ardiacore/ios/page_script.js`, a pod resource: `ArdiaHostEngineDelegate.mm` hands it to the
   engine at launch and the renderer runs it in every http(s) and file frame. Changing it needs an app rebuild, not an
-  engine one. Its `post(kind, json)` crosses the page channel to `-[ArdiaCoreWebView tab:didReceivePageMessage:…]`,
+  engine one. Its `post(kind, json)` crosses the page channel to `-[ArdiaWebView tab:didReceivePageMessage:…]` (`ArdiaWebView+PageMessages.mm`),
   which handles it or emits `pageMessage` (JS `onPageMessage`).
 - **CEF-era code** (removed in 6bdf66ce): `git show 6bdf66ce^:packages/cef/ios/<file>`. Comments citing
-  `packages/cef/…` mean: `ACBrowserView.mm`, `ACClient.mm` → `ArdiaCoreWebView.mm`; `ACChromeWindow.mm`,
-  `ACPopupWindow.mm` → `ArdiaCoreChromeWindow.mm`; `ACActivation`, `ACTabStrip`, `ACPictureInPicture`,
-  `ACContentBlocker`, `ACEngineBridge` → `ArdiaCore<same>.mm`; `ACPasswords`, `ACAutofill`, `ACZoom` →
-  `ArdiaCoreServices.mm`; `ACExtensions.mm` → `ExtensionsModule.swift`; `ACCef.mm` → `ArdiaCoreHost.mm`,
-  `ArdiaCoreStartup.mm`; `ACEngine.mm` → `ardiacore_api.mm`; `helper/page_script.js` → `packages/ardiacore/ios/`;
+  `packages/cef/…` mean: `ACBrowserView.mm`, `ACClient.mm` → `ArdiaWebView*.mm`; `ACChromeWindow.mm`,
+  `ACPopupWindow.mm` → `ArdiaWindowController.mm`, `ArdiaPopupWindow.mm`; `ACActivation`, `ACTabStrip`, `ACPictureInPicture`,
+  `ACContentBlocker`, `ACEngineBridge` → `Ardia<same>*.mm`; `ACPasswords`, `ACAutofill`, `ACZoom` →
+  `ArdiaServices.mm`; `ACExtensions.mm` → `ExtensionsModule.swift`; `ACCef.mm` → `ArdiaHost*.mm`,
+  `ArdiaStartup.mm`; `ACEngine.mm` → `ardiacore_api.mm`; `helper/page_script.js` → `packages/ardiacore/ios/`;
   `packages/cef/src` → `packages/ardiacore/src`.
 
 ## Rules
@@ -130,7 +142,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   - Launch the app only with `open -g` (never plain `open`, never `activate`) **and** with
     `ARDIA_BACKGROUND=1`: `open -g` alone does not stop LaunchServices from making the app
     frontmost once its windows appear (this stole the user's keystrokes). With it the process is
-    BackgroundOnly and every activation path is guarded (`packages/ardiacore/ios/ArdiaCoreActivation.mm`); each
+    BackgroundOnly and every activation path is guarded (`packages/ardiacore/ios/ArdiaActivation.mm`); each
     attempt is logged to `$ARDIA_DATA_DIR/activation.log`. `lsappinfo front` must never show
     your pid. Its windows never come up over the owner's: every window (Chrome's bubbles and popups, panels, PiP,
     Little Ardia, sheets) has its level set a band below normal (normal at layer -1000000, floating at -999997), so
@@ -183,8 +195,8 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     the module provider).
 - **Shared files** several agents must touch — `packages/shell/ios/MainMenu.swift`,
   `apps/browser/src/lib/commands.ts`, `apps/browser/src/App.tsx`, `apps/browser/src/store/settings.ts`,
-  `apps/browser/src/lib/theme.ts`, `packages/ardiacore/ios/ArdiaCoreInternal.h`, `packages/ardiacore/ios/ArdiaCore.podspec`,
-  `packages/ardiacore/ios/ArdiaCoreWebView.mm`, `packages/ardiacore/scripts/acceptance.mjs`, ArdiaCore's `public/ArdiaCore.h`,
+  `apps/browser/src/lib/theme.ts`, `packages/ardiacore/ios/ArdiaInternal.h`, `packages/ardiacore/ios/ArdiaCore.podspec`,
+  `packages/ardiacore/ios/ArdiaWebViewInternal.h`, `packages/ardiacore/scripts/acceptance.mjs`, ArdiaCore's `public/ArdiaCore.h`,
   `ardiacore_api.mm` and `ac_browser*.mm`, the `expo-module.config.json` files: re-read right before each edit, keep
   edits small and additive (add your case/item/field; don't restructure), and never undo someone else's lines.
   Native files there compile into everyone's build: check one pod with `scripts/agent/typecheck-pod <Pod>` before saving more.
@@ -216,11 +228,11 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     `node apps/browser/scripts/shortcuts-test.mjs <Debug app>` checks every shortcut in every focus.
   - Page content: `scripts/agent/ac page <data dir> <url part> '<expression>'`, or CDP on the instance's port
     (`http://localhost:<port>/json`, `Runtime.evaluate`, `Page.captureScreenshot`). A `ARDIA_BACKGROUND` instance's windows answer NO to
-    `-[NSWindow isOccluded]` (`ArdiaCoreHost.mm`), so a covered window shows a tab at once instead of after Chrome's 1 s
+    `-[NSWindow isOccluded]` (`ArdiaHost+Launch.mm`), so a covered window shows a tab at once instead of after Chrome's 1 s
     occlusion delay; set `ARDIA_ALLOW_OCCLUSION=1` to test occlusion itself.
   - CDP (`ARDIA_REMOTE_DEBUGGING_PORT`), argv and `ARDIA_CHROMIUM_SWITCHES` only reach Chrome where it runs on its mock
     keychain: a scratch `ARDIA_DATA_DIR`, or a build without a team signature (ad hoc copies such as carryover.sh's). A
-    team-signed build on its real data dir forwards none of them (`ArdiaCoreHost.mm`), and its browser process removes
+    team-signed build on its real data dir forwards none of them (`ArdiaHost+Launch.mm`), and its browser process removes
     every switch that opens the profile to outside control (remote debugging, unpacked extensions, automation, proxies,
     certificate overrides, net-log), also after chrome://flags have been applied, and unsets `SSLKEYLOGFILE`
     (`ac_main_delegate.cc`), so nothing drives or records the real profile, with its real Safe Storage key; Chrome 136

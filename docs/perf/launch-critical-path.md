@@ -223,7 +223,7 @@ warm tab, gets a page at launch).
 
 At engineDidStart, before React Native starts, the focused saved window shows natively. It holds the session's frame,
 the real backdrop (shaders' `ArdiaEarlyBackdrop`), a picture of the chrome taken at the last quit, and the launch tab's
-live page in a rounded cover. When JS opens that window it claims the same NSWindow (`ArdiaCoreEarlyWindow.mm`), so the
+live page in a rounded cover. When JS opens that window it claims the same NSWindow (`ArdiaEarlyWindow.mm`), so the
 handoff makes no second window.
 
 - **Gates.** The early window never shows on a login-item launch, for a launch that opens documents or URLs, while

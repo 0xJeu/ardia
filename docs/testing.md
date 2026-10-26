@@ -58,20 +58,20 @@ make an instance a test instance; the rest are hooks for one test.
 | Variable | Read in | What it does |
 | --- | --- | --- |
 | `ARDIA_BACKGROUND=1` | everywhere (below) | A hidden test instance (below) |
-| `ARDIA_DATA_DIR` | `ArdiaCoreHost.mm`, `packages/shell` `ArdiaIsolation.m` | Scratch data dir (below). A Debug build refuses to start without one |
-| `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaCoreHost.mm` | CDP on that port (`--remote-allow-origins=*`), only on Chrome's mock keychain (a scratch `ARDIA_DATA_DIR`, or an ad hoc build). A team-signed build on its real data dir ignores it, forwards neither argv nor `ARDIA_CHROMIUM_SWITCHES`, and its browser process removes every switch that would open the profile to outside control, however it's spelled, at startup and again once chrome://flags have become switches, and unsets `SSLKEYLOGFILE` (`ac_main_delegate.cc` `kSwitchesThatOpenTheProfile`; `--ardia-show-profile-gate` logs the parsed and gated command lines both times) |
+| `ARDIA_DATA_DIR` | `ArdiaHost+Launch.mm`, `packages/shell` `ArdiaIsolation.m` | Scratch data dir (below). A Debug build refuses to start without one |
+| `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaHost+Launch.mm` | CDP on that port (`--remote-allow-origins=*`), only on Chrome's mock keychain (a scratch `ARDIA_DATA_DIR`, or an ad hoc build). A team-signed build on its real data dir ignores it, forwards neither argv nor `ARDIA_CHROMIUM_SWITCHES`, and its browser process removes every switch that would open the profile to outside control, however it's spelled, at startup and again once chrome://flags have become switches, and unsets `SSLKEYLOGFILE` (`ac_main_delegate.cc` `kSwitchesThatOpenTheProfile`; `--ardia-show-profile-gate` logs the parsed and gated command lines both times) |
 | `ARDIA_JS_LOCATION=host:port` | `AppDelegate.swift` | This launch's Metro, never written to defaults |
-| `ARDIA_CHROMIUM_SWITCHES` | `ArdiaCoreHost.mm` | Extra Chrome switches, space-separated (background mode drops the auto-accept capture ones); only on Chrome's mock keychain, like argv |
-| `ARDIA_ALLOW_OCCLUSION=1` | `ArdiaCoreHost.mm` | Background mode keeps Chrome's occlusion. macOS posts no occlusion change for a window a band below normal, so minimizing and deminiaturizing post one for it (the page goes hidden as in a user's minimized window) |
-| `ARDIA_ALLOW_AUDIO=1` | `ArdiaCoreHost.mm`, `IntroMusic.swift` | Background mode keeps sound |
+| `ARDIA_CHROMIUM_SWITCHES` | `ArdiaHost+Launch.mm` | Extra Chrome switches, space-separated (background mode drops the auto-accept capture ones); only on Chrome's mock keychain, like argv |
+| `ARDIA_ALLOW_OCCLUSION=1` | `ArdiaHost+Launch.mm`, `ArdiaWindowFullScreen.mm` | Background mode keeps Chrome's occlusion. macOS posts no occlusion change for a window a band below normal, so minimizing and deminiaturizing post one for it (the page goes hidden as in a user's minimized window) |
+| `ARDIA_ALLOW_AUDIO=1` | `ArdiaHost+Launch.mm`, `IntroMusic.swift` | Background mode keeps sound |
 | `ARDIA_DOWNLOADS_DIR` | engine `ac_downloads.cc` | Chrome's download folder for this launch: the pref's default, never written to the profile (a folder the user picked still wins) |
 | `ARDIA_TEST_REAUTH=granted` | engine `ac_reauth.cc` | Background mode grants macOS re-auth requests (otherwise refused, each reported as `reauth.requested`). Only builds that aren't signed for distribution (Debug, ad hoc) and run on Chrome's mock keychain honour it, so it can never reveal what the real "Ardia Safe Storage" key encrypts; a Developer ID build refuses every request in background mode |
 | `ARDIA_CONTEXT_MENU_LOG` | engine `ac_context_menu.mm` | Context menus go to the host instead of the screen, in any build; the pick runs on the model that owns it, logged as `[ardiacore-menu]` in the system log |
-| `ARDIA_FAKE_FULLSCREEN_MS` | `ArdiaCoreChromeWindow.mm` | Length of the acted-out full-screen transition (the window takes the screen's frame as it starts and its old frame back on the way out, as AppKit does). Dev actions (`devWindow`): `fakeFullScreen:<1\|0>[:<ms>]`, `fakeFullScreenMs:<ms>`, `fakeOcclusion:<visible\|occluded\|off>` (macOS's occlusion state; a test window otherwise counts as seen), `fakeFullScreenOcclusionMs:<ms>` (acted transitions occlude the window, visible again `<ms>` after they end, as a real Space animation), `pageCover:<1\|0>` (the page's picture over it through transitions, `ACPageCover`; 0 is 0.2.30's behaviour), `fullScreenProbe:<ms>` then `fullScreenProbe` (per display frame, what an in-process render of the window, all AppKit's transition shows, has in the page's place: an 8 × 6 colour grid, uniformity, covers; acceptance `fullscreen-transition-picture`) |
-| `ARDIA_TRAFFIC_LIGHTS_LOG=<file>` | `ArdiaCoreChromeWindow.mm` | Logs every traffic-light change (test instances only) |
-| `ARDIA_PIP_SELFTEST` | `ArdiaCorePictureInPicture.mm` | On the first PiP window: `close` / `backToTab` click Chrome's buttons (`pip-button-selftest.json`: closed, the prevents-activation tag, app activations), `hover` holds the controls up (`pip-hover.json`, `ARDIA_PIP_HOVER=close\|back`), anything else runs the style self-test (`pip-selftest.json`), all in the data dir |
+| `ARDIA_FAKE_FULLSCREEN_MS` | `ArdiaWindowFullScreen.mm` | Length of the acted-out full-screen transition (the window takes the screen's frame as it starts and its old frame back on the way out, as AppKit does). Dev actions (`devWindow`): `fakeFullScreen:<1\|0>[:<ms>]`, `fakeFullScreenMs:<ms>`, `fakeOcclusion:<visible\|occluded\|off>` (macOS's occlusion state; a test window otherwise counts as seen), `fakeFullScreenOcclusionMs:<ms>` (acted transitions occlude the window, visible again `<ms>` after they end, as a real Space animation), `pageCover:<1\|0>` (the page's picture over it through transitions, `ArdiaPageCover`; 0 is 0.2.30's behaviour), `fullScreenProbe:<ms>` then `fullScreenProbe` (per display frame, what an in-process render of the window, all AppKit's transition shows, has in the page's place: an 8 × 6 colour grid, uniformity, covers; acceptance `fullscreen-transition-picture`) |
+| `ARDIA_TRAFFIC_LIGHTS_LOG=<file>` | `ArdiaTrafficLights.mm` | Logs every traffic-light change (test instances only) |
+| `ARDIA_PIP_SELFTEST` | `ArdiaPictureInPicture.mm` | On the first PiP window: `close` / `backToTab` click Chrome's buttons (`pip-button-selftest.json`: closed, the prevents-activation tag, app activations), `hover` holds the controls up (`pip-hover.json`, `ARDIA_PIP_HOVER=close\|back`), anything else runs the style self-test (`pip-selftest.json`), all in the data dir |
 | `ARDIA_TRACE_PIP=1` | engine `ac_picture_in_picture.mm` | PiP windows opening and closing, to `/tmp/ac-pip-trace.log` |
-| `ARDIA_TRACE_VISIBILITY=1` | `ArdiaCoreHost.mm`, `ArdiaCoreWebView.mm` | Logs occlusion and each WebView attach/detach (`[ardiacore-vis]` in the system log) |
+| `ARDIA_TRACE_VISIBILITY=1` | `ArdiaHost+Launch.mm`, `ArdiaWebView.mm` | Logs occlusion and each WebView attach/detach (`[ardiacore-vis]` in the system log) |
 | `ARDIA_SHADERS_FORCE_KEY=1` | `MetalSurface.swift` | Metal views act as in the key window (the New Tab intro) |
 | `ARDIA_RELEASE_NOTES=1` | `AppModule.swift` | Opens the release notes as after an update |
 | `ARDIA_UPDATE_FEED_URL` | `AppUpdater.swift` | Sparkle's feed; an instance with a scratch data dir checks for updates only with one |
@@ -82,7 +82,7 @@ make an instance a test instance; the rest are hooks for one test.
 
 `ARDIA_BACKGROUND=1` changes:
 - **Activation:** the process is BackgroundOnly and every activation path is refused and logged to
-  `$ARDIA_DATA_DIR/activation.log` (`ArdiaCoreActivation.mm`). File panels never show: they answer with the paths in
+  `$ARDIA_DATA_DIR/activation.log` (`ArdiaActivation.mm`). File panels never show: they answer with the paths in
   `$ARDIA_DATA_DIR/file-chooser.txt` (one a line, consumed), or cancel. Context menus are reported, not shown.
   It reads as active all the same (`-[NSApplication isActive]`, the one fake), and AppKit's key window follows as in an
   active app: the window made key is key and its notifications go out, so focus runs production's path. A check
@@ -97,7 +97,7 @@ make an instance a test instance; the rest are hooks for one test.
 - **Windows:** they stay behind every other app's windows: each window's level is set a band below normal (normal at
   CoreGraphics layer -1000000, floating at -999997…; `-level` answers the one asked for), so no ordering, activation
   attempt or AppKit reshuffle lifts one over the owner's, the app's own keep production's order, and Mission Control
-  leaves them out (`ArdiaCoreActivation.mm`). `[NSApp activateIgnoringOtherApps:]` and `activate` are refused and
+  leaves them out (`ArdiaActivation.mm`). `[NSApp activateIgnoringOtherApps:]` and `activate` are refused and
   logged. With `ARDIA_ALLOW_OCCLUSION=1` a window the owner's cover is really occluded.
   Full screen is acted out (no new Space); windows answer NO to `-[NSWindow isOccluded]`, so a covered
   window shows a tab at once instead of after Chrome's 1 s delay, with `--disable-backgrounding-occluded-windows`;

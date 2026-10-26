@@ -56,7 +56,7 @@ Read once at launch from the environment, for a bench or a bisect; each falls ba
 
 | Variable | Off means |
 |---|---|
-| `ARDIA_EARLY_WINDOW_FIRST=off` | the launch tab starts before the early window is made, as before (`ArdiaCoreHost.mm`) |
+| `ARDIA_EARLY_WINDOW_FIRST=off` | the launch tab starts before the early window is made, as before (`ArdiaHost+Launch.mm`) |
 | `ARDIA_LAUNCH_SPARE_RENDERER=off` | no spare renderer is started for the launch tab; its navigation launches one |
 | `ARDIA_SCRIPT_LOADER_AT_ONCE=off` | a content-script loader made after extensions are ready waits one task to start (engine) |
 | `ARDIA_SCRIPTS_WAIT_AT_RESPONSE=off` | a navigation waits for content scripts before its request, not before its commit (engine) |

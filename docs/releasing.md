@@ -286,7 +286,7 @@ id, executable, Developer ID team, designated requirement, feed and key), so Spa
 macOS keeps its permissions, keychain items and passkeys.
 
 Nothing is migrated. A release build without `ARDIA_DATA_DIR` opens the CEF build's data where it is
-(`InstalledDataDirectory` in `packages/ardiacore/ios/ArdiaCoreHost.mm`): Chrome's user data dir
+(`InstalledDataDirectory` in `packages/ardiacore/ios/ArdiaProfiles.mm`): Chrome's user data dir
 `~/Library/Application Support/com.ardia.browser/Chromium` (profiles `Default` and `Profile <id>`), with the app's
 own documents (session, settings) in the folder above. Both engines are Chromium 154.0.8037.58, so every store keeps its
 format, and both read the same "Ardia Safe Storage" keychain item, which trusts the app by its designated

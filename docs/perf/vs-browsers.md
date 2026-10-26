@@ -182,8 +182,8 @@ main window, and pays the same.
 - React Native: main executable 9.1, hermes 4.6, JS bundle 3.9, assets 9.2 MB.
 
 **New window.** `Target.createTarget({ newWindow: true })` gives Ardia a new normal Chrome Browser, which
-`ArdiaCoreHost.mm -engineWindowForNewBrowserOfProfile:type:` hosts in a stray window
-(`ArdiaCoreChromeWindow.mm +strayWindowForProfile:`). Its tab ends up in the existing main window and no window
+`ArdiaHostEngineDelegate.mm -engineWindowForNewBrowserOfProfile:type:` hosts in a stray window
+(`ArdiaWindowController.mm +strayWindowForProfile:`). Its tab ends up in the existing main window and no window
 opens. The same path serves an extension's `chrome.windows.create`, so this is a parity bug, and its fix is in
 progress separately. The row is null for Ardia until then; xbench counts a window when the target's window id differs
 from the restored tab's.

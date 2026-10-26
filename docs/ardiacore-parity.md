@@ -129,7 +129,7 @@ Test hygiene the run keeps (each was a real failure):
 - Permissions use MIDI and notifications (no macOS prompt behind them), external apps a scheme no app handles;
   never location or `mailto:`. Camera and microphone only on a copy of the app without the device entitlements
   (ad hoc, hardened runtime: macOS refuses the devices without asking) and Chrome's fake devices: every hidden
-  instance gets `--use-fake-device-for-media-stream` (ArdiaCoreHost), and with it the engine keeps the microphone on a
+  instance gets `--use-fake-device-for-media-stream` (ArdiaHost), and with it the engine keeps the microphone on a
   fake input (`ac_fake_media.mm`), since the fake list's "default" input is the Mac's real one to the audio service and
   a stream on it raised macOS's microphone dialog on the owner's screen (2026-10-01).
 - A check that needs a page on screen (permission prompts, choosers, context menus) shows it first: Chrome holds
@@ -199,7 +199,7 @@ Test hygiene the run keeps (each was a real failure):
 the panes the app shows, Chrome's selected tab and active Browser (an extension that records `tabs.onActivated` and
 reads `chrome.windows`), and native focus (the key window, and the requests to make one key,
 `makeKeyAndOrderFront: on ArdiaCoreWindow #<number>` in `activation.log`). A test instance is never really active: it fakes
-only that it reads as active (`ArdiaCoreActivation.mm`; `devWindow(n, "fakeAppActive:0")` is the user in another app), and
+only that it reads as active (`ArdiaActivation.mm`; `devWindow(n, "fakeAppActive:0")` is the user in another app), and
 AppKit's key window follows as in an active app, so Chrome's views hear key changes as in production. Its fixtures are HTTPS (a certificate made per
 run; this instance only gets `--ignore-certificate-errors`), since Chrome's automatic Picture in Picture acts only on
 https and file pages; the call is a fake conference (fake camera, a Media Session `enterpictureinpicture` handler that
@@ -329,7 +329,7 @@ over, `-[ArdiaCoreTab setTemporarySource:]`) is the tab a closed window's entry 
 
 ## `ArdiaSwipe` (`packages/ardiacore/src/swipe.tsx`)
 
-**done**: the same sources as CEF's (`ACSwipe.mm`, `SwipeModule.swift`, linked into `packages/ardiacore/ios`). Profile
+**done**: the same sources as CEF's (`ArdiaSwipe.mm`, `SwipeModule.swift`, linked into `packages/ardiacore/ios`). Profile
 paging on ArdiaCore is a change of the window's active profile, never a window swap.
 
 ## Window hosting (`ArdiaChromeWindowHost`, called by `packages/shell/ios/ChromeWindows.swift`)
@@ -344,7 +344,7 @@ lights are placed again after every switch), `prepareProfiles:forWindow:`, `setT
 
 | Item | Status | Note |
 |---|---|---|
-| RN app in Chromium's loop | done | `ArdiaCoreHost` runs `ChromeMain`; React Native starts on the loop's first idle (React Native's debug `ReentrancyCheck` trapped when it started inside Chrome's startup burst). The app delegate gets each launch callback once: when that idle comes before AppKit finished launching, AppKit sends them (sending them twice made a second React Native factory, two JS runtimes), and a cold launch's URLs follow |
+| RN app in Chromium's loop | done | `ArdiaHost` runs `ChromeMain`; React Native starts on the loop's first idle (React Native's debug `ReentrancyCheck` trapped when it started inside Chrome's startup burst). The app delegate gets each launch callback once: when that idle comes before AppKit finished launching, AppKit sends them (sending them twice made a second React Native factory, two JS runtimes), and a cold launch's URLs follow |
 | Popups and Chrome-made tabs as the app's tabs | done | |
 | Two profiles in one window | done | |
 | Background test instances | done | `ARDIA_BACKGROUND=1`: activation guards, panels answered from `file-chooser.txt`, context menus reported |
@@ -377,7 +377,7 @@ renderer client (`ACContentRendererClient`) and a mojo interface (`engine/ardiac
 
 Plain Chromium code over Chrome's services (`engine/chromium/src/chrome/browser/ardia`, rules in
 `public/ac_engine.h`), linked into ArdiaCore's framework (and, until the cutover, CEF's). The app calls them through
-`dlsym` on the framework (`ArdiaCoreEngineBridge`/`ArdiaCoreServices`). All of them are wired:
+`dlsym` on the framework (`ArdiaEngineBridge`/`ArdiaServices`). All of them are wired:
 
 | Export | JS functions (`packages/ardiacore/src`) |
 |---|---|

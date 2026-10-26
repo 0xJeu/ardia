@@ -141,7 +141,7 @@ the active one, pins (and groups, once the engine reports them). JS never writes
 caused a report: it sends commands with ids, the engine commits them in Chrome, and every change comes back as one
 ordered transaction that names its cause. There are no echo windows, timers or "was that us" flags.
 
-**The engine contract** (`@ardia/ardiacore`; ArdiaCore implements it in `packages/ardiacore/ios/ArdiaCoreTabStrip.mm`):
+**The engine contract** (`@ardia/ardiacore`; ArdiaCore implements it in `packages/ardiacore/ios/ArdiaTabStrip.mm`):
 - `sendTabStripCommand(command): number` sends a command and returns its id (unique for the app's lifetime, also
   across JS reloads). Commands:
   - `{ op: "activate", strip, key }`: make that tab the strip's active tab.
@@ -217,7 +217,7 @@ ordered transaction that names its cause. There are no echo windows, timers or "
   one command per strip at a time; no `activate` while Chrome's active tab has no key (a tab Chrome made in front,
   before the app adopts it: its activation is Chrome's, above); the same command isn't sent
   again until something other than the app's commands changed that strip (a plan Chrome can't reach doesn't loop).
-- ArdiaCore (`ArdiaCoreTabStrip.mm`) takes the strips from Chrome's own tab strip models, which name the Browser, so a
+- ArdiaCore (`ArdiaTabStrip.mm`) takes the strips from Chrome's own tab strip models, which name the Browser, so a
   strip's window is never inferred from its tabs.
 - Tests: `src/store/liveTabs.test.mjs` runs the real wiring against a fake engine that keeps this contract.
 
@@ -236,7 +236,7 @@ ordered transaction that names its cause. There are no echo windows, timers or "
   `$ARDIA_DATA_DIR/dev-console.log`.
 - lib/devHarness.ts runs `$ARDIA_DATA_DIR/dev-eval.js` against the store — use it to drive a running instance.
 - Menus per instance: scratchpad `axmenus` tool (System Events confuses instances sharing a bundle id).
-- Swipes (layout/SwipeOverlay, layout/ProfileSwipe, packages/ardiacore/ios/ACSwipe.mm): `globalThis.acSwipe.pane(tabId).devSimulate(steps, { ignorePreference: true })`
+- Swipes (layout/SwipeOverlay, layout/ProfileSwipe, packages/ardiacore/ios/ArdiaSwipe.mm): `globalThis.acSwipe.pane(tabId).devSimulate(steps, { ignorePreference: true })`
   and `.sidebar(windowId)` play synthetic trackpad gestures through the real tracker (pages scroll and ack for real); `acSwipe.history` opens the back/forward list.
 
 ## Internal pages, Settings, Import (components/pages, settings, import)
