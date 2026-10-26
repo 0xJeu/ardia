@@ -3,7 +3,8 @@ import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "reac
 import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { closeTab } from "../../state/browser/actions";
-import { hex, layout, useSelectedTabGlow, useTheme } from "../ui/theme";
+import { hex, layout, useTheme } from "../ui/theme";
+import { useSelectedTabGlow } from "./tokens";
 import { COMPLETION_MS, errorText, manualRefresh, openLiveItem, statusText } from "../../state/live/engine";
 import { prBadge } from "../../state/live/github";
 import { folderRows, liveTabPlace, type FolderRow } from "../../state/live/rows";

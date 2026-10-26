@@ -4,7 +4,8 @@ import { Animated, Pressable, ScrollView, StyleSheet, Text, View, type LayoutCha
 import { switchOn } from "../../platform/killSwitches";
 import { live } from "../../state/live/store";
 import { everySlowly } from "../../platform/slowTimers";
-import { layout, ThemeScope, useTheme } from "../ui/theme";
+import { layout, useTheme } from "../ui/theme";
+import { ThemeScope } from "../window/ThemeScope";
 import { useBrowser, type BrowserState } from "../../state/browser/store";
 import { PageProfileContext, useSettings, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
 import { activeTabId, isIncognitoProfile } from "../../state/browser/model";
