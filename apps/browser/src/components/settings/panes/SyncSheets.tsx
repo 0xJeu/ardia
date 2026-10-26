@@ -7,7 +7,6 @@ import { enterRecoveryPhrase, stopSync } from "../../../state/sync/engine";
 import { Button, Checkbox, font, ink, Sheet, weight } from "../../ui";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { settingsType } from "../tokens";
-import { settingsInk } from "../tokens";
 import { useSettingsColors } from "../useSettingsColors";
 
 const WORDS = 24;
@@ -73,7 +72,7 @@ function RecoveryKitSheet() {
               backgroundColor: look.warningFill,
             }}
           >
-            <Symbol name="exclamationmark.triangle.fill" size={12} color={settingsInk.warning} style={{ width: 16, height: 16 }} />
+            <Symbol name="exclamationmark.triangle.fill" size={12} color={theme.warning} style={{ width: 16, height: 16 }} />
             <Text style={{ flex: 1, ...font.small, lineHeight: 16, color: theme.textPrimary }}>
               Save a copy of your Recovery Kit to{" "}
               <Text style={{ textDecorationLine: "underline" }}>another</Text> device or to the cloud. You’ll need it if you lose access to this device.

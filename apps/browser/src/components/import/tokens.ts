@@ -1,7 +1,5 @@
 export const importColors = {
   windowFill: { dark: "#1E1E1E", light: "#F4F4F4" },
-  warning: "#FF9F0A",
-  success: "#30D158",
   monogramFallback: "#8E8E93",
   dropBorder: { dark: "rgba(255,255,255,0.25)", light: "rgba(0,0,0,0.2)" },
 } as const;

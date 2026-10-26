@@ -17,7 +17,6 @@ import { Row, SectionHeader } from "../Form";
 import { setting } from "../settingsIndex";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { settingsType } from "../tokens";
-import { settingsInk } from "../tokens";
 
 const DESCRIPTIONS: Record<LiveSourceId, string> = {
   github: "Your open pull requests and the ones waiting for your review, with checks and conflicts.",
@@ -36,6 +35,7 @@ const ANCHORS: Record<LiveSourceId, string> = {
 };
 
 export function LiveFoldersPane() {
+  const theme = useTheme();
   const folders = useLive(useShallow((s) => s.folderOrder.map((id) => s.folders[id]!).filter(Boolean)));
   const profiles = useProfileRecords();
   useLive((s) => s.status);
@@ -65,7 +65,7 @@ export function LiveFoldersPane() {
         <SourceRow id="confluence" />
         <SourceRow id="gdrive" />
       </Group>
-      {isMocked ? <Text style={{ marginTop: 10, ...font.caption, color: settingsInk.mockNotice }}>Development build: services are served by ARDIA_TEST liveMock.</Text> : null}
+      {isMocked ? <Text style={{ marginTop: 10, ...font.caption, color: theme.warning }}>Development build: services are served by ARDIA_TEST liveMock.</Text> : null}
     </View>
   );
 }

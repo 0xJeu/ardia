@@ -93,6 +93,8 @@ const darkRoles = {
   formAccentPressed: "#0060D0",
   onAccent: "#FFFFFF",
   destructive: "#FF453A",
+  warning: "#FF9F0A",
+  success: "#30D158",
   searchFlash: "rgba(10,132,255,0.22)",
 };
 
@@ -188,6 +190,8 @@ const lightRoles: ColorRoles = {
   formAccentPressed: "#0060D0",
   onAccent: "#FFFFFF",
   destructive: "#FF3B30",
+  warning: "#FF9500",
+  success: "#34C759",
   searchFlash: "rgba(0,122,255,0.16)",
 };
 

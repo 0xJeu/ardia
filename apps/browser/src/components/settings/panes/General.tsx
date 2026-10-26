@@ -24,7 +24,6 @@ import { defaultBrowser, downloadSettings, loginItem, updater } from "../paneDat
 import { store, useResource } from "../../../state/settings/resources";
 import { openImport } from "../../../state/settings/settingsWindows";
 import { SetupCodeRow } from "./SetupCodeRow";
-import { settingsInk } from "../tokens";
 
 const APP = "Ardia";
 
@@ -250,7 +249,7 @@ function DefaultBrowserBanner() {
       <Symbol
         name={isDefault ? "checkmark.seal.fill" : "safari"}
         size={20}
-        color={isDefault ? settingsInk.defaultBrowser : theme.icon}
+        color={isDefault ? theme.success : theme.icon}
         style={{ width: 28, height: 28 }}
       />
       <Text style={{ flex: 1, ...font.body, color: theme.textPrimary }}>

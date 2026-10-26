@@ -33,7 +33,7 @@ export function Note({ text }: { text: string }) {
 
 export function ErrorText({ text }: { text: string }) {
   return (
-    <Text size="small" style={{ marginTop: space.l, color: importColors.warning }}>
+    <Text size="small" tone="warning" style={{ marginTop: space.l }}>
       {text}
     </Text>
   );

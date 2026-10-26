@@ -14,7 +14,6 @@ import { useResource } from "../../../state/settings/resources";
 import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
 import { formatShortcut, sameShortcut, type Shortcut } from "../../../lib/shortcuts";
 import { settingsType } from "../tokens";
-import { settingsInk } from "../tokens";
 
 type Filter = "all" | "customized" | "conflicts";
 
@@ -100,7 +99,7 @@ export function ShortcutsPane() {
                     title={item.title}
                     description={
                       others.length ? (
-                        <Text style={{ ...font.footnote, marginTop: 2, color: settingsInk.shortcutConflict }}>
+                        <Text style={{ ...font.footnote, marginTop: 2, color: theme.warning }}>
                           {`${others.length === 1 ? "This shortcut conflicts with another shortcut:" : "This shortcut conflicts with other shortcuts:"} ${others.map((o) => o.title).join(", ")}`}
                         </Text>
                       ) : item.path.length > 1 ? (

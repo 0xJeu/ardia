@@ -5,7 +5,7 @@ import { useBookmarks } from "../../../state/bookmarks/hooks";
 import { plural } from "../../../state/browser/model";
 import { openInWebStore, type ImportCounts } from "../../../state/import/apply";
 import { useOnboarding } from "../../../state/onboarding/onboarding";
-import { Button, space, Symbol, Text } from "../../ui";
+import { Button, space, Symbol, Text, useTheme } from "../../ui";
 import { APP, kindTitle } from "../model";
 import { Spacer, Title } from "../Parts";
 import { importColors, importLayout, importMotion, importType } from "../tokens";
@@ -129,6 +129,7 @@ export function DoneFooter({ flow }: { flow: ImportFlow }) {
 }
 
 function SuccessMark() {
+  const theme = useTheme();
   const { success } = importMotion;
   const scale = useRef(new Animated.Value(success.from)).current;
   useEffect(() => {
@@ -136,7 +137,7 @@ function SuccessMark() {
   }, []);
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-      <Symbol name="checkmark.circle.fill" size={46} color={importColors.success} style={{ width: 60, height: 60 }} />
+      <Symbol name="checkmark.circle.fill" size={46} color={theme.success} style={{ width: 60, height: 60 }} />
     </Animated.View>
   );
 }

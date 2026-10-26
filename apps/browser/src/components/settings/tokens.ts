@@ -37,10 +37,6 @@ export const settingsInk = {
   knobOutline: "rgba(0,0,0,0.25)",
   thumbBorder: "rgba(0,0,0,0.2)",
   customSwatch: "#8E8E93",
-  warning: "#FF9500",
-  shortcutConflict: "#FF9F0A",
-  defaultBrowser: "#34C759",
-  mockNotice: "#D29922",
 } as const;
 
 export const settingsType = {

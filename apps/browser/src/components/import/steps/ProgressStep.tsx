@@ -77,7 +77,7 @@ function CategoryRow({ title, icon, status, index }: { title: string; icon: stri
           <Symbol
             name={status === "done" ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"}
             size={15}
-            color={status === "done" ? importColors.success : importColors.warning}
+            color={status === "done" ? theme.success : theme.warning}
             style={{ width: 20, height: 20 }}
           />
         </Animated.View>

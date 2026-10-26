@@ -2,7 +2,7 @@ import { useTheme } from "../ui/theme";
 import { colorRoles, ink, weight } from "../ui/tokens";
 
 const DARK = {
-  success: "#3FB950",
+  success: colorRoles.dark.success,
   failure: colorRoles.dark.destructive,
   pending: "#D29922",
   merged: "#A371F7",
@@ -16,7 +16,7 @@ const DARK = {
 };
 
 const LIGHT: typeof DARK = {
-  success: "#1A7F37",
+  success: colorRoles.light.success,
   failure: colorRoles.light.destructive,
   pending: "#9A6700",
   merged: "#8250DF",

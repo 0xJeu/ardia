@@ -23,7 +23,6 @@ import { Button, font, Group, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { folderLabel, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
 import { settingsType } from "../tokens";
-import { settingsInk } from "../tokens";
 
 export function SyncPane() {
   const theme = useTheme();
@@ -118,7 +117,7 @@ function SyncOff({ info }: { info: FolderInfo | null }) {
         </Row>
         {noICloud ? (
           <Row
-            icon={<Symbol name="exclamationmark.icloud" size={14} color={settingsInk.warning} style={{ width: 28, height: 20 }} />}
+            icon={<Symbol name="exclamationmark.icloud" size={14} color={theme.warning} style={{ width: 28, height: 20 }} />}
             title="iCloud Drive is off on this Mac"
             description="Turn on iCloud Drive in System Settings, or choose another folder that syncs between your Macs, like one in Dropbox, on a NAS or on a USB drive."
           >
