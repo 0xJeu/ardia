@@ -44,6 +44,22 @@ lib/                    pure helpers: url, time, keys
 - **Values come from tokens.** `components/ui/tokens.ts` holds the colour roles (light and dark), spacing scale,
   radii, type, shadow levels; `components/ui/motion.ts` holds the motion presets (named curves and the one spring
   converter). A Dia-measured value used in one place is a named constant in its feature's `tokens.ts`.
+- **One role per look.** Before adding a colour or shadow, use the role that already draws it; a feature palette
+  points at a shared role (`colorRoles.dark.destructive`) instead of copying its value. User-picked colours (profile
+  and tab group palettes) are data, not roles. The shared roles that replaced lookalikes (2026-10-26):
+
+  | Role | Dark / light | For |
+  | --- | --- | --- |
+  | `accent` | #4A77D4 / #6395FC (Dia's CommandBar blue) | chrome and popovers: drop rings, progress, links, popover toggles and checkmarks, live unread dots |
+  | `formAccent` | #0A84FF / #007AFF (system blue) | AppKit-style controls in settings, dialogs and pages: primary buttons, checkboxes, radios, form switches, selection |
+  | `destructive` | #FF453A / #FF3B30 | every danger, error, failing and recording red |
+  | `warning`, `success` | #FF9F0A / #FF9500, #30D158 / #34C759 | amber notices and conflicts; done, passing, default |
+  | `rowHover` | white / black 0.07 (Dia's Menu/ItemBackgroundHovered) | every row hover: sidebar, menus, popovers, settings, pages |
+  | `divider` | white / black 0.09 (Dia's Primitives/Primary1200) | every separator line; the top strip's group divider and the site-coloured toolbar keep their own |
+  | `panel` | #2A2A2A / #FFFFFF (Dia's command panel) | opaque panels, dialogs, cards, the media players |
+  | `tooltipFill` | #262626 / #FFFFFF (Dia's tooltip) | tooltips; `popoverFill` and `popoverTint` are its colour at the menu material's alphas |
+  | `onPrimary` | #000000 / #FFFFFF | ink on a filled pill or badge (Go, chip primary, onboarding primary, badges) |
+  | `shadow.dialog` | 24 pt, (0, 10) | dialogs, sheets, the command panel, NTP cards (with their own opacity); `shadow.popover` (18, (0, 8)) is the lighter menu-material level |
 - No hex, `rgb()`/`rgba()`/`hsl()` literals, `Easing.` curves or numeric animation durations outside files named
   `tokens.ts` or `motion.ts`.
 - **Screens are built from `components/ui/` pieces:** Box, Text, Button (icon, text, pill and close variants),
@@ -79,6 +95,7 @@ lib/                    pure helpers: url, time, keys
 | a text input / search box / pop-up menu / checkbox | `TextField`, `SearchField`, `PopUp`, `Checkbox` |
 | an on/off switch | `<Toggle>` (settings) or `<Toggle look="panel">` (popovers) |
 | a radio dot | `<Radio on look="form" \| "compact" \| "ring">` |
+| a colour swatch with a selection ring | `<Swatch selected ring fill>` (children instead of `fill` for a gradient) |
 
 ## State
 
