@@ -1,6 +1,8 @@
-import { openWindow, switchToTab } from "../../state/browser/actions";
-import { useBrowser } from "../../state/browser/store";
-import { originalProfile } from "../../state/windows/small";
+import { openWindow, switchToTab } from "../browser/actions";
+import { useBrowser } from "../browser/store";
+import { activeTabId, viewTabIds } from "../browser/model";
+import type { Tab } from "../browser/types";
+import { originalProfile } from "../windows/small";
 
 export type Disposition = "current" | "newTab" | "newWindow";
 
@@ -27,4 +29,13 @@ export function switchFromBar(targetTabId: string, url: string, barTabId: string
   const bar = s.tabs[barTabId];
   if (bar) s.closePanel(bar.windowId);
   switchToTab(targetTabId);
+}
+
+export function otherOpenTabs(windowId: string, limit: number): Tab[] {
+  const s = useBrowser.getState();
+  const active = activeTabId(s, windowId);
+  return viewTabIds(s, windowId)
+    .map((id) => s.tabs[id]!)
+    .filter((t) => t.id !== active && t.url)
+    .slice(0, limit);
 }

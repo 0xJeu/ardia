@@ -1,12 +1,12 @@
 import type { CommandAction } from "@ardia/core";
 import type { BrowserCommand } from "@ardia/shell";
-import { isBookmarked } from "../../state/bookmarks/bookmarks";
-import { useBrowser, type BrowserState } from "../../state/browser/store";
-import { activeTab, bookmarkProfileId, isPinnedRow, pinnedSectionTitle } from "../../state/browser/model";
-import { canTidyPins } from "../../state/pins/tidyPins";
-import { commandBarTitle, commandSymbol } from "../../state/commands/commandCatalog";
-import { menuBarRevision, shortcutHint } from "../../state/commands/commandShortcuts";
-import type { Tab } from "../../state/browser/types";
+import { isBookmarked } from "../bookmarks/bookmarks";
+import { useBrowser, type BrowserState } from "../browser/store";
+import { activeTab, bookmarkProfileId, isPinnedRow, pinnedSectionTitle } from "../browser/model";
+import { canTidyPins } from "../pins/tidyPins";
+import { commandBarTitle, commandSymbol } from "../commands/commandCatalog";
+import { menuBarRevision, shortcutHint } from "../commands/commandShortcuts";
+import type { Tab } from "../browser/types";
 import { organizeActions } from "./organizeActions";
 
 type Context = { s: BrowserState; windowId: string; tab: Tab | undefined };

@@ -5,16 +5,16 @@ import { findNodeHandle, Pressable, Text, TextInput, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { journeyBarCommitted, journeyBarFocused, journeyKeystroke, journeyNavigate, journeySuggestions } from "../../state/telemetry/journeys";
 import { sampleOmniboxLatency, trackSuggestionChosen } from "../../state/telemetry/track";
-import { useBrowser } from "../../state/browser/store";
-import { useWindowId, useWindowProfileId } from "../../state/browser/hooks";
-import { activeTabId, viewTabIds } from "../../state/browser/model";
+import { useSettings, useTab, useWindow, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
+import { removeHistory } from "../../state/history/actions";
+import { useWindowUiOf } from "../../state/windows/hooks";
 import { defaultSearchEngine } from "../../state/settings/settings";
-import { runBarAction, runBarExtension } from "./runBar";
+import { runBarAction, runBarExtension } from "../../state/omnibox/runBar";
 import { createBangSubmitter, mayBeBang } from "./bangs";
 import { traceOmnibox, useOmniboxDriver } from "./devDriver";
 import { claimFocusTag, commandBarFocus, heroBarFocus } from "../../state/focus/focusClaims";
 import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarDismissal, type BarSnapshot } from "../../state/omnibox/barState";
-import { dispositionFor, openFromBar, switchFromBar, type Disposition } from "./open";
+import { dispositionFor, openFromBar, otherOpenTabs, switchFromBar, type Disposition } from "../../state/omnibox/openFromBar";
 import { openFromNewTabBar } from "../../state/omnibox/newTabBar";
 import type { NewTabTarget } from "../../state/browser/types";
 import { clipboardPasteAction, pasteMenuItem, pasteTarget, readClipboard } from "./paste";
@@ -22,7 +22,8 @@ import { ScopeChip } from "./ScopeChip";
 import { SUGGESTION_TEXT_SIZE, SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./SuggestionRow";
 import { useDropdownStart, useOpenTabsStart } from "./dropdownStart";
 import { useInlineCompletion } from "./useInlineCompletion";
-import { keywordScope, offeredScope, useSuggestions } from "./useSuggestions";
+import { useSuggestions } from "./useSuggestions";
+import { keywordScope, offeredScope } from "../../state/omnibox/scopes";
 import { setPopover } from "../../state/tabs/pageState";
 import { IconButton, useHover } from "../ui/Primitives";
 import { INCOGNITO_ICON } from "../ntp/IncognitoHeading";
@@ -73,10 +74,10 @@ export function Omnibox({
 }) {
   const theme = useTheme();
   const windowId = useWindowId();
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useWindow(windowId, (w) => !!w?.incognito);
   const profileId = useWindowProfileId();
-  const engine = useBrowser((s) => defaultSearchEngine(s.settings));
-  const currentUrl = useBrowser((s) => (opensTab ? "" : (s.tabs[tabId]?.url ?? "")));
+  const engine = useSettings((st) => defaultSearchEngine(st));
+  const currentUrl = useTab(tabId, (t) => (opensTab ? "" : (t?.url ?? "")));
   const hero = variant === "hero";
   const dropdown = variant === "sidebar";
 
@@ -138,7 +139,7 @@ export function Omnibox({
   fieldText.current = value;
   const editing = useRef(false);
   const focusEcho = useRef(false);
-  const panelOpen = useBrowser((s) => hero && !!s.windowUi[windowId]?.panel.open);
+  const panelOpen = useWindowUiOf(windowId, (ui) => hero && !!ui?.panel.open);
   const [listAway, setListAway] = useState(false);
   if (panelOpen && !listAway) setListAway(true);
   const focusField = () => {
@@ -463,7 +464,7 @@ export function Omnibox({
   }));
   const [rowActions] = useState<RowActions>(() => ({
     choose: (s) => latest.current.choose(s),
-    remove: (url) => useBrowser.getState().removeHistory(latest.current.profileId, [url]),
+    remove: (url) => removeHistory(latest.current.profileId, [url]),
   }));
   const suggestionList = (
     <SuggestionList
@@ -554,12 +555,7 @@ const AddChip = memo(function AddChip({ tabId, onGo }: { tabId: string; onGo(url
   const windowId = useWindowId();
   const { hovered, hoverProps } = useHover();
   const open = async () => {
-    const s = useBrowser.getState();
-    const active = activeTabId(s, windowId);
-    const others = viewTabIds(s, windowId)
-      .map((id) => s.tabs[id]!)
-      .filter((t) => t.id !== active && t.url)
-      .slice(0, 12);
+    const others = otherOpenTabs(windowId, 12);
     const choice = await showMenu([
       ...others.map((t) => ({ id: `tab:${t.id}`, title: t.title || displayUrl(t.url) })),
       ...(others.length ? [{ separator: true as const }] : []),

@@ -1,7 +1,8 @@
 import { classifyPaste, cleanUrl, searchUrl, type PasteAction } from "@ardia/core";
 import { copyText, showMenu, type MenuItem } from "@ardia/shell";
 import { NativeModules } from "react-native";
-import { useBrowser } from "../../state/browser/store";
+import { currentSettings } from "../../state/browser/current";
+import { navigate } from "../../state/tabs/actions";
 import { defaultSearchEngine } from "../../state/settings/settings";
 import type { Tab } from "../../state/browser/types";
 
@@ -19,7 +20,7 @@ export function pasteMenuItem(action: PasteAction | null): MenuItem[] {
 }
 
 export function pasteTarget(action: PasteAction): string {
-  return action.kind === "go" ? action.url : searchUrl(defaultSearchEngine(useBrowser.getState().settings), action.query);
+  return action.kind === "go" ? action.url : searchUrl(defaultSearchEngine(currentSettings()), action.query);
 }
 
 export async function showUrlBarMenu(tab: Pick<Tab, "id" | "url">) {
@@ -30,6 +31,6 @@ export async function showUrlBarMenu(tab: Pick<Tab, "id" | "url">) {
     ...(paste.length ? [{ separator: true as const }] : []),
     { id: "copy", title: "Copy URL", symbol: "link" },
   ]);
-  if (choice === "pasteAndGo" && action) useBrowser.getState().navigate(tab.id, pasteTarget(action));
+  if (choice === "pasteAndGo" && action) navigate(tab.id, pasteTarget(action));
   if (choice === "copy") copyText(cleanUrl(tab.url));
 }

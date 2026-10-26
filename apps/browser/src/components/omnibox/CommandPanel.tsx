@@ -2,13 +2,12 @@ import { OutsidePressArea, Surface } from "@ardia/shell";
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Easing, View, type LayoutChangeEvent } from "react-native";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
 import { useWindowId, useWindowUi } from "../../state/browser/hooks";
-import { activeTabId } from "../../state/browser/model";
-import { useStoreWhile } from "../../state/tabs/tabWatch";
+import { closePanel } from "../../state/windows/actions";
+import { useActiveTabIdWhile, useCommandBarCentred, useTabHasUrlWhile } from "../../state/omnibox/hooks";
 import { usePage } from "../../state/tabs/pageState";
 import { dismissHover, setRowsCovered } from "../../state/sidebar/hover";
-import { commandBarCentred, useCardAnchors, useUrlAnchors } from "../../state/windows/layout";
+import { useCardAnchors, useUrlAnchors } from "../../state/windows/layout";
 import { barWidth } from "../ntp/NewTabPage";
 import { closeNewTabBar } from "../../state/omnibox/newTabBar";
 import type { NewTabTarget } from "../../state/browser/types";
@@ -43,11 +42,11 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const theme = useTheme();
   const windowId = useWindowId();
   const { panel } = useWindowUi();
-  const activeId = useBrowser((s) => (panel.open ? activeTabId(s, windowId) : undefined));
-  const hasField = useStoreWhile(useBrowser, panel.open, (s) => !!(activeId && s.tabs[activeId]?.url));
+  const activeId = useActiveTabIdWhile(windowId, panel.open);
+  const hasField = useTabHasUrlWhile(activeId, panel.open);
   const insecure = usePage(activeId, (p) => !!insecureLevel(p));
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
-  const centred = useBrowser((s) => panel.open && !panel.newTab && commandBarCentred(s, windowId));
+  const centred = useCommandBarCentred(windowId, panel.open && !panel.newTab);
   const card = useCardAnchors((s) => (panel.newTab || centred ? s[windowId] : undefined));
   const overRows = panel.open && !panel.newTab && !centred && !!anchor?.sidebar;
   useEffect(() => {
@@ -58,7 +57,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   if (panel.newTab) return card ? <CentredBar windowId={windowId} tabId={activeId} target={panel.newTab} card={card} /> : null;
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);
-  const onCancel = () => useBrowser.getState().closePanel(windowId);
+  const onCancel = () => closePanel(windowId);
   const onDone = (reason?: BarDismissal) => closePanelToHeroBar(windowId, activeId, reason);
   const surface = (radius: number) => panelSurface(theme, radius);
 
@@ -123,7 +122,7 @@ function centredFrame(card: Box) {
 
 function CentredBar({ windowId, tabId, target, card }: { windowId: string; tabId: string; target: NewTabTarget; card: Box }) {
   const theme = useTheme();
-  const onCancel = () => useBrowser.getState().closePanel(windowId);
+  const onCancel = () => closePanel(windowId);
   const onDone = () => closeNewTabBar(windowId);
   return (
     <Grow
