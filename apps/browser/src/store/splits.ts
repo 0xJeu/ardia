@@ -227,12 +227,17 @@ export const createSplitsSlice: StateCreator<BrowserState, [], [], SplitsSlice> 
       [s, tabId] = withNewTab(s, windowId, { url: o.url, adoptId: o.url ? o.adoptId : undefined, profileId: anchor.profileId, openerId: o.url ? anchor.id : undefined, background: true });
     }
     const current = existing && s.splits[existing.id];
-    const split = replaced && current
-      ? { ...current, tabIds: current.tabIds.map((id) => (id === replaced ? tabId : id)) }
-      : withPane(current, anchor.id, tabId, o.side ?? "right", windowId);
+    if (replaced && current) {
+      const split = { ...current, tabIds: current.tabIds.map((id) => (id === replaced ? tabId : id)) };
+      s = gather(s, anchor.id, split.tabIds);
+      s = placedAfterSplit({ ...s, splits: { ...s.splits, [split.id]: split } }, split, replaced);
+      if (!o.background) s = apply(s, activated(s, tabId));
+      set(s);
+      return { ok: true, tabId, splitId: split.id };
+    }
+    const split = withPane(current, anchor.id, tabId, o.side ?? "right", windowId);
     if (!split) return { ok: false, reason: "max" };
     s = gather({ ...s, splits: { ...s.splits, [split.id]: split } }, anchor.id, split.tabIds);
-    if (replaced) s = placedAfterSplit(s, split, replaced);
     if (!o.background) s = apply(s, activated(s, tabId));
     set(s);
     return { ok: true, tabId, splitId: split.id };

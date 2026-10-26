@@ -328,3 +328,17 @@ test("a full split takes the link in place of the pane after its page, and refus
   assert.deepEqual(S().splits[splitId].tabIds, [b, result.tabId, d]);
   assert.deepEqual(S().windows[w].tabIds, [a, b, result.tabId, d, c]);
 });
+
+test("a link opened into a pinned two-pane split's other pane is pinned in its place, and the other window's copy follows", () => {
+  reset();
+  const { w, b, c, splitId } = splitWindow();
+  S().pinTabs([b], true);
+  const other = S().createWindow({ url: "https://z.com/" });
+  const r = S().openSplitPane(w, { anchorTabId: b, url: "https://e.com/", side: "right", background: true, adoptId: "tab:7", inPlaceOf: c });
+  assert.equal(r.ok, true);
+  assert.equal(S().tabs[r.tabId].pinned && S().tabs[r.tabId].pinnedAsRow, true, "the new pane is a pinned row like the page");
+  assert.deepEqual(S().splits[splitId].tabIds, [b, r.tabId]);
+  assert.deepEqual(sidebarEntries(S(), w).pinned.filter((e) => e.startsWith("s:")), [`s:${splitId}`], "still one pinned split row");
+  assert.ok(!sidebarEntries(S(), w).pinned.includes(`t:${r.tabId}`) && !sidebarEntries(S(), w).list.includes(`t:${r.tabId}`), "the new pane shows only in the split row");
+  assert.deepEqual(panesOf(other), [["b", "e"]], "the other window keeps the split, with the new pane");
+});
