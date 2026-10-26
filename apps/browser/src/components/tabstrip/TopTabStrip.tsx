@@ -23,7 +23,7 @@ import { groupColorMenu } from "../sidebar/groupColorMenu";
 import { TabBadges } from "../media/TabBadges";
 import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
 import { modifiersOf } from "../../lib/keys";
-import { usePageStyle, usePagerPages } from "../window/profilePager";
+import { usePageStyle, usePagerPages } from "../../state/windows/profilePager";
 import { ProfileSwipeArea } from "../window/ProfileSwipe";
 import { openNewTabInSplit } from "../../state/splits/actions";
 import { toggleNewTabBar } from "../../state/omnibox/newTabBar";
@@ -33,7 +33,7 @@ import { FolderMosaic } from "../sidebar/FolderTile";
 import { openTileFolderMenu } from "../../state/sidebar/tileFolderUi";
 import { folderCell, folderIdOfCell, folderIn, folderLabel } from "../../state/pins/tileFolders";
 import { usePeek } from "../window/usePeek";
-import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "../window/dockMotion";
+import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "../../state/windows/dockMotion";
 import {
   aimDrop,
   dockCellOf,
