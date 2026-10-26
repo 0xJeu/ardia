@@ -1,27 +1,10 @@
-type Fiber = {
-  tag: number;
-  flags: number;
-  type: unknown;
-  child: Fiber | null;
-  sibling: Fiber | null;
-  alternate: Fiber | null;
-  memoizedProps: Record<string, unknown> | null;
-  memoizedState: unknown;
-  dependencies: { firstContext: ContextItem | null } | null;
-  stateNode: unknown;
-  selfBaseDuration?: number;
-  actualDuration?: number;
-};
-
-type ContextItem = { context: { displayName?: string }; memoizedValue: unknown; next: ContextItem | null };
-type Hook = { memoizedState: unknown; queue: unknown; next: Hook | null };
+import { findFibers, nameOf, roots, walk, type Fiber } from "./perfFibers";
+import { bump, fresh, now, type Counter } from "./perfStats";
 
 type Store = {
   subscribe: (listener: (s: unknown, prev: unknown) => void) => () => void;
   getState: () => unknown;
 };
-
-type Counter = Record<string, number>;
 
 if (!(globalThis as { expo?: unknown }).expo) {
   try {
@@ -51,166 +34,14 @@ const listenersProbe = !!probeOptions?.includes("listeners");
 const layoutProbe = !!probeOptions?.includes("layout");
 const layoutEditAt = probeOptions?.includes("layoutEdit") ? 2 : 0;
 
-const now = () => performance.now();
-const bump = (c: Counter, key: string, by = 1) => void (c[key] = (c[key] ?? 0) + by);
-
-function fresh() {
-  return {
-    since: now(),
-    commits: 0,
-    commitTimes: [] as number[],
-    commitTaskLog: [] as string[],
-    renders: {} as Counter,
-    hooks: {} as Counter,
-    mounts: {} as Counter,
-    hostUpdates: 0,
-    walkMs: 0,
-    storeUpdates: {} as Counter,
-    storeKeys: {} as Counter,
-    listenerCalls: {} as Counter,
-    listenerMs: {} as Counter,
-    listenerSiteCalls: {} as Counter,
-    listenerSiteMs: {} as Counter,
-    tasks: {} as Counter,
-    taskMs: {} as Counter,
-    taskLog: [] as [string, number][],
-    commitTasks: {} as Counter,
-    timers: {} as Counter,
-    timerMs: {} as Counter,
-    timersScheduled: {} as Counter,
-    subNotified: {} as Counter,
-    selectorCalls: {} as Counter,
-    selectorMs: {} as Counter,
-    writes: {} as Counter,
-    writeBytes: {} as Counter,
-    writeMs: {} as Counter,
-    wasted: {} as Counter,
-    wastedMs: {} as Counter,
-    unstable: {} as Counter,
-    unstableMs: {} as Counter,
-    renderMs: {} as Counter,
-    causes: {} as Record<string, Counter>,
-    origins: {} as Counter,
-    commitMs: 0,
-  };
-}
-
 let stats = fresh();
 const subscriptions: Counter = {};
 const marks: Record<string, number> = {};
 const startedAt = now();
 const startup: [task: string, at: number, ms: number][] = [];
-const roots = new Set<{ current: Fiber }>();
 let firstCommit = 0;
 let firstCommitMounts: Counter | null = null;
 let task: string | null = null;
-
-function nameOf(type: unknown): string {
-  if (typeof type === "function") return (type as { displayName?: string }).displayName || type.name || "Anonymous";
-  if (type && typeof type === "object") {
-    const t = type as { displayName?: string; render?: unknown; type?: unknown };
-    if (t.displayName) return t.displayName;
-    if (t.render) return nameOf(t.render);
-    if (t.type) return nameOf(t.type);
-  }
-  return String(type);
-}
-
-const COMPONENT_TAGS = new Set([0, 1, 11, 15]);
-const PERFORMED_WORK = 1;
-const UPDATE = 4;
-const HOST_COMPONENT = 5;
-
-function walk(fiber: Fiber) {
-  if (fiber.alternate && fiber.child === fiber.alternate.child) return;
-  for (let c = fiber.child; c; c = c.sibling) {
-    if (COMPONENT_TAGS.has(c.tag)) {
-      if (!c.alternate) bump(stats.mounts, nameOf(c.type));
-      else if (c.flags & PERFORMED_WORK) {
-        const name = nameOf(c.type);
-        bump(stats.renders, name);
-        if (c.tag !== 1) {
-          let hooks = 0;
-          for (let h = c.memoizedState as Hook | null; h; h = h.next) hooks++;
-          bump(stats.hooks, name, hooks);
-        }
-        if (rendersProbe) classify(c, c.alternate);
-      }
-    } else if (c.tag === HOST_COMPONENT && c.alternate && c.flags & UPDATE) stats.hostUpdates++;
-    walk(c);
-  }
-}
-
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
-
-function shallowEqual(a: unknown, b: unknown) {
-  if (Object.is(a, b)) return true;
-  if (!isObject(a) || !isObject(b)) return false;
-  const ka = Object.keys(a);
-  if (ka.length !== Object.keys(b).length) return false;
-  return ka.every((k) => Object.prototype.hasOwnProperty.call(b, k) && Object.is(a[k], b[k]));
-}
-
-function classify(fiber: Fiber, before: Fiber) {
-  const name = nameOf(fiber.type);
-  const causes: string[] = [];
-  const props = fiber.memoizedProps ?? {};
-  const prev = before.memoizedProps ?? {};
-  let propsChanged = false;
-  let realProps = false;
-  if (props !== prev) {
-    for (const key of new Set([...Object.keys(props), ...Object.keys(prev)])) {
-      const a = props[key];
-      const b = prev[key];
-      if (Object.is(a, b)) continue;
-      propsChanged = true;
-      if (typeof a === "function" && typeof b === "function") causes.push(`fn:${key}`);
-      else if (key !== "children" && isObject(a) && isObject(b) && shallowEqual(a, b)) causes.push(`obj:${key}`);
-      else {
-        realProps = true;
-        causes.push(`props:${key}`);
-      }
-    }
-  }
-  let stateChanged = false;
-  if (fiber.tag === 1) {
-    if (!shallowEqual(fiber.memoizedState, before.memoizedState)) {
-      stateChanged = true;
-      causes.push("state");
-    }
-  } else {
-    let h = fiber.memoizedState as Hook | null;
-    let o = before.memoizedState as Hook | null;
-    for (; h && o; h = h.next, o = o.next) {
-      if (h.queue == null || Object.is(h.memoizedState, o.memoizedState)) continue;
-      stateChanged = true;
-      causes.push(shallowEqual(h.memoizedState, o.memoizedState) ? "state~" : "state");
-    }
-  }
-  let contextChanged = false;
-  let ci = fiber.dependencies?.firstContext ?? null;
-  let co = before.dependencies?.firstContext ?? null;
-  for (; ci; ci = ci.next, co = co?.next ?? null) {
-    if (co && Object.is(ci.memoizedValue, co.memoizedValue)) continue;
-    contextChanged = true;
-    causes.push(`context:${ci.context.displayName ?? "?"}`);
-  }
-  const ms = fiber.selfBaseDuration ?? 0;
-  bump(stats.renderMs, name, ms);
-  const counter = (stats.causes[name] ??= {});
-  if (!propsChanged && !stateChanged && !contextChanged) {
-    bump(stats.wasted, name);
-    bump(stats.wastedMs, name, ms);
-    bump(counter, "wasted");
-  } else {
-    if (!propsChanged) bump(stats.origins, name);
-    else if (!realProps && !stateChanged && !contextChanged) {
-      bump(stats.unstable, name);
-      bump(stats.unstableMs, name, ms);
-    }
-    for (const cause of new Set(causes)) bump(counter, cause);
-  }
-}
 
 function installReactHook() {
   let ids = 0;
@@ -235,7 +66,7 @@ function installReactHook() {
       }
       const mountsBefore = firstCommitMounts ? null : { ...stats.mounts };
       try {
-        walk(root.current);
+        walk(root.current, stats, rendersProbe);
       } catch {}
       if (mountsBefore) {
         firstCommitMounts = {};
@@ -444,18 +275,6 @@ export function probeStore(name: string, store: Store) {
 
 export function perfMark(name: string) {
   if (perfProbeEnabled && !marks[name]) marks[name] = Date.now();
-}
-
-function findFibers(name: string, limit = 50): Fiber[] {
-  const out: Fiber[] = [];
-  const visit = (f: Fiber | null) => {
-    for (let c = f; c && out.length < limit; c = c.sibling) {
-      if (COMPONENT_TAGS.has(c.tag) && nameOf(c.type) === name) out.push(c);
-      visit(c.child);
-    }
-  };
-  for (const root of roots) visit(root.current);
-  return out;
 }
 
 if (perfProbeEnabled) {
