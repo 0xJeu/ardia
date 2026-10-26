@@ -5,7 +5,7 @@ import { useHover } from "../ui/Primitives";
 import { importModule } from "../../platform/importModule";
 import { openImport } from "../../state/settings/settingsWindows";
 import { CONTENT_WIDTH } from "./ChoiceList";
-import { presetFor, useOnboarding, type BrowserSourceId } from "../../state/onboarding/onboarding";
+import { chooseSource, confirmAnswer, presetFor, skipStep, useOnboarding, type BrowserSourceId } from "../../state/onboarding/onboarding";
 import { StepActions, StepLayout } from "./Steps";
 import { CheckMark, SecondaryButton, SectionLabel, Tag, useOnboardingColors } from "./Parts";
 
@@ -62,7 +62,7 @@ export function SourceStep() {
   const others = tiles.filter((t) => !t.app);
   const chosen = tiles.find((t) => t.id === source);
   const canImport = !!chosen?.app && !!importModule();
-  const choose = (id: BrowserSourceId) => useOnboarding.getState().chooseSource(id);
+  const choose = (id: BrowserSourceId) => chooseSource(id);
 
   const startImport = () => {
     if (!chosen) return;
@@ -70,7 +70,7 @@ export function SourceStep() {
     setImporting(chosen.id);
   };
 
-  const done = () => useOnboarding.getState().confirm("source", {}, chosen ? [`Coming from ${chosen.name}`] : source === "fresh" ? ["Starting fresh"] : []);
+  const done = () => confirmAnswer("source", {}, chosen ? [`Coming from ${chosen.name}`] : source === "fresh" ? ["Starting fresh"] : []);
 
   return (
     <StepLayout
@@ -80,7 +80,7 @@ export function SourceStep() {
         <StepActions
           disabled={!source}
           onContinue={done}
-          onSkip={() => useOnboarding.getState().skip()}
+          onSkip={() => skipStep()}
         />
       }
       preview={<SourcePreview tile={chosen ?? null} fresh={source === "fresh"} found={found} />}

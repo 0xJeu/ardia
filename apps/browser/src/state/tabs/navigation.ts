@@ -126,7 +126,7 @@ export async function goToHistoryItem(tabId: string, item: HistoryItem): Promise
 }
 
 type HistoryMenu = { tabId: string; direction: -1 | 1; items: HistoryItem[] };
-export const useHistoryMenu = create<{ menu: HistoryMenu | null }>(() => ({ menu: null }));
+export const useHistoryMenu = create<{ menu: HistoryMenu | null }>()(() => ({ menu: null }));
 
 export async function openHistoryMenu(tabId: string, direction: -1 | 1) {
   const items = await historyItems(tabId, direction);

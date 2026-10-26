@@ -91,7 +91,7 @@ type GroupEntry = { kind: "group"; id: string; collapsed: boolean; members: Memb
 type Entry = { kind: "dock"; ids: string[]; members: Map<string, string[]> } | GroupEntry | Member;
 type DropTarget = { kind: "tab" | "group"; id: string };
 
-const useStripOnto = create<{ key: string | null }>(() => ({ key: null }));
+const useStripOnto = create<{ key: string | null }>()(() => ({ key: null }));
 const ontoKey = (target: DropTarget | null) => (target ? `${target.kind}:${target.id}` : null);
 const useOnto = (target: DropTarget) => useStripOnto((s) => s.key === ontoKey(target));
 

@@ -11,17 +11,19 @@ import {
   configure,
   extensionsProfileId,
   loadUnpacked,
+  openExtensionDetails,
   refreshExtensions,
   removeExtension,
   setEnabled,
   setPinned,
+  showExtensionsList,
   useExtensionList,
 } from "../../../state/extensions/actions";
 import { Button, Group, PopUp, Row, SectionHeader, TextField, Toggle } from "../../ui/FormControls";
 import { extensionList } from "../paneData";
 import { useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
-import { SETTINGS_WINDOW_ID, useSettingsNav } from "../../../state/settings/settingsWindows";
+import { replaceSettingsPlace, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";
 
 type SiteAccess = "allSites" | "specificSites" | "onClick";
 const SITE_ACCESS: { value: SiteAccess; title: string }[] = [
@@ -53,9 +55,9 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
   const selected = detail && chosen === profileId ? list.find((x) => x.id === detail) : undefined;
   const gone = !!detail && !selected && loaded !== undefined;
   useEffect(() => {
-    if (gone) useSettingsNav.getState().replace(profileId, null);
+    if (gone) replaceSettingsPlace(profileId, null);
   }, [gone, profileId]);
-  if (selected) return <ExtensionDetails ext={selected} profile={profile} onBack={() => showList(profileId)} />;
+  if (selected) return <ExtensionDetails ext={selected} profile={profile} onBack={() => showExtensionsList(profileId)} />;
 
   return (
     <View>
@@ -64,7 +66,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
         description="Add features to Ardia with extensions from the Chrome Web Store. Each profile has its own."
         action={
           profiles.length > 1 ? (
-            <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={(id) => useSettingsNav.getState().replace(id)} />
+            <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={(id) => replaceSettingsPlace(id)} />
           ) : undefined
         }
       />
@@ -81,11 +83,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
                 </Text>
               }
               description={ext.errors.length && !ext.enabled ? ext.errors[0] : ext.description}
-              onPress={() => {
-                const nav = useSettingsNav.getState();
-                if (nav.profileId !== profileId) nav.replace(profileId);
-                nav.go("extensions", profileId, ext.id);
-              }}
+              onPress={() => openExtensionDetails(profileId, ext.id)}
             >
               <Toggle value={ext.enabled} onChange={(on) => void setEnabled(profile, ext.id, on)} />
             </Row>
@@ -126,13 +124,6 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
       </Group>
     </View>
   );
-}
-
-function showList(profileId: string) {
-  const nav = useSettingsNav.getState();
-  const prev = nav.back.at(-1);
-  if (prev?.pane === "extensions" && !prev.detail && extensionsProfileId(prev.profileId) === profileId) nav.goBack();
-  else nav.go("extensions", profileId);
 }
 
 function ExtensionDetails({ ext, profile, onBack }: { ext: InstalledExtension; profile: string; onBack: () => void }) {

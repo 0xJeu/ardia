@@ -9,7 +9,7 @@ type MenuKey = { key?: string; modifiers?: MenuModifier[] };
 type ShortcutState = { settings: { shortcuts: ShortcutOverrides }; profileOrder: readonly string[] };
 type MenuBar = { listed: ReadonlySet<string>; fixed: readonly ShortcutSource[] };
 
-const useMenuBar = create<{ bar: MenuBar | undefined; revision: number }>(() => ({ bar: undefined, revision: 0 }));
+const useMenuBar = create<{ bar: MenuBar | undefined; revision: number }>()(() => ({ bar: undefined, revision: 0 }));
 let resolvedFor: { overrides: ShortcutOverrides; profiles: readonly string[]; menuBar: MenuBar | undefined; resolved: ResolvedShortcuts } | undefined;
 
 const fixedSource = (item: MenuShortcut): ShortcutSource => ({

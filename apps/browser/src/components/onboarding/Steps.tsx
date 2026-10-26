@@ -15,7 +15,7 @@ import { Favicon, useHover } from "../ui/Primitives";
 import { CONTENT_WIDTH, ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { MockPanel, useScreen } from "./Screen";
 import { PINNABLE_SITES, pinnedHosts, pinSites, preselectedSites } from "../../state/onboarding/sites";
-import { finishOnboarding, QUESTION_ORDER, recordDefaultBrowserTrial, STEPS, useOnboarding } from "../../state/onboarding/onboarding";
+import { confirmAnswer, finishOnboarding, previousStep, QUESTION_ORDER, recordDefaultBrowserTrial, setOnboardingDraft, setOnboardingExtras, skipStep, STEPS, useOnboarding } from "../../state/onboarding/onboarding";
 import { BackButton, CheckMark, CheckRow, PrimaryButton, Reveal, SecondaryButton, StepProgress, StepTitle, useOnboardingColors } from "./Parts";
 
 const ICON = require("../../../assets/app-icon.png");
@@ -96,7 +96,7 @@ export function StepActions({
 }) {
   const step = useOnboarding((s) => s.step);
   const sub = useOnboarding((s) => s.sub);
-  const back = useOnboarding((s) => s.back);
+  const back = previousStep;
   const first = STEPS[STEPS.indexOf(step) - 1] === "intro" && sub === 0;
   return (
     <>
@@ -127,7 +127,7 @@ function DefaultBrowserQuestion() {
   const trial = extras.trial ?? false;
   const dock = extras.dock ?? true;
   const login = extras.login ?? system?.loginEnabled ?? false;
-  const { setExtras } = useOnboarding.getState();
+  const setExtras = setOnboardingExtras;
 
   useEffect(() => {
     void Promise.all([isDefaultBrowser(), isInDock(), launchAtLoginStatus()]).then(([isDefault, inDock, login]) =>
@@ -148,7 +148,7 @@ function DefaultBrowserQuestion() {
       if (dock && !system.inDock) await addToDock();
     } finally {
       setBusy(false);
-      useOnboarding.getState().confirm("default", {}, picked);
+      confirmAnswer("default", {}, picked);
     }
   };
 
@@ -164,7 +164,7 @@ function DefaultBrowserQuestion() {
           continueTitle={busy ? "Setting Up…" : "Continue"}
           disabled={!system || busy}
           onContinue={() => void apply()}
-          onSkip={() => useOnboarding.getState().skip()}
+          onSkip={() => skipStep()}
         />
       }
       preview={<SystemPreview isDefault={!!(defaultOn || trying)} dock={!!(system?.inDock || dock)} login={login} />}
@@ -202,14 +202,14 @@ function LinksQuestion() {
       actions={
         <StepActions
           onContinue={() =>
-            useOnboarding.getState().confirm("links", { openLinksInLittleArdia: little }, [little ? "Links from other apps open in Little Ardia" : "Links from other apps open in a tab"])
+            confirmAnswer("links", { openLinksInLittleArdia: little }, [little ? "Links from other apps open in Little Ardia" : "Links from other apps open in a tab"])
           }
-          onSkip={() => useOnboarding.getState().skip()}
+          onSkip={() => skipStep()}
         />
       }
       preview={<MockPanel settings={mock} focus={focus.focus} />}
     >
-      <ChoiceList options={LINK_CHOICES} value={little} onChange={(v) => useOnboarding.getState().setDraft({ openLinksInLittleArdia: v })} mock={focus} />
+      <ChoiceList options={LINK_CHOICES} value={little} onChange={(v) => setOnboardingDraft({ openLinksInLittleArdia: v })} mock={focus} />
     </StepLayout>
   );
 }
@@ -259,11 +259,11 @@ export function PinnedTabsStep() {
   const selected = chosen ?? suggested.current ?? [];
 
   const toggle = (id: string) =>
-    useOnboarding.getState().setExtras({ pins: selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id] });
+    setOnboardingExtras({ pins: selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id] });
 
   const pinSelected = () => {
     if (windowId && selected.length) pinSites(windowId, selected);
-    useOnboarding.getState().confirm("pins", {}, selected.length ? [`${selected.length} ${selected.length === 1 ? "app" : "apps"} pinned`] : []);
+    confirmAnswer("pins", {}, selected.length ? [`${selected.length} ${selected.length === 1 ? "app" : "apps"} pinned`] : []);
   };
 
   return (
@@ -274,7 +274,7 @@ export function PinnedTabsStep() {
         <StepActions
           continueTitle={selected.length ? `Pin ${selected.length} ${selected.length === 1 ? "Tab" : "Tabs"}` : "Continue"}
           onContinue={pinSelected}
-          onSkip={() => useOnboarding.getState().skip()}
+          onSkip={() => skipStep()}
         />
       }
       preview={<PinnedPreview selected={selected} />}

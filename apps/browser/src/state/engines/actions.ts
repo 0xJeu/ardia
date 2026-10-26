@@ -13,7 +13,7 @@ import { webviews } from "../../platform/webviews";
 
 export type EngineOffer = { site: string; host: string; keySystem: string; canRemember: boolean };
 
-export const useEngineOffers = create<Record<string, EngineOffer>>(() => ({}));
+export const useEngineOffers = create<Record<string, EngineOffer>>()(() => ({}));
 
 const store = () => useBrowser.getState();
 const declinedSites = new Set<string>();

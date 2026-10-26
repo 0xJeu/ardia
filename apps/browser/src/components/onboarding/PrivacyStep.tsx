@@ -2,13 +2,13 @@ import { engineHost } from "@ardia/core";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { searchEngines, type Settings } from "../../state/settings/settings";
 import { useBrowser } from "../../state/browser/store";
-import { setSharing, useTelemetry } from "../../state/telemetry/client";
+import { isSharing, setSharing } from "../../state/telemetry/client";
 import { SHARING_COPY } from "../../state/telemetry/copy";
 import { Favicon, useHover } from "../ui/Primitives";
 import { CONTENT_WIDTH, ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { Page } from "./LayoutSteps";
 import { MockPanel, useScreen } from "./Screen";
-import { questionsFor, useOnboarding } from "../../state/onboarding/onboarding";
+import { questionsFor, setOnboardingDraft, setOnboardingExtras, useOnboarding } from "../../state/onboarding/onboarding";
 import { CheckMark, CheckRow, useOnboardingColors } from "./Parts";
 
 const KEYS = ["searchEngine", "commandBarPreference"] as const;
@@ -24,8 +24,8 @@ export function SearchPrivacyStep() {
   const id = questionsFor("searchPrivacy")[sub]?.id;
   const focus = useMockFocus(id);
   const { values, mock } = useScreen(KEYS);
-  const setDraft = useOnboarding((s) => s.setDraft);
-  const share = useOnboarding((s) => s.extras.share) ?? useTelemetry.getState().sharing;
+  const setDraft = setOnboardingDraft;
+  const share = useOnboarding((s) => s.extras.share) ?? isSharing();
   const all = useBrowser((s) => searchEngines(s.settings));
   const engines = all.filter((e) => ENGINES.includes(e.id) || e.id === values.searchEngine);
 
@@ -58,7 +58,7 @@ export function SearchPrivacyStep() {
         onConfirm={() => setSharing(share, "onboarding")}
         preview={<MockPanel settings={mock} focus={null} overlay={<Receipt on={share} />} />}
       >
-        <CheckRow icon="stethoscope" title={SHARING_COPY.toggle} subtitle={SHARING_COPY.onboarding.row} value={share} onChange={(v) => useOnboarding.getState().setExtras({ share: v })} />
+        <CheckRow icon="stethoscope" title={SHARING_COPY.toggle} subtitle={SHARING_COPY.onboarding.row} value={share} onChange={(v) => setOnboardingExtras({ share: v })} />
       </Page>
     );
   const engine = all.find((e) => e.id === values.searchEngine);

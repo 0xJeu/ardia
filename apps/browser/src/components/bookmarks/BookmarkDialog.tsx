@@ -5,7 +5,7 @@ import { hex, layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { Button, TextField, useFormColors } from "../ui/FormControls";
-import { useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
+import { closeBookmarkDialog, useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
 import { FolderTree } from "./FolderTree";
 import { SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../../state/windows/layout";
 
@@ -26,7 +26,7 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
   const [folderId, setFolderId] = useState<string | null>(() =>
     state.kind === "page" ? (bookmark?.parentId ?? null) : (useBrowser.getState().bookmarks.roots[state.profileId]?.bar ?? null),
   );
-  const close = () => useBookmarkDialog.getState().set(null);
+  const close = closeBookmarkDialog;
 
   useEffect(() => {
     if (state.kind === "page" && !bookmark) close();

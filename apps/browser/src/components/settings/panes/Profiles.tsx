@@ -16,7 +16,7 @@ import { iconMenuItems, PROFILE_SYMBOLS, ProfileBadge, profileSymbol } from "../
 import { Button, Group, PopUp, Row, SectionHeader, TextField, useFormColors } from "../../ui/FormControls";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { ThemeSection } from "../ThemeEditor";
-import { useSettingsNav } from "../../../state/settings/settingsWindows";
+import { goToSettingsPane } from "../../../state/settings/settingsWindows";
 
 const listOf = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`);
 
@@ -151,7 +151,6 @@ function ProfileRow({
   const shared = useSharedWith(profileId);
   const names = useBrowser(useShallow((s) => shared.filter((id) => id !== profileId).map((id) => s.profiles[id]?.name ?? "")));
   const { hovered, hoverProps } = useHover();
-  const go = useSettingsNav((n) => n.go);
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 3,
@@ -173,7 +172,7 @@ function ProfileRow({
       { separator: true },
       { id: "delete", title: "Delete Profile…", enabled: s.profileOrder.length > 1 },
     ]);
-    if (choice === "details") go("profiles", profileId);
+    if (choice === "details") goToSettingsPane("profiles", profileId);
     else if (choice === "default") s.setDefaultProfile(profileId);
     else if (choice === "delete") void deleteProfile(profileId);
   };
@@ -193,7 +192,7 @@ function ProfileRow({
       {!first && !lifted && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: 12, backgroundColor: colors.separator }} />}
       <ContextMenuArea onContextMenu={() => void openMenu()}>
         <View {...hoverProps}>
-          <Pressable onPress={() => go("profiles", profileId)}>
+          <Pressable onPress={() => goToSettingsPane("profiles", profileId)}>
             <View
               style={{
                 height: ROW_HEIGHT - (first ? 0 : StyleSheet.hairlineWidth * 2),
@@ -307,7 +306,7 @@ export function ProfileDetailsPane({ profileId }: { profileId: string }) {
             disabled={only}
             onPress={() =>
               void deleteProfile(profileId).then(() => {
-                if (!useBrowser.getState().profiles[profileId]) useSettingsNav.getState().go("profiles");
+                if (!useBrowser.getState().profiles[profileId]) goToSettingsPane("profiles");
               })
             }
           />

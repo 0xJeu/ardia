@@ -67,7 +67,7 @@ type TourState = {
   session: number;
 };
 
-export const useTour = create<TourState>(() => ({ windowId: null, stops: [], index: 0, session: 0 }));
+export const useTour = create<TourState>()(() => ({ windowId: null, stops: [], index: 0, session: 0 }));
 
 export async function startToolTour(windowId?: string | null) {
   const id = resolveWindowId(useBrowser.getState(), windowId);

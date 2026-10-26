@@ -21,7 +21,7 @@ const WHEEL_COOLDOWN_MS = 250;
 
 class ProfilePager {
   readonly pos: Animated.Value;
-  readonly state = create<{ pages: PagerPage[] | null; ack: number }>(() => ({ pages: null, ack: 0 }));
+  readonly state = create<{ pages: PagerPage[] | null; ack: number }>()(() => ({ pages: null, ack: 0 }));
   private surfaces = 0;
   private switching = false;
   private unsubscribe: () => void;

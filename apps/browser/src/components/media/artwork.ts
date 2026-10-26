@@ -7,7 +7,7 @@ const MAX_PIXELS = 256;
 const MAX_ENTRIES = 24;
 
 type Entry = { uri: string | null; at: number };
-const useArtworks = create<{ entries: Record<string, Entry> }>(() => ({ entries: {} }));
+const useArtworks = create<{ entries: Record<string, Entry> }>()(() => ({ entries: {} }));
 const inflight = new Set<string>();
 
 const keyOf = (tabId: string, url: string) => `${tabId} ${url}`;

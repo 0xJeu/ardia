@@ -14,7 +14,7 @@ export type CreateProfilePreset = { name?: string; shareWith?: string };
 
 type Request = { windowId: string; preset: CreateProfilePreset; resolve: (id: string | null) => void };
 
-const useRequest = create<{ request: Request | null }>(() => ({ request: null }));
+const useRequest = create<{ request: Request | null }>()(() => ({ request: null }));
 
 export function requestCreateProfile(windowId?: string, preset: CreateProfilePreset = {}): Promise<string | null> {
   return new Promise((resolve) => {

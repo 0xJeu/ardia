@@ -23,7 +23,7 @@ import {
   toggleMute,
 } from "../browser/actions";
 import { bookmarkAllTabs, bookmarkTab } from "../bookmarks/actions";
-import { useClearDataRequest } from "../profiles/clearDataRequest";
+import { requestClearData } from "../profiles/clearDataRequest";
 import { openInternalPage } from "../pages/urls";
 import { isUtilityWindowId, openImport, openSettings, SETTINGS_WINDOW_ID } from "../settings/settingsWindows";
 import { focusSettingsSearch } from "../settings/searchState";
@@ -292,7 +292,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return openInternalPage("history", windowId);
     case "clearBrowsingData":
       openInternalPage("history", windowId);
-      return useClearDataRequest.getState().request(windowId);
+      return requestClearData(windowId);
     case "manageBookmarks":
       return openInternalPage("bookmarks", windowId);
     case "bookmarkAllTabs":

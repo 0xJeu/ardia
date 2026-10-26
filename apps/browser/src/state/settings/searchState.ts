@@ -1,7 +1,7 @@
 import type { View } from "react-native";
 import { create } from "zustand";
 import { setting } from "../../components/settings/settingsIndex";
-import { useSettingsNav } from "./settingsWindows";
+import { goToSettingsPane, useSettingsNav } from "./settingsWindows";
 import { settingsProfileFor } from "../extensions/store";
 
 type SearchUi = {
@@ -12,16 +12,15 @@ type SearchUi = {
   flash: { id: string; at: number } | null;
 };
 
-export const useSettingsSearch = create<SearchUi>(() => ({ query: "", selected: 0, focusRequest: 0, reveal: null, flash: null }));
+export const useSettingsSearch = create<SearchUi>()(() => ({ query: "", selected: 0, focusRequest: 0, reveal: null, flash: null }));
 
 export const setSettingsQuery = (query: string) => useSettingsSearch.setState({ query });
 
 export const focusSettingsSearch = () => useSettingsSearch.setState({ focusRequest: Date.now() });
 
 export function revealSetting(id: string) {
-  const nav = useSettingsNav.getState();
   const pane = setting(id).pane;
-  nav.go(pane, settingsProfileFor(pane, nav));
+  goToSettingsPane(pane, settingsProfileFor(pane, useSettingsNav.getState()));
   useSettingsSearch.setState({ reveal: { id, at: Date.now() } });
 }
 

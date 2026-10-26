@@ -41,7 +41,7 @@ const MOCK_PAGES: MockState[][] = [
   ],
 ];
 
-const useGallery = create<GalleryState>(() => ({
+const useGallery = create<GalleryState>()(() => ({
   page: { kind: "frames", index: 0 },
   mock: { label: "live", settings: DIA, accent: PLUM, focus: null },
 }));

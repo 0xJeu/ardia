@@ -11,10 +11,9 @@ export type EditorState = {
   index?: number;
 };
 
-export const useBookmarkEditor = create<{ open: EditorState | null; set(open: EditorState | null): void }>((set) => ({
-  open: null,
-  set: (open) => set({ open }),
-}));
+export const useBookmarkEditor = create<{ open: EditorState | null }>()(() => ({ open: null }));
+
+export const closeBookmarkEditor = () => useBookmarkEditor.setState({ open: null });
 
 export function editBookmark(
   id: string | null,
@@ -34,12 +33,14 @@ export function editBookmark(
       return n && (r.bar === n.id || r.other === n.id);
     })?.[0] ||
     s.settings.defaultProfileId;
-  useBookmarkEditor.getState().set({
-    windowId: w,
-    bookmarkId: id,
-    folder: node ? node.kind === "folder" : !!add.folder,
-    profileId,
-    parentId: add.parentId,
-    index: add.index,
+  useBookmarkEditor.setState({
+    open: {
+      windowId: w,
+      bookmarkId: id,
+      folder: node ? node.kind === "folder" : !!add.folder,
+      profileId,
+      parentId: add.parentId,
+      index: add.index,
+    },
   });
 }

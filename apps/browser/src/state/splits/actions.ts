@@ -2,7 +2,7 @@ import { showMenu, type MenuItem } from "@ardia/shell";
 import { create } from "zustand";
 import { closeTab } from "../browser/actions";
 import { menuShortcut } from "../commands/commandShortcuts";
-import { useBrowser } from "../browser/store";
+import { storeAction, useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { MAX_SPLIT_PANES, slotsOf, splitOf, type OpenPaneOptions, type SplitSide } from "./splits";
 
@@ -115,3 +115,8 @@ export async function showSplitMenu(tabId: string) {
       return closePane(tabId);
   }
 }
+
+export const updateSplit = storeAction("updateSplit");
+export const replaceSplitPane = storeAction("replaceSplitPane");
+export const removeTabFromSplit = storeAction("removeTabFromSplit");
+export const toggleTabLayout = storeAction("toggleTabLayout");

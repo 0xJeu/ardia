@@ -26,7 +26,7 @@ import { ShortcutsPane } from "./panes/Shortcuts";
 import { SyncPane } from "./panes/Sync";
 import { TabsPane } from "./panes/Tabs";
 import { useSettingsSheet } from "../../state/settings/sheet";
-import { useSettingsNav, type SettingsPlace } from "../../state/settings/settingsWindows";
+import { goToSettingsPane, settingsBack, settingsForward, useSettingsNav, type SettingsPlace } from "../../state/settings/settingsWindows";
 import { settingsProfileFor } from "../../state/extensions/store";
 
 
@@ -120,7 +120,7 @@ export function SettingsWindow() {
         ) : (
           <ScrollView contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 12, gap: 1 }}>
             {PANES.map((p) => (
-              <SidebarItem key={p.id} title={p.title} icon={p.icon} selected={nav.pane === p.id} onPress={() => nav.go(p.id, settingsProfileFor(p.id, nav))} />
+              <SidebarItem key={p.id} title={p.title} icon={p.icon} selected={nav.pane === p.id} onPress={() => goToSettingsPane(p.id, settingsProfileFor(p.id, nav))} />
             ))}
           </ScrollView>
         )}
@@ -129,8 +129,8 @@ export function SettingsWindow() {
       <View style={{ flex: 1 }}>
         <View style={{ height: TOOLBAR, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 }}>
           <WindowDragRegion style={StyleSheet.absoluteFill} />
-          <IconButton icon="chevron.left" size={13} box={28} radius={6} disabled={!nav.back.length} onPress={nav.goBack} tooltip="Back" />
-          <IconButton icon="chevron.right" size={13} box={28} radius={6} disabled={!nav.forward.length} onPress={nav.goForward} tooltip="Forward" />
+          <IconButton icon="chevron.left" size={13} box={28} radius={6} disabled={!nav.back.length} onPress={settingsBack} tooltip="Back" />
+          <IconButton icon="chevron.right" size={13} box={28} radius={6} disabled={!nav.forward.length} onPress={settingsForward} tooltip="Forward" />
           <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{title}</Text>
         </View>
         <ScrollView

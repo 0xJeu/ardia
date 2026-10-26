@@ -4,7 +4,7 @@ import { Animated, Easing, StyleSheet, View } from "react-native";
 import { hex } from "../ui/theme";
 import { useWindowId } from "../../state/browser/hooks";
 import { Intro } from "./Intro";
-import { dismissOnboarding, useOnboarding } from "../../state/onboarding/onboarding";
+import { dismissOnboarding, goToStep, useOnboarding } from "../../state/onboarding/onboarding";
 import { LayoutStep, LookStep, TabsStep } from "./LayoutSteps";
 import { SearchPrivacyStep } from "./PrivacyStep";
 import { SourceStep } from "./SourceStep";
@@ -101,7 +101,7 @@ function Overlay({ session }: { session: number }) {
           </Animated.View>
         </View>
       )}
-      {step === "intro" && <Intro onDone={() => useOnboarding.getState().go("source")} />}
+      {step === "intro" && <Intro onDone={() => goToStep("source")} />}
     </Animated.View>
   );
 }

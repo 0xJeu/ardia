@@ -236,3 +236,9 @@ useBrowser.subscribe((s, prev) => {
 });
 
 export type { CreateWindowOptions } from "../windows/windows";
+
+type StoreActions = { [K in keyof BrowserState as BrowserState[K] extends (...args: never[]) => unknown ? K : never]: BrowserState[K] };
+
+export const storeAction =
+  <K extends keyof StoreActions>(name: K): StoreActions[K] =>
+  ((...args: unknown[]) => (useBrowser.getState()[name] as (...a: unknown[]) => unknown)(...args)) as StoreActions[K];

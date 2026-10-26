@@ -273,9 +273,9 @@ if (s.windows[W].profileId !== "default") s.switchProfile(W, "default");
 s.closePanel(W);
 s.setDownloadsOpen(W, false);
 for (const id of Object.keys(s.find)) s.setFind(id, { open: false });
-ac.pages.clearDataRequest.getState().request(null);
-ac.pages.bookmarkEditor.getState().set(null);
-ac.pages.bookmarkDialog.getState().set(null);
+ac.pages.clearDataRequest.setState({ windowId: null });
+ac.pages.bookmarkEditor.setState({ open: null });
+ac.pages.bookmarkDialog.setState({ open: null });
 s.setSelection(W, []);
 s.updateGroup("g1", { collapsed: false });
 for (const sp of Object.values(s.splits)) s.separateSplit(sp.id);
@@ -320,13 +320,13 @@ const STATES = [
   main("dia-dark-bookmarks-page", `st().activate("t1"); ac.pages.openInternalPage("bookmarks", W);`),
   main("dia-light-bookmarks-page", `st().updateSettings({ appearance: "light" }); st().activate("t1"); ac.pages.openInternalPage("bookmarks", W);`),
   main("dia-dark-downloads-page", `st().activate("t1"); ac.pages.openInternalPage("downloads", W);`),
-  main("dia-dark-clear-data", `st().activate("t1"); ac.pages.openInternalPage("history", W); ac.pages.clearDataRequest.getState().request(W);`),
-  main("dia-light-clear-data", `st().updateSettings({ appearance: "light" }); st().activate("t1"); ac.pages.openInternalPage("history", W); ac.pages.clearDataRequest.getState().request(W);`),
-  main("dia-dark-edit-bookmark", `const b = Object.values(st().bookmarks.nodes).find((n) => n.kind === "url" && n.title === "Swift"); ac.pages.bookmarkEditor.getState().set({ windowId: W, bookmarkId: b.id, folder: false, profileId: "default" });`),
-  main("dia-dark-new-folder", `ac.pages.bookmarkEditor.getState().set({ windowId: W, bookmarkId: null, folder: true, profileId: "default" });`),
+  main("dia-dark-clear-data", `st().activate("t1"); ac.pages.openInternalPage("history", W); ac.pages.clearDataRequest.setState({ windowId: W });`),
+  main("dia-light-clear-data", `st().updateSettings({ appearance: "light" }); st().activate("t1"); ac.pages.openInternalPage("history", W); ac.pages.clearDataRequest.setState({ windowId: W });`),
+  main("dia-dark-edit-bookmark", `const b = Object.values(st().bookmarks.nodes).find((n) => n.kind === "url" && n.title === "Swift"); ac.pages.bookmarkEditor.setState({ open: { windowId: W, bookmarkId: b.id, folder: false, profileId: "default" } });`),
+  main("dia-dark-new-folder", `ac.pages.bookmarkEditor.setState({ open: { windowId: W, bookmarkId: null, folder: true, profileId: "default" } });`),
   main("dia-dark-split", `st().activate("t1"); st().createSplit(["t1", "t2"]);`),
   main("dia-light-split", `st().updateSettings({ appearance: "light" }); st().activate("t1"); st().createSplit(["t1", "t2"]);`),
-  main("dia-light-edit-bookmark", `st().updateSettings({ appearance: "light" }); const b = Object.values(st().bookmarks.nodes).find((n) => n.kind === "url" && n.title === "Swift"); ac.pages.bookmarkEditor.getState().set({ windowId: W, bookmarkId: b.id, folder: false, profileId: "default" });`),
+  main("dia-light-edit-bookmark", `st().updateSettings({ appearance: "light" }); const b = Object.values(st().bookmarks.nodes).find((n) => n.kind === "url" && n.title === "Swift"); ac.pages.bookmarkEditor.setState({ open: { windowId: W, bookmarkId: b.id, folder: false, profileId: "default" } });`),
   main("top-light-ntp", `st().updateSettings({ appearance: "light", tabLayout: "top" });`),
 ];
 const SETTINGS_PANES = ["general", "profiles", "sync", "tabs", "appearance", "privacy", "passwords", "autofill", "extensions", "search", "engines", "shortcuts", "liveFolders", "calendar", "advanced"];

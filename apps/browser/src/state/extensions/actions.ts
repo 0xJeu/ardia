@@ -21,7 +21,7 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile } from "../browser/model";
 import { shownPageId } from "../peek/peek";
-import { openSettings } from "../settings/settingsWindows";
+import { goToSettingsPane, openSettings, replaceSettingsPlace, settingsBack, useSettingsNav } from "../settings/settingsWindows";
 import { closeSidePanelsOf, toggleSidePanel } from "./sidePanels";
 import { browserIdOf, extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, type Anchor } from "./store";
 
@@ -197,6 +197,17 @@ export function openOptions(windowId: string, ext: InstalledExtension) {
 }
 
 export const openManageExtensions = (windowId?: string | null) => openSettings("extensions", extensionsProfileId(null, windowId));
+
+export function openExtensionDetails(profileId: string, extensionId: string) {
+  if (useSettingsNav.getState().profileId !== profileId) replaceSettingsPlace(profileId);
+  goToSettingsPane("extensions", profileId, extensionId);
+}
+
+export function showExtensionsList(profileId: string) {
+  const prev = useSettingsNav.getState().back.at(-1);
+  if (prev?.pane === "extensions" && !prev.detail && extensionsProfileId(prev.profileId) === profileId) settingsBack();
+  else goToSettingsPane("extensions", profileId);
+}
 export const openPinDialog = (windowId: string) => useExtensions.setState({ pinDialog: { windowId } });
 export const openWebStore = (windowId: string) =>
   useBrowser.getState().newTab(windowId, { url: "https://chromewebstore.google.com/category/extensions" });

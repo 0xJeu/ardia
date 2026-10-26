@@ -122,7 +122,7 @@ type SyncUi = {
   remoteProfiles: RemoteProfile[];
 };
 
-export const useSync = create<SyncUi>(() => ({
+export const useSync = create<SyncUi>()(() => ({
   status: SyncNative ? "off" : "unavailable",
   enabled: false,
   folder: null,

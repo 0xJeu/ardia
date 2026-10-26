@@ -60,7 +60,7 @@ function save(patch: Partial<Saved>) {
   useTelemetry.setState({ sharing: saved.sharing, decided: saved.decidedAt !== null, askDone: saved.askDoneAt !== null });
 }
 
-export const useTelemetry = create<{ sharing: boolean; decided: boolean; askDone: boolean }>(() => ({
+export const useTelemetry = create<{ sharing: boolean; decided: boolean; askDone: boolean }>()(() => ({
   sharing: false,
   decided: false,
   askDone: false,

@@ -7,7 +7,7 @@ import type { PeekModifier, Settings } from "../../state/settings/settings";
 import { ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { ThemeColorPicker } from "./Personalize";
 import { MockPanel, useScreen } from "./Screen";
-import { PRESETS, questionsFor, useOnboarding, type QuestionId } from "../../state/onboarding/onboarding";
+import { confirmAnswer, previewColor, previewLive, PRESETS, questionsFor, setOnboardingDraft, setOnboardingExtras, skipStep, useOnboarding, type QuestionId } from "../../state/onboarding/onboarding";
 import { StepActions, StepLayout } from "./Steps";
 import { CheckRow, OptionRow, Tag } from "./Parts";
 
@@ -40,8 +40,8 @@ export function Page({
       tag={tag}
       actions={<StepActions onContinue={() => {
             onConfirm?.();
-            useOnboarding.getState().confirm(id, patch, picked);
-          }} onSkip={() => useOnboarding.getState().skip()} />}
+            confirmAnswer(id, patch, picked);
+          }} onSkip={() => skipStep()} />}
       preview={preview}
     >
       {children}
@@ -57,8 +57,8 @@ function useQuestion(step: "layout" | "tabs" | "look") {
 }
 
 function change(patch: Partial<Settings>, live = false) {
-  useOnboarding.getState().setDraft(patch);
-  if (live) useOnboarding.getState().previewLive(patch);
+  setOnboardingDraft(patch);
+  if (live) previewLive(patch);
 }
 
 const LAYOUT_KEYS = ["tabLayout", "addressBar", "commandBarPlacement"] as const;
@@ -87,7 +87,7 @@ function styleOf(values: Pick<Settings, (typeof LAYOUT_KEYS)[number]>) {
 export function LayoutStep() {
   const { id, focus } = useQuestion("layout");
   const { values, mock } = useScreen(LAYOUT_KEYS);
-  useEffect(() => useOnboarding.getState().previewLive(values), []);
+  useEffect(() => previewLive(values), []);
   const preview = <MockPanel settings={mock} focus={focus.focus} />;
   const tag = <Tag title={styleOf(values)} />;
   const top = values.tabLayout === "top";
@@ -318,7 +318,7 @@ export function LookStep() {
   const [icons, setIcons] = useState<{ list: AppIcon[]; current: string | null }>({ list: [], current: null });
   const preview = <MockPanel settings={mock} focus={focus.focus} />;
   useEffect(() => {
-    useOnboarding.getState().previewLive({ appearance: values.appearance, extendWebsiteColor: values.extendWebsiteColor });
+    previewLive({ appearance: values.appearance, extendWebsiteColor: values.extendWebsiteColor });
     void Promise.all([appIcons(56), currentAppIcon()]).then(
       ([list, current]) => setIcons({ list, current }),
       () => {},
@@ -375,7 +375,7 @@ export function LookStep() {
               title="App icon"
               value={appIcon ?? icons.current ?? icons.list[0]!.id}
               options={icons.list.map((i) => ({ value: i.id, title: i.name, image: i.preview }))}
-              onChange={(id) => useOnboarding.getState().setExtras({ appIcon: id })}
+              onChange={(id) => setOnboardingExtras({ appIcon: id })}
             />
           ) : null}
           <CheckRow
@@ -391,7 +391,7 @@ export function LookStep() {
   const name = color ? PROFILE_COLORS[color]?.name : null;
   return (
     <Page id="color" title="Pick a color" subtitle="It tints the sidebar and the window." patch={{}} picked={name ? [`${name} theme`] : []} preview={preview}>
-      <ThemeColorPicker windowId={windowId} size={32} onPick={(c) => useOnboarding.getState().previewColor(c)} />
+      <ThemeColorPicker windowId={windowId} size={32} onPick={(c) => previewColor(c)} />
     </Page>
   );
 }

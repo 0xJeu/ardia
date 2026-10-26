@@ -55,7 +55,7 @@ type State = {
   page: { windowId: string; version: string } | null;
 };
 
-const useReleaseNotes = create<State>(() => ({ pending: null, page: null }));
+const useReleaseNotes = create<State>()(() => ({ pending: null, page: null }));
 
 export function trackAppVersion(): boolean {
   const version = systemInfo().appVersion;

@@ -11,7 +11,7 @@ import { HoverSlot } from "../ui/HoverSlot";
 import { Favicon, IconButton } from "../ui/Primitives";
 import { Button, Checkbox, useFormColors } from "../ui/FormControls";
 import { ClearDataDialog } from "./ClearDataDialog";
-import { useClearDataRequest } from "../../state/profiles/clearDataRequest";
+import { requestClearData, useClearDataRequest } from "../../state/profiles/clearDataRequest";
 import { dayLabel, dayStart, EmptyState, hostLabel, PAGE_WIDTH, PageHeader, queryWords, searchText, timeLabel } from "./PageLayout";
 
 const ROW = 38;
@@ -104,7 +104,7 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
   useEffect(() => {
     if (clearRequest === windowId && activeHere) {
       setClearOpen(true);
-      useClearDataRequest.getState().request(null);
+      requestClearData(null);
     }
   }, [clearRequest, activeHere]);
 

@@ -7,7 +7,7 @@ import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { searchUrlPrefix } from "../../state/settings/settings";
 import { Button, TextField, useFormColors } from "../ui/FormControls";
-import { useBookmarkEditor, type EditorState } from "../../state/bookmarks/edit";
+import { closeBookmarkEditor, useBookmarkEditor, type EditorState } from "../../state/bookmarks/edit";
 import { FolderTree } from "./FolderTree";
 
 export function EditBookmarkDialog() {
@@ -26,7 +26,7 @@ function Sheet({ state }: { state: EditorState }) {
   const [parentId, setParentId] = useState<string | null>(
     node?.parentId ?? state.parentId ?? useBrowser.getState().bookmarks.roots[state.profileId]?.bar ?? null,
   );
-  const close = () => useBookmarkEditor.getState().set(null);
+  const close = closeBookmarkEditor;
   const resolvedUrl = url.trim() ? resolveInput(url, searchUrlPrefix(useBrowser.getState().settings)) : "";
   const valid = state.folder ? !!title.trim() : !!resolvedUrl;
 

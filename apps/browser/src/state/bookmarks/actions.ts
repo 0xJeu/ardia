@@ -2,7 +2,7 @@ import { confirm } from "@ardia/shell";
 import { create } from "zustand";
 import { focus, openWindow } from "../browser/actions";
 import { folderLinks } from "./bookmarks";
-import { useBrowser } from "../browser/store";
+import { storeAction, useBrowser } from "../browser/store";
 import { activeTabId, bookmarkProfileId, resolveWindowId, viewTabIds } from "../browser/model";
 import { originalProfile } from "../windows/small";
 
@@ -71,10 +71,9 @@ export type BookmarkDialogState =
   | { kind: "page"; windowId: string; bookmarkId: string }
   | { kind: "allTabs"; windowId: string; profileId: string; tabs: { url: string; title: string }[] };
 
-export const useBookmarkDialog = create<{ open: BookmarkDialogState | null; set(open: BookmarkDialogState | null): void }>((set) => ({
-  open: null,
-  set: (open) => set({ open }),
-}));
+export const useBookmarkDialog = create<{ open: BookmarkDialogState | null }>()(() => ({ open: null }));
+
+export const closeBookmarkDialog = () => useBookmarkDialog.setState({ open: null });
 
 export function bookmarkTab(windowId: string, tabId: string) {
   const s = useBrowser.getState();
@@ -88,7 +87,7 @@ export function bookmarkTab(windowId: string, tabId: string) {
   );
   const bookmarkId =
     existing?.id ?? s.addBookmark({ profileId, url: tab.url, title: tab.customTitle || tab.title || tab.url, favicon: tab.favicon });
-  useBookmarkDialog.getState().set({ kind: "page", windowId: id, bookmarkId });
+  useBookmarkDialog.setState({ open: { kind: "page", windowId: id, bookmarkId } });
 }
 
 export function bookmarkAllTabs(windowId: string | null | undefined) {
@@ -100,7 +99,7 @@ export function bookmarkAllTabs(windowId: string | null | undefined) {
     .filter((t) => /^(https?|file):/.test(t.url))
     .map((t) => ({ url: t.url, title: t.customTitle || t.title || t.url }));
   if (!tabs.length) return;
-  useBookmarkDialog.getState().set({ kind: "allTabs", windowId: id, profileId: bookmarkProfileId(s, s.windows[id]), tabs });
+  useBookmarkDialog.setState({ open: { kind: "allTabs", windowId: id, profileId: bookmarkProfileId(s, s.windows[id]), tabs } });
 }
 
 function isUnder(id: string, roots: string[]): boolean {
@@ -112,3 +111,13 @@ function isUnder(id: string, roots: string[]): boolean {
   }
   return false;
 }
+
+export const addBookmark = storeAction("addBookmark");
+export const addBookmarkFolder = storeAction("addBookmarkFolder");
+export const updateBookmark = storeAction("updateBookmark");
+export const moveBookmark = storeAction("moveBookmark");
+export const removeBookmark = storeAction("removeBookmark");
+export const toggleBookmark = storeAction("toggleBookmark");
+export const addBookmarkTree = storeAction("addBookmarkTree");
+export const removeBookmarks = storeAction("removeBookmarks");
+export const restoreBookmarks = storeAction("restoreBookmarks");

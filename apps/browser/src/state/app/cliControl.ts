@@ -44,7 +44,7 @@ function save(patch: Saved) {
 
 const saved = readSaved();
 
-export const useCli = create<CliState>(() => ({
+export const useCli = create<CliState>()(() => ({
   server: null,
   installing: null,
   step: null,
@@ -53,7 +53,7 @@ export const useCli = create<CliState>(() => ({
   error: saved.error ?? null,
 }));
 
-export const useCliIndicator = create<{ shown: boolean }>(() => ({ shown: false }));
+export const useCliIndicator = create<{ shown: boolean }>()(() => ({ shown: false }));
 
 let indicatorHide: ReturnType<typeof setTimeout> | null = null;
 

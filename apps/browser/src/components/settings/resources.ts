@@ -7,7 +7,7 @@ export const resource = <A extends unknown[], T>(name: string, fetch: (...args: 
 
 const keyOf = (name: string, args: unknown[]) => JSON.stringify([name, ...args]);
 
-const useCache = create<Record<string, unknown>>(() => ({}));
+const useCache = create<Record<string, unknown>>()(() => ({}));
 const running = new Map<string, Promise<unknown>>();
 const generations = new Map<string, number>();
 

@@ -13,7 +13,7 @@ export const CHECK_IN_COPY = { title: "How are you liking Ardia?", action: "Leav
 
 type CheckIn = { trialStartedAt: number | null; doneAt: number | null };
 
-const useCheckIn = create<CheckIn>(() => ({ trialStartedAt: defaultBrowserTrialStartedAt(), doneAt: defaultBrowserCheckInDoneAt() }));
+const useCheckIn = create<CheckIn>()(() => ({ trialStartedAt: defaultBrowserTrialStartedAt(), doneAt: defaultBrowserCheckInDoneAt() }));
 
 export function checkInDue({ trialStartedAt, doneAt }: CheckIn, now = Date.now()): boolean {
   return trialStartedAt !== null && doneAt === null && now - trialStartedAt >= CHECK_IN_AFTER_MS;

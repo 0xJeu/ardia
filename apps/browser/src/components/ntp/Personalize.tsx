@@ -10,7 +10,7 @@ const INSET = 16;
 const BUTTON = 30;
 const GLYPH_DROP = 1.5;
 
-const usePanel = create<{ windowId: string | null }>(() => ({ windowId: null }));
+const usePanel = create<{ windowId: string | null }>()(() => ({ windowId: null }));
 const setOpen = (windowId: string | null) => usePanel.setState({ windowId });
 
 export function PersonalizeButton({ windowId }: { windowId: string }) {

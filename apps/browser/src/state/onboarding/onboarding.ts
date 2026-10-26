@@ -139,16 +139,6 @@ type OnboardingState = {
   extras: Partial<Extras>;
   baseline: LiveBaseline;
   picked: Partial<Record<QuestionId, string[]>>;
-  go(step: OnboardingStep, sub?: number): void;
-  next(): void;
-  back(): void;
-  chooseSource(source: BrowserSourceId | null): void;
-  setDraft(patch: Partial<Settings>): void;
-  setExtras(patch: Partial<Extras>): void;
-  previewLive(patch: Partial<Settings>): void;
-  previewColor(color: ProfileColor): void;
-  confirm(question: QuestionId, patch: Partial<Settings>, picked: string[]): void;
-  skip(): void;
 };
 
 const stepAfter = (step: OnboardingStep, delta: number) => STEPS[STEPS.indexOf(step) + delta];
@@ -159,7 +149,7 @@ const setWindowLayout = (windowId: string, tabLayout: Settings["tabLayout"]) =>
     return w && w.tabLayout !== tabLayout ? { windows: { ...s.windows, [windowId]: { ...w, tabLayout } } } : {};
   });
 
-export const useOnboarding = create<OnboardingState>((set, get) => ({
+export const useOnboarding = create<OnboardingState>()(() => ({
   windowId: null,
   step: "intro",
   sub: 0,
@@ -172,82 +162,92 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
   extras: {},
   baseline: {},
   picked: {},
-  go(step, sub = 0) {
-    set({ step, sub });
-    save({ step, sub });
-  },
-  next() {
-    const { step, sub } = get();
-    if (sub < questionsFor(step).length - 1) return get().go(step, sub + 1);
-    const after = stepAfter(step, 1);
-    if (after) get().go(after);
-    else finishOnboarding();
-  },
-  back() {
-    const { step, sub } = get();
-    if (sub > 0) return get().go(step, sub - 1);
-    const before = stepAfter(step, -1);
-    if (before && before !== "intro") get().go(before, Math.max(0, questionsFor(before).length - 1));
-  },
-  chooseSource(source) {
-    const preset = presetFor(source);
-    set({ source, preset });
-    save({ source, preset });
-  },
-  setDraft(patch) {
-    set((s) => ({ draft: { ...s.draft, ...patch } }));
-  },
-  setExtras(patch) {
-    set((s) => ({ extras: { ...s.extras, ...patch } }));
-  },
-  previewLive(patch) {
-    const { windowId, baseline } = get();
-    const b = useBrowser.getState();
-    const recorded: LiveBaseline = { ...baseline };
-    for (const key of Object.keys(patch) as (keyof Settings)[]) {
-      if (key in recorded) continue;
-      Object.assign(recorded, { [key]: key === "tabLayout" ? tabLayoutOf(b, windowId) : b.settings[key] });
-    }
-    set({ baseline: recorded });
-    const { tabLayout, ...rest } = patch;
-    if (tabLayout && windowId) setWindowLayout(windowId, tabLayout);
-    if (Object.keys(rest).length) b.updateSettings(rest, { fromSync: true });
-  },
-  previewColor(color) {
-    const { windowId, baseline } = get();
-    const b = useBrowser.getState();
-    const profileId = windowId ? b.windows[windowId]?.profileId : undefined;
-    if (!profileId) return;
-    if (!("color" in baseline)) set({ baseline: { ...baseline, color: b.profiles[profileId]?.color } });
-    b.updateProfile(profileId, { color });
-  },
-  confirm(question, patch, picked) {
-    const { windowId, baseline } = get();
-    if (patch.tabLayout && windowId) setWindowLayout(windowId, patch.tabLayout);
-    if (Object.keys(patch).length) useBrowser.getState().updateSettings(patch);
-    const kept: LiveBaseline = { ...baseline };
-    for (const key of Object.keys(patch)) delete kept[key as keyof LiveBaseline];
-    if (question === "color") delete kept.color;
-    const all = { ...get().picked, [question]: picked };
-    set({ baseline: kept, picked: all });
-    save({ picked: all });
-    get().next();
-  },
-  skip() {
-    const { step, sub } = get();
-    const rest = questionsFor(step).slice(sub);
-    const keys = rest.flatMap((q) => q.keys);
-    revertLive([...keys, ...(rest.some((q) => q.id === "color") ? (["color"] as const) : [])]);
-    set((s) => {
-      const draft = { ...s.draft };
-      for (const key of keys) delete draft[key];
-      return { draft };
-    });
-    const after = stepAfter(step, 1);
-    if (after) get().go(after);
-    else finishOnboarding();
-  },
 }));
+
+export function goToStep(step: OnboardingStep, sub = 0) {
+  useOnboarding.setState({ step, sub });
+  save({ step, sub });
+}
+
+export function nextStep() {
+  const { step, sub } = useOnboarding.getState();
+  if (sub < questionsFor(step).length - 1) return goToStep(step, sub + 1);
+  const after = stepAfter(step, 1);
+  if (after) goToStep(after);
+  else finishOnboarding();
+}
+
+export function previousStep() {
+  const { step, sub } = useOnboarding.getState();
+  if (sub > 0) return goToStep(step, sub - 1);
+  const before = stepAfter(step, -1);
+  if (before && before !== "intro") goToStep(before, Math.max(0, questionsFor(before).length - 1));
+}
+
+export function chooseSource(source: BrowserSourceId | null) {
+  const preset = presetFor(source);
+  useOnboarding.setState({ source, preset });
+  save({ source, preset });
+}
+
+export function setOnboardingDraft(patch: Partial<Settings>) {
+  useOnboarding.setState((s) => ({ draft: { ...s.draft, ...patch } }));
+}
+
+export function setOnboardingExtras(patch: Partial<Extras>) {
+  useOnboarding.setState((s) => ({ extras: { ...s.extras, ...patch } }));
+}
+
+export function previewLive(patch: Partial<Settings>) {
+  const { windowId, baseline } = useOnboarding.getState();
+  const b = useBrowser.getState();
+  const recorded: LiveBaseline = { ...baseline };
+  for (const key of Object.keys(patch) as (keyof Settings)[]) {
+    if (key in recorded) continue;
+    Object.assign(recorded, { [key]: key === "tabLayout" ? tabLayoutOf(b, windowId) : b.settings[key] });
+  }
+  useOnboarding.setState({ baseline: recorded });
+  const { tabLayout, ...rest } = patch;
+  if (tabLayout && windowId) setWindowLayout(windowId, tabLayout);
+  if (Object.keys(rest).length) b.updateSettings(rest, { fromSync: true });
+}
+
+export function previewColor(color: ProfileColor) {
+  const { windowId, baseline } = useOnboarding.getState();
+  const b = useBrowser.getState();
+  const profileId = windowId ? b.windows[windowId]?.profileId : undefined;
+  if (!profileId) return;
+  if (!("color" in baseline)) useOnboarding.setState({ baseline: { ...baseline, color: b.profiles[profileId]?.color } });
+  b.updateProfile(profileId, { color });
+}
+
+export function confirmAnswer(question: QuestionId, patch: Partial<Settings>, picked: string[]) {
+  const { windowId, baseline } = useOnboarding.getState();
+  if (patch.tabLayout && windowId) setWindowLayout(windowId, patch.tabLayout);
+  if (Object.keys(patch).length) useBrowser.getState().updateSettings(patch);
+  const kept: LiveBaseline = { ...baseline };
+  for (const key of Object.keys(patch)) delete kept[key as keyof LiveBaseline];
+  if (question === "color") delete kept.color;
+  const all = { ...useOnboarding.getState().picked, [question]: picked };
+  useOnboarding.setState({ baseline: kept, picked: all });
+  save({ picked: all });
+  nextStep();
+}
+
+export function skipStep() {
+  const { step, sub } = useOnboarding.getState();
+  const rest = questionsFor(step).slice(sub);
+  const keys = rest.flatMap((q) => q.keys);
+  revertLive([...keys, ...(rest.some((q) => q.id === "color") ? (["color"] as const) : [])]);
+  useOnboarding.setState((s) => {
+    const draft = { ...s.draft };
+    for (const key of keys) delete draft[key];
+    return { draft };
+  });
+  const after = stepAfter(step, 1);
+  if (after) goToStep(after);
+  else finishOnboarding();
+}
 
 function revertLive(keys: readonly (keyof LiveBaseline)[]) {
   const { windowId, baseline } = useOnboarding.getState();
@@ -381,6 +381,7 @@ export function maybeStartOnboarding() {
 
 if (__DEV__) (globalThis as { acOnboarding?: unknown }).acOnboarding = {
     store: useOnboarding,
+    go: goToStep,
     start: startOnboarding,
     finish: finishOnboarding,
     pinSites,

@@ -26,48 +26,39 @@ export type SettingsPane =
 
 export type SettingsPlace = { pane: SettingsPane; profileId: string | null; detail: string | null };
 
-type Nav = SettingsPlace & {
-  back: SettingsPlace[];
-  forward: SettingsPlace[];
-  go(pane: SettingsPane, profileId?: string | null, detail?: string | null): void;
-  replace(profileId: string | null, detail?: string | null): void;
-  goBack(): void;
-  goForward(): void;
-};
+type Nav = SettingsPlace & { back: SettingsPlace[]; forward: SettingsPlace[] };
 
 const placeOf = ({ pane, profileId, detail }: SettingsPlace): SettingsPlace => ({ pane, profileId, detail });
 
-export const useSettingsNav = create<Nav>((set, get) => ({
-  pane: "general",
-  profileId: null,
-  detail: null,
-  back: [],
-  forward: [],
-  go(pane, profileId = null, detail = null) {
-    const current = get();
-    if (current.pane === pane && current.profileId === profileId && current.detail === detail) return;
-    set({ pane, profileId, detail, back: [...current.back, placeOf(current)].slice(-30), forward: [] });
-  },
-  replace(profileId, detail = null) {
-    const { pane, back } = get();
-    const prev = back.at(-1);
-    const same = prev?.pane === pane && prev.profileId === profileId && prev.detail === detail;
-    set({ profileId, detail, back: same ? back.slice(0, -1) : back, forward: [] });
-  },
-  goBack() {
-    const current = get();
-    const prev = current.back.at(-1);
-    if (prev) set({ ...prev, back: current.back.slice(0, -1), forward: [placeOf(current), ...current.forward] });
-  },
-  goForward() {
-    const current = get();
-    const next = current.forward[0];
-    if (next) set({ ...next, forward: current.forward.slice(1), back: [...current.back, placeOf(current)] });
-  },
-}));
+export const useSettingsNav = create<Nav>()(() => ({ pane: "general", profileId: null, detail: null, back: [], forward: [] }));
+
+export function goToSettingsPane(pane: SettingsPane, profileId: string | null = null, detail: string | null = null) {
+  const current = useSettingsNav.getState();
+  if (current.pane === pane && current.profileId === profileId && current.detail === detail) return;
+  useSettingsNav.setState({ pane, profileId, detail, back: [...current.back, placeOf(current)].slice(-30), forward: [] });
+}
+
+export function replaceSettingsPlace(profileId: string | null, detail: string | null = null) {
+  const { pane, back } = useSettingsNav.getState();
+  const prev = back.at(-1);
+  const same = prev?.pane === pane && prev.profileId === profileId && prev.detail === detail;
+  useSettingsNav.setState({ profileId, detail, back: same ? back.slice(0, -1) : back, forward: [] });
+}
+
+export function settingsBack() {
+  const current = useSettingsNav.getState();
+  const prev = current.back.at(-1);
+  if (prev) useSettingsNav.setState({ ...prev, back: current.back.slice(0, -1), forward: [placeOf(current), ...current.forward] });
+}
+
+export function settingsForward() {
+  const current = useSettingsNav.getState();
+  const next = current.forward[0];
+  if (next) useSettingsNav.setState({ ...next, forward: current.forward.slice(1), back: [...current.back, placeOf(current)] });
+}
 
 export function openSettings(pane?: SettingsPane, profileId?: string | null) {
-  if (pane) useSettingsNav.getState().go(pane, profileId ?? null);
+  if (pane) goToSettingsPane(pane, profileId ?? null);
   void openWindow(SETTINGS_WINDOW_ID, { kind: "settings", title: "Settings" });
 }
 
