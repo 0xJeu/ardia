@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../../state/browser/store.ts");
-const { folderMenuItems, stripEntries } = await import("./stripGroups.ts");
+const { folderMenuItems, stripEntries } = await import("../../state/tabs/topStrip.ts");
 
 const S = () => useBrowser.getState();
 const host = (id) => new URL(S().tabs[id].url).hostname.replace(".example", "");

@@ -1,13 +1,18 @@
 import { ContextMenuArea, DockSelection, FadeLabel, raiseView, setTrafficLightsCenter, Surface, Symbol, WindowDragRegion } from "@ardia/shell";
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { create } from "zustand";
 import { toggleMute } from "../../state/browser/actions";
 import { hex, layout, useTheme } from "../ui/theme";
 import { ThemeScope } from "../window/ThemeScope";
 import { useTileTheme } from "../../state/favicons/tileTheme";
 import { liquidGlass } from "../ui/Glass";
-import { useBrowser } from "../../state/browser/store";
+import { currentGroup, downloadsOpenIn } from "../../state/browser/current";
+import { activate, newTab } from "../../state/tabs/actions";
+import { updateGroup } from "../../state/groups/actions";
+import { useGroup } from "../../state/browser/hooks";
+import { useGroupLabel } from "../../state/groups/hooks";
+import { useWindowUiOf } from "../../state/windows/hooks";
+import { currentMovingTabIds, dropTabsAt, dropTabsInSlot, inPinnedGroup, moveInGroup, openFolderMenu, openTileFolderStripMenu, setStripOnto, storeChangedSince, storeMark, tuckGroup, useHasTuckTarget, useShownTabIdFor, useStripEntries, useStripOntoIs, useTileFolderLabel } from "../../state/tabs/topStrip";
 import { PageProfileContext, useIsActiveTab, usePageProfileId, useSettings, useTab, useTabLive, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
 import { ProfileIndicator, useProfileIndicatorWidth } from "../profiles/ProfileIndicator";
 import { HoverSlot } from "../ui/HoverSlot";
@@ -16,8 +21,7 @@ import { DownloadsButton } from "../downloads/Downloads";
 import { clickTab } from "../../state/sidebar/actions";
 import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../../state/sidebar/closeControl";
 import { openGroupMenu, openTabMenu } from "../../state/sidebar/menus";
-import { groupLabel } from "../../state/pins/organize";
-import { firstStaying, movingTabIds, resolveDrop, slotDrop, type DropSpot } from "../../state/drag/drops";
+import { firstStaying, type DropSpot } from "../../state/drag/drops";
 import { TabIcon } from "../sidebar/TabIcon";
 import { hasOwnGroupIcon, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { groupColorMenu } from "../sidebar/groupColorMenu";
@@ -29,10 +33,9 @@ import { ProfileSwipeArea } from "../window/ProfileSwipe";
 import { openNewTabInSplit } from "../../state/splits/actions";
 import { toggleNewTabBar } from "../../state/omnibox/newTabBar";
 import { setMeasuredWidth, useMeasuredWidth, useMeasuredWidths } from "../../state/windows/measuredWidths";
-import { openFolderMenu, openTileFolderStripMenu } from "./stripFolderMenu";
 import { FolderMosaic } from "../sidebar/FolderTile";
 import { openTileFolderMenu } from "../../state/sidebar/tileFolderUi";
-import { folderCell, folderIdOfCell, folderIn, folderLabel } from "../../state/pins/tileFolders";
+import { folderCell, folderIdOfCell } from "../../state/pins/tileFolders";
 import { usePeek } from "../window/usePeek";
 import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "../../state/windows/dockMotion";
 import {
@@ -49,16 +52,14 @@ import {
   MEMBERS_INSET,
   memberInteractive,
   revealOffset,
-  stripEntries,
   stripTabWidth,
   TAIL_EXPANDED,
   TUCK_FADE_MS,
-  tuckTarget,
   type DragGeometry,
   type DragSlot,
 } from "./stripGroups";
 import { makeRoom, registerSlot, reorderOffsets, settleRoom, shiftRoom, SLIDE } from "./stripReorder";
-import { beginExternalDrag, beginTabDrag, cancelTabDrag, endExternalDrag, endTabDrag, moveExternalDrag, setDragPicture, setInsert, setInsertResolver, updateTabDrag, useTabDrag } from "../../state/drag/tabDrag";
+import { beginExternalDrag, beginTabDrag, cancelTabDrag, endExternalDrag, endTabDrag, moveExternalDrag, setDragPicture, setInsert, setInsertResolver, tabDragging, updateTabDrag, useTabDrag } from "../../state/drag/tabDrag";
 import { TabDropArea, type TabDropTarget } from "../window/TabDropArea";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
 import { curve } from "../ui/motion";
@@ -95,9 +96,8 @@ type GroupEntry = { kind: "group"; id: string; collapsed: boolean; members: Memb
 type Entry = { kind: "dock"; ids: string[]; members: Map<string, string[]> } | GroupEntry | Member;
 type DropTarget = { kind: "tab" | "group"; id: string };
 
-const useStripOnto = create<{ key: string | null }>()(() => ({ key: null }));
 const ontoKey = (target: DropTarget | null) => (target ? `${target.kind}:${target.id}` : null);
-const useOnto = (target: DropTarget) => useStripOnto((s) => s.key === ontoKey(target));
+const useOnto = (target: DropTarget) => useStripOntoIs(ontoKey(target));
 
 const PROFILE_ROOM = 140;
 const DOWNLOADS_BOX = 34;
@@ -218,9 +218,7 @@ function incomingIndex(top: DragGeometry, point: [number, number] | null, start:
   if (!point || start === null || point[1] > TOP_STRIP_HEIGHT + 24) return null;
   const x = point[0] - start;
   let index = top.slots.filter((slot, i) => top.lefts[i]! + slot.width / 2 < x).length;
-  const groups = useBrowser.getState().groups;
-  const pinnedGroup = (id: string | undefined) => !!id && Object.values(groups).some((g) => g.pinned && g.tabIds.includes(id));
-  while (index < top.slots.length && pinnedGroup(top.slots[index]!.tabIds[0])) index++;
+  while (index < top.slots.length && inPinnedGroup(top.slots[index]!.tabIds[0])) index++;
   return index;
 }
 
@@ -246,8 +244,8 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   const windowId = useWindowId();
   const flare = useContext(FloatingStrip) ? 0 : FLARE;
   const pageStyle = usePageStyle(windowId, slot, pageWidth + flare * 2);
-  const entries = useBrowser((s) => stripEntries(s, windowId, profileId));
-  const activeId = useBrowser((s) => s.windows[windowId]?.activeTabIds[profileId] ?? "");
+  const entries = useStripEntries(windowId, profileId);
+  const activeId = useShownTabIdFor(windowId, profileId);
   const parsed = useMemo(() => parseEntries(entries), [entries]);
   const groupIds = parsed.flatMap((e) => (e.kind === "group" ? [e.id] : []));
   const chipWidths = useMeasuredWidths(groupIds.map(chipKey));
@@ -309,7 +307,7 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   useEffect(() => {
     if (revealed.current === activeId) return;
     revealed.current = activeId;
-    if (!current || !activeId || useTabDrag.getState().tabIds.length) return;
+    if (!current || !activeId || tabDragging()) return;
     const frame = requestAnimationFrame(() => {
       const span = latestSpan.current(activeId);
       const x = span && revealOffset(span[0], span[1], scrolled.current, pageWidth + flare * 2, flare + GAP);
@@ -572,7 +570,7 @@ function useStripDrag(item: StripDrag) {
   const setOnto = (target: DropTarget | null) => {
     if (ontoKey(drag.current.onto) === ontoKey(target)) return;
     drag.current.onto = target;
-    useStripOnto.setState({ key: ontoKey(target) });
+    setStripOnto(ontoKey(target));
   };
   const setLifted = (lifted: boolean) => {
     if (drag.current.lifted === lifted) return;
@@ -662,7 +660,7 @@ function useStripDrag(item: StripDrag) {
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, g) => {
-          if (useTabDrag.getState().tabIds.length) return false;
+          if (tabDragging()) return false;
           const axis = latest.current.axis;
           if (axis === "y") return Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx);
           if (axis === "x") return Math.abs(g.dx) > 4;
@@ -723,18 +721,18 @@ function useStripDrag(item: StripDrag) {
           const bounds = typeof range === "function" ? range(drag.current.grab) : range;
           const travelled = bounds ? Math.max(bounds[0], Math.min(bounds[1], g.dx)) : g.dx;
           if (!local) {
-            const store = useBrowser.getState();
+            const mark = storeMark();
             const moved = drop?.(travelled, ids) || (from >= 0 && ids.length > 1 && reorder(ids, latest.current, indexAt(g.dx)));
-            if (moved && useBrowser.getState() !== store) settleRoom(geometry);
+            if (moved && storeChangedSince(mark)) settleRoom(geometry);
             if (moved) return reset();
           }
           if (from < 0) return reset();
           const to = indexAt(g.dx);
           settleInto(to === from ? null : to, () => {
-            const store = useBrowser.getState();
+            const mark = storeMark();
             if (local) drop?.(travelled, ids);
             else reorder(ids, latest.current, to);
-            return useBrowser.getState() !== store;
+            return storeChangedSince(mark);
           });
         },
         onPanResponderTerminate: () => {
@@ -755,13 +753,11 @@ function useStripDrag(item: StripDrag) {
 }
 
 function reorder(ids: string[], { geometry, from, pinned, groupId }: StripDrag, to: number): boolean {
-  const s = useBrowser.getState();
-  return s.dropTabs(ids, slotDrop(s, ids, geometry.slots, from, to, { pinned, groupId }));
+  return dropTabsInSlot(ids, geometry.slots, from, to, { pinned, groupId });
 }
 
 function dropAt(ids: string[], spot: DropSpot): boolean {
-  const s = useBrowser.getState();
-  return s.dropTabs(ids, resolveDrop(s, { kind: "tab" }, spot));
+  return dropTabsAt(ids, { kind: "tab" }, spot);
 }
 
 const dropOnto = (target: DropTarget, ids: string[]) =>
@@ -800,7 +796,7 @@ function DraggableChip({
       : undefined;
   const drag = useStripDrag({
     tabId,
-    ids: () => movingTabIds(useBrowser.getState(), tabId),
+    ids: () => currentMovingTabIds(tabId),
     pinned: false,
     groupId: group,
     geometry,
@@ -1130,7 +1126,7 @@ function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGe
   const range: [number, number] | undefined = dock ? [-geometry.lefts[from]!, end - dock.left - geometry.lefts[from]! - PINNED_CELL] : undefined;
   const drag = useStripDrag({
     tabId,
-    ids: () => movingTabIds(useBrowser.getState(), tabId),
+    ids: () => currentMovingTabIds(tabId),
     pinned: true,
     groupId: null,
     geometry,
@@ -1163,7 +1159,7 @@ function PinnedCell({ tabId, geometry, from }: { tabId: string; geometry: DragGe
 function FolderCell({ folderId, tabIds, geometry, from }: { folderId: string; tabIds: string[]; geometry: DragGeometry; from: number }) {
   const theme = useTheme();
   const windowId = useWindowId();
-  const label = useBrowser((s) => folderLabel(folderIn(s, windowId, folderId)));
+  const label = useTileFolderLabel(windowId, folderId);
   const { hovered, hoverProps } = useHover();
   const drag = useStripDrag({
     tabId: null,
@@ -1225,7 +1221,7 @@ function StripGroup({
   const tokens = useSidebarTokens();
   const windowId = useWindowId();
   const profileId = usePageProfileId();
-  const group = useBrowser((s) => s.groups[entry.id]);
+  const group = useGroup(entry.id, (g) => g);
   const groupClose = useGroupCloseControl(entry.id);
   const onto = useOnto({ kind: "group", id: entry.id });
   const { hovered, hoverProps } = useHover();
@@ -1235,7 +1231,7 @@ function StripGroup({
   const chipSize = chipWidth ?? 0;
   const { offsets, width } = groupLayout(chipSize, widths, GAP, expanded, shown);
   const members = useMemo(() => dragGeometry(entry.members.map((m, i) => ({ tabIds: tabsOf(m), width: widths[i]! })), GAP), [entry.members, widths.join()]);
-  const tuckable = useBrowser((s) => !expanded && shown >= 0 && !!tuckTarget(s, windowId, profileId, entry.id));
+  const tuckable = useHasTuckTarget(!expanded && shown >= 0, windowId, profileId, entry.id);
   const open = useRef(new Animated.Value(expanded ? 1 : 0)).current;
   const size = useRef(new Animated.Value(width)).current;
   const state = `${expanded}:${shown >= 0 ? entry.members[shown]!.id : ""}`;
@@ -1259,7 +1255,7 @@ function StripGroup({
   const fade = useMemo(() => open.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: "clamp" }), []);
   const drag = useStripDrag({
     tabId: null,
-    ids: () => useBrowser.getState().groups[entry.id]?.tabIds ?? [],
+    ids: () => currentGroup(entry.id)?.tabIds ?? [],
     pinned: false,
     groupId: null,
     geometry,
@@ -1272,9 +1268,7 @@ function StripGroup({
       const to = dropIndex(geometry, from, dx);
       if (to === from) return true;
       const others = geometry.slots.filter((_, i) => i !== from);
-      const s = useBrowser.getState();
-      const beforeId = others[to]?.tabIds[0] ?? null;
-      s.dropTabs([], resolveDrop(s, { kind: "group", groupId: entry.id }, { zone: s.groups[entry.id]?.pinned ? "pinnedRows" : "list", beforeId }));
+      moveInGroup(entry.id, others[to]?.tabIds[0] ?? null);
       return true;
     },
   });
@@ -1283,11 +1277,7 @@ function StripGroup({
   const tint = groupTint(group.color);
   const bare = group.color === "none";
   const divider = theme.dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)";
-  const tuck = () => {
-    const s = useBrowser.getState();
-    const target = tuckTarget(s, windowId, profileId, entry.id);
-    if (target) s.activate(target);
-  };
+  const tuck = () => tuckGroup(windowId, profileId, entry.id);
   return (
     <Animated.View
       ref={drag.ref}
@@ -1342,7 +1332,7 @@ function StripGroup({
       >
         <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, entry.id, groupColorMenu)}>
           <Pressable
-            onPress={() => useBrowser.getState().updateGroup(entry.id, { collapsed: expanded })}
+            onPress={() => updateGroup(entry.id, { collapsed: expanded })}
             style={{ height: ITEM_HEIGHT, flexDirection: "row", alignItems: "center", paddingLeft: 8.5, paddingRight: 7 }}
           >
             <StripGroupIcon icon={group.icon} tint={tint} />
@@ -1432,8 +1422,8 @@ function FolderChip({ groupId, holding }: { groupId: string; holding: boolean })
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const windowId = useWindowId();
-  const group = useBrowser((s) => s.groups[groupId]);
-  const label = useBrowser((s) => (s.groups[groupId] ? groupLabel(s, s.groups[groupId]!) : ""));
+  const group = useGroup(groupId, (g) => g);
+  const label = useGroupLabel(groupId);
   const { hovered, hoverProps } = useHover();
   if (!group) return null;
   const tint = groupTint(group.color);
@@ -1497,7 +1487,7 @@ function SplitChip({ tabIds, width, geometry, from, group }: { tabIds: string[];
   const theme = useTheme();
   const windowId = useWindowId();
   const profileId = usePageProfileId();
-  const focusedId = useBrowser((s) => s.windows[windowId]?.activeTabIds[profileId] ?? "");
+  const focusedId = useShownTabIdFor(windowId, profileId);
   const active = tabIds.includes(focusedId);
   const { band, palette } = useWebsiteBand(active ? focusedId : tabIds[0]!);
   const floating = useContext(FloatingStrip);
@@ -1532,7 +1522,7 @@ function SplitPart({ tabId, first, ink }: { tabId: string; first: boolean; ink: 
     <Animated.View ref={drag.ref} {...drag.panHandlers} style={{ flex: 1, flexDirection: "row", alignItems: "center", opacity: drag.style.opacity }}>
       <ContextMenuArea onContextMenu={() => void openTabMenu(windowId, tab)} style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
         {!first && <View style={{ width: StyleSheet.hairlineWidth, height: 16, marginHorizontal: 6, backgroundColor: ink?.divider ?? theme.textTertiary }} />}
-        <Pressable onPress={() => useBrowser.getState().activate(tab.id)} style={{ flex: 1, flexDirection: "row", alignItems: "center" }} tooltip={tab.title || tab.url}>
+        <Pressable onPress={() => activate(tab.id)} style={{ flex: 1, flexDirection: "row", alignItems: "center" }} tooltip={tab.title || tab.url}>
           <View pointerEvents="none">
             <TabIcon url={tab.url} favicon={tab.favicon} icon={tab.customIcon} size={14} profileId={tab.profileId} />
           </View>
@@ -1555,7 +1545,7 @@ function NewTabButton({ windowId, geometry }: { windowId: string; geometry: Drag
       <Pressable
         onPress={(e) => {
           if (modifiersOf(e).altKey) openNewTabInSplit(windowId);
-          else toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId, { newTabCommand: true });
+          else toggleNewTabBar(windowId) || newTab(windowId, { newTabCommand: true });
         }}
       >
         {({ pressed }) => (
@@ -1575,8 +1565,8 @@ const PEEK_TOP = 4;
 export function TopStripPeek({ windowWidth, enabled }: { windowWidth: number; enabled: boolean }) {
   const theme = useTheme();
   const windowId = useWindowId();
-  const downloadsOpen = useBrowser((s) => !!s.windowUi[windowId]?.downloadsOpen);
-  const { slide, live, show, hide, recheck } = usePeek(enabled, false, () => !!useBrowser.getState().windowUi[windowId]?.downloadsOpen);
+  const downloadsOpen = useWindowUiOf(windowId, (u) => !!u?.downloadsOpen);
+  const { slide, live, show, hide, recheck } = usePeek(enabled, false, () => downloadsOpenIn(windowId));
   useEffect(() => {
     if (!downloadsOpen) recheck();
   }, [downloadsOpen]);

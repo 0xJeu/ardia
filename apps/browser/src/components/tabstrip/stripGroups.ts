@@ -1,11 +1,3 @@
-import type { MenuItem } from "@ardia/shell";
-import type { BrowserState } from "../../state/browser/store";
-import { tabLabel, viewTabIds } from "../../state/browser/model";
-import { hiddenEmptyCard } from "../../state/omnibox/newTabBarPolicy";
-import { groupLabel } from "../../state/pins/organize";
-import { groupIndex, splitIndex, stableList } from "../../state/browser/structure";
-import { folderMembers, tileFolderOf } from "../../state/pins/tileFolders";
-import { groupEntries } from "../../state/sidebar/entries";
 import { spring } from "../ui/motion";
 
 export const GROUP_MARGIN_LEFT = 3.5;
@@ -29,17 +21,6 @@ export function groupLayout(chip: number, widths: number[], gap: number, expande
   if (expanded && widths.length) return { offsets, width: chip + MEMBERS_INSET + members + TAIL_EXPANDED };
   if (shown >= 0 && widths[shown] !== undefined) return { offsets, width: chip + MEMBERS_INSET + widths[shown]! + TAIL_COLLAPSED };
   return { offsets, width: chip };
-}
-
-export function tuckTarget(s: BrowserState, windowId: string, profileId: string, groupId: string): string | undefined {
-  const members = new Set(s.groups[groupId]?.tabIds ?? []);
-  let best: string | undefined;
-  for (const id of viewTabIds(s, windowId, profileId)) {
-    const t = s.tabs[id];
-    if (!t || members.has(id)) continue;
-    if (!best || t.lastActiveAt > s.tabs[best]!.lastActiveAt) best = id;
-  }
-  return best;
 }
 
 export function stripTabWidth(o: {
@@ -141,86 +122,4 @@ export function revealOffset(left: number, width: number, scrolled: number, view
 
 export function memberInteractive(shown: boolean, expanded: boolean, moving: boolean): boolean {
   return shown || (expanded && !moving);
-}
-
-const stripMemo = new Map<string, { inputs: unknown[]; result: string[] }>();
-
-function foldersUnderRoots(groups: BrowserState["groups"]): Map<string, string> {
-  const folderOf = new Map<string, string>();
-  for (const g of Object.values(groups)) {
-    if (!g.parentId || groups[g.parentId]?.parentId) continue;
-    for (const id of g.tabIds) folderOf.set(id, g.id);
-  }
-  return folderOf;
-}
-
-export function stripEntries(s: BrowserState, windowId: string, profileId: string): string[] {
-  const key = `${windowId}|${profileId}`;
-  const inputs = [s.tabs, s.windows, s.groups, s.splits, s.settings.newTabOpens];
-  const cached = stripMemo.get(key);
-  if (cached && cached.inputs.every((v, i) => v === inputs[i])) return cached.result;
-  const groups = groupIndex(s.groups);
-  const folders = foldersUnderRoots(s.groups);
-  const splits = splitIndex(s.splits);
-  const seen = new Set<string>();
-  const dock: string[] = [];
-  const out: string[] = [];
-  const activeId = s.windows[windowId]?.activeTabIds[profileId];
-  for (const id of viewTabIds(s, windowId, profileId)) {
-    const t = s.tabs[id]!;
-    if (hiddenEmptyCard(s, t)) continue;
-    const tileFolder = tileFolderOf(t);
-    if (tileFolder) {
-      if (!seen.has(`tf:${tileFolder.id}`)) dock.push(`tilefolder:${tileFolder.id}:${folderMembers(s, windowId, tileFolder.id).join(",")}`);
-      seen.add(`tf:${tileFolder.id}`);
-      if (id === activeId) dock.push(`pinned:${id}`);
-      continue;
-    }
-    if (t.pinned) {
-      dock.push(`pinned:${id}`);
-      continue;
-    }
-    const group = groups.get(id);
-    if (group && !seen.has(group.id)) {
-      seen.add(group.id);
-      out.push(`group:${group.id}:${group.collapsed ? 1 : 0}`);
-    }
-    const folder = group && folders.get(id);
-    if (folder) {
-      if (!seen.has(folder)) out.push(`folder:${folder}:${s.groups[folder]!.tabIds.join(",")}:${group.id}`);
-      seen.add(folder);
-      continue;
-    }
-    const split = splits.get(id)?.[0];
-    if (split) {
-      if (!seen.has(split.id)) out.push(`split:${split.id}:${split.tabIds.join(",")}:${group?.id ?? ""}`);
-      seen.add(split.id);
-      continue;
-    }
-    out.push(`tab:${id}:${group?.id ?? ""}`);
-  }
-  const result = stableList(cached?.result, [...dock, ...out]);
-  stripMemo.set(key, { inputs, result });
-  if (stripMemo.size > 8) for (const k of stripMemo.keys()) if (!s.windows[k.split("|")[0]!]) stripMemo.delete(k);
-  return result;
-}
-
-export function tileFolderMenuItems(s: BrowserState, windowId: string, folderId: string, activeId: string | undefined): MenuItem[] {
-  return [
-    ...folderMembers(s, windowId, folderId).map((id): MenuItem => ({ id: `t:${id}`, title: tabLabel(s.tabs[id]!), checked: id === activeId })),
-    { separator: true },
-    { id: "rename", title: "Rename Folder…", symbol: "character.cursor.ibeam" },
-  ];
-}
-
-export function folderMenuItems(s: BrowserState, groupId: string, activeId: string | undefined): MenuItem[] {
-  return groupEntries(s, groupId).flatMap((entry): MenuItem[] => {
-    const id = entry.slice(2);
-    if (entry.startsWith("g:")) {
-      const g = s.groups[id];
-      return g ? [{ id: entry, title: groupLabel(s, g), symbol: "folder", children: folderMenuItems(s, id, activeId) }] : [];
-    }
-    const tabIds = entry.startsWith("s:") ? (s.splits[id]?.tabIds ?? []) : [id];
-    return tabIds.flatMap((t): MenuItem[] => (s.tabs[t] ? [{ id: `t:${t}`, title: tabLabel(s.tabs[t]!), checked: t === activeId }] : []));
-  });
 }

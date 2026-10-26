@@ -53,6 +53,8 @@ let picture: Picture | null = null;
 let sentShape: DragPreviewShape = "hidden";
 let begun = false;
 
+export const tabDragging = () => useTabDrag.getState().tabIds.length > 0;
+
 export function beginTabDrag(tabId: string | null, tabIds: string[] = tabId ? [tabId] : []): number {
   if (begun) dragPreview.cancel();
   begun = false;

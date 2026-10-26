@@ -120,8 +120,6 @@
     "apps/browser/src/components/split/SplitChrome.tsx": 1,
     "apps/browser/src/components/split/SplitEmptyState.tsx": 1,
     "apps/browser/src/components/tabstrip/TopTabStrip.tsx": 1,
-    "apps/browser/src/components/tabstrip/stripFolderMenu.ts": 1,
-    "apps/browser/src/components/tabstrip/stripGroups.ts": 1,
     "apps/browser/src/components/toolbar/Toolbar.tsx": 1,
     "apps/browser/src/components/window/CliControlPill.tsx": 1,
     "apps/browser/src/components/window/ContentCard.tsx": 1,
@@ -215,6 +213,7 @@
     "apps/browser/src/state/tabs/tabLifecycle.ts": 2,
     "apps/browser/src/state/tabs/tabPages.ts": 1,
     "apps/browser/src/state/tabs/tabReveal.ts": 1,
+    "apps/browser/src/state/tabs/topStrip.ts": 1,
     "apps/browser/src/state/telemetry/client.ts": 2,
     "apps/browser/src/state/telemetry/daily.ts": 1,
     "apps/browser/src/state/telemetry/errors.ts": 1,
@@ -364,8 +363,6 @@
     "apps/browser/src/components/site/ZoomControls.tsx": 1,
     "apps/browser/src/components/split/SplitChrome.tsx": 2,
     "apps/browser/src/components/split/SplitEmptyState.tsx": 2,
-    "apps/browser/src/components/tabstrip/TopTabStrip.tsx": 18,
-    "apps/browser/src/components/tabstrip/stripFolderMenu.ts": 4,
     "apps/browser/src/components/toolbar/Toolbar.tsx": 7
   },
   "size": {
