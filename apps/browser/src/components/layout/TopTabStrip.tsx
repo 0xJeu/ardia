@@ -1309,7 +1309,7 @@ function StripGroup({
           >
             <StripGroupIcon icon={group.icon} tint={tint} />
             <Text numberOfLines={1} style={{ marginLeft: 12.5, maxWidth: 120, fontSize: 12, fontWeight: "600", color: tint ?? (shown >= 0 ? theme.tabSelectedText : theme.textTab) }}>
-              {group.name || `${group.tabIds.length} Tabs`}
+              {group.name || `${group.tabIds.length} ${group.tabIds.length === 1 ? "Tab" : "Tabs"}`}
             </Text>
           </Pressable>
         </ContextMenuArea>
