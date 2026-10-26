@@ -79,10 +79,28 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       border-color 200ms,
       background-color 300ms var(--ease-out);
   }
+  .bar::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 -36px;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--paper) 58%, transparent), color-mix(in srgb, var(--paper) 30%, transparent));
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 60px, transparent);
+    mask-image: linear-gradient(to bottom, #000 0, #000 60px, transparent);
+    transition: opacity 300ms var(--ease-out);
+  }
   .bar[data-scrolled] {
-    border-bottom-color: var(--rule);
+    background-color: transparent;
+  }
+  .bar[data-scrolled]::before {
+    opacity: 1;
   }
   .bar[data-snap],
+  .bar[data-snap]::before,
   .bar[data-snap] :is(.mark, .links a, .menu-btn, .bar-cta) {
     transition: none;
   }
