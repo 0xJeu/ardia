@@ -1,5 +1,4 @@
 import { useRef } from "react";
-import { FadeLabel } from "@ardia/shell";
 import { Pressable, StyleSheet, View, type ViewStyle } from "react-native";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
 import { layout, useTheme } from "../ui/theme";
@@ -11,11 +10,13 @@ import { usePageProgress } from "../../state/tabs/pageProgress";
 import { extensionsFitting, ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { useHistoryAvailability } from "../../state/tabs/navigation";
 import { toolbarPalette, type ToolbarPalette } from "../ui/toolbarColors";
-import { Button, type ButtonHit, useHover } from "../ui";
+import { Button, type ButtonHit, FadeLabel, font, useHover } from "../ui";
 import { setUrlAnchor } from "../../state/windows/layout";
 import { SIDEBAR_FIELD } from "./geometry";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
-import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../toolbar/Toolbar";
+import { UrlField, useToolbarTab } from "../toolbar/Toolbar";
+import { HistoryButton, ReloadButton } from "../toolbar/NavButtons";
+import { GLYPH } from "../toolbar/tokens";
 import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../window/dockMotion";
 import { ARC_LIGHTS_CENTER } from "../../state/windows/dockMotion";
 
@@ -163,7 +164,7 @@ function EmptyField({ windowId }: { windowId: string }) {
           }}
         >
           {liquidGlass ? <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={SIDEBAR_FIELD.radius} border={StyleSheet.hairlineWidth * 2} fill={theme.pinnedResting} /> : null}
-          <FadeLabel text="Search or enter address" fontSize={13} color={theme.placeholder} fadeWidth={14} style={{ height: 18, marginLeft: -2 }} />
+          <FadeLabel text="Search or enter address" fontSize={font.body.fontSize} color={theme.placeholder} fadeWidth={14} style={{ height: 18, marginLeft: -2 }} />
         </View>
       </Pressable>
     </View>

@@ -1,22 +1,17 @@
 import { breadcrumb, urlForDisplay } from "@ardia/core";
-import { ContextMenuArea, FadeLabel, MouseArea, Symbol, WindowDragRegion } from "@ardia/shell";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { layout, useTheme } from "../ui/theme";
-import { withLivePage } from "../../state/tabs/livePage";
-import { webviews } from "../../platform/webviews";
-import { activate, newTab } from "../../state/tabs/actions";
+import { activate } from "../../state/tabs/actions";
 import { openPanel as openWindowPanel, toggleSidebar } from "../../state/windows/actions";
 import { useIsBookmarked, useSettings, useTab, useTabLive } from "../../state/browser/hooks";
-import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
-import { Button, type ButtonHit, useHover } from "../ui";
-import type { ClickModifiers } from "../../lib/keys";
+import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Symbol, useHover, weight, WindowDragRegion } from "../ui";
 import { type ToolbarGeometry } from "../window/geometry";
 import { popoverOf, setPopover, usePage, usePages, type PageState } from "../../state/tabs/pageState";
-import { closeHistoryMenu, goBack, goForward, historyItems, toggleHistoryMenu, useHistoryAvailability } from "../../state/tabs/navigation";
-import { openModeFor, openUrl, toggleBookmarkOfTab } from "../../state/bookmarks/actions";
+import { useHistoryAvailability } from "../../state/tabs/navigation";
+import { toggleBookmarkOfTab } from "../../state/bookmarks/actions";
 import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/actions";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
 import { setToolbarExtensionsWidth } from "../../state/windows/layout";
@@ -28,6 +23,9 @@ import { TranslateButton } from "../site/TranslateControls";
 import { ZoomIndicator } from "../site/ZoomControls";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
 import { curve } from "../ui/motion";
+import { HistoryButton, ReloadButton } from "./NavButtons";
+import { ProgressBar, TabProgressBar } from "./ProgressBar";
+import { GLYPH, TOOLBAR_INK, TOOLBAR_MOTION } from "./tokens";
 
 type ToolbarTab = Pick<Tab, "id" | "url" | "title" | "windowId" | "zoom">;
 const toolbarTab = (t: Tab | undefined): ToolbarTab | undefined =>
@@ -36,7 +34,6 @@ const isWebUrl = (url: string) => /^https?:/i.test(url);
 export const useToolbarTab = (tabId: string | undefined) => useTab(tabId, useShallow(toolbarTab));
 
 export const URL_FIELD = { top: 21.2 - 15, height: 30 } as const;
-export const GLYPH = 13;
 export const urlFieldRight = (inSplit: boolean, extensionsWidth: number) => (inSplit ? 12 + 2 * 28 : 12) + extensionsWidth;
 const LOCK = { left: 7, width: 18, gap: 3 } as const;
 export const urlTextLeft = (insecure: boolean) => (insecure ? LOCK.left + LOCK.width + LOCK.gap : 8);
@@ -75,7 +72,7 @@ export function Toolbar({
   useEffect(() => {
     if (dimmedFor.current === focused) return;
     dimmedFor.current = focused;
-    Animated.timing(dim, { toValue: focused ? 1 : 0.5, duration: 160, easing: curve.outQuad, useNativeDriver: true }).start();
+    Animated.timing(dim, { toValue: focused ? 1 : 0.5, duration: TOOLBAR_MOTION.dim, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [focused]);
   const focus = useCallback(() => {
     if (!focused) activate(tabId);
@@ -141,119 +138,6 @@ export function ToolbarBackdrop({ tabId }: { tabId: string }) {
   );
 }
 
-export const ReloadButton = memo(function ReloadButton({
-  tab,
-  loading,
-  palette,
-  style,
-  hit,
-  onFocus,
-}: {
-  tab: Pick<Tab, "id" | "url" | "windowId">;
-  loading: boolean;
-  palette: ToolbarPalette;
-  style?: ViewStyle;
-  hit?: ButtonHit;
-  onFocus: () => void;
-}) {
-  const web = () => webviews.get(tab.id);
-  const reloadHint = useShortcutHint("reload");
-  return (
-    <Button variant="icon" toolbar
-      style={style}
-      palette={palette}
-      icon={loading ? "xmark" : "arrow.clockwise"}
-      size={GLYPH}
-      hit={hit}
-      disabled={!tab.url}
-      onPress={(m) => {
-        onFocus();
-        if (loading) return void web()?.stopLoading();
-        if (m.metaKey) return void newTab(tab.windowId, { url: tab.url, background: true, openerId: tab.id });
-        void withLivePage(tab.id, (page) => (m.shiftKey ? page.forceReload() : page.reload()));
-      }}
-      tooltip={loading ? "Stop Loading This Page" : withShortcut("Refresh", reloadHint)}
-    />
-  );
-});
-
-const TabProgressBar = memo(function TabProgressBar({ tabId, color }: { tabId: string; color: string }) {
-  return <ProgressBar progress={usePageProgress(tabId)} color={color} />;
-});
-
-function ProgressBar({ progress, color }: { progress: number; color: string }) {
-  const width = useRef(new Animated.Value(Math.max(progress, 0.08))).current;
-  const shownFor = useRef(Math.max(progress, 0.08));
-  useEffect(() => {
-    const to = Math.max(progress, 0.08);
-    if (shownFor.current === to) return;
-    shownFor.current = to;
-    Animated.timing(width, { toValue: to, duration: 200, easing: curve.outQuad, useNativeDriver: false }).start();
-  }, [progress]);
-  return (
-    <Animated.View
-      style={{
-        position: "absolute",
-        left: 0,
-        bottom: 0,
-        height: 1.5,
-        width: width.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
-        backgroundColor: color,
-        opacity: 0.85,
-      }}
-    />
-  );
-}
-
-export const HistoryButton = memo(function HistoryButton({
-  tabId,
-  windowId,
-  direction,
-  disabled,
-  palette,
-  style,
-  hit,
-  onFocus,
-}: {
-  tabId: string;
-  windowId: string;
-  direction: -1 | 1;
-  disabled: boolean;
-  palette: ToolbarPalette;
-  style?: object;
-  hit?: ButtonHit;
-  onFocus: () => void;
-}) {
-  const historyHint = useShortcutHint(direction < 0 ? "back" : "forward");
-  const openMenu = () => {
-    onFocus();
-    toggleHistoryMenu(tabId, direction);
-  };
-  const onPress = async (m: ClickModifiers & { middle?: boolean }) => {
-    onFocus();
-    closeHistoryMenu();
-    const mode = openModeFor(m);
-    if (mode === "current" || mode === "split") return direction < 0 ? goBack(tabId) : goForward(tabId);
-    const [target] = await historyItems(tabId, direction, 1);
-    if (target?.url) openUrl(target.url, windowId, mode);
-  };
-  return (
-    <MouseArea style={style} onMiddleClick={(e) => !disabled && void onPress({ ...e, middle: true })}>
-      <Button variant="icon" toolbar
-        palette={palette}
-        icon={direction < 0 ? "chevron.left" : "chevron.right"}
-        size={GLYPH}
-        hit={hit}
-        disabled={disabled}
-        onPress={onPress}
-        onLongPress={openMenu}
-        onContextMenu={openMenu}
-        tooltip={withShortcut(direction < 0 ? "Go Back" : "Go Forward", historyHint)}
-      />
-    </MouseArea>
-  );
-});
-
 export const UrlField = memo(function UrlField({
   tab,
   palette,
@@ -315,14 +199,14 @@ export const UrlField = memo(function UrlField({
               backgroundColor: liquidGlass ? undefined : hovered ? theme.tabHover : theme.pinnedResting,
               overflow: "hidden",
             }
-          : { height: 30, borderRadius: 8, backgroundColor: hovered && !liquidGlass ? palette.pill : undefined },
+          : { height: 30, borderRadius: radius.l, backgroundColor: hovered && !liquidGlass ? palette.pill : undefined },
       ]}
     >
       {liquidGlass ? (
         sidebar ? (
           <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={SIDEBAR_FIELD.radius} border={StyleSheet.hairlineWidth * 2} fill={theme.pinnedResting} />
         ) : (
-          <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={8} fill={palette.pill} dark={palette.background ? palette.text.startsWith("#FFFFFF") : undefined} />
+          <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={radius.l} fill={palette.pill} dark={palette.background ? palette.text.startsWith(ink.white) : undefined} />
         )
       ) : null}
       {insecure && (
@@ -330,7 +214,7 @@ export const UrlField = memo(function UrlField({
           <Symbol
             name="lock.open.trianglebadge.exclamationmark.fill"
             size={12}
-            color={insecure === "certificateError" ? "#FF5F57" : palette.secondary}
+            color={insecure === "certificateError" ? TOOLBAR_INK.certificateError : palette.secondary}
             style={{ width: LOCK.width, height: 30 }}
           />
         </Pressable>
@@ -339,20 +223,20 @@ export const UrlField = memo(function UrlField({
       <Pressable onPress={() => openPanel(tab.url)} style={{ flex: 1, height: sidebar?.height ?? 30, justifyContent: "center", paddingLeft: insecure ? LOCK.gap : sidebar ? 10 : urlTextLeft(false) }}>
         {sidebar ? (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, fontWeight: "500", color: palette.text }}>
+            <Text numberOfLines={1} style={{ flexShrink: 1, ...font.body, fontWeight: weight.medium, color: palette.text }}>
               {host}
             </Text>
             <FadeLabel
               text={trail}
-              fontSize={13}
+              fontSize={font.body.fontSize}
               color={palette.secondary}
               fadeWidth={14}
               style={{ flex: 1, height: 18, marginLeft: -2 }}
             />
           </View>
         ) : (
-          <Text numberOfLines={1} style={{ fontSize: 13, color: palette.text }}>
-            <Text style={{ fontWeight: "500" }}>{host}</Text>
+          <Text numberOfLines={1} style={{ ...font.body, color: palette.text }}>
+            <Text style={{ fontWeight: weight.medium }}>{host}</Text>
             {trail ? <Text style={{ color: palette.secondary }}>{trail}</Text> : null}
           </Text>
         )}
@@ -368,7 +252,7 @@ export const UrlField = memo(function UrlField({
             icon="macwindow.badge.plus"
             size={13}
             box={24}
-            radius={6}
+            radius={radius.m}
             onPress={() => {
               onFocus();
               setPopover(tab.id, currentPopover(tab.id) === "popups" ? null : "popups");
@@ -379,19 +263,19 @@ export const UrlField = memo(function UrlField({
         )}
         {hovered && (
           <>
-            <Button variant="icon" toolbar palette={palette} icon={bookmarked ? "bookmark.fill" : "bookmark"} size={13} box={24} radius={6} onPress={toggleBookmark} tooltip={bookmarked ? "Remove Bookmark" : withShortcut("Bookmark This Page", bookmarkHint)} />
+            <Button variant="icon" toolbar palette={palette} icon={bookmarked ? "bookmark.fill" : "bookmark"} size={13} box={24} radius={radius.m} onPress={toggleBookmark} tooltip={bookmarked ? "Remove Bookmark" : withShortcut("Bookmark This Page", bookmarkHint)} />
             {!inSplit && !sidebar && (
               <Button variant="icon" toolbar
                 palette={palette}
                 icon="rectangle.split.2x1"
                 size={13}
                 box={24}
-                radius={6}
+                radius={radius.m}
                 onPress={() => openSplitPane(windowId, { anchorTabId: tab.id })}
                 tooltip={withShortcut("Open Split View", splitHint)}
               />
             )}
-            <Button variant="icon" toolbar palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={6} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
+            <Button variant="icon" toolbar palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={radius.m} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
           </>
         )}
         {sidebar?.accessory}
@@ -406,7 +290,7 @@ function CaptureIndicator({ camera, microphone, screen, onPress }: { camera: boo
   const what = [camera && "camera", microphone && "microphone", screen && "screen"].filter(Boolean).join(" and ");
   return (
     <Pressable onPress={onPress} tooltip={`This page is using your ${what}`} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center" }}>
-      <Symbol name={icon} size={12} color="#FF453A" style={{ width: 18, height: 18 }} />
+      <Symbol name={icon} size={12} color={TOOLBAR_INK.capturing} style={{ width: 18, height: 18 }} />
     </Pressable>
   );
 }

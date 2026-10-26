@@ -12,10 +12,12 @@ import { useExtensions } from "../../state/extensions/store";
 import { needsBar, revealToolbar, setToolbarPeek, STRIP_HEIGHT, toolbarMode, useToolbarAutoHide, type ToolbarMode } from "../../state/windows/toolbarAutoHide";
 import { Toolbar } from "./Toolbar";
 import { curve } from "../ui/motion";
+import { font, weight } from "../ui";
+import { TOOLBAR_MOTION } from "./tokens";
 
-const HIDE_MS = 150;
+const HIDE_MS = TOOLBAR_MOTION.hide;
 const HIDE_EASING = curve.outQuad;
-const SHOW_MS = 200;
+const SHOW_MS = TOOLBAR_MOTION.show;
 const SHOW_EASING = curve.outCubic;
 const PEEK_DELAY = 150;
 const UNPEEK_DELAY = 250;
@@ -93,7 +95,7 @@ export function useToolbarMotion({
   const translateY = useMemo(() => Animated.multiply(Animated.subtract(v.laid, v.page), room), [room]);
   const bottomShift = useMemo(() => (tall.on ? Animated.multiply(Animated.subtract(v.page, 1), room) : 0), [tall.on, room]);
   useEffect(() => {
-    const keep = (a: Animated.Value, value: number) => Animated.timing(a, { toValue: value, duration: 0, useNativeDriver: true });
+    const keep = (a: Animated.Value, value: number) => Animated.timing(a, { toValue: value, duration: TOOLBAR_MOTION.settle, useNativeDriver: true });
     Animated.parallel([keep(v.page, initial.page), keep(v.laid, initial.page), keep(v.bar, initial.bar), keep(v.fade, initial.bar)]).start();
   }, []);
   const was = useRef({ collapsed, hidden });
@@ -249,7 +251,7 @@ export function AutoHideToolbar({
             tooltip="Show Toolbar"
             style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 }}
           >
-            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: "500", color: palette.secondary }}>
+            <Text numberOfLines={1} style={{ ...font.caption, fontWeight: weight.medium, color: palette.secondary }}>
               {host}
             </Text>
           </Pressable>

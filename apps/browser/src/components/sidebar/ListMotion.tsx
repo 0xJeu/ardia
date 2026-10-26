@@ -9,9 +9,10 @@ import { groupEntries } from "../../state/sidebar/entries";
 import { entryHeight } from "./geometry";
 import { ghostEntry, snapshotEntry, type EntrySnapshot } from "./GhostEntry";
 import { curve } from "../ui/motion";
+import { SIDEBAR_MOTION } from "./tokens";
 
-export const SLIDE_MS = 140;
-export const FADE_MS = 100;
+export const SLIDE_MS = SIDEBAR_MOTION.listSlide;
+export const FADE_MS = SIDEBAR_MOTION.listFade;
 export const SLIDE_EASING = curve.cssEase;
 export const FADE_EASING = curve.cssEaseOut;
 const GAP = layout.rowGap;

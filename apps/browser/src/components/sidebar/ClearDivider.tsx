@@ -1,9 +1,9 @@
-import { Symbol } from "@ardia/shell";
 import { memo, useEffect, useMemo, useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
 import { markHoverProps } from "../../lib/hoverMarks";
 import { useTheme } from "../ui/theme";
-import { useHover } from "../ui";
+import { Symbol, useHover, weight } from "../ui";
+import { SIDEBAR_TYPE } from "./tokens";
 import { closeAllTabs } from "../../state/sidebar/menus";
 import { tidyPins } from "../../state/sidebar/tidyPinsUi";
 
@@ -64,7 +64,7 @@ function DividerButton({ title, symbol, iconWidth, label, onPress }: { title: st
           return (
             <View style={{ height: CLEAR_DIVIDER_HEIGHT, flexDirection: "row", alignItems: "center", paddingLeft: 8 }}>
               <Symbol name={symbol} size={9} weight="semibold" color={color} style={{ width: iconWidth, height: 11, marginRight: 3 }} />
-              <Text style={{ fontSize: 10, fontWeight: "500", color }}>{title}</Text>
+              <Text style={{ fontSize: SIDEBAR_TYPE.divider, fontWeight: weight.medium, color }}>{title}</Text>
             </View>
           );
         }}

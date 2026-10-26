@@ -1,4 +1,3 @@
-import { ContextMenuArea, FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
@@ -11,7 +10,7 @@ import { newCapture } from "../../state/sidebar/listCapture";
 import { useCapturedGroupEntries, useGroupFirstTabIcon, useKeptEntry } from "../../state/sidebar/hooks";
 import { MeetingTimeLabel, useMeetingCountdown } from "../live/MeetingCountdown";
 import { HoverSlot } from "../ui/HoverSlot";
-import { Button } from "../ui";
+import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Surface, Symbol, weight } from "../ui";
 import { commitRename, endRename, startRename } from "../../state/sidebar/actions";
 import { useDragFolded, useDragItem, useDropInto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
@@ -27,7 +26,7 @@ import { groupColorMenu } from "./groupColorMenu";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
-import { groupSurface, useSidebarTokens, withAlpha } from "./tokens";
+import { groupSurface, TABULAR_NUMS, useSidebarTokens, withAlpha } from "./tokens";
 import { curve } from "../ui/motion";
 
 const PAD = GROUP_PAD;
@@ -187,7 +186,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
         >
           {({ pressed }) => (
             <Surface
-              fill={hex(dropInto || pressed ? theme.tabPressed : hovered ? tokens.groupHeaderHover : "rgba(0,0,0,0)")}
+              fill={hex(dropInto || pressed ? theme.tabPressed : hovered ? tokens.groupHeaderHover : ink.clear)}
               cornerRadius={GROUP_HEADER_RADIUS}
               style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9, paddingRight: 6 }}
             >
@@ -201,16 +200,16 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
                   initial={group.name}
                   placeholder={label}
                   color={tokens.groupTitle}
-                  weight="500"
+                  weight={weight.medium}
                   onDone={(text) => (text === null ? endRename(target) : commitRename(target, text))}
                 />
               ) : (
                 <Animated.View style={{ flex: 1, height: 18, marginLeft: 5, flexDirection: "row", alignItems: "center", transform: [{ rotate: countdown.rotate }] }}>
                   <View style={{ flexShrink: 1, height: 18, paddingRight: 8, justifyContent: "center" }}>
-                    <Text numberOfLines={1} style={{ opacity: 0, fontSize: 13, fontWeight: "500", fontVariant: ["tabular-nums"] }}>
+                    <Text numberOfLines={1} style={{ opacity: 0, ...font.body, fontWeight: weight.medium, fontVariant: TABULAR_NUMS }}>
                       {label}
                     </Text>
-                    <FadeLabel text={label} fontSize={13} weight="medium" color={tokens.groupTitle} style={{ position: "absolute", left: 0, right: 0, top: 0, height: 18 }} />
+                    <FadeLabel text={label} fontSize={font.body.fontSize} weight="medium" color={tokens.groupTitle} style={{ position: "absolute", left: 0, right: 0, top: 0, height: 18 }} />
                   </View>
                   <Animated.View
                     style={{
@@ -229,7 +228,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
               <HoverSlot
                 hovered={hovered && !renaming}
                 width={22}
-                hover={closeControl && <Button variant="icon" icon={closeControl.icon} size={10} weight="semibold" box={22} radius={6} onPress={() => pressGroupClose(groupId)} tooltip={closeControl.tooltip} />}
+                hover={closeControl && <Button variant="icon" icon={closeControl.icon} size={10} weight="semibold" box={22} radius={radius.m} onPress={() => pressGroupClose(groupId)} tooltip={closeControl.tooltip} />}
               >
                 {countdown.label && !renaming ? <MeetingTimeLabel label={countdown.label} urgent={countdown.urgent} /> : null}
               </HoverSlot>

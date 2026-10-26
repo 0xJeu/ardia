@@ -2,7 +2,7 @@ import { displayHost } from "@ardia/core";
 import { memo, useState } from "react";
 import { Image, Text, View } from "react-native";
 import { faviconFailed, useAppearanceDark, useFavicon, useFaviconTheme } from "../../state/favicons/favicons";
-import { Symbol, useTheme } from "../ui";
+import { radius, Symbol, useTheme, weight } from "../ui";
 import { bundledSiteIcon } from "./siteIcons";
 
 export const Favicon = memo(function Favicon({
@@ -35,7 +35,7 @@ export const Favicon = memo(function Favicon({
         setBroken(resolved.uri);
         if (resolved.profileId) faviconFailed(resolved.profileId, resolved.uri);
       }}
-      style={{ width: size, height: size, borderRadius: size > 18 ? 4 : 3, tintColor: white ? theme.textPrimary : undefined }}
+      style={{ width: size, height: size, borderRadius: size > 18 ? radius.s : radius.xs, tintColor: white ? theme.textPrimary : undefined }}
     />
   );
 });
@@ -43,7 +43,7 @@ export const Favicon = memo(function Favicon({
 export const FaviconFallback = memo(function FaviconFallback({ url, size = 16 }: { url: string; size?: number }) {
   const theme = useTheme();
   const bundled = bundledSiteIcon(url, theme.dark);
-  if (bundled !== undefined) return <Image source={bundled} style={{ width: size, height: size, borderRadius: size > 18 ? 4 : 3 }} />;
+  if (bundled !== undefined) return <Image source={bundled} style={{ width: size, height: size, borderRadius: size > 18 ? radius.s : radius.xs }} />;
   const initial = hostInitial(url);
   if (!initial) return <Symbol name="globe" size={size - 3} color={theme.textSecondary} style={{ width: size, height: size }} />;
   const tile = Math.round((size * 14) / 16);
@@ -60,7 +60,7 @@ export const FaviconFallback = memo(function FaviconFallback({ url, size = 16 }:
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: Math.round(tile * 0.64), lineHeight: tile, fontWeight: "600", color: theme.textSecondary }}>{initial}</Text>
+        <Text style={{ fontSize: Math.round(tile * 0.64), lineHeight: tile, fontWeight: weight.semibold, color: theme.textSecondary }}>{initial}</Text>
       </View>
     </View>
   );

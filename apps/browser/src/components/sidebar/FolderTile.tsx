@@ -1,7 +1,8 @@
-import { ContextMenuArea, Symbol } from "@ardia/shell";
 import { memo, useRef } from "react";
 import { Animated, Pressable, View } from "react-native";
+import { ContextMenuArea, radius, Symbol } from "../ui";
 import { useTheme } from "../ui/theme";
+import { sidebarTokens } from "./tokens";
 import { useTab, useWindowId } from "../../state/browser/hooks";
 import { useShownFolderTab, useTileFolderMembers } from "../../state/pins/hooks";
 import { useDragItem, useFolderTarget } from "./DragProvider";
@@ -65,12 +66,12 @@ export function FolderMosaic({ tabIds }: { tabIds: string[] }) {
       style={{
         width: MOSAIC,
         height: MOSAIC,
-        borderRadius: 7,
+        borderRadius: radius.button,
         padding: MOSAIC_PAD,
         flexDirection: "row",
         flexWrap: "wrap",
         gap: MOSAIC_GAP,
-        backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+        backgroundColor: sidebarTokens(theme).folderMosaic,
       }}
     >
       {tabIds.slice(0, 4).map((id) => (

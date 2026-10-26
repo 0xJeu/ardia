@@ -1,7 +1,7 @@
-import { ContextMenuArea, MouseArea, Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { closeTab } from "../../state/browser/actions";
+import { ContextMenuArea, MouseArea, Symbol } from "../ui";
 import { layout, useTheme } from "../ui/theme";
 import { useAddressBarInSidebar } from "../../state/windows/layout";
 import { listTopGap } from "./geometry";
@@ -9,7 +9,8 @@ import { useIsActiveTab, useSettings, useTab, useTabLive, useWindowId } from "..
 import { useIsSelected } from "../../state/pins/hooks";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
 import { clickTab, returnShownTabToPinnedUrl } from "../../state/sidebar/actions";
-import { cellKey, PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./DragProvider";
+import { cellKey, PIN_SLOT } from "./dragModel";
+import { useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./DragProvider";
 import { FolderTile } from "./FolderTile";
 import { dismissHover, useRowHover } from "../../state/sidebar/hover";
 import { openTabMenu } from "../../state/sidebar/menus";
@@ -18,7 +19,7 @@ import { registerRow } from "../../state/sidebar/sidebarUi";
 import { modifiersOf } from "../../lib/keys";
 import { FolderDropRing, TileFace, useSlotPosition } from "./TileFace";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
-import { useSidebarTokens } from "./tokens";
+import { sidebarTokens, useSidebarTokens } from "./tokens";
 
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth, flush = false }: { tabs: string[]; innerWidth: number; flush?: boolean }) {
   const controller = useDragController();
@@ -122,7 +123,7 @@ export function PinSlotZone() {
           borderWidth: 1.5,
           borderStyle: "dashed",
           borderColor: theme.accent,
-          backgroundColor: theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+          backgroundColor: sidebarTokens(theme).dropZone,
           alignItems: "center",
           justifyContent: "center",
         }}

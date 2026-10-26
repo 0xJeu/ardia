@@ -1,16 +1,15 @@
-import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Text, View } from "react-native";
 import { useIsSleeping } from "../../state/tabs/tabLifecycle";
+import { Symbol } from "../ui";
 import { useTheme } from "../ui/theme";
+import { sidebarTokens } from "./tokens";
 import { useTab } from "../../state/browser/hooks";
 import { ENGINE_NAMES, ENGINE_SYMBOLS } from "../../state/engines/engines";
 import { useEngineMark } from "../../state/engines/hooks";
 import { useFadesUnloaded } from "../../state/pins/hooks";
 import { NO_GROUP_ICON, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { Favicon } from "../favicon/Favicon";
-
-export const NO_GROUP_ICON_INK = { light: "#00000040", dark: "#FFFFFF40" };
 
 export const TabIcon = memo(function TabIcon({
   tabId,
@@ -60,7 +59,7 @@ function EngineMark({ tabId, size }: { tabId: string; size: number }) {
         borderRadius: box / 2,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: theme.dark ? "#2C2C2E" : "#FFFFFF",
+        backgroundColor: sidebarTokens(theme).engineMarkPlate,
       }}
     >
       <Symbol name={ENGINE_SYMBOLS[mark]} size={box - 3} weight="semibold" color={theme.icon} style={{ width: box, height: box }} />
@@ -94,7 +93,7 @@ function Icon({
 }) {
   const theme = useTheme();
   if (icon?.startsWith(SYMBOL_PREFIX)) {
-    const ink = icon === NO_GROUP_ICON ? (theme.dark ? NO_GROUP_ICON_INK.dark : NO_GROUP_ICON_INK.light) : theme.icon;
+    const ink = icon === NO_GROUP_ICON ? sidebarTokens(theme).noGroupIcon : theme.icon;
     return <Symbol name={icon.slice(SYMBOL_PREFIX.length)} size={size - 3} weight="medium" color={color ?? ink} style={{ width: size, height: size }} />;
   }
   if (icon) {

@@ -1,8 +1,7 @@
-import { FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { useLayoutEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent, type GestureResponderEvent } from "react-native";
 import { displayUrl } from "@ardia/core";
-import { hex, useTheme } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 import { useIsBookmarked, useTab } from "../../state/browser/hooks";
 import { plural } from "../../state/browser/model";
 import { useTileFolderLabel, useTileFolderMembers } from "../../state/pins/hooks";
@@ -15,7 +14,8 @@ import { openInSplit } from "../../state/splits/actions";
 import { CalendarPreview, useIsCalendarTab } from "../live/CalendarPreview";
 import { LiveItemCard } from "../live/LiveItemCard";
 import { useIsSleeping } from "../../state/tabs/tabLifecycle";
-import { useHover } from "../ui";
+import { FadeLabel, font, Panel, radius, Symbol, useHover, weight } from "../ui";
+import { SIDEBAR_SHADOW, SIDEBAR_TYPE } from "./tokens";
 import { clickTab, tabTitle, toggleBookmarkInWindow } from "../../state/sidebar/actions";
 import { GroupPanel } from "./GroupPanel";
 import { cardHoverProps, dismissHover, setHoverSpace } from "../../state/sidebar/hover";
@@ -60,20 +60,16 @@ function HoverContent({ hover, windowId, player, windowHeight }: { hover: Hover;
 function Card({ anchor, children }: { anchor: Anchor; children: React.ReactNode }) {
   const theme = useTheme();
   return (
-    <Surface
+    <Panel
       {...cardHoverProps}
-      fill={hex(theme.panel)}
-      cornerRadius={12}
-      borderColor={hex(theme.panelBorder)}
-      borderWidth={0.5}
-      shadowColor="#000000"
-      shadowOpacity={theme.panelShadowOpacity * 0.8}
-      shadowRadius={16}
-      shadowOffset={[0, 6]}
+      fill={theme.panel}
+      radius={radius.panel}
+      border={theme.panelBorder}
+      shadow={SIDEBAR_SHADOW.card}
       style={{ position: "absolute", ...hoverCardOrigin(anchor), width: WIDTH, padding: 10 }}
     >
       {children}
-    </Surface>
+    </Panel>
   );
 }
 
@@ -91,21 +87,21 @@ function TabCard({ tabId, windowId, anchor }: { tabId: string; windowId: string;
     <Card anchor={anchor}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <TabIcon tabId={tabId} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />
-        <FadeLabel text={tabTitle(tab)} fontSize={13} weight="medium" color={theme.textPrimary} style={{ flex: 1, height: 18 }} />
+        <FadeLabel text={tabTitle(tab)} fontSize={font.body.fontSize} weight="medium" color={theme.textPrimary} style={{ flex: 1, height: 18 }} />
       </View>
       {tab.url ? (
-        <Text numberOfLines={2} style={{ marginTop: 4, fontSize: 11.5, lineHeight: 15, color: theme.textSecondary }}>
+        <Text numberOfLines={2} style={{ marginTop: 4, ...font.footnote, lineHeight: 15, color: theme.textSecondary }}>
           {displayUrl(tab.url)}
         </Text>
       ) : null}
       {sleeping ? (
         <View accessible accessibilityLabel="Web content has been discarded" style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
           <Symbol name="moon.zzz" size={10} color={theme.textTertiary} style={{ width: 14, height: 14 }} />
-          <Text style={{ fontSize: 11.5, color: theme.textTertiary }}>This tab needs to reload</Text>
+          <Text style={{ ...font.footnote, color: theme.textTertiary }}>This tab needs to reload</Text>
         </View>
       ) : null}
       {away && tab.pinnedUrl ? (
-        <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 11.5, color: theme.textTertiary }}>
+        <Text numberOfLines={1} style={{ marginTop: 2, ...font.footnote, color: theme.textTertiary }}>
           Pinned: {displayUrl(tab.pinnedUrl)}
         </Text>
       ) : null}
@@ -162,7 +158,7 @@ function Action({ icon, label, onPress }: { icon: string; label: string; onPress
           <View
             style={{
               height: 44,
-              borderRadius: 8,
+              borderRadius: radius.l,
               alignItems: "center",
               justifyContent: "center",
               gap: 3,
@@ -170,7 +166,7 @@ function Action({ icon, label, onPress }: { icon: string; label: string; onPress
             }}
           >
             <Symbol name={icon} size={13} color={theme.icon} style={{ width: 18, height: 16 }} />
-            <Text style={{ fontSize: 10.5, color: theme.textSecondary }}>{label}</Text>
+            <Text style={{ fontSize: SIDEBAR_TYPE.cardAction, color: theme.textSecondary }}>{label}</Text>
           </View>
         )}
       </Pressable>
@@ -189,13 +185,13 @@ function FolderPeek({ folderId, windowId, anchor }: { folderId: string; windowId
   const more = members.length - PEEK_ROWS;
   return (
     <Card anchor={anchor}>
-      <Text style={{ fontSize: 12, fontWeight: "600", color: theme.textSecondary, marginBottom: 4, marginLeft: 4 }}>
+      <Text style={{ ...font.small, fontWeight: weight.semibold, color: theme.textSecondary, marginBottom: 4, marginLeft: 4 }}>
         {label} · {plural(members.length, "tab")}
       </Text>
       {members.slice(0, PEEK_ROWS).map((id) => (
         <PeekRow key={id} tabId={id} windowId={windowId} />
       ))}
-      {more > 0 ? <Text style={{ fontSize: 11.5, color: theme.textTertiary, marginTop: 4, marginLeft: 4 }}>and {more} more</Text> : null}
+      {more > 0 ? <Text style={{ ...font.footnote, color: theme.textTertiary, marginTop: 4, marginLeft: 4 }}>and {more} more</Text> : null}
     </Card>
   );
 }
@@ -215,10 +211,10 @@ function PeekRow({ tabId, windowId }: { tabId: string; windowId: string }) {
       <View
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        style={{ height: 28, borderRadius: 7, flexDirection: "row", alignItems: "center", paddingHorizontal: 5, backgroundColor: hovered ? theme.rowHover : undefined }}
+        style={{ height: 28, borderRadius: radius.button, flexDirection: "row", alignItems: "center", paddingHorizontal: 5, backgroundColor: hovered ? theme.rowHover : undefined }}
       >
         <TabIcon url={tab.url} favicon={tab.favicon} icon={tab.customIcon} size={14} profileId={tab.profileId} />
-        <FadeLabel text={tabTitle(tab)} fontSize={12.5} color={theme.textTab} style={{ flex: 1, height: 17, marginLeft: 7 }} />
+        <FadeLabel text={tabTitle(tab)} fontSize={SIDEBAR_TYPE.compact} color={theme.textTab} style={{ flex: 1, height: 17, marginLeft: 7 }} />
       </View>
     </Pressable>
   );
