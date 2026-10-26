@@ -1,6 +1,6 @@
 import { appUrlRoute } from "@ardia/core";
 import { useBrowser } from "../browser/store";
-import { setAppUrlOpener } from "../tabs/tabs";
+import { setAppUrlOpener } from "../tabs/tabsSlice";
 import { openSettings, type SettingsPane } from "../settings/settingsWindows";
 
 const PANES: Record<string, SettingsPane> = {

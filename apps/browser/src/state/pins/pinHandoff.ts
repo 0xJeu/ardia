@@ -4,7 +4,7 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { holderOf, shareKeyOf } from "./pinShare";
-import { setPinHandoff } from "../tabs/tabs";
+import { setPinHandoff } from "../tabs/tabsSlice";
 
 const CAPTURE_DEADLINE_MS = 250;
 const PAINT_DEADLINE_MS = 120;
