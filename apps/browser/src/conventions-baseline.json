@@ -8,10 +8,7 @@
   "store-reads": {},
   "store-shape": {},
   "size": {},
-  "env": {
-    "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": 3,
-    "engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc": 1
-  },
+  "env": {},
   "naming": {},
   "comments": {},
   "file-names": {}

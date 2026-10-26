@@ -28,7 +28,7 @@ lib/                    pure helpers: url, time, keys
 
 | From | May import |
 | --- | --- |
-| `components/<feature>` | `components/*`, `state`, `platform`, `lib` |
+| `components/<feature>` | `components/*`, `state`, `lib` |
 | `components/ui` | `components/ui`, `lib` |
 | `state` | `state`, `platform`, `lib` |
 | `platform` | `platform`, `lib` |
@@ -43,8 +43,14 @@ lib/                    pure helpers: url, time, keys
   the domain re-exports it: `state/app/system.ts` (menus, alerts, prompts, the clipboard, haptics, files, external
   URLs), `state/app/appSettings.ts`, `state/windows/nativeWindow.ts`, `state/downloads/actions.ts`, … Native views
   come from `components/ui`.
-- The dev harness (`components/dev/devHarness.ts`) is the one component that imports `platform/` itself: it hands the
-  whole shell module to CDP scripts as `ac.shell` (`platform/devShell.ts`).
+- Components never import `platform/`. A platform value a component uses (a web view handle, a kill switch, the
+  import module) reaches it as a re-export from its domain in `state/`: `state/tabs/webviewHandles.ts`,
+  `state/tabs/prewarm.ts`, `state/app/switches.ts`, `state/app/slowTimers.ts`, `state/app/nativeApiSkew.ts`,
+  `state/import/importApi.ts`, and `isWebDemo` from `state/onboarding/demoSteps.ts`. Each re-export file imports
+  only its platform module, so modules still load in the same order.
+- The one exception is the dev harness (`components/dev/devHarness.ts`): it hands the whole shell module to CDP
+  scripts as `ac.shell` (`platform/devShell.ts`), with the documents, engine, web view and preload modules beside it.
+  The check exempts that file by name (`HANDS_PLATFORM_TO_SCRIPTS`), not the `components/dev/` folder.
 - Nothing lives outside these folders except the entry points.
 
 ## UI
@@ -232,6 +238,14 @@ else in app or engine code (scripts and tests outside the app runtime are free t
 switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-trace=<list>`,
 `--ardia-switches=<list>` and `--ardia-<instance key>=<value>` to `ChromeMain`.
 
+Three engine lines are exempt, by file and exact line (`ENGINE_ENV_READS` in the check); any other read in those files
+still counts:
+
+| File | Read | Why |
+| --- | --- | --- |
+| `engine/ardiacore/src/ardia/core/ac_main_delegate.cc` | `base::Environment` in `EnvironmentThatOpensTheProfile` and `KeepRealProfileClosed` (2 lines, 3 reads) | The profile gate checks for `SSLKEYLOGFILE` and unsets it outside a mock-keychain instance, so nothing records the TLS keys of the real profile. It guards against the environment, so it has to read it. |
+| `engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc` | `getenv("HOME")` | Expands `~` in a user script path the way the shell does. |
+
 | Variable | Value | What it does |
 | --- | --- | --- |
 | `ARDIA_DATA_DIR` | path | The instance's data directory |
@@ -256,7 +270,7 @@ switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-
 | Rule | What it counts |
 | --- | --- |
 | `layout` | an app file outside the folders above |
-| `imports` | an import against the direction table, or into a file outside the folders |
+| `imports` | an import against the direction table, or into a file outside the folders (a component importing `platform/` included, except `components/dev/devHarness.ts`) |
 | `native-calls` | a native package, `expo-modules-core` or `NativeModules` used outside `platform/` and `components/ui/` |
 | `tokens` | a colour literal, `Easing.` curve or numeric duration outside `tokens.ts`/`motion.ts` |
 | `get-state` | `getState(` in `components/` |
@@ -264,13 +278,13 @@ switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-
 | `store-reads` | `useBrowser(` in `components/` (read through `state/<domain>/hooks.ts`) |
 | `store-shape` | a zustand store not created as `create<T>()(() => init)` (a `set`/`get` creator, or the uncurried form) |
 | `size` | a file over its line cap |
-| `env` | an environment read outside the launch config |
+| `env` | an environment read outside the launch config and the three exempt engine lines |
 | `naming` | a `Cef`, `AC*`/app-side `ArdiaCore*`, `Netnyahoo` or `NN*` name |
 | `comments` | a comment that isn't a license header or tool directive |
 | `file-names` | a file name breaking the PascalCase/camelCase rule |
 
 `apps/browser/src/conventions-baseline.json` lists the violations that existed when the rules arrived, as
-`rule → file → count`. It is a ratchet: the test fails on any violation beyond the baseline, and on any baseline entry
+`rule → file → count`. Since 2026-10-26 it is empty: every rule holds everywhere. It stays a ratchet: the test fails on any violation beyond the baseline, and on any baseline entry
 higher than what the file has now, so fixes must lower their entries.
 
 - `node apps/browser/src/conventions.test.mjs --report` prints every violation grouped per rule, and the difference

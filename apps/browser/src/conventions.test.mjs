@@ -15,13 +15,14 @@ const LAYER_FOLDERS = [
 const ENTRY_FILES = ["App", "main"];
 const MAY_IMPORT = {
   app: ["app", "components", "ui", "state", "platform", "lib"],
-  components: ["components", "ui", "state", "platform", "lib"],
+  components: ["components", "ui", "state", "lib"],
   ui: ["ui", "lib"],
   state: ["state", "platform", "lib"],
   platform: ["platform", "lib"],
   lib: ["lib"],
 };
 const MAY_CALL_NATIVE = ["platform", "ui"];
+const HANDS_PLATFORM_TO_SCRIPTS = new Set(["components/dev/devHarness.ts"]);
 
 const RULES = ["layout", "imports", "native-calls", "tokens", "get-state", "set-state", "store-reads", "store-shape", "size", "env", "naming", "comments", "file-names"];
 const SIZE_CAP = { js: 400, native: 600 };
@@ -32,6 +33,13 @@ const FROZEN_SPECS = new Set(["packages/core/src/suggest.reference.ts"]);
 const LAUNCH_CONFIG = [/^packages\/ardiacore\/ios\/ArdiaLaunchConfig\.\w+$/, /^apps\/browser\/src\/platform\/launchConfig\.ts$/];
 const MIGRATION_FILE = /(?:^|\/)(?:LegacyMigration\.swift|legacy\.ts|\w*[Mm]igrations?\.(?:ts|swift|mm|m))$/;
 const TOKEN_FILE = /(?:^|\/)(?:tokens|motion)\.ts$/;
+const ENGINE_ENV_READS = {
+  "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": [
+    "std::string EnvironmentThatOpensTheProfile(base::Environment& env) {",
+    "std::unique_ptr<base::Environment> env = base::Environment::Create();",
+  ],
+  "engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc": ['if (const char* home = getenv("HOME")) {'],
+};
 
 const APP_SRC = "apps/browser/src/";
 const BASELINE_PATH = `${APP_SRC}conventions-baseline.json`;
@@ -308,6 +316,17 @@ function unshapedStores(code) {
   return found;
 }
 
+function envReads(path, src, code) {
+  const exempt = ENGINE_ENV_READS[path] ?? [];
+  let found = 0;
+  for (const match of code.matchAll(ENV_READ)) {
+    const lineStart = src.lastIndexOf("\n", match.index) + 1;
+    const lineEnd = src.indexOf("\n", match.index);
+    if (!exempt.includes(src.slice(lineStart, lineEnd < 0 ? src.length : lineEnd).trim())) found++;
+  }
+  return found;
+}
+
 function checkFile(path, src, add) {
   const lang = languageOf(path);
   const isTest = TEST_FILE.test(path);
@@ -329,7 +348,7 @@ function checkFile(path, src, add) {
   const isNative = /\.(?:swift|h|m|mm|cc|mojom|js)$/.test(path) && !ONE_INJECTED_SCRIPT.has(path);
   if ((isJs && lines > SIZE_CAP.js) || (isNative && lines > SIZE_CAP.native)) add("size", path, 1);
 
-  if (!LAUNCH_CONFIG.some((allowed) => allowed.test(path))) add("env", path, count(code, ENV_READ));
+  if (!LAUNCH_CONFIG.some((allowed) => allowed.test(path))) add("env", path, envReads(path, src, code));
 
   let naming = count(codeAndStrings, CEF_NAME);
   if (!MIGRATION_FILE.test(path)) naming += count(codeAndStrings, LEGACY_BRAND) + count(code, LEGACY_PREFIX);
@@ -365,7 +384,8 @@ function checkFile(path, src, add) {
     const target = posix.normalize(posix.join(posix.dirname(rel), spec));
     if (target.startsWith("..")) continue;
     const targetLayer = layerOf(target);
-    if (!targetLayer || !MAY_IMPORT[layer].includes(targetLayer)) badImports++;
+    const handsPlatformToScripts = targetLayer === "platform" && HANDS_PLATFORM_TO_SCRIPTS.has(rel);
+    if (!targetLayer || !(MAY_IMPORT[layer].includes(targetLayer) || handsPlatformToScripts)) badImports++;
   }
   if (!MAY_CALL_NATIVE.includes(layer)) add("native-calls", path, nativeCalls);
   if (!layer) add("layout", path, 1);
@@ -521,6 +541,25 @@ if (process.argv.includes("--write-baseline")) {
     assert.deepEqual(component("useSidebarUi.setState({ hover: null });"), { "set-state": 1 });
     assert.deepEqual(component("const tab = useBrowser((s) => s.tabs[id]);"), { "store-reads": 1 });
     assert.deepEqual(component("const tab = useTab(id, (t) => t?.title);"), {});
+  });
+  test("components reach platform/ only through state, except the dev harness", () => {
+    const imports = (path, spec) => violationsOf(path, `import { webviews } from "${spec}";\n`);
+    assert.deepEqual(imports("apps/browser/src/components/find/FindBar.tsx", "../../platform/webviews"), { imports: 1 });
+    assert.deepEqual(imports("apps/browser/src/components/settings/panes/Passwords.tsx", "../../../platform/importModule"), { imports: 1 });
+    assert.deepEqual(imports("apps/browser/src/components/find/FindBar.tsx", "../../state/tabs/webviewHandles"), {});
+    assert.deepEqual(imports("apps/browser/src/components/dev/devHarness.ts", "../../platform/webviews"), {});
+    assert.deepEqual(imports("apps/browser/src/components/dev/DevPanel.tsx", "../../platform/webviews"), { imports: 1 });
+    assert.deepEqual(imports("apps/browser/src/state/tabs/webviewHandles.ts", "../../platform/webviews"), {});
+  });
+  test("only the engine's named environment reads are exempt", () => {
+    const delegate = "engine/ardiacore/src/ardia/core/ac_main_delegate.cc";
+    const policy = "engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc";
+    const create = "  std::unique_ptr<base::Environment> env = base::Environment::Create();\n";
+    assert.deepEqual(violationsOf(delegate, create), {});
+    assert.deepEqual(violationsOf(delegate, `${create}  const char* port = getenv("PORT");\n`), { env: 1 });
+    assert.deepEqual(violationsOf(policy, '    if (const char* home = getenv("HOME")) {\n'), {});
+    assert.deepEqual(violationsOf(policy, '    const char* user = getenv("USER");\n'), { env: 1 });
+    assert.deepEqual(violationsOf("engine/chromium/src/chrome/browser/ardia/ac_other.cc", '    if (const char* home = getenv("HOME")) {\n'), { env: 1 });
   });
   test("conventions hold, except what the baseline lists", (t) => {
     const baseline = JSON.parse(readFileSync(ROOT + BASELINE_PATH, "utf8"));
