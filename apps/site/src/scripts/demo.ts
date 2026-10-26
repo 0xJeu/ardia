@@ -111,22 +111,13 @@ function watchForNudge(frame: HTMLIFrameElement, box: HTMLElement) {
 }
 
 function restWhileFar(box: HTMLElement) {
-  let top = 0;
-  let bottom = 0;
-  const update = () => {
-    const margin = innerHeight * FAR_SCREENS;
-    const far = bottom < scrollY - margin || top > scrollY + innerHeight + margin;
-    if (far !== box.hasAttribute("data-far")) box.toggleAttribute("data-far", far);
-  };
-  const measure = () => {
-    const rect = box.getBoundingClientRect();
-    top = rect.top + scrollY;
-    bottom = rect.bottom + scrollY;
-    update();
-  };
-  addEventListener("scroll", update, { passive: true });
-  addEventListener("resize", measure, { passive: true });
-  new ResizeObserver(measure).observe(document.body);
+  new IntersectionObserver(
+    (entries) => {
+      const far = !entries[entries.length - 1].isIntersecting;
+      if (far !== box.hasAttribute("data-far")) box.toggleAttribute("data-far", far);
+    },
+    { rootMargin: `${FAR_SCREENS * 100}% 0px` },
+  ).observe(box);
 }
 
 function mount(box: HTMLElement, src: string) {

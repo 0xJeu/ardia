@@ -13,6 +13,7 @@ export const SESSION_IDLE_MS = 30 * 60 * 1000;
 export const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 
 export const FLUSH_MS = 3000;
+export const SCROLL_SAMPLE_MS = 100;
 
 export const REPLAY_MIN_SESSION_MS = 4000;
 export const REPLAY_SAMPLE_RATE = 1;
