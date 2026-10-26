@@ -312,8 +312,6 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
   const unread = useLive((s) => !!s.unread[folderId]?.includes(item.id));
   const completion = useLive((s) => (s.completing[folderId]?.includes(item.id) ? (s.completed[folderId]?.find((c) => c.item.id === item.id)?.state ?? "merged") : null));
   const { hovered, hoverProps } = useRowHover(windowId, completion ? null : { kind: "live", id: key });
-  const closable = hovered && !!tabId && !completion;
-  const closeOnly = !completion && !(inStack && item.pr?.stack) && !(item.pr && prBadge(item.pr));
   const fold = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (!completion) return;
@@ -359,13 +357,12 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
                   fontSize={13}
                   weight={unread ? "medium" : undefined}
                   color={active ? theme.tabSelectedText : completion ? theme.textSecondary : theme.textTab}
-                  fadeInset={closeOnly && closable ? ITEM_CLOSE_SLOT : 0}
-                  style={{ flex: 1, height: 18, marginLeft: 5, marginRight: closeOnly ? -ITEM_CLOSE_SLOT : 0 }}
+                  style={{ flex: 1, height: 18, marginLeft: 5 }}
                 />
                 {inStack && item.pr?.stack ? <PositionChip position={item.pr.stack.position} /> : null}
                 <HoverSlot
-                  hovered={closable}
-                  width={ITEM_CLOSE_SLOT}
+                  hovered={hovered && !!tabId && !completion}
+                  width={22}
                   hover={<IconButton icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => tabId && void closeTab(tabId)} tooltip={withShortcut("Close Tab", closeHint)} />}
                 >
                   <Trailing item={item} completion={completion} colors={colors} />
@@ -416,8 +413,6 @@ function ItemIcon({ item, completion, colors }: { item: LiveItem; completion: Co
   if (item.icon && /^https?:/.test(item.icon)) return <TabIcon url={item.url} favicon={item.icon} direct />;
   return <TabIcon url={item.source === "confluence" && !item.icon ? SOURCES.confluence.site : item.url} icon={item.icon} />;
 }
-
-const ITEM_CLOSE_SLOT = 22;
 
 const BADGES: Record<NonNullable<ReturnType<typeof prBadge>>, { symbol: string | null; color: keyof LiveColors; tip: string }> = {
   conflict: { symbol: "exclamationmark.triangle.fill", color: "conflict", tip: "Merge conflicts" },
