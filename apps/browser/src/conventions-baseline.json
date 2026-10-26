@@ -28,11 +28,10 @@
     "apps/browser/src/components/media/CastPicker.tsx": 2,
     "apps/browser/src/components/media/HoverPlayer.tsx": 1,
     "apps/browser/src/components/media/MiniPlayer.tsx": 1,
-    "apps/browser/src/components/media/ShareBar.tsx": 2,
+    "apps/browser/src/components/media/ShareBar.tsx": 1,
     "apps/browser/src/components/media/SharePicker.tsx": 2,
     "apps/browser/src/components/media/SidebarPlayer.tsx": 1,
     "apps/browser/src/components/media/TabBadges.tsx": 1,
-    "apps/browser/src/components/media/pip.ts": 1,
     "apps/browser/src/components/ntp/IncognitoHeading.tsx": 1,
     "apps/browser/src/components/ntp/NewTabPage.tsx": 2,
     "apps/browser/src/components/ntp/Personalize.tsx": 1,
@@ -164,6 +163,8 @@
     "apps/browser/src/state/live/store.ts": 1,
     "apps/browser/src/state/media/cast.ts": 1,
     "apps/browser/src/state/media/media.ts": 1,
+    "apps/browser/src/state/media/pip.ts": 1,
+    "apps/browser/src/state/media/screenShare.ts": 1,
     "apps/browser/src/state/omnibox/barActions.ts": 1,
     "apps/browser/src/state/omnibox/newTabBar.ts": 1,
     "apps/browser/src/state/omnibox/runBar.ts": 1,
@@ -320,15 +321,7 @@
     "apps/browser/src/state/site/webNotifications.ts": 1
   },
   "get-state": {
-    "apps/browser/src/components/media/ShareBar.tsx": 5,
-    "apps/browser/src/components/media/SharePicker.tsx": 8,
-    "apps/browser/src/components/media/artwork.ts": 2,
-    "apps/browser/src/components/media/pip.ts": 2,
-    "apps/browser/src/components/sidebar/DragProvider.tsx": 6,
-    "apps/browser/src/components/site/Prompts.tsx": 1,
-    "apps/browser/src/components/site/SiteControls.tsx": 4,
-    "apps/browser/src/components/site/TranslateControls.tsx": 1,
-    "apps/browser/src/components/site/ZoomControls.tsx": 1
+    "apps/browser/src/components/sidebar/DragProvider.tsx": 6
   },
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,

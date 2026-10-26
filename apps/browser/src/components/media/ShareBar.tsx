@@ -1,79 +1,16 @@
-import { changeCaptureSource, stopCapture } from "@ardia/ardiacore";
 import { Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { engineProfile } from "../../state/browser/model";
-import { browserIdOf } from "../../state/extensions/actions";
+import { currentTab } from "../../state/browser/current";
 import { Button } from "../ui";
-import { pageOf, usePages } from "../../state/tabs/pageState";
-import { useMedia, type TabShare } from "../../state/media/media";
+import { pageOf } from "../../state/tabs/pageState";
+import { dismissShareBar, shareInstead, stopSharing, useShareFor } from "../../state/media/screenShare";
 import { CAPTURE_RED } from "./tokens";
 import { hostOrOrigin } from "../../lib/url";
 import { curve } from "../ui/motion";
 
 const SHARE_BAR_HEIGHT = 38;
-
-function useShareFor(tabId: string): [string, TabShare] | null {
-  const shares = useMedia((m) => m.tabShares);
-  const profile = useBrowser((s) => {
-    const tab = s.tabs[tabId];
-    return tab && /^https?:|^file:/.test(tab.url) ? engineProfile(tab.profileId) : null;
-  });
-  const capturing = usePages((p) => Object.keys(shares).filter((id) => p.pages[id]?.mediaAccess?.screen).join(","));
-  if (profile === null) return null;
-  for (const capturer of capturing ? capturing.split(",") : []) {
-    const share = shares[capturer];
-    if (!share || share.dismissed[tabId]) continue;
-    const owner = useBrowser.getState().tabs[capturer];
-    if (owner && engineProfile(owner.profileId) === profile) return [capturer, share];
-  }
-  return null;
-}
-
-export function noteTabShare(capturerTabId: string, capturedTabId: string, origin: string) {
-  useMedia.setState((m) => ({ tabShares: { ...m.tabShares, [capturerTabId]: { capturedTabId, origin, dismissed: {} } } }));
-}
-
-const SHARE_END_MS = 1500;
-
-export function startTabShareCleanup() {
-  return usePages.subscribe((p, prev) => {
-    if (p.pages === prev.pages) return;
-    const shares = useMedia.getState().tabShares;
-    const ended = Object.keys(shares).filter((id) => prev.pages[id]?.mediaAccess?.screen && !p.pages[id]?.mediaAccess?.screen);
-    if (!ended.length) return;
-    setTimeout(() => {
-      const gone = ended.filter((id) => !usePages.getState().pages[id]?.mediaAccess?.screen);
-      if (!gone.length) return;
-      useMedia.setState((m) => {
-        const next = { ...m.tabShares };
-        for (const id of gone) delete next[id];
-        return { tabShares: next };
-      });
-    }, SHARE_END_MS);
-  });
-}
-
-async function shareInstead(capturer: string, tabId: string): Promise<boolean> {
-  const ok = await changeCaptureSource(browserIdOf(capturer), browserIdOf(tabId));
-  if (!ok) return false;
-  useMedia.setState((m) => {
-    const share = m.tabShares[capturer];
-    return share ? { tabShares: { ...m.tabShares, [capturer]: { ...share, capturedTabId: tabId, dismissed: {} } } } : m;
-  });
-  return true;
-}
-
-if (__DEV__) (globalThis as { acShareBar?: unknown }).acShareBar = { shareInstead, tabShares: () => useMedia.getState().tabShares };
-
-function dismiss(capturer: string, tabId: string) {
-  useMedia.setState((m) => {
-    const share = m.tabShares[capturer];
-    return share ? { tabShares: { ...m.tabShares, [capturer]: { ...share, dismissed: { ...share.dismissed, [tabId]: true } } } } : m;
-  });
-}
 
 export function ShareBar({ tabId }: { tabId: string }) {
   const theme = useTheme();
@@ -89,7 +26,7 @@ export function ShareBar({ tabId }: { tabId: string }) {
   if (!shown) return null;
   const [capturer, share] = shown;
   const isShared = share.capturedTabId === tabId;
-  const host = hostOrOrigin(share.origin || pageOf(capturer).security?.origin || useBrowser.getState().tabs[capturer]?.url || "");
+  const host = hostOrOrigin(share.origin || pageOf(capturer).security?.origin || currentTab(capturer)?.url || "");
   return (
     <Animated.View style={{ height, overflow: "hidden" }}>
       <View
@@ -113,11 +50,11 @@ export function ShareBar({ tabId }: { tabId: string }) {
           {` with ${host}`}
         </Text>
         {isShared ? (
-          <Button variant="pill" title="Stop Sharing" onPress={() => void stopCapture(browserIdOf(capturer))} />
+          <Button variant="pill" title="Stop Sharing" onPress={() => stopSharing(capturer)} />
         ) : (
           <Button variant="pill" title="Share This Tab Instead" primary onPress={() => void shareInstead(capturer, tabId)} />
         )}
-        <Button variant="pill" title="Dismiss" onPress={() => dismiss(capturer, tabId)} />
+        <Button variant="pill" title="Dismiss" onPress={() => dismissShareBar(capturer, tabId)} />
       </View>
     </Animated.View>
   );

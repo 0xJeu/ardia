@@ -3,7 +3,7 @@
 const { useBrowser } = await import("../../src/state/browser/store.ts");
 const { sidebarEntries, groupEntries } = await import("../../src/state/sidebar/entries.ts");
 const { groupLabel } = await import("../../src/state/pins/organize.ts");
-const strip = await import("../../src/components/tabstrip/stripGroups.ts");
+const strip = await import("../../src/state/tabs/topStrip.ts");
 await import("../../src/test-native/index.ts");
 const core = await import("../../../../packages/core/src/index.ts");
 const { buildSeed } = await import("./seed.mjs");

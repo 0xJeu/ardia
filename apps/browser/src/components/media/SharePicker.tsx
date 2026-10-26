@@ -1,15 +1,11 @@
-import { getDisplayMediaSources, type DisplayMediaAudio, type DisplayMediaRequest, type DisplayMediaSource } from "@ardia/ardiacore";
+import { getDisplayMediaSources, type DisplayMediaAudio, type DisplayMediaSource } from "@ardia/ardiacore";
 import { runningAppIcon, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
-import { engineProfile } from "../../state/browser/model";
 import { Button, Checkbox, PANEL, PanelHeader, Popover, POPOVER_MARGIN, useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
-import { usePages } from "../../state/tabs/pageState";
-import { noteTabShare } from "./ShareBar";
+import { answerDisplayMedia, shareableTabs, shareTab } from "../../state/media/screenShare";
 import { useMedia } from "../../state/media/media";
 
 const WIDTH = 460;
@@ -24,63 +20,6 @@ const audioLabel = (kind: SourceKind, audio: DisplayMediaAudio) =>
 
 const audioOffered = (kind: SourceKind | null, audio: DisplayMediaAudio | null) =>
   !!audio && (kind === "tab" ? audio.tab : kind === "screen" ? audio.screen : kind === "window" ? !!audio.window : false);
-
-function shareableTabs(tabId: string) {
-  const s = useBrowser.getState();
-  const tab = s.tabs[tabId];
-  if (!tab) return [];
-  const profile = engineProfile(tab.profileId);
-  const live = new Set(Object.values(usePages.getState().browsers));
-  return Object.values(s.tabs)
-    .filter((t) => live.has(t.id) && engineProfile(t.profileId) === profile && /^https?:|^file:/.test(t.url))
-    .sort((a, b) => (a.id === tabId ? 1 : b.id === tabId ? -1 : b.lastActiveAt - a.lastActiveAt));
-}
-
-type Pending = DisplayMediaRequest & { pageUrl: string };
-
-export function requestDisplayMedia(tabId: string, request: DisplayMediaRequest) {
-  const pending = useMedia.getState().displayRequests[tabId];
-  if (pending) void webviews.get(tabId)?.resolveDisplayMedia(pending.id, null);
-  const pageUrl = useBrowser.getState().tabs[tabId]?.url ?? "";
-  useMedia.setState((m) => ({ displayRequests: { ...m.displayRequests, [tabId]: { ...request, pageUrl } as Pending } }));
-}
-
-if (__DEV__)
-  (globalThis as { acSharePicker?: unknown }).acSharePicker = {
-    answerDisplayMedia: (tabId: string, sourceId: string | null, audio = false) => answerDisplayMedia(tabId, sourceId, audio),
-    shareTab: (tabId: string, sharedTabId: string, audio = true) => shareTab(tabId, sharedTabId, audio),
-  };
-
-export function answerDisplayMedia(tabId: string, sourceId: string | null, audio = false) {
-  const request = useMedia.getState().displayRequests[tabId];
-  if (!request) return;
-  void webviews.get(tabId)?.resolveDisplayMedia(request.id, sourceId, audio);
-  useMedia.setState((m) => {
-    const displayRequests = { ...m.displayRequests };
-    delete displayRequests[tabId];
-    return { displayRequests };
-  });
-}
-
-async function shareTab(tabId: string, sharedTabId: string, audio: boolean) {
-  const request = useMedia.getState().displayRequests[tabId];
-  if (!request) return;
-  const source = await webviews.get(sharedTabId)?.mediaCaptureSourceId();
-  if (useMedia.getState().displayRequests[tabId] !== request) return;
-  if (source) noteTabShare(tabId, sharedTabId, request.origin);
-  answerDisplayMedia(tabId, source ?? null, audio);
-}
-
-export function cancelDisplayMediaOnNavigation() {
-  const page = (url: string) => url.replace(/#.*$/, "");
-  return useBrowser.subscribe((s, prev) => {
-    if (s.tabs === prev.tabs) return;
-    for (const [tabId, request] of Object.entries(useMedia.getState().displayRequests) as [string, Pending][]) {
-      const url = s.tabs[tabId]?.url;
-      if (url !== undefined && page(url) !== page(request.pageUrl)) answerDisplayMedia(tabId, null);
-    }
-  });
-}
 
 const hostOf = (origin: string) => {
   try {

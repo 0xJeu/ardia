@@ -6,7 +6,7 @@ import { hex } from "../ui/theme";
 import { useTab } from "../../state/browser/hooks";
 import { useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
-import { useArtwork } from "./artwork";
+import { useArtwork } from "../../state/media/artwork";
 import { useMarqueeGroup, Marquee } from "./Marquee";
 import {
   formatTime,

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
+import { currentTab } from "../../state/browser/current";
 import { engineProfile } from "../../state/browser/model";
 import { Button, Checkbox, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, useHover } from "../ui";
 import { patchPage, pageOf, setPopover, usePage } from "../../state/tabs/pageState";
@@ -78,7 +78,7 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
     patchPage(tabId, { popups: [] });
     close();
   };
-  const profile = () => engineProfile(useBrowser.getState().tabs[tabId]?.profileId ?? "");
+  const profile = () => engineProfile(currentTab(tabId)?.profileId ?? "");
   return (
     <Popover width={BLOCKED_POPUPS_WIDTH} top={top} right={right} left={left} onDismiss={close}>
       <View style={{ paddingBottom: PANEL.listPadding }}>

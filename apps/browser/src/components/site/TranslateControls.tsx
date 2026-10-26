@@ -1,7 +1,8 @@
 import { showMenu, translation, type MenuItem } from "@ardia/shell";
 import { memo } from "react";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useSettings, useTab } from "../../state/browser/hooks";
+import { currentTab } from "../../state/browser/current";
 import { isIncognitoProfile } from "../../state/browser/model";
 import { Button, MenuRow, MenuSeparator, Toggle } from "../ui";
 import type { ToolbarPalette } from "../ui/toolbarColors";
@@ -50,7 +51,7 @@ async function chooseLanguage(tabId: string) {
 }
 
 async function showTranslateMenu(tabId: string) {
-  const tab = useBrowser.getState().tabs[tabId];
+  const tab = currentTab(tabId);
   if (!tab) return;
   const translated = translateStateOf(tabId).status !== "idle";
   const items: MenuItem[] = [
@@ -69,8 +70,8 @@ async function showTranslateMenu(tabId: string) {
 
 export function TranslateRows({ tabId, onClose }: { tabId: string; onClose: () => void }) {
   const state = useTranslateState(tabId);
-  const tab = useBrowser((s) => s.tabs[tabId]);
-  useBrowser((s) => s.settings.neverTranslateSites);
+  const tab = useTab(tabId);
+  useSettings((st) => st.neverTranslateSites);
   const never = tab ? isNeverTranslated(tab.profileId, tab.url) : false;
   if (!translation || !tab || (!state.source && state.status === "idle" && !never)) return null;
   const translated = state.status !== "idle";

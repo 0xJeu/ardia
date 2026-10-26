@@ -2,7 +2,7 @@ import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useSettings } from "../../state/browser/hooks";
 import { defaultSearchEngine } from "../../state/settings/settings";
 import { useHover } from "../ui";
 import { searchSelection, setPageSelection, usePageSelection, type ClickModifiers, type PageSelection } from "../../state/site/selection";
@@ -13,7 +13,7 @@ const GAP = 6;
 const SHOW_DELAY = 150;
 
 export function SelectionPopover({ tabId, zoom }: { tabId: string; zoom: number }) {
-  const enabled = useBrowser((s) => s.settings.showSelectionSearch);
+  const enabled = useSettings((st) => st.showSelectionSearch);
   const selection = usePageSelection((s) => (enabled ? (s[tabId] ?? null) : null));
   const [shown, setShown] = useState<PageSelection | null>(null);
   const [area, setArea] = useState({ width: 0, height: 0 });
@@ -84,7 +84,7 @@ function Bar({ tabId, selection, zoom, area }: { tabId: string; selection: PageS
 
 function SearchButton({ tabId, text }: { tabId: string; text: string }) {
   const theme = useTheme();
-  const engine = useBrowser((s) => defaultSearchEngine(s.settings).name);
+  const engine = useSettings((st) => defaultSearchEngine(st).name);
   const { hovered, hoverProps } = useHover();
   const quoted = text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text;
   return (

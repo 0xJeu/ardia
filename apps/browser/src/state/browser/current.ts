@@ -13,3 +13,4 @@ export const currentProfileOrder = () => useBrowser.getState().profileOrder;
 export const resolvedWindowId = (windowId?: string | null) => resolveWindowId(useBrowser.getState(), windowId);
 export const workspaceSnapshot = () => useBrowser.getState();
 export const downloadsOpenIn = (windowId: string) => !!useBrowser.getState().windowUi[windowId]?.downloadsOpen;
+export const currentLive = (tabId: string) => useBrowser.getState().live[tabId];

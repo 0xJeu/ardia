@@ -4,31 +4,21 @@ import { useRef, type ComponentProps } from "react";
 import { Image, Pressable, View } from "react-native";
 import { switchToTab, toggleMute } from "../../state/browser/actions";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
 import { useTab } from "../../state/browser/hooks";
 import { Button, useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
 import { useSidebarTokens } from "../sidebar/tokens";
-import { useArtwork } from "./artwork";
+import { useArtwork } from "../../state/media/artwork";
 import { seekTo, SeekBar, skip } from "./MiniPlayer";
-import { hasTrackControls, isPlaying, isTabShown, mediaCommand, playerTabFor, SKIP_SECONDS, useMedia, useSession, useTicker } from "../../state/media/media";
+import { dismissPlayer, hasTrackControls, isPlaying, mediaCommand, playerTabFor, SKIP_SECONDS, useHiddenPlayerTabs, useMedia, useSession, useTicker } from "../../state/media/media";
 import { hostOf } from "../../lib/url";
 import { useMediaTokens } from "./tokens";
 
 export const SIDEBAR_PLAYER_HEIGHT = 74 + 8;
 
-const NO_IDS: string[] = [];
-
 export function useSidebarPlayerTab(windowId: string, profileId: string): string | undefined {
   const sessions = useMedia(useShallow((m) => Object.keys(m.sessions)));
-  const hidden = useBrowser(
-    useShallow((s) => {
-      const w = s.windows[windowId];
-      if (!sessions.length || !w || !s.settings.sidebarMediaControls) return NO_IDS;
-      const ids = sessions.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]!.profileId === profileId && !isTabShown(s, id, profileId));
-      return ids.length > 1 ? ids.sort((a, b) => w.tabIds.indexOf(a) - w.tabIds.indexOf(b)) : ids;
-    }),
-  );
+  const hidden = useHiddenPlayerTabs(windowId, profileId, sessions);
   const shown = useRef<string | undefined>(undefined);
   shown.current = useMedia((m) => playerTabFor(m, hidden, shown.current));
   return shown.current;
@@ -98,7 +88,7 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
       {hovered ? (
         <View style={{ position: "absolute", top: -6, right: -6, flexDirection: "row", gap: 2 }}>
           <CornerButton icon={tab.muted ? "speaker.wave.2.fill" : "speaker.slash.fill"} tooltip={tab.muted ? "Unmute Site" : "Mute Site"} onPress={() => toggleMute(tabId)} />
-          <CornerButton icon="xmark" tooltip="Close Player" onPress={() => useMedia.setState((m) => ({ dismissed: { ...m.dismissed, [tabId]: true } }))} />
+          <CornerButton icon="xmark" tooltip="Close Player" onPress={() => dismissPlayer(tabId)} />
         </View>
       ) : null}
     </View>

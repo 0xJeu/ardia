@@ -1,11 +1,10 @@
 import { setAutoPictureInPicture, setDisplayMediaPicker, setVideoUpscaling } from "@ardia/ardiacore";
 import { useRef } from "react";
-import { useBrowser } from "../../state/browser/store";
-import { useStoreWhile } from "../../state/tabs/tabWatch";
-import { usePages } from "../../state/tabs/pageState";
-import { startCast } from "../../state/media/cast";
-import { startTabShareCleanup } from "./ShareBar";
-import { cancelDisplayMediaOnNavigation } from "./SharePicker";
+import { useBrowser } from "../browser/store";
+import { useStoreWhile } from "../tabs/tabWatch";
+import { usePages } from "../tabs/pageState";
+import { startCast } from "./cast";
+import { cancelDisplayMediaOnNavigation, startTabShareCleanup } from "./screenShare";
 
 export function useAutoPictureInPicture(tabId: string, visible: boolean): boolean {
   const enabled = useStoreWhile(useBrowser, visible, (s) => s.settings.autoPictureInPicture ?? true);

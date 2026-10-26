@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const drops = await import("./drops.ts");
-const { stripEntries } = await import("../../components/tabstrip/stripGroups.ts");
+const { stripEntries } = await import("../tabs/topStrip.ts");
 await import("../../test-native/index.ts");
 
 const S = () => useBrowser.getState();

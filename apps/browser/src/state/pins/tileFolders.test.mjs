@@ -164,7 +164,7 @@ test("older data: a folder field on a tab that isn't a tile is dropped at launch
 });
 
 test("the top strip's pinned dock shows a folder as one cell, the active member right after it, and its menu lists the members", async () => {
-  const { stripEntries, tileFolderMenuItems } = await import("../../components/tabstrip/stripGroups.ts");
+  const { stripEntries, tileFolderMenuItems } = await import("../tabs/topStrip.ts");
   reset();
   const { w, ids: [a, b, c, d] } = pinnedWindow();
   act((s) => folders.addToTileFolder(s, [c, d], b));

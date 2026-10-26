@@ -18,10 +18,14 @@ import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
+import { currentLive, currentTab } from "../../state/browser/current";
+import { updateTab } from "../../state/tabs/actions";
+import { setFind } from "../../state/windows/actions";
+import { updateSettings } from "../../state/settings/actions";
+import { useEngineRule, usePageEngine, useRecommendedEngine, useStreamingSite } from "../../state/engines/hooks";
 import { useSettings, useTab } from "../../state/browser/hooks";
 import { engineProfile, isIncognitoProfile, tabLabel } from "../../state/browser/model";
-import { builtInEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, recommendedEngineFor, ruleFor, tabEngine } from "../../state/engines/engines";
+import { ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine } from "../../state/engines/engines";
 import { openPageIn, togglePageEngine } from "../../state/engines/actions";
 import { MenuRow, MenuSeparator, PANEL, PanelHeader, Popover, PopoverValue, Toggle, usePopoverPresence } from "../ui";
 import { Favicon } from "../favicon/Favicon";
@@ -70,13 +74,12 @@ export function SiteControls({ tabId, open, right, left, top }: { tabId: string;
 }
 
 function featuredPermissions(tabId: string, settings: SiteSettings, list: Permission[]): Set<SiteSettingType> {
-  const s = useBrowser.getState();
-  const tab = s.tabs[tabId];
+  const tab = currentTab(tabId);
   const access = pageOf(tabId).mediaAccess;
   const inUse: Partial<Record<SiteSettingType, boolean>> = {
     camera: !!access?.camera,
     microphone: !!access?.microphone,
-    sound: !!tab?.muted || !!s.live[tabId]?.playingAudio,
+    sound: !!tab?.muted || !!currentLive(tabId)?.playingAudio,
   };
   return new Set(list.filter((p) => !settings[p.type]?.isDefault || inUse[p.type]).map((p) => p.type));
 }
@@ -114,13 +117,13 @@ function SiteControlsPanel({
   const close = () => setPopover(tabId, null);
   const video = useMedia((m) => !!m.sessions[tabId]?.hasVideo || !!m.pipOpen[tabId]);
   const [pip, togglePip] = usePictureInPicture(tabId);
-  const pageEngine = useBrowser((s) => tabEngine(s, tabId));
+  const pageEngine = usePageEngine(tabId);
   const webkitPage = pageEngine === "webkit";
   const permissionList = webkitPage ? PERMISSIONS.filter((p) => WEBKIT_SITE_SETTINGS.includes(p.type)) : PERMISSIONS;
   const readSettings = webkitPage ? getWebKitSiteSettings : getSiteSettings;
-  const engineRule = useBrowser((s) => ruleFor(s, url));
-  const recommendedEngine = useBrowser((s) => recommendedEngineFor(s, url));
-  const streamingSite = useBrowser((s) => !!builtInEngine(s, url));
+  const engineRule = useEngineRule(url);
+  const recommendedEngine = useRecommendedEngine(url);
+  const streamingSite = useStreamingSite(url);
   const recommendedTitle = streamingSite ? `Recommended (${ENGINE_NAMES[recommendedEngine]})` : `Default (${ENGINE_NAMES[recommendedEngine]})`;
 
   useEffect(() => {
@@ -145,7 +148,7 @@ function SiteControlsPanel({
     await (webkitPage ? setWebKitSiteSetting : setSiteSetting)(profile, origin, type, value);
     setSettings(await readSettings(profile, origin));
     if (type === "sound") {
-      useBrowser.getState().updateTab(tabId, { muted: value === "block" });
+      updateTab(tabId, { muted: value === "block" });
       void webviews.get(tabId)?.setMuted(value === "block");
     }
   };
@@ -224,7 +227,7 @@ function SiteControlsPanel({
         label="Find on Page"
         onPress={() => {
           close();
-          useBrowser.getState().setFind(tabId, { open: true, replace: false, focusRequest: Date.now() });
+          setFind(tabId, { open: true, replace: false, focusRequest: Date.now() });
         }}
       />
     ) : null,
@@ -346,7 +349,7 @@ function SiteControlsPanel({
             <MenuRow
               icon="text.alignleft"
               title="Show Full URL"
-              accessory={<Toggle look="panel" value={showFullUrl} onChange={(v) => useBrowser.getState().updateSettings({ showFullUrl: v })} />}
+              accessory={<Toggle look="panel" value={showFullUrl} onChange={(v) => updateSettings({ showFullUrl: v })} />}
             />
           </>
         ) : null}

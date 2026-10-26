@@ -5,7 +5,7 @@ import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { useTab } from "../../state/browser/hooks";
 import { Button, PANEL, Popover, useHover } from "../ui";
-import { setPopover, usePages } from "../../state/tabs/pageState";
+import { popoverOf, setPopover, usePages } from "../../state/tabs/pageState";
 import { type ToolbarPalette } from "../ui/toolbarColors";
 
 export const ZoomIndicator = memo(function ZoomIndicator({ tabId, zoom, palette, onFocus }: { tabId: string; zoom: number; palette: ToolbarPalette; onFocus: () => void }) {
@@ -20,7 +20,7 @@ export const ZoomIndicator = memo(function ZoomIndicator({ tabId, zoom, palette,
       radius={6}
       onPress={() => {
         onFocus();
-        setPopover(tabId, usePages.getState().popover[tabId] === "zoom" ? null : "zoom");
+        setPopover(tabId, popoverOf(tabId) === "zoom" ? null : "zoom");
       }}
       active={open}
       tooltip={`Zoom: ${Math.round(zoom * 100)}%`}

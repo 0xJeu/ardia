@@ -2,6 +2,7 @@ import type { ControlPress, DisplayMediaRequest, MediaCommand, NowPlaying, Pictu
 import { useEffect, useState } from "react";
 import type { AccessibilityActionEvent, GestureResponderEvent } from "react-native";
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import type { BrowserState } from "../browser/store";
@@ -188,3 +189,19 @@ useBrowser.subscribe((s, prev) => {
 if (typeof __DEV__ !== "undefined" && __DEV__) {
   (globalThis as { acMedia?: unknown }).acMedia = { useMedia, mediaCommand, setNowPlaying, togglePictureInPicture, inPictureInPicture, playerTabFor };
 }
+
+export const dismissPlayer = (tabId: string) => useMedia.setState((m) => ({ dismissed: { ...m.dismissed, [tabId]: true } }));
+
+const NO_HIDDEN: string[] = [];
+
+export const useHiddenPlayerTabs = (windowId: string, profileId: string, sessions: string[]) =>
+  useBrowser(
+    useShallow((s) => {
+      const w = s.windows[windowId];
+      if (!sessions.length || !w || !s.settings.sidebarMediaControls) return NO_HIDDEN;
+      const ids = sessions.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]!.profileId === profileId && !isTabShown(s, id, profileId));
+      return ids.length > 1 ? ids.sort((a, b) => w.tabIds.indexOf(a) - w.tabIds.indexOf(b)) : ids;
+    }),
+  );
+
+export const usePinnedWithMediaControls = (tabId: string | undefined) => useBrowser((s) => !!tabId && !!s.tabs[tabId]?.pinned && s.settings.sidebarMediaControls);
