@@ -70,7 +70,6 @@ const darkRoles = {
   promptFillHover: "rgba(255,255,255,0.14)",
   promptFillPressed: "rgba(255,255,255,0.18)",
   toggleOff: "rgba(255,255,255,0.16)",
-  toggleOn: "#3478F6",
 
   tooltipFill: "#262626",
   tooltipRing: "rgba(0,0,0,0.4)",
@@ -172,7 +171,6 @@ const lightRoles: ColorRoles = {
   promptFillHover: "rgba(0,0,0,0.09)",
   promptFillPressed: "rgba(0,0,0,0.12)",
   toggleOff: "rgba(0,0,0,0.12)",
-  toggleOn: "#3478F6",
 
   tooltipFill: "#FFFFFF",
   tooltipRing: "rgba(0,0,0,0.12)",

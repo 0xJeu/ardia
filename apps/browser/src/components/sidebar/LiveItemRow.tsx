@@ -74,7 +74,7 @@ export function LiveItemRow({ folderId, item, windowId, inStack = false }: { fol
                 shadowOffset={SELECTED_ROW_SHADOW_OFFSET}
                 style={{ height: layout.rowHeight, flexDirection: "row", alignItems: "center", paddingLeft: 9 + indent, paddingRight: 6 }}
               >
-                {unread ? <View style={{ position: "absolute", left: 2 + indent, width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.pip }} /> : null}
+                {unread ? <View style={{ position: "absolute", left: 2 + indent, width: 5, height: 5, borderRadius: 2.5, backgroundColor: theme.accent }} /> : null}
                 <ItemIcon item={item} completion={completion} colors={colors} />
                 <FadeLabel
                   text={item.title}

@@ -146,7 +146,7 @@ function FolderHeader({ folderId, windowId, collapsed }: { folderId: string; win
                   <RefreshButton spinning tooltip={statusText(folderId)} onPress={() => void manualRefresh(folderId)} />
                 ) : collapsed ? (
                   <View style={{ flexDirection: "row", alignItems: "center", marginRight: 2, gap: 5 }}>
-                    {unread ? <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.pip }} /> : null}
+                    {unread ? <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.accent }} /> : null}
                     <View style={{ minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 6, backgroundColor: tokens.countPill, alignItems: "center", justifyContent: "center" }}>
                       <Text style={{ ...font.caption, fontWeight: weight.semibold, color: theme.textTab, fontVariant: TABULAR_NUMS }}>{count}</Text>
                     </View>

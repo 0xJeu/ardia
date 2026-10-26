@@ -95,7 +95,7 @@ export function Toggle({ value, onChange, disabled, look = "form" }: { value: bo
         value={value}
         onChange={onChange}
         disabled={disabled}
-        look={{ width: 30, height: 17, knob: 14, inset: 1.5, offColor: theme.toggleOff, onColor: theme.toggleOn, duration: duration.quick, easing: curve.outQuad }}
+        look={{ width: 30, height: 17, knob: 14, inset: 1.5, offColor: theme.toggleOff, onColor: theme.accent, duration: duration.quick, easing: curve.outQuad }}
       />
     );
   return (
