@@ -366,16 +366,14 @@ too (both download links, the "Download Ardia <version>" labels and the "<size> 
 **Bring the landing page's claims up to date.** The home page makes specific promises; a release can make
 one of them stale or earn a new one. Read the new notes against:
 - `apps/site/src/data/features.ts`: the features, each with its screenshots (`features` and `duo`);
-- `apps/site/src/components/Engine.astro`: the checklist of what's in and what isn't yet;
 - `Faq.astro` (Q&A), `Hero.astro` and `Closing.astro` (the fine print: macOS version, Apple Silicon,
   Notarized), and `Footer.astro`.
 
 Then:
-- **Something the page says "not yet" or "partly" to is now done:** flip its row in the checklist.
 - **Something the page claims changed** (a new import source, a new requirement): fix the line.
-- **A headline feature isn't on the page:** add an `extras` line in the page's voice: short, plain, dry, and
-  literally true. A light outdoor touch is fine where it lands; most lines need none. The numbering updates
-  itself.
+- **A headline feature isn't on the page:** add it to `features` with a screenshot, in the page's voice: short,
+  plain, dry, and literally true. A light outdoor touch is fine where it lands; most lines need none. The
+  numbering updates itself.
 - **Bug fixes and small changes:** leave the page alone.
 - **Never claim anything the release doesn't do.** Anything unverified or behind a setting says so.
 
