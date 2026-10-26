@@ -33,6 +33,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)takeDismissed:(nullable NSString *)windowId;
 + (nullable NSView *)coverInWindow:(nullable NSWindow *)window;
 + (void)rootEmbedded:(NSView *)root inWindow:(NSWindow *)window;
+@end
+
+@interface ArdiaEarlyWindow (Pages)
 + (void)pageMoved:(ArdiaCoreTab *)tab;
 + (void)pageNavigated:(nullable ArdiaCoreTab *)tab launchURL:(nullable NSString *)launchURL;
 + (BOOL)veils:(nullable ArdiaCoreTab *)tab;
