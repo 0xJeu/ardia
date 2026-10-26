@@ -1,15 +1,15 @@
-import { setAppearance, setAppIcon, Symbol, type AppIcon } from "@ardia/shell";
+import { setAppearance, setAppIcon, type AppIcon } from "../../../state/app/appSettings";
+import { Symbol, font, Group, PopUp, Toggle, useHover } from "../../ui";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
 import type { Settings } from "../../../state/settings/settings";
-import { font, Group, PopUp, Toggle, useHover } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { PictureChoice } from "../PictureChoice";
 import { modePreview } from "../tokens";
 import { useSettingsColors } from "../useSettingsColors";
-import { APP_ICON_SIZE, appIconChoices } from "../paneData";
+import { APP_ICON_SIZE, appIconChoices } from "../../../state/settings/paneData";
 import { store, useResource } from "../../../state/settings/resources";
 
 const MODES: { value: Settings["appearance"]; title: string; description: string }[] = [

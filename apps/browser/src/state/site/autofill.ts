@@ -4,6 +4,8 @@ import { activeTabId } from "../browser/model";
 import { isTabReady } from "../tabs/pageState";
 import { openSettings } from "../settings/settingsWindows";
 
+export { cardNetworkName, deleteAddress, deleteCard, revealCardNumber, saveAddress, saveCard, setAutofillSettings, type SavedAddress, type SavedCard } from "../../platform/autofill";
+
 export type { CardNetwork };
 
 export async function requestAutofill(windowId: string, arg: string | null, tabId = activeTabId(useBrowser.getState(), windowId)) {

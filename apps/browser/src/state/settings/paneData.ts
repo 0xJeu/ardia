@@ -1,28 +1,28 @@
 import {
   engineInfo,
-  getAutofillSettings,
-  getContentBlocker,
-  getDownloadSettings,
-  getExternalAppAllowances,
-  getPasswordAutofill,
-  getSiteSettingsOrigins,
-  getZoomLevels,
-  listAddresses,
-  listCards,
   listComponents,
   WIDEVINE_COMPONENT_ID,
-  type SavedAddress,
-  type SavedCard,
-} from "@ardia/ardiacore";
+  appIcons,
+  currentAppIcon,
+  isDefaultBrowser,
+  launchAtLoginStatus,
+  updaterState,
+  type UpdaterState,
+} from "../../platform/app";
+import { getAutofillSettings, listAddresses, listCards, type SavedAddress, type SavedCard } from "../../platform/autofill";
+import { getContentBlocker } from "../../platform/contentBlocker";
+import { getDownloadSettings } from "../../platform/downloads";
+import { getExternalAppAllowances, getSiteSettingsOrigins, getZoomLevels } from "../../platform/siteSettings";
+import { getPasswordAutofill } from "../../platform/passwords";
 import { orWarn } from "../../lib/fallback";
-import { appIcons, currentAppIcon, isDefaultBrowser, launchAtLoginStatus, menuShortcuts, updaterState, type UpdaterState } from "@ardia/shell";
-import { setMenuBarShortcuts } from "../../state/commands/commandShortcuts";
-import { currentSettings } from "../../state/browser/current";
-import { engineProfile } from "../../state/browser/model";
-import { currentSyncFolder, folderInfo } from "../../state/sync/engine";
-import { extensionsProfileId, refreshExtensions } from "../../state/extensions/actions";
-import { load, loadAll, need, resource, useAllLoaded, type Needed } from "../../state/settings/resources";
-import type { SettingsPane } from "../../state/settings/settingsWindows";
+import { menuShortcuts } from "../../platform/commands";
+import { setMenuBarShortcuts } from "../commands/commandShortcuts";
+import { currentSettings } from "../browser/current";
+import { engineProfile } from "../browser/model";
+import { currentSyncFolder, folderInfo } from "../sync/engine";
+import { extensionsProfileId, refreshExtensions } from "../extensions/actions";
+import { load, loadAll, need, resource, useAllLoaded, type Needed } from "./resources";
+import type { SettingsPane } from "./settingsWindows";
 
 export const APP_ICON_SIZE = 56;
 

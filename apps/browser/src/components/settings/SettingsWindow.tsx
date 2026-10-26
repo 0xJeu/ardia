@@ -1,11 +1,10 @@
-import { Symbol, VisualEffect, WindowDragRegion } from "@ardia/shell";
+import { Symbol, VisualEffect, WindowDragRegion, Button, font, useHover, weight } from "../ui";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useProfile } from "../../state/browser/hooks";
 import { trackSettingsSection } from "../../state/telemetry/track";
-import { Button, font, useHover, weight } from "../ui";
-import { preparePane, usePaneLoaded } from "./paneData";
+import { preparePane, usePaneLoaded } from "../../state/settings/paneData";
 import { anchorView, clearSettingsReveal, flashSetting, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, setting } from "./settingsIndex";
 import { SettingsSearchField, SettingsSearchResults } from "./SettingsSearch";

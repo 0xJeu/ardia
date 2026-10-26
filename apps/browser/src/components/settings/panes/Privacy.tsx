@@ -16,8 +16,8 @@ import {
   type SiteSettings,
   type SiteSettingType,
   type SiteSettingValue,
-} from "@ardia/ardiacore";
-import { confirm } from "@ardia/shell";
+} from "../../../state/site/siteSettings";
+import { confirm } from "../../../state/app/system";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
@@ -27,7 +27,7 @@ import { engineProfile } from "../../../state/browser/model";
 import { Button, Checkbox, font, Group, PopUp, Sheet, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
-import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../paneData";
+import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";

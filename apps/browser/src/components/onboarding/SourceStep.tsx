@@ -1,4 +1,4 @@
-import { fileExists, fileIcon } from "@ardia/shell";
+import { fileExists, fileIcon } from "../../state/app/system";
 import { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import { Symbol } from "../ui";

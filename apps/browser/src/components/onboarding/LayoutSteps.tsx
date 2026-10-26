@@ -1,4 +1,4 @@
-import { appIcons, currentAppIcon, setAppIcon, type AppIcon } from "@ardia/shell";
+import { appIcons, currentAppIcon, setAppIcon, type AppIcon } from "../../state/app/appSettings";
 import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import { PROFILE_COLORS } from "../ui/theme";

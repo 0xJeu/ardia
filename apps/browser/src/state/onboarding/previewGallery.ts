@@ -2,6 +2,8 @@ import { create } from "zustand";
 import type { Settings } from "../settings/settings";
 import type { PreviewId } from "./previewIds";
 
+export { devSnapshotWindow } from "../../platform/app";
+
 export type GalleryMock = { label: string; settings: Partial<Settings>; accent: string; focus: PreviewId | null };
 
 type GalleryPage = { kind: "frames"; index: number; addressInSidebar?: boolean } | { kind: "mock"; index: number } | { kind: "mockLive" };

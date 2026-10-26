@@ -1,7 +1,6 @@
-import type { SystemCalendar } from "@ardia/shell";
+import { type SystemCalendar, connectCalendar, setCalendarHidden, useCalendar } from "../../../state/live/calendar";
 import { Linking, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { connectCalendar, setCalendarHidden, useCalendar } from "../../../state/live/calendar";
 import { ALERT_LEADS } from "../../../state/live/meetings";
 import { updateCalendarSettings, useLive } from "../../../state/live/store";
 import { useSettings } from "../../../state/browser/hooks";

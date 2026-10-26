@@ -1,4 +1,5 @@
-import { copyText, focusWindow } from "@ardia/shell";
+import { copyText } from "../../../state/app/system";
+import { focusWindow } from "../../../state/windows/nativeWindow";
 import { useEffect, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";

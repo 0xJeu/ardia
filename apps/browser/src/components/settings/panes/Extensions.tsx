@@ -1,13 +1,5 @@
-import { reloadExtension, type InstalledExtension } from "@ardia/ardiacore";
-import { useEffect, useState } from "react";
-import { Image, Text, View } from "react-native";
-import { useTheme } from "../../ui/theme";
-import { resolvedWindowId } from "../../../state/browser/current";
-import { newTab } from "../../../state/tabs/actions";
-import { useProfiles } from "../../../state/browser/hooks";
-import { engineProfile } from "../../../state/browser/model";
-import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
 import {
+  reloadExtension,
   addFromWebStore,
   configure,
   extensionsProfileId,
@@ -20,9 +12,18 @@ import {
   showExtensionsList,
   useExtensionList,
 } from "../../../state/extensions/actions";
+import type { InstalledExtension } from "../../../state/extensions/store";
+import { useEffect, useState } from "react";
+import { Image, Text, View } from "react-native";
+import { useTheme } from "../../ui/theme";
+import { resolvedWindowId } from "../../../state/browser/current";
+import { newTab } from "../../../state/tabs/actions";
+import { useProfiles } from "../../../state/browser/hooks";
+import { engineProfile } from "../../../state/browser/model";
+import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
 import { Button, font, Group, PopUp, TextField, Toggle, weight } from "../../ui";
 import { Row, SectionHeader } from "../Form";
-import { extensionList } from "../paneData";
+import { extensionList } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { replaceSettingsPlace, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";

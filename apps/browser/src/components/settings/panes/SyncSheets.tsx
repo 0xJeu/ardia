@@ -1,10 +1,19 @@
-import { showMenu, Symbol } from "@ardia/shell";
-import { SyncNative, type FolderInfo } from "@ardia/sync";
+import { showMenu } from "../../../state/app/system";
+import { Symbol, Button, Checkbox, font, ink, Sheet, weight } from "../../ui";
+import {
+  copyRecoveryKit,
+  copyRecoveryPhrase,
+  recoveryKitPreview,
+  recoveryQrCode,
+  recoveryWords,
+  saveRecoveryKit,
+  shareRecoveryKit,
+  type FolderInfo,
+} from "../../../state/sync/recoveryKit";
 import { useEffect, useState, type ReactNode } from "react";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { enterRecoveryPhrase, stopSync } from "../../../state/sync/engine";
-import { Button, Checkbox, font, ink, Sheet, weight } from "../../ui";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { settingsType } from "../tokens";
 import { useSettingsColors } from "../useSettingsColors";
@@ -40,9 +49,9 @@ function RecoveryKitSheet() {
   const look = useSettingsColors();
   const [preview, setPreview] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  useEffect(() => void SyncNative?.recoveryKitPreview(168).then(setPreview), []);
+  useEffect(() => void recoveryKitPreview(168)?.then(setPreview), []);
   const save = async (format: "pdf" | "text") => {
-    const path = await SyncNative?.saveRecoveryKit(format);
+    const path = await saveRecoveryKit(format);
     if (path) setSaved(path);
   };
   const more = async () => {
@@ -52,8 +61,8 @@ function RecoveryKitSheet() {
       { separator: true },
       { id: "text", title: "Save as Text…", symbol: "doc.plaintext" },
     ]);
-    if (choice === "copy") await SyncNative?.copyRecoveryKit();
-    else if (choice === "share") await SyncNative?.shareRecoveryKit();
+    if (choice === "copy") await copyRecoveryKit();
+    else if (choice === "share") await shareRecoveryKit();
     else if (choice === "text") await save("text");
   };
   return (
@@ -198,7 +207,7 @@ function ConnectDeviceSheet() {
   const theme = useTheme();
   const [qr, setQr] = useState<string | null>(null);
   const [words, setWords] = useState<string[] | null>(null);
-  useEffect(() => void SyncNative?.qrCode().then(setQr), []);
+  useEffect(() => void recoveryQrCode()?.then(setQr), []);
   return (
     <Sheet width={480} onClose={closeSettingsSheet}>
       <Title>Connect Another Device</Title>
@@ -227,8 +236,8 @@ function ConnectDeviceSheet() {
       <Buttons
         left={
           <>
-            <Button title={words ? "Hide Words" : "Show Words"} onPress={() => (words ? setWords(null) : void SyncNative?.recoveryWords().then(setWords))} />
-            <Button title="Copy Words" onPress={() => void SyncNative?.copyRecoveryPhrase()} />
+            <Button title={words ? "Hide Words" : "Show Words"} onPress={() => (words ? setWords(null) : void recoveryWords()?.then(setWords))} />
+            <Button title="Copy Words" onPress={() => void copyRecoveryPhrase()} />
           </>
         }
       >

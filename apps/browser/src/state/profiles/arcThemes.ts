@@ -1,8 +1,8 @@
-import { showMenu, type MenuItem } from "@ardia/shell";
+import { showMenu, type MenuItem } from "../../platform/menus";
 import { themeAccent } from "../../lib/profileLook";
-import type { ProfileTheme } from "../../state/browser/types";
-import { parseArcTheme } from "../../state/import/arcTheme";
-import { setProfileTheme } from "../../state/profiles/themeActions";
+import type { ProfileTheme } from "../browser/types";
+import { parseArcTheme } from "../import/arcTheme";
+import { setProfileTheme } from "./themeActions";
 import { importModule } from "../../platform/importModule";
 
 export async function arcThemeChoices(): Promise<{ id: string; name: string; emoji?: string; color?: string; theme: ProfileTheme }[]> {

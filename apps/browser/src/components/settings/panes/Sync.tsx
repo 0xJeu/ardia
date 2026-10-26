@@ -1,7 +1,8 @@
-import { showMenu, Symbol } from "@ardia/shell";
-import { SyncNative, type FolderInfo } from "@ardia/sync";
+import { showMenu } from "../../../state/app/system";
+import { Symbol, Button, font, Group, Toggle } from "../../ui";
+import { copyRecoveryPhrase, revealSyncFolder, type FolderInfo } from "../../../state/sync/recoveryKit";
 import { useEffect, useState } from "react";
-import { syncFolder } from "../paneData";
+import { syncFolder } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { Linking, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
@@ -19,7 +20,6 @@ import {
 } from "../../../state/sync/engine";
 import { DATA_TYPES, type SyncStatus } from "../../../state/sync/syncDoc";
 import { ProfileBadge } from "../../profiles/ProfileIcons";
-import { Button, font, Group, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { folderLabel, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
 import { settingsType } from "../tokens";
@@ -183,9 +183,9 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
       { id: "stop", title: "Stop Syncing…", symbol: "xmark.circle" },
     ]);
     if (choice === "kit") showRecoveryKit();
-    else if (choice === "copy") await SyncNative?.copyRecoveryPhrase();
+    else if (choice === "copy") await copyRecoveryPhrase();
     else if (choice === "now") await syncNow();
-    else if (choice === "reveal" && info) await SyncNative?.revealFolder(info.path);
+    else if (choice === "reveal" && info) await revealSyncFolder(info.path);
     else if (choice === "stop") showStopSync();
   };
 

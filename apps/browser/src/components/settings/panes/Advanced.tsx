@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import { systemInfo } from "@ardia/shell";
+import { systemInfo } from "../../../state/app/system";
 import { describeCliInstall, installCliInBackground, useCli } from "../../../state/app/cliControl";
 import { openUrls } from "../../../state/browser/actions";
 import { useTheme } from "../../ui/theme";
@@ -9,7 +9,7 @@ import { openInternalPage } from "../../../state/pages/urls";
 import type { BatterySaverWhen } from "../../../state/settings/settings";
 import { Button, font, Group, PopUp, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
-import { engineVersion, widevine as widevineComponent } from "../paneData";
+import { engineVersion, widevine as widevineComponent } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 
 const REPOSITORY = "https://github.com/mantrakp04/ardia";

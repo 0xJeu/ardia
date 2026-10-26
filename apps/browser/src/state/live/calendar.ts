@@ -15,6 +15,8 @@ import { everySlowly } from "../../platform/slowTimers";
 import type { CalendarEvent } from "./meetings";
 import { live, updateCalendarSettings, useLive } from "./store";
 
+export type { SystemCalendar } from "../../platform/calendar";
+
 type CalendarData = {
   access: CalendarAuthorization | "fixture";
   calendars: SystemCalendar[];

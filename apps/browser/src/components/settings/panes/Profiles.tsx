@@ -1,4 +1,5 @@
-import { ContextMenuArea, hapticTick, showMenu, Symbol } from "@ardia/shell";
+import { ContextMenuArea, Symbol, Box, Button, font, Group, PopUp, TextField, useHover } from "../../ui";
+import { hapticTick, showMenu } from "../../../state/app/system";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
@@ -11,7 +12,6 @@ import { useProfile, useProfiles, useSettings } from "../../../state/browser/hoo
 import { sharingProfiles } from "../../../state/profiles/profiles";
 import type { Profile } from "../../../state/browser/types";
 import { ClearDataDialog } from "../../pages/ClearDataDialog";
-import { Box, Button, font, Group, PopUp, TextField, useHover } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { ColorStack } from "../../profiles/CreateProfile";
 import { iconMenuItems, PROFILE_SYMBOLS, ProfileBadge, profileSymbol } from "../../profiles/ProfileIcons";
@@ -19,8 +19,7 @@ import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/s
 import { ThemeSection } from "../ThemeEditor";
 import { goToSettingsPane } from "../../../state/settings/settingsWindows";
 import { curve } from "../../ui/motion";
-import { settingsType } from "../tokens";
-import { settingsMotion } from "../tokens";
+import { settingsType, settingsMotion } from "../tokens";
 
 const listOf = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`);
 

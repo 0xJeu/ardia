@@ -1,4 +1,11 @@
-import { cancelShortcutRecording, recordShortcut, Symbol, type MenuShortcut } from "@ardia/shell";
+import {
+  cancelShortcutRecording,
+  recordShortcut,
+  type MenuShortcut,
+  resolvedShortcuts,
+  useMenuBarRevision,
+} from "../../../state/commands/commandShortcuts";
+import { Symbol, Button, font, Group, PopUp, SearchField, Toggle, useHover } from "../../ui";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
@@ -6,12 +13,10 @@ import { useSettings } from "../../../state/browser/hooks";
 import { useProfileOrder } from "../../../state/profiles/hooks";
 import { setShortcutOverride, updateSettings } from "../../../state/settings/actions";
 import { openUrls } from "../../../state/browser/actions";
-import { Button, font, Group, PopUp, SearchField, Toggle, useHover } from "../../ui";
 import { Anchor, Row, SectionHeader } from "../Form";
 import { matchesQuery } from "../../pages/PageLayout";
-import { shortcutItems } from "../paneData";
+import { shortcutItems } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
-import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
 import { formatShortcut, sameShortcut, type Shortcut } from "../../../state/commands/shortcuts";
 import { settingsType } from "../tokens";
 

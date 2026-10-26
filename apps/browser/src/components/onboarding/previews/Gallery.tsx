@@ -1,4 +1,12 @@
-import { devSnapshotWindow } from "@ardia/shell";
+import {
+  devSnapshotWindow,
+  DIA,
+  PLUM,
+  setGalleryMock,
+  showGalleryPage,
+  useGallery,
+  type GalleryMock as MockState,
+} from "../../../state/onboarding/previewGallery";
 import { useMemo, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { PROFILE_COLORS, useTheme } from "../../ui/theme";
@@ -10,7 +18,6 @@ import { onboardingType } from "../tokens";
 import { DEMOS } from "./demos";
 import type { SceneOpts } from "./scene";
 import { PREVIEW_IDS, type PreviewId } from "../../../state/onboarding/previewIds";
-import { DIA, PLUM, setGalleryMock, showGalleryPage, useGallery, type GalleryMock as MockState } from "../../../state/onboarding/previewGallery";
 import { geo } from "./geometry";
 import { lookFor } from "./look";
 import { MockWindow } from "./MockWindow";

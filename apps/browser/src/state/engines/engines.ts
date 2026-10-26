@@ -2,6 +2,8 @@ import type { PageEngine } from "../../platform/tabs";
 import type { BrowserState } from "../browser/store";
 import type { Tab } from "../browser/types";
 
+export type { PageEngine } from "../../platform/tabs";
+
 export const ENGINE_NAMES: Record<PageEngine, string> = { chromium: "Chromium", webkit: "WebKit" };
 export const ENGINE_SYMBOLS: Record<PageEngine, string> = { chromium: "globe", webkit: "safari" };
 export const RECOMMENDED_ENGINE: PageEngine = "chromium";

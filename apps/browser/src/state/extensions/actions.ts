@@ -25,6 +25,8 @@ import { goToSettingsPane, openSettings, replaceSettingsPlace, settingsBack, use
 import { closeSidePanelsOf, toggleSidePanel } from "./sidePanels";
 import { extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, readyTabOf, type Anchor } from "./store";
 
+export { permissionWarnings, reloadExtension } from "../../platform/extensions";
+
 export * from "./sidePanels";
 export * from "./store";
 

@@ -6,6 +6,8 @@ import { activeTabId, engineProfile, incognitoOriginal, isIncognitoProfile, priv
 import { shownPageId } from "../peek/peek";
 import { isTabReady } from "../tabs/pageState";
 
+export type { ActionState, InstalledExtension } from "../../platform/extensions";
+
 export type Anchor = { x: number; y: number; width: number; height: number };
 
 export type InstallRequest = {

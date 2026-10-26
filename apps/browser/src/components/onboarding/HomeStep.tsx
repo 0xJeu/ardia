@@ -1,4 +1,12 @@
-import { addToDock, backgroundInstance, isDefaultBrowser, isInDock, launchAtLoginStatus, setAsDefaultBrowser, setLaunchAtLogin } from "@ardia/shell";
+import {
+  addToDock,
+  backgroundInstance,
+  isDefaultBrowser,
+  isInDock,
+  launchAtLoginStatus,
+  setAsDefaultBrowser,
+  setLaunchAtLogin,
+} from "../../state/app/appSettings";
 import { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { Symbol } from "../ui";

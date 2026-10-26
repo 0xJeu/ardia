@@ -11,9 +11,10 @@ import {
   updatePassword,
   type PasswordExportStatus,
   type SavedPassword,
-} from "@ardia/ardiacore";
+} from "../../../state/site/passwords";
 import { orWarn } from "../../../lib/fallback";
-import { confirm, copyText, Symbol, systemInfo } from "@ardia/shell";
+import { confirm, copyText, systemInfo } from "../../../state/app/system";
+import { Symbol, Button, font, Group, PopUp, SearchField, Sheet, TextField, Toggle, weight } from "../../ui";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
@@ -22,10 +23,9 @@ import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile, plural } from "../../../state/browser/model";
 import { importModule } from "../../../platform/importModule";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
-import { Button, font, Group, PopUp, SearchField, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
-import { passwordAutofill } from "../paneData";
+import { passwordAutofill } from "../../../state/settings/paneData";
 import { store, useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 

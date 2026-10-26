@@ -1,4 +1,4 @@
-import { holdThemedWindowsKeyLook } from "@ardia/shaders";
+import { holdThemedWindowsKeyLook, choosePresetColor, setProfileTheme } from "../../state/profiles/themeActions";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
@@ -20,15 +20,14 @@ import {
 } from "../../lib/profileLook";
 import { PROFILE_COLORS, useTheme } from "../ui/theme";
 import { useAppDark, useProfile, useSettings } from "../../state/browser/hooks";
-import { choosePresetColor, setProfileTheme } from "../../state/profiles/themeActions";
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../state/browser/types";
 import { Button, font, Group, PopUp, Swatch, swatch, Symbol, ThemeSwatch } from "../ui";
-import { importArcTheme } from "./arcTheme";
+import { importArcTheme } from "../../state/profiles/arcThemes";
 import { Row, SectionHeader } from "./Form";
 import { ColorPad, DirectionDial, LABEL, LightnessBar, Preview, Slider } from "./ThemeControls";
 import { settingsInk } from "./tokens";
 
-export { arcThemeChoices, importArcTheme } from "./arcTheme";
+export { arcThemeChoices, importArcTheme } from "../../state/profiles/arcThemes";
 
 const MODES: { value: ThemeMode; symbol: string; title: string }[] = [
   { value: "light", symbol: "sun.max", title: "Light" },

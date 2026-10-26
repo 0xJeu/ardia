@@ -1,9 +1,15 @@
-import { DIA_SPECTRUM, PowerUp } from "@ardia/shaders";
-import { playIntroMusic, setIntroMusicMuted, stopIntroMusic, type IntroMusicCues } from "@ardia/shell";
+import { DIA_SPECTRUM, PowerUp } from "../ui";
+import {
+  playIntroMusic,
+  setIntroMusicMuted,
+  stopIntroMusic,
+  type IntroMusicCues,
+  introMusicMuted,
+  saveIntroMusicMuted,
+} from "../../state/onboarding/onboarding";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { introMusicMuted, saveIntroMusicMuted } from "../../state/onboarding/onboarding";
 import { CircleButton, SecondaryButton } from "./Buttons";
 import { useOnboardingColors } from "./Parts";
 import { curve } from "../ui/motion";
