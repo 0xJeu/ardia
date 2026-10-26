@@ -2,11 +2,7 @@
   "layout": {},
   "imports": {},
   "native-calls": {},
-  "tokens": {
-    "apps/browser/src/state/live/documents.ts": 2,
-    "apps/browser/src/state/onboarding/previewGallery.ts": 1,
-    "apps/browser/src/state/site/webNotifications.ts": 1
-  },
+  "tokens": {},
   "get-state": {},
   "set-state": {},
   "store-reads": {},
@@ -26,10 +22,7 @@
     "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": 3,
     "engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc": 1
   },
-  "naming": {
-    "packages/ardiacore/ios/ArdiaEarlyWindow.h": 1,
-    "packages/ardiacore/ios/ArdiaWebView+ContextMenu.mm": 2
-  },
+  "naming": {},
   "comments": {},
   "file-names": {}
 }

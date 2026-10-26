@@ -229,11 +229,11 @@ function closesJsxTag(src, slash) {
   return src[before] === "<";
 }
 
-function withoutHoles(src, { start, end, holes }) {
+function withoutHoles(src, { start, end, holes }, fill = "0") {
   let text = "";
   let at = start;
   for (const [holeStart, holeEnd] of holes) {
-    text += src.slice(at, holeStart) + src.slice(holeStart, holeEnd).replace(/[^\n]/g, "0");
+    text += src.slice(at, holeStart) + src.slice(holeStart, holeEnd).replace(/[^\n]/g, fill);
     at = holeEnd;
   }
   return text + src.slice(at, end);
@@ -286,7 +286,7 @@ const LEGACY_BRAND = /netnyahoo/gi;
 const LEGACY_PREFIX = /\bNN[A-Z][a-z]\w*/g;
 const APP_SIDE_OBJC_FILE = /^(?:AC[A-Z]|ArdiaCore[A-Z])\w*\.(?:h|m|mm|swift)$/;
 const APP_SIDE_OBJC_CLASS =
-  /@(?:interface|implementation|protocol)\s+(?:AC[A-Z]|ArdiaCore[A-Z])\w*\b(?!\s*[(;])|\b(?:class|struct|enum|protocol|actor|typealias)\s+(?:AC[A-Z]|ArdiaCore[A-Z])\w*|@objc\(\s*(?:AC[A-Z]|ArdiaCore[A-Z])\w*\s*\)/g;
+  /@(?:interface|implementation|protocol)\s+(?:AC[A-Z]|ArdiaCore[A-Z])\w*\b(?!\s*[(;])|(?<!@)\b(?:class|struct|enum|protocol|actor|typealias)\s+(?:AC[A-Z]|ArdiaCore[A-Z])\w*|@objc\(\s*(?:AC[A-Z]|ArdiaCore[A-Z])\w*\s*\)/g;
 const IMPORT_SPEC =
   /\b(?:import|export)\b[^;"'`]*?\bfrom\s*(["'])([^"'\n]+)\1|\bimport\s*(?:\(\s*)?(["'])([^"'\n]+)\3|\brequire\s*\(\s*(["'])([^"'\n]+)\5/g;
 const NATIVE_PACKAGE = /^(?:@ardia\/(?:ardiacore|shell|shaders|import|sync)(?:\/.*)?|expo-modules-core)$/;
@@ -341,7 +341,7 @@ function checkFile(path, src, add) {
   if (!(COMPONENT_FILE.test(base) || MODULE_FILE.test(base) || rel === "main.tsx")) add("file-names", path, 1);
 
   if (!TOKEN_FILE.test(path)) {
-    const colors = strings.reduce((sum, s) => sum + count(withoutHoles(src, s), COLOR_LITERAL), 0);
+    const colors = strings.reduce((sum, s) => sum + count(withoutHoles(src, s, "_"), COLOR_LITERAL), 0);
     add("tokens", path, colors + count(code, MOTION_LITERAL));
   }
 
@@ -507,6 +507,14 @@ if (process.argv.includes("--write-baseline")) {
     assert.deepEqual(store("export const useA = create<{ a: number }>(() => ({ a: 1 }));"), { "store-shape": 1 });
     assert.deepEqual(store("export const useA = create<{ a: number }>()((set) => ({ a: 1 }));"), { "store-shape": 1 });
     assert.deepEqual(store("export const useA = create((set) => ({ a: 1 }));"), { "store-shape": 1 });
+  });
+  test("an interpolation after # in a string isn't a colour", () => {
+    assert.deepEqual(violationsOf("apps/browser/src/state/hello/ids.ts", "export const id = (repo: string, n: number) => `${repo}#${n}`;\n"), {});
+    assert.deepEqual(violationsOf("apps/browser/src/state/hello/ids.ts", 'export const plum = "#C07A98";\n'), { tokens: 1 });
+  });
+  test("a forward declaration of the engine's ArdiaCore classes isn't an app-side class", () => {
+    assert.deepEqual(violationsOf("packages/hello/ios/HelloWindow.h", "@class ArdiaCoreTab;\n"), {});
+    assert.deepEqual(violationsOf("packages/hello/ios/HelloWindow.h", "@interface ArdiaCoreHello : NSObject\n@end\n"), { naming: 1 });
   });
   test("components neither write a store nor subscribe to the workspace store directly", () => {
     const component = (body) => violationsOf("apps/browser/src/components/hello/Hello.tsx", `${body}\n`);

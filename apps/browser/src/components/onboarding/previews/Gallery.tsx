@@ -1,7 +1,6 @@
 import {
   devSnapshotWindow,
   DIA,
-  PLUM,
   setGalleryMock,
   showGalleryPage,
   useGallery,
@@ -26,6 +25,7 @@ import { mockInk } from "./tokens";
 const FRAME_POINTS = [0.2, 0.4, 0.65, 1] as const;
 const FRAMES_PER_PAGE = 4;
 const FRAME = { width: 186, height: 130 } as const;
+const PLUM = PROFILE_COLORS.plum.swatch;
 const ARC: Partial<Settings> = { tabLayout: "sidebar", addressBar: "sidebar", commandBarPlacement: "centred", appearance: "dark", extendWebsiteColor: true };
 
 const MOCK_PAGES: MockState[][] = [
@@ -107,7 +107,7 @@ function MockPage({ index }: { index: number }) {
 
 function MockLivePage() {
   const mock = useGallery((s) => s.mock);
-  return <MockCell state={mock} width={420} height={300} />;
+  return <MockCell state={{ ...mock, accent: mock.accent ?? PLUM }} width={420} height={300} />;
 }
 
 function PreviewGallery() {

@@ -31,12 +31,12 @@ NSArray *DescribeMenu(NSArray *items) {
   NSMutableArray *out = [NSMutableArray array];
   for (NSDictionary *item in items) {
     if (![item isKindOfClass:NSDictionary.class]) continue;
-    static const int kCefTypes[] = {1, 2, 3, 4, 0, 5, 5};
+    static const int kDescribedMenuTypes[] = {1, 2, 3, 4, 0, 5, 5};
     const int type = MenuItemType(item);
     NSMutableDictionary *described = [@{
       @"id" : Field<NSNumber>(item, @"id") ?: @0,
       @"label" : MenuTitle(Field<NSString>(item, @"label") ?: @""),
-      @"type" : @(type >= 0 && type < 7 ? kCefTypes[type] : 0),
+      @"type" : @(type >= 0 && type < 7 ? kDescribedMenuTypes[type] : 0),
       @"enabled" : @(Flag(item, @"enabled")),
       @"visible" : @(Field<NSNumber>(item, @"visible") ? Flag(item, @"visible") : YES),
     } mutableCopy];
