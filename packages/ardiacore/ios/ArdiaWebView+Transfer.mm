@@ -62,7 +62,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   NSString *scheme = [NSURLComponents componentsWithString:url].scheme.lowercaseString;
   if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return nil;
   profileName = profileName ?: @"";
-  if (ardia_host::IsIncognito(profileName) || ardia_host::IsDeletedProfile(profileName)) return nil;
+  if (ardia_host::IsPrivateProfile(profileName) || ardia_host::IsDeletedProfile(profileName)) return nil;
   ArdiaCoreProfile *profile = ardia_host::LoadedProfile(profileName);
   if (!profile || ardia_host::WasNavigationDownload(url, profileName)) return nil;
   ArdiaWindowController *keeper = [ArdiaWindowController strayWindowForProfile:profile];
@@ -192,7 +192,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     }
     if (standalone) controller = [ArdiaWindowController standaloneWindowForProfile:profile] ?: controller;
     if (!standalone && [kind isEqualToString:@"clone"] && [view cloneTab:key profile:profile]) return;
-    if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardia_host::IsIncognito(view->_profile) && controller.coreWindow) {
+    if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardia_host::IsPrivateProfile(view->_profile) && controller.coreWindow) {
       view->_creating = YES;
       [ArdiaServices call:@"ac_tab_restore_take" profile:view->_profile args:@{@"key" : key}
                 completion:^(NSDictionary *result) {
@@ -214,7 +214,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     const BOOL userInitiated = view->_pendingUserInitiated;
     if (url.length && [view skipsNavigationDownload:url userInitiated:userInitiated]) url = nil;
     if (url.length) ArdiaFieldMarkNow(view->_transferKey, @"request");
-    ArdiaCoreTab *tab = !standalone && !userInitiated && !ardia_host::IsIncognito(view->_profile)
+    ArdiaCoreTab *tab = !standalone && !userInitiated && !ardia_host::IsPrivateProfile(view->_profile)
                             ? RestoreSavedHistory(controller, profile, view->_transferKey, url)
                             : nil;
     controller.hostChanges++;
@@ -256,7 +256,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 
 - (BOOL)canTake:(ArdiaCoreTab *)tab {
   ArdiaCoreProfile *profile = tab.profile;
-  if (!profile || tab.closed || profile.offTheRecord != ardia_host::IsIncognito(_profile)) return NO;
+  if (!profile || tab.closed || profile.offTheRecord != ardia_host::IsPrivateProfile(_profile)) return NO;
   if (profile.offTheRecord) return ardia_host::IsOffTheRecordOf(profile, _profile);
   return [ardia_host::ProfileName(profile) isEqualToString:_profile ?: @""];
 }
@@ -303,7 +303,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 }
 
 - (void)bindRestoreKey {
-  if (!_tab || !_transferKey.length || ardia_host::IsIncognito(_profile) || !ArdiaHost.isStarted) return;
+  if (!_tab || !_transferKey.length || ardia_host::IsPrivateProfile(_profile) || !ArdiaHost.isStarted) return;
   [BoundRestoreKeys() addObject:_transferKey];
   [ArdiaServices call:@"ac_tab_restore_tag" profile:_profile args:@{@"tab" : @(_tab.tabId), @"key" : _transferKey}
             completion:^(NSDictionary *) {}];
@@ -320,7 +320,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     return;
   }
   _closing = YES;
-  if (_transferKey.length && !ardia_host::IsIncognito(_profile) && ArdiaHost.isStarted)
+  if (_transferKey.length && !ardia_host::IsPrivateProfile(_profile) && ArdiaHost.isStarted)
     [ArdiaServices call:@"ac_tab_restore_tag" profile:_profile args:@{@"tab" : @(tab.tabId), @"key" : _transferKey}
               completion:^(NSDictionary *) {}];
   [[ArdiaWindowController holding:tab] noteClosing:tab];

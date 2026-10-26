@@ -251,7 +251,7 @@ NSArray<ArdiaCoreProfile *> *ProfilesWithTabs(ArdiaWindowController *controller)
       gCommand = nil;
       ArdiaWindowController *controller = found;
       ArdiaCoreProfile *p = profile;
-      [ArdiaServices call:@"ac_tabs_group" profile:ardia_host::ProfileName(profile) args:args completion:^(NSDictionary *result) {
+      [ArdiaServices call:@"ac_tabs_group" profile:ardia_host::OriginalProfileNameOf(profile) args:args completion:^(NSDictionary *result) {
         NSMutableDictionary *tx = [@{@"rev" : @(++gRev), @"cmd" : @(commandId), @"strips" : @[ Strip(controller, p) ]} mutableCopy];
         if (result[@"error"]) tx[@"rejected"] = @YES;
         if ([ArdiaEvents listens:@"tabs"]) Send(tx);

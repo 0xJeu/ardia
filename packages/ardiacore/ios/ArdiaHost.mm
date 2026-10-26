@@ -113,14 +113,14 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 }
 
 + (void)deleteProfileData:(NSString *)profile completion:(void (^)(NSArray<NSString *> *))completion {
-  if (ardia_host::IsIncognito(profile)) return completion(@[]);
+  if (ardia_host::IsPrivateProfile(profile)) return completion(@[]);
   ArdiaCoreEngine *engine = ArdiaCoreEngine.sharedEngine;
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(profile);
   if (!profile.length || !engine) return completion(@[ @"data" ]);
   [DeletedProfiles() addObject:profile];
   void (^remove)(ArdiaCoreProfile *) = ^(ArdiaCoreProfile *loaded) {
     if (!loaded) {
-      NSString *path = [gDataDirectory stringByAppendingPathComponent:[@"Profile " stringByAppendingString:profile]];
+      NSString *path = [gDataDirectory stringByAppendingPathComponent:ardia_host::ProfileDirectoryName(profile)];
       [NSFileManager.defaultManager removeItemAtPath:path error:nil];
       return completion([NSFileManager.defaultManager fileExistsAtPath:path] ? @[ @"files" ] : @[]);
     }
@@ -140,7 +140,7 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 + (void)releaseProfile:(NSString *)profile {
   ArdiaCoreEngine *engine = ArdiaCoreEngine.sharedEngine;
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(profile);
-  if (ardia_host::IsIncognito(profile)) {
+  if (ardia_host::IsPrivateProfile(profile)) {
     if (profile) [ReleasedPrivateNames() addObject:profile];
     [Profiles() removeObjectForKey:profile];
     NSArray *waiting = ProfileWaiters()[profile];
@@ -233,6 +233,14 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 + (NSString *)sidePanelURL:(NSString *)tabId extension:(NSString *)extensionId {
   ArdiaCoreTab *tab = ardia_host::TabWithAppTabId(tabId);
   return [tab sidePanelURLForExtension:extensionId];
+}
+
++ (BOOL)isPrivateProfile:(NSString *)profile {
+  return ardia_host::IsPrivateProfile(profile);
+}
+
++ (NSString *)baseProfileOf:(NSString *)profile {
+  return ardia_host::OriginalProfileName(profile);
 }
 
 + (int)chromeTabIdOfTab:(NSString *)tabId {

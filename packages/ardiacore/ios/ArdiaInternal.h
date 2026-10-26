@@ -20,7 +20,10 @@ void WithProfile(NSString *name, void (^completion)(ArdiaCoreProfile *_Nullable 
 NSString *ProfileName(ArdiaCoreProfile *_Nullable profile);
 NSString *ProfileNameOfDirectory(NSString *directory);
 ArdiaCoreProfile *_Nullable PersonalIfLoaded(ArdiaCoreEngine *engine);
-bool IsIncognito(NSString *name);
+bool IsPrivateProfile(NSString *_Nullable name);
+bool IsPrivateSessionId(NSString *_Nullable name);
+NSString *ProfileDirectoryName(NSString *_Nullable name);
+NSString *ProfileNameOfDirectoryName(NSString *_Nullable directory);
 NSString *OriginalProfileName(NSString *_Nullable name);
 NSString *OriginalProfileNameOf(ArdiaCoreProfile *_Nullable profile);
 bool IsOffTheRecordOf(ArdiaCoreProfile *_Nullable profile, NSString *_Nullable name);

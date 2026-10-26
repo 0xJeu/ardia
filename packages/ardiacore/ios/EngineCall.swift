@@ -76,7 +76,6 @@ struct CallTable {
 enum EngineCall {
   static func passing(_ name: String) -> CallHandler {
     { args, reply in
-      if args.profile.hasPrefix("incognito") { return reply.fail("ERR_ENGINE", "no engine data for a private profile") }
       ArdiaEngineBridge.call(name, profile: args.profile, args: args.json) { reply.engine($0) }
     }
   }

@@ -65,14 +65,11 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     return lastBrowserId
   }
 
-  static func isPrivate(_ profile: String) -> Bool { profile.hasPrefix("incognito:") }
+  static func isPrivate(_ profile: String) -> Bool { ArdiaHost.isPrivateProfile(profile) }
 
-  static func privateSession(_ profile: String) -> String {
-    guard let at = profile.range(of: "@", options: .backwards) else { return "" }
-    return String(profile[at.upperBound...])
-  }
+  static func privateSession(_ profile: String) -> String { ArdiaHost.baseProfile(of: profile) }
 
-  static func regularProfile(_ profile: String) -> String { isPrivate(profile) ? privateSession(profile) : profile }
+  static func regularProfile(_ profile: String) -> String { ArdiaHost.baseProfile(of: profile) }
 
   private func session(_ name: String) -> PrivateSession {
     if let live = privateSessions[name] { return live }

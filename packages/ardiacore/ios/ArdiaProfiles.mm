@@ -50,9 +50,8 @@ NSMutableDictionary<NSString *, void (^)(ArdiaCoreProfile *)> *DeletionsAfterLoa
 namespace {
 
 NSString *DirectoryName(NSString *name) {
-  if (!name.length) return @"Default";
-  if ([name isEqualToString:@"Default"] || [name hasPrefix:@"Profile "]) return nil;
-  return [@"Profile " stringByAppendingString:name];
+  if (name.length && ([name isEqualToString:@"Default"] || [name hasPrefix:@"Profile "])) return nil;
+  return ardia_host::ProfileDirectoryName(name);
 }
 
 }
@@ -87,24 +86,36 @@ NSArray<ArdiaCoreProfile *> *LoadedProfiles() {
   return profiles;
 }
 
-bool IsIncognito(NSString *name) {
+NSString *ProfileDirectoryName(NSString *name) {
+  return name.length ? [@"Profile " stringByAppendingString:name] : @"Default";
+}
+
+NSString *ProfileNameOfDirectoryName(NSString *directory) {
+  return [directory hasPrefix:@"Profile "] ? [directory substringFromIndex:8] : @"";
+}
+
+bool IsPrivateSessionId(NSString *name) {
   return [name hasPrefix:@"incognito"];
 }
 
+bool IsPrivateProfile(NSString *name) {
+  ArdiaCoreProfile *loaded = name.length ? LoadedProfile(name) : nil;
+  return loaded ? loaded.offTheRecord : IsPrivateSessionId(name);
+}
+
 NSString *OriginalProfileName(NSString *name) {
-  if (!IsIncognito(name)) return name ?: @"";
+  if (!IsPrivateSessionId(name)) return name ?: @"";
   NSRange at = [name rangeOfString:@"@"];
   return at.location == NSNotFound ? @"" : [name substringFromIndex:NSMaxRange(at)];
 }
 
 NSString *OriginalProfileNameOf(ArdiaCoreProfile *profile) {
   if (!profile.offTheRecord) return ProfileName(profile);
-  NSString *dir = profile.name;
-  return [dir hasPrefix:@"Profile "] ? [dir substringFromIndex:8] : @"";
+  return ProfileNameOfDirectoryName(profile.name);
 }
 
 bool IsOffTheRecordOf(ArdiaCoreProfile *profile, NSString *name) {
-  return profile.offTheRecord && IsIncognito(name) &&
+  return profile.offTheRecord && IsPrivateSessionId(name) &&
          [profile.name isEqualToString:DirectoryName(OriginalProfileName(name))];
 }
 
@@ -158,7 +169,7 @@ void WithProfile(NSString *name, void (^completion)(ArdiaCoreProfile *)) {
   if (ArdiaCoreProfile *profile = LoadedProfile(name)) return completion(profile);
   ArdiaCoreEngine *engine = ArdiaCoreEngine.sharedEngine;
   if (!engine) return completion(nil);
-  if (IsIncognito(name)) return WithPrivateProfile(name, [completion copy]);
+  if (IsPrivateSessionId(name)) return WithPrivateProfile(name, [completion copy]);
   if (name.length == 0) {
     if (ArdiaCoreProfile *personal = PersonalIfLoaded(engine)) {
       Profiles()[@""] = personal;
@@ -198,16 +209,14 @@ NSString *ProfileNameOfDirectory(NSString *directory) {
   for (ArdiaCoreProfile *profile in LoadedProfiles())
     if (!profile.offTheRecord && [profile.name isEqualToString:directory])
       return ProfileName(profile);
-  return [directory hasPrefix:@"Profile "] ? [directory substringFromIndex:8] : @"";
+  return ProfileNameOfDirectoryName(directory);
 }
 
 NSString *ProfileName(ArdiaCoreProfile *profile) {
   if (!profile) return @"";
   for (NSString *name in Profiles())
     if (Profiles()[name] == profile) return name;
-  NSString *dir = profile.name;
-  if ([dir hasPrefix:@"Profile "]) return [dir substringFromIndex:8];
-  return @"";
+  return ProfileNameOfDirectoryName(profile.name);
 }
 
 NSString *AppDisposition(NSString *chrome) {

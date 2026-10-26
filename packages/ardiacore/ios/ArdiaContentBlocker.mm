@@ -327,7 +327,7 @@ void PrepareContentBlocker() {
 }
 
 void LoadContentBlocker(NSString *profile) {
-  if (!IsIncognito(profile)) LoadHeld(profile ?: @"");
+  if (!IsPrivateProfile(profile)) LoadHeld(profile ?: @"");
 }
 
 }

@@ -29,7 +29,7 @@ NSMutableDictionary<NSString *, NSNumber *> *Saved() {
 void NoteNavigationDownload(NSString *url, NSString *profile) {
   if (!url.length) return;
   NSNumber *now = @(NSDate.date.timeIntervalSince1970);
-  if (IsIncognito(profile)) {
+  if (IsPrivateProfile(profile)) {
     if (!gPrivate) gPrivate = [NSMutableDictionary dictionary];
     if (!gPrivate[profile]) gPrivate[profile] = [NSMutableDictionary dictionary];
     gPrivate[profile][url] = now;
@@ -47,7 +47,7 @@ void NoteNavigationDownload(NSString *url, NSString *profile) {
 bool WasNavigationDownload(NSString *url, NSString *profile) {
   if (!url.length) return false;
   NSNumber *when = Saved()[url];
-  if (!when && IsIncognito(profile)) when = gPrivate[profile][url];
+  if (!when && IsPrivateProfile(profile)) when = gPrivate[profile][url];
   return when && NSDate.date.timeIntervalSince1970 - when.doubleValue < kTTL;
 }
 
