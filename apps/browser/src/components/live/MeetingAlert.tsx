@@ -12,7 +12,7 @@ import { useIsFocusedWindow } from "../../state/windows/hooks";
 import { Button } from "../ui";
 import { measureRow, type Anchor } from "../../state/sidebar/sidebarUi";
 import { OverlappingAvatars } from "./CalendarPreview";
-import { useLiveColors } from "./colors";
+import { useLiveColors } from "./tokens";
 
 const WIDTH = 300;
 

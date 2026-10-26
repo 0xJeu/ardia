@@ -6,7 +6,7 @@ import { badgeText, isCalendarUrl } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
 import { useTab } from "../../state/browser/hooks";
 import { useSidebarTokens } from "../sidebar/tokens";
-import { useLiveColors } from "./colors";
+import { useLiveColors } from "./tokens";
 
 export const NextMeetingBadge = memo(function NextMeetingBadge({ tabId }: { tabId: string }) {
   const pinnedUrl = useTab(tabId, (t) => (t?.pinned ? (t.pinnedUrl ?? t.url) : null));

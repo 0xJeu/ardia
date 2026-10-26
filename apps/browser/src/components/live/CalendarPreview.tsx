@@ -12,7 +12,7 @@ import { Button, useHover } from "../ui";
 import { dismissHover } from "../../state/sidebar/hover";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { Avatar, HoverSurface } from "./LiveItemCard";
-import { useLiveColors } from "./colors";
+import { useLiveColors } from "./tokens";
 import { curve } from "../ui/motion";
 
 export function useIsCalendarTab(tabId: string | null): boolean {

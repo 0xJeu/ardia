@@ -13,7 +13,7 @@ import { cardHoverProps, dismissHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "../sidebar/TabIcon";
-import { useLiveColors, type LiveColors } from "./colors";
+import { useLiveColors, type LiveColors } from "./tokens";
 import { curve } from "../ui/motion";
 
 export function HoverSurface({ anchor, width, children }: { anchor: Anchor; width: number; children: ReactNode }) {

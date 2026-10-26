@@ -4,7 +4,7 @@ import { useTheme } from "../ui/theme";
 import { useNow } from "../../state/live/calendar";
 import { timeRemaining, WIGGLE_MARKS_MIN } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
-import { useLiveColors } from "./colors";
+import { useLiveColors } from "./tokens";
 import { curve } from "../ui/motion";
 
 const SHOW_WITHIN_MIN = 10;

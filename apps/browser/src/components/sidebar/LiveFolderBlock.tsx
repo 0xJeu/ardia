@@ -16,7 +16,7 @@ import { useIsActiveIn, useLiveActiveTab, useLiveItemTab, useLiveStrays } from "
 import { openSettings } from "../../state/settings/settingsWindows";
 import { HoverSlot } from "../ui/HoverSlot";
 import { Button, useHover } from "../ui";
-import { useLiveColors, type LiveColors } from "../live/colors";
+import { useLiveColors, type LiveColors } from "../live/tokens";
 import { TabRow } from "./TabRow";
 import { modifiersOf } from "../../lib/keys";
 import { Fold, useFold, type FoldEntry } from "./Fold";
