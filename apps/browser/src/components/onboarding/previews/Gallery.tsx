@@ -1,16 +1,20 @@
 import { devSnapshotWindow } from "@ardia/shell";
 import { useMemo, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { useTheme } from "../../ui/theme";
+import { PROFILE_COLORS, useTheme } from "../../ui/theme";
 import type { Settings } from "../../../state/settings/settings";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { openSettings, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";
 import { useOnboardingColors } from "../Parts";
-import { DEMOS, type SceneOpts } from "./Demos";
+import { onboardingType } from "../tokens";
+import { DEMOS } from "./demos";
+import type { SceneOpts } from "./scene";
 import { PREVIEW_IDS, type PreviewId } from "../../../state/onboarding/previewIds";
 import { DIA, PLUM, setGalleryMock, showGalleryPage, useGallery, type GalleryMock as MockState } from "../../../state/onboarding/previewGallery";
-import { geo, lookFor } from "./Kit";
+import { geo } from "./geometry";
+import { lookFor } from "./look";
 import { MockWindow } from "./MockWindow";
+import { mockInk } from "./tokens";
 
 const FRAME_POINTS = [0.2, 0.4, 0.65, 1] as const;
 const FRAMES_PER_PAGE = 4;
@@ -20,14 +24,14 @@ const ARC: Partial<Settings> = { tabLayout: "sidebar", addressBar: "sidebar", co
 const MOCK_PAGES: MockState[][] = [
   [
     { label: "Dia preset, light, plum", settings: DIA, accent: PLUM, focus: null },
-    { label: "Arc preset, dark, blue", settings: ARC, accent: "#4691C3", focus: null },
-    { label: "Auto appearance, top tabs, green", settings: { tabLayout: "top", appearance: "auto", extendWebsiteColor: true }, accent: "#3EB489", focus: null },
-    { label: "Website color off, orange", settings: { ...DIA, extendWebsiteColor: false }, accent: "#D87249", focus: null },
+    { label: "Arc preset, dark, blue", settings: ARC, accent: PROFILE_COLORS.blue.swatch, focus: null },
+    { label: "Auto appearance, top tabs, green", settings: { tabLayout: "top", appearance: "auto", extendWebsiteColor: true }, accent: PROFILE_COLORS.green.swatch, focus: null },
+    { label: "Website color off, orange", settings: { ...DIA, extendWebsiteColor: false }, accent: PROFILE_COLORS.orange.swatch, focus: null },
   ],
   [
     { label: "⌘L field, sidebar address", settings: { ...DIA, addressBar: "sidebar" }, accent: PLUM, focus: "cmdl-field" },
-    { label: "⌘L field, toolbar address, dark", settings: { ...DIA, appearance: "dark" }, accent: "#4691C3", focus: "cmdl-field" },
-    { label: "⌘L centred", settings: DIA, accent: "#7873AF", focus: "cmdl-centred" },
+    { label: "⌘L field, toolbar address, dark", settings: { ...DIA, appearance: "dark" }, accent: PROFILE_COLORS.blue.swatch, focus: "cmdl-field" },
+    { label: "⌘L centred", settings: DIA, accent: PROFILE_COLORS.purple.swatch, focus: "cmdl-centred" },
     { label: "Website color on", settings: DIA, accent: PLUM, focus: "sitecolor-on" },
   ],
 ];
@@ -35,7 +39,7 @@ const MOCK_PAGES: MockState[][] = [
 function Caption({ text }: { text: string }) {
   const colors = useOnboardingColors();
   return (
-    <Text numberOfLines={1} style={{ fontSize: 10.5, lineHeight: 14, fontWeight: "500", color: colors.subtitle }}>
+    <Text numberOfLines={1} style={{ ...onboardingType.galleryCaption, color: colors.subtitle }}>
       {text}
     </Text>
   );
@@ -47,7 +51,7 @@ function FixedFrame({ id, at, opts }: { id: PreviewId; at: number; opts: SceneOp
   const g = useMemo(() => geo(FRAME.width, FRAME.height), []);
   const { Scene } = DEMOS[id];
   return (
-    <View style={{ ...FRAME, borderRadius: 7, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: dark ? "#FFFFFF33" : "#00000026" }}>
+    <View style={{ ...FRAME, borderRadius: 7, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: dark ? mockInk.frameEdge.dark : mockInk.frameEdge.light }}>
       <Scene g={g} look={lookFor(dark, PLUM)} p={p} opts={opts} />
     </View>
   );
