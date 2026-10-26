@@ -1,9 +1,11 @@
 import { Surface, Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
+import { navigate } from "../../state/tabs/actions";
+import { replaceSplitPane } from "../../state/splits/actions";
+import { useSplitSuggestions } from "../../state/splits/hooks";
 import { tabLabel } from "../../state/browser/model";
 import { useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
@@ -12,22 +14,9 @@ export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: bo
   const theme = useTheme();
   const [typing, setTyping] = useState(focused);
   const [text, setText] = useState("");
-  const suggestions = useBrowser(
-    useShallow((s) => {
-      const tab = s.tabs[tabId];
-      const w = tab && s.windows[tab.windowId];
-      if (!w) return [];
-      const inSplit = new Set(Object.values(s.splits).find((v) => v.tabIds.includes(tabId))?.tabIds ?? [tabId]);
-      return w.tabIds
-        .map((id) => s.tabs[id]!)
-        .filter((t) => t && t.url && t.profileId === tab.profileId && !inSplit.has(t.id))
-        .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
-        .slice(0, 5)
-        .map((t) => t.id);
-    }),
-  );
+  const suggestions = useSplitSuggestions(tabId);
   const go = () => {
-    if (text.trim()) useBrowser.getState().navigate(tabId, text.trim());
+    if (text.trim()) navigate(tabId, text.trim());
   };
 
   return (
@@ -73,7 +62,7 @@ export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: bo
         )}
         {suggestions.length > 0 && <View style={{ height: 6 }} />}
         {suggestions.map((id) => (
-          <Suggestion key={id} tabId={id} onPress={() => useBrowser.getState().replaceSplitPane(tabId, id)} />
+          <Suggestion key={id} tabId={id} onPress={() => replaceSplitPane(tabId, id)} />
         ))}
       </Surface>
     </View>
@@ -81,7 +70,7 @@ export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: bo
 }
 
 function Suggestion({ tabId, onPress }: { tabId: string; onPress: () => void }) {
-  const tab = useBrowser((s) => s.tabs[tabId]);
+  const tab = useTab(tabId);
   if (!tab) return null;
   return <Row icon={<Favicon url={tab.url} favicon={tab.favicon} profileId={tab.profileId} />} label={tabLabel(tab)} detail={tab.title} onPress={onPress} />;
 }

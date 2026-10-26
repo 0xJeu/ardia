@@ -358,10 +358,7 @@
     "apps/browser/src/components/site/Prompts.tsx": 1,
     "apps/browser/src/components/site/SiteControls.tsx": 4,
     "apps/browser/src/components/site/TranslateControls.tsx": 1,
-    "apps/browser/src/components/site/ZoomControls.tsx": 1,
-    "apps/browser/src/components/split/SplitChrome.tsx": 2,
-    "apps/browser/src/components/split/SplitEmptyState.tsx": 2,
-    "apps/browser/src/components/toolbar/Toolbar.tsx": 7
+    "apps/browser/src/components/site/ZoomControls.tsx": 1
   },
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,

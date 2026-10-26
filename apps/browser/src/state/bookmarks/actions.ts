@@ -129,3 +129,9 @@ export const toggleBookmark = storeAction("toggleBookmark");
 export const addBookmarkTree = storeAction("addBookmarkTree");
 export const removeBookmarks = storeAction("removeBookmarks");
 export const restoreBookmarks = storeAction("restoreBookmarks");
+
+export function toggleBookmarkOfTab(windowId: string, tabId: string) {
+  const s = useBrowser.getState();
+  const page = s.tabs[tabId];
+  if (page) s.toggleBookmark(bookmarkProfileId(s, s.windows[windowId]), page);
+}

@@ -4,10 +4,9 @@ import { MagnifyArea, Surface, type MagnifyUpdate } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { usePeekSplitFull, usePeeks } from "../../state/peek/hooks";
 import { useTab } from "../../state/browser/hooks";
 import type { Peek } from "../../state/peek/peek";
-import { MAX_SPLIT_PANES, splitOf } from "../../state/splits/splits";
 import { spring, curve } from "../ui/motion";
 import { PageLabel, SMALL_INSET, SMALL_WINDOW_FRAME, SMALL_WINDOW_RADIUS, SmallBar } from "../littleArdia/SmallChrome";
 import { dismissPeek, finishPeek, openPeekAsTab, openPeekInSplit, registerPeekMotion } from "../../state/peek/actions";
@@ -48,7 +47,7 @@ export function PeekOverlay({
   fullscreen: boolean;
   page: (tabId: string, sourceId: string, width: number) => ReactNode;
 }) {
-  const peek = useBrowser((s) => s.peeks[windowId]);
+  const peek = usePeeks((p) => p[windowId]);
   if (!peek || width <= 0 || height <= 0) return null;
   return <PeekCard key={peek.tabId} windowId={windowId} peek={peek} width={width} height={height} origin={origin} fullscreen={fullscreen} page={page} />;
 }
@@ -219,10 +218,7 @@ function PeekCard({
 
 function PeekBar({ windowId, tabId }: { windowId: string; tabId: string }) {
   const tab = useTab(tabId);
-  const splitFull = useBrowser((s) => {
-    const source = s.peeks[windowId]?.sourceId;
-    return (splitOf(s, source)?.tabIds.length ?? 0) >= MAX_SPLIT_PANES;
-  });
+  const splitFull = usePeekSplitFull(windowId);
   if (!tab) return null;
   const host = tab.url ? breadcrumb(tab.url).host : "";
   return (

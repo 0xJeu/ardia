@@ -3,7 +3,8 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { withAlpha } from "../sidebar/tokens";
-import { useBrowser } from "../../state/browser/store";
+import { updateSplit } from "../../state/splits/actions";
+import { useDragFallbackPane } from "../../state/splits/hooks";
 import type { SplitView } from "../../state/browser/types";
 import { resize, type Divider, type Rect } from "../window/geometry";
 import { useHover } from "../ui";
@@ -45,10 +46,10 @@ function DividerHandle({ split, divider, width, height }: { split: SplitView; di
           const { split: v, divider: d, width: w, height: h } = latest.current;
           const delta = d.vertical ? g.dx : g.dy;
           if (d.kind === "root") {
-            useBrowser.getState().updateSplit(v.id, { sizes: resize(start.current.sizes, d.index, delta, d.vertical ? w : h) });
+            updateSplit(v.id, { sizes: resize(start.current.sizes, d.index, delta, d.vertical ? w : h) });
           } else if (start.current.stack) {
             const next = resize(start.current.stack, 0, delta, d.vertical ? w : h) as [number, number];
-            useBrowser.getState().updateSplit(v.id, { stackSizes: next });
+            updateSplit(v.id, { stackSizes: next });
           }
         },
         onPanResponderRelease: () => setDragging(false),
@@ -97,12 +98,7 @@ export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; or
   const outside = useTabDrag((s) => s.outside);
   const target = useTabDrag((s) => s.target);
   const full = Object.keys(panes).length >= 3;
-  const fallback = useBrowser((s) => {
-    if (!dragging || Object.keys(panes).length !== 1 || !panes[dragging]) return null;
-    const tab = s.tabs[dragging];
-    const others = (s.windows[windowId]?.tabIds ?? []).map((id) => s.tabs[id]!).filter((t) => t && t.id !== dragging && t.profileId === tab?.profileId);
-    return others.sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0]?.id ?? null;
-  });
+  const fallback = useDragFallbackPane(dragging, panes, windowId);
   const candidates = useMemo((): [string, Rect][] => {
     if (fallback && dragging) return [[fallback, panes[dragging]!]];
     return Object.entries(panes).filter(([tabId]) => tabId !== dragging);

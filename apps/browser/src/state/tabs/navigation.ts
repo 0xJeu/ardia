@@ -144,3 +144,9 @@ export function historyFavicons(profileId: string, items: readonly { url: string
   const urls = new Set(items.map((i) => i.url));
   return new Map((useBrowser.getState().history[profileId] ?? []).filter((h) => urls.has(h.url)).map((h) => [h.url, h.favicon]));
 }
+
+export function toggleHistoryMenu(tabId: string, direction: -1 | 1) {
+  const open = useHistoryMenu.getState().menu;
+  if (open?.tabId === tabId && open.direction === direction) return closeHistoryMenu();
+  void openHistoryMenu(tabId, direction);
+}

@@ -6,17 +6,17 @@ import { Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "rea
 import { layout, useTheme } from "../ui/theme";
 import { withLivePage } from "../../state/tabs/livePage";
 import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
-import { useIsBookmarked, useSettings, useTabLive } from "../../state/browser/hooks";
-import { bookmarkProfileId } from "../../state/browser/model";
+import { activate, newTab } from "../../state/tabs/actions";
+import { openPanel as openWindowPanel, toggleSidebar } from "../../state/windows/actions";
+import { useIsBookmarked, useSettings, useTab, useTabLive } from "../../state/browser/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
 import { Button, type ButtonHit, useHover } from "../ui";
 import type { ClickModifiers } from "../../lib/keys";
 import { type ToolbarGeometry } from "../window/geometry";
-import { setPopover, usePage, usePages, type PageState } from "../../state/tabs/pageState";
-import { closeHistoryMenu, goBack, goForward, historyItems, openHistoryMenu, useHistoryAvailability, useHistoryMenu } from "../../state/tabs/navigation";
-import { openModeFor, openUrl } from "../../state/bookmarks/actions";
+import { popoverOf, setPopover, usePage, usePages, type PageState } from "../../state/tabs/pageState";
+import { closeHistoryMenu, goBack, goForward, historyItems, toggleHistoryMenu, useHistoryAvailability } from "../../state/tabs/navigation";
+import { openModeFor, openUrl, toggleBookmarkOfTab } from "../../state/bookmarks/actions";
 import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/actions";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
 import { setToolbarExtensionsWidth, SIDEBAR_FIELD } from "../../state/windows/layout";
@@ -32,7 +32,7 @@ type ToolbarTab = Pick<Tab, "id" | "url" | "title" | "windowId" | "zoom">;
 const toolbarTab = (t: Tab | undefined): ToolbarTab | undefined =>
   t && { id: t.id, url: t.url, title: isWebUrl(t.url) ? "" : t.title, windowId: t.windowId, zoom: t.zoom };
 const isWebUrl = (url: string) => /^https?:/i.test(url);
-export const useToolbarTab = (tabId: string | undefined) => useBrowser(useShallow((s) => toolbarTab(tabId ? s.tabs[tabId] : undefined)));
+export const useToolbarTab = (tabId: string | undefined) => useTab(tabId, useShallow(toolbarTab));
 
 export const URL_FIELD = { top: 21.2 - 15, height: 30 } as const;
 export const GLYPH = 13;
@@ -77,7 +77,7 @@ export function Toolbar({
     Animated.timing(dim, { toValue: focused ? 1 : 0.5, duration: 160, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [focused]);
   const focus = useCallback(() => {
-    if (!focused) useBrowser.getState().activate(tabId);
+    if (!focused) activate(tabId);
   }, [focused, tabId]);
   const at = useMemo(() => {
     const top = 21.2 - layout.toolbarButton / 2;
@@ -100,7 +100,7 @@ export function Toolbar({
             palette={palette}
             icon="sidebar.left"
             size={GLYPH}
-            onPress={() => useBrowser.getState().toggleSidebar(windowId)}
+            onPress={() => toggleSidebar(windowId)}
             tooltip={withShortcut("Auto-Hide Tabs", sidebarHint)}
           />
         )}
@@ -127,7 +127,7 @@ export function Toolbar({
 
 export function ToolbarBackdrop({ tabId }: { tabId: string }) {
   const theme = useTheme();
-  const url = useBrowser((s) => s.tabs[tabId]?.url ?? "");
+  const url = useTab(tabId, (t) => t?.url ?? "");
   const themeColor = useTabLive(tabId, (l) => l.themeColor);
   const extendColor = useSettings((s) => s.extendWebsiteColor);
   const palette = toolbarPalette(theme, extendColor && url ? themeColor : null);
@@ -168,7 +168,7 @@ export const ReloadButton = memo(function ReloadButton({
       onPress={(m) => {
         onFocus();
         if (loading) return void web()?.stopLoading();
-        if (m.metaKey) return void useBrowser.getState().newTab(tab.windowId, { url: tab.url, background: true, openerId: tab.id });
+        if (m.metaKey) return void newTab(tab.windowId, { url: tab.url, background: true, openerId: tab.id });
         void withLivePage(tab.id, (page) => (m.shiftKey ? page.forceReload() : page.reload()));
       }}
       tooltip={loading ? "Stop Loading This Page" : withShortcut("Refresh", reloadHint)}
@@ -226,9 +226,7 @@ export const HistoryButton = memo(function HistoryButton({
   const historyHint = useShortcutHint(direction < 0 ? "back" : "forward");
   const openMenu = () => {
     onFocus();
-    const open = useHistoryMenu.getState().menu;
-    if (open?.tabId === tabId && open.direction === direction) return closeHistoryMenu();
-    void openHistoryMenu(tabId, direction);
+    toggleHistoryMenu(tabId, direction);
   };
   const onPress = async (m: ClickModifiers & { middle?: boolean }) => {
     onFocus();
@@ -282,12 +280,10 @@ export const UrlField = memo(function UrlField({
   const capture = usePage(tab.id, (p) => p.mediaAccess);
   const openPanel = (text: string) => {
     onFocus();
-    useBrowser.getState().openPanel(windowId, text);
+    openWindowPanel(windowId, text);
   };
   const toggleBookmark = () => {
-    const s = useBrowser.getState();
-    const page = s.tabs[tab.id];
-    if (page) s.toggleBookmark(bookmarkProfileId(s, s.windows[windowId]), page);
+    toggleBookmarkOfTab(windowId, tab.id);
   };
   const toggleSiteControls = () => {
     onFocus();
@@ -414,7 +410,7 @@ function CaptureIndicator({ camera, microphone, screen, onPress }: { camera: boo
   );
 }
 
-const currentPopover = (tabId: string) => usePages.getState().popover[tabId] ?? null;
+const currentPopover = (tabId: string) => popoverOf(tabId) ?? null;
 
 function safeDecode(s: string) {
   try {

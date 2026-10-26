@@ -2,9 +2,8 @@ import { breadcrumb } from "@ardia/core";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { useSettings, useTabLive } from "../../state/browser/hooks";
-import { useStoreWhile } from "../../state/tabs/tabWatch";
+import { useSettings, useTab, useTabLive } from "../../state/browser/hooks";
+import { useBrowserWhile, useStoreWhile } from "../../state/tabs/tabWatch";
 import type { ToolbarGeometry } from "../window/geometry";
 import { toolbarPalette, useEasedColor } from "../ui/toolbarColors";
 import { useHistoryMenu } from "../../state/tabs/navigation";
@@ -34,8 +33,8 @@ export function useToolbarMode(tabId: string, windowId: string, enabled: boolean
   const scrolledDown = useStoreWhile(useToolbarAutoHide, enabled, (s) => !!s.scrolledDown[tabId]);
   const down = enabled && scrolledDown;
   const peek = useStoreWhile(useToolbarAutoHide, down, (s) => !!s.peek[tabId]);
-  const hasPage = useStoreWhile(useBrowser, down, (s) => !!s.tabs[tabId]?.url);
-  const appNeedsBar = useStoreWhile(useBrowser, down, (s) => down && needsBar(s, tabId, windowId));
+  const hasPage = useBrowserWhile(down, (s) => !!s.tabs[tabId]?.url);
+  const appNeedsBar = useBrowserWhile(down, (s) => down && needsBar(s, tabId, windowId));
   const popover = useStoreWhile(usePages, down, (s) => down && !!s.popover[tabId]);
   const historyMenu = useStoreWhile(useHistoryMenu, down, (m) => down && m.menu?.tabId === tabId);
   const extensionPopup = useStoreWhile(useExtensions, down, (e) => down && e.popup?.windowId === windowId);
@@ -143,7 +142,7 @@ export function useToolbarMotion({
 
 export function AutoHideBackdrop({ tabId, mode, motion }: { tabId: string; mode: ToolbarMode; motion: Pick<ToolbarMotion, "bar"> }) {
   const theme = useTheme();
-  const url = useBrowser((s) => s.tabs[tabId]?.url ?? "");
+  const url = useTab(tabId, (t) => t?.url ?? "");
   const themeColor = useTabLive(tabId, (l) => l.themeColor);
   const extendColor = useSettings((s) => s.extendWebsiteColor);
   const palette = toolbarPalette(theme, extendColor && url ? themeColor : null);
@@ -195,7 +194,7 @@ export function AutoHideToolbar({
   motion: Pick<ToolbarMotion, "bar" | "fade">;
 }) {
   const theme = useTheme();
-  const url = useBrowser((s) => s.tabs[tabId]?.url ?? "");
+  const url = useTab(tabId, (t) => t?.url ?? "");
   const themeColor = useTabLive(tabId, (l) => l.themeColor);
   const extendColor = useSettings((s) => s.extendWebsiteColor);
   const palette = toolbarPalette(theme, extendColor && url ? themeColor : null);
