@@ -1,4 +1,4 @@
-import { openSync, readSync, closeSync, statSync } from "node:fs";
+import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 
 const list = (entries) =>
   Object.entries(entries)
@@ -64,6 +64,8 @@ function entriesOf(text, known) {
 
 const readsLaunchConfig = new Map();
 function binaryReadsLaunchConfig(binary) {
+  const debugDylib = `${binary}.debug.dylib`;
+  if (existsSync(debugDylib)) binary = debugDylib;
   if (readsLaunchConfig.has(binary)) return readsLaunchConfig.get(binary);
   const needle = Buffer.from("ARDIA_INSTANCE");
   const fd = openSync(binary, "r");
