@@ -4,13 +4,14 @@ import { Animated, PanResponder, type ScrollView, type View } from "react-native
 import { create, useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
-import { descendantIds } from "../../state/groups/groups";
-import { movingTabIds, NO_DROP, resolveDrop, type Drop as StoreDrop, type DragSource, type DropSpot } from "../../state/drag/drops";
+import { currentSettings } from "../../state/browser/current";
+import { NO_DROP, type Drop as StoreDrop, type DragSource, type DropSpot } from "../../state/drag/drops";
+import { dropTabs } from "../../state/pins/actions";
+import { descendantGroupIds, movingTabsFrom, resolveDropNow } from "../../state/sidebar/current";
 import type { TabPlacement } from "../../state/pins/organize";
 import { SLIDE } from "../tabstrip/stripReorder";
-import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, updateTabDrag, useTabDrag } from "../../state/drag/tabDrag";
+import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, tabDragOutside, updateTabDrag, useTabDrag } from "../../state/drag/tabDrag";
 import { useClipped, type ClipSource } from "./EntryMotion";
 import { arrangeLive } from "../../state/sidebar/pinnedOrder";
 import { suppressHover } from "../../state/sidebar/hover";
@@ -137,7 +138,7 @@ class DragController {
     const item = this.items.get(key);
     if (!item || item.kind === "tail") return;
     const lead = (item.kind === "row" || item.kind === "tile") && !item.folderId ? item.tabIds[0] : undefined;
-    const moving = lead ? movingTabIds(useBrowser.getState(), lead) : [];
+    const moving = lead ? movingTabsFrom(lead) : [];
     this.sources =
       moving.length > 1
         ? [...this.items.values()].filter((i) => (i.kind === "row" || i.kind === "tile") && !i.folderId && i.tabIds.some((id) => moving.includes(id)))
@@ -255,7 +256,7 @@ class DragController {
         ? this.landingSpot(commit ? drop : { type: "none" })
         : null;
     if (commit && !splitDrop && this.measured && sources.length) {
-      useBrowser.getState().dropTabs(sources.flatMap((i) => i.tabIds), drop);
+      dropTabs(sources.flatMap((i) => i.tabIds), drop);
       if (drop.sequence) arrangeLive(drop.sequence);
     }
     this.reset();
@@ -337,7 +338,7 @@ class DragController {
     if (!marks.pins && home === null) count = 0;
     const total = cells.length + count;
     if (!total) return null;
-    const balanced = useBrowser.getState().settings.balancedTopApps;
+    const balanced = currentSettings().balancedTopApps;
     const slot = pinSlot(tiles, total, layout.pinnedHeight, x, y, balanced);
     const found = !marks.pins ? (home ?? cells.length) : marks.pinBefore === "tail:tiles" ? cells.length : cells.findIndex((c) => c.key === marks.pinBefore);
     const gap = found < 0 ? cells.length : found;
@@ -430,7 +431,7 @@ class DragController {
     const { x, y } = this.pointer;
     const source = this.sources[0]!;
     const sourceKeys = new Set(this.sources.map((s) => s.key));
-    const subtree = source.kind === "group" && source.groupId ? new Set([source.groupId, ...descendantIds(useBrowser.getState().groups, source.groupId)]) : null;
+    const subtree = source.kind === "group" && source.groupId ? new Set([source.groupId, ...descendantGroupIds(source.groupId)]) : null;
     const live = [...this.items.values()].filter(
       (i) => !sourceKeys.has(i.key) && i.frame && !(subtree && ((i.parentGroup && subtree.has(i.parentGroup)) || (i.groupId && subtree.has(i.groupId)))),
     );
@@ -473,8 +474,8 @@ class DragController {
 
     const sidebar = this.viewport ?? this.rootFrame;
     const tiles = this.at(this.regionFrames.get("tiles") ?? null, this.tilesFixed);
-    const balanced = useBrowser.getState().settings.balancedTopApps;
-    const away = x > sidebar.x + sidebar.w + 40 || x < sidebar.x - 40 || useTabDrag.getState().outside;
+    const balanced = currentSettings().balancedTopApps;
+    const away = x > sidebar.x + sidebar.w + 40 || x < sidebar.x - 40 || tabDragOutside();
     const cells = live.filter((i) => i.kind === "tile").sort(byY);
     const overTiles = !away && tabsDrag && !!tiles && (this.gridBase ? overPins(y, this.pinFloor(live, tiles), this.pinning) : inside(tiles, x, y, 6));
     if (this.gridBase)
@@ -555,7 +556,7 @@ class DragController {
         sequence = rest;
       }
     }
-    const resolved = resolveDrop(useBrowser.getState(), dragSource, aim);
+    const resolved = resolveDropNow(dragSource, aim);
     const drop: Drop = resolved.type !== "none" && sequence ? { ...resolved, sequence } : resolved;
     if (drop.type === "none") {
       gapKey = null;
@@ -566,7 +567,7 @@ class DragController {
     if (folderAway !== this.marks.getState().folderAway) this.marks.setState({ folderAway });
     const key = JSON.stringify(drop);
     if (key === this.dropKey && gapKey === this.gapKey) return;
-    if (this.dropKey && drop.type !== "none" && useBrowser.getState().settings.tabReorderHaptics) hapticTick();
+    if (this.dropKey && drop.type !== "none" && currentSettings().tabReorderHaptics) hapticTick();
     this.dropKey = key;
     this.drop = drop;
     this.into = into;

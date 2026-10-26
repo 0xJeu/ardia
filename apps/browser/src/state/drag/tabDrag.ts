@@ -55,6 +55,8 @@ let begun = false;
 
 export const tabDragging = () => useTabDrag.getState().tabIds.length > 0;
 
+export const tabDragOutside = () => useTabDrag.getState().outside;
+
 export function beginTabDrag(tabId: string | null, tabIds: string[] = tabId ? [tabId] : []): number {
   if (begun) dragPreview.cancel();
   begun = false;
