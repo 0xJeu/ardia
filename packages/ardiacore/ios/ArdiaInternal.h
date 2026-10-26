@@ -4,6 +4,7 @@
 #import "ArdiaHost.h"
 #import "ArdiaTabStrip.h"
 #import "ArdiaTabRegistry.h"
+#import "ArdiaWindowController.h"
 
 @class ArdiaWebView;
 
@@ -46,25 +47,6 @@ void NotePasswordPromptSource(ArdiaWebView *view, ArdiaCoreTab *_Nullable source
 ArdiaCoreTab *_Nullable PasswordPromptTab(ArdiaWebView *view, ArdiaCoreTab *_Nullable own);
 
 }
-
-@interface ArdiaWindowController : NSObject <ArdiaCoreWindowDelegate>
-+ (nullable ArdiaWindowController *)forNSWindow:(nullable NSWindow *)window;
-+ (NSArray<ArdiaWindowController *> *)all;
-@property(nonatomic, readonly) ArdiaCoreWindow *coreWindow;
-@property(nonatomic, strong, nullable) NSView *root;
-@property(nonatomic) NSInteger hostChanges;
-@property(nonatomic, copy, nullable) NSString *appWindowId;
-+ (ArdiaWindowController *)strayWindowForProfile:(ArdiaCoreProfile *)profile;
-+ (nullable ArdiaWindowController *)chromeMadeWindowForProfile:(ArdiaCoreProfile *)profile;
-@property(nonatomic, readonly) BOOL stray;
-+ (ArdiaWindowController *)standaloneWindowForProfile:(ArdiaCoreProfile *)profile;
-@property(nonatomic, readonly) BOOL standalone;
-- (void)noteClosing:(ArdiaCoreTab *)tab;
-+ (nullable ArdiaWindowController *)holding:(ArdiaCoreTab *)tab;
-+ (nullable ArdiaWebView *)hostingViewForProfile:(nullable ArdiaCoreProfile *)profile;
-+ (BOOL)userSees:(nullable NSWindow *)window;
-@end
-extern NSNotificationName const ArdiaWindowSeenDidChange;
 
 @interface ArdiaTabStrip (Engine)
 + (void)changedInWindow:(ArdiaWindowController *)controller profile:(ArdiaCoreProfile *)profile;
