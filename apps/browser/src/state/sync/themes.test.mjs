@@ -5,7 +5,7 @@ globalThis.__DEV__ = false;
 
 const { useBrowser } = await import("../browser/store.ts");
 const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
-const adapters = await import("./adapters.ts");
+const adapters = await import("./profileAdapters.ts");
 
 const S = () => useBrowser.getState();
 const LINKS = () => ({ default: { syncId: "s1" } });

@@ -4,6 +4,7 @@ const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
 const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
+const { settingsAdapter, settingsToReapply } = await import("./settingsAdapter.ts");
 const pinnedArea = await import("./pinned.ts");
 const stub = await import("../../test-native/index.ts");
 const ardiacore = await import("@ardia/ardiacore");
@@ -69,8 +70,8 @@ class Device {
         options,
       });
     try {
-      if (!this.settings) this.scopes.app.unapplied = [...new Set([...this.scopes.app.unapplied, ...adapters.settingsToReapply(this.scopes.app.records)])];
-      const app = await run("app", [this.settings ?? adapters.settingsAdapter]);
+      if (!this.settings) this.scopes.app.unapplied = [...new Set([...this.scopes.app.unapplied, ...settingsToReapply(this.scopes.app.records)])];
+      const app = await run("app", [this.settings ?? settingsAdapter]);
       const p = await run(
         profileId === "default" ? "p" : `p:${profileId}`,
         [
@@ -133,17 +134,17 @@ test("settings: what a Mac only has by default isn't sent; nulls from another Ma
   b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true, tabReorderHaptics: true, cleanUpInactiveTabsAfterHours: 12 }));
   relaunch(a, OLD_SESSION);
   assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), true, "filled in at launch");
-  const extraction = a.with(() => adapters.settingsAdapter.extract(() => undefined));
+  const extraction = a.with(() => settingsAdapter.extract(() => undefined));
   assert.ok(!extraction.values.has("set:cmdClickCreatesTabGroup") && extraction.ignore("set:cmdClickCreatesTabGroup"), "a default filled in abstains");
   assert.ok(!extraction.values.has("set:cleanUpInactiveTabsAfterHours"), "an old session's Never, its default, never published: no say either");
   const visible = new Map([["set:cmdClickCreatesTabGroup", { v: null }], ["set:tabReorderHaptics", {}], ["set:cleanUpInactiveTabsAfterHours", { v: null }]]);
-  b.with(() => adapters.settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
+  b.with(() => settingsAdapter.apply(visible, ["set:cmdClickCreatesTabGroup", "set:tabReorderHaptics", "set:cleanUpInactiveTabsAfterHours"]));
   b.with(() => {
     assert.equal(S().settings.cmdClickCreatesTabGroup, true);
     assert.equal(S().settings.tabReorderHaptics, true);
     assert.equal(S().settings.cleanUpInactiveTabsAfterHours, null, "Never is a value of its own");
   });
-  b.with(() => adapters.settingsAdapter.apply(new Map([["set:cmdClickCreatesTabGroup", { v: false }]]), ["set:cmdClickCreatesTabGroup"]));
+  b.with(() => settingsAdapter.apply(new Map([["set:cmdClickCreatesTabGroup", { v: false }]]), ["set:cmdClickCreatesTabGroup"]));
   b.with(() => assert.equal(S().settings.cmdClickCreatesTabGroup, false, "an explicit off is taken"));
 });
 
@@ -197,9 +198,9 @@ test("settings: a setting from a newer version survives an older Mac's syncs (no
   const b = new Device("B", folder);
   await syncAll([a, b]);
   const newer = {
-    ...adapters.settingsAdapter,
+    ...settingsAdapter,
     extract: (base) => {
-      const e = adapters.settingsAdapter.extract(base);
+      const e = settingsAdapter.extract(base);
       e.values.set("set:futureBool", { v: false });
       return { values: e.values, ignore: (k) => !e.values.has(k) };
     },
@@ -1886,13 +1887,13 @@ test("a snapshot dropping the anchor in the cycle a newer order record arrives d
 });
 
 const settingsWithout = (names) => ({
-  ...adapters.settingsAdapter,
+  ...settingsAdapter,
   extract: (...args) => {
-    const extraction = adapters.settingsAdapter.extract(...args);
+    const extraction = settingsAdapter.extract(...args);
     const values = new Map([...extraction.values].filter(([k]) => !names.includes(k.slice(4))));
     return { values, ignore: (key) => !values.has(key) };
   },
-  apply: (visible, changed, base, records) => adapters.settingsAdapter.apply(visible, new Set([...changed].filter((k) => !names.includes(k.slice(4)))), base, records),
+  apply: (visible, changed, base, records) => settingsAdapter.apply(visible, new Set([...changed].filter((k) => !names.includes(k.slice(4)))), base, records),
 });
 
 test("settings received while this Mac ran a version that didn't sync them take effect once it does, and its own choices stay", async () => {

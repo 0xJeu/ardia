@@ -322,7 +322,8 @@ test("a profile whose owner hasn't synced here yet waits instead of getting data
 const scopeLevel = async () => {
   const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
   const shipped = await import("../../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
-  const { profilesAdapter, sharedDataAdapter } = await import("./adapters.ts");
+  const { sharedDataAdapter } = await import("./adapters.ts");
+  const { profilesAdapter } = await import("./profileAdapters.ts");
   const files = new Map();
   const damaged = new Set();
   const pending = new Set();

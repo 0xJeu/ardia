@@ -29,19 +29,13 @@ import {
   historyExpired,
   inTodaysNames,
   passwordsAdapter,
-  profilesAdapter,
-  settingsAdapter,
-  settingsToReapply,
   sharedDataAdapter,
   type DeviceRecord,
   type DeviceTabs,
-  type ProfileRecord,
-  legacyThemeOf,
-  profileThemesAdapter,
-  themeAngleKey,
-  themeFromRecord,
   type ShareRecord,
 } from "./adapters";
+import { legacyThemeOf, profilesAdapter, profileThemesAdapter, themeAngleKey, themeFromRecord, type ProfileRecord } from "./profileAdapters";
+import { settingsAdapter, settingsToReapply } from "./settingsAdapter";
 import { pinnedAreaAdapters } from "./pinned";
 import { extensionsAdapterFor, extensionSyncAvailable, probeExtensionSync, watchExtensionIntents } from "./extensions";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";

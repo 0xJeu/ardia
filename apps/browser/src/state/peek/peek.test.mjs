@@ -6,7 +6,7 @@ const { DEFAULT_SETTINGS, peekModifierOf, splitLinkModifierOf } = await import("
 const { stripPlan } = await import("../tabs/liveTabs.ts");
 const { viewTabIds } = await import("../browser/model.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../session/persist.ts");
-const { SYNCED_SETTINGS } = await import("../sync/adapters.ts");
+const { SYNCED_SETTINGS } = await import("../sync/settingsAdapter.ts");
 const stub = await import("../../test-native/index.ts");
 
 const S = () => useBrowser.getState();
