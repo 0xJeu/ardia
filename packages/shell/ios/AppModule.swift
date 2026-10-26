@@ -901,7 +901,7 @@ enum KeyEquivalents {
 
   private static func isDevTools(_ view: NSView) -> Bool {
     var tab: NSView? = view.superview
-    while let current = tab, String(describing: type(of: current)) != "ArdiaCoreWebView" { tab = current.superview }
+    while let current = tab, String(describing: type(of: current)) != "ArdiaWebView" { tab = current.superview }
     guard let tab, let devTools = tab.value(forKey: "devtoolsView") as? NSView else { return false }
     return view.isDescendant(of: devTools)
   }

@@ -45,7 +45,7 @@ Shared code: `Model.swift` (`ImportKind`, `ImportResult` and the other result ty
    cookies, addresses and cards back in `ImportVault` (`ios/ImportWriter.swift`) and returns only their counts and
    a one-time `vaultToken`. History can stream in chunks (`onImportEvent`).
 4. `ios/ImportWriter.swift`: `writeImported(token, engineProfile, kinds)` takes the vault entry and sends it to the
-   engine with `ArdiaCoreEngineBridge.callWithSecret` as `ac_cookies_import` and `ac_autofill_import`, in batches of 500
+   engine with `ArdiaEngineBridge.callWithSecret` as `ac_cookies_import` and `ac_autofill_import`, in batches of 500
    (`engine/chromium/src/chrome/browser/ardia/ac_cookies.cc`, `ac_autofill.cc`).
 5. `apps/browser/src/components/import/ImportWindow.tsx` is the wizard: choose, then profiles, then unlock, then
    progress, then done. `apply.ts` writes the JS-side kinds into the store (bookmarks, history, tabs, Arc spaces,

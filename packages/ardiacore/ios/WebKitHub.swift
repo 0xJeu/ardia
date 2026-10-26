@@ -350,13 +350,13 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     }
     guard value == "block" else { return }
     let store = dataStore(for: profile)
-    let views = owners.values.compactMap(\.tab?.webView) + parked.values.compactMap { $0 as? ArdiaWKWebView } + offered.values.compactMap { $0 as? ArdiaWKWebView }
+    let views = owners.values.compactMap(\.tab?.webView) + parked.values.compactMap { $0 as? WebKitWebView } + offered.values.compactMap { $0 as? WebKitWebView }
     for view in views where view.configuration.websiteDataStore === store && view.captureOrigins[kind]?.contains(origin) == true {
       view.stopCapture(kind)
     }
   }
 
-  func reconcileCapture(_ view: ArdiaWKWebView, profile: String) {
+  func reconcileCapture(_ view: WebKitWebView, profile: String) {
     for (kind, origins) in view.captureOrigins where origins.contains(where: { rememberedPermissions[permissionKey(profile, $0, kind)] == false }) {
       view.stopCapture(kind)
     }
@@ -565,8 +565,8 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
     ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
 
   private func resolveDestination(for profile: String, completion: @escaping (URL, Bool) -> Void) {
-    guard ArdiaCoreEngineBridge.exports("ac_downloads_settings") else { return completion(fallbackFolder, true) }
-    ArdiaCoreEngineBridge.call("ac_downloads_settings", profile: WebKitHub.regularProfile(profile), args: nil) { [weak self] json in
+    guard ArdiaEngineBridge.exports("ac_downloads_settings") else { return completion(fallbackFolder, true) }
+    ArdiaEngineBridge.call("ac_downloads_settings", profile: WebKitHub.regularProfile(profile), args: nil) { [weak self] json in
       let parsed = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any]
       let folder = (parsed?["folder"] as? String).flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
       let ask = parsed?["askWhereToSave"] as? Bool ?? (folder == nil)

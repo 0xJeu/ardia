@@ -114,7 +114,7 @@
 //   new window → on screen with its content newWindow   the later of that and acmark's commit for that window
 //   new window → first paint / first frame  newWindow   the window's page's FCP / first rAF
 //   ⌘T → …, keystroke → suggestions         journeyRun  newtabkey: acperf postkeys (CGEventPostToPid into this pid) → the app's field timing
-//                                                        (journeys.ts + ArdiaCoreFieldTiming.mm; sharing on in the bench's data folder,
+//                                                        (journeys.ts + ArdiaFieldTiming.mm; sharing on in the bench's data folder,
 //                                                        every non-local fetch answered by bench-offline.js so nothing is uploaded)
 //   Enter → engine asked / started / committed / first contentful paint
 //                                           journeyRun  navigate: the same, from a real Enter; also the page's own FCP over CDP

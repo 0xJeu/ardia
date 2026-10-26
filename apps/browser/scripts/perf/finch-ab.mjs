@@ -57,9 +57,9 @@ function switchValue(cmd, name) {
 }
 
 function ardiaFeatures() {
-  const host = readFileSync(join(repoRoot, "packages/ardiacore/ios/ArdiaCoreHost.mm"), "utf8");
+  const host = readFileSync(join(repoRoot, "packages/ardiacore/ios/ArdiaHost.mm"), "utf8");
   const literal = host.match(/"--enable-features=([^"]*)"\s*((?:"[^"]*"\s*)*),/);
-  if (!literal) throw new Error("ArdiaCoreHost.mm's --enable-features list wasn't found");
+  if (!literal) throw new Error("ArdiaHost.mm's --enable-features list wasn't found");
   const rest = [...literal[2].matchAll(/"([^"]*)"/g)].map((m) => m[1]).join("");
   return [...new Set(["WebContentsDiscard", ...`${literal[1]}${rest}`.split(",")].filter(Boolean))];
 }

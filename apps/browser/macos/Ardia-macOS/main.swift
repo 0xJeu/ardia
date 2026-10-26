@@ -8,4 +8,4 @@ LegacyMigration.moveToNewName()
 
 if !LegacyMigration.runAtLaunch() { exit(0) }
 
-exit(ArdiaCoreHost.run(argc: CommandLine.argc, argv: CommandLine.unsafeArgv) { AppDelegate() })
+exit(ArdiaHost.run(argc: CommandLine.argc, argv: CommandLine.unsafeArgv) { AppDelegate() })

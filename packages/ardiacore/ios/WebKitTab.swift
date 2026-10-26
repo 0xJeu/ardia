@@ -6,7 +6,7 @@ protocol WebKitTabDelegate: AnyObject {
   func webKitTab(_ tab: WebKitTab, event name: String, payload: [String: Any])
 }
 
-final class ArdiaWKWebView: WKWebView {
+final class WebKitWebView: WKWebView {
   var onFocus: (() -> Void)?
   var mediaFrames: [String: WKFrameInfo] = [:]
   var playingFrames = Set<String>()
@@ -73,7 +73,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   var pageBackgroundColor: NSColor? { didSet { if let color = pageBackgroundColor { webView?.underPageBackgroundColor = color } } }
   let browserId = WebKitHub.shared.nextBrowserId()
 
-  private(set) var webView: ArdiaWKWebView?
+  private(set) var webView: WebKitWebView?
   private var observations: [NSKeyValueObservation] = []
   private var started = false
   private var closed = false
@@ -118,7 +118,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard !closed else { return }
     if let key = transferKey {
       let handedOver = WebKitHub.shared.isPrepared(key) ? WebKitHub.shared.liveTab(key).flatMap { $0 === self ? nil : $0.relinquish() } : nil
-      let parked = WebKitHub.shared.claimParked(key) as? ArdiaWKWebView
+      let parked = WebKitHub.shared.claimParked(key) as? WebKitWebView
       WebKitHub.shared.noteLive(self, key: key)
       if let view = handedOver ?? parked {
         if let parked, parked !== view { WebKitHub.close(parked) }
@@ -127,18 +127,18 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
         return
       }
     }
-    if let id = adoptId, id.hasPrefix("webkit:"), let offered = WebKitHub.shared.claimOffered(id) as? ArdiaWKWebView {
+    if let id = adoptId, id.hasPrefix("webkit:"), let offered = WebKitHub.shared.claimOffered(id) as? WebKitWebView {
       attach(offered)
       emitEverything()
       return
     }
-    let created = ArdiaWKWebView(frame: bounds, configuration: WebKitHub.shared.configuration(profile: profile))
+    let created = WebKitWebView(frame: bounds, configuration: WebKitHub.shared.configuration(profile: profile))
     attach(created)
     emit("ready", ["browserId": Int(browserId), "tabId": 0])
     if let url = initialURL, !url.isEmpty { loadURL(url, userInitiated: false) }
   }
 
-  func relinquish() -> ArdiaWKWebView? {
+  func relinquish() -> WebKitWebView? {
     guard !closed, let view = webView else { return nil }
     closed = true
     observations = []
@@ -161,7 +161,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     emitZoom()
   }
 
-  private func attach(_ view: ArdiaWKWebView) {
+  private func attach(_ view: WebKitWebView) {
     webView = view
     WebKitHub.shared.register(view, tab: self)
     view.navigationDelegate = self
@@ -430,7 +430,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   }
 
   func downloadFavicon(_ url: String, completion: @escaping ([String: Any]?) -> Void) {
-    ArdiaCoreFavicons.fetch(url, profile: profile, name: nil) { completion($0) }
+    ArdiaFavicons.fetch(url, profile: profile, name: nil) { completion($0) }
   }
 
   func mediaCommand(_ action: String, seconds: Double) {
@@ -644,7 +644,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
 
   func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction,
                windowFeatures: WKWindowFeatures) -> WKWebView? {
-    let child = ArdiaWKWebView(frame: .zero, configuration: configuration)
+    let child = WebKitWebView(frame: .zero, configuration: configuration)
     let id = WebKitHub.shared.offer(child)
     let flags = action.modifierFlags
     let popup = windowFeatures.width != nil || windowFeatures.height != nil
@@ -667,7 +667,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     }
     let originString = "\(origin.protocol)://\(origin.host)" + (origin.port > 0 ? ":\(origin.port)" : "")
     WebKitHub.shared.requestPermission(browserId: browserId, profile: profile, origin: originString, kinds: kinds) { [weak webView] allowed in
-      if allowed, let view = webView as? ArdiaWKWebView {
+      if allowed, let view = webView as? WebKitWebView {
         for kind in kinds { view.captureOrigins[kind, default: []].insert(originString) }
       }
       decisionHandler(allowed ? .grant : .deny)

@@ -2,7 +2,7 @@ import AppKit
 import ExpoModulesCore
 
 enum ChromeWindows {
-  private static let host = NSClassFromString("ACChromeWindowHost") as? NSObject.Type
+  private static let host = NSClassFromString("ArdiaChromeWindowHost") as? NSObject.Type
 
   static func makeWindow(profile: String?, chromeWindow: String? = nil, appWindow: String? = nil) -> NSWindow? {
     guard let host else { return nil }
