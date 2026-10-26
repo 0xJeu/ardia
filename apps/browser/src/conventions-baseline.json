@@ -828,7 +828,6 @@
     "engine/chromium/src/chrome/browser/ardia/ac_tab_restore.cc": 1,
     "packages/ardiacore/ios/ArdiaContentBlocker.mm": 1,
     "packages/ardiacore/ios/ArdiaHost.mm": 1,
-    "packages/ardiacore/ios/ArdiaSwipe.mm": 1,
     "packages/ardiacore/ios/WebKitHub.swift": 1,
     "packages/ardiacore/ios/WebKitTab.swift": 1,
     "packages/ardiacore/src/WebView.tsx": 1,

@@ -22,6 +22,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)addTarget:(NSView<ArdiaSwipeTarget> *)target;
 + (void)removeTarget:(NSView<ArdiaSwipeTarget> *)target;
 
+@end
+
+@interface ArdiaSwipe (Simulation)
+
 + (void)simulateInWindow:(NSWindow *)window
                    point:(NSPoint)point
                    steps:(NSArray<NSDictionary<NSString *, id> *> *)steps
