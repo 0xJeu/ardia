@@ -1521,12 +1521,15 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 }
 
 - (void)applyPainting {
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
   self.alphaValue = _visible || _revealed || !(_warm || _leaving) ? 1 : 0;
   const BOOL shown = self.paints;
   for (NSView *sub in self.subviews) {
     sub.hidden = !shown;
     AcceptDrops(sub, _visible);
   }
+  [CATransaction commit];
   if (TraceVisibility())
     NSLog(@"[ardiacore-vis] %@ paint visible=%d warm=%d tab=%d page=%@ inWindow=%ld hiddenAncestor=%d", _transferKey,
           _visible, _warm, _tab ? (int)_tab.tabId : -1, _tab.view.superview == self ? @"here" : @"elsewhere",
@@ -1579,7 +1582,12 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   _visible = visible;
   if (visible) [self settleRevealsInWindow];
   if (!visible) [_tab exitExclusiveAccess];
-  if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) self.alphaValue = 1;
+  if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) {
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.alphaValue = 1;
+    [CATransaction commit];
+  }
   [self schedulePainting];
   if (visible) ACFieldMarkAtCommit(_transferKey, @"view");
   if (visible) [ArdiaCoreEarlyWindow noteLayoutChangeIn:self.window];
