@@ -3,10 +3,9 @@ import { Animated, Text, View } from "react-native";
 import { radius, Symbol, weight } from "../ui";
 import { layout, useTheme } from "../ui/theme";
 import { useSettings } from "../../state/browser/hooks";
-import { workspaceSnapshot } from "../../state/browser/current";
 import { isIncognitoProfile } from "../../state/browser/model";
 import { newCapture } from "../../state/sidebar/listCapture";
-import { useCanTidyPins, useCapturedSidebarEntries, useLayoutFromWorkspace } from "../../state/sidebar/hooks";
+import { useCanTidyPins, useCapturedSidebarEntries } from "../../state/sidebar/hooks";
 import { useAddressBarInSidebar } from "../../state/windows/layout";
 import { ClearDivider } from "./ClearDivider";
 import { useDragController, useDragItem } from "./DragProvider";
@@ -17,7 +16,7 @@ import { LiveFolderBlock } from "./LiveFolderBlock";
 import { PinnedGrid } from "./PinnedGrid";
 import { LIVE, usePinnedSequence } from "../../state/sidebar/pinnedOrder";
 import { SCROLL_EDGE } from "./ScrollEdge";
-import { entriesHeight, firstPaintEntries } from "./geometry";
+import { firstPaintEntriesNow, usePendingEntriesHeight } from "../../state/sidebar/geometry";
 import { SplitRowItem, TabRowItem } from "./TabRow";
 import { INCOGNITO_ICON } from "../ntp/IncognitoHeading";
 import { ROW_PITCH, ROWS_PER_FRAME, type SidebarGeometry } from "./pageLayout";
@@ -43,7 +42,7 @@ type PageRowsProps = {
 export function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, innerWidth, inlineNewTab, controller, geometry, onListHeight }: PageRowsProps) {
   const [captured] = useState(newCapture);
   const { list: all } = useCapturedSidebarEntries(windowId, profileId, captured);
-  const [mountedRows, setMountedRows] = useState(() => firstPaintEntries(workspaceSnapshot(), windowId, profileId, all, lazy));
+  const [mountedRows, setMountedRows] = useState(() => firstPaintEntriesNow(windowId, profileId, all, lazy));
   const [visited, setVisited] = useState(current);
   if (current && !visited) setVisited(true);
   const cap = offScreen ? 0 : visited ? undefined : rows;
@@ -55,7 +54,7 @@ export function PageRows({ windowId, profileId, current, rows, lazy, offScreen, 
   }, [growing, mountedRows, all.length]);
   const limit = cap ?? (growing ? mountedRows : undefined);
   const list = limit === undefined ? all : all.slice(0, limit);
-  const pending = useLayoutFromWorkspace((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
+  const pending = usePendingEntriesHeight(windowId, profileId, all, mountedRows, growing);
   const showClear = useSettings((s) => s.showClearButton);
   const clearable = showClear && !offScreen && all.length > 0;
   const tidy = useCanTidyPins(windowId, profileId, offScreen);

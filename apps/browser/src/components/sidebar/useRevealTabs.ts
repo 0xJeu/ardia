@@ -1,13 +1,8 @@
 import { useEffect, type RefObject } from "react";
 import type { ScrollView, View } from "react-native";
-import { live } from "../../state/live/store";
-import { workspaceSnapshot } from "../../state/browser/current";
 import { watchRevealTargets } from "../../state/sidebar/reveal";
-import { ancestorIds } from "../../state/groups/groups";
-import { groupOf } from "../../state/pins/organize";
-import { splitOf } from "../../state/splits/splits";
 import { measureRow } from "../../state/sidebar/sidebarUi";
-import { rowSpan } from "./geometry";
+import { revealSpot } from "../../state/sidebar/geometry";
 import type { SidebarGeometry } from "./pageLayout";
 
 export function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, scrollY: RefObject<number>, geometry: RefObject<SidebarGeometry>) {
@@ -28,19 +23,12 @@ export function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | n
       const mine = ++reveals;
       const tabId = switched ?? opened;
       switched = opened = null;
-      const s = workspaceSnapshot();
-      const profileId = s.windows[windowId]?.profileId;
-      if (!tabId || !profileId) return;
-      const pinned = s.tabs[tabId];
-      if (geometry.current.tilesFixed && pinned?.pinned && !pinned.pinnedAsRow) return;
-      const { regions, newTabAtTop } = geometry.current;
-      const span = rowSpan(s, windowId, profileId, tabId, newTabAtTop);
-      const pinnedHasLive = span?.section === "pinnedGroups" && live().folderOrder.some((id) => live().folders[id]?.profileId === profileId);
-      if (span && !pinnedHasLive) return show(geometry.current.pad + regions[span.section] + span.top, span.height);
+      if (!tabId) return;
+      const spot = revealSpot(windowId, tabId, geometry.current.tilesFixed, geometry.current.newTabAtTop);
+      if (!spot) return;
+      if ("span" in spot) return show(geometry.current.pad + geometry.current.regions[spot.span.section] + spot.span.top, spot.span.height);
       const view = scroll.current as unknown as View;
-      const split = splitOf(s, tabId);
-      const inner = groupOf(s, tabId);
-      const keys = [tabId, ...(split ? [`s:${split.id}`] : []), ...(inner ? [inner.id, ...ancestorIds(s.groups, inner.id)] : [])];
+      const keys = spot.keys;
       const firstShown = (i: number): Promise<Awaited<ReturnType<typeof measureRow>>> =>
         i >= keys.length ? Promise.resolve(null) : measureRow(windowId, keys[i]!).then((row) => row ?? firstShown(i + 1));
       void firstShown(0).then((row) =>

@@ -1,5 +1,5 @@
 import { layout } from "../ui/theme";
-import type { Section } from "./geometry";
+import type { Section } from "../../state/sidebar/geometry";
 
 export const GLOW_ROOM = 24;
 export const ROW_PITCH = layout.rowHeight + layout.rowGap;

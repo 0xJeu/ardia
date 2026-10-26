@@ -2,7 +2,6 @@ import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useGroup, usePageProfileId, useWindowId } from "../../state/browser/hooks";
-import { workspaceSnapshot } from "../../state/browser/current";
 import { updateGroup } from "../../state/groups/actions";
 import { useGroupLabel } from "../../state/groups/hooks";
 import { useSelectionInGroup } from "../../state/pins/hooks";
@@ -15,8 +14,8 @@ import { commitRename, endRename, startRename } from "../../state/sidebar/action
 import { useDragFolded, useDragItem, useDropInto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
 import { Fold, useFold } from "./Fold";
-import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap } from "./geometry";
-import { groupEntries, keptEntry } from "../../state/sidebar/entries";
+import { GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS } from "./geometry";
+import { entryHeightNow, foldedGroupHeight, headGap } from "../../state/sidebar/geometry";
 import { dismissHover, useGroupHover, useRowHover } from "../../state/sidebar/hover";
 import { HOVER_CARD_FADE_MS } from "./hoverMotion";
 import { GhostSlot, ListMotionContext, useGroupMotion } from "./ListMotion";
@@ -88,11 +87,7 @@ export const GroupBlock = memo(function GroupBlock({
   const selectedInside = useSelectionInGroup(windowId, groupId);
   const profileId = usePageProfileId();
   const activeEntry = useKeptEntry(windowId, profileId, entries);
-  const foldedHeight = () => {
-    const s = workspaceSnapshot();
-    const kept = keptEntry(s, windowId, profileId, groupEntries(s, groupId));
-    return GROUP_BORDER * 2 + layout.rowHeight + (kept ? headGap(kept) + entryHeight(s, windowId, profileId, kept) + PAD : 0);
-  };
+  const foldedHeight = () => foldedGroupHeight(windowId, profileId, groupId);
   const { wrapper, handle, headerRef } = useDragItem(`g:${groupId}`, { kind: "group", tabIds: tabIds.split(",").filter(Boolean), section, groupId, collapsed: stored, foldedHeight, parentGroup }, own?.clip);
   const tail = useDragItem(`tail:group:${groupId}`, { kind: "tail", tabIds: [], section, parentGroup: groupId });
 
@@ -133,7 +128,7 @@ export const GroupBlock = memo(function GroupBlock({
             )}
             keep={activeEntry}
             gap={layout.rowGap}
-            rowHeight={(key) => entryHeight(workspaceSnapshot(), windowId, profileId, key)}
+            rowHeight={(key) => entryHeightNow(windowId, profileId, key)}
             padTop={headGap(collapsed && activeEntry ? activeEntry : entries[0])}
             padBottom={PAD}
             indent={GROUP_INDENT}

@@ -6,7 +6,7 @@ import { workspaceSnapshot } from "../../state/browser/current";
 import type { Capture, ListSnapshot } from "../../state/sidebar/listCapture";
 import { useAnimatedStyle, type ClipSource, type EntryMotion } from "./EntryMotion";
 import { groupEntries } from "../../state/sidebar/entries";
-import { entryHeight } from "./geometry";
+import { entryHeight } from "../../state/sidebar/geometry";
 import { ghostEntry, snapshotEntry, type EntrySnapshot } from "./GhostEntry";
 import { curve } from "../ui/motion";
 import { SIDEBAR_MOTION } from "./tokens";

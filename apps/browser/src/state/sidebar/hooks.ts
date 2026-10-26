@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { useBrowser, type BrowserState } from "../browser/store";
+import { useBrowser } from "../browser/store";
 import { activeTabId, viewTabIds } from "../browser/model";
 import { liveTabPlace } from "../live/rows";
 import type { Tab } from "../browser/types";
@@ -100,4 +100,3 @@ export const useLiveItemTab = (windowId: string, profileId: string, folderId: st
 
 export const useIsActiveIn = (windowId: string, profileId: string, tabId: string | null) => useBrowser((s) => !!tabId && activeTabId(s, windowId, profileId) === tabId);
 
-export const useLayoutFromWorkspace = <T>(measure: (s: BrowserState) => T): T => useBrowser(measure);

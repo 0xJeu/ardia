@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import { opaqueThemeTint, PRESET_BACKDROP, resolveTheme, requestedDarkFor, rgbToHsl, shownLook, themeAccent, themeBackdrop, themePalette, type LookSource, type ProfileColor, type ProfileLookFields, type ProfileTheme, type ThemeBackdropProps } from "../../lib/profileLook";
 import { backdropTint, opaqueTint, tintForHue, type BackdropTint } from "../../lib/windowTint";
 import { DEFAULT_SIDEBAR_WIDTH } from "../../lib/windowLayout";
+import { SIDEBAR_ROW } from "../../lib/sidebarMetrics";
 import { colorRoles, ink, INCOGNITO_TINT, PROFILE_COLORS, type ColorRoles, type ProfileColorSpec } from "./tokens";
 
 export { PROFILE_COLORS } from "./tokens";
@@ -148,8 +149,8 @@ export const layout = {
   sidebarInset: 6,
   pinnedTop: 54,
   pinnedHeight: 41,
-  rowHeight: 34,
-  rowGap: 3,
+  rowHeight: SIDEBAR_ROW.height,
+  rowGap: SIDEBAR_ROW.gap,
   cardTop: 6,
   cardInset: 7,
   cardRadius: 10,
