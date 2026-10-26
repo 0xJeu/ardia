@@ -114,6 +114,7 @@ enum WebKitPageScript {
       applyMute(m);
       listen(m);
     }
+    if (e.type === "volumechange") applyMute(m);
     if (audible(m)) {
       heard.add(m);
       lastHeard = m;
