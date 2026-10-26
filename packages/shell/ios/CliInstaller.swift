@@ -1,22 +1,6 @@
 import ExpoModulesCore
 import Foundation
 
-public class CliModule: Module {
-  public func definition() -> ModuleDefinition {
-    Name("ArdiaCli")
-
-    Events("onInstallLine")
-
-    Function("installedVersion") { () -> String? in CliInstaller.installedVersion() }
-
-    AsyncFunction("install") { (promise: Promise) in
-      CliInstaller.shared.install(
-        onLine: { [weak self] line in self?.sendEvent("onInstallLine", ["line": line]) },
-        done: { promise.resolve($0) })
-    }
-  }
-}
-
 final class CliInstaller {
   static let shared = CliInstaller()
 
@@ -30,7 +14,7 @@ final class CliInstaller {
 
   private static var environment: [String: String] { ProcessInfo.processInfo.environment }
 
-  private static var isolated: Bool { ACIsolatedDataDirectory() != nil }
+  private static var isolated: Bool { ArdiaIsolatedDataDirectory() != nil }
 
   private static func setting(_ name: String) -> String? {
     guard let value = environment[name], !value.isEmpty else { return nil }

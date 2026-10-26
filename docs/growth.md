@@ -78,7 +78,7 @@ takes effect with the first release after 0.2.13):
   User-Agent is the app's Sparkle (`Ardia/<version> Sparkle/…`) count. Nothing else is passed on: no IP
   (so no country), no headers, no cookie, a fixed `distinct_id` (`update-check`). The redirect never waits on
   the count; if the collector is down or slow, the update still works.
-- **First launch:** the app adds `first=1` to its first check ever (`packages/shell/ios/Updater.swift`,
+- **First launch:** the app adds `first=1` to its first check ever (`packages/shell/ios/AppUpdater.swift`,
   Sparkle's `feedParameters`). Sparkle checks at the first launch (automatic checks are on in Info.plist),
   so `first` per version ≈ copies of that version that were installed and opened. A first check made while
   offline isn't retried as first.

@@ -58,7 +58,7 @@ make an instance a test instance; the rest are hooks for one test.
 | Variable | Read in | What it does |
 | --- | --- | --- |
 | `ARDIA_BACKGROUND=1` | everywhere (below) | A hidden test instance (below) |
-| `ARDIA_DATA_DIR` | `ArdiaCoreHost.mm`, `packages/shell` `ACIsolation.m` | Scratch data dir (below). A Debug build refuses to start without one |
+| `ARDIA_DATA_DIR` | `ArdiaCoreHost.mm`, `packages/shell` `ArdiaIsolation.m` | Scratch data dir (below). A Debug build refuses to start without one |
 | `ARDIA_REMOTE_DEBUGGING_PORT` | `ArdiaCoreHost.mm` | CDP on that port (`--remote-allow-origins=*`), only on Chrome's mock keychain (a scratch `ARDIA_DATA_DIR`, or an ad hoc build). A team-signed build on its real data dir ignores it, forwards neither argv nor `ARDIA_CHROMIUM_SWITCHES`, and its browser process removes every switch that would open the profile to outside control, however it's spelled, at startup and again once chrome://flags have become switches, and unsets `SSLKEYLOGFILE` (`ac_main_delegate.cc` `kSwitchesThatOpenTheProfile`; `--ardia-show-profile-gate` logs the parsed and gated command lines both times) |
 | `ARDIA_JS_LOCATION=host:port` | `AppDelegate.swift` | This launch's Metro, never written to defaults |
 | `ARDIA_CHROMIUM_SWITCHES` | `ArdiaCoreHost.mm` | Extra Chrome switches, space-separated (background mode drops the auto-accept capture ones); only on Chrome's mock keychain, like argv |
@@ -74,7 +74,7 @@ make an instance a test instance; the rest are hooks for one test.
 | `ARDIA_TRACE_VISIBILITY=1` | `ArdiaCoreHost.mm`, `ArdiaCoreWebView.mm` | Logs occlusion and each WebView attach/detach (`[ardiacore-vis]` in the system log) |
 | `ARDIA_SHADERS_FORCE_KEY=1` | `MetalSurface.swift` | Metal views act as in the key window (the New Tab intro) |
 | `ARDIA_RELEASE_NOTES=1` | `AppModule.swift` | Opens the release notes as after an update |
-| `ARDIA_UPDATE_FEED_URL` | `Updater.swift` | Sparkle's feed; an instance with a scratch data dir checks for updates only with one |
+| `ARDIA_UPDATE_FEED_URL` | `AppUpdater.swift` | Sparkle's feed; an instance with a scratch data dir checks for updates only with one |
 | `ARDIA_CLI_HOME`, `ARDIA_CLI_BIN_DIR`, `ARDIA_CLI_URL`, `ARDIA_CLI_INSTALL_SCRIPT` | `CliInstaller.swift`, `apps/cli/install.sh` | Where the `ardia` command installs, where its link goes, the tarball to fetch (`file://` works) and another installer script (test instances only). A test instance installs or upgrades only with the first two set, so it never touches the real home. Its `--remote-debugging-port` makes the "Let the ardia command control Ardia" setting stand aside; test that setting in an instance launched without one |
 | `ARDIA_SYNC_DEFAULT_FOLDER` | `SyncModule.swift` | The sync folder (`packages/sync/scripts/e2e.mjs`) |
 | `ARDIA_IMPORT_SOURCE_DIR`, `_SAFARI_HOME`, `_TEST_SECRET`, `_DIA_BUNDLE_ID` | `ImportModule.swift` | Import from fixtures: the Application Support root, Safari's home, a fixed Safe Storage secret instead of the keychain, the app Dia's tabs come from (`packages/import/README.md`) |
@@ -111,7 +111,7 @@ make an instance a test instance; the rest are hooks for one test.
   that log a line (`ArdiaSystem`, `chromium-background-instance-no-default-handlers.patch`).
 
 A scratch `ARDIA_DATA_DIR` holds Chrome's user data and the app's documents, its defaults, keychain items and
-Sparkle state (`ACIsolation.h`); Chrome gets `--use-mock-keychain`; update checks are off without
+Sparkle state (`ArdiaIsolation.h`); Chrome gets `--use-mock-keychain`; update checks are off without
 `ARDIA_UPDATE_FEED_URL`; a Release build's telemetry is tagged `test`, and the release-notes page stays closed
 unless `ARDIA_RELEASE_NOTES=1`.
 

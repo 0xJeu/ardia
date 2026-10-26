@@ -37,7 +37,7 @@ Ardia is one app with two Sparkle channels. A stable item in the appcast has no 
 `<sparkle:channel>nightly</sparkle:channel>` (`generate_appcast --channel nightly`). Sparkle skips items on a channel the
 app doesn't allow, and allows none by default, so every shipped build (all on Sparkle 2.9.6, which has channels) and
 every copy on Stable sees only stable items. A copy on Nightly allows `nightly` (`allowedChannels(for:)` in
-`packages/shell/ios/Updater.swift`) and so gets the newest of both.
+`packages/shell/ios/AppUpdater.swift`) and so gets the newest of both.
 
 - **Which channel a copy is on.** Settings › General › "Update channel" (Stable / Nightly), kept in the defaults key
   `ACUpdateChannel`. Until the user picks, it's the channel of the build that first ran: the `ACUpdateChannel` key in

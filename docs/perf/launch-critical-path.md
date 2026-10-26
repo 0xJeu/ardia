@@ -157,7 +157,7 @@ app build, "JS" only a bundle.
 | 11 | **Drop unused locales and maybe SwiftShader from the bundle** (`*.lproj` other than en; `libvk_swiftshader.dylib` 21 MB is WebGL's software fallback) | first launch of an unscanned copy | first launch −0.4 to −0.6 s | locales low (the UI locale is the bundle's, English); SwiftShader medium (GPU-blocklisted Macs) | packaging | proposed |
 | 12 | **Official engine build** (`is_official_build=true`, ThinLTO, PGO; today none of them) | Chrome's start (150 ms), the renderer, page loads; fewer bytes to scan | warm −20 to −40; first launch −0.3 to −0.8 s; every page faster | medium: a 5 to 8 h rebuild, longer incremental builds after | engine | owner's call |
 | 13 | **Static first frame**: save each window's last frame at quit, show it in the window at once (~60 ms, before Chrome's loop) and swap in the live content when it commits | perceived window | perceived −350 / −850 | medium–high: a stale frame that can't be clicked, multi-window, appearance changes | native | wacky |
-| 14 | **Native command bar first**: a plain text field in the window from its first frame that takes typing (the type-ahead holding `Windows.swift` already does for new windows) and hands it to the React command bar | "command bar usable" | usable at window time regardless of JS | medium | native | wacky |
+| 14 | **Native command bar first**: a plain text field in the window from its first frame that takes typing (the type-ahead holding `WindowManager+TypeAhead.swift` already does for new windows) and hands it to the React command bar | "command bar usable" | usable at window time regardless of JS | medium | native | wacky |
 | 15 | **Trim Chrome's startup services** (component updater, optimization guide, segmentation platform, Safe Browsing DB at launch) with `--disable-features`/delays | Chrome's start | −20 to −50 | medium: features that need them | engine switches | needs a startup trace |
 
 Not worth it now: the Hermes bundle (bytecode, 18 to 26 ms to evaluate with inline requires; splitting it saves little
@@ -171,7 +171,7 @@ warm tab, gets a page at launch).
   the bundle 592 → 418 MB, UUIDs and exports unchanged (the script checks), unstripped files in `dist/<v>/symbols`
   (keep that folder with each release: it is what symbolicates a crash in Chrome's framework). `smoke.sh` on a
   stripped, re-signed copy of 0.2.27: every check passes but the two notarization ones (the copy isn't notarized).
-- **be2ca8f7** `ARDIA_PREWARM=1` exits at the top of `main.swift`; `UpdatePrewarm` (`packages/shell/ios/Updater.swift`)
+- **be2ca8f7** `ARDIA_PREWARM=1` exits at the top of `main.swift`; `UpdatePrewarm` (`packages/shell/ios/UpdatePrewarm.swift`)
   runs the update Sparkle staged in `~/Library/Caches/<bundle id>/org.sparkle-project.Sparkle/Installation` when
   `willInstallUpdateOnQuit` fires. Lab (calm, Sparkle 2.9.6 updating a 0.2.26 copy to 0.2.27): the first launch's
   pre-`main` time 39/52 ms with the prewarm against 175–232 ms without. Not yet exercised through a real

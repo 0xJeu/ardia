@@ -101,7 +101,7 @@ modules before using them — this is a summary from the agent that built it.
   into it once): `removeHistory` (deletes from Chrome too), `clearHistory(profileId, since?)` (the view; Clear Browsing
   Data deletes from Chrome), `importHistory` (Chrome's importer path). Favicons are Chrome's too: lib/favicons.ts is
   an in-memory cache by page, plus the icons live tabs show and the light/dark pick. Settings: `updateSettings`
-  (`bookmarksBar`, `shortcuts` = remapped menu keys read by Menus.swift, …).
+  (`bookmarksBar`, `shortcuts` = remapped menu keys read by MainMenu+Shortcuts.swift, …).
 
 ## Hooks (store/hooks.ts, window-scoped)
 `useWindowId`, `useActiveTab(Id)`, `useTab(id)`,
@@ -113,7 +113,7 @@ don't re-render every tab.
 - Pure: store/model.ts — `viewTabIds`, `activeTabId`, `engineProfile` (the WebView `profile` prop), `windowTitle`.
 - Dialogs / native side effects go through lib/actions.ts (`closeTab`, `switchToTab`, `moveTabToProfile`,
   `moveTabToWindow`, `createProfile`, `deleteProfile`, `openWindow`).
-- Menu commands: lib/commands.ts (JS) + packages/shell/ios/Menus.swift (native menu bar).
+- Menu commands: lib/commands.ts (JS) + packages/shell/ios/MainMenu.swift (native menu bar).
 - Tests: `pnpm --filter @ardia/browser test` (`docs/testing.md`).
 
 ## Native events (lib/nativeEvents.ts)

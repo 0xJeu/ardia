@@ -84,7 +84,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
 | --- | --- | --- | --- |
 | Windows, tab ownership | `ac_browser.h` (`WindowHost`, `ACWebContentsDelegate`, `TabBridge`), `ac_browser_window.mm` | `ArdiaCoreChromeWindow.mm`, `ArdiaCoreTabStrip.mm` | `lib/chromeTabs.ts`, `store/liveTabs.ts` |
 | Tab activation | `ardiacore_api.mm` `-activateTab:`, `ac_browser.mm` `ActiveTabChanged` | `ArdiaCoreWebView.mm` `-activate`, `ArdiaCoreTabStrip.mm` | same |
-| Focus guard (test instances) | `ac_browser.mm` (`WindowHost` activation) | `ArdiaCoreActivation.mm` (`activation.log`), `ArdiaCoreChromeWindow.mm` | `packages/shell/ios/Windows.swift` |
+| Focus guard (test instances) | `ac_browser.mm` (`WindowHost` activation) | `ArdiaCoreActivation.mm` (`activation.log`), `ArdiaCoreChromeWindow.mm` | `packages/shell/ios/WindowManager.swift` |
 | Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaCoreChromeWindow.mm` (acted out in test instances) | `components/ContentCard.tsx`, `components/layout/pageState.ts` |
 | Picture in Picture | `ac_picture_in_picture.mm`; Dia's window and controls in `engine/chromium/…/ardia/pip/`; the auto-PiP hook in `engine/ardiacore/apply.sh` | `ArdiaCorePictureInPicture.mm` | `components/media/pip.ts` |
 | Password and autofill bubbles | `ac_password_prompt.mm`, `ac_browser_window.h` (`ACAutofillBubbleHandler`), `ac_autofill_trigger.mm` (dropdown) | `ArdiaCoreChromeWindow.mm` (`window:passwordPrompt:forTab:`) → `ArdiaCoreWebView` event | `components/site/Prompts.tsx`, `site/Autofill.tsx` |
@@ -181,7 +181,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     Same lock for `pnpm install` and edits to apps/browser/package.json. A new Expo module in an
     existing source file only needs its `expo-module.config.json` entry (the build regenerates
     the module provider).
-- **Shared files** several agents must touch — `packages/shell/ios/Menus.swift`,
+- **Shared files** several agents must touch — `packages/shell/ios/MainMenu.swift`,
   `apps/browser/src/lib/commands.ts`, `apps/browser/src/App.tsx`, `apps/browser/src/store/settings.ts`,
   `apps/browser/src/lib/theme.ts`, `packages/ardiacore/ios/ArdiaCoreInternal.h`, `packages/ardiacore/ios/ArdiaCore.podspec`,
   `packages/ardiacore/ios/ArdiaCoreWebView.mm`, `packages/ardiacore/scripts/acceptance.mjs`, ArdiaCore's `public/ArdiaCore.h`,

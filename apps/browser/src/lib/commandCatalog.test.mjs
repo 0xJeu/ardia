@@ -4,7 +4,9 @@ import { test } from "node:test";
 const { COMMANDS, shortcutSources, staticShortcutSources } = await import("./commandCatalog.ts");
 const { formatShortcut } = await import("./shortcuts.ts");
 
-const swift = readFileSync(new URL("../../../../packages/shell/ios/Menus.swift", import.meta.url), "utf8");
+const swift = ["MainMenu.swift", "MainMenu+Shortcuts.swift"]
+  .map((name) => readFileSync(new URL(`../../../../packages/shell/ios/${name}`, import.meta.url), "utf8"))
+  .join("\n");
 
 const FUNCTION_KEYS = {
   NSF5FunctionKey: "",
@@ -127,5 +129,5 @@ test("profiles get ⌃1 to ⌃9 in order, as the Profiles menu numbers them", ()
   assert.deepEqual(keys.get("switchProfile:p0"), ["⌃1"]);
   assert.deepEqual(keys.get("switchProfile:p8"), ["⌃9"]);
   assert.deepEqual(keys.get("switchProfile:p9"), []);
-  assert.ok(swift.includes(`key: i < 9 ? "\\(i + 1)" : "", .control)`), "Menus.swift still numbers profiles with ⌃");
+  assert.ok(swift.includes(`key: i < 9 ? "\\(i + 1)" : "", .control)`), "MainMenu.swift still numbers profiles with ⌃");
 });
