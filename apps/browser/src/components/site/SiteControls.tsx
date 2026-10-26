@@ -354,7 +354,7 @@ function SiteControlsPanel({
           </>
         ) : null}
 
-        <View style={{ height: StyleSheet.hairlineWidth, marginTop: origin ? space.m : space.lx, marginHorizontal: PANEL.inset, backgroundColor: theme.popoverSeparator }} />
+        <View style={{ height: StyleSheet.hairlineWidth, marginTop: origin ? space.m : space.lx, marginHorizontal: PANEL.inset, backgroundColor: theme.divider }} />
         <Box row style={{ alignItems: "center", justifyContent: "space-between", paddingHorizontal: PANEL.inset, paddingTop: space.ml, paddingBottom: space.l }}>
           <ConnectionChip security={security} open={expanded === "connection"} onPress={() => toggle("connection")} />
           <MoreButton open={expanded === "more"} onPress={() => toggle("more")} />

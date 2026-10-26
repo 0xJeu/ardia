@@ -8,7 +8,7 @@ const darkRoles = {
   grain: 0.006,
   card: "rgba(18,18,18,0.5)",
   cardEdge: "rgba(0,0,0,0.35)",
-  divider: "rgba(255,255,255,0.08)",
+  divider: "rgba(255,255,255,0.09)",
 
   textPrimary: "#FFFFFF",
   textTab: "#FFFFFFC7",
@@ -63,7 +63,6 @@ const darkRoles = {
   popoverTint: "rgba(38,36,37,0.72)",
   popoverBorder: "rgba(255,255,255,0.14)",
   popoverRowPressed: "rgba(255,255,255,0.12)",
-  popoverSeparator: "rgba(255,255,255,0.12)",
   promptFill: "rgba(255,255,255,0.1)",
   promptFillHover: "rgba(255,255,255,0.14)",
   promptFillPressed: "rgba(255,255,255,0.18)",
@@ -83,7 +82,6 @@ const darkRoles = {
 
   groupFill: "rgba(255,255,255,0.045)",
   groupBorder: "rgba(255,255,255,0.07)",
-  groupSeparator: "rgba(255,255,255,0.07)",
   control: "rgba(255,255,255,0.1)",
   controlHover: "rgba(255,255,255,0.14)",
   controlPressed: "rgba(255,255,255,0.2)",
@@ -106,7 +104,7 @@ const lightRoles: ColorRoles = {
   grain: 0.05,
   card: "rgba(255,255,255,0.7)",
   cardEdge: "rgba(0,0,0,0.08)",
-  divider: "rgba(0,0,0,0.08)",
+  divider: "rgba(0,0,0,0.09)",
 
   textPrimary: "#000000",
   textTab: "#000000AD",
@@ -161,7 +159,6 @@ const lightRoles: ColorRoles = {
   popoverTint: "rgba(252,251,252,0.7)",
   popoverBorder: "rgba(0,0,0,0.12)",
   popoverRowPressed: "rgba(0,0,0,0.1)",
-  popoverSeparator: "rgba(0,0,0,0.1)",
   promptFill: "rgba(0,0,0,0.06)",
   promptFillHover: "rgba(0,0,0,0.09)",
   promptFillPressed: "rgba(0,0,0,0.12)",
@@ -181,7 +178,6 @@ const lightRoles: ColorRoles = {
 
   groupFill: "rgba(0,0,0,0.028)",
   groupBorder: "rgba(0,0,0,0.07)",
-  groupSeparator: "rgba(0,0,0,0.07)",
   control: "#FFFFFF",
   controlHover: "#F7F7F7",
   controlPressed: "#EBEBEB",

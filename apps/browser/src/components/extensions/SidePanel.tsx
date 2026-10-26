@@ -8,7 +8,7 @@ import { updateSettings } from "../../state/settings/actions";
 import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
 import { Box, Button, Text } from "../ui";
 import { space } from "../ui/tokens";
-import { EXTENSION_PAGE_BACKGROUND, SIDE_PANEL_HEADER_PAD_RIGHT, useExtensionColors } from "./tokens";
+import { EXTENSION_PAGE_BACKGROUND, SIDE_PANEL_HEADER_PAD_RIGHT } from "./tokens";
 import { closeSidePanel, findExtension, showExtensionMenu, useExtensions, type SidePanel } from "../../state/extensions/actions";
 import { curve, duration } from "../ui/motion";
 
@@ -93,7 +93,6 @@ export function ExtensionSidePanel() {
 function PanelCard({ windowId, panel }: { windowId: string; panel: SidePanel }) {
   const { extensionId, profile, pageProfile, url } = panel;
   const theme = useTheme();
-  const colors = useExtensionColors();
   const ext = useExtensions((e) => e.lists[profile]?.find((x) => x.id === extensionId));
   const title = ext?.actionTitle || ext?.name || "Extension";
   const icon = ext?.actionIcon || ext?.icon;
@@ -115,7 +114,7 @@ function PanelCard({ windowId, panel }: { windowId: string; panel: SidePanel }) 
         />
         <Button variant="icon" icon="xmark" size={12} weight="medium" tooltip="Close Side Panel" onPress={() => closeSidePanel(windowId)} />
       </Box>
-      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.sidePanelSeparator }} />
+      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
       <View style={PAGE}>
         <WebView
           style={StyleSheet.absoluteFill}

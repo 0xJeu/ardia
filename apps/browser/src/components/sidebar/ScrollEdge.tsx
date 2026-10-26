@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Animated } from "react-native";
-import { useSidebarTokens } from "./tokens";
+import { useTheme } from "../ui/theme";
 import { curve, duration } from "../ui/motion";
 
 export const SCROLL_EDGE = { gap: 4, line: 1, inset: 1 } as const;
@@ -28,6 +28,6 @@ export function useScrollEdge() {
 }
 
 export function ScrollEdgeLine({ opacity }: { opacity: Animated.Value }) {
-  const tokens = useSidebarTokens();
-  return <Animated.View pointerEvents="none" style={{ height: SCROLL_EDGE.line, backgroundColor: tokens.scrollEdge, opacity }} />;
+  const theme = useTheme();
+  return <Animated.View pointerEvents="none" style={{ height: SCROLL_EDGE.line, backgroundColor: theme.divider, opacity }} />;
 }

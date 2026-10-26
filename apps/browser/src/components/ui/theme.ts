@@ -181,7 +181,7 @@ export type FormColors = {
 const formColorsOf = (roles: ColorRoles): FormColors => ({
   group: roles.groupFill,
   groupBorder: roles.groupBorder,
-  separator: roles.groupSeparator,
+  separator: roles.divider,
   control: roles.control,
   controlHover: roles.controlHover,
   controlPressed: roles.controlPressed,

@@ -153,7 +153,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
               <Button title="Open All" onPress={() => void openFolder(folderId, windowId)} disabled={!ids.length} />
             )}
           </Box>
-          <View style={[SEPARATOR, { backgroundColor: theme.groupSeparator }]} />
+          <View style={[SEPARATOR, { backgroundColor: theme.divider }]} />
           {ids.length === 0 ? (
             <EmptyState
               icon={<Symbol name={searching ? "magnifyingglass" : "bookmark"} size={bookmarkList.emptyIcon} color={theme.textTertiary} style={EMPTY_ICON} />}

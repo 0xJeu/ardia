@@ -73,7 +73,7 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
     run(false, find.query, false);
   };
   const none = find.count === 0 && !!find.query;
-  const separator = theme.popoverSeparator;
+  const separator = theme.divider;
 
   return (
     <Animated.View

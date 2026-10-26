@@ -190,7 +190,7 @@ function ProfileRow({
         borderColor: theme.groupBorder,
       }}
     >
-      {!first && !lifted && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: 12, backgroundColor: theme.groupSeparator }} />}
+      {!first && !lifted && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: 12, backgroundColor: theme.divider }} />}
       <ContextMenuArea onContextMenu={() => void openMenu()}>
         <View {...hoverProps}>
           <Pressable onPress={() => goToSettingsPane("profiles", profileId)}>

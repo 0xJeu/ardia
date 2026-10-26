@@ -55,7 +55,7 @@ export function Group({ children, style }: { children: ReactNode; style?: StyleP
     >
       {rows.map((row, i) => (
         <View key={i}>
-          {i > 0 && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: space.l, backgroundColor: theme.groupSeparator }} />}
+          {i > 0 && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: space.l, backgroundColor: theme.divider }} />}
           {row}
         </View>
       ))}

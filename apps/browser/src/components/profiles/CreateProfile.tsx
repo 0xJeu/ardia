@@ -81,7 +81,7 @@ function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | n
           <View style={{ marginTop: space.ml, borderRadius: radius.l, backgroundColor: theme.field, borderWidth: 1, borderColor: theme.fieldBorder, overflow: "hidden" }}>
             {groups.map((g, i) => (
               <Pressable key={g.dataId} onPress={() => setShareWith(g.profileIds[0]!)}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: space.ml, height: 32, paddingHorizontal: space.ml, borderTopWidth: i ? 1 : 0, borderColor: theme.groupSeparator }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.ml, height: 32, paddingHorizontal: space.ml, borderTopWidth: i ? 1 : 0, borderColor: theme.divider }}>
                   <Radio on={g === selectedGroup} look="compact" />
                   <ColorStack colors={g.profileIds.map((id) => PROFILE_COLORS[profiles[id]!.color]?.swatch ?? profileColors.unknownSwatch)} />
                   <Text numberOfLines={1} style={{ flex: 1 }}>

@@ -3,12 +3,10 @@ import { ink, type ShadowLevel } from "../ui/tokens";
 
 const DARK = {
   popupBorder: "rgba(255,255,255,0.16)",
-  sidePanelSeparator: "rgba(255,255,255,0.1)",
 };
 
 const LIGHT: typeof DARK = {
   popupBorder: "rgba(0,0,0,0.14)",
-  sidePanelSeparator: "rgba(0,0,0,0.08)",
 };
 
 export type ExtensionColors = typeof DARK;

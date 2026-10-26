@@ -145,7 +145,7 @@ export const HistoryRow = memo(function HistoryRow({
           <HoverSlot hovered={showControls} width={historyRow.menuBox} hover={<Button variant="icon" icon="ellipsis" size={13} box={historyRow.menuBox} radius={radius.m} onPress={() => void menu()} tooltip="More actions" />} />
         </View>
       </ContextMenuArea>
-      {!last && <View style={[SEPARATOR, { backgroundColor: theme.groupSeparator }]} />}
+      {!last && <View style={[SEPARATOR, { backgroundColor: theme.divider }]} />}
     </View>
   );
 });

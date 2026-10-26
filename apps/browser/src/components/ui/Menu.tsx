@@ -76,5 +76,5 @@ export function MenuRow({
 
 export function MenuSeparator() {
   const theme = useTheme();
-  return <View style={{ height: StyleSheet.hairlineWidth, marginVertical: PANEL.separatorGap, marginHorizontal: PANEL.inset, backgroundColor: theme.popoverSeparator }} />;
+  return <View style={{ height: StyleSheet.hairlineWidth, marginVertical: PANEL.separatorGap, marginHorizontal: PANEL.inset, backgroundColor: theme.divider }} />;
 }
