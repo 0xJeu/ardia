@@ -315,9 +315,7 @@
     "apps/browser/src/state/onboarding/previewGallery.ts": 1,
     "apps/browser/src/state/site/webNotifications.ts": 1
   },
-  "get-state": {
-    "apps/browser/src/components/sidebar/DragProvider.tsx": 6
-  },
+  "get-state": {},
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,
     "apps/browser/src/components/downloads/Downloads.tsx": 1,
@@ -398,5 +396,8 @@
     "packages/shaders/ios/PowerUpView.swift": 36,
     "packages/shaders/ios/WindowBackdropView.swift": 6
   },
-  "file-names": {}
+  "file-names": {},
+  "store-shape": {},
+  "set-state": {},
+  "store-reads": {}
 }

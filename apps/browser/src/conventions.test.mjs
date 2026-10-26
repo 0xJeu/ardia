@@ -23,7 +23,7 @@ const MAY_IMPORT = {
 };
 const MAY_CALL_NATIVE = ["platform", "ui"];
 
-const RULES = ["layout", "imports", "native-calls", "tokens", "get-state", "size", "env", "naming", "comments", "file-names"];
+const RULES = ["layout", "imports", "native-calls", "tokens", "get-state", "set-state", "store-reads", "store-shape", "size", "env", "naming", "comments", "file-names"];
 const SIZE_CAP = { js: 400, native: 600 };
 const SCOPES = ["apps/browser/src", "packages", "engine/ardiacore/src", "engine/chromium/src"];
 const GENERATED = new Set(["packages/core/src/bangList.ts"]);
@@ -294,6 +294,19 @@ const COMPONENT_FILE = /^[A-Z][A-Za-z0-9]*(?:\.(?:web|native|macos|ios))?\.tsx$/
 const MODULE_FILE = /^[a-z][A-Za-z0-9]*(?:\.(?:web|native|macos|ios))?\.(?:ts|mjs)$/;
 const TEST_NAME = /^[A-Za-z][A-Za-z0-9]*\.test\.mjs$/;
 
+function unshapedStores(code) {
+  let found = 0;
+  for (const match of code.matchAll(/(?<![.\w$])create\s*(<|\()/g)) {
+    let at = match.index + match[0].length;
+    if (match[1] === "<") {
+      for (let depth = 1; at < code.length && depth; at++) depth += code[at] === "<" ? 1 : code[at] === ">" ? -1 : 0;
+      if (!code.startsWith("()(", at)) found++;
+      else if (/^\(\)\(\s*\(\s*set\b/.test(code.slice(at, at + 40))) found++;
+    } else found++;
+  }
+  return found;
+}
+
 function checkFile(path, src, add) {
   const lang = languageOf(path);
   const isTest = TEST_FILE.test(path);
@@ -331,7 +344,12 @@ function checkFile(path, src, add) {
     add("tokens", path, colors + count(code, MOTION_LITERAL));
   }
 
-  if (rel.startsWith("components/")) add("get-state", path, count(code, /\bgetState\s*\(/g));
+  if (rel.startsWith("components/")) {
+    add("get-state", path, count(code, /\bgetState\s*\(/g));
+    add("set-state", path, count(code, /\.setState\s*\(/g));
+    add("store-reads", path, count(code, /\buseBrowser\s*\(/g));
+  }
+  if (/\bimport\s*\{[^}]*\bcreate\b[^}]*\}\s*from\s*["']zustand["']/.test(codeAndStrings)) add("store-shape", path, unshapedStores(code));
 
   const layer = layerOf(rel);
   let nativeCalls = count(code, NATIVE_GLOBAL);
@@ -480,6 +498,20 @@ if (process.argv.includes("--write-baseline")) {
   test("an import of a layer's own folder maps to that layer", () => {
     assert.deepEqual(violationsOf("apps/browser/src/components/ui/Button.tsx", 'import { Box } from ".";\n'), {});
     assert.deepEqual(violationsOf("apps/browser/src/platform/launchConfig.ts", 'import { keys } from "../lib";\n'), {});
+  });
+  test("a store is created curried, with no set/get creator", () => {
+    const store = (body) => violationsOf("apps/browser/src/state/hello/store.ts", `import { create } from "zustand";\n${body}\n`);
+    assert.deepEqual(store("export const useA = create<{ a: number }>()(() => ({ a: 1 }));"), {});
+    assert.deepEqual(store("export const useA = create<Record<string, number>>()(() => ({}));"), {});
+    assert.deepEqual(store("export const useA = create<{ a: number }>(() => ({ a: 1 }));"), { "store-shape": 1 });
+    assert.deepEqual(store("export const useA = create<{ a: number }>()((set) => ({ a: 1 }));"), { "store-shape": 1 });
+    assert.deepEqual(store("export const useA = create((set) => ({ a: 1 }));"), { "store-shape": 1 });
+  });
+  test("components neither write a store nor subscribe to the workspace store directly", () => {
+    const component = (body) => violationsOf("apps/browser/src/components/hello/Hello.tsx", `${body}\n`);
+    assert.deepEqual(component("useSidebarUi.setState({ hover: null });"), { "set-state": 1 });
+    assert.deepEqual(component("const tab = useBrowser((s) => s.tabs[id]);"), { "store-reads": 1 });
+    assert.deepEqual(component("const tab = useTab(id, (t) => t?.title);"), {});
   });
   test("conventions hold, except what the baseline lists", (t) => {
     const baseline = JSON.parse(readFileSync(ROOT + BASELINE_PATH, "utf8"));

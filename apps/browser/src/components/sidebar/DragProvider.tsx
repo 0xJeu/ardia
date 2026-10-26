@@ -1,7 +1,7 @@
 import { hapticTick, onAppEvent, setDragEscapeCapture } from "@ardia/shell";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Animated, PanResponder, type ScrollView, type View } from "react-native";
-import { create, useStore } from "zustand";
+import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { layout, useTheme } from "../ui/theme";
 import { useWindowId } from "../../state/browser/hooks";
@@ -20,6 +20,7 @@ import { SCROLL_EDGE } from "./ScrollEdge";
 import { closeFolderPanel, folderPanel } from "../../state/sidebar/tileFolderUi";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
 import { curve } from "../ui/motion";
+import { createDragMarks, dragMarksOf, markDrag, noDragMarks } from "../../state/sidebar/dragMarks";
 
 type Frame = { x: number; y: number; w: number; h: number };
 type Section = "tiles" | "pinnedRows" | "pinnedGroups" | "list" | "folder";
@@ -72,20 +73,6 @@ const measure = (view: View | null): Promise<Frame | null> =>
     ? new Promise((resolve) => view.measureInWindow((x, y, w, h) => resolve(w || h ? { x, y, w, h } : null)))
     : Promise.resolve(null);
 
-type Marks = {
-  sources: Set<string>;
-  dropInto: string | null;
-  onto: string | null;
-  landing: string | null;
-  pins: boolean;
-  pinCount: number;
-  pinBefore: string | null;
-  folded: string | null;
-  folderTarget: string | null;
-  folderAway: boolean;
-};
-const NO_MARKS: Marks = { sources: new Set(), dropInto: null, onto: null, landing: null, pins: false, pinCount: 0, pinBefore: null, folded: null, folderTarget: null, folderAway: false };
-const noMarks = create<Marks>()(() => NO_MARKS);
 type Pointed = { cell: Item | null; index: number; gap: number; part: "gap" | "centre" | "before" | "after" };
 
 class DragController {
@@ -97,9 +84,9 @@ class DragController {
   tilesFixed = true;
   tilesRoom = Infinity;
   setGhost: (ghost: Ghost | null) => void = () => {};
-  marks = create<Marks>()(() => NO_MARKS);
-  setSources = (sources: Set<string>) => this.marks.setState({ sources });
-  setLanding = (landing: string | null) => this.marks.setState({ landing });
+  marks = createDragMarks();
+  setSources = (sources: Set<string>) => markDrag(this.marks, { sources });
+  setLanding = (landing: string | null) => markDrag(this.marks, { landing });
 
   private sources: Item[] = [];
   private startScrollY = 0;
@@ -174,7 +161,7 @@ class DragController {
     this.setLanding(null);
     this.setSources(new Set(this.sources.map((s) => s.key)));
     this.setGhost(this.ghost);
-    if (boxed(item) && !item.collapsed) this.marks.setState({ folded: item.key });
+    if (boxed(item) && !item.collapsed) markDrag(this.marks, { folded: item.key });
     Animated.parallel(closing.map((s) => spring(s.size, 0))).start();
     this.measured = true;
     this.move(this.pointer.x, this.pointer.y);
@@ -246,10 +233,10 @@ class DragController {
     const drop = this.drop;
     const ghost = this.ghost;
     const splitDrop = commit ? endTabDrag() : (cancelTabDrag(), false);
-    const folded = this.marks.getState().folded;
-    const leftPanel = sources[0]?.section === "folder" && this.marks.getState().folderAway;
+    const folded = dragMarksOf(this.marks).folded;
+    const leftPanel = sources[0]?.section === "folder" && dragMarksOf(this.marks).folderAway;
     const unfold = () => {
-      if (folded && this.marks.getState().folded === folded) this.marks.setState({ folded: null });
+      if (folded && dragMarksOf(this.marks).folded === folded) markDrag(this.marks, { folded: null });
     };
     const spot =
       !splitDrop && this.measured && ghost && sources.length === 1 && sources[0]!.kind !== "tile" && sources[0]!.section !== "folder" && !this.into && drop.type !== "onto" && drop.type !== "folder"
@@ -310,7 +297,7 @@ class DragController {
     this.escapable = false;
     suppressHover(false);
     this.setSources(new Set());
-    this.marks.setState({ dropInto: null, onto: null, pins: false, pinCount: 0, pinBefore: null, folderTarget: null, folderAway: false });
+    markDrag(this.marks, { dropInto: null, onto: null, pins: false, pinCount: 0, pinBefore: null, folderTarget: null, folderAway: false });
   }
 
   private clearHold() {
@@ -333,7 +320,7 @@ class DragController {
   }
 
   private pointed(tiles: Frame, cells: Item[], count: number, home: number | null, x: number, y: number, folders: boolean): Pointed | null {
-    const marks = this.marks.getState();
+    const marks = dragMarksOf(this.marks);
     if (!this.gridBase) return null;
     if (!marks.pins && home === null) count = 0;
     const total = cells.length + count;
@@ -484,7 +471,7 @@ class DragController {
     const inPinned = !!list && y < list.y;
     const panel = folderPanel();
     const panelFrame = panel ? (this.regionFrames.get("folder") ?? null) : null;
-    const wasAway = this.marks.getState().folderAway;
+    const wasAway = dragMarksOf(this.marks).folderAway;
     const inPanel = !away && !wasAway && tabsDrag && !this.external && !!panelFrame && inside(panelFrame, x, y);
     if (source.section === "folder" && !inPanel) folderAway = true;
     const canFolder = tabsDrag && !this.external && !source.folderId;
@@ -564,7 +551,7 @@ class DragController {
     }
     if (drop.type !== "onto") onto = null;
 
-    if (folderAway !== this.marks.getState().folderAway) this.marks.setState({ folderAway });
+    if (folderAway !== dragMarksOf(this.marks).folderAway) markDrag(this.marks, { folderAway });
     const key = JSON.stringify(drop);
     if (key === this.dropKey && gapKey === this.gapKey) return;
     if (this.dropKey && drop.type !== "none" && currentSettings().tabReorderHaptics) hapticTick();
@@ -573,7 +560,7 @@ class DragController {
     this.into = into;
     const pins = drop.type === "tabs" && drop.placement.pinned && !drop.placement.row;
     const held = drop.type === "folder" && !inPanel;
-    this.marks.setState({ dropInto: into, onto, folderTarget, pins: pins || held, pinCount: pins || held ? count : 0, pinBefore: pins || held ? gapKey : null });
+    markDrag(this.marks, { dropInto: into, onto, folderTarget, pins: pins || held, pinCount: pins || held ? count : 0, pinBefore: pins || held ? gapKey : null });
     if (gapKey !== this.gapKey) {
       const prev = this.gapKey && this.items.get(this.gapKey);
       if (prev && !this.inGrid(prev)) spring(prev.gap, 0).start();
@@ -679,12 +666,12 @@ export function DragScope({ enabled, children }: { enabled: boolean; children: R
 }
 
 export const useDragController = () => useContext(DragContext) ?? undefined;
-export const useDropInto = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.dropInto);
-export const useDropOnto = (key: string) => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.onto === key);
-export const useDropPins = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.pins);
+export const useDropInto = () => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.dropInto);
+export const useDropOnto = (key: string) => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.onto === key);
+export const useDropPins = () => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.pins);
 export const usePinSlots = (cells: string[]) =>
   useStore(
-    useContext(DragContext)?.marks ?? noMarks,
+    useContext(DragContext)?.marks ?? noDragMarks,
     useShallow((m) => {
       let slot = 0;
       return cells.map((cell) => {
@@ -695,15 +682,15 @@ export const usePinSlots = (cells: string[]) =>
     }),
   );
 export const usePinnedCount = (cells: string[]) =>
-  useStore(useContext(DragContext)?.marks ?? noMarks, (m) => cells.reduce((n, cell) => n + (m.sources.has(cellKey(cell)) ? 0 : 1), 0) + m.pinCount);
-export const useFolderTarget = (key: string) => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.folderTarget === key);
-export const useFolderAway = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.folderAway);
-export const useDragFolded = (key: string) => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.folded === key);
-export const useDragging = () => useStore(useContext(DragContext)?.marks ?? noMarks, (m) => m.sources.size > 0);
+  useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => cells.reduce((n, cell) => n + (m.sources.has(cellKey(cell)) ? 0 : 1), 0) + m.pinCount);
+export const useFolderTarget = (key: string) => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.folderTarget === key);
+export const useFolderAway = () => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.folderAway);
+export const useDragFolded = (key: string) => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.folded === key);
+export const useDragging = () => useStore(useContext(DragContext)?.marks ?? noDragMarks, (m) => m.sources.size > 0);
 
 export function useDragItem(key: string, spec: ItemSpec, clip: ClipSource | null = null) {
   const controller = useContext(DragContext) ?? undefined;
-  const marks = controller?.marks ?? noMarks;
+  const marks = controller?.marks ?? noDragMarks;
   const item = useMemo(() => controller?.create(key), [controller, key]);
   if (item) Object.assign(item, spec);
   useEffect(() => {

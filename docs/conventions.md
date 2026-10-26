@@ -230,6 +230,9 @@ switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-
 | `native-calls` | a native package, `expo-modules-core` or `NativeModules` used outside `platform/` and `components/ui/` |
 | `tokens` | a colour literal, `Easing.` curve or numeric duration outside `tokens.ts`/`motion.ts` |
 | `get-state` | `getState(` in `components/` |
+| `set-state` | `.setState(` in `components/` |
+| `store-reads` | `useBrowser(` in `components/` (read through `state/<domain>/hooks.ts`) |
+| `store-shape` | a zustand store not created as `create<T>()(() => init)` (a `set`/`get` creator, or the uncurried form) |
 | `size` | a file over its line cap |
 | `env` | an environment read outside the launch config |
 | `naming` | a `Cef`, `AC*`/app-side `ArdiaCore*`, `Netnyahoo` or `NN*` name |
