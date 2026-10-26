@@ -546,7 +546,7 @@
     "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 13,
     "apps/browser/src/components/extensions/SidePanel.tsx": 10,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 4,
-    "apps/browser/src/components/import/ImportWindow.tsx": 15,
+    "apps/browser/src/components/import/ImportWindow.tsx": 16,
     "apps/browser/src/components/layout/HistoryPopover.tsx": 2,
     "apps/browser/src/components/layout/PaneOverlays.tsx": 18,
     "apps/browser/src/components/layout/SidebarDock.tsx": 3,

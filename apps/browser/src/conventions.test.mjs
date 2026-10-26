@@ -183,9 +183,13 @@ function scanSource(src, lang, embedded = false) {
         regexOk = false;
         continue;
       } else if (lang === "js" && c === "/") {
-        if (regexOk) regex();
-        else i++;
-        regexOk = !regexOk;
+        if (regexOk && !closesJsxTag(src, i)) {
+          regex();
+          regexOk = false;
+        } else {
+          i++;
+          regexOk = true;
+        }
         continue;
       }
       if (/[\w$]/.test(c)) {
@@ -197,7 +201,7 @@ function scanSource(src, lang, embedded = false) {
       if (closer && depth === 0 && c === closer) return;
       if (c === "(" || c === "[" || c === "{") depth++;
       else if (c === ")" || c === "]" || c === "}") depth--;
-      if (!/\s/.test(c)) regexOk = !(c === ")" || c === "]" || c === "}");
+      if (!/\s/.test(c)) regexOk = !(c === ")" || c === "]" || c === "}" || (c === ">" && src[i - 1] !== "="));
       i++;
     }
   };
@@ -216,6 +220,12 @@ function scanSource(src, lang, embedded = false) {
     for (const [start, end] of scanSource(text, "js", true).stray) stray.push([s.start + start, s.start + end]);
   }
   return { comments, strings, stray, codeAndStrings };
+}
+
+function closesJsxTag(src, slash) {
+  let before = slash - 1;
+  while (before >= 0 && /\s/.test(src[before])) before--;
+  return src[before] === "<";
 }
 
 function withoutHoles(src, { start, end, holes }) {
@@ -259,7 +269,7 @@ function languageOf(path) {
 }
 
 function layerOf(rel) {
-  for (const [prefix, layer] of LAYER_FOLDERS) if (rel.startsWith(prefix)) return layer;
+  for (const [prefix, layer] of LAYER_FOLDERS) if (rel.startsWith(prefix) || rel === prefix.slice(0, -1)) return layer;
   if (ENTRY_FILES.includes(rel.replace(/\.(?:tsx?|mjs|js)$/, ""))) return "app";
   return null;
 }
@@ -454,6 +464,23 @@ if (process.argv.includes("--write-baseline")) {
   console.log(problems.length ? `\nAgainst the baseline:\n${problems.join("\n")}` : "\nMatches the baseline.");
   process.exitCode = problems.length ? 1 : 0;
 } else {
+  const violationsOf = (path, src) => {
+    const found = {};
+    checkFile(path, src, (rule, _, n) => {
+      if (n > 0) found[rule] = (found[rule] ?? 0) + n;
+    });
+    return found;
+  };
+  test("a closing JSX tag doesn't hide a comment after it", () => {
+    assert.deepEqual(violationsOf("apps/browser/src/components/hello/Hello.tsx", "<Text>Hello</Text>; // comment\n"), { comments: 1 });
+  });
+  test("a closing JSX tag doesn't hide a colour after it", () => {
+    assert.deepEqual(violationsOf("apps/browser/src/components/hello/Hello.tsx", '<Text>Hello</Text>; const color = "#ff0000";\n'), { tokens: 1 });
+  });
+  test("an import of a layer's own folder maps to that layer", () => {
+    assert.deepEqual(violationsOf("apps/browser/src/components/ui/Button.tsx", 'import { Box } from ".";\n'), {});
+    assert.deepEqual(violationsOf("apps/browser/src/platform/launchConfig.ts", 'import { keys } from "../lib";\n'), {});
+  });
   test("conventions hold, except what the baseline lists", (t) => {
     const baseline = JSON.parse(readFileSync(ROOT + BASELINE_PATH, "utf8"));
     const found = findViolations(workingTreeFiles());
