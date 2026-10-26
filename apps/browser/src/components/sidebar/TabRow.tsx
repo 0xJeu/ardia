@@ -2,7 +2,8 @@ import { ActivitySpinner, ContextMenuArea, FadeLabel, MouseArea, Surface, Symbol
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, TextInput, View } from "react-native";
 import { toggleMute } from "../../state/browser/actions";
-import { hex, layout, useSelectedTabGlow, useTheme } from "../ui/theme";
+import { hex, layout, useTheme } from "../ui/theme";
+import { useSelectedTabGlow } from "./tokens";
 import { useBrowser } from "../../state/browser/store";
 import { useIsActiveTab, usePageProfileId, useTab, useWindowId } from "../../state/browser/hooks";
 import { HoverSlot } from "../ui/HoverSlot";

@@ -3,7 +3,8 @@ import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useSta
 import { Animated, Easing, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { create } from "zustand";
 import { toggleMute } from "../../state/browser/actions";
-import { hex, layout, ThemeScope, useTheme } from "../ui/theme";
+import { hex, layout, useTheme } from "../ui/theme";
+import { ThemeScope } from "../window/ThemeScope";
 import { useTileTheme } from "../../state/favicons/tileTheme";
 import { liquidGlass } from "../ui/Glass";
 import { useBrowser } from "../../state/browser/store";
