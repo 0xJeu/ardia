@@ -15,12 +15,12 @@ import { CreateProfileHost } from "./components/profiles/CreateProfile";
 import { useFullscreenTab } from "./components/layout/pageState";
 import { ProfileTint } from "./components/layout/ProfileSwipe";
 import { TOP_CARD_INSET, TOP_STRIP_HEIGHT, TopStripPeek, TopTabStrip } from "./components/layout/TopTabStrip";
-import { cardInset, useAddressBarInSidebar, useTabLayout } from "./components/layout/windowLayout";
+import { useTabLayout } from "./components/layout/windowLayout";
 import { WindowProfile } from "./components/layout/WindowProfile";
 import { DockedLayout } from "./components/layout/SidebarDock";
 import { LittleArdiaWindow } from "./components/littleArdia/LittleArdiaWindow";
 import { SidebarOverlays } from "./components/sidebar/Overlays";
-import { ThemeScope, useTheme } from "./lib/theme";
+import { layout, ThemeScope, useTheme } from "./lib/theme";
 import { useBrowser } from "./store/browser";
 import { useWindowId, WindowContext } from "./store/hooks";
 
@@ -51,7 +51,6 @@ function BrowserWindow() {
   const windowId = useWindowId();
   const topTabs = useTabLayout() === "top";
   const fullscreen = !!useFullscreenTab(windowId);
-  const arcLayout = useAddressBarInSidebar();
   const [width, setWidth] = useState(0);
   const card = (
     <>
@@ -68,7 +67,7 @@ function BrowserWindow() {
       <DockedLayout
         fullscreen={fullscreen}
         topTabs={topTabs}
-        inset={topTabs ? { top: TOP_STRIP_HEIGHT, right: TOP_CARD_INSET, bottom: TOP_CARD_INSET, left: TOP_CARD_INSET } : cardInset(arcLayout)}
+        inset={topTabs ? { top: TOP_STRIP_HEIGHT, right: TOP_CARD_INSET, bottom: TOP_CARD_INSET, left: TOP_CARD_INSET } : { top: layout.cardTop, right: layout.cardInset, bottom: layout.cardInset, left: layout.cardInset }}
         topStrip={
           topTabs
             ? { strip: <TopTabStrip width={width} hidden={fullscreen} />, peek: <TopStripPeek windowWidth={width} enabled={!fullscreen} /> }

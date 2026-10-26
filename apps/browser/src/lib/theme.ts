@@ -296,7 +296,7 @@ export const layout = {
   rowHeight: 34,
   rowGap: 3,
   cardTop: 6,
-  cardInset: 6,
+  cardInset: 7,
   cardRadius: 10,
   toolbarHeight: 41,
   toolbarButton: 30,
