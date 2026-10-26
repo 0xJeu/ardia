@@ -23,6 +23,7 @@ import { Anchor, Row, SectionHeader } from "../Form";
 import { defaultBrowser, downloadSettings, loginItem, updater } from "../paneData";
 import { store, useResource } from "../../../state/settings/resources";
 import { openImport } from "../../../state/settings/settingsWindows";
+import { SetupCodeRow } from "./SetupCodeRow";
 
 const APP = "Ardia";
 
@@ -111,6 +112,7 @@ export function GeneralPane() {
         <Row anchor="general.importBrowser">
           <Button title="Import…" onPress={openImport} />
         </Row>
+        <SetupCodeRow />
       </Group>
     </View>
   );

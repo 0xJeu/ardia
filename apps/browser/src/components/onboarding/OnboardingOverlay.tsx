@@ -9,6 +9,8 @@ import { LayoutStep, LookStep, TabsStep } from "./LayoutSteps";
 import { SearchPrivacyStep } from "./PrivacyStep";
 import { SourceStep } from "./SourceStep";
 import { HomeStep, OutroStep, PinnedTabsStep } from "./Steps";
+import { SetupCodeOutro } from "./SetupCodeOutro";
+import { isWebDemo } from "../../platform/webDemo";
 import { ToolTour } from "./tour/ToolTour";
 import { useOnboardingColors } from "./Parts";
 
@@ -95,7 +97,7 @@ function Overlay({ session }: { session: number }) {
                 {step === "searchPrivacy" && <SearchPrivacyStep />}
                 {step === "pins" && <PinnedTabsStep />}
                 {step === "home" && <HomeStep />}
-                {step === "outro" && <OutroStep />}
+                {step === "outro" && (isWebDemo ? <SetupCodeOutro /> : <OutroStep />)}
               </View>
             </Surface>
           </Animated.View>

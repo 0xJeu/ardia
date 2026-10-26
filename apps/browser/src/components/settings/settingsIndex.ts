@@ -83,6 +83,11 @@ const ROWS: Record<SettingsPane, Section[]> = {
           description: "Bookmarks, history, passwords, tabs and Arc spaces from Chrome, Arc, Safari, Firefox and more.",
           keywords: ["migrate", "switch", "transfer"],
         },
+        setupCode: {
+          title: "Apply a setup code",
+          description: "Paste the code from the demo on ardia.dev to bring over the layout, look and pinned apps you picked there.",
+          keywords: ["setup code", "demo", "ardia.dev", "preset", "arc", "layout"],
+        },
       },
     },
   ],

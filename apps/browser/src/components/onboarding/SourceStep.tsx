@@ -3,11 +3,13 @@ import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useHover } from "../ui";
 import { importModule } from "../../platform/importModule";
+import { isWebDemo } from "../../platform/webDemo";
 import { openImport } from "../../state/settings/settingsWindows";
 import { CONTENT_WIDTH } from "./ChoiceList";
 import { chooseSource, confirmAnswer, presetFor, skipStep, useOnboarding, type BrowserSourceId } from "../../state/onboarding/onboarding";
 import { StepActions, StepLayout } from "./Steps";
 import { CheckMark, SecondaryButton, SectionLabel, Tag, useOnboardingColors } from "./Parts";
+import { SetupCodeLink, SetupCodeStep } from "./SetupCodeStep";
 
 const ICON = require("../../../assets/app-icon.png");
 
@@ -53,6 +55,7 @@ export function SourceStep() {
   const source = useOnboarding((s) => s.source);
   const [tiles, setTiles] = useState<Tile[]>(detect);
   const [importing, setImporting] = useState<BrowserSourceId | null>(null);
+  const [pastingCode, setPastingCode] = useState(false);
 
   useEffect(() => {
     void Promise.all(tiles.map(async (t) => ({ ...t, icon: t.app ? ((await fileIcon(t.app, 64)) ?? null) : null }))).then(setTiles);
@@ -61,7 +64,7 @@ export function SourceStep() {
   const found = tiles.filter((t) => t.app);
   const others = tiles.filter((t) => !t.app);
   const chosen = tiles.find((t) => t.id === source);
-  const canImport = !!chosen?.app && !!importModule();
+  const canImport = !isWebDemo && !!chosen?.app && !!importModule();
   const choose = (id: BrowserSourceId) => chooseSource(id);
 
   const startImport = () => {
@@ -72,16 +75,21 @@ export function SourceStep() {
 
   const done = () => confirmAnswer("source", {}, chosen ? [`Coming from ${chosen.name}`] : source === "fresh" ? ["Starting fresh"] : []);
 
+  if (pastingCode) return <SetupCodeStep onBack={() => setPastingCode(false)} />;
+
   return (
     <StepLayout
       title="Where are you coming from?"
       subtitle="Ardia sets itself up the way you're used to. Change anything later."
       actions={
-        <StepActions
-          disabled={!source}
-          onContinue={done}
-          onSkip={() => skipStep()}
-        />
+        <>
+          <StepActions
+            disabled={!source}
+            onContinue={done}
+            onSkip={() => skipStep()}
+          />
+          {isWebDemo ? null : <SetupCodeLink onPress={() => setPastingCode(true)} />}
+        </>
       }
       preview={<SourcePreview tile={chosen ?? null} fresh={source === "fresh"} found={found} />}
     >

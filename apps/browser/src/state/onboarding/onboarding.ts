@@ -7,10 +7,11 @@ import type { Settings } from "../settings/settings";
 import type { ProfileColor } from "../browser/types";
 import { pinSites } from "./sites";
 import { endToolTour, startToolTour } from "./tour";
+import { stepsForThisSurface } from "./demoSteps";
 
 export type OnboardingStep = "intro" | "source" | "layout" | "tabs" | "look" | "searchPrivacy" | "pins" | "home" | "outro";
 
-export const STEPS: OnboardingStep[] = ["intro", "source", "layout", "tabs", "look", "searchPrivacy", "pins", "home", "outro"];
+export const STEPS: OnboardingStep[] = stepsForThisSurface(["intro", "source", "layout", "tabs", "look", "searchPrivacy", "pins", "home", "outro"]);
 
 export type Preset = "arc" | "dia";
 
