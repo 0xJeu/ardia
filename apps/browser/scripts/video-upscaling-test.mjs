@@ -376,7 +376,7 @@ await check("little-ardia", async () => {
   const page = await until("its page", () => instance.page(url, { timeout: 2000 }));
   await until("the page's script", async () => (await page.eval("typeof window.ready")) === "object");
   if ((await page.eval("window.ready", { timeout: 15000 })) !== "ok") throw new Error("the video didn't play");
-  await until("its browser", () => browserNumber(smallTab));
+  await until("its browser", () => evalApp(`return !!ac.pageState.getState().ready[${JSON.stringify(smallTab)}]`));
   await win(smallTab, "fakeOcclusion:visible");
   await sleep(2000);
   const g = await gate({ url });
