@@ -23,6 +23,7 @@ import {
 } from "../../state/extensions/actions";
 
 const BUTTON = 28;
+const GLYPH_BOX = 18;
 const GAP = 2;
 const PITCH = BUTTON + GAP;
 
@@ -208,7 +209,7 @@ function CastButton({ windowId, tabId, routes, palette }: { windowId: string; ta
   };
   return (
     <ContextMenuArea onContextMenu={() => void menu()}>
-      <Button variant="icon" icon="tv.and.mediabox.fill" size={14} box={BUTTON} radius={radius.button} color={theme.accent} palette={palette} tooltip={tooltip} onPress={() => void toggleCastPicker(windowId, tabId)} />
+      <Button variant="icon" icon="tv.and.mediabox.fill" size={14} box={BUTTON} glyphBox={GLYPH_BOX} radius={radius.button} color={theme.accent} palette={palette} tooltip={tooltip} onPress={() => void toggleCastPicker(windowId, tabId)} />
     </ContextMenuArea>
   );
 }
@@ -233,7 +234,7 @@ function OverflowButton({ windowId, tabId, palette }: { windowId: string; tabId:
   };
   return (
     <View ref={ref} onLayout={() => void measure()}>
-      <Button variant="icon" icon="puzzlepiece.extension" size={14} box={BUTTON} radius={radius.button} palette={palette} tooltip="Extensions" onPress={() => void onPress()} />
+      <Button variant="icon" icon="puzzlepiece.extension" size={14} box={BUTTON} glyphBox={GLYPH_BOX} radius={radius.button} palette={palette} tooltip="Extensions" onPress={() => void onPress()} />
     </View>
   );
 }

@@ -20,6 +20,7 @@ type IconProps = {
   active?: boolean;
   size?: number;
   box?: number;
+  glyphBox?: number;
   radius?: number;
   weight?: SymbolProps["weight"];
   tooltip?: string;
@@ -98,7 +99,7 @@ export const Button = memo(function Button(props: ButtonProps) {
   }
 });
 
-function IconButtonView({ icon, onPress, onLongPress, onContextMenu, disabled, active, size = 15, box = 30, radius = 7, weight = "regular", tooltip, palette, color, style, hit, toolbar }: IconProps) {
+function IconButtonView({ icon, onPress, onLongPress, onContextMenu, disabled, active, size = 15, box = 30, glyphBox, radius = 7, weight = "regular", tooltip, palette, color, style, hit, toolbar }: IconProps) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   const hover = palette ? palette.hover : theme.toolbarHover;
@@ -123,7 +124,7 @@ function IconButtonView({ icon, onPress, onLongPress, onContextMenu, disabled, a
         size={size}
         weight={weight}
         color={color ?? (disabled ? (palette ? palette.iconDisabled : theme.iconDisabled) : palette ? palette.icon : theme.icon)}
-        style={{ width: plateBox, height: plateBox }}
+        style={{ width: glyphBox ?? plateBox, height: glyphBox ?? plateBox }}
       />
     </View>
   );
