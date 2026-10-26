@@ -1,6 +1,6 @@
 import { OutsidePressArea, Surface } from "@ardia/shell";
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, Easing, View, type LayoutChangeEvent } from "react-native";
+import { AccessibilityInfo, Animated, View, type LayoutChangeEvent } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { useWindowId, useWindowUi } from "../../state/browser/hooks";
 import { closePanel } from "../../state/windows/actions";
@@ -14,6 +14,7 @@ import type { NewTabTarget } from "../../state/browser/types";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
 import { closePanelToHeroBar, type BarDismissal } from "../../state/omnibox/barState";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "../toolbar/Toolbar";
+import { curve } from "../ui/motion";
 
 const RIGHT_OF_URL = 40;
 const ABOVE_PANE = 5.5;
@@ -27,7 +28,7 @@ const PANEL_OPEN_HEIGHT = 107;
 const CENTRED_TOP_SHARE = 0.22;
 
 const GROW_MS = 130;
-const GROW_EASING = Easing.out(Easing.exp);
+const GROW_EASING = curve.outExpo;
 
 let reduceMotion = false;
 AccessibilityInfo.isReduceMotionEnabled().then(

@@ -1,6 +1,6 @@
 import { FadeLabel } from "@ardia/shell";
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { joinEvent } from "../../state/live/alerts";
 import { connectCalendar, refreshCalendar, useCalendar, useNow } from "../../state/live/calendar";
@@ -12,6 +12,7 @@ import { dismissHover } from "../../state/sidebar/hover";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { Avatar, HoverSurface, SmallButton } from "./LiveItemCard";
 import { useLiveColors } from "./colors";
+import { curve } from "../ui/motion";
 
 export function useIsCalendarTab(tabId: string | null): boolean {
   const pinnedCalendar = useBrowser((s) => {
@@ -73,7 +74,7 @@ function Refresh({ spinning }: { spinning: boolean }) {
   useEffect(() => {
     if (!spinning) return;
     turn.setValue(0);
-    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }));
+    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900, easing: curve.linear, useNativeDriver: true }));
     loop.start();
     return () => loop.stop();
   }, [spinning]);

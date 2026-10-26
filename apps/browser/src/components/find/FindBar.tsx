@@ -2,7 +2,7 @@ import { useShortcutHint, withShortcut } from "../../state/commands/commandShort
 import { claimFocusTag, findFocus } from "../../state/focus/focusClaims";
 import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, findNodeHandle, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, findNodeHandle, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../../state/browser/store";
@@ -10,6 +10,7 @@ import { useFind } from "../../state/browser/hooks";
 import type { FindState } from "../../state/browser/types";
 import { IconButton, useHover } from "../ui/Primitives";
 import { replaceInField } from "../../state/site/selection";
+import { curve } from "../ui/motion";
 
 export function FindBar({ tabId }: { tabId: string }) {
   const hasPage = useBrowser((s) => !!s.tabs[tabId]?.url);
@@ -34,7 +35,7 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
   const input = useRef<TextInput>(null);
   const appear = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(appear, { toValue: 1, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(appear, { toValue: 1, duration: 160, easing: curve.outCubic, useNativeDriver: true }).start();
   }, []);
   useEffect(() => {
     const request = find.focusRequest;

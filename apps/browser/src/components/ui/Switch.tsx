@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, View, type EasingFunction } from "react-native";
+import { Animated, Pressable, StyleSheet, View, type EasingFunction } from "react-native";
+import { curve, duration } from "./motion";
+import { useTheme } from "./theme";
+import { ink, opacity } from "./tokens";
 
 export type SwitchLook = {
   width: number;
@@ -59,7 +62,7 @@ export function Switch({
         slideTo(next);
         onChange(next);
       }}
-      style={{ opacity: disabled ? 0.45 : 1 }}
+      style={{ opacity: disabled ? opacity.disabled : 1 }}
     >
       <View pointerEvents="none" style={{ width: look.width, height: look.height, borderRadius: radius, backgroundColor: look.offColor, overflow: "hidden" }}>
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: look.onColor, opacity: progress }]} />
@@ -71,7 +74,7 @@ export function Switch({
             width: look.knob,
             height: look.knob,
             borderRadius: look.knob / 2,
-            backgroundColor: "#FFFFFF",
+            backgroundColor: ink.white,
             borderWidth: look.knobBorder ? StyleSheet.hairlineWidth : 0,
             borderColor: look.knobBorder,
             transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, travel] }) }],
@@ -84,4 +87,25 @@ export function Switch({
 
 const USER_CHANGE_WINDOW_MS = 2000;
 
-export const switchEasing = { cubicOut: Easing.out(Easing.cubic), quadOut: Easing.out(Easing.quad) };
+export function Toggle({ value, onChange, disabled, look = "form" }: { value: boolean; onChange: (value: boolean) => void; disabled?: boolean; look?: "form" | "panel" }) {
+  const theme = useTheme();
+  if (look === "panel")
+    return (
+      <Switch
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        look={{ width: 30, height: 17, knob: 14, inset: 1.5, offColor: theme.toggleOff, onColor: theme.toggleOn, duration: duration.quick, easing: curve.outQuad }}
+      />
+    );
+  return (
+    <Switch
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      animateExternalChanges={false}
+      look={{ width: 32, height: 18, knob: 15, inset: 1.5, offColor: theme.switchOff, onColor: theme.formAccent, knobBorder: theme.knobBorder, duration: duration.toggle, easing: curve.outCubic }}
+    />
+  );
+}
+export const switchEasing = { cubicOut: curve.outCubic, quadOut: curve.outQuad };

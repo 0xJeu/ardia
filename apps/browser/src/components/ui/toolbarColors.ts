@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing } from "react-native";
+import { Animated } from "react-native";
 import type { Theme } from "./theme";
+import { curve } from "./motion";
 
 export type ToolbarPalette = {
   background: string | null;
@@ -92,7 +93,7 @@ export function useEasedColor(color: string | null, duration = 180) {
   useEffect(() => {
     if (from.current === to.current) return;
     progress.setValue(0);
-    Animated.timing(progress, { toValue: 1, duration, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(progress, { toValue: 1, duration, easing: curve.outQuad, useNativeDriver: false }).start();
   }, [target]);
   return progress.interpolate({ inputRange: [0, 1], outputRange: [from.current, to.current] });
 }

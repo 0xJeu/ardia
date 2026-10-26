@@ -1,6 +1,6 @@
 import { FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Image, Pressable, Text, View } from "react-native";
+import { Animated, Image, Pressable, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { openLiveItem } from "../../state/live/engine";
 import { summarizeChecks } from "../../state/live/github";
@@ -14,6 +14,7 @@ import { hoverCardOrigin } from "../sidebar/hoverMotion";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "../sidebar/TabIcon";
 import { useLiveColors, type LiveColors } from "./colors";
+import { curve } from "../ui/motion";
 
 export function HoverSurface({ anchor, width, children }: { anchor: Anchor; width: number; children: ReactNode }) {
   const theme = useTheme();
@@ -158,8 +159,8 @@ function CIProgressBar({ checks, colors }: { checks: PullRequestCheck[]; colors:
     if (!pending) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.45, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.45, duration: 700, easing: curve.inOutQuad, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, easing: curve.inOutQuad, useNativeDriver: true }),
       ]),
     );
     loop.start();

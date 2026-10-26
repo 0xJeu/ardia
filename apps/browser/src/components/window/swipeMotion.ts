@@ -17,10 +17,6 @@ export function capsuleOffset(progress: number, width: number) {
   return rubberBand(progress * limit, limit, limit) - width;
 }
 
-export function springParams(response: number, dampingRatio: number) {
-  return { stiffness: (2 * Math.PI / response) ** 2, damping: (4 * Math.PI * dampingRatio) / response, mass: 1 };
-}
-
 export const LIST_ROW = 38;
 
 export function listSelection(dySinceShown: number, count: number) {

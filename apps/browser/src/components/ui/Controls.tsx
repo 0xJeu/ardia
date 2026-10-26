@@ -1,11 +1,12 @@
 import { ContextMenuArea, Surface, Symbol, VisualEffect, type SurfaceProps, type SymbolProps } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { hex, useTheme } from "./theme";
 import { Switch, switchEasing } from "./Switch";
 import { useHover } from "./Primitives";
 import type { ToolbarPalette } from "./toolbarColors";
 import { modifiersOf, type ClickModifiers } from "../../lib/keys";
+import { curve } from "./motion";
 
 export function ToolbarButton({
   icon,
@@ -275,8 +276,8 @@ export function PopoverSurface({ children, ...props }: SurfaceProps) {
 export const popoverRowFill = (dark: boolean, pressed = false) => (dark ? `rgba(255,255,255,${pressed ? 0.12 : 0.07})` : `rgba(0,0,0,${pressed ? 0.1 : 0.06})`);
 
 export const POPOVER_MOTION = {
-  open: { duration: 150, easing: Easing.out(Easing.cubic) },
-  close: { duration: 100, easing: Easing.in(Easing.quad) },
+  open: { duration: 150, easing: curve.outCubic },
+  close: { duration: 100, easing: curve.inQuad },
 } as const;
 
 export function usePopoverPresence(open: boolean) {

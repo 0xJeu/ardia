@@ -1,12 +1,13 @@
 import { WindowBackdrop } from "@ardia/shaders";
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { hex, profileAccent, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { useHover } from "../ui/Primitives";
 import type { ReleaseNotes } from "../../state/releaseNotes/releaseNotes";
+import { curve } from "../ui/motion";
 
 const ICON = require("../../../assets/app-icon.png");
 
@@ -50,7 +51,7 @@ export function ReleaseNotesPostcard({ notes, size, onOpen, onDismiss }: { notes
       const stiffness = (2 * Math.PI / 0.65) ** 2;
       Animated.parallel([
         Animated.spring(drop, { toValue: 0, stiffness, damping: 2 * Math.sqrt(stiffness), mass: 1, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 300, easing: curve.outQuad, useNativeDriver: true }),
       ]).start();
     });
     return () => {
@@ -59,15 +60,15 @@ export function ReleaseNotesPostcard({ notes, size, onOpen, onDismiss }: { notes
   }, []);
 
   useEffect(() => {
-    Animated.timing(scale, { toValue: hovered ? 1.05 : 1, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-    Animated.timing(tooltip, { toValue: hovered ? 1 : 0, duration: hovered ? 50 : 100, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(scale, { toValue: hovered ? 1.05 : 1, duration: 160, easing: curve.outQuad, useNativeDriver: true }).start();
+    Animated.timing(tooltip, { toValue: hovered ? 1 : 0, duration: hovered ? 50 : 100, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [hovered]);
 
   const dismiss = () => {
     setLeaving(true);
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 0.96, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 200, easing: curve.inQuad, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.96, duration: 200, easing: curve.inQuad, useNativeDriver: true }),
     ]).start(onDismiss);
   };
   if (size.height < 420 || size.width < 560) return null;
@@ -186,7 +187,7 @@ export function ReleaseNotesPage({ notes, size, onClose }: { notes: ReleaseNotes
   }, []);
   const close = () => {
     setClosing(true);
-    Animated.timing(t, { toValue: 0, duration: 240, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(onClose);
+    Animated.timing(t, { toValue: 0, duration: 240, easing: curve.inCubic, useNativeDriver: true }).start(onClose);
   };
 
   const width = Math.min(860, size.width - 64);

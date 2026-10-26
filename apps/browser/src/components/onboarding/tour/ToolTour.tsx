@@ -1,6 +1,6 @@
 import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../../ui/theme";
 import { useWindowId } from "../../../state/browser/hooks";
 import type { Rect } from "../../window/geometry";
@@ -8,6 +8,7 @@ import { useHover } from "../../ui/Primitives";
 import { useOnboardingColors } from "../Parts";
 import { locateAnchor } from "./anchors";
 import { endToolTour, openVideoTour, stepToolTour, useTour, videoTourUrl, type TourStop } from "../../../state/onboarding/tour";
+import { curve } from "../../ui/motion";
 
 const CARD_WIDTH = 296;
 const GAP = 14;
@@ -24,9 +25,9 @@ export function ToolTour() {
   useEffect(() => {
     if (active) {
       setShown(session);
-      Animated.timing(presence, { toValue: 1, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+      Animated.timing(presence, { toValue: 1, duration: 240, easing: curve.outQuad, useNativeDriver: true }).start();
     } else if (shown !== null) {
-      Animated.timing(presence, { toValue: 0, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(presence, { toValue: 0, duration: 200, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
         if (finished) setShown(null);
       });
     }
@@ -136,8 +137,8 @@ function Ring({ hole }: { hole: { x: Animated.Value; y: Animated.Value; w: Anima
     const id = hole.r.addListener(({ value }) => setR(Math.max(0, value)));
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: curve.inOutSine, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: curve.inOutSine, useNativeDriver: true }),
       ]),
     );
     loop.start();

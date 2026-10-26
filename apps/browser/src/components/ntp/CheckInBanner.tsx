@@ -1,9 +1,10 @@
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { CHECK_IN_COPY, useDefaultBrowserCheckIn } from "../../state/onboarding/defaultBrowserCheckIn";
 import { hex, useTheme } from "../ui/theme";
 import { useHover } from "../ui/Primitives";
+import { curve } from "../ui/motion";
 
 const ICON = require("../../../assets/app-icon.png");
 
@@ -33,7 +34,7 @@ function Card({ leaving, onFeedback, onClose }: { leaving: null | (() => void); 
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 300, delay: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(opacity, { toValue: 1, duration: 300, delay: 300, easing: curve.outQuad, useNativeDriver: true }).start();
   }, []);
   useEffect(() => {
     if (leaving) return;
@@ -43,8 +44,8 @@ function Card({ leaving, onFeedback, onClose }: { leaving: null | (() => void); 
   useEffect(() => {
     if (!leaving) return;
     Animated.parallel([
-      Animated.timing(scale, { toValue: 0.98, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.98, duration: 220, easing: curve.outQuad, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 220, easing: curve.outQuad, useNativeDriver: true }),
     ]).start(() => leaving());
   }, [leaving]);
 

@@ -1,11 +1,12 @@
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { defaultSearchEngine } from "../../state/settings/settings";
 import { useHover } from "../ui/Primitives";
 import { searchSelection, setPageSelection, usePageSelection, type ClickModifiers, type PageSelection } from "../../state/site/selection";
+import { curve } from "../ui/motion";
 
 const HEIGHT = 32;
 const GAP = 6;
@@ -36,7 +37,7 @@ function Bar({ tabId, selection, zoom, area }: { tabId: string; selection: PageS
   const [width, setWidth] = useState(0);
   const appear = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(appear, { toValue: 1, duration: 150, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(appear, { toValue: 1, duration: 150, easing: curve.outCubic, useNativeDriver: true }).start();
   }, []);
   const r = selection.rect;
   const top = r.y * zoom;

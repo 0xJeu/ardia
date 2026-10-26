@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, Easing, type StyleProp, type ViewStyle } from "react-native";
+import { AccessibilityInfo, Animated, type StyleProp, type ViewStyle } from "react-native";
+import { curve } from "../ui/motion";
 
 const PRESSED_SCALE = 0.99;
 const PRESSED_OPACITY = 0.95;
 const PRESS_IN_MS = 80;
 const PRESS_OUT_MS = 180;
-const PRESS_EASING = Easing.out(Easing.cubic);
+const PRESS_EASING = curve.outCubic;
 
 let reduceMotion = false;
 AccessibilityInfo.isReduceMotionEnabled().then(

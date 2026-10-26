@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Text } from "react-native";
+import { Animated, Text } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useNow } from "../../state/live/calendar";
 import { timeRemaining, WIGGLE_MARKS_MIN } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
 import { useLiveColors } from "./colors";
+import { curve } from "../ui/motion";
 
 const SHOW_WITHIN_MIN = 10;
 const wiggled = new Set<string>();
@@ -23,7 +24,7 @@ export function useMeetingCountdown(groupId: string) {
     if (!due.length) return;
     due.forEach((m) => wiggled.add(`${groupId}:${m}`));
     wiggle.setValue(0);
-    const step = (to: number, duration = 70) => Animated.timing(wiggle, { toValue: to, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true });
+    const step = (to: number, duration = 70) => Animated.timing(wiggle, { toValue: to, duration, easing: curve.inOutQuad, useNativeDriver: true });
     Animated.sequence([step(1), step(-1, 110), step(0.8, 110), step(-0.6, 110), step(0.3, 100), step(0, 90)]).start();
   }, [minutesLeft === null ? null : Math.ceil(minutesLeft * 12)]);
 

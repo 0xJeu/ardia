@@ -1,7 +1,7 @@
 import type { BrowserProfile, BrowserSource, DiaAutomationStatus, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "@ardia/import";
 import { closeWindow, confirm, Symbol, VisualEffect, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Animated, AppState, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, AppState, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { allArcHolders, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
 import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
@@ -15,6 +15,7 @@ import { useOnboarding } from "../../state/onboarding/onboarding";
 import { IMPORT_WINDOW_ID, takePreferredImportSource } from "../../state/settings/settingsWindows";
 import { applyResult, applySafari, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, type ImportCounts } from "../../state/import/apply";
 import { importModule } from "../../platform/importModule";
+import { curve } from "../ui/motion";
 
 const APP = "Ardia";
 
@@ -1038,7 +1039,7 @@ function CategoryRow({ title, icon, status, index }: { title: string; icon: stri
   const appear = useRef(new Animated.Value(0)).current;
   const check = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(appear, { toValue: 1, duration: 260, delay: index * 70, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(appear, { toValue: 1, duration: 260, delay: index * 70, easing: curve.outCubic, useNativeDriver: true }).start();
   }, []);
   useEffect(() => {
     if (status === "done" || status === "failed") Animated.spring(check, { toValue: 1, friction: 5, tension: 160, useNativeDriver: true }).start();

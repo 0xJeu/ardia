@@ -7,11 +7,6 @@ export const ARC_HIDE_MS = 100;
 export const easeOutCubic = (u: number) => 1 - (1 - u) ** 3;
 export const easeInOutCubic = (u: number) => (u < 0.5 ? 4 * u ** 3 : 1 - (-2 * u + 2) ** 3 / 2);
 
-export function springConfig({ response, damping }: { response: number; damping: number }) {
-  const omega = (2 * Math.PI) / response;
-  return { stiffness: omega * omega, damping: 2 * damping * omega, mass: 1 };
-}
-
 export function springAt(
   t: number,
   { response, damping }: { response: number; damping: number } = DOCK_SPRING,

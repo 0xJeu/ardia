@@ -1,6 +1,6 @@
 import { breadcrumb } from "@ardia/core";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useSettings, useTabLive } from "../../state/browser/hooks";
@@ -12,11 +12,12 @@ import { usePages } from "../../state/tabs/pageState";
 import { useExtensions } from "../../state/extensions/store";
 import { needsBar, revealToolbar, setToolbarPeek, STRIP_HEIGHT, toolbarMode, useToolbarAutoHide, type ToolbarMode } from "../../state/windows/toolbarAutoHide";
 import { Toolbar } from "./Toolbar";
+import { curve } from "../ui/motion";
 
 const HIDE_MS = 150;
-const HIDE_EASING = Easing.out(Easing.quad);
+const HIDE_EASING = curve.outQuad;
 const SHOW_MS = 200;
-const SHOW_EASING = Easing.out(Easing.cubic);
+const SHOW_EASING = curve.outCubic;
 const PEEK_DELAY = 150;
 const UNPEEK_DELAY = 250;
 const SHRINK = 0.94;

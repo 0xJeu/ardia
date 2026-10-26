@@ -1,7 +1,7 @@
 import { changeCaptureSource, stopCapture } from "@ardia/ardiacore";
 import { Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Text, View } from "react-native";
+import { Animated, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { engineProfile } from "../../state/browser/model";
@@ -11,6 +11,7 @@ import { pageOf, usePages } from "../../state/tabs/pageState";
 import { useMedia, type TabShare } from "../../state/media/media";
 import { CAPTURE_RED } from "./tokens";
 import { hostOrOrigin } from "../../lib/url";
+import { curve } from "../ui/motion";
 
 const SHARE_BAR_HEIGHT = 38;
 
@@ -80,7 +81,7 @@ export function ShareBar({ tabId }: { tabId: string }) {
   const height = useRef(new Animated.Value(0)).current;
   const visible = !!found;
   useEffect(() => {
-    Animated.timing(height, { toValue: visible ? SHARE_BAR_HEIGHT : 0, duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    Animated.timing(height, { toValue: visible ? SHARE_BAR_HEIGHT : 0, duration: 180, easing: curve.outCubic, useNativeDriver: false }).start();
   }, [visible]);
   const last = useRef(found);
   if (found) last.current = found;

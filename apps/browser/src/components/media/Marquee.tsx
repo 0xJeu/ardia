@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Text, View, type TextStyle } from "react-native";
+import { Animated, Text, View, type TextStyle } from "react-native";
+import { curve } from "../ui/motion";
 
 const SPEED = 30;
 const PAUSE_MS = 1500;
@@ -19,7 +20,7 @@ export function useMarqueeGroup(resetKey: string): MarqueeGroup {
     progress.setValue(0);
     if (max < 1) return;
     const duration = (max / SPEED) * 1000;
-    const leg = (toValue: number) => Animated.timing(progress, { toValue, duration, easing: Easing.linear, useNativeDriver: true });
+    const leg = (toValue: number) => Animated.timing(progress, { toValue, duration, easing: curve.linear, useNativeDriver: true });
     const loop = Animated.loop(Animated.sequence([Animated.delay(PAUSE_MS), leg(1), Animated.delay(PAUSE_MS), leg(0)]));
     loop.start();
     return () => loop.stop();

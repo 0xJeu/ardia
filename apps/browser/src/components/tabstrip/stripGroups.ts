@@ -6,14 +6,14 @@ import { groupLabel } from "../../state/pins/organize";
 import { groupIndex, splitIndex, stableList } from "../../state/browser/structure";
 import { folderMembers, tileFolderOf } from "../../state/pins/tileFolders";
 import { groupEntries } from "../../state/sidebar/entries";
-import { springParams } from "../window/swipeMotion";
+import { spring } from "../ui/motion";
 
 export const GROUP_MARGIN_LEFT = 3.5;
 export const GROUP_MARGIN_RIGHT = 4;
 export const MEMBERS_INSET = 6.5;
 const TAIL_COLLAPSED = 4.5;
 export const TAIL_EXPANDED = 30.25;
-export const GROUP_SPRING = springParams(0.3, 0.82);
+export const GROUP_SPRING = spring({ response: 0.3, damping: 0.82 });
 export const TUCK_FADE_MS = 120;
 
 type GroupLayout = { offsets: number[]; width: number };

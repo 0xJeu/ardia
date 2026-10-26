@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 globalThis.__DEV__ = false;
 const dm = { ...(await import("./dockMotion.ts")), ...(await import("../../state/windows/dockMotion.ts")) };
+const motion = await import("../ui/motion.ts");
 const { toolbarGeometry } = await import("./geometry.ts");
 const { useBrowser } = await import("../../state/browser/store.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../../state/session/persist.ts");
@@ -26,7 +27,7 @@ test("the spring follows Dia's measured motion (rms under 4 % of the travel, the
 });
 
 test("React Native's spring parameters are the same spring", () => {
-  const { stiffness, damping, mass } = dm.springConfig(dm.DOCK_SPRING);
+  const { stiffness, damping, mass } = motion.spring(dm.DOCK_SPRING);
   assert.equal(mass, 1);
   const omega = Math.sqrt(stiffness);
   assert.ok(Math.abs(omega - (2 * Math.PI) / 0.215) < 1e-9);

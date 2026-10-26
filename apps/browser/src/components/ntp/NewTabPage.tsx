@@ -6,7 +6,7 @@ import { hex, layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { useCardAnchors } from "../../state/windows/layout";
-import { springParams } from "../window/swipeMotion";
+import { spring as springOf } from "../ui/motion";
 import { NewTabExtras } from "./NewTabExtras";
 import { IncognitoHeading } from "./IncognitoHeading";
 import { DIA_OFFSET, MARK_ABOVE_BAR, newTabBarTop } from "./newTabLayout";
@@ -29,12 +29,12 @@ const MARKS = {
 const MARK_SIZE = 100;
 const SUN_DELAY = 250;
 const MARK_LAYERS = [
-  { name: "sun", hidden: 56, delay: SUN_DELAY, spring: springParams(0.56, 0.9) },
-  { name: "back", hidden: 40.5, delay: 170, spring: springParams(0.46, 0.84) },
-  { name: "front", hidden: 34, delay: 80, spring: springParams(0.42, 0.76) },
+  { name: "sun", hidden: 56, delay: SUN_DELAY, spring: springOf({ response: 0.56, damping: 0.9 }) },
+  { name: "back", hidden: 40.5, delay: 170, spring: springOf({ response: 0.46, damping: 0.84 }) },
+  { name: "front", hidden: 34, delay: 80, spring: springOf({ response: 0.42, damping: 0.76 }) },
 ] as const;
 const SUN_DRIFT = 6;
-const SUN_DRIFT_SPRING = springParams(0.6, 1);
+const SUN_DRIFT_SPRING = springOf({ response: 0.6, damping: 1 });
 
 type Size = { width: number; height: number };
 let lastSize: { card: Size; size: Size } | null = null;
@@ -78,7 +78,7 @@ export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?:
   }, [tabId]);
   useEffect(() => {
     if (!playIntro || reduceMotion) return;
-    const spring = (value: Animated.Value, delay: number, params: ReturnType<typeof springParams>) =>
+    const spring = (value: Animated.Value, delay: number, params: ReturnType<typeof springOf>) =>
       Animated.spring(value, { toValue: 0, delay, ...params, useNativeDriver: true });
     const intro = Animated.parallel([
       ...rise.layers.map((l) => spring(l.y, l.delay, l.spring)),

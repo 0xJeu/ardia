@@ -1,9 +1,10 @@
 import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { stopCliControl, useCliIndicator } from "../../state/app/cliControl";
 import { hex, useTheme } from "../ui/theme";
 import { useHover } from "../ui/Primitives";
+import { curve } from "../ui/motion";
 
 const PILL_HEIGHT = 32;
 const PILL_BOTTOM = 12;
@@ -35,8 +36,8 @@ function ShownCliControlPill({ shown, appearAtOnce, onHidden }: { shown: boolean
     const animation = Animated.timing(
       appear,
       shown
-        ? { toValue: 1, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: true }
-        : { toValue: 0, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: true },
+        ? { toValue: 1, duration: 160, easing: curve.outCubic, useNativeDriver: true }
+        : { toValue: 0, duration: 200, easing: curve.inQuad, useNativeDriver: true },
     );
     animation.start(({ finished }) => finished && !shown && onHidden());
     return () => animation.stop();

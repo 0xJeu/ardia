@@ -1,7 +1,7 @@
 import { cancelDownload, pauseDownload, resumeDownload, type Download } from "@ardia/ardiacore";
 import { ContextMenuArea, copyText, fileExists, fileIcon, MouseArea, moveToTrash, openFile, PopoverBubble, revealFile, showMenu, Symbol, type MenuItem } from "@ardia/shell";
 import { memo, useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useShallow } from "zustand/react/shallow";
@@ -16,6 +16,7 @@ import { HoverSlot } from "../ui/HoverSlot";
 import { anchorInside, DOWNLOADS_PANEL, downloadsPlacement, type DownloadsPlacement, type Rect, type Size } from "./downloadsPlacement";
 import { PANEL, POPOVER_MOTION, PopoverSeparator, usePopoverPresence } from "../ui/Controls";
 import { IconButton, useHover } from "../ui/Primitives";
+import { curve } from "../ui/motion";
 
 function formatBytes(n: number) {
   if (n < 0) return "";
@@ -505,7 +506,7 @@ export function DownloadMagnet() {
       if (!fresh || s.ui.focusedWindowId !== windowId || !downloadVisibleIn(fresh, s.windows[windowId])) return;
       t.setValue(0);
       setFlight({ id: fresh.id, path: fresh.path || fresh.filename });
-      Animated.timing(t, { toValue: 1, duration: 700, easing: Easing.bezier(0.45, 0, 0.2, 1), useNativeDriver: true }).start(({ finished }) => finished && setFlight(null));
+      Animated.timing(t, { toValue: 1, duration: 700, easing: curve.flight, useNativeDriver: true }).start(({ finished }) => finished && setFlight(null));
     });
   }, [windowId]);
 

@@ -1,11 +1,12 @@
 import { showMenu, Surface, Symbol, type MenuItem } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
 import { hex, useTheme, type Theme } from "./theme";
 import { Switch, switchEasing } from "./Switch";
 import { useHover } from "./Primitives";
 import { registerAnchor, useSettingsSearch } from "../../state/settings/searchState";
 import { setting } from "../settings/settingsIndex";
+import { curve } from "./motion";
 
 function formColors(theme: Theme) {
   return theme.dark
@@ -364,9 +365,9 @@ export function Anchor({ id, children, radius = 0, style }: { id?: string; child
     if (!flash) return;
     glow.setValue(0);
     const run = Animated.sequence([
-      Animated.timing(glow, { toValue: 1, duration: FLASH_IN_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 1, duration: FLASH_IN_MS, easing: curve.outQuad, useNativeDriver: true }),
       Animated.delay(FLASH_HOLD_MS),
-      Animated.timing(glow, { toValue: 0, duration: FLASH_OUT_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 0, duration: FLASH_OUT_MS, easing: curve.inOutQuad, useNativeDriver: true }),
     ]);
     run.start();
     return () => run.stop();

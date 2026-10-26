@@ -1,11 +1,12 @@
 import { toAppUrl, urlForDisplay } from "@ardia/core";
 import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { PromptButton } from "../ui/Controls";
 import { patchPage, usePage } from "../../state/tabs/pageState";
+import { curve } from "../ui/motion";
 
 export function StatusBubble({ tabId, maxWidth }: { tabId: string; maxWidth: number }) {
   const theme = useTheme();
@@ -15,11 +16,11 @@ export function StatusBubble({ tabId, maxWidth }: { tabId: string; maxWidth: num
   useEffect(() => {
     if (status) {
       setShown(status);
-      Animated.timing(opacity, { toValue: 1, duration: 90, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+      Animated.timing(opacity, { toValue: 1, duration: 90, easing: curve.outQuad, useNativeDriver: true }).start();
       return;
     }
     const timer = setTimeout(() => {
-      Animated.timing(opacity, { toValue: 0, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(opacity, { toValue: 0, duration: 220, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
         if (finished) setShown("");
       });
     }, 180);

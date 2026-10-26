@@ -1,6 +1,6 @@
 import { hapticTick, onAppEvent, setDragEscapeCapture } from "@ardia/shell";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Animated, Easing, PanResponder, type ScrollView, type View } from "react-native";
+import { Animated, PanResponder, type ScrollView, type View } from "react-native";
 import { create, useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { layout, useTheme } from "../ui/theme";
@@ -18,6 +18,7 @@ import { overPins, pinGrid, pinGridHeight, pinSlot, TILE_GAP } from "./pinZone";
 import { SCROLL_EDGE } from "./ScrollEdge";
 import { closeFolderPanel, folderPanel } from "../../state/sidebar/tileFolderUi";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
+import { curve } from "../ui/motion";
 
 type Frame = { x: number; y: number; w: number; h: number };
 type Section = "tiles" | "pinnedRows" | "pinnedGroups" | "list" | "folder";
@@ -650,7 +651,7 @@ function WindowDropHighlight() {
   const over = useTabDrag((d) => d.overWindow === windowId);
   const glow = useMemo(() => new Animated.Value(0), []);
   useEffect(() => {
-    Animated.timing(glow, { toValue: over ? 1 : 0, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(glow, { toValue: over ? 1 : 0, duration: 140, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [over]);
   return (
     <Animated.View

@@ -1,9 +1,10 @@
 import { Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Easing, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useHover } from "../ui/Primitives";
 import { questionsFor, STEPS, useOnboarding, type OnboardingStep } from "../../state/onboarding/onboarding";
+import { curve } from "../ui/motion";
 
 function onboardingColors(dark: boolean) {
   return dark
@@ -80,7 +81,7 @@ export const useOnboardingColors = () => onboardingColors(useTheme().dark);
 export function Reveal({ delay = 0, children, style }: { delay?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const t = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(t, { toValue: 1, duration: 420, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(t, { toValue: 1, duration: 420, delay, easing: curve.outCubic, useNativeDriver: true }).start();
   }, []);
   return (
     <Animated.View style={[style, { opacity: t, transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
@@ -191,7 +192,7 @@ export function CheckMark({ on, size = 18 }: { on: boolean; size?: number }) {
   const colors = useOnboardingColors();
   const t = useRef(new Animated.Value(on ? 1 : 0)).current;
   useEffect(() => {
-    Animated.timing(t, { toValue: on ? 1 : 0, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(t, { toValue: on ? 1 : 0, duration: 140, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [on]);
   return (
     <View

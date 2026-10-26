@@ -1,6 +1,6 @@
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { withAlpha } from "../sidebar/tokens";
 import { useBrowser } from "../../state/browser/store";
@@ -12,6 +12,7 @@ import { useWindowId } from "../../state/browser/hooks";
 import { overPeek } from "../../state/windows/dockMotion";
 import { zoneHit, zoneRect, type ZoneStage } from "./splitDrop";
 import { setDropTarget, setOnPage, setTargetResolver, useTabDrag } from "../../state/drag/tabDrag";
+import { curve } from "../ui/motion";
 
 export function SplitDividers({ split, dividers, width, height }: { split: SplitView; dividers: Divider[]; width: number; height: number }) {
   return (
@@ -187,10 +188,10 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
     ]).start();
   }, [rect.x, rect.y, rect.width, rect.height]);
   useEffect(() => {
-    Animated.timing(glow, { toValue: active ? 1 : 0, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(glow, { toValue: active ? 1 : 0, duration: 120, easing: curve.outQuad, useNativeDriver: false }).start();
   }, [active]);
   useEffect(() => {
-    Animated.timing(slide, { toValue: shown ? 1 : 0, duration: ZONE_SLIDE_MS, easing: shown ? Easing.out(Easing.cubic) : Easing.in(Easing.quad), useNativeDriver: false }).start(
+    Animated.timing(slide, { toValue: shown ? 1 : 0, duration: ZONE_SLIDE_MS, easing: shown ? curve.outCubic : curve.inQuad, useNativeDriver: false }).start(
       ({ finished }) => finished && !shown && onHidden(),
     );
   }, [shown]);
@@ -241,7 +242,7 @@ export const SplitToast = memo(function SplitToast({ windowId }: { windowId: str
   useEffect(() => {
     if (toast) return setShown(toast);
     if (!shown) return;
-    Animated.timing(appear, { toValue: 0, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(appear, { toValue: 0, duration: 220, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
       if (finished) setShown(null);
     });
   }, [toast]);
@@ -252,7 +253,7 @@ export const SplitToast = memo(function SplitToast({ windowId }: { windowId: str
     Animated.spring(appear, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 6 }).start();
     if (toast.sticky) return;
     const timer = setTimeout(() => {
-      Animated.timing(appear, { toValue: 0, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(appear, { toValue: 0, duration: 220, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
         setShown(null);
         hideToast(windowId, toast.id);

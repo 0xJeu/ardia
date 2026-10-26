@@ -1,7 +1,7 @@
 import { permissionWarnings, WebView, type InstalledExtension, type WebViewHandle } from "@ardia/ardiacore";
 import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Animated, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../../state/browser/store";
@@ -20,6 +20,7 @@ import {
   useWindowExtensions,
   type InstallRequest,
 } from "../../state/extensions/actions";
+import { curve } from "../ui/motion";
 
 export function ExtensionOverlays() {
   const windowId = useWindowId();
@@ -97,7 +98,7 @@ function ActionPopup({ windowId, pageProfile, url, anchor }: { windowId: string;
       height: Math.min(MAX.height, Math.max(MIN.height, Math.ceil(h))),
     };
     setSize((prev) => {
-      if (!prev) Animated.timing(appear, { toValue: 1, duration: 150, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      if (!prev) Animated.timing(appear, { toValue: 1, duration: 150, easing: curve.outCubic, useNativeDriver: true }).start();
       return prev && prev.width === next.width && prev.height === next.height ? prev : next;
     });
   };
@@ -282,7 +283,7 @@ function Dialog({ windowId, onDismiss, onSubmit, children }: { windowId: string;
   const appear = useRef(new Animated.Value(0)).current;
   const keys = useRef<View>(null);
   useEffect(() => {
-    Animated.timing(appear, { toValue: 1, duration: 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(appear, { toValue: 1, duration: 170, easing: curve.outCubic, useNativeDriver: true }).start();
     keys.current?.focus();
     return () => {
       const tabId = shownPageId(useBrowser.getState(), windowId);

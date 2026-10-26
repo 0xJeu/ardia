@@ -1,6 +1,6 @@
 import { ContextMenuArea, FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { closeTab } from "../../state/browser/actions";
 import { hex, layout, useTheme } from "../ui/theme";
@@ -29,6 +29,7 @@ import { registerRow } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
+import { curve } from "../ui/motion";
 
 const PAD = GROUP_PAD;
 const EMPTY: LiveItem[] = [];
@@ -182,7 +183,7 @@ function RefreshButton({ spinning, tooltip, onPress }: { spinning: boolean; tool
   useEffect(() => {
     if (!spinning) return;
     turn.setValue(0);
-    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }));
+    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900, easing: curve.linear, useNativeDriver: true }));
     loop.start();
     return () => loop.stop();
   }, [spinning]);
@@ -230,7 +231,7 @@ function Spinner() {
   const theme = useTheme();
   const turn = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }));
+    const loop = Animated.loop(Animated.timing(turn, { toValue: 1, duration: 900, easing: curve.linear, useNativeDriver: true }));
     loop.start();
     return () => loop.stop();
   }, []);
@@ -320,7 +321,7 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
     fold.setValue(1);
     Animated.sequence([
       Animated.delay(COMPLETION_MS - 420),
-      Animated.timing(fold, { toValue: 0, duration: 360, easing: Easing.bezier(0.2, 0.9, 0.3, 1), useNativeDriver: false }),
+      Animated.timing(fold, { toValue: 0, duration: 360, easing: curve.fold, useNativeDriver: false }),
     ]).start();
   }, [completion]);
   const fill = active ? theme.tabSelected : hovered ? theme.tabHover : "rgba(0,0,0,0)";

@@ -1,8 +1,9 @@
 import { SwipeArea, swipeHaptic, type SwipeAreaHandle, type SwipeEvent } from "@ardia/ardiacore";
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
+import { spring as springOf, curve } from "../ui/motion";
 import { useBrowser } from "../../state/browser/store";
 import { Favicon, NewTabIcon } from "../ui/Primitives";
 import { HistoryPopover } from "./HistoryPopover";
@@ -15,7 +16,6 @@ import {
   capsuleOffset,
   LIST_ROW,
   listSelection,
-  springParams,
   swipeProgress,
 } from "./swipeMotion";
 
@@ -29,10 +29,10 @@ const ROW = LIST_ROW;
 const LIST_PAD = 8;
 const LIST_RADIUS = 18;
 const LIST_IDLE_MS = 300;
-const EASE = Easing.bezier(0.25, 0.46, 0.45, 0.94);
+const EASE = curve.fade;
 
 export function spring(value: Animated.Value, toValue: number, response: number, dampingRatio: number, native = false) {
-  return Animated.spring(value, { toValue, ...springParams(response, dampingRatio), useNativeDriver: native });
+  return Animated.spring(value, { toValue, ...springOf({ response, damping: dampingRatio }), useNativeDriver: native });
 }
 
 export function NavigationOverlays({ tabId, windowId, geometry }: { tabId: string; windowId: string; geometry: ToolbarGeometry }) {
@@ -152,8 +152,8 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
     clearTimeout(g.idle);
     g.active = false;
     Animated.parallel([
-      Animated.timing(v.fade, { toValue: 0, duration: 200, delay, easing: Easing.in(Easing.ease), useNativeDriver: true }),
-      Animated.timing(v.scale, { toValue: 0.01, duration: 200, delay, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+      Animated.timing(v.fade, { toValue: 0, duration: 200, delay, easing: curve.inEase, useNativeDriver: true }),
+      Animated.timing(v.scale, { toValue: 0.01, duration: 200, delay, easing: curve.inEase, useNativeDriver: true }),
     ]).start(({ finished }) => finished && setShown(null));
   };
 

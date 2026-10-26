@@ -1,11 +1,12 @@
 import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Text } from "react-native";
+import { Animated, Text } from "react-native";
 import { hex, useTheme } from "./theme";
+import { curve } from "./motion";
 
 const SHOW_DELAY_MS = 500;
 const FADE_MS = 100;
-const FADE_EASING = Easing.bezier(0.25, 0.46, 0.45, 0.94);
+const FADE_EASING = curve.fade;
 const SPAN = 280;
 const RING = 0.5;
 const RADIUS = 4;

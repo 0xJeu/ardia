@@ -1,6 +1,6 @@
 import { ContextMenuArea, hapticTick, showMenu, Symbol } from "@ardia/shell";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { createProfile, deleteProfile } from "../../../state/browser/actions";
 import { hex, profileAccent, useTheme } from "../../ui/theme";
@@ -17,6 +17,7 @@ import { Button, Group, PopUp, Row, SectionHeader, TextField, useFormColors } fr
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { ThemeSection } from "../ThemeEditor";
 import { goToSettingsPane } from "../../../state/settings/settingsWindows";
+import { curve } from "../../ui/motion";
 
 const listOf = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`);
 
@@ -65,7 +66,7 @@ export function ProfilesPane() {
 
 const ROW_HEIGHT = 46;
 const settle = (value: Animated.Value, toValue: number) =>
-  Animated.timing(value, { toValue, duration: 160, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+  Animated.timing(value, { toValue, duration: 160, easing: curve.outCubic, useNativeDriver: true });
 
 function ProfileList() {
   const colors = useFormColors();

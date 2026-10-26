@@ -1,13 +1,14 @@
 import { breadcrumb } from "@ardia/core";
 import { FadeLabel, Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useTabLive } from "../../state/browser/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
 import { usePage } from "../../state/tabs/pageState";
 import { Favicon, IconButton, useHover } from "../ui/Primitives";
+import { curve } from "../ui/motion";
 
 export const SMALL_BAR_HEIGHT = 38;
 export const SMALL_INSET = 6;
@@ -133,7 +134,7 @@ export function PageLabel({ tab, hovered = false, label }: { tab: Tab; hovered?:
 function Progress({ progress, color }: { progress: number; color: string }) {
   const width = useRef(new Animated.Value(Math.max(progress, 0.08))).current;
   useEffect(() => {
-    Animated.timing(width, { toValue: Math.max(progress, 0.08), duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(width, { toValue: Math.max(progress, 0.08), duration: 200, easing: curve.outQuad, useNativeDriver: false }).start();
   }, [progress]);
   return (
     <Animated.View

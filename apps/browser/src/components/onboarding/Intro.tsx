@@ -1,11 +1,12 @@
 import { DIA_SPECTRUM, PowerUp } from "@ardia/shaders";
 import { playIntroMusic, setIntroMusicMuted, stopIntroMusic, Symbol, type IntroMusicCues } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useHover } from "../ui/Primitives";
 import { introMusicMuted, saveIntroMusicMuted } from "../../state/onboarding/onboarding";
 import { SecondaryButton, useOnboardingColors } from "./Parts";
+import { curve } from "../ui/motion";
 
 const WORDMARK = "Ardia";
 const ICON = require("../../../assets/app-icon.png");
@@ -42,7 +43,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
   };
 
   useEffect(() => {
-    const ease = Easing.out(Easing.cubic);
+    const ease = curve.outCubic;
     const at = (s: number) => ({ delay: ms(s), useNativeDriver: true });
     const sequence = Animated.parallel([
       Animated.spring(icon, { toValue: 1, friction: 7, tension: 50, ...at(CUES.icon) }),
@@ -50,7 +51,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
         Animated.timing(l, { toValue: 1, duration: ms(LETTER), easing: ease, ...at(CUES.letters + i * CUES.letterStep) }),
       ),
       Animated.timing(tagline, { toValue: 1, duration: ms(TAGLINE), easing: ease, ...at(CUES.tagline) }),
-      Animated.timing(exit, { toValue: 1, duration: ms(EXIT), easing: Easing.inOut(Easing.cubic), ...at(CUES.exit) }),
+      Animated.timing(exit, { toValue: 1, duration: ms(EXIT), easing: curve.inOutCubic, ...at(CUES.exit) }),
     ]);
     playIntroMusic(CUES, introMusicMuted());
     sequence.start(({ finished }) => finished && finish());
@@ -59,7 +60,7 @@ export function Intro({ onDone }: { onDone: () => void }) {
 
   const skip = () => {
     stopIntroMusic(0.35);
-    Animated.timing(exit, { toValue: 1, duration: 280, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(finish);
+    Animated.timing(exit, { toValue: 1, duration: 280, easing: curve.outQuad, useNativeDriver: true }).start(finish);
   };
 
   const toggleMute = () => {

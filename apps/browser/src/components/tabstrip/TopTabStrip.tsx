@@ -1,6 +1,6 @@
 import { ContextMenuArea, DockSelection, FadeLabel, raiseView, setTrafficLightsCenter, Surface, Symbol, WindowDragRegion } from "@ardia/shell";
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Animated, findNodeHandle, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { create } from "zustand";
 import { toggleMute } from "../../state/browser/actions";
 import { hex, layout, useTheme } from "../ui/theme";
@@ -61,6 +61,7 @@ import { makeRoom, registerSlot, reorderOffsets, settleRoom, shiftRoom, SLIDE } 
 import { beginExternalDrag, beginTabDrag, cancelTabDrag, endExternalDrag, endTabDrag, moveExternalDrag, setDragPicture, setInsert, setInsertResolver, updateTabDrag, useTabDrag } from "../../state/drag/tabDrag";
 import { TabDropArea, type TabDropTarget } from "../window/TabDropArea";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
+import { curve } from "../ui/motion";
 
 export const TOP_STRIP_HEIGHT = 42;
 export const TOP_CARD_INSET = 6;
@@ -164,7 +165,7 @@ function StripDropHighlight({ left, right }: { left: number; right: number }) {
   const over = useTabDrag((d) => d.overWindow === windowId);
   const glow = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(glow, { toValue: over ? 1 : 0, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(glow, { toValue: over ? 1 : 0, duration: 140, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [over]);
   return (
     <Animated.View
@@ -226,7 +227,7 @@ function incomingIndex(top: DragGeometry, point: [number, number] | null, start:
 function IncomingGap({ open, width, origin }: { open: boolean; width: number; origin?: React.RefObject<View | null> }) {
   const room = useRef(new Animated.Value(open ? 1 : 0)).current;
   useEffect(() => {
-    Animated.timing(room, { toValue: open ? 1 : 0, duration: 120, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    Animated.timing(room, { toValue: open ? 1 : 0, duration: 120, easing: curve.outCubic, useNativeDriver: false }).start();
   }, [open]);
   return (
     <Animated.View
@@ -541,7 +542,7 @@ const tileHold = (dx: Animated.Value, limit: number) =>
 function FadeIn({ style, children }: { style: object; children: React.ReactNode }) {
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(opacity, { toValue: 1, duration: 100, easing: curve.outQuad, useNativeDriver: false }).start();
   }, []);
   return (
     <Animated.View pointerEvents="none" style={{ position: "absolute", ...style, opacity }}>
@@ -576,7 +577,7 @@ function useStripDrag(item: StripDrag) {
   const setLifted = (lifted: boolean) => {
     if (drag.current.lifted === lifted) return;
     drag.current.lifted = lifted;
-    Animated.timing(lift, { toValue: lifted ? 1 : 0, duration: LIFT_MS, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    Animated.timing(lift, { toValue: lifted ? 1 : 0, duration: LIFT_MS, easing: curve.outCubic, useNativeDriver: false }).start();
   };
   const makeRoomAt = (to: number) => {
     const { geometry, from } = latest.current;
@@ -1388,7 +1389,7 @@ function GroupMember({
 }) {
   const shownValue = useRef(new Animated.Value(shown ? 1 : 0)).current;
   useEffect(() => {
-    Animated.timing(shownValue, { toValue: shown ? 1 : 0, duration: TUCK_FADE_MS, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(shownValue, { toValue: shown ? 1 : 0, duration: TUCK_FADE_MS, easing: curve.outQuad, useNativeDriver: false }).start();
   }, [shown]);
   const left = useMemo(() => open.interpolate({ inputRange: [0, 1], outputRange: [start, start + offset] }), [start, offset]);
   const opacity = useMemo(

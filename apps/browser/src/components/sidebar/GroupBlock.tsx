@@ -1,6 +1,6 @@
 import { ContextMenuArea, FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { createContext, memo, useContext, useEffect, useState } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
@@ -16,7 +16,7 @@ import { Fold, useFold } from "./Fold";
 import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap, keptEntry } from "./geometry";
 import { groupEntries } from "../../state/sidebar/entries";
 import { dismissHover, useGroupHover, useRowHover } from "../../state/sidebar/hover";
-import { HOVER_CARD_FADE_CURVE, HOVER_CARD_FADE_MS } from "./hoverMotion";
+import { HOVER_CARD_FADE_MS } from "./hoverMotion";
 import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./ListMotion";
 import { pressGroupClose, useGroupCloseControl } from "../../state/sidebar/closeControl";
 import { openGroupMenu } from "../../state/sidebar/menus";
@@ -25,9 +25,10 @@ import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
 import { groupSurface, useSidebarTokens, withAlpha } from "./tokens";
+import { curve } from "../ui/motion";
 
 const PAD = GROUP_PAD;
-const BOX_FADE = Easing.bezier(...HOVER_CARD_FADE_CURVE);
+const BOX_FADE = curve.fade;
 const NO_GROUPS: ReadonlySet<string> = new Set();
 
 type ReportInnerHover = (groupId: string, hovered: boolean) => void;

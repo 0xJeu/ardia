@@ -2,13 +2,13 @@ import { breadcrumb } from "@ardia/core";
 import { WindowBackdrop } from "@ardia/shaders";
 import { MagnifyArea, Surface, type MagnifyUpdate } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useTab } from "../../state/browser/hooks";
 import type { Peek } from "../../state/peek/peek";
 import { MAX_SPLIT_PANES, splitOf } from "../../state/splits/splits";
-import { springConfig } from "../window/dockMotion";
+import { spring, curve } from "../ui/motion";
 import { PageLabel, SMALL_INSET, SMALL_WINDOW_FRAME, SMALL_WINDOW_RADIUS, SmallBar } from "../littleArdia/SmallChrome";
 import { dismissPeek, finishPeek, openPeekAsTab, openPeekInSplit, registerPeekMotion } from "../../state/peek/actions";
 import { pinchFollow, pinchOutcome } from "./pinch";
@@ -16,7 +16,7 @@ import { pinchFollow, pinchOutcome } from "./pinch";
 const INSET_FRACTION = 0.055;
 const MIN_INSET = 16;
 const START_SCALE = 0.12;
-const GROW = springConfig({ response: 0.22, damping: 0.9 });
+const GROW = spring({ response: 0.22, damping: 0.9 });
 const CLOSE_MS = 150;
 const EXPAND_MS = 170;
 
@@ -95,14 +95,14 @@ function PeekCard({
   useEffect(() => {
     if (!motion) return;
     const grow = fade
-      ? Animated.timing(progress, { toValue: 1, duration: CLOSE_MS, easing: Easing.out(Easing.quad), useNativeDriver: true })
+      ? Animated.timing(progress, { toValue: 1, duration: CLOSE_MS, easing: curve.outQuad, useNativeDriver: true })
       : Animated.spring(progress, { toValue: 1, ...GROW, overshootClamping: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.01, useNativeDriver: true });
     grow.start();
     const close = () => {
       if (leaving.current) return;
       leaving.current = "close";
       progress.stopAnimation();
-      Animated.timing(progress, { toValue: 0, duration: CLOSE_MS, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(progress, { toValue: 0, duration: CLOSE_MS, easing: curve.inCubic, useNativeDriver: true }).start(({ finished }) => {
         if (finished) finishPeek(windowId, peek.tabId);
       });
     };
@@ -112,7 +112,7 @@ function PeekCard({
       progress.stopAnimation();
       progress.setValue(1);
       if (fade) return done();
-      Animated.timing(expand, { toValue: 1, duration: EXPAND_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(done);
+      Animated.timing(expand, { toValue: 1, duration: EXPAND_MS, easing: curve.outCubic, useNativeDriver: true }).start(done);
     };
     pinch.current = ({ phase, magnification }) => {
       if (leaving.current) return;

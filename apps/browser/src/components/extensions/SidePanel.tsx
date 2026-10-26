@@ -1,12 +1,13 @@
 import { WebView } from "@ardia/ardiacore";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, PanResponder, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, PanResponder, StyleSheet, Text, View } from "react-native";
 import { layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
 import { IconButton } from "../ui/Primitives";
 import { closeSidePanel, findExtension, showExtensionMenu, useExtensions, type SidePanel } from "../../state/extensions/actions";
+import { curve } from "../ui/motion";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 600;
@@ -30,7 +31,7 @@ export function ExtensionSidePanel() {
 
   useEffect(() => {
     if (panel) setShown(panel);
-    Animated.timing(appear, { toValue: panel ? 1 : 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(({ finished }) => {
+    Animated.timing(appear, { toValue: panel ? 1 : 0, duration: 200, easing: curve.outCubic, useNativeDriver: false }).start(({ finished }) => {
       if (finished && !panel) setShown(undefined);
     });
   }, [!!panel]);
@@ -59,7 +60,7 @@ export function ExtensionSidePanel() {
           if (raw === target) return finish();
           const value = new Animated.Value(raw);
           value.addListener(({ value: v }) => setDragWidth(v));
-          Animated.timing(value, { toValue: target, duration: 260, easing: Easing.out(Easing.back(1.2)), useNativeDriver: false }).start(() => {
+          Animated.timing(value, { toValue: target, duration: 260, easing: curve.outBack, useNativeDriver: false }).start(() => {
             value.removeAllListeners();
             finish();
           });

@@ -2,7 +2,7 @@ import { breadcrumb, urlForDisplay } from "@ardia/core";
 import { ContextMenuArea, FadeLabel, MouseArea, Symbol, WindowDragRegion } from "@ardia/shell";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { layout, useTheme } from "../ui/theme";
 import { withLivePage } from "../../state/tabs/livePage";
 import { webviews } from "../../platform/webviews";
@@ -27,6 +27,7 @@ import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass 
 import { TranslateButton } from "../site/TranslateControls";
 import { ZoomIndicator } from "../site/ZoomControls";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
+import { curve } from "../ui/motion";
 
 type ToolbarTab = Pick<Tab, "id" | "url" | "title" | "windowId" | "zoom">;
 const toolbarTab = (t: Tab | undefined): ToolbarTab | undefined =>
@@ -74,7 +75,7 @@ export function Toolbar({
   useEffect(() => {
     if (dimmedFor.current === focused) return;
     dimmedFor.current = focused;
-    Animated.timing(dim, { toValue: focused ? 1 : 0.5, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(dim, { toValue: focused ? 1 : 0.5, duration: 160, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [focused]);
   const focus = useCallback(() => {
     if (!focused) useBrowser.getState().activate(tabId);
@@ -187,7 +188,7 @@ function ProgressBar({ progress, color }: { progress: number; color: string }) {
     const to = Math.max(progress, 0.08);
     if (shownFor.current === to) return;
     shownFor.current = to;
-    Animated.timing(width, { toValue: to, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(width, { toValue: to, duration: 200, easing: curve.outQuad, useNativeDriver: false }).start();
   }, [progress]);
   return (
     <Animated.View

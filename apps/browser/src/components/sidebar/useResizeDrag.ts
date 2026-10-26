@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
-import { Animated, Easing, PanResponder, type GestureResponderHandlers } from "react-native";
+import { Animated, PanResponder, type GestureResponderHandlers } from "react-native";
+import { curve } from "../ui/motion";
 
 const BAND = 36;
 const BAND_SCALE = 90;
@@ -58,7 +59,7 @@ export function useResizeDrag(o: {
         if (raw === target) return commit(target);
         const value = new Animated.Value(raw);
         value.addListener(({ value: v }) => show(v));
-        const mine = Animated.timing(value, { toValue: target, duration: 260, easing: Easing.out(Easing.back(1.2)), useNativeDriver: false });
+        const mine = Animated.timing(value, { toValue: target, duration: 260, easing: curve.outBack, useNativeDriver: false });
         spring = mine;
         mine.start(({ finished }) => {
           value.removeAllListeners();

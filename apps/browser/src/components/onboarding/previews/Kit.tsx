@@ -1,10 +1,11 @@
 import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Easing, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Animated, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { hex, nearestPreset, PROFILE_COLORS, themeFor, type Theme } from "../../ui/theme";
 import { backdropTint, opaqueTint, tintForHue } from "../../../lib/windowTint";
 import { toolbarPalette, type ToolbarPalette } from "../../ui/toolbarColors";
 import type { ProfileColor } from "../../../state/browser/types";
+import { curve } from "../../ui/motion";
 
 export type Geo = { s: number; W: number; H: number };
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -180,7 +181,7 @@ export function useDemo(active: boolean, duration: number) {
   useEffect(() => {
     if (!active) return;
     p.setValue(0);
-    const run = Animated.timing(p, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false });
+    const run = Animated.timing(p, { toValue: 1, duration, easing: curve.linear, useNativeDriver: true, isInteraction: false });
     run.start();
     return () => {
       run.stop();

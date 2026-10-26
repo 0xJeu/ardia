@@ -1,9 +1,10 @@
 import { onWindowEvent, setTrafficLightsCenter, Surface, watchLeftEdge, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { switchOn } from "../../platform/killSwitches";
 import { hex, layout, useTheme } from "../ui/theme";
+import { spring, curve } from "../ui/motion";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { Sidebar } from "../sidebar/Sidebar";
@@ -17,7 +18,6 @@ import {
   PEEK_BOTTOM,
   PEEK_ORIGIN,
   PEEK_RADIUS,
-  springConfig,
 } from "./dockMotion";
 import {
   ARC_LIGHTS_CENTER,
@@ -41,7 +41,7 @@ AccessibilityInfo.isReduceMotionEnabled().then(
 );
 AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => (reduceMotion = on));
 
-const SPRING = springConfig(DOCK_SPRING);
+const SPRING = spring(DOCK_SPRING);
 const STRIP_WIDTH = 8;
 const HOLD_SLACK = 24;
 
@@ -70,7 +70,7 @@ function useSidebarDock(open: boolean, animate: boolean, arc: boolean): { dock: 
     if (open) setAway(false);
     setDockMoving(windowId, true);
     (arc && !open
-      ? Animated.timing(dock, { toValue: 0, duration: ARC_HIDE_MS, easing: Easing.out(Easing.cubic), useNativeDriver: false })
+      ? Animated.timing(dock, { toValue: 0, duration: ARC_HIDE_MS, easing: curve.outCubic, useNativeDriver: false })
       : Animated.spring(dock, {
           toValue: open ? 1 : 0,
           ...SPRING,
