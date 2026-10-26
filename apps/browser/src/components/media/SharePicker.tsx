@@ -6,10 +6,9 @@ import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../../state/browser/store";
 import { engineProfile } from "../../state/browser/model";
-import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PromptButton } from "../ui/Controls";
+import { Button, Checkbox, PANEL, PanelHeader, Popover, POPOVER_MARGIN, useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { usePages } from "../../state/tabs/pageState";
-import { Favicon, useHover } from "../ui/Primitives";
-import { Checkbox } from "../ui/FormControls";
 import { noteTabShare } from "./ShareBar";
 import { useMedia } from "../../state/media/media";
 
@@ -219,9 +218,9 @@ export function SharePicker({ tabId, paneWidth }: { tabId: string; paneWidth: nu
             />
           ) : null}
           <View style={{ flex: 1 }} />
-          <PromptButton title="Cancel" onPress={cancel} />
+          <Button variant="pill" title="Cancel" onPress={cancel} />
           <View pointerEvents={valid ? "auto" : "none"} style={{ opacity: valid ? 1 : 0.4 }}>
-            <PromptButton title="Share" primary onPress={() => share()} />
+            <Button variant="pill" title="Share" primary onPress={() => share()} />
           </View>
         </View>
       </View>

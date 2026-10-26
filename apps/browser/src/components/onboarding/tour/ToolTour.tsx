@@ -4,7 +4,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../../ui/theme";
 import { useWindowId } from "../../../state/browser/hooks";
 import type { Rect } from "../../window/geometry";
-import { useHover } from "../../ui/Primitives";
+import { useHover } from "../../ui";
 import { useOnboardingColors } from "../Parts";
 import { locateAnchor } from "./anchors";
 import { endToolTour, openVideoTour, stepToolTour, useTour, videoTourUrl, type TourStop } from "../../../state/onboarding/tour";

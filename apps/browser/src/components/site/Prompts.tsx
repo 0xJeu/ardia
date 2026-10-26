@@ -6,9 +6,7 @@ import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../../state/browser/store";
 import { engineProfile } from "../../state/browser/model";
-import { useHover } from "../ui/Primitives";
-import { PANEL, PanelCloseButton, Popover, PopoverRow, PopoverSeparator, PromptButton } from "../ui/Controls";
-import { Checkbox } from "../ui/FormControls";
+import { Button, Checkbox, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, useHover } from "../ui";
 import { patchPage, pageOf, setPopover, usePage } from "../../state/tabs/pageState";
 import { answerPermission, describePermission } from "../../state/site/permissions";
 import { hostOrOrigin } from "../../lib/url";
@@ -57,8 +55,8 @@ export function PermissionPrompt({ tabId, left, top }: { tabId: string; left: nu
     <Popover key={request.id} width={300} top={top} left={left} modal={false}>
       <View>
         <PromptBody icons={icons} title={question} message="Click the lock to change this any time">
-          <PromptButton title="Don't Allow" onPress={() => answerPermission(tabId, request.id, "deny")} />
-          <PromptButton title="Allow" primary onPress={() => answerPermission(tabId, request.id, "accept")} />
+          <Button variant="pill" title="Don't Allow" onPress={() => answerPermission(tabId, request.id, "deny")} />
+          <Button variant="pill" title="Allow" primary onPress={() => answerPermission(tabId, request.id, "accept")} />
         </PromptBody>
         <PanelCloseButton onPress={() => answerPermission(tabId, request.id, "dismiss")} />
       </View>
@@ -89,21 +87,21 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
           title={`Always allow pop-ups from ${site}?`}
           message={`Allow ${site} to always open pop-up windows, choose every time, or always deny pop-ups.`}
         >
-          <PromptButton
+          <Button variant="pill"
             title="Always Deny"
             onPress={() => {
               void setSiteSetting(profile(), origin, "popups", "block");
               done();
             }}
           />
-          <PromptButton
+          <Button variant="pill"
             title="Only Once"
             onPress={() => {
               for (const p of popups) void web()?.openBlockedPopup(p.id, false);
               done();
             }}
           />
-          <PromptButton
+          <Button variant="pill"
             title="Always Allow"
             primary
             onPress={() => {
@@ -112,9 +110,9 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
             }}
           />
         </PromptBody>
-        <PopoverSeparator />
+        <MenuSeparator />
         {popups.slice(-5).map((p) => (
-          <PopoverRow
+          <MenuRow
             key={p.id}
             icon="arrow.up.forward.app"
             title={p.url.replace(/^https?:\/\//, "") || "about:blank"}
@@ -188,9 +186,9 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
             )
           }
         >
-          {!update && <PromptButton title="Never on This Site" onPress={() => answer("never")} />}
-          <PromptButton title="Not Now" onPress={() => answer(update ? "nope" : "dismiss")} />
-          <PromptButton title={update ? "Update" : "Save"} primary onPress={() => answer(update ? "update" : "save")} />
+          {!update && <Button variant="pill" title="Never on This Site" onPress={() => answer("never")} />}
+          <Button variant="pill" title="Not Now" onPress={() => answer(update ? "nope" : "dismiss")} />
+          <Button variant="pill" title={update ? "Update" : "Save"} primary onPress={() => answer(update ? "update" : "save")} />
         </PromptBody>
         <PanelCloseButton onPress={() => answer("dismiss")} />
       </View>
@@ -244,8 +242,8 @@ export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: nu
             </>
           }
         >
-          <PromptButton title={prompt.decline} onPress={() => answer("decline")} />
-          <PromptButton title={prompt.accept} primary onPress={() => answer("accept")} />
+          <Button variant="pill" title={prompt.decline} onPress={() => answer("decline")} />
+          <Button variant="pill" title={prompt.accept} primary onPress={() => answer("accept")} />
         </PromptBody>
         <PanelCloseButton onPress={() => answer("dismiss")} />
       </View>
@@ -283,11 +281,11 @@ export function ExternalAppPrompt({ tabId, left, top }: { tabId: string; left: n
         >
           {request.app ? (
             <>
-              <PromptButton title="Cancel" onPress={() => answer(false)} />
-              <PromptButton title="Open" primary onPress={() => answer(true)} />
+              <Button variant="pill" title="Cancel" onPress={() => answer(false)} />
+              <Button variant="pill" title="Open" primary onPress={() => answer(true)} />
             </>
           ) : (
-            <PromptButton title="OK" primary onPress={() => answer(false)} />
+            <Button variant="pill" title="OK" primary onPress={() => answer(false)} />
           )}
         </PromptBody>
         <PanelCloseButton onPress={() => answer(false)} />

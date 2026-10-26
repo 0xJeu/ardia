@@ -16,9 +16,9 @@ import { useTheme } from "../../ui/theme";
 import { useBrowser } from "../../../state/browser/store";
 import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
-import { IconButton } from "../../ui/Primitives";
+import { Button, Group, type Option, PopUp, Sheet, TextField, Toggle } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { NetworkBadge } from "../../site/Autofill";
-import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle, type Option } from "../../ui/FormControls";
 import { addresses as addressList, autofillEnabled, cards as cardList } from "../paneData";
 import { store, useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
@@ -267,7 +267,7 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
             {number === null ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                 <Text style={{ fontSize: 13, color: theme.textPrimary }}>{`•••• •••• •••• ${saved?.last4 ?? ""}`}</Text>
-                <IconButton icon="eye" size={11} box={24} radius={6} onPress={() => void reveal()} tooltip="Show Card Number" />
+                <Button variant="icon" icon="eye" size={11} box={24} radius={6} onPress={() => void reveal()} tooltip="Show Card Number" />
               </View>
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
@@ -281,7 +281,7 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
                   autoFocus={!saved}
                   style={{ width: saved ? 222 : 250 }}
                 />
-                {saved ? <IconButton icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => copyText(digits)} tooltip="Copy Card Number" /> : null}
+                {saved ? <Button variant="icon" icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => copyText(digits)} tooltip="Copy Card Number" /> : null}
               </View>
             )}
           </FormRow>

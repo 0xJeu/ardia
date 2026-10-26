@@ -2,8 +2,7 @@ import { ContextMenuArea, Symbol } from "@ardia/shell";
 import { Children, forwardRef, type ReactNode } from "react";
 import { Image, Pressable, Text, View, type AccessibilityActionEvent, type GestureResponderEvent } from "react-native";
 import { useTheme, type Theme } from "../ui/theme";
-import { PANEL } from "../ui/Controls";
-import { useHover } from "../ui/Primitives";
+import { PANEL, useHover } from "../ui";
 
 export const SITE_PANEL = {
   width: 288,

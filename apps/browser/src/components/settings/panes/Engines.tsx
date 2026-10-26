@@ -6,8 +6,9 @@ import { setWebsiteEngine } from "../../../state/engines/actions";
 import { useTheme } from "../../ui/theme";
 import { useBrowser } from "../../../state/browser/store";
 import { defaultEngine, ENGINE_NAMES, RECOMMENDED_ENGINE, siteOf } from "../../../state/engines/engines";
-import { Favicon, IconButton } from "../../ui/Primitives";
-import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle } from "../../ui/FormControls";
+import { Button, Group, PopUp, Sheet, TextField, Toggle } from "../../ui";
+import { Favicon } from "../../favicon/Favicon";
+import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 const ENGINE_OPTIONS: { value: PageEngine; title: string }[] = [
@@ -100,8 +101,8 @@ function RuleRow({ site, engine }: { site: string; engine: PageEngine }) {
   return (
     <Row icon={<Favicon url={site} />} title={siteLabel(site)}>
       <PopUp value={engine} options={ENGINE_OPTIONS} onChange={(value) => setWebsiteEngine(site, value)} minWidth={110} />
-      <IconButton icon="pencil" size={11} box={24} radius={6} onPress={() => showSettingsSheet(<RuleSheet site={site} engine={engine} />)} tooltip="Edit" />
-      <IconButton icon="trash" size={11} box={24} radius={6} onPress={() => setWebsiteEngine(site, null)} tooltip="Remove" />
+      <Button variant="icon" icon="pencil" size={11} box={24} radius={6} onPress={() => showSettingsSheet(<RuleSheet site={site} engine={engine} />)} tooltip="Edit" />
+      <Button variant="icon" icon="trash" size={11} box={24} radius={6} onPress={() => setWebsiteEngine(site, null)} tooltip="Remove" />
     </Row>
   );
 }

@@ -23,8 +23,8 @@ import { useSettings, useTab } from "../../state/browser/hooks";
 import { engineProfile, isIncognitoProfile, tabLabel } from "../../state/browser/model";
 import { builtInEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, recommendedEngineFor, ruleFor, tabEngine } from "../../state/engines/engines";
 import { openPageIn, togglePageEngine } from "../../state/engines/actions";
-import { Favicon } from "../ui/Primitives";
-import { PANEL, PanelHeader, Popover, PopoverRow, PopoverSeparator, PopoverValue, Toggle, usePopoverPresence } from "../ui/Controls";
+import { MenuRow, MenuSeparator, PANEL, PanelHeader, Popover, PopoverValue, Toggle, usePopoverPresence } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { pageOf, patchPage, setPopover, usePage } from "../../state/tabs/pageState";
 import { showToast } from "../../state/splits/actions";
 import { toggleCastPicker } from "../../state/media/cast";
@@ -301,7 +301,7 @@ function SiteControlsPanel({
 
         {expanded === "connection" ? (
           <>
-            <PopoverSeparator />
+            <MenuSeparator />
             <PanelHeader
               icon={<Favicon url={url} favicon={tab.favicon} size={PANEL.iconSlot} profileId={tab.profileId} />}
               title={host ? displayHost(host) : tabLabel(tab)}
@@ -314,11 +314,11 @@ function SiteControlsPanel({
 
         {expanded === "more" ? (
           <>
-            <PopoverSeparator />
-            <PopoverRow icon="plus.magnifyingglass" title="Zoom" accessory={<ZoomStepper tabId={tabId} zoom={tab.zoom} />} />
-            {origin && !castTile ? <PopoverRow icon="tv.and.mediabox" title="Cast…" onPress={cast} /> : null}
+            <MenuSeparator />
+            <MenuRow icon="plus.magnifyingglass" title="Zoom" accessory={<ZoomStepper tabId={tabId} zoom={tab.zoom} />} />
+            {origin && !castTile ? <MenuRow icon="tv.and.mediabox" title="Cast…" onPress={cast} /> : null}
             {origin ? (
-              <PopoverRow
+              <MenuRow
                 icon={ENGINE_SYMBOLS[otherEngine(pageEngine)]}
                 title={`Open Page in ${ENGINE_NAMES[otherEngine(pageEngine)]}`}
                 onPress={() => {
@@ -329,24 +329,24 @@ function SiteControlsPanel({
             ) : null}
             {origin ? (
               <>
-                <PopoverSeparator />
+                <MenuSeparator />
                 <TranslateRows tabId={tabId} onClose={close} />
                 {otherPermissions.map((p) => (
-                  <PopoverRow
+                  <MenuRow
                     key={p.type}
                     icon={p.icon}
                     title={p.title}
                     accessory={<PopoverValue title={value(p)} onPress={() => void pickPermission(p.type, p.choices)} />}
                   />
                 ))}
-                {otherPermissions.length ? <PopoverSeparator /> : null}
-                <PopoverRow icon="trash" title="Clear Cookies and Site Data…" detail={cleared ?? undefined} onPress={() => void clearData()} />
+                {otherPermissions.length ? <MenuSeparator /> : null}
+                <MenuRow icon="trash" title="Clear Cookies and Site Data…" detail={cleared ?? undefined} onPress={() => void clearData()} />
               </>
             ) : null}
-            <PopoverRow
+            <MenuRow
               icon="text.alignleft"
               title="Show Full URL"
-              accessory={<Toggle value={showFullUrl} onChange={(v) => useBrowser.getState().updateSettings({ showFullUrl: v })} />}
+              accessory={<Toggle look="panel" value={showFullUrl} onChange={(v) => useBrowser.getState().updateSettings({ showFullUrl: v })} />}
             />
           </>
         ) : null}
@@ -394,7 +394,7 @@ function ConnectionRow({ security }: { security: SecurityInfo | null }) {
           : secure && security?.certificate
             ? `Certificate issued by ${security.certificate.issuer.organizations[0] || security.certificate.issuer.commonName}`
             : undefined;
-  return <PopoverRow icon={look.icon} iconColor={look.color ?? theme.icon} title={title} detail={detail} />;
+  return <MenuRow icon={look.icon} iconColor={look.color ?? theme.icon} title={title} detail={detail} />;
 }
 
 function CertificateDetails({ security }: { security: SecurityInfo }) {

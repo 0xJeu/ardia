@@ -6,7 +6,7 @@ import { useTheme } from "../ui/theme";
 import { useIsIncognito, useProfile } from "../../state/browser/hooks";
 import { useProfileOrder } from "../../state/profiles/hooks";
 import { usePagerPages, type PagerPage } from "../../state/windows/profilePager";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { TooltipAbove } from "../ui/TooltipAbove";
 
 export const PROFILE_DOTS_HEIGHT = 41;

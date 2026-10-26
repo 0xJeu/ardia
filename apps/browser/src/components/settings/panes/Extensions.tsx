@@ -19,7 +19,8 @@ import {
   showExtensionsList,
   useExtensionList,
 } from "../../../state/extensions/actions";
-import { Button, Group, PopUp, Row, SectionHeader, TextField, Toggle } from "../../ui/FormControls";
+import { Button, Group, PopUp, TextField, Toggle } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { extensionList } from "../paneData";
 import { useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";

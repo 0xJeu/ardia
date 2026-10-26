@@ -7,7 +7,8 @@ import { useTabLive } from "../../state/browser/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
 import { usePage } from "../../state/tabs/pageState";
-import { Favicon, IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { curve } from "../ui/motion";
 import { SMALL_BAR_HEIGHT } from "../../state/windows/small";
 
@@ -46,7 +47,7 @@ export function SmallBar({
       <View style={{ position: "absolute", left: fieldLeft, right: SMALL_INSET + buttonsWidth + FIELD_GAP, top: MID - FIELD_HEIGHT / 2, height: FIELD_HEIGHT }}>{field}</View>
       <View style={{ position: "absolute", right: SMALL_INSET, top: MID - SMALL_BAR_BUTTON / 2, flexDirection: "row", gap: BUTTON_GAP }}>
         {buttons.map((b) => (
-          <IconButton key={b.tooltip} icon={b.icon} size={b.size} box={SMALL_BAR_BUTTON} radius={7} disabled={b.disabled} tooltip={b.tooltip} onPress={b.onPress} />
+          <Button variant="icon" key={b.tooltip} icon={b.icon} size={b.size} box={SMALL_BAR_BUTTON} radius={7} disabled={b.disabled} tooltip={b.tooltip} onPress={b.onPress} />
         ))}
         {trailing}
       </View>

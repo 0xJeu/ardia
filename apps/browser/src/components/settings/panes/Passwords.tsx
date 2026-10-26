@@ -20,8 +20,9 @@ import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile, plural } from "../../../state/browser/model";
 import { importModule } from "../../../platform/importModule";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
-import { Favicon, IconButton } from "../../ui/Primitives";
-import { Button, Group, PopUp, Row, SearchField, SectionHeader, Sheet, TextField, Toggle } from "../../ui/FormControls";
+import { Button, Group, PopUp, SearchField, Sheet, TextField, Toggle } from "../../ui";
+import { Favicon } from "../../favicon/Favicon";
+import { Row, SectionHeader } from "../Form";
 import { passwordAutofill } from "../paneData";
 import { store, useResource } from "../resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
@@ -210,7 +211,7 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
                 <Text selectable style={{ fontSize: 13, color: theme.textPrimary }}>
                   {saved.username}
                 </Text>
-                <IconButton icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => copyText(saved.username)} tooltip="Copy Username" />
+                <Button variant="icon" icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => copyText(saved.username)} tooltip="Copy Username" />
               </View>
             )}
           </Row>
@@ -222,8 +223,8 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
                 <Text selectable style={{ fontSize: 13, color: theme.textPrimary, fontFamily: revealed ? "Menlo" : undefined }}>
                   {password === null ? "…" : revealed ? password : "•".repeat(Math.min(password.length, 12))}
                 </Text>
-                <IconButton icon={revealed ? "eye.slash" : "eye"} size={11} box={24} radius={6} onPress={() => setRevealed(!revealed)} tooltip={revealed ? "Hide" : "Show"} />
-                <IconButton icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => password && copyText(password)} tooltip="Copy Password" />
+                <Button variant="icon" icon={revealed ? "eye.slash" : "eye"} size={11} box={24} radius={6} onPress={() => setRevealed(!revealed)} tooltip={revealed ? "Hide" : "Show"} />
+                <Button variant="icon" icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => password && copyText(password)} tooltip="Copy Password" />
               </View>
             )}
           </Row>

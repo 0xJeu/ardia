@@ -4,8 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { trackSettingsSection } from "../../state/telemetry/track";
-import { IconButton, useHover } from "../ui/Primitives";
-import { useFormColors } from "../ui/FormControls";
+import { Button, useFormColors, useHover } from "../ui";
 import { preparePane, usePaneLoaded } from "./paneData";
 import { anchorView, flashSetting, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, setting } from "./settingsIndex";
@@ -129,8 +128,8 @@ export function SettingsWindow() {
       <View style={{ flex: 1 }}>
         <View style={{ height: TOOLBAR, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 }}>
           <WindowDragRegion style={StyleSheet.absoluteFill} />
-          <IconButton icon="chevron.left" size={13} box={28} radius={6} disabled={!nav.back.length} onPress={settingsBack} tooltip="Back" />
-          <IconButton icon="chevron.right" size={13} box={28} radius={6} disabled={!nav.forward.length} onPress={settingsForward} tooltip="Forward" />
+          <Button variant="icon" icon="chevron.left" size={13} box={28} radius={6} disabled={!nav.back.length} onPress={settingsBack} tooltip="Back" />
+          <Button variant="icon" icon="chevron.right" size={13} box={28} radius={6} disabled={!nav.forward.length} onPress={settingsForward} tooltip="Forward" />
           <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{title}</Text>
         </View>
         <ScrollView

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useWindowId } from "../../state/browser/hooks";
-import { Button, TextField, useFormColors } from "../ui/FormControls";
+import { Button, TextField, useFormColors } from "../ui";
 import { addBookmarkFolder, addBookmarkTree, closeBookmarkDialog, moveBookmark, profileOfBookmark, removeBookmark, updateBookmark, useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
 import { useBookmarks } from "../../state/bookmarks/hooks";
 import { currentBookmarks } from "../../state/browser/current";

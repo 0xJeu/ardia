@@ -2,7 +2,7 @@ import { appUrlOrigin, displayHost, urlForDisplay } from "@ardia/core";
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { SearchField } from "../ui/FormControls";
+import { SearchField } from "../ui";
 
 export const PAGE_WIDTH = 880;
 

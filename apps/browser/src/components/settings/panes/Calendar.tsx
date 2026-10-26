@@ -5,7 +5,8 @@ import { connectCalendar, setCalendarHidden, useCalendar } from "../../../state/
 import { ALERT_LEADS } from "../../../state/live/meetings";
 import { updateCalendarSettings, useLive } from "../../../state/live/store";
 import { useBrowser } from "../../../state/browser/store";
-import { Button, Checkbox, Group, PopUp, Row, SectionHeader, Toggle } from "../../ui/FormControls";
+import { Button, Checkbox, Group, PopUp, Toggle } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 
 export function CalendarPane() {
   const theme = useTheme();

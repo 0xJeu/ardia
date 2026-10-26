@@ -2,7 +2,8 @@ import { ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { setSharing, useTelemetry } from "../../../state/telemetry/client";
 import { SHARING_COPY, WHATS_SENT } from "../../../state/telemetry/copy";
-import { Button, Group, Row, SectionHeader, Sheet, Toggle } from "../../ui/FormControls";
+import { Button, Group, Sheet, Toggle } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 export function ShareDiagnosticsSection() {

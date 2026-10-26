@@ -11,10 +11,9 @@ import { usePageProgress } from "../../state/tabs/pageProgress";
 import { extensionsFitting, ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { useHistoryAvailability } from "../../state/tabs/navigation";
 import { toolbarPalette, type ToolbarPalette } from "../ui/toolbarColors";
-import { ToolbarButton, type ButtonHit } from "../ui/Controls";
+import { Button, type ButtonHit, useHover } from "../ui";
 import { setUrlAnchor, SIDEBAR_FIELD } from "../../state/windows/layout";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
-import { useHover } from "../ui/Primitives";
 import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../toolbar/Toolbar";
 import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../window/dockMotion";
 import { ARC_LIGHTS_CENTER } from "../../state/windows/dockMotion";
@@ -43,7 +42,7 @@ export function SidebarHeaderTools({ width }: { width: number }) {
   return (
     <>
       {toggle && (
-        <ToolbarButton
+        <Button variant="icon" toolbar
           {...place(at[0]!)}
           palette={palette}
           icon="sidebar.left"

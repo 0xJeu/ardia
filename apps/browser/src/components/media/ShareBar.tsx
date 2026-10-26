@@ -6,7 +6,7 @@ import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { engineProfile } from "../../state/browser/model";
 import { browserIdOf } from "../../state/extensions/actions";
-import { PromptButton } from "../ui/Controls";
+import { Button } from "../ui";
 import { pageOf, usePages } from "../../state/tabs/pageState";
 import { useMedia, type TabShare } from "../../state/media/media";
 import { CAPTURE_RED } from "./tokens";
@@ -113,11 +113,11 @@ export function ShareBar({ tabId }: { tabId: string }) {
           {` with ${host}`}
         </Text>
         {isShared ? (
-          <PromptButton title="Stop Sharing" onPress={() => void stopCapture(browserIdOf(capturer))} />
+          <Button variant="pill" title="Stop Sharing" onPress={() => void stopCapture(browserIdOf(capturer))} />
         ) : (
-          <PromptButton title="Share This Tab Instead" primary onPress={() => void shareInstead(capturer, tabId)} />
+          <Button variant="pill" title="Share This Tab Instead" primary onPress={() => void shareInstead(capturer, tabId)} />
         )}
-        <PromptButton title="Dismiss" onPress={() => dismiss(capturer, tabId)} />
+        <Button variant="pill" title="Dismiss" onPress={() => dismiss(capturer, tabId)} />
       </View>
     </Animated.View>
   );

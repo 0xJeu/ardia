@@ -5,8 +5,7 @@ import { useTheme } from "../ui/theme";
 import { bookmarkAncestors, folderChildren } from "../../state/bookmarks/bookmarks";
 import { useBookmarks } from "../../state/bookmarks/hooks";
 import { currentBookmarks } from "../../state/browser/current";
-import { useHover } from "../ui/Primitives";
-import { useFormColors } from "../ui/FormControls";
+import { useFormColors, useHover } from "../ui";
 
 type FolderRow = { id: string; title: string; depth: number; hasChildren: boolean };
 

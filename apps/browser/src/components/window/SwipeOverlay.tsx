@@ -5,7 +5,7 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { spring as springOf, curve } from "../ui/motion";
 import { useTab } from "../../state/browser/hooks";
-import { Favicon, NewTabIcon } from "../ui/Primitives";
+import { Favicon, NewTabIcon } from "../favicon/Favicon";
 import { HistoryPopover } from "./HistoryPopover";
 import { goBack, goForward, goToHistoryItem, historyFavicons, historyItems, openHistoryMenu, useHistoryAvailability, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
 import type { ToolbarGeometry } from "./geometry";

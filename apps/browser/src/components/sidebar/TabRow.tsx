@@ -8,7 +8,7 @@ import { useIsActiveTab, usePageProfileId, useTab, useWindow, useWindowId } from
 import { returnToPinnedUrl } from "../../state/pins/actions";
 import { useSplitRowKey } from "../../state/sidebar/hooks";
 import { HoverSlot } from "../ui/HoverSlot";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
 import { isPinnedRow } from "../../state/browser/model";
 import { awayFromPin } from "../../state/pins/organize";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "../../state/sidebar/actions";
@@ -145,7 +145,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                   <HoverSlot
                     hovered={hovered && !renaming}
                     width={22}
-                    hover={<IconButton icon={closeControl.icon} size={10} weight="semibold" box={22} radius={6} onPress={() => pressTabClose(tab.id)} tooltip={closeControl.tooltip} />}
+                    hover={<Button variant="icon" icon={closeControl.icon} size={10} weight="semibold" box={22} radius={6} onPress={() => pressTabClose(tab.id)} tooltip={closeControl.tooltip} />}
                   >
                     {loading && <ActivitySpinner style={{ width: 12, height: 12, marginRight: 2 }} />}
                   </HoverSlot>

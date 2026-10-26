@@ -3,8 +3,7 @@ import { openExternalURL, showMenu, Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, PromptButton } from "../ui/Controls";
-import { useHover } from "../ui/Primitives";
+import { Button, PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, useHover } from "../ui";
 import { closeCastPicker, useCast } from "../../state/media/cast";
 
 const WIDTH = 340;
@@ -57,7 +56,7 @@ export function CastPicker({ tabId, paneWidth }: { tabId: string; paneWidth: num
         )}
 
         <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: PANEL.inset, marginTop: 10 }}>
-          <PromptButton title="Done" onPress={close} />
+          <Button variant="pill" title="Done" onPress={close} />
         </View>
       </View>
     </Popover>
@@ -87,7 +86,7 @@ function SinkRow({ sink, onCast, onStop }: { sink: CastSink; onCast(): void; onS
             ) : null}
           </View>
           {busy ? <ActivityIndicator size="small" style={{ transform: [{ scale: 0.6 }], width: 16, height: 16 }} /> : null}
-          {active ? <PromptButton title="Stop" onPress={onStop} /> : null}
+          {active ? <Button variant="pill" title="Stop" onPress={onStop} /> : null}
         </View>
       </Pressable>
     </View>

@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { profileNameColor, useTheme } from "../ui/theme";
 import { useIsIncognito, useProfiles, useWindowId, useWindowProfile } from "../../state/browser/hooks";
 import { setMeasuredWidth, useMeasuredWidth } from "../../state/windows/measuredWidths";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { openProfileMenu } from "../../state/browser/actions";
 
 const PAD = 9;

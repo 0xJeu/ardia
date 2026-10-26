@@ -25,7 +25,7 @@ import { useInlineCompletion } from "./useInlineCompletion";
 import { useSuggestions } from "./useSuggestions";
 import { keywordScope, offeredScope } from "../../state/omnibox/scopes";
 import { setPopover } from "../../state/tabs/pageState";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
 import { INCOGNITO_ICON } from "../ntp/IncognitoHeading";
 
 type Variant = "panel" | "hero" | "sidebar";
@@ -489,7 +489,7 @@ export function Omnibox({
     >
       <AddChip tabId={tabId} onGo={barActions.go} />
       <View style={{ flex: 1 }} />
-      <IconButton icon="mic" size={14} color={theme.textTertiary} tooltip="Dictate" onPress={barActions.dictate} />
+      <Button variant="icon" icon="mic" size={14} color={theme.textTertiary} tooltip="Dictate" onPress={barActions.dictate} />
       <GoButton label={destinationLabel(current)} enabled={!hero || !!typed.trim()} onPress={barActions.choose} />
     </View>
   );
@@ -503,7 +503,7 @@ export function Omnibox({
             {scope && <ScopeChip scope={scope} large={false} />}
             {field}
             {currentUrl ? (
-              <IconButton
+              <Button variant="icon"
                 icon="info.circle"
                 size={15}
                 box={26}

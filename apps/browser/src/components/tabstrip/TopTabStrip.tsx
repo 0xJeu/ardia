@@ -11,7 +11,7 @@ import { useBrowser } from "../../state/browser/store";
 import { PageProfileContext, useIsActiveTab, usePageProfileId, useSettings, useTab, useTabLive, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
 import { ProfileIndicator, useProfileIndicatorWidth } from "../profiles/ProfileIndicator";
 import { HoverSlot } from "../ui/HoverSlot";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
 import { DownloadsButton } from "../downloads/Downloads";
 import { clickTab } from "../../state/sidebar/actions";
 import { pressGroupClose, pressTabClose, useGroupCloseControl, useTabCloseControl } from "../../state/sidebar/closeControl";
@@ -891,7 +891,7 @@ function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width: number
                 hovered={hovered}
                 width={20}
                 hover={
-                  <IconButton
+                  <Button variant="icon"
                     icon={tuck ? "minus" : closeControl.icon}
                     size={9}
                     weight="semibold"
@@ -1330,7 +1330,7 @@ function StripGroup({
       ))}
       <Animated.View pointerEvents={expanded ? "box-none" : "none"} mouseDownCanMoveWindow={false} style={{ position: "absolute", top: ITEM_TOP, height: ITEM_HEIGHT, left: tail, flexDirection: "row", alignItems: "center", opacity: fade }}>
         <View style={{ width: 0.5, height: 15, backgroundColor: divider }} />
-        {groupClose && <IconButton icon={groupClose.icon} size={9} weight="semibold" box={24} radius={6} style={{ marginLeft: 1 }} onPress={() => pressGroupClose(entry.id)} tooltip={groupClose.tooltip} />}
+        {groupClose && <Button variant="icon" icon={groupClose.icon} size={9} weight="semibold" box={24} radius={6} style={{ marginLeft: 1 }} onPress={() => pressGroupClose(entry.id)} tooltip={groupClose.tooltip} />}
       </Animated.View>
       <View
         {...hoverProps}

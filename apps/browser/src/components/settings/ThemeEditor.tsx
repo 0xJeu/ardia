@@ -34,8 +34,8 @@ import { choosePresetColor, setProfileTheme } from "../../state/profiles/themeAc
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../state/browser/types";
 import { parseArcTheme } from "../../state/import/arcTheme";
 import { importModule } from "../../platform/importModule";
-import { useHover } from "../ui/Primitives";
-import { Button, Group, PopUp, Row, SectionHeader, useFormColors } from "../ui/FormControls";
+import { Button, Group, PopUp, useFormColors, useHover } from "../ui";
+import { Row, SectionHeader } from "./Form";
 
 const PAD = 172;
 const KNOB = 22;

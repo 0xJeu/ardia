@@ -2,7 +2,7 @@ import { Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { questionsFor, STEPS, useOnboarding, type OnboardingStep } from "../../state/onboarding/onboarding";
 import { curve } from "../ui/motion";
 

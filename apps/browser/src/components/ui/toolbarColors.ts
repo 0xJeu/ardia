@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Animated } from "react-native";
 import type { Theme } from "./theme";
+import { duration as durations } from "./motion";
+import { ink, siteToolbarRoles } from "./tokens";
 import { curve } from "./motion";
 
 export type ToolbarPalette = {
@@ -53,38 +55,17 @@ export function toolbarPalette(theme: Theme, websiteColor: string | null): Toolb
   } else {
     const l = luminance(websiteColor);
     const light = (1.05 / (l + 0.05)) < ((l + 0.05) / 0.05);
-    palette = light
-      ? {
-          background: websiteColor.slice(0, 7),
-          text: "#000000E6",
-          secondary: "#00000080",
-          icon: "#000000C6",
-          iconDisabled: "#00000040",
-          hover: "rgba(0,0,0,0.07)",
-          pressed: "rgba(0,0,0,0.12)",
-          pill: "rgba(0,0,0,0.06)",
-          divider: "rgba(0,0,0,0.1)",
-        }
-      : {
-          background: websiteColor.slice(0, 7),
-          text: "#FFFFFF",
-          secondary: "#FFFFFF99",
-          icon: "#FFFFFFD9",
-          iconDisabled: "#FFFFFF4D",
-          hover: "rgba(255,255,255,0.14)",
-          pressed: "rgba(255,255,255,0.22)",
-          pill: "rgba(255,255,255,0.1)",
-          divider: "rgba(255,255,255,0.12)",
-        };
+    const roles = light ? siteToolbarRoles.onLight : siteToolbarRoles.onDark;
+    palette = { background: websiteColor.slice(0, 7), ...roles };
   }
   cache.set(key, palette);
   return palette;
 }
 
-export function useEasedColor(color: string | null, duration = 180) {
+export function useEasedColor(color: string | null, duration: number = durations.colorEase) {
   const progress = useRef(new Animated.Value(1)).current;
-  const from = useRef<string>(color ?? "#00000000");
-  const to = useRef<string>(color ?? "#00000000");
+  const from = useRef<string>(color ?? ink.clear);
+  const to = useRef<string>(color ?? ink.clear);
   const target = color ? color.slice(0, 7) : `${to.current.slice(0, 7)}00`;
   if (target !== to.current) {
     from.current = to.current;

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { stopCliControl, useCliIndicator } from "../../state/app/cliControl";
 import { hex, useTheme } from "../ui/theme";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { curve } from "../ui/motion";
 
 const PILL_HEIGHT = 32;

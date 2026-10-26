@@ -32,7 +32,7 @@ import { BOOKMARKS_BAR_HEIGHT, BookmarksBar, bookmarksBarShown, type BookmarksBa
 import { useBookmarksBarMode } from "../../state/bookmarks/hooks";
 import { CliControlPill } from "./CliControlPill";
 import { FindBar } from "../find/FindBar";
-import { POPOVER_MARGIN } from "../ui/Controls";
+import { POPOVER_MARGIN } from "../ui";
 import { NO_TOOLBAR, splitGeometry, toolbarGeometry, type Rect, type ToolbarGeometry } from "./geometry";
 import { dismissPermissions, startPermissionPrompts } from "../../state/site/permissions";
 import { patchPage, pageOf, popoverOf, setBrowserId, setPopover, useFullscreenTab, usePages } from "../../state/tabs/pageState";

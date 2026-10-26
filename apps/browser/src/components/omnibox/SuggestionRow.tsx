@@ -3,7 +3,8 @@ import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { Favicon, IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 
 export function SuggestionIcon({ suggestion: s, color }: { suggestion: Suggestion; color?: string }) {
   const theme = useTheme();
@@ -135,7 +136,7 @@ const SuggestionRow = memo(
             <View style={{ flex: 1 }} />
             {hint && !removable ? <Text style={{ fontSize: 12, color: theme.textTertiary }}>{hint}</Text> : null}
             {removable ? (
-              <IconButton icon="xmark" size={10} box={22} radius={6} color={theme.textSecondary} tooltip="Remove from History" onPress={onRemove} />
+              <Button variant="icon" icon="xmark" size={10} box={22} radius={6} color={theme.textSecondary} tooltip="Remove from History" onPress={onRemove} />
             ) : null}
           </View>
         </Pressable>

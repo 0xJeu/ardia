@@ -8,8 +8,7 @@ import { useBrowser } from "../../state/browser/store";
 import { shownPageId } from "../../state/peek/peek";
 import { useWindowId } from "../../state/browser/hooks";
 import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
-import { PANEL, PromptButton } from "../ui/Controls";
-import { Checkbox } from "../ui/FormControls";
+import { Button, Checkbox, PANEL } from "../ui";
 import {
   cancelInstall,
   closeExtensionPopup,
@@ -226,11 +225,11 @@ function InstallDialog({ request }: { request: InstallRequest }) {
       {body}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
         {request.status === "error" ? (
-          <PromptButton title="OK" primary onPress={cancelInstall} />
+          <Button variant="pill" title="OK" primary onPress={cancelInstall} />
         ) : (
           <>
-            <PromptButton title="Cancel" onPress={cancelInstall} />
-            <PromptButton title={request.status === "installing" ? "Adding…" : action} primary onPress={() => void confirmInstall()} />
+            <Button variant="pill" title="Cancel" onPress={cancelInstall} />
+            <Button variant="pill" title={request.status === "installing" ? "Adding…" : action} primary onPress={() => void confirmInstall()} />
           </>
         )}
       </View>
@@ -259,7 +258,7 @@ function PinDialog({ windowId }: { windowId: string }) {
         <Text style={{ fontSize: 13, color: theme.textTertiary }}>No extensions are turned on.</Text>
       )}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 16 }}>
-        <PromptButton title="Done" primary onPress={close} />
+        <Button variant="pill" title="Done" primary onPress={close} />
       </View>
     </Dialog>
   );

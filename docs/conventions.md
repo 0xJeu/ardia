@@ -52,6 +52,32 @@ lib/                    pure helpers: url, time, keys
   position, size) and animated values.
 - One copy of each piece. Before writing a button, panel, closing animation or `hostOf`, use the one in
   `components/ui/` or `lib/`.
+- Import pieces from the `components/ui` index (`import { Button, Popover } from "../ui"`). Inside `components/ui`,
+  modules import each other directly.
+
+### Which piece replaces what
+
+| Hand-built today | Use |
+| --- | --- |
+| `theme.dark ? "rgba(…)" : "rgba(…)"` | a role on the theme (`theme.popoverBorder`, `theme.scrim`, …), added to both palettes in `tokens.ts` |
+| `useFormColors().accent` and friends | the theme role: `formAccent`, `groupFill`, `control`, `field`, `destructive`, `searchFlash`, … (`useFormColors` stays only until its callers move) |
+| `Easing.out(Easing.quad)`, `Easing.bezier(…)` | `curve.outQuad`, `curve.fade`, `curve.fold`, … from `motion.ts` |
+| a numeric `duration:` shared with another place | `duration.popoverOpen`, `duration.fade`, `duration.slide`, … |
+| `stiffness: (2π/response)²` written by hand | `spring({ response, damping })` |
+| a `View` with `padding`/`gap`/`backgroundColor`/`borderRadius` from tokens | `<Box pad="m" gap="s" fill="panel" radius="card" row>` |
+| `<Text style={{ fontSize: 13, fontWeight: "600", color: theme.textSecondary }}>` | `<Text size="body" weight="semibold" tone="textSecondary">` |
+| a pressable square with an SF Symbol and a hover plate | `<Button variant="icon" icon="…">` (add `toolbar` for toolbar buttons: modifier clicks, long press, context menu, no window drag; `palette` for site-coloured toolbars) |
+| a hover-plated text link ("Replace", "Clear", "Skip Tour") | `<Button variant="text" title plate="toolbar" \| "hover" \| "none">` |
+| a filled rounded button with a title | `<Button variant="pill" tone="prompt" \| "chip" \| "control" primary>` |
+| a dismiss ✕ | `<Button variant="close" look="panel" \| "hud" \| "art">` |
+| a macOS push button (settings, dialogs) | `<Button title kind="default" \| "primary" \| "destructive" \| "plain">` |
+| a menu-material panel with a scale-in | `Popover` (or `PopoverSurface` for the material alone); a panel placed by its own math uses `usePopoverMotion` + `usePopoverMotionStyle`; open/close state from `usePopoverPresence` |
+| a row in a popover or menu | `MenuRow` and `MenuSeparator` |
+| a centred modal over a scrim | `<Dialog width pad onDismiss>`; anchored to a spot with `place={{ top, right }}`; `Sheet` is the settings preset |
+| a settings row / grouped rows | `Row` and `Group`; inside settings, `Row`, `SectionHeader` and `Anchor` from `components/settings/Form` add the search anchor |
+| a text input / search box / pop-up menu / checkbox | `TextField`, `SearchField`, `PopUp`, `Checkbox` |
+| an on/off switch | `<Toggle>` (settings) or `<Toggle look="panel">` (popovers) |
+| a radio dot | `<Radio on look="form" \| "compact" \| "ring">` |
 
 ## State
 

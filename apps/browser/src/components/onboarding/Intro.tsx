@@ -3,7 +3,7 @@ import { playIntroMusic, setIntroMusicMuted, stopIntroMusic, Symbol, type IntroM
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { introMusicMuted, saveIntroMusicMuted } from "../../state/onboarding/onboarding";
 import { SecondaryButton, useOnboardingColors } from "./Parts";
 import { curve } from "../ui/motion";

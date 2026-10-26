@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { cancelChooser, chooseDevice, openChooserBluetoothSettings, rescanDevices, useDeviceChooser } from "../../state/site/deviceChoosers";
-import { PANEL, Popover, PromptButton } from "../ui/Controls";
-import { useHover } from "../ui/Primitives";
+import { Button, PANEL, Popover, useHover } from "../ui";
 
 function Signal({ level, color }: { level: number; color: string }) {
   return (
@@ -125,9 +124,9 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
         </View>
         {body}
         <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
-          <PromptButton title={chooser.cancelLabel || "Cancel"} onPress={cancel} />
+          <Button variant="pill" title={chooser.cancelLabel || "Cancel"} onPress={cancel} />
           <View pointerEvents={valid && !blocked ? "auto" : "none"} style={{ opacity: valid && !blocked ? 1 : 0.4 }}>
-            <PromptButton title={chooser.okLabel || "Connect"} primary onPress={() => choose()} />
+            <Button variant="pill" title={chooser.okLabel || "Connect"} primary onPress={() => choose()} />
           </View>
         </View>
       </View>

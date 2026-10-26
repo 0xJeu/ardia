@@ -8,7 +8,7 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../../state/browser/store";
 import { useFind } from "../../state/browser/hooks";
 import type { FindState } from "../../state/browser/types";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
 import { replaceInField } from "../../state/site/selection";
 import { curve } from "../ui/motion";
 
@@ -129,10 +129,10 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
               <Text style={{ fontSize: 12, color: theme.textSecondary, fontVariant: ["tabular-nums"] }}>{find.count}</Text>
             </View>
           ) : null}
-          <IconButton icon="chevron.up" size={12} box={26} radius={6} disabled={!find.count} onPress={() => run(true)} tooltip={withShortcut("Previous", previousHint)} />
-          <IconButton icon="chevron.down" size={12} box={26} radius={6} disabled={!find.count} onPress={() => run(false)} tooltip={withShortcut("Next", nextHint)} />
+          <Button variant="icon" icon="chevron.up" size={12} box={26} radius={6} disabled={!find.count} onPress={() => run(true)} tooltip={withShortcut("Previous", previousHint)} />
+          <Button variant="icon" icon="chevron.down" size={12} box={26} radius={6} disabled={!find.count} onPress={() => run(false)} tooltip={withShortcut("Next", nextHint)} />
           <View style={{ width: 1, height: 18, marginHorizontal: 3, backgroundColor: separator }} />
-          <IconButton icon="xmark" size={11} box={26} radius={6} onPress={close} tooltip="Done (Esc)" />
+          <Button variant="icon" icon="xmark" size={11} box={26} radius={6} onPress={close} tooltip="Done (Esc)" />
         </View>
         {find.replace && <View style={{ height: StyleSheet.hairlineWidth * 2, backgroundColor: separator }} />}
         {find.replace && (

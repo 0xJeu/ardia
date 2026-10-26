@@ -6,7 +6,7 @@ import { updateProfile } from "../../state/profiles/actions";
 import { toggleTabLayout } from "../../state/splits/actions";
 import { useWindowTabLayout } from "../../state/windows/hooks";
 import type { ProfileColor } from "../../state/browser/types";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { Radio, useOnboardingColors } from "./Parts";
 
 export const PERSONALIZE_COPY = {

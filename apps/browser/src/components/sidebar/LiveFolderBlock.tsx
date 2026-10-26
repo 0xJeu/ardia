@@ -16,7 +16,7 @@ import { usePageProfileId } from "../../state/browser/hooks";
 import { activeTabId, viewTabIds } from "../../state/browser/model";
 import { openSettings } from "../../state/settings/settingsWindows";
 import { HoverSlot } from "../ui/HoverSlot";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
 import { useLiveColors, type LiveColors } from "../live/colors";
 import { TabRow } from "./TabRow";
 import { modifiersOf } from "../../lib/keys";
@@ -187,7 +187,7 @@ function RefreshButton({ spinning, tooltip, onPress }: { spinning: boolean; tool
     loop.start();
     return () => loop.stop();
   }, [spinning]);
-  if (!spinning) return <IconButton icon="arrow.clockwise" size={10} weight="semibold" box={22} radius={6} onPress={onPress} tooltip={tooltip} />;
+  if (!spinning) return <Button variant="icon" icon="arrow.clockwise" size={10} weight="semibold" box={22} radius={6} onPress={onPress} tooltip={tooltip} />;
   return (
     <View tooltip={tooltip} style={{ width: 22, height: 22, alignItems: "center", justifyContent: "center" }}>
       <Animated.View style={{ transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }}>
@@ -366,7 +366,7 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
                 <HoverSlot
                   hovered={hovered && !!tabId && !completion}
                   width={22}
-                  hover={<IconButton icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => tabId && void closeTab(tabId)} tooltip={withShortcut("Close Tab", closeHint)} />}
+                  hover={<Button variant="icon" icon="xmark" size={10} weight="semibold" box={22} radius={6} onPress={() => tabId && void closeTab(tabId)} tooltip={withShortcut("Close Tab", closeHint)} />}
                 >
                   <Trailing item={item} completion={completion} colors={colors} />
                 </HoverSlot>

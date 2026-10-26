@@ -20,7 +20,8 @@ import {
   type SyncStatus,
 } from "../../../state/sync/engine";
 import { ProfileBadge } from "../../profiles/ProfileIcons";
-import { Button, Group, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
+import { Button, Group, Toggle, useFormColors } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { folderLabel, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
 
 export function SyncPane() {

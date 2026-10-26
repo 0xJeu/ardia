@@ -108,4 +108,3 @@ export function Toggle({ value, onChange, disabled, look = "form" }: { value: bo
     />
   );
 }
-export const switchEasing = { cubicOut: curve.outCubic, quadOut: curve.outQuad };

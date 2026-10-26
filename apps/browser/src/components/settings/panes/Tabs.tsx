@@ -5,7 +5,8 @@ import { useBrowser } from "../../../state/browser/store";
 import { tabLayoutOf } from "../../../state/browser/model";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
 import { liquidGlass } from "../../ui/Glass";
-import { Checkbox, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
+import { Checkbox, Group, PopUp, Toggle, useFormColors } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { setting } from "../settingsIndex";
 
 const PEEK_WITH: { value: PeekModifier; title: string }[] = [

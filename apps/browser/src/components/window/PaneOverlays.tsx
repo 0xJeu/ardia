@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
-import { PromptButton } from "../ui/Controls";
+import { Button } from "../ui";
 import { patchPage, usePage } from "../../state/tabs/pageState";
 import { curve } from "../ui/motion";
 
@@ -68,7 +68,7 @@ export function SadTab({ tabId }: { tabId: string }) {
         <Text style={{ fontSize: 13, color: theme.textSecondary, textAlign: "center", maxWidth: 340, marginBottom: 18 }}>
           Something went wrong with this tab. Reloading often fixes it.
         </Text>
-        <PromptButton
+        <Button variant="pill"
           title="Reload"
           primary
           onPress={() => {
@@ -96,14 +96,14 @@ export function SadTab({ tabId }: { tabId: string }) {
         <Text style={{ fontSize: 14, fontWeight: "600", color: theme.textPrimary }}>Page Unresponsive</Text>
         <Text style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 10 }}>You can wait for it to become responsive or exit the page.</Text>
         <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
-          <PromptButton
+          <Button variant="pill"
             title="Exit Page"
             onPress={() => {
               patchPage(tabId, { unresponsive: false });
               void webviews.get(tabId)?.resolveUnresponsive(true);
             }}
           />
-          <PromptButton
+          <Button variant="pill"
             title="Wait"
             primary
             onPress={() => {

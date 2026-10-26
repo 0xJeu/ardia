@@ -5,7 +5,7 @@ import { layout, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
-import { IconButton } from "../ui/Primitives";
+import { Button } from "../ui";
 import { closeSidePanel, findExtension, showExtensionMenu, useExtensions, type SidePanel } from "../../state/extensions/actions";
 import { curve } from "../ui/motion";
 
@@ -100,7 +100,7 @@ function PanelCard({ windowId, panel }: { windowId: string; panel: SidePanel }) 
         <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, fontWeight: "500", color: theme.textPrimary }}>
           {title}
         </Text>
-        <IconButton
+        <Button variant="icon"
           icon="ellipsis"
           size={13}
           tooltip="More"
@@ -109,7 +109,7 @@ function PanelCard({ windowId, panel }: { windowId: string; panel: SidePanel }) 
             if (found) void showExtensionMenu(windowId, found);
           }}
         />
-        <IconButton icon="xmark" size={12} weight="medium" tooltip="Close Side Panel" onPress={() => closeSidePanel(windowId)} />
+        <Button variant="icon" icon="xmark" size={12} weight="medium" tooltip="Close Side Panel" onPress={() => closeSidePanel(windowId)} />
       </View>
       <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }} />
       <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>

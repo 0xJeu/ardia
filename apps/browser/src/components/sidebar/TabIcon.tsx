@@ -8,7 +8,7 @@ import { ENGINE_NAMES, ENGINE_SYMBOLS } from "../../state/engines/engines";
 import { useEngineMark } from "../../state/engines/hooks";
 import { useFadesUnloaded } from "../../state/pins/hooks";
 import { NO_GROUP_ICON, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
-import { Favicon } from "../ui/Primitives";
+import { Favicon } from "../favicon/Favicon";
 
 export const NO_GROUP_ICON_INK = { light: "#00000040", dark: "#FFFFFF40" };
 

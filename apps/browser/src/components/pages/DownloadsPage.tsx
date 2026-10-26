@@ -8,8 +8,7 @@ import { useDownloads, useTab } from "../../state/browser/hooks";
 import { clearDownloads, removeDownload } from "../../state/windows/actions";
 import { openUrl } from "../../state/bookmarks/actions";
 import { downloadMenu, downloadStatus, FileIcon } from "../downloads/Downloads";
-import { IconButton, useHover } from "../ui/Primitives";
-import { Button, useFormColors } from "../ui/FormControls";
+import { Button, useFormColors, useHover } from "../ui";
 import { EmptyState, hostLabel, matchesQuery, PAGE_WIDTH, PageHeader } from "./PageLayout";
 
 export function DownloadsPage({ tabId }: { tabId: string }) {
@@ -101,9 +100,9 @@ function DownloadCard({ d, windowId }: { d: Download; windowId: string }) {
           ) : done ? (
             <Button title="Show in Finder" onPress={() => void revealFile(d.path)} />
           ) : null}
-          <IconButton icon="ellipsis" size={13} box={26} radius={6} onPress={() => void downloadMenu(d, windowId)} tooltip="More actions" />
+          <Button variant="icon" icon="ellipsis" size={13} box={26} radius={6} onPress={() => void downloadMenu(d, windowId)} tooltip="More actions" />
           {d.state !== "downloading" && (
-            <IconButton icon="xmark" size={11} box={26} radius={6} onPress={() => removeDownload(d.id)} tooltip="Remove from List" />
+            <Button variant="icon" icon="xmark" size={11} box={26} radius={6} onPress={() => removeDownload(d.id)} tooltip="Remove from List" />
           )}
         </View>
       </MouseArea>

@@ -6,7 +6,8 @@ import { useTheme } from "../../ui/theme";
 import { useBrowser } from "../../../state/browser/store";
 import { openInternalPage } from "../../../state/pages/urls";
 import type { BatterySaverWhen } from "../../../state/settings/settings";
-import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
+import { Button, Group, PopUp, Toggle, useFormColors } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { engineVersion, widevine as widevineComponent } from "../paneData";
 import { useResource } from "../resources";
 

@@ -4,16 +4,15 @@ import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { useTab } from "../../state/browser/hooks";
-import { PANEL, Popover, PromptButton, ToolbarButton } from "../ui/Controls";
+import { Button, PANEL, Popover, useHover } from "../ui";
 import { setPopover, usePages } from "../../state/tabs/pageState";
 import { type ToolbarPalette } from "../ui/toolbarColors";
-import { useHover } from "../ui/Primitives";
 
 export const ZoomIndicator = memo(function ZoomIndicator({ tabId, zoom, palette, onFocus }: { tabId: string; zoom: number; palette: ToolbarPalette; onFocus: () => void }) {
   const open = usePages((p) => p.popover[tabId] === "zoom");
   if (Math.abs(zoom - 1) < 0.001) return null;
   return (
-    <ToolbarButton
+    <Button variant="icon" toolbar
       palette={palette}
       icon={zoom > 1 ? "plus.magnifyingglass" : "minus.magnifyingglass"}
       size={13}
@@ -39,7 +38,7 @@ export function ZoomPopover({ tabId, right, left, top }: { tabId: string; right?
       <View style={{ flexDirection: "row", alignItems: "center", height: ZOOM_BAR, paddingLeft: PANEL.inset, paddingRight: (ZOOM_BAR - 28) / 2, gap: 8 }}>
         <Text style={{ flex: 1, fontSize: 13, fontVariant: ["tabular-nums"], color: theme.textPrimary }}>{`Zoom: ${Math.round(zoom * 100)}%`}</Text>
         <ZoomStepper tabId={tabId} zoom={zoom} percent={false} />
-        <PromptButton title="Reset" onPress={() => void webviews.get(tabId)?.zoomStep(0)} />
+        <Button variant="pill" title="Reset" onPress={() => void webviews.get(tabId)?.zoomStep(0)} />
       </View>
     </Popover>
   );

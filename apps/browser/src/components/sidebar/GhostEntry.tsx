@@ -10,7 +10,7 @@ import { tabTitle } from "../../state/sidebar/actions";
 import { groupEntries } from "../../state/sidebar/entries";
 import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap, keptEntry } from "./geometry";
 import { pointerOnGroup, pointerOnRow } from "../../state/sidebar/hover";
-import { FaviconFallback, NewTabIcon } from "../ui/Primitives";
+import { FaviconFallback, NewTabIcon } from "../favicon/Favicon";
 import { TabIcon } from "./TabIcon";
 import { SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { groupSurface, useSidebarTokens, withAlpha } from "./tokens";

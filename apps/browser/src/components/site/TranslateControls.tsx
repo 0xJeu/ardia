@@ -3,7 +3,7 @@ import { memo } from "react";
 import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { isIncognitoProfile } from "../../state/browser/model";
-import { PopoverRow, PopoverSeparator, Toggle, ToolbarButton } from "../ui/Controls";
+import { Button, MenuRow, MenuSeparator, Toggle } from "../ui";
 import type { ToolbarPalette } from "../ui/toolbarColors";
 import {
   defaultTarget,
@@ -24,7 +24,7 @@ export const TranslateButton = memo(function TranslateButton({ tabId, palette, o
   if (!translation || (!state.source && state.status === "idle")) return null;
   const translated = state.status !== "idle";
   return (
-    <ToolbarButton
+    <Button variant="icon" toolbar
       palette={palette}
       icon="translate"
       size={13}
@@ -77,7 +77,7 @@ export function TranslateRows({ tabId, onClose }: { tabId: string; onClose: () =
   return (
     <>
       {!never && (
-        <PopoverRow
+        <MenuRow
           icon={translated ? "arrow.uturn.backward" : "translate"}
           title={translated ? `Show Original (${languageName(state.source ?? "")})` : `Translate to ${languageName(defaultTarget())}`}
           onPress={() => {
@@ -87,7 +87,7 @@ export function TranslateRows({ tabId, onClose }: { tabId: string; onClose: () =
         />
       )}
       {!never && (
-        <PopoverRow
+        <MenuRow
           icon="globe"
           title="Choose Another Language…"
           onPress={() => {
@@ -97,9 +97,9 @@ export function TranslateRows({ tabId, onClose }: { tabId: string; onClose: () =
         />
       )}
       {!isIncognitoProfile(tab.profileId) && (
-        <PopoverRow icon="nosign" title="Never Translate This Site" accessory={<Toggle value={never} onChange={(v) => setNeverTranslate(tabId, v)} />} />
+        <MenuRow icon="nosign" title="Never Translate This Site" accessory={<Toggle look="panel" value={never} onChange={(v) => setNeverTranslate(tabId, v)} />} />
       )}
-      <PopoverSeparator />
+      <MenuSeparator />
     </>
   );
 }

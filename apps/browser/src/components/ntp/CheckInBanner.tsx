@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { CHECK_IN_COPY, useDefaultBrowserCheckIn } from "../../state/onboarding/defaultBrowserCheckIn";
 import { hex, useTheme } from "../ui/theme";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { curve } from "../ui/motion";
 
 const ICON = require("../../../assets/app-icon.png");

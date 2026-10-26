@@ -2,13 +2,14 @@ import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Text } from "react-native";
 import { hex, useTheme } from "./theme";
+import { hairline, shadow } from "./tokens";
 import { curve } from "./motion";
 
 const SHOW_DELAY_MS = 500;
 const FADE_MS = 100;
 const FADE_EASING = curve.fade;
 const SPAN = 280;
-const RING = 0.5;
+const RING = hairline.ring;
 const RADIUS = 4;
 
 function useShownAfterDelay(active: boolean) {
@@ -42,22 +43,22 @@ export function TooltipAbove({ text, active, centerX, bottom }: { text: string; 
     <Animated.View pointerEvents="none" style={{ position: "absolute", left: centerX - SPAN / 2, width: SPAN, bottom: bottom - RING, alignItems: "center", opacity }}>
       <Surface
         cornerRadius={RADIUS + RING}
-        borderColor={hex(theme.dark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.12)")}
+        borderColor={hex(theme.tooltipRing)}
         borderWidth={RING}
-        shadowColor="#000000"
-        shadowOpacity={theme.dark ? 0.15 : 0.08}
-        shadowRadius={4}
-        shadowOffset={[0, 1]}
+        shadowColor={shadow.tooltip.color}
+        shadowOpacity={theme.dark ? shadow.tooltip.opacity.dark : shadow.tooltip.opacity.light}
+        shadowRadius={shadow.tooltip.radius}
+        shadowOffset={shadow.tooltip.offset}
         style={{ padding: RING }}
       >
         <Surface
-          fill={hex(theme.dark ? "#262626" : theme.panel)}
+          fill={hex(theme.tooltipFill)}
           cornerRadius={RADIUS}
           borderColor={hex(theme.panelBorder)}
           borderWidth={1}
           style={{ paddingHorizontal: 6.5, paddingVertical: 5 }}
         >
-          <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "500", color: theme.dark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)" }}>
+          <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "500", color: theme.tooltipText }}>
             {text}
           </Text>
         </Surface>

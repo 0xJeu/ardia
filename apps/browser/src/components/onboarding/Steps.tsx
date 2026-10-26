@@ -11,7 +11,8 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useWindowHistory } from "../../state/history/hooks";
-import { Favicon, useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { CONTENT_WIDTH, ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { MockPanel, useScreen } from "./Screen";
 import { PINNABLE_SITES, pinnedHosts, pinSites, preselectedSites } from "../../state/onboarding/sites";

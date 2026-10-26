@@ -14,7 +14,7 @@ import { ExtensionOverlays } from "../extensions/ExtensionOverlays";
 import { ToolbarPopupAnchor } from "../extensions/ToolbarExtensions";
 import { setUrlAnchor } from "../../state/windows/layout";
 import { showUrlBarMenu } from "../omnibox/paste";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { copyPageUrl } from "../../state/site/selection";
 import { ProfileBadge } from "../profiles/ProfileIcons";
 import { openInMainWindow, openLittleArdiaProfileMenu } from "../../state/littleArdia/actions";

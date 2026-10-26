@@ -15,7 +15,7 @@ import { openInSplit } from "../../state/splits/actions";
 import { CalendarPreview, useIsCalendarTab } from "../live/CalendarPreview";
 import { LiveItemCard } from "../live/LiveItemCard";
 import { useIsSleeping } from "../../state/tabs/tabLifecycle";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { clickTab, tabTitle } from "../../state/sidebar/actions";
 import { GroupPanel } from "./GroupPanel";
 import { cardHoverProps, dismissHover, setHoverSpace } from "../../state/sidebar/hover";

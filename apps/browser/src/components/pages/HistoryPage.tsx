@@ -10,8 +10,8 @@ import { removeHistory } from "../../state/history/actions";
 import type { HistoryEntry } from "../../state/browser/types";
 import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { HoverSlot } from "../ui/HoverSlot";
-import { Favicon, IconButton } from "../ui/Primitives";
-import { Button, Checkbox, useFormColors } from "../ui/FormControls";
+import { Button, Checkbox, useFormColors } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { ClearDataDialog } from "./ClearDataDialog";
 import { requestClearData, useClearDataRequest } from "../../state/profiles/clearDataRequest";
 import { dayLabel, dayStart, EmptyState, hostLabel, PAGE_WIDTH, PageHeader, queryWords, searchText, timeLabel } from "./PageLayout";
@@ -399,7 +399,7 @@ const HistoryRow = memo(function HistoryRow({
               </Text>
             </Pressable>
           </MouseArea>
-          <HoverSlot hovered={showControls} width={26} hover={<IconButton icon="ellipsis" size={13} box={26} radius={6} onPress={() => void menu()} tooltip="More actions" />} />
+          <HoverSlot hovered={showControls} width={26} hover={<Button variant="icon" icon="ellipsis" size={13} box={26} radius={6} onPress={() => void menu()} tooltip="More actions" />} />
         </View>
       </ContextMenuArea>
       {!last && <View style={{ position: "absolute", left: 16 + 12, right: 16 + 12, bottom: 0, height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.separator }} />}

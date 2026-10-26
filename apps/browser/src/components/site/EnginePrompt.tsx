@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { acceptEngineOffer, stayOnPage, useEngineOffers, type EngineOffer } from "../../state/engines/actions";
 import { useTheme } from "../ui/theme";
-import { PanelCloseButton, Popover, PromptButton } from "../ui/Controls";
-import { Checkbox } from "../ui/FormControls";
+import { Button, Checkbox, PanelCloseButton, Popover } from "../ui";
 import { PromptBody } from "./Prompts";
 
 export function EngineOfferPrompt({ tabId, left, top }: { tabId: string; left: number; top: number }) {
@@ -32,8 +31,8 @@ function OfferPopover({ tabId, offer, left, top }: { tabId: string; offer: Engin
             ) : undefined
           }
         >
-          <PromptButton title="Stay on Page" onPress={() => stayOnPage(tabId, remember)} />
-          <PromptButton title="Open in WebKit" primary onPress={() => void acceptEngineOffer(tabId)} />
+          <Button variant="pill" title="Stay on Page" onPress={() => stayOnPage(tabId, remember)} />
+          <Button variant="pill" title="Open in WebKit" primary onPress={() => void acceptEngineOffer(tabId)} />
         </PromptBody>
         <PanelCloseButton onPress={() => stayOnPage(tabId)} />
       </View>

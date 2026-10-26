@@ -4,8 +4,8 @@ import { useTheme } from "../../ui/theme";
 import { useBrowser } from "../../../state/browser/store";
 import { tabLayoutOf } from "../../../state/browser/model";
 import type { Settings } from "../../../state/settings/settings";
-import { useHover } from "../../ui/Primitives";
-import { Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
+import { Group, PopUp, Toggle, useFormColors, useHover } from "../../ui";
+import { Row, SectionHeader } from "../Form";
 import { APP_ICON_SIZE, appIconChoices } from "../paneData";
 import { store, useResource } from "../resources";
 

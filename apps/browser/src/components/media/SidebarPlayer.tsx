@@ -6,7 +6,8 @@ import { switchToTab, toggleMute } from "../../state/browser/actions";
 import { hex, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useTab } from "../../state/browser/hooks";
-import { Favicon, IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { useSidebarTokens } from "../sidebar/tokens";
 import { useArtwork } from "./artwork";
 import { seekTo, SeekBar, skip } from "./MiniPlayer";
@@ -70,7 +71,7 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
           </Pressable>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", height: 24, marginTop: 4, marginLeft: -4 }}>
-          <IconButton
+          <Button variant="icon"
             icon={tracks ? "backward.fill" : `gobackward.${SKIP_SECONDS}`}
             size={tracks ? 10 : 12}
             box={24}
@@ -78,8 +79,8 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
             tooltip={tracks ? "Play Previous Track" : `Skip back ${SKIP_SECONDS} seconds`}
             onPress={() => (tracks ? mediaCommand(tabId, "previous") : skip(tabId, session, -SKIP_SECONDS))}
           />
-          <IconButton icon={playing ? "pause.fill" : "play.fill"} size={13} box={24} radius={6} tooltip={playing ? "Pause" : "Play"} onPress={() => mediaCommand(tabId, "toggle")} />
-          <IconButton
+          <Button variant="icon" icon={playing ? "pause.fill" : "play.fill"} size={13} box={24} radius={6} tooltip={playing ? "Pause" : "Play"} onPress={() => mediaCommand(tabId, "toggle")} />
+          <Button variant="icon"
             icon={tracks ? "forward.fill" : `goforward.${SKIP_SECONDS}`}
             size={tracks ? 10 : 12}
             box={24}

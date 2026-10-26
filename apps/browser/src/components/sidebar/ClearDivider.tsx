@@ -3,7 +3,7 @@ import { memo, useEffect, useMemo, useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
 import { markHoverProps } from "../ui/hoverShift";
 import { useTheme } from "../ui/theme";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { closeAllTabs } from "../../state/sidebar/menus";
 import { tidyPins } from "../../state/sidebar/tidyPinsUi";
 

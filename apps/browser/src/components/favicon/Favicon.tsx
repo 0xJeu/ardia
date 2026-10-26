@@ -1,72 +1,9 @@
 import { displayHost } from "@ardia/core";
-import { Symbol, type SymbolProps } from "@ardia/shell";
 import { memo, useState } from "react";
-import { Image, Pressable, Text, View, type ViewStyle } from "react-native";
-import { markHoverProps } from "./hoverShift";
+import { Image, Text, View } from "react-native";
 import { faviconFailed, useAppearanceDark, useFavicon, useFaviconTheme } from "../../state/favicons/favicons";
+import { Symbol, useTheme } from "../ui";
 import { bundledSiteIcon } from "./siteIcons";
-import { useTheme } from "./theme";
-
-export function useHover() {
-  const [hovered, setHovered] = useState(false);
-  const [hoverProps] = useState(() => markHoverProps({ onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false) }));
-  return { hovered, hoverProps };
-}
-
-export const IconButton = memo(function IconButton({
-  icon,
-  onPress,
-  disabled,
-  active,
-  size = 15,
-  box = 30,
-  radius = 7,
-  weight = "regular",
-  tooltip,
-  color,
-  style,
-}: {
-  icon: string;
-  onPress?: () => void;
-  disabled?: boolean;
-  active?: boolean;
-  size?: number;
-  box?: number;
-  radius?: number;
-  weight?: SymbolProps["weight"];
-  tooltip?: string;
-  color?: string;
-  style?: ViewStyle;
-}) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View tooltip={tooltip} style={style} {...hoverProps}>
-      <Pressable onPress={onPress} disabled={disabled}>
-        {({ pressed }) => (
-          <View
-            style={{
-              width: box,
-              height: box,
-              borderRadius: radius,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: disabled ? undefined : pressed || active ? theme.toolbarPressed : hovered ? theme.toolbarHover : undefined,
-            }}
-          >
-            <Symbol
-              name={icon}
-              size={size}
-              weight={weight}
-              color={color ?? (disabled ? theme.iconDisabled : theme.icon)}
-              style={{ width: box, height: box }}
-            />
-          </View>
-        )}
-      </Pressable>
-    </View>
-  );
-});
 
 export const Favicon = memo(function Favicon({
   url,
@@ -118,7 +55,7 @@ export const FaviconFallback = memo(function FaviconFallback({ url, size = 16 }:
           height: tile,
           borderRadius: tile * 0.32,
           borderCurve: "continuous",
-          backgroundColor: theme.dark ? "rgba(247,245,255,0.2)" : "rgba(0,0,0,0.13)",
+          backgroundColor: theme.faviconTile,
           alignItems: "center",
           justifyContent: "center",
         }}
@@ -144,7 +81,7 @@ export function NewTabIcon({ size = 16 }: { size?: number }) {
     <Image
       key={theme.dark ? "dark" : "light"}
       source={NEW_TAB_MARK}
-      style={{ width: size, height: size, tintColor: theme.dark ? "#FFFFFF" : "#000000", opacity: theme.dark ? 0.28 : 0.3 }}
+      style={{ width: size, height: size, tintColor: theme.mark, opacity: theme.dark ? 0.28 : 0.3 }}
     />
   );
 }

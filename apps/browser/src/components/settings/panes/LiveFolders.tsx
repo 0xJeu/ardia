@@ -10,8 +10,9 @@ import { connectBitbucket, connectConfluence, connectGithub, connectNotion, disc
 import { live, updateConfig, updateFolder, useLive } from "../../../state/live/store";
 import type { LiveAccount, LiveFolder, LiveSourceId } from "../../../state/live/types";
 import { useBrowser } from "../../../state/browser/store";
-import { Favicon } from "../../ui/Primitives";
-import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle } from "../../ui/FormControls";
+import { Button, Group, Sheet, TextField, Toggle } from "../../ui";
+import { Favicon } from "../../favicon/Favicon";
+import { Row, SectionHeader } from "../Form";
 import { setting } from "../settingsIndex";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 

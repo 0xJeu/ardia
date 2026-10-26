@@ -158,3 +158,43 @@ export const layout = {
   breadcrumbX: 153,
   trafficLightsWidth: 78,
 } as const;
+
+export type FormColors = {
+  group: string;
+  groupBorder: string;
+  separator: string;
+  control: string;
+  controlHover: string;
+  controlPressed: string;
+  controlBorder: string;
+  field: string;
+  fieldBorder: string;
+  switchOff: string;
+  accent: string;
+  destructive: string;
+  selected: string;
+  flash: string;
+};
+
+const formColorsOf = (roles: ColorRoles): FormColors => ({
+  group: roles.groupFill,
+  groupBorder: roles.groupBorder,
+  separator: roles.groupSeparator,
+  control: roles.control,
+  controlHover: roles.controlHover,
+  controlPressed: roles.controlPressed,
+  controlBorder: roles.controlBorder,
+  field: roles.field,
+  fieldBorder: roles.fieldBorder,
+  switchOff: roles.switchOff,
+  accent: roles.formAccent,
+  destructive: roles.destructive,
+  selected: roles.formRowHover,
+  flash: roles.searchFlash,
+});
+
+const FORM_COLORS = { dark: formColorsOf(colorRoles.dark), light: formColorsOf(colorRoles.light) };
+
+export function useFormColors(): FormColors {
+  return useTheme().dark ? FORM_COLORS.dark : FORM_COLORS.light;
+}

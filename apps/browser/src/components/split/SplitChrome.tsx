@@ -6,7 +6,7 @@ import { withAlpha } from "../sidebar/tokens";
 import { useBrowser } from "../../state/browser/store";
 import type { SplitView } from "../../state/browser/types";
 import { resize, type Divider, type Rect } from "../window/geometry";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { hideToast, useToasts } from "../../state/splits/actions";
 import { useWindowId } from "../../state/browser/hooks";
 import { overPeek } from "../../state/windows/dockMotion";

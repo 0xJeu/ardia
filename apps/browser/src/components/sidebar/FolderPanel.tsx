@@ -6,7 +6,7 @@ import { useIsActiveTab, useTab } from "../../state/browser/hooks";
 import { plural } from "../../state/browser/model";
 import { useTileFolderLabel, useTileFolderMembers } from "../../state/pins/hooks";
 import { SLIDE } from "../tabstrip/stripReorder";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { clickTab, tabTitle } from "../../state/sidebar/actions";
 import { useDragController, useDragItem, useFolderAway } from "./DragProvider";
 import { openTabMenu } from "../../state/sidebar/menus";

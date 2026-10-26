@@ -4,7 +4,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { defaultSearchEngine } from "../../state/settings/settings";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { searchSelection, setPageSelection, usePageSelection, type ClickModifiers, type PageSelection } from "../../state/site/selection";
 import { curve } from "../ui/motion";
 

@@ -7,7 +7,7 @@ import { currentBookmarks, currentSettings } from "../../state/browser/current";
 import { addBookmark, addBookmarkFolder, moveBookmark, updateBookmark } from "../../state/bookmarks/actions";
 import { useWindowId } from "../../state/browser/hooks";
 import { searchUrlPrefix } from "../../state/settings/settings";
-import { Button, TextField, useFormColors } from "../ui/FormControls";
+import { Button, TextField, useFormColors } from "../ui";
 import { closeBookmarkEditor, useBookmarkEditor, type EditorState } from "../../state/bookmarks/edit";
 import { FolderTree } from "./FolderTree";
 

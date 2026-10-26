@@ -7,7 +7,7 @@ import { useBrowser } from "../../state/browser/store";
 import { toggleCastPicker, useCastRoutes } from "../../state/media/cast";
 import type { ToolbarPalette } from "../ui/toolbarColors";
 import { usePages } from "../../state/tabs/pageState";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { dropToolbarAnchor, setToolbarAnchor } from "../../state/extensions/bridge";
 import {
   activateExtension,

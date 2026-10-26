@@ -17,7 +17,7 @@ import { openNewTabInSplit } from "../../state/splits/actions";
 import { listTopGap, SIDEBAR_FIELD, SIDEBAR_FOOTER_DOWNLOADS, SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../../state/windows/layout";
 import { SIDEBAR_PLAYER_HEIGHT, SidebarPlayer, useSidebarPlayerTab } from "../media/SidebarPlayer";
 import { HoverSlot } from "../ui/HoverSlot";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useHover } from "../ui";
 import { DownloadsButton } from "../downloads/Downloads";
 import { PROFILE_INDICATOR_X, ProfileIndicator } from "../profiles/ProfileIndicator";
 import { usePageStyle, usePagerPages } from "../../state/windows/profilePager";
@@ -596,7 +596,7 @@ const NewTabRow = memo(function NewTabRow({ windowId, shift = null, clip = null 
       </Pressable>
       <View {...movedButtons} ref={movedButtonsRef} style={[{ position: "absolute", right: 6, flexDirection: "row", alignItems: "center" }, movedButtons.style as object]}>
         <HoverSlot hovered={hovered && cleaned > 0 && hintFits} width={0} hover={<Text style={{ fontSize: 11, color: theme.textTertiary, marginRight: 2 }}>{hint}</Text>} />
-        <IconButton
+        <Button variant="icon"
           icon="chevron.down"
           size={10}
           weight="semibold"

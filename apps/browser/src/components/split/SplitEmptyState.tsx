@@ -5,7 +5,8 @@ import { useShallow } from "zustand/react/shallow";
 import { hex, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { tabLabel } from "../../state/browser/model";
-import { Favicon, useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 
 export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: boolean }) {
   const theme = useTheme();

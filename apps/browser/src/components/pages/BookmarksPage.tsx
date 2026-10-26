@@ -13,8 +13,8 @@ import type { BookmarkNode, Bookmarks } from "../../state/browser/types";
 import { moveBookmark, openFolder, openUrl, removeBookmarks, restoreBookmarks } from "../../state/bookmarks/actions";
 import { editBookmark } from "../../state/bookmarks/edit";
 import { FolderTree } from "../bookmarks/FolderTree";
-import { Favicon, IconButton, useHover } from "../ui/Primitives";
-import { Button, useFormColors } from "../ui/FormControls";
+import { Button, useFormColors, useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { openImport } from "../../state/settings/settingsWindows";
 import { DropTargets } from "./dropTargets";
 import { EmptyState, hostLabel, matchesQuery, PageHeader } from "./PageLayout";
@@ -133,7 +133,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
         <Button title="Delete" kind="primary" onPress={() => remove(selected)} />
       </>
     ) : (
-      <IconButton icon="ellipsis.circle" size={15} box={30} radius={7} onPress={() => void addMenu()} tooltip="Organize" />
+      <Button variant="icon" icon="ellipsis.circle" size={15} box={30} radius={7} onPress={() => void addMenu()} tooltip="Organize" />
     );
 
   const indicator = drop && "index" in drop ? drop.index : null;
@@ -384,7 +384,7 @@ function BookmarkRow({
                 {showPath ? path : node.kind === "url" ? hostLabel(node.url) : plural(node.children.length, "item")}
               </Text>
               <View style={{ opacity: hovered ? 1 : 0 }}>
-                <IconButton icon="ellipsis" size={13} box={24} radius={6} onPress={() => void menu()} tooltip="More actions" />
+                <Button variant="icon" icon="ellipsis" size={13} box={24} radius={6} onPress={() => void menu()} tooltip="More actions" />
               </View>
             </View>
           </Pressable>

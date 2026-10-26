@@ -1,7 +1,7 @@
 import { fileExists, fileIcon, Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { importModule } from "../../platform/importModule";
 import { openImport } from "../../state/settings/settingsWindows";
 import { CONTENT_WIDTH } from "./ChoiceList";

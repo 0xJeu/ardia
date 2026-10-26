@@ -4,7 +4,8 @@ import { Animated, Image, Pressable, Text, View, type GestureResponderEvent, typ
 import { toggleMute } from "../../state/browser/actions";
 import { hex } from "../ui/theme";
 import { useTab } from "../../state/browser/hooks";
-import { Favicon, useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
+import { Favicon } from "../favicon/Favicon";
 import { useArtwork } from "./artwork";
 import { useMarqueeGroup, Marquee } from "./Marquee";
 import {

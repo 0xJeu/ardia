@@ -5,8 +5,8 @@ import { useTheme } from "../ui/theme";
 import { useTab } from "../../state/browser/hooks";
 import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { openInternalPage } from "../../state/pages/urls";
-import { Favicon, NewTabIcon, useHover } from "../ui/Primitives";
-import { PANEL, Popover, POPOVER_MARGIN, PopoverSeparator } from "../ui/Controls";
+import { MenuSeparator, PANEL, Popover, POPOVER_MARGIN, useHover } from "../ui";
+import { Favicon, NewTabIcon } from "../favicon/Favicon";
 import { modifiersOf } from "../../lib/keys";
 import { closeHistoryMenu, closeHistoryMenuOf, goToHistoryItem, historyFavicons, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
 
@@ -39,7 +39,7 @@ export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; wi
         {menu.items.map((item) => (
           <Row key={item.key} item={item} favicon={favicons.get(item.url) ?? null} onOpen={(e) => open(item, e)} />
         ))}
-        <PopoverSeparator />
+        <MenuSeparator />
         <ActionRow
           icon="clock"
           title="Show Full History"

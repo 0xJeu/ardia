@@ -7,8 +7,9 @@ import { useBrowser } from "../../../state/browser/store";
 import { engineProfile } from "../../../state/browser/model";
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
 import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
-import { Favicon, IconButton } from "../../ui/Primitives";
-import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle, useFormColors } from "../../ui/FormControls";
+import { Button, Group, Sheet, TextField, Toggle, useFormColors } from "../../ui";
+import { Favicon } from "../../favicon/Favicon";
+import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { openSettings } from "../../../state/settings/settingsWindows";
 
@@ -99,7 +100,7 @@ function EngineRow({ engine, selected, locked, editable }: { engine: SearchEngin
   return (
     <Row icon={<Favicon url={`https://${engineHost(engine)}`} />} title={engine.name} description={description}>
       {editable && (
-        <IconButton icon="pencil" size={11} box={24} radius={6} onPress={() => showSettingsSheet(<EngineSheet engine={engine} />)} tooltip="Edit" />
+        <Button variant="icon" icon="pencil" size={11} box={24} radius={6} onPress={() => showSettingsSheet(<EngineSheet engine={engine} />)} tooltip="Edit" />
       )}
       {selected ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5, minWidth: 92, justifyContent: "flex-end" }}>

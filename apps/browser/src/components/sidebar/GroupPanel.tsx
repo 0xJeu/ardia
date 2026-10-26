@@ -9,7 +9,7 @@ import { useBrowser } from "../../state/browser/store";
 import { activeTabId } from "../../state/browser/model";
 import { sharedTabsIn, sharesTabs } from "../../state/tabs/tabShare";
 import type { Tab } from "../../state/browser/types";
-import { PANEL, PopoverSeparator, PopoverSurface, popoverRowFill } from "../ui/Controls";
+import { menuRowFill, MenuSeparator, PANEL, PopoverSurface } from "../ui";
 import { focusHeroBar } from "../../state/omnibox/barState";
 import { clickTab, tabTitle } from "../../state/sidebar/actions";
 import { byRecentUse, groupTabIds, matchingRows, type GroupPanelTab } from "./groupPanelRows";
@@ -173,7 +173,7 @@ export function GroupPanel({ groupId, windowId, anchor, windowHeight }: { groupI
           style={{ flex: 1, fontSize: PANEL.titleSize, color: theme.textPrimary, paddingVertical: 0 }}
         />
       </View>
-      <PopoverSeparator />
+      <MenuSeparator />
       <ScrollView
         ref={scroll}
         style={{ height: listHeight }}
@@ -212,7 +212,7 @@ function PanelRow({ row, now, selected, onHover, onPress }: { row: Row; now: num
             flexDirection: "row",
             alignItems: "center",
             gap: PANEL.iconGap,
-            backgroundColor: pressed || selected ? popoverRowFill(theme.dark, pressed) : undefined,
+            backgroundColor: pressed || selected ? menuRowFill(theme, pressed) : undefined,
           }}
         >
           <View style={{ width: PANEL.iconSlot, height: PANEL.iconSlot, alignItems: "center", justifyContent: "center" }}>

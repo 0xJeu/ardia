@@ -11,7 +11,7 @@ import { useIsBookmarked, useSettings, useTabLive } from "../../state/browser/ho
 import { bookmarkProfileId } from "../../state/browser/model";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
-import { ToolbarButton, type ButtonHit } from "../ui/Controls";
+import { Button, type ButtonHit, useHover } from "../ui";
 import type { ClickModifiers } from "../../lib/keys";
 import { type ToolbarGeometry } from "../window/geometry";
 import { setPopover, usePage, usePages, type PageState } from "../../state/tabs/pageState";
@@ -21,7 +21,6 @@ import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/acti
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
 import { setToolbarExtensionsWidth, SIDEBAR_FIELD } from "../../state/windows/layout";
 import { showUrlBarMenu } from "../omnibox/paste";
-import { useHover } from "../ui/Primitives";
 import { ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
 import { TranslateButton } from "../site/TranslateControls";
@@ -96,7 +95,7 @@ export function Toolbar({
       <WindowDragRegion style={StyleSheet.absoluteFill} />
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: dim }]} pointerEvents="box-none">
         {geometry.sidebarButton !== null && (
-          <ToolbarButton
+          <Button variant="icon" toolbar
             style={at.sidebarButton}
             palette={palette}
             icon="sidebar.left"
@@ -114,8 +113,8 @@ export function Toolbar({
         ) : null}
         {inSplit && (
           <View style={{ position: "absolute", top, right: 8, flexDirection: "row", gap: -2 }}>
-            <ToolbarButton palette={palette} icon="rectangle.split.2x1" size={14} box={30} onPress={() => showSplitMenu(tab.id)} tooltip="Split View" />
-            <ToolbarButton palette={palette} icon="xmark" size={12} weight="medium" box={30} onPress={() => closePane(tab.id)} tooltip="Close Pane" />
+            <Button variant="icon" toolbar palette={palette} icon="rectangle.split.2x1" size={14} box={30} onPress={() => showSplitMenu(tab.id)} tooltip="Split View" />
+            <Button variant="icon" toolbar palette={palette} icon="xmark" size={12} weight="medium" box={30} onPress={() => closePane(tab.id)} tooltip="Close Pane" />
           </View>
         )}
       </Animated.View>
@@ -159,7 +158,7 @@ export const ReloadButton = memo(function ReloadButton({
   const web = () => webviews.get(tab.id);
   const reloadHint = useShortcutHint("reload");
   return (
-    <ToolbarButton
+    <Button variant="icon" toolbar
       style={style}
       palette={palette}
       icon={loading ? "xmark" : "arrow.clockwise"}
@@ -241,7 +240,7 @@ export const HistoryButton = memo(function HistoryButton({
   };
   return (
     <MouseArea style={style} onMiddleClick={(e) => !disabled && void onPress({ ...e, middle: true })}>
-      <ToolbarButton
+      <Button variant="icon" toolbar
         palette={palette}
         icon={direction < 0 ? "chevron.left" : "chevron.right"}
         size={GLYPH}
@@ -367,7 +366,7 @@ export const UrlField = memo(function UrlField({
         <TranslateButton tabId={tab.id} palette={palette} onFocus={onFocus} />
         <ZoomIndicator tabId={tab.id} zoom={tab.zoom} palette={palette} onFocus={onFocus} />
         {popups > 0 && (
-          <ToolbarButton
+          <Button variant="icon" toolbar
             palette={palette}
             icon="macwindow.badge.plus"
             size={13}
@@ -383,9 +382,9 @@ export const UrlField = memo(function UrlField({
         )}
         {hovered && (
           <>
-            <ToolbarButton palette={palette} icon={bookmarked ? "bookmark.fill" : "bookmark"} size={13} box={24} radius={6} onPress={toggleBookmark} tooltip={bookmarked ? "Remove Bookmark" : withShortcut("Bookmark This Page", bookmarkHint)} />
+            <Button variant="icon" toolbar palette={palette} icon={bookmarked ? "bookmark.fill" : "bookmark"} size={13} box={24} radius={6} onPress={toggleBookmark} tooltip={bookmarked ? "Remove Bookmark" : withShortcut("Bookmark This Page", bookmarkHint)} />
             {!inSplit && !sidebar && (
-              <ToolbarButton
+              <Button variant="icon" toolbar
                 palette={palette}
                 icon="rectangle.split.2x1"
                 size={13}
@@ -395,7 +394,7 @@ export const UrlField = memo(function UrlField({
                 tooltip={withShortcut("Open Split View", splitHint)}
               />
             )}
-            <ToolbarButton palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={6} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
+            <Button variant="icon" toolbar palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={6} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
           </>
         )}
         {sidebar?.accessory}

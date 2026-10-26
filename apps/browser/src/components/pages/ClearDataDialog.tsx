@@ -7,7 +7,7 @@ import { hex, useTheme } from "../ui/theme";
 import { engineProfile, isIncognitoProfile } from "../../state/browser/model";
 import { useProfileName, useProfileOrder } from "../../state/profiles/hooks";
 import { clearHistory } from "../../state/history/actions";
-import { Button, Checkbox, PopUp } from "../ui/FormControls";
+import { Button, Checkbox, PopUp } from "../ui";
 
 const RANGES = [
   { value: "hour", title: "Last hour", ms: 3_600_000 },

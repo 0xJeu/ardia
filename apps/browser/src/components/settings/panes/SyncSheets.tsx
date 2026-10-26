@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { enterRecoveryPhrase, stopSync } from "../../../state/sync/engine";
-import { Button, Checkbox, Sheet, useFormColors } from "../../ui/FormControls";
+import { Button, Checkbox, Sheet, useFormColors } from "../../ui";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 const WORDS = 24;

@@ -4,9 +4,9 @@ import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { useBrowser } from "../../../state/browser/store";
 import { openUrls } from "../../../state/browser/actions";
-import { IconButton, useHover } from "../../ui/Primitives";
+import { Button, Group, PopUp, SearchField, Toggle, useFormColors, useHover } from "../../ui";
+import { Anchor, Row, SectionHeader } from "../Form";
 import { matchesQuery } from "../../pages/PageLayout";
-import { Anchor, Button, Group, PopUp, Row, SearchField, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { shortcutItems } from "../paneData";
 import { useResource } from "../resources";
 import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
@@ -110,7 +110,7 @@ export function ShortcutsPane() {
                     }
                   >
                     {overrides[item.id] && (
-                      <IconButton icon="arrow.uturn.backward" size={11} box={24} radius={6} onPress={() => setShortcut(item.id, null)} tooltip="Reset to Default" />
+                      <Button variant="icon" icon="arrow.uturn.backward" size={11} box={24} radius={6} onPress={() => setShortcut(item.id, null)} tooltip="Reset to Default" />
                     )}
                     <ShortcutField
                       combo={effective(item)}

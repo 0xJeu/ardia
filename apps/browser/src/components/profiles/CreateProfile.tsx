@@ -9,7 +9,7 @@ import { addProfile } from "../../state/profiles/actions";
 import { endCreateProfileRequest, profileNames, takeCreateProfileSheet, useCreateProfileRequest, type CreateProfilePreset } from "../../state/profiles/createProfileRequest";
 import { dataGroups, unusedProfileColor } from "../../state/profiles/profiles";
 import type { ProfileColor } from "../../state/browser/types";
-import { Button, Sheet, TextField, Toggle, useFormColors } from "../ui/FormControls";
+import { Button, Sheet, TextField, Toggle, useFormColors } from "../ui";
 import { closeSettingsSheet, showSettingsSheet } from "../../state/settings/sheet";
 
 useCreateProfileRequest.subscribe((s, prev) => {
