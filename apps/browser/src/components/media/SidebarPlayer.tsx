@@ -4,6 +4,7 @@ import { useRef, type ComponentProps } from "react";
 import { Image, Pressable, View } from "react-native";
 import { switchToTab, toggleMute } from "../../state/browser/actions";
 import { hex, useTheme } from "../ui/theme";
+import { font, ink, radius, space } from "../ui/tokens";
 import { useTab } from "../../state/browser/hooks";
 import { Button, useHover } from "../ui";
 import { Favicon } from "../favicon/Favicon";
@@ -15,6 +16,7 @@ import { hostOf } from "../../lib/url";
 import { useMediaTokens } from "./tokens";
 
 export const SIDEBAR_PLAYER_HEIGHT = 74 + 8;
+const CORNER_BUTTON_SIZE = 18;
 
 export function useSidebarPlayerTab(windowId: string, profileId: string): string | undefined {
   const sessions = useMedia(useShallow((m) => Object.keys(m.sessions)));
@@ -41,10 +43,10 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
 
   return (
     <View {...hoverProps} style={{ height: SIDEBAR_PLAYER_HEIGHT - 8 }}>
-      <Surface fill={hex(tokens.groupFill)} cornerRadius={12} borderColor={hex(tokens.groupStroke)} borderWidth={0.5} style={{ flex: 1, paddingHorizontal: 7, paddingTop: 7 }}>
+      <Surface fill={hex(tokens.groupFill)} cornerRadius={radius.panel} borderColor={hex(tokens.groupStroke)} borderWidth={0.5} style={{ flex: 1, paddingHorizontal: space.sm, paddingTop: space.sm }}>
         <View style={{ flexDirection: "row", alignItems: "center", height: 32 }}>
           <Pressable onPress={go} tooltip="Back to Tab">
-            <View style={{ width: 32, height: 32, borderRadius: 6, overflow: "hidden", backgroundColor: media.artPlaceholder, alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 32, height: 32, borderRadius: radius.m, overflow: "hidden", backgroundColor: media.artPlaceholder, alignItems: "center", justifyContent: "center" }}>
               {artwork ? (
                 <Image source={{ uri: artwork }} resizeMode="cover" style={{ width: 32, height: 32 }} />
               ) : (
@@ -52,11 +54,11 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
               )}
             </View>
           </Pressable>
-          <Pressable onPress={go} style={{ flex: 1, marginLeft: 8, minWidth: 0 }}>
-            <FadeLabel text={title} fontSize={12} weight="semibold" color={theme.textPrimary} style={{ height: 16 }} />
+          <Pressable onPress={go} style={{ flex: 1, marginLeft: space.m, minWidth: 0 }}>
+            <FadeLabel text={title} fontSize={font.small.fontSize} weight="semibold" color={theme.textPrimary} style={{ height: 16 }} />
             <View style={{ flexDirection: "row", alignItems: "center", height: 14 }}>
               {tab.muted ? <Symbol name="speaker.slash.fill" size={9} color={theme.textSecondary} style={{ width: 13, height: 12 }} /> : null}
-              <FadeLabel text={subtitle} fontSize={11} color={theme.textSecondary} style={{ flex: 1, height: 14 }} />
+              <FadeLabel text={subtitle} fontSize={font.caption.fontSize} color={theme.textSecondary} style={{ flex: 1, height: 14 }} />
             </View>
           </Pressable>
         </View>
@@ -65,16 +67,16 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
             icon={tracks ? "backward.fill" : `gobackward.${SKIP_SECONDS}`}
             size={tracks ? 10 : 12}
             box={24}
-            radius={6}
+            radius={radius.m}
             tooltip={tracks ? "Play Previous Track" : `Skip back ${SKIP_SECONDS} seconds`}
             onPress={() => (tracks ? mediaCommand(tabId, "previous") : skip(tabId, session, -SKIP_SECONDS))}
           />
-          <Button variant="icon" icon={playing ? "pause.fill" : "play.fill"} size={13} box={24} radius={6} tooltip={playing ? "Pause" : "Play"} onPress={() => mediaCommand(tabId, "toggle")} />
+          <Button variant="icon" icon={playing ? "pause.fill" : "play.fill"} size={13} box={24} radius={radius.m} tooltip={playing ? "Pause" : "Play"} onPress={() => mediaCommand(tabId, "toggle")} />
           <Button variant="icon"
             icon={tracks ? "forward.fill" : `goforward.${SKIP_SECONDS}`}
             size={tracks ? 10 : 12}
             box={24}
-            radius={6}
+            radius={radius.m}
             tooltip={tracks ? "Play Next Track" : `Skip ahead ${SKIP_SECONDS} seconds`}
             onPress={() => (tracks ? mediaCommand(tabId, "next") : skip(tabId, session, SKIP_SECONDS))}
           />
@@ -108,14 +110,14 @@ function CornerButton({ icon, tooltip, onPress }: { icon: string; tooltip: strin
       <Pressable onPress={onPress}>
         <Surface
           fill={hex(theme.panel)}
-          cornerRadius={9}
+          cornerRadius={CORNER_BUTTON_SIZE / 2}
           borderColor={hex(theme.panelBorder)}
           borderWidth={0.5}
-          shadowColor="#000000"
+          shadowColor={ink.black}
           shadowOpacity={theme.panelShadowOpacity * 0.5}
           shadowRadius={3}
           shadowOffset={[0, 1]}
-          style={{ width: 18, height: 18, alignItems: "center", justifyContent: "center" }}
+          style={{ width: CORNER_BUTTON_SIZE, height: CORNER_BUTTON_SIZE, alignItems: "center", justifyContent: "center" }}
         >
           <Symbol name={icon} size={8} weight="bold" color={hovered ? theme.textPrimary : theme.textSecondary} style={{ width: 12, height: 12 }} />
         </Surface>

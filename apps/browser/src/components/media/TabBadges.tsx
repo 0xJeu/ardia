@@ -2,10 +2,11 @@ import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { View } from "react-native";
 import { hex } from "../ui/theme";
+import { ink } from "../ui/tokens";
 import { usePage } from "../../state/tabs/pageState";
 import { useSidebarTokens } from "../sidebar/tokens";
 import { useMedia } from "../../state/media/media";
-import { CAPTURE_RED } from "./tokens";
+import { CAPTURE_DOT_RIM, CAPTURE_RED } from "./tokens";
 
 export const TabBadges = memo(function TabBadges({ tabId, size = 16, pip = true }: { tabId: string; size?: number; pip?: boolean }) {
   return (
@@ -41,7 +42,7 @@ function CaptureBadge({ tabId, size }: { tabId: string; size: number }) {
         pointerEvents="none"
         style={{ position: "absolute", right: -d / 3, bottom: -d / 3, width: d, height: d, borderRadius: d / 2, backgroundColor: CAPTURE_RED, alignItems: "center", justifyContent: "center" }}
       >
-        <Symbol name="rectangle.inset.filled" size={d * 0.5} weight="bold" color="#FFFFFF" style={{ width: d, height: d }} />
+        <Symbol name="rectangle.inset.filled" size={d * 0.5} weight="bold" color={ink.white} style={{ width: d, height: d }} />
       </View>
     );
   }
@@ -49,7 +50,7 @@ function CaptureBadge({ tabId, size }: { tabId: string; size: number }) {
   return (
     <View
       pointerEvents="none"
-      style={{ position: "absolute", right: -d / 4, bottom: -d / 4, width: d, height: d, borderRadius: d / 2, backgroundColor: CAPTURE_RED, borderWidth: 1, borderColor: "rgba(0,0,0,0.25)" }}
+      style={{ position: "absolute", right: -d / 4, bottom: -d / 4, width: d, height: d, borderRadius: d / 2, backgroundColor: CAPTURE_RED, borderWidth: 1, borderColor: CAPTURE_DOT_RIM }}
     />
   );
 }

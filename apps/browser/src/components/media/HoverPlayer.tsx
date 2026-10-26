@@ -1,5 +1,6 @@
 import { Surface } from "@ardia/shell";
 import { hex, layout, useTheme } from "../ui/theme";
+import { ink } from "../ui/tokens";
 import { clickTab } from "../../state/sidebar/actions";
 import { cardHoverProps, dismissHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
@@ -34,7 +35,7 @@ export function HoverPlayer({ tabId, windowId, anchor }: { tabId: string; window
       cornerRadius={12}
       borderColor={hex(tokens.border)}
       borderWidth={0.5}
-      shadowColor="#000000"
+      shadowColor={ink.black}
       shadowOpacity={theme.panelShadowOpacity * 0.8}
       shadowRadius={16}
       shadowOffset={[0, 6]}

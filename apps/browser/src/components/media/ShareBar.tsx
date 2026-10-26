@@ -1,24 +1,25 @@
 import { Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
-import { Animated, Text, View } from "react-native";
-import { useTheme } from "../ui/theme";
+import { Animated, View } from "react-native";
 import { currentTab } from "../../state/browser/current";
-import { Button } from "../ui";
+import { Button, Text } from "../ui";
+import { ink, space } from "../ui/tokens";
 import { pageOf } from "../../state/tabs/pageState";
 import { dismissShareBar, shareInstead, stopSharing, useShareFor } from "../../state/media/screenShare";
-import { CAPTURE_RED } from "./tokens";
+import { CAPTURE_RED, mediaMotion, useMediaTokens } from "./tokens";
 import { hostOrOrigin } from "../../lib/url";
 import { curve } from "../ui/motion";
 
 const SHARE_BAR_HEIGHT = 38;
+const FLEX = { flex: 1 } as const;
 
 export function ShareBar({ tabId }: { tabId: string }) {
-  const theme = useTheme();
+  const tokens = useMediaTokens();
   const found = useShareFor(tabId);
   const height = useRef(new Animated.Value(0)).current;
   const visible = !!found;
   useEffect(() => {
-    Animated.timing(height, { toValue: visible ? SHARE_BAR_HEIGHT : 0, duration: 180, easing: curve.outCubic, useNativeDriver: false }).start();
+    Animated.timing(height, { toValue: visible ? SHARE_BAR_HEIGHT : 0, duration: mediaMotion.shareBarSlide, easing: curve.outCubic, useNativeDriver: false }).start();
   }, [visible]);
   const last = useRef(found);
   if (found) last.current = found;
@@ -34,19 +35,19 @@ export function ShareBar({ tabId }: { tabId: string }) {
           height: SHARE_BAR_HEIGHT,
           flexDirection: "row",
           alignItems: "center",
-          gap: 10,
-          paddingLeft: 12,
-          paddingRight: 8,
+          gap: space.ml,
+          paddingLeft: space.l,
+          paddingRight: space.m,
           borderBottomWidth: 0.5,
-          borderBottomColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+          borderBottomColor: tokens.shareBarBorder,
         }}
       >
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: CAPTURE_RED, alignItems: "center", justifyContent: "center" }}>
-          <Symbol name="rectangle.inset.filled" size={9} weight="bold" color="#FFFFFF" style={{ width: 14, height: 14 }} />
+          <Symbol name="rectangle.inset.filled" size={9} weight="bold" color={ink.white} style={{ width: 14, height: 14 }} />
         </View>
-        <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textSecondary }}>
+        <Text lines={1} tone="textSecondary" style={FLEX}>
           {"Sharing "}
-          <Text style={{ fontWeight: "600", color: theme.textPrimary }}>{isShared ? "this tab" : "another tab"}</Text>
+          <Text weight="semibold">{isShared ? "this tab" : "another tab"}</Text>
           {` with ${host}`}
         </Text>
         {isShared ? (
