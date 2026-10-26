@@ -94,6 +94,19 @@ function childGroups(groups: BrowserState["groups"], parentId: string): BrowserS
   return index.get(parentId) ?? NO_CHILDREN;
 }
 
+export function keptEntry(s: BrowserState, windowId: string, profileId: string, entries: string[]): string | null {
+  const active = activeTabId(s, windowId, profileId);
+  if (!active) return null;
+  return entries.find((e) => holdsTab(s, e, active)) ?? null;
+}
+
+export function holdsTab(s: BrowserState, entry: string, tabId: string): boolean {
+  const id = entry.slice(2);
+  if (entry.startsWith("g:")) return !!s.groups[id]?.tabIds.includes(tabId);
+  if (entry.startsWith("s:")) return !!s.splits[id]?.tabIds.includes(tabId);
+  return id === tabId;
+}
+
 export function groupEntries(s: BrowserState, groupId: string): string[] {
   const g = s.groups[groupId];
   if (!g) return [];

@@ -1,15 +1,12 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, View } from "react-native";
 import { curve } from "../ui/motion";
+import { FoldedAway } from "../../state/sidebar/hover";
 
 const FOLD_MS = 150;
 const FOLD_EASING = curve.fold;
 
 type FoldState = { open: Animated.Value; moving: boolean };
-
-const FoldedAway = createContext(false);
-
-export const useFoldedAway = () => useContext(FoldedAway);
 
 export function useFold(collapsed: boolean): FoldState {
   const open = useRef(new Animated.Value(collapsed ? 0 : 1)).current;

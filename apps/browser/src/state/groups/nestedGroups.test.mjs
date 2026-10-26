@@ -4,7 +4,7 @@ const { useBrowser } = await import("../browser/store.ts");
 const { groupEntries, sidebarEntries, numberedTabs } = await import("../sidebar/entries.ts");
 const { nestGroups, orderSections } = await import("./groups.ts");
 const { canMoveGroup } = await import("../pins/organize.ts");
-const { liveAnchors, withLiveFolders } = await import("../../components/sidebar/pinnedOrder.ts");
+const { liveAnchors, withLiveFolders } = await import("../sidebar/pinnedOrder.ts");
 const { createFolder, removeFolder, updateFolder, useLive } = await import("../live/store.ts");
 
 const S = () => useBrowser.getState();

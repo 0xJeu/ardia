@@ -6,12 +6,18 @@ import { live } from "../../state/live/store";
 import { everySlowly } from "../../platform/slowTimers";
 import { layout, useTheme } from "../ui/theme";
 import { ThemeScope } from "../window/ThemeScope";
-import { useBrowser, type BrowserState } from "../../state/browser/store";
-import { PageProfileContext, useSettings, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
-import { activeTabId, isIncognitoProfile } from "../../state/browser/model";
-import { downloadsIn } from "../../state/windows/ui";
+import { PageProfileContext, useSettings, useWindow, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
+import { workspaceSnapshot } from "../../state/browser/current";
+import { isIncognitoProfile } from "../../state/browser/model";
+import { newTab } from "../../state/tabs/actions";
+import { cleanUpTabs } from "../../state/pins/actions";
+import { updateSettings } from "../../state/settings/actions";
+import { newCapture } from "../../state/sidebar/listCapture";
+import { watchRevealTargets } from "../../state/sidebar/reveal";
+import { cleanUpCandidateCount } from "../../state/sidebar/current";
+import { useCanTidyPins, useCapturedSidebarEntries, useCleanedCount, useHasDownloads, useLayoutFromWorkspace, useNoTiles, useShownTabId, useSidebarCells } from "../../state/sidebar/hooks";
 import { ancestorIds } from "../../state/groups/groups";
-import { cleanedTabsFor, cleanUpCandidates, groupOf } from "../../state/pins/organize";
+import { groupOf } from "../../state/pins/organize";
 import { splitOf } from "../../state/splits/splits";
 import { openNewTabInSplit } from "../../state/splits/actions";
 import { listTopGap, SIDEBAR_FIELD, SIDEBAR_FOOTER_DOWNLOADS, SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../../state/windows/layout";
@@ -24,16 +30,14 @@ import { usePageStyle, usePagerPages } from "../../state/windows/profilePager";
 import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "../profiles/ProfileDots";
 import { SidebarAddressRow, SidebarHeaderTools } from "./AddressBar";
 import { ClearDivider, useSidebarHoverProps } from "./ClearDivider";
-import { canTidyPins } from "../../state/pins/tidyPins";
 import { DragGhost } from "./DragGhost";
 import { DragProvider, DragScope, useDragController, useDragging, useDragItem, usePinnedCount, type Ghost } from "./DragProvider";
 import { SidebarDropArea } from "./SidebarDropArea";
 import { useClipped, useShift, type ClipSource, type EntryMotion } from "./EntryMotion";
-import { sidebarEntries } from "../../state/sidebar/entries";
 import { FolderPanel } from "./FolderPanel";
 import { GroupBlock } from "./GroupBlock";
 import { dismissHover, dismissHoverIn } from "../../state/sidebar/hover";
-import { capture, GhostSlot, ListMotionContext, newCapture, useListMotion } from "./ListMotion";
+import { GhostSlot, ListMotionContext, useListMotion } from "./ListMotion";
 import { LiveFolderBlock } from "./LiveFolderBlock";
 import { openOverflowMenu, openSidebarMenu } from "./menus";
 import { PinFieldZone, PinnedGrid, PinSlotZone } from "./PinnedGrid";
@@ -76,11 +80,11 @@ export function Sidebar({ width }: { width: number }) {
   const geometry = useRef<SidebarGeometry>({ viewport: 0, regions: { pinnedGroups: 0, list: 0 }, newTabAtTop: false, room: 0, pad: 0, tilesFixed: true });
   const addressBar = useAddressBarInSidebar();
   const header = addressBar ? SIDEBAR_HEADER_WITH_FIELD : layout.sidebarHeader;
-  const hasDownloads = useBrowser((s) => downloadsIn(s, windowId).length > 0);
+  const hasDownloads = useHasDownloads(windowId);
   const dots = useProfileDotsShown();
   const footerDownloads = addressBar && hasDownloads;
   const footer = dots || footerDownloads ? PROFILE_DOTS_HEIGHT : 0;
-  const nothingPinned = useBrowser((s) => sidebarEntries(s, windowId, current).tiles.length === 0);
+  const nothingPinned = useNoTiles(windowId, current);
 
   const sidebarHover = useSidebarHoverProps(windowId);
   useRevealTabs(windowId, scroll, scrollY, geometry);
@@ -206,12 +210,12 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, height,
   const offScreen = beside && !current;
   const playerTab = useSidebarPlayerTab(windowId, profileId);
   const playerHeight = playerTab ? SIDEBAR_PLAYER_HEIGHT : 0;
-  const tiles = useBrowser((s) => (offScreen ? NONE : sidebarEntries(s, windowId, profileId).cells));
+  const tiles = useSidebarCells(windowId, profileId, offScreen);
   const innerWidth = width - layout.sidebarInset * 2;
   const dragging = useDragging() && current;
   const previewed = usePinnedCount(tiles);
   const dockRoom = height ? (height - playerHeight) * DOCK_SHARE - topGap - SCROLL_EDGE.gap - SCROLL_EDGE.line : Infinity;
-  const balanced = useBrowser((s) => s.settings.balancedTopApps);
+  const balanced = useSettings((st) => st.balancedTopApps);
   const gridHeight = (count: number) => pinGridHeight(count, innerWidth, layout.pinnedHeight, balanced);
   const placedFixed = useRef(true);
   if (!dragging) placedFixed.current = !tiles.length || gridHeight(tiles.length) <= dockRoom;
@@ -305,7 +309,7 @@ function SidebarPage({ profileId, slot, width, current, resting, docked, height,
                           onListHeight={reportList}
                         />
                         <ContextMenuArea style={{ flexGrow: 1, minHeight: inlineNewTab ? 24 : 0 }} onContextMenu={() => void openSidebarMenu(windowId)}>
-                          <WindowDragRegion style={{ flex: 1 }} titleBarDoubleClick={false} onRegionDoubleClick={() => toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId, { newTabCommand: true })} />
+                          <WindowDragRegion style={{ flex: 1 }} titleBarDoubleClick={false} onRegionDoubleClick={() => toggleNewTabBar(windowId) || newTab(windowId, { newTabCommand: true })} />
                         </ContextMenuArea>
                       </Animated.ScrollView>
                     </Animated.View>
@@ -347,11 +351,8 @@ type PageRowsProps = {
 
 function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, innerWidth, inlineNewTab, controller, geometry, onListHeight }: PageRowsProps) {
   const [captured] = useState(newCapture);
-  const { list: all } = useBrowser((s) => {
-    const entries = sidebarEntries(s, windowId, profileId);
-    return capture(captured, s, entries.list, entries);
-  });
-  const [mountedRows, setMountedRows] = useState(() => firstPaintEntries(useBrowser.getState(), windowId, profileId, all, lazy));
+  const { list: all } = useCapturedSidebarEntries(windowId, profileId, captured);
+  const [mountedRows, setMountedRows] = useState(() => firstPaintEntries(workspaceSnapshot(), windowId, profileId, all, lazy));
   const [visited, setVisited] = useState(current);
   if (current && !visited) setVisited(true);
   const cap = offScreen ? 0 : visited ? undefined : rows;
@@ -363,10 +364,10 @@ function PageRows({ windowId, profileId, current, rows, lazy, offScreen, tiles, 
   }, [growing, mountedRows, all.length]);
   const limit = cap ?? (growing ? mountedRows : undefined);
   const list = limit === undefined ? all : all.slice(0, limit);
-  const pending = useBrowser((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
+  const pending = useLayoutFromWorkspace((s) => (growing ? entriesHeight(s, windowId, profileId, all.slice(mountedRows)) : 0));
   const showClear = useSettings((s) => s.showClearButton);
   const clearable = showClear && !offScreen && all.length > 0;
-  const tidy = useBrowser((s) => !offScreen && canTidyPins(s, windowId, profileId));
+  const tidy = useCanTidyPins(windowId, profileId, offScreen);
   const divided = clearable || tidy;
   const pinned = usePinnedSequence(windowId, profileId, offScreen);
   const pinnedSection = pinned.length > 0;
@@ -454,9 +455,6 @@ const Tail = memo(function Tail({ id, section }: { id: string; section: "list" |
   return <Animated.View ref={wrapper.ref} style={wrapper.style} />;
 });
 
-const closedAway = (s: BrowserState, prev: BrowserState, tabId: string | undefined) =>
-  !!tabId && (!s.tabs[tabId] || (!!s.tabs[tabId]!.unloaded && !prev.tabs[tabId]?.unloaded));
-
 type SidebarGeometry = { viewport: number; regions: Record<Section, number>; newTabAtTop: boolean; room: number; pad: number; tilesFixed: boolean; laidOut?: () => void };
 
 function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, scrollY: RefObject<number>, geometry: RefObject<SidebarGeometry>) {
@@ -477,7 +475,7 @@ function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, s
       const mine = ++reveals;
       const tabId = switched ?? opened;
       switched = opened = null;
-      const s = useBrowser.getState();
+      const s = workspaceSnapshot();
       const profileId = s.windows[windowId]?.profileId;
       if (!tabId || !profileId) return;
       const pinned = s.tabs[tabId];
@@ -499,17 +497,9 @@ function useRevealTabs(windowId: string, scroll: RefObject<ScrollView | null>, s
     const schedule = () => {
       if ((switched || opened) && !frame) frame = requestAnimationFrame(reveal);
     };
-    const unsubscribe = useBrowser.subscribe((s, prev) => {
-      if (s.windows === prev.windows && s.tabs === prev.tabs) return;
-      const active = activeTabId(s, windowId);
-      const previous = activeTabId(prev, windowId);
-      if (active && active !== previous && !closedAway(s, prev, previous)) switched = active;
-      const w = s.windows[windowId];
-      const before = prev.windows[windowId];
-      if (w && before && w.tabIds !== before.tabIds) {
-        const had = new Set(before.tabIds);
-        for (const id of w.tabIds) if (!had.has(id) && s.tabs[id]?.openerId && id !== active) opened = id;
-      }
+    const unsubscribe = watchRevealTargets(windowId, (nowSwitched, nowOpened) => {
+      if (nowSwitched) switched = nowSwitched;
+      if (nowOpened) opened = nowOpened;
       schedule();
     });
     geometry.current.laidOut = schedule;
@@ -541,7 +531,7 @@ function IncognitoBadge() {
 const NewTabRow = memo(function NewTabRow({ windowId, shift = null, clip = null }: { windowId: string; shift?: Animated.Value | null; clip?: ClipSource | null }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
-  const cleaned = useBrowser((s) => cleanedTabsFor(s, windowId).length);
+  const cleaned = useCleanedCount(windowId);
   const { hovered, hoverProps } = useHover();
   const [moved, movedRef] = useShift(shift);
   const [movedButtons, movedButtonsRef] = useShift(shift);
@@ -569,7 +559,7 @@ const NewTabRow = memo(function NewTabRow({ windowId, shift = null, clip = null 
         style={{ flex: 1 }}
         onPress={(e) => {
           if (modifiersOf(e).altKey) openNewTabInSplit(windowId);
-          else toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId, { newTabCommand: true });
+          else toggleNewTabBar(windowId) || newTab(windowId, { newTabCommand: true });
         }}
       >
         {({ pressed }) => (
@@ -619,14 +609,14 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { windowI
   const tokens = useSidebarTokens();
   const [count, setCount] = useState(0);
   const [hidden, setHidden] = useState(upsellDeclined);
-  const daily = useBrowser((s) => s.settings.cleanUpInactiveTabsAfterHours !== null);
-  const tabIds = useBrowser((s) => s.windows[windowId]?.tabIds);
-  const profileId = useBrowser((s) => s.windows[windowId]?.profileId);
-  const activeId = useBrowser((s) => activeTabId(s, windowId));
+  const daily = useSettings((st) => st.cleanUpInactiveTabsAfterHours !== null);
+  const tabIds = useWindow(windowId, (w) => w?.tabIds);
+  const profileId = useWindow(windowId, (w) => w?.profileId);
+  const activeId = useShownTabId(windowId);
   const off = hidden || daily;
   useEffect(() => {
     if (off) return;
-    const check = () => setCount(cleanUpCandidates(useBrowser.getState(), windowId).length);
+    const check = () => setCount(cleanUpCandidateCount(windowId));
     check();
     return everySlowly({ every: 60_000, run: check });
   }, [windowId, off, tabIds, profileId, activeId]);
@@ -663,12 +653,12 @@ const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { windowI
       <Text style={{ fontSize: 12, color: theme.textSecondary }}>Ardia can tidy up for you. You can always reopen closed tabs from the ⌄ menu.</Text>
       <View style={{ gap: 6 }}>
         {button("Clean Up Once", () => {
-          useBrowser.getState().cleanUpTabs(windowId);
+          cleanUpTabs(windowId);
           dismiss();
         }, true)}
         {button("Clean Up Daily", () => {
-          useBrowser.getState().updateSettings({ cleanUpInactiveTabsAfterHours: 24 });
-          useBrowser.getState().cleanUpTabs(windowId);
+          updateSettings({ cleanUpInactiveTabsAfterHours: 24 });
+          cleanUpTabs(windowId);
         })}
         {button("Not Now", dismiss)}
       </View>

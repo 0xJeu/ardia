@@ -1,7 +1,6 @@
 import { layout } from "../ui/theme";
 import type { BrowserState } from "../../state/browser/store";
-import { activeTabId } from "../../state/browser/model";
-import { groupEntries, sidebarEntries } from "../../state/sidebar/entries";
+import { groupEntries, holdsTab, keptEntry, sidebarEntries } from "../../state/sidebar/entries";
 
 export const GROUP_PAD = 2;
 export const GROUP_INDENT = 16;
@@ -14,19 +13,6 @@ const GAP = layout.rowGap;
 export type Section = "pinnedGroups" | "list";
 
 export const headGap = (first: string | null | undefined): number => (first?.startsWith("g:") ? GAP : 0);
-
-export function keptEntry(s: BrowserState, windowId: string, profileId: string, entries: string[]): string | null {
-  const active = activeTabId(s, windowId, profileId);
-  if (!active) return null;
-  return entries.find((e) => holdsTab(s, e, active)) ?? null;
-}
-
-export function holdsTab(s: BrowserState, entry: string, tabId: string): boolean {
-  const id = entry.slice(2);
-  if (entry.startsWith("g:")) return !!s.groups[id]?.tabIds.includes(tabId);
-  if (entry.startsWith("s:")) return !!s.splits[id]?.tabIds.includes(tabId);
-  return id === tabId;
-}
 
 function membersHeight(s: BrowserState, windowId: string, profileId: string, groupId: string): number {
   const entries = groupEntries(s, groupId);

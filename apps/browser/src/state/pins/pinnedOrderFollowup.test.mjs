@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const { live, createFolder, removeFolder, updateFolder } = await import("../live/store.ts");
-const order = await import("../../components/sidebar/pinnedOrder.ts");
+const order = await import("../sidebar/pinnedOrder.ts");
 
 const S = () => useBrowser.getState();
 const host = (id) => new URL(S().tabs[id].url).hostname.replace(".example", "");

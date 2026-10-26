@@ -1,11 +1,14 @@
 import { ContextMenuArea, FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { hex, layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { usePageProfileId, useWindowId } from "../../state/browser/hooks";
-import { groupLabel } from "../../state/pins/organize";
+import { useGroup, usePageProfileId, useWindowId } from "../../state/browser/hooks";
+import { workspaceSnapshot } from "../../state/browser/current";
+import { updateGroup } from "../../state/groups/actions";
+import { useGroupLabel } from "../../state/groups/hooks";
+import { useSelectionInGroup } from "../../state/pins/hooks";
+import { newCapture } from "../../state/sidebar/listCapture";
+import { useCapturedGroupEntries, useGroupFirstTabIcon, useKeptEntry } from "../../state/sidebar/hooks";
 import { MeetingTimeLabel, useMeetingCountdown } from "../live/MeetingCountdown";
 import { HoverSlot } from "../ui/HoverSlot";
 import { Button } from "../ui";
@@ -13,11 +16,11 @@ import { commitRename, endRename, startRename } from "../../state/sidebar/action
 import { useDragFolded, useDragItem, useDropInto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
 import { Fold, useFold } from "./Fold";
-import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap, keptEntry } from "./geometry";
-import { groupEntries } from "../../state/sidebar/entries";
+import { entryHeight, GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap } from "./geometry";
+import { groupEntries, keptEntry } from "../../state/sidebar/entries";
 import { dismissHover, useGroupHover, useRowHover } from "../../state/sidebar/hover";
 import { HOVER_CARD_FADE_MS } from "./hoverMotion";
-import { capture, GhostSlot, ListMotionContext, newCapture, useGroupMotion } from "./ListMotion";
+import { GhostSlot, ListMotionContext, useGroupMotion } from "./ListMotion";
 import { pressGroupClose, useGroupCloseControl } from "../../state/sidebar/closeControl";
 import { openGroupMenu } from "../../state/sidebar/menus";
 import { groupColorMenu } from "./groupColorMenu";
@@ -77,25 +80,17 @@ export const GroupBlock = memo(function GroupBlock({
 }) {
   const windowId = useWindowId();
   const tokens = useSidebarTokens();
-  const stored = useBrowser((s) => !!s.groups[groupId]?.collapsed);
+  const stored = useGroup(groupId, (g) => !!g?.collapsed);
   const collapsed = useDragFolded(`g:${groupId}`) || stored;
-  const color = useBrowser((s) => s.groups[groupId]?.color ?? null);
-  const tabIds = useBrowser((s) => s.groups[groupId]?.tabIds.join(",") ?? "");
+  const color = useGroup(groupId, (g) => g?.color ?? null);
+  const tabIds = useGroup(groupId, (g) => g?.tabIds.join(",") ?? "");
   const [captured] = useState(newCapture);
-  const entries = useBrowser(
-    useShallow((s) => {
-      const list = groupEntries(s, groupId);
-      return capture(captured, s, list, list);
-    }),
-  );
-  const selectedInside = useBrowser((s) => {
-    const selection = s.selection[windowId];
-    return !!selection?.length && !!s.groups[groupId]?.tabIds.some((id) => selection.includes(id));
-  });
+  const entries = useCapturedGroupEntries(groupId, captured);
+  const selectedInside = useSelectionInGroup(windowId, groupId);
   const profileId = usePageProfileId();
-  const activeEntry = useBrowser((s) => keptEntry(s, windowId, profileId, entries));
+  const activeEntry = useKeptEntry(windowId, profileId, entries);
   const foldedHeight = () => {
-    const s = useBrowser.getState();
+    const s = workspaceSnapshot();
     const kept = keptEntry(s, windowId, profileId, groupEntries(s, groupId));
     return GROUP_BORDER * 2 + layout.rowHeight + (kept ? headGap(kept) + entryHeight(s, windowId, profileId, kept) + PAD : 0);
   };
@@ -139,7 +134,7 @@ export const GroupBlock = memo(function GroupBlock({
             )}
             keep={activeEntry}
             gap={layout.rowGap}
-            rowHeight={(key) => entryHeight(useBrowser.getState(), windowId, profileId, key)}
+            rowHeight={(key) => entryHeight(workspaceSnapshot(), windowId, profileId, key)}
             padTop={headGap(collapsed && activeEntry ? activeEntry : entries[0])}
             padBottom={PAD}
             indent={GROUP_INDENT}
@@ -165,14 +160,9 @@ const Entry = memo(function Entry({ entry, section, groupId, motion }: { entry: 
 function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; windowId: string; collapsed: boolean; open: Animated.Value }) {
   const theme = useTheme();
   const tokens = useSidebarTokens();
-  const group = useBrowser((s) => s.groups[groupId]);
-  const label = useBrowser((s) => (s.groups[groupId] ? groupLabel(s, s.groups[groupId]!) : ""));
-  const firstTab = useBrowser(
-    useShallow((s) => {
-      const t = s.tabs[s.groups[groupId]?.tabIds[0] ?? ""];
-      return t && { url: t.url, favicon: t.favicon, customIcon: t.customIcon, profileId: t.profileId };
-    }),
-  );
+  const group = useGroup(groupId, (g) => g);
+  const label = useGroupLabel(groupId);
+  const firstTab = useGroupFirstTabIcon(groupId);
   const renaming = useSidebarUi((u) => u.renaming?.kind === "group" && u.renaming.id === groupId);
   const dropInto = useDropInto() === groupId;
   const { hovered, hoverProps } = useRowHover(windowId, collapsed && !renaming ? { kind: "group", id: groupId } : null);
@@ -192,7 +182,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
         <Pressable
           onPress={() => {
             dismissHover();
-            if (!renaming) useBrowser.getState().updateGroup(groupId, { collapsed: !collapsed });
+            if (!renaming) updateGroup(groupId, { collapsed: !collapsed });
           }}
         >
           {({ pressed }) => (

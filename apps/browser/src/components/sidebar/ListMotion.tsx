@@ -3,6 +3,7 @@ import { Animated, View } from "react-native";
 import { layout, useTheme } from "../ui/theme";
 import type { BrowserState } from "../../state/browser/store";
 import { workspaceSnapshot } from "../../state/browser/current";
+import type { Capture, ListSnapshot } from "../../state/sidebar/listCapture";
 import { useAnimatedStyle, type ClipSource, type EntryMotion } from "./EntryMotion";
 import { groupEntries } from "../../state/sidebar/entries";
 import { entryHeight } from "./geometry";
@@ -20,26 +21,16 @@ const devScale = () => (__DEV__ ? ((globalThis as { sidebarMotionScale?: number 
 
 type Slide = { value: Animated.Value; from: number; at: number; until: number; landed: boolean };
 type Ghost = { key: string; anchor: string | null; y: number; snapshot: EntrySnapshot; opacity: Animated.Value; until: number };
-type Snapshot = { state: BrowserState; list: string[] };
+type Snapshot = ListSnapshot;
 type Move = { key: string; from: number };
 type Plan = { moves: Move[]; ghosts: Ghost[]; clipped: string[]; below: number };
 type Offsets = { at: Map<string, number>; end: number };
 type Height = (s: BrowserState, entry: string) => number;
 type Planner = (before: Snapshot, after: Snapshot, slides: Map<string, Slide>, ghosts: Ghost[], t: number) => Plan | null;
 export type ListSlot = { entry: string } | { ghost: Ghost; top: number };
-export type Capture = { state: BrowserState | null; list: string[] | null; pending: Snapshot | null };
 export type ListMotionScope = { enabled: boolean; slideBelow: ((entry: string, delta: number) => void) | null };
 
 export const ListMotionContext = createContext<ListMotionScope>({ enabled: false, slideBelow: null });
-export const newCapture = (): Capture => ({ state: null, list: null, pending: null });
-
-export function capture<T>(into: Capture, s: BrowserState, list: string[], value: T): T {
-  if (into.list && into.state && list !== into.list && !into.pending) into.pending = { state: into.state, list: into.list };
-  into.list = list;
-  into.state = s;
-  return value;
-}
-
 let ghostIds = 0;
 
 const tabsOf = (s: BrowserState, entry: string): string[] => {

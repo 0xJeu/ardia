@@ -16,4 +16,10 @@ export const useShownFolderTab = (windowId: string, folderId: string) =>
 
 export const useIsSelected = (windowId: string, tabId: string) => useBrowser((s) => (s.selection[windowId] ?? []).includes(tabId));
 
+export const useSelectionInGroup = (windowId: string, groupId: string) =>
+  useBrowser((s) => {
+    const selection = s.selection[windowId];
+    return !!selection?.length && !!s.groups[groupId]?.tabIds.some((id) => selection.includes(id));
+  });
+
 export const useFadesUnloaded = (tabId: string | undefined) => useBrowser((s) => s.settings.fadeUnloadedTabs && !!tabId && isPageUnloaded(s, tabId));
