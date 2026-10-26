@@ -53,6 +53,7 @@ export type Bench = {
   sample: boolean;
   groups: Group[];
   date: string;
+  measured: string;
   machine: string;
   versions: string;
   rivals: string[];
@@ -273,6 +274,7 @@ function build(source: RawBench | undefined, isSample: boolean): Bench | null {
     sample: isSample,
     groups,
     date: formatDate(raw.date),
+    measured: raw.date,
     machine: raw.machine,
     versions: versionsOf(raw.rows),
     rivals: [...new Set(raw.rows.flatMap((r) => (r.browsers as RawBrowser[]).map((b) => b.name)))].filter((n) => !isArdia(n)),

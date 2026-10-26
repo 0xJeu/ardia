@@ -5,8 +5,9 @@ import { duo, features } from "../data/features";
 const pad = (n: number) => String(n).padStart(2, "0");
 ---
 
-<section class="features paint" id="features" aria-label="Features">
+<section class="features paint" id="features" aria-labelledby="features-title">
   <div class="wrap">
+    <h2 class="visually-hidden" id="features-title">What Ardia does</h2>
     <ol class="feature-list">
       {
         features.map((p, i) => (

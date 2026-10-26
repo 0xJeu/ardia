@@ -2,6 +2,14 @@
 import { bench, display, BENCH_METHOD, type Figure } from "../data/bench";
 import { scorecardOf } from "../data/benchScorecard";
 
+interface Props {
+  page?: boolean;
+}
+const { page = false } = Astro.props;
+const Title = page ? "h1" : "h2";
+const CardTitle = page ? "h2" : "h3";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 const card = bench ? scorecardOf(bench) : null;
 const rivals = bench?.rivals ?? [];
 const named = rivals.length > 1 ? `${rivals.slice(0, -1).join(", ")} and ${rivals[rivals.length - 1]}` : (rivals[0] ?? "");
@@ -30,12 +38,14 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
 
 {
   bench && card && (
-    <section class="bb paint edge" id="speed" aria-labelledby="bench-title" data-shot="bench" data-bench>
+    <section class:list={["bb paint", { edge: !page, "bb-page": page }]} id="speed" aria-labelledby="bench-title" data-shot="bench" data-bench>
       <div class="wrap">
         <header class="bb-head">
           <div class="bb-title">
             <p class="label kicker">Measured before every release</p>
-            <h2 class="poster" id="bench-title" data-reveal>Benchmarks.</h2>
+            <Title class="poster bb-heading" id="bench-title" data-reveal>
+              {page && <span class="visually-hidden">Ardia vs Dia vs Helium: </span>}Benchmarks.
+            </Title>
             <p class="lede" data-reveal style="--i: 1">
               {lede}
             </p>
@@ -48,7 +58,7 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
           {card.cards.map((c) => (
             <li class:list={["card", c.outcome, { wide: c.wide, solo: c.solo }]} data-bench-land>
               <div class="card-top">
-                <h3 class="card-title">{c.title}</h3>
+                <CardTitle class="card-title">{c.title}</CardTitle>
                 {c.wide ? (
                   <p class:list={["label", "record", { mixed: c.record.won < c.record.of }]}>
                     {c.stamp}
@@ -185,6 +195,11 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
               data-track-link="bench_method"
               data-track-location="bench">How we measure</a
             >
+            {!page && (
+              <a class="link label" href={`${base}/benchmarks/`}>
+                The benchmarks page
+              </a>
+            )}
           </li>
         </ul>
       </div>
@@ -206,6 +221,9 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
     padding: var(--section) 0 clamp(72px, 9vw, 140px);
   }
 
+  .bb-page {
+    padding-top: clamp(40px, 5vw, 88px);
+  }
   .bb-head {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -216,7 +234,7 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
   .bb-title {
     grid-column: 1 / span 7;
   }
-  h2 {
+  .bb-heading {
     font-size: var(--t-h2);
   }
   .lede {
@@ -559,6 +577,9 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
     align-self: flex-start;
     color: var(--ink);
     font-weight: 600;
+  }
+  .colophon .link + .link {
+    margin-top: 0;
   }
   .colophon .link::after {
     content: " →";

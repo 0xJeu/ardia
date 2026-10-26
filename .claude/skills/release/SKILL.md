@@ -417,9 +417,13 @@ Then verify live: `https://ardia.dev/release-notes/` contains the new headline, 
 `Ardia-<version>.dmg`, that URL returns 200, and any claim you changed shows. Commit `release.ts`
 and the claim changes ("Site: download <version>", plus what changed) and push.
 
-The SEO data follows `release.ts` and the notes by itself; check that it did:
+The SEO data follows `release.ts` and the notes by itself, with no extra step; check that it did:
 - The home page's JSON-LD `softwareVersion` is the new version.
-- `https://ardia.dev/sitemap.xml` has today's `lastmod`.
+- `https://ardia.dev/release-notes/<version>/` exists (every notes file gets its own page, built from the
+  `releaseNotes` collection), and its description reads well: it comes from the intro paragraph, or else the
+  headline plus the bold leads, so a clear first line pays off.
+- `https://ardia.dev/sitemap.xml` has today's `lastmod` and lists the new stable page. Nightly pages exist too,
+  but stay `noindex` and out of the sitemap.
 - If the release changed what Ardia is (a new headline feature, a new platform), update the home page's
   `description` in `src/pages/index.astro`: ~150 characters, and it is also the share text.
 - If `og.png` changes, its URL's `?v=` hash changes with it, so X and others fetch the new card.

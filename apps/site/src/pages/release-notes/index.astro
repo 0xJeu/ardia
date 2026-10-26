@@ -1,51 +1,23 @@
 ---
-import { getCollection } from "astro:content";
 import { Picture } from "astro:assets";
-import Base from "../layouts/Base.astro";
-import Header from "../components/Header.astro";
-import Footer from "../components/Footer.astro";
-import DownloadButton from "../components/DownloadButton.astro";
-import SendToMac from "../components/SendToMac.astro";
-import { newestFirst } from "../data/versions";
-import { NIGHTLY } from "../data/release";
-import hills from "../assets/paint/hills.png";
-import sun from "../assets/paint/sun.png";
+import Base from "../../layouts/Base.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import DownloadButton from "../../components/DownloadButton.astro";
+import SendToMac from "../../components/SendToMac.astro";
+import NotesBody from "../../components/NotesBody.astro";
+import { NIGHTLY } from "../../data/release";
+import { isoDate, releasePath, releases as loadReleases } from "../../data/releaseNotes";
+import hills from "../../assets/paint/hills.png";
+import sun from "../../assets/paint/sun.png";
 
 const OPEN_COUNT = 6;
-const sectionName = (raw: string) => raw.replace(/<[^>]+>/g, "").trim();
-const sectionSlug = (name: string) => name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
-const tally = (html: string) =>
-  html
-    .split(/<h2\b[^>]*>/)
-    .slice(1)
-    .map((chunk) => {
-      const name = sectionName(chunk.slice(0, chunk.indexOf("</h2>")));
-      const items = (chunk.match(/<li\b/g) ?? []).length;
-      return { name, items };
-    })
-    .filter((s) => s.name !== "Not yet");
-const summary = (sections: { name: string; items: number }[]) =>
-  sections.map((s) => (s.name === "Faster" ? "faster" : `${s.items} ${s.name.toLowerCase()}`)).join(" · ");
-
-const notes = (await getCollection("releaseNotes")).sort((a, b) => newestFirst(a.id, b.id));
 const placeInChannel = new Map<string, number>();
-const releases = notes.map((n) => {
-  const raw = n.rendered?.html ?? "";
-  const nightly = n.data.channel === "nightly";
-  const place = placeInChannel.get(n.data.channel) ?? 0;
-  placeInChannel.set(n.data.channel, place + 1);
-  return {
-    version: n.id,
-    date: n.data.date,
-    headline: n.data.headline,
-    nightly,
-    open: place < OPEN_COUNT,
-    summary: summary(tally(raw)),
-    html: raw
-      .replace(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g, (_, inner: string) => `<h3 class="sec sec-${sectionSlug(sectionName(inner))}">${inner}</h3>`)
-      .replace(/<table\b/g, '<div class="table-scroll"><table')
-      .replace(/<\/table>/g, "</table></div>"),
-  };
+const releases = (await loadReleases()).map((r) => {
+  const channel = r.nightly ? "nightly" : "stable";
+  const place = placeInChannel.get(channel) ?? 0;
+  placeInChannel.set(channel, place + 1);
+  return { ...r, open: place < OPEN_COUNT };
 });
 const stable = releases.filter((r) => !r.nightly);
 const nightlyCount = releases.length - stable.length;
@@ -53,7 +25,6 @@ const latest = stable[0]!;
 const longDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 const monthYear = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 const months = releases.reduce<{ label: string; releases: typeof releases }[]>((acc, r) => {
   const label = monthYear.format(r.date);
   const group = acc.at(-1);
@@ -65,10 +36,46 @@ const onlyNightlies = (group: typeof releases) => group.every((r) => r.nightly);
 const dabs = ["var(--sun)", "var(--sage)", "#e98f3c", "#d98a6c"];
 const nightlyDab = "#a99bd0";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const home = new URL(import.meta.env.BASE_URL, Astro.site).href;
+const page = new URL("release-notes/", home).href;
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Ardia release notes",
+    url: page,
+    isPartOf: { "@type": "WebSite", name: "Ardia", url: home },
+    about: { "@type": "SoftwareApplication", name: "Ardia", applicationCategory: "BrowserApplication", operatingSystem: "macOS" },
+    dateModified: isoDate(releases[0]!.date),
+    mainEntity: {
+      "@type": "ItemList",
+      itemListOrder: "https://schema.org/ItemListOrderDescending",
+      numberOfItems: stable.length,
+      itemListElement: stable.map((r, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: new URL(releasePath(r.version), home).href,
+        name: `Ardia ${r.version}: ${r.headline}`,
+      })),
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Ardia", item: home },
+      { "@type": "ListItem", position: 2, name: "Release notes", item: page },
+    ],
+  },
+];
 ---
 
-<Base title="Release notes · Ardia" description="Every Ardia release: what’s new, what’s fixed, what got smaller.">
-  <Header home={`${base}/`} />
+<Base
+  title="Ardia release notes · every update, newest first"
+  description={`What’s new, fixed and faster in every Ardia release, from 0.1.0 to ${latest.version}. The Mac browser with Arc’s sidebar ships often, and writes it all down.`}
+  jsonLd={jsonLd}
+>
+  <Header home={`${base}/`} current="notes" />
   <main class="almanac">
     <section class="masthead" aria-labelledby="notes-title">
       <div class="wrap mast-grid">
@@ -178,7 +185,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
                     {r.summary && <span class="tally">{r.summary}</span>}
                   </p>
                   <h2 class="headline" id={`title-${r.version}`}>
-                    <a href={`#${r.version}`}>
+                    <a href={`${base}/${releasePath(r.version)}`}>
                       <span class="poster version">
                         <span class="visually-hidden">Ardia </span>
                         {r.version}
@@ -189,14 +196,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
                   </h2>
                 </header>
                 {r.open ? (
-                  <div class="notes" set:html={r.html} />
+                  <NotesBody html={r.html} />
                 ) : (
                   <details class="fold" data-fold>
                     <summary class="label">
                       <span class="fold-open">Read the notes</span>
                       <span class="fold-close">Fold them back</span>
                     </summary>
-                    <div class="notes" set:html={r.html} />
+                    <NotesBody html={r.html} />
                   </details>
                 )}
               </article>
@@ -704,142 +711,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     display: inline;
   }
 
-  .notes {
-    display: grid;
-    grid-template-columns: 7rem minmax(0, 1fr);
-    column-gap: var(--gutter);
-    max-width: 56rem;
-    margin-top: clamp(24px, 3vw, 40px);
-  }
-  .notes > :global(*) {
-    grid-column: 2;
-  }
-  .notes > :global(p) {
-    grid-column: 1 / -1;
-    max-width: 34em;
-    margin-bottom: 28px;
-    color: var(--ink-2);
-  }
-  .notes > :global(.sec) {
-    grid-column: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    align-self: start;
-    padding-top: 16px;
-    font-family: var(--mono);
-    font-size: var(--t-label);
-    font-stretch: 87.5%;
-    font-weight: 520;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    line-height: 1.5;
-  }
-  .notes > :global(.sec)::before {
-    content: "";
-    flex: none;
-    width: 14px;
-    height: 10px;
-    border-radius: 55% 45% 60% 40% / 60% 50% 50% 40%;
-    background-color: var(--ink-3);
-    background-image: var(--impasto);
-    background-size: 120px;
-    background-blend-mode: soft-light;
-    rotate: -8deg;
-  }
-  .notes > :global(.sec-new)::before {
-    background-color: var(--sun);
-  }
-  .notes > :global(.sec-fixed)::before {
-    background-color: var(--sage-deep);
-  }
-  .notes > :global(.sec-faster)::before {
-    background-color: #e98f3c;
-  }
-  .notes > :global(.sec-not-yet)::before {
-    background-color: var(--stamp);
-  }
-  .notes > :global(ul) {
-    list-style: none;
-    margin: 0 0 28px;
-    padding: 0;
-    border-top: 1px solid var(--rule-strong);
-  }
-  .notes > :global(ul:last-child) {
-    margin-bottom: 0;
-  }
-  .notes :global(li) {
-    padding: 13px 0 14px;
-    border-bottom: 1px solid var(--rule);
-    color: var(--ink-2);
-  }
-  .notes :global(li:not(:has(strong))) {
-    color: var(--ink);
-    font-size: var(--t-small);
-  }
-  .notes :global(strong) {
-    font-weight: 600;
-    color: var(--ink);
-  }
-  .notes :global(code) {
-    font-family: var(--mono);
-    font-size: 0.8em;
-    font-stretch: 87.5%;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: rgb(255 255 255 / 0.4);
-    color: var(--ink);
-  }
-  .notes :global(a) {
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.2em;
-  }
-  .notes > :global(.table-scroll) {
-    margin: 0 0 28px;
-    overflow-x: auto;
-    border-top: 1px solid var(--rule-strong);
-  }
-  .notes :global(table) {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--t-small);
-    font-variant-numeric: tabular-nums;
-  }
-  .notes :global(th),
-  .notes :global(td) {
-    padding: 11px 18px 11px 0;
-    border-bottom: 1px solid var(--rule);
-    text-align: right;
-    white-space: nowrap;
-    color: var(--ink-2);
-  }
-  .notes :global(th:first-child),
-  .notes :global(td:first-child) {
-    text-align: left;
-    white-space: normal;
-    min-width: 11em;
-    color: var(--ink);
-  }
-  .notes :global(th:last-child),
-  .notes :global(td:last-child) {
-    padding-right: 0;
-    white-space: normal;
-    min-width: 7em;
-  }
-  .notes :global(th) {
-    font-family: var(--mono);
-    font-size: var(--t-label);
-    font-stretch: 87.5%;
-    font-weight: 520;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-  .notes :global(td:last-child) {
-    font-weight: 560;
-    color: var(--ink);
-  }
-
   .end {
     --bg: var(--dusk);
     --bg-top: #e3a585;
@@ -869,9 +740,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     }
     .entries {
       grid-column: 4 / -1;
-    }
-    .notes {
-      grid-template-columns: 6rem minmax(0, 1fr);
     }
   }
 
@@ -962,13 +830,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       grid-column: 1 / -1;
       rotate: -0.6deg;
     }
-    .notes {
-      display: block;
-    }
-    .notes > :global(.sec) {
-      padding-top: 0;
-      margin-bottom: 10px;
-    }
     .folded .headline a {
       grid-template-columns: 1fr;
     }
@@ -978,25 +839,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     .meta > .tally::before {
       content: none;
     }
-    .notes :global(th),
-    .notes :global(td) {
-      padding-right: 10px;
-      font-size: 0.86rem;
-    }
-    .notes :global(th:first-child),
-    .notes :global(td:first-child) {
-      min-width: 0;
-      width: 36%;
-    }
-    .notes :global(th:last-child),
-    .notes :global(td:last-child) {
-      min-width: 6.4em;
-    }
   }
 </style>
 
 <script>
-  import { track } from "../scripts/track";
+  import { track } from "../../scripts/track";
 
   const latest = document.querySelector<HTMLElement>(".entry:not(.nightly)")?.id ?? null;
   const viewed = (trigger: "load" | "hashchange") =>
