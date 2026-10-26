@@ -1,5 +1,5 @@
 import { holdThemedWindowsKeyLook } from "@ardia/shaders";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   DEFAULT_THEME_ANGLE,
@@ -22,15 +22,13 @@ import { PROFILE_COLORS, useTheme } from "../ui/theme";
 import { useAppDark, useProfile, useSettings } from "../../state/browser/hooks";
 import { choosePresetColor, setProfileTheme } from "../../state/profiles/themeActions";
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../state/browser/types";
-import { Button, font, Group, PopUp, Symbol, ThemeSwatch } from "../ui";
+import { Button, font, Group, PopUp, Swatch, swatch, Symbol, ThemeSwatch } from "../ui";
 import { importArcTheme } from "./arcTheme";
 import { Row, SectionHeader } from "./Form";
 import { ColorPad, DirectionDial, LABEL, LightnessBar, Preview, Slider } from "./ThemeControls";
 import { settingsInk } from "./tokens";
 
 export { arcThemeChoices, importArcTheme } from "./arcTheme";
-
-const SWATCH = 20;
 
 const MODES: { value: ThemeMode; symbol: string; title: string }[] = [
   { value: "light", symbol: "sun.max", title: "Light" },
@@ -97,32 +95,22 @@ export function ThemeSection({ profileId }: { profileId: string }) {
                 : PROFILE_COLORS[profile.color]?.name
           }
         >
-          <View style={{ flexDirection: "row", gap: 7 }}>
+          <View style={{ flexDirection: "row", gap: swatch.gap }}>
             {(Object.keys(PROFILE_COLORS) as ProfileColor[]).map((c) => (
               <Pressable key={c} onPress={() => choosePreset(c)} tooltip={PROFILE_COLORS[c].name}>
-                <SwatchRing selected={!custom && profile.color === c} ring={PROFILE_COLORS[c].swatch}>
-                  <View style={{ flex: 1, borderRadius: 8, backgroundColor: PROFILE_COLORS[c].swatch }} />
-                </SwatchRing>
+                <Swatch selected={!custom && profile.color === c} ring={PROFILE_COLORS[c].swatch} fill={PROFILE_COLORS[c].swatch} />
               </Pressable>
             ))}
             <Pressable onPress={chooseCustom} tooltip="Custom">
-              <SwatchRing selected={!!custom} ring={custom ? themeAccent(custom) : settingsInk.customSwatch}>
+              <Swatch selected={!!custom} ring={custom ? themeAccent(custom) : settingsInk.customSwatch}>
                 <CustomSwatch theme={custom} />
-              </SwatchRing>
+              </Swatch>
             </Pressable>
           </View>
         </Row>
         {custom && stored ? <ThemeEditor theme={custom} shown={shownLook(stored, appDark, source)} followsApp={source === "app"} onChange={live.change} /> : null}
       </Group>
     </>
-  );
-}
-
-function SwatchRing({ selected, ring, children }: { selected: boolean; ring: string; children: ReactNode }) {
-  return (
-    <View style={{ width: SWATCH, height: SWATCH, borderRadius: SWATCH / 2, padding: 2, borderWidth: 2, borderColor: selected ? ring : "transparent" }}>
-      {children}
-    </View>
   );
 }
 
@@ -140,11 +128,7 @@ const RAINBOW: ProfileTheme = {
 };
 
 function CustomSwatch({ theme }: { theme: ProfileTheme | null }) {
-  return (
-    <View style={{ flex: 1, borderRadius: 8, overflow: "hidden" }}>
-      <ThemeSwatch colors={flatColors(theme ?? RAINBOW)} angle={theme ? lookAngle(theme) : DEFAULT_THEME_ANGLE} style={{ flex: 1 }} />
-    </View>
-  );
+  return <ThemeSwatch colors={flatColors(theme ?? RAINBOW)} angle={theme ? lookAngle(theme) : DEFAULT_THEME_ANGLE} style={{ flex: 1 }} />;
 }
 
 function ThemeEditor({

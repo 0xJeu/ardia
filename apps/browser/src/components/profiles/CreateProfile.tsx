@@ -7,8 +7,8 @@ import { addProfile } from "../../state/profiles/actions";
 import { endCreateProfileRequest, profileNames, takeCreateProfileSheet, useCreateProfileRequest, type CreateProfilePreset } from "../../state/profiles/createProfileRequest";
 import { dataGroups, unusedProfileColor } from "../../state/profiles/profiles";
 import type { ProfileColor } from "../../state/browser/types";
-import { Button, PROFILE_COLORS, radius, Radio, Sheet, space, Text, TextField, Toggle, useTheme } from "../ui";
-import { profileColors, profileType, swatchPicker } from "./tokens";
+import { Button, PROFILE_COLORS, radius, Radio, Sheet, space, Swatch, swatch, Text, TextField, Toggle, useTheme } from "../ui";
+import { profileColors, profileType } from "./tokens";
 import { closeSettingsSheet, showSettingsSheet } from "../../state/settings/sheet";
 
 useCreateProfileRequest.subscribe((s, prev) => {
@@ -59,7 +59,7 @@ function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | n
 
       <TextField value={name} onChangeText={setName} placeholder="Profile name" autoFocus onSubmit={submit} onEscape={() => onDone(null)} style={{ marginTop: space.xl }} />
 
-      <View style={{ flexDirection: "row", gap: swatchPicker.gap, marginTop: space.l }}>
+      <View style={{ flexDirection: "row", gap: swatch.gap, marginTop: space.l }}>
         {(Object.keys(PROFILE_COLORS) as ProfileColor[]).map((c) => (
           <ColorSwatch key={c} color={c} selected={color === c} onPress={() => setColor(c)} />
         ))}
@@ -126,13 +126,10 @@ export function ColorStack({ colors: swatches, size = 12 }: { colors: string[]; 
 }
 
 function ColorSwatch({ color, selected, onPress }: { color: ProfileColor; selected: boolean; onPress: () => void }) {
-  const { size, inset, ring } = swatchPicker;
   const spec = PROFILE_COLORS[color];
   return (
     <Pressable onPress={onPress} tooltip={spec.name}>
-      <View style={{ width: size, height: size, borderRadius: size / 2, padding: inset, borderWidth: ring, borderColor: selected ? spec.swatch : "transparent" }}>
-        <View style={{ flex: 1, borderRadius: size / 2 - inset, backgroundColor: spec.swatch }} />
-      </View>
+      <Swatch selected={selected} ring={spec.swatch} fill={spec.swatch} />
     </Pressable>
   );
 }

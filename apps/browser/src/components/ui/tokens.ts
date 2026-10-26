@@ -331,4 +331,6 @@ export type Shadow = keyof typeof shadow;
 
 export const hairline = { panel: 0.5, ring: 0.5 } as const;
 
+export const swatch = { size: 20, inset: 2, ring: 2, gap: 7 } as const;
+
 export const opacity = { disabled: 0.45 } as const;
