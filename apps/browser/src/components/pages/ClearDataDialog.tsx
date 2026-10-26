@@ -4,8 +4,9 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { pruneProfileFavicons } from "../../state/favicons/favicons";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { engineProfile, isIncognitoProfile, profileFor } from "../../state/browser/model";
+import { engineProfile, isIncognitoProfile } from "../../state/browser/model";
+import { useProfileName, useProfileOrder } from "../../state/profiles/hooks";
+import { clearHistory } from "../../state/history/actions";
 import { Button, Checkbox, PopUp } from "../ui/FormControls";
 
 const RANGES = [
@@ -19,8 +20,8 @@ type Range = (typeof RANGES)[number]["value"];
 
 export function ClearDataDialog({ profileId, onClose }: { profileId: string; onClose: () => void }) {
   const theme = useTheme();
-  const profileName = useBrowser((s) => profileFor(s, profileId).name);
-  const multipleProfiles = useBrowser((s) => s.profileOrder.length > 1);
+  const profileName = useProfileName(profileId);
+  const multipleProfiles = useProfileOrder((o) => o.length > 1);
   const [range, setRange] = useState<Range>("hour");
   const [history, setHistory] = useState(true);
   const [siteData, setSiteData] = useState(true);
@@ -31,7 +32,7 @@ export function ClearDataDialog({ profileId, onClose }: { profileId: string; onC
     const ms = RANGES.find((r) => r.value === range)!.ms;
     const since = ms === Infinity ? undefined : Date.now() - ms;
     if (history) {
-      useBrowser.getState().clearHistory(profileId, since);
+      clearHistory(profileId, since);
       pruneProfileFavicons(profileId);
     }
     const types: BrowsingDataType[] = [...(history ? ["history" as const] : []), ...(siteData ? ["siteData" as const, "cache" as const] : [])];

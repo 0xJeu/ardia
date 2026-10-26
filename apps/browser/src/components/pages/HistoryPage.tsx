@@ -4,7 +4,9 @@ import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState
 import { type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { markHoverProps } from "../ui/hoverShift";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useTab, useWindow } from "../../state/browser/hooks";
+import { useHistory } from "../../state/history/hooks";
+import { removeHistory } from "../../state/history/actions";
 import type { HistoryEntry } from "../../state/browser/types";
 import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { HoverSlot } from "../ui/HoverSlot";
@@ -92,15 +94,15 @@ function rowAt(rows: Row[], y: number) {
 
 export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string; profileId: string; initialQuery: string }) {
   const theme = useTheme();
-  const windowId = useBrowser((s) => s.tabs[tabId]?.windowId ?? "");
-  const history = useBrowser((s) => s.history[profileId] ?? NO_HISTORY);
+  const windowId = useTab(tabId, (t) => t?.windowId ?? "");
+  const history = useHistory((h) => h[profileId] ?? NO_HISTORY);
   const [query, setQuery] = useState(initialQuery);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clearOpen, setClearOpen] = useState(false);
   const lastClicked = useRef<string | null>(null);
 
   const clearRequest = useClearDataRequest((r) => r.windowId);
-  const activeHere = useBrowser((s) => s.windows[windowId]?.activeTabIds[s.windows[windowId]!.profileId] === tabId);
+  const activeHere = useWindow(windowId, (w) => w?.activeTabIds[w!.profileId] === tabId);
   useEffect(() => {
     if (clearRequest === windowId && activeHere) {
       setClearOpen(true);
@@ -130,7 +132,7 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
     lastClicked.current = url;
   }, []);
   const moreFromSite = useCallback((url: string) => setQuery(hostLabel(url)), []);
-  const remove = useCallback((url: string) => useBrowser.getState().removeHistory(latest.current.profileId, [url]), []);
+  const remove = useCallback((url: string) => removeHistory(latest.current.profileId, [url]), []);
 
   const deleteSelected = async () => {
     const { confirmed } = await confirm({
@@ -141,7 +143,7 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
       windowId,
     });
     if (!confirmed) return;
-    useBrowser.getState().removeHistory(profileId, [...selected]);
+    removeHistory(profileId, [...selected]);
     setSelected(new Set());
   };
 

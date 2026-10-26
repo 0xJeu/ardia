@@ -15,3 +15,6 @@ export const useSidebarEdge = (windowId: string, width: number) =>
     const w = s.windows[windowId];
     return w?.sidebarOpen && (w.tabLayout ?? s.settings.tabLayout) !== "top" ? width : 0;
   });
+
+export const useTabBookmarkProfileId = (tabId: string): string =>
+  useBrowser((s) => bookmarkProfileId(s, s.windows[s.tabs[tabId]?.windowId ?? ""]));

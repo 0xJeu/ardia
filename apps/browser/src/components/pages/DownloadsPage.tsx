@@ -4,8 +4,8 @@ import { useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { downloadsIn } from "../../state/windows/ui";
+import { useDownloads, useTab } from "../../state/browser/hooks";
+import { clearDownloads, removeDownload } from "../../state/windows/actions";
 import { openUrl } from "../../state/bookmarks/actions";
 import { downloadMenu, downloadStatus, FileIcon } from "../downloads/Downloads";
 import { IconButton, useHover } from "../ui/Primitives";
@@ -14,8 +14,8 @@ import { EmptyState, hostLabel, matchesQuery, PAGE_WIDTH, PageHeader } from "./P
 
 export function DownloadsPage({ tabId }: { tabId: string }) {
   const theme = useTheme();
-  const windowId = useBrowser((s) => s.tabs[tabId]?.windowId ?? "");
-  const downloads = useBrowser(useShallow((s) => downloadsIn(s, windowId)));
+  const windowId = useTab(tabId, (t) => t?.windowId ?? "");
+  const downloads = useDownloads(windowId, useShallow((list) => list));
   const [query, setQuery] = useState("");
   const shown = downloads.filter((d) => matchesQuery(query, d.filename, d.url));
 
@@ -26,7 +26,7 @@ export function DownloadsPage({ tabId }: { tabId: string }) {
         query={query}
         onQuery={setQuery}
         placeholder="Search downloads"
-        actions={downloads.some((d) => d.state !== "downloading") ? <Button title="Clear All" onPress={() => useBrowser.getState().clearDownloads(windowId)} /> : null}
+        actions={downloads.some((d) => d.state !== "downloading") ? <Button title="Clear All" onPress={() => clearDownloads(windowId)} /> : null}
       />
       {shown.length === 0 ? (
         <EmptyState
@@ -103,7 +103,7 @@ function DownloadCard({ d, windowId }: { d: Download; windowId: string }) {
           ) : null}
           <IconButton icon="ellipsis" size={13} box={26} radius={6} onPress={() => void downloadMenu(d, windowId)} tooltip="More actions" />
           {d.state !== "downloading" && (
-            <IconButton icon="xmark" size={11} box={26} radius={6} onPress={() => useBrowser.getState().removeDownload(d.id)} tooltip="Remove from List" />
+            <IconButton icon="xmark" size={11} box={26} radius={6} onPress={() => removeDownload(d.id)} tooltip="Remove from List" />
           )}
         </View>
       </MouseArea>

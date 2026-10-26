@@ -5,10 +5,12 @@ import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View }
 import { useTheme } from "../ui/theme";
 import { addFolderToSidebar, makesGroup, restorableArcHolder, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
 import { bookmarkAncestors, folderChildren, folderLinks, type RemovedBookmarks } from "../../state/bookmarks/bookmarks";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
+import { currentBookmarks } from "../../state/browser/current";
+import { useBookmarks } from "../../state/bookmarks/hooks";
 import { plural } from "../../state/browser/model";
-import type { BookmarkNode } from "../../state/browser/types";
-import { openFolder, openUrl } from "../../state/bookmarks/actions";
+import type { BookmarkNode, Bookmarks } from "../../state/browser/types";
+import { moveBookmark, openFolder, openUrl, removeBookmarks, restoreBookmarks } from "../../state/bookmarks/actions";
 import { editBookmark } from "../../state/bookmarks/edit";
 import { FolderTree } from "../bookmarks/FolderTree";
 import { Favicon, IconButton, useHover } from "../ui/Primitives";
@@ -25,8 +27,8 @@ type Drop = { into: string } | { parentId: string; index: number };
 export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: string }) {
   const theme = useTheme();
   const colors = useFormColors();
-  const windowId = useBrowser((s) => s.tabs[tabId]?.windowId ?? "");
-  const roots = useBrowser((s) => s.bookmarks.roots[profileId]);
+  const windowId = useTab(tabId, (t) => t?.windowId ?? "");
+  const roots = useBookmarks((b) => b.roots[profileId]);
   const [folderId, setFolderId] = useState<string | null>(roots?.bar ?? null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -35,22 +37,22 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
   const anchor = useRef<string | null>(null);
   const targets = useMemo(() => new DropTargets<Target>(), []);
 
-  const folderExists = useBrowser((s) => !!folderId && s.bookmarks.nodes[folderId]?.kind === "folder");
+  const folderExists = useBookmarks((b) => !!folderId && b.nodes[folderId]?.kind === "folder");
   useEffect(() => {
     if (!folderExists && roots) setFolderId(roots.bar);
   }, [folderExists, roots]);
   useEffect(() => setSelected([]), [folderId, query]);
 
-  const folderTitle = useBrowser((s) => (folderId ? (s.bookmarks.nodes[folderId]?.title ?? "") : ""));
-  const listKey = useBrowser((s) => {
+  const folderTitle = useBookmarks((b) => (folderId ? (b.nodes[folderId]?.title ?? "") : ""));
+  const listKey = useBookmarks((b) => {
     if (query.trim() && roots) {
-      const all = [...folderLinksAndFolders(s.bookmarks, roots.bar), ...folderLinksAndFolders(s.bookmarks, roots.other)];
+      const all = [...folderLinksAndFolders(b, roots.bar), ...folderLinksAndFolders(b, roots.other)];
       return all
         .filter((n) => matchesQuery(query, n.title, n.kind === "url" ? n.url : ""))
         .map((n) => n.id)
         .join(",");
     }
-    const folder = folderId ? s.bookmarks.nodes[folderId] : undefined;
+    const folder = folderId ? b.nodes[folderId] : undefined;
     return folder?.kind === "folder" ? folder.children.join(",") : "";
   });
   const ids = useMemo(() => (listKey ? listKey.split(",") : []), [listKey]);
@@ -69,7 +71,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
 
   const remove = (list: string[]) => {
     if (!list.length) return;
-    const removed = useBrowser.getState().removeBookmarks(list);
+    const removed = removeBookmarks(list);
     setSelected([]);
     setUndo({ removed, count: removed.places.length });
   };
@@ -101,15 +103,14 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
     const target = dropFor(x, y);
     setDrop(null);
     if (!target) return;
-    const s = useBrowser.getState();
     const moving = dragging.current;
-    if ("into" in target) return moving.forEach((id) => s.moveBookmark(id, target.into));
+    if ("into" in target) return moving.forEach((id) => moveBookmark(id, target.into));
     let index = target.index;
     for (const id of moving) {
       const from = ids.indexOf(id);
       if (from >= 0 && from < target.index) index--;
     }
-    moving.forEach((id, i) => useBrowser.getState().moveBookmark(id, target.parentId, index + i));
+    moving.forEach((id, i) => moveBookmark(id, target.parentId, index + i));
   };
 
   const addMenu = async () => {
@@ -206,7 +207,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
                     showPath={searching}
                     selected={selected.includes(id)}
                     highlighted={!!drop && "into" in drop && drop.into === id}
-                    targetRef={targets.ref(`row:${id}`, { kind: "row", id, index, folder: useBrowser.getState().bookmarks.nodes[id]?.kind === "folder" })}
+                    targetRef={targets.ref(`row:${id}`, { kind: "row", id, index, folder: currentBookmarks().nodes[id]?.kind === "folder" })}
                     onSelect={(e) => select(id, e)}
                     onOpenFolder={(folder = id) => {
                       setQuery("");
@@ -228,7 +229,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
         <UndoToast
           message={`${plural(undo.count, "item")} deleted`}
           onUndo={() => {
-            useBrowser.getState().restoreBookmarks(undo.removed);
+            restoreBookmarks(undo.removed);
             setUndo(null);
           }}
         />
@@ -237,7 +238,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
   );
 }
 
-function folderLinksAndFolders(b: ReturnType<typeof useBrowser.getState>["bookmarks"], folderId: string): BookmarkNode[] {
+function folderLinksAndFolders(b: Bookmarks, folderId: string): BookmarkNode[] {
   return folderChildren(b, folderId).flatMap((n) => (n.kind === "folder" ? [n, ...folderLinksAndFolders(b, n.id)] : [n]));
 }
 
@@ -276,8 +277,8 @@ function BookmarkRow({
 }) {
   const theme = useTheme();
   const colors = useFormColors();
-  const node = useBrowser((s) => s.bookmarks.nodes[id]);
-  const path = useBrowser((s) => (showPath ? bookmarkAncestors(s.bookmarks, id).map((a) => a.title).reverse().join(" › ") : ""));
+  const node = useBookmarks((b) => b.nodes[id]);
+  const path = useBookmarks((b) => (showPath ? bookmarkAncestors(b, id).map((a) => a.title).reverse().join(" › ") : ""));
   const { hovered, hoverProps } = useHover();
   const dy = useRef(new Animated.Value(0)).current;
   const [dragging, setDragging] = useState(false);
@@ -325,10 +326,10 @@ function BookmarkRow({
             { id: "copy", title: "Copy Link" },
           ]
         : [
-            { id: "openAll", title: `Open All (${folderLinks(useBrowser.getState().bookmarks, node.id).length})` },
+            { id: "openAll", title: `Open All (${folderLinks(currentBookmarks(), node.id).length})` },
             { id: "openAllWindow", title: "Open All in New Window" },
-            { id: "addGroup", title: "Add to Sidebar as Group", enabled: makesGroup(useBrowser.getState(), node.id) },
-            ...(restorableArcHolder(useBrowser.getState(), node.id) ? [{ id: "restoreArc", title: "Restore Arc Folders as Groups" }] : []),
+            { id: "addGroup", title: "Add to Sidebar as Group", enabled: makesGroup({ bookmarks: currentBookmarks() }, node.id) },
+            ...(restorableArcHolder({ bookmarks: currentBookmarks() }, node.id) ? [{ id: "restoreArc", title: "Restore Arc Folders as Groups" }] : []),
             { separator: true },
             { id: "edit", title: "Rename…" },
           ];
