@@ -28,7 +28,6 @@
     "apps/browser/src/components/ntp/Postcard.tsx": 1,
     "apps/browser/src/components/omnibox/CommandPanel.tsx": 1,
     "apps/browser/src/components/omnibox/Omnibox.tsx": 1,
-    "apps/browser/src/components/omnibox/SuggestionRow.tsx": 1,
     "apps/browser/src/components/omnibox/bangs.ts": 1,
     "apps/browser/src/components/omnibox/extensions.ts": 1,
     "apps/browser/src/components/omnibox/paste.ts": 2,
@@ -189,7 +188,6 @@
     "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 9,
     "apps/browser/src/components/extensions/SidePanel.tsx": 6,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 4,
-    "apps/browser/src/components/omnibox/CommandPanel.tsx": 1,
     "apps/browser/src/components/onboarding/Intro.tsx": 1,
     "apps/browser/src/components/onboarding/OnboardingOverlay.tsx": 10,
     "apps/browser/src/components/onboarding/Parts.tsx": 2,
@@ -232,7 +230,6 @@
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,
     "apps/browser/src/components/downloads/Downloads.tsx": 1,
-    "apps/browser/src/components/omnibox/Omnibox.tsx": 1,
     "apps/browser/src/components/onboarding/Steps.tsx": 1,
     "apps/browser/src/components/onboarding/previews/Demos.tsx": 1,
     "apps/browser/src/components/onboarding/previews/Kit.tsx": 1,

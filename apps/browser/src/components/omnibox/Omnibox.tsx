@@ -1,8 +1,7 @@
-import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, sanitizePaste, searchUrl, scopedSearchUrl, siteSearchKey, type SearchScope, type Suggestion } from "@ardia/core";
-import { ContextMenuArea, Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { findNodeHandle, Pressable, Text, TextInput, View } from "react-native";
-import { useTheme } from "../ui/theme";
+import { displayUrl, asksForBackspace, keywordBySpace, resolveInput, searchUrl, scopedSearchUrl, type Suggestion } from "@ardia/core";
+import { Symbol, copyText, pickFiles, showMenu, startDictation } from "@ardia/shell";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { findNodeHandle, type TextInput, type View } from "react-native";
 import { journeyBarCommitted, journeyBarFocused, journeyKeystroke, journeyNavigate, journeySuggestions } from "../../state/telemetry/journeys";
 import { sampleOmniboxLatency, trackSuggestionChosen } from "../../state/telemetry/track";
 import { useSettings, useTab, useWindow, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
@@ -13,47 +12,28 @@ import { runBarAction, runBarExtension } from "../../state/omnibox/runBar";
 import { createBangSubmitter, mayBeBang } from "./bangs";
 import { traceOmnibox, useOmniboxDriver } from "./devDriver";
 import { claimFocusTag, commandBarFocus, heroBarFocus } from "../../state/focus/focusClaims";
-import { registerHeroBar, savedNtpQuery, saveNtpQuery, type BarDismissal, type BarSnapshot } from "../../state/omnibox/barState";
-import { dispositionFor, openFromBar, otherOpenTabs, switchFromBar, type Disposition } from "../../state/omnibox/openFromBar";
+import { registerHeroBar, saveNtpQuery, type BarDismissal, type BarSnapshot } from "../../state/omnibox/barState";
+import { openFromBar, otherOpenTabs, switchFromBar, type Disposition } from "../../state/omnibox/openFromBar";
 import { openFromNewTabBar } from "../../state/omnibox/newTabBar";
 import type { NewTabTarget } from "../../state/browser/types";
-import { clipboardPasteAction, pasteMenuItem, pasteTarget, readClipboard } from "./paste";
-import { ScopeChip } from "./ScopeChip";
-import { SUGGESTION_TEXT_SIZE, SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./SuggestionRow";
-import { useDropdownStart, useOpenTabsStart } from "./dropdownStart";
-import { useInlineCompletion } from "./useInlineCompletion";
-import { useSuggestions } from "./useSuggestions";
-import { keywordScope, offeredScope } from "../../state/omnibox/scopes";
+import { showFieldMenu } from "./paste";
+import { SuggestionIcon, SuggestionList, isRemovable, type RowActions } from "./SuggestionRow";
+import { keywordScope } from "../../state/omnibox/scopes";
 import { setPopover } from "../../state/tabs/pageState";
-import { Button, useHover } from "../ui";
+import { useTheme } from "../ui";
+import { AddChip } from "./AddChip";
 import { INCOGNITO_ICON } from "../ntp/IncognitoHeading";
+import { BarField } from "./BarField";
+import { destinationLabel } from "./GoButton";
+import { BottomRow, DropdownFrame, PanelFrame } from "./OmniboxFrame";
+import { barKeyDown, barKeyDownEvents, type BarKeyEvent } from "./omniboxKeys";
+import { ADD_CHIP, BAR } from "./tokens";
+import { useBarItems } from "./useBarItems";
+import { useBarText } from "./useBarText";
+
+export { PANEL_TEXT_LEFT } from "./tokens";
 
 type Variant = "panel" | "hero" | "sidebar";
-
-export const PANEL_TEXT_LEFT = 48;
-const PANEL_ICON_LEFT = 21;
-const FIELD_TEXT_INSET = 2.5;
-type Selection = { start: number; end: number };
-
-const BASE_KEYS = [
-  { key: "Escape" },
-  { key: "ArrowUp" },
-  { key: "ArrowDown" },
-  { key: "PageUp" },
-  { key: "PageDown" },
-  { key: "Tab" },
-  { key: "Tab", shiftKey: true },
-  { key: "n", ctrlKey: true },
-  { key: "p", ctrlKey: true },
-  { key: "Enter", metaKey: true },
-  { key: "Enter", altKey: true },
-  { key: "Enter", shiftKey: true },
-  { key: "Enter", ctrlKey: true },
-  { key: "Enter", ctrlKey: true, shiftKey: true },
-];
-const SCOPE_KEYS = [...BASE_KEYS, { key: "Backspace" }];
-const REMOVE_KEYS = [...BASE_KEYS, { key: "Delete", shiftKey: true }];
-const PASTED_TYPES = ["string" as const];
 
 export function Omnibox({
   variant,
@@ -81,57 +61,30 @@ export function Omnibox({
   const hero = variant === "hero";
   const dropdown = variant === "sidebar";
 
-  const [restored] = useState(() => (hero ? savedNtpQuery(tabId) : null));
-  const [typed, setTyped] = useState(restored?.typed ?? initialText);
-  const [edited, setEdited] = useState(restored?.edited ?? false);
-  const [suppressCompletion, setSuppressCompletion] = useState(true);
   const noneSelected = opensTab ? -1 : 0;
-  const [selected, setSelected] = useState(restored?.selected ?? noneSelected);
-  const [scope, setScope] = useState<SearchScope | null>(restored?.scope ?? null);
-  const scopeFrom = useRef(restored?.scopeFrom ?? "");
-  const [pendingSelection, setPendingSelection] = useState<Selection | null>(
-    restored?.selection ?? (initialText ? { start: 0, end: initialText.length } : null),
-  );
-  const selection = useRef<Selection>(restored?.selection ?? { start: 0, end: typed.length });
-  const selectionBefore = useRef<Selection>(selection.current);
-  const selectionAt = useRef(0);
-  const noteSelection = (next: Selection) => {
-    const now = selection.current;
-    if (now.start !== next.start || now.end !== next.end) {
-      selectionBefore.current = now;
-      selectionAt.current = Date.now();
-    }
-    selection.current = next;
-  };
+  const bar = useBarText(hero, tabId, initialText, noneSelected);
+  const { typed, setTyped, edited, setEdited, suppressCompletion, setSuppressCompletion, selected, setSelected, scope, setScope, scopeFrom } = bar;
+  const { pendingSelection, setPendingSelection, selection, selectionBefore, selectionAt, noteSelection, enterScope } = bar;
   const input = useRef<TextInput>(null);
   const [bangEnter] = useState(createBangSubmitter);
   useEffect(() => () => bangEnter.cancel(), [bangEnter]);
   useEffect(() => bangEnter.cancel(), [bangEnter, typed, selected, scope]);
   const root = useRef<View>(null);
 
-  const { items: suggested, completion } = useSuggestions({
-    text: typed,
-    active: edited || !!scope,
+  const { items, completion, inline, shownCompletion, value, selectedIndex, current, tabScope } = useBarItems({
+    input,
+    typed,
+    edited,
+    scope,
+    suppressCompletion,
+    selected,
+    dropdown,
+    opensTab: !!opensTab,
     windowId,
     profileId,
-    currentTabId: tabId,
-    currentUrl: currentUrl || undefined,
-    scope,
-    preventInline: suppressCompletion,
+    tabId,
+    currentUrl,
   });
-  const start = useDropdownStart(dropdown && !edited && !scope, tabId, profileId);
-  const idle = !!opensTab && !scope && !typed.trim();
-  const openTabs = useOpenTabsStart(idle, windowId, profileId);
-  const items = dropdown && !edited && !scope ? start : idle ? openTabs : suggested;
-  const inline = useInlineCompletion(input, typed, suppressCompletion || scope ? "" : completion);
-  const shownCompletion = inline.shown;
-  const value = typed + shownCompletion;
-  const selectedIndex = selected < 0 && idle ? -1 : Math.min(Math.max(selected, 0), items.length - 1);
-  const current = items[selectedIndex];
-  const tabScope = useMemo(
-    () => (!scope && edited ? offeredScope(typed, shownCompletion, windowId) : null),
-    [scope, edited, typed, shownCompletion, windowId],
-  );
 
   const snapshot = useRef<BarSnapshot | null>(null);
   snapshot.current = { typed, edited, selection: selection.current, selected, scope, scopeFrom: scopeFrom.current };
@@ -241,93 +194,20 @@ export function Omnibox({
     go(scope ? scopedSearchUrl(scope, text, engine) : searchUrl(engine, text));
   };
 
-  const enterScope = (next: SearchScope, from: string) => {
-    scopeFrom.current = from;
-    setScope(next);
-    setTyped("");
-    setEdited(true);
-    setSelected(0);
-    setSuppressCompletion(true);
-  };
-
-  const leaveScope = (restore: string | null) => {
-    setScope(null);
-    if (restore !== null) {
-      setTyped(restore);
-      setEdited(true);
-      setPendingSelection({ start: restore.length, end: restore.length });
-    }
-    setSelected(0);
-    setSuppressCompletion(true);
-  };
-
-  const move = (delta: 1 | -1) =>
-    setSelected(() => {
-      const n = items.length;
-      if (!n) return 0;
-      if (selectedIndex < 0) return delta > 0 ? 0 : n - 1;
-      return (selectedIndex + delta + n) % n;
-    });
-
-  const onKeyDown = (e: { nativeEvent: { key: string; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean; ctrlKey?: boolean } }) => {
-    const { key, metaKey, altKey, shiftKey, ctrlKey } = e.nativeEvent;
-    bangEnter.cancel();
-    if (key === "Escape") {
-      if (scope) return leaveScope(null);
-      if (!hero) return onDone?.("escape");
-      if (shownCompletion) return setSuppressCompletion(true);
-      return reset();
-    }
-    if (key === "ArrowDown" || (ctrlKey && key === "n")) return move(1);
-    if (key === "ArrowUp" || (ctrlKey && key === "p")) return move(-1);
-    if (key === "PageUp") return setSelected(0);
-    if (key === "PageDown") return setSelected(Math.max(0, items.length - 1));
-    if (key === "Delete" && shiftKey) return isRemovable(current) ? rowActions.remove(current.url) : undefined;
-    if ((key === "Tab" && !ctrlKey) || key === "Backspace") {
-      const action = siteSearchKey(key, { shiftKey, altKey, metaKey, ctrlKey }, { typed, completion: shownCompletion, scope, offered: tabScope, scopeFrom: scopeFrom.current });
-      if (action?.kind === "enter") return enterScope(action.scope, action.from);
-      if (action?.kind === "leave") return leaveScope(action.text);
-      if (action?.kind === "accept") {
-        setTyped(action.text);
-        setSuppressCompletion(true);
-        setPendingSelection({ start: action.text.length, end: action.text.length });
-        return;
-      }
-      if (key === "Tab") return move(shiftKey ? -1 : 1);
-    }
-    if (key === "Enter") {
-      if (metaKey && shiftKey) return forceSearch();
-      if (ctrlKey && !/[\s./:]/.test(typed.trim()) && typed.trim())
-        return go(`https://www.${typed.trim()}.com`, shiftKey ? "newWindow" : "current");
-      if (metaKey || altKey || shiftKey) return choose(current, dispositionFor({ metaKey, altKey, shiftKey }), true);
-    }
-  };
+  const onKeyDown = (e: BarKeyEvent) =>
+    barKeyDown(e, { bar, hero, shownCompletion, items, selectedIndex, current, tabScope, onDone, reset, forceSearch, go, choose, cancelBang: () => bangEnter.cancel(), removeRow: (url) => rowActions.remove(url) });
 
   const onContextMenu = async () => {
-    const paste = await clipboardPasteAction();
-    const { start, end } = selection.current;
-    const hasSelection = end > start;
-    const choice = await showMenu([
-      ...pasteMenuItem(paste),
-      ...(paste ? [{ separator: true as const }] : []),
-      { id: "cut", title: "Cut", enabled: hasSelection },
-      { id: "copy", title: "Copy", enabled: hasSelection },
-      { id: "paste", title: "Paste", enabled: !!paste },
-      { separator: true },
-      { id: "selectAll", title: "Select All", enabled: !!value },
-    ]);
-    if (choice === "pasteAndGo" && paste) return go(pasteTarget(paste));
-    if (choice === "copy" || choice === "cut") copyText(value.slice(start, end));
-    if (choice === "cut" || choice === "paste") {
-      const insert = choice === "paste" ? sanitizePaste(await readClipboard()) : "";
-      const next = value.slice(0, start) + insert + value.slice(end);
-      setTyped(next);
+    const pick = await showFieldMenu(value, selection);
+    if (pick?.kind === "go") return go(pick.url);
+    if (pick?.kind === "edit") {
+      setTyped(pick.text);
       setEdited(true);
       setSuppressCompletion(true);
       setSelected(0);
-      setPendingSelection({ start: start + insert.length, end: start + insert.length });
+      setPendingSelection({ start: pick.caret, end: pick.caret });
     }
-    if (choice === "selectAll") setPendingSelection({ start: 0, end: value.length });
+    if (pick?.kind === "selectAll") setPendingSelection({ start: 0, end: value.length });
     focusField();
   };
 
@@ -384,7 +264,7 @@ export function Omnibox({
     current && (typed || scope) && current.kind !== "search" ? (
       <SuggestionIcon suggestion={current} color={theme.textPrimary} />
     ) : (
-      <Symbol name={incognito ? INCOGNITO_ICON : "magnifyingglass"} size={15} weight="medium" color={hero ? theme.textSecondary : theme.textPrimary} style={{ width: 18, height: 18 }} />
+      <Symbol name={incognito ? INCOGNITO_ICON : "magnifyingglass"} size={BAR.leadingIcon} weight="medium" color={hero ? theme.textSecondary : theme.textPrimary} style={{ width: BAR.iconSlot, height: BAR.iconSlot }} />
     );
 
   const focused = useRef(false);
@@ -399,20 +279,16 @@ export function Omnibox({
   };
 
   const field = (
-    <TextInput
-      ref={input}
+    <BarField
+      inputRef={input}
+      variant={variant}
+      floating={floating}
+      scope={scope}
+      incognito={incognito}
       onLayout={focusOnce}
       value={value}
-      onSelectionChange={(e) => {
-        const next = e.nativeEvent.selection;
-        if (focusEcho.current) {
-          const atEnd = next.start === value.length && next.end === value.length;
-          if (atEnd || (next.start === 0 && next.end === value.length)) {
-            if (atEnd) focusEcho.current = false;
-            return;
-          }
-          focusEcho.current = false;
-        }
+      focusEcho={focusEcho}
+      onSelection={(next) => {
         noteSelection(next);
         if (inline.accepts(next)) {
           setTyped(value);
@@ -421,11 +297,6 @@ export function Omnibox({
         }
       }}
       onChangeText={onChangeText}
-      placeholder={scope ? `Search ${scope.name}` : incognito ? "Search privately or enter address" : "Search or enter address"}
-      placeholderTextColor={theme.placeholder}
-      pastedTypes={PASTED_TYPES}
-      selectionColor={theme.selection}
-      enableFocusRing={false}
       onSubmitEditing={() => choose(current, "current", true)}
       onFocus={() => {
         editing.current = true;
@@ -436,22 +307,16 @@ export function Omnibox({
         focusEcho.current = false;
         onCancel?.();
       }}
-      keyDownEvents={asksForBackspace(scope) ? SCOPE_KEYS : isRemovable(current) ? REMOVE_KEYS : BASE_KEYS}
+      keyDownEvents={barKeyDownEvents(asksForBackspace(scope), isRemovable(current))}
       onKeyDown={onKeyDown}
-      style={{
-        flex: 1,
-        fontSize: hero ? 17 : dropdown || floating ? SUGGESTION_TEXT_SIZE : 13,
-        color: theme.textPrimary,
-        paddingVertical: 0,
-        marginTop: variant === "panel" ? -3 : 0,
-      }}
     />
   );
 
-  const latest = useRef({ choose, profileId, go, current, onCancel, tabId });
-  latest.current = { choose, profileId, go, current, onCancel, tabId };
+  const latest = useRef({ choose, profileId, go, current, onCancel, tabId, windowId });
+  latest.current = { choose, profileId, go, current, onCancel, tabId, windowId };
   const [barActions] = useState(() => ({
     go: (url: string) => latest.current.go(url),
+    openTabOrFile: () => void openTabOrFile(latest.current.windowId, latest.current.tabId, (url) => latest.current.go(url)),
     choose: () => latest.current.choose(latest.current.current, "current", true),
     dictate: () => {
       focusField();
@@ -476,147 +341,52 @@ export function Omnibox({
     />
   );
 
-  const bottomRow = (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingLeft: hero ? 13 : 14,
-        paddingRight: hero ? 15 : 13,
-        height: hero ? 43 : 52,
-        marginBottom: hero ? 8 : 0,
-      }}
-    >
-      <AddChip tabId={tabId} onGo={barActions.go} />
-      <View style={{ flex: 1 }} />
-      <Button variant="icon" icon="mic" size={14} color={theme.textTertiary} tooltip="Dictate" onPress={barActions.dictate} />
-      <GoButton label={destinationLabel(current)} enabled={!hero || !!typed.trim()} onPress={barActions.choose} />
-    </View>
-  );
-
-  if (dropdown) {
+  const onBarContextMenu = () => void onContextMenu();
+  if (dropdown)
     return (
-      <View ref={root}>
-        <ContextMenuArea captureDescendants onContextMenu={() => void onContextMenu()}>
-          <View style={{ flexDirection: "row", alignItems: "center", height: 44, paddingLeft: 13, paddingRight: 9, gap: 9 }}>
-            <View style={{ width: 18, alignItems: "center" }}>{leadingIcon}</View>
-            {scope && <ScopeChip scope={scope} large={false} />}
-            {field}
-            {currentUrl ? (
-              <Button variant="icon"
-                icon="info.circle"
-                size={15}
-                box={26}
-                radius={13}
-                color={theme.textSecondary}
-                tooltip="Site Controls"
-                onPress={barActions.siteControls}
-              />
-            ) : null}
-          </View>
-        </ContextMenuArea>
-        {suggestionList}
-      </View>
+      <DropdownFrame
+        rootRef={root}
+        onContextMenu={onBarContextMenu}
+        leadingIcon={leadingIcon}
+        scope={scope}
+        field={field}
+        list={suggestionList}
+        onSiteControls={currentUrl ? barActions.siteControls : null}
+      />
     );
+  return (
+    <PanelFrame
+      rootRef={root}
+      onContextMenu={onBarContextMenu}
+      leadingIcon={leadingIcon}
+      scope={scope}
+      field={field}
+      list={listAway ? null : suggestionList}
+      hero={hero}
+      bottom={
+        <BottomRow
+          hero={hero}
+          addChip={<AddChip onPress={barActions.openTabOrFile} />}
+          onDictate={barActions.dictate}
+          label={destinationLabel(current)}
+          enabled={!hero || !!typed.trim()}
+          onGo={barActions.choose}
+        />
+      }
+    />
+  );
+}
+
+async function openTabOrFile(windowId: string, tabId: string, onGo: (url: string) => void) {
+  const others = otherOpenTabs(windowId, ADD_CHIP.otherTabs);
+  const choice = await showMenu([
+    ...others.map((t) => ({ id: `tab:${t.id}`, title: t.title || displayUrl(t.url) })),
+    ...(others.length ? [{ separator: true as const }] : []),
+    { id: "files", title: "Open File…", symbol: "doc" },
+  ]);
+  if (choice?.startsWith("tab:")) switchFromBar(choice.slice(4), "", tabId, "current");
+  if (choice === "files") {
+    const [file] = await pickFiles();
+    if (file) onGo(file);
   }
-
-  return (
-    <View ref={root}>
-      <ContextMenuArea captureDescendants onContextMenu={() => void onContextMenu()}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            height: hero ? 60 : 55,
-            paddingLeft: hero ? 18 : PANEL_ICON_LEFT,
-            paddingRight: 18,
-            gap: hero ? 8 : PANEL_TEXT_LEFT - FIELD_TEXT_INSET - PANEL_ICON_LEFT - 18,
-          }}
-        >
-          <View style={{ width: 18, alignItems: "center" }}>{leadingIcon}</View>
-          {scope && <ScopeChip scope={scope} large={hero} />}
-          {field}
-        </View>
-      </ContextMenuArea>
-      {listAway ? null : suggestionList}
-      {bottomRow}
-    </View>
-  );
 }
-
-function destinationLabel(s: Suggestion | undefined): string {
-  if (s?.kind === "search") return s.engine;
-  if (s?.kind === "calc") return "Copy";
-  return "Go";
-}
-
-const AddChip = memo(function AddChip({ tabId, onGo }: { tabId: string; onGo(url: string): void }) {
-  const theme = useTheme();
-  const windowId = useWindowId();
-  const { hovered, hoverProps } = useHover();
-  const open = async () => {
-    const others = otherOpenTabs(windowId, 12);
-    const choice = await showMenu([
-      ...others.map((t) => ({ id: `tab:${t.id}`, title: t.title || displayUrl(t.url) })),
-      ...(others.length ? [{ separator: true as const }] : []),
-      { id: "files", title: "Open File…", symbol: "doc" },
-    ]);
-    if (choice?.startsWith("tab:")) switchFromBar(choice.slice(4), "", tabId, "current");
-    if (choice === "files") {
-      const [file] = await pickFiles();
-      if (file) onGo(file);
-    }
-  };
-  return (
-    <View {...hoverProps}>
-    <Pressable onPress={open}>
-      <View
-        style={{
-          height: 32,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: theme.chipBorder,
-          backgroundColor: hovered ? theme.rowHover : undefined,
-          flexDirection: "row",
-          alignItems: "center",
-          paddingLeft: 9,
-          paddingRight: 12,
-          gap: 5,
-        }}
-      >
-        <Symbol name="arrow.up.right" size={10} weight="medium" color={theme.chipText} style={{ width: 14, height: 14 }} />
-        <Text style={{ fontSize: 13, color: theme.chipText }}>Open a tab or file</Text>
-      </View>
-    </Pressable>
-    </View>
-  );
-});
-
-const GoButton = memo(function GoButton({ label, enabled, onPress }: { label: string; enabled: boolean; onPress(): void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  const text = enabled ? theme.goButtonText : theme.textTertiary;
-  return (
-    <View {...hoverProps} style={{ marginLeft: 8 }}>
-    <Pressable onPress={onPress} disabled={!enabled} accessibilityRole="button" accessibilityLabel={label}>
-      <View
-        style={{
-          minWidth: 99,
-          height: 32,
-          paddingHorizontal: 16,
-          borderRadius: 16,
-          backgroundColor: enabled ? theme.goButton : theme.goButtonIdle,
-          opacity: enabled && hovered ? 0.9 : 1,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-        }}
-      >
-        <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: text }}>{label}</Text>
-        <Symbol name="return" size={11} weight="medium" color={enabled ? text + "99" : text} style={{ width: 14, height: 14 }} />
-      </View>
-    </Pressable>
-    </View>
-  );
-});

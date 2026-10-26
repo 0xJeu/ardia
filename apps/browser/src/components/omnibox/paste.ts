@@ -1,4 +1,4 @@
-import { classifyPaste, cleanUrl, searchUrl, type PasteAction } from "@ardia/core";
+import { classifyPaste, cleanUrl, sanitizePaste, searchUrl, type PasteAction } from "@ardia/core";
 import { copyText, showMenu, type MenuItem } from "@ardia/shell";
 import { NativeModules } from "react-native";
 import { currentSettings } from "../../state/browser/current";
@@ -33,4 +33,29 @@ export async function showUrlBarMenu(tab: Pick<Tab, "id" | "url">) {
   ]);
   if (choice === "pasteAndGo" && action) navigate(tab.id, pasteTarget(action));
   if (choice === "copy") copyText(cleanUrl(tab.url));
+}
+
+export type FieldMenuPick = { kind: "go"; url: string } | { kind: "edit"; text: string; caret: number } | { kind: "selectAll" } | null;
+
+export async function showFieldMenu(value: string, selection: { current: { start: number; end: number } }): Promise<FieldMenuPick> {
+  const paste = await clipboardPasteAction();
+  const { start, end } = selection.current;
+  const hasSelection = end > start;
+  const choice = await showMenu([
+    ...pasteMenuItem(paste),
+    ...(paste ? [{ separator: true as const }] : []),
+    { id: "cut", title: "Cut", enabled: hasSelection },
+    { id: "copy", title: "Copy", enabled: hasSelection },
+    { id: "paste", title: "Paste", enabled: !!paste },
+    { separator: true },
+    { id: "selectAll", title: "Select All", enabled: !!value },
+  ]);
+  if (choice === "pasteAndGo" && paste) return { kind: "go", url: pasteTarget(paste) };
+  if (choice === "copy" || choice === "cut") copyText(value.slice(start, end));
+  if (choice === "cut" || choice === "paste") {
+    const insert = choice === "paste" ? sanitizePaste(await readClipboard()) : "";
+    return { kind: "edit", text: value.slice(0, start) + insert + value.slice(end), caret: start + insert.length };
+  }
+  if (choice === "selectAll") return { kind: "selectAll" };
+  return null;
 }

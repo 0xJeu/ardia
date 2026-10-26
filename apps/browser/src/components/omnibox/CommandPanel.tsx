@@ -11,10 +11,12 @@ import { useCardAnchors, useUrlAnchors } from "../../state/windows/layout";
 import { barWidth } from "../ntp/NewTabPage";
 import { closeNewTabBar } from "../../state/omnibox/newTabBar";
 import type { NewTabTarget } from "../../state/browser/types";
-import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
+import { Omnibox } from "./Omnibox";
+import { PANEL_TEXT_LEFT } from "./tokens";
 import { closePanelToHeroBar, type BarDismissal } from "../../state/omnibox/barState";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "../toolbar/Toolbar";
-import { curve } from "../ui/motion";
+import { hairline, shadow } from "../ui/tokens";
+import { GROW } from "./tokens";
 
 const RIGHT_OF_URL = 40;
 const ABOVE_PANE = 5.5;
@@ -26,9 +28,6 @@ const DROPDOWN_PAST_FIELD = 137;
 const DROPDOWN_RADIUS = 12;
 const PANEL_OPEN_HEIGHT = 107;
 const CENTRED_TOP_SHARE = 0.22;
-
-const GROW_MS = 130;
-const GROW_EASING = curve.outExpo;
 
 let reduceMotion = false;
 AccessibilityInfo.isReduceMotionEnabled().then(
@@ -106,11 +105,11 @@ function panelSurface(theme: ReturnType<typeof useTheme>, radius: number) {
     fill: hex(theme.panel),
     cornerRadius: radius,
     borderColor: hex(theme.panelBorder),
-    borderWidth: 0.5,
-    shadowColor: "#000000",
+    borderWidth: hairline.panel,
+    shadowColor: shadow.anchoredDialog.color,
     shadowOpacity: theme.panelShadowOpacity,
-    shadowRadius: 24,
-    shadowOffset: [0, 10] as [number, number],
+    shadowRadius: shadow.anchoredDialog.radius,
+    shadowOffset: shadow.anchoredDialog.offset,
   };
 }
 
@@ -164,7 +163,7 @@ function Grow({
   };
   useEffect(() => {
     if (!from || height === null) return;
-    Animated.timing(progress, { toValue: 1, duration: GROW_MS, easing: GROW_EASING, useNativeDriver: true }).start();
+    Animated.timing(progress, { toValue: 1, ...GROW, useNativeDriver: true }).start();
   }, [height === null]);
 
   const box = start.current;
