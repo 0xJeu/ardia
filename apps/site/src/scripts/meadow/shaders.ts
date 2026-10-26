@@ -958,6 +958,26 @@ void main() {
 }
 `;
 
+const PROBE_FS = `${HEADER}
+uniform sampler2D uSource;
+uniform vec2 uHalfSize;
+uniform vec2 uProbeSize;
+out vec4 outColor;
+
+vec4 halfTexel(vec2 cell) {
+  return texture(uSource, (clamp(cell, vec2(0.0), uHalfSize - 1.0) + 0.5) / uHalfSize);
+}
+
+void main() {
+  vec2 st = gl_FragCoord.xy / uProbeSize * uHalfSize - 0.5;
+  vec2 cell = floor(st);
+  vec2 f = st - cell;
+  vec4 bottom = mix(halfTexel(cell), halfTexel(cell + vec2(1.0, 0.0)), f.x);
+  vec4 top = mix(halfTexel(cell + vec2(0.0, 1.0)), halfTexel(cell + vec2(1.0, 1.0)), f.x);
+  outColor = mix(bottom, top, f.y);
+}
+`;
+
 const PARTICLE_VS = `${HEADER}
 layout(location = 0) in vec4 aPlace;
 layout(location = 1) in vec4 aColor;
@@ -1007,6 +1027,7 @@ export const SHADERS = {
   grassFs: GRASS_FS,
   paintFs: PAINT_FS,
   finalFs: FINAL_FS,
+  probeFs: PROBE_FS,
   particleVs: PARTICLE_VS,
   particleFs: PARTICLE_FS,
   mobVs: MOB_VS,

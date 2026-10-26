@@ -45,7 +45,7 @@ interface Tier {
   brushRadius: number;
 }
 
-type ProgramName = "bakeHeight" | "bakeAux" | "terrain" | "sky" | "grass" | "paint" | "final" | "particles";
+type ProgramName = "bakeHeight" | "bakeAux" | "terrain" | "sky" | "grass" | "paint" | "final" | "particles" | "probe";
 type Phase = "compile" | "bake" | "live" | "failed";
 type DayMode = "sunrise" | "cycle" | "drag" | "settle" | "rest";
 type Body = "sun" | "moon";
@@ -112,7 +112,8 @@ const BODY_UP = degrees(-1.5);
 const CONTINUITY_PX = 120;
 const DRAG_SAMPLES = 360;
 const SKY_DARK_NIGHT = 0.4;
-const PROBE_INTERVAL_MS = 400;
+const PROBE_INTERVAL_MS = 1000;
+const MOVING_PROBE_INTERVAL_MS = 400;
 const FIREFLY_TEXT_REACH = 48;
 const SUN_MIN_RED = 200;
 const SUN_MAX_BLUE_SHARE = 0.45;
@@ -244,6 +245,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
         paint: [SHADERS.fullscreenVs, SHADERS.paintFs],
         final: [SHADERS.fullscreenVs, SHADERS.finalFs],
         particles: [SHADERS.particleVs, SHADERS.particleFs],
+        probe: [SHADERS.fullscreenVs, SHADERS.probeFs],
       });
       phase = "compile";
     } catch (error) {
@@ -482,7 +484,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     const paintFramebuffer = createFramebuffer(gl, [paint]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     targets = { width: paintWidth, height: paintHeight, sceneColor, sceneFlow, depth, sceneFramebuffer, paint, paintFramebuffer };
-    probe = new ColorProbe(gl, paintWidth, paintHeight);
+    if (gpu) probe = new ColorProbe(gl, gpu.programs.probe, paintWidth, paintHeight);
     probedCycle = -1;
   };
 
@@ -627,8 +629,9 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
 
   const captureProbe = (now: number, t: Targets) => {
     if (!probe || probe.pending) return;
-    if (reducedMotion ? probedCycle === day.c : now - lastProbeAt < PROBE_INTERVAL_MS) return;
-    probe.capture(t.paintFramebuffer, t.width, t.height);
+    const moving = day.mode === "drag" || day.mode === "settle" || day.mode === "sunrise";
+    if (reducedMotion ? probedCycle === day.c : now - lastProbeAt < (moving ? MOVING_PROBE_INTERVAL_MS : PROBE_INTERVAL_MS)) return;
+    probe.capture(t.paint);
     lastProbeAt = now;
     probedCycle = day.c;
   };
