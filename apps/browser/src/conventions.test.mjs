@@ -237,11 +237,30 @@ function closesJsxTag(src, slash) {
   return src[before] === "<";
 }
 
-function withoutHoles(src, { start, end, holes }, fill = "0") {
+function withoutHoles(src, { start, end, holes }) {
   let text = "";
   let at = start;
   for (const [holeStart, holeEnd] of holes) {
-    text += src.slice(at, holeStart) + src.slice(holeStart, holeEnd).replace(/[^\n]/g, fill);
+    text += src.slice(at, holeStart) + src.slice(holeStart, holeEnd).replace(/[^\n]/g, "0");
+    at = holeEnd;
+  }
+  return text + src.slice(at, end);
+}
+
+const HEX_STRING = /^(["'`])([0-9a-f]{3,8})\1$/i;
+const HEX_BINDING = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;\n]+)?=\s*(["'`])([0-9a-f]{3,8})\2/gi;
+
+function hexBindings(code) {
+  return new Map([...code.matchAll(HEX_BINDING)].map((match) => [match[1], match[3]]));
+}
+
+function withHexHoles(src, { start, end, holes }, bindings) {
+  let text = "";
+  let at = start;
+  for (const [holeStart, holeEnd] of holes) {
+    const inner = src.slice(holeStart + 2, holeEnd - 1).trim();
+    const hex = inner.match(HEX_STRING)?.[2] ?? bindings.get(inner);
+    text += src.slice(at, holeStart) + (hex ?? src.slice(holeStart, holeEnd).replace(/[^\n]/g, "_"));
     at = holeEnd;
   }
   return text + src.slice(at, end);
@@ -360,7 +379,8 @@ function checkFile(path, src, add) {
   if (!(COMPONENT_FILE.test(base) || MODULE_FILE.test(base) || rel === "main.tsx")) add("file-names", path, 1);
 
   if (!TOKEN_FILE.test(path)) {
-    const colors = strings.reduce((sum, s) => sum + count(withoutHoles(src, s, "_"), COLOR_LITERAL), 0);
+    const bindings = hexBindings(codeAndStrings);
+    const colors = strings.reduce((sum, s) => sum + count(withHexHoles(src, s, bindings), COLOR_LITERAL), 0);
     add("tokens", path, colors + count(code, MOTION_LITERAL));
   }
 
@@ -531,6 +551,11 @@ if (process.argv.includes("--write-baseline")) {
   test("an interpolation after # in a string isn't a colour", () => {
     assert.deepEqual(violationsOf("apps/browser/src/state/hello/ids.ts", "export const id = (repo: string, n: number) => `${repo}#${n}`;\n"), {});
     assert.deepEqual(violationsOf("apps/browser/src/state/hello/ids.ts", 'export const plum = "#C07A98";\n'), { tokens: 1 });
+    assert.deepEqual(violationsOf("apps/browser/src/state/hello/ids.ts", "export const anchor = (id: string) => `#${id}`;\n"), {});
+  });
+  test("a hex string interpolated after # is still a colour", () => {
+    assert.deepEqual(violationsOf("apps/browser/src/state/hello/colors.ts", 'export const white = `#${"fff"}`;\n'), { tokens: 1 });
+    assert.deepEqual(violationsOf("apps/browser/src/state/hello/colors.ts", 'const hex = "fff";\nexport const color = `#${hex}`;\n'), { tokens: 1 });
   });
   test("a forward declaration of the engine's ArdiaCore classes isn't an app-side class", () => {
     assert.deepEqual(violationsOf("packages/hello/ios/HelloWindow.h", "@class ArdiaCoreTab;\n"), {});
