@@ -981,7 +981,8 @@ bool IsWindowDisposition(WindowOpenDisposition d) {
 bool IsNewTabDisposition(WindowOpenDisposition d) {
   return IsWindowDisposition(d) ||
          d == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-         d == WindowOpenDisposition::NEW_BACKGROUND_TAB;
+         d == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
+         d == WindowOpenDisposition::NEW_SPLIT_VIEW;
 }
 }
 
@@ -1011,6 +1012,8 @@ content::WebContents* ACWebContentsDelegate::OpenURLFromTab(
                                                    std::move(open));
   if (IsWindowDisposition(params.disposition)) {
     tab_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  } else if (params.disposition == WindowOpenDisposition::NEW_SPLIT_VIEW) {
+    tab_params.disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
   }
   return BrowserWebContentsDelegate::OpenURLFromTab(
       source, tab_params, std::move(navigation_handle_callback));

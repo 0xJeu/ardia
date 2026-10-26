@@ -75,6 +75,7 @@ const needs = {
   "context-menu-activation-log": ["context-menu-search"],
   "title-bar-close": ["open-url", "move-tab-to-window"],
   "context-menu-incognito": ["context-menu-log"],
+  "context-menu-split": ["context-menu-log"],
   "relaunch-profile": ["last-used-profile", "quit"],
 };
 function checkIndex() {
@@ -4857,6 +4858,35 @@ try {
     if (!landed.incognito || !landed.newWindow || all.some((x) => !x.incognito)) throw new Error(`Open Link in Incognito Window: ${JSON.stringify(all)}`);
     await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(landed.windowId)}); return true`);
     return landed;
+  });
+
+  await check("context-menu-split", async () => {
+    const menuLog = join(scratch, "context-menu.json");
+    const tab = await until("A", async () => (await state()).tabs.find((t) => t.url?.endsWith("/a?menu") && !t.loading));
+    await evalApp(`ac.actions.switchToTab("${tab.id}"); return true`);
+    await sleep(500);
+    const t = await pageFor(tab.id, "/a?menu");
+    const box = JSON.parse((await cdp(t, "Runtime.evaluate", { expression: "JSON.stringify(document.getElementById('next').getBoundingClientRect())", returnByValue: true })).result.value);
+    const at = { x: box.x + 3, y: box.y + box.height / 2, button: "right", clickCount: 1 };
+    const tabsBefore = await evalApp(`return Object.keys(ac.store.getState().tabs)`);
+    const groupsBefore = await evalApp(`return Object.keys(ac.store.getState().groups)`);
+    writeFileSync(`${menuLog}.pick`, "Open Link in Split View\t0\n");
+    await cdp(t, "Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
+    await cdp(t, "Input.dispatchMouseEvent", { type: "mousePressed", ...at });
+    await cdp(t, "Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+    const result = () => evalApp(`const s = ac.store.getState(), before = new Set(${JSON.stringify(tabsBefore)}), groupsBefore = new Set(${JSON.stringify(groupsBefore)});
+      const opened = Object.values(s.tabs).filter((t) => !before.has(t.id)).map((t) => ({ id: t.id, url: t.url, windowId: t.windowId }));
+      const split = Object.values(s.splits).find((v) => v.tabIds.includes(${JSON.stringify(tab.id)})) ?? null;
+      return { opened, split, newGroups: Object.keys(s.groups).filter((g) => !groupsBefore.has(g)) }`);
+    await until("the link's tab", async () => (await result()).opened.some((x) => x.url?.endsWith("/b")), 15000)
+      .catch(async (e) => { throw new Error(`${e.message}; ${JSON.stringify(await result())}`); });
+    await sleep(500);
+    const r = await result();
+    const b = r.opened.find((x) => x.url?.endsWith("/b"));
+    if (r.opened.length !== 1 || !r.split || r.split.tabIds.join() !== [tab.id, b.id].join() || r.newGroups.length)
+      throw new Error(`Open Link in Split View: ${JSON.stringify(r)}`);
+    await evalApp(`ac.store.getState().closeTab(${JSON.stringify(b.id)}); return true`);
+    return { split: r.split.tabIds };
   });
   // MARK: Camera and microphone (the 0.2.21 crash: Allow on a camera + microphone prompt aborted the app)
   const mediaChecks = ["camera-mic-allow", "permission-answer-once", "permission-element-allow"];
