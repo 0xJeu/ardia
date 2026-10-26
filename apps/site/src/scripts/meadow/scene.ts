@@ -103,6 +103,7 @@ const STACKED_HORIZON_SCREEN = 0.69;
 const SHARE_ROW_SLACK = 8;
 const TAP_PX = 10;
 const AMBIENT_FRAME_MS = 1000 / 30;
+const AMBIENT_EARLY_MS = 4;
 const ACTIVE_HOLD_MS = 700;
 const CYCLE_RAMP_SECONDS = 2.5;
 const DRAG_FOLLOW = 18;
@@ -951,28 +952,32 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       } else if (phase === "live") {
         readProbe();
         const busy = isBusy(now);
-        const dt = Math.min(0.1, Math.max(0, (now - lastNow) / 1000));
-        lastNow = now;
-        if (windOn && firstFrameSent) windTime += dt;
-        ensureSize();
-        const started = performance.now();
-        render(now, dt);
-        needsRender = false;
-        lastRenderAt = now;
-        if (terrainRead) pollTerrainRead(terrainRead);
-        if (mobBatch?.ready) finishMobs(mobBatch);
-        else if (!mobBatch && !mobGpu && !mobsOff && firstFrameSent && ++framesSinceFirst > MOB_COMPILE_AFTER_FRAMES) {
-          startMobs();
-          if (gpu && !terrainRead && !terrainReady) startTerrainRead(gpu);
-        }
-        if (busy && previousFrameBusy) trackCost(dt, performance.now() - started);
-        previousFrameBusy = busy;
+        if (busy || now - lastRenderAt >= AMBIENT_FRAME_MS - AMBIENT_EARLY_MS) renderLive(now, busy);
       }
     } catch (error) {
       fail(error);
       return;
     }
     schedule();
+  };
+
+  const renderLive = (now: number, busy: boolean) => {
+    const dt = Math.min(0.1, Math.max(0, (now - lastNow) / 1000));
+    lastNow = now;
+    if (windOn && firstFrameSent) windTime += dt;
+    ensureSize();
+    const started = performance.now();
+    render(now, dt);
+    needsRender = false;
+    lastRenderAt = now;
+    if (terrainRead) pollTerrainRead(terrainRead);
+    if (mobBatch?.ready) finishMobs(mobBatch);
+    else if (!mobBatch && !mobGpu && !mobsOff && firstFrameSent && ++framesSinceFirst > MOB_COMPILE_AFTER_FRAMES) {
+      startMobs();
+      if (gpu && !terrainRead && !terrainReady) startTerrainRead(gpu);
+    }
+    if (busy && previousFrameBusy) trackCost(dt, performance.now() - started);
+    previousFrameBusy = busy;
   };
 
   const trackCost = (dt: number, cpuMs: number) => {
