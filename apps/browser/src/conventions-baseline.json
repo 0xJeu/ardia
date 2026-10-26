@@ -184,7 +184,6 @@
   "store-reads": {},
   "store-shape": {},
   "size": {
-    "apps/browser/src/components/settings/settingsIndex.ts": 1,
     "apps/browser/src/state/app/perfProbe.ts": 1,
     "apps/browser/src/state/bookmarks/engineSync.ts": 1,
     "apps/browser/src/state/favicons/favicons.ts": 1,
