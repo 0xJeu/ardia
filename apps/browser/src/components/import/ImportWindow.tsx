@@ -59,7 +59,7 @@ export function ImportWindow() {
   const [fullDiskAccess, setFullDiskAccess] = useState(false);
   const [safariCookies, setSafariCookies] = useState(true);
   const [notes, setNotes] = useState<string[]>([]);
-  const bookmarks = useBrowser((s) => s.bookmarks);
+  const bookmarks = useBookmarks((b) => b);
   const arcHolders = useMemo(() => allArcHolders({ bookmarks }), [bookmarks]);
   const [extensions, setExtensions] = useState<{ profileId: string; list: ImportedExtension[]; opened: boolean }>({ profileId: "", list: [], opened: false });
   const onboarding = useOnboarding((s) => s.windowId !== null);
@@ -180,8 +180,7 @@ export function ImportWindow() {
 
   const destination = async (index: number, name: string, color?: string, emoji?: string, shareWith?: string | null): Promise<string> => {
     if (index === 0) return target;
-    const s = useBrowser.getState();
-    const clash = s.profileOrder.find((id) => s.profiles[id]!.name.trim().toLowerCase() === name.trim().toLowerCase());
+    const clash = profileNamed(name);
     if (clash) {
       const { confirmed } = await confirm({
         title: "Import as new profile?",
@@ -192,7 +191,7 @@ export function ImportWindow() {
       });
       if (!confirmed) return clash;
     }
-    return s.createProfile({ name, color: profileColorFor(color) as ProfileColor | undefined, icon: emoji ?? null, shareWith });
+    return addProfile({ name, color: profileColorFor(color) as ProfileColor | undefined, icon: emoji ?? null, shareWith });
   };
 
   const run = async (wanted: Set<ImportKind>, withoutKey = false) => {
@@ -889,12 +888,6 @@ export function ImportWindow() {
       </View>
     </View>
   );
-}
-
-function defaultTarget(): string {
-  const s = useBrowser.getState();
-  const w = s.windows[s.ui.focusedWindowId ?? ""];
-  return w && !w.incognito ? w.profileId : s.settings.defaultProfileId;
 }
 
 function Title({ title, subtitle, spinner }: { title: string; subtitle?: string; spinner?: boolean }) {

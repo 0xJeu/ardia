@@ -261,3 +261,14 @@ export function profileColorFor(hex: string | undefined): ProfileColor | undefin
   ];
   return hues.reduce((best, c) => (Math.abs(c[1] - h) < Math.abs(best[1] - h) ? c : best))[0];
 }
+
+export function defaultTarget(): string {
+  const s = useBrowser.getState();
+  const w = s.windows[s.ui.focusedWindowId ?? ""];
+  return w && !w.incognito ? w.profileId : s.settings.defaultProfileId;
+}
+
+export function profileNamed(name: string): string | undefined {
+  const s = useBrowser.getState();
+  return s.profileOrder.find((id) => s.profiles[id]!.name.trim().toLowerCase() === name.trim().toLowerCase());
+}

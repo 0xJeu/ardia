@@ -345,7 +345,6 @@
     "apps/browser/src/components/extensions/SidePanel.tsx": 3,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 1,
     "apps/browser/src/components/find/FindBar.tsx": 2,
-    "apps/browser/src/components/import/ImportWindow.tsx": 2,
     "apps/browser/src/components/live/CalendarPreview.tsx": 1,
     "apps/browser/src/components/live/LiveItemCard.tsx": 1,
     "apps/browser/src/components/live/MeetingAlert.tsx": 1,
