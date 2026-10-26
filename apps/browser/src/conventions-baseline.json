@@ -1,8 +1,6 @@
 {
   "layout": {},
-  "imports": {
-    "apps/browser/src/platform/nativeEvents.ts": 2
-  },
+  "imports": {},
   "native-calls": {
     "apps/browser/src/App.tsx": 1,
     "apps/browser/src/components/bookmarks/BookmarkDialog.tsx": 1,

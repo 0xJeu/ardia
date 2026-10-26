@@ -1,4 +1,5 @@
 import { create, type StateCreator } from "zustand";
+import { setHeldReportsTransaction } from "../../platform/nativeEvents";
 import { createBookmarksSlice, ensureRoots, type BookmarksSlice } from "../bookmarks/bookmarks";
 import { changedIds } from "./changes";
 import { createGroupsSlice, settleNesting, type GroupsSlice } from "../groups/groups";
@@ -82,6 +83,7 @@ const pageMoved = (s: BrowserState, prev: BrowserState) => {
 };
 const transactions = transactional<BrowserState>(pageMoved);
 export const storeTransaction = transactions.transaction;
+setHeldReportsTransaction(storeTransaction);
 
 export const useBrowser = create<BrowserState>()(transactions.middleware(batched((...a) => ({
   ...createProfilesSlice(...a),

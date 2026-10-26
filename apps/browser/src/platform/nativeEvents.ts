@@ -123,11 +123,14 @@ const g = globalThis as unknown as {
   expo?: { EventEmitter?: { prototype: Emitter } };
   ErrorUtils?: { reportFatalError(error: unknown): void };
 };
+let heldReportsTransaction: (run: () => void) => void = (run) => run();
+export const setHeldReportsTransaction = (transaction: (run: () => void) => void) => void (heldReportsTransaction = transaction);
+
 const bridge = g.__fbBatchedBridge;
 const emitter = g.expo?.EventEmitter?.prototype;
 if (!g.__acApplyHeldReports && bridge && emitter && typeof bridge.__callFunction === "function" && typeof bridge.__invokeCallback === "function") {
   const batch = (update: () => void) => (require("react-native") as typeof import("react-native")).unstable_batchedUpdates(update);
-  const transaction = (run: () => void) => (require("../state/browser/store") as typeof import("../state/browser/store")).storeTransaction(run);
+  const transaction = (run: () => void) => heldReportsTransaction(run);
   const held = createHold({ batch, transaction, schedule: (callback) => setTimeout(callback, 0), report: (error) => g.ErrorUtils?.reportFatalError(error) });
   holdPageReports(bridge, held);
   afterHeldReports(emitter, held);
