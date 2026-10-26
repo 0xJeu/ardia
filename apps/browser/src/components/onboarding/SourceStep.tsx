@@ -1,6 +1,6 @@
 import { fileExists, fileIcon, Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import { useHover } from "../ui";
 import { importModule } from "../../platform/importModule";
 import { isWebDemo } from "../../platform/webDemo";
@@ -10,6 +10,7 @@ import { chooseSource, confirmAnswer, presetFor, skipStep, useOnboarding, type B
 import { StepActions, StepLayout } from "./Steps";
 import { CheckMark, SecondaryButton, SectionLabel, Tag, useOnboardingColors } from "./Parts";
 import { SetupCodeLink, SetupCodeStep } from "./SetupCodeStep";
+import { browserIcon } from "./browserIcons";
 
 const ICON = require("../../../assets/app-icon.png");
 
@@ -135,14 +136,14 @@ function TileGrid({ tiles, selected, onPress, fresh }: { tiles: Tile[]; selected
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }} accessibilityRole="radiogroup">
       {tiles.map((t) => (
-        <SourceTile key={t.id} title={t.name} icon={t.icon} symbol="globe" selected={selected === t.id} onPress={() => onPress(t.id)} />
+        <SourceTile key={t.id} title={t.name} icon={browserIcon(t.id, t.icon)} symbol="globe" selected={selected === t.id} onPress={() => onPress(t.id)} />
       ))}
       {fresh ? <SourceTile title="Starting fresh" icon={null} symbol="sparkles" selected={selected === "fresh"} onPress={() => onPress("fresh")} /> : null}
     </View>
   );
 }
 
-function SourceTile({ title, icon, symbol, selected, onPress }: { title: string; icon: string | null; symbol: string; selected: boolean; onPress: () => void }) {
+function SourceTile({ title, icon, symbol, selected, onPress }: { title: string; icon: ImageSourcePropType | null; symbol: string; selected: boolean; onPress: () => void }) {
   const colors = useOnboardingColors();
   const { hovered, hoverProps } = useHover();
   return (
@@ -165,7 +166,7 @@ function SourceTile({ title, icon, symbol, selected, onPress }: { title: string;
             }}
           >
             {icon ? (
-              <Image source={{ uri: icon }} style={{ width: 40, height: 40 }} />
+              <Image source={icon} style={{ width: 40, height: 40 }} />
             ) : (
               <View style={{ width: 34, height: 34, margin: 3, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.iconContainer }}>
                 <Symbol name={symbol} size={15} color={colors.subtitle} style={{ width: 20, height: 20 }} />
@@ -189,15 +190,15 @@ function SourceTile({ title, icon, symbol, selected, onPress }: { title: string;
 function SourcePreview({ tile, fresh, found }: { tile: Tile | null; fresh: boolean; found: Tile[] }) {
   const colors = useOnboardingColors();
   const preset = presetFor(tile?.id ?? (fresh ? "fresh" : null));
-  const from = tile ? [tile] : fresh ? [] : found.filter((t) => t.icon).slice(0, 6);
+  const from = tile ? [tile] : fresh ? [] : found.filter((t) => t.app).slice(0, 6);
   return (
     <View style={{ alignItems: "center", gap: 22 }}>
       {from.length ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 14, maxWidth: 300 }}>
-          {from.map((t) => (
+          {from.map((t) => ({ t, icon: browserIcon(t.id, t.icon) })).map(({ t, icon }) => (
             <View key={t.id} style={{ alignItems: "center", gap: 6, width: tile ? 96 : 72 }}>
-              {t.icon ? (
-                <Image source={{ uri: t.icon }} style={{ width: tile ? 88 : 56, height: tile ? 88 : 56 }} />
+              {icon ? (
+                <Image source={icon} style={{ width: tile ? 88 : 56, height: tile ? 88 : 56 }} />
               ) : (
                 <View style={{ width: 72, height: 72, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.iconContainer }}>
                   <Symbol name="globe" size={28} color={colors.subtitle} style={{ width: 36, height: 36 }} />
