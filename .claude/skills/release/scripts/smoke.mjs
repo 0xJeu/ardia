@@ -168,7 +168,7 @@ await sleep(1500);
 checkUnlocked("…and closes when the page navigates", !windows().some((w) => /passkey/i.test(w.title)));
 
 const adsOnPage = () => adFate(adScript, () => go(`${pages}/ad.html`));
-const allowAds = (allowed) => instance.eval(`return globalThis.expo.modules.ArdiaCEF.setContentBlockerAllowed("localhost", ${allowed})`, { timeout: 30000 });
+const allowAds = (allowed) => instance.eval(`return ac.engine.call("contentBlocker.setAllowed", ${JSON.stringify({ host: "localhost", allowed })})`, { timeout: 30000 });
 const adSteps = [await adsOnPage()];
 await allowAds(true);
 adSteps.push(await adsOnPage());

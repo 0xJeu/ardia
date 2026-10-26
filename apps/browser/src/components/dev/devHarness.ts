@@ -13,6 +13,7 @@ import * as favicons from "../../state/favicons/favicons";
 import { probeStore } from "../../state/app/perfProbe";
 import { useLifecycle } from "../../state/tabs/tabLifecycle";
 import { webviews } from "../../platform/webviews";
+import { call, on } from "../../platform/engine";
 
 export function startDevHarness() {
   probeStore("pages", usePages);
@@ -31,7 +32,7 @@ export function startDevHarness() {
   }
 
   const ac = {
-    store: useBrowser, actions, runCommand, webviews, shell, omnibox: omniboxDrivers, pages: pagesDrivers,
+    store: useBrowser, actions, runCommand, webviews, shell, engine: { call, on }, omnibox: omniboxDrivers, pages: pagesDrivers,
     pageState: usePages,
     openSettings,
     favicons,

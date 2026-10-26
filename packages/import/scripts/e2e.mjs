@@ -148,8 +148,7 @@ async function importPhase(ok) {
   ok(by.ac_chips?.partitionKey, "partitioned cookie keeps its partition key");
   ok(!by.ac_dotdot && !by.ac_supercookie, 'a cookie whose scope Chrome would change (".." path, public-suffix domain) is refused');
 
-  const cef = "globalThis.expo.modules.ArdiaCEF";
-  const autofill = await evaluate(`return Promise.all([${cef}.listAddresses(""), ${cef}.listCards("")])`);
+  const autofill = await evaluate(`return Promise.all([ac.engine.call("autofill.addresses", { profile: "" }), ac.engine.call("autofill.cards", { profile: "" })].map((p) => p.catch((e) => ({ error: e.message }))))`);
   note("autofill:", JSON.stringify(autofill));
 
   await evaluate(`ac.actions.openUrls(["http://localhost:${SERVER_PORT}/"]); return true`);

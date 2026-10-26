@@ -120,7 +120,7 @@ function SiteControlsPanel({
   const pageEngine = usePageEngine(tabId);
   const webkitPage = pageEngine === "webkit";
   const permissionList = webkitPage ? PERMISSIONS.filter((p) => WEBKIT_SITE_SETTINGS.includes(p.type)) : PERMISSIONS;
-  const readSettings = webkitPage ? getWebKitSiteSettings : getSiteSettings;
+  const readSettings = webkitPage ? getWebKitSiteSettings : (p: string, o: string) => getSiteSettings(p, o).catch((): SiteSettings => ({}) as SiteSettings);
   const engineRule = useEngineRule(url);
   const recommendedEngine = useRecommendedEngine(url);
   const streamingSite = useStreamingSite(url);
@@ -174,7 +174,7 @@ function SiteControlsPanel({
       windowId: tab.windowId,
     });
     if (!confirmed) return;
-    const result = await webviews.get(tabId)?.clearSiteData();
+    const result = await webviews.get(tabId)?.clearSiteData().catch(() => null);
     const n = result && typeof result.cookies === "number" ? result.cookies : 0;
     setCleared(n ? `Cleared ${n} cookie${n === 1 ? "" : "s"} and site data` : "Cleared site data");
     void webviews.get(tabId)?.reload();

@@ -3,7 +3,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ArdiaTabStrip : NSObject
-+ (void)setHandler:(nullable void (^)(NSDictionary<NSString *, id> *transaction))handler;
++ (void)watchStrips;
 @property(class, readonly) NSDictionary<NSString *, id> *allStrips;
 + (void)command:(NSInteger)commandId command:(NSDictionary<NSString *, id> *)command NS_SWIFT_NAME(command(_:command:));
 @end

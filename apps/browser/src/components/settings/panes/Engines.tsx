@@ -1,4 +1,4 @@
-import { getPasskeyAccess, requestPasskeyAccess, type PageEngine, type PasskeyAccess, type PasskeyAccessStatus } from "@ardia/ardiacore";
+import { getPasskeyAccess, NO_PASSKEY_ACCESS, requestPasskeyAccess, type PageEngine, type PasskeyAccess, type PasskeyAccessStatus } from "@ardia/ardiacore";
 import { resolveInput } from "@ardia/core";
 import { useEffect, useState } from "react";
 import { AppState, Linking, Text, View } from "react-native";
@@ -74,7 +74,7 @@ function PasskeysRow() {
   const [asking, setAsking] = useState(false);
   useEffect(() => {
     let live = true;
-    const refresh = () => void getPasskeyAccess().then((next) => live && setAccess(next));
+    const refresh = () => void getPasskeyAccess().catch(() => NO_PASSKEY_ACCESS).then((next) => live && setAccess(next));
     refresh();
     const watch = AppState.addEventListener("change", (state) => state === "active" && refresh());
     return () => {
@@ -85,7 +85,7 @@ function PasskeysRow() {
   if (!access?.entitled) return <Row anchor="engines.passkeys" />;
   const ask = async () => {
     setAsking(true);
-    setAccess(await requestPasskeyAccess());
+    setAccess(await requestPasskeyAccess().catch(() => NO_PASSKEY_ACCESS));
     setAsking(false);
   };
   return (

@@ -1,4 +1,4 @@
-import { engineCall, onEngineEvent } from "@ardia/ardiacore";
+import { applyExtensionsSync, extensionsSyncState, onExtensionsSync } from "@ardia/ardiacore";
 import { readDocument, writeDocument } from "@ardia/shell";
 import { extensionsAdapter, type ExtensionChange, type ExtensionIntent, type ExtensionsAdapter, type LocalExtensions } from "@ardia/sync";
 import { engineProfile } from "../browser/model";
@@ -33,7 +33,7 @@ function note(profile: string, id: string, kind: ExtensionIntent["kind"]) {
 }
 
 async function stateOf(profile: string): Promise<LocalExtensions> {
-  const state = await engineCall<EngineState>("ac_extensions_sync_state", profile);
+  const state = await extensionsSyncState<EngineState>(profile);
   for (const i of state.intents ?? []) note(profile, i.id, i.kind);
   return { ready: !!state.ready, extensions: state.extensions ?? [], pending: state.pending ?? [], settling: state.settling ?? [], queued: state.queued ?? [] };
 }
@@ -46,7 +46,6 @@ async function readLocal(profile: string): Promise<LocalExtensions | null> {
   }
 }
 
-const MISSING_CALL = /not an engine call|the engine has no/;
 let available: boolean | null = null;
 
 export const extensionSyncAvailable = () => available === true;
@@ -56,9 +55,7 @@ export async function probeExtensionSync(profile: string): Promise<boolean> {
   try {
     await stateOf(profile);
     available = true;
-  } catch (error) {
-    if (MISSING_CALL.test(error instanceof Error ? error.message : String(error))) available = false;
-  }
+  } catch {}
   return available === true;
 }
 
@@ -71,7 +68,7 @@ function refreshList(profile: string) {
 async function change(profile: string, c: ExtensionChange): Promise<boolean> {
   const args = c.kind === "cancel" ? { id: c.id, record: { removed: true } } : { id: c.id, record: c.record, ...(c.approval ? { approval: c.approval } : {}) };
   try {
-    await engineCall("ac_extensions_sync_apply", profile, args);
+    await applyExtensionsSync(profile, args);
     return true;
   } catch (error) {
     console.warn(`[sync] extension ${c.kind} ${c.id} failed`, error);
@@ -107,7 +104,7 @@ let watching = false;
 export function watchExtensionIntents(profiles: string[]) {
   if (!watching) {
     watching = true;
-    onEngineEvent("extensions.sync", ({ profile }) => void readLocal(profile));
+    onExtensionsSync(({ profile }) => void readLocal(profile));
   }
   for (const profile of profiles) void readLocal(profile);
 }

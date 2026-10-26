@@ -9,6 +9,7 @@ import {
   setFilterListEnabled,
   setSiteSetting,
   setZoom,
+  type ClearSiteDataResult,
   type ContentBlockerState,
   type FilterList,
   type FilterListCategory,
@@ -313,7 +314,7 @@ function SiteSheet({ profileId, origin, onChanged }: { profileId: string; origin
   const profile = engineProfile(profileId);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [status, setStatus] = useState("");
-  const load = () => void getSiteSettings(profile, origin).then(setSettings).catch(() => {});
+  const load = () => void getSiteSettings(profile, origin).catch((): SiteSettings => ({}) as SiteSettings).then(setSettings).catch(() => {});
   useEffect(load, []);
   const set = async (type: SiteSettingType, value: SiteSettingValue) => {
     await setSiteSetting(profile, origin, type, value);
@@ -353,7 +354,7 @@ function SiteSheet({ profileId, origin, onChanged }: { profileId: string; origin
         <Button
           title="Clear Site Data"
           onPress={() =>
-            void clearSiteData(profile, origin).then((r) =>
+            void clearSiteData(profile, origin).catch((): ClearSiteDataResult => ({ cookies: false, storage: false })).then((r) =>
               setStatus(r.cookies === false ? "Site data cleared." : `Cleared ${r.cookies} cookie${r.cookies === 1 ? "" : "s"} and site data.`),
             )
           }

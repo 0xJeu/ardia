@@ -1,5 +1,4 @@
-import type { EventSubscription } from "expo-modules-core";
-import { nativeModule } from "./nativeModules";
+import { call, on } from "./engine/call";
 
 export type DeviceChooser = {
   id: number;
@@ -47,69 +46,32 @@ export type CastRoute = { id: string; sink: string; description: string; source:
 export type SidePanelRequest = { browserId: number; extensionId: string; open: boolean };
 export type ActionPopupRequest = { browserId: number; extensionId: string };
 
-export type NativeChromeUI = {
-  addListener(name: "onDeviceChooser", listener: (e: DeviceChooser) => void): EventSubscription;
-  addListener(name: "onCastDialog", listener: (e: CastDialog) => void): EventSubscription;
-  addListener(name: "onCastRoutes", listener: (e: { profile: string; routes: CastRoute[] }) => void): EventSubscription;
-  addListener(name: "onSidePanel", listener: (e: SidePanelRequest) => void): EventSubscription;
-  addListener(name: "onActionPopup" | "onActionShortcut", listener: (e: ActionPopupRequest) => void): EventSubscription;
-  selectDevice(id: number, index: number): Promise<void>;
-  cancelDeviceChooser(id: number): Promise<void>;
-  refreshDeviceChooser(id: number): Promise<void>;
-  openBluetoothSettings(id: number): Promise<void>;
-  showCastDialog(browserId: number): Promise<boolean>;
-  startCasting(id: number, sink: string, mode: number): Promise<void>;
-  stopCasting(id: number, route: string): Promise<void>;
-  closeCastDialog(id: number): Promise<void>;
-  watchCastRoutes(profile: string): Promise<void>;
-  terminateCastRoute(route: string): Promise<void>;
-  actionStates(browserId: number, ids: string[]): Promise<Record<string, NativeActionState>>;
-  sidePanelURL(browserId: number, extensionId: string): Promise<string | null>;
-  changeCaptureSource(capturer: number, target: number): Promise<boolean>;
-  stopCapture(capturer: number): Promise<boolean>;
-  showAutofillSuggestions(browserId: number, passwords: boolean): Promise<boolean>;
-};
+export const onDeviceChooser = (listener: (e: DeviceChooser) => void) => on("media.deviceChooser", listener);
+export const selectDevice = (id: number, index: number) => call("media.selectDevice", { id, index });
+export const cancelDeviceChooser = (id: number) => call("media.cancelDeviceChooser", { id });
+export const refreshDeviceChooser = (id: number) => call("media.refreshDeviceChooser", { id });
+export const openBluetoothSettings = (id: number) => call("media.openBluetoothSettings", { id });
 
-type NativeActionState = {
-  title: string;
-  badgeText: string;
-  badgeColor: string | null;
-  badgeTextColor: string | null;
-  popup: string;
-  enabled: boolean;
-  icon: string;
-};
-
-export const ChromeUI = nativeModule("ArdiaChromeUI");
-
-if (__DEV__) (globalThis as { acChromeUI?: unknown }).acChromeUI = ChromeUI;
-
-export const onDeviceChooser = (listener: (e: DeviceChooser) => void) => ChromeUI.addListener("onDeviceChooser", listener);
-export const selectDevice = (id: number, index: number) => ChromeUI.selectDevice(id, index);
-export const cancelDeviceChooser = (id: number) => ChromeUI.cancelDeviceChooser(id);
-export const refreshDeviceChooser = (id: number) => ChromeUI.refreshDeviceChooser(id);
-export const openBluetoothSettings = (id: number) => ChromeUI.openBluetoothSettings(id);
-
-export const onCastDialog = (listener: (e: CastDialog) => void) => ChromeUI.addListener("onCastDialog", listener);
-export const onCastRoutes = (listener: (e: { profile: string; routes: CastRoute[] }) => void) => ChromeUI.addListener("onCastRoutes", listener);
-export const showCastDialog = (browserId: number) => ChromeUI.showCastDialog(browserId);
-export const startCasting = (dialogId: number, sinkId: string, mode: number) => ChromeUI.startCasting(dialogId, sinkId, mode);
-export const stopCasting = (dialogId: number, routeId: string) => ChromeUI.stopCasting(dialogId, routeId);
-export const closeCastDialog = (dialogId: number) => ChromeUI.closeCastDialog(dialogId);
-export const watchCastRoutes = (profile: string) => ChromeUI.watchCastRoutes(profile);
-export const terminateCastRoute = (routeId: string) => ChromeUI.terminateCastRoute(routeId);
+export const onCastDialog = (listener: (e: CastDialog) => void) => on("media.castDialog", listener);
+export const onCastRoutes = (listener: (e: { profile: string; routes: CastRoute[] }) => void) => on("media.castRoutes", listener);
+export const showCastDialog = (browserId: number) => call("media.showCastDialog", { browserId });
+export const startCasting = (dialogId: number, sinkId: string, mode: number) => call("media.startCasting", { id: dialogId, sink: sinkId, mode });
+export const stopCasting = (dialogId: number, routeId: string) => call("media.stopCasting", { id: dialogId, route: routeId });
+export const closeCastDialog = (dialogId: number) => call("media.closeCastDialog", { id: dialogId });
+export const watchCastRoutes = (profile: string) => call("media.watchCastRoutes", { profile });
+export const terminateCastRoute = (routeId: string) => call("media.terminateCastRoute", { route: routeId });
 export function preferredCastMode(modes: number): number {
   for (const mode of [CastMode.presentation, CastMode.tab, CastMode.screen, CastMode.remotePlayback]) if (modes & mode) return mode;
   return 0;
 }
 
-export const onExtensionSidePanel = (listener: (e: SidePanelRequest) => void) => ChromeUI.addListener("onSidePanel", listener);
-export const extensionSidePanelUrl = (browserId: number, extensionId: string) => ChromeUI.sidePanelURL(browserId, extensionId);
-export const onExtensionActionPopup = (listener: (e: ActionPopupRequest) => void) => ChromeUI.addListener("onActionPopup", listener);
-export const onExtensionActionShortcut = (listener: (e: ActionPopupRequest) => void) => ChromeUI.addListener("onActionShortcut", listener);
+export const onExtensionSidePanel = (listener: (e: SidePanelRequest) => void) => on("extensions.sidePanel", listener);
+export const extensionSidePanelUrl = (browserId: number, extensionId: string) => call("extensions.sidePanelUrl", { browserId, extensionId });
+export const onExtensionActionPopup = (listener: (e: ActionPopupRequest) => void) => on("extensions.actionPopup", listener);
+export const onExtensionActionShortcut = (listener: (e: ActionPopupRequest) => void) => on("extensions.actionShortcut", listener);
 
-export const changeCaptureSource = (capturer: number, target: number) => ChromeUI.changeCaptureSource(capturer, target);
-export const stopCapture = (capturer: number) => ChromeUI.stopCapture(capturer);
+export const changeCaptureSource = (capturer: number, target: number) => call("media.changeCaptureSource", { capturer, target });
+export const stopCapture = (capturer: number) => call("media.stopCapture", { browserId: capturer });
 
 export const showAutofillSuggestions = (browserId: number, kind: "passwords" | "field") =>
-  ChromeUI.showAutofillSuggestions(browserId, kind === "passwords");
+  call("autofill.showSuggestions", { browserId, passwords: kind === "passwords" });

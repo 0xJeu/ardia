@@ -1,6 +1,5 @@
 import type {
   ActionState,
-  ArdiaCoreNativeModules,
   BookmarkOp,
   CliControlStatus,
   EngineBookmark,
@@ -13,7 +12,6 @@ import type {
 import type { EventSubscription } from "expo-modules-core";
 import { nativeEvents, unfaked } from "./events";
 
-type Modules = ArdiaCoreNativeModules;
 
 type TabStripHost = {
   listen(listener: (tx: TabStripTransaction) => void): EventSubscription;
@@ -36,11 +34,42 @@ const testGlobals = globalThis as {
   acTestUserScripts?: { engine: ExtensionEngine };
 };
 
-const cefEvents = nativeEvents();
-export const engineEvent = (topic: string, payload: object) => cefEvents.emit("onEngineEvent", { topic, payload: JSON.stringify(payload) });
+type Args = Record<string, unknown> & { profile: string };
+type Handler = (args: Args) => unknown;
+type FakeDomain = { call(name: string, profile: string, json: string): Promise<string>; addListener: ReturnType<typeof nativeEvents>["addListener"] };
+
+const domainEvents = new Map<string, ReturnType<typeof nativeEvents>>();
+const eventsOf = (domain: string) => {
+  if (!domainEvents.has(domain)) domainEvents.set(domain, nativeEvents());
+  return domainEvents.get(domain)!;
+};
+export const emitEvent = (name: string, data: unknown) => {
+  const domain = name.slice(0, name.indexOf("."));
+  eventsOf(domain).emit(domain, { name, data });
+};
+
+function domain<Sync extends object>(name: string, handlers: Record<string, Handler>, sync?: Sync): FakeDomain & Sync {
+  const fake: FakeDomain = {
+    call: (verb, profile, json) => {
+      const handler = handlers[verb];
+      if (!handler) return Promise.reject(Object.assign(new Error(`${name}.${verb} has no test fake yet`), { code: "ERR_UNKNOWN_CALL" }));
+      const args = { ...(JSON.parse(json) as Record<string, unknown>), profile };
+      try {
+        return Promise.resolve(handler(args)).then((value) => JSON.stringify(value ?? null));
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    },
+    addListener: eventsOf(name).addListener,
+  };
+  return Object.assign(fake, sync);
+}
+
+const APP_EVENT_OF_TOPIC: Record<string, string> = { cliControl: "engine.cliControl" };
+export const engineEvent = (topic: string, payload: object) => emitEvent(APP_EVENT_OF_TOPIC[topic] ?? topic, payload);
 const laterEngineEvent = (topic: string, payload: object) => queueMicrotask(() => engineEvent(topic, payload));
-export const emitDownload = (download: object) => cefEvents.emit("onDownload", download);
-export const emitPermission = (request: object) => cefEvents.emit("onPermission", request);
+export const emitDownload = (download: object) => emitEvent("downloads.changed", download);
+export const emitPermission = (request: object) => emitEvent("permissions.requested", request);
 
 export const current = { device: null as string | null };
 
@@ -226,26 +255,10 @@ function cliControl(args: EngineArgs) {
   return testGlobals.acTestCliControl?.(on) ?? { state: on ? "on" : "off" };
 }
 
-const engineCalls: Record<string, (profile: string, args: never) => unknown> = {
-  ac_history_query: queryHistory,
-  ac_history_add: addHistoryVisits,
-  ac_history_import: importHistoryRows,
-  ac_history_delete_urls: deleteHistoryUrls,
-  ac_history_watch: (profile: string) => (historyWatches.push(profile), { ok: true }),
-  ac_favicons_get: faviconsFor,
-  ac_bookmarks_tree: (profile: string) => ({ bar: treeOf(chromeBookmarks(profile), "bar"), other: treeOf(chromeBookmarks(profile), "other") }),
-  ac_bookmarks_apply: applyBookmarkOps,
-  ac_bookmarks_watch: () => ({ ok: true }),
-  ac_cli_control: (_profile: string, args: EngineArgs) => cliControl(args),
-  ac_battery_saver: () => null,
+const passing = (name: string): Handler => (args) => {
+  const { profile, ...rest } = args;
+  return testGlobals.acTestEngineCall?.(name, profile, Object.keys(rest).length ? rest : undefined) ?? {};
 };
-
-function engineCall(name: string, profile: string, json: string | null): Promise<string> {
-  const args = json === null ? undefined : (JSON.parse(json) as EngineArgs);
-  const handler = engineCalls[name] as ((profile: string, args: EngineArgs) => unknown) | undefined;
-  const answer = handler ? handler(profile, args) : (testGlobals.acTestEngineCall?.(name, profile, args) ?? {});
-  return Promise.resolve(answer).then((value) => JSON.stringify(value ?? null));
-}
 
 export const cancelledDownloads: string[] = [];
 export const endedWebKitSessions: string[] = [];
@@ -263,168 +276,211 @@ export const extensionAnswers = {
 const tabStripHost = () => testGlobals.acTestTabStrip!;
 let autofillIds = 0;
 
-const cef: Modules["ArdiaCEF"] = {
-  addListener: (name: string, listener: (payload: never) => void) =>
-    name === "onTabStrip" ? tabStripHost().listen(listener as (tx: TabStripTransaction) => void) : cefEvents.addListener(name, listener),
-  engineInfo: () => unfaked("ArdiaCEF", "engineInfo"),
-  chromeWindows: () => Promise.resolve([]),
-  prepareTransfer: () => {},
-  releaseTransfer: () => {},
-  claimLaunchTab: () => {},
-  revealTab: (key) => void revealedTabs.push(key),
-  dropTabReveals: (key) => void revealedTabs.push(`drop over ${key}`),
-  revealOffered: (adoptId, key) => void revealedTabs.push(`${adoptId} over ${key}`),
-  routeLinkTabs: () => Promise.resolve(linkRoute.next),
-  tabStripCommand: (id, command) => (tabStripHost().command(command, id), Promise.resolve()),
-  tabStrips: () => tabStripHost().snapshot(),
-  devWindow: () => Promise.resolve(""),
-  components: () => Promise.resolve([]),
-  beginTracing: () => Promise.resolve(false),
-  endTracing: () => Promise.resolve(null),
-  isTracing: () => Promise.resolve(false),
-  setDisplayMediaPicker: () => Promise.resolve(),
-  setSearchEngineName: () => Promise.resolve(),
-  setAutoPictureInPicture: () => Promise.resolve(),
-  setVideoUpscaling: () => Promise.resolve(),
-  setPeekModifier: () => Promise.resolve(),
-  setSplitLinkModifier: () => Promise.resolve(),
-  setSelectionPopover: () => Promise.resolve(),
-  setVideoUpscalingTestConditions: () => Promise.resolve(),
-  videoUpscalingState: () => Promise.resolve(null),
-  inputIdleSeconds: () => 3600,
-  forwardEngineTopics: () => Promise.resolve(),
-  displayMediaSources: () => Promise.resolve([]),
-  listTasks: () => Promise.resolve([]),
-  systemState: () => Promise.resolve({ onBattery: false, batteryLevel: null, lowPowerMode: false, memoryPressure: "normal", physicalMemory: 16 * 2 ** 30 }),
-  cancelDownload: (id) => (cancelledDownloads.push(id), Promise.resolve()),
-  pauseDownload: () => Promise.resolve(),
-  resumeDownload: () => Promise.resolve(),
-  resolvePermission: () => Promise.resolve(),
-  resolveExternalApp: () => Promise.resolve(),
-  getExternalAppAllowances: () => Promise.resolve([]),
-  removeExternalAppAllowance: () => Promise.resolve(),
-  clearBrowsingData: () => Promise.resolve(),
-  fetchFavicon: () => Promise.resolve(null),
-  engineCall,
-  releaseProfile: () => Promise.resolve(),
-  deleteProfileData: (profile) => (deletedProfileData.push(profile), Promise.resolve({ remaining: profileDataLeft.get(profile) ?? [] })),
-  getContentBlocker: () => unfaked("ArdiaCEF", "getContentBlocker"),
-  setContentBlockerEnabled: () => Promise.resolve(),
-  setFilterListEnabled: () => Promise.resolve(),
-  isContentBlockerAllowed: () => Promise.resolve(false),
-  setContentBlockerAllowed: () => Promise.resolve(),
-  setSiteSetting: () => Promise.resolve(),
-  getSiteSettings: () => unfaked("ArdiaCEF", "getSiteSettings"),
-  getSiteSettingsOrigins: () => Promise.resolve([]),
-  resetSiteSettings: () => Promise.resolve(),
-  clearSiteData: () => Promise.resolve({ cookies: 0, storage: true }),
-  setZoom: () => Promise.resolve(),
-  getZoomLevels: () => Promise.resolve({}),
-  listPasswords: async () => ({
-    passwords: [...(passwordStores.get(current.device)?.values() ?? [])].map((l) => ({ origin: l.origin, username: l.username, created: l.created, modified: l.created })),
-  }),
-  unlockPasswords: () => Promise.resolve({ unlocked: true }),
-  getPassword: async (_profile, origin, username) => ({ password: passwordStores.get(current.device)?.get(`${origin}\n${username}`)?.password ?? null }),
-  savePassword: async (_profile, origin, username, password) => {
-    logins().set(`${origin}\n${username}`, { origin: `${origin}/`, url: origin, username, password, created: Date.now() });
-    return { ok: true };
-  },
-  updatePassword: () => unfaked("ArdiaCEF", "updatePassword"),
-  deletePassword: async (_profile, origin, username) => {
-    logins().delete(`${origin}\n${username}`);
-    return { ok: true };
-  },
-  getNeverSavePasswordOrigins: () => Promise.resolve({ origins: [] }),
-  allowSavingPasswords: () => Promise.resolve({ ok: true }),
-  exportPasswords: () => Promise.resolve({ status: "cancelled" }),
-  getPasswordAutofill: () => Promise.resolve(true),
-  setPasswordAutofill: () => Promise.resolve(),
-  getAutofillSettings: () => Promise.resolve({ addresses: true, cards: true }),
-  setAutofillSettings: () => Promise.resolve(),
-  listAddresses: () => Promise.resolve({ addresses: [] }),
-  saveAddress: () => Promise.resolve({ id: `address-${++autofillIds}` }),
-  listCards: () => Promise.resolve({ cards: [] }),
-  saveCard: () => Promise.resolve({ id: `card-${++autofillIds}` }),
-  deleteAutofillEntry: () => Promise.resolve({ ok: true }),
-  revealCardNumber: () => Promise.resolve({ number: null }),
-};
-
 const extensionEngine = () => testGlobals.acTestUserScripts?.engine;
-const extensionEvents = nativeEvents();
-const extensions: Modules["ArdiaExtensions"] = {
-  addListener: extensionEvents.addListener,
-  resolveInstallPrompt: () => Promise.resolve(),
-  list: async (profile) => ({ extensions: (await extensionEngine()?.list(profile)) ?? [] }),
-  inspectUnpacked: () => unfaked("ArdiaExtensions", "inspectUnpacked"),
-  install: async (path, profile) => {
-    const engine = extensionEngine();
-    return engine ? { id: await engine.install(path, profile) } : { error: "no extension engine in this test" };
+function withStrips<Fake extends FakeDomain>(fake: Fake): Fake {
+  const addListener = fake.addListener;
+  fake.addListener = (name: string, listener: (payload: never) => void) => {
+    const own = addListener(name, listener);
+    const strips = tabStripHost().listen((tx) => (listener as (event: { name: string; data: unknown }) => void)({ name: "tabs.strips", data: tx }));
+    return { remove: () => (own.remove(), strips.remove()) };
+  };
+  return fake;
+}
+
+const loginKey = (args: Args) => `${args.origin}\n${args.username}`;
+
+const fakeModules = {
+  ArdiaEngine: domain(
+    "engine",
+    {
+      components: () => [],
+      tasks: () => [],
+      beginTracing: () => false,
+      endTracing: () => null,
+      isTracing: () => false,
+      systemState: () => ({ onBattery: false, batteryLevel: null, lowPowerMode: false, memoryPressure: "normal", physicalMemory: 16 * 2 ** 30 }),
+      batterySaver: () => null,
+      trimMemory: passing("ac_memory_trim"),
+      openTaskManager: passing("ac_task_manager_open"),
+      cliControl: ({ profile: _profile, ...args }) => cliControl(Object.keys(args).length ? args : undefined),
+    },
+    { inputIdleSeconds: () => 3600 },
+  ),
+  ArdiaTabs: withStrips(domain(
+    "tabs",
+    {
+      routeLinkTabs: () => linkRoute.next,
+      stripCommand: ({ id, command }) => (tabStripHost().command(command as TabStripCommand, id as number), null),
+      strips: () => tabStripHost().snapshot(),
+      lastTabPolicy: passing("ac_tabs_last_tab_policy"),
+    },
+    {
+      prepareTransfer: () => {},
+      releaseTransfer: () => {},
+      claimLaunchTab: () => {},
+      revealTab: (key: string) => void revealedTabs.push(key),
+      dropTabReveals: (key: string) => void revealedTabs.push(`drop over ${key}`),
+      revealOffered: (adoptId: string, key: string) => void revealedTabs.push(`${adoptId} over ${key}`),
+    },
+  )),
+  ArdiaWindows: domain("windows", { list: () => [], dev: () => "" }),
+  ArdiaDownloads: domain("downloads", {
+    cancel: ({ id }) => (cancelledDownloads.push(id as string), null),
+    pause: () => null,
+    resume: () => null,
+    settings: passing("ac_downloads_settings"),
+    setSettings: passing("ac_downloads_set_settings"),
+  }),
+  ArdiaPermissions: domain("permissions", {
+    resolve: () => null,
+    resolveExternalApp: () => null,
+    externalAppAllowances: () => [],
+    removeExternalAppAllowance: () => null,
+  }),
+  ArdiaProfiles: domain("profiles", {
+    release: () => null,
+    deleteData: ({ profile }) => (deletedProfileData.push(profile), { remaining: profileDataLeft.get(profile) ?? [] }),
+    clearBrowsingData: () => null,
+  }),
+  ArdiaSites: domain("sites", {
+    setSetting: () => null,
+    origins: () => [],
+    reset: () => null,
+    clearData: () => ({ cookies: 0, storage: true }),
+    zoomLevels: () => ({}),
+    setZoom: () => null,
+  }),
+  ArdiaPasswords: domain(
+    "passwords",
+    {
+      list: () => ({
+        passwords: [...(passwordStores.get(current.device)?.values() ?? [])].map((l) => ({ origin: l.origin, username: l.username, created: l.created, modified: l.created })),
+      }),
+      unlock: () => ({ unlocked: true }),
+      reveal: (args) => ({ password: passwordStores.get(current.device)?.get(loginKey(args))?.password ?? null }),
+      remove: (args) => (logins().delete(loginKey(args)), { ok: true }),
+      neverSaveOrigins: () => ({ origins: [] }),
+      allowSaving: () => ({ ok: true }),
+      export: () => ({ status: "cancelled" }),
+      autofillEnabled: () => true,
+      setAutofillEnabled: () => null,
+    },
+    {
+      save: async (_profile: string, origin: string, username: string, password: string) => {
+        logins().set(`${origin}\n${username}`, { origin: `${origin}/`, url: origin, username, password, created: Date.now() });
+        return JSON.stringify({ ok: true });
+      },
+      update: () => unfaked("ArdiaPasswords", "update"),
+    },
+  ),
+  ArdiaAutofill: domain(
+    "autofill",
+    {
+      settings: () => ({ addresses: true, cards: true }),
+      setSettings: () => null,
+      addresses: () => ({ addresses: [] }),
+      saveAddress: () => ({ id: `address-${++autofillIds}` }),
+      cards: () => ({ cards: [] }),
+      remove: () => ({ ok: true }),
+      cardNumber: () => ({ number: null }),
+      showSuggestions: () => false,
+    },
+    { saveCard: async () => JSON.stringify({ id: `card-${++autofillIds}` }) },
+  ),
+  ArdiaExtensions: domain("extensions", {
+    list: async ({ profile }) => ({ extensions: (await extensionEngine()?.list(profile)) ?? [] }),
+    install: async ({ profile, path }) => {
+      const engine = extensionEngine();
+      if (!engine) throw Object.assign(new Error("no extension engine in this test"), { code: "ERR_ENGINE" });
+      return { id: await engine.install(path as string, profile) };
+    },
+    setEnabled: () => ({ ok: true }),
+    uninstall: async ({ profile, id }) => (await extensionEngine()?.uninstall(id as string, profile), { ok: true }),
+    reload: async ({ profile, id }) => (await extensionEngine()?.reload(id as string, profile), { ok: true }),
+    configure: () => ({ ok: true }),
+    chooseFolder: () => null,
+    resolveInstallPrompt: () => null,
+    actionStates: ({ browserId, ids }) => extensionAnswers.actionStates(browserId as number, ids as string[]),
+    sidePanelUrl: ({ browserId, extensionId }) => extensionAnswers.sidePanelUrl(browserId as number, extensionId as string),
+    watchActions: passing("ac_extensions_watch_actions"),
+    syncState: passing("ac_extensions_sync_state"),
+    syncApply: passing("ac_extensions_sync_apply"),
+  }),
+  ArdiaSearch: domain("search", { engines: () => ({ list: [] }), setEngineName: () => null }),
+  ArdiaMedia: domain("media", {
+    displayMediaSources: () => [],
+    selectDevice: () => null,
+    cancelDeviceChooser: () => null,
+    refreshDeviceChooser: () => null,
+    openBluetoothSettings: () => null,
+    showCastDialog: () => false,
+    startCasting: () => null,
+    stopCasting: () => null,
+    closeCastDialog: () => null,
+    watchCastRoutes: () => null,
+    terminateCastRoute: () => null,
+    changeCaptureSource: () => false,
+    stopCapture: () => false,
+  }),
+  ArdiaContentBlocker: domain("contentBlocker", {
+    setEnabled: () => null,
+    setListEnabled: () => null,
+    isAllowed: () => false,
+    setAllowed: () => null,
+  }),
+  ArdiaHistory: domain("history", {
+    query: ({ profile, ...args }) => queryHistory(profile, args),
+    add: ({ profile, ...args }) => addHistoryVisits(profile, args as never),
+    import: ({ profile, ...args }) => importHistoryRows(profile, args as never),
+    deleteUrls: ({ profile, ...args }) => deleteHistoryUrls(profile, args as never),
+    watch: ({ profile }) => (historyWatches.push(profile), { ok: true }),
+  }),
+  ArdiaBookmarks: domain("bookmarks", {
+    tree: ({ profile }) => ({ bar: treeOf(chromeBookmarks(profile), "bar"), other: treeOf(chromeBookmarks(profile), "other") }),
+    apply: ({ profile, ...args }) => applyBookmarkOps(profile, args as never),
+    watch: () => ({ ok: true }),
+  }),
+  ArdiaFavicons: domain("favicons", {
+    get: ({ profile, ...args }) => faviconsFor(profile, args as never),
+    set: passing("ac_favicons_set"),
+    fetch: () => null,
+  }),
+  ArdiaWebView: domain("webView", {
+    setDisplayMediaPicker: () => null,
+    setPeekModifier: () => null,
+    setSplitLinkModifier: () => null,
+    setSelectionPopover: () => null,
+    setAutoPictureInPicture: () => null,
+    setVideoUpscaling: () => null,
+    setVideoUpscalingTestConditions: () => null,
+    videoUpscalingState: () => null,
+  }),
+  ArdiaWebKit: domain("webKit", {
+    resolvePermission: () => null,
+    downloadCommand: ({ action, id }) => (action === "cancel" && cancelledDownloads.push(id as string), null),
+    externalAppAllowances: () => [],
+    removeExternalAppAllowance: () => null,
+    endPrivateSession: ({ session }) => (endedWebKitSessions.push(session as string), null),
+    removeDownloadStaging: ({ path }) => (removedStagings.push(path as string), stagingRemovals.ok),
+    sitePermissions: () => ({}),
+    setSitePermission: () => null,
+    resolveExternalApp: () => null,
+    clearBrowsingData: () => null,
+    deleteProfileData: () => true,
+    cookieStoreKey: ({ profile }) => profile,
+    importCookies: ({ cookies }) => (cookies as unknown[]).length,
+    passkeyAccess: () => ({ entitled: false, status: "entitlementRequired" }),
+    requestPasskeyAccess: () => ({ entitled: false, status: "entitlementRequired" }),
+  }),
+  ArdiaSwipe: {
+    haptic: () => {},
+    switchPager: () => Promise.resolve(false),
+    stepPager: () => Promise.resolve(false),
+    selectPager: () => Promise.resolve(false),
+    pagerState: () => null,
+    devPagerState: () => Promise.resolve(null),
+    devSimulate: () => unfaked("ArdiaSwipe", "devSimulate"),
   },
-  setEnabled: () => Promise.resolve({ ok: true }),
-  uninstall: async (id, profile) => (await extensionEngine()?.uninstall(id, profile), { ok: true }),
-  reload: async (id, profile) => (await extensionEngine()?.reload(id, profile), { ok: true }),
-  configure: () => Promise.resolve({ ok: true }),
-  searchEngineList: () => Promise.resolve({ list: [] }),
-  chooseFolder: () => Promise.resolve(null),
 };
 
-const chromeUIEvents = nativeEvents();
-const chromeUI: Modules["ArdiaChromeUI"] = {
-  addListener: chromeUIEvents.addListener,
-  selectDevice: () => Promise.resolve(),
-  cancelDeviceChooser: () => Promise.resolve(),
-  refreshDeviceChooser: () => Promise.resolve(),
-  openBluetoothSettings: () => Promise.resolve(),
-  showCastDialog: () => Promise.resolve(false),
-  startCasting: () => Promise.resolve(),
-  stopCasting: () => Promise.resolve(),
-  closeCastDialog: () => Promise.resolve(),
-  watchCastRoutes: () => Promise.resolve(),
-  terminateCastRoute: () => Promise.resolve(),
-  actionStates: (browserId, ids) => extensionAnswers.actionStates(browserId, ids),
-  sidePanelURL: (browserId, extensionId) => extensionAnswers.sidePanelUrl(browserId, extensionId),
-  changeCaptureSource: () => Promise.resolve(false),
-  stopCapture: () => Promise.resolve(false),
-  showAutofillSuggestions: () => Promise.resolve(false),
-};
-
-const swipe: Modules["ArdiaSwipe"] = {
-  haptic: () => {},
-  switchPager: () => Promise.resolve(false),
-  stepPager: () => Promise.resolve(false),
-  selectPager: () => Promise.resolve(false),
-  pagerState: () => null,
-  devPagerState: () => Promise.resolve(null),
-  devSimulate: () => unfaked("ArdiaSwipe", "devSimulate"),
-};
-
-const webKitEvents = nativeEvents();
-const webKit: Modules["ArdiaWebKit"] = {
-  addListener: webKitEvents.addListener,
-  prepareTransfer: () => {},
-  releaseTransfer: () => {},
-  resolvePermission: () => Promise.resolve(),
-  downloadCommand: (action, id) => (action === "cancel" && cancelledDownloads.push(id), Promise.resolve()),
-  externalAppAllowances: () => Promise.resolve([]),
-  removeExternalAppAllowance: () => Promise.resolve(),
-  endPrivateSession: (session) => (endedWebKitSessions.push(session), Promise.resolve()),
-  removeDownloadStaging: (path) => (removedStagings.push(path), Promise.resolve(stagingRemovals.ok)),
-  sitePermissions: () => Promise.resolve({}),
-  setSitePermission: () => Promise.resolve(),
-  resolveExternalApp: () => Promise.resolve(),
-  clearBrowsingData: () => Promise.resolve(),
-  deleteProfileData: () => Promise.resolve(true),
-  cookieStoreKey: (profile) => Promise.resolve(profile),
-  importCookies: (_profile, _storeKey, cookies) => Promise.resolve(cookies.length),
-  info: () => Promise.resolve({ safariVersion: "26.0", userAgentSuffix: "", passkeys: false }),
-  passkeyAccess: () => Promise.resolve({ entitled: false, status: "entitlementRequired" }),
-  requestPasskeyAccess: () => Promise.resolve({ entitled: false, status: "entitlementRequired" }),
-};
-
-export const ardiaCoreNativeModules: Modules = {
-  ArdiaCEF: cef,
-  ArdiaExtensions: extensions,
-  ArdiaChromeUI: chromeUI,
-  ArdiaSwipe: swipe,
-  ArdiaWebKit: webKit,
-};
+export const ardiaCoreNativeModules: Record<string, object> = fakeModules;

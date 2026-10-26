@@ -189,14 +189,7 @@ const char kPageReportsKey = 0;
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ chrome-activated tab=%d byChrome=%d", _transferKey, _tab ? (int)_tab.tabId : -1, chromes);
   if (_standalone) return;
   [self requestFocusRestore];
-  [self emit:@"tabStrip"
-      payload:@{
-        @"index" : @(MAX(_tabIndex, 0)),
-        @"active" : @YES,
-        @"pinned" : @(_pinned),
-        @"activated" : @YES,
-        @"byApp" : @(!chromes),
-      }];
+  if (_navigationQueued) [self emitNavigation];
 }
 
 - (void)devToolsChanged:(NSView *)devToolsView {

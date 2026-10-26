@@ -161,7 +161,12 @@ function pollActionStates() {
 }
 
 function watchActionsOf(profile: string) {
-  void watchExtensionActions(profile).then((watching) => watching || pollActionStates());
+  void watchExtensionActions(profile)
+    .then(
+      () => true,
+      () => false,
+    )
+    .then((watching) => watching || pollActionStates());
 }
 
 const loadedProfiles = new Set<string>();

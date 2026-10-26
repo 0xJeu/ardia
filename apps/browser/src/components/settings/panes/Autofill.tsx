@@ -9,6 +9,7 @@ import {
   type SavedAddress,
   type SavedCard,
 } from "@ardia/ardiacore";
+import { orWarn } from "../../../lib/fallback";
 import { confirm, copyText, Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
@@ -189,13 +190,13 @@ function AddressSheet({ profile, saved, onChanged }: { profile: string; saved?: 
   const save = async () => {
     const { line1, line2, ...rest } = values;
     const street = [line1, line2].map((l) => l!.trim()).filter(Boolean).join("\n");
-    await saveAddress(profile, { ...rest, street, id: saved?.id });
+    await saveAddress(profile, { ...rest, street, id: saved?.id }).catch(orWarn(null));
     onChanged();
     closeSettingsSheet();
   };
   const remove = async () => {
     if (!saved || !(await confirmDelete("Delete this address?", "It won't be offered in forms any more."))) return;
-    await deleteAddress(profile, saved.id);
+    await deleteAddress(profile, saved.id).catch(orWarn(undefined));
     onChanged();
     closeSettingsSheet();
   };
@@ -236,19 +237,19 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
 
   const reveal = async () => {
     if (!saved) return;
-    const full = await revealCardNumber(profile, saved.id);
+    const full = await revealCardNumber(profile, saved.id).catch(() => null);
     if (full) setNumber(formatCardNumber(full));
   };
   const save = async () => {
     const card = { id: saved?.id, name: name.trim(), expMonth: month ? Number(month) : undefined, expYear: year ? Number(year) : undefined };
-    const id = await saveCard(profile, card, number === null ? undefined : digits);
+    const id = await saveCard(profile, card, number === null ? undefined : digits).catch(orWarn(null));
     if (!id) return setError("That isn't a valid card number.");
     onChanged();
     closeSettingsSheet();
   };
   const remove = async () => {
     if (!saved || !(await confirmDelete("Delete this card?", "Its number is removed from your Keychain too."))) return;
-    await deleteCard(profile, saved.id);
+    await deleteCard(profile, saved.id).catch(orWarn(undefined));
     onChanged();
     closeSettingsSheet();
   };

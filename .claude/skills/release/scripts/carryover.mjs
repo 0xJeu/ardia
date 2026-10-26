@@ -75,6 +75,27 @@ const show = (pattern) => inApp(`const s = ac.store.getState(); const t = Object
   if (t) { ac.actions.switchProfile(${window}, t.profileId); ac.actions.switchToTab(t.id); } return !!t;`);
 
 const READ = `
+const s = ac.store.getState(), E = ac.engine;
+const O = ${JSON.stringify(origin)};
+const seq = (items, f) => items.reduce((p, x) => p.then(() => f(x)), Promise.resolve());
+const safe = (p, f) => Promise.resolve().then(() => p).then(f, (e) => "error: " + e);
+const orError = (p) => p.catch((e) => ({ error: e.message }));
+const flat = (n, acc) => { acc = acc || []; if (!n) return acc; if (n.u) acc.push(n.t + " " + n.u); (n.c || []).forEach((c) => flat(c, acc)); return acc; };
+const r = { profiles: s.profileOrder.map((id) => s.profiles[id].name), tabs: [] };
+for (const t of Object.values(s.tabs)) if (t.url) r.tabs.push(s.profiles[t.profileId].name + " " + t.url);
+r.tabs.sort();
+return safe(E.call("engine.info"), (i) => { r.dataDirectory = i && i.dataDirectory; }).then(() => seq(s.profileOrder, (id) => {
+  const p = id === "default" ? "" : id, name = s.profiles[id].name, put = (k, v) => { r[name + " " + k] = v; };
+  return orError(E.call("passwords.unlock", { profile: p })).then(() => orError(E.call("passwords.list", { profile: p })))
+    .then((list) => { const pw = []; put("passwords", pw); return seq((list && list.passwords) || [], (e) => orError(E.call("passwords.reveal", { profile: p, origin: e.origin, username: e.username })).then((v) => { pw.push(e.username + " " + (v && v.password)); })); })
+    .then(() => safe(orError(E.call("bookmarks.tree", { profile: p })), (t) => { put("bookmarks", flat(t.bar).concat(flat(t.other))); }))
+    .then(() => safe(orError(E.call("history.query", { profile: p, maxUrls: 100, maxVisits: 5 })), (h) => put("history", (h.entries || []).map((e) => e.u).sort())))
+    .then(() => safe(orError(E.call("autofill.addresses", { profile: p })), (a) => put("addresses", ((a && a.addresses) || []).map((x) => x.name + ", " + x.city))))
+    .then(() => safe(E.call("sites.settings", { profile: p, origin: O }), (v) => put("notifications", v && v.notifications && v.notifications.value)))
+    .then(() => safe(E.call("sites.zoomLevels", { profile: p }), (z) => put("zoom", z)))
+    .then(() => safe(orError(E.call("extensions.list", { profile: p })), (l) => put("extensions", ((l && l.extensions) || []).filter((e) => !/uBlock/.test(e.name)).map((e) => e.name + (e.enabled ? "" : " (off)")).sort())));
+})).then(() => r);`;
+const READ_BEFORE_ENGINE = `
 const s = ac.store.getState(), C = globalThis.expo.modules.ArdiaCEF, X = globalThis.expo.modules.ArdiaExtensions;
 const O = ${JSON.stringify(origin)};
 const seq = (items, f) => items.reduce((p, x) => p.then(() => f(x)), Promise.resolve());
@@ -100,6 +121,7 @@ try {
   let w = null;
   for (let i = 0; i < 60 && !w; i++) { w = await inApp(`return ${window} || null;`, 3000).catch(() => null); if (!w) await sleep(1000); }
   if (!w) throw new Error("no window");
+  const engineApi = await inApp("return !!ac.engine;");
   if (phase === "create") {
     const W = JSON.stringify(w);
     await inApp(`const s = ac.store.getState(); s.newTab(${W}, { url: "${origin}/page2.html" }); ac.actions.switchToTab(s.newTab(${W}, { url: "${origin}/page1.html" })); return 1;`);
@@ -109,7 +131,17 @@ try {
     await sleep(1500);
     await inApp(`ac.actions.switchToTab(ac.store.getState().newTab(${W}, { url: "${origin}/work.html", profileId: ${JSON.stringify(work)} })); return 1;`);
     report.setWork = await inPage("work.html", `document.cookie = "w_persist=yes; max-age=31536000; path=/"; document.cookie = "w_session=yes; path=/"; localStorage.setItem("w_ls", "yes"); document.cookie`);
-    report.made = await inApp(`
+    report.made = await inApp(engineApi ? `
+      const s = ac.store.getState(), E = ac.engine, P = globalThis.expo.modules.ArdiaPasswords, O = ${JSON.stringify(origin)}, work = ${JSON.stringify(work)};
+      const orError = (p) => p.catch((e) => ({ error: e.message }));
+      s.addBookmark({ profileId: "default", url: O + "/page2.html", title: "Carryover bookmark" });
+      s.addBookmark({ profileId: work, url: O + "/work.html", title: "Work bookmark" });
+      return orError(P.save("", O, "alice", "pw-personal-123").then(JSON.parse))
+        .then(() => orError(P.save(work, O, "bob", "pw-work-456").then(JSON.parse)))
+        .then(() => orError(E.call("autofill.saveAddress", { profile: "", address: { name: "Ada Lovelace", city: "London", street: "12 St James's Square", postalCode: "SW1Y 4JH", country: "GB" } })))
+        .then(() => E.call("sites.setSetting", { profile: "", origin: O, type: "notifications", value: "allow" }))
+        .then(() => E.call("sites.setZoom", { profile: "", host: "127.0.0.1", zoom: 1.5 }))
+        .then(() => orError(E.call("extensions.install", { profile: "", path: ${JSON.stringify(extra)} })));` : `
       const s = ac.store.getState(), C = globalThis.expo.modules.ArdiaCEF, O = ${JSON.stringify(origin)}, work = ${JSON.stringify(work)};
       s.addBookmark({ profileId: "default", url: O + "/page2.html", title: "Carryover bookmark" });
       s.addBookmark({ profileId: work, url: O + "/work.html", title: "Work bookmark" });
@@ -130,15 +162,16 @@ try {
     await inApp(`ac.actions.switchProfile(${W}, "default"); ac.actions.switchToTab(ac.store.getState().newTab(${W}, { url: "${origin}/page3.html", profileId: "default" })); return 1;`);
     report.setNew = await inPage("page3.html", `document.cookie = "n_persist=yes; max-age=31536000; path=/"; document.cookie = "n_session=yes; path=/"; localStorage.setItem("n_ls", "yes"); document.cookie`);
     report.made = await inApp(`
-      const s = ac.store.getState(), C = globalThis.expo.modules.ArdiaCEF, X = globalThis.expo.modules.ArdiaExtensions, O = ${JSON.stringify(origin)};
+      const s = ac.store.getState(), E = ac.engine, O = ${JSON.stringify(origin)};
+      const orError = (p) => p.catch((e) => ({ error: e.message }));
       s.addBookmark({ profileId: "default", url: O + "/page3.html", title: "New build bookmark" });
-      return C.savePassword("", O, "carol", "pw-new-789")
-        .then(() => C.setZoom("", "localhost", 0.9))
-        .then(() => X.list(""))
-        .then((l) => { const e = ((l && l.extensions) || []).find((e) => e.name === "ArdiaCore spike extension"); return e ? X.setEnabled(e.id, "", false) : "no extension"; });`, 60_000);
+      return orError(globalThis.expo.modules.ArdiaPasswords.save("", O, "carol", "pw-new-789").then(JSON.parse))
+        .then(() => E.call("sites.setZoom", { profile: "", host: "localhost", zoom: 0.9 }))
+        .then(() => orError(E.call("extensions.list", { profile: "" })))
+        .then((l) => { const e = ((l && l.extensions) || []).find((e) => e.name === "ArdiaCore spike extension"); return e ? orError(E.call("extensions.setEnabled", { profile: "", id: e.id, enabled: false })) : "no extension"; });`, 60_000);
     await sleep(4000);
   }
-  report.read = await inApp(READ, 90_000);
+  report.read = await inApp(engineApi ? READ : READ_BEFORE_ENGINE, 90_000);
   report.read["Personal uBlock Origin"] = await inUbo(READ_UBO);
   report.read["settings"] = await inApp(READ_SETTINGS);
   if (phase === "use" || phase === "back") {

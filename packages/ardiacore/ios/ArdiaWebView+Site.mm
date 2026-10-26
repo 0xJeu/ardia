@@ -37,10 +37,10 @@ using namespace ardia_web_view;
   [self emit:@"preferredSize" payload:@{@"width" : @(size.width), @"height" : @(size.height)}];
 }
 
-- (void)clearSiteData:(void (^)(NSDictionary<NSString *, id> *))completion {
+- (void)clearSiteData:(ArdiaServiceReply)reply {
   NSString *origin = OriginOf(_tab.url);
-  if (!origin) return completion(@{@"cookies" : @NO, @"storage" : @NO});
-  [ArdiaServices clearSiteData:_profile origin:origin completion:completion];
+  if (!origin) return reply(@{@"cookies" : @NO, @"storage" : @NO}, nil);
+  [ArdiaServices clearSiteData:_profile origin:origin reply:reply];
 }
 
 - (void)resolvePasswordPrompt:(NSString *)action username:(NSString *)username password:(NSString *)password {

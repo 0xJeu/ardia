@@ -351,24 +351,7 @@
   },
   "naming": {
     "packages/ardiacore/ios/ArdiaEarlyWindow.h": 1,
-    "packages/ardiacore/ios/ArdiaWebView+ContextMenu.mm": 2,
-    "packages/ardiacore/ios/CefModule+EngineCalls.swift": 1,
-    "packages/ardiacore/ios/CefModule.swift": 64,
-    "packages/ardiacore/ios/WebKitModule.swift": 1,
-    "packages/ardiacore/src/WebView.tsx": 1,
-    "packages/ardiacore/src/autofill.ts": 10,
-    "packages/ardiacore/src/contentBlocker.ts": 7,
-    "packages/ardiacore/src/engine.ts": 4,
-    "packages/ardiacore/src/externalApps.ts": 4,
-    "packages/ardiacore/src/favicons.ts": 2,
-    "packages/ardiacore/src/module.ts": 36,
-    "packages/ardiacore/src/native.ts": 4,
-    "packages/ardiacore/src/nativeModules.ts": 3,
-    "packages/ardiacore/src/passwords.ts": 12,
-    "packages/ardiacore/src/performance.ts": 2,
-    "packages/ardiacore/src/siteSettings.ts": 6,
-    "packages/ardiacore/src/tabStrip.ts": 4,
-    "packages/ardiacore/src/zoom.ts": 3
+    "packages/ardiacore/ios/ArdiaWebView+ContextMenu.mm": 2
   },
   "comments": {
     "packages/core/src/tlds.ts": 2,

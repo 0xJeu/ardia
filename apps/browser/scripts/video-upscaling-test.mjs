@@ -147,11 +147,11 @@ else {
   instance = await launch(app, {
     data, fresh: true, onboarded: true,
     session: session({ tabs: [{ id: "home", url: "about:blank", title: "Home" }] }),
-    ready: "return !!globalThis.expo?.modules?.ArdiaCEF && Object.keys(ac.store.getState().windows).length > 0",
+    ready: "return !!globalThis.expo?.modules?.ArdiaEngine && Object.keys(ac.store.getState().windows).length > 0",
   });
 }
 const evalApp = (body, timeout) => instance.eval(body, { timeout });
-const cef = (call) => evalApp(`return globalThis.expo.modules.ArdiaCEF.${call}`);
+const engine = (name, args = {}) => evalApp(`return ac.engine.call(${JSON.stringify(name)}, ${JSON.stringify(args)})`);
 const store = () => evalApp(`const s = ac.store.getState(); const w = Object.values(s.windows).find((w) => w.kind !== "small"); return { windowId: w.id, active: w.activeTabIds[w.profileId], tabs: w.tabIds.map((id) => ({ id, url: s.tabs[id]?.url })) }`);
 const until = async (what, test, ms = 15000) => {
   for (const end = Date.now() + ms; Date.now() < end; await sleep(150)) {
@@ -162,8 +162,8 @@ const until = async (what, test, ms = 15000) => {
 };
 const main = await store();
 const browserNumber = (tabId) => evalApp(`return Object.entries(ac.pageState.getState().browsers ?? {}).find(([, t]) => t === ${JSON.stringify(tabId)})?.[0] ?? null`);
-const windowNumber = async (tabId) => cef(`devWindowNumber(${await browserNumber(tabId)})`);
-const win = async (tabId, action) => cef(`devWindow(${await windowNumber(tabId)}, ${JSON.stringify(action)})`);
+const windowNumber = async (tabId) => engine("tabs.devWindowNumber", { browserId: Number(await browserNumber(tabId)) });
+const win = async (tabId, action) => engine("windows.dev", { window: await windowNumber(tabId), action });
 
 await win(main.tabs[0].id, "fakeOcclusion:visible");
 
@@ -180,7 +180,7 @@ async function openVideo(query, windowId = main.windowId) {
 }
 const closeTab = (id) => evalApp(`ac.store.getState().closeTab(${JSON.stringify(id)}); return true`);
 const gate = async (v) => {
-  const state = await cef("videoUpscalingState()");
+  const state = await engine("webView.videoUpscalingState");
   const tab = state?.tabs?.find((t) => t.url === v.url) ?? null;
   return { allowed: tab?.allowed ?? null, state };
 };
@@ -263,7 +263,7 @@ async function playing(name, query, expectFactor) {
   });
 }
 
-await cef("setVideoUpscaling(true)");
+await engine("webView.setVideoUpscaling", { enabled: true });
 await playing("on-480", "src=clip_854x480.mp4&w=1280&h=720", 2);
 await playing("on-360", "src=clip_640x360.mp4&w=1280&h=720", 2);
 await playing("on-720", "src=clip_1280x720.mp4&w=1600&h=900", 1.5);
@@ -321,8 +321,8 @@ await closedBy("setting-off", q480, () => evalApp("ac.store.getState().updateSet
 await closedBy("background-tab", q480, () => evalApp(`ac.actions.switchToTab("${main.tabs[0].id}"); return true`), async () => {});
 await closedBy("app-inactive", q480, (v) => win(v.id, "fakeAppActive:0"), (v) => win(v.id, "fakeAppActive:1"));
 await closedBy("occluded", q480, (v) => win(v.id, "fakeOcclusion:occluded"), (v) => win(v.id, "fakeOcclusion:visible"));
-await closedBy("low-power", q480, () => cef("setVideoUpscalingTestConditions({ lowPower: true })"), () => cef("setVideoUpscalingTestConditions({})"));
-await closedBy("thermal", q480, () => cef("setVideoUpscalingTestConditions({ thermalPressure: true })"), () => cef("setVideoUpscalingTestConditions({})"));
+await closedBy("low-power", q480, () => engine("webView.setVideoUpscalingTestConditions", { lowPower: true }), () => engine("webView.setVideoUpscalingTestConditions"));
+await closedBy("thermal", q480, () => engine("webView.setVideoUpscalingTestConditions", { thermalPressure: true }), () => engine("webView.setVideoUpscalingTestConditions"));
 
 await check("pip", async () => {
   const v = await warm(q480);

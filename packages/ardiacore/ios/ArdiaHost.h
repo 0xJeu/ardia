@@ -8,9 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(class, readonly) NSString *dataDirectory;
 @property(class, readonly) NSDictionary<NSString *, id> *engineInfo;
 @property(class, readonly) NSArray<NSDictionary<NSString *, id> *> *chromeWindows;
-@property(class, nonatomic, copy, nullable) void (^eventHandler)(NSString *name, NSDictionary<NSString *, id> *payload);
 @property(class, readonly) NSArray<NSDictionary<NSString *, id> *> *displayMediaSources;
-@property(class, nonatomic, copy, nullable) void (^chromeUIHandler)(NSString *name, NSDictionary<NSString *, id> *payload);
 + (void)resolveExternalApp:(NSString *)requestId open:(BOOL)open remember:(BOOL)remember NS_SWIFT_NAME(resolveExternalApp(_:open:remember:));
 + (void)deviceChooser:(int)chooserId select:(int)index NS_SWIFT_NAME(deviceChooser(_:select:));
 + (void)deviceChooser:(int)chooserId action:(NSString *)action NS_SWIFT_NAME(deviceChooser(_:action:));
@@ -28,7 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable NSString *)sidePanelURL:(int)browserId extension:(NSString *)extensionId NS_SWIFT_NAME(sidePanelURL(browserId:extension:));
 + (void)resolveExtensionInstallPrompt:(NSString *)requestId accepted:(BOOL)accepted
     NS_SWIFT_NAME(resolveExtensionInstallPrompt(_:accepted:));
-@property(class, nonatomic, copy, nullable) void (^extensionsEventHandler)(NSString *name, NSDictionary<NSString *, id> *payload);
++ (void)replayInstallPrompts;
 + (void)beginTracing:(void (^)(BOOL started))completion;
 + (void)endTracing:(BOOL)keep completion:(void (^)(NSString *_Nullable path))completion NS_SWIFT_NAME(endTracing(keep:completion:));
 @property(class, readonly) BOOL isTracing;

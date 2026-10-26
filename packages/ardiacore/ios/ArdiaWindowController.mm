@@ -23,11 +23,12 @@ void AnnounceStrayTab(ArdiaCoreTab *tab, int tries) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ AnnounceStrayTab(tab, tries + 1); });
     return;
   }
-  if (!ArdiaServices.extensionsHandler) return;
-  ArdiaServices.extensionsHandler(@"tabs", @{
-    @"action" : @"open", @"url" : url ?: @"", @"profile" : ardia_host::ProfileName(tab.profile), @"active" : @YES,
-    @"window" : NSNull.null, @"extensionId" : @"", @"adoptId" : [ArdiaTabRegistry offerTab:tab prefix:@"tab"]
-  });
+  if (![ArdiaEvents listens:@"extensions"]) return;
+  [ArdiaEvents emit:@"extensions.tabs"
+               data:@{
+                 @"action" : @"open", @"url" : url ?: @"", @"profile" : ardia_host::ProfileName(tab.profile), @"active" : @YES,
+                 @"window" : NSNull.null, @"extensionId" : @"", @"adoptId" : [ArdiaTabRegistry offerTab:tab prefix:@"tab"]
+               }];
 }
 
 void HandOffTab(ArdiaCoreTab *tab) {
@@ -121,14 +122,14 @@ NSMutableDictionary<NSString *, ArdiaWindowController *> *ChromeMadeWindows() {
   NSString *moving = [ArdiaTabRegistry viewForTab:tab].transferKey;
   NSString *url = tab.url;
   const BOOL blank = !moving.length && (!url.length || [url isEqualToString:@"about:blank"]);
-  if ((blank && tries < 20) || (!ArdiaServices.extensionsHandler && tries < 400)) {
+  if ((blank && tries < 20) || (![ArdiaEvents listens:@"extensions"] && tries < 400)) {
     __weak ArdiaWindowController *weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
       [weakSelf announceChromeMadeTab:tab tries:tries + 1];
     });
     return;
   }
-  if (!ArdiaServices.extensionsHandler) return;
+  if (![ArdiaEvents listens:@"extensions"]) return;
   NSMutableDictionary *request = [@{
     @"action" : @"open", @"url" : url ?: @"", @"profile" : ardia_host::ProfileName(tab.profile),
     @"active" : @(!_chromeActive || _chromeActive == tab), @"window" : NSNull.null, @"extensionId" : @"",
@@ -138,7 +139,7 @@ NSMutableDictionary<NSString *, ArdiaWindowController *> *ChromeMadeWindows() {
   else if ([ArdiaTabRegistry viewForTab:tab]) return;
   else request[@"adoptId"] = [ArdiaTabRegistry offerTab:tab prefix:@"tab"];
   _announced = YES;
-  ArdiaServices.extensionsHandler(@"tabs", request);
+  [ArdiaEvents emit:@"extensions.tabs" data:request];
 }
 
 - (void)window:(ArdiaCoreWindow *)window showRequestedActive:(BOOL)active {
@@ -281,8 +282,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaWindowController *> *StandaloneWindows() {
       if (c->_awaitingApp) {
         c->_awaitingApp = NO;
         [ChromeMadeWindows() removeObjectForKey:c->_chromeToken];
-        if (c->_announced && ArdiaServices.extensionsHandler)
-          ArdiaServices.extensionsHandler(@"tabs", @{@"action" : @"closeWindow", @"chromeWindow" : c->_chromeToken});
+        if (c->_announced) [ArdiaEvents emit:@"extensions.tabs" data:@{@"action" : @"closeWindow", @"chromeWindow" : c->_chromeToken}];
       } else if (!c.stray && !c.standalone) {
         return;
       }

@@ -1,5 +1,5 @@
-import { Cef } from "./native";
-import { WebKit, isWebKitExternalApp } from "./webkit";
+import { call } from "./engine/call";
+import { isWebKitExternalApp } from "./webkit";
 
 export type ExternalAppRequest = {
   id: string;
@@ -17,11 +17,17 @@ export type ExternalAppRequest = {
 export type ExternalAppAllowance = { origin: string; scheme: string; app: string | null; icon: string | null };
 
 export const resolveExternalApp = (id: string, open: boolean, remember = false) =>
-  isWebKitExternalApp(id) ? WebKit.resolveExternalApp(id, open, remember) : Cef.resolveExternalApp(id, open, remember);
+  isWebKitExternalApp(id) ? call("webKit.resolveExternalApp", { id, open, remember }) : call("permissions.resolveExternalApp", { id, open, remember });
 export const getExternalAppAllowances = async (profile: string): Promise<ExternalAppAllowance[]> => {
-  const [chromium, webkit] = await Promise.all([Cef.getExternalAppAllowances(profile), WebKit.externalAppAllowances(profile).catch(() => [])]);
+  const [chromium, webkit] = await Promise.all([
+    call("permissions.externalAppAllowances", { profile }).catch((): ExternalAppAllowance[] => []),
+    call("webKit.externalAppAllowances", { profile }).catch((): ExternalAppAllowance[] => []),
+  ]);
   const seen = new Set(chromium.map((a) => `${a.origin}|${a.scheme}`));
   return [...chromium, ...webkit.filter((a) => !seen.has(`${a.origin}|${a.scheme}`))];
 };
 export const removeExternalAppAllowance = (profile: string, origin: string, scheme: string) =>
-  Promise.all([Cef.removeExternalAppAllowance(profile, origin, scheme), WebKit.removeExternalAppAllowance(profile, origin, scheme)]).then(() => {});
+  Promise.all([
+    call("permissions.removeExternalAppAllowance", { profile, origin, scheme }),
+    call("webKit.removeExternalAppAllowance", { profile, origin, scheme }),
+  ]).then(() => {});

@@ -1,4 +1,5 @@
 import { savePassword } from "@ardia/ardiacore";
+import { orWarn } from "../../lib/fallback";
 import type { BookmarkNode as ImportedNode, Credential, DiaTabsProfile, ImportedFavicon, ImportedTab, ImportKind, ImportResult, SafariExport, SpaceSuggestion } from "@ardia/import";
 import { addGroupsFromDrafts } from "../bookmarks/bookmarkGroups";
 import { adoptFavicons, pageKey as faviconPage } from "../favicons/favicons";
@@ -92,7 +93,7 @@ async function importPasswords(profileId: string, credentials: Credential[]): Pr
   for (const c of credentials) {
     const origin = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)/i.exec(c.realm?.startsWith("http") ? c.realm : c.url)?.[1];
     if (!origin || !c.password) continue;
-    if (await savePassword(engineProfile(profileId), origin, c.username, c.password).catch(() => false)) saved++;
+    if (await savePassword(engineProfile(profileId), origin, c.username, c.password).catch(orWarn(false))) saved++;
   }
   return saved;
 }

@@ -195,7 +195,7 @@ async function benchCommand(data, body, timeout = 20000) {
   throw new Error("the bench channel never answered: battery arms need a copy from native-bench.mjs --only prepare");
 }
 const batterySaver = (data, mode) =>
-  benchCommand(data, `return globalThis.expo.modules.ArdiaCEF.engineCall("ac_battery_saver", "", ${JSON.stringify(JSON.stringify(mode ? { mode } : {}))}).then(JSON.parse);`);
+  benchCommand(data, `return globalThis.expo.modules.ArdiaEngine.call("batterySaver", "", ${JSON.stringify(JSON.stringify(mode ? { mode } : {}))}).then(JSON.parse).catch((e) => ({ error: e.message }));`);
 
 async function keys(d) {
   const press = (key, code, autoRepeat, type) => d.send("Input.dispatchKeyEvent", { type, key, code: key, windowsVirtualKeyCode: code, autoRepeat });

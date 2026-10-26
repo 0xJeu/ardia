@@ -76,7 +76,9 @@ export function startNativeSync() {
   startWindowCloseGuard();
   startExtensionsBridge();
   onOpenURLs((urls, pointer) => openExternalUrls(urls, pointer));
-  void lastTabClosesWindow().then((closes) => setLastTabKeepsWindow(!closes));
+  void lastTabClosesWindow()
+    .catch(() => true)
+    .then((closes) => setLastTabKeepsWindow(!closes));
   onDownload((d) => store.getState().upsertDownload(d));
 
   store.getState().setAppDark(Appearance.getColorScheme() === "dark");

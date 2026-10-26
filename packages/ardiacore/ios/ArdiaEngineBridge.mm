@@ -9,9 +9,19 @@
 
 namespace {
 
-void (^gEventHandler)(NSString *, NSString *);
-NSSet<NSString *> *gForwardedTopics;
+bool gForwarding = false;
 NSMutableArray<NSArray *> *gPendingForwards;
+
+NSDictionary<NSString *, NSString *> *AppEventOfTopic() {
+  static NSDictionary *events = @{
+    @"history.changed" : @"history.changed",
+    @"bookmarks.changed" : @"bookmarks.changed",
+    @"extensions.action" : @"extensions.action",
+    @"extensions.sync" : @"extensions.sync",
+    @"cliControl" : @"engine.cliControl",
+  };
+  return events;
+}
 
 void *Symbol(const char *name) {
   return dlsym(RTLD_DEFAULT, name);
@@ -46,14 +56,14 @@ NSMutableDictionary<NSString *, NSMutableArray *> *Observers() {
 }
 
 bool Forwarded(NSString *topic) {
-  return gEventHandler && (!gForwardedTopics || [gForwardedTopics containsObject:topic]);
+  return gForwarding && AppEventOfTopic()[topic] != nil;
 }
 
 void FlushForwards() {
   NSArray<NSArray *> *events = gPendingForwards;
   gPendingForwards = nil;
   for (NSArray *event in events)
-    if (gEventHandler) gEventHandler(event[0], JSON(event[1]));
+    [ArdiaEvents emit:AppEventOfTopic()[event[0]] data:event[1]];
 }
 
 void Forward(NSString *topic, NSDictionary *payload) {
@@ -149,13 +159,9 @@ void InstallSink() {
   });
 }
 
-+ (void)setEventHandler:(void (^)(NSString *, NSString *))handler {
-  gEventHandler = [handler copy];
++ (void)forwardEngineEvents {
+  gForwarding = true;
   InstallSink();
-}
-
-+ (void)forwardTopics:(NSArray<NSString *> *)topics {
-  gForwardedTopics = [NSSet setWithArray:topics];
 }
 
 + (void)observe:(NSString *)topic handler:(void (^)(NSDictionary<NSString *, id> *))handler {

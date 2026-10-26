@@ -11,7 +11,10 @@ import {
   listCards,
   listComponents,
   WIDEVINE_COMPONENT_ID,
+  type SavedAddress,
+  type SavedCard,
 } from "@ardia/ardiacore";
+import { orWarn } from "../../lib/fallback";
 import { appIcons, currentAppIcon, isDefaultBrowser, launchAtLoginStatus, menuShortcuts, updaterState, type UpdaterState } from "@ardia/shell";
 import { setMenuBarShortcuts } from "../../state/commands/commandShortcuts";
 import { currentSettings } from "../../state/browser/current";
@@ -35,8 +38,8 @@ export const siteOrigins = resource("siteOrigins", (profile: string) => getSiteS
 export const appLinks = resource("appLinks", (profile: string) => getExternalAppAllowances(profile).catch(() => []));
 export const zoomLevels = resource("zoomLevels", (profile: string) => getZoomLevels(profile).catch((): Record<string, number> => ({})));
 export const passwordAutofill = resource("passwordAutofill", (profile: string) => getPasswordAutofill(profile).catch(() => true));
-export const addresses = resource("addresses", (profile: string) => listAddresses(profile).catch(() => []));
-export const cards = resource("cards", (profile: string) => listCards(profile).catch(() => []));
+export const addresses = resource("addresses", (profile: string) => listAddresses(profile).catch(orWarn<SavedAddress[]>([])));
+export const cards = resource("cards", (profile: string) => listCards(profile).catch(orWarn<SavedCard[]>([])));
 export const autofillEnabled = resource("autofillEnabled", (profile: string) =>
   load(addresses, [profile]).then(() => getAutofillSettings(profile).catch(() => ({ addresses: true, cards: true }))),
 );

@@ -29,10 +29,11 @@ variables) is in `docs/conventions.md`, enforced by `apps/browser/src/convention
       own Chromium code, `//chrome/browser/ardia` (`engine/chromium`), exported as plain C
       (`ArdiaEngineBridge`, `ArdiaServices`); ArdiaCore's own layer is `//ardia/core` (`engine/ardiacore`).
       No chrome:// page is scripted.
-    - JS API in `packages/ardiacore/src` (`WebView`, downloads, permissions, profiles, extensions, Chrome UI); its
-      native modules keep their CEF-era names: `ArdiaCEF` is `packages/ardiacore/ios/CefModule.swift`, and
-      `ArdiaExtensions`, `ArdiaSwipe` and `ArdiaChromeUI` are `ExtensionsModule.swift`,
-      `SwipeModule.swift` and `ChromeUIModule.swift` there.
+    - JS API in `packages/ardiacore/src`: `engine.call("domain.verb", args)` and `on("domain.event", …)`, typed from
+      `src/engine/api.ts`, plus the views (`WebView`, `SwipeArea`). Each domain is one Expo module, `Ardia<Domain>` in
+      `packages/ardiacore/ios/<Domain>Module.swift` (Engine, WebView, Tabs, Windows, Downloads, Permissions, Profiles,
+      Sites, Passwords, Autofill, Extensions, Search, Media, ContentBlocker, History, Bookmarks, Favicons, Swipe,
+      WebKit); test scripts reach it through the dev harness's `ac.engine.call` / `ac.engine.on`.
   - `packages/shell`: menus, shortcuts, windows, native primitives (Surface, Symbol, FadeLabel,
     VisualEffect, WindowDragRegion, ContextMenuArea, ActivitySpinner…).
   - `packages/shaders`: Metal views (window backdrop, New Tab effects). Don't touch unless assigned.
@@ -88,7 +89,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
 | Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaWindowFullScreen.mm` (acted out in test instances), `ArdiaFullScreenLights.mm`, `ArdiaPageCover.mm` | `components/window/ContentCard.tsx`, `state/tabs/pageState.ts` |
 | Picture in Picture | `ac_picture_in_picture.mm`; Dia's window and controls in `engine/chromium/…/ardia/pip/`; the auto-PiP hook in `engine/ardiacore/apply.sh` | `ArdiaPictureInPicture.mm` (monitors, `ardia_pip`), `ArdiaPiPController.mm` (+`Swipe`, +`SelfTest`), `ArdiaPiPZoom.mm`, `ArdiaWebView+PictureInPicture.mm` | `components/media/pip.ts` |
 | Password and autofill bubbles | `ac_password_prompt.mm`, `ac_browser_window.h` (`ACAutofillBubbleHandler`), `ac_autofill_trigger.mm` (dropdown) | `ArdiaWindowController.mm` (`window:passwordPrompt:forTab:`) → `ArdiaWebView` event | `components/site/Prompts.tsx`, `site/Autofill.tsx` |
-| Share tab, screen share | `ardiacore_api.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaHost.mm` `shareTabInstead`, `ChromeUIModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
+| Share tab, screen share | `ardiacore_api.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaHost.mm` `shareTabInstead`, `MediaModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
 | Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs) | `ArdiaWebView+Tab.mm` (`discard:`), `ArdiaWebView+Transfer.mm` (`transferKey`), `ArdiaTabParking.mm` | `state/tabs/tabLifecycle.ts`, `state/windows/windows.ts` |
 | Permissions | `ac_permissions.mm` | `ArdiaHostEngineDelegate.mm` (`permissionRequest`), `ArdiaPopupWindow.mm` | `state/site/permissions.ts`, `Prompts.tsx` |
 | Page script | `ac_page_channel.mm`, `renderer/ac_content_renderer_client.cc` | `page_script.js`, `ArdiaWebView+PageMessages.mm`, `ArdiaWebView+Peek.mm` | `onPageMessage` (`packages/ardiacore/src/WebView.tsx`) |
@@ -105,18 +106,21 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   ↔ view, offered tabs and browser ids. Windows: `ArdiaWindowController`, `ArdiaChromeWindowHost` (+`Dev`, the dev harness),
   `ArdiaTrafficLights`, `ArdiaWindowFullScreen`, `ArdiaPopupWindow`, `ArdiaReservedKeys`. Launch: `ArdiaHost+Launch`,
   `ArdiaHostEngineDelegate`, `ArdiaProfiles`, `ArdiaEarlyWindow` (+`Pages`, `Layouts`, `Covers`, `ArdiaLaunchPicture`).
-- **Call path:** JS (`packages/ardiacore/src`) → `*Module.swift` → `ArdiaHost` / `ArdiaWebView` → `public/ArdiaCore.h` →
-  `ardiacore_api.mm` → `ac_*.mm`. Events come back through an `ArdiaCore*Delegate` method, `-emit:payload:`, and the event
-  switch in `CefModule.swift`.
+- **Call path:** JS `call("domain.verb", args)` (`packages/ardiacore/src/engine/call.ts`) → that domain module's `call`
+  table (`<Domain>Module.swift`, `EngineCall.swift`) → `ArdiaHost` / `ArdiaServices` / `ArdiaWebView` or straight to an
+  `ac_*` export → `public/ArdiaCore.h` → `ardiacore_api.mm` → `ac_*.mm`. Replies cross as JSON, parsed once in JS.
+  App events go through `ArdiaEvents` (`emit:@"domain.event"`) to that domain module's one channel (its event name is the domain); a page's
+  events come back through an `ArdiaCore*Delegate` method, `-emit:payload:` and the view's event list in
+  `ChromiumTabView.swift`.
 - **Adding to `ArdiaCore.h`:** implement it in `ardiacore_api.mm` (a new file goes in `BUILD.gn` `sources`); a new class
   must be named `ArdiaCore*` to be exported (the `ardiacore.exports` wildcard). The pod reads `ArdiaCore.h` from the repo and
-  the staged framework may be older, so the app guards new selectors with `respondsToSelector:`.
+  the app and the engine ship together, so the app calls new selectors directly (no `respondsToSelector:`).
 - **Adding an engine call** (Chrome's services are `ac_*` C calls in `engine/chromium`, which the app finds with
   dlsym through `ArdiaEngineBridge`): (1) write `AC_ENGINE_CALL(ac_<domain>_<verb>)` in
   `engine/chromium/src/chrome/browser/ardia/ac_<domain>.cc` (conventions in `public/ac_engine.h`; a new file goes
   in that `BUILD.gn`; `ac_engine.exports` exports every `ac_*`); (2) `scripts/agent/engine-build`; (3) call it with
-  `ArdiaEngineBridge call:` (`callWithSecret:` for secrets), guarded by `exports:`; for JS's `engineCall`, add it to
-  `CefModule+EngineCalls.swift`.
+  `ArdiaEngineBridge call:` (`callWithSecret:` for secrets); for JS, add `"verb": EngineCall.passing("ac_<domain>_<verb>")`
+  to the domain module's call table and its `"domain.verb": [args, result]` row to `packages/ardiacore/src/engine/api.ts`.
 - **The page script** is `packages/ardiacore/ios/page_script.js`, a pod resource: `ArdiaHostEngineDelegate.mm` hands it to the
   engine at launch and the renderer runs it in every http(s) and file frame. Changing it needs an app rebuild, not an
   engine one. Its `post(kind, json)` crosses the page channel to `-[ArdiaWebView tab:didReceivePageMessage:…]` (`ArdiaWebView+PageMessages.mm`),

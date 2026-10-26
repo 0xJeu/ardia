@@ -9,8 +9,10 @@ import {
   setPasswordAutofill,
   unlockPasswords,
   updatePassword,
+  type PasswordExportStatus,
   type SavedPassword,
 } from "@ardia/ardiacore";
+import { orWarn } from "../../../lib/fallback";
 import { confirm, copyText, Symbol, systemInfo } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
@@ -53,15 +55,15 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
   const [autofill = true] = useResource(passwordAutofill, profile);
 
   const load = () => {
-    void listPasswords(profile).then(setList).catch(() => setList([]));
-    void getNeverSavePasswordOrigins(profile).then(setNever).catch(() => {});
+    void listPasswords(profile).catch(orWarn<SavedPassword[]>([])).then(setList);
+    void getNeverSavePasswordOrigins(profile).catch(orWarn<string[]>([])).then(setNever);
   };
   useEffect(() => {
     if (unlocked) load();
   }, [unlocked, profileId]);
 
   const unlock = async () => {
-    if (!(await unlockPasswords(profile))) return;
+    if (!(await unlockPasswords(profile).catch(orWarn(false)))) return;
     unlockedUntil.set(profile, Date.now() + UNLOCK_MS);
     setUnlockedAt(Date.now());
   };
@@ -74,7 +76,7 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
     try {
       const creds = await mod.importPasswordsCSV(path);
       let saved = 0;
-      for (const c of creds) if (c.url && c.password && (await savePassword(profile, originOf(c.url), c.username, c.password))) saved++;
+      for (const c of creds) if (c.url && c.password && (await savePassword(profile, originOf(c.url), c.username, c.password).catch(orWarn(false)))) saved++;
       setImportStatus(`Imported ${plural(saved, "password")}.`);
       load();
     } catch (e) {
@@ -83,7 +85,7 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
   };
 
   const exportCsv = async () => {
-    const { status, path } = await exportPasswords(profile);
+    const { status, path } = await exportPasswords(profile).catch(orWarn<{ status: PasswordExportStatus; path?: string }>({ status: "writeFailed" }));
     const folder = path ? path.split("/").slice(-2, -1)[0] : "";
     if (status === "succeeded") setExportStatus(`Saved to “${folder}”. Delete the file once you're done with it.`);
     else if (status === "writeFailed") setExportStatus("Couldn't write the file. Try another folder.");
@@ -148,7 +150,7 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
               <Group>
                 {never.map((origin) => (
                   <Row key={origin} icon={<Favicon url={origin} />} title={hostLabel(origin)}>
-                    <Button title="Remove" onPress={() => void setNeverSavePasswords(profile, origin, false).then(load)} />
+                    <Button title="Remove" onPress={() => void setNeverSavePasswords(profile, origin, false).catch(orWarn(undefined)).then(load)} />
                   </Row>
                 ))}
               </Group>
@@ -171,13 +173,13 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
   const [password, setPassword] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [editing, setEditing] = useState(false);
-  useEffect(() => void getPassword(profile, saved.origin, saved.username).then(setPassword), []);
+  useEffect(() => void getPassword(profile, saved.origin, saved.username).catch(orWarn(null)).then(setPassword), []);
 
   const save = async () => {
     await updatePassword(profile, saved.origin, saved.username, {
       username: username !== saved.username ? username : undefined,
       password: password ?? undefined,
-    });
+    }).catch(orWarn(false));
     onChanged();
     closeSettingsSheet();
   };
@@ -189,7 +191,7 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
       destructive: true,
     });
     if (!confirmed) return;
-    await deletePassword(profile, saved.origin, saved.username);
+    await deletePassword(profile, saved.origin, saved.username).catch(orWarn(false));
     onChanged();
     closeSettingsSheet();
   };

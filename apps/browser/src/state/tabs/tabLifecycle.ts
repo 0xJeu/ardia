@@ -1,4 +1,4 @@
-import { listTasks, onSystemState, releaseProfile, setBatterySaver, systemState, type SystemState, type WebViewHandle } from "@ardia/ardiacore";
+import { listTasks, onSystemState, releaseProfile, setBatterySaver, systemState, type EngineTask, type SystemState, type WebViewHandle } from "@ardia/ardiacore";
 import { onAppEvent, onWindowEvent } from "@ardia/shell";
 import { create } from "zustand";
 import { pageOf, usePages } from "./pageState";
@@ -293,9 +293,9 @@ async function freezeBusyTabs(overrides: Partial<typeof POLICY> = {}): Promise<s
   const frozen: string[] = [];
   try {
     const policy = { ...POLICY, ...overrides };
-    await listTasks();
+    await listTasks().catch((): EngineTask[] => []);
     await new Promise((resolve) => setTimeout(resolve, 2500));
-    const tasks = await listTasks();
+    const tasks = await listTasks().catch((): EngineTask[] => []);
     const s = store();
     const shown = shownTabIds(s);
     const browsers = usePages.getState().browsers;
@@ -438,8 +438,9 @@ export function startTabLifecycle() {
       keepAliveReason: (id: string) => keepAliveReason(store(), id),
       memory: () =>
         listTasks()
+          .catch((): EngineTask[] => [])
           .then(() => new Promise((resolve) => setTimeout(resolve, 2500)))
-          .then(listTasks)
+          .then(() => listTasks().catch((): EngineTask[] => []))
           .then((tasks) => {
             const byType: Record<string, number> = {};
             const seen = new Set<string>();

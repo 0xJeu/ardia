@@ -1,4 +1,5 @@
 import { addHistoryVisits, deleteHistoryUrls, deletePassword, savePassword } from "@ardia/ardiacore";
+import { orWarn } from "../../lib/fallback";
 import { assignPositions, canonical, SyncNative, type Adapter, type SavedLogin, type SyncRecord } from "@ardia/sync";
 import { bookmarkUuidFor, ensureRoots, isBookmarkUuid } from "../bookmarks/bookmarks";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "../history/history";
@@ -521,10 +522,10 @@ export function passwordsAdapter(
         const [origin, username] = [key.slice(3, key.indexOf("\n")), key.slice(key.indexOf("\n") + 1)];
         if (v) {
           if (have?.p === v.p) continue;
-          if (have) ok = (await deletePassword(profile(), origin, username)) && ok;
-          ok = (await savePassword(profile(), v.o, v.u, v.p)) && ok;
+          if (have) ok = (await deletePassword(profile(), origin, username).catch(orWarn(false))) && ok;
+          ok = (await savePassword(profile(), v.o, v.u, v.p).catch(orWarn(false))) && ok;
         } else if (have) {
-          ok = (await deletePassword(profile(), origin, username)) && ok;
+          ok = (await deletePassword(profile(), origin, username).catch(orWarn(false))) && ok;
         }
       }
       let settled = false;

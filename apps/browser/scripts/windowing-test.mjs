@@ -46,10 +46,9 @@ const fixture = () => session({
 
 let app = null;
 const HELPERS = `
-const C = globalThis.expo.modules.ArdiaCEF;
 const st = () => ac.store.getState();
-const win = (id) => C.chromeWindows().then((ws) => { const f = st().windows[id].frame; const w = ws.filter((w) => w.hasRoot).find((w) => { const r = w.frame.match(/[-\\d.]+/g).map(Number); return Math.abs(r[0] - f[0]) < 2 && Math.abs(r[2] - f[2]) < 2; }); return w && w.window; });
-const act = (id, a) => win(id).then((n) => C.devWindow(n, a));
+const win = (id) => ac.engine.call("windows.list").then((ws) => { const f = st().windows[id].frame; const w = ws.filter((w) => w.hasRoot).find((w) => { const r = w.frame.match(/[-\\d.]+/g).map(Number); return Math.abs(r[0] - f[0]) < 2 && Math.abs(r[2] - f[2]) < 2; }); return w && w.window; });
+const act = (id, a) => win(id).then((n) => ac.engine.call("windows.dev", { window: n, action: a }));
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
 `;
 const run = (body) => app.eval(`${HELPERS}\n${body}`);
@@ -173,12 +172,12 @@ async function newWindowInProcess(ids) {
   const shots = [join(data, "new-window-shown.png"), join(data, "new-window-settled.png")];
   const shown = await run(`
     let before, t0, id, at = null;
-    const poll = () => C.chromeWindows().then((ws) => {
+    const poll = () => ac.engine.call("windows.list").then((ws) => {
       const w = ws.find((w) => !before.has(w.window));
       if (w && w.alpha === 1) { at = Date.now() - t0; return ac.shell.devSnapshotWindow(id, ${JSON.stringify(shots[0])}); }
       return Date.now() - t0 > 3000 ? false : poll();
     });
-    return C.chromeWindows().then((ws) => { before = new Set(ws.map((w) => w.window)); t0 = Date.now(); return ac.actions.openWindow(); })
+    return ac.engine.call("windows.list").then((ws) => { before = new Set(ws.map((w) => w.window)); t0 = Date.now(); return ac.actions.openWindow(); })
       .then((created) => { id = created; return poll(); })
       .then((saved) => saved && settle(1500).then(() => ac.shell.devSnapshotWindow(id, ${JSON.stringify(shots[1])})))
       .then((saved) => ({ id, at, saved, frame: st().windows[id] && st().windows[id].frame }));`);
@@ -290,7 +289,7 @@ try {
 
   let drop = null;
   await check("a window's last tab dropped onto another window: the tab keeps its live page", async () => {
-    const strips = () => run(`return C.tabStrips().then((tx) => tx.strips.flatMap((s) => s.tabs).filter((t) => t.key === "m1").map((t) => t.browser));`);
+    const strips = () => run(`return ac.engine.call("tabs.strips").then((tx) => tx.strips.flatMap((s) => s.tabs).filter((t) => t.key === "m1").map((t) => t.browser));`);
     const [browser] = await strips();
     assert.ok(browser, "m1 is live");
     const w2 = await run(`return st().windows.w2.frame;`);

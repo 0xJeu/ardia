@@ -1,4 +1,4 @@
-import { Cef } from "./native";
+import { call } from "./engine/call";
 
 export type SiteSettingType =
   | "popups" | "camera" | "microphone" | "location" | "notifications" | "sound" | "autoplay" | "javascript"
@@ -12,8 +12,8 @@ export type SiteSettings = Record<SiteSettingType, { value: SiteSettingValue; is
 export type ClearSiteDataResult = { cookies: number | false; storage: boolean };
 
 export const setSiteSetting = (profile: string, origin: string, type: SiteSettingType, value: SiteSettingValue) =>
-  Cef.setSiteSetting(profile, origin, type, value);
-export const getSiteSettings = (profile: string, origin: string) => Cef.getSiteSettings(profile, origin);
-export const getSiteSettingsOrigins = (profile: string) => Cef.getSiteSettingsOrigins(profile);
-export const resetSiteSettings = (profile: string, origin: string) => Cef.resetSiteSettings(profile, origin);
-export const clearSiteData = (profile: string, origin: string) => Cef.clearSiteData(profile, origin);
+  call("sites.setSetting", { profile, origin, type, value });
+export const getSiteSettings = (profile: string, origin: string) => call("sites.settings", { profile, origin });
+export const getSiteSettingsOrigins = (profile: string) => call("sites.origins", { profile });
+export const resetSiteSettings = (profile: string, origin: string) => call("sites.reset", { profile, origin });
+export const clearSiteData = (profile: string, origin: string) => call("sites.clearData", { profile, origin });

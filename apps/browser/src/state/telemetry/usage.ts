@@ -1,4 +1,4 @@
-import { listTasks, onExtensionsChanged } from "@ardia/ardiacore";
+import { listTasks, onExtensionsChanged, type EngineTask } from "@ardia/ardiacore";
 import { onAppEvent } from "@ardia/shell";
 import { useTranslate } from "../site/translate";
 import { useBrowser } from "../browser/store";
@@ -85,9 +85,9 @@ const mb = (bytes: number) => Math.round(bytes / 1_048_576);
 async function sampleMemory() {
   if (!isSharing()) return;
   try {
-    await listTasks();
+    await listTasks().catch((): EngineTask[] => []);
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    const tasks = await listTasks();
+    const tasks = await listTasks().catch((): EngineTask[] => []);
     let total = 0;
     let browser = 0;
     let gpu = 0;

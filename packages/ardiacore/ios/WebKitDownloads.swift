@@ -100,7 +100,7 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
   private func item(for download: WKDownload) -> Item? { byDownload[ObjectIdentifier(download)].flatMap { items[$0] } }
 
   private func report(_ item: Item) {
-    WebKitHub.shared.events?("onDownload", [
+    ArdiaEvents.emit("downloads.changed", data: [
       "id": item.id, "url": item.url, "filename": item.filename, "path": item.path, "state": item.state,
       "paused": item.phase == .pausing || item.phase == .paused || item.phase == .resuming,
       "received": Double(item.received), "total": Double(item.total), "speed": item.speed, "mimeType": item.mimeType,

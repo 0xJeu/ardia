@@ -98,7 +98,7 @@ void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hello, NSSt
     [to callFrame:frameId kind:@"config" json:JSONString(config)];
   };
   if (origin && [origin hasPrefix:@"http"])
-    [ArdiaServices siteSettings:profile ?: @"" origin:origin completion:^(NSDictionary *settings) {
+    [ArdiaServices siteSettings:profile ?: @"" origin:origin reply:^(NSDictionary *settings, NSString *) {
       NSDictionary *autoplay = [settings[@"autoplay"] isKindOfClass:NSDictionary.class] ? settings[@"autoplay"] : nil;
       answer([autoplay[@"value"] isEqual:@"block"]);
     }];

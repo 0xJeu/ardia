@@ -85,34 +85,14 @@ bool gLinksHandled = false;
 
 bool gJSStarted = false;
 
-void (^gEventHandler)(NSString *, NSDictionary *);
-
-void (^gChromeUIHandler)(NSString *, NSDictionary *);
-
-void (^gExtensionsEventHandler)(NSString *, NSDictionary *);
-
 NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDictionary dictionary];
 
 }
 
 @implementation ArdiaHost
 
-+ (void (^)(NSString *, NSDictionary *))eventHandler {
-  return gEventHandler;
-}
-
-+ (void)setEventHandler:(void (^)(NSString *, NSDictionary *))handler {
-  gEventHandler = [handler copy];
-}
-
-+ (void (^)(NSString *, NSDictionary *))extensionsEventHandler {
-  return gExtensionsEventHandler;
-}
-
-+ (void)setExtensionsEventHandler:(void (^)(NSString *, NSDictionary *))handler {
-  gExtensionsEventHandler = [handler copy];
-  if (handler)
-    for (NSDictionary *prompt in gInstallPrompts.allValues) handler(@"installPrompt", prompt);
++ (void)replayInstallPrompts {
+  for (NSDictionary *prompt in gInstallPrompts.allValues) [ArdiaEvents emit:@"extensions.installPrompt" data:prompt];
 }
 
 + (void)resolveExtensionInstallPrompt:(NSString *)requestId accepted:(BOOL)accepted {
@@ -180,14 +160,6 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 + (BOOL)showAutofillSuggestions:(int)browserId passwords:(BOOL)passwords {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
   return [tab showAutofillSuggestions:passwords];
-}
-
-+ (void (^)(NSString *, NSDictionary *))chromeUIHandler {
-  return gChromeUIHandler;
-}
-
-+ (void)setChromeUIHandler:(void (^)(NSString *, NSDictionary *))handler {
-  gChromeUIHandler = [handler copy];
 }
 
 + (void)deviceChooser:(int)chooserId select:(int)index {

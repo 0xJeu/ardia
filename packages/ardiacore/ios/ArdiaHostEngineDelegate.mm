@@ -103,13 +103,13 @@ using namespace ardia_host;
   if (tab && ardia_host::AskPermissionInPopupWindow(tab, request)) return;
   NSMutableDictionary *payload = [request mutableCopy];
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
-  if (gEventHandler) gEventHandler(@"permission", payload);
+  [ArdiaEvents emit:@"permissions.requested" data:payload];
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine deviceChooser:(NSDictionary *)chooser tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [chooser mutableCopy];
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
-  if (auto handler = ArdiaHost.chromeUIHandler) handler(@"deviceChooser", payload);
+  if ([ArdiaEvents listens:@"media"]) [ArdiaEvents emit:@"media.deviceChooser" data:payload];
   else if ([payload[@"open"] boolValue])
     [ArdiaCoreEngine cancelDeviceChooser:[payload[@"id"] intValue]];
 }
@@ -117,35 +117,35 @@ using namespace ardia_host;
 - (void)engine:(ArdiaCoreEngine *)engine castDialog:(NSDictionary *)dialog tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [dialog mutableCopy];
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
-  if (gChromeUIHandler) gChromeUIHandler(@"castDialog", payload);
+  if ([ArdiaEvents listens:@"media"]) [ArdiaEvents emit:@"media.castDialog" data:payload];
   else if ([payload[@"open"] boolValue])
     [ArdiaCoreEngine closeCastDialog:[payload[@"id"] intValue]];
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine castRoutes:(NSArray *)routes profile:(ArdiaCoreProfile *)profile {
-  if (!gChromeUIHandler) return;
+  if (![ArdiaEvents listens:@"media"]) return;
   NSMutableArray<NSString *> *names = [NSMutableArray array];
   if (profile.offTheRecord)
     for (NSString *name in ardia_host::LoadedProfileNames())
       if (ardia_host::LoadedProfile(name) == profile) [names addObject:name];
   if (!names.count) [names addObject:ardia_host::ProfileName(profile)];
-  for (NSString *name in names) gChromeUIHandler(@"castRoutes", @{@"profile" : name, @"routes" : routes ?: @[]});
+  for (NSString *name in names) [ArdiaEvents emit:@"media.castRoutes" data:@{@"profile" : name, @"routes" : routes ?: @[]}];
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine extensionSidePanel:(NSDictionary *)panel tab:(ArdiaCoreTab *)tab {
   NSMutableDictionary *payload = [panel mutableCopy];
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
-  if (gChromeUIHandler) gChromeUIHandler(@"sidePanel", payload);
+  [ArdiaEvents emit:@"extensions.sidePanel" data:payload];
 }
 
 - (BOOL)engine:(ArdiaCoreEngine *)engine extensionActionPopup:(NSDictionary *)popup tab:(ArdiaCoreTab *)tab {
-  if (!gChromeUIHandler || !tab) {
+  if (![ArdiaEvents listens:@"extensions"] || !tab) {
     NSLog(@"[ardiacore] action.openPopup for %@: %@", popup[@"extensionId"], tab ? @"the app isn't listening yet" : @"no tab");
     return NO;
   }
   NSMutableDictionary *payload = [popup mutableCopy];
   payload[@"browserId"] = @(ardia_host::BrowserId(tab));
-  gChromeUIHandler(@"actionPopup", payload);
+  [ArdiaEvents emit:@"extensions.actionPopup" data:payload];
   return YES;
 }
 
@@ -158,10 +158,10 @@ using namespace ardia_host;
 }
 
 - (BOOL)engine:(ArdiaCoreEngine *)engine extensionActionShortcut:(NSDictionary *)shortcut tab:(ArdiaCoreTab *)tab {
-  if (!gChromeUIHandler || !tab) return NO;
+  if (![ArdiaEvents listens:@"extensions"] || !tab) return NO;
   NSMutableDictionary *payload = [shortcut mutableCopy];
   payload[@"browserId"] = @(ardia_host::BrowserId(tab));
-  gChromeUIHandler(@"actionShortcut", payload);
+  [ArdiaEvents emit:@"extensions.actionShortcut" data:payload];
   return YES;
 }
 
@@ -170,12 +170,12 @@ using namespace ardia_host;
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
   if ([prompt[@"profile"] isKindOfClass:NSString.class]) payload[@"profile"] = ardia_host::ProfileNameOfDirectory(prompt[@"profile"]);
   gInstallPrompts[payload[@"requestId"] ?: @""] = payload;
-  if (gExtensionsEventHandler) gExtensionsEventHandler(@"installPrompt", payload);
+  [ArdiaEvents emit:@"extensions.installPrompt" data:payload];
 }
 
 - (void)engine:(ArdiaCoreEngine *)engine permissionRequestDismissed:(NSString *)requestId {
   ardia_host::DropPopupWindowPermission(requestId ?: @"");
-  if (gEventHandler) gEventHandler(@"permissionDismissed", @{@"id" : requestId ?: @""});
+  [ArdiaEvents emit:@"permissions.dismissed" data:@{@"id" : requestId ?: @""}];
 }
 
 - (ArdiaCoreWindow *)engineWindowForNewBrowserOfProfile:(ArdiaCoreProfile *)profile type:(NSString *)type {

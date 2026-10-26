@@ -1,7 +1,6 @@
 import {
   chooseExtensionFolder,
   configureExtension,
-  ExtensionError,
   extensionActionStates,
   inspectUnpackedExtension,
   installExtension,
@@ -272,7 +271,6 @@ export async function showExtensionMenu(windowId: string, ext: InstalledExtensio
 }
 
 function message(error: unknown): string {
-  if (error instanceof ExtensionError) return error.message;
   return error instanceof Error ? error.message : String(error);
 }
 

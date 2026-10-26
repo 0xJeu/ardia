@@ -3,12 +3,15 @@ import { test } from "node:test";
 
 const imports = [];
 const storeKeys = [];
+const webKitCalls = {
+  endPrivateSession: () => null,
+  cookieStoreKey: ({ profile }) => (storeKeys.push(profile), profile),
+  importCookies: ({ profile, storeKey, cookies }) => (imports.push({ profile, key: storeKey, cookies }), cookies.length),
+};
 globalThis.acTestNativeModules = {
   ArdiaWebKit: {
     addListener: () => ({ remove() {} }),
-    endPrivateSession: () => Promise.resolve(),
-    cookieStoreKey: (profile) => (storeKeys.push(profile), Promise.resolve(profile)),
-    importCookies: (profile, key, cookies) => (imports.push({ profile, key, cookies }), Promise.resolve(cookies.length)),
+    call: async (name, profile, json) => JSON.stringify(webKitCalls[name]({ ...JSON.parse(json), profile }) ?? null),
   },
 };
 

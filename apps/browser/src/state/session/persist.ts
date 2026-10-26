@@ -165,7 +165,9 @@ export function loadSession(): HydrateData | null {
       const left = leftDownloadStaging(d);
       const { staging: _, stagingId: _id, destination: _to, ...kept } = d;
       if (!left) return { ...kept, id };
-      void removeLeftDownloadStaging(d).then((removed) => removed && forgetStaging(id));
+      void removeLeftDownloadStaging(d)
+        .catch(() => false)
+        .then((removed) => removed && forgetStaging(id));
       return { ...d, id, stagingId: left.uuid };
     }),
   };

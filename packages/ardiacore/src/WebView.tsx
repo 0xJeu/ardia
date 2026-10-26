@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle, useRef } from "react";
 import { findNodeHandle, type NativeSyntheticEvent, type ViewProps } from "react-native";
 import type { ExternalAppRequest } from "./externalApps";
 import type { FaviconImage } from "./favicons";
+import { ardiaError } from "./engine/call";
 import type { PageCookie, PageEngine } from "./webkit";
 
 export type NavigationState = {
@@ -335,7 +336,7 @@ type NativeHandle = Omit<
   discard(unload: boolean): Promise<DiscardOutcome>;
 };
 
-const NativeWebView = requireNativeViewManager<NativeProps>("ArdiaCEF");
+const NativeWebView = requireNativeViewManager<NativeProps>("ArdiaWebView");
 let NativeWebKitView: typeof NativeWebView | undefined;
 const webKitView = () => (NativeWebKitView ??= requireNativeViewManager<NativeProps>("ArdiaWebKit"));
 
@@ -354,7 +355,7 @@ export const WebView = forwardRef<WebViewHandle, WebViewProps>(function WebView(
         try {
           return await fn(view);
         } catch (error) {
-          if (!isViewMissing(error)) throw error;
+          if (!isViewMissing(error)) throw ardiaError(error);
           if (attempt >= VIEW_RETRIES || native.current !== view) return fallback;
           await new Promise((resolve) => setTimeout(resolve, 16 * (attempt + 1)));
         }

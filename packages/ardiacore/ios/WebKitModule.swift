@@ -5,60 +5,13 @@ import WebKit
 public class WebKitModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaWebKit")
-    Events("onDownload", "onPermission", "onPermissionDismissed")
 
-    OnCreate {
-      WebKitHub.shared.events = { [weak self] name, payload in self?.sendEvent(name, payload) }
-    }
-
-    Function("prepareTransfer") { (key: String) in WebKitHub.shared.prepareTransfer(key) }
-    Function("releaseTransfer") { (key: String) in WebKitHub.shared.releaseTransfer(key) }
-    AsyncFunction("resolvePermission") { (id: String, result: String, remember: Bool?) in
-      WebKitHub.shared.resolvePermission(id, result: result, remember: remember ?? false)
-    }.runOnQueue(.main)
-    AsyncFunction("downloadCommand") { (action: String, id: String) in WebKitHub.shared.downloads.command(action, id: id) }.runOnQueue(.main)
-    AsyncFunction("externalAppAllowances") { (profile: String) in WebKitHub.shared.externalAppAllowances(profile: profile) }
-      .runOnQueue(.main)
-    AsyncFunction("removeExternalAppAllowance") { (profile: String, origin: String, scheme: String) in
-      WebKitHub.shared.removeExternalAppAllowance(profile: profile, origin: origin, scheme: scheme)
-    }.runOnQueue(.main)
-    AsyncFunction("removeDownloadStaging") { (path: String, uuid: String, folder: String) in
-      WebKitDownloads.removeStaging(path, uuid: uuid, folder: folder)
-    }
-      .runOnQueue(.main)
-    AsyncFunction("endPrivateSession") { (session: String) in WebKitHub.shared.endPrivateSession(session) }.runOnQueue(.main)
-    AsyncFunction("sitePermissions") { (profile: String, origin: String) in
-      WebKitHub.shared.sitePermissions(profile: profile, origin: origin)
-    }.runOnQueue(.main)
-    AsyncFunction("setSitePermission") { (profile: String, origin: String, kind: String, value: String) in
-      WebKitHub.shared.setSitePermission(profile: profile, origin: origin, kind: kind, value: value)
-    }.runOnQueue(.main)
-    AsyncFunction("resolveExternalApp") { (id: String, open: Bool, remember: Bool?) in
-      WebKitHub.shared.resolveExternalApp(id, open: open, remember: remember ?? false)
-    }.runOnQueue(.main)
-    AsyncFunction("clearBrowsingData") { (profile: String, types: [String], since: Double?, promise: Promise) in
-      WebKitHub.shared.clearBrowsingData(profile: profile, types: types, since: since ?? 0) { promise.resolve(nil) }
-    }.runOnQueue(.main)
-    AsyncFunction("deleteProfileData") { (profile: String, promise: Promise) in
-      WebKitHub.shared.deleteProfileData(profile) { promise.resolve($0) }
-    }.runOnQueue(.main)
-    AsyncFunction("cookieStoreKey") { (profile: String) in WebKitHub.shared.storeKey(profile) }.runOnQueue(.main)
-    AsyncFunction("importCookies") { (profile: String, storeKey: String, cookies: [[String: Any]], promise: Promise) in
-      WebKitHub.shared.importCookies(cookies, profile: profile, storeKey: storeKey) { promise.resolve($0) }
-    }.runOnQueue(.main)
-    AsyncFunction("info") { () -> [String: Any] in
-      [
-        "safariVersion": WebKitHub.safariVersion, "userAgentSuffix": "Version/\(WebKitHub.safariVersion) Safari/605.1.15",
-        "passkeys": WebKitHub.passkeysEntitled,
-      ]
-    }.runOnQueue(.main)
-    AsyncFunction("passkeyAccess") { () -> [String: Any] in WebKitPasskeys.access() }.runOnQueue(.main)
-    AsyncFunction("requestPasskeyAccess") { (promise: Promise) in
-      WebKitPasskeys.requestAccess { promise.resolve($0) }
+    AsyncFunction("call") { (name: String, profile: String, args: String, promise: Promise) in
+      WebKitModule.calls.run(name, profile, args, promise)
     }.runOnQueue(.main)
 
     View(WebKitTabView.self) {
-      Events(CefWebView.events)
+      Events(ChromiumTabView.events)
 
       Prop("url") { (view: WebKitTabView, url: String?) in view.tab.initialURL = url }
       Prop("profile") { (view: WebKitTabView, profile: String?) in view.tab.profile = profile ?? "" }
@@ -132,6 +85,48 @@ public class WebKitModule: Module {
       OnViewDidUpdateProps { (view: WebKitTabView) in view.propsDidUpdate() }
     }
   }
+  static let calls = CallTable(domain: "webKit", handlers: [
+    "resolvePermission": { args, reply in
+      WebKitHub.shared.resolvePermission(args.text("id"), result: args.text("result"), remember: args.bool("remember") ?? false)
+      reply.ok()
+    },
+    "downloadCommand": { args, reply in
+      WebKitHub.shared.downloads.command(args.text("action"), id: args.text("id"))
+      reply.ok()
+    },
+    "externalAppAllowances": { args, reply in reply.ok(WebKitHub.shared.externalAppAllowances(profile: args.profile)) },
+    "removeExternalAppAllowance": { args, reply in
+      WebKitHub.shared.removeExternalAppAllowance(profile: args.profile, origin: args.text("origin"), scheme: args.text("scheme"))
+      reply.ok()
+    },
+    "removeDownloadStaging": { args, reply in
+      reply.ok(WebKitDownloads.removeStaging(args.text("path"), uuid: args.text("uuid"), folder: args.text("folder")))
+    },
+    "endPrivateSession": { args, reply in
+      WebKitHub.shared.endPrivateSession(args.text("session"))
+      reply.ok()
+    },
+    "sitePermissions": { args, reply in reply.ok(WebKitHub.shared.sitePermissions(profile: args.profile, origin: args.text("origin"))) },
+    "setSitePermission": { args, reply in
+      WebKitHub.shared.setSitePermission(profile: args.profile, origin: args.text("origin"), kind: args.text("kind"), value: args.text("value"))
+      reply.ok()
+    },
+    "resolveExternalApp": { args, reply in
+      WebKitHub.shared.resolveExternalApp(args.text("id"), open: args.bool("open") ?? false, remember: args.bool("remember") ?? false)
+      reply.ok()
+    },
+    "clearBrowsingData": { args, reply in
+      WebKitHub.shared.clearBrowsingData(profile: args.profile, types: args.strings("types"), since: args.double("since") ?? 0) { reply.ok() }
+    },
+    "deleteProfileData": { args, reply in WebKitHub.shared.deleteProfileData(args.profile) { reply.ok($0) } },
+    "cookieStoreKey": { args, reply in reply.ok(WebKitHub.shared.storeKey(args.profile)) },
+    "importCookies": { args, reply in
+      let cookies = args.list("cookies").compactMap { $0 as? [String: Any] }
+      WebKitHub.shared.importCookies(cookies, profile: args.profile, storeKey: args.text("storeKey")) { reply.ok($0) }
+    },
+    "passkeyAccess": { _, reply in reply.ok(WebKitPasskeys.access()) },
+    "requestPasskeyAccess": { _, reply in WebKitPasskeys.requestAccess { reply.ok($0) } },
+  ])
 }
 
 final class WebKitTabView: ExpoView, WebKitTabDelegate {
@@ -169,7 +164,6 @@ final class WebKitTabView: ExpoView, WebKitTabDelegate {
   let onDiscarded = EventDispatcher()
   let onPasswordPrompt = EventDispatcher()
   let onAutofillPrompt = EventDispatcher()
-  let onTabStrip = EventDispatcher()
   let onExternalApp = EventDispatcher()
   let onPreferredSize = EventDispatcher()
 

@@ -9,7 +9,6 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   static let background = LaunchConfig.shared.background
   static let silenced = background && !LaunchConfig.shared.instanceFlag("allowAudio")
 
-  var events: ((String, [String: Any]) -> Void)?
   let downloads = WebKitDownloads()
 
   private final class WeakTab {
@@ -133,7 +132,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     for (id, pending) in pendingPermissions where pending.store === ended.store {
       pendingPermissions.removeValue(forKey: id)
       pending.decide(false)
-      events?("onPermissionDismissed", ["id": id])
+      ArdiaEvents.emit("permissions.dismissed", data: ["id": id])
     }
     for tab in owners.values.compactMap(\.tab) where tab.webView.map(uses) == true { tab.close() }
     ended.store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
@@ -313,7 +312,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     lastPermission += 1
     let id = "wk-permission-\(lastPermission)"
     pendingPermissions[id] = PendingPermission(browserId: browserId, keys: keys, store: dataStore(for: profile), decide: decide)
-    events?("onPermission", ["id": id, "browserId": Int(browserId), "origin": origin, "permissions": kinds])
+    ArdiaEvents.emit("permissions.requested", data: ["id": id, "browserId": Int(browserId), "origin": origin, "permissions": kinds])
   }
 
   func resolvePermission(_ id: String, result: String, remember: Bool) {
@@ -327,7 +326,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     for (id, pending) in pendingPermissions where pending.browserId == browserId {
       pendingPermissions.removeValue(forKey: id)
       pending.decide(false)
-      events?("onPermissionDismissed", ["id": id])
+      ArdiaEvents.emit("permissions.dismissed", data: ["id": id])
     }
   }
 

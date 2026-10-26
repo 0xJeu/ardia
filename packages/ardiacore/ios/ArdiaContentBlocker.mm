@@ -313,7 +313,7 @@ void Changed(NSString *error, void (^completion)(NSString *error)) {
   if (error) return completion(error);
   completion = [completion copy];
   FollowDefault(nil, ^(NSString *followError) {
-    State(^(NSDictionary *state) { if (ArdiaHost.eventHandler) ArdiaHost.eventHandler(@"contentBlocker", state[@"stats"]); });
+    State(^(NSDictionary *state) { [ArdiaEvents emit:@"contentBlocker.changed" data:state[@"stats"]]; });
     completion(followError);
   });
 }
