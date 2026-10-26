@@ -5,7 +5,7 @@ import { test } from "node:test";
 globalThis.__DEV__ = false;
 registerHooks({
   resolve(specifier, context, next) {
-    if (!context.parentURL?.endsWith("/state/app/cliControl.ts") || specifier !== "../../components/pages") return next(specifier, context);
+    if (!context.parentURL?.endsWith("/state/app/cliControl.ts") || specifier !== "../pages/urls") return next(specifier, context);
     const stub = "export const isInternalTab = (t) => /^ardia:\\/\\//i.test(t.navigation?.url ?? t.url ?? '');";
     return { url: `data:text/javascript,${encodeURIComponent(stub)}`, shortCircuit: true };
   },

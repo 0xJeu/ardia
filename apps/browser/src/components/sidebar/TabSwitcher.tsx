@@ -6,7 +6,7 @@ import { hex, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { tabTitle } from "../../state/sidebar/actions";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
-import { commitSwitcher, hoverSwitcherRow, leaveSwitcherRow } from "./switcher";
+import { commitSwitcher, hoverSwitcherRow, leaveSwitcherRow } from "../../state/sidebar/switcher";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";
 

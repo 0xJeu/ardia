@@ -61,8 +61,8 @@ export function startDevHarness() {
     get bangs(): typeof import("../omnibox/bangs") {
       return require("../omnibox/bangs");
     },
-    get switcher(): typeof import("../sidebar/switcher") {
-      return require("../sidebar/switcher");
+    get switcher(): typeof import("../../state/sidebar/switcher") {
+      return require("../../state/sidebar/switcher");
     },
     get sidebarRows(): typeof import("../../state/sidebar/sidebarUi") {
       return require("../../state/sidebar/sidebarUi");

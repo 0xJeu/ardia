@@ -4,7 +4,7 @@ import { markHoverProps } from "../../components/ui/hoverShift";
 import { useBrowser } from "../browser/store";
 import { PageProfileContext } from "../browser/hooks";
 import { useFoldedAway } from "../../components/sidebar/Fold";
-import { cardReach, pointInRect, type Point, type Rect } from "../../components/sidebar/hoverAim";
+import { cardReach, pointInRect, type Point, type Rect } from "./hoverAim";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./sidebarUi";
 
 const SHOW_DELAY_MS = 500;

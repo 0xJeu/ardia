@@ -1,16 +1,9 @@
 import type { Tab } from "../browser/types";
+import { hostOf } from "../../lib/url";
 
 type Member = Pick<Tab, "url" | "title">;
 
 const SEPARATORS = [" / ", " | ", " - ", " — ", " – ", " · ", " • ", " :: "];
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-};
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 

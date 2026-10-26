@@ -3,7 +3,7 @@ import { importModule } from "../../platform/importModule";
 import { openImport, openSettings, useSettingsNav } from "../../state/settings/settingsWindows";
 import { useBookmarkDialog } from "../../state/bookmarks/actions";
 import { useBookmarkEditor } from "../../state/bookmarks/edit";
-import { useClearDataRequest } from "./ClearDataDialog";
+import { useClearDataRequest } from "../../state/profiles/clearDataRequest";
 import { openInternalPage } from "../../state/pages/urls";
 
 export const pagesDrivers = {

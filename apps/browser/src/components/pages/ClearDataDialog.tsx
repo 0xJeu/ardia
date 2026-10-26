@@ -2,7 +2,6 @@ import { clearBrowsingData, type BrowsingDataType } from "@ardia/ardiacore";
 import { Surface } from "@ardia/shell";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { create } from "zustand";
 import { pruneProfileFavicons } from "../../state/favicons/favicons";
 import { hex, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
@@ -17,11 +16,6 @@ const RANGES = [
   { value: "all", title: "All time", ms: Infinity },
 ] as const;
 type Range = (typeof RANGES)[number]["value"];
-
-export const useClearDataRequest = create<{ windowId: string | null; request(windowId: string | null): void }>((set) => ({
-  windowId: null,
-  request: (windowId) => set({ windowId }),
-}));
 
 export function ClearDataDialog({ profileId, onClose }: { profileId: string; onClose: () => void }) {
   const theme = useTheme();

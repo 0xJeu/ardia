@@ -1,6 +1,6 @@
 import { ActivitySpinner, ContextMenuArea, FadeLabel, MouseArea, Surface, Symbol } from "@ardia/shell";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Pressable, TextInput, View, type GestureResponderEvent } from "react-native";
+import { Animated, Pressable, TextInput, View } from "react-native";
 import { toggleMute } from "../../state/browser/actions";
 import { hex, layout, useSelectedTabGlow, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
@@ -23,11 +23,7 @@ import { TabIcon } from "./TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { useSidebarTokens } from "./tokens";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
-
-export const clickMods = (e: GestureResponderEvent) => {
-  const n = e.nativeEvent as unknown as { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
-  return { metaKey: !!n.metaKey, shiftKey: !!n.shiftKey, altKey: !!n.altKey };
-};
+import { modifiersOf } from "../../lib/keys";
 
 
 export const TabRowItem = memo(function TabRowItem({
@@ -92,7 +88,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
           <Pressable
             onPress={(e) => {
               dismissHover();
-              clickTab(windowId, tabId, clickMods(e));
+              clickTab(windowId, tabId, modifiersOf(e));
             }}
           >
             {({ pressed }) => (
@@ -265,7 +261,7 @@ function SplitPane({ tabId, windowId }: { tabId: string; windowId: string }) {
   return (
     <View {...hoverProps} style={{ flex: 1, minWidth: 0 }}>
       <ContextMenuArea onContextMenu={() => void openTabMenu(windowId, tab)}>
-        <Pressable onPress={(e) => clickTab(windowId, tabId, clickMods(e))}>
+        <Pressable onPress={(e) => clickTab(windowId, tabId, modifiersOf(e))}>
           {({ pressed }) => (
             <PressFeedback pressed={pressed}>
               <View

@@ -5,7 +5,7 @@ import { useBrowser, type BrowserState } from "../browser/store";
 import { hasPage } from "../tabs/pageSession";
 import { shownPageId } from "../peek/peek";
 import { pageOf, usePages } from "../tabs/pageState";
-import { isInternalTab } from "../../components/pages";
+import { isInternalTab } from "../pages/urls";
 import { afterFirstWindow } from "../../lib/afterFirstWindow";
 
 const DOC = "ardia-cli.json";

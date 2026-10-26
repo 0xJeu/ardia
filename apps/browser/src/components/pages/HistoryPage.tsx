@@ -10,7 +10,8 @@ import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { HoverSlot } from "../ui/HoverSlot";
 import { Favicon, IconButton } from "../ui/Primitives";
 import { Button, Checkbox, useFormColors } from "../ui/FormControls";
-import { ClearDataDialog, useClearDataRequest } from "./ClearDataDialog";
+import { ClearDataDialog } from "./ClearDataDialog";
+import { useClearDataRequest } from "../../state/profiles/clearDataRequest";
 import { dayLabel, dayStart, EmptyState, hostLabel, PAGE_WIDTH, PageHeader, queryWords, searchText, timeLabel } from "./PageLayout";
 
 const ROW = 38;

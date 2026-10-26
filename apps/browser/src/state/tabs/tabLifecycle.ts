@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { pageOf, usePages } from "./pageState";
 import { showToast } from "../splits/actions";
 import { useMedia } from "../media/media";
-import { isInternalTab } from "../../components/pages";
+import { isInternalTab } from "../pages/urls";
 import { openSettings } from "../settings/settingsWindows";
 import { useBrowser, type BrowserState } from "../browser/store";
 import type { BatterySaverWhen } from "../settings/settings";

@@ -15,7 +15,7 @@ import { dismissHover, useRowHover } from "../../state/sidebar/hover";
 import { openTabMenu } from "./menus";
 import { pinGrid, pinGridHeight, TILE_GAP } from "./pinZone";
 import { registerRow } from "../../state/sidebar/sidebarUi";
-import { clickMods } from "./TabRow";
+import { modifiersOf } from "../../lib/keys";
 import { FolderDropRing, TileFace, useSlotPosition } from "./TileFace";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
 import { useSidebarTokens } from "./tokens";
@@ -173,7 +173,7 @@ const PinnedTile = memo(function PinnedTile({ tabId, width, sliding, x, y }: { t
             <Pressable
               onPress={(e) => {
                 dismissHover();
-                clickTab(windowId, tabId, clickMods(e));
+                clickTab(windowId, tabId, modifiersOf(e));
               }}
             >
               {({ pressed }) => <TileFace tabId={tabId} width={width} active={active} selected={selected} hovered={hovered} pressed={pressed} />}

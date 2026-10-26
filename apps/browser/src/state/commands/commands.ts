@@ -23,7 +23,7 @@ import {
   toggleMute,
 } from "../browser/actions";
 import { bookmarkAllTabs, bookmarkTab } from "../bookmarks/actions";
-import { useClearDataRequest } from "../../components/pages/ClearDataDialog";
+import { useClearDataRequest } from "../profiles/clearDataRequest";
 import { openInternalPage } from "../pages/urls";
 import { isUtilityWindowId, openImport, openSettings, SETTINGS_WINDOW_ID } from "../settings/settingsWindows";
 import { focusSettingsSearch } from "../settings/searchState";
@@ -43,7 +43,7 @@ import { numberedTabs } from "../sidebar/entries";
 import { openExtensionFromMenu } from "../extensions/bridge";
 import { toggleCastPicker } from "../media/cast";
 import { openManageExtensions, openPinDialog, openWebStore } from "../extensions/actions";
-import { requestAutofill } from "../../components/site/Autofill";
+import { requestAutofill } from "../site/autofill";
 import { copyPageUrl, jumpToSelection } from "../site/selection";
 import { shareTab } from "../site/share";
 import { openProfileMenu } from "../../components/profiles/ProfileIndicator";

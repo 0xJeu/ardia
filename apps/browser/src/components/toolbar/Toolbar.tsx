@@ -11,7 +11,8 @@ import { useIsBookmarked, useSettings, useTabLive } from "../../state/browser/ho
 import { bookmarkProfileId } from "../../state/browser/model";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
-import { ToolbarButton, type ButtonHit, type ClickModifiers } from "../ui/Controls";
+import { ToolbarButton, type ButtonHit } from "../ui/Controls";
+import type { ClickModifiers } from "../../lib/keys";
 import { type ToolbarGeometry } from "../window/geometry";
 import { setPopover, usePage, usePages, type PageState } from "../../state/tabs/pageState";
 import { closeHistoryMenu, goBack, goForward, historyItems, openHistoryMenu, useHistoryAvailability, useHistoryMenu } from "../../state/tabs/navigation";

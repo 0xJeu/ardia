@@ -47,6 +47,7 @@ import { closeFolderPanel } from "./tileFolderUi";
 import { useSidebarTokens } from "./tokens";
 import { toggleNewTabBar } from "../../state/omnibox/newTabBar";
 import { INCOGNITO_ICON } from "../ntp/IncognitoHeading";
+import { modifiersOf } from "../../lib/keys";
 
 const GLOW_ROOM = 24;
 const ROW_PITCH = layout.rowHeight + layout.rowGap;
@@ -566,7 +567,7 @@ const NewTabRow = memo(function NewTabRow({ windowId, shift = null, clip = null 
       <Pressable
         style={{ flex: 1 }}
         onPress={(e) => {
-          if ((e.nativeEvent as unknown as { altKey?: boolean }).altKey) openNewTabInSplit(windowId);
+          if (modifiersOf(e).altKey) openNewTabInSplit(windowId);
           else toggleNewTabBar(windowId) || useBrowser.getState().newTab(windowId, { newTabCommand: true });
         }}
       >

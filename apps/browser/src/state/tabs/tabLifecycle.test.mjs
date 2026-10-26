@@ -14,7 +14,7 @@ const stubs = {
     export const setBatterySaver = (mode) => globalThis.batterySaverReply(mode);`,
   "../splits/actions": "export const showToast = () => {};",
   "../settings/settingsWindows": "export const openSettings = () => {};",
-  "../../components/pages": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",
+  "../pages/urls": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",
 };
 registerHooks({
   resolve(specifier, context, next) {

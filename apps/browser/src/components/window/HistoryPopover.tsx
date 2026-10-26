@@ -6,7 +6,8 @@ import { useBrowser } from "../../state/browser/store";
 import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { openInternalPage } from "../../state/pages/urls";
 import { Favicon, NewTabIcon, useHover } from "../ui/Primitives";
-import { modifiersOf, PANEL, Popover, POPOVER_MARGIN, PopoverSeparator } from "../ui/Controls";
+import { PANEL, Popover, POPOVER_MARGIN, PopoverSeparator } from "../ui/Controls";
+import { modifiersOf } from "../../lib/keys";
 import { closeHistoryMenu, goToHistoryItem, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
 
 const WIDTH = 300;

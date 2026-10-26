@@ -6,7 +6,7 @@ import { useBrowser } from "../../state/browser/store";
 import { changedIds } from "../../state/browser/changes";
 import { dismissHover } from "../../state/sidebar/hover";
 import { sidebarUi } from "../../state/sidebar/sidebarUi";
-import { cancelSwitcher, commitSwitcher, moveSwitcher } from "./switcher";
+import { cancelSwitcher, commitSwitcher, moveSwitcher } from "../../state/sidebar/switcher";
 
 const AUTO_CLEAN_EVERY_MS = 30 * 60 * 1000;
 let started = false;

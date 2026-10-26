@@ -1,7 +1,7 @@
-import { useBrowser } from "../../state/browser/store";
-import { plural } from "../../state/browser/model";
-import { tidyingPins, untidyingPins, type TidiedPins } from "../../state/pins/tidyPins";
-import { showToast } from "../../state/splits/actions";
+import { useBrowser } from "../browser/store";
+import { plural } from "../browser/model";
+import { tidyingPins, untidyingPins, type TidiedPins } from "../pins/tidyPins";
+import { showToast } from "../splits/actions";
 
 export function tidyPins(windowId: string, profileId?: string) {
   let tidied: TidiedPins | null = null;

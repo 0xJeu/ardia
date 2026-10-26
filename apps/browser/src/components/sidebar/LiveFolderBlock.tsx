@@ -17,7 +17,8 @@ import { openSettings } from "../../state/settings/settingsWindows";
 import { HoverSlot } from "../ui/HoverSlot";
 import { IconButton, useHover } from "../ui/Primitives";
 import { useLiveColors, type LiveColors } from "../live/colors";
-import { clickMods, TabRow } from "./TabRow";
+import { TabRow } from "./TabRow";
+import { modifiersOf } from "../../lib/keys";
 import { Fold, useFold, type FoldEntry } from "./Fold";
 import { GROUP_BORDER, GROUP_HEADER_RADIUS, GROUP_PAD, GROUP_RADIUS } from "./geometry";
 import { useDragFolded, useDragItem } from "./DragProvider";
@@ -335,7 +336,7 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
           <Pressable
             onPress={(e) => {
               dismissHover();
-              openLiveItem(windowId, folderId, item, { background: clickMods(e).metaKey });
+              openLiveItem(windowId, folderId, item, { background: modifiersOf(e).metaKey });
             }}
           >
             {({ pressed }) => (

@@ -10,7 +10,6 @@ import { useMarqueeGroup, Marquee } from "./Marquee";
 import {
   formatTime,
   hasTrackControls,
-  hostOf,
   isPlaying,
   mediaCommand,
   positionOf,
@@ -20,6 +19,7 @@ import {
   useTicker,
   type Session,
 } from "../../state/media/media";
+import { hostOf } from "../../lib/url";
 import { useMediaTokens, type MediaTokens } from "./tokens";
 
 export const MINI_PLAYER_WIDTH = 320;

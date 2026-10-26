@@ -8,6 +8,7 @@ import type { BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { peekTabId } from "../peek/peek";
 import { splitOf } from "../splits/splits";
+import { hostOf } from "../../lib/url";
 
 export type Session = NowPlaying & {
   playedAt: number;
@@ -90,14 +91,6 @@ export function formatTime(seconds: number): string {
 
 export function mediaCommand(tabId: string, action: MediaCommand, seconds?: number) {
   void webviews.get(tabId)?.mediaCommand(action, seconds);
-}
-
-export function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
 }
 
 export const hasTrackControls = (session: Session) => session.actions.includes("nexttrack") || session.actions.includes("previoustrack");

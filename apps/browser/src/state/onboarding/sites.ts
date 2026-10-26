@@ -1,6 +1,7 @@
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import type { HistoryEntry } from "../browser/types";
+import { hostOf } from "../../lib/url";
 
 type PinnableSite = { id: string; title: string; url: string };
 
@@ -18,14 +19,6 @@ export const PINNABLE_SITES: PinnableSite[] = [
   { id: "youtube", title: "YouTube", url: "https://www.youtube.com/" },
   { id: "spotify", title: "Spotify", url: "https://open.spotify.com/" },
 ];
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-};
 
 export function pinnedHosts(windowId: string): Set<string> {
   const s = useBrowser.getState();

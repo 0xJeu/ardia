@@ -5,7 +5,7 @@ import { markHoverProps } from "../ui/hoverShift";
 import { useTheme } from "../ui/theme";
 import { useHover } from "../ui/Primitives";
 import { closeAllTabs } from "./menus";
-import { tidyPins } from "./tidyPinsUi";
+import { tidyPins } from "../../state/sidebar/tidyPinsUi";
 
 const CLEAR_DIVIDER_HEIGHT = 16;
 const PADDING = 9;

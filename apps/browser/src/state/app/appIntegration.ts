@@ -20,8 +20,8 @@ import {
   type ScriptCommand,
   type ScriptState,
 } from "@ardia/shell";
-import { maybeStartOnboarding, openVideoTour, startOnboarding, startToolTour } from "../../components/onboarding";
-import { onboardingCompletedAt, useOnboarding } from "../onboarding/onboarding";
+import { maybeStartOnboarding, onboardingCompletedAt, startOnboarding, useOnboarding } from "../onboarding/onboarding";
+import { openVideoTour, startToolTour } from "../onboarding/tour";
 import { trackAppVersion } from "../releaseNotes/releaseNotes";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, resolveWindowId, viewTabIds, windowTitle } from "../browser/model";

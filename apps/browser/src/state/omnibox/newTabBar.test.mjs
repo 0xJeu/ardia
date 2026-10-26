@@ -3,7 +3,7 @@ import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
 const { closeNewTabBar, openFromNewTabBar, toggleNewTabBar } = await import("./newTabBar.ts");
-const { togglePinnedRows, forgetListSpots } = await import("../../components/sidebar/movePinned.ts");
+const { togglePinnedRows, forgetListSpots } = await import("../sidebar/movePinned.ts");
 
 const S = () => useBrowser.getState();
 const reset = (newTabOpens = "page") => {

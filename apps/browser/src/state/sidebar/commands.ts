@@ -5,10 +5,10 @@ import { awayFromPin, groupOf, selectedTabIds } from "../pins/organize";
 import { newGroupWithSelection, openIconPicker, startRename } from "./actions";
 import { closeAllTabs } from "../../components/sidebar/menus";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
-import { movePinnedTitle, togglePinnedRows } from "../../components/sidebar/movePinned";
+import { movePinnedTitle, togglePinnedRows } from "./movePinned";
 import { setSidebarUi } from "./sidebarUi";
-import { tidyPins } from "../../components/sidebar/tidyPinsUi";
-import { switcherStep } from "../../components/sidebar/switcher";
+import { tidyPins } from "./tidyPinsUi";
+import { switcherStep } from "./switcher";
 
 export function runSidebarCommand(command: BrowserCommand, arg: string | null, windowId: string): boolean {
   const s = useBrowser.getState();

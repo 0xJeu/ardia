@@ -14,7 +14,7 @@ const stubs = {
     export const releaseProfile = async () => {};`,
   "../splits/actions": "export const showToast = () => {};",
   "../settings/settingsWindows": "export const openSettings = () => {};",
-  "../../components/pages": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",
+  "../pages/urls": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",
 };
 registerHooks({
   resolve(specifier, context, next) {

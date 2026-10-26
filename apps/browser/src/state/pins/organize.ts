@@ -10,6 +10,7 @@ import { lastUsedOf, sharedLastUsed } from "../tabs/tabShare";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import { clickedSelection, dropping, type ClickMods, type Drop } from "../drag/drops";
 import type { BrowserWindow, ClosedGroup, ClosedTab, NestedGroupSnapshot, Tab, TabGroup, TileFolder } from "../browser/types";
+import { hostOf } from "../../lib/url";
 
 export type TabPlacement = {
   pinned: boolean;
@@ -165,14 +166,6 @@ export function selectedTabIds(s: BrowserState, windowId: string): string[] {
   if (selected.length) return view.filter((id) => selected.includes(id));
   const active = activeTabId(s, windowId);
   return active ? [active] : [];
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
 }
 
 export function samePage(a: string, b: string): boolean {

@@ -11,14 +11,7 @@ import { PANEL, PanelCloseButton, Popover, PopoverRow, PopoverSeparator, PromptB
 import { Checkbox } from "../ui/FormControls";
 import { patchPage, pageOf, setPopover, usePage } from "../../state/tabs/pageState";
 import { answerPermission, describePermission } from "../../state/site/permissions";
-
-const hostOf = (origin: string) => {
-  try {
-    return new URL(origin).hostname.replace(/^www\./, "") || origin;
-  } catch {
-    return origin;
-  }
-};
+import { hostOrOrigin } from "../../lib/url";
 
 export function PromptBody({
   icons,
@@ -80,7 +73,7 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
   const popups = usePage(tabId, (p) => p.popups);
   if (!popups.length) return null;
   const origin = popups[0]!.origin;
-  const site = hostOf(origin);
+  const site = hostOrOrigin(origin);
   const web = () => webviews.get(tabId);
   const close = () => setPopover(tabId, null);
   const done = () => {
@@ -157,7 +150,7 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
   const prompt = usePage(tabId, (p) => p.passwordPrompt);
   const [chosen, setChosen] = useState<string | null>(null);
   if (!prompt) return null;
-  const site = hostOf(prompt.origin);
+  const site = hostOrOrigin(prompt.origin);
   const update = prompt.state === "update";
   const username = chosen ?? prompt.username;
   const answer = (action: PasswordPromptAnswer) => {
@@ -184,7 +177,7 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
             ) : (
               <View style={{ borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, gap: 3, backgroundColor: well }}>
                 <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "500", color: theme.textPrimary }}>
-                  {username || (prompt.federation ? `Signed in with ${hostOf(prompt.federation)}` : "No username")}
+                  {username || (prompt.federation ? `Signed in with ${hostOrOrigin(prompt.federation)}` : "No username")}
                 </Text>
                 {prompt.passwordLength > 0 && (
                   <Text numberOfLines={1} style={{ fontSize: 12, letterSpacing: 1, color: theme.textSecondary }}>

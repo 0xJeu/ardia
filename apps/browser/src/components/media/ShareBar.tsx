@@ -10,16 +10,9 @@ import { PromptButton } from "../ui/Controls";
 import { pageOf, usePages } from "../../state/tabs/pageState";
 import { useMedia, type TabShare } from "../../state/media/media";
 import { CAPTURE_RED } from "./tokens";
+import { hostOrOrigin } from "../../lib/url";
 
 const SHARE_BAR_HEIGHT = 38;
-
-const hostOf = (origin: string) => {
-  try {
-    return new URL(origin).hostname.replace(/^www\./, "") || origin;
-  } catch {
-    return origin;
-  }
-};
 
 function useShareFor(tabId: string): [string, TabShare] | null {
   const shares = useMedia((m) => m.tabShares);
@@ -95,7 +88,7 @@ export function ShareBar({ tabId }: { tabId: string }) {
   if (!shown) return null;
   const [capturer, share] = shown;
   const isShared = share.capturedTabId === tabId;
-  const host = hostOf(share.origin || pageOf(capturer).security?.origin || useBrowser.getState().tabs[capturer]?.url || "");
+  const host = hostOrOrigin(share.origin || pageOf(capturer).security?.origin || useBrowser.getState().tabs[capturer]?.url || "");
   return (
     <Animated.View style={{ height, overflow: "hidden" }}>
       <View

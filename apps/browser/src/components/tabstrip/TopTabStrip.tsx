@@ -20,7 +20,7 @@ import { firstStaying, movingTabIds, resolveDrop, slotDrop, type DropSpot } from
 import { hasOwnGroupIcon, SYMBOL_PREFIX, TabIcon } from "../sidebar/TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
-import { modifiersOf } from "../ui/Controls";
+import { modifiersOf } from "../../lib/keys";
 import { usePageStyle, usePagerPages } from "../window/profilePager";
 import { ProfileSwipeArea } from "../window/ProfileSwipe";
 import { openNewTabInSplit } from "../../state/splits/actions";
