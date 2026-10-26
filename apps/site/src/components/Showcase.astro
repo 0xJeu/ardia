@@ -231,8 +231,12 @@ const demoSrc = `${import.meta.env.DEV ? (import.meta.env.PUBLIC_DEMO_URL ?? "ht
   .demo-controls[hidden] {
     display: none;
   }
+  :global(.js) .demo-controls[hidden] {
+    display: flex;
+    visibility: hidden;
+  }
   @media (prefers-reduced-motion: no-preference) {
-    .demo-controls {
+    .demo-controls:not([hidden]) {
       animation: band-in 600ms var(--ease-out) both;
     }
   }
