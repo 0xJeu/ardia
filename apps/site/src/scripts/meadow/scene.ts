@@ -121,6 +121,7 @@ const KEEP_OUT_TITLE = ".hero-title .line > span";
 const KEEP_OUT_COPY = ".lede, .welcome, .cta-row > *, .send-more, [data-send-panel], .note";
 const TERRAIN_READ_SIZE: [number, number] = [384, 768];
 const INTERACTIVE = "a, button, input, textarea, select, label, summary, [data-send-panel]";
+const SLIVER_PX = 48;
 function degrees(value: number) {
   return (value * Math.PI) / 180;
 }
@@ -188,7 +189,8 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
   let needsRender = true;
   let framing: Framing = framingFor(1.6);
   const veil = { left: 0, top: 0, right: 0, bottom: 0 };
-  const tones = new TextTones(hero, document.querySelector<HTMLElement>("[data-bar]"), (tone) => {
+  const bar = document.querySelector<HTMLElement>("[data-bar]");
+  const tones = new TextTones(hero, bar, (tone) => {
     hero.dataset.sky = tone;
   });
   let probe: ColorProbe | null = null;
@@ -1228,15 +1230,28 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     stack = next;
     framing = framingFor(canvas.width / Math.max(1, canvas.height), stack.clear, stack.horizon);
   };
+  let visibilityObserver: IntersectionObserver | null = null;
+  let coveredTop = -1;
+  const observeVisibility = () => {
+    const covered = Math.round((bar?.offsetHeight ?? 0) + SLIVER_PX);
+    if (covered === coveredTop) return;
+    coveredTop = covered;
+    visibilityObserver?.disconnect();
+    visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        heroVisible = entries[entries.length - 1].isIntersecting;
+        if (heroVisible) wake();
+      },
+      { rootMargin: `-${covered}px 0px 0px 0px` },
+    );
+    visibilityObserver.observe(hero);
+  };
   const resizeObserver = new ResizeObserver(() => {
     measureHero();
     measureText();
+    observeVisibility();
     needsRender = true;
     wake();
-  });
-  const visibilityObserver = new IntersectionObserver((entries) => {
-    heroVisible = entries.some((entry) => entry.isIntersecting);
-    if (heroVisible) wake();
   });
 
   canvas.addEventListener("webglcontextlost", onLost);
@@ -1244,7 +1259,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
   document.addEventListener("visibilitychange", onVisibility);
   resizeObserver.observe(canvas);
   if (textBlock) resizeObserver.observe(textBlock);
-  visibilityObserver.observe(hero);
+  observeVisibility();
   const listeners: [EventTarget, string, EventListener, AddEventListenerOptions][] = [
     [window, "scroll", onScroll, { passive: true }],
     [window, "pointerdown", onPointerDown as EventListener, { passive: false }],
@@ -1271,7 +1286,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       ambientTimer = 0;
       phase = "failed";
       resizeObserver.disconnect();
-      visibilityObserver.disconnect();
+      visibilityObserver?.disconnect();
       canvas.removeEventListener("webglcontextlost", onLost);
       canvas.removeEventListener("webglcontextrestored", onRestored);
       document.removeEventListener("visibilitychange", onVisibility);
