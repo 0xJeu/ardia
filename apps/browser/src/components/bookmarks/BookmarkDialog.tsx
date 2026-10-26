@@ -1,13 +1,13 @@
 import { prompt } from "@ardia/shell";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { layout, useTheme } from "../ui/theme";
+import { View } from "react-native";
 import { useWindowId } from "../../state/browser/hooks";
-import { Button, Dialog, TextField, useFormColors } from "../ui";
+import { Box, Button, Dialog, layout, Text, TextField } from "../ui";
 import { addBookmarkFolder, addBookmarkTree, closeBookmarkDialog, moveBookmark, profileOfBookmark, removeBookmark, updateBookmark, useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
 import { useBookmarks } from "../../state/bookmarks/hooks";
 import { currentBookmarks } from "../../state/browser/current";
-import { FolderTree } from "./FolderTree";
+import { FieldLabel, FolderPicker } from "./DialogParts";
+import { bookmarkDialog, folderPicker } from "./tokens";
 import { useAddressBarInSidebar } from "../../state/windows/layout";
 import { SIDEBAR_HEADER_WITH_FIELD } from "../sidebar/geometry";
 
@@ -19,8 +19,6 @@ export function BookmarkDialog() {
 }
 
 function DialogPanel({ state }: { state: BookmarkDialogState }) {
-  const theme = useTheme();
-  const colors = useFormColors();
   const addressBar = useAddressBarInSidebar();
   const bookmark = useBookmarks((b) => (state.kind === "page" ? b.nodes[state.bookmarkId] : undefined));
   const profileId = state.kind === "page" ? profileOfBookmark(state.bookmarkId) : state.profileId;
@@ -61,31 +59,29 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
   const heading = state.kind === "allTabs" ? `Bookmark ${state.tabs.length} Tabs` : "Bookmark Added";
 
   return (
-    <Dialog width={320} pad="lx" onDismiss={done} place={addressBar ? { top: SIDEBAR_HEADER_WITH_FIELD + 4, left: layout.sidebarInset } : { top: layout.cardTop + layout.toolbarHeight - 2, right: layout.cardInset + 10 }}>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>{heading}</Text>
-      <Text style={{ fontSize: 11.5, marginTop: 12, marginBottom: 5, color: theme.textSecondary }}>{state.kind === "allTabs" ? "Folder name" : "Name"}</Text>
+    <Dialog
+      width={bookmarkDialog.width}
+      pad="lx"
+      onDismiss={done}
+      place={
+        addressBar
+          ? { top: SIDEBAR_HEADER_WITH_FIELD + bookmarkDialog.belowField, left: layout.sidebarInset }
+          : { top: layout.cardTop + layout.toolbarHeight - bookmarkDialog.belowToolbar, right: layout.cardInset + bookmarkDialog.rightInset }
+      }
+    >
+      <Text weight="semibold">{heading}</Text>
+      <FieldLabel text={state.kind === "allTabs" ? "Folder name" : "Name"} />
       <TextField value={name} onChangeText={setName} autoFocus selectOnFocus placeholder={state.kind === "allTabs" ? "Tabs" : "Name"} onSubmit={done} onEscape={done} />
-      <Text style={{ fontSize: 11.5, marginTop: 12, marginBottom: 5, color: theme.textSecondary }}>Folder</Text>
-      <View
-        style={{
-          height: 176,
-          borderRadius: 7,
-          borderWidth: StyleSheet.hairlineWidth * 2,
-          borderColor: colors.fieldBorder,
-          backgroundColor: colors.field,
-          overflow: "hidden",
-        }}
-      >
-        <ScrollView contentContainerStyle={{ padding: 4 }}>
-          {profileId && <FolderTree profileId={profileId} selectedId={folderId} onSelect={setFolderId} rowHeight={24} />}
-        </ScrollView>
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14, gap: 8 }}>
+      <FieldLabel text="Folder" />
+      <FolderPicker profileId={profileId} selectedId={folderId} onSelect={setFolderId} height={folderPicker.addedHeight} clip />
+      <Box row gap="m" style={BUTTONS}>
         <Button title="New Folder" onPress={newFolder} />
         <View style={{ flex: 1 }} />
         {state.kind === "page" ? <Button title="Remove" onPress={remove} /> : <Button title="Cancel" onPress={close} />}
         <Button title={state.kind === "page" ? "Done" : "Save"} kind="primary" onPress={done} />
-      </View>
+      </Box>
     </Dialog>
   );
 }
+
+const BUTTONS = { alignItems: "center", marginTop: bookmarkDialog.buttonsTop } as const;

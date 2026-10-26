@@ -1,28 +1,17 @@
-import { cleanUrl } from "@ardia/core";
-import { ContextMenuArea, copyText, MouseArea, prompt, showMenu, Symbol, type MenuItem } from "@ardia/shell";
-import { memo, useMemo, useRef, useState } from "react";
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View, type LayoutRectangle } from "react-native";
-import { addFolderToSidebar, restorableArcHolder, makesGroup, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
-import { useTheme } from "../ui/theme";
-import { folderChildren, folderLinks } from "../../state/bookmarks/bookmarks";
-import { currentBookmarks, currentSettings } from "../../state/browser/current";
-import { useBookmarkProfileId, useBookmarks, useSidebarEdge } from "../../state/bookmarks/hooks";
+import { memo, useState } from "react";
+import { StyleSheet, View, type LayoutRectangle } from "react-native";
+import { folderChildren } from "../../state/bookmarks/bookmarks";
+import { currentBookmarks } from "../../state/browser/current";
+import { useBookmarkProfileId, useBookmarks } from "../../state/bookmarks/hooks";
 import { useSettings, useWindowId } from "../../state/browser/hooks";
-import { addBookmarkFolder, moveBookmark, removeBookmark } from "../../state/bookmarks/actions";
-import { updateSettings } from "../../state/settings/actions";
+import { moveBookmark } from "../../state/bookmarks/actions";
 import type { Settings } from "../../state/settings/settings";
-import type { BookmarkNode } from "../../state/browser/types";
-import { openInternalPage } from "../../state/pages/urls";
-import { useHover } from "../ui";
-import { Favicon } from "../favicon/Favicon";
-import { openImport } from "../../state/settings/settingsWindows";
-import { useSidebarWidth } from "../sidebar/tokens";
-import { openFolder, openModeFor, openUrl } from "../../state/bookmarks/actions";
-import { editBookmark } from "../../state/bookmarks/edit";
+import { ContextMenuArea, space, Text, useTheme } from "../ui";
+import { BarButton, BarItem, ImportButton } from "./BarItem";
+import { openBarMenu, openFolderMenu } from "./barMenus";
+import { bookmarksBar } from "./tokens";
 
-export const BOOKMARKS_BAR_HEIGHT = 30;
-const ITEM_HEIGHT = 24;
-const OVERFLOW_WIDTH = 28;
+export const BOOKMARKS_BAR_HEIGHT = bookmarksBar.height;
 
 export const BookmarksBar = memo(function BookmarksBar({ placeholder }: { placeholder?: boolean }) {
   const windowId = useWindowId();
@@ -55,11 +44,11 @@ function Bar({ windowId }: { windowId: string }) {
   const [frames, setFrames] = useState<Record<string, LayoutRectangle>>({});
   const [drop, setDrop] = useState<{ index: number; into: string | null } | null>(null);
 
-  const reserved = hasOther ? 150 : 0;
+  const reserved = hasOther ? bookmarksBar.otherReserve : 0;
   const available = width - reserved;
   const fits = (id: string) => {
     const f = frames[id];
-    return !f || f.x + f.width <= available - (overflowing() ? OVERFLOW_WIDTH : 0);
+    return !f || f.x + f.width <= available - (overflowing() ? bookmarksBar.overflowWidth : 0);
   };
   function overflowing() {
     const last = children.at(-1);
@@ -95,21 +84,23 @@ function Bar({ windowId }: { windowId: string }) {
     if (!drop || drop.into) return null;
     const id = children[drop.index];
     const f = id ? frames[id] : frames[children.at(-1) ?? ""];
-    if (!f) return 8;
-    return id ? f.x - 2 : f.x + f.width + 2;
+    if (!f) return bookmarksBar.dropLineStart;
+    return id ? f.x - bookmarksBar.dropLineGap : f.x + f.width + bookmarksBar.dropLineGap;
   })();
 
   return (
     <View
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      style={{ height: BOOKMARKS_BAR_HEIGHT, flexDirection: "row", alignItems: "center", paddingHorizontal: 8 }}
+      style={BAR}
     >
       <ContextMenuArea onContextMenu={() => void openBarMenu(windowId, profileId, null)} style={StyleSheet.absoluteFill} />
-      <View style={{ flex: 1, height: ITEM_HEIGHT, flexDirection: "row", alignItems: "center", overflow: "hidden" }}>
+      <View style={ITEMS}>
         {children.length === 0 && !hideImport ? (
           <ImportButton />
         ) : children.length === 0 ? (
-          <Text style={{ fontSize: 12, color: theme.textTertiary, marginLeft: 4 }}>For quick access, place your bookmarks here on the bookmarks bar.</Text>
+          <Text size="small" tone="textTertiary" style={HINT}>
+            For quick access, place your bookmarks here on the bookmarks bar.
+          </Text>
         ) : (
           children.map((id) => (
             <BarItem
@@ -126,7 +117,7 @@ function Bar({ windowId }: { windowId: string }) {
           ))
         )}
         {indicatorX !== null && (
-          <View style={{ position: "absolute", left: indicatorX, top: 3, bottom: 3, width: 2, borderRadius: 1, backgroundColor: theme.accent }} />
+          <View style={[DROP_LINE, { left: indicatorX, backgroundColor: theme.accent }]} />
         )}
       </View>
       {hidden.length > 0 && (
@@ -134,12 +125,12 @@ function Bar({ windowId }: { windowId: string }) {
           icon="chevron.right.2"
           tooltip="More bookmarks"
           onPress={(e) => void openFolderMenu(windowId, hidden, e)}
-          width={OVERFLOW_WIDTH}
+          width={bookmarksBar.overflowWidth}
         />
       )}
       {hasOther && otherId && (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ width: StyleSheet.hairlineWidth * 2, height: 14, marginHorizontal: 6, backgroundColor: theme.divider }} />
+        <View style={OTHER}>
+          <View style={[DIVIDER, { backgroundColor: theme.divider }]} />
           <BarButton
             icon="folder"
             title="Other Bookmarks"
@@ -155,283 +146,15 @@ const EMPTY: string[] = [];
 
 const sameRect = (a: LayoutRectangle | undefined, b: LayoutRectangle) => !!a && a.x === b.x && a.width === b.width;
 
-function BarItem({
-  id,
-  windowId,
-  profileId,
-  hidden,
-  highlighted,
-  onLayout,
-  onDragMove,
-  onDragEnd,
-}: {
-  id: string;
-  windowId: string;
-  profileId: string;
-  hidden: boolean;
-  highlighted: boolean;
-  onLayout: (r: LayoutRectangle) => void;
-  onDragMove: (dx: number) => void;
-  onDragEnd: (dx: number) => void;
-}) {
-  const node = useBookmarks((b) => b.nodes[id]);
-  const width = useSidebarWidth(windowId);
-  const sidebarEdge = useSidebarEdge(windowId, width);
-  const edge = useRef(sidebarEdge);
-  edge.current = sidebarEdge;
-  const dx = useRef(new Animated.Value(0)).current;
-  const left = useRef(0);
-  const [dragging, setDragging] = useState(false);
-  const [overSidebar, setOverSidebar] = useState(false);
-  const handlers = useRef({ onDragMove, onDragEnd });
-  const folder = useRef(false);
-  handlers.current = { onDragMove, onDragEnd };
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 4,
-        onPanResponderGrant: () => setDragging(true),
-        onPanResponderMove: (_, g) => {
-          const toSidebar = folder.current && g.moveX < edge.current;
-          dx.setValue(toSidebar ? -left.current : g.dx);
-          setOverSidebar(toSidebar);
-          handlers.current.onDragMove(toSidebar ? Infinity : g.dx);
-        },
-        onPanResponderRelease: (_, g) => {
-          dx.setValue(0);
-          setDragging(false);
-          setOverSidebar(false);
-          if (folder.current && g.moveX < edge.current) {
-            handlers.current.onDragMove(Infinity);
-            addFolderToSidebar(id, windowId);
-            return;
-          }
-          handlers.current.onDragEnd(g.dx);
-        },
-        onPanResponderTerminate: () => {
-          dx.setValue(0);
-          setDragging(false);
-          setOverSidebar(false);
-          handlers.current.onDragMove(0);
-          handlers.current.onDragEnd(0);
-        },
-      }),
-    [],
-  );
-  folder.current = node?.kind === "folder";
-  if (!node) return null;
-  const open = (e: { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean; middle?: boolean }) =>
-    node.kind === "url" ? openUrl(node.url, windowId, openModeFor(e)) : void openFolderMenu(windowId, node.children, undefined, node.id);
-
-  return (
-    <Animated.View
-      {...responder.panHandlers}
-      onLayout={(e) => {
-        left.current = e.nativeEvent.layout.x;
-        onLayout(e.nativeEvent.layout);
-      }}
-      pointerEvents={hidden ? "none" : "auto"}
-      style={{ opacity: hidden ? 0 : dragging ? 0.85 : 1, zIndex: dragging ? 10 : 0, transform: [{ translateX: dx }] }}
-    >
-      <ContextMenuArea onContextMenu={() => void openBarMenu(windowId, profileId, node)}>
-        <MouseArea onMiddleClick={(e) => open({ ...e, middle: true })}>
-          <BarButton
-            favicon={node.kind === "url" ? node : undefined}
-            icon={node.kind === "folder" ? "folder" : undefined}
-            title={node.title || (node.kind === "url" ? node.url : "")}
-            tooltip={node.kind === "url" ? `${node.title}\n${node.url}` : node.title}
-            highlighted={highlighted || overSidebar}
-            onPress={(e) => open(e)}
-          />
-        </MouseArea>
-      </ContextMenuArea>
-    </Animated.View>
-  );
-}
-
-type ClickMods = { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
-
-function BarButton({
-  title,
-  icon,
-  favicon,
-  tooltip,
-  onPress,
-  width,
-  highlighted,
-}: {
-  title?: string;
-  icon?: string;
-  favicon?: { url: string; favicon: string | null };
-  tooltip?: string;
-  onPress: (e: ClickMods) => void;
-  width?: number;
-  highlighted?: boolean;
-}) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  const windowId = useWindowId();
-  const profileId = useBookmarkProfileId(windowId);
-  return (
-    <View {...hoverProps} tooltip={tooltip}>
-      <Pressable onPress={(e) => onPress(e.nativeEvent as unknown as ClickMods)}>
-        {({ pressed }) => (
-          <View
-            style={{
-              height: ITEM_HEIGHT,
-              width,
-              maxWidth: 190,
-              borderRadius: 6,
-              paddingHorizontal: title ? 7 : 0,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              backgroundColor: pressed ? theme.toolbarPressed : hovered || highlighted ? theme.toolbarHover : undefined,
-            }}
-          >
-            {favicon ? (
-              <Favicon url={favicon.url} favicon={favicon.favicon} size={14} profileId={profileId} />
-            ) : icon ? (
-              <Symbol name={icon} size={12} color={theme.icon} style={{ width: 16, height: 16 }} />
-            ) : null}
-            {title ? (
-              <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12, color: theme.textTab }}>
-                {title}
-              </Text>
-            ) : null}
-          </View>
-        )}
-      </Pressable>
-    </View>
-  );
-}
-
-function ImportButton() {
-  return (
-    <ContextMenuArea
-      onContextMenu={async () => {
-        const choice = await showMenu([{ id: "hide", title: "Hide Import Bookmarks Button" }]);
-        if (choice === "hide") updateSettings({ hideBookmarksBarImport: true });
-      }}
-    >
-      <BarButton icon="rectangle.portrait.and.arrow.right" title="Import bookmarks" tooltip="Add bookmarks from another browser" onPress={() => openImport()} />
-    </ContextMenuArea>
-  );
-}
-
-async function openFolderMenu(windowId: string, ids: string[], _e?: ClickMods, folderId?: string) {
-  const b = currentBookmarks();
-  const build = (list: string[], parent?: string, depth = 0): MenuItem[] => {
-    const items: MenuItem[] = list
-      .map((id) => b.nodes[id])
-      .filter((n): n is BookmarkNode => !!n)
-      .map((n) =>
-        n.kind === "url"
-          ? { id: `open:${n.id}`, title: n.title || n.url, symbol: "globe" }
-          : { id: `folder:${n.id}`, title: n.title, symbol: "folder", children: depth < 8 ? build(n.children, n.id, depth + 1) : [] },
-      );
-    if (!items.length) items.push({ id: "empty", title: "Empty", enabled: false });
-    const links = parent ? folderLinks(b, parent).length : 0;
-    if (links > 0) {
-      items.push(
-        { separator: true },
-        { id: `openAll:${parent}`, title: `Open All (${links})` },
-        { id: `openAllWindow:${parent}`, title: "Open All in New Window" },
-        { id: `openAllIncognito:${parent}`, title: "Open All in Incognito Window" },
-        { id: `addGroup:${parent}`, title: "Add to Sidebar as Group", enabled: !!parent && makesGroup({ bookmarks: currentBookmarks() }, parent) },
-      );
-    }
-    return items;
-  };
-  const choice = await showMenu(build(ids, folderId));
-  if (!choice) return;
-  const [action, id] = splitChoice(choice);
-  const node = id ? currentBookmarks().nodes[id] : undefined;
-  if (action === "open" && node?.kind === "url") openUrl(node.url, windowId, "current");
-  if (action === "openAll" && id) void openFolder(id, windowId, "tabs");
-  if (action === "openAllWindow" && id) void openFolder(id, windowId, "window");
-  if (action === "openAllIncognito" && id) void openFolder(id, windowId, "incognito");
-  if (action === "addGroup" && id) addFolderToSidebar(id, windowId);
-}
-
-const splitChoice = (choice: string): [string, string] => {
-  const i = choice.indexOf(":");
-  return i < 0 ? [choice, ""] : [choice.slice(0, i), choice.slice(i + 1)];
-};
-
-async function openBarMenu(windowId: string, profileId: string, node: BookmarkNode | null) {
-  const s = { bookmarks: currentBookmarks() };
-  const barMode = currentSettings().bookmarksBar;
-  const items: MenuItem[] = [];
-  if (node?.kind === "url") {
-    items.push(
-      { id: "tab", title: "Open in New Tab" },
-      { id: "window", title: "Open in New Window" },
-      { id: "incognito", title: "Open in Incognito Window" },
-      { id: "split", title: "Open in Split View" },
-      { separator: true },
-      { id: "edit", title: "Edit…" },
-      { id: "copy", title: "Copy Link" },
-      { id: "delete", title: "Delete" },
-      { separator: true },
-    );
-  } else if (node?.kind === "folder") {
-    const n = folderLinks(s.bookmarks, node.id).length;
-    items.push(
-      { id: "openAll", title: `Open All (${n})`, enabled: n > 0 },
-      { id: "openAllWindow", title: "Open All in New Window", enabled: n > 0 },
-      { id: "openAllIncognito", title: "Open All in Incognito Window", enabled: n > 0 },
-      { id: "addGroup", title: "Add to Sidebar as Group", enabled: makesGroup(s, node.id) },
-      ...(restorableArcHolder(s, node.id) ? [{ id: "restoreArc", title: "Restore Arc Folders as Groups" }] : []),
-      { separator: true },
-      { id: "rename", title: "Rename…" },
-      { id: "delete", title: "Delete" },
-      { separator: true },
-    );
-  }
-  items.push(
-    { id: "addPage", title: "Add Page…" },
-    { id: "addFolder", title: "Add Folder…" },
-    { separator: true },
-    { id: "manage", title: "Manage Bookmarks" },
-    {
-      id: "show",
-      title: "Show Bookmarks Bar",
-      children: [
-        { id: "bar:always", title: "Always", checked: barMode === "always" },
-        { id: "bar:newTab", title: "On New Tab Only", checked: barMode === "newTab" },
-        { id: "bar:never", title: "Never", checked: barMode === "never" },
-      ],
-    },
-  );
-  const choice = await showMenu(items);
-  if (!choice) return;
-  const bar = s.bookmarks.roots[profileId]?.bar;
-  if (node?.kind === "url") {
-    if (choice === "tab") openUrl(node.url, windowId, "foreground");
-    if (choice === "window") openUrl(node.url, windowId, "window");
-    if (choice === "incognito") openUrl(node.url, windowId, "incognito");
-    if (choice === "split") openUrl(node.url, windowId, "split");
-    if (choice === "edit") void editBookmark(node.id, windowId);
-    if (choice === "copy") copyText(cleanUrl(node.url));
-  }
-  if (node?.kind === "folder") {
-    if (choice === "openAll") void openFolder(node.id, windowId, "tabs");
-    if (choice === "openAllWindow") void openFolder(node.id, windowId, "window");
-    if (choice === "openAllIncognito") void openFolder(node.id, windowId, "incognito");
-    if (choice === "rename") void editBookmark(node.id, windowId);
-    if (choice === "addGroup") addFolderToSidebar(node.id, windowId);
-    if (choice === "restoreArc") restoreArcFolders(node.id, windowId);
-  }
-  if (choice === "delete" && node) removeBookmark(node.id);
-  const parentId = node?.parentId ?? bar;
-  const index = node && parentId ? (folderChildren(currentBookmarks(), parentId).findIndex((n) => n.id === node.id) + 1) : undefined;
-  if (choice === "addPage") void editBookmark(null, windowId, { profileId, parentId: parentId ?? undefined, index });
-  if (choice === "addFolder") {
-    const title = await prompt({ title: "New Folder", placeholder: "Folder name", confirmTitle: "Create", windowId });
-    if (title) addBookmarkFolder({ profileId, title, parentId: parentId ?? undefined, index });
-  }
-  if (choice === "manage") openInternalPage("bookmarks", windowId);
-  if (choice.startsWith("bar:")) updateSettings({ bookmarksBar: choice.slice(4) as typeof barMode });
-}
+const BAR = { height: bookmarksBar.height, flexDirection: "row", alignItems: "center", paddingHorizontal: space.m } as const;
+const ITEMS = { flex: 1, height: bookmarksBar.item, flexDirection: "row", alignItems: "center", overflow: "hidden" } as const;
+const HINT = { marginLeft: space.xs } as const;
+const DROP_LINE = {
+  position: "absolute",
+  top: bookmarksBar.dropLineInset,
+  bottom: bookmarksBar.dropLineInset,
+  width: bookmarksBar.dropLine,
+  borderRadius: bookmarksBar.dropLineRadius,
+} as const;
+const OTHER = { flexDirection: "row", alignItems: "center" } as const;
+const DIVIDER = { width: StyleSheet.hairlineWidth * 2, height: bookmarksBar.dividerHeight, marginHorizontal: space.s } as const;

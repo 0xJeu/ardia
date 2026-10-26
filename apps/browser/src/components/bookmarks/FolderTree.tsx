@@ -1,11 +1,10 @@
-import { Symbol } from "@ardia/shell";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
-import { useTheme } from "../ui/theme";
+import { Pressable, View } from "react-native";
 import { bookmarkAncestors, folderChildren } from "../../state/bookmarks/bookmarks";
 import { useBookmarks } from "../../state/bookmarks/hooks";
 import { currentBookmarks } from "../../state/browser/current";
-import { useFormColors, useHover } from "../ui";
+import { radius, space, Symbol, Text, useHover, useTheme } from "../ui";
+import { folderTree, folderTreeInk } from "./tokens";
 
 type FolderRow = { id: string; title: string; depth: number; hasChildren: boolean };
 
@@ -41,7 +40,7 @@ export function FolderTree({
   profileId,
   selectedId,
   onSelect,
-  rowHeight = 26,
+  rowHeight = folderTree.row,
   wrapRow,
 }: {
   profileId: string;
@@ -107,7 +106,6 @@ function FolderTreeRow({
   onSelect: () => void;
 }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const { hovered, hoverProps } = useHover();
   return (
     <View {...hoverProps}>
@@ -115,27 +113,27 @@ function FolderTreeRow({
         <View
           style={{
             height,
-            borderRadius: 6,
+            borderRadius: radius.m,
             flexDirection: "row",
             alignItems: "center",
-            paddingLeft: 4 + row.depth * 16,
-            paddingRight: 8,
-            backgroundColor: selected ? colors.accent : hovered ? colors.selected : undefined,
+            paddingLeft: folderTree.inset + row.depth * folderTree.indent,
+            paddingRight: space.m,
+            backgroundColor: selected ? theme.formAccent : hovered ? theme.formRowHover : undefined,
           }}
         >
-          <Pressable onPress={onToggle} disabled={!row.hasChildren} style={{ width: 16, height, alignItems: "center", justifyContent: "center" }}>
+          <Pressable onPress={onToggle} disabled={!row.hasChildren} style={{ width: folderTree.chevronBox, height, alignItems: "center", justifyContent: "center" }}>
             {row.hasChildren ? (
               <Symbol
                 name={expanded ? "chevron.down" : "chevron.right"}
-                size={9}
+                size={folderTree.chevron}
                 weight="semibold"
-                color={selected ? "#FFFFFFCC" : theme.textSecondary}
-                style={{ width: 16, height: 16 }}
+                color={selected ? folderTreeInk.selectedChevron : theme.textSecondary}
+                style={CHEVRON}
               />
             ) : null}
           </Pressable>
-          <Symbol name="folder" size={13} color={selected ? "#FFFFFF" : theme.icon} style={{ width: 18, height: 18 }} />
-          <Text numberOfLines={1} style={{ flex: 1, marginLeft: 6, fontSize: 13, color: selected ? "#FFFFFF" : theme.textPrimary }}>
+          <Symbol name="folder" size={folderTree.folderIcon} color={selected ? theme.onAccent : theme.icon} style={FOLDER_ICON} />
+          <Text lines={1} tone={selected ? "onAccent" : "textPrimary"} style={TITLE}>
             {row.title}
           </Text>
         </View>
@@ -143,3 +141,7 @@ function FolderTreeRow({
     </View>
   );
 }
+
+const CHEVRON = { width: folderTree.chevronBox, height: folderTree.chevronBox } as const;
+const FOLDER_ICON = { width: folderTree.folderBox, height: folderTree.folderBox } as const;
+const TITLE = { flex: 1, marginLeft: space.s } as const;
