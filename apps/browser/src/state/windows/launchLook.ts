@@ -4,7 +4,8 @@ import { useBrowser, type BrowserState } from "../browser/store";
 import { isIncognitoProfile } from "../browser/model";
 import { isPeekTab } from "../peek/peek";
 import type { Tab } from "../browser/types";
-import { launchFavicons, pageKey, seedFavicons, type LaunchFavicons } from "../favicons/favicons";
+import { pageKey } from "../favicons/favicons";
+import { launchFavicons, seedFavicons, type LaunchFavicons } from "../favicons/launchFavicons";
 
 const DOCUMENT = "launch-look.json";
 const VERSION = 2;

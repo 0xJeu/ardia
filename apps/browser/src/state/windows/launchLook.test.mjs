@@ -3,7 +3,8 @@ import { test } from "node:test";
 
 globalThis.__DEV__ = false;
 
-const { launchFavicons, resolveFavicon, seedFavicons, useFavicons } = await import("../favicons/favicons.ts");
+const { resolveFavicon, useFavicons } = await import("../favicons/favicons.ts");
+const { launchFavicons, seedFavicons } = await import("../favicons/launchFavicons.ts");
 const { useBrowser } = await import("../browser/store.ts");
 const { engineProfile } = await import("../browser/model.ts");
 
