@@ -3,12 +3,12 @@ import { useLayoutEffect, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent, type GestureResponderEvent } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { useStoreWhile } from "../../state/tabs/tabWatch";
-import { useIsBookmarked } from "../../state/browser/hooks";
-import { activeTabId, bookmarkProfileId, plural } from "../../state/browser/model";
-import { folderIn, folderLabel, folderMembers } from "../../state/pins/tileFolders";
-import { useShallow } from "zustand/react/shallow";
+import { useIsBookmarked, useTab } from "../../state/browser/hooks";
+import { plural } from "../../state/browser/model";
+import { useTileFolderLabel, useTileFolderMembers } from "../../state/pins/hooks";
+import { returnToPinnedUrl } from "../../state/pins/actions";
+import { togglePin } from "../../state/tabs/actions";
+import { useHoverOrphaned, useIsShownTab } from "../../state/sidebar/hooks";
 import { useFolderPanel } from "../../state/sidebar/tileFolderUi";
 import { awayFromPin } from "../../state/pins/organize";
 import { openInSplit } from "../../state/splits/actions";
@@ -16,7 +16,7 @@ import { CalendarPreview, useIsCalendarTab } from "../live/CalendarPreview";
 import { LiveItemCard } from "../live/LiveItemCard";
 import { useIsSleeping } from "../../state/tabs/tabLifecycle";
 import { useHover } from "../ui";
-import { clickTab, tabTitle } from "../../state/sidebar/actions";
+import { clickTab, tabTitle, toggleBookmarkInWindow } from "../../state/sidebar/actions";
 import { GroupPanel } from "./GroupPanel";
 import { cardHoverProps, dismissHover, setHoverSpace } from "../../state/sidebar/hover";
 import { hoverCardOrigin, useHoverCardMotion, useHoverCardPlacement } from "./hoverMotion";
@@ -29,11 +29,7 @@ const WIDTH = 264;
 
 export function HoverCard({ windowId, width, height }: { windowId: string; width: number; height: number }) {
   const hover = useSidebarUi((u) => (u.hover?.windowId === windowId ? u.hover : null));
-  const orphaned = useStoreWhile(
-    useBrowser,
-    !!hover,
-    (s) => (hover?.kind === "tab" && !s.tabs[hover.id]) || (hover?.kind === "group" && !s.groups[hover.id]) || (hover?.kind === "folder" && !folderIn(s, windowId, hover.id)),
-  );
+  const orphaned = useHoverOrphaned(windowId, hover);
   useLayoutEffect(() => {
     if (orphaned) dismissHover();
   }, [orphaned]);
@@ -83,14 +79,13 @@ function Card({ anchor, children }: { anchor: Anchor; children: React.ReactNode 
 
 function TabCard({ tabId, windowId, anchor }: { tabId: string; windowId: string; anchor: Anchor }) {
   const theme = useTheme();
-  const tab = useBrowser((s) => s.tabs[tabId]);
-  const isActive = useBrowser((s) => activeTabId(s, windowId) === tabId);
+  const tab = useTab(tabId);
+  const isActive = useIsShownTab(windowId, tabId);
   const bookmarked = useIsBookmarked(tab?.url ?? "");
   const video = useMedia((m) => !!m.sessions[tabId]?.hasVideo || !!m.pipOpen[tabId]);
   const [pip, togglePip] = usePictureInPicture(tabId);
   const sleeping = useIsSleeping(tabId);
   if (!tab) return null;
-  const s = () => useBrowser.getState();
   const away = awayFromPin(tab);
   return (
     <Card anchor={anchor}>
@@ -115,12 +110,12 @@ function TabCard({ tabId, windowId, anchor }: { tabId: string; windowId: string;
         </Text>
       ) : null}
       <View style={{ flexDirection: "row", gap: 4, marginTop: 8 }}>
-        <Action icon={tab.pinned ? "pin.slash" : "pin"} label={tab.pinned ? "Unpin" : "Pin"} onPress={() => s().togglePin(tabId)} />
+        <Action icon={tab.pinned ? "pin.slash" : "pin"} label={tab.pinned ? "Unpin" : "Pin"} onPress={() => togglePin(tabId)} />
         {tab.url ? (
           <Action
             icon={bookmarked ? "bookmark.fill" : "bookmark"}
             label={bookmarked ? "Bookmarked" : "Bookmark"}
-            onPress={() => s().toggleBookmark(bookmarkProfileId(s(), s().windows[windowId]), { url: tab.url, title: tabTitle(tab), favicon: tab.favicon })}
+            onPress={() => toggleBookmarkInWindow(windowId, { url: tab.url, title: tabTitle(tab), favicon: tab.favicon })}
           />
         ) : null}
         {!isActive && !tab.pinned ? (
@@ -140,7 +135,7 @@ function TabCard({ tabId, windowId, anchor }: { tabId: string; windowId: string;
             label="Reset"
             onPress={() => {
               dismissHover();
-              s().returnToPinnedUrl(tabId);
+              returnToPinnedUrl(tabId);
             }}
           />
         ) : null}
@@ -187,8 +182,8 @@ const PEEK_ROWS = 8;
 
 function FolderPeek({ folderId, windowId, anchor }: { folderId: string; windowId: string; anchor: Anchor }) {
   const theme = useTheme();
-  const members = useBrowser(useShallow((s) => folderMembers(s, windowId, folderId)));
-  const label = useBrowser((s) => folderLabel(folderIn(s, windowId, folderId)));
+  const members = useTileFolderMembers(windowId, folderId);
+  const label = useTileFolderLabel(windowId, folderId);
   const open = useFolderPanel((u) => u.open?.windowId === windowId && u.open.folderId === folderId);
   if (open || !members.length) return null;
   const more = members.length - PEEK_ROWS;
@@ -207,7 +202,7 @@ function FolderPeek({ folderId, windowId, anchor }: { folderId: string; windowId
 
 function PeekRow({ tabId, windowId }: { tabId: string; windowId: string }) {
   const theme = useTheme();
-  const tab = useBrowser((s) => s.tabs[tabId]);
+  const tab = useTab(tabId);
   const [hovered, setHovered] = useState(false);
   if (!tab) return null;
   return (

@@ -1,18 +1,15 @@
 import { discardKeyResponder, FadeLabel, restoreKeyResponder, saveKeyResponder, Symbol } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { useTheme } from "../ui/theme";
 import { ago } from "../../lib/time";
-import { webviews } from "../../platform/webviews";
-import { useBrowser } from "../../state/browser/store";
-import { activeTabId } from "../../state/browser/model";
-import { sharedTabsIn, sharesTabs } from "../../state/tabs/tabShare";
+import { useGroup } from "../../state/browser/hooks";
+import { sharedTabsForPanel } from "../../state/sidebar/current";
+import { useGroupPanelTabIds, useTabsById } from "../../state/sidebar/hooks";
 import type { Tab } from "../../state/browser/types";
 import { menuRowFill, MenuSeparator, PANEL, PopoverSurface } from "../ui";
-import { focusHeroBar } from "../../state/omnibox/barState";
-import { clickTab, tabTitle } from "../../state/sidebar/actions";
-import { byRecentUse, groupTabIds, matchingRows, type GroupPanelTab } from "./groupPanelRows";
+import { clickTab, returnFocusToPage, tabTitle } from "../../state/sidebar/actions";
+import { byRecentUse, matchingRows, type GroupPanelTab } from "../../state/sidebar/groupPanelRows";
 import { cardHoverProps, dismissHover, holdHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "./hoverMotion";
 import { useSidebarUi, type Anchor } from "../../state/sidebar/sidebarUi";
@@ -29,20 +26,11 @@ const NOW_TICK_MS = 30_000;
 
 type Row = GroupPanelTab & { favicon: string | null; icon: string | null; profileId: string };
 
-function returnFocusToPage(windowId: string) {
-  const s = useBrowser.getState();
-  const active = activeTabId(s, windowId);
-  if (!active) return;
-  if (s.tabs[active]?.url) void webviews.get(active)?.focus();
-  else focusHeroBar(windowId, active);
-}
-
 function useGroupRows(groupId: string, windowId: string): Row[] {
-  const ids = useBrowser(useShallow((s) => groupTabIds(s.groups, groupId)));
-  const tabs = useBrowser(useShallow((s) => ids.map((id) => s.tabs[id])));
+  const ids = useGroupPanelTabIds(groupId);
+  const tabs = useTabsById(ids);
   return useMemo(() => {
-    const s = useBrowser.getState();
-    const shared = sharesTabs(s) ? sharedTabsIn(s.tabs, windowId) : null;
+    const shared = sharedTabsForPanel(windowId);
     const rows = tabs
       .filter((t): t is Tab => !!t)
       .map((t) => ({ id: t.id, title: tabTitle(t), url: t.url, usedAt: shared?.lastUsed(t) ?? t.lastActiveAt, favicon: t.favicon, icon: t.customIcon, profileId: t.profileId }));
@@ -52,7 +40,7 @@ function useGroupRows(groupId: string, windowId: string): Row[] {
 
 export function GroupPanel({ groupId, windowId, anchor, windowHeight }: { groupId: string; windowId: string; anchor: Anchor; windowHeight: number }) {
   const theme = useTheme();
-  const exists = useBrowser((s) => !!s.groups[groupId]);
+  const exists = useGroup(groupId, (g) => !!g);
   const all = useGroupRows(groupId, windowId);
   const live = useSidebarUi((u) => u.hover?.kind === "group" && u.hover.id === groupId && u.hover.windowId === windowId);
   const [query, setQuery] = useState("");

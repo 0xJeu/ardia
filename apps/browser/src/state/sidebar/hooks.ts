@@ -4,11 +4,15 @@ import { activeTabId } from "../browser/model";
 import type { Tab } from "../browser/types";
 import { cleanedTabsFor, groupLabel } from "../pins/organize";
 import { canTidyPins } from "../pins/tidyPins";
+import { folderIn } from "../pins/tileFolders";
+import { useStoreWhile } from "../tabs/tabWatch";
 import { splitOf, splitRowPanes } from "../splits/splits";
 import { downloadsIn } from "../windows/ui";
 import { tabTitle } from "./actions";
 import { groupEntries, keptEntry, sidebarEntries } from "./entries";
+import { groupTabIds } from "./groupPanelRows";
 import { capture, type Capture } from "./listCapture";
+import type { Hover } from "./sidebarUi";
 
 export const useIsInSplit = (tabId: string) => useBrowser((s) => !!splitOf(s, tabId));
 
@@ -58,5 +62,18 @@ export const useCanTidyPins = (windowId: string, profileId: string, offScreen: b
 export const useCleanedCount = (windowId: string) => useBrowser((s) => cleanedTabsFor(s, windowId).length);
 
 export const useShownTabId = (windowId: string) => useBrowser((s) => activeTabId(s, windowId));
+
+export const useIsShownTab = (windowId: string, tabId: string) => useBrowser((s) => activeTabId(s, windowId) === tabId);
+
+export const useHoverOrphaned = (windowId: string, hover: Hover | null) =>
+  useStoreWhile(
+    useBrowser,
+    !!hover,
+    (s) => (hover?.kind === "tab" && !s.tabs[hover.id]) || (hover?.kind === "group" && !s.groups[hover.id]) || (hover?.kind === "folder" && !folderIn(s, windowId, hover.id)),
+  );
+
+export const useGroupPanelTabIds = (groupId: string) => useBrowser(useShallow((s) => groupTabIds(s.groups, groupId)));
+
+export const useTabsById = (ids: string[]) => useBrowser(useShallow((s) => ids.map((id) => s.tabs[id])));
 
 export const useLayoutFromWorkspace = <T>(measure: (s: BrowserState) => T): T => useBrowser(measure);

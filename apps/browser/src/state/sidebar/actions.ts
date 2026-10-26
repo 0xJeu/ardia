@@ -2,6 +2,8 @@ import { cleanUrl, markdownLink } from "@ardia/core";
 import { copyText, prompt } from "@ardia/shell";
 import { updateFolder } from "../live/store";
 import { useBrowser } from "../browser/store";
+import { webviews } from "../../platform/webviews";
+import { focusHeroBar } from "../omnibox/barState";
 import { ancestorIds } from "../groups/groups";
 import { activeTabId, bookmarkProfileId, inPinnedContainer, pinSection, tabLayoutOf, viewTabIds } from "../browser/model";
 import type { ClickMods } from "../drag/drops";
@@ -13,6 +15,19 @@ const store = () => useBrowser.getState();
 
 export function clickTab(windowId: string, tabId: string, mods: ClickMods = {}) {
   store().clickTab(windowId, tabId, mods);
+}
+
+export function returnFocusToPage(windowId: string) {
+  const s = store();
+  const active = activeTabId(s, windowId);
+  if (!active) return;
+  if (s.tabs[active]?.url) void webviews.get(active)?.focus();
+  else focusHeroBar(windowId, active);
+}
+
+export function toggleBookmarkInWindow(windowId: string, page: { url: string; title: string; favicon: string | null }) {
+  const s = store();
+  s.toggleBookmark(bookmarkProfileId(s, s.windows[windowId]), page);
 }
 
 export function returnShownTabToPinnedUrl(windowId: string, tabId: string) {
