@@ -192,7 +192,6 @@
     "engine/chromium/src/chrome/browser/ardia/ac_cli_token_policy.cc": 1,
     "engine/chromium/src/chrome/browser/ardia/ac_extensions_sync.cc": 1,
     "engine/chromium/src/chrome/browser/ardia/ac_tab_restore.cc": 1,
-    "packages/shaders/ios/WindowBackdropView.swift": 1,
     "packages/sync/ios/Core/LegacyMigration.swift": 1
   },
   "env": {
@@ -203,8 +202,6 @@
     "packages/ardiacore/ios/ArdiaEarlyWindow.h": 1,
     "packages/ardiacore/ios/ArdiaWebView+ContextMenu.mm": 2
   },
-  "comments": {
-    "packages/shaders/ios/WindowBackdropView.swift": 6
-  },
+  "comments": {},
   "file-names": {}
 }
