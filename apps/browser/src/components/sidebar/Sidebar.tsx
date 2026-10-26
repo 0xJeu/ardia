@@ -23,6 +23,7 @@ import { SIDEBAR_FIELD, SIDEBAR_FOOTER_DOWNLOADS, SIDEBAR_HEADER_WITH_FIELD } fr
 import { closeFolderPanel } from "../../state/sidebar/tileFolderUi";
 import { GLOW_ROOM, ROW_PITCH, type SidebarGeometry } from "./pageLayout";
 import { SidebarPage } from "./SidebarPage";
+import { SidebarRowLookContext, useSidebarRowLookSource } from "./rowLook";
 import { useRevealTabs } from "./useRevealTabs";
 
 export function Sidebar({ width }: { width: number }) {
@@ -49,6 +50,7 @@ export function Sidebar({ width }: { width: number }) {
   const footerDownloads = addressBar && hasDownloads;
   const footer = dots || footerDownloads ? PROFILE_DOTS_HEIGHT : 0;
   const nothingPinned = useNoTiles(windowId, current);
+  const rowLook = useSidebarRowLookSource();
 
   const sidebarHover = useSidebarHoverProps(windowId);
   useRevealTabs(windowId, scroll, scrollY, geometry);
@@ -75,31 +77,33 @@ export function Sidebar({ width }: { width: number }) {
             }}
             onLayout={(e) => setAvailable(e.nativeEvent.layout.height)}
           >
-            {pages.map((page) => (
-              <SidebarPage
-                key={page.id}
-                profileId={page.id}
-                slot={page.slot}
-                width={width}
-                current={page.id === current}
-                resting={!!page.resting}
-                docked={dockedPage(page.id)}
-                height={Math.max(0, available - (addressBar ? GLOW_ROOM : 0))}
-                rows={page.id === current ? undefined : Math.ceil(available / ROW_PITCH) + 1}
-                geometry={page.id === current ? geometry : undefined}
-                onListHeight={onListHeight}
-                onScrollView={(v) => {
-                  scroll.current = v;
-                  controller.scroll = v;
-                }}
-                onScrollY={(y) => {
-                  scrollY.current = y;
-                  controller.scrollY = y;
-                  dismissHover();
-                  closeFolderPanel();
-                }}
-              />
-            ))}
+            <SidebarRowLookContext.Provider value={rowLook}>
+              {pages.map((page) => (
+                <SidebarPage
+                  key={page.id}
+                  profileId={page.id}
+                  slot={page.slot}
+                  width={width}
+                  current={page.id === current}
+                  resting={!!page.resting}
+                  docked={dockedPage(page.id)}
+                  height={Math.max(0, available - (addressBar ? GLOW_ROOM : 0))}
+                  rows={page.id === current ? undefined : Math.ceil(available / ROW_PITCH) + 1}
+                  geometry={page.id === current ? geometry : undefined}
+                  onListHeight={onListHeight}
+                  onScrollView={(v) => {
+                    scroll.current = v;
+                    controller.scroll = v;
+                  }}
+                  onScrollY={(y) => {
+                    scrollY.current = y;
+                    controller.scrollY = y;
+                    dismissHover();
+                    closeFolderPanel();
+                  }}
+                />
+              ))}
+            </SidebarRowLookContext.Provider>
           </View>
 
           {footer ? (

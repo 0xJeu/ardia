@@ -21,8 +21,9 @@ import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { PressFeedback, usePressMotion } from "./PressFeedback";
 import { TabIcon } from "./TabIcon";
 import { TabBadges } from "../media/TabBadges";
-import { SELECTED_ROW_SHADOW_OFFSET, useSelectedTabGlow, useSidebarTokens } from "./tokens";
-import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
+import { SELECTED_ROW_SHADOW_OFFSET, useSidebarTokens } from "./tokens";
+import { useSelectedTabGlow, useSidebarRowLook } from "./rowLook";
+import { withShortcut } from "../../state/commands/commandShortcuts";
 import { modifiersOf } from "../../lib/keys";
 
 export const TabRowItem = memo(function TabRowItem({
@@ -61,7 +62,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]), usePressMotion(pressed));
   const backToPin = useHover();
   const closeControl = useTabCloseControlWhile(tabId, hovered && !renaming);
-  const backToPinHint = useShortcutHint("returnToPinnedUrl");
+  const { backToPinHint } = useSidebarRowLook();
   if (!tab) return null;
   const resettable = (isPinnedRow(tab) || !tab.pinned) && awayFromPin(tab);
   const resetting = resettable && backToPin.hovered && !renaming;
