@@ -174,3 +174,23 @@ test("⌃⇧⇞/⇟: a tab stays in its pin section, and a list tab never steps 
   S().moveTabBy(l2, -1);
   assert.equal(shape(w).indexOf("l2"), shape(w).indexOf("l1") - 1);
 });
+
+test("⌃⇧⇞/⇟: a pinned row steps over a pinned group beside it, one block at a time", () => {
+  reset();
+  const { w, ids: [r1, g, r2] } = windowWith("r1", "g", "r2", "l");
+  S().pinTabs([r1], true, true);
+  S().groupTabs([g], { pinned: true, name: "G" });
+  S().pinTabs([r2], true, true);
+  S().placeTabs([r1], { pinned: true, row: true, beforeId: g });
+  S().placeTabs([r2], { pinned: true, row: true, last: true });
+  const pinnedArea = () => shape(w).filter((h) => h !== "l");
+  assert.deepEqual(pinnedArea(), ["r1", "g{G}", "r2"]);
+  S().moveTabBy(r1, 1);
+  assert.deepEqual(pinnedArea(), ["g{G}", "r1", "r2"]);
+  S().moveTabBy(r1, 1);
+  assert.deepEqual(pinnedArea(), ["g{G}", "r2", "r1"]);
+  S().moveTabBy(r1, 1);
+  assert.deepEqual(pinnedArea(), ["g{G}", "r2", "r1"]);
+  S().moveTabBy(r2, -1);
+  assert.deepEqual(pinnedArea(), ["r2", "g{G}", "r1"]);
+});

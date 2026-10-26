@@ -117,7 +117,7 @@ export function stepDrop(s: BrowserState, tabId: string, delta: 1 | -1): Drop {
     const g = innermostGroupOf(s.groups, id);
     return g ? [g.id, ...ancestorIds(s.groups, g.id)] : [];
   };
-  const pinnedArea = (id: string) => !!s.tabs[id]?.pinned || !!s.groups[chainOf(id).at(-1) ?? ""]?.pinned;
+  const lane = (id: string) => (s.groups[chainOf(id).at(-1) ?? ""]?.pinned ? "row" : pinSection(s.tabs[id]));
   const container = innermostGroupOf(s.groups, tabId);
   const blockOf = (id: string): string | null => {
     const chain = chainOf(id);
@@ -130,7 +130,7 @@ export function stepDrop(s: BrowserState, tabId: string, delta: 1 | -1): Drop {
   const blocks: { key: string; ids: string[] }[] = [];
   for (const id of w.tabIds) {
     const t = s.tabs[id];
-    if (t?.profileId !== tab.profileId || pinSection(t) !== pinSection(tab) || pinnedArea(id) !== pinnedArea(tabId)) continue;
+    if (t?.profileId !== tab.profileId || lane(id) !== lane(tabId)) continue;
     const key = blockOf(id);
     if (key === null) continue;
     const last = blocks.at(-1);
@@ -140,7 +140,10 @@ export function stepDrop(s: BrowserState, tabId: string, delta: 1 | -1): Drop {
   const at = blocks.findIndex((b) => b.ids.includes(tabId));
   if (at < 0) return NO_DROP;
   const next = blocks[at + delta];
-  if (next) return tabsAt({ pinned: tab.pinned, groupId: container?.id ?? null, beforeId: delta < 0 ? next.ids[0]! : (blocks[at + 2]?.ids[0] ?? null) });
+  if (next) {
+    const beforeId = delta < 0 ? next.ids[0]! : (blocks[at + 2]?.ids[0] ?? null);
+    return tabsAt({ pinned: tab.pinned, groupId: container?.id ?? null, beforeId, ...(beforeId ? {} : { last: true }) });
+  }
   if (!container || (container.pinned && !container.parentId)) return NO_DROP;
   const parent = container.parentId ? s.groups[container.parentId] : undefined;
   const after = w.tabIds.slice(w.tabIds.indexOf(container.tabIds.at(-1)!) + 1).find((id) => !container.tabIds.includes(id) && (!parent || parent.tabIds.includes(id)));
