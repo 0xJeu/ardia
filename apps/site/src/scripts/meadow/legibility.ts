@@ -225,7 +225,7 @@ export class ColorProbe {
   readonly pixels: Uint8Array;
   private readonly texture: WebGLTexture;
   private readonly framebuffer: WebGLFramebuffer;
-  private readonly buffer: WebGLBuffer;
+  private buffer: WebGLBuffer | null = null;
   private readonly halfWidth: number;
   private readonly halfHeight: number;
   private sync: WebGLSync | null = null;
@@ -247,10 +247,6 @@ export class ColorProbe {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    this.buffer = gl.createBuffer()!;
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.buffer);
-    gl.bufferData(gl.PIXEL_PACK_BUFFER, this.pixels.byteLength, gl.STREAM_READ);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
   }
 
   get pending() {
@@ -266,7 +262,9 @@ export class ColorProbe {
     gl.bindTexture(gl.TEXTURE_2D, source);
     this.program.use().int("uSource", 0).vec2("uHalfSize", this.halfWidth, this.halfHeight).vec2("uProbeSize", this.width, this.height);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    this.buffer = gl.createBuffer()!;
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.buffer);
+    gl.bufferData(gl.PIXEL_PACK_BUFFER, this.pixels.byteLength, gl.STREAM_READ);
     gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -299,6 +297,8 @@ export class ColorProbe {
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.buffer);
     gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, this.pixels);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    gl.deleteBuffer(this.buffer);
+    this.buffer = null;
     return true;
   }
 
@@ -309,5 +309,6 @@ export class ColorProbe {
     gl.deleteTexture(this.texture);
     gl.deleteFramebuffer(this.framebuffer);
     gl.deleteBuffer(this.buffer);
+    this.buffer = null;
   }
 }
