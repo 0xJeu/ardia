@@ -1,10 +1,10 @@
-import { FileDropArea, type DroppedItem, type DropUpdate } from "@ardia/shell";
 import { fixupUrl } from "@ardia/core";
 import { forwardRef, useEffect, useRef, type ReactNode } from "react";
 import type { StyleProp, View, ViewStyle } from "react-native";
 import { currentWindow } from "../../state/browser/current";
 import { openDroppedUrls } from "../../state/drag/windowDrop";
 import type { TabPlacement } from "../../state/pins/organize";
+import { FileDropArea, type DroppedItem, type DropUpdate } from "../ui";
 
 export type DropPoint = [number, number];
 export type TabDropTarget = {

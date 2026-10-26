@@ -1,11 +1,12 @@
 import { AppRegistry, Text, View } from "react-native";
 import { answerWithSkew, openSkewWindow } from "../../platform/nativeApi";
+import { DEV_ERROR } from "./tokens";
 
 export function startSkewed(message: string) {
   console.error(`[ardia] ${message}`);
   AppRegistry.registerComponent("main", () => () => (
-    <View style={{ flex: 1, backgroundColor: "#1b1416", padding: 24, paddingTop: 48 }}>
-      <Text selectable style={{ color: "#ff8a8a", fontSize: 14, fontFamily: "Menlo" }}>
+    <View style={{ flex: 1, backgroundColor: DEV_ERROR.background, padding: 24, paddingTop: 48 }}>
+      <Text selectable style={{ color: DEV_ERROR.text, fontSize: DEV_ERROR.fontSize, fontFamily: DEV_ERROR.fontFamily }}>
         {message}
       </Text>
     </View>

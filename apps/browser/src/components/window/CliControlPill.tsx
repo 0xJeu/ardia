@@ -1,10 +1,9 @@
-import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { stopCliControl, useCliIndicator } from "../../state/app/cliControl";
-import { hex, useTheme } from "../ui/theme";
-import { useHover } from "../ui";
-import { curve } from "../ui/motion";
+import { useTheme } from "../ui/theme";
+import { font, Panel, space, Symbol, useHover, weight } from "../ui";
+import { CLI_PILL_MOTION, SHADOWS } from "./tokens";
 
 const PILL_HEIGHT = 32;
 const PILL_BOTTOM = 12;
@@ -36,14 +35,14 @@ function ShownCliControlPill({ shown, appearAtOnce, onHidden }: { shown: boolean
     const animation = Animated.timing(
       appear,
       shown
-        ? { toValue: 1, duration: 160, easing: curve.outCubic, useNativeDriver: true }
-        : { toValue: 0, duration: 200, easing: curve.inQuad, useNativeDriver: true },
+        ? { toValue: 1, ...CLI_PILL_MOTION.show, useNativeDriver: true }
+        : { toValue: 0, ...CLI_PILL_MOTION.hide, useNativeDriver: true },
     );
     animation.start(({ finished }) => finished && !shown && onHidden());
     return () => animation.stop();
   }, [shown]);
   return (
-    <View pointerEvents="box-none" style={{ position: "absolute", left: 12, right: 12, bottom: PILL_BOTTOM, alignItems: "center" }}>
+    <View pointerEvents="box-none" style={{ position: "absolute", left: space.l, right: space.l, bottom: PILL_BOTTOM, alignItems: "center" }}>
       <Animated.View
         pointerEvents={shown ? "auto" : "none"}
         style={{
@@ -52,31 +51,22 @@ function ShownCliControlPill({ shown, appearAtOnce, onHidden }: { shown: boolean
           transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }, { scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
         }}
       >
-        <Surface
-          fill={hex(theme.panel)}
-          cornerRadius={PILL_HEIGHT / 2}
-          borderColor={hex(theme.panelBorder)}
-          borderWidth={0.5}
-          shadowColor="#000000"
-          shadowOpacity={theme.panelShadowOpacity}
-          shadowRadius={14}
-          shadowOffset={[0, 4]}
-        >
+        <Panel fill={theme.panel} radius={PILL_HEIGHT / 2} border={theme.panelBorder} shadow={SHADOWS.cliPill}>
           <View
             accessibilityRole="alert"
             accessibilityLabel="The ardia command is controlling Ardia"
-            style={{ height: PILL_HEIGHT, flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 6, paddingRight: 4 }}
+            style={{ height: PILL_HEIGHT, flexDirection: "row", alignItems: "center", gap: space.m, paddingLeft: space.s, paddingRight: space.xs }}
           >
             <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: theme.textPrimary, alignItems: "center", justifyContent: "center" }}>
-              <Symbol name="terminal.fill" size={9} weight="bold" color={theme.dark ? "#000000" : "#FFFFFF"} style={{ width: 14, height: 14 }} />
+              <Symbol name="terminal.fill" size={9} weight="bold" color={theme.chipPrimaryText} style={{ width: 14, height: 14 }} />
             </View>
-            <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 12, color: theme.textSecondary }}>
-              <Text style={{ fontWeight: "600", color: theme.textPrimary }}>ardia</Text>
+            <Text numberOfLines={1} style={{ flexShrink: 1, ...font.small, color: theme.textSecondary }}>
+              <Text style={{ fontWeight: weight.semibold, color: theme.textPrimary }}>ardia</Text>
               {" is controlling Ardia"}
             </Text>
             <StopButton />
           </View>
-        </Surface>
+        </Panel>
       </Animated.View>
     </View>
   );
@@ -92,13 +82,13 @@ function StopButton() {
           <View
             style={{
               height: PILL_HEIGHT - 8,
-              paddingHorizontal: 10,
+              paddingHorizontal: space.ml,
               borderRadius: (PILL_HEIGHT - 8) / 2,
               justifyContent: "center",
               backgroundColor: pressed ? theme.toolbarPressed : hovered ? theme.toolbarHover : theme.urlPill,
             }}
           >
-            <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "500", color: theme.textPrimary }}>
+            <Text numberOfLines={1} style={{ ...font.small, fontWeight: weight.medium, color: theme.textPrimary }}>
               Stop
             </Text>
           </View>

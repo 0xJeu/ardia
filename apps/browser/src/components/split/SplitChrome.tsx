@@ -1,19 +1,18 @@
-import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
-import { hex, useTheme } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 import { withAlpha } from "../sidebar/tokens";
 import { updateSplit } from "../../state/splits/actions";
 import { useDragFallbackPane } from "../../state/splits/hooks";
 import type { SplitView } from "../../state/browser/types";
 import { resize, type Divider, type Rect } from "../window/geometry";
-import { useHover } from "../ui";
+import { font, Panel, radius, space, Symbol, useHover, VisualEffect, weight } from "../ui";
 import { hideToast, useToasts } from "../../state/splits/actions";
 import { useWindowId } from "../../state/browser/hooks";
 import { overPeek } from "../../state/windows/dockMotion";
 import { zoneHit, zoneRect, type ZoneStage } from "./splitDrop";
 import { setDropTarget, setOnPage, setTargetResolver, useTabDrag } from "../../state/drag/tabDrag";
-import { curve } from "../ui/motion";
+import { SPLIT_MOTION, SPLIT_SHADOWS, splitColors, ZONE_ACCENT_ALPHA, ZONE_DASH_RADIUS, ZONE_RADIUS, ZONE_SLIDE_MS } from "./tokens";
 
 export function SplitDividers({ split, dividers, width, height }: { split: SplitView; dividers: Divider[]; width: number; height: number }) {
   return (
@@ -81,7 +80,7 @@ function DividerHandle({ split, divider, width, height }: { split: SplitView; di
           width: vertical ? 4 : 36,
           height: vertical ? 36 : 4,
           borderRadius: 2,
-          backgroundColor: theme.dark ? "#FFFFFF" : "#000000",
+          backgroundColor: theme.mark,
           opacity: dragging ? 0.55 : active ? 0.32 : 0,
         }}
       />
@@ -165,8 +164,7 @@ export function DropTargets({ panes, origin }: { panes: Record<string, Rect>; or
   );
 }
 
-const ZONE_SLIDE_MS = 110;
-const ZONE_SPRING = { stiffness: 987, damping: 56.5, mass: 1, useNativeDriver: false } as const;
+const ZONE_SPRING = { ...SPLIT_MOTION.zoneSpring, useNativeDriver: false } as const;
 
 function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect; side: "left" | "right"; shown: boolean; stage: ZoneStage; pointerX: number; onHidden(): void }) {
   const theme = useTheme();
@@ -184,16 +182,17 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
     ]).start();
   }, [rect.x, rect.y, rect.width, rect.height]);
   useEffect(() => {
-    Animated.timing(glow, { toValue: active ? 1 : 0, duration: 120, easing: curve.outQuad, useNativeDriver: false }).start();
+    Animated.timing(glow, { toValue: active ? 1 : 0, ...SPLIT_MOTION.zoneGlow, useNativeDriver: false }).start();
   }, [active]);
   useEffect(() => {
-    Animated.timing(slide, { toValue: shown ? 1 : 0, duration: ZONE_SLIDE_MS, easing: shown ? curve.outCubic : curve.inQuad, useNativeDriver: false }).start(
+    Animated.timing(slide, { toValue: shown ? 1 : 0, ...(shown ? SPLIT_MOTION.zoneIn : SPLIT_MOTION.zoneOut), useNativeDriver: false }).start(
       ({ finished }) => finished && !shown && onHidden(),
     );
   }, [shown]);
   const away = side === "left" ? -(rect.x - pane.x + rect.width) : pane.x + pane.width - rect.x;
   const dark = theme.dark;
-  const rest = dark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)";
+  const colors = splitColors(dark);
+  const rest = colors.zoneRest;
   return (
     <Animated.View
       style={{
@@ -202,10 +201,10 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
         top: anim.y,
         width: anim.w,
         height: anim.h,
-        borderRadius: 20,
+        borderRadius: ZONE_RADIUS,
         borderWidth: 0.5,
-        borderColor: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-        backgroundColor: glow.interpolate({ inputRange: [0, 1], outputRange: [dark ? "rgba(255,236,214,0.04)" : "rgba(255,255,255,0.45)", withAlpha(theme.accent, dark ? 0.16 : 0.12)] }),
+        borderColor: colors.zoneBorder,
+        backgroundColor: glow.interpolate({ inputRange: [0, 1], outputRange: [colors.zoneFill, withAlpha(theme.accent, dark ? ZONE_ACCENT_ALPHA.dark : ZONE_ACCENT_ALPHA.light)] }),
         alignItems: "center",
         justifyContent: "center",
         transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [away, 0] }) }],
@@ -218,14 +217,14 @@ function DropZone({ pane, side, shown, stage, pointerX, onHidden }: { pane: Rect
           right: 9.5,
           top: 9.5,
           bottom: 9.5,
-          borderRadius: 11,
+          borderRadius: ZONE_DASH_RADIUS,
           borderStyle: "dashed",
           borderWidth: active ? 2.33 : 2,
-          borderColor: active ? theme.accent : dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+          borderColor: active ? theme.accent : colors.zoneDash,
         }}
       />
       <Symbol name={side === "left" ? "rectangle.lefthalf.filled" : "rectangle.righthalf.filled"} size={18} color={active ? theme.accent : rest} style={{ width: 24, height: 20 }} />
-      <Text style={{ marginTop: 11, fontSize: 13, fontWeight: "600", color: active ? theme.accent : rest }}>{side === "left" ? "Add left split" : "Add right split"}</Text>
+      <Text style={{ marginTop: 11, ...font.body, fontWeight: weight.semibold, color: active ? theme.accent : rest }}>{side === "left" ? "Add left split" : "Add right split"}</Text>
     </Animated.View>
   );
 }
@@ -238,7 +237,7 @@ export const SplitToast = memo(function SplitToast({ windowId }: { windowId: str
   useEffect(() => {
     if (toast) return setShown(toast);
     if (!shown) return;
-    Animated.timing(appear, { toValue: 0, duration: 220, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(appear, { toValue: 0, ...SPLIT_MOTION.toastOut, useNativeDriver: true }).start(({ finished }) => {
       if (finished) setShown(null);
     });
   }, [toast]);
@@ -246,10 +245,10 @@ export const SplitToast = memo(function SplitToast({ windowId }: { windowId: str
     if (!toast) return;
     setShown(toast);
     appear.setValue(0);
-    Animated.spring(appear, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 6 }).start();
+    Animated.spring(appear, { toValue: 1, useNativeDriver: true, ...SPLIT_MOTION.toastIn }).start();
     if (toast.sticky) return;
     const timer = setTimeout(() => {
-      Animated.timing(appear, { toValue: 0, duration: 220, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(appear, { toValue: 0, ...SPLIT_MOTION.toastOut, useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
         setShown(null);
         hideToast(windowId, toast.id);
@@ -258,25 +257,22 @@ export const SplitToast = memo(function SplitToast({ windowId }: { windowId: str
     return () => clearTimeout(timer);
   }, [toast?.id]);
   if (!shown) return null;
+  const toastColors = splitColors(theme.dark);
   return (
     <View pointerEvents={shown.action ? "box-none" : "none"} style={{ position: "absolute", left: 0, right: 0, bottom: 22, alignItems: "center" }}>
       <Animated.View style={{ opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }, { scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }}>
-        <Surface
-          fill={hex(theme.dark ? "rgba(44,42,43,0.9)" : "rgba(255,255,255,0.92)")}
-          cornerRadius={14}
-          borderColor={hex(theme.dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.1)")}
-          borderWidth={0.5}
-          shadowColor="#000000"
-          shadowOpacity={theme.dark ? 0.4 : 0.14}
-          shadowRadius={16}
-          shadowOffset={[0, 6]}
-          style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10, maxWidth: 420 }}
+        <Panel
+          fill={toastColors.toastFill}
+          radius={radius.sheet}
+          border={toastColors.toastBorder}
+          shadow={SPLIT_SHADOWS.toast}
+          style={{ paddingHorizontal: space.xl, paddingVertical: space.ml, flexDirection: "row", alignItems: "center", gap: space.ml, maxWidth: 420 }}
         >
-          <VisualEffect material="hudWindow" cornerRadius={14} style={StyleSheet.absoluteFill} />
+          <VisualEffect material="hudWindow" cornerRadius={radius.sheet} style={StyleSheet.absoluteFill} />
           <Symbol name={shown.icon ?? "rectangle.split.3x1"} size={15} color={theme.icon} style={{ width: 20, height: 20 }} />
           <View style={{ flexShrink: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>{shown.title}</Text>
-            {shown.message ? <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 1 }}>{shown.message}</Text> : null}
+            <Text style={{ ...font.body, fontWeight: weight.semibold, color: theme.textPrimary }}>{shown.title}</Text>
+            {shown.message ? <Text style={{ ...font.small, color: theme.textSecondary, marginTop: 1 }}>{shown.message}</Text> : null}
           </View>
           {shown.action ? (
             <ToastAction
@@ -288,7 +284,7 @@ export const SplitToast = memo(function SplitToast({ windowId }: { windowId: str
               }}
             />
           ) : null}
-        </Surface>
+        </Panel>
       </Animated.View>
     </View>
   );
@@ -300,8 +296,8 @@ function ToastAction({ title, onPress }: { title: string; onPress(): void }) {
   return (
     <Pressable {...hoverProps} onPress={onPress}>
       {({ pressed }) => (
-        <View style={{ height: 24, paddingHorizontal: 10, borderRadius: 7, justifyContent: "center", backgroundColor: pressed ? theme.toolbarPressed : hovered ? theme.toolbarHover : theme.urlPill }}>
-          <Text style={{ fontSize: 12, fontWeight: "500", color: theme.textPrimary }}>{title}</Text>
+        <View style={{ height: 24, paddingHorizontal: space.ml, borderRadius: radius.button, justifyContent: "center", backgroundColor: pressed ? theme.toolbarPressed : hovered ? theme.toolbarHover : theme.urlPill }}>
+          <Text style={{ ...font.small, fontWeight: weight.medium, color: theme.textPrimary }}>{title}</Text>
         </View>
       )}
     </Pressable>

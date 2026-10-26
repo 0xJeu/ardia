@@ -1,13 +1,13 @@
-import { Surface, Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { hex, useTheme } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 import { useTab } from "../../state/browser/hooks";
 import { navigate } from "../../state/tabs/actions";
 import { replaceSplitPane } from "../../state/splits/actions";
 import { useSplitSuggestions } from "../../state/splits/hooks";
 import { tabLabel } from "../../state/browser/model";
-import { useHover } from "../ui";
+import { font, Panel, space, Symbol, useHover, weight } from "../ui";
+import { EMPTY_STATE_RADIUS, SPLIT_ROW_RADIUS, SPLIT_SHADOWS, splitColors } from "./tokens";
 import { Favicon } from "../favicon/Favicon";
 
 export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: boolean }) {
@@ -20,23 +20,19 @@ export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: bo
   };
 
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <Surface
-        fill={hex(theme.dark ? "rgba(34,32,33,0.92)" : "rgba(255,255,255,0.92)")}
-        cornerRadius={16}
-        borderColor={hex(theme.ntpBarBorder)}
-        borderWidth={0.5}
-        shadowColor="#000000"
-        shadowOpacity={theme.dark ? 0.3 : 0.08}
-        shadowRadius={16}
-        shadowOffset={[0, 6]}
-        style={{ width: "100%", maxWidth: 420, paddingVertical: 10 }}
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl }}>
+      <Panel
+        fill={splitColors(theme.dark).emptyStateFill}
+        radius={EMPTY_STATE_RADIUS}
+        border={theme.ntpBarBorder}
+        shadow={SPLIT_SHADOWS.emptyState}
+        style={{ width: "100%", maxWidth: 420, paddingVertical: space.ml }}
       >
-        <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10 }}>
+        <Text style={{ ...font.body, fontWeight: weight.semibold, color: theme.textPrimary, paddingHorizontal: space.xl, paddingTop: space.xs, paddingBottom: space.ml }}>
           Add a tab to this Split View
         </Text>
         {typing ? (
-          <View style={{ height: 36, marginHorizontal: 6, paddingHorizontal: 10, borderRadius: 9, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: theme.rowHover }}>
+          <View style={{ height: 36, marginHorizontal: space.s, paddingHorizontal: space.ml, borderRadius: SPLIT_ROW_RADIUS, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: theme.rowHover }}>
             <Symbol name="magnifyingglass" size={13} color={theme.textSecondary} style={{ width: 16, height: 16 }} />
             <TextInput
               autoFocus
@@ -54,17 +50,17 @@ export function SplitEmptyState({ tabId, focused }: { tabId: string; focused: bo
                   setTyping(false);
                 }
               }}
-              style={{ flex: 1, fontSize: 14, color: theme.textPrimary, paddingVertical: 0 }}
+              style={{ flex: 1, ...font.title, color: theme.textPrimary, paddingVertical: 0 }}
             />
           </View>
         ) : (
           <Row icon={<Symbol name="magnifyingglass" size={13} color={theme.textSecondary} style={{ width: 16, height: 16 }} />} label="Search or Ask a Question" secondary onPress={() => setTyping(true)} />
         )}
-        {suggestions.length > 0 && <View style={{ height: 6 }} />}
+        {suggestions.length > 0 && <View style={{ height: space.s }} />}
         {suggestions.map((id) => (
           <Suggestion key={id} tabId={id} onPress={() => replaceSplitPane(tabId, id)} />
         ))}
-      </Surface>
+      </Panel>
     </View>
   );
 }
@@ -85,9 +81,9 @@ function Row({ icon, label, detail, secondary, onPress }: { icon: React.ReactNod
           <View
             style={{
               height: 36,
-              marginHorizontal: 6,
-              paddingHorizontal: 10,
-              borderRadius: 9,
+              marginHorizontal: space.s,
+              paddingHorizontal: space.ml,
+              borderRadius: SPLIT_ROW_RADIUS,
               flexDirection: "row",
               alignItems: "center",
               gap: 9,
@@ -95,7 +91,7 @@ function Row({ icon, label, detail, secondary, onPress }: { icon: React.ReactNod
             }}
           >
             {icon}
-            <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, color: secondary ? theme.textSecondary : theme.textPrimary }}>
+            <Text numberOfLines={1} style={{ flexShrink: 1, ...font.body, color: secondary ? theme.textSecondary : theme.textPrimary }}>
               {label}
               {detail ? <Text style={{ color: theme.textTertiary }}>{`  ${detail}`}</Text> : null}
             </Text>

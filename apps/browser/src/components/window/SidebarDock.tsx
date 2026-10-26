@@ -1,9 +1,11 @@
-import { onWindowEvent, setTrafficLightsCenter, Surface, watchLeftEdge, WindowDragRegion } from "@ardia/shell";
+import { onWindowEvent, setTrafficLightsCenter, watchLeftEdge } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 import { switchOn } from "../../platform/killSwitches";
-import { hex, layout, useTheme } from "../ui/theme";
+import { layout, useTheme } from "../ui/theme";
 import { spring, curve } from "../ui/motion";
+import { Panel, WindowDragRegion } from "../ui";
+import { SHADOWS } from "./tokens";
 import { useWindowId } from "../../state/browser/hooks";
 import { useSidebarDockState } from "../../state/windows/hooks";
 import { Sidebar } from "../sidebar/Sidebar";
@@ -297,17 +299,7 @@ function SidebarDock({
             pointerEvents="none"
             style={[StyleSheet.absoluteFill, peekStyle, { opacity: panelOpacity }]}
           >
-            <Surface
-              fill={hex(theme.windowTint[0])}
-              cornerRadius={PEEK_RADIUS}
-              borderColor={hex(theme.panelBorder)}
-              borderWidth={0.5}
-              shadowColor="#000000"
-              shadowOpacity={theme.panelShadowOpacity}
-              shadowRadius={20}
-              shadowOffset={[0, 6]}
-              style={StyleSheet.absoluteFill}
-            />
+            <Panel fill={theme.windowTint[0]} radius={PEEK_RADIUS} border={theme.panelBorder} shadow={SHADOWS.sidebarPeek} style={StyleSheet.absoluteFill} />
           </Animated.View>
         )}
         <Animated.View style={[{ flex: 1 }, peekStyle, peeking ? { borderRadius: PEEK_RADIUS, overflow: "hidden" } : null]}>

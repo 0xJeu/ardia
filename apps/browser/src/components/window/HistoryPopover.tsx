@@ -1,11 +1,10 @@
-import { MouseArea, Symbol } from "@ardia/shell";
 import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useTab } from "../../state/browser/hooks";
 import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { openInternalPage } from "../../state/pages/urls";
-import { MenuSeparator, PANEL, Popover, POPOVER_MARGIN, useHover } from "../ui";
+import { font, MenuRow, menuRowFill, MenuSeparator, MouseArea, PANEL, Popover, POPOVER_MARGIN, useHover } from "../ui";
 import { Favicon, NewTabIcon } from "../favicon/Favicon";
 import { modifiersOf } from "../../lib/keys";
 import { closeHistoryMenu, closeHistoryMenuOf, goToHistoryItem, historyFavicons, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
@@ -40,7 +39,7 @@ export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; wi
           <Row key={item.key} item={item} favicon={favicons.get(item.url) ?? null} onOpen={(e) => open(item, e)} />
         ))}
         <MenuSeparator />
-        <ActionRow
+        <MenuRow
           icon="clock"
           title="Show Full History"
           onPress={() => {
@@ -65,7 +64,7 @@ function RowFrame({ children, hovered, pressed }: { children: React.ReactNode; h
         flexDirection: "row",
         alignItems: "center",
         gap: PANEL.iconGap,
-        backgroundColor: pressed || hovered ? (theme.dark ? `rgba(255,255,255,${pressed ? 0.12 : 0.07})` : `rgba(0,0,0,${pressed ? 0.1 : 0.06})`) : undefined,
+        backgroundColor: pressed || hovered ? menuRowFill(theme, pressed) : undefined,
       }}
     >
       {children}
@@ -91,32 +90,13 @@ function Row({
           {({ pressed }) => (
             <RowFrame hovered={hovered} pressed={pressed}>
               <View style={{ width: PANEL.iconSlot, alignItems: "center" }}>{item.offset === "newTab" ? <NewTabIcon size={16} /> : <Favicon url={item.url} favicon={favicon} size={16} />}</View>
-              <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
+              <Text numberOfLines={1} style={{ flex: 1, ...font.body, color: theme.textPrimary }}>
                 {item.title}
               </Text>
             </RowFrame>
           )}
         </Pressable>
       </MouseArea>
-    </View>
-  );
-}
-
-function ActionRow({ icon, title, onPress }: { icon: string; title: string; onPress: () => void }) {
-  const theme = useTheme();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress}>
-        {({ pressed }) => (
-          <RowFrame hovered={hovered} pressed={pressed}>
-            <Symbol name={icon} size={PANEL.iconSize} color={theme.icon} style={{ width: PANEL.iconSlot, height: PANEL.iconSlot }} />
-            <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
-              {title}
-            </Text>
-          </RowFrame>
-        )}
-      </Pressable>
     </View>
   );
 }

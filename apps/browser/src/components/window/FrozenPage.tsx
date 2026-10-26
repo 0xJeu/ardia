@@ -1,12 +1,10 @@
 import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
+import { windowColors } from "./tokens";
 import { useTab } from "../../state/browser/hooks";
 import { activate } from "../../state/tabs/actions";
 import { notePainted, startPinHandoff, useFrozenPages } from "../../state/pins/pinHandoff";
-
-const LIGHT_WASH = "rgba(255,255,255,0.4)";
-const DARK_WASH = "rgba(0,0,0,0.25)";
 
 export function FrozenPage({ windowId, tabId, top }: { windowId: string; tabId: string | undefined; top: number }) {
   const theme = useTheme();
@@ -25,7 +23,7 @@ export function FrozenPage({ windowId, tabId, top }: { windowId: string; tabId: 
       style={[StyleSheet.absoluteFill, { top }]}
     >
       {uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" onLoad={() => notePainted(windowId)} />}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? DARK_WASH : LIGHT_WASH }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: windowColors(theme.dark).frozenWash }]} />
     </Pressable>
   );
 }

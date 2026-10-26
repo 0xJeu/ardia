@@ -1,26 +1,25 @@
 import { toAppUrl, urlForDisplay } from "@ardia/core";
-import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { hex, useTheme } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
-import { Button } from "../ui";
+import { Button, font, Panel, radius, space, Symbol, weight } from "../ui";
 import { patchPage, usePage } from "../../state/tabs/pageState";
-import { curve } from "../ui/motion";
+import { SAD_TAB_TITLE_SIZE, SHADOWS, STATUS_MOTION, windowColors } from "./tokens";
 
 export function StatusBubble({ tabId, maxWidth }: { tabId: string; maxWidth: number }) {
-  const theme = useTheme();
+  const colors = windowColors(useTheme().dark);
   const status = usePage(tabId, (p) => p.status);
   const [shown, setShown] = useState(status);
   const opacity = useRef(new Animated.Value(status ? 1 : 0)).current;
   useEffect(() => {
     if (status) {
       setShown(status);
-      Animated.timing(opacity, { toValue: 1, duration: 90, easing: curve.outQuad, useNativeDriver: true }).start();
+      Animated.timing(opacity, { toValue: 1, ...STATUS_MOTION.show, useNativeDriver: true }).start();
       return;
     }
     const timer = setTimeout(() => {
-      Animated.timing(opacity, { toValue: 0, duration: 220, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(opacity, { toValue: 0, ...STATUS_MOTION.hide, useNativeDriver: true }).start(({ finished }) => {
         if (finished) setShown("");
       });
     }, 180);
@@ -28,22 +27,12 @@ export function StatusBubble({ tabId, maxWidth }: { tabId: string; maxWidth: num
   }, [status]);
   if (!shown) return null;
   return (
-    <Animated.View pointerEvents="none" style={{ position: "absolute", left: 6, bottom: 6, maxWidth, opacity }}>
-      <Surface
-        fill={hex(theme.dark ? "rgba(40,38,39,0.96)" : "rgba(250,249,250,0.97)")}
-        cornerRadius={7}
-        borderColor={hex(theme.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)")}
-        borderWidth={0.5}
-        shadowColor="#000000"
-        shadowOpacity={theme.dark ? 0.3 : 0.1}
-        shadowRadius={6}
-        shadowOffset={[0, 2]}
-        style={{ paddingHorizontal: 8, height: 22, justifyContent: "center" }}
-      >
-        <Text numberOfLines={1} ellipsizeMode="middle" style={{ fontSize: 12, color: theme.dark ? "#FFFFFFD9" : "#000000C7" }}>
+    <Animated.View pointerEvents="none" style={{ position: "absolute", left: space.s, bottom: space.s, maxWidth, opacity }}>
+      <Panel fill={colors.statusFill} radius={radius.button} border={colors.statusBorder} shadow={SHADOWS.status} style={{ paddingHorizontal: space.m, height: 22, justifyContent: "center" }}>
+        <Text numberOfLines={1} ellipsizeMode="middle" style={{ ...font.small, color: colors.statusText }}>
           {displayUrl(shown)}
         </Text>
-      </Surface>
+      </Panel>
     </Animated.View>
   );
 }
@@ -58,14 +47,15 @@ function displayUrl(url: string) {
 
 export function SadTab({ tabId }: { tabId: string }) {
   const theme = useTheme();
+  const colors = windowColors(theme.dark);
   const crashed = usePage(tabId, (p) => !!p.crashed);
   const unresponsive = usePage(tabId, (p) => p.unresponsive);
   if (crashed) {
     return (
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "#1C1A1B" : "#F6F5F6", alignItems: "center", justifyContent: "center", padding: 24 }]}>
-        <Symbol name="exclamationmark.triangle" size={30} weight="light" color={theme.textSecondary} style={{ width: 44, height: 40, marginBottom: 14 }} />
-        <Text style={{ fontSize: 17, fontWeight: "600", color: theme.textPrimary, marginBottom: 6 }}>This tab needs to reload</Text>
-        <Text style={{ fontSize: 13, color: theme.textSecondary, textAlign: "center", maxWidth: 340, marginBottom: 18 }}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.crashedBackground, alignItems: "center", justifyContent: "center", padding: space.xxxl }]}>
+        <Symbol name="exclamationmark.triangle" size={30} weight="light" color={theme.textSecondary} style={{ width: 44, height: 40, marginBottom: space.lx }} />
+        <Text style={{ fontSize: SAD_TAB_TITLE_SIZE, fontWeight: weight.semibold, color: theme.textPrimary, marginBottom: space.s }}>This tab needs to reload</Text>
+        <Text style={{ ...font.body, color: theme.textSecondary, textAlign: "center", maxWidth: 340, marginBottom: space.xlx }}>
           Something went wrong with this tab. Reloading often fixes it.
         </Text>
         <Button variant="pill"
@@ -81,21 +71,11 @@ export function SadTab({ tabId }: { tabId: string }) {
   }
   if (!unresponsive) return null;
   return (
-    <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", backgroundColor: theme.dark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.12)" }]}>
-      <Surface
-        fill={hex(theme.panel)}
-        cornerRadius={14}
-        borderColor={hex(theme.panelBorder)}
-        borderWidth={0.5}
-        shadowColor="#000000"
-        shadowOpacity={theme.panelShadowOpacity}
-        shadowRadius={20}
-        shadowOffset={[0, 8]}
-        style={{ width: 320, padding: 18, gap: 6 }}
-      >
-        <Text style={{ fontSize: 14, fontWeight: "600", color: theme.textPrimary }}>Page Unresponsive</Text>
-        <Text style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 10 }}>You can wait for it to become responsive or exit the page.</Text>
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+    <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", backgroundColor: colors.unresponsiveScrim }]}>
+      <Panel fill={theme.panel} radius={radius.sheet} border={theme.panelBorder} shadow={SHADOWS.unresponsive} style={{ width: 320, padding: space.xlx, gap: space.s }}>
+        <Text style={{ ...font.title, fontWeight: weight.semibold, color: theme.textPrimary }}>Page Unresponsive</Text>
+        <Text style={{ ...font.small, color: theme.textSecondary, marginBottom: space.ml }}>You can wait for it to become responsive or exit the page.</Text>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: space.m }}>
           <Button variant="pill"
             title="Exit Page"
             onPress={() => {
@@ -112,7 +92,7 @@ export function SadTab({ tabId }: { tabId: string }) {
             }}
           />
         </View>
-      </Surface>
+      </Panel>
     </View>
   );
 }

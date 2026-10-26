@@ -1,9 +1,10 @@
 import { SwipeArea, swipeHaptic, type SwipeAreaHandle, type SwipeEvent } from "@ardia/ardiacore";
-import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { spring as springOf, curve } from "../ui/motion";
+import { spring as springOf } from "../ui/motion";
+import { font, radius, space, Surface, Symbol, VisualEffect } from "../ui";
+import { SHADOWS, SWIPE_CONFIRMED_WASH, SWIPE_MOTION, windowColors } from "./tokens";
 import { useTab } from "../../state/browser/hooks";
 import { Favicon, NewTabIcon } from "../favicon/Favicon";
 import { HistoryPopover } from "./HistoryPopover";
@@ -19,17 +20,15 @@ import {
   swipeProgress,
 } from "./swipeMotion";
 
-
 const SIZE = CAPSULE_SIZE;
 const SIZE_CONFIRMED = CAPSULE_SIZE_CONFIRMED;
 const ICON = 28;
 const ICON_CONFIRMED = 34;
 const LIST_WIDTH = 200;
 const ROW = LIST_ROW;
-const LIST_PAD = 8;
+const LIST_PAD = space.m;
 const LIST_RADIUS = 18;
 const LIST_IDLE_MS = 300;
-const EASE = curve.fade;
 
 export function spring(value: Animated.Value, toValue: number, response: number, dampingRatio: number, native = false) {
   return Animated.spring(value, { toValue, ...springOf({ response, damping: dampingRatio }), useNativeDriver: native });
@@ -48,6 +47,7 @@ type Shown = { direction: "back" | "forward"; confirmed: boolean; list: HistoryI
 
 export function SwipeOverlay({ tabId }: { tabId: string }) {
   const theme = useTheme();
+  const colors = windowColors(theme.dark);
   const history = useHistoryAvailability(tabId);
   const sizeRef = useRef({ width: 0, height: 0 });
   const [shown, setShown] = useState<Shown | null>(null);
@@ -118,7 +118,7 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
       layoutTo(s, s, height / 2 - s / 2, s / 2, 0.18, 0.7);
       spring(v.icon, confirmed ? ICON_CONFIRMED / ICON : 1, 0.18, 0.7, true).start();
     }
-    Animated.timing(v.confirm, { toValue: confirmed ? 1 : 0, duration: 180, easing: EASE, useNativeDriver: true }).start();
+    Animated.timing(v.confirm, { toValue: confirmed ? 1 : 0, ...SWIPE_MOTION.confirm, useNativeDriver: true }).start();
     setShown((s) => (s ? { ...s, confirmed } : s));
   };
 
@@ -134,7 +134,7 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
     g.listY = lastDy.current;
     swipeHaptic("generic");
     layoutTo(LIST_WIDTH, list.length * ROW + LIST_PAD * 2, height / 2 - LIST_PAD - ROW / 2, LIST_RADIUS, 0.22, 0.77);
-    Animated.timing(v.list, { toValue: 1, duration: 220, easing: EASE, useNativeDriver: true }).start();
+    Animated.timing(v.list, { toValue: 1, ...SWIPE_MOTION.list, useNativeDriver: true }).start();
     setShown((s) => (s ? { ...s, list, selected: 0 } : s));
   };
 
@@ -152,8 +152,8 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
     clearTimeout(g.idle);
     g.active = false;
     Animated.parallel([
-      Animated.timing(v.fade, { toValue: 0, duration: 200, delay, easing: curve.inEase, useNativeDriver: true }),
-      Animated.timing(v.scale, { toValue: 0.01, duration: 200, delay, easing: curve.inEase, useNativeDriver: true }),
+      Animated.timing(v.fade, { toValue: 0, ...SWIPE_MOTION.dismiss, delay, useNativeDriver: true }),
+      Animated.timing(v.scale, { toValue: 0.01, ...SWIPE_MOTION.dismiss, delay, useNativeDriver: true }),
     ]).start(({ finished }) => finished && setShown(null));
   };
 
@@ -226,17 +226,17 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
             <Surface
               style={StyleSheet.absoluteFill}
               cornerRadius={shown.list ? LIST_RADIUS : (shown.confirmed ? SIZE_CONFIRMED : SIZE) / 2}
-              shadowColor="#000000"
-              shadowOpacity={theme.dark ? 0.25 : 0.2}
-              shadowRadius={8}
-              shadowOffset={[0, 2]}
+              shadowColor={SHADOWS.swipe.color}
+              shadowOpacity={theme.dark ? SHADOWS.swipe.opacity.dark : SHADOWS.swipe.opacity.light}
+              shadowRadius={SHADOWS.swipe.radius}
+              shadowOffset={SHADOWS.swipe.offset}
             />
             <Animated.View style={{ ...StyleSheet.absoluteFillObject, borderRadius: v.radius, overflow: "hidden" }}>
               <VisualEffect material="popover" style={StyleSheet.absoluteFill} />
-              {!theme.dark && <Animated.View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.4)", opacity: v.confirm }} />}
+              {!theme.dark && <Animated.View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: SWIPE_CONFIRMED_WASH, opacity: v.confirm }} />}
               <Animated.View style={{ ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", opacity: iconOpacity }}>
                 <Animated.View style={{ transform: [{ scale: v.icon }] }}>
-                  <Symbol name={back ? "chevron.left" : "chevron.right"} size={ICON} weight="bold" color={theme.dark ? "#FFFFFFD9" : "#000000D9"} style={{ width: ICON + 6, height: ICON + 6 }} />
+                  <Symbol name={back ? "chevron.left" : "chevron.right"} size={ICON} weight="bold" color={colors.swipeChevron} style={{ width: ICON + 6, height: ICON + 6 }} />
                 </Animated.View>
               </Animated.View>
               {shown.list && <DestinationList tabId={tabId} items={shown.list} selected={shown.selected} appear={v.list} pill={v.pill} />}
@@ -246,7 +246,7 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
                 ...StyleSheet.absoluteFillObject,
                 borderRadius: v.radius,
                 borderWidth: 1,
-                borderColor: theme.dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.125)",
+                borderColor: colors.swipeRim,
               }}
             />
           </Animated.View>
@@ -275,21 +275,21 @@ function DestinationList({ tabId, items, selected, appear, pill }: { tabId: stri
       <Animated.View
         style={{
           position: "absolute",
-          left: 8,
-          right: 8,
+          left: space.m,
+          right: space.m,
           top: LIST_PAD,
           height: ROW,
-          borderRadius: 10,
-          backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+          borderRadius: radius.card,
+          backgroundColor: windowColors(theme.dark).swipeSelection,
           transform: [{ translateY: pill }],
         }}
       />
       {items.map((item, i) => (
-        <View key={item.key} style={{ height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 18, gap: 10 }}>
-          <View style={{ width: 16, height: 16, borderRadius: 4, overflow: "hidden" }}>
+        <View key={item.key} style={{ height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: space.xlx, gap: space.ml }}>
+          <View style={{ width: 16, height: 16, borderRadius: radius.s, overflow: "hidden" }}>
             {item.offset === "newTab" ? <NewTabIcon size={16} /> : <Favicon url={item.url} favicon={favicons.get(item.url) ?? null} size={16} />}
           </View>
-          <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: i === selected ? theme.textPrimary : theme.textSecondary }}>
+          <Text numberOfLines={1} style={{ flex: 1, ...font.body, color: i === selected ? theme.textPrimary : theme.textSecondary }}>
             {item.title}
           </Text>
         </View>
