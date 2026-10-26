@@ -11,7 +11,7 @@ const shims = here("./src/shims/");
 const reactNativeWeb = dirname(createRequire(import.meta.url).resolve("react-native-web/package.json"));
 
 const realPackages: Record<string, string> = {
-  shell: `${repo}packages/shell/src/index.ts`,
+  shell: `${repo}packages/shell/src/index.tsx`,
   ardiacore: `${repo}packages/ardiacore/src/index.ts`,
   shaders: `${repo}packages/shaders/src/index.tsx`,
   sync: `${repo}packages/sync/src/index.ts`,
