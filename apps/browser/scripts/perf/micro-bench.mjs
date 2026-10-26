@@ -7,7 +7,7 @@ const strip = await import("../../src/state/tabs/topStrip.ts");
 await import("../../src/test-native/index.ts");
 const core = await import("../../../../packages/core/src/index.ts");
 const { buildSeed } = await import("./seed.mjs");
-const { knownHosts } = await import("../../src/components/omnibox/knownHosts.ts");
+const { knownHosts } = await import("../../src/state/omnibox/knownHosts.ts");
 const { readFileSync } = await import("node:fs");
 const { countOps } = await import("./ops.mjs");
 
