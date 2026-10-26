@@ -365,15 +365,11 @@ too (both download links, the "Download Ardia <version>" labels and the "<size> 
 
 **Bring the landing page's claims up to date.** The home page makes specific promises; a release can make
 one of them stale or earn a new one. Read the new notes against:
-- `apps/site/src/data/features.ts`: the features, each with its screenshots (`features` and `duo`);
 - `Faq.astro` (Q&A), `Hero.astro` and `Closing.astro` (the fine print: macOS version, Apple Silicon,
   Notarized), and `Footer.astro`.
 
 Then:
 - **Something the page claims changed** (a new import source, a new requirement): fix the line.
-- **A headline feature isn't on the page:** add it to `features` with a screenshot, in the page's voice: short,
-  plain, dry, and literally true. A light outdoor touch is fine where it lands; most lines need none. The
-  numbering updates itself.
 - **Bug fixes and small changes:** leave the page alone.
 - **Never claim anything the release doesn't do.** Anything unverified or behind a setting says so.
 
@@ -393,8 +389,7 @@ app (listed in `apps/site/README.md` › Screenshots):
 
 - **When:** if the release visibly changes something a shot shows (the sidebar, the tiles, the New Tab page,
   the logo or mark, the icon, a Settings pane, the window chrome), retake the affected shots from **this
-  release's export** (`dist/<version>/export/Ardia.app`). A new page or feature that earned a place
-  in `features` may also need a new shot.
+  release's export** (`dist/<version>/export/Ardia.app`).
 - **How:** use a hidden instance with the smoke test's rules (`ARDIA_BACKGROUND=1`, a throwaway
   `ARDIA_DATA_DIR`, never plain `open`, never `/Applications`).
   - Set up the same state as the old shot (the same sites, profiles, light or dark).
@@ -402,7 +397,7 @@ app (listed in `apps/site/README.md` › Screenshots):
 - **Screen locked:** WindowServer captures fail. Leave the old shot, and tell the user which shots are stale.
   An in-process snapshot is not a substitute: it drops glass and Metal views.
 - **Replace in place:** save the new capture over the file with the same name, since Astro makes the sizes.
-  Update the shot's `alt` text if what it shows changed, and check its phone crop (`focus` in `data/features.ts`).
+  Update the shot's `alt` text if what it shows changed, and check its phone crop (`focus` where the shot is used).
 - **Don't touch the rest:** leave the painted logo (`ardia-mark.png`, from `docs/brand/ardia`) alone unless
   the brand changed.
 
