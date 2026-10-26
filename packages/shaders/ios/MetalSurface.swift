@@ -136,7 +136,7 @@ using namespace metal;
 
 struct FullscreenOut {
   float4 position [[position]];
-  float2 uv; // (0,0) = top-left
+  float2 uv;
 };
 
 vertex FullscreenOut fullscreenVertex(uint vid [[vertex_id]]) {

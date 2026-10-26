@@ -204,8 +204,6 @@
     "packages/ardiacore/ios/ArdiaWebView+ContextMenu.mm": 2
   },
   "comments": {
-    "packages/shaders/ios/MetalSurface.swift": 1,
-    "packages/shaders/ios/PowerUpView.swift": 36,
     "packages/shaders/ios/WindowBackdropView.swift": 6
   },
   "file-names": {}
