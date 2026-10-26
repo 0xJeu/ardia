@@ -1,9 +1,10 @@
-import { Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { cancelChooser, chooseDevice, openChooserBluetoothSettings, rescanDevices, useDeviceChooser } from "../../state/site/deviceChoosers";
-import { Button, PANEL, Popover, useHover } from "../ui";
+import { Button, PANEL, Popover, Symbol, Text, useHover } from "../ui";
+import { IconTile } from "./PromptParts";
+import { noticeType, UNAVAILABLE_OPACITY, useSiteTokens } from "./tokens";
 
 function Signal({ level, color }: { level: number; color: string }) {
   return (
@@ -17,6 +18,7 @@ function Signal({ level, color }: { level: number; color: string }) {
 
 function OptionRow({ name, detail, signal, selected, onSelect, onChoose }: { name: string; detail: string | null; signal: number; selected: boolean; onSelect(): void; onChoose(): void }) {
   const theme = useTheme();
+  const site = useSiteTokens();
   const { hovered, hoverProps } = useHover();
   return (
     <View {...hoverProps} onDoubleClick={onChoose}>
@@ -29,14 +31,18 @@ function OptionRow({ name, detail, signal, selected, onSelect, onChoose }: { nam
             flexDirection: "row",
             alignItems: "center",
             gap: PANEL.iconGap,
-            backgroundColor: selected ? (theme.dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.08)") : hovered ? theme.rowHover : undefined,
+            backgroundColor: selected ? site.optionSelected : hovered ? theme.rowHover : undefined,
           }}
         >
           {signal >= 0 ? <Signal level={signal} color={theme.icon} /> : null}
-          <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13, color: theme.textPrimary }}>
+          <Text lines={1} style={{ flexShrink: 1 }}>
             {name}
           </Text>
-          {detail ? <Text style={{ fontSize: 11.5, color: theme.textSecondary }}>{detail}</Text> : null}
+          {detail ? (
+            <Text size="footnote" tone="textSecondary">
+              {detail}
+            </Text>
+          ) : null}
           <View style={{ flex: 1 }} />
           {selected ? <Symbol name="checkmark" size={11} weight="semibold" color={theme.accent} style={{ width: 16, height: 16 }} /> : null}
         </View>
@@ -46,7 +52,6 @@ function OptionRow({ name, detail, signal, selected, onSelect, onChoose }: { nam
 }
 
 export function DeviceChooser({ tabId, left, top }: { tabId: string; left: number; top: number }) {
-  const theme = useTheme();
   const chooser = useDeviceChooser(tabId);
   const [selected, setSelected] = useState<number | null>(null);
   useEffect(() => setSelected(null), [chooser?.id]);
@@ -94,11 +99,17 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
           {chooser.refreshing ? (
             <>
               <ActivityIndicator size="small" style={{ transform: [{ scale: 0.6 }], width: 14, height: 14 }} />
-              <Text style={{ fontSize: 12, color: theme.textSecondary }}>{chooser.scanningText}</Text>
+              <Text size="small" tone="textSecondary">
+                {chooser.scanningText}
+              </Text>
             </>
           ) : (
             <>
-              {!chooser.options.length ? <Text style={{ fontSize: 12, color: theme.textSecondary }}>{chooser.noOptionsText}</Text> : null}
+              {!chooser.options.length ? (
+                <Text size="small" tone="textSecondary">
+                  {chooser.noOptionsText}
+                </Text>
+              ) : null}
               {chooser.canRefresh ? <TextLink title="Scan Again" onPress={() => rescanDevices(chooser.id)} /> : null}
             </>
           )}
@@ -117,15 +128,15 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
         style={{ padding: PANEL.inset, gap: 10 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
-          <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}>
-            <Symbol name={chooser.showSignal || scanning ? "dot.radiowaves.left.and.right" : "cable.connector"} size={14} color={theme.icon} style={{ width: 20, height: 20 }} />
-          </View>
-          <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>{chooser.title}</Text>
+          <IconTile icon={chooser.showSignal || scanning ? "dot.radiowaves.left.and.right" : "cable.connector"} />
+          <Text weight="semibold" style={{ flex: 1 }}>
+            {chooser.title}
+          </Text>
         </View>
         {body}
         <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
           <Button variant="pill" title={chooser.cancelLabel || "Cancel"} onPress={cancel} />
-          <View pointerEvents={valid && !blocked ? "auto" : "none"} style={{ opacity: valid && !blocked ? 1 : 0.4 }}>
+          <View pointerEvents={valid && !blocked ? "auto" : "none"} style={{ opacity: valid && !blocked ? 1 : UNAVAILABLE_OPACITY }}>
             <Button variant="pill" title={chooser.okLabel || "Connect"} primary onPress={() => choose()} />
           </View>
         </View>
@@ -140,7 +151,9 @@ function Notice({ icon, text, link, onLink }: { icon: string; text: string; link
     <View style={{ flexDirection: "row", gap: 9, paddingVertical: 6 }}>
       <Symbol name={icon} size={13} color={theme.textSecondary} style={{ width: 18, height: 18 }} />
       <View style={{ flex: 1, gap: 4 }}>
-        <Text style={{ fontSize: 12.5, color: theme.textSecondary }}>{text}</Text>
+        <Text tone="textSecondary" style={noticeType}>
+          {text}
+        </Text>
         {link && onLink ? <TextLink title={link} onPress={onLink} /> : null}
       </View>
     </View>
@@ -148,12 +161,13 @@ function Notice({ icon, text, link, onLink }: { icon: string; text: string; link
 }
 
 function TextLink({ title, onPress }: { title: string; onPress: () => void }) {
-  const theme = useTheme();
   const { hovered, hoverProps } = useHover();
   return (
     <View {...hoverProps}>
       <Pressable onPress={onPress}>
-        <Text style={{ fontSize: 12, fontWeight: "500", color: theme.accent, textDecorationLine: hovered ? "underline" : "none" }}>{title}</Text>
+        <Text size="small" weight="medium" tone="accent" style={{ textDecorationLine: hovered ? "underline" : "none" }}>
+          {title}
+        </Text>
       </Pressable>
     </View>
   );

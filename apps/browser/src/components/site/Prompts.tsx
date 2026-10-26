@@ -1,15 +1,16 @@
 import { getSiteSettings, resolveExternalApp, setSiteSetting, type AutofillPrompt as ChromeAutofillPrompt, type AutofillPromptAnswer, type PasswordPrompt as ChromePasswordPrompt, type PasswordPromptAnswer } from "@ardia/ardiacore";
-import { Symbol } from "@ardia/shell";
 import { useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { currentTab } from "../../state/browser/current";
 import { engineProfile } from "../../state/browser/model";
-import { Button, Checkbox, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, useHover } from "../ui";
+import { Button, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, Symbol, Text, useHover } from "../ui";
 import { patchPage, pageOf, setPopover, usePage } from "../../state/tabs/pageState";
 import { answerPermission, describePermission } from "../../state/site/permissions";
 import { hostOrOrigin } from "../../lib/url";
+import { CheckRow, IconTile } from "./PromptParts";
+import { useSiteTokens } from "./tokens";
 
 export function PromptBody({
   icons,
@@ -26,20 +27,21 @@ export function PromptBody({
   detail?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const theme = useTheme();
   return (
     <View style={{ padding: PANEL.inset, gap: 10 }}>
       <View style={{ flexDirection: "row", gap: 6 }}>
         {image ? <Image source={{ uri: image }} style={{ width: 32, height: 32, marginLeft: -1, marginVertical: -1 }} /> : null}
         {icons.map((icon) => (
-          <View key={icon} style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: theme.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}>
-            <Symbol name={icon} size={14} color={theme.icon} style={{ width: 20, height: 20 }} />
-          </View>
+          <IconTile key={icon} icon={icon} />
         ))}
       </View>
       <View style={{ gap: 3 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textPrimary }}>{title}</Text>
-        {message ? <Text style={{ fontSize: 12, color: theme.textSecondary }}>{message}</Text> : null}
+        <Text weight="semibold">{title}</Text>
+        {message ? (
+          <Text size="small" tone="textSecondary">
+            {message}
+          </Text>
+        ) : null}
       </View>
       {detail}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "flex-end", marginTop: 2 }}>{children}</View>
@@ -67,7 +69,6 @@ export function PermissionPrompt({ tabId, left, top }: { tabId: string; left: nu
 export const BLOCKED_POPUPS_WIDTH = 360;
 
 export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string; right?: number; left?: number; top: number }) {
-  const theme = useTheme();
   const popups = usePage(tabId, (p) => p.popups);
   if (!popups.length) return null;
   const origin = popups[0]!.origin;
@@ -124,7 +125,9 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
             }}
           />
         ))}
-        {popups.length > 5 ? <Text style={{ fontSize: 11, color: theme.textSecondary, paddingLeft: PANEL.textColumn, paddingTop: 2 }}>{`and ${popups.length - 5} more`}</Text> : null}
+        {popups.length > 5 ? (
+          <Text size="caption" tone="textSecondary" style={{ paddingLeft: PANEL.textColumn, paddingTop: 2 }}>{`and ${popups.length - 5} more`}</Text>
+        ) : null}
       </View>
     </Popover>
   );
@@ -144,7 +147,7 @@ export function showPasswordPrompt(tabId: string, prompt: ChromePasswordPrompt) 
 }
 
 export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: number; top: number }) {
-  const theme = useTheme();
+  const { well } = useSiteTokens();
   const prompt = usePage(tabId, (p) => p.passwordPrompt);
   const [chosen, setChosen] = useState<string | null>(null);
   if (!prompt) return null;
@@ -156,7 +159,6 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
     setChosen(null);
     patchPage(tabId, { passwordPrompt: null });
   };
-  const well = theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
   const choices = update && prompt.usernames.length > 1 ? prompt.usernames : [];
   return (
     <Popover key={`${prompt.origin}|${prompt.username}|${prompt.state}`} width={update ? 310 : 350} top={top} right={right} modal={false}>
@@ -174,11 +176,11 @@ export function PasswordPrompt({ tabId, right, top }: { tabId: string; right: nu
               </View>
             ) : (
               <View style={{ borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, gap: 3, backgroundColor: well }}>
-                <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: "500", color: theme.textPrimary }}>
+                <Text lines={1} size="small" weight="medium">
                   {username || (prompt.federation ? `Signed in with ${hostOrOrigin(prompt.federation)}` : "No username")}
                 </Text>
                 {prompt.passwordLength > 0 && (
-                  <Text numberOfLines={1} style={{ fontSize: 12, letterSpacing: 1, color: theme.textSecondary }}>
+                  <Text lines={1} size="small" tone="textSecondary" style={{ letterSpacing: 1 }}>
                     {"•".repeat(Math.min(prompt.passwordLength, 16))}
                   </Text>
                 )}
@@ -202,21 +204,24 @@ export function showAutofillPrompt(tabId: string, prompt: ChromeAutofillPrompt |
 }
 
 export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: number; top: number }) {
-  const theme = useTheme();
+  const { well } = useSiteTokens();
   const prompt = usePage(tabId, (p) => p.autofillPrompt);
   if (!prompt) return null;
   const answer = (action: AutofillPromptAnswer) => {
     void webviews.get(tabId)?.resolveAutofillPrompt(prompt.id, action);
     patchPage(tabId, { autofillPrompt: null });
   };
-  const well = theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
   const changes = prompt.changes ?? [];
   const values = (key: "to" | "from") => changes.filter((c) => c[key]).map((c) => c[key]);
   const section = (lines: string[], label?: string) => (
     <View key={label ?? "lines"} style={{ gap: 3 }}>
-      {label ? <Text style={{ fontSize: 11, color: theme.textSecondary }}>{label}</Text> : null}
+      {label ? (
+        <Text size="caption" tone="textSecondary">
+          {label}
+        </Text>
+      ) : null}
       {lines.map((line, i) => (
-        <Text key={i} numberOfLines={2} style={{ fontSize: 12, fontWeight: i === 0 && !label ? "500" : "400", color: i === 0 || label ? theme.textPrimary : theme.textSecondary }}>
+        <Text key={i} lines={2} size="small" weight={i === 0 && !label ? "medium" : "regular"} tone={i === 0 || label ? "textPrimary" : "textSecondary"}>
           {line}
         </Text>
       ))}
@@ -238,7 +243,11 @@ export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: nu
           detail={
             <>
               <View style={{ borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, gap: 8, backgroundColor: well }}>{sections}</View>
-              {prompt.footer ? <Text style={{ fontSize: 11, color: theme.textSecondary }}>{prompt.footer}</Text> : null}
+              {prompt.footer ? (
+                <Text size="caption" tone="textSecondary">
+                  {prompt.footer}
+                </Text>
+              ) : null}
             </>
           }
         >
@@ -252,7 +261,6 @@ export function AutofillPrompt({ tabId, right, top }: { tabId: string; right: nu
 }
 
 export function ExternalAppPrompt({ tabId, left, top }: { tabId: string; left: number; top: number }) {
-  const theme = useTheme();
   const request = usePage(tabId, (p) => p.externalApp);
   const [always, setAlways] = useState(false);
   if (!request) return null;
@@ -269,14 +277,7 @@ export function ExternalAppPrompt({ tabId, left, top }: { tabId: string; left: n
           title={request.title}
           message={request.message}
           detail={
-            request.remember ? (
-              <Pressable onPress={() => setAlways(!always)} style={{ flexDirection: "row", alignItems: "flex-start", gap: 7 }}>
-                <View style={{ marginTop: 1 }}>
-                  <Checkbox value={always} onChange={setAlways} />
-                </View>
-                <Text style={{ flex: 1, fontSize: 12, lineHeight: 16, color: theme.textPrimary }}>{request.remember}</Text>
-              </Pressable>
-            ) : undefined
+            request.remember ? <CheckRow value={always} onChange={setAlways} label={request.remember} /> : undefined
           }
         >
           {request.app ? (
@@ -313,7 +314,7 @@ function UsernameChoice({ name, selected, onPress }: { name: string; selected: b
           ) : (
             <View style={{ width: 14, height: 14 }} />
           )}
-          <Text numberOfLines={1} style={{ flex: 1, fontSize: 12, color: theme.textPrimary }}>
+          <Text lines={1} size="small" style={{ flex: 1 }}>
             {name || "No username"}
           </Text>
         </View>

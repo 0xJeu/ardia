@@ -7,7 +7,6 @@ import {
   isContentBlockerAllowed,
   setContentBlockerAllowed,
   setSiteSetting,
-  type SecurityInfo,
   type SiteSettingType,
   type SiteSettingValue,
   type SiteSettings,
@@ -15,7 +14,7 @@ import {
 import { displayHost } from "@ardia/core";
 import { confirm, showMenu } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../platform/webviews";
 import { currentLive, currentTab } from "../../state/browser/current";
@@ -27,7 +26,7 @@ import { useSettings, useTab } from "../../state/browser/hooks";
 import { engineProfile, isIncognitoProfile, tabLabel } from "../../state/browser/model";
 import { ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine } from "../../state/engines/engines";
 import { openPageIn, togglePageEngine } from "../../state/engines/actions";
-import { MenuRow, MenuSeparator, PANEL, PanelHeader, Popover, PopoverValue, Toggle, usePopoverPresence } from "../ui";
+import { Box, MenuRow, MenuSeparator, PANEL, PanelHeader, Popover, PopoverValue, space, Toggle, usePopoverPresence } from "../ui";
 import { Favicon } from "../favicon/Favicon";
 import { pageOf, patchPage, setPopover, usePage } from "../../state/tabs/pageState";
 import { showToast } from "../../state/splits/actions";
@@ -36,7 +35,8 @@ import { useMedia, usePictureInPicture } from "../../state/media/media";
 import { openSettings } from "../../state/settings/settingsWindows";
 import { copyPageUrl } from "../../state/site/selection";
 import { canShare, shareTab } from "../../state/site/share";
-import { ActionTile, FooterChip, gridColumns, MoreButton, SectionTitle, SettingRow, SITE_PANEL, TileRow } from "./SiteControlsParts";
+import { ActionTile, gridColumns, MoreButton, SectionTitle, SettingRow, SITE_PANEL, TileRow } from "./SiteControlsParts";
+import { CertificateDetails, ConnectionChip, ConnectionRow } from "./SiteConnection";
 import { SiteExtensions } from "./SiteExtensions";
 import { TranslateRows } from "./TranslateControls";
 import { ZoomStepper } from "./ZoomControls";
@@ -354,75 +354,12 @@ function SiteControlsPanel({
           </>
         ) : null}
 
-        <View style={{ height: StyleSheet.hairlineWidth, marginTop: origin ? 8 : 14, marginHorizontal: PANEL.inset, backgroundColor: theme.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: PANEL.inset, paddingTop: 10, paddingBottom: 12 }}>
+        <View style={{ height: StyleSheet.hairlineWidth, marginTop: origin ? space.m : space.lx, marginHorizontal: PANEL.inset, backgroundColor: theme.popoverSeparator }} />
+        <Box row style={{ alignItems: "center", justifyContent: "space-between", paddingHorizontal: PANEL.inset, paddingTop: space.ml, paddingBottom: space.l }}>
           <ConnectionChip security={security} open={expanded === "connection"} onPress={() => toggle("connection")} />
           <MoreButton open={expanded === "more"} onPress={() => toggle("more")} />
-        </View>
+        </Box>
       </View>
     </Popover>
-  );
-}
-
-const WARNING = "#FF6B63";
-const CAUTION = "#F2B33D";
-
-function connectionLook(security: SecurityInfo | null) {
-  const level = security?.level ?? "none";
-  if (level === "secure") return { level, chip: "Secure", icon: "lock.fill", color: undefined };
-  if (level === "local" || level === "none") return { level, chip: "Local Page", icon: "info.circle", color: undefined };
-  if (level === "mixed") return { level, chip: "Not Fully Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: CAUTION };
-  return { level, chip: "Not Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: WARNING };
-}
-
-function ConnectionChip({ security, open, onPress }: { security: SecurityInfo | null; open: boolean; onPress: () => void }) {
-  const look = connectionLook(security);
-  return <FooterChip icon={look.icon} title={look.chip} color={look.color} open={open} onPress={onPress} />;
-}
-
-function ConnectionRow({ security }: { security: SecurityInfo | null }) {
-  const theme = useTheme();
-  const look = connectionLook(security);
-  const { level } = look;
-  const secure = level === "secure";
-  const local = level === "local" || level === "none";
-  const title = secure ? "Connection is secure" : local ? "This is a local or internal page" : "Connection is not secure";
-  const detail =
-    level === "certificateError"
-      ? "The site's certificate isn't valid. Don't enter passwords or payment details."
-      : level === "mixed"
-        ? "Parts of this page aren't secure (such as images)."
-        : level === "insecure"
-          ? "Don't enter sensitive information on this site."
-          : secure && security?.certificate
-            ? `Certificate issued by ${security.certificate.issuer.organizations[0] || security.certificate.issuer.commonName}`
-            : undefined;
-  return <MenuRow icon={look.icon} iconColor={look.color ?? theme.icon} title={title} detail={detail} />;
-}
-
-function CertificateDetails({ security }: { security: SecurityInfo }) {
-  const theme = useTheme();
-  const cert = security.certificate!;
-  const date = (ms: number) => new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  const rows: [string, string][] = [
-    ["Issued to", cert.subject.commonName || cert.subject.displayName],
-    ["Organization", cert.subject.organizations.join(", ") || "—"],
-    ["Issued by", cert.issuer.commonName || cert.issuer.displayName],
-    ["Valid from", date(cert.validFrom)],
-    ["Expires", date(cert.validUntil)],
-    ...(security.protocol ? [["Protocol", security.protocol] as [string, string]] : []),
-    ...(cert.sha256 ? [["SHA-256", cert.sha256.replace(/[^0-9a-f]/gi, "").replace(/(.{2})(?!$)/g, "$1 ").slice(0, 47) + "…"] as [string, string]] : []),
-  ];
-  return (
-    <View style={{ marginHorizontal: PANEL.inset, marginTop: 2, marginBottom: 4, padding: PANEL.rowPadding, borderRadius: 8, backgroundColor: theme.dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", gap: 3 }}>
-      {rows.map(([k, v]) => (
-        <View key={k} style={{ flexDirection: "row", gap: 8 }}>
-          <Text style={{ width: 82, fontSize: 11, color: theme.textSecondary }}>{k}</Text>
-          <Text numberOfLines={2} selectable style={{ flex: 1, fontSize: 11, color: theme.textPrimary }}>
-            {v}
-          </Text>
-        </View>
-      ))}
-    </View>
   );
 }
