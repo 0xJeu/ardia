@@ -4,7 +4,7 @@ import { Animated, Easing, View, type LayoutChangeEvent } from "react-native";
 import { hex, useTheme } from "../../ui/theme";
 import { DEFAULT_SETTINGS, type Settings } from "../../../state/settings/settings";
 import { DEMOS, type SceneOpts } from "./Demos";
-import type { PreviewId } from "./ids";
+import type { PreviewId } from "../../../state/onboarding/previewIds";
 import {
   Backdrop,
   CHIP,

@@ -1,7 +1,7 @@
 import { engineHost } from "@ardia/core";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { searchEngines, type Settings } from "../../state/settings/settings";
-import { useBrowser } from "../../state/browser/store";
+import { useSettings } from "../../state/browser/hooks";
 import { isSharing, setSharing } from "../../state/telemetry/client";
 import { SHARING_COPY } from "../../state/telemetry/copy";
 import { Favicon, useHover } from "../ui/Primitives";
@@ -26,7 +26,7 @@ export function SearchPrivacyStep() {
   const { values, mock } = useScreen(KEYS);
   const setDraft = setOnboardingDraft;
   const share = useOnboarding((s) => s.extras.share) ?? isSharing();
-  const all = useBrowser((s) => searchEngines(s.settings));
+  const all = useSettings((st) => searchEngines(st));
   const engines = all.filter((e) => ENGINES.includes(e.id) || e.id === values.searchEngine);
 
   if (id === "typed")

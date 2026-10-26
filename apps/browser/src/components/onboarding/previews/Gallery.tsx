@@ -1,29 +1,20 @@
 import { devSnapshotWindow } from "@ardia/shell";
 import { useMemo, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
-import { create } from "zustand";
 import { useTheme } from "../../ui/theme";
 import type { Settings } from "../../../state/settings/settings";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { openSettings, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";
 import { useOnboardingColors } from "../Parts";
 import { DEMOS, type SceneOpts } from "./Demos";
-import { PREVIEW_IDS, type PreviewId } from "./ids";
+import { PREVIEW_IDS, type PreviewId } from "../../../state/onboarding/previewIds";
+import { DIA, PLUM, setGalleryMock, showGalleryPage, useGallery, type GalleryMock as MockState } from "../../../state/onboarding/previewGallery";
 import { geo, lookFor } from "./Kit";
 import { MockWindow } from "./MockWindow";
-
-type MockState = { label: string; settings: Partial<Settings>; accent: string; focus: PreviewId | null };
-
-type GalleryPage = { kind: "frames"; index: number; addressInSidebar?: boolean } | { kind: "mock"; index: number } | { kind: "mockLive" };
-
-type GalleryState = { page: GalleryPage; mock: MockState };
 
 const FRAME_POINTS = [0.2, 0.4, 0.65, 1] as const;
 const FRAMES_PER_PAGE = 4;
 const FRAME = { width: 186, height: 130 } as const;
-const PLUM = "#C07A98";
-
-const DIA: Partial<Settings> = { tabLayout: "sidebar", addressBar: "toolbar", commandBarPlacement: "field", appearance: "light", extendWebsiteColor: true };
 const ARC: Partial<Settings> = { tabLayout: "sidebar", addressBar: "sidebar", commandBarPlacement: "centred", appearance: "dark", extendWebsiteColor: true };
 
 const MOCK_PAGES: MockState[][] = [
@@ -40,11 +31,6 @@ const MOCK_PAGES: MockState[][] = [
     { label: "Website color on", settings: DIA, accent: PLUM, focus: "sitecolor-on" },
   ],
 ];
-
-const useGallery = create<GalleryState>()(() => ({
-  page: { kind: "frames", index: 0 },
-  mock: { label: "live", settings: DIA, accent: PLUM, focus: null },
-}));
 
 function Caption({ text }: { text: string }) {
   const colors = useOnboardingColors();
@@ -125,15 +111,10 @@ function PreviewGallery() {
   );
 }
 
-function show(page: GalleryPage) {
-  useGallery.setState({ page });
+function show(page: Parameters<typeof showGalleryPage>[0]) {
+  showGalleryPage(page);
   showSettingsSheet(<PreviewGallery />);
   openSettings();
-}
-
-function setMock(patch: Partial<MockState> & { settingsPatch?: Partial<Settings> }) {
-  const { settingsPatch, ...rest } = patch;
-  useGallery.setState((s) => ({ mock: { ...s.mock, ...rest, settings: { ...s.mock.settings, ...rest.settings, ...settingsPatch } } }));
 }
 
 (globalThis as { acOnboardingPreviews?: unknown }).acOnboardingPreviews = {
@@ -141,6 +122,6 @@ function setMock(patch: Partial<MockState> & { settingsPatch?: Partial<Settings>
   pages: { frames: Math.ceil(PREVIEW_IDS.length / FRAMES_PER_PAGE), mock: MOCK_PAGES.length },
   show,
   hide: closeSettingsSheet,
-  setMock,
+  setMock: setGalleryMock,
   snapshot: (path: string) => devSnapshotWindow(SETTINGS_WINDOW_ID, path),
 };

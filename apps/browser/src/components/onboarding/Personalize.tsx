@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { PROFILE_COLORS } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useProfile, useWindow } from "../../state/browser/hooks";
+import { updateProfile } from "../../state/profiles/actions";
+import { toggleTabLayout } from "../../state/splits/actions";
+import { useWindowTabLayout } from "../../state/windows/hooks";
 import type { ProfileColor } from "../../state/browser/types";
 import { useHover } from "../ui/Primitives";
 import { Radio, useOnboardingColors } from "./Parts";
@@ -15,14 +18,14 @@ export const PERSONALIZE_COPY = {
 const COLORS = Object.keys(PROFILE_COLORS) as ProfileColor[];
 
 export function ThemeColorPicker({ windowId, size = 30, onPick }: { windowId: string; size?: number; onPick?: (color: ProfileColor) => void }) {
-  const profileId = useBrowser((s) => s.windows[windowId]?.profileId);
-  const current = useBrowser((s) => (profileId ? s.profiles[profileId]?.color : undefined));
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const profileId = useWindow(windowId, (w) => w?.profileId);
+  const current = useProfile(profileId, (p) => p?.color);
+  const incognito = useWindow(windowId, (w) => !!w?.incognito);
   if (!profileId || incognito) return null;
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: size >= 30 ? 8 : 6 }} accessibilityRole="radiogroup" accessibilityLabel="Theme color">
       {COLORS.map((c) => (
-        <ColorButton key={c} color={c} size={size} selected={current === c} onPress={() => (onPick ? onPick(c) : useBrowser.getState().updateProfile(profileId, { color: c }))} />
+        <ColorButton key={c} color={c} size={size} selected={current === c} onPress={() => (onPick ? onPick(c) : updateProfile(profileId, { color: c }))} />
       ))}
     </View>
   );
@@ -68,9 +71,9 @@ function ColorButton({ color, size, selected, onPress }: { color: ProfileColor; 
 }
 
 export function TabLayoutPicker({ windowId }: { windowId: string }) {
-  const layout = useBrowser((s) => s.windows[windowId]?.tabLayout ?? s.settings.tabLayout);
+  const layout = useWindowTabLayout(windowId);
   const pick = (next: "sidebar" | "top") => {
-    if (next !== layout) useBrowser.getState().toggleTabLayout(windowId);
+    if (next !== layout) toggleTabLayout(windowId);
   };
   return (
     <View style={{ flexDirection: "row", gap: 10 }} accessibilityRole="radiogroup" accessibilityLabel="Tab layout">

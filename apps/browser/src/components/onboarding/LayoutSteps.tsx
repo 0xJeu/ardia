@@ -2,7 +2,7 @@ import { appIcons, currentAppIcon, setAppIcon, type AppIcon } from "@ardia/shell
 import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import { PROFILE_COLORS } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useWindowProfileValue } from "../../state/profiles/hooks";
 import type { PeekModifier, Settings } from "../../state/settings/settings";
 import { ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { ThemeColorPicker } from "./Personalize";
@@ -314,7 +314,7 @@ export function LookStep() {
   const { values, mock } = useScreen(LOOK_KEYS);
   const windowId = useOnboarding((s) => s.windowId) ?? "";
   const appIcon = useOnboarding((s) => s.extras.appIcon);
-  const color = useBrowser((s) => s.profiles[s.windows[windowId]?.profileId ?? ""]?.color);
+  const color = useWindowProfileValue(windowId, (p) => p?.color);
   const [icons, setIcons] = useState<{ list: AppIcon[]; current: string | null }>({ list: [], current: null });
   const preview = <MockPanel settings={mock} focus={focus.focus} />;
   useEffect(() => {

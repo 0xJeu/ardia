@@ -2,7 +2,7 @@ import { Surface } from "@ardia/shell";
 import type { ReactNode } from "react";
 import { Animated, View } from "react-native";
 import { hex } from "../../ui/theme";
-import type { PreviewId } from "./ids";
+import type { PreviewId } from "../../../state/onboarding/previewIds";
 import {
   at,
   atRect,

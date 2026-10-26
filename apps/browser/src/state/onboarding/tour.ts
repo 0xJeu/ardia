@@ -2,9 +2,28 @@ import { systemInfo } from "@ardia/shell";
 import { create } from "zustand";
 import { openUrls } from "../browser/actions";
 import { useBrowser } from "../browser/store";
-import { resolveWindowId } from "../browser/model";
+import { activeTabId, resolveWindowId } from "../browser/model";
 import { closeReleaseNotes } from "../releaseNotes/releaseNotes";
-import { locateAnchor, type TourAnchor } from "../../components/onboarding/tour/anchors";
+import { splitOf } from "../splits/splits";
+import { useUrlAnchors } from "../windows/layout";
+
+export type TourAnchor = "commandBar" | "page" | "tabs" | "sidebarButton";
+
+type AnchorRect = { x: number; y: number; width: number; height: number };
+
+let locateAnchor: (windowId: string, id: TourAnchor) => Promise<AnchorRect | null> = () => Promise.resolve(null);
+
+export function setTourAnchorLocator(locate: typeof locateAnchor) {
+  locateAnchor = locate;
+}
+
+export function tourWindowFacts(windowId: string) {
+  const s = useBrowser.getState();
+  const w = s.windows[windowId];
+  if (!w) return null;
+  const tabId = activeTabId(s, windowId);
+  return { tabLayout: w.tabLayout ?? s.settings.tabLayout, sidebarOpen: w.sidebarOpen, tabId, inSplit: !!splitOf(s, tabId), url: useUrlAnchors.getState()[windowId] };
+}
 
 export type TourStop = {
   id: string;

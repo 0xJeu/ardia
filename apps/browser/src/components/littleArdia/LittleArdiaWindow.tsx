@@ -3,7 +3,8 @@ import { ContextMenuArea, setTrafficLightsCenter, WindowDragRegion } from "@ardi
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useProfileOrder } from "../../state/profiles/hooks";
+import { openPanel } from "../../state/windows/actions";
 import { useActiveTab, useWindowId, useWindowProfile, useWindowUi } from "../../state/browser/hooks";
 import type { Tab } from "../../state/browser/types";
 import { CommandPanel } from "../omnibox/CommandPanel";
@@ -17,7 +18,8 @@ import { useHover } from "../ui/Primitives";
 import { copyPageUrl } from "../../state/site/selection";
 import { ProfileBadge } from "../profiles/ProfileIcons";
 import { openInMainWindow, openLittleArdiaProfileMenu } from "../../state/littleArdia/actions";
-import { PageLabel, SMALL_BAR_BUTTON, SMALL_BAR_HEIGHT, SMALL_INSET, SMALL_LIGHTS_CENTER, SmallBar, SmallBarBadgeButton } from "./SmallChrome";
+import { PageLabel, SMALL_BAR_BUTTON, SMALL_INSET, SmallBar, SmallBarBadgeButton } from "./SmallChrome";
+import { SMALL_BAR_HEIGHT, SMALL_LIGHTS_CENTER } from "../../state/windows/small";
 
 const FIELD_LEFT = 84;
 
@@ -44,7 +46,7 @@ function LittleArdiaBar() {
   const windowId = useWindowId();
   const tab = useActiveTab();
   const panelOpen = useWindowUi().panel.open;
-  const severalProfiles = useBrowser((s) => s.profileOrder.length > 1);
+  const severalProfiles = useProfileOrder((order) => order.length > 1);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -99,7 +101,7 @@ function PageField({ tab, windowId, hidden }: { tab: Tab; windowId: string; hidd
         <WindowDragRegion
           clickable
           accessibilityRole="button"
-          onRegionClick={() => useBrowser.getState().openPanel(windowId, tab.url)}
+          onRegionClick={() => openPanel(windowId, tab.url)}
           style={{ flex: 1 }}
         >
           <PageLabel tab={tab} hovered={hovered} />

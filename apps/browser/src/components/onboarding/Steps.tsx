@@ -10,7 +10,7 @@ import {
 } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { useBrowser } from "../../state/browser/store";
+import { useWindowHistory } from "../../state/history/hooks";
 import { Favicon, useHover } from "../ui/Primitives";
 import { CONTENT_WIDTH, ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { MockPanel, useScreen } from "./Screen";
@@ -253,7 +253,7 @@ function SystemPreview({ isDefault, dock, login }: { isDefault: boolean; dock: b
 export function PinnedTabsStep() {
   const windowId = useOnboarding((s) => s.windowId);
   const chosen = useOnboarding((s) => s.extras.pins);
-  const history = useBrowser((s) => s.history[s.windows[windowId ?? ""]?.profileId ?? ""]);
+  const history = useWindowHistory(windowId);
   const suggested = useRef<string[] | null>(null);
   if (!chosen) suggested.current = preselectedSites(history ?? [], windowId ? pinnedHosts(windowId) : undefined);
   const selected = chosen ?? suggested.current ?? [];

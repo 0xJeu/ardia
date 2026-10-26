@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import { PROFILE_COLORS } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { tabLayoutOf } from "../../state/browser/model";
+import { useSettings, useTabLayout } from "../../state/browser/hooks";
+import { useWindowProfileValue } from "../../state/profiles/hooks";
 import type { Settings } from "../../state/settings/settings";
 import { MockWindow, type PreviewId } from "./previews";
 import { resolveDraft, useOnboarding } from "../../state/onboarding/onboarding";
@@ -11,8 +11,8 @@ export function useScreen<K extends keyof Settings>(keys: readonly K[]) {
   const windowId = useOnboarding((s) => s.windowId);
   const draft = useOnboarding((s) => s.draft);
   const preset = useOnboarding((s) => s.preset);
-  const settings = useBrowser((s) => s.settings);
-  const tabLayout = useBrowser((s) => tabLayoutOf(s, windowId));
+  const settings = useSettings((st) => st);
+  const tabLayout = useTabLayout(windowId);
   const base = { ...settings, tabLayout };
   const values = resolveDraft(keys, draft, preset, base);
   return { values, base, mock: { ...base, ...values } as Settings };
@@ -20,7 +20,7 @@ export function useScreen<K extends keyof Settings>(keys: readonly K[]) {
 
 export function useAccent() {
   const windowId = useOnboarding((s) => s.windowId);
-  const color = useBrowser((s) => s.profiles[s.windows[windowId ?? ""]?.profileId ?? ""]?.color ?? "plum");
+  const color = useWindowProfileValue(windowId ?? "", (p) => p?.color ?? "plum");
   return (PROFILE_COLORS[color] ?? PROFILE_COLORS.plum).swatch;
 }
 

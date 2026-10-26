@@ -38,7 +38,7 @@ import { sidebarMenuState } from "../sidebar/commands";
 import { openWindow as createWindow } from "../browser/actions";
 import { createWindowSync, type WindowPort } from "../windows/windowSync";
 import { openExternalUrls } from "../littleArdia/actions";
-import { SMALL_LIGHTS_CENTER } from "../../components/littleArdia/SmallChrome";
+import { SMALL_LIGHTS_CENTER } from "../windows/small";
 import { runCommand } from "../commands/commands";
 import { LITTLE_ARDIA_DISABLED_COMMANDS, PAGE_COMMANDS, PAGE_COMMANDS_OFF_INTERNAL_PAGES, WINDOW_COMMANDS } from "../commands/commandCatalog";
 import { setMenuBarShortcuts } from "../commands/commandShortcuts";

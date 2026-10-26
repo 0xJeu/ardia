@@ -3,6 +3,9 @@ import { isWindowClosing } from "./closingWindows";
 import { engineProfile } from "../browser/model";
 import type { BrowserWindow } from "../browser/types";
 
+export const SMALL_BAR_HEIGHT = 38;
+export const SMALL_LIGHTS_CENTER: [number, number] = [20, SMALL_BAR_HEIGHT / 2];
+
 export const isSmallWindow = (w: BrowserWindow | undefined): boolean => w?.kind === "small";
 
 export const isSmall = (s: Pick<BrowserState, "windows">, windowId?: string | null): boolean =>
