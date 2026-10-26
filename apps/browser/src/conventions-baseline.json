@@ -188,7 +188,6 @@
     "apps/browser/src/state/bookmarks/engineSync.ts": 1,
     "apps/browser/src/state/favicons/favicons.ts": 1,
     "apps/browser/src/state/groups/groups.ts": 1,
-    "apps/browser/src/state/pins/organize.ts": 1,
     "apps/browser/src/state/sidebar/menus.ts": 1,
     "apps/browser/src/state/sync/adapters.ts": 1,
     "apps/browser/src/state/sync/engine.ts": 1,
