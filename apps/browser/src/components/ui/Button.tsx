@@ -186,11 +186,11 @@ function TextButtonView({ title, onPress, disabled, plate = "toolbar", height, p
 function pillLook(theme: Theme, tone: NonNullable<PillProps["tone"]>, primary: boolean, pressed: boolean, hovered: boolean) {
   if (tone === "chip")
     return primary
-      ? { fill: theme.textPrimary, text: theme.chipPrimaryText, dim: pressed || hovered }
+      ? { fill: theme.textPrimary, text: theme.onPrimary, dim: pressed || hovered }
       : { fill: pressed ? theme.toolbarPressed : hovered ? theme.toolbarHover : theme.urlPill, text: theme.textPrimary, dim: false };
   if (tone === "control") return { fill: pressed ? theme.controlPressed : hovered ? theme.controlHover : theme.control, text: theme.icon, dim: false };
   return primary
-    ? { fill: pressed ? theme.goButtonPressed : hovered ? theme.goButtonHover : theme.goButton, text: theme.goButtonText, dim: false }
+    ? { fill: pressed ? theme.goButtonPressed : hovered ? theme.goButtonHover : theme.goButton, text: theme.onPrimary, dim: false }
     : { fill: pressed ? theme.promptFillPressed : hovered ? theme.promptFillHover : theme.promptFill, text: theme.textPrimary, dim: false };
 }
 

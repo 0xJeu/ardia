@@ -13,7 +13,7 @@ export function destinationLabel(s: Suggestion | undefined): string {
 export const GoButton = memo(function GoButton({ label, enabled, onPress }: { label: string; enabled: boolean; onPress(): void }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
-  const text = enabled ? theme.goButtonText : theme.textTertiary;
+  const text = enabled ? theme.onPrimary : theme.textTertiary;
   return (
     <View {...hoverProps} style={{ marginLeft: GO_BUTTON.before }}>
       <Pressable onPress={onPress} disabled={!enabled} accessibilityRole="button" accessibilityLabel={label}>
@@ -31,7 +31,7 @@ export const GoButton = memo(function GoButton({ label, enabled, onPress }: { la
             gap: GO_BUTTON.gap,
           }}
         >
-          <Text lines={1} weight="semibold" tone={enabled ? "goButtonText" : "textTertiary"} style={BAR_TYPE.goLabel}>
+          <Text lines={1} weight="semibold" tone={enabled ? "onPrimary" : "textTertiary"} style={BAR_TYPE.goLabel}>
             {label}
           </Text>
           <Symbol

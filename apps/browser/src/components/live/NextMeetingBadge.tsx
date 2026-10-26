@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Animated, View } from "react-native";
-import { space, Text } from "../ui";
+import { space, Text, useTheme } from "../ui";
 import { useCalendar, useNow } from "../../state/live/calendar";
 import { badgeText, isCalendarUrl } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
@@ -15,6 +15,7 @@ export const NextMeetingBadge = memo(function NextMeetingBadge({ tabId }: { tabI
   const events = useCalendar((s) => s.events);
   const now = useNow(15_000, calendar && on);
   const text = calendar && on ? badgeText(events, now) : null;
+  const theme = useTheme();
   const tokens = useSidebarTokens();
   const colors = useLiveColors();
   const shown = useRef(new Animated.Value(text ? 1 : 0)).current;
@@ -41,7 +42,7 @@ export const NextMeetingBadge = memo(function NextMeetingBadge({ tabId }: { tabI
       }}
     >
       <View style={[BADGE, { backgroundColor: live ? colors.now : tokens.badge, borderColor: colors.badgeRing }]}>
-        <Text style={{ ...liveType.badge, color: live ? LIVE_NOW_TEXT : tokens.badgeGlyph }}>{label}</Text>
+        <Text style={{ ...liveType.badge, color: live ? LIVE_NOW_TEXT : theme.onPrimary }}>{label}</Text>
       </View>
     </Animated.View>
   );

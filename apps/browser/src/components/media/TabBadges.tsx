@@ -18,6 +18,7 @@ export const TabBadges = memo(function TabBadges({ tabId, size = 16, pip = true 
 });
 
 function PipBadge({ tabId, size }: { tabId: string; size: number }) {
+  const theme = useTheme();
   const tokens = useSidebarTokens();
   const open = useMedia((m) => !!m.pipOpen[tabId]);
   if (!open) return null;
@@ -27,7 +28,7 @@ function PipBadge({ tabId, size }: { tabId: string; size: number }) {
       pointerEvents="none"
       style={{ position: "absolute", right: -d / 3, top: -d / 3, width: d, height: d, borderRadius: d / 2, backgroundColor: tokens.badge, alignItems: "center", justifyContent: "center" }}
     >
-      <Symbol name="pip.fill" size={d * 0.55} weight="bold" color={hex(tokens.badgeGlyph)} style={{ width: d, height: d }} />
+      <Symbol name="pip.fill" size={d * 0.55} weight="bold" color={hex(theme.onPrimary)} style={{ width: d, height: d }} />
     </View>
   );
 }

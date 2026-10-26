@@ -62,7 +62,7 @@ export function block(on: boolean): Scene {
                   </Label>
                 </View>
                 <View style={{ height: 28 * g.s, paddingHorizontal: 12 * g.s, borderRadius: 8 * g.s, backgroundColor: look.t.goButton, justifyContent: "center" }}>
-                  <Label g={g} size={12} color={look.t.goButtonText} weight="600">
+                  <Label g={g} size={12} color={look.t.onPrimary} weight="600">
                     Accept all
                   </Label>
                 </View>

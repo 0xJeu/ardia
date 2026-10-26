@@ -45,7 +45,7 @@ export const CleanUpUpsell = memo(function CleanUpUpsell({ windowId, shift }: { 
             backgroundColor: pressed ? tokens.upsellButtonHover : primary ? theme.textPrimary : tokens.upsellButton,
           }}
         >
-          <Text style={{ ...font.small, fontWeight: weight.medium, color: primary ? theme.chipPrimaryText : theme.textPrimary }}>{title}</Text>
+          <Text style={{ ...font.small, fontWeight: weight.medium, color: primary ? theme.onPrimary : theme.textPrimary }}>{title}</Text>
         </View>
       )}
     </Pressable>

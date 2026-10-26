@@ -58,7 +58,7 @@ function ShownCliControlPill({ shown, appearAtOnce, onHidden }: { shown: boolean
             style={{ height: PILL_HEIGHT, flexDirection: "row", alignItems: "center", gap: space.m, paddingLeft: space.s, paddingRight: space.xs }}
           >
             <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: theme.textPrimary, alignItems: "center", justifyContent: "center" }}>
-              <Symbol name="terminal.fill" size={9} weight="bold" color={theme.chipPrimaryText} style={{ width: 14, height: 14 }} />
+              <Symbol name="terminal.fill" size={9} weight="bold" color={theme.onPrimary} style={{ width: 14, height: 14 }} />
             </View>
             <Text numberOfLines={1} style={{ flexShrink: 1, ...font.small, color: theme.textSecondary }}>
               <Text style={{ fontWeight: weight.semibold, color: theme.textPrimary }}>ardia</Text>
