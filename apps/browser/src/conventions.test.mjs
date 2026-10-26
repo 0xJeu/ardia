@@ -28,6 +28,7 @@ const SIZE_CAP = { js: 400, native: 600 };
 const SCOPES = ["apps/browser/src", "packages", "engine/ardiacore/src", "engine/chromium/src"];
 const GENERATED = new Set(["packages/core/src/bangList.ts"]);
 const ONE_INJECTED_SCRIPT = new Set(["packages/ardiacore/ios/page_script.js"]);
+const FROZEN_SPECS = new Set(["packages/core/src/suggest.reference.ts"]);
 const LAUNCH_CONFIG = [/^packages\/ardiacore\/ios\/ArdiaLaunchConfig\.\w+$/, /^apps\/browser\/src\/platform\/launchConfig\.ts$/];
 const MIGRATION_FILE = /(?:^|\/)(?:LegacyMigration\.swift|legacy\.ts|\w*[Mm]igrations?\.(?:ts|swift|mm|m))$/;
 const TOKEN_FILE = /(?:^|\/)(?:tokens|motion)\.ts$/;
@@ -324,7 +325,7 @@ function checkFile(path, src, add) {
   }
 
   const lines = src.length ? src.split("\n").length - (src.endsWith("\n") ? 1 : 0) : 0;
-  const isJs = /\.tsx?$/.test(path) && (inApp || /^packages\/[^/]+\/src\//.test(path));
+  const isJs = /\.tsx?$/.test(path) && (inApp || /^packages\/[^/]+\/src\//.test(path)) && !FROZEN_SPECS.has(path);
   const isNative = /\.(?:swift|h|m|mm|cc|mojom|js)$/.test(path) && !ONE_INJECTED_SCRIPT.has(path);
   if ((isJs && lines > SIZE_CAP.js) || (isNative && lines > SIZE_CAP.native)) add("size", path, 1);
 

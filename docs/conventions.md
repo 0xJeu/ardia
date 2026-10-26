@@ -161,7 +161,7 @@ writeDocument(DOC, versionedJson(data, VERSION));
 - At most 400 lines per TS/TSX file (`apps/browser/src`, `packages/*/src`), 600 per native file (`packages/*/ios`,
   `engine/ardiacore/src`, `engine/chromium/src`). Tests, fixtures and generated files (`packages/core/src/bangList.ts`)
   are exempt, and so is `packages/ardiacore/ios/page_script.js`: it is injected as one closure into every frame, and its
-  helpers share builtins captured before page code runs, so splitting it would need a bundling step.
+  helpers share builtins captured before page code runs, so splitting it would need a bundling step. `packages/core/src/suggest.reference.ts` is exempt too: it is the frozen spec the suggestion code was tuned against (`suggest.property.test.ts` holds the live code to it, `SUGGEST_BEFORE=1` benches it), so it stays as it was written.
 - One type per native file, named after it.
 - No comments (AGENTS.md › Hard rules), including comments inside injected page JS and shader source held in strings.
   Allowed: license headers, shebangs and tool directives (`@ts-expect-error`, `eslint-disable`, `#pragma`,

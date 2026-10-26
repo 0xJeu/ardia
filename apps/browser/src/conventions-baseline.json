@@ -193,7 +193,6 @@
     "engine/chromium/src/chrome/browser/ardia/ac_extensions_sync.cc": 1,
     "engine/chromium/src/chrome/browser/ardia/ac_tab_restore.cc": 1,
     "packages/ardiacore/src/WebView.tsx": 1,
-    "packages/core/src/suggest.reference.ts": 1,
     "packages/shaders/ios/WindowBackdropView.swift": 1,
     "packages/sync/ios/Core/LegacyMigration.swift": 1
   },
@@ -206,7 +205,6 @@
     "packages/ardiacore/ios/ArdiaWebView+ContextMenu.mm": 2
   },
   "comments": {
-    "packages/core/src/tlds.ts": 2,
     "packages/shaders/ios/MetalSurface.swift": 1,
     "packages/shaders/ios/PowerUpView.swift": 36,
     "packages/shaders/ios/WindowBackdropView.swift": 6
