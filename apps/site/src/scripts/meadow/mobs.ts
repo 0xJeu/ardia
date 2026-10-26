@@ -1,4 +1,4 @@
-import { CAMERA_HEIGHT, type Framing, GRASS_FAR } from "./layout";
+import { CAMERA_HEIGHT, type Framing, GRASS_FAR, HEIGHT_MIN, HEIGHT_RANGE, TERRAIN_FAR, TERRAIN_NEAR, TERRAIN_SLOPE, TERRAIN_WIDTH } from "./layout";
 import { lookFrom, multiply, perspective } from "./matrix";
 
 export const MOB_FLOATS = 24;
@@ -26,10 +26,18 @@ const FADE_SECONDS = 0.75;
 const TURN_RATE = 2.4;
 const KEEP_OUT_PAD = 22;
 const SCREEN_OVERLAP = 0.45;
+const BAND_PX = 60;
 const RESPAWN_SECONDS = 0.6;
-const WIDE_SCREEN_SHARE = 0.27;
-const NARROW_SCREEN_SHARE = 0.12;
-const NARROW_FAR = 0.8;
+const NARROW_MIN_SHARE = 0.85;
+const NARROW_MAX_SHARE = 0.6;
+const NARROW_NEAR = 0.8;
+const MEADOW_EDGE = 60;
+const SKY_REACH = 0.32;
+const MARCH_GROWTH = 1.035;
+const MARCH_LIMIT = 15000;
+const SEARCH_BUDGET = 48;
+const SEARCH_FRAMES = 90;
+const TERRAIN_LOG = Math.log(TERRAIN_FAR / TERRAIN_NEAR);
 
 interface Part {
   size: Vec3;
@@ -53,7 +61,9 @@ interface Kind {
   bob: number;
   armBase: number;
   armSwing: number;
-  far: number;
+  near: number;
+  minShare: number;
+  maxShare: number;
   height: number;
   reach: number;
 }
@@ -108,7 +118,9 @@ const VILLAGER = kind({
   bob: 0.02,
   armBase: 0,
   armSwing: 0,
-  far: 70,
+  near: 10,
+  minShare: 0.03,
+  maxShare: 0.2,
   parts: [
     ...biped("#4a3322", [4, 12, 4], 2, 12),
     box([8, 13, 6], [0, 11, 0], [0, 6.5, 0], "#7b5534"),
@@ -129,7 +141,9 @@ const COW = kind({
   bob: 0.015,
   armBase: 0,
   armSwing: 0,
-  far: 75,
+  near: 7,
+  minShare: 0.024,
+  maxShare: 0.17,
   parts: [
     ...quadruped("#2f2219", [4, 12, 4], 4, 12, 6.5, -6.5),
     box([12, 10, 18], [0, 12, 0], [0, 5, 0], "#3b2a20"),
@@ -151,7 +165,9 @@ const SHEEP = kind({
   bob: 0.015,
   armBase: 0,
   armSwing: 0,
-  far: 65,
+  near: 3.2,
+  minShare: 0.022,
+  maxShare: 0.17,
   parts: [
     ...quadruped("#bba996", [4, 12, 4], 3.5, 12, 6, -6),
     box([13, 12, 19], [0, 11, 0], [0, 6, 0], "#e9e3d3"),
@@ -170,7 +186,9 @@ const CHICKEN = kind({
   bob: 0.02,
   armBase: 0,
   armSwing: 0,
-  far: 40,
+  near: 2.3,
+  minShare: 0.02,
+  maxShare: 0.13,
   parts: [
     box([1.5, 5, 1.5], [1.5, 5, 0], [0, -2.5, 0], "#e2a032", LEG_A),
     box([1.5, 5, 1.5], [-1.5, 5, 0], [0, -2.5, 0], "#e2a032", LEG_B),
@@ -193,7 +211,9 @@ const ZOMBIE = kind({
   bob: 0.03,
   armBase: -1.45,
   armSwing: 0.08,
-  far: 65,
+  near: 10,
+  minShare: 0.03,
+  maxShare: 0.2,
   parts: [
     ...biped("#34477e", [4, 12, 4], 2, 12),
     box([8, 12, 4], [0, 12, 0], [0, 6, 0], "#2b8a8a"),
@@ -214,7 +234,9 @@ const SKELETON = kind({
   bob: 0.008,
   armBase: -0.12,
   armSwing: 0.22,
-  far: 70,
+  near: 10,
+  minShare: 0.03,
+  maxShare: 0.2,
   parts: [
     ...biped("#cbc7bd", [2, 12, 2], 2, 12),
     box([8, 12, 3], [0, 12, 0], [0, 6, 0], "#b6b1a6"),
@@ -235,7 +257,9 @@ const SPIDER = kind({
   bob: 0.01,
   armBase: 0,
   armSwing: 0,
-  far: 45,
+  near: 2.6,
+  minShare: 0.016,
+  maxShare: 0.1,
   parts: [
     box([10, 8, 12], [0, 6, 0], [0, 1.5, -7], "#2c2421"),
     box([6, 6, 6], [0, 6, 0], [0, 0, 0], "#2c2421"),
@@ -255,7 +279,9 @@ const CREEPER = kind({
   bob: 0.01,
   armBase: 0,
   armSwing: 0,
-  far: 55,
+  near: 5,
+  minShare: 0.026,
+  maxShare: 0.16,
   parts: [
     ...quadruped("#3f8a35", [4, 6, 4], 2, 6, 2, -2, 2),
     box([8, 12, 4], [0, 6, 0], [0, 6, 0], "#4f9c40"),
@@ -277,7 +303,9 @@ const ENDERMAN = kind({
   bob: 0.02,
   armBase: 0,
   armSwing: 0.2,
-  far: 90,
+  near: 14,
+  minShare: 0.045,
+  maxShare: 0.26,
   parts: [
     ...biped("#16131b", [2, 30, 2], 2, 30),
     box([8, 12, 4], [0, 30, 0], [0, 6, 0], "#1c1822"),
@@ -306,6 +334,8 @@ const ROSTER: [Kind, boolean][] = [
   [ZOMBIE, false],
   [SKELETON, false],
 ];
+
+export const MOB_KINDS: readonly Temper[] = ROSTER.map(([kind]) => kind.temper);
 
 export const MOB_CUBE = (() => {
   const faces: [Vec3, Vec3, Vec3][] = [
@@ -337,8 +367,9 @@ export const MOB_CUBE = (() => {
 })();
 
 const fract = (value: number) => value - Math.floor(value);
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const smooth = (edge0: number, edge1: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  const t = clamp01((x - edge0) / (edge1 - edge0));
   return t * t * (3 - 2 * t);
 };
 const angleDelta = (from: number, to: number) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
@@ -429,7 +460,7 @@ class Mob {
     this.gaitScale = this.between(0.82, 1.18);
     this.strideScale = this.between(0.88, 1.12);
     this.quirk = this.random();
-    this.band = (order * 0.618 + this.random() * 0.1) % 1;
+    this.band = (order * 0.618 + this.random() * 0.12) % 1;
     this.lurch = this.between(0, Math.PI * 2);
     const spread = (order * 0.37 + this.quirk * 0.2) % 1;
     this.threshold = kind.night ? 0.42 + spread * 0.42 : 0.05 + spread * 0.22;
@@ -460,6 +491,13 @@ export interface KeepOut {
   bottom: number;
 }
 
+export interface Footprint {
+  kind: Temper;
+  x: number;
+  y: number;
+  top: number;
+}
+
 export class Mobs {
   readonly data = new Float32Array(MOB_PART_LIMIT * MOB_FLOATS);
   readonly contacts = new Float32Array(MOB_CONTACTS * 4);
@@ -471,6 +509,11 @@ export class Mobs {
   private readonly restViewProj = new Float32Array(16);
   private readonly rect: KeepOut = { left: 0, top: 0, right: 0, bottom: 0 };
   private keepOut: KeepOut[] = [];
+  private column: KeepOut | null = null;
+  private terrain: Uint8Array | null = null;
+  private terrainWidth = 1;
+  private terrainHeight = 1;
+  private hillScale = 1;
   private width = 1;
   private height = 1;
   private tanHalfTall = 1;
@@ -478,10 +521,12 @@ export class Mobs {
   private pitchSin = 0;
   private pitchCos = 1;
   private horizonY = 0;
-  private share = WIDE_SCREEN_SHARE;
   private narrow = false;
   private stale = true;
   private laidOut = false;
+  private budget = SEARCH_BUDGET;
+  private unsettled = 0;
+  private searchFrames = 0;
   private time = 0;
   private sx = 0;
   private sy = 0;
@@ -508,21 +553,47 @@ export class Mobs {
     this.pitchSin = Math.sin(framing.pitch);
     this.pitchCos = Math.cos(framing.pitch);
     this.horizonY = (0.5 + (Math.tan(framing.pitch) / this.tanHalfTall) * 0.5) * height;
+    this.hillScale = framing.hillScale;
     this.narrow = width < 700;
-    this.share = this.narrow ? NARROW_SCREEN_SHARE : WIDE_SCREEN_SHARE;
     this.stale = true;
     this.laidOut = true;
   }
 
-  setKeepOut(boxes: KeepOut[]) {
+  get searching() {
+    return this.unsettled > 0 && this.searchFrames < SEARCH_FRAMES;
+  }
+
+  setKeepOut(boxes: KeepOut[], column: KeepOut | null) {
     this.keepOut = boxes;
+    this.column = column;
     this.stale = true;
+  }
+
+  setTerrain(pixels: Uint8Array, width: number, height: number) {
+    this.terrain = pixels;
+    this.terrainWidth = width;
+    this.terrainHeight = height;
+    this.stale = true;
+  }
+
+  footprints(): Footprint[] {
+    const list: Footprint[] = [];
+    for (const mob of this.mobs) {
+      if (!mob.placed || mob.presence * mob.blink < 0.5 || !this.frame(mob.kind, mob.x, mob.z)) continue;
+      list.push({ kind: mob.kind.temper, x: (this.rect.left + this.rect.right) / 2, y: this.rect.bottom, top: this.rect.top });
+    }
+    return list;
   }
 
   step(dt: number, night: number) {
     if (!this.laidOut) return;
     this.time += dt;
-    if (this.stale) this.revalidate();
+    this.budget = SEARCH_BUDGET;
+    this.unsettled = 0;
+    if (this.stale) {
+      this.searchFrames = 0;
+      this.revalidate();
+    }
     for (const mob of this.mobs) {
       mob.delay = Math.max(0, mob.delay - dt);
       const target = this.presenceFor(mob, night);
@@ -530,6 +601,7 @@ export class Mobs {
         if (target === 0) continue;
         if ((!this.reduced || !mob.placed) && !this.spawn(mob)) {
           if (!this.reduced) mob.delay = RESPAWN_SECONDS;
+          this.unsettled++;
           continue;
         }
       }
@@ -545,6 +617,7 @@ export class Mobs {
       }
       this.behave(mob, dt);
     }
+    this.searchFrames = this.unsettled > 0 ? this.searchFrames + 1 : 0;
   }
 
   fill(keyDir: ArrayLike<number>, keyStrength: number) {
@@ -557,11 +630,12 @@ export class Mobs {
       if (!mob.placed || fade <= 0.002) continue;
       const kind = mob.kind;
       if (cursor + kind.parts.length > MOB_PART_LIMIT) break;
-      const scale = kind.scale * (1 + 0.07 * mob.swell);
+      const size = this.sizeAt(kind, mob.z);
+      const scale = kind.scale * size * (1 + 0.07 * mob.swell);
       const swing = Math.sin(mob.phase) * mob.gait * kind.swing * mob.gaitScale;
       const drag = kind.temper === "zombie" ? 0.55 : 1;
-      const rise = kind.night ? -(1 - mob.presence) * kind.height * 0.45 : 0;
-      const lift = mob.lift + rise + Math.abs(Math.cos(mob.phase)) * mob.gait * kind.bob;
+      const rise = kind.night ? -(1 - mob.presence) * kind.height * size * 0.45 : 0;
+      const lift = (mob.lift + Math.abs(Math.cos(mob.phase)) * mob.gait * kind.bob) * size + rise;
       const chew = mob.act === "graze" ? Math.sin(this.time * (6 + mob.quirk * 3) + index) * 0.05 * smooth(0.4, 0.8, mob.head) : 0;
       const head = mob.head + chew;
       const sway = kind.temper === "zombie" ? Math.sin(this.time * (1.4 + mob.quirk) + index) * 0.08 : 0;
@@ -613,11 +687,12 @@ export class Mobs {
         data[o + 23] = 0;
         cursor++;
       }
-      if (contactCount < MOB_CONTACTS && mob.z - kind.reach * 1.35 < GRASS_FAR) {
+      const reach = Math.max(kind.reach * size * 1.6, 0.75);
+      if (contactCount < MOB_CONTACTS && mob.z - reach < GRASS_FAR) {
         const c = contactCount * 4;
         contacts[c] = mob.x;
         contacts[c + 1] = mob.z;
-        contacts[c + 2] = kind.reach * 1.35;
+        contacts[c + 2] = reach;
         contacts[c + 3] = fade;
         contactCount++;
       }
@@ -628,6 +703,19 @@ export class Mobs {
     this.shadow[1] = (-keyDir[2] / flat) * reach;
     this.contactCount = contactCount;
     return cursor;
+  }
+
+  private cast(night: boolean) {
+    let count = 0;
+    for (const mob of this.mobs) if (mob.kind.night === night && (mob.narrow || !this.narrow)) count++;
+    return count;
+  }
+
+  private sizeAt(kind: Kind, z: number) {
+    const natural = kind.height / (2 * this.tanHalfTall * Math.max(z, 0.1));
+    const low = kind.minShare * (this.narrow ? NARROW_MIN_SHARE : 1);
+    const high = kind.maxShare * (this.narrow ? NARROW_MAX_SHARE : 1);
+    return natural < low ? low / natural : natural > high ? high / natural : 1;
   }
 
   private presenceFor(mob: Mob, night: number) {
@@ -647,17 +735,49 @@ export class Mobs {
     }
   }
 
-  private nearest(kind: Kind) {
-    return kind.height / (2 * this.tanHalfTall * this.share);
+  private ground(x: number, z: number) {
+    const meadow = meadowHeight(x, z);
+    if (z < MEADOW_EDGE || !this.terrain) return meadow;
+    return meadow + (this.baked(x, z) - meadow) * this.hillScale;
+  }
+
+  private baked(x: number, z: number) {
+    const pixels = this.terrain!;
+    const columns = this.terrainWidth;
+    const rows = this.terrainHeight;
+    const u = (x / (TERRAIN_WIDTH + z * TERRAIN_SLOPE)) * 0.5 + 0.5;
+    const v = Math.log(Math.max(z, TERRAIN_NEAR) / TERRAIN_NEAR) / TERRAIN_LOG;
+    if (u < 0 || u > 1 || v > 1) return HEIGHT_MIN;
+    const s = u * columns - 0.5;
+    const t = v * rows - 0.5;
+    const c0 = Math.max(0, Math.min(columns - 1, Math.floor(s)));
+    const r0 = Math.max(0, Math.min(rows - 1, Math.floor(t)));
+    const c1 = Math.min(columns - 1, c0 + 1);
+    const r1 = Math.min(rows - 1, r0 + 1);
+    const fs = clamp01(s - c0);
+    const ft = clamp01(t - r0);
+    const at = (c: number, r: number) => {
+      const i = (r * columns + c) * 4;
+      return ((pixels[i] * 256 + pixels[i + 1]) / 65535) * HEIGHT_RANGE + HEIGHT_MIN;
+    };
+    const a = at(c0, r0);
+    const b = at(c1, r0);
+    const c = at(c0, r1);
+    const d = at(c1, r1);
+    return a + (b - a) * fs + (c - a) * ft + (a - b - c + d) * fs * ft;
   }
 
   private spawn(mob: Mob) {
-    const near = this.nearest(mob.kind);
-    const far = mob.kind.far * (this.narrow ? NARROW_FAR : 1);
+    const top = this.horizonY - this.height * SKY_REACH;
+    const bottom = this.height * 0.985;
     for (let attempt = 0; attempt < 40; attempt++) {
-      const spread = Math.min(1, Math.max(0, mob.band + (mob.random() - 0.5) * (0.3 + attempt * 0.03)));
-      const z = near * (far / near) ** spread;
-      const x = (mob.random() * 2 - 1) * z * this.tanHalfWide * 0.97;
+      if (this.budget <= 0) return false;
+      const jitter = (mob.random() - 0.5) * (0.22 + attempt * 0.03);
+      const sy = top + (bottom - top) * clamp01(mob.band + jitter);
+      const sx = mob.random() * this.width;
+      if (!this.unproject(sx, sy)) continue;
+      const x = this.gx;
+      const z = this.gz;
       if (!this.valid(mob.kind, x, z, mob, true)) continue;
       this.settle(mob, x, z);
       return true;
@@ -690,23 +810,38 @@ export class Mobs {
   }
 
   private valid(kind: Kind, x: number, z: number, self: Mob, crowd: boolean) {
-    const far = kind.far * (this.narrow ? NARROW_FAR : 1);
-    if (z < this.nearest(kind) || z > far) return false;
+    if (z < kind.near * (this.narrow ? NARROW_NEAR : 1) || z > MARCH_LIMIT * 0.8) return false;
     if (!this.frame(kind, x, z)) return false;
     const { left, right, top, bottom } = this.rect;
-    if (left < this.width * 0.015 || right > this.width * 0.985 || bottom > this.height * 0.99) return false;
+    if (left < this.width * 0.015 || right > this.width * 0.985 || bottom > this.height * 0.96 || top < this.height * 0.02) return false;
     for (const area of this.keepOut) {
       if (right > area.left - KEEP_OUT_PAD && left < area.right + KEEP_OUT_PAD && bottom > area.top - KEEP_OUT_PAD && top < area.bottom + KEEP_OUT_PAD) return false;
     }
+    const column = this.narrow ? null : this.column;
+    if (column && left < column.right + KEEP_OUT_PAD && bottom > column.top) return false;
+    if (z > MEADOW_EDGE && !this.visible(x, z, (left + right) / 2, bottom)) return false;
     if (!crowd) return true;
+    const size = this.sizeAt(kind, z);
+    let sharing = 0;
     for (const other of this.mobs) {
       if (other === self || !other.placed || other.presence === 0) continue;
-      const gap = kind.reach + other.kind.reach + 0.4;
+      if (this.frame(other.kind, other.x, other.z) && Math.abs(this.rect.bottom - bottom) <= BAND_PX) sharing++;
+      else if (other.mode === WALK && this.frame(other.kind, other.tx, other.tz) && Math.abs(this.rect.bottom - bottom) <= BAND_PX) sharing++;
+    }
+    if (sharing + 1 > Math.floor(this.cast(kind.night) / 2)) return false;
+    for (const other of this.mobs) {
+      if (other === self || !other.placed || other.presence === 0) continue;
+      const gap = kind.reach * size + other.kind.reach * this.sizeAt(other.kind, other.z) + 0.4;
       if (Math.hypot(x - other.x, z - other.z) < gap) return false;
       if (other.mode === WALK && Math.hypot(x - other.tx, z - other.tz) < gap) return false;
       if (this.crowds(other, left, right, top, bottom)) return false;
     }
     return true;
+  }
+
+  private visible(x: number, z: number, sx: number, sy: number) {
+    if (!this.unproject(sx, sy - 1)) return false;
+    return Math.abs(this.gz - z) < z * 0.06 + 1 && Math.abs(this.gx - x) < z * 0.06 + 1;
   }
 
   private clearPath(mob: Mob, x: number, z: number) {
@@ -718,11 +853,13 @@ export class Mobs {
   }
 
   private frame(kind: Kind, x: number, z: number) {
-    const ground = meadowHeight(x, z);
-    if (!this.toScreen(x - kind.reach, ground, z)) return false;
+    const ground = this.ground(x, z);
+    const size = this.sizeAt(kind, z);
+    const reach = kind.reach * size;
+    if (!this.toScreen(x - reach, ground, z)) return false;
     this.rect.left = this.sx;
     this.rect.bottom = this.sy;
-    if (!this.toScreen(x + kind.reach, ground + kind.height, z)) return false;
+    if (!this.toScreen(x + reach, ground + kind.height * size, z)) return false;
     this.rect.right = this.sx;
     this.rect.top = this.sy;
     return true;
@@ -747,35 +884,49 @@ export class Mobs {
   }
 
   private unproject(sx: number, sy: number) {
+    this.budget--;
     const ndcX = (sx / this.width) * 2 - 1;
     const ndcY = 1 - (sy / this.height) * 2;
     const up = ndcY * this.tanHalfTall;
     const dirX = ndcX * this.tanHalfWide;
     const dirY = up * this.pitchCos + this.pitchSin;
     const dirZ = this.pitchCos - up * this.pitchSin;
-    if (dirY > -1e-4) return false;
-    let ground = 0;
-    for (let pass = 0; pass < 3; pass++) {
-      const t = (ground - CAMERA_HEIGHT) / dirY;
-      if (t <= 0) return false;
-      this.gx = dirX * t;
-      this.gz = dirZ * t;
-      ground = meadowHeight(this.gx, this.gz);
+    if (dirZ <= 0) return false;
+    let before = 0.3;
+    let t = before;
+    while (t < MARCH_LIMIT) {
+      t = t * MARCH_GROWTH + 0.04;
+      const z = dirZ * t;
+      if (CAMERA_HEIGHT + dirY * t <= this.ground(dirX * t, z)) {
+        let low = before;
+        let high = t;
+        for (let i = 0; i < 10; i++) {
+          const mid = (low + high) / 2;
+          if (CAMERA_HEIGHT + dirY * mid <= this.ground(dirX * mid, dirZ * mid)) high = mid;
+          else low = mid;
+        }
+        this.gx = dirX * high;
+        this.gz = dirZ * high;
+        return true;
+      }
+      if (!this.terrain && dirY >= 0) return false;
+      before = t;
     }
-    return true;
+    return false;
   }
 
   private aim(mob: Mob, near: number, far: number, depthBias = 0) {
-    if (!this.toScreen(mob.x, meadowHeight(mob.x, mob.z), mob.z)) return false;
-    const cx = this.sx;
-    const cy = this.sy;
+    if (!this.frame(mob.kind, mob.x, mob.z)) return false;
+    const cx = (this.rect.left + this.rect.right) / 2;
+    const cy = this.rect.bottom;
     for (let attempt = 0; attempt < 18; attempt++) {
+      if (this.budget <= 0) return false;
       const angle = mob.between(0, Math.PI * 2);
       const distance = mob.between(near, far) * this.width;
       const sx = cx + Math.cos(angle) * distance;
-      let sy = cy + Math.sin(angle) * distance * 0.6;
+      let sy = cy + Math.sin(angle) * distance * 0.75;
       if (depthBias !== 0 && Math.sign(sy - cy) !== Math.sign(depthBias)) sy = cy - (sy - cy);
-      if (sy <= this.horizonY + 2 || !this.unproject(sx, sy)) continue;
+      if (!this.unproject(sx, sy)) continue;
       const tx = this.gx;
       const tz = this.gz;
       if (!this.valid(mob.kind, tx, tz, mob, true) || !this.clearPath(mob, tx, tz)) continue;
@@ -982,7 +1133,7 @@ export class Mobs {
     const dx = mob.tx - mob.x;
     const dz = mob.tz - mob.z;
     const distance = Math.hypot(dx, dz);
-    const depthPace = Math.min(3, Math.max(1, mob.z / 22));
+    const depthPace = Math.max(1, mob.z / 22);
     if (distance < 0.07 * depthPace) {
       this.rest(mob);
       return false;

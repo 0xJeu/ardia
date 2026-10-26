@@ -109,6 +109,19 @@ float meadowHeight(vec2 p) {
   return near + far * (6.0 + 8.0 * valueNoise(p * 0.004 + 3.0) + 2.5 * valueNoise(p * 0.018 + 1.3));
 }
 
+float bakedHeight(sampler2D heightTex, vec2 uv) {
+  ivec2 size = textureSize(heightTex, 0);
+  vec2 st = uv * vec2(size) - 0.5;
+  ivec2 base = ivec2(floor(st));
+  vec2 f = fract(st);
+  ivec2 top = size - 1;
+  float a = decodeHeight(texelFetch(heightTex, clamp(base, ivec2(0), top), 0));
+  float b = decodeHeight(texelFetch(heightTex, clamp(base + ivec2(1, 0), ivec2(0), top), 0));
+  float c = decodeHeight(texelFetch(heightTex, clamp(base + ivec2(0, 1), ivec2(0), top), 0));
+  float d = decodeHeight(texelFetch(heightTex, clamp(base + ivec2(1, 1), ivec2(0), top), 0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
 vec3 skyGradient(float h) {
   vec3 col = mix(uSkyHorizon, uSkyLow, smoothstep(0.0, 0.16, h));
   col = mix(col, uSkyMid, smoothstep(0.12, 0.55, h));
@@ -368,22 +381,9 @@ uniform float uHillScale;
 out vec2 vUv;
 out vec3 vWorld;
 
-float heightBilinear(vec2 uv) {
-  ivec2 size = textureSize(uHeightTex, 0);
-  vec2 st = uv * vec2(size) - 0.5;
-  ivec2 base = ivec2(floor(st));
-  vec2 f = fract(st);
-  ivec2 top = size - 1;
-  float a = decodeHeight(texelFetch(uHeightTex, clamp(base, ivec2(0), top), 0));
-  float b = decodeHeight(texelFetch(uHeightTex, clamp(base + ivec2(1, 0), ivec2(0), top), 0));
-  float c = decodeHeight(texelFetch(uHeightTex, clamp(base + ivec2(0, 1), ivec2(0), top), 0));
-  float d = decodeHeight(texelFetch(uHeightTex, clamp(base + ivec2(1, 1), ivec2(0), top), 0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
 void main() {
   vec2 p = terrainWorld(aUv);
-  float h = p.y < 60.0 ? meadowHeight(p) : mix(meadowHeight(p), heightBilinear(aUv), uHillScale);
+  float h = p.y < 60.0 ? meadowHeight(p) : mix(meadowHeight(p), bakedHeight(uHeightTex, aUv), uHillScale);
   vWorld = vec3(p.x, h, p.y);
   vUv = aUv;
   gl_Position = uViewProj * vec4(vWorld, 1.0);
@@ -587,7 +587,7 @@ void main() {
     vec2 footprint = (d - uMobShadow * mob.z) / (mob.z * 0.8);
     shade = max(shade, (1.0 - min(dot(footprint, footprint), 1.0)) * mob.w);
   }
-  height *= 1.0 - 0.6 * trample;
+  height *= 1.0 - 0.75 * trample;
   vShade = shade;
   float pixelWorld = z * uPixelAngle;
   float width = max(mix(0.01, 0.02, h4) * mix(1.3, 0.9, clump), pixelWorld * 1.6);
@@ -701,6 +701,8 @@ layout(location = 6) in vec4 aColor;
 layout(location = 7) in vec4 aExtra;
 uniform mat4 uViewProj;
 uniform sampler2D uHorizonTex;
+uniform sampler2D uHeightTex;
+uniform float uHillScale;
 uniform float uPx;
 out vec3 vWorld;
 out vec3 vNormal;
@@ -736,7 +738,9 @@ void main() {
   vec3 local = aOffset.xyz + aCorner * aSize.xyz;
   mat3 part = turnY(aRoot.z) * turnY(aPivot.w) * turnX(aOffset.w) * turnZ(aSize.w);
   vec3 model = turnY(aRoot.z) * aPivot.xyz + part * local;
-  vec3 world = vec3(aRoot.x, meadowHeight(aRoot.xy) - 0.02 + aRoot.w, aRoot.y) + model * uPx;
+  float meadow = meadowHeight(aRoot.xy);
+  float ground = aRoot.y < 60.0 ? meadow : mix(meadow, bakedHeight(uHeightTex, terrainUv(aRoot.xy)), uHillScale);
+  vec3 world = vec3(aRoot.x, ground - 0.02 + aRoot.w, aRoot.y) + model * uPx;
   vec3 size = aSize.xyz;
   vec3 major = size.x >= size.y && size.x >= size.z ? vec3(1.0, 0.0, 0.0) : size.y >= size.z ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
   vec4 clip = uViewProj * vec4(world, 1.0);
@@ -790,8 +794,7 @@ void main() {
   col += uKeyColor * rim * vLit * 0.12;
   col *= mix(1.0, 1.35, uNight);
   col += vColor * vGlow * mix(0.5, 1.8, uNight);
-  col = atmosphere(col, vWorld);
-  col = mix(col, mistPaint(), valleyMist(gl_FragCoord.xy) * 0.82);
+  col = mix(atmosphere(col, vWorld), col, smoothstep(150.0, 900.0, vWorld.z) * 0.6 * (1.0 - uNight * 0.5));
   col = mix(mistPaint(), col, smoothstep(0.0, 0.75, vFade));
   outColor = vec4(encodeColor(col), 1.0);
   outFlow = encodeFlow(length(vStroke) > 1e-4 ? vStroke : vec2(0.0, 1.0), 0.08, CREATURE_REGION);
