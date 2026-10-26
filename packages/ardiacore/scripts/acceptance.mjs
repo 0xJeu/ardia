@@ -3560,7 +3560,7 @@ try {
       const restOrigin = await pageOrigin();
       if (!rest.lights || rest.lights.hidden || rest.standardLightsHidden.some((h) => !h)) throw new Error(`full-screen lights: ${JSON.stringify(rest)}`);
       if (suppressible && (rest.titlebarMaxHeight !== 0 || rest.titlebarMinHeight !== 0)) throw new Error(`the system title bar isn't suppressed: ${JSON.stringify(rest)}`);
-      if (!(rest.overlap > 0)) throw new Error(`no menu bar overlap in full screen: ${JSON.stringify(rest)}`);
+      out.screen = { case: rest.overlap > 0 ? "menu bar over the window" : "window below the menu bar (notch)", menuBarHeight: rest.menuBarHeight, overlap: rest.overlap };
       out.steps = [];
       for (const amount of [0.5, 1, 0]) {
         const s = await reveal(amount);
