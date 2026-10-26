@@ -21,10 +21,10 @@ variables) is in `docs/conventions.md`, enforced by `apps/browser/src/convention
       inside Chrome's run loop. Nothing may touch `NSApp` before that.
     - **Every app window is one `ArdiaCoreWindow`** (a Views-backed `NSWindow`, so Chrome's bubbles, dialogs, menus and
       autofill dropdowns attach to it) holding a Chrome `Browser` per profile shown in it, each with no
-      `BrowserView`, tab strip or toolbar (`ArdiaCoreChromeWindow.mm`, the `ACChromeWindowHost` packages/shell looks
-      up). Paging between profiles changes the active profile; the window stays.
+      `BrowserView`, tab strip or toolbar (`ArdiaChromeWindowHost.mm`, which packages/shell's
+      `ChromeWindows.swift` calls through the ArdiaCore pod). Paging between profiles changes the active profile; the window stays.
     - Every tab is a real Chrome tab of its window's Browser; its `WebContents` view is hosted in our React Native
-      views (`ArdiaCoreWebView`). Popups, `target=_blank` and ⌘-click keep Chrome's own new `WebContents`.
+      views (`ArdiaWebView`). Popups, `target=_blank` and ⌘-click keep Chrome's own new `WebContents`.
     - Passwords, autofill, extensions, zoom and search engines call Chrome's services directly through our
       own Chromium code, `//chrome/browser/ardia` (`engine/chromium`), exported as plain C
       (`ArdiaCoreEngineBridge`, `ArdiaCoreServices`); ArdiaCore's own layer is `//ardia/core` (`engine/ardiacore`).

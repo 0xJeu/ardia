@@ -92,7 +92,7 @@ Statuses:
 | `ArdiaExtensions` (10 functions, 3 events) | 8 | 5 | 0 | 0 |
 | `ArdiaChromeUI` (15 functions, 4 events) | 9 | 10 | 0 | 0 |
 | `ArdiaSwipe` (7 functions, a view with 3 events) | 11 | 0 | 0 | 0 |
-| Window hosting (`ACChromeWindowHost`, used by `packages/shell`) (13) | 13 | 0 | 0 | 0 |
+| Window hosting (`ArdiaChromeWindowHost`, used by `packages/shell`) (13) | 13 | 0 | 0 | 0 |
 | **Total (201)** | **156 (78%)** | **44** | **1** | **0** |
 
 Nothing is **missing** and every signature matches `packages/cef`'s (checked by diffing the Swift module
@@ -332,7 +332,7 @@ over, `-[ArdiaCoreTab setTemporarySource:]`) is the tab a closed window's entry 
 **done**: the same sources as CEF's (`ACSwipe.mm`, `SwipeModule.swift`, linked into `packages/ardiacore/ios`). Profile
 paging on ArdiaCore is a change of the window's active profile, never a window swap.
 
-## Window hosting (`ACChromeWindowHost`, looked up by `packages/shell/ios/ChromeWindows.swift`)
+## Window hosting (`ArdiaChromeWindowHost`, called by `packages/shell/ios/ChromeWindows.swift`)
 
 All 12 **done**: `makeWindowForProfile:` (one `ArdiaCoreWindow` per app window, styled as the app's),
 `embedRootView:inWindow:`, `rootViewOfWindow:`, `removeRootViewOfWindow:`, `showProfile:inWindow:` (the traffic
