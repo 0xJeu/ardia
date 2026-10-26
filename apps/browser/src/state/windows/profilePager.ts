@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import { Animated, unstable_batchedUpdates } from "react-native";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { useBrowser } from "../../state/browser/store";
+import { useBrowser } from "../browser/store";
 
 export type PagerPage = { id: string; slot: number; resting?: boolean };
 
