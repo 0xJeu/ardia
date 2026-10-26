@@ -315,6 +315,7 @@ export const font = {
   small: { fontSize: 12 },
   body: { fontSize: 13 },
   title: { fontSize: 14 },
+  heading: { fontSize: 15 },
 } as const;
 
 export type TypeSize = keyof typeof font;
