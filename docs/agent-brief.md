@@ -5,6 +5,8 @@ Ardia, a macOS browser that must reach **full feature and visual parity with Dia
 (The Browser Company). The feature checklist is `docs/dia-feature-parity.md`; the
 visual spec (colors, sizes, animations recovered from Dia's binary) is `docs/dia-spec.md`.
 The user is demanding: no sloppy work, every hover state/animation/detail matters.
+How the code is laid out and named (folders, import direction, tokens, state, the translation layer, environment
+variables) is in `docs/conventions.md`, enforced by `apps/browser/src/conventions.test.mjs`.
 
 ## Stack
 - Turborepo + pnpm (hoisted `node_modules` at the repo root).
