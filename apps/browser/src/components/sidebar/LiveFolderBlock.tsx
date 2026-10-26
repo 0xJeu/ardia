@@ -7,13 +7,12 @@ import { hex, layout, useTheme } from "../ui/theme";
 import { useSelectedTabGlow } from "./tokens";
 import { COMPLETION_MS, errorText, manualRefresh, openLiveItem, statusText } from "../../state/live/engine";
 import { prBadge } from "../../state/live/github";
-import { folderRows, liveTabPlace, type FolderRow } from "../../state/live/rows";
+import { folderRows, type FolderRow } from "../../state/live/rows";
 import { liveFolderIcon, SOURCES } from "../../state/live/sources";
 import { setLive, updateFolder, useLive } from "../../state/live/store";
 import type { CompletedItem, LiveFolder, LiveItem } from "../../state/live/types";
-import { useBrowser } from "../../state/browser/store";
-import { usePageProfileId } from "../../state/browser/hooks";
-import { activeTabId, viewTabIds } from "../../state/browser/model";
+import { usePageProfileId, useTab } from "../../state/browser/hooks";
+import { useIsActiveIn, useLiveActiveTab, useLiveItemTab, useLiveStrays } from "../../state/sidebar/hooks";
 import { openSettings } from "../../state/settings/settingsWindows";
 import { HoverSlot } from "../ui/HoverSlot";
 import { Button, useHover } from "../ui";
@@ -50,17 +49,9 @@ export const LiveFolderBlock = memo(function LiveFolderBlock({ folderId, windowI
   const hiddenList = useLive((s) => s.hidden[folderId] ?? EMPTY);
   const hiddenIds = useMemo(() => new Set(hiddenList.map((i) => i.id)), [hiddenList]);
   const profileId = usePageProfileId();
-  const strays = useBrowser(
-    useShallow((s) =>
-      viewTabIds(s, windowId, profileId).filter((id) => s.tabs[id]?.liveItem?.folderId === folderId && liveTabPlace(s.tabs[id]!.liveItem!.itemId, itemIds, hiddenIds) === "stray"),
-    ),
-  );
-  const activeTab = useBrowser((s) => {
-    const id = activeTabId(s, windowId, profileId) ?? "";
-    const liveItem = s.tabs[id]?.liveItem;
-    return liveItem?.folderId === folderId && liveTabPlace(liveItem.itemId, itemIds, hiddenIds) !== "hidden" ? id : null;
-  });
-  const activeItem = useBrowser((s) => (activeTab ? (s.tabs[activeTab]?.liveItem?.itemId ?? null) : null));
+  const strays = useLiveStrays(windowId, profileId, folderId, itemIds, hiddenIds);
+  const activeTab = useLiveActiveTab(windowId, profileId, folderId, itemIds, hiddenIds);
+  const activeItem = useTab(activeTab ?? undefined, (t) => t?.liveItem?.itemId ?? null);
   const completed = useCompletedShown(folderId).length > 0;
   const fold = useFold(collapsed);
   const foldedHeight = () => GROUP_BORDER * 2 + layout.rowHeight + (activeTab ? layout.rowHeight + PAD : 0);
@@ -310,8 +301,8 @@ function LiveItemRow({ folderId, item, windowId, inStack = false }: { folderId: 
   const colors = useLiveColors();
   const key = liveRowKey(folderId, item.id);
   const profileId = usePageProfileId();
-  const tabId = useBrowser((s) => viewTabIds(s, windowId, profileId).find((id) => s.tabs[id]?.liveItem?.itemId === item.id && s.tabs[id]?.liveItem?.folderId === folderId) ?? null);
-  const active = useBrowser((s) => !!tabId && activeTabId(s, windowId, profileId) === tabId);
+  const tabId = useLiveItemTab(windowId, profileId, folderId, item.id);
+  const active = useIsActiveIn(windowId, profileId, tabId);
   const unread = useLive((s) => !!s.unread[folderId]?.includes(item.id));
   const completion = useLive((s) => (s.completing[folderId]?.includes(item.id) ? (s.completed[folderId]?.find((c) => c.item.id === item.id)?.state ?? "merged") : null));
   const { hovered, hoverProps } = useRowHover(windowId, completion ? null : { kind: "live", id: key });

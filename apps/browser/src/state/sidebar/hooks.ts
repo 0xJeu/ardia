@@ -1,6 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { useBrowser, type BrowserState } from "../browser/store";
-import { activeTabId } from "../browser/model";
+import { activeTabId, viewTabIds } from "../browser/model";
+import { liveTabPlace } from "../live/rows";
 import type { Tab } from "../browser/types";
 import { cleanedTabsFor, groupLabel } from "../pins/organize";
 import { canTidyPins } from "../pins/tidyPins";
@@ -75,5 +76,28 @@ export const useHoverOrphaned = (windowId: string, hover: Hover | null) =>
 export const useGroupPanelTabIds = (groupId: string) => useBrowser(useShallow((s) => groupTabIds(s.groups, groupId)));
 
 export const useTabsById = (ids: string[]) => useBrowser(useShallow((s) => ids.map((id) => s.tabs[id])));
+
+export const useClosedTabs = () => useBrowser((s) => s.closedTabs);
+
+export const useClosedGroups = () => useBrowser((s) => s.closedGroups);
+
+export const useLiveStrays = (windowId: string, profileId: string, folderId: string, itemIds: Set<string>, hiddenIds: Set<string>) =>
+  useBrowser(
+    useShallow((s) =>
+      viewTabIds(s, windowId, profileId).filter((id) => s.tabs[id]?.liveItem?.folderId === folderId && liveTabPlace(s.tabs[id]!.liveItem!.itemId, itemIds, hiddenIds) === "stray"),
+    ),
+  );
+
+export const useLiveActiveTab = (windowId: string, profileId: string, folderId: string, itemIds: Set<string>, hiddenIds: Set<string>) =>
+  useBrowser((s) => {
+    const id = activeTabId(s, windowId, profileId) ?? "";
+    const liveItem = s.tabs[id]?.liveItem;
+    return liveItem?.folderId === folderId && liveTabPlace(liveItem.itemId, itemIds, hiddenIds) !== "hidden" ? id : null;
+  });
+
+export const useLiveItemTab = (windowId: string, profileId: string, folderId: string, itemId: string) =>
+  useBrowser((s) => viewTabIds(s, windowId, profileId).find((id) => s.tabs[id]?.liveItem?.itemId === itemId && s.tabs[id]?.liveItem?.folderId === folderId) ?? null);
+
+export const useIsActiveIn = (windowId: string, profileId: string, tabId: string | null) => useBrowser((s) => !!tabId && activeTabId(s, windowId, profileId) === tabId);
 
 export const useLayoutFromWorkspace = <T>(measure: (s: BrowserState) => T): T => useBrowser(measure);

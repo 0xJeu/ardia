@@ -326,7 +326,6 @@
     "apps/browser/src/components/media/artwork.ts": 2,
     "apps/browser/src/components/media/pip.ts": 2,
     "apps/browser/src/components/sidebar/DragProvider.tsx": 14,
-    "apps/browser/src/components/sidebar/SearchTabs.tsx": 2,
     "apps/browser/src/components/site/Prompts.tsx": 1,
     "apps/browser/src/components/site/SiteControls.tsx": 4,
     "apps/browser/src/components/site/TranslateControls.tsx": 1,

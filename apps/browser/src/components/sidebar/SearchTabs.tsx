@@ -4,62 +4,16 @@ import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { switchToTab } from "../../state/browser/actions";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser, type BrowserState } from "../../state/browser/store";
-import { tabLabel } from "../../state/browser/model";
-import { isPeekTab } from "../../state/peek/peek";
-import { sharedTabsIn, sharesTabs } from "../../state/tabs/tabShare";
-import type { Tab } from "../../state/browser/types";
-import { tabTitle } from "../../state/sidebar/actions";
+import { useTabs } from "../../state/tabs/hooks";
+import { restoreClosed } from "../../state/windows/actions";
+import { useClosedGroups, useClosedTabs } from "../../state/sidebar/hooks";
+import { searchCandidates, type Row } from "../../state/sidebar/searchTabs";
 import { setSidebarUi, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
-
-type Row =
-  | { kind: "tab"; id: string; title: string; url: string; favicon: string | null; icon: string | null; where: string | null; current: boolean }
-  | { kind: "closed"; id: string; title: string; url: string; favicon: string | null; icon: string | null; detail: string };
 
 const WIDTH = 560;
 const ROW = 36;
 const MAX_ROWS = 10;
-
-function candidates(s: BrowserState, windowId: string): { open: Row[]; closed: Row[] } {
-  const w = s.windows[windowId];
-  if (!w) return { open: [], closed: [] };
-  const profileId = w.profileId;
-  const shared = sharesTabs(s) ? sharedTabsIn(s.tabs, windowId) : null;
-  const lastUsed = (t: Tab) => shared?.lastUsed(t) ?? t.lastActiveAt;
-  const windowNumber = (id: string) => s.windowOrder.filter((x) => !s.windows[x]?.incognito || x === windowId).indexOf(id) + 1;
-  const open: Row[] = Object.values(s.tabs)
-    .filter((t) => t.profileId === profileId && !isPeekTab(s, t.id) && !shared?.elsewhere(t))
-    .sort((a, b) => lastUsed(b) - lastUsed(a))
-    .map((t) => ({
-      kind: "tab",
-      id: t.id,
-      title: tabTitle(t),
-      url: t.url,
-      favicon: t.favicon,
-      icon: t.customIcon,
-      where: t.windowId === windowId ? null : `Window ${windowNumber(t.windowId)}`,
-      current: s.windows[t.windowId]?.activeTabIds[profileId] === t.id,
-    }));
-  const closed: Row[] = [
-    ...s.closedTabs
-      .filter((c) => c.tab.profileId === profileId)
-      .map((c) => ({ kind: "closed" as const, id: c.id, title: c.tab.customTitle || c.tab.title || tabLabel(c.tab), url: c.tab.url, favicon: c.tab.favicon, icon: c.tab.customIcon, detail: "", at: c.closedAt })),
-    ...s.closedGroups.map((c) => ({
-      kind: "closed" as const,
-      id: c.id,
-      title: c.group.name,
-      url: c.tabs[0]?.url ?? "",
-      favicon: c.tabs[0]?.favicon ?? null,
-      icon: c.group.icon,
-      detail: c.tabs.length === 1 ? "Group · 1 tab" : `Group · ${c.tabs.length} tabs`,
-      at: c.closedAt,
-    })),
-  ]
-    .sort((a, b) => b.at - a.at)
-    .map(({ at: _, ...row }) => row);
-  return { open, closed };
-}
 
 const host = (url: string) => {
   try {
@@ -86,11 +40,11 @@ function Panel({ windowId, windowWidth }: { windowId: string; windowWidth: numbe
     focused.current = true;
     field.current?.focus();
   };
-  const tabs = useBrowser((s) => s.tabs);
-  const closedTabs = useBrowser((s) => s.closedTabs);
-  const closedGroups = useBrowser((s) => s.closedGroups);
+  const tabs = useTabs((t) => t);
+  const closedTabs = useClosedTabs();
+  const closedGroups = useClosedGroups();
   const sections = useMemo(() => {
-    const { open, closed } = candidates(useBrowser.getState(), windowId);
+    const { open, closed } = searchCandidates(windowId);
     const q = query.trim();
     if (!q) return [{ title: "Open Tabs", rows: open }, { title: "Recently Closed", rows: closed.slice(0, 8) }];
     const rank = (rows: Row[]) =>
@@ -107,7 +61,7 @@ function Panel({ windowId, windowWidth }: { windowId: string; windowWidth: numbe
     if (!row) return;
     close();
     if (row.kind === "tab") switchToTab(row.id);
-    else useBrowser.getState().restoreClosed(row.id, windowId);
+    else restoreClosed(row.id, windowId);
   };
   const move = (delta: number) => {
     const next = Math.max(0, Math.min(rows.length - 1, selected + delta));
