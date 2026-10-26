@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { spring as springOf, curve } from "../ui/motion";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
 import { Favicon, NewTabIcon } from "../ui/Primitives";
 import { HistoryPopover } from "./HistoryPopover";
-import { goBack, goForward, goToHistoryItem, historyItems, openHistoryMenu, useHistoryAvailability, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
+import { goBack, goForward, goToHistoryItem, historyFavicons, historyItems, openHistoryMenu, useHistoryAvailability, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
 import type { ToolbarGeometry } from "./geometry";
 import {
   CAPSULE_INSET,
@@ -258,11 +258,8 @@ export function SwipeOverlay({ tabId }: { tabId: string }) {
 
 function DestinationList({ tabId, items, selected, appear, pill }: { tabId: string; items: HistoryItem[]; selected: number; appear: Animated.Value; pill: Animated.Value }) {
   const theme = useTheme();
-  const profileId = useBrowser((s) => s.tabs[tabId]?.profileId ?? "");
-  const favicons = useMemo(() => {
-    const urls = new Set(items.map((i) => i.url));
-    return new Map((useBrowser.getState().history[profileId] ?? []).filter((h) => urls.has(h.url)).map((h) => [h.url, h.favicon]));
-  }, [items, profileId]);
+  const profileId = useTab(tabId, (t) => t?.profileId ?? "");
+  const favicons = useMemo(() => historyFavicons(profileId, items), [items, profileId]);
   return (
     <Animated.View
       style={{

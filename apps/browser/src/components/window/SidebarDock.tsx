@@ -1,12 +1,11 @@
 import { onWindowEvent, setTrafficLightsCenter, Surface, watchLeftEdge, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { switchOn } from "../../platform/killSwitches";
 import { hex, layout, useTheme } from "../ui/theme";
 import { spring, curve } from "../ui/motion";
-import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
+import { useSidebarDockState } from "../../state/windows/hooks";
 import { Sidebar } from "../sidebar/Sidebar";
 import { dismissHoverIn } from "../../state/sidebar/hover";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
@@ -118,16 +117,8 @@ export function DockedLayout({
   children: ReactNode;
 }) {
   const windowId = useWindowId();
-  const [open, savedWidth, addressBar] = useBrowser(
-    useShallow(
-      (s) =>
-        [
-          s.windows[windowId]?.sidebarOpen ?? true,
-          s.settings.sidebarWidth ?? layout.sidebarWidth,
-          s.settings.addressBar === "sidebar",
-        ] as const,
-    ),
-  );
+  const [open, sidebarWidth, addressBar] = useSidebarDockState(windowId);
+  const savedWidth = sidebarWidth ?? layout.sidebarWidth;
   const width = useSidebarUi((u) => u.dragWidth[windowId]) ?? savedWidth;
   const arc = addressBar && !topTabs && switchOn("sidebarSlide");
   const lights = addressBar && !topTabs ? ARC_LIGHTS_CENTER : LIGHTS_CENTER;

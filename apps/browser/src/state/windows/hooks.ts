@@ -38,3 +38,5 @@ export const useProfileNeighbours = (windowId: string) =>
       return i < 0 ? [false, false, false] : [i > 0, i < s.profileOrder.length - 1, s.profileOrder.length > 1];
     }),
   );
+
+export const useIsFocusedWindow = (windowId: string): boolean => useBrowser((s) => s.ui.focusedWindowId === windowId);

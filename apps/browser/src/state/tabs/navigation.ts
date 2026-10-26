@@ -135,3 +135,12 @@ export async function openHistoryMenu(tabId: string, direction: -1 | 1) {
 }
 
 export const closeHistoryMenu = () => useHistoryMenu.setState({ menu: null });
+
+export const closeHistoryMenuOf = (tabId: string) => {
+  if (useHistoryMenu.getState().menu?.tabId === tabId) closeHistoryMenu();
+};
+
+export function historyFavicons(profileId: string, items: readonly { url: string }[]): Map<string, string | null> {
+  const urls = new Set(items.map((i) => i.url));
+  return new Map((useBrowser.getState().history[profileId] ?? []).filter((h) => urls.has(h.url)).map((h) => [h.url, h.favicon]));
+}

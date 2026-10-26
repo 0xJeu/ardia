@@ -1,6 +1,7 @@
 import { useBrowser, type BrowserState } from "../browser/store";
 import { isWindowClosing } from "../windows/closingWindows";
 import type { Frame } from "../browser/types";
+import type { TabPlacement } from "../pins/organize";
 
 
 export function screenPoint(s: BrowserState, windowId: string, x: number, y: number, live?: Frame | null): [number, number] | null {
@@ -46,4 +47,14 @@ export function dropTabsOutside(
   const frame: Frame = [Math.round(point[0] - 90), Math.round(point[1] - height + 70), width, height];
   onNewWindow?.(frame);
   return s.createWindow({ profileId: s.tabs[tabIds[0]!]?.profileId, tabIds, frame });
+}
+
+export function openDroppedUrls(windowId: string, profileId: string, placement: TabPlacement | null, urls: string[]): string[] {
+  const s = useBrowser.getState();
+  const w = s.windows[windowId];
+  if (!urls.length || !w || !(s.profiles[profileId] || w.profileId === profileId)) return [];
+  const paged = w.profileId !== profileId;
+  const ids = urls.map((url, i) => s.newTab(windowId, { url, background: paged || i > 0, profileId })).filter(Boolean);
+  if (ids.length && placement && !paged) useBrowser.getState().placeTabs(ids, placement);
+  return ids;
 }

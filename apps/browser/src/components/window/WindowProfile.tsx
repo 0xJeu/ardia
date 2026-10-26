@@ -1,19 +1,9 @@
 import { WindowProfile as NativeWindowProfile } from "@ardia/shell";
-import { useShallow } from "zustand/react/shallow";
-import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
-import { engineProfile } from "../../state/browser/model";
+import { useNativeWindowProfile } from "../../state/windows/hooks";
 
 export function WindowProfile() {
   const windowId = useWindowId();
-  const [profile, neighbours, selection] = useBrowser(
-    useShallow((s) => {
-      const w = s.windows[windowId];
-      if (!w) return ["", "[]", ""];
-      const at = w.incognito ? -1 : s.profileOrder.indexOf(w.profileId);
-      const next = at < 0 ? [] : [s.profileOrder[at - 1], s.profileOrder[at + 1]].filter((p): p is string => !!p).map(engineProfile);
-      return [engineProfile(w.profileId), JSON.stringify(next), w.profileId];
-    }),
-  );
+  const [profile, neighbours, selection] = useNativeWindowProfile(windowId);
   return <NativeWindowProfile profile={profile} selection={selection} neighbours={JSON.parse(neighbours) as string[]} style={{ position: "absolute", width: 0, height: 0 }} />;
 }

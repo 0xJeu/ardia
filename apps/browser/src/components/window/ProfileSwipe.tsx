@@ -2,9 +2,10 @@ import { SwipeArea, type SwipeAreaHandle, type SwipeEvent } from "@ardia/ardiaco
 import { WindowBackdrop } from "@ardia/shaders";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { profileTheme, spaceLookSource } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { currentWindow } from "../../state/browser/current";
+import { useProfileLooks } from "../../state/profiles/hooks";
+import { useProfileNeighbours } from "../../state/windows/hooks";
 import { useWindowId } from "../../state/browser/hooks";
 import { pagerFor, usePagerNativeConfig, usePagerPages, usePagerSurface } from "../../state/windows/profilePager";
 
@@ -21,13 +22,7 @@ export function ProfileSwipe({ children }: { children: ReactNode }) {
 export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "sidebar" | "strip"; style: StyleProp<ViewStyle>; pageWidth?: number }) {
   const windowId = useWindowId();
   usePagerSurface(windowId);
-  const [previous, next, multiple] = useBrowser(
-    useShallow((s) => {
-      const w = s.windows[windowId];
-      const i = w && !w.incognito ? s.profileOrder.indexOf(w.profileId) : -1;
-      return i < 0 ? [false, false, false] : [i > 0, i < s.profileOrder.length - 1, s.profileOrder.length > 1];
-    }),
-  );
+  const [previous, next, multiple] = useProfileNeighbours(windowId);
   const area = useRef<SwipeAreaHandle>(null);
   const pager = pagerFor(windowId);
   const nativePager = usePagerNativeConfig(windowId, pageWidth);
@@ -36,7 +31,7 @@ export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "side
   const onSwipe = (event: SwipeEvent) => {
     if (__DEV__) {
       if (received.length >= 4096) received.shift();
-      received.push({ at: performance.now(), surface, profile: useBrowser.getState().windows[windowId]?.profileId, ...event });
+      received.push({ at: performance.now(), surface, profile: currentWindow(windowId)?.profileId, ...event });
     }
     const e = pageWidth ? { ...event, width: pageWidth } : event;
     if (e.phase === "swipe") return pager.step(e.direction === "back" ? -1 : 1);
@@ -70,7 +65,7 @@ export function ProfileSwipeArea({ surface, style, pageWidth }: { surface: "side
 export function ProfileTint() {
   const windowId = useWindowId();
   const { pages, paging, pager } = usePagerPages(windowId);
-  const themes = useBrowser(useShallow((s) => pages.map((p) => profileTheme(s.profiles[p.id], s.ui.appDark, spaceLookSource(s.settings)))));
+  const themes = useProfileLooks(pages, (profile, appDark, settings) => profileTheme(profile, appDark, spaceLookSource(settings)));
   if (!paging) return null;
   return (
     <>

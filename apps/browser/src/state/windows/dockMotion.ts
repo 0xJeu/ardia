@@ -14,6 +14,11 @@ export const useDockMotion = create<DockMotion>()(() => ({ moving: {}, peeks: {}
 
 export const dockMoving = (windowId: string) => !!useDockMotion.getState().moving[windowId];
 
+export const whenDockStill = (windowId: string, listener: () => void) =>
+  useDockMotion.subscribe((m) => {
+    if (!m.moving[windowId]) listener();
+  });
+
 export function setDockMoving(windowId: string, moving: boolean) {
   const current = useDockMotion.getState().moving;
   if (!!current[windowId] === moving) return;

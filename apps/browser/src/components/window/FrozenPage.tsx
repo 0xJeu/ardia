@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
+import { activate } from "../../state/tabs/actions";
 import { notePainted, startPinHandoff, useFrozenPages } from "../../state/pins/pinHandoff";
 
 const LIGHT_WASH = "rgba(255,255,255,0.4)";
@@ -10,7 +11,7 @@ const DARK_WASH = "rgba(0,0,0,0.25)";
 export function FrozenPage({ windowId, tabId, top }: { windowId: string; tabId: string | undefined; top: number }) {
   const theme = useTheme();
   useEffect(startPinHandoff, []);
-  const frozen = useBrowser((s) => !!tabId && !!s.tabs[tabId]?.pageIn);
+  const frozen = useTab(tabId, (t) => !!t?.pageIn);
   const pass = useFrozenPages((f) => f.bridges[windowId]);
   const copyId = frozen ? tabId : pass?.copyId;
   const uri = useFrozenPages((f) => (copyId ? f.frames[copyId] : undefined)) ?? pass?.uri;
@@ -19,7 +20,7 @@ export function FrozenPage({ windowId, tabId, top }: { windowId: string; tabId: 
     <Pressable
       accessibilityLabel="Bring this tab to this window"
       onPress={() => {
-        if (frozen && tabId) useBrowser.getState().activate(tabId);
+        if (frozen && tabId) activate(tabId);
       }}
       style={[StyleSheet.absoluteFill, { top }]}
     >

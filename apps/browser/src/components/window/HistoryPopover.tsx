@@ -2,27 +2,25 @@ import { MouseArea, Symbol } from "@ardia/shell";
 import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
 import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { openInternalPage } from "../../state/pages/urls";
 import { Favicon, NewTabIcon, useHover } from "../ui/Primitives";
 import { PANEL, Popover, POPOVER_MARGIN, PopoverSeparator } from "../ui/Controls";
 import { modifiersOf } from "../../lib/keys";
-import { closeHistoryMenu, goToHistoryItem, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
+import { closeHistoryMenu, closeHistoryMenuOf, goToHistoryItem, historyFavicons, useHistoryMenu, type HistoryItem } from "../../state/tabs/navigation";
 
 const WIDTH = 300;
 const FAVICON_X = PANEL.inset + (PANEL.iconSlot - 16) / 2;
 
 export function HistoryPopover({ tabId, windowId, anchors }: { tabId: string; windowId: string; anchors: { back: number; forward: number } }) {
   const menu = useHistoryMenu((s) => (s.menu?.tabId === tabId ? s.menu : null));
-  const profileId = useBrowser((s) => s.tabs[tabId]?.profileId ?? "");
+  const profileId = useTab(tabId, (t) => t?.profileId ?? "");
   const favicons = useMemo(() => {
     if (!menu) return new Map<string, string | null>();
-    const history = useBrowser.getState().history[profileId] ?? [];
-    const urls = new Set(menu.items.map((i) => i.url));
-    return new Map(history.filter((h) => urls.has(h.url)).map((h) => [h.url, h.favicon]));
+    return historyFavicons(profileId, menu.items);
   }, [menu, profileId]);
-  useEffect(() => () => void (useHistoryMenu.getState().menu?.tabId === tabId && closeHistoryMenu()), [tabId]);
+  useEffect(() => () => closeHistoryMenuOf(tabId), [tabId]);
   if (!menu) return null;
 
   const open = (item: HistoryItem, e: { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean; middle?: boolean }) => {

@@ -388,13 +388,7 @@
     "apps/browser/src/components/split/SplitEmptyState.tsx": 2,
     "apps/browser/src/components/tabstrip/TopTabStrip.tsx": 18,
     "apps/browser/src/components/tabstrip/stripFolderMenu.ts": 4,
-    "apps/browser/src/components/toolbar/Toolbar.tsx": 7,
-    "apps/browser/src/components/window/ContentCard.tsx": 7,
-    "apps/browser/src/components/window/FrozenPage.tsx": 1,
-    "apps/browser/src/components/window/HistoryPopover.tsx": 2,
-    "apps/browser/src/components/window/ProfileSwipe.tsx": 1,
-    "apps/browser/src/components/window/SwipeOverlay.tsx": 1,
-    "apps/browser/src/components/window/TabDropArea.tsx": 3
+    "apps/browser/src/components/toolbar/Toolbar.tsx": 7
   },
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,

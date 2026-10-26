@@ -2,7 +2,8 @@ import { FileDropArea, type DroppedItem, type DropUpdate } from "@ardia/shell";
 import { fixupUrl } from "@ardia/core";
 import { forwardRef, useEffect, useRef, type ReactNode } from "react";
 import type { StyleProp, View, ViewStyle } from "react-native";
-import { useBrowser } from "../../state/browser/store";
+import { currentWindow } from "../../state/browser/current";
+import { openDroppedUrls } from "../../state/drag/windowDrop";
 import type { TabPlacement } from "../../state/pins/organize";
 
 export type DropPoint = [number, number];
@@ -13,7 +14,6 @@ export type TabDropTarget = {
   leave(token: number): void;
   drop(at: DropPoint, token: number): TabPlacement | null;
 };
-type LandedDrop = { windowId: string; profileId: string; placement: TabPlacement | null };
 
 const MAX_DROPPED_TABS = 50;
 
@@ -25,16 +25,6 @@ export function droppedUrls(items: DroppedItem[]): string[] {
     return url && /^https?:\/\/[^/\s]/i.test(url) ? [url] : [];
   });
   return urls.slice(0, MAX_DROPPED_TABS);
-}
-
-function openDropped({ windowId, profileId, placement }: LandedDrop, urls: string[]): string[] {
-  const s = useBrowser.getState();
-  const w = s.windows[windowId];
-  if (!urls.length || !w || !(s.profiles[profileId] || w.profileId === profileId)) return [];
-  const paged = w.profileId !== profileId;
-  const ids = urls.map((url, i) => s.newTab(windowId, { url, background: paged || i > 0, profileId })).filter(Boolean);
-  if (ids.length && placement && !paged) useBrowser.getState().placeTabs(ids, placement);
-  return ids;
 }
 
 let tokens = 0;
@@ -100,13 +90,13 @@ export const TabDropArea = forwardRef<View, Props>(function TabDropArea({ target
       const token = generation.current;
       inside.current = false;
       const windowId = latest.current.windowId;
-      const profileId = useBrowser.getState().windows[windowId]?.profileId;
+      const profileId = currentWindow(windowId)?.profileId;
       const urls = droppedUrls(e.items);
       void run(() => {
         const current = token === generation.current;
         const placement = current ? latest.current.drop(at(e), token) : null;
         if (current) generation.current = ++tokens;
-        if (profileId) openDropped({ windowId, profileId, placement }, urls);
+        if (profileId) openDroppedUrls(windowId, profileId, placement, urls);
       });
     }
   };

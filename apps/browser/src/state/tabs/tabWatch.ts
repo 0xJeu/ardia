@@ -79,6 +79,8 @@ export function useStoreWhile<S, T>(store: Readable<S>, live: boolean, select: (
   return useSyncExternalStore(live ? subscribeOf(store) : inert, () => select(store.getState()));
 }
 
+export const useBrowserWhile = <T,>(live: boolean, select: (s: BrowserState) => T): T => useStoreWhile(useBrowser, live, select);
+
 export const shallowEqual = <T extends Record<string, unknown>>(a: T, b: T) => {
   for (const key in a) if (!Object.is(a[key], b[key])) return false;
   for (const key in b) if (!(key in a)) return false;

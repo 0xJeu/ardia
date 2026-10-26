@@ -67,6 +67,13 @@ export function setCardAnchor(windowId: string, anchor: CardAnchor) {
 
 export const useToolbarExtensionsWidths = create<Record<string, number>>()(() => ({}));
 
+export function watchToolbarExtensionsWidth(windowId: string, listener: (width: number | undefined) => void): () => void {
+  listener(useToolbarExtensionsWidths.getState()[windowId]);
+  return useToolbarExtensionsWidths.subscribe((w, prev) => {
+    if (w[windowId] !== prev[windowId]) listener(w[windowId]);
+  });
+}
+
 export function setToolbarExtensionsWidth(windowId: string, width: number) {
   if (useToolbarExtensionsWidths.getState()[windowId] === width) return;
   useToolbarExtensionsWidths.setState({ [windowId]: width });

@@ -84,6 +84,8 @@ export function setBrowserId(tabId: string, browserId: number) {
 
 export const tabForBrowser = (browserId: number): string | undefined => usePages.getState().browsers[browserId];
 
+export const popoverOf = (tabId: string) => usePages.getState().popover[tabId];
+
 export function setPopover(tabId: string, popover: Store["popover"][string]) {
   usePages.setState((s) => ({ popover: { ...s.popover, [tabId]: popover } }));
 }
