@@ -1,26 +1,18 @@
-import { readDocument, saveDocument, writeDocument } from "@ardia/shell";
 import {
-  canonical,
   Clock,
   emptyScope,
   folderTransport,
-  restoreJournal,
   syncScope,
   SyncNative,
   visible,
-  writtenSeq,
   type Adapter,
   type ExtensionsAdapter,
   type FolderInfo,
-  type LogFile,
   type PhraseResult,
-  type ScopeState,
-} from "@ardia/sync";
+} from "../../platform/sync";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
-import { engineProfile, isIncognitoProfile } from "../browser/model";
-import { DEFAULT_PROFILE_ID } from "../settings/settings";
-import type { Profile } from "../browser/types";
+import { engineProfile } from "../browser/model";
 import {
   bookmarksAdapter,
   deviceAdapter,
@@ -30,94 +22,20 @@ import {
   inTodaysNames,
   passwordsAdapter,
   sharedDataAdapter,
-  type DeviceRecord,
-  type DeviceTabs,
-  type ShareRecord,
 } from "./adapters";
-import { legacyThemeOf, profilesAdapter, profileThemesAdapter, themeAngleKey, themeFromRecord, type ProfileRecord } from "./profileAdapters";
+import { profilesAdapter, profileThemesAdapter } from "./profileAdapters";
 import { settingsAdapter, settingsToReapply } from "./settingsAdapter";
 import { pinnedAreaAdapters } from "./pinned";
 import { extensionsAdapterFor, extensionSyncAvailable, probeExtensionSync, watchExtensionIntents } from "./extensions";
-import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
+import { APP_SCOPE, defaultTypes, emptyDoc, type DataType, type SyncDoc, type SyncUi } from "./syncDoc";
+import { syncFiles } from "./syncFiles";
+import { confirmThemes, settleAppliedThemes } from "./syncThemes";
+import { addLinkedProfile, linkedProfileId, linkProfiles, remoteProfileRecord, sharedDataChain } from "./profileLinks";
+import { summarize } from "./syncSummary";
 
-type DataType = "bookmarks" | "history" | "tabs" | "pinned" | "passwords" | "extensions" | "settings";
-
-export const DATA_TYPES: { id: DataType; title: string; description: string }[] = [
-  { id: "bookmarks", title: "Bookmarks", description: "Each synced profile’s bookmarks bar and other bookmarks." },
-  { id: "history", title: "History", description: "The last 90 days." },
-  { id: "tabs", title: "Open Tabs", description: "Your other devices’ tabs show in the tab overflow menu." },
-  { id: "pinned", title: "Pinned Tabs and Groups", description: "Pinned tabs and pinned tab groups." },
-  { id: "passwords", title: "Passwords", description: "Saved passwords. Turning sync off never removes them from this Mac." },
-  { id: "extensions", title: "Extensions", description: "Extensions from the Chrome Web Store, whether they’re on, and whether they’re pinned." },
-  { id: "settings", title: "Settings", description: "Search engine, appearance, tab and keyboard settings." },
-];
-
-type ProfileLink = {
-  syncId: string;
-  enabled: boolean;
-  retire?: boolean;
-  themeAdopting?: true;
-};
-
-type SyncDoc = {
-  v: 1;
-  enabled: boolean;
-  folder: string | null;
-  deviceId: string | null;
-  clock: string | null;
-  types: Record<DataType, boolean>;
-  profiles: Record<string, ProfileLink>;
-  scopes: Record<string, ScopeState>;
-  lastSyncedAt: number | null;
-  setupAt: number | null;
-  joining: boolean;
-  seqs?: Record<string, number>;
-};
-
-const DOC = "sync.json";
-const DOC_VERSION = 1;
-const DOC_MIGRATIONS: Migrations = { 0: unchanged };
-const STATE = "sync-state.nns";
-const JOURNAL = "sync-journal.nns";
-const APP_SCOPE = "app";
 const CYCLE_MS = 15_000;
 const AFTER_EDIT_MS = 3_000;
 
-const defaultTypes = (): Record<DataType, boolean> => ({ bookmarks: true, history: true, tabs: true, pinned: true, passwords: true, extensions: true, settings: true });
-
-const emptyDoc = (): SyncDoc => ({
-  v: 1,
-  enabled: false,
-  folder: null,
-  deviceId: null,
-  clock: null,
-  types: defaultTypes(),
-  profiles: {},
-  scopes: {},
-  lastSyncedAt: null,
-  setupAt: null,
-  joining: false,
-});
-
-export type SyncStatus = "off" | "starting" | "updating" | "updated" | "stalled" | "offline" | "locked" | "reset" | "unavailable";
-
-type SyncedDevice = { id: string; name: string; lastSeen: number | null; current: boolean };
-export type RemoteTabs = { deviceId: string; name: string; tabs: { url: string; title: string }[] };
-type RemoteProfile = { syncId: string; name: string; color: Profile["color"]; icon: string | null; sharesWith?: { name: string; added: boolean }; waiting?: true };
-
-type SyncUi = {
-  status: SyncStatus;
-  enabled: boolean;
-  folder: string | null;
-  types: Record<DataType, boolean>;
-  profiles: Record<string, ProfileLink>;
-  lastSyncedAt: number | null;
-  error: string | null;
-  pending: number;
-  devices: SyncedDevice[];
-  remoteTabs: Record<string, RemoteTabs[]>;
-  remoteProfiles: RemoteProfile[];
-};
 
 export const useSync = create<SyncUi>()(() => ({
   status: SyncNative ? "off" : "unavailable",
@@ -136,107 +54,17 @@ export const useSync = create<SyncUi>()(() => ({
 export const currentSyncFolder = () => useSync.getState().folder;
 
 let doc: SyncDoc = emptyDoc();
-let savedJson = "";
 let running = false;
 let again = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let forcePasswords = false;
 const passwordAdapters = new Map<string, Adapter>();
 const extensionAdapters = new Map<string, ExtensionsAdapter>();
+const { read, loadState, persistJournal, clearJournal, save } = syncFiles(() => doc);
 
 function load() {
-  try {
-    const json = readDocument(DOC);
-    const saved = parseSaved(json, DOC_VERSION, DOC_MIGRATIONS, "v") as SyncDoc | null;
-    if (saved) doc = { ...emptyDoc(), ...saved, types: { ...defaultTypes(), ...saved.types }, scopes: {} };
-    savedJson = json ?? "";
-  } catch (error) {
-    console.warn("[sync] couldn't read sync.json", error);
-  }
-}
-
-type Journal = Record<string, LogFile[]>;
-let journal: Journal = {};
-let journalOnDisk = false;
-
-async function openSealed<T>(name: string, fallback: T): Promise<T> {
-  const sealed = readDocument(name);
-  const json = sealed ? await SyncNative?.openLocal(sealed) : null;
-  try {
-    if (json) return JSON.parse(json) as T;
-  } catch {}
-  return fallback;
-}
-
-async function loadState() {
-  const scopes = await openSealed<SyncDoc["scopes"]>(STATE, {});
-  journal = (await openSealed<{ journal?: Journal }>(JOURNAL, {})).journal ?? {};
-  journalOnDisk = Object.keys(journal).length > 0;
-  const clock = new Clock(doc.deviceId ?? "", doc.clock);
-  for (const scope of new Set([...Object.keys(doc.seqs ?? {}), ...Object.keys(journal)])) {
-    const mine = (journal[scope] ?? []).filter((f) => f.device === doc.deviceId);
-    restoreJournal((scopes[scope] ??= emptyScope()), mine, clock, doc.seqs?.[scope]);
-  }
-  if (doc.deviceId && Object.keys(journal).length) doc.clock = clock.last;
-  doc.scopes = scopes;
-}
-
-const persistJournal = (scope: string) => async (batches: LogFile[]) => {
-  const list = (journal[scope] ??= []);
-  for (const file of batches) if (!list.some((f) => f.seq === file.seq)) list.push(file);
-  const sealed = await SyncNative!.sealLocal(JSON.stringify({ journal }));
-  await saveDocument(JOURNAL, sealed);
-  journalOnDisk = true;
-};
-
-function pruneJournal(saved: Record<string, number>) {
-  for (const [scope, list] of Object.entries(journal)) {
-    const left = list.filter((f) => f.seq > (saved[scope] ?? 0));
-    if (left.length) journal[scope] = left;
-    else delete journal[scope];
-  }
-  if (journalOnDisk && !Object.keys(journal).length) clearJournal();
-}
-
-function clearJournal() {
-  journal = {};
-  journalOnDisk = false;
-  writeDocument(JOURNAL, "");
-}
-
-let savedState = "";
-let sealing: Promise<void> | null = null;
-
-function save() {
-  const { scopes, ...meta } = doc;
-  const json = versionedJson({ ...meta, seqs: Object.fromEntries(Object.entries(scopes).map(([k, s]) => [k, writtenSeq(s)])) }, DOC_VERSION, "v");
-  if (json !== savedJson) {
-    savedJson = json;
-    writeDocument(DOC, json);
-  }
-  const state = doc.enabled ? JSON.stringify(scopes) : "";
-  if (state === savedState || sealing) return;
-  if (!state) {
-    savedState = "";
-    writeDocument(STATE, "");
-    return;
-  }
-  const seqs = Object.fromEntries(Object.entries(scopes).map(([k, s]) => [k, s.seq]));
-  sealing = (async () => {
-    try {
-      const sealed = await SyncNative?.sealLocal(state);
-      if (sealed) {
-        await saveDocument(STATE, sealed);
-        savedState = state;
-        pruneJournal(seqs);
-      }
-    } catch (error) {
-      console.warn("[sync] couldn't save the sync state", error);
-    } finally {
-      sealing = null;
-    }
-    if (doc.enabled && JSON.stringify(doc.scopes) !== savedState) save();
-  })();
+  const loaded = read();
+  if (loaded) doc = loaded;
 }
 
 function publishUi(patch: Partial<SyncUi> = {}) {
@@ -246,7 +74,7 @@ function publishUi(patch: Partial<SyncUi> = {}) {
     types: { ...doc.types },
     profiles: { ...doc.profiles },
     lastSyncedAt: doc.lastSyncedAt,
-    ...(doc.enabled ? summarize() : { devices: [], remoteTabs: {}, remoteProfiles: [], pending: 0 }),
+    ...(doc.enabled ? summarize(doc) : { devices: [], remoteTabs: {}, remoteProfiles: [], pending: 0 }),
     ...patch,
   });
 }
@@ -327,7 +155,7 @@ async function runCycle({ retiring = false } = {}) {
     const clock = new Clock(doc.deviceId, doc.clock);
     const device = doc.deviceId;
     const app = (doc.scopes[APP_SCOPE] ??= { ...emptyScope(), awaitRemote: doc.joining });
-    settleAppliedThemes(app);
+    settleAppliedThemes(doc.profiles, app);
     if (doc.types.settings && !retiring) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
     await syncScope({
       scope: APP_SCOPE,
@@ -338,8 +166,8 @@ async function runCycle({ retiring = false } = {}) {
       device,
       options: { persist: persistJournal(APP_SCOPE) },
     });
-    if (app.joined) linkProfiles(app);
-    confirmThemes(app);
+    if (app.joined) linkProfiles(doc, app);
+    confirmThemes(doc.profiles, app);
     let pending = app.pending;
     const s = useBrowser.getState();
     for (const [profileId, link] of Object.entries(doc.profiles)) {
@@ -392,46 +220,6 @@ async function runCycle({ retiring = false } = {}) {
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-function pairedTheme(app: ScopeState, syncId: string): Pick<Profile, "theme"> | null {
-  const record = app.records[`pth:${syncId}`]?.v;
-  if (record) return themeFromRecord(record, app.records[themeAngleKey(syncId)]?.v);
-  const profile = app.records[`prof:${syncId}`]?.v as ProfileRecord | null | undefined;
-  return profile ? legacyThemeOf(profile) : null;
-}
-
-function settledTheme(app: ScopeState, syncId: string): boolean {
-  const record = app.records[`pth:${syncId}`]?.v;
-  return !!record && !!themeFromRecord(record);
-}
-
-function pairTheme(app: ScopeState, profileId: string, link: ProfileLink) {
-  const theme = pairedTheme(app, link.syncId);
-  if (theme) useBrowser.getState().updateProfile(profileId, theme);
-  if (settledTheme(app, link.syncId)) delete link.themeAdopting;
-  else link.themeAdopting = true;
-}
-
-function settleAppliedThemes(app: ScopeState | undefined) {
-  if (!app) return;
-  for (const link of Object.values(doc.profiles)) {
-    if (!link.themeAdopting) continue;
-    const key = `pth:${link.syncId}`;
-    const record = app.records[key]?.v;
-    if (record && themeFromRecord(record) && app.base[key] === canonical(record)) delete link.themeAdopting;
-  }
-}
-
-function confirmThemes(app: ScopeState) {
-  settleAppliedThemes(app);
-  if (app.pending > 0 || Object.keys(app.damaged).length > 0) return;
-  if (Object.values(app.files).some((f) => f.k === "bad")) return;
-  for (const link of Object.values(doc.profiles)) {
-    if (!link.themeAdopting) continue;
-    const record = app.records[`pth:${link.syncId}`];
-    if (!record || record.v === null) delete link.themeAdopting;
-  }
-}
-
 function themeAdopted(profileId: string) {
   const link = doc.profiles[profileId];
   if (link?.themeAdopting) delete link.themeAdopting;
@@ -445,72 +233,12 @@ export function adoptProfileTheme(profileId: string) {
   if (doc.enabled) scheduleSync(AFTER_EDIT_MS);
 }
 
-function linkProfiles(app: ScopeState) {
-  const s = useBrowser.getState();
-  const remote = [...visible(app, "prof:")].map(([k, v]) => [k.slice(5), v as ProfileRecord] as const);
-  const taken = new Set(Object.values(doc.profiles).map((l) => l.syncId));
-  for (const id of s.profileOrder) {
-    const profile = s.profiles[id];
-    if (!profile || isIncognitoProfile(id) || doc.profiles[id]) continue;
-    const match = doc.joining
-      ? remote.find(([syncId, r]) => !taken.has(syncId) && (id === DEFAULT_PROFILE_ID ? r.d : r.n === profile.name))?.[0]
-      : undefined;
-    const syncId = match ?? SyncNative!.newDeviceId();
-    doc.profiles[id] = { syncId, enabled: true };
-    taken.add(syncId);
-    if (match) {
-      doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
-      pairTheme(app, id, doc.profiles[id]!);
-    }
-  }
-  for (const [id, link] of Object.entries(doc.profiles)) if (!s.profiles[id] && !link.retire) link.retire = true;
-}
-
 async function resetFromElsewhere() {
   await SyncNative?.forget(doc.deviceId!);
   doc = { ...emptyDoc(), folder: doc.folder, types: doc.types };
   clearJournal();
   save();
   publishUi({ status: "reset", error: "This device is out of sync. Sync may have been reset from another device." });
-}
-
-function summarize(): Pick<SyncUi, "devices" | "remoteTabs" | "remoteProfiles"> {
-  const app = doc.scopes[APP_SCOPE];
-  if (!app) return { devices: [], remoteTabs: {}, remoteProfiles: [] };
-  const lastSeen = new Map<string, number>();
-  for (const scope of Object.values(doc.scopes)) {
-    for (const [device, at] of Object.entries(scope.seen)) lastSeen.set(device, Math.max(at, lastSeen.get(device) ?? 0));
-  }
-  const names = new Map([...visible(app, "dev:")].map(([k, v]) => [k.slice(4), (v as DeviceRecord).n]));
-  const devices: SyncedDevice[] = [...names].map(([id, name]) => ({ id, name, lastSeen: lastSeen.get(id) ?? null, current: id === doc.deviceId }));
-  devices.sort((a, b) => Number(b.current) - Number(a.current) || (b.lastSeen ?? 0) - (a.lastSeen ?? 0));
-  const remoteTabs: Record<string, RemoteTabs[]> = {};
-  for (const [profileId, link] of Object.entries(doc.profiles)) {
-    const scope = doc.scopes[`p:${link.syncId}`];
-    if (!scope || !link.enabled) continue;
-    remoteTabs[profileId] = [...visible(scope, "tabs:")]
-      .map(([k, v]) => ({ deviceId: k.slice(5), value: v as DeviceTabs }))
-      .filter(({ deviceId, value }) => deviceId !== doc.deviceId && names.has(deviceId) && value.tabs.length > 0)
-      .map(({ deviceId, value }) => ({ deviceId, name: names.get(deviceId) || value.n || "Unknown Device", tabs: value.tabs.map((t) => ({ url: t.u, title: t.t })) }));
-  }
-  const linked = new Set(Object.values(doc.profiles).map((l) => l.syncId));
-  const remoteProfiles = [...visible(app, "prof:")]
-    .filter(([k]) => !linked.has(k.slice(5)))
-    .map(([k, v]): RemoteProfile => {
-      const syncId = k.slice(5);
-      const record = v as ProfileRecord;
-      const { adds, sharesWith, waitingFor } = sharedDataChain(syncId);
-      const ownerName = adds[1] ? remoteProfileRecord(adds[1])?.n : sharesWith ? useBrowser.getState().profiles[sharesWith]?.name : undefined;
-      return {
-        syncId,
-        name: record.n,
-        color: record.c,
-        icon: record.i,
-        ...(ownerName !== undefined ? { sharesWith: { name: ownerName, added: !!adds[1] } } : {}),
-        ...(waitingFor ? { waiting: true as const } : {}),
-      };
-    });
-  return { devices, remoteTabs, remoteProfiles };
 }
 
 export async function folderInfo(path?: string | null): Promise<FolderInfo | null> {
@@ -615,61 +343,18 @@ export function setProfileSynced(profileId: string, enabled: boolean) {
   scheduleSync(0);
 }
 
-const remoteProfileRecord = (syncId: string) => (doc.scopes[APP_SCOPE]?.records[`prof:${syncId}`]?.v ?? undefined) as ProfileRecord | undefined;
-
-const sharedDataOwner = (syncId: string): string | null => {
-  const owner = (doc.scopes[APP_SCOPE]?.records[`share:${syncId}`]?.v as ShareRecord | null | undefined)?.o;
-  return owner && owner !== syncId ? owner : null;
-};
-
-const linkedProfileId = (syncId: string): string | null => {
-  const profiles = useBrowser.getState().profiles;
-  return Object.entries(doc.profiles).find(([id, link]) => link.syncId === syncId && !link.retire && profiles[id])?.[0] ?? null;
-};
-
-function sharedDataChain(syncId: string): { adds: string[]; sharesWith: string | null; waitingFor?: string } {
-  const adds = [syncId];
-  for (let at = syncId; ; ) {
-    const owner = sharedDataOwner(at);
-    if (!owner) return { adds, sharesWith: null };
-    const here = linkedProfileId(owner);
-    if (here) return { adds, sharesWith: here };
-    if (!remoteProfileRecord(owner)) return { adds, sharesWith: null, waitingFor: owner };
-    if (adds.includes(owner)) {
-      const lowest = adds.slice(adds.indexOf(owner)).sort()[0]!;
-      return { adds: adds.slice(0, adds.indexOf(lowest) + 1), sharesWith: null };
-    }
-    adds.push(owner);
-    at = owner;
-  }
-}
-
 export const appScopeRecords = () => doc.scopes[APP_SCOPE]?.records ?? {};
 
 export function addRemoteProfile(syncId: string): string | null {
-  if (!remoteProfileRecord(syncId) || linkedProfileId(syncId)) return null;
-  const { adds, sharesWith, waitingFor } = sharedDataChain(syncId);
+  if (!remoteProfileRecord(doc, syncId) || linkedProfileId(doc, syncId)) return null;
+  const { adds, sharesWith, waitingFor } = sharedDataChain(doc, syncId);
   if (waitingFor) return null;
   let shareWith = sharesWith;
-  for (const add of adds.reverse()) shareWith = addLinkedProfile(add, remoteProfileRecord(add)!, shareWith);
+  for (const add of adds.reverse()) shareWith = addLinkedProfile(doc, add, remoteProfileRecord(doc, add)!, shareWith);
   save();
   publishUi();
   scheduleSync(0);
   return shareWith;
-}
-
-function addLinkedProfile(syncId: string, record: ProfileRecord, shareWith: string | null): string {
-  const id = useBrowser.getState().createProfile({ name: record.n, color: record.c, icon: record.i, shareWith });
-  const app = doc.scopes[APP_SCOPE];
-  doc.profiles[id] = { syncId, enabled: true };
-  if (app) pairTheme(app, id, doc.profiles[id]!);
-  else {
-    const theme = legacyThemeOf(record);
-    if (theme) useBrowser.getState().updateProfile(id, theme);
-    doc.profiles[id]!.themeAdopting = true;
-  }
-  doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };
-  return id;
 }
 
 export function startSync() {
@@ -681,7 +366,7 @@ export function startSync() {
     void SyncNative.unlock(doc.deviceId).then(async (ok) => {
       if (!ok) return publishUi({ status: "locked", error: "Enter your recovery phrase to keep syncing on this Mac." });
       await loadState();
-      settleAppliedThemes(doc.scopes[APP_SCOPE]);
+      settleAppliedThemes(doc.profiles, doc.scopes[APP_SCOPE]);
       publishUi();
       scheduleSync(500);
     });

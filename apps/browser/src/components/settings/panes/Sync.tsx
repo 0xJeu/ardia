@@ -10,15 +10,14 @@ import { useProfiles } from "../../../state/browser/hooks";
 import {
   addRemoteProfile,
   chooseSyncFolder,
-  DATA_TYPES,
   folderInfo,
   setProfileSynced,
   setTypeSynced,
   syncNow,
   turnOnSync,
   useSync,
-  type SyncStatus,
 } from "../../../state/sync/engine";
+import { DATA_TYPES, type SyncStatus } from "../../../state/sync/syncDoc";
 import { ProfileBadge } from "../../profiles/ProfileIcons";
 import { Button, font, Group, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";

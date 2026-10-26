@@ -1,6 +1,7 @@
 import type { MenuItem } from "@ardia/shell";
 import { useBrowser } from "../browser/store";
-import { useSync, type RemoteTabs } from "./engine";
+import { useSync } from "./engine";
+import type { RemoteTabs } from "./syncDoc";
 
 export function syncedDevicesMenuItem(profileId: string): MenuItem | null {
   const devices = useSync.getState().remoteTabs[profileId] ?? [];
