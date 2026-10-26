@@ -11,12 +11,22 @@ function guardFocus(engaged: () => boolean) {
   };
 }
 
+const LOCAL_SITE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const isOurSite = (origin: string) => origin === location.origin || (import.meta.env.DEV && LOCAL_SITE.test(origin));
+
+function siteOrigin() {
+  const candidates = [location.ancestorOrigins?.[0], document.referrer ? new URL(document.referrer).origin : undefined];
+  return candidates.find((origin): origin is string => !!origin && isOurSite(origin)) ?? null;
+}
+
 export function startEmbed() {
   const host = window.parent;
   if (host === window) return;
+  const origin = siteOrigin();
+  if (!origin) return;
   document.documentElement.classList.add("embed");
 
-  const post = (message: object) => host.postMessage(message, "*");
+  const post = (message: object) => host.postMessage(message, origin);
   let engaged = false;
   let nudged = false;
   const nudge = new AbortController();
@@ -38,7 +48,7 @@ export function startEmbed() {
   });
 
   addEventListener("message", (event: MessageEvent<Inbound>) => {
-    if (event.source !== host || !event.data || typeof event.data !== "object") return;
+    if (event.source !== host || event.origin !== origin || !event.data || typeof event.data !== "object") return;
     if (event.data.type === "ardia-demo:hello") return publish();
     if (event.data.type === "ardia-demo:nudge") {
       if (engaged || nudged) return;

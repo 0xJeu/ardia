@@ -51,6 +51,8 @@ function fit(frame: HTMLIFrameElement, box: HTMLElement) {
   box.style.setProperty("--demo-scale", String(scale));
 }
 
+const demoOrigin = (frame: HTMLIFrameElement) => new URL(frame.src, location.href).origin;
+
 function wireCustomize(frame: HTMLIFrameElement, panel: HTMLElement) {
   const button = panel.querySelector<HTMLButtonElement>("[data-demo-customize]");
   const label = panel.querySelector<HTMLElement>("[data-demo-customize-label]");
@@ -64,7 +66,7 @@ function wireCustomize(frame: HTMLIFrameElement, panel: HTMLElement) {
   button?.addEventListener("click", () => {
     root?.setAttribute("data-engaged", "");
     frame.focus();
-    frame.contentWindow?.postMessage({ type: "ardia-demo:customize" }, "*");
+    frame.contentWindow?.postMessage({ type: "ardia-demo:customize" }, demoOrigin(frame));
   });
   copy?.addEventListener("click", () => {
     if (!code) return;
@@ -98,7 +100,7 @@ function watchForNudge(frame: HTMLIFrameElement, box: HTMLElement) {
       if (!entries.some((e) => e.isIntersecting)) return;
       timer = setTimeout(() => {
         seen.disconnect();
-        if (root?.dataset.engaged === undefined) frame.contentWindow?.postMessage({ type: "ardia-demo:nudge" }, "*");
+        if (root?.dataset.engaged === undefined) frame.contentWindow?.postMessage({ type: "ardia-demo:nudge" }, demoOrigin(frame));
       }, NUDGE_DELAY_MS);
     },
     { threshold: 0.6 },
@@ -158,7 +160,7 @@ function mount(box: HTMLElement, src: string) {
     if (ready) reveal();
   });
   addEventListener("message", (event: MessageEvent<Outbound>) => {
-    if (event.source !== frame.contentWindow || !event.data || typeof event.data !== "object") return;
+    if (event.source !== frame.contentWindow || event.origin !== demoOrigin(frame) || !event.data || typeof event.data !== "object") return;
     if (event.data.type === "ardia-demo:ready") {
       ready = true;
       if (loaded) reveal();
