@@ -1,6 +1,8 @@
+import { useShallow } from "zustand/react/shallow";
 import { useBrowser } from "../browser/store";
 import { profileFor } from "../browser/model";
 import type { Profile } from "../browser/types";
+import type { Settings } from "../settings/settings";
 
 export function useProfileRecords(): Record<string, Profile>;
 export function useProfileRecords<T>(select: (profiles: Record<string, Profile>) => T): T;
@@ -18,3 +20,9 @@ export const useProfileName = (profileId: string): string => useBrowser((s) => p
 
 export const useWindowProfileValue = <T>(windowId: string, select: (profile: Profile | undefined) => T): T =>
   useBrowser((s) => select(s.profiles[s.windows[windowId]?.profileId ?? ""]));
+
+export const useProfileLooks = <T>(pages: readonly { id: string }[], look: (profile: Profile | undefined, appDark: boolean, settings: Settings) => T): T[] =>
+  useBrowser(useShallow((s) => pages.map((p) => look(s.profiles[p.id], s.ui.appDark, s.settings))));
+
+export const useCreateProfileShareDefault = (windowId: string | null): string =>
+  useBrowser((s) => (windowId && !s.windows[windowId]?.incognito ? s.windows[windowId]!.profileId : s.settings.defaultProfileId));

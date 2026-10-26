@@ -18,6 +18,7 @@ import {
   focus,
   moveTabToProfile,
   moveTabToWindow,
+  openProfileMenu,
   openWindow,
   switchProfile,
   toggleMute,
@@ -46,7 +47,6 @@ import { openManageExtensions, openPinDialog, openWebStore } from "../extensions
 import { requestAutofill } from "../site/autofill";
 import { copyPageUrl, jumpToSelection } from "../site/selection";
 import { shareTab } from "../site/share";
-import { openProfileMenu } from "../../components/profiles/ProfileIndicator";
 import { groupOf } from "../pins/organize";
 import { isSmall, mainWindowFor, originalProfile } from "../windows/small";
 import {

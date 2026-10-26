@@ -1,13 +1,10 @@
-import { Symbol, showMenu, type MenuItem } from "@ardia/shell";
+import { Symbol } from "@ardia/shell";
 import { Pressable, Text, View } from "react-native";
-import { createProfile, openWindow, switchProfile } from "../../state/browser/actions";
-import { menuCommandAlternate, menuShortcut } from "../../state/commands/commandShortcuts";
-import { profileAccent, profileNameColor, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { profileNameColor, useTheme } from "../ui/theme";
 import { useIsIncognito, useProfiles, useWindowId, useWindowProfile } from "../../state/browser/hooks";
 import { setMeasuredWidth, useMeasuredWidth } from "../../state/windows/measuredWidths";
 import { useHover } from "../ui/Primitives";
-import { openSettings } from "../../state/settings/settingsWindows";
+import { openProfileMenu } from "../../state/browser/actions";
 
 const PAD = 9;
 const HEIGHT = 34;
@@ -76,31 +73,4 @@ export function ProfileIndicator({ room }: { room: number }) {
       </Pressable>
     </View>
   );
-}
-
-export async function openProfileMenu(windowId: string) {
-  const s = useBrowser.getState();
-  const current = s.windows[windowId]?.profileId;
-  const items: MenuItem[] = [
-    ...s.profileOrder.flatMap((id): MenuItem[] => {
-      const profile = s.profiles[id]!;
-      const swatch = profileAccent(profile);
-      const shortcut = menuShortcut(`switchProfile:${id}`, s);
-      const alternate = menuCommandAlternate(`switchProfile:${id}`, s);
-      const switchItem: MenuItem = { id: `switch:${id}`, title: profile.name, checked: id === current, swatch, ...shortcut, modifiers: shortcut.modifiers ?? [] };
-      if (!alternate) return [switchItem];
-      return [switchItem, { id: `window:${id}`, title: `${profile.name} ↗`, alternate: true, swatch, ...alternate }];
-    }),
-    { separator: true },
-    { id: "new", title: "New Profile", symbol: "plus" },
-    { id: "edit", title: "Edit Profiles…", symbol: "pencil" },
-  ];
-  const choice = await showMenu(items);
-  if (!choice) return;
-  if (choice.startsWith("switch:")) switchProfile(windowId, choice.slice("switch:".length), true);
-  else if (choice.startsWith("window:")) openWindow({ profileId: choice.slice("window:".length) });
-  else if (choice === "new") {
-    const id = await createProfile(windowId);
-    if (id) switchProfile(windowId, id);
-  } else if (choice === "edit") openSettings("profiles", current);
 }

@@ -3,8 +3,8 @@ import { Animated, Pressable, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { switchProfile } from "../../state/browser/actions";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { useIsIncognito } from "../../state/browser/hooks";
+import { useIsIncognito, useProfile } from "../../state/browser/hooks";
+import { useProfileOrder } from "../../state/profiles/hooks";
 import { usePagerPages, type PagerPage } from "../../state/windows/profilePager";
 import { useHover } from "../ui/Primitives";
 import { TooltipAbove } from "../ui/TooltipAbove";
@@ -20,12 +20,12 @@ const DOT_CENTER_TO_TOOLTIP = 18.25;
 
 export function useProfileDotsShown() {
   const incognito = useIsIncognito();
-  const count = useBrowser((s) => s.profileOrder.length);
+  const count = useProfileOrder((o) => o.length);
   return !incognito && count > 1;
 }
 
 export function ProfileDots({ windowId }: { windowId: string }) {
-  const ids = useBrowser(useShallow((s) => s.profileOrder));
+  const ids = useProfileOrder(useShallow((o) => o));
   const { pages, pager } = usePagerPages(windowId);
   return (
     <View style={{ height: PROFILE_DOTS_HEIGHT, alignItems: "center" }}>
@@ -40,7 +40,7 @@ export function ProfileDots({ windowId }: { windowId: string }) {
 
 function Dot({ id, windowId, page, pos }: { id: string; windowId: string; page: PagerPage | undefined; pos: Animated.Value }) {
   const theme = useTheme();
-  const name = useBrowser((s) => s.profiles[id]?.name ?? "");
+  const name = useProfile(id, (p) => p?.name ?? "");
   const { hovered, hoverProps } = useHover();
   const [pressed, setPressed] = useState(false);
   if (pressed && !hovered) setPressed(false);

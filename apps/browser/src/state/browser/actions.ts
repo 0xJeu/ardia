@@ -1,7 +1,7 @@
 import { listExtensions, stepPager } from "@ardia/ardiacore";
-import { confirm, focusWindow } from "@ardia/shell";
+import { confirm, focusWindow, showMenu, type MenuItem } from "@ardia/shell";
 import { pageToProfile } from "../windows/profilePager";
-import { profileNames, requestCreateProfile, type CreateProfilePreset } from "../../components/profiles/CreateProfile";
+import { profileNames, requestCreateProfile, type CreateProfilePreset } from "../profiles/createProfileRequest";
 import { useBrowser, type CreateWindowOptions } from "./store";
 import { rootOf } from "../groups/groups";
 import { closesWindow, engineProfile, isIncognitoProfile, plural, resolveWindowId } from "./model";
@@ -12,6 +12,9 @@ import { closeWindowAnimated } from "../windows/closeAnimated";
 import { applyHeldReports } from "../../platform/nativeEvents";
 import { webviews } from "../../platform/webviews";
 import { closeWindowDialog } from "../windows/windowClose";
+import { menuCommandAlternate, menuShortcut } from "../commands/commandShortcuts";
+import { openSettings } from "../settings/settingsWindows";
+import { profileAccent } from "../../components/ui/theme";
 
 const store = () => useBrowser.getState();
 
@@ -162,4 +165,31 @@ export function openUrls(urls: string[], windowId?: string | null) {
     if (!target || store().windows[target]?.incognito) target = openWindow({ url });
     else store().newTab(target, { url });
   }
+}
+
+export async function openProfileMenu(windowId: string) {
+  const s = useBrowser.getState();
+  const current = s.windows[windowId]?.profileId;
+  const items: MenuItem[] = [
+    ...s.profileOrder.flatMap((id): MenuItem[] => {
+      const profile = s.profiles[id]!;
+      const swatch = profileAccent(profile);
+      const shortcut = menuShortcut(`switchProfile:${id}`, s);
+      const alternate = menuCommandAlternate(`switchProfile:${id}`, s);
+      const switchItem: MenuItem = { id: `switch:${id}`, title: profile.name, checked: id === current, swatch, ...shortcut, modifiers: shortcut.modifiers ?? [] };
+      if (!alternate) return [switchItem];
+      return [switchItem, { id: `window:${id}`, title: `${profile.name} ↗`, alternate: true, swatch, ...alternate }];
+    }),
+    { separator: true },
+    { id: "new", title: "New Profile", symbol: "plus" },
+    { id: "edit", title: "Edit Profiles…", symbol: "pencil" },
+  ];
+  const choice = await showMenu(items);
+  if (!choice) return;
+  if (choice.startsWith("switch:")) switchProfile(windowId, choice.slice("switch:".length), true);
+  else if (choice.startsWith("window:")) openWindow({ profileId: choice.slice("window:".length) });
+  else if (choice === "new") {
+    const id = await createProfile(windowId);
+    if (id) switchProfile(windowId, id);
+  } else if (choice === "edit") openSettings("profiles", current);
 }
