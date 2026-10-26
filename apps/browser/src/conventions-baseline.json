@@ -209,8 +209,7 @@
     "packages/core/src/suggest.reference.ts": 1,
     "packages/core/src/suggest.ts": 1,
     "packages/shaders/ios/WindowBackdropView.swift": 1,
-    "packages/sync/ios/Core/LegacyMigration.swift": 1,
-    "packages/sync/src/scope.ts": 1
+    "packages/sync/ios/Core/LegacyMigration.swift": 1
   },
   "env": {
     "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": 3,
