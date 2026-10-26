@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useRef, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
-import { markHoverProps } from "../../components/ui/hoverShift";
+import { markHoverProps } from "../../lib/hoverMarks";
 import { useBrowser } from "../browser/store";
 import { PageProfileContext } from "../browser/hooks";
 import { cardReach, pointInRect, type Point, type Rect } from "./hoverAim";

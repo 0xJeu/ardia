@@ -2,7 +2,7 @@ import { cleanUrl } from "@ardia/core";
 import { confirm, ContextMenuArea, copyText, MouseArea, showMenu, Symbol } from "@ardia/shell";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { markHoverProps } from "../ui/hoverShift";
+import { markHoverProps } from "../../lib/hoverMarks";
 import { useTheme } from "../ui/theme";
 import { useTab, useWindow } from "../../state/browser/hooks";
 import { useHistory } from "../../state/history/hooks";

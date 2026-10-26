@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import { opaqueThemeTint, PRESET_BACKDROP, resolveTheme, requestedDarkFor, rgbToHsl, shownLook, themeAccent, themeBackdrop, themePalette, type LookSource, type ProfileColor, type ProfileLookFields, type ProfileTheme, type ThemeBackdropProps } from "../../lib/profileLook";
 import { backdropTint, opaqueTint, tintForHue, type BackdropTint } from "../../lib/windowTint";
+import { DEFAULT_SIDEBAR_WIDTH } from "../../lib/windowLayout";
 import { colorRoles, ink, INCOGNITO_TINT, PROFILE_COLORS, type ColorRoles, type ProfileColorSpec } from "./tokens";
 
 export { PROFILE_COLORS } from "./tokens";
@@ -142,7 +143,7 @@ export function selectedTabGlow(theme: Theme, setting: SelectedTabGlowLevel) {
 }
 
 export const layout = {
-  sidebarWidth: 190,
+  sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   sidebarHeader: 46,
   sidebarInset: 6,
   pinnedTop: 54,

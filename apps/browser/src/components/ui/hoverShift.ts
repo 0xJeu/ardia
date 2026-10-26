@@ -1,11 +1,5 @@
+import { isMarkedHover } from "../../lib/hoverMarks";
 import { HoverSlot } from "./HoverSlot";
-
-const tracked = new WeakSet<object>();
-
-export function markHoverProps<T extends { onMouseEnter: () => void; onMouseLeave: () => void }>(props: T): T {
-  if (__DEV__) tracked.add(props.onMouseEnter);
-  return props;
-}
 
 type Fiber = {
   type: unknown;
@@ -85,7 +79,7 @@ export async function check({ scopes, settleFrames = 3 }: { scopes?: string[]; s
     for (const scope of scopeRoots) {
       for (const f of fibers(scope)) {
         const enter = f.memoizedProps?.onMouseEnter;
-        if (isHost(f) && typeof enter === "function" && tracked.has(enter)) targets.push({ scope: nameOf(scope) || "root", fiber: f });
+        if (isHost(f) && isMarkedHover(enter)) targets.push({ scope: nameOf(scope) || "root", fiber: f });
       }
     }
   }

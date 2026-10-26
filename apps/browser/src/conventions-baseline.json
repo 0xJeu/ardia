@@ -1,8 +1,7 @@
 {
   "layout": {},
   "imports": {
-    "apps/browser/src/platform/nativeEvents.ts": 2,
-    "apps/browser/src/state/sidebar/hover.ts": 1
+    "apps/browser/src/platform/nativeEvents.ts": 2
   },
   "native-calls": {
     "apps/browser/src/App.tsx": 1,

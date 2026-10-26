@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { markHoverProps } from "./hoverShift";
+import { markHoverProps } from "../../lib/hoverMarks";
 
 export function useHover() {
   const [hovered, setHovered] = useState(false);
