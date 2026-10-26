@@ -2995,8 +2995,11 @@ try {
     const folder = join(data, "Chromium", "Profile scratch-delete");
     await engineOrError("passwords.list", { profile: "scratch-delete" });
     await until("the profile loaded", async () => existsSync(folder), 10000);
+    await engine("webKit.devTouchStore", { profile: "scratch-delete" });
+    if (!(await engine("webKit.devStoreExists", { profile: "scratch-delete" }))) throw new Error("the profile's WebKit store wasn't made");
     const result = await engine("profiles.deleteData", { profile: "scratch-delete" });
-    if (result.remaining.some((left) => left !== "WebKit data")) throw new Error(`remaining ${JSON.stringify(result)}`);
+    if (result.remaining.length) throw new Error(`remaining ${JSON.stringify(result)}`);
+    if (await engine("webKit.devStoreExists", { profile: "scratch-delete" })) throw new Error("the profile's WebKit store is still on disk");
     const gone = await until("the folder gone", async () => !existsSync(folder), 15000).catch(() => false);
     if (!gone) throw new Error("the profile's folder is still there");
     await sleep(3000);
@@ -4370,6 +4373,7 @@ try {
     await engineOrError("autofill.saveAddress", { profile: "", address: { fullName: "Original Mascot", city: "Haifa", country: "IL" } });
     await engine("sites.setZoom", { profile: "", host: "original.test", zoom: 1.5 });
     await engine("sites.setSetting", { profile: "", origin, type: "popups", value: "allow" });
+    await engine("webKit.devTouchStore", { profile: "" });
     await until("the data saved", async () => {
       const p = await engineOrError("passwords.list", { profile: "" }), a = await engineOrError("autofill.addresses", { profile: "" }), z = await engine("sites.zoomLevels", { profile: "" }), o = await engine("sites.origins", { profile: "" });
       return p.passwords?.length && a.addresses?.length && z["original.test"] && o.length ? true : null;
@@ -4377,7 +4381,8 @@ try {
     const result = await engine("profiles.deleteData", { profile: "" }, 60000);
     const p = await engineOrError("passwords.list", { profile: "" }), a = await engineOrError("autofill.addresses", { profile: "" }), z = await engine("sites.zoomLevels", { profile: "" }), o = await engine("sites.origins", { profile: "" });
     const left = { passwords: p.passwords?.length, addresses: a.addresses?.length, zoom: Object.keys(z).length, origins: o.length };
-    if (result?.remaining?.some((r) => r !== "WebKit data") || Object.values(left).some(Boolean)) throw new Error(JSON.stringify({ result, left }));
+    const webKitStore = await engine("webKit.devStoreExists", { profile: "" });
+    if (result?.remaining?.length || webKitStore || Object.values(left).some(Boolean)) throw new Error(JSON.stringify({ result, left, webKitStore }));
     return { remaining: result.remaining, left };
   });
 

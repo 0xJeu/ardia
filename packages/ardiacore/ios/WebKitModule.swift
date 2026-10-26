@@ -100,6 +100,8 @@ public class WebKitModule: Module {
       let cookies = args.list("cookies").compactMap { $0 as? [String: Any] }
       WebKitHub.shared.importCookies(cookies, profile: args.profile, storeKey: args.text("storeKey")) { reply.ok($0) }
     },
+    "devStoreExists": { args, reply in WebKitHub.shared.storeExists(args.profile) { reply.ok($0) } },
+    "devTouchStore": { args, reply in WebKitHub.shared.touchStore(args.profile) { reply.ok() } },
     "passkeyAccess": { _, reply in reply.ok(WebKitPasskeys.access()) },
     "requestPasskeyAccess": { _, reply in WebKitPasskeys.requestAccess { reply.ok($0) } },
   ])

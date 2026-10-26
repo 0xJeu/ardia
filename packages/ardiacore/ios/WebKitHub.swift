@@ -5,6 +5,11 @@ import WebKit
 
 final class WebKitHub: NSObject, WKScriptMessageHandler {
   static let shared = WebKitHub()
+
+  private override init() {
+    super.init()
+    WebKitStoreRemovals.runQueued()
+  }
   static let world = WKContentWorld.world(name: "ardia")
   static let background = LaunchConfig.shared.background
   static let silenced = background && !LaunchConfig.shared.instanceFlag("allowAudio")
@@ -113,7 +118,12 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
     rememberedPermissions = rememberedPermissions.filter { !$0.key.hasPrefix(prefix) }
     zoomByHost = zoomByHost.filter { !$0.key.hasPrefix(prefix) }
     externalAllowances = externalAllowances.filter { !$0.key.hasPrefix(prefix) }
-    let uses = { (view: WKWebView) in view.configuration.websiteDataStore === ended.store }
+    closeViews(using: ended.store)
+    ended.store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
+  }
+
+  private func closeViews(using store: WKWebsiteDataStore) {
+    let uses = { (view: WKWebView) in view.configuration.websiteDataStore === store }
     for (key, view) in parked where uses(view) {
       parked.removeValue(forKey: key)
       Self.close(view)
@@ -126,13 +136,12 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
       resumeHosts.removeValue(forKey: key)
       Self.close(view)
     }
-    for (id, pending) in pendingPermissions where pending.store === ended.store {
+    for (id, pending) in pendingPermissions where pending.store === store {
       pendingPermissions.removeValue(forKey: id)
       pending.decide(false)
       ArdiaEvents.emit("permissions.dismissed", data: ["id": id])
     }
     for tab in owners.values.compactMap(\.tab) where tab.webView.map(uses) == true { tab.close() }
-    ended.store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
   }
 
   static let safariVersion: String = {
@@ -476,11 +485,29 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 
   func deleteProfileData(_ profile: String, completion: @escaping (Bool) -> Void) {
     guard !Self.isPrivate(profile) else { return completion(true) }
-    let store = dataStore(for: profile)
-    store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
-      self.persistentStores.removeValue(forKey: profile)
-      if let host = self.resumeHosts.removeValue(forKey: profile) { Self.close(host) }
-      WKWebsiteDataStore.remove(forIdentifier: Self.storeIdentifier(profile)) { error in completion(error == nil) }
+    let identifier = Self.storeIdentifier(profile)
+    let removeStore = {
+      WebKitStoreRemovals.exists(identifier) { exists in
+        guard exists else { return completion(true) }
+        WebKitStoreRemovals.remove(identifier, tries: 12) { removed in
+          if !removed { WebKitStoreRemovals.queue(identifier) }
+          completion(removed)
+        }
+      }
     }
+    if let host = resumeHosts.removeValue(forKey: profile) { Self.close(host) }
+    guard let store = persistentStores.removeValue(forKey: profile) else { return removeStore() }
+    closeViews(using: store)
+    store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { DispatchQueue.main.async(execute: removeStore) }
+  }
+
+  func storeExists(_ profile: String, done: @escaping (Bool) -> Void) {
+    WebKitStoreRemovals.exists(Self.storeIdentifier(profile), done: done)
+  }
+
+  func touchStore(_ profile: String, done: @escaping () -> Void) {
+    let cookie = HTTPCookie(properties: [.name: "ardia-touch", .value: "1", .domain: "ardia.test", .path: "/", .expires: Date().addingTimeInterval(3600)])
+    guard let cookie else { return done() }
+    dataStore(for: profile).httpCookieStore.setCookie(cookie, completionHandler: done)
   }
 }
