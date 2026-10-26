@@ -1,14 +1,10 @@
 import { classifyPaste, cleanUrl, sanitizePaste, searchUrl, type PasteAction } from "@ardia/core";
-import { copyText, showMenu, type MenuItem } from "@ardia/shell";
-import { NativeModules } from "react-native";
-import { currentSettings } from "../../state/browser/current";
-import { navigate } from "../../state/tabs/actions";
-import { defaultSearchEngine } from "../../state/settings/settings";
-import type { Tab } from "../../state/browser/types";
-
-const NativeClipboard = NativeModules.Clipboard as { getString(): Promise<string> } | undefined;
-
-export const readClipboard = (): Promise<string> => NativeClipboard?.getString().catch(() => "") ?? Promise.resolve("");
+import { copyText, readClipboard } from "../../platform/clipboard";
+import { showMenu, type MenuItem } from "../../platform/menus";
+import { currentSettings } from "../browser/current";
+import { navigate } from "../tabs/actions";
+import { defaultSearchEngine } from "../settings/settings";
+import type { Tab } from "../browser/types";
 
 export async function clipboardPasteAction(): Promise<PasteAction | null> {
   return classifyPaste(await readClipboard());

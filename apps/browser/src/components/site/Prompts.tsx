@@ -1,4 +1,14 @@
-import { getSiteSettings, resolveExternalApp, setSiteSetting, type AutofillPrompt as ChromeAutofillPrompt, type AutofillPromptAnswer, type PasswordPrompt as ChromePasswordPrompt, type PasswordPromptAnswer } from "@ardia/ardiacore";
+import { getSiteSettings, resolveExternalApp, setSiteSetting } from "../../state/site/siteSettings";
+import {
+  type AutofillPrompt as ChromeAutofillPrompt,
+  type AutofillPromptAnswer,
+  type PasswordPrompt as ChromePasswordPrompt,
+  type PasswordPromptAnswer,
+  patchPage,
+  pageOf,
+  setPopover,
+  usePage,
+} from "../../state/tabs/pageState";
 import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
@@ -6,7 +16,6 @@ import { webviews } from "../../platform/webviews";
 import { currentTab } from "../../state/browser/current";
 import { engineProfile } from "../../state/browser/model";
 import { Button, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, Symbol, Text, useHover } from "../ui";
-import { patchPage, pageOf, setPopover, usePage } from "../../state/tabs/pageState";
 import { answerPermission, describePermission } from "../../state/site/permissions";
 import { hostOrOrigin } from "../../lib/url";
 import { CheckRow, IconTile } from "./PromptParts";

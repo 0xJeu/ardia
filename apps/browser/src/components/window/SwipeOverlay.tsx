@@ -1,9 +1,9 @@
-import { SwipeArea, swipeHaptic, type SwipeAreaHandle, type SwipeEvent } from "@ardia/ardiacore";
+import { SwipeArea, type SwipeAreaHandle, type SwipeEvent, font, radius, space, Surface, Symbol, VisualEffect } from "../ui";
+import { swipeHaptic } from "../../state/app/system";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { spring as springOf } from "../ui/motion";
-import { font, radius, space, Surface, Symbol, VisualEffect } from "../ui";
 import { SHADOWS, SWIPE_CONFIRMED_WASH, SWIPE_MOTION, windowColors } from "./tokens";
 import { useTab } from "../../state/browser/hooks";
 import { Favicon, NewTabIcon } from "../favicon/Favicon";

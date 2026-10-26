@@ -1,13 +1,15 @@
 import { cleanUrl } from "@ardia/core";
-import { copyText, prompt, showMenu, type MenuItem } from "@ardia/shell";
-import { addFolderToSidebar, makesGroup, restorableArcHolder, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
-import { folderChildren, folderLinks } from "../../state/bookmarks/bookmarks";
-import { addBookmarkFolder, openFolder, openUrl, removeBookmark } from "../../state/bookmarks/actions";
-import { editBookmark } from "../../state/bookmarks/edit";
-import { currentBookmarks, currentSettings } from "../../state/browser/current";
-import type { BookmarkNode } from "../../state/browser/types";
-import { openInternalPage } from "../../state/pages/urls";
-import { updateSettings } from "../../state/settings/actions";
+import { copyText } from "../../platform/clipboard";
+import { prompt } from "../../platform/dialogs";
+import { showMenu, type MenuItem } from "../../platform/menus";
+import { addFolderToSidebar, makesGroup, restorableArcHolder, restoreArcFolders } from "./bookmarkGroups";
+import { folderChildren, folderLinks } from "./bookmarks";
+import { addBookmarkFolder, openFolder, openUrl, removeBookmark } from "./actions";
+import { editBookmark } from "./edit";
+import { currentBookmarks, currentSettings } from "../browser/current";
+import type { BookmarkNode } from "../browser/types";
+import { openInternalPage } from "../pages/urls";
+import { updateSettings } from "../settings/actions";
 
 export type ClickMods = { metaKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 

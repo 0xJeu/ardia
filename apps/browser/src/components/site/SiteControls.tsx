@@ -8,9 +8,9 @@ import {
   type SiteSettingType,
   type SiteSettingValue,
   type SiteSettings,
-} from "@ardia/ardiacore";
+} from "../../state/site/siteSettings";
 import { displayHost } from "@ardia/core";
-import { confirm, showMenu } from "@ardia/shell";
+import { confirm, showMenu } from "../../state/app/system";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";

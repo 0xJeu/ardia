@@ -8,7 +8,7 @@ import { moveBookmark } from "../../state/bookmarks/actions";
 import type { Settings } from "../../state/settings/settings";
 import { ContextMenuArea, space, Text, useTheme } from "../ui";
 import { BarButton, BarItem, ImportButton } from "./BarItem";
-import { openBarMenu, openFolderMenu } from "./barMenus";
+import { openBarMenu, openFolderMenu } from "../../state/bookmarks/barMenus";
 import { bookmarksBar } from "./tokens";
 
 export const BOOKMARKS_BAR_HEIGHT = bookmarksBar.height;

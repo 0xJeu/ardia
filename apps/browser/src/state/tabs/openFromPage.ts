@@ -6,6 +6,8 @@ import { peekSourceOf } from "../peek/peek";
 import { isSmall, originalProfile, privateWindowProfile } from "../windows/small";
 import { openLinkInSplit, openSplitPane } from "../splits/actions";
 
+export type { OpenWindowRequest } from "../../platform/tabs";
+
 export function openFromPage({ url, adoptId, disposition, profile, point }: OpenWindowRequest, page: { windowId: string; profileId: string; tabId?: string }) {
   const s = useBrowser.getState();
   const w = s.windows[page.windowId];

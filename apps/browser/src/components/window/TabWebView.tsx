@@ -1,4 +1,6 @@
-import { WebView, type OpenWindowRequest, type PageEngine } from "@ardia/ardiacore";
+import { WebView } from "../ui";
+import { type OpenWindowRequest, openFromPage } from "../../state/tabs/openFromPage";
+import type { PageEngine } from "../../state/engines/engines";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import { focus, switchToTab } from "../../state/browser/actions";
@@ -24,7 +26,6 @@ import { engineProfile, isIncognitoProfile, navigationTo } from "../../state/bro
 import type { Tab } from "../../state/browser/types";
 import { dismissPermissions } from "../../state/site/permissions";
 import { markTabReady, patchPage, pageOf, popoverOf, setPopover } from "../../state/tabs/pageState";
-import { openFromPage } from "../../state/tabs/openFromPage";
 import { closeFolderPanelIn } from "../../state/sidebar/tileFolderUi";
 import { answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "../site/Prompts";
 import { copyLinkToSelection, searchSelection, setPageSelection, type PageSelection } from "../../state/site/selection";

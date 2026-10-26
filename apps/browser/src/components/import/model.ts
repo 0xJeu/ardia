@@ -1,4 +1,13 @@
-import type { BrowserProfile, BrowserSource, DiaAutomationStatus, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "@ardia/import";
+import type {
+  BrowserProfile,
+  BrowserSource,
+  DiaAutomationStatus,
+  DiaTabsResult,
+  ImportedExtension,
+  ImportKind,
+  ImportResult,
+  SpaceSummary,
+} from "../../state/import/apply";
 import { plural } from "../../state/browser/model";
 
 export type { BrowserProfile, BrowserSource, DiaAutomationStatus, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary };

@@ -11,7 +11,7 @@ import { closeFolderPanel } from "../../state/sidebar/tileFolderUi";
 import { dragMarksOf, markDrag } from "../../state/sidebar/dragMarks";
 import { boxed, EDGE, measure, ROW_GAP, spring, type Drop, type Item } from "./dragModel";
 import { DragTargeting } from "./dragTargeting";
-import { setDragEscapeCapture } from "./dragNative";
+import { setDragEscapeCapture } from "../../state/drag/dragNative";
 
 export class DragController extends DragTargeting {
   create(key: string): Item {

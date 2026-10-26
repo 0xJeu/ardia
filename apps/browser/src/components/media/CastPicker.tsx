@@ -1,12 +1,11 @@
-import { CastMode, preferredCastMode, startCasting, stopCasting, type CastSink } from "@ardia/ardiacore";
-import { openExternalURL, showMenu, Symbol } from "@ardia/shell";
+import { CastMode, preferredCastMode, startCasting, stopCasting, type CastSink, closeCastPicker, useCast } from "../../state/media/cast";
+import { openExternalURL, showMenu } from "../../state/app/system";
+import { Symbol, Button, PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, Text, useHover } from "../ui";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { Button, PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, Text, useHover } from "../ui";
 import { ink, radius, space } from "../ui/tokens";
 import { mediaType, useMediaTokens } from "./tokens";
-import { closeCastPicker, useCast } from "../../state/media/cast";
 
 const WIDTH = 340;
 const SINK_ROW_PAD_Y = 5;

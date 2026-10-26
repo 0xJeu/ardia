@@ -1,4 +1,5 @@
-import { closeWindow, confirm } from "@ardia/shell";
+import { closeWindow } from "../../state/windows/nativeWindow";
+import { confirm } from "../../state/app/system";
 import { MAX_DRAFT_LINKS } from "../../state/groups/draftGroups";
 import { plural } from "../../state/browser/model";
 import type { ProfileColor } from "../../state/browser/types";

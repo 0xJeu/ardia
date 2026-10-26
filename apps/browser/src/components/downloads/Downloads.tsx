@@ -1,5 +1,23 @@
-import { cancelDownload, pauseDownload, resumeDownload, type Download } from "@ardia/ardiacore";
-import { ContextMenuArea, copyText, fileExists, fileIcon, MouseArea, moveToTrash, openFile, PopoverBubble, revealFile, showMenu, Symbol, type MenuItem } from "@ardia/shell";
+import { cancelDownload, pauseDownload, resumeDownload, type Download } from "../../state/downloads/actions";
+import {
+  ContextMenuArea,
+  MouseArea,
+  PopoverBubble,
+  Symbol,
+  Button,
+  hex,
+  HoverSlot,
+  layout,
+  MenuSeparator,
+  PANEL,
+  Text,
+  useHover,
+  usePopoverMotion,
+  usePopoverMotionStyle,
+  usePopoverPresence,
+  useTheme,
+} from "../ui";
+import { copyText, fileExists, fileIcon, moveToTrash, openFile, revealFile, showMenu, type MenuItem } from "../../state/app/system";
 import { memo, useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
@@ -13,7 +31,6 @@ import { PROFILE_DOTS_HEIGHT } from "../profiles/ProfileDots";
 import { openInternalPage } from "../../state/pages/urls";
 import { useSidebarWidth } from "../sidebar/tokens";
 import { hairline, shadow } from "../ui/tokens";
-import { Button, hex, HoverSlot, layout, MenuSeparator, PANEL, Text, useHover, usePopoverMotion, usePopoverMotionStyle, usePopoverPresence, useTheme } from "../ui";
 import { DOWNLOADS_PANEL, type DownloadsPlacement } from "./downloadsPlacement";
 import { downloadStatus } from "./downloadStatus";
 import { FooterButton } from "./FooterButton";

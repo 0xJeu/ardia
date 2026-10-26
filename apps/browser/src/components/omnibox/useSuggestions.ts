@@ -18,7 +18,7 @@ import { useTabs } from "../../state/tabs/hooks";
 import { defaultSearchEngine, searchEngines } from "../../state/settings/settings";
 import type { Bookmarks, HistoryEntry } from "../../state/browser/types";
 import { currentBarActions } from "../../state/omnibox/barActions";
-import { useBangs } from "./bangs";
+import { useBangs } from "../../state/omnibox/bangs";
 import { useBarExtensions } from "./extensions";
 import { historyHosts } from "../../state/omnibox/knownHosts";
 

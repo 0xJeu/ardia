@@ -6,7 +6,7 @@ import { openModeFor, openUrl } from "../../state/bookmarks/actions";
 import { Favicon } from "../favicon/Favicon";
 import { Button, Checkbox, ContextMenuArea, HoverSlot, MouseArea, radius, space, Text, useTheme } from "../ui";
 import { historyScroll } from "./historyLayout";
-import { openHistoryRowMenu } from "./historyMenus";
+import { openHistoryRowMenu } from "../../state/history/historyMenus";
 import { hostLabel, timeLabel } from "./PageLayout";
 import { historyRow, pagesColors, pageType } from "./tokens";
 

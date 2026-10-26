@@ -1,13 +1,19 @@
-import { getDisplayMediaSources, type DisplayMediaAudio, type DisplayMediaSource } from "@ardia/ardiacore";
-import { runningAppIcon, Symbol } from "@ardia/shell";
+import {
+  getDisplayMediaSources,
+  type DisplayMediaAudio,
+  type DisplayMediaSource,
+  answerDisplayMedia,
+  shareableTabs,
+  shareTab,
+} from "../../state/media/screenShare";
+import { runningAppIcon } from "../../state/app/system";
+import { Symbol, Button, Checkbox, PANEL, PanelHeader, Popover, POPOVER_MARGIN, Text, useHover } from "../ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Pressable, ScrollView, View, type TextStyle } from "react-native";
 import { useTheme } from "../ui/theme";
-import { Button, Checkbox, PANEL, PanelHeader, Popover, POPOVER_MARGIN, Text, useHover } from "../ui";
 import { radius, space } from "../ui/tokens";
 import { mediaType, useMediaTokens } from "./tokens";
 import { Favicon } from "../favicon/Favicon";
-import { answerDisplayMedia, shareableTabs, shareTab } from "../../state/media/screenShare";
 import { useMedia } from "../../state/media/media";
 
 const WIDTH = 460;

@@ -7,6 +7,8 @@ import { incognitoOriginal, isIncognitoProfile } from "../browser/model";
 import { hideKeyedToast, showToast } from "../splits/actions";
 import { translatorCall, type Passage } from "./pageTranslator";
 
+export { translation } from "../../platform/text";
+
 type TranslateState = {
   source: string | null;
   status: "idle" | "translating" | "translated";

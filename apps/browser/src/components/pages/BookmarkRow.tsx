@@ -6,7 +6,7 @@ import { openUrl } from "../../state/bookmarks/actions";
 import { plural } from "../../state/browser/model";
 import { Favicon } from "../favicon/Favicon";
 import { Button, ContextMenuArea, MouseArea, radius, space, Symbol, Text, useHover, useTheme } from "../ui";
-import { openBookmarkRowMenu } from "./bookmarkMenus";
+import { openBookmarkRowMenu } from "../../state/bookmarks/bookmarkMenus";
 import { hostLabel } from "./PageLayout";
 import { bookmarkList, pagesColors } from "./tokens";
 

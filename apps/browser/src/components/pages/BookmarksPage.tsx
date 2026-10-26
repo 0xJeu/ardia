@@ -9,7 +9,7 @@ import type { BookmarkNode, Bookmarks } from "../../state/browser/types";
 import { moveBookmark, openFolder, removeBookmarks, restoreBookmarks } from "../../state/bookmarks/actions";
 import { FolderTree } from "../bookmarks/FolderTree";
 import { Box, Button, radius, space, Symbol, Text, useTheme } from "../ui";
-import { openOrganizeMenu } from "./bookmarkMenus";
+import { openOrganizeMenu } from "../../state/bookmarks/bookmarkMenus";
 import { BookmarkRow } from "./BookmarkRow";
 import { DropTargets } from "./dropTargets";
 import { EmptyState, matchesQuery, PageHeader } from "./PageLayout";

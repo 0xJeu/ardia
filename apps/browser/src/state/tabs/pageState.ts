@@ -16,6 +16,8 @@ import { activeTabId } from "../browser/model";
 import { peekTabId } from "../peek/peek";
 import { splitOf } from "../splits/splits";
 
+export type { AutofillPrompt, AutofillPromptAnswer, PasswordPrompt, PasswordPromptAnswer } from "../../platform/tabs";
+
 export type PageState = {
   status: string;
   crashed: CrashInfo | null;

@@ -1,5 +1,5 @@
 import { bangDocument, bangTable, checkedBangTable, findBang, joinBangTables, readBangDocument, slimBangs, type BangTable } from "@ardia/core";
-import { fetchBangList, readDocument, saveDocument, writeDocument } from "@ardia/shell";
+import { fetchBangList, readDocument, saveDocument, writeDocument } from "../../platform/documents";
 import { useEffect, useSyncExternalStore } from "react";
 import { loadBundledBangs, refreshesBangs } from "./bangPlatform";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";

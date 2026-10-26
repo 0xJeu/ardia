@@ -1,17 +1,5 @@
-import { permissionWarnings, WebView, type InstalledExtension, type WebViewHandle } from "@ardia/ardiacore";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { hex, useTheme } from "../ui/theme";
-import { webviews } from "../../platform/webviews";
-import { currentShownPageId } from "../../state/peek/actions";
-import { useShownPageId } from "../../state/peek/hooks";
-import { useExtensionProfile } from "../../state/extensions/hooks";
-import { useWindowId } from "../../state/browser/hooks";
-import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
-import { Box, Button, Checkbox, PANEL, Surface, Text } from "../ui";
-import { hairline, shadow, radius, space } from "../ui/tokens";
-import { DIALOG_APPEAR_MS, DIALOG_TITLE, DIALOG_WIDTH, EXTENSION_PAGE_BACKGROUND, POPUP_SHADOW, useExtensionColors } from "./tokens";
 import {
+  permissionWarnings,
   cancelInstall,
   closeExtensionPopup,
   confirmInstall,
@@ -21,6 +9,19 @@ import {
   useWindowExtensions,
   type InstallRequest,
 } from "../../state/extensions/actions";
+import { WebView, type WebViewHandle, Box, Button, Checkbox, PANEL, Surface, Text } from "../ui";
+import type { InstalledExtension } from "../../state/extensions/store";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Animated, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { hex, useTheme } from "../ui/theme";
+import { webviews } from "../../platform/webviews";
+import { currentShownPageId } from "../../state/peek/actions";
+import { useShownPageId } from "../../state/peek/hooks";
+import { useExtensionProfile } from "../../state/extensions/hooks";
+import { useWindowId } from "../../state/browser/hooks";
+import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
+import { hairline, shadow, radius, space } from "../ui/tokens";
+import { DIALOG_APPEAR_MS, DIALOG_TITLE, DIALOG_WIDTH, EXTENSION_PAGE_BACKGROUND, POPUP_SHADOW, useExtensionColors } from "./tokens";
 import { curve, duration } from "../ui/motion";
 
 export function ExtensionOverlays() {

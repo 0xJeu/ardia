@@ -1,5 +1,5 @@
-import { cancelDownload, pauseDownload, resumeDownload, type Download } from "@ardia/ardiacore";
-import { fileExists, openFile, revealFile } from "@ardia/shell";
+import { cancelDownload, pauseDownload, resumeDownload, type Download } from "../../state/downloads/actions";
+import { fileExists, openFile, revealFile } from "../../state/app/system";
 import { useState } from "react";
 import { FlatList, Pressable, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";

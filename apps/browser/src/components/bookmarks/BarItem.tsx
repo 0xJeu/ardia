@@ -8,7 +8,7 @@ import { openImport } from "../../state/settings/settingsWindows";
 import { Favicon } from "../favicon/Favicon";
 import { useSidebarWidth } from "../sidebar/tokens";
 import { ContextMenuArea, MouseArea, radius, space, Symbol, Text, useHover, useTheme } from "../ui";
-import { openBarMenu, openFolderMenu, openImportButtonMenu, type ClickMods } from "./barMenus";
+import { openBarMenu, openFolderMenu, openImportButtonMenu, type ClickMods } from "../../state/bookmarks/barMenus";
 import { bookmarksBar } from "./tokens";
 
 const BUTTON = {

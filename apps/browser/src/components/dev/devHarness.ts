@@ -1,6 +1,6 @@
-import * as shell from "@ardia/shell";
 import { createElement } from "react";
-import { readDocument, writeDocument } from "@ardia/shell";
+import { shell } from "../../platform/devShell";
+import { readDocument, writeDocument } from "../../platform/documents";
 import { omniboxDrivers } from "../omnibox/devDriver";
 import { pagesDrivers } from "../pages/devDrivers";
 import { usePages } from "../../state/tabs/pageState";
@@ -60,8 +60,8 @@ export function startDevHarness() {
     get themes(): typeof import("../../state/import/apply") & typeof import("../settings/ThemeEditor") {
       return { ...require("../../state/import/apply"), ...require("../settings/ThemeEditor") };
     },
-    get bangs(): typeof import("../omnibox/bangs") {
-      return require("../omnibox/bangs");
+    get bangs(): typeof import("../../state/omnibox/bangs") {
+      return require("../../state/omnibox/bangs");
     },
     get switcher(): typeof import("../../state/sidebar/switcher") {
       return require("../../state/sidebar/switcher");

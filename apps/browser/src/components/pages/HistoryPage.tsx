@@ -8,7 +8,7 @@ import { requestClearData, useClearDataRequest } from "../../state/profiles/clea
 import { Button, Symbol, Text, useTheme } from "../ui";
 import { ClearDataDialog } from "./ClearDataDialog";
 import { layoutHistory } from "./historyLayout";
-import { confirmRemoveSelected } from "./historyMenus";
+import { confirmRemoveSelected } from "../../state/history/historyMenus";
 import { HistoryList } from "./HistoryList";
 import { EmptyState, hostLabel, PageHeader } from "./PageLayout";
 import { EMPTY_ICON, emptyIcon } from "./tokens";

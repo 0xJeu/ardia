@@ -1,6 +1,8 @@
 import { deleteProfileData } from "../../platform/profiles";
 import { useBrowser } from "../browser/store";
 
+export { clearBrowsingData, type BrowsingDataType } from "../../platform/profiles";
+
 const CLOSE_DELAY_MS = 1500;
 
 const failed = new Set<string>();

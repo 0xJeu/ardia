@@ -15,7 +15,7 @@ import { ProfileSwipeArea } from "../window/ProfileSwipe";
 import { TabDropArea, type TabDropTarget } from "../window/TabDropArea";
 import { usePeek } from "../window/usePeek";
 import { FloatingStrip } from "./context";
-import { setTrafficLightsCenter } from "./shellCalls";
+import { setTrafficLightsCenter } from "../../state/windows/nativeWindow";
 import { StripPage } from "./StripPage";
 import {
   CONTROLS_GAP,

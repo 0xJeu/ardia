@@ -4,7 +4,7 @@ import { beginTabDrag, cancelTabDrag, endTabDrag, setDragPicture, tabDragging, u
 import { setStripOnto, storeChangedSince, storeMark } from "../../state/tabs/topStrip";
 import { curve } from "../ui/motion";
 import { dropOnto, ontoKey, reorder, type DropTarget, type Landing, type StripDrag } from "./model";
-import { raiseView } from "./shellCalls";
+import { raiseView } from "../../state/windows/nativeWindow";
 import { aimDrop, dragRange, dropIndex } from "./stripGroups";
 import { makeRoom, registerSlot, reorderOffsets, settleRoom, SLIDE } from "./stripReorder";
 import { LIFT_MS, LIFT_SLOP, ONTO_EDGE, TOP_STRIP_HEIGHT } from "./tokens";

@@ -1,6 +1,8 @@
 import { cleanUrl } from "@ardia/core";
-import { confirm, copyText, showMenu } from "@ardia/shell";
-import { openUrl } from "../../state/bookmarks/actions";
+import { confirm } from "../../platform/dialogs";
+import { copyText } from "../../platform/clipboard";
+import { showMenu } from "../../platform/menus";
+import { openUrl } from "../bookmarks/actions";
 
 export async function confirmRemoveSelected(windowId: string): Promise<boolean> {
   const { confirmed } = await confirm({

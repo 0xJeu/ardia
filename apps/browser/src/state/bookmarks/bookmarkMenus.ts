@@ -1,12 +1,13 @@
 import { cleanUrl } from "@ardia/core";
-import { copyText, showMenu, type MenuItem } from "@ardia/shell";
-import { addFolderToSidebar, makesGroup, restorableArcHolder, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
-import { folderLinks } from "../../state/bookmarks/bookmarks";
-import { openFolder, openUrl } from "../../state/bookmarks/actions";
-import { editBookmark } from "../../state/bookmarks/edit";
-import { currentBookmarks } from "../../state/browser/current";
-import type { BookmarkNode } from "../../state/browser/types";
-import { openImport } from "../../state/settings/settingsWindows";
+import { copyText } from "../../platform/clipboard";
+import { showMenu, type MenuItem } from "../../platform/menus";
+import { addFolderToSidebar, makesGroup, restorableArcHolder, restoreArcFolders } from "./bookmarkGroups";
+import { folderLinks } from "./bookmarks";
+import { openFolder, openUrl } from "./actions";
+import { editBookmark } from "./edit";
+import { currentBookmarks } from "../browser/current";
+import type { BookmarkNode } from "../browser/types";
+import { openImport } from "../settings/settingsWindows";
 
 export async function openOrganizeMenu(windowId: string, profileId: string, folderId: string | null) {
   const choice = await showMenu([

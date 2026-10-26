@@ -1,5 +1,5 @@
-import { WindowBackdrop } from "@ardia/shaders";
-import { ContextMenuArea, setTrafficLightsCenter, WindowDragRegion } from "@ardia/shell";
+import { WindowBackdrop, ContextMenuArea, WindowDragRegion, useHover } from "../ui";
+import { setTrafficLightsCenter } from "../../state/windows/nativeWindow";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
@@ -13,8 +13,7 @@ import { DownloadsPopover } from "../downloads/Downloads";
 import { ExtensionOverlays } from "../extensions/ExtensionOverlays";
 import { ToolbarPopupAnchor } from "../extensions/ToolbarExtensions";
 import { setUrlAnchor } from "../../state/windows/layout";
-import { showUrlBarMenu } from "../omnibox/paste";
-import { useHover } from "../ui";
+import { showUrlBarMenu } from "../../state/omnibox/paste";
 import { copyPageUrl } from "../../state/site/selection";
 import { ProfileBadge } from "../profiles/ProfileIcons";
 import { openInMainWindow, openLittleArdiaProfileMenu } from "../../state/littleArdia/actions";

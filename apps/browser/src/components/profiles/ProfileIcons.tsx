@@ -1,4 +1,4 @@
-import type { MenuItem } from "@ardia/shell";
+import type { MenuItem } from "../../state/app/system";
 import { Text, View } from "react-native";
 import { ink, Symbol, weight } from "../ui";
 import { profileAccent } from "../ui/theme";

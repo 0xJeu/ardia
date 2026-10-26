@@ -5,6 +5,8 @@ import { engineProfile } from "../browser/model";
 import { shownPageId } from "../peek/peek";
 import { isTabReady } from "../tabs/pageState";
 
+export { CastMode, preferredCastMode, startCasting, stopCasting, terminateCastRoute, type CastRoute, type CastSink } from "../../platform/media";
+
 type CastStore = {
   dialogs: Record<string, CastDialog>;
   routes: Record<string, CastRoute[]>;

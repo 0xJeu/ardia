@@ -8,7 +8,7 @@ import { folderPanel } from "../../state/sidebar/tileFolderUi";
 import { overPins, pinGridHeight, pinSlot } from "./pinZone";
 import { boxed, FOLDER_HOLD_MS, inside, pinnedBlock, PIN_SLOT, ROW_GAP, spring, type Drop, type Item } from "./dragModel";
 import { DragGeometry } from "./dragGeometry";
-import { hapticTick } from "./dragNative";
+import { hapticTick } from "../../state/drag/dragNative";
 
 export class DragTargeting extends DragGeometry {
   protected clearHold() {

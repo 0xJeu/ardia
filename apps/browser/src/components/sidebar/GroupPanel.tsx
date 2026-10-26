@@ -1,4 +1,4 @@
-import { discardKeyResponder, restoreKeyResponder, saveKeyResponder } from "@ardia/shell";
+import { discardKeyResponder, restoreKeyResponder, saveKeyResponder } from "../../state/windows/nativeWindow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useTheme } from "../ui/theme";

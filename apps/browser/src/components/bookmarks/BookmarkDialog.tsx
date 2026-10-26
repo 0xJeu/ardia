@@ -1,4 +1,4 @@
-import { prompt } from "@ardia/shell";
+import { prompt } from "../../state/app/system";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useWindowId } from "../../state/browser/hooks";

@@ -5,6 +5,8 @@ import { engineProfile } from "../browser/model";
 import { usePages } from "../tabs/pageState";
 import { useMedia, type TabShare } from "./media";
 
+export { getDisplayMediaSources, type DisplayMediaAudio, type DisplayMediaSource } from "../../platform/media";
+
 export function useShareFor(tabId: string): [string, TabShare] | null {
   const shares = useMedia((m) => m.tabShares);
   const profile = useBrowser((s) => {

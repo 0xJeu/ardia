@@ -1,4 +1,4 @@
-import { clearBrowsingData, type BrowsingDataType } from "@ardia/ardiacore";
+import { clearBrowsingData, type BrowsingDataType } from "../../state/profiles/profileData";
 import { useState } from "react";
 import { View } from "react-native";
 import { pruneProfileFavicons } from "../../state/favicons/favicons";
