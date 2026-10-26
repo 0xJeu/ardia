@@ -14,10 +14,16 @@ using namespace ardia_window;
  @public
   double _amount;
   CGFloat _height;
+  NSArray *_observers;
 }
 @end
 
 @implementation ArdiaFullScreenReveal
+
+- (void)dealloc {
+  for (id observer in _observers) [NSNotificationCenter.defaultCenter removeObserver:observer];
+}
+
 @end
 
 namespace {
@@ -82,11 +88,14 @@ void RaiseBackdrop(NSView *backdrop, CGFloat up) {
   objc_setAssociatedObject(backdrop, kBackdropShiftKey, up ? @(dy) : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-void ShiftContent(NSWindow *window, CGFloat height) {
+BOOL ShiftContent(NSWindow *window, CGFloat height) {
   NSView *host = HostView(window), *content = host.superview;
-  if (!host || !content) return;
-  [host setFrameOrigin:NSMakePoint(NSMinX(host.frame), content.isFlipped ? height : -height)];
+  if (!host || !content) return NO;
+  const NSPoint origin = NSMakePoint(NSMinX(host.frame), content.isFlipped ? height : -height);
+  const BOOL moved = !NSEqualPoints(origin, host.frame.origin);
+  if (moved) [host setFrameOrigin:origin];
   for (NSView *backdrop in Backdrops([ArdiaChromeWindowHost rootViewOfWindow:window])) RaiseBackdrop(backdrop, height);
+  return moved;
 }
 
 NSArray<NSView *> *PageViews(NSWindow *window) {
@@ -130,6 +139,39 @@ NSArray *SizeOf(NSView *view) {
   return view ? @[ @(NSWidth(view.frame)), @(NSHeight(view.frame)) ] : @[];
 }
 
+void PlaceReveal(NSWindow *window, BOOL force) {
+  ArdiaFullScreenReveal *reveal = window ? objc_getAssociatedObject(window, kRevealKey) : nil;
+  ArdiaWindowFullScreen *state = reveal ? objc_getAssociatedObject(window, kWindowFullScreenKey) : nil;
+  const CGFloat scale = window.backingScaleFactor ?: 1;
+  const CGFloat height = reveal && IsWindowFullScreen(window) && !state.pageFullScreen
+                             ? round(reveal->_amount * MenuBarOverlap(window) * scale) / scale
+                             : 0;
+  if (!reveal || (!force && height == reveal->_height)) return PlaceFullScreenLights(window);
+  reveal->_height = height;
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  const BOOL moved = ShiftContent(window, height);
+  PlaceFullScreenLights(window);
+  [CATransaction commit];
+  if (moved) TellPagesTheyMoved(window);
+}
+
+NSArray *WatchGeometry(NSWindow *window) {
+  __weak NSWindow *weakWindow = window;
+  NSMutableArray *observers = [NSMutableArray array];
+  for (NSNotificationName name in @[
+         NSWindowDidResizeNotification, NSWindowDidChangeScreenNotification, NSWindowDidChangeBackingPropertiesNotification
+       ])
+    [observers addObject:[NSNotificationCenter.defaultCenter addObserverForName:name
+                                                                         object:window
+                                                                          queue:nil
+                                                                     usingBlock:^(NSNotification *) {
+                                                                       NSWindow *w = weakWindow;
+                                                                       if (w && IsWindowFullScreen(w)) PlaceReveal(w, YES);
+                                                                     }]];
+  return observers;
+}
+
 void InstallTitlebarHeights(Class frameClass) {
   static NSMutableSet<Class> *installed = [NSMutableSet set];
   if (!frameClass || [installed containsObject:frameClass]) return;
@@ -163,20 +205,7 @@ CGFloat FullScreenRevealHeight(NSWindow *window) {
 }
 
 void ApplyFullScreenReveal(NSWindow *window) {
-  ArdiaFullScreenReveal *reveal = window ? objc_getAssociatedObject(window, kRevealKey) : nil;
-  ArdiaWindowFullScreen *state = reveal ? objc_getAssociatedObject(window, kWindowFullScreenKey) : nil;
-  const CGFloat scale = window.backingScaleFactor ?: 1;
-  const CGFloat height = reveal && IsWindowFullScreen(window) && !state.pageFullScreen
-                             ? round(reveal->_amount * MenuBarOverlap(window) * scale) / scale
-                             : 0;
-  if (!reveal || height == reveal->_height) return PlaceFullScreenLights(window);
-  reveal->_height = height;
-  [CATransaction begin];
-  [CATransaction setDisableActions:YES];
-  ShiftContent(window, height);
-  PlaceFullScreenLights(window);
-  [CATransaction commit];
-  TellPagesTheyMoved(window);
+  PlaceReveal(window, NO);
 }
 
 void SetFullScreenRevealAmount(NSWindow *window, double amount) {
@@ -185,6 +214,7 @@ void SetFullScreenRevealAmount(NSWindow *window, double amount) {
   if (!reveal && !(amount > 0)) return;
   if (!reveal) {
     reveal = [ArdiaFullScreenReveal new];
+    reveal->_observers = WatchGeometry(window);
     objc_setAssociatedObject(window, kRevealKey, reveal, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   }
   reveal->_amount = std::isfinite(amount) ? std::clamp(amount, 0.0, 1.0) : 0;

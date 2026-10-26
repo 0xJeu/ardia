@@ -3579,6 +3579,15 @@ try {
         if (bad.length) throw new Error(`reveal ${amount}: ${bad.join("; ")}: ${JSON.stringify(s)}`);
         out.steps.push({ amount, height: h, lightsTop: s.lights.top, pageOrigin: origin });
       }
+      const placed = await reveal(0.5);
+      const placedOrigin = await pageOrigin();
+      for (const name of ["NSWindowDidResizeNotification", "NSWindowDidChangeScreenNotification", "NSWindowDidChangeBackingPropertiesNotification"])
+        await win(`postNotification:window:${name}`);
+      const replaced = await reveal();
+      const replacedOrigin = await pageOrigin();
+      const where = (s) => JSON.stringify([s.height, s.hostTop, s.rootTop, s.backdrops, s.pages, s.lights]);
+      if (where(replaced) !== where(placed) || replacedOrigin !== placedOrigin) throw new Error(`a geometry change moved the revealed window: ${where(placed)} ${placedOrigin} → ${where(replaced)} ${replacedOrigin}`);
+      out.geometryChange = { height: replaced.height, pageOrigin: replacedOrigin };
       await reveal(1);
       await fsEnter(tab.id, t);
       const video = await until("page full screen in the window", async () => {
