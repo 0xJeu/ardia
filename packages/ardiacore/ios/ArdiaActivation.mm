@@ -1,4 +1,5 @@
 #import "ArdiaInternal.h"
+#import "ArdiaLaunchConfig.h"
 
 #include <execinfo.h>
 #include <fcntl.h>
@@ -16,8 +17,7 @@ namespace ardia_host {
 namespace {
 
 NSString *LogPath() {
-  const char *dir = getenv("ARDIA_DATA_DIR");
-  return dir ? [@(dir) stringByAppendingPathComponent:@"activation.log"] : nil;
+  return [ArdiaLaunchConfig.shared.dataDirectory stringByAppendingPathComponent:@"activation.log"];
 }
 
 void Log(NSString *what, NSArray<NSString *> *stack) {
@@ -76,9 +76,9 @@ void ObserveActivation() {
 const void *kPicksKey = &kPicksKey;
 
 NSArray<NSURL *> *TakePicks() {
-  const char *dir = getenv("ARDIA_DATA_DIR");
+  NSString *dir = ArdiaLaunchConfig.shared.dataDirectory;
   if (!dir) return nil;
-  NSString *path = [@(dir) stringByAppendingPathComponent:@"file-chooser.txt"];
+  NSString *path = [dir stringByAppendingPathComponent:@"file-chooser.txt"];
   NSString *text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
   if (!text) return nil;
   [NSFileManager.defaultManager removeItemAtPath:path error:nil];
@@ -237,8 +237,7 @@ void InterceptAlerts() {
 }
 
 bool Background() {
-  static bool background = getenv("ARDIA_BACKGROUND") != nullptr;
-  return background;
+  return ArdiaLaunchConfig.shared.background;
 }
 
 namespace {

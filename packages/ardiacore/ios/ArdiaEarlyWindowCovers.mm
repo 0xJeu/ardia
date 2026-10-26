@@ -67,7 +67,7 @@ namespace {
 
 void TrimAfterHandoff() {
   static bool trimmed;
-  if (trimmed || EnvOff("ARDIA_MEMORY_TRIM") || EnvOff("ARDIA_MEMORY_TRIM_ENGINE")) return;
+  if (trimmed) return;
   trimmed = true;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kTrimAfterHandoffSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     [ArdiaEngineBridge call:@"ac_memory_trim" profile:@"" args:nil completion:^(NSString *) {}];

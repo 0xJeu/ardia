@@ -870,14 +870,25 @@ struct DocumentRewriter {
 }
 
 public enum LegacyMigration {
-  public static func runAtLaunch(bundleId: String? = Bundle.main.bundleIdentifier) -> Bool {
-    let env = ProcessInfo.processInfo.environment
+  public struct ScratchInstance {
+    public let dataDirectory: String
+    public let legacySource: String?
+    public let crashAfter: String?
+
+    public init(dataDirectory: String, legacySource: String?, crashAfter: String?) {
+      self.dataDirectory = dataDirectory
+      self.legacySource = legacySource
+      self.crashAfter = crashAfter
+    }
+  }
+
+  public static func runAtLaunch(scratch: ScratchInstance?, bundleId: String? = Bundle.main.bundleIdentifier) -> Bool {
     let bundleId = bundleId ?? "com.ardia.browser"
     guard bundleId != LegacyName.bundleId else { return true }
     let context: LegacyMigrator.Context?
-    if let data = env["ARDIA_DATA_DIR"], !data.isEmpty {
-      guard let source = env["ARDIA_LEGACY_SOURCE"], !source.isEmpty else { return true }
-      context = testInstanceContext(dataDir: data, legacyHome: source, bundleId: bundleId, crashAfter: env["ARDIA_LEGACY_CRASH_AFTER"])
+    if let scratch {
+      guard let source = scratch.legacySource, !source.isEmpty else { return true }
+      context = testInstanceContext(dataDir: scratch.dataDirectory, legacyHome: source, bundleId: bundleId, crashAfter: scratch.crashAfter)
     } else {
       context = installedContext(bundleId: bundleId)
     }
@@ -942,7 +953,7 @@ public enum LegacyMigration {
     let inside = { (a: String, b: String) in a == b || a.hasPrefix(b + "/") }
     guard resolved(home) != realHome, !inside(resolved(home), realHome + "/Library"), !inside(resolved(data), resolved(home)),
       !inside(resolved(home), resolved(data)) else {
-      NSLog("Ardia: ARDIA_LEGACY_SOURCE must be a scratch folder apart from the data dir and your home; ignored")
+      NSLog("Ardia: the legacy source must be a scratch folder apart from the data dir and your home; ignored")
       return nil
     }
     let library = home.appendingPathComponent("Library")
@@ -950,7 +961,7 @@ public enum LegacyMigration {
     let handlers = library.appendingPathComponent("Preferences/\(launchServicesDomain).plist")
     for input in [library, oldData, library.appendingPathComponent("Preferences"), handlers, home.appendingPathComponent("keychain.json")]
     where FileManager.default.fileExists(atPath: input.path) && !inside(resolved(input), resolved(home)) {
-      NSLog("Ardia: \(input.path) leads out of ARDIA_LEGACY_SOURCE; ignored")
+      NSLog("Ardia: \(input.path) leads out of the legacy source; ignored")
       return nil
     }
     return LegacyMigrator.Context(

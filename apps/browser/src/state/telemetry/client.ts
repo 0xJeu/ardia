@@ -1,7 +1,8 @@
 import { engineInfo } from "@ardia/ardiacore";
-import { launchEnvironment, readDocument, systemInfo, writeDocument, type SystemInfo } from "@ardia/shell";
+import { readDocument, systemInfo, writeDocument, type SystemInfo } from "@ardia/shell";
+import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
-import { DEV_SEND_ENV, LOGS_URL, MAX_BODY_BYTES } from "./config";
+import { DEV_SEND_TEST_KEY, LOGS_URL, MAX_BODY_BYTES } from "./config";
 import { EVENTS_SCOPE, eventRecord, LOGS_SCOPE, logRecord, logsRequest, outcome, type OtlpLogRecord, type QueuedEvent } from "./otlp";
 import { cleanProperties } from "./sanitize";
 
@@ -75,7 +76,7 @@ let engineVersion: string | null = null;
 export const environment = (): "dev" | "test" | "production" =>
   __DEV__ ? "dev" : appInfo().isolatedInstance ? "test" : "production";
 
-const devSendAllowed = () => launchEnvironment(DEV_SEND_ENV) === "1";
+const devSendAllowed = () => devTestValue(DEV_SEND_TEST_KEY) === "1";
 const canSend = () => !__DEV__ || devSendAllowed();
 
 function context(): Record<string, unknown> {

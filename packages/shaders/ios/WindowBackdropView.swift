@@ -12,8 +12,6 @@ final class WindowBackdropView: MetalSurface {
     var pad = SIMD2<Float>(0, 0)
   }
 
-  private static let keepsHiddenDrawables = ProcessInfo.processInfo.environment["ARDIA_BACKDROP_DRAWABLES"] == "keep"
-
   private var uniforms = Uniforms()
   private var treatment: WindowTreatmentView?
   private var tint = WindowTreatmentView.Tint()
@@ -45,10 +43,7 @@ final class WindowBackdropView: MetalSurface {
       treatment?.removeFromSuperview()
       treatment = nil
     }
-    if Self.keepsHiddenDrawables {
-      metalView.isHidden = on
-      if !on { metalView.needsDisplay = true }
-    } else if on {
+    if on {
       metalView.isHidden = true
       metalView.autoResizeDrawable = false
       metalView.drawableSize = CGSize(width: 1, height: 1)

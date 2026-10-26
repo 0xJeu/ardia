@@ -1,10 +1,17 @@
-import { killSwitchEnvironment, readDocument, writeDocument } from "@ardia/shell";
+import { readDocument, writeDocument } from "@ardia/shell";
+import { switchOverride } from "./launchConfig";
 
 type SwitchDef = {
   about: string;
   owner: string;
   removeBy: string;
   live: boolean;
+};
+
+type ExperimentDef = {
+  about: string;
+  owner: string;
+  removeBy: string;
 };
 
 export const MAX_SWITCHES = 8;
@@ -60,11 +67,34 @@ export const SWITCHES = {
   },
 } as const satisfies Record<string, SwitchDef>;
 
+export const EXPERIMENTS = {
+  beginFrameBridge: {
+    about: "While a shown tab waits for the display link's first callback, the GPU process sends up to 4 warm-up BeginFrames on the display's last vsync grid (engine, chromium-begin-frame-warm-up.patch).",
+    owner: "tab switch",
+    removeBy: "2026-12-15",
+  },
+  serverWindowDrag: {
+    about: "The window server moves the window from our drag areas at once, instead of waiting for mouseDown on the main thread (packages/shell ServerWindowDrag.swift).",
+    owner: "window",
+    removeBy: "2026-12-15",
+  },
+  serverWindowDragAllOpen: {
+    about: "As serverWindowDrag, with every view in the titlebar band left open to window moves (a probe for the geometry work).",
+    owner: "window",
+    removeBy: "2026-12-15",
+  },
+  webkitSignIn: {
+    about: "Moving a Chromium page to WebKit first copies the cookies that page's own address gets into the profile's WebKit store, at most 1.5 s (state/engines/engineSignIn.ts).",
+    owner: "engines",
+    removeBy: "2026-12-15",
+  },
+} as const satisfies Record<string, ExperimentDef>;
+
 type SwitchName = keyof typeof SWITCHES;
+type ExperimentName = keyof typeof EXPERIMENTS;
 
 const CACHE_DOC = "switches-cache.json";
 const SWITCHES_URL = "https://ardia.dev/switches.json";
-const SWITCHES_ENV = "ARDIA_SWITCHES";
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_BYTES = 4096;
 
@@ -82,18 +112,6 @@ function parseSwitches(json: string | null | undefined): Values {
   return out;
 }
 
-export function parseOverride(text: string | null | undefined): Values {
-  const out: Values = {};
-  for (const part of (text ?? "").split(",")) {
-    const [name, value] = part.split("=").map((s) => s.trim());
-    if (!name || !known(name)) continue;
-    if (value === "off" || value === "0" || value === "false") out[name] = false;
-    else if (value === "on" || value === "1" || value === "true") out[name] = true;
-  }
-  return out;
-}
-
-let override: Values = {};
 let cached: Values = {};
 let loaded = false;
 
@@ -101,22 +119,21 @@ function load() {
   loaded = true;
   try {
     cached = parseSwitches(readDocument(CACHE_DOC));
-    override = parseOverride(killSwitchEnvironment(SWITCHES_ENV));
   } catch {
     cached = {};
-    override = {};
   }
 }
 
 export function switchOn(name: SwitchName): boolean {
   if (!loaded) load();
-  return override[name] ?? cached[name] ?? true;
+  return switchOverride(name) ?? cached[name] ?? true;
 }
+
+export const experimentOn = (name: ExperimentName): boolean => switchOverride(name) ?? false;
 
 export function reloadSwitches() {
   loaded = false;
   cached = {};
-  override = {};
 }
 
 let fetchedThisLaunch = false;

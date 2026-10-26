@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 import Carbon.HIToolbox
 import ExpoModulesCore
 
@@ -6,7 +7,8 @@ enum ServerWindowDrag {
   private static let regions = NSHashTable<NSView>.weakObjects()
   private static let opaqueRectSelector = NSSelectorFromString("_opaqueRectForWindowMoveWhenInTitlebar")
   private static let refreshSelector = NSSelectorFromString("_updateDragRegionForHiddenStateChange")
-  private static let enabled = ["1", "all"].contains(ProcessInfo.processInfo.environment["ARDIA_SERVER_WINDOW_DRAG"] ?? "")
+  private static let enabled = LaunchConfig.shared.experimentOn("serverWindowDrag") || allOpen
+  private static let allOpen = LaunchConfig.shared.experimentOn("serverWindowDragAllOpen")
 
   private static let refreshEvery: CFTimeInterval = 0.1
   private static var targets: [ObjectIdentifier: (blocking: [ObjectIdentifier: Bool], open: [NSRect])] = [:]
@@ -279,7 +281,6 @@ enum ServerWindowDrag {
   private static func install(_ host: AnyClass) {
     replaceRect(host) { view, original in hostsRoot(view) ? .zero : original() }
     replaceCanMove(host) { view, original in hostsRoot(view) ? true : original() }
-    let allOpen = ProcessInfo.processInfo.environment["ARDIA_SERVER_WINDOW_DRAG"] == "all"
     replaceRect(NSView.self) { view, original in
       guard inRoot(view) else { return original() }
       return !allOpen && blocks(view) ? view.bounds : .zero

@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 
 final class WindowManager: NSObject, NSWindowDelegate {
   static let shared = WindowManager()
@@ -514,5 +515,5 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   var saveWait: Timer?
   var lateSaveAlert: NSAlert?
-  let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
+  let background = LaunchConfig.shared.background
 }

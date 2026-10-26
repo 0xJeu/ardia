@@ -1,4 +1,5 @@
 #import "ArdiaPictureInPictureInternal.h"
+#import "ArdiaLaunchConfig.h"
 #import "ArdiaChromeWindowHost.h"
 
 #import <objc/runtime.h>
@@ -10,7 +11,7 @@ using namespace ardia_pip;
 
 - (NSString *)snapshot:(NSString *)name {
   NSWindow *window = _window;
-  NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
+  NSString *dir = ArdiaLaunchConfig.shared.dataDirectory ?: @"/tmp";
   NSView *content = ArdiaWindowRootView(window);
   NSSize size = content.bounds.size;
   NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil pixelsWide:size.width * 2 pixelsHigh:size.height * 2
@@ -47,7 +48,7 @@ using namespace ardia_pip;
     [steps addObject:step];
     NSLog(@"[pip-selftest] %@ %@ %@", name, pass ? @"PASS" : @"FAIL", step);
   };
-  NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
+  NSString *dir = ArdiaLaunchConfig.shared.dataDirectory ?: @"/tmp";
   auto snapshot = [=](NSString *name) { [self snapshot:name]; };
   auto write = [=] {
     NSString *path = [dir stringByAppendingPathComponent:@"pip-selftest.json"];
@@ -143,7 +144,7 @@ using namespace ardia_pip;
 
 - (void)runButtonSelfTest:(NSString *)button {
   NSWindow *window = _window;
-  NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
+  NSString *dir = ArdiaLaunchConfig.shared.dataDirectory ?: @"/tmp";
   CGFloat center = kButtonMargin + kButtonSize / 2;
   NSPoint point = NSMakePoint([button isEqual:@"close"] ? NSWidth(window.frame) - center : center, NSHeight(window.frame) - center);
   auto event = [=](NSEventType type) {
@@ -178,8 +179,8 @@ using namespace ardia_pip;
 
 - (void)runHoverSelfTest {
   NSWindow *window = _window;
-  NSString *dir = [NSString stringWithUTF8String:getenv("ARDIA_DATA_DIR") ?: "/tmp"];
-  NSString *where = NSProcessInfo.processInfo.environment[@"ARDIA_PIP_HOVER"];
+  NSString *dir = ArdiaLaunchConfig.shared.dataDirectory ?: @"/tmp";
+  NSString *where = [ArdiaLaunchConfig.shared testValue:@"pipHover"];
   CGFloat center = kButtonMargin + kButtonSize / 2;
   NSSize size = window.frame.size;
   NSPoint point = [where isEqual:@"close"]  ? NSMakePoint(size.width - center, size.height - center)

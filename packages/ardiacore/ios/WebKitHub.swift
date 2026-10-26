@@ -6,8 +6,8 @@ import WebKit
 final class WebKitHub: NSObject, WKScriptMessageHandler {
   static let shared = WebKitHub()
   static let world = WKContentWorld.world(name: "ardia")
-  static let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
-  static let silenced = background && ProcessInfo.processInfo.environment["ARDIA_ALLOW_AUDIO"] != "1"
+  static let background = LaunchConfig.shared.background
+  static let silenced = background && !LaunchConfig.shared.instanceFlag("allowAudio")
 
   var events: ((String, [String: Any]) -> Void)?
   let downloads = WebKitDownloads()
@@ -89,7 +89,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   static func storeIdentifier(_ profile: String) -> UUID {
-    let scope = ProcessInfo.processInfo.environment["ARDIA_DATA_DIR"] ?? ""
+    let scope = LaunchConfig.shared.dataDirectory ?? ""
     var bytes = Array(SHA256.hash(data: Data("ardia.webkit|\(scope)|\(profile)".utf8)).prefix(16))
     bytes[6] = (bytes[6] & 0x0F) | 0x50
     bytes[8] = (bytes[8] & 0x3F) | 0x80
@@ -150,7 +150,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }()
 
   static let inspectable: Bool = {
-    if !(ProcessInfo.processInfo.environment["ARDIA_DATA_DIR"] ?? "").isEmpty { return true }
+    if LaunchConfig.shared.dataDirectory != nil { return true }
     var code: SecCode?
     guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return true }
     var info: CFDictionary?

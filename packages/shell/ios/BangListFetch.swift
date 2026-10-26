@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 import Carbon.HIToolbox
 import ExpoModulesCore
 
@@ -19,7 +20,7 @@ final class BangListFetch: NSObject, URLSessionDataDelegate {
 
   private static var url: URL {
     #if DEBUG
-    if let override = ProcessInfo.processInfo.environment["ARDIA_BANGS_URL"], let url = URL(string: override) { return url }
+    if let override = LaunchConfig.shared.testValue("bangsUrl"), let url = URL(string: override) { return url }
     #endif
     return listURL
   }

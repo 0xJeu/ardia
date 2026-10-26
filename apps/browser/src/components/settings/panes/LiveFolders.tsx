@@ -61,7 +61,7 @@ export function LiveFoldersPane() {
         <SourceRow id="confluence" />
         <SourceRow id="gdrive" />
       </Group>
-      {isMocked ? <Text style={{ marginTop: 10, fontSize: 11, color: "#D29922" }}>Development build: services are served by ARDIA_LIVE_MOCK.</Text> : null}
+      {isMocked ? <Text style={{ marginTop: 10, fontSize: 11, color: "#D29922" }}>Development build: services are served by ARDIA_TEST liveMock.</Text> : null}
     </View>
   );
 }

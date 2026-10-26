@@ -22,11 +22,13 @@ NS_SWIFT_NAME(LaunchConfig)
 - (BOOL)instanceFlag:(NSString *)key NS_SWIFT_NAME(instanceFlag(_:));
 - (nullable NSNumber *)switchOverride:(NSString *)name NS_SWIFT_NAME(switchOverride(_:));
 - (BOOL)switchOn:(NSString *)name NS_SWIFT_NAME(switchOn(_:));
+- (BOOL)experimentOn:(NSString *)name NS_SWIFT_NAME(experimentOn(_:));
 - (BOOL)traced:(NSString *)area NS_SWIFT_NAME(traced(_:));
 - (nullable NSString *)testValue:(NSString *)key NS_SWIFT_NAME(testValue(_:));
 - (BOOL)testFlag:(NSString *)key NS_SWIFT_NAME(testFlag(_:));
 
 @property(readonly) NSArray<NSString *> *engineSwitches;
+@property(readonly) NSDictionary<NSString *, NSString *> *environmentForChildProcesses;
 @property(readonly) NSDictionary<NSString *, id> *snapshot;
 
 @end

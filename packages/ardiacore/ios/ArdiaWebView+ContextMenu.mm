@@ -1,4 +1,5 @@
 #import "ArdiaWebViewInternal.h"
+#import "ArdiaLaunchConfig.h"
 
 using namespace ardia_web_view;
 
@@ -108,8 +109,8 @@ NSDictionary *FindMenuItem(NSArray *items, NSString *label) {
 - (NSDictionary<NSString *, id> *)tab:(ArdiaCoreTab *)tab runContextMenu:(NSDictionary<NSString *, id> *)menu {
   NSArray *items = Field<NSArray>(menu, @"items") ?: @[];
   NoteEvent(ardia_host::BrowserId(tab), @"contextMenu", @{@"items" : items});
-  static const char *log = getenv("ARDIA_CONTEXT_MENU_LOG");
-  if (!log) {
+  ArdiaLaunchConfig *config = ArdiaLaunchConfig.shared;
+  if (![config testFlag:@"contextMenu"]) {
     if (ardia_host::Background()) {
       NSMutableArray<NSString *> *titles = [NSMutableArray array];
       for (NSDictionary *item in items)
@@ -118,7 +119,8 @@ NSDictionary *FindMenuItem(NSArray *items, NSString *label) {
     }
     return nil;
   }
-  NSString *path = @(log), *pickPath = [path stringByAppendingString:@".pick"];
+  NSString *path = [config.dataDirectory stringByAppendingPathComponent:@"context-menu.json"];
+  NSString *pickPath = [path stringByAppendingString:@".pick"];
   NSDictionary *dump = @{
     @"url" : Field<NSString>(menu, @"url") ?: tab.url ?: @"",
     @"link" : Field<NSString>(menu, @"link") ?: @"",

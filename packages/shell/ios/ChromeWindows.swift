@@ -55,7 +55,7 @@ enum ChromeWindows {
     ArdiaChromeWindowHost.showProfile(profile, in: window)
   }
 
-  private static let drawnMoves = KillSwitch.isOn("sidebarSlideLean")
+  private static let drawnMoves = LaunchConfig.shared.switchOn("sidebarSlideLean")
 
   static func setTrafficLightsCenter(_ center: NSPoint?, in window: NSWindow) {
     let value = center.map { NSValue(point: $0) }

@@ -46,6 +46,17 @@ export type NotificationResponse = {
   data: unknown;
 };
 
+export type LaunchConfig = {
+  dataDirectory: string | null;
+  background: boolean;
+  isolated: boolean;
+  testInstance: boolean;
+  instance: Record<string, string>;
+  switches: Record<string, boolean>;
+  trace: string[];
+  test: Record<string, string>;
+};
+
 export type SystemInfo = {
   appName: string;
   appVersion: string;
@@ -131,8 +142,7 @@ export type AppModule = {
   replyToScript(id: string, result: Record<string, unknown> | null, error: string | null): Promise<void>;
   systemInfo(): SystemInfo;
   openExternalURL(url: string): Promise<boolean>;
-  launchEnvironment(name: string): string | null;
-  killSwitchEnvironment(name: string): string | null;
+  launchConfig(): LaunchConfig;
   playIntroMusic(cues: IntroMusicCues, muted: boolean): Promise<void>;
   setIntroMusicMuted(muted: boolean): Promise<void>;
   stopIntroMusic(fade: number): Promise<void>;
@@ -209,8 +219,7 @@ export const playIntroMusic = (cues: IntroMusicCues, muted: boolean) => void App
 export const setIntroMusicMuted = (muted: boolean) => void App.setIntroMusicMuted(muted);
 export const stopIntroMusic = (fade = 0.4) => void App.stopIntroMusic(fade);
 export const devRenderIntroMusic = (cues: IntroMusicCues, path: string) => App.devRenderIntroMusic(cues, path);
-export const launchEnvironment = (name: string) => App.launchEnvironment(name);
-export const killSwitchEnvironment = (name: string) => App.killSwitchEnvironment(name);
+export const launchConfig = () => App.launchConfig();
 export const devRunAppleScript = (source: string) => App.devRunAppleScript(source);
 export const devSnapshotWindow = (windowId: string, path: string, transparent = false) =>
   transparent ? App.devSnapshotWindow(windowId, path, true) : App.devSnapshotWindow(windowId, path);

@@ -2,6 +2,7 @@ import type {
   AppEvent,
   BangListReply,
   CommandEvent,
+  LaunchConfig,
   OpenWindowOptions,
   ShellNativeModules,
   ShellOptionalNativeModules,
@@ -28,7 +29,16 @@ export const docs = new Map<string, string>();
 export const heldSaves = { on: false, queue: [] as (() => void)[] };
 export const bangListServer: { reply: ((etag: string | null) => Promise<BangListReply>) | null } = { reply: null };
 export const appInfo: Partial<SystemInfo> = { appVersion: "1.0" };
-export const environment = new Map<string, string>();
+export const launch: LaunchConfig = {
+  dataDirectory: null,
+  background: false,
+  isolated: false,
+  testInstance: false,
+  instance: {},
+  switches: {},
+  trace: [],
+  test: {},
+};
 
 export type FakeWindow = OpenWindowOptions & { title?: string; trafficLightsCenter?: [number, number] | null };
 const shellEvents = nativeEvents();
@@ -138,8 +148,7 @@ const app: Modules["ArdiaApp"] = {
   replyToScript: () => Promise.resolve(),
   systemInfo: () => ({ ...appInfo }) as SystemInfo,
   openExternalURL: () => Promise.resolve(false),
-  launchEnvironment: (name) => environment.get(name) ?? null,
-  killSwitchEnvironment: (name) => environment.get(name) ?? null,
+  launchConfig: () => structuredClone(launch),
   playIntroMusic: () => Promise.resolve(),
   setIntroMusicMuted: () => Promise.resolve(),
   stopIntroMusic: () => Promise.resolve(),

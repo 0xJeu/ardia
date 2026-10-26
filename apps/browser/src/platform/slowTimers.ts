@@ -1,5 +1,3 @@
-import { killSwitchEnvironment } from "@ardia/shell";
-
 type Unsubscribe = () => void;
 
 export type SlowJob = {
@@ -7,7 +5,6 @@ export type SlowJob = {
   run: () => void;
   needed?: () => boolean;
   watch?: (changed: () => void) => Unsubscribe;
-  separateEvery?: number;
 };
 
 type Entry = SlowJob & { next: number; armed: boolean };
@@ -18,10 +15,7 @@ const jobs = new Set<Entry>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let timerAt = Infinity;
 let clock = () => Date.now();
-let separate: boolean | null = null;
 let firing = false;
-
-const separateTimers = () => (separate ??= killSwitchEnvironment("ARDIA_SLOW_TIMERS") === "separate");
 
 const slotAfter = (t: number, every: number) => (Math.floor(t / every) + 1) * every;
 
@@ -34,10 +28,6 @@ const isNeeded = (job: Entry) => {
 };
 
 export function everySlowly(job: SlowJob): Unsubscribe {
-  if (separateTimers()) {
-    const t = setInterval(() => (job.needed?.() ?? true) && job.run(), job.separateEvery ?? job.every);
-    return () => clearInterval(t);
-  }
   const entry: Entry = { ...job, next: slotAfter(clock(), job.every), armed: false };
   jobs.add(entry);
   const unwatch = job.watch?.(reschedule);
@@ -91,10 +81,9 @@ function fire() {
   reschedule();
 }
 
-export function slowTimersForTests(now: () => number, separateMode = false) {
+export function slowTimersForTests(now: () => number) {
   for (const job of jobs) job.next = slotAfter(now(), job.every);
   clock = now;
-  separate = separateMode;
   return {
     pending: () => (timer ? timerAt : null),
     fire: () => {

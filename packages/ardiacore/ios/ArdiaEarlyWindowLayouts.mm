@@ -24,25 +24,6 @@ constexpr CGFloat kMinPage = 100;
 
 }
 
-namespace ardia_early_window {
-
-bool SwitchedOffByEnvironment() {
-  const char *env = getenv("ARDIA_EARLY_WINDOW");
-  if (env && (!strcmp(env, "off") || !strcmp(env, "0") || !strcmp(env, "false"))) return true;
-  const char *switches = getenv("ARDIA_SWITCHES");
-  if (!switches) return false;
-  for (NSString *part in [@(switches) componentsSeparatedByString:@","]) {
-    NSArray<NSString *> *pair = [part componentsSeparatedByString:@"="];
-    if (pair.count != 2) continue;
-    NSString *name = [pair[0] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-    NSString *value = [pair[1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-    if ([name isEqualToString:@"earlyWindow"] && [@[ @"off", @"0", @"false" ] containsObject:value]) return true;
-  }
-  return false;
-}
-
-}
-
 namespace {
 
 NSDictionary *SessionAt(NSString *directory) {

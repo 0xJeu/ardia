@@ -1,6 +1,7 @@
-import { launchEnvironment, readDocument, saveDocument, updaterState } from "@ardia/shell";
+import { readDocument, saveDocument, updaterState } from "@ardia/shell";
+import { devTestValue } from "../../platform/launchConfig";
 import { appInfo, environment, logRequest, uuidv4, type RequestLogEntry } from "./client";
-import { DEV_SEND_ENV, LOGS_URL } from "./config";
+import { DEV_SEND_TEST_KEY, LOGS_URL } from "./config";
 import { EVENTS_SCOPE, eventRecord, logsRequest, outcome } from "./otlp";
 
 export const DAILY_DOC = "telemetry-daily.json";
@@ -79,7 +80,7 @@ async function saveDailyState(state: DailyState): Promise<boolean> {
   }
 }
 
-const allowedToSend = () => launchEnvironment(DEV_SEND_ENV) === "1" || (!__DEV__ && appInfo().isolatedInstance === false);
+const allowedToSend = () => devTestValue(DEV_SEND_TEST_KEY) === "1" || (!__DEV__ && appInfo().isolatedInstance === false);
 
 async function updateChannel(): Promise<string | null> {
   try {

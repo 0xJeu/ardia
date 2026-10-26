@@ -1,11 +1,12 @@
 import AppKit
+import ArdiaCore
 import MachO
 import ExpoModulesCore
 
 public class AppModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaApp")
-    Constant("apiVersion") { () -> Int in 16 }
+    Constant("apiVersion") { () -> Int in 17 }
     Events("onNotificationResponse", "onScriptCommand")
 
     OnCreate {
@@ -84,7 +85,7 @@ public class AppModule: Module {
 
     Function("systemInfo") { () -> [String: Any] in
       let info = Bundle.main.infoDictionary ?? [:]
-      let env = ProcessInfo.processInfo.environment
+      let config = LaunchConfig.shared
       let os = ProcessInfo.processInfo.operatingSystemVersion
       var model = [CChar](repeating: 0, count: 256)
       var size = model.count
@@ -110,8 +111,8 @@ public class AppModule: Module {
         "feedbackEmail": Self.infoString("ACFeedbackEmail") as Any,
         "videoTourURL": Self.infoString("ACVideoTourURL") as Any,
         "releaseNotesURL": Self.infoString("ACReleaseNotesURL") as Any,
-        "isolatedInstance": env["ARDIA_BACKGROUND"] == "1" || env["ARDIA_DATA_DIR"] != nil,
-        "forceReleaseNotes": env["ARDIA_RELEASE_NOTES"] == "1",
+        "isolatedInstance": config.isolated,
+        "forceReleaseNotes": config.instanceFlag("releaseNotes"),
         "processStart": Self.processStart as Any,
         "bootTime": Self.bootTime as Any,
         "inApplicationsFolder": Self.inApplicationsFolder,
@@ -142,17 +143,7 @@ public class AppModule: Module {
       #endif
     }
 
-    Function("launchEnvironment") { (name: String) -> String? in
-      #if DEBUG
-      return ProcessInfo.processInfo.environment[name]
-      #else
-      return nil
-      #endif
-    }
-
-    Function("killSwitchEnvironment") { (name: String) -> String? in
-      AppModule.killSwitchNames.contains(name) ? ProcessInfo.processInfo.environment[name] : nil
-    }
+    Function("launchConfig") { () -> [String: Any] in LaunchConfig.shared.snapshot }
 
     AsyncFunction("devMenuCommand") { (command: String, arg: String?) in
       #if DEBUG
@@ -452,11 +443,6 @@ public class AppModule: Module {
     return value?.isEmpty == false ? value : nil
   }
 
-  private static let killSwitchNames: Set<String> = [
-    "ARDIA_SWITCHES", "ARDIA_EXTENSION_ACTION_POLL", "ARDIA_SLOW_TIMERS",
-    "ARDIA_MEMORY_TRIM", "ARDIA_MEMORY_TRIM_HEAP", "ARDIA_MEMORY_TRIM_ENGINE",
-    "ARDIA_EARLY_NAVIGATE",
-  ]
   private static let scriptQueue = DispatchQueue(label: "ardia.dev-applescript")
 
   static func snapshot(windowId: String, path: String, transparent: Bool = false) -> Bool {

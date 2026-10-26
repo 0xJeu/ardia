@@ -175,11 +175,6 @@ BOOL ShownMatches(NSString *shownURL, ArdiaCoreTab *tab) {
   return Untitled(shownURL) ? Untitled(url) : [shownURL isEqualToString:url];
 }
 
-bool PageVeilOff() {
-  static const bool off = [@(getenv("ARDIA_PAGE_VEIL") ?: "") isEqualToString:@"off"];
-  return off;
-}
-
 }
 
 namespace ardia_early_window {
@@ -362,7 +357,7 @@ void CarryShield(ArdiaCoreTab *tab, id inputBlock, NSString *shownAtPlacement) {
     veil.armedShown = nil;
     return Reconcile(tab);
   }
-  if (!url.length || PageVeilOff() || ShownMatches(url, tab)) return;
+  if (!url.length || ShownMatches(url, tab)) return;
   CarryShield(tab, nil, url);
 }
 

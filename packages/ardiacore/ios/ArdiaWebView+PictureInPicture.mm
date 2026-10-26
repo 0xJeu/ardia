@@ -1,4 +1,5 @@
 #import "ArdiaWebViewInternal.h"
+#import "ArdiaLaunchConfig.h"
 #import "ArdiaPictureInPicture.h"
 
 #import <objc/runtime.h>
@@ -96,7 +97,7 @@ void InstallControlPressMonitor() {
 }
 
 BOOL TracingPictureInPicture() {
-  static const BOOL tracing = getenv("ARDIA_TRACE_PIP") != nullptr;
+  static const BOOL tracing = [ArdiaLaunchConfig.shared traced:@"pip"];
   return tracing;
 }
 }

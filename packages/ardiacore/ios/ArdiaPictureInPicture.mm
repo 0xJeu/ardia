@@ -1,4 +1,5 @@
 #import "ArdiaPictureInPictureInternal.h"
+#import "ArdiaLaunchConfig.h"
 #import "ArdiaChromeWindowHost.h"
 #import "ArdiaPiPThrowMath.h"
 
@@ -124,7 +125,7 @@ bool Attach(ArdiaWebView *view, NSString *host, NSString *frameId) {
     InstallMenuMonitor();
     InstallDragMonitor();
     InstallZoomMonitor();
-    NSString *selfTest = NSProcessInfo.processInfo.environment[@"ARDIA_PIP_SELFTEST"];
+    NSString *selfTest = ardia_host::Background() ? [ArdiaLaunchConfig.shared testValue:@"pipSelfTest"] : nil;
     if (fresh && [@[ @"close", @"backToTab" ] containsObject:selfTest]) [controller runButtonSelfTest:selfTest];
     else if (fresh && [selfTest isEqual:@"hover"]) [controller runHoverSelfTest];
     else if (fresh && selfTest) [controller runSelfTest];

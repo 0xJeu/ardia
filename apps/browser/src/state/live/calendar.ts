@@ -1,6 +1,5 @@
 import {
   calendarAuthorization,
-  launchEnvironment,
   onCalendarChanged,
   readDocument,
   requestCalendarAccess,
@@ -11,6 +10,7 @@ import {
 } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
+import { devTestValue } from "../../platform/launchConfig";
 import { everySlowly } from "../../platform/slowTimers";
 import type { CalendarEvent } from "./meetings";
 import { live, updateCalendarSettings, useLive } from "./store";
@@ -42,7 +42,7 @@ type Fixture = {
 
 const fixtureMode = (() => {
   try {
-    return typeof __DEV__ !== "undefined" && __DEV__ && launchEnvironment("ARDIA_CALENDAR_FIXTURE") === "1";
+    return devTestValue("calendarFixture") === "1";
   } catch {
     return false;
   }

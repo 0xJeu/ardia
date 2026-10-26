@@ -4,7 +4,7 @@ import { test } from "node:test";
 globalThis.__DEV__ = false;
 const { useBrowser } = await import("../state/browser/store.ts");
 const { webviewRef, webviews } = await import("./webviews.ts");
-const { setEarlyNavigateForTests, takeStartedNavigation } = await import("./earlyNavigate.ts");
+const { takeStartedNavigation } = await import("./earlyNavigate.ts");
 
 const S = () => useBrowser.getState();
 const loads = [];
@@ -18,7 +18,6 @@ const setup = () => {
   S().hydrate({ profiles: { default: { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 } }, windows: { w1: win }, tabs: { a: tab }, focusedWindowId: "w1" });
   webviews.clear();
   loads.length = 0;
-  setEarlyNavigateForTests(true);
   const ref = webviewRef("a");
   ref(handle());
   return ref;
@@ -61,15 +60,10 @@ test("an older navigation's start doesn't cover a newer one", () => {
   assert.equal(takeStartedNavigation("a", S().tabs.a.navigation.seq + 1), false);
 });
 
-test("with no view yet, or the switch off, the view effect loads as before", () => {
+test("with no view yet, the view effect loads as before", () => {
   const ref = setup();
   ref(null);
   S().navigate("a", "https://b.com/");
-  assert.equal(loads.length, 0);
-  assert.equal(takeStartedNavigation("a", S().tabs.a.navigation.seq), false);
-  ref(handle());
-  setEarlyNavigateForTests(false);
-  S().navigate("a", "https://c.com/");
   assert.equal(loads.length, 0);
   assert.equal(takeStartedNavigation("a", S().tabs.a.navigation.seq), false);
 });

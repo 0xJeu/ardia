@@ -11,7 +11,6 @@ import {
   webStoreExtensionId,
   type TabsRequest,
 } from "@ardia/ardiacore";
-import { killSwitchEnvironment } from "@ardia/shell";
 import { AppState } from "react-native";
 import { openWindow } from "../browser/actions";
 import { webviews } from "../../platform/webviews";
@@ -161,10 +160,7 @@ function pollActionStates() {
   }, ACTION_POLL_MS);
 }
 
-const pollsActions = () => killSwitchEnvironment("ARDIA_EXTENSION_ACTION_POLL") === "on";
-
 function watchActionsOf(profile: string) {
-  if (pollsActions()) return pollActionStates();
   void watchExtensionActions(profile).then((watching) => watching || pollActionStates());
 }
 

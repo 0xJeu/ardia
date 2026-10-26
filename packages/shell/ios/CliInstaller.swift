@@ -1,3 +1,4 @@
+import ArdiaCore
 import ExpoModulesCore
 import Foundation
 
@@ -12,17 +13,19 @@ final class CliInstaller {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
   }
 
-  private static var environment: [String: String] { ProcessInfo.processInfo.environment }
+  private static var installerEnvironment: [String: String] {
+    var environment = LaunchConfig.shared.environmentForChildProcesses
+    for (key, name) in [("cliHome", "ARDIA_CLI_HOME"), ("cliBinDir", "ARDIA_CLI_BIN_DIR"), ("cliUrl", "ARDIA_CLI_URL")] {
+      if let value = LaunchConfig.shared.instance(key) { environment[name] = value }
+    }
+    return environment
+  }
 
   private static var isolated: Bool { ArdiaIsolatedDataDirectory() != nil }
 
-  private static func setting(_ name: String) -> String? {
-    guard let value = environment[name], !value.isEmpty else { return nil }
-    return value
-  }
 
   static var home: URL? {
-    if let path = setting("ARDIA_CLI_HOME") { return URL(fileURLWithPath: path, isDirectory: true) }
+    if let path = LaunchConfig.shared.instance("cliHome") { return URL(fileURLWithPath: path, isDirectory: true) }
     if isolated { return nil }
     return FileManager.default.homeDirectoryForCurrentUser
       .appendingPathComponent("Library/Application Support/Ardia/CLI", isDirectory: true)
@@ -37,7 +40,7 @@ final class CliInstaller {
   }
 
   private static func script() -> URL? {
-    if isolated, let path = setting("ARDIA_CLI_INSTALL_SCRIPT") {
+    if isolated, let path = LaunchConfig.shared.testValue("cliInstallScript") {
       return URL(fileURLWithPath: path).resolvingSymlinksInPath()
     }
     return Bundle.main.url(forResource: "ardia-cli-install", withExtension: "sh")?.resolvingSymlinksInPath()
@@ -77,8 +80,8 @@ final class CliInstaller {
   }
 
   private func run() {
-    if Self.isolated && (Self.setting("ARDIA_CLI_HOME") == nil || Self.setting("ARDIA_CLI_BIN_DIR") == nil) {
-      return finish(failure("A test instance installs only with ARDIA_CLI_HOME and ARDIA_CLI_BIN_DIR set."))
+    if Self.isolated && (LaunchConfig.shared.instance("cliHome") == nil || LaunchConfig.shared.instance("cliBinDir") == nil) {
+      return finish(failure("A test instance installs only with ARDIA_INSTANCE cliHome and cliBinDir set."))
     }
     let version = Self.appVersion
     guard version.range(of: Self.versionPattern, options: .regularExpression) != nil else {
@@ -93,7 +96,7 @@ final class CliInstaller {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/bin/sh")
     process.arguments = arguments
-    process.environment = Self.environment
+    process.environment = Self.installerEnvironment
     process.currentDirectoryURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
     process.standardInput = FileHandle.nullDevice
     let output = Pipe()

@@ -29,7 +29,7 @@ NSArray<NSString *> *EngineInstanceKeys() {
 NSArray<NSString *> *EngineTestKeys() {
   return @[
     @"keychain", @"keychainHiddenReads", @"keychainFail", @"safeStorageAnswer", @"reauth", @"bluetoothChooser",
-    @"externalProtocolNoLaunch", @"mediaRouteProvider", @"systemMediaPermission", @"applyProfileGate",
+    @"externalProtocolNoLaunch", @"mediaRouteProvider", @"systemMediaPermission", @"applyProfileGate", @"contextMenu",
   ];
 }
 
@@ -49,7 +49,7 @@ NSArray<NSString *> *KeysWhoseValuesHoldCommas() {
 }
 
 NSArray<NSString *> *TraceAreas() {
-  return @[ @"visibility", @"pip", @"pipZoom", @"menu", @"trafficLights", @"profileGate" ];
+  return @[ @"visibility", @"pip", @"pipZoom", @"trafficLights", @"profileGate" ];
 }
 
 void Note(NSString *line) {
@@ -181,6 +181,8 @@ BOOL SignedForDistribution() {
   NSDictionary<NSString *, NSString *> *_requestedTest;
   BOOL (^_signedForDistribution)(void);
   NSNumber *_testInstance;
+  BOOL _isolated;
+  NSDictionary<NSString *, NSString *> *_environmentForChildProcesses;
 }
 
 + (ArdiaLaunchConfig *)shared {
@@ -198,6 +200,7 @@ BOOL SignedForDistribution() {
   if ((self = [super init])) {
     _dataDirectory = StandardizedDirectory(environment[kDataDirVariable]);
     _background = BackgroundValue(environment[kBackgroundVariable]);
+    _isolated = environment[kDataDirVariable] != nil || environment[kBackgroundVariable] != nil;
     const NSInteger port = Trimmed(environment[kRemoteDebuggingPortVariable] ?: @"").integerValue;
     _remoteDebuggingPort = port > 0 && port < 65536 ? @(port) : nil;
     _prewarm = Present(environment[kPrewarmVariable]) != nil;
@@ -206,6 +209,11 @@ BOOL SignedForDistribution() {
     _requestedAreas = AreaEntries(environment[kTraceVariable]);
     _requestedTest = KeyedEntries(environment[kTestVariable], [EngineTestKeys() arrayByAddingObjectsFromArray:AppTestKeys()], kTestVariable);
     _signedForDistribution = [signedForDistribution copy];
+    NSMutableDictionary<NSString *, NSString *> *inherited = [NSMutableDictionary dictionary];
+    [environment enumerateKeysAndObjectsUsingBlock:^(NSString *name, NSString *value, BOOL *) {
+      if (![name hasPrefix:@"ARDIA_"]) inherited[name] = value;
+    }];
+    _environmentForChildProcesses = inherited;
     if ((_requestedAreas.count || _requestedTest.count) && !self.testInstance)
       Note([NSString stringWithFormat:@"%@ and %@ ignored: not a test instance (%@)", kTestVariable, kTraceVariable,
                                       _dataDirectory ? @"signed for distribution" : @"no scratch ARDIA_DATA_DIR"]);
@@ -214,7 +222,7 @@ BOOL SignedForDistribution() {
 }
 
 - (BOOL)isolated {
-  return _background || _dataDirectory;
+  return _isolated;
 }
 
 - (BOOL)testInstance {
@@ -249,6 +257,10 @@ BOOL SignedForDistribution() {
   id value = switches[name];
   if ([value isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID()) return [value boolValue];
   return YES;
+}
+
+- (BOOL)experimentOn:(NSString *)name {
+  return _switches[name].boolValue;
 }
 
 - (BOOL)traced:(NSString *)area {

@@ -1,4 +1,5 @@
-import { launchEnvironment, readDocument, stopIntroMusic, writeDocument } from "@ardia/shell";
+import { readDocument, stopIntroMusic, writeDocument } from "@ardia/shell";
+import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { resolveWindowId, tabLayoutOf } from "../browser/model";
@@ -374,7 +375,7 @@ export function maybeStartOnboarding() {
   if (saved?.completedAt) return;
   if (saved?.startedAt) return resumeOnboarding(saved);
   if (readDocument("session.json")) return markCompleted();
-  if (__DEV__ && launchEnvironment("ARDIA_ONBOARDING") !== "1") return;
+  if (__DEV__ && devTestValue("onboarding") !== "1") return;
   save({ startedAt: Date.now() });
   startOnboarding();
 }

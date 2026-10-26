@@ -6,7 +6,7 @@ import ExpoModulesCore
 public class ShellModule: Module {
   static func documentURL(_ name: String) throws -> URL {
     let dir: URL
-    if let custom = ProcessInfo.processInfo.environment["ARDIA_DATA_DIR"] {
+    if let custom = LaunchConfig.shared.dataDirectory {
       dir = URL(fileURLWithPath: custom, isDirectory: true)
     } else {
       let base = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)

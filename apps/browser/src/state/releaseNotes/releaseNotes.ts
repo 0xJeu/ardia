@@ -1,4 +1,5 @@
-import { launchEnvironment, readDocument, systemInfo, writeDocument } from "@ardia/shell";
+import { readDocument, systemInfo, writeDocument } from "@ardia/shell";
+import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 
 export type ReleaseNotes = {
@@ -64,7 +65,7 @@ export function trackAppVersion(): boolean {
   const updated = saved ? saved.lastVersion !== version : !!readDocument("session.json");
   let pending = saved?.pending ?? null;
   if (__DEV__) {
-    if (launchEnvironment("ARDIA_WHATS_NEW") === "1") pending = { version, since: Date.now() };
+    if (devTestValue("whatsNew") === "1") pending = { version, since: Date.now() };
   } else if (updated) {
     pending = notesFor(version) ? { version, since: Date.now() } : null;
   }

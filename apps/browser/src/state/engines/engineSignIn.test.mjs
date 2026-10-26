@@ -12,8 +12,8 @@ globalThis.acTestNativeModules = {
   },
 };
 
-const { environment } = await import("../../test-native/shell.ts");
-environment.set("ARDIA_WEBKIT_SIGN_IN", "on");
+const { launch } = await import("../../test-native/shell.ts");
+launch.switches.webkitSignIn = true;
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
 const { webviews } = await import("../../platform/webviews.ts");

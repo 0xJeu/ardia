@@ -1,9 +1,10 @@
 import AppKit
+import ArdiaCore
 
 enum SharePicker {
   private static var current: NSSharingServicePicker?
   private static let delegate = ShareDelegate()
-  private static let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
+  private static let background = LaunchConfig.shared.background
 
   static func show(url: String, title: String?, windowId: String?, anchor: [Double]?, done: @escaping () -> Void) {
     let window = windowId.flatMap { WindowManager.shared.windows[$0] } ?? NSApp.keyWindow
@@ -75,7 +76,7 @@ enum SharePicker {
   }
 
   private static func log(_ line: String) {
-    guard let dir = ProcessInfo.processInfo.environment["ARDIA_DATA_DIR"] else { return }
+    guard let dir = LaunchConfig.shared.dataDirectory else { return }
     let path = (dir as NSString).appendingPathComponent("activation.log")
     let stamp = ISO8601DateFormatter().string(from: Date())
     guard let data = "\(stamp) \(line)\n".data(using: .utf8) else { return }

@@ -1,9 +1,10 @@
-import { keychainDelete, keychainGet, keychainSet, launchEnvironment } from "@ardia/shell";
+import { keychainDelete, keychainGet, keychainSet } from "@ardia/shell";
+import { devTestValue } from "../../platform/launchConfig";
 import { LiveError, type LiveSourceId } from "./types";
 
 const mock = (() => {
   try {
-    return (typeof __DEV__ !== "undefined" && __DEV__ && launchEnvironment("ARDIA_LIVE_MOCK")) || null;
+    return devTestValue("liveMock");
   } catch {
     return null;
   }

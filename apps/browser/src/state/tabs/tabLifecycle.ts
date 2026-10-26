@@ -405,7 +405,6 @@ export function startTabLifecycle() {
 
   everySlowly({
     every: SWEEP_MS,
-    separateEvery: 15_000,
     run: () => {
       track(store());
       void sweep();

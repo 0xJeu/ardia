@@ -799,7 +799,6 @@
       pauseUnasked([...playingMedia, ...document.querySelectorAll("video, audio")], !!(navigator.userActivation && navigator.userActivation.hasBeenActive));
     if (config.displayMediaPicker) installDisplayMedia();
     if (config.fieldTiming) setFieldTiming(true);
-    if (config.broadThemeObserver) broadThemeObserver = true;
     if (typeof config.selectionPopover === "boolean" && handlers.selectionPopover) handlers.selectionPopover(config.selectionPopover);
   };
   send("hello", { top: isTop, url: location.href });
@@ -899,9 +898,7 @@
     send("theme", { color, source });
   });
   let themeQueued = false;
-  let broadThemeObserver = false;
   const themeTouched = (records) => {
-    if (broadThemeObserver) return true;
     for (const r of records) {
       if (r.type === "childList") {
         for (const n of r.addedNodes) if (n.nodeName === "META") return true;

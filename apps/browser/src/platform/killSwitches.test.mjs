@@ -3,12 +3,15 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 globalThis.__DEV__ = false;
-const { docs } = await import("../test-native/index.ts");
+const { docs, launch } = await import("../test-native/index.ts");
 const ks = await import("./killSwitches.ts");
+const { reloadLaunchConfigForTests } = await import("./launchConfig.ts");
 
 const names = Object.keys(ks.SWITCHES);
 const reset = () => {
   docs.clear();
+  launch.switches = {};
+  reloadLaunchConfigForTests();
   ks.reloadSwitches();
   ks.resetRefreshForTests();
 };
@@ -50,12 +53,30 @@ test("a cached value is read synchronously; unknown names and non-booleans are i
   assert.equal(ks.switchOn("sidebarSlide"), true);
 });
 
-test("ARDIA_SWITCHES text parses to values, and ignores what it doesn't know", () => {
-  assert.deepEqual(ks.parseOverride("sidebarSlide=off, lazySidebarRows=on,nope=off,newTabPrewarm=maybe,=1"), {
-    sidebarSlide: false,
-    lazySidebarRows: true,
-  });
-  assert.deepEqual(ks.parseOverride(null), {});
+test("an ARDIA_SWITCHES value from the launch config wins over the cache", () => {
+  reset();
+  docs.set("switches-cache.json", JSON.stringify(file({ sidebarSlide: false, lazySidebarRows: false })));
+  launch.switches = { sidebarSlide: true, lazySidebarRows: false, newTabPrewarm: false };
+  reloadLaunchConfigForTests();
+  assert.equal(ks.switchOn("sidebarSlide"), true);
+  assert.equal(ks.switchOn("lazySidebarRows"), false);
+  assert.equal(ks.switchOn("newTabPrewarm"), false);
+  reset();
+});
+
+test("experiments are off unless ARDIA_SWITCHES turns them on, and don't count against the live cap", () => {
+  reset();
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [name, def] of Object.entries(ks.EXPERIMENTS)) {
+    assert.ok(!names.includes(name), `${name} is both a kill switch and an experiment`);
+    assert.ok(def.owner.trim() && def.about.trim(), name);
+    assert.ok(def.removeBy >= today, `${name} is past its removal date (${def.removeBy})`);
+    assert.equal(ks.experimentOn(name), false, `${name} defaults off`);
+  }
+  launch.switches = { webkitSignIn: true };
+  reloadLaunchConfigForTests();
+  assert.equal(ks.experimentOn("webkitSignIn"), true);
+  reset();
 });
 
 test("a fetch asks for the plain URL (no cookies, no query), saves the answer, and applies it now only to a live switch", async () => {

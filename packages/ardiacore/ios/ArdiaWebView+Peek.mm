@@ -1,7 +1,7 @@
 #import "ArdiaWebViewInternal.h"
+#import "ArdiaLaunchConfig.h"
 
 #import <QuartzCore/QuartzCore.h>
-#import <Security/Security.h>
 
 using namespace ardia_web_view;
 
@@ -34,29 +34,8 @@ static ArdiaWebView *PageViewUnder(NSEvent *event) {
   return nil;
 }
 
-static BOOL SignedForDistribution() {
-  static const BOOL distribution = [] {
-    SecCodeRef code = nullptr;
-    if (SecCodeCopySelf(kSecCSDefaultFlags, &code) != errSecSuccess) return YES;
-    SecRequirementRef requirement = nullptr;
-    OSStatus made = SecRequirementCreateWithString(CFSTR("anchor apple generic and "
-                                                         "(certificate leaf[field.1.2.840.113635.100.6.1.9] exists or "
-                                                         "certificate 1[field.1.2.840.113635.100.6.2.6] exists and "
-                                                         "certificate leaf[field.1.2.840.113635.100.6.1.13] exists)"),
-                                                   kSecCSDefaultFlags, &requirement);
-    const BOOL signedFor = made != errSecSuccess || SecCodeCheckValidity(code, kSecCSDefaultFlags, requirement) == errSecSuccess;
-    if (requirement) CFRelease(requirement);
-    CFRelease(code);
-    return signedFor;
-  }();
-  return distribution;
-}
-
 static BOOL PeekTestHooks() {
-  static const BOOL on = [] {
-    const char *dir = getenv("ARDIA_DATA_DIR");
-    return ardia_host::Background() && dir && *dir && !SignedForDistribution();
-  }();
+  static const BOOL on = ardia_host::Background() && ArdiaLaunchConfig.shared.testInstance;
   return on;
 }
 
@@ -98,9 +77,9 @@ BOOL PeekTracing() {
 }
 
 void PeekTrace(NSDictionary *entry) {
-  const char *dir = getenv("ARDIA_DATA_DIR");
+  NSString *dir = ArdiaLaunchConfig.shared.dataDirectory;
   if (!PeekTracing() || !dir) return;
-  NSString *path = [[NSString stringWithUTF8String:dir] stringByAppendingPathComponent:@"peek.log"];
+  NSString *path = [dir stringByAppendingPathComponent:@"peek.log"];
   NSData *line = [[NSString stringWithFormat:@"%@ %@\n", NSDate.date, JSONString(entry)] dataUsingEncoding:NSUTF8StringEncoding];
   NSFileHandle *file = [NSFileHandle fileHandleForWritingAtPath:path];
   if (!file) return (void)[line writeToFile:path atomically:NO];
@@ -213,7 +192,7 @@ static NSString *LinkKeyAction(NSString *key) {
   const NSEventModifierFlags flag = LinkKeyFlags(key);
   NSString *action = LinkKeyAction(key);
   const CFTimeInterval sinceUp = gPeekUpAt < 0 ? -1 : CACurrentMediaTime() - gPeekUpAt;
-  static const BOOL strict = getenv("ARDIA_PEEK_STRICT") != nullptr;
+  static const BOOL strict = [ArdiaLaunchConfig.shared testFlag:@"peekStrict"];
   const BOOL test = PeekTestHooks() && !strict;
   NSString *refused = nil;
   if (!action) refused = @"that key opens nothing now";

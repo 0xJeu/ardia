@@ -74,7 +74,6 @@ export function startMeetingGroups() {
 
   everySlowly({
     every: 30_000,
-    separateEvery: 20_000,
     run: () => tick(store(), Date.now()),
     needed: () => Object.keys(live().meetingGroups).length > 0,
     watch: (changed) => useLive.subscribe((s, prev) => s.meetingGroups !== prev.meetingGroups && changed()),

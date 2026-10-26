@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 import Sparkle
 
 enum UpdatePrewarm {
@@ -13,7 +14,7 @@ enum UpdatePrewarm {
     DispatchQueue.global(qos: .utility).async {
       let task = Process()
       task.executableURL = executable
-      var env = ProcessInfo.processInfo.environment.filter { !$0.key.hasPrefix("ARDIA_") && !$0.key.hasPrefix("DYLD_") }
+      var env = LaunchConfig.shared.environmentForChildProcesses.filter { !$0.key.hasPrefix("DYLD_") }
       env["ARDIA_PREWARM"] = "1"
       task.environment = env
       task.standardInput = FileHandle.nullDevice

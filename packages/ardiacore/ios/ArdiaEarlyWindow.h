@@ -5,7 +5,6 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ArdiaEarlyWindow : NSObject
-@property(class, nonatomic, readonly) BOOL switchedOff;
 + (void)setDataDirectory:(nullable NSString *)directory;
 + (void)noteLayoutChangeIn:(nullable NSWindow *)window;
 + (void)recordNow;

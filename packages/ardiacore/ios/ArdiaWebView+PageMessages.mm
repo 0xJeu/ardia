@@ -96,8 +96,6 @@ void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hello, NSSt
     config[@"peek"] = gPeekModifier;
     config[@"split"] = SplitLinkModifier();
     if (PeekTracing()) config[@"peekTrace"] = @YES;
-    static const BOOL broadThemeObserver = [@(getenv("ARDIA_THEME_OBSERVER") ?: "") isEqualToString:@"broad"];
-    if (broadThemeObserver) config[@"broadThemeObserver"] = @YES;
     [to callFrame:frameId kind:@"config" json:JSONString(config)];
   };
   if (origin && [origin hasPrefix:@"http"])

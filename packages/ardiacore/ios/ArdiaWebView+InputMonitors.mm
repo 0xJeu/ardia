@@ -11,10 +11,6 @@ int gDevTrackpad = -1;
 NSUInteger gZoomScrolls = 0;
 constexpr NSTimeInterval kSwitchPrewarmGapSeconds = 0.1;
 
-bool SwitchPrewarmOff() {
-  const char *value = getenv("ARDIA_SWITCH_PREWARM");
-  return value && (!strcmp(value, "off") || !strcmp(value, "0") || !strcmp(value, "false"));
-}
 NSString *gDevZoomMiss = nil;
 bool gGestureTrackpad = false;
 
@@ -88,7 +84,7 @@ bool CommandScrollZooms(NSEvent *event, bool trackpad) {
 
 + (void)installSwitchPrewarm {
   static id monitor;
-  if (monitor || SwitchPrewarmOff()) return;
+  if (monitor) return;
   monitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp handler:^NSEvent *(NSEvent *event) {
     [ArdiaWebView prewarmForMouseEvent:event];
     return event;

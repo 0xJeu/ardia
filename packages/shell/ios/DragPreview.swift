@@ -1,4 +1,5 @@
 import AppKit
+import ArdiaCore
 
 final class DragPreview {
   static let shared = DragPreview()
@@ -33,7 +34,7 @@ final class DragPreview {
   private var lastPoint = NSPoint.zero
   private var shownAt = 0.0
   private var generation = 0
-  private let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
+  private let background = LaunchConfig.shared.background
   private var animation: Timer?
   private var desired = NSRect.zero
 

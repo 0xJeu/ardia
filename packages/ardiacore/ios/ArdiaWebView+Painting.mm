@@ -8,11 +8,6 @@ using namespace ardia_web_view;
 namespace {
 
 constexpr CFTimeInterval kLeaveScreenDelay = 0.1;
-
-bool NeighbourPagesAlwaysLive() {
-  static const bool on = [@(getenv("ARDIA_WARM_NEIGHBOURS") ?: "") isEqualToString:@"1"];
-  return on;
-}
 }
 
 @interface ArdiaNeighbourWake : NSObject
@@ -73,7 +68,7 @@ bool gPaintingScheduled = false;
 }
 
 - (BOOL)neighbourPageAsleep {
-  if (!_warm || !_neighbour || _visible || NeighbourPagesAlwaysLive()) return NO;
+  if (!_warm || !_neighbour || _visible) return NO;
   NSWindow *window = self.window;
   if (!window) return NO;
   return [NeighbourPagesAwake() objectForKey:window].until <= CACurrentMediaTime();

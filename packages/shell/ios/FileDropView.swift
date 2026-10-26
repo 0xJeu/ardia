@@ -1,10 +1,11 @@
 import AppKit
+import ArdiaCore
 import ExpoModulesCore
 import UniformTypeIdentifiers
 import ServiceManagement
 
 final class FileDropView: ExpoView {
-  static let background = ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1"
+  static let background = LaunchConfig.shared.background
   static var lastFileDrag: [URL] = []
 
   let onDropUpdate = EventDispatcher()

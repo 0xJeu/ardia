@@ -1,4 +1,5 @@
 #import "ArdiaPictureInPictureInternal.h"
+#import "ArdiaLaunchConfig.h"
 #import "ArdiaChromeWindowHost.h"
 #import "ArdiaPiPZoomMath.h"
 
@@ -38,7 +39,7 @@ static __weak NSWindow *gZoomGesture;
 
 + (BOOL)handle:(NSEvent *)event {
   BOOL handled = [self route:event];
-  static BOOL trace = getenv("ARDIA_PIP_ZOOM_TRACE") != nullptr;
+  static BOOL trace = [ArdiaLaunchConfig.shared traced:@"pipZoom"];
   if (trace)
     NSLog(@"[pip-zoom] type %lu window %ld (%@) cmd %d phase %lu/%lu dy %.2f precise %d mag %.3f -> %@ %@", (unsigned long)event.type,
           (long)event.windowNumber, event.window.className, (event.modifierFlags & NSEventModifierFlagCommand) != 0,

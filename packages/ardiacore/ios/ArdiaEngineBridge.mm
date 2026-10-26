@@ -53,16 +53,8 @@ NSMutableDictionary<NSString *, NSMutableArray *> *Observers() {
   return observers;
 }
 
-bool ForwardsEveryEngineEvent() {
-  static const bool every = [] {
-    const char *value = getenv("ARDIA_ENGINE_EVENT_FORWARD");
-    return value && !strcmp(value, "all");
-  }();
-  return every;
-}
-
 bool Forwarded(NSString *topic) {
-  return gEventHandler && (ForwardsEveryEngineEvent() || !gForwardedTopics || [gForwardedTopics containsObject:topic]);
+  return gEventHandler && (!gForwardedTopics || [gForwardedTopics containsObject:topic]);
 }
 
 void FlushForwards() {
@@ -73,7 +65,6 @@ void FlushForwards() {
 }
 
 void Forward(NSString *topic, NSDictionary *payload) {
-  if (ForwardsEveryEngineEvent()) return gEventHandler(topic, JSON(payload));
   NSArray *event = @[ topic, [payload copy] ];
   if (gPendingForwards) {
     if (![gPendingForwards.lastObject isEqualToArray:event]) [gPendingForwards addObject:event];

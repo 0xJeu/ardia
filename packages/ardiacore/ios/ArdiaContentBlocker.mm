@@ -97,11 +97,6 @@ bool gLaunching = true;
 
 constexpr double kSettleAfterLaunchSeconds = 1.5;
 
-bool SettleWithoutPage() {
-  const char *pagelessSettle = getenv("ARDIA_BLOCKER_PAGELESS_SETTLE");
-  return !(pagelessSettle && !strcmp(pagelessSettle, "off"));
-}
-
 NSString *const kRead =
     @"Promise.all([lists(), trusted()]).then(([l, t]) => ({lists: selected(l).sort(), whitelist: [...t.whitelist].sort(), autoUpdate: l.autoUpdate !== false}))";
 
@@ -214,7 +209,7 @@ void LoadHeld(NSString *profile) {
       }
       void (^settle)(void) = ^{
         ArdiaCoreProfile *current = ardia_host::LoadedProfile(profile);
-        if (!hold && current && SettleWithoutPage() && !LiteSettingsPending(current)) return DefaultSettled();
+        if (!hold && current && !LiteSettingsPending(current)) return DefaultSettled();
         Call(profile, @"null", ^(id, NSString *readyError) {
           ArdiaCoreProfile *loaded = ardia_host::LoadedProfile(profile);
           if (readyError || !loaded) {

@@ -1,5 +1,4 @@
 import { inputIdleSeconds, trimEngineMemory } from "@ardia/ardiacore";
-import { killSwitchEnvironment } from "@ardia/shell";
 import { useBrowser } from "../browser/store";
 import { isQuitting } from "../app/nativeSync";
 
@@ -17,16 +16,11 @@ const runtime = globalThis as { gc?: () => void; HermesInternal?: { getInstrumen
 
 const heapSize = () => runtime.HermesInternal?.getInstrumentedStats?.().js_heapSize ?? null;
 
-const off = (name: string) => ["off", "0", "false"].includes(killSwitchEnvironment(name) ?? "");
-
 let started = false;
 
 export function startMemoryTrim() {
   if (started) return;
-  if (off("ARDIA_MEMORY_TRIM")) return;
-  const compactsHeap = !off("ARDIA_MEMORY_TRIM_HEAP") && typeof runtime.gc === "function" && heapSize() !== null;
-  const trimsEngine = !off("ARDIA_MEMORY_TRIM_ENGINE");
-  if (!compactsHeap && !trimsEngine) return;
+  const compactsHeap = typeof runtime.gc === "function" && heapSize() !== null;
   started = true;
 
   let tabCount = Object.keys(useBrowser.getState().tabs).length;
@@ -49,7 +43,7 @@ export function startMemoryTrim() {
   const idle = (lateMs: number) => lateMs < TIMER_LATE_MS && (inputIdleSeconds() ?? Infinity) >= INPUT_IDLE_SECONDS;
 
   const finish = () => {
-    if (trimsEngine && !isQuitting()) trimEngineMemory().catch(() => {});
+    if (!isQuitting()) trimEngineMemory().catch(() => {});
   };
 
   const compact = (step: number, before: number, postponed: number, lateMs: number) => {

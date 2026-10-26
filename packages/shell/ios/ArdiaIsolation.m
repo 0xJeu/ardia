@@ -1,5 +1,7 @@
 #import "ArdiaIsolation.h"
 
+#import <ArdiaCore/ArdiaLaunchConfig.h>
+
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 
@@ -39,12 +41,8 @@ static void IsolatePasteboard(NSString *dataDirectory) {
 @implementation ArdiaIsolation
 
 + (void)load {
-  const char *dir = getenv("ARDIA_DATA_DIR");
-  if (!dir || !*dir) return;
-  NSString *path = @(dir);
-  if (!path.absolutePath)
-    path = [NSFileManager.defaultManager.currentDirectoryPath stringByAppendingPathComponent:path];
-  gDataDirectory = path.stringByStandardizingPath;
+  gDataDirectory = ArdiaLaunchConfig.shared.dataDirectory;
+  if (!gDataDirectory) return;
 #if DEBUG
   IsolatePasteboard(gDataDirectory);
 #endif

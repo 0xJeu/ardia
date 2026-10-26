@@ -1,13 +1,14 @@
 import AppKit
+import ArdiaCore
 import Sparkle
 
 public final class AppUpdater: NSObject {
   public static let shared = AppUpdater()
 
   static var feedOverride: String? {
-    let env = ProcessInfo.processInfo.environment
-    if let feed = env["ARDIA_UPDATE_FEED_URL"] ?? UserDefaults.standard.string(forKey: "ACUpdateFeedURL") { return feed }
-    return env["ARDIA_BACKGROUND"] == "1" ? "https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml" : nil
+    let config = LaunchConfig.shared
+    if let feed = config.instance("updateFeed") ?? UserDefaults.standard.string(forKey: "ACUpdateFeedURL") { return feed }
+    return config.background ? "https://github.com/mantrakp04/ardia/releases/latest/download/appcast.xml" : nil
   }
 
   public static let channels = ["stable", "nightly"]
@@ -125,7 +126,7 @@ public final class AppUpdater: NSObject {
   }
 
   private static var isOff: Bool {
-    ArdiaIsolatedDataDirectory() != nil && ProcessInfo.processInfo.environment["ARDIA_UPDATE_FEED_URL"] == nil
+    ArdiaIsolatedDataDirectory() != nil && LaunchConfig.shared.instance("updateFeed") == nil
   }
 
   private lazy var userDriver = ChannelUserDriver(standard: SPUStandardUserDriver(hostBundle: .main, delegate: self)) { [unowned self] item in
@@ -166,7 +167,7 @@ public final class AppUpdater: NSObject {
 
   @objc public func checkForUpdates(_ sender: Any?) {
     guard isConfigured else {
-      if ProcessInfo.processInfo.environment["ARDIA_BACKGROUND"] == "1" {
+      if LaunchConfig.shared.background {
         return NSLog("Ardia: update checks are off in this instance")
       }
       return showNotSetUp()
@@ -248,7 +249,7 @@ extension AppUpdater: SPUUpdaterDelegate {
   }
 
   public func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
-    if KillSwitch.isOn("updatePrewarm") { UpdatePrewarm.start(version: item.versionString) }
+    if LaunchConfig.shared.switchOn("updatePrewarm") { UpdatePrewarm.start(version: item.versionString) }
     return false
   }
 }

@@ -107,22 +107,13 @@ ArdiaEarlyShown *ShownForWindow(NSWindow *window) {
   return nil;
 }
 
-bool EnvOff(const char *name) {
-  const char *value = getenv(name);
-  return value && (!strcmp(value, "off") || !strcmp(value, "0") || !strcmp(value, "false"));
-}
-
 }
 
 @implementation ArdiaEarlyWindow
 
 + (void)setDataDirectory:(NSString *)directory {
   gDirectory = [directory copy];
-  gLayoutPath = directory.length && !SwitchedOffByEnvironment() ? [directory stringByAppendingPathComponent:@"launch-layout.json"] : nil;
-}
-
-+ (BOOL)switchedOff {
-  return SwitchedOffByEnvironment();
+  gLayoutPath = directory.length ? [directory stringByAppendingPathComponent:@"launch-layout.json"] : nil;
 }
 
 + (void)noteLayoutChangeIn:(NSWindow *)window {

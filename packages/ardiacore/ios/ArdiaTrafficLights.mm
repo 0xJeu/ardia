@@ -1,4 +1,5 @@
 #import "ArdiaChromeWindowInternal.h"
+#import "ArdiaLaunchConfig.h"
 
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
@@ -85,8 +86,9 @@ void Swizzle(Class cls, SEL sel, id (^make)(IMP original)) {
 void InstallTrafficLightsLog() {
   static dispatch_once_t once;
   dispatch_once(&once, ^{
-    NSString *path = NSProcessInfo.processInfo.environment[@"ARDIA_TRAFFIC_LIGHTS_LOG"];
-    if (!path.length) return;
+    ArdiaLaunchConfig *config = ArdiaLaunchConfig.shared;
+    if (![config traced:@"trafficLights"] || !config.dataDirectory) return;
+    NSString *path = [config.dataDirectory stringByAppendingPathComponent:@"traffic-lights.log"];
     [NSFileManager.defaultManager createFileAtPath:path contents:nil attributes:nil];
     gLightsLog = [NSFileHandle fileHandleForWritingAtPath:path];
     if (!gLightsLog || ![gLightsLog seekToEndReturningOffset:nil error:nil]) {

@@ -1,4 +1,5 @@
 #import "ArdiaChromeWindowInternal.h"
+#import "ArdiaLaunchConfig.h"
 #import "ArdiaWebView.h"
 
 #import <QuartzCore/QuartzCore.h>
@@ -41,7 +42,7 @@ void ActOcclusion(NSWindow *window, NSNumber *visible) {
     }));
   });
   objc_setAssociatedObject(window, kActedOcclusionKey, visible, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  if (getenv("ARDIA_TRACE_VISIBILITY")) NSLog(@"[ardiacore-vis] window %ld acted occlusion %@", (long)window.windowNumber, visible ?: @"off");
+  if ([ArdiaLaunchConfig.shared traced:@"visibility"]) NSLog(@"[ardiacore-vis] window %ld acted occlusion %@", (long)window.windowNumber, visible ?: @"off");
   [NSNotificationCenter.defaultCenter postNotificationName:NSWindowDidChangeOcclusionStateNotification object:window];
 }
 
@@ -70,7 +71,7 @@ void ActWindowFullScreen(ArdiaCoreWindow *coreWindow, BOOL enter, NSTimeInterval
     if ([c respondsToSelector:@selector(setActedFullScreen:)]) c.actedFullScreen = on;
   };
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-  const BOOL trace = getenv("ARDIA_TRACE_VISIBILITY") != nullptr;
+  const BOOL trace = [ArdiaLaunchConfig.shared traced:@"visibility"];
   if (trace) NSLog(@"[ardiacore-vis] window %ld acted %@", (long)window.windowNumber, enter ? @"willEnterFullScreen" : @"willExitFullScreen");
   [center postNotificationName:enter ? NSWindowWillEnterFullScreenNotification : NSWindowWillExitFullScreenNotification object:window];
   if (enter) set(YES);
@@ -104,7 +105,7 @@ void ActWindowFullScreen(ArdiaCoreWindow *coreWindow, BOOL enter, NSTimeInterval
   else finish();
 }
 
-NSTimeInterval gActedTransition = NSProcessInfo.processInfo.environment[@"ARDIA_FAKE_FULLSCREEN_MS"].doubleValue / 1000;
+NSTimeInterval gActedTransition = [ArdiaLaunchConfig.shared testValue:@"fakeFullScreenMs"].doubleValue / 1000;
 
 }
 
@@ -190,7 +191,7 @@ NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
 }
 
 - (BOOL)occlusionActed {
-  return ardia_host::Background() && (!getenv("ARDIA_ALLOW_OCCLUSION") || objc_getAssociatedObject(_coreWindow.window, kActedOcclusionKey));
+  return ardia_host::Background() && (![ArdiaLaunchConfig.shared instanceFlag:@"allowOcclusion"] || objc_getAssociatedObject(_coreWindow.window, kActedOcclusionKey));
 }
 
 - (BOOL)windowVisible {
@@ -230,7 +231,7 @@ NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
 - (void)updateSeen {
   if (![self occlusionActed] && [CFBridgingRelease(CGSessionCopyCurrentDictionary())[@"CGSSessionScreenIsLocked"] boolValue]) return;
   const BOOL seen = _settling || [self windowVisible] || IsWindowFullScreen(_coreWindow.window);
-  if (getenv("ARDIA_TRACE_VISIBILITY"))
+  if ([ArdiaLaunchConfig.shared traced:@"visibility"])
     NSLog(@"[ardiacore-vis] window %ld seen=%d (transitioning=%d settling=%d)", (long)_coreWindow.window.windowNumber, seen, _transitioning, _settling);
   if (seen == _seen) return;
   _seen = seen;
