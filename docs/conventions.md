@@ -116,7 +116,7 @@ switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-
 | `ARDIA_BACKGROUND` | `1` | Hidden instance: never activates, windows sit behind the owner's |
 | `ARDIA_REMOTE_DEBUGGING_PORT` | port | CDP port |
 | `ARDIA_INSTANCE` | `key=value,…` | The few other instance settings (downloads dir, update feed, extra Chromium switches, …) |
-| `ARDIA_SWITCHES` | `name=on,…` | The only feature toggle, backed by the kill-switch registry `lib/killSwitches.ts` (owner and `removeBy` per switch, at most 8) |
+| `ARDIA_SWITCHES` | `name=on,…` | The only feature toggle, backed by the kill-switch registry `platform/killSwitches.ts` (owner and `removeBy` per switch, at most 8) |
 | `ARDIA_TRACE` | `pip,visibility,…` | Trace logging per area |
 | `ARDIA_TEST` | `keychain=file,reauth=granted,…` | All test fakes and fixtures |
 

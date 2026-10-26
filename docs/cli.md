@@ -8,7 +8,7 @@ While it's connected, a pill floats over the bottom centre of the page ("ardia i
 the setting off). It overlays the page and never resizes it. It shows at the first connection and stays 3 s after the
 last one closes, so a burst of commands shows one steady pill; turning the setting off hides it at once. One per
 window: the focused pane of a split, the full screen page, or the Peek while one is open
-(`apps/browser/src/components/CliControlPill.tsx`, `useCliIndicator` in `lib/cliControl.ts`).
+(`apps/browser/src/components/window/CliControlPill.tsx`, `useCliIndicator` in `state/app/cliControl.ts`).
 
 Code: `apps/cli` (`ardia_cli`, `install.sh`, `scripts/build.sh`). Dependencies are pinned with hashes in
 `apps/cli/requirements.lock` (regenerate with `uv pip compile requirements.in --python-version 3.13
@@ -57,7 +57,7 @@ then deletes any temp folder still registered. The data dir is the token path's
 `ArdiaControl.json` checks as the token path first (regular file, owned, 0600, live pid), so they work only while
 Ardia runs with control on. Neither reads cookies, passwords, Login Data or Web Data.
 
-- `await pinned()` reads `<data dir>/session.json` (the app's persisted state, `apps/browser/src/lib/persist.ts`) and returns
+- `await pinned()` reads `<data dir>/session.json` (the app's persisted state, `apps/browser/src/state/session/persist.ts`) and returns
   one dict per pin: `title` (custom title first), `url` (else the pinned URL), `pinned_url`, `kind` (`favorite` for a
   tile, `pinned` for a tab in a pinned folder), `folder`, `profile` (its name) and `parked` (pins of a profile no
   window shows, from `parkedPins`). Pins mirrored across windows count once. Incognito profiles are skipped.

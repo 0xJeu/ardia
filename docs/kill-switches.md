@@ -1,7 +1,7 @@
 # Kill switches
 
 A speed change people can feel ships behind a switch, so a release that turns out slow or broken on some Macs can be
-backed out without another build. `apps/browser/src/lib/killSwitches.ts` is the registry; `apps/site/public/switches.json`
+backed out without another build. `apps/browser/src/platform/killSwitches.ts` is the registry; `apps/site/public/switches.json`
 (served at `https://ardia.dev/switches.json`) says which are off.
 
 ## Rules
@@ -31,7 +31,7 @@ checks on: `killSwitchesLaunch.ts`). A plain GET of the static file: no cookies 
 no query string, no ID, a 5 s timeout, 4 KB at most. The answer is cached in the data dir (`switches-cache.json`) and used
 offline; a failed or odd answer leaves the cache as it was. The same file goes to everyone, so it can't tell one Mac from
 another. Disclosed in Settings › What's Sent (“Even with sharing off”) and next to the update check in Settings › General
-(`telemetry/copy.ts`, `switchFile`).
+(`state/telemetry/copy.ts`, `switchFile`).
 
 ## For a bench or a test instance
 
@@ -63,7 +63,7 @@ Read once at launch from the environment, for a bench or a bisect; each falls ba
 | `ARDIA_SCROLL_FULL_RATE=off` | as in 0.2.38: main frames drop to 60 Hz during a scroll and right after input on a 120 Hz display (the engine's `ardia_full_rate_after_input` is 0 s), and on battery Battery Saver's 30 Hz cap holds through scrolling and typing (no input monitor); `ARDIA_MAIN_FRAME_THROTTLE=off` turns the whole 60 Hz throttle off |
 | `ARDIA_WALLET_PASSES=on` | Chrome's `AutofillAiWalletPrivatePasses` stays on, and every new tab asks LocalAuthentication about Touch ID |
 | `ARDIA_SYSTEM_FONTS=on` | expo-constants lists every font family at launch (`patches/expo-constants@18.0.14.patch`) |
-| `ARDIA_EARLY_NAVIGATE=off` | a navigation is sent to the engine by its view's effect after React re-renders, not by the store action (`lib/earlyNavigate.ts`) |
+| `ARDIA_EARLY_NAVIGATE=off` | a navigation is sent to the engine by its view's effect after React re-renders, not by the store action (`platform/earlyNavigate.ts`) |
 
 ## Developer flags (off by default, debug builds only)
 
@@ -71,7 +71,7 @@ Read through `launchEnvironment`, so a release build never sees them. A prototyp
 
 | Variable | On means |
 |---|---|
-| `ARDIA_WEBKIT_SIGN_IN=on` | moving a Chromium page to WebKit first copies the cookies that page's own address gets (HttpOnly included, partitioned ones left out) into the profile's WebKit store, so a cookie sign-in (Netflix, Spotify…) comes along; at most 1.5 s, then the move goes ahead either way (`lib/engineSignIn.ts`, `WebKitCookieImport.swift`) |
+| `ARDIA_WEBKIT_SIGN_IN=on` | moving a Chromium page to WebKit first copies the cookies that page's own address gets (HttpOnly included, partitioned ones left out) into the profile's WebKit store, so a cookie sign-in (Netflix, Spotify…) comes along; at most 1.5 s, then the move goes ahead either way (`state/engines/engineSignIn.ts`, `WebKitCookieImport.swift`) |
 
 ## Staged rollout
 

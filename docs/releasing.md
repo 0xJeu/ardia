@@ -28,7 +28,7 @@ GitHub Actions. Each has these assets:
 Each version's notes are a file in the repo, `docs/release-notes/<version>.md` (how to write one:
 `docs/release-notes/README.md`). The GitHub release, the update dialog and the website's
 `https://ardia.dev/release-notes` all come from it. The first launch after an update opens
-`/release-notes#<version>` in a new tab (`apps/browser/src/lib/releaseNotesPage.ts`), so the site has to be
+`/release-notes#<version>` in a new tab (`apps/browser/src/state/releaseNotes/releaseNotesPage.ts`), so the site has to be
 deployed with the new entry by the time the update reaches people.
 
 ## Channels

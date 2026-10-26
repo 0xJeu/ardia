@@ -253,7 +253,7 @@ handoff makes no second window.
   its page stays claimable past 15 s; one without a page is closed. The user can close it before the claim, and JS then
   gets the same `close` event a normal close sends. Clearing history and turning session restore off erase the
   pictures, whatever the switch says.
-- **Launch look** (issue #317). At quit JS also writes `launch-look.json` (`lib/launchLook.ts`): each saved tab's last
+- **Launch look** (issue #317). At quit JS also writes `launch-look.json` (`state/windows/launchLook.ts`): each saved tab's last
   page colour and the favicons, with their icon themes, that the session's tabs showed (240 icons at most). They are
   seeded before the first render, so RN's first frame has the tiles' icons, their tint and the address bar's colour
   instead of letter fallbacks and a white bar. A restored tab keeps its saved colour until its page reports one, leaves

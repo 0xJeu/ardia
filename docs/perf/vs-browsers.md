@@ -58,7 +58,7 @@ Margins are against the best competitor; "apart" means the ranges don't overlap.
 
 **Tab switch (+32 ms).** Chrome activates a tab natively in a few milliseconds: 8 ms here is visibilitychange plus two
 frames. In Ardia, `Target.activateTarget` changes Chrome's tab strip, then:
-- Ardia's JS mirror (`lib/chromeTabs.ts`) updates the store;
+- Ardia's JS mirror (`state/tabs/chromeTabs.ts`) updates the store;
 - React re-renders the window;
 - the native view is swapped in and shown.
 
@@ -66,7 +66,7 @@ native-bench's own switch, which starts in the store, is 31–33 ms, so about 25
 round trip, not Chrome. Every switch pays that before the page is shown (render-census.md: tab switch renders and
 store fan-out).
 
-Update (2026-10-17): the page is now shown natively as JS picks the tab (lib/tabReveal.ts), and xbench reads 10–16 ms
+Update (2026-10-17): the page is now shown natively as JS picks the tab (state/tabs/tabReveal.ts), and xbench reads 10–16 ms
 against Helium's 8.5. A probe with xbench's method (CDP activate, then visibilitychange, then two rAFs) plus a
 Chrome trace (viz, cc, begin_frame, scheduler) of 6 switches each:
 
@@ -120,7 +120,7 @@ navigation: 7 ms of it a synchronous LocalAuthentication XPC per tab (`ChromeAut
 `AutofillAiWalletPrivatePasses`). With that feature off (`ARDIA_WALLET_PASSES=on` restores it), navigation starts
 1.5 ms after `createTarget` and the median first paint in a one-window probe is 46-53 ms against 56-59 with it on, same
 build, interleaved. The user path (⌘T, then Enter) prewarms its tab, so it never paid that; there the store action now
-sends the navigation to the engine (`lib/earlyNavigate.ts`, `ARDIA_EARLY_NAVIGATE=off`) instead of the view's effect
+sends the navigation to the engine (`platform/earlyNavigate.ts`, `ARDIA_EARLY_NAVIGATE=off`) instead of the view's effect
 after React re-renders, and the request leaves 5 ms after Enter instead of 24 (uBO's webRequest round trip used to
 queue behind the New Tab page's teardown on the main thread). First paint 46 against 51 ms. What's left there is that
 teardown: the response is handled only once React Native's ~14 ms of view updates on Enter are done.
@@ -153,7 +153,7 @@ Update (2026-10-17, unparked): the two IOSurfaces were the hidden Metal view of 
 it with an NSVisualEffectView): its CAMetalLayer kept two 2560×1600 drawables, 31.8 MB. While hidden its drawable is
 now 1×1 (26a7a7fb, `ARDIA_BACKDROP_DRAWABLES=keep` turns it off). The retention after closing was mostly Hermes, not
 PartitionAlloc: its heap grows from 8 to 29 MB over the session and keeps the freed segments (9 MB live), and each
-forced full GC compacts one segment. lib/memoryTrim.ts (25c2d1da) runs gc() until the heap stops shrinking, 5 s after
+forced full GC compacts one segment. state/tabs/memoryTrim.ts (25c2d1da) runs gc() until the heap stops shrinking, 5 s after
 the tab count settles and only while Ardia isn't taking input, then `ac_memory_trim` (PartitionAlloc's ReclaimAll,
 off the main thread). `ARDIA_MEMORY_TRIM=off` (or `_HEAP=off`, `_ENGINE=off`) turns it off. Browser process, hidden
 Release, the session's flow: 1 tab 122 → 90 MB, back to 1 tab 121 (trim off) → 105 MB. xbench session A/B against

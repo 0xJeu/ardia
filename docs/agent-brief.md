@@ -82,15 +82,15 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
 
 | Concern | Engine | App | JS |
 | --- | --- | --- | --- |
-| Windows, tab ownership | `ac_browser.h` (`WindowHost`, `ACWebContentsDelegate`, `TabBridge`), `ac_browser_window.mm` | `ArdiaWindowController.mm`, `ArdiaChromeWindowHost.mm`, `ArdiaTabStrip.mm` | `lib/chromeTabs.ts`, `store/liveTabs.ts` |
+| Windows, tab ownership | `ac_browser.h` (`WindowHost`, `ACWebContentsDelegate`, `TabBridge`), `ac_browser_window.mm` | `ArdiaWindowController.mm`, `ArdiaChromeWindowHost.mm`, `ArdiaTabStrip.mm` | `state/tabs/chromeTabs.ts`, `state/tabs/liveTabs.ts` |
 | Tab activation | `ardiacore_api.mm` `-activateTab:`, `ac_browser.mm` `ActiveTabChanged` | `ArdiaWebView+Tab.mm` `-tabActivatedByChrome:`, `ArdiaTabStrip.mm` | same |
 | Focus guard (test instances) | `ac_browser.mm` (`WindowHost` activation) | `ArdiaActivation.mm` (`activation.log`), `ArdiaWindowFullScreen.mm` (acted-out occlusion), `ArdiaWebView+Focus.mm` | `packages/shell/ios/WindowManager.swift` |
-| Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaWindowFullScreen.mm` (acted out in test instances), `ArdiaFullScreenLights.mm`, `ArdiaPageCover.mm` | `components/ContentCard.tsx`, `components/layout/pageState.ts` |
+| Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaWindowFullScreen.mm` (acted out in test instances), `ArdiaFullScreenLights.mm`, `ArdiaPageCover.mm` | `components/window/ContentCard.tsx`, `state/tabs/pageState.ts` |
 | Picture in Picture | `ac_picture_in_picture.mm`; Dia's window and controls in `engine/chromium/…/ardia/pip/`; the auto-PiP hook in `engine/ardiacore/apply.sh` | `ArdiaPictureInPicture.mm` (monitors, `ardia_pip`), `ArdiaPiPController.mm` (+`Swipe`, +`SelfTest`), `ArdiaPiPZoom.mm`, `ArdiaWebView+PictureInPicture.mm` | `components/media/pip.ts` |
 | Password and autofill bubbles | `ac_password_prompt.mm`, `ac_browser_window.h` (`ACAutofillBubbleHandler`), `ac_autofill_trigger.mm` (dropdown) | `ArdiaWindowController.mm` (`window:passwordPrompt:forTab:`) → `ArdiaWebView` event | `components/site/Prompts.tsx`, `site/Autofill.tsx` |
 | Share tab, screen share | `ardiacore_api.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaHost.mm` `shareTabInstead`, `ChromeUIModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
-| Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs) | `ArdiaWebView+Tab.mm` (`discard:`), `ArdiaWebView+Transfer.mm` (`transferKey`), `ArdiaTabParking.mm` | `lib/tabLifecycle.ts`, `store/windows.ts` |
-| Permissions | `ac_permissions.mm` | `ArdiaHostEngineDelegate.mm` (`permissionRequest`), `ArdiaPopupWindow.mm` | `components/site/permissions.ts`, `Prompts.tsx` |
+| Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs) | `ArdiaWebView+Tab.mm` (`discard:`), `ArdiaWebView+Transfer.mm` (`transferKey`), `ArdiaTabParking.mm` | `state/tabs/tabLifecycle.ts`, `state/windows/windows.ts` |
+| Permissions | `ac_permissions.mm` | `ArdiaHostEngineDelegate.mm` (`permissionRequest`), `ArdiaPopupWindow.mm` | `state/site/permissions.ts`, `Prompts.tsx` |
 | Page script | `ac_page_channel.mm`, `renderer/ac_content_renderer_client.cc` | `page_script.js`, `ArdiaWebView+PageMessages.mm`, `ArdiaWebView+Peek.mm` | `onPageMessage` (`packages/ardiacore/src/WebView.tsx`) |
 
 - **Pod layout** (`packages/ardiacore/ios`): one class per file, or one category per file named `Class+Concern`.
@@ -179,7 +179,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     - Every instance runs everyone's current JS, including instances built before your native
       change. JS doesn't guard for older builds: when JS starts needing native code that older builds
       lack (a module, function, view, event or field), bump `NATIVE_API_VERSION`
-      (`apps/browser/src/nativeApi.tsx`) and `apiVersion` (`packages/shell/ios/AppModule.swift`)
+      (`apps/browser/src/platform/nativeApi.ts`) and `apiVersion` (`packages/shell/ios/AppModule.swift`)
       together. An instance built before then shows "Native API skew" in one window instead of the
       app, and its dev harness answers every script with that error: rebuild it.
     - A JS exception while modules load (an import cycle, say) opens LogBox, which crashes
@@ -194,8 +194,8 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     existing source file only needs its `expo-module.config.json` entry (the build regenerates
     the module provider).
 - **Shared files** several agents must touch — `packages/shell/ios/MainMenu.swift`,
-  `apps/browser/src/lib/commands.ts`, `apps/browser/src/App.tsx`, `apps/browser/src/store/settings.ts`,
-  `apps/browser/src/lib/theme.ts`, `packages/ardiacore/ios/ArdiaInternal.h`, `packages/ardiacore/ios/ArdiaCore.podspec`,
+  `apps/browser/src/state/commands/commands.ts`, `apps/browser/src/App.tsx`, `apps/browser/src/state/settings/settings.ts`,
+  `apps/browser/src/components/ui/theme.ts`, `packages/ardiacore/ios/ArdiaInternal.h`, `packages/ardiacore/ios/ArdiaCore.podspec`,
   `packages/ardiacore/ios/ArdiaWebViewInternal.h`, `packages/ardiacore/scripts/acceptance.mjs`, ArdiaCore's `public/ArdiaCore.h`,
   `ardiacore_api.mm` and `ac_browser*.mm`, the `expo-module.config.json` files: re-read right before each edit, keep
   edits small and additive (add your case/item/field; don't restructure), and never undo someone else's lines.
@@ -211,7 +211,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   instance.
   - Drive the app through the dev harness: `scripts/agent/ac eval <data dir> '<body>'` (a function body that
     returns a value or promise; it fails at once if the instance died). `ac` = store, actions, runCommand, webviews, shell, …
-    (`lib/devHarness.ts`); Expo modules are on `globalThis.expo.modules`. `ac.runCommand` takes an object:
+    (`components/dev/devHarness.ts`); Expo modules are on `globalThis.expo.modules`. `ac.runCommand` takes an object:
     `ac.runCommand({ command: "importBrowserData", arg: null, windowId: null })`; the utility windows' ids are
     `"settings"` and `"import"`.
   - The ArdiaCore acceptance run (`docs/ardiacore-parity.md` › "How to build and check it"): `node

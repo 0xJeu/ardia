@@ -142,7 +142,7 @@ owner's Mac ──▶ ardia.dev/_ch/ (read-only ClickHouse user)   ardia.dev/_re
   saved to disk before sending, sent oldest first), so a retry after a relaunch reuses its `uuid` and doesn't
   count twice, and every day of an outage still counts. No persistent ID: `uuid` and `distinct_id` are a fresh random UUID
   each day, and `$geoip_disable` keeps the address out. Counting rows gives DAU; counting `weekly`/`monthly`/`first`
-  rows gives WAU, MAU and new installs (Brave's usage-ping model). Sender: `apps/browser/src/telemetry/daily.ts`.
+  rows gives WAU, MAU and new installs (Brave's usage-ping model). Sender: `apps/browser/src/state/telemetry/daily.ts`.
 - **Tables** (`infra/telemetry/clickhouse/schema.sql`): `telemetry.events` is the one to query (PostHog's
   shape: `uuid, event, distinct_id, session_id, timestamp, properties Map, elements_chain, source`). It unions
   `otel_logs` (new data) and `posthog_events` (PostHog Cloud history, 2026-09-29 09:04 → 2026-09-30).
