@@ -109,6 +109,11 @@ export default defineConfig({
   optimizeDeps: {
     include: ["react-native-web", "lucide-react", "zustand", "zustand/react/shallow", "react-dom/client"],
   },
+  server: {
+    host: "127.0.0.1",
+    port: 5191,
+    strictPort: true,
+  },
   build: {
     target: "es2022",
     sourcemap: false,
