@@ -25,9 +25,10 @@ import {
   withoutStop,
   withStopAt,
   withStopLightness,
+  spaceLookSource,
   type ShownLook,
-} from "../../state/profiles/profileTheme";
-import { PROFILE_COLORS, spaceLookSource, useTheme } from "../ui/theme";
+} from "../../lib/profileLook";
+import { PROFILE_COLORS, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { choosePresetColor, setProfileTheme } from "../../state/profiles/themeActions";
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../state/browser/types";

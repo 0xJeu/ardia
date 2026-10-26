@@ -1,121 +1,17 @@
-import type { AreaLightPalette } from "@ardia/shaders";
-import { createContext, createElement, useContext, type ReactNode } from "react";
-import { useBrowser, type BrowserState } from "../../state/browser/store";
-import { PageProfileContext, WindowContext } from "../../state/browser/hooks";
-import type { SelectedTabGlow } from "../../state/settings/settings";
-import type { Profile, ProfileColor, ProfileTheme } from "../../state/browser/types";
-import { opaqueThemeTint, PRESET_BACKDROP, resolveTheme, requestedDarkFor, rgbToHsl, shownLook, themeAccent, themeBackdrop, themePalette, type LookSource, type ThemeBackdropProps } from "../../state/profiles/profileTheme";
+import { createContext, useContext } from "react";
+import { opaqueThemeTint, PRESET_BACKDROP, resolveTheme, requestedDarkFor, rgbToHsl, shownLook, themeAccent, themeBackdrop, themePalette, type LookSource, type ProfileColor, type ProfileLookFields, type ProfileTheme, type ThemeBackdropProps } from "../../lib/profileLook";
 import { backdropTint, opaqueTint, tintForHue, type BackdropTint } from "../../lib/windowTint";
+import { colorRoles, ink, INCOGNITO_TINT, PROFILE_COLORS, type ColorRoles, type ProfileColorSpec } from "./tokens";
 
-export type Theme = typeof dark & {
+export { PROFILE_COLORS } from "./tokens";
+
+export type Theme = ColorRoles & {
   profileColor: ProfileColor | "incognito";
   backdrop: BackdropTint & ThemeBackdropProps;
   windowTint: [string, string];
   powerUpColor: string | null;
   powerUpPalette: string[] | null;
   custom: ProfileTheme | null;
-};
-
-const dark = {
-  dark: true,
-  grain: 0.006,
-  card: "rgba(18,18,18,0.5)",
-  cardEdge: "rgba(0,0,0,0.35)",
-  divider: "rgba(255,255,255,0.08)",
-
-  textPrimary: "#FFFFFF",
-  textTab: "#FFFFFFC7",
-  textSecondary: "#FFFFFF80",
-  textTertiary: "#FFFFFF59",
-  icon: "#F7F5FFC6",
-  iconDisabled: "#F7F5FF4D",
-
-  tabHover: "rgba(255,255,255,0.16)",
-  tabPressed: "rgba(255,255,255,0.31)",
-  tabSelected: "rgba(18,18,18,0.5)",
-  tabSelectedText: "#FFFFFF",
-  tabSelectedBorder: ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.15)"] as [string, string],
-  tabSelectedShadow: "rgba(255,255,255,0.15)",
-  tabSelectedShadowRadius: 15,
-  pinnedResting: "rgba(255,255,255,0.1)",
-  pinnedRestingStroke: "rgba(255,255,255,0.14)",
-  pinnedSelectedFill: "rgba(255,255,255,0.25)",
-  pinnedSelectedRim: "rgba(0,0,0,0.85)",
-  pinnedSelectedOutline: "rgba(255,255,255,0.2)",
-
-  toolbarHover: "rgba(255,255,255,0.1)",
-  toolbarPressed: "rgba(255,255,255,0.18)",
-  urlPill: "rgba(255,255,255,0.07)",
-
-  panel: "#2A2A2A",
-  panelBorder: "rgba(255,255,255,0.1)",
-  panelShadowOpacity: 0.5,
-  rowSelected: "rgba(255,255,255,0.22)",
-  rowHover: "rgba(255,255,255,0.07)",
-  commandBarSelected: "rgba(255,255,255,0.145)",
-  commandBarHover: "rgba(120,125,134,0.32)",
-  selection: "rgba(120,125,134,0.7)",
-  placeholder: "#FFFFFF87",
-  chipBorder: "rgba(255,255,255,0.15)",
-  chipText: "#FFFFFF99",
-  goButton: "#DCCBD8",
-  goButtonText: "#1A1418",
-  goButtonIdle: "rgba(255,255,255,0.08)",
-
-  ntpBarSolid: "#2D2D2D",
-  ntpBarBorder: "rgba(120,125,134,0.32)",
-  accent: "#4A77D4",
-};
-
-const light: typeof dark = {
-  dark: false,
-  grain: 0.05,
-  card: "rgba(255,255,255,0.7)",
-  cardEdge: "rgba(0,0,0,0.08)",
-  divider: "rgba(0,0,0,0.08)",
-
-  textPrimary: "#000000",
-  textTab: "#000000AD",
-  textSecondary: "#00000080",
-  textTertiary: "#00000059",
-  icon: "#000000C6",
-  iconDisabled: "#0000004D",
-
-  tabHover: "rgba(255,255,255,0.55)",
-  tabPressed: "rgba(255,255,255,0.7)",
-  tabSelected: "rgba(255,255,255,0.7)",
-  tabSelectedText: "#000000",
-  tabSelectedBorder: ["rgba(255,255,255,0.98)", "rgba(0,0,0,0.06)"],
-  tabSelectedShadow: "rgba(0,0,0,0.12)",
-  tabSelectedShadowRadius: 12.5,
-  pinnedResting: "rgba(0,0,0,0.05)",
-  pinnedRestingStroke: "rgba(0,0,0,0.18)",
-  pinnedSelectedFill: "rgba(255,255,255,0.7)",
-  pinnedSelectedRim: "rgba(0,0,0,0.12)",
-  pinnedSelectedOutline: "rgba(255,255,255,0.98)",
-
-  toolbarHover: "rgba(0,0,0,0.06)",
-  toolbarPressed: "rgba(0,0,0,0.1)",
-  urlPill: "rgba(0,0,0,0.05)",
-
-  panel: "#FFFFFF",
-  panelBorder: "rgba(0,0,0,0.1)",
-  panelShadowOpacity: 0.18,
-  rowSelected: "rgba(15,24,44,0.08)",
-  rowHover: "rgba(15,24,44,0.05)",
-  commandBarSelected: "rgba(15,24,44,0.08)",
-  commandBarHover: "rgba(15,24,44,0.05)",
-  selection: "rgba(120,125,134,0.4)",
-  placeholder: "#00000066",
-  chipBorder: "rgba(0,0,0,0.12)",
-  chipText: "#00000099",
-  goButton: "#0F182C",
-  goButtonText: "#FFFFFF",
-  goButtonIdle: "rgba(0,0,0,0.06)",
-
-  ntpBarSolid: "#FEFFFF",
-  ntpBarBorder: "rgba(0,0,0,0.07)",
-  accent: "#6395FC",
 };
 
 export function hex(color: string): string {
@@ -126,40 +22,10 @@ export function hex(color: string): string {
   return `#${h(+r!)}${h(+g!)}${h(+b!)}${h(+a * 255)}`;
 }
 
-type ProfileColorSpec = {
-  name: string;
-  swatch: string;
-  palette: AreaLightPalette | null;
-  powerUp?: string;
-  tint?: string;
-  action?: string;
-};
-
-export const PROFILE_COLORS: Record<ProfileColor, ProfileColorSpec> = {
-  plum: {
-    name: "Plum",
-    swatch: "#C07A98",
-    powerUp: "#B5556B",
-    tint: "#B25B6B",
-    action: "#DD899B",
-    palette: "pink",
-  },
-  blue: { name: "Blue", swatch: "#4691C3", palette: "blue" },
-  purple: { name: "Purple", swatch: "#7873AF", palette: "purple" },
-  pink: { name: "Pink", swatch: "#D37B8B", palette: "pink" },
-  red: { name: "Red", swatch: "#C1575C", palette: "red" },
-  orange: { name: "Orange", swatch: "#D87249", palette: "orange" },
-  yellow: { name: "Yellow", swatch: "#E3AC38", palette: "yellow" },
-  green: { name: "Green", swatch: "#3EB489", palette: "green" },
-  neutral: { name: "Neutral", swatch: "#8E8E93", palette: null },
-};
-
-const INCOGNITO_TINT = "#3A3A3C";
-
-export function profileNameColor(profile: Pick<Profile, "color" | "theme">, dark: boolean): string {
+export function profileNameColor(profile: ProfileLookFields, dark: boolean): string {
   const spec = PROFILE_COLORS[profile.color] ?? PROFILE_COLORS.plum;
   const base = profile.theme ? themeAccent(resolveTheme(profile.theme, dark)) : (spec.action ?? spec.swatch);
-  return dark ? mix(base, "#FFFFFF", 0.6) : mix(base, "#000000", 0.4);
+  return dark ? mix(base, ink.white, 0.6) : mix(base, ink.black, 0.4);
 }
 
 function mix(a: string, b: string, t: number): string {
@@ -174,9 +40,9 @@ export function themeFor(key: string): Theme {
   let theme = cache.get(key);
   if (!theme) {
     const [color, mode] = key.split(":") as [ProfileColor | "incognito", string];
-    const base = color === "incognito" || mode === "dark" ? dark : light;
+    const base = color === "incognito" || mode === "dark" ? colorRoles.dark : colorRoles.light;
     const spec = color === "incognito" ? null : (PROFILE_COLORS[color] ?? PROFILE_COLORS.plum);
-    const powerUpColor = !spec ? null : spec.palette ? (spec.powerUp ?? spec.swatch) : "#808080A6";
+    const powerUpColor = !spec ? null : spec.palette ? (spec.powerUp ?? spec.swatch) : ink.neutralGrey;
     const backdrop = backdropTint(spec ? (spec.tint ?? tintForHue(spec.swatch, !spec.palette)) : INCOGNITO_TINT, !spec?.palette);
     theme = {
       ...base,
@@ -238,52 +104,40 @@ function customTheme(custom: ProfileTheme, color: ProfileColor, appDark: boolean
   return theme;
 }
 
-export function spaceLookSource(settings: Pick<BrowserState["settings"], "spacesFollowAppearance">): LookSource {
-  return settings.spacesFollowAppearance ? "app" : "own";
-}
-
-export function profileTheme(profile: Pick<Profile, "color" | "theme"> | undefined, appDark: boolean, source: LookSource = "own"): Theme {
+export function profileTheme(profile: ProfileLookFields | undefined, appDark: boolean, source: LookSource = "own"): Theme {
   const color = profile?.color ?? "plum";
   if (profile?.theme) return customTheme(profile.theme, color, appDark, source);
   return themeFor(`${color}:${appDark ? "dark" : "light"}`);
 }
 
-export function profileAccent(profile: Pick<Profile, "color" | "theme"> | undefined): string {
+export function profileAccent(profile: ProfileLookFields | undefined): string {
   if (profile?.theme) return themeAccent(profile.theme);
   return (PROFILE_COLORS[profile?.color ?? "plum"] ?? PROFILE_COLORS.plum).swatch;
 }
 
-function themeOf(s: BrowserState, windowId: string | null, page: string | null): Theme {
-  const w = s.windows[windowId ?? s.ui.focusedWindowId ?? ""];
-  if (w?.incognito) return themeFor("incognito");
-  return profileTheme(s.profiles[page ?? w?.profileId ?? s.settings.defaultProfileId], s.ui.appDark, windowId ? spaceLookSource(s.settings) : "utility");
+export function scopedTheme(incognito: boolean, profile: ProfileLookFields | undefined, appDark: boolean, source: LookSource): Theme {
+  return incognito ? themeFor("incognito") : profileTheme(profile, appDark, source);
 }
 
-const ThemeContext = createContext<Theme | null>(null);
-
-export function ThemeScope({ children }: { children: ReactNode }) {
-  const windowId = useContext(WindowContext);
-  const page = useContext(PageProfileContext);
-  const theme = useBrowser((s) => themeOf(s, windowId, page));
-  return createElement(ThemeContext.Provider, { value: theme }, children);
-}
+export const ThemeContext = createContext<Theme | null>(null);
 
 export function useTheme(): Theme {
   const scoped = useContext(ThemeContext);
   if (scoped) return scoped;
   if (__DEV__) console.warn("useTheme outside a ThemeScope");
-  return themeOf(useBrowser.getState(), null, null);
+  return themeFor("plum:dark");
 }
 
-const SELECTED_TAB_GLOW: Record<SelectedTabGlow, { opacity: number; radius: number }> = {
+const SELECTED_TAB_GLOW = {
   full: { opacity: 1, radius: 1 },
   soft: { opacity: 0.45, radius: 0.6 },
   off: { opacity: 0, radius: 1 },
 };
 
-export function useSelectedTabGlow() {
-  const theme = useTheme();
-  const level = useBrowser((s) => SELECTED_TAB_GLOW[s.settings.selectedTabGlow] ?? SELECTED_TAB_GLOW.full);
+export type SelectedTabGlowLevel = keyof typeof SELECTED_TAB_GLOW;
+
+export function selectedTabGlow(theme: Theme, setting: SelectedTabGlowLevel) {
+  const level = SELECTED_TAB_GLOW[setting] ?? SELECTED_TAB_GLOW.full;
   return { shadowColor: hex(theme.tabSelectedShadow), shadowOpacity: level.opacity, shadowRadius: theme.tabSelectedShadowRadius * level.radius };
 }
 

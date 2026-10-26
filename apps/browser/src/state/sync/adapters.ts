@@ -7,7 +7,7 @@ import { engineProfile } from "../browser/model";
 import { isPeekTab } from "../peek/peek";
 import { fromSync } from "../pins/pinOrderChoices";
 import { DEFAULT_PROFILE_ID, DEFAULT_SETTINGS, type Settings } from "../settings/settings";
-import { sanitizeTheme } from "../profiles/profileTheme";
+import { sanitizeTheme } from "../../lib/profileLook";
 import { fromLegacy } from "../../lib/legacy";
 import type { BookmarkNode, HistoryEntry, Profile, ProfileTheme } from "../browser/types";
 

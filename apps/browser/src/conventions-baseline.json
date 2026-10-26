@@ -3,7 +3,6 @@
   "imports": {
     "apps/browser/src/components/ui/FormControls.tsx": 2,
     "apps/browser/src/components/ui/Primitives.tsx": 1,
-    "apps/browser/src/components/ui/theme.ts": 5,
     "apps/browser/src/platform/nativeEvents.ts": 2,
     "apps/browser/src/state/app/nativeSync.ts": 1,
     "apps/browser/src/state/browser/actions.ts": 2,
@@ -337,7 +336,6 @@
     "apps/browser/src/components/ui/Primitives.tsx": 4,
     "apps/browser/src/components/ui/Switch.tsx": 5,
     "apps/browser/src/components/ui/TooltipAbove.tsx": 7,
-    "apps/browser/src/components/ui/theme.ts": 96,
     "apps/browser/src/components/ui/toolbarColors.ts": 20,
     "apps/browser/src/components/window/CliControlPill.tsx": 9,
     "apps/browser/src/components/window/DevErrorBoundary.tsx": 2,
@@ -431,7 +429,6 @@
     "apps/browser/src/components/tabstrip/TopTabStrip.tsx": 18,
     "apps/browser/src/components/tabstrip/stripFolderMenu.ts": 4,
     "apps/browser/src/components/toolbar/Toolbar.tsx": 7,
-    "apps/browser/src/components/ui/theme.ts": 1,
     "apps/browser/src/components/window/ContentCard.tsx": 7,
     "apps/browser/src/components/window/FrozenPage.tsx": 1,
     "apps/browser/src/components/window/HistoryPopover.tsx": 2,

@@ -5,7 +5,7 @@ import { test } from "node:test";
 globalThis.__DEV__ = false;
 
 const { parseArcTheme } = await import("./arcTheme.ts");
-const { themeArea, themeLayerAlpha, themeUnderlayAlpha, themeBackdrop, sanitizeTheme, padColor, padPosition, resolveTheme } = await import("../profiles/profileTheme.ts");
+const { themeArea, themeLayerAlpha, themeUnderlayAlpha, themeBackdrop, sanitizeTheme, padColor, padPosition, resolveTheme } = await import("../../lib/profileLook.ts");
 
 const fixtures = new URL("../../../../../packages/import/fixtures/", import.meta.url);
 const fixture = (name) => JSON.parse(readFileSync(new URL(`arc-themes/${name}.json`, fixtures), "utf8"));
@@ -121,7 +121,7 @@ test("the colour pad round-trips hue and saturation", () => {
 });
 
 test("a colour can go black, keeps its brightness and alpha while moved, and gets its hue back", async () => {
-  const { withStopAt, withStopLightness, stopLightness } = await import("../profiles/profileTheme.ts");
+  const { withStopAt, withStopLightness, stopLightness } = await import("../../lib/profileLook.ts");
   const theme = { stops: [{ x: 0.9, y: 0.5, color: padColor(0.9, 0.5) }], intensity: 1, mode: "dark", grain: 0, texture: "grain", translucency: 0 };
   const black = withStopLightness(theme, 0, 0);
   assert.deepEqual(black.stops[0].color, { r: 0, g: 0, b: 0, a: 1 });

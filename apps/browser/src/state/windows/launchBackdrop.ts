@@ -1,6 +1,6 @@
 import type { BrowserState } from "../browser/store";
-import type { ThemeBackdropProps } from "../profiles/profileTheme";
-import { profileTheme, spaceLookSource } from "../../components/ui/theme";
+import { spaceLookSource, type ThemeBackdropProps } from "../../lib/profileLook";
+import { profileTheme } from "../../components/ui/theme";
 
 export type LaunchBackdrop = ThemeBackdropProps & {
   dark: boolean;

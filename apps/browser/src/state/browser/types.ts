@@ -1,30 +1,9 @@
 import type { PageEngine } from "@ardia/ardiacore";
+import type { ProfileColor, ProfileTheme } from "../../lib/profileLook";
+
+export type { ProfileColor, ProfileTheme, ThemeColor, ThemeLook, ThemeMode, ThemeStop, ThemeTexture } from "../../lib/profileLook";
 
 export type Frame = [number, number, number, number];
-
-export type ProfileColor = "plum" | "blue" | "purple" | "pink" | "red" | "orange" | "yellow" | "green" | "neutral";
-
-export type ThemeColor = { r: number; g: number; b: number; a: number };
-
-export type ThemeStop = { color: ThemeColor; x: number; y: number };
-
-export type ThemeMode = "auto" | "light" | "dark";
-
-export type ThemeTexture = "grain" | "sand" | "denim" | "tweed";
-
-export type ThemeLook = {
-  stops: ThemeStop[];
-  intensity: number;
-  grain: number;
-  texture: ThemeTexture;
-  translucency: number;
-  angle?: number;
-};
-
-export type ProfileTheme = ThemeLook & {
-  mode: ThemeMode;
-  dark?: ThemeLook;
-};
 
 export type Profile = {
   id: string;

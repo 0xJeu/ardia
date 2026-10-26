@@ -3,10 +3,11 @@ import { WindowBackdrop } from "@ardia/shaders";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useShallow } from "zustand/react/shallow";
-import { profileTheme, spaceLookSource } from "../ui/theme";
+import { spaceLookSource } from "../../lib/profileLook";
+import { profileTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
-import { pagerFor, usePagerNativeConfig, usePagerPages, usePagerSurface } from "./profilePager";
+import { pagerFor, usePagerNativeConfig, usePagerPages, usePagerSurface } from "../../state/windows/profilePager";
 
 
 export function ProfileSwipe({ children }: { children: ReactNode }) {

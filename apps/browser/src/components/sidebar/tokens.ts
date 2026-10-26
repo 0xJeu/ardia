@@ -1,7 +1,8 @@
-import { layout, useTheme } from "../ui/theme";
+import { layout, selectedTabGlow, useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import type { GroupColor } from "../../state/browser/types";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
+import { useSelectedTabGlowSetting } from "../../state/app/theme";
 
 const DARK = {
   groupFill: "rgba(255,255,255,0.1)",
@@ -55,6 +56,10 @@ type SidebarTokens = typeof DARK;
 
 export function useSidebarTokens(): SidebarTokens {
   return useTheme().dark ? DARK : LIGHT;
+}
+
+export function useSelectedTabGlow() {
+  return selectedTabGlow(useTheme(), useSelectedTabGlowSetting());
 }
 
 export type GroupTint = Exclude<GroupColor, "none">;

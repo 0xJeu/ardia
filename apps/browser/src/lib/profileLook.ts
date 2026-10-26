@@ -1,4 +1,28 @@
-import type { ProfileTheme, ThemeColor, ThemeLook, ThemeMode, ThemeStop, ThemeTexture } from "../browser/types";
+export type ProfileColor = "plum" | "blue" | "purple" | "pink" | "red" | "orange" | "yellow" | "green" | "neutral";
+
+export type ThemeColor = { r: number; g: number; b: number; a: number };
+
+export type ThemeStop = { color: ThemeColor; x: number; y: number };
+
+export type ThemeMode = "auto" | "light" | "dark";
+
+export type ThemeTexture = "grain" | "sand" | "denim" | "tweed";
+
+export type ThemeLook = {
+  stops: ThemeStop[];
+  intensity: number;
+  grain: number;
+  texture: ThemeTexture;
+  translucency: number;
+  angle?: number;
+};
+
+export type ProfileTheme = ThemeLook & {
+  mode: ThemeMode;
+  dark?: ThemeLook;
+};
+
+export type ProfileLookFields = { color: ProfileColor; theme?: ProfileTheme | null };
 
 export const MAX_THEME_STOPS = 3;
 export const PAD_LIGHTNESS = 0.6;
@@ -155,6 +179,10 @@ export function darkenedLook(theme: ProfileTheme, keep = DARKENED_LOOK_KEEP): Pr
 }
 
 export type LookSource = "own" | "app" | "utility";
+
+export function spaceLookSource(settings: { spacesFollowAppearance: boolean }): LookSource {
+  return settings.spacesFollowAppearance ? "app" : "own";
+}
 
 export type ShownLook = { look: ProfileTheme; requestedDark: boolean; dark: boolean };
 

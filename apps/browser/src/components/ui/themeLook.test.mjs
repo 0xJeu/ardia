@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 globalThis.__DEV__ = false;
 
-const P = await import("../../state/profiles/profileTheme.ts");
+const P = await import("../../lib/profileLook.ts");
 const { profileTheme, PROFILE_COLORS } = await import("./theme.ts");
 const { themeArea, themeBackdrop, sanitizeTheme, opaqueThemeTint, mixOklab, resolveTheme, readableDark, padColor, startingTheme } = P;
 

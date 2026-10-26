@@ -20,7 +20,8 @@ import { WindowProfile } from "./components/window/WindowProfile";
 import { DockedLayout } from "./components/window/SidebarDock";
 import { LittleArdiaWindow } from "./components/littleArdia/LittleArdiaWindow";
 import { SidebarOverlays } from "./components/sidebar/Overlays";
-import { layout, ThemeScope, useTheme } from "./components/ui/theme";
+import { layout, useTheme } from "./components/ui/theme";
+import { ThemeScope } from "./components/window/ThemeScope";
 import { useBrowser } from "./state/browser/store";
 import { useWindowId, WindowContext } from "./state/browser/hooks";
 

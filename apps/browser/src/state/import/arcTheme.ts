@@ -1,4 +1,4 @@
-import { padPosition, sanitizeTheme, THEME_TEXTURES } from "../profiles/profileTheme";
+import { padPosition, sanitizeTheme, THEME_TEXTURES } from "../../lib/profileLook";
 import type { ProfileTheme, ThemeColor, ThemeLook, ThemeMode, ThemeTexture } from "../browser/types";
 
 type Json = Record<string, unknown>;
