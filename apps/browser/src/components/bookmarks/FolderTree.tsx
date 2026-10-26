@@ -3,21 +3,22 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { bookmarkAncestors, folderChildren } from "../../state/bookmarks/bookmarks";
-import { useBrowser } from "../../state/browser/store";
+import { useBookmarks } from "../../state/bookmarks/hooks";
+import { currentBookmarks } from "../../state/browser/current";
 import { useHover } from "../ui/Primitives";
 import { useFormColors } from "../ui/FormControls";
 
 type FolderRow = { id: string; title: string; depth: number; hasChildren: boolean };
 
 function useFolderRows(profileId: string, expanded: Set<string>): FolderRow[] {
-  const key = useBrowser((s) => {
-    const roots = s.bookmarks.roots[profileId];
+  const key = useBookmarks((b) => {
+    const roots = b.roots[profileId];
     if (!roots) return "";
     const lines: string[] = [];
     const walk = (id: string, depth: number) => {
-      const node = s.bookmarks.nodes[id];
+      const node = b.nodes[id];
       if (node?.kind !== "folder") return;
-      const sub = folderChildren(s.bookmarks, id).filter((c) => c.kind === "folder");
+      const sub = folderChildren(b, id).filter((c) => c.kind === "folder");
       lines.push(JSON.stringify([id, node.title, depth, sub.length > 0]));
       if (expanded.has(id)) sub.forEach((c) => walk(c.id, depth + 1));
     };
@@ -51,15 +52,15 @@ export function FolderTree({
   wrapRow?: (id: string, row: ReactNode) => ReactNode;
 }) {
   const [expanded, setExpanded] = useState(() => {
-    const s = useBrowser.getState();
-    const roots = s.bookmarks.roots[profileId];
+    const b = currentBookmarks();
+    const roots = b.roots[profileId];
     const open = new Set<string>(roots ? [roots.bar, roots.other] : []);
-    if (selectedId) for (const a of bookmarkAncestors(s.bookmarks, selectedId)) open.add(a.id);
+    if (selectedId) for (const a of bookmarkAncestors(b, selectedId)) open.add(a.id);
     return open;
   });
   useEffect(() => {
     if (!selectedId) return;
-    const hidden = bookmarkAncestors(useBrowser.getState().bookmarks, selectedId).filter((a) => !expanded.has(a.id));
+    const hidden = bookmarkAncestors(currentBookmarks(), selectedId).filter((a) => !expanded.has(a.id));
     if (hidden.length) setExpanded((prev) => new Set([...prev, ...hidden.map((a) => a.id)]));
   }, [selectedId]);
   const rows = useFolderRows(profileId, expanded);

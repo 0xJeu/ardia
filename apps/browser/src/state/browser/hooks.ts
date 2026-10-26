@@ -1,11 +1,11 @@
 import { createContext, useContext } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { isBookmarked } from "../bookmarks/bookmarks";
-import { useBrowser } from "./store";
-import { activeTabId, bookmarkProfileId, IDLE_LIVE, profileFor } from "./model";
+import { useBrowser, type BrowserState } from "./store";
+import { activeTabId, bookmarkProfileId, IDLE_LIVE, profileFor, tabLayoutOf } from "./model";
 import type { Settings } from "../settings/settings";
 import type { BrowserWindow, FindState, Profile, Tab, TabGroup, TabLive } from "./types";
-import { CLOSED_FIND, DEFAULT_WINDOW_UI } from "../windows/ui";
+import { CLOSED_FIND, DEFAULT_WINDOW_UI, downloadsIn } from "../windows/ui";
 
 export const WindowContext = createContext<string | null>(null);
 
@@ -99,3 +99,9 @@ export function useIsBookmarked(url: string): boolean {
   const id = useWindowId();
   return useBrowser((s) => isBookmarked(s.bookmarks, bookmarkProfileId(s, s.windows[id]), url));
 }
+
+export const useAppDark = (): boolean => useBrowser((s) => s.ui.appDark);
+
+export const useTabLayout = (windowId?: string | null): "sidebar" | "top" => useBrowser((s) => tabLayoutOf(s, windowId));
+
+export const useDownloads = <T>(windowId: string, select: (downloads: BrowserState["downloads"]) => T): T => useBrowser((s) => select(downloadsIn(s, windowId)));

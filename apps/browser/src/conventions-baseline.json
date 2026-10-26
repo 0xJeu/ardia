@@ -349,10 +349,6 @@
     "apps/browser/src/state/site/webNotifications.ts": 1
   },
   "get-state": {
-    "apps/browser/src/components/bookmarks/BookmarkDialog.tsx": 5,
-    "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 12,
-    "apps/browser/src/components/bookmarks/EditBookmarkDialog.tsx": 4,
-    "apps/browser/src/components/bookmarks/FolderTree.tsx": 2,
     "apps/browser/src/components/downloads/Downloads.tsx": 6,
     "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 1,
     "apps/browser/src/components/extensions/SidePanel.tsx": 3,

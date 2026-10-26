@@ -3,7 +3,8 @@ import { Surface } from "@ardia/shell";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { currentBookmarks, currentSettings } from "../../state/browser/current";
+import { addBookmark, addBookmarkFolder, moveBookmark, updateBookmark } from "../../state/bookmarks/actions";
 import { useWindowId } from "../../state/browser/hooks";
 import { searchUrlPrefix } from "../../state/settings/settings";
 import { Button, TextField, useFormColors } from "../ui/FormControls";
@@ -20,26 +21,25 @@ export function EditBookmarkDialog() {
 function Sheet({ state }: { state: EditorState }) {
   const theme = useTheme();
   const colors = useFormColors();
-  const node = useBrowser.getState().bookmarks.nodes[state.bookmarkId ?? ""];
+  const node = currentBookmarks().nodes[state.bookmarkId ?? ""];
   const [title, setTitle] = useState(node?.title ?? "");
   const [url, setUrl] = useState(node?.kind === "url" ? node.url : "");
   const [parentId, setParentId] = useState<string | null>(
-    node?.parentId ?? state.parentId ?? useBrowser.getState().bookmarks.roots[state.profileId]?.bar ?? null,
+    node?.parentId ?? state.parentId ?? currentBookmarks().roots[state.profileId]?.bar ?? null,
   );
   const close = closeBookmarkEditor;
-  const resolvedUrl = url.trim() ? resolveInput(url, searchUrlPrefix(useBrowser.getState().settings)) : "";
+  const resolvedUrl = url.trim() ? resolveInput(url, searchUrlPrefix(currentSettings())) : "";
   const valid = state.folder ? !!title.trim() : !!resolvedUrl;
 
   const save = () => {
     if (!valid) return;
-    const s = useBrowser.getState();
     if (node) {
-      s.updateBookmark(node.id, state.folder ? { title: title.trim() } : { title: title.trim(), url: resolvedUrl });
-      if (parentId && parentId !== node.parentId) s.moveBookmark(node.id, parentId);
+      updateBookmark(node.id, state.folder ? { title: title.trim() } : { title: title.trim(), url: resolvedUrl });
+      if (parentId && parentId !== node.parentId) moveBookmark(node.id, parentId);
     } else if (state.folder) {
-      s.addBookmarkFolder({ profileId: state.profileId, title: title.trim(), parentId: parentId ?? undefined, index: state.index });
+      addBookmarkFolder({ profileId: state.profileId, title: title.trim(), parentId: parentId ?? undefined, index: state.index });
     } else {
-      s.addBookmark({ profileId: state.profileId, url: resolvedUrl, title: title.trim() || resolvedUrl, parentId: parentId ?? undefined, index: state.index });
+      addBookmark({ profileId: state.profileId, url: resolvedUrl, title: title.trim() || resolvedUrl, parentId: parentId ?? undefined, index: state.index });
     }
     close();
   };

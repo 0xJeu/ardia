@@ -2,10 +2,11 @@ import { prompt, Surface } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
 import { useWindowId } from "../../state/browser/hooks";
 import { Button, TextField, useFormColors } from "../ui/FormControls";
-import { closeBookmarkDialog, useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
+import { addBookmarkFolder, addBookmarkTree, closeBookmarkDialog, moveBookmark, profileOfBookmark, removeBookmark, updateBookmark, useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
+import { useBookmarks } from "../../state/bookmarks/hooks";
+import { currentBookmarks } from "../../state/browser/current";
 import { FolderTree } from "./FolderTree";
 import { SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../../state/windows/layout";
 
@@ -20,11 +21,11 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
   const theme = useTheme();
   const colors = useFormColors();
   const addressBar = useAddressBarInSidebar();
-  const bookmark = useBrowser((s) => (state.kind === "page" ? s.bookmarks.nodes[state.bookmarkId] : undefined));
-  const profileId = state.kind === "page" ? profileOfNode(state.bookmarkId) : state.profileId;
+  const bookmark = useBookmarks((b) => (state.kind === "page" ? b.nodes[state.bookmarkId] : undefined));
+  const profileId = state.kind === "page" ? profileOfBookmark(state.bookmarkId) : state.profileId;
   const [name, setName] = useState(() => (state.kind === "page" ? (bookmark?.title ?? "") : ""));
   const [folderId, setFolderId] = useState<string | null>(() =>
-    state.kind === "page" ? (bookmark?.parentId ?? null) : (useBrowser.getState().bookmarks.roots[state.profileId]?.bar ?? null),
+    state.kind === "page" ? (bookmark?.parentId ?? null) : (currentBookmarks().roots[state.profileId]?.bar ?? null),
   );
   const close = closeBookmarkDialog;
 
@@ -33,27 +34,26 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
   }, [bookmark]);
 
   const done = () => {
-    const s = useBrowser.getState();
     if (state.kind === "page") {
-      if (!s.bookmarks.nodes[state.bookmarkId]) return close();
-      if (name.trim() && name !== bookmark?.title) s.updateBookmark(state.bookmarkId, { title: name.trim() });
-      if (folderId && folderId !== bookmark?.parentId) s.moveBookmark(state.bookmarkId, folderId);
+      if (!currentBookmarks().nodes[state.bookmarkId]) return close();
+      if (name.trim() && name !== bookmark?.title) updateBookmark(state.bookmarkId, { title: name.trim() });
+      if (folderId && folderId !== bookmark?.parentId) moveBookmark(state.bookmarkId, folderId);
     } else {
       const title = name.trim() || "Tabs";
-      s.addBookmarkTree(state.profileId, [{ title, children: state.tabs.map((t) => ({ title: t.title, url: t.url })) }], folderId ?? undefined);
+      addBookmarkTree(state.profileId, [{ title, children: state.tabs.map((t) => ({ title: t.title, url: t.url })) }], folderId ?? undefined);
     }
     close();
   };
 
   const remove = () => {
-    if (state.kind === "page") useBrowser.getState().removeBookmark(state.bookmarkId);
+    if (state.kind === "page") removeBookmark(state.bookmarkId);
     close();
   };
 
   const newFolder = async () => {
     const title = await prompt({ title: "New Folder", placeholder: "Folder name", confirmTitle: "Create", windowId: state.windowId });
     if (!title || !profileId) return;
-    const id = useBrowser.getState().addBookmarkFolder({ profileId, title, parentId: folderId ?? undefined });
+    const id = addBookmarkFolder({ profileId, title, parentId: folderId ?? undefined });
     setFolderId(id);
   };
 
@@ -105,12 +105,4 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
       </Surface>
     </View>
   );
-}
-
-function profileOfNode(id: string): string | null {
-  const b = useBrowser.getState().bookmarks;
-  let node = b.nodes[id];
-  for (let i = 0; node?.parentId && i < 64; i++) node = b.nodes[node.parentId];
-  if (!node) return null;
-  return Object.entries(b.roots).find(([, r]) => r.bar === node!.id || r.other === node!.id)?.[0] ?? null;
 }

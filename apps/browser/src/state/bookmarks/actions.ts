@@ -75,6 +75,14 @@ export const useBookmarkDialog = create<{ open: BookmarkDialogState | null }>()(
 
 export const closeBookmarkDialog = () => useBookmarkDialog.setState({ open: null });
 
+export function profileOfBookmark(id: string): string | null {
+  const b = useBrowser.getState().bookmarks;
+  let node = b.nodes[id];
+  for (let i = 0; node?.parentId && i < 64; i++) node = b.nodes[node.parentId];
+  if (!node) return null;
+  return Object.entries(b.roots).find(([, r]) => r.bar === node!.id || r.other === node!.id)?.[0] ?? null;
+}
+
 export function bookmarkTab(windowId: string, tabId: string) {
   const s = useBrowser.getState();
   const id = windowId;
