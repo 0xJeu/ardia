@@ -1,7 +1,6 @@
 import type {
   ActionState,
   ArdiaCoreNativeModules,
-  ArdiaCoreOptionalNativeModules,
   BookmarkOp,
   CliControlStatus,
   EngineBookmark,
@@ -15,7 +14,6 @@ import type { EventSubscription } from "expo-modules-core";
 import { nativeEvents, unfaked } from "./events";
 
 type Modules = ArdiaCoreNativeModules;
-type OptionalModules = { [Name in keyof ArdiaCoreOptionalNativeModules]: () => ArdiaCoreOptionalNativeModules[Name] | null };
 
 type TabStripHost = {
   listen(listener: (tx: TabStripTransaction) => void): EventSubscription;
@@ -286,6 +284,15 @@ const cef: Modules["ArdiaCEF"] = {
   isTracing: () => Promise.resolve(false),
   setDisplayMediaPicker: () => Promise.resolve(),
   setSearchEngineName: () => Promise.resolve(),
+  setAutoPictureInPicture: () => Promise.resolve(),
+  setVideoUpscaling: () => Promise.resolve(),
+  setPeekModifier: () => Promise.resolve(),
+  setSplitLinkModifier: () => Promise.resolve(),
+  setSelectionPopover: () => Promise.resolve(),
+  setVideoUpscalingTestConditions: () => Promise.resolve(),
+  videoUpscalingState: () => Promise.resolve(null),
+  inputIdleSeconds: () => 3600,
+  forwardEngineTopics: () => Promise.resolve(),
   displayMediaSources: () => Promise.resolve([]),
   listTasks: () => Promise.resolve([]),
   systemState: () => Promise.resolve({ onBattery: false, batteryLevel: null, lowPowerMode: false, memoryPressure: "normal", physicalMemory: 16 * 2 ** 30 }),
@@ -391,15 +398,8 @@ const swipe: Modules["ArdiaSwipe"] = {
   devSimulate: () => unfaked("ArdiaSwipe", "devSimulate"),
 };
 
-export const ardiaCoreNativeModules: Modules = {
-  ArdiaCEF: cef,
-  ArdiaExtensions: extensions,
-  ArdiaChromeUI: chromeUI,
-  ArdiaSwipe: swipe,
-};
-
 const webKitEvents = nativeEvents();
-const webKit: ArdiaCoreOptionalNativeModules["ArdiaWebKit"] = {
+const webKit: Modules["ArdiaWebKit"] = {
   addListener: webKitEvents.addListener,
   prepareTransfer: () => {},
   releaseTransfer: () => {},
@@ -421,6 +421,10 @@ const webKit: ArdiaCoreOptionalNativeModules["ArdiaWebKit"] = {
   requestPasskeyAccess: () => Promise.resolve({ entitled: false, status: "entitlementRequired" }),
 };
 
-export const ardiaCoreOptionalNativeModules: OptionalModules = {
-  ArdiaWebKit: () => webKit,
+export const ardiaCoreNativeModules: Modules = {
+  ArdiaCEF: cef,
+  ArdiaExtensions: extensions,
+  ArdiaChromeUI: chromeUI,
+  ArdiaSwipe: swipe,
+  ArdiaWebKit: webKit,
 };

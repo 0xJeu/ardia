@@ -59,17 +59,10 @@ ArdiaCoreTab *_Nullable PasswordPromptTab(ArdiaWebView *view, ArdiaCoreTab *_Nul
 + (void)setPinned:(BOOL)pinned tab:(ArdiaCoreTab *)tab;
 @end
 
-@interface ArdiaCoreProfile (Pending)
-- (nullable NSString *)loadComponentExtension:(NSString *)path;
-- (void)releaseNavigationHoldReady;
-- (void)unloadComponentExtension:(NSString *)extensionId;
-@end
-
 namespace ardia_host {
 NSArray<ArdiaCoreProfile *> *LoadedProfiles();
 void LoadContentBlocker(NSString *profile);
 void PrepareContentBlocker();
-bool EngineHasTabModel();
 }
 
 @interface ArdiaFavicons (Tabs)

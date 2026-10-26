@@ -146,7 +146,6 @@ void WithPrivateProfile(NSString *name, void (^completion)(ArdiaCoreProfile *)) 
       for (void (^waiter)(ArdiaCoreProfile *) in pending) waiter(Profiles()[name]);
     };
     if (!base) return answer(nil, [NSString stringWithFormat:@"profile \"%@\" isn't loaded", original]);
-    if (![engine respondsToSelector:@selector(offTheRecordProfileFor:completion:)]) return answer(nil, @"the engine is too old");
     [engine offTheRecordProfileFor:base completion:answer];
   });
 }
@@ -197,7 +196,7 @@ ArdiaCoreProfile *PersonalIfLoaded(ArdiaCoreEngine *engine) {
 
 NSString *ProfileNameOfDirectory(NSString *directory) {
   for (ArdiaCoreProfile *profile in LoadedProfiles())
-    if (!([profile respondsToSelector:@selector(offTheRecord)] && profile.offTheRecord) && [profile.name isEqualToString:directory])
+    if (!profile.offTheRecord && [profile.name isEqualToString:directory])
       return ProfileName(profile);
   return [directory hasPrefix:@"Profile "] ? [directory substringFromIndex:8] : @"";
 }

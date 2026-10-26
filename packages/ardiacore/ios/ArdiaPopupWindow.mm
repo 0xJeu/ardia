@@ -245,7 +245,7 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
 }
 
 - (void)updateOrigin {
-  id level = [_tab respondsToSelector:@selector(securityInfo)] ? _tab.securityInfo[@"level"] : nil;
+  id level = _tab.securityInfo[@"level"];
   [_strip showURL:_tab.url ?: @"" security:[level isKindOfClass:NSString.class] ? level : nil];
 }
 
@@ -280,8 +280,7 @@ NSImage *_Nullable PermissionIcon(NSDictionary *request) {
 }
 
 - (void)tab:(ArdiaCoreTab *)tab externalAppRequest:(NSDictionary<NSString *, id> *)request {
-  id<ArdiaCoreTabDelegate> opener = (id<ArdiaCoreTabDelegate>)_opener;
-  if ([opener respondsToSelector:@selector(tab:externalAppRequest:)]) [opener tab:tab externalAppRequest:request];
+  [_opener tab:tab externalAppRequest:request];
 }
 
 - (void)window:(ArdiaCoreWindow *)window didInsertTab:(ArdiaCoreTab *)tab opener:(ArdiaCoreTab *)opener disposition:(NSString *)disposition {

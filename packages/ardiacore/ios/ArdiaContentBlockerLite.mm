@@ -91,7 +91,7 @@ void ReadLiteSettings(NSString *profile, ArdiaCoreProfile *p, void (^done)(NSDic
     answered = true;
     [page fail:@"read"];
     [Pages() removeObjectForKey:key];
-    if ([p respondsToSelector:@selector(unloadComponentExtension:)]) [p unloadComponentExtension:kLiteId];
+    [p unloadComponentExtension:kLiteId];
     done(lite, error);
   };
   if (!page) return finish(nil, @"no reader page");

@@ -70,7 +70,6 @@ BOOL CapturePicture(ArdiaWindowController *controller, NSString *windowId, NSMut
 void DropPictureFile(NSString *windowId);
 void LoadLayouts();
 void Record(BOOL wait);
-id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered);
 BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL);
 BOOL ReleaseFocusFrom(NSView *page);
 void CarryShield(ArdiaCoreTab *tab, id inputBlock, NSString *shownAtPlacement);

@@ -17,4 +17,4 @@ export * from "./bookmarks";
 export * from "./swipe";
 export * from "./tabStrip";
 export * from "./webkit";
-export type { ArdiaCoreNativeModules, ArdiaCoreOptionalNativeModules } from "./nativeModules";
+export type { ArdiaCoreNativeModules } from "./nativeModules";

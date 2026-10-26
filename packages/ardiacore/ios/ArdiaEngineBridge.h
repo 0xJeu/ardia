@@ -14,7 +14,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)setEventHandler:(nullable void (^)(NSString *topic, NSString *json))handler;
 + (void)forwardTopics:(NSArray<NSString *> *)topics;
 + (void)observe:(NSString *)topic handler:(void (^)(NSDictionary<NSString *, id> *payload))handler;
-+ (BOOL)exports:(NSString *)name;
 @end
 
 NS_ASSUME_NONNULL_END

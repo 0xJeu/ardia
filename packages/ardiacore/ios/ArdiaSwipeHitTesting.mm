@@ -57,7 +57,7 @@ NSView<ArdiaSwipeTarget> *TargetAt(NSWindow *window, NSPoint locationInWindow, N
       @"target" : [NSString stringWithFormat:@"%p", target],
       @"window" : @(target.window.windowNumber),
       @"inWindow" : RectValue([target convertRect:target.bounds toView:nil]),
-      @"pager" : @([target respondsToSelector:@selector(isPager)] && target.isPager),
+      @"pager" : @(target.isPager),
       @"miss" : miss ?: @"",
     }];
     if (miss) continue;
@@ -80,12 +80,11 @@ NSArray *HitChain(NSView *hit) {
 }
 
 BOOL IsPager(NSView<ArdiaSwipeTarget> *target) {
-  return [target respondsToSelector:@selector(isPager)] && target.isPager;
+  return target.isPager;
 }
 
 BOOL HasNativePager(NSView<ArdiaSwipeTarget> *target) {
-  return IsPager(target) && [target respondsToSelector:@selector(hasNativePager)] && target.hasNativePager &&
-         [target respondsToSelector:@selector(pagerInput:distance:direction:timestamp:)];
+  return IsPager(target) && target.hasNativePager;
 }
 
 NSView *FirstRenderer(NSView *view) {

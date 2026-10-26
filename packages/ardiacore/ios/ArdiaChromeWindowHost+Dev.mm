@@ -199,7 +199,7 @@ NSDictionary *ProbeFrame(NSWindow *window, ArdiaWindowFullScreen *state, CFTimeI
       @"fullScreen" : @(IsWindowFullScreen(window)),
       @"styleMask" : @((window.styleMask & NSWindowStyleMaskFullScreen) != 0),
       @"acted" : @(objc_getAssociatedObject(window, kActedFullScreenKey) != nil),
-      @"chromeCounts" : @([coreWindow respondsToSelector:@selector(actedFullScreen)] && coreWindow.actedFullScreen),
+      @"chromeCounts" : @(coreWindow.actedFullScreen),
     } mutableCopy];
     if (ArdiaWindowFullScreen *page = [ArdiaWindowFullScreen ofWindow:coreWindow create:NO]) state[@"pageFullScreen"] = [page state];
     NSData *json = [NSJSONSerialization dataWithJSONObject:state options:0 error:nil];
@@ -409,7 +409,7 @@ NSDictionary *ProbeFrame(NSWindow *window, ArdiaWindowFullScreen *state, CFTimeI
     info[@"appearance"] = window.appearance.name ?: @"";
     NSWindow *sheet = window.attachedSheet;
     info[@"sheet"] = sheet ? [NSString stringWithFormat:@"%@ %@", sheet.className, NSStringFromRect(sheet.frame)] : @"";
-    if ([sheet.windowController respondsToSelector:@selector(window)] || sheet) {
+    if (sheet) {
       NSMutableArray *texts = [NSMutableArray array];
       NSMutableArray *stack = [NSMutableArray arrayWithObject:sheet.contentView ?: [NSView new]];
       while (stack.count) {

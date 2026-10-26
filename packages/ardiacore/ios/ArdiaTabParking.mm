@@ -60,8 +60,7 @@ NSView *ParkingView() {
 }
 
 void CloseNow(ArdiaCoreTab *tab) {
-  if ([tab respondsToSelector:@selector(closeNow)]) [tab closeNow];
-  else [tab close];
+  [tab closeNow];
 }
 
 void CloseOpenTab(ArdiaCoreTab *tab) {

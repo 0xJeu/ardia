@@ -1,6 +1,6 @@
 import { engineCall } from "./engine";
 import { Cef } from "./native";
-import { WebKit, isWebKitDownload, isWebKitPermission, webKitListener } from "./webkit";
+import { WebKit, isWebKitDownload, isWebKitPermission } from "./webkit";
 
 export type DownloadState = "downloading" | "finished" | "failed" | "cancelled";
 
@@ -93,18 +93,18 @@ export const chromeWindows = () => Cef.chromeWindows();
 export const devWindowAction = (windowNumber: number, action: string) => Cef.devWindow(windowNumber, action);
 export const prepareTabTransfer = (transferKey: string) => {
   Cef.prepareTransfer(transferKey);
-  WebKit?.prepareTransfer(transferKey);
+  WebKit.prepareTransfer(transferKey);
 };
 export const releaseTabTransfer = (transferKey: string) => {
   Cef.releaseTransfer(transferKey);
-  WebKit?.releaseTransfer(transferKey);
+  WebKit.releaseTransfer(transferKey);
 };
-export const claimLaunchTab = (transferKey: string, url: string, profile: string) => Cef.claimLaunchTab?.(transferKey, url, profile);
-export const revealTab = (transferKey: string) => Cef.revealTab?.(transferKey);
-export const dropTabReveals = (transferKey: string) => Cef.dropTabReveals?.(transferKey);
-export const revealOffered = (adoptId: string, overTransferKey: string) => Cef.revealOffered?.(adoptId, overTransferKey);
+export const claimLaunchTab = (transferKey: string, url: string, profile: string) => Cef.claimLaunchTab(transferKey, url, profile);
+export const revealTab = (transferKey: string) => Cef.revealTab(transferKey);
+export const dropTabReveals = (transferKey: string) => Cef.dropTabReveals(transferKey);
+export const revealOffered = (adoptId: string, overTransferKey: string) => Cef.revealOffered(adoptId, overTransferKey);
 export type LinkRoute = { profile?: string; adoptIds?: (string | null)[]; dismissed?: number[] };
-export const routeLinkTabs = (urls: string[]): Promise<LinkRoute> => Cef.routeLinkTabs?.(urls) ?? Promise.resolve({});
+export const routeLinkTabs = (urls: string[]): Promise<LinkRoute> => Cef.routeLinkTabs(urls);
 export const listComponents = () => Cef.components();
 
 export const beginTracing = () => Cef.beginTracing();
@@ -123,22 +123,22 @@ export const systemState = () => Cef.systemState();
 export const onSystemState = (listener: (state: SystemState) => void) => Cef.addListener("onSystemState", listener);
 
 export const setDisplayMediaPicker = (enabled: boolean) => Cef.setDisplayMediaPicker(enabled);
-export const setAutoPictureInPicture = (enabled: boolean) => Cef.setAutoPictureInPicture?.(enabled) ?? Promise.resolve();
-export const setVideoUpscaling = (enabled: boolean) => Cef.setVideoUpscaling?.(enabled) ?? Promise.resolve();
-export const setPeekModifier = (modifier: "alt" | "shift" | "off") => Cef.setPeekModifier?.(modifier) ?? Promise.resolve();
-export const setSplitLinkModifier = (modifier: "alt" | "altShift") => Cef.setSplitLinkModifier?.(modifier) ?? Promise.resolve();
-export const setSelectionPopover = (enabled: boolean) => Cef.setSelectionPopover?.(enabled) ?? Promise.resolve();
+export const setAutoPictureInPicture = (enabled: boolean) => Cef.setAutoPictureInPicture(enabled);
+export const setVideoUpscaling = (enabled: boolean) => Cef.setVideoUpscaling(enabled);
+export const setPeekModifier = (modifier: "alt" | "shift" | "off") => Cef.setPeekModifier(modifier);
+export const setSplitLinkModifier = (modifier: "alt" | "altShift") => Cef.setSplitLinkModifier(modifier);
+export const setSelectionPopover = (enabled: boolean) => Cef.setSelectionPopover(enabled);
 export const setSearchEngineName = (name: string) => Cef.setSearchEngineName(name);
 export const getDisplayMediaSources = () => Cef.displayMediaSources();
 
 export const onDownload = (listener: (d: Download) => void) => {
   const chromium = Cef.addListener("onDownload", listener);
-  const webkit = webKitListener("onDownload", listener);
+  const webkit = WebKit.addListener("onDownload", listener);
   return { remove: () => (chromium.remove(), webkit.remove()) };
 };
 const downloadCommand = (action: "cancel" | "pause" | "resume", id: string) =>
   isWebKitDownload(id)
-    ? (WebKit?.downloadCommand(action, id) ?? Promise.resolve())
+    ? WebKit.downloadCommand(action, id)
     : action === "cancel"
       ? Cef.cancelDownload(id)
       : action === "pause"
@@ -155,22 +155,22 @@ export const setDownloadSettings = (patch: Partial<Pick<DownloadSettings, "folde
 
 export const onPermission = (listener: (p: PermissionRequest) => void) => {
   const chromium = Cef.addListener("onPermission", listener);
-  const webkit = webKitListener("onPermission", listener);
+  const webkit = WebKit.addListener("onPermission", listener);
   return { remove: () => (chromium.remove(), webkit.remove()) };
 };
 export const onPermissionDismissed = (listener: (p: { id: string }) => void) => {
   const chromium = Cef.addListener("onPermissionDismissed", listener);
-  const webkit = webKitListener("onPermissionDismissed", listener);
+  const webkit = WebKit.addListener("onPermissionDismissed", listener);
   return { remove: () => (chromium.remove(), webkit.remove()) };
 };
 export const resolvePermission = (id: string, result: PermissionResult, remember = false) =>
-  isWebKitPermission(id) ? (WebKit?.resolvePermission(id, result, remember) ?? Promise.resolve()) : Cef.resolvePermission(id, result, remember);
+  isWebKitPermission(id) ? WebKit.resolvePermission(id, result, remember) : Cef.resolvePermission(id, result, remember);
 
 export type BrowsingDataType = "history" | "siteData" | "cache" | "downloads";
 export const clearBrowsingData = (profile: string, types: BrowsingDataType[], since?: number) =>
-  Promise.all([Cef.clearBrowsingData(profile, types, since ?? null), WebKit?.clearBrowsingData(profile, types, since ?? null).catch(() => {})]).then(() => {});
+  Promise.all([Cef.clearBrowsingData(profile, types, since ?? null), WebKit.clearBrowsingData(profile, types, since ?? null).catch(() => {})]).then(() => {});
 export const releaseProfile = (profile: string) => Cef.releaseProfile(profile);
 export const deleteProfileData = async (profile: string): Promise<string[]> => {
-  const [chromium, webkit] = await Promise.all([Cef.deleteProfileData(profile), WebKit?.deleteProfileData(profile).catch(() => false) ?? true]);
+  const [chromium, webkit] = await Promise.all([Cef.deleteProfileData(profile), WebKit.deleteProfileData(profile).catch(() => false)]);
   return [...(chromium?.remaining ?? ["data"]), ...(webkit ? [] : ["WebKit data"])];
 };

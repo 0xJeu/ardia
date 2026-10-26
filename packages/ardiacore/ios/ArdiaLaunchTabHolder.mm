@@ -80,8 +80,7 @@ static BOOL HeldSelector(SEL selector) {
 
 - (void)forwardInvocation:(NSInvocation *)invocation {
   if (!HeldSelector(invocation.selector) || invocation.methodSignature.numberOfArguments < 3) return [super forwardInvocation:invocation];
-  if (invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:) ||
-      invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:origin:)) {
+  if (invocation.selector == @selector(tab:didReceivePageMessage:json:frame:main:origin:)) {
     __unsafe_unretained ArdiaCoreTab *tab = nil;
     __unsafe_unretained NSString *kind = nil;
     __unsafe_unretained NSString *json = nil;
@@ -93,7 +92,7 @@ static BOOL HeldSelector(SEL selector) {
     [invocation getArgument:&frame atIndex:5];
     [invocation getArgument:&main atIndex:6];
     __unsafe_unretained NSString *origin = nil;
-    if (invocation.methodSignature.numberOfArguments > 7) [invocation getArgument:&origin atIndex:7];
+    [invocation getArgument:&origin atIndex:7];
     if ([kind isEqualToString:@"hello"]) {
       id hello = JSONValue(json);
       AnswerHello(tab, _profile, [hello isKindOfClass:NSDictionary.class] ? hello : nil, frame ?: @"", main);
@@ -148,7 +147,7 @@ static BOOL HeldSelector(SEL selector) {
     for (; next < ordered.count && [ordered[next][@"order"] unsignedIntegerValue] < order; next++) {
       NSDictionary *held = ordered[next];
       NSString *frame = held[@"frame"];
-      if (frame.length && [tab respondsToSelector:@selector(hasLiveFrame:)] && ![tab hasLiveFrame:frame]) continue;
+      if (frame.length && ![tab hasLiveFrame:frame]) continue;
       [view tab:tab
           didReceivePageMessage:held[@"kind"]
                            json:held[@"json"]

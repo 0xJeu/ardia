@@ -59,7 +59,7 @@ NSString *PNGDataURL(NSImage *image) {
         @"themeColor" : theme ?: NSNull.null,
         @"themeColorSource" : themeSource ?: NSNull.null,
   };
-  if ([_tab respondsToSelector:@selector(initialDocumentAccessed)] && [_tab respondsToSelector:@selector(committedInitial)]) {
+  if (_tab) {
     NSMutableDictionary *withInitial = [navigation mutableCopy];
     withInitial[@"initialDocumentAccessed"] = @(_tab.initialDocumentAccessed);
     withInitial[@"committedInitial"] = @(_tab.committedInitial);
@@ -163,10 +163,6 @@ NSString *PNGDataURL(NSImage *image) {
   if (!url.length || [url isEqualToString:_lastFavicon]) return;
   _lastFavicon = url;
   [self emit:@"favicon" payload:@{@"url" : url, @"urls" : @[ url ]}];
-}
-
-- (void)loadURL:(NSString *)url {
-  [self loadURL:url userInitiated:NO];
 }
 
 - (void)loadURL:(NSString *)url userInitiated:(BOOL)userInitiated {

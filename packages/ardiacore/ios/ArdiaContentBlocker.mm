@@ -71,7 +71,7 @@ void LoadIntoProfile(NSString *profile, void (^then)(NSString *error)) {
     ardia_host::WithProfile(profile, ^(ArdiaCoreProfile *p) {
       if ([LoadedProfiles() containsObject:profile]) return then(nil);
       NSString *path = gExtensionPath;
-      if (!p || !path || ![p respondsToSelector:@selector(loadComponentExtension:)]) return then(@"not loaded");
+      if (!p || !path) return then(@"not loaded");
       NSString *loaded = [p loadComponentExtension:path];
       if (![loaded isEqualToString:ExtensionId()]) {
         NSLog(@"[blocker] component load failed (%@)", loaded);
@@ -186,12 +186,11 @@ void LoadHeld(NSString *profile) {
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(profile);
   const bool isDefault = profile.length == 0;
   const bool firstLoad = p && ![LoadedProfiles() containsObject:profile];
-  const bool hold = firstLoad && [p respondsToSelector:@selector(holdNavigationsUntilRulesetsOf:)] &&
-                    (isDefault ? LiteSettingsPending(p) : !gLaunching);
+  const bool hold = firstLoad && (isDefault ? LiteSettingsPending(p) : !gLaunching);
   if (hold) [p holdNavigationsUntilRulesetsOf:ExtensionId()];
   void (^release)(NSString *) = ^(NSString *why) {
     if (!hold) return;
-    if (!why && [p respondsToSelector:@selector(releaseNavigationHoldReady)]) [p releaseNavigationHoldReady];
+    if (!why) [p releaseNavigationHoldReady];
     else [p releaseNavigationHold:why ?: @"uBlock Origin is ready"];
   };
   void (^load)(void) = ^{

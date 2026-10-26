@@ -351,8 +351,7 @@ ArdiaEarlyShown *ShownForWindow(NSWindow *window) {
   little.expectedURL = url;
   [self attachPage:tab key:mark];
   if (little.tab == tab && !little.inputBlock) {
-    BOOL answered = NO;
-    little.inputBlock = TabCall(tab, @"suppressInput", &answered);
+    little.inputBlock = [tab suppressInput];
     ReleaseFocusFrom(tab.view);
   }
   __weak ArdiaEarlyShown *weakLittle = little;

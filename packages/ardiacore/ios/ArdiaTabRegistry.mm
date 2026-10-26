@@ -63,11 +63,6 @@ constexpr int64_t kOfferSeconds = 30;
 
 namespace ardia_host {
 
-bool EngineHasTabModel() {
-  static const bool has = [ArdiaCoreWindow instancesRespondToSelector:@selector(adoptTab:)];
-  return has;
-}
-
 namespace {
 const void *kBrowserIdKey = &kBrowserIdKey;
 NSMapTable<NSNumber *, ArdiaCoreTab *> *TabsById() {

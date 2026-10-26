@@ -108,7 +108,6 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface ArdiaWebView (Navigation)
-- (void)loadURL:(NSString *)url;
 - (void)loadURL:(NSString *)url userInitiated:(BOOL)userInitiated NS_SWIFT_NAME(loadURL(_:userInitiated:));
 - (void)goBack;
 - (void)goForward;

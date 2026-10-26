@@ -75,7 +75,7 @@ NSData *PNG(NSImage *image, int pixels, int *width, int *height) {
 
 void Download(NSString *url, NSString *profileName, void (^done)(NSData *_Nullable data)) {
   void (^fetch)(ArdiaCoreProfile *) = ^(ArdiaCoreProfile *profile) {
-    if (!profile || profile.destroyed || ![profile respondsToSelector:@selector(fetchIcon:maxBytes:completion:)]) return done(nil);
+    if (!profile || profile.destroyed) return done(nil);
     [profile fetchIcon:url maxBytes:kMaxBytes completion:done];
   };
   if (ardia_host::IsIncognito(profileName)) return fetch(ardia_host::LoadedProfile(profileName));

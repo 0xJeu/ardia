@@ -30,9 +30,7 @@ static const NSTimeInterval kPageCoverLimit = 4;
 
 + (void)coverTab:(ArdiaCoreTab *)tab then:(void (^)(ArdiaPageCover *cover))then {
   NSView *page = tab.view;
-  if (gPageCoverOff || !page.window || page.isHiddenOrHasHiddenAncestor ||
-      ![tab respondsToSelector:@selector(copyPicture:completion:)])
-    return then(nil);
+  if (gPageCoverOff || !page.window || page.isHiddenOrHasHiddenAncestor) return then(nil);
   __weak ArdiaCoreTab *weakTab = tab;
   __weak NSWindow *weakWindow = page.window;
   __weak NSView *weakHost = page.superview;

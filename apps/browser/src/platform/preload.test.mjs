@@ -5,40 +5,25 @@ globalThis.__DEV__ = false;
 const { docs } = await import("../test-native/index.ts");
 const ks = await import("./killSwitches.ts");
 
-let calls = [];
-let answer = () => Promise.resolve({});
-globalThis.acTestEngineCall = (name, profile, args) => {
-  calls.push({ name, profile, ...args });
-  return answer(name);
-};
 mock.timers.enable({ apis: ["setTimeout"] });
 const preload = await import("./preload.ts");
-const settle = () => new Promise((r) => setImmediate(r));
 const setSwitches = (switches) => {
   docs.set("switches-cache.json", JSON.stringify({ version: 1, switches }));
   ks.reloadSwitches();
 };
 
-test("the engine is asked once, a moment after launch, with a call that changes nothing", async () => {
-  answer = () => Promise.reject(new Error("profile not loaded"));
+test("no page is made ahead until a moment after launch", () => {
+  setSwitches({});
   assert.equal(preload.newTabPrewarmOn(), false);
-  mock.timers.tick(1500);
-  await settle();
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0], { name: "ac_omnibox_opened", profile: "" });
-  assert.equal(preload.newTabPrewarmOn(), false);
-  answer = () => Promise.resolve({ prewarm: 2 });
-  mock.timers.tick(1500);
-  await settle();
-  assert.equal(calls.length, 2);
-  assert.equal(preload.engineHasPrewarmFixes(), true);
-  mock.timers.tick(10_000);
-  await settle();
-  assert.equal(calls.length, 2);
+  mock.timers.tick(1499);
+  assert.equal(preload.prewarmAllowed(), false);
+  mock.timers.tick(1);
+  assert.equal(preload.prewarmAllowed(), true);
+  assert.equal(preload.newTabPrewarmOn(), true);
 });
 
 test("newTabPrewarm follows its switch (and the bench's own setting)", () => {
-  preload.setEngineForTests(true);
+  preload.setLaunchSettledForTests(true);
   setSwitches({});
   assert.equal(preload.newTabPrewarmOn(), true);
   setSwitches({ newTabPrewarm: false });
@@ -48,19 +33,4 @@ test("newTabPrewarm follows its switch (and the bench's own setting)", () => {
   assert.equal(preload.newTabPrewarmOn(), false);
   preload.setNewTabPrewarm(true);
   assert.equal(preload.newTabPrewarmOn(), true);
-});
-
-test("an engine that answers without the window-close fix ({}, 5c9d0422's) makes no page ahead", async () => {
-  answer = () => Promise.resolve({});
-  const older = await import(`./preload.ts?older`);
-  mock.timers.tick(1500);
-  await settle();
-  assert.equal(older.engineHasPrewarmFixes(), false);
-  assert.equal(older.newTabPrewarmOn(), false);
-});
-
-test("an engine without the fixes (it doesn't know the call): no prewarm", () => {
-  preload.setEngineForTests(false);
-  setSwitches({});
-  assert.equal(preload.newTabPrewarmOn(), false);
 });

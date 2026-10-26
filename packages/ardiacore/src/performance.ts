@@ -11,4 +11,4 @@ export const setBatterySaver = (mode: BatterySaverMode) => engineCall<BatterySav
 
 export const trimEngineMemory = () => engineCall<{ ok: boolean }>("ac_memory_trim", "");
 
-export const inputIdleSeconds = () => Cef.inputIdleSeconds?.() ?? null;
+export const inputIdleSeconds = () => Cef.inputIdleSeconds();

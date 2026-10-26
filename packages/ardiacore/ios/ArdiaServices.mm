@@ -201,14 +201,13 @@ NSString *StoreFolder(NSString *profile, NSString *extensionId, id version) {
 
 + (BOOL)boolPreference:(NSString *)name profile:(NSString *)profile {
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(ardia_host::OriginalProfileName(profile));
-  if (![p respondsToSelector:@selector(boolPreference:)]) return YES;
   NSNumber *value = [p boolPreference:name];
   return value ? value.boolValue : YES;
 }
 
 + (void)setBoolPreference:(NSString *)name value:(BOOL)value profile:(NSString *)profile {
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(ardia_host::OriginalProfileName(profile));
-  if ([p respondsToSelector:@selector(setBoolPreference:value:)]) [p setBoolPreference:name value:value];
+  [p setBoolPreference:name value:value];
 }
 
 + (void)addresses:(NSString *)profile completion:(ArdiaCoreResult)completion {
@@ -459,11 +458,8 @@ NSMutableDictionary<NSString *, NSString *> *DownloadProfiles() {
 + (void)clearBrowsingData:(NSString *)profile types:(NSArray<NSString *> *)types since:(double)sinceMs completion:(void (^)(void))completion {
   if ([types containsObject:@"history"]) [ArdiaEarlyWindow forgetPictures];
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(profile);
-  if ([p respondsToSelector:@selector(clearBrowsingData:since:completion:)]) {
-    [p clearBrowsingData:types since:[NSDate dateWithTimeIntervalSince1970:sinceMs / 1000] completion:completion];
-    return;
-  }
-  completion();
+  if (!p) return completion();
+  [p clearBrowsingData:types since:[NSDate dateWithTimeIntervalSince1970:sinceMs / 1000] completion:completion];
 }
 
 @end

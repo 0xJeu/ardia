@@ -247,7 +247,7 @@ void AcceptDrops(NSView *root, BOOL accept) {
 
 - (void)setContentsBackgroundColor:(NSColor *)color {
   _contentsBackgroundColor = color;
-  if ([_tab respondsToSelector:@selector(setContentsBackgroundColor:)]) _tab.contentsBackgroundColor = color;
+  _tab.contentsBackgroundColor = color;
 }
 
 - (void)setPageColor:(NSString *)color {

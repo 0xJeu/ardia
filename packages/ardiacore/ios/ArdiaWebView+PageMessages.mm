@@ -60,7 +60,7 @@ static char kScriptFramesKey;
 
 static NSDictionary *DisplayMediaAudioOffer(NSDictionary *message) {
   if (!Flag(message, @"audio")) return nil;
-  NSDictionary *support = [ArdiaCoreEngine respondsToSelector:@selector(desktopCaptureAudio)] ? ArdiaCoreEngine.desktopCaptureAudio : @{};
+  NSDictionary *support = ArdiaCoreEngine.desktopCaptureAudio;
   const bool system = Flag(support, @"system"), application = Flag(support, @"application");
   NSString *preference = Text(message, @"windowAudio", 16);
   NSString *window = nil;
@@ -89,8 +89,7 @@ void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSDictionary *hello, NSSt
     if (!frameId.length || !to) return;
     NSMutableDictionary *config = [NSMutableDictionary dictionary];
     if (blockAutoplay) config[@"blockAutoplay"] = @YES;
-    if (gDisplayMediaPicker && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:audio:)])
-      config[@"displayMediaPicker"] = @YES;
+    if (gDisplayMediaPicker) config[@"displayMediaPicker"] = @YES;
     if (main && ArdiaFieldTimingEnabled()) config[@"fieldTiming"] = @YES;
     if (main) config[@"selectionPopover"] = @(gSelectionPopover);
     config[@"peek"] = gPeekModifier;
@@ -128,10 +127,6 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
   if (enabled == gSelectionPopover) return;
   gSelectionPopover = enabled;
   for (ArdiaWebView *view in LiveViews().allObjects) [view pushSelectionPopover];
-}
-
-- (void)tab:(ArdiaCoreTab *)tab didReceivePageMessage:(NSString *)kind json:(NSString *)json frame:(NSString *)frameId main:(BOOL)main {
-  [self tab:tab didReceivePageMessage:kind json:json frame:frameId main:main origin:nil];
 }
 
 - (void)tab:(ArdiaCoreTab *)tab
@@ -276,10 +271,6 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
   }
 }
 
-- (void)tab:(ArdiaCoreTab *)tab didReceivePageMessage:(NSString *)kind json:(NSString *)json {
-  [self tab:tab didReceivePageMessage:kind json:json frame:@"" main:YES];
-}
-
 - (void)noteScriptFrame:(NSString *)frameId main:(BOOL)main {
   InstallPeekMonitor();
   NSMutableOrderedSet<NSString *> *frames = ScriptFramesOf(_tab);
@@ -314,7 +305,7 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
   if (!request) return;
   [_displayRequests removeObjectForKey:requestId];
   NSString *audio = shareAudio && sourceId.length ? DisplayMediaAudioFor(Field<NSDictionary>(request, @"audio"), sourceId) : nil;
-  if (sourceId.length && _tab && [ArdiaCoreEngine respondsToSelector:@selector(allowDesktopCapture:tab:frame:origin:audio:)])
+  if (sourceId.length && _tab)
     [ArdiaCoreEngine allowDesktopCapture:sourceId
                                   tab:_tab
                                 frame:[request[@"frame"] length] ? request[@"frame"] : nil

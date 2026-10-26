@@ -7,11 +7,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) BOOL canSwipeForward;
 @property (nonatomic, readonly) BOOL tracksUnavailableDirections;
 @property (nonatomic, readonly) BOOL allowsVerticalMotion;
-@optional
 @property (nonatomic, readonly) BOOL isPager;
 @property (nonatomic, readonly) BOOL hasNativePager;
 - (void)pagerInput:(NSString *)phase distance:(CGFloat)distance direction:(int)direction timestamp:(NSTimeInterval)timestamp;
-@required
 - (void)swipeEvent:(NSDictionary<NSString *, id> *)event;
 @end
 

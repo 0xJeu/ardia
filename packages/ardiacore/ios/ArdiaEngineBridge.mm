@@ -35,17 +35,9 @@ NSString *RealPath(NSString *path) {
 NSString *ProfileNamed(NSString *dir) {
   NSString *real = RealPath(dir);
   for (ArdiaCoreProfile *profile in ardia_host::LoadedProfiles())
-    if (!([profile respondsToSelector:@selector(offTheRecord)] && profile.offTheRecord) && [RealPath(profile.path) isEqualToString:real]) return ardia_host::ProfileName(profile);
+    if (!profile.offTheRecord && [RealPath(profile.path) isEqualToString:real]) return ardia_host::ProfileName(profile);
   NSString *name = real.lastPathComponent;
   return [name hasPrefix:@"Profile "] ? [name substringFromIndex:8] : @"";
-}
-
-int EngineABI() {
-  static int abi = [] {
-    auto version = (ac_engine_abi_version_t)Symbol("ac_engine_abi_version");
-    return version ? version() : 0;
-  }();
-  return abi;
 }
 
 NSMutableDictionary<NSString *, NSMutableArray *> *Observers() {
@@ -114,7 +106,7 @@ void InstallSink() {
       @"ac_site_settings_set", @"ac_site_settings_reset", @"ac_site_data_clear", @"ac_zoom_set", @"ac_external_apps_remove",
       @"ac_browsing_data_clear"
     ]];
-    if ([session containsObject:name] && EngineABI() >= 2) {
+    if ([session containsObject:name]) {
       NSData *bytes = [(args.length ? args : @"{}") dataUsingEncoding:NSUTF8StringEncoding];
       NSMutableDictionary *parsed = [[NSJSONSerialization JSONObjectWithData:bytes options:0 error:nil] mutableCopy];
       if (![parsed isKindOfClass:NSMutableDictionary.class]) return completion(JSON(@{@"error" : @"bad arguments"}));
@@ -148,7 +140,7 @@ void InstallSink() {
   }
   void (^done)(NSString *) = [completion copy];
   ardia_host::WithProfile(profile ?: @"", ^(ArdiaCoreProfile *p) {
-    if (!p || !ArdiaHost.isStarted || ([p respondsToSelector:@selector(offTheRecord)] && p.offTheRecord)) {
+    if (!p || !ArdiaHost.isStarted || p.offTheRecord) {
       wipe();
       return done(JSON(@{@"error" : @"profile not loaded"}));
     }
@@ -172,8 +164,5 @@ void InstallSink() {
   InstallSink();
 }
 
-+ (BOOL)exports:(NSString *)name {
-  return Symbol(name.UTF8String) != nullptr;
-}
 
 @end

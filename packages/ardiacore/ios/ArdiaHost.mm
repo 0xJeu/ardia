@@ -35,7 +35,7 @@ namespace {
 BOOL gMenuShortcutsReady;
 
 void SendReservedShortcuts() {
-  if (!gStarted || !gMenuShortcutsReady || ![ArdiaCoreEngine respondsToSelector:@selector(reservedShortcutsChanged)]) return;
+  if (!gStarted || !gMenuShortcutsReady) return;
   [ArdiaCoreEngine reservedShortcutsChanged];
 }
 
@@ -117,29 +117,26 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 
 + (void)resolveExtensionInstallPrompt:(NSString *)requestId accepted:(BOOL)accepted {
   [gInstallPrompts removeObjectForKey:requestId ?: @""];
-  if ([ArdiaCoreEngine respondsToSelector:@selector(resolveExtensionInstallPrompt:accepted:)])
-    [ArdiaCoreEngine resolveExtensionInstallPrompt:requestId accepted:accepted];
+  [ArdiaCoreEngine resolveExtensionInstallPrompt:requestId accepted:accepted];
 }
 
 + (void)beginTracing:(void (^)(BOOL))completion {
-  if (![ArdiaCoreEngine respondsToSelector:@selector(beginTracing:)]) return completion(NO);
   [ArdiaCoreEngine beginTracing:completion];
 }
 
 + (void)endTracing:(BOOL)keep completion:(void (^)(NSString *))completion {
-  if (![ArdiaCoreEngine respondsToSelector:@selector(endTracing:completion:)]) return completion(nil);
   [ArdiaCoreEngine endTracing:keep completion:completion];
 }
 
 + (BOOL)isTracing {
-  return [ArdiaCoreEngine respondsToSelector:@selector(isTracing)] && ArdiaCoreEngine.isTracing;
+  return ArdiaCoreEngine.isTracing;
 }
 
 + (void)deleteProfileData:(NSString *)profile completion:(void (^)(NSArray<NSString *> *))completion {
   if (ardia_host::IsIncognito(profile)) return completion(@[]);
   ArdiaCoreEngine *engine = ArdiaCoreEngine.sharedEngine;
   ArdiaCoreProfile *p = ardia_host::LoadedProfile(profile);
-  if (!profile.length || ![engine respondsToSelector:@selector(deleteProfile:completion:)]) return completion(@[ @"data" ]);
+  if (!profile.length || !engine) return completion(@[ @"data" ]);
   [DeletedProfiles() addObject:profile];
   void (^remove)(ArdiaCoreProfile *) = ^(ArdiaCoreProfile *loaded) {
     if (!loaded) {
@@ -172,17 +169,17 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
     ardia_host::ForgetPrivateNavigationDownloads(profile);
     if ([Profiles().allValues containsObject:p]) return;
   }
-  if (p && [engine respondsToSelector:@selector(releaseProfile:)]) [engine releaseProfile:p];
+  if (p) [engine releaseProfile:p];
 }
 
 + (BOOL)stopCapture:(int)browserId {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
-  return [tab respondsToSelector:@selector(stopCapture)] && [tab stopCapture];
+  return [tab stopCapture];
 }
 
 + (BOOL)showAutofillSuggestions:(int)browserId passwords:(BOOL)passwords {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
-  return [tab respondsToSelector:@selector(showAutofillSuggestions:)] && [tab showAutofillSuggestions:passwords];
+  return [tab showAutofillSuggestions:passwords];
 }
 
 + (void (^)(NSString *, NSDictionary *))chromeUIHandler {
@@ -194,15 +191,15 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 }
 
 + (void)deviceChooser:(int)chooserId select:(int)index {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(selectDevice:index:)]) [ArdiaCoreEngine selectDevice:chooserId index:index];
+  [ArdiaCoreEngine selectDevice:chooserId index:index];
 }
 
 + (void)deviceChooser:(int)chooserId action:(NSString *)action {
-  if ([action isEqualToString:@"cancel"] && [ArdiaCoreEngine respondsToSelector:@selector(cancelDeviceChooser:)])
+  if ([action isEqualToString:@"cancel"])
     [ArdiaCoreEngine cancelDeviceChooser:chooserId];
-  else if ([action isEqualToString:@"refresh"] && [ArdiaCoreEngine respondsToSelector:@selector(refreshDeviceChooser:)])
+  else if ([action isEqualToString:@"refresh"])
     [ArdiaCoreEngine refreshDeviceChooser:chooserId];
-  else if ([action isEqualToString:@"settings"] && [ArdiaCoreEngine respondsToSelector:@selector(openDeviceChooserSettings:)])
+  else if ([action isEqualToString:@"settings"])
     [ArdiaCoreEngine openDeviceChooserSettings:chooserId];
 }
 
@@ -212,65 +209,62 @@ NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDic
 
 + (BOOL)devShowBluetoothChooser:(int)browserId unauthorized:(BOOL)unauthorized {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
-  return [tab respondsToSelector:@selector(devShowBluetoothChooser:)] && [tab devShowBluetoothChooser:unauthorized];
+  return [tab devShowBluetoothChooser:unauthorized];
 }
 
 + (NSArray<NSDictionary *> *)testChooserEvents {
-  return [ArdiaCoreEngine respondsToSelector:@selector(testChooserEvents)] ? ArdiaCoreEngine.testChooserEvents ?: @[] : @[];
+  return ArdiaCoreEngine.testChooserEvents ?: @[];
 }
 
 + (BOOL)shareTabInstead:(int)capturerBrowserId target:(int)targetBrowserId {
   ArdiaCoreTab *capturer = ardia_host::TabWithBrowserId(capturerBrowserId);
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(targetBrowserId);
-  return capturer && [tab respondsToSelector:@selector(shareThisTabInsteadFor:)] && [tab shareThisTabInsteadFor:capturer];
+  return capturer && [tab shareThisTabInsteadFor:capturer];
 }
 
 + (BOOL)showCastDialog:(int)browserId {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
-  return [tab respondsToSelector:@selector(showCastDialog)] && [tab showCastDialog];
+  return [tab showCastDialog];
 }
 
 + (void)castDialog:(int)dialogId start:(NSString *)sink mode:(int)mode {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(startCasting:sink:mode:)]) [ArdiaCoreEngine startCasting:dialogId sink:sink mode:mode];
+  [ArdiaCoreEngine startCasting:dialogId sink:sink mode:mode];
 }
 
 + (void)castDialog:(int)dialogId stop:(NSString *)route {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(stopCasting:route:)]) [ArdiaCoreEngine stopCasting:dialogId route:route];
+  [ArdiaCoreEngine stopCasting:dialogId route:route];
 }
 
 + (void)closeCastDialog:(int)dialogId {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(closeCastDialog:)]) [ArdiaCoreEngine closeCastDialog:dialogId];
+  [ArdiaCoreEngine closeCastDialog:dialogId];
 }
 
 + (void)watchCastRoutes:(NSString *)profileName {
   ardia_host::WithProfile(profileName, ^(ArdiaCoreProfile *profile) {
-    if ([profile respondsToSelector:@selector(watchCastRoutes)]) [profile watchCastRoutes];
+    [profile watchCastRoutes];
   });
 }
 
 + (void)terminateCastRoute:(NSString *)route {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(terminateCastRoute:)]) [ArdiaCoreEngine terminateCastRoute:route];
+  [ArdiaCoreEngine terminateCastRoute:route];
 }
 
 + (void)resolveExternalApp:(NSString *)requestId open:(BOOL)open remember:(BOOL)remember {
-  if ([ArdiaCoreEngine respondsToSelector:@selector(resolveExternalApp:open:remember:)])
-    [ArdiaCoreEngine resolveExternalApp:requestId open:open remember:remember];
+  [ArdiaCoreEngine resolveExternalApp:requestId open:open remember:remember];
 }
 
 + (NSDictionary *)actionStates:(int)browserId extensions:(NSArray<NSString *> *)ids {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
-  return [tab respondsToSelector:@selector(actionStatesForExtensions:)] ? [tab actionStatesForExtensions:ids] ?: @{} : @{};
+  return [tab actionStatesForExtensions:ids] ?: @{};
 }
 
 + (NSString *)sidePanelURL:(int)browserId extension:(NSString *)extensionId {
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);
-  return [tab respondsToSelector:@selector(sidePanelURLForExtension:)] ? [tab sidePanelURLForExtension:extensionId] : nil;
+  return [tab sidePanelURLForExtension:extensionId];
 }
 
 + (void)resolvePermission:(NSString *)requestId result:(NSString *)result remember:(BOOL)remember {
-  ArdiaCoreEngine *engine = ArdiaCoreEngine.sharedEngine;
-  if ([engine respondsToSelector:@selector(resolvePermission:result:remember:)])
-    [engine resolvePermission:requestId result:result remember:remember];
+  [ArdiaCoreEngine.sharedEngine resolvePermission:requestId result:result remember:remember];
 }
 
 + (NSArray<NSDictionary<NSString *, id> *> *)displayMediaSources {

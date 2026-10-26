@@ -38,7 +38,7 @@ using namespace ardia_host;
   NSBundle *bundle = [NSBundle bundleForClass:ArdiaHostEngineDelegate.class];
   NSString *path = [bundle pathForResource:@"page_script" ofType:@"js"];
   NSString *script = path ? [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] : nil;
-  if (script && [engine respondsToSelector:@selector(setPageScript:)]) engine.pageScript = script;
+  if (script) engine.pageScript = script;
   if (gAppKitDidFinish) StartEarlyWindow();
   else gEarlyWindowPending = true;
 
@@ -110,7 +110,7 @@ using namespace ardia_host;
   NSMutableDictionary *payload = [chooser mutableCopy];
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
   if (auto handler = ArdiaHost.chromeUIHandler) handler(@"deviceChooser", payload);
-  else if ([payload[@"open"] boolValue] && [ArdiaCoreEngine respondsToSelector:@selector(cancelDeviceChooser:)])
+  else if ([payload[@"open"] boolValue])
     [ArdiaCoreEngine cancelDeviceChooser:[payload[@"id"] intValue]];
 }
 
@@ -118,7 +118,7 @@ using namespace ardia_host;
   NSMutableDictionary *payload = [dialog mutableCopy];
   payload[@"browserId"] = @(tab ? ardia_host::BrowserId(tab) : 0);
   if (gChromeUIHandler) gChromeUIHandler(@"castDialog", payload);
-  else if ([payload[@"open"] boolValue] && [ArdiaCoreEngine respondsToSelector:@selector(closeCastDialog:)])
+  else if ([payload[@"open"] boolValue])
     [ArdiaCoreEngine closeCastDialog:[payload[@"id"] intValue]];
 }
 

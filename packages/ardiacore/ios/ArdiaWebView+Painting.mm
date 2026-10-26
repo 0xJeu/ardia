@@ -184,8 +184,7 @@ bool gPaintingScheduled = false;
 }
 
 - (void)markTemporary {
-  if ([_tab respondsToSelector:@selector(setTemporary:)] && _tab.temporary != _temporary) _tab.temporary = _temporary;
-  if (![_tab respondsToSelector:@selector(setTemporarySource:)]) return;
+  if (_tab.temporary != _temporary) _tab.temporary = _temporary;
   ArdiaCoreTab *source = nil;
   if (_temporary && _temporarySource.length)
     for (ArdiaWebView *view in LiveViews().allObjects)

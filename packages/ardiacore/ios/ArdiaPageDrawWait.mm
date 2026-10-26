@@ -11,7 +11,7 @@ static const NSTimeInterval kPageDrawWait = 0.4;
 
 + (void)tab:(ArdiaCoreTab *)tab draws:(NSInteger (^)(BOOL fullScreen, BOOL fills))test then:(void (^)(void))done {
   NSView *page = tab.view;
-  if (!page.window || page.isHiddenOrHasHiddenAncestor || ![tab respondsToSelector:@selector(evaluate:completion:)]) return done();
+  if (!page.window || page.isHiddenOrHasHiddenAncestor) return done();
   ArdiaPageDrawWait *wait = [ArdiaPageDrawWait new];
   wait->_tab = tab;
   wait->_test = test;

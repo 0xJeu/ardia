@@ -68,7 +68,7 @@ void ActWindowFullScreen(ArdiaCoreWindow *coreWindow, BOOL enter, NSTimeInterval
   void (^set)(BOOL) = ^(BOOL on) {
     if (NSWindow *w = weakWindow) objc_setAssociatedObject(w, kActedFullScreenKey, on ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     ArdiaCoreWindow *c = weakCore;
-    if ([c respondsToSelector:@selector(setActedFullScreen:)]) c.actedFullScreen = on;
+    c.actedFullScreen = on;
   };
   NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
   const BOOL trace = [ArdiaLaunchConfig.shared traced:@"visibility"];
@@ -246,7 +246,7 @@ NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges() {
   if (!entered && !ours) {
     _entered = NO;
     ArdiaCoreTab *tab = _tab;
-    if (tab && [tab respondsToSelector:@selector(exitFullscreen)]) return [tab exitFullscreen];
+    if (tab) return [tab exitFullscreen];
   }
   [self sync];
 }

@@ -53,7 +53,7 @@ static ArdiaCoreTab *RestoreSavedHistory(ArdiaWindowController *controller, Ardi
   controller.hostChanges++;
   ArdiaCoreTab *tab = [controller.coreWindow restoreTab:state profile:profile foreground:NO];
   controller.hostChanges--;
-  if ([tab respondsToSelector:@selector(loadIfNeeded)]) [tab loadIfNeeded];
+  [tab loadIfNeeded];
   return tab;
 }
 

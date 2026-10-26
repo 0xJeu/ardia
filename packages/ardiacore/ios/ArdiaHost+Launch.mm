@@ -187,7 +187,7 @@ static void TryEarlyWindow() {
   if (![ArdiaEarlyWindow canShowWindow:focused session:session]) return;
   ArdiaCoreProfile *loaded = ardia_host::LoadedProfile(profile);
   if (!loaded) return;
-  if ([loaded respondsToSelector:@selector(warmSpareRenderer)]) [loaded warmSpareRenderer];
+  [loaded warmSpareRenderer];
   const BOOL shown = [ArdiaEarlyWindow showWindow:focused frame:window[@"frame"] key:key profile:profile backdrop:backdrop];
   [ArdiaWebView startLaunchTab:key url:url profile:profile];
   if (!shown) return;

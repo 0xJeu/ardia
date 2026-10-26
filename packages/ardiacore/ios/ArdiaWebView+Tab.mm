@@ -41,7 +41,7 @@ const char kPageReportsKey = 0;
   [self pushSelectionPopover];
   [self bindRestoreKey];
   [self takePageReports];
-  if ([tab respondsToSelector:@selector(deliverHeldPageMessages)]) [tab deliverHeldPageMessages];
+  [tab deliverHeldPageMessages];
   [self userSightChanged];
   [self adoptIntoWindow];
   NSView *page = tab.view;
@@ -56,7 +56,7 @@ const char kPageReportsKey = 0;
   if (!shownEarly && (_creatingURL.length || tab.loading)) [self holdLittlePage];
   if (_muted) tab.muted = YES;
   if (_pageBackgroundColor) tab.pageBackgroundColor = _pageBackgroundColor;
-  if (_contentsBackgroundColor && [tab respondsToSelector:@selector(setContentsBackgroundColor:)]) tab.contentsBackgroundColor = _contentsBackgroundColor;
+  if (_contentsBackgroundColor) tab.contentsBackgroundColor = _contentsBackgroundColor;
   if (_pageColor) tab.pageColor = _pageColor;
   if (_pendingURL) {
     [self loadNow:_pendingURL userInitiated:_pendingUserInitiated];
@@ -183,9 +183,6 @@ const char kPageReportsKey = 0;
       if (view && view->_tab == removed && removed.closed) [view detach];
     });
   }
-  if (ardia_host::EngineHasTabModel()) return;
-  [self detach];
-  [self emit:@"windowClose" payload:@{}];
 }
 
 - (void)tabActivatedByChrome:(BOOL)chromes {

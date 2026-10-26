@@ -82,7 +82,7 @@ NSView *ArdiaWindowRootView(NSWindow *window) {
 
 + (void)prepareProfiles:(NSArray<NSString *> *)profiles forWindow:(NSWindow *)window {
   ArdiaWindowController *controller = [ArdiaWindowController forNSWindow:window];
-  if (!controller || ![controller.coreWindow respondsToSelector:@selector(prepareProfile:)]) return;
+  if (!controller) return;
   __weak ArdiaCoreWindow *coreWindow = controller.coreWindow;
   for (NSString *profile in profiles)
     ardia_host::WithProfile(profile, ^(ArdiaCoreProfile *p) {

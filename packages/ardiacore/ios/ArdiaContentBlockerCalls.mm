@@ -74,7 +74,7 @@ ArdiaContentBlockerPage *HiddenPage(NSString *key, NSString *profile, ArdiaCoreP
   ArdiaCoreWindow *window = PageWindows()[profile];
   if (!window) {
     PageWindows()[profile] = window = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, 400, 300)];
-    if ([window respondsToSelector:@selector(setInternal:)]) window.internal = YES;
+    window.internal = YES;
   }
   ArdiaCoreTab *tab = [window openTab:[OriginOf(extensionId) stringByAppendingString:file] profile:p foreground:YES];
   return Pages()[key] = tab ? [[ArdiaContentBlockerPage alloc] initWithTab:tab origin:OriginOf(extensionId)] : nil;

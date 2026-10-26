@@ -156,7 +156,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaWindowController *> *StandaloneWindows() {
   if (controller && controller.coreWindow.window) return controller;
   ArdiaCoreWindow *coreWindow = [[ArdiaCoreWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)];
   if (!coreWindow.window) return nil;
-  if ([coreWindow respondsToSelector:@selector(setInternal:)]) coreWindow.internal = YES;
+  coreWindow.internal = YES;
   controller = [[ArdiaWindowController alloc] initWithCoreWindow:coreWindow];
   controller->_standalone = YES;
   [Controllers() setObject:controller forKey:coreWindow.window];
@@ -252,7 +252,7 @@ NSMapTable<ArdiaCoreProfile *, ArdiaWindowController *> *StandaloneWindows() {
   if ([ArdiaTabRegistry viewForTab:tab]) return;
   if (_stray) return HandOffTab(tab);
   ArdiaWebView *openerView = [self viewFor:opener];
-  if ([disposition isEqualToString:@"popup"] && [tab respondsToSelector:@selector(popupFeatures)]) {
+  if ([disposition isEqualToString:@"popup"]) {
     return ardia_host::OpenPopupWindow(tab, openerView);
   }
   if (openerView) {

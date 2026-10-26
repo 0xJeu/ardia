@@ -205,8 +205,7 @@ NSView *Cover(NSView *host, NSDictionary *layout, NSRect *pageRect) {
 
 void Shield(ArdiaEarlyShown *s) {
   s.shielded = YES;
-  BOOL answered = NO;
-  s.inputBlock = TabCall(s.tab, @"suppressInput", &answered);
+  s.inputBlock = [s.tab suppressInput];
   ReleaseFocusFrom(s.tab.view);
   [CATransaction begin];
   [CATransaction setDisableActions:YES];

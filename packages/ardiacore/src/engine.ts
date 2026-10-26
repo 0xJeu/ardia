@@ -20,7 +20,7 @@ function deliverEngineEvent({ topic, payload }: { topic: string; payload: string
   for (const listener of listeners) listener(parsed);
 }
 
-const forwardEngineTopics = () => void Cef.forwardEngineTopics?.([...engineListeners.keys()]);
+const forwardEngineTopics = () => void Cef.forwardEngineTopics([...engineListeners.keys()]);
 
 function stopListening(topic: string, listeners: Set<EngineListener>, listener: EngineListener) {
   if (!listeners.delete(listener) || listeners.size || engineListeners.get(topic) !== listeners) return;
