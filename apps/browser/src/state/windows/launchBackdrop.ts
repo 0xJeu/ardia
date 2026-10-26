@@ -1,6 +1,6 @@
 import type { BrowserState } from "../browser/store";
 import { spaceLookSource, type ThemeBackdropProps } from "../../lib/profileLook";
-import { profileTheme } from "../../components/ui/theme";
+import { profileColorsOf } from "../profiles/looks";
 
 export type LaunchBackdrop = ThemeBackdropProps & {
   dark: boolean;
@@ -16,6 +16,7 @@ export function launchBackdrop(s: Pick<BrowserState, "windows" | "profiles" | "u
   const w = windowId ? s.windows[windowId] : undefined;
   if (!w || w.incognito || w.kind === "small") return null;
   const dark = s.ui.appDark;
-  const theme = profileTheme(s.profiles[w.profileId], dark, spaceLookSource(s.settings));
+  const theme = profileColorsOf(s.profiles[w.profileId], dark, spaceLookSource(s.settings));
+  if (!theme) return null;
   return { dark, vibrancy: true, colors: theme.windowTint, ...theme.backdrop, grainOpacity: theme.grain };
 }

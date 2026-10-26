@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { switchOn } from "../../platform/killSwitches";
 import { ARC_LIGHTS_CENTER, LIGHTS_CENTER, lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "./dockMotion";
-import { layout } from "../../components/ui/theme";
+import { DEFAULT_SIDEBAR_WIDTH } from "../../lib/windowLayout";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { useWindowId } from "../browser/hooks";
 
@@ -33,17 +33,9 @@ export function openingLightsCenter(s: BrowserState, windowId: string): [number,
   const w = s.windows[windowId];
   if (!w) return null;
   const open = w.sidebarOpen ?? true;
-  if ((w.tabLayout ?? s.settings.tabLayout) === "top") return open ? [...TOP_STRIP_LIGHTS_CENTER] : lightsCenter(layout.sidebarWidth);
-  return lightsCenter(open ? 0 : (s.settings.sidebarWidth ?? layout.sidebarWidth), 0, s.settings.addressBar === "sidebar" ? ARC_LIGHTS_CENTER : LIGHTS_CENTER);
+  if ((w.tabLayout ?? s.settings.tabLayout) === "top") return open ? [...TOP_STRIP_LIGHTS_CENTER] : lightsCenter(DEFAULT_SIDEBAR_WIDTH);
+  return lightsCenter(open ? 0 : (s.settings.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH), 0, s.settings.addressBar === "sidebar" ? ARC_LIGHTS_CENTER : LIGHTS_CENTER);
 }
-
-export const SIDEBAR_FIELD = { top: 46, height: layout.rowHeight, radius: 10 } as const;
-export const SIDEBAR_FOOTER_DOWNLOADS = { bottom: 3 + (41 - 3 - 34) / 2, size: 34 } as const;
-export function listTopGap(addressBar: boolean): number {
-  return addressBar ? 6 : layout.pinnedTop - layout.sidebarHeader;
-}
-
-export const SIDEBAR_HEADER_WITH_FIELD = SIDEBAR_FIELD.top + SIDEBAR_FIELD.height;
 
 type UrlAnchor = { left: number; top: number; width: number; sidebar?: { height: number } };
 

@@ -14,7 +14,7 @@ import { webviews } from "../../platform/webviews";
 import { closeWindowDialog } from "../windows/windowClose";
 import { menuCommandAlternate, menuShortcut } from "../commands/commandShortcuts";
 import { openSettings } from "../settings/settingsWindows";
-import { profileAccent } from "../../components/ui/theme";
+import { profileAccentOf } from "../profiles/looks";
 
 const store = () => useBrowser.getState();
 
@@ -173,7 +173,7 @@ export async function openProfileMenu(windowId: string) {
   const items: MenuItem[] = [
     ...s.profileOrder.flatMap((id): MenuItem[] => {
       const profile = s.profiles[id]!;
-      const swatch = profileAccent(profile);
+      const swatch = profileAccentOf(profile);
       const shortcut = menuShortcut(`switchProfile:${id}`, s);
       const alternate = menuCommandAlternate(`switchProfile:${id}`, s);
       const switchItem: MenuItem = { id: `switch:${id}`, title: profile.name, checked: id === current, swatch, ...shortcut, modifiers: shortcut.modifiers ?? [] };

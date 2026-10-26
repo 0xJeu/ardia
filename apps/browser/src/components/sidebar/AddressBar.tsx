@@ -12,7 +12,8 @@ import { extensionsFitting, ToolbarExtensions, useToolbarExtensionsWidth } from 
 import { useHistoryAvailability } from "../../state/tabs/navigation";
 import { toolbarPalette, type ToolbarPalette } from "../ui/toolbarColors";
 import { Button, type ButtonHit, useHover } from "../ui";
-import { setUrlAnchor, SIDEBAR_FIELD } from "../../state/windows/layout";
+import { setUrlAnchor } from "../../state/windows/layout";
+import { SIDEBAR_FIELD } from "./geometry";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
 import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../toolbar/Toolbar";
 import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../window/dockMotion";

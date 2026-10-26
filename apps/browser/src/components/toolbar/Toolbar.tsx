@@ -19,7 +19,8 @@ import { closeHistoryMenu, goBack, goForward, historyItems, toggleHistoryMenu, u
 import { openModeFor, openUrl, toggleBookmarkOfTab } from "../../state/bookmarks/actions";
 import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/actions";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
-import { setToolbarExtensionsWidth, SIDEBAR_FIELD } from "../../state/windows/layout";
+import { setToolbarExtensionsWidth } from "../../state/windows/layout";
+import { SIDEBAR_FIELD } from "../sidebar/geometry";
 import { showUrlBarMenu } from "../omnibox/paste";
 import { ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";

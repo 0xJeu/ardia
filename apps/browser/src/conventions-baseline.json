@@ -2,11 +2,7 @@
   "layout": {},
   "imports": {
     "apps/browser/src/platform/nativeEvents.ts": 2,
-    "apps/browser/src/state/browser/actions.ts": 1,
-    "apps/browser/src/state/littleArdia/actions.ts": 1,
-    "apps/browser/src/state/sidebar/hover.ts": 1,
-    "apps/browser/src/state/windows/launchBackdrop.ts": 1,
-    "apps/browser/src/state/windows/layout.ts": 1
+    "apps/browser/src/state/sidebar/hover.ts": 1
   },
   "native-calls": {
     "apps/browser/src/App.tsx": 1,

@@ -9,7 +9,8 @@ import { useDownloads, useSidebarOpen, useWindowId, useWindowUi } from "../../st
 import { clearDownloads, removeDownload, setDownloadsOpen, toggleDownloadsOpen } from "../../state/windows/actions";
 import { onDownloadsChanged, opensWhenDone, toggleOpenWhenDone, watchNewDownloads, watchOpenWhenDone } from "../../state/windows/downloadWatch";
 import { useDownload, useWindowUiOf } from "../../state/windows/hooks";
-import { SIDEBAR_FOOTER_DOWNLOADS, useAddressBarInSidebar, useTabLayout } from "../../state/windows/layout";
+import { useAddressBarInSidebar, useTabLayout } from "../../state/windows/layout";
+import { SIDEBAR_FOOTER_DOWNLOADS } from "../sidebar/geometry";
 import { PROFILE_DOTS_HEIGHT } from "../profiles/ProfileDots";
 import { openInternalPage } from "../../state/pages/urls";
 import { useSidebarWidth } from "../sidebar/tokens";

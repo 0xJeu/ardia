@@ -8,7 +8,8 @@ import { addBookmarkFolder, addBookmarkTree, closeBookmarkDialog, moveBookmark, 
 import { useBookmarks } from "../../state/bookmarks/hooks";
 import { currentBookmarks } from "../../state/browser/current";
 import { FolderTree } from "./FolderTree";
-import { SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../../state/windows/layout";
+import { useAddressBarInSidebar } from "../../state/windows/layout";
+import { SIDEBAR_HEADER_WITH_FIELD } from "../sidebar/geometry";
 
 export function BookmarkDialog() {
   const windowId = useWindowId();

@@ -5,7 +5,7 @@ import { menuShortcut } from "../commands/commandShortcuts";
 import { closeWindowAnimated, isWindowClosing } from "../windows/closeAnimated";
 import { routedLinks, type RoutedLinks } from "./linkRoutes";
 import { runsJavaScript } from "../settings/scriptUrls";
-import { profileAccent } from "../../components/ui/theme";
+import { profileAccentOf } from "../profiles/looks";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { isSmall, lastActiveProfile, mainWindowFor } from "../windows/small";
@@ -112,7 +112,7 @@ export async function openLittleArdiaProfileMenu(windowId: string) {
       id,
       title: s.profiles[id]!.name,
       checked: id === current,
-      swatch: profileAccent(s.profiles[id]),
+      swatch: profileAccentOf(s.profiles[id]),
       ...menuShortcut(`switchProfile:${id}`, s),
     })),
   );
