@@ -6,8 +6,9 @@ import { joinEvent } from "../../state/live/alerts";
 import { connectCalendar, refreshCalendar, useCalendar, useNow } from "../../state/live/calendar";
 import { isCalendarUrl, isMeeting, joinLink, joinTitle, relativeTime, timeRange, type CalendarEvent } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
-import { useBrowser } from "../../state/browser/store";
-import { IconButton, useHover } from "../ui/Primitives";
+import { useTab } from "../../state/browser/hooks";
+import { activate } from "../../state/tabs/actions";
+import { Button, useHover } from "../ui";
 import { dismissHover } from "../../state/sidebar/hover";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { Avatar, HoverSurface, SmallButton } from "./LiveItemCard";
@@ -15,10 +16,7 @@ import { useLiveColors } from "./colors";
 import { curve } from "../ui/motion";
 
 export function useIsCalendarTab(tabId: string | null): boolean {
-  const pinnedCalendar = useBrowser((s) => {
-    const t = tabId ? s.tabs[tabId] : undefined;
-    return !!t?.pinned && isCalendarUrl(t.pinnedUrl ?? t.url);
-  });
+  const pinnedCalendar = useTab(tabId ?? undefined, (t) => !!t?.pinned && isCalendarUrl(t.pinnedUrl ?? t.url));
   const on = useLive((s) => s.calendar.showPreview);
   return pinnedCalendar && on;
 }
@@ -80,7 +78,7 @@ function Refresh({ spinning }: { spinning: boolean }) {
   }, [spinning]);
   return (
     <Animated.View style={{ marginRight: -6, marginVertical: -4, transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }}>
-      <IconButton icon="arrow.clockwise" size={10} weight="semibold" box={22} radius={6} onPress={() => void refreshCalendar()} tooltip="Refresh" />
+      <Button variant="icon" icon="arrow.clockwise" size={10} weight="semibold" box={22} radius={6} onPress={() => void refreshCalendar()} tooltip="Refresh" />
     </Animated.View>
   );
 }
@@ -137,7 +135,7 @@ function EventRow({ event, now, windowId, tabId }: { event: CalendarEvent; now: 
       <Pressable
         onPress={() => {
           dismissHover();
-          useBrowser.getState().activate(tabId);
+          activate(tabId);
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6, paddingHorizontal: 4, borderRadius: 8, backgroundColor: hovered ? theme.rowHover : undefined, opacity: past ? 0.5 : 1 }}>

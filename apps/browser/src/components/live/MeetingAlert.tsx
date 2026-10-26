@@ -4,10 +4,12 @@ import { Animated, Text, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { dismiss, joinEvent, useMeetingAlert } from "../../state/live/alerts";
 import { useCalendar, useNow } from "../../state/live/calendar";
-import { attendeesLabel, guestsLabel, isCalendarUrl, joinLink, joinTitle, relatedLinks, relativeTime, timeRange, type CalendarEvent } from "../../state/live/meetings";
-import { useBrowser } from "../../state/browser/store";
-import { viewTabIds } from "../../state/browser/model";
-import { IconButton } from "../ui/Primitives";
+import { attendeesLabel, guestsLabel, joinLink, joinTitle, relatedLinks, relativeTime, timeRange, type CalendarEvent } from "../../state/live/meetings";
+import { useWindow } from "../../state/browser/hooks";
+import { useCalendarTabIn } from "../../state/live/hooks";
+import { activate } from "../../state/tabs/actions";
+import { useIsFocusedWindow } from "../../state/windows/hooks";
+import { Button } from "../ui";
 import { measureRow, type Anchor } from "../../state/sidebar/sidebarUi";
 import { OverlappingAvatars } from "./CalendarPreview";
 import { useLiveColors } from "./colors";
@@ -17,7 +19,7 @@ const WIDTH = 300;
 
 export function MeetingAlert({ windowId, windowWidth }: { windowId: string; windowWidth: number }) {
   const event = useMeetingAlert((s) => s.event);
-  const front = useBrowser((s) => s.ui.focusedWindowId === windowId);
+  const front = useIsFocusedWindow(windowId);
   if (!event || !front) return null;
   return <AlertCard key={event.occurrence} event={event} windowId={windowId} windowWidth={windowWidth} />;
 }
@@ -26,8 +28,8 @@ function AlertCard({ event, windowId, windowWidth }: { event: CalendarEvent; win
   const theme = useTheme();
   const colors = useLiveColors();
   const now = useNow(15_000);
-  const calendarTab = useBrowser((s) => viewTabIds(s, windowId).find((id) => s.tabs[id]?.pinned && isCalendarUrl(s.tabs[id]!.pinnedUrl ?? s.tabs[id]!.url)));
-  const sidebarShown = useBrowser((s) => !!s.windows[windowId]?.sidebarOpen);
+  const calendarTab = useCalendarTabIn(windowId);
+  const sidebarShown = useWindow(windowId, (w) => !!w?.sidebarOpen);
   const calendarName = useCalendar((s) => s.calendars.find((c) => c.id === event.calendarId)?.title);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const appear = useRef(new Animated.Value(0)).current;
@@ -78,7 +80,7 @@ function AlertCard({ event, windowId, windowWidth }: { event: CalendarEvent; win
             {running ? "Now" : relativeTime(event.start, now)}
             {calendarName ? <Text style={{ fontWeight: "400", color: theme.textSecondary }}> · {calendarName}</Text> : null}
           </Text>
-          <IconButton icon="xmark" size={9} weight="semibold" box={20} radius={6} onPress={() => dismiss(event)} tooltip="Ignore" style={{ marginRight: -4, marginTop: -2 }} />
+          <Button variant="icon" icon="xmark" size={9} weight="semibold" box={20} radius={6} onPress={() => dismiss(event)} tooltip="Ignore" style={{ marginRight: -4, marginTop: -2 }} />
         </View>
         <View style={{ gap: 2 }}>
           <Text numberOfLines={2} style={{ fontSize: 14, lineHeight: 18, fontWeight: "600", color: theme.textPrimary }}>
@@ -103,7 +105,7 @@ function AlertCard({ event, windowId, windowWidth }: { event: CalendarEvent; win
               icon="calendar"
               height={30}
               onPress={() => {
-                useBrowser.getState().activate(calendarTab);
+                activate(calendarTab);
                 dismiss(event);
               }}
             />

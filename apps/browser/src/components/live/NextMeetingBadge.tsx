@@ -4,15 +4,12 @@ import { useTheme } from "../ui/theme";
 import { useCalendar, useNow } from "../../state/live/calendar";
 import { badgeText, isCalendarUrl } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
 import { useSidebarTokens } from "../sidebar/tokens";
 import { useLiveColors } from "./colors";
 
 export const NextMeetingBadge = memo(function NextMeetingBadge({ tabId }: { tabId: string }) {
-  const pinnedUrl = useBrowser((s) => {
-    const t = s.tabs[tabId];
-    return t?.pinned ? (t.pinnedUrl ?? t.url) : null;
-  });
+  const pinnedUrl = useTab(tabId, (t) => (t?.pinned ? (t.pinnedUrl ?? t.url) : null));
   const calendar = pinnedUrl !== null && isCalendarUrl(pinnedUrl);
   const on = useLive((s) => s.calendar.showTimeToNext);
   const events = useCalendar((s) => s.events);

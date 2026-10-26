@@ -1,6 +1,5 @@
 import { StyleSheet, View } from "react-native";
-import { useBrowser } from "../../state/browser/store";
-import { useWindowId } from "../../state/browser/hooks";
+import { useWindow, useWindowId } from "../../state/browser/hooks";
 import { tourAnchorRef } from "../onboarding/tour/anchors";
 import { CheckInBanner } from "./CheckInBanner";
 import { PersonalizeButton } from "./Personalize";
@@ -12,7 +11,7 @@ export type Frame = { x: number; y: number; width: number; height: number };
 
 export function NewTabExtras({ size, bar }: { size: { width: number; height: number }; bar: Frame }) {
   const windowId = useWindowId();
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useWindow(windowId, (w) => !!w?.incognito);
   const pending = usePendingReleaseNotes();
   const page = useReleaseNotesPage(windowId);
 

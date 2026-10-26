@@ -7,8 +7,8 @@ import { summarizeChecks } from "../../state/live/github";
 import { ago } from "../../state/live/meetings";
 import { useLive } from "../../state/live/store";
 import type { LiveItem, PullRequestCheck } from "../../state/live/types";
-import { useBrowser } from "../../state/browser/store";
-import { useHover } from "../ui/Primitives";
+import { newTab } from "../../state/tabs/actions";
+import { useHover } from "../ui";
 import { cardHoverProps, dismissHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
 import type { Anchor } from "../../state/sidebar/sidebarUi";
@@ -69,7 +69,7 @@ export function Avatar({ uri, name, size = 20 }: { uri: string | null; name: str
 
 const open = (windowId: string, url: string) => {
   dismissHover();
-  useBrowser.getState().newTab(windowId, { url });
+  newTab(windowId, { url });
 };
 
 function PullRequestPreview({ item, folderId, windowId }: { item: LiveItem; folderId: string; windowId: string }) {

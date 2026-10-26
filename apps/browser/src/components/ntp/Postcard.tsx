@@ -3,9 +3,9 @@ import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { hex, profileAccent, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useWindowProfileValue } from "../../state/profiles/hooks";
 import { useWindowId } from "../../state/browser/hooks";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import type { ReleaseNotes } from "../../state/releaseNotes/releaseNotes";
 import { curve } from "../ui/motion";
 
@@ -26,7 +26,7 @@ const cardFrame = (size: { width: number }) => ({
 
 function useArtworkColors(): [string, string] {
   const windowId = useWindowId();
-  const swatch = useBrowser((s) => profileAccent(s.profiles[s.windows[windowId]?.profileId ?? ""]));
+  const swatch = useWindowProfileValue(windowId, profileAccent);
   return [mix(swatch, "#FFFFFF", 0.45), mix(swatch, "#10121A", 0.5)];
 }
 

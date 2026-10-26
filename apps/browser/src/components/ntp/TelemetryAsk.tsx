@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useDefaultBrowserCheckIn } from "../../state/onboarding/defaultBrowserCheckIn";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useWindow } from "../../state/browser/hooks";
 import { dismissAsk, setSharing, useTelemetry } from "../../state/telemetry/client";
 import { SHARING_COPY } from "../../state/telemetry/copy";
 import { onboardingCompletedAt, useOnboarding } from "../../state/onboarding/onboarding";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
 import { openSettings } from "../../state/settings/settingsWindows";
 import { usePendingReleaseNotes } from "../../state/releaseNotes/releaseNotes";
 import { curve } from "../ui/motion";
@@ -16,7 +16,7 @@ const FRAME = { width: 300 };
 
 export function TelemetryAsk({ windowId }: { windowId: string }) {
   const due = useTelemetry((s) => !s.decided && !s.askDone);
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useWindow(windowId, (w) => !!w?.incognito);
   const onboarding = useOnboarding((s) => s.windowId !== null);
   const checkIn = useDefaultBrowserCheckIn(windowId).visible;
   const releaseNotes = usePendingReleaseNotes() !== null;

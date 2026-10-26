@@ -5,17 +5,17 @@ import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View, type La
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useShallow } from "zustand/react/shallow";
-import { useBrowser } from "../../state/browser/store";
-import { useSidebarOpen, useWindowId, useWindowUi } from "../../state/browser/hooks";
-import { downloadsIn, downloadVisibleIn } from "../../state/windows/ui";
+import { useDownloads, useSidebarOpen, useWindowId, useWindowUi } from "../../state/browser/hooks";
+import { clearDownloads, removeDownload, setDownloadsOpen, toggleDownloadsOpen } from "../../state/windows/actions";
+import { onDownloadsChanged, opensWhenDone, toggleOpenWhenDone, watchNewDownloads, watchOpenWhenDone } from "../../state/windows/downloadWatch";
+import { useDownload, useWindowUiOf } from "../../state/windows/hooks";
 import { SIDEBAR_FOOTER_DOWNLOADS, useAddressBarInSidebar, useTabLayout } from "../../state/windows/layout";
 import { PROFILE_DOTS_HEIGHT } from "../profiles/ProfileDots";
 import { openInternalPage } from "../../state/pages/urls";
 import { useSidebarWidth } from "../sidebar/tokens";
 import { HoverSlot } from "../ui/HoverSlot";
 import { anchorInside, DOWNLOADS_PANEL, downloadsPlacement, type DownloadsPlacement, type Rect, type Size } from "./downloadsPlacement";
-import { PANEL, POPOVER_MOTION, PopoverSeparator, usePopoverPresence } from "../ui/Controls";
-import { IconButton, useHover } from "../ui/Primitives";
+import { Button, MenuSeparator, PANEL, POPOVER_MOTION, useHover, usePopoverPresence } from "../ui";
 import { curve } from "../ui/motion";
 
 function formatBytes(n: number) {
@@ -45,28 +45,16 @@ export function downloadStatus(d: Download, exists = true) {
   return progress;
 }
 
-const openWhenDone = new Set<string>();
-
 const g = globalThis as { __acDownloadsWatch?: () => void };
 g.__acDownloadsWatch?.();
-g.__acDownloadsWatch = useBrowser.subscribe((s, prev) => {
-  if (s.downloads === prev.downloads || !openWhenDone.size) return;
-  for (const d of s.downloads) {
-    if (d.state !== "downloading" && openWhenDone.delete(d.id) && d.state === "finished") void openFile(d.path);
-  }
-});
-
-function toggleOpenWhenDone(id: string) {
-  if (openWhenDone.has(id)) openWhenDone.delete(id);
-  else openWhenDone.add(id);
-}
+g.__acDownloadsWatch = watchOpenWhenDone((path) => void openFile(path));
 
 export async function downloadMenu(d: Download, windowId: string) {
   const exists = d.state === "finished" && fileExists(d.path);
   const items: MenuItem[] =
     d.state === "downloading"
       ? [
-          { id: "whenDone", title: "Open When Done", checked: openWhenDone.has(d.id) },
+          { id: "whenDone", title: "Open When Done", checked: opensWhenDone(d.id) },
           { id: d.paused ? "resume" : "pause", title: d.paused ? "Resume" : "Pause" },
           { id: "cancel", title: "Cancel" },
         ]
@@ -92,11 +80,11 @@ export async function downloadMenu(d: Download, windowId: string) {
   if (choice === "copy") copyText(d.url);
   if (choice === "page") openInternalPage("downloads", windowId);
   if (choice === "trash") void trashDownload(d);
-  if (choice === "remove") useBrowser.getState().removeDownload(d.id);
+  if (choice === "remove") removeDownload(d.id);
 }
 
 async function trashDownload(d: Download) {
-  if (await moveToTrash(d.path)) useBrowser.getState().removeDownload(d.id);
+  if (await moveToTrash(d.path)) removeDownload(d.id);
 }
 
 const iconCache = new Map<string, string | null>();
@@ -161,7 +149,7 @@ async function locateDownloadsButton(windowId: string, origin: Rect): Promise<Re
 }
 
 export function DownloadsButton({ windowId }: { windowId: string }) {
-  const open = useBrowser((s) => !!s.windowUi[windowId]?.downloadsOpen);
+  const open = useWindowUiOf(windowId, (ui) => !!ui?.downloadsOpen);
   const hint = useShortcutHint("downloads");
   const view = useRef<View>(null);
   useEffect(() => {
@@ -177,17 +165,14 @@ export function DownloadsButton({ windowId }: { windowId: string }) {
   }, [windowId]);
   return (
     <View ref={view} collapsable={false}>
-      <IconButton
+      <Button variant="icon"
         icon="arrow.down.circle"
         size={16}
         box={SIDEBAR_FOOTER_DOWNLOADS.size}
         radius={10}
         active={open}
         tooltip={open ? undefined : withShortcut("Downloads", hint)}
-        onPress={() => {
-          const s = useBrowser.getState();
-          s.setDownloadsOpen(windowId, !s.windowUi[windowId]?.downloadsOpen);
-        }}
+        onPress={() => toggleDownloadsOpen(windowId)}
       />
     </View>
   );
@@ -201,14 +186,14 @@ export function DownloadsPopover() {
 
 function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; closing: boolean; onClosed: () => void }) {
   const theme = useTheme();
-  const liveIds = useBrowser(useShallow((s) => downloadsIn(s, windowId).map((d) => d.id)));
-  const liveClearable = useBrowser((s) => downloadsIn(s, windowId).some((d) => d.state !== "downloading"));
+  const liveIds = useDownloads(windowId, useShallow((list) => list.map((d) => d.id)));
+  const liveClearable = useDownloads(windowId, (list) => list.some((d) => d.state !== "downloading"));
   const shownList = useRef({ ids: liveIds, clearable: liveClearable });
   if (!closing) shownList.current = { ids: liveIds, clearable: liveClearable };
   const { ids, clearable } = shownList.current;
   const topStrip = useTabLayout() === "top";
   const addressBar = useAddressBarInSidebar();
-  const setOpen = (value: boolean) => useBrowser.getState().setDownloadsOpen(windowId, value);
+  const setOpen = (value: boolean) => setDownloadsOpen(windowId, value);
   const { root, placement: p, onLayout } = useDownloadsPlacement(windowId, closing, { topStrip, footer: addressBar, footerBottom: PROFILE_DOTS_HEIGHT + 2 });
   const placed = p !== null;
   const appear = useRef(new Animated.Value(0)).current;
@@ -258,7 +243,7 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
                   title="Clear"
                   onPress={() => {
                     setOpen(false);
-                    useBrowser.getState().clearDownloads(windowId);
+                    clearDownloads(windowId);
                   }}
                 />
               )}
@@ -274,7 +259,7 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
                 ))}
               </ScrollView>
             )}
-            <PopoverSeparator />
+            <MenuSeparator />
             <FooterButton
               title="View all downloads"
               onPress={() => {
@@ -387,11 +372,11 @@ function FooterButton({ title, onPress }: { title: string; onPress: () => void }
 }
 
 function RowButton({ icon, onPress, tooltip }: { icon: string; onPress: () => void; tooltip: string }) {
-  return <IconButton icon={icon} size={PANEL.iconSize} box={ROW_BUTTON} radius={6} onPress={onPress} tooltip={tooltip} />;
+  return <Button variant="icon" icon={icon} size={PANEL.iconSize} box={ROW_BUTTON} radius={6} onPress={onPress} tooltip={tooltip} />;
 }
 
 const DownloadRowItem = memo(function DownloadRowItem({ id, windowId }: { id: string; windowId: string }) {
-  const live = useBrowser((s) => s.downloads.find((x) => x.id === id));
+  const live = useDownload(id);
   const last = useRef(live);
   if (live) last.current = live;
   return last.current ? <DownloadRow d={last.current} windowId={windowId} /> : null;
@@ -411,9 +396,7 @@ function DownloadRow({ d, windowId }: { d: Download; windowId: string }) {
       if (fileExists(finishedPath) !== shown.current) recheck((n) => n + 1);
     };
     check();
-    return useBrowser.subscribe((s, prev) => {
-      if (s.downloads !== prev.downloads) check();
-    });
+    return onDownloadsChanged(check);
   }, [finishedPath]);
   const progress = d.total > 0 ? d.received / d.total : 0;
   const done = d.state === "finished" && exists;
@@ -495,15 +478,9 @@ export function DownloadMagnet() {
   const [flight, setFlight] = useState<{ id: string; path: string } | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const t = useRef(new Animated.Value(0)).current;
-  const seen = useRef<Set<string> | null>(null);
 
   useEffect(() => {
-    seen.current = new Set(useBrowser.getState().downloads.map((d) => d.id));
-    return useBrowser.subscribe((s, prev) => {
-      if (s.downloads === prev.downloads) return;
-      const fresh = s.downloads.find((d) => !seen.current!.has(d.id));
-      s.downloads.forEach((d) => seen.current!.add(d.id));
-      if (!fresh || s.ui.focusedWindowId !== windowId || !downloadVisibleIn(fresh, s.windows[windowId])) return;
+    return watchNewDownloads(windowId, (fresh) => {
       t.setValue(0);
       setFlight({ id: fresh.id, path: fresh.path || fresh.filename });
       Animated.timing(t, { toValue: 1, duration: 700, easing: curve.flight, useNativeDriver: true }).start(({ finished }) => finished && setFlight(null));

@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { Surface } from "@ardia/shell";
 import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
 import { hex, layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { useWindowId } from "../../state/browser/hooks";
+import { useWindow, useWindowId } from "../../state/browser/hooks";
 import { useCardAnchors } from "../../state/windows/layout";
 import { spring as springOf } from "../ui/motion";
 import { NewTabExtras } from "./NewTabExtras";
@@ -56,7 +55,7 @@ export function barWidth(viewWidth: number) {
 export function NewTabPage({ tabId, toolbar = true }: { tabId: string; toolbar?: boolean }) {
   const theme = useTheme();
   const windowId = useWindowId();
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useWindow(windowId, (w) => !!w?.incognito);
   const onboarding = useOnboarding((s) => s.windowId === windowId);
   const card = useCardAnchors((s) => s[windowId]);
   const [size, setSizeState] = useState<Size | null>(() => (lastSize && (!card || sameSize(lastSize.card, card)) ? lastSize.size : null));

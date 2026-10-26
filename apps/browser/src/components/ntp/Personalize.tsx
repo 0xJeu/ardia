@@ -1,25 +1,20 @@
 import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { create } from "zustand";
 import { hex, useTheme } from "../ui/theme";
 import { PERSONALIZE_COPY, TabLayoutPicker, ThemeColorPicker } from "../onboarding/Personalize";
-import { useHover } from "../ui/Primitives";
+import { useHover } from "../ui";
+import { closePersonalizePanelOf, setPersonalizePanel as setOpen, usePersonalizePanel } from "../../state/pages/personalizePanel";
 
 const INSET = 16;
 const BUTTON = 30;
 const GLYPH_DROP = 1.5;
 
-const usePanel = create<{ windowId: string | null }>()(() => ({ windowId: null }));
-const setOpen = (windowId: string | null) => usePanel.setState({ windowId });
-
 export function PersonalizeButton({ windowId }: { windowId: string }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
-  const open = usePanel((s) => s.windowId === windowId);
-  useEffect(() => () => {
-    if (usePanel.getState().windowId === windowId) setOpen(null);
-  }, [windowId]);
+  const open = usePersonalizePanel((s) => s.windowId === windowId);
+  useEffect(() => () => closePersonalizePanelOf(windowId), [windowId]);
   return (
     <>
       {open ? <PersonalizePanel windowId={windowId} onClose={() => setOpen(null)} /> : null}

@@ -40,3 +40,5 @@ export const useProfileNeighbours = (windowId: string) =>
   );
 
 export const useIsFocusedWindow = (windowId: string): boolean => useBrowser((s) => s.ui.focusedWindowId === windowId);
+
+export const useDownload = (id: string) => useBrowser((s) => s.downloads.find((x) => x.id === id));
