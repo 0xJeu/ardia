@@ -3,15 +3,16 @@ import { FadeLabel } from "@ardia/shell";
 import { Pressable, StyleSheet, View, type ViewStyle } from "react-native";
 import { useShortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
 import { layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { useActiveTabId, useTabLive, useWindowId } from "../../state/browser/hooks";
+import { useActiveTabId, useSettings, useTabLive, useWindowId } from "../../state/browser/hooks";
+import { openPanel, toggleSidebar } from "../../state/windows/actions";
+import { isAddressBarInSidebar } from "../../state/sidebar/current";
+import { useIsInSplit } from "../../state/sidebar/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
-import { splitOf } from "../../state/splits/splits";
 import { extensionsFitting, ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { useHistoryAvailability } from "../../state/tabs/navigation";
 import { toolbarPalette, type ToolbarPalette } from "../ui/toolbarColors";
 import { ToolbarButton, type ButtonHit } from "../ui/Controls";
-import { addressBarInSidebar, setUrlAnchor, SIDEBAR_FIELD } from "../../state/windows/layout";
+import { setUrlAnchor, SIDEBAR_FIELD } from "../../state/windows/layout";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
 import { useHover } from "../ui/Primitives";
 import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../toolbar/Toolbar";
@@ -28,7 +29,7 @@ export function SidebarHeaderTools({ width }: { width: number }) {
   const windowId = useWindowId();
   const tab = useToolbarTab(useActiveTabId());
   const palette = toolbarPalette(useTheme(), null);
-  const toggle = useBrowser((s) => s.settings.showSidebarButton !== false);
+  const toggle = useSettings((st) => st.showSidebarButton !== false);
   const sidebarHint = useShortcutHint("toggleSidebar");
   const { buttons, step } = navButtonsFitting(width, BUTTON, toggle);
   const shown = tab ? buttons : [];
@@ -47,7 +48,7 @@ export function SidebarHeaderTools({ width }: { width: number }) {
           palette={palette}
           icon="sidebar.left"
           size={GLYPH}
-          onPress={() => useBrowser.getState().toggleSidebar(windowId)}
+          onPress={() => toggleSidebar(windowId)}
           tooltip={withShortcut("Auto-Hide Tabs", sidebarHint)}
         />
       )}
@@ -99,7 +100,7 @@ export function SidebarAddressRow({ width }: { width: number }) {
   const field = useRef<View>(null);
   const anchor = () =>
     field.current?.measureInWindow((x, y, width, height) => {
-      if (width && addressBarInSidebar(useBrowser.getState(), windowId)) setUrlAnchor(windowId, { left: x, top: y, width, sidebar: { height } });
+      if (width && isAddressBarInSidebar(windowId)) setUrlAnchor(windowId, { left: x, top: y, width, sidebar: { height } });
     });
 
   return (
@@ -120,7 +121,7 @@ function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeo
   const loading = useTabLive(tab.id, (l) => l.isLoading);
   const loaded = usePageProgress(tab.id);
   const progress = loading ? loaded : null;
-  const inSplit = useBrowser((s) => !!splitOf(s, tab.id));
+  const inSplit = useIsInSplit(tab.id);
   const limit = extensionsFitting(width - 10 - 3 - HOST_ROOM);
   const extensionsWidth = useToolbarExtensionsWidth(windowId, limit);
   return (
@@ -146,7 +147,7 @@ function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeo
 function EmptyField({ windowId }: { windowId: string }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
-  const open = () => useBrowser.getState().openPanel(windowId, "");
+  const open = () => openPanel(windowId, "");
   return (
     <View {...hoverProps}>
       <Pressable onPress={open}>

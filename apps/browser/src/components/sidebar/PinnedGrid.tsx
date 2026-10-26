@@ -4,11 +4,10 @@ import { Animated, Pressable, View } from "react-native";
 import { closeTab } from "../../state/browser/actions";
 import { layout, useTheme } from "../ui/theme";
 import { listTopGap, useAddressBarInSidebar } from "../../state/windows/layout";
-import { useBrowser } from "../../state/browser/store";
-import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../state/browser/hooks";
-import { activeTabId } from "../../state/browser/model";
+import { useIsActiveTab, useSettings, useTab, useTabLive, useWindowId } from "../../state/browser/hooks";
+import { useIsSelected } from "../../state/pins/hooks";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
-import { clickTab } from "../../state/sidebar/actions";
+import { clickTab, returnShownTabToPinnedUrl } from "../../state/sidebar/actions";
 import { cellKey, PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./DragProvider";
 import { FolderTile } from "./FolderTile";
 import { dismissHover, useRowHover } from "../../state/sidebar/hover";
@@ -23,7 +22,7 @@ import { useSidebarTokens } from "./tokens";
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth, flush = false }: { tabs: string[]; innerWidth: number; flush?: boolean }) {
   const controller = useDragController();
   const count = usePinnedCount(tabs);
-  const balanced = useBrowser((s) => s.settings.balancedTopApps);
+  const balanced = useSettings((st) => st.balancedTopApps);
   const { columns, width } = pinGrid(count, innerWidth, balanced);
   const slots = usePinSlots(tabs);
   const tail = useDragItem("tail:tiles", { kind: "tail", tabIds: [], section: "tiles" });
@@ -137,17 +136,12 @@ function PinGlyph({ color }: { color: string }) {
   return <Symbol name="pin" size={13} color={color} style={{ width: 16, height: 16 }} />;
 }
 
-function backToPinnedUrl(windowId: string, tabId: string) {
-  const s = useBrowser.getState();
-  if (activeTabId(s, windowId) === tabId) s.returnToPinnedUrl(tabId);
-}
-
 const PinnedTile = memo(function PinnedTile({ tabId, width, sliding, x, y }: { tabId: string; width: number; sliding: boolean; x: number; y: number }) {
   const theme = useTheme();
   const windowId = useWindowId();
   const tab = useTab(tabId);
   const active = useIsActiveTab(tabId);
-  const selected = useBrowser((s) => (s.selection[windowId] ?? []).includes(tabId));
+  const selected = useIsSelected(windowId, tabId);
   const playing = useTabLive(tabId, (l) => l.playingAudio);
   const { hovered, hoverProps } = useRowHover(windowId, { kind: "tab", id: tabId });
   const { wrapper, handle, dragging } = useDragItem(`t:${tabId}`, { kind: "tile", tabIds: [tabId], section: "tiles" });
@@ -161,7 +155,7 @@ const PinnedTile = memo(function PinnedTile({ tabId, width, sliding, x, y }: { t
       <View
         ref={(v) => registerRow(windowId, tabId, v)}
         {...hoverProps}
-        onDoubleClick={() => backToPinnedUrl(windowId, tabId)}
+        onDoubleClick={() => returnShownTabToPinnedUrl(windowId, tabId)}
       >
         <MouseArea onMiddleClick={() => void closeTab(tabId)}>
           <ContextMenuArea

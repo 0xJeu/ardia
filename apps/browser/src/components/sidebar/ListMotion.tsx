@@ -1,7 +1,8 @@
 import { createContext, memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Animated, View } from "react-native";
 import { layout, useTheme } from "../ui/theme";
-import { useBrowser, type BrowserState } from "../../state/browser/store";
+import type { BrowserState } from "../../state/browser/store";
+import { workspaceSnapshot } from "../../state/browser/current";
 import { useAnimatedStyle, type ClipSource, type EntryMotion } from "./EntryMotion";
 import { groupEntries } from "../../state/sidebar/entries";
 import { entryHeight } from "./geometry";
@@ -228,7 +229,7 @@ function useMotion({ devKey, entries, from, planner, height, enabled, native, be
   const before = from.pending;
   if (before) {
     from.pending = null;
-    const plan = enabled ? planner(before, { state: useBrowser.getState(), list: entries }, slides, ghosts.current, Date.now()) : null;
+    const plan = enabled ? planner(before, { state: workspaceSnapshot(), list: entries }, slides, ghosts.current, Date.now()) : null;
     if (plan) prepare(plan, Date.now());
   }
   if (entries !== seen.current) {
@@ -352,7 +353,7 @@ export function useListMotion(windowId: string, profileId: string, entries: stri
     const snapshot = (e: string) => snapshotEntry(before.state, windowId, profileId, e);
     return buildPlan({ before, after, old, next, removed, added, slides, ghosts, t, tail: true, snapshot, clipAfter: grown, start });
   };
-  return useMotion({ devKey: windowId, entries, from, planner, height: (e) => height(useBrowser.getState(), e), enabled, native: true });
+  return useMotion({ devKey: windowId, entries, from, planner, height: (e) => height(workspaceSnapshot(), e), enabled, native: true });
 }
 
 export function useGroupMotion(windowId: string, profileId: string, groupId: string, entries: string[], from: Capture, scope: ListMotionScope, enabled: boolean) {
@@ -376,7 +377,7 @@ export function useGroupMotion(windowId: string, profileId: string, groupId: str
     return { ...(plan ?? { moves: [], ghosts: [], clipped: [] }), below: old.end - next.end };
   };
   const below = scope.slideBelow ? (delta: number) => scope.slideBelow?.(`g:${groupId}`, delta) : null;
-  return useMotion({ devKey: `${windowId}:${groupId}`, entries, from, planner, height: (e) => height(useBrowser.getState(), e), enabled, native: false, below });
+  return useMotion({ devKey: `${windowId}:${groupId}`, entries, from, planner, height: (e) => height(workspaceSnapshot(), e), enabled, native: false, below });
 }
 
 export const GhostSlot = memo(function GhostSlot({ snapshot, top, opacity }: { snapshot: EntrySnapshot; top: number; opacity: Animated.Value }) {

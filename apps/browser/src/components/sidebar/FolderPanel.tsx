@@ -1,19 +1,17 @@
 import { ContextMenuArea, FadeLabel, OutsidePressArea, Surface } from "@ardia/shell";
 import { useEffect, useMemo, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { hex, layout, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
 import { useIsActiveTab, useTab } from "../../state/browser/hooks";
-import { activeTabId, plural } from "../../state/browser/model";
-import { folderIn, folderLabel, folderMembers } from "../../state/pins/tileFolders";
+import { plural } from "../../state/browser/model";
+import { useTileFolderLabel, useTileFolderMembers } from "../../state/pins/hooks";
 import { SLIDE } from "../tabstrip/stripReorder";
 import { useHover } from "../ui/Primitives";
 import { clickTab, tabTitle } from "../../state/sidebar/actions";
 import { useDragController, useDragItem, useFolderAway } from "./DragProvider";
 import { openTabMenu } from "../../state/sidebar/menus";
 import { TabIcon } from "./TabIcon";
-import { closeFolderPanel, closeFolderPanelOnPress, openTileFolderMenu, useFolderPanel } from "../../state/sidebar/tileFolderUi";
+import { closeFolderPanel, closeFolderPanelOnPress, closeFolderPanelWhenWindowMoves, openTileFolderMenu, useFolderPanel } from "../../state/sidebar/tileFolderUi";
 
 const PANEL_GAP = 6;
 const PANEL_PAD = 6;
@@ -29,8 +27,8 @@ export function FolderPanel({ windowId }: { windowId: string }) {
 function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId: string; anchor: { x: number; y: number; width: number; height: number } }) {
   const theme = useTheme();
   const controller = useDragController();
-  const members = useBrowser(useShallow((s) => folderMembers(s, windowId, folderId)));
-  const label = useBrowser((s) => folderLabel(folderIn(s, windowId, folderId)));
+  const members = useTileFolderMembers(windowId, folderId);
+  const label = useTileFolderLabel(windowId, folderId);
   const away = useFolderAway();
   const [root, setRoot] = useState<Frame | null>(null);
   const shown = useMemo(() => new Animated.Value(0), []);
@@ -48,15 +46,7 @@ function PanelBody({ windowId, folderId, anchor }: { windowId: string; folderId:
   useEffect(() => {
     if (!members.length) closeFolderPanel();
   }, [members.length]);
-  useEffect(
-    () =>
-      useBrowser.subscribe((s, prev) => {
-        if (s.windows === prev.windows) return;
-        const w = s.windows[windowId];
-        if (!w || w.profileId !== prev.windows[windowId]?.profileId || activeTabId(s, windowId) !== activeTabId(prev, windowId)) closeFolderPanel();
-      }),
-    [windowId],
-  );
+  useEffect(() => closeFolderPanelWhenWindowMoves(windowId), [windowId]);
   useEffect(
     () => () => {
       controller?.regions.delete("folder");

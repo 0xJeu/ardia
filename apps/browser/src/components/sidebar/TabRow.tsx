@@ -4,13 +4,13 @@ import { Animated, Pressable, TextInput, View } from "react-native";
 import { toggleMute } from "../../state/browser/actions";
 import { hex, layout, useTheme } from "../ui/theme";
 import { useSelectedTabGlow } from "./tokens";
-import { useBrowser } from "../../state/browser/store";
-import { useIsActiveTab, usePageProfileId, useTab, useWindowId } from "../../state/browser/hooks";
+import { useIsActiveTab, usePageProfileId, useTab, useWindow, useWindowId } from "../../state/browser/hooks";
+import { returnToPinnedUrl } from "../../state/pins/actions";
+import { useSplitRowKey } from "../../state/sidebar/hooks";
 import { HoverSlot } from "../ui/HoverSlot";
 import { IconButton, useHover } from "../ui/Primitives";
 import { isPinnedRow } from "../../state/browser/model";
 import { awayFromPin } from "../../state/pins/organize";
-import { splitRowPanes } from "../../state/splits/splits";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "../../state/sidebar/actions";
 import { useDragItem, useDropOnto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
@@ -108,7 +108,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                 >
                   {resettable ? (
                     <View {...backToPin.hoverProps}>
-                      <Pressable onPress={() => useBrowser.getState().returnToPinnedUrl(tab.id)} tooltip={withShortcut("Back to Pinned URL", backToPinHint)}>
+                      <Pressable onPress={() => returnToPinnedUrl(tab.id)} tooltip={withShortcut("Back to Pinned URL", backToPinHint)}>
                         {resetting ? (
                           <View style={{ width: 16, height: 16, alignItems: "center", justifyContent: "center" }}>
                             <Symbol name="arrow.uturn.backward" size={11} weight="semibold" color={active ? theme.tabSelectedText : theme.textTab} style={{ width: 16, height: 16 }} />
@@ -218,12 +218,12 @@ export const SplitRowItem = memo(function SplitRowItem({
   motion?: EntryMotion | null;
 }) {
   const windowId = useWindowId();
-  const tabIds = useBrowser((s) => splitRowPanes(s, s.splits[splitId]).join(",")).split(",").filter(Boolean);
+  const tabIds = useSplitRowKey(splitId).split(",").filter(Boolean);
   const { wrapper, handle } = useDragItem(`s:${splitId}`, { kind: "split", tabIds, section, parentGroup }, motion?.clip);
   const theme = useTheme();
   const glow = useSelectedTabGlow();
   const profileId = usePageProfileId();
-  const active = useBrowser((s) => tabIds.includes(s.windows[windowId]?.activeTabIds[profileId] ?? ""));
+  const active = useWindow(windowId, (w) => tabIds.includes(w?.activeTabIds[profileId] ?? ""));
   const { hovered, hoverProps } = useRowHover(windowId, null);
   const [moved, movedRef] = useShift(motion?.shift ?? null, useCallback((v: View | null) => registerRow(windowId, `s:${splitId}`, v), [windowId, splitId]));
   if (tabIds.length < 2) return null;

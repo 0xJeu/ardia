@@ -1,5 +1,5 @@
 import { layout, selectedTabGlow, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useSettings } from "../../state/browser/hooks";
 import type { GroupColor } from "../../state/browser/types";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { useSelectedTabGlowSetting } from "../../state/app/theme";
@@ -125,7 +125,7 @@ export const SIDEBAR_MIN_WIDTH = 160;
 export const SIDEBAR_MAX_WIDTH = 400;
 
 export function useSidebarWidth(windowId: string): number {
-  const saved = useBrowser((s) => s.settings.sidebarWidth ?? layout.sidebarWidth);
+  const saved = useSettings((st) => st.sidebarWidth ?? layout.sidebarWidth);
   const dragging = useSidebarUi((u) => u.dragWidth[windowId]);
   return dragging ?? saved;
 }

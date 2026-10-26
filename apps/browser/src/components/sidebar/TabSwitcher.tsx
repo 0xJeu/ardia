@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { displayUrl } from "@ardia/core";
 import { hex, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
 import { tabTitle } from "../../state/sidebar/actions";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { commitSwitcher, hoverSwitcherRow, leaveSwitcherRow } from "../../state/sidebar/switcher";
@@ -44,7 +44,7 @@ export function TabSwitcher({ windowId, windowWidth, windowHeight }: { windowId:
 
 function SwitcherRow({ tabId, focused, index, focusFill, outline }: { tabId: string; focused: boolean; index: number; focusFill: string; outline: string }) {
   const theme = useTheme();
-  const tab = useBrowser((s) => s.tabs[tabId]);
+  const tab = useTab(tabId);
   useEffect(() => () => leaveSwitcherRow(index), [index]);
   if (!tab) return null;
   return (

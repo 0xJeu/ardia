@@ -3,9 +3,9 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { hex, useTheme } from "../ui/theme";
 import { useLive } from "../../state/live/store";
-import { useBrowser } from "../../state/browser/store";
 import { setIcon } from "../../state/sidebar/actions";
 import { setSidebarUi, useSidebarUi } from "../../state/sidebar/sidebarUi";
+import { useIconPickerCurrent } from "../../state/sidebar/hooks";
 import { NO_GROUP_ICON_INK } from "./TabIcon";
 import { NO_GROUP_ICON, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { useSidebarTokens } from "./tokens";
@@ -56,7 +56,7 @@ function PickerPanel({ picker, sidebarWidth }: { picker: Picker; sidebarWidth: n
   const theme = useTheme();
   const tokens = useSidebarTokens();
   const liveIcon = useLive((s) => (picker.kind === "live" ? s.folders[picker.id.split("|")[1] ?? ""]?.icon : null));
-  const current = useBrowser((s) => (picker.kind === "tab" ? s.tabs[picker.id]?.customIcon : picker.kind === "live" ? liveIcon : s.groups[picker.id]?.icon) ?? null);
+  const current = useIconPickerCurrent(picker.kind, picker.id, liveIcon);
   const [tab, setTab] = useState<"emoji" | "symbols">(current?.startsWith(SYMBOL_PREFIX) ? "symbols" : "emoji");
   const [query, setQuery] = useState("");
   const items = useMemo(() => {

@@ -1,6 +1,6 @@
 import { FadeLabel, Symbol } from "@ardia/shell";
 import { Image, Text, View } from "react-native";
-import { resolveFavicon, useFavicons } from "../../state/favicons/favicons";
+import { knownFaviconTheme, resolveFavicon } from "../../state/favicons/favicons";
 import { layout, useTheme } from "../ui/theme";
 import type { BrowserState } from "../../state/browser/store";
 import type { GroupColor } from "../../state/browser/types";
@@ -33,7 +33,7 @@ function tabShot(s: BrowserState, tabId: string, hovered: boolean): TabShot | nu
   const tab = s.tabs[tabId];
   if (!tab) return null;
   const uri = tab.customIcon ? null : (resolveFavicon(tab.url, tab.favicon, tab.profileId)?.uri ?? null);
-  const shape = uri ? useFavicons.getState().themes[uri] : null;
+  const shape = uri ? knownFaviconTheme(uri) : null;
   return {
     uri,
     template: shape?.kind === "template" && !!shape.stroke,

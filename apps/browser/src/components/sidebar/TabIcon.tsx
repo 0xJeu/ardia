@@ -3,9 +3,10 @@ import { memo } from "react";
 import { Text, View } from "react-native";
 import { useIsSleeping } from "../../state/tabs/tabLifecycle";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { engineMark, ENGINE_NAMES, ENGINE_SYMBOLS } from "../../state/engines/engines";
-import { isPageUnloaded } from "../../state/pins/pinShare";
+import { useTab } from "../../state/browser/hooks";
+import { ENGINE_NAMES, ENGINE_SYMBOLS } from "../../state/engines/engines";
+import { useEngineMark } from "../../state/engines/hooks";
+import { useFadesUnloaded } from "../../state/pins/hooks";
 import { NO_GROUP_ICON, SYMBOL_PREFIX } from "../../state/groups/groupIcons";
 import { Favicon } from "../ui/Primitives";
 
@@ -31,7 +32,7 @@ export const TabIcon = memo(function TabIcon({
   direct?: boolean;
 }) {
   const sleeping = useIsSleeping(tabId ?? "");
-  const unloaded = useBrowser((s) => s.settings.fadeUnloadedTabs && !!tabId && isPageUnloaded(s, tabId));
+  const unloaded = useFadesUnloaded(tabId);
   const props = { url, favicon, icon, size, color, direct };
   return (
     <View style={{ opacity: sleeping || unloaded ? SLEEPING_OPACITY : 1 }}>
@@ -43,7 +44,7 @@ export const TabIcon = memo(function TabIcon({
 
 function EngineMark({ tabId, size }: { tabId: string; size: number }) {
   const theme = useTheme();
-  const mark = useBrowser((s) => engineMark(s, tabId));
+  const mark = useEngineMark(tabId);
   if (!mark) return null;
   const box = Math.round(size * 0.6);
   return (
@@ -68,7 +69,7 @@ function EngineMark({ tabId, size }: { tabId: string; size: number }) {
 }
 
 function TabProfileIcon({ tabId, ...props }: Omit<Parameters<typeof Icon>[0], "profileId"> & { tabId: string }) {
-  const profileId = useBrowser((s) => s.tabs[tabId]?.profileId);
+  const profileId = useTab(tabId, (t) => t?.profileId);
   return <Icon {...props} profileId={profileId} />;
 }
 

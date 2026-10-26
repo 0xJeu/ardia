@@ -1,12 +1,9 @@
 import { ContextMenuArea, Symbol } from "@ardia/shell";
 import { memo, useRef } from "react";
 import { Animated, Pressable, View } from "react-native";
-import { useShallow } from "zustand/react/shallow";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
-import { useWindowId } from "../../state/browser/hooks";
-import { activeTabId } from "../../state/browser/model";
-import { folderMembers, tileFolderOf } from "../../state/pins/tileFolders";
+import { useTab, useWindowId } from "../../state/browser/hooks";
+import { useShownFolderTab, useTileFolderMembers } from "../../state/pins/hooks";
 import { useDragItem, useFolderTarget } from "./DragProvider";
 import { dismissHover, useRowHover } from "../../state/sidebar/hover";
 import { registerRow } from "../../state/sidebar/sidebarUi";
@@ -22,11 +19,8 @@ const MOSAIC = MOSAIC_PAD * 2 + MOSAIC_CELL * 2 + MOSAIC_GAP;
 export const FolderTile = memo(function FolderTile({ folderId, width, sliding, x, y }: { folderId: string; width: number; sliding: boolean; x: number; y: number }) {
   const theme = useTheme();
   const windowId = useWindowId();
-  const members = useBrowser(useShallow((s) => folderMembers(s, windowId, folderId)));
-  const shown = useBrowser((s) => {
-    const id = activeTabId(s, windowId);
-    return id && tileFolderOf(s.tabs[id])?.id === folderId ? id : null;
-  });
+  const members = useTileFolderMembers(windowId, folderId);
+  const shown = useShownFolderTab(windowId, folderId);
   const open = useFolderPanel((u) => u.open?.windowId === windowId && u.open.folderId === folderId);
   const { hovered, hoverProps } = useRowHover(windowId, { kind: "folder", id: folderId });
   const { wrapper, handle, dragging } = useDragItem(`tf:${folderId}`, { kind: "tile", tabIds: members, section: "tiles", folderId });
@@ -87,7 +81,7 @@ export function FolderMosaic({ tabIds }: { tabIds: string[] }) {
 }
 
 function MosaicIcon({ tabId }: { tabId: string }) {
-  const tab = useBrowser((s) => s.tabs[tabId]);
+  const tab = useTab(tabId);
   if (!tab) return <View style={{ width: MOSAIC_CELL, height: MOSAIC_CELL }} />;
   return (
     <View style={{ width: MOSAIC_CELL, height: MOSAIC_CELL, alignItems: "center", justifyContent: "center" }}>

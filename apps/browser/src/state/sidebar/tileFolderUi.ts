@@ -1,7 +1,7 @@
 import { prompt, showMenu } from "@ardia/shell";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
-import { plural } from "../browser/model";
+import { activeTabId, plural } from "../browser/model";
 import { dissolveTileFolder, folderIn, folderLabel, folderMembers, leaveTileFolder, newTileFolder, renameTileFolder } from "../pins/tileFolders";
 import { dismissHover } from "../sidebar/hover";
 import { measureRow } from "../sidebar/sidebarUi";
@@ -17,6 +17,13 @@ let pressedAway: { folderId: string; at: number | undefined } | null = null;
 export function closeFolderPanel() {
   if (useFolderPanel.getState().open) useFolderPanel.setState({ open: null });
 }
+
+export const closeFolderPanelWhenWindowMoves = (windowId: string) =>
+  useBrowser.subscribe((s, prev) => {
+    if (s.windows === prev.windows) return;
+    const w = s.windows[windowId];
+    if (!w || w.profileId !== prev.windows[windowId]?.profileId || activeTabId(s, windowId) !== activeTabId(prev, windowId)) closeFolderPanel();
+  });
 
 export function closeFolderPanelIn(windowId: string | undefined): boolean {
   if (!windowId || folderPanel()?.windowId !== windowId) return false;

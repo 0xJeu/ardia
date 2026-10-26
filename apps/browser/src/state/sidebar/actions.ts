@@ -15,6 +15,11 @@ export function clickTab(windowId: string, tabId: string, mods: ClickMods = {}) 
   store().clickTab(windowId, tabId, mods);
 }
 
+export function returnShownTabToPinnedUrl(windowId: string, tabId: string) {
+  const s = store();
+  if (activeTabId(s, windowId) === tabId) s.returnToPinnedUrl(tabId);
+}
+
 export async function startRename(windowId: string, target: Target) {
   const s = store();
   if (target.kind === "tab") {

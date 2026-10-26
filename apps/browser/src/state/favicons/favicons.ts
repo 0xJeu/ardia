@@ -27,6 +27,8 @@ type Favicons = {
 
 export const useFavicons = create<Favicons>()(() => ({ profiles: {}, themes: {} }));
 
+export const knownFaviconTheme = (uri: string) => useFavicons.getState().themes[uri];
+
 const cacheKey = (profileId: string) => (isIncognitoProfile(profileId) ? profileId : engineProfile(profileId));
 export const pageKey = (url: string) => url.replace(/#.*$/, "");
 const siteOf = (url: string) => /^[a-z][\w+.-]*:\/\/[^/?#]*/i.exec(url)?.[0].toLowerCase() ?? "";
