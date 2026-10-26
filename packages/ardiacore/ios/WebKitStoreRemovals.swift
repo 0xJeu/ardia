@@ -2,29 +2,42 @@ import Foundation
 import WebKit
 
 enum WebKitStoreRemovals {
-  private static var file: URL { URL(fileURLWithPath: ArdiaHost.dataDirectory).appendingPathComponent("WebKitStoreRemovals.json") }
-
-  private static func pending() -> [String] {
-    guard let data = try? Data(contentsOf: file) else { return [] }
-    return (try? JSONSerialization.jsonObject(with: data)) as? [String] ?? []
+  private struct State: Codable {
+    var queued: [String] = []
+    var generations: [String: Int] = [:]
   }
 
-  private static func save(_ identifiers: [String]) {
-    if identifiers.isEmpty {
+  private static var file: URL? {
+    ArdiaHost.dataDirectory.isEmpty ? nil : URL(fileURLWithPath: ArdiaHost.dataDirectory).appendingPathComponent("WebKitStoreRemovals.json")
+  }
+
+  private static var state: State = file.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(State.self, from: $0) } ?? State()
+
+  private static func update(_ change: (inout State) -> Void) {
+    change(&state)
+    guard let file else { return }
+    if state.queued.isEmpty && state.generations.isEmpty {
       try? FileManager.default.removeItem(at: file)
-      return
+    } else if let data = try? JSONEncoder().encode(state) {
+      try? data.write(to: file, options: .atomic)
     }
-    guard let data = try? JSONSerialization.data(withJSONObject: identifiers) else { return }
-    try? data.write(to: file, options: .atomic)
   }
 
-  static func exists(_ identifier: UUID, done: @escaping (Bool) -> Void) {
-    WKWebsiteDataStore.fetchAllDataStoreIdentifiers { identifiers in
-      DispatchQueue.main.async { done(identifiers.contains(identifier)) }
+  private static let webKitStarted: Void = { _ = WKWebsiteDataStore.nonPersistent() }()
+
+  static func generation(of profile: String) -> Int { state.generations[profile] ?? 0 }
+
+  static func retire(_ profile: String) { update { $0.generations[profile, default: 0] += 1 } }
+
+  static func exists(_ identifiers: [UUID], done: @escaping (Bool) -> Void) {
+    webKitStarted
+    WKWebsiteDataStore.fetchAllDataStoreIdentifiers { stores in
+      DispatchQueue.main.async { done(identifiers.contains(where: stores.contains)) }
     }
   }
 
   static func remove(_ identifier: UUID, tries: Int, done: @escaping (Bool) -> Void) {
+    webKitStarted
     WKWebsiteDataStore.remove(forIdentifier: identifier) { error in
       DispatchQueue.main.async {
         if error == nil { return done(true) }
@@ -38,19 +51,18 @@ enum WebKitStoreRemovals {
   }
 
   static func queue(_ identifier: UUID) {
-    let ids = pending()
-    if !ids.contains(identifier.uuidString) { save(ids + [identifier.uuidString]) }
+    update { if !$0.queued.contains(identifier.uuidString) { $0.queued.append(identifier.uuidString) } }
+  }
+
+  private static func unqueue(_ identifier: UUID) {
+    update { $0.queued.removeAll { $0 == identifier.uuidString } }
   }
 
   static func runQueued() {
-    let ids = pending().compactMap(UUID.init(uuidString:))
-    guard !ids.isEmpty, !ArdiaHost.dataDirectory.isEmpty else { return }
-    var left = Set(ids)
-    for id in ids {
+    for id in state.queued.compactMap(UUID.init(uuidString:)) {
       remove(id, tries: 1) { removed in
-        exists(id) { stillThere in
-          if removed || !stillThere { left.remove(id) }
-          save(left.map(\.uuidString))
+        exists([id]) { stillThere in
+          if removed || !stillThere { unqueue(id) }
         }
       }
     }

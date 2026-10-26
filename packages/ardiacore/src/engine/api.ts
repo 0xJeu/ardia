@@ -165,7 +165,8 @@ export type EngineCalls = {
   "webKit.cookieStoreKey": [Profile, string];
   "webKit.importCookies": [Profile & { storeKey: string; cookies: PageCookie[] }, number];
   "webKit.devStoreExists": [Profile, boolean];
-  "webKit.devTouchStore": [Profile, null];
+  "webKit.devTouchStore": [Profile, boolean];
+  "webKit.devQueueStoreRemoval": [Profile, null];
   "webKit.passkeyAccess": [{}, PasskeyAccess];
   "webKit.requestPasskeyAccess": [{}, PasskeyAccess];
 };

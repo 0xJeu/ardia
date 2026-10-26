@@ -81,6 +81,7 @@ const needs = {
   "context-menu-incognito": ["context-menu-log"],
   "context-menu-split": ["context-menu-log"],
   "relaunch-profile": ["last-used-profile", "quit"],
+  "webkit-store-survives-relaunch": ["webkit-removal-queued", "quit"],
 };
 function checkIndex() {
   let section = "Checks";
@@ -4404,6 +4405,20 @@ try {
     return { personal, play };
   });
 
+  const webKitRemovals = () => {
+    const file = join(data, "Chromium", "WebKitStoreRemovals.json");
+    return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { queued: [], generations: {} };
+  };
+
+  await check("webkit-removal-queued", async () => {
+    await engine("webKit.devTouchStore", { profile: "" });
+    await engine("webKit.devQueueStoreRemoval", { profile: "" });
+    if (await engine("webKit.devTouchStore", { profile: "" })) throw new Error("the reopened store still has the retired store's cookie");
+    const removals = webKitRemovals();
+    if (removals.queued.length !== 1) throw new Error(`queued ${JSON.stringify(removals)}`);
+    return removals;
+  });
+
   await check("quit", async () => {
     const s = await state();
     await evalApp(`ac.actions.openUrls(["${base}/quit-marker"], "${s.windowId}"); return true`);
@@ -4452,6 +4467,15 @@ try {
     await stopApp();
     if (!cookie.includes("who=personal") || cookie.includes("who=play")) throw new Error(`Personal's page sees "${cookie}"`);
     return { cookie, windows: info.map((w) => w.profile) };
+  });
+
+  await check("webkit-store-survives-relaunch", async () => {
+    await appUp("app-webkit-store.out.log");
+    await engine("webKit.devStoreExists", { profile: "" });
+    await until("the queued removal ran", async () => webKitRemovals().queued.length === 0, 15000);
+    const kept = await engine("webKit.devTouchStore", { profile: "" });
+    if (!kept) throw new Error("the store reopened after the queued removal lost its data");
+    return { kept };
   });
 
   const pressQuit = (windowId) =>

@@ -234,6 +234,10 @@ final class WebKitDownloads: NSObject, WKDownloadDelegate {
 
   func handles(_ id: String) -> Bool { id.hasPrefix("wk-download-") }
 
+  func cancelAll(profile: String) {
+    for item in items.values where item.profile == profile && item.phase != .done { command("cancel", id: item.id) }
+  }
+
   func command(_ action: String, id: String) {
     guard let item = items[id] else { return }
     switch action {

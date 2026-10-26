@@ -64,6 +64,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   private var externalAllowances: [String: ExternalGrant] = [:]
   private var lastExternal = 0
   private var resumeHosts: [String: WKWebView] = [:]
+  private var deletedProfileStores: [String: WKWebsiteDataStore] = [:]
 
   func nextBrowserId() -> Int32 {
     lastBrowserId -= 1
@@ -90,8 +91,13 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   static func storeIdentifier(_ profile: String) -> UUID {
+    storeIdentifier(profile, generation: WebKitStoreRemovals.generation(of: profile))
+  }
+
+  static func storeIdentifier(_ profile: String, generation: Int) -> UUID {
     let scope = LaunchConfig.shared.dataDirectory ?? ""
-    var bytes = Array(SHA256.hash(data: Data("ardia.webkit|\(scope)|\(profile)".utf8)).prefix(16))
+    let name = "ardia.webkit|\(scope)|\(profile)" + (generation == 0 ? "" : "\u{0}\(generation)")
+    var bytes = Array(SHA256.hash(data: Data(name.utf8)).prefix(16))
     bytes[6] = (bytes[6] & 0x0F) | 0x50
     bytes[8] = (bytes[8] & 0x3F) | 0x80
     return bytes.withUnsafeBufferPointer { NSUUID(uuidBytes: $0.baseAddress!) as UUID }
@@ -99,7 +105,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
 
   func dataStore(for profile: String) -> WKWebsiteDataStore {
     if Self.isPrivate(profile) { return session(Self.privateSession(profile)).store }
-    if let store = persistentStores[profile] { return store }
+    if let store = persistentStores[profile] ?? deletedProfileStores[profile] { return store }
     let store = WKWebsiteDataStore(forIdentifier: Self.storeIdentifier(profile))
     persistentStores[profile] = store
     return store
@@ -486,8 +492,12 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   func deleteProfileData(_ profile: String, completion: @escaping (Bool) -> Void) {
     guard !Self.isPrivate(profile) else { return completion(true) }
     let identifier = Self.storeIdentifier(profile)
+    WebKitStoreRemovals.retire(profile)
+    if !profile.isEmpty { deletedProfileStores[profile] = .nonPersistent() }
+    downloads.cancelAll(profile: profile)
+    if let host = resumeHosts.removeValue(forKey: profile) { Self.close(host) }
     let removeStore = {
-      WebKitStoreRemovals.exists(identifier) { exists in
+      WebKitStoreRemovals.exists([identifier]) { exists in
         guard exists else { return completion(true) }
         WebKitStoreRemovals.remove(identifier, tries: 12) { removed in
           if !removed { WebKitStoreRemovals.queue(identifier) }
@@ -495,19 +505,30 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
         }
       }
     }
-    if let host = resumeHosts.removeValue(forKey: profile) { Self.close(host) }
     guard let store = persistentStores.removeValue(forKey: profile) else { return removeStore() }
     closeViews(using: store)
     store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { DispatchQueue.main.async(execute: removeStore) }
   }
 
   func storeExists(_ profile: String, done: @escaping (Bool) -> Void) {
-    WebKitStoreRemovals.exists(Self.storeIdentifier(profile), done: done)
+    let generations = 0...WebKitStoreRemovals.generation(of: profile)
+    WebKitStoreRemovals.exists(generations.map { Self.storeIdentifier(profile, generation: $0) }, done: done)
   }
 
-  func touchStore(_ profile: String, done: @escaping () -> Void) {
-    let cookie = HTTPCookie(properties: [.name: "ardia-touch", .value: "1", .domain: "ardia.test", .path: "/", .expires: Date().addingTimeInterval(3600)])
-    guard let cookie else { return done() }
-    dataStore(for: profile).httpCookieStore.setCookie(cookie, completionHandler: done)
+  func queueStoreRemoval(_ profile: String) {
+    let identifier = Self.storeIdentifier(profile)
+    persistentStores.removeValue(forKey: profile)
+    WebKitStoreRemovals.retire(profile)
+    WebKitStoreRemovals.queue(identifier)
+  }
+
+  func touchStore(_ profile: String, done: @escaping (Bool) -> Void) {
+    let cookies = dataStore(for: profile).httpCookieStore
+    let cookie = HTTPCookie(properties: [.name: "ardia-touch", .value: "1", .domain: "ardia.test", .path: "/", .expires: Date().addingTimeInterval(86400)])
+    cookies.getAllCookies { existing in
+      let touched = existing.contains { $0.name == "ardia-touch" && $0.domain.hasSuffix("ardia.test") }
+      guard let cookie else { return done(touched) }
+      cookies.setCookie(cookie) { done(touched) }
+    }
   }
 }
