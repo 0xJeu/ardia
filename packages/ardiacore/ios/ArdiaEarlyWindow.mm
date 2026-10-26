@@ -81,11 +81,11 @@ NSDictionary *gLittleLayout;
 
 NSString *const kLittleWindow = @"ardia.early.little-ardia";
 
-}
-
 NSMutableSet<NSString *> *Dismissed() {
   static NSMutableSet *dismissed = [NSMutableSet set];
   return dismissed;
+}
+
 }
 
 namespace ardia_early_window {

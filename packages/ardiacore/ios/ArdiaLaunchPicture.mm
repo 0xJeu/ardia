@@ -22,8 +22,6 @@ constexpr CGFloat kGlassVeilDark = 0.128;
 
 constexpr CGFloat kGlassVeilLight = 0.3;
 
-}
-
 NSString *PictureName(NSString *windowId) {
   NSMutableString *safe = [NSMutableString string];
   for (NSUInteger i = 0; i < windowId.length && i < 80; i++) {
@@ -43,6 +41,8 @@ NSData *EncodePNG(CGImageRef image) {
   return ok ? png : nil;
 }
 
+}
+
 namespace ardia_early_window {
 
 NSString *PicturePath(NSString *windowId) {
@@ -50,6 +50,8 @@ NSString *PicturePath(NSString *windowId) {
 }
 
 }
+
+namespace {
 
 NSView *DrawnContent(NSView *root) {
   NSMutableArray<NSView *> *pending = [NSMutableArray arrayWithObject:root];
@@ -140,6 +142,8 @@ void SetGlassValue(NSView *glass, NSString *key, id value) {
   if (value && [glass respondsToSelector:NSSelectorFromString(setter)]) [glass setValue:value forKey:key];
 }
 
+}
+
 namespace ardia_early_window {
 
 BOOL AddLiveGlass(NSArray *records, NSView *host, NSView *parent) {
@@ -166,6 +170,8 @@ BOOL AddLiveGlass(NSArray *records, NSView *host, NSView *parent) {
 }
 
 }
+
+namespace {
 
 CGContextRef MakeBitmap(size_t w, size_t h) {
   CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
@@ -267,6 +273,8 @@ CALayer *StandIn(CALayer *layer, CGFloat scale) {
   CGImageRelease(composed);
   [layer.superlayer insertSublayer:standIn above:layer];
   return standIn;
+}
+
 }
 
 namespace ardia_early_window {
@@ -397,8 +405,12 @@ void DropPictureFile(NSString *windowId) {
 
 }
 
+namespace {
+
 void FreePages(void *, const void *data, size_t size) {
   vm_deallocate(mach_task_self(), (vm_address_t)data, size);
+}
+
 }
 
 namespace ardia_early_window {

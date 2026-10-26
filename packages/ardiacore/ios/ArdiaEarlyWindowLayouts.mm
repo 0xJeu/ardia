@@ -43,10 +43,14 @@ bool SwitchedOffByEnvironment() {
 
 }
 
+namespace {
+
 NSDictionary *SessionAt(NSString *directory) {
   NSData *data = directory ? [NSData dataWithContentsOfFile:[directory stringByAppendingPathComponent:@"session.json"]] : nil;
   NSDictionary *session = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
   return [session isKindOfClass:NSDictionary.class] ? session : nil;
+}
+
 }
 
 namespace ardia_early_window {
@@ -97,11 +101,15 @@ NSString *ContentOf(NSDictionary *session, NSString *windowId) {
 
 }
 
+namespace {
+
 NSArray<NSNumber *> *Insets(NSRect rect, NSView *host) {
   const NSRect bounds = host.bounds;
   const CGFloat top = host.isFlipped ? NSMinY(rect) : NSMaxY(bounds) - NSMaxY(rect);
   const CGFloat bottom = host.isFlipped ? NSMaxY(bounds) - NSMaxY(rect) : NSMinY(rect);
   return @[ @(round(NSMinX(rect) * 2) / 2), @(round(top * 2) / 2), @(round((NSMaxX(bounds) - NSMaxX(rect)) * 2) / 2), @(round(bottom * 2) / 2) ];
+}
+
 }
 
 namespace ardia_early_window {
@@ -128,6 +136,8 @@ NSRect RectFromInsets(const CGFloat insets[4], NSView *host) {
 }
 
 }
+
+namespace {
 
 NSDictionary *WindowLayout(ArdiaWindowController *controller, NSDictionary *session) {
   NSWindow *window = controller.coreWindow.window;
@@ -174,6 +184,8 @@ NSDictionary *WindowLayout(ArdiaWindowController *controller, NSDictionary *sess
   return layout;
 }
 
+}
+
 namespace ardia_early_window {
 
 void LoadLayouts() {
@@ -189,6 +201,8 @@ void LoadLayouts() {
 }
 
 }
+
+namespace {
 
 void Write(NSData *data) {
   if (!data || [data isEqual:gScheduled]) return;
@@ -251,6 +265,8 @@ void RecordLayouts(NSDictionary *session, BOOL wait) {
                                                  options:NSJSONWritingSortedKeys
                                                    error:nil];
   Write(data);
+}
+
 }
 
 namespace ardia_early_window {

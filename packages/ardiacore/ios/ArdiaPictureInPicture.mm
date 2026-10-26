@@ -22,8 +22,6 @@ void InstallMenuMonitor() {
                                                   }];
 }
 
-}
-
 NSPoint ScreenLocation(NSEvent *event) {
   CGPoint point = CGEventGetLocation(event.CGEvent);
   return NSMakePoint(point.x, NSMaxY(NSScreen.screens.firstObject.frame) - point.y);
@@ -133,6 +131,8 @@ bool Attach(ArdiaWebView *view, NSString *host, NSString *frameId) {
     return true;
   }
   return false;
+}
+
 }
 
 namespace ardia_pip {

@@ -7,6 +7,8 @@
 
 using namespace ardia_swipe;
 
+namespace {
+
 NSDictionary *ResponderReport(NSView *hit) {
   static Ivar ivar = class_getInstanceVariable(NSClassFromString(@"RenderWidgetHostViewCocoa"), "_responderDelegate");
   NSView *page = hit;
@@ -80,6 +82,8 @@ NSEvent *SyntheticScroll(NSWindow *window, NSPoint point, NSDictionary *step, ui
   NSEvent *event = [NSEvent eventWithCGEvent:cg];
   CFRelease(cg);
   return event;
+}
+
 }
 
 @implementation ArdiaSwipe (Simulation)

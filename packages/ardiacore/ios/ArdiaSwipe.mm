@@ -55,6 +55,8 @@ Gesture gGesture;
 
 }
 
+namespace {
+
 int gGestureSeq;
 
 id gMonitor;
@@ -71,6 +73,8 @@ OwnedMomentum gMomentum;
 
 constexpr NSTimeInterval kMomentumStartWait = 0.1;
 
+}
+
 namespace ardia_swipe {
 
 BOOL IsRenderWidgetView(NSView *view) {
@@ -79,6 +83,8 @@ BOOL IsRenderWidgetView(NSView *view) {
 }
 
 }
+
+namespace {
 
 ArdiaRendererScrollObserver *ObserverFor(NSView *hit) {
   static Ivar ivar = class_getInstanceVariable(NSClassFromString(@"RenderWidgetHostViewCocoa"), "_responderDelegate");
@@ -102,6 +108,8 @@ BOOL InRenderer(NSView *hit) {
   for (NSView *v = hit; v; v = v.superview)
     if (IsRenderWidgetView(v)) return YES;
   return NO;
+}
+
 }
 
 namespace ardia_swipe {
@@ -136,6 +144,8 @@ NSView<ArdiaSwipeTarget> *TargetAt(NSWindow *window, NSPoint locationInWindow, N
 }
 
 }
+
+namespace {
 
 NSArray *HitChain(NSView *hit) {
   NSMutableArray *chain = [NSMutableArray array];
@@ -462,6 +472,8 @@ BOOL SwallowOwnedMomentum(NSEvent *event, NSWindow *window) {
   return YES;
 }
 
+}
+
 namespace ardia_swipe {
 
 NSEvent *HandleScroll(NSEvent *event, NSWindow *window, NSPoint location, BOOL ignoreSystemPreference) {
@@ -549,6 +561,8 @@ BOOL HandleDiscreteSwipe(NSWindow *window, NSPoint location, CGFloat deltaX) {
 
 }
 
+namespace {
+
 void InstallMonitor() {
   if (gMonitor) return;
   gMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel | NSEventMaskSwipe
@@ -567,6 +581,8 @@ void InstallMonitor() {
                                                      Diag(@{@"diag" : @"monitorExit", @"resultWindow" : out ? @(out.window.windowNumber) : @(-1), @"swallowed" : @(out == nil)});
                                                      return out;
                                                    }];
+}
+
 }
 
 @implementation ArdiaSwipe

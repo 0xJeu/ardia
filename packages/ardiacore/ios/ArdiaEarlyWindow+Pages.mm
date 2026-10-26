@@ -33,8 +33,6 @@ NSMapTable<ArdiaCoreTab *, ArdiaEarlyVeil *> *Veils() {
   return veils;
 }
 
-}
-
 NSMapTable<ArdiaCoreTab *, ArdiaPageEmits *> *Emits() {
   static NSMapTable *emits = [NSMapTable weakToStrongObjectsMapTable];
   return emits;
@@ -61,6 +59,8 @@ void Archive(ArdiaPageEmits *emits, NSString *url) {
   }
 }
 
+}
+
 namespace ardia_early_window {
 
 NSHashTable<ArdiaCoreTab *> *Watched() {
@@ -69,6 +69,8 @@ NSHashTable<ArdiaCoreTab *> *Watched() {
 }
 
 }
+
+namespace {
 
 NSString *ParsedOrigin(NSString *url) {
   for (NSString *wrapper in @[ @"blob:", @"filesystem:" ])
@@ -136,6 +138,8 @@ NSString *OriginOfURL(NSString *url) {
   return engine;
 }
 
+}
+
 namespace ardia_early_window {
 
 id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered) {
@@ -145,6 +149,8 @@ id TabCall(ArdiaCoreTab *tab, NSString *name, BOOL *answered) {
 }
 
 }
+
+namespace {
 
 NSString *LiveOrigin(ArdiaCoreTab *tab) {
   BOOL answered = NO;
@@ -174,6 +180,8 @@ bool PageVeilOff() {
   return off;
 }
 
+}
+
 namespace ardia_early_window {
 
 BOOL ShowsLaunchOrigin(ArdiaCoreTab *tab, NSString *launchURL) {
@@ -200,6 +208,8 @@ BOOL ReleaseFocusFrom(NSView *page) {
 }
 
 }
+
+namespace {
 
 void PlaceVeil(ArdiaCoreTab *tab, ArdiaEarlyVeil *veil) {
   NSView *page = tab.view, *host = page.superview;
@@ -255,6 +265,8 @@ void WatchVeil(ArdiaCoreTab *tab, ArdiaEarlyVeil *veil, double after) {
           still.lastShown ?: @"(none)", TabCall(page, @"committedOrigin", &answered) ?: @"(none)", page.url ?: @"(none)");
     Unveil(page);
   });
+}
+
 }
 
 namespace ardia_early_window {

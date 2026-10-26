@@ -63,6 +63,8 @@ void DropCover(ArdiaEarlyShown *s) {
 
 }
 
+namespace {
+
 void TrimAfterHandoff() {
   static bool trimmed;
   if (trimmed || EnvOff("ARDIA_MEMORY_TRIM") || EnvOff("ARDIA_MEMORY_TRIM_ENGINE")) return;
@@ -75,6 +77,8 @@ void TrimAfterHandoff() {
 void RemovePicture(NSView *picture) {
   picture.layer.contents = nil;
   [picture removeFromSuperview];
+}
+
 }
 
 namespace ardia_early_window {
@@ -92,6 +96,8 @@ void ClearRootFill(ArdiaEarlyShown *s, NSView *root) {
 }
 
 }
+
+namespace {
 
 void ReleasePictures(NSView *picture, NSView *backdrop, NSView *root, NSColor *fill) {
   [CATransaction begin];
@@ -131,6 +137,8 @@ void ReleaseOnceCovered(NSView *picture, NSView *backdrop, NSView *root, NSColor
       ReleasePictures(picture, backdrop, restoreFill ? shownRoot : nil, fill);
     });
   });
+}
+
 }
 
 namespace ardia_early_window {
