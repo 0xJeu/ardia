@@ -10,7 +10,7 @@ import { setFind as setTabFind } from "../../state/windows/actions";
 import type { FindState } from "../../state/browser/types";
 import { Button, font, Panel, radius, space, Symbol } from "../ui";
 import { replaceInField } from "../../state/site/selection";
-import { FIND_APPEAR, FIND_ERROR, FIND_SHADOW } from "./tokens";
+import { FIND_APPEAR, FIND_SHADOW } from "./tokens";
 
 export function FindBar({ tabId }: { tabId: string }) {
   const hasPage = useTab(tabId, (t) => !!t?.url);
@@ -74,7 +74,6 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
   };
   const none = find.count === 0 && !!find.query;
   const separator = theme.popoverSeparator;
-  const error = theme.dark ? FIND_ERROR.dark : FIND_ERROR.light;
 
   return (
     <Animated.View
@@ -111,7 +110,7 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
             style={{ flex: 1, ...font.title, color: theme.textPrimary, paddingVertical: 0 }}
           />
           {none ? (
-            <Text style={{ ...font.small, color: error, marginRight: space.s }}>No results</Text>
+            <Text style={{ ...font.small, color: theme.destructive, marginRight: space.s }}>No results</Text>
           ) : find.count !== null && !!find.query ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginRight: space.s }}>
               <Text style={{ ...font.small, color: theme.textPrimary, fontVariant: ["tabular-nums"] }}>{find.active}</Text>
@@ -140,7 +139,7 @@ function FindBarPanel({ tabId, find }: { tabId: string; find: FindState }) {
               onKeyDown={(e) => e.nativeEvent.key === "Escape" && close()}
               style={{ flex: 1, ...font.title, color: theme.textPrimary, paddingVertical: 0 }}
             />
-            {note && <Text style={{ ...font.small, color: note.error ? error : theme.textSecondary, marginRight: space.xxs }}>{note.text}</Text>}
+            {note && <Text style={{ ...font.small, color: note.error ? theme.destructive : theme.textSecondary, marginRight: space.xxs }}>{note.text}</Text>}
             <Button variant="text" height={26} title="Replace" disabled={!find.query} onPress={() => void replace(false)} />
             <Button variant="text" height={26} title="All" disabled={!find.query} onPress={() => void replace(true)} />
           </View>

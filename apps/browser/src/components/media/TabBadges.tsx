@@ -1,12 +1,12 @@
 import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { View } from "react-native";
-import { hex } from "../ui/theme";
+import { hex, useTheme } from "../ui/theme";
 import { ink } from "../ui/tokens";
 import { usePage } from "../../state/tabs/pageState";
 import { useSidebarTokens } from "../sidebar/tokens";
 import { useMedia } from "../../state/media/media";
-import { CAPTURE_DOT_RIM, CAPTURE_RED } from "./tokens";
+import { CAPTURE_DOT_RIM } from "./tokens";
 
 export const TabBadges = memo(function TabBadges({ tabId, size = 16, pip = true }: { tabId: string; size?: number; pip?: boolean }) {
   return (
@@ -33,6 +33,7 @@ function PipBadge({ tabId, size }: { tabId: string; size: number }) {
 }
 
 function CaptureBadge({ tabId, size }: { tabId: string; size: number }) {
+  const theme = useTheme();
   const capture = usePage(tabId, (p) => p.mediaAccess);
   if (!capture) return null;
   if (capture.screen) {
@@ -40,7 +41,7 @@ function CaptureBadge({ tabId, size }: { tabId: string; size: number }) {
     return (
       <View
         pointerEvents="none"
-        style={{ position: "absolute", right: -d / 3, bottom: -d / 3, width: d, height: d, borderRadius: d / 2, backgroundColor: CAPTURE_RED, alignItems: "center", justifyContent: "center" }}
+        style={{ position: "absolute", right: -d / 3, bottom: -d / 3, width: d, height: d, borderRadius: d / 2, backgroundColor: theme.destructive, alignItems: "center", justifyContent: "center" }}
       >
         <Symbol name="rectangle.inset.filled" size={d * 0.5} weight="bold" color={ink.white} style={{ width: d, height: d }} />
       </View>
@@ -50,7 +51,7 @@ function CaptureBadge({ tabId, size }: { tabId: string; size: number }) {
   return (
     <View
       pointerEvents="none"
-      style={{ position: "absolute", right: -d / 4, bottom: -d / 4, width: d, height: d, borderRadius: d / 2, backgroundColor: CAPTURE_RED, borderWidth: 1, borderColor: CAPTURE_DOT_RIM }}
+      style={{ position: "absolute", right: -d / 4, bottom: -d / 4, width: d, height: d, borderRadius: d / 2, backgroundColor: theme.destructive, borderWidth: 1, borderColor: CAPTURE_DOT_RIM }}
     />
   );
 }

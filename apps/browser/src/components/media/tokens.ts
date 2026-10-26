@@ -40,9 +40,7 @@ export function useMediaTokens(): MediaTokens {
   return useTheme().dark ? dark : light;
 }
 
-export const CAPTURE_RED = "#FF453A";
 export const CAPTURE_DOT_RIM = "rgba(0,0,0,0.25)";
-export const SINK_ISSUE = "#FF453A";
 export const ART_HOVER_SCRIM = "rgba(0,0,0,0.5)";
 
 export const fadeStepColor = ([r, g, b]: [number, number, number], alpha: number) => `rgba(${r},${g},${b},${alpha})`;

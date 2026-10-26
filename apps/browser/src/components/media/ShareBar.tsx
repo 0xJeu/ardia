@@ -2,11 +2,11 @@ import { Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, View } from "react-native";
 import { currentTab } from "../../state/browser/current";
-import { Button, Text } from "../ui";
+import { Button, Text, useTheme } from "../ui";
 import { ink, space } from "../ui/tokens";
 import { pageOf } from "../../state/tabs/pageState";
 import { dismissShareBar, shareInstead, stopSharing, useShareFor } from "../../state/media/screenShare";
-import { CAPTURE_RED, mediaMotion, useMediaTokens } from "./tokens";
+import { mediaMotion, useMediaTokens } from "./tokens";
 import { hostOrOrigin } from "../../lib/url";
 import { curve } from "../ui/motion";
 
@@ -14,6 +14,7 @@ const SHARE_BAR_HEIGHT = 38;
 const FLEX = { flex: 1 } as const;
 
 export function ShareBar({ tabId }: { tabId: string }) {
+  const theme = useTheme();
   const tokens = useMediaTokens();
   const found = useShareFor(tabId);
   const height = useRef(new Animated.Value(0)).current;
@@ -42,7 +43,7 @@ export function ShareBar({ tabId }: { tabId: string }) {
           borderBottomColor: tokens.shareBarBorder,
         }}
       >
-        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: CAPTURE_RED, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: theme.destructive, alignItems: "center", justifyContent: "center" }}>
           <Symbol name="rectangle.inset.filled" size={9} weight="bold" color={ink.white} style={{ width: 14, height: 14 }} />
         </View>
         <Text lines={1} tone="textSecondary" style={FLEX}>

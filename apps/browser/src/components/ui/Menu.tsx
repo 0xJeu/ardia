@@ -31,7 +31,7 @@ export function MenuRow({
 }) {
   const theme = useTheme();
   const { hovered, hoverProps } = useHover();
-  const tint = destructive ? theme.menuDestructive : theme.textPrimary;
+  const tint = destructive ? theme.destructive : theme.textPrimary;
   const content = (pressed: boolean) => (
     <View
       style={{

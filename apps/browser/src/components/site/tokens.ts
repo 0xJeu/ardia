@@ -30,7 +30,7 @@ export function useSiteTokens(): SiteTokens {
   return useTheme().dark ? DARK : LIGHT;
 }
 
-export const connectionColor = { warning: "#FF6B63", caution: "#F2B33D" } as const;
+export const connectionColor = { caution: "#F2B33D" } as const;
 
 export const CARD_BADGES = {
   visa: { label: "VISA", fill: "#1A1F71" },

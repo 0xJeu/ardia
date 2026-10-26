@@ -165,7 +165,7 @@ function ConnectSheet({ id }: { id: LiveSourceId }) {
         <Text style={{ flex: 1, ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>Connect {source.name}</Text>
       </View>
       {body}
-      {error ? <Text style={{ marginTop: 10, ...font.small, color: settingsInk.liveError }}>{error}</Text> : null}
+      {error ? <Text style={{ marginTop: 10, ...font.small, color: theme.destructive }}>{error}</Text> : null}
     </Sheet>
   );
 }

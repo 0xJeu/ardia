@@ -14,7 +14,6 @@ import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { openSettings } from "../../../state/settings/settingsWindows";
-import { settingsInk } from "../tokens";
 
 function manageExtensionsOf(profile: string) {
   const profileId = currentProfileOrder().find((id) => engineProfile(id) === profile);
@@ -145,7 +144,7 @@ function EngineSheet({ engine }: { engine?: SearchEngine }) {
       {field("Name", name, setName, "Wikipedia")}
       {field("Shortcut", keyword, setKeyword, "w")}
       {field("URL with %s in place of the query", url, setUrl, "https://en.wikipedia.org/w/index.php?search=%s")}
-      {error && <Text style={{ ...font.small, marginTop: 10, color: settingsInk.error }}>{error}</Text>}
+      {error && <Text style={{ ...font.small, marginTop: 10, color: theme.destructive }}>{error}</Text>}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 18 }}>
         {engine && (
           <Button

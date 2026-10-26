@@ -1,8 +1,6 @@
 import { curve } from "../ui/motion";
 import { colorRoles, ink, type ShadowLevel } from "../ui/tokens";
 
-export const FIND_ERROR = { dark: "#FF6B63", light: "#C93333" } as const;
-
 export const FIND_SHADOW = {
   color: ink.black,
   opacity: { dark: colorRoles.dark.panelShadowOpacity, light: colorRoles.light.panelShadowOpacity },

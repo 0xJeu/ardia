@@ -25,7 +25,7 @@ import { useShortcutHint, withShortcut } from "../../state/commands/commandShort
 import { curve } from "../ui/motion";
 import { HistoryButton, ReloadButton } from "./NavButtons";
 import { ProgressBar, TabProgressBar } from "./ProgressBar";
-import { GLYPH, TOOLBAR_INK, TOOLBAR_MOTION } from "./tokens";
+import { GLYPH, TOOLBAR_MOTION } from "./tokens";
 
 type ToolbarTab = Pick<Tab, "id" | "url" | "title" | "windowId" | "zoom">;
 const toolbarTab = (t: Tab | undefined): ToolbarTab | undefined =>
@@ -214,7 +214,7 @@ export const UrlField = memo(function UrlField({
           <Symbol
             name="lock.open.trianglebadge.exclamationmark.fill"
             size={12}
-            color={insecure === "certificateError" ? TOOLBAR_INK.certificateError : palette.secondary}
+            color={insecure === "certificateError" ? theme.destructive : palette.secondary}
             style={{ width: LOCK.width, height: 30 }}
           />
         </Pressable>
@@ -286,11 +286,12 @@ export const UrlField = memo(function UrlField({
 });
 
 function CaptureIndicator({ camera, microphone, screen, onPress }: { camera: boolean; microphone: boolean; screen: boolean; onPress: () => void }) {
+  const theme = useTheme();
   const icon = screen ? "rectangle.inset.filled.on.rectangle" : camera ? "video.fill" : "mic.fill";
   const what = [camera && "camera", microphone && "microphone", screen && "screen"].filter(Boolean).join(" and ");
   return (
     <Pressable onPress={onPress} tooltip={`This page is using your ${what}`} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center" }}>
-      <Symbol name={icon} size={12} color={TOOLBAR_INK.capturing} style={{ width: 18, height: 18 }} />
+      <Symbol name={icon} size={12} color={theme.destructive} style={{ width: 18, height: 18 }} />
     </Pressable>
   );
 }

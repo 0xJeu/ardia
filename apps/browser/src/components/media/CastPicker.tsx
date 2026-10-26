@@ -5,14 +5,13 @@ import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { Button, PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, Text, useHover } from "../ui";
 import { ink, radius, space } from "../ui/tokens";
-import { mediaType, SINK_ISSUE, useMediaTokens } from "./tokens";
+import { mediaType, useMediaTokens } from "./tokens";
 import { closeCastPicker, useCast } from "../../state/media/cast";
 
 const WIDTH = 340;
 const SINK_ROW_PAD_Y = 5;
 const MESSAGE_GAP = 5;
 const FLEX = { flex: 1 } as const;
-const ISSUE = { color: SINK_ISSUE } as const;
 const UNDERLINE = { textDecorationLine: "underline" } as const;
 const NO_UNDERLINE = { textDecorationLine: "none" } as const;
 
@@ -89,7 +88,7 @@ function SinkRow({ sink, onCast, onStop }: { sink: CastSink; onCast(): void; onS
               {sink.name}
             </Text>
             {sink.issue || sink.status ? (
-              <Text lines={1} size="footnote" tone="textSecondary" style={sink.issue ? ISSUE : undefined}>
+              <Text lines={1} size="footnote" tone={sink.issue ? "destructive" : "textSecondary"}>
                 {sink.issue || sink.status}
               </Text>
             ) : null}

@@ -11,7 +11,6 @@ import { Button, font, Group, PopUp, Sheet, TextField, Toggle, weight } from "..
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
-import { settingsInk } from "../tokens";
 
 const ENGINE_OPTIONS: { value: PageEngine; title: string }[] = [
   { value: "chromium", title: ENGINE_NAMES.chromium },
@@ -136,7 +135,7 @@ function RuleSheet({ site, engine: initial }: { site?: string; engine?: PageEngi
         <Text style={{ ...font.footnote, color: theme.textSecondary }}>Opens in</Text>
         <PopUp value={engine} options={ENGINE_OPTIONS} onChange={setEngine} />
       </View>
-      {error && <Text style={{ ...font.small, marginTop: 10, color: settingsInk.error }}>{error}</Text>}
+      {error && <Text style={{ ...font.small, marginTop: 10, color: theme.destructive }}>{error}</Text>}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 18 }}>
         {site && (
           <Button

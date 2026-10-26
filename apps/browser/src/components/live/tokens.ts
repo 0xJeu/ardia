@@ -1,14 +1,14 @@
 import { useTheme } from "../ui/theme";
-import { ink, weight } from "../ui/tokens";
+import { colorRoles, ink, weight } from "../ui/tokens";
 
 const DARK = {
   success: "#3FB950",
-  failure: "#F85149",
+  failure: colorRoles.dark.destructive,
   pending: "#D29922",
   merged: "#A371F7",
   draft: "#8B949E",
   conflict: "#DB6D28",
-  now: "#E5534B",
+  now: colorRoles.dark.destructive,
   ciTrack: "rgba(255,255,255,0.1)",
   chip: "rgba(255,255,255,0.1)",
   badgeRing: "rgba(0,0,0,0.35)",
@@ -17,12 +17,12 @@ const DARK = {
 
 const LIGHT: typeof DARK = {
   success: "#1A7F37",
-  failure: "#CF222E",
+  failure: colorRoles.light.destructive,
   pending: "#9A6700",
   merged: "#8250DF",
   draft: "#6E7781",
   conflict: "#BC4C00",
-  now: "#D1242F",
+  now: colorRoles.light.destructive,
   ciTrack: "rgba(0,0,0,0.08)",
   chip: "rgba(0,0,0,0.06)",
   badgeRing: "rgba(255,255,255,0.8)",

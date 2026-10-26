@@ -23,7 +23,6 @@ import { NetworkBadge } from "../../site/Autofill";
 import { addresses as addressList, autofillEnabled, cards as cardList } from "../paneData";
 import { store, useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
-import { settingsInk } from "../tokens";
 
 export function AutofillPane({ profileId: initial }: { profileId?: string | null }) {
   const theme = useTheme();
@@ -298,7 +297,7 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
           </FormRow>
         </Group>
       </View>
-      {error ? <Text style={{ ...font.small, color: settingsInk.error, marginTop: 10 }}>{error}</Text> : null}
+      {error ? <Text style={{ ...font.small, color: theme.destructive, marginTop: 10 }}>{error}</Text> : null}
       <SheetButtons
         canDelete={!!saved}
         onDelete={() => void remove()}

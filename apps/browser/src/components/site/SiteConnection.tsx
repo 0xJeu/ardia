@@ -1,27 +1,27 @@
 import type { PageState } from "../../state/tabs/pageState";
-import { useTheme } from "../ui/theme";
+import { useTheme, type Theme } from "../ui/theme";
 import { Box, MenuRow, PANEL, Text } from "../ui";
 import { FooterChip } from "./SiteControlsParts";
 import { connectionColor, useSiteTokens } from "./tokens";
 
 type Security = PageState["security"];
 
-function connectionLook(security: Security) {
+function connectionLook(security: Security, theme: Theme) {
   const level = security?.level ?? "none";
   if (level === "secure") return { level, chip: "Secure", icon: "lock.fill", color: undefined };
   if (level === "local" || level === "none") return { level, chip: "Local Page", icon: "info.circle", color: undefined };
   if (level === "mixed") return { level, chip: "Not Fully Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: connectionColor.caution };
-  return { level, chip: "Not Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: connectionColor.warning };
+  return { level, chip: "Not Secure", icon: "lock.open.trianglebadge.exclamationmark.fill", color: theme.destructive };
 }
 
 export function ConnectionChip({ security, open, onPress }: { security: Security; open: boolean; onPress: () => void }) {
-  const look = connectionLook(security);
+  const look = connectionLook(security, useTheme());
   return <FooterChip icon={look.icon} title={look.chip} color={look.color} open={open} onPress={onPress} />;
 }
 
 export function ConnectionRow({ security }: { security: Security }) {
   const theme = useTheme();
-  const look = connectionLook(security);
+  const look = connectionLook(security, theme);
   const { level } = look;
   const secure = level === "secure";
   const local = level === "local" || level === "none";
