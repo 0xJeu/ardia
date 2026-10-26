@@ -309,6 +309,11 @@ const server = createServer((req, res) => {
   }
   if (url.pathname === "/login") return res.end(page("Login", `<form action="/b" method="get"><input name="u" id="u" autocomplete="username"><input type="password" name="p" id="p" autocomplete="current-password"><button id="go">Sign in</button></form>`));
   if (url.pathname === "/text") return res.end(page("Text", `<p id="t" style="font: 20px sans-serif; margin: 40px">Hello selection world, select me please</p>`));
+  if (url.pathname === "/drag")
+    return res.end(page("Drag", `<div id="card" draggable="true" style="position: absolute; left: 40px; top: 40px; width: 180px; height: 60px; background: #ccd">card</div>
+      <div id="clicker" style="position: absolute; left: 300px; top: 40px; width: 120px; height: 60px; background: #dcc">click</div>
+      <script>window.__events = []; for (const t of ["mousedown", "click", "dragstart", "dragend"]) addEventListener(t, (e) => __events.push([t, e.target.id || "", e.clientX, e.clientY]), true);
+      card.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/plain", "card"));</script>`));
   if (url.pathname === "/capture-target") return res.end(page("Capture Target", "the tab that tab capture picks"));
   if (url.pathname === "/solid")
     return res.end(page(url.searchParams.get("t") ?? "Solid", "", `<style>html, body { margin: 0; height: 100%; background: #${url.searchParams.get("c") ?? "808080"} }</style>`));
@@ -3377,6 +3382,43 @@ try {
     } finally {
       await closeTab(other.id);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("page-drag", async () => {
+    const tab = await freshTab(`${base}/drag`);
+    try {
+      const target = await until("the page", () => pageTarget("/drag"));
+      const n = await engine("tabs.devWindowNumber", { tabId: tab });
+      const act = (action) => engine("windows.dev", { window: n, action });
+      const events = async () => (await cdp(target, "Runtime.evaluate", { expression: "window.__events", returnByValue: true })).result.value ?? [];
+      const press = async ([x, y]) => {
+        await act(`mouse:down:${x},${y}`);
+        await sleep(80);
+        await act(`mouse:up:${x},${y}`);
+      };
+      await act("fakeActiveClicks");
+      let spot = null;
+      for (const [x, y] of [[700, 420], [600, 500], [900, 300]])
+        if (!spot && (await act(`hit:${x},${y}`)).startsWith("RenderWidgetHostViewCocoa")) spot = [x, y];
+      if (!spot) throw new Error("no window point over the page");
+      await press(spot);
+      const down = await until("the calibration press", async () => (await events()).find((e) => e[0] === "mousedown"), 4000);
+      const at = (x, y) => [Math.round(x + spot[0] - down[2]), Math.round(y + spot[1] - down[3])];
+      const [x, y] = at(130, 70);
+      await act(`mouse:down:${x},${y}`);
+      for (let i = 1; i <= 12; i++) {
+        await act(`mouse:dragged:${x + i * 20},${y + i * 10}`);
+        await sleep(30);
+      }
+      await until("dragstart", async () => (await events()).some((e) => e[0] === "dragstart"), 5000);
+      await act(`mouse:up:${x + 240},${y + 120}`);
+      await until("dragend: the drag the page started reached AppKit and ended", async () => (await events()).some((e) => e[0] === "dragend"), 8000);
+      await press(at(360, 70));
+      await until("a click on the page after the drag", async () => (await events()).some((e) => e[0] === "click" && e[1] === "clicker"), 4000);
+      return { spot, events: (await events()).map((e) => `${e[0]}:${e[1]}`) };
+    } finally {
+      await closeTab(tab).catch(() => null);
     }
   });
 
