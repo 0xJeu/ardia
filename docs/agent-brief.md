@@ -229,8 +229,8 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   - Page content: `scripts/agent/ac page <data dir> <url part> '<expression>'`, or CDP on the instance's port
     (`http://localhost:<port>/json`, `Runtime.evaluate`, `Page.captureScreenshot`). A `ARDIA_BACKGROUND` instance's windows answer NO to
     `-[NSWindow isOccluded]` (`ArdiaHost+Launch.mm`), so a covered window shows a tab at once instead of after Chrome's 1 s
-    occlusion delay; set `ARDIA_ALLOW_OCCLUSION=1` to test occlusion itself.
-  - CDP (`ARDIA_REMOTE_DEBUGGING_PORT`), argv and `ARDIA_CHROMIUM_SWITCHES` only reach Chrome where it runs on its mock
+    occlusion delay; launch with `--instance allowOcclusion` to test occlusion itself.
+  - CDP (`ARDIA_REMOTE_DEBUGGING_PORT`), argv and `ARDIA_INSTANCE` `chromiumSwitches` only reach Chrome where it runs on its mock
     keychain: a scratch `ARDIA_DATA_DIR`, or a build without a team signature (ad hoc copies such as carryover.sh's). A
     team-signed build on its real data dir forwards none of them (`ArdiaHost+Launch.mm`), and its browser process removes
     every switch that opens the profile to outside control (remote debugging, unpacked extensions, automation, proxies,
@@ -239,7 +239,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
     did the same for its default profile.
   - Native UI: `screencapture -l <windowID> -o` (find the id with CGWindowList by owner PID; a test window's layer is negative). It captures the
     window's own content even while the owner's windows cover it, which a test window's always may. Wrap every capture in `timeout 20`: with the screen locked they can hang instead of failing.
-    For the New Tab intro, launch with `ARDIA_SHADERS_FORCE_KEY=1` (it only plays in a key window).
+    For the New Tab intro, launch with `--test shadersKeyWindow` (it only plays in a key window).
   - The user's screen may be locked: screen captures then fail or deliver no frames. Fall back to
     `ac.shell.devSnapshotWindow(windowId, path)` (`false` means it failed; the window's layers at 2x; Metal views
     render blank; text opacity is applied twice, so a label at α reads 1 − (1 − α)², don't match colours on it),
@@ -249,6 +249,55 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   Keep files cohesive; new features go in new files where sensible.
 - Dia fidelity: when you build UI, match Dia, and check it with numbers against a Dia capture
   (same crop, same state) before calling it a match (`docs/dia-spec.md`, `docs/dia-feature-parity.md`).
+
+## Launch variables
+
+The only variables the app and engine read, through `ArdiaLaunchConfig` (`packages/ardiacore/ios`; JS:
+`platform/launchConfig.ts`; the engine gets `--ardia-*` switches from it, `ac_launch_switches.cc`). Set them with
+`scripts/agent/ac launch … --instance K=V --test K[=V] --trace AREA`, or `launch(app, { instance, test, trace })` in
+`scripts/lib/instance.mjs`. A list splits at a comma unless the entry before it takes commas (paths, URLs,
+`chromiumSwitches`); a bare key means `1`; an unknown key is logged and ignored.
+
+| Variable | Key / value | What it does |
+| --- | --- | --- |
+| `ARDIA_DATA_DIR` | path | Scratch data dir: Chrome's data in `<dir>/Chromium`, the app's documents, defaults, keychain items and Sparkle state (`ArdiaIsolation.h`); Chrome gets `--use-mock-keychain`. A Debug build refuses to start without one |
+| `ARDIA_BACKGROUND` | `1` (anything but empty or `0`) | Hidden test instance (Rules › never steal focus; `docs/testing.md`) |
+| `ARDIA_REMOTE_DEBUGGING_PORT` | port | CDP on that port, only on the mock keychain |
+| `ARDIA_INSTANCE` | `jsLocation=host:port` | This launch's Metro (Debug builds) |
+| | `chromiumSwitches=--a --b=x,y` | Extra Chrome switches, space-separated, only on the mock keychain; background mode drops the auto-accept capture ones, and `--ardia-*` never passes |
+| | `downloadsDir=<dir>` | Chrome's default download folder for this launch, never written to the profile |
+| | `updateFeed=<url>` | Sparkle's feed; a scratch instance checks for updates only with one |
+| | `allowAudio` · `allowOcclusion` | Background mode keeps sound · keeps Chrome's occlusion |
+| | `releaseNotes` | Opens the release notes as after an update (works on a Developer ID build: the release smoke) |
+| | `cliHome=<dir>` · `cliBinDir=<dir>` · `cliUrl=<url>` | Where the `ardia` command installs, links and downloads from (`docs/cli.md`); a test instance installs only with the first two |
+| | `syncFolder=<dir>` | The sync folder (`packages/sync/scripts/e2e.mjs`) |
+| | `importSourceDir=<dir>` · `importSafariHome=<dir>` | Where import looks for other browsers and Safari's home, so a scratch instance never sees the owner's profiles |
+| `ARDIA_SWITCHES` | `name=on\|off,…` | Kill switches (`platform/killSwitches.ts` `SWITCHES`, at most 8, on by default) and experiments (`EXPERIMENTS`: `beginFrameBridge`, `serverWindowDrag`, `serverWindowDragAllOpen`, `webkitSignIn`, off by default). Honoured in every build (`docs/kill-switches.md`) |
+| `ARDIA_TRACE` | `visibility` | Occlusion and each WebView attach/detach, `[ardiacore-vis]` in the system log |
+| | `pip` · `pipZoom` | PiP windows to `/tmp/ac-pip-trace.log` · PiP zoom gestures, `[pip-zoom]` |
+| | `trafficLights` | Every traffic-light change to `<data dir>/traffic-lights.log` |
+| | `profileGate` | The browser process's parsed and gated command lines, at startup and after chrome://flags |
+| `ARDIA_TEST` | `keychain=file` (+ `keychainHiddenReads=<n>`, `keychainFail=decode\|denied\|interaction\|entitlement\|io`) | A file-backed keychain in the data dir instead of the login keychain |
+| | `safeStorageAnswer=start-over` | Answers the Safe Storage dialog with Start Over (background mode) |
+| | `reauth=granted` | Grants macOS re-auth requests in background mode (otherwise refused) |
+| | `bluetoothChooser` · `mediaRouteProvider` · `externalProtocolNoLaunch` · `systemMediaPermission=denied\|ask\|ask-slow` | Engine fakes: Bluetooth chooser events, a test Cast sink, external protocols recorded instead of opened, camera and microphone permission |
+| | `applyProfileGate` | Applies the real-profile switch gate on the mock keychain too |
+| | `contextMenu` | Context menus dump to `<data dir>/context-menu.json` and take their pick from `….pick` |
+| | `pipSelfTest=close\|backToTab\|hover\|style` · `pipHover=close\|back` | PiP self-tests on the first PiP window (background mode), results in the data dir |
+| | `fakeFullScreenMs=<ms>` | Length of the acted-out full-screen transition |
+| | `shadersKeyWindow` | Metal views act as in the key window (the New Tab intro) |
+| | `peekStrict` | Peek's test hooks stop relaxing its click checks |
+| | `importSecret=<s>` · `importDiaBundleId=<id>` | Import's Safe Storage secret · the app Dia's tabs come from |
+| | `cliInstallScript=<path>` | Another `ardia` installer script |
+| | `legacySource=<home>` · `legacyCrashAfter=<step>` | The Netnyahoo → Ardia migration from a scratch home |
+| | `bangsUrl` · `onboarding` · `whatsNew` · `telemetry` · `liveMock=<url>` · `calendarFixture` | Debug builds only: bang list, run onboarding, show What's New, send telemetry, live folders from a mock, the calendar fixture |
+| `ARDIA_PREWARM` | set | Not a setting: an older running app sets it on the staged update it prewarms, which then exits at once |
+
+`ARDIA_TEST` and `ARDIA_TRACE` count only in a test instance: a build that isn't signed for distribution (Debug and
+train builds qualify; `release.sh` builds don't), a scratch `ARDIA_DATA_DIR`, and, in the engine, `--user-data-dir` at
+`<data dir>/Chromium` on the mock keychain. Otherwise they're ignored with one log line. Seams marked background mode
+also need `ARDIA_BACKGROUND`. A build from before ArdiaLaunchConfig gets the old variable names from
+`scripts/lib/launchEnv.mjs`, so benches and carry-over checks against the previous stable still work.
 
 ## Report format (your final message)
 1. What you built (bullets, user-visible terms first).

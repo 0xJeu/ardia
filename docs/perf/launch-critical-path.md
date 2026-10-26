@@ -267,12 +267,11 @@ handoff makes no second window.
   malloc's allocated objects +1.2 to +1.6 MB with or without the picture, and GPU-owned memory +1.1 MB (0.5 MB without
   the picture). Without the window shown early, the difference goes away. Footprint alone can't see it: PartitionAlloc's
   committed memory moves ±3 MB from run to run. Open: which objects showing the NSWindow before RN keeps.
-- **Kill switches.** `ARDIA_EARLY_WINDOW=off` or `ARDIA_SWITCHES=earlyWindow=off` (environment), and the remote
-  `launchTab` switch, which turns this off with the launch tab.
+- **Kill switch.** The remote `launchTab` switch turns this off with the launch tab (the early window's own environment
+  switch went on 2026-10-26, after it shipped in 0.2.40).
 
 The content blocker's launch hold (84e75272) is separate. Restored pages wait for uBlock Origin, about 200 to 240 ms
-on a warm launch, and the leak probe's escaped ad-host beacons go from 6 to 0. `ARDIA_BLOCKER_LAUNCH_HOLD=off` turns
-it off.
+on a warm launch, and the leak probe's escaped ad-host beacons go from 6 to 0. The hold was dropped on 2026-10-17.
 
 ## Restored tab paint (2026-10-19)
 

@@ -61,7 +61,7 @@ Shared code: `Model.swift` (`ImportKind`, `ImportResult` and the other result ty
   Keychain item. `SafeStorageKeychain.secret` reads it, and macOS shows a system prompt when it does. It runs only from
   `unlockBrowser`, after the user goes through the unlock step (`ENCRYPTED` kinds in `ImportWindow.tsx`).
 - **Agents never trigger it.** The Swift tests pass the fixture key (`Fixtures.chromiumKey`, `importer.setKey`),
-  and app runs set `ARDIA_IMPORT_TEST_SECRET`. Firefox has no Keychain item; its primary password goes through
+  and app runs set `ARDIA_TEST` `importSecret`. Firefox has no Keychain item; its primary password goes through
   `unlockBrowser(id, { primaryPassword })`.
 - Cookie values, addresses and card numbers never reach JS. `ImportResult` and `SafariExport` leave them out of their
   `CodingKeys` and encode only the counts. They're held in `SecretBytes`; `Wire.swift` serialises them into
@@ -102,12 +102,12 @@ sqlite3 CLI: it checkpoints the WAL the tests depend on.
 
 ## Test hooks (`ios/ImportModule.swift`)
 
-| Variable | Effect |
+| Key | Effect |
 |---|---|
-| `ARDIA_IMPORT_SOURCE_DIR` | Discovery reads browsers from this folder instead of `~/Library/Application Support`. Point it at `<fake home>/Library/Application Support` |
-| `ARDIA_IMPORT_SAFARI_HOME` | Safari direct reads from this home. If it isn't set, the home is two levels above `ARDIA_IMPORT_SOURCE_DIR`, and only when that is set |
-| `ARDIA_IMPORT_TEST_SECRET` | `unlockBrowser` uses this as every browser's Safe Storage secret and never touches the Keychain |
-| `ARDIA_IMPORT_DIA_BUNDLE_ID` | The Dia tabs functions talk to this bundle ID instead of `company.thebrowser.dia` |
+| `ARDIA_INSTANCE` `importSourceDir` | Discovery reads browsers from this folder instead of `~/Library/Application Support`. Point it at `<fake home>/Library/Application Support` |
+| `ARDIA_INSTANCE` `importSafariHome` | Safari direct reads from this home. If it isn't set, the home is two levels above `importSourceDir`, and only when that is set |
+| `ARDIA_TEST` `importSecret` | `unlockBrowser` uses this as every browser's Safe Storage secret and never touches the Keychain (test instances only) |
+| `ARDIA_TEST` `importDiaBundleId` | The Dia tabs functions talk to this bundle ID instead of `company.thebrowser.dia` (test instances only) |
 
 ## Adding a source or a kind
 

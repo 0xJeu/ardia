@@ -200,7 +200,7 @@ pass on it.
 
 To check the after-update tab too: in that data dir, set `lastVersion` in `release-notes.json` to the
 previous version (`{"version":1,"lastVersion":"<previous>","pending":null}`) and relaunch with
-`ARDIA_RELEASE_NOTES=1` added (test instances skip the tab without it). `curl localhost:<port>/json` must
+`ARDIA_INSTANCE=releaseNotes` added (test instances skip the tab without it). `curl localhost:<port>/json` must
 list one `…/release-notes#<version>` page; a second launch opens none.
 
 ## CI releases

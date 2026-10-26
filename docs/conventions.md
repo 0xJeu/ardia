@@ -176,7 +176,7 @@ switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-
 | `ARDIA_BACKGROUND` | `1` | Hidden instance: never activates, windows sit behind the owner's |
 | `ARDIA_REMOTE_DEBUGGING_PORT` | port | CDP port |
 | `ARDIA_INSTANCE` | `key=value,…` | The few other instance settings (downloads dir, update feed, extra Chromium switches, …) |
-| `ARDIA_SWITCHES` | `name=on,…` | The only feature toggle, backed by the kill-switch registry `platform/killSwitches.ts` (owner and `removeBy` per switch, at most 8) |
+| `ARDIA_SWITCHES` | `name=on,…` | The only feature toggle, backed by the registry `platform/killSwitches.ts`: kill switches (on by default, at most 8) and experiments (off by default), each with an owner and `removeBy` |
 | `ARDIA_TRACE` | `pip,visibility,…` | Trace logging per area |
 | `ARDIA_TEST` | `keychain=file,reauth=granted,…` | All test fakes and fixtures |
 
@@ -184,7 +184,8 @@ switches, never the environment: the app passes `--ardia-test=<list>`, `--ardia-
   mock keychain); a release build ignores them and logs that once. CDP, argv and extra switches reach Chrome only with
   the mock keychain.
 - An experiment ends by keeping the winning path and deleting the other branch and its toggle. One still being tried
-  is a kill switch in the registry, not a new variable.
+  is an entry in the registry (`EXPERIMENTS`), not a new variable.
+- Every key, area and value: `docs/agent-brief.md` › Launch variables.
 
 ## The check
 

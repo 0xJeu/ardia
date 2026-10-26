@@ -60,7 +60,7 @@ The switch shipped in 0.2.22; this was the list it shipped against, kept for the
    without one (`extension-installed-bubble`).
    Open: after another profile's window opened and closed, "Share this tab instead" answers false (`tab-capture`).
 7. ~~**Smoke parity**~~ done: background-mode context-menu log, the autofill dropdown's selection, the PiP self-test
-   (`ARDIA_PIP_SELFTEST`) and the passkey dialog closing when its page navigates; the release smoke test passes
+   (`ARDIA_TEST` `pipSelfTest`) and the passkey dialog closing when its page navigates; the release smoke test passes
    21/21 on ArdiaCore (e8ece135, 2109af22, 2047812f).
 8. **Chrome's own UI says "Chromium"** (bubbles, dialogs, error pages); CEF renamed it. *Engine helper.*
 9. **Checks that need the owner** (an unlocked screen, prompts): the page composited under the RN views; menus,
@@ -115,7 +115,7 @@ METRO_PORT=8081 node packages/ardiacore/scripts/acceptance.mjs apps/browser/buil
 
 The app (bundle id `com.ardia.browser`, Apple Development signing with the hardened runtime in
 Debug; `scripts/release.sh` signs releases with Developer ID). A Debug build refuses to start without
-`ARDIA_DATA_DIR` (it never falls back to a real profile). A test run hands it its Metro in `ARDIA_JS_LOCATION`
+`ARDIA_DATA_DIR` (it never falls back to a real profile). A test run hands it its Metro in `ARDIA_INSTANCE` `jsLocation`
 (that launch's argument domain, never written); never `defaults write com.ardia.browser`, the installed app's. Its build stages a copy of the engine framework
 (`packages/ardiacore/scripts/stage-framework.sh`, under the chromium lock, into `ARDIACORE_STAGE_DIR`), links that, and
 `embed.sh` signs the embedded copy with the build's identity.
