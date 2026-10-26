@@ -73,7 +73,7 @@ let instance = null;
 async function launch(logName = "app.out.log") {
   instance = await launchInstance(app, {
     data, port: devtoolsPort, log: join(scratch, logName), ready: false,
-    switches: "--ignore-certificate-errors --ardia-test-system-media-permission=ask",
+    switches: "--ignore-certificate-errors", test: { systemMediaPermission: "ask" },
   });
   pid = instance.pid;
   writeFileSync(join(scratch, "app.pid"), String(pid));

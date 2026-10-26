@@ -20,7 +20,7 @@ if (previousBuild && !fs.existsSync(path.join(docs, "onboarding.json")))
 try {
   instance = await launch(app, {
     data: docs, port, js: "none", ready: false, probe: true, log: path.join(path.dirname(path.resolve(out)), `${phase}.app.log`),
-    env: { HOME: home, CFFIXED_USER_HOME: home, ARDIA_TEST_REAUTH: "granted", ...(previousBuild ? {} : { ARDIA_DATA_DIR: null }) },
+    env: { HOME: home, CFFIXED_USER_HOME: home, ...(previousBuild ? {} : { ARDIA_DATA_DIR: null }) }, test: { reauth: "granted" },
     switches: "--disable-backgrounding-occluded-windows", args: previousBuild ? ["--mute-audio"] : [],
   });
 } catch (e) {

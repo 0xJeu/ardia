@@ -11,11 +11,12 @@
 //   --keep     leave the instance running at the end (and reuse the one this scratch dir already keeps)
 //   --attach   run against the instance a --keep run left in <scratch dir>: no boot, seconds per check
 //   SKIP=a,b   leave checks out; VERBOSE=1 prints the log as it goes; METRO_PORT (default 8081)
+//   ARDIA_TRACE=visibility,pip and ARDIA_INSTANCE=allowOcclusion,chromiumSwitches=… pass on to the instance
 //
 // Output: one line per check (PASS/FAIL, ms); a failure adds its first lines; the rest (evidence, state at a failure,
 // diagnostics) goes to <scratch dir>/data/acceptance.log, results to <scratch dir>/results.json. It never takes focus
 // and never touches a real profile: the data dir is <scratch dir>/data, wiped first (not when attaching).
-// Its instance keeps Chrome's audio (ARDIA_ALLOW_AUDIO=1) so Chrome reports audible tabs, and sends it to a fake output
+// Its instance keeps Chrome's audio (ARDIA_INSTANCE allowAudio) so Chrome reports audible tabs, and sends it to a fake output
 // (--disable-audio-output): nothing reaches the speakers. The fixtures play at -60 dBFS (Chrome's audible threshold is
 // -72); the automatic Picture in Picture checks need ffmpeg for their clip (made once into <scratch dir>/media).
 //
@@ -33,7 +34,7 @@
 //   browserOf(tabId) · eventsOf(tabId) · lastEvent(tabId, name, test) · live(tabId) · pipWindows()
 //   openTab(url, title, background) · closeTab(id) · shownAndMounted(id) · freshTab(url) · backToA() · startVideo(tabId, audio)
 //   pipByHand(tabId)               Site Controls › Picture in Picture, clicked as the user does (manual PiP needs the click)
-//   launch(log, env, args, opts) · appUp(log)   (re)start the app on the run's data dir; `exited` is set once it's gone
+//   launch(log, test, args, opts) · appUp(log)   (re)start the app on the run's data dir; `exited` is set once it's gone
 //   onScreenWindows() · firstPixel(png) · writePopupExtension(opts) · fixtureCrx()
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -43,6 +44,7 @@ import { basename, join, resolve } from "node:path";
 import { X509Certificate, createHash, createSign, generateKeyPairSync } from "node:crypto";
 import { crc32, deflateSync, inflateSync } from "node:zlib";
 import { attach as attachInstance, launch as launchInstance, onScreenWindows as windowsOf, reporter, sleep } from "../../../scripts/lib/instance.mjs";
+import { instanceEntries } from "../../../scripts/lib/launchEnv.mjs";
 
 // MARK: What each check needs
 
@@ -176,7 +178,7 @@ const scratch = resolve(scratchArg);
 const data = join(scratch, "data");
 let port;
 const downloadsDir = join(scratch, "downloads");
-const lightsLog = join(scratch, "traffic-lights.log");
+const lightsLog = join(data, "traffic-lights.log");
 if (!kept) {
   rmSync(lightsLog, { force: true });
   rmSync(data, { recursive: true, force: true });
@@ -408,22 +410,20 @@ const tlsSpki = createHash("sha256").update(new X509Certificate(tlsCert).publicK
 
 let exe, stdout, pid, child, launchedAt, exited = null;
 let instance = null;
-process.env.ARDIA_CHROMIUM_SWITCHES = `--ardia-test-media-route-provider --disable-media-route-providers-for-test --ardia-test-bluetooth-chooser ${process.env.ARDIA_CHROMIUM_SWITCHES ?? ""}`.trim();
-process.env.ARDIA_CHROMIUM_SWITCHES += ` --host-resolver-rules=${["ib.adnxs.com", "securepubads.g.doubleclick.net", "pagead2.googlesyndication.com", "adpage.test"]
+const runner = { instance: instanceEntries(process.env.ARDIA_INSTANCE), trace: (process.env.ARDIA_TRACE ?? "").split(",").filter(Boolean) };
+let chromeSwitches = `--disable-media-route-providers-for-test ${runner.instance.chromiumSwitches ?? ""}`.trim();
+chromeSwitches += ` --host-resolver-rules=${["ib.adnxs.com", "securepubads.g.doubleclick.net", "pagead2.googlesyndication.com", "adpage.test"]
   .map((host) => `MAP ${host} 127.0.0.1:${server.address().port}`).concat([`one.${siteDataDomain}`, `two.${siteDataDomain}`, ...siteDataSecureHosts].map((host) => `MAP ${host} 127.0.0.1:${tlsServer.address().port}`)).join(", ")}`;
-process.env.ARDIA_CHROMIUM_SWITCHES += ` --apps-gallery-update-url=${base}/webstore/crx`;
-process.env.ARDIA_CHROMIUM_SWITCHES += ` --ignore-certificate-errors-spki-list=${tlsSpki}`;
-process.env.ARDIA_CHROMIUM_SWITCHES += " --disable-audio-output";
-async function launch(logName = "app.out.log", env = {}, args = [], opts = {}) {
+chromeSwitches += ` --apps-gallery-update-url=${base}/webstore/crx`;
+chromeSwitches += ` --ignore-certificate-errors-spki-list=${tlsSpki}`;
+chromeSwitches += " --disable-audio-output";
+async function launch(logName = "app.out.log", test = {}, args = [], opts = {}) {
   instance = await launchInstance(opts.app ?? app, {
     data, log: join(scratch, logName), args, ready: false,
-    env: {
-      ARDIA_TEST_REAUTH: "granted", ARDIA_DOWNLOADS_DIR: downloadsDir, ARDIA_ALLOW_AUDIO: "1",
-      ...Object.fromEntries(["ARDIA_ALLOW_OCCLUSION", "ARDIA_TRACE_VISIBILITY", "ARDIA_TRACE_PIP"].filter((k) => process.env[k]).map((k) => [k, process.env[k]])),
-      ARDIA_TRAFFIC_LIGHTS_LOG: lightsLog,
-      ...env,
-    },
-    switches: `--auto-select-tab-capture-source-by-title=Capture Target --ardia-test-external-protocol-no-launch ${process.env.ARDIA_CHROMIUM_SWITCHES ?? ""} ${opts.switches ?? ""}`.trim(),
+    instance: { downloadsDir, allowAudio: true, ...(runner.instance.allowOcclusion ? { allowOcclusion: true } : {}) },
+    test: { reauth: "granted", mediaRouteProvider: true, bluetoothChooser: true, externalProtocolNoLaunch: true, ...test },
+    trace: [...new Set(["trafficLights", ...runner.trace.filter((area) => ["visibility", "pip"].includes(area))])],
+    switches: `--auto-select-tab-capture-source-by-title=Capture Target ${chromeSwitches} ${opts.switches ?? ""}`.trim(),
     meta: { http: server.address().port, https: tlsServer.address().port },
   });
   adopt(instance);
@@ -703,7 +703,7 @@ async function check(name, fn) {
   if ((process.env.SKIP ?? "").split(",").includes(name)) return;
   if (recovered.has(name)) return;
   currentCheck = name;
-  if (process.env.ARDIA_TRACE_VISIBILITY) log(`  [check ${stamp()}] ${name}`);
+  if (runner.trace.includes("visibility")) log(`  [check ${stamp()}] ${name}`);
   let failure = null;
   const started = Date.now();
   await report.check(name, async () => {
@@ -831,7 +831,7 @@ try {
     first = s.t;
     const t = await pageTarget(`${base}/a`);
     if (!t) throw new Error("no CDP target for A");
-    if (process.env.ARDIA_TRACE_VISIBILITY) watchVisibility(t);
+    if (runner.trace.includes("visibility")) watchVisibility(t);
     return { tab: s.t.id, title: s.t.title, active: s.s.active === s.t.id };
   });
 
@@ -843,7 +843,7 @@ try {
   });
 
   await check("occlusion", async () => {
-    const allow = !!process.env.ARDIA_ALLOW_OCCLUSION;
+    const allow = !!runner.instance.allowOcclusion;
     await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
     await until("A shown", async () => (await state()).active === first.id);
     const t = await pageFor(first.id, `${base}/a`);
@@ -4773,7 +4773,7 @@ try {
       for (const line of set) places.set(window(line), (places.get(window(line)) ?? new Set()).add(sample(line)));
       for (const [win, at] of places) if (at.size > 1) moved.push({ phase, window: win, places: [...at] });
     }
-    if (!lines.some((line) => line.includes(" layout -> "))) throw new Error("no layout pass logged (is ARDIA_TRAFFIC_LIGHTS_LOG set?)");
+    if (!lines.some((line) => line.includes(" layout -> "))) throw new Error("no layout pass logged (is ARDIA_TRACE trafficLights set?)");
     if (bad.length || badAway.length || moved.length)
       throw new Error(`traffic lights left their spot: ${JSON.stringify({ moved, bad: bad.slice(0, 6), badAway: badAway.slice(0, 6) })}`);
     return { samples: lines.length, hiddenSamples: away.length, layoutPasses: lines.filter((line) => line.includes(" layout -> ")).length };
@@ -4799,10 +4799,10 @@ try {
   });
 
   await check("context-menu-log", async () => {
-    const menuLog = join(scratch, "context-menu.json");
+    const menuLog = join(data, "context-menu.json");
     rmSync(menuLog, { force: true });
     await stopApp();
-    await launch("app4.out.log", { ARDIA_CONTEXT_MENU_LOG: menuLog });
+    await launch("app4.out.log", { contextMenu: true });
     await until("the relaunched app", async () => {
       try {
         return await evalApp(`return globalThis.expo.modules.ArdiaCEF.engineInfo()`, 3000);
@@ -4912,7 +4912,7 @@ try {
       const signed = execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", mediaApp], { stdio: ["ignore", "pipe", "ignore"] }).toString();
       if (/device\.(camera|audio-input)/.test(signed)) throw new Error("the media copy kept a device entitlement");
       await stopApp();
-      await launch("app-media.out.log", {}, [], { app: mediaApp, switches: "--ardia-test-system-media-permission=ask" });
+      await launch("app-media.out.log", { systemMediaPermission: "ask" }, [], { app: mediaApp });
       await until("the media copy", async () => {
         try {
           return await evalApp(`return globalThis.expo.modules.ArdiaCEF.engineInfo()`, 3000);

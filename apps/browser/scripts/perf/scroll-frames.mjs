@@ -6,7 +6,7 @@
 //   node apps/browser/scripts/perf/scroll-frames.mjs --out <dir> --arm <label>=<app>[,K=V...] [--arm ...] [options]
 //
 //     --arm <label>=<app>[,K=V][,battery]
-//                        repeatable: an app and extra environment for it (ARDIA_MAIN_FRAME_THROTTLE=off, ...); battery
+//                        repeatable: an app and extra environment for it (ARDIA_SWITCHES=…, ...); battery
 //                        turns Chrome's Battery Saver on, as Ardia does on battery or in Low Power Mode, and needs a copy
 //                        with the bench channel (native-bench.mjs --only prepare)
 //     --reps <n>         gestures per case (default 3)

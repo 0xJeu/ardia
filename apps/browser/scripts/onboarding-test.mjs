@@ -52,7 +52,7 @@ const run = (body) => app.eval(`${HELPERS}\n${body}`, { timeout: 20000 });
 const textFields = (ax) => ax.split("\n").filter((line) => line.trim().startsWith("AXTextField"));
 
 try {
-  app = await launch(appPath, { data, port, env: { ARDIA_ONBOARDING: "1" } });
+  app = await launch(appPath, { data, port, test: { onboarding: "1" } });
   rep.log(`instance: pid ${app.pid}, DevTools port ${app.port}, data ${data}`);
   await app.ready({ test: "return !!globalThis.acOnboarding?.store.getState().windowId" });
 

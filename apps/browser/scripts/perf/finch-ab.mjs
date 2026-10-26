@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // A/B of Google Chrome's field-trial features (Finch) in Ardia on xbench's rows. Chrome's runs in xbench use the
 // variations seed its template profile fetched; Ardia has none (disable_fieldtrial_testing_config, no seed). This
-// reads the features Chrome actually runs with and gives them to Ardia through ARDIA_CHROMIUM_SWITCHES (a scratch
+// reads the features Chrome actually runs with and gives them to Ardia through ARDIA_INSTANCE chromiumSwitches (a scratch
 // data dir forwards them), merged with Ardia's own --enable-features. Run only with the Mac quiet.
 //
 //   node apps/browser/scripts/perf/finch-ab.mjs features --out <dir> [--chrome <app>] [--template <dir>]
@@ -138,7 +138,7 @@ function run() {
   const args = ["run", "--out", join(out, "bench"), "--browsers", browsers.join(","), "--app", `ardia=${app}`, "--rows", "session,restore,link"];
   for (const a of wanted) {
     const name = a === "all" ? "ardia-finch" : `ardia-${a}`;
-    args.push("--app", `${name}=${app}`, "--env", `${name}=ARDIA_CHROMIUM_SWITCHES=${arms[a].switches}`);
+    args.push("--app", `${name}=${app}`, "--env", `${name}=ARDIA_INSTANCE=chromiumSwitches=${arms[a].switches}`);
   }
   const xbench = join(here, "xbench.mjs");
   const r = spawnSync(process.execPath, [xbench, ...args, ...more], { stdio: "inherit" });

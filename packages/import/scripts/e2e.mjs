@@ -15,8 +15,8 @@
 //   all              (default) import, then restart
 //   --keep           leaves the last instance running (poke it with scripts/agent/ac eval <scratch dir>/data '<js>')
 //
-// The instance runs through scripts/lib/instance.mjs (hidden, its own DevTools port) with ARDIA_IMPORT_SOURCE_DIR
-// at the fake home and ARDIA_IMPORT_TEST_SECRET, so the Keychain is never asked. One line per check; everything
+// The instance runs through scripts/lib/instance.mjs (hidden, its own DevTools port) with ARDIA_INSTANCE importSourceDir
+// at the fake home and ARDIA_TEST importSecret, so the Keychain is never asked. One line per check; everything
 // else goes to <scratch dir>/e2e.log. Exit code 1 if any check failed.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -61,7 +61,7 @@ let app = null;
 async function launch() {
   app = await launchInstance(APP, {
     data: DATA,
-    env: { ARDIA_IMPORT_SOURCE_DIR: `${HOME}/Library/Application Support`, ARDIA_IMPORT_TEST_SECRET: SECRET },
+    instance: { importSourceDir: `${HOME}/Library/Application Support` }, test: { importSecret: SECRET },
     ready: { timeout: 90_000, test: "return ac.store.getState().windowOrder.length > 0" },
   });
   note("pid", app.pid, "cdp", app.port, "log", app.log);

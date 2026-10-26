@@ -43,7 +43,7 @@
 //                               sample     main-thread `sample`s, idle and while switching and scrolling
 //                               prepare    prepare the app copies and exit (see --prepared)
 //     --env K=V               repeatable: extra environment for every instance (DYLD_INSERT_LIBRARIES is appended to
-//                             the marker library). Instances stay muted; don't pass ARDIA_ALLOW_AUDIO.
+//                             the marker library). Instances stay muted; don't pass ARDIA_INSTANCE allowAudio.
 //     --frames-n <n>          repetitions of each interaction per run in frames (default 8; framecounts uses at most 3)
 //     --frames-only <regex>   frames, framecounts: only the interactions whose name matches (case-insensitive)
 //     --frames-sample         frames: `sample` the app over the first repetition of each interaction (<out>/frames-sample/*.txt)
@@ -126,7 +126,7 @@ import { loadavg, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { appEnv } from "../../../../scripts/lib/instance.mjs";
+import { appEnv, launchVariables } from "../../../../scripts/lib/instance.mjs";
 import { buildSeed } from "./seed.mjs";
 import { writeSwitches } from "./js-bench.mjs";
 import { frameRows, frameTable, framesLibrary, framesRun } from "./frames-phase.mjs";
@@ -437,7 +437,7 @@ class Instance {
     this.t0 = Date.now();
     const env = appEnv(this.app, {
       ARDIA_BACKGROUND: "1", ARDIA_DATA_DIR: this.dataDir, ARDIA_REMOTE_DEBUGGING_PORT: String(this.port),
-      ARDIA_UPDATE_FEED_URL: this.feed, DYLD_INSERT_LIBRARIES: dyld,
+      ...launchVariables({ instance: { updateFeed: this.feed } }), DYLD_INSERT_LIBRARIES: dyld,
       ...Object.fromEntries(extra.map((e) => [e.slice(0, e.indexOf("=")), e.slice(e.indexOf("=") + 1)])),
     });
     execFileSync("open", ["-g", "-n", ...Object.entries(env).flatMap(([k, v]) => ["--env", `${k}=${v}`]), this.app,
@@ -590,7 +590,7 @@ async function launchRun(side, i) {
   const app = new Instance(copy ? { ...side, app: join(copy, "Ardia.app") } : side, freshDir(side, `launch-${i}`));
   const traceFile = join(app.dataDir, "startup-trace.json");
   if (opt["trace-startup"]) {
-    app.env.push(`ARDIA_CHROMIUM_SWITCHES=--trace-startup=${opt["trace-startup"]} --trace-startup-file=${traceFile} --trace-startup-duration=4 --trace-startup-format=json`);
+    app.env.push(`ARDIA_INSTANCE=updateFeed=${app.feed},chromiumSwitches=--trace-startup=${opt["trace-startup"]} --trace-startup-file=${traceFile} --trace-startup-duration=4 --trace-startup-format=json`);
   }
   try {
     await app.launch();
