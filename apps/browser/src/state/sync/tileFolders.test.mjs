@@ -6,6 +6,8 @@ const folders = await import("../pins/tileFolders.ts");
 const { sidebarEntries } = await import("../sidebar/entries.ts");
 const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const pinnedArea = await import("./pinned.ts");
+const { pinnedRowsAdapter } = await import("./pinnedRowsAdapter.ts");
+const { tileFoldersAdapter } = await import("./tileFoldersAdapter.ts");
 const shipped = await import("../../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
 const { pinnedAdapter: shippedPinnedAdapter } = await import("./fixtures/pinned-v0.2.38.ts");
 
@@ -55,7 +57,7 @@ class Device {
     try {
       const list = this.legacy
         ? [shippedPinnedAdapter("default")]
-        : [pinnedArea.tileFoldersAdapter("default"), pinnedArea.pinnedRowsAdapter("default"), pinnedArea.pinnedAdapter("default")];
+        : [tileFoldersAdapter("default"), pinnedRowsAdapter("default"), pinnedArea.pinnedAdapter("default")];
       const r = await (this.legacy ? shipped.syncScope : syncScope)({ scope: "p", state: this.scope, transport: this.folder.transport(), adapters: list, clock: this.clock, device: this.id });
       return { published: r.published };
     } finally {

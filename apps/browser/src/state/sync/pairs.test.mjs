@@ -3,6 +3,8 @@ import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const { Clock, compact, emptyScope, syncScope } = await import("@ardia/sync");
 const pinnedArea = await import("./pinned.ts");
+const { pinnedOrderAdapter } = await import("./pinnedOrderAdapter.ts");
+const { pinnedRowsAdapter } = await import("./pinnedRowsAdapter.ts");
 const stub = await import("../../test-native/index.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../session/persist.ts");
 const shipped = await import("../../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
@@ -72,7 +74,7 @@ class Mac {
           scope: `p:${p}`,
           state: (this.scopes[p] ??= emptyScope()),
           transport: this.folder.transport(),
-          adapters: this.legacy ? [shippedPinnedAdapter(p)] : [pinnedArea.pinnedRowsAdapter(p), pinnedArea.pinnedOrderAdapter(p), pinnedArea.pinnedAdapter(p)],
+          adapters: this.legacy ? [shippedPinnedAdapter(p)] : [pinnedRowsAdapter(p), pinnedOrderAdapter(p), pinnedArea.pinnedAdapter(p)],
           clock: this.clock,
           device: this.id,
           now: () => wall,

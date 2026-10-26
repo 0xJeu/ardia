@@ -6,6 +6,8 @@ const { Clock, emptyScope, syncScope } = await import("@ardia/sync");
 const adapters = await import("./adapters.ts");
 const { settingsAdapter, settingsToReapply } = await import("./settingsAdapter.ts");
 const pinnedArea = await import("./pinned.ts");
+const { pinnedOrderAdapter } = await import("./pinnedOrderAdapter.ts");
+const { pinnedRowsAdapter } = await import("./pinnedRowsAdapter.ts");
 const stub = await import("../../test-native/index.ts");
 const ardiacore = await import("@ardia/ardiacore");
 
@@ -75,7 +77,7 @@ class Device {
       const p = await run(
         profileId === "default" ? "p" : `p:${profileId}`,
         [
-          ...(this.legacy ? [] : [pinnedArea.pinnedRowsAdapter(profileId), pinnedArea.pinnedOrderAdapter(profileId)]),
+          ...(this.legacy ? [] : [pinnedRowsAdapter(profileId), pinnedOrderAdapter(profileId)]),
           pinnedArea.pinnedAdapter(profileId),
           adapters.bookmarksAdapter(profileId),
           adapters.historyAdapter(profileId),
@@ -1754,7 +1756,7 @@ test("only evidence that the anchor left the rows after the order record ends th
   const orderKey = `pord:g:${group}`;
   const decide = (records) => {
     const base = (k) => (k === orderKey ? { a: "x" } : undefined);
-    const extraction = pinnedArea.pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
+    const extraction = pinnedOrderAdapter("default").extract(base, () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
     return extraction.values.get(orderKey);
   };
   const order = { v: { a: "x" }, h: "0mvlhz4qh.0005.devA" };
@@ -1882,7 +1884,7 @@ test("a snapshot dropping the anchor in the cycle a newer order record arrives d
   const group = S().groupTabs([S().newTab(w, { url: "https://member.example/", background: true })], { pinned: true, name: "Group" });
   const orderKey = `pord:g:${group}`;
   const records = { [orderKey]: { v: { a: "x" }, h: "0mvlhz4qh.0009.devB" } };
-  const extraction = pinnedArea.pinnedOrderAdapter("default").extract((k) => (k === orderKey ? { a: "x" } : undefined), () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
+  const extraction = pinnedOrderAdapter("default").extract((k) => (k === orderKey ? { a: "x" } : undefined), () => false, Date.now(), (k) => k in records, (k) => records[k]?.v, (k) => records[k]?.h);
   assert.deepEqual(extraction.values.get(orderKey), { a: "x" }, "the group keeps waiting for its row");
 });
 
