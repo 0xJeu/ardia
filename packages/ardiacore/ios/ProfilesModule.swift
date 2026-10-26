@@ -14,12 +14,9 @@ public class ProfilesModule: Module {
       ArdiaHost.releaseProfile(args.profile)
       reply.ok()
     },
-    "deleteData": { args, reply in
-      if args.profile.isEmpty { return ProfileData.deleteDefault { reply.ok(["remaining": $0]) } }
-      ArdiaHost.deleteProfileData(args.profile) { reply.ok(["remaining": $0]) }
-    },
+    "deleteData": { args, reply in PageEngines.deleteProfileData(profile: args.profile) { reply.ok(["remaining": $0]) } },
     "clearBrowsingData": { args, reply in
-      ArdiaServices.clearBrowsingData(profile: args.profile, types: args.strings("types"), since: args.double("since") ?? 0) { reply.ok() }
+      PageEngines.clearBrowsingData(profile: args.profile, types: args.strings("types"), since: args.double("since") ?? 0) { reply.ok() }
     },
   ])
 }

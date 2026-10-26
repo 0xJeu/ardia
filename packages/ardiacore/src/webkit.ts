@@ -1,6 +1,6 @@
 import { call } from "./engine/call";
 import type { Download } from "./module";
-import type { SiteSettings, SiteSettingType, SiteSettingValue } from "./siteSettings";
+import type { SiteSettingType } from "./siteSettings";
 
 export type PageEngine = "chromium" | "webkit";
 
@@ -23,9 +23,6 @@ export type PasskeyAccess = { entitled: boolean; status: PasskeyAccessStatus };
 
 export const NO_PASSKEY_ACCESS: PasskeyAccess = { entitled: false, status: "entitlementRequired" };
 
-export const isWebKitDownload = (id: string) => id.startsWith("wk-download-");
-export const isWebKitPermission = (id: string) => id.startsWith("wk-permission-");
-export const isWebKitExternalApp = (id: string) => id.startsWith("wk-external-");
 export const WEBKIT_SITE_SETTINGS: readonly SiteSettingType[] = ["camera", "microphone"];
 
 export function leftDownloadStaging(download: Download): { path: string; uuid: string; folder: string } | null {
@@ -41,10 +38,6 @@ export async function removeLeftDownloadStaging(download: Download): Promise<boo
   return call("webKit.removeDownloadStaging", left);
 }
 export const endWebKitPrivateSession = (session: string) => call("webKit.endPrivateSession", { session });
-export const getWebKitSiteSettings = async (profile: string, origin: string): Promise<SiteSettings> =>
-  (await call("webKit.sitePermissions", { profile, origin })) as SiteSettings;
-export const setWebKitSiteSetting = (profile: string, origin: string, type: SiteSettingType, value: SiteSettingValue) =>
-  call("webKit.setSitePermission", { profile, origin, kind: type, value });
 export const webKitCookieStoreKey = (profile: string) => call("webKit.cookieStoreKey", { profile });
 export const importWebKitCookies = (profile: string, storeKey: string, cookies: PageCookie[]) =>
   call("webKit.importCookies", { profile, storeKey, cookies });

@@ -10,9 +10,12 @@ public class SitesModule: Module {
   }
 
   static let calls = CallTable(domain: "sites", handlers: [
-    "settings": { args, reply in ArdiaServices.siteSettings(profile: args.profile, origin: args.text("origin")) { reply.service($0, $1) } },
+    "settings": { args, reply in
+      PageEngines.named(args.string("engine")).siteSettings(profile: args.profile, origin: args.text("origin")) { reply.service($0, $1) }
+    },
     "setSetting": { args, reply in
-      ArdiaServices.setSiteSetting(args.text("value"), profile: args.profile, origin: args.text("origin"), type: args.text("type"))
+      PageEngines.named(args.string("engine")).setSiteSetting(
+        profile: args.profile, origin: args.text("origin"), type: args.text("type"), value: args.text("value"))
       reply.ok()
     },
     "origins": { args, reply in ArdiaServices.siteSettingsOrigins(profile: args.profile) { reply.service($0, $1) } },

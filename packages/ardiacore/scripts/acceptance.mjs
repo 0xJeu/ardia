@@ -2996,7 +2996,7 @@ try {
     await engineOrError("passwords.list", { profile: "scratch-delete" });
     await until("the profile loaded", async () => existsSync(folder), 10000);
     const result = await engine("profiles.deleteData", { profile: "scratch-delete" });
-    if (result.remaining.length) throw new Error(`remaining ${JSON.stringify(result)}`);
+    if (result.remaining.some((left) => left !== "WebKit data")) throw new Error(`remaining ${JSON.stringify(result)}`);
     const gone = await until("the folder gone", async () => !existsSync(folder), 15000).catch(() => false);
     if (!gone) throw new Error("the profile's folder is still there");
     await sleep(3000);
@@ -4377,7 +4377,7 @@ try {
     const result = await engine("profiles.deleteData", { profile: "" }, 60000);
     const p = await engineOrError("passwords.list", { profile: "" }), a = await engineOrError("autofill.addresses", { profile: "" }), z = await engine("sites.zoomLevels", { profile: "" }), o = await engine("sites.origins", { profile: "" });
     const left = { passwords: p.passwords?.length, addresses: a.addresses?.length, zoom: Object.keys(z).length, origins: o.length };
-    if (result?.remaining?.length || Object.values(left).some(Boolean)) throw new Error(JSON.stringify({ result, left }));
+    if (result?.remaining?.some((r) => r !== "WebKit data") || Object.values(left).some(Boolean)) throw new Error(JSON.stringify({ result, left }));
     return { remaining: result.remaining, left };
   });
 

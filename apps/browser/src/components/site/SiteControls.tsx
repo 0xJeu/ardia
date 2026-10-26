@@ -1,8 +1,6 @@
 import {
   getContentBlocker,
   getSiteSettings,
-  getWebKitSiteSettings,
-  setWebKitSiteSetting,
   WEBKIT_SITE_SETTINGS,
   isContentBlockerAllowed,
   setContentBlockerAllowed,
@@ -120,7 +118,7 @@ function SiteControlsPanel({
   const pageEngine = usePageEngine(tabId);
   const webkitPage = pageEngine === "webkit";
   const permissionList = webkitPage ? PERMISSIONS.filter((p) => WEBKIT_SITE_SETTINGS.includes(p.type)) : PERMISSIONS;
-  const readSettings = webkitPage ? getWebKitSiteSettings : (p: string, o: string) => getSiteSettings(p, o).catch((): SiteSettings => ({}) as SiteSettings);
+  const readSettings = (p: string, o: string) => getSiteSettings(p, o, pageEngine).catch((): SiteSettings => ({}) as SiteSettings);
   const engineRule = useEngineRule(url);
   const recommendedEngine = useRecommendedEngine(url);
   const streamingSite = useStreamingSite(url);
@@ -145,7 +143,7 @@ function SiteControlsPanel({
 
   const setPermission = async (type: SiteSettingType, value: SiteSettingValue) => {
     if (!origin) return;
-    await (webkitPage ? setWebKitSiteSetting : setSiteSetting)(profile, origin, type, value);
+    await setSiteSetting(profile, origin, type, value, pageEngine);
     setSettings(await readSettings(profile, origin));
     if (type === "sound") {
       updateTab(tabId, { muted: value === "block" });

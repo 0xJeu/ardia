@@ -14,16 +14,18 @@ public class PermissionsModule: Module {
 
   static let calls = CallTable(domain: "permissions", handlers: [
     "resolve": { args, reply in
-      ArdiaHost.resolvePermission(args.text("id"), result: args.text("result"), remember: args.bool("remember") ?? false)
+      let id = args.text("id")
+      PageEngines.owner(of: id).resolvePermission(id, result: args.text("result"), remember: args.bool("remember") ?? false)
       reply.ok()
     },
     "resolveExternalApp": { args, reply in
-      ArdiaHost.resolveExternalApp(args.text("id"), open: args.bool("open") ?? false, remember: args.bool("remember") ?? false)
+      let id = args.text("id")
+      PageEngines.owner(of: id).resolveExternalApp(id, open: args.bool("open") ?? false, remember: args.bool("remember") ?? false)
       reply.ok()
     },
-    "externalAppAllowances": { args, reply in ArdiaServices.externalAppAllowances(profile: args.profile) { reply.service($0, $1) } },
+    "externalAppAllowances": { args, reply in PageEngines.externalAppAllowances(profile: args.profile) { reply.ok($0) } },
     "removeExternalAppAllowance": { args, reply in
-      ArdiaServices.removeExternalAppAllowance(profile: args.profile, origin: args.text("origin"), scheme: args.text("scheme"))
+      PageEngines.removeExternalAppAllowance(profile: args.profile, origin: args.text("origin"), scheme: args.text("scheme"))
       reply.ok()
     },
     "devExternalLaunches": { _, reply in reply.ok(ArdiaHost.testExternalLaunches()) },

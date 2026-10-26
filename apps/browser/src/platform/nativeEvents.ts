@@ -14,18 +14,20 @@ type Options = {
 };
 export type Hold = ReturnType<typeof createHold>;
 
-export const HELD_EVENTS: ReadonlySet<string> = new Set([
-  "topNavigationChange",
-  "topProgress",
-  "topFavicon",
-  "topMedia",
-  "topNowPlaying",
-  "topStatus",
-  "topSecurity",
-  "topContentBlocked",
-  "topMediaAccess",
-  "topLoadError",
+export const HELD_PAGE_EVENTS: ReadonlySet<string> = new Set([
+  "navigation",
+  "progress",
+  "favicon",
+  "media",
+  "nowPlaying",
+  "status",
+  "security",
+  "contentBlocked",
+  "mediaAccess",
+  "loadError",
 ]);
+const isHeldPageEvent = (args: unknown[]) =>
+  args[1] === "topPageEvent" && HELD_PAGE_EVENTS.has(String((args[2] as { name?: unknown } | null)?.name));
 export function createHold({ batch, schedule, report, transaction = (run) => run() }: Options) {
   let held: (() => void)[] = [];
   let next = 0;
@@ -75,7 +77,7 @@ export function holdPageReports(bridge: Bridge, { hold, flush }: Hold) {
   const call = bridge.__callFunction.bind(bridge);
   const invoke = bridge.__invokeCallback.bind(bridge);
   bridge.__callFunction = (module, method, args) => {
-    if (module === "RCTEventEmitter" && method === "receiveEvent" && HELD_EVENTS.has(args[1] as string)) {
+    if (module === "RCTEventEmitter" && method === "receiveEvent" && isHeldPageEvent(args)) {
       hold(() => call(module, method, args));
       return;
     }

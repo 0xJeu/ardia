@@ -10,7 +10,9 @@ public class WebViewModule: Module {
     }.runOnQueue(.main)
 
     View(ChromiumTabView.self) {
-      Events(ChromiumTabView.events)
+      Events(PageEvents.channel)
+
+      Prop("pageEvents") { (view: ChromiumTabView, names: [String]?) in view.pageEvents = Set(names ?? []) }
 
       Prop("url") { (view: ChromiumTabView, url: String?) in view.browser.initialURL = url }
       Prop("profile") { (view: ChromiumTabView, profile: String?) in view.browser.profile = profile ?? "" }

@@ -1,4 +1,5 @@
 export * from "./WebView";
+export * from "./pageTypes";
 export * from "./module";
 export * from "./contentBlocker";
 export * from "./siteSettings";

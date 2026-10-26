@@ -192,7 +192,6 @@
     "engine/chromium/src/chrome/browser/ardia/ac_cli_token_policy.cc": 1,
     "engine/chromium/src/chrome/browser/ardia/ac_extensions_sync.cc": 1,
     "engine/chromium/src/chrome/browser/ardia/ac_tab_restore.cc": 1,
-    "packages/ardiacore/src/WebView.tsx": 1,
     "packages/shaders/ios/WindowBackdropView.swift": 1,
     "packages/sync/ios/Core/LegacyMigration.swift": 1
   },

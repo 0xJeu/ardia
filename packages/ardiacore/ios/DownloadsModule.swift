@@ -17,7 +17,8 @@ public class DownloadsModule: Module {
 
   static func command(_ action: String) -> CallHandler {
     { args, reply in
-      ArdiaServices.downloadCommand(action, id: args.text("id"))
+      let id = args.text("id")
+      PageEngines.owner(of: id).downloadCommand(action, id: id)
       reply.ok()
     }
   }

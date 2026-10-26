@@ -110,8 +110,9 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   table (`<Domain>Module.swift`, `EngineCall.swift`) → `ArdiaHost` / `ArdiaServices` / `ArdiaWebView` or straight to an
   `ac_*` export → `public/ArdiaCore.h` → `ardiacore_api.mm` → `ac_*.mm`. Replies cross as JSON, parsed once in JS.
   App events go through `ArdiaEvents` (`emit:@"domain.event"`) to that domain module's one channel (its event name is the domain); a page's
-  events come back through an `ArdiaCore*Delegate` method, `-emit:payload:` and the view's event list in
-  `ChromiumTabView.swift`.
+  events come back through an `ArdiaCore*Delegate` method and `-emit:payload:` to the view's one `onPageEvent` channel
+  (`PageEvents.swift`, only the names JS listens to), demuxed in `WebView.tsx`. Both page engines implement
+  `PageEngine` (`PageEngine.swift`): ids they minted (`wk-…` for WebKit) route to them natively.
 - **Adding to `ArdiaCore.h`:** implement it in `ardiacore_api.mm` (a new file goes in `BUILD.gn` `sources`); a new class
   must be named `ArdiaCore*` to be exported (the `ardiacore.exports` wildcard). The pod reads `ArdiaCore.h` from the repo and
   the app and the engine ship together, so the app calls new selectors directly (no `respondsToSelector:`).

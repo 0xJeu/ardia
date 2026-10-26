@@ -14,8 +14,8 @@ import type { BatterySaverMode, BatterySaverState } from "../performance";
 import type { PasswordExportStatus, SavedPassword } from "../passwords";
 import type { ClearSiteDataResult, SiteSettings, SiteSettingType, SiteSettingValue } from "../siteSettings";
 import type { TabStripCommand, TabStripTransaction } from "../tabStrip";
-import type { PageCookie, PasskeyAccess } from "../webkit";
-import type { DisplayMediaSource } from "../WebView";
+import type { PageCookie, PageEngine, PasskeyAccess } from "../webkit";
+import type { DisplayMediaSource } from "../pageTypes";
 
 type Profile = { profile: string };
 type Done = Record<string, never> | null;
@@ -67,8 +67,8 @@ export type EngineCalls = {
   "profiles.deleteData": [Profile, { remaining: string[] }];
   "profiles.clearBrowsingData": [Profile & { types: BrowsingDataType[]; since: number | null }, null];
 
-  "sites.settings": [Profile & { origin: string }, SiteSettings];
-  "sites.setSetting": [Profile & { origin: string; type: SiteSettingType; value: SiteSettingValue }, null];
+  "sites.settings": [Profile & { origin: string; engine: PageEngine }, SiteSettings];
+  "sites.setSetting": [Profile & { origin: string; type: SiteSettingType; value: SiteSettingValue; engine: PageEngine }, null];
   "sites.origins": [Profile, string[]];
   "sites.reset": [Profile & { origin: string }, null];
   "sites.clearData": [Profile & { origin: string }, ClearSiteDataResult];
@@ -160,17 +160,8 @@ export type EngineCalls = {
   "webView.setVideoUpscalingTestConditions": [{ lowPower?: boolean; thermalPressure?: boolean }, null];
   "webView.videoUpscalingState": [{}, VideoUpscalingState | null];
 
-  "webKit.resolvePermission": [{ id: string; result: PermissionResult; remember: boolean }, null];
-  "webKit.downloadCommand": [{ action: "cancel" | "pause" | "resume"; id: string }, null];
-  "webKit.externalAppAllowances": [Profile, ExternalAppAllowance[]];
-  "webKit.removeExternalAppAllowance": [Profile & { origin: string; scheme: string }, null];
   "webKit.removeDownloadStaging": [{ path: string; uuid: string; folder: string }, boolean];
   "webKit.endPrivateSession": [{ session: string }, null];
-  "webKit.sitePermissions": [Profile & { origin: string }, Partial<SiteSettings>];
-  "webKit.setSitePermission": [Profile & { origin: string; kind: string; value: string }, null];
-  "webKit.resolveExternalApp": [{ id: string; open: boolean; remember: boolean }, null];
-  "webKit.clearBrowsingData": [Profile & { types: BrowsingDataType[]; since: number | null }, null];
-  "webKit.deleteProfileData": [Profile, boolean];
   "webKit.cookieStoreKey": [Profile, string];
   "webKit.importCookies": [Profile & { storeKey: string; cookies: PageCookie[] }, number];
   "webKit.passkeyAccess": [{}, PasskeyAccess];

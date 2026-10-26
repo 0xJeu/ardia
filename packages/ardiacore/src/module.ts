@@ -1,6 +1,5 @@
 import { call, on } from "./engine/call";
 import { nativeModule } from "./nativeModules";
-import { isWebKitDownload, isWebKitPermission } from "./webkit";
 
 export type DownloadState = "downloading" | "finished" | "failed" | "cancelled";
 
@@ -128,11 +127,9 @@ export const setSearchEngineName = (name: string) => call("search.setEngineName"
 export const getDisplayMediaSources = () => call("media.displayMediaSources");
 
 export const onDownload = (listener: (d: Download) => void) => on("downloads.changed", listener);
-const downloadCommand = (action: "cancel" | "pause" | "resume", id: string) =>
-  isWebKitDownload(id) ? call("webKit.downloadCommand", { action, id }) : call(`downloads.${action}`, { id });
-export const cancelDownload = (id: string) => downloadCommand("cancel", id);
-export const pauseDownload = (id: string) => downloadCommand("pause", id);
-export const resumeDownload = (id: string) => downloadCommand("resume", id);
+export const cancelDownload = (id: string) => call("downloads.cancel", { id });
+export const pauseDownload = (id: string) => call("downloads.pause", { id });
+export const resumeDownload = (id: string) => call("downloads.resume", { id });
 
 export type DownloadSettings = { folder: string; askWhereToSave: boolean; managed: boolean };
 export const getDownloadSettings = (profile = "") => call("downloads.settings", { profile });
@@ -141,17 +138,10 @@ export const setDownloadSettings = (patch: Partial<Pick<DownloadSettings, "folde
 
 export const onPermission = (listener: (p: PermissionRequest) => void) => on("permissions.requested", listener);
 export const onPermissionDismissed = (listener: (p: { id: string }) => void) => on("permissions.dismissed", listener);
-export const resolvePermission = (id: string, result: PermissionResult, remember = false) =>
-  isWebKitPermission(id) ? call("webKit.resolvePermission", { id, result, remember }) : call("permissions.resolve", { id, result, remember });
+export const resolvePermission = (id: string, result: PermissionResult, remember = false) => call("permissions.resolve", { id, result, remember });
 
 export type BrowsingDataType = "history" | "siteData" | "cache" | "downloads";
 export const clearBrowsingData = (profile: string, types: BrowsingDataType[], since?: number) =>
-  Promise.all([
-    call("profiles.clearBrowsingData", { profile, types, since: since ?? null }),
-    call("webKit.clearBrowsingData", { profile, types, since: since ?? null }).catch(() => {}),
-  ]).then(() => {});
+  call("profiles.clearBrowsingData", { profile, types, since: since ?? null }).then(() => {});
 export const releaseProfile = (profile: string) => call("profiles.release", { profile });
-export const deleteProfileData = async (profile: string): Promise<string[]> => {
-  const [chromium, webkit] = await Promise.all([call("profiles.deleteData", { profile }), call("webKit.deleteProfileData", { profile }).catch(() => false)]);
-  return [...(chromium?.remaining ?? ["data"]), ...(webkit ? [] : ["WebKit data"])];
-};
+export const deleteProfileData = async (profile: string): Promise<string[]> => (await call("profiles.deleteData", { profile })).remaining;

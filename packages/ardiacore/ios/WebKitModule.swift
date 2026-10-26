@@ -11,7 +11,9 @@ public class WebKitModule: Module {
     }.runOnQueue(.main)
 
     View(WebKitTabView.self) {
-      Events(ChromiumTabView.events)
+      Events(PageEvents.channel)
+
+      Prop("pageEvents") { (view: WebKitTabView, names: [String]?) in view.pageEvents = Set(names ?? []) }
 
       Prop("url") { (view: WebKitTabView, url: String?) in view.tab.initialURL = url }
       Prop("profile") { (view: WebKitTabView, profile: String?) in view.tab.profile = profile ?? "" }
@@ -86,19 +88,6 @@ public class WebKitModule: Module {
     }
   }
   static let calls = CallTable(domain: "webKit", handlers: [
-    "resolvePermission": { args, reply in
-      WebKitHub.shared.resolvePermission(args.text("id"), result: args.text("result"), remember: args.bool("remember") ?? false)
-      reply.ok()
-    },
-    "downloadCommand": { args, reply in
-      WebKitHub.shared.downloads.command(args.text("action"), id: args.text("id"))
-      reply.ok()
-    },
-    "externalAppAllowances": { args, reply in reply.ok(WebKitHub.shared.externalAppAllowances(profile: args.profile)) },
-    "removeExternalAppAllowance": { args, reply in
-      WebKitHub.shared.removeExternalAppAllowance(profile: args.profile, origin: args.text("origin"), scheme: args.text("scheme"))
-      reply.ok()
-    },
     "removeDownloadStaging": { args, reply in
       reply.ok(WebKitDownloads.removeStaging(args.text("path"), uuid: args.text("uuid"), folder: args.text("folder")))
     },
@@ -106,19 +95,6 @@ public class WebKitModule: Module {
       WebKitHub.shared.endPrivateSession(args.text("session"))
       reply.ok()
     },
-    "sitePermissions": { args, reply in reply.ok(WebKitHub.shared.sitePermissions(profile: args.profile, origin: args.text("origin"))) },
-    "setSitePermission": { args, reply in
-      WebKitHub.shared.setSitePermission(profile: args.profile, origin: args.text("origin"), kind: args.text("kind"), value: args.text("value"))
-      reply.ok()
-    },
-    "resolveExternalApp": { args, reply in
-      WebKitHub.shared.resolveExternalApp(args.text("id"), open: args.bool("open") ?? false, remember: args.bool("remember") ?? false)
-      reply.ok()
-    },
-    "clearBrowsingData": { args, reply in
-      WebKitHub.shared.clearBrowsingData(profile: args.profile, types: args.strings("types"), since: args.double("since") ?? 0) { reply.ok() }
-    },
-    "deleteProfileData": { args, reply in WebKitHub.shared.deleteProfileData(args.profile) { reply.ok($0) } },
     "cookieStoreKey": { args, reply in reply.ok(WebKitHub.shared.storeKey(args.profile)) },
     "importCookies": { args, reply in
       let cookies = args.list("cookies").compactMap { $0 as? [String: Any] }
@@ -131,41 +107,9 @@ public class WebKitModule: Module {
 
 final class WebKitTabView: ExpoView, WebKitTabDelegate {
   let tab = WebKitTab(frame: .zero)
+  let onPageEvent = EventDispatcher()
+  var pageEvents: Set<String> = []
 
-  let onNavigationChange = EventDispatcher()
-  let onProgress = EventDispatcher()
-  let onFavicon = EventDispatcher()
-  let onMedia = EventDispatcher()
-  let onNowPlaying = EventDispatcher()
-  let onMediaAccess = EventDispatcher()
-  let onOpenWindow = EventDispatcher()
-  let onPopupBlocked = EventDispatcher()
-  let onFindResult = EventDispatcher()
-  let onFullscreen = EventDispatcher()
-  let onStatus = EventDispatcher()
-  let onCrashed = EventDispatcher()
-  let onUnresponsive = EventDispatcher()
-  let onResponsive = EventDispatcher()
-  let onLoadError = EventDispatcher()
-  let onSecurity = EventDispatcher()
-  let onZoom = EventDispatcher()
-  let onContentBlocked = EventDispatcher()
-  let onDownloadNavigation = EventDispatcher()
-  let onNotification = EventDispatcher()
-  let onNotificationClose = EventDispatcher()
-  let onPictureInPicture = EventDispatcher()
-  let onActivateRequest = EventDispatcher()
-  let onDisplayMediaRequest = EventDispatcher()
-  let onWindowClose = EventDispatcher()
-  let onCommand = EventDispatcher()
-  let onPageFocus = EventDispatcher()
-  let onPageMessage = EventDispatcher()
-  let onReady = EventDispatcher()
-  let onDiscarded = EventDispatcher()
-  let onPasswordPrompt = EventDispatcher()
-  let onAutofillPrompt = EventDispatcher()
-  let onExternalApp = EventDispatcher()
-  let onPreferredSize = EventDispatcher()
 
   private var propsReady = false
 
@@ -194,28 +138,6 @@ final class WebKitTabView: ExpoView, WebKitTabDelegate {
   }
 
   func webKitTab(_ tab: WebKitTab, event name: String, payload: [String: Any]) {
-    switch name {
-    case "navigation": onNavigationChange(payload)
-    case "progress": onProgress(payload)
-    case "favicon": onFavicon(payload)
-    case "media": onMedia(payload)
-    case "nowPlaying": onNowPlaying(payload)
-    case "mediaAccess": onMediaAccess(payload)
-    case "openWindow": onOpenWindow(payload)
-    case "find": onFindResult(payload)
-    case "status": onStatus(payload)
-    case "crashed": onCrashed(payload)
-    case "loadError": onLoadError(payload)
-    case "security": onSecurity(payload)
-    case "zoom": onZoom(payload)
-    case "downloadNavigation": onDownloadNavigation(payload)
-    case "pictureInPicture": onPictureInPicture(payload)
-    case "windowClose": onWindowClose(payload)
-    case "focus": onPageFocus(payload)
-    case "pageMessage": onPageMessage(payload)
-    case "ready": onReady(payload)
-    case "externalApp": onExternalApp(payload)
-    default: break
-    }
+    PageEvents.send(onPageEvent, wanted: pageEvents, name: name, payload: payload)
   }
 }
