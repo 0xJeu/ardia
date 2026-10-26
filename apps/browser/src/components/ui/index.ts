@@ -15,4 +15,23 @@ export { hex, layout, PROFILE_COLORS, useFormColors, useTheme, type FormColors, 
 export { colorRoles, font, ink, radius, shadow, space, weight, type ColorRole, type Radius, type Space, type TypeSize, type Weight } from "./tokens";
 export { TooltipAbove } from "./TooltipAbove";
 export { useHover } from "./useHover";
-export { ContextMenuArea, GlassEffect, Surface, Symbol, VisualEffect, type SurfaceProps, type SymbolProps } from "./native";
+export {
+  ActivitySpinner,
+  ContextMenuArea,
+  DockSelection,
+  FadeLabel,
+  FileDropArea,
+  GlassEffect,
+  MagnifyArea,
+  MouseArea,
+  OutsidePressArea,
+  Surface,
+  Symbol,
+  VisualEffect,
+  WindowDragRegion,
+  type DroppedItem,
+  type DropUpdate,
+  type MagnifyUpdate,
+  type SurfaceProps,
+  type SymbolProps,
+} from "./native";
