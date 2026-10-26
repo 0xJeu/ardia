@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { finishOnboarding } from "../../state/onboarding/onboarding";
 import { copySetupCode, onboardingSetupCode } from "../../state/presets/actions";
-import { StepActions, StepLayout } from "./Steps";
-import { SecondaryButton, useOnboardingColors } from "./Parts";
+import { StepActions, StepLayout } from "./StepLayout";
+import { SecondaryButton } from "./Buttons";
+import { useOnboardingColors } from "./Parts";
+import { MONO } from "./tokens";
+import { font } from "../ui/tokens";
 import { SetupLines } from "./SetupLines";
 
-const MONO = "Menlo";
 const COPIED_FOR_MS = 1800;
 
 export function SetupCodeOutro() {
@@ -48,11 +50,11 @@ export function SetupCodeOutro() {
           borderColor: colors.rowBorder,
         }}
       >
-        <Text selectable accessibilityLabel={`Setup code ${code}`} style={{ fontFamily: MONO, fontSize: 13, lineHeight: 19, color: colors.title }}>
+        <Text selectable accessibilityLabel={`Setup code ${code}`} style={{ fontFamily: MONO, ...font.body, lineHeight: 19, color: colors.title }}>
           {code}
         </Text>
       </View>
-      <Text style={{ fontSize: 12, lineHeight: 17, color: colors.rowSubtitle }}>
+      <Text style={{ ...font.small, lineHeight: 17, color: colors.rowSubtitle }}>
         It holds your layout, look and pinned apps. Search and privacy you pick in Ardia itself.
       </Text>
     </StepLayout>

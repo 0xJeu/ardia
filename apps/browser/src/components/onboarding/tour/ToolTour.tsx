@@ -1,14 +1,15 @@
-import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { hex, useTheme } from "../../ui/theme";
 import { useWindowId } from "../../../state/browser/hooks";
 import type { Rect } from "../../window/geometry";
-import { Button, useHover } from "../../ui";
+import { Button, Surface, useHover } from "../../ui";
 import { useOnboardingColors } from "../Parts";
 import { locateAnchor } from "./anchors";
 import { endToolTour, openVideoTour, stepToolTour, useTour, videoTourUrl, type TourStop } from "../../../state/onboarding/tour";
 import { curve } from "../../ui/motion";
+import { font, hairline, radius, shadow, weight } from "../../ui/tokens";
+import { onboardingMotion, onboardingType, tourRing } from "../tokens";
 
 const CARD_WIDTH = 296;
 const GAP = 14;
@@ -25,9 +26,9 @@ export function ToolTour() {
   useEffect(() => {
     if (active) {
       setShown(session);
-      Animated.timing(presence, { toValue: 1, duration: 240, easing: curve.outQuad, useNativeDriver: true }).start();
+      Animated.timing(presence, { toValue: 1, duration: onboardingMotion.tourIn, easing: curve.outQuad, useNativeDriver: true }).start();
     } else if (shown !== null) {
-      Animated.timing(presence, { toValue: 0, duration: 200, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
+      Animated.timing(presence, { toValue: 0, duration: onboardingMotion.tourOut, easing: curve.inQuad, useNativeDriver: true }).start(({ finished }) => {
         if (finished) setShown(null);
       });
     }
@@ -44,7 +45,7 @@ export function ToolTour() {
 type Hole = Rect & { radius: number };
 
 function Tour({ windowId }: { windowId: string }) {
-  const theme = useTheme();
+  const colors = useOnboardingColors();
   const stops = useTour((s) => s.stops);
   const index = useTour((s) => s.index);
   const stop = stops[Math.min(index, stops.length - 1)];
@@ -93,7 +94,7 @@ function Tour({ windowId }: { windowId: string }) {
   }, [spot.x, spot.y, spot.width, spot.height, spot.radius, cardAt.x, cardAt.y, size.width, !!stop]);
 
   if (!stop) return null;
-  const scrim = theme.dark ? "#00000080" : "#0000004D";
+  const scrim = colors.tourScrim;
   const holeRight = Animated.add(hole.x, hole.w);
   const holeBottom = Animated.add(hole.y, hole.h);
 
@@ -137,8 +138,8 @@ function Ring({ hole }: { hole: { x: Animated.Value; y: Animated.Value; w: Anima
     const id = hole.r.addListener(({ value }) => setR(Math.max(0, value)));
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: curve.inOutSine, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1100, easing: curve.inOutSine, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: onboardingMotion.tourPulse, easing: curve.inOutSine, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: onboardingMotion.tourPulse, easing: curve.inOutSine, useNativeDriver: true }),
       ]),
     );
     loop.start();
@@ -160,7 +161,7 @@ function Ring({ hole }: { hole: { x: Animated.Value; y: Animated.Value; w: Anima
       }}
     >
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }) }]}>
-        <Surface style={StyleSheet.absoluteFill} cornerRadius={r + out} borderWidth={1.5} borderColor="#FFFFFFB3" />
+        <Surface style={StyleSheet.absoluteFill} cornerRadius={r + out} borderWidth={1.5} borderColor={tourRing} />
       </Animated.View>
     </Animated.View>
   );
@@ -173,20 +174,20 @@ function CoachMark({ stop, index, count, windowId }: { stop: TourStop; index: nu
   return (
     <Surface
       fill={hex(theme.panel)}
-      cornerRadius={14}
+      cornerRadius={radius.sheet}
       borderColor={hex(theme.panelBorder)}
-      borderWidth={0.5}
-      shadowColor="#000000"
+      borderWidth={hairline.panel}
+      shadowColor={shadow.anchoredDialog.color}
       shadowOpacity={theme.panelShadowOpacity}
-      shadowRadius={24}
-      shadowOffset={[0, 10]}
+      shadowRadius={shadow.anchoredDialog.radius}
+      shadowOffset={shadow.anchoredDialog.offset}
     >
       <View style={{ paddingHorizontal: 18, paddingTop: 15, paddingBottom: 14, gap: 7 }} accessibilityRole="none">
-        <Text style={{ fontSize: 10.5, fontWeight: "600", letterSpacing: 0.4, color: theme.textTertiary }}>
+        <Text style={{ ...onboardingType.coachCount, color: theme.textTertiary }}>
           {`${index + 1} OF ${count}`}
         </Text>
-        <Text style={{ fontSize: 15, fontWeight: "600", letterSpacing: -0.1, color: theme.textPrimary }}>{stop.title}</Text>
-        <Text style={{ fontSize: 12.5, lineHeight: 18, color: theme.textSecondary }}>{stop.body}</Text>
+        <Text style={{ ...onboardingType.coachTitle, color: theme.textPrimary }}>{stop.title}</Text>
+        <Text style={{ ...onboardingType.bodyCompact, lineHeight: 18, color: theme.textSecondary }}>{stop.body}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 7, gap: 6 }}>
           {last ? null : <Button variant="text" plate="none" tone="textTertiary" hoverTone="textPrimary" padY="s" label="Skip Tour" title="Skip Tour" onPress={endToolTour} />}
           <View style={{ flex: 1 }} />
@@ -216,7 +217,7 @@ function PillButton({ title, onPress, primary }: { title: string; onPress: () =>
               transform: [{ scale: pressed ? 0.97 : 1 }],
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: "600", color: primary ? colors.primaryText : colors.buttonText }}>{title}</Text>
+            <Text style={{ ...font.small, fontWeight: weight.semibold, color: primary ? colors.primaryText : colors.buttonText }}>{title}</Text>
           </View>
         )}
       </Pressable>

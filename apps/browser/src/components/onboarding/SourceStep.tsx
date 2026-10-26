@@ -1,14 +1,16 @@
-import { fileExists, fileIcon, Symbol } from "@ardia/shell";
+import { fileExists, fileIcon } from "@ardia/shell";
 import { useEffect, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
-import { useHover } from "../ui";
+import { Image, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { Symbol } from "../ui";
+import { font, weight } from "../ui/tokens";
 import { importModule } from "../../platform/importModule";
 import { isWebDemo } from "../../platform/webDemo";
 import { openImport } from "../../state/settings/settingsWindows";
 import { CONTENT_WIDTH } from "./ChoiceList";
 import { chooseSource, confirmAnswer, presetFor, skipStep, useOnboarding, type BrowserSourceId } from "../../state/onboarding/onboarding";
-import { StepActions, StepLayout } from "./Steps";
-import { CheckMark, SecondaryButton, SectionLabel, Tag, useOnboardingColors } from "./Parts";
+import { StepActions, StepLayout } from "./StepLayout";
+import { SecondaryButton } from "./Buttons";
+import { CheckMark, SectionLabel, SelectTile, Tag, useOnboardingColors } from "./Parts";
 import { SetupCodeLink, SetupCodeStep } from "./SetupCodeStep";
 import { browserIcon } from "./browserIcons";
 
@@ -118,10 +120,10 @@ export function SourceStep() {
           }}
         >
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 13, fontWeight: "500", color: colors.title }}>
+            <Text style={{ ...font.body, fontWeight: weight.medium, color: colors.title }}>
               {importing === chosen.id ? `Importing from ${chosen.name}` : `Bring your stuff from ${chosen.name}`}
             </Text>
-            <Text style={{ fontSize: 12, color: colors.rowSubtitle }}>
+            <Text style={{ ...font.small, color: colors.rowSubtitle }}>
               {importing === chosen.id ? "It runs in its own window. Carry on here." : "Bookmarks, history, passwords and tabs."}
             </Text>
           </View>
@@ -145,45 +147,18 @@ function TileGrid({ tiles, selected, onPress, fresh }: { tiles: Tile[]; selected
 
 function SourceTile({ title, icon, symbol, selected, onPress }: { title: string; icon: ImageSourcePropType | null; symbol: string; selected: boolean; onPress: () => void }) {
   const colors = useOnboardingColors();
-  const { hovered, hoverProps } = useHover();
   return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={title}>
-        {({ pressed }) => (
-          <View
-            mouseDownCanMoveWindow={false}
-            style={{
-              width: TILE,
-              height: 84,
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              backgroundColor: selected || hovered ? colors.button : colors.row,
-              borderWidth: selected ? 1.5 : StyleSheet.hairlineWidth * 2,
-              borderColor: selected ? colors.title : colors.rowBorder,
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-            }}
-          >
-            {icon ? (
-              <Image source={icon} style={{ width: 40, height: 40 }} />
-            ) : (
-              <View style={{ width: 34, height: 34, margin: 3, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.iconContainer }}>
-                <Symbol name={symbol} size={15} color={colors.subtitle} style={{ width: 20, height: 20 }} />
-              </View>
-            )}
-            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: "500", paddingHorizontal: 4, color: selected ? colors.title : colors.subtitle }}>
-              {title}
-            </Text>
-            {selected ? (
-              <View style={{ position: "absolute", top: 5, right: 5 }}>
-                <CheckMark on size={14} />
-              </View>
-            ) : null}
+    <SelectTile title={title} width={TILE} height={84} gap={6} checkSize={14} selected={selected} role="radio" titlePad={4} titleLines={1} onPress={onPress}>
+      {() =>
+        icon ? (
+          <Image source={icon} style={{ width: 40, height: 40 }} />
+        ) : (
+          <View style={{ width: 34, height: 34, margin: 3, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.iconContainer }}>
+            <Symbol name={symbol} size={15} color={colors.subtitle} style={{ width: 20, height: 20 }} />
           </View>
-        )}
-      </Pressable>
-    </View>
+        )
+      }
+    </SelectTile>
   );
 }
 
@@ -204,7 +179,7 @@ function SourcePreview({ tile, fresh, found }: { tile: Tile | null; fresh: boole
                   <Symbol name="globe" size={28} color={colors.subtitle} style={{ width: 36, height: 36 }} />
                 </View>
               )}
-              <Text style={{ fontSize: 11, color: colors.subtitle }}>{t.name}</Text>
+              <Text style={{ ...font.caption, color: colors.subtitle }}>{t.name}</Text>
             </View>
           ))}
         </View>

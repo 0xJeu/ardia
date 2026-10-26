@@ -1,14 +1,20 @@
-import { Surface, VisualEffect, WindowDragRegion } from "@ardia/shell";
+import { WindowDragRegion } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
+import { Surface, VisualEffect } from "../ui";
 import { hex } from "../ui/theme";
+import { curve } from "../ui/motion";
+import { hairline } from "../ui/tokens";
+import { onboardingCard, onboardingMotion } from "./tokens";
 import { useWindowId } from "../../state/browser/hooks";
 import { Intro } from "./Intro";
 import { dismissOnboarding, goToStep, useOnboarding } from "../../state/onboarding/onboarding";
 import { LayoutStep, LookStep, TabsStep } from "./LayoutSteps";
 import { SearchPrivacyStep } from "./PrivacyStep";
 import { SourceStep } from "./SourceStep";
-import { HomeStep, OutroStep, PinnedTabsStep } from "./Steps";
+import { HomeStep } from "./HomeStep";
+import { OutroStep } from "./OutroStep";
+import { PinnedTabsStep } from "./PinnedTabsStep";
 import { SetupCodeOutro } from "./SetupCodeOutro";
 import { isWebDemo } from "../../platform/webDemo";
 import { ToolTour } from "./tour/ToolTour";
@@ -37,7 +43,7 @@ function Overlay({ session }: { session: number }) {
   const card = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(presence, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+    Animated.timing(presence, { toValue: 1, duration: onboardingMotion.overlayIn, easing: curve.outQuad, useNativeDriver: true }).start();
   }, []);
 
   useEffect(() => {
@@ -48,8 +54,8 @@ function Overlay({ session }: { session: number }) {
   useEffect(() => {
     if (!leaving) return;
     Animated.parallel([
-      Animated.timing(presence, { toValue: 0, duration: 420, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(card, { toValue: 2, duration: 420, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(presence, { toValue: 0, duration: onboardingMotion.overlayOut, easing: curve.inCubic, useNativeDriver: true }),
+      Animated.timing(card, { toValue: 2, duration: onboardingMotion.overlayOut, easing: curve.inCubic, useNativeDriver: true }),
     ]).start(({ finished }) => finished && dismissOnboarding(session));
   }, [leaving]);
 
@@ -80,13 +86,13 @@ function Overlay({ session }: { session: number }) {
           >
             <Surface
               fill={hex(colors.card)}
-              cornerRadius={20}
+              cornerRadius={onboardingCard.radius}
               borderColor={hex(colors.cardBorder)}
-              borderWidth={0.5}
-              shadowColor="#000000"
-              shadowOpacity={0.28}
-              shadowRadius={40}
-              shadowOffset={[0, 18]}
+              borderWidth={hairline.panel}
+              shadowColor={onboardingCard.shadow.color}
+              shadowOpacity={onboardingCard.shadow.opacity}
+              shadowRadius={onboardingCard.shadow.radius}
+              shadowOffset={onboardingCard.shadow.offset}
               style={{ flex: 1, overflow: "hidden" }}
             >
               <View key={step} style={{ flex: 1 }}>

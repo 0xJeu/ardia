@@ -1,18 +1,19 @@
-import { Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTheme } from "../ui/theme";
 import { onboardingColors } from "./tokens";
-import { Radio, useHover } from "../ui";
+import { Radio, Symbol, useHover } from "../ui";
 import { questionsFor, STEPS, useOnboarding, type OnboardingStep } from "../../state/onboarding/onboarding";
 import { curve } from "../ui/motion";
+import { font, weight } from "../ui/tokens";
+import { onboardingMotion, onboardingType } from "./tokens";
 
 export const useOnboardingColors = () => (useTheme().dark ? onboardingColors.dark : onboardingColors.light);
 
 export function Reveal({ delay = 0, children, style }: { delay?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const t = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(t, { toValue: 1, duration: 420, delay, easing: curve.outCubic, useNativeDriver: true }).start();
+    Animated.timing(t, { toValue: 1, duration: onboardingMotion.reveal, delay, easing: curve.outCubic, useNativeDriver: true }).start();
   }, []);
   return (
     <Animated.View style={[style, { opacity: t, transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
@@ -37,7 +38,7 @@ export function StepProgress() {
         ))}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, height: 14 }}>
-        <Text style={{ fontSize: 11, fontWeight: "500", letterSpacing: 0.2, color: colors.steps }}>{`STEP ${index + 1} OF ${steps.length}`}</Text>
+        <Text style={{ ...font.caption, fontWeight: weight.medium, letterSpacing: 0.2, color: colors.steps }}>{`STEP ${index + 1} OF ${steps.length}`}</Text>
         {count > 1 ? (
           <View style={{ flexDirection: "row", gap: 4 }} accessibilityLabel={`Question ${sub + 1} of ${count}`}>
             {Array.from({ length: count }, (_, i) => (
@@ -54,67 +55,8 @@ export function StepTitle({ title, subtitle }: { title: string; subtitle?: strin
   const colors = useOnboardingColors();
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 26, lineHeight: 31, fontWeight: "300", letterSpacing: -0.4, color: colors.title }}>{title}</Text>
-      {subtitle ? <Text style={{ fontSize: 13.5, lineHeight: 19, color: colors.subtitle }}>{subtitle}</Text> : null}
-    </View>
-  );
-}
-
-export function PrimaryButton({ title, onPress, disabled, icon }: { title: string; onPress: () => void; disabled?: boolean; icon?: string }) {
-  const colors = useOnboardingColors();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps} style={{ opacity: disabled ? 0.4 : 1 }}>
-      <Pressable disabled={disabled} onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
-        {({ pressed }) => (
-          <View
-            mouseDownCanMoveWindow={false}
-            style={{
-              height: 36,
-              borderRadius: 18,
-              paddingHorizontal: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              backgroundColor: hovered && !disabled ? colors.primaryHover : colors.primary,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.primaryText }}>{title}</Text>
-            {icon ? <Symbol name={icon} size={11} weight="semibold" color={colors.primaryText} style={{ width: 12, height: 12 }} /> : null}
-          </View>
-        )}
-      </Pressable>
-    </View>
-  );
-}
-
-export function SecondaryButton({ title, onPress, filled }: { title: string; onPress: () => void; filled?: boolean }) {
-  const colors = useOnboardingColors();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
-        {({ pressed }) => (
-          <View
-            mouseDownCanMoveWindow={false}
-            style={{
-              height: 36,
-              borderRadius: 18,
-              paddingHorizontal: 18,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: filled ? (hovered ? colors.buttonHover : colors.button) : hovered ? colors.outlinedHover : "transparent",
-              borderWidth: filled ? 0 : 1,
-              borderColor: colors.noThanksBorder,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: "500", color: filled ? colors.buttonText : colors.noThanksText }}>{title}</Text>
-          </View>
-        )}
-      </Pressable>
+      <Text style={{ ...onboardingType.stepTitle, color: colors.title }}>{title}</Text>
+      {subtitle ? <Text style={{ ...onboardingType.stepSubtitle, color: colors.subtitle }}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -123,7 +65,7 @@ export function CheckMark({ on, size = 18 }: { on: boolean; size?: number }) {
   const colors = useOnboardingColors();
   const t = useRef(new Animated.Value(on ? 1 : 0)).current;
   useEffect(() => {
-    Animated.timing(t, { toValue: on ? 1 : 0, duration: 140, easing: curve.outQuad, useNativeDriver: true }).start();
+    Animated.timing(t, { toValue: on ? 1 : 0, duration: onboardingMotion.checkMark, easing: curve.outQuad, useNativeDriver: true }).start();
   }, [on]);
   return (
     <View
@@ -160,40 +102,11 @@ export function CheckMark({ on, size = 18 }: { on: boolean; size?: number }) {
   );
 }
 
-export function BackButton({ onPress }: { onPress: () => void }) {
-  const colors = useOnboardingColors();
-  const { hovered, hoverProps } = useHover();
-  return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Back">
-        {({ pressed }) => (
-          <View
-            mouseDownCanMoveWindow={false}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: hovered ? colors.outlinedHover : "transparent",
-              borderWidth: 1,
-              borderColor: colors.noThanksBorder,
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-            }}
-          >
-            <Symbol name="chevron.left" size={12} weight="semibold" color={colors.noThanksText} style={{ width: 14, height: 14 }} />
-          </View>
-        )}
-      </Pressable>
-    </View>
-  );
-}
-
 export function Tag({ title }: { title: string }) {
   const colors = useOnboardingColors();
   return (
     <View style={{ height: 20, paddingHorizontal: 8, borderRadius: 10, justifyContent: "center", backgroundColor: colors.button }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.title }}>{title}</Text>
+      <Text style={{ ...font.caption, fontWeight: weight.semibold, color: colors.title }}>{title}</Text>
     </View>
   );
 }
@@ -202,7 +115,7 @@ export function SectionLabel({ title, accessory }: { title: string; accessory?: 
   const colors = useOnboardingColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 18 }}>
-      <Text style={{ fontSize: 12, fontWeight: "500", color: colors.subtitle }}>{title}</Text>
+      <Text style={{ ...font.small, fontWeight: weight.medium, color: colors.subtitle }}>{title}</Text>
       {accessory}
     </View>
   );
@@ -260,9 +173,9 @@ export function CheckRow({
             </View>
           ) : null}
           <View mouseDownCanMoveWindow={false} style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: compact ? 12.5 : 13, fontWeight: "500", color: colors.title }}>{title}</Text>
+            <Text style={{ ...(compact ? onboardingType.bodyCompact : font.body), fontWeight: weight.medium, color: colors.title }}>{title}</Text>
             {subtitle ? (
-              <Text numberOfLines={2} style={{ fontSize: compact ? 11 : 12, color: colors.rowSubtitle }}>
+              <Text numberOfLines={2} style={{ ...(compact ? font.caption : font.small), color: colors.rowSubtitle }}>
                 {subtitle}
               </Text>
             ) : null}
@@ -319,8 +232,8 @@ export function ChoiceRow({
           >
             <Radio on={selected} look="ring" />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 13, fontWeight: "500", color: colors.title }}>{title}</Text>
-              <Text numberOfLines={2} style={{ fontSize: 12, color: colors.rowSubtitle }}>
+              <Text style={{ ...font.body, fontWeight: weight.medium, color: colors.title }}>{title}</Text>
+              <Text numberOfLines={2} style={{ ...font.small, color: colors.rowSubtitle }}>
                 {subtitle}
               </Text>
             </View>
@@ -345,7 +258,7 @@ export function OptionRow<T extends string | number>({
   const colors = useOnboardingColors();
   return (
     <RowFrame hovered={false} compact>
-      <Text style={{ flex: 1, fontSize: 12.5, fontWeight: "500", color: colors.title }}>{title}</Text>
+      <Text style={{ flex: 1, ...onboardingType.bodyCompact, fontWeight: weight.medium, color: colors.title }}>{title}</Text>
       <View style={{ flexDirection: "row", gap: 2, padding: 2, borderRadius: 8, backgroundColor: colors.button }} accessibilityRole="radiogroup" accessibilityLabel={title}>
         {options.map((o) => (
           <Segment key={String(o.value)} title={o.title} image={o.image} selected={o.value === value} onPress={() => onChange(o.value)} />
@@ -380,8 +293,71 @@ function Segment({ title, image, selected, onPress }: { title: string; image?: s
             {image ? (
               <Image source={{ uri: image }} style={{ width: 26, height: 26 }} />
             ) : (
-              <Text style={{ fontSize: 11.5, fontWeight: selected ? "600" : "500", color: selected ? colors.title : colors.subtitle }}>{title}</Text>
+              <Text style={{ ...font.footnote, fontWeight: selected ? weight.semibold : weight.medium, color: selected ? colors.title : colors.subtitle }}>{title}</Text>
             )}
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+export function SelectTile({
+  title,
+  width,
+  height,
+  gap,
+  checkSize,
+  selected,
+  role,
+  titlePad,
+  titleLines,
+  onPress,
+  children,
+}: {
+  title: string;
+  width: number;
+  height: number;
+  gap: number;
+  checkSize: number;
+  selected: boolean;
+  role: "radio" | "checkbox";
+  titlePad?: number;
+  titleLines?: number;
+  onPress: () => void;
+  children: (hovered: boolean) => ReactNode;
+}) {
+  const colors = useOnboardingColors();
+  const { hovered, hoverProps } = useHover();
+  const state = role === "radio" ? { selected } : { checked: selected };
+  return (
+    <View {...hoverProps}>
+      <Pressable onPress={onPress} accessibilityRole={role} accessibilityState={state} accessibilityLabel={title}>
+        {({ pressed }) => (
+          <View
+            mouseDownCanMoveWindow={false}
+            style={{
+              width,
+              height,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              gap,
+              backgroundColor: selected || hovered ? colors.button : colors.row,
+              borderWidth: selected ? 1.5 : StyleSheet.hairlineWidth * 2,
+              borderColor: selected ? colors.title : colors.rowBorder,
+              transform: [{ scale: pressed ? 0.96 : 1 }],
+            }}
+          >
+            {children(hovered)}
+            <Text numberOfLines={titleLines} style={{ ...font.caption, fontWeight: weight.medium, paddingHorizontal: titlePad, color: selected ? colors.title : colors.subtitle }}>
+              {title}
+            </Text>
+            {selected ? (
+              <View style={{ position: "absolute", top: 5, right: 5 }}>
+                <CheckMark on size={checkSize} />
+              </View>
+            ) : null}
           </View>
         )}
       </Pressable>

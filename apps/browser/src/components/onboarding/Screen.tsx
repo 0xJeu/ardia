@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 import { PROFILE_COLORS } from "../ui/theme";
+import { curve } from "../ui/motion";
+import { onboardingMotion } from "./tokens";
 import { useSettings, useTabLayout } from "../../state/browser/hooks";
 import { useWindowProfileValue } from "../../state/profiles/hooks";
 import type { Settings } from "../../state/settings/settings";
@@ -32,7 +34,7 @@ export function MockPanel({ settings, focus, overlay }: { settings: Partial<Sett
   const [shown, setShown] = useState(overlay);
   useEffect(() => {
     if (overlay) setShown(overlay);
-    Animated.timing(t, { toValue: overlay ? 1 : 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(t, { toValue: overlay ? 1 : 0, duration: onboardingMotion.mockOverlay, easing: curve.outCubic, useNativeDriver: true }).start(({ finished }) => {
       if (finished && !overlay) setShown(null);
     });
   }, [!!overlay]);

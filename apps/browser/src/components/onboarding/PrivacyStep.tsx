@@ -1,16 +1,17 @@
 import { engineHost } from "@ardia/core";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { searchEngines, type Settings } from "../../state/settings/settings";
 import { useSettings } from "../../state/browser/hooks";
 import { isSharing, setSharing } from "../../state/telemetry/client";
 import { SHARING_COPY } from "../../state/telemetry/copy";
-import { useHover } from "../ui";
+import { font, weight } from "../ui/tokens";
 import { Favicon } from "../favicon/Favicon";
 import { CONTENT_WIDTH, ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { Page } from "./LayoutSteps";
 import { MockPanel, useScreen } from "./Screen";
 import { questionsFor, setOnboardingDraft, setOnboardingExtras, useOnboarding } from "../../state/onboarding/onboarding";
-import { CheckMark, CheckRow, useOnboardingColors } from "./Parts";
+import { CheckRow, SelectTile, useOnboardingColors } from "./Parts";
+import { MONO, onboardingType, receiptStamp } from "./tokens";
 
 const KEYS = ["searchEngine", "commandBarPreference"] as const;
 const ENGINES = ["google", "duckduckgo", "bing", "kagi", "ecosia", "brave", "startpage"];
@@ -84,57 +85,26 @@ export function SearchPrivacyStep() {
 const TILE = (CONTENT_WIDTH - 8 * 3) / 4;
 
 function EngineTile({ title, url, selected, onPress }: { title: string; url: string; selected: boolean; onPress: () => void }) {
-  const colors = useOnboardingColors();
-  const { hovered, hoverProps } = useHover();
   return (
-    <View {...hoverProps}>
-      <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={title}>
-        {({ pressed }) => (
-          <View
-            mouseDownCanMoveWindow={false}
-            style={{
-              width: TILE,
-              height: 64,
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              backgroundColor: selected || hovered ? colors.button : colors.row,
-              borderWidth: selected ? 1.5 : StyleSheet.hairlineWidth * 2,
-              borderColor: selected ? colors.title : colors.rowBorder,
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-            }}
-          >
-            <Favicon url={url} size={18} />
-            <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: "500", color: selected ? colors.title : colors.subtitle }}>
-              {title}
-            </Text>
-            {selected ? (
-              <View style={{ position: "absolute", top: 5, right: 5 }}>
-                <CheckMark on size={12} />
-              </View>
-            ) : null}
-          </View>
-        )}
-      </Pressable>
-    </View>
+    <SelectTile title={title} width={TILE} height={64} gap={6} checkSize={12} selected={selected} role="radio" titleLines={1} onPress={onPress}>
+      {() => <Favicon url={url} size={18} />}
+    </SelectTile>
   );
 }
 
 const SENT = ["Crash reports", "Error types", "Feature counts", "Speed and memory"];
 const ALWAYS = ["Daily open count"];
 const NEVER = ["Sites you visit", "What you type", "Your tabs", "Your name"];
-const MONO = "Menlo";
 
 function Receipt({ on }: { on: boolean }) {
   const colors = useOnboardingColors();
   const line = (label: string, mark: string, dim: boolean) => (
     <View key={label} style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: dim ? 0.35 : 1 }}>
-      <Text style={{ fontFamily: MONO, fontSize: 11, color: colors.title }}>{label}</Text>
-      <Text numberOfLines={1} ellipsizeMode="clip" style={{ flex: 1, fontFamily: MONO, fontSize: 11, color: colors.steps }}>
+      <Text style={{ fontFamily: MONO, ...font.caption, color: colors.title }}>{label}</Text>
+      <Text numberOfLines={1} ellipsizeMode="clip" style={{ flex: 1, fontFamily: MONO, ...font.caption, color: colors.steps }}>
         {".".repeat(40)}
       </Text>
-      <Text style={{ fontFamily: MONO, fontSize: 11, color: colors.title }}>{mark}</Text>
+      <Text style={{ fontFamily: MONO, ...font.caption, color: colors.title }}>{mark}</Text>
     </View>
   );
   const rule = <View style={{ height: 1, borderBottomWidth: 1, borderStyle: "dashed", borderColor: colors.rowBorder, marginVertical: 10 }} />;
@@ -151,10 +121,10 @@ function Receipt({ on }: { on: boolean }) {
         transform: [{ rotate: "2deg" }],
       }}
     >
-      <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: "700", letterSpacing: 1, textAlign: "center", color: colors.title }}>
+      <Text style={{ fontFamily: MONO, ...font.caption, fontWeight: weight.bold, letterSpacing: 1, textAlign: "center", color: colors.title }}>
         ARDIA
       </Text>
-      <Text style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 0.6, textAlign: "center", marginTop: 3, color: colors.subtitle }}>
+      <Text style={{ fontFamily: MONO, ...onboardingType.receiptSmall, textAlign: "center", marginTop: 3, color: colors.subtitle }}>
         ITEMIZED. UNLIKE SOME EXPENSES.
       </Text>
       {rule}
@@ -166,8 +136,8 @@ function Receipt({ on }: { on: boolean }) {
       <View style={{ gap: 6 }}>{NEVER.map((label) => line(label, "NEVER", false))}</View>
       {rule}
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: "700", color: colors.title }}>PERSONAL DATA</Text>
-        <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: "700", color: colors.title }}>0.00</Text>
+        <Text style={{ fontFamily: MONO, ...font.caption, fontWeight: weight.bold, color: colors.title }}>PERSONAL DATA</Text>
+        <Text style={{ fontFamily: MONO, ...font.caption, fontWeight: weight.bold, color: colors.title }}>0.00</Text>
       </View>
       <View
         style={{
@@ -177,11 +147,11 @@ function Receipt({ on }: { on: boolean }) {
           paddingVertical: 3,
           borderWidth: 1.5,
           borderRadius: 3,
-          borderColor: on ? "#2F9E5B" : colors.steps,
+          borderColor: on ? receiptStamp : colors.steps,
           transform: [{ rotate: "-6deg" }],
         }}
       >
-        <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: "700", letterSpacing: 1, color: on ? "#2F9E5B" : colors.steps }}>
+        <Text style={{ fontFamily: MONO, ...onboardingType.receiptStamp, color: on ? receiptStamp : colors.steps }}>
           {on ? "THANK YOU" : "NOT SHARED"}
         </Text>
       </View>

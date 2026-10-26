@@ -4,11 +4,13 @@ import { useHover } from "../ui";
 import { goToStep } from "../../state/onboarding/onboarding";
 import { applySetupCodeInOnboarding } from "../../state/presets/actions";
 import { SETUP_CODE_PREFIX } from "../../state/presets/setupCode";
-import { StepLayout } from "./Steps";
-import { BackButton, PrimaryButton, SecondaryButton, useOnboardingColors } from "./Parts";
+import { StepLayout } from "./StepLayout";
+import { BackButton, PrimaryButton, SecondaryButton } from "./Buttons";
+import { useOnboardingColors } from "./Parts";
+import { MONO } from "./tokens";
+import { font } from "../ui/tokens";
 import { SetupLines } from "./SetupLines";
 
-const MONO = "Menlo";
 const BRINGS = ["Where your tabs and address bar go", "What ⌘T and ⌘L open", "Light or dark, and your color", "The apps you pinned"];
 
 export function SetupCodeLink({ onPress }: { onPress: () => void }) {
@@ -18,7 +20,7 @@ export function SetupCodeLink({ onPress }: { onPress: () => void }) {
     <View {...hoverProps} style={{ marginLeft: "auto" }}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Have a setup code from ardia.dev?">
         <View mouseDownCanMoveWindow={false} style={{ height: 36, justifyContent: "center" }}>
-          <Text style={{ fontSize: 12, color: hovered ? colors.title : colors.subtitle, textDecorationLine: hovered ? "underline" : "none" }}>Have a setup code?</Text>
+          <Text style={{ ...font.small, color: hovered ? colors.title : colors.subtitle, textDecorationLine: hovered ? "underline" : "none" }}>Have a setup code?</Text>
         </View>
       </Pressable>
     </View>
@@ -92,10 +94,10 @@ export function SetupCodeStep({ onBack }: { onBack: () => void }) {
           spellCheck={false}
           enableFocusRing={false}
           accessibilityLabel="Setup code"
-          style={{ fontFamily: MONO, fontSize: 13, color: colors.title, paddingVertical: 0 }}
+          style={{ fontFamily: MONO, ...font.body, color: colors.title, paddingVertical: 0 }}
         />
       </View>
-      <Text style={{ fontSize: 12, lineHeight: 17, color: error ? colors.title : colors.rowSubtitle }}>
+      <Text style={{ ...font.small, lineHeight: 17, color: error ? colors.title : colors.rowSubtitle }}>
         {error ?? "Search, privacy and default browser stay yours to pick here."}
       </Text>
     </StepLayout>

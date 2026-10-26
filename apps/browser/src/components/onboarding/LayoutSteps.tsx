@@ -8,7 +8,7 @@ import { ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { ThemeColorPicker } from "./Personalize";
 import { MockPanel, useScreen } from "./Screen";
 import { confirmAnswer, previewColor, previewLive, PRESETS, questionsFor, setOnboardingDraft, setOnboardingExtras, skipStep, useOnboarding, type QuestionId } from "../../state/onboarding/onboarding";
-import { StepActions, StepLayout } from "./Steps";
+import { StepActions, StepLayout } from "./StepLayout";
 import { CheckRow, OptionRow, Tag } from "./Parts";
 
 export function Page({

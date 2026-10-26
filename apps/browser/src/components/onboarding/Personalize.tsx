@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { PROFILE_COLORS } from "../ui/theme";
 import { useProfile, useWindow } from "../../state/browser/hooks";
 import { updateProfile } from "../../state/profiles/actions";
@@ -8,6 +8,9 @@ import { useWindowTabLayout } from "../../state/windows/hooks";
 import type { ProfileColor } from "../../state/browser/types";
 import { Radio, useHover } from "../ui";
 import { useOnboardingColors } from "./Parts";
+import { curve } from "../ui/motion";
+import { font, weight } from "../ui/tokens";
+import { onboardingMotion, onboardingType } from "./tokens";
 
 export const PERSONALIZE_COPY = {
   title: "Make it yours",
@@ -36,7 +39,7 @@ function ColorButton({ color, size, selected, onPress }: { color: ProfileColor; 
   const { hovered, hoverProps } = useHover();
   const t = useRef(new Animated.Value(selected ? 1 : 0)).current;
   useEffect(() => {
-    Animated.timing(t, { toValue: selected ? 1 : 0, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(t, { toValue: selected ? 1 : 0, duration: onboardingMotion.swatch, easing: curve.outQuad, useNativeDriver: false }).start();
   }, [selected]);
   return (
     <View {...hoverProps} tooltip={name}>
@@ -122,8 +125,8 @@ function LayoutButton({ kind, title, subtitle, selected, onPress }: { kind: "sid
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Radio on={selected} look="ring" />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 12.5, fontWeight: "500", color: colors.title }}>{title}</Text>
-                <Text style={{ fontSize: 11, color: colors.rowSubtitle }}>{subtitle}</Text>
+                <Text style={{ ...onboardingType.bodyCompact, fontWeight: weight.medium, color: colors.title }}>{title}</Text>
+                <Text style={{ ...font.caption, color: colors.rowSubtitle }}>{subtitle}</Text>
               </View>
             </View>
           </View>
