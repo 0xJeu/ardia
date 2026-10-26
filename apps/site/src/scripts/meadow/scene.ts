@@ -200,7 +200,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
   let firstFrameSent = false;
   let lastNow = 0;
   let windTime = 0;
-  const clock = new GpuClock(gl);
+  let clock = new GpuClock(gl);
   const scaler = new Scaler();
   let inFlight: WebGLSync | null = null;
   let heldFrames = 0;
@@ -1259,6 +1259,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     gpu = null;
     targets = null;
     cellTable = null;
+    probe = null;
     batch = null;
     mobGpu = null;
     mobBatch = null;
@@ -1267,10 +1268,11 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     framesSinceFirst = 0;
     inFlight = null;
     heldFrames = 0;
-    clock.forget();
   };
   const onRestored = () => {
     lost = false;
+    cellTablesOff = !gl.getExtension("EXT_color_buffer_float");
+    clock = new GpuClock(gl);
     bakeStrip = 0;
     brushUploaded = false;
     smearUploaded = false;
@@ -1391,6 +1393,8 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       tones.reset();
       releaseTargets();
       releaseCellTable();
+      if (inFlight) gl.deleteSync(inFlight);
+      inFlight = null;
     },
   };
 }

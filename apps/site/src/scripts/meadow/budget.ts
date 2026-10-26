@@ -70,11 +70,6 @@ export class GpuClock {
       if (!disjoint) onSample(nanoseconds / 1e6, busy);
     }
   }
-
-  forget() {
-    this.pending.length = 0;
-    this.running = null;
-  }
 }
 
 export class Scaler {
