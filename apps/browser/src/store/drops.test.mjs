@@ -128,3 +128,49 @@ test("clicks: ⌘ adds to the selection from the shown tab, ⇧ selects the rang
   S().clickTab(w, c, { metaKey: true });
   assert.deepEqual(S().selection[w], [], "⌘-clicking the shown tab alone selects nothing");
 });
+
+const shape = (w) => S().windows[w].tabIds.map((id) => {
+  const g = Object.values(S().groups).find((x) => x.tabIds.includes(id));
+  return g ? `${host(id)}{${g.name}}` : host(id);
+});
+
+test("⌃⇧⇞/⇟: a tab steps over a whole group, a member steps inside its group and leaves it at the edge, a split moves as one", () => {
+  reset();
+  const { w, ids: [a, b, c, d, e, f] } = windowWith("a", "b", "c", "d", "e", "f");
+  S().createGroup([b, c], { name: "G" });
+  S().createSplit([e, f]);
+  assert.deepEqual(shape(w), ["a", "b{G}", "c{G}", "d", "e", "f"]);
+  S().moveTabBy(d, -1);
+  assert.deepEqual(shape(w), ["a", "d", "b{G}", "c{G}", "e", "f"]);
+  S().moveTabBy(d, 1);
+  assert.deepEqual(shape(w), ["a", "b{G}", "c{G}", "d", "e", "f"]);
+  S().moveTabBy(c, -1);
+  assert.deepEqual(shape(w), ["a", "c{G}", "b{G}", "d", "e", "f"]);
+  S().moveTabBy(c, -1);
+  assert.deepEqual(shape(w), ["a", "c", "b{G}", "d", "e", "f"]);
+  S().moveTabBy(b, 1);
+  assert.deepEqual(shape(w), ["a", "c", "b", "d", "e", "f"]);
+  S().moveTabBy(d, 1);
+  assert.deepEqual(shape(w), ["a", "c", "b", "e", "f", "d"]);
+  S().moveTabBy(f, -1);
+  assert.deepEqual(shape(w), ["a", "c", "e", "f", "b", "d"]);
+  S().moveTabBy(a, -1);
+  assert.deepEqual(shape(w), ["a", "c", "e", "f", "b", "d"]);
+});
+
+test("⌃⇧⇞/⇟: a tab stays in its pin section, and a list tab never steps into a pinned group", () => {
+  reset();
+  const { w, ids: [t, r, p, l1, l2] } = windowWith("t", "r", "p", "l1", "l2");
+  S().pinTabs([t], true);
+  S().pinTabs([r], true, true);
+  S().groupTabs([p], { pinned: true, name: "P" });
+  const before = shape(w);
+  S().moveTabBy(l1, -1);
+  S().moveTabBy(p, 1);
+  S().moveTabBy(r, 1);
+  S().moveTabBy(r, -1);
+  S().moveTabBy(t, 1);
+  assert.deepEqual(shape(w), before);
+  S().moveTabBy(l2, -1);
+  assert.equal(shape(w).indexOf("l2"), shape(w).indexOf("l1") - 1);
+});

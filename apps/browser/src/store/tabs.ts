@@ -23,6 +23,7 @@ import {
 import { forgetOpeners, insertionIndex, nextToActive, openerSuccessor, switchKeepsOpeners } from "./openers";
 import { groupWithOpener, isClosedPin, onUrlChange, pruneSelection, samePage } from "./organize";
 import { hasOwnOrSharedPage, hasPage, isLazy } from "./pageSession";
+import { stepDrop } from "./drops";
 import { isPeekTab, withoutPeek } from "./peek";
 import { searchUrlPrefix } from "./settings";
 import { mainWindowFor } from "./small";
@@ -528,8 +529,6 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
   },
 
   moveTabBy(id, delta) {
-    const section = tabSection(get(), id);
-    const at = section.indexOf(id) + delta;
-    if (section.includes(id) && at >= 0 && at < section.length) get().moveTab(id, at);
+    get().dropTabs([id], stepDrop(get(), id, delta));
   },
 });
