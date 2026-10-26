@@ -184,7 +184,6 @@
   },
   "tokens": {
     "apps/browser/src/components/bookmarks/FolderTree.tsx": 3,
-    "apps/browser/src/components/downloads/Downloads.tsx": 9,
     "apps/browser/src/components/extensions/ExtensionOverlays.tsx": 9,
     "apps/browser/src/components/extensions/SidePanel.tsx": 6,
     "apps/browser/src/components/extensions/ToolbarExtensions.tsx": 4,
@@ -229,7 +228,6 @@
   "store-shape": {},
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,
-    "apps/browser/src/components/downloads/Downloads.tsx": 1,
     "apps/browser/src/components/onboarding/Steps.tsx": 1,
     "apps/browser/src/components/onboarding/previews/Demos.tsx": 1,
     "apps/browser/src/components/onboarding/previews/Kit.tsx": 1,
