@@ -12,6 +12,10 @@
 - (void)uncover:(BOOL)fade;
 @end
 
+@interface ArdiaPopupOriginStrip : NSView
+- (void)showURL:(NSString *)url security:(NSString *)level;
+@end
+
 @interface ArdiaWindowFullScreen : NSObject
 + (instancetype)ofWindow:(ArdiaCoreWindow *)coreWindow create:(BOOL)create;
 - (void)tab:(ArdiaCoreTab *)tab fullScreen:(BOOL)fullScreen tell:(void (^)(void))tell;
@@ -58,5 +62,7 @@ extern NSTimeInterval gActedTransition;
 NSMapTable<ArdiaCoreTab *, NSNumber *> *FullScreenChanges();
 
 extern BOOL gPageCoverOff;
+
+NSString *PopupOriginText(NSString *url);
 
 }

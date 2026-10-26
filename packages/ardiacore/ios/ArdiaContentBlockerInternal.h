@@ -1,4 +1,5 @@
 #import "ArdiaInternal.h"
+#import "ArdiaContentBlocker.h"
 #import "ArdiaServices.h"
 
 @interface ArdiaContentBlockerPage : NSObject <ArdiaCoreTabDelegate>

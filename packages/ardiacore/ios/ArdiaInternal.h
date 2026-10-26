@@ -1,6 +1,7 @@
 #import <AppKit/AppKit.h>
 
 #import "ArdiaCore.h"
+#import "ArdiaFavicons.h"
 #import "ArdiaHost.h"
 #import "ArdiaTabStrip.h"
 #import "ArdiaTabRegistry.h"

@@ -2576,7 +2576,7 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-macos/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  ArdiaCore: 1472b6bc1f3c84093344e4ac220b143f7fe7496e
+  ArdiaCore: 3c6bd44f9f407a2c9d2aa2c05e1d81c155904140
   ArdiaImport: 535f03b8bdc5866eb05d6d177597e9583bfe7d47
   ArdiaShaders: d8dc0512dec3ed9d4af792579b320249ef035924
   ArdiaShell: 08821f057216054eedec3f991ee89cf126a88a13
