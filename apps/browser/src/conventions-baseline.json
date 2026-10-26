@@ -5,17 +5,16 @@
     "apps/browser/src/components/ui/Primitives.tsx": 1,
     "apps/browser/src/platform/nativeEvents.ts": 2,
     "apps/browser/src/state/app/nativeSync.ts": 1,
-    "apps/browser/src/state/browser/actions.ts": 2,
+    "apps/browser/src/state/browser/actions.ts": 1,
     "apps/browser/src/state/commands/commands.ts": 1,
     "apps/browser/src/state/littleArdia/actions.ts": 1,
     "apps/browser/src/state/onboarding/tour.ts": 1,
     "apps/browser/src/state/settings/searchState.ts": 1,
     "apps/browser/src/state/sidebar/hover.ts": 2,
-    "apps/browser/src/state/site/permissions.ts": 1,
     "apps/browser/src/state/sync/engine.ts": 2,
     "apps/browser/src/state/telemetry/index.ts": 2,
     "apps/browser/src/state/windows/launchBackdrop.ts": 1,
-    "apps/browser/src/state/windows/layout.ts": 2
+    "apps/browser/src/state/windows/layout.ts": 1
   },
   "native-calls": {
     "apps/browser/src/App.tsx": 1,
@@ -115,7 +114,7 @@
     "apps/browser/src/components/sidebar/TabSwitcher.tsx": 1,
     "apps/browser/src/components/sidebar/TileFace.tsx": 1,
     "apps/browser/src/components/site/Autofill.tsx": 1,
-    "apps/browser/src/components/site/DeviceChooser.tsx": 2,
+    "apps/browser/src/components/site/DeviceChooser.tsx": 1,
     "apps/browser/src/components/site/Prompts.tsx": 2,
     "apps/browser/src/components/site/SelectionPopover.tsx": 1,
     "apps/browser/src/components/site/SiteControls.tsx": 2,
@@ -138,7 +137,6 @@
     "apps/browser/src/components/window/SwipeOverlay.tsx": 2,
     "apps/browser/src/components/window/TabDropArea.tsx": 1,
     "apps/browser/src/components/window/WindowProfile.tsx": 1,
-    "apps/browser/src/components/window/profilePager.ts": 1,
     "apps/browser/src/lib/shortcuts.ts": 1,
     "apps/browser/src/lib/signInCookies.ts": 1,
     "apps/browser/src/state/app/appIntegration.ts": 2,
@@ -201,6 +199,7 @@
     "apps/browser/src/state/sidebar/switcher.ts": 1,
     "apps/browser/src/state/sidebar/tileFolderUi.ts": 1,
     "apps/browser/src/state/site/autofill.ts": 1,
+    "apps/browser/src/state/site/deviceChoosers.ts": 1,
     "apps/browser/src/state/site/permissions.ts": 1,
     "apps/browser/src/state/site/selection.ts": 2,
     "apps/browser/src/state/site/share.ts": 1,
@@ -229,6 +228,7 @@
     "apps/browser/src/state/telemetry/usage.ts": 2,
     "apps/browser/src/state/windows/closeAnimated.ts": 1,
     "apps/browser/src/state/windows/launchLook.ts": 1,
+    "apps/browser/src/state/windows/profilePager.ts": 1,
     "apps/browser/src/state/windows/ui.ts": 1,
     "apps/browser/src/state/windows/windowClose.ts": 1,
     "apps/browser/src/state/windows/windowSync.ts": 1
@@ -404,7 +404,6 @@
     "apps/browser/src/components/sidebar/SearchTabs.tsx": 2,
     "apps/browser/src/components/sidebar/Sidebar.tsx": 8,
     "apps/browser/src/components/sidebar/TabRow.tsx": 1,
-    "apps/browser/src/components/site/DeviceChooser.tsx": 1,
     "apps/browser/src/components/site/Prompts.tsx": 1,
     "apps/browser/src/components/site/SiteControls.tsx": 4,
     "apps/browser/src/components/site/TranslateControls.tsx": 1,
@@ -419,9 +418,7 @@
     "apps/browser/src/components/window/HistoryPopover.tsx": 2,
     "apps/browser/src/components/window/ProfileSwipe.tsx": 1,
     "apps/browser/src/components/window/SwipeOverlay.tsx": 1,
-    "apps/browser/src/components/window/TabDropArea.tsx": 3,
-    "apps/browser/src/components/window/dockMotion.ts": 5,
-    "apps/browser/src/components/window/profilePager.ts": 12
+    "apps/browser/src/components/window/TabDropArea.tsx": 3
   },
   "size": {
     "apps/browser/src/components/bookmarks/BookmarksBar.tsx": 1,

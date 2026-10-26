@@ -9,7 +9,7 @@ import { resize, type Divider, type Rect } from "../window/geometry";
 import { useHover } from "../ui/Primitives";
 import { hideToast, useToasts } from "../../state/splits/actions";
 import { useWindowId } from "../../state/browser/hooks";
-import { overPeek } from "../window/dockMotion";
+import { overPeek } from "../../state/windows/dockMotion";
 import { zoneHit, zoneRect, type ZoneStage } from "./splitDrop";
 import { setDropTarget, setOnPage, setTargetResolver, useTabDrag } from "../../state/drag/tabDrag";
 

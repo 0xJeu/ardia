@@ -1,51 +1,10 @@
-import {
-  cancelDeviceChooser,
-  onDeviceChooser,
-  openBluetoothSettings,
-  refreshDeviceChooser,
-  selectDevice,
-  type DeviceChooser as Chooser,
-} from "@ardia/ardiacore";
 import { Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { create } from "zustand";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { cancelChooser, chooseDevice, openChooserBluetoothSettings, rescanDevices, useDeviceChooser } from "../../state/site/deviceChoosers";
 import { PANEL, Popover, PromptButton } from "../ui/Controls";
-import { tabForBrowser } from "../../state/tabs/pageState";
 import { useHover } from "../ui/Primitives";
-
-const useChoosers = create<{ byTab: Record<string, Chooser> }>()(() => ({ byTab: {} }));
-if (__DEV__) (globalThis as { acDeviceChoosers?: unknown }).acDeviceChoosers = { useChoosers, selectDevice, cancelDeviceChooser };
-
-let started = false;
-export function startDeviceChoosers() {
-  if (started) return;
-  started = true;
-  onDeviceChooser((chooser) => {
-    const tabId = tabForBrowser(chooser.browserId);
-    if (!tabId) {
-      if (chooser.open) void cancelDeviceChooser(chooser.id);
-      return;
-    }
-    useChoosers.setState((s) => {
-      const byTab = { ...s.byTab };
-      if (chooser.open) byTab[tabId] = chooser;
-      else if (byTab[tabId]?.id === chooser.id) delete byTab[tabId];
-      return { byTab };
-    });
-  });
-  useBrowser.subscribe((s, prev) => {
-    if (s.tabs === prev.tabs) return;
-    const { byTab } = useChoosers.getState();
-    const gone = Object.keys(byTab).filter((id) => !s.tabs[id]);
-    if (!gone.length) return;
-    const next = { ...byTab };
-    for (const id of gone) delete next[id];
-    useChoosers.setState({ byTab: next });
-  });
-}
 
 function Signal({ level, color }: { level: number; color: string }) {
   return (
@@ -89,7 +48,7 @@ function OptionRow({ name, detail, signal, selected, onSelect, onChoose }: { nam
 
 export function DeviceChooser({ tabId, left, top }: { tabId: string; left: number; top: number }) {
   const theme = useTheme();
-  const chooser = useChoosers((s) => s.byTab[tabId]);
+  const chooser = useDeviceChooser(tabId);
   const [selected, setSelected] = useState<number | null>(null);
   useEffect(() => setSelected(null), [chooser?.id]);
   if (!chooser) return null;
@@ -97,10 +56,10 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
   const blocked = chooser.adapterOff || chooser.unauthorized;
   const valid = scanning || (selected !== null && selected < chooser.options.length);
   const choose = (index = selected) => {
-    if (scanning) return void selectDevice(chooser.id, -1);
-    if (index !== null) void selectDevice(chooser.id, index);
+    if (scanning) return chooseDevice(chooser.id, -1);
+    if (index !== null) chooseDevice(chooser.id, index);
   };
-  const cancel = () => void cancelDeviceChooser(chooser.id);
+  const cancel = () => cancelChooser(chooser.id);
 
   let body;
   if (chooser.unauthorized) {
@@ -109,7 +68,7 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
         icon="lock"
         text="Ardia needs access to Bluetooth to find devices."
         link="Open Bluetooth Settings"
-        onLink={() => void openBluetoothSettings(chooser.id)}
+        onLink={() => openChooserBluetoothSettings(chooser.id)}
       />
     );
   } else if (chooser.adapterOff) {
@@ -141,7 +100,7 @@ export function DeviceChooser({ tabId, left, top }: { tabId: string; left: numbe
           ) : (
             <>
               {!chooser.options.length ? <Text style={{ fontSize: 12, color: theme.textSecondary }}>{chooser.noOptionsText}</Text> : null}
-              {chooser.canRefresh ? <TextLink title="Scan Again" onPress={() => void refreshDeviceChooser(chooser.id)} /> : null}
+              {chooser.canRefresh ? <TextLink title="Scan Again" onPress={() => rescanDevices(chooser.id)} /> : null}
             </>
           )}
         </View>

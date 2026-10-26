@@ -5,7 +5,7 @@ import { switchProfile } from "../../state/browser/actions";
 import { useTheme } from "../ui/theme";
 import { useBrowser } from "../../state/browser/store";
 import { useIsIncognito } from "../../state/browser/hooks";
-import { usePagerPages, type PagerPage } from "../window/profilePager";
+import { usePagerPages, type PagerPage } from "../../state/windows/profilePager";
 import { useHover } from "../ui/Primitives";
 import { TooltipAbove } from "../ui/TooltipAbove";
 

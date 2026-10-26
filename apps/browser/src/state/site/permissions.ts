@@ -2,7 +2,7 @@ import { onPermission, onPermissionDismissed, resolvePermission, type Permission
 import { ensureNotificationPermission } from "./webNotifications";
 import { useBrowser } from "../browser/store";
 import { patchPage, pageOf, tabForBrowser, usePages } from "../tabs/pageState";
-import { startDeviceChoosers } from "../../components/site/DeviceChooser";
+import { startDeviceChoosers } from "./deviceChoosers";
 
 const queues = new Map<string, PermissionRequest[]>();
 const orphans: PermissionRequest[] = [];

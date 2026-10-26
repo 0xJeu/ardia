@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { switchOn } from "../../platform/killSwitches";
-import { ARC_LIGHTS_CENTER, LIGHTS_CENTER, lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "../../components/window/dockMotion";
+import { ARC_LIGHTS_CENTER, LIGHTS_CENTER, lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "./dockMotion";
 import { layout } from "../../components/ui/theme";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { useWindowId } from "../browser/hooks";

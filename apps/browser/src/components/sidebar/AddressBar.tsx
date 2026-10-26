@@ -15,7 +15,8 @@ import { addressBarInSidebar, setUrlAnchor, SIDEBAR_FIELD } from "../../state/wi
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
 import { useHover } from "../ui/Primitives";
 import { GLYPH, HistoryButton, ReloadButton, UrlField, useToolbarTab } from "../toolbar/Toolbar";
-import { ARC_LIGHTS_CENTER, HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../window/dockMotion";
+import { HEADER_TOOLS, navButtonsFitting, type HeaderButton } from "../window/dockMotion";
+import { ARC_LIGHTS_CENTER } from "../../state/windows/dockMotion";
 
 const BUTTON = layout.toolbarButton;
 const { toggleX: TOGGLE_X, edge: EDGE } = HEADER_TOOLS;

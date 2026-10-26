@@ -1,6 +1,6 @@
 import { listExtensions, stepPager } from "@ardia/ardiacore";
 import { confirm, focusWindow } from "@ardia/shell";
-import { pageToProfile } from "../../components/window/profilePager";
+import { pageToProfile } from "../windows/profilePager";
 import { profileNames, requestCreateProfile, type CreateProfilePreset } from "../../components/profiles/CreateProfile";
 import { useBrowser, type CreateWindowOptions } from "./store";
 import { rootOf } from "../groups/groups";

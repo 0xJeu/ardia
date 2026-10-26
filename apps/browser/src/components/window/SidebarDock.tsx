@@ -13,22 +13,24 @@ import { peekHeld, watchPeekHolds } from "../../state/peek/peekHold";
 import { ProfileSwipe } from "./ProfileSwipe";
 import {
   ARC_HIDE_MS,
-  ARC_LIGHTS_CENTER,
-  devPeeks,
-  dockMoving,
   DOCK_SPRING,
-  LIGHTS_CENTER,
-  lightsCenter,
   PEEK_BOTTOM,
   PEEK_ORIGIN,
   PEEK_RADIUS,
+  springConfig,
+} from "./dockMotion";
+import {
+  ARC_LIGHTS_CENTER,
+  devPeeks,
+  dockMoving,
+  LIGHTS_CENTER,
+  lightsCenter,
   peekShown,
   setDockMoving,
   setPeekShown,
-  springConfig,
   TOP_STRIP_LIGHTS_CENTER,
   useDockMotion,
-} from "./dockMotion";
+} from "../../state/windows/dockMotion";
 import { useTabDrag } from "../../state/drag/tabDrag";
 import { usePeek } from "./usePeek";
 
