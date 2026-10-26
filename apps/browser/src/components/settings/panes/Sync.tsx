@@ -2,10 +2,10 @@ import { showMenu, Symbol } from "@ardia/shell";
 import { SyncNative, type FolderInfo } from "@ardia/sync";
 import { useEffect, useState } from "react";
 import { syncFolder } from "../paneData";
-import { useResource } from "../resources";
+import { useResource } from "../../../state/settings/resources";
 import { Linking, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { useProfileRecords } from "../../../state/profiles/hooks";
 import { useProfiles } from "../../../state/browser/hooks";
 import {
   addRemoteProfile,
@@ -168,7 +168,7 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
   const devices = useSync((s) => s.devices);
   const remoteProfiles = useSync((s) => s.remoteProfiles);
   const profiles = useProfiles();
-  const allProfiles = useBrowser((s) => s.profiles);
+  const allProfiles = useProfileRecords();
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30_000);

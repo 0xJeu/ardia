@@ -14,12 +14,11 @@ import {
 } from "@ardia/ardiacore";
 import { appIcons, currentAppIcon, isDefaultBrowser, launchAtLoginStatus, menuShortcuts, updaterState, type UpdaterState } from "@ardia/shell";
 import { setMenuBarShortcuts } from "../../state/commands/commandShortcuts";
-import { useBrowser } from "../../state/browser/store";
+import { currentSettings } from "../../state/browser/current";
 import { engineProfile } from "../../state/browser/model";
-import { folderInfo } from "../../state/sync/engine";
-import { useSync } from "../../state/sync/engine";
+import { currentSyncFolder, folderInfo } from "../../state/sync/engine";
 import { extensionsProfileId, refreshExtensions } from "../../state/extensions/actions";
-import { load, loadAll, need, resource, useAllLoaded, type Needed } from "./resources";
+import { load, loadAll, need, resource, useAllLoaded, type Needed } from "../../state/settings/resources";
 import type { SettingsPane } from "../../state/settings/settingsWindows";
 
 export const APP_ICON_SIZE = 56;
@@ -57,7 +56,7 @@ export const widevine = resource("widevine", () =>
   ),
 );
 
-const defaultProfile = () => engineProfile(useBrowser.getState().settings.defaultProfileId);
+const defaultProfile = () => engineProfile(currentSettings().defaultProfileId);
 
 export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[] {
   const profile = profileId ? engineProfile(profileId) : defaultProfile();
@@ -65,7 +64,7 @@ export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[
     case "general":
       return [need(loginItem), need(defaultBrowser), need(updater), need(downloadSettings, profile)];
     case "sync":
-      return [need(syncFolder, useSync.getState().folder ?? null)];
+      return [need(syncFolder, currentSyncFolder() ?? null)];
     case "appearance":
       return [need(appIconChoices)];
     case "privacy":

@@ -229,7 +229,8 @@ ordered transaction that names its cause. There are no echo windows, timers or "
   pinned-first order) are kept there.
 - Record keys use store ids (`bm:<id>`, `pin:t:<tab id>`), so ids must stay unique across Macs: `newId` has a random part.
 - Tests: `src/state/sync/adapters.test.mjs` (two devices swap the one store; `docs/testing.md`).
-  DEV: `acSync` (`turnOnSync`, `enterRecoveryPhrase`, `syncNow`, `stopSync`, `useSync`, `menu`, `sheets`).
+  DEV: `acSync` (`turnOnSync`, `enterRecoveryPhrase`, `syncNow`, `stopSync`, `useSync`, `menu`); the sync sheets are
+  `ac.syncSheets` (components/dev/devHarness.ts).
 
 ## Dev tooling (DEV builds)
 - LogBox is disabled (its shadows crash react-native-macos); console errors/warnings go to

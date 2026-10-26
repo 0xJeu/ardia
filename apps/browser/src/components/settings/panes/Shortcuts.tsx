@@ -2,13 +2,15 @@ import { cancelShortcutRecording, recordShortcut, Symbol, type MenuShortcut } fr
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { useSettings } from "../../../state/browser/hooks";
+import { useProfileOrder } from "../../../state/profiles/hooks";
+import { setShortcutOverride, updateSettings } from "../../../state/settings/actions";
 import { openUrls } from "../../../state/browser/actions";
 import { Button, Group, PopUp, SearchField, Toggle, useFormColors, useHover } from "../../ui";
 import { Anchor, Row, SectionHeader } from "../Form";
 import { matchesQuery } from "../../pages/PageLayout";
 import { shortcutItems } from "../paneData";
-import { useResource } from "../resources";
+import { useResource } from "../../../state/settings/resources";
 import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
 import { formatShortcut, sameShortcut, type Shortcut } from "../../../lib/shortcuts";
 
@@ -18,10 +20,10 @@ const NO_SHORTCUT: Shortcut = { key: "", modifiers: [] };
 
 export function ShortcutsPane() {
   const theme = useTheme();
-  const overrides = useBrowser((s) => s.settings.shortcuts);
-  const profileOrder = useBrowser((s) => s.profileOrder);
+  const overrides = useSettings((s) => s.shortcuts);
+  const profileOrder = useProfileOrder();
   const menuBar = useMenuBarRevision();
-  const undoReopensClosedTab = useBrowser((s) => s.settings.undoReopensClosedTab);
+  const undoReopensClosedTab = useSettings((s) => s.undoReopensClosedTab);
   const [loaded] = useResource(shortcutItems);
   const items = loaded ?? null;
   const [query, setQuery] = useState("");
@@ -35,12 +37,7 @@ export function ShortcutsPane() {
   const effective = (item: MenuShortcut): Shortcut => resolved.bindings.get(item.id)?.[0] ?? NO_SHORTCUT;
   const conflictsOf = (item: MenuShortcut) => resolved.conflictsOf(item.id).flatMap((id) => byId.get(id) ?? []);
 
-  const setShortcut = (id: string, combo: Shortcut | null) => {
-    const next = { ...useBrowser.getState().settings.shortcuts };
-    if (combo) next[id] = [combo.key, ...combo.modifiers];
-    else delete next[id];
-    useBrowser.getState().updateSettings({ shortcuts: next });
-  };
+  const setShortcut = setShortcutOverride;
 
   const record = async (item: MenuShortcut) => {
     setRecording(item.id);
@@ -67,7 +64,7 @@ export function ShortcutsPane() {
       </Text>
       <Group style={{ marginTop: 14 }}>
         <Row anchor="shortcuts.undoReopensClosedTab">
-          <Toggle value={undoReopensClosedTab} onChange={(v) => useBrowser.getState().updateSettings({ undoReopensClosedTab: v })} />
+          <Toggle value={undoReopensClosedTab} onChange={(v) => updateSettings({ undoReopensClosedTab: v })} />
         </Row>
       </Group>
       <Anchor id="shortcuts.actions" radius={8} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 }}>
@@ -82,7 +79,7 @@ export function ShortcutsPane() {
           onChange={setFilter}
           minWidth={170}
         />
-        <Button title="Reset All Shortcuts" disabled={!customizedCount} onPress={() => useBrowser.getState().updateSettings({ shortcuts: {} })} />
+        <Button title="Reset All Shortcuts" disabled={!customizedCount} onPress={() => updateSettings({ shortcuts: {} })} />
       </Anchor>
       {items !== null && shown.length === 0 && (
         <Text style={{ marginTop: 30, textAlign: "center", fontSize: 13, color: theme.textTertiary }}>No matching actions</Text>

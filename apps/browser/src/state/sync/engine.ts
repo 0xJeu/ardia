@@ -136,6 +136,8 @@ export const useSync = create<SyncUi>()(() => ({
   remoteProfiles: [],
 }));
 
+export const currentSyncFolder = () => useSync.getState().folder;
+
 let doc: SyncDoc = emptyDoc();
 let savedJson = "";
 let running = false;
@@ -700,9 +702,6 @@ export function startSync() {
       native: SyncNative,
       get menu(): typeof import("./menu") {
         return require("./menu");
-      },
-      get sheets(): typeof import("../../components/settings/panes/SyncSheets") {
-        return require("../../components/settings/panes/SyncSheets");
       },
     };
   }

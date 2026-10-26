@@ -3,13 +3,14 @@ import { systemInfo } from "@ardia/shell";
 import { describeCliInstall, installCliInBackground, useCli } from "../../../state/app/cliControl";
 import { openUrls } from "../../../state/browser/actions";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { useSettings } from "../../../state/browser/hooks";
+import { updateSettings } from "../../../state/settings/actions";
 import { openInternalPage } from "../../../state/pages/urls";
 import type { BatterySaverWhen } from "../../../state/settings/settings";
 import { Button, Group, PopUp, Toggle, useFormColors } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { engineVersion, widevine as widevineComponent } from "../paneData";
-import { useResource } from "../resources";
+import { useResource } from "../../../state/settings/resources";
 
 const REPOSITORY = "https://github.com/mantrakp04/ardia";
 const SOURCE_NOTICE = "Ardia is free software under the GNU General Public License v3, with no warranty.";
@@ -22,8 +23,8 @@ const BATTERY_SAVER_DESCRIPTIONS: Record<BatterySaverWhen, string> = {
 
 export function AdvancedPane() {
   const theme = useTheme();
-  const settings = useBrowser((s) => s.settings);
-  const update = useBrowser((s) => s.updateSettings);
+  const settings = useSettings((s) => s);
+  const update = updateSettings;
   const [info] = useResource(engineVersion);
   const [widevine] = useResource(widevineComponent);
   const widevineVersion = widevine && widevine.version !== "0.0.0.0" ? widevine.version : null;
@@ -106,8 +107,8 @@ export function AdvancedPane() {
 function CommandLineSection() {
   const theme = useTheme();
   const colors = useFormColors();
-  const on = useBrowser((s) => s.settings.cliControl ?? false);
-  const update = useBrowser((s) => s.updateSettings);
+  const on = useSettings((s) => s.cliControl ?? false);
+  const update = updateSettings;
   const cli = useCli();
   const server = cli.server;
   const serverNote =

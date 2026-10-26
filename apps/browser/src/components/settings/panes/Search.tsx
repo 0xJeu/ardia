@@ -3,7 +3,9 @@ import { Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { useSettings } from "../../../state/browser/hooks";
+import { currentProfileOrder } from "../../../state/browser/current";
+import { addCustomEngine, removeCustomEngine, setSearchEngine, updateCustomEngine, updateSettings } from "../../../state/settings/actions";
 import { engineProfile } from "../../../state/browser/model";
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
 import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
@@ -14,12 +16,12 @@ import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/s
 import { openSettings } from "../../../state/settings/settingsWindows";
 
 function manageExtensionsOf(profile: string) {
-  const profileId = useBrowser.getState().profileOrder.find((id) => engineProfile(id) === profile);
+  const profileId = currentProfileOrder().find((id) => engineProfile(id) === profile);
   openSettings("extensions", extensionsProfileId(profileId));
 }
 
 export function SearchPane() {
-  const settings = useBrowser((s) => s.settings);
+  const settings = useSettings((s) => s);
   const colors = useFormColors();
   const engines = searchEngines(settings);
   const builtIn = engines.filter((e) => !e.custom && !e.extension);
@@ -75,14 +77,14 @@ export function SearchPane() {
       <SectionHeader title="Suggestions" />
       <Group>
         <Row anchor="search.suggestions">
-          <Toggle value={settings.searchSuggestions} onChange={(v) => useBrowser.getState().updateSettings({ searchSuggestions: v })} />
+          <Toggle value={settings.searchSuggestions} onChange={(v) => updateSettings({ searchSuggestions: v })} />
         </Row>
       </Group>
 
       <SectionHeader title="Text selection" />
       <Group>
         <Row anchor="search.showSelectionSearch">
-          <Toggle value={settings.showSelectionSearch} onChange={(v) => useBrowser.getState().updateSettings({ showSelectionSearch: v })} />
+          <Toggle value={settings.showSelectionSearch} onChange={(v) => updateSettings({ showSelectionSearch: v })} />
         </Row>
       </Group>
     </View>
@@ -108,7 +110,7 @@ function EngineRow({ engine, selected, locked, editable }: { engine: SearchEngin
           <Text style={{ fontSize: 12, color: theme.textSecondary }}>Default</Text>
         </View>
       ) : (
-        <Button title="Make Default" disabled={locked} onPress={() => useBrowser.getState().setSearchEngine(engine.id)} style={{ minWidth: 92 }} />
+        <Button title="Make Default" disabled={locked} onPress={() => setSearchEngine(engine.id)} style={{ minWidth: 92 }} />
       )}
     </Row>
   );
@@ -121,12 +123,11 @@ function EngineSheet({ engine }: { engine?: SearchEngine }) {
   const [url, setUrl] = useState(engine?.url ?? "");
   const [error, setError] = useState<string | null>(null);
   const save = () => {
-    const s = useBrowser.getState();
     const input = { name, keyword, url };
     let result: string | null;
-    if (engine) result = s.updateCustomEngine(engine.id, input);
+    if (engine) result = updateCustomEngine(engine.id, input);
     else {
-      const added = s.addCustomEngine(input);
+      const added = addCustomEngine(input);
       result = "error" in added ? added.error : null;
     }
     if (result) return setError(result);
@@ -151,7 +152,7 @@ function EngineSheet({ engine }: { engine?: SearchEngine }) {
             title="Delete"
             kind="destructive"
             onPress={() => {
-              useBrowser.getState().removeCustomEngine(engine.id);
+              removeCustomEngine(engine.id);
               closeSettingsSheet();
             }}
           />

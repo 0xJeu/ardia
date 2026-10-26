@@ -15,7 +15,7 @@ import { confirm, copyText, Symbol, systemInfo } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile, plural } from "../../../state/browser/model";
 import { importModule } from "../../../platform/importModule";
@@ -24,7 +24,7 @@ import { Button, Group, PopUp, SearchField, Sheet, TextField, Toggle } from "../
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { passwordAutofill } from "../paneData";
-import { store, useResource } from "../resources";
+import { store, useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 function passwordManagerAppsNote() {
@@ -41,7 +41,7 @@ const isUnlocked = (profile: string) => Date.now() < (unlockedUntil.get(profile)
 export function PasswordsPane({ profileId: initial }: { profileId?: string | null }) {
   const theme = useTheme();
   const profiles = useProfiles();
-  const [profileId, setProfileId] = useState(() => initial ?? useBrowser.getState().settings.defaultProfileId);
+  const [profileId, setProfileId] = useState(() => initial ?? currentSettings().defaultProfileId);
   const [, setUnlockedAt] = useState(0);
   const [list, setList] = useState<SavedPassword[] | null>(null);
   const [never, setNever] = useState<string[]>([]);

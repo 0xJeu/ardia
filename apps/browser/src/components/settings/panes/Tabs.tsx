@@ -1,8 +1,8 @@
 import { Symbol } from "@ardia/shell";
 import { Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
-import { tabLayoutOf } from "../../../state/browser/model";
+import { useSettings, useTabLayout } from "../../../state/browser/hooks";
+import { chooseTabLayout, updateSettings } from "../../../state/settings/actions";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
 import { liquidGlass } from "../../ui/Glass";
 import { Checkbox, Group, PopUp, Toggle, useFormColors } from "../../ui";
@@ -64,14 +64,14 @@ const CLEAN_UP = [
 ];
 
 export function TabsPane() {
-  const settings = useBrowser((s) => s.settings);
-  const update = useBrowser((s) => s.updateSettings);
+  const settings = useSettings((s) => s);
+  const update = updateSettings;
   const toggle = (key: keyof Settings, anchor: string) => (
     <Row key={key} anchor={anchor}>
       <Toggle value={!!settings[key]} onChange={(v) => update({ [key]: v })} />
     </Row>
   );
-  const top = useBrowser((s) => tabLayoutOf(s) === "top");
+  const top = useTabLayout() === "top";
 
   return (
     <View>
@@ -151,14 +151,7 @@ export function TabsPane() {
 function LayoutChoice({ layout, title, selected }: { layout: "sidebar" | "top"; title: string; selected: boolean }) {
   const theme = useTheme();
   const colors = useFormColors();
-  const choose = () => {
-    const s = useBrowser.getState();
-    s.updateSettings({ tabLayout: layout });
-    for (const w of Object.values(s.windows)) {
-      if ((w.tabLayout ?? s.settings.tabLayout) !== layout) useBrowser.getState().toggleTabLayout(w.id);
-    }
-    useBrowser.getState().updateSettings({ tabLayout: layout });
-  };
+  const choose = () => chooseTabLayout(layout);
   const bar = theme.dark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.16)";
   const page = theme.dark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   return (

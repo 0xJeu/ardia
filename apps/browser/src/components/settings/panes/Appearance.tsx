@@ -1,13 +1,13 @@
 import { setAppearance, setAppIcon, Symbol, type AppIcon } from "@ardia/shell";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
-import { tabLayoutOf } from "../../../state/browser/model";
+import { useSettings, useTabLayout } from "../../../state/browser/hooks";
+import { updateSettings } from "../../../state/settings/actions";
 import type { Settings } from "../../../state/settings/settings";
 import { Group, PopUp, Toggle, useFormColors, useHover } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { APP_ICON_SIZE, appIconChoices } from "../paneData";
-import { store, useResource } from "../resources";
+import { store, useResource } from "../../../state/settings/resources";
 
 const MODES: { value: Settings["appearance"]; title: string; description: string }[] = [
   { value: "auto", title: "Automatic", description: "Follow the system appearance setting" },
@@ -16,10 +16,10 @@ const MODES: { value: Settings["appearance"]; title: string; description: string
 ];
 
 export function AppearancePane() {
-  const appearance = useBrowser((s) => s.settings.appearance);
-  const spacesFollow = useBrowser((s) => s.settings.spacesFollowAppearance);
+  const appearance = useSettings((s) => s.appearance);
+  const spacesFollow = useSettings((s) => s.spacesFollowAppearance);
   const choose = (mode: Settings["appearance"]) => {
-    useBrowser.getState().updateSettings({ appearance: mode });
+    updateSettings({ appearance: mode });
     void setAppearance(mode);
   };
   return (
@@ -32,7 +32,7 @@ export function AppearancePane() {
       </View>
       <Group style={{ marginTop: 14 }}>
         <Row anchor="appearance.spacesFollowAppearance">
-          <Toggle value={spacesFollow} onChange={(v) => useBrowser.getState().updateSettings({ spacesFollowAppearance: v })} />
+          <Toggle value={spacesFollow} onChange={(v) => updateSettings({ spacesFollowAppearance: v })} />
         </Row>
       </Group>
       <AddressBarPicker />
@@ -44,10 +44,10 @@ export function AppearancePane() {
 }
 
 function AddressBarPicker() {
-  const addressBar = useBrowser((s) => s.settings.addressBar);
-  const placement = useBrowser((s) => s.settings.commandBarPlacement);
-  const topTabs = useBrowser((s) => tabLayoutOf(s) === "top");
-  const choose = (value: Settings["addressBar"]) => useBrowser.getState().updateSettings({ addressBar: value });
+  const addressBar = useSettings((s) => s.addressBar);
+  const placement = useSettings((s) => s.commandBarPlacement);
+  const topTabs = useTabLayout() === "top";
+  const choose = (value: Settings["addressBar"]) => updateSettings({ addressBar: value });
   return (
     <>
       <SectionHeader
@@ -70,7 +70,7 @@ function AddressBarPicker() {
               { value: "field", title: "At the address" },
               { value: "centred", title: "In the centre" },
             ]}
-            onChange={(v) => useBrowser.getState().updateSettings({ commandBarPlacement: v })}
+            onChange={(v) => updateSettings({ commandBarPlacement: v })}
             minWidth={160}
           />
         </Row>
@@ -80,7 +80,7 @@ function AddressBarPicker() {
 }
 
 function SelectedTabGlowPicker() {
-  const glow = useBrowser((s) => s.settings.selectedTabGlow);
+  const glow = useSettings((s) => s.selectedTabGlow);
   return (
     <>
       <SectionHeader title="Selected Tab" />
@@ -93,7 +93,7 @@ function SelectedTabGlowPicker() {
               { value: "soft", title: "Soft" },
               { value: "off", title: "Off" },
             ]}
-            onChange={(v) => useBrowser.getState().updateSettings({ selectedTabGlow: v })}
+            onChange={(v) => updateSettings({ selectedTabGlow: v })}
             minWidth={120}
           />
         </Row>
@@ -103,7 +103,7 @@ function SelectedTabGlowPicker() {
 }
 
 function ScrollBarsPicker() {
-  const scrollBars = useBrowser((s) => s.settings.pageScrollBars);
+  const scrollBars = useSettings((s) => s.pageScrollBars);
   return (
     <>
       <SectionHeader title="Scroll Bars" />
@@ -115,7 +115,7 @@ function ScrollBarsPicker() {
               { value: "system", title: "Follow macOS" },
               { value: "thin", title: "Thin" },
             ]}
-            onChange={(v) => useBrowser.getState().updateSettings({ pageScrollBars: v })}
+            onChange={(v) => updateSettings({ pageScrollBars: v })}
             minWidth={140}
           />
         </Row>

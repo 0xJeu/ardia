@@ -4,9 +4,10 @@ import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react
 import { useShallow } from "zustand/react/shallow";
 import { createProfile, deleteProfile } from "../../../state/browser/actions";
 import { hex, profileAccent, useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
-import { useProfiles } from "../../../state/browser/hooks";
-import { plural } from "../../../state/browser/model";
+import { useProfileDataStats, useProfileOrder, useProfileRecords } from "../../../state/profiles/hooks";
+import { currentProfileOrder, currentProfiles } from "../../../state/browser/current";
+import { reorderProfiles, setDefaultProfile, updateProfile } from "../../../state/profiles/actions";
+import { useProfile, useProfiles, useSettings } from "../../../state/browser/hooks";
 import { sharingProfiles } from "../../../state/profiles/profiles";
 import type { Profile } from "../../../state/browser/types";
 import { ClearDataDialog } from "../../pages/ClearDataDialog";
@@ -22,8 +23,8 @@ import { curve } from "../../ui/motion";
 const listOf = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`);
 
 function useSharedWith(profileId: string): string[] {
-  const order = useBrowser((s) => s.profileOrder);
-  const profiles = useBrowser((s) => s.profiles);
+  const order = useProfileOrder();
+  const profiles = useProfileRecords();
   return useMemo(() => {
     const others = sharingProfiles({ profiles, profileOrder: order }, profileId);
     return others.length ? order.filter((id) => id === profileId || others.includes(id)) : [profileId];
@@ -33,7 +34,7 @@ function useSharedWith(profileId: string): string[] {
 export function ProfilesPane() {
   const theme = useTheme();
   const profiles = useProfiles();
-  const defaultId = useBrowser((s) => s.settings.defaultProfileId);
+  const defaultId = useSettings((s) => s.defaultProfileId);
 
   return (
     <View>
@@ -48,7 +49,7 @@ export function ProfilesPane() {
           <PopUp
             value={defaultId}
             options={profiles.map((p) => ({ value: p.id, title: p.name }))}
-            onChange={(id) => useBrowser.getState().setDefaultProfile(id)}
+            onChange={(id) => setDefaultProfile(id)}
             minWidth={160}
           />
         </Row>
@@ -70,7 +71,7 @@ const settle = (value: Animated.Value, toValue: number) =>
 
 function ProfileList() {
   const colors = useFormColors();
-  const order = useBrowser((s) => s.profileOrder);
+  const order = useProfileOrder();
   const offsets = useRef(new Map<string, Animated.Value>()).current;
   const offsetOf = (id: string) => {
     let v = offsets.get(id);
@@ -88,14 +89,14 @@ function ProfileList() {
 
   const controller = useRef({
     start(id: string) {
-      const ids = useBrowser.getState().profileOrder;
+      const ids = currentProfileOrder();
       const from = ids.indexOf(id);
       drag.current = { id, from, to: from, reorderPending: false };
       setDragging(id);
     },
     move(dy: number) {
       const { id, from } = drag.current;
-      const ids = useBrowser.getState().profileOrder;
+      const ids = currentProfileOrder();
       const max = ids.length - 1;
       offsetOf(id).setValue(Math.max(-from * ROW_HEIGHT - 6, Math.min((max - from) * ROW_HEIGHT + 6, dy)));
       const to = Math.max(0, Math.min(max, Math.round(from + dy / ROW_HEIGHT)));
@@ -114,10 +115,10 @@ function ProfileList() {
         offsets.forEach((v) => settle(v, 0).start());
         return;
       }
-      const ids = useBrowser.getState().profileOrder.filter((x) => x !== id);
+      const ids = currentProfileOrder().filter((x) => x !== id);
       ids.splice(to, 0, id);
       drag.current.reorderPending = true;
-      useBrowser.getState().reorderProfiles(ids);
+      reorderProfiles(ids);
     },
   }).current;
 
@@ -147,10 +148,10 @@ function ProfileRow({
 }) {
   const theme = useTheme();
   const colors = useFormColors();
-  const profile = useBrowser((s) => s.profiles[profileId]);
-  const isDefault = useBrowser((s) => s.settings.defaultProfileId === profileId);
+  const profile = useProfile(profileId, (p) => p);
+  const isDefault = useSettings((s) => s.defaultProfileId === profileId);
   const shared = useSharedWith(profileId);
-  const names = useBrowser(useShallow((s) => shared.filter((id) => id !== profileId).map((id) => s.profiles[id]?.name ?? "")));
+  const names = useProfileRecords(useShallow((profiles) => shared.filter((id) => id !== profileId).map((id) => profiles[id]?.name ?? "")));
   const { hovered, hoverProps } = useHover();
   const pan = useRef(
     PanResponder.create({
@@ -166,15 +167,14 @@ function ProfileRow({
 
   const description = [isDefault ? "Default" : null, names.length ? `Shares data with ${listOf(names)}` : null].filter(Boolean).join(" · ");
   const openMenu = async () => {
-    const s = useBrowser.getState();
     const choice = await showMenu([
       { id: "details", title: "Show Profile Details" },
       { id: "default", title: "Make Default Profile", enabled: !isDefault },
       { separator: true },
-      { id: "delete", title: "Delete Profile…", enabled: s.profileOrder.length > 1 },
+      { id: "delete", title: "Delete Profile…", enabled: currentProfileOrder().length > 1 },
     ]);
     if (choice === "details") goToSettingsPane("profiles", profileId);
-    else if (choice === "default") s.setDefaultProfile(profileId);
+    else if (choice === "default") setDefaultProfile(profileId);
     else if (choice === "delete") void deleteProfile(profileId);
   };
 
@@ -230,26 +230,16 @@ function iconTitle(icon: string | null): string {
 
 export function ProfileDetailsPane({ profileId }: { profileId: string }) {
   const theme = useTheme();
-  const profile = useBrowser((s) => s.profiles[profileId]);
-  const isDefault = useBrowser((s) => s.settings.defaultProfileId === profileId);
-  const only = useBrowser((s) => s.profileOrder.length <= 1);
+  const profile = useProfile(profileId, (p) => p);
+  const isDefault = useSettings((s) => s.defaultProfileId === profileId);
+  const only = useProfileOrder((o) => o.length <= 1);
   const shared = useSharedWith(profileId);
-  const sharedNames = useBrowser(useShallow((s) => shared.map((id) => s.profiles[id]?.name ?? "")));
-  const sharedColors = useBrowser(useShallow((s) => shared.map((id) => profileAccent(s.profiles[id]))));
-  const stats = useBrowser((s) => {
-    const roots = s.bookmarks.roots[profileId];
-    let bookmarks = 0;
-    const walk = (id: string) => {
-      const n = s.bookmarks.nodes[id];
-      if (n?.kind === "url") bookmarks++;
-      if (n?.kind === "folder") n.children.forEach(walk);
-    };
-    if (roots) [roots.bar, roots.other].forEach(walk);
-    return `${plural((s.history[profileId] ?? []).length, "page")} in history · ${plural(bookmarks, "bookmark")}`;
-  });
+  const sharedNames = useProfileRecords(useShallow((profiles) => shared.map((id) => profiles[id]?.name ?? "")));
+  const sharedColors = useProfileRecords(useShallow((profiles) => shared.map((id) => profileAccent(profiles[id]))));
+  const stats = useProfileDataStats(profileId);
   const [name, setName] = useState(profile?.name ?? "");
   if (!profile) return null;
-  const update = (patch: Partial<Pick<Profile, "name" | "color" | "icon">>) => useBrowser.getState().updateProfile(profileId, patch);
+  const update = (patch: Partial<Pick<Profile, "name" | "color" | "icon">>) => updateProfile(profileId, patch);
   const commitName = () => (name.trim() ? update({ name: name.trim() }) : setName(profile.name));
   const sharing = shared.length > 1;
 
@@ -289,7 +279,7 @@ export function ProfileDetailsPane({ profileId }: { profileId: string }) {
           />
         ) : null}
         <Row title="Make Default Profile" description={isDefault ? "New windows already open with this profile." : "Open new windows with this profile."}>
-          <Button title="Make Default" disabled={isDefault} onPress={() => useBrowser.getState().setDefaultProfile(profileId)} />
+          <Button title="Make Default" disabled={isDefault} onPress={() => setDefaultProfile(profileId)} />
         </Row>
         <Row
           title="Clear Browsing Data"
@@ -307,7 +297,7 @@ export function ProfileDetailsPane({ profileId }: { profileId: string }) {
             disabled={only}
             onPress={() =>
               void deleteProfile(profileId).then(() => {
-                if (!useBrowser.getState().profiles[profileId]) goToSettingsPane("profiles");
+                if (!currentProfiles()[profileId]) goToSettingsPane("profiles");
               })
             }
           />

@@ -5,7 +5,7 @@ import { useTheme } from "../ui/theme";
 import { liquidGlass } from "../ui/Glass";
 import { SearchField, useFormColors } from "../ui";
 import { groupByPane, search } from "./searchMatch";
-import { revealSetting, setSettingsQuery, useSettingsSearch } from "../../state/settings/searchState";
+import { currentSettingsSearch, moveSettingsSelection, revealSetting, selectSettingsResult, setSettingsQuery, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, SETTINGS_INDEX, type SettingEntry } from "./settingsIndex";
 
 export function SettingsSearchField() {
@@ -15,7 +15,7 @@ export function SettingsSearchField() {
   useEffect(() => {
     if (!focusRequest) return;
     input.current?.focus();
-    input.current?.setSelection(0, useSettingsSearch.getState().query.length);
+    input.current?.setSelection(0, currentSettingsSearch().query.length);
   }, [focusRequest]);
   return (
     <SearchField
@@ -23,17 +23,18 @@ export function SettingsSearchField() {
       value={query}
       onChangeText={(text) => {
         setSettingsQuery(text);
-        useSettingsSearch.setState({ selected: 0 });
+        selectSettingsResult(0);
       }}
       placeholder="Search"
       onSubmit={() => {
-        const hit = settingsResults(useSettingsSearch.getState().query)[useSettingsSearch.getState().selected];
-        if (hit) revealSetting(hit.id);
+        const { query, selected } = currentSettingsSearch();
+        const hit = settingsResults(query)[selected];
+        if (hit) revealSetting(hit);
       }}
       onArrow={(step) => {
-        const count = settingsResults(useSettingsSearch.getState().query).length;
+        const count = settingsResults(currentSettingsSearch().query).length;
         if (!count) return;
-        useSettingsSearch.setState((s) => ({ selected: Math.max(0, Math.min(count - 1, s.selected + step)) }));
+        moveSettingsSelection(step, count);
       }}
       style={{ marginHorizontal: 10, marginBottom: 10 }}
     />
@@ -88,7 +89,7 @@ export function SettingsSearchResults({ query }: { query: string }) {
             </Text>
           </View>
           {group.rows.map(({ entry, index }) => (
-            <ResultRow key={entry.id} entry={entry} selected={index === selected} onHover={() => useSettingsSearch.setState({ selected: index })} />
+            <ResultRow key={entry.id} entry={entry} selected={index === selected} onHover={() => selectSettingsResult(index)} />
           ))}
         </View>
       ))}
@@ -103,7 +104,7 @@ function ResultRow({ entry, selected, onHover }: { entry: SettingEntry; selected
   const colors = useFormColors();
   const detail = entry.section !== entry.title ? entry.section : entry.paneTitle;
   return (
-    <Pressable onPress={() => revealSetting(entry.id)}>
+    <Pressable onPress={() => revealSetting(entry)}>
       <View
         onMouseEnter={onHover}
         style={{ height: RESULT_HEIGHT, borderRadius: 7, justifyContent: "center", paddingHorizontal: 8, backgroundColor: selected ? colors.accent : undefined }}

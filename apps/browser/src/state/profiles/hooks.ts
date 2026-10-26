@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 import { useBrowser } from "../browser/store";
-import { profileFor } from "../browser/model";
+import { plural, profileFor } from "../browser/model";
 import type { Profile } from "../browser/types";
 import type { Settings } from "../settings/settings";
 
@@ -26,3 +26,16 @@ export const useProfileLooks = <T>(pages: readonly { id: string }[], look: (prof
 
 export const useCreateProfileShareDefault = (windowId: string | null): string =>
   useBrowser((s) => (windowId && !s.windows[windowId]?.incognito ? s.windows[windowId]!.profileId : s.settings.defaultProfileId));
+
+export const useProfileDataStats = (profileId: string): string =>
+  useBrowser((s) => {
+    const roots = s.bookmarks.roots[profileId];
+    let bookmarks = 0;
+    const walk = (id: string) => {
+      const n = s.bookmarks.nodes[id];
+      if (n?.kind === "url") bookmarks++;
+      if (n?.kind === "folder") n.children.forEach(walk);
+    };
+    if (roots) [roots.bar, roots.other].forEach(walk);
+    return `${plural((s.history[profileId] ?? []).length, "page")} in history · ${plural(bookmarks, "bookmark")}`;
+  });

@@ -13,21 +13,22 @@ import {
 import { useEffect, useState } from "react";
 import { AppState, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
-import { useProfiles } from "../../../state/browser/hooks";
+import { updateSettings } from "../../../state/settings/actions";
+import { currentSettings } from "../../../state/browser/current";
+import { useProfiles, useSettings } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
 import { SHARING_COPY } from "../../../state/telemetry/copy";
 import { Button, Group, PopUp, Toggle, useFormColors } from "../../ui";
 import { Anchor, Row, SectionHeader } from "../Form";
 import { defaultBrowser, downloadSettings, loginItem, updater } from "../paneData";
-import { store, useResource } from "../resources";
+import { store, useResource } from "../../../state/settings/resources";
 import { openImport } from "../../../state/settings/settingsWindows";
 
 const APP = "Ardia";
 
 export function GeneralPane() {
-  const settings = useBrowser((s) => s.settings);
-  const update = useBrowser((s) => s.updateSettings);
+  const settings = useSettings((s) => s);
+  const update = updateSettings;
   const [loginStatus = "notRegistered", refreshLogin] = useResource(loginItem);
 
   return (
@@ -119,7 +120,7 @@ const homeRelative = (path: string) => path.replace(/^\/Users\/[^/]+(?=\/|$)/, "
 
 function DownloadsSection() {
   const profiles = useProfiles();
-  const [profileId, setProfileId] = useState(() => useBrowser.getState().settings.defaultProfileId);
+  const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
   const profile = engineProfile(profileId);
   const [current] = useResource(downloadSettings, profile);
   const others = [...new Set(profiles.map((p) => engineProfile(p.id)))].filter((p) => p !== profile);

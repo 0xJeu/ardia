@@ -9,7 +9,8 @@ import { isMocked } from "../../../state/live/net";
 import { connectBitbucket, connectConfluence, connectGithub, connectNotion, disconnect, SOURCES, startGithubDeviceFlow, type DeviceFlow } from "../../../state/live/sources";
 import { live, updateConfig, updateFolder, useLive } from "../../../state/live/store";
 import type { LiveAccount, LiveFolder, LiveSourceId } from "../../../state/live/types";
-import { useBrowser } from "../../../state/browser/store";
+import { useProfileRecords } from "../../../state/profiles/hooks";
+import { openUrlFromSettings, settingsBrowserWindow } from "../../../state/settings/settingsWindows";
 import { Button, Group, Sheet, TextField, Toggle } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
@@ -34,7 +35,7 @@ const ANCHORS: Record<LiveSourceId, string> = {
 
 export function LiveFoldersPane() {
   const folders = useLive(useShallow((s) => s.folderOrder.map((id) => s.folders[id]!).filter(Boolean)));
-  const profiles = useBrowser((s) => s.profiles);
+  const profiles = useProfileRecords();
   useLive((s) => s.status);
   useLive((s) => s.hidden);
   const firstPullRequests = folders.find((f) => f.kind === "pullRequests")?.id;
@@ -119,17 +120,6 @@ function SourceRow({ id }: { id: LiveSourceId }) {
   );
 }
 
-function browserWindow(): string | null {
-  const s = useBrowser.getState();
-  return s.ui.focusOrder.find((id) => s.windows[id] && !s.windows[id]!.incognito) ?? s.windowOrder.find((id) => !s.windows[id]!.incognito) ?? null;
-}
-
-function openInBrowser(url: string) {
-  const windowId = browserWindow();
-  if (!windowId) return;
-  useBrowser.getState().newTab(windowId, { url });
-  void focusWindow(windowId);
-}
 
 function ConnectSheet({ id }: { id: LiveSourceId }) {
   const theme = useTheme();
@@ -212,7 +202,7 @@ function GithubConnect({ busy, run }: ConnectProps) {
       const f = await startGithubDeviceFlow(clientId.trim());
       setFlow(f);
       copyText(f.userCode);
-      openInBrowser(f.verificationUri);
+      openUrlFromSettings(f.verificationUri);
       await f.done;
     });
 
@@ -225,7 +215,7 @@ function GithubConnect({ busy, run }: ConnectProps) {
         </Text>
         <Actions>
           <Button title="Cancel" onPress={() => (flow.cancel(), setFlow(null))} />
-          <Button title="Open GitHub" kind="primary" onPress={() => openInBrowser(flow.verificationUri)} />
+          <Button title="Open GitHub" kind="primary" onPress={() => openUrlFromSettings(flow.verificationUri)} />
         </Actions>
       </View>
     );
@@ -323,7 +313,7 @@ function GoogleConnect({ busy, run }: ConnectProps) {
   const [secret, setSecret] = useState("");
   const go = () =>
     void run(async () => {
-      const windowId = browserWindow();
+      const windowId = settingsBrowserWindow();
       if (!windowId) throw new Error("Open a browser window first");
       void focusWindow(windowId);
       await connectGoogleDrive(windowId, clientId, secret);

@@ -13,20 +13,20 @@ import { confirm, copyText, Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
 import { Button, Group, type Option, PopUp, Sheet, TextField, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { NetworkBadge } from "../../site/Autofill";
 import { addresses as addressList, autofillEnabled, cards as cardList } from "../paneData";
-import { store, useResource } from "../resources";
+import { store, useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 export function AutofillPane({ profileId: initial }: { profileId?: string | null }) {
   const theme = useTheme();
   const profiles = useProfiles();
-  const [profileId, setProfileId] = useState(() => initial ?? useBrowser.getState().settings.defaultProfileId);
+  const [profileId, setProfileId] = useState(() => initial ?? currentSettings().defaultProfileId);
   const profile = engineProfile(profileId);
   const [addresses, reloadAddresses] = useResource(addressList, profile);
   const [cards, reloadCards] = useResource(cardList, profile);

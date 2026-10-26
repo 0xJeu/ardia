@@ -1,4 +1,5 @@
 import * as shell from "@ardia/shell";
+import { createElement } from "react";
 import { readDocument, writeDocument } from "@ardia/shell";
 import { omniboxDrivers } from "../omnibox/devDriver";
 import { pagesDrivers } from "../pages/devDrivers";
@@ -84,6 +85,14 @@ export function startDevHarness() {
     },
     get preload(): typeof import("../../platform/preload") {
       return require("../../platform/preload");
+    },
+    get syncSheets(): typeof import("../settings/panes/SyncSheets") {
+      return require("../settings/panes/SyncSheets");
+    },
+    showWhatsSent: () => {
+      const { showSettingsSheet } = require("../../state/settings/sheet") as typeof import("../../state/settings/sheet");
+      const { WhatsSentSheet } = require("../settings/panes/ShareDiagnostics") as typeof import("../settings/panes/ShareDiagnostics");
+      showSettingsSheet(createElement(WhatsSentSheet));
     },
     get live(): { store: typeof import("../../state/live/store"); engine: typeof import("../../state/live/engine") } {
       return { store: require("../../state/live/store"), engine: require("../../state/live/engine") };

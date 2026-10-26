@@ -1,5 +1,6 @@
-import { openWindow } from "@ardia/shell";
+import { focusWindow, openWindow } from "@ardia/shell";
 import { create } from "zustand";
+import { useBrowser } from "../browser/store";
 
 export const SETTINGS_WINDOW_ID = "settings";
 export const IMPORT_WINDOW_ID = "import";
@@ -73,4 +74,16 @@ export function takePreferredImportSource() {
 export function openImport(browserId?: string) {
   preferredImportSource = browserId ?? null;
   void openWindow(IMPORT_WINDOW_ID, { kind: "import", title: "Import from Another Browser" });
+}
+
+export function settingsBrowserWindow(): string | null {
+  const s = useBrowser.getState();
+  return s.ui.focusOrder.find((id) => s.windows[id] && !s.windows[id]!.incognito) ?? s.windowOrder.find((id) => !s.windows[id]!.incognito) ?? null;
+}
+
+export function openUrlFromSettings(url: string) {
+  const windowId = settingsBrowserWindow();
+  if (!windowId) return;
+  useBrowser.getState().newTab(windowId, { url });
+  void focusWindow(windowId);
 }

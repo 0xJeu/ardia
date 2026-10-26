@@ -2,9 +2,10 @@ import { reloadExtension, type InstalledExtension } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { resolvedWindowId } from "../../../state/browser/current";
+import { newTab } from "../../../state/tabs/actions";
 import { useProfiles } from "../../../state/browser/hooks";
-import { engineProfile, resolveWindowId } from "../../../state/browser/model";
+import { engineProfile } from "../../../state/browser/model";
 import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
 import {
   addFromWebStore,
@@ -22,7 +23,7 @@ import {
 import { Button, Group, PopUp, TextField, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { extensionList } from "../paneData";
-import { useResource } from "../resources";
+import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { replaceSettingsPlace, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";
 
@@ -102,8 +103,8 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
           <Button
             title="Open Web Store"
             onPress={() => {
-              const windowId = resolveWindowId(useBrowser.getState());
-              if (windowId) useBrowser.getState().newTab(windowId, { url: "https://chromewebstore.google.com/category/extensions" });
+              const windowId = resolvedWindowId();
+              if (windowId) newTab(windowId, { url: "https://chromewebstore.google.com/category/extensions" });
             }}
           />
         </Row>
@@ -130,8 +131,8 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
 function ExtensionDetails({ ext, profile, onBack }: { ext: InstalledExtension; profile: string; onBack: () => void }) {
   const theme = useTheme();
   const openTab = (url: string) => {
-    const windowId = resolveWindowId(useBrowser.getState());
-    if (windowId) useBrowser.getState().newTab(windowId, { url });
+    const windowId = resolvedWindowId();
+    if (windowId) newTab(windowId, { url });
   };
   return (
     <View>

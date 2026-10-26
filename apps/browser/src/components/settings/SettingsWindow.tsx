@@ -2,11 +2,11 @@ import { Symbol, VisualEffect, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useProfile } from "../../state/browser/hooks";
 import { trackSettingsSection } from "../../state/telemetry/track";
 import { Button, useFormColors, useHover } from "../ui";
 import { preparePane, usePaneLoaded } from "./paneData";
-import { anchorView, flashSetting, useSettingsSearch } from "../../state/settings/searchState";
+import { anchorView, clearSettingsReveal, flashSetting, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, setting } from "./settingsIndex";
 import { SettingsSearchField, SettingsSearchResults } from "./SettingsSearch";
 import { AdvancedPane } from "./panes/Advanced";
@@ -68,7 +68,7 @@ export function SettingsWindow() {
   const nav = useSettingsNav();
   const shown = useShownPane();
   usePrefetchAllPanes(!!shown);
-  const profileName = useBrowser((s) => (shown?.profileId ? s.profiles[shown.profileId]?.name : undefined));
+  const profileName = useProfile(shown?.profileId, (p) => p?.name);
   const title = shown ? (shown.pane === "profiles" && profileName ? profileName : PANES.find((p) => p.id === shown.pane)!.title) : "";
   const sheet = useSettingsSheet((s) => s.sheet);
   useEffect(() => trackSettingsSection(nav.pane), [nav.pane]);
@@ -84,7 +84,7 @@ export function SettingsWindow() {
   const switched = useRef(key);
   useEffect(() => {
     if (!reveal) return;
-    if (nav.pane !== revealPane) return void useSettingsSearch.setState({ reveal: null });
+    if (nav.pane !== revealPane) return void clearSettingsReveal();
     if (shown?.pane !== revealPane) return;
     const animated = switched.current === key;
     const frame = requestAnimationFrame(() => {

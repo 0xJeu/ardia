@@ -29,7 +29,7 @@ import {
   type ShownLook,
 } from "../../lib/profileLook";
 import { PROFILE_COLORS, useTheme } from "../ui/theme";
-import { useBrowser } from "../../state/browser/store";
+import { useAppDark, useProfile, useSettings } from "../../state/browser/hooks";
 import { choosePresetColor, setProfileTheme } from "../../state/profiles/themeActions";
 import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../state/browser/types";
 import { parseArcTheme } from "../../state/import/arcTheme";
@@ -77,10 +77,10 @@ function useLiveTheme(profileId: string, theme: ProfileTheme | null | undefined)
 }
 
 export function ThemeSection({ profileId }: { profileId: string }) {
-  const profile = useBrowser((s) => s.profiles[profileId]);
+  const profile = useProfile(profileId, (p) => p);
   const live = useLiveTheme(profileId, profile?.theme);
-  const appDark = useBrowser((s) => s.ui.appDark);
-  const source = useBrowser((s) => spaceLookSource(s.settings));
+  const appDark = useAppDark();
+  const source = useSettings((s) => spaceLookSource(s));
   const editing = !!profile && !!live.theme;
   useEffect(() => {
     if (!editing) return;

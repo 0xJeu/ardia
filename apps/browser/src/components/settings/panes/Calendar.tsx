@@ -4,7 +4,8 @@ import { useTheme } from "../../ui/theme";
 import { connectCalendar, setCalendarHidden, useCalendar } from "../../../state/live/calendar";
 import { ALERT_LEADS } from "../../../state/live/meetings";
 import { updateCalendarSettings, useLive } from "../../../state/live/store";
-import { useBrowser } from "../../../state/browser/store";
+import { useSettings } from "../../../state/browser/hooks";
+import { updateSettings } from "../../../state/settings/actions";
 import { Button, Checkbox, Group, PopUp, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 
@@ -12,7 +13,7 @@ export function CalendarPane() {
   const theme = useTheme();
   const settings = useLive((s) => s.calendar);
   const { access, calendars } = useCalendar();
-  const autoGroup = useBrowser((s) => s.settings.autoGroupMeetingTabs);
+  const autoGroup = useSettings((s) => s.autoGroupMeetingTabs);
   const connected = access === "fullAccess" || access === "fixture";
   const denied = access === "denied" || access === "restricted";
   const owned = calendars.filter((c) => c.owned);
@@ -77,7 +78,7 @@ export function CalendarPane() {
       <SectionHeader title="Meetings" />
       <Group>
         <Row anchor="calendar.autoGroup">
-          <Toggle value={autoGroup} onChange={(v) => useBrowser.getState().updateSettings({ autoGroupMeetingTabs: v })} />
+          <Toggle value={autoGroup} onChange={(v) => updateSettings({ autoGroupMeetingTabs: v })} />
         </Row>
       </Group>
 

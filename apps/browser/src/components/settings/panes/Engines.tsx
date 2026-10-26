@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { AppState, Linking, Text, View } from "react-native";
 import { setWebsiteEngine } from "../../../state/engines/actions";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
+import { useSettings } from "../../../state/browser/hooks";
+import { updateSettings } from "../../../state/settings/actions";
 import { defaultEngine, ENGINE_NAMES, RECOMMENDED_ENGINE, siteOf } from "../../../state/engines/engines";
 import { Button, Group, PopUp, Sheet, TextField, Toggle } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
@@ -19,11 +20,11 @@ const ENGINE_OPTIONS: { value: PageEngine; title: string }[] = [
 const siteLabel = (site: string) => site.replace(/^https:\/\//, "");
 
 export function EnginesPane() {
-  const engine = useBrowser((s) => defaultEngine(s));
-  const rules = useBrowser((s) => s.settings.websiteEngines ?? {});
+  const engine = useSettings((settings) => defaultEngine({ settings }));
+  const rules = useSettings((s) => s.websiteEngines ?? {});
   const sites = Object.keys(rules).sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)));
-  const protectedVideo = useBrowser((s) => s.settings.protectedVideoInWebKit);
-  const setDefault = (value: PageEngine) => useBrowser.getState().updateSettings({ pageEngine: value });
+  const protectedVideo = useSettings((s) => s.protectedVideoInWebKit);
+  const setDefault = (value: PageEngine) => updateSettings({ pageEngine: value });
 
   return (
     <View>
@@ -37,7 +38,7 @@ export function EnginesPane() {
         </Row>
         {engine === "chromium" && (
           <Row anchor="engines.protectedVideo">
-            <Toggle value={protectedVideo} onChange={(value) => useBrowser.getState().updateSettings({ protectedVideoInWebKit: value })} />
+            <Toggle value={protectedVideo} onChange={(value) => updateSettings({ protectedVideoInWebKit: value })} />
           </Row>
         )}
       </Group>

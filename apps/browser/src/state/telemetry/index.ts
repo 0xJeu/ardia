@@ -1,5 +1,4 @@
 import { devCrash } from "@ardia/shell";
-import { createElement } from "react";
 import { onboardingCompletedAt } from "../onboarding/onboarding";
 import { devState, flush, requestLog, setSharing, useTelemetry } from "./client";
 import { devDaily, sendDailyPing, startDaily } from "./daily";
@@ -35,11 +34,6 @@ export function startTelemetry() {
           "onerror",
         ),
       rejectTestPromise: () => void Promise.reject(new RangeError("Telemetry test rejection at https://private.example/x")),
-      showWhatsSent: () => {
-        const { showSettingsSheet } = require("../settings/sheet") as typeof import("../settings/sheet");
-        const { WhatsSentSheet } = require("../../components/settings/panes/ShareDiagnostics") as typeof import("../../components/settings/panes/ShareDiagnostics");
-        showSettingsSheet(createElement(WhatsSentSheet));
-      },
       crash: devCrash,
     };
   }

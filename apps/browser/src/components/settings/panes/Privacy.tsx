@@ -20,14 +20,14 @@ import { confirm } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { useBrowser } from "../../../state/browser/store";
-import { useProfiles } from "../../../state/browser/hooks";
+import { currentSettings } from "../../../state/browser/current";
+import { useProfiles, useSettings } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
 import { Button, Checkbox, Group, PopUp, Sheet, Toggle } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../paneData";
-import { useResource } from "../resources";
+import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 
@@ -173,7 +173,7 @@ function FilterListsSheet() {
 }
 
 function ZoomLevels() {
-  const profileId = useBrowser((s) => s.settings.defaultProfileId);
+  const profileId = useSettings((s) => s.defaultProfileId);
   const profiles = useProfiles();
   const [selected, setSelected] = useState(profileId);
   const [loaded, reload] = useResource(zoomLevels, engineProfile(selected));
@@ -229,7 +229,7 @@ const VALUE_OPTIONS: { value: SiteSettingValue; title: string }[] = [
 
 function SitePermissions() {
   const profiles = useProfiles();
-  const [profileId, setProfileId] = useState(() => useBrowser.getState().settings.defaultProfileId);
+  const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
   const [loaded, reload] = useResource(siteOrigins, engineProfile(profileId));
   const origins = loaded ?? null;
   const refresh = () => void reload();
@@ -267,7 +267,7 @@ function SitePermissions() {
 
 function AppLinks() {
   const profiles = useProfiles();
-  const [profileId, setProfileId] = useState(() => useBrowser.getState().settings.defaultProfileId);
+  const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
   const [loaded, reload] = useResource(appLinks, engineProfile(profileId));
   const allowed = loaded ?? null;
   const refresh = () => void reload();
