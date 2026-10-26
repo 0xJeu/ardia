@@ -330,8 +330,8 @@ void SettleTrafficLights(NSWindow *window) {
 
 void InsetTrafficLights(NSWindow *window) {
   objc_setAssociatedObject(window, kInsetLightsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  InstallTrafficLightsOrigin(object_getClass(window.contentView.superview));
-  InstallSharingIndicatorBounds(object_getClass(window.contentView.superview));
+  InstallTrafficLightsOrigin([window.contentView.superview class]);
+  InstallSharingIndicatorBounds([window.contentView.superview class]);
   InstallSharingWindowBounds();
   RetileTrafficLights(window);
   LogTrafficLightsOf(window);
