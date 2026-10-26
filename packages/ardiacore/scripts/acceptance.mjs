@@ -3414,8 +3414,10 @@ try {
       await until("dragstart", async () => (await events()).some((e) => e[0] === "dragstart"), 5000);
       await act(`mouse:up:${x + 240},${y + 120}`);
       await until("dragend: the drag the page started reached AppKit and ended", async () => (await events()).some((e) => e[0] === "dragend"), 8000);
+      const clickerClicks = async () => (await events()).filter((e) => e[0] === "click" && e[1] === "clicker").length;
+      const clicksBefore = await clickerClicks();
       await press(at(360, 70));
-      await until("a click on the page after the drag", async () => (await events()).some((e) => e[0] === "click" && e[1] === "clicker"), 4000);
+      await until("a new click on the page after the drag", async () => (await clickerClicks()) > clicksBefore, 4000);
       return { spot, events: (await events()).map((e) => `${e[0]}:${e[1]}`) };
     } finally {
       await closeTab(tab).catch(() => null);
