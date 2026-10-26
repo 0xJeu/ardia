@@ -1,5 +1,5 @@
 import { prepare, type Searchable } from "./searchMatch";
-import type { SettingsPane } from "./windows";
+import type { SettingsPane } from "../../state/settings/settingsWindows";
 
 export const PANES: { id: SettingsPane; title: string; icon: string }[] = [
   { id: "general", title: "General", icon: "gearshape" },

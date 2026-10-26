@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 const { byRecentUse, groupTabIds, matchingRows } = await import("./groupPanelRows.ts");
-const { ago } = await import("../../lib/timeAgo.ts");
+const { ago } = await import("../../lib/time.ts");
 
 const tab = (id, title, url, usedAt) => ({ id, title, url, usedAt });
 

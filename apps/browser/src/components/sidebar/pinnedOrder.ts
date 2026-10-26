@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { arrangeFolders, live, useLive } from "../../live/store";
-import type { LiveFolder } from "../../live/types";
-import { useBrowser, type BrowserState } from "../../store/browser";
-import { pinnedAreaKeys } from "../../store/pinnedArea";
-import { findLast } from "../../store/model";
-import { pinKeyOf } from "../../store/pinMirror";
-import { splitRowPanes } from "../../store/splits";
-import { mainWindowFor } from "../../store/small";
-import { sidebarEntries } from "./entries";
+import { arrangeFolders, live, useLive } from "../../state/live/store";
+import type { LiveFolder } from "../../state/live/types";
+import { useBrowser, type BrowserState } from "../../state/browser/store";
+import { pinnedAreaKeys } from "../../state/pins/pinnedArea";
+import { findLast } from "../../state/browser/model";
+import { pinKeyOf } from "../../state/pins/pinMirror";
+import { splitRowPanes } from "../../state/splits/splits";
+import { mainWindowFor } from "../../state/windows/small";
+import { sidebarEntries } from "../../state/sidebar/entries";
 
 export const LIVE = "lf:";
 

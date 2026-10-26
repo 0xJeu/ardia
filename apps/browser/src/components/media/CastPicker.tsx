@@ -2,10 +2,10 @@ import { CastMode, preferredCastMode, startCasting, stopCasting, type CastSink }
 import { openExternalURL, showMenu, Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, PromptButton } from "../layout/controls";
-import { useHover } from "../primitives";
-import { closeCastPicker, useCast } from "./cast";
+import { useTheme } from "../ui/theme";
+import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PopoverValue, PromptButton } from "../ui/Controls";
+import { useHover } from "../ui/Primitives";
+import { closeCastPicker, useCast } from "../../state/media/cast";
 
 const WIDTH = 340;
 

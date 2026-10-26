@@ -1,7 +1,7 @@
-import { layout, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import type { GroupColor } from "../../store/types";
-import { useSidebarUi } from "./state";
+import { layout, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import type { GroupColor } from "../../state/browser/types";
+import { useSidebarUi } from "../../state/sidebar/sidebarUi";
 
 const DARK = {
   groupFill: "rgba(255,255,255,0.1)",

@@ -12,15 +12,15 @@ import {
 } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { AppState, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { useProfiles } from "../../../store/hooks";
-import { engineProfile } from "../../../store/model";
-import { SHARING_COPY } from "../../../telemetry/copy";
-import { Anchor, Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { useProfiles } from "../../../state/browser/hooks";
+import { engineProfile } from "../../../state/browser/model";
+import { SHARING_COPY } from "../../../state/telemetry/copy";
+import { Anchor, Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { defaultBrowser, downloadSettings, loginItem, updater } from "../paneData";
 import { store, useResource } from "../resources";
-import { openImport } from "../windows";
+import { openImport } from "../../../state/settings/settingsWindows";
 
 const APP = "Ardia";
 

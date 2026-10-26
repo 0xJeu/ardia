@@ -1,12 +1,12 @@
 import { Text, View } from "react-native";
 import { systemInfo } from "@ardia/shell";
-import { describeCliInstall, installCliInBackground, useCli } from "../../../lib/cliControl";
-import { openUrls } from "../../../lib/actions";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { openInternalPage } from "../../pages/urls";
-import type { BatterySaverWhen } from "../../../store/settings";
-import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { describeCliInstall, installCliInBackground, useCli } from "../../../state/app/cliControl";
+import { openUrls } from "../../../state/browser/actions";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { openInternalPage } from "../../../state/pages/urls";
+import type { BatterySaverWhen } from "../../../state/settings/settings";
+import { Button, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { engineVersion, widevine as widevineComponent } from "../paneData";
 import { useResource } from "../resources";
 

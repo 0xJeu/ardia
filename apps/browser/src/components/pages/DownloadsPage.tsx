@@ -3,13 +3,13 @@ import { fileExists, MouseArea, openFile, revealFile, Symbol } from "@ardia/shel
 import { useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { downloadsIn } from "../../store/ui";
-import { openUrl } from "../bookmarks/actions";
-import { downloadMenu, downloadStatus, FileIcon } from "../Downloads";
-import { IconButton, useHover } from "../primitives";
-import { Button, useFormColors } from "../settings/controls";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { downloadsIn } from "../../state/windows/ui";
+import { openUrl } from "../../state/bookmarks/actions";
+import { downloadMenu, downloadStatus, FileIcon } from "../downloads/Downloads";
+import { IconButton, useHover } from "../ui/Primitives";
+import { Button, useFormColors } from "../ui/FormControls";
 import { EmptyState, hostLabel, matchesQuery, PAGE_WIDTH, PageHeader } from "./PageLayout";
 
 export function DownloadsPage({ tabId }: { tabId: string }) {

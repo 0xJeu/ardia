@@ -2,8 +2,8 @@ import { displayUrl, type Suggestion } from "@ardia/core";
 import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { Favicon, IconButton, useHover } from "../primitives";
+import { useTheme } from "../ui/theme";
+import { Favicon, IconButton, useHover } from "../ui/Primitives";
 
 export function SuggestionIcon({ suggestion: s, color }: { suggestion: Suggestion; color?: string }) {
   const theme = useTheme();

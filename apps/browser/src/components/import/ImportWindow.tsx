@@ -2,19 +2,19 @@ import type { BrowserProfile, BrowserSource, DiaAutomationStatus, DiaTabsResult,
 import { closeWindow, confirm, Symbol, VisualEffect, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Animated, AppState, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { allArcHolders, restoreArcFolders } from "../../lib/bookmarkGroups";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useProfiles } from "../../store/hooks";
-import { MAX_DRAFT_LINKS } from "../../store/draftGroups";
-import { plural } from "../../store/model";
-import type { ProfileColor } from "../../store/types";
-import { useHover } from "../primitives";
-import { Button, Checkbox, PopUp, useFormColors } from "../settings/controls";
-import { useOnboarding } from "../onboarding/state";
-import { IMPORT_WINDOW_ID, takePreferredImportSource } from "../settings/windows";
-import { applyResult, applySafari, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, type ImportCounts } from "./apply";
-import { importModule } from "./module";
+import { allArcHolders, restoreArcFolders } from "../../state/bookmarks/bookmarkGroups";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useProfiles } from "../../state/browser/hooks";
+import { MAX_DRAFT_LINKS } from "../../state/groups/draftGroups";
+import { plural } from "../../state/browser/model";
+import type { ProfileColor } from "../../state/browser/types";
+import { useHover } from "../ui/Primitives";
+import { Button, Checkbox, PopUp, useFormColors } from "../ui/FormControls";
+import { useOnboarding } from "../../state/onboarding/onboarding";
+import { IMPORT_WINDOW_ID, takePreferredImportSource } from "../../state/settings/settingsWindows";
+import { applyResult, applySafari, emptyCounts, importArcSpace, importBookmarks, importDiaProfile, openInWebStore, profileColorFor, type ImportCounts } from "../../state/import/apply";
+import { importModule } from "../../platform/importModule";
 
 const APP = "Ardia";
 

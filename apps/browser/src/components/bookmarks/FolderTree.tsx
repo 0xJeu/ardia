@@ -1,11 +1,11 @@
 import { Symbol } from "@ardia/shell";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { bookmarkAncestors, folderChildren } from "../../store/bookmarks";
-import { useBrowser } from "../../store/browser";
-import { useHover } from "../primitives";
-import { useFormColors } from "../settings/controls";
+import { useTheme } from "../ui/theme";
+import { bookmarkAncestors, folderChildren } from "../../state/bookmarks/bookmarks";
+import { useBrowser } from "../../state/browser/store";
+import { useHover } from "../ui/Primitives";
+import { useFormColors } from "../ui/FormControls";
 
 type FolderRow = { id: string; title: string; depth: number; hasChildren: boolean };
 

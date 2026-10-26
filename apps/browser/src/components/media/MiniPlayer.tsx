@@ -1,10 +1,10 @@
 import { Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, Text, View, type GestureResponderEvent, type TextStyle } from "react-native";
-import { toggleMute } from "../../lib/actions";
-import { hex } from "../../lib/theme";
-import { useTab } from "../../store/hooks";
-import { Favicon, useHover } from "../primitives";
+import { toggleMute } from "../../state/browser/actions";
+import { hex } from "../ui/theme";
+import { useTab } from "../../state/browser/hooks";
+import { Favicon, useHover } from "../ui/Primitives";
 import { useArtwork } from "./artwork";
 import { useMarqueeGroup, Marquee } from "./Marquee";
 import {
@@ -19,7 +19,7 @@ import {
   useSession,
   useTicker,
   type Session,
-} from "./state";
+} from "../../state/media/media";
 import { useMediaTokens, type MediaTokens } from "./tokens";
 
 export const MINI_PLAYER_WIDTH = 320;

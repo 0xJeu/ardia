@@ -1,10 +1,10 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Animated, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { useCalendar, useNow } from "../../live/calendar";
-import { badgeText, isCalendarUrl } from "../../live/meetings";
-import { useLive } from "../../live/store";
-import { useBrowser } from "../../store/browser";
+import { useTheme } from "../ui/theme";
+import { useCalendar, useNow } from "../../state/live/calendar";
+import { badgeText, isCalendarUrl } from "../../state/live/meetings";
+import { useLive } from "../../state/live/store";
+import { useBrowser } from "../../state/browser/store";
 import { useSidebarTokens } from "../sidebar/tokens";
 import { useLiveColors } from "./colors";
 

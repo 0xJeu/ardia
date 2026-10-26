@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Animated, Easing } from "react-native";
-import { springConfig } from "../layout/dockMotion";
-import type { Anchor } from "./state";
+import { springConfig } from "../window/dockMotion";
+import type { Anchor } from "../../state/sidebar/sidebarUi";
 
 export const HOVER_CARD_GAP = 8;
 export const HOVER_CARD_FROM_SCALE = 0.92;

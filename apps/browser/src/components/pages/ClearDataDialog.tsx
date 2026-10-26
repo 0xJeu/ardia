@@ -3,11 +3,11 @@ import { Surface } from "@ardia/shell";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { create } from "zustand";
-import { pruneProfileFavicons } from "../../lib/favicons";
-import { hex, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { engineProfile, isIncognitoProfile, profileFor } from "../../store/model";
-import { Button, Checkbox, PopUp } from "../settings/controls";
+import { pruneProfileFavicons } from "../../state/favicons/favicons";
+import { hex, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { engineProfile, isIncognitoProfile, profileFor } from "../../state/browser/model";
+import { Button, Checkbox, PopUp } from "../ui/FormControls";
 
 const RANGES = [
   { value: "hour", title: "Last hour", ms: 3_600_000 },

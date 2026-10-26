@@ -1,11 +1,11 @@
 import { onAppEvent, onWindowEvent } from "@ardia/shell";
-import { everySlowly } from "../../lib/slowTimers";
-import { webviews } from "../../lib/webviews";
-import { startLive } from "../../live";
-import { useBrowser } from "../../store/browser";
-import { changedIds } from "../../store/changes";
-import { dismissHover } from "./hover";
-import { sidebarUi } from "./state";
+import { everySlowly } from "../../platform/slowTimers";
+import { webviews } from "../../platform/webviews";
+import { startLive } from "../../state/live";
+import { useBrowser } from "../../state/browser/store";
+import { changedIds } from "../../state/browser/changes";
+import { dismissHover } from "../../state/sidebar/hover";
+import { sidebarUi } from "../../state/sidebar/sidebarUi";
 import { cancelSwitcher, commitSwitcher, moveSwitcher } from "./switcher";
 
 const AUTO_CLEAN_EVERY_MS = 30 * 60 * 1000;

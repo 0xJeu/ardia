@@ -1,13 +1,13 @@
 import { Surface } from "@ardia/shell";
-import { hex, layout, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { clickTab } from "../sidebar/actions";
-import { cardHoverProps, dismissHover } from "../sidebar/hover";
+import { hex, layout, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { clickTab } from "../../state/sidebar/actions";
+import { cardHoverProps, dismissHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
-import { measureRow, setSidebarUi, type Anchor } from "../sidebar/state";
+import { measureRow, setSidebarUi, type Anchor } from "../../state/sidebar/sidebarUi";
 import { useSidebarWidth } from "../sidebar/tokens";
 import { MINI_PLAYER_HEIGHT, MINI_PLAYER_WIDTH, MiniPlayer } from "./MiniPlayer";
-import { useMedia } from "./state";
+import { useMedia } from "../../state/media/media";
 import { useMediaTokens } from "./tokens";
 
 export function useShowsMiniPlayer(tabId: string | undefined): boolean {

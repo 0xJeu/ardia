@@ -2,15 +2,15 @@ import { displayUrl, fuzzyScore } from "@ardia/core";
 import { FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { switchToTab } from "../../lib/actions";
-import { hex, useTheme } from "../../lib/theme";
-import { useBrowser, type BrowserState } from "../../store/browser";
-import { tabLabel } from "../../store/model";
-import { isPeekTab } from "../../store/peek";
-import { sharedTabsIn, sharesTabs } from "../../store/tabShare";
-import type { Tab } from "../../store/types";
-import { tabTitle } from "./actions";
-import { setSidebarUi, useSidebarUi } from "./state";
+import { switchToTab } from "../../state/browser/actions";
+import { hex, useTheme } from "../ui/theme";
+import { useBrowser, type BrowserState } from "../../state/browser/store";
+import { tabLabel } from "../../state/browser/model";
+import { isPeekTab } from "../../state/peek/peek";
+import { sharedTabsIn, sharesTabs } from "../../state/tabs/tabShare";
+import type { Tab } from "../../state/browser/types";
+import { tabTitle } from "../../state/sidebar/actions";
+import { setSidebarUi, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 
 type Row =

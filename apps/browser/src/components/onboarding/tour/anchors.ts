@@ -1,11 +1,11 @@
 import type { View } from "react-native";
-import { layout } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { activeTabId } from "../../../store/model";
-import { splitOf } from "../../../store/splits";
-import { toolbarGeometry, type Rect } from "../../layout/geometry";
-import { useUrlAnchors } from "../../layout/windowLayout";
-import { measureRow } from "../../sidebar/state";
+import { layout } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { activeTabId } from "../../../state/browser/model";
+import { splitOf } from "../../../state/splits/splits";
+import { toolbarGeometry, type Rect } from "../../window/geometry";
+import { useUrlAnchors } from "../../../state/windows/layout";
+import { measureRow } from "../../../state/sidebar/sidebarUi";
 
 export type TourAnchor = "commandBar" | "page" | "tabs" | "sidebarButton";
 

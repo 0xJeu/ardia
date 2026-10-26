@@ -26,15 +26,15 @@ import {
   withStopAt,
   withStopLightness,
   type ShownLook,
-} from "../../lib/profileTheme";
-import { PROFILE_COLORS, spaceLookSource, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { choosePresetColor, setProfileTheme } from "../../lib/profileThemeActions";
-import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../store/types";
-import { parseArcTheme } from "../import/arcTheme";
-import { importModule } from "../import/module";
-import { useHover } from "../primitives";
-import { Button, Group, PopUp, Row, SectionHeader, useFormColors } from "./controls";
+} from "../../state/profiles/profileTheme";
+import { PROFILE_COLORS, spaceLookSource, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { choosePresetColor, setProfileTheme } from "../../state/profiles/themeActions";
+import type { ProfileColor, ProfileTheme, ThemeMode, ThemeTexture } from "../../state/browser/types";
+import { parseArcTheme } from "../../state/import/arcTheme";
+import { importModule } from "../../platform/importModule";
+import { useHover } from "../ui/Primitives";
+import { Button, Group, PopUp, Row, SectionHeader, useFormColors } from "../ui/FormControls";
 
 const PAD = 172;
 const KNOB = 22;

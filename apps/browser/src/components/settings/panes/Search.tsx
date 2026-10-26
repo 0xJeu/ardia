@@ -2,15 +2,15 @@ import { engineHost, type SearchEngine } from "@ardia/core";
 import { Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { engineProfile } from "../../../store/model";
-import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../store/settings";
-import { extensionsProfileId, setEnabled } from "../../extensions/state";
-import { Favicon, IconButton } from "../../primitives";
-import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle, useFormColors } from "../controls";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
-import { openSettings } from "../windows";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { engineProfile } from "../../../state/browser/model";
+import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
+import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
+import { Favicon, IconButton } from "../../ui/Primitives";
+import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle, useFormColors } from "../../ui/FormControls";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
+import { openSettings } from "../../../state/settings/settingsWindows";
 
 function manageExtensionsOf(profile: string) {
   const profileId = useBrowser.getState().profileOrder.find((id) => engineProfile(id) === profile);

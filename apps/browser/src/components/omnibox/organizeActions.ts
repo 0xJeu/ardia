@@ -1,9 +1,9 @@
 import type { CommandAction } from "@ardia/core";
-import { useBrowser, type BrowserState } from "../../store/browser";
-import { activeTab, isIncognitoProfile, viewTabIds } from "../../store/model";
-import { hiddenEmptyCard } from "../../store/newTabBar";
-import { MAX_SPLIT_PANES, slotsOf, splitOf } from "../../store/splits";
-import type { SplitView, Tab } from "../../store/types";
+import { useBrowser, type BrowserState } from "../../state/browser/store";
+import { activeTab, isIncognitoProfile, viewTabIds } from "../../state/browser/model";
+import { hiddenEmptyCard } from "../../state/omnibox/newTabBarPolicy";
+import { MAX_SPLIT_PANES, slotsOf, splitOf } from "../../state/splits/splits";
+import type { SplitView, Tab } from "../../state/browser/types";
 
 export type OrganizeContext = { s: BrowserState; windowId: string; tab: Tab; split: SplitView | undefined };
 

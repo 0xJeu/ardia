@@ -13,14 +13,14 @@ import {
   WIDEVINE_COMPONENT_ID,
 } from "@ardia/ardiacore";
 import { appIcons, currentAppIcon, isDefaultBrowser, launchAtLoginStatus, menuShortcuts, updaterState, type UpdaterState } from "@ardia/shell";
-import { setMenuBarShortcuts } from "../../lib/commandShortcuts";
-import { useBrowser } from "../../store/browser";
-import { engineProfile } from "../../store/model";
-import { folderInfo } from "../../sync/engine";
-import { useSync } from "../../sync/engine";
-import { extensionsProfileId, refreshExtensions } from "../extensions/state";
+import { setMenuBarShortcuts } from "../../state/commands/commandShortcuts";
+import { useBrowser } from "../../state/browser/store";
+import { engineProfile } from "../../state/browser/model";
+import { folderInfo } from "../../state/sync/engine";
+import { useSync } from "../../state/sync/engine";
+import { extensionsProfileId, refreshExtensions } from "../../state/extensions/actions";
 import { load, loadAll, need, resource, useAllLoaded, type Needed } from "./resources";
-import type { SettingsPane } from "./windows";
+import type { SettingsPane } from "../../state/settings/settingsWindows";
 
 export const APP_ICON_SIZE = 56;
 

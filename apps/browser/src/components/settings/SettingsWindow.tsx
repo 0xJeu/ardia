@@ -1,13 +1,13 @@
 import { Symbol, VisualEffect, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { trackSettingsSection } from "../../telemetry/track";
-import { IconButton, useHover } from "../primitives";
-import { useFormColors } from "./controls";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { trackSettingsSection } from "../../state/telemetry/track";
+import { IconButton, useHover } from "../ui/Primitives";
+import { useFormColors } from "../ui/FormControls";
 import { preparePane, usePaneLoaded } from "./paneData";
-import { anchorView, flashSetting, useSettingsSearch } from "./searchState";
+import { anchorView, flashSetting, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, setting } from "./settingsIndex";
 import { SettingsSearchField, SettingsSearchResults } from "./SettingsSearch";
 import { AdvancedPane } from "./panes/Advanced";
@@ -25,9 +25,9 @@ import { EnginesPane } from "./panes/Engines";
 import { ShortcutsPane } from "./panes/Shortcuts";
 import { SyncPane } from "./panes/Sync";
 import { TabsPane } from "./panes/Tabs";
-import { useSettingsSheet } from "./sheet";
-import { useSettingsNav, type SettingsPlace } from "./windows";
-import { settingsProfileFor } from "../extensions/store";
+import { useSettingsSheet } from "../../state/settings/sheet";
+import { useSettingsNav, type SettingsPlace } from "../../state/settings/settingsWindows";
+import { settingsProfileFor } from "../../state/extensions/store";
 
 
 const SIDEBAR = 214;

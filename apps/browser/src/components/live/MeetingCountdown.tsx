@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Text } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { useNow } from "../../live/calendar";
-import { timeRemaining, WIGGLE_MARKS_MIN } from "../../live/meetings";
-import { useLive } from "../../live/store";
+import { useTheme } from "../ui/theme";
+import { useNow } from "../../state/live/calendar";
+import { timeRemaining, WIGGLE_MARKS_MIN } from "../../state/live/meetings";
+import { useLive } from "../../state/live/store";
 import { useLiveColors } from "./colors";
 
 const SHOW_WITHIN_MIN = 10;

@@ -18,8 +18,8 @@ const out = resolve(flags.out ?? join(process.env.TMPDIR ?? "/tmp", "ac-ratchet-
 const micro = readFileSync(join(here, "micro-bench.mjs"), "utf8");
 const bigSession = /\/\/ One window with `count` tabs.*?\n}\n/s.exec(micro)[0];
 const workload = `
-const { useBrowser } = await import("../../src/store/browser.ts");
-const { sidebarEntries } = await import("../../src/components/sidebar/entries.ts");
+const { useBrowser } = await import("../../src/state/browser/store.ts");
+const { sidebarEntries } = await import("../../src/state/sidebar/entries.ts");
 await import("../../src/test-native/index.ts");
 const { countOps } = await import("./ops.mjs");
 const S = () => useBrowser.getState();

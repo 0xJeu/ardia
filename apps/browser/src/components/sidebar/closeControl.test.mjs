@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 const stubs = {
-  "../../lib/actions": "export const closeGroup = async () => {};",
+  "../../state/browser/actions": "export const closeGroup = async () => {};",
   "./menus": "export const middleClickTab = () => {};",
 };
 registerHooks({
@@ -13,7 +13,7 @@ registerHooks({
   },
 });
 
-const { useBrowser } = await import("../../store/browser.ts");
+const { useBrowser } = await import("../../state/browser/store.ts");
 const { groupCloseControl, pressGroupClose, pressTabClose, tabCloseControl } = await import("./closeControl.ts");
 
 const S = () => useBrowser.getState();

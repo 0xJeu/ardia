@@ -1,7 +1,7 @@
 import { Symbol } from "@ardia/shell";
 import { StyleSheet, Text, View } from "react-native";
-import { PromptButton } from "../../../../browser/src/components/layout/controls";
-import { useTheme } from "../../../../browser/src/lib/theme";
+import { PromptButton } from "../../../../browser/src/components/ui/Controls";
+import { useTheme } from "../../../../browser/src/components/ui/theme";
 import type { PageTheme } from "../../pages";
 
 export const REFUSED_PAGE_THEME: { light: PageTheme; dark: PageTheme } = {

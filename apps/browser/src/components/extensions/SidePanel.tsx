@@ -1,12 +1,12 @@
 import { WebView } from "@ardia/ardiacore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, PanResponder, StyleSheet, Text, View } from "react-native";
-import { layout, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useWindowId } from "../../store/hooks";
-import { openFromPage, pageProfileId } from "../layout/openFromPage";
-import { IconButton } from "../primitives";
-import { closeSidePanel, findExtension, showExtensionMenu, useExtensions, type SidePanel } from "./state";
+import { layout, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useWindowId } from "../../state/browser/hooks";
+import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
+import { IconButton } from "../ui/Primitives";
+import { closeSidePanel, findExtension, showExtensionMenu, useExtensions, type SidePanel } from "../../state/extensions/actions";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 600;

@@ -1,13 +1,13 @@
 import { prompt, Surface } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { hex, layout, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useWindowId } from "../../store/hooks";
-import { Button, TextField, useFormColors } from "../settings/controls";
-import { useBookmarkDialog, type BookmarkDialogState } from "./actions";
+import { hex, layout, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useWindowId } from "../../state/browser/hooks";
+import { Button, TextField, useFormColors } from "../ui/FormControls";
+import { useBookmarkDialog, type BookmarkDialogState } from "../../state/bookmarks/actions";
 import { FolderTree } from "./FolderTree";
-import { SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../layout/windowLayout";
+import { SIDEBAR_HEADER_WITH_FIELD, useAddressBarInSidebar } from "../../state/windows/layout";
 
 export function BookmarkDialog() {
   const windowId = useWindowId();

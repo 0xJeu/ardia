@@ -2,16 +2,16 @@ import { getDisplayMediaSources, type DisplayMediaAudio, type DisplayMediaReques
 import { runningAppIcon, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { webviews } from "../../lib/webviews";
-import { useBrowser } from "../../store/browser";
-import { engineProfile } from "../../store/model";
-import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PromptButton } from "../layout/controls";
-import { usePages } from "../layout/pageState";
-import { Favicon, useHover } from "../primitives";
-import { Checkbox } from "../settings/controls";
+import { useTheme } from "../ui/theme";
+import { webviews } from "../../platform/webviews";
+import { useBrowser } from "../../state/browser/store";
+import { engineProfile } from "../../state/browser/model";
+import { PANEL, PanelHeader, Popover, POPOVER_MARGIN, PromptButton } from "../ui/Controls";
+import { usePages } from "../../state/tabs/pageState";
+import { Favicon, useHover } from "../ui/Primitives";
+import { Checkbox } from "../ui/FormControls";
 import { noteTabShare } from "./ShareBar";
-import { useMedia } from "./state";
+import { useMedia } from "../../state/media/media";
 
 const WIDTH = 460;
 const REFRESH_MS = 2500;

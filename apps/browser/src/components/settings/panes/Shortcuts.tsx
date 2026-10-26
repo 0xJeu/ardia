@@ -1,15 +1,15 @@
 import { cancelShortcutRecording, recordShortcut, Symbol, type MenuShortcut } from "@ardia/shell";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { openUrls } from "../../../lib/actions";
-import { IconButton, useHover } from "../../primitives";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { openUrls } from "../../../state/browser/actions";
+import { IconButton, useHover } from "../../ui/Primitives";
 import { matchesQuery } from "../../pages/PageLayout";
-import { Anchor, Button, Group, PopUp, Row, SearchField, SectionHeader, Toggle, useFormColors } from "../controls";
+import { Anchor, Button, Group, PopUp, Row, SearchField, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { shortcutItems } from "../paneData";
 import { useResource } from "../resources";
-import { resolvedShortcuts, useMenuBarRevision } from "../../../lib/commandShortcuts";
+import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
 import { formatShortcut, sameShortcut, type Shortcut } from "../../../lib/shortcuts";
 
 type Filter = "all" | "customized" | "conflicts";

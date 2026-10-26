@@ -11,12 +11,12 @@ import {
   type SuggestionResult,
 } from "@ardia/core";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bookmarksByUrl } from "../../store/bookmarks";
-import { useMenuBarRevision } from "../../lib/commandShortcuts";
-import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId } from "../../store/model";
-import { defaultSearchEngine, searchEngines } from "../../store/settings";
-import type { Bookmarks, HistoryEntry } from "../../store/types";
+import { bookmarksByUrl } from "../../state/bookmarks/bookmarks";
+import { useMenuBarRevision } from "../../state/commands/commandShortcuts";
+import { useBrowser } from "../../state/browser/store";
+import { bookmarkProfileId } from "../../state/browser/model";
+import { defaultSearchEngine, searchEngines } from "../../state/settings/settings";
+import type { Bookmarks, HistoryEntry } from "../../state/browser/types";
 import { currentBarActions } from "./actions";
 import { useBangs } from "./bangs";
 import { useBarExtensions } from "./extensions";

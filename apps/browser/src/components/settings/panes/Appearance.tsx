@@ -1,11 +1,11 @@
 import { setAppearance, setAppIcon, Symbol, type AppIcon } from "@ardia/shell";
 import { Image, Pressable, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { tabLayoutOf } from "../../../store/model";
-import type { Settings } from "../../../store/settings";
-import { useHover } from "../../primitives";
-import { Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { tabLayoutOf } from "../../../state/browser/model";
+import type { Settings } from "../../../state/settings/settings";
+import { useHover } from "../../ui/Primitives";
+import { Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { APP_ICON_SIZE, appIconChoices } from "../paneData";
 import { store, useResource } from "../resources";
 

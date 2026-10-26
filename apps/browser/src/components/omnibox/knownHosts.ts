@@ -1,6 +1,6 @@
 import { hostOf } from "@ardia/core";
-import type { BrowserState } from "../../store/browser";
-import type { HistoryEntry } from "../../store/types";
+import type { BrowserState } from "../../state/browser/store";
+import type { HistoryEntry } from "../../state/browser/types";
 
 const NO_HISTORY: HistoryEntry[] = [];
 

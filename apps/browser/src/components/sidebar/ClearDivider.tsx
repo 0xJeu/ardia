@@ -1,9 +1,9 @@
 import { Symbol } from "@ardia/shell";
 import { memo, useEffect, useMemo, useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
-import { markHoverProps } from "../../lib/hoverShift";
-import { useTheme } from "../../lib/theme";
-import { useHover } from "../primitives";
+import { markHoverProps } from "../ui/hoverShift";
+import { useTheme } from "../ui/theme";
+import { useHover } from "../ui/Primitives";
 import { closeAllTabs } from "./menus";
 import { tidyPins } from "./tidyPinsUi";
 

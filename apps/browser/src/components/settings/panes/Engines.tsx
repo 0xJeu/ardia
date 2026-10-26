@@ -2,13 +2,13 @@ import { getPasskeyAccess, requestPasskeyAccess, type PageEngine, type PasskeyAc
 import { resolveInput } from "@ardia/core";
 import { useEffect, useState } from "react";
 import { AppState, Linking, Text, View } from "react-native";
-import { setWebsiteEngine } from "../../../lib/engines";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { defaultEngine, ENGINE_NAMES, RECOMMENDED_ENGINE, siteOf } from "../../../store/engines";
-import { Favicon, IconButton } from "../../primitives";
-import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle } from "../controls";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
+import { setWebsiteEngine } from "../../../state/engines/actions";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { defaultEngine, ENGINE_NAMES, RECOMMENDED_ENGINE, siteOf } from "../../../state/engines/engines";
+import { Favicon, IconButton } from "../../ui/Primitives";
+import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle } from "../../ui/FormControls";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 const ENGINE_OPTIONS: { value: PageEngine; title: string }[] = [
   { value: "chromium", title: ENGINE_NAMES.chromium },

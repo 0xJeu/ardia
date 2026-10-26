@@ -1,7 +1,7 @@
 import type { SearchScope } from "@ardia/core";
 import { Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { Favicon } from "../primitives";
+import { useTheme } from "../ui/theme";
+import { Favicon } from "../ui/Primitives";
 
 export function ScopeChip({ scope, large }: { scope: SearchScope; large: boolean }) {
   const theme = useTheme();

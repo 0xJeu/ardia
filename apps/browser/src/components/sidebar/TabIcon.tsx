@@ -1,12 +1,12 @@
 import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Text, View } from "react-native";
-import { useIsSleeping } from "../../lib/tabLifecycle";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { engineMark, ENGINE_NAMES, ENGINE_SYMBOLS } from "../../store/engines";
-import { isPageUnloaded } from "../../store/pinShare";
-import { Favicon } from "../primitives";
+import { useIsSleeping } from "../../state/tabs/tabLifecycle";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { engineMark, ENGINE_NAMES, ENGINE_SYMBOLS } from "../../state/engines/engines";
+import { isPageUnloaded } from "../../state/pins/pinShare";
+import { Favicon } from "../ui/Primitives";
 
 export const SYMBOL_PREFIX = "symbol:";
 export const NO_GROUP_ICON = `${SYMBOL_PREFIX}square.stack.fill`;

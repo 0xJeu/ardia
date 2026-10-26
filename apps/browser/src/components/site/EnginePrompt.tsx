@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { acceptEngineOffer, stayOnPage, useEngineOffers, type EngineOffer } from "../../lib/engines";
-import { useTheme } from "../../lib/theme";
-import { PanelCloseButton, Popover, PromptButton } from "../layout/controls";
-import { Checkbox } from "../settings/controls";
+import { acceptEngineOffer, stayOnPage, useEngineOffers, type EngineOffer } from "../../state/engines/actions";
+import { useTheme } from "../ui/theme";
+import { PanelCloseButton, Popover, PromptButton } from "../ui/Controls";
+import { Checkbox } from "../ui/FormControls";
 import { PromptBody } from "./Prompts";
 
 export function EngineOfferPrompt({ tabId, left, top }: { tabId: string; left: number; top: number }) {

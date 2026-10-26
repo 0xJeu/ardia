@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId } from "../../store/model";
-import { setPageProgress } from "../../store/pageProgress";
+import { useBrowser } from "../../state/browser/store";
+import { bookmarkProfileId } from "../../state/browser/model";
+import { setPageProgress } from "../../state/tabs/pageProgress";
 import { BookmarksPage } from "./BookmarksPage";
 import { DownloadsPage } from "./DownloadsPage";
 import { HistoryPage } from "./HistoryPage";
-import { INTERNAL_PAGES, internalPageOf, internalQuery, tabDestination } from "./urls";
+import { INTERNAL_PAGES, internalPageOf, internalQuery, tabDestination } from "../../state/pages/urls";
 
 export function InternalPage({ tabId }: { tabId: string }) {
   const url = useBrowser((s) => {

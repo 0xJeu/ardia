@@ -1,10 +1,10 @@
 import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { View } from "react-native";
-import { hex } from "../../lib/theme";
-import { usePage } from "../layout/pageState";
+import { hex } from "../ui/theme";
+import { usePage } from "../../state/tabs/pageState";
 import { useSidebarTokens } from "../sidebar/tokens";
-import { useMedia } from "./state";
+import { useMedia } from "../../state/media/media";
 import { CAPTURE_RED } from "./tokens";
 
 export const TabBadges = memo(function TabBadges({ tabId, size = 16, pip = true }: { tabId: string; size?: number; pip?: boolean }) {

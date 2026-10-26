@@ -1,9 +1,9 @@
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { CHECK_IN_COPY, useDefaultBrowserCheckIn } from "../../lib/defaultBrowserCheckIn";
-import { hex, useTheme } from "../../lib/theme";
-import { useHover } from "../primitives";
+import { CHECK_IN_COPY, useDefaultBrowserCheckIn } from "../../state/onboarding/defaultBrowserCheckIn";
+import { hex, useTheme } from "../ui/theme";
+import { useHover } from "../ui/Primitives";
 
 const ICON = require("../../../assets/app-icon.png");
 

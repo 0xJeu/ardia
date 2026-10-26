@@ -1,16 +1,16 @@
 import { cleanUrl, markdownLink } from "@ardia/core";
 import { copyText, prompt, showMenu, type MenuItem } from "@ardia/shell";
-import { closeTab } from "../../lib/actions";
-import { menuShortcut } from "../../lib/commandShortcuts";
-import { calendarConnected, connectCalendar, setCalendarHidden, useCalendar } from "../../live/calendar";
-import { deleteLiveFolder, manualRefresh, newLiveFolder, openLiveItem, refreshFolder, statusText } from "../../live/engine";
-import { ALERT_LEADS } from "../../live/meetings";
-import { SOURCES } from "../../live/sources";
-import { hideItems, live, markRead, setLive, updateCalendarSettings, updateFolder } from "../../live/store";
-import type { LiveItem, LiveSourceId } from "../../live/types";
-import { useBrowser } from "../../store/browser";
-import { openSettings } from "../settings/windows";
-import { openIconPicker } from "./actions";
+import { closeTab } from "../../state/browser/actions";
+import { menuShortcut } from "../../state/commands/commandShortcuts";
+import { calendarConnected, connectCalendar, setCalendarHidden, useCalendar } from "../../state/live/calendar";
+import { deleteLiveFolder, manualRefresh, newLiveFolder, openLiveItem, refreshFolder, statusText } from "../../state/live/engine";
+import { ALERT_LEADS } from "../../state/live/meetings";
+import { SOURCES } from "../../state/live/sources";
+import { hideItems, live, markRead, setLive, updateCalendarSettings, updateFolder } from "../../state/live/store";
+import type { LiveItem, LiveSourceId } from "../../state/live/types";
+import { useBrowser } from "../../state/browser/store";
+import { openSettings } from "../../state/settings/settingsWindows";
+import { openIconPicker } from "../../state/sidebar/actions";
 import { LIVE, moveLiveFolder, pinnedSequence } from "./pinnedOrder";
 
 const sep = { separator: true } as const;

@@ -1,10 +1,10 @@
 import { showAutofillSuggestions, type CardNetwork } from "@ardia/ardiacore";
 import { Symbol } from "@ardia/shell";
 import { Text, View } from "react-native";
-import { useBrowser } from "../../store/browser";
-import { activeTabId } from "../../store/model";
-import { browserIdOf } from "../extensions/state";
-import { openSettings } from "../settings/windows";
+import { useBrowser } from "../../state/browser/store";
+import { activeTabId } from "../../state/browser/model";
+import { browserIdOf } from "../../state/extensions/actions";
+import { openSettings } from "../../state/settings/settingsWindows";
 
 export async function requestAutofill(windowId: string, arg: string | null, tabId = activeTabId(useBrowser.getState(), windowId)) {
   const passwords = arg === "passwords";

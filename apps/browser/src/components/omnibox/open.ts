@@ -1,6 +1,6 @@
-import { openWindow, switchToTab } from "../../lib/actions";
-import { useBrowser } from "../../store/browser";
-import { originalProfile } from "../../store/small";
+import { openWindow, switchToTab } from "../../state/browser/actions";
+import { useBrowser } from "../../state/browser/store";
+import { originalProfile } from "../../state/windows/small";
 
 export type Disposition = "current" | "newTab" | "newWindow";
 

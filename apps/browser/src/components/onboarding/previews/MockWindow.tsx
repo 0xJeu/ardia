@@ -1,9 +1,9 @@
 import { Surface } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, View, type LayoutChangeEvent } from "react-native";
-import { hex, useTheme } from "../../../lib/theme";
-import { DEFAULT_SETTINGS, type Settings } from "../../../store/settings";
-import { DEMOS, type SceneOpts } from "./demos";
+import { hex, useTheme } from "../../ui/theme";
+import { DEFAULT_SETTINGS, type Settings } from "../../../state/settings/settings";
+import { DEMOS, type SceneOpts } from "./Demos";
 import type { PreviewId } from "./ids";
 import {
   Backdrop,
@@ -35,7 +35,7 @@ import {
   useDemo,
   type Geo,
   type Look,
-} from "./kit";
+} from "./Kit";
 
 const INSET = { x: 8, top: 5, bottom: 13 };
 const MOVE = { duration: 340, easing: Easing.out(Easing.cubic) };

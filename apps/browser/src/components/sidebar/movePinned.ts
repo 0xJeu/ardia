@@ -1,8 +1,8 @@
-import { useBrowser, type BrowserState } from "../../store/browser";
-import { activeTab, pinnedSectionTitle } from "../../store/model";
-import { groupOf, selectedTabIds } from "../../store/organize";
-import { pinKeyOf } from "../../store/pinMirror";
-import type { Tab } from "../../store/types";
+import { useBrowser, type BrowserState } from "../../state/browser/store";
+import { activeTab, pinnedSectionTitle } from "../../state/browser/model";
+import { groupOf, selectedTabIds } from "../../state/pins/organize";
+import { pinKeyOf } from "../../state/pins/pinMirror";
+import type { Tab } from "../../state/browser/types";
 
 type ListSpot = { windowId: string; key: string; list: string[]; index: number; order: number; groupId: string | null };
 

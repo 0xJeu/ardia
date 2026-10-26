@@ -14,17 +14,17 @@ import {
 import { confirm, copyText, Symbol, systemInfo } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { useProfiles } from "../../../store/hooks";
-import { engineProfile, plural } from "../../../store/model";
-import { importModule } from "../../import/module";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { useProfiles } from "../../../state/browser/hooks";
+import { engineProfile, plural } from "../../../state/browser/model";
+import { importModule } from "../../../platform/importModule";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
-import { Favicon, IconButton } from "../../primitives";
-import { Button, Group, PopUp, Row, SearchField, SectionHeader, Sheet, TextField, Toggle } from "../controls";
+import { Favicon, IconButton } from "../../ui/Primitives";
+import { Button, Group, PopUp, Row, SearchField, SectionHeader, Sheet, TextField, Toggle } from "../../ui/FormControls";
 import { passwordAutofill } from "../paneData";
 import { store, useResource } from "../resources";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 function passwordManagerAppsNote() {
   const apps = "1Password, Bitwarden, KeePassXC and Proton Pass extensions connect to their Mac apps.";

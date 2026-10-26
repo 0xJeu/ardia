@@ -1,11 +1,11 @@
 import type { SystemCalendar } from "@ardia/shell";
 import { Linking, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { connectCalendar, setCalendarHidden, useCalendar } from "../../../live/calendar";
-import { ALERT_LEADS } from "../../../live/meetings";
-import { updateCalendarSettings, useLive } from "../../../live/store";
-import { useBrowser } from "../../../store/browser";
-import { Button, Checkbox, Group, PopUp, Row, SectionHeader, Toggle } from "../controls";
+import { useTheme } from "../../ui/theme";
+import { connectCalendar, setCalendarHidden, useCalendar } from "../../../state/live/calendar";
+import { ALERT_LEADS } from "../../../state/live/meetings";
+import { updateCalendarSettings, useLive } from "../../../state/live/store";
+import { useBrowser } from "../../../state/browser/store";
+import { Button, Checkbox, Group, PopUp, Row, SectionHeader, Toggle } from "../../ui/FormControls";
 
 export function CalendarPane() {
   const theme = useTheme();

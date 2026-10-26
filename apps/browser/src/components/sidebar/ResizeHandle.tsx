@@ -1,7 +1,7 @@
 import { View } from "react-native";
-import { useBrowser } from "../../store/browser";
-import { useResizeDrag } from "../layout/useResizeDrag";
-import { setSidebarUi, sidebarUi } from "./state";
+import { useBrowser } from "../../state/browser/store";
+import { useResizeDrag } from "./useResizeDrag";
+import { setSidebarUi, sidebarUi } from "../../state/sidebar/sidebarUi";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "./tokens";
 
 export function ResizeHandle({ windowId }: { windowId: string }) {

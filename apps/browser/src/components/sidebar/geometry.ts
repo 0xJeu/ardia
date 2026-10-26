@@ -1,7 +1,7 @@
-import { layout } from "../../lib/theme";
-import type { BrowserState } from "../../store/browser";
-import { activeTabId } from "../../store/model";
-import { groupEntries, sidebarEntries } from "./entries";
+import { layout } from "../ui/theme";
+import type { BrowserState } from "../../state/browser/store";
+import { activeTabId } from "../../state/browser/model";
+import { groupEntries, sidebarEntries } from "../../state/sidebar/entries";
 
 export const GROUP_PAD = 2;
 export const GROUP_INDENT = 16;

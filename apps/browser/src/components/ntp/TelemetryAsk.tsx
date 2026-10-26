@@ -1,15 +1,15 @@
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { useDefaultBrowserCheckIn } from "../../lib/defaultBrowserCheckIn";
-import { hex, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { dismissAsk, setSharing, useTelemetry } from "../../telemetry/client";
-import { SHARING_COPY } from "../../telemetry/copy";
-import { onboardingCompletedAt, useOnboarding } from "../onboarding/state";
-import { useHover } from "../primitives";
-import { openSettings } from "../settings/windows";
-import { usePendingReleaseNotes } from "./releaseNotes";
+import { useDefaultBrowserCheckIn } from "../../state/onboarding/defaultBrowserCheckIn";
+import { hex, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { dismissAsk, setSharing, useTelemetry } from "../../state/telemetry/client";
+import { SHARING_COPY } from "../../state/telemetry/copy";
+import { onboardingCompletedAt, useOnboarding } from "../../state/onboarding/onboarding";
+import { useHover } from "../ui/Primitives";
+import { openSettings } from "../../state/settings/settingsWindows";
+import { usePendingReleaseNotes } from "../../state/releaseNotes/releaseNotes";
 
 const FRAME = { width: 300 };
 

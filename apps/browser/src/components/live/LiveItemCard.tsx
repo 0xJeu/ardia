@@ -1,17 +1,17 @@
 import { FadeLabel, Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Image, Pressable, Text, View } from "react-native";
-import { hex, useTheme } from "../../lib/theme";
-import { openLiveItem } from "../../live/engine";
-import { summarizeChecks } from "../../live/github";
-import { ago } from "../../live/meetings";
-import { useLive } from "../../live/store";
-import type { LiveItem, PullRequestCheck } from "../../live/types";
-import { useBrowser } from "../../store/browser";
-import { useHover } from "../primitives";
-import { cardHoverProps, dismissHover } from "../sidebar/hover";
+import { hex, useTheme } from "../ui/theme";
+import { openLiveItem } from "../../state/live/engine";
+import { summarizeChecks } from "../../state/live/github";
+import { ago } from "../../state/live/meetings";
+import { useLive } from "../../state/live/store";
+import type { LiveItem, PullRequestCheck } from "../../state/live/types";
+import { useBrowser } from "../../state/browser/store";
+import { useHover } from "../ui/Primitives";
+import { cardHoverProps, dismissHover } from "../../state/sidebar/hover";
 import { hoverCardOrigin } from "../sidebar/hoverMotion";
-import type { Anchor } from "../sidebar/state";
+import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "../sidebar/TabIcon";
 import { useLiveColors, type LiveColors } from "./colors";
 

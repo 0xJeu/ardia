@@ -1,11 +1,11 @@
 import { Surface, Symbol } from "@ardia/shell";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { hex, useTheme } from "../../lib/theme";
-import { useLive } from "../../live/store";
-import { useBrowser } from "../../store/browser";
-import { setIcon } from "./actions";
-import { setSidebarUi, useSidebarUi } from "./state";
+import { hex, useTheme } from "../ui/theme";
+import { useLive } from "../../state/live/store";
+import { useBrowser } from "../../state/browser/store";
+import { setIcon } from "../../state/sidebar/actions";
+import { setSidebarUi, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { NO_GROUP_ICON, NO_GROUP_ICON_INK, SYMBOL_PREFIX } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";
 

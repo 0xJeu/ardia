@@ -1,11 +1,11 @@
 import { Symbol } from "@ardia/shell";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View, type TextInput } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { liquidGlass } from "../glass";
-import { SearchField, useFormColors } from "./controls";
+import { useTheme } from "../ui/theme";
+import { liquidGlass } from "../ui/Glass";
+import { SearchField, useFormColors } from "../ui/FormControls";
 import { groupByPane, search } from "./searchMatch";
-import { revealSetting, setSettingsQuery, useSettingsSearch } from "./searchState";
+import { revealSetting, setSettingsQuery, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, SETTINGS_INDEX, type SettingEntry } from "./settingsIndex";
 
 export function SettingsSearchField() {

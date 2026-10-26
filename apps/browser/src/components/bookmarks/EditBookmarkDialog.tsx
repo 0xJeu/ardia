@@ -2,12 +2,12 @@ import { resolveInput } from "@ardia/core";
 import { Surface } from "@ardia/shell";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { hex, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useWindowId } from "../../store/hooks";
-import { searchUrlPrefix } from "../../store/settings";
-import { Button, TextField, useFormColors } from "../settings/controls";
-import { useBookmarkEditor, type EditorState } from "./edit";
+import { hex, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useWindowId } from "../../state/browser/hooks";
+import { searchUrlPrefix } from "../../state/settings/settings";
+import { Button, TextField, useFormColors } from "../ui/FormControls";
+import { useBookmarkEditor, type EditorState } from "../../state/bookmarks/edit";
 import { FolderTree } from "./FolderTree";
 
 export function EditBookmarkDialog() {

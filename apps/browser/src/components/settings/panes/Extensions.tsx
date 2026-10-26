@@ -1,10 +1,10 @@
 import { reloadExtension, type InstalledExtension } from "@ardia/ardiacore";
 import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { useProfiles } from "../../../store/hooks";
-import { engineProfile, resolveWindowId } from "../../../store/model";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { useProfiles } from "../../../state/browser/hooks";
+import { engineProfile, resolveWindowId } from "../../../state/browser/model";
 import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
 import {
   addFromWebStore,
@@ -16,12 +16,12 @@ import {
   setEnabled,
   setPinned,
   useExtensionList,
-} from "../../extensions/state";
-import { Button, Group, PopUp, Row, SectionHeader, TextField, Toggle } from "../controls";
+} from "../../../state/extensions/actions";
+import { Button, Group, PopUp, Row, SectionHeader, TextField, Toggle } from "../../ui/FormControls";
 import { extensionList } from "../paneData";
 import { useResource } from "../resources";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
-import { SETTINGS_WINDOW_ID, useSettingsNav } from "../windows";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
+import { SETTINGS_WINDOW_ID, useSettingsNav } from "../../../state/settings/settingsWindows";
 
 type SiteAccess = "allSites" | "specificSites" | "onClick";
 const SITE_ACCESS: { value: SiteAccess; title: string }[] = [

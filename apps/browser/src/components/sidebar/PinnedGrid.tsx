@@ -1,23 +1,23 @@
 import { ContextMenuArea, MouseArea, Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Animated, Pressable, View } from "react-native";
-import { closeTab } from "../../lib/actions";
-import { layout, useTheme } from "../../lib/theme";
-import { listTopGap, useAddressBarInSidebar } from "../layout/windowLayout";
-import { useBrowser } from "../../store/browser";
-import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../store/hooks";
-import { activeTabId } from "../../store/model";
+import { closeTab } from "../../state/browser/actions";
+import { layout, useTheme } from "../ui/theme";
+import { listTopGap, useAddressBarInSidebar } from "../../state/windows/layout";
+import { useBrowser } from "../../state/browser/store";
+import { useIsActiveTab, useTab, useTabLive, useWindowId } from "../../state/browser/hooks";
+import { activeTabId } from "../../state/browser/model";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
-import { clickTab } from "./actions";
-import { cellKey, PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./dnd";
+import { clickTab } from "../../state/sidebar/actions";
+import { cellKey, PIN_SLOT, useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./DragProvider";
 import { FolderTile } from "./FolderTile";
-import { dismissHover, useRowHover } from "./hover";
+import { dismissHover, useRowHover } from "../../state/sidebar/hover";
 import { openTabMenu } from "./menus";
 import { pinGrid, pinGridHeight, TILE_GAP } from "./pinZone";
-import { registerRow } from "./state";
+import { registerRow } from "../../state/sidebar/sidebarUi";
 import { clickMods } from "./TabRow";
 import { FolderDropRing, TileFace, useSlotPosition } from "./TileFace";
-import { folderIdOfCell } from "../../store/tileFolders";
+import { folderIdOfCell } from "../../state/pins/tileFolders";
 import { useSidebarTokens } from "./tokens";
 
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth, flush = false }: { tabs: string[]; innerWidth: number; flush?: boolean }) {

@@ -1,9 +1,9 @@
 import type { BrowserCommand } from "@ardia-real/shell";
 import { emitCommand } from "@ardia/shell";
 import { useMemo } from "react";
-import { noteScroll } from "../../browser/src/components/layout/toolbarAutoHide";
-import { useBrowser, type BrowserState } from "../../browser/src/store/browser";
-import { splitOf } from "../../browser/src/store/splits";
+import { noteScroll } from "../../browser/src/state/windows/toolbarAutoHide";
+import { useBrowser, type BrowserState } from "../../browser/src/state/browser/store";
+import { splitOf } from "../../browser/src/state/splits/splits";
 import { isFrameable } from "./frameable";
 import { Symbol } from "./shims/web/Symbol";
 

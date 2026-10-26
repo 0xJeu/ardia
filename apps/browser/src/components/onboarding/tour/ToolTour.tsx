@@ -1,13 +1,13 @@
 import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { hex, useTheme } from "../../../lib/theme";
-import { useWindowId } from "../../../store/hooks";
-import type { Rect } from "../../layout/geometry";
-import { useHover } from "../../primitives";
-import { useOnboardingColors } from "../ui";
+import { hex, useTheme } from "../../ui/theme";
+import { useWindowId } from "../../../state/browser/hooks";
+import type { Rect } from "../../window/geometry";
+import { useHover } from "../../ui/Primitives";
+import { useOnboardingColors } from "../Parts";
 import { locateAnchor } from "./anchors";
-import { endToolTour, openVideoTour, stepToolTour, useTour, videoTourUrl, type TourStop } from "./state";
+import { endToolTour, openVideoTour, stepToolTour, useTour, videoTourUrl, type TourStop } from "../../../state/onboarding/tour";
 
 const CARD_WIDTH = 296;
 const GAP = 14;

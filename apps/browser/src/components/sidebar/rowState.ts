@@ -1,7 +1,7 @@
-import { useBrowser, type BrowserState } from "../../store/browser";
-import { useTab } from "../../store/hooks";
-import { activeTabId } from "../../store/model";
-import type { Tab } from "../../store/types";
+import { useBrowser, type BrowserState } from "../../state/browser/store";
+import { useTab } from "../../state/browser/hooks";
+import { activeTabId } from "../../state/browser/model";
+import type { Tab } from "../../state/browser/types";
 
 export const ACTIVE = 1;
 export const SELECTED = 2;

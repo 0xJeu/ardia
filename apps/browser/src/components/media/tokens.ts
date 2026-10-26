@@ -1,4 +1,4 @@
-import { useTheme } from "../../lib/theme";
+import { useTheme } from "../ui/theme";
 
 const light = {
   background: "#F4F4F4",

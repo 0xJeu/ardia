@@ -1,11 +1,11 @@
 import { Symbol } from "@ardia/shell";
 import { Pressable, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { tabLayoutOf } from "../../../store/model";
-import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../store/settings";
-import { liquidGlass } from "../../glass";
-import { Checkbox, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { tabLayoutOf } from "../../../state/browser/model";
+import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
+import { liquidGlass } from "../../ui/Glass";
+import { Checkbox, Group, PopUp, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { setting } from "../settingsIndex";
 
 const PEEK_WITH: { value: PeekModifier; title: string }[] = [

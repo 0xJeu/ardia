@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { useWindowId } from "../../store/hooks";
+import { useWindowId } from "../../state/browser/hooks";
 import { startSidebarEffects } from "./effects";
 import { MeetingAlert } from "../live/MeetingAlert";
 import { HoverCard } from "./HoverCard";

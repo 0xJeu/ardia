@@ -1,11 +1,11 @@
 import { DockSelection, Surface } from "@ardia/shell";
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Animated, StyleSheet, View } from "react-native";
-import { hex, layout, useTheme } from "../../lib/theme";
-import { useTileTheme, type TileTheme } from "../../lib/tileTheme";
-import { useSettings, useTab } from "../../store/hooks";
-import { GlassFill, liquidGlass } from "../glass";
-import { SLIDE } from "../layout/stripReorder";
+import { hex, layout, useTheme } from "../ui/theme";
+import { useTileTheme, type TileTheme } from "../../state/favicons/tileTheme";
+import { useSettings, useTab } from "../../state/browser/hooks";
+import { GlassFill, liquidGlass } from "../ui/Glass";
+import { SLIDE } from "../tabstrip/stripReorder";
 import { TabBadges } from "../media/TabBadges";
 import { TabIcon } from "./TabIcon";
 import { useSidebarTokens } from "./tokens";

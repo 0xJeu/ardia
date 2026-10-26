@@ -19,15 +19,15 @@ import {
 import { confirm } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { useProfiles } from "../../../store/hooks";
-import { engineProfile } from "../../../store/model";
-import { Favicon } from "../../primitives";
-import { Button, Checkbox, Group, PopUp, Row, SectionHeader, Sheet, Toggle } from "../controls";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { useProfiles } from "../../../state/browser/hooks";
+import { engineProfile } from "../../../state/browser/model";
+import { Favicon } from "../../ui/Primitives";
+import { Button, Checkbox, Group, PopUp, Row, SectionHeader, Sheet, Toggle } from "../../ui/FormControls";
 import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../paneData";
 import { useResource } from "../resources";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 
 const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: string }[] = [

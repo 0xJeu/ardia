@@ -1,14 +1,14 @@
 import type { Suggestion } from "@ardia/core";
 import { prompt, showMenu, type BrowserCommand, type MenuItem } from "@ardia/shell";
-import { moveTabToProfile } from "../../lib/actions";
-import { runCommand } from "../../lib/commands";
-import { useBrowser } from "../../store/browser";
-import { splitOf, type SplitSide } from "../../store/splits";
-import { openExtensionFromMenu } from "../extensions/bridge";
-import { openOptions, shownIn } from "../extensions/state";
-import { openSplitPane } from "../layout/splitActions";
-import { openSettings } from "../settings/windows";
-import { tabTitle } from "../sidebar/actions";
+import { moveTabToProfile } from "../../state/browser/actions";
+import { runCommand } from "../../state/commands/commands";
+import { useBrowser } from "../../state/browser/store";
+import { splitOf, type SplitSide } from "../../state/splits/splits";
+import { openExtensionFromMenu } from "../../state/extensions/bridge";
+import { openOptions, shownIn } from "../../state/extensions/actions";
+import { openSplitPane } from "../../state/splits/actions";
+import { openSettings } from "../../state/settings/settingsWindows";
+import { tabTitle } from "../../state/sidebar/actions";
 import { isOrganizeId, shownOrganizeContext, sideBySide, splitCandidates, type OrganizeContext, type OrganizeId } from "./organizeActions";
 
 const store = () => useBrowser.getState();

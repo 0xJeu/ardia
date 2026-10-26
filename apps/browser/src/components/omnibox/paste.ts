@@ -1,9 +1,9 @@
 import { classifyPaste, cleanUrl, searchUrl, type PasteAction } from "@ardia/core";
 import { copyText, showMenu, type MenuItem } from "@ardia/shell";
 import { NativeModules } from "react-native";
-import { useBrowser } from "../../store/browser";
-import { defaultSearchEngine } from "../../store/settings";
-import type { Tab } from "../../store/types";
+import { useBrowser } from "../../state/browser/store";
+import { defaultSearchEngine } from "../../state/settings/settings";
+import type { Tab } from "../../state/browser/types";
 
 const NativeClipboard = NativeModules.Clipboard as { getString(): Promise<string> } | undefined;
 

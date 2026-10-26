@@ -1,7 +1,7 @@
 import { Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
+import { useTheme } from "../ui/theme";
 import { headingTop } from "./newTabLayout";
 
 export const INCOGNITO_ICON = "eyeglasses";

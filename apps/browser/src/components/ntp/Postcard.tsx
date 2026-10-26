@@ -2,11 +2,11 @@ import { WindowBackdrop } from "@ardia/shaders";
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { hex, profileAccent, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useWindowId } from "../../store/hooks";
-import { useHover } from "../primitives";
-import type { ReleaseNotes } from "./releaseNotes";
+import { hex, profileAccent, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useWindowId } from "../../state/browser/hooks";
+import { useHover } from "../ui/Primitives";
+import type { ReleaseNotes } from "../../state/releaseNotes/releaseNotes";
 
 const ICON = require("../../../assets/app-icon.png");
 

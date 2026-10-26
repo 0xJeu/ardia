@@ -1,7 +1,7 @@
 import { restartSwitcherPointer, setSwitcherCapture, switcherPointerMoved } from "@ardia/shell";
-import { useBrowser } from "../../store/browser";
-import { recentTabIds } from "../../store/organize";
-import { setSidebarUi, sidebarUi } from "./state";
+import { useBrowser } from "../../state/browser/store";
+import { recentTabIds } from "../../state/pins/organize";
+import { setSidebarUi, sidebarUi } from "../../state/sidebar/sidebarUi";
 
 const SHOW_AFTER_MS = 140;
 const POINTER_POLL_MS = 50;

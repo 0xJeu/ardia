@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-const { useBrowser } = await import("../../store/browser.ts");
-const { sidebarEntries } = await import("./entries.ts");
+const { useBrowser } = await import("../../state/browser/store.ts");
+const { sidebarEntries } = await import("../../state/sidebar/entries.ts");
 const { entriesHeight, entriesWithin, entryHeight, firstPaintEntries, rowSpan, startsOffScreen, FIRST_PAINT_HEIGHT } = await import("./geometry.ts");
-const { groupEntries } = await import("./entries.ts");
+const { groupEntries } = await import("../../state/sidebar/entries.ts");
 await import("../../test-native/index.ts");
 
 const S = () => useBrowser.getState();

@@ -1,11 +1,11 @@
 import { Surface, Symbol, VisualEffect } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { hex, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { defaultSearchEngine } from "../../store/settings";
-import { useHover } from "../primitives";
-import { searchSelection, setPageSelection, usePageSelection, type ClickModifiers, type PageSelection } from "./selection";
+import { hex, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { defaultSearchEngine } from "../../state/settings/settings";
+import { useHover } from "../ui/Primitives";
+import { searchSelection, setPageSelection, usePageSelection, type ClickModifiers, type PageSelection } from "../../state/site/selection";
 
 const HEIGHT = 32;
 const GAP = 6;

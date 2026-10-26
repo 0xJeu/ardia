@@ -1,8 +1,8 @@
-import { closeGroup } from "../../lib/actions";
-import { shortcutHint, withShortcut } from "../../lib/commandShortcuts";
-import { useBrowser, type BrowserState } from "../../store/browser";
-import { rootOf } from "../../store/groups";
-import { closeIntent, closeKind, openPages } from "../../store/tabs";
+import { closeGroup } from "../../state/browser/actions";
+import { shortcutHint, withShortcut } from "../../state/commands/commandShortcuts";
+import { useBrowser, type BrowserState } from "../../state/browser/store";
+import { rootOf } from "../../state/groups/groups";
+import { closeIntent, closeKind, openPages } from "../../state/tabs/tabs";
 import { middleClickTab } from "./menus";
 
 export type CloseControl = { icon: "xmark" | "minus"; tooltip: string };

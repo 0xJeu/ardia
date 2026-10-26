@@ -1,13 +1,13 @@
 import { showMenu, type MenuItem } from "@ardia/shell";
-import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../lib/actions";
-import { menuShortcut } from "../../lib/commandShortcuts";
-import { folderChildren } from "../../store/bookmarks";
-import { useBrowser } from "../../store/browser";
-import { bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../store/model";
-import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../../store/organize";
-import { groupPath } from "../../store/groups";
-import { splitOf, splitRowPanes } from "../../store/splits";
-import type { GroupColor, Tab } from "../../store/types";
+import { closeGroup, closeTab, moveTabToProfile, moveTabToWindow, switchToTab, toggleMute } from "../../state/browser/actions";
+import { menuShortcut } from "../../state/commands/commandShortcuts";
+import { folderChildren } from "../../state/bookmarks/bookmarks";
+import { useBrowser } from "../../state/browser/store";
+import { bookmarkProfileId, inPinnedContainer, isIncognitoProfile, isPinnedRow, pinnedSectionTitle, pinSection, plural, tabLabel, togglePinTitle, viewTabIds, windowTitle } from "../../state/browser/model";
+import { awayFromPin, canUndoClear, cleanedTabsFor, groupLabel, groupOf, keptDeletedGroups, selectedTabIds, type ClearedTabs } from "../../state/pins/organize";
+import { groupPath } from "../../state/groups/groups";
+import { splitOf, splitRowPanes } from "../../state/splits/splits";
+import type { GroupColor, Tab } from "../../state/browser/types";
 import {
   allMuted,
   bookmarkTabs,
@@ -18,19 +18,19 @@ import {
   openIconPicker,
   startRename,
   tabTitle,
-} from "./actions";
-import { isCalendarUrl } from "../../live/meetings";
-import { bookmarkTab } from "../bookmarks/actions";
-import { hideKeyedToast, showToast, useToasts } from "../layout/splitActions";
-import { canShare, shareTab } from "../site/share";
+} from "../../state/sidebar/actions";
+import { isCalendarUrl } from "../../state/live/meetings";
+import { bookmarkTab } from "../../state/bookmarks/actions";
+import { hideKeyedToast, showToast, useToasts } from "../../state/splits/actions";
+import { canShare, shareTab } from "../../state/site/share";
 import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
-import { openSyncedTab, syncedDevicesMenuItem } from "../../sync/menu";
-import { setSidebarUi } from "./state";
+import { openSyncedTab, syncedDevicesMenuItem } from "../../state/sync/menu";
+import { setSidebarUi } from "../../state/sidebar/sidebarUi";
 import { hasOwnGroupIcon } from "./TabIcon";
 import { newFolderWithTab, removeFromFolder } from "./tileFolderUi";
-import { toggleNewTabBar } from "../omnibox/newTabBar";
-import { togglePageEngine } from "../../lib/engines";
-import { canSwitchEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, tabEngine } from "../../store/engines";
+import { toggleNewTabBar } from "../../state/omnibox/newTabBar";
+import { togglePageEngine } from "../../state/engines/actions";
+import { canSwitchEngine, ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine, tabEngine } from "../../state/engines/engines";
 import { GROUP_COLORS, NEUTRAL_GROUP_SWATCH, nearestGroupColor, type GroupTint } from "./tokens";
 
 const store = () => useBrowser.getState();

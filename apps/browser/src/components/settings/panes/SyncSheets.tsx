@@ -2,10 +2,10 @@ import { showMenu, Symbol } from "@ardia/shell";
 import { SyncNative, type FolderInfo } from "@ardia/sync";
 import { useEffect, useState, type ReactNode } from "react";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { enterRecoveryPhrase, stopSync } from "../../../sync/engine";
-import { Button, Checkbox, Sheet, useFormColors } from "../controls";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
+import { useTheme } from "../../ui/theme";
+import { enterRecoveryPhrase, stopSync } from "../../../state/sync/engine";
+import { Button, Checkbox, Sheet, useFormColors } from "../../ui/FormControls";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 const WORDS = 24;
 

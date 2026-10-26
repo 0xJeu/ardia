@@ -2,9 +2,9 @@ import { Surface, Symbol } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { create } from "zustand";
-import { hex, useTheme } from "../../lib/theme";
-import { PERSONALIZE_COPY, TabLayoutPicker, ThemeColorPicker } from "../onboarding/personalize";
-import { useHover } from "../primitives";
+import { hex, useTheme } from "../ui/theme";
+import { PERSONALIZE_COPY, TabLayoutPicker, ThemeColorPicker } from "../onboarding/Personalize";
+import { useHover } from "../ui/Primitives";
 
 const INSET = 16;
 const BUTTON = 30;

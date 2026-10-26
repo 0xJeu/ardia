@@ -1,9 +1,9 @@
 import { setAutoPictureInPicture, setDisplayMediaPicker, setVideoUpscaling } from "@ardia/ardiacore";
 import { useRef } from "react";
-import { useBrowser } from "../../store/browser";
-import { useStoreWhile } from "../../store/tabWatch";
-import { usePages } from "../layout/pageState";
-import { startCast } from "./cast";
+import { useBrowser } from "../../state/browser/store";
+import { useStoreWhile } from "../../state/tabs/tabWatch";
+import { usePages } from "../../state/tabs/pageState";
+import { startCast } from "../../state/media/cast";
 import { startTabShareCleanup } from "./ShareBar";
 import { cancelDisplayMediaOnNavigation } from "./SharePicker";
 

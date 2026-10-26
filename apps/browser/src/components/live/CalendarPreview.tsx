@@ -1,15 +1,15 @@
 import { FadeLabel } from "@ardia/shell";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { joinEvent } from "../../live/alerts";
-import { connectCalendar, refreshCalendar, useCalendar, useNow } from "../../live/calendar";
-import { isCalendarUrl, isMeeting, joinLink, joinTitle, relativeTime, timeRange, type CalendarEvent } from "../../live/meetings";
-import { useLive } from "../../live/store";
-import { useBrowser } from "../../store/browser";
-import { IconButton, useHover } from "../primitives";
-import { dismissHover } from "../sidebar/hover";
-import type { Anchor } from "../sidebar/state";
+import { useTheme } from "../ui/theme";
+import { joinEvent } from "../../state/live/alerts";
+import { connectCalendar, refreshCalendar, useCalendar, useNow } from "../../state/live/calendar";
+import { isCalendarUrl, isMeeting, joinLink, joinTitle, relativeTime, timeRange, type CalendarEvent } from "../../state/live/meetings";
+import { useLive } from "../../state/live/store";
+import { useBrowser } from "../../state/browser/store";
+import { IconButton, useHover } from "../ui/Primitives";
+import { dismissHover } from "../../state/sidebar/hover";
+import type { Anchor } from "../../state/sidebar/sidebarUi";
 import { Avatar, HoverSurface, SmallButton } from "./LiveItemCard";
 import { useLiveColors } from "./colors";
 

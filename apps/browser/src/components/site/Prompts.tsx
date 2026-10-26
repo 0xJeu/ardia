@@ -2,15 +2,15 @@ import { getSiteSettings, resolveExternalApp, setSiteSetting, type AutofillPromp
 import { Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { webviews } from "../../lib/webviews";
-import { useBrowser } from "../../store/browser";
-import { engineProfile } from "../../store/model";
-import { useHover } from "../primitives";
-import { PANEL, PanelCloseButton, Popover, PopoverRow, PopoverSeparator, PromptButton } from "../layout/controls";
-import { Checkbox } from "../settings/controls";
-import { patchPage, pageOf, setPopover, usePage } from "../layout/pageState";
-import { answerPermission, describePermission } from "./permissions";
+import { useTheme } from "../ui/theme";
+import { webviews } from "../../platform/webviews";
+import { useBrowser } from "../../state/browser/store";
+import { engineProfile } from "../../state/browser/model";
+import { useHover } from "../ui/Primitives";
+import { PANEL, PanelCloseButton, Popover, PopoverRow, PopoverSeparator, PromptButton } from "../ui/Controls";
+import { Checkbox } from "../ui/FormControls";
+import { patchPage, pageOf, setPopover, usePage } from "../../state/tabs/pageState";
+import { answerPermission, describePermission } from "../../state/site/permissions";
 
 const hostOf = (origin: string) => {
   try {

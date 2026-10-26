@@ -1,16 +1,16 @@
 import { Surface, VisualEffect, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
-import { hex } from "../../lib/theme";
-import { useWindowId } from "../../store/hooks";
+import { hex } from "../ui/theme";
+import { useWindowId } from "../../state/browser/hooks";
 import { Intro } from "./Intro";
-import { dismissOnboarding, useOnboarding } from "./state";
-import { LayoutStep, LookStep, TabsStep } from "./layoutSteps";
-import { SearchPrivacyStep } from "./privacyStep";
-import { SourceStep } from "./sourceStep";
-import { HomeStep, OutroStep, PinnedTabsStep } from "./steps";
+import { dismissOnboarding, useOnboarding } from "../../state/onboarding/onboarding";
+import { LayoutStep, LookStep, TabsStep } from "./LayoutSteps";
+import { SearchPrivacyStep } from "./PrivacyStep";
+import { SourceStep } from "./SourceStep";
+import { HomeStep, OutroStep, PinnedTabsStep } from "./Steps";
 import { ToolTour } from "./tour/ToolTour";
-import { useOnboardingColors } from "./ui";
+import { useOnboardingColors } from "./Parts";
 
 const CARD = { width: 880, height: 560, margin: 40 };
 

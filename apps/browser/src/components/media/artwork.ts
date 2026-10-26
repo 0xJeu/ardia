@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
-import { webviews } from "../../lib/webviews";
-import { useBrowser } from "../../store/browser";
+import { webviews } from "../../platform/webviews";
+import { useBrowser } from "../../state/browser/store";
 
 const MAX_PIXELS = 256;
 const MAX_ENTRIES = 24;

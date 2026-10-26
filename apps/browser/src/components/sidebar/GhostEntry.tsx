@@ -1,16 +1,16 @@
 import { FadeLabel, Symbol } from "@ardia/shell";
 import { Image, Text, View } from "react-native";
-import { resolveFavicon, useFavicons } from "../../lib/favicons";
-import { layout, useTheme } from "../../lib/theme";
-import type { BrowserState } from "../../store/browser";
-import type { GroupColor } from "../../store/types";
-import { groupLabel } from "../../store/organize";
-import { splitRowPanes } from "../../store/splits";
-import { tabTitle } from "./actions";
-import { groupEntries } from "./entries";
+import { resolveFavicon, useFavicons } from "../../state/favicons/favicons";
+import { layout, useTheme } from "../ui/theme";
+import type { BrowserState } from "../../state/browser/store";
+import type { GroupColor } from "../../state/browser/types";
+import { groupLabel } from "../../state/pins/organize";
+import { splitRowPanes } from "../../state/splits/splits";
+import { tabTitle } from "../../state/sidebar/actions";
+import { groupEntries } from "../../state/sidebar/entries";
 import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS, headGap, keptEntry } from "./geometry";
-import { pointerOnGroup, pointerOnRow } from "./hover";
-import { FaviconFallback, NewTabIcon } from "../primitives";
+import { pointerOnGroup, pointerOnRow } from "../../state/sidebar/hover";
+import { FaviconFallback, NewTabIcon } from "../ui/Primitives";
 import { SYMBOL_PREFIX, TabIcon } from "./TabIcon";
 import { groupSurface, useSidebarTokens, withAlpha } from "./tokens";
 

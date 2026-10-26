@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
-import { switchProfile } from "../../lib/actions";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useIsIncognito } from "../../store/hooks";
-import { usePagerPages, type PagerPage } from "../layout/profilePager";
-import { useHover } from "../primitives";
-import { TooltipAbove } from "../TooltipAbove";
+import { switchProfile } from "../../state/browser/actions";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useIsIncognito } from "../../state/browser/hooks";
+import { usePagerPages, type PagerPage } from "../window/profilePager";
+import { useHover } from "../ui/Primitives";
+import { TooltipAbove } from "../ui/TooltipAbove";
 
 export const PROFILE_DOTS_HEIGHT = 41;
 const CELL = 12;

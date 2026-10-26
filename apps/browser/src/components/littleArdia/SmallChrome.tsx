@@ -2,12 +2,12 @@ import { breadcrumb } from "@ardia/core";
 import { FadeLabel, Symbol } from "@ardia/shell";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Easing, Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { useTabLive } from "../../store/hooks";
-import { usePageProgress } from "../../store/pageProgress";
-import type { Tab } from "../../store/types";
-import { usePage } from "../layout/pageState";
-import { Favicon, IconButton, useHover } from "../primitives";
+import { useTheme } from "../ui/theme";
+import { useTabLive } from "../../state/browser/hooks";
+import { usePageProgress } from "../../state/tabs/pageProgress";
+import type { Tab } from "../../state/browser/types";
+import { usePage } from "../../state/tabs/pageState";
+import { Favicon, IconButton, useHover } from "../ui/Primitives";
 
 export const SMALL_BAR_HEIGHT = 38;
 export const SMALL_INSET = 6;

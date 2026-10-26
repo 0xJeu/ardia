@@ -1,7 +1,7 @@
 import type { InstalledExtension } from "@ardia/ardiacore";
 import type { ExtensionCandidate } from "@ardia/core";
 import { useMemo } from "react";
-import { useWindowExtensions } from "../extensions/store";
+import { useWindowExtensions } from "../../state/extensions/store";
 
 const candidateOf = (x: InstalledExtension): ExtensionCandidate => ({
   id: x.id,

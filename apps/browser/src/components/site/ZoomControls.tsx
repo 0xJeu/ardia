@@ -1,13 +1,13 @@
 import { Symbol } from "@ardia/shell";
 import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { webviews } from "../../lib/webviews";
-import { useTab } from "../../store/hooks";
-import { PANEL, Popover, PromptButton, ToolbarButton } from "../layout/controls";
-import { setPopover, usePages } from "../layout/pageState";
-import { type ToolbarPalette } from "../layout/toolbarColors";
-import { useHover } from "../primitives";
+import { useTheme } from "../ui/theme";
+import { webviews } from "../../platform/webviews";
+import { useTab } from "../../state/browser/hooks";
+import { PANEL, Popover, PromptButton, ToolbarButton } from "../ui/Controls";
+import { setPopover, usePages } from "../../state/tabs/pageState";
+import { type ToolbarPalette } from "../ui/toolbarColors";
+import { useHover } from "../ui/Primitives";
 
 export const ZoomIndicator = memo(function ZoomIndicator({ tabId, zoom, palette, onFocus }: { tabId: string; zoom: number; palette: ToolbarPalette; onFocus: () => void }) {
   const open = usePages((p) => p.popover[tabId] === "zoom");

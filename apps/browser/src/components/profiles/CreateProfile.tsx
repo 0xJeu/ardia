@@ -2,13 +2,13 @@ import { Symbol } from "@ardia/shell";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { create } from "zustand";
-import { PROFILE_COLORS, useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { useWindowId } from "../../store/hooks";
-import { dataGroups, unusedProfileColor } from "../../store/profiles";
-import type { ProfileColor } from "../../store/types";
-import { Button, Sheet, TextField, Toggle, useFormColors } from "../settings/controls";
-import { closeSettingsSheet, showSettingsSheet } from "../settings/sheet";
+import { PROFILE_COLORS, useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { useWindowId } from "../../state/browser/hooks";
+import { dataGroups, unusedProfileColor } from "../../state/profiles/profiles";
+import type { ProfileColor } from "../../state/browser/types";
+import { Button, Sheet, TextField, Toggle, useFormColors } from "../ui/FormControls";
+import { closeSettingsSheet, showSettingsSheet } from "../../state/settings/sheet";
 
 export type CreateProfilePreset = { name?: string; shareWith?: string };
 

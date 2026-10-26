@@ -1,10 +1,10 @@
 import { showMenu, translation, type MenuItem } from "@ardia/shell";
 import { memo } from "react";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { isIncognitoProfile } from "../../store/model";
-import { PopoverRow, PopoverSeparator, Toggle, ToolbarButton } from "../layout/controls";
-import type { ToolbarPalette } from "../layout/toolbarColors";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { isIncognitoProfile } from "../../state/browser/model";
+import { PopoverRow, PopoverSeparator, Toggle, ToolbarButton } from "../ui/Controls";
+import type { ToolbarPalette } from "../ui/toolbarColors";
 import {
   defaultTarget,
   isNeverTranslated,
@@ -16,7 +16,7 @@ import {
   translatePage,
   translateStateOf,
   useTranslateState,
-} from "./translate";
+} from "../../state/site/translate";
 
 export const TranslateButton = memo(function TranslateButton({ tabId, palette, onFocus }: { tabId: string; palette: ToolbarPalette; onFocus: () => void }) {
   const theme = useTheme();

@@ -10,11 +10,11 @@ import { Symbol } from "@ardia/shell";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { create } from "zustand";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { PANEL, Popover, PromptButton } from "../layout/controls";
-import { tabForBrowser } from "../layout/pageState";
-import { useHover } from "../primitives";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { PANEL, Popover, PromptButton } from "../ui/Controls";
+import { tabForBrowser } from "../../state/tabs/pageState";
+import { useHover } from "../ui/Primitives";
 
 const useChoosers = create<{ byTab: Record<string, Chooser> }>()(() => ({ byTab: {} }));
 if (__DEV__) (globalThis as { acDeviceChoosers?: unknown }).acDeviceChoosers = { useChoosers, selectDevice, cancelDeviceChooser };

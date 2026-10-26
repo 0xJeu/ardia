@@ -2,7 +2,7 @@ import type { InstalledExtension } from "@ardia/ardiacore";
 import { showMenu } from "@ardia/shell";
 import { useRef } from "react";
 import type { View } from "react-native";
-import { activateExtension, openManageExtensions, openPinDialog, openWebStore, showExtensionMenu, useWindowExtensions, type Anchor } from "../extensions/state";
+import { activateExtension, openManageExtensions, openPinDialog, openWebStore, showExtensionMenu, useWindowExtensions, type Anchor } from "../../state/extensions/actions";
 import { ExtensionTile, SectionTitle, TileGrid } from "./SiteControlsParts";
 
 export function SiteExtensions({ windowId, tabId, columns, onClose }: { windowId: string; tabId: string; columns: number; onClose: () => void }) {

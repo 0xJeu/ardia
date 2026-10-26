@@ -1,4 +1,4 @@
-import { useBrowser } from "../../browser/src/store/browser";
+import { useBrowser } from "../../browser/src/state/browser/store";
 import { applyControl, controlModel, type Control } from "./Controls";
 import { playNudge } from "./nudge";
 

@@ -2,13 +2,13 @@ import { terminateCastRoute, type ActionState, type CastRoute, type InstalledExt
 import { ContextMenuArea, showMenu, Symbol } from "@ardia/shell";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { useTheme } from "../../lib/theme";
-import { useBrowser } from "../../store/browser";
-import { toggleCastPicker, useCastRoutes } from "../media/cast";
-import type { ToolbarPalette } from "../layout/toolbarColors";
-import { usePages } from "../layout/pageState";
-import { useHover } from "../primitives";
-import { dropToolbarAnchor, setToolbarAnchor } from "./bridge";
+import { useTheme } from "../ui/theme";
+import { useBrowser } from "../../state/browser/store";
+import { toggleCastPicker, useCastRoutes } from "../../state/media/cast";
+import type { ToolbarPalette } from "../ui/toolbarColors";
+import { usePages } from "../../state/tabs/pageState";
+import { useHover } from "../ui/Primitives";
+import { dropToolbarAnchor, setToolbarAnchor } from "../../state/extensions/bridge";
 import {
   activateExtension,
   openManageExtensions,
@@ -19,7 +19,7 @@ import {
   useWindowExtensions,
   windowExtensions,
   type Anchor,
-} from "./state";
+} from "../../state/extensions/actions";
 
 const BUTTON = 28;
 const GAP = 2;

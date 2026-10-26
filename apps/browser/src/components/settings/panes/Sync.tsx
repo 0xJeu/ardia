@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { syncFolder } from "../paneData";
 import { useResource } from "../resources";
 import { Linking, Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { useProfiles } from "../../../store/hooks";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { useProfiles } from "../../../state/browser/hooks";
 import {
   addRemoteProfile,
   chooseSyncFolder,
@@ -18,9 +18,9 @@ import {
   turnOnSync,
   useSync,
   type SyncStatus,
-} from "../../../sync/engine";
-import { ProfileBadge } from "../../profiles/icons";
-import { Button, Group, Row, SectionHeader, Toggle, useFormColors } from "../controls";
+} from "../../../state/sync/engine";
+import { ProfileBadge } from "../../profiles/ProfileIcons";
+import { Button, Group, Row, SectionHeader, Toggle, useFormColors } from "../../ui/FormControls";
 import { folderLabel, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
 
 export function SyncPane() {

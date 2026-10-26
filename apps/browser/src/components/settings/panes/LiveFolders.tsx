@@ -2,18 +2,18 @@ import { copyText, focusWindow } from "@ardia/shell";
 import { useEffect, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
-import { useTheme } from "../../../lib/theme";
-import { deleteLiveFolder, manualRefresh, statusText } from "../../../live/engine";
-import { connectGoogleDrive } from "../../../live/googleAuth";
-import { isMocked } from "../../../live/net";
-import { connectBitbucket, connectConfluence, connectGithub, connectNotion, disconnect, SOURCES, startGithubDeviceFlow, type DeviceFlow } from "../../../live/sources";
-import { live, updateConfig, updateFolder, useLive } from "../../../live/store";
-import type { LiveAccount, LiveFolder, LiveSourceId } from "../../../live/types";
-import { useBrowser } from "../../../store/browser";
-import { Favicon } from "../../primitives";
-import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle } from "../controls";
+import { useTheme } from "../../ui/theme";
+import { deleteLiveFolder, manualRefresh, statusText } from "../../../state/live/engine";
+import { connectGoogleDrive } from "../../../state/live/googleAuth";
+import { isMocked } from "../../../state/live/net";
+import { connectBitbucket, connectConfluence, connectGithub, connectNotion, disconnect, SOURCES, startGithubDeviceFlow, type DeviceFlow } from "../../../state/live/sources";
+import { live, updateConfig, updateFolder, useLive } from "../../../state/live/store";
+import type { LiveAccount, LiveFolder, LiveSourceId } from "../../../state/live/types";
+import { useBrowser } from "../../../state/browser/store";
+import { Favicon } from "../../ui/Primitives";
+import { Button, Group, Row, SectionHeader, Sheet, TextField, Toggle } from "../../ui/FormControls";
 import { setting } from "../settingsIndex";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 const DESCRIPTIONS: Record<LiveSourceId, string> = {
   github: "Your open pull requests and the ones waiting for your review, with checks and conflicts.",

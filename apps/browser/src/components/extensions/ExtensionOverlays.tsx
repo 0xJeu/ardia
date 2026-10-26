@@ -2,14 +2,14 @@ import { permissionWarnings, WebView, type InstalledExtension, type WebViewHandl
 import { Surface } from "@ardia/shell";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, findNodeHandle, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { hex, useTheme } from "../../lib/theme";
-import { webviews } from "../../lib/webviews";
-import { useBrowser } from "../../store/browser";
-import { shownPageId } from "../../store/peek";
-import { useWindowId } from "../../store/hooks";
-import { openFromPage, pageProfileId } from "../layout/openFromPage";
-import { PANEL, PromptButton } from "../layout/controls";
-import { Checkbox } from "../settings/controls";
+import { hex, useTheme } from "../ui/theme";
+import { webviews } from "../../platform/webviews";
+import { useBrowser } from "../../state/browser/store";
+import { shownPageId } from "../../state/peek/peek";
+import { useWindowId } from "../../state/browser/hooks";
+import { openFromPage, pageProfileId } from "../../state/tabs/openFromPage";
+import { PANEL, PromptButton } from "../ui/Controls";
+import { Checkbox } from "../ui/FormControls";
 import {
   cancelInstall,
   closeExtensionPopup,
@@ -19,7 +19,7 @@ import {
   useExtensions,
   useWindowExtensions,
   type InstallRequest,
-} from "./state";
+} from "../../state/extensions/actions";
 
 export function ExtensionOverlays() {
   const windowId = useWindowId();

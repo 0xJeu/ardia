@@ -12,16 +12,16 @@ import {
 import { confirm, copyText, Symbol } from "@ardia/shell";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { useTheme } from "../../../lib/theme";
-import { useBrowser } from "../../../store/browser";
-import { useProfiles } from "../../../store/hooks";
-import { engineProfile } from "../../../store/model";
-import { IconButton } from "../../primitives";
+import { useTheme } from "../../ui/theme";
+import { useBrowser } from "../../../state/browser/store";
+import { useProfiles } from "../../../state/browser/hooks";
+import { engineProfile } from "../../../state/browser/model";
+import { IconButton } from "../../ui/Primitives";
 import { NetworkBadge } from "../../site/Autofill";
-import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle, type Option } from "../controls";
+import { Button, Group, PopUp, Row, SectionHeader, Sheet, TextField, Toggle, type Option } from "../../ui/FormControls";
 import { addresses as addressList, autofillEnabled, cards as cardList } from "../paneData";
 import { store, useResource } from "../resources";
-import { closeSettingsSheet, showSettingsSheet } from "../sheet";
+import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 
 export function AutofillPane({ profileId: initial }: { profileId?: string | null }) {
   const theme = useTheme();
