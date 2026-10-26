@@ -4,7 +4,7 @@ import { isBookmarked } from "../bookmarks/bookmarks";
 import { useBrowser } from "./store";
 import { activeTabId, bookmarkProfileId, IDLE_LIVE, profileFor } from "./model";
 import type { Settings } from "../settings/settings";
-import type { BrowserWindow, FindState, Profile, Tab, TabLive } from "./types";
+import type { BrowserWindow, FindState, Profile, Tab, TabGroup, TabLive } from "./types";
 import { CLOSED_FIND, DEFAULT_WINDOW_UI } from "../windows/ui";
 
 export const WindowContext = createContext<string | null>(null);
@@ -59,7 +59,23 @@ export const useIsActiveTab = (tabId: string) =>
     return !!tab && activeTabId(s, tab.windowId, tab.profileId) === tabId;
   });
 
-export const useTab = (tabId: string | undefined): Tab | undefined => useBrowser((s) => (tabId ? s.tabs[tabId] : undefined));
+export function useTab(tabId: string | undefined): Tab | undefined;
+export function useTab<T>(tabId: string | undefined, select: (tab: Tab | undefined) => T): T;
+export function useTab<T>(tabId: string | undefined, select?: (tab: Tab | undefined) => T) {
+  return useBrowser((s) => {
+    const tab = tabId ? s.tabs[tabId] : undefined;
+    return select ? select(tab) : tab;
+  });
+}
+
+export const useWindow = <T>(windowId: string | null | undefined, select: (w: BrowserWindow | undefined) => T): T =>
+  useBrowser((s) => select(windowId ? s.windows[windowId] : undefined));
+
+export const useProfile = <T>(profileId: string | null | undefined, select: (p: Profile | undefined) => T): T =>
+  useBrowser((s) => select(profileId ? s.profiles[profileId] : undefined));
+
+export const useGroup = <T>(groupId: string | null | undefined, select: (g: TabGroup | undefined) => T): T =>
+  useBrowser((s) => select(groupId ? s.groups[groupId] : undefined));
 
 export function useTabLive(tabId: string | undefined): TabLive;
 export function useTabLive<T>(tabId: string | undefined, select: (live: TabLive) => T): T;

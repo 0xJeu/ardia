@@ -61,6 +61,40 @@ lib/                    pure helpers: url, time, keys
 - Components read through `useX()` hooks and write through actions. Never `getState()` in a component.
 - One way to create a store. Saved data has versioned migrations.
 
+**One store shape.** A store holds data only, and the functions that change it are exported next to it:
+
+```ts
+export const useClearDataRequest = create<{ windowId: string | null }>()(() => ({ windowId: null }));
+
+export const requestClearData = (windowId: string | null) => useClearDataRequest.setState({ windowId });
+```
+
+- Always the curried `create<T>()(() => init)`, never a store with methods inside or a `set`/`get` creator.
+- `setState` is called only in `state/`, by the store's own domain (`state/<domain>/`). Other domains and components
+  call that domain's exported actions.
+- A store used by one component tree still lives in `state/<domain>/`. Only a store made per component instance
+  (one per mounted provider) stays in that component.
+- **The one exception is `useBrowser`** (`state/browser/store.ts`), the workspace store. Its actions stay methods,
+  composed from slices (`createTabsSlice`, …), because the store tests (`S().newTab(…)`) and the scripts that drive
+  a running app over CDP (`ac.store.getState().newTab(…)` in acceptance, the release smoke test and the perf benches)
+  call them there. Components never call them on the store: each domain's `actions.ts` exports them as functions
+  with `storeAction("newTab")`, next to the domain's own UI actions (dialogs, confirmations).
+
+**Reads.** Components subscribe through hooks from `state/<domain>/hooks.ts`, never `useBrowser(…)` or a store's
+`getState()`:
+
+- A hook keeps the selector as narrow as the component needs: `useSettings((s) => s.tabLayout)`,
+  `useTab(id, (t) => t?.title)`, `useWindow(id, (w) => w?.sidebarOpen)`. Pass `useShallow(…)` through when the
+  selector builds an array or object. Moving a selector into a hook never widens it: a component re-renders exactly
+  when it did before.
+- A selector that combines domains, or that two components share, becomes a named hook (`useWindowProfile`,
+  `useIsBookmarked`).
+- An event handler that decides from the current state calls a reader exported from `state/` (`currentTab(id)`,
+  `currentSettings()`), or better, an action that makes the whole decision in `state/`.
+
+**UI from state.** `state/` never imports `components/`. When an action needs UI (a sheet, a menu anchored to a
+view, an animation), state exposes a request (a store field or an event) and a component renders it.
+
 ## Files
 
 - Components are `PascalCase.tsx`; every other module is `camelCase.ts`. Tests sit next to the code as
