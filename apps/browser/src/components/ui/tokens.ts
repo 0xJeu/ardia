@@ -320,8 +320,7 @@ export type ShadowLevel = { color: string; opacity: { dark: number; light: numbe
 export const shadow = {
   tooltip: { color: "#000000", opacity: { dark: 0.15, light: 0.08 }, radius: 4, offset: [0, 1] },
   popover: { color: "#000000", opacity: { dark: 0.45, light: 0.16 }, radius: 18, offset: [0, 8] },
-  sheet: { color: "#000000", opacity: { dark: darkRoles.panelShadowOpacity, light: lightRoles.panelShadowOpacity }, radius: 30, offset: [0, 12] },
-  anchoredDialog: { color: "#000000", opacity: { dark: darkRoles.panelShadowOpacity, light: lightRoles.panelShadowOpacity }, radius: 24, offset: [0, 10] },
+  dialog: { color: "#000000", opacity: { dark: darkRoles.panelShadowOpacity, light: lightRoles.panelShadowOpacity }, radius: 24, offset: [0, 10] },
 } satisfies Record<string, ShadowLevel>;
 
 export type Shadow = keyof typeof shadow;

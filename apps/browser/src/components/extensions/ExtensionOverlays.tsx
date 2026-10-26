@@ -300,10 +300,10 @@ function Dialog({ windowId, onDismiss, onSubmit, children }: { windowId: string;
           cornerRadius={radius.sheet}
           borderColor={hex(theme.panelBorder)}
           borderWidth={hairline.panel}
-          shadowColor={shadow.sheet.color}
+          shadowColor={shadow.dialog.color}
           shadowOpacity={theme.panelShadowOpacity}
-          shadowRadius={shadow.sheet.radius}
-          shadowOffset={shadow.sheet.offset}
+          shadowRadius={shadow.dialog.radius}
+          shadowOffset={shadow.dialog.offset}
           style={DIALOG_SIZE}
         >
           <View

@@ -22,7 +22,7 @@ export function Dialog({
   children: ReactNode;
 }) {
   const theme = useTheme();
-  const level = place ? shadow.anchoredDialog : shadow.sheet;
+  const level = shadow.dialog;
   const surface = (
     <Surface
       fill={hex(theme.panel)}

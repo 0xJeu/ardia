@@ -1,5 +1,5 @@
 import { useTheme } from "../ui/theme";
-import { ink, weight } from "../ui/tokens";
+import { ink, shadow, weight } from "../ui/tokens";
 
 const dark = {
   cardFill: "#FFFFFF17",
@@ -43,7 +43,7 @@ export function useNtpColors(): NtpColors {
 
 export type NtpShadow = { color: string; opacity: number; radius: number; offset: [number, number] };
 
-export const NTP_CARD = { border: 1, shadow: { color: ink.black, radius: 24, offset: [0, 8] as [number, number] } } as const;
+export const NTP_CARD = { border: 1, shadow: { color: shadow.dialog.color, radius: shadow.dialog.radius, offset: shadow.dialog.offset } } as const;
 
 export const NTP_BAR: { radius: number; border: number; shadows: NtpShadow[] } = {
   radius: 20,

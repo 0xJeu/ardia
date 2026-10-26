@@ -106,10 +106,10 @@ function panelSurface(theme: ReturnType<typeof useTheme>, radius: number) {
     cornerRadius: radius,
     borderColor: hex(theme.panelBorder),
     borderWidth: hairline.panel,
-    shadowColor: shadow.anchoredDialog.color,
+    shadowColor: shadow.dialog.color,
     shadowOpacity: theme.panelShadowOpacity,
-    shadowRadius: shadow.anchoredDialog.radius,
-    shadowOffset: shadow.anchoredDialog.offset,
+    shadowRadius: shadow.dialog.radius,
+    shadowOffset: shadow.dialog.offset,
   };
 }
 

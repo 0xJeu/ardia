@@ -177,10 +177,10 @@ function CoachMark({ stop, index, count, windowId }: { stop: TourStop; index: nu
       cornerRadius={radius.sheet}
       borderColor={hex(theme.panelBorder)}
       borderWidth={hairline.panel}
-      shadowColor={shadow.anchoredDialog.color}
+      shadowColor={shadow.dialog.color}
       shadowOpacity={theme.panelShadowOpacity}
-      shadowRadius={shadow.anchoredDialog.radius}
-      shadowOffset={shadow.anchoredDialog.offset}
+      shadowRadius={shadow.dialog.radius}
+      shadowOffset={shadow.dialog.offset}
     >
       <View style={{ paddingHorizontal: 18, paddingTop: 15, paddingBottom: 14, gap: 7 }} accessibilityRole="none">
         <Text style={{ ...onboardingType.coachCount, color: theme.textTertiary }}>

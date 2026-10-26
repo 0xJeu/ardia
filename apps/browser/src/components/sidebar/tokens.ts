@@ -1,5 +1,5 @@
 import { layout, selectedTabGlow, useTheme } from "../ui/theme";
-import { colorRoles, ink, type ShadowLevel } from "../ui/tokens";
+import { colorRoles, ink, shadow, type ShadowLevel } from "../ui/tokens";
 import { useSettings } from "../../state/browser/hooks";
 import type { GroupColor } from "../../state/browser/types";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
@@ -77,7 +77,7 @@ export const SIDEBAR_SHADOW = {
   dragGhost: { color: ink.black, opacity: { dark: 0.45, light: 0.18 }, radius: 10, offset: [0, 4] },
   card: { color: ink.black, opacity: panelShadow(0.8), radius: 16, offset: [0, 6] },
   iconPicker: { color: ink.black, opacity: panelShadow(1), radius: 20, offset: [0, 8] },
-  searchTabs: { color: ink.black, opacity: panelShadow(1), radius: 24, offset: [0, 10] },
+  searchTabs: shadow.dialog,
   tabSwitcher: { color: ink.black, opacity: panelShadow(1), radius: 28, offset: [0, 12] },
 } satisfies Record<string, ShadowLevel>;
 
