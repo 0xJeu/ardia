@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 globalThis.__DEV__ = false;
-const { decodeSetupCode, describeSetupChoices, encodeSetupCode, SETUP_CODE_ERRORS, SETUP_CODE_MAX_LENGTH, SETUP_CODE_PREFIX, SETUP_PIN_SITES, SETUP_SETTING_KEYS } =
+const { decodeSetupCode, describeSetupChoices, encodeSetupCode, SETUP_CODE_ERRORS, SETUP_CODE_MAX_INPUT, SETUP_CODE_MAX_LENGTH, SETUP_CODE_PREFIX, SETUP_PIN_SITES, SETUP_SETTING_KEYS } =
   await import("./setupCode.ts");
 const { PINNABLE_SITES } = await import("../onboarding/sites.ts");
 
@@ -60,6 +60,12 @@ test("pasted codes forgive spaces, line breaks and capitals", () => {
   const code = encodeSetupCode(ARC);
   const messy = `  ${code.slice(0, 20).toUpperCase()}\n ${code.slice(20)}  `;
   assert.deepEqual(decodeSetupCode(messy), { ok: true, choices: ARC });
+});
+
+test("a huge paste is refused before it is cleaned up, even with a valid code inside", () => {
+  const code = encodeSetupCode(ARC);
+  assert.deepEqual(decodeSetupCode(" ".repeat(16 * 1024 * 1024) + code), { ok: false, error: SETUP_CODE_ERRORS.shape });
+  assert.deepEqual(decodeSetupCode(" ".repeat(SETUP_CODE_MAX_INPUT - code.length) + code), { ok: true, choices: ARC });
 });
 
 test("garbage fails with a friendly message", () => {

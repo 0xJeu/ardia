@@ -5,6 +5,7 @@ import type { Settings } from "../settings/settings";
 export const SETUP_CODE_VERSION = 1;
 export const SETUP_CODE_PREFIX = `ardia${SETUP_CODE_VERSION}-`;
 export const SETUP_CODE_MAX_LENGTH = 160;
+export const SETUP_CODE_MAX_INPUT = SETUP_CODE_MAX_LENGTH * 8;
 
 export const SETUP_SETTING_KEYS = [
   "tabLayout",
@@ -138,6 +139,7 @@ export function normalizeSetupCode(input: string): string {
 }
 
 export function decodeSetupCode(input: string): SetupCodeResult {
+  if (input.length > SETUP_CODE_MAX_INPUT) return { ok: false, error: SETUP_CODE_ERRORS.shape };
   const code = normalizeSetupCode(input);
   if (!code) return { ok: false, error: SETUP_CODE_ERRORS.empty };
   if (code.length > SETUP_CODE_MAX_LENGTH) return { ok: false, error: SETUP_CODE_ERRORS.shape };

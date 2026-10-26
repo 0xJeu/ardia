@@ -42,10 +42,10 @@ export function SetupCodeStep({ onBack }: { onBack: () => void }) {
       <StepLayout
         pageKey="setupCodeApplied"
         title="You're set up"
-        subtitle="Ardia now looks the way you made it on ardia.dev. Finish here, or look over each step."
+        subtitle="Ardia now looks the way you made it on ardia.dev. Search and privacy are still yours to choose, so those come next."
         actions={
           <>
-            <PrimaryButton title="Finish Setup" icon="arrow.right" onPress={() => goToStep("home")} />
+            <PrimaryButton title="Continue" icon="arrow.right" onPress={() => goToStep("searchPrivacy")} />
             <SecondaryButton title="Review Each Step" onPress={() => goToStep("layout")} />
           </>
         }
