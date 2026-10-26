@@ -73,6 +73,7 @@ lib/                    pure helpers: url, time, keys
 | a macOS push button (settings, dialogs) | `<Button title kind="default" \| "primary" \| "destructive" \| "plain">` |
 | a menu-material panel with a scale-in | `Popover` (or `PopoverSurface` for the material alone); a panel placed by its own math uses `usePopoverMotion` + `usePopoverMotionStyle`; open/close state from `usePopoverPresence` |
 | a row in a popover or menu | `MenuRow` and `MenuSeparator` |
+| a `Surface` with a fill, corner radius, hairline border and shadow (cards, ghosts, HUDs) | `<Panel fill radius border shadow={level}>`; the level is a `ShadowLevel` from `tokens.ts` or the feature's `tokens.ts` |
 | a centred modal over a scrim | `<Dialog width pad onDismiss>`; anchored to a spot with `place={{ top, right }}`; `Sheet` is the settings preset |
 | a settings row / grouped rows | `Row` and `Group`; inside settings, `Row`, `SectionHeader` and `Anchor` from `components/settings/Form` add the search anchor |
 | a text input / search box / pop-up menu / checkbox | `TextField`, `SearchField`, `PopUp`, `Checkbox` |
@@ -179,8 +180,10 @@ writeDocument(DOC, versionedJson(data, VERSION));
 - **One way to call the engine:** `engine.call("downloads.pause", args)`, typed from one table
   (`packages/ardiacore/src/engine/api.ts`); native dispatches by name to the matching `ac_*` call. Only secrets
   (`callWithSecret`) and views get dedicated functions.
-- **One error model:** everything rejects with `{code, message}`; JS throws `ArdiaError` with the code. The bridge
-  never falls back silently; callers decide.
+- **One error model:** engine errors reject with `{code, message}` (`ERR_ENGINE`, `ERR_UNKNOWN_CALL`,
+  `ERR_CONTENT_BLOCKER`, `ERR_BAD_REPLY`); JS throws `ArdiaError` with the code. Refused, absent or unavailable
+  answers are values in the function's return type (`false`, `null`, `[]`), not errors. The bridge never falls back
+  silently; callers decide (`orWarn(x)` in `lib/fallback.ts` logs and falls back).
 - **One event channel per module.** Event names are `domain.event`; payloads are parsed once.
 - **IDs at the API surface** are `tabId` (the app's string), `windowId` and `profileId`. Browser ids, transfer keys,
   adopt ids and Chrome's int tab ids stay internal, resolved by one native registry. Per-tab operations live on the
