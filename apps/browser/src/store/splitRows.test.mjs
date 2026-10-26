@@ -299,3 +299,32 @@ test("showing a closed pinned split again wakes every pane as a loaded tab", () 
   assert.equal(loaded(b) && loaded(c), true);
   assert.equal(!!S().tabs[b].unloaded || !!S().tabs[c].unloaded, false, "no pane keeps the closed flag once its page loads");
 });
+
+test("a link opened into a split's other pane takes that pane with its own tab and keeps the old pane as a tab after the split", () => {
+  reset();
+  const { w, a, b, c, d, splitId } = splitWindow();
+  S().activate(b);
+  const groups = Object.keys(S().groups);
+  const result = S().openSplitPane(w, { anchorTabId: b, url: "https://e.com/", side: "right", background: true, adoptId: "tab:42", inPlaceOf: c });
+  assert.equal(result.ok, true);
+  const e = result.tabId;
+  assert.equal(S().tabs[e].adoptId, "tab:42", "the engine's tab is adopted, not loaded again");
+  assert.equal(S().tabs[e].navigation, null);
+  assert.deepEqual(S().splits[splitId].tabIds, [b, e]);
+  assert.equal(splitOfTab(c), undefined);
+  assert.deepEqual(S().windows[w].tabIds, [a, b, e, c, d], "the old pane follows the split");
+  assert.equal(model.activeTabId(S(), w), b, "the page keeps focus");
+  assert.deepEqual(Object.keys(S().groups), groups, "no group is made");
+});
+
+test("a full split takes the link in place of the pane after its page, and refuses a new pane without one", () => {
+  reset();
+  const { w, a, b, c, d, splitId } = splitWindow();
+  S().openSplitPane(w, { anchorTabId: c, tabId: d, side: "right" });
+  assert.deepEqual(S().splits[splitId].tabIds, [b, c, d]);
+  assert.deepEqual(S().openSplitPane(w, { anchorTabId: b, url: "https://e.com/", background: true }), { ok: false, reason: "max" });
+  const result = S().openSplitPane(w, { anchorTabId: b, url: "https://e.com/", background: true, inPlaceOf: c });
+  assert.equal(result.ok, true);
+  assert.deepEqual(S().splits[splitId].tabIds, [b, result.tabId, d]);
+  assert.deepEqual(S().windows[w].tabIds, [a, b, result.tabId, d, c]);
+});

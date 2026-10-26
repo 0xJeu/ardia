@@ -194,6 +194,7 @@ const stamp = () => new Date().toISOString().slice(11, 23);
 
 const adServed = [];
 const served = new Map();
+const referers = new Map();
 const siteDataDomain = "ardia-sitedata.com";
 const siteDataSecureHosts = [`s.${siteDataDomain}`, "embed.ardia-thirdparty.com", "top.ardia-elsewhere.com"];
 let clipBytes = null;
@@ -210,6 +211,7 @@ const fixtureClip = () => {
 const server = createServer((req, res) => {
   if (!req.headers.host?.startsWith("127.0.0.1")) adServed.push(`${req.headers.host}${req.url}`);
   served.set(req.url, (served.get(req.url) ?? 0) + 1);
+  referers.set(req.url, req.headers.referer ?? "");
   const url = new URL(req.url, "http://x");
   const page = (title, body, extra = "") =>
     `<!doctype html><html><head><title>${title}</title><link rel="icon" href="/icon.png">${extra}</head><body>${body}</body></html>`;
@@ -4866,27 +4868,34 @@ try {
     await evalApp(`ac.actions.switchToTab("${tab.id}"); return true`);
     await sleep(500);
     const t = await pageFor(tab.id, "/a?menu");
-    const box = JSON.parse((await cdp(t, "Runtime.evaluate", { expression: "JSON.stringify(document.getElementById('next').getBoundingClientRect())", returnByValue: true })).result.value);
-    const at = { x: box.x + 3, y: box.y + box.height / 2, button: "right", clickCount: 1 };
     const tabsBefore = await evalApp(`return Object.keys(ac.store.getState().tabs)`);
     const groupsBefore = await evalApp(`return Object.keys(ac.store.getState().groups)`);
-    writeFileSync(`${menuLog}.pick`, "Open Link in Split View\t0\n");
-    await cdp(t, "Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
-    await cdp(t, "Input.dispatchMouseEvent", { type: "mousePressed", ...at });
-    await cdp(t, "Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
     const result = () => evalApp(`const s = ac.store.getState(), before = new Set(${JSON.stringify(tabsBefore)}), groupsBefore = new Set(${JSON.stringify(groupsBefore)});
       const opened = Object.values(s.tabs).filter((t) => !before.has(t.id)).map((t) => ({ id: t.id, url: t.url, windowId: t.windowId }));
       const split = Object.values(s.splits).find((v) => v.tabIds.includes(${JSON.stringify(tab.id)})) ?? null;
       return { opened, split, newGroups: Object.keys(s.groups).filter((g) => !groupsBefore.has(g)) }`);
-    await until("the link's tab", async () => (await result()).opened.some((x) => x.url?.endsWith("/b")), 15000)
-      .catch(async (e) => { throw new Error(`${e.message}; ${JSON.stringify(await result())}`); });
-    await sleep(500);
-    const r = await result();
-    const b = r.opened.find((x) => x.url?.endsWith("/b"));
-    if (r.opened.length !== 1 || !r.split || r.split.tabIds.join() !== [tab.id, b.id].join() || r.newGroups.length)
-      throw new Error(`Open Link in Split View: ${JSON.stringify(r)}`);
-    await evalApp(`ac.store.getState().closeTab(${JSON.stringify(b.id)}); return true`);
-    return { split: r.split.tabIds };
+    const openInSplit = async (path) => {
+      const box = JSON.parse((await cdp(t, "Runtime.evaluate", { expression: `(() => { const a = document.getElementById('next'); a.setAttribute('href', ${JSON.stringify(path)}); return JSON.stringify(a.getBoundingClientRect()); })()`, returnByValue: true })).result.value);
+      const at = { x: box.x + 3, y: box.y + box.height / 2, button: "right", clickCount: 1 };
+      writeFileSync(`${menuLog}.pick`, "Open Link in Split View\t0\n");
+      await cdp(t, "Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
+      await cdp(t, "Input.dispatchMouseEvent", { type: "mousePressed", ...at });
+      await cdp(t, "Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
+      await until(`the tab for ${path}`, async () => (await result()).opened.some((x) => x.url?.endsWith(path)), 15000)
+        .catch(async (e) => { throw new Error(`${e.message}; ${JSON.stringify(await result())}`); });
+      await sleep(1500);
+      return { r: await result(), requests: served.get(path) ?? 0, referer: referers.get(path) };
+    };
+    const first = await openInSplit("/b?split-1");
+    const b = first.r.opened.find((x) => x.url?.endsWith("/b?split-1"));
+    if (first.r.opened.length !== 1 || first.r.split?.tabIds.join() !== [tab.id, b.id].join() || first.r.newGroups.length || first.requests !== 1 || !first.referer?.endsWith("/a?menu"))
+      throw new Error(`Open Link in Split View: ${JSON.stringify(first)}`);
+    const second = await openInSplit("/b?split-2");
+    const c = second.r.opened.find((x) => x.url?.endsWith("/b?split-2"));
+    if (second.r.opened.length !== 2 || second.r.split?.tabIds.join() !== [tab.id, c.id].join() || second.r.newGroups.length || second.requests !== 1 || !second.referer?.endsWith("/a?menu"))
+      throw new Error(`Open Link in Split View from a split page: ${JSON.stringify(second)}`);
+    await evalApp(`ac.store.getState().closeTabs(${JSON.stringify([b.id, c.id])}); return true`);
+    return { split: second.r.split.tabIds, kept: b.id, requests: [first.requests, second.requests], referer: second.referer };
   });
   // MARK: Camera and microphone (the 0.2.21 crash: Allow on a camera + microphone prompt aborted the app)
   const mediaChecks = ["camera-mic-allow", "permission-answer-once", "permission-element-allow"];

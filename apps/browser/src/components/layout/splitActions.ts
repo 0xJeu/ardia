@@ -54,11 +54,9 @@ export function openLinkInSplit(sourceTabId: string, url: string, adoptId?: stri
   if (!source) return;
   const split = splitOf(s, sourceTabId);
   const next = split?.tabIds[split.tabIds.indexOf(sourceTabId) + 1];
-  if (split && (next || split.tabIds.length >= MAX_SPLIT_PANES)) {
-    const target = next ?? split.tabIds.at(-1)!;
-    if (target !== sourceTabId) return s.navigate(target, url);
-  }
-  openSplitPane(source.windowId, { anchorTabId: sourceTabId, url, side: "right", background: true, adoptId });
+  const target = split && (next || split.tabIds.length >= MAX_SPLIT_PANES) ? (next ?? split.tabIds.at(-1)) : undefined;
+  const inPlaceOf = target !== sourceTabId ? target : undefined;
+  openSplitPane(source.windowId, { anchorTabId: sourceTabId, url, side: "right", background: true, adoptId, inPlaceOf });
 }
 
 export function dropTabIntoSplit(tabId: string, targetTabId: string, side: SplitSide) {
