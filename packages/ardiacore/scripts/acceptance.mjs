@@ -4445,6 +4445,25 @@ try {
     return { exitedAfterMs: Date.now() - started, sessionSaved: saved, faults: ours.filter((f) => f.startsWith("ExcUserFault_")) };
   });
 
+  await check("profile-data-retried-at-launch", async () => {
+    if (!heldProfile) throw new Error("profile-data-deletion-fails didn't run");
+    const file = join(data, "session.json");
+    const saved = JSON.parse(readFileSync(file, "utf8"));
+    if (!saved.orphanedProfileData.includes(heldProfile)) throw new Error(`the failed deletion wasn't saved: ${JSON.stringify(saved.orphanedProfileData)}`);
+    writeFileSync(file, JSON.stringify({ ...saved, orphanedProfileData: [...saved.orphanedProfileData, ""] }));
+    await appUp("app-profile-data-retry.out.log");
+    await engine("webKit.devTouchStore", { profile: "" });
+    if ((await orphans()).includes("")) throw new Error("the live original profile came back as orphaned data");
+    await until("the retried deletion", async () => !(await orphans()).includes(heldProfile) && !(await engine("webKit.devStoreExists", { profile: heldProfile })), 20000);
+    await evalApp(`ac.store.setState((s) => ({ orphanedProfileData: [...s.orphanedProfileData, ""] })); return true`);
+    await until("the live profile left the cleanup list", async () => !(await orphans()).includes(""), 10000);
+    await sleep(5000);
+    const kept = await engine("webKit.devTouchStore", { profile: "" });
+    if (!kept) throw new Error("the live original profile's WebKit data was deleted");
+    await stopApp();
+    return { retried: heldProfile, kept };
+  });
+
   await check("relaunch-profile", async () => {
     if (!personal) throw new Error("last-used-profile didn't run");
     await launch("app2.out.log");
@@ -4469,24 +4488,6 @@ try {
     await stopApp();
     if (!cookie.includes("who=personal") || cookie.includes("who=play")) throw new Error(`Personal's page sees "${cookie}"`);
     return { cookie, windows: info.map((w) => w.profile) };
-  });
-
-  await check("profile-data-retried-at-launch", async () => {
-    if (!heldProfile) throw new Error("profile-data-deletion-fails didn't run");
-    const file = join(data, "session.json");
-    const saved = JSON.parse(readFileSync(file, "utf8"));
-    if (!saved.orphanedProfileData.includes(heldProfile)) throw new Error(`the failed deletion wasn't saved: ${JSON.stringify(saved.orphanedProfileData)}`);
-    writeFileSync(file, JSON.stringify({ ...saved, orphanedProfileData: [...saved.orphanedProfileData, ""] }));
-    await appUp("app-profile-data-retry.out.log");
-    await engine("webKit.devTouchStore", { profile: "" });
-    if ((await orphans()).includes("")) throw new Error("the live original profile came back as orphaned data");
-    await until("the retried deletion", async () => !(await orphans()).includes(heldProfile) && !(await engine("webKit.devStoreExists", { profile: heldProfile })), 20000);
-    await evalApp(`ac.store.setState((s) => ({ orphanedProfileData: [...s.orphanedProfileData, ""] })); return true`);
-    await until("the live profile left the cleanup list", async () => !(await orphans()).includes(""), 10000);
-    await sleep(5000);
-    const kept = await engine("webKit.devTouchStore", { profile: "" });
-    if (!kept) throw new Error("the live original profile's WebKit data was deleted");
-    return { retried: heldProfile, kept };
   });
 
   const pressQuit = (windowId) =>
