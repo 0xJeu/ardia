@@ -7,10 +7,11 @@ import { useTheme } from "../../ui/theme";
 import { useSettings } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
 import { defaultEngine, ENGINE_NAMES, RECOMMENDED_ENGINE, siteOf } from "../../../state/engines/engines";
-import { Button, Group, PopUp, Sheet, TextField, Toggle } from "../../ui";
+import { Button, font, Group, PopUp, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
+import { settingsInk } from "../tokens";
 
 const ENGINE_OPTIONS: { value: PageEngine; title: string }[] = [
   { value: "chromium", title: ENGINE_NAMES.chromium },
@@ -123,19 +124,19 @@ function RuleSheet({ site, engine: initial }: { site?: string; engine?: PageEngi
   };
   return (
     <Sheet width={440} onClose={closeSettingsSheet}>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{site ? "Edit Website Rule" : "Add Website Rule"}</Text>
-      <Text style={{ fontSize: 12, marginTop: 6, color: theme.textSecondary }}>
+      <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>{site ? "Edit Website Rule" : "Add Website Rule"}</Text>
+      <Text style={{ ...font.small, marginTop: 6, color: theme.textSecondary }}>
         A rule matches the site's address exactly: its scheme, host and port. Subdomains need their own rule.
       </Text>
       <View style={{ marginTop: 12 }}>
-        <Text style={{ fontSize: 11.5, marginBottom: 5, color: theme.textSecondary }}>Website</Text>
+        <Text style={{ ...font.footnote, marginBottom: 5, color: theme.textSecondary }}>Website</Text>
         <TextField value={address} onChangeText={setAddress} placeholder="netflix.com" onSubmit={save} onEscape={closeSettingsSheet} />
       </View>
       <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Text style={{ fontSize: 11.5, color: theme.textSecondary }}>Opens in</Text>
+        <Text style={{ ...font.footnote, color: theme.textSecondary }}>Opens in</Text>
         <PopUp value={engine} options={ENGINE_OPTIONS} onChange={setEngine} />
       </View>
-      {error && <Text style={{ fontSize: 12, marginTop: 10, color: "#FF453A" }}>{error}</Text>}
+      {error && <Text style={{ ...font.small, marginTop: 10, color: settingsInk.error }}>{error}</Text>}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 18 }}>
         {site && (
           <Button

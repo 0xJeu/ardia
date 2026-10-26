@@ -4,8 +4,11 @@ import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
 import type { Settings } from "../../../state/settings/settings";
-import { Group, PopUp, Toggle, useFormColors, useHover } from "../../ui";
+import { font, Group, PopUp, Toggle, useHover } from "../../ui";
 import { Row, SectionHeader } from "../Form";
+import { PictureChoice } from "../PictureChoice";
+import { modePreview } from "../tokens";
+import { useSettingsColors } from "../useSettingsColors";
 import { APP_ICON_SIZE, appIconChoices } from "../paneData";
 import { store, useResource } from "../../../state/settings/resources";
 
@@ -126,46 +129,25 @@ function ScrollBarsPicker() {
 
 function AddressBarChoice({ value, title, selected, onPress }: { value: Settings["addressBar"]; title: string; selected: boolean; onPress: () => void }) {
   const theme = useTheme();
-  const colors = useFormColors();
-  const bar = theme.dark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.16)";
-  const field = theme.dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.08)";
-  const page = theme.dark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+  const look = useSettingsColors();
   const sidebar = value === "sidebar";
   return (
-    <Pressable onPress={onPress} style={{ flex: 1, alignItems: "center", gap: 7 }}>
-      <View
-        style={{
-          width: "100%",
-          height: 84,
-          borderRadius: 9,
-          padding: 6,
-          flexDirection: "row",
-          gap: 5,
-          borderWidth: selected ? 2.5 : 1,
-          borderColor: selected ? colors.accent : colors.groupBorder,
-          backgroundColor: theme.dark ? "#2A2A2C" : "#E9E9EB",
-        }}
-      >
-        <View style={{ width: "28%", gap: 3, paddingTop: sidebar ? 3 : 8 }}>
-          {sidebar && <View style={{ height: 8, borderRadius: 3, marginBottom: 2, backgroundColor: field, borderWidth: 1, borderColor: colors.accent }} />}
-          {[0, 1, 2].map((i) => (
-            <View key={i} style={{ height: 5, borderRadius: 2.5, backgroundColor: bar }} />
-          ))}
-        </View>
-        <View style={{ flex: 1, borderRadius: 4, backgroundColor: page, overflow: "hidden" }}>
-          {!sidebar && (
-            <View style={{ height: 13, flexDirection: "row", alignItems: "center", paddingHorizontal: 5, gap: 5, borderBottomWidth: 1, borderBottomColor: field }}>
-              <View style={{ width: 14, height: 4, borderRadius: 2, backgroundColor: bar }} />
-              <View style={{ flex: 1, height: 7, borderRadius: 2.5, backgroundColor: field, borderWidth: 1, borderColor: colors.accent }} />
-            </View>
-          )}
-        </View>
+    <PictureChoice title={title} selected={selected} onPress={onPress} gap={7} frame={{ height: 84, borderRadius: 9, padding: 6, flexDirection: "row", gap: 5, backgroundColor: look.miniWindow }}>
+      <View style={{ width: "28%", gap: 3, paddingTop: sidebar ? 3 : 8 }}>
+        {sidebar && <View style={{ height: 8, borderRadius: 3, marginBottom: 2, backgroundColor: look.miniField, borderWidth: 1, borderColor: theme.formAccent }} />}
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={{ height: 5, borderRadius: 2.5, backgroundColor: look.miniBar }} />
+        ))}
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-        {selected && <Symbol name="checkmark.circle.fill" size={12} color={colors.accent} style={{ width: 14, height: 14 }} />}
-        <Text style={{ fontSize: 12, color: selected ? theme.textPrimary : theme.textSecondary }}>{title}</Text>
+      <View style={{ flex: 1, borderRadius: 4, backgroundColor: look.miniPage, overflow: "hidden" }}>
+        {!sidebar && (
+          <View style={{ height: 13, flexDirection: "row", alignItems: "center", paddingHorizontal: 5, gap: 5, borderBottomWidth: 1, borderBottomColor: look.miniField }}>
+            <View style={{ width: 14, height: 4, borderRadius: 2, backgroundColor: look.miniBar }} />
+            <View style={{ flex: 1, height: 7, borderRadius: 2.5, backgroundColor: look.miniField, borderWidth: 1, borderColor: theme.formAccent }} />
+          </View>
+        )}
       </View>
-    </Pressable>
+    </PictureChoice>
   );
 }
 
@@ -194,7 +176,6 @@ const ICON_SIZE = APP_ICON_SIZE;
 
 function IconChoice({ icon, selected, onPress }: { icon: AppIcon; selected: boolean; onPress: () => void }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const { hovered, hoverProps } = useHover();
   return (
     <Pressable onPress={onPress} {...hoverProps} style={{ width: 72, alignItems: "center", gap: 5 }} tooltip={icon.name}>
@@ -206,15 +187,15 @@ function IconChoice({ icon, selected, onPress }: { icon: AppIcon; selected: bool
           alignItems: "center",
           justifyContent: "center",
           borderWidth: 2.5,
-          borderColor: selected ? colors.accent : "transparent",
-          backgroundColor: hovered && !selected ? colors.selected : "transparent",
+          borderColor: selected ? theme.formAccent : "transparent",
+          backgroundColor: hovered && !selected ? theme.formRowHover : "transparent",
         }}
       >
         {icon.preview ? <Image source={{ uri: icon.preview }} style={{ width: ICON_SIZE, height: ICON_SIZE }} /> : null}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-        {selected && <Symbol name="checkmark.circle.fill" size={11} color={colors.accent} style={{ width: 13, height: 13 }} />}
-        <Text numberOfLines={1} style={{ fontSize: 12, color: selected ? theme.textPrimary : theme.textSecondary }}>
+        {selected && <Symbol name="checkmark.circle.fill" size={11} color={theme.formAccent} style={{ width: 13, height: 13 }} />}
+        <Text numberOfLines={1} style={{ ...font.small, color: selected ? theme.textPrimary : theme.textSecondary }}>
           {icon.name}
         </Text>
       </View>
@@ -235,44 +216,29 @@ function ModeChoice({
   selected: boolean;
   onPress: () => void;
 }) {
-  const theme = useTheme();
-  const colors = useFormColors();
-  const window = (dark: boolean) => (
-    <View style={{ flex: 1, backgroundColor: dark ? "#2B2226" : "#EDE6EA", padding: 6, flexDirection: "row", gap: 5 }}>
-      <View style={{ width: "24%", gap: 3, paddingTop: 8 }}>
-        {[0, 1, 2].map((i) => (
-          <View key={i} style={{ height: 5, borderRadius: 2.5, backgroundColor: dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)" }} />
-        ))}
+  const window = (dark: boolean) => {
+    const look = modePreview[dark ? "dark" : "light"];
+    return (
+      <View style={{ flex: 1, backgroundColor: look.window, padding: 6, flexDirection: "row", gap: 5 }}>
+        <View style={{ width: "24%", gap: 3, paddingTop: 8 }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ height: 5, borderRadius: 2.5, backgroundColor: look.line }} />
+          ))}
+        </View>
+        <View style={{ flex: 1, borderRadius: 4, backgroundColor: look.page }} />
       </View>
-      <View style={{ flex: 1, borderRadius: 4, backgroundColor: dark ? "#1A1618" : "#FFFFFF" }} />
-    </View>
-  );
+    );
+  };
   return (
-    <Pressable onPress={onPress} style={{ flex: 1, alignItems: "center", gap: 7 }} tooltip={description}>
-      <View
-        style={{
-          width: "100%",
-          height: 84,
-          borderRadius: 9,
-          overflow: "hidden",
-          flexDirection: "row",
-          borderWidth: selected ? 2.5 : 1,
-          borderColor: selected ? colors.accent : colors.groupBorder,
-        }}
-      >
-        {mode === "auto" ? (
-          <>
-            {window(false)}
-            {window(true)}
-          </>
-        ) : (
-          window(mode === "dark")
-        )}
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-        {selected && <Symbol name="checkmark.circle.fill" size={12} color={colors.accent} style={{ width: 14, height: 14 }} />}
-        <Text style={{ fontSize: 12, color: selected ? theme.textPrimary : theme.textSecondary }}>{title}</Text>
-      </View>
-    </Pressable>
+    <PictureChoice title={title} selected={selected} onPress={onPress} tooltip={description} gap={7} frame={{ height: 84, borderRadius: 9, overflow: "hidden", flexDirection: "row" }}>
+      {mode === "auto" ? (
+        <>
+          {window(false)}
+          {window(true)}
+        </>
+      ) : (
+        window(mode === "dark")
+      )}
+    </PictureChoice>
   );
 }

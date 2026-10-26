@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { useProfile } from "../../state/browser/hooks";
 import { trackSettingsSection } from "../../state/telemetry/track";
-import { Button, useFormColors, useHover } from "../ui";
+import { Button, font, useHover, weight } from "../ui";
 import { preparePane, usePaneLoaded } from "./paneData";
 import { anchorView, clearSettingsReveal, flashSetting, useSettingsSearch } from "../../state/settings/searchState";
 import { PANES, setting } from "./settingsIndex";
@@ -27,6 +27,7 @@ import { TabsPane } from "./panes/Tabs";
 import { useSettingsSheet } from "../../state/settings/sheet";
 import { goToSettingsPane, settingsBack, settingsForward, useSettingsNav, type SettingsPlace } from "../../state/settings/settingsWindows";
 import { settingsProfileFor } from "../../state/extensions/store";
+import { useSettingsColors } from "./useSettingsColors";
 
 
 const SIDEBAR = 214;
@@ -65,6 +66,7 @@ function usePrefetchAllPanes(enabled: boolean) {
 
 export function SettingsWindow() {
   const theme = useTheme();
+  const look = useSettingsColors();
   const nav = useSettingsNav();
   const shown = useShownPane();
   usePrefetchAllPanes(!!shown);
@@ -109,7 +111,7 @@ export function SettingsWindow() {
   }, [key]);
 
   return (
-    <View style={{ flex: 1, flexDirection: "row", backgroundColor: theme.dark ? "#1E1E1E" : "#F2F2F2" }}>
+    <View style={{ flex: 1, flexDirection: "row", backgroundColor: look.windowFill }}>
       <View style={{ width: SIDEBAR }}>
         <VisualEffect material="sidebar" blendingMode="behindWindow" style={StyleSheet.absoluteFill} />
         <WindowDragRegion style={{ height: TOOLBAR }} />
@@ -124,13 +126,13 @@ export function SettingsWindow() {
           </ScrollView>
         )}
       </View>
-      <View style={{ width: StyleSheet.hairlineWidth * 2, backgroundColor: theme.dark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.1)" }} />
+      <View style={{ width: StyleSheet.hairlineWidth * 2, backgroundColor: look.sidebarDivider }} />
       <View style={{ flex: 1 }}>
         <View style={{ height: TOOLBAR, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 }}>
           <WindowDragRegion style={StyleSheet.absoluteFill} />
           <Button variant="icon" icon="chevron.left" size={13} box={28} radius={6} disabled={!nav.back.length} onPress={settingsBack} tooltip="Back" />
           <Button variant="icon" icon="chevron.right" size={13} box={28} radius={6} disabled={!nav.forward.length} onPress={settingsForward} tooltip="Forward" />
-          <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{title}</Text>
+          <Text style={{ marginLeft: 8, ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>{title}</Text>
         </View>
         <ScrollView
           ref={scroller}
@@ -185,7 +187,6 @@ function Pane({ pane, profileId, detail }: SettingsPlace): ReactNode {
 
 function SidebarItem({ title, icon, selected, onPress }: { title: string; icon: string; selected: boolean; onPress: () => void }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const { hovered, hoverProps } = useHover();
   return (
     <View {...hoverProps}>
@@ -198,11 +199,11 @@ function SidebarItem({ title, icon, selected, onPress }: { title: string; icon: 
             alignItems: "center",
             paddingHorizontal: 8,
             gap: 9,
-            backgroundColor: selected ? colors.accent : hovered ? colors.selected : undefined,
+            backgroundColor: selected ? theme.formAccent : hovered ? theme.formRowHover : undefined,
           }}
         >
-          <Symbol name={icon} size={13} color={selected ? "#FFFFFF" : theme.icon} style={{ width: 20, height: 20 }} />
-          <Text style={{ fontSize: 13, color: selected ? "#FFFFFF" : theme.textPrimary }}>{title}</Text>
+          <Symbol name={icon} size={13} color={selected ? theme.onAccent : theme.icon} style={{ width: 20, height: 20 }} />
+          <Text style={{ ...font.body, color: selected ? theme.onAccent : theme.textPrimary }}>{title}</Text>
         </View>
       </Pressable>
     </View>

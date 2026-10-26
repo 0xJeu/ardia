@@ -20,9 +20,11 @@ import {
   type SyncStatus,
 } from "../../../state/sync/engine";
 import { ProfileBadge } from "../../profiles/ProfileIcons";
-import { Button, Group, Toggle, useFormColors } from "../../ui";
+import { Button, font, Group, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { folderLabel, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
+import { settingsType } from "../tokens";
+import { settingsInk } from "../tokens";
 
 export function SyncPane() {
   const theme = useTheme();
@@ -36,11 +38,11 @@ export function SyncPane() {
   }, [enabled, status]);
 
   if (status === "unavailable") {
-    return <Text style={{ marginTop: 20, fontSize: 12.5, color: theme.textSecondary }}>Sync isn’t available in this build.</Text>;
+    return <Text style={{ marginTop: 20, ...settingsType.lead, color: theme.textSecondary }}>Sync isn’t available in this build.</Text>;
   }
   return (
     <View>
-      <Text style={{ marginTop: 20, fontSize: 12.5, lineHeight: 17, color: theme.textSecondary }}>
+      <Text style={{ marginTop: 20, ...settingsType.lead, lineHeight: 17, color: theme.textSecondary }}>
         Sync your profiles, bookmarks, history, open tabs, pinned tabs, groups, passwords, extensions and settings across your Macs. It all goes through a folder
         you choose, like one in iCloud Drive, and it’s end-to-end encrypted: only your devices can read it.
       </Text>
@@ -50,18 +52,16 @@ export function SyncPane() {
 }
 
 function SyncIcon({ on }: { on: boolean }) {
-  const colors = useFormColors();
   const theme = useTheme();
   return (
-    <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: on ? colors.accent : colors.control, borderWidth: on ? 0 : 1, borderColor: colors.controlBorder }}>
-      <Symbol name="arrow.triangle.2.circlepath" size={13} weight="semibold" color={on ? "#FFFFFF" : theme.icon} style={{ width: 28, height: 28 }} />
+    <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: on ? theme.formAccent : theme.control, borderWidth: on ? 0 : 1, borderColor: theme.controlBorder }}>
+      <Symbol name="arrow.triangle.2.circlepath" size={13} weight="semibold" color={on ? theme.onAccent : theme.icon} style={{ width: 28, height: 28 }} />
     </View>
   );
 }
 
 function SyncOff({ info }: { info: FolderInfo | null }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const status = useSync((s) => s.status);
   const error = useSync((s) => s.error);
   const [busy, setBusy] = useState(false);
@@ -119,7 +119,7 @@ function SyncOff({ info }: { info: FolderInfo | null }) {
         </Row>
         {noICloud ? (
           <Row
-            icon={<Symbol name="exclamationmark.icloud" size={14} color="#FF9500" style={{ width: 28, height: 20 }} />}
+            icon={<Symbol name="exclamationmark.icloud" size={14} color={settingsInk.warning} style={{ width: 28, height: 20 }} />}
             title="iCloud Drive is off on this Mac"
             description="Turn on iCloud Drive in System Settings, or choose another folder that syncs between your Macs, like one in Dropbox, on a NAS or on a USB drive."
           >
@@ -127,8 +127,8 @@ function SyncOff({ info }: { info: FolderInfo | null }) {
           </Row>
         ) : null}
       </Group>
-      {failure ? <Text style={{ marginTop: 8, fontSize: 12, color: colors.destructive }}>{failure}</Text> : null}
-      <Text style={{ marginTop: 12, fontSize: 11.5, lineHeight: 15, color: theme.textTertiary }}>
+      {failure ? <Text style={{ marginTop: 8, ...font.small, color: theme.destructive }}>{failure}</Text> : null}
+      <Text style={{ marginTop: 12, ...font.footnote, lineHeight: 15, color: theme.textTertiary }}>
         No server and no account: your Macs meet in the sync folder. Your recovery phrase never leaves your devices, and without it the folder is
         unreadable, file names included.
       </Text>
@@ -158,7 +158,6 @@ function statusLine(status: SyncStatus, lastSyncedAt: number | null, pending: nu
 
 function SyncOn({ info }: { info: FolderInfo | null }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const status = useSync((s) => s.status);
   const lastSyncedAt = useSync((s) => s.lastSyncedAt);
   const pending = useSync((s) => s.pending);
@@ -208,8 +207,8 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
       </Group>
       {error && status !== "updated" ? (
         <View style={{ flexDirection: "row", gap: 6, marginTop: 8, paddingHorizontal: 2 }}>
-          <Symbol name="exclamationmark.circle.fill" size={11} color={colors.destructive} style={{ width: 14, height: 15 }} />
-          <Text style={{ flex: 1, fontSize: 11.5, lineHeight: 15, color: theme.textSecondary }}>{error}</Text>
+          <Symbol name="exclamationmark.circle.fill" size={11} color={theme.destructive} style={{ width: 14, height: 15 }} />
+          <Text style={{ flex: 1, ...font.footnote, lineHeight: 15, color: theme.textSecondary }}>{error}</Text>
         </View>
       ) : null}
 

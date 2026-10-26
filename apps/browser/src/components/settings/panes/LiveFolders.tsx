@@ -11,11 +11,13 @@ import { live, updateConfig, updateFolder, useLive } from "../../../state/live/s
 import type { LiveAccount, LiveFolder, LiveSourceId } from "../../../state/live/types";
 import { useProfileRecords } from "../../../state/profiles/hooks";
 import { openUrlFromSettings, settingsBrowserWindow } from "../../../state/settings/settingsWindows";
-import { Button, Group, Sheet, TextField, Toggle } from "../../ui";
+import { Button, font, Group, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { setting } from "../settingsIndex";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
+import { settingsType } from "../tokens";
+import { settingsInk } from "../tokens";
 
 const DESCRIPTIONS: Record<LiveSourceId, string> = {
   github: "Your open pull requests and the ones waiting for your review, with checks and conflicts.",
@@ -63,7 +65,7 @@ export function LiveFoldersPane() {
         <SourceRow id="confluence" />
         <SourceRow id="gdrive" />
       </Group>
-      {isMocked ? <Text style={{ marginTop: 10, fontSize: 11, color: "#D29922" }}>Development build: services are served by ARDIA_TEST liveMock.</Text> : null}
+      {isMocked ? <Text style={{ marginTop: 10, ...font.caption, color: settingsInk.mockNotice }}>Development build: services are served by ARDIA_TEST liveMock.</Text> : null}
     </View>
   );
 }
@@ -160,10 +162,10 @@ function ConnectSheet({ id }: { id: LiveSourceId }) {
     <Sheet width={460} onClose={closeSettingsSheet}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <Favicon url={source.site} size={22} />
-        <Text style={{ flex: 1, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Connect {source.name}</Text>
+        <Text style={{ flex: 1, ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>Connect {source.name}</Text>
       </View>
       {body}
-      {error ? <Text style={{ marginTop: 10, fontSize: 12, color: "#E5534B" }}>{error}</Text> : null}
+      {error ? <Text style={{ marginTop: 10, ...font.small, color: settingsInk.liveError }}>{error}</Text> : null}
     </Sheet>
   );
 }
@@ -172,14 +174,14 @@ type ConnectProps = { busy: boolean; run(task: () => Promise<void>): Promise<voi
 
 function Help({ children }: { children: ReactNode }) {
   const theme = useTheme();
-  return <Text style={{ fontSize: 12, lineHeight: 17, color: theme.textSecondary, marginBottom: 10 }}>{children}</Text>;
+  return <Text style={{ ...font.small, lineHeight: 17, color: theme.textSecondary, marginBottom: 10 }}>{children}</Text>;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const theme = useTheme();
   return (
     <View style={{ gap: 4, marginBottom: 10 }}>
-      <Text style={{ fontSize: 12, fontWeight: "500", color: theme.textPrimary }}>{label}</Text>
+      <Text style={{ ...font.small, fontWeight: weight.medium, color: theme.textPrimary }}>{label}</Text>
       {children}
     </View>
   );
@@ -210,7 +212,7 @@ function GithubConnect({ busy, run }: ConnectProps) {
     return (
       <View>
         <Help>Enter this code on GitHub (it's on your clipboard), then approve Ardia. This sheet closes when you're signed in.</Help>
-        <Text selectable style={{ fontSize: 26, fontWeight: "600", letterSpacing: 3, fontFamily: "Menlo", color: theme.textPrimary, textAlign: "center", marginVertical: 8 }}>
+        <Text selectable style={{ ...settingsType.code, fontWeight: weight.semibold, letterSpacing: 3, fontFamily: "Menlo", color: theme.textPrimary, textAlign: "center", marginVertical: 8 }}>
           {flow.userCode}
         </Text>
         <Actions>

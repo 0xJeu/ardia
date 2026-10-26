@@ -17,12 +17,13 @@ import { useTheme } from "../../ui/theme";
 import { currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
-import { Button, Group, type Option, PopUp, Sheet, TextField, Toggle } from "../../ui";
+import { Button, font, Group, type Option, PopUp, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { NetworkBadge } from "../../site/Autofill";
 import { addresses as addressList, autofillEnabled, cards as cardList } from "../paneData";
 import { store, useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
+import { settingsInk } from "../tokens";
 
 export function AutofillPane({ profileId: initial }: { profileId?: string | null }) {
   const theme = useTheme();
@@ -203,7 +204,7 @@ function AddressSheet({ profile, saved, onChanged }: { profile: string; saved?: 
 
   return (
     <Sheet width={460} onClose={closeSettingsSheet}>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{saved ? "Edit Address" : "Add Address"}</Text>
+      <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>{saved ? "Edit Address" : "Add Address"}</Text>
       <View style={{ marginTop: 14 }}>
         <Group>
           {ADDRESS_FIELDS.map((f, i) => (
@@ -258,7 +259,7 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
     <Sheet width={460} onClose={closeSettingsSheet}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         {saved ? <NetworkBadge network={saved.network} /> : null}
-        <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>
+        <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>
           {saved ? `${cardNetworkName(saved.network)} •••• ${saved.last4}` : "Add Card"}
         </Text>
       </View>
@@ -267,7 +268,7 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
           <FormRow title="Card Number">
             {number === null ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text style={{ fontSize: 13, color: theme.textPrimary }}>{`•••• •••• •••• ${saved?.last4 ?? ""}`}</Text>
+                <Text style={{ ...font.body, color: theme.textPrimary }}>{`•••• •••• •••• ${saved?.last4 ?? ""}`}</Text>
                 <Button variant="icon" icon="eye" size={11} box={24} radius={6} onPress={() => void reveal()} tooltip="Show Card Number" />
               </View>
             ) : (
@@ -297,7 +298,7 @@ function CardSheet({ profile, saved, onChanged }: { profile: string; saved?: Sav
           </FormRow>
         </Group>
       </View>
-      {error ? <Text style={{ fontSize: 12, color: "#FF453A", marginTop: 10 }}>{error}</Text> : null}
+      {error ? <Text style={{ ...font.small, color: settingsInk.error, marginTop: 10 }}>{error}</Text> : null}
       <SheetButtons
         canDelete={!!saved}
         onDelete={() => void remove()}

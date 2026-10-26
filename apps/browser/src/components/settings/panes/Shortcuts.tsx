@@ -6,13 +6,15 @@ import { useSettings } from "../../../state/browser/hooks";
 import { useProfileOrder } from "../../../state/profiles/hooks";
 import { setShortcutOverride, updateSettings } from "../../../state/settings/actions";
 import { openUrls } from "../../../state/browser/actions";
-import { Button, Group, PopUp, SearchField, Toggle, useFormColors, useHover } from "../../ui";
+import { Button, font, Group, PopUp, SearchField, Toggle, useHover } from "../../ui";
 import { Anchor, Row, SectionHeader } from "../Form";
 import { matchesQuery } from "../../pages/PageLayout";
 import { shortcutItems } from "../paneData";
 import { useResource } from "../../../state/settings/resources";
 import { resolvedShortcuts, useMenuBarRevision } from "../../../state/commands/commandShortcuts";
 import { formatShortcut, sameShortcut, type Shortcut } from "../../../lib/shortcuts";
+import { settingsType } from "../tokens";
+import { settingsInk } from "../tokens";
 
 type Filter = "all" | "customized" | "conflicts";
 
@@ -59,7 +61,7 @@ export function ShortcutsPane() {
 
   return (
     <View>
-      <Text style={{ marginTop: 20, fontSize: 12.5, lineHeight: 17, color: theme.textSecondary }}>
+      <Text style={{ marginTop: 20, ...settingsType.lead, lineHeight: 17, color: theme.textSecondary }}>
         Perform common actions in Ardia faster and from anywhere. Select an action to customize its keyboard shortcut.
       </Text>
       <Group style={{ marginTop: 14 }}>
@@ -82,7 +84,7 @@ export function ShortcutsPane() {
         <Button title="Reset All Shortcuts" disabled={!customizedCount} onPress={() => updateSettings({ shortcuts: {} })} />
       </Anchor>
       {items !== null && shown.length === 0 && (
-        <Text style={{ marginTop: 30, textAlign: "center", fontSize: 13, color: theme.textTertiary }}>No matching actions</Text>
+        <Text style={{ marginTop: 30, textAlign: "center", ...font.body, color: theme.textTertiary }}>No matching actions</Text>
       )}
       {menus.map((menu) => (
         <View key={menu}>
@@ -98,7 +100,7 @@ export function ShortcutsPane() {
                     title={item.title}
                     description={
                       others.length ? (
-                        <Text style={{ fontSize: 11.5, marginTop: 2, color: "#FF9F0A" }}>
+                        <Text style={{ ...font.footnote, marginTop: 2, color: settingsInk.shortcutConflict }}>
                           {`${others.length === 1 ? "This shortcut conflicts with another shortcut:" : "This shortcut conflicts with other shortcuts:"} ${others.map((o) => o.title).join(", ")}`}
                         </Text>
                       ) : item.path.length > 1 ? (
@@ -150,13 +152,12 @@ function ShortcutField({
   onClear: () => void;
 }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const { hovered, hoverProps } = useHover();
   const text = recording ? "Type Shortcut" : formatShortcut(combo);
   if (!remappable) {
     return (
       <View style={{ minWidth: 110, alignItems: "flex-end" }} tooltip="(not remappable)">
-        <Text style={{ fontSize: 13, color: theme.textTertiary }}>{text || "—"}</Text>
+        <Text style={{ ...font.body, color: theme.textTertiary }}>{text || "—"}</Text>
       </View>
     );
   }
@@ -173,12 +174,12 @@ function ShortcutField({
             alignItems: "center",
             justifyContent: "center",
             gap: 4,
-            backgroundColor: recording ? `${colors.accent}33` : hovered ? colors.controlHover : colors.control,
+            backgroundColor: recording ? `${theme.formAccent}33` : hovered ? theme.controlHover : theme.control,
             borderWidth: recording ? 1.5 : 1,
-            borderColor: recording ? colors.accent : colors.controlBorder,
+            borderColor: recording ? theme.formAccent : theme.controlBorder,
           }}
         >
-          <Text style={{ flex: 1, textAlign: "center", fontSize: 13, color: recording ? colors.accent : text ? theme.textPrimary : theme.textTertiary }}>
+          <Text style={{ flex: 1, textAlign: "center", ...font.body, color: recording ? theme.formAccent : text ? theme.textPrimary : theme.textTertiary }}>
             {text || "None"}
           </Text>
           {hovered && !recording && combo.key ? (

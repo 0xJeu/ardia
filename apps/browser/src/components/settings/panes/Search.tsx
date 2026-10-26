@@ -9,11 +9,12 @@ import { addCustomEngine, removeCustomEngine, setSearchEngine, updateCustomEngin
 import { engineProfile } from "../../../state/browser/model";
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
 import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
-import { Button, Group, Sheet, TextField, Toggle, useFormColors } from "../../ui";
+import { Button, font, Group, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { openSettings } from "../../../state/settings/settingsWindows";
+import { settingsInk } from "../tokens";
 
 function manageExtensionsOf(profile: string) {
   const profileId = currentProfileOrder().find((id) => engineProfile(id) === profile);
@@ -22,7 +23,7 @@ function manageExtensionsOf(profile: string) {
 
 export function SearchPane() {
   const settings = useSettings((s) => s);
-  const colors = useFormColors();
+  const theme = useTheme();
   const engines = searchEngines(settings);
   const builtIn = engines.filter((e) => !e.custom && !e.extension);
   const custom = engines.filter((e) => e.custom);
@@ -37,7 +38,7 @@ export function SearchPane() {
       <Group>
         {controlling && (
           <Row
-            icon={<Symbol name="puzzlepiece.extension" size={13} color={colors.accent} style={{ width: 18, height: 18 }} />}
+            icon={<Symbol name="puzzlepiece.extension" size={13} color={theme.formAccent} style={{ width: 18, height: 18 }} />}
             title={`${controlling.extensionName || "An extension"} is controlling this setting`}
             description="To change your default search engine, disable the extension or manage its settings."
           >
@@ -93,7 +94,6 @@ export function SearchPane() {
 
 function EngineRow({ engine, selected, locked, editable }: { engine: SearchEngine; selected: boolean; locked: boolean; editable?: boolean }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const description = engine.extension
     ? `${engine.keyword ? `${engine.keyword} · ` : ""}Added by ${engine.extension.name || "an extension"}`
     : engine.custom
@@ -106,8 +106,8 @@ function EngineRow({ engine, selected, locked, editable }: { engine: SearchEngin
       )}
       {selected ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5, minWidth: 92, justifyContent: "flex-end" }}>
-          <Symbol name="checkmark" size={11} weight="semibold" color={colors.accent} style={{ width: 14, height: 14 }} />
-          <Text style={{ fontSize: 12, color: theme.textSecondary }}>Default</Text>
+          <Symbol name="checkmark" size={11} weight="semibold" color={theme.formAccent} style={{ width: 14, height: 14 }} />
+          <Text style={{ ...font.small, color: theme.textSecondary }}>Default</Text>
         </View>
       ) : (
         <Button title="Make Default" disabled={locked} onPress={() => setSearchEngine(engine.id)} style={{ minWidth: 92 }} />
@@ -135,17 +135,17 @@ function EngineSheet({ engine }: { engine?: SearchEngine }) {
   };
   const field = (label: string, value: string, set: (v: string) => void, placeholder: string) => (
     <View style={{ marginTop: 12 }}>
-      <Text style={{ fontSize: 11.5, marginBottom: 5, color: theme.textSecondary }}>{label}</Text>
+      <Text style={{ ...font.footnote, marginBottom: 5, color: theme.textSecondary }}>{label}</Text>
       <TextField value={value} onChangeText={set} placeholder={placeholder} onSubmit={save} onEscape={closeSettingsSheet} />
     </View>
   );
   return (
     <Sheet width={440} onClose={closeSettingsSheet}>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{engine ? "Edit Search Engine" : "Add Search Engine"}</Text>
+      <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>{engine ? "Edit Search Engine" : "Add Search Engine"}</Text>
       {field("Name", name, setName, "Wikipedia")}
       {field("Shortcut", keyword, setKeyword, "w")}
       {field("URL with %s in place of the query", url, setUrl, "https://en.wikipedia.org/w/index.php?search=%s")}
-      {error && <Text style={{ fontSize: 12, marginTop: 10, color: "#FF453A" }}>{error}</Text>}
+      {error && <Text style={{ ...font.small, marginTop: 10, color: settingsInk.error }}>{error}</Text>}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 18 }}>
         {engine && (
           <Button

@@ -6,10 +6,7 @@ import { Row as PlainRow } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { font, space, weight } from "../ui/tokens";
 import { setting } from "./settingsIndex";
-
-const FLASH_IN_MS = 120;
-const FLASH_HOLD_MS = 900;
-const FLASH_OUT_MS = 700;
+import { settingsMotion } from "./tokens";
 
 export function Anchor({ id, children, radius = 0, style }: { id?: string; children: ReactNode; radius?: number; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
@@ -21,9 +18,9 @@ export function Anchor({ id, children, radius = 0, style }: { id?: string; child
     if (!flash) return;
     glow.setValue(0);
     const run = Animated.sequence([
-      Animated.timing(glow, { toValue: 1, duration: FLASH_IN_MS, easing: curve.outQuad, useNativeDriver: true }),
-      Animated.delay(FLASH_HOLD_MS),
-      Animated.timing(glow, { toValue: 0, duration: FLASH_OUT_MS, easing: curve.inOutQuad, useNativeDriver: true }),
+      Animated.timing(glow, { toValue: 1, duration: settingsMotion.searchFlashIn, easing: curve.outQuad, useNativeDriver: true }),
+      Animated.delay(settingsMotion.searchFlashHold),
+      Animated.timing(glow, { toValue: 0, duration: settingsMotion.searchFlashOut, easing: curve.inOutQuad, useNativeDriver: true }),
     ]);
     run.start();
     return () => run.stop();

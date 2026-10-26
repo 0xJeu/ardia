@@ -20,12 +20,13 @@ import {
   showExtensionsList,
   useExtensionList,
 } from "../../../state/extensions/actions";
-import { Button, Group, PopUp, TextField, Toggle } from "../../ui";
+import { Button, font, Group, PopUp, TextField, Toggle, weight } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { extensionList } from "../paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { replaceSettingsPlace, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";
+import { settingsType } from "../tokens";
 
 type SiteAccess = "allSites" | "specificSites" | "onClick";
 const SITE_ACCESS: { value: SiteAccess; title: string }[] = [
@@ -79,7 +80,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
               key={ext.id}
               icon={<Image source={{ uri: ext.icon }} style={{ width: 24, height: 24, opacity: ext.enabled ? 1 : 0.5 }} />}
               title={
-                <Text numberOfLines={1} style={{ fontSize: 13, color: theme.textPrimary }}>
+                <Text numberOfLines={1} style={{ ...font.body, color: theme.textPrimary }}>
                   {ext.name}
                   <Text style={{ color: theme.textTertiary }}>{`  ${ext.version}${ext.fromWebStore ? "" : " · Developer"}`}</Text>
                 </Text>
@@ -142,14 +143,14 @@ function ExtensionDetails({ ext, profile, onBack }: { ext: InstalledExtension; p
       <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 14 }}>
         <Image source={{ uri: ext.icon }} style={{ width: 48, height: 48 }} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 17, fontWeight: "600", color: theme.textPrimary }}>{ext.name}</Text>
-          <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>
+          <Text style={{ ...settingsType.extensionTitle, fontWeight: weight.semibold, color: theme.textPrimary }}>{ext.name}</Text>
+          <Text style={{ ...font.small, color: theme.textSecondary, marginTop: 2 }}>
             {`Version ${ext.version}${ext.fromWebStore ? " · Chrome Web Store" : " · Unpacked"}`}
           </Text>
         </View>
         <Toggle value={ext.enabled} onChange={(on) => void setEnabled(profile, ext.id, on)} />
       </View>
-      {ext.description ? <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 12, lineHeight: 18 }}>{ext.description}</Text> : null}
+      {ext.description ? <Text style={{ ...font.body, color: theme.textSecondary, marginTop: 12, lineHeight: 18 }}>{ext.description}</Text> : null}
 
       <SectionHeader title="Permissions" />
       <Group>
@@ -189,7 +190,7 @@ function ExtensionDetails({ ext, profile, onBack }: { ext: InstalledExtension; p
           </Row>
         ) : null}
         {ext.errors.length ? <Row title="Errors" description={ext.errors.slice(0, 5).join("\n")} /> : null}
-        <Row title={<Text style={{ fontSize: 13, color: theme.textTertiary }}>{`ID ${ext.id}`}</Text>} />
+        <Row title={<Text style={{ ...font.body, color: theme.textTertiary }}>{`ID ${ext.id}`}</Text>} />
       </Group>
 
       <View style={{ alignItems: "flex-start", marginTop: 18 }}>

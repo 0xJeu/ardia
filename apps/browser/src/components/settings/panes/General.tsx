@@ -18,12 +18,13 @@ import { currentSettings } from "../../../state/browser/current";
 import { useProfiles, useSettings } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
 import { SHARING_COPY } from "../../../state/telemetry/copy";
-import { Button, Group, PopUp, Toggle, useFormColors } from "../../ui";
+import { Button, font, Group, PopUp, Toggle } from "../../ui";
 import { Anchor, Row, SectionHeader } from "../Form";
 import { defaultBrowser, downloadSettings, loginItem, updater } from "../paneData";
 import { store, useResource } from "../../../state/settings/resources";
 import { openImport } from "../../../state/settings/settingsWindows";
 import { SetupCodeRow } from "./SetupCodeRow";
+import { settingsInk } from "../tokens";
 
 const APP = "Ardia";
 
@@ -225,7 +226,6 @@ function UpdatesSection() {
 
 function DefaultBrowserBanner() {
   const theme = useTheme();
-  const colors = useFormColors();
   const [isDefault, reload] = useResource(defaultBrowser);
   useEffect(() => {
     const sub = AppState.addEventListener("change", () => void reload());
@@ -242,18 +242,18 @@ function DefaultBrowserBanner() {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        backgroundColor: colors.group,
+        backgroundColor: theme.groupFill,
         borderWidth: 1,
-        borderColor: colors.groupBorder,
+        borderColor: theme.groupBorder,
       }}
     >
       <Symbol
         name={isDefault ? "checkmark.seal.fill" : "safari"}
         size={20}
-        color={isDefault ? "#34C759" : theme.icon}
+        color={isDefault ? settingsInk.defaultBrowser : theme.icon}
         style={{ width: 28, height: 28 }}
       />
-      <Text style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
+      <Text style={{ flex: 1, ...font.body, color: theme.textPrimary }}>
         {isDefault ? `${APP} is your default browser` : `${APP} works best as your default browser`}
       </Text>
       {!isDefault && <Button title={`Set ${APP} as Default`} kind="primary" onPress={() => void setAsDefaultBrowser().then((v) => store(defaultBrowser, [], v))} />}

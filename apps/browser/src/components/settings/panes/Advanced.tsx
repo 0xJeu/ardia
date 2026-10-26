@@ -7,7 +7,7 @@ import { useSettings } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
 import { openInternalPage } from "../../../state/pages/urls";
 import type { BatterySaverWhen } from "../../../state/settings/settings";
-import { Button, Group, PopUp, Toggle, useFormColors } from "../../ui";
+import { Button, font, Group, PopUp, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { engineVersion, widevine as widevineComponent } from "../paneData";
 import { useResource } from "../../../state/settings/resources";
@@ -75,7 +75,7 @@ export function AdvancedPane() {
       <SectionHeader title="Web engine" />
       <Group>
         <Row anchor="advanced.chromium" description={info ? "ArdiaCore" : undefined}>
-          <Text selectable style={{ fontSize: 13, color: theme.textSecondary }}>
+          <Text selectable style={{ ...font.body, color: theme.textSecondary }}>
             {info?.chromiumVersion ?? "…"}
           </Text>
         </Row>
@@ -106,7 +106,6 @@ export function AdvancedPane() {
 
 function CommandLineSection() {
   const theme = useTheme();
-  const colors = useFormColors();
   const on = useSettings((s) => s.cliControl ?? false);
   const update = updateSettings;
   const cli = useCli();
@@ -131,7 +130,7 @@ function CommandLineSection() {
         <Row
           anchor="advanced.cliInstall"
           description={
-            <Text selectable style={{ fontSize: 11.5, marginTop: 2, lineHeight: 15, color: cli.error && !cli.installing ? colors.destructive : theme.textSecondary }}>
+            <Text selectable style={{ ...font.footnote, marginTop: 2, lineHeight: 15, color: cli.error && !cli.installing ? theme.destructive : theme.textSecondary }}>
               {describeCliInstall(cli)}
             </Text>
           }

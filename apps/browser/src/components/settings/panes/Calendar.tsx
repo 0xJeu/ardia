@@ -6,7 +6,7 @@ import { ALERT_LEADS } from "../../../state/live/meetings";
 import { updateCalendarSettings, useLive } from "../../../state/live/store";
 import { useSettings } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
-import { Button, Checkbox, Group, PopUp, Toggle } from "../../ui";
+import { Button, Checkbox, font, Group, PopUp, Toggle, weight } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 
 export function CalendarPane() {
@@ -91,7 +91,7 @@ export function CalendarPane() {
           </Group>
         </>
       ) : connected ? (
-        <Text style={{ marginTop: 12, fontSize: 12, color: theme.textSecondary }}>No calendars found. Add accounts in the Calendar app.</Text>
+        <Text style={{ marginTop: 12, ...font.small, color: theme.textSecondary }}>No calendars found. Add accounts in the Calendar app.</Text>
       ) : null}
     </View>
   );
@@ -101,7 +101,7 @@ function CalendarList({ title, calendars, hidden }: { title: string; calendars: 
   const theme = useTheme();
   return (
     <View style={{ paddingVertical: 6 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: theme.textSecondary, marginLeft: 12, marginBottom: 2 }}>{title}</Text>
+      <Text style={{ ...font.caption, fontWeight: weight.semibold, color: theme.textSecondary, marginLeft: 12, marginBottom: 2 }}>{title}</Text>
       {calendars.map((c) => (
         <Row
           key={c.id}

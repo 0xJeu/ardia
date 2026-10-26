@@ -24,7 +24,7 @@ import { useTheme } from "../../ui/theme";
 import { currentSettings } from "../../../state/browser/current";
 import { useProfiles, useSettings } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
-import { Button, Checkbox, Group, PopUp, Sheet, Toggle } from "../../ui";
+import { Button, Checkbox, font, Group, PopUp, Sheet, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../paneData";
@@ -119,7 +119,7 @@ export function PrivacyPane() {
       <AppLinks />
       <ZoomLevels />
       {blocker && (
-        <Text style={{ marginTop: 14, fontSize: 11.5, color: theme.textTertiary }}>
+        <Text style={{ marginTop: 14, ...font.footnote, color: theme.textTertiary }}>
           {`${(blocker.stats.networkFilters ?? 0).toLocaleString()} network and ${(blocker.stats.cosmeticFilters ?? 0).toLocaleString()} cosmetic rules loaded.`}
         </Text>
       )}
@@ -141,8 +141,8 @@ function FilterListsSheet() {
   };
   return (
     <Sheet width={500} onClose={closeSettingsSheet}>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Advanced Ad Block Settings</Text>
-      <Text style={{ fontSize: 12, marginTop: 4, color: theme.textSecondary }}>Block common components found across the web by using additional rules and filters.</Text>
+      <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>Advanced Ad Block Settings</Text>
+      <Text style={{ ...font.small, marginTop: 4, color: theme.textSecondary }}>Block common components found across the web by using additional rules and filters.</Text>
       <ScrollView style={{ maxHeight: 420, marginTop: 8 }}>
         {CATEGORIES.map((c) => {
           const lists = blocker?.lists.filter((l) => l.category === c.id) ?? [];
@@ -164,7 +164,7 @@ function FilterListsSheet() {
         })}
       </ScrollView>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 16 }}>
-        <Text style={{ flex: 1, fontSize: 11.5, color: theme.textTertiary }}>
+        <Text style={{ flex: 1, ...font.footnote, color: theme.textTertiary }}>
           {blocker?.version ? `Blocking by uBlock Origin ${blocker.version}, included with Ardia. Its lists update on their own.` : ""}
         </Text>
         <Button title="Done" kind="primary" onPress={closeSettingsSheet} />
@@ -325,7 +325,7 @@ function SiteSheet({ profileId, origin, onChanged }: { profileId: string; origin
     <Sheet width={460} onClose={closeSettingsSheet}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <Favicon url={origin} size={20} />
-        <Text style={{ flex: 1, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{origin.replace(/^https?:\/\//, "")}</Text>
+        <Text style={{ flex: 1, ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>{origin.replace(/^https?:\/\//, "")}</Text>
       </View>
       <ScrollView style={{ maxHeight: 380, marginTop: 12 }}>
         <Group>
@@ -359,7 +359,7 @@ function SiteSheet({ profileId, origin, onChanged }: { profileId: string; origin
             )
           }
         />
-        <Text style={{ flex: 1, fontSize: 12, color: theme.textSecondary }}>{status}</Text>
+        <Text style={{ flex: 1, ...font.small, color: theme.textSecondary }}>{status}</Text>
         <Button title="Done" kind="primary" onPress={closeSettingsSheet} />
       </View>
     </Sheet>

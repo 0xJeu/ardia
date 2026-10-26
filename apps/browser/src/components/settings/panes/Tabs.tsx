@@ -1,13 +1,14 @@
-import { Symbol } from "@ardia/shell";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { chooseTabLayout, updateSettings } from "../../../state/settings/actions";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
 import { liquidGlass } from "../../ui/Glass";
-import { Checkbox, Group, PopUp, Toggle, useFormColors } from "../../ui";
+import { Checkbox, Group, PopUp, Toggle } from "../../ui";
 import { Row, SectionHeader } from "../Form";
+import { PictureChoice } from "../PictureChoice";
 import { setting } from "../settingsIndex";
+import { useSettingsColors } from "../useSettingsColors";
 
 const PEEK_WITH: { value: PeekModifier; title: string }[] = [
   { value: "shift", title: "⇧-click" },
@@ -150,44 +151,29 @@ export function TabsPane() {
 
 function LayoutChoice({ layout, title, selected }: { layout: "sidebar" | "top"; title: string; selected: boolean }) {
   const theme = useTheme();
-  const colors = useFormColors();
-  const choose = () => chooseTabLayout(layout);
-  const bar = theme.dark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.16)";
-  const page = theme.dark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+  const look = useSettingsColors();
   return (
-    <Pressable onPress={choose} style={{ flex: 1, alignItems: "center", gap: 8 }}>
-      <View
-        style={{
-          width: "100%",
-          height: 104,
-          borderRadius: 10,
-          padding: 8,
-          borderWidth: selected ? 2.5 : 1,
-          borderColor: selected ? colors.accent : colors.groupBorder,
-          backgroundColor: theme.dark ? "#2A2A2C" : "#E9E9EB",
-          flexDirection: layout === "sidebar" ? "row" : "column",
-          gap: 5,
-        }}
-      >
-        {layout === "sidebar" ? (
-          <View style={{ width: "26%", gap: 4, paddingTop: 10 }}>
-            {[0, 1, 2, 3].map((i) => (
-              <View key={i} style={{ height: 7, borderRadius: 3, backgroundColor: i === 1 ? colors.accent : bar }} />
-            ))}
-          </View>
-        ) : (
-          <View style={{ height: 10, flexDirection: "row", gap: 4, paddingLeft: 26 }}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={{ flex: 1, borderRadius: 3, backgroundColor: i === 1 ? colors.accent : bar }} />
-            ))}
-          </View>
-        )}
-        <View style={{ flex: 1, borderRadius: 5, backgroundColor: page }} />
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-        {selected && <Symbol name="checkmark.circle.fill" size={12} color={colors.accent} style={{ width: 14, height: 14 }} />}
-        <Text style={{ fontSize: 12, color: selected ? theme.textPrimary : theme.textSecondary }}>{title}</Text>
-      </View>
-    </Pressable>
+    <PictureChoice
+      title={title}
+      selected={selected}
+      onPress={() => chooseTabLayout(layout)}
+      gap={8}
+      frame={{ height: 104, borderRadius: 10, padding: 8, backgroundColor: look.miniWindow, flexDirection: layout === "sidebar" ? "row" : "column", gap: 5 }}
+    >
+      {layout === "sidebar" ? (
+        <View style={{ width: "26%", gap: 4, paddingTop: 10 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={{ height: 7, borderRadius: 3, backgroundColor: i === 1 ? theme.formAccent : look.miniBar }} />
+          ))}
+        </View>
+      ) : (
+        <View style={{ height: 10, flexDirection: "row", gap: 4, paddingLeft: 26 }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ flex: 1, borderRadius: 3, backgroundColor: i === 1 ? theme.formAccent : look.miniBar }} />
+          ))}
+        </View>
+      )}
+      <View style={{ flex: 1, borderRadius: 5, backgroundColor: look.miniPage }} />
+    </PictureChoice>
   );
 }

@@ -22,7 +22,7 @@ import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile, plural } from "../../../state/browser/model";
 import { importModule } from "../../../platform/importModule";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
-import { Button, Group, PopUp, SearchField, Sheet, TextField, Toggle } from "../../ui";
+import { Button, font, Group, PopUp, SearchField, Sheet, TextField, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Row, SectionHeader } from "../Form";
 import { passwordAutofill } from "../paneData";
@@ -122,8 +122,8 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
       {!unlocked ? (
         <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
           <Symbol name="lock.fill" size={26} color={theme.textTertiary} style={{ width: 36, height: 36 }} />
-          <Text style={{ fontSize: 14, fontWeight: "500", color: theme.textPrimary }}>Passwords are locked</Text>
-          <Text style={{ fontSize: 12, color: theme.textSecondary }}>Unlock with Touch ID or your login password to see them.</Text>
+          <Text style={{ ...font.title, fontWeight: weight.medium, color: theme.textPrimary }}>Passwords are locked</Text>
+          <Text style={{ ...font.small, color: theme.textSecondary }}>Unlock with Touch ID or your login password to see them.</Text>
           <Button title="Unlock" kind="primary" onPress={() => void unlock()} style={{ marginTop: 6 }} />
         </View>
       ) : (
@@ -200,7 +200,7 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
     <Sheet width={440} onClose={closeSettingsSheet}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <Favicon url={saved.origin} size={22} />
-        <Text style={{ flex: 1, fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>{hostLabel(saved.origin)}</Text>
+        <Text style={{ flex: 1, ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>{hostLabel(saved.origin)}</Text>
       </View>
       <View style={{ marginTop: 14 }}>
         <Group>
@@ -210,7 +210,7 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
               <TextField value={username} onChangeText={setUsername} style={{ width: 220 }} />
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text selectable style={{ fontSize: 13, color: theme.textPrimary }}>
+                <Text selectable style={{ ...font.body, color: theme.textPrimary }}>
                   {saved.username}
                 </Text>
                 <Button variant="icon" icon="doc.on.doc" size={11} box={24} radius={6} onPress={() => copyText(saved.username)} tooltip="Copy Username" />
@@ -222,7 +222,7 @@ function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: 
               <TextField value={password ?? ""} onChangeText={setPassword} secure={!revealed} style={{ width: 220 }} />
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text selectable style={{ fontSize: 13, color: theme.textPrimary, fontFamily: revealed ? "Menlo" : undefined }}>
+                <Text selectable style={{ ...font.body, color: theme.textPrimary, fontFamily: revealed ? "Menlo" : undefined }}>
                   {password === null ? "…" : revealed ? password : "•".repeat(Math.min(password.length, 12))}
                 </Text>
                 <Button variant="icon" icon={revealed ? "eye.slash" : "eye"} size={11} box={24} radius={6} onPress={() => setRevealed(!revealed)} tooltip={revealed ? "Hide" : "Show"} />

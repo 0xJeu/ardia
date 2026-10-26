@@ -11,7 +11,7 @@ import { useProfile, useProfiles, useSettings } from "../../../state/browser/hoo
 import { sharingProfiles } from "../../../state/profiles/profiles";
 import type { Profile } from "../../../state/browser/types";
 import { ClearDataDialog } from "../../pages/ClearDataDialog";
-import { Button, Group, PopUp, TextField, useFormColors, useHover } from "../../ui";
+import { Box, Button, font, Group, PopUp, TextField, useHover } from "../../ui";
 import { Row, SectionHeader } from "../Form";
 import { ColorStack } from "../../profiles/CreateProfile";
 import { iconMenuItems, PROFILE_SYMBOLS, ProfileBadge, profileSymbol } from "../../profiles/ProfileIcons";
@@ -19,6 +19,8 @@ import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/s
 import { ThemeSection } from "../ThemeEditor";
 import { goToSettingsPane } from "../../../state/settings/settingsWindows";
 import { curve } from "../../ui/motion";
+import { settingsType } from "../tokens";
+import { settingsMotion } from "../tokens";
 
 const listOf = (names: string[]) => (names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`);
 
@@ -38,7 +40,7 @@ export function ProfilesPane() {
 
   return (
     <View>
-      <Text style={{ marginTop: 20, fontSize: 12.5, lineHeight: 17, color: theme.textSecondary }}>
+      <Text style={{ marginTop: 20, ...settingsType.lead, lineHeight: 17, color: theme.textSecondary }}>
         Profiles keep your browsing organized. Each keeps its own history, logins, cookies, and extensions, unless you turn on Share data
         when you create it: then it uses another profile's, and only the tabs are its own.
       </Text>
@@ -67,10 +69,9 @@ export function ProfilesPane() {
 
 const ROW_HEIGHT = 46;
 const settle = (value: Animated.Value, toValue: number) =>
-  Animated.timing(value, { toValue, duration: 160, easing: curve.outCubic, useNativeDriver: true });
+  Animated.timing(value, { toValue, duration: settingsMotion.profileRowSettle, easing: curve.outCubic, useNativeDriver: true });
 
 function ProfileList() {
-  const colors = useFormColors();
   const order = useProfileOrder();
   const offsets = useRef(new Map<string, Animated.Value>()).current;
   const offsetOf = (id: string) => {
@@ -123,11 +124,11 @@ function ProfileList() {
   }).current;
 
   return (
-    <View style={{ borderRadius: 10, backgroundColor: colors.group, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.groupBorder }}>
+    <Box fill="groupFill" border="groupBorder" radius="card">
       {order.map((id, i) => (
         <ProfileRow key={id} profileId={id} first={i === 0} offset={offsetOf(id)} lifted={dragging === id} controller={controller} />
       ))}
-    </View>
+    </Box>
   );
 }
 
@@ -147,7 +148,6 @@ function ProfileRow({
   controller: DragController;
 }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const profile = useProfile(profileId, (p) => p);
   const isDefault = useSettings((s) => s.defaultProfileId === profileId);
   const shared = useSharedWith(profileId);
@@ -187,10 +187,10 @@ function ProfileRow({
         borderRadius: lifted ? 8 : 0,
         backgroundColor: lifted ? hex(theme.panel) : undefined,
         borderWidth: lifted ? StyleSheet.hairlineWidth * 2 : 0,
-        borderColor: colors.groupBorder,
+        borderColor: theme.groupBorder,
       }}
     >
-      {!first && !lifted && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: 12, backgroundColor: colors.separator }} />}
+      {!first && !lifted && <View style={{ height: StyleSheet.hairlineWidth * 2, marginHorizontal: 12, backgroundColor: theme.groupSeparator }} />}
       <ContextMenuArea onContextMenu={() => void openMenu()}>
         <View {...hoverProps}>
           <Pressable onPress={() => goToSettingsPane("profiles", profileId)}>
@@ -202,7 +202,7 @@ function ProfileRow({
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 10,
-                backgroundColor: hovered && !lifted ? colors.selected : undefined,
+                backgroundColor: hovered && !lifted ? theme.formRowHover : undefined,
               }}
             >
               <View tooltip="Drag to reorder">
@@ -210,8 +210,8 @@ function ProfileRow({
               </View>
               <ProfileBadge profile={profile} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, color: theme.textPrimary }}>{profile.name}</Text>
-                {description ? <Text style={{ fontSize: 11.5, marginTop: 2, color: theme.textSecondary }}>{description}</Text> : null}
+                <Text style={{ ...font.body, color: theme.textPrimary }}>{profile.name}</Text>
+                {description ? <Text style={{ ...font.footnote, marginTop: 2, color: theme.textSecondary }}>{description}</Text> : null}
               </View>
               <Symbol name="chevron.right" size={11} weight="semibold" color={theme.textTertiary} style={{ width: 12, height: 14 }} />
             </View>
@@ -254,7 +254,7 @@ export function ProfileDetailsPane({ profileId }: { profileId: string }) {
         <Pressable onPress={() => void pickIcon()} tooltip="Change Icon">
           <ProfileBadge profile={profile} size={64} />
         </Pressable>
-        <Text style={{ fontSize: 12, color: theme.textSecondary }}>{stats}</Text>
+        <Text style={{ ...font.small, color: theme.textSecondary }}>{stats}</Text>
       </View>
 
       <SectionHeader title="Profile" />
