@@ -1,7 +1,9 @@
-import { Symbol, type MenuItem } from "@ardia/shell";
+import type { MenuItem } from "@ardia/shell";
 import { Text, View } from "react-native";
+import { ink, Symbol, weight } from "../ui";
 import { profileAccent } from "../ui/theme";
 import type { Profile } from "../../state/browser/types";
+import { profileColors } from "./tokens";
 
 export const PROFILE_SYMBOLS: { name: string; title: string }[] = [
   { name: "house.fill", title: "Home" },
@@ -59,13 +61,13 @@ export function ProfileBadge({ profile, size = 26 }: { profile: Pick<Profile, "n
         alignItems: "center",
         justifyContent: "center",
         borderWidth: size >= 22 ? 0.5 : 0,
-        borderColor: "rgba(0,0,0,0.12)",
+        borderColor: profileColors.badgeEdge,
       }}
     >
       {symbol ? (
-        <Symbol name={symbol} size={size * 0.5} weight="semibold" color="#FFFFFF" style={{ width: size, height: size }} />
+        <Symbol name={symbol} size={size * 0.5} weight="semibold" color={ink.white} style={{ width: size, height: size }} />
       ) : (
-        <Text style={{ fontSize: profile.icon ? size * 0.55 : size * 0.46, fontWeight: "600", color: "#FFFFFF" }}>
+        <Text style={{ fontSize: profile.icon ? size * 0.55 : size * 0.46, fontWeight: weight.semibold, color: ink.white }}>
           {profile.icon ?? (profile.name.trim()[0] ?? "?").toUpperCase()}
         </Text>
       )}

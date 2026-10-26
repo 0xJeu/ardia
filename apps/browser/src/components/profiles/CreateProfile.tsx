@@ -1,7 +1,5 @@
-import { Symbol } from "@ardia/shell";
 import { useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { PROFILE_COLORS, useTheme } from "../ui/theme";
+import { Pressable, View } from "react-native";
 import { useWindowId } from "../../state/browser/hooks";
 import { currentProfiles } from "../../state/browser/current";
 import { useProfileOrder, useProfileRecords, useCreateProfileShareDefault } from "../../state/profiles/hooks";
@@ -9,7 +7,8 @@ import { addProfile } from "../../state/profiles/actions";
 import { endCreateProfileRequest, profileNames, takeCreateProfileSheet, useCreateProfileRequest, type CreateProfilePreset } from "../../state/profiles/createProfileRequest";
 import { dataGroups, unusedProfileColor } from "../../state/profiles/profiles";
 import type { ProfileColor } from "../../state/browser/types";
-import { Button, Radio, Sheet, TextField, Toggle, useFormColors } from "../ui";
+import { Button, PROFILE_COLORS, radius, Radio, Sheet, space, Text, TextField, Toggle, useTheme } from "../ui";
+import { profileColors, profileType, swatchPicker } from "./tokens";
 import { closeSettingsSheet, showSettingsSheet } from "../../state/settings/sheet";
 
 useCreateProfileRequest.subscribe((s, prev) => {
@@ -33,7 +32,6 @@ export function CreateProfileHost() {
 
 function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | null; preset: CreateProfilePreset; onDone: (id: string | null) => void }) {
   const theme = useTheme();
-  const colors = useFormColors();
   const profiles = useProfileRecords();
   const profileOrder = useProfileOrder();
   const groups = useMemo(() => dataGroups({ profiles, profileOrder }), [profiles, profileOrder]);
@@ -52,43 +50,41 @@ function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | n
 
   return (
     <Sheet width={420} onClose={() => onDone(null)}>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.textPrimary }}>Create a Profile</Text>
-      <Text style={{ fontSize: 12.5, lineHeight: 17, marginTop: 6, color: theme.textSecondary }}>
+      <Text weight="semibold" style={{ fontSize: profileType.sheetTitle }}>
+        Create a Profile
+      </Text>
+      <Text tone="textSecondary" style={{ fontSize: profileType.sheetBody, lineHeight: profileType.sheetBodyLine, marginTop: space.s }}>
         Profiles separate your logins, cookies, passwords, extensions, history and bookmarks.
       </Text>
 
-      <TextField value={name} onChangeText={setName} placeholder="Profile name" autoFocus onSubmit={submit} onEscape={() => onDone(null)} style={{ marginTop: 16 }} />
+      <TextField value={name} onChangeText={setName} placeholder="Profile name" autoFocus onSubmit={submit} onEscape={() => onDone(null)} style={{ marginTop: space.xl }} />
 
-      <View style={{ flexDirection: "row", gap: 7, marginTop: 12 }}>
+      <View style={{ flexDirection: "row", gap: swatchPicker.gap, marginTop: space.l }}>
         {(Object.keys(PROFILE_COLORS) as ProfileColor[]).map((c) => (
-          <Pressable key={c} onPress={() => setColor(c)} tooltip={PROFILE_COLORS[c].name}>
-            <View style={{ width: 22, height: 22, borderRadius: 11, padding: 2, borderWidth: 2, borderColor: color === c ? PROFILE_COLORS[c].swatch : "transparent" }}>
-              <View style={{ flex: 1, borderRadius: 9, backgroundColor: PROFILE_COLORS[c].swatch }} />
-            </View>
-          </Pressable>
+          <ColorSwatch key={c} color={c} selected={color === c} onPress={() => setColor(c)} />
         ))}
       </View>
 
-      <View style={{ marginTop: 16, borderRadius: 10, backgroundColor: colors.group, borderWidth: 1, borderColor: colors.groupBorder, padding: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Text style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>{single ? "Share data with current profile" : "Share data with another profile"}</Text>
+      <View style={{ marginTop: space.xl, borderRadius: radius.card, backgroundColor: theme.groupFill, borderWidth: 1, borderColor: theme.groupBorder, padding: space.l }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.l }}>
+          <Text style={{ flex: 1 }}>{single ? "Share data with current profile" : "Share data with another profile"}</Text>
           <Toggle value={share} onChange={setShare} />
         </View>
         {share && (
-          <Text style={{ fontSize: 11.5, lineHeight: 15, marginTop: 6, color: theme.textSecondary }}>
+          <Text size="footnote" tone="textSecondary" style={{ lineHeight: profileType.noteLine, marginTop: space.s }}>
             {single
               ? "This profile will share your cookies, logins, passwords, extensions, bookmarks and history with your current profile. Tabs stay separate."
               : "This profile will share your cookies, logins, passwords, extensions, bookmarks and history with another profile you choose. Tabs stay separate."}
           </Text>
         )}
         {share && !single && (
-          <View style={{ marginTop: 10, borderRadius: 8, backgroundColor: colors.field, borderWidth: 1, borderColor: colors.fieldBorder, overflow: "hidden" }}>
+          <View style={{ marginTop: space.ml, borderRadius: radius.l, backgroundColor: theme.field, borderWidth: 1, borderColor: theme.fieldBorder, overflow: "hidden" }}>
             {groups.map((g, i) => (
               <Pressable key={g.dataId} onPress={() => setShareWith(g.profileIds[0]!)}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, height: 32, paddingHorizontal: 10, borderTopWidth: i ? 1 : 0, borderColor: colors.separator }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.ml, height: 32, paddingHorizontal: space.ml, borderTopWidth: i ? 1 : 0, borderColor: theme.groupSeparator }}>
                   <Radio on={g === selectedGroup} look="compact" />
-                  <ColorStack colors={g.profileIds.map((id) => PROFILE_COLORS[profiles[id]!.color]?.swatch ?? "#888888")} />
-                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: theme.textPrimary }}>
+                  <ColorStack colors={g.profileIds.map((id) => PROFILE_COLORS[profiles[id]!.color]?.swatch ?? profileColors.unknownSwatch)} />
+                  <Text numberOfLines={1} style={{ flex: 1 }}>
                     {profileNames(g.profileIds.map((id) => profiles[id]!.name))}
                   </Text>
                 </View>
@@ -98,7 +94,7 @@ function CreateProfileSheet({ windowId, preset, onDone }: { windowId: string | n
         )}
       </View>
 
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: space.m, marginTop: space.xlx }}>
         <Button title="Cancel" onPress={() => onDone(null)} />
         <Button title="Create Profile" kind="primary" onPress={submit} />
       </View>
@@ -121,10 +117,22 @@ export function ColorStack({ colors: swatches, size = 12 }: { colors: string[]; 
             marginLeft: i ? -size * 0.4 : 0,
             backgroundColor: c,
             borderWidth: 1,
-            borderColor: theme.dark ? "rgba(0,0,0,0.35)" : "#FFFFFF",
+            borderColor: theme.dark ? profileColors.stackRing.dark : profileColors.stackRing.light,
           }}
         />
       ))}
     </View>
+  );
+}
+
+function ColorSwatch({ color, selected, onPress }: { color: ProfileColor; selected: boolean; onPress: () => void }) {
+  const { size, inset, ring } = swatchPicker;
+  const spec = PROFILE_COLORS[color];
+  return (
+    <Pressable onPress={onPress} tooltip={spec.name}>
+      <View style={{ width: size, height: size, borderRadius: size / 2, padding: inset, borderWidth: ring, borderColor: selected ? spec.swatch : "transparent" }}>
+        <View style={{ flex: 1, borderRadius: size / 2 - inset, backgroundColor: spec.swatch }} />
+      </View>
+    </Pressable>
   );
 }

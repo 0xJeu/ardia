@@ -1,9 +1,8 @@
-import { Symbol } from "@ardia/shell";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { profileNameColor, useTheme } from "../ui/theme";
 import { useIsIncognito, useProfiles, useWindowId, useWindowProfile } from "../../state/browser/hooks";
 import { setMeasuredWidth, useMeasuredWidth } from "../../state/windows/measuredWidths";
-import { useHover } from "../ui";
+import { radius, Symbol, Text, useHover } from "../ui";
 import { openProfileMenu } from "../../state/browser/actions";
 
 const PAD = 9;
@@ -41,7 +40,8 @@ export function ProfileIndicator({ room }: { room: number }) {
       <View pointerEvents="none" style={{ position: "absolute", width: 1000, height: 0, overflow: "hidden", opacity: 0 }}>
         <Text
           numberOfLines={1}
-          style={{ alignSelf: "flex-start", fontSize: 13, fontWeight: "600" }}
+          weight="semibold"
+          style={{ alignSelf: "flex-start" }}
           onLayout={(e) => setMeasuredWidth(`profile-name|${title}`, Math.ceil(e.nativeEvent.layout.width))}
         >
           {title}
@@ -53,7 +53,7 @@ export function ProfileIndicator({ room }: { room: number }) {
             style={{
               height: HEIGHT,
               width,
-              borderRadius: 10,
+              borderRadius: radius.card,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
@@ -62,7 +62,7 @@ export function ProfileIndicator({ room }: { room: number }) {
             }}
           >
             {showName ? (
-              <Text numberOfLines={1} ellipsizeMode="tail" style={{ flexShrink: 1, fontSize: 13, fontWeight: "600", color }}>
+              <Text numberOfLines={1} ellipsizeMode="tail" weight="semibold" style={{ flexShrink: 1, color }}>
                 {title}
               </Text>
             ) : textWidth ? (

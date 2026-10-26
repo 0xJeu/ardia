@@ -60,7 +60,7 @@ function Dot({ id, windowId, page, pos }: { id: string; windowId: string; page: 
         }}
       >
         <View style={{ width: CELL, height: BAND, alignItems: "center", justifyContent: "center" }}>
-          <Animated.View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: theme.dark ? "#FFFFFF" : "#000000", opacity }} />
+          <Animated.View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: theme.mark, opacity }} />
         </View>
       </Pressable>
     </View>
