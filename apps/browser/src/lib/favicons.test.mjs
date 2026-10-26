@@ -16,7 +16,7 @@ registerHooks({
     return next(specifier, context);
   },
 });
-const { adoptFavicons, resolveFavicon, useFavicon } = await import("./favicons.ts");
+const { adoptFavicons, faviconOutlived, resolveFavicon, useFavicon } = await import("./favicons.ts");
 const { useBrowser } = await import("../store/browser.ts");
 const { engineProfile } = await import("../store/model.ts");
 
@@ -45,4 +45,16 @@ test("an empty lookup that started before an import doesn't wipe the imported ic
     row.unmount();
     delete globalThis.faviconsForTest;
   }
+});
+
+test("a tab's icon outlives its page only once the tab has left the icon's site", () => {
+  const netflix = "https://www.netflix.com/browse";
+  assert.equal(faviconOutlived(netflix, "http://localhost:4321/"), true);
+  assert.equal(faviconOutlived(netflix, "file:///Users/me/page.html"), true);
+  assert.equal(faviconOutlived(netflix, "about:blank"), true);
+  assert.equal(faviconOutlived(netflix, "https://www.netflix.com/title/80057281"), false);
+  assert.equal(faviconOutlived(netflix, "https://WWW.netflix.com/browse#row"), false);
+  assert.equal(faviconOutlived("http://localhost:4321/", "http://localhost:5173/"), true);
+  assert.equal(faviconOutlived(null, "http://localhost:4321/"), false);
+  assert.equal(faviconOutlived(netflix, ""), false);
 });

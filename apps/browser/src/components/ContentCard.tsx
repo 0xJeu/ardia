@@ -3,7 +3,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { Animated, StyleSheet, View, type ViewStyle } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { focus, switchToTab } from "../lib/actions";
-import { noteFavicon } from "../lib/favicons";
+import { faviconOutlived, noteFavicon } from "../lib/favicons";
 import { restoredThemeColor } from "../lib/launchLook";
 import { noteChromeTab } from "../lib/cliControl";
 import { takeStartedNavigation } from "../lib/earlyNavigate";
@@ -552,6 +552,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
   const backdrop = useMemo(() => opaqueCard(theme), [theme.card, theme.windowTint[0], theme.windowTint[1]]);
 
   const lastPage = useRef<string | null>(null);
+  const iconPage = useRef<string | null | undefined>(undefined);
   const pending = useRef<string | null>(navigation?.url ?? (adoptId ? (tab()?.url ?? null) : null));
 
   const seq = navigation?.seq;
@@ -627,6 +628,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
       }}
       onNavigationChange={({ url: reported, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource, initialDocumentAccessed, committedInitial, committedUrl }) => {
+        iconPage.current ??= tab()?.url || null;
         const url = initialDocumentAccessed && committedInitial ? "about:blank" : reported;
         const untouched = committedInitial === undefined ? reported === "" && !(tab()?.openerId && adoptId) : committedInitial && !initialDocumentAccessed;
         const target = pending.current ?? (lastPage.current === null ? (tab()?.navigation?.url ?? null) : null);
@@ -652,6 +654,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         }
         if (fromNewTab.current && url && !isBlank(url)) patchPage(tabId, { backToNewTab: true });
         store().navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor: shownTheme });
+        if (!isLoading && tab()?.favicon && faviconOutlived(iconPage.current ?? null, url)) store().updateTab(tabId, { favicon: null });
         if (engine === "webkit") noteWebKitPage(tabId, { url, title, isLoading, committedUrl: committedUrl ?? "" });
         if (lastPage.current !== null && pageKey(url) !== lastPage.current) {
           if (pageOf(tabId).externalApp && hostOf(url) !== hostOf(lastPage.current)) answerExternalApp(tabId, false);
@@ -689,7 +692,9 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       onZoom={({ zoom }) => store().updateTab(tabId, { zoom })}
       onFindResult={({ count, active }) => store().setFind(tabId, { count, active })}
       onFavicon={(favicon) => {
-        if (!favicon || !tab()) return;
+        const t = tab();
+        if (!favicon || !t) return;
+        iconPage.current = t.url;
         store().faviconChanged(tabId, favicon);
         noteFavicon(tabId, favicon);
       }}

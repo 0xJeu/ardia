@@ -29,6 +29,8 @@ export const useFavicons = create<Favicons>(() => ({ profiles: {}, themes: {} })
 
 const cacheKey = (profileId: string) => (isIncognitoProfile(profileId) ? profileId : engineProfile(profileId));
 export const pageKey = (url: string) => url.replace(/#.*$/, "");
+const siteOf = (url: string) => /^[a-z][\w+.-]*:\/\/[^/?#]*/i.exec(url)?.[0].toLowerCase() ?? "";
+export const faviconOutlived = (iconPage: string | null, url: string) => !!iconPage && !!url && siteOf(iconPage) !== siteOf(url);
 
 type Change = (f: Favicons) => Favicons;
 const FLUSH_MS = 16;

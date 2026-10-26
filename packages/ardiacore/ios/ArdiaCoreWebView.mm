@@ -2121,6 +2121,7 @@ void ArdiaCoreWebViewsSetFieldTiming(BOOL on) {
   [ArdiaCoreEarlyWindow pageCommitted:tab shownURL:_shownURL];
   _pageTheme = nil;
   _pageThemeSource = nil;
+  _lastFavicon = nil;
   [self queueNavigation];
 }
 
