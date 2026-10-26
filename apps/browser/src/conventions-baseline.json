@@ -7,12 +7,7 @@
   "set-state": {},
   "store-reads": {},
   "store-shape": {},
-  "size": {
-    "engine/chromium/src/chrome/browser/ardia/ac_autofill.cc": 1,
-    "engine/chromium/src/chrome/browser/ardia/ac_cli_token_policy.cc": 1,
-    "engine/chromium/src/chrome/browser/ardia/ac_extensions_sync.cc": 1,
-    "engine/chromium/src/chrome/browser/ardia/ac_tab_restore.cc": 1
-  },
+  "size": {},
   "env": {
     "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": 3,
     "engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc": 1
