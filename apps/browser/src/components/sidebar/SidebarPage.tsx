@@ -30,16 +30,15 @@ type PageProps = {
   width: number;
   current: boolean;
   resting: boolean;
-  docked: boolean;
+  dockAbove: number;
   height: number;
   rows: number | undefined;
   geometry: RefObject<SidebarGeometry> | undefined;
-  onListHeight: (profileId: string, height: number) => void;
   onScrollView: (view: ScrollView | null) => void;
   onScrollY: (y: number) => void;
 };
 
-export function SidebarPage({ profileId, slot, width, current, resting, docked, height, rows, geometry, onListHeight, onScrollView, onScrollY }: PageProps) {
+export function SidebarPage({ profileId, slot, width, current, resting, dockAbove, height, rows, geometry, onScrollView, onScrollY }: PageProps) {
   const windowId = useWindowId();
   const topGap = listTopGap(useAddressBarInSidebar());
   const pageStyle = usePageStyle(windowId, slot, width);
@@ -87,8 +86,14 @@ export function SidebarPage({ profileId, slot, width, current, resting, docked, 
   );
   const edge = useMemo(() => scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, GLOW_ROOM], extrapolate: "clamp" }), [scrollY]);
   const fixed = useRef<{ height: number; list: number | null }>({ height: 0, list: null });
+  const listHeight = useRef(0);
+  const [, setDockChanges] = useState(0);
+  const docked = listHeight.current > dockAbove;
   const report = () => {
-    if (!resting && fixed.current.list !== null) onListHeight(profileId, fixed.current.height + fixed.current.list + playerHeight);
+    if (resting || fixed.current.list === null) return;
+    const before = listHeight.current > dockAbove;
+    listHeight.current = fixed.current.height + fixed.current.list + playerHeight;
+    if (listHeight.current > dockAbove !== before) setDockChanges((n) => n + 1);
   };
   const reportList = (list: number) => {
     fixed.current.list = list;

@@ -31,15 +31,8 @@ export function Sidebar({ width }: { width: number }) {
   const current = useWindowProfileId();
   const { pages, paging } = usePagerPages(windowId);
   const [available, setAvailable] = useState(0);
-  const listHeights = useRef(new Map<string, number>());
-  const [, setDockChanges] = useState(0);
   const newTabAtTop = useSettings((s) => s.newTabButtonPosition === "top");
-  const dockedPage = (profileId: string) => !newTabAtTop && available > 0 && (listHeights.current.get(profileId) ?? 0) + ROW_PITCH + 12 > available;
-  const onListHeight = (profileId: string, height: number) => {
-    const before = dockedPage(profileId);
-    listHeights.current.set(profileId, height);
-    if (dockedPage(profileId) !== before) setDockChanges((n) => n + 1);
-  };
+  const dockAbove = newTabAtTop || available <= 0 ? Infinity : available - ROW_PITCH - 12;
   const scroll = useRef<ScrollView>(null);
   const scrollY = useRef(0);
   const geometry = useRef<SidebarGeometry>({ viewport: 0, regions: { pinnedGroups: 0, list: 0 }, newTabAtTop: false, room: 0, pad: 0, tilesFixed: true });
@@ -86,11 +79,10 @@ export function Sidebar({ width }: { width: number }) {
                   width={width}
                   current={page.id === current}
                   resting={!!page.resting}
-                  docked={dockedPage(page.id)}
+                  dockAbove={dockAbove}
                   height={Math.max(0, available - (addressBar ? GLOW_ROOM : 0))}
                   rows={page.id === current ? undefined : Math.ceil(available / ROW_PITCH) + 1}
                   geometry={page.id === current ? geometry : undefined}
-                  onListHeight={onListHeight}
                   onScrollView={(v) => {
                     scroll.current = v;
                     controller.scroll = v;
