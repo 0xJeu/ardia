@@ -1,4 +1,4 @@
-import type { AppEvent, CommandEvent, ConfirmOptions, InlineWrite, PromptOptions, SystemInfo, WindowEvent } from "@ardia-real/shell";
+import type { AppEvent, CommandEvent, ConfirmOptions, InlineWrite, LaunchConfig, PromptOptions, SystemInfo, WindowEvent } from "@ardia-real/shell";
 import { unstable_batchedUpdates } from "react-dom";
 import { emitNativeEvent, provideNativeModule } from "./expo-modules-core";
 import { NATIVE_CHANGE } from "./react-native";
@@ -34,7 +34,24 @@ const SYSTEM_INFO: SystemInfo = {
   locale: typeof navigator === "undefined" ? "en-US" : navigator.language,
 };
 
-provideNativeModule("ArdiaApp", { launchEnvironment: () => null, systemInfo: () => SYSTEM_INFO });
+const LAUNCH_CONFIG: LaunchConfig = {
+  dataDirectory: null,
+  background: false,
+  isolated: false,
+  testInstance: false,
+  instance: {},
+  switches: {},
+  trace: [],
+  test: {},
+};
+
+provideNativeModule("ArdiaApp", {
+  launchEnvironment: () => null,
+  systemInfo: () => SYSTEM_INFO,
+  launchConfig: () => LAUNCH_CONFIG,
+  appIcons: async () => [],
+  appIcon: async () => null,
+});
 provideNativeModule("ArdiaCalendar", { authorizationStatus: () => "notDetermined" });
 
 const documents = new Map<string, string>();

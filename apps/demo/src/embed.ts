@@ -1,8 +1,7 @@
-import { useBrowser } from "../../browser/src/state/browser/store";
-import { applyControl, controlModel, type Control } from "./Controls";
+import { startCustomize, watchCustomize, type CustomizeState } from "./customizeFlow";
 import { playNudge } from "./nudge";
 
-type Inbound = { type: "ardia-demo:control"; id: Control["id"]; value?: string } | { type: "ardia-demo:hello" } | { type: "ardia-demo:nudge" };
+type Inbound = { type: "ardia-demo:customize" } | { type: "ardia-demo:hello" } | { type: "ardia-demo:nudge" };
 
 function guardFocus(engaged: () => boolean) {
   const focus = HTMLElement.prototype.focus;
@@ -31,33 +30,31 @@ export function startEmbed() {
   addEventListener("pointerdown", engage, { capture: true });
   addEventListener("keydown", engage, { capture: true });
 
-  let last = "";
-  const publish = (force = false) => {
-    const snapshot = JSON.stringify(controlModel(useBrowser.getState()));
-    if (!force && snapshot === last) return;
-    last = snapshot;
-    post({ type: "ardia-demo:controls", controls: JSON.parse(snapshot) });
-  };
-  useBrowser.subscribe(() => publish());
+  let state: CustomizeState = { active: false, code: null };
+  const publish = () => post({ type: "ardia-demo:customize-state", ...state });
+  watchCustomize((next) => {
+    state = next;
+    publish();
+  });
 
   addEventListener("message", (event: MessageEvent<Inbound>) => {
     if (event.source !== host || !event.data || typeof event.data !== "object") return;
-    if (event.data.type === "ardia-demo:hello") return publish(true);
+    if (event.data.type === "ardia-demo:hello") return publish();
     if (event.data.type === "ardia-demo:nudge") {
       if (engaged || nudged) return;
       nudged = true;
       void playNudge(nudge.signal);
       return;
     }
-    if (event.data.type === "ardia-demo:control") {
+    if (event.data.type === "ardia-demo:customize") {
       engage();
-      applyControl(event.data.id, event.data.value);
+      startCustomize();
     }
   });
 
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
-      publish(true);
+      publish();
       post({ type: "ardia-demo:ready" });
     }),
   );

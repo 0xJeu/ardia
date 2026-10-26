@@ -6,7 +6,8 @@ import { WindowRoot } from "../../browser/src/App";
 import { startNativeSync } from "../../browser/src/state/app/nativeSync";
 import { startTabPages } from "../../browser/src/state/tabs/tabPages";
 import { setStoreBatching, useBrowser } from "../../browser/src/state/browser/store";
-import { Controls } from "./Controls";
+import { Customize } from "./Customize";
+import { demoSettings } from "./customizeFlow";
 import { startEmbed } from "./embed";
 import { isFrameable } from "./frameable";
 import { pageTitle } from "./pages";
@@ -19,7 +20,7 @@ import { TrafficLights } from "./shims/web/windowChrome";
 
 installLocalSuggestions();
 setStoreBatching(unstable_batchedUpdates);
-useBrowser.getState().hydrate(demoSession());
+useBrowser.getState().hydrate({ ...demoSession(), settings: demoSettings() });
 startTabPages();
 startNativeSync();
 
@@ -48,7 +49,7 @@ function DemoWindow() {
         <WindowRoot />
         <TrafficLights />
       </div>
-      {bare ? null : <Controls />}
+      {bare ? null : <Customize />}
       <MenuHost />
     </div>
   );
