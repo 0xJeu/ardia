@@ -18,8 +18,10 @@ export const SCROLL_SAMPLE_MS = 100;
 export const REPLAY_MIN_SESSION_MS = 4000;
 export const REPLAY_SAMPLE_RATE = 1;
 export const REPLAY_CHUNK_MS = 5000;
+export const REPLAY_START_AFTER_LOAD_MS = 2500;
+export const REPLAY_START_IDLE_MS = 2000;
 export const PRIVATE_SELECTOR = ".ac-private, [data-private]";
-export const BLOCK_SELECTOR = ".ac-block, [data-private-block]";
+export const BLOCK_SELECTOR = ".ac-block, [data-private-block], .demo-frame";
 
 export const FLAGS = {
   "download-band": {
