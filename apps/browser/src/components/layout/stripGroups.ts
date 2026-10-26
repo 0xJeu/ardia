@@ -126,6 +126,14 @@ export function leaveIndex({ slots, lefts }: DragGeometry, slot: number, chip: n
   return null;
 }
 
+export function revealOffset(left: number, width: number, scrolled: number, viewport: number, pad: number): number | null {
+  const toStart = left - pad;
+  const toEnd = left + width + pad - viewport;
+  const target = toStart < scrolled ? toStart : toEnd > scrolled ? Math.min(toStart, toEnd) : scrolled;
+  const clamped = Math.max(0, target);
+  return Math.abs(clamped - scrolled) < 0.5 ? null : clamped;
+}
+
 export function memberInteractive(shown: boolean, expanded: boolean, moving: boolean): boolean {
   return shown || (expanded && !moving);
 }

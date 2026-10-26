@@ -44,6 +44,7 @@ import {
   leaveIndex,
   MEMBERS_INSET,
   memberInteractive,
+  revealOffset,
   stripEntries,
   stripTabWidth,
   TAIL_EXPANDED,
@@ -282,6 +283,35 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   const dockGeometry = useMemo(() => dragGeometry(dockIds.map((id) => ({ tabIds: dockTabs(id), width: PINNED_CELL })), PINNED_SPACING), [entries.filter((e) => e.startsWith("pinned:") || e.startsWith("tilefolder:")).join()]);
   const strip: Strip = { top, targets, chip, grow, dock: dockIds.length ? { ids: dockIds, left: -(dockWidth(dockIds.length) + DOCK_GAP), geometry: dockGeometry } : null };
   const incoming = useIncomingTab(windowId, current, top);
+  const scroll = useRef<ScrollView>(null);
+  const scrolled = useRef(0);
+  const spanOf = (tabId: string): [number, number] | null => {
+    const cell = dockIds.findIndex((id) => dockTabs(id).includes(tabId));
+    if (cell >= 0) return [flare + (dockGeometry.lefts[cell] ?? 0), PINNED_CELL];
+    const i = top.slots.findIndex((slot) => slot.tabIds.includes(tabId));
+    if (i < 0) return null;
+    const left = flare + (dockIds.length ? dockWidth(dockIds.length) + DOCK_GAP : 0) + top.lefts[i]!;
+    const group = parsed.find((e): e is GroupEntry => e.kind === "group" && e.members.some((m) => holds(m, tabId)));
+    if (!group) return [left, top.slots[i]!.width];
+    const at = group.members.findIndex((m) => holds(m, tabId));
+    const widths = group.members.map(memberWidth);
+    const { offsets } = groupLayout(chipOf(group.id) ?? 0, widths, GAP, !group.collapsed, at);
+    return [left + (chipOf(group.id) ?? 0) + MEMBERS_INSET + (group.collapsed ? 0 : offsets[at]!), widths[at]!];
+  };
+  const latestSpan = useRef(spanOf);
+  latestSpan.current = spanOf;
+  const revealed = useRef(activeId);
+  useEffect(() => {
+    if (revealed.current === activeId) return;
+    revealed.current = activeId;
+    if (!current || !activeId || useTabDrag.getState().tabIds.length) return;
+    const frame = requestAnimationFrame(() => {
+      const span = latestSpan.current(activeId);
+      const x = span && revealOffset(span[0], span[1], scrolled.current, pageWidth + flare * 2, flare + GAP);
+      if (x !== null) scroll.current?.scrollTo({ x, animated: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeId, current]);
   let slotIndex = 0;
   const gap = (i: number) => (incoming.active ? <IncomingGap key={`gap${i}`} open={incoming.at === i} width={chip} origin={i === 0 ? incoming.origin : undefined} /> : null);
 
@@ -294,8 +324,11 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
         <ThemeScope>
           <DockContext.Provider value={strip}>
             <ScrollView
+              ref={scroll}
               horizontal
               showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={(e) => void (scrolled.current = e.nativeEvent.contentOffset.x)}
               style={{ flex: 1 }}
               contentContainerStyle={{ alignItems: "flex-start", gap: GAP, paddingLeft: flare, paddingRight: flare }}
             >
