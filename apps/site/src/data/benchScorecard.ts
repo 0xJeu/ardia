@@ -37,16 +37,12 @@ export type Card = {
   footnotes: string[];
 };
 
-export type Matchup = { rival: string; won: number; lost: number; tied: number };
 
 export type Scorecard = {
   cards: Card[];
   total: number;
-  wins: number;
   losses: number;
-  ties: number;
   takenBy: { name: string; count: number }[];
-  matchups: Matchup[];
   roster: string[];
 };
 
@@ -67,14 +63,6 @@ function winnerOf(row: Row): string {
   const outcome = outcomeOf(row);
   if (outcome === "win") return row.bars.find((b) => b.isArdia)!.name;
   return row.bars.find((b) => !b.isArdia && b.isBest)!.name;
-}
-
-function versus(row: Row, rival: string): Outcome | null {
-  const ardia = row.bars.findIndex((b) => b.isArdia);
-  const other = row.bars.findIndex((b) => b.name === rival);
-  if (ardia < 0 || other < 0) return null;
-  if (row.bars[ardia].value.value === row.bars[other].value.value) return "tie";
-  return ardia < other ? "win" : "loss";
 }
 
 const isPhotoFinish = (f: Figure | null) => !!f && f.suffix === "%" && f.value < PHOTO_FINISH_PCT;
@@ -159,26 +147,14 @@ export function scorecardOf(bench: Bench): Scorecard {
   const outcomes = rows.map((r) => ({ outcome: outcomeOf(r), winner: winnerOf(r) }));
   const takenBy = new Map<string, number>();
   for (const o of outcomes) if (o.outcome === "loss") takenBy.set(o.winner, (takenBy.get(o.winner) ?? 0) + 1);
-  const matchups = bench.rivals.map((rival) => {
-    const results = rows.map((r) => versus(r, rival)).filter((v): v is Outcome => v !== null);
-    return {
-      rival,
-      won: results.filter((v) => v === "win").length,
-      lost: results.filter((v) => v === "loss").length,
-      tied: results.filter((v) => v === "tie").length,
-    };
-  });
   const cards = bench.groups.map((g) => cardOf(g, roster));
   const singles = cards.filter((c) => !c.wide);
   if (singles.length % 2 === 1) singles[singles.length - 1].solo = true;
   return {
     cards,
     total: rows.length,
-    wins: outcomes.filter((o) => o.outcome === "win").length,
     losses: outcomes.filter((o) => o.outcome === "loss").length,
-    ties: outcomes.filter((o) => o.outcome === "tie").length,
     takenBy: [...takenBy].map(([name, count]) => ({ name, count })),
-    matchups,
     roster,
   };
 }

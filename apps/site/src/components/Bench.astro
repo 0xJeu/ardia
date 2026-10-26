@@ -5,32 +5,17 @@ import { scorecardOf } from "../data/benchScorecard";
 const card = bench ? scorecardOf(bench) : null;
 const rivals = bench?.rivals ?? [];
 const named = rivals.length > 1 ? `${rivals.slice(0, -1).join(", ")} and ${rivals[rivals.length - 1]}` : (rivals[0] ?? "");
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const listOf = (items: string[]) =>
   items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : (items[0] ?? "");
 
-const headline = card
-  ? [
-      `${plural(card.wins, "win", "wins")}.`,
-      `${plural(card.losses, "loss", "losses")}.`,
-      ...(card.ties ? [`${plural(card.ties, "tie", "ties")}.`] : []),
-    ]
-  : [];
 const takers = card ? card.takenBy.map((t) => (card.takenBy.length > 1 ? `${t.name} ${t.count}` : t.name)) : [];
 const lede = card
   ? [
       `Ardia against ${named}: ${card.total} tests, same Mac, every release.`,
       card.losses
-        ? `${listOf(takers)} ${card.takenBy.length > 1 ? "take the rest" : `takes ${card.losses === 1 ? "one" : card.losses}`}. Those are on the board too.`
+        ? `${listOf(takers)} ${card.takenBy.length > 1 ? "take the rest" : `takes ${card.losses === 1 ? "one" : card.losses}`}. They’re in here too.`
         : "No asterisks.",
     ].join(" ")
-  : "";
-const unmeasured = card
-  ? card.matchups
-      .map((m) => ({ rival: m.rival, missing: card.total - m.won - m.lost - m.tied }))
-      .filter((m) => m.missing > 0)
-      .map((m) => `${m.rival} wasn’t timed in ${m.missing}.`)
-      .join(" ")
   : "";
 
 const countAttrs = (f: Figure) => ({
@@ -39,7 +24,6 @@ const countAttrs = (f: Figure) => ({
   "data-bench-decimals": String(f.decimals),
   "data-bench-from": String(f.from),
 });
-const tallyAttrs = (n: number) => countAttrs({ value: n, decimals: 0, from: 0, suffix: "" });
 const unitText = (unit: string) => (unit === "%" ? "%" : ` ${unit}`);
 const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
 ---
@@ -50,46 +34,14 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
       <div class="wrap">
         <header class="bb-head">
           <div class="bb-title">
-            <p class="label kicker">Benchmarks, measured before every release</p>
-            <h2 class="poster" id="bench-title" data-reveal>
-              {headline.map((part) => (
-                <span>{part}</span>
-              ))}
-            </h2>
+            <p class="label kicker">Measured before every release</p>
+            <h2 class="poster" id="bench-title" data-reveal>Benchmarks.</h2>
             <p class="lede" data-reveal style="--i: 1">
               {lede}
             </p>
             {bench.sample && <p class="label sample">Sample numbers. Not measured. Dev only.</p>}
           </div>
 
-          <div class="board" data-bench-land>
-            <p class="label board-title">Head to head</p>
-            <dl class="fixtures">
-              {card.matchups.map((m) => (
-                <div class="fixture">
-                  <dt class="visually-hidden">Ardia against {m.rival}</dt>
-                  <dd>
-                    <span class="team us" aria-hidden="true">Ardia</span>
-                    <span class="score poster">
-                      <span {...tallyAttrs(m.won)}>{m.won}</span>
-                    </span>
-                    <span class="score poster them">
-                      <span {...tallyAttrs(m.lost)}>{m.lost}</span>
-                    </span>
-                    <span class="team" aria-hidden="true">{m.rival}</span>
-                    <span class="visually-hidden">
-                      {plural(m.won, "win", "wins")}, {plural(m.lost, "loss", "losses")}
-                      {m.tied ? `, ${plural(m.tied, "tie", "ties")}` : ""}
-                    </span>
-                    {m.tied > 0 && <span class="label tied" aria-hidden="true">{plural(m.tied, "tie", "ties")}</span>}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <p class="label board-foot">
-              Counted from the {card.total} tests below. {unmeasured}
-            </p>
-          </div>
         </header>
 
         <ul class="cards" role="list">
@@ -267,17 +219,11 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
   h2 {
     font-size: var(--t-h2);
   }
-  h2 span {
-    display: block;
-  }
-  h2 span + span {
-    color: var(--ink-2);
-  }
   .lede {
     margin-top: clamp(18px, 2vw, 28px);
     max-width: 30em;
-    font-size: var(--t-lede);
-    line-height: 1.35;
+    font-size: var(--t-body);
+    line-height: 1.5;
     color: var(--ink-2);
   }
   .sample {
@@ -288,75 +234,6 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
     border: 1.5px solid currentColor;
     border-radius: 3px;
     transform: rotate(-1.5deg);
-  }
-
-  .board {
-    grid-column: 9 / -1;
-    padding: clamp(16px, 1.6vw, 22px) clamp(16px, 1.8vw, 24px) clamp(14px, 1.4vw, 18px);
-    border-radius: 10px 16px 8px 18px / 14px 8px 18px 10px;
-    background-color: var(--forest-deep);
-    background-image: var(--impasto);
-    background-size: 300px;
-    background-blend-mode: soft-light;
-    color: var(--night-ink);
-    box-shadow:
-      inset 0 0 0 1px rgb(255 255 255 / 0.1),
-      0 26px 50px -28px rgb(60 30 20 / 0.6);
-  }
-  .board-title {
-    color: rgb(239 232 220 / 0.7);
-  }
-  .fixtures {
-    margin: 10px 0 0;
-    display: grid;
-    row-gap: 8px;
-  }
-  .fixture dd {
-    margin: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr);
-    align-items: center;
-    column-gap: 8px;
-  }
-  .team {
-    font-family: var(--poster);
-    font-weight: 740;
-    font-stretch: 85%;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    font-size: 1.02rem;
-    color: rgb(239 232 220 / 0.78);
-  }
-  .team.us {
-    color: var(--night-ink);
-  }
-  .score {
-    min-width: 1.7em;
-    padding: 6px 8px 4px;
-    border-radius: 4px;
-    background: rgb(0 0 0 / 0.3);
-    box-shadow: inset 0 1px 0 rgb(0 0 0 / 0.35);
-    color: var(--sun);
-    font-size: clamp(2.4rem, 1.6rem + 1.6vw, 3.4rem);
-    line-height: 0.9;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-  .score.them {
-    color: rgb(239 232 220 / 0.86);
-  }
-  .tied {
-    grid-column: 1 / -1;
-    justify-self: center;
-    color: rgb(239 232 220 / 0.7);
-  }
-  .board-foot {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid rgb(239 232 220 / 0.18);
-    color: rgb(239 232 220 / 0.66);
-    text-transform: none;
-    letter-spacing: 0.02em;
   }
 
   .cards {
@@ -710,21 +587,10 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
     .cards {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .bb-title {
-      grid-column: 1 / span 7;
-    }
-    .board {
-      grid-column: 8 / -1;
-    }
   }
   @media (max-width: 860px) {
-    .bb-title,
-    .board {
+    .bb-title {
       grid-column: 1 / -1;
-    }
-    .board {
-      margin-top: 28px;
-      max-width: 420px;
     }
     .cards {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -739,9 +605,6 @@ const tick = "M3 13.5c2.2 1.4 4.3 3.6 6.4 6.6C13 13 17.6 7.4 25 2.6";
   @media (max-width: 600px) {
     .bb {
       --radius: 5px 9px 6px 10px / 8px 5px 9px 6px;
-    }
-    .board {
-      max-width: none;
     }
     .cards {
       gap: 8px;
