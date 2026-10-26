@@ -34,6 +34,7 @@ import { usePeek } from "./usePeek";
 import { lightsCenter, TOP_STRIP_LIGHTS_CENTER } from "./dockMotion";
 import {
   aimDrop,
+  dockCellOf,
   dragGeometry,
   dragRange,
   dropIndex,
@@ -286,7 +287,7 @@ function StripPage({ profileId, slot, pageWidth, current, resting }: { profileId
   const scroll = useRef<ScrollView>(null);
   const scrolled = useRef(0);
   const spanOf = (tabId: string): [number, number] | null => {
-    const cell = dockIds.findIndex((id) => dockTabs(id).includes(tabId));
+    const cell = dockCellOf(dockIds, dockTabs, tabId);
     if (cell >= 0) return [flare + (dockGeometry.lefts[cell] ?? 0), PINNED_CELL];
     const i = top.slots.findIndex((slot) => slot.tabIds.includes(tabId));
     if (i < 0) return null;

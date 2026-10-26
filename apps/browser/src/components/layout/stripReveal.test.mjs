@@ -20,3 +20,12 @@ test("a selected tab past the left edge scrolls back to its start, never before 
 test("a tab wider than the strip shows its start", () => {
   assert.equal(revealOffset(1000, 800, 0, 600, 19), 981);
 });
+
+test("a selected tab with its own dock cell reveals that cell, not a tile folder that also holds it", async () => {
+  const { dockCellOf } = await import("./stripGroups.ts");
+  const members = { "folder:f": ["a", "b"], a: ["a"], c: ["c"] };
+  const cells = ["folder:f", "c", "a"];
+  assert.equal(dockCellOf(cells, (cell) => members[cell], "a"), 2);
+  assert.equal(dockCellOf(cells, (cell) => members[cell], "b"), 0);
+  assert.equal(dockCellOf(cells, (cell) => members[cell], "z"), -1);
+});

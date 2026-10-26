@@ -126,6 +126,11 @@ export function leaveIndex({ slots, lefts }: DragGeometry, slot: number, chip: n
   return null;
 }
 
+export function dockCellOf(cells: string[], members: (cell: string) => string[], tabId: string): number {
+  const own = cells.indexOf(tabId);
+  return own >= 0 ? own : cells.findIndex((cell) => members(cell).includes(tabId));
+}
+
 export function revealOffset(left: number, width: number, scrolled: number, viewport: number, pad: number): number | null {
   const toStart = left - pad;
   const toEnd = left + width + pad - viewport;
