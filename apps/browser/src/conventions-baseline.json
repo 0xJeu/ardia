@@ -391,16 +391,7 @@
     "packages/sync/src/scope.ts": 1
   },
   "env": {
-    "engine/ardiacore/src/ardia/core/ac_browser_window.mm": 1,
-    "engine/ardiacore/src/ardia/core/ac_context_menu.mm": 3,
-    "engine/ardiacore/src/ardia/core/ac_lifetime.mm": 1,
-    "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": 5,
-    "engine/ardiacore/src/ardia/core/ac_picture_in_picture.mm": 2,
-    "engine/ardiacore/src/ardia/core/ac_safe_storage.mm": 6,
-    "engine/ardiacore/src/ardia/core/ac_video_upscaling.mm": 1,
-    "engine/chromium/src/chrome/browser/ardia/ac_downloads.cc": 1,
-    "engine/chromium/src/chrome/browser/ardia/ac_input_frame_rate.mm": 1,
-    "engine/chromium/src/chrome/browser/ardia/ac_reauth.cc": 2,
+    "engine/ardiacore/src/ardia/core/ac_main_delegate.cc": 3,
     "engine/chromium/src/chrome/browser/ardia/ac_scripts_policy.cc": 1
   },
   "naming": {

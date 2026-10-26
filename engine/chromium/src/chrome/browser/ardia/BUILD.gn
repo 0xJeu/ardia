@@ -63,6 +63,7 @@ source_set("ardia") {
   ]
 
   deps = [
+    "//ardia/core:launch_switches",
     "//base",
     "//cc/paint",
     "//chrome/app:generated_resources",

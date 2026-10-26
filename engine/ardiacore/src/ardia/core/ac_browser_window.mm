@@ -2,9 +2,6 @@
 
 #import <AppKit/AppKit.h>
 
-#include <stdlib.h>
-#include <string.h>
-
 #include <map>
 #include <set>
 
@@ -46,6 +43,7 @@
 #include "ardia/core/ac_extension_shortcuts.h"
 #include "ardia/core/ac_lifetime.h"
 #include "ardia/core/ac_modal_dialog_host.h"
+#include "ardia/core/ac_launch_switches.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/content_accelerators/accelerator_util.h"
@@ -934,8 +932,7 @@ class BackgroundEyeDropper : public content::EyeDropper {
 std::unique_ptr<content::EyeDropper> ACBrowserWindow::OpenEyeDropper(
     content::RenderFrameHost* frame,
     content::EyeDropperListener* listener) {
-  const char* background = getenv("ARDIA_BACKGROUND");
-  if (background && !strcmp(background, "1") && listener) {
+  if (BackgroundInstance() && listener) {
     return features::IsEyeDropperEnabled()
                ? std::make_unique<BackgroundEyeDropper>(listener)
                : nullptr;

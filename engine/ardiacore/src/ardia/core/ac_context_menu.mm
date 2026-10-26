@@ -28,6 +28,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "ardia/core/ac_browser.h"
+#include "ardia/core/ac_launch_switches.h"
 #import "ardia/core/ardiacore_internal.h"
 #include "ui/events/event_constants.h"
 #include "ui/base/page_transition_types.h"
@@ -224,8 +225,7 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
 
  private:
   bool ShowThroughHost() {
-    static const bool to_host =
-        getenv("ARDIA_BACKGROUND") || getenv("ARDIA_CONTEXT_MENU_LOG");
+    static const bool to_host = BackgroundInstance() || TestFlag("contextMenu");
     if (!to_host) {
       return false;
     }
@@ -259,7 +259,7 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
     ui::MenuModel* owner = nullptr;
     size_t index = 0;
     const bool found = command && FindPicked(model, path, command.intValue, &owner, &index);
-    if (command && getenv("ARDIA_CONTEXT_MENU_LOG")) {
+    if (command && TestFlag("contextMenu")) {
       const std::string where =
           !found            ? "not found"
           : owner == model ? "top level"
