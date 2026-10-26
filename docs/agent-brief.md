@@ -83,16 +83,16 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
 
 | Concern | Engine | App | JS |
 | --- | --- | --- | --- |
-| Windows, tab ownership | `ac_browser.h` (`WindowHost`, `ACWebContentsDelegate`, `TabBridge`), `ac_browser_window.mm` | `ArdiaWindowController.mm`, `ArdiaChromeWindowHost.mm`, `ArdiaTabStrip.mm` | `state/tabs/chromeTabs.ts`, `state/tabs/liveTabs.ts` |
-| Tab activation | `ardiacore_api.mm` `-activateTab:`, `ac_browser.mm` `ActiveTabChanged` | `ArdiaWebView+Tab.mm` `-tabActivatedByChrome:`, `ArdiaTabStrip.mm` | same |
-| Focus guard (test instances) | `ac_browser.mm` (`WindowHost` activation) | `ArdiaActivation.mm` (`activation.log`), `ArdiaWindowFullScreen.mm` (acted-out occlusion), `ArdiaWebView+Focus.mm` | `packages/shell/ios/WindowManager.swift` |
-| Fullscreen | `ac_browser_window.mm` (`ExclusiveAccessContext`), `ac_browser.mm` `FullscreenChanged` | `ArdiaWindowFullScreen.mm` (acted out in test instances), `ArdiaFullScreenLights.mm`, `ArdiaPageCover.mm` | `components/window/ContentCard.tsx`, `state/tabs/pageState.ts` |
+| Windows, tab ownership | `ac_browser.h` (`WindowHost` in `ac_window_host*.mm`, `ACWebContentsDelegate` in `ac_web_contents_delegate.mm`, `TabBridge` in `ac_tab_bridge*.mm`), `ac_browser_window*.mm` | `ArdiaWindowController.mm`, `ArdiaChromeWindowHost.mm`, `ArdiaTabStrip.mm` | `state/tabs/chromeTabs.ts`, `state/tabs/liveTabs.ts` |
+| Tab activation | `ardiacore_window.mm` `-activateTab:`, `ac_window_host_tabs.mm` `ActiveTabChanged` | `ArdiaWebView+Tab.mm` `-tabActivatedByChrome:`, `ArdiaTabStrip.mm` | same |
+| Focus guard (test instances) | `ac_window_host.mm` (`WindowHost` activation) | `ArdiaActivation.mm` (`activation.log`), `ArdiaWindowFullScreen.mm` (acted-out occlusion), `ArdiaWebView+Focus.mm` | `packages/shell/ios/WindowManager.swift` |
+| Fullscreen | `ac_browser_window_exclusive_access.mm` (`ExclusiveAccessContext`), `ac_window_host_tabs.mm` `FullscreenChanged` | `ArdiaWindowFullScreen.mm` (acted out in test instances), `ArdiaFullScreenLights.mm`, `ArdiaPageCover.mm` | `components/window/ContentCard.tsx`, `state/tabs/pageState.ts` |
 | Picture in Picture | `ac_picture_in_picture.mm`; Dia's window and controls in `engine/chromium/…/ardia/pip/`; the auto-PiP hook in `engine/ardiacore/apply.sh` | `ArdiaPictureInPicture.mm` (monitors, `ardia_pip`), `ArdiaPiPController.mm` (+`Swipe`, +`SelfTest`), `ArdiaPiPZoom.mm`, `ArdiaWebView+PictureInPicture.mm` | `components/media/pip.ts` |
 | Password and autofill bubbles | `ac_password_prompt.mm`, `ac_browser_window.h` (`ACAutofillBubbleHandler`), `ac_autofill_trigger.mm` (dropdown) | `ArdiaWindowController.mm` (`window:passwordPrompt:forTab:`) → `ArdiaWebView` event | `components/site/Prompts.tsx`, `site/Autofill.tsx` |
-| Share tab, screen share | `ardiacore_api.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaHost.mm` `shareTabInstead`, `MediaModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
-| Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs) | `ArdiaWebView+Tab.mm` (`discard:`), `ArdiaWebView+Transfer.mm` (`transferKey`), `ArdiaTabParking.mm` | `state/tabs/tabLifecycle.ts`, `state/windows/windows.ts` |
+| Share tab, screen share | `ardiacore_tab_media.mm` (`TabSharingDelegateFor`), `ac_desktop_capture.mm` | `ArdiaHost.mm` `shareTabInstead`, `MediaModule.swift` | `components/media/ShareBar.tsx`, `SharePicker.tsx` |
+| Restore, discard | `engine/chromium/…/ac_tab_restore.cc` (closed tabs), `ac_tab_restore_history.cc` (each tab's history) | `ArdiaWebView+Tab.mm` (`discard:`), `ArdiaWebView+Transfer.mm` (`transferKey`), `ArdiaTabParking.mm` | `state/tabs/tabLifecycle.ts`, `state/windows/windows.ts` |
 | Permissions | `ac_permissions.mm` | `ArdiaHostEngineDelegate.mm` (`permissionRequest`), `ArdiaPopupWindow.mm` | `state/site/permissions.ts`, `Prompts.tsx` |
-| Page script | `ac_page_channel.mm`, `renderer/ac_content_renderer_client.cc` | `page_script.js`, `ArdiaWebView+PageMessages.mm`, `ArdiaWebView+Peek.mm` | `onPageMessage` (`packages/ardiacore/src/WebView.tsx`) |
+| Page script | `ac_page_channel.mm` (+`ac_page_channel_held.mm`, messages held for a page not shown yet), `renderer/ac_content_renderer_client.cc` | `page_script.js`, `ArdiaWebView+PageMessages.mm`, `ArdiaWebView+Peek.mm` | `onPageMessage` (`packages/ardiacore/src/WebView.tsx`) |
 
 - **Pod layout** (`packages/ardiacore/ios`): one class per file, or one category per file named `Class+Concern`.
   A split class shares its ivars, private methods and helpers through one internal header (`ArdiaWebViewInternal.h`,
@@ -108,12 +108,20 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   `ArdiaHostEngineDelegate`, `ArdiaProfiles`, `ArdiaEarlyWindow` (+`Pages`, `Layouts`, `Covers`, `ArdiaLaunchPicture`).
 - **Call path:** JS `call("domain.verb", args)` (`packages/ardiacore/src/engine/call.ts`) → that domain module's `call`
   table (`<Domain>Module.swift`, `EngineCall.swift`) → `ArdiaHost` / `ArdiaServices` / `ArdiaWebView` or straight to an
-  `ac_*` export → `public/ArdiaCore.h` → `ardiacore_api.mm` → `ac_*.mm`. Replies cross as JSON, parsed once in JS.
+  `ac_*` export → `public/ArdiaCore.h` → `ardiacore_<class>.mm` → `ac_*.mm`. Replies cross as JSON, parsed once in JS.
   App events go through `ArdiaEvents` (`emit:@"domain.event"`) to that domain module's one channel (its event name is the domain); a page's
   events come back through an `ArdiaCore*Delegate` method and `-emit:payload:` to the view's one `onPageEvent` channel
   (`PageEvents.swift`, only the names JS listens to), demuxed in `WebView.tsx`. Both page engines implement
   `PageEngine` (`PageEngine.swift`): ids they minted (`wk-…` for WebKit) route to them natively.
-- **Adding to `ArdiaCore.h`:** implement it in `ardiacore_api.mm` (a new file goes in `BUILD.gn` `sources`); a new class
+- **Engine layout** (`//ardia/core`, `//chrome/browser/ardia`): one class, or one category or concern, per file, named after
+  it. `ArdiaCore.h`'s classes live in `ardiacore_engine.mm` (+`ardiacore_engine_tracing.mm`), `ardiacore_profile.mm`,
+  `ardiacore_window.mm` and `ardiacore_tab.mm`, whose categories (`Navigation`, `Page`, `Commands`, `Media`,
+  `Extensions`) are `ardiacore_tab_<category>.mm`; the engine's calls into the app delegate are `ardiacore_hooks.mm`. A
+  split class or file shares its ivars and helpers through one internal header (`ardiacore_api_internal.h`,
+  `ardiacore_tab_internal.h`, `ac_browser_internal.h`, `ac_video_upscaler_internal.h`; in `chrome/browser/ardia`,
+  `ac_<domain>_internal.h` in namespace `ardia::<domain>_internal`).
+- **Adding to `ArdiaCore.h`:** one form per call. Implement it in its class's file, or a category's (a new file goes in
+  `BUILD.gn` `sources`); a member implemented in a category file is declared in that category in `ArdiaCore.h`. A new class
   must be named `ArdiaCore*` to be exported (the `ardiacore.exports` wildcard). The pod reads `ArdiaCore.h` from the repo and
   the app and the engine ship together, so the app calls new selectors directly (no `respondsToSelector:`).
 - **Adding an engine call** (Chrome's services are `ac_*` C calls in `engine/chromium`, which the app finds with
@@ -131,7 +139,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   `ACPopupWindow.mm` → `ArdiaWindowController.mm`, `ArdiaPopupWindow.mm`; `ACActivation`, `ACTabStrip`, `ACPictureInPicture`,
   `ACContentBlocker`, `ACEngineBridge` → `Ardia<same>*.mm`; `ACPasswords`, `ACAutofill`, `ACZoom` →
   `ArdiaServices.mm`; `ACExtensions.mm` → `ExtensionsModule.swift`; `ACCef.mm` → `ArdiaHost*.mm`,
-  `ArdiaStartup.mm`; `ACEngine.mm` → `ardiacore_api.mm`; `helper/page_script.js` → `packages/ardiacore/ios/`;
+  `ArdiaStartup.mm`; `ACEngine.mm` → `ardiacore_*.mm`; `helper/page_script.js` → `packages/ardiacore/ios/`;
   `packages/cef/src` → `packages/ardiacore/src`.
 
 ## Rules
@@ -202,7 +210,7 @@ Engine files are in `engine/ardiacore/src/ardia/core`, app files in `packages/ar
   `apps/browser/src/state/commands/commands.ts`, `apps/browser/src/App.tsx`, `apps/browser/src/state/settings/settings.ts`,
   `apps/browser/src/components/ui/theme.ts`, `packages/ardiacore/ios/ArdiaInternal.h`, `packages/ardiacore/ios/ArdiaCore.podspec`,
   `packages/ardiacore/ios/ArdiaWebViewInternal.h`, `packages/ardiacore/scripts/acceptance.mjs`, ArdiaCore's `public/ArdiaCore.h`,
-  `ardiacore_api.mm` and `ac_browser*.mm`, the `expo-module.config.json` files: re-read right before each edit, keep
+  `ardiacore_*.mm` and `ac_browser*.mm`, the `expo-module.config.json` files: re-read right before each edit, keep
   edits small and additive (add your case/item/field; don't restructure), and never undo someone else's lines.
   Native files there compile into everyone's build: check one pod with `scripts/agent/typecheck-pod <Pod>` before saving more.
 - **Scratch files** go in a subdirectory of the session scratchpad named for your task; clean up only that
