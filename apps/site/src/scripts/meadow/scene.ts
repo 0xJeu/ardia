@@ -1,3 +1,4 @@
+import { GpuClock, Scaler } from "./budget";
 import { GrassBrush } from "./brush";
 import { ColorProbe, TextTones } from "./legibility";
 import { DAY_MOVE_MS, easeInOutSine, SUNRISE_HOLD_MS, sunriseElapsed, sunriseProgress } from "./clock";
@@ -104,6 +105,7 @@ const SHARE_ROW_SLACK = 8;
 const TAP_PX = 10;
 const AMBIENT_FRAME_MS = 1000 / 30;
 const AMBIENT_EARLY_MS = 4;
+const MAX_HELD_FRAMES = 2;
 const ACTIVE_HOLD_MS = 700;
 const CYCLE_RAMP_SECONDS = 2.5;
 const DRAG_FOLLOW = 18;
@@ -183,9 +185,10 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
   let firstFrameSent = false;
   let lastNow = 0;
   let windTime = 0;
-  let renderScale = 1;
-  let frameCost = 0;
-  let framesSinceScale = 0;
+  const clock = new GpuClock(gl);
+  const scaler = new Scaler();
+  let inFlight: WebGLSync | null = null;
+  let heldFrames = 0;
   let brushUploaded = false;
   let smearUploaded = false;
   let needsRender = true;
@@ -459,7 +462,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
 
   const ensureSize = () => {
     const budgetDpr = Math.sqrt(tier.pixelBudget / Math.max(1, cssWidth * cssHeight));
-    const dpr = Math.min(window.devicePixelRatio || 1, tier.dprCap, budgetDpr) * renderScale;
+    const dpr = Math.min(window.devicePixelRatio || 1, tier.dprCap, budgetDpr) * scaler.scale;
     const width = Math.max(1, Math.round(cssWidth * dpr));
     const height = Math.max(1, Math.round(cssHeight * dpr));
     if (canvas.width !== width || canvas.height !== height) {
@@ -684,7 +687,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       .float("uTime", windTime);
   };
 
-  const render = (now: number, dt: number) => {
+  const render = (now: number, dt: number, busy: boolean) => {
     if (!gpu || !targets) return;
     const g = gpu;
     const t = targets;
@@ -800,6 +803,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       brushUploaded = true;
     }
 
+    clock.start(busy);
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.sceneFramebuffer);
     gl.viewport(0, 0, t.width, t.height);
     gl.disable(gl.BLEND);
@@ -926,6 +930,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
         gl.disable(gl.BLEND);
       }
     }
+    clock.stop();
     gl.bindVertexArray(null);
 
     if (!firstFrameSent) {
@@ -955,7 +960,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       } else if (phase === "live") {
         readProbe();
         const busy = isBusy(now);
-        if (busy || now - lastRenderAt >= AMBIENT_FRAME_MS - AMBIENT_EARLY_MS) renderLive(now, busy);
+        if ((busy || now - lastRenderAt >= AMBIENT_FRAME_MS - AMBIENT_EARLY_MS) && !gpuBehind()) renderLive(now, busy);
       }
     } catch (error) {
       fail(error);
@@ -970,7 +975,7 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     if (windOn && firstFrameSent) windTime += dt;
     ensureSize();
     const started = performance.now();
-    render(now, dt);
+    render(now, dt, busy);
     needsRender = false;
     lastRenderAt = now;
     if (terrainRead) pollTerrainRead(terrainRead);
@@ -979,19 +984,24 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
       startMobs();
       if (gpu && !terrainRead && !terrainReady) startTerrainRead(gpu);
     }
-    if (busy && previousFrameBusy) trackCost(dt, performance.now() - started);
+    inFlight = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!reducedMotion) {
+      if (clock.available) clock.collect((ms, busyFrame) => busyFrame && scaler.gpu(ms, now));
+      else if (busy && previousFrameBusy && dt > 0) scaler.frame(dt * 1000, performance.now() - started, now);
+    }
     previousFrameBusy = busy;
   };
 
-  const trackCost = (dt: number, cpuMs: number) => {
-    if (reducedMotion || dt <= 0) return;
-    frameCost = frameCost === 0 ? dt * 1000 : frameCost * 0.94 + dt * 1000 * 0.06;
-    framesSinceScale++;
-    if (framesSinceScale > 240 && frameCost > 24 && renderScale > 0.6 && cpuMs < 12) {
-      renderScale *= 0.85;
-      framesSinceScale = 0;
-      frameCost = 0;
+  const gpuBehind = () => {
+    if (!inFlight) return false;
+    if (gl.getSyncParameter(inFlight, gl.SYNC_STATUS) !== gl.SIGNALED && heldFrames < MAX_HELD_FRAMES) {
+      heldFrames++;
+      return true;
     }
+    gl.deleteSync(inFlight);
+    inFlight = null;
+    heldFrames = 0;
+    return false;
   };
 
   const pause = () => {
@@ -1180,6 +1190,9 @@ export function createMeadow(options: MeadowOptions): Meadow | null {
     terrainRead = null;
     terrainReady = false;
     framesSinceFirst = 0;
+    inFlight = null;
+    heldFrames = 0;
+    clock.forget();
   };
   const onRestored = () => {
     lost = false;
