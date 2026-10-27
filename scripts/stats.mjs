@@ -260,7 +260,7 @@ function classifyError({ message, list, ua, where }) {
   if (/Non-Error promise rejection captured with value: \{\}/.test(message)) return "Safari empty promise rejection (known)";
   if (/ResizeObserver loop/.test(message)) return "ResizeObserver";
   if (/Load failed|Failed to fetch|NetworkError|network error/i.test(message)) return "network drop";
-  if (/wallet|ethereum|solana|metamask/i.test(message)) return "wallet extension";
+  if (/wallet|ethereum|solana|metamask|LavaMoat/i.test(message)) return "wallet extension";
   return null;
 }
 
