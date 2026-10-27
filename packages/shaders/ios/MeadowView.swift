@@ -111,7 +111,10 @@ final class MeadowView: ExpoView {
   }
 
   private func nightChanged() {
-    if !ready { poster.isHidden = night }
+    if !ready {
+      poster.isHidden = night
+      placePoster()
+    }
     sendNight()
   }
 
@@ -122,7 +125,7 @@ final class MeadowView: ExpoView {
   }
 
   private func placePoster() {
-    guard webView != nil, !pageNight, bounds.width > 0, bounds.height > 0 else { return }
+    guard webView != nil, !(ready ? pageNight : night), bounds.width > 0, bounds.height > 0 else { return }
     if posterChoice == nil, let choice = MeadowPoster.nearest(aspect: bounds.width / bounds.height, reduceMotion: WindowActivity.reduceMotion) {
       posterChoice = choice
       choice.decode { [weak self] image in
