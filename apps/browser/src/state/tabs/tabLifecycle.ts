@@ -6,13 +6,11 @@ import { create } from "zustand";
 import { isTabReady } from "./pageState";
 import { showToast } from "../splits/actions";
 import { hasUnsavedInput, keepAliveReason, shownTabIds } from "./tabKeepAlive";
-import { isInternalTab } from "../pages/urls";
 import { openSettings } from "../settings/settingsWindows";
 import { useBrowser, type BrowserState } from "../browser/store";
 import type { BatterySaverWhen } from "../settings/settings";
-import { engineProfile, isIncognitoProfile, wake } from "../browser/model";
-import { restoredLazily } from "./pageSession";
-import { holderOf } from "../pins/pinShare";
+import { engineProfile, isIncognitoProfile } from "../browser/model";
+import { reloadRecentTabs } from "./recentTabWarmup";
 import { switchOn } from "../../platform/killSwitches";
 import { applyHeldReports } from "../../platform/nativeEvents";
 import { everySlowly, reschedule } from "../../platform/slowTimers";
@@ -275,29 +273,6 @@ export async function freezeTab(id: string): Promise<boolean> {
   return true;
 }
 
-export function reloadRecentTabs(sys: SystemState) {
-  const gb = sys.physicalMemory / 2 ** 30;
-  const busy = sys.onBattery || sys.lowPowerMode || sys.memoryPressure !== "normal";
-  const count = busy ? 0 : gb >= 32 ? 4 : gb >= 16 ? 3 : gb >= 8 ? 1 : 0;
-  const s = store();
-  const shown = shownTabIds(s);
-  const since = Date.now() - 24 * 60 * 60_000;
-  const ids = Object.values(s.tabs)
-    .filter((t) => restoredLazily(t) && !shown.has(t.id) && !isInternalTab(t) && t.lastActiveAt >= since)
-    .filter((t) => s.windows[t.windowId]?.profileId === t.profileId)
-    .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
-    .slice(0, count)
-    .map((t) => t.id);
-  ids.forEach((id, i) =>
-    setTimeout(() => {
-      const now = store();
-      const t = now.tabs[id];
-      if (t && restoredLazily(t) && !holderOf(now, id)) now.updateTab(id, wake(t));
-    }, 2000 * (i + 1)),
-  );
-  return ids;
-}
-
 let started = false;
 
 export function startTabLifecycle() {
@@ -386,7 +361,7 @@ export function startTabLifecycle() {
         loaded: loadedTabIds(),
         chromeSaver,
       }),
-      keepAliveReason: (id: string) => keepAliveReason(store(), id),
+      keepAliveReason: async (id: string) => keepAliveReason(store(), id) ?? ((await hasUnsavedInput(webviews.get(id)!).catch(() => null)) ? "unsaved input" : null),
       memory: () =>
         listTasks()
           .catch((): EngineTask[] => [])
