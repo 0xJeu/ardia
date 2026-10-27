@@ -7,6 +7,7 @@ import {
   visible,
   type Adapter,
   type ExtensionsAdapter,
+  type ScopeState,
   type FolderInfo,
   type PhraseResult,
 } from "../../platform/sync";
@@ -120,6 +121,19 @@ async function watchExtensions() {
   if (profiles.length && (await probeExtensionSync(profiles[0]!))) watchExtensionIntents(profiles);
 }
 
+function heldWhileUnapplied(adapters: Adapter[], state: ScopeState): Adapter[] {
+  return adapters.map((adapter) => ({
+    ...adapter,
+    extract: async (...args: Parameters<Adapter["extract"]>) => {
+      const extraction = await adapter.extract(...args);
+      const held = new Set(state.unapplied.filter((key) => key.startsWith(adapter.prefix)));
+      if (!extraction || !held.size) return extraction;
+      const { values, ignore } = extraction;
+      return { ...extraction, values: new Map([...values].filter(([key]) => !held.has(key))), ignore: (key: string) => held.has(key) || !!ignore?.(key) };
+    },
+  }));
+}
+
 function extensionsOf(profileId: string): ExtensionsAdapter {
   let adapter = extensionAdapters.get(profileId);
   if (!adapter) extensionAdapters.set(profileId, (adapter = extensionsAdapterFor(profileId)));
@@ -164,7 +178,7 @@ async function runCycle({ retiring = false } = {}) {
         scope: APP_SCOPE,
         state: app,
         transport,
-        adapters: appAdapters(retiring),
+        adapters: heldWhileUnapplied(appAdapters(retiring), app),
         clock,
         device,
         options: { persist: persistJournal(APP_SCOPE) },
@@ -188,7 +202,7 @@ async function runCycle({ retiring = false } = {}) {
           scope,
           state,
           transport,
-          adapters: profileAdapters(profileId, retire),
+          adapters: heldWhileUnapplied(profileAdapters(profileId, retire), state),
           clock,
           device,
           options: { expired: historyExpired, persist: persistJournal(scope) },
