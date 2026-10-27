@@ -4,132 +4,19 @@ import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { resolveWindowId, tabLayoutOf } from "../browser/model";
-import { DEFAULT_SETTINGS, type Settings } from "../settings/settings";
+import type { Settings } from "../settings/settings";
 import type { ProfileColor, ProfileTheme } from "../browser/types";
-import { pinSites } from "./sites";
+import { PRESETS, presetFor, setsUpLikeBrowser, type BrowserSourceId, type Preset } from "./presets";
 import { endToolTour, startToolTour } from "./tour";
 import { stepsForThisSurface } from "./demoSteps";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
 export { playIntroMusic, setIntroMusicMuted, stopIntroMusic, type IntroMusicCues } from "../../platform/introMusic";
+export { PRESET_NAMES, PRESETS, presetFor, setsUpLikeBrowser, type BrowserSourceId, type Preset } from "./presets";
 
 export type OnboardingStep = "intro" | "source" | "layout" | "tabs" | "look" | "searchPrivacy" | "pins" | "home" | "outro";
 
 export const STEPS: OnboardingStep[] = stepsForThisSurface(["intro", "source", "layout", "tabs", "look", "searchPrivacy", "pins", "home", "outro"]);
-
-export type BrowserSourceId = "arc" | "dia" | "chrome" | "safari" | "firefox" | "zen" | "brave" | "edge" | "fresh";
-
-export type Preset = BrowserSourceId;
-
-export const PRESET_NAMES: Record<Preset, string> = {
-  arc: "Arc",
-  dia: "Dia",
-  chrome: "Chrome",
-  safari: "Safari",
-  firefox: "Firefox",
-  zen: "Zen",
-  brave: "Brave",
-  edge: "Edge",
-  fresh: "Ardia",
-};
-
-const CLASSIC_TABS: Partial<Settings> = {
-  tabLayout: "top",
-  addressBar: "toolbar",
-  commandBarPlacement: "field",
-  newTabOpens: "page",
-  newTabPosition: "bottom",
-  newTabButtonPosition: "bottom",
-  cleanUpInactiveTabsAfterHours: null,
-  restoreSession: true,
-  shareTabsAcrossWindows: false,
-  balancedTopApps: false,
-  peekModifier: "alt",
-  undoReopensClosedTab: false,
-  cmdClickCreatesTabGroup: false,
-  appearance: "auto",
-  extendWebsiteColor: false,
-  hideToolbarWhileScrolling: false,
-  bookmarksBar: "newTab",
-  searchEngine: "google",
-  commandBarPreference: "search",
-  openLinksInLittleArdia: false,
-};
-
-export const PRESETS: Record<Preset, Partial<Settings>> = {
-  dia: {
-    tabLayout: "sidebar",
-    addressBar: "toolbar",
-    commandBarPlacement: "field",
-    newTabOpens: "page",
-    newTabPosition: "bottom",
-    newTabButtonPosition: "bottom",
-    cleanUpInactiveTabsAfterHours: null,
-    restoreSession: true,
-    shareTabsAcrossWindows: false,
-    balancedTopApps: false,
-    peekModifier: "shift",
-    undoReopensClosedTab: false,
-    cmdClickCreatesTabGroup: true,
-    appearance: "auto",
-    extendWebsiteColor: true,
-    hideToolbarWhileScrolling: true,
-    bookmarksBar: "never",
-    searchEngine: "google",
-    commandBarPreference: "website",
-    openLinksInLittleArdia: true,
-  },
-  arc: {
-    tabLayout: "sidebar",
-    addressBar: "sidebar",
-    commandBarPlacement: "centred",
-    newTabOpens: "commandBar",
-    newTabPosition: "top",
-    newTabButtonPosition: "top",
-    cleanUpInactiveTabsAfterHours: 12,
-    restoreSession: true,
-    shareTabsAcrossWindows: true,
-    balancedTopApps: true,
-    peekModifier: "shift",
-    undoReopensClosedTab: true,
-    cmdClickCreatesTabGroup: false,
-    appearance: "auto",
-    extendWebsiteColor: false,
-    hideToolbarWhileScrolling: true,
-    bookmarksBar: "never",
-    searchEngine: "google",
-    commandBarPreference: "website",
-    openLinksInLittleArdia: true,
-  },
-  zen: {
-    tabLayout: "sidebar",
-    addressBar: "sidebar",
-    commandBarPlacement: "centred",
-    newTabOpens: "commandBar",
-    newTabPosition: "top",
-    newTabButtonPosition: "top",
-    cleanUpInactiveTabsAfterHours: null,
-    restoreSession: true,
-    shareTabsAcrossWindows: false,
-    balancedTopApps: true,
-    peekModifier: "alt",
-    undoReopensClosedTab: false,
-    cmdClickCreatesTabGroup: false,
-    appearance: "auto",
-    extendWebsiteColor: false,
-    hideToolbarWhileScrolling: false,
-    bookmarksBar: "never",
-    searchEngine: "google",
-    commandBarPreference: "search",
-    openLinksInLittleArdia: false,
-  },
-  chrome: CLASSIC_TABS,
-  firefox: CLASSIC_TABS,
-  safari: { ...CLASSIC_TABS, extendWebsiteColor: true, bookmarksBar: "never" },
-  brave: { ...CLASSIC_TABS, searchEngine: "brave" },
-  edge: { ...CLASSIC_TABS, searchEngine: "bing" },
-  fresh: { addressBar: "sidebar", commandBarPlacement: "centred", newTabPosition: "nextToCurrent", newTabButtonPosition: "bottom" },
-};
 
 export type QuestionId =
   | "source"
@@ -192,8 +79,6 @@ const QUESTIONS: Record<Exclude<OnboardingStep, "intro">, Question[]> = {
 
 export const QUESTION_ORDER: QuestionId[] = Object.values(QUESTIONS).flatMap((list) => list.map((q) => q.id));
 
-export const setsUpLikeBrowser = (source: BrowserSourceId | null): source is Exclude<BrowserSourceId, "fresh"> => !!source && source !== "fresh";
-
 const answeredByPreset = (q: Question, preset: Preset) => q.keys.length > 0 && q.keys.every((k) => k in PRESETS[preset]);
 
 export function questionsFor(step: OnboardingStep): Question[] {
@@ -209,8 +94,6 @@ export function questionsFor(step: OnboardingStep): Question[] {
 export const activeSteps = () => STEPS.filter((step) => step === "intro" || questionsFor(step).length > 0);
 
 export const presetPatch = (source: BrowserSourceId | null): Partial<Settings> => (setsUpLikeBrowser(source) ? PRESETS[source] : {});
-
-export const presetFor = (source: BrowserSourceId | null): Preset => source ?? "dia";
 
 export type Extras = {
   color: ProfileColor;
@@ -454,13 +337,8 @@ export function startOnboarding(windowId?: string | null, step: OnboardingStep =
   save({ step, sub: 0, source: null, preset: "dia", picked: {} });
 }
 
-export function resetOnboarding(windowId?: string | null) {
-  const id = resolveWindowId(useBrowser.getState(), windowId);
-  if (!id) return;
+export const forgetOnboardingProgress = () =>
   writeDocument(DOC, versionedJson({ completedAt: null, startedAt: Date.now(), introMusicMuted: introMusicMuted() } satisfies Saved, DOC_VERSION));
-  useBrowser.setState((s) => ({ settings: DEFAULT_SETTINGS, windows: { ...s.windows, [id]: { ...s.windows[id]!, tabLayout: DEFAULT_SETTINGS.tabLayout } } }));
-  startOnboarding(id);
-}
 
 function resumeOnboarding(saved: Saved) {
   const id = resolveWindowId(useBrowser.getState(), null);
@@ -509,20 +387,3 @@ export function maybeStartOnboarding() {
   save({ startedAt: Date.now() });
   startOnboarding();
 }
-
-if (__DEV__) (globalThis as { acOnboarding?: unknown }).acOnboarding = {
-    store: useOnboarding,
-    go: goToStep,
-    start: startOnboarding,
-    reset: resetOnboarding,
-    chooseSource,
-    confirmAnswer,
-    presetPatch,
-    nextStep,
-    activeSteps,
-    finish: finishOnboarding,
-    pinSites,
-    resolveDraft,
-    questionsFor,
-    PRESETS,
-  };

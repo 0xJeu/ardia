@@ -22,6 +22,7 @@ public class DockSelectionModule: Module {
       Prop("dark") { (view: DockSelection, v: Bool) in view.dark = v }
       Prop("iconSize") { (view: DockSelection, v: Double) in view.iconSize = v }
       Prop("glass") { (view: DockSelection, v: Bool?) in view.glass = v ?? false }
+      Prop("colorRing") { (view: DockSelection, v: Bool?) in view.colorRing = v ?? false }
     }
   }
 }
