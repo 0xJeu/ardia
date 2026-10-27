@@ -6,7 +6,7 @@ const SECRETS = {
   clickhouseReader: "TELEMETRY_CLICKHOUSE_READER_PASSWORD",
 } as const;
 
-const SEAWEEDFS = "docker.io/chrislusf/seaweedfs:4.51@sha256:f7a49e3f3972ebed5be2ed4befa4a0c68eb7bdddba6e692d42729ceb545134b8";
+const SEAWEEDFS_4_51 = "docker.io/chrislusf/seaweedfs@sha256:f7a49e3f3972ebed5be2ed4befa4a0c68eb7bdddba6e692d42729ceb545134b8";
 
 export const deploy = ({ secret, service }: any) => ({
   services: {
@@ -42,7 +42,7 @@ export const deploy = ({ secret, service }: any) => ({
       minInstances: 1,
       memory: "1GB",
       ports: { 8888: { protocol: "tcp" } },
-      image: SEAWEEDFS,
+      image: SEAWEEDFS_4_51,
       startCommand:
         "mkdir -p /data/weed && cd /data/weed && " +
         "{ (until echo 'fs.configure -locationPrefix=/buckets/replays/ -ttl=30d -apply' | weed shell -master=localhost:9333 2>/dev/null | grep -q replays; do sleep 3; done; echo '[ac] replays kept 30 days') & } && " +
