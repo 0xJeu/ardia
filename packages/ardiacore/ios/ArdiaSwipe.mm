@@ -390,6 +390,7 @@ BOOL HandleMouseButton(NSEvent *event) {
     gSwallowedButtons &= ~mask;
     return swallowed;
   }
+  gSwallowedButtons &= ~mask;
   NSView<ArdiaSwipeTarget> *target = nil;
   BOOL fallback = NO;
   ResolveHit(event.window, event.locationInWindow, &target, &fallback);

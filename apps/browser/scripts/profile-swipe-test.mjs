@@ -267,6 +267,38 @@ try {
       pageBackSupported: pageBackUrl === base + 2,
       note: pageBackUrl === base + 3 ? "Chromium did not navigate for the page-only mouse button press" : "Chromium navigated back over the page" };
   });
+  await test("mouse button a missed sidebar release does not swallow a later page release", async () => {
+    await reset();
+    const window = (await nativeWindow()).window;
+    const target = `http://127.0.0.1:${server.address().port}/history-missed-release`;
+    await ac(`ac.store.getState().activate("t1"); ac.store.getState().navigate("t1", ${JSON.stringify(target)}); return true;`);
+    for (let start = Date.now(); Date.now() - start < 5000 && await ac('return ac.store.getState().tabs.t1.url;') !== target;) await sleep(50);
+    await sleep(500);
+    const pageTab = () => owned.page("/history-missed-release", { timeout: 0 });
+    let page = await pageTab();
+    assert.ok(page, "history page should have a CDP target");
+    try {
+      await page.eval('window.__ups=[]; addEventListener("mouseup",(e)=>window.__ups.push(e.button),true); true', { timeout: 3000 });
+    } finally { page.close(); }
+    const control = await mouseButton(window, 4, 700, 400);
+    await sleep(300);
+    page = await pageTab();
+    try {
+      assert.ok((await page.eval("window.__ups", { timeout: 3000 })).length > 0, "the page listener must see an ordinary page release");
+      await page.eval("window.__ups.length=0; true", { timeout: 3000 });
+    } finally { page.close(); }
+    const missed = await action(window, "mouse:otherdown:120,400,1,0,4");
+    await waitProfile("work");
+    await sleep(350);
+    await reset();
+    const press = await mouseButton(window, 4, 700, 400);
+    await sleep(500);
+    page = await pageTab();
+    let ups;
+    try { ups = await page.eval("window.__ups", { timeout: 3000 }); } finally { page.close(); }
+    assert.ok(ups.length > 0, `the page must still see the release of a press that began over the page, got ${JSON.stringify(ups)}`);
+    return { control, missed, press, ups };
+  });
   await test("mouse button presses leave a private sidebar unchanged with no pager target", async () => {
     await reset();
     const before = new Set((await windows()).map((w) => w.window));
