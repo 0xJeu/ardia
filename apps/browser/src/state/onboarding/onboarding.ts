@@ -4,7 +4,7 @@ import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { resolveWindowId, tabLayoutOf } from "../browser/model";
-import type { Settings } from "../settings/settings";
+import { DEFAULT_SETTINGS, type Settings } from "../settings/settings";
 import type { ProfileColor } from "../browser/types";
 import { pinSites } from "./sites";
 import { endToolTour, startToolTour } from "./tour";
@@ -17,33 +17,118 @@ export type OnboardingStep = "intro" | "source" | "layout" | "tabs" | "look" | "
 
 export const STEPS: OnboardingStep[] = stepsForThisSurface(["intro", "source", "layout", "tabs", "look", "searchPrivacy", "pins", "home", "outro"]);
 
-export type Preset = "arc" | "dia";
-
 export type BrowserSourceId = "arc" | "dia" | "chrome" | "safari" | "firefox" | "zen" | "brave" | "edge" | "fresh";
+
+export type Preset = BrowserSourceId;
+
+export const PRESET_NAMES: Record<Preset, string> = {
+  arc: "Arc",
+  dia: "Dia",
+  chrome: "Chrome",
+  safari: "Safari",
+  firefox: "Firefox",
+  zen: "Zen",
+  brave: "Brave",
+  edge: "Edge",
+  fresh: "Ardia",
+};
+
+const CLASSIC_TABS: Partial<Settings> = {
+  tabLayout: "top",
+  addressBar: "toolbar",
+  commandBarPlacement: "field",
+  newTabOpens: "page",
+  newTabPosition: "bottom",
+  newTabButtonPosition: "bottom",
+  cleanUpInactiveTabsAfterHours: null,
+  restoreSession: true,
+  shareTabsAcrossWindows: false,
+  balancedTopApps: false,
+  peekModifier: "alt",
+  undoReopensClosedTab: false,
+  cmdClickCreatesTabGroup: false,
+  appearance: "auto",
+  extendWebsiteColor: false,
+  hideToolbarWhileScrolling: false,
+  bookmarksBar: "newTab",
+  searchEngine: "google",
+  commandBarPreference: "search",
+  openLinksInLittleArdia: false,
+};
 
 export const PRESETS: Record<Preset, Partial<Settings>> = {
   dia: {
+    tabLayout: "sidebar",
     addressBar: "toolbar",
     commandBarPlacement: "field",
     newTabOpens: "page",
     newTabPosition: "bottom",
     newTabButtonPosition: "bottom",
-    balancedTopApps: false,
-    shareTabsAcrossWindows: false,
     cleanUpInactiveTabsAfterHours: null,
+    restoreSession: true,
+    shareTabsAcrossWindows: false,
+    balancedTopApps: false,
+    peekModifier: "shift",
+    undoReopensClosedTab: false,
+    cmdClickCreatesTabGroup: true,
+    appearance: "auto",
+    extendWebsiteColor: true,
+    hideToolbarWhileScrolling: true,
+    bookmarksBar: "never",
+    searchEngine: "google",
+    commandBarPreference: "website",
     openLinksInLittleArdia: true,
   },
   arc: {
+    tabLayout: "sidebar",
     addressBar: "sidebar",
     commandBarPlacement: "centred",
     newTabOpens: "commandBar",
     newTabPosition: "top",
     newTabButtonPosition: "top",
-    balancedTopApps: true,
-    shareTabsAcrossWindows: true,
     cleanUpInactiveTabsAfterHours: 12,
+    restoreSession: true,
+    shareTabsAcrossWindows: true,
+    balancedTopApps: true,
+    peekModifier: "shift",
+    undoReopensClosedTab: true,
+    cmdClickCreatesTabGroup: false,
+    appearance: "auto",
+    extendWebsiteColor: false,
+    hideToolbarWhileScrolling: true,
+    bookmarksBar: "never",
+    searchEngine: "google",
+    commandBarPreference: "website",
     openLinksInLittleArdia: true,
   },
+  zen: {
+    tabLayout: "sidebar",
+    addressBar: "sidebar",
+    commandBarPlacement: "centred",
+    newTabOpens: "commandBar",
+    newTabPosition: "top",
+    newTabButtonPosition: "top",
+    cleanUpInactiveTabsAfterHours: null,
+    restoreSession: true,
+    shareTabsAcrossWindows: false,
+    balancedTopApps: true,
+    peekModifier: "alt",
+    undoReopensClosedTab: false,
+    cmdClickCreatesTabGroup: false,
+    appearance: "auto",
+    extendWebsiteColor: false,
+    hideToolbarWhileScrolling: false,
+    bookmarksBar: "never",
+    searchEngine: "google",
+    commandBarPreference: "search",
+    openLinksInLittleArdia: false,
+  },
+  chrome: CLASSIC_TABS,
+  firefox: CLASSIC_TABS,
+  safari: { ...CLASSIC_TABS, extendWebsiteColor: true, bookmarksBar: "never" },
+  brave: { ...CLASSIC_TABS, searchEngine: "brave" },
+  edge: { ...CLASSIC_TABS, searchEngine: "bing" },
+  fresh: { addressBar: "sidebar", commandBarPlacement: "centred", newTabPosition: "nextToCurrent", newTabButtonPosition: "bottom" },
 };
 
 export type QuestionId =
@@ -107,17 +192,25 @@ const QUESTIONS: Record<Exclude<OnboardingStep, "intro">, Question[]> = {
 
 export const QUESTION_ORDER: QuestionId[] = Object.values(QUESTIONS).flatMap((list) => list.map((q) => q.id));
 
+export const setsUpLikeBrowser = (source: BrowserSourceId | null): source is Exclude<BrowserSourceId, "fresh"> => !!source && source !== "fresh";
+
+const answeredByPreset = (q: Question, preset: Preset) => q.keys.length > 0 && q.keys.every((k) => k in PRESETS[preset]);
+
 export function questionsFor(step: OnboardingStep): Question[] {
   if (step === "intro") return [];
-  const list = QUESTIONS[step];
+  const { windowId, draft, preset, source } = useOnboarding.getState();
+  const list = setsUpLikeBrowser(source) ? QUESTIONS[step].filter((q) => !answeredByPreset(q, preset)) : QUESTIONS[step];
   if (step !== "layout") return list;
-  const { windowId, draft, preset } = useOnboarding.getState();
   const b = useBrowser.getState();
   const { tabLayout } = resolveDraft(["tabLayout"], draft, preset, { ...b.settings, tabLayout: tabLayoutOf(b, windowId) });
   return tabLayout === "top" ? list.filter((q) => q.id !== "address") : list;
 }
 
-export const presetFor = (source: BrowserSourceId | null): Preset => (source === "arc" || source === "zen" ? "arc" : "dia");
+export const activeSteps = () => STEPS.filter((step) => step === "intro" || questionsFor(step).length > 0);
+
+export const presetPatch = (source: BrowserSourceId | null): Partial<Settings> => (setsUpLikeBrowser(source) ? PRESETS[source] : {});
+
+export const presetFor = (source: BrowserSourceId | null): Preset => source ?? "dia";
 
 export type Extras = {
   color: ProfileColor;
@@ -147,7 +240,10 @@ type OnboardingState = {
   picked: Partial<Record<QuestionId, string[]>>;
 };
 
-const stepAfter = (step: OnboardingStep, delta: number) => STEPS[STEPS.indexOf(step) + delta];
+const stepAfter = (step: OnboardingStep, delta: number) => {
+  const steps = activeSteps();
+  return steps[steps.indexOf(step) + delta];
+};
 
 const setWindowLayout = (windowId: string, tabLayout: Settings["tabLayout"]) =>
   useBrowser.setState((s) => {
@@ -339,10 +435,18 @@ export function startOnboarding(windowId?: string | null, step: OnboardingStep =
   save({ step, sub: 0, source: null, preset: "dia", picked: {} });
 }
 
+export function resetOnboarding(windowId?: string | null) {
+  const id = resolveWindowId(useBrowser.getState(), windowId);
+  if (!id) return;
+  writeDocument(DOC, versionedJson({ completedAt: null, startedAt: Date.now(), introMusicMuted: introMusicMuted() } satisfies Saved, DOC_VERSION));
+  useBrowser.setState((s) => ({ settings: DEFAULT_SETTINGS, windows: { ...s.windows, [id]: { ...s.windows[id]!, tabLayout: DEFAULT_SETTINGS.tabLayout } } }));
+  startOnboarding(id);
+}
+
 function resumeOnboarding(saved: Saved) {
   const id = resolveWindowId(useBrowser.getState(), null);
   if (!id) return;
-  const step = saved.step && STEPS.includes(saved.step) && saved.step !== "intro" ? saved.step : "source";
+  const step = saved.step && saved.step !== "intro" && STEPS.includes(saved.step) ? saved.step : "source";
   const source = saved.source ?? null;
   useOnboarding.setState((s) => ({
     ...FRESH,
@@ -356,6 +460,8 @@ function resumeOnboarding(saved: Saved) {
     tourAfter: false,
     session: s.session + 1,
   }));
+  const next = activeSteps().find((s) => STEPS.indexOf(s) >= STEPS.indexOf(step)) ?? "outro";
+  if (next !== step) return goToStep(next);
   const sub = Math.min(saved.sub ?? 0, questionsFor(step).length - 1);
   if (sub > 0) useOnboarding.setState({ sub });
 }
@@ -389,6 +495,12 @@ if (__DEV__) (globalThis as { acOnboarding?: unknown }).acOnboarding = {
     store: useOnboarding,
     go: goToStep,
     start: startOnboarding,
+    reset: resetOnboarding,
+    chooseSource,
+    confirmAnswer,
+    presetPatch,
+    nextStep,
+    activeSteps,
     finish: finishOnboarding,
     pinSites,
     resolveDraft,

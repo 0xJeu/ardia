@@ -7,7 +7,7 @@ import { importModule } from "../../state/import/importApi";
 import { isWebDemo } from "../../state/onboarding/demoSteps";
 import { openImport } from "../../state/settings/settingsWindows";
 import { CONTENT_WIDTH } from "./ChoiceList";
-import { chooseSource, confirmAnswer, presetFor, skipStep, useOnboarding, type BrowserSourceId } from "../../state/onboarding/onboarding";
+import { chooseSource, confirmAnswer, PRESET_NAMES, presetFor, presetPatch, skipStep, useOnboarding, type BrowserSourceId } from "../../state/onboarding/onboarding";
 import { StepActions, StepLayout } from "./StepLayout";
 import { SecondaryButton } from "./Buttons";
 import { CheckMark, SectionLabel, SelectTile, Tag, useOnboardingColors } from "./Parts";
@@ -47,7 +47,9 @@ function detect(): Tile[] {
   return CANDIDATES.map((group) => {
     const found = group.find((c) => fileExists(c.app));
     if (found) return { id: found.id, name: found.name, app: found.app, icon: null, importId: found.importId };
-    return { id: group[0]!.id, name: [...new Set(group.filter((c) => !c.importId).map((c) => c.name))].join(" or "), app: null, icon: null };
+    const names = [...new Set(group.filter((c) => !c.importId).map((c) => c.name))];
+    const families = names.filter((name) => !names.some((other) => other !== name && name.startsWith(`${other} `)));
+    return { id: group[0]!.id, name: families.join(" or "), app: null, icon: null };
   });
 }
 
@@ -76,14 +78,14 @@ export function SourceStep() {
     setImporting(chosen.id);
   };
 
-  const done = () => confirmAnswer("source", {}, chosen ? [`Coming from ${chosen.name}`] : source === "fresh" ? ["Starting fresh"] : []);
+  const done = () => confirmAnswer("source", presetPatch(source), chosen ? [`Coming from ${chosen.name}`] : source === "fresh" ? ["Starting fresh"] : []);
 
   if (pastingCode) return <SetupCodeStep onBack={() => setPastingCode(false)} />;
 
   return (
     <StepLayout
       title="Where are you coming from?"
-      subtitle="Ardia sets itself up the way you're used to. Change anything later."
+      subtitle="Ardia sets itself up the way you're used to."
       actions={
         <>
           <StepActions
@@ -186,7 +188,7 @@ function SourcePreview({ tile, fresh, found }: { tile: Tile | null; fresh: boole
       ) : null}
       {from.length ? <Symbol name="arrow.down" size={18} weight="medium" color={colors.steps} style={{ width: 24, height: 24 }} /> : null}
       <Image source={ICON} style={{ width: tile || fresh ? 96 : 72, height: tile || fresh ? 96 : 72 }} />
-      {tile || fresh ? <Tag title={preset === "arc" ? "Starts out Arc-style" : "Starts out Dia-style"} /> : null}
+      {tile || fresh ? <Tag title={`Starts out ${PRESET_NAMES[preset]}-style`} /> : null}
     </View>
   );
 }

@@ -3,7 +3,7 @@ import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, typ
 import { useTheme } from "../ui/theme";
 import { onboardingColors } from "./tokens";
 import { Radio, Symbol, useHover } from "../ui";
-import { questionsFor, STEPS, useOnboarding, type OnboardingStep } from "../../state/onboarding/onboarding";
+import { activeSteps, questionsFor, useOnboarding, type OnboardingStep } from "../../state/onboarding/onboarding";
 import { curve } from "../ui/motion";
 import { font, weight } from "../ui/tokens";
 import { onboardingMotion, onboardingType } from "./tokens";
@@ -27,7 +27,8 @@ export function StepProgress() {
   const step = useOnboarding((s) => s.step);
   const sub = useOnboarding((s) => s.sub);
   useOnboarding((s) => s.draft);
-  const steps: OnboardingStep[] = STEPS.filter((s) => s !== "intro");
+  useOnboarding((s) => s.source);
+  const steps: OnboardingStep[] = activeSteps().filter((s) => s !== "intro");
   const index = steps.indexOf(step);
   const count = questionsFor(step).length;
   return (
