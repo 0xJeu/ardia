@@ -6,9 +6,14 @@ enum UpdatePrewarm {
   static let timeout: TimeInterval = 90
   static let installHold: TimeInterval = 15
   static let lastRunKey = "ACUpdatePrewarm"
+  static let statusStarted = -1
+  static let statusSpawnFailed = -2
+  static let statusRejected = -3
+  static let statusStopped = Int(SIGKILL)
   private static var started = Set<String>()
   private static var running: pid_t = 0
   private static var runningVersion: String?
+  private static var attempt: Attempt?
   private static var generation = 0
   private static var afterRun: [() -> Void] = []
   private static var watchingQuit = false
@@ -21,10 +26,10 @@ enum UpdatePrewarm {
 
   static func warm(version: String) {
     guard runningVersion != version, LaunchConfig.shared.switchOn("updatePrewarm"),
-      let executable = stagedApp(version: version)?.executableURL
+      let staged = stagedApp(version: version), let executable = staged.executableURL
     else { return }
     stop()
-    launch(executable, version: version)
+    launch(staged.bundleURL, executable: executable, version: version)
   }
 
   static func beforeInstall(version: String, install: @escaping () -> Void) {
@@ -41,49 +46,107 @@ enum UpdatePrewarm {
   }
 
   static func stop() {
+    attempt?.record(status: statusStopped)
+    attempt = nil
     if running != 0 { kill(running, SIGKILL) }
     running = 0
     runningVersion = nil
     generation += 1
   }
 
-  private static func launch(_ executable: URL, version: String) {
+  static func signedLikeThisApp(_ bundle: URL) -> Bool {
+    guard let requirement = ownRequirement else { return false }
+    var code: SecStaticCode?
+    guard SecStaticCodeCreateWithPath(bundle as CFURL, [], &code) == errSecSuccess, let code else { return false }
+    return SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess
+  }
+
+  private static let ownRequirement: SecRequirement? = {
+    var running: SecCode?
+    var code: SecStaticCode?
+    var requirement: SecRequirement?
+    guard SecCodeCopySelf([], &running) == errSecSuccess, let running,
+      SecCodeCopyStaticCode(running, [], &code) == errSecSuccess, let code,
+      SecCodeCopyDesignatedRequirement(code, [], &requirement) == errSecSuccess
+    else { return nil }
+    return requirement
+  }()
+
+  private final class Attempt {
+    let version: String
+    private let began = Date()
+    private let lock = NSLock()
+    private var settled = false
+
+    init(version: String) {
+      self.version = version
+      UpdatePrewarm.save(version: version, status: UpdatePrewarm.statusStarted, ms: 0)
+    }
+
+    var isSettled: Bool {
+      lock.lock()
+      defer { lock.unlock() }
+      return settled
+    }
+
+    func record(status: Int) {
+      lock.lock()
+      defer { lock.unlock() }
+      guard !settled else { return }
+      settled = true
+      let ms = Int(Date().timeIntervalSince(began) * 1000)
+      UpdatePrewarm.save(version: version, status: status, ms: ms)
+      NSLog("Ardia: prewarmed update \(version) in \(ms) ms (status \(status))")
+    }
+  }
+
+  private static func save(version: String, status: Int, ms: Int) {
+    UserDefaults.standard.set(["build": version, "at": Date().timeIntervalSince1970 * 1000, "ms": ms, "status": status], forKey: lastRunKey)
+  }
+
+  private static func launch(_ bundle: URL, executable: URL, version: String) {
     if !watchingQuit {
       watchingQuit = true
       NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in stop() }
     }
     generation += 1
     let current = generation
+    let tried = Attempt(version: version)
+    attempt = tried
     runningVersion = version
     var env = LaunchConfig.shared.environmentForChildProcesses.filter { !$0.key.hasPrefix("DYLD_") }
     env["ARDIA_PREWARM"] = "1"
     DispatchQueue.global(qos: .utility).async {
+      guard signedLikeThisApp(bundle) else {
+        tried.record(status: statusRejected)
+        NSLog("Ardia: not prewarming \(bundle.path): its signature isn't this app's")
+        return DispatchQueue.main.async { finish(current) }
+      }
       let task = Process()
       task.executableURL = executable
       task.environment = env
       task.standardInput = FileHandle.nullDevice
       task.standardOutput = FileHandle.nullDevice
       task.standardError = FileHandle.nullDevice
-      let began = Date()
       task.terminationHandler = { ended in
-        let ms = Int(Date().timeIntervalSince(began) * 1000)
-        DispatchQueue.main.async {
-          NSLog("Ardia: prewarmed update \(version) in \(ms) ms (status \(ended.terminationStatus))")
-          UserDefaults.standard.set(
-            ["build": version, "at": Date().timeIntervalSince1970 * 1000, "ms": ms, "status": Int(ended.terminationStatus)],
-            forKey: lastRunKey)
-          finish(current)
-        }
+        tried.record(status: Int(ended.terminationStatus))
+        DispatchQueue.main.async { finish(current) }
       }
+      guard !tried.isSettled else { return }
       do {
         try task.run()
       } catch {
+        tried.record(status: statusSpawnFailed)
         NSLog("Ardia: couldn't prewarm update \(version): \(error.localizedDescription)")
         return DispatchQueue.main.async { finish(current) }
       }
       let pid = task.processIdentifier
       DispatchQueue.main.async {
-        guard generation == current, task.isRunning else { return }
+        guard generation == current else {
+          if task.isRunning { kill(pid, SIGKILL) }
+          return
+        }
+        guard task.isRunning else { return }
         running = pid
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
           guard running == pid, task.isRunning else { return }
@@ -98,6 +161,7 @@ enum UpdatePrewarm {
     guard which == generation else { return }
     running = 0
     runningVersion = nil
+    attempt = nil
     let waiting = afterRun
     afterRun = []
     waiting.forEach { $0() }

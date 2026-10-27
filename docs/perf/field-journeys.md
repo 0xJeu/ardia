@@ -67,7 +67,7 @@ window, or at quit), not at the first window as before.
 first launch after the app's version or build changed, or the first this copy recorded: macOS's Gatekeeper scans the new
 bundle before `main`, so these launches are slower; a copy from before this field compares versions only),
 `update_prewarm` (on a first launch of a version: `done` when the previous copy ran this build hidden before installing it,
-`failed` when that run was stopped or failed, `none` when nothing ran; null otherwise) and `update_prewarm_ago` (how long
+`failed` when that run was stopped, didn't finish, failed to start, or was refused because the staged copy isn't signed like the running app, `none` when nothing ran; null otherwise) and `update_prewarm_ago` (how long
 before this launch that run ended, in `since_quit`'s ranges), `since_quit` (<1m, <10m,
 <1h, <8h, <1d, <7d, 7d+, `unclean` when the last session didn't end, `unknown`), `since_boot` (<2m, <10m, <1h, <1d, 1d+).
 
