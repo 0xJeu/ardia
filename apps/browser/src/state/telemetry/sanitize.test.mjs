@@ -70,26 +70,92 @@ test("event properties are flat, plain and scrubbed", () => {
   assert.deepEqual(out, { kind: "history", count: 3, ok: true, none: null, url: "<url>" });
 });
 
-test("an uncaught NSException sends its name and throw site first, never its reason", () => {
-  const { name, signal, exceptions } = nativeCrashExceptions({
+test("an uncaught NSException sends its name, a scrubbed reason and its throw site first", () => {
+  const { name, signal, reason, exceptions } = nativeCrashExceptions({
     exceptionType: "EXC_BREAKPOINT",
     signal: "SIGTRAP",
     exceptionName: "NSRangeException",
-    frames: [{ image: "AppKit", symbol: "+[NSApplication _crashOnException:]" }, { image: "Ardia", symbol: "main" }],
+    exceptionReason:
+      "*** -[TabStrip select:]: index 3 beyond bounds for https://private.example/a?q=1 in /Users/someone/Library/x.json by me@example.com, id 0123456789abcdef0123\nsecond line",
+    frames: [{ image: "AppKit", symbol: "+[NSApplication _crashOnException:]", offset: 0x3d5e74 }, { image: "Ardia", symbol: "main", offset: 0x4a10, symbolOffset: 8 }],
     exceptionFrames: [
-      { image: "CoreFoundation", symbol: "__exceptionPreprocess" },
-      { image: "libobjc.A.dylib", symbol: "objc_exception_throw" },
-      { image: "ArdiaShell", symbol: "TabStrip.select(_:)" },
+      { image: "CoreFoundation", symbol: "__exceptionPreprocess", offset: 0x1007b0 },
+      { image: "libobjc.A.dylib", symbol: "objc_exception_throw", offset: 0x165c },
+      { image: "ArdiaShell", symbol: "TabStrip.select(_:)", offset: 0x2010, symbolOffset: 40 },
     ],
   });
   assert.equal(name, "NSRangeException");
   assert.equal(signal, "SIGTRAP");
+  assert.equal(reason, "*** -[TabStrip select:]: index 3 beyond bounds for <url> in <path> by <email>, id <hex>");
   assert.deepEqual(exceptions.map((e) => [e.type, e.value]), [
-    ["NSRangeException", "Uncaught NSRangeException"],
+    ["NSRangeException", reason],
     ["EXC_BREAKPOINT", "EXC_BREAKPOINT (SIGTRAP)"],
   ]);
   assert.equal(exceptions[0].frames.at(-1).function, "__exceptionPreprocess");
   assert.equal(exceptions[0].frames[0].function, "TabStrip.select(_:)");
+  assert.equal(exceptions[0].frames[0].image_offset, "0x2010");
   assert.equal(exceptions[0].frames[0].in_app, true);
   assert.equal(exceptions[1].frames.at(-1).function, "+[NSApplication _crashOnException:]");
+  assert.equal(exceptions[1].frames.at(-1).image_offset, "0x3d5e74");
+});
+
+test("an exception without a name or reason still says what it was", () => {
+  const { name, reason, subtype, exceptions } = nativeCrashExceptions({
+    exceptionType: "EXC_BAD_ACCESS",
+    signal: "SIGBUS",
+    exceptionSubtype: "EXC_ARM_DA_ALIGN",
+    frames: [{ image: "libsystem_platform.dylib", symbol: "_platform_memmove", offset: 0x1100 }],
+    exceptionFrames: [{ image: "libobjc.A.dylib", symbol: "objc_exception_throw", offset: 0x165c }],
+  });
+  assert.equal(name, null);
+  assert.equal(reason, null);
+  assert.equal(subtype, "EXC_ARM_DA_ALIGN");
+  assert.equal(nativeCrashExceptions({ frames: [], exceptionSubtype: "at 0x4f776f646168732f" }).subtype, null);
+  assert.deepEqual(exceptions.map((e) => [e.type, e.value]), [
+    ["NSException", "Uncaught NSException"],
+    ["EXC_BAD_ACCESS", "EXC_BAD_ACCESS (SIGBUS)"],
+  ]);
+});
+
+test("native frames keep their image offset and drop a stripped image's nearest export", () => {
+  const frames = nativeFrames([
+    { image: "Chromium Framework", symbol: "ArdiaCoreMain", symbolOffset: 66417332, offset: 0x41a36e8 },
+    { image: "Chromium Framework", symbol: "ac_engine_abi_version", offset: 0x2139600 },
+    { image: "Chromium Framework", symbol: "ArdiaCoreMain", symbolOffset: 760, offset: 0x442c72c },
+    { image: "Chromium Framework", offset: 0x2ef170 },
+    { image: "Ardia", offset: 0x3fd9f0 },
+    { image: "CoreAutoLayout", symbol: "_NSBitSetResize", symbolOffset: 120000, offset: 0x9a10 },
+    { image: "/Users/someone/Ardia.app/Contents/MacOS/Ardia", symbol: "-[X open:/Users/someone/a]", symbolOffset: 4, offset: 16 },
+  ]).reverse();
+  assert.deepEqual(
+    frames.map((f) => [f.function, f.image_offset, f.resolved]),
+    [
+      ["Chromium Framework + 0x41a36e8", "0x41a36e8", false],
+      ["Chromium Framework + 0x2139600", "0x2139600", false],
+      ["ArdiaCoreMain", "0x442c72c", true],
+      ["Chromium Framework + 0x2ef170", "0x2ef170", false],
+      ["Ardia + 0x3fd9f0", "0x3fd9f0", false],
+      ["_NSBitSetResize", "0x9a10", true],
+      ["-[X <path>", "0x10", true],
+    ],
+  );
+  assert.equal(frames[6].module, "Ardia");
+  assert.deepEqual(frames.map((f) => f.in_app), [true, true, true, true, true, false, true]);
+});
+
+test("crash reports name only the app's own images, by UUID", () => {
+  const { images } = nativeCrashExceptions({
+    frames: [],
+    images: [
+      { name: "Ardia", uuid: "1C77EF99-77D4-3DE8-9BA2-6929E276BC60" },
+      { name: "Chromium Framework", uuid: "4c4c4479-5555-3144-a199-a2cbd9a6d85f" },
+      { name: "AppKit", uuid: "77e3adb8-e4e8-3912-8599-d43182877c10" },
+      { name: "Ardia", uuid: "not a uuid" },
+      { name: "/Users/someone/evil", uuid: "4c4c4479-5555-3144-a199-a2cbd9a6d85f" },
+    ],
+  });
+  assert.deepEqual(images, [
+    { name: "Ardia", uuid: "1c77ef99-77d4-3de8-9ba2-6929e276bc60" },
+    { name: "Chromium Framework", uuid: "4c4c4479-5555-3144-a199-a2cbd9a6d85f" },
+  ]);
 });

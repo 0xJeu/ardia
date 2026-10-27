@@ -9,8 +9,19 @@ const MAX_PER_SESSION = 25;
 const reported = new WeakSet<object>();
 const seen = new Set<string>();
 
-function exceptionList(type: string, value: string, mechanism: Mechanism, handled: boolean, frames: ExceptionFrame[]) {
-  return [{ type, value, mechanism: { type: mechanism, handled, synthetic: false }, stacktrace: { type: "raw", frames } }];
+type ExceptionEntry = { type: string; value: string; frames: ExceptionFrame[] };
+
+function exceptionProperties(entries: ExceptionEntry[], mechanism: Mechanism, handled: boolean) {
+  return {
+    $exception_types: entries.map((e) => e.type),
+    $exception_values: entries.map((e) => e.value),
+    $exception_list: entries.map(({ type, value, frames }) => ({
+      type,
+      value,
+      mechanism: { type: mechanism, handled, synthetic: false },
+      stacktrace: { type: "raw", frames },
+    })),
+  };
 }
 
 export function captureException(error: unknown, mechanism: Mechanism, { fatal = false, handled = false } = {}) {
@@ -30,7 +41,7 @@ export function captureException(error: unknown, mechanism: Mechanism, { fatal =
     capture(
       "$exception",
       { $exception_level: fatal ? "fatal" : "error", source: mechanism, error_code: code },
-      { urgent: true, persist: fatal, raw: { $exception_list: exceptionList(type, value, mechanism, handled, frames) } },
+      { urgent: true, persist: true, raw: exceptionProperties([{ type, value, frames }], mechanism, handled) },
     );
   } catch {}
 }
@@ -98,19 +109,21 @@ export async function reportNativeCrashes() {
   for (const report of reports) {
     latest = Math.max(latest, report.time);
     if (report.appVersion && report.appVersion !== version) continue;
-    const { name, signal, exceptions } = nativeCrashExceptions(report);
+    const { name, signal, subtype, images, exceptions } = nativeCrashExceptions(report);
     capture(
       "$exception",
       {
         $exception_level: "fatal",
         source: "native_crash",
         crash_signal: signal,
+        crash_subtype: subtype,
         objc_exception: name,
         crashed_minutes_ago: Math.round((Date.now() - report.time) / 60_000),
       },
       {
         urgent: true,
-        raw: { $exception_list: exceptions.flatMap((e) => exceptionList(e.type, e.value, "native_crash", false, e.frames)) },
+        persist: true,
+        raw: { ...exceptionProperties(exceptions, "native_crash", false), crash_images: images },
       },
     );
   }

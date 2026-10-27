@@ -89,10 +89,13 @@ export type CrashReport = {
   signal?: string;
   frames: NativeFrame[];
   exceptionName?: string;
+  exceptionReason?: string;
+  exceptionSubtype?: string;
   exceptionFrames?: NativeFrame[];
+  images?: { name: string; uuid: string }[];
 };
 
-type NativeFrame = { image: string; symbol?: string; offset?: number };
+type NativeFrame = { image: string; symbol?: string; symbolOffset?: number; offset?: number };
 
 export type ScriptState = {
   windows: {
