@@ -21,8 +21,9 @@ function formatDuration(seconds: number) {
 
 export const awaitsKeep = (d: Download) => d.state === "downloading" && d.dangerous === true;
 
-export function dangerWarning(d: Download) {
-  return d.url.startsWith("http:") ? "Insecure download blocked" : "This type of file can harm your computer";
+export function dangerWarning(d: Download, short = false) {
+  if (d.url.startsWith("http:")) return short ? "Blocked: not secure" : "Insecure download blocked";
+  return short ? "Blocked: unsafe file type" : "This type of file can harm your computer";
 }
 
 export function downloadStatus(d: Download, exists = true) {

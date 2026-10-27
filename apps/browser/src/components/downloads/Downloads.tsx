@@ -32,7 +32,7 @@ import { openInternalPage } from "../../state/pages/urls";
 import { useSidebarWidth } from "../sidebar/tokens";
 import { hairline, shadow } from "../ui/tokens";
 import { DOWNLOADS_PANEL, type DownloadsPlacement } from "./downloadsPlacement";
-import { awaitsKeep, downloadStatus } from "./downloadStatus";
+import { awaitsKeep, dangerWarning, downloadStatus } from "./downloadStatus";
 import { FooterButton } from "./FooterButton";
 import { useDownloadsPlacement } from "./useDownloadsPlacement";
 import { DOWNLOADS_LIST as L, downloadsRowFill, FILE_ICON_GLYPH_SHARE, MAGNET, useDownloadsColors } from "./tokens";
@@ -286,7 +286,7 @@ function DownloadRow({ d, windowId }: { d: Download; windowId: string }) {
                     </View>
                   ) : null}
                   <Text lines={1} size="caption" tone={blocked ? "destructive" : "textSecondary"} style={{ lineHeight: PANEL.subtitleLine }}>
-                    {downloadStatus(d, exists)}
+                    {blocked ? dangerWarning(d, true) : downloadStatus(d, exists)}
                   </Text>
                 </View>
                 {blocked ? (
