@@ -333,7 +333,11 @@ Saved passwords are Chrome's (its password manager).
 - **Keys.** Records are `pws:<origin>\n<username>` → `{ o, u, s }`. Builds before this used
   `pw:` with the plain password; new builds ignore `pw:` records and never tombstone them, so a
   Mac still on an old build keeps its passwords and syncs them only with other old builds until
-  it updates.
+  it updates. Those legacy records still never reach JS in the clear: `read` and `openLocal`
+  seal each `pw:` value's `p` into `s` the same way and drop `pw:` entries from the local base,
+  and `write` opens `s` back into `p`, so the folder keeps the old format and an old build's
+  records survive a new build's compaction unchanged. The next local state checkpoint holds only
+  the sealed form.
 - **Writing.** Writes go through Chrome's API (`ArdiaServices.savePassword` from the sync module,
   `deletePassword` in `@ardia/ardiacore`), so Chrome's in-memory store and autofill see them at
   once. A changed password is a delete plus an add, done natively only after the sealed value

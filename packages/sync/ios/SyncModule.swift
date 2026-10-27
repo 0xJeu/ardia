@@ -98,13 +98,15 @@ public class SyncModule: Module {
     }.runOnQueue(Self.work)
 
     AsyncFunction("write") { (folder: String, scope: String, payload: String) throws -> String in
-      try self.vault(folder).write(scope: scope, payload: Data(payload.utf8))
+      let vault = try self.vault(folder)
+      return try vault.write(scope: scope, payload: LegacyPasswords.restore(Data(payload.utf8), keys: vault.keys))
     }.runOnQueue(Self.work)
 
     AsyncFunction("read") { (folder: String, scope: String, known: [String]) throws -> [String: Any] in
-      let listing = try self.vault(folder).read(scope: scope, skipping: Set(known))
+      let vault = try self.vault(folder)
+      let listing = try vault.read(scope: scope, skipping: Set(known))
       return [
-        "files": listing.files.map { ["id": $0.id, "payload": String(decoding: $0.payload, as: UTF8.self)] },
+        "files": listing.files.map { ["id": $0.id, "payload": LegacyPasswords.hide($0.payload, keys: vault.keys)] },
         "pending": listing.pending,
         "damaged": listing.damaged.map { ["id": $0.id, "age": $0.age * 1000] },
         "present": listing.present,
@@ -127,7 +129,7 @@ public class SyncModule: Module {
     AsyncFunction("openLocal") { (sealed: String) -> String? in
       guard let keys = self.state.keys, let data = Data(base64Encoded: sealed),
             let plain = try? keys.open(data, scopeTag: "local", fileId: "state") else { return nil }
-      return String(decoding: plain, as: UTF8.self)
+      return LegacyPasswords.hide(plain, keys: keys)
     }.runOnQueue(Self.work)
 
     AsyncFunction("recoveryWords") { (promise: Promise) in
@@ -428,5 +430,62 @@ private final class DeviceOwnerCheck {
     context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { granted, _ in
       withExtendedLifetime(context) { done(granted) }
     }
+  }
+}
+
+private enum LegacyPasswords {
+  private static let prefix = "pw:"
+  private static let marker = Data("\"pw:".utf8)
+
+  static func hide(_ json: Data, keys: SyncKeys) -> String {
+    guard json.range(of: marker) != nil else { return String(decoding: json, as: UTF8.self) }
+    do {
+      return String(decoding: try rewrite(json, keys: keys, hiding: true), as: UTF8.self)
+    } catch {
+      NSLog("[sync] couldn't seal legacy synced passwords: \(error)")
+      return String(decoding: json, as: UTF8.self)
+    }
+  }
+
+  static func restore(_ json: Data, keys: SyncKeys) throws -> Data {
+    guard json.range(of: marker) != nil else { return json }
+    return try rewrite(json, keys: keys, hiding: false)
+  }
+
+  private static func rewrite(_ json: Data, keys: SyncKeys, hiding: Bool) throws -> Data {
+    let tree = try JSONSerialization.jsonObject(with: json, options: [.fragmentsAllowed])
+    return try JSONSerialization.data(withJSONObject: try walk(tree, keys: keys, hiding: hiding), options: [.fragmentsAllowed, .withoutEscapingSlashes])
+  }
+
+  private static func walk(_ node: Any, keys: SyncKeys, hiding: Bool) throws -> Any {
+    if let list = node as? [Any] { return try list.map { try walk($0, keys: keys, hiding: hiding) } }
+    guard var object = node as? [String: Any] else { return node }
+    if let key = object["k"] as? String, key.hasPrefix(prefix), let value = object["v"] {
+      object["v"] = try password(value, keys: keys, hiding: hiding)
+      return object
+    }
+    for (key, value) in object {
+      if !key.hasPrefix(prefix) {
+        object[key] = try walk(value, keys: keys, hiding: hiding)
+      } else if value is String {
+        object[key] = nil
+      } else if var record = value as? [String: Any], let inner = record["v"] {
+        record["v"] = try password(inner, keys: keys, hiding: hiding)
+        object[key] = record
+      }
+    }
+    return object
+  }
+
+  private static func password(_ value: Any, keys: SyncKeys, hiding: Bool) throws -> Any {
+    guard var login = value as? [String: Any], let origin = login["o"] as? String, let username = login["u"] as? String else { return value }
+    if hiding, let plain = login["p"] as? String {
+      login["p"] = nil
+      login["s"] = try keys.sealPassword(plain, origin: origin, username: username)
+    } else if !hiding, let sealed = login["s"] as? String {
+      login["s"] = nil
+      login["p"] = try keys.openPassword(sealed, origin: origin, username: username)
+    }
+    return login
   }
 }
