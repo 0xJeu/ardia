@@ -237,7 +237,7 @@ async function resetFromElsewhere() {
   await SyncNative?.forget(doc.deviceId!);
   doc = { ...emptyDoc(), folder: doc.folder, types: doc.types };
   clearJournal();
-  save();
+  save({ stateNow: true });
   publishUi({ status: "reset", error: "This device is out of sync. Sync may have been reset from another device." });
 }
 
@@ -261,7 +261,7 @@ export async function chooseSyncFolder(): Promise<string | null> {
 function begin(folder: string, deviceId: string, joining: boolean) {
   doc = { ...emptyDoc(), types: doc.types, enabled: true, folder, deviceId, setupAt: Date.now(), joining };
   clearJournal();
-  save();
+  save({ stateNow: true });
   publishUi({ status: "starting", error: null });
   scheduleSync(0);
 }
@@ -321,7 +321,7 @@ export async function stopSync({ deleteData = false } = {}) {
   passwordAdapters.clear();
   extensionAdapters.clear();
   clearJournal();
-  save();
+  save({ stateNow: true });
   publishUi({ status: "off", error: null });
 }
 
