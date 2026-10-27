@@ -12,7 +12,7 @@ import { TabIcon } from "./TabIcon";
 import { sidebarTokens, TILE_GLOW, useSidebarTokens } from "./tokens";
 
 const SELECTION_STROKE = 3;
-const GLASS_RIM = 1;
+const GLASS_RING = 2;
 export const TILE_RADIUS = radius.card;
 
 type FaceState = { width: number; active: boolean; selected: boolean; hovered: boolean; pressed: boolean };
@@ -137,9 +137,10 @@ function GlassTile({ width, active, selected, hovered, pressed, tileTheme, child
           theme={tileTheme?.theme.kind}
           fill={tileTheme?.theme.kind === "template" ? tileTheme.theme.fill : undefined}
           cornerRadius={TILE_RADIUS}
-          strokeWidth={GLASS_RIM}
+          strokeWidth={GLASS_RING}
           dark={theme.dark}
           glass
+          colorRing
           style={StyleSheet.absoluteFill}
         />
       ) : selected ? (

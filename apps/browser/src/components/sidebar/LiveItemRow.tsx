@@ -88,6 +88,7 @@ export function LiveItemRow({ folderId, item, windowId, inStack = false }: { fol
                 <HoverSlot
                   hovered={hovered && !!tabId && !completion}
                   width={22}
+                  reserve={inStack && item.pr?.stack ? "always" : "hover"}
                   hover={<Button variant="icon" icon="xmark" size={10} weight="semibold" box={22} radius={radius.m} onPress={() => tabId && void closeTab(tabId)} tooltip={withShortcut("Close Tab", closeHint)} />}
                 >
                   <Trailing item={item} completion={completion} colors={colors} />
