@@ -11,7 +11,6 @@ enum UpdatePrewarm {
   static let statusRejected = -3
   static let statusStopped = Int(SIGKILL)
   private static var started = Set<String>()
-  private static var running: pid_t = 0
   private static var runningVersion: String?
   private static var attempt: Attempt?
   private static var generation = 0
@@ -46,10 +45,8 @@ enum UpdatePrewarm {
   }
 
   static func stop() {
-    attempt?.record(status: statusStopped)
+    attempt?.stop()
     attempt = nil
-    if running != 0 { kill(running, SIGKILL) }
-    running = 0
     runningVersion = nil
     generation += 1
   }
@@ -58,7 +55,7 @@ enum UpdatePrewarm {
     guard let requirement = ownRequirement else { return false }
     var code: SecStaticCode?
     guard SecStaticCodeCreateWithPath(bundle as CFURL, [], &code) == errSecSuccess, let code else { return false }
-    return SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess
+    return SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckNestedCode | kSecCSCheckAllArchitectures), requirement) == errSecSuccess
   }
 
   private static let ownRequirement: SecRequirement? = {
@@ -77,23 +74,39 @@ enum UpdatePrewarm {
     private let began = Date()
     private let lock = NSLock()
     private var settled = false
+    private var pid: pid_t = 0
 
     init(version: String) {
       self.version = version
       UpdatePrewarm.save(version: version, status: UpdatePrewarm.statusStarted, ms: 0)
     }
 
-    var isSettled: Bool {
+    func spawn(_ task: Process) throws -> Bool {
       lock.lock()
       defer { lock.unlock() }
-      return settled
+      guard !settled else { return false }
+      try task.run()
+      pid = task.processIdentifier
+      return true
+    }
+
+    func stop() {
+      lock.lock()
+      defer { lock.unlock() }
+      if !settled, pid != 0 { kill(pid, SIGKILL) }
+      settle(status: UpdatePrewarm.statusStopped)
     }
 
     func record(status: Int) {
       lock.lock()
       defer { lock.unlock() }
+      settle(status: status)
+    }
+
+    private func settle(status: Int) {
       guard !settled else { return }
       settled = true
+      pid = 0
       let ms = Int(Date().timeIntervalSince(began) * 1000)
       UpdatePrewarm.save(version: version, status: status, ms: ms)
       NSLog("Ardia: prewarmed update \(version) in \(ms) ms (status \(status))")
@@ -132,34 +145,23 @@ enum UpdatePrewarm {
         tried.record(status: Int(ended.terminationStatus))
         DispatchQueue.main.async { finish(current) }
       }
-      guard !tried.isSettled else { return }
       do {
-        try task.run()
+        guard try tried.spawn(task) else { return }
       } catch {
         tried.record(status: statusSpawnFailed)
         NSLog("Ardia: couldn't prewarm update \(version): \(error.localizedDescription)")
         return DispatchQueue.main.async { finish(current) }
       }
-      let pid = task.processIdentifier
-      DispatchQueue.main.async {
-        guard generation == current else {
-          if task.isRunning { kill(pid, SIGKILL) }
-          return
-        }
-        guard task.isRunning else { return }
-        running = pid
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
-          guard running == pid, task.isRunning else { return }
-          NSLog("Ardia: update prewarm still running after \(Int(timeout)) s; stopping it")
-          stop()
-        }
+      DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+        guard attempt === tried, task.isRunning else { return }
+        NSLog("Ardia: update prewarm still running after \(Int(timeout)) s; stopping it")
+        stop()
       }
     }
   }
 
   private static func finish(_ which: Int) {
     guard which == generation else { return }
-    running = 0
     runningVersion = nil
     attempt = nil
     let waiting = afterRun
