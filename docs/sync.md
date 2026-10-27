@@ -337,7 +337,11 @@ Saved passwords are Chrome's (its password manager).
   seal each `pw:` value's `p` into `s` the same way and drop `pw:` entries from the local base,
   and `write` opens `s` back into `p`, so the folder keeps the old format and an old build's
   records survive a new build's compaction unchanged. The next local state checkpoint holds only
-  the sealed form.
+  the sealed form. A document with `pw:` records that can't be parsed or sealed (after replacing
+  lone surrogate escapes, which `JSONSerialization` rejects) is never handed over in the clear:
+  a folder file is reported as damaged, and a local state or journal file reads as missing while
+  `sealLocal` and `write` refuse for the rest of the session, so the files on disk and the
+  folder stay as they were and sync shows an error instead of saving a rebuilt state over them.
 - **Writing.** Writes go through Chrome's API (`ArdiaServices.savePassword` from the sync module,
   `deletePassword` in `@ardia/ardiacore`), so Chrome's in-memory store and autofill see them at
   once. A changed password is a delete plus an add, done natively only after the sealed value

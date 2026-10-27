@@ -98,6 +98,7 @@ public class SyncModule: Module {
     }.runOnQueue(Self.work)
 
     AsyncFunction("write") { (folder: String, scope: String, payload: String) throws -> String in
+      try self.ensureLocalStateReadable()
       let vault = try self.vault(folder)
       return try vault.write(scope: scope, payload: LegacyPasswords.restore(Data(payload.utf8), keys: vault.keys))
     }.runOnQueue(Self.work)
@@ -105,12 +106,16 @@ public class SyncModule: Module {
     AsyncFunction("read") { (folder: String, scope: String, known: [String]) throws -> [String: Any] in
       let vault = try self.vault(folder)
       let listing = try vault.read(scope: scope, skipping: Set(known))
-      return [
-        "files": listing.files.map { ["id": $0.id, "payload": LegacyPasswords.hide($0.payload, keys: vault.keys)] },
-        "pending": listing.pending,
-        "damaged": listing.damaged.map { ["id": $0.id, "age": $0.age * 1000] },
-        "present": listing.present,
-      ]
+      var files: [[String: Any]] = []
+      var damaged: [[String: Any]] = listing.damaged.map { ["id": $0.id, "age": $0.age * 1000] }
+      for file in listing.files {
+        if let payload = LegacyPasswords.hide(file.payload, keys: vault.keys) {
+          files.append(["id": file.id, "payload": payload])
+        } else {
+          damaged.append(["id": file.id, "age": 0])
+        }
+      }
+      return ["files": files, "pending": listing.pending, "damaged": damaged, "present": listing.present]
     }.runOnQueue(Self.work)
 
     AsyncFunction("remove") { (folder: String, scope: String, ids: [String]) throws in
@@ -122,6 +127,7 @@ public class SyncModule: Module {
     }.runOnQueue(Self.work)
 
     AsyncFunction("sealLocal") { (text: String) throws -> String in
+      try self.ensureLocalStateReadable()
       guard let keys = self.state.keys else { throw Exception(name: "locked", description: "Sync isn't set up on this Mac.") }
       return try keys.seal(Data(text.utf8), scopeTag: "local", fileId: "state").base64EncodedString()
     }.runOnQueue(Self.work)
@@ -129,7 +135,11 @@ public class SyncModule: Module {
     AsyncFunction("openLocal") { (sealed: String) -> String? in
       guard let keys = self.state.keys, let data = Data(base64Encoded: sealed),
             let plain = try? keys.open(data, scopeTag: "local", fileId: "state") else { return nil }
-      return LegacyPasswords.hide(plain, keys: keys)
+      guard let json = LegacyPasswords.hide(plain, keys: keys) else {
+        self.state.markLocalUnreadable()
+        return nil
+      }
+      return json
     }.runOnQueue(Self.work)
 
     AsyncFunction("recoveryWords") { (promise: Promise) in
@@ -262,6 +272,12 @@ public class SyncModule: Module {
     return origin.range(of: #"^https?://[^/\s]+$"#, options: .regularExpression) != nil ? origin : nil
   }
 
+  private func ensureLocalStateReadable() throws {
+    if state.localUnreadable {
+      throw Exception(name: "unreadable", description: "This Mac's sync state couldn't be read safely, so sync is paused to keep it.")
+    }
+  }
+
   private func vault(_ folder: String) throws -> SyncVault {
     guard let keys = state.keys else { throw Exception(name: "locked", description: "Sync isn't set up on this Mac.") }
     return SyncVault(folder: URL(fileURLWithPath: folder, isDirectory: true), keys: keys)
@@ -356,12 +372,26 @@ private final class KeyState {
   private let lock = NSLock()
   private var _entropy: Data?
   private var _keys: SyncKeys?
+  private var _localUnreadable = false
 
   func set(_ entropy: Data?) {
     lock.lock()
     defer { lock.unlock() }
     _entropy = entropy
     _keys = entropy.map(SyncKeys.init(entropy:))
+    _localUnreadable = false
+  }
+
+  func markLocalUnreadable() {
+    lock.lock()
+    defer { lock.unlock() }
+    _localUnreadable = true
+  }
+
+  var localUnreadable: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return _localUnreadable
   }
 
   var entropy: Data? {
@@ -437,13 +467,14 @@ private enum LegacyPasswords {
   private static let prefix = "pw:"
   private static let marker = Data("\"pw:".utf8)
 
-  static func hide(_ json: Data, keys: SyncKeys) -> String {
+  static func hide(_ json: Data, keys: SyncKeys) -> String? {
     guard json.range(of: marker) != nil else { return String(decoding: json, as: UTF8.self) }
     do {
       return String(decoding: try rewrite(json, keys: keys, hiding: true), as: UTF8.self)
     } catch {
-      NSLog("[sync] couldn't seal legacy synced passwords: \(error)")
-      return String(decoding: json, as: UTF8.self)
+      let problem = error as NSError
+      NSLog("[sync] a sync document with legacy passwords couldn't be sealed (%@ %ld); not reading it", problem.domain, problem.code)
+      return nil
     }
   }
 
@@ -453,8 +484,44 @@ private enum LegacyPasswords {
   }
 
   private static func rewrite(_ json: Data, keys: SyncKeys, hiding: Bool) throws -> Data {
-    let tree = try JSONSerialization.jsonObject(with: json, options: [.fragmentsAllowed])
+    let tree: Any
+    do {
+      tree = try JSONSerialization.jsonObject(with: json, options: [.fragmentsAllowed])
+    } catch {
+      tree = try JSONSerialization.jsonObject(with: withoutLoneSurrogates(json), options: [.fragmentsAllowed])
+    }
     return try JSONSerialization.data(withJSONObject: try walk(tree, keys: keys, hiding: hiding), options: [.fragmentsAllowed, .withoutEscapingSlashes])
+  }
+
+  private static func withoutLoneSurrogates(_ json: Data) -> Data {
+    let bytes = [UInt8](json)
+    var out = [UInt8]()
+    out.reserveCapacity(bytes.count)
+    func unit(_ i: Int) -> Int? {
+      guard i + 5 < bytes.count, bytes[i] == 0x5C, bytes[i + 1] == 0x75 else { return nil }
+      return Int(String(decoding: bytes[(i + 2)...(i + 5)], as: UTF8.self), radix: 16)
+    }
+    var i = 0
+    while i < bytes.count {
+      guard bytes[i] == 0x5C, i + 1 < bytes.count else {
+        out.append(bytes[i])
+        i += 1
+        continue
+      }
+      if let value = unit(i), (0xD800...0xDFFF).contains(value) {
+        if value <= 0xDBFF, let next = unit(i + 6), (0xDC00...0xDFFF).contains(next) {
+          out.append(contentsOf: bytes[i..<(i + 12)])
+          i += 12
+        } else {
+          out.append(contentsOf: Array(#"\ufffd"#.utf8))
+          i += 6
+        }
+      } else {
+        out.append(contentsOf: bytes[i...(i + 1)])
+        i += 2
+      }
+    }
+    return Data(out)
   }
 
   private static func walk(_ node: Any, keys: SyncKeys, hiding: Bool) throws -> Any {
