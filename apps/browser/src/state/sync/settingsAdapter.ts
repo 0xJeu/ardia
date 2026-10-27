@@ -20,6 +20,7 @@ export const SYNCED_SETTINGS = [
   "showClearButton",
   "balancedTopApps",
   "pinnedTabIconRing",
+  "liquidGlass",
   "selectedTabGlow",
   "pageScrollBars",
   "fadeUnloadedTabs",

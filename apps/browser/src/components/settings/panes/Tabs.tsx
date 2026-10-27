@@ -66,6 +66,7 @@ const CLEAN_UP = [
 
 export function TabsPane() {
   const settings = useSettings((s) => s);
+  const glass = useSettings((s) => s.liquidGlass) && liquidGlass;
   const update = updateSettings;
   const toggle = (key: keyof Settings, anchor: string) => (
     <Row key={key} anchor={anchor}>
@@ -86,7 +87,7 @@ export function TabsPane() {
         {!top && toggle("showSidebarButton", "tabs.showSidebarButton")}
         {!top && toggle("showClearButton", "tabs.showClearButton")}
         {!top && toggle("balancedTopApps", "tabs.balancedTopApps")}
-        {liquidGlass && toggle("pinnedTabIconRing", "tabs.pinnedTabIconRing")}
+        {glass && toggle("pinnedTabIconRing", "tabs.pinnedTabIconRing")}
         {toggle("fadeUnloadedTabs", "tabs.fadeUnloadedTabs")}
       </Group>
 

@@ -75,6 +75,7 @@ export type Settings = {
   addressBar: "toolbar" | "sidebar";
   commandBarPlacement: "field" | "centred";
   spacesFollowAppearance: boolean;
+  liquidGlass: boolean;
 
   defaultProfileId: string;
 
@@ -164,6 +165,7 @@ export const DEFAULT_SETTINGS: Settings = {
   addressBar: "toolbar",
   commandBarPlacement: "field",
   spacesFollowAppearance: true,
+  liquidGlass: true,
   defaultProfileId: DEFAULT_PROFILE_ID,
   shortcuts: {},
   openLinksInLittleArdia: true,

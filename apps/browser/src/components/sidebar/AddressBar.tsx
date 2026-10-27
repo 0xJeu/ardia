@@ -147,6 +147,7 @@ function PageField({ tab, windowId, width }: { tab: NonNullable<ReturnType<typeo
 
 function EmptyField({ windowId }: { windowId: string }) {
   const theme = useTheme();
+  const glass = useSettings((s) => s.liquidGlass) && liquidGlass;
   const { hovered, hoverProps } = useHover();
   const open = () => openPanel(windowId, "");
   return (
@@ -157,13 +158,13 @@ function EmptyField({ windowId }: { windowId: string }) {
             height: SIDEBAR_FIELD.height,
             borderRadius: SIDEBAR_FIELD.radius,
             borderWidth: StyleSheet.hairlineWidth * 2,
-            borderColor: liquidGlass ? "transparent" : theme.pinnedRestingStroke,
-            backgroundColor: liquidGlass ? undefined : hovered ? theme.tabHover : theme.pinnedResting,
+            borderColor: glass ? "transparent" : theme.pinnedRestingStroke,
+            backgroundColor: glass ? undefined : hovered ? theme.tabHover : theme.pinnedResting,
             justifyContent: "center",
             paddingLeft: 10,
           }}
         >
-          {liquidGlass ? <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={SIDEBAR_FIELD.radius} border={StyleSheet.hairlineWidth * 2} fill={theme.pinnedResting} /> : null}
+          {glass ? <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={SIDEBAR_FIELD.radius} border={StyleSheet.hairlineWidth * 2} fill={theme.pinnedResting} /> : null}
           <FadeLabel text="Search or enter address" fontSize={font.body.fontSize} color={theme.placeholder} fadeWidth={14} style={{ height: 18, marginLeft: -2 }} />
         </View>
       </Pressable>

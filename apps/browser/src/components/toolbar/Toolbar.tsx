@@ -156,6 +156,7 @@ export const UrlField = memo(function UrlField({
   sidebar?: { height: number; progress: number | null; accessory?: ReactNode };
 }) {
   const theme = useTheme();
+  const glass = useSettings((s) => s.liquidGlass) && liquidGlass;
   const showFullUrl = useSettings((s) => s.showFullUrl);
   const bookmarkHint = useShortcutHint("bookmarkPage");
   const splitHint = useShortcutHint("openSplitPane");
@@ -195,14 +196,14 @@ export const UrlField = memo(function UrlField({
               height: sidebar.height,
               borderRadius: SIDEBAR_FIELD.radius,
               borderWidth: StyleSheet.hairlineWidth * 2,
-              borderColor: liquidGlass ? "transparent" : theme.pinnedRestingStroke,
-              backgroundColor: liquidGlass ? undefined : hovered ? theme.tabHover : theme.pinnedResting,
+              borderColor: glass ? "transparent" : theme.pinnedRestingStroke,
+              backgroundColor: glass ? undefined : hovered ? theme.tabHover : theme.pinnedResting,
               overflow: "hidden",
             }
-          : { height: 30, borderRadius: radius.l, backgroundColor: hovered && !liquidGlass ? palette.pill : undefined },
+          : { height: 30, borderRadius: radius.l, backgroundColor: hovered && !glass ? palette.pill : undefined },
       ]}
     >
-      {liquidGlass ? (
+      {glass ? (
         sidebar ? (
           <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={SIDEBAR_FIELD.radius} border={StyleSheet.hairlineWidth * 2} fill={theme.pinnedResting} />
         ) : (

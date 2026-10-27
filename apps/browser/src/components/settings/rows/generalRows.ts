@@ -206,6 +206,12 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
       section: "Appearance Theme",
       rows: {
         theme: { title: "Appearance Theme", description: "Also in View › Appearance. Incognito windows are always dark.", keywords: ["dark mode", "light mode", "automatic", "night", "system"] },
+        liquidGlass: {
+          title: "Use Liquid Glass",
+          description: "When off, the address bar and Top Apps use Dia's flat look.",
+          keywords: ["liquid glass", "glass", "flat", "dia", "address bar", "top apps", "pinned tabs"],
+          liquidGlassOnly: true,
+        },
         spacesFollowAppearance: {
           title: "Profile themes follow this appearance",
           description: "Every profile goes light or dark with this choice, even when its theme (like one imported from an Arc space) says Light. In dark mode a light theme's colours are darkened so white text reads.",

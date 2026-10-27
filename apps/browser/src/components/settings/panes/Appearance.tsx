@@ -1,6 +1,7 @@
 import { setAppearance, setAppIcon, type AppIcon } from "../../../state/app/appSettings";
 import { Symbol, font, PopUp, Toggle, useHover } from "../../ui";
 import { Image, Pressable, Text, View } from "react-native";
+import { liquidGlass } from "../../ui/Glass";
 import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
@@ -20,6 +21,7 @@ const MODES: { value: Settings["appearance"]; title: string; description: string
 
 export function AppearancePane() {
   const appearance = useSettings((s) => s.appearance);
+  const glass = useSettings((s) => s.liquidGlass);
   const spacesFollow = useSettings((s) => s.spacesFollowAppearance);
   const choose = (mode: Settings["appearance"]) => {
     updateSettings({ appearance: mode });
@@ -37,6 +39,11 @@ export function AppearancePane() {
         <Row anchor="appearance.spacesFollowAppearance">
           <Toggle value={spacesFollow} onChange={(v) => updateSettings({ spacesFollowAppearance: v })} />
         </Row>
+        {liquidGlass && (
+          <Row anchor="appearance.liquidGlass">
+            <Toggle value={glass} onChange={(v) => updateSettings({ liquidGlass: v })} />
+          </Row>
+        )}
       </Group>
       <AddressBarPicker />
       <SelectedTabGlowPicker />
