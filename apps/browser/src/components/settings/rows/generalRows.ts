@@ -222,6 +222,11 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
           description: "In the centre, ⌘L and a click on the address show it over the middle of the page, as in Arc.",
           keywords: ["cmd l", "command bar", "centred", "centered", "arc", "url bar", "location bar"],
         },
+        addressBarButton: {
+          title: "Address bar button",
+          description: "Bookmark (Dia's) or Copy URL (Arc's), shown when the pointer is on the address.",
+          keywords: ["copy url", "copy link", "bookmark", "arc", "url bar", "star"],
+        },
       },
     },
     {

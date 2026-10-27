@@ -49,6 +49,7 @@ export function AppearancePane() {
 function AddressBarPicker() {
   const addressBar = useSettings((s) => s.addressBar);
   const placement = useSettings((s) => s.commandBarPlacement);
+  const addressBarButton = useSettings((s) => s.addressBarButton);
   const topTabs = useTabLayout() === "top";
   const choose = (value: Settings["addressBar"]) => updateSettings({ addressBar: value });
   return (
@@ -74,6 +75,17 @@ function AddressBarPicker() {
               { value: "centred", title: "In the centre" },
             ]}
             onChange={(v) => updateSettings({ commandBarPlacement: v })}
+            minWidth={160}
+          />
+        </Row>
+        <Row anchor="appearance.addressBarButton">
+          <PopUp
+            value={addressBarButton}
+            options={[
+              { value: "bookmark", title: "Bookmark" },
+              { value: "copyUrl", title: "Copy URL" },
+            ]}
+            onChange={(v) => updateSettings({ addressBarButton: v })}
             minWidth={160}
           />
         </Row>

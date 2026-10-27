@@ -74,6 +74,7 @@ export type Settings = {
   appearance: "auto" | "light" | "dark";
   addressBar: "toolbar" | "sidebar";
   commandBarPlacement: "field" | "centred";
+  addressBarButton: "bookmark" | "copyUrl";
   spacesFollowAppearance: boolean;
 
   defaultProfileId: string;
@@ -163,6 +164,7 @@ export const DEFAULT_SETTINGS: Settings = {
   appearance: "auto",
   addressBar: "toolbar",
   commandBarPlacement: "field",
+  addressBarButton: "bookmark",
   spacesFollowAppearance: true,
   defaultProfileId: DEFAULT_PROFILE_ID,
   shortcuts: {},

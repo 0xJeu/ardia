@@ -8,6 +8,7 @@ const ids = (query) => search(SETTINGS_INDEX, query).map((h) => h.entry.id);
 const first = (query) => ids(query)[0];
 
 test("synonyms find the setting they stand for", () => {
+  assert.ok(ids("copy url").includes("appearance.addressBarButton"));
   assert.equal(first("cookies"), "privacy.blockCookieBanners");
   assert.equal(first("dark"), "appearance.theme");
   assert.equal(first("dark mode"), "appearance.theme");

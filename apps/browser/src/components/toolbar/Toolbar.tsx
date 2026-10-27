@@ -11,6 +11,7 @@ import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Symbol, useHover
 import { type ToolbarGeometry } from "../window/geometry";
 import { popoverOf, setPopover, usePage, usePages, type PageState } from "../../state/tabs/pageState";
 import { useHistoryAvailability } from "../../state/tabs/navigation";
+import { copyPageUrl } from "../../state/site/selection";
 import { toggleBookmarkOfTab } from "../../state/bookmarks/actions";
 import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/actions";
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
@@ -157,6 +158,8 @@ export const UrlField = memo(function UrlField({
 }) {
   const theme = useTheme();
   const showFullUrl = useSettings((s) => s.showFullUrl);
+  const addressBarButton = useSettings((s) => s.addressBarButton);
+  const copyUrlHint = useShortcutHint("copyUrl");
   const bookmarkHint = useShortcutHint("bookmarkPage");
   const splitHint = useShortcutHint("openSplitPane");
   const bookmarked = useIsBookmarked(tab.url);
@@ -247,7 +250,11 @@ export const UrlField = memo(function UrlField({
       <View style={{ flexDirection: "row", alignItems: "center", paddingRight: 3 }}>
         {hovered && (
           <>
-            <Button variant="icon" toolbar palette={palette} icon={bookmarked ? "bookmark.fill" : "bookmark"} size={13} box={24} radius={radius.m} onPress={toggleBookmark} tooltip={bookmarked ? "Remove Bookmark" : withShortcut("Bookmark This Page", bookmarkHint)} />
+            {addressBarButton === "copyUrl" ? (
+              <Button variant="icon" toolbar palette={palette} icon="link" size={13} box={24} radius={radius.m} onPress={() => copyPageUrl(tab.id)} tooltip={withShortcut("Copy URL", copyUrlHint)} />
+            ) : (
+              <Button variant="icon" toolbar palette={palette} icon={bookmarked ? "bookmark.fill" : "bookmark"} size={13} box={24} radius={radius.m} onPress={toggleBookmark} tooltip={bookmarked ? "Remove Bookmark" : withShortcut("Bookmark This Page", bookmarkHint)} />
+            )}
             {!inSplit && !sidebar && (
               <Button variant="icon" toolbar
                 palette={palette}
