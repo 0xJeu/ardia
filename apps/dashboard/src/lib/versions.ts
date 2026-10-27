@@ -12,8 +12,9 @@ export function compareVersions(a: string, b: string) {
   const pa = parse(a);
   const pb = parse(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d !== 0) return d;
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x !== y) return x < y ? -1 : 1;
   }
   return 0;
 }
