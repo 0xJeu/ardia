@@ -93,7 +93,8 @@ final class DockSelection: ExpoView {
     }
     for dia in [tile, icon] { dia.isHidden = glass }
     ring.isHidden = glass && !colorRing
-    for glassLayer in [lift, hue, sheen] { glassLayer.isHidden = !glass }
+    for glassLayer in [hue, sheen] { glassLayer.isHidden = !glass }
+    lift.isHidden = !glass || colorRing
     rim.isHidden = !glass || colorRing
     let radius = min(cornerRadius, bounds.width / 2)
     let scale = window?.backingScaleFactor ?? 2
@@ -134,12 +135,13 @@ final class DockSelection: ExpoView {
     ringImage.frame = big
     ringMask.borderWidth = width
     if let blurred {
+      let bright = glass && colorRing
       ring.mask = ringMask
-      ring.backgroundColor = (dark ? NSColor.black : NSColor.white).cgColor
+      ring.backgroundColor = bright ? nil : (dark ? NSColor.black : NSColor.white).cgColor
       ring.borderWidth = 0
       ring.compositingFilter = nil
-      ringImage.contents = dark ? blurred.darkRing : blurred.plain
-      ringImage.opacity = dark ? 0.75 : 1
+      ringImage.contents = dark && !bright ? blurred.darkRing : blurred.plain
+      ringImage.opacity = dark && !bright ? 0.75 : 1
       ringImage.isHidden = false
     } else {
       ring.mask = nil
