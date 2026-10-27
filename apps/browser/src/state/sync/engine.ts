@@ -156,7 +156,7 @@ async function runCycle({ retiring = false } = {}) {
     const clock = new Clock(doc.deviceId, doc.clock);
     const device = doc.deviceId;
     const app = (doc.scopes[APP_SCOPE] ??= { ...emptyScope(), awaitRemote: doc.joining });
-    const appSettled = watchScope(APP_SCOPE, app);
+    const appSettled = watchScope(APP_SCOPE, app, clock);
     settleAppliedThemes(doc.profiles, app);
     if (doc.types.settings && !retiring) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
     try {
@@ -182,7 +182,7 @@ async function runCycle({ retiring = false } = {}) {
       if (!retire && !link.enabled) continue;
       const scope = `p:${link.syncId}`;
       const state = (doc.scopes[scope] ??= emptyScope());
-      const settled = watchScope(scope, state);
+      const settled = watchScope(scope, state, clock);
       try {
         await syncScope({
           scope,
