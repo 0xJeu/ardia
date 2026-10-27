@@ -89,7 +89,7 @@ function DefaultBrowserQuestion() {
           subtitle={system?.isDefault ? "Ardia is already your default browser" : "Open links and web pages in Ardia"}
           value={!!defaultOn}
           disabled={!system || system.isDefault}
-          onChange={(v) => setExtras({ setDefault: v })}
+          onChange={(v) => setExtras(v ? { setDefault: true } : { setDefault: false, trial: true })}
         />
         {system && !defaultOn ? (
           <CheckRow icon="calendar" title="Try it for seven days" subtitle="We'll check in to make sure you love it." value={trial} onChange={(v) => setExtras({ trial: v })} />

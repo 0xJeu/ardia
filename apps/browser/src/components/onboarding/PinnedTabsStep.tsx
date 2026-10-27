@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { useWindowHistory } from "../../state/history/hooks";
 import { confirmAnswer, setOnboardingExtras, skipStep, useOnboarding } from "../../state/onboarding/onboarding";
 import { PINNABLE_SITES, pinnedHosts, pinSites, preselectedSites } from "../../state/onboarding/sites";
-import { Favicon } from "../favicon/Favicon";
+import { SiteLogo } from "./SiteLogo";
 import { GlassBacking, solidFill, useSiteRing } from "./GlassBacking";
 import { SelectTile, useOnboardingColors } from "./Parts";
 import { StepActions, StepLayout } from "./StepLayout";
@@ -53,7 +53,7 @@ function SiteTile({ title, url, selected, onPress }: { title: string; url: strin
     <SelectTile title={title} width={80} height={70} gap={7} checkSize={14} selected={selected} role="checkbox" ring={ring} onPress={onPress}>
       {(hovered) => (
         <View style={{ opacity: selected || hovered ? 1 : 0.7 }}>
-          <Favicon url={url} size={22} />
+          <SiteLogo url={url} size={22} />
         </View>
       )}
     </SelectTile>
@@ -90,7 +90,7 @@ function PinnedPreview({ selected }: { selected: string[] }) {
               }}
             >
               {site ? <GlassBacking fill={colors.button} radius={9} /> : null}
-              {site ? <Favicon url={site.url} size={18} /> : null}
+              {site ? <SiteLogo url={site.url} size={18} /> : null}
             </View>
           );
         })}

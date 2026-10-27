@@ -51,5 +51,5 @@ export function useSiteRing(url: string, shown: boolean) {
   const theme = useTheme();
   const cached = useFavicon(url);
   const bundled = bundledSiteIcon(url, theme.dark);
-  return useIconRing(liquidGlass && shown ? (cached?.uri ?? sourceUri(bundled)) : null);
+  return useIconRing(liquidGlass && shown ? (sourceUri(bundled) ?? cached?.uri ?? null) : null);
 }

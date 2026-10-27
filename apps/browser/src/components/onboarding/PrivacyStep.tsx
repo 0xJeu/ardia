@@ -5,7 +5,7 @@ import { useSettings } from "../../state/browser/hooks";
 import { isSharing, setSharing } from "../../state/telemetry/client";
 import { SHARING_COPY } from "../../state/telemetry/copy";
 import { font, weight } from "../ui/tokens";
-import { Favicon } from "../favicon/Favicon";
+import { SiteLogo } from "./SiteLogo";
 import { CONTENT_WIDTH, ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { Page } from "./LayoutSteps";
 import { MockPanel, useScreen } from "./Screen";
@@ -89,7 +89,7 @@ function EngineTile({ title, url, selected, onPress }: { title: string; url: str
   const ring = useSiteRing(url, selected);
   return (
     <SelectTile title={title} width={TILE} height={64} gap={6} checkSize={12} selected={selected} role="radio" titleLines={1} ring={ring} onPress={onPress}>
-      {() => <Favicon url={url} size={18} />}
+      {() => <SiteLogo url={url} size={18} />}
     </SelectTile>
   );
 }
