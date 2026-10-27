@@ -29,7 +29,15 @@ const posterDir = join(site, "assets/hero");
 const DESKTOP_FRAMES = new Set(["wider", "wide", "laptop", "mid"]);
 
 async function bundle(entry, options) {
-  const result = await build({ entryPoints: [entry], bundle: true, write: false, logLevel: "silent", legalComments: "none", ...options });
+  const result = await build({
+    entryPoints: [entry],
+    bundle: true,
+    write: false,
+    logLevel: "silent",
+    legalComments: "none",
+    tsconfigRaw: { compilerOptions: { target: "ESNext", verbatimModuleSyntax: true, strict: true } },
+    ...options,
+  });
   return result.outputFiles[0].text;
 }
 
