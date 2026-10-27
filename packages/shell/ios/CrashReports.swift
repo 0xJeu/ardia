@@ -100,20 +100,20 @@ enum CrashReports {
     }.prefix(24).map { $0 }
   }
 
-  private static let reasonLimit = 600
-
   private static func thrownException(_ body: [String: Any]) -> (name: String?, reason: String?) {
     let valid = try! NSRegularExpression(pattern: "^[A-Z][A-Za-z0-9_]{2,63}$")
     func checked(_ full: String) -> String? {
       let name = String(full.prefix { $0 != ":" })
       return valid.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) == nil ? nil : name
     }
-    func clipped(_ reason: String?) -> String? {
-      guard let reason, !reason.isEmpty else { return nil }
-      return String(reason.prefix(reasonLimit))
+    func firstLine(_ reason: String?) -> String? {
+      guard let line = reason?.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first, !line.isEmpty else {
+        return nil
+      }
+      return String(line)
     }
     if let details = body["exceptionReason"] as? [String: Any], let name = details["name"] as? String {
-      return (checked(name), clipped(details["composed_message"] as? String ?? details["format_string"] as? String))
+      return (checked(name), firstLine(details["composed_message"] as? String ?? details["format_string"] as? String))
     }
     let uncaught = try! NSRegularExpression(
       pattern: "uncaught exception '(.{1,2000}?)', reason: '(.*)'\\s*$", options: [.dotMatchesLineSeparators])
@@ -123,7 +123,7 @@ enum CrashReports {
         let whole = NSRange(line.startIndex..., in: line)
         if let match = uncaught.firstMatch(in: line, range: whole),
           let name = Range(match.range(at: 1), in: line), let reason = Range(match.range(at: 2), in: line) {
-          return (checked(String(line[name])), clipped(String(line[reason])))
+          return (checked(String(line[name])), firstLine(String(line[reason])))
         }
         if let match = named.firstMatch(in: line, range: whole), let name = Range(match.range(at: 1), in: line) {
           return (checked(String(line[name])), nil)

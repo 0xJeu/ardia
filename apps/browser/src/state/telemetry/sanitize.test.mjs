@@ -159,3 +159,27 @@ test("crash reports name only the app's own images, by UUID", () => {
     { name: "Chromium Framework", uuid: "4c4c4479-5555-3144-a199-a2cbd9a6d85f" },
   ]);
 });
+
+test("a quoted span cut off by a length limit is still redacted, through the end of the line", () => {
+  const cut = `Unhandled JS Exception: "private patient history ${"x".repeat(700)}`;
+  assert.equal(scrubText(cut, 300), "Unhandled JS Exception: <text>");
+  assert.equal(scrubText("refused 'secret project plans"), "refused <text>");
+  assert.equal(scrubText("it's the user's tab"), "it's the user's tab");
+  const { reason } = nativeCrashExceptions({ frames: [], exceptionFrames: [{ image: "Ardia", offset: 1 }], exceptionReason: cut });
+  assert.equal(reason, "Unhandled JS Exception: <text>");
+});
+
+test("a named exception without a thrown backtrace still sends its name and reason", () => {
+  const { exceptions } = nativeCrashExceptions({
+    exceptionType: "EXC_CRASH",
+    signal: "SIGABRT",
+    exceptionName: "NSInternalInconsistencyException",
+    exceptionReason: "window not ready",
+    frames: [{ image: "AppKit", symbol: "-[NSWindow display]", offset: 0x10 }],
+    exceptionFrames: [],
+  });
+  assert.deepEqual(exceptions.map((e) => [e.type, e.value, e.frames.length]), [
+    ["NSInternalInconsistencyException", "window not ready", 0],
+    ["EXC_CRASH", "EXC_CRASH (SIGABRT)", 1],
+  ]);
+});

@@ -5,6 +5,7 @@ const FILE_EXTENSIONS =
 const RULES: [RegExp, string][] = [
   [/"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|`[^`\n]*`/g, "<text>"],
   [/(^|[\s(\[{=:,])'[^'\n]*'(?=$|[\s)\]},.:;!?])/g, "$1<text>"],
+  [/["“‘`][^\n]*$|(^|[\s(\[{=:,])'[^'\n]*$/g, "$1<text>"],
   [/\b(?:about|data|blob|javascript|mailto|file|chrome|ardia|chrome-extension|devtools|view-source):\S+/gi, "<url>"],
   [/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>)\]}]*/gi, "<url>"],
   [/[\w.%+-]+@[\w-]+(?:\.[\w-]+)+/g, "<email>"],
@@ -194,9 +195,9 @@ export function nativeCrashExceptions(report: NativeCrash) {
   const images = nativeImages(report.images);
   const reason = scrubText(report.exceptionReason, 300) || null;
   const crash = { type: machType, value: signal ? `${machType} (${signal})` : machType, frames: nativeFrames(report.frames) };
-  if (!report.exceptionFrames?.length) return { name, signal, reason, subtype, images, exceptions: [crash] };
+  if (!report.exceptionFrames?.length && !name && !reason) return { name, signal, reason, subtype, images, exceptions: [crash] };
   const type = name ?? "NSException";
-  const thrown = { type, value: reason ?? `Uncaught ${type}`, frames: nativeFrames(report.exceptionFrames) };
+  const thrown = { type, value: reason ?? `Uncaught ${type}`, frames: nativeFrames(report.exceptionFrames ?? []) };
   return { name, signal, reason, subtype, images, exceptions: [thrown, crash] };
 }
 

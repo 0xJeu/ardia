@@ -1,5 +1,5 @@
 import { engineInfo, systemInfo, type SystemInfo } from "../../platform/app";
-import { readDocument, writeDocument } from "../../platform/documents";
+import { readDocument, saveDocument, writeDocument } from "../../platform/documents";
 import { devTestValue } from "../../platform/launchConfig";
 import { create } from "zustand";
 import { DEV_SEND_TEST_KEY, LOGS_URL, MAX_BODY_BYTES } from "./config";
@@ -104,7 +104,15 @@ function context(): Record<string, unknown> {
 type Queue = { version: 1; events: QueuedEvent[]; logs: OtlpLogRecord[] };
 
 let queue: Queue = { version: 1, events: [], logs: [] };
+let queueLoaded = false;
 let generation = 0;
+
+function loadQueue() {
+  if (queueLoaded) return;
+  queueLoaded = true;
+  const stored = upgraded(readJson(QUEUE_DOC), QUEUE_VERSION) as Queue | null;
+  if (stored) queue = { version: 1, events: [...(stored.events ?? []), ...queue.events], logs: [...(stored.logs ?? []), ...queue.logs] };
+}
 
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
 function persistQueue(now = false) {
@@ -112,6 +120,7 @@ function persistQueue(now = false) {
   persistTimer = undefined;
   const write = () => {
     try {
+      loadQueue();
       writeDocument(QUEUE_DOC, versionedJson(queue, QUEUE_VERSION));
     } catch {}
   };
@@ -119,8 +128,21 @@ function persistQueue(now = false) {
   else persistTimer = setTimeout(write, 2000);
 }
 
+export function saveQueueNow(timeoutMs = 1000): Promise<void> {
+  clearTimeout(persistTimer);
+  persistTimer = undefined;
+  try {
+    loadQueue();
+    const landed = saveDocument(QUEUE_DOC, versionedJson(queue, QUEUE_VERSION)).catch(() => {});
+    return Promise.race([landed, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))]);
+  } catch {
+    return Promise.resolve();
+  }
+}
+
 function clearQueue() {
   queue = { version: 1, events: [], logs: [] };
+  queueLoaded = true;
   clearTimeout(flushTimer);
   flushTimer = undefined;
   persistQueue(true);
@@ -140,6 +162,7 @@ export function capture(event: string, props: Record<string, unknown> = {}, opti
     return;
   }
   try {
+    loadQueue();
     queue.events.push({
       uuid: uuidv7(),
       event,
@@ -156,6 +179,7 @@ export function capture(event: string, props: Record<string, unknown> = {}, opti
 export function queueLog(level: "warn" | "error", message: string, attributes: Record<string, string | number | boolean>) {
   if (!saved.sharing) return;
   try {
+    loadQueue();
     queue.logs.push(logRecord(level, message, attributes));
     if (queue.logs.length > MAX_LOGS) queue.logs.splice(0, queue.logs.length - MAX_LOGS);
     persistQueue();
@@ -357,8 +381,7 @@ export function startClient(): ClientSession | null {
     if (stale?.events?.length || stale?.logs?.length) clearQueue();
     return null;
   }
-  const stored = upgraded(readJson(QUEUE_DOC), QUEUE_VERSION) as Queue | null;
-  if (stored) queue = { version: 1, events: [...(stored.events ?? []), ...queue.events], logs: [...(stored.logs ?? []), ...queue.logs] };
+  loadQueue();
   const previous: PreviousSession = saved.lastVersion === null ? "none" : saved.sessionOpen ? "unclean" : "clean";
   const version = appInfo().appVersion;
   const updatedFrom = saved.lastVersion && saved.lastVersion !== version ? saved.lastVersion : null;

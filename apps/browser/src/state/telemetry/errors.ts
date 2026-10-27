@@ -1,5 +1,5 @@
 import { crashReports, systemInfo } from "../../platform/app";
-import { advanceCrashCursor, capture, crashCursor, isSharing, loadChoice } from "./client";
+import { advanceCrashCursor, capture, crashCursor, isSharing, loadChoice, saveQueueNow } from "./client";
 import { recordLog } from "./logs";
 import { errorCode, errorMessage, errorType, nativeCrashExceptions, parseStack, type ExceptionFrame } from "./sanitize";
 
@@ -69,7 +69,8 @@ export function installErrorReporting() {
   const previous = g.ErrorUtils?.getGlobalHandler?.();
   g.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
     captureException(error, "onerror", { fatal: !!isFatal });
-    previous?.(error, isFatal);
+    if (isFatal && isSharing()) void saveQueueNow().then(() => previous?.(error, isFatal));
+    else previous?.(error, isFatal);
   });
 
   g.HermesInternal?.enablePromiseRejectionTracker?.({
