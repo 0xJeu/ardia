@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Text, type TextStyle } from "react-native";
+import { AccessibilityInfo, Animated, Text, type TextStyle } from "react-native";
 import { FadeMask } from "../ui";
 import { curve } from "../ui/motion";
 import { mediaMotion } from "./tokens";
@@ -9,19 +9,34 @@ type MarqueeGroup = {
   report(key: string, overflow: number): void;
 };
 
+function useReduceMotion() {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((on) => live && setReduce(on), () => {});
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduce);
+    return () => {
+      live = false;
+      subscription.remove();
+    };
+  }, []);
+  return reduce;
+}
+
 export function useMarqueeGroup(resetKey: string): MarqueeGroup {
   const progress = useRef(new Animated.Value(0)).current;
   const [overflows, setOverflows] = useState<Record<string, number>>({});
+  const reduceMotion = useReduceMotion();
   const max = Math.max(0, ...Object.values(overflows));
   useEffect(() => {
     progress.setValue(0);
-    if (max < 1) return;
+    if (max < 1 || reduceMotion) return;
     const duration = (max / mediaMotion.marqueeSpeed) * 1000;
     const leg = (toValue: number) => Animated.timing(progress, { toValue, duration, easing: curve.linear, useNativeDriver: true });
     const loop = Animated.loop(Animated.sequence([Animated.delay(mediaMotion.marqueePause), leg(1), Animated.delay(mediaMotion.marqueePause), leg(0)]));
     loop.start();
     return () => loop.stop();
-  }, [max, resetKey]);
+  }, [max, resetKey, reduceMotion]);
   return useMemo(
     () => ({
       progress,
