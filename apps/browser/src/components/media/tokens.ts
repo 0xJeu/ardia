@@ -1,11 +1,8 @@
 import { useTheme } from "../ui/theme";
 import { colorRoles } from "../ui/tokens";
 
-const rgbOf = (hex: string): [number, number, number] => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)) as [number, number, number];
-
 const light = {
   background: colorRoles.light.panel,
-  backgroundRgb: rgbOf(colorRoles.light.panel),
   label: "rgba(0,0,0,0.85)",
   secondary: "rgba(0,0,0,0.5)",
   track: "rgba(0,0,0,0.1)",
@@ -22,7 +19,6 @@ const light = {
 
 const dark: typeof light = {
   background: colorRoles.dark.panel,
-  backgroundRgb: rgbOf(colorRoles.dark.panel),
   label: "rgba(255,255,255,0.85)",
   secondary: "rgba(255,255,255,0.55)",
   track: "rgba(255,255,255,0.2)",
@@ -45,8 +41,6 @@ export function useMediaTokens(): MediaTokens {
 
 export const CAPTURE_DOT_RIM = "rgba(0,0,0,0.25)";
 export const ART_HOVER_SCRIM = "rgba(0,0,0,0.5)";
-
-export const fadeStepColor = ([r, g, b]: [number, number, number], alpha: number) => `rgba(${r},${g},${b},${alpha})`;
 
 export const mediaMotion = { shareBarSlide: 180, marqueePause: 1500, marqueeSpeed: 30 } as const;
 

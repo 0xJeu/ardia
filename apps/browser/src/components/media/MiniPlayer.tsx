@@ -50,10 +50,10 @@ export function MiniPlayer({ tabId, onBackToTab }: { tabId: string; onBackToTab:
     <View style={{ width, height: MINI_PLAYER_HEIGHT }}>
       <AlbumArt tabId={tabId} profileId={tab.profileId} session={session} url={tab.url} favicon={tab.favicon} tokens={tokens} muted={tab.muted} onPress={onBackToTab} onUnmute={() => toggleMute(tabId)} />
       <View style={{ position: "absolute", left: TEXT_X, top: 10, width: textWidth }}>
-        <Marquee id="title" text={title} group={group} height={18} background={tokens.backgroundRgb} style={{ ...font.body, fontWeight: weight.semibold, color: tokens.label }} />
+        <Marquee id="title" text={title} group={group} height={18} style={{ ...font.body, fontWeight: weight.semibold, color: tokens.label }} />
       </View>
       <View style={{ position: "absolute", left: TEXT_X, top: 30, width: textWidth }}>
-        <Marquee id="artist" text={artist} group={group} height={16} background={tokens.backgroundRgb} style={{ ...font.caption, color: tokens.secondary }} />
+        <Marquee id="artist" text={artist} group={group} height={16} style={{ ...font.caption, color: tokens.secondary }} />
       </View>
 
       <TransportButton

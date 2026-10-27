@@ -61,3 +61,43 @@ final class FadeLabel: ExpoView {
     CATransaction.commit()
   }
 }
+
+final class FadeMask: ExpoView {
+  private let fade = CAGradientLayer()
+
+  var leading: Double = 0 { didSet { relayout() } }
+  var trailing: Double = 0 { didSet { relayout() } }
+
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    wantsLayer = true
+    clipsToBounds = true
+    fade.startPoint = CGPoint(x: 0, y: 0.5)
+    fade.endPoint = CGPoint(x: 1, y: 0.5)
+  }
+
+  override func setFrameSize(_ newSize: NSSize) {
+    super.setFrameSize(newSize)
+    relayout()
+  }
+
+  private func relayout() {
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    defer { CATransaction.commit() }
+    guard bounds.width > 0, leading > 0 || trailing > 0 else {
+      layer?.mask = nil
+      return
+    }
+    let edge = min(12 / bounds.width, 0.5)
+    fade.frame = bounds
+    fade.locations = [0, NSNumber(value: Double(edge)), NSNumber(value: Double(1 - edge)), 1]
+    fade.colors = [
+      NSColor.black.withAlphaComponent(CGFloat(1 - min(1, max(0, leading)))).cgColor,
+      NSColor.black.cgColor,
+      NSColor.black.cgColor,
+      NSColor.black.withAlphaComponent(CGFloat(1 - min(1, max(0, trailing)))).cgColor,
+    ]
+    layer?.mask = fade
+  }
+}

@@ -23,6 +23,7 @@ export {
   DIA_SPECTRUM,
   DockSelection,
   FadeLabel,
+  FadeMask,
   FileDropArea,
   GlassEffect,
   MagnifyArea,

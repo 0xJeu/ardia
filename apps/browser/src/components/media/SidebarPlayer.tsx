@@ -1,10 +1,10 @@
-import { FadeLabel, Surface, Symbol, Button, useHover } from "../ui";
+import { Surface, Symbol, Button, useHover } from "../ui";
 import { useShallow } from "zustand/react/shallow";
 import { useRef, type ComponentProps } from "react";
 import { Image, Pressable, View } from "react-native";
 import { switchToTab, toggleMute } from "../../state/browser/actions";
 import { hex, useTheme } from "../ui/theme";
-import { font, ink, radius, space } from "../ui/tokens";
+import { font, ink, radius, space, weight } from "../ui/tokens";
 import { useTab } from "../../state/browser/hooks";
 import { Favicon } from "../favicon/Favicon";
 import { useSidebarTokens } from "../sidebar/tokens";
@@ -13,6 +13,7 @@ import { seekTo, SeekBar, skip } from "./MiniPlayer";
 import { dismissPlayer, hasTrackControls, isPlaying, mediaCommand, playerTabFor, SKIP_SECONDS, useHiddenPlayerTabs, useMedia, useSession, useTicker } from "../../state/media/media";
 import { hostOf } from "../../lib/url";
 import { useMediaTokens } from "./tokens";
+import { useMarqueeGroup, Marquee } from "./Marquee";
 
 export const SIDEBAR_PLAYER_HEIGHT = 74 + 8;
 const CORNER_BUTTON_SIZE = 18;
@@ -34,6 +35,7 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
   const playing = isPlaying(session);
   const { hovered, hoverProps } = useHover();
   const artwork = useArtwork(tabId, session?.artwork);
+  const group = useMarqueeGroup(`${tabId}|${session?.title}|${session?.artist}`);
   if (!session || !tab) return null;
   const tracks = hasTrackControls(session);
   const title = session.title || tab.title;
@@ -54,10 +56,14 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
             </View>
           </Pressable>
           <Pressable onPress={go} style={{ flex: 1, marginLeft: space.m, minWidth: 0 }}>
-            <FadeLabel text={title} fontSize={font.small.fontSize} weight="semibold" color={theme.textPrimary} style={{ height: 16 }} />
+            <View style={{ marginLeft: 2 }}>
+              <Marquee id="title" text={title} group={group} height={16} style={{ ...font.small, fontWeight: weight.semibold, color: theme.textPrimary }} />
+            </View>
             <View style={{ flexDirection: "row", alignItems: "center", height: 14 }}>
               {tab.muted ? <Symbol name="speaker.slash.fill" size={9} color={theme.textSecondary} style={{ width: 13, height: 12 }} /> : null}
-              <FadeLabel text={subtitle} fontSize={font.caption.fontSize} color={theme.textSecondary} style={{ flex: 1, height: 14 }} />
+              <View style={{ flex: 1, minWidth: 0, marginLeft: 2 }}>
+                <Marquee id="subtitle" text={subtitle} group={group} height={14} style={{ ...font.caption, color: theme.textSecondary }} />
+              </View>
             </View>
           </Pressable>
         </View>

@@ -3,6 +3,7 @@ export {
   ContextMenuArea,
   DockSelection,
   FadeLabel,
+  FadeMask,
   FileDropArea,
   GlassEffect,
   MagnifyArea,

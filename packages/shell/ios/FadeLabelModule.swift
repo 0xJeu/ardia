@@ -15,3 +15,14 @@ public class FadeLabelModule: Module {
     }
   }
 }
+
+public class FadeMaskModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("ArdiaFadeMask")
+
+    View(FadeMask.self) {
+      Prop("leading") { (view: FadeMask, v: Double) in view.leading = v }
+      Prop("trailing") { (view: FadeMask, v: Double) in view.trailing = v }
+    }
+  }
+}

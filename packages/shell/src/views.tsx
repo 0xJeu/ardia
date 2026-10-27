@@ -34,6 +34,8 @@ export type FadeLabelProps = ViewProps & {
 
 export const FadeLabel = requireNativeViewManager<FadeLabelProps>("ArdiaFadeLabel");
 
+export const FadeMask = requireNativeViewManager<ViewProps & { leading: number; trailing: number }>("ArdiaFadeMask");
+
 export const ActivitySpinner = requireNativeViewManager<ViewProps>("ArdiaActivitySpinner");
 
 export type ContextMenuAreaProps = ViewProps & {
