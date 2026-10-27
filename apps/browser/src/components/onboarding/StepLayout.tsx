@@ -49,7 +49,7 @@ export function StepLayout({
       <Reveal>
         <StepProgress />
       </Reveal>
-      <ScrollView key={pageKey} style={{ flex: 1, marginTop: 20 }}>
+      <ScrollView key={pageKey} style={{ flex: 1, marginTop: 20 }} showsVerticalScrollIndicator={false}>
         {body}
       </ScrollView>
       <Reveal delay={240} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 14 }}>

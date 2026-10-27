@@ -153,12 +153,12 @@ function SourceTile({ title, icon, symbol, selected, onPress }: { title: string;
   const colors = useOnboardingColors();
   const ring = useImageRing(icon, selected);
   return (
-    <SelectTile title={title} width={TILE} height={84} gap={6} checkSize={14} selected={selected} role="radio" titlePad={4} titleLines={1} ring={ring} onPress={onPress}>
+    <SelectTile title={title} width={TILE} height={68} gap={5} checkSize={13} selected={selected} role="radio" titlePad={4} titleLines={1} ring={ring} onPress={onPress}>
       {() =>
         icon ? (
-          <Image source={icon} style={{ width: 40, height: 40 }} />
+          <Image source={icon} style={{ width: 30, height: 30 }} />
         ) : (
-          <View style={{ width: 34, height: 34, margin: 3, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.iconContainer }}>
+          <View style={{ width: 26, height: 26, margin: 2, borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: colors.iconContainer }}>
             <Symbol name={symbol} size={15} color={colors.subtitle} style={{ width: 20, height: 20 }} />
           </View>
         )
