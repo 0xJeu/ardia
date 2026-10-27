@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, type PeekModifier, type Settings } from "../../state/
 import { ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { ThemeColorPicker } from "./Personalize";
 import { MockPanel, useScreen } from "./Screen";
-import { confirmAnswer, previewColor, previewLive, PRESET_NAMES, PRESETS, questionsFor, setOnboardingDraft, setOnboardingExtras, skipStep, useOnboarding, type Preset, type QuestionId } from "../../state/onboarding/onboarding";
+import { confirmAnswer, previewColor, previewLive, previewTheme, PRESET_NAMES, PRESETS, questionsFor, setOnboardingDraft, setOnboardingExtras, skipStep, useOnboarding, type Preset, type QuestionId } from "../../state/onboarding/onboarding";
 import { StepActions, StepLayout } from "./StepLayout";
 import { CheckRow, OptionRow, Tag } from "./Parts";
 
@@ -316,6 +316,7 @@ export function LookStep() {
   const windowId = useOnboarding((s) => s.windowId) ?? "";
   const appIcon = useOnboarding((s) => s.extras.appIcon);
   const color = useWindowProfileValue(windowId, (p) => p?.color);
+  const customTheme = useWindowProfileValue(windowId, (p) => !!p?.theme);
   const [icons, setIcons] = useState<{ list: AppIcon[]; current: string | null }>({ list: [], current: null });
   const preview = <MockPanel settings={mock} focus={focus.focus} />;
   useEffect(() => {
@@ -389,10 +390,10 @@ export function LookStep() {
         </View>
       </Page>
     );
-  const name = color ? PROFILE_COLORS[color]?.name : null;
+  const name = customTheme ? "Custom" : color ? PROFILE_COLORS[color]?.name : null;
   return (
     <Page id="color" title="Pick a color" subtitle="It tints the sidebar and the window." patch={{}} picked={name ? [`${name} theme`] : []} preview={preview}>
-      <ThemeColorPicker windowId={windowId} size={32} onPick={(c) => previewColor(c)} />
+      <ThemeColorPicker windowId={windowId} size={32} gap={5} onPick={(c) => previewColor(c)} onTheme={previewTheme} />
     </Page>
   );
 }

@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { resolveWindowId, tabLayoutOf } from "../browser/model";
 import { DEFAULT_SETTINGS, type Settings } from "../settings/settings";
-import type { ProfileColor } from "../browser/types";
+import type { ProfileColor, ProfileTheme } from "../browser/types";
 import { pinSites } from "./sites";
 import { endToolTour, startToolTour } from "./tour";
 import { stepsForThisSurface } from "./demoSteps";
@@ -223,7 +223,7 @@ export type Extras = {
   login: boolean;
 };
 
-type LiveBaseline = Partial<Settings> & { color?: ProfileColor };
+type LiveBaseline = Partial<Settings> & { color?: ProfileColor; theme?: ProfileTheme | null };
 
 type OnboardingState = {
   windowId: string | null;
@@ -315,12 +315,28 @@ export function previewLive(patch: Partial<Settings>) {
 }
 
 export function previewColor(color: ProfileColor) {
-  const { windowId, baseline } = useOnboarding.getState();
+  const { windowId } = useOnboarding.getState();
   const b = useBrowser.getState();
   const profileId = windowId ? b.windows[windowId]?.profileId : undefined;
   if (!profileId) return;
-  if (!("color" in baseline)) useOnboarding.setState({ baseline: { ...baseline, color: b.profiles[profileId]?.color } });
-  b.updateProfile(profileId, { color });
+  recordLookBaseline(profileId);
+  b.updateProfile(profileId, { color, theme: null });
+}
+
+export function previewTheme(theme: ProfileTheme) {
+  const { windowId } = useOnboarding.getState();
+  const b = useBrowser.getState();
+  const profileId = windowId ? b.windows[windowId]?.profileId : undefined;
+  if (!profileId) return;
+  recordLookBaseline(profileId);
+  b.updateProfile(profileId, { theme });
+}
+
+function recordLookBaseline(profileId: string) {
+  const { baseline } = useOnboarding.getState();
+  if ("color" in baseline) return;
+  const profile = useBrowser.getState().profiles[profileId];
+  useOnboarding.setState({ baseline: { ...baseline, color: profile?.color, theme: profile?.theme ?? null } });
 }
 
 export function confirmAnswer(question: QuestionId, patch: Partial<Settings>, picked: string[]) {
@@ -329,7 +345,10 @@ export function confirmAnswer(question: QuestionId, patch: Partial<Settings>, pi
   if (Object.keys(patch).length) useBrowser.getState().updateSettings(patch);
   const kept: LiveBaseline = { ...baseline };
   for (const key of Object.keys(patch)) delete kept[key as keyof LiveBaseline];
-  if (question === "color") delete kept.color;
+  if (question === "color") {
+    delete kept.color;
+    delete kept.theme;
+  }
   const all = { ...useOnboarding.getState().picked, [question]: picked };
   useOnboarding.setState({ baseline: kept, picked: all });
   save({ picked: all });
@@ -340,7 +359,7 @@ export function skipStep() {
   const { step, sub } = useOnboarding.getState();
   const rest = questionsFor(step).slice(sub);
   const keys = rest.flatMap((q) => q.keys);
-  revertLive([...keys, ...(rest.some((q) => q.id === "color") ? (["color"] as const) : [])]);
+  revertLive([...keys, ...(rest.some((q) => q.id === "color") ? (["color", "theme"] as const) : [])]);
   useOnboarding.setState((s) => {
     const draft = { ...s.draft };
     for (const key of keys) delete draft[key];
@@ -355,12 +374,12 @@ function revertLive(keys: readonly (keyof LiveBaseline)[]) {
   const { windowId, baseline } = useOnboarding.getState();
   const restore = Object.fromEntries(keys.filter((k) => k in baseline).map((k) => [k, baseline[k]])) as LiveBaseline;
   if (!Object.keys(restore).length) return;
-  const { color, tabLayout, ...rest } = restore;
+  const { color, theme, tabLayout, ...rest } = restore;
   const b = useBrowser.getState();
   const window = windowId ? b.windows[windowId] : undefined;
   if (tabLayout && windowId) setWindowLayout(windowId, tabLayout);
   if (Object.keys(rest).length) b.updateSettings(rest, { fromSync: true });
-  if (color && window) b.updateProfile(window.profileId, { color });
+  if ((color || "theme" in restore) && window) b.updateProfile(window.profileId, { ...(color ? { color } : {}), ...("theme" in restore ? { theme } : {}) });
   const kept = { ...baseline };
   for (const key of keys) delete kept[key];
   useOnboarding.setState({ baseline: kept });
