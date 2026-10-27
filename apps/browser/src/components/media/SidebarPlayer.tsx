@@ -35,7 +35,7 @@ export function SidebarPlayer({ tabId }: { tabId: string }) {
   const playing = isPlaying(session);
   const { hovered, hoverProps } = useHover();
   const artwork = useArtwork(tabId, session?.artwork);
-  const group = useMarqueeGroup(`${tabId}|${session?.title}|${session?.artist}`);
+  const group = useMarqueeGroup(`${tabId}|${session?.title || tab?.title}|${session?.artist || hostOf(tab?.url ?? "")}`);
   if (!session || !tab) return null;
   const tracks = hasTrackControls(session);
   const title = session.title || tab.title;
