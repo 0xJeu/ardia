@@ -126,3 +126,12 @@ test("the summary names what the code sets, in plain words", () => {
   ]);
   assert.deepEqual(describeSetupChoices({ settings: { tabLayout: "top", addressBar: "sidebar" } }), ["Tabs along the top"]);
 });
+
+test("custom and 30-day cleanup intervals stay out of setup codes", () => {
+  for (const hours of [0.5, 720]) {
+    const code = encodeSetupCode({ settings: { cleanUpInactiveTabsAfterHours: hours } });
+    assert.ok(!code.slice(SETUP_CODE_PREFIX.length, code.lastIndexOf("-")).includes("i"));
+    const withLayout = encodeSetupCode({ settings: { cleanUpInactiveTabsAfterHours: hours, tabLayout: "top" } });
+    assert.deepEqual(decodeSetupCode(withLayout), { ok: true, choices: { settings: { tabLayout: "top" } } });
+  }
+});

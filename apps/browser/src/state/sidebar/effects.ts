@@ -9,7 +9,7 @@ import { dismissHover } from "../sidebar/hover";
 import { sidebarUi } from "../sidebar/sidebarUi";
 import { cancelSwitcher, commitSwitcher, moveSwitcher } from "../sidebar/switcher";
 
-const AUTO_CLEAN_EVERY_MS = 30 * 60 * 1000;
+const AUTO_CLEAN_EVERY_MS = 60 * 1000;
 let started = false;
 
 export function startSidebarEffects() {

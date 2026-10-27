@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import { View } from "react-native";
+import { durationFromHours, hoursFrom, type DurationUnit } from "../../../lib/time";
 import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { chooseTabLayout, updateSettings } from "../../../state/settings/actions";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
 import { liquidGlass } from "../../ui/Glass";
-import { Checkbox, Group, PopUp, Toggle } from "../../ui";
+import { Checkbox, Group, PopUp, TextField, Toggle } from "../../ui";
+import { space } from "../../ui/tokens";
 import { Row, SectionHeader } from "../Form";
 import { PictureChoice } from "../PictureChoice";
 import { setting } from "../settingsIndex";
@@ -59,6 +62,7 @@ const NEW_TAB_BUTTON: { value: Settings["newTabButtonPosition"]; title: string }
 
 const CLEAN_UP = [
   { value: "12", title: "12 hours" },
+  { value: "custom", title: "Custom…" },
   { value: "24", title: "24 hours" },
   { value: "168", title: "7 days" },
   { value: "720", title: "30 days" },
@@ -135,17 +139,60 @@ export function TabsPane() {
         title="Clean up"
         description="Closes tabs you haven't used (and duplicates) automatically, like the tab menu's Clean Up Daily. Pinned, playing and selected tabs stay; cleaned tabs are listed under Recently Cleaned."
       />
-      <Group>
-        <Row anchor="tabs.cleanUp" description={null} title={<Checkbox value={settings.cleanUpInactiveTabsAfterHours !== null} onChange={(v) => update({ cleanUpInactiveTabsAfterHours: v ? 24 : null })} label="Clean up tabs I haven't used in:" />}>
-          <PopUp
-            value={String(settings.cleanUpInactiveTabsAfterHours ?? 24)}
-            options={CLEAN_UP}
-            disabled={settings.cleanUpInactiveTabsAfterHours === null}
-            onChange={(v) => update({ cleanUpInactiveTabsAfterHours: Number(v) })}
-          />
-        </Row>
-      </Group>
+      <CleanUpSettings />
     </View>
+  );
+}
+
+function CleanUpSettings() {
+  const hours = useSettings((s) => s.cleanUpInactiveTabsAfterHours);
+  const [customPicked, setCustomPicked] = useState(false);
+  const custom = hours !== null && hours > 0 && !CLEAN_UP.some((o) => o.value === String(hours));
+  return (
+    <Group>
+      <Row anchor="tabs.cleanUp" description={null} title={<Checkbox value={hours !== null} onChange={(v) => { setCustomPicked(false); updateSettings({ cleanUpInactiveTabsAfterHours: v ? 24 : null }); }} label="Clean up tabs I haven't used in:" />}>
+        <PopUp
+          value={custom || customPicked ? "custom" : String(hours ?? 24)}
+          options={CLEAN_UP}
+          disabled={hours === null}
+          onChange={(v) => { setCustomPicked(v === "custom"); if (v !== "custom") updateSettings({ cleanUpInactiveTabsAfterHours: Number(v) }); }}
+        />
+      </Row>
+      {hours !== null && (custom || customPicked) && <CustomDurationDetails hours={hours} draft={!custom} />}
+    </Group>
+  );
+}
+
+const DURATION_UNITS: { value: DurationUnit; title: string }[] = [
+  { value: "minutes", title: "Minutes" },
+  { value: "hours", title: "Hours" },
+  { value: "days", title: "Days" },
+];
+
+function CustomDurationDetails({ hours, draft }: { hours: number; draft: boolean }) {
+  const stored = durationFromHours(hours);
+  const [amount, setAmount] = useState(String(stored.amount));
+  const [unit, setUnit] = useState(stored.unit);
+  const [submitted, setSubmitted] = useState(!draft);
+  const reset = () => {
+    setAmount(String(stored.amount));
+    setUnit(stored.unit);
+  };
+  useEffect(reset, [hours]);
+  const valid = /^[1-9]\d{0,2}$/.test(amount);
+  const save = (nextUnit = unit) => {
+    if (valid) {
+      setSubmitted(true);
+      updateSettings({ cleanUpInactiveTabsAfterHours: hoursFrom(Number(amount), nextUnit) });
+    }
+  };
+  return (
+    <Row title="Custom duration">
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.m }}>
+        <TextField value={amount} onChangeText={setAmount} onSubmit={() => save()} onBlur={() => valid ? save() : reset()} selectOnFocus style={{ width: 56 }} />
+        <PopUp value={unit} options={DURATION_UNITS} minWidth={100} onChange={(v) => { setUnit(v); if (submitted) save(v); }} />
+      </View>
+    </Row>
   );
 }
 

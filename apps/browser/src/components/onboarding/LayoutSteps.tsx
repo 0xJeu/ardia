@@ -1,3 +1,4 @@
+import { durationTitle } from "../../lib/time";
 import { appIcons, currentAppIcon, setAppIcon, type AppIcon } from "../../state/app/appSettings";
 import { useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
@@ -170,7 +171,7 @@ const PEEK_WITH: { value: PeekModifier; title: string }[] = [
   { value: "off", title: "Off" },
 ];
 
-const hoursLabel = (h: number) => (h === 12 ? "12 hours" : TIDY_AFTER.find((o) => o.value === h)?.title ?? `${h} hours`);
+const hoursLabel = (h: number) => (h === 12 ? "12 hours" : TIDY_AFTER.find((o) => o.value === h)?.title ?? durationTitle(h));
 
 export function TabsStep() {
   const { id, focus } = useQuestion("tabs");

@@ -14,3 +14,21 @@ export function ago(at: number, now = Date.now()): string {
   if (d < 365) return units(Math.floor(d / 30), "month");
   return units(Math.floor(d / 365), "year");
 }
+
+export type DurationUnit = "minutes" | "hours" | "days";
+
+export function hoursFrom(amount: number, unit: DurationUnit): number {
+  return unit === "minutes" ? amount / 60 : unit === "days" ? amount * 24 : amount;
+}
+
+export function durationFromHours(hours: number): { amount: number; unit: DurationUnit } {
+  const minutes = Math.round(hours * 60);
+  if (minutes % 1440 === 0) return { amount: minutes / 1440, unit: "days" };
+  if (minutes % 60 === 0) return { amount: minutes / 60, unit: "hours" };
+  return { amount: minutes, unit: "minutes" };
+}
+
+export function durationTitle(hours: number): string {
+  const { amount, unit } = durationFromHours(hours);
+  return `${amount} ${amount === 1 ? unit.slice(0, -1) : unit}`;
+}
