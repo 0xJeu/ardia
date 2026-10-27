@@ -15,7 +15,6 @@ const STATE_EVERY_MS = 60 * 60_000;
 const JOURNAL_BYTES_LIMIT = 1_000_000;
 const JOURNAL_PARTS_LIMIT = 400;
 const DOC_IDLE_MS = 5 * 60_000;
-const REAPPLY_MS = 30_000;
 
 const journalPart = (n: number) => `sync-journal-${n}.nns`;
 
@@ -48,19 +47,9 @@ function changedEntries<T>(before: Record<string, T>, after: Record<string, T>):
   return changed;
 }
 
-function entryOf<K>(map: Map<string, K>, key: string, fresh: () => K): K {
-  if (!map.has(key)) map.set(key, fresh());
-  return map.get(key)!;
-}
-
-function withUnapplied(state: ScopeState, keys: Iterable<string>): ScopeState {
-  return { ...state, unapplied: [...new Set([...state.unapplied, ...keys])] };
-}
-
-function replayChanges(scopes: SyncDoc["scopes"], changes: Record<string, ScopeChange>, live: Set<string>, reapply: Map<string, Set<string>> | null) {
+function replayChanges(scopes: SyncDoc["scopes"], changes: Record<string, ScopeChange>, live: Set<string>) {
   for (const [scope, change] of Object.entries(changes)) {
     if (!live.has(scope)) continue;
-    if (reapply) for (const key in change.base) entryOf(reapply, scope, () => new Set<string>()).add(key);
     const { records, base } = scopes[scope] ?? emptyScope();
     for (const [key, record] of Object.entries(change.records)) {
       if (record) records[key] = record;
@@ -85,7 +74,6 @@ export function syncFiles(current: () => SyncDoc) {
   let lastPartId = 0;
   let partsInFlight = 0;
   let liveClock: Clock | null = null;
-  const baseChangedAt = new Map<string, Map<string, number>>();
   let legacyJournal = false;
   const writtenRest = new Map<string, string>();
   let savedState = "";
@@ -137,16 +125,15 @@ export function syncFiles(current: () => SyncDoc) {
     const clock = new Clock(doc.deviceId ?? "", doc.clock);
     if (savedClock) clock.observe(savedClock);
     const batches: Journal = {};
-    lastPartId = Math.max(covers, 0, ...parts.map((part) => part.id ?? 0));
-    const reapply = new Map<string, Set<string>>();
+    lastPartId = Math.max(covers, 0);
     for (const part of parts) {
+      lastPartId = Math.max(lastPartId, part.id ?? 0);
       if ((part.id ?? 0) <= covers) continue;
       addBatches(batches, part.journal);
       if (!part.changes || part.device !== doc.deviceId) continue;
       if (part.clock) clock.observe(part.clock);
-      replayChanges(scopes, part.changes, live, (part.id ?? 0) >= lastPartId - REAPPLY_MS ? reapply : null);
+      replayChanges(scopes, part.changes, live);
     }
-    for (const [scope, keys] of reapply) if (scopes[scope]) scopes[scope] = withUnapplied(scopes[scope], keys);
     journal = {};
     for (const [scope, files] of Object.entries(batches)) {
       const mine = files.filter((f) => f.device === doc.deviceId);
@@ -210,8 +197,6 @@ export function syncFiles(current: () => SyncDoc) {
       if (current().scopes[scope] !== state) return;
       const change: ScopeChange = { records: changedEntries(records, state.records), base: changedEntries(base, state.base), rest: restOf(state) };
       const touched = Object.keys(change.records).length > 0 || Object.keys(change.base).length > 0;
-      const now = Date.now();
-      for (const key in change.base) entryOf(baseChangedAt, scope, () => new Map<string, number>()).set(key, now);
       const rest = JSON.stringify(change.rest);
       if (!touched && rest === writtenRest.get(scope)) return;
       try {
@@ -241,20 +226,6 @@ export function syncFiles(current: () => SyncDoc) {
     journalParts = 0;
     journalBytes = 0;
     legacyJournal = false;
-  }
-
-  function checkpointScopes(scopes: SyncDoc["scopes"]): SyncDoc["scopes"] {
-    const since = Date.now() - REAPPLY_MS;
-    const out: SyncDoc["scopes"] = {};
-    for (const [scope, state] of Object.entries(scopes)) {
-      const recent: string[] = [];
-      for (const [key, at] of baseChangedAt.get(scope) ?? []) {
-        if (at >= since) recent.push(key);
-        else baseChangedAt.get(scope)!.delete(key);
-      }
-      out[scope] = recent.length ? withUnapplied(state, recent) : state;
-    }
-    return out;
   }
 
   function saveDoc() {
@@ -292,7 +263,7 @@ export function syncFiles(current: () => SyncDoc) {
     stateLoaded = true;
     const mark = lastPartId;
     const seqs = Object.fromEntries(Object.entries(doc.scopes).map(([k, s]) => [k, s.seq]));
-    const state = JSON.stringify(checkpointScopes(doc.scopes));
+    const state = JSON.stringify(doc.scopes);
     const seen = new Clock("", doc.clock);
     if (liveClock) seen.observe(liveClock.last);
     if (state === savedState) {
