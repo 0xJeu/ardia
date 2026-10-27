@@ -3,9 +3,9 @@ const FILE_EXTENSIONS =
   "json|jsonl|js|mjs|cjs|jsx|ts|tsx|map|bundle|jsbundle|hbc|html?|css|txt|md|rtf|csv|log|ips|plist|xml|ya?ml|pdf|docx?|xlsx?|pptx?|key|pages|numbers|png|jpe?g|gif|webp|heic|svg|ico|icns|mp[34]|m4[av]|mov|avi|mkv|webm|wav|aac|flac|zip|gz|tgz|tar|7z|rar|dmg|pkg|app|crx|xpi|db|sqlite|sqlite3|ldb|sst";
 
 const RULES: [RegExp, string][] = [
-  [/"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|`[^`\n]*`/g, "<text>"],
-  [/(^|[\s(\[{=:,])'[^'\n]*'(?=$|[\s)\]},.:;!?])/g, "$1<text>"],
-  [/["“‘`][^\n]*$|(^|[\s(\[{=:,])'[^'\n]*$/g, "$1<text>"],
+  [/"[^"\n]*"|“[^”\n]*”|‘(?:[A-Za-z\u00C0-\u024F]’(?=[A-Za-z\u00C0-\u024F])|[^’\n])*’(?![A-Za-z\u00C0-\u024F])|`[^`\n]*`/g, "<text>"],
+  [/(^|[\s(\[{=:,])'(?:[A-Za-z\u00C0-\u024F]'(?=[A-Za-z\u00C0-\u024F])|[^'\n])*'(?=$|[\s)\]},.:;!?])/g, "$1<text>"],
+  [/["“‘`][^\n]*$|(^|[\s(\[{=:,])'[^\n]*$/g, "$1<text>"],
   [/\b(?:about|data|blob|javascript|mailto|file|chrome|ardia|chrome-extension|devtools|view-source):\S+/gi, "<url>"],
   [/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>)\]}]*/gi, "<url>"],
   [/[\w.%+-]+@[\w-]+(?:\.[\w-]+)+/g, "<email>"],

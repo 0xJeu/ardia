@@ -183,3 +183,11 @@ test("a named exception without a thrown backtrace still sends its name and reas
     ["EXC_CRASH", "EXC_CRASH (SIGABRT)", 1],
   ]);
 });
+
+test("an unclosed quote holding an apostrophe is redacted; an apostrophe inside a word isn't a closing quote", () => {
+  assert.equal(scrubText("refused 'patient's private medical history\ncontinued"), "refused <text>");
+  assert.equal(scrubText("x ‘Ana’s private notes"), "x <text>");
+  assert.equal(scrubText("'patient's file' was locked"), "<text> was locked");
+  assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text> y");
+  assert.equal(scrubText("Don't 'quote' the user's tab"), "Don't <text> the user's tab");
+});

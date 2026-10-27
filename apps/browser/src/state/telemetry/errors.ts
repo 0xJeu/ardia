@@ -58,6 +58,28 @@ type HermesInternalType = {
   }) => void;
 };
 
+type ExceptionsManagerType = { handleException?: (error: unknown, isFatal: boolean) => void };
+
+function reactNativeExceptionsManager(): ExceptionsManagerType | null {
+  try {
+    return require("react-native/Libraries/Core/ExceptionsManager").default ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function holdFatalReports(manager: ExceptionsManagerType | null): boolean {
+  const original = manager?.handleException;
+  if (!manager || typeof original !== "function") return false;
+  manager.handleException = (error, isFatal) => {
+    if (!isFatal || !isSharing()) return original.call(manager, error, isFatal);
+    const mechanism = (error as { isComponentError?: boolean } | null)?.isComponentError ? "react" : "onerror";
+    captureException(error, mechanism, { fatal: true });
+    void saveQueueNow().then(() => original.call(manager, error, isFatal));
+  };
+  return true;
+}
+
 let installed = false;
 
 export function installErrorReporting() {
@@ -66,10 +88,11 @@ export function installErrorReporting() {
   loadChoice();
   const g = globalThis as { ErrorUtils?: ErrorUtilsType; HermesInternal?: HermesInternalType };
 
+  const fatalReportsHeld = holdFatalReports(reactNativeExceptionsManager());
   const previous = g.ErrorUtils?.getGlobalHandler?.();
   g.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
     captureException(error, "onerror", { fatal: !!isFatal });
-    if (isFatal && isSharing()) void saveQueueNow().then(() => previous?.(error, isFatal));
+    if (isFatal && isSharing() && !fatalReportsHeld) void saveQueueNow().then(() => previous?.(error, isFatal));
     else previous?.(error, isFatal);
   });
 
