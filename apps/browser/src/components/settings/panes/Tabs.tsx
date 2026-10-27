@@ -189,7 +189,7 @@ function CustomDurationDetails({ hours, draft }: { hours: number; draft: boolean
   return (
     <Row title="Custom duration">
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.m }}>
-        <TextField value={amount} onChangeText={setAmount} onSubmit={() => save()} onBlur={() => valid ? save() : reset()} selectOnFocus style={{ width: 56 }} />
+        <TextField value={amount} onChangeText={setAmount} onSubmit={() => save()} onBlur={() => { if (!valid) reset(); else if (submitted) save(); }} selectOnFocus style={{ width: 56 }} />
         <PopUp value={unit} options={DURATION_UNITS} minWidth={100} onChange={(v) => { setUnit(v); if (submitted) save(v); }} />
       </View>
     </Row>
