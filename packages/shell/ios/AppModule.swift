@@ -116,6 +116,7 @@ public class AppModule: Module {
         "processStart": Self.processStart as Any,
         "bootTime": Self.bootTime as Any,
         "inApplicationsFolder": Self.inApplicationsFolder,
+        "updatePrewarm": UserDefaults.standard.dictionary(forKey: UpdatePrewarm.lastRunKey) as Any,
       ]
     }
 

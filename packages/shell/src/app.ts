@@ -78,6 +78,7 @@ export type SystemInfo = {
   processStart?: number | null;
   bootTime?: number | null;
   inApplicationsFolder?: boolean;
+  updatePrewarm?: { build?: string; at?: number; ms?: number; status?: number } | null;
 };
 
 export type CrashReport = {
