@@ -1,11 +1,13 @@
+import { useEffect } from "react";
 import { Image, StyleSheet, View, type ImageSourcePropType } from "react-native";
 import { DockSelection, GlassFill, liquidGlass, useTheme } from "../ui";
 import { bundledSiteIcon } from "../favicon/siteIcons";
 import { useFavicon } from "../../state/favicons/favicons";
-import { useIconRing } from "../../state/favicons/iconRing";
+import { useIconRing, warmIconRing } from "../../state/favicons/iconRing";
 import type { TileTheme } from "../../state/favicons/tileTheme";
 
 export const RING_WIDTH = 2;
+const RING_WARM_DELAY_MS = 500;
 
 export const solidFill = (fill: string) => (liquidGlass ? "transparent" : fill);
 
@@ -45,11 +47,21 @@ const sourceUri = (source: ImageSourcePropType | null | undefined): string | nul
   return (source as { uri?: string }).uri ?? null;
 };
 
-export const useImageRing = (source: ImageSourcePropType | null | undefined, shown: boolean) => useIconRing(liquidGlass && shown ? sourceUri(source) : null);
+function useWarmRing(uri: string | null, shown: boolean) {
+  const usable = liquidGlass ? uri : null;
+  useEffect(() => {
+    if (!usable) return;
+    const timer = setTimeout(() => warmIconRing(usable), RING_WARM_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [usable]);
+  return useIconRing(shown ? usable : null);
+}
+
+export const useImageRing = (source: ImageSourcePropType | null | undefined, shown: boolean) => useWarmRing(sourceUri(source), shown);
 
 export function useSiteRing(url: string, shown: boolean) {
   const theme = useTheme();
   const cached = useFavicon(url);
   const bundled = bundledSiteIcon(url, theme.dark);
-  return useIconRing(liquidGlass && shown ? (sourceUri(bundled) ?? cached?.uri ?? null) : null);
+  return useWarmRing(sourceUri(bundled) ?? cached?.uri ?? null, shown);
 }

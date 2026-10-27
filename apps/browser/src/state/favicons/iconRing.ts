@@ -33,6 +33,27 @@ function ringOf(uri: string): Promise<TileTheme | null> {
   return pending;
 }
 
+const WARM_GAP_MS = 40;
+const warmQueue: string[] = [];
+let warming = false;
+
+function warmNext() {
+  if (warming) return;
+  const next = warmQueue.shift();
+  if (!next) return;
+  warming = true;
+  void ringOf(next).finally(() => {
+    warming = false;
+    setTimeout(warmNext, WARM_GAP_MS);
+  });
+}
+
+export function warmIconRing(uri: string | null) {
+  if (!uri || rings.has(uri) || warmQueue.includes(uri)) return;
+  warmQueue.push(uri);
+  warmNext();
+}
+
 export function useIconRing(uri: string | null): TileTheme | null {
   const [ring, setRing] = useState<{ uri: string; ring: TileTheme | null } | null>(null);
   useEffect(() => {
