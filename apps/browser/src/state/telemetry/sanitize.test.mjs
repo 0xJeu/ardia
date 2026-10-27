@@ -191,3 +191,12 @@ test("an unclosed quote holding an apostrophe is redacted; an apostrophe inside 
   assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text> y");
   assert.equal(scrubText("Don't 'quote' the user's tab"), "Don't <text> the user's tab");
 });
+
+test("an apostrophe between non-Latin letters never closes a quote, so the rest of the line is redacted", () => {
+  assert.equal(scrubText("refused ‘ім’я пацієнта та медична історія"), "refused <text>");
+  assert.equal(scrubText("refused ‘του’ασθενούς ιστορικό"), "refused <text>");
+  assert.equal(scrubText("refused ‘患’者の病歴"), "refused <text>");
+  assert.equal(scrubText("refused 'ім'я пацієнта"), "refused <text>");
+  assert.equal(scrubText("refused \"患\"者の病歴"), "refused <text>");
+  assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text> y");
+});
