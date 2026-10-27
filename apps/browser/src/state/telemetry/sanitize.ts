@@ -2,13 +2,7 @@
 const FILE_EXTENSIONS =
   "json|jsonl|js|mjs|cjs|jsx|ts|tsx|map|bundle|jsbundle|hbc|html?|css|txt|md|rtf|csv|log|ips|plist|xml|ya?ml|pdf|docx?|xlsx?|pptx?|key|pages|numbers|png|jpe?g|gif|webp|heic|svg|ico|icns|mp[34]|m4[av]|mov|avi|mkv|webm|wav|aac|flac|zip|gz|tgz|tar|7z|rar|dmg|pkg|app|crx|xpi|db|sqlite|sqlite3|ldb|sst";
 
-const LETTER = "[A-Za-z\\u0080-\\uFFFF]";
-const quoted = (open: string, close: string) => `${open}(?:${LETTER}${close}(?=${LETTER})|[^${close}\\n])*${close}(?!${LETTER})`;
-
 const RULES: [RegExp, string][] = [
-  [new RegExp([quoted('"', '"'), quoted("“", "”"), quoted("‘", "’"), quoted("`", "`")].join("|"), "g"), "<text>"],
-  [new RegExp(`(^|[\\s(\\[{=:,])${quoted("'", "'")}(?=$|[\\s)\\]},.:;!?])`, "g"), "$1<text>"],
-  [/["“‘`][^\n]*$|(^|[\s(\[{=:,])'[^\n]*$/g, "$1<text>"],
   [/\b(?:about|data|blob|javascript|mailto|file|chrome|ardia|chrome-extension|devtools|view-source):\S+/gi, "<url>"],
   [/\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>)\]}]*/gi, "<url>"],
   [/[\w.%+-]+@[\w-]+(?:\.[\w-]+)+/g, "<email>"],
@@ -24,12 +18,37 @@ const RULES: [RegExp, string][] = [
   [/\b(?:0x)?[0-9a-f]{12,}\b/gi, "<hex>"],
 ];
 
+const QUOTES = new Set(['"', "“", "”", "‘", "’", "`"]);
+
+function isAsciiWordCharacter(character: string | undefined): boolean {
+  return !!character && /^[A-Za-z0-9]$/.test(character);
+}
+
+function untilFirstQuote(line: string): string {
+  for (let i = 0; i < line.length; i++) {
+    const character = line[i]!;
+    if (QUOTES.has(character) || (character === "'" && !isAsciiWordCharacter(line[i - 1]))) return `${line.slice(0, i)}<text>`;
+  }
+  return line;
+}
+
+function withoutPartialLastWord(text: string): string {
+  for (let i = text.length - 1; i >= 0; i--) if (/^\s$/.test(text[i]!)) return text.slice(0, i);
+  return "";
+}
+
 export function scrubText(input: unknown, max = 200): string {
   if (typeof input !== "string") return "";
   let text = input.split(/\r?\n/, 1)[0] ?? "";
+  const capped = text.length > max;
+  if (capped) text = text.slice(0, max - 1);
+  const beforeQuote = untilFirstQuote(text);
+  const endsAtQuote = beforeQuote !== text;
+  text = endsAtQuote ? beforeQuote : capped ? withoutPartialLastWord(text) : text;
   for (const [pattern, placeholder] of RULES) text = text.replace(pattern, placeholder);
   text = text.replace(/\s+/g, " ").trim();
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  if (text.length >= max) return `${text.slice(0, max - 1)}…`;
+  return capped && !endsAtQuote ? `${text}…` : text;
 }
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]{0,60}$/;

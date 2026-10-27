@@ -42,7 +42,7 @@ test("a native crash names its exception, reason and the app's images at the top
   assert.equal(props.source, "native_crash");
   assert.equal(props.objc_exception, "RCTFatalException");
   assert.deepEqual(props.$exception_types, ["RCTFatalException", "EXC_CRASH"]);
-  assert.deepEqual(props.$exception_values, ["Unhandled JS Exception: moved to <text> earlier, js engine: hermes, stack:", "EXC_CRASH (SIGABRT)"]);
+  assert.deepEqual(props.$exception_values, ["Unhandled JS Exception: moved to <text>", "EXC_CRASH (SIGABRT)"]);
   assert.deepEqual(props.crash_images, [{ name: "Ardia", uuid: "1c77ef99-77d4-3de8-9ba2-6929e276bc60" }]);
   assert.equal(props.$exception_list[0].stacktrace.frames[0].function, "Ardia + 0x38eab8");
   assert.equal(props.$exception_list[1].stacktrace.frames[0].function, "Chromium Framework + 0x41a36e8");

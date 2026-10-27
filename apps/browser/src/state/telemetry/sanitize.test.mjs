@@ -26,8 +26,8 @@ test("file paths and file names are stripped, with the user's name", () => {
 });
 
 test("quoted text, emails, ids and long numbers are stripped", () => {
-  assert.equal(scrubText(`Profile "Bob's Work" not found`), "Profile <text> not found");
-  assert.equal(scrubText("Cannot read property 'password' of undefined"), "Cannot read property <text> of undefined");
+  assert.equal(scrubText(`Profile "Bob's Work" not found`), "Profile <text>");
+  assert.equal(scrubText("Cannot read property 'password' of undefined"), "Cannot read property <text>");
   assert.equal(scrubText("mail alice.smith+x@corp.example.org"), "mail <email>");
   assert.equal(scrubText("tab 3f2c1a9e-1b2c-4d5e-8f90-123456789abc gone"), "tab <id> gone");
   assert.equal(scrubText("card 4111111111111111 declined"), "card <n> declined");
@@ -187,9 +187,9 @@ test("a named exception without a thrown backtrace still sends its name and reas
 test("an unclosed quote holding an apostrophe is redacted; an apostrophe inside a word isn't a closing quote", () => {
   assert.equal(scrubText("refused 'patient's private medical history\ncontinued"), "refused <text>");
   assert.equal(scrubText("x ‘Ana’s private notes"), "x <text>");
-  assert.equal(scrubText("'patient's file' was locked"), "<text> was locked");
-  assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text> y");
-  assert.equal(scrubText("Don't 'quote' the user's tab"), "Don't <text> the user's tab");
+  assert.equal(scrubText("'patient's file' was locked"), "<text>");
+  assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text>");
+  assert.equal(scrubText("Don't 'quote' the user's tab"), "Don't <text>");
 });
 
 test("an apostrophe between non-Latin letters never closes a quote, so the rest of the line is redacted", () => {
@@ -198,5 +198,26 @@ test("an apostrophe between non-Latin letters never closes a quote, so the rest 
   assert.equal(scrubText("refused ‘患’者の病歴"), "refused <text>");
   assert.equal(scrubText("refused 'ім'я пацієнта"), "refused <text>");
   assert.equal(scrubText("refused \"患\"者の病歴"), "refused <text>");
-  assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text> y");
+  assert.equal(scrubText("x ‘Ana’s notes’ y"), "x <text>");
+});
+
+test("everything from the first quote to the end of the line is redacted, whatever the quotes", () => {
+  assert.equal(scrubText('refused "ok"—‘patient" private medical history'), "refused <text>");
+  assert.equal(scrubText("it's the user's tab, don't “mix” them"), "it's the user's tab, don't <text>");
+  assert.equal(scrubText("closing ” first, then private"), "closing <text>");
+  assert.equal(scrubText("(’patient’s history"), "(<text>");
+});
+
+test("scrubbing a long reason full of quotes takes linear time", () => {
+  const reason = '"a'.repeat(32768);
+  const started = performance.now();
+  assert.equal(scrubText(reason, 300), "<text>");
+  assert.equal(scrubText(`x ${"'a".repeat(32768)}`, 300), "x <text>");
+  assert.ok(performance.now() - started < 10, `${performance.now() - started} ms`);
+});
+
+test("a reason cut to length drops its last, partial word instead of leaking half of it", () => {
+  const out = scrubText(`${"word ".repeat(59)}patient.name@private-clinic.example.org trailing`, 300);
+  assert.ok(!/patient|private|@/.test(out), out);
+  assert.ok(out.endsWith("word…"), out);
 });

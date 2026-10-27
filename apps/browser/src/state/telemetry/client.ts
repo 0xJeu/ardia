@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { DEV_SEND_TEST_KEY, LOGS_URL, MAX_BODY_BYTES } from "./config";
 import { EVENTS_SCOPE, eventRecord, LOGS_SCOPE, logRecord, logsRequest, outcome, type OtlpLogRecord, type QueuedEvent } from "./otlp";
 import { cleanProperties } from "./sanitize";
+import { logRequest, type RequestLogEntry } from "./requestLog";
 import { versionedJson, unchanged, upgraded, type Migrations } from "../../lib/savedDocument";
 
 const STATE_DOC = "telemetry.json";
@@ -12,7 +13,6 @@ const QUEUE_DOC = "telemetry-queue.json";
 const STATE_VERSION = 1;
 const STATE_MIGRATIONS: Migrations = { 0: unchanged };
 const QUEUE_VERSION = 1;
-const REQUEST_LOG_DOC = "telemetry-requests.log";
 
 const MAX_EVENTS = 1000;
 const MAX_LOGS = 200;
@@ -200,32 +200,6 @@ function scheduleFlush(delay: number) {
   clearTimeout(flushTimer);
   flushDueAt = due;
   flushTimer = setTimeout(() => void flush(), due - Date.now());
-}
-
-export type RequestLogEntry = {
-  at: string;
-  kind: "events" | "logs" | "daily";
-  url: string;
-  count: number;
-  bytes: number;
-  status: number | null;
-  dryRun?: boolean;
-};
-
-const requests: RequestLogEntry[] = [];
-
-export const requestLog = (): readonly RequestLogEntry[] => requests;
-
-export function logRequest(entry: RequestLogEntry, body: string) {
-  requests.push(entry);
-  if (requests.length > 200) requests.shift();
-  if (__DEV__) {
-    try {
-      const line = JSON.stringify({ ...entry, body: JSON.parse(body) });
-      writeDocument(REQUEST_LOG_DOC, (readDocument(REQUEST_LOG_DOC) ?? "").slice(-400_000) + `${line}\n`);
-    } catch {}
-  }
-  if (__DEV__) console.log(`[telemetry] ${entry.dryRun ? "dry run" : "POST"} ${entry.url} ${entry.kind}×${entry.count} → ${entry.status}`);
 }
 
 const inflight = new Set<AbortController>();
