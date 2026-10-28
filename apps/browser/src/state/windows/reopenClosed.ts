@@ -25,6 +25,17 @@ export function lastClosedTab(s: BrowserState, windowId: string | undefined): Cl
   );
 }
 
+export function lastClosedEntry(s: BrowserState, windowId: string | null | undefined): { id: string; closedAt: number } | undefined {
+  const target = resolveWindowId(s, windowId);
+  const regular = (p: string | undefined) => !s.windows[target ?? ""]?.incognito && shownProfile(s, target, p);
+  const lastWindow = findLast(s.closedWindows, (c) => regular(c.window.profileId));
+  const lastGroup = findLast(s.closedGroups, (c) => regular(c.tabs[0]?.profileId));
+  return [lastWindow, lastGroup, lastClosedTab(s, target)].reduce<{ id: string; closedAt: number } | undefined>(
+    (latest, e) => (e && (!latest || e.closedAt > latest.closedAt) ? e : latest),
+    undefined,
+  );
+}
+
 function canRestoreTabInto(s: BrowserState, c: ClosedTab, windowId: string | undefined): boolean {
   const w = windowId ? s.windows[windowId] : undefined;
   if (isIncognitoProfile(c.tab.profileId)) return c.windowId === windowId;

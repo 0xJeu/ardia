@@ -6,6 +6,7 @@ import { bookmarkAllTabs } from "../bookmarks/actions";
 import { toggleNewTabBar } from "../omnibox/newTabBar";
 import { newGroupWithSelection } from "./actions";
 import { closeAllTabs } from "./clearTabs";
+import { lastClosedEntry } from "../windows/reopenClosed";
 import { newLiveFolderMenuItem, runNewLiveFolder } from "./liveMenus";
 import { sections } from "./menuParts";
 
@@ -13,11 +14,10 @@ const store = () => useBrowser.getState();
 
 export function sidebarMenuItems(s: BrowserState, windowId: string): MenuItem[] {
   const w = s.windows[windowId];
-  const canReopen = s.closedTabs.length > 0 || s.closedWindows.length > 0 || s.closedGroups.length > 0;
   return sections(
     [
       { id: "newTab", title: "New Tab", symbol: "plus.app", ...menuShortcut("newTab", s) },
-      { id: "reopen", title: "Reopen Closed Tab", enabled: canReopen, ...menuShortcut("reopenClosedTab", s) },
+      { id: "reopen", title: "Reopen Closed Tab", enabled: !!lastClosedEntry(s, windowId), ...menuShortcut("reopenClosedTab", s) },
     ],
     [{ id: "newGroup", title: "New Group", symbol: "folder.badge.plus" }, newLiveFolderMenuItem()],
     [{ id: "newProfile", title: "New Profile…", symbol: "plus" }],

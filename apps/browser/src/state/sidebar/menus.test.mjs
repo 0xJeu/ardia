@@ -308,3 +308,16 @@ test("a group menu whose group moved to another window meanwhile does nothing", 
   assert.equal(trip?.windowId, other, "the group is still there, in the other window");
   assert.deepEqual(trip.tabIds, [ids[1], ids[2]]);
 });
+
+test("the sidebar menu's Reopen Closed Tab is on only when there is something of the shown profile to reopen", () => {
+  const { w, ids } = windowWith("a", "b");
+  const work = S().createProfile({ name: "Work" });
+  const other = S().createWindow({ url: "https://w1.com/", profileId: work });
+  S().newTab(other, { url: "https://w2.com/" });
+  S().closeTabs([S().windows[other].tabIds[1]]);
+  const reopen = () => top(sidebarMenuItems(S(), w)).find((l) => l.startsWith("Reopen Closed Tab"));
+  assert.equal(reopen(), "Reopen Closed Tab ⇧⌘T (off)", "only Work has a closed tab");
+  assert.ok(top(sidebarMenuItems(S(), other)).includes("Reopen Closed Tab ⇧⌘T"));
+  S().closeTabs([ids[1]]);
+  assert.equal(reopen(), "Reopen Closed Tab ⇧⌘T");
+});

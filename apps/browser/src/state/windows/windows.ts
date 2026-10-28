@@ -25,7 +25,7 @@ import { isSmall, isSmallWindow, lastActiveProfile, linkProfileOf, mainWindowFor
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import type { BrowserWindow, ClosedWindow, Frame, ParkedPins, Tab } from "../browser/types";
 import { emptyWindow, smallWindow, withWindow } from "./newWindow";
-import { lastClosedTab, restoreTab, restoreWindow, shownProfile } from "./reopenClosed";
+import { lastClosedEntry, lastClosedTab, restoreTab, restoreWindow } from "./reopenClosed";
 import { groupTree, regrouped, splitsWithin, withSplitsBack } from "./groupMoves";
 
 export type CreateWindowOptions = {
@@ -318,16 +318,8 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
 
   reopenClosed(windowId) {
     const s = get();
-    const target = resolveWindowId(s, windowId);
-    const lastTab = lastClosedTab(s, target);
-    const regular = (p: string | undefined) => !s.windows[target ?? ""]?.incognito && shownProfile(s, target, p);
-    const lastWindow = findLast(s.closedWindows, (c) => regular(c.window.profileId));
-    const lastGroup = findLast(s.closedGroups, (c) => regular(c.tabs[0]?.profileId));
-    const entry = [lastWindow, lastGroup, lastTab].reduce<{ id: string; closedAt: number } | undefined>(
-      (latest, e) => (e && (!latest || e.closedAt > latest.closedAt) ? e : latest),
-      undefined,
-    );
-    if (entry) get().restoreClosed(entry.id, target);
+    const entry = lastClosedEntry(s, windowId);
+    if (entry) get().restoreClosed(entry.id, resolveWindowId(s, windowId));
   },
 
   reopenClosedTab(windowId) {
