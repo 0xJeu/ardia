@@ -73,6 +73,16 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
   CGFloat _framePaneZ;
   BOOL _holding;
   __weak ArdiaWebView *_holdingFor;
+  __weak ArdiaWebView *_tookOverFrom;
+  CFTimeInterval _tookOverAt;
+  __weak NSView *_standInPage;
+  ArdiaCoreTab *_standInTab;
+  __weak ArdiaWebView *_standInLender;
+  BOOL _standInCloses;
+  BOOL _standInLeaving;
+  float _standInOpacity;
+  NSUInteger _standInGeneration;
+  __weak ArdiaWebView *_lentTo;
   NSUInteger _holdGeneration;
   BOOL _handingOff;
   BOOL _revealed;
@@ -144,6 +154,14 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 - (void)finishFrameHold;
 - (void)stopHolding;
 - (void)takeFocusFromLingeringPane;
+@end
+
+@interface ArdiaWebView (StandInInternal)
+- (void)lendPageToSuccessor;
+- (void)reclaimLentPage;
+- (BOOL)closesLentTab:(ArdiaCoreTab *)tab;
+- (void)dropStandIn;
+- (void)finishStandIn;
 @end
 
 @interface ArdiaWebView (FocusInternal)

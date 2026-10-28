@@ -170,6 +170,11 @@ void AcceptDrops(NSView *root, BOOL accept) {
   return [ArdiaWindowController forNSWindow:self.window];
 }
 
+- (void)viewWillMoveToWindow:(NSWindow *)newWindow {
+  if (!newWindow) [self lendPageToSuccessor];
+  [super viewWillMoveToWindow:newWindow];
+}
+
 - (void)viewDidMoveToWindow {
   [super viewDidMoveToWindow];
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ window=%ld tab=%d", _transferKey, (long)self.window.windowNumber, _tab ? (int)_tab.tabId : -1);
@@ -181,6 +186,7 @@ void AcceptDrops(NSView *root, BOOL accept) {
   _sightObserver = [NSNotificationCenter.defaultCenter addObserverForName:ArdiaWindowSeenDidChange object:self.window queue:nil
                                                                usingBlock:^(NSNotification *) { [weakSelf userSightChanged]; }];
   [self userSightChanged];
+  if (_tab) [self reclaimLentPage];
   if (_tab) [self adoptIntoWindow];
   else [self ensureTab];
 }

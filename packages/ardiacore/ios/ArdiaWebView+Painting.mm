@@ -110,6 +110,7 @@ BOOL Above(NSView *a, NSView *b) {
 
 - (void)layoutPage {
   if (NSView *fronted = _frontedPage; fronted.superview == self) fronted.frame = self.bounds;
+  if (NSView *standIn = _standInPage; standIn.superview == self) standIn.frame = self.bounds;
   NSView *page = _tab.view;
   if (!page || page.superview != self) return;
   if (_devtoolsView) {
@@ -219,7 +220,7 @@ BOOL Above(NSView *a, NSView *b) {
   [self beginFrameHoldIfCold];
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
-  self.alphaValue = _awaitingFrame ? 0 : _visible || _revealed || _holding || !(_warm || _leaving) ? 1 : 0;
+  self.alphaValue = _awaitingFrame && (_standInPage.superview != self || _standInLeaving) ? 0 : _visible || _revealed || _holding || !(_warm || _leaving) ? 1 : 0;
   const BOOL shown = self.paints;
   for (NSView *sub in self.subviews) {
     sub.hidden = !shown;
@@ -341,6 +342,8 @@ BOOL Above(NSView *a, NSView *b) {
   NSView *widget = outgoing || lingering ? RenderWidgetIn(page) : nil;
   if (!widget.hidden) return;
   _awaitingFrame = YES;
+  _tookOverFrom = outgoing;
+  _tookOverAt = CACurrentMediaTime();
   _frameMark = FrameMarkOf(widget);
   const NSUInteger generation = ++_frameHoldGeneration;
   [AwaitingFrames() addObject:self];
@@ -387,6 +390,7 @@ BOOL Above(NSView *a, NSView *b) {
 }
 
 - (void)finishFrameHold {
+  [self dropStandIn];
   if (!_awaitingFrame) return;
   _awaitingFrame = NO;
   _frameMark = nil;
