@@ -767,12 +767,20 @@ reproduced.
    still used, with CEF itself (0.2.22).
 2. **Fixed (R1).** Page context menu on Chrome tabs: it's Chrome's own menu now, with our search engine's name and
    action on "Search … for", our Inspect, Dia's quote link on "Copy Link to Highlight", our split for "Open Link in
-   Split View", and items for Chrome UI we don't show removed (translate, Lens, QR code, send to devices, reading
-   mode, "Open Link as" profiles). Chrome's Cast… is back (R2): it opens our Cast picker. Extension items show and run.
+   Split View", and items for Chrome UI we don't show removed (Lens, QR code, send to devices, reading mode). Chrome's
+   Cast… is back (R2): it opens our Cast picker. Extension items show and run.
    ArdiaCore (0.2.22) brought "Create QR Code for this Page/Image" back, and picking it quit the app (Chrome's QR
    bubble anchors to a toolbar our Browsers don't have: a null `ToolbarButtonProvider`); it, Send to your devices
    and Google Lens are gone from the menu again, as is the Reading mode item a text field's menu still had
-   (`ac_context_menu.mm` `RemoveViewlessItems`, 2026-10-04).
+   (`ac_context_menu.mm` `RemoveViewlessItems`, 2026-10-04). Since 2026-10-28 it follows Dia's layout
+   (`ArrangeLikeDia`): a blank page shows Back, Forward, Reload — Save As…, Print…, Cast… — View Page Source,
+   Inspect, with Back and Forward always there and greyed when there's nowhere to go (Helium hid them); a link shows
+   Open Link in New Tab / New Window / Split View / Incognito Window — Save Link As…, Copy Link Address, and "Open
+   Link as <Profile>" is gone (until then it still showed whenever another profile was open); an image shows Open
+   Image in New Tab, Save Image As…, Copy Image, Copy Image Address — Inspect. Not yet as Dia: no "Translate to
+   <language>" (#189; Helium shows Chrome's Translate only with a translate script URL, Google's service, which we
+   don't set, and our own translator isn't in this menu), and no "Search <engine> for Image" (Chrome offers it only
+   for an engine with image search; our engine name lives app-side).
 3. **Fixed (R1).** ArdiaSwipe sits in front of Chrome's responder delegate and forwards everything but the scroll events
    Chrome's history swiper would act on; spelling and speech validate again.
 4. **Fixed (R1).** Sleeping is Chrome's in-place discard (`WebContentsDiscard`), and every discard of a hosted tab,
