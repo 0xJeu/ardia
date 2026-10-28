@@ -36,6 +36,24 @@ export function sharedDataChain(doc: SyncDoc, syncId: string): { adds: string[];
   }
 }
 
+const PAIRING_WAIT_MS = 86_400_000;
+
+const pairingOverdue = (doc: SyncDoc, now: number) => doc.setupAt !== null && now - doc.setupAt > PAIRING_WAIT_MS;
+
+export function appScopeOf(doc: SyncDoc, now = Date.now()): ScopeState {
+  const app = (doc.scopes[APP_SCOPE] ??= { ...emptyScope(), awaitRemote: doc.joining });
+  if (doc.joining && pairingOverdue(doc, now)) delete app.awaitRemote;
+  return app;
+}
+
+export function readyToPair(doc: SyncDoc, app: ScopeState, now = Date.now()): boolean {
+  if (!doc.joining || pairingOverdue(doc, now)) return true;
+  const synced = [...visible(app, "prof:").values()] as ProfileRecord[];
+  if (synced.some((r) => r.d)) return true;
+  const downloading = Object.values(app.pendingSince ?? {}).some((at) => now - at <= PAIRING_WAIT_MS);
+  return synced.length > 0 && !downloading && !Object.keys(app.damaged).length;
+}
+
 export function linkProfiles(doc: SyncDoc, app: ScopeState) {
   const s = useBrowser.getState();
   const remote = [...visible(app, "prof:")].map(([k, v]) => [k.slice(5), v as ProfileRecord] as const);
@@ -55,6 +73,7 @@ export function linkProfiles(doc: SyncDoc, app: ScopeState) {
     }
   }
   for (const [id, link] of Object.entries(doc.profiles)) if (!s.profiles[id] && !link.retire) link.retire = true;
+  doc.joining = false;
 }
 
 export function addLinkedProfile(doc: SyncDoc, syncId: string, record: ProfileRecord, shareWith: string | null): string {

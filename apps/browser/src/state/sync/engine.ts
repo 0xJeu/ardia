@@ -30,17 +30,17 @@ import { extensionsAdapterFor, extensionSyncAvailable, probeExtensionSync, watch
 import { APP_SCOPE, defaultTypes, emptyDoc, type DataType, type SyncDoc, type SyncUi } from "./syncDoc";
 import { syncFiles } from "./syncFiles";
 import { confirmThemes, settleAppliedThemes } from "./syncThemes";
-import { addLinkedProfile, linkedProfileId, linkProfiles, remoteProfileRecord, sharedDataChain } from "./profileLinks";
+import { addLinkedProfile, appScopeOf, linkedProfileId, linkProfiles, readyToPair, remoteProfileRecord, sharedDataChain } from "./profileLinks";
 import { summarize } from "./syncSummary";
 import { onAppEvent } from "../../platform/app";
 
 const CYCLE_MS = 15_000;
 const AFTER_EDIT_MS = 3_000;
 
-
 export const useSync = create<SyncUi>()(() => ({
   status: SyncNative ? "off" : "unavailable",
   enabled: false,
+  joining: false,
   folder: null,
   types: defaultTypes(),
   profiles: {},
@@ -71,6 +71,7 @@ function load() {
 function publishUi(patch: Partial<SyncUi> = {}) {
   useSync.setState({
     enabled: doc.enabled,
+    joining: doc.enabled && doc.joining,
     folder: doc.folder,
     types: { ...doc.types },
     profiles: { ...doc.profiles },
@@ -155,7 +156,7 @@ async function runCycle({ retiring = false } = {}) {
     const transport = folderTransport(native, doc.folder);
     const clock = new Clock(doc.deviceId, doc.clock);
     const device = doc.deviceId;
-    const app = (doc.scopes[APP_SCOPE] ??= { ...emptyScope(), awaitRemote: doc.joining });
+    const app = appScopeOf(doc);
     const appSettled = watchScope(APP_SCOPE, app, clock);
     settleAppliedThemes(doc.profiles, app);
     if (doc.types.settings && !retiring) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
@@ -172,7 +173,7 @@ async function runCycle({ retiring = false } = {}) {
     } finally {
       await appSettled();
     }
-    if (app.joined) linkProfiles(doc, app);
+    if (app.joined && readyToPair(doc, app)) linkProfiles(doc, app);
     confirmThemes(doc.profiles, app);
     let pending = app.pending;
     const s = useBrowser.getState();
@@ -208,7 +209,6 @@ async function runCycle({ retiring = false } = {}) {
     }
     doc.clock = clock.last;
     doc.lastSyncedAt = Date.now();
-    if (app.joined) doc.joining = false;
     forcePasswords = false;
     publishUi({ status: "updated", error: null, pending });
   } catch (error) {
