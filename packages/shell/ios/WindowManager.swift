@@ -283,11 +283,28 @@ final class WindowManager: NSObject, NSWindowDelegate {
     window.delegate = self
     auxKinds[id] = kind
     windows[id] = window
-    if !window.setFrameUsingName("Ardia\(kind.capitalized)") { window.center() }
-    window.setFrameAutosaveName("Ardia\(kind.capitalized)")
+    if !window.setFrameUsingName(Self.auxFrameName(kind)) { window.center() }
+    for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+      NotificationCenter.default.addObserver(self, selector: #selector(auxFrameChanged(_:)), name: name, object: window)
+    }
     keepContentSizedAcrossReloads(id: id, root: root)
     relayoutRoot(window)
     window.makeKeyAndOrderFront(nil)
+  }
+
+  private static let auxFrameSaveDelay: TimeInterval = 0.3
+
+  private static func auxFrameName(_ kind: String) -> String { "Ardia\(kind.capitalized)" }
+
+  @objc private func auxFrameChanged(_ notification: Notification) {
+    guard let window = notification.object as? NSWindow else { return }
+    NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(saveAuxFrame(_:)), object: window)
+    perform(#selector(saveAuxFrame(_:)), with: window, afterDelay: Self.auxFrameSaveDelay)
+  }
+
+  @objc private func saveAuxFrame(_ window: NSWindow) {
+    guard let id = id(of: window), let kind = auxKinds[id] else { return }
+    window.saveFrame(usingName: Self.auxFrameName(kind))
   }
 
   private func configureSmall(_ window: NSWindow) {
@@ -417,6 +434,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
   func windowWillClose(_ notification: Notification) {
     guard let window = notification.object as? NSWindow, let id = id(of: window) else { return }
     NotificationCenter.default.removeObserver(self, name: nil, object: window)
+    if let kind = auxKinds[id] {
+      NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(saveAuxFrame(_:)), object: window)
+      window.saveFrame(usingName: Self.auxFrameName(kind))
+    }
     windows[id] = nil
     entrances[id] = nil
     stopKeepingContentSized(id)

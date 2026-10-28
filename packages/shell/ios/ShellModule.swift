@@ -170,6 +170,20 @@ public class ShellModule: Module {
       return [:]
       #endif
     }.runOnQueue(.main)
+    AsyncFunction("devWindowMoveProbe") { (id: String, probe: [String: Double], promise: Promise) in
+      #if DEBUG
+      guard let window = WindowManager.shared.windows[id] else { return promise.resolve(["error": "no window \(id)"]) }
+      let count = Int(probe["steps"] ?? 60), dx = CGFloat(probe["dx"] ?? 3), dy = CGFloat(probe["dy"] ?? 0)
+      let interval = (probe["intervalMs"] ?? 8) / 1000
+      if let x = probe["x"], let top = probe["top"] {
+        WindowMoveProbe.drag(window, x: CGFloat(x), top: CGFloat(top), count: count, dx: dx, dy: dy, interval: interval) { promise.resolve($0) }
+      } else {
+        WindowMoveProbe.steps(window, count: count, dx: dx, dy: dy, interval: interval) { promise.resolve($0) }
+      }
+      #else
+      promise.resolve(["error": "DEV builds only"])
+      #endif
+    }.runOnQueue(.main)
     AsyncFunction("dragPreviewEnd") { (windowId: String?, frame: [Double]?) in
       DragPreview.shared.end(windowId: windowId, fallback: frame.flatMap { $0.count == 4 ? NSRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) : nil })
     }.runOnQueue(.main)
