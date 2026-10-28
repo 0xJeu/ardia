@@ -18,7 +18,7 @@ import {
   useTheme,
 } from "../ui";
 import { copyText, fileExists, fileIcon, moveToTrash, openFile, revealFile, showMenu, type MenuItem } from "../../state/app/system";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { useDownloads, useSidebarOpen, useWindowId, useWindowUi } from "../../state/browser/hooks";
@@ -130,7 +130,9 @@ function DownloadsPanel({ windowId, closing, onClosed }: { windowId: string; clo
   const appear = usePopoverMotion(closing, onClosed, placed);
 
   const upward = p?.bottom !== undefined;
-  const motion = usePopoverMotionStyle(appear, p ? `${p.arrowX}px ${upward ? "bottom" : "top"}` : "top", upward);
+  const arrowX = p?.arrowX;
+  const origin = useMemo(() => (arrowX === undefined ? "top" : ([arrowX, upward ? "100%" : 0, 0] as [number, string | number, number])), [arrowX, upward]);
+  const motion = usePopoverMotionStyle(appear, origin, upward);
   const arrowRoom = p && p.arrow !== "none" ? DOWNLOADS_PANEL.arrowHeight : 0;
   const listMax = p ? Math.max(L.row, Math.min(L.visibleRows * L.row, p.room - L.chrome)) : L.visibleRows * L.row;
 
