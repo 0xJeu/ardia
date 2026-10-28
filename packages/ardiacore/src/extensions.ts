@@ -18,6 +18,8 @@ export type InstalledExtension = {
   incognito: boolean;
   incognitoSplit?: boolean;
   fileAccess: boolean;
+  userScriptsAvailable?: boolean;
+  userScripts?: boolean;
   mayModify: boolean;
   blockedByPolicy?: boolean;
   errors: string[];
@@ -143,6 +145,7 @@ export async function configureExtension(
     pinned?: boolean;
     incognito?: boolean;
     fileAccess?: boolean;
+    userScripts?: boolean;
     siteAccess?: "allSites" | "specificSites" | "onClick";
   },
 ) {
