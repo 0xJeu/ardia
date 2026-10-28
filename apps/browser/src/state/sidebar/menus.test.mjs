@@ -321,3 +321,20 @@ test("the sidebar menu's Reopen Closed Tab is on only when there is something of
   S().closeTabs([ids[1]]);
   assert.equal(reopen(), "Reopen Closed Tab ⇧⌘T");
 });
+
+test("Open as Split on a tab that came to the front while its menu was up opens a New Tab beside it", async () => {
+  const { w, ids } = windowWith("a", "b", "c");
+  S().activate(ids[0]);
+  await whileMenuIsUp(() => openTabMenu(w, S().tabs[ids[2]]), () => S().activate(ids[2]), "split");
+  const split = Object.values(S().splits)[0];
+  assert.ok(split?.tabIds.includes(ids[2]), "c is a pane");
+  assert.equal(split.tabIds.length, 2);
+  assert.equal(split.tabIds.includes(ids[0]), false, "a isn't");
+});
+
+test("Open as Split on a background tab pairs it with the tab in front when the choice lands", async () => {
+  const { w, ids } = windowWith("a", "b", "c");
+  S().activate(ids[0]);
+  await whileMenuIsUp(() => openTabMenu(w, S().tabs[ids[2]]), () => S().activate(ids[1]), "split");
+  assert.deepEqual(Object.values(S().splits).map((v) => [...v.tabIds].sort()), [[ids[1], ids[2]].sort()]);
+});

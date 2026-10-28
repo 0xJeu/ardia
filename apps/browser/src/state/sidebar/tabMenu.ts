@@ -4,7 +4,7 @@ import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, inPinnedContainer, isIncognitoProfile, pinnedSectionTitle, pinSection, togglePinTitle, viewTabIds } from "../browser/model";
 import { awayFromPin, groupOf, selectedTabIds } from "../pins/organize";
 import { splitOf, splitRowPanes } from "../splits/splits";
-import { openInSplit, openSplitPane } from "../splits/actions";
+import { openSplitPane } from "../splits/actions";
 import type { Tab } from "../browser/types";
 import { bookmarkTabs, copyUrls, editPinnedPage, newGroupWithSelection, openIconPicker, startRename } from "./actions";
 import { isCalendarUrl } from "../live/meetings";
@@ -162,6 +162,12 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   runTabChoice(windowId, now, { ...f, others: here(f.others), above: here(f.above), below: here(f.below) }, choice);
 }
 
+function openAsSplit(windowId: string, tabId: string, wasActive: boolean) {
+  const front = activeTabId(store(), windowId);
+  if (wasActive || front === tabId) openSplitPane(windowId, { anchorTabId: tabId });
+  else if (front) openSplitPane(windowId, { tabId, anchorTabId: front, side: "right" });
+}
+
 function runTabChoice(windowId: string, tab: Tab, f: Facts, choice: string) {
   const s = store();
   const t = { kind: "tab" as const, id: tab.id };
@@ -177,7 +183,7 @@ function runTabChoice(windowId: string, tab: Tab, f: Facts, choice: string) {
   else if (choice === "unpinMember") s.placeTabs([tab.id], { pinned: false, groupId: null });
   else if (choice === "pinTile") s.pinTabs([tab.id], true, false);
   else if (choice === "pinRow") s.pinTabs([tab.id], true, true);
-  else if (choice === "split") void (f.active ? openSplitPane(windowId, { anchorTabId: tab.id }) : openInSplit(tab.id));
+  else if (choice === "split") openAsSplit(windowId, tab.id, f.active);
   else if (choice === "newWindow") openWindow({ profileId: tab.profileId, url: tab.url });
   else if (choice === "newFolder") newFolderWithTab(windowId, tab.id);
   else if (choice === "leaveFolder") removeFromFolder(tab.id);
