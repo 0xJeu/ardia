@@ -56,7 +56,7 @@ const usesPageA = [
   "context-menu-search", "duplicate-and-reopen", "device-chooser", "bluetooth-chooser",
   "bluetooth-settings", "cast-dialog", "cast-routes", "theme-commit", "user-selection",
   "password-prompt", "screen-share-picker", "tab-capture", "share-instead-two-captures",
-  "restore-after-close", "discard-outcomes", "capture-picture", "unresponsive", "permission-dismissed",
+  "restore-after-close", "discard-outcomes", "memory-saver", "capture-picture", "unresponsive", "permission-dismissed",
   "save-page", "activate-request", "extension-popup-and-panel", "scroll-zoom", "print-preview",
   "extension-prompts", "traffic-lights-after-profile-switch", "extension-configure",
   "private-windows-create", "extension-installed-bubble", "popup-window", "autofill-save-prompts",
@@ -1671,16 +1671,9 @@ try {
       if (!(await renderer())) throw new Error("no renderer before the discard");
       out.unload = await raw("{ unload: true }");
       out.afterUnload = { renderer: await renderer(), ...(await flags()) };
-      out.slept = await evalApp(`return globalThis.acLifecycle.sleepTab("${tab.id}")`);
+      out.slept = await raw();
       out.afterSleep = { renderer: await until("the renderer gone", async () => ((await renderer()) ? null : "gone"), 5000).catch(() => "still there"), ...(await flags()) };
       out.again = await raw();
-      const other = await openTab(`${base}/e?refused`, "Page E", true);
-      try {
-        out.refusedSlept = await evalApp(`const h = ac.webviews.get("${other.id}"); h.discard = () => Promise.resolve("refused"); return globalThis.acLifecycle.sleepTab("${other.id}")`);
-        out.refusedFlags = await evalApp(`return !!globalThis.acLifecycle.state().discarded["${other.id}"]`);
-      } finally {
-        await closeTab(other.id);
-      }
       await evalApp(`ac.actions.switchToTab("${tab.id}"); return true`);
       out.woke = await until("awake", async () => {
         const f = await flags();
@@ -1688,15 +1681,36 @@ try {
       }, 10000).catch(async () => ({ renderer: await renderer(), ...(await flags()) }));
       const problems = [];
       if (out.unload !== "unsupported" || !out.afterUnload.renderer || out.afterUnload.sleeping) problems.push(`unload: ${JSON.stringify([out.unload, out.afterUnload])}`);
-      if (out.slept !== true || out.afterSleep.renderer !== "gone" || !out.afterSleep.sleeping) problems.push(`discard: ${JSON.stringify([out.slept, out.afterSleep])}`);
+      if (out.slept !== "discarded" || out.afterSleep.renderer !== "gone" || !out.afterSleep.sleeping) problems.push(`discard: ${JSON.stringify([out.slept, out.afterSleep])}`);
       if (out.again !== "already") problems.push(`again: ${JSON.stringify(out.again)}`);
-      if (out.refusedSlept !== false || out.refusedFlags) problems.push(`refused: ${JSON.stringify([out.refusedSlept, out.refusedFlags])}`);
       if (out.woke.sleeping || !out.woke.renderer || !out.woke.loaded) problems.push(`wake: ${JSON.stringify(out.woke)}`);
       if (problems.length) throw new Error(problems.join("; "));
       return out;
     } finally {
       await closeTab(tab.id);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`).catch(() => null);
+    }
+  });
+
+  await check("memory-saver", async () => {
+    const saved = await evalApp(`const s = ac.store.getState().settings; return { memorySaver: s.memorySaver, memorySaverMode: s.memorySaverMode, keepActiveSites: s.keepActiveSites }`);
+    const read = () => engine("engine.memorySaver", {});
+    const set = (patch) => evalApp(`ac.store.getState().updateSettings(${JSON.stringify(patch)}); return true`);
+    try {
+      const out = { launch: await read() };
+      await set({ memorySaver: false });
+      out.off = await until("Memory Saver off", async () => { const r = await read(); return r.state === "off" && !r.active ? r : null; }, 5000);
+      await set({ memorySaver: true, memorySaverMode: "maximum", keepActiveSites: ["127.0.0.1", "[*.]example.com"] });
+      out.on = await until("Memory Saver on", async () => { const r = await read(); return r.state === "on" && r.active && r.aggressiveness === "maximum" && r.sites.length === 2 ? r : null; }, 5000);
+      out.valid = await engine("engine.memorySaver", { validate: "music.youtube.com" });
+      out.invalid = await engine("engine.memorySaver", { validate: "" });
+      const problems = [];
+      if (out.launch.state !== (saved.memorySaver === false ? "off" : "on")) problems.push(`launch: ${JSON.stringify(out.launch)}`);
+      if (!out.valid.valid || out.invalid.valid) problems.push(`validate: ${JSON.stringify([out.valid, out.invalid])}`);
+      if (problems.length) throw new Error(problems.join("; "));
+      return out;
+    } finally {
+      await set(saved).catch(() => null);
     }
   });
 

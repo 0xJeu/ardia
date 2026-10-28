@@ -59,12 +59,6 @@ export const SWITCHES = {
     removeBy: "2026-12-15",
     live: false,
   },
-  chromeBatterySaver: {
-    about: "Battery Saver is Chrome's own (its battery saver mode: busy background tabs freeze, frame rate and timers are reduced); off, our sampler freezes busy background tabs over CDP (lib/tabLifecycle.ts).",
-    owner: "tab lifecycle",
-    removeBy: "2026-12-15",
-    live: false,
-  },
 } as const satisfies Record<string, SwitchDef>;
 
 export const EXPERIMENTS = {

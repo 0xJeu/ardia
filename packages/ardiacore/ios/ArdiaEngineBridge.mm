@@ -49,6 +49,7 @@ NSDictionary<NSString *, NSString *> *PrivateSessionPolicy() {
     @"ac_tabs_last_tab_policy" : kNoEngineData,
     @"ac_task_manager_open" : kNoEngineData,
     @"ac_battery_saver" : kNoEngineData,
+    @"ac_memory_saver" : kNoEngineData,
     @"ac_memory_trim" : kNoEngineData,
     @"ac_cli_control" : kNoEngineData,
     @"ac_extensions_watch_actions" : kNoEngineData,

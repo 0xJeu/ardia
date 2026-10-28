@@ -10,7 +10,7 @@ import type {
   BrowsingDataType, ChromeWindowState, Download, DownloadSettings, EngineComponent, EngineInfo, EngineTask, LinkRoute,
   PermissionRequest, PermissionResult, SystemState,
 } from "../module";
-import type { BatterySaverMode, BatterySaverState } from "../performance";
+import type { BatterySaverMode, BatterySaverState, MemorySaverRequest, MemorySaverState } from "../performance";
 import type { PasswordExportStatus, SavedPassword } from "../passwords";
 import type { ClearSiteDataResult, SiteSettings, SiteSettingType, SiteSettingValue } from "../siteSettings";
 import type { TabStripCommand, TabStripTransaction } from "../tabStrip";
@@ -31,6 +31,7 @@ export type EngineCalls = {
   "engine.isTracing": [{}, boolean];
   "engine.systemState": [{}, SystemState];
   "engine.batterySaver": [{ mode: BatterySaverMode }, BatterySaverState];
+  "engine.memorySaver": [MemorySaverRequest | { validate: string }, Partial<MemorySaverState> & { valid?: boolean }];
   "engine.trimMemory": [{}, { ok: boolean }];
   "engine.openTaskManager": [{}, { ok: boolean }];
   "engine.cliControl": [{ on?: boolean; activeTab?: string | null }, CliControlStatus];

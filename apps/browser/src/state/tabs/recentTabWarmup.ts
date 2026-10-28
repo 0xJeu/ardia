@@ -4,7 +4,7 @@ import { wake } from "../browser/model";
 import { isInternalTab } from "../pages/urls";
 import { holderOf } from "../pins/pinShare";
 import { restoredLazily } from "./pageSession";
-import { shownTabIds } from "./tabKeepAlive";
+import { shownTabIds } from "./shownTabs";
 
 const store = () => useBrowser.getState();
 

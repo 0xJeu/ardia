@@ -11,6 +11,7 @@ import {
   type SearchEngine,
 } from "@ardia/core";
 import type { PageEngine } from "../../platform/tabs";
+import type { MemorySaverMode } from "../../platform/performance";
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 
@@ -64,6 +65,9 @@ export type Settings = {
   fadeUnloadedTabs: boolean;
   warnBeforeClosingTabGroup: boolean;
   batterySaverWhen: BatterySaverWhen;
+  memorySaver: boolean;
+  memorySaverMode: MemorySaverMode;
+  keepActiveSites: string[];
   extensionSidePanelWidth: number;
 
   showFullUrl: boolean;
@@ -158,6 +162,9 @@ export const DEFAULT_SETTINGS: Settings = {
   fadeUnloadedTabs: false,
   warnBeforeClosingTabGroup: true,
   batterySaverWhen: "lowBattery",
+  memorySaver: true,
+  memorySaverMode: "balanced",
+  keepActiveSites: [],
   extensionSidePanelWidth: 360,
   showFullUrl: false,
   allowJavaScriptFromAppleEvents: false,

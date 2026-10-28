@@ -32,6 +32,7 @@ public class EngineModule: Module {
     "isTracing": { _, reply in reply.ok(ArdiaHost.isTracing) },
     "systemState": { _, reply in reply.ok(SystemState.shared.snapshot) },
     "batterySaver": EngineCall.passing("ac_battery_saver"),
+    "memorySaver": EngineCall.passing("ac_memory_saver"),
     "trimMemory": EngineCall.passing("ac_memory_trim"),
     "openTaskManager": EngineCall.passing("ac_task_manager_open"),
     "cliControl": { args, reply in
