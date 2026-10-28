@@ -1,5 +1,5 @@
 import type { BrowserState } from "../browser/store";
-import type { TabGroup } from "../browser/types";
+import type { SplitView, TabGroup } from "../browser/types";
 import { newId } from "../browser/model";
 import { descendantIds, nestGroups, withGroupsPlaced, withParent } from "../groups/groups";
 import { keyField, pinKeyOf } from "../pins/pinMirror";
@@ -40,4 +40,22 @@ export function regrouped(s: BrowserState, tree: TabGroup[], windowId: string, p
   let next = 0;
   const tabIds = w.tabIds.map((id) => (members.has(id) ? order[next++]! : id));
   return withGroupsPlaced({ ...s, windows: { ...s.windows, [windowId]: { ...w, tabIds } } }, windowId, nestGroups(groups));
+}
+
+export function splitsWithin(s: Pick<BrowserState, "splits">, tabIds: string[]): SplitView[] {
+  const inside = new Set(tabIds);
+  return Object.values(s.splits).filter((v) => v.tabIds.every((id) => inside.has(id)));
+}
+
+export function withSplitsBack(s: BrowserState, kept: SplitView[], windowId: string): BrowserState {
+  const taken = new Set(Object.values(s.splits).flatMap((v) => v.tabIds));
+  let splits = s.splits;
+  for (const v of kept) {
+    const profileId = s.tabs[v.tabIds[0]!]?.profileId;
+    if (!v.tabIds.every((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]?.profileId === profileId && !taken.has(id))) continue;
+    const id = splits[v.id] ? newId("split") : v.id;
+    splits = { ...splits, [id]: { ...v, id, windowId } };
+    v.tabIds.forEach((t) => taken.add(t));
+  }
+  return splits === s.splits ? s : { ...s, splits };
 }

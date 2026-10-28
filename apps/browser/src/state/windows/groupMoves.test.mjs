@@ -58,6 +58,23 @@ test("Move to Profile takes a group's tabs to the profile and keeps it a group t
   assert.equal(S().tabs[ids[0]].profileId, "default");
 });
 
+for (const shared of [false, true]) {
+  test(`Move to Profile keeps a pinned group's saved URLs where its tabs have wandered${shared ? ", tabs shared across windows" : ""}`, () => {
+    const { w, ids } = windowWith("a", "b", "c");
+    if (shared) S().createWindow({ url: "https://x.com/" }), S().updateSettings({ shareTabsAcrossWindows: true });
+    const work = S().createProfile({ name: "Work" });
+    S().navigated(ids[1], { url: "https://b.com/home", title: "B" }, {});
+    const g = S().groupTabs([ids[1], ids[2]], { name: "Docs" });
+    assert.equal(S().tabs[ids[1]].pinnedUrl, "https://b.com/home");
+    S().navigated(ids[1], { url: "https://b.com/away", title: "B" }, {});
+    S().moveGroupToProfile(g, work);
+    const moved = Object.values(S().groups).find((x) => x.windowId === w && x.profileId === work && x.name === "Docs");
+    assert.ok(moved, "the group is in the profile");
+    const urls = moved.tabIds.map((id) => [S().tabs[id].url, S().tabs[id].pinnedUrl]);
+    assert.deepEqual(urls, [["https://b.com/away", "https://b.com/home"], ["https://c.com/", "https://c.com/"]]);
+  });
+}
+
 for (const nested of [false, true]) {
   test(`Move to Window with tabs shared across windows leaves the destination one copy of the group${nested ? " and its nested group" : ""}`, () => {
     const { w, ids } = windowWith("a", "b", "c");
@@ -78,5 +95,26 @@ for (const nested of [false, true]) {
     if (nested) assert.equal(named(other, "Hotels")[0].parentId, trip.id);
     const grouped = Object.values(S().groups).filter((x) => x.windowId === other).flatMap((x) => x.tabIds);
     assert.ok(grouped.every((id) => S().tabs[id]?.windowId === other), "every member is a tab of the destination");
+  });
+}
+
+const splitIn = (win) =>
+  Object.values(S().splits)
+    .filter((v) => v.windowId === win)
+    .map((v) => ({ tabs: v.tabIds.map(host), orientation: v.orientation, sizes: v.sizes, stack: v.stack ?? null }));
+
+for (const to of ["window", "profile"]) {
+  test(`Move to ${to === "window" ? "Window" : "Profile"} keeps a split inside the group, panes, orientation, sizes and stack`, () => {
+    const { w, ids } = windowWith("a", "b", "c", "d", "e");
+    const g = S().groupTabs([ids[1], ids[2], ids[3], ids[4]], { name: "Trip", pinned: false });
+    const sp = S().createSplit([ids[2], ids[1], ids[3]], "vertical");
+    useBrowser.setState((s) => ({ splits: { ...s.splits, [sp]: { ...s.splits[sp], sizes: [0.6, 0.4], stack: { index: 1, sizes: [0.3, 0.7] } } } }));
+    const before = splitIn(w);
+    let dest = w;
+    if (to === "window") dest = S().createWindow({ url: "https://x.com/" }), S().moveGroupToWindow(g, dest);
+    else S().moveGroupToProfile(g, S().createProfile({ name: "Work" }));
+    const kept = before.find((v) => v.tabs.join() === "c,b,d");
+    assert.deepEqual(splitIn(dest).filter((v) => v.tabs.join() === "c,b,d"), [kept]);
+    assert.ok(Object.values(S().splits).every((v) => v.tabIds.every((id) => S().tabs[id].windowId === v.windowId)));
   });
 }
