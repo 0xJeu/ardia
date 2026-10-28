@@ -163,7 +163,10 @@ public final class AppUpdater: NSObject {
       DispatchQueue.main.async { self?.applyChannelChangeWhenIdle() }
     }
     NotificationCenter.default.addObserver(self, selector: #selector(fullScreenChanged), name: NSWindow.didExitFullScreenNotification, object: nil)
+    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.leftoverSweepDelay) { StagedUpdateCopies.sweep() }
   }
+
+  static let leftoverSweepDelay: TimeInterval = 30
 
   @objc public func checkForUpdates(_ sender: Any?) {
     guard isConfigured else {

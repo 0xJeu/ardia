@@ -144,6 +144,7 @@ enum UpdatePrewarm {
       task.terminationHandler = { ended in
         tried.record(status: Int(ended.terminationStatus))
         DispatchQueue.main.async { finish(current) }
+        DispatchQueue.global(qos: .utility).async { StagedUpdateCopies.unregister(bundle) }
       }
       do {
         guard try tried.spawn(task) else { return }
@@ -176,22 +177,8 @@ enum UpdatePrewarm {
   }
 
   static func stagedApps(bundleId: String? = Bundle.main.bundleIdentifier, root: URL? = nil) -> [(bundle: Bundle, modified: Date)] {
-    guard let bundleId,
-      let root = root ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-        .appendingPathComponent(bundleId).appendingPathComponent("org.sparkle-project.Sparkle/Installation")
-    else { return [] }
-    guard let walk = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey],
-                                                     options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
-    var found: [(bundle: Bundle, modified: Date)] = []
-    for case let url as URL in walk {
-      if walk.level > 4 { walk.skipDescendants(); continue }
-      guard url.pathExtension == "app", let bundle = Bundle(url: url), let info = bundle.infoDictionary,
-        info["CFBundleIdentifier"] as? String == bundleId,
-        let executable = bundle.executableURL, FileManager.default.isExecutableFile(atPath: executable.path)
-      else { continue }
-      let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-      found.append((bundle, date))
+    StagedUpdateCopies.copies(bundleId: bundleId, root: root).filter { staged in
+      staged.bundle.executableURL.map { FileManager.default.isExecutableFile(atPath: $0.path) } ?? false
     }
-    return found
   }
 }
