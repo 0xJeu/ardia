@@ -77,6 +77,7 @@ export type Settings = {
   spacesFollowAppearance: boolean;
 
   defaultProfileId: string;
+  profileSwitcherIcons: boolean;
 
   shortcuts: Record<string, string[]>;
 
@@ -165,6 +166,7 @@ export const DEFAULT_SETTINGS: Settings = {
   commandBarPlacement: "field",
   spacesFollowAppearance: true,
   defaultProfileId: DEFAULT_PROFILE_ID,
+  profileSwitcherIcons: false,
   shortcuts: {},
   openLinksInLittleArdia: true,
   littleArdiaSize: [900, 640],

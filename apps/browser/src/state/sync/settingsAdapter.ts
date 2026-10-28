@@ -42,6 +42,7 @@ export const SYNCED_SETTINGS = [
   "autoPictureInPicture",
   "videoUpscaling",
   "sidebarMediaControls",
+  "profileSwitcherIcons",
   "showFullUrl",
   "bookmarksBar",
   "appearance",

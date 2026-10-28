@@ -70,6 +70,16 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
   ],
   profiles: [
     { section: "New windows open with", rows: { defaultProfile: { title: "Default profile", description: "Used for new windows. Links from other apps open in the profile you used last.", keywords: ["new window"] } } },
+    {
+      section: "Profile switcher",
+      rows: {
+        switcherIcons: {
+          title: "Show profile icons instead of dots",
+          description: "As in Arc: the switcher at the bottom of the sidebar shows each profile's symbol or emoji, and a profile without one keeps its dot. Right-click the switcher to pick an icon.",
+          keywords: ["spaces", "space icons", "profile dots", "switcher", "emoji", "symbol", "sidebar footer", "arc"],
+        },
+      },
+    },
     { section: "Profiles", rows: { list: { title: "Profiles", description: "Drag to reorder. ⌃1–⌃9 switch to the first nine.", keywords: ["create profile", "new profile", "delete profile", "reorder", "work", "personal"] } } },
   ],
   sync: [
