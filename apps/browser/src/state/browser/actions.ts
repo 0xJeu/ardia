@@ -114,24 +114,55 @@ async function keptExtensionsNote(): Promise<string> {
   return names ? ` Its extensions (${profileNames(names)}) stay installed on this Mac, turned off.` : " Its extensions stay installed on this Mac, turned off.";
 }
 
-export async function moveTabToProfile(tabId: string, target: string) {
-  const tab = store().tabs[tabId];
-  if (!tab || isIncognitoProfile(tab.profileId)) return;
-  const profileId = target === "new" ? await createProfile(tab.windowId) : target;
-  if (!profileId || profileId === tab.profileId) return;
-  const shared = engineProfile(profileId) === engineProfile(tab.profileId);
-  if (store().settings.warnBeforeMovingTabsToProfile && !shared) {
-    const { confirmed, suppressed } = await confirm({
-      title: "Move Tab to Profile?",
-      message: "Moving tabs between profiles could result in some data being lost.",
-      confirmTitle: "Move Tab",
-      suppression: "Don't warn me again",
-      windowId: tab.windowId,
-    });
-    if (suppressed) store().updateSettings({ warnBeforeMovingTabsToProfile: false });
-    if (!confirmed) return;
-  }
-  store().moveTabToProfile(tabId, profileId);
+type ProfileMove = { windowId: string; fromProfileId: string; title: (profileName: string) => string; confirmTitle: string };
+
+async function profileMoveTarget(move: ProfileMove, target: string): Promise<string | null> {
+  if (isIncognitoProfile(move.fromProfileId)) return null;
+  const profileId = target === "new" ? await createProfile(move.windowId) : target;
+  if (!profileId || profileId === move.fromProfileId) return null;
+  const shared = engineProfile(profileId) === engineProfile(move.fromProfileId);
+  if (!store().settings.warnBeforeMovingTabsToProfile || shared) return profileId;
+  const { confirmed, suppressed } = await confirm({
+    title: move.title(store().profiles[profileId]?.name ?? "Profile"),
+    message: "Moving tabs between profiles could result in some data being lost.",
+    confirmTitle: move.confirmTitle,
+    suppression: "Don't warn me again",
+    windowId: move.windowId,
+  });
+  if (suppressed) store().updateSettings({ warnBeforeMovingTabsToProfile: false });
+  return confirmed ? profileId : null;
+}
+
+export async function moveTabsToProfile(tabIds: string[], target: string) {
+  const tabs = tabIds.map((id) => store().tabs[id]).filter((t) => !!t);
+  const first = tabs[0];
+  if (!first) return;
+  const many = tabs.length > 1;
+  const profileId = await profileMoveTarget(
+    {
+      windowId: first.windowId,
+      fromProfileId: first.profileId,
+      title: () => (many ? `Move ${tabs.length} Tabs to Profile?` : "Move Tab to Profile?"),
+      confirmTitle: many ? "Move Tabs" : "Move Tab",
+    },
+    target,
+  );
+  if (!profileId) return;
+  for (const tab of tabs) if (!isIncognitoProfile(tab.profileId)) store().moveTabToProfile(tab.id, profileId);
+}
+
+export const moveTabToProfile = (tabId: string, target: string) => moveTabsToProfile([tabId], target);
+
+export async function moveGroupToProfile(groupId: string, target: string) {
+  const g = store().groups[groupId];
+  if (!g) return;
+  const profileId = await profileMoveTarget({ windowId: g.windowId, fromProfileId: g.profileId, title: (name) => `Move Group to ${name}?`, confirmTitle: "Move Group" }, target);
+  if (profileId) store().moveGroupToProfile(groupId, profileId);
+}
+
+export function moveGroupToWindow(groupId: string, target: string) {
+  const windowId = store().moveGroupToWindow(groupId, target === "new" ? null : target);
+  if (windowId) focus(windowId);
 }
 
 export function moveTabToWindow(tabId: string, target: string) {

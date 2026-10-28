@@ -26,6 +26,7 @@ import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import type { BrowserWindow, ClosedWindow, Frame, ParkedPins, Tab } from "../browser/types";
 import { emptyWindow, smallWindow, withWindow } from "./newWindow";
 import { lastClosedTab, restoreTab, restoreWindow, shownProfile } from "./reopenClosed";
+import { groupTree, regrouped } from "./groupMoves";
 
 export type CreateWindowOptions = {
   profileId?: string;
@@ -54,6 +55,8 @@ export type WindowsSlice = {
   switchProfile(windowId: string, profileId: string): void;
   moveTabsToWindow(tabIds: string[], windowId: string | null): string | undefined;
   moveTabToProfile(tabId: string, profileId: string): void;
+  moveGroupToWindow(groupId: string, windowId: string | null): string | undefined;
+  moveGroupToProfile(groupId: string, profileId: string): void;
   mergeAllWindows(windowId: string): void;
   reopenClosed(windowId?: string | null): void;
   reopenClosedTab(windowId?: string | null): void;
@@ -266,6 +269,24 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
       windowOrder: next.windowOrder.includes(w.id) ? next.windowOrder : s.windowOrder,
     };
     set(apply(next, activated(next, tabId)));
+  },
+
+  moveGroupToWindow(groupId, windowId) {
+    const g = get().groups[groupId];
+    if (!g || g.pinned) return undefined;
+    const tree = groupTree(get().groups, groupId);
+    const target = get().moveTabsToWindow(g.tabIds, windowId);
+    if (target) set(regrouped(get(), tree, target, g.profileId, false));
+    return target;
+  },
+
+  moveGroupToProfile(groupId, profileId) {
+    const s = get();
+    const g = s.groups[groupId];
+    if (!g || g.profileId === profileId || !s.profiles[profileId] || isIncognitoProfile(g.profileId)) return;
+    const tree = groupTree(s.groups, groupId);
+    for (const id of g.tabIds) get().moveTabToProfile(id, profileId);
+    set(regrouped(get(), tree, g.windowId, profileId, true));
   },
 
   mergeAllWindows(windowId) {
