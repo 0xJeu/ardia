@@ -221,9 +221,10 @@ void AcceptDrops(NSView *root, BOOL accept) {
   if (_visible == visible) return;
   if (!visible) [self storePageFocus];
   _visible = visible;
+  if (visible) [self stopHolding];
   if (visible) [self settleRevealsInWindow];
   if (!visible) [_tab exitExclusiveAccess];
-  if (visible && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) {
+  if (visible && !_awaitingFrame && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) {
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     self.alphaValue = 1;

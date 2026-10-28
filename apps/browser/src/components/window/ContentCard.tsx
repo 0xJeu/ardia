@@ -51,7 +51,7 @@ export function ContentCard() {
     if (fullscreenTab && peekId && !peekFullscreen) dismissPeek(windowId);
   }, [fullscreenTab, peekId, peekFullscreen, windowId]);
 
-  const { mountedIds, panes, dividers, warmPanes, shown } = usePaneLayout(windowId, activeId, split, fullscreenTab, size);
+  const { mountedIds, panes, dividers, warmPanes, shown, lingerId, lingerRect } = usePaneLayout(windowId, activeId, split, fullscreenTab, size);
 
   const geometryFor = (rect: Rect | undefined): ToolbarGeometry => {
     if (addressInSidebar || small) return NO_TOOLBAR;
@@ -110,7 +110,7 @@ export function ContentCard() {
       {size.width > 0 &&
         shown.map((key) => {
           const tabId = key.slice(0, key.indexOf("|"));
-          const rect = panes[tabId];
+          const rect = panes[tabId] ?? (tabId === lingerId ? lingerRect : undefined);
           return (
             <TabPane
               key={key}
@@ -134,6 +134,8 @@ export function ContentCard() {
               windowToolbar={windowToolbar}
               popovers={tabId !== popoversOverCard}
               peekShown={!!peekId}
+              lingering={tabId === lingerId}
+              seeThrough={!!lingerId && tabId === activeId}
             />
           );
         })}

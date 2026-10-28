@@ -66,6 +66,14 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
   BOOL _crashed;
   BOOL _leaving;
   NSUInteger _leaveGeneration;
+  BOOL _awaitingFrame;
+  NSUInteger _frameHoldGeneration;
+  NSArray *_frameMark;
+  __weak NSView *_framePane;
+  CGFloat _framePaneZ;
+  BOOL _holding;
+  __weak ArdiaWebView *_holdingFor;
+  NSUInteger _holdGeneration;
   BOOL _handingOff;
   BOOL _revealed;
   BOOL _littlePageHeld;
@@ -132,6 +140,10 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 - (void)userSightChanged;
 - (void)schedulePainting;
 - (void)leaveScreen;
+- (void)beginFrameHoldIfCold;
+- (void)finishFrameHold;
+- (void)stopHolding;
+- (void)takeFocusFromLingeringPane;
 @end
 
 @interface ArdiaWebView (FocusInternal)
@@ -209,6 +221,8 @@ NSString *JSONString(id value);
 NSString *OriginOf(NSString *url);
 void NoteEvent(int browserId, NSString *name, NSDictionary *payload);
 void AcceptDrops(NSView *root, BOOL accept);
+NSView *PaneUnder(NSView *view, NSView *ancestor);
+NSView *SharedAncestor(NSView *a, NSView *b);
 
 template <typename T>
 T *Field(NSDictionary *d, NSString *key) {
