@@ -3,14 +3,13 @@ import {
   getSiteSettings,
   WEBKIT_SITE_SETTINGS,
   isContentBlockerAllowed,
-  setContentBlockerAllowed,
   setSiteSetting,
   type SiteSettingType,
   type SiteSettingValue,
   type SiteSettings,
 } from "../../state/site/siteSettings";
 import { displayHost } from "@ardia/core";
-import { confirm, showMenu } from "../../state/app/system";
+import { showMenu } from "../../state/app/system";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
@@ -27,11 +26,11 @@ import { openPageIn, togglePageEngine } from "../../state/engines/actions";
 import { Box, MenuRow, MenuSeparator, PANEL, PanelHeader, Popover, PopoverValue, space, Toggle, usePopoverPresence } from "../ui";
 import { Favicon } from "../favicon/Favicon";
 import { pageOf, patchPage, setPopover, usePage } from "../../state/tabs/pageState";
-import { showToast } from "../../state/splits/actions";
 import { toggleCastPicker } from "../../state/media/cast";
 import { useMedia, usePictureInPicture } from "../../state/media/media";
 import { openSettings } from "../../state/settings/settingsWindows";
 import { copyPageUrl } from "../../state/site/selection";
+import { clearSiteDataAfterConfirm, setSiteBlocking, siteOrigin } from "../../state/site/reloadMenu";
 import { canShare, shareTab } from "../../state/site/share";
 import { ActionTile, gridColumns, MoreButton, SectionTitle, SettingRow, SITE_PANEL, TileRow } from "./SiteControlsParts";
 import { CertificateDetails, ConnectionChip, ConnectionRow } from "./SiteConnection";
@@ -55,15 +54,6 @@ const choiceTitle = (type: SiteSettingType, value: SiteSettingValue) =>
 
 type Expanded = "connection" | "more" | null;
 type Blocker = { enabled: boolean; allowed: boolean };
-
-function originOf(url: string): string | null {
-  try {
-    const u = new URL(url);
-    return u.protocol === "http:" || u.protocol === "https:" ? u.origin : null;
-  } catch {
-    return null;
-  }
-}
 
 export function SiteControls({ tabId, open, right, left, top }: { tabId: string; open: boolean; right?: number; left?: number; top: number }) {
   const presence = usePopoverPresence(open);
@@ -109,7 +99,7 @@ function SiteControlsPanel({
   const [cleared, setCleared] = useState<string | null>(null);
   const shareTile = useRef<View>(null);
   const url = tab?.url ?? "";
-  const origin = originOf(url);
+  const origin = siteOrigin(url);
   const host = origin ? new URL(origin).hostname : "";
   const profile = engineProfile(tab?.profileId ?? "");
   const close = () => setPopover(tabId, null);
@@ -156,26 +146,14 @@ function SiteControlsPanel({
     if (choice) void setPermission(type, choice as SiteSettingValue);
   };
   const toggleBlocker = async (on: boolean) => {
-    const failed = await setContentBlockerAllowed(host, !on).then(() => false, () => true);
-    const allowed = await isContentBlockerAllowed(host);
+    const allowed = await setSiteBlocking(tab, host, on);
     setBlocker((b) => (b ? { ...b, allowed } : b));
-    if (failed) return showToast(tab.windowId, "Couldn't Change the Ad Blocker", `Blocking on ${host} is as it was. Try again.`, { icon: "exclamationmark.triangle" });
-    void webviews.get(tabId)?.reload();
   };
   const clearData = async () => {
     if (!origin) return;
-    const { confirmed } = await confirm({
-      title: `Clear cookies and site data for ${host}?`,
-      message: "You'll be signed out of this site, and its offline data will be deleted.",
-      confirmTitle: "Clear",
-      destructive: true,
-      windowId: tab.windowId,
-    });
-    if (!confirmed) return;
-    const result = await webviews.get(tabId)?.clearSiteData().catch(() => null);
-    const n = result && typeof result.cookies === "number" ? result.cookies : 0;
+    const n = await clearSiteDataAfterConfirm(tab, host);
+    if (n === null) return;
     setCleared(n ? `Cleared ${n} cookie${n === 1 ? "" : "s"} and site data` : "Cleared site data");
-    void webviews.get(tabId)?.reload();
   };
   const share = () =>
     shareTile.current?.measureInWindow((x, y, width, height) => {
