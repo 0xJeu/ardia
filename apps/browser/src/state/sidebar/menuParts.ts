@@ -6,13 +6,11 @@ import { bookmarkProfileId, windowTitle } from "../browser/model";
 import { groupLabel } from "../pins/organize";
 import { groupPath } from "../groups/groups";
 
+export { menuSections as sections } from "../app/menuSections";
+
 export type Choice = Extract<MenuItem, { id: string }>;
 
 export const sep = { separator: true } as const;
-
-export function sections(...parts: MenuItem[][]): MenuItem[] {
-  return parts.filter((part) => part.length).flatMap((part, i) => (i ? [sep, ...part] : part));
-}
 
 export const hintWhen = (on: boolean, command: string, s?: BrowserState) => (on ? menuShortcut(command, s) : {});
 
