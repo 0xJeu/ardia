@@ -23,6 +23,14 @@ type PeekState = Pick<BrowserState, "peeks" | "tabs">;
 const samePageKey = (url: string) => url.replace(/#.*$/, "");
 const peekable = (url: string) => /^https?:\/\//i.test(url);
 
+export function otherSitePeekTabIds(s: Pick<BrowserState, "tabs" | "groups" | "settings">): string[] {
+  if (!s.settings.peekLinksToOtherSites) return [];
+  const inPinnedGroup = new Set(Object.values(s.groups).flatMap((g) => (g.pinned ? g.tabIds : [])));
+  return Object.keys(s.tabs)
+    .filter((id) => s.tabs[id]!.pinned || inPinnedGroup.has(id))
+    .sort();
+}
+
 export const peekTabId = (s: Pick<BrowserState, "peeks">, windowId: string): string | undefined => s.peeks[windowId]?.tabId;
 
 export const shownPageId = (s: BrowserState, windowId: string): string | undefined => peekTabId(s, windowId) ?? activeTabId(s, windowId);

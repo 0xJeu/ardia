@@ -13,6 +13,7 @@ NSString *gPeekModifier = @"shift";
 namespace {
 
 NSString *gSplitLinkModifier = @"altShift";
+NSSet<NSString *> *gPeekOtherSiteTabs = [NSSet set];
 }
 
 static const NSEventModifierFlags kPeekKeyMask = NSEventModifierFlagOption | NSEventModifierFlagShift | NSEventModifierFlagCommand | NSEventModifierFlagControl;
@@ -91,10 +92,12 @@ NSString *SplitLinkModifier() {
   return [gSplitLinkModifier isEqualToString:@"alt"] && ![gPeekModifier isEqualToString:@"alt"] ? @"alt" : @"altShift";
 }
 
-NSString *PeekConfigJSON() {
-  return JSONString(@{@"modifier" : gPeekModifier, @"split" : SplitLinkModifier(), @"trace" : @(PeekTracing())});
+NSString *PeekConfigJSON(ArdiaWebView *view) {
+  return JSONString(@{@"modifier" : gPeekModifier, @"split" : SplitLinkModifier(), @"trace" : @(PeekTracing()), @"otherSites" : @(view.peeksLinksToOtherSites)});
 }
 }
+
+static NSString *const kOtherSiteKey = @"site";
 
 static NSEventModifierFlags LinkKeyFlags(NSString *key) {
   static NSDictionary<NSString *, NSNumber *> *flags = @{
@@ -149,6 +152,24 @@ static NSString *LinkKeyAction(NSString *key) {
   for (ArdiaWebView *view in LiveViews().allObjects) [view pushPeekModifier];
 }
 
++ (void)setPeekOtherSiteTabs:(NSArray<NSString *> *)tabIds {
+  InstallPeekMonitor();
+  NSSet<NSString *> *next = [NSSet setWithArray:tabIds ?: @[]];
+  if ([next isEqualToSet:gPeekOtherSiteTabs]) return;
+  NSMutableSet<NSString *> *changed = [next mutableCopy];
+  [changed unionSet:gPeekOtherSiteTabs];
+  NSMutableSet<NSString *> *kept = [next mutableCopy];
+  [kept intersectSet:gPeekOtherSiteTabs];
+  [changed minusSet:kept];
+  gPeekOtherSiteTabs = next;
+  for (ArdiaWebView *view in LiveViews().allObjects)
+    if (view->_transferKey.length && [changed containsObject:view->_transferKey]) [view pushPeekModifier];
+}
+
+- (BOOL)peeksLinksToOtherSites {
+  return _transferKey.length && [gPeekOtherSiteTabs containsObject:_transferKey];
+}
+
 + (void)setSplitLinkModifier:(NSString *)modifier {
   InstallPeekMonitor();
   NSString *next = [modifier isEqualToString:@"alt"] ? @"alt" : @"altShift";
@@ -159,13 +180,17 @@ static NSString *LinkKeyAction(NSString *key) {
 
 - (void)pushPeekModifier {
   if (!_tab) return;
-  NSString *json = PeekConfigJSON();
+  NSString *json = PeekConfigJSON(self);
   [self callFrame:@"" kind:@"peekConfig" json:json];
   for (NSString *frameId in [ScriptFramesOf(_tab) copy]) [self callFrame:frameId kind:@"peekConfig" json:json];
 }
 
 - (void)fallBackFromPeek:(NSDictionary *)dict url:(NSString *)url frame:(NSString *)frameId reason:(NSString *)reason test:(BOOL)test {
   NSString *key = Text(dict, @"key", 8) ?: @"";
+  if ([key isEqualToString:kOtherSiteKey]) {
+    PeekTrace(@{@"event" : @"fallback", @"url" : url ?: @"", @"key" : key, @"reason" : reason, @"action" : @"follow"});
+    return [self callFrame:frameId kind:@"peekRefused" json:JSONString(@{@"url" : url ?: @"", @"reason" : reason, @"follow" : @YES})];
+  }
   const NSEventModifierFlags pageFlag = LinkKeyFlags(key);
   const BOOL split = [LinkKeyAction(key) isEqualToString:@"split"];
   NSString *scheme = (url.length ? [NSURL URLWithString:url].scheme.lowercaseString : nil) ?: @"";
@@ -190,12 +215,14 @@ static NSString *LinkKeyAction(NSString *key) {
   NSWindow *window = self.window;
   NSString *key = Text(dict, @"key", 8);
   const NSEventModifierFlags flag = LinkKeyFlags(key);
-  NSString *action = LinkKeyAction(key);
+  const BOOL otherSite = [key isEqualToString:kOtherSiteKey];
+  NSString *action = otherSite ? (self.peeksLinksToOtherSites ? @"peek" : nil) : LinkKeyAction(key);
   const CFTimeInterval sinceUp = gPeekUpAt < 0 ? -1 : CACurrentMediaTime() - gPeekUpAt;
   static const BOOL strict = [ArdiaLaunchConfig.shared testFlag:@"peekStrict"];
   const BOOL test = PeekTestHooks() && !strict;
   NSString *refused = nil;
   if (!action) refused = @"that key opens nothing now";
+  else if (otherSite && !main) refused = @"only the page itself peeks links to other sites";
   else if (!_visible || !window) refused = @"page not shown";
   else if (![@[ @"http", @"https" ] containsObject:scheme]) refused = @"not http(s)";
   else if (!test && gPeekUpAt < 0) refused = @"no left mouse-up yet";

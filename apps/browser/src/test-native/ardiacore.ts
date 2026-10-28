@@ -452,6 +452,7 @@ const fakeModules = {
     setDisplayMediaPicker: () => null,
     setPeekModifier: () => null,
     setSplitLinkModifier: () => null,
+    setPeekOtherSiteTabs: () => null,
     setSelectionPopover: () => null,
     setCommandScrollZoom: () => null,
     setAutoPictureInPicture: () => null,

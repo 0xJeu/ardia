@@ -84,6 +84,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ArdiaWebView (Peek)
 + (void)setPeekModifier:(NSString *)modifier;
 + (void)setSplitLinkModifier:(NSString *)modifier;
++ (void)setPeekOtherSiteTabs:(NSArray<NSString *> *)tabIds;
 + (BOOL)devPostPeekMouseUp:(NSString *)keys over:(NSString *)transferKey;
 @end
 

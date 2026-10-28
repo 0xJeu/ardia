@@ -139,6 +139,7 @@ public class WebViewModule: Module {
     "setDisplayMediaPicker": setting { ArdiaWebView.setDisplayMediaPicker($0.bool("enabled") ?? false) },
     "setPeekModifier": setting { ArdiaWebView.setPeekModifier($0.text("modifier")) },
     "setSplitLinkModifier": setting { ArdiaWebView.setSplitLinkModifier($0.text("modifier")) },
+    "setPeekOtherSiteTabs": setting { ArdiaWebView.setPeekOtherSiteTabs($0.strings("tabIds")) },
     "setSelectionPopover": setting { ArdiaWebView.setSelectionPopoverEnabled($0.bool("enabled") ?? false) },
     "setCommandScrollZoom": setting { ArdiaWebView.setCommandScrollZoomEnabled($0.bool("enabled") ?? true) },
     "setAutoPictureInPicture": setting { ArdiaWebView.setAutoPictureInPictureEnabled($0.bool("enabled") ?? false) },

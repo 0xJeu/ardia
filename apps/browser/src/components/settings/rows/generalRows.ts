@@ -176,6 +176,11 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
     {
       section: "Links",
       rows: {
+        peekLinksToOtherSites: {
+          title: "Open a Peek window when clicking on links to other sites",
+          description: "This only affects Top Apps and pinned tabs. Links on the same site, ⌘-clicks and links that open a new tab or download work as before.",
+          keywords: ["peek", "preview", "external links", "other sites", "pinned", "pinned tabs", "top apps", "favorites", "glance", "arc", "zen"],
+        },
         peekModifier: {
           title: "Peek a link with",
           description: "Opens the link in a preview over the page. Open as Tab or Split View keeps it; Esc closes it.",

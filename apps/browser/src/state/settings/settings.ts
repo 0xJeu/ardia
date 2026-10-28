@@ -45,6 +45,7 @@ export type Settings = {
   cmdClickCreatesTabGroup: boolean;
   optShiftClickOpensInGroup: boolean;
   peekModifier: PeekModifier;
+  peekLinksToOtherSites: boolean;
   splitLinkModifier: SplitLinkModifier;
   autoGroupMeetingTabs: boolean;
   cleanUpInactiveTabsAfterMinutes: number | null;
@@ -142,6 +143,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cmdClickCreatesTabGroup: true,
   optShiftClickOpensInGroup: true,
   peekModifier: "shift",
+  peekLinksToOtherSites: false,
   splitLinkModifier: "altShift",
   autoGroupMeetingTabs: true,
   cleanUpInactiveTabsAfterMinutes: null,

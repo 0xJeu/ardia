@@ -195,6 +195,7 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 
 @interface ArdiaWebView (PeekInternal)
 - (void)pushPeekModifier;
+- (BOOL)peeksLinksToOtherSites;
 - (void)fallBackFromPeek:(NSDictionary *)dict url:(NSString *)url frame:(NSString *)frameId reason:(NSString *)reason test:(BOOL)test;
 - (void)peekLink:(NSDictionary *)dict frame:(NSString *)frameId main:(BOOL)main;
 @end
@@ -261,7 +262,7 @@ void InstallPeekMonitor();
 BOOL PeekTracing();
 void PeekTrace(NSDictionary *entry);
 NSString *SplitLinkModifier();
-NSString *PeekConfigJSON();
+NSString *PeekConfigJSON(ArdiaWebView *view);
 
 void InstallControlPressMonitor();
 BOOL TracingPictureInPicture();
