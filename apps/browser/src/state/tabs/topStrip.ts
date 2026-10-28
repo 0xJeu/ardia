@@ -89,7 +89,7 @@ export function tileFolderMenuItems(s: BrowserState, windowId: string, folderId:
   return [
     ...folderMembers(s, windowId, folderId).map((id): MenuItem => ({ id: `t:${id}`, title: tabLabel(s.tabs[id]!), checked: id === activeId })),
     { separator: true },
-    { id: "rename", title: "Rename Folder…", symbol: "character.cursor.ibeam" },
+    { id: "rename", title: "Rename…", symbol: "pencil" },
   ];
 }
 
