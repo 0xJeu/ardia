@@ -425,7 +425,6 @@ fetched, and the hunks of its patches that edit them are left out.
 | `helium/core/disable-password-manager` | forces password saving and passkeys off as managed prefs; Ardia uses Chrome's password manager |
 | `helium/ui/remove-autofill-link-to-password-manager` | drops "Manage passwords" from the fill dropdown |
 | `ungoogled-chromium/fix-building-without-mdns-and-service-discovery` | empties `DnsSdDeviceLister`; the Cast dialog needs mDNS |
-| `helium/core/memory-saving-by-default` | Memory Saver would fight Ardia's own tab sleeping |
 | `helium/macos/change-keychain-name` | renames the Safe Storage item; every user's passwords and cookies are encrypted with "Ardia Safe Storage" (`chromium-safe-storage-name.patch`) |
 | `helium/macos/change-product-dir-name` | moves the fallback product dir to `net.imput.helium` |
 | `rebel/macos/sparkle-integration`, `helium/macos/updater/{fixup-sparkle-glue,sparkle2-integration,disable-default-updater}` | Sparkle inside the framework; the app has its own updater |
