@@ -18,7 +18,8 @@ import { ColorStack } from "../../profiles/CreateProfile";
 import { iconMenuItems, PROFILE_SYMBOLS, ProfileBadge, profileSymbol } from "../../profiles/ProfileIcons";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { ThemeSection } from "../ThemeEditor";
-import { goToSettingsPane } from "../../../state/settings/settingsWindows";
+import { goToSettingsPane, SETTINGS_WINDOW_ID } from "../../../state/settings/settingsWindows";
+import { openProfileItemMenu } from "../../profiles/profileMenu";
 import { curve } from "../../ui/motion";
 import { settingsType, settingsMotion } from "../tokens";
 
@@ -174,19 +175,7 @@ function ProfileRow({
   if (!profile) return null;
 
   const description = [isDefault ? "Default" : null, names.length ? `Shares data with ${listOf(names)}` : null].filter(Boolean).join(" · ");
-  const openMenu = async () => {
-    const choice = await showMenu([
-      { id: "details", title: "Show Profile Details" },
-      { id: "icon", title: "Icon", children: iconMenuItems(profile.icon) },
-      { id: "default", title: "Make Default Profile", enabled: !isDefault },
-      { separator: true },
-      { id: "delete", title: "Delete Profile…", enabled: currentProfileOrder().length > 1 },
-    ]);
-    if (choice?.startsWith("icon:")) updateProfile(profileId, { icon: choice.slice("icon:".length) || null });
-    else if (choice === "details") goToSettingsPane("profiles", profileId);
-    else if (choice === "default") setDefaultProfile(profileId);
-    else if (choice === "delete") void deleteProfile(profileId);
-  };
+  const openMenu = () => openProfileItemMenu(profileId, "settings", SETTINGS_WINDOW_ID);
 
   return (
     <Animated.View
