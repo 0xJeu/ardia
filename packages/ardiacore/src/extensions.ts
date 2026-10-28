@@ -171,6 +171,7 @@ export const onExtensionActionChanged = (listener: (e: ExtensionActionChange) =>
     if (typeof p.id === "string") listener(extensionActionChange(p));
   });
 export const onExtensionInstallPrompt = (listener: (e: ExtensionInstallPrompt) => void) => on("extensions.installPrompt", listener);
+export const onExtensionInstallFailed = (listener: (e: { message: string; tabId: string | null }) => void) => on("extensions.installFailed", listener);
 export const resolveExtensionInstallPrompt = (requestId: string, accepted: boolean) => call("extensions.resolveInstallPrompt", { requestId, accepted });
 export const onExtensionTabsRequest = (listener: (e: TabsRequest) => void) => on("extensions.tabs", listener);
 export const onExtensionsSync = (listener: (p: { profile: string }) => void) => on("extensions.sync", listener);
@@ -178,6 +179,8 @@ export const extensionsSyncState = <T,>(profile: string) => call("extensions.syn
 export const applyExtensionsSync = (profile: string, args: Record<string, unknown>) => call("extensions.syncApply", { ...args, profile });
 
 export const chooseExtensionFolder = () => call("extensions.chooseFolder");
+
+export const installExtensionCrx = (path: string, profile: string) => call("extensions.installCrx", { profile, path });
 
 export function permissionWarnings(pkg: Pick<ExtensionPackage, "permissions" | "hostPermissions">): string[] {
   const warnings: string[] = [];

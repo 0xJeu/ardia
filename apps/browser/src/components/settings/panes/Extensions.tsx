@@ -119,10 +119,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
         <Row anchor="extensions.unpacked">
           <Button
             title="Choose Folder…"
-            onPress={() => {
-              void loadUnpacked(SETTINGS_WINDOW_ID, profile);
-              showInstall();
-            }}
+            onPress={() => void loadUnpacked(SETTINGS_WINDOW_ID, profile).then((chosen) => chosen && showInstall())}
           />
         </Row>
       </Group>

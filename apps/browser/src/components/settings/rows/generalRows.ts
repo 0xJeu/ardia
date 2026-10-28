@@ -53,12 +53,17 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
       },
     },
     {
-      section: "Import",
+      section: "Import and Export",
       rows: {
         importBrowser: {
           title: "Import from another browser",
           description: "Bookmarks, history, passwords, tabs and Arc spaces from Chrome, Arc, Safari, Firefox and more.",
           keywords: ["migrate", "switch", "transfer"],
+        },
+        exportBookmarks: {
+          title: "Export bookmarks",
+          description: "To an HTML file that Chrome, Safari, Firefox and every other browser can import.",
+          keywords: ["backup", "html", "netscape", "bookmarks.html", "save bookmarks", "transfer"],
         },
         setupCode: {
           title: "Apply a setup code",

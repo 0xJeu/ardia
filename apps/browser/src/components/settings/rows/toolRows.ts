@@ -85,7 +85,7 @@ export const toolRows: Pick<Record<SettingsPane, SettingSection[]>, "shortcuts" 
         protectedVideo: {
           title: "Open streaming sites in WebKit",
           description: "Netflix, Disney+, Max, Prime Video, Hulu, Apple TV+, Spotify and other sites whose video is protected open in WebKit, which plays it. A website rule wins.",
-          keywords: ["drm", "netflix", "disney", "hbo", "max", "prime video", "hulu", "spotify", "apple tv", "fairplay", "widevine", "streaming"],
+          keywords: ["drm", "netflix", "disney", "hbo", "max", "prime video", "hulu", "spotify", "apple tv", "fairplay", "widevine", "streaming", "tencent video", "v.qq.com"],
         },
       },
     },

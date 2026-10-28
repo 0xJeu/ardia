@@ -37,6 +37,9 @@ NS_ASSUME_NONNULL_BEGIN
     extensionInstallPrompt:(NSDictionary<NSString*, id>*)prompt
                        tab:(nullable ArdiaCoreTab*)tab;
 - (void)engine:(ArdiaCoreEngine*)engine
+    extensionInstallFailed:(NSString*)message
+                       tab:(nullable ArdiaCoreTab*)tab;
+- (void)engine:(ArdiaCoreEngine*)engine
     deviceChooser:(NSDictionary<NSString*, id>*)chooser
               tab:(ArdiaCoreTab*)tab;
 - (void)engine:(ArdiaCoreEngine*)engine
