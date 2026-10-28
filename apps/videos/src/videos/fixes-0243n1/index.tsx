@@ -45,6 +45,8 @@ interface Segment {
   tileNotes?: { before: string[]; after: string[] };
   length: number;
   rate?: number;
+  afterVersion?: string;
+  note?: string;
   cursor?: boolean;
   afterOnly?: string;
   before?: Clip;
@@ -66,6 +68,7 @@ const CURSOR_PX_PER_PT = 2.72;
 const CURSOR_TIP = { x: 18, y: 16 };
 const OVERLAY_RADIUS = 12;
 const VERSION = "0.2.43-nightly.1";
+const RELEASE = "0.2.43-nightly.1 and .2";
 const BEFORE_VERSION = "0.2.42";
 const SPEED_NAMES: Record<number, string> = { 0.5: "Half speed", 0.25: "Quarter speed", 0.125: "Eighth speed" };
 
@@ -225,7 +228,7 @@ function OverlayWindow({ overlay, clip, cam, k, play, rate }: { overlay: Overlay
   );
 }
 
-function SideLabel({ after, style }: { after: boolean; style?: CSSProperties }) {
+function SideLabel({ after, version, style }: { after: boolean; version?: string; style?: CSSProperties }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, ...style }}>
       <div
@@ -242,7 +245,7 @@ function SideLabel({ after, style }: { after: boolean; style?: CSSProperties }) 
       >
         {after ? "After" : "Before"}
       </div>
-      <div style={{ ...label, fontSize: 18 }}>{after ? VERSION : BEFORE_VERSION}</div>
+      <div style={{ ...label, fontSize: 18 }}>{after ? (version ?? VERSION) : BEFORE_VERSION}</div>
     </div>
   );
 }
@@ -318,7 +321,7 @@ function Tiles({ clip, seg, play, place, notes }: { clip: Clip; seg: Segment; pl
 function Panel({ clip, seg, play, place, after }: { clip: Clip; seg: Segment; play: number; place: Place; after: boolean }) {
   return (
     <>
-      <SideLabel after={after} style={{ position: "absolute", left: place.left, top: place.top - 46 }} />
+      <SideLabel after={after} version={seg.afterVersion} style={{ position: "absolute", left: place.left, top: place.top - 46 }} />
       <div style={panelStyle(place)}>
         {seg.tiles ? (
           <Tiles clip={clip} seg={seg} play={play} place={place} notes={(after ? seg.tileNotes?.after : seg.tileNotes?.before) ?? []} />
@@ -344,7 +347,8 @@ function AfterOnlyNote({ text, place }: { text: string; place: Place }) {
 const number = (i: number) => `${String(i + 1).padStart(2, "0")} / ${String(all.length).padStart(2, "0")}`;
 
 function speedOf(seg: Segment) {
-  return seg.rate ? `${SPEED_NAMES[seg.rate] ?? `${seg.rate}×`} · ` : "";
+  const speed = seg.rate ? `${SPEED_NAMES[seg.rate] ?? `${seg.rate}×`} · ` : "";
+  return `${speed}${seg.note ? `${seg.note} · ` : ""}`;
 }
 
 function Card({ seg, index }: { seg: Segment; index: number }) {
@@ -359,7 +363,7 @@ function Card({ seg, index }: { seg: Segment; index: number }) {
       <div style={{ display: "flex", gap: 28, alignItems: "center", ...rise(0) }}>
         <div style={{ ...label, fontSize: 24, color: color.ink }}>Before {BEFORE_VERSION}</div>
         <div style={{ ...label, fontSize: 24, color: color.ink2 }}>→</div>
-        <div style={{ ...label, fontSize: 24, color: color.blue }}>After {VERSION}</div>
+        <div style={{ ...label, fontSize: 24, color: color.blue }}>After {seg.afterVersion ?? VERSION}</div>
       </div>
       <div
         style={{
@@ -393,7 +397,7 @@ function Shot({ seg, index, play }: { seg: Segment; index: number; play: number 
   return (
     <AbsoluteFill style={{ opacity: fade }}>
       <div style={{ position: "absolute", left: LEFT, top: 40, right: 60, display: "flex", justifyContent: "space-between" }}>
-        <div style={{ ...label, color: color.ink }}>Ardia {VERSION} · before and after</div>
+        <div style={{ ...label, color: color.ink }}>Ardia {RELEASE} · before and after</div>
         <div style={{ ...label, color: color.blue }}>
           {speedOf(seg)}Fix {number(index)}
         </div>
@@ -436,9 +440,9 @@ function Intro() {
       <div style={{ marginTop: 20, fontFamily: font.poster, fontWeight: 860, fontStretch: "75%", fontSize: 230, lineHeight: 0.9, color: color.ink, ...rise(12) }}>
         Ardia
       </div>
-      <div style={{ marginTop: 18, fontFamily: font.poster, fontWeight: 700, fontStretch: "87.5%", fontSize: 92, color: color.stamp, ...rise(24) }}>{VERSION}</div>
+      <div style={{ marginTop: 18, fontFamily: font.poster, fontWeight: 700, fontStretch: "87.5%", fontSize: 92, color: color.stamp, ...rise(24) }}>{RELEASE}</div>
       <div style={{ marginTop: 22, fontFamily: font.serif, fontSize: 36, color: color.ink2, ...rise(32) }}>
-        The same clicks on {BEFORE_VERSION} and on the new nightly.
+        The same clicks on {BEFORE_VERSION} and on the new nightlies.
       </div>
       <Img src={staticFile("brand/app-icon.png")} style={{ position: "absolute", right: 170, top: 300, width: 480, height: 480, ...rise(20) }} />
     </AbsoluteFill>
@@ -451,7 +455,7 @@ function Outro() {
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", opacity }}>
       <Img src={staticFile("brand/app-icon.png")} style={{ width: 200, height: 200 }} />
-      <div style={{ marginTop: 28, fontFamily: font.poster, fontWeight: 760, fontStretch: "87.5%", fontSize: 60, color: color.ink }}>Ardia {VERSION}</div>
+      <div style={{ marginTop: 28, fontFamily: font.poster, fontWeight: 760, fontStretch: "87.5%", fontSize: 60, color: color.ink }}>Ardia {RELEASE}</div>
       <div style={{ ...label, marginTop: 18, fontSize: 24, color: color.blue }}>ardia.dev</div>
     </AbsoluteFill>
   );

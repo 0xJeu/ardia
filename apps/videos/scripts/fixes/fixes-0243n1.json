@@ -2,6 +2,19 @@
   "id": "fixes-0243n1",
   "segments": [
     {
+      "scene": "tabflash",
+      "title": "No blank frame after ⌘W",
+      "body": "Close a tab and the next page is there at once. On 0.2.42 the page area went blank for a frame on 4 of the 8 presses filmed, like the second one here; 0.2.43-nightly.2 blanked on none of 8.",
+      "layout": "side",
+      "cam": [0, 0, 1360, 860],
+      "cursor": false,
+      "afterVersion": "0.2.43-nightly.2",
+      "note": "One of several presses",
+      "lead": 0.3,
+      "tail": 1.25,
+      "rate": 0.25
+    },
+    {
       "scene": "headreload",
       "title": "Reload fits at 210 pt",
       "body": "With the address bar in the sidebar, the header shows reload next to back and forward once the sidebar is 210 pt wide. 0.2.42 held it back until 216 pt.",
