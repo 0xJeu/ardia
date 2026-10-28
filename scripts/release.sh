@@ -406,8 +406,17 @@ fi
 
 notarize_file() {
   echo "Notarizing $(basename "$1")"
-  xcrun notarytool submit "$1" "${notary_auth[@]}" --wait --timeout 1h | tee "$dist/notary-$(basename "$1").log"
-  grep -q "status: Accepted" "$dist/notary-$(basename "$1").log" || die "notarization failed"
+  local log="$dist/notary-$(basename "$1").log" id tries=0
+  xcrun notarytool submit "$1" "${notary_auth[@]}" | tee "$log" || true
+  id="$(awk '$1 == "id:" { print $2; exit }' "$log")"
+  [ -n "$id" ] || die "notarytool returned no submission id"
+  until xcrun notarytool wait "$id" "${notary_auth[@]}" --timeout 1h | tee -a "$log" | grep -q "status: Accepted"; do
+    grep -Eq "status: (Invalid|Rejected)" "$log" && die "notarization failed: xcrun notarytool log $id"
+    tries=$((tries + 1))
+    [ "$tries" -lt 5 ] || die "notarytool kept failing while waiting on $id"
+    echo "notarytool wait failed; asking again ($tries/5)"
+    sleep 20
+  done
 }
 if [ "$notarize" = 1 ]; then
   echo "==> Notarize app"
