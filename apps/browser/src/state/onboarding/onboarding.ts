@@ -54,7 +54,7 @@ const QUESTIONS: Record<Exclude<OnboardingStep, "intro">, Question[]> = {
   tabs: [
     { id: "newTab", keys: ["newTabOpens"] },
     { id: "newTabPosition", keys: ["newTabPosition", "newTabButtonPosition"] },
-    { id: "tidy", keys: ["cleanUpInactiveTabsAfterHours"] },
+    { id: "tidy", keys: ["cleanUpInactiveTabsAfterMinutes"] },
     { id: "quit", keys: ["restoreSession"] },
     { id: "windows", keys: ["shareTabsAcrossWindows"] },
     { id: "tabsMore", keys: ["balancedTopApps", "peekModifier", "undoReopensClosedTab", "cmdClickCreatesTabGroup"] },

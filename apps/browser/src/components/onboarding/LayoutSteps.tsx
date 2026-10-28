@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { View } from "react-native";
+import { durationTitle } from "../../lib/time";
 import { DEFAULT_SETTINGS, type PeekModifier, type Settings } from "../../state/settings/settings";
 import { ChoiceList, useMockFocus, type ChoiceOption } from "./ChoiceList";
 import { MockPanel, useScreen } from "./Screen";
@@ -136,7 +137,7 @@ export function LayoutStep() {
   );
 }
 
-const TABS_KEYS = ["newTabOpens", "newTabPosition", "newTabButtonPosition", "cleanUpInactiveTabsAfterHours", "restoreSession", "shareTabsAcrossWindows"] as const;
+const TABS_KEYS = ["newTabOpens", "newTabPosition", "newTabButtonPosition", "cleanUpInactiveTabsAfterMinutes", "restoreSession", "shareTabsAcrossWindows"] as const;
 const TABS_MORE = ["balancedTopApps", "peekModifier", "undoReopensClosedTab", "cmdClickCreatesTabGroup"] as const;
 
 const NEW_TAB_CHOICES: ChoiceOption<Settings["newTabOpens"]>[] = [
@@ -156,9 +157,9 @@ const WINDOW_CHOICES: ChoiceOption<boolean>[] = [
   { value: true, preview: "windows-shared", title: "Shared", subtitle: "Every window shows the same tabs, as in Arc" },
 ];
 const TIDY_AFTER = [
-  { value: 12, title: "12 h" },
-  { value: 24, title: "1 day" },
-  { value: 168, title: "1 week" },
+  { value: 12 * 60, title: "12 h" },
+  { value: 24 * 60, title: "1 day" },
+  { value: 7 * 24 * 60, title: "1 week" },
 ];
 const PEEK_WITH: { value: PeekModifier; title: string }[] = [
   { value: "shift", title: "⇧-click" },
@@ -166,13 +167,13 @@ const PEEK_WITH: { value: PeekModifier; title: string }[] = [
   { value: "off", title: "Off" },
 ];
 
-const hoursLabel = (h: number) => (h === 12 ? "12 hours" : TIDY_AFTER.find((o) => o.value === h)?.title ?? `${h} hours`);
+const tidyLabel = (minutes: number) => (minutes !== TIDY_AFTER[0]!.value && TIDY_AFTER.find((o) => o.value === minutes)?.title) || durationTitle(minutes);
 
 export function TabsStep() {
   const { id, focus } = useQuestion("tabs");
   const { values, mock } = useScreen([...TABS_KEYS, ...TABS_MORE]);
   const top = mock.tabLayout === "top";
-  const tidy = values.cleanUpInactiveTabsAfterHours;
+  const tidy = values.cleanUpInactiveTabsAfterMinutes;
   const preview = <MockPanel settings={mock} focus={focus.focus} />;
 
   if (id === "newTabPosition") {
@@ -200,22 +201,22 @@ export function TabsStep() {
         id={id}
         title="What about old tabs?"
         subtitle="Tabs you opened and forgot."
-        patch={{ cleanUpInactiveTabsAfterHours: tidy }}
-        picked={[tidy === null ? "Old tabs stay until you close them" : `Old tabs tidy up after ${hoursLabel(tidy)}`]}
+        patch={{ cleanUpInactiveTabsAfterMinutes: tidy }}
+        picked={[tidy === null ? "Old tabs stay until you close them" : `Old tabs tidy up after ${tidyLabel(tidy)}`]}
         preview={preview}
       >
         <ChoiceList
           options={TIDY_CHOICES}
           value={tidy === null ? "keep" : "tidy"}
-          onChange={(v) => change({ cleanUpInactiveTabsAfterHours: v === "keep" ? null : (tidy ?? 12) })}
+          onChange={(v) => change({ cleanUpInactiveTabsAfterMinutes: v === "keep" ? null : (tidy ?? TIDY_AFTER[0]!.value) })}
           mock={focus}
         />
         {tidy === null ? null : (
           <OptionRow
             title="Tidy after"
             value={tidy}
-            options={TIDY_AFTER.some((o) => o.value === tidy) ? TIDY_AFTER : [...TIDY_AFTER, { value: tidy, title: hoursLabel(tidy) }]}
-            onChange={(cleanUpInactiveTabsAfterHours) => change({ cleanUpInactiveTabsAfterHours })}
+            options={TIDY_AFTER.some((o) => o.value === tidy) ? TIDY_AFTER : [...TIDY_AFTER, { value: tidy, title: tidyLabel(tidy) }]}
+            onChange={(cleanUpInactiveTabsAfterMinutes) => change({ cleanUpInactiveTabsAfterMinutes })}
           />
         )}
       </Page>

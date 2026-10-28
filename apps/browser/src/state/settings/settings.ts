@@ -46,7 +46,7 @@ export type Settings = {
   peekModifier: PeekModifier;
   splitLinkModifier: SplitLinkModifier;
   autoGroupMeetingTabs: boolean;
-  cleanUpInactiveTabsAfterHours: number | null;
+  cleanUpInactiveTabsAfterMinutes: number | null;
   mutedSites: string[];
   neverTranslateSites: Record<string, string[]>;
   autoPictureInPicture: boolean;
@@ -138,7 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
   peekModifier: "shift",
   splitLinkModifier: "altShift",
   autoGroupMeetingTabs: true,
-  cleanUpInactiveTabsAfterHours: null,
+  cleanUpInactiveTabsAfterMinutes: null,
   mutedSites: [],
   neverTranslateSites: {},
   autoPictureInPicture: true,
