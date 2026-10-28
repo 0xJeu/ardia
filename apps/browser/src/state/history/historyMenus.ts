@@ -34,3 +34,10 @@ export async function openHistoryRowMenu(entries: Link[], windowId: string, onMo
     onRemove(entries.map((e) => e.url));
   }
 }
+
+export function shownSelection(selected: Set<string>, rows: { entry: { url: string } }[]): Set<string> {
+  if (!selected.size) return selected;
+  const shown = new Set(rows.map((r) => r.entry.url));
+  const kept = [...selected].filter((url) => shown.has(url));
+  return kept.length === selected.size ? selected : new Set(kept);
+}

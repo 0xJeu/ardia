@@ -8,7 +8,7 @@ import { requestClearData, useClearDataRequest } from "../../state/profiles/clea
 import { Button, Symbol, Text, useTheme } from "../ui";
 import { ClearDataDialog } from "./ClearDataDialog";
 import { layoutHistory } from "./historyLayout";
-import { confirmRemoveSelected } from "../../state/history/historyMenus";
+import { confirmRemoveSelected, shownSelection } from "../../state/history/historyMenus";
 import { HistoryList } from "./HistoryList";
 import { EmptyState, hostLabel, PageHeader } from "./PageLayout";
 import { EMPTY_ICON, emptyIcon } from "./tokens";
@@ -38,6 +38,7 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
   const layout = useMemo(() => layoutHistory(history, query), [history, query]);
   const latest = useRef({ layout, profileId });
   latest.current = { layout, profileId };
+  useEffect(() => setSelected((prev) => shownSelection(prev, layout.rows)), [layout]);
 
   const toggle = useCallback((url: string, shift: boolean) => {
     const { rows } = latest.current.layout;
