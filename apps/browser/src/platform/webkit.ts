@@ -1,5 +1,6 @@
 export {
   importWebKitCookies,
+  clearWebKitSiteData,
   webKitCookieStoreKey,
   endWebKitPrivateSession,
   getPasskeyAccess,

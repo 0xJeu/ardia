@@ -2,6 +2,7 @@ import { confirm } from "../../platform/dialogs";
 import { showMenu, type MenuItem } from "../../platform/menus";
 import { webviews } from "../../platform/webviews";
 import { clearSiteData } from "../../platform/siteSettings";
+import { clearWebKitSiteData } from "../../platform/webkit";
 import { getContentBlocker, isContentBlockerAllowed, setContentBlockerAllowed } from "../../platform/contentBlocker";
 import { menuSections } from "../app/menuSections";
 import { currentTab } from "../browser/current";
@@ -44,12 +45,10 @@ export async function clearSiteDataAfterConfirm(tab: Pick<Tab, "id" | "windowId"
     windowId: tab.windowId,
   });
   if (!confirmed) return null;
+  const profile = engineProfile(tab.profileId);
+  const result = await (webkit ? clearWebKitSiteData(profile, origin) : clearSiteData(profile, origin)).catch(() => null);
   const now = currentTab(tab.id);
-  const stillThere = !!now && now.profileId === tab.profileId && siteOrigin(now.url) === origin && (tabEngine(useBrowser.getState(), tab.id) === "webkit") === webkit;
-  if (webkit && !stillThere) return null;
-  const view = webviews.get(tab.id);
-  const result = await (webkit ? view?.clearSiteData() : clearSiteData(engineProfile(tab.profileId), origin))?.catch(() => null);
-  if (stillThere) void view?.reload();
+  if (now && now.profileId === tab.profileId && siteOrigin(now.url) === origin) void webviews.get(tab.id)?.reload();
   return result && typeof result.cookies === "number" ? result.cookies : 0;
 }
 

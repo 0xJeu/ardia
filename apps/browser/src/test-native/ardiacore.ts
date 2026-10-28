@@ -464,6 +464,7 @@ const fakeModules = {
     removeDownloadStaging: ({ path }) => (removedStagings.push(path as string), stagingRemovals.ok),
     cookieStoreKey: ({ profile }) => profile,
     importCookies: ({ cookies }) => (cookies as unknown[]).length,
+    clearSiteData: () => ({ cookies: 0, storage: true }),
     passkeyAccess: () => ({ entitled: false, status: "entitlementRequired" }),
     requestPasskeyAccess: () => ({ entitled: false, status: "entitlementRequired" }),
   }),

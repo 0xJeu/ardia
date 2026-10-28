@@ -170,6 +170,7 @@ export type EngineCalls = {
   "webKit.devStoreExists": [Profile, boolean];
   "webKit.devTouchStore": [Profile, boolean];
   "webKit.devHoldStore": [Profile, null];
+  "webKit.clearSiteData": [Profile & { origin: string }, ClearSiteDataResult];
   "webKit.passkeyAccess": [{}, PasskeyAccess];
   "webKit.requestPasskeyAccess": [{}, PasskeyAccess];
 };

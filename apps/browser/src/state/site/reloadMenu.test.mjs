@@ -39,10 +39,14 @@ function pendingClear(engine) {
   if (engine) S().updateTab(id, { engine });
   const view = { cleared: 0, reloaded: 0 };
   webviews.set(id, { clearSiteData: async () => (view.cleared++, { cookies: 2, storage: true }), reload: async () => void view.reloaded++ });
+  const recording = (module, calls) => {
+    const call = module.call;
+    module.call = (verb, profile, json) => (calls.push({ verb, profile, ...JSON.parse(json) }), call(verb, profile, json));
+    return () => (module.call = call);
+  };
   const engineCalls = [];
-  const sites = ardiaCoreNativeModules.ArdiaSites;
-  const call = sites.call;
-  sites.call = (verb, profile, json) => (engineCalls.push({ verb, profile, ...JSON.parse(json) }), call(verb, profile, json));
+  const webkitCalls = [];
+  const restore = [recording(ardiaCoreNativeModules.ArdiaSites, engineCalls), recording(ardiaCoreNativeModules.ArdiaWebKit, webkitCalls)];
   let answer;
   const asked = [];
   const confirm = shellNativeModules.ArdiaShell.confirm;
@@ -51,12 +55,12 @@ function pendingClear(engine) {
   const finish = async (confirmed) => {
     answer(confirmed);
     const result = await done;
-    sites.call = call;
+    restore.forEach((undo) => undo());
     shellNativeModules.ArdiaShell.confirm = confirm;
     webviews.delete(id);
     return result;
   };
-  return { id, work, view, engineCalls, asked, finish };
+  return { id, work, view, engineCalls, webkitCalls, asked, finish };
 }
 
 test("Clear Cookies and Site Data clears the site the confirmation named, also when the tab moved on meanwhile", async () => {
@@ -78,13 +82,17 @@ test("Clear Cookies and Site Data clears the site the confirmation named, also w
   assert.deepEqual(declined.engineCalls, []);
 });
 
-test("a WebKit tab that left the site while the confirmation was up clears nothing", async () => {
+test("a WebKit tab clears the origin its confirmation named in its profile's store, never the page it shows when the clear runs", async () => {
   const stay = pendingClear("webkit");
-  assert.equal(await stay.finish(true), 2);
-  assert.equal(stay.view.cleared, 1);
+  assert.equal(await stay.finish(true), 0);
+  assert.deepEqual(stay.webkitCalls, [{ verb: "clearSiteData", profile: stay.work, origin: "https://a.com" }]);
+  assert.equal(stay.view.cleared, 0, "not the view's own clear, which reads the page's host when native runs it");
+  assert.equal(stay.view.reloaded, 1);
   const moved = pendingClear("webkit");
   S().navigated(moved.id, { url: "https://b.com/", title: "B" }, {});
-  assert.equal(await moved.finish(true), null);
+  await moved.finish(true);
+  assert.deepEqual(moved.webkitCalls.map((c) => c.origin), ["https://a.com"]);
   assert.equal(moved.view.cleared, 0);
+  assert.equal(moved.view.reloaded, 0);
   assert.deepEqual(moved.engineCalls, []);
 });
