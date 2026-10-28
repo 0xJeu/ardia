@@ -4,7 +4,7 @@ import { WindowDragRegion } from "../ui";
 import { layout } from "../ui/theme";
 import { useSettings, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
 import { useHasDownloads, useNoTiles } from "../../state/sidebar/hooks";
-import { useAddressBarInSidebar } from "../../state/windows/layout";
+import { useAddressBarInSidebar, useToolbarLightsCenter } from "../../state/windows/layout";
 import { DownloadsButton } from "../downloads/Downloads";
 import { PROFILE_INDICATOR_X, ProfileIndicator } from "../profiles/ProfileIndicator";
 import { usePagerPages } from "../../state/windows/profilePager";
@@ -37,6 +37,7 @@ export function Sidebar({ width }: { width: number }) {
   const scrollY = useRef(0);
   const geometry = useRef<SidebarGeometry>({ viewport: 0, regions: { pinnedGroups: 0, list: 0 }, newTabAtTop: false, room: 0, pad: 0, tilesFixed: true });
   const addressBar = useAddressBarInSidebar();
+  const lightsY = useToolbarLightsCenter()[1];
   const header = addressBar ? SIDEBAR_HEADER_WITH_FIELD : layout.sidebarHeader;
   const hasDownloads = useHasDownloads(windowId);
   const dots = useProfileDotsShown();
@@ -121,7 +122,7 @@ export function Sidebar({ width }: { width: number }) {
                   <SidebarAddressRow width={width} />
                 </>
               ) : (
-                <View pointerEvents="box-none" style={{ height: layout.sidebarHeader, flexDirection: "row", alignItems: "flex-start", paddingLeft: PROFILE_INDICATOR_X, paddingRight: 7, paddingTop: 27 - 17 }}>
+                <View pointerEvents="box-none" style={{ height: layout.sidebarHeader, flexDirection: "row", alignItems: "flex-start", paddingLeft: PROFILE_INDICATOR_X, paddingRight: 7, paddingTop: lightsY - 17 }}>
                   <ProfileIndicator room={width - PROFILE_INDICATOR_X - 7 - (hasDownloads ? 34 + 2 : 0)} />
                   <View pointerEvents="none" style={{ flex: 1 }} />
                   {hasDownloads ? <DownloadsButton windowId={windowId} /> : null}

@@ -35,11 +35,11 @@ test("React Native's spring parameters are the same spring", () => {
 });
 
 test("the traffic lights go with the sidebar: at their place when it's shown, past the window's edge when it's hidden", () => {
-  assert.equal(dm.lightsCenter(0), null, "shown: nothing to move");
-  assert.equal(dm.lightsCenter(0.2), null, "a rounding hair from shown: still their place");
-  assert.deepEqual(dm.lightsCenter(95), [25 - 95, 27], "half way out");
+  assert.deepEqual(dm.lightsCenter(0), [25, 30], "shown: on the toolbar's row, 9 pt card top + 21");
+  assert.deepEqual(dm.lightsCenter(0.2), [25, 30], "a rounding hair from shown: still their place");
+  assert.deepEqual(dm.lightsCenter(95), [25 - 95, 30], "half way out");
   const [px, py] = dm.PEEK_ORIGIN;
-  assert.deepEqual(dm.lightsCenter(-px, py), [25 + px, 27 + py], "in the peek panel: as far in as the panel");
+  assert.deepEqual(dm.lightsCenter(-px, py), [25 + px, 30 + py], "in the peek panel: as far in as the panel");
   for (const width of [160, 190, 400]) {
     const [x] = dm.lightsCenter(width);
     assert.ok(x + 46 + 7 < 0, `width ${width}: all three past the left edge`);
@@ -51,31 +51,39 @@ test("the peek panel covers the card's rounded corners, so no sliver of the page
   const [px, py] = dm.PEEK_ORIGIN;
   const height = 860;
   const panel = { left: px, top: py, bottom: height - dm.PEEK_BOTTOM, r: dm.PEEK_RADIUS };
-  const card = { left: layout.cardInset, top: layout.cardTop, bottom: height - layout.cardInset, r: layout.cardRadius };
+  const card = { left: layout.cardInset, top: layout.cardInset, bottom: height - layout.cardInset, r: layout.cardRadius };
   assert.ok(panel.left <= card.left && panel.top <= card.top && panel.bottom >= card.bottom, "the panel's edges reach past the card's");
-  const corners = [
-    [[panel.left + panel.r, panel.top + panel.r], [card.left + card.r, card.top + card.r]],
-    [[panel.left + panel.r, panel.bottom - panel.r], [card.left + card.r, card.bottom - card.r]],
-  ];
-  for (const [[ax, ay], [bx, by]] of corners) {
-    const apart = Math.hypot(ax - bx, ay - by);
-    assert.ok(apart + card.r <= panel.r - 0.5, `the card's corner arc stays half a point inside the panel's (${apart.toFixed(2)} apart)`);
+  const insidePanel = (x, y) => {
+    const cx = Math.max(panel.left + panel.r, x);
+    const cy = Math.min(Math.max(panel.top + panel.r, y), panel.bottom - panel.r);
+    return x >= panel.left && y >= panel.top && y <= panel.bottom && Math.hypot(x - cx, y - cy) <= panel.r - 0.5;
+  };
+  for (const [cy, sy] of [[card.top + card.r, -1], [card.bottom - card.r, 1]]) {
+    for (let a = 0; a <= 90; a += 1) {
+      const t = (a * Math.PI) / 180;
+      const x = card.left + card.r - card.r * Math.cos(t);
+      const y = cy + sy * card.r * Math.sin(t);
+      assert.ok(insidePanel(x, y), `the card's corner arc at ${a}° (${x.toFixed(2)}, ${y.toFixed(2)}) stays half a point inside the panel`);
+    }
   }
 });
 
-test("with the address field in the sidebar the lights sit Arc's 3 pt higher, docked, sliding and in the peek", () => {
+test("with the address field in the sidebar the lights sit on Arc's header row, docked, sliding and in the peek", () => {
   const arc = dm.ARC_LIGHTS_CENTER;
-  assert.deepEqual(arc, [dm.LIGHTS_CENTER[0], dm.LIGHTS_CENTER[1] - 3]);
+  assert.deepEqual(arc, [dm.LIGHTS_CENTER[0], 24]);
   assert.deepEqual(dm.lightsCenter(0, 0, arc), [25, 24], "docked: placed, not left at AppKit's default");
   assert.deepEqual(dm.lightsCenter(95, 0, arc), [25 - 95, 24], "half way out on the same row");
   const [px, py] = dm.PEEK_ORIGIN;
   assert.deepEqual(dm.lightsCenter(-px, py, arc), [25 + px, 24 + py], "in the peek panel");
 });
 
-test("the card's left edge runs from the inset to the sidebar's width", () => {
-  assert.equal(dm.cardLeft(1, 190, 7), 190);
-  assert.equal(dm.cardLeft(0, 190, 7), 7);
-  assert.equal(dm.cardLeft(0.5, 190, 7), 98.5);
+test("the card's left edge runs from the window inset to 9 pt past the sidebar's rows, the same air as on every other side", async () => {
+  const { layout } = await import("../ui/theme.ts");
+  assert.equal(layout.cardInset, 9);
+  assert.equal(dm.dockedCardLeft(190) - (190 - layout.sidebarInset), layout.cardInset);
+  assert.equal(dm.cardLeft(1, 190, 9), 193);
+  assert.equal(dm.cardLeft(0, 190, 9), 9);
+  assert.equal(dm.cardLeft(0.5, 190, 9), 101);
 });
 
 test("the motion flag is per window, and ending it twice is harmless", () => {

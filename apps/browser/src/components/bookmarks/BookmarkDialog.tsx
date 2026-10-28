@@ -68,7 +68,7 @@ function DialogPanel({ state }: { state: BookmarkDialogState }) {
       place={
         addressBar
           ? { top: SIDEBAR_HEADER_WITH_FIELD + bookmarkDialog.belowField, left: layout.sidebarInset }
-          : { top: layout.cardTop + toolbarHeight - bookmarkDialog.belowToolbar, right: layout.cardInset + bookmarkDialog.rightInset }
+          : { top: layout.cardInset + toolbarHeight - bookmarkDialog.belowToolbar, right: layout.cardInset + bookmarkDialog.rightInset }
       }
     >
       <Text weight="semibold">{heading}</Text>

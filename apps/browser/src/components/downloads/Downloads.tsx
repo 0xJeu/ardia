@@ -25,7 +25,7 @@ import { useDownloads, useSidebarOpen, useWindowId, useWindowUi } from "../../st
 import { clearDownloads, removeDownload, setDownloadsOpen } from "../../state/windows/actions";
 import { onDownloadsChanged, opensWhenDone, toggleOpenWhenDone, watchNewDownloads, watchOpenWhenDone } from "../../state/windows/downloadWatch";
 import { useDownload } from "../../state/windows/hooks";
-import { useAddressBarInSidebar, useTabLayout } from "../../state/windows/layout";
+import { useAddressBarInSidebar, useTabLayout, useToolbarLightsCenter } from "../../state/windows/layout";
 import { SIDEBAR_FOOTER_DOWNLOADS } from "../sidebar/geometry";
 import { PROFILE_DOTS_HEIGHT } from "../profiles/ProfileDots";
 import { openInternalPage } from "../../state/pages/urls";
@@ -328,6 +328,7 @@ export function DownloadMagnet() {
   const sidebarWidth = useSidebarWidth(windowId);
   const topStrip = useTabLayout() === "top";
   const addressBar = useAddressBarInSidebar();
+  const lightsY = useToolbarLightsCenter()[1];
   const [flight, setFlight] = useState<{ id: string; path: string } | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const t = useRef(new Animated.Value(0)).current;
@@ -347,7 +348,7 @@ export function DownloadMagnet() {
     : addressBar
       ? footer
       : sidebarOpen
-        ? { x: sidebarWidth - MAGNET.sidebarTarget.right, y: MAGNET.sidebarTarget.y }
+        ? { x: sidebarWidth - MAGNET.sidebarTarget.right, y: lightsY }
         : MAGNET.closedTarget;
   const start = { x: sidebar + (size.width - sidebar) / 2, y: size.height * MAGNET.startShare };
   const icon = MAGNET.icon;

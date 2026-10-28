@@ -1,3 +1,5 @@
+import { layout } from "../ui/theme";
+
 export const DOCK_SPRING = { response: 0.215, damping: 0.79 } as const;
 
 export const ARC_PEEK_SPRING = { response: 0.185, damping: 0.77 } as const;
@@ -21,7 +23,9 @@ export const PEEK_ORIGIN: readonly [number, number] = [5, 5];
 export const PEEK_BOTTOM = 5;
 export const PEEK_RADIUS = 12;
 
-export const cardLeft = (dock: number, width: number, inset: number) => inset + (width - inset) * dock;
+export const dockedCardLeft = (sidebarWidth: number) => sidebarWidth + layout.sidebarCardGap;
+
+export const cardLeft = (dock: number, sidebarWidth: number, inset: number) => inset + (dockedCardLeft(sidebarWidth) - inset) * dock;
 
 export const HEADER_TOOLS = { toggleX: 70.75 + 27, pitch: 35, edge: 7, lightsRight: 70.75 + 7 } as const;
 

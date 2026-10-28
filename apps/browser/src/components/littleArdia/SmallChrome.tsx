@@ -2,7 +2,7 @@ import { breadcrumb } from "@ardia/core";
 import { FadeLabel, Symbol, Button, Text, useHover } from "../ui";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, View } from "react-native";
-import { useTheme } from "../ui/theme";
+import { layout, useTheme } from "../ui/theme";
 import { useTabLive } from "../../state/browser/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
@@ -13,7 +13,7 @@ import { Favicon } from "../favicon/Favicon";
 import { curve } from "../ui/motion";
 import { SMALL_BAR_HEIGHT } from "../../state/windows/small";
 
-export const SMALL_INSET = 6;
+export const SMALL_INSET = layout.cardInset;
 export { SMALL_WINDOW_FRAME, SMALL_WINDOW_RADIUS } from "./tokens";
 const MID = SMALL_BAR_HEIGHT / 2;
 const FIELD_HEIGHT = 28;

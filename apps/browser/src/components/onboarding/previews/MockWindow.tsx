@@ -8,7 +8,7 @@ import type { PreviewId } from "../../../state/onboarding/previewIds";
 import { tab } from "./content";
 import { DEMOS } from "./demos";
 import { Pill } from "./Floating";
-import { CHIP, CRUMB_X, FIELD, fill, geo, hairline, LIGHTS_Y, ROW, SIDEBAR_ICONS, SIDEBAR_W, STRIP_H, TOOLBAR_H, TOOLBAR_ICONS, type Geo } from "./geometry";
+import { CARD, CHIP, CRUMB_X, FIELD, fill, geo, hairline, LIGHTS_Y, ROW, SIDE_CARD_X, SIDEBAR_ICONS, STRIP_H, TOOLBAR_H, TOOLBAR_ICONS, type Geo } from "./geometry";
 import { Backdrop, Crumb, Glyph, Label, Lights, NavIcons, Rows, TabRow } from "./Kit";
 import { lookFor, type Look } from "./look";
 import { Page } from "./MockPages";
@@ -167,12 +167,12 @@ const WindowState = memo(function WindowState({ g, look, accent, lay, addr, site
   const s = g.s;
   const lerp = (v: Animated.Value, a: number, b: number) => v.interpolate({ inputRange: [0, 1], outputRange: [a * s, b * s] });
   const fade = (v: Animated.Value, a: number, b: number) => v.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
-  const sideCardW = g.W - SIDEBAR_W - 14;
+  const sideCardW = g.W - SIDE_CARD_X - CARD;
   const step = CHIP.w + CHIP.gap;
   const chips = Math.max(1, Math.min(4, Math.floor((g.W - CHIP.x - 40) / step)));
   const rows = Math.max(1, Math.min(6, Math.floor((g.H - ROW.topWithField - ROW.pitch - 20) / ROW.pitch)));
-  const crumbLeft = Animated.add(lerp(lay, SIDEBAR_W + 7 + CRUMB_X, 6 + 118), lerp(addr, 0, FIELD.x + 12 - (SIDEBAR_W + 7 + CRUMB_X)));
-  const crumbTop = Animated.add(lerp(lay, 6 + 12, STRIP_H + 12), lerp(addr, 0, FIELD.y + 8 - 18));
+  const crumbLeft = Animated.add(lerp(lay, SIDE_CARD_X + CRUMB_X, CARD + 118), lerp(addr, 0, FIELD.x + 12 - (SIDE_CARD_X + CRUMB_X)));
+  const crumbTop = Animated.add(lerp(lay, CARD + 12, STRIP_H + 12), lerp(addr, 0, FIELD.y + 8 - (CARD + 12)));
   const bandSite = (
     <Animated.View style={[fill, { opacity: site }]}>
       <View style={[fill, { backgroundColor: look.site.background ?? look.card }]} />
@@ -217,10 +217,10 @@ const WindowState = memo(function WindowState({ g, look, accent, lay, addr, site
       <Animated.View
         style={{
           position: "absolute",
-          left: lerp(lay, SIDEBAR_W + 7, 6),
-          top: lerp(lay, 6, STRIP_H),
-          width: lerp(lay, sideCardW, g.W - 12),
-          height: lerp(lay, g.H - 13, g.H - STRIP_H - 6),
+          left: lerp(lay, SIDE_CARD_X, CARD),
+          top: lerp(lay, CARD, STRIP_H),
+          width: lerp(lay, sideCardW, g.W - 2 * CARD),
+          height: lerp(lay, g.H - 2 * CARD, g.H - STRIP_H - CARD),
           borderRadius: 10 * s,
           backgroundColor: look.page,
           borderWidth: hairline,
