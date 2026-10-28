@@ -54,6 +54,7 @@ export type EngineCalls = {
   "downloads.cancel": [{ id: string }, null];
   "downloads.pause": [{ id: string }, null];
   "downloads.resume": [{ id: string }, null];
+  "downloads.keep": [{ id: string }, null];
   "downloads.settings": [Profile, DownloadSettings];
   "downloads.setSettings": [Profile & Partial<Pick<DownloadSettings, "folder" | "askWhereToSave">>, DownloadSettings];
 
@@ -146,6 +147,7 @@ export type EngineCalls = {
   "bookmarks.tree": [Profile, { bar: EngineBookmark; other: EngineBookmark }];
   "bookmarks.apply": [Profile & { ops: BookmarkOp[] }, { applied: number; skipped: number; invalid: string[] }];
   "bookmarks.watch": [Profile, Done];
+  "bookmarks.exportHtml": [Profile, string | null];
 
   "favicons.get": [Profile & { pages: string[]; icons: string[]; size: number }, { pages: Record<string, { png: string; icon: string }>; icons: Record<string, { png: string }> }];
   "favicons.set": [Profile & { page: string; icon: string; png: string }, { stored: boolean }];
@@ -155,6 +157,7 @@ export type EngineCalls = {
   "webView.setPeekModifier": [{ modifier: "alt" | "shift" | "off" }, null];
   "webView.setSplitLinkModifier": [{ modifier: "alt" | "altShift" }, null];
   "webView.setSelectionPopover": [{ enabled: boolean }, null];
+  "webView.setCommandScrollZoom": [{ enabled: boolean }, null];
   "webView.setAutoPictureInPicture": [{ enabled: boolean }, null];
   "webView.setVideoUpscaling": [{ enabled: boolean }, null];
   "webView.setVideoUpscalingTestConditions": [{ lowPower?: boolean; thermalPressure?: boolean }, null];
@@ -184,6 +187,7 @@ export type EngineEvents = {
   "extensions.changed": ExtensionsChange;
   "extensions.tabs": TabsRequest;
   "extensions.installPrompt": ExtensionInstallPrompt;
+  "extensions.installFailed": { message: string; tabId: string | null };
   "extensions.sidePanel": SidePanelRequest;
   "extensions.actionPopup": ActionPopupRequest;
   "extensions.actionShortcut": ActionPopupRequest;

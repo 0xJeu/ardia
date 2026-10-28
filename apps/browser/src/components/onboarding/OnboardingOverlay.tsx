@@ -8,7 +8,8 @@ import { onboardingCard, onboardingMotion } from "./tokens";
 import { useWindowId } from "../../state/browser/hooks";
 import { Intro } from "./Intro";
 import { dismissOnboarding, goToStep, useOnboarding } from "../../state/onboarding/onboarding";
-import { LayoutStep, LookStep, TabsStep } from "./LayoutSteps";
+import { LayoutStep, TabsStep } from "./LayoutSteps";
+import { LookStep } from "./LookStep";
 import { SearchPrivacyStep } from "./PrivacyStep";
 import { SourceStep } from "./SourceStep";
 import { HomeStep } from "./HomeStep";
@@ -18,6 +19,7 @@ import { SetupCodeOutro } from "./SetupCodeOutro";
 import { isWebDemo } from "../../state/onboarding/demoSteps";
 import { ToolTour } from "./tour/ToolTour";
 import { useOnboardingColors } from "./Parts";
+import { DevResetOnboarding } from "./DevResetOnboarding";
 
 const CARD = { width: 880, height: 560, margin: 40 };
 
@@ -29,6 +31,7 @@ export function OnboardingOverlay() {
     <>
       {active ? <Overlay key={session} session={session} /> : null}
       <ToolTour />
+      {__DEV__ ? <DevResetOnboarding /> : null}
     </>
   );
 }

@@ -88,6 +88,8 @@ const char kPageReportsKey = 0;
   [self resetBlocked:NO];
   [self endReveal];
   [self dropFront];
+  [self finishFrameHold];
+  [self stopHolding];
   _tab = nil;
   _focusOnActivate = NO;
   _pageFocus = ArdiaPageFocus::Unknown;

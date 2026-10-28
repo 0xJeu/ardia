@@ -6,7 +6,7 @@ import { useIsActiveTab, usePageProfileId, useTab, useWindow, useWindowId } from
 import { returnToPinnedUrl } from "../../state/pins/actions";
 import { useSplitRowKey } from "../../state/sidebar/hooks";
 import { HoverSlot } from "../ui/HoverSlot";
-import { ActivitySpinner, Button, ContextMenuArea, FadeLabel, font, ink, MouseArea, radius, Surface, Symbol, useHover } from "../ui";
+import { ActivitySpinner, Button, ContextMenuArea, FadeLabel, font, ink, MouseArea, OutsidePressArea, radius, Surface, Symbol, useHover } from "../ui";
 import { isPinnedRow } from "../../state/browser/model";
 import { awayFromPin } from "../../state/pins/organize";
 import { clickTab, commitRename, endRename, startRename, tabTitle } from "../../state/sidebar/actions";
@@ -144,6 +144,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
               <HoverSlot
                 hovered={hovered && !renaming}
                 width={22}
+                reserve="hover"
                 hover={closeControl && <Button variant="icon" icon={closeControl.icon} size={10} weight="semibold" box={22} radius={radius.m} onPress={() => pressTabClose(tab.id)} tooltip={closeControl.tooltip} />}
               >
                 {loading && <ActivitySpinner style={{ width: 12, height: 12, marginRight: 2 }} />}
@@ -185,21 +186,23 @@ export function RenameField({
     return () => clearTimeout(t);
   }, []);
   return (
-    <TextInput
-      ref={input}
-      value={text}
-      onChangeText={setText}
-      placeholder={placeholder}
-      placeholderTextColor={theme.placeholder}
-      selectionColor={theme.selection}
-      selectTextOnFocus
-      enableFocusRing={false}
-      onSubmitEditing={() => finish(text)}
-      onBlur={() => finish(text)}
-      keyDownEvents={[{ key: "Escape" }]}
-      onKeyDown={(e) => e.nativeEvent.key === "Escape" && finish(null)}
-      style={{ flex: 1, height: 18, marginLeft: 5, fontSize, fontWeight: weight, color, paddingVertical: 0, paddingHorizontal: 0 }}
-    />
+    <OutsidePressArea onOutsidePress={() => finish(text)} style={{ flex: 1, height: 18, marginLeft: 5 }}>
+      <TextInput
+        ref={input}
+        value={text}
+        onChangeText={setText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.placeholder}
+        selectionColor={theme.selection}
+        selectTextOnFocus
+        enableFocusRing={false}
+        onSubmitEditing={() => finish(text)}
+        onBlur={() => finish(text)}
+        keyDownEvents={[{ key: "Escape" }]}
+        onKeyDown={(e) => e.nativeEvent.key === "Escape" && finish(null)}
+        style={{ flex: 1, fontSize, fontWeight: weight, color, paddingVertical: 0, paddingHorizontal: 0 }}
+      />
+    </OutsidePressArea>
   );
 }
 

@@ -267,6 +267,7 @@ export const stagingRemovals = { ok: true };
 export const deletedProfileData: string[] = [];
 export const profileDataLeft = new Map<string, string[]>();
 export const revealedTabs: string[] = [];
+export const installedCrx: { path: string; profile: string }[] = [];
 export const linkRoute: { next: LinkRoute } = { next: {} };
 export const extensionAnswers = {
   actionStates: async (_tabId: string, _ids: string[]): Promise<Record<string, ActionState>> => ({}),
@@ -328,6 +329,7 @@ const fakeModules = {
     cancel: ({ id }) => (cancelledDownloads.push(id as string), null),
     pause: () => null,
     resume: () => null,
+    keep: () => null,
     settings: passing("ac_downloads_settings"),
     setSettings: passing("ac_downloads_set_settings"),
   }),
@@ -399,6 +401,7 @@ const fakeModules = {
     reload: async ({ profile, id }) => (await extensionEngine()?.reload(id as string, profile), { ok: true }),
     configure: () => ({ ok: true }),
     chooseFolder: () => null,
+    installCrx: ({ profile, path }) => (installedCrx.push({ path: path as string, profile }), { id: "crx" }),
     resolveInstallPrompt: () => null,
     actionStates: ({ tabId, ids }) => extensionAnswers.actionStates(tabId as string, ids as string[]),
     sidePanelUrl: ({ tabId, extensionId }) => extensionAnswers.sidePanelUrl(tabId as string, extensionId as string),
@@ -450,6 +453,7 @@ const fakeModules = {
     setPeekModifier: () => null,
     setSplitLinkModifier: () => null,
     setSelectionPopover: () => null,
+    setCommandScrollZoom: () => null,
     setAutoPictureInPicture: () => null,
     setVideoUpscaling: () => null,
     setVideoUpscalingTestConditions: () => null,

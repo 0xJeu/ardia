@@ -21,8 +21,8 @@ import { newTab } from "../../../state/tabs/actions";
 import { useProfiles } from "../../../state/browser/hooks";
 import { engineProfile } from "../../../state/browser/model";
 import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
-import { Button, font, Group, PopUp, TextField, Toggle, weight } from "../../ui";
-import { Row, SectionHeader } from "../Form";
+import { Button, font, PopUp, TextField, Toggle, weight } from "../../ui";
+import { Group, Row, SectionHeader } from "../Form";
 import { extensionList } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
@@ -119,10 +119,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
         <Row anchor="extensions.unpacked">
           <Button
             title="Choose Folder…"
-            onPress={() => {
-              void loadUnpacked(SETTINGS_WINDOW_ID, profile);
-              showInstall();
-            }}
+            onPress={() => void loadUnpacked(SETTINGS_WINDOW_ID, profile).then((chosen) => chosen && showInstall())}
           />
         </Row>
       </Group>
@@ -175,6 +172,14 @@ function ExtensionDetails({ ext, profile, onBack }: { ext: InstalledExtension; p
         <Row title="Allow in Incognito" description="Incognito can't stop extensions from recording your browsing.">
           <Toggle value={ext.incognito} onChange={(incognito) => void configure(profile, ext.id, { incognito })} />
         </Row>
+        {ext.userScriptsAvailable ? (
+          <Row
+            title="Allow User Scripts"
+            description="Lets it run code that no one has reviewed, like userscripts in Tampermonkey. Turn on only if you trust what you add."
+          >
+            <Toggle value={!!ext.userScripts} onChange={(userScripts) => void configure(profile, ext.id, { userScripts })} />
+          </Row>
+        ) : null}
         {ext.optionsUrl ? (
           <Row title="Extension options">
             <Button title="Open" onPress={() => openTab(ext.optionsUrl!)} />

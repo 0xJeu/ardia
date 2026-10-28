@@ -14,7 +14,7 @@ export const SETUP_SETTING_KEYS = [
   "newTabOpens",
   "newTabPosition",
   "newTabButtonPosition",
-  "cleanUpInactiveTabsAfterHours",
+  "cleanUpInactiveTabsAfterMinutes",
   "restoreSession",
   "shareTabsAcrossWindows",
   "balancedTopApps",
@@ -49,7 +49,7 @@ const SETTING_FIELDS: { [K in SetupSettingKey]: Field<Settings[K]> } = {
   newTabOpens: { key: "n", values: ["page", "commandBar"] },
   newTabPosition: { key: "o", values: ["top", "bottom", "nextToCurrent"] },
   newTabButtonPosition: { key: "b", values: ["top", "bottom"] },
-  cleanUpInactiveTabsAfterHours: { key: "i", values: [null, 12, 24, 168] },
+  cleanUpInactiveTabsAfterMinutes: { key: "i", values: [null, 12 * 60, 24 * 60, 7 * 24 * 60] },
   restoreSession: { key: "r", values: BOOL },
   shareTabsAcrossWindows: { key: "w", values: BOOL },
   balancedTopApps: { key: "g", values: BOOL },
@@ -62,7 +62,7 @@ const SETTING_FIELDS: { [K in SetupSettingKey]: Field<Settings[K]> } = {
   bookmarksBar: { key: "v", values: ["always", "newTab", "never"] },
 };
 
-const PRESET_FIELD: Field<Preset> = { key: "p", values: ["arc", "dia"] };
+const PRESET_FIELD: Field<Preset> = { key: "p", values: ["arc", "dia", "chrome", "safari", "firefox", "zen", "brave", "edge", "fresh"] };
 const COLOR_FIELD: Field<ProfileColor> = { key: "x", values: ["plum", "blue", "purple", "pink", "red", "orange", "yellow", "green", "neutral"] };
 const PINS_KEY = "f";
 

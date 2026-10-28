@@ -84,6 +84,11 @@ Measured materials (our own non-activating panels over solid backdrops; sRGB; ac
 ## Content card
 
 - Frame: x = sidebar width, top 6, right 7, bottom 7. Radius 10.
+- Ours: 9 pt on every side, in every layout, by the owner's choice (2026-10-27): top, right, bottom and left at the
+  window's edge, between split panes and beside an extension's side panel, and in Little Ardia (below its bar). Docked
+  beside the sidebar the card starts 3 pt past it, so its rows (6 pt in) sit 9 pt from the card. The traffic lights
+  and the sidebar's header row follow the toolbar down to y 30 (`LIGHTS_CENTER`). One constant: `CARD_INSET` in
+  `apps/browser/src/lib/windowLayout.ts`. Radius stays 10.
 - Fill: `WindowContent/BaseTint`, #121212 at 60% (dark) or white at 80% (light), over the window
   tint. Samples: `#1B1416` at the top, `#1F1C1D` at the bottom. Web content is opaque and sits
   below the toolbar; the toolbar itself is translucent card.
@@ -258,9 +263,9 @@ Arc, not Dia: what our Arc layout (Settings › address bar in the sidebar) does
 screen capture (frames 8–33 ms apart, most 17), so timings are ±1 frame. Edges traced on rows of the page at 2x.
 
 - Hidden: the page card fills the window; no toolbar row, no traffic lights, no back/forward/address. Arc's card inset is
-  10 pt on every side, docked or hidden (ours keeps Dia's 6/7).
+  10 pt on every side, docked or hidden (ours is 9 on every side, see "Content card").
 - Peek (pointer at the window's left edge): a floating panel over the page, which doesn't move. Inset 5 pt from the
-  window's left, top and bottom edges (ours keeps Dia's 6/6/7), 227.5 pt wide (= the docked sidebar's width), rounded,
+  window's left, top and bottom edges (ours too, over the 9 pt card), 227.5 pt wide (= the docked sidebar's width), rounded,
   dark, a 0.5 pt light border; it holds the traffic lights, the sidebar button, back/forward/reload, the URL field and the
   tabs. It slides in from past the window's edge with no fade, on a spring: response 0.185 s, damping 0.77 (three peeks,
   rms 2.1 % of the travel): 93 % in 66 ms, a 1.5 % (3.5 pt) overshoot at ~0.12 s, at rest by ~0.22 s. It leaves the same

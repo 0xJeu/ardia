@@ -1,11 +1,11 @@
 import { setAppearance, setAppIcon, type AppIcon } from "../../../state/app/appSettings";
-import { Symbol, font, Group, PopUp, Toggle, useHover } from "../../ui";
+import { Symbol, font, PopUp, Toggle, useHover } from "../../ui";
 import { Image, Pressable, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { updateSettings } from "../../../state/settings/actions";
 import type { Settings } from "../../../state/settings/settings";
-import { Row, SectionHeader } from "../Form";
+import { Group, Row, SectionHeader } from "../Form";
 import { PictureChoice } from "../PictureChoice";
 import { modePreview } from "../tokens";
 import { useSettingsColors } from "../useSettingsColors";
@@ -49,6 +49,7 @@ export function AppearancePane() {
 function AddressBarPicker() {
   const addressBar = useSettings((s) => s.addressBar);
   const placement = useSettings((s) => s.commandBarPlacement);
+  const compactToolbar = useSettings((s) => s.compactToolbar);
   const topTabs = useTabLayout() === "top";
   const choose = (value: Settings["addressBar"]) => updateSettings({ addressBar: value });
   return (
@@ -76,6 +77,9 @@ function AddressBarPicker() {
             onChange={(v) => updateSettings({ commandBarPlacement: v })}
             minWidth={160}
           />
+        </Row>
+        <Row anchor="appearance.compactToolbar">
+          <Toggle value={compactToolbar} onChange={(v) => updateSettings({ compactToolbar: v })} />
         </Row>
       </Group>
     </>

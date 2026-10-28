@@ -9,6 +9,7 @@ export type PreviewId =
   | "newtab-commandbar"
   | "newtabpos-bottom"
   | "newtabpos-top"
+  | "newtabpos-next"
   | "tidy-keep"
   | "tidy-auto"
   | "quit-restore"
@@ -20,6 +21,8 @@ export type PreviewId =
   | "appearance-dark"
   | "sitecolor-on"
   | "sitecolor-off"
+  | "switcher-dots"
+  | "switcher-icons"
   | "typed-website"
   | "typed-search"
   | "block-on"
@@ -38,6 +41,7 @@ export const PREVIEW_IDS: readonly PreviewId[] = [
   "newtab-commandbar",
   "newtabpos-bottom",
   "newtabpos-top",
+  "newtabpos-next",
   "tidy-keep",
   "tidy-auto",
   "quit-restore",
@@ -49,6 +53,8 @@ export const PREVIEW_IDS: readonly PreviewId[] = [
   "appearance-dark",
   "sitecolor-on",
   "sitecolor-off",
+  "switcher-dots",
+  "switcher-icons",
   "typed-website",
   "typed-search",
   "block-on",

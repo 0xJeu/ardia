@@ -13,6 +13,21 @@ const ardiacore = await import("@ardia/ardiacore");
 
 const S = () => useBrowser.getState();
 
+const fakeSeal = (origin, username, password) => Buffer.from(JSON.stringify([origin, username, password])).toString("base64");
+const sealedLogins = (read = stub.readLogins) => ({
+  read: async () =>
+    (await read()).flatMap((l) => {
+      const origin = l.origin.replace(/\/$/, "");
+      return /^https?:\/\/[^/\s]+$/.test(origin) ? [{ origin, username: l.username, created: l.created, sealed: fakeSeal(origin, l.username, l.password) }] : [];
+    }),
+  save: async (profile, origin, username, sealed, replacing) => {
+    const [o, u, password] = JSON.parse(Buffer.from(sealed, "base64").toString());
+    if (o !== origin || u !== username) return false;
+    if (replacing && !(await ardiacore.deletePassword(profile, origin, username))) return false;
+    return ardiacore.savePassword(profile, origin, username, password);
+  },
+});
+
 class Folder {
   files = new Map();
   hidden = new Set();
@@ -47,7 +62,7 @@ class Device {
     this.scopes = { app: emptyScope(), p: emptyScope() };
     this.clock = new Clock(id);
     stub.passwordStores.set(id, new Map());
-    this.passwords = adapters.passwordsAdapter("default", () => true, stub.readLogins);
+    this.passwords = adapters.passwordsAdapter("default", () => true, sealedLogins());
   }
   with(fn) {
     stub.current.device = this.id;
@@ -121,7 +136,7 @@ function assertTreeWhole(device) {
 
 const OLD_SESSION = (() => {
   const { cmdClickCreatesTabGroup: _c, tabReorderHaptics: _t, chosen: _x, ...rest } = S().settings;
-  return { ...rest, cleanUpInactiveTabsAfterHours: null };
+  return { ...rest, cleanUpInactiveTabsAfterMinutes: null };
 })();
 const relaunch = (device, settings) =>
   device.with(() => {
@@ -133,7 +148,7 @@ test("settings: what a Mac only has by default isn't sent; nulls from another Ma
   const folder = new Folder();
   const a = new Device("A", folder);
   const b = new Device("B", folder);
-  b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true, tabReorderHaptics: true, cleanUpInactiveTabsAfterHours: 12 }));
+  b.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true, tabReorderHaptics: true, cleanUpInactiveTabsAfterMinutes: 720 }));
   relaunch(a, OLD_SESSION);
   assert.equal(a.with(() => S().settings.cmdClickCreatesTabGroup), true, "filled in at launch");
   const extraction = a.with(() => settingsAdapter.extract(() => undefined));
@@ -144,10 +159,50 @@ test("settings: what a Mac only has by default isn't sent; nulls from another Ma
   b.with(() => {
     assert.equal(S().settings.cmdClickCreatesTabGroup, true);
     assert.equal(S().settings.tabReorderHaptics, true);
-    assert.equal(S().settings.cleanUpInactiveTabsAfterHours, null, "Never is a value of its own");
+    assert.equal(S().settings.cleanUpInactiveTabsAfterMinutes, null, "Never is a value of its own");
   });
   b.with(() => settingsAdapter.apply(new Map([["set:cmdClickCreatesTabGroup", { v: false }]]), ["set:cmdClickCreatesTabGroup"]));
   b.with(() => assert.equal(S().settings.cmdClickCreatesTabGroup, false, "an explicit off is taken"));
+});
+
+test("settings: the clean-up time goes out as hours, the key a Mac a version behind reads, and comes back as exact minutes", () => {
+  const a = new Device("A", new Folder());
+  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterMinutes: 45 }));
+  const { values } = a.with(() => settingsAdapter.extract(() => undefined));
+  assert.deepEqual(values.get("set:cleanUpInactiveTabsAfterHours"), { v: 0.75 });
+  assert.ok(!values.has("set:cleanUpInactiveTabsAfterMinutes"), "one record, so the sync's newest edit decides");
+  a.with(() => settingsAdapter.apply(new Map([["set:cleanUpInactiveTabsAfterHours", { v: 7 / 60 }]]), ["set:cleanUpInactiveTabsAfterHours"]));
+  assert.equal(a.with(() => S().settings.cleanUpInactiveTabsAfterMinutes), 7);
+  a.with(() => settingsAdapter.apply(new Map([["set:cleanUpInactiveTabsAfterHours", { v: null }]]), ["set:cleanUpInactiveTabsAfterHours"]));
+  assert.equal(a.with(() => S().settings.cleanUpInactiveTabsAfterMinutes), null, "Never");
+  a.with(() => settingsAdapter.apply(new Map([["set:cleanUpInactiveTabsAfterHours", { v: "soon" }]]), ["set:cleanUpInactiveTabsAfterHours"]));
+  assert.equal(a.with(() => S().settings.cleanUpInactiveTabsAfterMinutes), null, "nonsense is no say");
+});
+
+test("settings: a clean-up time an older Mac set after a newer Mac's reaches a Mac joining later", async () => {
+  const folder = new Folder();
+  const older = { hours: undefined };
+  const olderAdapter = {
+    prefix: "set:",
+    adoptRemoteOnJoin: true,
+    extract: () => {
+      const values = new Map(older.hours === undefined ? [] : [["set:cleanUpInactiveTabsAfterHours", { v: older.hours }]]);
+      return { values, ignore: (key) => !values.has(key) };
+    },
+    apply: () => {},
+  };
+  const a = new Device("A", folder);
+  const c = new Device("C", folder, { settings: olderAdapter });
+  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterMinutes: 30 }));
+  await syncAll([a, c]);
+  await new Promise((r) => setTimeout(r, 20));
+  older.hours = 2;
+  await c.sync();
+  const b = new Device("B", folder);
+  await syncAll([b]);
+  assert.equal(b.with(() => S().settings.cleanUpInactiveTabsAfterMinutes), 120, "the newer edit wins");
+  await syncAll([a]);
+  assert.equal(a.with(() => S().settings.cleanUpInactiveTabsAfterMinutes), 120);
 });
 
 test("settings: a joined Mac relaunched with a setting it never had doesn't overwrite another Mac's choice; its own reset does", async () => {
@@ -167,11 +222,11 @@ test("settings: a joined Mac relaunched with a setting it never had doesn't over
   a.with(() => S().updateSettings({ cmdClickCreatesTabGroup: true }));
   await syncAll([a, b]);
   assert.equal(b.with(() => S().settings.cmdClickCreatesTabGroup), true);
-  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: 12 }));
+  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterMinutes: 720 }));
   await syncAll([a, b]);
-  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterHours: null }));
+  a.with(() => S().updateSettings({ cleanUpInactiveTabsAfterMinutes: null }));
   await syncAll([a, b]);
-  assert.equal(b.with(() => S().settings.cleanUpInactiveTabsAfterHours), null);
+  assert.equal(b.with(() => S().settings.cleanUpInactiveTabsAfterMinutes), null);
 });
 
 test("settings: a session a pre-chosen build saved whole (defaults filled in) doesn't count those defaults as choices", async () => {
@@ -981,6 +1036,7 @@ test("passwords: saved on one Mac, changed or deleted on another; the newer edit
   await syncAll([b, a]);
   assert.deepEqual(list(a), ["https://bank.example alice=correct horse", "https://shop.example bob=sh0p"]);
   assert.equal((await a.sync()).published, 0);
+  for (const d of [a, b]) assert.ok(!JSON.stringify(d.scopes.p).includes("correct horse"), "the sync state holds only sealed passwords");
 });
 
 test("history: two Macs settle on the union of their visits in Chrome, publish nothing more, and deletions reach Chrome", async () => {
@@ -1836,10 +1892,14 @@ test("a bookmark made while another adapter is still reading survives that sync"
   });
   await a.sync();
   let reads = 0;
-  b.passwords = adapters.passwordsAdapter("default", () => true, async () => {
-    if (++reads === 2) S().addBookmark({ profileId: "default", url: "https://second.example/", title: "Made during the sync" });
-    return stub.readLogins();
-  });
+  b.passwords = adapters.passwordsAdapter(
+    "default",
+    () => true,
+    sealedLogins(async () => {
+      if (++reads === 2) S().addBookmark({ profileId: "default", url: "https://second.example/", title: "Made during the sync" });
+      return stub.readLogins();
+    }),
+  );
   await b.sync();
   assert.equal(reads >= 2, true, "the password read ran after the bookmarks' catch-up");
   const has = (d) => d.with(() => Object.values(S().bookmarks.nodes).some((n) => n.kind === "url" && n.url === "https://second.example/"));

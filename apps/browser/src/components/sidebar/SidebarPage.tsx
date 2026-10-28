@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Animated, ScrollView, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { switchOn } from "../../state/app/switches";
 import { ContextMenuArea, WindowDragRegion } from "../ui";
@@ -38,7 +38,7 @@ type PageProps = {
   onScrollY: (y: number) => void;
 };
 
-export function SidebarPage({ profileId, slot, width, current, resting, dockAbove, height, rows, geometry, onScrollView, onScrollY }: PageProps) {
+export const SidebarPage = memo(function SidebarPage({ profileId, slot, width, current, resting, dockAbove, height, rows, geometry, onScrollView, onScrollY }: PageProps) {
   const windowId = useWindowId();
   const topGap = listTopGap(useAddressBarInSidebar());
   const pageStyle = usePageStyle(windowId, slot, width);
@@ -85,6 +85,7 @@ export function SidebarPage({ profileId, slot, width, current, resting, dockAbov
     }),
   );
   const edge = useMemo(() => scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, GLOW_ROOM], extrapolate: "clamp" }), [scrollY]);
+  const unedge = useMemo(() => Animated.multiply(edge, -1), [edge]);
   const fixed = useRef<{ height: number; list: number | null }>({ height: 0, list: null });
   const listHeight = useRef(0);
   const [, setDockChanges] = useState(0);
@@ -125,7 +126,7 @@ export function SidebarPage({ profileId, slot, width, current, resting, dockAbov
                     <ScrollEdgeLine opacity={scrollEdge.opacity} />
                   </View>
                   <Animated.View style={{ flex: 1, marginTop: -GLOW_ROOM, overflow: "hidden", transform: [{ translateY: edge }] }}>
-                    <Animated.View style={{ flex: 1, transform: [{ translateY: Animated.multiply(edge, -1) }] }}>
+                    <Animated.View style={{ flex: 1, transform: [{ translateY: unedge }] }}>
                       <Animated.ScrollView
                         ref={current ? onScrollView : undefined}
                         onLayout={
@@ -180,7 +181,7 @@ export function SidebarPage({ profileId, slot, width, current, resting, dockAbov
       </PageProfileContext.Provider>
     </Animated.View>
   );
-}
+});
 
 function TilesPlacement({ controller, fixed, room, children }: { controller: ReturnType<typeof useDragController>; fixed: boolean; room: number; children: ReactNode }) {
   if (controller) {

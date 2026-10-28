@@ -46,10 +46,11 @@ export type Settings = {
   peekModifier: PeekModifier;
   splitLinkModifier: SplitLinkModifier;
   autoGroupMeetingTabs: boolean;
-  cleanUpInactiveTabsAfterHours: number | null;
+  cleanUpInactiveTabsAfterMinutes: number | null;
   mutedSites: string[];
   neverTranslateSites: Record<string, string[]>;
   autoPictureInPicture: boolean;
+  commandScrollZoom: boolean;
   videoUpscaling: boolean;
   sidebarMediaControls: boolean;
   sidebarWidth: number;
@@ -57,6 +58,7 @@ export type Settings = {
   showClearButton: boolean;
   balancedTopApps: boolean;
   pinnedTabIconRing: boolean;
+  showAdvancedSettings: boolean;
   selectedTabGlow: SelectedTabGlow;
   pageScrollBars: "system" | "thin";
   fadeUnloadedTabs: boolean;
@@ -72,10 +74,12 @@ export type Settings = {
 
   appearance: "auto" | "light" | "dark";
   addressBar: "toolbar" | "sidebar";
+  compactToolbar: boolean;
   commandBarPlacement: "field" | "centred";
   spacesFollowAppearance: boolean;
 
   defaultProfileId: string;
+  profileSwitcherIcons: boolean;
 
   shortcuts: Record<string, string[]>;
 
@@ -136,10 +140,11 @@ export const DEFAULT_SETTINGS: Settings = {
   peekModifier: "shift",
   splitLinkModifier: "altShift",
   autoGroupMeetingTabs: true,
-  cleanUpInactiveTabsAfterHours: null,
+  cleanUpInactiveTabsAfterMinutes: null,
   mutedSites: [],
   neverTranslateSites: {},
   autoPictureInPicture: true,
+  commandScrollZoom: true,
   videoUpscaling: true,
   sidebarMediaControls: true,
   sidebarWidth: 190,
@@ -147,6 +152,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showClearButton: true,
   balancedTopApps: false,
   pinnedTabIconRing: false,
+  showAdvancedSettings: false,
   selectedTabGlow: "full",
   pageScrollBars: "system",
   fadeUnloadedTabs: false,
@@ -160,9 +166,11 @@ export const DEFAULT_SETTINGS: Settings = {
   hideBookmarksBarImport: false,
   appearance: "auto",
   addressBar: "toolbar",
+  compactToolbar: false,
   commandBarPlacement: "field",
   spacesFollowAppearance: true,
   defaultProfileId: DEFAULT_PROFILE_ID,
+  profileSwitcherIcons: false,
   shortcuts: {},
   openLinksInLittleArdia: true,
   littleArdiaSize: [900, 640],

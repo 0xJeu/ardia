@@ -8,6 +8,7 @@ import { Panel, WindowDragRegion } from "../ui";
 import { SHADOWS } from "./tokens";
 import { useWindowId } from "../../state/browser/hooks";
 import { useSidebarDockState } from "../../state/windows/hooks";
+import { useToolbarLightsCenter } from "../../state/windows/layout";
 import { Sidebar } from "../sidebar/Sidebar";
 import { dismissHoverIn } from "../../state/sidebar/hover";
 import { useSidebarUi } from "../../state/sidebar/sidebarUi";
@@ -19,12 +20,12 @@ import {
   PEEK_BOTTOM,
   PEEK_ORIGIN,
   PEEK_RADIUS,
+  dockedCardLeft,
 } from "./dockMotion";
 import {
   ARC_LIGHTS_CENTER,
   devPeeks,
   dockMoving,
-  LIGHTS_CENTER,
   lightsCenter,
   peekShown,
   setDockMoving,
@@ -123,17 +124,18 @@ export function DockedLayout({
   const savedWidth = sidebarWidth ?? layout.sidebarWidth;
   const width = useSidebarUi((u) => u.dragWidth[windowId]) ?? savedWidth;
   const arc = addressBar && !topTabs && switchOn("sidebarSlide");
-  const lights = addressBar && !topTabs ? ARC_LIGHTS_CENTER : LIGHTS_CENTER;
+  const toolbarLights = useToolbarLightsCenter();
+  const lights = addressBar && !topTabs ? ARC_LIGHTS_CENTER : toolbarLights;
   const { dock, away } = useSidebarDock(open, !fullscreen, arc);
   const left = useMemo(
     () =>
       dock.interpolate({
         inputRange: [0, 1],
-        outputRange: [inset.left, width],
+        outputRange: [inset.left, dockedCardLeft(width)],
       }),
     [dock, width, inset.left],
   );
-  const top = useMemo(() => dock.interpolate({ inputRange: [0, 1], outputRange: [layout.cardTop, inset.top] }), [dock, inset.top]);
+  const top = useMemo(() => dock.interpolate({ inputRange: [0, 1], outputRange: [layout.cardInset, inset.top] }), [dock, inset.top]);
   const stripY = useMemo(() => dock.interpolate({ inputRange: [0, 1], outputRange: [-inset.top, 0] }), [dock, inset.top]);
   const stripShown = topTabs && (open || !away);
   const moving = useDockMotion((m) => !!m.moving[windowId]);
