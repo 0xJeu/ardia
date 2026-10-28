@@ -22,7 +22,7 @@ import {
 import { isCalendarUrl } from "../live/meetings";
 import { bookmarkTab } from "../bookmarks/actions";
 import { canShare, shareTab } from "../site/share";
-import { calendarMenuItem, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
+import { calendarMenuItem, dismissNowMenuItems, newLiveFolderMenuItem, runCalendarMenu, runNewLiveFolder } from "./liveMenus";
 import { openSyncedTab, syncedDevicesMenuItem } from "../sync/menu";
 import { setSidebarUi } from "../sidebar/sidebarUi";
 import { hasOwnGroupIcon } from "../groups/groupIcons";
@@ -121,7 +121,7 @@ export async function openTabMenu(windowId: string, tab: Tab) {
           },
         ]
       : []),
-    ...(tab.pinned && isCalendarUrl(tab.pinnedUrl ?? tab.url) ? [calendarMenuItem()] : []),
+    ...(tab.pinned && isCalendarUrl(tab.pinnedUrl ?? tab.url) ? [...(pinSection(tab) === "tile" ? dismissNowMenuItems() : []), calendarMenuItem()] : []),
     sep,
     { id: "duplicate", title: "Duplicate", symbol: "plus.square.on.square" },
     { id: "bookmark", title: "Add to Bookmarks…", symbol: "bookmark", enabled: !!tab.url, ...menuShortcut("bookmarkPage") },

@@ -54,7 +54,12 @@ export const toolRows: Pick<Record<SettingsPane, SettingSection[]>, "shortcuts" 
       section: "Pinned calendar",
       rows: {
         preview: { title: "Show calendar preview", description: "Hover a pinned calendar tab to see the rest of your day.", keywords: ["hover"] },
-        timeToNext: { title: "Show time to next meeting", description: "A badge on the pinned calendar tab within the hour before a meeting.", keywords: ["countdown", "badge"] },
+        timeToNext: {
+          title: "Show time to next meeting",
+          description: "A countdown badge on the pinned calendar tab before a meeting, and a red Now while it runs. Right-click the tab to hide Now for that meeting.",
+          keywords: ["countdown", "badge", "now", "dismiss"],
+        },
+        countdownLead: { title: "Start countdown", description: "How long before a meeting the badge appears.", keywords: ["countdown", "badge", "minutes", "lead time", "next meeting"] },
       },
     },
     {
