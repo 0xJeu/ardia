@@ -2,14 +2,26 @@ import type { BrowserState } from "../browser/store";
 import type { TabGroup } from "../browser/types";
 import { newId } from "../browser/model";
 import { descendantIds, nestGroups, withGroupsPlaced, withParent } from "../groups/groups";
+import { keyField, pinKeyOf } from "../pins/pinMirror";
 
 export function groupTree(groups: Record<string, TabGroup>, groupId: string): TabGroup[] {
   const root = groups[groupId];
   return root ? [withParent(root, undefined), ...descendantIds(groups, groupId).map((id) => groups[id]!)] : [];
 }
 
+function mirroredGroups(s: BrowserState, tree: TabGroup[], windowId: string, profileId: string): Map<string, TabGroup> {
+  const found = new Map<string, TabGroup>();
+  const here = Object.values(s.groups).filter((x) => x.windowId === windowId && x.profileId === profileId && !x.pinned);
+  for (const g of tree) {
+    const own = here.find((x) => x.id !== g.id && pinKeyOf(x) === pinKeyOf(g) && ![...found.values()].includes(x));
+    if (own) found.set(g.id, own);
+  }
+  return found;
+}
+
 export function regrouped(s: BrowserState, tree: TabGroup[], windowId: string, profileId: string, fresh: boolean): BrowserState {
-  const ids = new Map(tree.map((g) => [g.id, fresh || s.groups[g.id] ? newId("g") : g.id]));
+  const mirrors = fresh ? new Map<string, TabGroup>() : mirroredGroups(s, tree, windowId, profileId);
+  const ids = new Map(tree.map((g) => [g.id, mirrors.get(g.id)?.id ?? (fresh || s.groups[g.id] ? newId("g") : g.id)]));
   const groups = { ...s.groups };
   for (const g of tree) {
     const tabIds = g.tabIds.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]?.profileId === profileId);
@@ -17,7 +29,9 @@ export function regrouped(s: BrowserState, tree: TabGroup[], windowId: string, p
     const id = ids.get(g.id)!;
     const parentId = g.parentId ? ids.get(g.parentId) : undefined;
     const { pinKey: _, ...unkeyed } = g;
-    groups[id] = withParent({ ...(fresh ? unkeyed : g), id, windowId, profileId, tabIds }, parentId && groups[parentId] ? parentId : undefined);
+    const own = mirrors.get(g.id);
+    const base = fresh ? unkeyed : own ? { ...g, ...keyField(own.id, pinKeyOf(own)) } : g;
+    groups[id] = withParent({ ...base, id, windowId, profileId, tabIds }, parentId && groups[parentId] ? parentId : undefined);
   }
   const w = s.windows[windowId];
   if (!w) return s;

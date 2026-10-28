@@ -57,3 +57,26 @@ test("Move to Profile takes a group's tabs to the profile and keeps it a group t
   assert.ok([ids[1], ids[2]].every((id) => S().tabs[id].profileId === work));
   assert.equal(S().tabs[ids[0]].profileId, "default");
 });
+
+for (const nested of [false, true]) {
+  test(`Move to Window with tabs shared across windows leaves the destination one copy of the group${nested ? " and its nested group" : ""}`, () => {
+    const { w, ids } = windowWith("a", "b", "c");
+    const other = S().createWindow({ url: "https://x.com/" });
+    S().updateSettings({ shareTabsAcrossWindows: true });
+    const g = S().groupTabs([ids[1], ids[2]], { name: "Trip", pinned: false });
+    const inner = nested ? S().groupTabs([ids[2]], { name: "Hotels", pinned: false }) : null;
+    if (inner) assert.equal(S().groups[inner].parentId, g);
+    assert.equal(S().moveGroupToWindow(g, other), other);
+    const named = (win, name) => Object.values(S().groups).filter((x) => x.windowId === win && x.name === name);
+    for (const win of [w, other]) {
+      assert.equal(named(win, "Trip").length, 1, `one Trip in ${win === w ? "the source" : "the destination"}`);
+      if (nested) assert.equal(named(win, "Hotels").length, 1, `one Hotels in ${win === w ? "the source" : "the destination"}`);
+    }
+    const trip = named(other, "Trip")[0];
+    assert.deepEqual(trip.tabIds.map(host), ["b", "c"]);
+    assert.deepEqual(trip.tabIds, [ids[1], ids[2]], "the live tabs moved in");
+    if (nested) assert.equal(named(other, "Hotels")[0].parentId, trip.id);
+    const grouped = Object.values(S().groups).filter((x) => x.windowId === other).flatMap((x) => x.tabIds);
+    assert.ok(grouped.every((id) => S().tabs[id]?.windowId === other), "every member is a tab of the destination");
+  });
+}
