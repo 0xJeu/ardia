@@ -232,6 +232,11 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
           description: "In the centre, ⌘L and a click on the address show it over the middle of the page, as in Arc.",
           keywords: ["cmd l", "command bar", "centred", "centered", "arc", "url bar", "location bar"],
         },
+        compactToolbar: {
+          title: "Compact toolbar",
+          description: "A 28 pt toolbar instead of Dia's 41 pt, so the page gets more height and a 16:9 video can fill a maximized window. For the address bar in the toolbar and for tabs at the top.",
+          keywords: ["toolbar height", "smaller toolbar", "thin toolbar", "slim", "dense", "helium", "video", "16:9", "black bars", "url bar"],
+        },
       },
     },
     {

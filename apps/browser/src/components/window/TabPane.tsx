@@ -19,6 +19,7 @@ import { Toolbar, ToolbarBackdrop } from "../toolbar/Toolbar";
 import { AutoHideBackdrop, AutoHideToolbar, useToolbarMode, useToolbarMotion } from "../toolbar/AutoHideToolbar";
 import { publishPaneChrome } from "../toolbar/WindowToolbar";
 import { revealToolbar } from "../../state/windows/toolbarAutoHide";
+import { useToolbarRow } from "../toolbar/useToolbarRow";
 import { pageKey, TabWebView } from "./TabWebView";
 import { PageOverlays } from "./PageOverlays";
 import { useProfileTheme } from "./ThemeScope";
@@ -76,6 +77,7 @@ export const TabPane = memo(function TabPane({
   const live = visible || !!warm;
   const own = useTabValue(tabId, paneTab, shallowEqual);
   const theme = useProfileTheme(own.profileId);
+  const toolbarHeight = useToolbarRow().height;
   const isNewTab = !own.url;
   const emptyCard = useSettings((st) => isNewTab && st.newTabOpens === "commandBar");
   const newTabShown = useStoreWhile(usePages, live, (s) => !!s.pages[tabId]?.newTabShown);
@@ -121,7 +123,7 @@ export const TabPane = memo(function TabPane({
       ) : visible ? (
         <ToolbarBackdrop tabId={tabId} />
       ) : (
-        <View style={{ height: layout.toolbarHeight }} />
+        <View style={{ height: toolbarHeight }} />
       )}
       {!autoLayout && bookmarksBar && <BookmarksBar placeholder={!visible} />}
       <Animated.View style={autoLayout ? motion.groupStyle : { flex: 1 }}>

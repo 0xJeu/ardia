@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { layout } from "../ui/theme";
 import { startChromeTabs } from "../../state/tabs/chromeTabs";
 import { useIsSmallWindow, useSplitOf } from "../../state/windows/card";
 import { usePeeks } from "../../state/peek/hooks";
@@ -19,6 +18,7 @@ import { startSelectionTools } from "../../state/site/selection";
 import { startMedia } from "../../state/media/pip";
 import { urlFieldRight } from "../toolbar/Toolbar";
 import { WindowToolbar } from "../toolbar/WindowToolbar";
+import { useToolbarRow } from "../toolbar/useToolbarRow";
 import "../dev/devExpose";
 import { PeekOverlay } from "../peek/PeekOverlay";
 import { dismissPeek, startPeeks } from "../../state/peek/actions";
@@ -37,6 +37,7 @@ export function ContentCard() {
   const hideWhileScrolling = useSettings((st) => st.hideToolbarWhileScrolling);
   const showSidebarButton = useSettings((st) => st.showSidebarButton !== false);
   const barMode = useBookmarksBarMode(windowId);
+  const toolbarRow = useToolbarRow();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const container = useRef<View>(null);
@@ -67,10 +68,10 @@ export function ContentCard() {
       setUrlAnchor(windowId, {
         left: origin.x + focusedRect.x + g.urlLeft,
         top: origin.y + focusedRect.y,
-        width: focusedRect.width - g.urlLeft - urlFieldRight(!!split, extensionsWidth),
+        width: focusedRect.width - g.urlLeft - urlFieldRight(!!split, extensionsWidth, toolbarRow),
       });
     return watchToolbarExtensionsWidth(windowId, place);
-  }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split, showSidebarButton]);
+  }, [origin, focusedRect?.x, focusedRect?.y, focusedRect?.width, tabLayout, addressInSidebar, !!split, showSidebarButton, toolbarRow]);
 
   useEffect(() => {
     if (origin && size.width > 0) setCardAnchor(windowId, { left: origin.x, top: origin.y, width: size.width, height: size.height });
@@ -143,7 +144,7 @@ export function ContentCard() {
         <WindowToolbar windowId={windowId} tabId={activeId} geometry={geometryFor(panes[activeId])} autoHide={hideWhileScrolling} />
       )}
       {size.width > 0 && !split && !fullscreenTab && (
-        <FrozenPage windowId={windowId} tabId={activeId} top={(!addressInSidebar && !small && !hideWhileScrolling ? layout.toolbarHeight : 0) + (barMode === "always" && !small && !hideWhileScrolling ? BOOKMARKS_BAR_HEIGHT : 0)} />
+        <FrozenPage windowId={windowId} tabId={activeId} top={(!addressInSidebar && !small && !hideWhileScrolling ? toolbarRow.height : 0) + (barMode === "always" && !small && !hideWhileScrolling ? BOOKMARKS_BAR_HEIGHT : 0)} />
       )}
       {split && !fullscreenTab && <SplitDividers split={split} dividers={dividers} width={size.width} height={size.height} />}
       {size.width > 0 && popoversOverCard && origin && activeRect && peekEdge !== undefined && (
