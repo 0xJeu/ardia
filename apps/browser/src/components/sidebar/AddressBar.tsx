@@ -13,7 +13,7 @@ import { toolbarPalette, type ToolbarPalette } from "../ui/toolbarColors";
 import { Button, type ButtonHit, FadeLabel, font, useHover } from "../ui";
 import { setUrlAnchor } from "../../state/windows/layout";
 import { SIDEBAR_FIELD } from "./geometry";
-import { SunkenFieldFill } from "./SunkenField";
+import { SidebarFieldFill } from "./SidebarField";
 import { UrlField, useToolbarTab } from "../toolbar/Toolbar";
 import { HistoryButton, ReloadButton } from "../toolbar/NavButtons";
 import { GLYPH } from "../toolbar/tokens";
@@ -154,7 +154,7 @@ function EmptyField({ windowId }: { windowId: string }) {
     <View {...hoverProps}>
       <Pressable onPress={open}>
         <View style={{ height: SIDEBAR_FIELD.height, justifyContent: "center", paddingLeft: 11 }}>
-          <SunkenFieldFill hovered={hovered} />
+          <SidebarFieldFill hovered={hovered} />
           <FadeLabel text="Search or enter address" fontSize={font.body.fontSize} color={theme.placeholder} fadeWidth={14} style={{ height: 18, marginLeft: -2 }} />
         </View>
       </Pressable>
