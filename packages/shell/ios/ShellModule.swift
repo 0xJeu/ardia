@@ -196,6 +196,12 @@ public class ShellModule: Module {
     AsyncFunction("replyToTerminate") { (ok: Bool) in WindowManager.shared.replyToTerminate(ok) }.runOnQueue(.main)
 
     AsyncFunction("confirm") { (options: [String: Any], promise: Promise) in
+      if let file = MenuChoice.testFile(flag: "appDialog", name: "dialog.json"),
+         let answer = MenuChoice.testAnswer(dumping: options.merging(["kind": "confirm"]) { $1 }, to: file) {
+        let words = Set(answer.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        promise.resolve(["confirmed": words.contains("confirm"), "suppressed": words.contains("suppress")])
+        return
+      }
       let alert = ShellModule.alert(options)
       alert.addButton(withTitle: options["confirmTitle"] as? String ?? "OK")
       alert.addButton(withTitle: options["cancelTitle"] as? String ?? "Cancel")
@@ -213,6 +219,11 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("prompt") { (options: [String: Any], promise: Promise) in
+      if let file = MenuChoice.testFile(flag: "appDialog", name: "dialog.json"),
+         let answer = MenuChoice.testAnswer(dumping: options.merging(["kind": "prompt"]) { $1 }, to: file) {
+        promise.resolve(answer.isEmpty ? nil : answer)
+        return
+      }
       let alert = ShellModule.alert(options)
       alert.addButton(withTitle: options["confirmTitle"] as? String ?? "OK")
       alert.addButton(withTitle: "Cancel")
@@ -340,6 +351,10 @@ public class ShellModule: Module {
     }
 
     AsyncFunction("showMenu") { (items: [[String: Any]], promise: Promise) in
+      if let file = MenuChoice.testFile(flag: "appMenu", name: "menu.json") {
+        promise.resolve(MenuChoice.testPick(items, dumpingTo: file))
+        return
+      }
       let target = MenuChoice()
       let menu = ShellModule.contextMenu(items, target: target)
       menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)

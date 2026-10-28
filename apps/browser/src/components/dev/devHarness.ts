@@ -90,6 +90,26 @@ export function startDevHarness() {
     get syncSheets(): typeof import("../settings/panes/SyncSheets") {
       return require("../settings/panes/SyncSheets");
     },
+    get menus(): typeof import("../../state/sidebar/menus") &
+      typeof import("../../state/site/reloadMenu") &
+      typeof import("../profiles/profileMenu") &
+      typeof import("../../state/bookmarks/bookmarkMenus") &
+      typeof import("../../state/bookmarks/barMenus") &
+      typeof import("../../state/history/historyMenus") &
+      typeof import("../../state/downloads/downloadMenu") &
+      typeof import("../../platform/clipboard") & { useBookmarkDialog: typeof import("../../state/bookmarks/actions").useBookmarkDialog } {
+      return {
+        useBookmarkDialog: require("../../state/bookmarks/actions").useBookmarkDialog,
+        ...require("../../state/sidebar/menus"),
+        ...require("../../state/site/reloadMenu"),
+        ...require("../profiles/profileMenu"),
+        ...require("../../state/bookmarks/bookmarkMenus"),
+        ...require("../../state/bookmarks/barMenus"),
+        ...require("../../state/history/historyMenus"),
+        ...require("../../state/downloads/downloadMenu"),
+        ...require("../../platform/clipboard"),
+      };
+    },
     showWhatsSent: () => {
       const { showSettingsSheet } = require("../../state/settings/sheet") as typeof import("../../state/settings/sheet");
       const { WhatsSentSheet } = require("../settings/panes/ShareDiagnostics") as typeof import("../settings/panes/ShareDiagnostics");
