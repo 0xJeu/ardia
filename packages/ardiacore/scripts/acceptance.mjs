@@ -4441,19 +4441,10 @@ try {
   });
 
   await check("startup-accept-language", async () => {
-    const system = JSON.parse(execFileSync("osascript", ["-l", "JavaScript", "-e",
-      `ObjC.import("Foundation"); const out = []; const all = $.NSLocale.preferredLanguages;
-       for (let i = 0; i < all.count; i++) { const l = $.NSLocale.localeWithLocaleIdentifier(all.objectAtIndex(i));
-         out.push([ObjC.unwrap(l.languageCode), ObjC.unwrap(l.regionCode) ?? null, ObjC.unwrap(l.scriptCode) ?? null]); }
-       JSON.stringify(out)`]).toString());
-    const expected = [];
-    for (let [language, region, script] of system) {
-      if (!language) continue;
-      if (language === "zh" && !region) region = script === "Hant" ? "TW" : "CN";
-      for (const tag of region ? [`${language}-${region}`, language] : [language]) if (!expected.includes(tag)) expected.push(tag);
-    }
-    const reduced = expected.slice(0, 1);
-    const reducedHeader = reduced[0].includes("-") ? [reduced[0], reduced[0].split("-")[0]] : reduced;
+    const uiLocale = JSON.parse(execFileSync("osascript", ["-l", "JavaScript", "-e",
+      `ObjC.import("Foundation"); const bundle = $.NSBundle.bundleWithPath(${JSON.stringify(app)});
+       JSON.stringify(ObjC.unwrap($.NSBundle.preferredLocalizationsFromArrayForPreferences(bundle.localizations, $.NSLocale.preferredLanguages).objectAtIndex(0)))`]).toString())
+      .replace("_", "-").replace(/^en$/, "en-US");
     let header = null;
     const echo = createServer((req, res) => {
       header = req.headers["accept-language"] ?? "";
@@ -4466,9 +4457,12 @@ try {
       const t = await pageFor(tab.id, "/languages");
       const languages = (await cdp(t, "Runtime.evaluate", { expression: "navigator.languages", returnByValue: true })).result.value;
       const sent = (header ?? "").split(",").map((s) => s.split(";")[0].trim()).filter(Boolean);
-      if (JSON.stringify(languages) !== JSON.stringify(reduced)) throw new Error(`navigator.languages ${JSON.stringify(languages)}, expected ${JSON.stringify(reduced)} (Helium's reduced Accept-Language: the first of ${JSON.stringify(expected)})`);
-      if (JSON.stringify(sent) !== JSON.stringify(reducedHeader)) throw new Error(`Accept-Language "${header}", expected ${JSON.stringify(reducedHeader)} (Helium's reduced Accept-Language: the first of ${JSON.stringify(expected)})`);
-      return { system: expected, languages, header };
+      const primary = (tag) => tag.split("-")[0];
+      const seeded = ["af", "ur"].includes(primary(uiLocale)) ? "en" : primary(uiLocale);
+      if (languages.length !== 1 || primary(languages[0]) !== seeded) throw new Error(`navigator.languages ${JSON.stringify(languages)}, expected one ${seeded} tag (a new profile's languages come from the UI locale ${uiLocale}'s IDS_ACCEPT_LANGUAGES, reduced as Helium does)`);
+      const reducedHeader = languages[0].includes("-") ? [languages[0], primary(languages[0])] : languages;
+      if (JSON.stringify(sent) !== JSON.stringify(reducedHeader)) throw new Error(`Accept-Language "${header}", expected ${JSON.stringify(reducedHeader)} (Helium's reduced Accept-Language)`);
+      return { uiLocale, languages, header };
     } finally {
       await closeTab(tab.id);
       echo.close();

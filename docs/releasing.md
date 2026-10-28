@@ -131,11 +131,12 @@ stays up. That's GPL-3.0 §6(d) for the GPL parts (uBlock Origin today), and it'
      that profile and re-signs inside out with Developer ID, the same identifiers, entitlements, flags and designated
      requirements Xcode's export gives (`xcodebuild -exportArchive` refuses an Xcode-managed profile with manual signing),
    - leaves out what Ardia never loads (`packages/ardiacore/scripts/prune-bundle.sh`, after `strip-engine.sh`): Chrome's
-     locales other than English and the app's own languages (Chrome takes its locale from the app bundle's
-     localizations, and Ardia has none, so it runs in en-US whatever the Mac's language), SwiftShader and its Vulkan
+     locales other than the ones the app declares (Chrome takes its locale from the app bundle's localizations, so
+     `Info.plist`'s `CFBundleLocalizations` lists Chromium's 55 desktop locales, and the script stops when one has no
+     `locale.pak`; together with their gendered variants they cost about 50 MB unpacked, 8 MB in the DMG), SwiftShader and its Vulkan
      loader (WebGL and WebGPU run on Metal; Chrome dropped SwiftShader's WebGL fallback), Chrome's first-run sounds
      and pictures inside `resources.pak` (blanked by hash, `first-run-resources.sha256`; Ardia always passes
-     `--no-first-run`), uBlock Origin's other locales, React Native's `@3x` images (Macs draw at 1x or 2x) and hermes's
+     `--no-first-run`), uBlock Origin's locales that no declared locale or its language falls back to, React Native's `@3x` images (Macs draw at 1x or 2x) and hermes's
      local symbols. Each step has a kill switch: `ARDIA_PRUNE_LOCALES`, `ARDIA_PRUNE_SWIFTSHADER`,
      `ARDIA_PRUNE_FIRST_RUN`, `ARDIA_PRUNE_UBO_LOCALES`, `ARDIA_PRUNE_RN_3X`, `ARDIA_STRIP_HERMES` (or `ARDIA_PRUNE` for
      all) set to `off`. Chrome's opt-in software GPU modes are unsupported in a release build: with

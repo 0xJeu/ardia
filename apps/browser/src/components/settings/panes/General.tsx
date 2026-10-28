@@ -24,6 +24,7 @@ import { store, useResource } from "../../../state/settings/resources";
 import { openImport } from "../../../state/settings/settingsWindows";
 import { ExportBookmarksRow } from "./ExportBookmarksRow";
 import { SetupCodeRow } from "./SetupCodeRow";
+import { UI_LOCALE } from "../../../lib/uiLocale";
 
 const APP = "Ardia";
 
@@ -186,7 +187,7 @@ function UpdatesSection() {
     if (patch.channel !== undefined) void setUpdateChannel(patch.channel).finally(refresh);
   };
   const lastCheck = state.lastCheck
-    ? `Last checked ${new Date(state.lastCheck).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`
+    ? `Last checked ${new Date(state.lastCheck).toLocaleString(UI_LOCALE, { dateStyle: "medium", timeStyle: "short" })}.`
     : "Not checked yet.";
   return (
     <>
