@@ -5,6 +5,8 @@ import { hex, layout, useTheme } from "../ui/theme";
 import { useIsActiveTab, usePageProfileId, useTab, useWindow, useWindowId } from "../../state/browser/hooks";
 import { returnToPinnedUrl } from "../../state/pins/actions";
 import { useSplitRowKey } from "../../state/sidebar/hooks";
+import { useMuteState } from "../../state/tabs/hooks";
+import { muteTitle } from "../../state/tabs/mute";
 import { HoverSlot } from "../ui/HoverSlot";
 import { ActivitySpinner, Button, ContextMenuArea, FadeLabel, font, ink, MouseArea, OutsidePressArea, radius, Surface, Symbol, useHover } from "../ui";
 import { isPinnedRow } from "../../state/browser/model";
@@ -54,6 +56,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const active = !!(flags & ACTIVE);
   const selected = !!(flags & SELECTED);
   const playingAudio = !!(flags & PLAYING);
+  const mute = useMuteState(tabId);
   const loading = !!(flags & LOADING);
   const renaming = useSidebarUi((u) => u.renaming?.kind === "tab" && u.renaming.id === tabId);
   const { hovered, hoverProps } = useRowHover(windowId, renaming ? null : { kind: "tab", id: tabId });
@@ -125,9 +128,9 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                   <TabBadges tabId={tab.id} />
                 </View>
               )}
-              {(playingAudio || tab.muted) && (
-                <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: 6 }} tooltip={tab.muted ? "Unmute Site" : "Mute Site"}>
-                  <Symbol name={tab.muted ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16 }} />
+              {(playingAudio || mute) && (
+                <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: 6 }} tooltip={muteTitle(mute)}>
+                  <Symbol name={mute ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16 }} />
                 </Pressable>
               )}
               {renaming ? (

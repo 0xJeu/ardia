@@ -6,6 +6,7 @@ import type { BrowserState } from "../../state/browser/store";
 import type { GroupColor } from "../../state/browser/types";
 import { groupLabel } from "../../state/pins/organize";
 import { splitRowPanes } from "../../state/splits/splits";
+import { isSilenced } from "../../state/tabs/mute";
 import { tabTitle } from "../../state/sidebar/actions";
 import { groupEntries, keptEntry } from "../../state/sidebar/entries";
 import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS } from "./geometry";
@@ -45,7 +46,7 @@ function tabShot(s: BrowserState, tabId: string, hovered: boolean): TabShot | nu
     favicon: tab.favicon,
     icon: tab.customIcon,
     profileId: tab.profileId,
-    sound: tab.muted ? "muted" : s.live[tabId]?.playingAudio ? "playing" : null,
+    sound: isSilenced(s, tab) ? "muted" : s.live[tabId]?.playingAudio ? "playing" : null,
     hovered,
   };
 }

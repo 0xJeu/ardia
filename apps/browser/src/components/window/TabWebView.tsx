@@ -15,7 +15,7 @@ import { handOff, takeHandOff, wantsPage } from "../../state/tabs/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../../state/tabs/tabLifecycle";
 import { clearEngineOffer, followSiteChoice, noteWebKitPage, offerWebKit, persistEngine } from "../../state/engines/actions";
 import { noteIssued, takeStartedNavigation, webviewRef, webviews } from "../../state/tabs/webviewHandles";
-import { currentTab } from "../../state/browser/current";
+import { currentTab, isTabSilenced } from "../../state/browser/current";
 import { closeTabNow, faviconChanged, navigated, updateLive, updateTab } from "../../state/tabs/actions";
 import { setFind } from "../../state/windows/actions";
 import { activateFocusedPane, currentTabEngine, downloadNavigated, useTabEngine } from "../../state/windows/card";
@@ -133,7 +133,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         markTabReady(tabId);
         noteTabReady(tabId);
         noteReady(tabId);
-        if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
+        void webviews.get(tabId)?.setMuted(isTabSilenced(tabId));
       }}
       onNavigationChange={({ url: reported, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource, initialDocumentAccessed, committedInitial, committedUrl }) => {
         adoptIconPage(tabId);
@@ -198,7 +198,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       }}
       onMedia={({ playing, muted }) => {
         updateLive(tabId, { playingAudio: playing });
-        if (tab()?.muted && !muted) void webviews.get(tabId)?.setMuted(true);
+        if (!muted && isTabSilenced(tabId)) void webviews.get(tabId)?.setMuted(true);
       }}
       onNowPlaying={(state) => setNowPlaying(tabId, state)}
       onPictureInPicture={(state) => setPictureInPictureState(tabId, state)}

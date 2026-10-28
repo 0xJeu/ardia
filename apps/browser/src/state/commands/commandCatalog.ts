@@ -88,7 +88,7 @@ export const COMMANDS: Readonly<Record<BrowserCommand, CommandSpec>> = {
   openBookmark: { scope: "window", littleArdia: "page" },
   addFolderToSidebar: {},
   restoreArcFolders: {},
-  toggleMute: { title: "Mute Site", symbol: "speaker.slash", ...pageInLittleArdia },
+  toggleMute: { title: "Mute Tab", symbol: "speaker.slash", ...pageInLittleArdia },
   togglePageEngine: { title: "Open Page in WebKit" },
   downloads: { title: "Downloads", symbol: "arrow.down.circle", keys: ["⇧⌘J", "⌥⌘L"], scope: "window", littleArdia: "page" },
   mergeAllWindows: { title: "Merge All Windows", symbol: "rectangle.stack", ...windowOffInLittleArdia },

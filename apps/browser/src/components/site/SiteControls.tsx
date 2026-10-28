@@ -14,8 +14,9 @@ import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../state/tabs/webviewHandles";
-import { currentLive, currentTab } from "../../state/browser/current";
-import { updateTab } from "../../state/tabs/actions";
+import { currentLive, currentMuteState } from "../../state/browser/current";
+import { useMuteState } from "../../state/tabs/hooks";
+import { setSiteMuted } from "../../state/browser/actions";
 import { setFind } from "../../state/windows/actions";
 import { updateSettings } from "../../state/settings/actions";
 import { useEngineRule, usePageEngine, useRecommendedEngine, useStreamingSite } from "../../state/engines/hooks";
@@ -62,12 +63,11 @@ export function SiteControls({ tabId, open, right, left, top }: { tabId: string;
 }
 
 function featuredPermissions(tabId: string, settings: SiteSettings, list: Permission[]): Set<SiteSettingType> {
-  const tab = currentTab(tabId);
   const access = pageOf(tabId).mediaAccess;
   const inUse: Partial<Record<SiteSettingType, boolean>> = {
     camera: !!access?.camera,
     microphone: !!access?.microphone,
-    sound: !!tab?.muted || !!currentLive(tabId)?.playingAudio,
+    sound: currentMuteState(tabId) !== null || !!currentLive(tabId)?.playingAudio,
   };
   return new Set(list.filter((p) => !settings[p.type]?.isDefault || inUse[p.type]).map((p) => p.type));
 }
@@ -107,7 +107,9 @@ function SiteControlsPanel({
   const [pip, togglePip] = usePictureInPicture(tabId);
   const pageEngine = usePageEngine(tabId);
   const webkitPage = pageEngine === "webkit";
-  const permissionList = webkitPage ? PERMISSIONS.filter((p) => WEBKIT_SITE_SETTINGS.includes(p.type)) : PERMISSIONS;
+  const permissionList = webkitPage ? PERMISSIONS.filter((p) => p.type === "sound" || WEBKIT_SITE_SETTINGS.includes(p.type)) : PERMISSIONS;
+  const siteMuted = useMuteState(tabId) === "site";
+  const soundBlocked = !webkitPage && settings?.sound?.value === "block";
   const readSettings = (p: string, o: string) => getSiteSettings(p, o, pageEngine).catch((): SiteSettings => ({}) as SiteSettings);
   const engineRule = useEngineRule(url);
   const recommendedEngine = useRecommendedEngine(url);
@@ -133,15 +135,17 @@ function SiteControlsPanel({
 
   const setPermission = async (type: SiteSettingType, value: SiteSettingValue) => {
     if (!origin) return;
-    await setSiteSetting(profile, origin, type, value, pageEngine);
-    setSettings(await readSettings(profile, origin));
     if (type === "sound") {
-      updateTab(tabId, { muted: value === "block" });
-      void webviews.get(tabId)?.setMuted(value === "block");
-    }
+      setSiteMuted(tabId, value === "block");
+      if (value === "block" || !soundBlocked) return;
+      await setSiteSetting(profile, origin, "sound", "default", pageEngine);
+    } else await setSiteSetting(profile, origin, type, value, pageEngine);
+    setSettings(await readSettings(profile, origin));
   };
+  const permissionValue = (type: SiteSettingType): SiteSettingValue | undefined =>
+    type === "sound" ? (siteMuted || soundBlocked ? "block" : "allow") : settings?.[type]?.value;
   const pickPermission = async (type: SiteSettingType, choices: SiteSettingValue[]) => {
-    const current = settings?.[type]?.value;
+    const current = permissionValue(type);
     const choice = await showMenu(choices.map((v) => ({ id: v, title: choiceTitle(type, v), checked: v === current })));
     if (choice) void setPermission(type, choice as SiteSettingValue);
   };
@@ -236,7 +240,7 @@ function SiteControlsPanel({
           : "On";
   const shownPermissions = featured ? permissionList.filter((p) => featured.has(p.type)) : [];
   const otherPermissions = permissionList.filter((p) => !featured?.has(p.type));
-  const value = (p: Permission) => (settings ? choiceTitle(p.type, settings[p.type]?.value ?? "ask") : "…");
+  const value = (p: Permission) => (settings ? choiceTitle(p.type, permissionValue(p.type) ?? "ask") : "…");
 
   return (
     <Popover width={SITE_PANEL.width} top={top} right={right} left={left} onDismiss={close} fitHeight closing={closing} onClosed={onClosed}>
@@ -271,7 +275,7 @@ function SiteControlsPanel({
                 icon={p.badge}
                 title={p.title}
                 value={value(p)}
-                on={settings?.[p.type]?.value === "allow"}
+                on={permissionValue(p.type) === "allow"}
                 onPress={() => void pickPermission(p.type, p.choices)}
               />
             ))}

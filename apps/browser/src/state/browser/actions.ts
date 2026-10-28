@@ -13,11 +13,11 @@ import { groupLabel } from "../pins/organize";
 import { engineIdOf, sharingProfiles } from "../profiles/profiles";
 import { closeWindowAnimated } from "../windows/closeAnimated";
 import { applyHeldReports } from "../../platform/nativeEvents";
-import { webviews } from "../../platform/webviews";
 import { closeWindowDialog } from "../windows/windowClose";
 import { menuCommandAlternate, menuShortcut } from "../commands/commandShortcuts";
 import { openSettings } from "../settings/settingsWindows";
 import { profileAccentOf } from "../profiles/looks";
+import { isSiteMuted } from "../tabs/mute";
 
 const store = () => useBrowser.getState();
 
@@ -77,10 +77,22 @@ export async function closeGroup(groupId: string) {
 }
 
 export function toggleMute(tabId: string) {
-  const tab = store().tabs[tabId];
+  const s = store();
+  const tab = s.tabs[tabId];
   if (!tab) return;
-  store().setSiteMuted(tabId, !tab.muted);
-  void webviews.get(tabId)?.setMuted(!tab.muted);
+  if (!isSiteMuted(s, tab)) return s.setMuted([tabId], !tab.muted);
+  s.setSiteMuted(tabId, false);
+  if (tab.muted) s.setMuted([tabId], false);
+}
+
+export function setSiteMuted(tabId: string, muted: boolean) {
+  store().setSiteMuted(tabId, muted);
+}
+
+export function toggleSiteMute(tabId: string) {
+  const s = store();
+  const tab = s.tabs[tabId];
+  if (tab) s.setSiteMuted(tabId, !isSiteMuted(s, tab));
 }
 
 export function createProfile(windowId?: string, preset?: CreateProfilePreset): Promise<string | null> {

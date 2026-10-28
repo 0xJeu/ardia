@@ -3,6 +3,8 @@ import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { modifiersOf } from "../../lib/keys";
 import { toggleMute } from "../../state/browser/actions";
 import { useIsActiveTab, useSettings, useTab, useTabLive, useWindowId } from "../../state/browser/hooks";
+import { useMuteState } from "../../state/tabs/hooks";
+import { muteTitle } from "../../state/tabs/mute";
 import { firstStaying } from "../../state/drag/drops";
 import { clickTab } from "../../state/sidebar/actions";
 import { pressTabClose, useTabCloseControl } from "../../state/sidebar/closeControl";
@@ -112,6 +114,7 @@ export function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width:
   const active = useIsActiveTab(tabId);
   const floating = useContext(FloatingStrip);
   const playing = useTabLive(tabId, (l) => l.playingAudio);
+  const mute = useMuteState(tabId);
   const { palette, band } = useWebsiteBand(tabId);
   const closeControl = useTabCloseControl(tabId);
   const { hovered, hoverProps } = useHover();
@@ -134,9 +137,9 @@ export function TabChip({ tabId, width, tuck, dragged }: { tabId: string; width:
                   <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} />
                   <TabBadges tabId={tab.id} pip={false} />
                 </View>
-                {(playing || tab.muted) && (
-                  <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: CHIP_LABEL_GAP }} tooltip={tab.muted ? "Unmute" : "Mute"}>
-                    <Symbol name={tab.muted ? "speaker.slash" : "speaker.wave.2"} size={11} color={onBand ? palette.icon : theme.textTab} style={{ width: 16, height: 16 }} />
+                {(playing || mute) && (
+                  <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: CHIP_LABEL_GAP }} tooltip={muteTitle(mute)}>
+                    <Symbol name={mute ? "speaker.slash" : "speaker.wave.2"} size={11} color={onBand ? palette.icon : theme.textTab} style={{ width: 16, height: 16 }} />
                   </Pressable>
                 )}
                 <FadeLabel

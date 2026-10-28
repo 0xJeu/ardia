@@ -18,6 +18,7 @@ import {
   openWindow,
   switchProfile,
   toggleMute,
+  toggleSiteMute,
 } from "../browser/actions";
 import { bookmarkAllTabs, bookmarkTab } from "../bookmarks/actions";
 import { exportBookmarksFromWindow } from "../bookmarks/exportHtml";
@@ -280,7 +281,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "togglePageEngine":
       return void (tabId && togglePageEngine(tabId));
     case "toggleMute":
-      return page ? toggleMute(page.id) : undefined;
+      return page ? (arg === "site" ? toggleSiteMute(page.id) : toggleMute(page.id)) : undefined;
     case "downloads":
       return s.setDownloadsOpen(windowId, !ui?.downloadsOpen);
     case "cast":

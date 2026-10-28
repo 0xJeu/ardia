@@ -1,5 +1,6 @@
 import { showMenu, type MenuItem } from "../../platform/menus";
-import { closeTab, moveTabsToProfile, moveTabToWindow, openWindow, toggleMute } from "../browser/actions";
+import { closeTab, moveTabsToProfile, moveTabToWindow, openWindow, toggleMute, toggleSiteMute } from "../browser/actions";
+import { muteState, muteSymbol, muteTitle, siteMuteTitle } from "../tabs/mute";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId, inPinnedContainer, isIncognitoProfile, pinnedSectionTitle, pinSection, togglePinTitle, viewTabIds } from "../browser/model";
 import { awayFromPin, groupOf, selectedTabIds } from "../pins/organize";
@@ -109,6 +110,14 @@ function organiseItems(s: BrowserState, windowId: string, tab: Tab, f: Facts): M
   ];
 }
 
+function muteItems(s: BrowserState, tab: Tab): MenuItem[] {
+  if (!tab.url) return [];
+  const state = muteState(s, tab);
+  const mute: MenuItem = { id: "mute", title: muteTitle(state), symbol: muteSymbol(state) };
+  if (state === "site") return [mute];
+  return withAlternate(mute, { id: "muteSite", title: siteMuteTitle(state), symbol: muteSymbol(null) }, null);
+}
+
 function closeItems(f: Facts): MenuItem[] {
   if (f.housed) return [];
   return [
@@ -143,7 +152,7 @@ export function tabMenuItems(s: BrowserState, windowId: string, tab: Tab, f: Fac
       ...(tab.customTitle ? [{ id: "resetName", title: "Reset Name" }] : []),
       { id: "icon", title: "Change Icon…", symbol: "photo" },
       ...(tab.customIcon ? [{ id: "resetIcon", title: "Reset Icon" }] : []),
-      ...(tab.url ? [{ id: "mute", title: tab.muted ? "Unmute Site" : "Mute Site", symbol: tab.muted ? "speaker.wave.2" : "speaker.slash" }] : []),
+      ...muteItems(s, tab),
     ],
     closeItems(f),
   );
@@ -193,6 +202,7 @@ function runTabChoice(windowId: string, tab: Tab, f: Facts, choice: string) {
   else if (choice.startsWith("group:")) s.placeTabs([tab.id], { pinned: false, groupId: choice.slice(6) });
   else if (choice === "unsplit") s.removeTabFromSplit(tab.id);
   else if (choice === "mute") toggleMute(tab.id);
+  else if (choice === "muteSite") toggleSiteMute(tab.id);
   else if (choice === "engine") void togglePageEngine(tab.id);
   else if (choice === "copy") copyUrls([tab.id], false);
   else if (choice === "copyMd") copyUrls([tab.id], true);

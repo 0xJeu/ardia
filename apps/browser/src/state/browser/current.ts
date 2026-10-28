@@ -1,5 +1,6 @@
 import { resolveWindowId } from "./model";
 import { useBrowser } from "./store";
+import { isSilenced, muteState, type MuteState } from "../tabs/mute";
 
 export const currentSettings = () => useBrowser.getState().settings;
 export const currentTab = (tabId: string) => useBrowser.getState().tabs[tabId];
@@ -14,3 +15,13 @@ export const resolvedWindowId = (windowId?: string | null) => resolveWindowId(us
 export const workspaceSnapshot = () => useBrowser.getState();
 export const downloadsOpenIn = (windowId: string) => !!useBrowser.getState().windowUi[windowId]?.downloadsOpen;
 export const currentLive = (tabId: string) => useBrowser.getState().live[tabId];
+export function currentMuteState(tabId: string): MuteState {
+  const s = useBrowser.getState();
+  const tab = s.tabs[tabId];
+  return tab ? muteState(s, tab) : null;
+}
+export function isTabSilenced(tabId: string): boolean {
+  const s = useBrowser.getState();
+  const tab = s.tabs[tabId];
+  return !!tab && isSilenced(s, tab);
+}
