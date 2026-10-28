@@ -56,11 +56,13 @@ export function multiTabMenuItems(s: BrowserState, windowId: string, ids: string
   );
 }
 
-export async function openMultiMenu(windowId: string, ids: string[]) {
-  const f = multiTabMenuFacts(store(), windowId, ids);
-  const choice = await showMenu(multiTabMenuItems(store(), windowId, ids, f));
-  if (!choice) return;
+export async function openMultiMenu(windowId: string, shown: string[]) {
+  const f = multiTabMenuFacts(store(), windowId, shown);
+  const choice = await showMenu(multiTabMenuItems(store(), windowId, shown, f));
   const s = store();
+  const here = (list: string[]) => list.filter((id) => s.tabs[id]?.windowId === windowId);
+  const ids = here(shown);
+  if (!choice || !ids.length) return;
   if (choice === "pin") s.pinTabs(ids, !f.allPinned);
   else if (choice === "pinRows") s.pinTabs(ids, true, true);
   else if (choice === "duplicate") ids.forEach((id) => store().duplicateTab(id));
@@ -76,6 +78,6 @@ export async function openMultiMenu(windowId: string, ids: string[]) {
     const target = store().moveTabsToWindow(ids, choice === "window:new" ? null : choice.slice(7));
     if (target) switchToTab(store().windows[target]?.activeTabIds[f.tabs[0]!.profileId] ?? ids[0]!);
   } else if (choice === "close") s.closeTabs(ids);
-  else if (choice === "closeOthers") s.closeTabs(f.others);
+  else if (choice === "closeOthers") s.closeTabs(here(f.others));
   if (choice !== "copy" && choice !== "copyMd") store().setSelection(windowId, []);
 }

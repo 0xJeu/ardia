@@ -6,6 +6,10 @@ const { multiTabMenuItems } = await import("./multiTabMenu.ts");
 const { groupMenuItems } = await import("./groupMenu.ts");
 const { sidebarMenuItems } = await import("./sidebarMenu.ts");
 const { tileFolderContextItems } = await import("./tileFolderUi.ts");
+const { openTabMenu } = await import("./tabMenu.ts");
+const { openMultiMenu } = await import("./multiTabMenu.ts");
+const { openGroupMenu } = await import("./groupMenu.ts");
+const { shellNativeModules } = await import("../../test-native/shell.ts");
 
 const S = () => useBrowser.getState();
 const MODS = [
@@ -252,4 +256,55 @@ test("a rebound key moves the hint with it, and an alternate keeps its pair only
   assert.ok(lines.includes("Copy Link [link]"), lines.join("\n"));
   assert.ok(lines.includes("Copy Link as Markdown [link] ⌥ (alt)"));
   S().updateSettings({ shortcuts: {} });
+});
+
+async function whileMenuIsUp(open, meanwhile, choice) {
+  const shell = shellNativeModules.ArdiaShell;
+  const real = shell.showMenu;
+  let pick;
+  shell.showMenu = () => new Promise((resolve) => (pick = resolve));
+  try {
+    const done = open();
+    meanwhile();
+    pick(choice);
+    await done;
+  } finally {
+    shell.showMenu = real;
+  }
+}
+
+test("Open as Split splits the tab the menu was opened on, even if another tab came to the front meanwhile", async () => {
+  const { w, ids } = windowWith("a", "b", "c");
+  await whileMenuIsUp(() => openTabMenu(w, S().tabs[ids[2]]), () => S().activate(ids[0]), "split");
+  const split = Object.values(S().splits)[0];
+  assert.ok(split?.tabIds.includes(ids[2]), "c is a pane");
+  assert.equal(split.tabIds.includes(ids[0]), false, "a, now in front, is left alone");
+});
+
+test("a tab menu whose tab left the window meanwhile does nothing, and Close Other Tabs spares tabs that left", async () => {
+  const { w, ids } = windowWith("a", "b", "c");
+  const other = S().createWindow({ url: "https://x.com/" });
+  await whileMenuIsUp(() => openTabMenu(w, S().tabs[ids[2]]), () => S().moveTabsToWindow([ids[2]], other), "close");
+  assert.equal(S().tabs[ids[2]]?.windowId, other, "c, now in the other window, stays open");
+  await whileMenuIsUp(() => openTabMenu(w, S().tabs[ids[1]]), () => S().moveTabsToWindow([ids[0]], other), "closeOthers");
+  assert.equal(S().tabs[ids[0]]?.windowId, other, "a left for the other window and stays open");
+  assert.ok(S().tabs[ids[1]]);
+});
+
+test("a multi-tab menu acts only on the selected tabs still in its window", async () => {
+  const { w, ids } = windowWith("a", "b", "c", "d");
+  const other = S().createWindow({ url: "https://x.com/" });
+  await whileMenuIsUp(() => openMultiMenu(w, [ids[1], ids[2]]), () => S().moveTabsToWindow([ids[2]], other), "close");
+  assert.equal(S().tabs[ids[1]], undefined, "b closed");
+  assert.equal(S().tabs[ids[2]]?.windowId, other, "c, moved away meanwhile, stays open");
+});
+
+test("a group menu whose group moved to another window meanwhile does nothing", async () => {
+  const { w, ids } = windowWith("a", "b", "c");
+  const other = S().createWindow({ url: "https://x.com/" });
+  const g = S().groupTabs([ids[1], ids[2]], { name: "Trip", pinned: false });
+  await whileMenuIsUp(() => openGroupMenu(w, g, () => []), () => S().moveGroupToWindow(g, other), "delete");
+  const trip = Object.values(S().groups).find((x) => x.name === "Trip");
+  assert.equal(trip?.windowId, other, "the group is still there, in the other window");
+  assert.deepEqual(trip.tabIds, [ids[1], ids[2]]);
 });

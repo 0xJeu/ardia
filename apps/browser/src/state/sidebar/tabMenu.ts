@@ -156,7 +156,10 @@ export async function openTabMenu(windowId: string, tab: Tab) {
   if (s.selection[windowId]?.length) s.setSelection(windowId, []);
   const f = tabMenuFacts(store(), windowId, tab);
   const choice = await showMenu(tabMenuItems(store(), windowId, tab, f));
-  if (choice) runTabChoice(windowId, tab, f, choice);
+  const now = store().tabs[tab.id];
+  if (!choice || now?.windowId !== windowId) return;
+  const here = (ids: string[]) => ids.filter((id) => store().tabs[id]?.windowId === windowId);
+  runTabChoice(windowId, now, { ...f, others: here(f.others), above: here(f.above), below: here(f.below) }, choice);
 }
 
 function runTabChoice(windowId: string, tab: Tab, f: Facts, choice: string) {
@@ -174,7 +177,7 @@ function runTabChoice(windowId: string, tab: Tab, f: Facts, choice: string) {
   else if (choice === "unpinMember") s.placeTabs([tab.id], { pinned: false, groupId: null });
   else if (choice === "pinTile") s.pinTabs([tab.id], true, false);
   else if (choice === "pinRow") s.pinTabs([tab.id], true, true);
-  else if (choice === "split") void (f.active ? openSplitPane(windowId) : openInSplit(tab.id));
+  else if (choice === "split") void (f.active ? openSplitPane(windowId, { anchorTabId: tab.id }) : openInSplit(tab.id));
   else if (choice === "newWindow") openWindow({ profileId: tab.profileId, url: tab.url });
   else if (choice === "newFolder") newFolderWithTab(windowId, tab.id);
   else if (choice === "leaveFolder") removeFromFolder(tab.id);

@@ -56,7 +56,7 @@ export async function openGroupMenu(windowId: string, groupId: string, colorMenu
 function runGroupChoice(windowId: string, groupId: string, choice: string) {
   const s = store();
   const g = s.groups[groupId];
-  if (!g) return;
+  if (!g || g.windowId !== windowId) return;
   const target = { kind: "group" as const, id: groupId };
   if (choice === "rename") void startRename(windowId, target);
   else if (choice === "icon") void openIconPicker(windowId, target);
