@@ -55,7 +55,17 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
     lastClicked.current = url;
   }, []);
   const moreFromSite = useCallback((url: string) => setQuery(hostLabel(url)), []);
-  const remove = useCallback((url: string) => removeHistory(latest.current.profileId, [url]), []);
+  const selection = useRef(selected);
+  selection.current = selected;
+  const remove = useCallback((urls: string[]) => {
+    removeHistory(latest.current.profileId, urls);
+    setSelected((prev) => (urls.some((u) => prev.has(u)) ? new Set([...prev].filter((u) => !urls.includes(u))) : prev));
+  }, []);
+  const menuTargets = useCallback((entry: HistoryEntry) => {
+    const chosen = selection.current;
+    if (chosen.size < 2 || !chosen.has(entry.url)) return [entry];
+    return latest.current.layout.rows.map((r) => r.entry).filter((e) => chosen.has(e.url));
+  }, []);
 
   const deleteSelected = async () => {
     const confirmed = await confirmRemoveSelected(windowId);
@@ -92,6 +102,7 @@ export function HistoryPage({ tabId, profileId, initialQuery }: { tabId: string;
           onToggle={toggle}
           onMoreFromSite={moreFromSite}
           onRemove={remove}
+          menuTargets={menuTargets}
         />
       )}
       {clearOpen && <ClearDataDialog profileId={profileId} onClose={() => setClearOpen(false)} />}

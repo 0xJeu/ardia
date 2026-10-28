@@ -1,12 +1,15 @@
-import { cleanUrl } from "@ardia/core";
-import { copyText } from "../../platform/clipboard";
 import { prompt } from "../../platform/dialogs";
 import { showMenu, type MenuItem } from "../../platform/menus";
 import { addFolderToSidebar, makesGroup, restorableArcHolder, restoreArcFolders } from "./bookmarkGroups";
 import { folderChildren, folderLinks } from "./bookmarks";
-import { addBookmarkFolder, openFolder, openUrl, removeBookmark } from "./actions";
+import { addBookmarkFolder, FOLDER_MANY, openFolder, openUrl, removeBookmark } from "./actions";
+import { copyLinkItems, openAllItems, openLinkItems, runLinkChoice } from "./linkMenus";
+import { menuSections, type MenuKey } from "../app/menuSections";
+import { menuShortcut } from "../commands/commandShortcuts";
+import { useBrowser } from "../browser/store";
+import { activeTabId } from "../browser/model";
 import { editBookmark } from "./edit";
-import { currentBookmarks, currentSettings } from "../browser/current";
+import { currentBookmarks } from "../browser/current";
 import type { BookmarkNode } from "../browser/types";
 import { openInternalPage } from "../pages/urls";
 import { updateSettings } from "../settings/actions";
@@ -34,10 +37,8 @@ export async function openFolderMenu(windowId: string, ids: string[], _e?: Click
     if (links > 0) {
       items.push(
         { separator: true },
-        { id: `openAll:${parent}`, title: `Open All (${links})` },
-        { id: `openAllWindow:${parent}`, title: "Open All in New Window" },
-        { id: `openAllIncognito:${parent}`, title: "Open All in Incognito Window" },
-        { id: `addGroup:${parent}`, title: "Add to Sidebar as Group", enabled: !!parent && makesGroup({ bookmarks: currentBookmarks() }, parent) },
+        ...openAllItems(links).map((item) => ("id" in item ? { ...item, id: `${item.id}:${parent}` } : item)),
+        { id: `addGroup:${parent}`, title: "Add to Sidebar as Group", symbol: "sidebar.left", enabled: !!parent && makesGroup({ bookmarks: currentBookmarks() }, parent) },
       );
     }
     return items;
@@ -58,66 +59,60 @@ const splitChoice = (choice: string): [string, string] => {
   return i < 0 ? [choice, ""] : [choice.slice(0, i), choice.slice(i + 1)];
 };
 
+export type BarMenuTarget = { kind: "url" } | { kind: "folder"; links: number; makesGroup: boolean; restoresArc: boolean } | null;
+
+export function barMenuItems(target: BarMenuTarget, { barShown, keys = menuShortcut }: { barShown: boolean; keys?: (command: string) => MenuKey }): MenuItem[] {
+  if (target?.kind === "url") return menuSections(openLinkItems(), copyLinkItems(), [{ id: "edit", title: "Edit…", symbol: "pencil" }], [{ id: "delete", title: "Delete", symbol: "trash" }]);
+  if (target?.kind === "folder")
+    return menuSections(
+      openAllItems(target.links),
+      [
+        { id: "addGroup", title: "Add to Sidebar as Group", symbol: "sidebar.left", enabled: target.makesGroup },
+        target.restoresArc && { id: "restoreArc", title: "Restore Arc Folders as Groups" },
+      ],
+      [
+        { id: "rename", title: "Rename…", symbol: "pencil" },
+        { id: "addFolder", title: "New Folder…", symbol: "folder.badge.plus" },
+      ],
+      [{ id: "delete", title: "Delete Folder", symbol: "trash" }],
+    );
+  return menuSections(
+    [
+      { id: "addPage", title: "Add Page…", symbol: "bookmark" },
+      { id: "addFolder", title: "New Folder…", symbol: "folder.badge.plus" },
+    ],
+    [
+      { id: "manage", title: "Manage Bookmarks", symbol: "book", ...keys("manageBookmarks") },
+      { id: "toggleBar", title: "Show Bookmarks Bar", checked: barShown, ...keys("toggleBookmarksBar") },
+    ],
+  );
+}
+
+function barShownIn(windowId: string) {
+  const s = useBrowser.getState();
+  const mode = s.settings.bookmarksBar;
+  const active = activeTabId(s, windowId);
+  return mode === "always" || (mode === "newTab" && !(active && s.tabs[active]?.url));
+}
+
 export async function openBarMenu(windowId: string, profileId: string, node: BookmarkNode | null) {
   const s = { bookmarks: currentBookmarks() };
-  const barMode = currentSettings().bookmarksBar;
-  const items: MenuItem[] = [];
-  if (node?.kind === "url") {
-    items.push(
-      { id: "tab", title: "Open in New Tab" },
-      { id: "window", title: "Open in New Window" },
-      { id: "incognito", title: "Open in Incognito Window" },
-      { id: "split", title: "Open in Split View" },
-      { separator: true },
-      { id: "edit", title: "Edit…" },
-      { id: "copy", title: "Copy Link" },
-      { id: "delete", title: "Delete" },
-      { separator: true },
-    );
-  } else if (node?.kind === "folder") {
-    const n = folderLinks(s.bookmarks, node.id).length;
-    items.push(
-      { id: "openAll", title: `Open All (${n})`, enabled: n > 0 },
-      { id: "openAllWindow", title: "Open All in New Window", enabled: n > 0 },
-      { id: "openAllIncognito", title: "Open All in Incognito Window", enabled: n > 0 },
-      { id: "addGroup", title: "Add to Sidebar as Group", enabled: makesGroup(s, node.id) },
-      ...(restorableArcHolder(s, node.id) ? [{ id: "restoreArc", title: "Restore Arc Folders as Groups" }] : []),
-      { separator: true },
-      { id: "rename", title: "Rename…" },
-      { id: "delete", title: "Delete" },
-      { separator: true },
-    );
-  }
-  items.push(
-    { id: "addPage", title: "Add Page…" },
-    { id: "addFolder", title: "Add Folder…" },
-    { separator: true },
-    { id: "manage", title: "Manage Bookmarks" },
-    {
-      id: "show",
-      title: "Show Bookmarks Bar",
-      children: [
-        { id: "bar:always", title: "Always", checked: barMode === "always" },
-        { id: "bar:newTab", title: "On New Tab Only", checked: barMode === "newTab" },
-        { id: "bar:never", title: "Never", checked: barMode === "never" },
-      ],
-    },
-  );
-  const choice = await showMenu(items);
+  const barShown = barShownIn(windowId);
+  const target: BarMenuTarget =
+    node?.kind === "url"
+      ? { kind: "url" }
+      : node?.kind === "folder"
+        ? { kind: "folder", links: folderLinks(s.bookmarks, node.id).length, makesGroup: makesGroup(s, node.id), restoresArc: restorableArcHolder(s, node.id) }
+        : null;
+  const choice = await showMenu(barMenuItems(target, { barShown }));
   if (!choice) return;
   const bar = s.bookmarks.roots[profileId]?.bar;
   if (node?.kind === "url") {
-    if (choice === "tab") openUrl(node.url, windowId, "foreground");
-    if (choice === "window") openUrl(node.url, windowId, "window");
-    if (choice === "incognito") openUrl(node.url, windowId, "incognito");
-    if (choice === "split") openUrl(node.url, windowId, "split");
+    if (runLinkChoice(choice, [node], windowId)) return;
     if (choice === "edit") void editBookmark(node.id, windowId);
-    if (choice === "copy") copyText(cleanUrl(node.url));
   }
   if (node?.kind === "folder") {
-    if (choice === "openAll") void openFolder(node.id, windowId, "tabs");
-    if (choice === "openAllWindow") void openFolder(node.id, windowId, "window");
-    if (choice === "openAllIncognito") void openFolder(node.id, windowId, "incognito");
+    if (runLinkChoice(choice, folderLinks(currentBookmarks(), node.id), windowId, FOLDER_MANY)) return;
     if (choice === "rename") void editBookmark(node.id, windowId);
     if (choice === "addGroup") addFolderToSidebar(node.id, windowId);
     if (choice === "restoreArc") restoreArcFolders(node.id, windowId);
@@ -131,5 +126,5 @@ export async function openBarMenu(windowId: string, profileId: string, node: Boo
     if (title) addBookmarkFolder({ profileId, title, parentId: parentId ?? undefined, index });
   }
   if (choice === "manage") openInternalPage("bookmarks", windowId);
-  if (choice.startsWith("bar:")) updateSettings({ bookmarksBar: choice.slice(4) as typeof barMode });
+  if (choice === "toggleBar") updateSettings({ bookmarksBar: barShownIn(windowId) ? "never" : "always" });
 }

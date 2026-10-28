@@ -34,14 +34,21 @@ export function openUrl(url: string, windowId: string | null | undefined, mode: 
   s.newTab(id, { url, background: mode === "background", openerId: mode === "background" ? tabId : undefined });
 }
 
-export async function openFolder(folderId: string, windowId: string | null | undefined, mode: "tabs" | "window" | "incognito" = "tabs") {
+export type OpenAllMode = "tabs" | "window" | "incognito";
+
+export const FOLDER_MANY = "This folder has a lot of bookmarks.";
+
+export function openFolder(folderId: string, windowId: string | null | undefined, mode: OpenAllMode = "tabs") {
+  return openLinks(folderLinks(useBrowser.getState().bookmarks, folderId), windowId, mode, FOLDER_MANY);
+}
+
+export async function openLinks(links: { url: string }[], windowId: string | null | undefined, mode: OpenAllMode = "tabs", manyMessage = "That's a lot of pages.") {
   const s = useBrowser.getState();
-  const links = folderLinks(s.bookmarks, folderId);
   if (!links.length) return;
   if (links.length > 15) {
     const { confirmed } = await confirm({
       title: `Open ${links.length} tabs?`,
-      message: "This folder has a lot of bookmarks.",
+      message: manyMessage,
       confirmTitle: "Open All",
       windowId: resolveWindowId(s, windowId),
     });

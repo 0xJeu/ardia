@@ -188,6 +188,7 @@ export function BookmarksPage({ tabId, profileId }: { tabId: string; profileId: 
                       setFolderId(folder);
                     }}
                     onDelete={() => remove(selected.includes(id) ? selected : [id])}
+                    menuSelection={() => ids.filter((x) => selected.includes(x))}
                     onDragStart={() => onDragStart(id)}
                     onDragMove={onDragMove}
                     onDragEnd={onDragEnd}
