@@ -118,3 +118,19 @@ for (const to of ["window", "profile"]) {
     assert.ok(Object.values(S().splits).every((v) => v.tabIds.every((id) => S().tabs[id].windowId === v.windowId)));
   });
 }
+
+test("Move to Window with shared tabs keeps the destination group's own members, a split with a local pane included", () => {
+  const { w, ids } = windowWith("a", "b", "c");
+  const other = S().createWindow({ url: "https://x.com/" });
+  S().updateSettings({ shareTabsAcrossWindows: true });
+  const g = S().groupTabs([ids[1], ids[2]], { name: "Trip", pinned: false });
+  const bThere = S().windows[other].tabIds.find((id) => S().tabs[id].url === "https://b.com/");
+  assert.ok(S().openSplitPane(other, { anchorTabId: bThere, url: "https://local.com/" }).ok);
+  const tripIn = (win) => Object.values(S().groups).filter((x) => x.windowId === win && x.name === "Trip");
+  const before = tripIn(other)[0].tabIds.map(host);
+  assert.deepEqual(before, ["b", "local", "c"]);
+  S().moveGroupToWindow(g, other);
+  assert.equal(tripIn(other).length, 1);
+  assert.deepEqual(tripIn(other)[0].tabIds.map(host), ["b", "local", "c"], "the split's panes stay in the group");
+  assert.deepEqual(splitIn(other).map((v) => v.tabs), [["b", "local"]]);
+});

@@ -24,12 +24,15 @@ export function regrouped(s: BrowserState, tree: TabGroup[], windowId: string, p
   const ids = new Map(tree.map((g) => [g.id, mirrors.get(g.id)?.id ?? (fresh || s.groups[g.id] ? newId("g") : g.id)]));
   const groups = { ...s.groups };
   for (const g of tree) {
-    const tabIds = g.tabIds.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]?.profileId === profileId);
+    const incoming = g.tabIds.filter((id) => s.tabs[id]?.windowId === windowId && s.tabs[id]?.profileId === profileId);
+    const own = mirrors.get(g.id);
+    const keys = new Set(incoming.map((id) => pinKeyOf(s.tabs[id]!)));
+    const stay = (own?.tabIds ?? []).filter((id) => !incoming.includes(id) && s.tabs[id]?.windowId === windowId && !keys.has(pinKeyOf(s.tabs[id]!)));
+    const tabIds = [...incoming, ...stay];
     if (!tabIds.length) continue;
     const id = ids.get(g.id)!;
     const parentId = g.parentId ? ids.get(g.parentId) : undefined;
     const { pinKey: _, ...unkeyed } = g;
-    const own = mirrors.get(g.id);
     const base = fresh ? unkeyed : own ? { ...g, ...keyField(own.id, pinKeyOf(own)) } : g;
     groups[id] = withParent({ ...base, id, windowId, profileId, tabIds }, parentId && groups[parentId] ? parentId : undefined);
   }
