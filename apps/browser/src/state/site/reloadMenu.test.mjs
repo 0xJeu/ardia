@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-const { reloadMenuItems, siteOrigin } = await import("./reloadMenu.ts");
+const { reloadMenuItems, siteOrigin, clearSiteDataAfterConfirm } = await import("./reloadMenu.ts");
+const { useBrowser } = await import("../browser/store.ts");
+const { webviews } = await import("../../platform/webviews.ts");
+const { shellNativeModules } = await import("../../test-native/shell.ts");
+const { ardiaCoreNativeModules } = await import("../../test-native/ardiacore.ts");
 
 const G = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘" };
 const keys = (i) => (i.key ? ["control", "option", "shift", "command"].filter((m) => i.modifiers?.includes(m)).map((m) => G[m]).join("") + i.key.toUpperCase() : "");
@@ -23,4 +27,64 @@ test("only web pages have a site to configure", () => {
   assert.equal(siteOrigin("https://a.com/x?y"), "https://a.com");
   assert.equal(siteOrigin("ardia://newtab"), null);
   assert.equal(siteOrigin("not a url"), null);
+});
+
+const S = () => useBrowser.getState();
+
+function pendingClear(engine) {
+  S().hydrate({});
+  const work = S().createProfile({ name: "Work" });
+  const w = S().createWindow({ url: "https://a.com/x", profileId: work });
+  const id = S().windows[w].tabIds[0];
+  if (engine) S().updateTab(id, { engine });
+  const view = { cleared: 0, reloaded: 0 };
+  webviews.set(id, { clearSiteData: async () => (view.cleared++, { cookies: 2, storage: true }), reload: async () => void view.reloaded++ });
+  const engineCalls = [];
+  const sites = ardiaCoreNativeModules.ArdiaSites;
+  const call = sites.call;
+  sites.call = (verb, profile, json) => (engineCalls.push({ verb, profile, ...JSON.parse(json) }), call(verb, profile, json));
+  let answer;
+  const asked = [];
+  const confirm = shellNativeModules.ArdiaShell.confirm;
+  shellNativeModules.ArdiaShell.confirm = (options) => (asked.push(options.title), new Promise((resolve) => (answer = (confirmed) => resolve({ confirmed, suppressed: false }))));
+  const done = clearSiteDataAfterConfirm(S().tabs[id], "https://a.com");
+  const finish = async (confirmed) => {
+    answer(confirmed);
+    const result = await done;
+    sites.call = call;
+    shellNativeModules.ArdiaShell.confirm = confirm;
+    webviews.delete(id);
+    return result;
+  };
+  return { id, work, view, engineCalls, asked, finish };
+}
+
+test("Clear Cookies and Site Data clears the site the confirmation named, also when the tab moved on meanwhile", async () => {
+  const stay = pendingClear();
+  assert.deepEqual(stay.asked, ["Clear cookies and site data for a.com?"]);
+  assert.equal(await stay.finish(true), 0);
+  assert.deepEqual(stay.engineCalls, [{ verb: "clearData", profile: stay.work, origin: "https://a.com" }]);
+  assert.equal(stay.view.reloaded, 1, "the page reloads without its data");
+
+  const moved = pendingClear();
+  S().navigated(moved.id, { url: "https://b.com/", title: "B" }, {});
+  await moved.finish(true);
+  assert.deepEqual(moved.engineCalls.map((c) => c.origin), ["https://a.com"], "a.com, never b.com");
+  assert.equal(moved.view.cleared, 0, "the page's own clear, which takes whatever it shows now, isn't used");
+  assert.equal(moved.view.reloaded, 0, "and b.com isn't reloaded");
+
+  const declined = pendingClear();
+  assert.equal(await declined.finish(false), null);
+  assert.deepEqual(declined.engineCalls, []);
+});
+
+test("a WebKit tab that left the site while the confirmation was up clears nothing", async () => {
+  const stay = pendingClear("webkit");
+  assert.equal(await stay.finish(true), 2);
+  assert.equal(stay.view.cleared, 1);
+  const moved = pendingClear("webkit");
+  S().navigated(moved.id, { url: "https://b.com/", title: "B" }, {});
+  assert.equal(await moved.finish(true), null);
+  assert.equal(moved.view.cleared, 0);
+  assert.deepEqual(moved.engineCalls, []);
 });

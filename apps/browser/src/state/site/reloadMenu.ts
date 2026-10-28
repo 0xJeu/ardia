@@ -1,9 +1,11 @@
 import { confirm } from "../../platform/dialogs";
 import { showMenu, type MenuItem } from "../../platform/menus";
 import { webviews } from "../../platform/webviews";
+import { clearSiteData } from "../../platform/siteSettings";
 import { getContentBlocker, isContentBlockerAllowed, setContentBlockerAllowed } from "../../platform/contentBlocker";
 import { menuSections } from "../app/menuSections";
 import { currentTab } from "../browser/current";
+import { engineProfile } from "../browser/model";
 import type { Tab } from "../browser/types";
 import { tabEngine } from "../engines/engines";
 import { useBrowser } from "../browser/store";
@@ -31,7 +33,9 @@ export async function setSiteBlocking(tab: Pick<Tab, "id" | "windowId">, host: s
   return allowed;
 }
 
-export async function clearSiteDataAfterConfirm(tab: Pick<Tab, "id" | "windowId">, host: string): Promise<number | null> {
+export async function clearSiteDataAfterConfirm(tab: Pick<Tab, "id" | "windowId" | "profileId">, origin: string): Promise<number | null> {
+  const host = new URL(origin).hostname;
+  const webkit = tabEngine(useBrowser.getState(), tab.id) === "webkit";
   const { confirmed } = await confirm({
     title: `Clear cookies and site data for ${host}?`,
     message: "You'll be signed out of this site, and its offline data will be deleted.",
@@ -40,8 +44,12 @@ export async function clearSiteDataAfterConfirm(tab: Pick<Tab, "id" | "windowId"
     windowId: tab.windowId,
   });
   if (!confirmed) return null;
-  const result = await webviews.get(tab.id)?.clearSiteData().catch(() => null);
-  void webviews.get(tab.id)?.reload();
+  const now = currentTab(tab.id);
+  const stillThere = !!now && now.profileId === tab.profileId && siteOrigin(now.url) === origin && (tabEngine(useBrowser.getState(), tab.id) === "webkit") === webkit;
+  if (webkit && !stillThere) return null;
+  const view = webviews.get(tab.id);
+  const result = await (webkit ? view?.clearSiteData() : clearSiteData(engineProfile(tab.profileId), origin))?.catch(() => null);
+  if (stillThere) void view?.reload();
   return result && typeof result.cookies === "number" ? result.cookies : 0;
 }
 
@@ -74,6 +82,6 @@ export async function showReloadMenu(tabId: string) {
     if (blocker === "offInSettings") return openSettings("privacy");
     return void setSiteBlocking(tab, host, blocker === "off");
   }
-  if (choice === "clearData") return void clearSiteDataAfterConfirm(tab, host);
+  if (choice === "clearData") return void clearSiteDataAfterConfirm(tab, origin);
   if (choice === "siteControls") setPopover(tabId, "siteControls");
 }

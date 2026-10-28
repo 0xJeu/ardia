@@ -151,7 +151,7 @@ function SiteControlsPanel({
   };
   const clearData = async () => {
     if (!origin) return;
-    const n = await clearSiteDataAfterConfirm(tab, host);
+    const n = await clearSiteDataAfterConfirm(tab, origin);
     if (n === null) return;
     setCleared(n ? `Cleared ${n} cookie${n === 1 ? "" : "s"} and site data` : "Cleared site data");
   };
