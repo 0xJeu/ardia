@@ -362,6 +362,13 @@ NSDictionary *ProbeFrame(NSWindow *window, ArdiaWindowFullScreen *state, CFTimeI
     }
     return Describe((NSView *)window.firstResponder);
   }
+  if ([action hasPrefix:@"reserved:"]) {
+    NSArray<NSString *> *parts = [action componentsSeparatedByString:@":"];
+    if (parts.count < 3) return @"reserved:<flags>:<characters>[:<keyCode>]";
+    NSEventModifierFlags flags = (NSEventModifierFlags)parts[1].longLongValue;
+    unsigned short code = parts.count > 3 ? (unsigned short)parts[3].intValue : 0;
+    return ReservedMenuItemForEvent(Key(window, NSEventTypeKeyDown, flags, parts[2], code)).identifier ?: @"";
+  }
   if ([action hasPrefix:@"keys:"]) {
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@":"];
     if (parts.count < 3) return @"keys:<flags>:<characters>[:<keyCode>]";
