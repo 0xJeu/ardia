@@ -16,6 +16,7 @@ import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/acti
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
 import { setToolbarExtensionsWidth } from "../../state/windows/layout";
 import { SIDEBAR_FIELD } from "../sidebar/geometry";
+import { FieldSiteButton, SunkenFieldFill } from "../sidebar/SunkenField";
 import { showUrlBarMenu } from "../../state/omnibox/paste";
 import { ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
@@ -36,6 +37,7 @@ export const useToolbarTab = (tabId: string | undefined) => useTab(tabId, useSha
 export const URL_FIELD = { top: 21.2 - 15, height: 30 } as const;
 export const urlFieldRight = (inSplit: boolean, extensionsWidth: number) => (inSplit ? 12 + 2 * 28 : 12) + extensionsWidth;
 const LOCK = { left: 7, width: 18, gap: 3 } as const;
+const SIDEBAR_TEXT_GAP = 6;
 export const urlTextLeft = (insecure: boolean) => (insecure ? LOCK.left + LOCK.width + LOCK.gap : 8);
 export const insecureLevel = (p: PageState) =>
   p.security && (p.security.level === "insecure" || p.security.level === "certificateError") ? p.security.level : null;
@@ -194,22 +196,26 @@ export const UrlField = memo(function UrlField({
           ? {
               height: sidebar.height,
               borderRadius: SIDEBAR_FIELD.radius,
-              borderWidth: StyleSheet.hairlineWidth * 2,
-              borderColor: liquidGlass ? "transparent" : theme.pinnedRestingStroke,
-              backgroundColor: liquidGlass ? undefined : hovered ? theme.tabHover : theme.pinnedResting,
               overflow: "hidden",
             }
           : { height: 30, borderRadius: radius.l, backgroundColor: hovered && !liquidGlass ? palette.pill : undefined },
       ]}
     >
-      {liquidGlass ? (
-        sidebar ? (
-          <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={SIDEBAR_FIELD.radius} border={StyleSheet.hairlineWidth * 2} fill={theme.pinnedResting} />
-        ) : (
-          <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={radius.l} fill={palette.pill} dark={palette.background ? palette.text.startsWith(ink.white) : undefined} />
-        )
+      {sidebar ? (
+        <SunkenFieldFill hovered={hovered} />
+      ) : liquidGlass ? (
+        <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={radius.l} fill={palette.pill} dark={palette.background ? palette.text.startsWith(ink.white) : undefined} />
       ) : null}
-      {insecure && (
+      {sidebar ? (
+        <FieldSiteButton
+          icon={insecure ? "lock.open.trianglebadge.exclamationmark.fill" : "slider.horizontal.3"}
+          color={insecure === "certificateError" ? theme.destructive : undefined}
+          tooltip={insecure ? "Connection is not secure" : "Site Controls"}
+          active={popover === "siteControls"}
+          palette={palette}
+          onPress={toggleSiteControls}
+        />
+      ) : insecure && (
         <Pressable onPress={toggleSiteControls} style={{ paddingLeft: LOCK.left }} tooltip="Connection is not secure">
           <Symbol
             name="lock.open.trianglebadge.exclamationmark.fill"
@@ -220,7 +226,7 @@ export const UrlField = memo(function UrlField({
         </Pressable>
       )}
       <ContextMenuArea style={{ flex: 1 }} onContextMenu={() => void showUrlBarMenu(tab)}>
-      <Pressable onPress={() => openPanel(tab.url)} style={{ flex: 1, height: sidebar?.height ?? 30, justifyContent: "center", paddingLeft: insecure ? LOCK.gap : sidebar ? 10 : urlTextLeft(false) }}>
+      <Pressable onPress={() => openPanel(tab.url)} style={{ flex: 1, height: sidebar?.height ?? 30, justifyContent: "center", paddingLeft: sidebar ? SIDEBAR_TEXT_GAP : insecure ? LOCK.gap : urlTextLeft(false) }}>
         {sidebar ? (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Text numberOfLines={1} ellipsizeMode="head" style={{ flexShrink: 1, ...font.body, fontWeight: weight.medium, color: palette.text }}>
@@ -259,7 +265,9 @@ export const UrlField = memo(function UrlField({
                 tooltip={withShortcut("Open Split View", splitHint)}
               />
             )}
-            <Button variant="icon" toolbar palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={radius.m} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
+            {!sidebar && (
+              <Button variant="icon" toolbar palette={palette} icon="slider.horizontal.3" size={13} box={24} radius={radius.m} onPress={toggleSiteControls} active={popover === "siteControls"} tooltip="Site Controls" />
+            )}
           </>
         )}
         {capture && <CaptureIndicator camera={capture.camera} microphone={capture.microphone} screen={capture.screen} onPress={toggleSiteControls} />}

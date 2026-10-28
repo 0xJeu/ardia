@@ -10,7 +10,6 @@ import { PROFILE_INDICATOR_X, ProfileIndicator } from "../profiles/ProfileIndica
 import { usePagerPages } from "../../state/windows/profilePager";
 import { PROFILE_DOTS_HEIGHT, ProfileDots, useProfileDotsShown } from "../profiles/ProfileDots";
 import { SidebarAddressRow, SidebarHeaderTools } from "./AddressBar";
-import { useSidebarHoverProps } from "./ClearDivider";
 import { DragGhost } from "./DragGhost";
 import { DragProvider } from "./DragProvider";
 import type { DragController } from "./dragController";
@@ -58,7 +57,6 @@ export function Sidebar({ width }: { width: number }) {
     closeFolderPanel();
   }, []);
 
-  const sidebarHover = useSidebarHoverProps(windowId);
   useRevealTabs(windowId, scroll, scrollY, geometry);
   useLayoutEffect(() => dismissHoverIn(windowId), [windowId, current, paging]);
 
@@ -74,7 +72,6 @@ export function Sidebar({ width }: { width: number }) {
             style={{ width, height: "100%" }}
           >
             <View
-              {...sidebarHover}
               style={{
                 position: "absolute",
                 left: 0,

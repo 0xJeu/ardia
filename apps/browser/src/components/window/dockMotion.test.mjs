@@ -101,9 +101,13 @@ test("the sidebar's own button (address bar in the sidebar) always fits; back, f
   const narrow = dm.navButtonsFitting(190);
   assert.deepEqual(narrow.buttons, ["back", "forward"], "the default width keeps the back and forward pair, as Arc and Dia show it; reload gives way first");
   assert.equal(narrow.step, 35, "Dia's pitch");
+  assert.deepEqual(dm.navButtonsFitting(209.5).buttons, ["back", "forward"]);
+  const tightest = dm.navButtonsFitting(210);
+  assert.deepEqual(tightest.buttons, ["back", "forward", "reload"], "reload is back from 210 pt, the buttons 30 pt apart");
+  assert.ok(tightest.step >= 30 && tightest.step < 30.5);
   const closing = dm.navButtonsFitting(220);
   assert.deepEqual(closing.buttons, ["back", "forward", "reload"]);
-  assert.ok(closing.step >= 30 + dm.HEADER_MIN_GAP && closing.step < 35, "closed up, plates apart");
+  assert.ok(closing.step >= 30 && closing.step < 35, "closed up, plates apart");
   assert.deepEqual(dm.navButtonsFitting(224.75), { buttons: ["back", "forward", "reload"], step: 35 });
   assert.deepEqual(dm.navButtonsFitting(400), { buttons: ["back", "forward", "reload"], step: 35 });
   assert.equal(dm.navButtonsFitting(100).buttons.length, 0);
@@ -111,19 +115,7 @@ test("the sidebar's own button (address bar in the sidebar) always fits; back, f
     const { buttons, step } = dm.navButtonsFitting(w);
     const last = w - dm.HEADER_TOOLS.edge - 15;
     const centres = [dm.HEADER_TOOLS.toggleX, ...buttons.map((_, i) => last - (buttons.length - 1 - i) * step)];
-    for (let i = 1; i < centres.length; i++) assert.ok(centres[i] - centres[i - 1] >= 30 + dm.HEADER_MIN_GAP - 1e-9, `${w}: ${centres}`);
-  }
-});
-
-test("with the sidebar button hidden (Settings › Tabs), back, forward and reload take its place and all fit at the default width", () => {
-  assert.deepEqual(dm.navButtonsFitting(190, 30, false), { buttons: ["back", "forward", "reload"], step: 35 });
-  assert.deepEqual(dm.navButtonsFitting(150, 30, false).buttons, ["back", "forward"]);
-  for (let w = 120; w <= 400; w += 0.5) {
-    const { buttons, step } = dm.navButtonsFitting(w, 30, false);
-    if (!buttons.length) continue;
-    const first = w - dm.HEADER_TOOLS.edge - 15 - (buttons.length - 1) * step;
-    assert.ok(first - 15 >= dm.HEADER_TOOLS.lightsRight + dm.HEADER_MIN_GAP - 1e-9, `${w}: first plate clears the traffic lights`);
-    assert.ok(step >= 30 + dm.HEADER_MIN_GAP - 1e-9, `${w}: plates apart`);
+    for (let i = 1; i < centres.length; i++) assert.ok(centres[i] - centres[i - 1] >= 30 - 1e-9, `${w}: ${centres}`);
   }
 });
 

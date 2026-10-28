@@ -30,6 +30,11 @@ const DARK = {
   engineMarkPlate: "#2C2C2E",
   incognitoBadge: "rgba(255,255,255,0.08)",
   tileGlow: "#FFFFFF",
+  fieldSunk: "rgba(0,0,0,0.2)",
+  fieldSunkHover: "rgba(0,0,0,0.13)",
+  fieldSunkRim: ["rgba(0,0,0,0.45)", "rgba(255,255,255,0.08)"] as [string, string],
+  fieldSunkShade: ["rgba(0,0,0,0.24)", "rgba(0,0,0,0)"] as [string, string],
+  fieldButtonPlate: "rgba(255,255,255,0.08)",
 };
 
 const LIGHT: typeof DARK = {
@@ -58,6 +63,11 @@ const LIGHT: typeof DARK = {
   engineMarkPlate: "#FFFFFF",
   incognitoBadge: "rgba(0,0,0,0.06)",
   tileGlow: "#000000",
+  fieldSunk: "rgba(0,0,0,0.07)",
+  fieldSunkHover: "rgba(0,0,0,0.045)",
+  fieldSunkRim: ["rgba(0,0,0,0.2)", "rgba(255,255,255,0.85)"],
+  fieldSunkShade: ["rgba(0,0,0,0.09)", "rgba(0,0,0,0)"],
+  fieldButtonPlate: "rgba(255,255,255,0.75)",
 };
 
 type SidebarTokens = typeof DARK;
